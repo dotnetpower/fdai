@@ -261,7 +261,7 @@ Rule eligible for T0 observation; it doesn't enable enforcement. See
 | 7. Azure Policy pilot | The feasibility milestone passes before any translated candidate reaches Mimir. |
 
 Step 4 depends on inventory collection that supplies the normalized properties the cited Rules
-evaluate; without them every Rule requirement correctly stays `unknown`. Steps 6 and 7 start only
+evaluate; a requirement whose properties aren't collected correctly stays `unknown`. Steps 6 and 7 start only
 after step 4 records decisive receipts, because frameworks adopt Rule evidence one at a time and
 an extension can't be validated against a producer that never reaches `satisfied` or `failed`.
 
@@ -310,11 +310,23 @@ an extension can't be validated against a producer that never reaches `satisfied
   it reports the record as outdated or unavailable with a reason and shows no counts. The counts
   explain a requirement; they never change its server-owned status, and a record for another
   workload scope is labeled as such.
+- **Normalized inventory properties:** The Azure inventory adapter projects each evaluated
+  property from one documented ARM field (`fdai/delivery/azure/arm_rule_properties.py`) during
+  full and real-time collection. A missing field stays absent; the only documented default is Key
+  Vault purge protection, whose ARM property never accepts `false`. Full collection also hydrates
+  extension resources with bounded GETs: diagnostic settings (on the blob service for storage),
+  blob soft delete and versioning, SQL transparent data encryption, the PostgreSQL flexible server
+  `require_secure_transport` parameter, and managed-identity role assignments with their role
+  definitions. A failed read leaves the property unobserved, and role assignments are attached
+  per subscription only when every page and definition was read. Subscription guest and standing
+  access Rules stay unobserved, because ARM role assignments don't identify guest users or
+  just-in-time eligibility; they need Microsoft Graph and Privileged Identity Management reads.
 - **Local measurement:** `scripts/deployment/local/run-framework-rule-evidence.py` runs this path
   read-only against the loopback development database. Because the local ontology has no
   deployment-owned `Workload`, it binds one estate scope to the whole active inventory generation.
   `--re-evaluate` reruns Forseti's baseline in memory with the repository Rules the current
-  activation pins.
+  activation pins and replays the row projection over the stored raw properties. Extension reads
+  need a fresh collection.
 
 ## Related docs
 

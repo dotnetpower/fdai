@@ -8,12 +8,20 @@ store, builds ``t0-rule-evaluator`` receipts and the scoped coverage record, and
 catalog in process. Nothing is written to PostgreSQL: the record is persisted to an in-memory store
 only to prove it round-trips. The output contains counts and digests, never resource identifiers.
 
+``--re-evaluate`` reruns Forseti's bounded baseline worker in memory over the same active inventory
+with the repository Rule definitions that the current activation pins and the local ``opa`` binary,
+so the repository's baseline semantics are measured without waiting for a Core restart. It also
+replays the Azure normalized Rule property projection over each stored raw row, which approximates
+a fresh collection without calling Azure: columns the stored row dropped, such as a null
+``identity`` or ``zones``, stay unobserved.
+
 Usage: ``FDAI_STATE_STORE_DSN`` must point at the loopback development database.
 """
 
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import json
 import os
 import sys
@@ -33,6 +41,7 @@ from fdai.core.rule_activation.generation import rule_digest
 from fdai.core.rule_activation.ledger import StateStoreRuleActivationLedger
 from fdai.core.tiers.t0_deterministic import RuleGenerationSnapshot, RuleIndex, T0Engine
 from fdai.core.tiers.t0_deterministic.opa_evaluator import OpaRegoEvaluator
+from fdai.delivery.azure.arm_rule_properties import rule_properties
 from fdai.delivery.framework_assessment_cli import _profile, _waf_scope_digest
 from fdai.delivery.framework_rule_evidence_source import (
     load_workload_rule_evidence,
@@ -53,6 +62,7 @@ from fdai.rule_catalog.schema.rule import load_rule_catalog
 from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_mapping
 from fdai.shared.contracts.models import Rule
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
+from fdai.shared.providers.inventory import PromotedInventoryGeneration
 from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai_service_contracts.framework_rule_coverage import (
@@ -140,6 +150,34 @@ def _activated_rules(activation: RuleActivationGeneration) -> tuple[Rule, ...]:
     return tuple(selected)
 
 
+class _ProjectedReader:
+    """Read the active generation and add the normalized Rule properties to each stored row."""
+
+    def __init__(self, inner: PostgresPromotedInventoryGenerationReader) -> None:
+        self._inner = inner
+        self.projected_resources = 0
+
+    async def active_generation_id(self) -> str | None:
+        return await self._inner.active_generation_id()
+
+    async def load_active_generation(
+        self, *, max_resources: int
+    ) -> PromotedInventoryGeneration | None:
+        generation = await self._inner.load_active_generation(max_resources=max_resources)
+        if generation is None:
+            return None
+        resources = []
+        for resource in generation.resources:
+            normalized = {
+                key: value
+                for key, value in rule_properties(resource.type, resource.props).items()
+                if key not in resource.props
+            }
+            self.projected_resources += bool(normalized)
+            resources.append(dataclasses.replace(resource, props={**resource.props, **normalized}))
+        return dataclasses.replace(generation, resources=tuple(resources))
+
+
 async def _re_evaluated_store(
     dsn: str,
     activation: RuleActivationGeneration,
@@ -151,6 +189,11 @@ async def _re_evaluated_store(
         evaluator=OpaRegoEvaluator(policies_root=_ROOT / "policies"),
     )
     memory = InMemoryStateStore()
+    reader = _ProjectedReader(
+        PostgresPromotedInventoryGenerationReader(
+            config=PostgresInventorySnapshotStoreConfig(dsn=dsn)
+        )
+    )
 
     async def activation_source() -> RuleActivationGeneration:
         return activation
@@ -162,15 +205,17 @@ async def _re_evaluated_store(
 
     result = await ForsetiBaselineWorker(
         state_store=memory,
-        reader=PostgresPromotedInventoryGenerationReader(
-            config=PostgresInventorySnapshotStoreConfig(dsn=dsn)
-        ),
+        reader=reader,
         activation_source=activation_source,
         rule_snapshot_source=snapshot_source,
         owner="local-framework-rule-evidence",
         clock=lambda: now,
     ).run_once()
-    print(f"re-evaluation: {result}", file=sys.stderr)
+    print(
+        f"re-evaluation: {result}; resources with replayed properties: "
+        f"{reader.projected_resources}",
+        file=sys.stderr,
+    )
     return memory
 
 

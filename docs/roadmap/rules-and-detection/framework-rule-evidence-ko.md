@@ -1,7 +1,7 @@
 ---
 title: T0 기반 프레임워크 규칙 근거
 translation_of: framework-rule-evidence.md
-translation_source_sha: 350e319e70952c8f8bfd9c106b24354e5c32f94d
+translation_source_sha: 5bd1a189c5c230fb799b7c2aac360ed2fe7a2620
 translation_revised: 2026-10-08
 ---
 # T0 기반 프레임워크 규칙 근거
@@ -255,8 +255,8 @@ WAF `rule` 요구 사항은 컨트롤 수준 교차워크 관계가 `partial`이
 | 6. MCSB, CAF, WARA | 각 프레임워크가 도입 표의 선행 조건을 충족합니다. |
 | 7. Azure Policy 시범 | 변환된 후보가 Mimir에 도달하기 전에 실행 가능성 마일스톤을 통과합니다. |
 
-4단계는 인용된 규칙이 평가하는 정규화 속성을 인벤토리 수집이 제공해야 완료할 수 있습니다. 그 속성이
-없으면 모든 규칙 요구 사항이 올바르게 `unknown`으로 남습니다. 프레임워크는 규칙 근거를 하나씩
+4단계는 인용된 규칙이 평가하는 정규화 속성을 인벤토리 수집이 제공해야 완료할 수 있습니다. 속성이
+수집되지 않은 요구 사항은 올바르게 `unknown`으로 남습니다. 프레임워크는 규칙 근거를 하나씩
 도입하고, `satisfied`나 `failed`에 도달하지 못하는 생성자로는 확장을 검증할 수 없으므로 6단계와
 7단계는 4단계가 결정적 영수증을 기록한 뒤에 시작합니다.
 
@@ -299,10 +299,20 @@ WAF `rule` 요구 사항은 컨트롤 수준 교차워크 관계가 `partial`이
   WAF 컨트롤 세부 정보에 규칙별 수치를 붙입니다. 그렇지 않으면 기록이 오래되었거나 사용할 수 없다는
   사유만 보고하고 수치는 보여 주지 않습니다. 수치는 요구 사항을 설명할 뿐 서버가 정한 상태를 바꾸지
   않으며, 다른 워크로드 범위의 기록에는 그 사실을 표시합니다.
+- **정규화된 인벤토리 속성:** Azure 인벤토리 어댑터는 전체 수집과 실시간 수집에서 평가 대상 속성을
+  문서화된 ARM 필드 하나에서 투영합니다(`fdai/delivery/azure/arm_rule_properties.py`). 필드가 없으면
+  속성도 비워 둡니다. 문서화된 기본값은 ARM 속성이 `false`를 받지 않는 Key Vault 제거 보호 하나뿐입니다.
+  전체 수집은 확장 리소스도 제한된 GET으로 읽습니다. 진단 설정(스토리지는 Blob 서비스), Blob 일시 삭제와
+  버전 관리, SQL 투명 데이터 암호화, PostgreSQL 유연한 서버의 `require_secure_transport` 매개 변수,
+  관리 ID 역할 할당과 역할 정의가 대상입니다. 읽기에 실패하면 속성은 관측되지 않은 상태로 남고, 역할
+  할당은 모든 페이지와 정의를 읽은 구독에만 붙습니다. ARM 역할 할당으로는 게스트 사용자와 Just-In-Time
+  자격을 구분할 수 없으므로 구독 게스트와 상시 액세스 규칙은 관측되지 않은 상태로 남으며, Microsoft
+  Graph와 Privileged Identity Management 읽기가 필요합니다.
 - **로컬 측정:** `scripts/deployment/local/run-framework-rule-evidence.py`는 이 경로를 루프백 개발
   데이터베이스에 대해 읽기 전용으로 실행합니다. 로컬 온톨로지에는 배포 소유 `Workload`가 없으므로
   활성 인벤토리 세대 전체를 하나의 estate 범위로 묶습니다. `--re-evaluate`는 현재 활성화가 고정한
-  저장소 규칙으로 Forseti baseline을 메모리에서 다시 실행합니다.
+  저장소 규칙으로 Forseti baseline을 메모리에서 다시 실행하고, 저장된 원본 속성에 행 투영을 다시
+  적용합니다. 확장 리소스 읽기는 새 수집이 필요합니다.
 
 ## 관련 문서
 
