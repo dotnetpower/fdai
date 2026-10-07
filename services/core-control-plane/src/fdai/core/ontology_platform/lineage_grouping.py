@@ -80,7 +80,8 @@ def count_by_nearest_container(table: QueryTable, *, limit: int) -> QueryTable:
         truncation_reason="result_limit" if limited else table.truncation_reason,
         numeric_fields=("value", "ambiguous_membership"),
         source_generation=next(iter(generations), None),
-        total_rows=len(rows) if limited else None,
+        # Only a complete input gives an exact group count; a cut input states none.
+        total_rows=len(rows) if limited and table.complete else None,
     )
 
 

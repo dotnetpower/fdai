@@ -178,4 +178,19 @@ def _filters_the_answer(node: OntologyQueryNode, plan: OntologyQueryPlan) -> boo
     )
 
 
-__all__ = ["StatedRestrictions", "filter_coverage", "function_name", "is_result_read"]
+def all_zero_identifier(value: object) -> bool:
+    """Return whether a string contains only zero UUID punctuation."""
+
+    if not isinstance(value, str) or not value:
+        return False
+    stripped = value.replace("-", "").replace("0", "")
+    return not stripped and "0" in value
+
+
+__all__ = [
+    "StatedRestrictions",
+    "all_zero_identifier",
+    "filter_coverage",
+    "function_name",
+    "is_result_read",
+]

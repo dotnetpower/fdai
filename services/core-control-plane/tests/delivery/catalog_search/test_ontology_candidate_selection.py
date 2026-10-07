@@ -260,6 +260,8 @@ async def test_unusable_current_scope_cannot_yield_candidates(
     else:
         graph = replace(graph, source_generation="changed")
     monkeypatch.setattr(harness.store, "query_objects", AsyncMock(return_value=graph))
+    # A truncated page re-reads its population in one scan; that scan is cut as well here.
+    monkeypatch.setattr(harness.store, "scan_objects", AsyncMock(return_value=graph))
     with pytest.raises(ValueError, match="complete current evidence"):
         await _search(harness, _bind(harness, OntologyCandidateClause(object_type="Resource")))
     assert harness.embedder.calls == 0

@@ -307,6 +307,16 @@ some predicates run only in memory. The design therefore pins one authorized mem
 - **Stages:** P1 reads pageable object-set populations up to the cap within one turn, with no
   cross-turn continuation. P2 adds traversal populations. P3 adds processing receipts and the
   collection continuation.
+- **P1 first slice:** A relationship-free object set cut at its result limit, with no traversal
+  and no exact identifiers, re-reads its whole population with one relationship-free scan of at
+  most 50,000 candidates. The returned page and the population come from that same read, so they
+  cannot disagree. The gateway projects every member exactly as it projects the page. Receipt 1.3.0
+  then states `population_complete` with the exact count and a digest of the ordered member
+  identifiers, `population_visibility_indeterminate` with no count when any member is hidden or
+  identity-redacted, or `population_unknown` when the scan reached its bound, the source was
+  incomplete, or the read is a traversal or relationship read. The query table carries the exact
+  count as its total rows, and an ungrouped count over that table reads it as a complete value. A
+  page that was not cut keeps receipt 1.2.0.
 
 | Population status | Outcome |
 |-------------------|---------|
@@ -352,18 +362,20 @@ most 16 members.
 ### E12 Relations anchored on a collection
 
 Questions such as "which VM is each network interface attached to" relate every member of one kind
-to another. A relation needs a named anchor today, so these hold as `relation_anchor_missing`.
+to another. The first slice accepts a reviewed anchor kind and keeps every anchor visible while it
+walks one attributable relation side.
 
 - **Form:** A discriminated collection-anchor shape, separate from the instance anchor, names the
   anchor kind and the result kind. It starts with one sense, one hop, and one reviewed LinkType side;
   transitive reach and all kinds keep their typed reasons until E9 prerequisites exist.
-- **Compile:** The plan reads the anchor kind's members under a population receipt, then asks the
-  secured traversal for per-anchor lineage rows and a per-anchor relation coverage receipt.
+- **Compile:** The plan reads the anchor kind's members, emits that anchor table, then asks the
+  secured traversal for one-hop lineage rows over one reviewed LinkType side.
 - **Negative claims:** An anchor with no related member is `VERIFIED_EMPTY` only with complete
   relation coverage for that anchor; otherwise it is `UNKNOWN_INCOMPLETE`, and hidden endpoints are
   never read as absence.
-- **Verify:** Anchor identities equal the receipt's anchors, every edge is accounted once, and
-  V-CLAIM rejects a negative relation claim without its coverage receipt.
+- **Verify:** V-SEM re-derives the anchor kind and relation side, rejects a traversal from another
+  kind, and requires the anchor table as an output. Per-anchor coverage receipts and negative-claim
+  verification remain open.
 
 ### Status matrix for E10 to E12
 

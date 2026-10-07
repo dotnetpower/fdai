@@ -108,3 +108,36 @@ def test_measure_fields_the_frame_reads_lead_the_table_before_receipt_fields() -
     header = [cell.strip() for cell in lines[1].strip("|").split("|")]
     assert header[:3] == ["name", "provisioning_status", "running_status"]
     assert "Stopped" in lines[3]
+
+
+def test_metric_rows_lead_with_rank_value_unit_and_why_a_member_is_unknown() -> None:
+    lines = verified_rows_table(
+        _output(
+            {
+                "resource_key": "vm-a",
+                "name": "vm-a",
+                "type": "compute.vm",
+                "metric_concept": "resource.cpu.utilization_pct",
+                "value": 0.41000000000000003,
+                "unit": "percent",
+                "complete": True,
+                "missing_reason": None,
+                "rank": 1,
+            },
+            {
+                "resource_key": "vm-b",
+                "name": "vm-b",
+                "type": "compute.vm",
+                "metric_concept": "resource.cpu.utilization_pct",
+                "value": None,
+                "unit": "percent",
+                "complete": False,
+                "missing_reason": "provider_gap",
+            },
+        ),
+        korean=False,
+    )
+
+    assert lines[1] == "| name | type | rank | value | unit | missing_reason |"
+    assert lines[3] == "| vm-a | compute.vm | 1 | 0.41 | percent | - |"
+    assert lines[4] == "| vm-b | compute.vm | - | - | percent | provider_gap |"

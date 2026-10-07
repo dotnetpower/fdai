@@ -7,6 +7,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import replace
 
 from fdai.shared.ontology.acl import ProjectionRequest
+from fdai.shared.providers.ontology_instance import OntologyObjectRecord
 
 from .models import ObjectPredicate, ObjectSetDefinition, RelationshipTraversalDefinition
 from .object_sets import object_matches_predicates
@@ -40,6 +41,7 @@ def secured_query_table(secured: SecuredObjectSetQueryResult) -> QueryTable:
         complete=secured.receipt.complete,
         truncation_reason=limitation,
         source_generation=secured.receipt.source_generation,
+        total_rows=secured.receipt.population_count,
     )
 
 
@@ -117,6 +119,9 @@ def relationship_lineage_table(
                 {
                     "member_id": member_id,
                     "root_id": root_id,
+                    # Projected display names, so each pair reads without its identifiers.
+                    "member_name": _display_name(records.get(member_id)),
+                    "root_name": _display_name(records.get(root_id)),
                     "depth": depth,
                     "path_evidence": json.dumps(
                         list(path),
@@ -130,6 +135,11 @@ def relationship_lineage_table(
             for (member_id, root_id), (depth, path) in sorted(rows.items())
         ),
     )
+
+
+def _display_name(record: OntologyObjectRecord | None) -> str | None:
+    name = record.properties.get("name") if record is not None else None
+    return name if isinstance(name, str) and name else None
 
 
 def _add_path(paths: dict[str, tuple[str, ...]], member_id: str, path: tuple[str, ...]) -> None:

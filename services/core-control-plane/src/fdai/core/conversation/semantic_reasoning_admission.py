@@ -27,6 +27,7 @@ from .semantic_reasoning_form import (
     MentionDomain,
     MentionForm,
     MetricUnit,
+    RelationAnchorScope,
     RelationReach,
     RelationScope,
     RelationSense,
@@ -663,6 +664,16 @@ def _relation_failures(
     ):
         failures.append(f"relation_role_mismatch:{goal.id}")
     if goal.level is GoalLevel.SCHEMA:
+        return failures
+    if relation.anchor_scope is RelationAnchorScope.COLLECTION:
+        # A collection anchor names the kind whose every member the relation starts from.
+        kind = form.mention(relation.anchor) if relation.anchor is not None else None
+        if (
+            kind is None
+            or kind.form is not MentionForm.CONCEPT
+            or kind.domain not in _COLLECTION_SUBJECT_DOMAINS
+        ):
+            failures.append(f"collection_anchor_kind_missing:{goal.id}")
         return failures
     anchor = form.mention(relation.anchor) if relation.anchor is not None else subject
     referenced = goal.subject_scope is SubjectScope.PRIOR_RESULT and any(

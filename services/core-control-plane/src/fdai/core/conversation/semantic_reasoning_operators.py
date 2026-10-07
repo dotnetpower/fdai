@@ -27,6 +27,10 @@ from .semantic_causal_context import (
 from .semantic_planning_models import SemanticOutputShape
 from .semantic_reasoning_admission import restated_relation, restates_filter
 from .semantic_reasoning_anchoring import anchored_relation
+from .semantic_reasoning_collection_relations import (
+    collection_anchored,
+    collection_relation_goal,
+)
 from .semantic_reasoning_comparisons import comparison_goal
 from .semantic_reasoning_form import (
     FilterRole,
@@ -406,6 +410,8 @@ def _collection_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
 def _relation_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
     if goal.time.kind not in _CURRENT_TIMES:
         return OperatorResult(unsupported=(f"time_unsupported:{goal.time.kind.value}",))
+    if collection_anchored(goal):
+        return collection_relation_goal(goal, ctx)
     anchored = anchored_relation(goal, ctx)
     if isinstance(anchored, OperatorResult):
         return anchored

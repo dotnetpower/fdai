@@ -1048,7 +1048,157 @@ class _StaticObjectSetService:
     def __init__(self, materialization: ObjectSetMaterialization) -> None:
         self._materialization = materialization
 
+    async def materialize_with_population(
+        self, definition: ObjectSetDefinition
+    ) -> tuple[ObjectSetMaterialization, None]:
+        return await self.materialize(definition), None
+
     async def materialize(self, definition: ObjectSetDefinition) -> ObjectSetMaterialization:
         if definition != self._materialization.definition:
             raise AssertionError("unexpected ObjectSet definition")
         return self._materialization
+
+
+def _members(*, limit: int) -> ObjectSetDefinition:
+    # Populations are read for relationship-free member sets, as collection plans request.
+    return _definition(limit=limit).model_copy(update={"include_relationships": False})
+
+
+def _resources(count: int) -> tuple[OntologyObjectRecord, ...]:
+    return tuple(
+        OntologyObjectRecord(
+            id=f"resource-{index:02d}",
+            object_type="Resource",
+            properties={"id": f"resource-{index:02d}", "label": "API"},
+        )
+        for index in range(count)
+    )
+
+
+async def test_a_cut_page_states_its_exact_population_from_the_same_read() -> None:
+    from fdai.core.ontology_platform.models import ObjectSetPopulationStatus
+    from fdai.core.ontology_platform.query_execution import QueryNodeResult
+    from fdai.core.ontology_platform.query_handlers import AggregateNodeHandler
+    from fdai.core.ontology_platform.query_traversal_tables import secured_query_table
+    from fdai_service_contracts.ontology_query import (
+        OntologyQueryNode,
+        QueryNodeKind,
+        canonical_json,
+    )
+
+    gateway = await _gateway_with_records(_object_type(), *_resources(5))
+
+    result = await gateway.materialize(_members(limit=2), projection_request=_request())
+
+    receipt = result.receipt
+    assert [item.id for item in result.materialization.graph.objects] == [
+        "resource-00",
+        "resource-01",
+    ]
+    assert receipt.schema_version == "1.3.0"
+    assert receipt.population_status is ObjectSetPopulationStatus.COMPLETE
+    assert receipt.population_count == 5
+    assert receipt.population_manifest_digest is not None
+    assert receipt.complete is False
+    table = secured_query_table(result)
+    assert (len(table.rows), table.total_rows, table.complete) == (2, 5, False)
+
+    counted = await AggregateNodeHandler()(
+        OntologyQueryNode(
+            node_id="count",
+            kind=QueryNodeKind.AGGREGATE,
+            depends_on=("scope",),
+            arguments_json=canonical_json({"operation": "count"}),
+            output_kind="query.table",
+        ),
+        {"scope": QueryNodeResult(value=table, evidence_refs=("scope",))},
+    )
+    assert counted.value.complete is True
+    assert counted.value.rows[0].values["value"] == 5
+
+
+async def test_a_population_with_a_hidden_identity_states_no_count() -> None:
+    from fdai.core.ontology_platform.models import ObjectSetPopulationStatus
+
+    gateway = await _gateway_with_records(_object_type(restricted_identity=True), *_resources(3))
+
+    result = await gateway.materialize(_members(limit=1), projection_request=_request())
+
+    assert result.receipt.population_status is ObjectSetPopulationStatus.VISIBILITY_INDETERMINATE
+    assert result.receipt.population_count is None
+    assert result.receipt.population_manifest_digest is None
+
+
+async def test_a_population_beyond_the_scan_bound_stays_unknown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fdai.core.ontology_platform.models import ObjectSetPopulationStatus
+
+    gateway = await _gateway_with_records(_object_type(), *_resources(3))
+    store = gateway._service._store  # type: ignore[attr-defined]
+    monkeypatch.setattr(
+        store,
+        "scan_objects",
+        AsyncMock(return_value=OntologyGraphSnapshot(objects=(), links=(), truncated=True)),
+    )
+
+    result = await gateway.materialize(_members(limit=1), projection_request=_request())
+
+    assert result.receipt.truncated is True
+    assert result.receipt.population_status is ObjectSetPopulationStatus.UNKNOWN
+    assert result.receipt.population_count is None
+
+
+async def test_a_whole_page_states_no_population_and_keeps_its_version() -> None:
+    gateway = await _gateway_with_records(_object_type(), *_resources(2))
+
+    result = await gateway.materialize(_members(limit=5), projection_request=_request())
+
+    assert result.receipt.schema_version == "1.2.0"
+    assert result.receipt.population_status is None
+
+
+async def test_population_receipt_fields_hold_together() -> None:
+    gateway = await _gateway_with_records(_object_type(), *_resources(4))
+    receipt = (await gateway.materialize(_members(limit=2), projection_request=_request())).receipt
+    body = receipt.model_dump()
+
+    for update in (
+        {"population_count": None},
+        {"population_count": 2},
+        {"population_manifest_digest": None},
+        {"schema_version": "1.2.0"},
+        {"population_status": None},
+    ):
+        with pytest.raises(ValidationError):
+            SecuredObjectSetQueryReceipt.model_validate({**body, **update})
+
+
+async def test_an_incomplete_population_scan_keeps_the_first_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fdai.core.ontology_platform.models import ObjectSetPopulationStatus
+
+    gateway = await _gateway_with_records(_object_type(), *_resources(3))
+    store = gateway._service._store  # type: ignore[attr-defined]
+    monkeypatch.setattr(
+        store,
+        "scan_objects",
+        AsyncMock(
+            return_value=OntologyGraphSnapshot(
+                objects=(),
+                links=(),
+                source_complete=False,
+                source_incomplete_reason="inventory_generation_transition",
+            )
+        ),
+    )
+
+    result = await gateway.materialize(_members(limit=2), projection_request=_request())
+
+    assert [item.id for item in result.materialization.graph.objects] == [
+        "resource-00",
+        "resource-01",
+    ]
+    assert result.receipt.truncation_reason == "result_limit"
+    assert result.receipt.population_status is ObjectSetPopulationStatus.UNKNOWN

@@ -164,6 +164,13 @@ class RelationReach(StrEnum):
     TRANSITIVE = "transitive"
 
 
+class RelationAnchorScope(StrEnum):
+    """Whether a relation starts from one named instance or from every member of a kind."""
+
+    INSTANCE = "instance"
+    COLLECTION = "collection"
+
+
 class MeasureKind(StrEnum):
     COUNT = "count"
     STATE = "state"
@@ -310,6 +317,18 @@ class FormRelation(_FormModel):
     cue: SourceSpan
     # Words that state the reach apart from the relation words, as in 하위 리소스까지.
     reach_cue: SourceSpan | None = None
+    # A collection anchor names a kind, as in each network interface, and relates every member.
+    anchor_scope: RelationAnchorScope = RelationAnchorScope.INSTANCE
+
+    @model_validator(mode="after")
+    def _collection_anchor_is_one_hop_of_one_sense(self) -> FormRelation:
+        if self.anchor_scope is RelationAnchorScope.COLLECTION and (
+            self.anchor is None
+            or self.scope is not RelationScope.ONE_SENSE
+            or self.reach is not RelationReach.ONE_HOP
+        ):
+            raise ValueError("a collection anchor names its kind and reads one hop of one sense")
+        return self
 
     @property
     def roles_consistent(self) -> bool:
@@ -472,7 +491,8 @@ class FormAlternative(_FormModel):
 class SemanticQuestionForm(_FormModel):
     """One bounded judgment pass over the current utterance."""
 
-    # 1.1.0 adds metric comparisons and stated order limits; 1.0.0 forms stay readable.
+    # 1.1.0 adds metric comparisons, stated order limits, and collection relation anchors;
+    # 1.0.0 forms stay readable.
     schema_version: Literal["1.0.0", "1.1.0"] = "1.1.0"
     mentions: Annotated[tuple[FormMention, ...], Field(max_length=MAX_FORM_MENTIONS)] = ()
     goals: Annotated[tuple[FormGoal, ...], Field(min_length=1, max_length=MAX_FORM_GOALS)]
@@ -646,6 +666,7 @@ __all__ = [
     "MentionForm",
     "MetricComparison",
     "MetricUnit",
+    "RelationAnchorScope",
     "RelationReach",
     "RelationScope",
     "RelationSense",

@@ -8,9 +8,11 @@ being guessed.
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Literal
+
+from fdai_service_contracts.ontology_query import OntologyQueryPlan, QueryNodeKind
 
 from .semantic_reasoning_form import (
     RelationReach,
@@ -133,6 +135,30 @@ def select_relation_sides(
     )
 
 
+def traversal_roots(plans: Sequence[OntologyQueryPlan]) -> set[str]:
+    """Return the exact anchor identity each relationship traversal starts from."""
+
+    roots: set[str] = set()
+    for plan in plans:
+        by_id = {node.node_id: node for node in plan.nodes}
+        for node in plan.nodes:
+            if node.kind is not QueryNodeKind.RELATIONSHIP_TRAVERSAL:
+                continue
+            source = by_id.get(node.depends_on[0]) if node.depends_on else None
+            definition = (
+                (source.arguments.get("definition") or {})
+                if source is not None and source.kind is QueryNodeKind.OBJECT_SET
+                else {}
+            )
+            identities = [
+                item.get("equals")
+                for item in definition.get("predicates") or ()
+                if item.get("property") == "id" and item.get("operator") == "equals"
+            ]
+            roots.add(str(identities[0]) if len(identities) == 1 else "<unbound>")
+    return roots
+
+
 def _traits(descriptor: Mapping[str, Any]) -> frozenset[str]:
     raw = descriptor.get("semantic_traits")
     if not isinstance(raw, (list, tuple)):
@@ -152,4 +178,5 @@ __all__ = [
     "RelationSide",
     "link_descriptors",
     "select_relation_sides",
+    "traversal_roots",
 ]

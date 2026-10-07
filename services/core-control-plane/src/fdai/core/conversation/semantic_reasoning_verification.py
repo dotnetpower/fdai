@@ -28,6 +28,7 @@ from fdai_service_contracts.ontology_query import (
 from fdai.core.ontology_platform import ReviewedPropertyRead
 from fdai.core.ontology_platform.resource_event_queries import RESOURCE_EVENT_MEASURE_CONCEPTS
 from fdai.core.ontology_platform.resource_health_queries import RESOURCE_HEALTH_FUNCTION_NAME
+from fdai.core.ontology_platform.resource_metric_queries import RESOURCE_METRIC_FUNCTION_NAME
 from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FUNCTION_NAME
 from fdai.core.ontology_platform.state_transitions import RESOURCE_STATE_TRANSITIONS_FUNCTION_NAME
 
@@ -36,9 +37,14 @@ from . import semantic_reasoning_metric_selection as metric_selection
 from . import semantic_reasoning_property_reads as property_ops
 from .semantic_reasoning_admission import FormAdmission, relation_reach, restated_relation
 from .semantic_reasoning_binding import AnchorBindingReceipt, AnchorOutcome
+from .semantic_reasoning_collection_relations import (
+    collection_anchor_violations,
+    collection_anchored,
+)
 from .semantic_reasoning_concepts import ConceptOutcome, ConceptSelectionReceipt
 from .semantic_reasoning_filter_coverage import (
     StatedRestrictions,
+    all_zero_identifier,
     filter_coverage,
     function_name,
 )
@@ -72,7 +78,7 @@ from .semantic_reasoning_measure_checks import (
     window_matches,
 )
 from .semantic_reasoning_nodes import GROUP_BY_FIELDS
-from .semantic_reasoning_relations import SENSE_TRAITS
+from .semantic_reasoning_relations import SENSE_TRAITS, traversal_roots
 from .semantic_resource_visibility import OPERATIONAL_RESOURCE_EXCLUDED_TYPES
 from .semantic_target_health import TARGET_HEALTH_FUNCTIONS
 
@@ -228,6 +234,8 @@ class _Allowed:
         self.regions: set[str] = set()
         self.property_fields: tuple[str, ...] | None = None
         self.relation_object_type = False
+        # The reviewed type values of a collection anchor's kind, which the relation starts from.
+        self.collection_anchor_types: tuple[str, ...] | None = None
         # The rows an earlier answer showed, when an anaphor makes them the goal's subject.
         self.prior_rows: tuple[str, ...] = ()
 
@@ -261,7 +269,12 @@ def _allowed_operands(
     allowed = _Allowed()
     cited = [goal.subject] if goal.subject is not None else []
     cited.extend(item.mention for item in goal.filters)
-    if goal.relation is not None and goal.relation.anchor is not None:
+    if collection_anchored(goal) and goal.relation is not None and goal.relation.anchor:
+        # A collection anchor's kind selects where the relation starts, not what it returns.
+        concept = concepts.binding(goal.relation.anchor)
+        if concept is not None and concept.outcome is ConceptOutcome.ACCEPTED and concept.values:
+            allowed.collection_anchor_types = tuple(sorted(concept.values))
+    elif goal.relation is not None and goal.relation.anchor is not None:
         cited.append(goal.relation.anchor)
         subject = admission.form.mention(goal.subject) if goal.subject is not None else None
         allowed.relation_object_type = (
@@ -352,7 +365,12 @@ def _operand_violations(
             return [f"prov_explicit_identity:{node.node_id}"]
         selector = (definition.get("selector") or {}).get("name")
         return _predicate_violations(
-            node.node_id, definition.get("predicates") or (), allowed, selector
+            node.node_id,
+            definition.get("predicates") or (),
+            allowed,
+            selector,
+            # A collection anchor's kind selects the members a relation starts from.
+            anchor_types=frozenset(allowed.collection_anchor_types or ()),
         )
     if node.kind is QueryNodeKind.RELATIONSHIP_TRAVERSAL:
         return _predicate_violations(
@@ -381,6 +399,8 @@ def _predicate_violations(
     predicates: Iterable[Mapping[str, Any]],
     allowed: _Allowed,
     selector: object = None,
+    *,
+    anchor_types: frozenset[str] = frozenset(),
 ) -> list[str]:
     violations: list[str] = []
     for predicate in predicates:
@@ -389,7 +409,7 @@ def _predicate_violations(
         operands = (
             list(predicate.get("values") or ()) if operator == "in" else [predicate.get("equals")]
         )
-        if any(_all_zero(item) for item in operands):
+        if any(all_zero_identifier(item) for item in operands):
             violations.append(f"prov_all_zero_identifier:{node_id}")
             continue
         if prop == "id" and operator == "equals":
@@ -399,7 +419,7 @@ def _predicate_violations(
         elif prop == "name" and operator == "contains":
             permitted = allowed.fragments
         elif prop == "type" and operator in {"equals", "in"}:
-            permitted = set(allowed.required_types) | allowed.container_types
+            permitted = set(allowed.required_types) | allowed.container_types | anchor_types
         elif prop == "location" and operator in {"equals", "in"}:
             permitted = allowed.regions
         elif prop == "type" and operator == "not_equals":
@@ -469,7 +489,7 @@ def _function_violations(
     elif name == RESOURCE_HEALTH_FUNCTION_NAME:
         health = sorted(allowed.health_concepts)
         expected = {"health_concepts": health, "state_concepts": []} if health else None
-    elif name == metric_selection.RESOURCE_METRIC_FUNCTION_NAME:
+    elif name == RESOURCE_METRIC_FUNCTION_NAME:
         expected = metric_selection.verification_arguments(
             goal,
             maximum_window_seconds=_declared_maximum(descriptors, name, "window_seconds"),
@@ -605,9 +625,19 @@ def _coverage_violations(
             if node.kind is QueryNodeKind.RELATIONSHIP_TRAVERSAL
         ):
             violations.append("sem_relation_reach_differs")
-        expected_anchor = property_ops.expected_anchor_id(goal, anchors)
-        if expected_anchor is None or _traversal_roots(plans) != {expected_anchor}:
-            violations.append("sem_relation_anchor_differs")
+        if collection_anchored(goal):
+            violations.extend(
+                collection_anchor_violations(
+                    goal,
+                    plans,
+                    expected_types=allowed.collection_anchor_types,
+                    expected_side=None,
+                )
+            )
+        else:
+            expected_anchor = property_ops.expected_anchor_id(goal, anchors)
+            if expected_anchor is None or traversal_roots(plans) != {expected_anchor}:
+                violations.append("sem_relation_anchor_differs")
     elif goal.level is GoalLevel.INSTANCE and any(
         item.role is FilterRole.SCOPE for item in goal.filters
     ):
@@ -626,7 +656,7 @@ def _coverage_violations(
             violations.append("sem_scope_containment_differs")
         binding = anchors.binding(scope)
         scope_id = binding.object_id if binding is not None else None
-        if scope_id is None or _traversal_roots(plans) != {scope_id}:
+        if scope_id is None or traversal_roots(plans) != {scope_id}:
             violations.append("sem_scope_anchor_differs")
     return violations
 
@@ -658,30 +688,6 @@ def _schema_violations(goal: FormGoal, functions: set[str], admission: FormAdmis
     if goal.measure is not None and goal.measure.group_by not in {GroupBy.NONE, GroupBy.TYPE}:
         violations.append("sem_schema_group_by_unread")
     return violations
-
-
-def _traversal_roots(plans: Sequence[OntologyQueryPlan]) -> set[str]:
-    """Return the exact anchor identity each traversal of the goal starts from."""
-
-    roots: set[str] = set()
-    for plan in plans:
-        by_id = {node.node_id: node for node in plan.nodes}
-        for node in plan.nodes:
-            if node.kind is not QueryNodeKind.RELATIONSHIP_TRAVERSAL:
-                continue
-            source = by_id.get(node.depends_on[0]) if node.depends_on else None
-            definition = (
-                (source.arguments.get("definition") or {})
-                if source is not None and source.kind is QueryNodeKind.OBJECT_SET
-                else {}
-            )
-            identities = [
-                item.get("equals")
-                for item in definition.get("predicates") or ()
-                if item.get("property") == "id" and item.get("operator") == "equals"
-            ]
-            roots.add(str(identities[0]) if len(identities) == 1 else "<unbound>")
-    return roots
 
 
 def _containment_scope_sides(
@@ -784,13 +790,6 @@ def _expected_lookback(goal: FormGoal, default_seconds: int) -> int | None:
     if goal.time.kind is not TimeKind.WINDOW or value is None or value.duration is None:
         return None
     return value.duration.amount * _SECONDS[value.duration.unit]
-
-
-def _all_zero(value: object) -> bool:
-    if not isinstance(value, str) or not value:
-        return False
-    stripped = value.replace("-", "").replace("0", "")
-    return not stripped and "0" in value
 
 
 __all__ = ["verify_goal_semantics"]

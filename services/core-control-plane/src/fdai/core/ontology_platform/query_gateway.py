@@ -40,14 +40,16 @@ from fdai.shared.providers.ontology_instance import (
     normalize_json_value,
 )
 
-from .functions import ontology_function_digest
 from .models import (
     ObjectSetDefinition,
     ObjectSetMaterialization,
+    ObjectSetPopulationStatus,
     ObjectSetTruncationReason,
     OntologyInstancePathDefinition,
 )
 from .object_sets import ObjectSetService
+from .query_population_receipts import population_receipt_fields
+from .query_result_digests import instance_path_graph_digest, projected_result_digest
 from .query_snapshot import snapshot_projection_digest, validate_snapshot_records
 
 
@@ -67,7 +69,8 @@ class ObjectSetRedactionSummary(ContractBase):
 class SecuredObjectSetQueryReceipt(ContractBase):
     """Immutable completeness and redaction receipt with no action authority."""
 
-    schema_version: Literal["1.1.0", "1.2.0"] = "1.2.0"
+    # 1.3.0 states the whole population a truncated page was cut from.
+    schema_version: Literal["1.1.0", "1.2.0", "1.3.0"] = "1.2.0"
     ontology_release: OntologyReleaseRef
     projected_result_digest: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
     purpose: str = Field(pattern=r"^[a-z][a-z0-9_-]{0,63}$")
@@ -84,12 +87,30 @@ class SecuredObjectSetQueryReceipt(ContractBase):
     truncated: bool
     truncation_reason: ObjectSetTruncationReason | None = None
     redactions: ObjectSetRedactionSummary
+    population_status: ObjectSetPopulationStatus | None = None
+    population_count: int | None = Field(default=None, ge=0)
+    population_manifest_digest: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")] | None = (
+        None
+    )
     execution_authority: Literal[False] = False
 
     @model_validator(mode="after")
     def _truncation_reason_matches_state(self) -> SecuredObjectSetQueryReceipt:
         if self.truncated != (self.truncation_reason is not None):
             raise ValueError("object-set query receipt truncation state is inconsistent")
+        if (self.population_status is not None) != (self.schema_version == "1.3.0"):
+            raise ValueError("object-set population status requires receipt version 1.3.0")
+        if self.population_status is not None and not self.truncated:
+            raise ValueError("object-set population status describes a truncated page only")
+        exact = self.population_status is ObjectSetPopulationStatus.COMPLETE
+        if exact != (self.population_count is not None) or exact != (
+            self.population_manifest_digest is not None
+        ):
+            raise ValueError("an exact population needs its count and manifest digest only")
+        if self.population_count is not None and (
+            self.population_count <= self.returned_object_count or not self.source_complete
+        ):
+            raise ValueError("an exact population exceeds its page over a complete source")
         if self.complete and self.truncated:
             raise ValueError("object-set query receipt completeness is inconsistent")
         if self.observation_cutoff.tzinfo is None:
@@ -110,7 +131,7 @@ class SecuredObjectSetQueryResult(ContractBase):
         graph = self.materialization.graph
         if self.receipt.purpose != self.materialization.definition.purpose:
             raise ValueError("object-set query receipt purpose does not match definition")
-        if self.receipt.projected_result_digest != _projected_result_digest(self.materialization):
+        if self.receipt.projected_result_digest != projected_result_digest(self.materialization):
             raise ValueError(
                 "object-set query receipt projected result digest does not match result"
             )
@@ -366,7 +387,7 @@ class SecuredObjectSetQueryGateway:
                 or {record.id for record in visible_roots.objects} != set(definition.root_ids)
             ):
                 raise PermissionError("object-set traversal roots are not authorized")
-        materialization = await self._service.materialize(definition)
+        materialization, population = await self._service.materialize_with_population(definition)
         if (
             roots is not None
             and roots.source_generation is not None
@@ -378,6 +399,7 @@ class SecuredObjectSetQueryGateway:
             definition=definition,
             effective_request=effective_request,
             observation_cutoff=observation_cutoff,
+            population=population,
         )
 
     async def materialize_instance_path(
@@ -427,7 +449,7 @@ class SecuredObjectSetQueryGateway:
             purpose=definition.purpose,
             caller_role=effective_request.caller_role,
             observation_cutoff=observation_cutoff,
-            projected_graph_digest=_instance_path_graph_digest(definition, secured_graph),
+            projected_graph_digest=instance_path_graph_digest(definition, secured_graph),
             redactions=redactions,
         )
 
@@ -477,6 +499,7 @@ class SecuredObjectSetQueryGateway:
         definition: ObjectSetDefinition,
         effective_request: ProjectionRequest,
         observation_cutoff: datetime,
+        population: OntologyGraphSnapshot | None = None,
     ) -> SecuredObjectSetQueryResult:
         projected_graph = project_graph_snapshot(
             materialization.graph,
@@ -519,9 +542,22 @@ class SecuredObjectSetQueryGateway:
             truncated=secured_materialization.truncated,
             truncation_reason=secured_materialization.truncation_reason,
         )
+        population_fields = (
+            population_receipt_fields(
+                population,
+                object_types=self._object_types,
+                request=effective_request,
+                page_size=len(secured_graph.objects),
+                source_complete=source_complete,
+                source_generation=secured_graph.source_generation,
+            )
+            if secured_materialization.truncated
+            else {}
+        )
         receipt = SecuredObjectSetQueryReceipt(
+            **population_fields,
             ontology_release=self._ontology_release,
-            projected_result_digest=_projected_result_digest(secured_materialization),
+            projected_result_digest=projected_result_digest(secured_materialization),
             purpose=definition.purpose,
             caller_role=effective_request.caller_role,
             principal_scope_digest=effective_request.principal_scope_digest,
@@ -636,99 +672,6 @@ class _ImmutableDict(dict[str, Any]):
         raise TypeError("secured ObjectSet properties are immutable")
 
 
-def _projected_result_digest(materialization: ObjectSetMaterialization) -> str:
-    graph = materialization.graph
-    payload = {
-        "definition": materialization.definition.model_dump(mode="json"),
-        "objects": [
-            {
-                "id": record.id,
-                "object_type": record.object_type,
-                "properties": _mutable_json(record.properties),
-                "revision": record.revision,
-                "type_ref": (
-                    record.type_ref.model_dump(mode="json") if record.type_ref is not None else None
-                ),
-            }
-            for record in graph.objects
-        ],
-        "links": [
-            {
-                "link_type": link.link_type,
-                "from_id": link.from_id,
-                "to_id": link.to_id,
-                "properties": _mutable_json(link.properties),
-                "type_ref": (
-                    link.type_ref.model_dump(mode="json") if link.type_ref is not None else None
-                ),
-            }
-            for link in graph.links
-        ],
-        "graph_truncated": graph.truncated,
-        "concrete_types": list(materialization.concrete_types),
-        "truncated": materialization.truncated,
-        "truncation_reason": (
-            materialization.truncation_reason.value
-            if materialization.truncation_reason is not None
-            else None
-        ),
-    }
-    if not graph.source_complete or graph.source_generation is not None:
-        payload["source_complete"] = graph.source_complete
-        payload["source_generation"] = graph.source_generation
-    if graph.source_incomplete_reason is not None:
-        payload["source_incomplete_reason"] = graph.source_incomplete_reason
-    return ontology_function_digest(payload)
-
-
-def _instance_path_graph_digest(
-    definition: OntologyInstancePathDefinition,
-    graph: OntologyGraphSnapshot,
-) -> str:
-    return content_digest(
-        {
-            "definition": definition.model_dump(mode="json"),
-            "objects": [
-                {
-                    "id": record.id,
-                    "object_type": record.object_type,
-                    "properties": _mutable_json(record.properties),
-                    "revision": record.revision,
-                    "type_ref": (
-                        record.type_ref.model_dump(mode="json")
-                        if record.type_ref is not None
-                        else None
-                    ),
-                }
-                for record in graph.objects
-            ],
-            "links": [
-                {
-                    "link_type": link.link_type,
-                    "from_id": link.from_id,
-                    "to_id": link.to_id,
-                    "properties": _mutable_json(link.properties),
-                    "type_ref": (
-                        link.type_ref.model_dump(mode="json") if link.type_ref is not None else None
-                    ),
-                }
-                for link in graph.links
-            ],
-            "source_complete": graph.source_complete,
-            "source_generation": graph.source_generation,
-            "truncated": graph.truncated,
-        }
-    )
-
-
-def _mutable_json(value: Any) -> Any:
-    if isinstance(value, Mapping):
-        return {key: _mutable_json(item) for key, item in value.items()}
-    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
-        return [_mutable_json(item) for item in value]
-    return value
-
-
 def _summarize_redactions(
     graph: OntologyGraphSnapshot,
     *,
@@ -779,6 +722,7 @@ def _summarize_redactions(
 
 
 ObjectSetQueryReceipt = SecuredObjectSetQueryReceipt
+_projected_result_digest = projected_result_digest
 
 
 __all__ = [
