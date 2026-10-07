@@ -61,6 +61,12 @@ fragments, exact container names, regions, and provider lifecycle states. A narr
 can yield one accepted typed value, and Core records each accepted concept value on the compiled
 answer event. Environment inventory never becomes a stated operand, and the packs grant no
 identity, query, or execution authority.
+Question-form accounting also binds ranked order cues, treats authorized-scope and evidence-style
+phrases as context, and keeps a resource kind named inside a measure phrase as its own mention.
+Preflight routes environment reachability to operational evidence. A collection select may compile
+each member's reviewed state or health concept, while the same measure on an anchor, relation, or
+schema goal remains held as unsupported. Core re-derives the selected concepts during provenance
+verification; these paths add no identity, provider, or execution authority.
 The same typed-only boundary may reuse an independently certified direct read before legacy
 judgment; action, quoted, hypothetical, bound-context, and required-document paths retain their
 existing gates. Numeric call accounting adds no prompt capture or execution authority.
