@@ -325,6 +325,17 @@ some predicates run only in memory. The design therefore pins one authorized mem
   match the same endpoint predicates are counted once, and the count becomes the table's total rows,
   so an ungrouped count is exact. A cut single member, a hidden or unprojected endpoint, a changed
   generation, or an exhausted budget states no count, and the page keeps its traversal limitation.
+- **P3 processing receipts and continuation:** A collection metric read keeps one terminal row per
+  member: `measured`, `unknown_incomplete` with its reason, or `pending` when the read stopped first.
+  Function version 1.3.0 accepts an optional `continuation_ref`. When a continuation store is bound,
+  a read that stops on its budget or an unavailable provider issues an opaque reference that binds
+  the principal scope, role, and purpose, a digest of the ordered member manifest, the selection, and
+  the pinned window, with the raw cursor kept in Core. A call with the reference leases it, reads only
+  the pending members over the same window, and on success consumes it and issues the successor; a
+  failed or rejected page releases the lease, and another member set, selection, principal, expiry,
+  or a replayed reference returns `continuation_invalid`. The answer names the reference. As with the
+  recent-change continuation, the store is not yet bound in composition, and resuming from a
+  conversational follow-up remains open.
 
 | Population status | Outcome |
 |-------------------|---------|

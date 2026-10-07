@@ -67,6 +67,7 @@ earlier history stays in that ledger.
 | 2026-10-08 | in-progress | A third live run after both fixes answered all five E12 and P1 questions: each resource group's VMs with 26 of 26 pairs, an exact Resource count of 1,176 from the population receipt, 31 managed disks, and which VM each network interface is attached to with 33 pairs over two reviewed sides. One run of the network-interface wording asked a clarification instead, which is reading variance. | Session-local live runs | E12 per-anchor coverage receipts and negative-claim checks; P2; P3. |
 | 2026-10-08 | in-progress | Added E12 per-anchor coverage rows: each collection-anchored lineage read lists every anchor with no related member as `verified_empty` only when its covering read was complete, and as `unknown_incomplete` when cut or left unread; V-SEM requires them. Added E11 qualitative recipes: a `high` or `low` qualifier reads through reviewed per-concept recipes in the metric registry and manifest, the answer states the applied threshold and window, a missing recipe holds as `metric_classification_unavailable`, and V-PROV re-derives the recipe arguments. | `test_semantic_reasoning_collection_relations.py`; `test_semantic_reasoning_metric_selection.py` | E11 continuation and live gold; P2; P3. |
 | 2026-10-08 | in-progress | Implemented population receipt P2: a scoped collection's member traversal carries `read_population`, allowed by the plan verifier only for one hop or a transitive LinkType; a page cut over a complete source re-reads its population hop by hop from frontier batches of one source generation under a read budget, and the exact count of matching reached endpoints becomes the table's total rows, so an ungrouped count is exact. Any cut single member, hidden endpoint, generation change, or exhausted budget states no count. | `test_query_traversal_population.py`; `test_semantic_reasoning_compiler.py` | P3; E11 continuation and live gold. |
+| 2026-10-08 | in-progress | Implemented population receipt P3 at the recent-change continuation level: collection metric rows keep a terminal measured, unknown, or pending disposition per member; function version 1.3.0 accepts `continuation_ref`; a bound store issues an opaque leased reference on a stopped read, binding principal scope, role, purpose, member manifest digest, selection, and pinned window; a resumed page reads only pending members, consumes the lease and issues a successor on success, and releases it on failure; the answer names the reference. The store is not yet bound in composition, and conversational resumption remains open. | `test_resource_metric_queries.py`; `test_semantic_turn_processor.py` | Bind the continuation stores in composition and resume them from a conversational follow-up; E11 live gold. |
 
 ### Remaining work
 
@@ -74,7 +75,9 @@ earlier history stays in that ledger.
   under one authorized manifest, with the population status table, for relationship-free sets.
 - [ ] Population receipt P1: the same exact population for relationship reads.
 - [x] Population receipt P2: traversal populations for scoped collections.
-- [ ] Population receipt P3: per-member processing receipts and the leased collection continuation.
+- [x] Population receipt P3: per-member processing receipts and the leased collection continuation.
+- [ ] Bind the collection and recent-change continuation stores in composition and resume them
+  from a conversational follow-up.
 - [x] E10 before promotion: a versioned one-row-per-member state list mode with typed
   `unknown_incomplete` member rows; the reader fails when its row count differs from its input.
 - [x] E10: confirm that the health inventory lists every member in the same way. It returns a row

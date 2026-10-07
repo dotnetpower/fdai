@@ -15,6 +15,12 @@ from fdai.core.ontology_platform.functions import (
     ContextualOntologyFunction,
     FunctionInvocationContext,
 )
+from fdai.core.ontology_platform.metric_collection_continuations import (
+    CONTINUATION_PREFIX,
+    MetricCollectionContinuations,
+    MetricContinuationInvalidError,
+    MetricContinuationPage,
+)
 from fdai.core.ontology_platform.metric_collection_reads import (
     METRIC_BUDGET_EXHAUSTED,
     MemberRead,
@@ -55,7 +61,7 @@ def resource_metric_function_type() -> OntologyFunctionType:
 
     return OntologyFunctionType(
         name=RESOURCE_METRIC_FUNCTION_NAME,
-        version="1.2.0",
+        version="1.3.0",
         kind=OntologyFunctionKind.QUERY,
         artifact_digest=f"sha256:{hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}",
         publisher="fdai",
@@ -89,6 +95,8 @@ def resource_metric_function_type() -> OntologyFunctionType:
                 "order_limit": {"type": "integer", "minimum": 1, "maximum": 50},
                 # List members without a complete window as unknown rather than omit them.
                 "list_unknown": {"type": "boolean"},
+                # An opaque reference to read the members a stopped read left pending.
+                "continuation_ref": {"type": "string", "minLength": 32, "maxLength": 128},
             },
         },
         output_schema={
@@ -99,6 +107,8 @@ def resource_metric_function_type() -> OntologyFunctionType:
                 "rows": {"type": "array", "maxItems": _MAX_ROWS},
                 "complete": {"type": "boolean"},
                 "truncation_reason": {"type": ["string", "null"]},
+                # Names the continuation of a stopped read, as recent-change pages do.
+                "source_generation": {"type": ["string", "null"]},
             },
         },
         read_sets=["Resource"],
@@ -169,8 +179,14 @@ def resource_metric_inventory_function(
     registry: MetricSemanticRegistry,
     provider: MetricWindowProvider,
     now: Callable[[], datetime] | None = None,
+    continuations: MetricCollectionContinuations | None = None,
 ) -> ContextualOntologyFunction:
-    """Read exact reviewed metrics and preserve every provider gap as incomplete."""
+    """Read exact reviewed metrics and preserve every provider gap as incomplete.
+
+    With ``continuations``, a read that stops before every member issues a leased opaque
+    reference, and a later call with that reference reads the pending members over the
+    same pinned window.
+    """
 
     ontology_release.type_ref(
         OntologyDeclarationKind.FUNCTION,
@@ -194,23 +210,63 @@ def resource_metric_inventory_function(
         definitions = tuple(registry.resolve(item) for item in concept_ids)
         selection = MetricSelection.from_arguments(arguments, definitions)
         window_seconds = int(arguments["window_seconds"])
-        # One absolute window for every batch, so every member is read over the same instants.
-        end = clock()
-        if end.tzinfo is None:
-            raise ValueError("resource metric clock MUST be timezone-aware")
-        end = end.astimezone(UTC)
-        start = end - timedelta(seconds=window_seconds)
-        reads, stop = await read_members(
-            objects,
-            definitions,
-            provider=provider,
-            start=start,
-            end=end,
-            max_reads=_MAX_PROVIDER_READS,
-            batch_size=_BATCH_SIZE,
-            concurrency=_MAX_CONCURRENT_READS,
-        )
-        return _member_table(reads, selection=selection, stop=stop, start=start, end=end)
+        member_ids = tuple(item.id for item in objects)
+        page: MetricContinuationPage | None = None
+        offset = 0
+        reference = arguments.get("continuation_ref")
+        if reference is not None:
+            if continuations is None:
+                return _table((), complete=False, reason="continuation_invalid")
+            try:
+                page = await continuations.lease(
+                    str(reference),
+                    context=invocation_context,
+                    arguments=arguments,
+                    member_ids=member_ids,
+                )
+            except MetricContinuationInvalidError:
+                return _table((), complete=False, reason="continuation_invalid")
+            start, end, offset = page.start, page.end, page.record.cursor
+        else:
+            # One absolute window for every batch, so every member is read over the same instants.
+            end = clock()
+            if end.tzinfo is None:
+                raise ValueError("resource metric clock MUST be timezone-aware")
+            end = end.astimezone(UTC)
+            start = end - timedelta(seconds=window_seconds)
+        try:
+            reads, stop = await read_members(
+                objects[offset:],
+                definitions,
+                provider=provider,
+                start=start,
+                end=end,
+                max_reads=_MAX_PROVIDER_READS,
+                batch_size=_BATCH_SIZE,
+                concurrency=_MAX_CONCURRENT_READS,
+            )
+        except BaseException:
+            if page is not None and continuations is not None:
+                await continuations.release(page)
+            raise
+        pending = next((index for index, read in enumerate(reads) if read.window is None), None)
+        cursor = offset + pending // len(definitions) if pending is not None else None
+        successor: str | None = None
+        if page is not None and continuations is not None:
+            successor = await continuations.complete(page, cursor=cursor)
+        elif continuations is not None and cursor is not None and 0 < cursor < len(objects):
+            successor = await continuations.issue(
+                context=invocation_context,
+                arguments=arguments,
+                member_ids=member_ids,
+                cursor=cursor,
+                start=start,
+                end=end,
+            )
+        table = _member_table(reads, selection=selection, stop=stop, start=start, end=end)
+        if successor is not None:
+            table["source_generation"] = f"{CONTINUATION_PREFIX}{successor}"
+        return table
 
     return evaluate
 

@@ -3564,6 +3564,15 @@ def _render_general_query_answer(
             if output.get("source_complete") is False:
                 notice = output.get("source_truncation_reason")
                 lines.extend(["", _incomplete_source_notice(notice, korean=korean)])
+            reference = output.get("continuation_ref")
+            if isinstance(reference, str) and reference:
+                lines.append(
+                    f"- 읽지 못한 구성원은 continuation reference `{_inline_code(reference)}`로 "
+                    "같은 조회 기간에서 이어서 읽을 수 있습니다."
+                    if korean
+                    else "- The members not read yet can be read over the same window with "
+                    f"continuation reference `{_inline_code(reference)}`."
+                )
     lines.extend(
         [
             "",
@@ -5569,11 +5578,12 @@ def _answer_output(
 
 
 def _recent_change_continuation_ref(table: QueryTable) -> str | None:
-    prefix = "recent-resource-change-continuation:"
-    if table.source_generation is None or not table.source_generation.startswith(prefix):
-        return None
-    value = table.source_generation.removeprefix(prefix)
-    return value if 32 <= len(value) <= 128 else None
+    generation = table.source_generation
+    for prefix in ("recent-resource-change-continuation:", "metric-collection-continuation:"):
+        if generation is not None and generation.startswith(prefix):
+            value = generation.removeprefix(prefix)
+            return value if 32 <= len(value) <= 128 else None
+    return None
 
 
 def _answer_json(outputs: list[dict[str, object]]) -> str:
