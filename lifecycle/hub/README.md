@@ -4,7 +4,7 @@
 serves it to the installation's lifecycle agent. It reuses the pure Release, configuration, and Plan
 checks in `fdai-deployment-cli`, so the Hub and the agent judge a Plan with the same code.
 
-Lifecycle I0 runs in shadow mode, where the Hub observes and decides but nothing applies a change.
+Lifecycle I0 runs in observation mode (shadow mode): the Hub decides, but nothing applies a change.
 It needs no Azure credential and grants no lifecycle authority.
 
 ## How a Plan is chosen
