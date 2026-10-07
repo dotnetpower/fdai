@@ -78,6 +78,9 @@ def test_diagnostic_prompt_states_each_contains_and_presence_meaning() -> None:
         "code-point order",
         "Wording that describes the requester's situation or purpose rather than the requested "
         "objects is context, not a condition.",
+        "Predicates cannot compare a value inside an object-valued property.",
+        "select every instance whose documents satisfy all requested conditions by exact "
+        "object_ids. That preserves the condition; it does not drop it.",
     ):
         assert statement in text
 

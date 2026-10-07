@@ -32,8 +32,12 @@ body: |-
   ISO 8601 UTC form as the documents compare chronologically. Express a requested time range
   over a timestamp property with at_least and at_most, taking any date the request leaves
   implicit from the supplied documents. Wording that describes the requester's situation or
-  purpose rather than the requested objects is context, not a condition. Use
-  unsupported_constraint only when none of these forms can express a requested condition.
+  purpose rather than the requested objects is context, not a condition. Predicates cannot
+  compare a value inside an object-valued property. The supplied documents are the complete
+  instance projection, so when a requested condition depends on such a nested value, select
+  every instance whose documents satisfy all requested conditions by exact object_ids. That
+  preserves the condition; it does not drop it. Use unsupported_constraint only when neither
+  predicates nor exact object_ids can express the requested set.
   Do not enumerate only some matching objects to evade a bound.
 
   When the query identifies a specific instance that is present in the supplied canonical
