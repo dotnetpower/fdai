@@ -27,6 +27,7 @@ resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-08 | deferred | The installation owner withdrew the W7 30-day, 100-sample observation cohort as too long. Issues #903 and #904 closed as not planned with their unmet criteria left open; no evidence level increased. Catalog promotion gates are unchanged. | Decision comments on [#903](https://github.com/dotnetpower/fdai/issues/903#issuecomment-6043294824) and [#904](https://github.com/dotnetpower/fdai/issues/904#issuecomment-6043295211); last gate result `sha256:77c376a6907441651f6760550eb4419652ece80426a8557abe83896d204095b7` (`ready=false`, six targets blocked). | Open a new issue with explicit criteria before any W7 readiness claim. Before its gate passes, promoting a target requires a separately approved attributed operator override that records the gate result at that time. |
 | 2026-10-08 | in-progress | Recorded W7 campaign status after the scheduled observation export recovered from the stopped legacy development environment tracked in [#1886](https://github.com/dotnetpower/fdai/issues/1886). Each successful run qualified the exact active release but exported no normalized source batch, because the bounded window had no retained cost disclosure audit coverage. The batch attestation, source upload, and import receipt steps were skipped. Issue #904's reviewer-independence control can be met by a repository collaborator with write access who did not run the campaign. | Runs `37189045320`, `37335436901`, `37440054994`, and `37595588378` each attested the same review-only result `sha256:77c376a6907441651f6760550eb4419652ece80426a8557abe83896d204095b7`: pin `sha256:52f6d931121fb9dd842664bca58abd1557ae8202d7d6bd683f66cd58232f1785`, `ready=false`, and all six targets `blocked` with `insufficient-cohort` and `missing-live-authoritative-evidence` at sample count 0. | The 30-day and 100-sample clock has not started. Issue #903 needs an operating environment that produces natural Cost Governance observations and disclosure audits. Issue #904 waits on #903's `ready=true` result. No package enablement, approval, mode change, or promotion occurred. |
 | 2026-09-30 | implemented | Rebound the unchanged Cost Governance semantic declaration set, package manifest, source inventory, promoted Korean surface, and all 16 F1-F8 fixtures after `Resource` gained the readable `location` property at version 1.1.0 and changed the active ontology release. Positive and lowered outcomes remain unchanged. | `current change`; official release-derived pin generator rewrote 21 artifacts; profile release `sha256:458aa573c6c5202f66a0767fc64571a7399fe79e49edd3bcf59df7e44e3add18`; canonical profile `sha256:49109b6f77baf26ddae612224e518990e205c809164ecbdd40588c2d172dd4f9`; convergence and profile tests passed. | W7 evidence, package enablement, data access, mode, and promotion remain unchanged. Earlier live receipts stay bound to their original release. |
 | 2026-09-29 | implemented | Rebound the unchanged Cost Governance semantic declaration set, package manifest, source inventory, promoted Korean surface, and all 16 F1-F8 fixtures after 18 Resource LinkTypes gained reviewed semantic traits and changed the active ontology release. Positive and lowered outcomes remain unchanged. | `current change`; official release-derived pin generator rewrote 21 artifacts; profile release `sha256:58b15138f5c23ca8d6f45b5de802f59c3dafeacd7bfa53556263c401227cbcca`; canonical profile `sha256:ce5af10025383d8f240574e2398729b57c7ccf94c84a4f50bd86d6bfe52a4f56`; convergence and profile tests passed. | W7 evidence, package enablement, data access, mode, and promotion remain unchanged. Earlier live receipts stay bound to their original release. |
@@ -121,13 +122,16 @@ resumable work while the roadmap owner remains focused on normative design.
   release during W6.
 - [x] Complete issue #902's live dev N-1 rollback, exact casefold restore, revision-15 enable,
   independent collector completion, durable cursor readback, and promotion-state comparison.
-- [ ] Run issue #903 on the final stable exact pin until at least 100 eligible samples span at least
-  30 days and the attested campaign returns `ready=true`. This requires an operating environment
-  that retains natural Cost Governance observations and cost disclosure audits; the stopped legacy
-  development environment ([#1886](https://github.com/dotnetpower/fdai/issues/1886)) produced
-  none in the runs recorded on 2026-10-08.
-- [ ] After issue #903 is ready, retain issue #904's six one-target review receipts against one
-  campaign evidence digest, each dispatched by a write collaborator other than every campaign run
-  actor, before any separately approved promotion change.
+- [ ] Unscheduled live evidence ([#903](https://github.com/dotnetpower/fdai/issues/903) closed as
+  not planned on 2026-10-08): run a W7 campaign on one stable exact pin until at least 100 eligible
+  samples span at least 30 days and the attested result returns `ready=true`. The campaign needs an
+  operating environment that retains natural Cost Governance observations and cost disclosure
+  audits. The stopped legacy development environment
+  ([#1886](https://github.com/dotnetpower/fdai/issues/1886)) produced none in the runs recorded on
+  2026-10-08.
+- [ ] Unscheduled live evidence ([#904](https://github.com/dotnetpower/fdai/issues/904) closed as
+  not planned on 2026-10-08): after a campaign is ready, retain six one-target review receipts
+  against one campaign evidence digest. Each review must be dispatched by a write collaborator other
+  than every campaign run actor, before any separately approved promotion change.
 - [ ] Retain production cutover and W7 review evidence before removing the deprecated compatibility
   facade.
