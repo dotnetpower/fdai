@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 34beac1a69837c32c410ca3b928ed23552eb3ee4
+translation_source_sha: 05bc22fe6d62a2465b4afc5e8d705cccf6d29ada
 translation_revised: 2026-10-07
 ---
 # 에이전트 판테온
@@ -277,6 +277,9 @@ Forseti의 관찰 모드 ARB 실패 기록은 맥락/근거 수집 실패에도 
 
 에이전트 자체가 실패하거나 저하될 때 선언된 안전 동작. Anti-pattern §11 은
 이것들을 nothing 으로 collapse 하는 것을 금지.
+시작할 때 Huginn은 보관된 게시 및 최종 중복 제거 키를 한 번의 범위가 제한된 정렬과
+삽입 순서를 보존하는 이동으로 기존 순서대로 복원합니다. 복구는 계속 멱등적이며, 최소값을
+반복 선택하거나 목록에서 반복 제거하여 이벤트 루프를 차단하지 않습니다.
 
 | 실패한 에이전트 | 영향 | 안전 성능 저하 |
 |---------------|------|-----------------|
