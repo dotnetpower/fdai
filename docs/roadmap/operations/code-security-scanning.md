@@ -242,22 +242,27 @@ rule sits in the same canonical issue, so external SARIF can't claim verificatio
 
 A verifier grants `verified` only after measured evidence promotes it. The
 [verifier corpus](../../../rule-catalog/code-security/evaluation/verifier-corpus.yaml) pins public,
-intentionally vulnerable projects (NodeGoat, Juice Shop, WebGoat, dvcsharp-api, and pygoat) at
-exact commits. Its labels come from each project's own documentation, including Juice Shop's
-source annotations and coding-challenge verdicts. The operator CLI `evaluate-verifiers` fetches
-each project at its commit, runs both verifier kinds without executing project code, and writes a
-receipt with per-verifier precision and recall. A verifier is promoted when its precision meets
-the corpus floor of 0.90 with at least one true positive, and the promotion list in the verifier
-catalog must match that receipt. Every other verifier runs in shadow: it records its hit as
-`verifier_in_shadow` and doesn't raise confidence.
+intentionally vulnerable projects at exact commits, each in a `dev` or `holdout` split. Labels come
+from each project's own documentation, such as Juice Shop's source annotations, lesson pages,
+solution guides, and ground-truth files. OWASP Benchmark for Java and Python supply whole-file
+labels from their `expectedresults` files, split by a hash of the test name. The operator CLI
+`evaluate-verifiers` fetches each project at its commit, runs both verifier kinds without executing
+project code, and measures every verifier as if promoted. It writes a receipt with per-verifier
+precision and recall for each split. A verifier is promoted only when its precision meets the
+corpus floor of 0.90 with at least one true positive in both `dev` and `holdout`, and the
+promotion list in the verifier catalog must match that receipt. Every other verifier runs in
+shadow: it records its hit as `verifier_in_shadow` and doesn't raise confidence.
 
-Example: the 2026-10-07 receipt promoted the Python verifiers for all five classes and the taint
-rules for JavaScript code and SQL injection, Java SQL injection and path traversal, and C# SQL
-injection, all at precision 1.0. The JavaScript path traversal rule matched three safe reads in
-Juice Shop, where the path came from a server-side lookup or an existence gate, so it stays in
-shadow. Rules without real-code evidence, such as the command injection rules, also stay in
-shadow. The corpus informed rule development and samples are small, so it isn't a held-out
-benchmark.
+Example: the 2026-10-08 receipt (corpus 1.1.0, 710 `dev` and 681 `holdout` labels) promotes five
+verifiers: Java and JavaScript command injection, JavaScript code and SQL injection, and Python SQL
+injection, each at precision 1.0 in both splits. Six verifiers promoted by the earlier receipt fell
+back to shadow on held-out evidence. Java SQL injection measured about 0.6, because Benchmark's
+constant branches and dead switches fool open-source taint mode. Python code injection, path
+traversal, and unsafe deserialization measured 0.27 to 0.83, because the AST verifier ignores
+early-return guards. Java path traversal and C# SQL injection had no held-out true positives.
+Python command injection measured 0.75 on `holdout` and stays in shadow. The JavaScript path
+traversal rule no longer treats a one-argument store lookup as tainted, but two safe Juice Shop
+reads gated by a known-key lookup still keep it in shadow.
 
 ## Proof lane (opt-in)
 

@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: 87a18645902c41aceb988eb1feec88a8029d4143
+translation_source_sha: e5559d4af214540566441677ed9717fae83c8c87
 translation_revised: 2026-10-08
 ---
 
@@ -236,19 +236,25 @@ JavaScript와 TypeScript, Java, C#에서는 `rules/verify/` 아래의 FDAI 작�
 
 검증기는 측정된 근거로 승격된 뒤에만 `verified`를 부여합니다.
 [검증기 평가 자료](../../../rule-catalog/code-security/evaluation/verifier-corpus.yaml)는 의도적으로
-취약하게 만든 공개 프로젝트(NodeGoat, Juice Shop, WebGoat, dvcsharp-api, pygoat)를 정확한 커밋으로
-고정합니다. 레이블은 Juice Shop의 소스 주석과 코딩 과제 판정을 포함해 각 프로젝트 자체 문서에서
-가져옵니다. 운영자 CLI의 `evaluate-verifiers`는 각 프로젝트를 해당 커밋으로 가져오고, 프로젝트 코드를
-실행하지 않은 채 두 종류의 검증기를 돌린 뒤, 검증기별 정밀도와 재현율을 담은 증적을 기록합니다.
-정밀도가 평가 자료의 하한인 0.90 이상이고 참 양성이 하나 이상이면 검증기가 승격되며, 검증기
-카탈로그의 승격 목록은 이 증적과 일치해야 합니다. 나머지 검증기는 shadow로 실행되어 결과를
-`verifier_in_shadow`로 기록할 뿐 신뢰도를 올리지 않습니다.
+취약하게 만든 공개 프로젝트를 정확한 커밋으로 고정하며, 각 프로젝트는 `dev` 또는 `holdout` 분할에
+속합니다. 레이블은 Juice Shop의 소스 주석, 실습 페이지, 풀이 문서, 정답 파일처럼 각 프로젝트 자체
+문서에서 가져옵니다. OWASP Benchmark for Java와 Python은 `expectedresults` 파일에서 파일 단위 레이블을
+제공하며, 테스트 이름의 해시로 분할합니다. 운영자 CLI의 `evaluate-verifiers`는 각 프로젝트를 해당
+커밋으로 가져오고, 프로젝트 코드를 실행하지 않은 채 두 종류의 검증기를 돌리며, 모든 검증기를 승격된
+것처럼 측정합니다. 그리고 분할별로 검증기마다 정밀도와 재현율을 담은 증적을 기록합니다. `dev`와
+`holdout` 모두에서 정밀도가 평가 자료의 하한인 0.90 이상이고 참 양성이 하나 이상일 때만 검증기가
+승격되며, 검증기 카탈로그의 승격 목록은 이 증적과 일치해야 합니다. 나머지 검증기는 shadow로 실행되어
+결과를 `verifier_in_shadow`로 기록할 뿐 신뢰도를 올리지 않습니다.
 
-예: 2026-10-07 증적은 다섯 클래스 모두의 Python 검증기와 JavaScript 코드 주입·SQL 주입, Java SQL
-주입·경로 조작, C# SQL 주입 오염 규칙을 정밀도 1.0으로 승격했습니다. JavaScript 경로 조작 규칙은 경로가
-서버 측 조회나 존재 확인을 거친 Juice Shop의 안전한 읽기 세 곳과 일치했으므로 shadow에 남습니다.
-명령 주입 규칙처럼 실제 코드 근거가 없는 규칙도 shadow에 남습니다. 평가 자료가 규칙 개발에 쓰였고
-표본이 작으므로 별도로 보관한 벤치마크는 아닙니다.
+예: 2026-10-08 증적(평가 자료 1.1.0, `dev` 레이블 710개와 `holdout` 레이블 681개)은 검증기 다섯 개를
+승격합니다. Java와 JavaScript 명령 주입, JavaScript 코드 주입과 SQL 주입, Python SQL 주입이며, 모두 두
+분할에서 정밀도 1.0입니다. 이전 증적이 승격한 검증기 여섯 개는 별도 보관 근거에서 shadow로
+돌아갔습니다. Java SQL 주입은 약 0.6이었습니다. Benchmark의 상수 분기와 도달하지 않는 switch가 오픈 소스
+오염 모드를 속이기 때문입니다. Python 코드 주입, 경로 조작, 안전하지 않은 역직렬화는 0.27에서 0.83
+사이였습니다. AST 검증기가 조기 반환 검사를 무시하기 때문입니다. Java 경로 조작과 C# SQL 주입은 별도
+보관 분할에서 참 양성이 없었습니다. Python 명령 주입은 `holdout`에서 0.75로 측정되어 shadow에 남습니다.
+JavaScript 경로 조작 규칙은 더 이상 인자 하나짜리 저장소 조회를 오염된 값으로 보지 않지만, 알려진 키
+조회로 보호되는 Juice Shop의 안전한 읽기 두 곳 때문에 여전히 shadow에 남습니다.
 
 ## 입증 레인(선택)
 
