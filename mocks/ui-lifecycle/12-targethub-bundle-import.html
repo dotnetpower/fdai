@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bundle import - FDAI Lifecycle Hub (Target Hub)</title>
+  <link rel="stylesheet" href="assets/lifecycle.css?v=1" />
+  <script src="assets/lifecycle.js?v=1" defer></script>
+</head>
+<body>
+  <div class="app">
+    <nav class="side" aria-label="Target Hub">
+  <div class="brand">FDAI Lifecycle Hub<small>Customer B Target Hub · offline</small></div>
+  <div class="grp">Operate</div>
+  <div class="it">Installations <span class="cnt">2</span></div>
+  <div class="it">Plans</div>
+  <div class="it">Confirmations <span class="cnt">0</span></div>
+  <div class="it">Commands</div>
+  <div class="grp">Catalog</div>
+  <a class="it on" href="12-targethub-bundle-import.html" aria-current="page">Bundle import</a>
+  <div class="it">Available Releases</div>
+  <div class="it">Custom channels</div>
+  <div class="it">Configuration packages</div>
+  <div class="grp">Admin</div>
+  <div class="it">Enrollment requests</div>
+  <div class="it">Audit</div>
+</nav>
+    <main class="main">
+      <div class="crumb">Catalog › Bundle import</div>
+      <div class="m-head"><div><h1>Bundle import</h1><div class="sub">Last import bundle-0018 (2026-09-14) · catalog metadata expires in 3 days</div></div></div>
+      <div class="drop">fdai-upgrade-bundle-0019.tar · 3.8 GB · selected from transfer media</div>
+      <div class="cols">
+        <section aria-label="Verification">
+          <div class="panel-title">Verification and publication</div>
+          <ol class="timeline">
+            <li class="ok"><div class="when">1</div>Vendor release signature verified</li>
+            <li class="ok"><div class="when">2</div>412 file checksums match</li>
+            <li class="ok"><div class="when">3</div>Bundle extends bundle-0018</li>
+            <li class="ok"><div class="when">4</div>Recall sequence is continuous (#0030 → #0031)</li>
+            <li class="ok"><div class="when">5</div>Customer configuration package rev 19 signature verified</li>
+            <li class="run"><div class="when">6</div>Publishing image layers to the internal registry · 61%</li>
+            <li><div class="when">7</div>Update catalog and recompute Plans</li>
+          </ol>
+          <div class="bar" role="img" aria-label="61 percent published" style="margin-top: 4px"><i style="width: 61%; background: var(--cs-steel)"></i></div>
+        </section>
+        <section aria-label="Bundle contents">
+          <div class="panel-title">Bundle contents</div>
+          <table class="t">
+            <thead><tr><th>Item</th><th>Content</th></tr></thead>
+            <tbody>
+              <tr><td>Releases</td><td>1.4.4, 1.5.1</td></tr>
+              <tr><td>Channel membership</td><td>RELEASE → 1.5.1</td></tr>
+              <tr><td>Recall notices</td><td><span class="badge fail">#0031 · 1.5.0</span></td></tr>
+              <tr><td>Image layers</td><td>38 new layers; existing layers reused</td></tr>
+              <tr><td>Metadata expiry</td><td>Renewed to 30 days</td></tr>
+            </tbody>
+          </table>
+          <div class="callout">When catalog metadata expires, this Hub accepts only recall roll-off Plans and returns operator-override promotions to shadow mode.</div>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

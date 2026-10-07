@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fdai 1.5.0 - FDAI Release Catalog</title>
+  <link rel="stylesheet" href="assets/lifecycle.css?v=1" />
+  <script src="assets/lifecycle.js?v=1" defer></script>
+</head>
+<body>
+  <div class="app">
+    <nav class="side" aria-label="Release catalog">
+  <div class="brand">FDAI Release Catalog<small>Vendor only</small></div>
+  <div class="grp">Catalog</div>
+  <a class="it on" href="01-vendor-release.html" aria-current="page">Releases <span class="cnt">48</span></a>
+  <a class="it" href="03-vendor-channels.html">Channels <span class="cnt">3</span></a>
+  <div class="it">Recalls <span class="cnt">2</span></div>
+  <div class="grp">Installations</div>
+  <a class="it" href="04-vendor-fleet.html">Fleet</a>
+  <div class="it">Canary installations <span class="cnt">2</span></div>
+  <div class="grp">Trust</div>
+  <div class="it">Signing keys</div>
+  <div class="it">Audit</div>
+</nav>
+    <main class="main">
+      <div class="crumb">Releases › fdai</div>
+      <div class="m-head">
+        <div><h1>fdai 1.5.0</h1><div class="sub">2026-10-07 09:12 UTC+9 · source_commit 7c1e2a9 · signed and published</div></div>
+        <div class="acts"><button class="btn" type="button">View SBOM</button><a class="btn" href="02-vendor-release-activity.html">Activity</a><button class="btn danger" type="button">Recall...</button></div>
+      </div>
+      <div class="pipeline" aria-label="Channel progress">
+        <div class="cur"><div class="name">DEV</div><div class="state"><span class="badge info">Canary rollout</span></div><div class="meta">fdai-dev upgrade, phase 2 of 5</div></div>
+        <div><div class="name">RELEASE_CANDIDATE</div><div class="state"><span class="badge mute">Waiting</span></div><div class="meta">Requires 24 h healthy on DEV</div></div>
+        <div><div class="name">RELEASE</div><div class="state"><span class="badge mute">Waiting</span></div><div class="meta">Requires 72 h healthy on RC and security review</div></div>
+      </div>
+      <div class="kv">
+        <div><div class="k">Signature</div><div class="v"><span class="badge ok">✓ Verified</span></div></div>
+        <div><div class="k">Security scan</div><div class="v"><span class="badge ok">✓ Critical 0 · High 0</span></div></div>
+        <div><div class="k">Tolerated schema</div><div class="v small mono">rev 0141 - 0147</div></div>
+        <div><div class="k">Downtime</div><div class="v small">None (no-downtime)</div></div>
+      </div>
+      <div class="cols">
+        <section aria-label="Images">
+          <div class="panel-title">Images <span class="hint">Every installation runs these exact digests</span></div>
+          <table class="t">
+            <thead><tr><th>Component</th><th>Digest</th><th>Scan</th></tr></thead>
+            <tbody>
+              <tr><td>Core Control Plane</td><td class="mono">sha256:3f9a...c21d</td><td><span class="badge ok">✓</span></td></tr>
+              <tr><td>Operator Service</td><td class="mono">sha256:81be...07fa</td><td><span class="badge ok">✓</span></td></tr>
+              <tr><td>Isolated Executor</td><td class="mono">sha256:5d02...e9b4</td><td><span class="badge ok">✓</span></td></tr>
+              <tr><td>Document Ingestion API</td><td class="mono">sha256:c7a1...44e0</td><td><span class="badge ok">✓</span></td></tr>
+              <tr><td>Document Processing Worker</td><td class="mono">sha256:9e3c...b815</td><td><span class="badge ok">✓</span></td></tr>
+              <tr><td>ClamAV sidecar</td><td class="mono">sha256:0a6f...3c52</td><td><span class="badge ok">✓</span></td></tr>
+              <tr><td>Console bundle</td><td class="mono">sha256:2b74...6a0c</td><td><span class="badge ok">✓</span></td></tr>
+              <tr><td>Lifecycle agent</td><td class="mono">sha256:e410...19d7</td><td><span class="badge ok">✓</span></td></tr>
+              <tr><td>Infrastructure agent</td><td class="mono">sha256:77d3...a204</td><td><span class="badge ok">✓</span></td></tr>
+            </tbody>
+          </table>
+        </section>
+        <section aria-label="Release metadata">
+          <div class="panel-title">Health criteria <span class="hint">Declared in the Release</span></div>
+          <ul class="list">
+            <li><span class="ic ok">✓</span><span>Every service <code>/ready</code> for 5 consecutive minutes</span><span class="soft">Required</span></li>
+            <li><span class="ic ok">✓</span><span>Canary event round trip succeeds</span><span class="soft">Required</span></li>
+            <li><span class="ic ok">✓</span><span>Consumer-lag band is normal</span><span class="soft">Required</span></li>
+          </ul>
+          <div class="panel-title">Capability maximums</div>
+          <p class="note">Maximum mode per ActionType and Workflow in this Release. For example, <code>vm.restart</code> enforce and <code>aks.scale</code> shadow. Installation policy can't exceed them.</p>
+          <div class="panel-title">Dependencies</div>
+          <p class="note">Hub ≥ 1.2 · both installation agents ≥ 1.4</p>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

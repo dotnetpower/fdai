@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>fdai 1.5.0 activity - FDAI Release Catalog</title>
+  <link rel="stylesheet" href="assets/lifecycle.css?v=1" />
+  <script src="assets/lifecycle.js?v=1" defer></script>
+</head>
+<body>
+  <div class="app">
+    <nav class="side" aria-label="Release catalog">
+  <div class="brand">FDAI Release Catalog<small>Vendor only</small></div>
+  <div class="grp">Catalog</div>
+  <a class="it on" href="01-vendor-release.html" aria-current="page">Releases <span class="cnt">48</span></a>
+  <a class="it" href="03-vendor-channels.html">Channels <span class="cnt">3</span></a>
+  <div class="it">Recalls <span class="cnt">3</span></div>
+  <div class="grp">Installations</div>
+  <a class="it" href="04-vendor-fleet.html">Fleet</a>
+  <div class="it">Canary installations <span class="cnt">2</span></div>
+  <div class="grp">Trust</div>
+  <div class="it">Signing keys</div>
+  <div class="it">Audit</div>
+</nav>
+    <main class="main">
+      <div class="crumb">Releases › fdai › 1.5.0</div>
+      <div class="m-head"><div><h1>fdai 1.5.0</h1></div></div>
+      <nav class="tabs" aria-label="Release sections"><a href="01-vendor-release.html">Overview</a><span>Images</span><span>Health criteria</span><span class="on" aria-current="page">Activity</span><span>SBOM</span></nav>
+      <div class="banner fail">
+        <div><b>Recalled · 2026-10-07 10:03 UTC+9</b>The required health criterion "consumer-lag band" stayed in the warning band on canary <code>fdai-dev</code> for 12 minutes. New proposals stopped, pending Plans were cancelled, and both installations that ran 1.5.0 rolled off to 1.4.3, the newest non-recalled Release.</div>
+        <span class="badge fail">Recall #0031</span>
+      </div>
+      <div class="cols">
+        <section aria-label="Activity">
+          <div class="panel-title">Activity</div>
+          <ol class="timeline">
+            <li class="ok"><div class="when">09:12</div>Release 1.5.0 published and added to <code>DEV</code></li>
+            <li class="ok"><div class="when">09:14</div>Upgrade Plans issued to 2 canary installations</li>
+            <li class="ok"><div class="when">09:31</div><code>fdai-dev</code> upgraded; health monitoring started</li>
+            <li class="fail"><div class="when">09:51</div>Consumer-lag band: warning · required criterion violated</li>
+            <li class="fail"><div class="when">10:03</div>Violation held for 12 minutes · recall #0031 signed and published</li>
+            <li class="run"><div class="when">10:04</div>2 roll-off Plans issued with top priority</li>
+            <li class="ok"><div class="when">10:19</div>Both canaries on 1.4.3 and passing health criteria</li>
+          </ol>
+        </section>
+        <section aria-label="Affected installations">
+          <div class="panel-title">Affected installations</div>
+          <table class="t">
+            <thead><tr><th>Installation</th><th>Before</th><th>Now</th></tr></thead>
+            <tbody>
+              <tr><td>fdai-dev <span class="soft">canary</span></td><td>1.5.0</td><td><span class="badge ok">1.4.3 ✓</span></td></tr>
+              <tr><td>fdai-canary-2 <span class="soft">canary</span></td><td>1.5.0</td><td><span class="badge ok">1.4.3 ✓</span></td></tr>
+              <tr><td colspan="3" class="soft">Customer installations: 0 (blocked before reaching RELEASE)</td></tr>
+            </tbody>
+          </table>
+          <div class="callout">This Release can't be promoted again. Publish a fixed Release instead.</div>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

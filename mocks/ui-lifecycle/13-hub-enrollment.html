@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Enrollment request - FDAI Lifecycle Hub</title>
+  <link rel="stylesheet" href="assets/lifecycle.css?v=1" />
+  <script src="assets/lifecycle.js?v=1" defer></script>
+</head>
+<body>
+  <div class="app">
+    <nav class="side" aria-label="Lifecycle Hub">
+  <div class="brand">FDAI Lifecycle Hub<small>Customer A cell · Korea Central</small></div>
+  <div class="grp">Operate</div>
+  <a class="it" href="05-hub-installations.html">Installations <span class="cnt">3</span></a>
+  <a class="it" href="07-hub-plan.html">Plans</a>
+  <a class="it" href="10-hub-confirmations.html">Confirmations <span class="cnt">0</span></a>
+  <a class="it" href="11-hub-commands.html">Commands</a>
+  <div class="grp">Catalog</div>
+  <div class="it">Available Releases</div>
+  <div class="it">Custom channels</div>
+  <div class="it">Configuration packages</div>
+  <div class="grp">Admin</div>
+  <a class="it on" href="13-hub-enrollment.html" aria-current="page">Enrollment requests <span class="cnt">1</span></a>
+  <div class="it">Audit</div>
+</nav>
+    <main class="main">
+      <div class="crumb">Enrollment requests</div>
+      <div class="m-head">
+        <div><h1>enr-0007 · analytics-prod</h1><div class="sub">Requested 2026-10-14 15:02 · lifecycle agent 1.5.1 · AKS · Korea Central</div></div>
+        <div class="acts"><button class="btn" type="button">Reject</button><button class="btn primary" type="button">Accept enrollment</button></div>
+      </div>
+      <div class="kv">
+        <div><div class="k">Installation key proof</div><div class="v"><span class="badge ok">✓ Verified</span></div></div>
+        <div><div class="k">Agent images</div><div class="v"><span class="badge ok">✓ Signed</span></div></div>
+        <div><div class="k">Current FDAI</div><div class="v small">1.4.3 · <b>unverified source build</b></div></div>
+        <div><div class="k">Channel</div><div class="v small mono">RELEASE</div></div>
+      </div>
+      <div class="cols">
+        <section aria-label="Discovered Entities">
+          <div class="panel-title">Discovered Entities <span class="hint">All start unmanaged after acceptance</span></div>
+          <table class="t">
+            <thead><tr><th>Name</th><th>Kind</th><th>Ownership evidence</th><th>Initial state</th></tr></thead>
+            <tbody>
+              <tr><td>Core and 4 other services</td><td>Workload</td><td><span class="badge ok">✓</span></td><td><span class="badge mute">Unmanaged</span></td></tr>
+              <tr><td>AKS · PostgreSQL · Event Hubs</td><td>Platform</td><td><span class="badge ok">✓ Creation receipt</span></td><td><span class="badge mute">Unmanaged</span></td></tr>
+              <tr><td>Key Vault</td><td>Platform</td><td><span class="badge ok">✓ Creation receipt</span></td><td><span class="badge mute">Unmanaged</span></td></tr>
+              <tr><td>log-analytics-shared</td><td>Platform</td><td><span class="badge warn">Tag only</span></td><td><span class="badge mute">Unmanaged · can't be managed</span></td></tr>
+            </tbody>
+          </table>
+        </section>
+        <section aria-label="First Plans">
+          <div class="panel-title">After acceptance</div>
+          <ul class="list">
+            <li><span class="ic wait">1</span><span>The operator marks Entities managed after ownership is proven and settings are added</span><span class="soft">Manual</span></li>
+            <li><span class="ic wait">2</span><span>Unverified source-build images are treated as drift and replaced with signed 1.4.3 images</span><span class="soft">Next window</span></li>
+            <li><span class="ic wait">3</span><span>The installation then upgrades to the newest RELEASE, 1.5.1</span><span class="soft">Following window</span></li>
+          </ul>
+          <div class="callout">The <code>fdai:managed=true</code> tag doesn't prove FDAI ownership, because anyone with tag rights can set it.</div>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

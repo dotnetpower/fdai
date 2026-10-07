@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Commands - FDAI Lifecycle Hub</title>
+  <link rel="stylesheet" href="assets/lifecycle.css?v=1" />
+  <script src="assets/lifecycle.js?v=1" defer></script>
+</head>
+<body>
+  <div class="app">
+    <nav class="side" aria-label="Lifecycle Hub">
+  <div class="brand">FDAI Lifecycle Hub<small>Customer A cell · Korea Central</small></div>
+  <div class="grp">Operate</div>
+  <a class="it" href="05-hub-installations.html">Installations <span class="cnt">3</span></a>
+  <a class="it" href="07-hub-plan.html">Plans</a>
+  <a class="it" href="10-hub-confirmations.html">Confirmations <span class="cnt">0</span></a>
+  <a class="it on" href="11-hub-commands.html" aria-current="page">Commands <span class="cnt">1</span></a>
+  <div class="grp">Catalog</div>
+  <div class="it">Available Releases</div>
+  <div class="it">Custom channels</div>
+  <div class="it">Configuration packages</div>
+  <div class="grp">Admin</div>
+  <a class="it" href="13-hub-enrollment.html">Enrollment requests</a>
+  <div class="it">Audit</div>
+</nav>
+    <main class="main">
+      <div class="crumb">Commands</div>
+      <div class="m-head"><div><h1>New command</h1><div class="sub">Every command needs an expiry and is recorded in the Hub audit</div></div></div>
+      <div class="cols">
+        <section aria-label="Command form">
+          <div class="form-row"><span class="lbl">Kind</span><span class="seg"><span class="on">Suppression</span><span>Lower authority</span><span>Break-glass</span></span></div>
+          <div class="form-row"><span class="lbl">Scope</span><div class="input">prod · all Entities</div></div>
+          <div class="form-row"><span class="lbl">Starts</span><div class="input">2026-12-20 00:00 Asia/Seoul</div></div>
+          <div class="form-row"><span class="lbl">Expires (required)</span><div class="input">2027-01-03 00:00 Asia/Seoul</div></div>
+          <div class="form-row"><span class="lbl">Reason</span><div class="input">Year-end change freeze</div></div>
+          <div class="callout">A suppression window also blocks recall roll-off. If that happens, the Hub raises an alert.</div>
+          <div class="card-actions" style="display: flex; gap: 6px; justify-content: flex-end"><button class="btn" type="button">Cancel</button><button class="btn primary" type="button">Create suppression</button></div>
+        </section>
+        <section aria-label="Active commands">
+          <div class="panel-title">Active commands</div>
+          <table class="t">
+            <thead><tr><th>Kind</th><th>Scope</th><th>Expires</th></tr></thead>
+            <tbody>
+              <tr><td><span class="badge warn">Break-glass</span><div class="soft">Core replicas 3 → 6</div></td><td>prod</td><td>Today 23:00<div class="soft">Then reconciles to Git rev 43</div></td></tr>
+            </tbody>
+          </table>
+          <div class="panel-title">Break-glass can bypass</div>
+          <ul class="list">
+            <li><span class="ic ok">✓</span><span>Maintenance windows, suppression windows, and version ranges</span><span class="soft">Bypassed</span></li>
+            <li><span class="ic fail">✕</span><span>Signatures, envelope, recall, destructive-change confirmation, and audit</span><span class="soft">Always enforced</span></li>
+          </ul>
+          <p class="note">Break-glass needs the break-glass role and fresh sign-in. No command raises authority.</p>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

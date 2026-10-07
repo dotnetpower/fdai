@@ -36,7 +36,7 @@ test("master navigation keeps one quiet, collapsible hierarchy", () => {
   assert.match(masterLanding, /--explorer-w: 248px/);
   assert.match(masterLanding, /src="console\/public\/brand\/fdai-logo\.png"/);
   assert.equal((masterLanding.match(/<button class="nav-group-head"/g) || []).length, 8);
-  assert.equal((masterLanding.match(/<button class="fam is-/g) || []).length, 5);
+  assert.equal((masterLanding.match(/<button class="fam is-/g) || []).length, 6);
   assert.doesNotMatch(masterLanding, /<button[^>]*>[^<]*<h[1-6]>/);
   assert.match(masterLanding, /\.side a \.dot \{ display: none; \}/);
   assert.match(masterLanding, /\.side a\.is-active \{ border: 1px solid/);
