@@ -317,6 +317,14 @@ some predicates run only in memory. The design therefore pins one authorized mem
   incomplete, or the read is a traversal or relationship read. The query table carries the exact
   count as its total rows, and an ungrouped count over that table reads it as a complete value. A
   page that was not cut keeps receipt 1.2.0.
+- **P2 traversal populations:** A scoped collection's member traversal carries `read_population`,
+  which the plan verifier allows only for one hop or a transitive LinkType. When its page is cut at
+  the limit over a complete source, the handler re-reads the population one hop at a time from
+  frontier batches of 32, each a secured read of the same source generation; a cut batch splits down
+  to one member, and a budget of 64 reads bounds the walk. Reached endpoints of the stated kind that
+  match the same endpoint predicates are counted once, and the count becomes the table's total rows,
+  so an ungrouped count is exact. A cut single member, a hidden or unprojected endpoint, a changed
+  generation, or an exhausted budget states no count, and the page keeps its traversal limitation.
 
 | Population status | Outcome |
 |-------------------|---------|

@@ -354,7 +354,10 @@ def _collection_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         side = containment_side(ctx)
         if side is None or side.endpoint_type != selector:
             return OperatorResult(unsupported=("scope_containment_unavailable",))
-        member = traversal_node(f"{prefix}-members", anchor.node_id, side, predicates, ctx)
+        # The containment side is transitive, so its whole population may be read hop by hop.
+        member = traversal_node(
+            f"{prefix}-members", anchor.node_id, side, predicates, ctx, read_population=True
+        )
         nodes = [anchor, member]
         output = member.node_id
     if measure is not None:

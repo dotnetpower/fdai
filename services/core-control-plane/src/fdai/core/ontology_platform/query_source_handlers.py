@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from collections.abc import Mapping, Sequence
-from dataclasses import asdict, is_dataclass
+from dataclasses import asdict, is_dataclass, replace
 from functools import partial
 
 from fdai_service_contracts.ontology_query import (
@@ -43,6 +43,7 @@ from .query_lineage_batches import (
     root_names,
 )
 from .query_receipt_authority import SecuredQueryReceiptAuthority, secured_query_scope_digest
+from .query_traversal_population import traversal_population_count
 from .query_traversal_tables import (
     relationship_lineage_table,
     relationship_traversal_table,
@@ -256,6 +257,20 @@ class SecuredRelationshipTraversalNodeHandler:
                     else None
                 ),
             )
+        if (
+            traversal.read_population
+            and secured.receipt.truncated
+            and secured.receipt.source_complete
+        ):
+            count = await traversal_population_count(
+                self._gateway,
+                traversal,
+                root_ids=root_ids,
+                request=self._request,
+                expected_generation=secured.receipt.source_generation,
+            )
+            if count is not None and count > len(table.rows):
+                table = replace(table, total_rows=count)
         return QueryNodeResult(
             value=table,
             evidence_refs=evidence_refs(dependencies)

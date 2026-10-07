@@ -155,6 +155,9 @@ class RelationshipTraversalDefinition(ContractBase):
     # Adds one coverage row for each root with no related member, so an empty anchor is
     # verified empty only when its read was complete.
     emit_coverage: bool = Field(default=False, exclude_if=lambda value: not value)
+    # Reads the exact population behind a page cut at its limit, one hop at a time; the plan
+    # verifier allows it only for one hop or a transitive LinkType.
+    read_population: bool = Field(default=False, exclude_if=lambda value: not value)
 
     @model_validator(mode="after")
     def _bounded_traversal(self) -> RelationshipTraversalDefinition:
@@ -162,6 +165,8 @@ class RelationshipTraversalDefinition(ContractBase):
             raise ValueError("relationship traversal link types MUST be unique")
         if self.emit_coverage and not self.emit_lineage:
             raise ValueError("relationship traversal coverage rows require lineage rows")
+        if self.read_population and self.emit_lineage:
+            raise ValueError("relationship traversal population reads endpoints, not lineage")
         if self.as_of.tzinfo is None:
             raise ValueError("relationship traversal as_of MUST be timezone-aware")
         return self
