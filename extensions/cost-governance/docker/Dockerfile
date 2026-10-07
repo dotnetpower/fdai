@@ -75,12 +75,14 @@ RUN uv build --wheel --package fdai-github-app-auth --out-dir /wheels \
 FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:540c7d91f98ff6880174c40e99067bf5941eb54d818a7a5e094d188b196a934d AS runtime
 
 ARG OPENSSL_LIBS_VERSION=3.5.9-r0
+ARG ZLIB_VERSION=1.3.2-r1
 ARG SQLITE_LIBS_VERSION=3.53.4-r0
 ARG UTIL_LINUX_LIBS_VERSION=2.42.3-r1
 ARG GIT_VERSION=2.56.0-r0
 RUN apk add --no-cache --upgrade \
         "libcrypto3=${OPENSSL_LIBS_VERSION}" \
         "libssl3=${OPENSSL_LIBS_VERSION}" \
+        "zlib=${ZLIB_VERSION}" \
     && apk add --no-cache --repository https://dl-cdn.alpinelinux.org/alpine/edge/main \
         "git=${GIT_VERSION}" \
         "libuuid=${UTIL_LINUX_LIBS_VERSION}" \
