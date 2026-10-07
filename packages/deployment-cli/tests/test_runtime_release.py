@@ -15,8 +15,10 @@ from fdai_deployment_cli.runtime_release import (
     RecallRecord,
     RuntimeRelease,
     RuntimeReleaseError,
+    compare_release_ids,
     evaluate_recall_candidate,
     load_runtime_release,
+    parse_runtime_release_manifest,
     recall_target_ordering,
     validate_schema_transition,
 )
@@ -738,3 +740,28 @@ def test_runtime_release_inherits_offline_kit_size_bounds(
         monkeypatch.setattr(offline_kit, "_MAX_TOTAL_BYTES", total - 1)
     with pytest.raises(RuntimeReleaseError, match="size limit"):
         _load(tmp_path)
+
+
+def test_parse_runtime_release_manifest_matches_kit_loader_without_artifacts(
+    tmp_path: Path,
+) -> None:
+    catalog = _catalog_v3(tmp_path)
+    _save(tmp_path, catalog)
+    loaded = _load(tmp_path)
+    parsed = parse_runtime_release_manifest(canonical_bytes(catalog))
+    assert parsed == loaded
+    other_commit = dict(catalog, source_commit="f" * 40)
+    assert parse_runtime_release_manifest(canonical_bytes(other_commit)).source_commit == "f" * 40
+    with pytest.raises(RuntimeReleaseError):
+        parse_runtime_release_manifest(b'{"schema_version": "fdai.runtime-release.v9"}')
+    with pytest.raises(RuntimeReleaseError):
+        parse_runtime_release_manifest(b"not json")
+
+
+def test_compare_release_ids_orders_by_semantic_version_precedence() -> None:
+    assert compare_release_ids("1.5.1", "1.5.0") == 1
+    assert compare_release_ids("1.5.0", "1.5.0") == 0
+    assert compare_release_ids("1.5.0-rc.2", "1.5.0") == -1
+    assert compare_release_ids("1.5.0-rc.10", "1.5.0-rc.2") == 1
+    with pytest.raises(RuntimeReleaseError):
+        compare_release_ids("v1.5.0", "1.5.0")

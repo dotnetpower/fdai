@@ -180,80 +180,125 @@ def load_runtime_release(
         _require_directory(root)
         _require_directory(root / "runtime")
         raw = offline_kit._read_regular(root / RUNTIME_RELEASE_PATH, _MAX_CATALOG_BYTES)
-        payload = load_json_object(raw, label="runtime release", max_bytes=_MAX_CATALOG_BYTES)
-        # The shared decoder currently accepts duplicate keys; reject them at every depth.
-        json.loads(raw, object_pairs_hook=_unique_object)
-        schema = payload.get("schema_version")
-        if not isinstance(schema, str) or schema not in (
-            _LEGACY_SCHEMA,
-            _SCHEMA,
-            _LIFECYCLE_SCHEMA,
-        ):
-            raise RuntimeReleaseError("runtime release schema version is unsupported")
-        schema_keys = set(_CATALOG_KEYS)
-        if schema in {_SCHEMA, _LIFECYCLE_SCHEMA}:
-            schema_keys.add("sidecars")
-        if schema == _LIFECYCLE_SCHEMA:
-            schema_keys.update({"installation_agents", "schema", "capabilities", "downtime"})
-        catalog = _object(payload, schema_keys)
-        commit, platform = catalog["source_commit"], catalog["platform_tag"]
-        if not isinstance(commit, str) or _COMMIT.fullmatch(commit) is None:
-            raise RuntimeReleaseError("runtime release source commit is invalid")
-        if not isinstance(platform, str) or platform not in _PLATFORMS:
-            raise RuntimeReleaseError("runtime release platform is invalid")
-        if commit != expected_source_commit:
-            raise RuntimeReleaseError("runtime release source commit does not match")
-        if platform != expected_platform_tag:
-            raise RuntimeReleaseError("runtime release platform does not match")
-        bundle_digest = catalog["deployment_bundle_sha256"]
-        if not isinstance(bundle_digest, str) or _SHA256.fullmatch(bundle_digest) is None:
-            raise RuntimeReleaseError("runtime release deployment bundle digest is invalid")
-        services = _object(catalog["services"], set(RUNTIME_SERVICES))
-        declared: dict[str, str] = {}
-        for service in sorted(RUNTIME_SERVICES):
-            _declare_record(services[service], service=True, declared=declared)
-        if schema == _SCHEMA:
-            sidecars = _object(catalog["sidecars"], set(RUNTIME_SIDECARS))
-            for sidecar in sorted(RUNTIME_SIDECARS):
-                _declare_record(sidecars[sidecar], service=True, declared=declared)
-        installation_agent_images: tuple[str, ...] = ()
-        schema_target: int | None = None
-        schema_range: SchemaRange | None = None
-        capability_maximums: dict[str, str] = {}
-        downtime_entities: tuple[str, ...] = ()
-        if schema == _LIFECYCLE_SCHEMA:
-            sidecars = _object(catalog["sidecars"], set(RUNTIME_SIDECARS))
-            for sidecar in sorted(RUNTIME_SIDECARS):
-                _declare_record(sidecars[sidecar], service=True, declared=declared)
-            agents = _object(catalog["installation_agents"], set(RUNTIME_INSTALLATION_AGENTS))
-            for agent in sorted(RUNTIME_INSTALLATION_AGENTS):
-                _declare_record(agents[agent], service=True, declared=declared)
-            installation_agent_images = tuple(sorted(RUNTIME_INSTALLATION_AGENTS))
-            schema_target, schema_range = _release_schema(catalog["schema"])
-            capability_maximums = _capability_maximums(catalog["capabilities"])
-            downtime_entities = _downtime_entities(catalog["downtime"])
-        for section in ("console", "deployment_support"):
-            _declare_record(catalog[section], service=False, declared=declared)
-        _verify_tree(root, {**declared, RUNTIME_RELEASE_PATH: hashlib.sha256(raw).hexdigest()})
-        canonical = canonical_bytes(catalog)
-        return RuntimeRelease(
-            source_commit=commit,
-            platform_tag=platform,
-            deployment_bundle_sha256=bundle_digest,
-            digest=hashlib.sha256(canonical).hexdigest(),
-            artifact_paths=tuple(sorted(declared)),
-            _catalog=canonical,
-            schema_version=schema,
-            schema_target=schema_target,
-            schema_range=schema_range,
-            capability_maximums=capability_maximums,
-            downtime_entities=downtime_entities,
-            installation_agent_images=installation_agent_images,
+        release, declared = _parse_runtime_release(
+            raw,
+            expected_source_commit=expected_source_commit,
+            expected_platform_tag=expected_platform_tag,
         )
+        _verify_tree(root, {**declared, RUNTIME_RELEASE_PATH: hashlib.sha256(raw).hexdigest()})
+        return release
     except RuntimeReleaseError:
         raise
     except (OSError, ValueError, TypeError, RecursionError) as exc:
         raise RuntimeReleaseError("runtime release is invalid or unavailable") from exc
+
+
+def parse_runtime_release_manifest(raw: bytes) -> RuntimeRelease:
+    """Validate one runtime release manifest from bytes without reading its artifacts.
+
+    The manifest checks match load_runtime_release, but no source commit, platform, or local
+    artifact tree is compared. A caller that holds no offline kit, such as a Lifecycle Hub
+    catalog, uses this to read a Release it received. Raises RuntimeReleaseError on any
+    invalid input. No signature, publication, or execution authority is implied.
+    """
+
+    try:
+        release, _declared = _parse_runtime_release(
+            raw, expected_source_commit=None, expected_platform_tag=None
+        )
+        return release
+    except RuntimeReleaseError:
+        raise
+    except (ValueError, TypeError, RecursionError) as exc:
+        raise RuntimeReleaseError("runtime release is invalid") from exc
+
+
+def compare_release_ids(left: str, right: str) -> int:
+    """Return -1, 0, or 1 by Semantic Versioning precedence of two canonical Release IDs."""
+
+    left_parts = _release_version_parts(left)
+    right_parts = _release_version_parts(right)
+    if left_parts is None or right_parts is None:
+        raise RuntimeReleaseError("release id is not canonical semantic version")
+    return _compare_release_versions(left_parts, right_parts)
+
+
+def _parse_runtime_release(
+    raw: bytes,
+    *,
+    expected_source_commit: str | None,
+    expected_platform_tag: str | None,
+) -> tuple[RuntimeRelease, dict[str, str]]:
+    payload = load_json_object(raw, label="runtime release", max_bytes=_MAX_CATALOG_BYTES)
+    # The shared decoder currently accepts duplicate keys; reject them at every depth.
+    json.loads(raw, object_pairs_hook=_unique_object)
+    schema = payload.get("schema_version")
+    if not isinstance(schema, str) or schema not in (
+        _LEGACY_SCHEMA,
+        _SCHEMA,
+        _LIFECYCLE_SCHEMA,
+    ):
+        raise RuntimeReleaseError("runtime release schema version is unsupported")
+    schema_keys = set(_CATALOG_KEYS)
+    if schema in {_SCHEMA, _LIFECYCLE_SCHEMA}:
+        schema_keys.add("sidecars")
+    if schema == _LIFECYCLE_SCHEMA:
+        schema_keys.update({"installation_agents", "schema", "capabilities", "downtime"})
+    catalog = _object(payload, schema_keys)
+    commit, platform = catalog["source_commit"], catalog["platform_tag"]
+    if not isinstance(commit, str) or _COMMIT.fullmatch(commit) is None:
+        raise RuntimeReleaseError("runtime release source commit is invalid")
+    if not isinstance(platform, str) or platform not in _PLATFORMS:
+        raise RuntimeReleaseError("runtime release platform is invalid")
+    if expected_source_commit is not None and commit != expected_source_commit:
+        raise RuntimeReleaseError("runtime release source commit does not match")
+    if expected_platform_tag is not None and platform != expected_platform_tag:
+        raise RuntimeReleaseError("runtime release platform does not match")
+    bundle_digest = catalog["deployment_bundle_sha256"]
+    if not isinstance(bundle_digest, str) or _SHA256.fullmatch(bundle_digest) is None:
+        raise RuntimeReleaseError("runtime release deployment bundle digest is invalid")
+    services = _object(catalog["services"], set(RUNTIME_SERVICES))
+    declared: dict[str, str] = {}
+    for service in sorted(RUNTIME_SERVICES):
+        _declare_record(services[service], service=True, declared=declared)
+    if schema == _SCHEMA:
+        sidecars = _object(catalog["sidecars"], set(RUNTIME_SIDECARS))
+        for sidecar in sorted(RUNTIME_SIDECARS):
+            _declare_record(sidecars[sidecar], service=True, declared=declared)
+    installation_agent_images: tuple[str, ...] = ()
+    schema_target: int | None = None
+    schema_range: SchemaRange | None = None
+    capability_maximums: dict[str, str] = {}
+    downtime_entities: tuple[str, ...] = ()
+    if schema == _LIFECYCLE_SCHEMA:
+        sidecars = _object(catalog["sidecars"], set(RUNTIME_SIDECARS))
+        for sidecar in sorted(RUNTIME_SIDECARS):
+            _declare_record(sidecars[sidecar], service=True, declared=declared)
+        agents = _object(catalog["installation_agents"], set(RUNTIME_INSTALLATION_AGENTS))
+        for agent in sorted(RUNTIME_INSTALLATION_AGENTS):
+            _declare_record(agents[agent], service=True, declared=declared)
+        installation_agent_images = tuple(sorted(RUNTIME_INSTALLATION_AGENTS))
+        schema_target, schema_range = _release_schema(catalog["schema"])
+        capability_maximums = _capability_maximums(catalog["capabilities"])
+        downtime_entities = _downtime_entities(catalog["downtime"])
+    for section in ("console", "deployment_support"):
+        _declare_record(catalog[section], service=False, declared=declared)
+    canonical = canonical_bytes(catalog)
+    release = RuntimeRelease(
+        source_commit=commit,
+        platform_tag=platform,
+        deployment_bundle_sha256=bundle_digest,
+        digest=hashlib.sha256(canonical).hexdigest(),
+        artifact_paths=tuple(sorted(declared)),
+        _catalog=canonical,
+        schema_version=schema,
+        schema_target=schema_target,
+        schema_range=schema_range,
+        capability_maximums=capability_maximums,
+        downtime_entities=downtime_entities,
+        installation_agent_images=installation_agent_images,
+    )
+    return release, declared
 
 
 def validate_runtime_images(root: Path, release: RuntimeRelease) -> dict[str, str]:
