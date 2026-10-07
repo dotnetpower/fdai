@@ -121,6 +121,13 @@ function BestPracticeDetailContent({ data }: { readonly data: BestPracticeDetail
                     <code>{requirement.ref}</code>
                   </a>
                 ) : <code>{requirement.ref}</code>}
+                {requirement.limitations.length > 0 ? (
+                  <ul class="control-requirement-limitations" aria-label={t("governance.rules.controls.detail.requirementLimitations")}>
+                    {requirement.limitations.map((code) => (
+                      <li key={code} class="muted small">{displayValue("requirementLimitation", code)}</li>
+                    ))}
+                  </ul>
+                ) : null}
               </div>
               <StatusPill kind={CONTROL_STATUS_PILL[requirement.status]} label={displayValue("controlStatus", requirement.status)} />
             </article>
