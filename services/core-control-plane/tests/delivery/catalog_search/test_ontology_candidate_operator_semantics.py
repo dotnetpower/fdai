@@ -76,11 +76,10 @@ def test_diagnostic_prompt_states_each_contains_and_presence_meaning() -> None:
         "A requested entry inside an object-valued property is expressed with contains",
         "at_least and at_most are inclusive and compare numbers numerically and text in "
         "code-point order",
-        "Wording that describes the requester's situation or purpose rather than the requested "
-        "objects is context, not a condition.",
-        "Predicates cannot compare a value inside an object-valued property.",
-        "select every instance whose documents satisfy all requested conditions by exact "
-        "object_ids. That preserves the condition; it does not drop it.",
+        "Wording about why the requester is asking, such as the task they are performing, is "
+        "context, not a condition.",
+        "Any stated property of the requested objects, including their purpose, remains a "
+        "condition.",
     ):
         assert statement in text
 
