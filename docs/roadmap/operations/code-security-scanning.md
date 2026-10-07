@@ -155,8 +155,8 @@ Kept candidates enter canonicalization in the `llm_lens` lane. They get `hypothe
 so they can't reach alerting priorities on their own. They're corroborated only when a
 deterministic or external producer reports the same root cause, and they become `verified` only
 when a [weakness verifier](#weakness-verifiers) confirms the flow. With fewer than two model
-families, the lane doesn't run. Budget exhaustion, model failures, and skipped files are recorded
-as lens notes in `receipt.json`. Those notes don't change deterministic coverage, because the
+families, the lane doesn't run. Budget exhaustion, model failures with their fixed reason counts,
+and skipped files are recorded as lens notes in `receipt.json`. Those notes don't change deterministic coverage, because the
 lane is optional. Code text that tries to instruct the model can't add findings, since every
 finding must pass grounding and quorum in code.
 
@@ -171,6 +171,27 @@ reviewed a synthetic Flask module with five planted flaws and three safe counter
 Those covered all five planted flaws and none of the safe counterparts. One extra hypothesis,
 missing authentication on a public search route, is a false positive that stays an inert
 `hypothesis`.
+
+### Lens precision on real code
+
+The operator CLI `evaluate-lens` measures hypothesis precision on
+[`evaluation/lens-corpus.yaml`](../../../rule-catalog/code-security/evaluation/lens-corpus.yaml).
+The corpus pins OWASP Benchmark for Java, whose maintainers label every test file with its category
+and whether it's a real vulnerability. The command acquires the exact commit and takes the first ten
+true and ten false files of each mapped category (command injection, path traversal, SQL injection)
+in test-name order. It copies only those files into an owner-only scratch root and runs the lane
+with only the matching lenses and unchanged prompts, hints, and limits. Every kept hypothesis is
+labeled mechanically in the receipt: it's a true positive only when the file's category matches the
+lens class and the file is a real vulnerability. `--dry-run` counts candidates and calls without
+calling a model.
+
+Measured, 2026-10-08, with `gpt-4.1-mini` and `gpt-4o`: 60 files produced 55 candidates and 110
+calls with no errors. The lane kept 10 hypotheses, all for command injection: 5 true and 5 false
+positives, precision 0.5 and recall 0.5. Each false positive is a file where a constant branch
+(three files) or a list-index shuffle (two files) replaces the request value with a constant. Path traversal and SQL injection kept none: models cite the line that
+builds the query or path, while grounding accepts only a sink-hint line, so 79 claims were
+rejected as ungrounded. Lens hypotheses therefore stay inert until another producer or a verifier
+confirms them.
 
 Example: two model families both cite line 8, `Order.query.get(order_id)`, for
 `missing-authorization` with CWE-639. FDAI keeps one `hypothesis` occurrence. The issue is

@@ -85,7 +85,7 @@ async def run_scan(args: argparse.Namespace) -> dict[str, object]:
 
         publisher = heimdall_publisher(args.kafka_bootstrap_servers)
     lens_catalog = load_lens_catalog(catalog_root) if args.lens_model else None
-    async with _lens_models(args.lens_model, lens_catalog, args.lens_identity) as lens_models:
+    async with open_lens_models(args.lens_model, lens_catalog, args.lens_identity) as lens_models:
         result = await _run(
             args, catalog_root, executables, scanners, publisher, lens_catalog, lens_models
         )
@@ -122,7 +122,7 @@ async def run_scan(args: argparse.Namespace) -> dict[str, object]:
 
 
 @asynccontextmanager
-async def _lens_models(
+async def open_lens_models(
     specs: list[str], catalog: LensCatalog | None, identity_kind: str = "managed-identity"
 ) -> AsyncIterator[list[CodeSecurityLensModel]]:
     """Build Azure lens models from ``FAMILY=ENDPOINT|DEPLOYMENT`` specs inside one client.
@@ -204,4 +204,4 @@ async def _run(
     )
 
 
-__all__ = ["add_scan_command", "run_scan"]
+__all__ = ["add_scan_command", "open_lens_models", "run_scan"]
