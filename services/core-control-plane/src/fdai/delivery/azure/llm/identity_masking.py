@@ -189,6 +189,9 @@ def _map_quotes(
                         goal[key] = inside(goal[key], "cue")
                 if "relation" in goal:
                     goal["relation"] = inside(goal["relation"], "reach_cue")
+                measure = goal.get("measure")
+                if isinstance(measure, dict) and "order" in measure:
+                    goal["measure"] = {**measure, "order": inside(measure["order"], "cue")}
                 filters = goal.get("filters")
                 if isinstance(filters, list):
                     goal["filters"] = [inside(item, "cue") for item in filters]

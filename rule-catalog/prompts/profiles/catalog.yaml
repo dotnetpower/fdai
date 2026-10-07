@@ -262,7 +262,7 @@ profiles:
     promotion_evidence: []
     provenance: {source: docs/roadmap/interfaces/hierarchical-conversation-planning.md}
   - id: active.conversation-preflight
-    version: 7
+    version: 8
     capability_id: conversation.preflight
     mode: active
     root: {id: conversation-preflight, version: 9, layer: base}
@@ -270,6 +270,7 @@ profiles:
       - {id: conversation-preflight-resource-changes, version: 2, layer: pack}
       - {id: conversation-preflight-schema-scope, version: 2, layer: pack}
       - {id: conversation-preflight-request-topics, version: 1, layer: pack}
+      - {id: conversation-preflight-environment-reach, version: 1, layer: pack}
     system_token_budget: 12288
     request_token_budget: 20480
     reserved_output_tokens: 768
@@ -625,7 +626,7 @@ profiles:
     root: {id: semantic-question-form, version: 1, layer: base}
     packs:
       - {id: semantic-question-form-azure-resources, version: 1, layer: pack}
-    system_token_budget: 13824
+    system_token_budget: 15872
     request_token_budget: 32768
     reserved_output_tokens: 2048
     promotion_evidence: [docs/roadmap/interfaces/ontology-reasoning-compiler.md]
@@ -649,7 +650,7 @@ profiles:
     root: {id: semantic-constraint-extraction, version: 1, layer: base}
     packs:
       - {id: semantic-constraint-extraction-azure-resources, version: 1, layer: pack}
-    system_token_budget: 5376
+    system_token_budget: 6144
     request_token_budget: 32768
     reserved_output_tokens: 1024
     promotion_evidence: [docs/roadmap/interfaces/ontology-reasoning-compiler.md]

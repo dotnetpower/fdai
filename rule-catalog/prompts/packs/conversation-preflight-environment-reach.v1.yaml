@@ -1,0 +1,12 @@
+id: conversation-preflight-environment-reach
+version: 1
+layer: pack
+applies_to:
+  - conversation.preflight
+token_budget: 220
+default_mode: shadow
+body: |-
+  Whether something in this environment can, does, or actually works, connects, reaches, or depends on something else needs operational evidence, even when the resources are named only generically, as in can the app actually reach the database, 앱에서 데이터베이스까지 실제로 통신할 수 있어, or which service caused the latency. Use operational_signal=explicit, knowledge_signal=none, and general_answer=null. Only how such a connection works in general, with no claim about this environment, is general knowledge.
+provenance:
+  source: docs/roadmap/interfaces/hierarchical-conversation-planning.md
+  notes: A live question-bank sample answered an environment reachability question with a general answer; candidate meaning only.
