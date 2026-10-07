@@ -20,6 +20,10 @@ The design is in [Code Security Findings](../../docs/roadmap/operations/code-sec
 | `priority-policy.yaml` | First-match rules over severity, confidence, exposure, and known exploitation. |
 | `remediation-policy.yaml` | Pack limits, test path globs, forbidden paths, and diff-guard patterns. |
 | `remediation-pack/` | The conversational prompt, coding-agent adapters, and pack README rendered into every pack. |
+| `scanners.yaml` | Deterministic-lane scanner commands, success codes, and sandbox mounts. Deployments bind each scanner id to a host executable. |
+| `rules/` | FDAI-authored Opengrep rules with positive and negative fixtures. |
+| `lenses.yaml` | LLM lens definitions: CWE scope, sink hints, and excerpt budgets for the off-path review. |
+| `evaluation/` | Labeled evaluation corpus with acceptance floors, run by the CLI `evaluate` command. |
 
 ## Change rules
 
@@ -28,5 +32,7 @@ The design is in [Code Security Findings](../../docs/roadmap/operations/code-sec
   FDAI-authored. Do not copy rule text from third-party rule packs.
 - Template placeholders are `{{PACK_ID}}`, `{{PACK_DIR}}`, and `{{EXPIRES_AT}}`. An unknown
   placeholder fails rendering.
+- An evaluation corpus declares `provenance: synthetic` or `curated`. Never add customer code,
+  paths, or advisory data to the upstream corpus.
 - Run the focused tests after a change:
   `uv run pytest -q --no-cov services/core-control-plane/tests/core/security/code_findings`.

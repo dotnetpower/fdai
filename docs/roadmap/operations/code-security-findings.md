@@ -267,13 +267,31 @@ ingests customer-produced SARIF instead. Guidance text and rules are FDAI-author
 | Tampered, expired, or out-of-scope pack | Helper verification fails; import rejects the result |
 | Guard violation | No commit; violations are reported to the developer |
 
+## Evaluation harness
+
+The operator CLI `evaluate` command runs the real pipeline against a labeled corpus and writes a receipt
+with the corpus digest and catalog versions. Each case lists producer occurrences and the issues a
+reviewer expects, with the fix site, members, reviewer band, and optional verified facts. The
+harness reports:
+
+- dedup pairwise precision and recall with false-merge and false-split pairs;
+- issue-level detection precision and recall at the expected fix site;
+- reviewer-band containment in the floor-to-ceiling range before facts, then exact agreement and
+  quadratic-weighted kappa after the labeled facts are supplied;
+- rerun stability, and rescan matching after every code line shifts.
+
+The corpus declares acceptance floors, and the command fails below any of them. The upstream
+corpus, `rule-catalog/code-security/evaluation/synthetic-corpus.yaml`, is synthetic and labeled by
+its author. It proves the wiring and reproducibility, not rubric calibration.
+
 ## Verification
 
 Focused tests cover catalog validation, adversarial SARIF, path normalization, severity
 reproducibility, cross-lane and cross-layer dedup, non-merging of distinct root causes, KEV and
 exposure isolation from severity, pack determinism and digests, minimized mode, standard-library
 helper imports, guard rules (including renames, quoted paths, and option-shaped references),
-result rejection reasons, and an end-to-end helper session in a temporary git repository.
+result rejection reasons, and an end-to-end helper session in a temporary git repository. The
+evaluation tests prove the harness detects false splits, fix-site misses, and band disagreement.
 
 ## Related docs
 

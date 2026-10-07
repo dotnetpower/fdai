@@ -155,6 +155,11 @@ def _still_present(issue: BaselineIssue, rescan_issues: Sequence[CodeSecurityIss
     return False
 
 
+def matches_rescan(issue: BaselineIssue, rescan_issues: Sequence[CodeSecurityIssue]) -> bool:
+    """Return whether a rescan still contains the baseline issue's root cause."""
+    return _still_present(issue, rescan_issues)
+
+
 def verify_fix_claims(
     claims: Sequence[IssueClaim],
     baseline_issues: Mapping[str, BaselineIssue],
@@ -210,5 +215,6 @@ __all__ = [
     "ProducerRun",
     "ScanCoverageReceipt",
     "coverage_gaps",
+    "matches_rescan",
     "verify_fix_claims",
 ]

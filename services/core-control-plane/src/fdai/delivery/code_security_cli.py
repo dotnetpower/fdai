@@ -10,6 +10,7 @@ Commands:
 ``adjudicate``    record a human decision on a false-positive claim;
 ``publish-review`` publish a scan review through Heimdall and plan notifications;
 ``scan``          run the deterministic lane in the sandbox against one revision;
+``evaluate``      measure dedup, severity, and rescan matching on a labeled corpus;
 ``public-key``    print the pack-signing public key that developers pin.
 
 Example::
@@ -20,7 +21,8 @@ Example::
         --provider example-coding-agent --provider-policy providers.yaml \\
         --signing-key pack-signing.pem --registry ./registry --out ./packs
 
-The CLI performs no network calls and grants no execution authority.
+Apart from the opt-in ``scan --lens-model`` review, the CLI performs no network calls. It grants
+no execution authority.
 """
 
 from __future__ import annotations
@@ -52,6 +54,12 @@ from fdai.core.security.code_findings import (
     render_remediation_pack,
 )
 from fdai.core.security.code_findings.adjudication import AdjudicationError
+from fdai.core.security.code_findings.evaluation import (
+    EvaluationCorpusError,
+    acceptance_failures,
+    corpus_from_mapping,
+    evaluate,
+)
 from fdai.core.security.code_findings.export_gate import (
     AgentProviderPolicy,
     ExportDeniedError,
@@ -121,6 +129,21 @@ def _parser() -> argparse.ArgumentParser:
     add_review_commands(sub)
     add_publish_command(sub)
     add_scan_command(sub)
+    evaluation = sub.add_parser("evaluate", help="measure dedup and severity on a labeled corpus")
+    evaluation.add_argument(
+        "--corpus",
+        default=str(
+            repo_asset_root()
+            / "rule-catalog"
+            / "code-security"
+            / "evaluation"
+            / "synthetic-corpus.yaml"
+        ),
+    )
+    evaluation.add_argument("--output", help="write the evaluation receipt to this file")
+    evaluation.add_argument(
+        "--catalog-root", default=str(repo_asset_root() / "rule-catalog" / "code-security")
+    )
     key = sub.add_parser("public-key", help="print the pack-signing public key")
     key.add_argument("--signing-key", required=True)
     return parser
@@ -258,6 +281,31 @@ def _revoke(args: argparse.Namespace) -> dict[str, object]:
     return {"ok": True, "pack_id": record.pack_id, "revoked": record.revoked}
 
 
+def _evaluate(args: argparse.Namespace) -> dict[str, object]:
+    catalog = load_code_security_catalog(Path(args.catalog_root))
+    corpus = corpus_from_mapping(yaml.safe_load(Path(args.corpus).read_text(encoding="utf-8")))
+    metrics = evaluate(corpus, catalog)
+    failures = acceptance_failures(metrics, corpus.acceptance)
+    receipt: dict[str, object] = {
+        "ok": not failures,
+        "kind": "fdai.code-security.evaluation-receipt",
+        "corpus": {
+            "id": corpus.corpus_id,
+            "version": corpus.version,
+            "provenance": corpus.provenance,
+            "digest": corpus.digest,
+        },
+        "catalog_versions": catalog.version_stamp(),
+        "metrics": metrics.as_dict(),
+        "acceptance": dict(corpus.acceptance),
+        "failures": failures,
+        "evaluated_at": datetime.now(UTC).isoformat(),
+    }
+    if args.output:
+        Path(args.output).write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
+    return receipt
+
+
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
@@ -275,6 +323,8 @@ def main(argv: list[str] | None = None) -> int:
             output = asyncio.run(publish_review(args))
         elif args.command == "scan":
             output = asyncio.run(run_scan(args))
+        elif args.command == "evaluate":
+            output = _evaluate(args)
         else:
             signer = Ed25519PackSigner(Path(args.signing_key))
             output = {
@@ -291,6 +341,7 @@ def main(argv: list[str] | None = None) -> int:
     except ExportDeniedError as exc:
         output = {"ok": False, "reason": "export_denied", "error": str(exc)}
     except (
+        EvaluationCorpusError,
         CodeSecurityCatalogError,
         SarifIngestError,
         PackRegistryError,

@@ -6,10 +6,11 @@ and resumable work while the roadmap owner remains focused on normative design.
 ## Implementation status
 
 The deterministic core for SARIF ingestion, severity, canonical issues, priority, fix groups,
-remediation packs, the diff guard, result import, and the operator CLI is implemented and covered
-by focused tests, including an end-to-end helper session in a temporary git repository. Nothing
-on this path is wired into the agent runtime, Console, or notifications yet, and no scanning lane
-runs inside FDAI. Passing focused tests does not promote the capability or prove a deployed path.
+signed remediation packs, the diff guard, result import, rescan verification, adjudication,
+Heimdall review publication, notifications, sandboxed scanning lanes, and a synthetic evaluation
+harness is implemented and covered by focused tests. The Console view, CWE verifiers, opt-in
+proof, a curated evaluation corpus, and a deployed scan runner are not built. The capability stays
+in shadow mode; passing focused tests does not promote it or prove a deployed path.
 
 ### Implementation scope
 
@@ -26,6 +27,7 @@ runs inside FDAI. Passing focused tests does not promote the capability or prove
 | Pack signing, revocation store, and export gate | implemented | `signing.py`, `ed25519_verify.py`, `export_gate.py`; `shared/providers/remediation_pack.py`; `delivery/code_security_signing.py`, `delivery/code_security_registry.py`; `config/code-security-agent-providers.yaml`; `test_signing.py`, `test_export_gate.py`, `test_cli.py`, `tests/delivery/test_code_security_adapters.py` | DSSE over the manifest, stdlib RFC 8032 verification in the helper, file-backed registry with revocation, fail-closed provider gate. A database-backed registry for multi-host deployments is not built. |
 | Scanning lanes, verifiers, and proof | in-progress | [Code Security Scanning ledger](code-security-scanning.md) | The deterministic lane and the off-path LLM lens lane are implemented and tracked in their own ledger. CWE verifiers and opt-in proof are not implemented. |
 | Rescan verification and adjudication | implemented | `sarif_runs.py`, `receipts.py`, `verification.py`, `adjudication.py`; `delivery/code_security_review_cli.py`; `test_verification.py`, `test_cli.py` | Baseline receipts at export, coverage-equivalence gaps, root-cause matching across line shifts and advisory aliases, separation-of-duties adjudication, append-only review log. |
+| Evaluation harness and synthetic corpus | implemented | `evaluation.py`; `rule-catalog/code-security/evaluation/synthetic-corpus.yaml`; CLI `evaluate`; `test_evaluation.py` | Dedup pairwise precision and recall, detection precision and recall, severity range containment, exact agreement and weighted kappa with labeled facts, rerun stability, and line-shift rescan matching, with acceptance floors and a receipt. The corpus is synthetic and author-labeled; it proves wiring and reproducibility, not calibration. |
 
 ### Implementation history
 
@@ -36,6 +38,7 @@ runs inside FDAI. Passing focused tests does not promote the capability or prove
 | 2026-10-07 | implemented | Added coverage receipts from SARIF run metadata, baseline storage at export, coverage-equivalent rescan verification (`fixed_verified`, `still_present`, `inconclusive`), false-positive adjudication with separation of duties, and CLI `verify-fixes` and `adjudicate`. | current change; `uv run pytest -q --no-cov services/core-control-plane/tests/core/security/code_findings services/core-control-plane/tests/delivery/test_code_security_adapters.py` (143 passed); ruff and strict mypy pass. | Agent wiring, notifications, scanning lanes, LLM lens lane, and evaluation. |
 | 2026-10-07 | implemented | Added the code-security review package, Heimdall `object.drift` publication through an injected projector, Forseti `hil` judgment and Saga audit coverage, localized A2 and A4 notification routes with fail-closed planning, and CLI `publish-review`. | current change; `uv run pytest -q --no-cov services/core-control-plane/tests/core/security/code_findings services/core-control-plane/tests/agents/test_code_security_drift.py services/core-control-plane/tests/agents/test_provider_schema_drift.py services/core-control-plane/tests/notifications` (457 passed); Heimdall-related agent tests (279 passed); ruff, strict mypy, agents import boundary, and catalog parity pass. | Scanning lanes, LLM lens lane, Console view, and evaluation. |
 | 2026-10-07 | in-progress | Moved deterministic scanning-lane delivery to its own owner document and ledger, and implemented acquisition, the sandbox, the scanner catalog, the FDAI rule pack, and the scan job there. | current change; see `docs/roadmap-implementation/operations/code-security-scanning.md`. | LLM lens lane, CWE verifiers, opt-in proof, Console view, and evaluation. |
+| 2026-10-07 | implemented | Added the offline evaluation harness, the synthetic labeled corpus with acceptance floors, the public `matches_rescan` matcher, and CLI `evaluate` with a receipt. | current change; `uv run pytest -q --no-cov services/core-control-plane/tests/core/security/code_findings` (186 passed, 1 skipped without a local rule engine); `python -m fdai.delivery.code_security_cli evaluate` passes every floor on 8 cases and 12 issues; ruff and strict mypy pass. | Curated corpus with post-cutoff advisories, holdout, and independent labels; Console view; CWE verifiers; opt-in proof. |
 
 ### Remaining work
 
@@ -53,10 +56,12 @@ runs inside FDAI. Passing focused tests does not promote the capability or prove
 - [x] Define `code-acquire` and `code-analyze` sandbox contracts and run the deterministic lane with
   FDAI-authored rules; egress-free and quota tests pass, tracked in the
   [Code Security Scanning ledger](code-security-scanning.md).
-- [ ] Approve the pantheon design change for the LLM lens lane, then implement lenses with
-  grounding verification and mixed-model review; exit with zero ungrounded locations on the
-  evaluation corpus.
+- [ ] Validate the LLM lens lane live. The lane is implemented as an off-path worker inside the
+  scan job, so no pantheon change was needed; it is tracked in the
+  [Code Security Scanning ledger](code-security-scanning.md). Exit with a recorded two-family live
+  run and zero ungrounded locations on a curated corpus.
 - [x] Implement coverage-equivalent rescan verification for `fixed_verified` and a false-positive
   adjudication workflow; tests that reject non-equivalent rescans pass in the transition above.
-- [ ] Build the measured evaluation corpus (post-cutoff CVEs, holdout, clean negatives) and record
-  severity agreement and dedup precision and recall; exit with a recorded receipt.
+- [ ] Build a curated evaluation corpus (post-cutoff CVEs, holdout, clean negatives, independent
+  reviewer labels) for the implemented harness; exit with a recorded `evaluate` receipt whose
+  provenance is `curated`. The synthetic corpus and harness are delivered in the transition above.
