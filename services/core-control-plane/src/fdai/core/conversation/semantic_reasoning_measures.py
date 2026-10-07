@@ -10,6 +10,7 @@ so one goal that restricts both is typed unsupported instead of widened.
 
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
 from fdai_service_contracts.ontology_query import (
@@ -19,14 +20,19 @@ from fdai_service_contracts.ontology_query import (
 )
 
 from fdai.core.ontology_platform.resource_health_queries import RESOURCE_HEALTH_FUNCTION_NAME
-from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FUNCTION_NAME
+from fdai.core.ontology_platform.resource_state_queries import (
+    RESOURCE_STATE_FUNCTION_NAME,
+    RESOURCE_STATE_OBSERVED_CONCEPT,
+)
 
 from .semantic_planning_models import SemanticOutputShape
 from .semantic_reasoning_form import (
     FilterRole,
     FormGoal,
     GoalOperation,
+    MeasureKind,
     MentionDomain,
+    SubjectScope,
 )
 from .semantic_reasoning_lifecycle import parse_lifecycle
 from .semantic_reasoning_nodes import (
@@ -147,6 +153,45 @@ def _stated_concepts(
     return tuple(sorted(set(concepts)))
 
 
+def listed_measure(
+    goal: FormGoal, ctx: CompileContext
+) -> MeasureRestriction | OperatorResult | None:
+    """Return the reader stage that lists a state or health measure of every member.
+
+    A select over a collection may ask for each member's state or health without
+    restricting it. The state reader then keeps every observed state, and the health
+    reader reads every reviewed health concept, so no member is chosen by its value.
+    """
+
+    measure = goal.measure
+    if (
+        measure is None
+        or goal.effective_operation is not GoalOperation.SELECT
+        or goal.subject_scope is not SubjectScope.COLLECTION
+        or measure.kind not in {MeasureKind.STATE, MeasureKind.HEALTH}
+    ):
+        return None
+    if measure.kind is MeasureKind.STATE:
+        reader = _READERS[0]
+        concepts: tuple[str, ...] = (RESOURCE_STATE_OBSERVED_CONCEPT,)
+    else:
+        reader = _READERS[1]
+        concepts = listed_health_concepts(ctx.manifest.health_labels)
+        if not concepts:
+            return OperatorResult(unsupported=("health_concepts_unavailable",))
+    if not function_declared(ctx, reader.function_name):
+        return OperatorResult(unsupported=(f"function_unavailable:{reader.function_name}",))
+    return MeasureRestriction(reader.role, reader.function_name, reader.output_shape, concepts)
+
+
+def listed_health_concepts(
+    health_labels: Iterable[tuple[str, Sequence[str]]],
+) -> tuple[str, ...]:
+    """Return every reviewed health concept a listing reads, in stable order."""
+
+    return tuple(sorted(str(concept) for concept, _states in health_labels))
+
+
 def _names_lifecycle(mention_id: str, ctx: CompileContext) -> bool:
     """Return whether a mention grounds in another ObjectType's lifecycle values."""
 
@@ -154,4 +199,4 @@ def _names_lifecycle(mention_id: str, ctx: CompileContext) -> bool:
     return any(parse_lifecycle(item) is not None for item in values)
 
 
-__all__ = ["MeasureRestriction", "stated_measure"]
+__all__ = ["MeasureRestriction", "listed_health_concepts", "listed_measure", "stated_measure"]

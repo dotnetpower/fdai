@@ -429,8 +429,10 @@ async def test_conversation_preflight_prompt_stays_compact_and_authority_free() 
         "conversation-preflight-resource-changes",
         "conversation-preflight-schema-scope",
         "conversation-preflight-request-topics",
+        "conversation-preflight-environment-reach",
     ]
-    assert out.layer_manifest[-2].version == 2
+    assert out.layer_manifest[2].version == 2
+    assert "operational_signal=explicit, knowledge_signal=none" in out.system_text
     assert "request_topics selects judgment guidance only" in out.system_text
     assert out.system_token_budget is not None
     assert out.token_estimate <= out.system_token_budget

@@ -2406,6 +2406,98 @@ def test_a_stated_health_filters_the_collection_through_the_health_inventory() -
     assert batch.frame.measure_concepts == ("resource_health.unhealthy",)
 
 
+def _listing_form(
+    utterance: str, kind: str, word: str, *, scope: str = "collection"
+) -> dict[str, Any]:
+    subject = (
+        {"id": "m1", "form": "name", "domain": "instance", "span": span(utterance, "vm-a")}
+        if scope == "anchor"
+        else {
+            "id": "m1",
+            "form": "concept",
+            "domain": "resource_type",
+            "span": span(utterance, "VMs"),
+        }
+    )
+    return {
+        "mentions": [subject],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m1",
+                "subject_scope": scope,
+                "measure": {"kind": kind, "cue": span(utterance, word)},
+                "cue": span(utterance, "Show"),
+                "confidence": 0.93,
+            }
+        ],
+    }
+
+
+def test_a_collection_select_lists_every_members_observed_state() -> None:
+    utterance = "Show the state of the VMs"
+    goal = _compile(
+        utterance,
+        _listing_form(utterance, "state", "state"),
+        concepts(("m1", MentionDomain.RESOURCE_TYPE, ("compute.vm",))),
+    ).goals[0]
+
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    (batch,) = goal.batches
+    collection, state = batch.plan.nodes
+    assert collection.kind.value == "object_set"
+    assert json.loads(state.arguments_json)["arguments"] == {
+        "state_concepts": ["resource_state.observed"]
+    }
+    assert batch.frame.output_shape == "resource_state_list"
+
+
+def test_a_collection_select_lists_every_members_health_over_every_reviewed_concept() -> None:
+    utterance = "Show the health of the VMs"
+    form = _listing_form(utterance, "health", "health")
+    receipt = concepts(("m1", MentionDomain.RESOURCE_TYPE, ("compute.vm",)))
+    labels = (
+        ("resource_health.healthy", ("Available",)),
+        ("resource_health.unhealthy", ("Unavailable",)),
+    )
+
+    def compiled(manifest: Any) -> Any:
+        admission = admitted(form, utterance)
+        return compile_question_form(
+            admission,
+            concepts=receipt,
+            manifest=manifest,
+            verifier=plan_verifier(),
+            purpose=PURPOSE,
+            evaluation_time=NOW,
+            default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+            utterance=utterance,
+            anchors=synthetic_anchors(admission),
+        ).goals[0]
+
+    goal = compiled(production_manifest(health_labels=labels))
+    without = compiled(production_manifest())
+
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    health = goal.batches[0].plan.nodes[-1]
+    assert json.loads(health.arguments_json)["arguments"] == {
+        "health_concepts": ["resource_health.healthy", "resource_health.unhealthy"],
+        "state_concepts": [],
+    }
+    assert without.status is GoalStatus.UNSUPPORTED
+    assert without.reasons == ("health_concepts_unavailable",)
+
+
+def test_a_listed_measure_of_one_anchor_is_never_dropped() -> None:
+    utterance = "Show vm-a state"
+    goal = _compile(utterance, _listing_form(utterance, "state", "state", scope="anchor")).goals[0]
+
+    assert goal.status is GoalStatus.UNSUPPORTED
+    assert goal.reasons == ("measure_unsupported:state",)
+
+
 def test_a_health_filter_never_counts_never_mixes_with_state_and_needs_its_reader() -> None:
     counted = "How many unhealthy VMs"
     mixed = "List the stopped unhealthy VMs"

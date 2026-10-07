@@ -273,6 +273,30 @@ def test_a_rejected_form_is_shown_with_quotes_anchored_to_the_masked_utterance()
     assert mask.unmask_form(masked)["mentions"] == previous["mentions"]
 
 
+def test_a_ranking_order_cue_maps_through_the_mask_like_every_other_cue() -> None:
+    utterance = "top 3 by CPU after 10.0.0.10"
+    mask = IdentityMask(utterance, ())
+    order_cue = {"text": "top", "occurrence": 1}
+    previous = {
+        "mentions": [{"id": "m1", "span": {"text": "10.0.0.10", "occurrence": 1}}],
+        "goals": [
+            {
+                "id": "g1",
+                "cue": {"text": "top", "occurrence": 1},
+                "measure": {
+                    "kind": "metric",
+                    "order": {"direction": "descending", "cue": order_cue},
+                },
+            }
+        ],
+    }
+
+    masked = mask.mask_form(previous)
+
+    assert masked["goals"][0]["measure"]["order"]["cue"] == order_cue
+    assert mask.unmask_form(masked)["goals"] == previous["goals"]
+
+
 @pytest.mark.parametrize("wrapped", (f"`{_ID}`", f"**{_ID}**", f"|{_ID}|", f"'{_ID}'"))
 def test_markdown_wrapping_stays_outside_the_placeholder(wrapped: str) -> None:
     mask = IdentityMask(f"What depends on {wrapped}?", ())
