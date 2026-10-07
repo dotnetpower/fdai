@@ -99,6 +99,8 @@ The revised design creates `fdai-system-knowledge-service` as a separate distrib
   contains a mention entity for the exact bot recipient.
 - **Release-bound catalog:** A build command compiles structured records and source citations from
   tracked files. The runtime image contains the catalog, not repository source or Git credentials.
+- **Patched runtime packages:** The independently built image follows the shared fixed-revision
+  Alpine runtime package contract and must pass the same image scan before publication.
 - **Descriptive boundary:** A rebuilt catalog can expose a revised agent guarantee such as
   duplicate-event handling and retry, validated event-time windows, and restart-safe recurrence
   identity, including trusted ingestion time, bounded downstream idempotency keys, and explicit

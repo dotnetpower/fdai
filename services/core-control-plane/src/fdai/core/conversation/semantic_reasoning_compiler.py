@@ -31,6 +31,7 @@ from .semantic_reasoning_admission import AdmissionDisposition, FormAdmission
 from .semantic_reasoning_binding import AnchorBindingReceipt, AnchorOutcome
 from .semantic_reasoning_concepts import ConceptSelectionReceipt
 from .semantic_reasoning_handles import ReferenceReceipt, reference_mention
+from .semantic_reasoning_measures import listed_health_concepts
 from .semantic_reasoning_nodes import CompileContext, OperatorResult, PlanSpec
 from .semantic_reasoning_operators import compile_goal
 from .semantic_reasoning_verification import verify_goal_semantics
@@ -182,6 +183,7 @@ def compile_question_form(
                 references=ctx.references,
                 evaluation_time=evaluation_time,
                 property_reads=manifest.property_reads,
+                health_concepts=listed_health_concepts(manifest.health_labels),
             )
         )
         outcomes[goal.id] = (

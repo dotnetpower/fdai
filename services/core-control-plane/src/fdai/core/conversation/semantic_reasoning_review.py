@@ -637,6 +637,9 @@ def _semantic_spans(
                 semantic.append(goal.time.cue)
             if goal.measure is not None and goal.measure.cue is not None:
                 semantic.append(goal.measure.cue)
+            if goal.measure is not None and goal.measure.order is not None:
+                if goal.measure.order.cue is not None:
+                    semantic.append(goal.measure.order.cue)
     return semantic, mentions
 
 

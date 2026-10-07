@@ -62,6 +62,7 @@ from .semantic_reasoning_form import (
 from .semantic_reasoning_handles import ReferenceReceipt, reference_mention
 from .semantic_reasoning_lifecycle import parse_lifecycle
 from .semantic_reasoning_lineage_counts import lineage_traversal_violations
+from .semantic_reasoning_listed_measures import allow_listed_measure
 from .semantic_reasoning_measure_checks import (
     expected_measure_arguments,
     is_health_lookup,
@@ -135,8 +136,11 @@ def verify_goal_semantics(
     references: ReferenceReceipt | None = None,
     evaluation_time: datetime | None = None,
     property_reads: tuple[ReviewedPropertyRead, ...] = (),
+    health_concepts: tuple[str, ...] = (),
 ) -> tuple[str, ...]:
     """Return every V-SEM, V-PROV, and V-LEVEL violation for one goal.
+
+    ``health_concepts`` is the reviewed health catalog a collection health listing reads.
 
     ``evaluation_time`` is the trusted compile clock; an absolute read window must end there.
     """
@@ -148,6 +152,7 @@ def verify_goal_semantics(
     allowed = _allowed_operands(
         goal, admission=admission, concepts=concepts, anchors=anchors or AnchorBindingReceipt()
     )
+    allow_listed_measure(goal, allowed, health_concepts)
     readable_properties = property_ops.readable_resource_properties(
         tuple(dict(item) for item in descriptors)
     )

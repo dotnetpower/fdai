@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 0282c62984c8c7d2fd404ec2414a35783acf6f61
-translation_revised: 2026-10-05
+translation_source_sha: 549a22513b9399a95274d1a8cc0e485880cbcb44
+translation_revised: 2026-10-07
 ---
 # 런타임 배포 프로파일
 
@@ -357,6 +357,9 @@ Job의 워크로드 신원에서 계속 가져옵니다.
 FDAI 서비스는 하나의 런타임 중립 워크로드 명세를 유지합니다. 이 명세에는 digest로 고정된 이미지,
 명령, 인자, 환경 변수 이름, 리소스 요청량과 제한량, 시작, 활성, 준비 프로브, 수신 의도, 서비스
 포트, sidecar, secret 참조, 워크로드 신원, 확장 범위가 포함됩니다.
+출시되는 모든 Alpine 런타임 이미지에서는 보안에 민감한 런타임 패키지 revision도 모든 서비스
+Dockerfile에 걸쳐 고정합니다. 수정된 패키지 revision이 공개되면 공유 고정값과 저장소 계약을
+함께 갱신하고, 이미지를 게시하기 전에 이미지 검사가 빌드 결과를 확인합니다.
 
 Container Apps 렌더러는 명세를 Container Apps와 Container Apps Jobs로 변환합니다. AKS 렌더러는
 명세를 typed Kubernetes `Deployment`, `Service`, `ServiceAccount`, `HorizontalPodAutoscaler`,
