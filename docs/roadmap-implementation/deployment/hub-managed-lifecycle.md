@@ -29,6 +29,12 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-10-02 | not-started | Adopted the ledger with the accepted ADR-0003 design. No implementation exists. | `current change`; `docs/roadmap/deployment/hub-managed-lifecycle.md`, `docs/roadmap/architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance.md`; design-route, roadmap-tracking, constitution, translation, punctuation, and link checks | Every item below |
 | 2026-10-05 | in-progress | Added pure deployment-cli Lifecycle Plan admission and constraint evaluators with deterministic tests. The checks are shadow-only and are not wired into any Hub, installation agent, apply stage, or receipt path. | `current change`; `packages/deployment-cli/src/fdai_deployment_cli/lifecycle_plan.py`, `packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration.py`, `packages/deployment-cli/tests/test_lifecycle_plan.py`; `uv run --project packages/deployment-cli python -m pytest -c packages/deployment-cli/pyproject.toml -q --no-cov packages/deployment-cli/tests/test_lifecycle_plan.py`; `uv run --project packages/deployment-cli ruff check packages/deployment-cli/src/fdai_deployment_cli/lifecycle_plan.py packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration.py packages/deployment-cli/tests/test_lifecycle_plan.py`; `uv run --project packages/deployment-cli ruff format --check packages/deployment-cli/src/fdai_deployment_cli/lifecycle_plan.py packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration.py packages/deployment-cli/tests/test_lifecycle_plan.py`; `uv run --project packages/deployment-cli mypy --strict packages/deployment-cli/src/fdai_deployment_cli/lifecycle_plan.py packages/deployment-cli/src/fdai_deployment_cli/lifecycle_configuration.py` | Hub service, enrollment, lifecycle agents, exact-plan wiring, authorization receipts, drift reconciliation, commands, operations-loop exclusion, workload rendering migration, and governed runtime receipts remain open |
 | 2026-10-07 | not-started | Published the workload rendering migration design for #1946: object ownership between the lifecycle agent and the infrastructure agent, three signed render inputs, Plan phases including the schema-expand Job, an ownership handoff through `removed` and `import` blocks in exact plans, rollback, and a render parity check. No implementation exists. | `current change`; `docs/roadmap/deployment/hub-managed-lifecycle.md` Workload rendering migration section; `infra/runtimes/aks/workloads/main.tf`, `infra/runtimes/aks/workloads/browser_gateway.tf`, and `packages/deployment-cli/src/fdai_deployment_cli/standalone_host.py` reviewed as the current rendering source; design-route, roadmap-tracking, translation, punctuation, and link checks | Agent renderer and workload template, render parity test, schema-expand Job, ownership handoff and rollback, and the migration identity's database role remain open |
+| 2026-10-07 | not-started | Recorded the owner decisions on the design's two open questions: the schema-expand Job runs under a dedicated migration identity that reuses today's Key Vault database secret in the MVP, and the Terraform workloads root converges on agent-rendered manifests after the MVP is validated. No implementation exists. | `current change`; `docs/roadmap/deployment/hub-managed-lifecycle.md` Decisions on earlier open questions section; `packages/deployment-cli/src/fdai_deployment_cli/standalone_host.py` reviewed for the current migration secret; translation, punctuation, link, and roadmap-tracking checks | Agent renderer and workload template, render parity test, schema-expand Job, ownership handoff and rollback, the narrowed migration database role, and single-renderer convergence remain open |
+| 2026-10-07 | not-started | Corrected the migration identity decision: today's migration secret holds the server administrator login, and migrations create service roles and backfill data, so a role without data access isn't achievable. The later target is a dedicated migration database role with only the privileges migrations need. | `current change`; `docs/roadmap/deployment/hub-managed-lifecycle.md` Decisions on earlier open questions section; `infra/modules/state-store/postgres-flex/outputs.tf`, `alembic/versions/`, and `service-migrations/branches/` reviewed; translation, punctuation, link, and roadmap-tracking checks | Agent renderer and workload template, render parity test, schema-expand Job, ownership handoff and rollback, the dedicated migration database role, and single-renderer convergence remain open |
+| 2026-10-07 | not-started | Closed gaps found by checking the design against the current rendering code: no Executor Kubernetes-effect role in the FDAI namespace on the Hub path, the autoscaler owns replicas, the schema-expand Job uses the Core image and also materializes catalogs, the deployment CLI refuses legacy workload commands after the handoff, one-shot Jobs derive protected template digests from the render receipt, and parity checks external Service selectors. Recorded three open questions. | `current change`; `docs/roadmap/deployment/hub-managed-lifecycle.md` Workload rendering migration section; `infra/runtimes/aks/workloads/main.tf`, `packages/deployment-cli/src/fdai_deployment_cli/aks_workload_jobs.py`, `packages/deployment-cli/src/fdai_deployment_cli/standalone_host.py`, and `services/core-control-plane/docker/Dockerfile` reviewed; translation, punctuation, link, and roadmap-tracking checks | Agent renderer and workload template, render parity test, schema-expand Job, ownership handoff and rollback, the Executor role, autoscaler, legacy-command, and protected-template tests, the dedicated migration database role, single-renderer convergence, and three open questions remain open |
+| 2026-10-07 | not-started | Corrected the ownership handoff for a Terraform constraint: a `removed` block addresses a whole resource without instance keys and requires its resource block to be absent, so the handoff first splits internal and external Services with `moved` blocks and the Release ships a Hub variant of the workloads root. Added the registry login server and topic names to the installation binding and recorded five implementation follow-ups. | `current change`; `docs/roadmap/deployment/hub-managed-lifecycle.md` Ownership handoff section; Terraform v1.9.8 `website/docs/language/resources/syntax.mdx` on `removed` blocks; `infra/runtimes/aks/workloads/main.tf` and `packages/deployment-cli/src/fdai_deployment_cli/standalone_host.py` reviewed; translation, punctuation, link, and roadmap-tracking checks | Agent renderer and workload template, render parity test, schema-expand Job, Service split and Hub variant root, ownership handoff and rollback, pruning, Console publication, agent RBAC, the Executor role, autoscaler, legacy-command, and receipt-based check tests, the dedicated migration database role, single-renderer convergence, and three open questions remain open |
+| 2026-10-07 | not-started | Closed gaps from an independent design review against the code: schema expand runs only expand-classified revisions under one installation-wide migration lease, an infrastructure cleanup phase removes infrastructure only after dropped workloads are gone, a Hub ownership marker blocks every full-workloads-root entry point, adoption is per object and resumable, and rollback releases the agent before importing. | `current change`; `docs/roadmap/deployment/hub-managed-lifecycle.md` Phases and Ownership handoff sections; `service-migrations/branches/core-control-plane/versions/20260912_core_retire_resource_change_receipts.py`, `alembic/env.py`, `service-migrations/runtime/env.py`, `scripts/deployment/local/materialize-authoritative-catalogs.py`, `packages/deployment-cli/src/fdai_deployment_cli/standalone_application.py`, and `infra/runtimes/aks/workloads/main.tf` reviewed; translation, punctuation, link, and roadmap-tracking checks | Implementation of the whole migration design, migration classification and lease, Hub ownership marker, adoption receipts, infrastructure cleanup, and the earlier follow-ups and open questions remain open |
+| 2026-10-07 | not-started | Narrowed migration classification to revisions added after an installation's enrollment baseline, and recorded that Kubernetes ActionTypes against FDAI's own workloads aren't available on the Hub path because the Executor holds no role in the FDAI namespace. | `current change`; `docs/roadmap/deployment/hub-managed-lifecycle.md` Object ownership and Phases sections; `services/core-control-plane/src/fdai/runtime/delivery.py` and `docs/roadmap/deployment/runtime-deployment-profiles.md` reviewed for the Executor Kubernetes binding; translation, punctuation, link, and roadmap-tracking checks | Implementation of the whole migration design and the earlier follow-ups and open questions remain open |
 
 ### Remaining work
 
@@ -67,12 +73,54 @@ and resumable work while the roadmap owner remains focused on normative design.
   for #1946.
 - [ ] Add the Release workload template and the lifecycle agent renderer, and record a render parity
   test in which the Terraform workloads root and the agent produce equal objects for the full input
-  matrix, including protected CronJob template digests.
+  matrix, including protected CronJob template digests and external Service selectors that match the
+  rendered pod labels.
 - [ ] Add the installation binding that the infrastructure agent writes from its Terraform outputs,
   and record a test in which the renderer rejects an unknown key and any value source other than a
   literal, a configuration key, or a binding key.
-- [ ] Add the schema-expand migration Job, decide the migration identity's database role, and record
-  a test in which no workload switches before the Job receipt exists.
+- [ ] Add the schema-expand migration Job on the Core image with its dedicated migration
+  ServiceAccount and managed identity, and record tests in which the Job runs the legacy migrations,
+  the ordered service-owned migrations, and the authoritative catalog materialization, and no
+  workload switches before the Job receipt exists.
+- [ ] Record a test in which a Hub-managed installation binds no Executor Kubernetes-effect role in
+  the FDAI namespace while Executor scale targets in other namespaces stay bound.
+- [ ] Record a test in which the agent omits `spec.replicas` for a workload with a
+  HorizontalPodAutoscaler and maps replica overrides to the autoscaler bounds.
+- [ ] Record a local Hub ownership marker at handoff, and record a test in which every deployment CLI
+  entry point that would plan the full workloads root, including the ordinary application stage,
+  refuses to run or uses the Hub variant.
+- [ ] Classify every legacy and service-owned migration revision added after an installation's
+  enrollment baseline as expand or contract in the Release, and record tests in which the schema-expand Job rejects a dropping or renaming revision
+  and runs under one installation-wide migration lease across all three steps and its receipt.
+- [ ] Record handoff tests for per-object adoption receipts with UID, resource version, and render
+  digest, forced conflicts only on Terraform-owned fields, resumption after interruption, and a
+  rollback that releases the agent's reconciliation lease before any `import` plan.
+- [ ] Record a test in which a Release that drops an external workload removes its external Service,
+  API Management route, role grants, and federated identity credential only in the infrastructure
+  cleanup phase, after workload absence readback.
+- [ ] Record a test in which one-shot catalog review and initial inventory Jobs and the workload
+  readiness contracts on the Hub path derive their expected values from the agent render receipt
+  instead of Terraform input.
+- [ ] Split the workloads root's Service resource into internal and external resources with `moved`
+  blocks, ship the Hub variant of the workloads root with `removed` blocks in the Release, and record
+  a zero-change plan for the split on every installation path.
+- [ ] Record a test in which the agent prunes objects that carry its ownership label but are absent
+  from the new render, and the infrastructure agent removes a dropped workload's federated identity
+  credential only after its pods are gone.
+- [ ] Assign Console static content publication to the infrastructure agent, and record a test in
+  which a Hub-managed upgrade publishes the Release's Console bundle.
+- [ ] Record a test in which the infrastructure agent grants the lifecycle agent's own Kubernetes
+  role and the lifecycle agent can't create or change any role binding.
+- [ ] Decide which component runs Trial activation, the initial inventory, and catalog review after
+  a Hub-managed workload phase, and record the decision in the Hub-Managed Lifecycle design.
+- [ ] Decide how the infrastructure agent keeps running with the execution host's optional daily
+  auto-shutdown, and which agent owns the in-cluster PostgreSQL namespace for `postgres-aks`.
+- [ ] Move database object ownership from the server administrator to a dedicated migration
+  database role, switch the migration identity to that role, and record a grant readback in which
+  the role holds only the privileges migrations need and no workload uses it.
+- [ ] After the MVP is validated, make the Terraform workloads root apply agent-rendered manifests,
+  and record that every installation path renders through one renderer before retiring the parity
+  test.
 - [ ] Record an ownership handoff test in which shadow parity passes, a `removed` exact plan shows no
   destroy or update, server-side apply adoption renders zero changes, and an `import` rollback plans
   zero changes without recreating any running object.

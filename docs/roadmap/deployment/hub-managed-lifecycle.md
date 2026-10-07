@@ -335,12 +335,25 @@ objects only through exact plans that use `removed` and `import` blocks.
 |---------|-------|-------|
 | Deployment, HorizontalPodAutoscaler, PodDisruptionBudget, NetworkPolicy, internal Service, ServiceAccount, SecretProviderClass, CronJob, and the identity-bridge ConfigMap | FDAI namespace | Lifecycle agent |
 | External LoadBalancer Services for the Operator API and the Document Ingestion API | FDAI namespace | Infrastructure agent, because API Management binds to their addresses |
-| Executor Kubernetes-effect and external-scale Roles and RoleBindings | FDAI namespace and exact target namespaces | Infrastructure agent, because they grant authority |
+| Executor external-scale Roles and RoleBindings | Exact target namespaces outside FDAI | Infrastructure agent, because they grant authority |
 | Namespace, and the inventory-reader ClusterRole and ClusterRoleBinding | Cluster | Infrastructure agent |
 | Federated identity credentials, the API Management browser gateway with its APIs and operations, and its network security rule | Azure | Infrastructure agent |
 
 The lifecycle agent never creates or changes a role binding, so a workload apply can't widen any
 identity's reach.
+
+Two rules keep the lifecycle agent from fighting another writer over the same field:
+
+- **No Executor effects inside the FDAI namespace.** On the existing paths, the isolated Executor
+  can patch and scale Deployments and delete pods in the FDAI namespace. On the Hub path, the
+  infrastructure agent doesn't bind that role, because the lifecycle agent would revert those
+  changes and the operations loop must not target FDAI-owned resources, as
+  [Separation from the operations loop](#separation-from-the-operations-loop) requires. As a result,
+  Kubernetes ActionTypes such as pod restart and Deployment scale aren't available against FDAI's
+  own workloads on the Hub path. Executor scale targets in other namespaces are unchanged.
+- **The autoscaler owns the replica count.** When a workload has a HorizontalPodAutoscaler, the
+  agent omits `spec.replicas` from the Deployment it applies, as the Terraform root does today with
+  `ignore_changes`. Replica override values set the autoscaler's minimum and maximum instead.
 
 ### Render inputs
 
@@ -350,7 +363,7 @@ The lifecycle agent renders from three inputs. Each has its own signer and its o
 |-------|---------|-----------|----------|
 | Workload template in the Release | Images by component, commands, ports, probes, security context, sidecars, default sizing, and environment keys with their value sources | Vendor release key | Digest |
 | Entity override values | Replicas, CPU, and memory inside the template's bounds | Customer configuration key | Value |
-| Installation binding | Identity client and resource IDs, Kafka and PostgreSQL endpoints, the Key Vault name, secret names, the installation and license bindings, and sealed identifiers decrypted locally | Installation key | Digest only |
+| Installation binding | Identity client and resource IDs, the container registry login server, Kafka and PostgreSQL endpoints, Event Hubs topic names, the Key Vault name, secret names, the installation and license bindings, and sealed identifiers decrypted locally | Installation key | Digest only |
 
 The infrastructure agent writes the installation binding inside the installation after its phase.
 It combines the outputs of its own Terraform roots with the sealed identifiers that it decrypts from
@@ -362,16 +375,31 @@ value.
 
 ### Phases of an upgrade Plan
 
-1. **Infrastructure:** The infrastructure agent applies Azure resources, cluster-scoped objects,
-   role bindings, external Services, and a federated identity credential for every workload and
-   job in the target Release. It then writes the installation binding and its receipt.
-2. **Schema expand:** The Release ships its database migration as a Kubernetes Job template. The
-   lifecycle agent runs it in the FDAI namespace with a dedicated migration identity, under the
-   existing database-scoped lock and deadlines, before any workload switches.
+1. **Infrastructure:** The infrastructure agent applies only additive and in-place changes to Azure
+   resources, cluster-scoped objects, role bindings, and external Services, and creates a federated
+   identity credential for every workload and job in the target Release. It then writes the
+   installation binding and its receipt.
+2. **Schema expand:** The Release ships its database migration as a Kubernetes Job template that
+   uses the Core image, which already contains the migration and catalog tools. The Job runs the
+   legacy migrations, the service-owned migrations in their declared order, and the authoritative
+   catalog materialization, as the managed host's migration step does today. It runs only the
+   revisions that the Release classifies as expand, and it rejects a revision that drops or renames
+   schema. Contract revisions run in a later fenced Plan after the restore checkpoint that
+   [Lifecycle Releases and Channels](lifecycle-releases-and-channels.md#schema-compatibility)
+   requires. Only revisions added after an installation's enrollment baseline need a
+   classification, because earlier revisions are already applied. Some existing upgrades drop
+   tables, so a Hub-managed upgrade runs no new revision without one. The existing migration locks
+   are separate transaction locks per step, and catalog materialization has none, so the Job holds
+   one installation-wide migration lease across all three steps and its receipt. The lifecycle agent
+   runs the Job in the FDAI namespace with a dedicated migration identity before any workload
+   switches.
 3. **Workloads:** The lifecycle agent renders the objects, compares them with its locally derived
    envelope, and applies them with server-side apply under its own field manager.
 4. **Verify:** Both agents require healthy workloads, a second zero-change render, a zero-change
    plan for the remaining Terraform roots, and independent readback.
+5. **Infrastructure cleanup:** After readback shows that the workloads a target Release dropped are
+   gone, the infrastructure agent removes the external Services, API Management routes, role
+   grants, and federated identity credentials that served them.
 
 A workload that is new in a Release receives its federated identity credential in phase 1, before
 its pod exists in phase 3. On the existing paths, the managed host keeps running migrations
@@ -382,22 +410,44 @@ directly before the application stage.
 An enrolled installation moves its workload objects to the lifecycle agent in four steps. Each step
 needs a local lifecycle authorization receipt, and no step deletes or recreates a running object.
 
+Two exact plans prepare the handoff and run before step 1:
+
+- **Split the Service resource.** A Terraform `removed` block addresses a whole resource without
+  instance keys, but internal and external Services share one resource block today. A refactor
+  with `moved` blocks splits it into an internal and an external Service resource. It applies on
+  every installation path as a zero-change plan.
+- **Remove the Executor role from the FDAI namespace.** On the Hub path, a separate plan destroys
+  the Executor Kubernetes-effect Role and RoleBinding in the FDAI namespace. It lowers authority, and
+  it's the only destroy that the handoff allows.
+
 1. **Shadow parity:** The agent renders the objects and compares them with the live objects without
    writing. Differences that come only from server defaults and binding order are normalized. The
    step passes after the configured number of consecutive zero-difference reports.
-2. **Release from Terraform:** The infrastructure agent applies an exact plan that adds `removed`
-   blocks with `destroy = false` for the agent-owned addresses. Terraform 1.7 and later support
-   these blocks, and the pinned toolchain is 1.9.8. The plan must show no destroy and no update.
+2. **Release from Terraform:** The infrastructure agent applies an exact plan of the Hub variant
+   of the workloads root, which the Release ships. A `removed` block requires its resource block to
+   be absent, so that variant replaces each agent-owned resource block with a `removed` block with
+   `destroy = false`. Terraform 1.7 and later support these blocks, and the pinned toolchain is
+   1.9.8. The plan must show no destroy and no update.
 3. **Adopt:** The agent applies the same render with server-side apply under the
-   `fdai-lifecycle-agent` field manager and takes over the fields that Terraform managed. Each
-   object records the Release ID and render digest in annotations.
+   `fdai-lifecycle-agent` field manager. It forces conflicts only on fields that the Terraform field
+   manager owns, and stops on any other conflict. It adopts one object at a time and records a
+   per-object receipt with the object UID, resource version, and render digest, so an interrupted
+   adoption resumes from the last receipt. Each object records the Release ID and render digest in
+   annotations.
 4. **Verify:** A second render shows zero changes, workloads stay healthy, and the remaining
    Terraform roots plan zero changes.
 
-**Rollback:** The infrastructure agent applies an exact plan with `import` blocks for the same
-addresses, and a following zero-change plan proves that Terraform state matches the live objects.
-The agent then records that it released ownership and stops reconciling those objects. A failure in
-step 2 or 3 leaves the running objects unchanged, so rollback never needs a recreate.
+After step 2, the installation records a local Hub ownership marker. Every deployment CLI entry
+point that would plan the full workloads root refuses to run or uses the Hub variant, including the
+ordinary application stage, per-service update, and historical reconciliation. So Terraform and the
+agent never write the same object.
+
+**Rollback:** First, the agent stops reconciling the adopted objects, releases its reconciliation
+lease, and records the release. Then the infrastructure agent applies an exact plan with `import`
+blocks for the same addresses, and a following zero-change plan proves that Terraform state matches
+the live objects. A failure in step 2 or 3 changes at most field ownership and annotations on
+already adopted objects. It never deletes or recreates a running object, so rollback never needs a
+recreate.
 
 ### Render parity
 
@@ -405,15 +455,37 @@ Until a single renderer exists, the Terraform root and the lifecycle agent imple
 template contract. A focused test feeds the same input matrix to both renderers and compares the
 planned Terraform values with the agent output. The matrix covers product profiles, add-ons, the
 identity bridge, and executor scale targets. The comparison reuses the deployment CLI's existing
-rules that drop Kubernetes server defaults and normalize secret-provider bindings, and it also
-checks the protected CronJob template digests. Any difference fails the test.
+rules that drop Kubernetes server defaults and normalize secret-provider bindings. It also checks
+the protected CronJob template digests, and that the selectors of the infrastructure agent's
+external Services match the pod labels that the agent renders. Any difference fails the test.
+
+On the Hub path, the one-shot Job execution that runs catalog review and the initial inventory
+derives its protected CronJob template digests from the agent's render receipt instead of from
+Terraform input.
+
+### Decisions on earlier open questions
+
+The Hub-managed lifecycle owner decided these points on 2026-10-07.
+
+- **Migration identity:** The schema-expand Job runs under a dedicated migration ServiceAccount and
+  managed identity that no workload shares. In the MVP, that identity reads the same Key Vault
+  database secret that the managed host's migration step uses today. That secret holds the server
+  administrator login, because migrations create service roles and backfill data. A later change
+  replaces it with a dedicated migration database role that has only the privileges migrations
+  need, after object ownership moves from the administrator to that role.
+- **One renderer:** The Terraform root and the agent renderer both stay, behind the render parity
+  check, until the MVP is validated. After that, the Terraform workloads root applies the
+  agent-rendered manifests, so every installation path uses one renderer and the parity check
+  retires.
 
 ### Open questions
 
-- Which database role the migration identity holds, and how it differs from the service-owned
-  roles.
-- Whether the existing paths later apply agent-rendered manifests through Terraform, so that only
-  one renderer remains.
+- Which component runs the post-deployment steps that the managed host runs today after the
+  application stage: Trial activation, the initial inventory, and catalog review.
+- How the infrastructure agent keeps running when the execution host uses the optional daily
+  auto-shutdown (`runner_auto_shutdown_time`).
+- Which agent owns the in-cluster PostgreSQL namespace when an installation selects the
+  `postgres-aks` database placement.
 
 ## Example installations
 
