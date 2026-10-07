@@ -40,7 +40,6 @@ from fdai.shared.providers.ontology_instance import (
     normalize_json_value,
 )
 
-from .functions import ontology_function_digest
 from .models import (
     ObjectSetDefinition,
     ObjectSetMaterialization,
@@ -49,6 +48,8 @@ from .models import (
     OntologyInstancePathDefinition,
 )
 from .object_sets import ObjectSetService
+from .query_population_receipts import population_receipt_fields
+from .query_result_digests import instance_path_graph_digest, projected_result_digest
 from .query_snapshot import snapshot_projection_digest, validate_snapshot_records
 
 
@@ -130,7 +131,7 @@ class SecuredObjectSetQueryResult(ContractBase):
         graph = self.materialization.graph
         if self.receipt.purpose != self.materialization.definition.purpose:
             raise ValueError("object-set query receipt purpose does not match definition")
-        if self.receipt.projected_result_digest != _projected_result_digest(self.materialization):
+        if self.receipt.projected_result_digest != projected_result_digest(self.materialization):
             raise ValueError(
                 "object-set query receipt projected result digest does not match result"
             )
@@ -448,7 +449,7 @@ class SecuredObjectSetQueryGateway:
             purpose=definition.purpose,
             caller_role=effective_request.caller_role,
             observation_cutoff=observation_cutoff,
-            projected_graph_digest=_instance_path_graph_digest(definition, secured_graph),
+            projected_graph_digest=instance_path_graph_digest(definition, secured_graph),
             redactions=redactions,
         )
 
@@ -542,8 +543,9 @@ class SecuredObjectSetQueryGateway:
             truncation_reason=secured_materialization.truncation_reason,
         )
         population_fields = (
-            self._population_fields(
+            population_receipt_fields(
                 population,
+                object_types=self._object_types,
                 request=effective_request,
                 page_size=len(secured_graph.objects),
                 source_complete=source_complete,
@@ -555,7 +557,7 @@ class SecuredObjectSetQueryGateway:
         receipt = SecuredObjectSetQueryReceipt(
             **population_fields,
             ontology_release=self._ontology_release,
-            projected_result_digest=_projected_result_digest(secured_materialization),
+            projected_result_digest=projected_result_digest(secured_materialization),
             purpose=definition.purpose,
             caller_role=effective_request.caller_role,
             principal_scope_digest=effective_request.principal_scope_digest,
@@ -574,51 +576,6 @@ class SecuredObjectSetQueryGateway:
             materialization=secured_materialization,
             receipt=receipt,
         )
-
-    def _population_fields(
-        self,
-        population: OntologyGraphSnapshot | None,
-        *,
-        request: ProjectionRequest,
-        page_size: int,
-        source_complete: bool,
-        source_generation: str | None,
-    ) -> dict[str, Any]:
-        """Return what the receipt may state about the whole set a page was cut from.
-
-        Every member passes the same projection as the page; a member the caller cannot
-        see by identity makes the count indeterminate, never smaller.
-        """
-
-        status = ObjectSetPopulationStatus.UNKNOWN
-        fields: dict[str, Any] = {"schema_version": "1.3.0"}
-        if (
-            population is not None
-            and source_complete
-            and population.source_complete
-            and population.source_generation == source_generation
-        ):
-            visible = project_graph_snapshot(
-                population, object_types=self._object_types, request=request
-            )
-            hidden = _summarize_redactions(
-                visible,
-                object_types=self._object_types,
-                source_graph=population,
-                removed_link_count=0,
-            ).redacted_identity_count
-            if hidden or [item.id for item in visible.objects] != [
-                item.id for item in population.objects
-            ]:
-                status = ObjectSetPopulationStatus.VISIBILITY_INDETERMINATE
-            elif len(population.objects) > page_size:
-                status = ObjectSetPopulationStatus.COMPLETE
-                fields["population_count"] = len(population.objects)
-                fields["population_manifest_digest"] = content_digest(
-                    {"members": [item.id for item in population.objects]}
-                )
-        fields["population_status"] = status
-        return fields
 
 
 def _close_links(graph: OntologyGraphSnapshot) -> OntologyGraphSnapshot:
@@ -715,99 +672,6 @@ class _ImmutableDict(dict[str, Any]):
         raise TypeError("secured ObjectSet properties are immutable")
 
 
-def _projected_result_digest(materialization: ObjectSetMaterialization) -> str:
-    graph = materialization.graph
-    payload = {
-        "definition": materialization.definition.model_dump(mode="json"),
-        "objects": [
-            {
-                "id": record.id,
-                "object_type": record.object_type,
-                "properties": _mutable_json(record.properties),
-                "revision": record.revision,
-                "type_ref": (
-                    record.type_ref.model_dump(mode="json") if record.type_ref is not None else None
-                ),
-            }
-            for record in graph.objects
-        ],
-        "links": [
-            {
-                "link_type": link.link_type,
-                "from_id": link.from_id,
-                "to_id": link.to_id,
-                "properties": _mutable_json(link.properties),
-                "type_ref": (
-                    link.type_ref.model_dump(mode="json") if link.type_ref is not None else None
-                ),
-            }
-            for link in graph.links
-        ],
-        "graph_truncated": graph.truncated,
-        "concrete_types": list(materialization.concrete_types),
-        "truncated": materialization.truncated,
-        "truncation_reason": (
-            materialization.truncation_reason.value
-            if materialization.truncation_reason is not None
-            else None
-        ),
-    }
-    if not graph.source_complete or graph.source_generation is not None:
-        payload["source_complete"] = graph.source_complete
-        payload["source_generation"] = graph.source_generation
-    if graph.source_incomplete_reason is not None:
-        payload["source_incomplete_reason"] = graph.source_incomplete_reason
-    return ontology_function_digest(payload)
-
-
-def _instance_path_graph_digest(
-    definition: OntologyInstancePathDefinition,
-    graph: OntologyGraphSnapshot,
-) -> str:
-    return content_digest(
-        {
-            "definition": definition.model_dump(mode="json"),
-            "objects": [
-                {
-                    "id": record.id,
-                    "object_type": record.object_type,
-                    "properties": _mutable_json(record.properties),
-                    "revision": record.revision,
-                    "type_ref": (
-                        record.type_ref.model_dump(mode="json")
-                        if record.type_ref is not None
-                        else None
-                    ),
-                }
-                for record in graph.objects
-            ],
-            "links": [
-                {
-                    "link_type": link.link_type,
-                    "from_id": link.from_id,
-                    "to_id": link.to_id,
-                    "properties": _mutable_json(link.properties),
-                    "type_ref": (
-                        link.type_ref.model_dump(mode="json") if link.type_ref is not None else None
-                    ),
-                }
-                for link in graph.links
-            ],
-            "source_complete": graph.source_complete,
-            "source_generation": graph.source_generation,
-            "truncated": graph.truncated,
-        }
-    )
-
-
-def _mutable_json(value: Any) -> Any:
-    if isinstance(value, Mapping):
-        return {key: _mutable_json(item) for key, item in value.items()}
-    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
-        return [_mutable_json(item) for item in value]
-    return value
-
-
 def _summarize_redactions(
     graph: OntologyGraphSnapshot,
     *,
@@ -858,6 +722,7 @@ def _summarize_redactions(
 
 
 ObjectSetQueryReceipt = SecuredObjectSetQueryReceipt
+_projected_result_digest = projected_result_digest
 
 
 __all__ = [

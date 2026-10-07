@@ -44,6 +44,7 @@ from .semantic_reasoning_collection_relations import (
 from .semantic_reasoning_concepts import ConceptOutcome, ConceptSelectionReceipt
 from .semantic_reasoning_filter_coverage import (
     StatedRestrictions,
+    all_zero_identifier,
     filter_coverage,
     function_name,
 )
@@ -77,7 +78,7 @@ from .semantic_reasoning_measure_checks import (
     window_matches,
 )
 from .semantic_reasoning_nodes import GROUP_BY_FIELDS
-from .semantic_reasoning_relations import SENSE_TRAITS
+from .semantic_reasoning_relations import SENSE_TRAITS, traversal_roots
 from .semantic_resource_visibility import OPERATIONAL_RESOURCE_EXCLUDED_TYPES
 from .semantic_target_health import TARGET_HEALTH_FUNCTIONS
 
@@ -408,7 +409,7 @@ def _predicate_violations(
         operands = (
             list(predicate.get("values") or ()) if operator == "in" else [predicate.get("equals")]
         )
-        if any(_all_zero(item) for item in operands):
+        if any(all_zero_identifier(item) for item in operands):
             violations.append(f"prov_all_zero_identifier:{node_id}")
             continue
         if prop == "id" and operator == "equals":
@@ -635,7 +636,7 @@ def _coverage_violations(
             )
         else:
             expected_anchor = property_ops.expected_anchor_id(goal, anchors)
-            if expected_anchor is None or _traversal_roots(plans) != {expected_anchor}:
+            if expected_anchor is None or traversal_roots(plans) != {expected_anchor}:
                 violations.append("sem_relation_anchor_differs")
     elif goal.level is GoalLevel.INSTANCE and any(
         item.role is FilterRole.SCOPE for item in goal.filters
@@ -655,7 +656,7 @@ def _coverage_violations(
             violations.append("sem_scope_containment_differs")
         binding = anchors.binding(scope)
         scope_id = binding.object_id if binding is not None else None
-        if scope_id is None or _traversal_roots(plans) != {scope_id}:
+        if scope_id is None or traversal_roots(plans) != {scope_id}:
             violations.append("sem_scope_anchor_differs")
     return violations
 
@@ -687,30 +688,6 @@ def _schema_violations(goal: FormGoal, functions: set[str], admission: FormAdmis
     if goal.measure is not None and goal.measure.group_by not in {GroupBy.NONE, GroupBy.TYPE}:
         violations.append("sem_schema_group_by_unread")
     return violations
-
-
-def _traversal_roots(plans: Sequence[OntologyQueryPlan]) -> set[str]:
-    """Return the exact anchor identity each traversal of the goal starts from."""
-
-    roots: set[str] = set()
-    for plan in plans:
-        by_id = {node.node_id: node for node in plan.nodes}
-        for node in plan.nodes:
-            if node.kind is not QueryNodeKind.RELATIONSHIP_TRAVERSAL:
-                continue
-            source = by_id.get(node.depends_on[0]) if node.depends_on else None
-            definition = (
-                (source.arguments.get("definition") or {})
-                if source is not None and source.kind is QueryNodeKind.OBJECT_SET
-                else {}
-            )
-            identities = [
-                item.get("equals")
-                for item in definition.get("predicates") or ()
-                if item.get("property") == "id" and item.get("operator") == "equals"
-            ]
-            roots.add(str(identities[0]) if len(identities) == 1 else "<unbound>")
-    return roots
 
 
 def _containment_scope_sides(
@@ -813,13 +790,6 @@ def _expected_lookback(goal: FormGoal, default_seconds: int) -> int | None:
     if goal.time.kind is not TimeKind.WINDOW or value is None or value.duration is None:
         return None
     return value.duration.amount * _SECONDS[value.duration.unit]
-
-
-def _all_zero(value: object) -> bool:
-    if not isinstance(value, str) or not value:
-        return False
-    stripped = value.replace("-", "").replace("0", "")
-    return not stripped and "0" in value
 
 
 __all__ = ["verify_goal_semantics"]
