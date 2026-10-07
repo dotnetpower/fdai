@@ -57,10 +57,12 @@ from fdai.core.security.code_findings import (
 )
 from fdai.core.security.code_findings.adjudication import AdjudicationError
 from fdai.core.security.code_findings.evaluation import (
+    KINDS,
     EvaluationCorpusError,
     acceptance_failures,
     corpus_from_mapping,
     evaluate,
+    kind_corpus,
     split_corpus,
 )
 from fdai.core.security.code_findings.export_gate import (
@@ -330,6 +332,17 @@ def _evaluate(args: argparse.Namespace) -> dict[str, object]:
             failures += [
                 f"{name}:{item}" for item in acceptance_failures(split_metrics, corpus.acceptance)
             ]
+    kinds: dict[str, object] = {}
+    for kind in KINDS:
+        kind_subset = kind_corpus(corpus, kind)
+        if kind_subset is None or len(kind_subset.cases) == len(corpus.cases):
+            continue
+        by_split: dict[str, object] = {"all": evaluate(kind_subset, catalog).as_dict()}
+        for name in ("dev", "holdout"):
+            subset = split_corpus(kind_subset, name)
+            if subset is not None and len(subset.cases) < len(kind_subset.cases):
+                by_split[name] = evaluate(subset, catalog).as_dict()
+        kinds[kind] = by_split
     receipt: dict[str, object] = {
         "ok": not failures,
         "kind": "fdai.code-security.evaluation-receipt",
@@ -342,6 +355,7 @@ def _evaluate(args: argparse.Namespace) -> dict[str, object]:
         "catalog_versions": catalog.version_stamp(),
         "metrics": metrics.as_dict(),
         "splits": splits,
+        "kinds": kinds,
         "acceptance": dict(corpus.acceptance),
         "failures": failures,
         "evaluated_at": datetime.now(UTC).isoformat(),
