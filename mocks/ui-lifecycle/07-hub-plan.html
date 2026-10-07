@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>plan-0193 - FDAI Lifecycle Hub</title>
+  <link rel="stylesheet" href="assets/lifecycle.css?v=1" />
+  <script src="assets/lifecycle.js?v=1" defer></script>
+</head>
+<body>
+  <div class="app">
+    <nav class="side" aria-label="Lifecycle Hub">
+  <div class="brand">FDAI Lifecycle Hub<small>Customer A cell · Korea Central</small></div>
+  <div class="grp">Operate</div>
+  <a class="it" href="05-hub-installations.html">Installations <span class="cnt">3</span></a>
+  <a class="it on" href="07-hub-plan.html" aria-current="page">Plans</a>
+  <a class="it" href="10-hub-confirmations.html">Confirmations <span class="cnt">0</span></a>
+  <a class="it" href="11-hub-commands.html">Commands</a>
+  <div class="grp">Catalog</div>
+  <div class="it">Available Releases</div>
+  <div class="it">Custom channels</div>
+  <div class="it">Configuration packages</div>
+  <div class="grp">Admin</div>
+  <a class="it" href="13-hub-enrollment.html">Enrollment requests</a>
+  <div class="it">Audit</div>
+</nav>
+    <main class="main">
+      <div class="crumb">Plans › prod</div>
+      <div class="m-head">
+        <div><h1>plan-0193 · Upgrade 1.4.3 → 1.5.1</h1><div class="sub">prod · started 02:00:04 · finished 02:34:51 (34 min 47 s) · automatic, inside the maintenance window</div></div>
+        <div class="acts"><button class="btn" type="button">Audit</button></div>
+      </div>
+      <div class="banner ok"><div><b>Succeeded</b>Workloads healthy, a second plan found no changes, and independent readback matched.</div><span class="badge ok">Done</span></div>
+      <div class="phases" aria-label="Plan phases">
+        <div class="done"><div class="t1">1 · Admit</div><div class="who">Both agents</div><div>Signature, sequence, envelope ✓</div></div>
+        <div class="done"><div class="t1">2 · Infrastructure</div><div class="who">Infrastructure agent</div><div>No changes ✓</div></div>
+        <div class="done"><div class="t1">3 · Schema expand</div><div class="who">Release migration job</div><div>0144 → 0146 ✓</div></div>
+        <div class="done"><div class="t1">4 · Workloads</div><div class="who">Lifecycle agent</div><div>5 Deployments · 4 Jobs ✓</div></div>
+        <div class="done"><div class="t1">5 · Verify</div><div class="who">Both agents</div><div>Health, re-plan, readback ✓</div></div>
+      </div>
+      <div class="cols">
+        <section aria-label="Phase log">
+          <div class="panel-title">Phase log <span class="hint">A phase starts only after the previous phase's receipt is recorded</span></div>
+          <ol class="timeline">
+            <li class="ok"><div class="when">02:00:04</div>Agents fetched the Plan · Hub key epoch 3 · sequence 193 · expires 04:00</li>
+            <li class="ok"><div class="when">02:00:09</div>Vendor signature on Release 1.5.1 and customer signature on configuration rev 42 verified</li>
+            <li class="ok"><div class="when">02:00:40</div>Infrastructure agent: exact Terraform plan has no changes · authorization receipt written</li>
+            <li class="ok"><div class="when">02:06:40</div>Schema expand migration finished before any workload switched</li>
+            <li class="ok"><div class="when">02:07:02</div>Lifecycle agent: change inside the envelope · authorization receipt <span class="mono">sha256:ab03...f7</span></li>
+            <li class="ok"><div class="when">02:21:02</div>Rolling update of 5 services finished</li>
+            <li class="ok"><div class="when">02:26:02</div>Workloads stayed healthy</li>
+            <li class="ok"><div class="when">02:34:51</div>Re-plan found 0 changes · readback matched · receipt stored in the installation and result reported</li>
+          </ol>
+        </section>
+        <section aria-label="Health">
+          <div class="panel-title">Health <span class="hint">Coarse bands only</span></div>
+          <ul class="list">
+            <li><span class="ic ok">✓</span><span>5 services</span><span class="badge ok">Healthy</span></li>
+            <li><span class="ic ok">✓</span><span>Pantheon agents (Core sub-state)</span><span class="badge ok">Running</span></li>
+            <li><span class="ic ok">✓</span><span>Consumer-lag band</span><span class="badge ok">Normal</span></li>
+            <li><span class="ic ok">✓</span><span>4 CronJobs</span><span class="badge ok">Healthy</span></li>
+          </ul>
+          <div class="panel-title">Rollback target</div>
+          <p class="note">1.4.3 tolerates schema 0146, so an automatic rollback is available.</p>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Confirmations - FDAI Lifecycle Hub</title>
+  <link rel="stylesheet" href="assets/lifecycle.css?v=1" />
+  <script src="assets/lifecycle.js?v=1" defer></script>
+</head>
+<body>
+  <div class="app">
+    <nav class="side" aria-label="Lifecycle Hub">
+  <div class="brand">FDAI Lifecycle Hub<small>Customer A cell · Korea Central</small></div>
+  <div class="grp">Operate</div>
+  <a class="it" href="05-hub-installations.html">Installations <span class="cnt">3</span></a>
+  <a class="it" href="07-hub-plan.html">Plans</a>
+  <a class="it on" href="10-hub-confirmations.html" aria-current="page">Confirmations <span class="cnt">1</span></a>
+  <a class="it" href="11-hub-commands.html">Commands</a>
+  <div class="grp">Catalog</div>
+  <div class="it">Available Releases</div>
+  <div class="it">Custom channels</div>
+  <div class="it">Configuration packages</div>
+  <div class="grp">Admin</div>
+  <a class="it" href="13-hub-enrollment.html">Enrollment requests</a>
+  <div class="it">Audit</div>
+</nav>
+    <main class="main">
+      <div class="crumb">Confirmations</div>
+      <div class="m-head"><div><h1>Confirmations</h1><div class="sub">Signed in as ops-lead@example.com (Microsoft Entra ID) · Operator</div></div></div>
+      <div class="banner info">
+        <div><b>Configuration package rev 43 imported</b>From pull request #57 · customer signature ✓ · predecessor rev 42 ✓ · Plans recomputed. Core replicas and the downtime window apply in the next matching window.</div>
+        <span class="badge info">No approval needed</span>
+      </div>
+      <article class="card sel" aria-labelledby="confirm-nodepool">
+        <div class="row1"><span class="badge fail">Azure resource replacement</span><h2 id="confirm-nodepool">prod · replace user node pool <code>runtime</code></h2></div>
+        <div class="meta">The node size change in rev 43 deletes and recreates the node pool · exact plan rendered inside the installation by the infrastructure agent · plan digest <span class="mono">sha256:c4d2...0e</span></div>
+        <div class="banner warn"><div><b>Impact</b>Three nodes are replaced one at a time and pods are rescheduled. Runs only in the downtime window (Sunday 03:00). Maximum duration 40 minutes.</div><span class="badge warn">Replace 1 · Delete 0</span></div>
+        <ul class="list">
+          <li><span class="ic ok">✓</span><span>FDAI ownership: signed Foundation creation receipt and matching Terraform state</span><span class="soft">Tag alone not accepted</span></li>
+          <li><span class="ic ok">✓</span><span>Inside the envelope that the installation derived locally</span><span class="soft">In envelope</span></li>
+          <li><span class="ic ok">✓</span><span>Dry run succeeded</span><span class="soft">-</span></li>
+        </ul>
+        <div class="acts"><button class="btn" type="button">View plan summary</button><button class="btn" type="button">Hold</button><button class="btn danger" type="button">Confirm replacement</button></div>
+      </article>
+      <p class="note">Without confirmation, this Plan stays held. The Hub receives a sanitized summary, never the exact plan.</p>
+    </main>
+  </div>
+</body>
+</html>

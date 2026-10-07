@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Channels - FDAI Release Catalog</title>
+  <link rel="stylesheet" href="assets/lifecycle.css?v=1" />
+  <script src="assets/lifecycle.js?v=1" defer></script>
+</head>
+<body>
+  <div class="app">
+    <nav class="side" aria-label="Release catalog">
+  <div class="brand">FDAI Release Catalog<small>Vendor only</small></div>
+  <div class="grp">Catalog</div>
+  <a class="it" href="01-vendor-release.html">Releases <span class="cnt">49</span></a>
+  <a class="it on" href="03-vendor-channels.html" aria-current="page">Channels <span class="cnt">3</span></a>
+  <div class="it">Recalls <span class="cnt">3</span></div>
+  <div class="grp">Installations</div>
+  <a class="it" href="04-vendor-fleet.html">Fleet</a>
+  <div class="it">Canary installations <span class="cnt">2</span></div>
+  <div class="grp">Trust</div>
+  <div class="it">Signing keys</div>
+  <div class="it">Audit</div>
+</nav>
+    <main class="main">
+      <div class="crumb">Channels</div>
+      <div class="m-head">
+        <div><h1>Channels and promotion</h1><div class="sub">Promotion pipeline rev 7 · each channel receives only Releases that passed the previous stage</div></div>
+        <div class="acts"><button class="btn" type="button">Add to channel...</button></div>
+      </div>
+      <table class="t">
+        <thead><tr><th>Channel</th><th>Newest Release</th><th>Subscribed</th><th>Next candidate</th><th>Promotion</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">DEV</td><td>1.5.1</td><td>2 (canary)</td><td>-</td><td class="soft">Every published build</td></tr>
+          <tr><td class="mono">RELEASE_CANDIDATE</td><td>1.5.1</td><td>3</td><td>-</td><td class="soft">Promoted 2026-10-08</td></tr>
+          <tr class="sel"><td class="mono">RELEASE</td><td><b>1.5.1</b> <span class="badge ok">Just promoted</span></td><td>11</td><td>-</td><td class="soft">2026-10-11 10:00</td></tr>
+          <tr><td class="mono">pilot-group <span class="soft">custom</span></td><td>1.5.1</td><td>2</td><td>-</td><td class="soft">Added manually by a channel contributor</td></tr>
+        </tbody>
+      </table>
+      <div class="cols even">
+        <section aria-label="Promotion criteria">
+          <div class="panel-title">1.5.1 · RC to RELEASE criteria</div>
+          <ul class="list">
+            <li><span class="ic ok">✓</span><span>Soak: 72 h healthy on 3 RC installations</span><span class="soft">72 h / 72 h</span></li>
+            <li><span class="ic ok">✓</span><span>No required health criterion violated</span><span class="soft">0</span></li>
+            <li><span class="ic ok">✓</span><span>Security review label</span><span class="soft">Contributor</span></li>
+            <li><span class="ic ok">✓</span><span>No recall record</span><span class="soft">-</span></li>
+            <li><span class="ic ok">✓</span><span>Finished inside the 7-day timeout</span><span class="soft">3 d 1 h</span></li>
+          </ul>
+        </section>
+        <section aria-label="Soak progress">
+          <div class="panel-title">Soak progress</div>
+          <div class="note">DEV to RC · 24 h</div>
+          <div class="bar" role="img" aria-label="DEV to RC soak complete" style="margin-bottom: 16px"><i style="width: 100%; background: var(--cs-sage)"></i></div>
+          <div class="note">RC to RELEASE · 72 h</div>
+          <div class="bar" role="img" aria-label="RC to RELEASE soak complete" style="margin-bottom: 16px"><i style="width: 100%; background: var(--cs-sage)"></i></div>
+          <div class="callout">A regulated customer curates its own custom channel in its own Hub. Those channels don't appear in this catalog.</div>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

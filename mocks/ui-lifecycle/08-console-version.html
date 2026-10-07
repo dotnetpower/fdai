@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Environment and deployment - FDAI Console</title>
+  <link rel="stylesheet" href="assets/lifecycle.css?v=1" />
+  <script src="assets/lifecycle.js?v=1" defer></script>
+</head>
+<body>
+  <div class="app">
+    <nav class="side" aria-label="FDAI Console">
+  <div class="brand">FDAI Console<small>prod</small></div>
+  <div class="grp">Operate</div>
+  <div class="it">Dashboard</div>
+  <div class="it">Incidents</div>
+  <div class="it">Agent activity</div>
+  <div class="it">Ontology</div>
+  <div class="grp">Settings</div>
+  <div class="it">General</div>
+  <div class="it">Models</div>
+  <a class="it on" href="08-console-version.html" aria-current="page">Environment and deployment</a>
+  <a class="it" href="14-console-policy.html">Policy</a>
+  <div class="it">IAM</div>
+</nav>
+    <main class="main">
+      <div class="crumb">Settings</div>
+      <div class="m-head"><div><h1>Environment and deployment</h1><div class="sub">Readiness, deployment, and version of this installation</div></div></div>
+      <nav class="tabs" aria-label="Environment and deployment sections"><span>Readiness</span><span>Deployment</span><span>Observers</span><span class="on" aria-current="page">Version</span></nav>
+      <div class="kv">
+        <div><div class="k">Current Release</div><div class="v">1.5.1</div></div>
+        <div><div class="k">Channel</div><div class="v small mono">RELEASE</div></div>
+        <div><div class="k">Managed by</div><div class="v small">Lifecycle Hub (cell-7f3a)</div></div>
+        <div><div class="k">Hub connection</div><div class="v"><span class="badge ok">Connected · 12 s ago</span></div></div>
+      </div>
+      <div class="cols">
+        <section aria-label="Version history">
+          <div class="panel-title">Version history</div>
+          <table class="t">
+            <thead><tr><th>Time</th><th>Change</th><th>Result</th></tr></thead>
+            <tbody>
+              <tr><td>10-12 02:34</td><td>1.4.3 → 1.5.1</td><td><span class="badge ok">Succeeded</span></td></tr>
+              <tr><td>10-03 02:12</td><td>Configuration rev 41 → 42</td><td><span class="badge ok">Succeeded</span></td></tr>
+              <tr><td>09-21 03:05</td><td>1.4.2 → 1.4.3</td><td><span class="badge ok">Succeeded</span></td></tr>
+              <tr><td>09-20 02:40</td><td>1.4.1 → 1.4.2</td><td><span class="badge fail">Rolled back</span></td></tr>
+            </tbody>
+          </table>
+        </section>
+        <section aria-label="Next change">
+          <div class="panel-title">Next change</div>
+          <p class="note">No upgrade is scheduled. This installation runs the newest Release on its channel.</p>
+          <div class="callout">Channel, version range, and maintenance windows change through the <a href="09-git-config-pr.html">configuration repository</a>. Suppression is set in the <a href="11-hub-commands.html">Lifecycle Hub</a>.</div>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

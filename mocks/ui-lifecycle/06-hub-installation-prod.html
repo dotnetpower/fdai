@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>prod - FDAI Lifecycle Hub</title>
+  <link rel="stylesheet" href="assets/lifecycle.css?v=1" />
+  <script src="assets/lifecycle.js?v=1" defer></script>
+</head>
+<body>
+  <div class="app">
+    <nav class="side" aria-label="Lifecycle Hub">
+  <div class="brand">FDAI Lifecycle Hub<small>Customer A cell · Korea Central</small></div>
+  <div class="grp">Operate</div>
+  <a class="it on" href="05-hub-installations.html" aria-current="page">Installations <span class="cnt">3</span></a>
+  <a class="it" href="07-hub-plan.html">Plans</a>
+  <a class="it" href="10-hub-confirmations.html">Confirmations <span class="cnt">0</span></a>
+  <a class="it" href="11-hub-commands.html">Commands</a>
+  <div class="grp">Catalog</div>
+  <div class="it">Available Releases</div>
+  <div class="it">Custom channels</div>
+  <div class="it">Configuration packages</div>
+  <div class="grp">Admin</div>
+  <a class="it" href="13-hub-enrollment.html">Enrollment requests</a>
+  <div class="it">Audit</div>
+</nav>
+    <main class="main">
+      <div class="crumb"><a href="05-hub-installations.html">Installations</a> › prod</div>
+      <div class="m-head">
+        <div><h1>prod</h1><div class="sub">Channel RELEASE · configuration rev 42 · last report 18:20:05 (12 s ago)</div></div>
+        <div class="acts"><a class="btn" href="11-hub-commands.html">Suppress...</a></div>
+      </div>
+      <nav class="tabs" aria-label="Installation sections"><span class="on" aria-current="page">Constraints and next Plan</span><span>Entities</span><span>Configuration</span><a href="07-hub-plan.html">History</a></nav>
+      <div class="cols">
+        <section aria-label="Constraints">
+          <div class="panel-title">Upgrade 1.4.3 → 1.5.1 <span class="hint">9 passed · 1 waiting</span></div>
+          <ul class="list">
+            <li><span class="ic warn">◷</span><span><b>Maintenance window:</b> no-downtime 02:00-04:00 (Asia/Seoul); the 35-minute maximum duration fits</span><span class="badge warn">In 7 h</span></li>
+            <li><span class="ic ok">✓</span><span>Version range: none (follows the channel)</span><span class="soft">Passed</span></li>
+            <li><span class="ic ok">✓</span><span>Schema and dependencies: current rev 0144; 1.5.1 tolerates 0141-0147; agents compatible</span><span class="soft">Passed</span></li>
+            <li><span class="ic ok">✓</span><span>Artifacts: every digest is mirrored into the customer registry</span><span class="soft">Passed</span></li>
+            <li><span class="ic ok">✓</span><span>Override coverage: rev 42 has a block for <code>&gt;=1.5.0</code></span><span class="soft">Passed</span></li>
+            <li><span class="ic ok">✓</span><span>Data residency: model bindings process inside the allowed scope</span><span class="soft">Passed</span></li>
+            <li><span class="ic ok">✓</span><span>Policy compatibility: active policy revisions re-validated against 1.5.1</span><span class="soft">Passed</span></li>
+            <li><span class="ic ok">✓</span><span>Recall: 1.5.1 has no recall record</span><span class="soft">Passed</span></li>
+            <li><span class="ic ok">✓</span><span>Suppression: none active</span><span class="soft">Passed</span></li>
+            <li><span class="ic ok">✓</span><span>Destructive change: no Azure resource deleted or replaced</span><span class="soft">Passed</span></li>
+          </ul>
+        </section>
+        <section aria-label="Entities">
+          <div class="panel-title">Entities <span class="hint">Reported by the installation agents</span></div>
+          <table class="t">
+            <thead><tr><th>Name</th><th>Kind</th><th>Version</th><th>State</th></tr></thead>
+            <tbody>
+              <tr><td>Core</td><td>Workload</td><td>1.4.3</td><td><span class="badge ok">Healthy</span></td></tr>
+              <tr><td>Operator API</td><td>Workload</td><td>1.4.3</td><td><span class="badge ok">Healthy</span></td></tr>
+              <tr><td>Isolated Executor</td><td>Workload</td><td>1.4.3</td><td><span class="badge ok">Healthy</span></td></tr>
+              <tr><td>4 CronJobs</td><td>Workload</td><td>1.4.3</td><td><span class="badge ok">Healthy</span></td></tr>
+              <tr><td>Lifecycle agent</td><td>Workload</td><td>1.4.3</td><td><span class="badge ok">Healthy</span></td></tr>
+              <tr><td>AKS · PostgreSQL · Event Hubs · Key Vault</td><td>Platform</td><td>-</td><td><span class="badge ok">No drift</span></td></tr>
+              <tr><td>Existing API Management · private DNS</td><td>Unmanaged</td><td>-</td><td><span class="badge mute">Observed only</span></td></tr>
+            </tbody>
+          </table>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

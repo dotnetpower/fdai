@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pull request #57 - fdai-config</title>
+  <link rel="stylesheet" href="assets/lifecycle.css?v=1" />
+  <script src="assets/lifecycle.js?v=1" defer></script>
+</head>
+<body>
+  <div class="app no-side">
+    <main class="main">
+      <div class="crumb">example-team / fdai-config › Pull requests</div>
+      <div class="pr-head"><span class="pr-state">Merged</span><h1>prod: larger user nodes and 3 Core replicas</h1><span class="soft">#57 · opened by platform-team · approved by 2 reviewers</span></div>
+      <div class="cols">
+        <section aria-label="Changed files">
+          <div class="panel-title">Files changed <span class="hint">3 files</span></div>
+          <div class="diff" aria-label="installation.yaml diff">
+            <div class="h">installations/prod/installation.yaml</div>
+            <div>  channel: RELEASE</div>
+            <div>  maintenance_windows:</div>
+            <div>    - kind: no-downtime</div>
+            <div>      timezone: Asia/Seoul</div>
+            <div>      cron: "0 2 * * *"</div>
+            <div class="add">+   - kind: downtime</div>
+            <div class="add">+     timezone: Asia/Seoul</div>
+            <div class="add">+     cron: "0 3 * * SUN"</div>
+            <div class="add">+     duration: 2h</div>
+          </div>
+          <div class="diff" aria-label="environment.yaml diff">
+            <div class="h">installations/prod/environment.yaml</div>
+            <div>  runtime:</div>
+            <div>    platform: aks</div>
+            <div class="del">-   user_node_sku: Standard_D4as_v5</div>
+            <div class="add">+   user_node_sku: Standard_D8as_v5</div>
+          </div>
+          <div class="diff" aria-label="core.yaml diff">
+            <div class="h">installations/prod/entities/core.yaml</div>
+            <div>  overrides:</div>
+            <div>    - release_range: "&gt;=1.5.0"</div>
+            <div class="del">-     replicas: 2</div>
+            <div class="add">+     replicas: 3</div>
+          </div>
+        </section>
+        <section aria-label="Checks">
+          <div class="panel-title">Checks <span class="hint">Customer pipeline</span></div>
+          <div class="checks">
+            <div><span class="ic ok">✓</span>Every key has an allowed axis and owner; no authority keys<span class="r">fdaictl config validate</span></div>
+            <div><span class="ic ok">✓</span>No literal secret values<span class="r">fdaictl config validate</span></div>
+            <div><span class="ic ok">✓</span>An override block covers the channel's Release<span class="r">fdaictl config validate</span></div>
+            <div><span class="ic ok">✓</span>Sealed identifiers encrypted to the installation key<span class="r">sealed.yaml</span></div>
+            <div><span class="ic ok">✓</span>Package rev 43 built with predecessor rev 42<span class="r">sha256:5be0...</span></div>
+            <div><span class="ic ok">✓</span>Signed with the customer configuration key and uploaded to the Hub<span class="r">Key Vault signature</span></div>
+          </div>
+          <div class="callout">This reviewed merge is the change request. The Hub doesn't ask for a second approval. Only a resulting Azure resource deletion or replacement needs a separate <a href="10-hub-confirmations.html">confirmation in the Lifecycle Hub</a>.</div>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
