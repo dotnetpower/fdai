@@ -256,6 +256,7 @@ never runs Terraform apply.
 |----------------|------|
 | Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/rules-and-detection/framework-assessment.md) |
 | Specialized WARA assessment | [WARA Evidence-Governed Assessment](wara-assessment.md) |
+| Rule evidence from T0 for framework controls | [Framework Rule Evidence from T0](framework-rule-evidence.md) |
 | Framework source collection | [Rule Catalog Collection](rule-catalog-collection.md) |
 | Rule assignment and evidence governance | [Rule Governance](rule-governance.md) |
 | Ontology authority boundary | [FDAI Operating Ontology](../architecture/operating-ontology.md) |

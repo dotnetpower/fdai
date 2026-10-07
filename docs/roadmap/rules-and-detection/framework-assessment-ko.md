@@ -1,7 +1,7 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: 9264b7e1dd415581019c32388559817489313e26
+translation_source_sha: a652a845600ab872a2721bb929839f958e6faa8c
 translation_revised: 2026-10-07
 ---
 # WAF 및 CAF 근거 기반 평가
@@ -255,6 +255,7 @@ UTF-8이어야 합니다. 유효하지 않은 내용은 replacement 문자로 pr
 |-------------|------|
 | 제공 상태 및 남은 작업 | [구현 원장](../../roadmap-implementation/rules-and-detection/framework-assessment.md) |
 | 특화된 WARA 평가 | [WARA 근거 기반 평가](wara-assessment-ko.md) |
+| 프레임워크 컨트롤을 위한 T0 규칙 근거 | [T0 기반 프레임워크 규칙 근거](framework-rule-evidence-ko.md) |
 | 프레임워크 원본 수집 | [Rule Catalog Collection](rule-catalog-collection-ko.md) |
 | Rule 할당 및 근거 거버넌스 | [Rule Governance](rule-governance-ko.md) |
 | 온톨로지 권한 경계 | [FDAI 운영 온톨로지](../architecture/operating-ontology-ko.md) |
