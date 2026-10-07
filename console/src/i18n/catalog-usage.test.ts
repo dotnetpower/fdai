@@ -7,6 +7,8 @@ import analyticsCatalog from "../routes/i18n/analytics.en.json";
 import approvalsCatalog from "../routes/i18n/approvals.en.json";
 import architectureCatalog from "../routes/i18n/architecture.en.json";
 import aksCommerceCatalog from "../routes/i18n/aks-commerce.en.json";
+import assuranceTwinCatalog from "../routes/i18n/assurance-twin.en.json";
+import codeSecurityCatalog from "../routes/i18n/code-security.en.json";
 import browserEvidenceCatalog from "../routes/i18n/browser-evidence.en.json";
 import conversationAssuranceCatalog from "../routes/i18n/conversation-assurance.en.json";
 import costGovernanceCatalog from "../routes/i18n/cost-governance.en.json";
@@ -113,6 +115,8 @@ describe("console static translation keys", () => {
     const analyticsKeys = catalogKeys({ analytics: analyticsCatalog });
     const approvalsKeys = catalogKeys({ approvals: approvalsCatalog });
     const aksCommerceKeys = catalogKeys({ aksCommerce: aksCommerceCatalog });
+    const codeSecurityKeys = catalogKeys({ codeSecurity: codeSecurityCatalog });
+    const assuranceTwinKeys = catalogKeys({ assuranceTwin: assuranceTwinCatalog });
     const architectureKeys = new Set([
       ...catalogKeys(architectureCatalog),
       ...catalogKeys({ architecture: architectureCatalog }),
@@ -156,6 +160,10 @@ describe("console static translation keys", () => {
         ? approvalsKeys
         : catalogImport.includes('from "./i18n/aks-commerce"')
         ? aksCommerceKeys
+        : catalogImport.includes('from "./i18n/code-security"')
+        ? codeSecurityKeys
+        : catalogImport.includes('from "./i18n/assurance-twin"')
+        ? assuranceTwinKeys
         : catalogImport.includes('from "./i18n/browser-evidence"')
         ? browserEvidenceKeys
         : catalogImport.includes('from "./i18n/cost-governance"')

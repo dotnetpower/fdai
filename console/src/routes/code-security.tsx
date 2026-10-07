@@ -15,7 +15,8 @@ import {
 import { Tooltip } from "../components/tooltip";
 import { usePublishViewContext, type ViewSnapshot } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
-import { t } from "../i18n";
+import { t as appT } from "../i18n";
+import { t } from "./i18n/code-security";
 import { routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import {
@@ -228,10 +229,10 @@ export function buildCodeSecurityViewSnapshot(state: CodeSecurityState): ViewSna
   const latest = latestPerRepository(data.reviews);
   return {
     routeId: "code-security",
-    routeLabel: t("route.codeSecurity"),
+    routeLabel: appT("nav.panel.codeSecurity"),
     purpose: t("codeSecurity.readOnlyBody"),
     glossary: composeGlossary([], [
-      { term: t("route.codeSecurity"), plain: t("codeSecurity.subtitle"), tech: "code-security-review" },
+      { term: appT("nav.panel.codeSecurity"), plain: t("codeSecurity.subtitle"), tech: "code-security-review" },
     ]),
     headline: data.available
       ? `${t("codeSecurity.kpi.reviews")}: ${data.reviews.length}`
@@ -425,7 +426,7 @@ function CodeSecurityBody({ state }: { readonly state: CodeSecurityState }) {
         rows={data.reviews}
         keyOf={(row) => `${row.repository_alias}:${row.revision}`}
         empty={t("codeSecurity.empty")}
-        caption={t("route.codeSecurity")}
+        caption={appT("nav.panel.codeSecurity")}
       />
       {data.gaps.length > 0
         ? (
@@ -473,7 +474,7 @@ export function CodeSecurityRoute({ client }: { readonly client: OperatorApiClie
   }, [client]);
   return (
     <div class="stack evidence-route">
-      <PageHeader title={t("route.codeSecurity")} subtitle={t("codeSecurity.subtitle")} />
+      <PageHeader title={appT("nav.panel.codeSecurity")} subtitle={t("codeSecurity.subtitle")} />
       <AsyncBoundary state={state} resourceLabel={t("codeSecurity.resourceLabel")}>
         {(data) => <CodeSecurityBody state={data} />}
       </AsyncBoundary>
