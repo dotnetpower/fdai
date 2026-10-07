@@ -28,10 +28,7 @@ from fdai_service_contracts.ontology_query import (
 from fdai.core.ontology_platform import ReviewedPropertyRead
 from fdai.core.ontology_platform.resource_event_queries import RESOURCE_EVENT_MEASURE_CONCEPTS
 from fdai.core.ontology_platform.resource_health_queries import RESOURCE_HEALTH_FUNCTION_NAME
-from fdai.core.ontology_platform.resource_state_queries import (
-    RESOURCE_STATE_FUNCTION_NAME,
-    RESOURCE_STATE_OBSERVED_CONCEPT,
-)
+from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FUNCTION_NAME
 from fdai.core.ontology_platform.state_transitions import RESOURCE_STATE_TRANSITIONS_FUNCTION_NAME
 
 from . import semantic_reasoning_comparison_checks as comparison_checks
@@ -65,6 +62,7 @@ from .semantic_reasoning_form import (
 from .semantic_reasoning_handles import ReferenceReceipt, reference_mention
 from .semantic_reasoning_lifecycle import parse_lifecycle
 from .semantic_reasoning_lineage_counts import lineage_traversal_violations
+from .semantic_reasoning_listed_measures import allow_listed_measure
 from .semantic_reasoning_measure_checks import (
     expected_measure_arguments,
     is_health_lookup,
@@ -154,7 +152,7 @@ def verify_goal_semantics(
     allowed = _allowed_operands(
         goal, admission=admission, concepts=concepts, anchors=anchors or AnchorBindingReceipt()
     )
-    _allow_listed_measure(goal, allowed, health_concepts)
+    allow_listed_measure(goal, allowed, health_concepts)
     readable_properties = property_ops.readable_resource_properties(
         tuple(dict(item) for item in descriptors)
     )
@@ -329,22 +327,6 @@ def _allowed_operands(
         ):
             allowed.metric_concepts.update(concept.values)
     return allowed
-
-
-def _allow_listed_measure(goal: FormGoal, allowed: _Allowed, health: tuple[str, ...]) -> None:
-    """Re-derive the concepts a collection select reads to list each member's measure."""
-
-    measure = goal.measure
-    if (
-        measure is None
-        or goal.effective_operation is not GoalOperation.SELECT
-        or goal.subject_scope is not SubjectScope.COLLECTION
-    ):
-        return
-    if measure.kind is MeasureKind.STATE and not allowed.state_concepts:
-        allowed.state_concepts.add(RESOURCE_STATE_OBSERVED_CONCEPT)
-    elif measure.kind is MeasureKind.HEALTH and not allowed.health_concepts:
-        allowed.health_concepts.update(health)
 
 
 def _operand_violations(
