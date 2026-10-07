@@ -8,6 +8,7 @@
  */
 
 import { loadConfig } from "../config";
+import { t } from "./i18n/workflow";
 import type { WorkflowCatalogEntry } from "../workflow/validate";
 import {
   SIGNAL_TYPE_OPTIONS,
@@ -38,9 +39,22 @@ export function emptyStep(key: number): DraftStep {
   };
 }
 
-/** Plain-language label for a signal value, or "" if it is a custom one. */
+function signalCatalogKey(value: string): string | null {
+  return SIGNAL_TYPE_OPTIONS.some((option) => option.value === value)
+    ? value.replace(/^object\./, "")
+    : null;
+}
+
+/** Operator-locale label for a curated signal value, or "" for a custom one. */
 export function signalLabel(value: string): string {
-  return SIGNAL_TYPE_OPTIONS.find((o) => o.value === value)?.label ?? "";
+  const key = signalCatalogKey(value);
+  return key === null ? "" : t(`workflow.signal.${key}.label`);
+}
+
+/** Operator-locale hint for a curated signal value, or "" for a custom one. */
+export function signalHint(value: string): string {
+  const key = signalCatalogKey(value);
+  return key === null ? "" : t(`workflow.signal.${key}.hint`);
 }
 
 /** Human-friendly label for an ActionType machine name

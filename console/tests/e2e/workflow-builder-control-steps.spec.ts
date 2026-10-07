@@ -237,8 +237,8 @@ test("reviews, authors, and restores governed workflow control steps accessibly"
   await expect(page.getByText("Live catalog", { exact: true })).toBeVisible();
   const summary = page.getByRole("region", { name: "Selected workflow summary" });
   await expect(summary).toContainText("Steps");
-  await expect(summary).toContainText("Validation");
-  await expect(summary).toContainText("Passed");
+  await expect(summary).toContainText("Catalog state");
+  await expect(summary).toContainText("Reviewed");
   const workspace = page.locator(".workflow-catalog-workspace");
   await expect(workspace).toBeVisible();
   await expect(page.getByRole("heading", { name: "Published workflows" })).toBeVisible();

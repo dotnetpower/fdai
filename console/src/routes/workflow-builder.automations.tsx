@@ -6,7 +6,11 @@ import {
   type WorkflowDefinitionCatalogResponse,
   type WorkflowDefinitionEntry,
 } from "../workflow/validate";
+import { StatusPill } from "../components/ui";
 import { formatNumber, t, triggerLabel } from "./i18n/workflow";
+import { browserTimeZone, describeSchedule, isFiveFieldCron } from "./workflow-builder.browse";
+import { signalLabel } from "./workflow-builder.helpers";
+import { SIGNAL_TYPE_OPTIONS } from "./workflow-builder.model";
 
 export function hasEquivalentWorkflowBinding(
   bindings: readonly WorkflowBindingEntry[],
@@ -44,10 +48,18 @@ export function WorkflowAutomations({
 }) {
   const [trigger, setTrigger] = useState<"deck_open" | "schedule" | "signal">("deck_open");
   const [cronExpression, setCronExpression] = useState("0 7 * * *");
-  const [timezone, setTimezone] = useState("Asia/Seoul");
+  const [timezone, setTimezone] = useState(browserTimeZone);
   const [signalType, setSignalType] = useState("object.event");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [pendingRemoval, setPendingRemoval] = useState<string | null>(null);
+  const cronValid = trigger !== "schedule" || isFiveFieldCron(cronExpression);
+  const schedulePreview = trigger === "schedule" && cronValid
+    ? describeSchedule(cronExpression, timezone.trim() || "UTC")
+    : null;
+  const incomplete = (trigger === "schedule" && (!cronValid || timezone.trim() === ""))
+    || (trigger === "signal" && signalType.trim() === "");
   const definitionById = new Map(
     Object.values(definitions.groups)
       .flat()
@@ -74,6 +86,7 @@ export function WorkflowAutomations({
       });
       onCreated(binding);
       setError(null);
+      setNotice(t("workflow.automations.created", { workflow: selectedDefinition.workflow_name }));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
     } finally {
@@ -82,14 +95,13 @@ export function WorkflowAutomations({
   };
 
   const removeBinding = async (binding: WorkflowBindingEntry): Promise<void> => {
-    const definition = definitionById.get(binding.definition_id);
-    const workflowName = definition?.workflow_name ?? binding.definition_id;
-    if (!window.confirm(t("workflow.automations.removeConfirm", { workflow: workflowName }))) return;
     setSaving(true);
     try {
       await deleteWorkflowBinding(binding.binding_id, binding.revision);
       onDeleted(binding.binding_id);
+      setPendingRemoval(null);
       setError(null);
+      setNotice(t("workflow.automations.removed"));
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught));
     } finally {
@@ -107,30 +119,61 @@ export function WorkflowAutomations({
           </p>
         </div>
       </header>
-      {error ? <p class="error-text">{error}</p> : null}
+      {error ? <p class="error-text" role="alert">{error}</p> : null}
+      {notice && error === null ? <p class="workflow-automation-notice" role="status">{notice}</p> : null}
       <div class="workflow-automation-layout">
         <div class="workflow-binding-list">
           {bindings.map((binding) => {
             const definition = definitionById.get(binding.definition_id);
+            const workflowName = definition?.workflow_name ?? binding.definition_id;
+            const confirming = pendingRemoval === binding.binding_id;
+            const detail = binding.trigger === "schedule"
+              ? describeSchedule(binding.cron_expression ?? "", binding.timezone ?? "UTC")
+                ?? `${binding.cron_expression} - ${binding.timezone}`
+              : binding.trigger === "signal"
+                ? signalLabel(binding.signal_type ?? "") || binding.signal_type || ""
+                : t("workflow.automations.configuredInactive");
             return (
               <article key={binding.binding_id}>
                 <div>
-                  <strong>{definition?.workflow_name ?? binding.definition_id}</strong>
+                  <strong>{workflowName}</strong>
                   <span>{triggerLabel(binding.trigger)}</span>
-                  <small>
-                    {binding.trigger === "schedule"
-                      ? `${binding.cron_expression} - ${binding.timezone}`
-                      : binding.signal_type ?? t("workflow.automations.configuredInactive")}
-                  </small>
+                  <small>{detail}</small>
+                  <StatusPill
+                    kind="neutral"
+                    label={t("workflow.automations.dispatchInactive")}
+                    title={t("workflow.automations.dispatchInactiveHint")}
+                  />
                 </div>
-                <button
-                  type="button"
-                  class="secondary"
-                  disabled={saving}
-                  onClick={() => void removeBinding(binding)}
-                >
-                  {t("workflow.automations.remove")}
-                </button>
+                {confirming ? (
+                  <div class="workflow-binding-confirm" role="group" aria-label={t("workflow.automations.removeConfirm", { workflow: workflowName })}>
+                    <button
+                      type="button"
+                      class="btn btn-small btn-danger"
+                      disabled={saving}
+                      onClick={() => void removeBinding(binding)}
+                    >
+                      {t("workflow.automations.confirmRemove")}
+                    </button>
+                    <button
+                      type="button"
+                      class="btn btn-small secondary"
+                      disabled={saving}
+                      onClick={() => setPendingRemoval(null)}
+                    >
+                      {t("workflow.automations.cancel")}
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    class="btn btn-small secondary"
+                    disabled={saving}
+                    onClick={() => setPendingRemoval(binding.binding_id)}
+                  >
+                    {t("workflow.automations.remove")}
+                  </button>
+                )}
               </article>
             );
           })}
@@ -159,24 +202,55 @@ export function WorkflowAutomations({
             <>
               <label>
                 <span>{t("workflow.automations.cronExpression")}</span>
-                <input value={cronExpression} onInput={(event) => setCronExpression(event.currentTarget.value)} />
+                <input
+                  class="form-input mono"
+                  value={cronExpression}
+                  aria-invalid={!cronValid}
+                  aria-describedby="workflow-binding-cron-hint"
+                  onInput={(event) => setCronExpression(event.currentTarget.value)}
+                />
+                <small id="workflow-binding-cron-hint" class={cronValid ? undefined : "error-text"}>
+                  {cronValid
+                    ? schedulePreview
+                      ? t("workflow.automations.cronPreview", { description: schedulePreview })
+                      : null
+                    : t("workflow.automations.cronInvalid")}
+                </small>
               </label>
               <label>
                 <span>{t("workflow.automations.timezone")}</span>
-                <input value={timezone} onInput={(event) => setTimezone(event.currentTarget.value)} />
+                <input
+                  class="form-input"
+                  value={timezone}
+                  aria-describedby="workflow-binding-timezone-hint"
+                  onInput={(event) => setTimezone(event.currentTarget.value)}
+                />
+                <small id="workflow-binding-timezone-hint">{t("workflow.automations.timezoneHint")}</small>
               </label>
             </>
           ) : null}
           {trigger === "signal" ? (
             <label>
               <span>{t("workflow.automations.signalType")}</span>
-              <input value={signalType} onInput={(event) => setSignalType(event.currentTarget.value)} />
+              <input
+                class="form-input mono"
+                list="workflow-binding-signals"
+                value={signalType}
+                aria-describedby="workflow-binding-signal-hint"
+                onInput={(event) => setSignalType(event.currentTarget.value)}
+              />
+              <datalist id="workflow-binding-signals">
+                {SIGNAL_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{signalLabel(option.value)}</option>
+                ))}
+              </datalist>
+              <small id="workflow-binding-signal-hint">{t("workflow.automations.signalHint")}</small>
             </label>
           ) : null}
           <button
             type="button"
             class="btn"
-            disabled={saving || selectedDefinition === null || equivalentBinding}
+            disabled={saving || selectedDefinition === null || equivalentBinding || incomplete}
             onClick={() => void createBinding()}
           >
             {t(equivalentBinding

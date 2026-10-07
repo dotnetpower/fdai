@@ -25,7 +25,7 @@ import {
   type SavedWorkflowDraft,
   type ValidateResponse,
 } from "../workflow/validate";
-import { buildDraft, githubNewFileUrl } from "./workflow-builder.helpers";
+import { buildDraft, githubNewFileUrl, humanizeActionName } from "./workflow-builder.helpers";
 import type { FormState } from "./workflow-builder.model";
 import { validateWorkflowDraft } from "../workflow/validate";
 import { parseBlocks, type InlineToken } from "./workflow-builder.richtext";
@@ -38,25 +38,44 @@ import {
   type WorkflowBehaviorSimulation,
 } from "./workflow-builder.simulation";
 import {
+  clearWorkflowChatSession,
   loadWorkflowChatSession,
   saveWorkflowChatSession,
 } from "./workflow-builder.session";
+import { ActionTypePicker } from "./workflow-builder.picker";
+import { realActions } from "./workflow-builder.chat.builders";
 import { formatNumber, t } from "./i18n/workflow";
 import {
   respondToChat,
   startChat,
+  startFromWorkflow,
   SEED_PREFIX,
   type BotTurn,
   type ChatOption,
   type ChatSlots,
 } from "./workflow-builder.chat";
 
+/** A reviewed workflow the operator chose as the starting point. */
+export interface WorkflowChatSeed {
+  readonly form: FormState;
+  readonly source: string;
+}
+
 interface Props {
   readonly client: OperatorApiClient;
   readonly palette: readonly ActionTypePaletteEntry[];
   readonly gateRefs: readonly string[];
   readonly onBack: () => void;
+  readonly seed?: WorkflowChatSeed | null;
+  readonly onSeedConsumed?: () => void;
 }
+
+const PICKER_STAGES: ReadonlySet<ChatSlots["stage"]> = new Set([
+  "welcome",
+  "need_action",
+  "offer_extra",
+]);
+
 
 /** One rendered message in the thread. */
 export interface Message {
@@ -68,7 +87,14 @@ export interface Message {
   readonly preview?: FormState | undefined;
 }
 
-export function WorkflowChat({ client, palette, gateRefs, onBack }: Props) {
+export function WorkflowChat({
+  client,
+  palette,
+  gateRefs,
+  onBack,
+  seed = null,
+  onSeedConsumed,
+}: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [slots, setSlots] = useState<ChatSlots | null>(null);
   const [input, setInput] = useState("");
@@ -88,6 +114,17 @@ export function WorkflowChat({ client, palette, gateRefs, onBack }: Props) {
   // ever hands back a fresh array reference cannot silently reset a
   // conversation in progress.
   useEffect(() => {
+    if (seed !== null) {
+      const turn = startFromWorkflow(seed.form, seed.source);
+      const opening = [botMessage(turn, nextId())];
+      // Persist before the URL drops `from`, so a reload restores this draft
+      // instead of an older tab session.
+      saveWorkflowChatSession(workflowSessionStorage(), { messages: opening, slots: turn.slots });
+      setSlots(turn.slots);
+      setMessages(opening);
+      onSeedConsumed?.();
+      return;
+    }
     const recovered = loadWorkflowChatSession(workflowSessionStorage());
     if (recovered !== null) {
       setSlots(recovered.slots);
@@ -115,22 +152,39 @@ export function WorkflowChat({ client, palette, gateRefs, onBack }: Props) {
 
   // Keep the newest message in view, honoring reduced-motion preference; also
   // release the per-cycle send guard now that the new turn has rendered.
+  // The page owns the single dominant scroll; bring the start of the newest
+  // turn into view so a long preview never hides its own explanation.
   useEffect(() => {
     busyRef.current = false;
+    if (messages.length < 2) return;
     const behavior: ScrollBehavior = prefersReducedMotion() ? "auto" : "smooth";
-    threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior });
+    const latest = threadRef.current?.lastElementChild;
+    if (latest instanceof HTMLElement && typeof latest.scrollIntoView === "function") {
+      latest.scrollIntoView({ block: "nearest", behavior });
+    }
   }, [messages]);
 
   function send(raw: string): void {
     const text = raw.trim();
     if (busyRef.current || text.length === 0 || slots === null) return;
     busyRef.current = true;
-    const shown = displayInput(text, messages);
+    const shown = displayInput(text, messages, palette);
     const opMsg: Message = { id: nextId(), role: "operator", text: shown };
     const turn = respondToChat(slots, text, palette);
     setSlots(turn.slots);
     setMessages((prev) => [...prev, opMsg, botMessage(turn, nextId())]);
     setInput("");
+  }
+
+  function startNewDraft(): void {
+    clearWorkflowChatSession(workflowSessionStorage());
+    idRef.current = 0;
+    const turn = startChat(palette);
+    setSlots(turn.slots);
+    setMessages([botMessage(turn, nextId())]);
+    setRestored(false);
+    setInput("");
+    inputRef.current?.focus();
   }
 
   function updatePreview(messageId: number, form: FormState): void {
@@ -147,18 +201,28 @@ export function WorkflowChat({ client, palette, gateRefs, onBack }: Props) {
   // are no building blocks - the composer is disabled and the welcome turn
   // already explains how to enable it.
   const paletteReady = palette.length > 0;
+  const showPicker = paletteReady && slots !== null && PICKER_STAGES.has(slots.stage);
+  const chosenActions = useMemo(
+    () => new Set(slots === null ? [] : realActions(slots.form).map((step) => step.action_type_ref)),
+    [slots],
+  );
 
   return (
     <div class="stack wf-chat">
-      <div class="section-header">
+      <div class="wf-chat-header">
         <button type="button" class="btn btn-small" onClick={onBack}>
           &larr; {t("workflow.chat.back")}
         </button>
-        <span class="muted small">
+        <p class="wf-chat-disclaimer">
           {t("workflow.chat.disclaimer")}
-        </span>
-        {restored ? (
-          <span class="muted small" role="status">{t("workflow.chat.recovered")}</span>
+          {restored ? (
+            <span role="status"> {t("workflow.chat.recovered")}</span>
+          ) : null}
+        </p>
+        {(slots !== null && slots.stage !== "welcome") || messages.length > 1 || restored ? (
+          <button type="button" class="btn btn-small secondary" onClick={startNewDraft}>
+            {t("workflow.chat.startNew")}
+          </button>
         ) : null}
       </div>
 
@@ -172,10 +236,19 @@ export function WorkflowChat({ client, palette, gateRefs, onBack }: Props) {
             gateRefs={gateRefs}
             onChip={send}
             interactive={m.id === latestBotId}
+            hideActionChips={m.id === latestBotId && showPicker && slots?.stage !== "offer_extra"}
             onPreviewChange={(form) => updatePreview(m.id, form)}
           />
         ))}
       </div>
+
+      {showPicker ? (
+        <ActionTypePicker
+          palette={palette}
+          exclude={chosenActions}
+          onPick={(name) => send(`action:${name}`)}
+        />
+      ) : null}
 
       <form
         class="wf-chat-input"
@@ -243,11 +316,19 @@ function prefersReducedMotion(): boolean {
 /** What to echo as the operator's bubble: a clicked chip shows its human
  * label (found in the previous bot turn), free text shows verbatim. Pure and
  * exported for tests. */
-export function displayInput(raw: string, messages: readonly Message[]): string {
+export function displayInput(
+  raw: string,
+  messages: readonly Message[],
+  palette: readonly ActionTypePaletteEntry[] = [],
+): string {
   const lastBot = [...messages].reverse().find((m) => m.role === "bot");
   const opt = lastBot?.options?.find((o) => o.value === raw);
   if (opt) return opt.label;
   if (raw.startsWith(SEED_PREFIX)) return raw.slice(SEED_PREFIX.length);
+  if (raw.startsWith("action:")) {
+    const name = raw.slice("action:".length);
+    if (palette.some((entry) => entry.name === name)) return humanizeActionName(name);
+  }
   return raw;
 }
 
@@ -262,6 +343,7 @@ function MessageBubble({
   gateRefs,
   onChip,
   interactive,
+  hideActionChips = false,
   onPreviewChange,
 }: {
   readonly message: Message;
@@ -270,9 +352,14 @@ function MessageBubble({
   readonly gateRefs: readonly string[];
   readonly onChip: (value: string) => void;
   readonly interactive: boolean;
+  /** The searchable picker owns action choice while it is visible. */
+  readonly hideActionChips?: boolean;
   readonly onPreviewChange: (form: FormState) => void;
 }) {
   const isBot = message.role === "bot";
+  const options = (message.options ?? []).filter((option) =>
+    !hideActionChips || !option.value.startsWith("action:")
+  );
   return (
     <div class={isBot ? "wf-msg wf-msg-bot" : "wf-msg wf-msg-op"}>
       <div class="wf-msg-body">
@@ -293,13 +380,13 @@ function MessageBubble({
             onChange={onPreviewChange}
           />
         ) : null}
-        {message.options && message.options.length > 0 ? (
+        {options.length > 0 ? (
           <div
             class={interactive ? "wf-chip-row" : "wf-chip-row is-inert"}
             role="group"
             aria-label={t("workflow.chat.suggestedReplies")}
           >
-            {message.options.map((o) => (
+            {options.map((o) => (
               <Tooltip key={o.value} content={o.hint}>
                 <button
                   type="button"
@@ -673,7 +760,7 @@ function WorkflowViz({
             <span class="wf-viz-edge-label">{t(i === 0 ? "workflow.chat.thenDo" : "workflow.chat.then")}</span>
           </div>
           <div class={`wf-viz-node wf-viz-action is-${n.category}`} role="listitem">
-            <span class="wf-viz-kind">{t(`workflow.stepKind.${n.kind}`)}</span>
+            <span class="wf-viz-kind">{vizKindLabel(n.kind)}</span>
             <span class="wf-viz-name">{n.name}</span>
             <span class="wf-viz-ref mono">{n.ref}</span>
           </div>
@@ -685,4 +772,10 @@ function WorkflowViz({
       </div>
     </div>
   );
+}
+
+function vizKindLabel(kind: string): string {
+  if (kind === "do") return t("workflow.stepKind.action");
+  if (kind === "notify") return t("workflow.chat.kindTool");
+  return t(`workflow.stepKind.${kind}`);
 }

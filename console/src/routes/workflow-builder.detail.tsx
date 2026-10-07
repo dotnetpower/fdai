@@ -1,18 +1,32 @@
 import { useEffect, useState } from "preact/hooks";
-import { CopyButton, UnavailableState } from "../components/ui";
-import { currentRoute, navigate, routeHref } from "../router";
+import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
+import {
+  AsyncBoundary,
+  CopyButton,
+  StatusPill,
+  UnavailableState,
+  type AsyncState,
+} from "../components/ui";
+import { currentRoute, pushRouteState, routeHref, ROUTE_STATE_EVENT } from "../router";
 import type {
   ActionTypePaletteEntry,
   WorkflowCatalogEntry,
   WorkflowCatalogStep,
 } from "../workflow/validate";
-import { formatParams } from "./workflow-builder.helpers";
+import { formatParams, signalLabel } from "./workflow-builder.helpers";
+import { describeSchedule, stepKindOf, triggerSummary } from "./workflow-builder.browse";
+import {
+  decodeProcessList,
+  processHref,
+  processTone,
+  type ProcessListResponse,
+} from "./processes.model";
 import {
   hasActionTypeRef,
   requestedActionType,
   type WorkflowGroup,
 } from "./workflow-builder.model";
-import { formatNumber, statusLabel, t, triggerLabel } from "./i18n/workflow";
+import { formatDateTimeValue, formatNumber, statusLabel, t, triggerLabel } from "./i18n/workflow";
 
 export function workflowStepHref(
   group: WorkflowGroup,
@@ -23,17 +37,21 @@ export function workflowStepHref(
 }
 
 export function WorkflowDetail({
+  client,
   workflow,
   workflows,
   palette,
   group,
   onSelectWorkflow,
+  onClone,
 }: {
+  readonly client: OperatorApiClient;
   readonly workflow: WorkflowCatalogEntry;
   readonly workflows: readonly WorkflowCatalogEntry[];
   readonly palette: readonly ActionTypePaletteEntry[];
   readonly group: WorkflowGroup;
   readonly onSelectWorkflow: (workflow: WorkflowCatalogEntry) => void;
+  readonly onClone: () => void;
 }) {
   const gate = workflow.promotion_gate;
   const requestedStep = currentRoute().search.get("step");
@@ -70,13 +88,15 @@ export function WorkflowDetail({
     };
     window.addEventListener("popstate", sync);
     window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
     return () => {
       window.removeEventListener("popstate", sync);
       window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
     };
   }, [defaultStep, workflow.steps]);
   const openStep = (stepId: string): void => {
-    navigate(workflowStepHref(group, workflow.name, stepId));
+    pushRouteState(workflowStepHref(group, workflow.name, stepId));
   };
   const actionType = selected
     ? palette.find((entry) => entry.name === selected.action_type_ref) ?? null
@@ -88,7 +108,13 @@ export function WorkflowDetail({
   const showInspectorSummary = !invalidRequestedStep
     && !invalidRequestedAction
     && inspectorName !== null;
+  const schedule = workflow.trigger.kind === "schedule" ? workflow.trigger.schedule ?? "" : null;
+  const triggerTitle = schedule !== null
+    ? describeSchedule(schedule) ?? schedule
+    : signalLabel(workflow.trigger.signal_type ?? "") || triggerLabel(workflow.trigger.kind);
+  const triggerRef = schedule !== null ? schedule : workflow.trigger.signal_type ?? "";
   return (
+    <>
     <section class="workflow-catalog-workspace">
       <aside class="workflow-catalog-panel">
         <header>
@@ -112,11 +138,9 @@ export function WorkflowDetail({
               >
                 <span>
                   <strong>{entry.name}</strong>
-                  <small>
-                    {triggerLabel(entry.trigger.kind)} / {t("workflow.catalog.stepCount", { count: formatNumber(entry.step_count) })}
-                  </small>
+                  <small title={triggerSummary(entry.trigger)}>{triggerSummary(entry.trigger)}</small>
                 </span>
-                <span>{t(selectedWorkflow ? "workflow.catalog.currentDetail" : "workflow.catalog.catalogOnly")}</span>
+                <span>{t("workflow.catalog.stepCount", { count: formatNumber(entry.step_count) })}</span>
               </button>
             );
           })}
@@ -129,35 +153,42 @@ export function WorkflowDetail({
             <h3>{workflow.name}</h3>
             <p>{workflow.description ?? t("workflow.detail.defaultDescription")}</p>
           </div>
-          <span class={workflow.default_mode === "enforce" ? "status-pill status-pill-enforce" : "status-pill status-pill-shadow"}>
-            {statusLabel(workflow.default_mode)}
-          </span>
-        </header>
-        <div class="workflow-canvas-chain">
-          <div class="workflow-canvas-node is-trigger">
-            <span>{t("workflow.detail.when")}</span>
-            <strong>{workflow.trigger.kind}</strong>
-            <code>{workflow.trigger.kind === "signal" ? workflow.trigger.signal_type : workflow.trigger.schedule}</code>
+          <div class="workflow-canvas-actions">
+            <span class={workflow.default_mode === "enforce" ? "status-pill status-pill-enforce" : "status-pill status-pill-shadow"}>
+              {statusLabel(workflow.default_mode)}
+            </span>
+            <button type="button" class="btn btn-small" onClick={onClone}>
+              {t("workflow.detail.copyToDraft")}
+            </button>
           </div>
-          {workflow.steps.map((step, index) => (
-            <div class="workflow-canvas-step" key={step.id}>
+        </header>
+        <ol class="workflow-canvas-chain" aria-label={t("workflow.detail.chainAria")}>
+          <li class="workflow-canvas-node is-trigger">
+            <span>{t("workflow.detail.when")}</span>
+            <strong>{triggerTitle}</strong>
+            <code>{triggerRef}</code>
+          </li>
+          {workflow.steps.map((step) => (
+            <li class="workflow-canvas-step" key={step.id}>
               <i aria-hidden="true" />
               <button
                 type="button"
                 class={`workflow-canvas-node is-action ${selected?.id === step.id ? "is-selected" : ""}`}
+                aria-pressed={selected?.id === step.id}
                 onClick={() => openStep(step.id)}
               >
-                <span>{t(index === workflow.steps.length - 1 ? "workflow.detail.then" : "workflow.detail.do")}</span>
+                <span>{t(`workflow.stepKind.${stepKindOf(step)}`)}</span>
                 <strong>{step.id}</strong>
                 <code>{stepPrimaryRef(step)}</code>
+                <StepPaths step={step} />
               </button>
-            </div>
+            </li>
           ))}
-          <div class="workflow-canvas-step">
+          <li class="workflow-canvas-step">
             <i aria-hidden="true" />
             <div class="workflow-canvas-node is-done"><span>{t("workflow.detail.done")}</span><strong>{t("workflow.detail.auditTerminalState")}</strong></div>
-          </div>
-        </div>
+          </li>
+        </ol>
       </section>
 
       <aside class="workflow-inspector-panel">
@@ -240,6 +271,14 @@ export function WorkflowDetail({
               <div><dt>{t("workflow.detail.field.onFailure")}</dt><dd>{selected.on_failure ?? t("workflow.detail.notRecorded")}</dd></div>
               <div><dt>{t("workflow.detail.field.parameters")}</dt><dd>{formatParams(selected.params)}</dd></div>
             </dl>
+            {actionType ? (
+              <a
+                class="workflow-inspector-link"
+                href={routeHref("promotion-gates", { params: { q: actionType.name } })}
+              >
+                {t("workflow.detail.promotionStatus")}
+              </a>
+            ) : null}
           </>
         ) : <p class="muted">{t("workflow.detail.emptySteps")}</p>}
         <div class="workflow-promotion-facts">
@@ -258,6 +297,119 @@ export function WorkflowDetail({
         <pre class="mono scroll code-block">{workflow.yaml}</pre>
       </details>
     </section>
+    {group === "mine" ? null : <WorkflowRunHistory client={client} workflowName={workflow.name} />}
+    </>
+  );
+}
+
+/** Secondary control paths that a linear chain would otherwise hide. */
+function StepPaths({ step }: { readonly step: WorkflowCatalogStep }) {
+  const kind = stepKindOf(step);
+  const items: string[] = [];
+  if (kind === "parallel" && step.branches && step.branches.length > 0) {
+    items.push(t("workflow.detail.paths.branches", { branches: step.branches.join(", ") }));
+  }
+  if (kind === "decision" && step.outcomes && step.outcomes.length > 0) {
+    items.push(t("workflow.detail.paths.outcomes", { outcomes: step.outcomes.join(", ") }));
+  }
+  if (step.on_failure) items.push(t("workflow.detail.paths.onFailure", { step: step.on_failure }));
+  if (step.compensated_by) {
+    items.push(t("workflow.detail.paths.compensatedBy", { action: step.compensated_by }));
+  }
+  if (items.length === 0) return null;
+  return (
+    <span class="workflow-canvas-paths">
+      {items.map((item) => <small key={item}>{item}</small>)}
+    </span>
+  );
+}
+
+const RUN_HISTORY_LIMIT = 5;
+
+/** Principal-scoped Process history for the selected workflow. Read-only:
+ * it links to the owning Process evidence and never starts a run. */
+function WorkflowRunHistory({
+  client,
+  workflowName,
+}: {
+  readonly client: OperatorApiClient;
+  readonly workflowName: string;
+}) {
+  const [state, setState] = useState<AsyncState<ProcessListResponse>>({ status: "loading" });
+  useEffect(() => {
+    let cancelled = false;
+    setState({ status: "loading" });
+    const query = new URLSearchParams({ workflow_ref: workflowName });
+    client.panel<unknown>(`/views/process?${query.toString()}`).then(
+      (value) => {
+        if (cancelled) return;
+        try {
+          setState({ status: "ready", data: decodeProcessList(value) });
+        } catch (error) {
+          setState({ status: "error", message: error instanceof Error ? error.message : String(error) });
+        }
+      },
+      (error: unknown) => {
+        if (cancelled) return;
+        setState({
+          status: isOptionalOperatorApiUnavailable(error) ? "unavailable" : "error",
+          message: error instanceof Error ? error.message : String(error),
+        });
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [client, workflowName]);
+  return (
+    <section class="workflow-run-history" aria-labelledby="workflow-run-history-title">
+      <header>
+        <h3 id="workflow-run-history-title">{t("workflow.detail.runs.heading")}</h3>
+        <p>{t("workflow.detail.runs.description")}</p>
+      </header>
+      <AsyncBoundary state={state} resourceLabel={t("workflow.detail.runs.resourceLabel")}>
+        {(data) => {
+          if (data.items.length === 0) {
+            return <p class="workflow-run-history-empty">{t("workflow.detail.runs.empty")}</p>;
+          }
+          const counts = new Map<string, number>();
+          for (const item of data.items) counts.set(item.status, (counts.get(item.status) ?? 0) + 1);
+          const recent = [...data.items]
+            .sort((left, right) => right.updated_at.localeCompare(left.updated_at))
+            .slice(0, RUN_HISTORY_LIMIT);
+          return (
+            <>
+              <p class="workflow-run-history-counts">
+                {[...counts.entries()].map(([status, count]) => (
+                  <span key={status}>
+                    <StatusPill kind={processTone(status)} label={statusLabel(status)} />
+                    {formatNumber(count)}
+                  </span>
+                ))}
+              </p>
+              <ul class="workflow-run-history-list">
+                {recent.map((item) => (
+                  <li key={item.id}>
+                    <a href={processHref(item.id)}>{item.target_resource_id}</a>
+                    <span>{item.current_step || t("workflow.chat.terminal")}</span>
+                    <StatusPill kind={processTone(item.status)} label={statusLabel(item.status)} />
+                    <time dateTime={item.updated_at}>{formatDateTimeValue(item.updated_at)}</time>
+                  </li>
+                ))}
+              </ul>
+              {data.items.length > RUN_HISTORY_LIMIT ? (
+                <p class="workflow-run-history-more">
+                  {t("workflow.detail.runs.more", {
+                    shown: formatNumber(RUN_HISTORY_LIMIT),
+                    total: formatNumber(data.items.length),
+                  })}
+                </p>
+              ) : null}
+            </>
+          );
+        }}
+      </AsyncBoundary>
+    </section>
   );
 }
 
@@ -265,7 +417,11 @@ function stepPrimaryRef(step: WorkflowCatalogStep): string {
   if ((step.kind ?? "action") === "action") return step.action_type_ref ?? step.id;
   if (step.kind === "wait") return step.wait_for ?? step.id;
   if (step.kind === "approval") return step.approval_role ?? step.id;
-  if (step.kind === "decision") return step.outcomes?.join(" | ") || step.id;
-  if (step.kind === "parallel") return step.branches?.join(" + ") || step.id;
+  if (step.kind === "decision") {
+    return t("workflow.detail.paths.outcomeCount", { count: formatNumber(step.outcomes?.length ?? 0) });
+  }
+  if (step.kind === "parallel") {
+    return t("workflow.detail.paths.branchCount", { count: formatNumber(step.branches?.length ?? 0) });
+  }
   return step.gate_ref ?? step.id;
 }

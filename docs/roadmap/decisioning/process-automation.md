@@ -482,9 +482,21 @@ summaries that link to an owned detail or evidence view.
 The view has two modes. The default is a **read-only published-definition
 workspace**: authoritative source and revision lead into four selected-workflow
 facts, ownership and filter controls, a catalog rail, an ordered contract path,
-a safety inspector, and the raw catalog YAML disclosure. Optional principal
+a safety inspector, the raw catalog YAML disclosure, and principal-scoped run
+history. The facts count authored approval steps separately from HIL-gated
+ActionTypes and report the reviewed catalog state or the definition lifecycle,
+never a fixed validation result. Text, ActionType category, and step-kind
+filters narrow presentation only. The contract path shows readable schedules
+(catalog schedules run in UTC), parallel branches, decision outcomes, and
+failure and compensation paths. An action step's inspector links to its
+promotion status, and run history links each Process to its journal without
+offering a start control. Optional principal
 definitions and Python-task capabilities degrade independently, so they never
 hide an available built-in catalog. A single **"Design a new workflow"** entry opens the conversational designer.
+**"Copy to new draft"** opens the same designer on a shadow copy of the selected
+workflow, which is validated again before a private save. Both authoring modes
+are URL-backed (`mode=new`, `mode=python`), and selection updates browser
+history in place so Back restores the prior selection without discarding filters.
 
 ### 8.1 Conversational designer
 
@@ -501,9 +513,17 @@ message: a short explanation of what it now understands, the next question,
 and clickable **option chips** whose values are echoed back to the engine.
 Design properties:
 
-- the welcome turn shows **worked examples** (e.g. "when a pod on
-  `aks-cluster-01` runs hot, notify me"), so the operator sees what kinds of
-  processes are expressible before typing;
+- the welcome turn shows **worked examples** as text (e.g. "every week,
+  rehearse a DR failover"), so the operator sees what kinds of processes are
+  expressible. Typed text is kept as the workflow description and never selects
+  an `ActionType` or trigger;
+- while the designer asks for an action, a **searchable ActionType picker**
+  lists the full reviewed palette with category, rollback contract, HIL tiers,
+  and irreversibility. Search and category filters are presentation only, and
+  nothing is selected until the operator clicks an entry;
+- interview questions, chips, and signal labels come from the route message
+  catalog with English fallback, while ActionType names, signal types, and the
+  generated description stay canonical machine values;
 - a verified semantic workflow judgment may prefill exact trigger and `ActionType` identities
   through [`suggestDraftFromJudgment`](../../../console/src/routes/workflow-builder.intent.ts).
   It requires confidence of at least `0.75`, no ambiguity, and `execution_authority=false`;
@@ -546,7 +566,8 @@ inline in the chat:
   and promotion thresholds. Every edit invalidates the prior save result and
   reruns the same server structural validation after a short debounce;
 - tab-scoped draft recovery in bounded `sessionStorage`. Defensive decoding
-  drops malformed or oversized records instead of loading an untrusted draft;
+  drops malformed or oversized records instead of loading an untrusted draft.
+  **Start a new draft** discards the tab session explicitly;
 - the git-native next step: use the refreshable GitHub App credential provider to copy the YAML into
   `rule-catalog/workflows/<name>.yaml` and open an idempotent remediation PR.
 

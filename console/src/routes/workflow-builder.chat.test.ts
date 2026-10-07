@@ -8,8 +8,10 @@ import {
   respondToChat,
   slugifyName,
   startChat,
+  startFromWorkflow,
   type ChatSlots,
 } from "./workflow-builder.chat";
+import { setLocale } from "../i18n";
 
 /** Minimal palette whose leaf names line up with the intent matcher's
  * synonym table so the deterministic parser can resolve them. */
@@ -45,6 +47,10 @@ function findValues(options: readonly { value: string }[]): string[] {
   return options.map((o) => o.value);
 }
 
+function realActionRefs(slots: ChatSlots): string[] {
+  return slots.form.steps.map((step) => step.action_type_ref).filter((ref) => ref !== "");
+}
+
 describe("workflow-builder chat engine", () => {
   it("keeps authored control steps when adding another action", () => {
     const started = startChat(PALETTE).slots.form;
@@ -69,13 +75,53 @@ describe("workflow-builder chat engine", () => {
     });
   });
 
-  it("opens with a welcome, examples, and no ready draft", () => {
+  it("opens with a welcome, explicit action choices, and no ready draft", () => {
     const turn = startChat(PALETTE);
     expect(turn.draftReady).toBe(false);
     expect(turn.text.toLowerCase()).toContain("design a workflow");
     expect(turn.options.length).toBeGreaterThanOrEqual(3);
-    expect(turn.options.every((o) => o.value.startsWith("seed:"))).toBe(true);
+    // Free text never selects an action, so the welcome offers no example
+    // chips that would silently resolve to nothing.
+    expect(turn.options.every((o) => o.value.startsWith("action:"))).toBe(true);
     expect(turn.slots.stage).toBe("welcome");
+  });
+
+  it("keeps a typed goal as the description and asks for an explicit action", () => {
+    const start = startChat(PALETTE);
+    const turn = respondToChat(start.slots, "When cost spikes, right-size the resource", PALETTE);
+    expect(turn.slots.goalText).toBe("When cost spikes, right-size the resource");
+    expect(realActionRefs(turn.slots)).toEqual([]);
+    expect(turn.slots.stage).toBe("need_action");
+    expect(turn.text).toContain("kept that as the workflow description");
+  });
+
+  it("renders the interview in Korean when the operator locale is Korean", () => {
+    setLocale("ko");
+    try {
+      const turn = startChat(PALETTE);
+      expect(turn.text).toContain("워크플로를 설계");
+      const trigger = respondToChat(turn.slots, "action:remediate.restart-service", PALETTE);
+      expect(trigger.text).toContain("언제 실행해야 하나요");
+      expect(trigger.options.map((option) => option.label)).toContain("이상 감지");
+    } finally {
+      setLocale("en");
+    }
+  });
+
+  it("starts a ready draft from an existing workflow without new authority", () => {
+    const form = {
+      ...startChat(PALETTE).slots.form,
+      name: "release-review-copy",
+      steps: [{ ...startChat(PALETTE).slots.form.steps[0]!, id: "restart", action_type_ref: "remediate.restart-service" }],
+    };
+    const turn = startFromWorkflow(form, "release-review");
+    expect(turn.draftReady).toBe(true);
+    expect(turn.slots.stage).toBe("ready");
+    expect(turn.slots.planConfirmed && turn.slots.safetyConfirmed && turn.slots.nameConfirmed).toBe(true);
+    expect(turn.text).toContain("release-review");
+    expect(turn.text).toContain("release-review-copy");
+    expect(findValues(turn.options)).toContain("restart");
+    expect(buildDraft(turn.slots.form)["default_mode"]).toBe("shadow");
   });
 
   it("warns and offers nothing when the palette is empty", () => {

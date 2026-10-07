@@ -18,7 +18,13 @@ import {
   type DraftStep,
   type FormState,
 } from "./workflow-builder.model";
-import { humanizeActionName, signalLabel, suggestStepId } from "./workflow-builder.helpers";
+import {
+  humanizeActionName,
+  signalHint,
+  signalLabel,
+  suggestStepId,
+} from "./workflow-builder.helpers";
+import { t } from "./i18n/workflow";
 import { suggestDraftFromText } from "./workflow-builder.intent";
 import type { ChatOption, ChatSlots } from "./workflow-builder.chat";
 
@@ -58,12 +64,23 @@ export const OPT = {
 // Explanations
 // ---------------------------------------------------------------------------
 
-/** Plain-language phrase for the current trigger. */
+/** Plain-language, operator-locale phrase for the current trigger. */
 export function triggerPhrase(form: FormState): string {
+  if (form.triggerKind === "schedule") {
+    return form.schedule === WEEKLY_CRON
+      ? t("workflow.chatEngine.everyWeek")
+      : t("workflow.chatEngine.onSchedule", { schedule: form.schedule });
+  }
+  return signalLabel(form.signalType).toLowerCase() || form.signalType;
+}
+
+/** Canonical English trigger phrase for the persisted catalog description. */
+function canonicalTriggerPhrase(form: FormState): string {
   if (form.triggerKind === "schedule") {
     return form.schedule === WEEKLY_CRON ? "every week" : `on schedule \`${form.schedule}\``;
   }
-  return signalLabel(form.signalType).toLowerCase() || form.signalType;
+  const label = SIGNAL_TYPE_OPTIONS.find((option) => option.value === form.signalType)?.label;
+  return label?.toLowerCase() || form.signalType;
 }
 
 // ---------------------------------------------------------------------------
@@ -166,17 +183,17 @@ const CURATED_SIGNAL_VALUES: readonly string[] = [
 
 export function triggerChips(): ChatOption[] {
   const signals: ChatOption[] = CURATED_SIGNAL_VALUES.map((v) => {
-    const opt = SIGNAL_TYPE_OPTIONS.find((o) => o.value === v);
     const chip: ChatOption = {
-      label: opt?.label ?? signalLabel(v) ?? v,
+      label: signalLabel(v) || v,
       value: `${OPT.trigger}${v}`,
     };
-    return opt?.hint ? { ...chip, hint: opt.hint } : chip;
+    const hint = signalHint(v);
+    return hint ? { ...chip, hint } : chip;
   });
   const schedule: ChatOption = {
-    label: "Every week (schedule)",
+    label: t("workflow.chatEngine.option.weeklySchedule"),
     value: `${OPT.trigger}${CRON_PREFIX}${WEEKLY_CRON}`,
-    hint: "Run on a weekly cron instead of reacting to a signal.",
+    hint: t("workflow.chatEngine.option.weeklyScheduleHint"),
   };
   return [...signals, schedule];
 }
@@ -258,7 +275,7 @@ function summarize(form: FormState): string {
   const verbs = realActions(form)
     .map((s) => humanizeActionName(s.action_type_ref))
     .join(", then ");
-  return `When ${triggerPhrase(form)}, ${verbs.toLowerCase()}`;
+  return `When ${canonicalTriggerPhrase(form)}, ${verbs.toLowerCase()}`;
 }
 
 // ---------------------------------------------------------------------------

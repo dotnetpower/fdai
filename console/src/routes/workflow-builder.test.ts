@@ -11,6 +11,8 @@ import {
   suggestDraftFromJudgment,
   suggestDraftFromText,
   suggestStepId,
+  workflowBuilderHref,
+  workflowBuilderMode,
   workflowSelection,
   workflowStepHref,
 } from "./workflow-builder";
@@ -465,5 +467,25 @@ describe("buildGithubNewFileUrl", () => {
   test("returns null when the URL would exceed the safe length ceiling", () => {
     const huge = "a".repeat(8000);
     expect(buildGithubNewFileUrl("acme/fdai", "main", "x.yaml", huge)).toBeNull();
+  });
+});
+
+describe("workflow builder URL mode", () => {
+  test("decodes only the supported authoring modes", () => {
+    expect(workflowBuilderMode(null)).toBe("list");
+    expect(workflowBuilderMode("new")).toBe("new");
+    expect(workflowBuilderMode("python")).toBe("python");
+    expect(workflowBuilderMode("execute")).toBe("list");
+  });
+
+  test("keeps the current selection while switching mode", () => {
+    const search = new URLSearchParams({ group: "built_in", workflow: "dr-failover-drill" });
+    expect(workflowBuilderHref(search, { mode: "new", from: "dr-failover-drill" })).toBe(
+      "/workflow-builder?group=built_in&workflow=dr-failover-drill&mode=new&from=dr-failover-drill",
+    );
+    expect(workflowBuilderHref(new URLSearchParams("mode=new&from=x&group=mine"), {
+      mode: null,
+      from: null,
+    })).toBe("/workflow-builder?group=mine");
   });
 });

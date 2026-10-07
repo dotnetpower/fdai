@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { decodeWorkflowApps, workflowAppHref } from "./workflow-apps.model";
+import {
+  decodeWorkflowApps,
+  workflowAppHref,
+  workflowAppLifecycleTone,
+  workflowRunStatusCounts,
+} from "./workflow-apps.model";
 
 const APP = {
   id: "architecture-review",
@@ -38,5 +43,29 @@ describe("workflow app manifest decoder", () => {
       .toThrow(/lifecycle MUST be published/);
     expect(() => decodeWorkflowApps({ items: [{ ...APP, audience: "owner" }], count: 1 }))
       .toThrow(/audience MUST be reader/);
+  });
+});
+
+describe("workflow app presentation", () => {
+  it("reserves the success tone for published manifests", () => {
+    expect(workflowAppLifecycleTone("published")).toBe("success");
+    expect(workflowAppLifecycleTone("shadow")).toBe("shadow");
+    expect(workflowAppLifecycleTone("retired")).toBe("neutral");
+    expect(workflowAppLifecycleTone("draft")).toBe("info");
+  });
+
+  it("counts runs by status with attention states first", () => {
+    expect(workflowRunStatusCounts([
+      { status: "succeeded" },
+      { status: "waiting" },
+      { status: "failed" },
+      { status: "waiting" },
+      { status: "custom" },
+    ])).toEqual([
+      { status: "waiting", count: 2 },
+      { status: "failed", count: 1 },
+      { status: "succeeded", count: 1 },
+      { status: "custom", count: 1 },
+    ]);
   });
 });

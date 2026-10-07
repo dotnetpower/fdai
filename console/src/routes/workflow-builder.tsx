@@ -2,25 +2,32 @@
  * Workflow builder route - browse the built-in workflow catalog read-only,
  * or design a new workflow by chatting with a deterministic assistant.
  *
- * Authoring is conversational, not a form: the operator describes what they
- * want in plain words and the designer (workflow-builder.chat.ts / .tsx)
- * asks follow-up questions, proposes options, shows the generated YAML, and
- * lets them dry-test it. Read-only by construction - `POST /workflows/validate`
- * is a pure check and nothing here mutates control-plane state. The output is
- * canonical YAML the operator copies into a `rule-catalog/workflows/<name>.yaml`
- * remediation PR through the git-native path, never a console button
- * (app-shape.instructions.md § Operator console). New workflows are locked to
- * `shadow` mode - promotion to enforce is a separate governance PR
- * (process-automation.md § 6).
+ * Authoring is conversational, not a form: the designer
+ * (workflow-builder.chat.ts / .tsx) asks follow-up questions, offers explicit
+ * ActionType and trigger choices, shows the generated YAML, and validates it.
+ * An operator can also start from a copy of a visible workflow. `POST
+ * /workflows/validate` is a pure check; the only write is an explicit private
+ * draft save. Catalog publication stays a git-native remediation PR, never a
+ * console button (app-shape.instructions.md § Operator console). New workflows
+ * are locked to `shadow` mode - promotion to enforce is a separate governance
+ * PR (process-automation.md § 6).
  *
- * SRP: this file owns route loading and top-level mode selection. Catalog,
+ * SRP: this file owns route loading and URL-backed mode selection (`mode=new`,
+ * `mode=python`, and the one-shot `from=<workflow>` copy seed). Catalog,
  * detail, automation, chat, and Python-task surfaces live in sibling modules.
  */
 
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, OperatorApiError } from "../api";
 import type { OperatorApiClient } from "../api";
 import { AsyncBoundary, PageHeader, type AsyncState } from "../components/ui";
+import {
+  currentRoute,
+  pushRouteState,
+  replaceRouteState,
+  routeHref,
+  ROUTE_STATE_EVENT,
+} from "../router";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import type {
@@ -32,9 +39,14 @@ import {
   decodePythonTaskAvailability,
   type PythonTaskCapabilityReport,
 } from "../workflow/python-task";
-import type { CombinedData } from "./workflow-builder.model";
-import { BuiltInList } from "./workflow-builder.catalog";
-import { WorkflowChat } from "./workflow-builder.chatpanel";
+import {
+  workflowFromDefinition,
+  workflowGroup,
+  type CombinedData,
+} from "./workflow-builder.model";
+import { BuiltInList, pythonTaskUnavailableMessage } from "./workflow-builder.catalog";
+import { WorkflowChat, type WorkflowChatSeed } from "./workflow-builder.chatpanel";
+import { catalogToForm } from "./workflow-builder.helpers";
 import { PythonTaskWorkbench } from "./workflow-builder.python-task";
 import { formatNumber, t } from "./i18n/workflow";
 import { workflowGateRefs } from "./workflow-builder.structure";
@@ -83,6 +95,25 @@ export async function loadPythonTaskAvailability(
     if (isOptionalWorkflowCapabilityUnavailable(error)) return null;
     throw error;
   }
+}
+
+export type WorkflowBuilderMode = "list" | "new" | "python";
+
+/** Decode the URL-owned builder mode; unknown values fall back to the list. */
+export function workflowBuilderMode(value: string | null): WorkflowBuilderMode {
+  return value === "new" || value === "python" ? value : "list";
+}
+
+/** Builder href that keeps the current selection and applies overrides. */
+export function workflowBuilderHref(
+  search: URLSearchParams,
+  overrides: Readonly<Record<string, string | null>>,
+): string {
+  const params: Record<string, string | null> = {};
+  search.forEach((value, key) => {
+    params[key] = value;
+  });
+  return routeHref("workflow-builder", { params: { ...params, ...overrides } });
 }
 
 export function WorkflowBuilderRoute({ client }: Props) {
@@ -137,7 +168,7 @@ export function WorkflowBuilderRoute({ client }: Props) {
         subtitle={t("workflowBuilder.subtitle")}
         actions={catalogRevision ? (
           <div class="workflow-header-meta">
-            <span>{t("workflow.catalog.catalogRevision")}</span>
+            <span>{t("workflow.catalog.selectedRevision")}</span>
             <strong>{catalogRevision}</strong>
           </div>
         ) : null}
@@ -166,7 +197,45 @@ function WorkflowShell({
   readonly data: CombinedData;
   readonly onCatalogRevision: (revision: string | null) => void;
 }) {
-  const [mode, setMode] = useState<"list" | "new" | "python">("list");
+  const [mode, setMode] = useState<WorkflowBuilderMode>(
+    () => workflowBuilderMode(currentRoute().search.get("mode")),
+  );
+  const [seedName, setSeedName] = useState<string | null>(
+    () => currentRoute().search.get("from"),
+  );
+  useEffect(() => {
+    const sync = () => {
+      const search = currentRoute().search;
+      setMode(workflowBuilderMode(search.get("mode")));
+      setSeedName(search.get("from"));
+    };
+    window.addEventListener("popstate", sync);
+    window.addEventListener("fdai:route-changed", sync);
+    window.addEventListener(ROUTE_STATE_EVENT, sync);
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("fdai:route-changed", sync);
+      window.removeEventListener(ROUTE_STATE_EVENT, sync);
+    };
+  }, []);
+  // Mode changes update history without remounting the panel, so loaded
+  // catalogs, filters, and an in-progress draft survive the switch.
+  const openMode = useCallback((next: WorkflowBuilderMode, from: string | null = null): void => {
+    pushRouteState(workflowBuilderHref(currentRoute().search, {
+      mode: next === "list" ? null : next,
+      from,
+    }));
+  }, []);
+  const seed = useMemo<WorkflowChatSeed | null>(() => {
+    if (mode !== "new" || seedName === null) return null;
+    const group = workflowGroup(currentRoute().search.get("group"));
+    const source = group === "built_in"
+      ? data.workflows.find((workflow) => workflow.name === seedName)
+      : data.definitions.groups[group]
+        .map(workflowFromDefinition)
+        .find((workflow) => workflow.name === seedName);
+    return source ? { form: catalogToForm(source), source: source.name } : null;
+  }, [data.definitions.groups, data.workflows, mode, seedName]);
   const gateRefs = useMemo(() => workflowGateRefs([
     ...data.workflows,
     ...Object.values(data.definitions.groups).flatMap((group) =>
@@ -250,23 +319,40 @@ function WorkflowShell({
         client={client}
         palette={data.palette}
         gateRefs={gateRefs}
-        onBack={() => setMode("list")}
+        onBack={() => openMode("list")}
+        seed={seed}
+        onSeedConsumed={() => replaceRouteState(
+          workflowBuilderHref(currentRoute().search, { from: null }),
+        )}
       />
     );
   }
   if (mode === "python") {
     return data.pythonTasks !== null && data.pythonTasks.available
-      ? <PythonTaskWorkbench availability={data.pythonTasks} onBack={() => setMode("list")} />
-      : null;
+      ? <PythonTaskWorkbench availability={data.pythonTasks} onBack={() => openMode("list")} />
+      : (
+        <div class="stack">
+          <div class="state-block state-unavailable" role="status">
+            {pythonTaskUnavailableMessage(data.pythonTasks)}
+          </div>
+          <div>
+            <button type="button" class="btn btn-small" onClick={() => openMode("list")}>
+              &larr; {t("workflow.pythonTask.back")}
+            </button>
+          </div>
+        </div>
+      );
   }
   return (
     <BuiltInList
+      client={client}
       workflows={data.workflows}
       definitions={data.definitions}
       palette={data.palette}
       pythonTasks={data.pythonTasks}
-      onNew={() => setMode("new")}
-      onPython={() => setMode("python")}
+      onNew={() => openMode("new")}
+      onClone={(workflow) => openMode("new", workflow)}
+      onPython={() => openMode("python")}
       onCatalogRevision={onCatalogRevision}
     />
   );

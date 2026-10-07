@@ -51,4 +51,21 @@ describe("workflow-builder chat displayInput", () => {
   it("falls back to verbatim when there is no bot message", () => {
     expect(displayInput("anything", [])).toBe("anything");
   });
+
+  it("echoes a picker selection with the ActionType's readable name", () => {
+    const palette = [{
+      name: "ops.restart-service",
+      operation: "apply",
+      category: "ops",
+      rollback_contract: "scripted",
+      irreversible: false,
+      default_mode: "shadow",
+      execution_path: "direct_api",
+      env_scope: "any",
+      hil_tiers: [],
+      description: "Restart a service.",
+    }];
+    expect(displayInput("action:ops.restart-service", [botWithChips], palette)).toBe("Restart service");
+    expect(displayInput("action:ops.unknown", [botWithChips], palette)).toBe("action:ops.unknown");
+  });
 });

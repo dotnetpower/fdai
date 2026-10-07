@@ -961,7 +961,11 @@
     "terminal": "종료",
     "viewPurpose": "게시된 워크플로우 앱과 통제된 Process 근거를 보여주는 읽기 전용 카탈로그입니다.",
     "viewHeadline": "게시된 워크플로우 앱 {count}개",
-    "viewHeadlineSelected": "{name} 워크플로우 앱 선택됨"
+    "viewHeadlineSelected": "{name} 워크플로우 앱 선택됨",
+    "openDefinition": "워크플로우 정의 열기",
+    "statusFilter": "상태로 실행 필터링",
+    "allStatuses": "전체",
+    "updated": "업데이트"
   },
   "reports": {
     "subtitle": "카탈로그 기반 읽기 전용 보드입니다. 리포트를 선택하고 선언된 변수를 설정해 현재 근거 기간을 렌더링합니다.",
