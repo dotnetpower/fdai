@@ -1,7 +1,7 @@
 ---
 translation_of: project-structure-dependency-injection.md
-translation_source_sha: fb63444e6435f60076bd255da65b9ef0ccfc8ee5
-translation_revised: 2026-10-06
+translation_source_sha: 6ad617d8f0ce586a02d707f5895fe5fb05ea63ef
+translation_revised: 2026-10-07
 ---
 
 # 프로젝트 구조 의존성 주입
@@ -204,6 +204,11 @@ Terraform 계획은 검토 입력이 아닙니다.
 
 공유 `MetricProviderError` 계약은 범위가 제한된 실패 메타데이터를 소유합니다. Azure 전송 계층이 실패를 분류하고 Analyzer가 식별자를 제거합니다.
 [메트릭 진단 계약](aks-diagnostic-evidence-plane-ko.md#안전한-메트릭-실패-진단)은 기존 공급자와 빈 결과의 동작을 유지하며, 실패 시 안전한 쪽으로 처리를 중단합니다.
+`RoutedMetricProvider`는 dispatch 전에 구체 프로바이더의 추가형 `serves(query)` 기능도
+인식합니다. 이 기능이 없는 프로바이더는 이름 기반 라우팅을 유지합니다. 경로가 거부하면 다음
+선언 경로가 같은 정확한 조회를 검토하지만, dispatch 이후 오류는 종결 상태로 유지됩니다. 이
+변경은 `MetricProvider` Protocol 서명을 바꾸지 않으며 fallback, 재시도 또는 근거 권한을
+부여하지 않습니다.
 
 로컬 개발 `EventBus`는 모든 기록을 무기한 보존하지 않고 토픽별 범위가 제한된 재생 구간을
 유지합니다. 압축은 알려진 모든 구독 그룹이 해당 기록 이후로 진행한 뒤에만 기록을 제거하므로,

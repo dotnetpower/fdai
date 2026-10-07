@@ -590,6 +590,13 @@ def _bind_result_authority(
             {EvidenceAuthority.SERVER_INVENTORY_GRAPH},
         ),
     }
+    # Metric evidence is scoped to inventory only when its reader states that input; the
+    # gateway diagnostic and series readers keep the unscoped rules below.
+    if result.authority_inputs:
+        scoped_inputs[EvidenceAuthority.SERVER_OPERATIONAL_METRICS] = (
+            (EvidenceAuthority.SERVER_INVENTORY_GRAPH,),
+            {EvidenceAuthority.SERVER_INVENTORY_GRAPH},
+        )
     scoped_contract = scoped_inputs.get(result.authority) if result.authority is not None else None
     if scoped_contract is not None:
         expected_inputs, expected_dependencies = scoped_contract

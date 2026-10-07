@@ -35,6 +35,10 @@ The three `RoutedMetricProvider` routes are set up automatically by
 [`wire_azure_container`](../../../services/core-control-plane/src/fdai/composition/wire_azure.py)
 when their respective env vars are supplied - see
 [`infra/README.md § Opt-in variables`](../../../infra/README.md#opt-in-variables-metric-analyzer-tick--prometheus).
+When routes overlap on one provider-neutral metric name, an optional provider compatibility check
+selects the first route that accepts the exact query target before dispatch. The Metrics API route
+uses this boundary to serve VM `Percentage CPU` without taking the same metric from a route that
+supports another resource type. A provider error never triggers fallback after dispatch.
 The two push paths are Terraform modules the fork instantiates per
 resource; nothing runs upstream unless explicitly wired.
 

@@ -70,6 +70,28 @@ async def test_a_reading_of_another_kind_of_question_is_named_as_such() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("code", "label"),
+    [
+        (
+            "metric_threshold_unstated:g1",
+            "the metric has no stated threshold, such as 80 percent or more",
+        ),
+        ("metric_unit_unstated:g1", "the threshold has no stated unit, such as percent"),
+    ],
+)
+async def test_a_metric_clarification_names_what_the_operator_must_state(
+    code: str, label: str
+) -> None:
+    held = _reading_hold("held", "semantic_reading_ambiguous", (code,))
+
+    projection = _projection(await _processor(_Runtime(held)).process(_request()))
+
+    assert projection["semantic_result"]["answer"] == (
+        f"The request was held because the question could not be settled to one reading ({label})."
+    )
+
+
 async def test_a_plan_that_reads_no_stated_grouping_names_it_in_korean() -> None:
     held = _reading_hold("held", "semantic_plan_constraint_uncovered", ("role:groups",))
 

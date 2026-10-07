@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from fdai.core.detection.series import MetricSample
 from fdai.core.ontology_platform.functions import (
     FunctionInvocationContext,
@@ -109,8 +110,10 @@ def _query_result(count: int) -> SecuredObjectSetQueryResult:
 
 
 class _Provider:
-    def __init__(self, *, complete: bool = True) -> None:
+    def __init__(self, *, complete: bool = True, values: dict[str, float] | None = None) -> None:
         self.complete = complete
+        # A resource listed with a value reads that constant; any other reads 10 and 20.
+        self.values = values or {}
         self.calls: list[str] = []
 
     async def read(
@@ -122,12 +125,20 @@ class _Provider:
         end: datetime,
     ) -> MetricWindow:
         self.calls.append(resource_id)
+        complete = self.complete and self.values.get(resource_id, 0.0) >= 0
+        constant = self.values.get(resource_id)
         samples = (
             (
-                MetricSample(timestamp=start + timedelta(minutes=1), value=10.0),
-                MetricSample(timestamp=start + timedelta(minutes=2), value=20.0),
+                MetricSample(
+                    timestamp=start + timedelta(minutes=1),
+                    value=10.0 if constant is None else constant,
+                ),
+                MetricSample(
+                    timestamp=start + timedelta(minutes=2),
+                    value=20.0 if constant is None else constant,
+                ),
             )
-            if self.complete
+            if complete
             else ()
         )
         return MetricWindow(
@@ -137,9 +148,11 @@ class _Provider:
             start=start,
             end=end,
             samples=samples,
-            complete=self.complete,
+            complete=complete,
             evidence_refs=(f"metric-provider:{resource_id}",),
-            missing_reason=None if self.complete else "provider_unavailable",
+            missing_reason=None
+            if complete
+            else ("provider_unavailable" if not self.complete else "provider_gap"),
         )
 
 
@@ -148,6 +161,7 @@ async def _invoke(
     *,
     resource_count: int,
     window_seconds: int = 900,
+    **selection: object,
 ) -> dict[str, object]:
     declaration = resource_metric_function_type()
     release = build_ontology_release(function_types=(declaration,))
@@ -167,6 +181,7 @@ async def _invoke(
             "query_result": _query_result(resource_count).model_dump(mode="json"),
             "metric_concepts": ["resource.saturation"],
             "window_seconds": window_seconds,
+            **selection,
         },
         context=FunctionInvocationContext(
             caller_agent="Bragi",
@@ -250,7 +265,14 @@ def test_metric_function_declares_bounded_no_authority_inputs() -> None:
         "query_result",
         "metric_concepts",
         "window_seconds",
+        "comparator",
+        "threshold",
+        "threshold_unit",
+        "order_direction",
+        "order_limit",
+        "list_unknown",
     }
+    assert declaration.version == "1.2.0"
     assert declaration.required_role is CeilingRole.READER
     assert declaration.network_allowed is False
     assert declaration.credentials_allowed is False
@@ -299,7 +321,8 @@ async def test_metric_function_preserves_provider_gaps_as_incomplete_rows() -> N
     result = await _invoke(_Provider(complete=False), resource_count=1)
 
     assert result["complete"] is False
-    assert result["truncation_reason"] == "provider_unavailable"
+    # The provider failure also stops any later batch, so both reasons are stated.
+    assert result["truncation_reason"] == "metric_provider_unavailable+provider_unavailable"
     rows = result["rows"]
     assert isinstance(rows, list)
     assert rows[0]["values"]["value"] is None
@@ -307,15 +330,87 @@ async def test_metric_function_preserves_provider_gaps_as_incomplete_rows() -> N
     assert rows[0]["values"]["missing_reason"] == "provider_unavailable"
 
 
-async def test_metric_function_marks_collection_sampling_incomplete() -> None:
+async def test_metric_function_reads_every_member_without_sampling() -> None:
     provider = _Provider()
 
     result = await _invoke(provider, resource_count=17)
 
+    assert result["complete"] is True
+    assert len(result["rows"]) == 17
+    assert len(provider.calls) == 17
+
+
+async def test_metric_function_stops_at_its_reserved_budget_and_says_so() -> None:
+    provider = _Provider()
+
+    result = await _invoke(provider, resource_count=140)
+
+    # Whole batches of 16 run until the next would exceed 128 reads; none is sampled.
+    assert len(provider.calls) == 128
+    assert len(result["rows"]) == 128
     assert result["complete"] is False
-    assert result["truncation_reason"] == "resource_metric_scope_sampled"
-    assert len(result["rows"]) == 16
-    assert len(provider.calls) == 16
+    assert result["truncation_reason"] == "metric_budget_exhausted"
+
+
+_VALUES = {"resource-00": 95.0, "resource-01": 40.0, "resource-02": 91.0, "resource-03": -1.0}
+
+
+async def test_a_threshold_keeps_only_complete_matching_members_and_lists_the_unknown() -> None:
+    result = await _invoke(
+        _Provider(values=_VALUES),
+        resource_count=4,
+        comparator="gt",
+        threshold="90",
+        threshold_unit="nanocores",
+        list_unknown=True,
+    )
+
+    rows = [row["values"] for row in result["rows"]]
+    assert [(row["name"], row["metric_status"]) for row in rows] == [
+        ("service-00", "measured"),
+        ("service-02", "measured"),
+        ("service-03", "unknown_incomplete"),
+    ]
+    assert rows[2]["value"] is None and rows[2]["missing_reason"] == "provider_gap"
+    assert result["complete"] is False
+    assert result["truncation_reason"] == "provider_gap"
+
+
+async def test_a_rank_orders_complete_values_only_and_applies_a_stated_limit() -> None:
+    ranked = await _invoke(
+        _Provider(values=_VALUES),
+        resource_count=4,
+        order_direction="descending",
+        order_limit=2,
+        list_unknown=True,
+    )
+    whole = await _invoke(
+        _Provider(values={"resource-00": 5.0, "resource-01": 7.0}),
+        resource_count=2,
+        order_direction="ascending",
+    )
+
+    rows = [row["values"] for row in ranked["rows"]]
+    assert [(row["name"], row.get("rank")) for row in rows] == [
+        ("service-00", 1),
+        ("service-02", 2),
+        ("service-03", None),
+    ]
+    assert [row["values"]["name"] for row in whole["rows"]] == ["service-00", "service-01"]
+    assert whole["complete"] is True
+
+
+async def test_a_comparison_needs_the_canonical_unit_and_one_concept() -> None:
+    with pytest.raises(Exception, match="canonical unit"):
+        await _invoke(
+            _Provider(),
+            resource_count=1,
+            comparator="gt",
+            threshold="90",
+            threshold_unit="percent",
+        )
+    with pytest.raises(Exception, match="comparison or an order"):
+        await _invoke(_Provider(), resource_count=1, list_unknown=True)
 
 
 async def test_metric_series_function_projects_ordered_spike_preserving_points() -> None:

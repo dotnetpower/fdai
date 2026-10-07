@@ -1,8 +1,8 @@
 ---
 title: AKS 진단 근거 플레인
 translation_of: aks-diagnostic-evidence-plane.md
-translation_source_sha: 429c4f6883a207b4d06abfc710aec1cf30cee9db
-translation_revised: 2026-10-04
+translation_source_sha: 7160a9641484cd75db266a1bd28a33ed9ec7f4fc
+translation_revised: 2026-10-07
 ---
 # AKS 진단 근거 플레인
 
@@ -233,6 +233,10 @@ EndpointSlice 준비 상태에서 생략되거나 null인 `ready` 값은 `ready_
 반환합니다. 기존 점 전용 `MetricProvider`는 후보를 제공할 수 있지만 그 자체로 완전한 진단
 구간을 주장할 수 없습니다. 이름만 있는 시계열, 혼합 신원, 미래 표본, 점 전용 출처 및 잘린
 구간은 사용할 수 없음으로 유지합니다. 빈 메트릭 조회는 0을 입증하지 않습니다.
+여러 경로가 하나의 공급자 중립 메트릭을 선언하면 구체 프로바이더가 dispatch 전에 호환되지
+않는 정확한 대상을 거부할 수 있습니다. 그러면 라우터는 다음 선언 경로를 검토하며, 프로바이더
+실패를 포착해 fallback을 만들지 않습니다. Azure Metrics API 카탈로그는 이 경계를 사용해 VM
+`Percentage CPU`를 `Microsoft.Compute/virtualMachines`에만 결속합니다.
 Azure Managed Prometheus의 기본 `cluster` 레이블은 정확한 ARM 신원이 아니라 cluster 이름
 alias입니다. 따라서 인벤토리 기반 analyzer는 명시적으로 조립된 PromQL 카탈로그가 정확한
 `resource_id` 레이블을 보존하지 않으면 Azure Monitor Logs 경로를 유지합니다. 요청한 신원

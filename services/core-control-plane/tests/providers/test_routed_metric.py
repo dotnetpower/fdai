@@ -40,8 +40,12 @@ def test_routed_provider_rejects_empty_routing_table() -> None:
 
 
 async def _collect(provider: RoutedMetricProvider, name: str) -> list[MetricPoint]:
+    return await _collect_query(provider, MetricQuery(metric_name=name))
+
+
+async def _collect_query(provider: RoutedMetricProvider, query: MetricQuery) -> list[MetricPoint]:
     got: list[MetricPoint] = []
-    async for point in provider.query(MetricQuery(metric_name=name)):
+    async for point in provider.query(query):
         got.append(point)
     return got
 
@@ -81,6 +85,41 @@ async def test_fallback_serves_metrics_the_primary_does_not_declare() -> None:
     )
     assert [p.value for p in await _collect(routed, "node_cpu_percent")] == [42.0]
     assert [p.value for p in await _collect(routed, "cpu_percent")] == [55.0]
+
+
+async def test_query_compatibility_selects_the_route_before_dispatch() -> None:
+    primary_calls: list[str] = []
+
+    class _VmProvider:
+        def serves(self, query: MetricQuery) -> bool:
+            return query.labels.get("resource_id") == "vm-1"
+
+        async def query(self, query: MetricQuery) -> AsyncIterator[MetricPoint]:
+            primary_calls.append(query.labels["resource_id"])
+            yield _sample(query.metric_name, 1.0)
+
+    fallback_calls: list[str] = []
+
+    class _FallbackProvider:
+        async def query(self, query: MetricQuery) -> AsyncIterator[MetricPoint]:
+            fallback_calls.append(query.labels["resource_id"])
+            yield _sample(query.metric_name, 2.0)
+
+    routed = RoutedMetricProvider(
+        routes=(
+            MetricRoute(provider=_VmProvider(), supported_metrics=frozenset({"cpu"})),
+            MetricRoute(provider=_FallbackProvider(), supported_metrics=frozenset({"cpu"})),
+        )
+    )
+
+    got = await _collect_query(
+        routed,
+        MetricQuery(metric_name="cpu", labels={"resource_id": "mysql-1"}),
+    )
+
+    assert [point.value for point in got] == [2.0]
+    assert primary_calls == []
+    assert fallback_calls == ["mysql-1"]
 
 
 async def test_unrouted_metric_fails_closed() -> None:

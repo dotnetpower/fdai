@@ -29,7 +29,6 @@ from .semantic_reasoning_admission import restated_relation, restates_filter
 from .semantic_reasoning_anchoring import anchored_relation
 from .semantic_reasoning_comparisons import comparison_goal
 from .semantic_reasoning_form import (
-    DurationUnit,
     FilterRole,
     FormGoal,
     FormMeasure,
@@ -50,9 +49,16 @@ from .semantic_reasoning_handles import (
     reference_mention,
     starts_from_reference,
 )
+from .semantic_reasoning_history_window import (
+    MAX_LOOKBACK_SECONDS,
+    MIN_LOOKBACK_SECONDS,
+    history_lookback_seconds,
+    stated_window,
+)
 from .semantic_reasoning_lineage_counts import lineage_count_goal
 from .semantic_reasoning_measure_reads import health_lookup, state_history
 from .semantic_reasoning_measures import listed_measure, stated_measure
+from .semantic_reasoning_metric_selection import WINDOW_LIMITATIONS, metric_stage
 from .semantic_reasoning_metrics import METRIC_READER, metric_read
 from .semantic_reasoning_nodes import (
     COLLECTION_LIMIT,
@@ -92,22 +98,9 @@ RECENT_CHANGES_FUNCTION = "query.recent_resource_changes"
 EVENT_HISTORY_FUNCTION = "query.resource_event_history"
 # Every reviewed event family; the form has no narrower event kind to state.
 EVENT_FAMILIES = tuple(sorted(RESOURCE_EVENT_MEASURE_CONCEPTS))
-_WINDOW_LIMITATIONS = {
-    "default": "default_window_applied",
-    "applied": "time_window_applied",
-    "model_judged": "time_window_model_judged",
-}
 # An anchor read, one traversal per side, their union tree, and the aggregate fit one intent
 # graph of 16 goals: eleven sides need two union parts and a root union.
 MAX_COUNT_SIDES = 11
-MIN_LOOKBACK_SECONDS = 60
-MAX_LOOKBACK_SECONDS = 604_800
-_UNIT_SECONDS = {
-    DurationUnit.MINUTE: 60,
-    DurationUnit.HOUR: 3_600,
-    DurationUnit.DAY: 86_400,
-    DurationUnit.WEEK: 604_800,
-}
 _CURRENT_TIMES = frozenset({TimeKind.CURRENT, TimeKind.UNSPECIFIED})
 _MEASURE_DOMAINS = frozenset(
     {MentionDomain.STATE, MentionDomain.HEALTH, MentionDomain.METRIC, MentionDomain.PROPERTY}
@@ -151,7 +144,7 @@ def compile_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
     if goal.level is GoalLevel.SCHEMA:
         return schema_goal(goal, ctx)
     if (
-        goal.effective_operation in {GoalOperation.SELECT, GoalOperation.COUNT}
+        goal.effective_operation in {GoalOperation.SELECT, GoalOperation.COUNT, GoalOperation.RANK}
         and goal.relation is None
     ):
         return _collection_goal(goal, ctx)
@@ -192,6 +185,7 @@ _INSTANCE_OPERATIONS = frozenset(
     {
         GoalOperation.SELECT,
         GoalOperation.COUNT,
+        GoalOperation.RANK,
         GoalOperation.TRAVERSE,
         GoalOperation.IMPACT,
         GoalOperation.LOOKUP,
@@ -210,6 +204,8 @@ _SCHEMA_OPERATIONS = frozenset(
 # Measure kinds each compiled operation reads; any other measure atom is not dropped silently.
 _READ_MEASURES: dict[GoalOperation, frozenset[MeasureKind]] = {
     GoalOperation.COUNT: frozenset({MeasureKind.COUNT}),
+    # A collection ranked by one reviewed metric (E11).
+    GoalOperation.RANK: frozenset({MeasureKind.METRIC}),
     GoalOperation.LOOKUP: frozenset(
         {MeasureKind.STATE, MeasureKind.METRIC, MeasureKind.HEALTH, MeasureKind.PROPERTY}
     ),
@@ -299,8 +295,14 @@ def _restates_measure(goal: FormGoal, measure: FormMeasure, ctx: CompileContext)
 
 
 def _collection_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
-    if goal.time.kind not in _CURRENT_TIMES:
+    metric = metric_stage(goal, ctx)
+    if isinstance(metric, OperatorResult):
+        return metric
+    # A metric is read over a window, so it states its own time; anything else is read now.
+    if metric is None and goal.time.kind not in _CURRENT_TIMES:
         return OperatorResult(unsupported=(f"time_unsupported:{goal.time.kind.value}",))
+    if goal.effective_operation is GoalOperation.RANK and metric is None:
+        return OperatorResult(unsupported=("rank_measure_unreviewed",))
     measure = stated_measure(goal, ctx)
     if isinstance(measure, OperatorResult):
         return measure
@@ -312,12 +314,16 @@ def _collection_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         if measure is not None and measure.role is not listing.role:
             return OperatorResult(unsupported=("listed_measure_reader_conflict",))
         measure = measure or listing
-    staged = measure.role if measure is not None else None
+    if metric is not None and measure is not None:
+        return OperatorResult(unsupported=("metric_and_state_filter_unsupported",))
+    staged = measure.role if measure is not None else (FilterRole.METRIC if metric else None)
     selector, predicates, failure = subject_selection(goal, ctx, staged=staged)
     if failure is not None:
         return failure
     if measure is not None and selector != RESOURCE_OBJECT_TYPE:
         return OperatorResult(unsupported=(f"{measure.role.value}_filter_requires_resource",))
+    if metric is not None and selector != RESOURCE_OBJECT_TYPE:
+        return OperatorResult(unsupported=("metric_filter_requires_resource",))
     scopes = [item for item in goal.filters if item.role is FilterRole.SCOPE]
     if len(scopes) > 1:
         return OperatorResult(unsupported=("multiple_scopes_unsupported",))
@@ -351,11 +357,37 @@ def _collection_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         stage = measure.node(f"{prefix}-{measure.role.value}", output)
         nodes.append(stage)
         output = stage.node_id
+    if metric is not None:
+        metric_node = metric.node(f"{prefix}-metric", output)
+        nodes.append(metric_node)
+        output = metric_node.node_id
     if goal.effective_operation is GoalOperation.COUNT:
         count = count_node(f"{prefix}-count", output, group)
         nodes.append(count)
         output = count.node_id
     listed = measure if goal.effective_operation is not GoalOperation.COUNT else None
+    if metric is not None:
+        return OperatorResult(
+            specs=(
+                plan_spec(
+                    goal,
+                    tuple(nodes),
+                    (output,),
+                    ctx,
+                    subjects=(selector,),
+                    output_shape=(
+                        None
+                        if goal.effective_operation is GoalOperation.COUNT
+                        else SemanticOutputShape.RESOURCE_METRIC_LIST
+                    ),
+                    measure_concepts=(
+                        () if goal.effective_operation is GoalOperation.COUNT else (metric.concept,)
+                    ),
+                    evidence_requirements=(metric.evidence_requirement,),
+                ),
+            ),
+            limitations=(metric.limitation,),
+        )
     return OperatorResult(
         specs=(
             plan_spec(
@@ -569,7 +601,7 @@ def _metric_lookup(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         output_shape=SemanticOutputShape.TARGET_RESOURCE_METRIC,
         evidence_requirements=(f"window.{kind}.{seconds}",),
     )
-    limitation = f"{_WINDOW_LIMITATIONS[kind]}:{seconds}"
+    limitation = f"{WINDOW_LIMITATIONS[kind]}:{seconds}"
     return OperatorResult(specs=result.specs, limitations=(limitation,)) if result.specs else result
 
 
@@ -583,7 +615,7 @@ def _history_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
     if goal.filters:
         return OperatorResult(unsupported=("filter_unsupported_for_operation:history",))
     kind = goal.measure.kind if goal.measure is not None else MeasureKind.CHANGE
-    window = _stated_window(goal, ctx)
+    window = stated_window(goal, ctx)
     if isinstance(window, str):
         return OperatorResult(unsupported=(window,))
     seconds, limitation, requirement = window
@@ -685,50 +717,13 @@ def _cause_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
         return OperatorResult(unsupported=("anchor_missing",))
     if goal.filters or (goal.relation is not None and not restated_relation(goal)):
         return OperatorResult(unsupported=("cause_context_atom_unsupported",))
-    window = _stated_window(goal, ctx)
+    window = stated_window(goal, ctx)
     if isinstance(window, str):
         return OperatorResult(unsupported=(window,))
     seconds, limitation, requirement = window
     return causal_context_result(
         goal, ctx, seconds=seconds, limitation=limitation, requirement=requirement
     )
-
-
-def _stated_window(goal: FormGoal, ctx: CompileContext) -> tuple[int, str, str] | str:
-    """Return the trusted lookback, its limitation, and the notice requirement that states it."""
-
-    lookback = history_lookback_seconds(goal, default_seconds=ctx.default_lookback_seconds)
-    if isinstance(lookback, str):
-        return lookback
-    seconds, defaulted = lookback
-    if defaulted:
-        kind = "default"
-    else:
-        # One window read from words without digits is the model's reading, stated as such.
-        kind = "model_judged" if goal.id in ctx.admission.judged_times else "applied"
-    code = _WINDOW_LIMITATIONS[kind]
-    return seconds, f"{code}:{seconds}", f"window.{kind}.{seconds}"
-
-
-def history_lookback_seconds(
-    goal: FormGoal,
-    *,
-    default_seconds: int,
-) -> tuple[int, bool] | str:
-    """Return the trusted lookback for a history goal or the reason it is unusable."""
-
-    kind = goal.time.kind
-    if kind in _CURRENT_TIMES:
-        return default_seconds, True
-    if kind is not TimeKind.WINDOW or goal.time.value is None:
-        return f"time_unsupported:{kind.value}"
-    duration = goal.time.value.duration
-    if duration is None:
-        return "time_calendar_window_unsupported"
-    seconds = duration.amount * _UNIT_SECONDS[duration.unit]
-    if not MIN_LOOKBACK_SECONDS <= seconds <= MAX_LOOKBACK_SECONDS:
-        return "time_window_out_of_bounds"
-    return seconds, False
 
 
 def _anchored_function(

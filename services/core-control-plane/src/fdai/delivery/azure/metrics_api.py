@@ -225,6 +225,26 @@ class AzureMonitorMetricsProvider:
         self._identity: Final[WorkloadIdentity] = identity
         self._clock: Final[_Clock] = clock or (lambda: datetime.now(tz=UTC))
 
+    def serves(self, query: MetricQuery) -> bool:
+        """Return whether a reviewed template covers this query's exact target type.
+
+        A route consults this before dispatch, so a target of another resource type reaches
+        the next route that declares the metric instead of failing here. A query without a
+        target still dispatches and fails with its explicit error.
+        """
+
+        template = self._config.templates.get(query.metric_name)
+        if template is None:
+            return False
+        resource_id = query.labels.get("resource_id")
+        if not resource_id:
+            return True
+        try:
+            _query_scope(template, resource_id)
+        except MetricProviderError:
+            return False
+        return True
+
     async def query(self, query: MetricQuery) -> AsyncIterator[MetricPoint]:
         template = self._config.templates.get(query.metric_name)
         if template is None:

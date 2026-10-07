@@ -184,6 +184,14 @@ _KIND_LABELS: dict[str, tuple[str, str]] = {
         "값의 범위를 두 판독이 다르게 읽었습니다",
         "two readers read a stated value differently",
     ),
+    "metric_threshold_unstated": (
+        "지표를 비교할 기준값(예: 80% 이상)이 없습니다",
+        "the metric has no stated threshold, such as 80 percent or more",
+    ),
+    "metric_unit_unstated": (
+        "기준값의 단위(예: %)가 없습니다",
+        "the threshold has no stated unit, such as percent",
+    ),
 }
 for _code in (
     "prior_result_unavailable",

@@ -78,6 +78,11 @@ _ARM_ID = (
     "/resourceGroups/example-rg/providers/Microsoft.DBforMySQL"
     "/flexibleServers/example-mysql"
 )
+_VM_ARM_ID = (
+    "/subscriptions/00000000-0000-0000-0000-000000000000"
+    "/resourceGroups/example-rg/providers/Microsoft.Compute"
+    "/virtualMachines/example-vm"
+)
 
 
 async def test_query_dispatches_and_parses_timeseries() -> None:
@@ -238,6 +243,31 @@ async def test_missing_template_fails_closed() -> None:
             pass
 
 
+def test_provider_serves_only_the_template_target_type() -> None:
+    provider = AzureMonitorMetricsProvider(
+        config=AzureMonitorMetricsConfig(
+            templates={
+                "host.cpu.percent": MetricsApiTemplate(
+                    azure_metric_name="Percentage CPU",
+                    aggregation="Average",
+                    resource_type="Microsoft.Compute/virtualMachines",
+                )
+            }
+        ),
+        http_client=httpx.AsyncClient(),
+        identity=_StaticIdentity(),
+    )
+
+    assert provider.serves(
+        MetricQuery(metric_name="host.cpu.percent", labels={"resource_id": _VM_ARM_ID})
+    )
+    assert not provider.serves(
+        MetricQuery(metric_name="host.cpu.percent", labels={"resource_id": _ARM_ID})
+    )
+    assert provider.serves(MetricQuery(metric_name="host.cpu.percent"))
+    assert not provider.serves(MetricQuery(metric_name="unknown"))
+
+
 async def test_missing_resource_id_fails_closed() -> None:
     http = httpx.AsyncClient()
     provider = AzureMonitorMetricsProvider(
@@ -344,6 +374,7 @@ async def test_shipped_azure_metrics_api_queries_are_valid() -> None:
     from fdai.delivery.azure.demo_queries import (
         METRIC_CONTAINER_APP_MEMORY_PERCENT,
         METRIC_CONTAINER_APP_REQUEST_TIMEOUTS,
+        METRIC_HOST_CPU_PERCENT,
         METRIC_SERVICE_REQUEST_DURATION_MS,
         resource_metric_queries,
         sre_demo_analyzer_queries,
@@ -370,4 +401,8 @@ async def test_shipped_azure_metrics_api_queries_are_valid() -> None:
     assert timeout.azure_metric_name == "ResiliencyRequestTimeouts"
     assert timeout.aggregation == "Total"
     assert timeout.interval == "PT5M"
-    assert len(shipped) == 34
+    vm_cpu = shipped[METRIC_HOST_CPU_PERCENT]
+    assert vm_cpu.azure_metric_name == "Percentage CPU"
+    assert vm_cpu.aggregation == "Average"
+    assert vm_cpu.resource_type == "Microsoft.Compute/virtualMachines"
+    assert len(shipped) == 35

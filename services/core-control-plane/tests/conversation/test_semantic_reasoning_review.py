@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 import httpx
+import pytest
 from fdai.core.conversation.semantic_reasoning_concepts import ConceptCandidate, ConceptShard
 from fdai.core.conversation.semantic_reasoning_form import MentionDomain, SemanticQuestionForm
 from fdai.core.conversation.semantic_reasoning_proposal import resolve_question_form
@@ -972,6 +973,58 @@ def test_a_comparison_absorbed_into_a_measure_cue_is_never_stated() -> None:
     assert review_forms((_typed(form, utterance),), extraction, utterance=utterance).reasons == (
         "review_unexpressible:compares:14-23",
     )
+
+
+@pytest.mark.parametrize("answer_kind", [None, "state", "value", "list"])
+def test_a_metric_threshold_states_its_comparison_in_typed_fields(
+    answer_kind: str | None,
+) -> None:
+    utterance = "Which VMs run above 80% CPU?"
+    form = {
+        "mentions": [
+            {"id": "m1", "form": "concept", "domain": "resource_type", "span": _quote("VMs")},
+            {"id": "m2", "form": "concept", "domain": "metric", "span": _quote("CPU")},
+        ],
+        "goals": [
+            {
+                "id": "g1",
+                "level": "instance",
+                "operation": "select",
+                "subject": "m1",
+                "subject_scope": "collection",
+                "filters": [
+                    {
+                        "role": "metric",
+                        "mention": "m2",
+                        "cue": _quote("run"),
+                        "comparison": {
+                            "comparator": "gt",
+                            "value": "80",
+                            "comparator_span": _quote("above"),
+                            "value_span": _quote("80"),
+                            "unit": "percent",
+                            "unit_span": _quote("%"),
+                        },
+                    }
+                ],
+                "cue": _quote("Which"),
+                "confidence": 0.9,
+            }
+        ],
+    }
+    extraction = {
+        "constraints": [
+            _constraint("VMs", "names"),
+            _constraint("above 80%", "compares"),
+            _constraint("CPU", "measures"),
+        ],
+        "literals": [_quote("80")],
+        **({} if answer_kind is None else {"answer_kind": answer_kind}),
+    }
+
+    review = review_forms((_typed(form, utterance),), extraction, utterance=utterance)
+
+    assert review.outcome == "faithful", review.reasons
 
 
 async def test_one_review_repair_turns_an_absorbed_exclusion_into_a_clarification() -> None:

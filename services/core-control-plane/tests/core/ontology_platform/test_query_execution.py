@@ -581,6 +581,7 @@ async def test_executor_accepts_only_explicit_composite_instance_path_derivation
     (
         EvidenceAuthority.SERVER_RESOURCE_HEALTH,
         EvidenceAuthority.SERVER_OPERATIONAL_STATE_HISTORY,
+        EvidenceAuthority.SERVER_OPERATIONAL_METRICS,
     ),
 )
 async def test_executor_accepts_inventory_scoped_independent_evidence(
@@ -633,3 +634,61 @@ async def test_executor_accepts_inventory_scoped_independent_evidence(
     assert execution.status == "completed"
     assert execution.receipts[-1].authority is authority
     assert execution.receipts[-1].authority_inputs == (EvidenceAuthority.SERVER_INVENTORY_GRAPH,)
+
+
+@pytest.mark.parametrize(
+    ("scope_authority", "inputs", "reason"),
+    (
+        (EvidenceAuthority.SERVER_INVENTORY_GRAPH, (), "evidence_authority_conflict"),
+        (
+            EvidenceAuthority.SERVER_ONTOLOGY_MANIFEST,
+            (EvidenceAuthority.SERVER_INVENTORY_GRAPH,),
+            "evidence_authority_derivation_invalid",
+        ),
+    ),
+)
+async def test_metric_evidence_is_scoped_only_by_a_matching_inventory_input(
+    scope_authority: EvidenceAuthority,
+    inputs: tuple[EvidenceAuthority, ...],
+    reason: str,
+) -> None:
+    async def scope(node, dependencies):  # type: ignore[no-untyped-def]
+        del dependencies
+        return QueryNodeResult(
+            value={"node": node.node_id},
+            evidence_refs=("inventory:scope",),
+            authority=scope_authority,
+        )
+
+    async def metrics(node, dependencies):  # type: ignore[no-untyped-def]
+        del dependencies
+        return QueryNodeResult(
+            value={"node": node.node_id},
+            evidence_refs=("provider:metrics",),
+            authority=EvidenceAuthority.SERVER_OPERATIONAL_METRICS,
+            authority_inputs=inputs,
+        )
+
+    nodes = (
+        OntologyQueryNode(
+            node_id="scope", kind=QueryNodeKind.OBJECT_SET, output_kind="query.table"
+        ),
+        OntologyQueryNode(
+            node_id="metrics",
+            kind=QueryNodeKind.FUNCTION,
+            depends_on=("scope",),
+            output_kind="query.table",
+        ),
+    )
+    execution = await OntologyQueryPlanExecutor(
+        handlers={QueryNodeKind.OBJECT_SET: scope, QueryNodeKind.FUNCTION: metrics},
+        now=lambda: NOW,
+    ).execute(
+        _plan(nodes, ("metrics",)),
+        expected_release_digest=DIGEST_A,
+        expected_manifest_digest=DIGEST_B,
+        expected_role="Reader",
+        expected_purpose="incident-investigation",
+    )
+
+    assert execution.receipts[-1].reason == reason

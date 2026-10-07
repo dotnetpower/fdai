@@ -104,6 +104,23 @@ def resolve_question_form(raw: Mapping[str, Any], *, utterance: str) -> FormReso
             if isinstance(item, dict):
                 path = f"goals.{index}.filters.{position}.cue"
                 _bind(item, "cue", utterance, failures, notes, path, required=False)
+                comparison = item.get("comparison")
+                if isinstance(comparison, dict):
+                    base = f"goals.{index}.filters.{position}.comparison"
+                    for key, required in (
+                        ("comparator_span", True),
+                        ("value_span", True),
+                        ("unit_span", False),
+                    ):
+                        _bind(
+                            comparison,
+                            key,
+                            utterance,
+                            failures,
+                            notes,
+                            f"{base}.{key}",
+                            required=required,
+                        )
         for key in ("relation", "time", "measure"):
             nested = goal.get(key)
             if isinstance(nested, dict):
@@ -116,8 +133,17 @@ def resolve_question_form(raw: Mapping[str, Any], *, utterance: str) -> FormReso
                     )
                 order = nested.get("order") if key == "measure" else None
                 if isinstance(order, dict):
-                    order_path = f"goals.{index}.measure.order.cue"
-                    _bind(order, "cue", utterance, failures, notes, order_path, required=False)
+                    order_path = f"goals.{index}.measure.order"
+                    for key in ("cue", "limit_span"):
+                        _bind(
+                            order,
+                            key,
+                            utterance,
+                            failures,
+                            notes,
+                            f"{order_path}.{key}",
+                            required=False,
+                        )
     for key in ("context", "unsupported_constraints"):
         quotes = payload.get(key)
         if isinstance(quotes, list):

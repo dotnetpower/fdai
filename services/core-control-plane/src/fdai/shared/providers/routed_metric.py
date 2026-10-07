@@ -12,8 +12,11 @@ which can double-yield partial samples across providers and hide
 real failures behind the fallback - this class dispatches on
 ``metric_name`` deterministically: each provider ships with an
 explicit set of metric names it supports; the query goes to the
-first provider whose set includes it. A metric absent from every
-route raises :class:`MetricProviderError` fail-closed.
+first provider whose set includes it. A provider that also exposes
+``serves(query)`` is chosen only when it accepts that exact query, such
+as a target of the resource type its template reviews; the decision is
+made before dispatch, never by catching a failure. A metric absent from
+every route raises :class:`MetricProviderError` fail-closed.
 
 CSP-neutral: it imports only the metric Protocol and the stdlib, so
 it stays under the ``core/``-adjacent portability contract even
@@ -47,6 +50,14 @@ class MetricRoute:
     provider: MetricProvider
     supported_metrics: frozenset[str]
 
+    def serves(self, query: MetricQuery) -> bool:
+        """Return whether this route handles the query, decided before any dispatch."""
+
+        if query.metric_name not in self.supported_metrics:
+            return False
+        accepts = getattr(self.provider, "serves", None)
+        return bool(accepts(query)) if callable(accepts) else True
+
     def __post_init__(self) -> None:
         if not self.supported_metrics:
             raise ValueError(
@@ -77,7 +88,7 @@ class RoutedMetricProvider:
 
     async def query(self, query: MetricQuery) -> AsyncIterator[MetricPoint]:
         for route in self._routes:
-            if query.metric_name in route.supported_metrics:
+            if route.serves(query):
                 async for point in route.provider.query(query):
                     yield point
                 return

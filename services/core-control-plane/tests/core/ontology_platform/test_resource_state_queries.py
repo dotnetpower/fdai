@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from fdai.core.ontology_platform.functions import (
     FunctionInvocationContext,
     OntologyFunctionRegistry,
@@ -144,6 +145,7 @@ async def _invoke(
     query_result: SecuredObjectSetQueryResult,
     *,
     concepts: tuple[str, ...],
+    list_members: bool = False,
 ) -> dict[str, object]:
     declaration = resource_state_function_type()
     release = build_ontology_release(function_types=(declaration,))
@@ -157,6 +159,7 @@ async def _invoke(
         {
             "query_result": query_result.model_dump(mode="json"),
             "state_concepts": list(concepts),
+            **({"list_members": True} if list_members else {}),
         },
         context=FunctionInvocationContext(
             caller_agent="Bragi",
@@ -171,7 +174,7 @@ async def _invoke(
 def test_state_function_declares_canonical_measure_concepts() -> None:
     declaration = resource_state_function_type()
 
-    assert declaration.version == "1.2.0"
+    assert declaration.version == "1.3.0"
     assert declaration.output_schema["x-fdai-measure-concepts"] == list(
         RESOURCE_STATE_QUERY_CONCEPTS
     )
@@ -376,3 +379,53 @@ async def test_state_function_preserves_verified_matches_from_incomplete_scope()
     rows = result["rows"]
     assert isinstance(rows, list)
     assert [row["values"]["name"] for row in rows] == ["database-a"]
+
+
+async def test_list_mode_returns_one_row_per_resource_with_a_typed_unknown_reason() -> None:
+    observed_at = NOW - timedelta(minutes=5)
+    stale = NOW - timedelta(hours=3)
+    result = await _invoke(
+        _query_result(
+            (
+                _resource("database-a", "Stopped", observed_at=observed_at),
+                _resource("database-b", None),
+                _resource("database-c", "Running"),
+                _resource("database-d", "Running", observed_at=stale),
+            )
+        ),
+        concepts=(RESOURCE_STATE_OBSERVED_CONCEPT,),
+        list_members=True,
+    )
+
+    rows = {row["values"]["name"]: row["values"] for row in result["rows"]}
+    assert set(rows) == {"database-a", "database-b", "database-c", "database-d"}
+    assert rows["database-a"]["state_status"] == "observed"
+    assert rows["database-a"]["state_concept"] == "resource_state.stopped"
+    assert {
+        name: rows[name]["unknown_reason"] for name in ("database-b", "database-c", "database-d")
+    } == {
+        "database-b": "state_not_reported",
+        "database-c": "state_metadata_missing",
+        "database-d": "state_stale",
+    }
+    for name in ("database-b", "database-c", "database-d"):
+        assert rows[name]["state_status"] == "unknown_incomplete"
+        assert rows[name]["state_concept"] is None
+        assert rows[name]["observed_state"] is None
+    # Every Resource is listed, but unverified members keep the table incomplete.
+    assert result["complete"] is False
+    assert result["truncation_reason"] == "resource_state_evidence_incomplete"
+
+
+async def test_list_mode_only_lists_the_observed_concept_and_filter_mode_is_unchanged() -> None:
+    observed_at = NOW - timedelta(minutes=5)
+    query = _query_result(
+        (_resource("database-a", "Stopped", observed_at=observed_at), _resource("database-b", None))
+    )
+
+    with pytest.raises(Exception, match="list mode"):
+        await _invoke(query, concepts=("resource_state.stopped",), list_members=True)
+    filtered = await _invoke(query, concepts=(RESOURCE_STATE_OBSERVED_CONCEPT,))
+
+    assert [row["values"]["name"] for row in filtered["rows"]] == ["database-a"]
+    assert "state_status" not in filtered["rows"][0]["values"]

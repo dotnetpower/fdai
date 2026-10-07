@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import json
 import math
@@ -16,9 +15,14 @@ from fdai.core.ontology_platform.functions import (
     ContextualOntologyFunction,
     FunctionInvocationContext,
 )
+from fdai.core.ontology_platform.metric_collection_reads import (
+    METRIC_BUDGET_EXHAUSTED,
+    MemberRead,
+    MetricSelection,
+    read_members,
+)
 from fdai.core.ontology_platform.metric_semantics import (
     MetricAggregation,
-    MetricSemanticDefinition,
     MetricSemanticRegistry,
     MetricWindow,
     MetricWindowProvider,
@@ -38,8 +42,11 @@ RESOURCE_METRIC_FUNCTION_NAME = "query.resource_metric_inventory"
 RESOURCE_METRIC_SERIES_FUNCTION_NAME = "query.resource_metric_series"
 MAX_RESOURCE_METRIC_WINDOW_SECONDS = 7 * 24 * 60 * 60
 _MAX_CONCEPTS = 4
-_MAX_RESOURCES = 16
+# A collection read reserves this many provider reads per turn and reads in batches.
+_MAX_PROVIDER_READS = 128
+_BATCH_SIZE = 16
 _MAX_CONCURRENT_READS = 4
+_MAX_ROWS = 1000
 _MAX_SERIES_POINTS = 20
 
 
@@ -48,7 +55,7 @@ def resource_metric_function_type() -> OntologyFunctionType:
 
     return OntologyFunctionType(
         name=RESOURCE_METRIC_FUNCTION_NAME,
-        version="1.1.0",
+        version="1.2.0",
         kind=OntologyFunctionKind.QUERY,
         artifact_digest=f"sha256:{hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}",
         publisher="fdai",
@@ -73,6 +80,15 @@ def resource_metric_function_type() -> OntologyFunctionType:
                     "minimum": 300,
                     "maximum": MAX_RESOURCE_METRIC_WINDOW_SECONDS,
                 },
+                # A stated threshold, applied only to members with a complete window.
+                "comparator": {"enum": ["gt", "ge", "lt", "le"]},
+                "threshold": {"type": "string", "pattern": r"^-?[0-9]{1,12}(\.[0-9]{1,6})?$"},
+                "threshold_unit": {"type": "string", "pattern": r"^[a-z][a-z0-9_]{0,31}$"},
+                # A stated order; limit is a stated count, absent for the whole collection.
+                "order_direction": {"enum": ["ascending", "descending"]},
+                "order_limit": {"type": "integer", "minimum": 1, "maximum": 50},
+                # List members without a complete window as unknown rather than omit them.
+                "list_unknown": {"type": "boolean"},
             },
         },
         output_schema={
@@ -80,7 +96,7 @@ def resource_metric_function_type() -> OntologyFunctionType:
             "additionalProperties": False,
             "required": ["rows", "complete", "truncation_reason"],
             "properties": {
-                "rows": {"type": "array", "maxItems": _MAX_RESOURCES * _MAX_CONCEPTS},
+                "rows": {"type": "array", "maxItems": _MAX_ROWS},
                 "complete": {"type": "boolean"},
                 "truncation_reason": {"type": ["string", "null"]},
             },
@@ -89,7 +105,7 @@ def resource_metric_function_type() -> OntologyFunctionType:
         execution_class=LogicExecutionClass.DETERMINISTIC,
         required_role=CeilingRole.READER,
         purpose_bindings=["operations-review"],
-        timeout_seconds=30,
+        timeout_seconds=60,
         cpu_millis=500,
         memory_bytes=67_108_864,
         max_output_bytes=1_048_576,
@@ -174,79 +190,27 @@ def resource_metric_inventory_function(
         objects = tuple(sorted(secured.materialization.graph.objects, key=lambda item: item.id))
         if not objects:
             return _table((), complete=True, reason=None)
-        selected = objects[:_MAX_RESOURCES]
-        scope_sampled = len(objects) > _MAX_RESOURCES
         concept_ids = tuple(str(item) for item in arguments["metric_concepts"])
         definitions = tuple(registry.resolve(item) for item in concept_ids)
+        selection = MetricSelection.from_arguments(arguments, definitions)
         window_seconds = int(arguments["window_seconds"])
+        # One absolute window for every batch, so every member is read over the same instants.
         end = clock()
         if end.tzinfo is None:
             raise ValueError("resource metric clock MUST be timezone-aware")
         end = end.astimezone(UTC)
         start = end - timedelta(seconds=window_seconds)
-        semaphore = asyncio.Semaphore(_MAX_CONCURRENT_READS)
-
-        async def read(
-            target_id: str,
-            definition: MetricSemanticDefinition,
-        ) -> MetricWindow:
-            async with semaphore:
-                result = await provider.read(
-                    definition=definition,
-                    resource_id=target_id,
-                    start=start,
-                    end=end,
-                )
-            if (
-                result.resource_id != target_id
-                or result.concept_id != definition.concept_id
-                or result.unit != definition.canonical_unit
-                or result.start != start
-                or result.end != end
-            ):
-                raise ValueError("metric provider widened the verified collection request")
-            return result
-
-        windows = await asyncio.gather(
-            *(read(target.id, definition) for target in selected for definition in definitions)
+        reads, stop = await read_members(
+            objects,
+            definitions,
+            provider=provider,
+            start=start,
+            end=end,
+            max_reads=_MAX_PROVIDER_READS,
+            batch_size=_BATCH_SIZE,
+            concurrency=_MAX_CONCURRENT_READS,
         )
-        targets = {target.id: target for target in selected}
-        rows: list[QueryRow] = []
-        incomplete_reasons: list[str] = []
-        for window in windows:
-            target = targets[window.resource_id]
-            definition = registry.resolve(window.concept_id)
-            value = _aggregate(window, definition.aggregation) if window.complete else None
-            if not window.complete:
-                incomplete_reasons.append(window.missing_reason or "metric_window_incomplete")
-            rows.append(
-                QueryRow.from_values(
-                    f"resource-metric-{len(rows) + 1:04d}",
-                    {
-                        "name": _text(target.properties.get("name")),
-                        "type": _text(target.properties.get("type")),
-                        "metric_concept": window.concept_id,
-                        "value": value,
-                        "unit": window.unit,
-                        "aggregation": definition.aggregation.value,
-                        "sample_count": len(window.samples),
-                        "window_start": window.start.isoformat(),
-                        "window_end": window.end.isoformat(),
-                        "complete": window.complete,
-                        "missing_reason": window.missing_reason,
-                        "evidence_refs": list(window.evidence_refs),
-                        "execution_authority": False,
-                    },
-                )
-            )
-        if scope_sampled:
-            incomplete_reasons.append("resource_metric_scope_sampled")
-        complete = not incomplete_reasons
-        return _table(
-            tuple(rows),
-            complete=complete,
-            reason=(None if complete else "+".join(sorted(set(incomplete_reasons)))),
-        )
+        return _member_table(reads, selection=selection, stop=stop, start=start, end=end)
 
     return evaluate
 
@@ -332,6 +296,108 @@ def resource_metric_series_function(
         return _table(rows, complete=True, reason=None)
 
     return evaluate
+
+
+def _member_table(
+    reads: tuple[MemberRead, ...],
+    *,
+    selection: MetricSelection,
+    stop: str | None,
+    start: datetime,
+    end: datetime,
+) -> dict[str, object]:
+    """Return the member rows a selection keeps, with exact accounting of every gap."""
+
+    measured: list[tuple[MemberRead, float]] = []
+    unknown: list[tuple[MemberRead, str]] = []
+    reasons: list[str] = []
+    for read in reads:
+        window = read.window
+        if window is None:
+            unknown.append((read, read.pending_reason or METRIC_BUDGET_EXHAUSTED))
+        elif not window.complete:
+            unknown.append((read, window.missing_reason or "metric_window_incomplete"))
+        else:
+            measured.append((read, _aggregate(window, read.definition.aggregation)))
+    reasons.extend(reason for _read, reason in unknown)
+    if stop is not None:
+        reasons.append(stop)
+    if not selection.selective:
+        # A plain read lists every read window; an unread member is only an incomplete reason.
+        plain = [_metric_values(read, value) for read, value in measured]
+        plain.extend(
+            _metric_values(read, None) for read, _reason in unknown if read.window is not None
+        )
+        plain.sort(key=lambda item: (str(item["resource_key"]), str(item["metric_concept"])))
+        return _rows_table(plain, reasons)
+    kept = [(read, value) for read, value in measured if selection.matches(value)]
+    if selection.descending is not None:
+        kept.sort(
+            key=lambda item: (-item[1] if selection.descending else item[1], item[0].target.id)
+        )
+        if selection.limit is not None:
+            kept = kept[: selection.limit]
+    rows = []
+    for position, (read, value) in enumerate(kept, start=1):
+        values = {**_metric_values(read, value), "metric_status": "measured"}
+        if selection.descending is not None:
+            values["rank"] = position
+        rows.append(values)
+    if selection.list_unknown:
+        for read, reason in unknown:
+            values = {
+                **_metric_values(read, None, start=start, end=end),
+                "metric_status": "pending" if read.window is None else "unknown_incomplete",
+                "missing_reason": reason,
+            }
+            rows.append(values)
+    return _rows_table(rows, reasons)
+
+
+def _metric_values(
+    read: MemberRead,
+    value: float | None,
+    *,
+    start: datetime | None = None,
+    end: datetime | None = None,
+) -> dict[str, object]:
+    window = read.window
+    target = read.target
+    # A pending member was never read, so it states the pinned window it would have used.
+    window_start = window.start if window is not None else start
+    window_end = window.end if window is not None else end
+    return {
+        "resource_key": target.id,
+        "name": _text(target.properties.get("name")),
+        "type": _text(target.properties.get("type")),
+        "metric_concept": read.definition.concept_id,
+        "value": value,
+        "unit": read.definition.canonical_unit,
+        "aggregation": read.definition.aggregation.value,
+        "sample_count": len(window.samples) if window is not None else 0,
+        "window_start": window_start.isoformat() if window_start is not None else None,
+        "window_end": window_end.isoformat() if window_end is not None else None,
+        "complete": bool(window is not None and window.complete),
+        "missing_reason": window.missing_reason if window is not None else read.pending_reason,
+        "evidence_refs": list(window.evidence_refs) if window is not None else [],
+        "execution_authority": False,
+    }
+
+
+def _rows_table(rows: list[dict[str, object]], reasons: list[str]) -> dict[str, object]:
+    query_rows = tuple(
+        QueryRow.from_values(
+            f"resource-metric-{index:04d}",
+            {key: value for key, value in values.items() if key != "resource_key"},
+        )
+        for index, values in enumerate(rows, start=1)
+    )
+    complete = not reasons
+    return _table(
+        query_rows,
+        complete=complete,
+        reason=None if complete else "+".join(sorted(set(reasons))),
+    )
 
 
 def _aggregate(window: MetricWindow, aggregation: MetricAggregation) -> float:

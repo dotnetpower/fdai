@@ -23,9 +23,12 @@ from fdai_service_contracts.ontology_query import (
 )
 
 from fdai.core.ontology_platform.resource_health_queries import RESOURCE_HEALTH_FUNCTION_NAME
+from fdai.core.ontology_platform.resource_metric_queries import RESOURCE_METRIC_FUNCTION_NAME
 from fdai.core.ontology_platform.resource_state_queries import RESOURCE_STATE_FUNCTION_NAME
 
-_FILTER_READERS = frozenset({RESOURCE_STATE_FUNCTION_NAME, RESOURCE_HEALTH_FUNCTION_NAME})
+_FILTER_READERS = frozenset(
+    {RESOURCE_STATE_FUNCTION_NAME, RESOURCE_HEALTH_FUNCTION_NAME, RESOURCE_METRIC_FUNCTION_NAME}
+)
 _EXACT = frozenset({"equals", "in"})
 
 
@@ -42,6 +45,8 @@ class StatedRestrictions:
     lifecycle: Mapping[tuple[str, str], frozenset[str]]
     state_concepts: tuple[str, ...]
     health_concepts: tuple[str, ...]
+    # A stated metric threshold or order, which one metric reader must apply to the answer.
+    metric_concepts: tuple[str, ...] = ()
 
 
 def filter_coverage(plans: Sequence[OntologyQueryPlan], stated: StatedRestrictions) -> list[str]:
@@ -58,6 +63,14 @@ def filter_coverage(plans: Sequence[OntologyQueryPlan], stated: StatedRestrictio
                 if item.node_id in node.depends_on
             ):
                 violations.append("sem_health_rows_counted")
+            # Unknown metric members are listed, never counted as matches.
+            if node.kind is QueryNodeKind.AGGREGATE and any(
+                function_name(item) == RESOURCE_METRIC_FUNCTION_NAME
+                and (item.arguments.get("arguments") or {}).get("list_unknown") is True
+                for item in plan.nodes
+                if item.node_id in node.depends_on
+            ):
+                violations.append("sem_metric_unknown_counted")
     for name, argument, concepts, reason in (
         (
             RESOURCE_STATE_FUNCTION_NAME,
@@ -70,6 +83,12 @@ def filter_coverage(plans: Sequence[OntologyQueryPlan], stated: StatedRestrictio
             "health_concepts",
             stated.health_concepts,
             "sem_health_filter_missing",
+        ),
+        (
+            RESOURCE_METRIC_FUNCTION_NAME,
+            "metric_concepts",
+            stated.metric_concepts,
+            "sem_metric_filter_missing",
         ),
     ):
         if concepts and not any(

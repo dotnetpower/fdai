@@ -2448,8 +2448,10 @@ def test_a_collection_select_lists_every_members_observed_state() -> None:
     (batch,) = goal.batches
     collection, state = batch.plan.nodes
     assert collection.kind.value == "object_set"
+    # A listing reads every member, so the reader lists unverified members too.
     assert json.loads(state.arguments_json)["arguments"] == {
-        "state_concepts": ["resource_state.observed"]
+        "state_concepts": ["resource_state.observed"],
+        "list_members": True,
     }
     assert batch.frame.output_shape == "resource_state_list"
 

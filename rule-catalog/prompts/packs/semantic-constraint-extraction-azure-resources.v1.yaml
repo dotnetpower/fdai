@@ -9,6 +9,7 @@ body: |-
   - A word tied to a kind by related to, containing, named, 관련, 들어간, 포함된, or 이름에 that is not a complete resource name, such as rg-app, restricts which things count by their names: give it role restricts and list the word itself as a literal.
   - Leave out words that only restate limits every answer already has, such as 권한 범위의, 권한 범위 내에서, in the authorized scope, 기존, and existing, and instructions about presenting evidence that every answer already follows, such as 원인으로 단정하지 않고 or 측정값과 사용할 수 없는 텔레메트리를 구분해. A criterion the answer must apply, such as 검토된 기준 대비, is a restricts constraint. 권한 범위의, 권한 범위에서, and 권한 범위 내에서 are never a restricts or negates constraint.
   - Leave out a container named only by its kind with no name, such as 클러스터에서 or in the cluster.
+  - A metric threshold such as CPU 90% 이상 is a compares constraint, with the digits as a literal. Highest or 가장 높은 is an orders constraint.
   - A kind of thing inside a measure phrase is its own names constraint: in aks-prod 노드 상태, quote 노드 as names and 상태 as measures.
   - A complete resource name, such as rg-app, used with in, inside, 안에, or 에 있는, names a container: give it role names.
   - A region, such as Korea Central, koreacentral, or 한국 중부, and a run or power state, such as stopped, 중지된, or 할당 해제된, restrict which things count. Quote each one and each literal exactly as the operator wrote it, spacing and case included, never as its canonical name: Korea Central stays Korea Central.
