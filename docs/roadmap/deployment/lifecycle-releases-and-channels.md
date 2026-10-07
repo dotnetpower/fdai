@@ -45,6 +45,7 @@ channel model, upgrade bundles, and recall.
 | `configuration_schema` | Keys, defaults, and the `x-fdai-axis` and `x-fdai-owner` annotations described in [Lifecycle Configuration](lifecycle-configuration.md) |
 | `capabilities` | The maximum mode for each ActionType and Workflow, and any capability recall |
 | `downtime` | Which Entities need a downtime window for this upgrade |
+| `workloads` | The workload template and the schema-expand migration Job template that the lifecycle agent renders, as [Workload rendering migration](hub-managed-lifecycle.md#workload-rendering-migration) defines |
 | Signature | Detached signature by the vendor release key over the canonical manifest |
 
 An image built from a source checkout has no vendor signature and is labeled
