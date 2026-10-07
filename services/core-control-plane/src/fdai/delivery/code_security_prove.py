@@ -21,6 +21,7 @@ from pathlib import Path
 from fdai.core.security.code_findings.models import CodeSecurityIssue
 from fdai.core.security.code_findings.verifier import VerifierOutcome, VerifierResult
 from fdai.delivery.code_security_sandbox import BubblewrapScannerSandbox
+from fdai.delivery.repo_assets import repo_asset_root
 from fdai.rule_catalog.code_security import Confidence
 from fdai.rule_catalog.code_security_scanners import ScannerSpec
 
@@ -33,7 +34,8 @@ PROVABLE_CLASSES = frozenset(
         "path_traversal",
     }
 )
-_HARNESS = Path(__file__).with_name("code_security_prove_harness.py")
+_HARNESS = repo_asset_root() / "rule-catalog" / "code-security" / "prove" / "fdai_prove.py"
+"""A sandbox payload, not an FDAI module: it is copied into the sandbox and never imported."""
 _OUTCOMES = frozenset({"proven", "not_proven"})
 
 

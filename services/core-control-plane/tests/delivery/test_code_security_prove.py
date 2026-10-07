@@ -10,7 +10,6 @@ import pytest
 from fdai.core.security.code_findings.canonical import AnalysisContext, build_issues
 from fdai.core.security.code_findings.models import Lane, Occurrence, SourceLocation
 from fdai.core.security.code_findings.verifier import VerifierOutcome, VerifierResult
-from fdai.delivery import code_security_prove_harness as harness
 from fdai.delivery.code_security_prove import (
     parse_proof_output,
     proof_targets,
@@ -21,6 +20,20 @@ from fdai.delivery.code_security_sandbox import BubblewrapScannerSandbox, sandbo
 from fdai.rule_catalog.code_security import Confidence, load_code_security_catalog
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
+
+
+def _load_harness():  # type: ignore[no-untyped-def]
+    import importlib.util
+
+    path = _REPO_ROOT / "rule-catalog" / "code-security" / "prove" / "fdai_prove.py"
+    spec = importlib.util.spec_from_file_location("fdai_prove_harness_under_test", path)
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+harness = _load_harness()
 _CATALOG = load_code_security_catalog(_REPO_ROOT / "rule-catalog" / "code-security")
 _REVISION = "a" * 40
 _PYTHON = Path("/usr/bin/python3")

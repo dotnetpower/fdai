@@ -10,6 +10,9 @@ Third-party imports that the sandbox can't satisfy resolve to inert stubs, so fr
 and models load without network or packages. The harness writes one JSON object per target to
 standard output and never writes elsewhere; the sandbox gives it no network and a read-only source.
 
+This file is a catalog asset, not an FDAI module: the proof lane copies it into the sandbox, and
+FDAI never imports it.
+
 Usage: python fdai_prove.py SOURCE_ROOT TARGETS_JSON
 """
 
