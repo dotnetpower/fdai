@@ -12,6 +12,7 @@ from fdai.agents._framework.forseti_baseline_evaluation import (
 from fdai.agents._framework.forseti_baseline_worker import (
     BASELINE_EVALUATION_CLAIM_PREFIX,
     BASELINE_EVALUATION_COVERAGE_PREFIX,
+    BASELINE_EVALUATION_LATEST_COVERAGE_KEY,
     BASELINE_EVALUATION_STATUS_KEY,
     BaselineWorkerLimits,
     BaselineWorkerResult,
@@ -203,6 +204,9 @@ async def test_run_records_complete_coverage_with_dispatch_denominator() -> None
     ]
     assert all(entry["producer_principal"] == "Forseti" for entry in store.audit)
     assert coverage.audit_ref == store.audit[-1]["audit_ref"]
+    assert await store.read_state(BASELINE_EVALUATION_LATEST_COVERAGE_KEY) == coverage.model_dump(
+        mode="json"
+    )
     _, completions = await store.read_state_page(
         prefix=BASELINE_EVALUATION_COMPLETION_PREFIX, limit=10
     )
@@ -394,3 +398,14 @@ async def test_scheduler_runs_once_per_interval_from_forseti_tick() -> None:
 def test_limits_reject_lease_shorter_than_deadline() -> None:
     with pytest.raises(ValueError, match="lease"):
         BaselineWorkerLimits(deadline_seconds=60, claim_lease_seconds=30)
+
+
+@pytest.mark.asyncio
+async def test_older_run_never_replaces_a_newer_latest_pointer() -> None:
+    store = _AuditingStore()
+    newer = {"completed_at": (NOW + timedelta(days=1)).isoformat(), "marker": "newer"}
+    await store.write_state(BASELINE_EVALUATION_LATEST_COVERAGE_KEY, newer)
+
+    assert await _worker(store).run_once() is BaselineWorkerResult.COMPLETED
+
+    assert await store.read_state(BASELINE_EVALUATION_LATEST_COVERAGE_KEY) == newer

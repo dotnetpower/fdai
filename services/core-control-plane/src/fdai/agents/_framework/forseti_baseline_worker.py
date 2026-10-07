@@ -53,6 +53,7 @@ from fdai.shared.providers.state_store import StateStore
 BASELINE_EVALUATION_CLAIM_PREFIX = "baseline-evaluation:claims:"
 BASELINE_EVALUATION_COVERAGE_PREFIX = "baseline-evaluation:coverage:"
 BASELINE_EVALUATION_STATUS_KEY = "baseline-evaluation:status:latest"
+BASELINE_EVALUATION_LATEST_COVERAGE_KEY = "baseline-evaluation:latest:coverage"
 
 _LOG = logging.getLogger("fdai.agents.forseti.baseline")
 
@@ -344,14 +345,28 @@ class ForsetiBaselineWorker:
         values["audit_digest"] = coverage_audit.digest
         values["coverage_digest"] = baseline_evaluation_coverage_digest(**values)
         coverage = BaselineEvaluationCoverage.model_validate(values)
+        record = coverage.model_dump(mode="json")
         await self._store.write_state(
             baseline_coverage_key(
                 inventory_observation_digest=observation_digest,
                 activation_digest=activation.generation_digest,
             ),
-            coverage.model_dump(mode="json"),
+            record,
         )
+        await self._publish_latest(coverage, record)
         return coverage
+
+    async def _publish_latest(
+        self,
+        coverage: BaselineEvaluationCoverage,
+        record: Mapping[str, Any],
+    ) -> None:
+        current = await self._store.read_state(BASELINE_EVALUATION_LATEST_COVERAGE_KEY)
+        current_at = _parse_time(current.get("completed_at")) if current else None
+        # A resumed run for an older generation never replaces a newer latest pointer.
+        if current_at is not None and current_at > coverage.completed_at:
+            return
+        await self._store.write_state(BASELINE_EVALUATION_LATEST_COVERAGE_KEY, dict(record))
 
     async def _append_audit(
         self, kind: str, body: Mapping[str, Any]
@@ -577,6 +592,7 @@ def _canonical(value: object) -> str:
 __all__ = [
     "BASELINE_EVALUATION_CLAIM_PREFIX",
     "BASELINE_EVALUATION_COVERAGE_PREFIX",
+    "BASELINE_EVALUATION_LATEST_COVERAGE_KEY",
     "BASELINE_EVALUATION_STATUS_KEY",
     "BaselineWorkerLimits",
     "BaselineWorkerResult",

@@ -20,10 +20,11 @@ from fdai_operator_service.postgres_family_store import PostgresFamilyStoreUnava
 from fdai_operator_service.projections import http_exception_error
 from fdai_service_contracts import OperatorPrincipal, OperatorRole
 from fdai_service_contracts.baseline_evaluation import (
-    BaselineEvaluationCompletion,
+    BaselineEvaluationCoverage,
+    BaselineEvaluationCoverageLimitation,
     BaselineEvaluationOutcome,
     BaselineEvaluationTerminalOutcome,
-    baseline_evaluation_completion_digest,
+    baseline_evaluation_coverage_digest,
     baseline_evaluation_outcome_digest,
 )
 from starlette.applications import Starlette
@@ -67,6 +68,7 @@ def _outcome(
     outcome: BaselineEvaluationTerminalOutcome,
     *,
     reason_code: str | None = None,
+    catalog_revision: str = DIGEST_D,
 ) -> BaselineEvaluationOutcome:
     values: dict[str, object] = {
         "generation_id": "generation:one",
@@ -74,7 +76,7 @@ def _outcome(
         "inventory_observation_digest": DIGEST_B,
         "resource_ref": resource_ref,
         "resource_digest": DIGEST_C,
-        "catalog_revision": DIGEST_D,
+        "catalog_revision": catalog_revision,
         "rule_ref": rule_ref,
         "rule_revision": DIGEST_E,
         "expected_denominator": 1,
@@ -91,31 +93,46 @@ def _outcome(
     return BaselineEvaluationOutcome.model_validate(values)
 
 
-def _completion(outcomes: tuple[BaselineEvaluationOutcome, ...]) -> BaselineEvaluationCompletion:
+def _completion(
+    outcomes: tuple[BaselineEvaluationOutcome, ...],
+    *,
+    missing: int = 0,
+) -> BaselineEvaluationCoverage:
     totals = {"compliant": 0, "violated": 0, "abstained": 0}
     for item in outcomes:
         totals[item.outcome.value] += 1
+    limitations = (BaselineEvaluationCoverageLimitation.PAIR_MISSING,) if missing else ()
     values: dict[str, object] = {
         "generation_id": "generation:one",
         "generation_digest": DIGEST_A,
         "inventory_observation_digest": DIGEST_B,
-        "catalog_revision": DIGEST_D,
-        "expected_denominator": len(outcomes),
+        "rule_activation_generation_id": "rule-activation-" + "c" * 32,
+        "rule_activation_generation_digest": DIGEST_C,
+        "rule_catalog_digest": DIGEST_C,
+        "evaluated_rule_catalog_digest": DIGEST_D,
+        "dispatch_signal": "inventory.resource_observed",
+        "expected_pair_set_digest": DIGEST_E,
+        "expected_pair_count": len(outcomes) + missing,
+        "covered_pair_count": len(outcomes),
         "compliant_count": totals["compliant"],
         "violated_count": totals["violated"],
         "abstained_count": totals["abstained"],
+        "missing_pair_count": missing,
+        "duplicate_pair_count": 0,
+        "conflicting_pair_count": 0,
+        "unexpected_pair_count": 0,
+        "revision_mismatch_count": 0,
         "outcome_set_digest": _outcome_set_digest(outcomes),
-        "completion_receipt_ref": "completion:one",
-        "completion_receipt_digest": DIGEST_E,
-        "saga_audit_ref": "audit:completion",
-        "saga_audit_digest": DIGEST_F,
+        "complete": not missing,
+        "limitations": limitations,
+        "audit_ref": "audit:coverage",
+        "audit_digest": DIGEST_F,
         "completed_at": NOW,
-        "complete": True,
         "projection_authority": False,
         "execution_authority": False,
     }
-    values["completion_digest"] = baseline_evaluation_completion_digest(**values)
-    return BaselineEvaluationCompletion.model_validate(values)
+    values["coverage_digest"] = baseline_evaluation_coverage_digest(**values)
+    return BaselineEvaluationCoverage.model_validate(values)
 
 
 def _outcome_set_digest(outcomes: tuple[BaselineEvaluationOutcome, ...]) -> str:
@@ -183,7 +200,7 @@ async def test_complete_outcomes_derive_authoritative_summary() -> None:
             match_value: str | None = None,
         ) -> _Page:
             del limit, match_field, match_value
-            if prefix == "baseline-evaluation:completions:":
+            if prefix == "baseline-evaluation:latest:coverage":
                 return _Page((_Record("completion", completion.model_dump(mode="json")),))
             if prefix == "baseline-evaluation:outcomes:":
                 return _Page(
@@ -199,8 +216,8 @@ async def test_complete_outcomes_derive_authoritative_summary() -> None:
     assert result.payload["evaluated"] is True
     assert result.payload["complete"] is True
     assert result.payload["counts"] == {"rule:one": 1, "rule:two": 0}
-    assert result.payload["expected_denominator"] == 3
-    assert result.provenance.revision == completion.completion_digest
+    assert result.payload["expected_pair_count"] == 3
+    assert result.provenance.revision == completion.coverage_digest
 
 
 async def test_reordered_outcome_delivery_still_matches_completion() -> None:
@@ -225,7 +242,7 @@ async def test_reordered_outcome_delivery_still_matches_completion() -> None:
             match_value: str | None = None,
         ) -> _Page:
             del limit, match_field, match_value
-            if prefix == "baseline-evaluation:completions:":
+            if prefix == "baseline-evaluation:latest:coverage":
                 return _Page((_Record("completion", completion.model_dump(mode="json")),))
             if prefix == "baseline-evaluation:outcomes:":
                 return _Page(
@@ -258,7 +275,7 @@ async def test_empty_complete_inventory_derives_evaluated_zero_without_inference
             match_value: str | None = None,
         ) -> _Page:
             del limit, match_field, match_value
-            if prefix == "baseline-evaluation:completions:":
+            if prefix == "baseline-evaluation:latest:coverage":
                 return _Page((_Record("completion", completion.model_dump(mode="json")),))
             if prefix == "baseline-evaluation:outcomes:":
                 return _Page(())
@@ -268,14 +285,12 @@ async def test_empty_complete_inventory_derives_evaluated_zero_without_inference
 
     assert result.payload["evaluated"] is True
     assert result.payload["counts"] == {}
-    assert result.payload["expected_denominator"] == 0
+    assert result.payload["expected_pair_count"] == 0
 
 
-async def test_partial_coverage_stays_unavailable() -> None:
+async def test_incomplete_coverage_is_not_evaluated_and_reports_limitations() -> None:
     outcome = _outcome("rule:one", "resource:one", BaselineEvaluationTerminalOutcome.VIOLATED)
-    completion = _completion((outcome,))
-    completion_payload = completion.model_dump(mode="json")
-    completion_payload["expected_denominator"] = 2
+    coverage = _completion((outcome,), missing=1)
 
     class SummaryStore:
         async def read_state(self, key: str) -> None:
@@ -291,13 +306,85 @@ async def test_partial_coverage_stays_unavailable() -> None:
             match_value: str | None = None,
         ) -> _Page:
             del limit, match_field, match_value
-            if prefix == "baseline-evaluation:completions:":
-                return _Page((_Record("completion", completion_payload),))
+            if prefix == "baseline-evaluation:latest:coverage":
+                return _Page((_Record("coverage", coverage.model_dump(mode="json")),))
+            raise AssertionError("incomplete coverage MUST NOT read partial outcomes")
+
+    result = await PostgresWorkflowAdapters(cast(Any, SummaryStore())).read(_request())
+
+    assert result.payload["evaluated"] is False
+    assert result.payload["complete"] is False
+    assert result.payload["counts"] == {}
+    assert result.payload["limitations"] == ["pair_missing"]
+    assert result.provenance.revision == coverage.coverage_digest
+
+
+async def test_tampered_coverage_stays_unavailable() -> None:
+    outcome = _outcome("rule:one", "resource:one", BaselineEvaluationTerminalOutcome.VIOLATED)
+    payload = _completion((outcome,)).model_dump(mode="json")
+    payload["expected_pair_count"] = 2
+
+    class SummaryStore:
+        async def read_state(self, key: str) -> None:
+            return None
+
+        async def read_state_page(self, *, prefix: str, **kwargs: object) -> _Page:
+            if prefix == "baseline-evaluation:latest:coverage":
+                return _Page((_Record("coverage", payload),))
             return _Page((_Record("outcome", outcome.model_dump(mode="json")),))
 
-    with pytest.raises(HTTPException, match="completion is malformed") as error:
+    with pytest.raises(HTTPException, match="coverage is malformed") as error:
         await PostgresWorkflowAdapters(cast(Any, SummaryStore())).read(_request())
     assert error.value.status_code == 503
+
+
+async def test_outcomes_from_an_earlier_activation_are_excluded() -> None:
+    current = _outcome("rule:one", "resource:one", BaselineEvaluationTerminalOutcome.VIOLATED)
+    earlier = _outcome(
+        "rule:one",
+        "resource:one",
+        BaselineEvaluationTerminalOutcome.COMPLIANT,
+        catalog_revision=DIGEST_E,
+    )
+    coverage = _completion((current,))
+
+    class SummaryStore:
+        async def read_state(self, key: str) -> None:
+            return None
+
+        async def read_state_page(self, *, prefix: str, **kwargs: object) -> _Page:
+            if prefix == "baseline-evaluation:latest:coverage":
+                return _Page((_Record("coverage", coverage.model_dump(mode="json")),))
+            return _Page(
+                (
+                    _Record("earlier", earlier.model_dump(mode="json")),
+                    _Record("current", current.model_dump(mode="json")),
+                ),
+                truncated=True,
+            )
+
+    result = await PostgresWorkflowAdapters(cast(Any, SummaryStore())).read(_request())
+
+    assert result.payload["evaluated"] is True
+    assert result.payload["counts"] == {"rule:one": 1}
+
+
+async def test_version_one_completion_alone_is_not_evaluated() -> None:
+    class SummaryStore:
+        async def read_state(self, key: str) -> None:
+            return None
+
+        async def read_state_page(self, *, prefix: str, **kwargs: object) -> _Page:
+            if prefix == "baseline-evaluation:latest:coverage":
+                return _Page(())
+            raise AssertionError("a version 1 completion MUST NOT be read as coverage")
+
+        async def read_projection(self, *, family: str, operation: str) -> dict[str, object]:
+            return {"_revision": "catalog-sha256", "rules": [], "details": {}}
+
+    result = await PostgresWorkflowAdapters(cast(Any, SummaryStore())).read(_request())
+
+    assert result.payload == {"evaluated": False, "counts": {}}
 
 
 def _valid_stored_summary() -> dict[str, object]:

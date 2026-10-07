@@ -9,7 +9,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any, Protocol
 
 from fdai_service_contracts.baseline_evaluation import (
-    BaselineEvaluationCompletion,
+    BaselineEvaluationCoverage,
     BaselineEvaluationOutcome,
     BaselineEvaluationTerminalOutcome,
 )
@@ -26,7 +26,8 @@ from fdai_operator_service.families.workflow.contracts import (
 )
 
 BASELINE_EVALUATION_OUTCOME_PREFIX = "baseline-evaluation:outcomes:"
-BASELINE_EVALUATION_COMPLETION_PREFIX = "baseline-evaluation:completions:"
+BASELINE_EVALUATION_LATEST_COVERAGE_KEY = "baseline-evaluation:latest:coverage"
+_MAX_SUMMARY_OUTCOMES = 1_000
 
 
 class BaselineEvaluationStateReader(Protocol):
@@ -241,90 +242,121 @@ def _rule_findings_summary_payload(
 async def derive_rule_findings_summary_payload(
     reader: BaselineEvaluationStateReader,
 ) -> dict[str, object] | None:
-    """Build a current summary from authoritative completion and outcome records.
+    """Build a current summary from Forseti's latest version 2 coverage and its outcomes.
 
-    ``None`` means no complete baseline-evaluation denominator has been recorded yet.
-    Malformed or partial coverage raises ``HTTPException`` so readers do not infer zero.
+    ``None`` means no version 2 coverage has been recorded yet. A version 1 completion
+    counts only what was written, so it never proves an evaluated summary. Incomplete
+    coverage returns ``evaluated=false`` with its limitations instead of partial counts.
+    Malformed or ambiguous records raise ``HTTPException`` so readers do not infer zero.
     """
 
     read_state_page = getattr(reader, "read_state_page", None)
     if not callable(read_state_page):
         return None
-    completion_page = await read_state_page(
-        prefix=BASELINE_EVALUATION_COMPLETION_PREFIX,
+    coverage_page = await read_state_page(
+        prefix=BASELINE_EVALUATION_LATEST_COVERAGE_KEY,
         limit=1,
     )
-    if not completion_page.records:
+    if not coverage_page.records:
         return None
-    if completion_page.truncated:
-        raise HTTPException(status_code=503, detail="baseline evaluation completion is ambiguous")
-    completion = _completion(completion_page.records[0].value)
+    if coverage_page.truncated:
+        raise HTTPException(status_code=503, detail="baseline evaluation coverage is ambiguous")
+    coverage = _coverage(coverage_page.records[0].value)
+    if not coverage.complete:
+        return _incomplete_summary(coverage)
+    if coverage.expected_pair_count > _MAX_SUMMARY_OUTCOMES:
+        raise HTTPException(
+            status_code=503,
+            detail="baseline evaluation coverage exceeds the summary bound",
+        )
     outcome_page = await reader.read_state_page(
         prefix=BASELINE_EVALUATION_OUTCOME_PREFIX,
-        limit=min(max(completion.expected_denominator, 1), 1_000),
+        limit=_MAX_SUMMARY_OUTCOMES,
         match_field="generation_digest",
-        match_value=completion.generation_digest,
+        match_value=coverage.generation_digest,
     )
-    if outcome_page.truncated:
-        raise HTTPException(status_code=503, detail="baseline evaluation coverage is incomplete")
-    outcomes = tuple(_outcome(record.value) for record in outcome_page.records)
-    return _summary_from_completion(completion=completion, outcomes=outcomes)
+    # One inventory generation may hold outcomes from earlier activation generations; the
+    # outcome-set digest then proves the filtered set is exact even when the page is truncated.
+    outcomes = tuple(
+        outcome
+        for outcome in (_outcome(record.value) for record in outcome_page.records)
+        if outcome.catalog_revision == coverage.evaluated_rule_catalog_digest
+    )
+    return _summary_from_coverage(coverage=coverage, outcomes=outcomes)
 
 
-def _summary_from_completion(
+def _incomplete_summary(coverage: BaselineEvaluationCoverage) -> dict[str, object]:
+    return {
+        "_revision": coverage.coverage_digest,
+        "schema_version": "2.0.0",
+        "evaluated": False,
+        "complete": False,
+        "counts": {},
+        "coverage_digest": coverage.coverage_digest,
+        "rule_activation_generation_id": coverage.rule_activation_generation_id,
+        "expected_pair_count": coverage.expected_pair_count,
+        "covered_pair_count": coverage.covered_pair_count,
+        "limitations": [item.value for item in coverage.limitations],
+    }
+
+
+def _summary_from_coverage(
     *,
-    completion: BaselineEvaluationCompletion,
+    coverage: BaselineEvaluationCoverage,
     outcomes: tuple[BaselineEvaluationOutcome, ...],
 ) -> dict[str, object]:
-    if len(outcomes) != completion.expected_denominator:
+    if len(outcomes) != coverage.expected_pair_count:
         raise HTTPException(status_code=503, detail="baseline evaluation coverage is incomplete")
     ordered = tuple(sorted(outcomes, key=lambda item: (item.resource_ref, item.rule_ref)))
-    if _outcome_set_digest(ordered) != completion.outcome_set_digest:
+    if _outcome_set_digest(ordered) != coverage.outcome_set_digest:
         raise HTTPException(status_code=503, detail="baseline evaluation coverage is incomplete")
     counts: dict[str, int] = {}
     outcome_totals = {"compliant": 0, "violated": 0, "abstained": 0}
     for outcome in ordered:
         if (
-            outcome.generation_digest != completion.generation_digest
-            or outcome.catalog_revision != completion.catalog_revision
-            or outcome.inventory_observation_digest != completion.inventory_observation_digest
+            outcome.generation_digest != coverage.generation_digest
+            or outcome.catalog_revision != coverage.evaluated_rule_catalog_digest
+            or outcome.inventory_observation_digest != coverage.inventory_observation_digest
         ):
             raise HTTPException(
                 status_code=503,
-                detail="baseline evaluation outcome does not match completion",
+                detail="baseline evaluation outcome does not match coverage",
             )
         counts.setdefault(outcome.rule_ref, 0)
         if outcome.outcome is BaselineEvaluationTerminalOutcome.VIOLATED:
             counts[outcome.rule_ref] += 1
         outcome_totals[outcome.outcome.value] += 1
     if (
-        outcome_totals["compliant"] != completion.compliant_count
-        or outcome_totals["violated"] != completion.violated_count
-        or outcome_totals["abstained"] != completion.abstained_count
+        outcome_totals["compliant"] != coverage.compliant_count
+        or outcome_totals["violated"] != coverage.violated_count
+        or outcome_totals["abstained"] != coverage.abstained_count
     ):
         raise HTTPException(status_code=503, detail="baseline evaluation counts are incomplete")
     return {
-        "_revision": completion.completion_digest,
-        "schema_version": "1.0.0",
+        "_revision": coverage.coverage_digest,
+        "schema_version": "2.0.0",
         "evaluated": True,
         "complete": True,
-        "generation_digest": completion.generation_digest,
-        "catalog_revision": completion.catalog_revision,
-        "completion_digest": completion.completion_digest,
-        "expected_denominator": completion.expected_denominator,
-        "covered_denominator": len(outcomes),
+        "generation_digest": coverage.generation_digest,
+        "catalog_revision": coverage.evaluated_rule_catalog_digest,
+        "coverage_digest": coverage.coverage_digest,
+        "rule_activation_generation_id": coverage.rule_activation_generation_id,
+        "dispatch_signal": coverage.dispatch_signal,
+        "expected_pair_count": coverage.expected_pair_count,
+        "covered_pair_count": coverage.covered_pair_count,
         "counts": dict(sorted(counts.items())),
         "outcomes": outcome_totals,
+        "limitations": [],
     }
 
 
-def _completion(value: Mapping[str, object]) -> BaselineEvaluationCompletion:
+def _coverage(value: Mapping[str, object]) -> BaselineEvaluationCoverage:
     try:
-        return BaselineEvaluationCompletion.model_validate(value)
+        return BaselineEvaluationCoverage.model_validate(value)
     except ValueError as exc:
         raise HTTPException(
             status_code=503,
-            detail="baseline evaluation completion is malformed",
+            detail="baseline evaluation coverage is malformed",
         ) from exc
 
 
