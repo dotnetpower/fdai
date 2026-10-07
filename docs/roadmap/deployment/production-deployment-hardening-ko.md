@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: deb964353b25eb846b810a20022fa7775bf6474d
+translation_source_sha: b6ab403f91b36656fa484e49e1fea5ad7fd739d5
 translation_revised: 2026-10-08
 ---
 # 운영 배포 강화
@@ -172,6 +172,9 @@ Operator 신원을 직접 읽습니다. 따라서 키를 만들기 위해 광범
 정적 Key Vault 시크릿 이름과 버전 없는 Operator 요청 서명 시드 참조 출력은 프로바이더 계산
 속성이 아니라 선언된 이름에서 파생됩니다. 따라서 조정 후 새로 고침 계획은 적용 시점의 알 수 없는
 값 없이 해당 출력을 검증할 수 있습니다.
+설치 앵커는 입력 변경을 무시하는 Terraform 계획 시각을 사용합니다. 최초 적용은 하나의 변경 불가능한
+설치 시각을 계속 기록하며, 이후 계획은 적용 시점의 알 수 없는 값 없이 보존된 바인딩과 시각을
+검증할 수 있습니다.
 Bootstrap 계획 전에 실행기 VM을 독립적으로 읽고 검토된 크기, `Local` `ResourceDisk` 배치 및
 관리형 OS 디스크 부재를 요구합니다. 불일치하면 blue/green 교체 작업을 보고하고 Azure 상태를
 변경하지 않은 채 실패합니다. 임시 프로파일은 할당된 상태로 유지됩니다. 구성된 자동 종료와

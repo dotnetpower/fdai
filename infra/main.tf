@@ -108,7 +108,7 @@ resource "terraform_data" "deploy_runner_identity_fence" {
 # Terraform state owns the installation identity and first-apply time, so a rerun or upgrade
 # re-reads them and never opens a new Trial window.
 resource "terraform_data" "installation" {
-  input = timestamp()
+  input = plantimestamp()
 
   lifecycle {
     ignore_changes = [input]

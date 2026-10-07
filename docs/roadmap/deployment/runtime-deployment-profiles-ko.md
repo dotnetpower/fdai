@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 1c08c34fd6dbf59bcebc0ad4b347ea403717aef5
+translation_source_sha: eabf013722b44ecb119b82c7cd8e580cd124f889
 translation_revised: 2026-10-08
 ---
 # 런타임 배포 프로파일
@@ -718,8 +718,9 @@ Console이 추가적인 `summary=true`를 보내더라도 이전 Operator는 기
 Operator는 이 활성화 설정이 있을 때만 원장 전체 요약을 계산하므로 Incident, Agent Activity, Trace 및
 선택적 비용 패키지 경로가 이 조회 비용을 이어받지 않습니다.
 
-AKS에서는 substrate 단계가 대상으로 지정하는 `terraform_data.installation` 고정점이 설치 식별자와 최초 적용 시각을
-Terraform 상태에 보관하므로, 재실행이나 업그레이드로 이 값이 바뀌지 않습니다. 런타임 단계는
+AKS에서는 substrate 단계가 대상으로 지정하는 `terraform_data.installation` 고정점이 입력 변경을
+무시하는 계획 시각을 사용하고 설치 식별자와 최초 적용 시각을 Terraform 상태에 보관합니다. 따라서
+재실행이나 업그레이드로 값이 바뀌지 않으면서 이후 계획에서는 완전히 알려진 값으로 남습니다. 런타임 단계는
 `azurerm_kubernetes_cluster.runtime`이 상태에 생긴 뒤에만 Container Insights 연결을 적용합니다.
 새 클러스터의 첫 검토는 이 연결을 제외한 모든 런타임 리소스를 대상으로 지정하고, 이어지는 두 번째
 일반 전체 루트 런타임 검토가 그 연결을 만듭니다. 일반 검토마다 관리 호스트의 `operation`을 기록합니다. 여기서는 `runtime-cluster` 또는 `runtime`이고, 그 밖에는 단계 이름이나 바인딩된 서비스 업데이트입니다. 컨트롤러는 이 값이 검토 단계와 일치할 때만 검토를 승인합니다. Terraform 구성은 여전히 클러스터 리소스에
