@@ -216,7 +216,6 @@
   "rules": {
     "view": {
       "aria": "Rule catalog views",
-      "rules": "Rules",
       "controls": "Controls"
     },
     "workspace": {
@@ -312,7 +311,17 @@
       "affectedFailed": "Failed to load affected resources: {message}",
       "inventoryUnavailable": "No inventory evaluation is wired on this deployment. When this rule runs against your inventory, each affected resource and the exact attribute at fault (the deny reason) appears here.",
       "noViolations": "No resources currently violate this rule.",
-      "viewArchitecture": "View on architecture"
+      "viewArchitecture": "View on architecture",
+      "citations": {
+        "title": "Used in framework assessments",
+        "titleCount": "Used in framework assessments ({count})",
+        "subtitle": "Azure WAF controls that cite this rule as an evidence requirement. Opening a control shows its own status.",
+        "loading": "Loading citing controls...",
+        "failed": "Failed to load citing controls: {message}",
+        "none": "No Azure WAF control cites this rule.",
+        "collected": "Collected corpus rules are not cited by framework controls. Only curated rules can be cited.",
+        "unavailable": "This Operator API does not provide control citations."
+      }
     },
     "activation": {
       "loading": "Loading activation state...",
@@ -411,8 +420,12 @@
         "evidence": "Assessment evidence",
         "evidenceRefs": "Evidence references",
         "evidenceDigests": "Evidence digests",
-        "limitations": "Limitations"
-      }
+        "limitations": "Limitations",
+        "requirementsHint": "A rule result is one input. Documents, metrics, drills, and approvals come from their own producers.",
+        "openRule": "Open rule {id}",
+        "cadenceDays": "Every {days} day(s)"
+      },
+      "subtitle": "Framework controls from Azure WAF, CAF, WARA, and MCSB with the evidence each one requires. Assessments run in shadow mode and never start remediation."
     },
     "caf": {
       "routeUnavailable": "CAF controls are not available in this deployment.",
@@ -597,6 +610,14 @@
       "high": "High - a violation is a serious risk that should be fixed promptly.",
       "medium": "Medium - a violation weakens posture and should be scheduled.",
       "low": "Low - a violation is a minor or best-practice gap."
+    },
+    "rail": {
+      "totalHint": "Curated and collected definitions",
+      "detectionTitle": "Detection rules",
+      "detectionBody": "T0 checks each resource against activated rules.",
+      "assessmentTitle": "Framework assessments",
+      "assessmentBody": "Controls weigh rule results with documents and approvals. No remediation.",
+      "controlsHint": "Azure WAF, CAF, WARA, and MCSB"
     }
   },
   "display": {
@@ -726,6 +747,13 @@
     },
     "eligibility": {
       "eligible_pending_trust_recheck": "Pending trust recheck"
+    },
+    "controlRequirementKind": {
+      "rule": "Detection rule",
+      "artifact": "Document",
+      "metric": "Metric",
+      "drill": "Drill",
+      "approval": "Approval"
     }
   }
 }

@@ -271,6 +271,23 @@ export function decodeBestPracticeDetail(value: unknown): BestPracticeDetail {
   return { ...base, requirements, provenance: panelRecord(root["provenance"], "provenance") };
 }
 
+/**
+ * Decode the WAF Controls whose requirements cite one catalog Rule. Returns `null` when the server
+ * did not confirm the exact citation filter, so an older unfiltered list is never shown as citations.
+ */
+export function decodeRuleCitingControls(
+  value: unknown,
+  ruleId: string,
+): readonly BestPracticeControl[] | null {
+  const root = panelRecord(value, "best practices");
+  if (root["rule_filter"] !== ruleId) return null;
+  const response = decodeBestPracticeResponse(value);
+  if (response.controls.length !== response.filtered_total) {
+    throw new OperatorApiError(502, "invalid Operator API response: Rule citation list is truncated");
+  }
+  return response.controls;
+}
+
 export function rulesCatalogViewFromSearch(search: URLSearchParams): RulesCatalogView {
   return search.get("view") === "controls" ? "controls" : "rules";
 }

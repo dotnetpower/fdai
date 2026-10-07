@@ -12,6 +12,7 @@ import { TERMS, composeGlossary } from "../deck/glossary";
 import { routeHref } from "../router";
 import { displayValue, t } from "./i18n/governance";
 import { FacetSelect } from "./rule-catalog-components";
+import { RulesCatalogRail } from "./rule-catalog-rail";
 import { ruleCatalogHref, type RuleFilters as Filters, type RuleSelection as Selection } from "./rule-catalog-state";
 import {
   SEVERITY_PILL,
@@ -300,31 +301,11 @@ export function RuleCatalogBody({
         </div>
 
         <div class="rules-catalog-workbench">
-          <aside class="rules-catalog-rail">
-            <header>
-              <h2>{t("governance.rules.workspace.title")}</h2>
-              <p>{t("governance.rules.workspace.description")}</p>
-              <span>{Object.keys(data.facets.by_origin).length + 2}</span>
-            </header>
-            <nav aria-label={t("governance.rules.view.aria")}>
-              <a class={filters.origin === "" ? "is-active" : undefined} aria-current={filters.origin === "" ? "page" : undefined} href={ruleCatalogHref({ ...filters, origin: "" }, 0, null)}>
-                <strong>{t("governance.rules.kpi.total")}</strong>
-                <small>{data.total} {t("governance.rules.view.rules")}</small>
-              </a>
-              <a class={filters.origin === "active" ? "is-active" : undefined} aria-current={filters.origin === "active" ? "page" : undefined} href={ruleCatalogHref({ ...filters, origin: "active" }, 0, null)}>
-                <strong>{t("governance.rules.kpi.active")}</strong>
-                <small>{catalogActive} - {t("governance.rules.kpi.activeHint")}</small>
-              </a>
-              <a class={filters.origin === "collected" ? "is-active" : undefined} aria-current={filters.origin === "collected" ? "page" : undefined} href={ruleCatalogHref({ ...filters, origin: "collected" }, 0, null)}>
-                <strong>{t("governance.rules.kpi.collected")}</strong>
-                <small>{collected} - {t("governance.rules.kpi.collectedHint")}</small>
-              </a>
-              <a href={routeHref("rules", { params: { view: "controls" } })}>
-                <strong>{t("governance.rules.view.controls")}</strong>
-                <small>{t("governance.rules.controls.context.purpose")}</small>
-              </a>
-            </nav>
-          </aside>
+          <RulesCatalogRail
+            selection={filters.origin === "active" ? "active" : filters.origin === "collected" ? "collected" : "all"}
+            counts={{ total: data.total, active: catalogActive, collected }}
+            filters={filters}
+          />
           <section class="rules-catalog-detail">
             <header class="rules-catalog-detail-head">
               <div>

@@ -1,8 +1,8 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: 4aa8dfe829a9b2d6d0b02bd70476a0b27607e67b
-translation_revised: 2026-10-02
+translation_source_sha: 9264b7e1dd415581019c32388559817489313e26
+translation_revised: 2026-10-07
 ---
 # WAF 및 CAF 근거 기반 평가
 
@@ -211,6 +211,12 @@ WAF는 기존 Controls 보기에 유지합니다. CAF는 동일하게 차분한 
 사용하는 인접 탭을 추가합니다. 규칙 카탈로그 레일은 표시 탐색으로만 이 Controls 보기에
 연결되며, 규칙 개수를 WAF 또는 CAF 적용 가능성, 평가, 충족 상태와 결합하지 않습니다.
 브라우저는 근거나 승인을 쓰지 않습니다.
+
+규칙 인용은 정의 사이의 탐색이며 근거가 아닙니다. WAF 컨트롤의 `rule` 요구 사항은 해당 규칙
+상세로 연결됩니다. `GET /best-practices?rule=<id>`는 요구 사항에서 정확히 그 규칙을 인용하는
+컨트롤만 반환하고 적용한 `rule_filter`를 되돌려줍니다. 규칙 상세는 이 컨트롤들을 서버가 소유한
+각 상태와 함께 표시합니다. 응답에 이 값이 없으면 Console은 모든 컨트롤을 보여 주는 대신 인용
+정보를 사용할 수 없다고 표시합니다.
 
 ## 원본 변경 거버넌스
 

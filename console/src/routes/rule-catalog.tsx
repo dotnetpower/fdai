@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable } from "../api";
 import type { OperatorApiClient } from "../api";
-import { bestPracticeHref, rulesCatalogViewFromSearch } from "./best-practice-controls.model";
+import { decodeRuleCitingControls, rulesCatalogViewFromSearch } from "./best-practice-controls.model";
 import { ControlsCatalogRoute } from "./controls-catalog";
 import {
   ErrorState,
@@ -9,7 +9,7 @@ import {
   PageHeader,
   UnavailableState,
 } from "../components/ui";
-import { currentRoute, navigate, pushRouteState, replaceRouteState, routeHref } from "../router";
+import { currentRoute, navigate, pushRouteState, replaceRouteState } from "../router";
 import { t } from "./i18n/governance";
 import { RuleCatalogBody } from "./rule-catalog-body";
 import {
@@ -17,6 +17,7 @@ import {
   requestRuleActivation,
 } from "./rule-catalog-activation";
 import { RuleDetailDrawer } from "./rule-catalog-detail";
+import { RulesCatalogRail } from "./rule-catalog-rail";
 import { isRuleListUpdating } from "./rule-catalog.model";
 import {
   ruleCatalogHref,
@@ -31,6 +32,7 @@ import {
   type DetailState,
   type ActivationHistoryState,
   type ActivationState,
+  type ControlCitationState,
   type FindingsResponse,
   type FindingsState,
   type RuleCatalogResponse,
@@ -91,25 +93,13 @@ export function RuleCatalogRoute({ client }: Props) {
   }, []);
   return (
     <div class="stack governance-route rules-route">
-      <PageHeader title={t("route.rules")} subtitle={t("governance.rules.subtitle")} />
+      <PageHeader
+        title={t("route.rules")}
+        subtitle={t(view === "controls" ? "governance.rules.controls.subtitle" : "governance.rules.subtitle")}
+      />
       {view === "controls" ? (
         <div class="rules-catalog-workbench">
-          <aside class="rules-catalog-rail">
-            <header>
-              <h2>{t("governance.rules.workspace.title")}</h2>
-              <p>{t("governance.rules.workspace.description")}</p>
-            </header>
-            <nav aria-label={t("governance.rules.view.aria")}>
-              <a href={routeHref("rules")}>
-                <strong>{t("governance.rules.kpi.total")}</strong>
-                <small>{t("governance.rules.kpi.activeHint")}</small>
-              </a>
-              <a class="is-active" aria-current="page" href={bestPracticeHref({ pillar: "", status: "", q: "" }, null)}>
-                <strong>{t("governance.rules.view.controls")}</strong>
-                <small>{t("governance.rules.controls.context.purpose")}</small>
-              </a>
-            </nav>
-          </aside>
+          <RulesCatalogRail selection="controls" counts={null} />
           <section class="rules-catalog-detail">
             <ControlsCatalogRoute client={client} />
           </section>
@@ -358,6 +348,34 @@ function AtomicRuleCatalogRoute({ client }: Props) {
     return () => { cancelled = true; };
   }, [activationRefresh, client, selected]);
 
+  const [controlCitations, setControlCitations] = useState<ControlCitationState>({ status: "loading" });
+  useEffect(() => {
+    if (selected === null) return;
+    if (selected.origin === "collected") {
+      setControlCitations({ status: "not-cited-origin" });
+      return;
+    }
+    let cancelled = false;
+    setControlCitations({ status: "loading" });
+    (async () => {
+      try {
+        const response = await client.panel<unknown>("/best-practices", {
+          rule: selected.id,
+          limit: "200",
+        });
+        if (cancelled) return;
+        const controls = decodeRuleCitingControls(response, selected.id);
+        setControlCitations(controls === null ? { status: "unavailable" } : { status: "ready", controls });
+      } catch (error) {
+        if (cancelled) return;
+        setControlCitations(isOptionalOperatorApiUnavailable(error)
+          ? { status: "unavailable" }
+          : { status: "error", message: error instanceof Error ? error.message : String(error) });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [client, selected]);
+
   async function submitActivation(enabled: boolean, reason: string) {
     if (selected === null || activation.status !== "ready") {
       throw new Error(t("governance.rules.activation.unavailable"));
@@ -470,6 +488,7 @@ function AtomicRuleCatalogRoute({ client }: Props) {
           findings={findings}
           activation={activation}
           activationHistory={activationHistory}
+          controlCitations={controlCitations}
           onRequestActivation={submitActivation}
           onApproveActivation={submitApproval}
           onClose={closeRuleDetail}

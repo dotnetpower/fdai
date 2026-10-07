@@ -215,7 +215,6 @@
   "rules": {
     "view": {
       "aria": "규칙 카탈로그 보기",
-      "rules": "규칙",
       "controls": "컨트롤"
     },
     "workspace": {
@@ -311,7 +310,17 @@
       "affectedFailed": "영향받는 리소스를 로드하지 못했습니다: {message}",
       "inventoryUnavailable": "이 배포에는 인벤토리 평가가 연결되지 않았습니다. 이 규칙이 인벤토리에 실행되면 영향을 받는 각 리소스와 문제가 있는 정확한 특성(거부 사유)이 여기에 표시됩니다.",
       "noViolations": "현재 이 규칙을 위반하는 리소스가 없습니다.",
-      "viewArchitecture": "아키텍처에서 보기"
+      "viewArchitecture": "아키텍처에서 보기",
+      "citations": {
+        "title": "프레임워크 평가에서 사용",
+        "titleCount": "프레임워크 평가에서 사용 ({count})",
+        "subtitle": "이 규칙을 근거 요구 사항으로 인용하는 Azure WAF 컨트롤입니다. 컨트롤을 열면 해당 컨트롤의 상태를 확인할 수 있습니다.",
+        "loading": "인용 컨트롤 로드 중...",
+        "failed": "인용 컨트롤을 로드하지 못했습니다: {message}",
+        "none": "이 규칙을 인용하는 Azure WAF 컨트롤이 없습니다.",
+        "collected": "수집된 코퍼스 규칙은 프레임워크 컨트롤이 인용하지 않습니다. 선별된 규칙만 인용할 수 있습니다.",
+        "unavailable": "이 Operator API는 컨트롤 인용 정보를 제공하지 않습니다."
+      }
     },
     "activation": {
       "loading": "활성화 상태 로드 중...",
@@ -410,8 +419,12 @@
         "evidence": "평가 근거",
         "evidenceRefs": "근거 참조",
         "evidenceDigests": "근거 다이제스트",
-        "limitations": "제한 사항"
-      }
+        "limitations": "제한 사항",
+        "requirementsHint": "규칙 결과는 근거 중 하나입니다. 문서, 메트릭, 훈련, 승인은 각 생성자가 제공합니다.",
+        "openRule": "규칙 {id} 열기",
+        "cadenceDays": "{days}일마다"
+      },
+      "subtitle": "Azure WAF, CAF, WARA, MCSB 프레임워크 컨트롤과 각 컨트롤에 필요한 근거입니다. 평가는 shadow 모드로 실행되며 수정 작업을 시작하지 않습니다."
     },
     "caf": {
       "routeUnavailable": "이 배포에서는 CAF 컨트롤을 사용할 수 없습니다.",
@@ -596,6 +609,14 @@
       "high": "심각 - 위반 시 신속하게 수정해야 하는 중대한 위험이 발생합니다.",
       "medium": "보통 - 위반 시 보호 상태가 약화되므로 수정을 계획해야 합니다.",
       "low": "낮음 - 위반은 사소한 격차 또는 모범 사례 격차입니다."
+    },
+    "rail": {
+      "totalHint": "선별 및 수집된 정의",
+      "detectionTitle": "탐지 규칙",
+      "detectionBody": "T0가 활성화된 규칙으로 각 리소스를 검사합니다.",
+      "assessmentTitle": "프레임워크 평가",
+      "assessmentBody": "컨트롤은 규칙 결과와 문서, 승인을 함께 평가합니다. 수정 작업은 하지 않습니다.",
+      "controlsHint": "Azure WAF, CAF, WARA, MCSB"
     }
   },
   "display": {
@@ -725,6 +746,13 @@
     },
     "eligibility": {
       "eligible_pending_trust_recheck": "신뢰 재검사 대기 중"
+    },
+    "controlRequirementKind": {
+      "rule": "탐지 규칙",
+      "artifact": "문서",
+      "metric": "메트릭",
+      "drill": "훈련",
+      "approval": "승인"
     }
   }
 }
