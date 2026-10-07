@@ -18,6 +18,7 @@ _LEADING_FIELDS = (
     "name",
     "root_name",
     "member_name",
+    "link_type",
     "type",
     "status",
     "location",
@@ -30,6 +31,8 @@ _LEADING_FIELDS = (
 )
 # The identity and ObjectType of a named row stay in technical details, where they are exact.
 _DETAIL_FIELDS = frozenset({"id", "object_type"})
+# A related pair that names both ends keeps its identifiers and path in technical details.
+_LINEAGE_DETAIL_FIELDS = frozenset({"member_id", "root_id", "path_evidence", "source_generation"})
 
 
 def verified_rows_table(
@@ -58,8 +61,11 @@ def verified_rows_table(
     first = ["name"] if named else []
     ordered = [*first, *(key for key in (*leading, *_LEADING_FIELDS) if key in seen)]
     ordered = list(dict.fromkeys(ordered))
-    columns = ordered + [
-        key for key in seen if key not in ordered and not (named and key in _DETAIL_FIELDS)
+    hidden = (_DETAIL_FIELDS if named else frozenset()) | (
+        _LINEAGE_DETAIL_FIELDS if "member_name" in seen and "root_name" in seen else frozenset()
+    )
+    columns = [key for key in ordered if key not in hidden] + [
+        key for key in seen if key not in ordered and key not in hidden
     ]
     shown_columns = columns[:_MAX_COLUMNS]
     lines = ["", "| " + " | ".join(shown_columns) + " |", "|" + "---|" * len(shown_columns)]

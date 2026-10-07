@@ -501,6 +501,9 @@ read window, a cause that is not established, a possible impact, or an anchor wh
 unproven under incomplete inventory coverage. An answer read from such an anchor keeps the
 `semantic_answer_partial` reason code, and a verified table leads with the reader's declared measure
 fields before its receipt fields.
+For multi-output collection answers, Core bounds each verified table while reserving space for
+later outputs. Operator receives the resulting answer and typed limitations unchanged; the
+reservation changes neither Incident creation, evidence authority, nor execution authority.
 
 ### 13.12 Semantic turn authentication receipt reference
 
@@ -554,12 +557,14 @@ ambiguous record returns `503` instead of an inferred zero. The summary grants n
 | Managed-resource semantic action confirmation | in-progress | Existing `OntologyActionIntent` validation, confirmation route, and action-confirmation worker | Core does not yet project a confirmable non-Incident action intent. Completing that source requires an independently reviewed ActionType draft and request-to-audit receipt. |
 | CLI, Teams, and Slack wire parity | in-progress | `cli/`; channel adapters and tests | Shared presentation contracts exist. No current governed multi-channel parity receipt is retained here. |
 | Semantic work progress frame and trajectory fields | implemented | `semantic_turn_runtime.py`; `semantic_progress_relay.py`; `semantic_work_progress_presentation.py`; `semantic_trajectory_presentation.py`; `services/operator-service/tests/test_semantic_work_progress.py` (`15 passed`); `console/src/deck/work-progress-emission.test.ts` | Live and replay streams send one pin frame before the first query activity. The Console parses the persisted fields losslessly and ignores the live frame until it renders the investigation roles. |
+| Multi-output semantic answer reservation | implemented | `semantic_turn_processor.py`; verified-row renderer; focused semantic turn and verified-row tests | Core reserves bounded room for later outputs and preserves typed collection limitations. Operator receives the terminal answer unchanged and gains no Incident, evidence, or execution authority. |
 | Governed cross-contract runtime evidence | in-progress | Operator and Console focused tests | Unit and integration checks prove mechanics, not one authenticated receipt spanning callback, proposal, code artifact, ontology, and durable audit surfaces. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-07 | implemented | Reserved bounded semantic answer space for later collection outputs without changing the terminal wire, Incident creation, or authority. | [Issue #1970](https://github.com/dotnetpower/fdai/issues/1970); `current change`; focused semantic turn and verified-row tests. | Live presentation evidence remains separate. |
 | 2026-10-07 | implemented | Documented the Rule detected issue summary wire shape, which now reads Forseti's latest version 2 baseline coverage, reports incomplete coverage as not evaluated with limitation codes, and lists the Core baseline worker settings. | `current change`; `workflow_rule_projection.py`; `services/operator-service/tests/test_rule_findings_summary_admission.py` (20 passed); `services/core-control-plane/tests/runtime/test_baseline_evaluation_binding.py` (8 passed). | None for this contract. |
 | 2026-10-02 | implemented | Preserved opt-in trace privacy while carrying recorded call count through the existing numeric usage map. | `current change`; focused Core projection and Console numeric decoding/accounting checks; full task semantic cohort 916 passed. | Exact-source live presentation remains to be measured; no Incident or execution authority changed. |
 | 2026-09-29 | in-progress | Corrected the Python task workbench state. Since the Operator service split (`8f67c5d76`), no Operator owner serves the six workbench operations, and `GET /python-tasks/capabilities` answered HTTP `503` from a projection that nothing writes ([#1655](https://github.com/dotnetpower/fdai/issues/1655)). The Operator composition now owns the capability report and returns HTTP `200` with `available: false` and each missing owner. The console keeps the workbench closed and announces those reasons. | `current change`; `python_task_capability.py`, `family_adapters.py`, and Console `python-task.ts` and `workflow-builder.catalog.tsx`; `test_python_task_capability.py`, `test_workflow_definition_catalog.py`, and Console decoder and route tests passed. | Bind a governed Python task validator, VM task runner, and artifact store to the Operator service before the capability can report available. |

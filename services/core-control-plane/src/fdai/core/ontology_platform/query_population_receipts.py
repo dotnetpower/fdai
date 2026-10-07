@@ -2,10 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Mapping
 from typing import Any
-
-from fdai_service_contracts.ontology_query import content_digest
 
 from fdai.shared.contracts.models import OntologyObjectType
 from fdai.shared.ontology.acl import ProjectionRequest, project_graph_snapshot
@@ -42,8 +41,8 @@ def population_receipt_fields(
         elif len(population.objects) > page_size:
             status = ObjectSetPopulationStatus.COMPLETE
             fields["population_count"] = len(population.objects)
-            fields["population_manifest_digest"] = content_digest(
-                {"members": [item.id for item in population.objects]}
+            fields["population_manifest_digest"] = _manifest_digest(
+                tuple(item.id for item in population.objects)
             )
     fields["population_status"] = status
     return fields
@@ -62,6 +61,17 @@ def _redacted_identity_count(
         ):
             count += 1
     return count
+
+
+def _manifest_digest(member_ids: tuple[str, ...]) -> str:
+    """Hash an ordered population beyond the canonical JSON document cap."""
+
+    digest = hashlib.sha256(b"fdai.population-manifest.v1\n")
+    for member_id in member_ids:
+        encoded = member_id.encode("utf-8")
+        digest.update(len(encoded).to_bytes(4, "big"))
+        digest.update(encoded)
+    return "sha256:" + digest.hexdigest()
 
 
 __all__ = ["population_receipt_fields"]

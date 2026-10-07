@@ -1270,6 +1270,61 @@ def test_resource_health_answer_replaces_unclaimed_all_clear_narration() -> None
     assert "`execution_authority=false`" in answer
 
 
+def test_a_large_first_output_leaves_room_for_the_outputs_after_it() -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+
+    def table(count: int, width: int) -> QueryTable:
+        return QueryTable(
+            rows=tuple(
+                QueryRow.from_values(f"row-{index:03d}", {"name": f"r{index}", "note": "x" * width})
+                for index in range(count)
+            ),
+            complete=True,
+        )
+
+    results = {
+        "large": table(40, 2_400),
+        "medium": table(3, 10),
+        "empty": QueryTable(rows=(), complete=True),
+    }
+    execution = QueryPlanExecution(
+        plan_digest=PLAN_DIGEST,
+        status="completed",
+        results=MappingProxyType(
+            {
+                node_id: QueryNodeResult(
+                    value=value,
+                    # Later outputs cite several long references, as batched reads do.
+                    evidence_refs=(
+                        f"ontology-query-table:{value.digest}",
+                        *(
+                            f"ontology-object-set:{node_id}:{index}:" + "e" * 160
+                            for index in range(8)
+                        ),
+                    ),
+                    authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+                )
+                for node_id, value in results.items()
+            }
+        ),
+        receipts=(),
+        output_node_ids=("large", "medium", "empty"),
+    )
+
+    answer, details = _render_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        execution,
+        operation="select",
+        output_shape="resource_list",
+    )
+
+    assert answer is not None and details is not None
+    outputs = cast(list[dict[str, object]], details["outputs"])
+    assert [item["node_id"] for item in outputs] == ["large", "medium", "empty"]
+    assert outputs[1]["returned_rows"] == 3
+
+
 def test_resource_health_query_answer_emits_structured_claims_in_details() -> None:
     request = _request(locale="en")
     semantic_request = cast(dict[str, object], request["semantic_turn"])
@@ -1651,6 +1706,36 @@ def test_generic_mixed_outputs_do_not_claim_zero_row_verification() -> None:
     assert "Verified 1 of 1 rows." in answer
     assert "One verified output returned no matching rows." in answer
     assert "Verified 0 of 0 rows." not in answer
+
+
+def test_an_empty_read_of_an_incomplete_source_states_the_incompleteness() -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+    anchors = {
+        "node_id": "anchors",
+        "rows": [{"row_id": "rg-1", "values": {"name": "rg-app"}}],
+        "returned_rows": 1,
+        "total_rows": 1,
+        "source_complete": True,
+        "source_truncation_reason": None,
+    }
+    related = {
+        "node_id": "related",
+        "rows": [],
+        "returned_rows": 0,
+        "total_rows": 0,
+        "source_complete": False,
+        "source_truncation_reason": "traversal_limit",
+    }
+
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [anchors, related],
+        output_shape="generic",
+    )
+
+    assert "One verified output returned no matching rows." in answer
+    assert "traversal_limit" in answer
 
 
 def _manifest_row(name: str, *, kind: str = "object") -> dict[str, object]:

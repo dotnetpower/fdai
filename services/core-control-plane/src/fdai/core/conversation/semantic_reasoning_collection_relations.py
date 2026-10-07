@@ -14,6 +14,7 @@ from typing import Any
 from fdai_service_contracts.ontology_query import OntologyQueryPlan, QueryNodeKind
 
 from .semantic_reasoning_form import (
+    FilterRole,
     FormGoal,
     GoalOperation,
     RelationAnchorScope,
@@ -36,6 +37,7 @@ from .semantic_reasoning_nodes import (
 from .semantic_reasoning_relations import RelationSide, select_relation_sides
 
 ANCHORS_SUFFIX = "-anchors"
+MAX_SIDES_PER_PLAN = 3
 RELATED_SUFFIX = "-related"
 
 
@@ -56,6 +58,9 @@ def collection_relation_goal(goal: FormGoal, ctx: CompileContext) -> OperatorRes
         return OperatorResult(unsupported=(f"collection_anchor_operation_unsupported:{operation}",))
     if relation.scope is not RelationScope.ONE_SENSE or relation.reach is not RelationReach.ONE_HOP:
         return OperatorResult(unsupported=("collection_anchor_reach_unsupported",))
+    if any(item.role is FilterRole.SCOPE for item in goal.filters):
+        # A scope would narrow the anchors; it is never dropped to read every anchor instead.
+        return OperatorResult(unsupported=("scope_filter_on_relation_unsupported",))
     position = relation.anchor_position
     if position is None or not relation.roles_consistent:
         return OperatorResult(unsupported=("relation_role_mismatch",))
@@ -82,41 +87,44 @@ def collection_relation_goal(goal: FormGoal, ctx: CompileContext) -> OperatorRes
         if side.endpoint_type == RESOURCE_OBJECT_TYPE
         and readable(ctx, side.endpoint_type, predicates)
     )
-    if len(sides) != 1:
-        # One reviewed LinkType side keeps every pair attributable to one stored relation.
-        reason = (
-            f"relation_sense_unmapped:{relation.sense.value}"
-            if not sides
-            else "collection_anchor_sides_unsupported"
+    if not sides:
+        return OperatorResult(
+            unsupported=(f"relation_sense_unmapped:{relation.sense.value}",),
+            limitations=limitations,
         )
-        return OperatorResult(unsupported=(reason,), limitations=limitations)
-    anchors = object_set_node(
-        f"{goal.id}{ANCHORS_SUFFIX}",
-        RESOURCE_OBJECT_TYPE,
-        anchor_predicates,
-        ctx,
-        limit=COLLECTION_LIMIT,
-    )
-    related = traversal_node(
-        f"{goal.id}{RELATED_SUFFIX}",
-        anchors.node_id,
-        sides[0],
-        predicates,
-        ctx,
-        emit_lineage=True,
-    )
-    return OperatorResult(
-        specs=(
+    # Each side is its own lineage read, and each row names its LinkType, so every pair
+    # stays attributable to one stored relation. Every plan lists the anchors again.
+    specs = []
+    for start in range(0, len(sides), MAX_SIDES_PER_PLAN):
+        anchors = object_set_node(
+            f"{goal.id}{ANCHORS_SUFFIX}",
+            RESOURCE_OBJECT_TYPE,
+            anchor_predicates,
+            ctx,
+            limit=COLLECTION_LIMIT,
+        )
+        related = tuple(
+            traversal_node(
+                f"{goal.id}{RELATED_SUFFIX}"
+                + ("" if len(sides) == 1 else f"-{start + offset + 1}"),
+                anchors.node_id,
+                side,
+                predicates,
+                ctx,
+                emit_lineage=True,
+            )
+            for offset, side in enumerate(sides[start : start + MAX_SIDES_PER_PLAN])
+        )
+        specs.append(
             plan_spec(
                 goal,
-                (anchors, related),
-                (anchors.node_id, related.node_id),
+                (anchors, *related),
+                (anchors.node_id, *(node.node_id for node in related)),
                 ctx,
                 subjects=(RESOURCE_OBJECT_TYPE,),
-            ),
-        ),
-        limitations=limitations,
-    )
+            )
+        )
+    return OperatorResult(specs=tuple(specs), limitations=limitations)
 
 
 def collection_anchor_types(goal: FormGoal, ctx: CompileContext) -> tuple[str, ...] | None:
@@ -145,32 +153,54 @@ def collection_anchor_violations(
     if expected_types is None:
         return ["sem_collection_anchor_kind_missing"]
     violations: list[str] = []
+    if any(item.role is FilterRole.SCOPE for item in goal.filters):
+        violations.append("sem_collection_anchor_scope_unread")
     for plan in plans:
         by_id = {node.node_id: node for node in plan.nodes}
         traversals = [
             node for node in plan.nodes if node.kind is QueryNodeKind.RELATIONSHIP_TRAVERSAL
         ]
-        if len(traversals) != 1 or traversals[0].arguments.get("emit_lineage") is not True:
+        if not traversals or any(
+            node.arguments.get("emit_lineage") is not True for node in traversals
+        ):
             violations.append("sem_collection_anchor_lineage_missing")
             continue
-        traversal = traversals[0]
-        source = by_id.get(traversal.depends_on[0]) if traversal.depends_on else None
-        definition: Mapping[str, Any] = (
-            source.arguments.get("definition") or {}
-            if source is not None and source.kind is QueryNodeKind.OBJECT_SET
-            else {}
-        )
-        if _stated_types(definition.get("predicates") or ()) != expected_types:
-            violations.append("sem_collection_anchor_differs")
-        if source is None or source.node_id not in plan.output_node_ids:
-            # Every anchor stays visible, so one without a related member is never dropped.
-            violations.append("sem_collection_anchor_unlisted")
-        if expected_side is not None and (
-            traversal.arguments.get("link_types") != [expected_side.link_type]
-            or traversal.arguments.get("direction") != expected_side.direction
-            or traversal.arguments.get("max_depth") != 1
-        ):
-            violations.append("sem_relation_sides_differ")
+        for traversal in traversals:
+            violations.extend(
+                _traversal_violations(traversal, by_id, plan, expected_types, expected_side)
+            )
+    return list(dict.fromkeys(violations))
+
+
+def _traversal_violations(
+    traversal: Any,
+    by_id: Mapping[str, Any],
+    plan: OntologyQueryPlan,
+    expected_types: tuple[str, ...],
+    expected_side: RelationSide | None,
+) -> list[str]:
+    violations: list[str] = []
+    source = by_id.get(traversal.depends_on[0]) if traversal.depends_on else None
+    definition: Mapping[str, Any] = (
+        source.arguments.get("definition") or {}
+        if source is not None and source.kind is QueryNodeKind.OBJECT_SET
+        else {}
+    )
+    predicates = list(definition.get("predicates") or ())
+    # The anchors are exactly the stated kind; any other restriction would hide anchors.
+    if len(predicates) != 1 or _stated_types(predicates) != expected_types:
+        violations.append("sem_collection_anchor_differs")
+    if source is None or source.node_id not in plan.output_node_ids:
+        # Every anchor stays visible, so one without a related member is never dropped.
+        violations.append("sem_collection_anchor_unlisted")
+    if traversal.node_id not in plan.output_node_ids:
+        violations.append("sem_collection_relation_unlisted")
+    if expected_side is not None and (
+        traversal.arguments.get("link_types") != [expected_side.link_type]
+        or traversal.arguments.get("direction") != expected_side.direction
+        or traversal.arguments.get("max_depth") != 1
+    ):
+        violations.append("sem_relation_sides_differ")
     return violations
 
 
