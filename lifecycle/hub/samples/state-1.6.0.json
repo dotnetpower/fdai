@@ -1,0 +1,14 @@
+{
+  "digest": "bdb7dbed81fc54c3f2cccb59b3ad0a96ab36c16911755f430e23a28b7b0067e5",
+  "schema_revision": 15,
+  "entities": {
+    "core": {
+      "release_id": "1.6.0",
+      "artifact_digests": [
+        "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      ],
+      "health": "healthy"
+    }
+  },
+  "observed_at": "2026-10-02T00:00:00Z"
+}

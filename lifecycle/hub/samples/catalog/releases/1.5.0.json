@@ -1,0 +1,121 @@
+{
+  "schema_version": "fdai.runtime-release.v3",
+  "source_commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "platform_tag": "linux-x86_64",
+  "deployment_bundle_sha256": "4ec503856fccf6dfd565150602008a42dd9e3515b1ced0e8efa6f45e93343bb3",
+  "services": {
+    "core-control-plane": {
+      "archive": "runtime/core-control-plane/archive.bin",
+      "archive_sha256": "3cdd73046425afb1faa557ffd4e5c85131ca6e9a0126f9a324cfe7b33d031919",
+      "sbom": "runtime/core-control-plane/sbom.bin",
+      "sbom_sha256": "62636f9fdf1efb679041cdb73cb3ee59e345cf591571ee63fd09cad4b0cce62c",
+      "provenance": "runtime/core-control-plane/provenance.bin",
+      "provenance_sha256": "5f41edc8b790554188fd6f06dace7799dee48b2ba3da7ece0322d82b64fdbfde",
+      "image_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "operator-service": {
+      "archive": "runtime/operator-service/archive.bin",
+      "archive_sha256": "f1e316ce400a9306b70d246a8347e5ddb5af00ebe2205f4f81e62b8ae1656426",
+      "sbom": "runtime/operator-service/sbom.bin",
+      "sbom_sha256": "9696a6b978738b28751c7c34691f1b8fa5a917a825d20ab6b10ff5e70bd2111d",
+      "provenance": "runtime/operator-service/provenance.bin",
+      "provenance_sha256": "9c9ccd837741c1c1a64424be8e7a087fea6507cf9b537c3fe8955749f83d17b5",
+      "image_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "document-ingestion-api": {
+      "archive": "runtime/document-ingestion-api/archive.bin",
+      "archive_sha256": "02e3b97404975660e0f66bc5bed3ce286d3eb81253dd5303a4e829dff0653dd2",
+      "sbom": "runtime/document-ingestion-api/sbom.bin",
+      "sbom_sha256": "f8dab64e5206787193f8952c7229bb36845a8c0e1f85669664614abeac994b04",
+      "provenance": "runtime/document-ingestion-api/provenance.bin",
+      "provenance_sha256": "0f27079a7bcf435787af9f038c3d01120c7937e5ae084d4d3179c3532271f706",
+      "image_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "document-processing-worker": {
+      "archive": "runtime/document-processing-worker/archive.bin",
+      "archive_sha256": "46b5e97a6bc14a8feaad0495a564dd5962c87298fc09d1d56a1756b204e2c58a",
+      "sbom": "runtime/document-processing-worker/sbom.bin",
+      "sbom_sha256": "e755a74cb2e5743100f96fc732955e3ad08d7afa77fb6618133022b2f0dff618",
+      "provenance": "runtime/document-processing-worker/provenance.bin",
+      "provenance_sha256": "448e037fd19dc3f604488459fd1ef799cdadae0c692073e71b405a472bb026fb",
+      "image_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "isolated-executor": {
+      "archive": "runtime/isolated-executor/archive.bin",
+      "archive_sha256": "d773efa3ebc886e70e500c71d729df5cd7137028867dcbebed34868d2e086940",
+      "sbom": "runtime/isolated-executor/sbom.bin",
+      "sbom_sha256": "2316ad18307247074832e376b4962e9ab7704aded62ac5a8fee44e425bde5694",
+      "provenance": "runtime/isolated-executor/provenance.bin",
+      "provenance_sha256": "ede65185da0fb388a304ee81dc8642826f1332d5ce6b2672a24b41b7cd200b57",
+      "image_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  },
+  "sidecars": {
+    "clamav": {
+      "archive": "runtime/clamav/archive.bin",
+      "archive_sha256": "b3e84596804798d45e042c8472e73cb8d8960eb8abcb8f7175fcbbfa58af4432",
+      "sbom": "runtime/clamav/sbom.bin",
+      "sbom_sha256": "4be378ce24b2862ab84d4fe097248b108fd37b467274bf3b1c6d0f4713a19354",
+      "provenance": "runtime/clamav/provenance.bin",
+      "provenance_sha256": "b58dbfb555c9ab599bcc3fe859a1917a396272556055353ae8e9a46e50a29190",
+      "image_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "pgvector": {
+      "archive": "runtime/pgvector/archive.bin",
+      "archive_sha256": "da980974fc5b6d917441083026e1e7e48209784b25c5521a6e043f65bc5554b7",
+      "sbom": "runtime/pgvector/sbom.bin",
+      "sbom_sha256": "fe783f4cb93127a3596a00ddbc778be85b029779f1bd16313ebf684b523a9f3f",
+      "provenance": "runtime/pgvector/provenance.bin",
+      "provenance_sha256": "5e9b4247725331e17e80cd50d3ba15e908f2b77395aadd1445b5eafbdcf8d9b7",
+      "image_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  },
+  "installation_agents": {
+    "infrastructure-agent": {
+      "archive": "runtime/infrastructure-agent/archive.bin",
+      "archive_sha256": "52646012315eb241d16f06db2febc7f7eb0876ccdb06157eeeeec8e8a7b8002b",
+      "sbom": "runtime/infrastructure-agent/sbom.bin",
+      "sbom_sha256": "fa644e2d123d4b8fb2930fc06d42760635dced894649091155696ca57175bdf7",
+      "provenance": "runtime/infrastructure-agent/provenance.bin",
+      "provenance_sha256": "bc4890aed3160f2f1a5e9b5d95325eac27f0dfae31a5392d60b8adfbf9da929d",
+      "image_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "lifecycle-agent": {
+      "archive": "runtime/lifecycle-agent/archive.bin",
+      "archive_sha256": "634eddd6dc44fae4aa82a49c17a54ba35894547ed9b04b84eb3c63dbfe6620b9",
+      "sbom": "runtime/lifecycle-agent/sbom.bin",
+      "sbom_sha256": "3b2bebb2fbe88cb3ecf2c25bbd569aa6dbdae6cb899a07d37506b3f365497968",
+      "provenance": "runtime/lifecycle-agent/provenance.bin",
+      "provenance_sha256": "7d9d45feb7a0c67c7e76391f6449199380363e6f24080acb73e4ecbb7cee7cd3",
+      "image_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  },
+  "console": {
+    "archive": "runtime/console/archive.bin",
+    "archive_sha256": "ca031aec630258346136723daa754157fa3574769b95eb798d31595d47857f85",
+    "sbom": "runtime/console/sbom.bin",
+    "sbom_sha256": "0b468bef1a52dcc132b6852ca2b3f4dc95244f7341c23c69c5704bd8f37901e6"
+  },
+  "deployment_support": {
+    "archive": "runtime/deployment-support/archive.bin",
+    "archive_sha256": "de3036684eee79e60bfda71f18223b14d5d2302fdd3dba9d0b72bdfd5024b147",
+    "sbom": "runtime/deployment-support/sbom.bin",
+    "sbom_sha256": "13aed37f6c60feb6c9e579a0f171ec43c93bfcbf0effd55f747bf6fb88739dbe"
+  },
+  "schema": {
+    "target": 15,
+    "tolerates": {
+      "minimum": 12,
+      "maximum": 16
+    }
+  },
+  "capabilities": {
+    "action:scale-service": {
+      "kind": "ActionType",
+      "maximum_mode": "enforce"
+    }
+  },
+  "downtime": {
+    "entities": []
+  }
+}
