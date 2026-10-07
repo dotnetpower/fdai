@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: e5559d4af214540566441677ed9717fae83c8c87
+translation_source_sha: 99edabd5bba954627e02e304e47fee6817025c84
 translation_revised: 2026-10-08
 ---
 
@@ -282,6 +282,32 @@ import는 아무 동작도 하지 않는 대체 객체로 처리하고, 각 싱�
 `verified`에 머뭅니다. 고정된 커밋의 pygoat에서는 검증된 이슈 아홉 개가 모두 입증되었습니다. 테스트는
 같은 하네스를 `shlex.quote`, `repr`, 매개변수화된 `sqlite3`, `basename`을 쓰는 안전한 변형에도 실행하며,
 모두 입증되지 않아야 통과합니다.
+
+### 다른 입증 언어
+
+입증 레인은 수정 위치의 확장자로 하네스를 고르며, 운영자가 `scan --prove`와 함께 해당 런타임을 지정할
+때만 그 언어를 실행합니다.
+
+- **JavaScript** (`--prove-node`): `fdai_prove.js`가 같은 샌드박스에서 Node.js로 실행됩니다. 로더는
+  모든 패키지를 아무 동작도 하지 않는 대체 객체로, `child_process`, `fs`, `vm`을 기록 후크로 바꾸며,
+  `eval`과 `Function`도 후크입니다. 각 후크는 대체 객체를 돌려주므로 대상 코드는 싱크 하나를 지나서도
+  계속 실행됩니다. 하네스는 소스에 수정 위치 줄을 포함하는 내보낸 함수, 등록된 함수, 생성자에서
+  할당된 함수를 모두 호출합니다. 호출자의 스택 프레임이 수정 위치 파일과 줄일 때만 결과로 인정하며,
+  Python과 같은 클래스별 조건을 적용합니다. 대상은 승격된 검증기가 확인한 JavaScript 이슈입니다.
+- **네이티브 C와 C++** (`--prove-cc`): 메모리 안전성 이슈에는 결정론적 검증기가 없으므로, 결정론적
+  생산자나 외부 생산자가 보고했을 때 대상이 됩니다. LLM 렌즈만 보고한 이슈는 대상이 아닙니다.
+  `fdai_prove_native.py`는 감싸는 함수를 찾고, 구동할 수 있는 버퍼 시그니처만 받아들입니다. 길이를
+  선택적으로 함께 받는 바이트 또는 문자 포인터, 또는 문자열 하나입니다. 드라이버와 대상을
+  AddressSanitizer와 UndefinedBehaviorSanitizer로 빌드하고 고정된 입력 길이로 실행합니다. 대상 파일에서
+  새니타이저의 첫 프레임이 수정 위치 줄일 때만 이슈가 `proven`이 됩니다. AddressSanitizer는 주소 공간
+  한도 아래에서 실행할 수 없으므로 이 실행만 샌드박스 `RLIMIT_AS`를 해제합니다. 대신 하네스가
+  컴파일러의 주소 공간을 제한하고, 모든 실행에 CPU 한도, `hard_rss_limit_mb`, 시간 제한, 출력 절단을
+  적용합니다.
+
+고정된 커밋의 OWASP NodeGoat에서는 `contributions.js`의 `eval` 줄 세 개가 샌드박스 안에서
+입증되었습니다. 테스트는 명령, 코드, SQL, 경로 흐름을 가진 취약한 JavaScript 예제와 C 예제의 스택 오버플로를
+입증하며, 안전한 대응 코드(인자 목록을 쓰는 `execFile`, `Number`, 자리 표시자 쿼리, `basename`, 경계를
+검사하는 복사)는 입증되지 않아야 통과합니다. Java와 C#에는 아직 입증 하네스가 없습니다.
 
 ## 실패 시 동작
 

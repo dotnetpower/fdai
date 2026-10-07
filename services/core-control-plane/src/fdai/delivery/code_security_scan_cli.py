@@ -57,6 +57,14 @@ def add_scan_command(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -
     )
     scan.add_argument("--prove-python", default="/usr/bin/python3")
     scan.add_argument(
+        "--prove-node",
+        help="Node.js executable; with --prove, also reproduce verified JavaScript issues",
+    )
+    scan.add_argument(
+        "--prove-cc",
+        help="C or C++ compiler with sanitizers; with --prove, also reproduce native issues",
+    )
+    scan.add_argument(
         "--record-state",
         action="store_true",
         help="record the review for the Console in the state store from FDAI_STATE_STORE_DSN",
@@ -201,7 +209,19 @@ async def _run(
         lens_models=lens_models,
         verifier_catalog=load_verifier_catalog(catalog_root, known),
         prove_python=Path(args.prove_python).resolve() if args.prove else None,
+        prove_runtimes=_prove_runtimes(args),
     )
+
+
+def _prove_runtimes(args: argparse.Namespace) -> dict[str, Path] | None:
+    if not args.prove:
+        return None
+    runtimes = {
+        language: Path(value).resolve()
+        for language, value in (("javascript", args.prove_node), ("native", args.prove_cc))
+        if value
+    }
+    return runtimes or None
 
 
 __all__ = ["add_scan_command", "open_lens_models", "run_scan"]

@@ -292,6 +292,34 @@ Quoting, escaping, parameterized queries, `basename`, or a failing import theref
 runs the same harness against safe variants, including `shlex.quote`, `repr`, parameterized
 `sqlite3`, and `basename`, and requires every one to stay unproven.
 
+### Other proof languages
+
+The lane picks a harness by fix-site extension, and a language runs only when the operator gives
+its runtime with `scan --prove`:
+
+- **JavaScript** (`--prove-node`): `fdai_prove.js` runs on Node.js in the same sandbox. Its loader
+  replaces every package with an inert stub and `child_process`, `fs`, and `vm` with recording
+  hooks, and `eval` and `Function` are hooks too. Each hook returns an inert stub, so the target
+  keeps running past one sink. The harness calls every exported, registered, or
+  constructor-assigned function whose source contains the fix-site line. A hit counts only when the
+  caller's stack frame is the fix-site file and line, and the same class predicates as Python
+  apply. Targets are JavaScript issues a promoted verifier confirmed.
+- **Native C and C++** (`--prove-cc`): memory-safety issues have no deterministic verifier, so
+  they're eligible when a deterministic or external producer reported them, never the LLM lens
+  alone. `fdai_prove_native.py` finds the enclosing function and accepts only a buffer signature
+  it can drive: a byte or char pointer with an optional length, or one string. It builds a driver
+  and the target with AddressSanitizer and UndefinedBehaviorSanitizer and runs fixed input
+  lengths. The issue is `proven` only when the sanitizer's first frame in the target file is the
+  fix-site line. AddressSanitizer can't run under an address-space limit, so this run alone drops
+  the sandbox `RLIMIT_AS`. The harness limits the compiler's address space and gives every run a
+  CPU limit, `hard_rss_limit_mb`, a timeout, and truncated output.
+
+On OWASP NodeGoat at its pinned commit, the three `eval` lines in `contributions.js` were proven in
+the sandbox. Tests prove vulnerable JavaScript fixtures for command, code, SQL, and path flows and
+a stack overflow in a C fixture, and require the safe counterparts (`execFile` with an argument
+list, `Number`, a placeholder query, `basename`, and a bounds-checked copy) to stay unproven. Java
+and C# have no proof harness yet.
+
 ## Failure behavior
 
 | Condition | Outcome |

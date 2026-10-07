@@ -7,7 +7,8 @@ Each scanner runs as one sandboxed process with:
   (FDAI rule pack) and ``/cache`` (pre-provisioned offline database) mounts;
 - the scanner executable mounted read-only at ``/opt/scanner/bin``;
 - writable tmpfs ``/scratch`` and ``/tmp`` only, a cleared environment, and CPU, address-space,
-  and file-size limits;
+  and file-size limits. Only the native proof lane may drop the address-space limit, because
+  AddressSanitizer reserves terabytes of shadow address space; its harness bounds memory itself;
 - standard output read up to the scanner's byte limit. Exceeding it or the timeout kills the
   process group and marks the run truncated or timed out, which the coverage receipt treats as
   incomplete.
@@ -105,11 +106,14 @@ class BubblewrapScannerSandbox:
         argv += ["--", "/opt/scanner/bin", *resolve_argv(spec, dict(_MOUNTS))]
         return argv
 
-    def _limit_child(self, timeout_seconds: int, address_space: int | None = None) -> None:
+    def _limit_child(
+        self, timeout_seconds: int, address_space: int | None = None, *, limit_address: bool = True
+    ) -> None:
         cpu = timeout_seconds + 5
         resource.setrlimit(resource.RLIMIT_CPU, (cpu, cpu))
-        memory = address_space or self._limits.memory_bytes
-        resource.setrlimit(resource.RLIMIT_AS, (memory, memory))
+        if limit_address:
+            memory = address_space or self._limits.memory_bytes
+            resource.setrlimit(resource.RLIMIT_AS, (memory, memory))
         size = self._limits.file_size_bytes
         resource.setrlimit(resource.RLIMIT_FSIZE, (size, size))
 
@@ -123,8 +127,13 @@ class BubblewrapScannerSandbox:
         rules: Path | None = None,
         cache: Path | None = None,
         environ: Mapping[str, str] | None = None,
+        limit_address_space: bool = True,
     ) -> ScannerRunResult:
-        """Run one scanner and return its bounded output and observed completion."""
+        """Run one scanner and return its bounded output and observed completion.
+
+        ``limit_address_space=False`` is reserved for the native proof harness, which applies its
+        own address-space limit to the compiler and an RSS limit to sanitizer builds.
+        """
         argv = self.command(spec, executable, source, rules=rules, cache=cache)
         started = time.monotonic()
         process = await asyncio.create_subprocess_exec(
@@ -134,7 +143,11 @@ class BubblewrapScannerSandbox:
             stderr=asyncio.subprocess.PIPE,
             env=dict(environ) if environ is not None else {"PATH": "/usr/bin:/bin"},
             start_new_session=True,
-            preexec_fn=lambda: self._limit_child(spec.timeout_seconds, spec.address_space_bytes),
+            preexec_fn=lambda: self._limit_child(
+                spec.timeout_seconds,
+                spec.address_space_bytes,
+                limit_address=limit_address_space,
+            ),
         )
         reader, errors = process.stdout, process.stderr
         if reader is None or errors is None:
