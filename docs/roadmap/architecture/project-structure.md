@@ -56,6 +56,11 @@ Question-form concept-choice reuse is owned by Core conversation processing and 
 run. Its exact-input, reader-separated cache never stores observed state, authorization, or
 cross-turn meaning. Azure delivery owns lossless catalog prompt encoding; Operator and Console
 only display measured timing and usage, without another writer, service, or authority path.
+Azure guidance packs remain prompt context only. They distinguish utterance-stated resource-name
+fragments, exact container names, regions, and provider lifecycle states. A narrowed state reading
+can yield one accepted typed value, and Core records each accepted concept value on the compiled
+answer event. Environment inventory never becomes a stated operand, and the packs grant no
+identity, query, or execution authority.
 The same typed-only boundary may reuse an independently certified direct read before legacy
 judgment; action, quoted, hypothetical, bound-context, and required-document paths retain their
 existing gates. Numeric call accounting adds no prompt capture or execution authority.
