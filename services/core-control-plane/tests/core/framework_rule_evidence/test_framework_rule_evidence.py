@@ -9,11 +9,9 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from fdai.agents._framework.forseti_baseline_evaluation import (
+from fdai.agents import (
     BASELINE_EVALUATION_OUTCOME_PREFIX,
     BaselineEvaluationAuditReference,
-    _bounded_ref,
-    _rule_revision,
     record_baseline_evaluation,
 )
 from fdai.core.framework_assessment import (
@@ -227,12 +225,17 @@ async def test_expected_pairs_match_forseti_t0_dispatch() -> None:
     assert ("resource:cache-1", "rule:cache.other-signal") not in expected_keys
 
 
-def test_identity_helpers_match_forseti_records() -> None:
+@pytest.mark.asyncio
+async def test_identity_helpers_match_forseti_records() -> None:
     rule = _rule("cache.zone-redundant")
     long_id = "x" * 200
-    assert baseline_ref("resource", long_id) == _bounded_ref("resource", long_id)
-    assert baseline_ref("rule", rule.id) == _bounded_ref("rule", rule.id)
-    assert canonical_sha256(rule_digest(rule)) == _rule_revision(rule)
+    (outcome,) = await _baseline(
+        (rule,),
+        (ResourceRecord(resource_id=long_id, type=rule.resource_type, props={}),),
+    )
+    assert baseline_ref("resource", long_id) == outcome.resource_ref
+    assert baseline_ref("rule", rule.id) == outcome.rule_ref
+    assert canonical_sha256(rule_digest(rule)) == outcome.rule_revision
     with pytest.raises(ValueError, match="SHA-256"):
         canonical_sha256("sha256:not-a-digest")
 

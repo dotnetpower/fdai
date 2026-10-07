@@ -48,12 +48,19 @@ BaselineEvaluationAuditBinder = Callable[
 
 
 class BaselineInventoryObservation(Protocol):
-    """Delivery-neutral view of one promoted inventory generation."""
+    """Delivery-neutral, read-only view of one promoted inventory generation."""
 
-    generation: str
-    resources: tuple[ResourceRecord, ...]
-    complete: bool
-    recorded_at: datetime | None
+    @property
+    def generation(self) -> str: ...
+
+    @property
+    def resources(self) -> tuple[ResourceRecord, ...]: ...
+
+    @property
+    def complete(self) -> bool: ...
+
+    @property
+    def recorded_at(self) -> datetime | None: ...
 
 
 async def record_baseline_evaluation(
@@ -73,6 +80,32 @@ async def record_baseline_evaluation(
     never appends audit directly; the injected ``audit_binder`` is the Saga
     boundary used to obtain a replayable audit reference.
     """
+
+    completion, _outcomes = await evaluate_baseline_records(
+        observation=observation,
+        engine=engine,
+        rules=rules,
+        catalog_revision=catalog_revision,
+        audit_binder=audit_binder,
+        state_store=state_store,
+        evaluated_at=evaluated_at,
+        evidence_fresh_after=evidence_fresh_after,
+    )
+    return completion
+
+
+async def evaluate_baseline_records(
+    *,
+    observation: BaselineInventoryObservation,
+    engine: T0Engine,
+    rules: tuple[Rule, ...],
+    catalog_revision: str,
+    audit_binder: BaselineEvaluationAuditBinder,
+    state_store: StateStore,
+    evaluated_at: datetime,
+    evidence_fresh_after: datetime | None = None,
+) -> tuple[BaselineEvaluationCompletion, tuple[BaselineEvaluationOutcome, ...]]:
+    """Write terminal records and also return the outcomes for coverage accounting."""
 
     _validate_inputs(
         observation=observation,
@@ -149,7 +182,7 @@ async def record_baseline_evaluation(
         audit_binder=audit_binder,
         state_store=state_store,
     )
-    return completion
+    return completion, tuple(outcomes)
 
 
 async def _completion_record(
@@ -316,6 +349,12 @@ def _generation_digest(observation: BaselineInventoryObservation) -> str:
     return _digest_json({"generation": observation.generation})
 
 
+def baseline_inventory_observation_digest(observation: BaselineInventoryObservation) -> str:
+    """Return the inventory observation digest recorded on every outcome and completion."""
+
+    return _inventory_observation_digest(observation)
+
+
 def _inventory_observation_digest(observation: BaselineInventoryObservation) -> str:
     return _digest_json(
         {
@@ -400,5 +439,7 @@ __all__ = [
     "BASELINE_EVALUATION_OUTCOME_PREFIX",
     "BaselineEvaluationAuditBinder",
     "BaselineEvaluationAuditReference",
+    "baseline_inventory_observation_digest",
+    "evaluate_baseline_records",
     "record_baseline_evaluation",
 ]

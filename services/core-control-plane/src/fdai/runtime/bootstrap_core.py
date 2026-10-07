@@ -28,6 +28,7 @@ from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.delivery.startup_probe import OpaCompileStartupProbe
 from fdai.runtime import bootstrap_core_model, bootstrap_incidents
 from fdai.runtime import product_profile as _product_profile
+from fdai.runtime.baseline_evaluation import bind_forseti_baseline_worker
 from fdai.runtime.blast_probe import bind_live_blast_probe_failure_streak
 from fdai.runtime.bootstrap_bindings import (
     build_effect_reconciliation_worker as _build_effect_reconciliation_worker,
@@ -742,6 +743,14 @@ async def build_core_runtime(
                 extra={"reason": "runtime_or_durable_source_identity_unavailable"},
             )
     pantheon_runtime = resources.pantheon.runtime
+    bind_forseti_baseline_worker(
+        agents=pantheon_runtime.agents if pantheon_runtime is not None else None,
+        state_store=state_store,
+        activation_ledger=activation_ledger,
+        runtime=control_loop,
+        inventory_dsn=bootstrap_core_model.assurance_twin_inventory_dsn(environment),
+        environment=environment,
+    )
     subscription_scope = str(container.config.azure.subscription_id)
     assurance_twin_publishers, assurance_twin_writers = (
         bootstrap_core_model.build_assurance_twin_runtime_binding(

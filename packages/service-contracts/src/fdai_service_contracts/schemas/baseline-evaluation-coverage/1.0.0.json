@@ -1,0 +1,210 @@
+{
+  "$defs": {
+    "BaselineEvaluationCoverageLimitation": {
+      "description": "Why a version 2 coverage record cannot prove a complete denominator.",
+      "enum": [
+        "pair_missing",
+        "duplicate_pair",
+        "conflicting_pair",
+        "unexpected_pair",
+        "rule_revision_drift"
+      ],
+      "title": "BaselineEvaluationCoverageLimitation",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "Version 2 completion: an independently derived denominator for one activation generation.\n\nThe expected Resource and Rule pairs come from the same T0 dispatch, not from the written\noutcomes, so an omitted pair is visible as ``pair_missing`` instead of a smaller denominator.",
+  "properties": {
+    "schema_version": {
+      "const": "1.0.0",
+      "default": "1.0.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "generation_id": {
+      "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+      "title": "Generation Id",
+      "type": "string"
+    },
+    "generation_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Generation Digest",
+      "type": "string"
+    },
+    "inventory_observation_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Inventory Observation Digest",
+      "type": "string"
+    },
+    "rule_activation_generation_id": {
+      "pattern": "^rule-activation-[a-f0-9]{32}$",
+      "title": "Rule Activation Generation Id",
+      "type": "string"
+    },
+    "rule_activation_generation_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Rule Activation Generation Digest",
+      "type": "string"
+    },
+    "rule_catalog_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Rule Catalog Digest",
+      "type": "string"
+    },
+    "evaluated_rule_catalog_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Evaluated Rule Catalog Digest",
+      "type": "string"
+    },
+    "dispatch_signal": {
+      "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+      "title": "Dispatch Signal",
+      "type": "string"
+    },
+    "expected_pair_set_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Expected Pair Set Digest",
+      "type": "string"
+    },
+    "expected_pair_count": {
+      "maximum": 10000000,
+      "minimum": 0,
+      "title": "Expected Pair Count",
+      "type": "integer"
+    },
+    "covered_pair_count": {
+      "maximum": 10000000,
+      "minimum": 0,
+      "title": "Covered Pair Count",
+      "type": "integer"
+    },
+    "compliant_count": {
+      "maximum": 10000000,
+      "minimum": 0,
+      "title": "Compliant Count",
+      "type": "integer"
+    },
+    "violated_count": {
+      "maximum": 10000000,
+      "minimum": 0,
+      "title": "Violated Count",
+      "type": "integer"
+    },
+    "abstained_count": {
+      "maximum": 10000000,
+      "minimum": 0,
+      "title": "Abstained Count",
+      "type": "integer"
+    },
+    "missing_pair_count": {
+      "maximum": 10000000,
+      "minimum": 0,
+      "title": "Missing Pair Count",
+      "type": "integer"
+    },
+    "duplicate_pair_count": {
+      "maximum": 10000000,
+      "minimum": 0,
+      "title": "Duplicate Pair Count",
+      "type": "integer"
+    },
+    "conflicting_pair_count": {
+      "maximum": 10000000,
+      "minimum": 0,
+      "title": "Conflicting Pair Count",
+      "type": "integer"
+    },
+    "unexpected_pair_count": {
+      "maximum": 10000000,
+      "minimum": 0,
+      "title": "Unexpected Pair Count",
+      "type": "integer"
+    },
+    "revision_mismatch_count": {
+      "maximum": 10000000,
+      "minimum": 0,
+      "title": "Revision Mismatch Count",
+      "type": "integer"
+    },
+    "outcome_set_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Outcome Set Digest",
+      "type": "string"
+    },
+    "complete": {
+      "title": "Complete",
+      "type": "boolean"
+    },
+    "limitations": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/BaselineEvaluationCoverageLimitation"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "audit_ref": {
+      "pattern": "^[a-z][a-z0-9_.:-]{0,159}$",
+      "title": "Audit Ref",
+      "type": "string"
+    },
+    "audit_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Audit Digest",
+      "type": "string"
+    },
+    "completed_at": {
+      "format": "date-time",
+      "title": "Completed At",
+      "type": "string"
+    },
+    "projection_authority": {
+      "const": false,
+      "default": false,
+      "title": "Projection Authority",
+      "type": "boolean"
+    },
+    "execution_authority": {
+      "const": false,
+      "default": false,
+      "title": "Execution Authority",
+      "type": "boolean"
+    },
+    "coverage_digest": {
+      "pattern": "^sha256:[a-f0-9]{64}$",
+      "title": "Coverage Digest",
+      "type": "string"
+    }
+  },
+  "required": [
+    "generation_id",
+    "generation_digest",
+    "inventory_observation_digest",
+    "rule_activation_generation_id",
+    "rule_activation_generation_digest",
+    "rule_catalog_digest",
+    "evaluated_rule_catalog_digest",
+    "dispatch_signal",
+    "expected_pair_set_digest",
+    "expected_pair_count",
+    "covered_pair_count",
+    "compliant_count",
+    "violated_count",
+    "abstained_count",
+    "missing_pair_count",
+    "duplicate_pair_count",
+    "conflicting_pair_count",
+    "unexpected_pair_count",
+    "revision_mismatch_count",
+    "outcome_set_digest",
+    "complete",
+    "audit_ref",
+    "audit_digest",
+    "completed_at",
+    "coverage_digest"
+  ],
+  "title": "BaselineEvaluationCoverage",
+  "type": "object",
+  "$id": "https://fdai.dev/service-contracts/baseline-evaluation-coverage/1.0.0"
+}
