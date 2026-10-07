@@ -141,3 +141,23 @@ def test_metric_rows_lead_with_rank_value_unit_and_why_a_member_is_unknown() -> 
     assert lines[1] == "| name | type | rank | value | unit | missing_reason |"
     assert lines[3] == "| vm-a | compute.vm | 1 | 0.41 | percent | - |"
     assert lines[4] == "| vm-b | compute.vm | - | - | percent | provider_gap |"
+
+
+def test_related_pairs_show_both_names_and_keep_identifiers_in_details() -> None:
+    lines = verified_rows_table(
+        _output(
+            {
+                "member_id": "scope/rg-a/vm-a",
+                "root_id": "scope/rg-a",
+                "member_name": "vm-a",
+                "root_name": "rg-a",
+                "depth": 1,
+                "path_evidence": '["scope/rg-a","scope/rg-a/vm-a"]',
+                "source_generation": "generation-1",
+            }
+        ),
+        korean=False,
+    )
+
+    assert lines[1] == "| root_name | member_name | depth |"
+    assert lines[3] == "| rg-a | vm-a | 1 |"

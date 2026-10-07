@@ -13,6 +13,7 @@ from .semantic_reasoning_form import (
     GoalOperation,
     GroupBy,
     MeasureKind,
+    RelationAnchorScope,
     RelationReach,
     RelationScope,
     RelationSense,
@@ -61,6 +62,9 @@ def reads_beyond_list(form: SemanticQuestionForm) -> bool:
     ):
         return True
     relation = goal.relation
+    if relation is not None and relation.anchor_scope is RelationAnchorScope.COLLECTION:
+        # Each anchor's own related members are a pairing, never one flat list.
+        return True
     # A containment read from a named container to its members only restates a scope.
     return relation is not None and not (
         relation.sense is RelationSense.CONTAINMENT

@@ -122,6 +122,9 @@ def relationship_lineage_table(
                     # Projected display names, so each pair reads without its identifiers.
                     "member_name": _display_name(records.get(member_id)),
                     "root_name": _display_name(records.get(root_id)),
+                    # The one LinkType the pair was read through, so pairs of several sides
+                    # stay attributable.
+                    "link_type": link_type,
                     "depth": depth,
                     "path_evidence": json.dumps(
                         list(path),

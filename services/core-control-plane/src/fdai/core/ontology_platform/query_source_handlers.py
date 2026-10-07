@@ -45,6 +45,9 @@ from .query_traversal_tables import (
 from .query_values import QueryRow, QueryTable
 
 _LOGGER = logging.getLogger(__name__)
+# Roots per lineage read, and the reads one traversal node may spend across its batches.
+LINEAGE_ROOT_BATCH = 32
+LINEAGE_READ_BUDGET = 64
 
 
 class SecuredObjectSetNodeHandler:
@@ -169,6 +172,10 @@ class SecuredRelationshipTraversalNodeHandler:
                 authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
             )
         root_ids = tuple(row.row_id for row in dependency.rows)
+        if traversal.emit_lineage and len(root_ids) > LINEAGE_ROOT_BATCH:
+            return await self._batched_lineage(
+                traversal, root_ids, dependency=dependency, dependencies=dependencies
+            )
         definition = ObjectSetDefinition(
             selector=traversal.selector,
             traversal=ObjectTraversal(
@@ -239,6 +246,97 @@ class SecuredRelationshipTraversalNodeHandler:
                 f"ontology-object-set:{secured.receipt.projected_result_digest}",
                 *output_refs,
                 f"ontology-query-table:{table.digest}",
+            ),
+            authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
+        )
+
+    async def _batched_lineage(
+        self,
+        traversal: RelationshipTraversalDefinition,
+        root_ids: tuple[str, ...],
+        *,
+        dependency: QueryTable,
+        dependencies: Mapping[str, QueryNodeResult],
+    ) -> QueryNodeResult:
+        """Read lineage from many roots in batches so roots never crowd out their members.
+
+        Each batch is its own secured read of the same source generation. A batch cut at its
+        limit splits in half until one root remains; a read budget bounds the whole walk, and
+        any batch it leaves unread keeps the table incomplete with its reason.
+        """
+
+        pending = [
+            root_ids[start : start + LINEAGE_ROOT_BATCH]
+            for start in range(0, len(root_ids), LINEAGE_ROOT_BATCH)
+        ]
+        tables: list[QueryTable] = []
+        digests: list[str] = []
+        reasons: list[str] = []
+        reads = 0
+        while pending:
+            batch = pending.pop(0)
+            if reads >= LINEAGE_READ_BUDGET:
+                reasons.append("lineage_read_budget")
+                break
+            reads += 1
+            definition = ObjectSetDefinition(
+                selector=traversal.selector,
+                traversal=ObjectTraversal(
+                    link_types=traversal.link_types,
+                    direction=traversal.direction,
+                    max_depth=traversal.max_depth,
+                ),
+                root_ids=batch,
+                as_of=traversal.as_of,
+                purpose=traversal.purpose,
+                limit=traversal.limit,
+                freshness_seconds=traversal.freshness_seconds,
+            )
+            secured = await self._gateway.materialize(definition, projection_request=self._request)
+            secured = await _refresh_traversal_result(
+                secured,
+                definition=definition,
+                request=self._request,
+                refresher=self._graph_refresher,
+                expected_generation=dependency.source_generation,
+            )
+            if secured.receipt.truncated and len(batch) > 1:
+                middle = len(batch) // 2
+                pending[:0] = [batch[:middle], batch[middle:]]
+                continue
+            if self._receipt_authority is not None:
+                await _issue_secured_result(
+                    self._receipt_authority, secured, provider=self._decision_evidence
+                )
+            digests.append(secured.receipt.projected_result_digest)
+            table = relationship_lineage_table(
+                secured,
+                root_ids=batch,
+                link_type=traversal.link_types[0],
+                direction=traversal.direction,
+                max_depth=traversal.max_depth,
+                endpoint_predicates=traversal.endpoint_predicates,
+            )
+            if not table.complete and table.truncation_reason is not None:
+                reasons.append(table.truncation_reason)
+            tables.append(table)
+        generations = {table.source_generation for table in tables}
+        if len(generations) > 1:
+            raise QueryNodeHeldError("query_source_generation_conflict")
+        rows = tuple(row for table in tables for row in table.rows)
+        merged = QueryTable(
+            rows=rows,
+            complete=not reasons,
+            truncation_reason="+".join(dict.fromkeys(reasons)) if reasons else None,
+            source_generation=next(iter(generations), dependency.source_generation),
+        )
+        batch_digest = content_digest({"object_sets": sorted(digests)})
+        return QueryNodeResult(
+            value=merged,
+            evidence_refs=_evidence_refs(dependencies)
+            + (
+                f"ontology-object-set-batch:{batch_digest}",
+                f"ontology-query-table:{merged.digest}",
             ),
             authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
         )
