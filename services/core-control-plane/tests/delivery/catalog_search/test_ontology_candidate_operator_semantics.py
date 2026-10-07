@@ -24,6 +24,8 @@ _PROPERTIES = {
     "name": "Example order database",
     "tags": ["primary", "orders"],
     "properties": {"aliases": ["구매 주문 MySQL 서버"], "tier": "gold"},
+    "updated_at": "2026-09-01T09:00:00Z",
+    "replicas": 9,
 }
 
 
@@ -38,6 +40,17 @@ _PROPERTIES = {
         ({"property": "properties", "operator": "exists"}, True),
         ({"property": "aliases", "operator": "exists"}, False),
         ({"property": "aliases", "operator": "absent"}, True),
+        (
+            {"property": "updated_at", "operator": "at_least", "equals": "2026-09-01T08:15:00Z"},
+            True,
+        ),
+        ({"property": "updated_at", "operator": "at_most", "equals": "2026-09-01T09:00:00Z"}, True),
+        (
+            {"property": "updated_at", "operator": "at_most", "equals": "2026-09-01T08:59:59Z"},
+            False,
+        ),
+        ({"property": "replicas", "operator": "at_least", "equals": 10}, False),
+        ({"property": "replicas", "operator": "at_most", "equals": 9}, True),
     ],
 )
 def test_predicate_semantics_match_the_prompt_contract(
@@ -61,14 +74,16 @@ def test_diagnostic_prompt_states_each_contains_and_presence_meaning() -> None:
         "contains matches a substring of a text value, an element equal to the operand in "
         "an array value, or a key equal to the operand in an object value.",
         "A requested entry inside an object-valued property is expressed with contains",
+        "at_least and at_most are inclusive and compare numbers numerically and text in "
+        "code-point order",
+        "Wording that describes the requester's situation or purpose rather than the requested "
+        "objects is context, not a condition.",
     ):
         assert statement in text
 
 
-def test_nested_entry_calibration_label_is_expressible_by_one_declared_predicate() -> None:
+def _manifest_and_corpus() -> tuple[object, dict]:
     corpus = json.loads((_ASSETS / "instance-corpus.v1.json").read_text())
-    calibration = json.loads((_ASSETS / "instance-calibration.v3.json").read_text())
-    case = next(item for item in calibration["cases"] if item["case_id"] == "cal-v3-ko-a04")
     declarations = tuple(
         load_object_type_from_mapping(
             yaml.safe_load(
@@ -85,18 +100,49 @@ def test_nested_entry_calibration_label_is_expressible_by_one_declared_predicate
         principal_scope_digest="sha256:" + "a" * 64,
         object_types=declarations,
     )
+    return manifest, corpus
+
+
+@pytest.mark.parametrize(
+    ("case_id", "object_type", "predicates"),
+    [
+        (
+            "cal-v3-ko-a04",
+            "Resource",
+            ({"property": "properties", "operator": "contains", "equals": "aliases"},),
+        ),
+        (
+            "cal-v3-en-a04",
+            "Incident",
+            (
+                {
+                    "property": "updated_at",
+                    "operator": "at_least",
+                    "equals": "2026-09-01T08:15:00Z",
+                },
+                {"property": "updated_at", "operator": "at_most", "equals": "2026-09-01T09:30:00Z"},
+            ),
+        ),
+    ],
+)
+def test_calibration_label_is_expressible_by_declared_predicates(
+    case_id: str, object_type: str, predicates: tuple[dict[str, object], ...]
+) -> None:
+    manifest, corpus = _manifest_and_corpus()
+    calibration = json.loads((_ASSETS / "instance-calibration.v3.json").read_text())
+    case = next(item for item in calibration["cases"] if item["case_id"] == case_id)
     allowed = {
         str(item["object_type"]): item["properties"]
         for item in candidate_predicate_property_catalog(manifest)
     }
-    predicate = ObjectPredicate(property="properties", operator="contains", equals="aliases")
+    parsed = tuple(ObjectPredicate.model_validate(item) for item in predicates)
 
     selected = sorted(
         f"object:{item['object_type']}:{item['id']}"
         for item in corpus["objects"]
-        if item["object_type"] == "Resource"
-        and object_matches_predicates(item["properties"], (predicate,))
+        if item["object_type"] == object_type
+        and object_matches_predicates(item["properties"], parsed)
     )
 
-    assert "properties" in allowed["Resource"]
+    assert {item.property for item in parsed} <= set(allowed[object_type])
     assert selected == sorted(case["expected_document_ids"])

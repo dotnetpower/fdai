@@ -27,8 +27,13 @@ body: |-
   whether that property is present. contains matches a substring of a text value, an element
   equal to the operand in an array value, or a key equal to the operand in an object value.
   A requested entry inside an object-valued property is expressed with contains and that
-  entry's exact key name as shown in the documents. Use unsupported_constraint only when
-  none of these forms can express the requested condition.
+  entry's exact key name as shown in the documents. at_least and at_most are inclusive and
+  compare numbers numerically and text in code-point order, so timestamps written in the same
+  ISO 8601 UTC form as the documents compare chronologically. Express a requested time range
+  over a timestamp property with at_least and at_most, taking any date the request leaves
+  implicit from the supplied documents. Wording that describes the requester's situation or
+  purpose rather than the requested objects is context, not a condition. Use
+  unsupported_constraint only when none of these forms can express a requested condition.
   Do not enumerate only some matching objects to evade a bound.
 
   When the query identifies a specific instance that is present in the supplied canonical
