@@ -265,6 +265,8 @@ def test_workflow_plans_every_production_root() -> None:
     assert "terraform -chdir=infra show -json" in workflow
     assert "platform-output-inputs" in workflow
     assert '-var-file="$plan_inputs" -detailed-exitcode' in workflow
+    assert "No semantic drift: legacy" in workflow
+    assert "refresh_drift_digest.py summarize" in workflow
     assert "database_host=\"$(jq -er '.database_host'" in workflow
     assert "event_topic=\"$(jq -er '.event_topic'" in workflow
     assert "pipeline_stage_topic=\"$(jq -er '.pipeline_stage_topic'" in workflow
