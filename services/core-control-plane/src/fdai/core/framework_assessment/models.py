@@ -16,6 +16,8 @@ from fdai.rule_catalog.schema.framework_assessment import (
 )
 
 _SHA256 = re.compile(r"^sha256:[a-f0-9]{64}$")
+_LIMITATION_CODE = re.compile(r"^[a-z][a-z0-9_]{0,63}$")
+_RULE_ACTIVATION_GENERATION_ID = re.compile(r"^rule-activation-[a-f0-9]{32}$")
 
 
 class FrameworkApplicabilityStatus(StrEnum):
@@ -135,6 +137,42 @@ class FrameworkOwnerBinding:
 
 
 @dataclass(frozen=True, slots=True)
+class FrameworkRuleActivationPin:
+    """Rule activation generation pinned by the assessment, independent of any receipt."""
+
+    generation_id: str
+    generation_digest: str
+    rule_catalog_digest: str
+
+    def __post_init__(self) -> None:
+        if _RULE_ACTIVATION_GENERATION_ID.fullmatch(self.generation_id) is None:
+            raise ValueError("framework Rule activation generation_id is invalid")
+        _require_digest("framework Rule activation generation_digest", self.generation_digest)
+        _require_digest("framework Rule activation rule_catalog_digest", self.rule_catalog_digest)
+
+    def to_dict(self) -> dict[str, str]:
+        return {
+            "generation_id": self.generation_id,
+            "generation_digest": self.generation_digest,
+            "rule_catalog_digest": self.rule_catalog_digest,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class FrameworkRuleProvenance:
+    """Activation, Rule revision, and coverage identities carried by one Rule receipt."""
+
+    activation: FrameworkRuleActivationPin
+    member_rule_digest: str | None
+    coverage_digest: str
+
+    def __post_init__(self) -> None:
+        if self.member_rule_digest is not None:
+            _require_digest("framework Rule member_rule_digest", self.member_rule_digest)
+        _require_digest("framework Rule coverage_digest", self.coverage_digest)
+
+
+@dataclass(frozen=True, slots=True)
 class FrameworkAssessmentProfile:
     profile_id: str
     framework_id: str
@@ -152,6 +190,7 @@ class FrameworkAssessmentProfile:
     operating_model: str | None = None
     environment_classes: tuple[str, ...] = ()
     regulatory_context: tuple[str, ...] = ()
+    rule_activation: FrameworkRuleActivationPin | None = None
     profile_digest: str = ""
 
     def __post_init__(self) -> None:
@@ -189,6 +228,8 @@ class FrameworkAssessmentProfile:
             raise ValueError(
                 "CAF profile requires hierarchy, operating model, and environment classes"
             )
+        if self.rule_activation is not None and self.scope_kind is not FrameworkScopeKind.WORKLOAD:
+            raise ValueError("only a workload profile can pin a Rule activation generation")
         _require_digest("framework profile profile_digest", self.profile_digest)
         if self.profile_digest != canonical_digest(self.to_dict(include_digest=False)):
             raise ValueError("framework profile digest mismatch")
@@ -217,6 +258,10 @@ class FrameworkAssessmentProfile:
             "environment_classes": list(values.get("environment_classes", ())),
             "regulatory_context": list(values.get("regulatory_context", ())),
         }
+        rule_activation = values.get("rule_activation")
+        if rule_activation is not None:
+            # Added only when pinned so existing profile digests stay stable.
+            material["rule_activation"] = rule_activation.to_dict()
         return cls(
             **values,
             profile_digest=canonical_digest(material),
@@ -241,6 +286,8 @@ class FrameworkAssessmentProfile:
             "environment_classes": list(self.environment_classes),
             "regulatory_context": list(self.regulatory_context),
         }
+        if self.rule_activation is not None:
+            value["rule_activation"] = self.rule_activation.to_dict()
         if include_digest:
             value["profile_digest"] = self.profile_digest
         return value
@@ -274,6 +321,8 @@ class FrameworkEvidenceReceipt:
     not_applicable_requested_by: str | None = None
     not_applicable_approved_by: str | None = None
     approval_expires_at: datetime | None = None
+    rule_provenance: FrameworkRuleProvenance | None = None
+    limitations: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         for label, value in (
@@ -309,6 +358,12 @@ class FrameworkEvidenceReceipt:
             raise ValueError("framework evidence N/A requester and approver MUST be distinct")
         if self.approval_expires_at is not None:
             _require_aware("framework evidence approval_expires_at", self.approval_expires_at)
+        if self.limitations != tuple(sorted(set(self.limitations))) or any(
+            _LIMITATION_CODE.fullmatch(item) is None for item in self.limitations
+        ):
+            raise ValueError("framework evidence limitations MUST be unique, ordered codes")
+        if self.limitations and self.outcome is not FrameworkSatisfactionStatus.UNKNOWN:
+            raise ValueError("framework evidence with limitations MUST report unknown")
 
 
 @dataclass(frozen=True, slots=True)

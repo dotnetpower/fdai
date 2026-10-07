@@ -15,6 +15,7 @@ from fdai.rule_catalog.schema.framework_assessment import (
     FrameworkEvidenceSpecification,
     FrameworkGenerationContract,
     FrameworkRelationshipState,
+    FrameworkRequirementKind,
     canonical_digest,
 )
 
@@ -280,6 +281,8 @@ def _evaluate_requirement(
     limitations: set[str] = set()
     admitted: list[FrameworkEvidenceReceipt] = []
     for receipt in evidence:
+        # Producer limitation codes explain an unknown outcome whether or not it is admitted.
+        limitations.update(receipt.limitations)
         reason = _inadmissible_reason(requirement, request, receipt)
         if reason is None:
             admitted.append(receipt)
@@ -384,6 +387,14 @@ def _inadmissible_reason(
             or receipt.inventory_generation is not None
         ):
             return "wrong_hierarchy_generation"
+    if requirement.kind is FrameworkRequirementKind.RULE:
+        # The profile pin is read independently, so a receipt cannot vouch for its own generation.
+        if profile.rule_activation is None:
+            return "rule_activation_unpinned"
+        if receipt.rule_provenance is None:
+            return "rule_provenance_missing"
+        if receipt.rule_provenance.activation != profile.rule_activation:
+            return "rule_activation_mismatch"
     return None
 
 

@@ -1,7 +1,7 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: a652a845600ab872a2721bb929839f958e6faa8c
+translation_source_sha: 20950fa66d563ee05aa14b54e82a8db607115a57
 translation_revised: 2026-10-07
 ---
 # WAF 및 CAF 근거 기반 평가
@@ -107,6 +107,9 @@ WAF 카탈로그는 기존 `BestPractice` 레코드 59개에서 컨트롤 명세
 현재 목록이 정확한 워크로드 범위를 명시적으로 포함할 때만 Rule 근거가 요구 사항을 충족할 수
 있습니다. 공급자 오류, 지원되지 않는 리소스 종류, 불완전한 목록, 잘림, 충돌 또는 오래된 세대를
 포함한 깨끗한 Rule 결과는 알 수 없음으로 유지합니다.
+프로필은 Rule 활성화 세대도 고정하며, Rule 영수증은 Rule 출처가 그 고정값과 정확히 일치할 때만
+수락됩니다. [T0 기반 프레임워크 규칙 근거](framework-rule-evidence-ko.md#평가-측-활성화-고정)를
+참조하세요.
 
 ### CAF 카탈로그
 

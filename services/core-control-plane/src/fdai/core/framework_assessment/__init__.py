@@ -11,6 +11,8 @@ from .models import (
     FrameworkEvidenceReceipt,
     FrameworkOwnerBinding,
     FrameworkRequirementResult,
+    FrameworkRuleActivationPin,
+    FrameworkRuleProvenance,
     FrameworkSatisfactionStatus,
     FrameworkTradeoffRecord,
 )
@@ -35,6 +37,8 @@ __all__ = [
     "FrameworkEvidenceReceipt",
     "FrameworkOwnerBinding",
     "FrameworkRequirementResult",
+    "FrameworkRuleActivationPin",
+    "FrameworkRuleProvenance",
     "FrameworkSatisfactionStatus",
     "FrameworkTradeoffRecord",
     "replay_framework_assessment",

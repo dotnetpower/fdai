@@ -104,6 +104,9 @@ Every typed requirement retains its exact reference and gains:
 Rule evidence can satisfy a requirement only when current inventory positively covers the exact
 workload scope. A clean rule result with provider errors, unsupported resource types, incomplete
 inventory, truncation, conflicts, or a stale generation remains unknown.
+The profile also pins the Rule activation generation, and a Rule receipt is admitted only when its
+Rule provenance matches that pin exactly. See
+[Framework Rule Evidence from T0](framework-rule-evidence.md#assessment-side-activation-pin).
 
 ### CAF catalog
 

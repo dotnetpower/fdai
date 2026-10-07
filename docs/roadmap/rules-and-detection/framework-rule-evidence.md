@@ -211,12 +211,14 @@ Rule eligible for T0 observation; it doesn't enable enforcement. See
 | 6. MCSB, CAF, and WARA | Each framework meets its prerequisite in the adoption table. |
 | 7. Azure Policy pilot | The feasibility milestone passes before any translated candidate reaches Mimir. |
 
-## Open questions
+## Decisions
 
-- Which inventory resource reference should the provider-id mapping use when one provider id
-  appears under several ontology releases?
-- Should a workload with no eligible resource for every Rule requirement prompt an applicability
-  review automatically, or wait for the owner?
+- **Provider id mapping:** The mapping uses only the ontology release pinned in the resolved
+  workload scope. If one provider id maps to more than one inventory resource reference in that
+  release, the coverage record stops with `scope_mismatch` instead of choosing one.
+- **No eligible resource:** A Rule requirement with no eligible workload resource stays `unknown`
+  with `no_eligible_resource`. FDAI doesn't request an applicability review automatically; the
+  accountable owner decides whether to record an approved `not_applicable` decision.
 
 ## Related docs
 
