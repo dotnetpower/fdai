@@ -67,8 +67,8 @@ def semantic_candidate_model_binding(
 
 
 # Model-mediated typed selection has a provider-side latency tail above the embedding-era 5 s
-# call bound; semantic evaluation keeps the 600 s stage total and caps each call at 10 s.
-_MAX_SEMANTIC_QUERY_TIMEOUT_SECONDS = 10
+# call bound; semantic evaluation keeps the 600 s stage total and caps each call at 20 s.
+_MAX_SEMANTIC_QUERY_TIMEOUT_SECONDS = 20
 
 
 @dataclass(frozen=True, slots=True)
