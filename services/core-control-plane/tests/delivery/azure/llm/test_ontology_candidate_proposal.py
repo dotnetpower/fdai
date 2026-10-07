@@ -61,9 +61,17 @@ def _candidate_config() -> AzureOpenAISemanticPlanningModelConfig:
     )
 
 
-def test_all_v2_calibration_cases_fit_diagnostic_request_budget() -> None:
+@pytest.mark.parametrize(
+    "asset_name",
+    [
+        "instance-calibration.v2.json",
+        "instance-calibration.v3.json",
+        "instance-holdout.v3.json",
+    ],
+)
+def test_all_semantic_evaluation_cases_fit_diagnostic_request_budget(asset_name: str) -> None:
     corpus = json.loads((_ASSETS / "instance-corpus.v1.json").read_text())
-    calibration = json.loads((_ASSETS / "instance-calibration.v2.json").read_text())
+    calibration = json.loads((_ASSETS / asset_name).read_text())
     names = tuple(corpus["required_object_types"])
     registry = PackageResourceSchemaRegistry()
     declarations = tuple(

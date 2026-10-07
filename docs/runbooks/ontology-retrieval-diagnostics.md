@@ -13,6 +13,8 @@ qualification or execution authority.
 | [instance-calibration.v2.json](../../eval/ontology-retrieval/instance-calibration.v2.json) | Expanded 64-query calibration, including all v1 calibration cases unchanged. |
 | [instance-holdout.v1.json](../../eval/ontology-retrieval/instance-holdout.v1.json) | Spent holdout. Preserve its evidence; don't tune on it or reuse it for qualification. |
 | [instance-holdout.v2.json](../../eval/ontology-retrieval/instance-holdout.v2.json) | Spent holdout. Independently authored and reviewed; measured once at `2572f9a1b1`. Don't tune on its cases or reuse it for qualification. |
+| [instance-calibration.v3.json](../../eval/ontology-retrieval/instance-calibration.v3.json) | 64 new diagnostic calibration cases for the holdout v2 failure classes. Calibration only; it can't qualify a change. |
+| [instance-holdout.v3.json](../../eval/ontology-retrieval/instance-holdout.v3.json) | Frozen, unmeasured holdout for the next single qualifying run. A blinded author wrote it and a separately blinded reviewer reviewed it; neither read earlier holdout text, prompts, adapters, or this runbook. Don't read, tune on, or measure it outside that run. |
 
 The v2 calibration has 32 singleton positives, eight multi-target positives and 24 no-match cases.
 Each language covers four distinct singleton targets per type and at least four samples for every
@@ -131,6 +133,17 @@ genuine property-constrained sets, such as severity, criticality, type, status, 
 identity mediated by the model and verified by code; it doesn't add phrase tables or lexical lookup
 logic.
 
+The prompt also states the evaluator's exact predicate semantics. A predicate reads one top-level
+property. `exists` and `absent` test only that property's presence. `contains` matches a substring
+of text, an equal element of an array, or an equal key of an object. A requested entry inside an
+object-valued property, such as a Resource whose `properties` object has an `aliases` entry, is
+expressed as `contains` with that key. Before this statement, the prompt listed the operators
+without their meaning, and the only failure in the calibration v3 development diagnostic was a
+Korean ambiguous request for that nested entry that abstained. Focused tests pin each stated
+meaning to `object_matches_predicates` and show that one declared predicate reproduces that
+calibration label. This is a diagnosis from calibration and corpus only; a live calibration still
+has to confirm that the model uses the stated form.
+
 Before a live semantic calibration, dry-run all planned calibration cases with the exact
 manifest-bound response schema and prompt profile. The dry-run should report the maximum and median
 estimated request tokens and fail before any provider call when any case exceeds the request-token
@@ -178,7 +191,9 @@ of 16 each), and ko-adversarial no-match precision was `0.5`. Every other cohort
 Per-call latency stayed within the 10-second bound, with a holdout maximum of 8.3 seconds.
 Semantic ranking stays disabled. Both holdouts are spent. A later change needs failure-class
 diagnosis from calibration, the corpus, and newly reviewed calibration samples only, followed by
-a newly authored independent `instance-holdout.v3`.
+a newly authored independent `instance-holdout.v3`. That holdout now exists and is unmeasured. The
+next qualifying diagnostic runs calibration v2, calibration v3, and holdout v3 once at a merged
+commit that contains the operator-semantics prompt statement.
 
 ## Measure semantic proposals separately
 

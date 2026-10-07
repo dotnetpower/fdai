@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-retrieval-diagnostics.md
-translation_source_sha: 2e8d1aa2adfa703b6f77b25a03138ef4e96021d8
-translation_revised: 2026-10-05
+translation_source_sha: 07186506972959232d7923741a176043e7be952d
+translation_revised: 2026-10-08
 ---
 
 # 온톨로지 검색 진단
@@ -18,6 +18,8 @@ translation_revised: 2026-10-05
 | [instance-calibration.v2.json](../../eval/ontology-retrieval/instance-calibration.v2.json) | v1 보정 문항을 모두 변경 없이 포함한 64문항 확장 보정 자료입니다. |
 | [instance-holdout.v1.json](../../eval/ontology-retrieval/instance-holdout.v1.json) | 이미 사용한 홀드아웃입니다. 근거는 보존하되 튜닝이나 새 자격 검증에 사용하지 않습니다. |
 | [instance-holdout.v2.json](../../eval/ontology-retrieval/instance-holdout.v2.json) | 이미 사용한 홀드아웃입니다. 독립 작성과 검토를 거쳤고 `2572f9a1b1`에서 한 번 측정했습니다. 이 문항으로 튜닝하거나 자격 검증에 다시 사용하지 않습니다. |
+| [instance-calibration.v3.json](../../eval/ontology-retrieval/instance-calibration.v3.json) | 홀드아웃 v2의 실패 유형을 진단하기 위한 새 보정 문항 64개입니다. 보정 전용이며 변경의 자격을 검증하지 못합니다. |
+| [instance-holdout.v3.json](../../eval/ontology-retrieval/instance-holdout.v3.json) | 다음 한 번의 자격 검증 실행을 위해 고정한, 아직 측정하지 않은 홀드아웃입니다. 정보가 차단된 작성자가 쓰고 별도로 차단된 검토자가 검토했습니다. 두 사람 모두 이전 홀드아웃 원문, 프롬프트, 어댑터, 이 런북을 읽지 않았습니다. 그 실행 밖에서는 읽거나 튜닝하거나 측정하지 않습니다. |
 
 v2 보정 자료에는 단일 대상 정답 32개, 복수 대상 정답 8개와 일치 대상이 없는 문항 24개가
 있습니다. 각 언어의 단일 대상 문항은 유형별 서로 다른 대상 네 개를 포함하며, 측정하는
@@ -135,6 +137,16 @@ strict 스키마를 전송하며, 같은 principal 매니페스트와 프롬프�
 속성으로 제한된 집합에만 조건식을 사용합니다. 이렇게 하면 신원 해석은 모델이 제안하되
 코드가 검증하며, 구문 목록이나 어휘 조회 로직을 추가하지 않습니다.
 
+프롬프트는 평가기의 정확한 조건식 의미도 명시합니다. 조건식은 최상위 속성 하나를 읽습니다.
+`exists`와 `absent`는 그 속성이 있는지만 확인합니다. `contains`는 텍스트의 부분 문자열, 배열의
+같은 요소, 객체의 같은 키와 일치합니다. `properties` 객체에 `aliases` 항목이 있는 Resource처럼
+객체 값 속성 안의 항목을 요청하면 그 키를 operand로 하는 `contains`로 표현합니다. 이 문장을
+추가하기 전 프롬프트는 연산자 이름만 나열하고 의미는 설명하지 않았습니다. 보정 v3 개발 진단에서
+유일하게 실패한 문항도 이 중첩 항목을 요청한 한국어 ambiguous 문항으로, 모델이 판단을
+보류했습니다. 집중 테스트는 명시한 각 의미를 `object_matches_predicates`에 고정하고, 선언된
+조건식 하나로 해당 보정 정답이 재현됨을 보여 줍니다. 이 진단은 보정 자료와 말뭉치만 사용했습니다.
+모델이 명시한 형식을 실제로 사용하는지는 실제 보정 실행으로 확인해야 합니다.
+
 실제 의미 보정을 실행하기 전에 정확한 매니페스트 기반 응답 스키마와 프롬프트 프로필로
 예정된 모든 보정 문항을 dry-run 하세요. dry-run은 예상 요청 토큰의 최댓값과 중앙값을
 보고하고, 어떤 문항이라도 요청 토큰 예산을 넘으면 제공자 호출 전에 실패해야 합니다. 인용
@@ -180,7 +192,9 @@ MRR은 `0.938`(각각 16건 중 15건)이고, ko-adversarial의 일치 없음 �
 코호트는 모두 `1.0`이었습니다. 호출당 지연 시간은 10초 한도 안에 있었고 홀드아웃 최댓값은
 8.3초였습니다. 의미 순위 검색은 계속 비활성화 상태입니다. 두 홀드아웃은 모두 이미 사용되었습니다.
 이후 변경은 보정, 말뭉치, 새로 검토한 보정 샘플만으로 실패 유형을 진단한 다음, 새로 작성한 독립
-`instance-holdout.v3`로 검증해야 합니다.
+`instance-holdout.v3`로 검증해야 합니다. 이 홀드아웃은 이제 작성되었고 아직 측정하지 않았습니다.
+다음 자격 검증 진단은 조건식 의미 문장을 포함한 병합 커밋에서 보정 v2, 보정 v3, 홀드아웃 v3를
+각각 한 번씩 실행합니다.
 
 ## 의미 제안을 별도로 측정
 
