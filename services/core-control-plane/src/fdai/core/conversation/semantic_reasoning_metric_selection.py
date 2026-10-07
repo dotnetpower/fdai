@@ -201,6 +201,7 @@ def metric_stage(goal: FormGoal, ctx: CompileContext) -> MetricStage | OperatorR
 
 
 __all__ = [
+    "RESOURCE_METRIC_FUNCTION_NAME",
     "WINDOW_LIMITATIONS",
     "MetricStage",
     "metric_mention",

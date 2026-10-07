@@ -267,9 +267,7 @@ read state or health only as a filter, so the measure held as `measure_unsupport
   `state_metadata_invalid`, `state_not_observed`, `state_conflicting`, `state_partial`,
   `state_after_cutoff`, or `state_stale`. Such a row keeps the table incomplete, and the assurance
   projection records `resource_state.member_unknown`. The reader fails rather than return a row
-  count that differs from its input.
-- **Remaining:** The population receipt below, so a set cut at its bound is accounted beyond the
-  page it returned.
+  count that differs from its input. The population receipt below accounts beyond one returned page.
 
 ### Collection population receipt
 
@@ -343,22 +341,13 @@ most 16 members.
 - **Verify:** Input identities times metric concepts equal value-or-unknown rows; ranked identities
   are exactly the members with a complete value; ties order by a stated rule; V-CLAIM checks every
   value, comparison, unit, window, and rank position.
-- **First slice:** Question form 1.1.0 adds a `metric` filter role with a typed comparison
-  (`gt`, `ge`, `lt`, `le`; the operator's exact digits; `percent`, `ms`, `count`, `nanocores`, or
-  `unit_unstated`), and an order limit that needs its quoted count. Admission checks that the value
-  span holds exactly those digits, clarifies on `metric_unit_unstated`, and requires an order cue for
-  a rank. The compiler checks the unit against the reviewed metric units and adds one metric stage
-  to the collection plan. The metric reader, function version 1.2.0, reads every member in batches
-  of 16 under one pinned window and a budget of 128 member reads. It filters and ranks only members
-  with a complete value; ties order by Resource identifier. A list keeps one typed unknown row for
-  each member it could not measure, and a stopped read reports `metric_budget_exhausted` or
-  `metric_provider_unavailable` as incomplete. V-PROV re-derives the selection arguments from the
-  goal, V-SEM rejects a metric filter the plan does not read, and review counts the typed
-  comparison and order spans as stating their constraints. A metric filter with no comparison,
-  such as high CPU, clarifies as `metric_threshold_unstated`. The metric reading is evidence scoped
-  to the inventory set it reads, like Resource Health, so its authority composes with that set.
-- **Remaining:** Reviewed qualitative recipes, the population receipt for sets beyond one page, a
-  continuation after a stopped read, and live gold over the bank's metric questions.
+- **First slice:** Question form 1.1.0 adds a `metric` filter with `gt`, `ge`, `lt`, or `le`, exact
+  digits, a reviewed unit, and an optional quoted order limit. Admission checks digits, units, and
+  rank cues; the compiler adds one metric stage. Function 1.2.0 reads batches of 16 under one pinned
+  window and a 128-member budget, ranking complete values by Resource identifier for ties. A list
+  keeps one typed unknown per unmeasured member; stopped reads remain incomplete. V-PROV re-derives
+  selection arguments, V-SEM rejects unread filters, and review accounts for comparison and order
+  spans. Metric evidence stays scoped; qualitative recipes, continuation, and live gold remain open.
 
 ### E12 Relations anchored on a collection
 

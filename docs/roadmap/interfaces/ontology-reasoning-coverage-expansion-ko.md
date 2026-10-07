@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 추론 커버리지 확장과 현재 경로 수렴
 translation_of: ontology-reasoning-coverage-expansion.md
-translation_source_sha: 7ae8a1f091d787848c1bb1d72bc088440c90dc23
+translation_source_sha: 88fde6c2e45b836ca7faa136cd4a103f39885543
 translation_revised: 2026-10-07
 ---
 # 온톨로지 추론 커버리지 확장과 현재 경로 수렴
