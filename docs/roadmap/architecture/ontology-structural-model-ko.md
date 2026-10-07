@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 96c8af076de1a13844c078345dfbdc5d52167463
+translation_source_sha: 017f4bbe923b58dd37f02379afb112caac720a5d
 translation_revised: 2026-10-08
 ---
 # 온톨로지 구조 모델
@@ -160,6 +160,7 @@ ResourceType을 선택해야 할 때만 추가합니다.
 첫 release는 하나의 분류 표면을 유지합니다. 범용 개념 체계 엔진은 추가하지 않습니다.
 `Operable`, `Observable` 같은 기능은 계속 InterfaceType 관심사입니다. ResourceType 수준의
 Interface 바인딩은 InterfaceType이 ActionType 대상이 될 수 있으므로 별도 안전 설계가 필요합니다.
+코드 보안 이슈는 온톨로지 객체가 아니므로 온톨로지 쿼리에 들어가지 않습니다.
 
 ## 관계 모델
 
@@ -568,7 +569,6 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 상자가 담고 있는 관계도 그림이 보여 주는 관계입니다. 선만 세면 중첩이 선을 없앱는 순간
 그래프가 실제로 제시하는 것보다 적은 범위를 보고하게 되며, 이는 과대 보고와 마찬가지로
 운영자가 보고 있는 evidence를 잘못 말하는 일입니다.
-코드 보안 이슈는 온톨로지 객체가 아니므로 온톨로지 쿼리에 들어가지 않습니다.
 
 ## 이행 및 출시
 

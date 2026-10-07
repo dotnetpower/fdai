@@ -149,7 +149,7 @@ ResourceType registry so a new semantic type cannot remain outside the coverage 
 The first release keeps one taxonomic surface. It does not add a generic concept-scheme engine.
 Capabilities such as `Operable` and `Observable` remain InterfaceType concerns. ResourceType-level
 Interface bindings require a separate safety design because InterfaceType can be an ActionType
-target.
+target. Code-security issues aren't ontology objects, so they never enter ontology queries.
 
 ## Relationship model
 
@@ -557,7 +557,6 @@ than draw a false direction.
 A relationship a box carries is still a relationship the drawing shows. Counting only the lines made
 the graph report less coverage than it presents once nesting removed them, which understates the
 evidence an operator is looking at just as surely as overstating it would.
-Code-security issues aren't ontology objects, so they never enter ontology queries.
 
 ## Migration and rollout
 
