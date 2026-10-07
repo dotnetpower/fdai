@@ -29,7 +29,8 @@ def test_the_installation_anchor_is_fixed_at_first_apply() -> None:
         'resource "terraform_data" "installation"',
     )
 
-    assert "input = timestamp()" in anchor
+    assert "input = plantimestamp()" in anchor
+    assert "input = timestamp()" not in anchor
     assert re.search(r"ignore_changes\s*=\s*\[input\]", anchor)
 
 
@@ -37,6 +38,8 @@ def test_the_installation_binding_and_anchor_time_are_outputs() -> None:
     main = (_INFRA / "main.tf").read_text(encoding="utf-8")
     outputs = (_INFRA / "outputs.tf").read_text(encoding="utf-8")
 
+    assert "input = plantimestamp()" in main
+    assert "input = timestamp()" not in main
     assert (
         'installation_binding    = sha256("fdai-installation:${terraform_data.installation.id}")'
         in main
