@@ -275,7 +275,6 @@ jobs:
                 RESOLVED_MODELS_DIGEST="$resolved_models_digest" \
                 SOURCE_REVISION="$source_revision_binding" \
                 COST_PSEUDONYM_KEY_SECRET_ID="$cost_pseudonym_binding" \
-                PYTHONPATH="$GITHUB_WORKSPACE/packages/service-contracts/src" \
                 python3 scripts/deployment/service/materialize_tfvars.py \
                   --service "$service" \
                   --environment "$ENVIRONMENT" \
