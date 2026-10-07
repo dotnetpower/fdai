@@ -40,6 +40,7 @@ from .query_lineage_batches import (
     LINEAGE_READ_BUDGET,
     LINEAGE_ROOT_BATCH,
     batched_lineage_result,
+    root_names,
 )
 from .query_receipt_authority import SecuredQueryReceiptAuthority, secured_query_scope_digest
 from .query_traversal_tables import (
@@ -47,6 +48,7 @@ from .query_traversal_tables import (
     relationship_traversal_table,
     secured_query_table,
     traversal_endpoints,
+    with_root_coverage,
 )
 from .query_values import QueryRow, QueryTable
 
@@ -228,6 +230,8 @@ class SecuredRelationshipTraversalNodeHandler:
                 max_depth=traversal.max_depth,
                 endpoint_predicates=traversal.endpoint_predicates,
             )
+            if traversal.emit_coverage:
+                table = with_root_coverage(table, root_ids=root_ids, names=root_names(dependency))
             output_refs: tuple[str, ...] = ()
         else:
             table, output_refs = await traversal_endpoints(

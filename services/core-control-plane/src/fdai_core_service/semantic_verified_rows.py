@@ -19,6 +19,7 @@ _LEADING_FIELDS = (
     "root_name",
     "member_name",
     "link_type",
+    "coverage",
     "type",
     "status",
     "location",
