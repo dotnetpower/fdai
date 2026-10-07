@@ -129,6 +129,22 @@ def test_projects_waf_requirements_and_existing_status_shape() -> None:
     assert control["status"] == "satisfied"
     assert control["satisfied_requirement_count"] == 1
     assert control["requirements"][0]["ref"] == "strategy"
+    assert control["requirements"][0]["limitations"] == []
+
+
+def test_waf_requirement_limitations_reach_the_control_detail() -> None:
+    assessment = _assessment("azure-waf")
+    requirement = assessment["controls"][0]["requirements"][0]
+    requirement["status"] = "unknown"
+    requirement["limitations"] = ["decisive_evidence_unavailable", "rule_not_activated"]
+    assessment["controls"][0]["satisfaction"] = "unknown"
+
+    projected = project_framework_assessment(_catalog("azure-waf"), assessment)
+
+    assert projected["controls"][0]["requirements"][0]["limitations"] == [
+        "decisive_evidence_unavailable",
+        "rule_not_activated",
+    ]
 
 
 @pytest.mark.parametrize(

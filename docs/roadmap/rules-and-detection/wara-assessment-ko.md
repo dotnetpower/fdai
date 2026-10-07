@@ -1,7 +1,7 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: 0b29290ced33651f3cad7eeda47b95a240ff7097
+translation_source_sha: bc35ae3dcbd61df94655acb6304f68fcacbde2be
 translation_revised: 2026-10-07
 ---
 # WARA 근거 기반 평가
@@ -315,3 +315,4 @@ WARA 근거를 충족하거나, 넓히거나, 대체할 수 없습니다.
 | 프레임워크 온톨로지 변환 | [FDAI 운영 온톨로지](../architecture/operating-ontology-ko.md) |
 | 읽기 전용 Operator 동작 | [FDAI Console 대화](../interfaces/operator-console-ko.md) |
 | 공유 Workflow 검증 계약 | [프로세스 자동화](../decisioning/process-automation-ko.md#71-공유-검증-소유자-설계) |
+| 규칙 기반 WARA 평가와 공유 요구 사항 제한 표시 | [T0 기반 프레임워크 규칙 근거](framework-rule-evidence-ko.md) |

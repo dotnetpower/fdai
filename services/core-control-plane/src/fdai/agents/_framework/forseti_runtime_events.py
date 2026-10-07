@@ -485,3 +485,6 @@ class ForsetiRuntimeEventsMixin:
             self.record_behavior("rule_cache:stale")
         self._run_verdict_coherence_self_test()
         self._refresh_novelty_drift_signal()
+        baseline_scheduler = getattr(self, "_baseline_scheduler", None)
+        if baseline_scheduler is not None and baseline_scheduler.tick():
+            self.record_behavior("baseline_evaluation:started")

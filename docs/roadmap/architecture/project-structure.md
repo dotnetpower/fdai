@@ -86,6 +86,11 @@ contracts submodule, preserving the repository's one-way public import boundary.
 authority-free baseline evaluation terminal records for complete inventory generations: per-rule outcomes and per-generation
 completion. These records add only a versioned Core-to-Operator wire surface; Forseti judgment, Saga audit, Operator
 projection admission, and Console rendering remain separate owners.
+`core/framework_rule_evidence/` turns those outcomes into framework evidence without a new wire surface. It derives
+expected Resource and Rule pairs with the same `RuleIndex` dispatch T0 uses, accounts every activation member in scoped
+coverage, and maps each WAF Rule requirement through an ordered outcome table. `core/framework_assessment/` admits a Rule
+receipt only when its provenance matches the activation generation the profile pins. Neither module grants activation,
+approval, or execution authority ([Framework Rule Evidence from T0](../rules-and-detection/framework-rule-evidence.md)).
 
 Operator production composition keeps runtime wiring in its facade. Focused sibling modules own
 lifecycle and resource cleanup, route-family assembly, and read-source declarations. Compatibility

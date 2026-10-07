@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: a1c325a96359f4177ed8628d9da481447a78bbc5
+translation_source_sha: 3c4a2490f49034f569b29a5c49ad5317d87c38bc
 translation_revised: 2026-10-07
 ---
 # FDAI Console 대화
@@ -17,9 +17,11 @@ Console 텍스트는 WCAG 2.1 AA 대비를 충족합니다. 보조 텍스트와 
 바꾸거나 Console 실행 권한을 부여하지 않습니다.
 생성된 계약 view가 롤아웃에 안전한 핸들 참조 스키마 버전을 추가할 수는 있지만, 브라우저와 Operator는
 여전히 행 신원, 행 본문 또는 모델에 보이는 핸들 payload를 받지 않습니다. Operator Rule 점검 결과
-요약은 이제 완전한 baseline-evaluation 완료 및 결과 기록에서만 평가된 Console 상태를 수락합니다.
-coverage가 없거나 부분적이면 계속 사용할 수 없음으로 렌더링하고, 저장된 완전한 요약은 더 새 세대가
-완료될 때까지 읽을 수 있습니다.
+요약은 분모를 T0 디스패치에서 도출하는 Forseti의 최신 완전한 버전 2 baseline 커버리지와 그 커버리지가
+다이제스트하는 결과에서만 평가된 Console 상태를 수락합니다. 버전 1 완료 기록만으로는 더 이상 인정하지
+않습니다. 커버리지가 불완전하면 제한 코드와 함께 평가되지 않음으로 반환하고, 저장된 완전한 요약은 더
+새 세대가 완료될 때까지 읽을 수 있습니다. Controls 상세는 활성 규칙 집합에 없는 규칙처럼 각 프레임워크
+요구 사항의 서버 소유 제한 코드를 읽기 쉬운 영어와 한국어로 보여 줍니다.
 Promotion gates 화면은 측정된 준비 상태 표시 데이터와 영속 승격 레지스트리를 결합하고
 `operator_override` 모드, 운영자 증언 게이트 스냅샷, 읽기 전용 권한 출처를 표시하지만 승인이나
 실행 권한은 부여하지 않습니다.

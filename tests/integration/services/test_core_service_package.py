@@ -51,6 +51,7 @@ EXPECTED_RUNTIME_MODULES = {
     "assignment_transport.py",
     "hil_escalation.py",
     "assurance_twin_query.py",
+    "baseline_evaluation.py",
     "blast_probe.py",
     "bootstrap.py",
     "change_window_history.py",

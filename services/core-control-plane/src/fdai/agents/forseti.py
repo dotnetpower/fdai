@@ -37,6 +37,7 @@ from fdai.agents._framework.forseti_baseline_evaluation import (
 from fdai.agents._framework.forseti_baseline_evaluation import (
     record_baseline_evaluation as _record_baseline_evaluation,
 )
+from fdai.agents._framework.forseti_baseline_worker import ForsetiBaselineScheduler
 from fdai.agents._framework.forseti_constants import _MAX_RESOURCES as _MAX_RESOURCES
 from fdai.agents._framework.forseti_decision_helpers import (
     ChangeAssessor,
@@ -191,6 +192,7 @@ class Forseti(
         self._action_semantics = action_semantics
         self._judgment_table = judgment_table or DEFAULT_JUDGMENT_TABLE
         self._forseti_state_store = state_store
+        self._baseline_scheduler: ForsetiBaselineScheduler | None = None
         self._operational_context = operational_context
         self._test_context_source = test_context_source
         self._test_context_admission = test_context_admission
@@ -307,6 +309,10 @@ class Forseti(
     def bind_agent_availability(self, probe: Callable[[], Iterable[str]]) -> None:
         """Bind the runtime health probe that reports unreachable agents."""
         self._agent_availability = probe
+
+    def bind_baseline_scheduler(self, scheduler: ForsetiBaselineScheduler | None) -> None:
+        """Bind the bounded baseline worker that Forseti's maintenance tick starts."""
+        self._baseline_scheduler = scheduler
 
     # ---- typed port ----------------------------------------------------
 

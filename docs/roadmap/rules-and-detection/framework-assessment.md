@@ -104,6 +104,9 @@ Every typed requirement retains its exact reference and gains:
 Rule evidence can satisfy a requirement only when current inventory positively covers the exact
 workload scope. A clean rule result with provider errors, unsupported resource types, incomplete
 inventory, truncation, conflicts, or a stale generation remains unknown.
+The profile also pins the Rule activation generation, and a Rule receipt is admitted only when its
+Rule provenance matches that pin exactly. See
+[Framework Rule Evidence from T0](framework-rule-evidence.md#assessment-side-activation-pin).
 
 ### CAF catalog
 
@@ -256,6 +259,7 @@ never runs Terraform apply.
 |----------------|------|
 | Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/rules-and-detection/framework-assessment.md) |
 | Specialized WARA assessment | [WARA Evidence-Governed Assessment](wara-assessment.md) |
+| Rule evidence from T0 for framework controls | [Framework Rule Evidence from T0](framework-rule-evidence.md) |
 | Framework source collection | [Rule Catalog Collection](rule-catalog-collection.md) |
 | Rule assignment and evidence governance | [Rule Governance](rule-governance.md) |
 | Ontology authority boundary | [FDAI Operating Ontology](../architecture/operating-ontology.md) |

@@ -12,9 +12,12 @@ return at most four recent references on the next semantic request. They do not 
 Operator, change human-report routing, or grant Console execution authority.
 Generated contract views may add rollout-safe handle-reference schema versions, but the browser and
 Operator still receive no row identity, row body, or model-visible handle payload. The Operator Rule
-findings summary now admits evaluated Console status only from complete baseline-evaluation
-completion and outcome records. Missing or partial coverage still renders unavailable, while a
-stored complete summary remains readable until a newer generation completes.
+findings summary admits evaluated Console status only from Forseti's latest complete version 2
+baseline coverage, whose denominator comes from T0 dispatch, and the outcomes it digests. A version 1
+completion alone no longer counts. Incomplete coverage returns not evaluated with its limitation
+codes, and a stored complete summary remains readable until a newer generation completes. The
+Controls detail lists each framework requirement's server-owned limitation codes, such as a Rule
+missing from the active Rule set, in readable English and Korean.
 The Promotion gates view joins the measured readiness projection with the durable promotion registry
 and marks `operator_override` modes, operator-attested gate snapshots, and their read-only authority
 source without granting approval or execution authority.

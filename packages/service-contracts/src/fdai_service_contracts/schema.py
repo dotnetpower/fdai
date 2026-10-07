@@ -19,6 +19,7 @@ from fdai_service_contracts.cluster_connector import (
 )
 from fdai_service_contracts.baseline_evaluation import (
     BaselineEvaluationCompletion,
+    BaselineEvaluationCoverage,
     BaselineEvaluationOutcome,
 )
 from fdai_service_contracts.decision_evidence import DecisionCriticalEvidenceReceipt
@@ -76,6 +77,14 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
         "baseline-evaluation-completion",
         "1.0.0",
     ): "schemas/baseline-evaluation-completion/1.0.0.json",
+    (
+        "baseline-evaluation-coverage",
+        "0.0.0",
+    ): "schemas/baseline-evaluation-coverage/0.0.0.json",
+    (
+        "baseline-evaluation-coverage",
+        "1.0.0",
+    ): "schemas/baseline-evaluation-coverage/1.0.0.json",
     (
         "baseline-evaluation-outcome",
         "0.0.0",
@@ -310,6 +319,8 @@ class JsonSchemaContractValidator:
             if schema_name == "runtime-scope-receipt"
             else BaselineEvaluationCompletion
             if schema_name == "baseline-evaluation-completion"
+            else BaselineEvaluationCoverage
+            if schema_name == "baseline-evaluation-coverage"
             else BaselineEvaluationOutcome
             if schema_name == "baseline-evaluation-outcome"
             else TestContextApplication

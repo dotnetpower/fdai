@@ -1,8 +1,8 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: dc2e97ac1a8b121d952146370c0fb0a191078611
-translation_revised: 2026-10-02
+translation_source_sha: 85bccfb0aa97fe9e2975ea098f67b8fef58a5cc8
+translation_revised: 2026-10-07
 ---
 
 # 관측성과 감지(Observability and Detection)
@@ -116,6 +116,14 @@ Operator 변환 결과 조각은 완전한 `BaselineEvaluationCompletion`과 일
 현재 개수에서 사라집니다. 잘렸거나, 일치하지 않거나, 부분적인 coverage는 0으로 추론하지 않고
 거부합니다. 이전에 저장된 완전한 요약은 더 새 세대가 불완전하거나 사용할 수 없어도 계속 읽을 수
 있으며, 권위 있는 기록이 없으면 계속 `evaluated: false`로 렌더링합니다.
+
+**알려진 제한 사항.** 버전 1 완료 기록은 기대 분모를 Forseti가 기록한 결과 수로 설정하므로 누락된
+Resource와 Rule 쌍을 감지할 수 없습니다. 또한 Rule 활성화 세대가 아니라 인벤토리 관측을 식별합니다.
+기대 쌍을 독립적으로 도출하는 버전 2 완료 기록과 Rule 점검 결과 요약의 버전 2 전환은
+[T0 기반 프레임워크 규칙 근거](framework-rule-evidence-ko.md#범위별-규칙-커버리지-계약)에서
+설계합니다. 아직 Forseti 평가를 호출하는 런타임 경로가 없고, 버전 1 감사 결합은 기록마다 Saga
+에이전트를 직접 호출합니다. [baseline 트리거](framework-rule-evidence-ko.md#baseline-트리거) 설계가 둘을 모두
+대체합니다. 그 전까지는 버전 1 요약을 완전한 coverage의 증명이 아니라 관측된 개수로 취급하세요.
 
 ### 동결된 구성 기준선 점검
 
