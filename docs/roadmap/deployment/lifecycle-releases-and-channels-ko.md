@@ -1,8 +1,8 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: f1f146f631701d8938cabcd218ce97ae664b9c37
-translation_revised: 2026-10-02
+translation_source_sha: 3015be2f5c4ff8e147a76cecf872f769b3241162
+translation_revised: 2026-10-07
 ---
 # Lifecycle Release와 채널
 
@@ -47,6 +47,7 @@ translation_revised: 2026-10-02
 | `configuration_schema` | 키, 기본값, [수명 주기 구성](lifecycle-configuration-ko.md)에 설명한 `x-fdai-axis` 및 `x-fdai-owner` 주석 |
 | `capabilities` | 각 ActionType과 Workflow의 최대 모드, 그리고 기능 회수 |
 | `downtime` | 이 업그레이드에 다운타임 구간이 필요한 Entity |
+| `workloads` | [워크로드 렌더링 마이그레이션](hub-managed-lifecycle-ko.md#워크로드-렌더링-마이그레이션)에 정의된 대로 수명 주기 에이전트가 렌더링하는 워크로드 템플릿과 스키마 확장 마이그레이션 Job 템플릿 |
 | 서명 | 정규화된 매니페스트에 대한 공급업체 release 키의 분리 서명 |
 
 소스 checkout에서 빌드한 이미지에는 공급업체 서명이 없으며 `unverified-source-build`로
