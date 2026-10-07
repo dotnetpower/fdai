@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1914,
+  "file_count": 1916,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "ed042180bfee08159463b91ee7cacea662634274789a7b336ed504e42c0502bc",
     ".github/instructions/agent-stewardship.instructions.md": "6d34f24fe8879f3edac388d5e7fd9ab138563ca386a5c401f72d8fc3c1698624",
@@ -1102,7 +1102,9 @@
     "services/core-control-plane/src/fdai/core/ontology_platform/property_values.py": "c493feb96272939b4f1ee42461ab0c6c54a8e488c2d8ba1fed3a7af9ef7da3e1",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_execution.py": "c3420345061b0ec5604e6db0179efb6b8c96b5cc648ff46ac4cffd23de7592f7",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_gateway.py": "9384f93df0a5a6675dbbaa4e100561fe1cd814983a7f9a96e9b24e791a6d2423",
+    "services/core-control-plane/src/fdai/core/ontology_platform/query_handler_values.py": "4cbf1ad96e95e610220c3a440a3428430fab18e66d16ed314a753f808f034dd8",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_handlers.py": "b9ba0b024a7172d1ec28a7f08f7268fb7a056854e83ce7fa2d8c2a85d5264053",
+    "services/core-control-plane/src/fdai/core/ontology_platform/query_lineage_batches.py": "e7ebd2c1d4037e3b06cd5d538816d925e6ee0f6f77afcb8d5f072b853937ba2a",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_manifest.py": "77c36bcfd7aba669dad6eef487453d06abfeffe8e4f4e78a054af35ffecdc3cf",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_metric_handlers.py": "34e79292ea589a577d0e1788796d35f1550db9804debb2a3c4905498b7cf2b65",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_population_receipts.py": "2b888330dfa6b2a5b72ca22a4783b0a5bc36ff34438e54236e86688a76585a67",
@@ -1111,7 +1113,7 @@
     "services/core-control-plane/src/fdai/core/ontology_platform/query_receipt_authority.py": "ad96a97563844bff3b24d8333bc3135d5a7ad0ef28660019d0fda7ca815b26d9",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_result_digests.py": "9a87dbf7c12e06150fc7b965555179c62148059760405101aabdff24aff6a8e7",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_snapshot.py": "ed41f11667c7c2a2a5be1f16c6e34d8c9b5b5a50da813ee2d3234c56dcd77928",
-    "services/core-control-plane/src/fdai/core/ontology_platform/query_source_handlers.py": "a1b29bec6b55222a284e9f65a05cbc1cfce9915030d558ce14f9fb24fdd0f443",
+    "services/core-control-plane/src/fdai/core/ontology_platform/query_source_handlers.py": "19e522b0dd51fb512f435234760188a6ae750ab174554932996a731a05c1f98f",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_telemetry_handlers.py": "0108f760b7109e8366b5250e669c3469c7d8b344bceb322f5834b7fee9361dad",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_topology_handlers.py": "e052fabcc478f9e29e0c8809ce2e81bc792a14b5d8afd504820f7a9877744507",
     "services/core-control-plane/src/fdai/core/ontology_platform/query_traversal_tables.py": "bd255717b0747bf6bbd044b2317a758a90d8ed4659491140b4d7272c46022b3b",
@@ -1917,7 +1919,7 @@
     "services/core-control-plane/src/fdai/shared/providers/workload_identity.py": "96f26525f5d243ff4c818766d0ee9223a23f1c31c76b141708a01e405a8fd204",
     "services/operator-service/src/fdai_operator_service/entitlement_stamp.py": "d94f5239a78fdda58caa06e5c41ac96c7cdc2e36368c8e3fe6f9adde4d7ab4f2"
   },
-  "generated_at": "2026-10-07T14:13:30Z",
+  "generated_at": "2026-10-07T14:21:53Z",
   "surface": [
     "services/core-control-plane/src/fdai/core/",
     "services/core-control-plane/src/fdai/composition.py",
