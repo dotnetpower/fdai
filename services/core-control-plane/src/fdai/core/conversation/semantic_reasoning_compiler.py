@@ -184,6 +184,8 @@ def compile_question_form(
                 evaluation_time=evaluation_time,
                 property_reads=manifest.property_reads,
                 health_concepts=listed_health_concepts(manifest.health_labels),
+                metric_recipes=manifest.metric_recipes,
+                metric_units=manifest.metric_units,
             )
         )
         outcomes[goal.id] = (

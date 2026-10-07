@@ -1738,6 +1738,29 @@ def test_an_empty_read_of_an_incomplete_source_states_the_incompleteness() -> No
     assert "traversal_limit" in answer
 
 
+def test_a_stopped_collection_read_names_its_continuation() -> None:
+    request = _request(locale="en")
+    semantic_request = cast(dict[str, object], request["semantic_turn"])
+    reference = "r" * 43
+    output = {
+        "node_id": "metric",
+        "rows": [{"row_id": "one", "values": {"name": "vm-a", "metric_status": "pending"}}],
+        "returned_rows": 1,
+        "total_rows": 1,
+        "source_complete": False,
+        "source_truncation_reason": "metric_budget_exhausted",
+        "continuation_ref": reference,
+    }
+
+    answer = _render_general_query_answer(
+        SemanticTurnRequest.model_validate(semantic_request),
+        [output, {**output, "node_id": "other", "continuation_ref": None}],
+        output_shape="generic",
+    )
+
+    assert f"continuation reference `{reference}`" in answer
+
+
 def _manifest_row(name: str, *, kind: str = "object") -> dict[str, object]:
     return {
         "row_id": f"{kind}:{name}",

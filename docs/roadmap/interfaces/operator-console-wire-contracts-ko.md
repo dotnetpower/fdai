@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: fee0199eeffaeceaee592b206ce931723518609f
+translation_source_sha: 54af60a855da640681b2d8363f83063ae1df3109
 translation_revised: 2026-10-08
 ---
 
@@ -475,6 +475,10 @@ Operator는 근거 실행, 근거 검증, 답변 준비 같은 의미 턴 자체
 여러 출력을 가진 컬렉션 답변에서 Core는 이후 출력을 위한 공간을 예약하면서 각 검증 표의 범위를
 제한합니다. Operator는 결과 답변과 타입이 지정된 제한을 바꾸지 않고 받습니다. 이 예약은 Incident
 생성, 근거 권한 또는 실행 권한을 바꾸지 않습니다.
+
+멈춘 컬렉션 메트릭 읽기는 불투명한 이어받기 참조를 밝힐 수 있고, 레시피 기준값이나 기간은 답변
+본문에 명시됩니다. Operator는 둘 다 바꾸지 않고 전달하며, 어느 것도 Incident 생성, 근거 권한, 실행
+권한을 바꾸지 않습니다.
 
 ### 13.12 의미 턴 인증 영수증 참조
 

@@ -268,18 +268,34 @@ class MetricComparison(_FormModel):
         return self
 
 
+class MetricQualifier(StrEnum):
+    """A qualitative metric word, such as high or underused, stated without a number."""
+
+    HIGH = "high"
+    LOW = "low"
+
+
 class FormFilter(_FormModel):
     role: FilterRole
     mention: Annotated[str, Field(pattern=_MENTION_ID)]
     cue: SourceSpan | None = None
     comparison: MetricComparison | None = None
+    # A qualitative word Core may read only through a reviewed recipe for the metric.
+    qualifier: MetricQualifier | None = None
+    qualifier_span: SourceSpan | None = None
 
     @model_validator(mode="after")
     def _comparison_matches_role(self) -> FormFilter:
-        # A metric filter without a comparison is a threshold the operator did not state;
-        # admission asks for it rather than rejecting the reading.
+        # A metric filter without a comparison or qualifier is a threshold the operator did
+        # not state; admission asks for it rather than rejecting the reading.
         if self.comparison is not None and self.role is not FilterRole.METRIC:
             raise ValueError("only a metric filter carries a comparison")
+        if self.qualifier is not None and self.role is not FilterRole.METRIC:
+            raise ValueError("only a metric filter carries a qualifier")
+        if self.qualifier is not None and self.comparison is not None:
+            raise ValueError("a metric filter states a number or a qualifier, never both")
+        if (self.qualifier is None) != (self.qualifier_span is None):
+            raise ValueError("a metric qualifier needs its span, and only a qualifier has one")
         return self
 
 
@@ -591,6 +607,8 @@ class SemanticQuestionForm(_FormModel):
                     spans.append(item.comparison.value_span)
                     if item.comparison.unit_span is not None:
                         spans.append(item.comparison.unit_span)
+                if item.qualifier_span is not None:
+                    spans.append(item.qualifier_span)
             if goal.relation is not None:
                 spans.append(goal.relation.cue)
                 if goal.relation.reach_cue is not None:
@@ -665,6 +683,7 @@ __all__ = [
     "MentionDomain",
     "MentionForm",
     "MetricComparison",
+    "MetricQualifier",
     "MetricUnit",
     "RelationAnchorScope",
     "RelationReach",

@@ -161,6 +161,8 @@ async def _invoke(
     *,
     resource_count: int,
     window_seconds: int = 900,
+    continuations: object = None,
+    now: datetime = NOW,
     **selection: object,
 ) -> dict[str, object]:
     declaration = resource_metric_function_type()
@@ -172,7 +174,8 @@ async def _invoke(
             release,
             registry=REGISTRY,
             provider=provider,
-            now=lambda: NOW,
+            now=lambda: now,
+            continuations=continuations,  # type: ignore[arg-type]
         ),
     )
     result = await registry.invoke(
@@ -271,8 +274,9 @@ def test_metric_function_declares_bounded_no_authority_inputs() -> None:
         "order_direction",
         "order_limit",
         "list_unknown",
+        "continuation_ref",
     }
-    assert declaration.version == "1.2.0"
+    assert declaration.version == "1.3.0"
     assert declaration.required_role is CeilingRole.READER
     assert declaration.network_allowed is False
     assert declaration.credentials_allowed is False
@@ -443,3 +447,93 @@ async def test_metric_series_function_rejects_ambiguous_resource_before_provider
     assert result["truncation_reason"] == "resource_identity_ambiguous"
     assert result["rows"] == []
     assert provider.calls == []
+
+
+# A threshold every member meets, so a list names each member and each pending one.
+_MATCH_ALL: dict[str, object] = {
+    "comparator": "ge",
+    "threshold": "0",
+    "threshold_unit": "nanocores",
+    "list_unknown": True,
+}
+
+
+async def test_a_stopped_read_continues_its_pending_members_over_the_same_window() -> None:
+    from fdai.core.ontology_platform.metric_collection_continuations import (
+        InMemoryMetricCollectionContinuationStore,
+        MetricCollectionContinuations,
+    )
+
+    continuations = MetricCollectionContinuations(
+        InMemoryMetricCollectionContinuationStore(), clock=lambda: NOW
+    )
+    first_provider = _Provider()
+    first = await _invoke(
+        first_provider, resource_count=140, continuations=continuations, **_MATCH_ALL
+    )
+    generation = str(first["source_generation"])
+    assert generation.startswith("metric-collection-continuation:")
+    reference = generation.removeprefix("metric-collection-continuation:")
+    statuses = [row["values"]["metric_status"] for row in first["rows"]]
+    assert statuses.count("pending") == 12
+
+    second_provider = _Provider()
+    later = NOW + timedelta(minutes=3)
+    second = await _invoke(
+        second_provider,
+        resource_count=140,
+        continuations=continuations,
+        now=later,
+        continuation_ref=reference,
+        **_MATCH_ALL,
+    )
+
+    # Only the pending members are read, over the first read's pinned window.
+    ordered = sorted(f"resource-{index:02d}" for index in range(140))
+    assert second_provider.calls == ordered[128:]
+    assert second["complete"] is True
+    assert "source_generation" not in second or second["source_generation"] is None
+    assert {row["values"]["window_end"] for row in second["rows"]} == {NOW.isoformat()}
+
+    replay = await _invoke(
+        _Provider(),
+        resource_count=140,
+        continuations=continuations,
+        continuation_ref=reference,
+        **_MATCH_ALL,
+    )
+    assert replay["truncation_reason"] == "continuation_invalid"
+
+
+async def test_a_continuation_never_reads_another_member_set_or_selection() -> None:
+    from fdai.core.ontology_platform.metric_collection_continuations import (
+        InMemoryMetricCollectionContinuationStore,
+        MetricCollectionContinuations,
+    )
+
+    continuations = MetricCollectionContinuations(
+        InMemoryMetricCollectionContinuationStore(), clock=lambda: NOW
+    )
+    first = await _invoke(_Provider(), resource_count=140, continuations=continuations)
+    reference = str(first["source_generation"]).removeprefix("metric-collection-continuation:")
+
+    other_members = await _invoke(
+        _Provider(), resource_count=141, continuations=continuations, continuation_ref=reference
+    )
+    other_selection = await _invoke(
+        _Provider(),
+        resource_count=140,
+        continuations=continuations,
+        continuation_ref=reference,
+        comparator="gt",
+        threshold="5",
+        threshold_unit="nanocores",
+    )
+    resumed = await _invoke(
+        _Provider(), resource_count=140, continuations=continuations, continuation_ref=reference
+    )
+
+    assert other_members["truncation_reason"] == "continuation_invalid"
+    assert other_selection["truncation_reason"] == "continuation_invalid"
+    # A rejected claim releases its lease, so the bound reader can still continue.
+    assert resumed["complete"] is True

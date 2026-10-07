@@ -88,6 +88,11 @@ cancellation drains outstanding work and adds no shared authority-bearing workfl
 The same Core-owned scheduler covers independent finalist runoffs within the existing
 remaining-call gate; no model, service, authority, or observed-state cache is added.
 
+Collection relations also list per-anchor coverage rows, so an anchor with no related member is
+verified empty only when its read was complete. Scoped collection traversals can read their exact
+population hop by hop, collection metric reads can apply reviewed qualitative recipes, and a
+stopped metric read can issue a leased continuation. Every one of these reads stays read-only.
+
 ## Design at a glance
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.
 

@@ -60,6 +60,27 @@ class ConceptVocabularies:
             return {}
         return {concept: item.canonical_unit for concept, item in registry.definitions.items()}
 
+    def metric_recipes(self) -> tuple[tuple[str, str, str, int, int], ...]:
+        """Return each reviewed qualitative recipe as (concept, qualifier, comparator,
+        threshold, window seconds or 0 when the goal's own window applies)."""
+
+        registry = self.metric_registry
+        if registry is None:
+            return ()
+        return tuple(
+            sorted(
+                (
+                    concept,
+                    recipe.qualifier,
+                    recipe.comparator,
+                    recipe.threshold,
+                    recipe.window_seconds or 0,
+                )
+                for concept, item in registry.definitions.items()
+                for recipe in item.qualitative_recipes
+            )
+        )
+
     def health_labels(self) -> dict[str, tuple[str, ...]]:
         language = self.inventory_query_language
         if language is None:
@@ -139,6 +160,7 @@ class CatalogQueryManifestProvider:
         vocabulary = vocabularies or ConceptVocabularies()
         self._metric_labels: Mapping[str, str] = vocabulary.metric_labels()
         self._metric_units: Mapping[str, str] = vocabulary.metric_units()
+        self._metric_recipes = vocabulary.metric_recipes()
         self._health_labels: Mapping[str, tuple[str, ...]] = vocabulary.health_labels()
         self._property_reads = vocabulary.property_reads()
         self._bound_function_names = (
@@ -169,6 +191,7 @@ class CatalogQueryManifestProvider:
             health_labels=self._health_labels,
             property_reads=self._property_reads,
             metric_units=self._metric_units,
+            metric_recipes=self._metric_recipes,
         )
 
 

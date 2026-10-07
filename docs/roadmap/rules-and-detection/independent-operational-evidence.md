@@ -387,6 +387,10 @@ typed query and presentation evidence. They do not issue or admit independent op
 Projection-only ontology vocabulary can refresh that corpus manifest's source digests without
 changing the release digest or any operational-evidence lookup authority.
 
+P2 traversal population counts, E12 per-anchor coverage rows, E11 recipe thresholds, and P3 metric
+read continuations are also typed query evidence. They neither issue nor admit independent
+operational evidence.
+
 | Proof | Read-back subject |
 |-------|-------------------|
 | Authentication | The Operator authentication receipt for the request that carried `principal_ref`, retained like the command receipt |

@@ -8,6 +8,7 @@ apply them to members with a complete window only.
 
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -37,6 +38,7 @@ from .semantic_reasoning_nodes import (
 
 WINDOW_LIMITATIONS = {
     "default": "default_window_applied",
+    "recipe": "recipe_window_applied",
     "applied": "time_window_applied",
     "model_judged": "time_window_model_judged",
 }
@@ -50,6 +52,8 @@ class MetricStage:
     concept: str
     window_kind: str
     seconds: int
+    # The reviewed recipe a qualitative word was read through, stated in the answer.
+    recipe_requirement: str | None = None
 
     def node(self, node_id: str, source_id: str) -> OntologyQueryNode:
         return OntologyQueryNode(
@@ -74,9 +78,41 @@ class MetricStage:
     def evidence_requirement(self) -> str:
         return f"window.{self.window_kind}.{self.seconds}"
 
+    @property
+    def evidence_requirements(self) -> tuple[str, ...]:
+        return (self.evidence_requirement,) + (
+            (self.recipe_requirement,) if self.recipe_requirement is not None else ()
+        )
 
-def metric_selection_arguments(goal: FormGoal) -> dict[str, Any] | None:
-    """Return the comparison and order arguments the form states, from the goal alone."""
+
+Recipe = tuple[str, str, str, int, int]
+
+
+def stated_qualifier(goal: FormGoal) -> str | None:
+    """Return the qualitative word a goal's metric filter states without a number."""
+
+    filters = [item for item in goal.filters if item.role is FilterRole.METRIC]
+    if filters and filters[0].qualifier is not None:
+        return filters[0].qualifier.value
+    return None
+
+
+def goal_recipe(goal: FormGoal, concept: str, recipes: Sequence[Recipe]) -> Recipe | None:
+    """Return the reviewed recipe for the goal's qualitative word and metric, if any."""
+
+    qualifier = stated_qualifier(goal)
+    if qualifier is None:
+        return None
+    return next((item for item in recipes if item[0] == concept and item[1] == qualifier), None)
+
+
+def metric_selection_arguments(
+    goal: FormGoal, *, recipe: Recipe | None = None, unit: str | None = None
+) -> dict[str, Any] | None:
+    """Return the comparison and order arguments the form states, from the goal alone.
+
+    A qualitative word reads only through ``recipe``, with the metric's canonical ``unit``.
+    """
 
     filters = [item for item in goal.filters if item.role is FilterRole.METRIC]
     ranked = goal.effective_operation is GoalOperation.RANK
@@ -90,6 +126,8 @@ def metric_selection_arguments(goal: FormGoal) -> dict[str, Any] | None:
             threshold=comparison.value,
             threshold_unit=comparison.unit.value,
         )
+    elif filters and filters[0].qualifier is not None and recipe is not None and unit:
+        arguments.update(comparator=recipe[2], threshold=str(recipe[3]), threshold_unit=unit)
     order = goal.measure.order if goal.measure is not None else None
     if ranked and order is not None:
         arguments["order_direction"] = order.direction.value
@@ -106,20 +144,41 @@ def verification_arguments(
     *,
     maximum_window_seconds: int | None,
     concepts: set[str],
+    recipes: Sequence[Recipe] = (),
+    units: Mapping[str, str] | None = None,
 ) -> dict[str, Any] | None:
     """Re-derive the exact metric reader arguments from admitted goal provenance."""
 
     if maximum_window_seconds is None or not concepts:
         return None
-    window = metric_window(goal, maximum=maximum_window_seconds)
+    recipe = goal_recipe(goal, sorted(concepts)[0], recipes) if len(concepts) == 1 else None
+    if stated_qualifier(goal) is not None and recipe is None:
+        return None
+    window = recipe_window(goal, recipe, maximum=maximum_window_seconds)
     if isinstance(window, str):
         return None
     seconds, _ = window
+    unit = (units or {}).get(sorted(concepts)[0]) if recipe is not None else None
     return {
         "metric_concepts": sorted(concepts),
         "window_seconds": seconds,
-        **(metric_selection_arguments(goal) or {}),
+        **(metric_selection_arguments(goal, recipe=recipe, unit=unit) or {}),
     }
+
+
+def recipe_window(goal: FormGoal, recipe: Recipe | None, *, maximum: int) -> tuple[int, str] | str:
+    """Return the read window: a reviewed recipe's window when the goal states none."""
+
+    window = metric_window(goal, maximum=maximum)
+    if (
+        recipe is not None
+        and recipe[4]
+        and not isinstance(window, str)
+        and window[1] == "default"
+        and recipe[4] <= maximum
+    ):
+        return recipe[4], "recipe"
+    return window
 
 
 def verification_required_functions(goal: FormGoal) -> frozenset[str] | None:
@@ -156,8 +215,7 @@ def metric_mention(goal: FormGoal) -> str | None | OperatorResult:
 def metric_stage(goal: FormGoal, ctx: CompileContext) -> MetricStage | OperatorResult | None:
     """Return the reader stage for a stated metric threshold or order, or why it cannot."""
 
-    arguments = metric_selection_arguments(goal)
-    if arguments is None:
+    if metric_selection_arguments(goal) is None:
         return None
     mention = metric_mention(goal)
     if isinstance(mention, OperatorResult):
@@ -170,7 +228,16 @@ def metric_stage(goal: FormGoal, ctx: CompileContext) -> MetricStage | OperatorR
     if len(concepts) != 1:
         return OperatorResult(unsupported=("metric_concept_count_unsupported",))
     concept = concepts[0]
-    if "threshold_unit" in arguments:
+    recipe = goal_recipe(goal, concept, ctx.manifest.metric_recipes)
+    qualifier = stated_qualifier(goal)
+    if qualifier is not None and recipe is None:
+        # No reviewed recipe gives this word a threshold for this metric.
+        return OperatorResult(unsupported=("metric_classification_unavailable",))
+    unit = dict(ctx.manifest.metric_units).get(concept)
+    arguments = metric_selection_arguments(goal, recipe=recipe, unit=unit) or {}
+    if recipe is not None and unit is None:
+        return OperatorResult(unsupported=("metric_unit_unreviewed",))
+    if "threshold_unit" in arguments and recipe is None:
         canonical = dict(ctx.manifest.metric_units).get(concept)
         if canonical is None:
             return OperatorResult(unsupported=("metric_unit_unreviewed",))
@@ -186,7 +253,7 @@ def metric_stage(goal: FormGoal, ctx: CompileContext) -> MetricStage | OperatorR
         return OperatorResult(
             unsupported=(f"function_unavailable:{RESOURCE_METRIC_FUNCTION_NAME}",)
         )
-    window = metric_window(goal, maximum=maximum)
+    window = recipe_window(goal, recipe, maximum=maximum)
     if isinstance(window, str):
         return OperatorResult(unsupported=(window,))
     seconds, kind = window
@@ -197,6 +264,11 @@ def metric_stage(goal: FormGoal, ctx: CompileContext) -> MetricStage | OperatorR
         concept=concept,
         window_kind=kind,
         seconds=seconds,
+        recipe_requirement=(
+            f"metric_recipe.{recipe[1]}.{recipe[2]}.{recipe[3]}.{unit}"
+            if recipe is not None
+            else None
+        ),
     )
 
 
