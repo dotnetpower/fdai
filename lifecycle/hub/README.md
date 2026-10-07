@@ -52,22 +52,49 @@ bytes it checked, and the Hub rejects a report that names other bytes.
 `signed_payload` is exactly the canonical Plan bytes that the signature covers. A report's
 `exact_plan_digest` is `sha256:` followed by the hex SHA-256 of those bytes.
 
-## Running locally
+## Try it locally
 
-The database URL comes only from `FDAI_LIFECYCLE_HUB_DATABASE_URL`, so credentials stay out of
-process arguments. Use the loopback PostgreSQL from `infra/local/docker-compose.yml`, or SQLite.
+The Hub has its own lock file, like `packages/deployment-cli`, so `uv run` installs and runs the
+`fdai-lifecycle-hub` command. [samples/](samples) holds three sample Releases and one
+installation on 1.4.0 whose maintenance window is open all day. SQLite needs no setup.
+
+Run these from `lifecycle/hub/`:
 
 ```bash
-export FDAI_LIFECYCLE_HUB_DATABASE_URL=sqlite+pysqlite:///.fdai/lifecycle-hub.db
-fdai-lifecycle-hub migrate
-fdai-lifecycle-hub dev-keygen ~/.fdai/lifecycle/hub.pem
-fdai-lifecycle-hub register installation.json
-fdai-lifecycle-hub recompute <installation-id> --catalog <catalog-dir> --key ~/.fdai/lifecycle/hub.pem
-fdai-lifecycle-hub show <installation-id>
-fdai-lifecycle-hub record-state <installation-id> state.json
-fdai-lifecycle-hub serve --port 8090
+mkdir -p /tmp/fdai-hub
+export FDAI_LIFECYCLE_HUB_DATABASE_URL=sqlite+pysqlite:////tmp/fdai-hub/hub.db
+
+uv run fdai-lifecycle-hub migrate
+uv run fdai-lifecycle-hub dev-keygen /tmp/fdai-hub/hub.pem
+uv run fdai-lifecycle-hub register samples/installation.json
+uv run fdai-lifecycle-hub recompute example --catalog samples/catalog --key /tmp/fdai-hub/hub.pem
+uv run fdai-lifecycle-hub show example
 ```
 
+`recompute` prints `"outcome": "issued"` with target `1.6.0`. Run it again and it prints
+`"unchanged"`, because nothing changed.
+
+Start the API in a second terminal with the same environment variable, then read the Plan as an
+agent would:
+
+```bash
+uv run fdai-lifecycle-hub serve
+curl -s localhost:8090/v1/installations/example/plan | jq -r .plan.signed_payload | base64 -d | jq
+```
+
+Record the upgraded state, and the Hub reports that nothing is left to do:
+
+```bash
+uv run fdai-lifecycle-hub record-state example samples/state-1.6.0.json
+uv run fdai-lifecycle-hub recompute example --catalog samples/catalog --key /tmp/fdai-hub/hub.pem
+curl -s -o /dev/null -w "%{http_code}\n" localhost:8090/v1/installations/example/plan
+```
+
+`recompute` prints `"up-to-date"`, and the API answers `204`. Execution reports come from the
+lifecycle agent (#1951); `tests/test_api.py` covers them.
+
+The database URL comes only from `FDAI_LIFECYCLE_HUB_DATABASE_URL`, so credentials stay out of
+process arguments. For PostgreSQL, use the loopback database from `infra/local/docker-compose.yml`.
 A catalog directory contains `releases/<release-id>.json` runtime release manifests,
 `channels.json` (`{"<channel>": ["<release-id>", ...]}`), and an optional `recalls.json`.
 

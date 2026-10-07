@@ -15,6 +15,7 @@ from fdai_deployment_cli.runtime_release import (
     RecallRecord,
     RuntimeRelease,
     compare_release_ids,
+    is_release_id,
     parse_runtime_release_manifest,
 )
 from pydantic import TypeAdapter
@@ -33,6 +34,8 @@ class ReleaseCatalog:
     recalls: tuple[RecallRecord, ...] = ()
 
     def __post_init__(self) -> None:
+        if invalid := sorted(r for r in self.releases if not is_release_id(r)):
+            raise ValueError(f"Release ids are not canonical SemVer: {invalid}")
         unknown = {
             release_id
             for members in self.channels.values()
@@ -57,14 +60,11 @@ class ReleaseCatalog:
 def load_catalog(root: Path) -> ReleaseCatalog:
     """Load `releases/<id>.json`, `channels.json`, and an optional `recalls.json`."""
 
-    paths = {path.stem: path for path in (root / "releases").glob("*.json")}
-    # Sorting by SemVer precedence also rejects every non-canonical Release id.
-    ordered = sorted(paths, key=cmp_to_key(compare_release_ids))
     recalls_path = root / "recalls.json"
     return ReleaseCatalog(
         releases={
-            release_id: parse_runtime_release_manifest(_read(paths[release_id]))
-            for release_id in ordered
+            path.stem: parse_runtime_release_manifest(_read(path))
+            for path in sorted((root / "releases").glob("*.json"))
         },
         channels=_CHANNELS.validate_json(_read(root / "channels.json")),
         recalls=_RECALLS.validate_json(_read(recalls_path)) if recalls_path.exists() else (),

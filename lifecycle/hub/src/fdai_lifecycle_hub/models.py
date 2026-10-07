@@ -25,7 +25,7 @@ from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import DeclarativeBase, Mapped, WriteOnlyMapped, mapped_column, relationship
 from sqlalchemy.types import TypeDecorator
 
-from fdai_lifecycle_hub.domain import OutcomeKind
+from fdai_lifecycle_hub.domain import Health, OutcomeKind
 
 Digest = String(71)
 Identifier = String(160)
@@ -140,7 +140,7 @@ class EntityReportedState(Base):
     entity_id: Mapped[str] = mapped_column(Identifier, primary_key=True)
     release_id: Mapped[str] = mapped_column(String(64))
     artifact_digests: Mapped[list[Any]]
-    health: Mapped[str] = mapped_column(String(32))
+    health: Mapped[Health]
 
 
 class PlanEvaluation(Base):

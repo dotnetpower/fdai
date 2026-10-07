@@ -135,6 +135,30 @@ def test_record_state_then_recompute_reports_up_to_date(
     assert outcome == {"outcome": "up-to-date", "checks": []}
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("release_id", "not-a-version"), ("health", "whatever"), ("digest", "x")],
+)
+def test_invalid_state_is_rejected_at_the_boundary(
+    tmp_path: Path,
+    installation: Installation,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+    field: str,
+    value: str,
+) -> None:
+    monkeypatch.setenv(DATABASE_URL_ENV, f"sqlite+pysqlite:///{tmp_path / 'hub.db'}")
+    state = reported_state_json.dump_python(installation.reported, mode="json")
+    target = state if field == "digest" else state["entities"]["core"]
+    target[field] = value
+    path = tmp_path / "state.json"
+    path.write_text(json.dumps(state))
+    _run(capsys, "migrate")
+
+    assert main(["record-state", "installation-alpha", str(path)]) == 1
+    assert capsys.readouterr().err.startswith("ValidationError")
+
+
 def test_refused_request_exits_with_a_message(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

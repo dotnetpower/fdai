@@ -17,6 +17,7 @@ from fdai_deployment_cli.runtime_release import (
     RuntimeReleaseError,
     compare_release_ids,
     evaluate_recall_candidate,
+    is_release_id,
     load_runtime_release,
     parse_runtime_release_manifest,
     recall_target_ordering,
@@ -765,3 +766,11 @@ def test_compare_release_ids_orders_by_semantic_version_precedence() -> None:
     assert compare_release_ids("1.5.0-rc.10", "1.5.0-rc.2") == 1
     with pytest.raises(RuntimeReleaseError):
         compare_release_ids("v1.5.0", "1.5.0")
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [("1.6.0", True), ("2.0.0-rc.1", True), ("v1.6.0", False), ("1.6", False), ("01.6.0", False)],
+)
+def test_is_release_id_accepts_only_canonical_semver(value: str, expected: bool) -> None:
+    assert is_release_id(value) is expected

@@ -13,6 +13,7 @@ from fdai_lifecycle_hub.catalog import ReleaseCatalog
 from fdai_lifecycle_hub.domain import (
     DailyWindow,
     EntityState,
+    Health,
     Installation,
     Issued,
     IssuedPlan,
@@ -136,7 +137,7 @@ def test_unmanaged_entities_do_not_hold_back_the_plan(
     installation: Installation, planner: Planner, now: datetime
 ) -> None:
     reported = installation.reported
-    lagging = EntityState(release_id="1.0.0", artifact_digests=frozenset(), health="healthy")
+    lagging = EntityState(release_id="1.0.0", artifact_digests=frozenset(), health=Health.HEALTHY)
     behind = replace(
         installation, reported=replace(reported, entities={**reported.entities, "console": lagging})
     )
@@ -183,7 +184,7 @@ def test_open_plan_is_replaced_when_reported_state_changed(
 ) -> None:
     first = planner(installation, now)
     assert isinstance(first, Issued)
-    moved = replace(installation.reported, digest="sha256:" + "e" * 64)
+    moved = replace(installation.reported, digest="e" * 64)
 
     again = planner(
         replace(

@@ -21,6 +21,7 @@ from fdai_lifecycle_hub.domain import (
     DailyWindow,
     Entity,
     EntityState,
+    Health,
     Installation,
     Planner,
     ReportedState,
@@ -133,10 +134,12 @@ def installation() -> Installation:
             schema_revision=15,
             entities={
                 "core": EntityState(
-                    release_id="1.4.0", artifact_digests=frozenset({IMAGE_DIGEST}), health="healthy"
+                    release_id="1.4.0",
+                    artifact_digests=frozenset({IMAGE_DIGEST}),
+                    health=Health.HEALTHY,
                 ),
                 "console": EntityState(
-                    release_id="1.4.0", artifact_digests=frozenset(), health="healthy"
+                    release_id="1.4.0", artifact_digests=frozenset(), health=Health.HEALTHY
                 ),
             },
             observed_at=NOW - timedelta(minutes=1),

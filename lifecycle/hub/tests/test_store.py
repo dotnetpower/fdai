@@ -15,6 +15,7 @@ from fdai_lifecycle_hub import audit, models
 from fdai_lifecycle_hub.domain import (
     DailyWindow,
     EntityState,
+    Health,
     Installation,
     Issued,
     IssuedPlan,
@@ -129,7 +130,7 @@ def test_new_state_supersedes_the_open_plan(
     registered: HubStore, installation: Installation, recompute: Recompute, now: datetime
 ) -> None:
     recompute(now=now)
-    moved = replace(installation.reported, digest="sha256:" + "e" * 64, observed_at=now)
+    moved = replace(installation.reported, digest="e" * 64, observed_at=now)
     registered.record_state(installation.installation_id, moved, now=now)
 
     second = recompute(now=now)
@@ -186,7 +187,7 @@ def test_expired_plan_is_not_served(
 def test_recorded_state_becomes_current(
     registered: HubStore, installation: Installation, now: datetime
 ) -> None:
-    core = EntityState(release_id="1.6.0", artifact_digests=frozenset(), health="healthy")
+    core = EntityState(release_id="1.6.0", artifact_digests=frozenset(), health=Health.HEALTHY)
     upgraded = replace(
         installation.reported,
         entities={**installation.reported.entities, "core": core},

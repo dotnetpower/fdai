@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, time, timedelta
@@ -18,9 +19,11 @@ from fdai_deployment_cli.lifecycle_plan import (
     MaintenanceWindow,
     SuppressionWindow,
 )
-from fdai_deployment_cli.runtime_release import compare_release_ids
+from fdai_deployment_cli.runtime_release import compare_release_ids, is_release_id
 
 type Clock = Callable[[], datetime]
+
+_SHA256_HEX = re.compile(r"[0-9a-f]{64}")
 
 
 class StaleStateError(ValueError):
@@ -102,11 +105,23 @@ class Configuration:
         )
 
 
+class Health(StrEnum):
+    HEALTHY = "healthy"
+    DEGRADED = "degraded"
+    UNHEALTHY = "unhealthy"
+    UNKNOWN = "unknown"
+
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class EntityState:
     release_id: str
     artifact_digests: frozenset[str]
-    health: str
+    health: Health
+
+    def __post_init__(self) -> None:
+        if not is_release_id(self.release_id):
+            raise ValueError(f"release id is not canonical SemVer: {self.release_id!r}")
+        Health(self.health)  # Rejects an unknown health value.
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -121,6 +136,12 @@ class ReportedState:
     schema_revision: int
     entities: Mapping[str, EntityState]
     observed_at: datetime
+
+    def __post_init__(self) -> None:
+        if not _SHA256_HEX.fullmatch(self.digest):
+            raise ValueError("state digest must be 64 lowercase hex characters")
+        if self.observed_at.tzinfo is None:
+            raise ValueError("observed_at must be timezone-aware")
 
     def current_release(self, entity_ids: frozenset[str]) -> str:
         """The oldest Release among `entity_ids`, so a partial upgrade plans from the laggard."""

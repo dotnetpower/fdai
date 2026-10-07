@@ -213,6 +213,12 @@ def parse_runtime_release_manifest(raw: bytes) -> RuntimeRelease:
         raise RuntimeReleaseError("runtime release is invalid") from exc
 
 
+def is_release_id(value: str) -> bool:
+    """Return whether `value` is a canonical Semantic Versioning Release ID."""
+
+    return _release_version_parts(value) is not None
+
+
 def compare_release_ids(left: str, right: str) -> int:
     """Return -1, 0, or 1 by Semantic Versioning precedence of two canonical Release IDs."""
 
