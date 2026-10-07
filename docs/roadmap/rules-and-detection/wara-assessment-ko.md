@@ -1,8 +1,8 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: 4c55efe12172ac05b9f7a7f08f643779ea3993da
-translation_revised: 2026-10-02
+translation_source_sha: d650db3bf4e113c9464535f5b9c7ef9cf86f037e
+translation_revised: 2026-10-07
 ---
 # WARA 근거 기반 평가
 
@@ -216,6 +216,9 @@ crosswalk, shadow consumer, 변환 결과 소유권 및 권한 없음 계약은 
 규칙 카탈로그 레일은 WARA 상태를 해석하지 않고 이 Controls 목적지로 이동합니다. 레일의 레이블과
 개수는 카탈로그 탐색 정보이며, 적용 가능성, 평가, 충족 상태 또는 근거 제한 사항은 서버 소유
 WARA 변환 결과만 보고할 수 있습니다.
+두 카탈로그 보기에서 레일은 Controls를 탐지 규칙과 분리된 프레임워크 평가 그룹에 표시합니다.
+규칙 인용 탐색은 Azure WAF 요구 사항만 다룹니다. WARA 권고는 수락된 Azure Resource Graph 쿼리나
+수동 근거를 사용하므로 규칙 상세에 WARA 권고가 인용 컨트롤로 표시되지 않습니다.
 
 ## 검토 전용 원본 갱신
 

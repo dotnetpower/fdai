@@ -216,6 +216,10 @@ it never hides the remaining catalog behind a client-only row limit.
 The Rules catalog rail reaches this Controls destination without interpreting WARA state. Its
 labels and counts remain catalog navigation; only the server-owned WARA projection can report
 applicability, evaluation, satisfaction, or evidence limitations.
+The rail lists Controls under a framework-assessment group, separate from detection rules, in both
+catalog views. Rule citation navigation covers only Azure WAF requirements. WARA recommendations use
+admitted Azure Resource Graph queries or manual evidence, so no Rule detail lists a WARA
+recommendation as a citing control.
 
 ## Review-only source updates
 
