@@ -642,6 +642,15 @@ def test_recovers_operator_identity_without_root_output(drift: ModuleType) -> No
     }
 
 
+def test_treats_null_optional_legacy_output_as_disabled(drift: ModuleType) -> None:
+    fixture = _legacy_platform_state()
+    fixture["state"]["values"]["outputs"]["ohl_scale_out_evidence_target_id"]["value"] = None
+
+    inputs = drift.stored_platform_output_inputs(fixture["state"])
+
+    assert inputs["enable_ohl_scale_out_evidence_target"] is False
+
+
 def test_rejects_invalid_legacy_model_deployment(drift: ModuleType) -> None:
     fixture = _legacy_platform_state()
     resources = fixture["state"]["values"]["root_module"]["resources"]
