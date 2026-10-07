@@ -3996,6 +3996,32 @@
       ]
     },
     {
+      "id": "framework-rule-evidence",
+      "paths": [
+        "docs/roadmap/rules-and-detection/framework-rule-evidence*.md",
+        "docs/roadmap-implementation/rules-and-detection/framework-rule-evidence.md",
+        "services/core-control-plane/src/fdai/core/framework_rule_evidence/**",
+        "services/core-control-plane/tests/core/framework_rule_evidence/**"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        ".github/instructions/agent-pantheon.instructions.md",
+        ".github/instructions/coding-conventions.instructions.md",
+        "docs/roadmap/rules-and-detection/framework-rule-evidence.md",
+        "docs/roadmap/rules-and-detection/framework-assessment.md",
+        "docs/roadmap/rules-and-detection/rule-governance.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/rules-and-detection/framework-rule-evidence.md",
+        "docs/roadmap-implementation/rules-and-detection/framework-rule-evidence.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov services/core-control-plane/tests/core/framework_rule_evidence services/core-control-plane/tests/core/framework_assessment services/core-control-plane/tests/agents/test_forseti_baseline_evaluation.py",
+        "uv run ruff check services/core-control-plane/src/fdai/core/framework_rule_evidence services/core-control-plane/tests/core/framework_rule_evidence",
+        "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py"
+      ]
+    },
+    {
       "id": "wara-assessment",
       "paths": [
         "docs/roadmap/rules-and-detection/wara-assessment*.md",

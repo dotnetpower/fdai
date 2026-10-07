@@ -321,3 +321,4 @@ acceptance. That telemetry does not enter WARA scope, evidence admission, or ass
 | Framework ontology projection | [FDAI Operating Ontology](../architecture/operating-ontology.md) |
 | Read-only operator behavior | [FDAI Console Conversations](../interfaces/operator-console.md) |
 | Shared Workflow validation contracts | [Process Automation](../decisioning/process-automation.md#71-shared-validation-owner-design) |
+| Rule-backed WARA evaluation and the shared requirement limitation labels | [Framework Rule Evidence from T0](framework-rule-evidence.md) |

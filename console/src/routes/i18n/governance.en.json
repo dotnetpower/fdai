@@ -196,8 +196,7 @@
       "invalid": "Promotion reason {reason} is not registered."
     },
     "section": "ActionTypes ({count})",
-    "empty": "No ActionTypes declared a promotion gate."
-    ,
+    "empty": "No ActionTypes declared a promotion gate.",
     "override": {
       "marker": "Operator override - operator-attested gate {status}"
     },
@@ -423,7 +422,8 @@
         "limitations": "Limitations",
         "requirementsHint": "A rule result is one input. Documents, metrics, drills, and approvals come from their own producers.",
         "openRule": "Open rule {id}",
-        "cadenceDays": "Every {days} day(s)"
+        "cadenceDays": "Every {days} day(s)",
+        "requirementLimitations": "Why this requirement is unknown"
       },
       "subtitle": "Framework controls from Azure WAF, CAF, WARA, and MCSB with the evidence each one requires. Assessments run in shadow mode and never start remediation."
     },
@@ -753,6 +753,28 @@
       "metric": "Metric",
       "drill": "Drill",
       "approval": "Approval"
+    },
+    "requirementLimitation": {
+      "scope_mismatch": "Rule evidence covers a different workload scope",
+      "rule_not_activated": "Rule is not in the active rule set",
+      "activation_catalog_drift": "Active rule set changed after evaluation",
+      "rule_revision_drift": "Evaluated rule version differs from the active one",
+      "stale_inventory": "Inventory is older than the freshness limit",
+      "pair_missing": "Some resources have no rule result",
+      "duplicate_pair": "A resource has duplicate rule results",
+      "conflicting_pair": "A resource has conflicting rule results",
+      "unexpected_pair": "Rule results exist for resources outside the expected set",
+      "no_eligible_resource": "No workload resource is in this rule's scope",
+      "held_for_review": "A rule result needs human review",
+      "decisive_evidence_unavailable": "No decisive evidence yet",
+      "supporting_evidence_only": "Only supporting evidence is available",
+      "evidence_conflict": "Evidence conflicts",
+      "rule_activation_unpinned": "Assessment has no pinned rule set",
+      "rule_provenance_missing": "Rule evidence has no activation provenance",
+      "rule_activation_mismatch": "Rule evidence is from a different rule set",
+      "stale_evidence": "Evidence is older than the freshness limit",
+      "wrong_inventory_generation": "Evidence is from a different inventory generation",
+      "wrong_scope": "Evidence is from a different scope"
     }
   }
 }

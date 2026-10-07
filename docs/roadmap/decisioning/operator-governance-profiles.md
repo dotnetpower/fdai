@@ -157,6 +157,11 @@ managed-resource action.
 | Approval policy | Approval profile, approver groups, quorum, escalation ladder rungs and deadlines | Quorum can't go below the catalog minimum in the multi-operator profile |
 | Admission (OPA/Rego) policy | Installation rules that deny an ActionType, require approval, or allow it by scope, tag, time, or environment | Can't exceed the Release maximum for an ActionType |
 
+Detection Rule activation isn't editable policy here. A Rule is activated through the separate Rule
+activation flow, and that activation generation is what Forseti's baseline evaluation and
+[framework Rule evidence](../rules-and-detection/framework-rule-evidence.md) pin. A policy revision
+never changes which Rules T0 evaluates.
+
 ### Validation and activation
 
 1. The Operator API authenticates the principal, checks the `policy-admin` role and fresh

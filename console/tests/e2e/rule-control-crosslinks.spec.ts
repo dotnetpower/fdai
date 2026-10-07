@@ -38,7 +38,14 @@ const CONTROL = {
 } as const;
 
 const REQUIREMENTS = [
-  { kind: "rule", ref: RULE_ID, freshness_days: null, status: "unknown", evidence_refs: [] },
+  {
+    kind: "rule",
+    ref: RULE_ID,
+    freshness_days: null,
+    status: "unknown",
+    evidence_refs: [],
+    limitations: ["decisive_evidence_unavailable", "rule_not_activated"],
+  },
   { kind: "artifact", ref: "critical-flow-redundancy-review", freshness_days: 180, status: "unknown", evidence_refs: [] },
   { kind: "approval", ref: "reliability-owner", freshness_days: null, status: "unknown", evidence_refs: [] },
 ];
@@ -207,6 +214,11 @@ test("navigates from a control requirement to its rule and back to citing contro
   await expect(controlDrawer.getByText("Detection rule", { exact: true })).toBeVisible();
   await expect(controlDrawer.getByText("Document", { exact: true })).toBeVisible();
   await expect(controlDrawer.getByText("A rule result is one input.", { exact: false })).toBeVisible();
+  const limitations = controlDrawer.getByRole("list", { name: "Why this requirement is unknown" });
+  await expect(limitations.getByRole("listitem")).toHaveText([
+    "No decisive evidence yet",
+    "Rule is not in the active rule set",
+  ]);
   await expect(controlDrawer.getByRole("link", { name: "Open rule critical-flow-redundancy-review" })).toHaveCount(0);
 
   await controlDrawer.getByRole("link", { name: `Open rule ${RULE_ID}` }).click();

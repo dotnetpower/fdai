@@ -100,6 +100,33 @@ describe("best practice controls contract", () => {
       provenance: { source_url: "https://learn.microsoft.com/" },
     })).toThrow(/requirement count does not reconcile/);
   });
+
+  test("decodes server-owned requirement limitations and tolerates their absence", () => {
+    const requirement = {
+      kind: "rule",
+      ref: "cache.zone-redundant",
+      freshness_days: 1,
+      status: "unknown",
+      evidence_refs: [],
+    };
+    const detail = decodeBestPracticeDetail({
+      ...CONTROL,
+      requirement_count: 2,
+      requirements: [
+        { ...requirement, limitations: ["decisive_evidence_unavailable", "rule_not_activated"] },
+        { ...requirement, ref: "cache.other" },
+      ],
+      provenance: {},
+    });
+    expect(detail.requirements[0]!.limitations).toEqual(["decisive_evidence_unavailable", "rule_not_activated"]);
+    expect(detail.requirements[1]!.limitations).toEqual([]);
+    expect(() => decodeBestPracticeDetail({
+      ...CONTROL,
+      requirement_count: 1,
+      requirements: [{ ...requirement, limitations: [3] }],
+      provenance: {},
+    })).toThrow();
+  });
 });
 
 describe("Rule citation lookup", () => {

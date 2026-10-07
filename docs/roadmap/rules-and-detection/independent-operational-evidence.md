@@ -56,6 +56,9 @@ provider state.
 Operator-attested gate snapshots recorded during override promotion are likewise registry context.
 They do not become independent operational evidence unless a separate gate-evidence store verifies
 the snapshot under this verifier boundary.
+Forseti's version 2 baseline evaluation coverage and the T0 Rule receipts derived from it are
+framework assessment evidence for [framework Rule evidence](framework-rule-evidence.md). They are
+not issued by this verifier and can't satisfy a governed decision source.
 
 ## Current state and gap
 

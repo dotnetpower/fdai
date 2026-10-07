@@ -235,6 +235,7 @@ def _waf_requirements(
                 "freshness_days": max(1, freshness // 86_400),
                 "status": _member(item.get("status"), _SATISFACTION, "requirement status"),
                 "evidence_refs": list(_strings(item.get("evidence_refs"), "evidence_refs")),
+                "limitations": list(_strings(item.get("limitations", []), "limitations")),
             }
         )
     if set(by_id) != {

@@ -13666,6 +13666,14 @@ main { padding-bottom: 60px !important; }
 .control-requirement-row > div { display: grid; gap: 3px; min-width: 0; }
 .control-requirement-row code { overflow-wrap: anywhere; }
 .control-requirement-row a { justify-self: start; min-width: 0; }
+.control-requirement-limitations {
+  display: grid;
+  gap: 2px;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.control-requirement-limitations li { overflow-wrap: anywhere; }
 .rule-control-citations {
   display: grid;
   gap: 7px;
