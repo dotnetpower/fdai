@@ -169,6 +169,36 @@
       ]
     },
     {
+      "id": "code-security-findings",
+      "paths": [
+        "docs/roadmap/operations/code-security-findings*.md",
+        "docs/roadmap-implementation/operations/code-security-findings.md",
+        "rule-catalog/code-security/**",
+        "services/core-control-plane/src/fdai/core/security/code_findings/**",
+        "services/core-control-plane/src/fdai/rule_catalog/code_security.py",
+        "services/core-control-plane/src/fdai/delivery/code_security_cli.py",
+        "services/core-control-plane/tests/core/security/code_findings/**"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        "docs/roadmap/architecture/fdai-constitution.md",
+        "docs/roadmap/operations/code-security-findings.md",
+        "docs/roadmap/rules-and-detection/rule-catalog-collection.md",
+        "docs/roadmap/architecture/llm-strategy.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/operations/code-security-findings.md",
+        "docs/roadmap-implementation/operations/code-security-findings.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov services/core-control-plane/tests/core/security/code_findings",
+        "python3 scripts/quality/architecture/check-design-routes.py",
+        "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py",
+        "python3 scripts/quality/architecture/check-document-size.py",
+        "bash scripts/quality/localization/check-translations.sh docs/roadmap/operations/code-security-findings.md docs/roadmap/operations/code-security-findings-ko.md"
+      ]
+    },
+    {
       "id": "permission-aware-observation-campaign",
       "paths": [
         "config/observation-sources.yaml",

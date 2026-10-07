@@ -28,6 +28,7 @@ Runtime and collection code lives under
 | [`profiles/`](profiles/) and [`profiles-overrides/`](profiles-overrides/) | Named rule bundles and fork narrowing overlays. |
 | [`schema/`](schema/) | Schemas owned directly by extension-kit and skill-bundle catalog surfaces. Other schemas remain with their owning contracts or catalog directories. |
 | [`exemptions/`](exemptions/) | Time-bounded governed exceptions that never erase underlying findings. |
+| [`code-security/`](code-security/) | Weakness classes, severity rubric, priority policy, remediation policy, and remediation-pack templates for code-security findings. |
 
 ## Authoring and Validation
 

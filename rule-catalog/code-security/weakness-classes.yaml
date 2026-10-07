@@ -1,0 +1,206 @@
+# FDAI code-security weakness classes.
+#
+# A weakness class groups CWE ids that share one root-cause family, one impact range, and one fix
+# strategy. Canonicalization merges findings only inside one class and only when the fix site is
+# the same; CWE ancestry alone never merges findings. A CWE id that no class lists stays in its own
+# `unclassified` bucket keyed by the producer rule id.
+#
+# CWE identifiers are referenced with attribution to The MITRE Corporation (CWE terms of use).
+# Guidance text is FDAI-authored.
+schema_version: 1
+catalog_id: fdai.code-security.weakness-classes
+version: 1.0.0
+classes:
+  sql_injection:
+    title: SQL or query injection
+    cwe: [89, 564, 943]
+    impact_range: [data_read, data_write]
+    fix_class: local_code_fix
+    autofix_eligibility: assisted
+    max_depth: D3
+    guidance: >-
+      Bind every untrusted value through parameterized queries or the query builder. Validate
+      identifiers that cannot be parameterized against an explicit allowlist.
+  command_injection:
+    title: OS command injection
+    cwe: [77, 78, 88]
+    impact_range: [code_execution]
+    fix_class: local_code_fix
+    autofix_eligibility: assisted
+    max_depth: D3
+    guidance: >-
+      Call the program with an argument list instead of a shell string, and validate arguments
+      against an allowlist. Remove the shell invocation when a library API exists.
+  code_injection:
+    title: Code or template injection
+    cwe: [94, 95, 1336]
+    impact_range: [code_execution]
+    fix_class: local_code_fix
+    autofix_eligibility: assisted
+    max_depth: D3
+    guidance: >-
+      Never evaluate untrusted input as code or as a template. Use data-only formats and a
+      sandboxed template engine with autoescaping.
+  path_traversal:
+    title: Path traversal
+    cwe: [22, 23, 35, 36, 73]
+    impact_range: [data_read, data_write]
+    fix_class: local_code_fix
+    autofix_eligibility: assisted
+    max_depth: D3
+    guidance: >-
+      Resolve the canonical path and verify that it stays inside the intended base directory, or
+      map user input to server-side identifiers instead of paths.
+  server_side_request_forgery:
+    title: Server-side request forgery
+    cwe: [918]
+    impact_range: [info_disclosure, data_read]
+    fix_class: local_code_fix
+    autofix_eligibility: assisted
+    max_depth: D3
+    guidance: >-
+      Allow only approved schemes, hosts, and ports, resolve and check the destination address,
+      and block link-local and private ranges unless explicitly required.
+  cross_site_scripting:
+    title: Cross-site scripting
+    cwe: [79, 80, 83]
+    impact_range: [info_disclosure]
+    fix_class: local_code_fix
+    autofix_eligibility: assisted
+    max_depth: D3
+    guidance: >-
+      Encode output for its exact context and prefer framework autoescaping. Do not mark
+      untrusted values as safe HTML.
+  unsafe_deserialization:
+    title: Unsafe deserialization
+    cwe: [502]
+    impact_range: [code_execution]
+    fix_class: local_code_fix
+    autofix_eligibility: assisted
+    max_depth: D3
+    guidance: >-
+      Replace native object deserialization of untrusted data with a data-only format and an
+      explicit schema.
+  xml_external_entity:
+    title: XML external entity processing
+    cwe: [611, 776]
+    impact_range: [denial_of_service, data_read]
+    fix_class: local_code_fix
+    autofix_eligibility: auto
+    max_depth: D3
+    guidance: >-
+      Disable DTD and external entity resolution in the XML parser configuration.
+  open_redirect:
+    title: Open redirect
+    cwe: [601]
+    impact_range: [limited]
+    fix_class: local_code_fix
+    autofix_eligibility: assisted
+    max_depth: D3
+    guidance: >-
+      Redirect only to relative paths or to an allowlist of destinations.
+  hardcoded_secret:
+    title: Hard-coded credential or key
+    cwe: [259, 321, 798]
+    impact_range: [data_read, privilege_escalation]
+    fix_class: secret_removal
+    autofix_eligibility: assisted
+    max_depth: D2
+    guidance: >-
+      Remove the value from source and read it from the project's secret mechanism at runtime. A
+      person must rotate the exposed credential; removing it from code does not revoke it.
+  weak_cryptography:
+    title: Weak or misused cryptography
+    cwe: [326, 327, 328, 330, 338, 916]
+    impact_range: [info_disclosure, data_read]
+    fix_class: local_code_fix
+    autofix_eligibility: assisted
+    max_depth: D3
+    guidance: >-
+      Use current algorithms and the platform's cryptographically secure random generator. Hash
+      passwords with a dedicated password-hashing function.
+  missing_authorization:
+    title: Missing or incorrect authorization
+    cwe: [285, 639, 862, 863]
+    impact_range: [data_read, data_write]
+    fix_class: local_code_fix
+    autofix_eligibility: assisted
+    max_depth: D2
+    guidance: >-
+      Enforce an authorization check for the exact object and action on the server side, using the
+      project's existing authorization layer.
+  authentication_bypass:
+    title: Authentication bypass
+    cwe: [287, 288, 290, 306, 1390]
+    impact_range: [privilege_escalation]
+    fix_class: design_change
+    autofix_eligibility: manual
+    max_depth: plan_only
+    guidance: >-
+      Route the endpoint through the standard authentication mechanism. Changes to authentication
+      flow need a design review before code changes.
+  memory_safety:
+    title: Memory-safety violation
+    cwe: [119, 120, 121, 122, 125, 190, 415, 416, 476, 787]
+    impact_range: [denial_of_service, code_execution]
+    fix_class: local_code_fix
+    autofix_eligibility: assisted
+    max_depth: D2
+    guidance: >-
+      Bound every buffer access by the real allocation size, check arithmetic before allocation,
+      and clear pointers after release. Prefer safe library abstractions.
+  race_condition:
+    title: Race condition
+    cwe: [362, 367]
+    impact_range: [limited, data_write]
+    fix_class: design_change
+    autofix_eligibility: manual
+    max_depth: plan_only
+    guidance: >-
+      Make the check and the use atomic, or hold the appropriate lock across both.
+  information_exposure:
+    title: Sensitive information exposure
+    cwe: [200, 209, 532, 538]
+    impact_range: [info_disclosure]
+    fix_class: local_code_fix
+    autofix_eligibility: assisted
+    max_depth: D3
+    guidance: >-
+      Return generic errors to callers, and keep sensitive values out of logs and responses.
+  cross_site_request_forgery:
+    title: Cross-site request forgery
+    cwe: [352]
+    impact_range: [data_write]
+    fix_class: local_code_fix
+    autofix_eligibility: assisted
+    max_depth: D2
+    guidance: >-
+      Use the framework's anti-forgery protection for every state-changing request.
+  log_injection:
+    title: Log injection
+    cwe: [117]
+    impact_range: [limited]
+    fix_class: local_code_fix
+    autofix_eligibility: auto
+    max_depth: D3
+    guidance: >-
+      Use structured logging and neutralize line breaks in untrusted values.
+  insecure_configuration:
+    title: Insecure configuration or permissions
+    cwe: [16, 276, 732, 1188]
+    impact_range: [info_disclosure, data_write]
+    fix_class: config_change
+    autofix_eligibility: assisted
+    max_depth: D2
+    guidance: >-
+      Apply the secure default for the setting and restrict permissions to the minimum required.
+  vulnerable_dependency:
+    title: Vulnerable dependency
+    cwe: [937, 1035, 1104, 1395]
+    impact_range: [limited, code_execution]
+    fix_class: dependency_bump
+    autofix_eligibility: auto
+    max_depth: D2
+    guidance: >-
+      Upgrade to the smallest version that fixes the advisory with the project's package manager
+      and keep the lockfile consistent. Ask before a major-version upgrade.

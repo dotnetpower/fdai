@@ -1,8 +1,8 @@
 ---
 title: 규칙 카탈로그 수집(Rule Catalog Collection)
 translation_of: rule-catalog-collection.md
-translation_source_sha: f588c40ff4e7d880cbb7427c7ed7e640eca9bae9
-translation_revised: 2026-09-10
+translation_source_sha: 83347742741671879809451a5e637205f1b84fd8
+translation_revised: 2026-10-07
 ---
 
 # 규칙 카탈로그 수집(Rule 카탈로그 수집)
@@ -162,6 +162,9 @@ MCSB v1과 v2는 독립 버전으로 유지되며, v1 매핑을 v2 커버리지�
   `low`), **KEV 존재는 `critical` 로 escalate**. 사용된 CVSS 버전(v3.1 또는 v4.0) 은 규칙에
   기록됨(예: `parameters.cvss_version`) - 스코어가 재현 가능. 비-취약성 규칙은 이 매핑이 아니라
   출처/category 기본 심각도 취함.
+  이 상향 규칙은 카탈로그 규칙의 심각도에만 적용됩니다. 코드 보안 점검 결과는 심각도를 고유
+  영향으로만 유지하고, KEV는 대신 우선순위와 조치 기한을 높입니다.
+  [코드 보안 점검 결과](../operations/code-security-findings-ko.md#심각도-모델)를 참조하세요.
 - **위협 매핑**: MITRE ATT&CK technique id와 D3FEND 컨트롤 id는 컴플라이언스/위협 crosswalk
   ([열림 Decisions](#open-decisions) 참조) 를 통해 매핑 태그로 규칙에 부착, 절대 실행 가능한
   `check_logic` 이 아님.
