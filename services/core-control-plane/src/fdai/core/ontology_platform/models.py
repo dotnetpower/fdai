@@ -159,6 +159,11 @@ class RelationshipTraversalDefinition(ContractBase):
     # verifier allows it only for one hop or a transitive LinkType.
     read_population: bool = Field(default=False, exclude_if=lambda value: not value)
 
+    def population_read_allowed(self, link_is_transitive: bool) -> bool:
+        """Return whether a population read may repeat this LinkType hop by hop."""
+
+        return not self.read_population or self.max_depth == 1 or link_is_transitive
+
     @model_validator(mode="after")
     def _bounded_traversal(self) -> RelationshipTraversalDefinition:
         if len(self.link_types) != len(set(self.link_types)):

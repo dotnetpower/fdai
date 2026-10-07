@@ -78,7 +78,7 @@ from .semantic_reasoning_measure_checks import (
     window_matches,
 )
 from .semantic_reasoning_nodes import GROUP_BY_FIELDS
-from .semantic_reasoning_relations import SENSE_TRAITS, traversal_roots
+from .semantic_reasoning_relations import SENSE_TRAITS, containment_scope_sides, traversal_roots
 from .semantic_resource_visibility import OPERATIONAL_RESOURCE_EXCLUDED_TYPES
 from .semantic_target_health import TARGET_HEALTH_FUNCTIONS
 
@@ -661,7 +661,7 @@ def _coverage_violations(
             for node in plan.nodes
             if node.kind is QueryNodeKind.RELATIONSHIP_TRAVERSAL
         }
-        if compiled_scope != _containment_scope_sides(descriptors):
+        if compiled_scope != containment_scope_sides(descriptors, depth=_TRANSITIVE_DEPTH):
             violations.append("sem_scope_containment_differs")
         binding = anchors.binding(scope)
         scope_id = binding.object_id if binding is not None else None
@@ -697,20 +697,6 @@ def _schema_violations(goal: FormGoal, functions: set[str], admission: FormAdmis
     if goal.measure is not None and goal.measure.group_by not in {GroupBy.NONE, GroupBy.TYPE}:
         violations.append("sem_schema_group_by_unread")
     return violations
-
-
-def _containment_scope_sides(
-    descriptors: Sequence[Mapping[str, Any]],
-) -> set[tuple[str, str, Any]]:
-    trait = SENSE_TRAITS[RelationSense.CONTAINMENT]
-    return {
-        (str(item.get("name")), "outgoing", _TRANSITIVE_DEPTH)
-        for item in descriptors
-        if item.get("kind") == "link"
-        and trait in set(item.get("semantic_traits") or ())
-        and item.get("is_transitive") is True
-        and item.get("from_type") == item.get("to_type") == "Resource"
-    }
 
 
 def _expected_sides(
