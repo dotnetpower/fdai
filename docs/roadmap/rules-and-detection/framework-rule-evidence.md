@@ -315,12 +315,13 @@ an extension can't be validated against a producer that never reaches `satisfied
   full and real-time collection. A missing field stays absent; the only documented default is Key
   Vault purge protection, whose ARM property never accepts `false`. Full collection also hydrates
   extension resources with bounded GETs: diagnostic settings (on the blob service for storage),
-  blob soft delete and versioning, SQL transparent data encryption, the PostgreSQL flexible server
-  `require_secure_transport` parameter, and managed-identity role assignments with their role
-  definitions. A failed read leaves the property unobserved, and role assignments are attached
-  per subscription only when every page and definition was read. Subscription guest and standing
-  access Rules stay unobserved, because ARM role assignments don't identify guest users or
-  just-in-time eligibility; they need Microsoft Graph and Privileged Identity Management reads.
+  blob soft delete and versioning, SQL transparent data encryption, and the PostgreSQL flexible
+  server `require_secure_transport` parameter. A failed read leaves the property unobserved. NSG
+  `security_rules` are projected only when every inbound allow rule uses one protocol, one numeric
+  port, and one source that isn't an any-source alias, because the NSG Rules match exact literals.
+  Role assignments stay unobserved: one subscription's assignments can't prove the complete set
+  for an identity or a subscription, which also needs group membership, guest user type, and
+  just-in-time eligibility from Microsoft Graph and Privileged Identity Management.
 - **Local measurement:** `scripts/deployment/local/run-framework-rule-evidence.py` runs this path
   read-only against the loopback development database. Because the local ontology has no
   deployment-owned `Workload`, it binds one estate scope to the whole active inventory generation.

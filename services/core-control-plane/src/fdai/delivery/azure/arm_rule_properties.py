@@ -18,6 +18,7 @@ MAX_SECURITY_RULES = 1_000
 MAX_PROJECTED_BYTES = 131_072
 
 _Projector = Callable[[Mapping[str, Any]], dict[str, Any]]
+_ANY_SOURCE_ALIASES = frozenset({"internet", "0.0.0.0/0", "any", "::/0"})
 
 
 def rule_properties(resource_type: str, row: Mapping[str, Any]) -> dict[str, Any]:
@@ -155,8 +156,34 @@ def _network_security_group(row: Mapping[str, Any]) -> dict[str, Any]:
             value = rule_properties_value.get(source)
             if isinstance(value, Sequence) and not isinstance(value, str):
                 projected_rule[target] = [str(item) for item in value]
+        if not _decidable_inbound_allow(projected_rule):
+            # The NSG Rules match exact literals, so an alias, wildcard, range, or list could hide
+            # an exposure. Leave the set unobserved instead of letting it look clean.
+            return {}
         projected_rules.append(projected_rule)
     return {"security_rules": projected_rules}
+
+
+def _decidable_inbound_allow(rule: Mapping[str, Any]) -> bool:
+    """Whether an inbound allow rule uses only values the exact-literal NSG Rules can judge."""
+
+    if str(rule.get("direction", "")).casefold() != "inbound":
+        return True
+    if str(rule.get("access", "")).casefold() != "allow":
+        return True
+    if "destination_port_ranges" in rule or "source_address_prefixes" in rule:
+        return False
+    protocol = rule.get("protocol")
+    port = rule.get("destination_port_range")
+    source = rule.get("source_address_prefix")
+    return (
+        isinstance(protocol, str)
+        and protocol != "*"
+        and isinstance(port, str)
+        and port.isdigit()
+        and isinstance(source, str)
+        and source.casefold() not in _ANY_SOURCE_ALIASES
+    )
 
 
 def _postgresql_server(row: Mapping[str, Any]) -> dict[str, Any]:

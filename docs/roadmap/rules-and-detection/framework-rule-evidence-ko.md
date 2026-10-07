@@ -1,7 +1,7 @@
 ---
 title: T0 기반 프레임워크 규칙 근거
 translation_of: framework-rule-evidence.md
-translation_source_sha: 5bd1a189c5c230fb799b7c2aac360ed2fe7a2620
+translation_source_sha: 5dd1e38abc1fc340da4c15365f767bfde0812ac8
 translation_revised: 2026-10-08
 ---
 # T0 기반 프레임워크 규칙 근거
@@ -303,11 +303,12 @@ WAF `rule` 요구 사항은 컨트롤 수준 교차워크 관계가 `partial`이
   문서화된 ARM 필드 하나에서 투영합니다(`fdai/delivery/azure/arm_rule_properties.py`). 필드가 없으면
   속성도 비워 둡니다. 문서화된 기본값은 ARM 속성이 `false`를 받지 않는 Key Vault 제거 보호 하나뿐입니다.
   전체 수집은 확장 리소스도 제한된 GET으로 읽습니다. 진단 설정(스토리지는 Blob 서비스), Blob 일시 삭제와
-  버전 관리, SQL 투명 데이터 암호화, PostgreSQL 유연한 서버의 `require_secure_transport` 매개 변수,
-  관리 ID 역할 할당과 역할 정의가 대상입니다. 읽기에 실패하면 속성은 관측되지 않은 상태로 남고, 역할
-  할당은 모든 페이지와 정의를 읽은 구독에만 붙습니다. ARM 역할 할당으로는 게스트 사용자와 Just-In-Time
-  자격을 구분할 수 없으므로 구독 게스트와 상시 액세스 규칙은 관측되지 않은 상태로 남으며, Microsoft
-  Graph와 Privileged Identity Management 읽기가 필요합니다.
+  버전 관리, SQL 투명 데이터 암호화, PostgreSQL 유연한 서버의 `require_secure_transport` 매개 변수가
+  대상입니다. 읽기에 실패하면 속성은 관측되지 않은 상태로 남습니다. NSG 규칙은 정확한 리터럴만 비교하므로,
+  모든 인바운드 허용 규칙이 프로토콜 하나, 숫자 포트 하나, 모든 원본 별칭이 아닌 원본 하나를 쓸 때만
+  `security_rules`를 투영합니다. 역할 할당은 관측되지 않은 상태로 남습니다. 한 구독의 할당만으로는 ID나
+  구독의 전체 할당 집합을 증명할 수 없고, 그룹 멤버십, 게스트 사용자 형식, Just-In-Time 자격도 Microsoft
+  Graph와 Privileged Identity Management에서 읽어야 하기 때문입니다.
 - **로컬 측정:** `scripts/deployment/local/run-framework-rule-evidence.py`는 이 경로를 루프백 개발
   데이터베이스에 대해 읽기 전용으로 실행합니다. 로컬 온톨로지에는 배포 소유 `Workload`가 없으므로
   활성 인벤토리 세대 전체를 하나의 estate 범위로 묶습니다. `--re-evaluate`는 현재 활성화가 고정한

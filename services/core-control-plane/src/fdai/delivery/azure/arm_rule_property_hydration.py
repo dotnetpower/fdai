@@ -21,10 +21,6 @@ import httpx
 
 from fdai.delivery.azure.arm_inventory_transport import fetch_arm_json
 from fdai.delivery.azure.arm_inventory_vm_state import ArmInventoryError
-from fdai.delivery.azure.arm_role_assignment_hydration import (
-    RoleAssignmentsUnavailableError,
-    subscription_role_assignments,
-)
 from fdai.delivery.azure.inventory import ResourceQueryResult
 from fdai.shared.providers.inventory import ResourceRecord
 from fdai.shared.providers.workload_identity import WorkloadIdentity
@@ -145,8 +141,7 @@ _READS: Mapping[str, tuple[_ExtensionRead, ...]] = {
     ),
 }
 
-_MANAGED_IDENTITY = "managed-identity"
-HYDRATED_RESOURCE_TYPES = frozenset({*_READS, _MANAGED_IDENTITY})
+HYDRATED_RESOURCE_TYPES = frozenset(_READS)
 
 
 class ArmHydrationConfig(Protocol):
@@ -220,8 +215,6 @@ class ArmRulePropertyHydrator:
         failures = 0
         token = await self._identity.get_token(self._audience)
         headers = {"Authorization": f"Bearer {token.token}", "Accept": "application/json"}
-        if any(item.type == _MANAGED_IDENTITY for item in result.resources):
-            return await self._hydrate_role_assignments(result, headers)
         resources: list[ResourceRecord] = []
         for resource in result.resources:
             plan = self._plan(resource)
@@ -258,76 +251,6 @@ class ArmRulePropertyHydrator:
             )
         return dataclasses.replace(result, resources=tuple(resources))
 
-    async def _hydrate_role_assignments(
-        self,
-        result: ResourceQueryResult,
-        headers: Mapping[str, str],
-    ) -> ResourceQueryResult:
-        """Attach ``role_assignments`` per identity, all or nothing per subscription."""
-
-        reads_left = self._max_reads
-
-        async def read_json(url: str) -> Mapping[str, Any] | None:
-            nonlocal reads_left
-            if reads_left <= 0:
-                raise RoleAssignmentsUnavailableError("role assignment read budget exhausted")
-            reads_left -= 1
-            try:
-                payload, _ = await fetch_arm_json(
-                    client=self._http,
-                    url=url,
-                    headers=headers,
-                    resource_type=_MANAGED_IDENTITY,
-                    timeout_seconds=self._timeout,
-                    max_response_bytes=self._max_response_bytes,
-                    max_attempts=self._max_attempts,
-                )
-            except ArmInventoryError as exc:
-                raise RoleAssignmentsUnavailableError("role assignment read failed") from exc
-            return payload
-
-        by_subscription: dict[str, dict[str, list[dict[str, Any]]] | None] = {}
-        for subscription in sorted(
-            {
-                str(item.props.get("subscriptionId"))
-                for item in result.resources
-                if item.type == _MANAGED_IDENTITY and item.props.get("subscriptionId")
-            }
-        ):
-            try:
-                by_subscription[subscription] = await subscription_role_assignments(
-                    endpoint=self._endpoint,
-                    subscription_id=subscription,
-                    read_json=read_json,
-                )
-            except RoleAssignmentsUnavailableError:
-                by_subscription[subscription] = None
-        unavailable = sum(value is None for value in by_subscription.values())
-        if unavailable:
-            _LOGGER.warning(
-                "arm_role_assignment_hydration_unavailable",
-                extra={"unavailable_subscriptions": unavailable},
-            )
-        resources: list[ResourceRecord] = []
-        for resource in result.resources:
-            assignments = by_subscription.get(str(resource.props.get("subscriptionId")))
-            principal = _principal_id(resource)
-            if (
-                resource.type != _MANAGED_IDENTITY
-                or assignments is None
-                or principal is None
-                or "role_assignments" in resource.props
-            ):
-                resources.append(resource)
-                continue
-            projected = assignments.get(principal, [])
-            resources.append(
-                dataclasses.replace(
-                    resource, props={**resource.props, "role_assignments": projected}
-                )
-            )
-        return dataclasses.replace(result, resources=tuple(resources))
-
     def _plan(self, resource: ResourceRecord) -> tuple[_ExtensionRead, ...]:
         if resource.props.get("_truncated") is True:
             return ()
@@ -341,12 +264,6 @@ class ArmRulePropertyHydrator:
     def _url(self, provider_ref: str, read: _ExtensionRead) -> str:
         encoded = quote(f"{provider_ref}{read.suffix}", safe="/")
         return f"{self._endpoint}{encoded}?api-version={read.api_version}"
-
-
-def _principal_id(resource: ResourceRecord) -> str | None:
-    properties = resource.props.get("properties")
-    principal = properties.get("principalId") if isinstance(properties, Mapping) else None
-    return principal.casefold() if isinstance(principal, str) and principal else None
 
 
 __all__ = [

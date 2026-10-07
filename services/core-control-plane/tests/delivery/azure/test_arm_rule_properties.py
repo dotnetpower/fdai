@@ -88,6 +88,7 @@ def test_nsg_rules_are_projected_completely_or_not_at_all() -> None:
 
     projected = rule_properties("network.nsg", {"properties": {"securityRules": [rdp, ranged]}})
 
+    # The ranged rule is a deny, so its lists cannot hide an exposure.
     assert projected["security_rules"] == [
         {
             "direction": "Inbound",
@@ -111,6 +112,29 @@ def test_nsg_rules_are_projected_completely_or_not_at_all() -> None:
     assert rule_properties("network.nsg", unreadable) == {}
     oversized = {"properties": {"securityRules": [rdp] * (MAX_SECURITY_RULES + 1)}}
     assert rule_properties("network.nsg", oversized) == {}
+
+
+def test_inbound_allow_rules_outside_the_exact_vocabulary_stay_unobserved() -> None:
+    base = {
+        "direction": "Inbound",
+        "access": "Allow",
+        "protocol": "Tcp",
+        "destinationPortRange": "22",
+        "sourceAddressPrefix": "10.0.0.0/8",
+    }
+    exact = rule_properties("network.nsg", {"properties": {"securityRules": [_rule(**base)]}})
+    assert exact["security_rules"][0]["destination_port_range"] == "22"
+    for change in (
+        {"protocol": "*"},
+        {"destinationPortRange": "*"},
+        {"destinationPortRange": "20-25"},
+        {"sourceAddressPrefix": "Internet"},
+        {"sourceAddressPrefix": "0.0.0.0/0"},
+        {"destinationPortRange": None, "destinationPortRanges": ["22", "3389"]},
+        {"sourceAddressPrefix": None, "sourceAddressPrefixes": ["1.2.3.4/32"]},
+    ):
+        rule = _rule(**{**base, **change})
+        assert rule_properties("network.nsg", {"properties": {"securityRules": [rule]}}) == {}
 
 
 def test_identity_and_zones_count_only_when_the_projected_column_is_present() -> None:
