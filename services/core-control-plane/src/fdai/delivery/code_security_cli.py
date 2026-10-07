@@ -74,7 +74,6 @@ from fdai.core.security.code_findings.receipts import (
 from fdai.core.security.code_findings.verifier import verified_confidence, verify_issues
 from fdai.delivery.code_security_acquire import GitSourceAcquirer, SourceAcquisitionError
 from fdai.delivery.code_security_publish_cli import add_publish_command, publish_review
-from fdai.delivery.code_security_registry import FileRemediationPackRegistry
 from fdai.delivery.code_security_review_cli import (
     add_review_commands,
     adjudicate,
@@ -84,6 +83,7 @@ from fdai.delivery.code_security_review_cli import (
 )
 from fdai.delivery.code_security_scan_cli import add_scan_command, run_scan
 from fdai.delivery.code_security_signing import Ed25519PackSigner
+from fdai.delivery.persistence.state_store_code_security_registry import open_pack_registry
 from fdai.delivery.persistence.state_store_code_security_review import (
     CodeSecurityReviewConflictError,
 )
@@ -96,6 +96,7 @@ from fdai.rule_catalog.code_security import (
 from fdai.rule_catalog.code_security_verifiers import load_verifier_catalog
 from fdai.shared.providers.remediation_pack import PackRegistryError
 
+_REGISTRY_HELP = "registry directory, or `state-store` for FDAI_STATE_STORE_DSN"
 _UPLOAD = (
     "Return result/remediation-result.json to your FDAI operator. The operator validates it with "
     "`python -m fdai.delivery.code_security_cli import-result`."
@@ -110,7 +111,7 @@ def _parser() -> argparse.ArgumentParser:
     export.add_argument("--revision", required=True)
     export.add_argument("--repo-alias", required=True)
     export.add_argument("--out", required=True)
-    export.add_argument("--registry", required=True)
+    export.add_argument("--registry", required=True, help=_REGISTRY_HELP)
     export.add_argument("--provider", required=True, help="approved coding-agent provider id")
     export.add_argument(
         "--provider-policy",
@@ -134,7 +135,7 @@ def _parser() -> argparse.ArgumentParser:
     )
     export.add_argument("--work-root", help="private work directory for --verify-repository")
     revoke = sub.add_parser("revoke", help="revoke an exported pack")
-    revoke.add_argument("--registry", required=True)
+    revoke.add_argument("--registry", required=True, help=_REGISTRY_HELP)
     revoke.add_argument("--pack-id", required=True)
     revoke.add_argument("--reason", required=True)
     add_review_commands(sub)
@@ -255,7 +256,7 @@ def _export(args: argparse.Namespace) -> dict[str, object]:
         ),
         signer,
     )
-    registry = FileRemediationPackRegistry(Path(args.registry))
+    registry = open_pack_registry(args.registry)
     asyncio.run(
         registry.record(
             PackRecord(
@@ -306,9 +307,7 @@ def _export(args: argparse.Namespace) -> dict[str, object]:
 
 
 def _revoke(args: argparse.Namespace) -> dict[str, object]:
-    record = asyncio.run(
-        FileRemediationPackRegistry(Path(args.registry)).revoke(args.pack_id, args.reason)
-    )
+    record = asyncio.run(open_pack_registry(args.registry).revoke(args.pack_id, args.reason))
     return {"ok": True, "pack_id": record.pack_id, "revoked": record.revoked}
 
 

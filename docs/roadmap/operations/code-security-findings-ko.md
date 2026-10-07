@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 점검 결과
 translation_of: code-security-findings.md
-translation_source_sha: bf84fffc89b8cdf8854e8c915bc3e6cdfc2bab00
+translation_source_sha: fab82ed5c79177e30a4db86174170840401d2b8b
 translation_revised: 2026-10-07
 ---
 
@@ -247,6 +247,10 @@ FDAI는 내보낼 때 기준 커버리지 증적과 이슈 스냅샷을 팩 기�
   `GET /code-security/reviews`를 제공하고, Console의 **감사·증적 > 코드 보안** 화면은 판단, 우선순위와
   신뢰도별 건수, 노출, 커버리지를 보여 줍니다. 형식이 잘못된 행은 보류된 기록으로 표시되며, 이
   화면에는 승인, 실행, 조치 컨트롤이 없습니다.
+- **팩 레지스트리:** `--registry state-store`는 팩 기록, 폐기, 반출 시점 기준선, 추가 전용 검토
+  기록을 로컬 디렉터리 대신 상태 저장소에 보관합니다. 리비전 비교 후 설정 방식을 사용하므로 동시에
+  들어온 검토가 사라지지 않습니다. `GET /code-security/packs`는 팩마다 상태, 이슈 수, 최신 수정 검증
+  판정 건수, 인정된 오탐을 보여 줍니다. 기준선, 위치, 판단 근거 문구, 승인 참조는 표시하지 않습니다.
 - **설치:** 이 경로는 FDAI의 세 가지 설치 경로에 어떤 검사도 추가하지 않습니다.
 
 ## 라이선스

@@ -43,7 +43,7 @@ const PANEL_SOURCE_ROUTES: Readonly<Record<string, readonly string[]>> = {
   "browser-evidence": ["/browser-evidence"],
   "forecast-learning": ["/forecast-learning"],
   "assurance-twin": ["/assurance-twin/posture", "/assurance-twin/reviews"],
-  "code-security": ["/code-security/reviews"],
+  "code-security": ["/code-security/reviews", "/code-security/packs"],
   reports: ["/reports", "/reports/registry"],
   "conversation-search": ["/me/conversations/search"],
   "conversation-assurance": ["/conversation-assurance"],

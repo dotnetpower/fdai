@@ -35,9 +35,11 @@ from fdai.core.security.code_findings.receipts import (
 )
 from fdai.core.security.code_findings.result_import import ImportedRemediationResult
 from fdai.core.security.code_findings.verification import verify_fix_claims
-from fdai.delivery.code_security_registry import FileRemediationPackRegistry
+from fdai.delivery.persistence.state_store_code_security_registry import open_pack_registry
 from fdai.rule_catalog.code_security import load_code_security_catalog
-from fdai.shared.providers.remediation_pack import PackRegistryError
+from fdai.shared.providers.remediation_pack import PackRegistryError, RemediationPackRegistry
+
+_REGISTRY_HELP = "registry directory, or `state-store` for FDAI_STATE_STORE_DSN"
 
 
 def pairs(values: list[str]) -> dict[str, str]:
@@ -53,10 +55,10 @@ def pairs(values: list[str]) -> dict[str, str]:
 
 def add_review_commands(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
     result = sub.add_parser("import-result", help="validate a returned remediation result")
-    result.add_argument("--registry", required=True)
+    result.add_argument("--registry", required=True, help=_REGISTRY_HELP)
     result.add_argument("--result", required=True)
     verify = sub.add_parser("verify-fixes", help="verify fix claims with an equivalent rescan")
-    verify.add_argument("--registry", required=True)
+    verify.add_argument("--registry", required=True, help=_REGISTRY_HELP)
     verify.add_argument("--result", required=True)
     verify.add_argument("--rescan-sarif", action="append", required=True, help="FILE:LANE")
     verify.add_argument("--rescan-revision", required=True)
@@ -66,7 +68,7 @@ def add_review_commands(sub: argparse._SubParsersAction[argparse.ArgumentParser]
     verify.add_argument("--source-root", action="append", default=[])
     verify.add_argument("--catalog-root", required=True)
     adjudicate = sub.add_parser("adjudicate", help="decide a false-positive claim")
-    adjudicate.add_argument("--registry", required=True)
+    adjudicate.add_argument("--registry", required=True, help=_REGISTRY_HELP)
     adjudicate.add_argument("--result", required=True)
     adjudicate.add_argument("--issue", required=True)
     adjudicate.add_argument(
@@ -79,7 +81,7 @@ def add_review_commands(sub: argparse._SubParsersAction[argparse.ArgumentParser]
     adjudicate.add_argument("--single-operator", action="store_true")
 
 
-def _imported(registry: FileRemediationPackRegistry, result_path: str) -> ImportedRemediationResult:
+def _imported(registry: RemediationPackRegistry, result_path: str) -> ImportedRemediationResult:
     raw = Path(result_path).read_bytes()
     try:
         pack_id = str(json.loads(raw)["pack_id"])
@@ -92,7 +94,7 @@ def _imported(registry: FileRemediationPackRegistry, result_path: str) -> Import
 
 
 def import_result(args: argparse.Namespace) -> dict[str, object]:
-    imported = _imported(FileRemediationPackRegistry(Path(args.registry)), args.result)
+    imported = _imported(open_pack_registry(args.registry), args.result)
     return {
         "ok": True,
         "pack_id": imported.pack_id,
@@ -111,7 +113,7 @@ def import_result(args: argparse.Namespace) -> dict[str, object]:
 
 
 def verify_fixes(args: argparse.Namespace) -> dict[str, object]:
-    registry = FileRemediationPackRegistry(Path(args.registry))
+    registry = open_pack_registry(args.registry)
     imported = _imported(registry, args.result)
     baseline = asyncio.run(registry.get_baseline(imported.pack_id))
     if baseline is None:
@@ -171,7 +173,7 @@ def verify_fixes(args: argparse.Namespace) -> dict[str, object]:
 
 
 def adjudicate(args: argparse.Namespace) -> dict[str, object]:
-    registry = FileRemediationPackRegistry(Path(args.registry))
+    registry = open_pack_registry(args.registry)
     imported = _imported(registry, args.result)
     claim = next((c for c in imported.claims if c.issue_id == args.issue), None)
     if claim is None:

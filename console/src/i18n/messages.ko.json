@@ -1048,8 +1048,28 @@
     },
     "gap": {
       "code_security_review_malformed": "저장된 검토 형식이 잘못되어 보류했습니다.",
-      "code_security_review_truncated": "이 화면에 표시된 것보다 많은 검토가 있습니다."
-    }
+      "code_security_review_truncated": "이 화면에 표시된 것보다 많은 검토가 있습니다.",
+      "code_security_pack_malformed": "저장된 조치 팩 형식이 잘못되어 보류했습니다."
+    },
+    "packsTitle": "조치 팩",
+    "packsEmpty": "상태 저장소에 기록된 조치 팩이 아직 없습니다.",
+    "packsWithheld": "보류된 팩 기록",
+    "packColumn": {
+      "pack": "팩",
+      "base": "기준 리비전",
+      "issues": "이슈",
+      "state": "상태",
+      "fixedVerified": "수정 확인됨",
+      "stillPresent": "여전히 존재",
+      "inconclusive": "판단 불가",
+      "falsePositives": "오탐 인정"
+    },
+    "packState": {
+      "active": "활성",
+      "revoked": "폐기됨",
+      "expired": "만료됨"
+    },
+    "noVerification": "검증 전"
   },
   "workflowApps": {
     "subtitle": "게시된 읽기 전용 워크플로우 화면입니다. 앱은 통제된 Process 저널과 ViewSpec을 재사용하며 동작 버튼이나 원격 코드를 추가하지 않습니다.",

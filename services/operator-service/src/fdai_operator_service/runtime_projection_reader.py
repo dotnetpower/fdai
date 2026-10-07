@@ -34,7 +34,9 @@ from fdai_operator_service.autonomy_measurement_projection import (
     validate_autonomy_measurement,
 )
 from fdai_operator_service.code_security_review_projection import (
+    CODE_SECURITY_PACK_STATE_PREFIX,
     CODE_SECURITY_REVIEW_STATE_PREFIX,
+    code_security_packs_projection,
     code_security_reviews_projection,
 )
 from fdai_operator_service.dashboard_aggregation import aggregate_dashboard
@@ -120,6 +122,8 @@ class RuntimeProjectionReader:
             return await self._assurance_twin_review_detail(query)
         if query.operation == "code_security.reviews":
             return await self._code_security_reviews()
+        if query.operation == "code_security.packs":
+            return await self._code_security_packs()
         return await self.fallback.read(query)
 
     async def _process_list(self, query: ProjectionQuery) -> Mapping[str, object]:
@@ -794,6 +798,13 @@ class RuntimeProjectionReader:
                 "failed_attempts": 0,
             },
         }
+
+    async def _code_security_packs(self) -> Mapping[str, object]:
+        rows = await self._fetch_all(
+            "SELECT key, value FROM state_kv WHERE key LIKE %s ORDER BY updated_at DESC LIMIT 201",
+            (f"{CODE_SECURITY_PACK_STATE_PREFIX}%",),
+        )
+        return code_security_packs_projection(rows)
 
     async def _code_security_reviews(self) -> Mapping[str, object]:
         rows = await self._fetch_all(

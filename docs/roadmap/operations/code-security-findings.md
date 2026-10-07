@@ -256,6 +256,11 @@ review log.
   **Evidence > Code security** route shows decisions, counts by priority and confidence,
   exposure, and coverage. Malformed rows appear as withheld records, and the view offers no
   approval, execution, or remediation control.
+- **Pack registry:** `--registry state-store` keeps pack records, revocation, the export baseline,
+  and the append-only review log in the state store instead of a local directory, with
+  revision compare-and-set so concurrent reviews are never lost. `GET /code-security/packs`
+  shows each pack's state, issue count, latest fix-verification verdict counts, and accepted false
+  positives. It never shows baselines, locations, rationale, or approval references.
 - **Installation:** this path adds no gate to the three FDAI installation paths.
 
 ## Licensing

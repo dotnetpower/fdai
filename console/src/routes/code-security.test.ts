@@ -5,10 +5,49 @@ import { parseConsoleRoute } from "../router";
 import { panelSourceClassification } from "../panel-sources";
 import {
   buildCodeSecurityViewSnapshot,
+  decodeCodeSecurityPacks,
   decodeCodeSecurityReviews,
   latestPerRepository,
   loadCodeSecurityState,
+  packState,
 } from "./code-security";
+
+function packEnvelope(packs: unknown[], gaps: unknown[] = []): Record<string, unknown> {
+  return {
+    surface: "code-security-packs",
+    available: packs.length > 0,
+    complete: gaps.length === 0,
+    source: "postgresql:state_kv:code-security-pack",
+    packs,
+    gaps,
+  };
+}
+
+function pack(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    pack_id: "0123456789ab",
+    base_commit: "a".repeat(40),
+    issue_count: 2,
+    recorded_at: "2026-10-07T00:00:00+00:00",
+    expires_at: "2099-10-14T00:00:00+00:00",
+    revoked: false,
+    latest_verification: {
+      rescan_revision: "b".repeat(40),
+      recorded_at: "2026-10-08T00:00:00+00:00",
+      verdicts: { fixed_verified: 1, still_present: 1, inconclusive: 0, not_applicable: 0 },
+    },
+    adjudications: [
+      {
+        issue_id: "FDAI-SEC-ba9876543210",
+        decision: "accepted",
+        issue_disposition: "false_positive",
+        adjudicator: "lead@example.com",
+        decided_at: "2026-10-08T01:00:00+00:00",
+      },
+    ],
+    ...overrides,
+  };
+}
 
 function review(overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
@@ -62,7 +101,7 @@ describe("code-security route", () => {
       ["example-service", "clear"],
       ["other-service", "coverage_incomplete"],
     ]);
-    const snapshot = buildCodeSecurityViewSnapshot(data);
+    const snapshot = buildCodeSecurityViewSnapshot({ reviews: data, packs: decodeCodeSecurityPacks(packEnvelope([])) });
     expect(snapshot.routeId).toBe("code-security");
     expect(snapshot.facts.find((fact) => fact.key === "urgent_count")?.value).toBe(0);
   });
@@ -74,12 +113,15 @@ describe("code-security route", () => {
   });
 
   it("reports withheld rows as gaps", async () => {
-    const state = await loadCodeSecurityState(client(async () =>
-      envelope([], [{ reason_code: "code_security_review_malformed" }])));
+    const state = await loadCodeSecurityState(client(async (path) =>
+      path === "/code-security/packs"
+        ? packEnvelope([], [{ reason_code: "code_security_pack_malformed" }])
+        : envelope([], [{ reason_code: "code_security_review_malformed" }])));
     expect(state.status).toBe("ready");
     if (state.status === "ready") {
-      expect(state.data.available).toBe(false);
-      expect(state.data.gaps).toEqual(["code_security_review_malformed"]);
+      expect(state.data.reviews.available).toBe(false);
+      expect(state.data.reviews.gaps).toEqual(["code_security_review_malformed"]);
+      expect(state.data.packs.gaps).toEqual(["code_security_pack_malformed"]);
     }
   });
 
@@ -88,5 +130,18 @@ describe("code-security route", () => {
       throw new OperatorApiError(503, "unavailable", "projection-unavailable");
     }));
     expect(state.status).toBe("unavailable");
+  });
+
+  it("decodes packs with verdict counts, adjudications, and lifecycle state", () => {
+    const data = decodeCodeSecurityPacks(packEnvelope([
+      pack(),
+      pack({ pack_id: "ba9876543210", revoked: true, latest_verification: null, adjudications: [] }),
+      pack({ pack_id: "aaaaaaaaaaaa", expires_at: "2020-01-01T00:00:00+00:00" }),
+    ]));
+    const now = new Date("2026-10-09T00:00:00Z");
+    expect(data.packs.map((item) => packState(item, now))).toEqual(["active", "revoked", "expired"]);
+    expect(data.packs[0]?.latest_verification?.verdicts.fixed_verified).toBe(1);
+    expect(data.packs[1]?.latest_verification).toBeNull();
+    expect(() => decodeCodeSecurityPacks(packEnvelope([pack({ adjudications: [{ decision: "maybe" }] })]))).toThrow();
   });
 });

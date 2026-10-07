@@ -6,7 +6,9 @@ from typing import Any
 
 from fdai_operator_service.code_security_review_projection import (
     GAP_MALFORMED,
+    GAP_PACK_MALFORMED,
     GAP_TRUNCATED,
+    code_security_packs_projection,
     code_security_reviews_projection,
 )
 from fdai_operator_service.families.operations import ProjectionQuery
@@ -140,3 +142,83 @@ async def test_reader_serves_code_security_reviews_from_state_kv(monkeypatch: An
     assert statements[0][1] == ("runtime:code-security-review:%",)
     assert "LIMIT 201" in statements[0][0]
     assert result["available"] is True
+
+
+def _pack_row(**overrides: object) -> dict[str, Any]:
+    value: dict[str, object] = {
+        "pack_id": "0123456789ab",
+        "manifest_sha256": "1" * 64,
+        "base_commit": _REVISION,
+        "issue_ids": ["FDAI-SEC-0123456789ab", "FDAI-SEC-ba9876543210"],
+        "expires_at": "2026-10-14T00:00:00+00:00",
+        "revoked": False,
+        "recorded_at": "2026-10-07T00:00:00+00:00",
+        "revision": 3,
+        "reviews": [
+            {
+                "kind": "fix_verification",
+                "rescan_revision": "b" * 40,
+                "recorded_at": "2026-10-08T00:00:00+00:00",
+                "verdicts": [
+                    {
+                        "issue_id": "FDAI-SEC-0123456789ab",
+                        "claim": "fixed_claimed",
+                        "verdict": "fixed_verified",
+                        "reasons": [],
+                    },
+                    {
+                        "issue_id": "FDAI-SEC-ba9876543210",
+                        "claim": "fixed_claimed",
+                        "verdict": "still_present",
+                        "reasons": ["rescan still reports the root cause"],
+                    },
+                ],
+            },
+            {
+                "kind": "false_positive_adjudication",
+                "issue_id": "FDAI-SEC-ba9876543210",
+                "decision": "accepted",
+                "issue_disposition": "false_positive",
+                "claimant": "dev@example.com",
+                "adjudicator": "lead@example.com",
+                "approval_ref": "APPROVAL-1",
+                "rationale": "free text that must not reach the Console",
+                "single_operator_profile": False,
+                "decided_at": "2026-10-08T01:00:00+00:00",
+                "recorded_at": "2026-10-08T01:00:00+00:00",
+            },
+        ],
+    }
+    value.update(overrides)
+    return {"key": f"runtime:code-security-pack:{value['pack_id']}", "value": value}
+
+
+def test_pack_projection_summarizes_verdicts_and_adjudications_without_free_text() -> None:
+    result = code_security_packs_projection([_pack_row()])
+    assert result["available"] is True and result["complete"] is True
+    (pack,) = result["packs"]  # type: ignore[misc]
+    assert pack["issue_count"] == 2
+    assert pack["latest_verification"]["verdicts"] == {
+        "fixed_verified": 1,
+        "still_present": 1,
+        "inconclusive": 0,
+        "not_applicable": 0,
+    }
+    (adjudication,) = pack["adjudications"]
+    assert adjudication["issue_disposition"] == "false_positive"
+    rendered = repr(result)
+    assert "free text" not in rendered and "rescan still reports" not in rendered
+    assert "manifest_sha256" not in rendered and "approval_ref" not in rendered
+
+
+def test_malformed_pack_rows_become_gaps() -> None:
+    rows = [
+        _pack_row(pack_id="../escape"),
+        _pack_row(revoked="no"),
+        _pack_row(reviews=[{"kind": "unknown"}]),
+        _pack_row(reviews=[{"kind": "fix_verification", "verdicts": [{"verdict": "fixed"}]}]),
+        {"key": "runtime:code-security-pack:ffffffffffff", "value": _pack_row()["value"]},
+    ]
+    result = code_security_packs_projection(rows)
+    assert result["packs"] == [] and result["available"] is False
+    assert [gap["reason_code"] for gap in result["gaps"]] == [GAP_PACK_MALFORMED] * len(rows)  # type: ignore[union-attr]

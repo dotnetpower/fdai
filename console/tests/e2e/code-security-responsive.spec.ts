@@ -32,7 +32,7 @@ async function mockApi(page: Page): Promise<void> {
             {
               key: "operational-state",
               source: "postgresql",
-              routes: ["/code-security/reviews"],
+              routes: ["/code-security/reviews", "/code-security/packs"],
               availability: "available",
               configured: true,
               reachable: true,
@@ -68,6 +68,34 @@ async function mockApi(page: Page): Promise<void> {
       });
       return;
     }
+    if (path === "/code-security/packs") {
+      await route.fulfill({
+        json: {
+          surface: "code-security-packs",
+          available: true,
+          complete: true,
+          source: "postgresql:state_kv:code-security-pack",
+          packs: [
+            {
+              pack_id: "fedcba987654",
+              base_commit: revision,
+              issue_count: 12,
+              recorded_at: "2026-10-07T08:00:00+00:00",
+              expires_at: "2099-10-14T08:00:00+00:00",
+              revoked: false,
+              latest_verification: {
+                rescan_revision: revision,
+                recorded_at: "2026-10-08T08:00:00+00:00",
+                verdicts: { fixed_verified: 9, still_present: 2, inconclusive: 1, not_applicable: 0 },
+              },
+              adjudications: [],
+            },
+          ],
+          gaps: [],
+        },
+      });
+      return;
+    }
     await route.fulfill({ status: 503, json: { detail: "unavailable" } });
   };
   await page.route("**/api/**", handleApi);
@@ -89,6 +117,8 @@ for (const viewport of [
     await expect(page.getByText("payments-api-with-a-deliberately-long-repository-alias")).toBeVisible();
     await expect(page.getByText("Coverage incomplete").first()).toBeVisible();
     await expect(page.getByText("Withheld review records")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Remediation packs" })).toBeVisible();
+    await expect(page.getByText("fedcba987654", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: /approve|execute|fix/i })).toHaveCount(0);
 
     const geometry = await page.evaluate(() => {

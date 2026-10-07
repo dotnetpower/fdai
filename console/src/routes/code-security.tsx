@@ -33,7 +33,14 @@ const SEVERITIES = ["critical", "high", "medium", "low", "undetermined"] as cons
 const CONFIDENCES = ["hypothesis", "reported", "corroborated", "verified", "proven"] as const;
 const EXPOSURES = ["exposed", "internal", "not_deployed", "unknown"] as const;
 const DECISIONS = ["urgent", "open", "clear", "coverage_incomplete"] as const;
-const GAPS = ["code_security_review_malformed", "code_security_review_truncated"] as const;
+const GAPS = [
+  "code_security_review_malformed",
+  "code_security_review_truncated",
+  "code_security_pack_malformed",
+] as const;
+const VERDICTS = ["fixed_verified", "still_present", "inconclusive", "not_applicable"] as const;
+const ADJUDICATION_DECISIONS = ["accepted", "rejected"] as const;
+const DISPOSITIONS = ["false_positive", "open"] as const;
 
 type Exposure = (typeof EXPOSURES)[number];
 type Decision = (typeof DECISIONS)[number];
@@ -61,6 +68,41 @@ export interface CodeSecurityReviewsResponse {
   readonly complete: boolean;
   readonly reviews: readonly CodeSecurityReview[];
   readonly gaps: readonly Gap[];
+}
+
+export interface CodeSecurityPackAdjudication {
+  readonly issue_id: string;
+  readonly decision: (typeof ADJUDICATION_DECISIONS)[number];
+  readonly issue_disposition: (typeof DISPOSITIONS)[number];
+  readonly adjudicator: string;
+  readonly decided_at: string;
+}
+
+export interface CodeSecurityPack {
+  readonly pack_id: string;
+  readonly base_commit: string;
+  readonly issue_count: number;
+  readonly recorded_at: string;
+  readonly expires_at: string;
+  readonly revoked: boolean;
+  readonly latest_verification: {
+    readonly rescan_revision: string;
+    readonly recorded_at: string;
+    readonly verdicts: Counts<(typeof VERDICTS)[number]>;
+  } | null;
+  readonly adjudications: readonly CodeSecurityPackAdjudication[];
+}
+
+export interface CodeSecurityPacksResponse {
+  readonly available: boolean;
+  readonly complete: boolean;
+  readonly packs: readonly CodeSecurityPack[];
+  readonly gaps: readonly Gap[];
+}
+
+export interface CodeSecurityState {
+  readonly reviews: CodeSecurityReviewsResponse;
+  readonly packs: CodeSecurityPacksResponse;
 }
 
 function oneOf<T extends string>(value: unknown, allowed: readonly T[], label: string): T {
@@ -105,13 +147,62 @@ export function decodeCodeSecurityReviews(payload: unknown): CodeSecurityReviews
     available: panelBoolean(root, "available", "code-security reviews"),
     complete: panelBoolean(root, "complete", "code-security reviews"),
     reviews: panelArray(root.reviews, "code-security reviews.reviews").map(decodeReview),
-    gaps: panelArray(root.gaps, "code-security reviews.gaps").map((gap, index) =>
-      oneOf(
-        panelRecord(gap, `code-security gap ${index}`).reason_code,
-        GAPS,
-        `code-security gap ${index}.reason_code`,
-      )),
+    gaps: decodeGaps(root.gaps, "code-security reviews"),
   };
+}
+
+function decodePack(value: unknown, index: number): CodeSecurityPack {
+  const label = `code-security pack ${index}`;
+  const row = panelRecord(value, label);
+  const verification = row.latest_verification;
+  let latest: CodeSecurityPack["latest_verification"] = null;
+  if (verification !== null) {
+    const record = panelRecord(verification, `${label}.latest_verification`);
+    latest = {
+      rescan_revision: panelNonEmptyString(record, "rescan_revision", label),
+      recorded_at: panelNonEmptyString(record, "recorded_at", label),
+      verdicts: counts(record.verdicts, VERDICTS, `${label}.verdicts`),
+    };
+  }
+  return {
+    pack_id: panelNonEmptyString(row, "pack_id", label),
+    base_commit: panelNonEmptyString(row, "base_commit", label),
+    issue_count: panelNonNegativeInteger(row, "issue_count", label),
+    recorded_at: panelNonEmptyString(row, "recorded_at", label),
+    expires_at: panelNonEmptyString(row, "expires_at", label),
+    revoked: panelBoolean(row, "revoked", label),
+    latest_verification: latest,
+    adjudications: panelArray(row.adjudications, `${label}.adjudications`).map((item, position) => {
+      const entry = panelRecord(item, `${label}.adjudications.${position}`);
+      return {
+        issue_id: panelNonEmptyString(entry, "issue_id", label),
+        decision: oneOf(entry.decision, ADJUDICATION_DECISIONS, `${label}.decision`),
+        issue_disposition: oneOf(entry.issue_disposition, DISPOSITIONS, `${label}.issue_disposition`),
+        adjudicator: panelNonEmptyString(entry, "adjudicator", label),
+        decided_at: panelNonEmptyString(entry, "decided_at", label),
+      };
+    }),
+  };
+}
+
+function decodeGaps(value: unknown, label: string): readonly Gap[] {
+  return panelArray(value, `${label}.gaps`).map((gap, index) =>
+    oneOf(panelRecord(gap, `${label} gap ${index}`).reason_code, GAPS, `${label} gap ${index}.reason_code`));
+}
+
+export function decodeCodeSecurityPacks(payload: unknown): CodeSecurityPacksResponse {
+  const root = panelRecord(payload, "code-security packs");
+  return {
+    available: panelBoolean(root, "available", "code-security packs"),
+    complete: panelBoolean(root, "complete", "code-security packs"),
+    packs: panelArray(root.packs, "code-security packs.packs").map(decodePack),
+    gaps: decodeGaps(root.gaps, "code-security packs"),
+  };
+}
+
+export function packState(pack: CodeSecurityPack, now: Date): "active" | "revoked" | "expired" {
+  if (pack.revoked) return "revoked";
+  return new Date(pack.expires_at).getTime() < now.getTime() ? "expired" : "active";
 }
 
 /** The newest review per repository; rows arrive newest first. */
@@ -132,7 +223,8 @@ function decisionKind(decision: Decision): PillKind {
   return "success";
 }
 
-export function buildCodeSecurityViewSnapshot(data: CodeSecurityReviewsResponse): ViewSnapshot {
+export function buildCodeSecurityViewSnapshot(state: CodeSecurityState): ViewSnapshot {
+  const data = state.reviews;
   const latest = latestPerRepository(data.reviews);
   return {
     routeId: "code-security",
@@ -147,6 +239,7 @@ export function buildCodeSecurityViewSnapshot(data: CodeSecurityReviewsResponse)
     capturedAt: new Date().toISOString(),
     facts: [
       { key: "review_count", label: t("codeSecurity.kpi.reviews"), value: data.reviews.length },
+      { key: "pack_count", label: t("codeSecurity.packsTitle"), value: state.packs.packs.length },
       {
         key: "urgent_count",
         label: t("codeSecurity.kpi.urgent"),
@@ -161,12 +254,98 @@ export function buildCodeSecurityViewSnapshot(data: CodeSecurityReviewsResponse)
         issue_count: review.issue_count,
         recorded_at: review.recorded_at,
       })),
+      packs: state.packs.packs.map((pack) => ({
+        pack_id: pack.pack_id,
+        revoked: pack.revoked,
+        issue_count: pack.issue_count,
+        fixed_verified: pack.latest_verification?.verdicts.fixed_verified ?? null,
+      })),
     },
   };
 }
 
-function CodeSecurityBody({ data }: { readonly data: CodeSecurityReviewsResponse }) {
-  usePublishViewContext(() => buildCodeSecurityViewSnapshot(data), [data]);
+function verdictCount(pack: CodeSecurityPack, verdict: (typeof VERDICTS)[number]) {
+  return pack.latest_verification === null ? "-" : pack.latest_verification.verdicts[verdict];
+}
+
+function PacksSection({ data }: { readonly data: CodeSecurityPacksResponse }) {
+  const now = new Date();
+  const columns: readonly Column<CodeSecurityPack>[] = [
+    { key: "pack", header: t("codeSecurity.packColumn.pack"), render: (row) => <span class="mono">{row.pack_id}</span> },
+    {
+      key: "base",
+      header: t("codeSecurity.packColumn.base"),
+      render: (row) => (
+        <Tooltip content={row.base_commit}>
+          <span class="mono">{row.base_commit.slice(0, 12)}</span>
+        </Tooltip>
+      ),
+    },
+    { key: "issues", header: t("codeSecurity.packColumn.issues"), render: (row) => row.issue_count, cellClass: "num" },
+    {
+      key: "state",
+      header: t("codeSecurity.packColumn.state"),
+      render: (row) => {
+        const state = packState(row, now);
+        return (
+          <StatusPill
+            kind={state === "active" ? "info" : "neutral"}
+            label={t(`codeSecurity.packState.${state}`)}
+          />
+        );
+      },
+    },
+    {
+      key: "fixed",
+      header: t("codeSecurity.packColumn.fixedVerified"),
+      render: (row) => verdictCount(row, "fixed_verified"),
+      cellClass: "num",
+    },
+    {
+      key: "present",
+      header: t("codeSecurity.packColumn.stillPresent"),
+      render: (row) => verdictCount(row, "still_present"),
+      cellClass: "num",
+    },
+    {
+      key: "inconclusive",
+      header: t("codeSecurity.packColumn.inconclusive"),
+      render: (row) => verdictCount(row, "inconclusive"),
+      cellClass: "num",
+    },
+    {
+      key: "false-positives",
+      header: t("codeSecurity.packColumn.falsePositives"),
+      render: (row) => row.adjudications.filter((item) => item.issue_disposition === "false_positive").length,
+      cellClass: "num",
+    },
+  ];
+  return (
+    <section class="stack" aria-labelledby="code-security-packs">
+      <h2 id="code-security-packs">{t("codeSecurity.packsTitle")}</h2>
+      <DataTable
+        columns={columns}
+        rows={data.packs}
+        keyOf={(row) => row.pack_id}
+        empty={t("codeSecurity.packsEmpty")}
+      />
+      {data.gaps.length > 0
+        ? (
+          <div class="assurance-twin-gaps" role="status">
+            <strong>{t("codeSecurity.packsWithheld")}</strong>
+            <ul>
+              {data.gaps.map((gap, index) => <li key={`${gap}:${index}`}>{t(`codeSecurity.gap.${gap}`)}</li>)}
+            </ul>
+          </div>
+        )
+        : null}
+    </section>
+  );
+}
+
+function CodeSecurityBody({ state }: { readonly state: CodeSecurityState }) {
+  usePublishViewContext(() => buildCodeSecurityViewSnapshot(state), [state]);
+  const data = state.reviews;
   const href = routeHref("code-security");
   const latest = latestPerRepository(data.reviews);
   const columns: readonly Column<CodeSecurityReview>[] = [
@@ -258,16 +437,23 @@ function CodeSecurityBody({ data }: { readonly data: CodeSecurityReviewsResponse
           </div>
         )
         : null}
+      <PacksSection data={state.packs} />
     </div>
   );
 }
 
 export async function loadCodeSecurityState(
   client: Pick<OperatorApiClient, "panel">,
-): Promise<AsyncState<CodeSecurityReviewsResponse>> {
+): Promise<AsyncState<CodeSecurityState>> {
   try {
-    const payload = await client.panel<unknown>("/code-security/reviews");
-    return { status: "ready", data: decodeCodeSecurityReviews(payload) };
+    const [reviews, packs] = await Promise.all([
+      client.panel<unknown>("/code-security/reviews"),
+      client.panel<unknown>("/code-security/packs"),
+    ]);
+    return {
+      status: "ready",
+      data: { reviews: decodeCodeSecurityReviews(reviews), packs: decodeCodeSecurityPacks(packs) },
+    };
   } catch (error) {
     if (isOptionalOperatorApiUnavailable(error)) {
       return { status: "unavailable", message: t("codeSecurity.unavailable") };
@@ -277,7 +463,7 @@ export async function loadCodeSecurityState(
 }
 
 export function CodeSecurityRoute({ client }: { readonly client: OperatorApiClient }) {
-  const [state, setState] = useState<AsyncState<CodeSecurityReviewsResponse>>({ status: "loading" });
+  const [state, setState] = useState<AsyncState<CodeSecurityState>>({ status: "loading" });
   useEffect(() => {
     let cancelled = false;
     void loadCodeSecurityState(client).then((next) => {
@@ -289,7 +475,7 @@ export function CodeSecurityRoute({ client }: { readonly client: OperatorApiClie
     <div class="stack evidence-route">
       <PageHeader title={t("route.codeSecurity")} subtitle={t("codeSecurity.subtitle")} />
       <AsyncBoundary state={state} resourceLabel={t("codeSecurity.resourceLabel")}>
-        {(data) => <CodeSecurityBody data={data} />}
+        {(data) => <CodeSecurityBody state={data} />}
       </AsyncBoundary>
     </div>
   );

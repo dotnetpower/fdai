@@ -1048,8 +1048,28 @@
     },
     "gap": {
       "code_security_review_malformed": "A stored review is malformed and was withheld.",
-      "code_security_review_truncated": "More reviews exist than this view shows."
-    }
+      "code_security_review_truncated": "More reviews exist than this view shows.",
+      "code_security_pack_malformed": "A stored remediation pack is malformed and was withheld."
+    },
+    "packsTitle": "Remediation packs",
+    "packsEmpty": "No remediation pack has been recorded in the state store yet.",
+    "packsWithheld": "Withheld pack records",
+    "packColumn": {
+      "pack": "Pack",
+      "base": "Base revision",
+      "issues": "Issues",
+      "state": "State",
+      "fixedVerified": "Fixed (verified)",
+      "stillPresent": "Still present",
+      "inconclusive": "Inconclusive",
+      "falsePositives": "False positives accepted"
+    },
+    "packState": {
+      "active": "Active",
+      "revoked": "Revoked",
+      "expired": "Expired"
+    },
+    "noVerification": "Not verified"
   },
   "workflowApps": {
     "subtitle": "Published, read-only workflow surfaces. Apps reuse governed Process journals and ViewSpecs; they never add action buttons or remote code.",
