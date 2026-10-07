@@ -284,8 +284,12 @@ harness reports:
 - dedup pairwise precision and recall with false-merge and false-split pairs;
 - issue-level detection precision and recall at the expected fix site;
 - reviewer-band containment in the floor-to-ceiling range before facts, then exact agreement and
-  quadratic-weighted kappa after the labeled facts are supplied;
+  quadratic-weighted kappa over every issue whose severity is determined, either by the labeled
+  facts or already without them, as with a dependency advisory score;
 - rerun stability, and rescan matching after every code line shifts.
+
+Each case has a kind, `code` or `dependency`, and the receipt repeats every metric per kind and
+split so code issues and dependencies are measured separately.
 
 The corpus declares acceptance floors, and the command fails below any of them. The upstream
 corpus, `rule-catalog/code-security/evaluation/synthetic-corpus.yaml`, is synthetic and labeled by
@@ -297,6 +301,14 @@ they report the package. The reviewer band is the GitHub Advisory Database's rev
 an independent label, and cases are split into `dev` and `holdout`. It found a real defect:
 producers that spell one PyPI package differently produced duplicate issues until package
 identity followed the ecosystem rules above.
+
+Its code cases come from 16 reviewed advisories, two for each of eight injection-family CWEs,
+selected mechanically by GHSA id. Each case models two SAST lanes at the first line the single fix
+commit removed, and its facts map mechanically from the advisory's CVSS v3 vector. The code cases
+found that the cross-site scripting impact range was too narrow: a critical stored script fell
+outside the claimed range, so the class now reaches `data_write`. They also measure how closely
+the fact rubric agrees with independent labels. The rubric has no attack-complexity fact, so it
+can rate an issue one band above the advisory.
 
 ## Verification
 

@@ -9,7 +9,7 @@
 # Guidance text is FDAI-authored.
 schema_version: 1
 catalog_id: fdai.code-security.weakness-classes
-version: 1.1.0
+version: 1.2.0
 classes:
   sql_injection:
     title: SQL or query injection
@@ -64,7 +64,9 @@ classes:
   cross_site_scripting:
     title: Cross-site scripting
     cwe: [79, 80, 83]
-    impact_range: [info_disclosure]
+    # Stored script that runs with a victim's session can act as that victim, so the range reaches
+    # data_write (critical when unauthenticated and without interaction).
+    impact_range: [info_disclosure, data_write]
     fix_class: local_code_fix
     autofix_eligibility: assisted
     max_depth: D3

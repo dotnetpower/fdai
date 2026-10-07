@@ -42,6 +42,15 @@ app.get("/files", (req, res) => {
   fs.readFile("/srv/files/" + req.params.name, (err, data) => res.send(data));
   // ok: fdai.verify.js.path-traversal
   fs.readFile("/srv/files/" + path.basename(req.params.name), (err, data) => res.send(data));
+  const name = req.query.file || "";
+  const full = path.join("/srv/files", name);
+  // ruleid: fdai.verify.js.path-traversal
+  fs.readFile(full, (err, data) => res.send(data));
+  const user = sessions.get(req.cookies.token);
+  // ok: fdai.verify.js.path-traversal
+  fs.writeFile(`/srv/avatars/${user.id}.png`, req.body.image, () => res.end());
+  // ruleid: fdai.verify.js.path-traversal
+  fs.unlink(`/srv/avatars/${req.get("x-name")}${req.query.ext}`, () => res.end());
 });
 
 function offline(config) {

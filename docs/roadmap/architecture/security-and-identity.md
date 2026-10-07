@@ -177,11 +177,17 @@ approved grant, and fresh effective-access evidence is required before the actio
   [Code Security Findings](../operations/code-security-findings.md#remediation-pack).
 - **Code-security LLM lens**: the optional lens lane sends bounded source excerpts to configured
   model deployments, so the same residency and no-retention terms apply. Its output is untrusted;
-  only grounded, quorum-agreed candidates become inert hypotheses.
+  only grounded, quorum-agreed candidates become inert hypotheses. The `evaluate-lens` precision
+  measurement sends excerpts only from a pinned public benchmark sample staged in an owner-only
+  scratch root, never from a customer repository.
 - **Code-security proof lane**: the only place FDAI runs repository code. It's opt-in per scan,
   limited to issues a deterministic verifier already confirmed, and runs in a disposable
   bubblewrap sandbox with no network, no credentials, a cleared environment, a read-only source,
   and resource limits. Every sink is a recording hook, so a proof never performs the real effect.
+  Native memory-safety proofs, which no verifier confirms, need a deterministic or external report
+  and compile the target with sanitizers. That run alone drops the sandbox address-space limit,
+  which AddressSanitizer can't run under; the harness limits the compiler's address space and
+  every run's CPU time, resident memory, wall-clock time, and output instead.
 
 ## Network Boundaries
 

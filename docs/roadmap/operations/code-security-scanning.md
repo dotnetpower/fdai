@@ -155,8 +155,8 @@ Kept candidates enter canonicalization in the `llm_lens` lane. They get `hypothe
 so they can't reach alerting priorities on their own. They're corroborated only when a
 deterministic or external producer reports the same root cause, and they become `verified` only
 when a [weakness verifier](#weakness-verifiers) confirms the flow. With fewer than two model
-families, the lane doesn't run. Budget exhaustion, model failures, and skipped files are recorded
-as lens notes in `receipt.json`. Those notes don't change deterministic coverage, because the
+families, the lane doesn't run. Budget exhaustion, model failures with their fixed reason counts,
+and skipped files are recorded as lens notes in `receipt.json`. Those notes don't change deterministic coverage, because the
 lane is optional. Code text that tries to instruct the model can't add findings, since every
 finding must pass grounding and quorum in code.
 
@@ -171,6 +171,27 @@ reviewed a synthetic Flask module with five planted flaws and three safe counter
 Those covered all five planted flaws and none of the safe counterparts. One extra hypothesis,
 missing authentication on a public search route, is a false positive that stays an inert
 `hypothesis`.
+
+### Lens precision on real code
+
+The operator CLI `evaluate-lens` measures hypothesis precision on
+[`evaluation/lens-corpus.yaml`](../../../rule-catalog/code-security/evaluation/lens-corpus.yaml).
+The corpus pins OWASP Benchmark for Java, whose maintainers label every test file with its category
+and whether it's a real vulnerability. The command acquires the exact commit and takes the first ten
+true and ten false files of each mapped category (command injection, path traversal, SQL injection)
+in test-name order. It copies only those files into an owner-only scratch root and runs the lane
+with only the matching lenses and unchanged prompts, hints, and limits. Every kept hypothesis is
+labeled mechanically in the receipt: it's a true positive only when the file's category matches the
+lens class and the file is a real vulnerability. `--dry-run` counts candidates and calls without
+calling a model.
+
+Measured, 2026-10-08, with `gpt-4.1-mini` and `gpt-4o`: 60 files produced 55 candidates and 110
+calls with no errors. The lane kept 10 hypotheses, all for command injection: 5 true and 5 false
+positives, precision 0.5 and recall 0.5. Each false positive is a file where a constant branch
+(three files) or a list-index shuffle (two files) replaces the request value with a constant. Path traversal and SQL injection kept none: models cite the line that
+builds the query or path, while grounding accepts only a sink-hint line, so 79 claims were
+rejected as ungrounded. Lens hypotheses therefore stay inert until another producer or a verifier
+confirms them.
 
 Example: two model families both cite line 8, `Order.query.get(order_id)`, for
 `missing-authorization` with CWE-639. FDAI keeps one `hypothesis` occurrence. The issue is
@@ -221,22 +242,27 @@ rule sits in the same canonical issue, so external SARIF can't claim verificatio
 
 A verifier grants `verified` only after measured evidence promotes it. The
 [verifier corpus](../../../rule-catalog/code-security/evaluation/verifier-corpus.yaml) pins public,
-intentionally vulnerable projects (NodeGoat, Juice Shop, WebGoat, dvcsharp-api, and pygoat) at
-exact commits. Its labels come from each project's own documentation, including Juice Shop's
-source annotations and coding-challenge verdicts. The operator CLI `evaluate-verifiers` fetches
-each project at its commit, runs both verifier kinds without executing project code, and writes a
-receipt with per-verifier precision and recall. A verifier is promoted when its precision meets
-the corpus floor of 0.90 with at least one true positive, and the promotion list in the verifier
-catalog must match that receipt. Every other verifier runs in shadow: it records its hit as
-`verifier_in_shadow` and doesn't raise confidence.
+intentionally vulnerable projects at exact commits, each in a `dev` or `holdout` split. Labels come
+from each project's own documentation, such as Juice Shop's source annotations, lesson pages,
+solution guides, and ground-truth files. OWASP Benchmark for Java and Python supply whole-file
+labels from their `expectedresults` files, split by a hash of the test name. The operator CLI
+`evaluate-verifiers` fetches each project at its commit, runs both verifier kinds without executing
+project code, and measures every verifier as if promoted. It writes a receipt with per-verifier
+precision and recall for each split. A verifier is promoted only when its precision meets the
+corpus floor of 0.90 with at least one true positive in both `dev` and `holdout`, and the
+promotion list in the verifier catalog must match that receipt. Every other verifier runs in
+shadow: it records its hit as `verifier_in_shadow` and doesn't raise confidence.
 
-Example: the 2026-10-07 receipt promoted the Python verifiers for all five classes and the taint
-rules for JavaScript code and SQL injection, Java SQL injection and path traversal, and C# SQL
-injection, all at precision 1.0. The JavaScript path traversal rule matched three safe reads in
-Juice Shop, where the path came from a server-side lookup or an existence gate, so it stays in
-shadow. Rules without real-code evidence, such as the command injection rules, also stay in
-shadow. The corpus informed rule development and samples are small, so it isn't a held-out
-benchmark.
+Example: the 2026-10-08 receipt (corpus 1.1.0, 710 `dev` and 681 `holdout` labels) promotes five
+verifiers: Java and JavaScript command injection, JavaScript code and SQL injection, and Python SQL
+injection, each at precision 1.0 in both splits. Six verifiers promoted by the earlier receipt fell
+back to shadow on held-out evidence. Java SQL injection measured about 0.6, because Benchmark's
+constant branches and dead switches fool open-source taint mode. Python code injection, path
+traversal, and unsafe deserialization measured 0.27 to 0.83, because the AST verifier ignores
+early-return guards. Java path traversal and C# SQL injection had no held-out true positives.
+Python command injection measured 0.75 on `holdout` and stays in shadow. The JavaScript path
+traversal rule no longer treats a one-argument store lookup as tainted, but two safe Juice Shop
+reads gated by a known-key lookup still keep it in shadow.
 
 ## Proof lane (opt-in)
 
@@ -265,6 +291,34 @@ Quoting, escaping, parameterized queries, `basename`, or a failing import theref
 `verified`. On pygoat at its pinned commit, all nine verified issues were proven. The test suite
 runs the same harness against safe variants, including `shlex.quote`, `repr`, parameterized
 `sqlite3`, and `basename`, and requires every one to stay unproven.
+
+### Other proof languages
+
+The lane picks a harness by fix-site extension, and a language runs only when the operator gives
+its runtime with `scan --prove`:
+
+- **JavaScript** (`--prove-node`): `fdai_prove.js` runs on Node.js in the same sandbox. Its loader
+  replaces every package with an inert stub and `child_process`, `fs`, and `vm` with recording
+  hooks, and `eval` and `Function` are hooks too. Each hook returns an inert stub, so the target
+  keeps running past one sink. The harness calls every exported, registered, or
+  constructor-assigned function whose source contains the fix-site line. A hit counts only when the
+  caller's stack frame is the fix-site file and line, and the same class predicates as Python
+  apply. Targets are JavaScript issues a promoted verifier confirmed.
+- **Native C and C++** (`--prove-cc`): memory-safety issues have no deterministic verifier, so
+  they're eligible when a deterministic or external producer reported them, never the LLM lens
+  alone. `fdai_prove_native.py` finds the enclosing function and accepts only a buffer signature
+  it can drive: a byte or char pointer with an optional length, or one string. It builds a driver
+  and the target with AddressSanitizer and UndefinedBehaviorSanitizer and runs fixed input
+  lengths. The issue is `proven` only when the sanitizer's first frame in the target file is the
+  fix-site line. AddressSanitizer can't run under an address-space limit, so this run alone drops
+  the sandbox `RLIMIT_AS`. The harness limits the compiler's address space and gives every run a
+  CPU limit, `hard_rss_limit_mb`, a timeout, and truncated output.
+
+On OWASP NodeGoat at its pinned commit, the three `eval` lines in `contributions.js` were proven in
+the sandbox. Tests prove vulnerable JavaScript fixtures for command, code, SQL, and path flows and
+a stack overflow in a C fixture, and require the safe counterparts (`execFile` with an argument
+list, `Number`, a placeholder query, `basename`, and a bounds-checked copy) to stay unproven. Java
+and C# have no proof harness yet.
 
 ## Failure behavior
 

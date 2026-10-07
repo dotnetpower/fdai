@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: f4adfedd2d2532bc97c6da467b451a3cb2f0e001
+translation_source_sha: 92f8fa5452a60a5a2ae6fbbb955f724cb21b4fdf
 translation_revised: 2026-10-08
 ---
 # 프로젝트 구조
@@ -599,7 +599,9 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
 `rule-catalog/code-security/`, 어댑터는 `delivery/code_security_*.py`와
 `delivery/persistence/state_store_code_security_*.py`에 둡니다. Operator 읽기 측은
 `code_security_review_projection.py`이고, Console 경로는 `routes/code-security.tsx`입니다. 스캔 실행
-이미지는 코어 이미지 옆의 `docker/code-security-scanner.Dockerfile`입니다.
+이미지는 코어 이미지 옆의 `docker/code-security-scanner.Dockerfile`입니다. 큐레이션 평가 자료의
+코드 사례와 의존성 사례를 포함한 레이블 평가 자료는 `rule-catalog/code-security/evaluation/`에 있으며,
+순수 함수로 이루어진 `evaluation.py` 평가 도구가 측정합니다.
 [코드 보안 점검 결과](../operations/code-security-findings-ko.md)를 참조하세요.
 
 ## 리포지토리 스크립트 레이아웃
