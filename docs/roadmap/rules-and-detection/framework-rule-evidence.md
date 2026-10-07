@@ -24,14 +24,7 @@ pair. The `t0-rule-evaluator` producer then proves that the outcomes cover the e
 and the exact activated Rule revision. Only after that proof does it emit a framework evidence
 receipt for a control requirement. Anything it can't prove stays `unknown`.
 
-```mermaid
-flowchart LR
-  Mimir["Mimir: activation generation"] --> Forseti
-  Huginn["Huginn: complete inventory generation"] --> Forseti
-  Forseti["Forseti: scoped Rule coverage"] --> Audit["Append-only audit store"]
-  Forseti --> Producer["t0-rule-evaluator receipts"]
-  Producer --> Assessment["Framework assessment runtime (shadow)"]
-```
+![Design at a glance. The main stages are Mimir: activation generation, Forseti: scoped Rule coverage, Huginn: complete inventory generation, Append-only audit store, t0-rule-evaluator receipts, Framework assessment runtime (shadow).](../../diagrams/generated/fdai-roadmap-rules-and-detection-framework-rule-evidence-01.en.svg)
 
 ## Current gaps
 

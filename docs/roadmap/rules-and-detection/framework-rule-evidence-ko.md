@@ -1,7 +1,7 @@
 ---
 title: T0 기반 프레임워크 규칙 근거
 translation_of: framework-rule-evidence.md
-translation_source_sha: 84004a8731ce3137fcb15e9bc1ddb7e03c0fc7e6
+translation_source_sha: 9d2ac5300d49a320aaaeae8c9419e88d144dcfce
 translation_revised: 2026-10-07
 ---
 # T0 기반 프레임워크 규칙 근거
@@ -28,14 +28,7 @@ Well-Architected Reliability Assessment(WARA) 권고로 확장합니다.
 포함한다는 사실을 증명합니다. 증명한 뒤에만 컨트롤 요구 사항에 대한 프레임워크 근거 영수증을
 만듭니다. 증명할 수 없는 항목은 `unknown`으로 유지합니다.
 
-```mermaid
-flowchart LR
-  Mimir["Mimir: 활성화 세대"] --> Forseti
-  Huginn["Huginn: 완전한 인벤토리 세대"] --> Forseti
-  Forseti["Forseti: 범위별 규칙 커버리지"] --> Audit["추가 전용 감사 저장소"]
-  Forseti --> Producer["t0-rule-evaluator 영수증"]
-  Producer --> Assessment["프레임워크 평가 런타임 (shadow)"]
-```
+![설계 요약. 주요 단계는 Mimir: 활성화 세대, Forseti: 범위별 규칙 커버리지, Huginn: 완전한 인벤토리 세대, 추가 전용 감사 저장소, t0-rule-evaluator 영수증, 프레임워크 평가 런타임 (shadow)입니다.](../../diagrams/generated/fdai-roadmap-rules-and-detection-framework-rule-evidence-01.ko.svg)
 
 ## 현재 공백
 
