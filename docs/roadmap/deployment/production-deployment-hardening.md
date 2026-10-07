@@ -165,6 +165,8 @@ deploy-owned outputs while recording reviewed provider drift; desired
 configuration changes still require a separately reviewed deployment plan. The bounded Cost
 pseudonym prerequisite reads the tracked legacy Operator identity directly when the newer
 toggle-gated root output is absent, so creating the key does not require a broad platform apply.
+Service input materialization imports its contract package from the exact checked-out source, not
+from packages that happen to be installed in a particular self-hosted runner environment.
 Before the bootstrap plan, it independently reads the runner VM and requires the reviewed size,
 `Local` `ResourceDisk` placement, and no managed OS disk. A mismatch reports the blue/green
 replacement action and fails without changing Azure state. The ephemeral profile stays allocated;

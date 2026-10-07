@@ -1,7 +1,7 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: ed9eb30b8787979ec939c2486b29e34b9ed1cbae
+translation_source_sha: 933f7b7fb00013f228bfc3a75d0588ca5d86c4e7
 translation_revised: 2026-10-08
 ---
 # 운영 배포 강화
@@ -166,6 +166,8 @@ Refresh-only 적용은 계획의 입력으로 루트 출력도 다시 평가합�
 범위가 제한된 Cost 가명 키 선행 조건은 새로운 토글 기반 루트 출력이 없을 때 추적된 레거시
 Operator 신원을 직접 읽습니다. 따라서 키를 만들기 위해 광범위한 플랫폼 적용을 실행할 필요가
 없습니다.
+서비스 입력 구체화는 특정 자체 호스팅 실행기 환경에 우연히 설치된 패키지가 아니라 정확히
+체크아웃한 소스에서 계약 패키지를 가져옵니다.
 Bootstrap 계획 전에 실행기 VM을 독립적으로 읽고 검토된 크기, `Local` `ResourceDisk` 배치 및
 관리형 OS 디스크 부재를 요구합니다. 불일치하면 blue/green 교체 작업을 보고하고 Azure 상태를
 변경하지 않은 채 실패합니다. 임시 프로파일은 할당된 상태로 유지됩니다. 구성된 자동 종료와
