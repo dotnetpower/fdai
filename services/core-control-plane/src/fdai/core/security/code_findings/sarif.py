@@ -26,6 +26,7 @@ from dataclasses import dataclass, field
 from urllib.parse import unquote, urlsplit
 
 from fdai.core.security.code_findings.models import FlowStep, Lane, Occurrence, SourceLocation
+from fdai.core.security.code_findings.sarif_runs import RunMetadata, run_metadata
 
 _REVISION = re.compile(r"^[0-9a-f]{40}([0-9a-f]{24})?$")
 _CWE = re.compile(r"(?i)\bcwe[-_/ ]?0*(\d{1,5})\b")
@@ -85,6 +86,7 @@ class SarifIngestResult:
     producers: tuple[str, ...]
     occurrences: tuple[Occurrence, ...]
     dropped: tuple[DroppedResult, ...]
+    runs: tuple[RunMetadata, ...] = ()
 
 
 def clean_text(value: object, limit: int) -> str:
@@ -253,6 +255,7 @@ def ingest_sarif(raw: bytes, ctx: SarifIngestContext) -> SarifIngestResult:
     occurrences: list[Occurrence] = []
     dropped: list[DroppedResult] = []
     producers: list[str] = []
+    run_facts: list[RunMetadata] = []
     total = 0
     for run_index, run in enumerate(runs):
         run_map = _as_map(run)
@@ -265,6 +268,15 @@ def ingest_sarif(raw: bytes, ctx: SarifIngestContext) -> SarifIngestResult:
             clean_text(_as_map(rule).get("id"), limits.max_identifier): _as_map(rule)
             for rule in _as_list(driver.get("rules"), limits.max_results)
         }
+        run_facts.append(
+            run_metadata(
+                run_map,
+                producer,
+                version,
+                [rule_id for rule_id in rules if rule_id],
+                lambda uri: normalize_path(uri, ctx.source_roots),
+            )
+        )
         results = run_map.get("results")
         if not isinstance(results, list):
             continue
@@ -279,7 +291,9 @@ def ingest_sarif(raw: bytes, ctx: SarifIngestContext) -> SarifIngestResult:
                 dropped.append(DroppedResult(run_index, result_index, occurrence))
             else:
                 occurrences.append(occurrence)
-    return SarifIngestResult(scan_digest, tuple(producers), tuple(occurrences), tuple(dropped))
+    return SarifIngestResult(
+        scan_digest, tuple(producers), tuple(occurrences), tuple(dropped), tuple(run_facts)
+    )
 
 
 def _occurrence(

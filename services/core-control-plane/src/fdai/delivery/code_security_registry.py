@@ -11,7 +11,7 @@ from __future__ import annotations
 import json
 import os
 import re
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -105,7 +105,8 @@ class FileRemediationPackRegistry:
     async def list_active(self) -> Sequence[PackRecord]:
         now = self._clock()
         records = []
-        for path in sorted(self._root.glob("*.json")) if self._root.exists() else []:
+        paths = sorted(self._root.glob("*.json")) if self._root.exists() else []
+        for path in (p for p in paths if p.name.count(".") == 1):
             document = self._read(path)
             if document is None:
                 continue
@@ -113,6 +114,36 @@ class FileRemediationPackRegistry:
             if not record.revoked and now <= record.expires_at:
                 records.append(record)
         return records
+
+    async def record_baseline(self, pack_id: str, document: Mapping[str, Any]) -> None:
+        path = self._path(pack_id).with_suffix(".baseline.json")
+        if path.exists():
+            raise PackRegistryError(f"pack {pack_id} already has a baseline")
+        self._write(path, dict(document))
+
+    async def get_baseline(self, pack_id: str) -> Mapping[str, Any] | None:
+        return self._read(self._path(pack_id).with_suffix(".baseline.json"))
+
+    async def append_review(self, pack_id: str, document: Mapping[str, Any]) -> None:
+        if await self.get(pack_id) is None:
+            raise PackRegistryError(f"pack {pack_id} is not recorded")
+        path = self._path(pack_id).with_suffix(".reviews.jsonl")
+        self._root.mkdir(parents=True, exist_ok=True, mode=0o700)
+        line = json.dumps({**document, "recorded_at": self._clock().isoformat()}, sort_keys=True)
+        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600)
+        with os.fdopen(descriptor, "a", encoding="utf-8") as handle:
+            handle.write(line + "\n")
+
+    async def list_reviews(self, pack_id: str) -> Sequence[Mapping[str, Any]]:
+        path = self._path(pack_id).with_suffix(".reviews.jsonl")
+        if not path.exists():
+            return []
+        try:
+            return [
+                json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line
+            ]
+        except (OSError, json.JSONDecodeError) as exc:
+            raise PackRegistryError(f"review log for {pack_id} is unreadable") from exc
 
 
 __all__ = ["FileRemediationPackRegistry"]

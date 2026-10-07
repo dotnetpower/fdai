@@ -13,8 +13,8 @@ Adapters live under ``delivery/`` and are bound at the composition root or the o
 
 from __future__ import annotations
 
-from collections.abc import Sequence
-from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from collections.abc import Mapping, Sequence
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     from fdai.core.security.code_findings.result_import import PackRecord
@@ -65,6 +65,22 @@ class RemediationPackRegistry(Protocol):
 
     async def list_active(self) -> Sequence[PackRecord]:
         """Return packs that are neither revoked nor expired at the registry's clock."""
+        ...
+
+    async def record_baseline(self, pack_id: str, document: Mapping[str, Any]) -> None:
+        """Store the baseline coverage receipt and issue snapshot taken at export."""
+        ...
+
+    async def get_baseline(self, pack_id: str) -> Mapping[str, Any] | None:
+        """Return the stored baseline, or ``None`` when absent."""
+        ...
+
+    async def append_review(self, pack_id: str, document: Mapping[str, Any]) -> None:
+        """Append one immutable review record (fix verification or adjudication)."""
+        ...
+
+    async def list_reviews(self, pack_id: str) -> Sequence[Mapping[str, Any]]:
+        """Return review records in append order."""
         ...
 
 

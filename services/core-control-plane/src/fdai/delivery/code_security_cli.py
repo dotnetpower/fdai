@@ -6,6 +6,8 @@ Commands:
                   sign the pack when a key is given, write it, and record it in the registry;
 ``revoke``        revoke a pack so FDAI rejects its results;
 ``import-result`` validate a returned result against the registry record;
+``verify-fixes``  verify fix claims with a coverage-equivalent rescan;
+``adjudicate``    record a human decision on a false-positive claim;
 ``public-key``    print the pack-signing public key that developers pin.
 
 Example::
@@ -42,17 +44,30 @@ from fdai.core.security.code_findings import (
     RemediationResultRejectedError,
     SarifIngestContext,
     SarifIngestError,
+    SarifIngestResult,
     build_issues,
-    import_remediation_result,
     ingest_sarif,
     render_remediation_pack,
 )
+from fdai.core.security.code_findings.adjudication import AdjudicationError
 from fdai.core.security.code_findings.export_gate import (
     AgentProviderPolicy,
     ExportDeniedError,
     authorize_export,
 )
+from fdai.core.security.code_findings.receipts import (
+    baseline_to_dict,
+    build_receipt,
+    receipt_to_dict,
+)
 from fdai.delivery.code_security_registry import FileRemediationPackRegistry
+from fdai.delivery.code_security_review_cli import (
+    add_review_commands,
+    adjudicate,
+    import_result,
+    pairs,
+    verify_fixes,
+)
 from fdai.delivery.code_security_signing import Ed25519PackSigner
 from fdai.delivery.repo_assets import repo_asset_root
 from fdai.rule_catalog.code_security import (
@@ -89,6 +104,8 @@ def _parser() -> argparse.ArgumentParser:
     export.add_argument("--projects", help="JSON list of project roots")
     export.add_argument("--source-root", action="append", default=[])
     export.add_argument("--coverage-limit", action="append", default=[])
+    export.add_argument("--rules-version", action="append", default=[], help="PRODUCER=VERSION")
+    export.add_argument("--full-repository", action="append", default=[], help="PRODUCER")
     export.add_argument(
         "--catalog-root", default=str(repo_asset_root() / "rule-catalog" / "code-security")
     )
@@ -96,9 +113,7 @@ def _parser() -> argparse.ArgumentParser:
     revoke.add_argument("--registry", required=True)
     revoke.add_argument("--pack-id", required=True)
     revoke.add_argument("--reason", required=True)
-    result = sub.add_parser("import-result", help="validate a returned remediation result")
-    result.add_argument("--registry", required=True)
-    result.add_argument("--result", required=True)
+    add_review_commands(sub)
     key = sub.add_parser("public-key", help="print the pack-signing public key")
     key.add_argument("--signing-key", required=True)
     return parser
@@ -111,9 +126,12 @@ def _write_private(path: Path, data: bytes) -> None:
         handle.write(data)
 
 
-def _ingest(args: argparse.Namespace) -> tuple[list[Occurrence], dict[str, int]]:
+def _ingest(
+    args: argparse.Namespace,
+) -> tuple[list[Occurrence], dict[str, int], list[SarifIngestResult]]:
     occurrences: list[Occurrence] = []
     dropped: dict[str, int] = {}
+    results: list[SarifIngestResult] = []
     for spec in args.sarif:
         file_name, _, lane = spec.rpartition(":")
         ingested = ingest_sarif(
@@ -122,10 +140,11 @@ def _ingest(args: argparse.Namespace) -> tuple[list[Occurrence], dict[str, int]]
                 lane=Lane(lane), revision=args.revision, source_roots=tuple(args.source_root)
             ),
         )
+        results.append(ingested)
         occurrences.extend(ingested.occurrences)
         for item in ingested.dropped:
             dropped[item.reason] = dropped.get(item.reason, 0) + 1
-    return occurrences, dropped
+    return occurrences, dropped, results
 
 
 def _export(args: argparse.Namespace) -> dict[str, object]:
@@ -136,7 +155,7 @@ def _export(args: argparse.Namespace) -> dict[str, object]:
     provider = authorize_export(policy, args.provider, mode, now.date())
     catalog = load_code_security_catalog(Path(args.catalog_root))
     signer = Ed25519PackSigner(Path(args.signing_key)) if args.signing_key else None
-    occurrences, dropped = _ingest(args)
+    occurrences, dropped, ingested = _ingest(args)
     known = frozenset(
         line.strip()
         for line in (
@@ -188,6 +207,23 @@ def _export(args: argparse.Namespace) -> dict[str, object]:
             )
         )
     )
+    included = set(pack.issue_ids)
+    receipt = build_receipt(
+        args.revision,
+        catalog.version_stamp(),
+        ingested,
+        rules_versions=pairs(args.rules_version),
+        full_repository=frozenset(args.full_repository),
+    )
+    asyncio.run(
+        registry.record_baseline(
+            pack.pack_id,
+            {
+                "receipt": receipt_to_dict(receipt),
+                "issues": baseline_to_dict([i for i in issues if i.issue_id in included]),
+            },
+        )
+    )
     root = Path(args.out) / pack.directory_name
     root.mkdir(parents=True, exist_ok=True)
     root.chmod(0o700)
@@ -208,33 +244,6 @@ def _export(args: argparse.Namespace) -> dict[str, object]:
     }
 
 
-def _import(args: argparse.Namespace) -> dict[str, object]:
-    raw = Path(args.result).read_bytes()
-    try:
-        pack_id = str(json.loads(raw)["pack_id"])
-    except (json.JSONDecodeError, KeyError, TypeError, UnicodeDecodeError) as exc:
-        raise RemediationResultRejectedError("malformed_result") from exc
-    record = asyncio.run(FileRemediationPackRegistry(Path(args.registry)).get(pack_id))
-    if record is None:
-        raise RemediationResultRejectedError("unknown_pack")
-    imported = import_remediation_result(raw, record, datetime.now(UTC))
-    return {
-        "ok": True,
-        "pack_id": imported.pack_id,
-        "final_head": imported.final_head,
-        "claims": [
-            {
-                "issue_id": claim.issue_id,
-                "status": claim.status.value,
-                "validation": claim.validation.value,
-                "commits": list(claim.commits),
-                "next_step": claim.next_step.value,
-            }
-            for claim in imported.claims
-        ],
-    }
-
-
 def _revoke(args: argparse.Namespace) -> dict[str, object]:
     record = asyncio.run(
         FileRemediationPackRegistry(Path(args.registry)).revoke(args.pack_id, args.reason)
@@ -250,7 +259,11 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "revoke":
             output = _revoke(args)
         elif args.command == "import-result":
-            output = _import(args)
+            output = import_result(args)
+        elif args.command == "verify-fixes":
+            output = verify_fixes(args)
+        elif args.command == "adjudicate":
+            output = adjudicate(args)
         else:
             signer = Ed25519PackSigner(Path(args.signing_key))
             output = {
@@ -260,6 +273,8 @@ def main(argv: list[str] | None = None) -> int:
             }
     except RemediationResultRejectedError as exc:
         output = {"ok": False, "reason": exc.reason, "error": str(exc)}
+    except AdjudicationError as exc:
+        output = {"ok": False, "reason": "adjudication_rejected", "error": str(exc)}
     except ExportDeniedError as exc:
         output = {"ok": False, "reason": "export_denied", "error": str(exc)}
     except (

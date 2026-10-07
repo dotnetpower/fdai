@@ -161,3 +161,143 @@ def test_unknown_pack_result_is_rejected(
         str(result_file),
     )
     assert code == 1 and rejected["reason"] == "unknown_pack"
+
+
+def test_verify_fixes_and_adjudicate_through_the_registry(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    code, exported = _export(
+        tmp_path,
+        capsys,
+        "--provider",
+        "example-agent",
+        "--full-repository",
+        "Opengrep",
+        "--full-repository",
+        "MDASH",
+    )
+    assert code == 0, exported
+    registry = tmp_path / "registry"
+    record = json.loads((registry / f"{exported['pack_id']}.json").read_text())
+    issue_id = record["issue_ids"][0]
+    head = "d" * 40
+    result_file = tmp_path / "result.json"
+    result_file.write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "pack_id": record["pack_id"],
+                "manifest_sha256": record["manifest_sha256"],
+                "base_commit": REVISION,
+                "final_head": head,
+                "issues": [
+                    {
+                        "issue_id": issue_id,
+                        "status": "fixed_claimed",
+                        "validation": "tests_passed",
+                        "commits": [head],
+                    }
+                ],
+            }
+        )
+    )
+    clean = []
+    for producer in ("MDASH", "Opengrep"):
+        path = tmp_path / f"{producer}-rescan.sarif"
+        path.write_text(
+            json.dumps(
+                {
+                    "version": "2.1.0",
+                    "runs": [
+                        {
+                            "tool": {"driver": {"name": producer, "version": "1.0.0"}},
+                            "results": [],
+                            "invocations": [{"executionSuccessful": True}],
+                        }
+                    ],
+                }
+            )
+        )
+        clean += ["--rescan-sarif", f"{path}:external", "--full-repository", producer]
+    code, verified = _run(
+        capsys,
+        "verify-fixes",
+        "--registry",
+        str(registry),
+        "--result",
+        str(result_file),
+        "--rescan-revision",
+        head,
+        "--catalog-root",
+        str(CATALOG_ROOT),
+        *clean,
+    )
+    assert code == 0, verified
+    assert verified["verdicts"][0]["verdict"] == "fixed_verified"  # type: ignore[index]
+    code, partial = _run(
+        capsys,
+        "verify-fixes",
+        "--registry",
+        str(registry),
+        "--result",
+        str(result_file),
+        "--rescan-revision",
+        head,
+        "--catalog-root",
+        str(CATALOG_ROOT),
+        *clean[:4],
+    )
+    assert partial["verdicts"][0]["verdict"] == "inconclusive"  # type: ignore[index]
+
+    fp_file = tmp_path / "fp.json"
+    fp_file.write_text(
+        result_file.read_text().replace('"fixed_claimed"', '"claimed_false_positive"')
+    )
+    code, decided = _run(
+        capsys,
+        "adjudicate",
+        "--registry",
+        str(registry),
+        "--result",
+        str(fp_file),
+        "--issue",
+        issue_id,
+        "--decision",
+        "rejected",
+        "--claimant",
+        "dev@example.com",
+        "--adjudicator",
+        "secops@example.com",
+        "--approval-ref",
+        "approval/hil-7",
+        "--rationale",
+        "The id reaches the query without validation.",
+    )
+    assert code == 0 and decided["issue_disposition"] == "open"
+    code, refused = _run(
+        capsys,
+        "adjudicate",
+        "--registry",
+        str(registry),
+        "--result",
+        str(fp_file),
+        "--issue",
+        issue_id,
+        "--decision",
+        "accepted",
+        "--claimant",
+        "dev@example.com",
+        "--adjudicator",
+        "dev@example.com",
+        "--approval-ref",
+        "approval/hil-8",
+        "--rationale",
+        "Self approval attempt here.",
+    )
+    assert code == 1 and refused["reason"] == "adjudication_rejected"
+    reviews = (registry / f"{record['pack_id']}.reviews.jsonl").read_text().splitlines()
+    assert [json.loads(line)["kind"] for line in reviews] == [
+        "fix_verification",
+        "fix_verification",
+        "false_positive_adjudication",
+    ]

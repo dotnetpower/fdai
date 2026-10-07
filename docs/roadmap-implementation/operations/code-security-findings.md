@@ -24,7 +24,7 @@ runs inside FDAI. Passing focused tests does not promote the capability or prove
 | Agent wiring, Console, and notifications | not-started | Design only | Huginn event ingress, Heimdall exposure correlation, Forseti verdicts, Saga audit, A2 and A4 routes. |
 | Pack signing, revocation store, and export gate | implemented | `signing.py`, `ed25519_verify.py`, `export_gate.py`; `shared/providers/remediation_pack.py`; `delivery/code_security_signing.py`, `delivery/code_security_registry.py`; `config/code-security-agent-providers.yaml`; `test_signing.py`, `test_export_gate.py`, `test_cli.py`, `tests/delivery/test_code_security_adapters.py` | DSSE over the manifest, stdlib RFC 8032 verification in the helper, file-backed registry with revocation, fail-closed provider gate. A database-backed registry for multi-host deployments is not built. |
 | Scanning lanes, verifiers, and proof | not-started | Design only | Acquisition and analysis sandbox contracts, deterministic lane execution, LLM lens lane, CWE verifiers, opt-in proof. |
-| Rescan verification and adjudication | not-started | Design only | Coverage-equivalent rescan for `fixed_verified`; false-positive adjudication workflow. |
+| Rescan verification and adjudication | implemented | `sarif_runs.py`, `receipts.py`, `verification.py`, `adjudication.py`; `delivery/code_security_review_cli.py`; `test_verification.py`, `test_cli.py` | Baseline receipts at export, coverage-equivalence gaps, root-cause matching across line shifts and advisory aliases, separation-of-duties adjudication, append-only review log. |
 
 ### Implementation history
 
@@ -32,6 +32,7 @@ runs inside FDAI. Passing focused tests does not promote the capability or prove
 |------|-------|--------|----------|-----------|
 | 2026-10-07 | implemented | Added the code-security catalog, deterministic core, remediation pack with standard-library helper and diff guard, result import, operator CLI, and owning design under #1966. | current change; `uv run pytest -q --no-cov services/core-control-plane/tests/core/security/code_findings` (110 passed, including regression tests for eight review findings on guard bypass, ref injection, quoted and subdirectory paths, SARIF globs, truncation priority, pack self-commit, and minimized paths); ruff and strict mypy on changed modules pass; helper session also run under Python 3.10. | Agent wiring, signing, export gate, scanning lanes, rescan verification, adjudication, and measured evaluation. |
 | 2026-10-07 | implemented | Added Ed25519 DSSE pack signing with developer-side stdlib verification, a pack registry seam with a file-backed adapter and revocation, the coding-agent provider export gate, and CLI `revoke`, `public-key`, and registry-based `import-result`. | current change; `uv run pytest -q --no-cov services/core-control-plane/tests/core/security/code_findings services/core-control-plane/tests/delivery/test_code_security_adapters.py` (130 passed); ruff and strict mypy pass. | Agent wiring, notifications, scanning lanes, LLM lens lane, rescan verification, adjudication, and evaluation. |
+| 2026-10-07 | implemented | Added coverage receipts from SARIF run metadata, baseline storage at export, coverage-equivalent rescan verification (`fixed_verified`, `still_present`, `inconclusive`), false-positive adjudication with separation of duties, and CLI `verify-fixes` and `adjudicate`. | current change; `uv run pytest -q --no-cov services/core-control-plane/tests/core/security/code_findings services/core-control-plane/tests/delivery/test_code_security_adapters.py` (143 passed); ruff and strict mypy pass. | Agent wiring, notifications, scanning lanes, LLM lens lane, and evaluation. |
 
 ### Remaining work
 
@@ -48,7 +49,7 @@ runs inside FDAI. Passing focused tests does not promote the capability or prove
 - [ ] Approve the pantheon design change for the LLM lens lane, then implement lenses with
   grounding verification and mixed-model review; exit with zero ungrounded locations on the
   evaluation corpus.
-- [ ] Implement coverage-equivalent rescan verification for `fixed_verified` and a false-positive
-  adjudication workflow; exit with tests that reject non-equivalent rescans.
+- [x] Implement coverage-equivalent rescan verification for `fixed_verified` and a false-positive
+  adjudication workflow; tests that reject non-equivalent rescans pass in the transition above.
 - [ ] Build the measured evaluation corpus (post-cutoff CVEs, holdout, clean negatives) and record
   severity agreement and dedup precision and recall; exit with a recorded receipt.

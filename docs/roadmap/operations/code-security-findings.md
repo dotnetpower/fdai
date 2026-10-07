@@ -17,8 +17,8 @@ Opengrep, Trivy, and other producers.
 > act.
 
 > **Status:** The deterministic core, catalog, signed remediation pack, pack registry, export
-> gate, and operator CLI are implemented. Agent wiring, scanning-lane execution, the LLM lens
-> lane, and rescan verification remain open. See the [implementation ledger](../../roadmap-implementation/operations/code-security-findings.md).
+> gate, rescan verification, false-positive adjudication, and operator CLI are implemented. Agent
+> wiring, scanning-lane execution, and the LLM lens lane remain open. See the [implementation ledger](../../roadmap-implementation/operations/code-security-findings.md).
 
 ## Design at a glance
 
@@ -207,6 +207,25 @@ a claim:
 An issue becomes fixed only when a rescan of the new tree uses the same or explicitly newer
 scanner, rule, and catalog versions, has coverage at least equal to the baseline, and no longer
 finds the root-cause pattern. MDASH and GitHub code scanning issues need a new scan from that tool.
+
+At export, FDAI stores a baseline coverage receipt and an issue snapshot with the pack record. A
+receipt records, per producer, the rules version, whether every run reported completion, whether
+any run was truncated, and which files were analyzed. The operator can assert facts that SARIF
+can't carry reliably, such as the rules version, full-repository analysis, or a rules version that
+supersedes the baseline. Those assertions are recorded as such. Fix verification returns one
+verdict per claim:
+
+| Verdict | Condition |
+|---------|-----------|
+| `fixed_verified` | The rescan targets the claimed commit, coverage is equivalent for every producer that reported the issue, and no rescan issue matches the root cause |
+| `still_present` | Coverage is equivalent and a rescan issue matches the root cause, even at another line |
+| `inconclusive` | Any coverage gap, such as unreported completion, truncation, an unanalyzed file, a changed rules version without declared supersession, or a different commit |
+| `not_applicable` | The claim needs no rescan |
+
+A false-positive claim is decided by a person other than the claimant, with a recorded approval
+reference and a rationale. Only an explicitly selected single-operator profile lets one principal
+hold both roles. Verification and adjudication records are appended to the pack's immutable
+review log.
 
 ## Agent ownership and authority
 
