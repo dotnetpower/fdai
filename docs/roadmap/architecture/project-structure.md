@@ -722,6 +722,12 @@ Deployment Preflight keeps its publication decision in `core/deploy_preflight/pr
   historical choice matrix are in [tech-stack.md § OD-1](tech-stack.md#od-1-core-runtime-language).
   Non-Python trees are: [rule-catalog/](../../../rule-catalog) (YAML data), [policies/](../../../policies)
   (Rego), and [infra/](../../../infra) (Terraform HCL).
+- **[lifecycle/](../../../lifecycle/README.md) holds the Hub-managed lifecycle components**, which
+  are not installation services. `lifecycle/hub/` is the Lifecycle Hub that computes signed Plans, and
+  `lifecycle/agent/` is the lifecycle agent that runs beside an installation. Each is a standalone
+  distribution with its own tests, so the governed five-service set and its service-suite manifest
+  stay unchanged. Shared Plan and Release checks stay in `packages/deployment-cli/` until the
+  `lifecycle-contracts` extraction in Lifecycle I1.
 - **A frozen lock for each selected build profile.** The root `uv.lock` is the default workspace
   lock and the root `pyproject.toml` remains a virtual workspace with `package = false`.
   Independently released distributions may own another lock or constraints when their release

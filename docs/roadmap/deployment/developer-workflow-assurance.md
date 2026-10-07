@@ -306,6 +306,9 @@ new registered source does not require a manually synchronized hook path filter.
 Core quantity/accounting checks use the root development extra's locked Kubernetes utility without contacting a cluster. Its untyped import exception is limited to `kubernetes.utils.quantity`; the adapter validates returned Decimal values. Dependency changes retain focused ownership and Core-wheel checks and do not enable the diagnostic channel or live collection.
 When root CI collects service sources, its `dev` extra mirrors every third-party package imported by
 those sources. Service manifests remain authoritative for runtime images and package ownership.
+Root CI also collects the standalone `lifecycle/` distributions: the root pytest, ruff, and mypy
+settings and the changed-path test scope include them. Each one keeps its own lock, like
+`packages/deployment-cli`, and runs its command with `uv run` from its own directory.
 
 | Stage | Required evidence | Reuse boundary |
 |-------|-------------------|----------------|

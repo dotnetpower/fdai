@@ -1,0 +1,58 @@
+{
+  "installation_id": "example",
+  "settings": {
+    "channel": "stable",
+    "version_range": ">=1.4.0 <2.0.0",
+    "region": "korea-central",
+    "allowed_regions": [
+      "korea-central"
+    ],
+    "windows": [
+      {
+        "start": "00:00:00",
+        "duration": "P1D",
+        "timezone": "Asia/Seoul",
+        "allows_downtime": false
+      }
+    ]
+  },
+  "entities": [
+    {
+      "entity_id": "core",
+      "kind": "service",
+      "managed": true
+    }
+  ],
+  "configuration": {
+    "schema": {
+      "replicas": {
+        "default": 1,
+        "x-fdai-axis": "Release channel subscription",
+        "x-fdai-owner": "customer"
+      }
+    },
+    "environment": {},
+    "entity_overrides": [
+      {
+        "versions": ">=1.0.0 <2.0.0",
+        "values": {
+          "replicas": 2
+        }
+      }
+    ]
+  },
+  "reported": {
+    "digest": "7b381e0696dc6558ea6d1ff52b46c0415d1c62493ab4a30c5b38a74949a207c0",
+    "schema_revision": 15,
+    "entities": {
+      "core": {
+        "release_id": "1.4.0",
+        "artifact_digests": [
+          "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        ],
+        "health": "healthy"
+      }
+    },
+    "observed_at": "2026-10-01T00:00:00Z"
+  }
+}

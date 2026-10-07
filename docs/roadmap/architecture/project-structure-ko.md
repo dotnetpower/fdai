@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: b6b03ce9bfe721cfa05c2eb15d80b2990901c1fa
+translation_source_sha: b645640ada7d110a9076b04334a3a4422d976869
 translation_revised: 2026-10-07
 ---
 # 프로젝트 구조
@@ -713,6 +713,11 @@ Muninn은 게시와 원본 소유 legacy 정리에 하나의 Core 소유 cohort 
   [tech-stack-ko.md § OD-1](tech-stack-ko.md#od-1-core-런타임-언어) 에 있습니다. Python이
   아닌 트리: [rule-catalog/](../../../rule-catalog) (YAML 데이터), [policies/](../../../policies)
   (Rego), [infra/](../../../infra) (Terraform HCL).
+- **[lifecycle/](../../../lifecycle/README.md)에는 Hub 관리 수명 주기 구성 요소가 있습니다**. 이
+  구성 요소는 설치 서비스가 아닙니다. `lifecycle/hub/`는 서명된 Plan을 계산하는 Lifecycle Hub이고,
+  `lifecycle/agent/`는 설치본 옆에서 실행되는 수명 주기 에이전트입니다. 각각 자체 테스트를 가진 독립
+  배포 단위이므로 관리되는 5개 서비스 집합과 서비스 스위트 매니페스트는 바뀌지 않습니다. 공유 Plan 및
+  Release 검사는 Lifecycle I1의 `lifecycle-contracts` 분리 전까지 `packages/deployment-cli/`에 있습니다.
 - **선택한 각 빌드 프로파일에 고정된 lock을 사용합니다.** 루트 `uv.lock`은 기본 작업 영역
   lock이며 루트 `pyproject.toml`은 계속 `package = false`인 virtual workspace입니다. 독립
   release 프로세스에 필요한 경우 독립 배포판은 다른 lock 또는 제약 조건을 소유할 수 있습니다.

@@ -406,6 +406,12 @@ roll-back outside the tolerated schema range and a recalled Release or capabilit
 identifiers must be canonical ASCII semantic versions. These checks grant no promotion or apply
 authority.
 
+The same module also validates a manifest from its bytes alone with
+`parse_runtime_release_manifest`, without reading an artifact tree, and exposes
+`compare_release_ids` and `is_release_id` for semantic-version precedence and identifier checks.
+The [Lifecycle Hub](../../../lifecycle/hub/README.md) reads its Release catalog through these
+functions, so the Hub and an installation judge a Release with the same code.
+
 The target release workflow builds the wheel and source distribution once in a read-only job, checks that
 the Python and bundle versions match, and publishes that exact artifact through PyPI Trusted
 Publishing only after the matching signed bundle is published. Only the publish job receives the

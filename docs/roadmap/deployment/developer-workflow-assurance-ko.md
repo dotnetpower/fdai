@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 68be6837e00d18f60ff07970d08c5d2abedd8744
-translation_revised: 2026-10-04
+translation_source_sha: b5bddd9bc5576c54b3f11b94bed21520e20ae7d9
+translation_revised: 2026-10-07
 ---
 
 # 개발 워크플로 보증
@@ -300,6 +300,9 @@ staged 카탈로그에서 출처 집합을 파생하므로 새 출처를 등록�
 Core 수량·리소스 계산 검사는 클러스터에 접속하지 않고 루트 개발 의존성의 잠긴 Kubernetes 도구를 사용합니다. 타입 선언 부재에 대한 예외는 `kubernetes.utils.quantity`에만 적용하며 어댑터는 반환된 Decimal 값을 검증합니다. 의존성 변경은 소유 범위와 Core wheel 검사를 유지하며 진단 채널이나 실제 수집을 활성화하지 않습니다.
 루트 CI가 서비스 소스를 수집할 때는 해당 소스가 가져오는 모든 서드파티 패키지를 `dev`
 extra에 반영합니다. 런타임 이미지와 패키지 소유권은 서비스 매니페스트가 계속 담당합니다.
+루트 CI는 독립 배포 단위인 `lifecycle/`도 수집합니다. 루트 pytest, ruff, mypy 설정과 변경 경로 테스트
+범위에 포함되며, 각 단위는 `packages/deployment-cli`처럼 자체 잠금 파일을 두고 자기 디렉터리에서
+`uv run`으로 명령을 실행합니다.
 
 | 단계 | 필요한 근거 | 재사용 경계 |
 |------|-------------|-------------|
