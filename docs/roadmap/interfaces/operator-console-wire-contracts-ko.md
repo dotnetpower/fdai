@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: c8564950e31774b7ebb4a215fb6bd8445e1b9746
+translation_source_sha: 0b636f68531e090a4e189fc078e6705ea816a5b0
 translation_revised: 2026-10-07
 ---
 
@@ -472,6 +472,9 @@ Operator는 근거 실행, 근거 검증, 답변 준비 같은 의미 턴 자체
 입증되지 않은 앵커처럼 프레임의 검토된 제한을 제목 바로 뒤에 밝힙니다. 그런 앵커에서 읽은 답변은
 `semantic_answer_partial` 사유 코드를 유지하며, 검증된 표는 영수증 필드보다 reader가 선언한 측정 필드를
 먼저 보여 줍니다.
+여러 출력을 가진 컬렉션 답변에서 Core는 이후 출력을 위한 공간을 예약하면서 각 검증 표의 범위를
+제한합니다. Operator는 결과 답변과 타입이 지정된 제한을 바꾸지 않고 받습니다. 이 예약은 Incident
+생성, 근거 권한 또는 실행 권한을 바꾸지 않습니다.
 
 ### 13.12 의미 턴 인증 영수증 참조
 
@@ -525,6 +528,7 @@ Forseti의 최신 버전 2 baseline 커버리지가 있으면 `GET /rules/findin
 | 관리 리소스 의미 기반 작업 확인 | in-progress | 기존 `OntologyActionIntent` 검증, 확인 경로 및 작업 확인 작업자 | Core는 아직 확인 가능한 비인시던트 작업 의도를 변환하지 않습니다. 이 원본을 완료하려면 독립적으로 검토된 ActionType 초안과 요청부터 감사까지의 증적이 필요합니다. |
 | CLI, Teams 및 Slack wire 동등성 | in-progress | `cli/`; channel 어댑터 및 테스트 | 공유 presentation 계약은 있습니다. 현재 관리되는 다중 채널 동등성 증적은 여기에 보존되지 않았습니다. |
 | 의미 작업 진행 프레임 및 궤적 필드 | implemented | `semantic_turn_runtime.py`, `semantic_progress_relay.py`, `semantic_work_progress_presentation.py`, `semantic_trajectory_presentation.py`, `services/operator-service/tests/test_semantic_work_progress.py`(`15 passed`), `console/src/deck/work-progress-emission.test.ts` | 실시간 스트림과 재생 스트림은 첫 조회 활동보다 먼저 고정 형태 프레임을 한 번 보냅니다. Console은 저장된 필드를 손실 없이 해석하고, 조사 역할을 렌더링하기 전까지 실시간 프레임을 무시합니다. |
+| 다중 출력 의미 답변 예약 | implemented | `semantic_turn_processor.py`, 검증된 행 렌더러, 집중 의미 턴 및 검증 행 테스트 | Core는 이후 출력을 위한 범위가 제한된 공간을 예약하고 타입이 지정된 컬렉션 제한을 보존합니다. Operator는 최종 답변을 바꾸지 않고 받으며 Incident, 근거 또는 실행 권한을 얻지 않습니다. |
 | 관리되는 계약 간 런타임 근거 | in-progress | Operator 및 Console focused 테스트 | 단위 및 통합 검사는 동작 방식을 입증하지만 callback, proposal, code 산출물, 온톨로지 및 영속 감사 화면을 잇는 인증 증적은 아닙니다. |
 
 ### 구현 이력
@@ -535,6 +539,7 @@ Incident 또는 실행 권한은 바뀌지 않았습니다.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-07 | implemented | 최종 wire, Incident 생성 또는 권한을 바꾸지 않고 이후 컬렉션 출력을 위한 범위가 제한된 의미 답변 공간을 예약했습니다. | [이슈 #1970](https://github.com/dotnetpower/fdai/issues/1970), `current change`, 집중 의미 턴 및 검증 행 테스트 | 실제 presentation 근거는 별도입니다. |
 | 2026-10-07 | implemented | 규칙 점검 결과 요약의 wire 형식을 문서화했습니다. 요약은 이제 Forseti의 최신 버전 2 baseline 커버리지를 읽고, 불완전한 커버리지는 제한 코드와 함께 평가되지 않음으로 보고하며, Core baseline 작업기 설정을 나열합니다. | `current change`; `workflow_rule_projection.py`; `services/operator-service/tests/test_rule_findings_summary_admission.py`(20개 통과); `services/core-control-plane/tests/runtime/test_baseline_evaluation_binding.py`(8개 통과). | 이 계약에 남은 작업은 없습니다. |
 | 2026-09-29 | in-progress | Python task workbench 상태를 정정했습니다. Operator 서비스 분리(`8f67c5d76`) 이후 여섯 가지 workbench 작업을 제공하는 Operator 담당 구성 요소가 없으며, `GET /python-tasks/capabilities`는 아무도 쓰지 않는 변환 결과 때문에 HTTP `503`을 반환했습니다([#1655](https://github.com/dotnetpower/fdai/issues/1655)). 이제 Operator 조립 구성이 기능 보고를 소유하며 `available: false`와 누락된 각 담당 구성 요소를 HTTP `200`으로 반환합니다. Console은 workbench를 닫은 상태로 유지하고 그 사유를 알립니다. | `current change`; `python_task_capability.py`, `family_adapters.py` 및 Console `python-task.ts`와 `workflow-builder.catalog.tsx`; `test_python_task_capability.py`, `test_workflow_definition_catalog.py` 및 Console 디코더와 경로 테스트 통과. | 기능이 사용 가능으로 보고되기 전에 통제된 Python 작업 검증기, VM 작업 실행기 및 아티팩트 저장소를 Operator 서비스에 연결합니다. |
 | 2026-09-29 | implemented | 각 HIL 대기열 항목에 `development_owner_only`를 추가하고, Console 결정 경로, Slack 및 Teams 콜백 서비스와 결정 트랜잭션에서 보류된 범주 전용 거부에 대해 증명된 개발 Owner 본인의 승인 외의 모든 승인을 거부했습니다. 다른 권한 있는 승인자는 계속 반려할 수 있습니다. | `current change`; `projection_logic.py`, `families/iam/hil_callback_decision.py`, `postgres_hil_decision.py`; `services/operator-service/tests/test_hil_development_owner_only.py`와 Console `api.test.ts` 통과. | [#1623](https://github.com/dotnetpower/fdai/issues/1623)에서 실제 Owner 실행 기록 하나를 보존합니다. |

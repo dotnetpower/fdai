@@ -76,6 +76,10 @@ E12 adds a discriminated collection relation anchor for one grounded kind, one s
 Core emits the anchor ObjectSet, traverses one attributable LinkType side with lineage, and
 independently verifies the kind, direction, and visible anchor output. Per-anchor coverage receipts
 still gate verified negative claims and remain a later slice.
+Large relation reads batch roots under a separate traversal budget, merge every reviewed side with
+LinkType lineage, and retain partial-source reasons. Large population receipts use a length-prefixed
+member digest, and answer assembly reserves bounded room for later outputs instead of letting one
+large table invalidate the whole verified answer.
 The same typed-only boundary may reuse an independently certified direct read before legacy
 judgment; action, quoted, hypothetical, bound-context, and required-document paths retain their
 existing gates. Numeric call accounting adds no prompt capture or execution authority.
