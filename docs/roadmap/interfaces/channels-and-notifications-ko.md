@@ -1,8 +1,8 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: bca53c0e0677ff801d91177b8d7f5cb78393045e
-translation_revised: 2026-10-06
+translation_source_sha: b430d43e91956bd1b4a9f124bbfab7e2103ad9e9
+translation_revised: 2026-10-07
 ---
 
 # 채널과 알림(Channels and Notifications)
@@ -103,9 +103,9 @@ Teams Workflows 웹훅 바인딩은
 | 카테고리 | 방향 | 예시 | 필요한 인증 강도 |
 |----------|------|------|-----------------|
 | **A1 - HIL 승인** | 양방향(결정 반환) | 고위험 액션 승인, enforce-promotion 승인, exemption 승인, 재정의 승인 | **최고** - 검증된 Entra 아이덴티티, 액션-바인딩, 재생 없음 |
-| **A2 - 운영 알림** | 아웃바운드 only | SLO burn, DLQ 깊이, 검증기 실패율, cold-start miss, IaC 표류, 어댑터 불건강, canary miss | 낮음 - 정보성 |
+| **A2 - 운영 알림** | 아웃바운드 only | SLO burn, DLQ 깊이, 검증기 실패율, cold-start miss, IaC 표류, 어댑터 불건강, canary miss, 긴급하거나 불완전한 코드 보안 스캔 | 낮음 - 정보성 |
 | **A3 - 채팅 명령** | 양방향(쿼리/응답) | **읽기**: `/aw status`, `/aw shadow-report`, `/aw override list`, `/aw kill-switch status`. **쓰기 (draft-PR only)**: `/aw override draft`, `/aw exemption draft`, `/aw assignment param-tune` | 중간 - 명령별 롤-게이팅(§3.1) |
-| **A4 - 다이제스트** | 아웃바운드 only | 일간 shadow-accuracy 리포트, 주간 재정의 회고, 주간 enforce-promotion 후보, 주간 거버넌스 PR aging, 주간 exemption 만료 lookahead, 월간 KPI + 비용 총결, break-glass 사용 요약 | 낮음 - 수신자 스코프만 |
+| **A4 - 다이제스트** | 아웃바운드 only | 일간 shadow-accuracy 리포트, 주간 재정의 회고, 주간 enforce-promotion 후보, 주간 거버넌스 PR aging, 주간 exemption 만료 lookahead, 월간 KPI + 비용 총결, break-glass 사용 요약, 일간 코드 보안 요약 | 낮음 - 수신자 스코프만 |
 
 **카테고리 경계 (MUST)**
 

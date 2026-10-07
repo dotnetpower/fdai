@@ -1,4 +1,6 @@
-# Test fixture for python.yaml. Synthetic code; never executed.
+# ruff: noqa
+# Test fixture for python.yaml: deliberately vulnerable synthetic code for scanner rule
+# tests. Never imported or executed, so lint rules do not apply.
 import hashlib
 import os
 import pickle

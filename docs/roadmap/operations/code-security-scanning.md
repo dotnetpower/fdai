@@ -98,7 +98,9 @@ Python, JavaScript and TypeScript, Java, and Go. Each rule:
 - favors precision, flagging a sink only when untrusted data or an unsafe option is visible;
 - has positive (`ruleid:`) and negative (`ok:`) fixtures that the engine's test mode checks.
 
-No third-party rule text is copied, so the pack carries no third-party rule license.
+No third-party rule text is copied, so the pack carries no third-party rule license. The fixtures
+are deliberately vulnerable and never imported or executed. The Python fixture opts out of
+repository lint with a file-level directive instead of a repository-wide exclusion.
 
 ## Coverage receipt
 

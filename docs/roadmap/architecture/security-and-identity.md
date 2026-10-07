@@ -169,6 +169,12 @@ approved grant, and fresh effective-access evidence is required before the actio
 - **Evidence-source isolation**: Independent read-only sources use separate finite deadlines. One
   source timeout cannot discard evidence already completed by another source, and unavailable or
   empty evidence never becomes a healthy observation, a cause claim, or execution authority.
+- **Code-security remediation packs**: a pack carries undisclosed vulnerability detail to
+  developer machines and their coding-agent services. Export requires a deployment-approved
+  provider (data residency, no training, retention, and allowed pack modes), a signed manifest,
+  and a registry record; result import trusts only that record. Notifications and agent bus
+  messages carry counts and opaque issue ids, never code or paths. See
+  [Code Security Findings](../operations/code-security-findings.md#remediation-pack).
 
 ## Network Boundaries
 
