@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Installations - FDAI Lifecycle Hub</title>
+  <link rel="stylesheet" href="assets/lifecycle.css?v=1" />
+  <script src="assets/lifecycle.js?v=1" defer></script>
+</head>
+<body>
+  <div class="app">
+    <nav class="side" aria-label="Lifecycle Hub">
+  <div class="brand">FDAI Lifecycle Hub<small>Customer A cell · Korea Central</small></div>
+  <div class="grp">Operate</div>
+  <a class="it on" href="05-hub-installations.html" aria-current="page">Installations <span class="cnt">3</span></a>
+  <a class="it" href="07-hub-plan.html">Plans</a>
+  <a class="it" href="10-hub-confirmations.html">Confirmations <span class="cnt">0</span></a>
+  <a class="it" href="11-hub-commands.html">Commands</a>
+  <div class="grp">Catalog</div>
+  <div class="it">Available Releases</div>
+  <div class="it">Custom channels</div>
+  <div class="it">Configuration packages</div>
+  <div class="grp">Admin</div>
+  <a class="it" href="13-hub-enrollment.html">Enrollment requests</a>
+  <div class="it">Audit</div>
+</nav>
+    <main class="main">
+      <div class="crumb">Installations</div>
+      <div class="m-head">
+        <div><h1>Installations</h1><div class="sub">Signed in as ops-admin@example.com (Microsoft Entra ID) · Operator</div></div>
+      </div>
+      <div class="banner info">
+        <div><b>Release 1.5.1 is available</b>Added to RELEASE on 2026-10-11 10:00. prod upgrades automatically in tonight's maintenance window.</div>
+        <span class="badge info">RELEASE</span>
+      </div>
+      <table class="t">
+        <thead><tr><th>Installation</th><th>Channel · range</th><th>Current</th><th>Target</th><th>Next window</th><th>State</th></tr></thead>
+        <tbody>
+          <tr class="sel"><td><a href="06-hub-installation-prod.html">prod</a><div class="soft">AKS · Korea Central</div></td><td class="mono">RELEASE</td><td>1.4.3</td><td><b>1.5.1</b></td><td>Today 02:00-04:00<div class="soft">No-downtime window</div></td><td><span class="badge warn">Waiting for window</span></td></tr>
+          <tr><td>staging<div class="soft">AKS · Korea Central</div></td><td class="mono">RELEASE_CANDIDATE</td><td>1.5.1</td><td>1.5.1</td><td>-</td><td><span class="badge ok">Current · healthy</span></td></tr>
+          <tr><td>dr-standby<div class="soft">AKS · Korea South</div></td><td class="mono">RELEASE · &gt;=1.4.0 &lt;1.5.0</td><td>1.4.3</td><td>1.4.3</td><td>-</td><td><span class="badge mute">Newest in range</span></td></tr>
+        </tbody>
+      </table>
+      <div class="cols even">
+        <section aria-label="Recent Plans">
+          <div class="panel-title">Recent Plans</div>
+          <ol class="timeline">
+            <li class="ok"><div class="when">10-08 02:41</div>staging · upgrade 1.4.3 → 1.5.1 succeeded</li>
+            <li class="ok"><div class="when">10-07 10:20</div>Recall #0031 received (1.5.0) · no installation affected</li>
+            <li class="ok"><div class="when">10-03 02:12</div>prod · configuration rev 42 applied</li>
+          </ol>
+        </section>
+        <section aria-label="Stored data">
+          <div class="panel-title">What this Hub stores</div>
+          <p class="note">Versions, digests, coarse health, and Plan results only. No Azure credential, secret value, or operational data. Customer resource names are stored as ciphertext.</p>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>

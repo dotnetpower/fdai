@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Policy - FDAI Console</title>
+  <link rel="stylesheet" href="assets/lifecycle.css?v=1" />
+  <script src="assets/lifecycle.js?v=1" defer></script>
+</head>
+<body>
+  <div class="app">
+    <nav class="side" aria-label="FDAI Console">
+  <div class="brand">FDAI Console<small>prod</small></div>
+  <div class="grp">Operate</div>
+  <div class="it">Dashboard</div>
+  <div class="it">Incidents</div>
+  <div class="it">Agent activity</div>
+  <div class="it">Ontology</div>
+  <div class="grp">Settings</div>
+  <div class="it">General</div>
+  <div class="it">Models</div>
+  <a class="it" href="08-console-version.html">Environment and deployment</a>
+  <a class="it on" href="14-console-policy.html" aria-current="page">Policy</a>
+  <div class="it">IAM</div>
+</nav>
+    <main class="main">
+      <div class="crumb">Settings</div>
+      <div class="m-head">
+        <div><h1>Policy</h1><div class="sub">Signed in as owner@example.com · policy-admin · re-authenticated 3 minutes ago</div></div>
+        <div class="acts"><button class="btn" type="button">History</button><button class="btn primary" type="button">Submit revision</button></div>
+      </div>
+      <nav class="tabs" aria-label="Policy sections"><span class="on" aria-current="page">Approval policy</span><span>Admission (OPA) policy</span><span>Promotions</span><span>History</span></nav>
+      <div class="cols">
+        <section aria-label="Approval profile change">
+          <div class="panel-title">Approval profile change <span class="hint">Revision 12 → 13</span></div>
+          <div class="form-row"><span class="lbl">Profile</span><span class="seg"><span>Multi-operator</span><span class="on">Single-operator production</span></span></div>
+          <div class="form-row"><span class="lbl">Named operator</span><div class="input">owner@example.com (Microsoft Entra ID)</div></div>
+          <div class="banner warn"><div><b>Quorum required</b>Moving from multi-operator to single-operator follows the current profile's governance quorum. One more approver is needed.</div><span class="badge warn">1 / 2</span></div>
+          <div class="panel-title">Validation</div>
+          <ul class="list">
+            <li><span class="ic ok">✓</span><span>Schema</span><span class="soft">Passed</span></li>
+            <li><span class="ic ok">✓</span><span>Restricted Rego compilation and Release policy tests</span><span class="soft">Passed</span></li>
+            <li><span class="ic ok">✓</span><span>No Release maximum exceeded</span><span class="soft">Passed</span></li>
+          </ul>
+          <div class="callout">Core applies the constitutional hard constraints after operator policy, so no revision can relax them. A new revision applies only to decisions that start after activation.</div>
+        </section>
+        <section aria-label="Promotions">
+          <div class="panel-title">Promotions</div>
+          <table class="t">
+            <thead><tr><th>Capability</th><th>Mode</th><th>Promotion</th></tr></thead>
+            <tbody>
+              <tr><td class="mono">vm.restart</td><td><span class="badge ok">enforce</span></td><td>Gate passed</td></tr>
+              <tr><td class="mono">aks.nodepool.scale</td><td><span class="badge warn">enforce</span></td><td>Operator override<div class="soft">Insufficient evidence at promotion · reason recorded</div></td></tr>
+              <tr><td class="mono">sql.failover</td><td><span class="badge mute">shadow</span></td><td>Vendor capability recall #0032<div class="soft">Can't be promoted until a later Release lifts it</div></td></tr>
+            </tbody>
+          </table>
+          <div class="panel-title">Audit fields</div>
+          <p class="note"><code>approval_profile</code>, <code>original_quorum</code> 2, <code>effective_quorum</code> 1, operator principal</p>
+        </section>
+      </div>
+    </main>
+  </div>
+</body>
+</html>
