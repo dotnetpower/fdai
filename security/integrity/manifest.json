@@ -78,7 +78,7 @@
     "services/core-control-plane/src/fdai/agents/_framework/forseti_arbitration_contract.py": "85e331e8861ee9e24f8aacc093c18344591e1d5cb4d11747bed026d3ba3be079",
     "services/core-control-plane/src/fdai/agents/_framework/forseti_arbitration_planning.py": "55f5e3f54de677cb80dfaef99a320b0c89af73315c491062fbe15219df6985d9",
     "services/core-control-plane/src/fdai/agents/_framework/forseti_baseline_evaluation.py": "0bf43912f29ede76cdff8692f90384eaa66f7e528924a29a9c4d0970f8dd118b",
-    "services/core-control-plane/src/fdai/agents/_framework/forseti_baseline_worker.py": "b98751f0cd856f2d4a96d751284f9912720b39b8932e09a50960537f9849b46b",
+    "services/core-control-plane/src/fdai/agents/_framework/forseti_baseline_worker.py": "1bc9442c4dcd08e6682efcf33db995ab43bc8b8cc8e4c333b6b8c81d9ebcab5d",
     "services/core-control-plane/src/fdai/agents/_framework/forseti_constants.py": "b793cd245eec1693996eb773a6beb74c7612fde0ff673eb47691eaee0ea56da5",
     "services/core-control-plane/src/fdai/agents/_framework/forseti_cost_annotation.py": "b5711bd3be33dcdfef6c952ec720ce54b22e812f5b6e422f1d749a634987d8ca",
     "services/core-control-plane/src/fdai/agents/_framework/forseti_cross_vertical_intake.py": "6cc4592ed7bc70a96972ac5b68f711e79aaff94ef2b33ae7abd62f2a22d161c6",

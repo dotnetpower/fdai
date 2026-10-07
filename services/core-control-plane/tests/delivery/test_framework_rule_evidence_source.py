@@ -324,3 +324,47 @@ async def test_removed_outcome_fails_outcome_set_verification() -> None:
 
     assert evidence.status is WorkloadRuleEvidenceStatus.BASELINE_OUTCOMES_UNVERIFIED
     assert evidence.receipts == ()
+
+
+@pytest.mark.asyncio
+async def test_same_rules_under_a_new_activation_profile_stay_verifiable() -> None:
+    store = _Store()
+    first = _activation()
+    second = build_rule_activation_generation(
+        RULES, profile_id="waf-test", profile_version="2.0.0", created_at=NOW
+    )
+    await _baseline(store, first)
+
+    later = datetime(2026, 10, 3, tzinfo=UTC)
+    generation = PromotedInventoryGeneration(
+        generation="inventory-1",
+        resources=(
+            ResourceRecord(resource_id="cluster-1", type="kubernetes", props={}),
+            ResourceRecord(resource_id="outside-1", type="kubernetes", props={}),
+            ResourceRecord(resource_id="storage-1", type="storage", props={}),
+        ),
+        complete=True,
+        recorded_at=NOW,
+    )
+    engine = T0Engine(index=RuleIndex.build(RULES), evaluator=_Evaluator())
+
+    async def activation_source() -> RuleActivationGeneration:
+        return second
+
+    async def snapshot_source() -> RuleGenerationSnapshot:
+        return RuleGenerationSnapshot(
+            engine=engine, rules=RULES, generation_digest=second.generation_digest
+        )
+
+    await ForsetiBaselineWorker(
+        state_store=store,
+        reader=_Reader(generation),
+        activation_source=activation_source,
+        rule_snapshot_source=snapshot_source,
+        owner="forseti-test",
+        clock=lambda: later,
+    ).run_once()
+
+    evidence = await _load(store, second)
+
+    assert evidence.status is WorkloadRuleEvidenceStatus.READY

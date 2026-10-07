@@ -262,9 +262,16 @@ Rule eligible for T0 observation; it doesn't enable enforcement. See
   with `no_eligible_resource`. FDAI doesn't request an applicability review automatically; the
   accountable owner decides whether to record an approved `not_applicable` decision.
 - **Latest coverage pointer:** After each run, Forseti writes the version 2 coverage record under
-  its own key and also under `baseline-evaluation:latest:coverage`. A resumed run for an older
-  generation never replaces a newer pointer. The Operator Rule findings summary and the assessment
-  job read only this pointer, and a version 1 completion alone never yields an evaluated summary.
+  its own key and also under `baseline-evaluation:latest:coverage`. A run that finds its claim
+  already completed, such as after a rollback to an earlier activation, republishes that stored
+  record, so the pointer follows the current activation. The Operator Rule findings summary and the
+  assessment job read only this pointer, and a version 1 completion alone never yields an evaluated
+  summary.
+- **Resume-invariant outcomes:** Outcomes bind the deterministic `started` audit reference and the
+  claim's pinned evaluation time, so a resumed run rewrites the same outcome records. A separate
+  `resumed` entry only attributes the takeover. Readers select outcomes by catalog digest,
+  evaluation time, and inventory observation, because an activation with identical Rule contents
+  shares the catalog digest.
 - **Cheap discovery:** Each maintenance run reads only the active inventory generation id first.
   The full generation is read only when that id or the activation generation changes since the
   last settled run. Every terminal result, including `generation_too_large` and

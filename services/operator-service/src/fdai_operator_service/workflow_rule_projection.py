@@ -275,12 +275,15 @@ async def derive_rule_findings_summary_payload(
         match_field="generation_digest",
         match_value=coverage.generation_digest,
     )
-    # One inventory generation may hold outcomes from earlier activation generations; the
-    # outcome-set digest then proves the filtered set is exact even when the page is truncated.
+    # One inventory generation may hold outcomes from other activation generations, including ones
+    # with identical Rule contents; the catalog, pinned evaluation time, and observation separate
+    # them, and the outcome-set digest proves the filtered set is exact even on a truncated page.
     outcomes = tuple(
         outcome
         for outcome in (_outcome(record.value) for record in outcome_page.records)
         if outcome.catalog_revision == coverage.evaluated_rule_catalog_digest
+        and outcome.evaluated_at == coverage.completed_at
+        and outcome.inventory_observation_digest == coverage.inventory_observation_digest
     )
     return _summary_from_coverage(coverage=coverage, outcomes=outcomes)
 

@@ -401,14 +401,67 @@ def test_limits_reject_lease_shorter_than_deadline() -> None:
 
 
 @pytest.mark.asyncio
-async def test_older_run_never_replaces_a_newer_latest_pointer() -> None:
+async def test_rollback_to_a_completed_activation_republishes_its_coverage() -> None:
     store = _AuditingStore()
-    newer = {"completed_at": (NOW + timedelta(days=1)).isoformat(), "marker": "newer"}
-    await store.write_state(BASELINE_EVALUATION_LATEST_COVERAGE_KEY, newer)
+    first = _activation()
+    second = _activation(RULES[:2])
 
-    assert await _worker(store).run_once() is BaselineWorkerResult.COMPLETED
+    await _worker(store, activation=first).run_once()
+    await _worker(store, activation=second, snapshot_rules=RULES[:2]).run_once()
+    latest = await store.read_state(BASELINE_EVALUATION_LATEST_COVERAGE_KEY)
+    assert latest is not None
+    assert latest["rule_activation_generation_id"] == second.generation_id
 
-    assert await store.read_state(BASELINE_EVALUATION_LATEST_COVERAGE_KEY) == newer
+    result = await _worker(store, activation=first).run_once()
+
+    assert result is BaselineWorkerResult.ALREADY_COMPLETED
+    latest = await store.read_state(BASELINE_EVALUATION_LATEST_COVERAGE_KEY)
+    assert latest is not None
+    assert latest["rule_activation_generation_id"] == first.generation_id
+
+
+class _CrashOnCoverageStore(_AuditingStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self.crash = True
+
+    async def write_state(self, key: str, value: Mapping[str, Any]) -> None:
+        if self.crash and key.startswith(BASELINE_EVALUATION_COVERAGE_PREFIX):
+            raise RuntimeError("crash before coverage")
+        await super().write_state(key, value)
+
+
+@pytest.mark.asyncio
+async def test_resumed_run_rewrites_the_same_outcomes_and_verifies() -> None:
+    import hashlib
+    import json
+
+    from fdai.agents import BASELINE_EVALUATION_OUTCOME_PREFIX
+    from fdai_service_contracts.baseline_evaluation import BaselineEvaluationOutcome
+
+    store = _CrashOnCoverageStore()
+    clock = [NOW]
+    with pytest.raises(RuntimeError, match="crash before coverage"):
+        await _worker(store, clock=clock, owner="forseti-a").run_once()
+    _, before = await store.read_state_page(prefix=BASELINE_EVALUATION_OUTCOME_PREFIX, limit=100)
+    store.crash = False
+    clock[0] = NOW + timedelta(hours=2)
+
+    result = await _worker(store, clock=clock, owner="forseti-b").run_once()
+
+    assert result is BaselineWorkerResult.COMPLETED
+    rows, after = await store.read_state_page(prefix=BASELINE_EVALUATION_OUTCOME_PREFIX, limit=100)
+    assert after == before == 2
+    coverage = await _coverage(store)
+    outcomes = sorted(
+        (BaselineEvaluationOutcome.model_validate(row) for row in rows),
+        key=lambda item: (item.resource_ref, item.rule_ref),
+    )
+    encoded = json.dumps([item.outcome_digest for item in outcomes], separators=(",", ":"))
+    assert coverage.outcome_set_digest == "sha256:" + hashlib.sha256(encoded.encode()).hexdigest()
+    kinds = [entry["action_kind"] for entry in store.audit]
+    assert kinds.count("baseline_evaluation.started") == 1
+    assert kinds.count("baseline_evaluation.resumed") == 1
 
 
 @pytest.mark.asyncio

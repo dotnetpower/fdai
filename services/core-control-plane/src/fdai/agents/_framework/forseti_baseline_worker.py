@@ -182,6 +182,10 @@ class ForsetiBaselineWorker:
             activation_digest=activation.generation_digest,
         )
         claim, refused = await self._claim(claim_key, observation_digest, activation)
+        if refused is BaselineWorkerResult.ALREADY_COMPLETED:
+            # A rollback to an earlier activation reuses its completed claim; the latest pointer
+            # must follow the activation that is current now.
+            await self._republish(observation_digest, activation)
         if claim is None:
             return refused or BaselineWorkerResult.CLAIMED_ELSEWHERE
         try:
@@ -291,10 +295,13 @@ class ForsetiBaselineWorker:
             "evaluated_rule_catalog_digest": evaluated_catalog,
             "evaluated_at": evaluated_at.isoformat(),
         }
-        reference = await self._append_audit(
-            "baseline_evaluation.resumed" if claim.get("resumed") else intent["kind"],
-            intent,
-        )
+        # Outcomes bind the deterministic "started" reference, so a resumed run rewrites the same
+        # outcome records; the resumed entry only attributes the takeover.
+        reference = _audit_reference(intent["kind"], intent)
+        if claim.get("resumed"):
+            await self._append_audit("baseline_evaluation.resumed", intent)
+        else:
+            await self._append_audit(intent["kind"], intent)
 
         async def fixed_binder(_record: Mapping[str, Any]) -> BaselineEvaluationAuditReference:
             return reference
@@ -361,32 +368,40 @@ class ForsetiBaselineWorker:
         coverage: BaselineEvaluationCoverage,
         record: Mapping[str, Any],
     ) -> None:
-        current = await self._store.read_state(BASELINE_EVALUATION_LATEST_COVERAGE_KEY)
-        current_at = _parse_time(current.get("completed_at")) if current else None
-        # A resumed run for an older generation never replaces a newer latest pointer.
-        if current_at is not None and current_at > coverage.completed_at:
-            return
+        # The worker only evaluates the active generation with the current activation, so the
+        # record it just settled is the latest; a slower stale writer is corrected next tick.
+        del coverage
         await self._store.write_state(BASELINE_EVALUATION_LATEST_COVERAGE_KEY, dict(record))
+
+    async def _republish(
+        self,
+        observation_digest: str,
+        activation: RuleActivationGeneration,
+    ) -> None:
+        stored = await self._store.read_state(
+            baseline_coverage_key(
+                inventory_observation_digest=observation_digest,
+                activation_digest=activation.generation_digest,
+            )
+        )
+        if stored is None:
+            return
+        coverage = BaselineEvaluationCoverage.model_validate(stored)
+        current = await self._store.read_state(BASELINE_EVALUATION_LATEST_COVERAGE_KEY)
+        if current is None or current.get("coverage_digest") != coverage.coverage_digest:
+            await self._publish_latest(coverage, coverage.model_dump(mode="json"))
 
     async def _append_audit(
         self, kind: str, body: Mapping[str, Any]
     ) -> BaselineEvaluationAuditReference:
-        payload = {
-            "schema_version": "1.0.0",
-            "kind": kind,
-            "record": _json_ready(body),
-            "owner_agent": "Forseti",
-            "execution_authority": False,
-        }
-        digest = "sha256:" + hashlib.sha256(_canonical(payload).encode()).hexdigest()
-        reference = BaselineEvaluationAuditReference(ref="audit:" + digest[7:39], digest=digest)
+        reference = _audit_reference(kind, body)
         await self._store.append_audit_entry(
             {
                 "action_kind": kind,
                 "producer_principal": "Forseti",
                 "audit_ref": reference.ref,
                 "audit_digest": reference.digest,
-                "payload": payload,
+                "payload": _audit_payload(kind, body),
                 "execution_authority": False,
             }
         )
@@ -561,6 +576,21 @@ def _coverage_values(
         "projection_authority": False,
         "execution_authority": False,
     }
+
+
+def _audit_payload(kind: str, body: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "schema_version": "1.0.0",
+        "kind": kind,
+        "record": _json_ready(body),
+        "owner_agent": "Forseti",
+        "execution_authority": False,
+    }
+
+
+def _audit_reference(kind: str, body: Mapping[str, Any]) -> BaselineEvaluationAuditReference:
+    digest = "sha256:" + hashlib.sha256(_canonical(_audit_payload(kind, body)).encode()).hexdigest()
+    return BaselineEvaluationAuditReference(ref="audit:" + digest[7:39], digest=digest)
 
 
 def _parse_time(value: object) -> datetime | None:

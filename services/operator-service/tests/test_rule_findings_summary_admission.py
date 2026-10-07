@@ -6,7 +6,7 @@ import hashlib
 import json
 from copy import deepcopy
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 import pytest
@@ -69,6 +69,7 @@ def _outcome(
     *,
     reason_code: str | None = None,
     catalog_revision: str = DIGEST_D,
+    evaluated_at: datetime = NOW,
 ) -> BaselineEvaluationOutcome:
     values: dict[str, object] = {
         "generation_id": "generation:one",
@@ -86,7 +87,7 @@ def _outcome(
         "evaluation_receipt_digest": DIGEST_F,
         "saga_audit_ref": "audit:" + resource_ref.rsplit(":", 1)[-1],
         "saga_audit_digest": DIGEST_A,
-        "evaluated_at": NOW,
+        "evaluated_at": evaluated_at,
         "execution_authority": False,
     }
     values["outcome_digest"] = baseline_evaluation_outcome_digest(**values)
@@ -346,6 +347,12 @@ async def test_outcomes_from_an_earlier_activation_are_excluded() -> None:
         BaselineEvaluationTerminalOutcome.COMPLIANT,
         catalog_revision=DIGEST_E,
     )
+    rerun = _outcome(
+        "rule:one",
+        "resource:one",
+        BaselineEvaluationTerminalOutcome.COMPLIANT,
+        evaluated_at=NOW + timedelta(hours=1),
+    )
     coverage = _completion((current,))
 
     class SummaryStore:
@@ -358,6 +365,7 @@ async def test_outcomes_from_an_earlier_activation_are_excluded() -> None:
             return _Page(
                 (
                     _Record("earlier", earlier.model_dump(mode="json")),
+                    _Record("same-rules-rerun", rerun.model_dump(mode="json")),
                     _Record("current", current.model_dump(mode="json")),
                 ),
                 truncated=True,

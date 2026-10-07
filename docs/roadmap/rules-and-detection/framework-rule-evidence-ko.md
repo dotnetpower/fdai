@@ -1,7 +1,7 @@
 ---
 title: T0 기반 프레임워크 규칙 근거
 translation_of: framework-rule-evidence.md
-translation_source_sha: 28ab53b5af29dc899e818300055d797dc27cd0be
+translation_source_sha: 84004a8731ce3137fcb15e9bc1ddb7e03c0fc7e6
 translation_revised: 2026-10-07
 ---
 # T0 기반 프레임워크 규칙 근거
@@ -258,9 +258,13 @@ WAF `rule` 요구 사항은 컨트롤 수준 교차워크 관계가 `partial`이
   `unknown`으로 유지합니다. FDAI는 적용 가능성 검토를 자동으로 요청하지 않으며, 책임 담당자가 승인된
   `not_applicable` 결정을 기록할지 판단합니다.
 - **최신 커버리지 포인터:** 실행이 끝날 때마다 Forseti는 버전 2 커버리지 기록을 고유 키에 쓰고
-  `baseline-evaluation:latest:coverage`에도 씁니다. 이전 세대를 재개한 실행은 더 최신 포인터를
-  덮어쓰지 않습니다. Operator 규칙 탐지 결과 요약과 평가 작업은 이 포인터만 읽으며, 버전 1 완료
-  기록만으로는 평가된 요약을 만들지 않습니다.
+  `baseline-evaluation:latest:coverage`에도 씁니다. 이전 활성화로 롤백한 경우처럼 클레임이 이미
+  완료된 실행은 저장된 기록을 다시 게시하므로, 포인터는 현재 활성화를 따릅니다. Operator 규칙 탐지
+  결과 요약과 평가 작업은 이 포인터만 읽으며, 버전 1 완료 기록만으로는 평가된 요약을 만들지 않습니다.
+- **재개해도 같은 결과:** 결과는 결정적인 `started` 감사 참조와 클레임에 고정된 평가 시각에
+  결합되므로, 재개한 실행은 같은 결과 기록을 다시 씁니다. 별도의 `resumed` 항목은 인계 사실만
+  기록합니다. 규칙 내용이 같은 활성화는 카탈로그 다이제스트도 같으므로, 읽는 쪽은 카탈로그
+  다이제스트, 평가 시각, 인벤토리 관측으로 결과를 고릅니다.
 - **가벼운 탐색:** 유지 관리 실행은 먼저 활성 인벤토리 세대 ID만 읽습니다. 마지막으로 정착된
   실행 이후 그 ID나 활성화 세대가 바뀐 경우에만 전체 세대를 읽습니다. `generation_too_large`와
   `activation_drift`를 포함한 모든 최종 결과는 `baseline-evaluation:status:latest` 상태 기록에

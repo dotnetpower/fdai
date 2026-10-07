@@ -152,7 +152,13 @@ async def _workload_outcomes(
             return None
         for row in rows:
             outcome = BaselineEvaluationOutcome.model_validate(row)
-            if outcome.catalog_revision == coverage.evaluated_rule_catalog_digest:
+            # Same Rule contents under another activation share a catalog digest, so the
+            # pinned evaluation time and observation separate the two outcome sets.
+            if (
+                outcome.catalog_revision == coverage.evaluated_rule_catalog_digest
+                and outcome.evaluated_at == coverage.completed_at
+                and outcome.inventory_observation_digest == coverage.inventory_observation_digest
+            ):
                 selected[outcome.outcome_digest] = outcome
         offset += len(rows)
         if not rows or offset >= total:
