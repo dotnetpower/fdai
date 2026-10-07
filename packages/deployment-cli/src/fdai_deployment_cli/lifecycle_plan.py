@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Literal
+from typing import Literal, cast
 
 from fdai_deployment_cli.contracts import canonical_bytes
 from fdai_deployment_cli.lifecycle_configuration import (
@@ -31,6 +32,31 @@ _MODE_ORDER: Mapping[CapabilityMode, int] = {"shadow": 0, "enforce": 1}
 _SCOPE_ID = re.compile(r"[a-z][a-z0-9._-]*\Z", re.ASCII)
 _SUPPORTED_PLAN_TYPES = frozenset(
     {"install", "upgrade", "configuration-change", "recall-rolloff", "rollback"}
+)
+_PLAN_PAYLOAD_KEYS = frozenset(
+    {
+        "audience",
+        "capability_ids",
+        "configuration_revision_digest",
+        "declared_duration_minutes",
+        "entity_ids",
+        "envelope",
+        "expires_at",
+        "fencing_generation",
+        "hub_key_epoch",
+        "hub_key_id",
+        "plan_id",
+        "plan_type",
+        "release_regions",
+        "rollback_target_plan_id",
+        "sequence",
+        "source_state_digest",
+        "target_release_digest",
+        "target_release_id",
+    }
+)
+_ENVELOPE_PAYLOAD_KEYS = frozenset(
+    {"capability_modes", "destructive_allowed", "entity_ids", "max_duration_minutes", "regions"}
 )
 
 
@@ -307,6 +333,146 @@ def canonical_plan_payload(plan: LifecyclePlan) -> bytes:
             "target_release_id": plan.target_release_id,
         }
     )
+
+
+def decode_canonical_plan_payload(signed_payload: bytes, signature: bytes) -> LifecyclePlan:
+    """Parse Hub-signed Plan bytes into a ``LifecyclePlan``; the inverse of
+    ``canonical_plan_payload``.
+
+    The decoder checks shape only. It never verifies the signature, so callers MUST pass the
+    result to ``evaluate_plan_admission`` before trusting any field. Admission also rejects
+    bytes that parse but are not in canonical form. Raises ``ValueError`` with a sanitized
+    message for invalid UTF-8 or JSON, duplicate, unknown, or missing fields, wrong types,
+    an unsupported plan type or capability mode, and an ``expires_at`` without a timezone.
+    """
+
+    if not isinstance(signed_payload, bytes) or not isinstance(signature, bytes):
+        raise TypeError("signed_payload and signature MUST be bytes")
+    try:
+        document = json.loads(
+            signed_payload.decode("utf-8"),
+            object_pairs_hook=_unique_plan_object,
+            parse_constant=_reject_plan_constant,
+        )
+    except UnicodeDecodeError as error:
+        raise ValueError("plan payload MUST be UTF-8 JSON") from error
+    except json.JSONDecodeError as error:
+        raise ValueError("plan payload MUST be valid JSON") from error
+    except RecursionError as error:
+        raise ValueError("plan payload nesting is too deep") from error
+    fields = _plan_object(document, _PLAN_PAYLOAD_KEYS, "plan payload")
+    envelope = _plan_object(fields["envelope"], _ENVELOPE_PAYLOAD_KEYS, "envelope")
+    raw_modes = _plan_object(envelope["capability_modes"], None, "envelope.capability_modes")
+    capability_modes: dict[str, CapabilityMode] = {}
+    for capability, mode in raw_modes.items():
+        if mode not in _MODE_ORDER:
+            raise ValueError("envelope.capability_modes contains an unsupported mode")
+        capability_modes[capability] = cast(CapabilityMode, mode)
+    plan_type = _plan_text(fields["plan_type"], "plan_type")
+    if plan_type not in _SUPPORTED_PLAN_TYPES:
+        raise ValueError("plan_type is unsupported")
+    expires_at_text = _plan_text(fields["expires_at"], "expires_at")
+    try:
+        expires_at = datetime.fromisoformat(expires_at_text)
+    except ValueError as error:
+        raise ValueError("expires_at MUST be an ISO 8601 timestamp") from error
+    _require_aware_datetime(expires_at, "expires_at")
+    rollback_target = fields["rollback_target_plan_id"]
+    try:
+        return LifecyclePlan(
+            plan_id=_plan_text(fields["plan_id"], "plan_id"),
+            audience=_plan_text(fields["audience"], "audience"),
+            hub_key_epoch=_plan_integer(fields["hub_key_epoch"], "hub_key_epoch"),
+            hub_key_id=_plan_text(fields["hub_key_id"], "hub_key_id"),
+            source_state_digest=_plan_text(fields["source_state_digest"], "source_state_digest"),
+            sequence=_plan_integer(fields["sequence"], "sequence"),
+            fencing_generation=_plan_integer(fields["fencing_generation"], "fencing_generation"),
+            plan_type=cast(PlanType, plan_type),
+            target_release_id=_plan_text(fields["target_release_id"], "target_release_id"),
+            target_release_digest=_plan_text(
+                fields["target_release_digest"], "target_release_digest"
+            ),
+            configuration_revision_digest=_plan_text(
+                fields["configuration_revision_digest"], "configuration_revision_digest"
+            ),
+            entity_ids=frozenset(_plan_texts(fields["entity_ids"], "entity_ids")),
+            capability_ids=_plan_texts(fields["capability_ids"], "capability_ids"),
+            release_regions=frozenset(_plan_texts(fields["release_regions"], "release_regions")),
+            rollback_target_plan_id=(
+                None
+                if rollback_target is None
+                else _plan_text(rollback_target, "rollback_target_plan_id")
+            ),
+            declared_duration_minutes=_plan_integer(
+                fields["declared_duration_minutes"], "declared_duration_minutes"
+            ),
+            envelope=LifecycleEffectEnvelope(
+                entity_ids=frozenset(_plan_texts(envelope["entity_ids"], "envelope.entity_ids")),
+                regions=frozenset(_plan_texts(envelope["regions"], "envelope.regions")),
+                capability_modes=capability_modes,
+                destructive_allowed=_plan_boolean(
+                    envelope["destructive_allowed"], "envelope.destructive_allowed"
+                ),
+                max_duration_minutes=_plan_integer(
+                    envelope["max_duration_minutes"], "envelope.max_duration_minutes"
+                ),
+            ),
+            expires_at=expires_at,
+            signed_payload=signed_payload,
+            signature=signature,
+        )
+    except TypeError as error:
+        raise ValueError(f"plan payload field is invalid: {error}") from error
+
+
+def _unique_plan_object(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    result: dict[str, object] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("plan payload contains a duplicate field")
+        result[key] = value
+    return result
+
+
+def _reject_plan_constant(value: str) -> object:
+    raise ValueError("plan payload contains a non-finite number")
+
+
+def _plan_object(value: object, required: frozenset[str] | None, label: str) -> dict[str, object]:
+    if not isinstance(value, dict):
+        raise ValueError(f"{label} MUST be a JSON object")
+    if required is not None:
+        unknown = set(value) - required
+        if unknown:
+            raise ValueError(f"{label} contains unknown fields: {', '.join(sorted(unknown))}")
+        missing = required - set(value)
+        if missing:
+            raise ValueError(f"{label} is missing fields: {', '.join(sorted(missing))}")
+    return value
+
+
+def _plan_text(value: object, field: str) -> str:
+    if not isinstance(value, str):
+        raise ValueError(f"{field} MUST be a string")
+    return value
+
+
+def _plan_integer(value: object, field: str) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{field} MUST be an integer")
+    return value
+
+
+def _plan_boolean(value: object, field: str) -> bool:
+    if not isinstance(value, bool):
+        raise ValueError(f"{field} MUST be a boolean")
+    return value
+
+
+def _plan_texts(value: object, field: str) -> tuple[str, ...]:
+    if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
+        raise ValueError(f"{field} MUST be a list of strings")
+    return tuple(value)
 
 
 def evaluate_lifecycle_constraints(
