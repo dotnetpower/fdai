@@ -199,11 +199,9 @@ jobs:
             printf '%s\t%s\t%s\n' "$root_id" "$terraform_root" "$plan_file" >>"$work/roots.tsv"
           }
 
-          printf '%s' "$RESOLVED_MODELS_JSON" >"$work/vars/resolved-models.json"
           terraform -chdir=infra show -json >"$work/vars/platform-state.json"
           python3 scripts/deployment/service/drift_contract.py platform-output-inputs \
             --state-json "$work/vars/platform-state.json" \
-            --resolved-models-json "$work/vars/resolved-models.json" \
             --output "$work/vars/legacy-output-inputs.tfvars.json"
           terraform -chdir=infra plan -refresh-only -input=false -lock-timeout=300s \
             -var-file="$work/vars/legacy-output-inputs.tfvars.json" \

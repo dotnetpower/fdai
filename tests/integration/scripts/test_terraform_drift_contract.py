@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import hashlib
 import importlib.util
-import json
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -124,21 +122,6 @@ def _platform_state(
 
 
 def _legacy_platform_state(*, incomplete_governed_identities: bool = False) -> dict[str, Any]:
-    resolved_models = {
-        "capabilities": [
-            {
-                "name": "t1.judge",
-                "publisher": "OpenAI",
-                "status": "available",
-            },
-            {
-                "name": "t2.reasoner.primary",
-                "publisher": "OpenAI",
-                "status": "hil-only",
-            },
-        ]
-    }
-    normalized = json.dumps(resolved_models, separators=(",", ":"), sort_keys=True)
     addresses = [
         "module.console[0].azurerm_static_web_app.console",
         "azurerm_function_app_flex_consumption.dev_gateway[0]",
@@ -156,17 +139,35 @@ def _legacy_platform_state(*, incomplete_governed_identities: bool = False) -> d
         "module.operator_api_identity[0].azurerm_user_assigned_identity.primary",
         "module.operator_channel_edge_identity[0].azurerm_user_assigned_identity.primary",
     ]
+    model_deployments = [
+        {
+            "address": (
+                'module.llm_azure_openai[0].azurerm_cognitive_deployment.capability["t1.judge"]'
+            ),
+            "values": {
+                "name": "t1.judge",
+                "model": [{"name": "gpt-5-mini", "version": "2026-01-01"}],
+                "sku": [{"name": "GlobalStandard", "capacity": 200}],
+            },
+        },
+        {
+            "address": (
+                "module.llm_azure_openai[0].azurerm_cognitive_deployment."
+                'capability["t2.reasoner.primary"]'
+            ),
+            "values": {
+                "name": "t2.reasoner.primary",
+                "model": [{"name": "gpt-5.4", "version": "2026-02-01"}],
+                "sku": [{"name": "ProvisionedManaged", "capacity": 12}],
+            },
+        },
+    ]
     if incomplete_governed_identities:
         addresses.remove("module.identity_finops[0].azurerm_user_assigned_identity.primary")
     return {
-        "resolved_models": resolved_models,
         "state": {
             "values": {
-                "outputs": {
-                    "resolved_models_sha256": {
-                        "value": hashlib.sha256(normalized.encode()).hexdigest()
-                    }
-                },
+                "outputs": {"resolved_models_sha256": {"value": "a" * 64}},
                 "root_module": {
                     "resources": [
                         {
@@ -183,6 +184,7 @@ def _legacy_platform_state(*, incomplete_governed_identities: bool = False) -> d
                         }
                         for address in addresses
                     ]
+                    + model_deployments
                 },
             }
         },
@@ -582,10 +584,7 @@ def test_reconcile_applies_only_reviewed_saved_refresh_only_plans() -> None:
 def test_recovers_legacy_output_inputs_from_stored_state(drift: ModuleType) -> None:
     fixture = _legacy_platform_state()
 
-    inputs = drift.stored_platform_output_inputs(
-        fixture["state"],
-        resolved_models=fixture["resolved_models"],
-    )
+    inputs = drift.stored_platform_output_inputs(fixture["state"])
 
     assert inputs == {
         "enable_dev_operations_gateway": True,
@@ -597,17 +596,25 @@ def test_recovers_legacy_output_inputs_from_stored_state(drift: ModuleType) -> N
             {
                 "name": "t1.judge",
                 "publisher": "OpenAI",
-                "status": "available",
-            }
+                "family": "gpt-5-mini",
+                "version": "2026-01-01",
+                "sku": "GlobalStandard",
+                "capacity_unit": "tpm",
+                "capacity_tpm": 200000,
+                "capacity_value": 0,
+            },
+            {
+                "name": "t2.reasoner.primary",
+                "publisher": "OpenAI",
+                "family": "gpt-5.4",
+                "version": "2026-02-01",
+                "sku": "ProvisionedManaged",
+                "capacity_unit": "ptu",
+                "capacity_tpm": 0,
+                "capacity_value": 12,
+            },
         ],
-        "resolved_models_json": (
-            '{"capabilities":[{"name":"t1.judge","publisher":"OpenAI",'
-            '"status":"available"},{"name":"t2.reasoner.primary",'
-            '"publisher":"OpenAI","status":"hil-only"}]}'
-        ),
-        "resolved_models_sha256": hashlib.sha256(
-            json.dumps(fixture["resolved_models"], separators=(",", ":"), sort_keys=True).encode()
-        ).hexdigest(),
+        "resolved_models_sha256": "a" * 64,
     }
 
 
@@ -619,18 +626,19 @@ def test_recovers_operator_identity_without_root_output(drift: ModuleType) -> No
     }
 
 
-def test_rejects_changed_legacy_model_bindings(drift: ModuleType) -> None:
+def test_rejects_invalid_legacy_model_deployment(drift: ModuleType) -> None:
     fixture = _legacy_platform_state()
-    fixture["resolved_models"]["capabilities"][0]["name"] = "changed"
+    resources = fixture["state"]["values"]["root_module"]["resources"]
+    deployment = next(
+        resource for resource in resources if "azurerm_cognitive_deployment" in resource["address"]
+    )
+    deployment["values"]["sku"][0]["capacity"] = 0
 
     with pytest.raises(
         drift.DriftContractError,
-        match="resolved model bindings do not match",
+        match="invalid model deployment",
     ):
-        drift.stored_platform_output_inputs(
-            fixture["state"],
-            resolved_models=fixture["resolved_models"],
-        )
+        drift.stored_platform_output_inputs(fixture["state"])
 
 
 def test_rejects_incomplete_legacy_governed_identities(drift: ModuleType) -> None:
@@ -640,7 +648,4 @@ def test_rejects_incomplete_legacy_governed_identities(drift: ModuleType) -> Non
         drift.DriftContractError,
         match="incomplete governed identity set",
     ):
-        drift.stored_platform_output_inputs(
-            fixture["state"],
-            resolved_models=fixture["resolved_models"],
-        )
+        drift.stored_platform_output_inputs(fixture["state"])
