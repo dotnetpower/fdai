@@ -28,7 +28,7 @@ receipt for a control requirement. Anything it can't prove stays `unknown`.
 flowchart LR
   Mimir["Mimir: activation generation"] --> Forseti
   Huginn["Huginn: complete inventory generation"] --> Forseti
-  Forseti["Forseti: scoped Rule coverage"] --> Saga["Saga: audit binding"]
+  Forseti["Forseti: scoped Rule coverage"] --> Audit["Append-only audit store"]
   Forseti --> Producer["t0-rule-evaluator receipts"]
   Producer --> Assessment["Framework assessment runtime (shadow)"]
 ```
@@ -61,15 +61,57 @@ implemented by a Forseti baseline worker, not a new agent. The other roles stay 
 - Mimir supplies the immutable `RuleActivationGeneration` and remains the only owner of Rule
   membership.
 - Huginn supplies the complete inventory generation.
-- Saga binds append-only audit references for every coverage record and receipt.
+- Saga keeps owning the audit chain. Forseti writes Forseti-attributed entries through the shared
+  append-only audit store provider and never calls the Saga agent directly.
 - Norns may propose inert Rule candidates for unmapped requirements; it never changes membership.
 
-Coverage records and receipts are authority-free read models persisted with their Saga audit
+Coverage records and receipts are authority-free read models persisted with their audit
 references. Forseti is their only writer. The assessment runtime reads committed records through a
 read-model source adapter, and the resulting assessment still goes through the existing audited
 framework assessment publication. This change adds no topic, subscription, or `AgentSpec`
 ownership. If a later consumer needs push delivery, a separate reviewed change adds a
 schema-registered topic with a single writer.
+
+## Baseline trigger
+
+Forseti can already evaluate one complete inventory generation, but no runtime path calls it. The
+inventory job runs in its own process and publishes one configuration event per Resource, so Core
+never learns that a whole generation has been delivered.
+
+**Initial design.** Run a Core job that polls for the newest inventory generation and evaluates it.
+
+**Critique.** A polling job has no accountable owner unless an agent owns it. Reading the inventory
+job's pending delivery records couples Core to another service's mutable workflow state. A pure
+event design loses a baseline when one marker event is lost. A marker that reaches the T0 control
+loop as an ordinary event would also produce a no-rule human-approval verdict for every
+generation.
+
+**Revision.** A second critique found that a marker event adds no ordering guarantee, because
+Resource events are keyed per Resource. Huginn would also drop its fields during normalization. It
+also found that calling Saga's audit binder from Forseti is a direct agent call that changes Saga
+state. The revised trigger has no marker:
+
+1. Forseti discovers work during its existing startup rehydration and maintenance cycle. It asks an
+   injected, read-only `PromotedInventoryGenerationReader` for the newest delivered complete
+   generation. The reader is a shared provider protocol with a PostgreSQL implementation in
+   delivery, bound at runtime composition. It reads the committed inventory snapshot, not delivery
+   bookkeeping.
+2. Before any audit write, Forseti takes an atomic claim keyed by the inventory observation digest
+   and the current activation generation digest. A held or completed claim skips the generation,
+   so retries and concurrent discovery can't append duplicate audits. A later activation
+   generation creates a new claim for the same inventory generation.
+3. A bounded Forseti worker evaluates the claimed generation with the runtime's current activation
+   generation. It has a deadline and a Resource limit. A generation over the limit, a read failure,
+   or an expired deadline records the generation as unavailable and writes no completion.
+4. Forseti writes Forseti-attributed audit entries through the shared append-only audit store
+   provider, the same path the control loop uses for its abstain audits. The version 2 completion
+   binds one audit entry to the whole outcome set instead of one Saga call per outcome. Forseti
+   never calls the Saga agent.
+5. The control loop and Forseti's judgment path see no new event type, so no verdict or
+   human-approval request can result.
+
+This change adds no topic, subscription, or `AgentSpec` ownership. If a later consumer needs push
+delivery, a separate reviewed change adds a schema-registered topic with a single writer.
 
 ## Scoped Rule coverage contract
 
@@ -110,7 +152,7 @@ The record carries these fields:
 | Activation | Activation generation id and digest, Rule catalog digest, member Rule id, version, and digest, dispatcher and signal type registry digests. |
 | Inventory | Inventory generation, observation digest, observed time. |
 | Coverage | Per-Rule eligible-set digest, expected pair count, covered pair count, compliant, violated, and held-for-review counts. |
-| Provenance | Version 2 baseline completion digest, Saga audit reference and digest, coverage digest. |
+| Provenance | Version 2 baseline completion digest, audit reference and digest, coverage digest. |
 | Limitations | Bounded machine codes such as `pair_missing`, `duplicate_pair`, `conflicting_pair`, `unexpected_pair`, `scope_mismatch`, `rule_not_activated`, `rule_revision_drift`, `activation_catalog_drift`, `no_eligible_resource`, and `stale_inventory`. |
 
 A later catalog or activation revision produces a new record. It never reinterprets an older one.
@@ -203,7 +245,7 @@ Rule eligible for T0 observation; it doesn't enable enforcement. See
 
 | Step | Exit evidence |
 |------|---------------|
-| 1. Ownership and event boundary | The Forseti worker, read model, and Saga binding are reviewed with no new topic or agent ownership change. |
+| 1. Ownership and event boundary | The Forseti baseline worker, its read-only inventory reader, claim, and audit store entries are reviewed with no new topic, direct agent call, or agent ownership change. |
 | 2. Versioned contracts | Version 2 baseline completion, scoped coverage, the profile activation pin, and extended receipt models validate and reject mixed scope, activation, and catalog identities. The Rule findings summary reads version 2. |
 | 3. Fail-closed tests | Focused tests prove each row of the outcome table in order, dispatch parity with T0, and deterministic replay. |
 | 4. WAF producer | A complete local inventory generation turns the 8 WAF controls' Rule requirements into `satisfied` or `failed` receipts. |

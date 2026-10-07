@@ -1,7 +1,7 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: dcc8e43bf642b9d94d065035698e30df7aa37e23
+translation_source_sha: 85bccfb0aa97fe9e2975ea098f67b8fef58a5cc8
 translation_revised: 2026-10-07
 ---
 
@@ -121,7 +121,9 @@ Operator 변환 결과 조각은 완전한 `BaselineEvaluationCompletion`과 일
 Resource와 Rule 쌍을 감지할 수 없습니다. 또한 Rule 활성화 세대가 아니라 인벤토리 관측을 식별합니다.
 기대 쌍을 독립적으로 도출하는 버전 2 완료 기록과 Rule 점검 결과 요약의 버전 2 전환은
 [T0 기반 프레임워크 규칙 근거](framework-rule-evidence-ko.md#범위별-규칙-커버리지-계약)에서
-설계합니다. 그 전까지는 버전 1 요약을 완전한 coverage의 증명이 아니라 관측된 개수로 취급하세요.
+설계합니다. 아직 Forseti 평가를 호출하는 런타임 경로가 없고, 버전 1 감사 결합은 기록마다 Saga
+에이전트를 직접 호출합니다. [baseline 트리거](framework-rule-evidence-ko.md#baseline-트리거) 설계가 둘을 모두
+대체합니다. 그 전까지는 버전 1 요약을 완전한 coverage의 증명이 아니라 관측된 개수로 취급하세요.
 
 ### 동결된 구성 기준선 점검
 

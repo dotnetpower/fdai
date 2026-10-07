@@ -125,8 +125,11 @@ false`.
 outcomes Forseti wrote, so it can't detect an omitted Resource and Rule pair. It also identifies an
 inventory observation rather than a Rule activation generation. A version 2 completion that derives
 expected pairs independently, and the migration of the Rule findings summary to it, are designed in
-[Framework Rule Evidence from T0](framework-rule-evidence.md#scoped-rule-coverage-contract). Until
-then, treat the version 1 summary as observed counts, not proof of complete coverage.
+[Framework Rule Evidence from T0](framework-rule-evidence.md#scoped-rule-coverage-contract). No runtime
+path calls the Forseti evaluation yet, and the version 1 audit binding calls the Saga agent directly
+for each record; the [baseline trigger](framework-rule-evidence.md#baseline-trigger) design
+replaces both. Until then, treat the version 1 summary as observed counts, not proof of complete
+coverage.
 
 ### Frozen configuration baseline checks
 

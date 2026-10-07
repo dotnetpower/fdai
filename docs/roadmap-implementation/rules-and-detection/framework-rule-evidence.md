@@ -9,7 +9,7 @@ control assessments without duplicating the normative design.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Ownership and event boundary | not-started | Design only | Forseti owns the `t0-rule-evaluator` producer; no new topic or agent. |
+| Ownership and event boundary | not-started | Design only | Forseti owns the `t0-rule-evaluator` producer and a bounded baseline worker that discovers delivered generations through a read-only reader, claims them atomically, and writes audit store entries without calling Saga. No new topic or agent. |
 | Version 2 baseline completion | not-started | Design only | Full-inventory expected pairs derived independently of written outcomes; the Rule findings summary migrates to it. |
 | Scoped Rule coverage contract | in-progress | `services/core-control-plane/src/fdai/core/framework_rule_evidence/coverage.py`; `services/core-control-plane/tests/core/framework_rule_evidence/` | Pure coverage with T0 dispatch parity, canonical pair keys, workload projection, and every activation member accounted for. Forseti persistence and Saga binding are not started. |
 | Assessment-side activation pin | in-progress | `FrameworkRuleActivationPin` in `services/core-control-plane/src/fdai/core/framework_assessment/models.py`; Rule admission in `runtime.py` | Admission rejects unpinned, unprovenanced, and mismatched Rule receipts. The assessment job doesn't yet read Mimir's current generation. |
@@ -23,13 +23,15 @@ control assessments without duplicating the normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-07 | not-started | Designed the baseline trigger after finding that no runtime path calls Forseti's baseline evaluation. A critique removed the proposed marker event (no ordering guarantee, fields dropped by Huginn), replaced the direct Saga binder call with Forseti-attributed audit store entries, and added an atomic claim per inventory observation and activation generation. | `current change`; `docs/roadmap/rules-and-detection/framework-rule-evidence.md#baseline-trigger`; `services/core-control-plane/src/fdai/agents/forseti.py` (`evaluate_baseline_generation` has no runtime caller). | Implement the bounded Forseti baseline worker and read-only reader. |
 | 2026-10-07 | in-progress | Implemented the pure Rule evidence core: T0-dispatch expected pairs, scoped coverage that accounts every activation member, the ordered outcome table, Rule receipt provenance and limitation codes, and the assessment-side activation pin enforced at admission. Fixed a defect found by the tests where an activated Rule with no eligible resource looked not activated. | `current change`; `services/core-control-plane/src/fdai/core/framework_rule_evidence/`; `services/core-control-plane/src/fdai/core/framework_assessment/{models,runtime}.py`; 13 new tests and 88 tests across framework assessment, Forseti baseline, CLI, Azure adapter, catalog, and Operator projection suites passed; new module branch coverage 99%; strict mypy, ruff, and core import checks passed. | Version 2 baseline completion, Forseti worker persistence with Saga binding, Mimir pin wiring, Console coverage, and later frameworks. |
 | 2026-10-07 | not-started | Recorded the reviewed design after an independent critique of the draft plan. A second critique of the design aligned expected pairs with T0 dispatch, replaced the version 1 baseline denominator, added an assessment-side activation pin, and defined ordered outcome precedence. | `current change`; `docs/roadmap/rules-and-detection/framework-rule-evidence.md`; requirement and Rule reference counts from `rule-catalog/framework-assessments/generated/azure-waf.json`, MCSB and WARA counts from `rule-catalog/compliance/` and `rule-catalog/collected/wara-aprl/assessment/`. | Every row in the scope table. |
 
 ### Remaining work
 
-- [ ] Review the Forseti baseline worker, read model, and Saga binding, and record that no topic or
-  `AgentSpec` ownership changes.
+- [ ] Implement the bounded Forseti baseline worker with a read-only
+  `PromotedInventoryGenerationReader`, an atomic claim, and audit store entries, with focused tests
+  proving no direct Saga call, no duplicate audit on retry, and no topic or `AgentSpec` change.
 - [ ] Add a version 2 baseline completion whose expected pairs are derived independently of the
   written outcomes, and move the Rule findings summary to it with focused Operator tests.
 - [x] Added scoped coverage, the assessment-side activation pin, and receipt provenance with
