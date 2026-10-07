@@ -56,12 +56,12 @@ def test_operator_request_receipt_seeds_follow_key_vault_secret_pattern() -> Non
     assert 'name = "FDAI_OPERATOR_REQUEST_OPERATOR_SIGNING_SEED"' in _OPERATOR_SERVICE_MAIN
     assert 'name = "FDAI_OPERATOR_REQUEST_RECEIPT_PRODUCER_ID"' in _OPERATOR_SERVICE_MAIN
     assert (
-        "core_signing_seed_secret_id     = "
-        "azurerm_key_vault_secret.operator_request_core_signing_seed.resource_versionless_id"
+        'core_signing_seed_secret_id     = "https://${local.key_vault_name}.vault.azure.net/'
+        'secrets/fdai-operator-request-core-signing-seed"'
     ) in _PLATFORM_OUTPUTS
     assert (
-        "operator_signing_seed_secret_id = "
-        "azurerm_key_vault_secret.operator_request_operator_signing_seed.resource_versionless_id"
+        'operator_signing_seed_secret_id = "https://${local.key_vault_name}.vault.azure.net/'
+        'secrets/fdai-operator-request-operator-signing-seed"'
     ) in _PLATFORM_OUTPUTS
     assert (
         "core_signing_seed_secret_id     = "
@@ -71,3 +71,10 @@ def test_operator_request_receipt_seeds_follow_key_vault_secret_pattern() -> Non
         "operator_signing_seed_secret_id = "
         "azurerm_key_vault_secret.operator_request_operator_signing_seed.id"
     ) not in _PLATFORM_OUTPUTS
+    assert "resource_versionless_id" not in _block(
+        _PLATFORM_OUTPUTS, 'output "operator_request_receipt_binding"'
+    )
+
+
+def _block(source: str, marker: str) -> str:
+    return source.split(marker, maxsplit=1)[1].split("\n}", maxsplit=1)[0]

@@ -169,6 +169,9 @@ Service input materialization loads its standard-library-only approval contract 
 exact checked-out source without executing the package's optional runtime imports. It therefore
 does not depend on packages that happen to be installed in a particular self-hosted runner
 environment.
+Outputs for static Key Vault secret names and versionless operator-request seed references derive
+from their declared names rather than provider-computed attributes, so a post-reconciliation
+refresh plan can prove them without an apply-time unknown.
 Before the bootstrap plan, it independently reads the runner VM and requires the reviewed size,
 `Local` `ResourceDisk` placement, and no managed OS disk. A mismatch reports the blue/green
 replacement action and fails without changing Azure state. The ephemeral profile stays allocated;

@@ -142,6 +142,7 @@ def test_aks_core_application_insights_uses_key_vault_secret() -> None:
         "application_insights_connection_string.resource_versionless_id" in root
     )
     assert 'output "application_insights_connection_string_secret_name"' in outputs
+    assert 'value       = "fdai-application-insights-connection-string"' in outputs
     assert '"APPLICATIONINSIGHTS_CONNECTION_STRING": str(' in host
     assert 'substrate_outputs["application_insights_secret_name"]' in host
     assert '"application_insights_secret_name"' in host
