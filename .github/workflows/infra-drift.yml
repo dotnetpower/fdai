@@ -144,9 +144,28 @@ jobs:
         if: inputs.scope != 'runner'
         id: legacy_drift
         continue-on-error: true
-        run: >-
-          terraform plan -refresh-only -input=false -lock-timeout=300s
-          -detailed-exitcode
+        working-directory: ${{ github.workspace }}
+        env:
+          RESOLVED_MODELS_JSON: ${{ vars.RESOLVED_MODELS_JSON }}
+          TF_VAR_dev_operations_gateway_private_probes_json: "${{ vars.DEV_OPERATIONS_GATEWAY_PRIVATE_PROBES_JSON || '{}' }}"
+          TF_VAR_ohl_scale_out_evidence_campaign_id: ${{ vars.OHL_SCALE_OUT_EVIDENCE_CAMPAIGN_ID }}
+          TF_VAR_ohl_scale_out_evidence_image_version: ${{ vars.OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION }}
+          TF_VAR_ohl_scale_out_evidence_initiator_principal_id: ${{ vars.OHL_SCALE_OUT_EVIDENCE_INITIATOR_PRINCIPAL_ID }}
+          TF_VAR_ohl_scale_out_evidence_ssh_public_key: ${{ vars.OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          state_json="$RUNNER_TEMP/legacy-platform-state.json"
+          resolved_models_json="$RUNNER_TEMP/legacy-resolved-models.json"
+          plan_inputs="$RUNNER_TEMP/legacy-output-inputs.tfvars.json"
+          terraform -chdir=infra show -json >"$state_json"
+          printf '%s' "$RESOLVED_MODELS_JSON" >"$resolved_models_json"
+          python3 scripts/deployment/service/drift_contract.py platform-output-inputs \
+            --state-json "$state_json" \
+            --resolved-models-json "$resolved_models_json" \
+            --output "$plan_inputs"
+          terraform -chdir=infra plan -refresh-only -input=false -lock-timeout=300s \
+            -var-file="$plan_inputs" -detailed-exitcode
 
       - name: Plan independent service roots
         if: inputs.scope != 'runner'
@@ -422,9 +441,13 @@ jobs:
           always() && steps.protected-source.outcome == 'success' &&
           steps.database_window.outcome != 'skipped'
         working-directory: ${{ github.workspace }}
-        run: >-
-          python3 scripts/deployment/azure/postgres_power_window.py close
-          --record "$RUNNER_TEMP/database-power-window.json"
+        run: |
+          python3 scripts/deployment/azure/postgres_power_window.py close \
+            --record "$RUNNER_TEMP/database-power-window.json"
+          rm -f -- \
+            "$RUNNER_TEMP/legacy-platform-state.json" \
+            "$RUNNER_TEMP/legacy-resolved-models.json" \
+            "$RUNNER_TEMP/legacy-output-inputs.tfvars.json"
 
       - name: Enforce complete drift evidence
         if: always() && steps.protected-source.outcome == 'success'

@@ -147,6 +147,11 @@ jobs:
           ENVIRONMENT: ${{ inputs.environment }}
           SERVICE_DEPLOY_TFVARS_JSON: ${{ secrets.SERVICE_DEPLOY_TFVARS_JSON }}
           RESOLVED_MODELS_JSON: ${{ vars.RESOLVED_MODELS_JSON }}
+          TF_VAR_dev_operations_gateway_private_probes_json: "${{ vars.DEV_OPERATIONS_GATEWAY_PRIVATE_PROBES_JSON || '{}' }}"
+          TF_VAR_ohl_scale_out_evidence_campaign_id: ${{ vars.OHL_SCALE_OUT_EVIDENCE_CAMPAIGN_ID }}
+          TF_VAR_ohl_scale_out_evidence_image_version: ${{ vars.OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION }}
+          TF_VAR_ohl_scale_out_evidence_initiator_principal_id: ${{ vars.OHL_SCALE_OUT_EVIDENCE_INITIATOR_PRINCIPAL_ID }}
+          TF_VAR_ohl_scale_out_evidence_ssh_public_key: ${{ vars.OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY }}
           WEB_SEARCH_ENABLED: ${{ vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}
           WEB_SEARCH_ALLOWED_DOMAINS_JSON: ${{ vars.OPERATOR_API_WEB_SEARCH_ALLOWED_DOMAINS_JSON || '[]' }}
         run: |
@@ -194,12 +199,18 @@ jobs:
             printf '%s\t%s\t%s\n' "$root_id" "$terraform_root" "$plan_file" >>"$work/roots.tsv"
           }
 
+          printf '%s' "$RESOLVED_MODELS_JSON" >"$work/vars/resolved-models.json"
+          terraform -chdir=infra show -json >"$work/vars/platform-state.json"
+          python3 scripts/deployment/service/drift_contract.py platform-output-inputs \
+            --state-json "$work/vars/platform-state.json" \
+            --resolved-models-json "$work/vars/resolved-models.json" \
+            --output "$work/vars/legacy-output-inputs.tfvars.json"
           terraform -chdir=infra plan -refresh-only -input=false -lock-timeout=300s \
+            -var-file="$work/vars/legacy-output-inputs.tfvars.json" \
             -out="$work/plans/legacy.tfplan"
           summarize_plan legacy infra "$work/plans/legacy.tfplan"
 
           printf '%s' "$SERVICE_DEPLOY_TFVARS_JSON" >"$work/vars/all-services.json"
-          terraform -chdir=infra show -json >"$work/vars/platform-state.json"
           platform_inputs="$(python3 scripts/deployment/service/drift_contract.py \
             platform-inputs --state-json "$work/vars/platform-state.json")"
           database_host="$(jq -er '.database_host' <<<"$platform_inputs")"
@@ -344,24 +355,15 @@ jobs:
           set -euo pipefail
           umask 077
           work="$RUNNER_TEMP/drift-reconcile"
-          mkdir -m 700 -p "$work/verify"
+          install -d -m 700 "$work/verify"
           drift_found=0
           while IFS=$'\t' read -r root_id terraform_root plan_file; do
             verify_plan="$work/verify/$(tr ':/' '__' <<<"$root_id").tfplan"
-            var_args=()
-            if [[ "$root_id" == service:* ]]; then
-              # Rebuild the exact plan inputs from the saved plan's variables.
-              terraform -chdir="$terraform_root" show -json "$plan_file" \
-                | jq '.variables | map_values(.value)' >"$work/verify/vars.json"
-              var_args+=(-var-file="$work/verify/vars.json")
-            elif [[ "$root_id" == "bootstrap" ]]; then
-              # Reuse the exact variables of the reviewed bootstrap plan.
-              terraform -chdir="$terraform_root" show -json "$plan_file" \
-                | jq '.variables | map_values(.value)' >"$work/verify/vars.json"
-              var_args+=(-var-file="$work/verify/vars.json")
-            fi
+            # Reuse the exact variables of each reviewed saved plan.
+            terraform -chdir="$terraform_root" show -json "$plan_file" \
+              | jq '.variables | map_values(.value)' >"$work/verify/vars.json"
             terraform -chdir="$terraform_root" plan -refresh-only -input=false -lock-timeout=300s \
-              "${var_args[@]}" -out="$verify_plan" >/dev/null
+              -var-file="$work/verify/vars.json" -out="$verify_plan" >/dev/null
             terraform -chdir="$terraform_root" show -json "$verify_plan" >"$work/verify/plan.json"
             python3 scripts/deployment/service/refresh_drift_digest.py summarize \
               --root-id "$root_id" --plan-json "$work/verify/plan.json" >"$work/verify/summary.json"
