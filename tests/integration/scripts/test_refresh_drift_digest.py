@@ -130,7 +130,7 @@ def test_legacy_installation_anchor_plan_unknown_is_not_drift(name: str) -> None
                 name: {
                     "actions": ["update"],
                     "before": "retained",
-                    "after": None,
+                    "after": "retained-placeholder",
                     "after_unknown": True,
                 }
             },
