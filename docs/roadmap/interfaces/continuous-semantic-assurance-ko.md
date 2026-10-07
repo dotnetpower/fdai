@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-semantic-assurance.md
-translation_source_sha: b4dab4d7f3e173fd85c6a7f2452432d5897b9524
-translation_revised: 2026-10-04
+translation_source_sha: e78f633ca16874f34f15d524b2679219cfaee4a0
+translation_revised: 2026-10-07
 ---
 # 지속형 의미 보증
 
@@ -44,6 +44,9 @@ Corpus 크기는 소스 리비전의 관측 속성입니다. 논리 기대치, �
 저장하지 않고 정확한 Golden 파일 및 온톨로지 릴리스에 연결됩니다. 제외된 선언은 별도로
 계산합니다. 새 ActionType 버전, 검토된 LinkType 의미 특성, 읽을 수 있는 새 ObjectType 속성, 행 한도 때문에 빠진 수를 이제 정확히 돌려주는 reader처럼 릴리스가 산출물 다이제스트를 고정하는 온톨로지 함수 소스의 수정처럼
 온톨로지 릴리스가 바뀌면 선언 묶음도 다시 연결되므로, 같은 변경에서 빌더로 매니페스트를 다시 생성합니다. 소스에서 파생되는 `query.resource_health_inventory` FunctionType에 Resource Health 재조회 펜스를 추가한 변경도 이러한 릴리스 변경입니다.
+E10 상태 목록 모드와 E11 메트릭 컬렉션 판독기 추가도 원본에 결속된 함수 집합과 릴리스
+다이제스트를 바꿉니다. 생성된 매니페스트는 해당 정확한 릴리스와 리포지토리 전용 사례 16004개를
+기록합니다. 이 수는 출처 정보이며 자격이나 운영 근거 주장이 아닙니다.
  이 리포지토리 자료 목록은 실행 가능한 캠페인, 운영 환경 연결 또는 인증 증적이
 아닙니다.
 후보 문서에 쓰는 이중 언어 질의 용어처럼 변환 전용 온톨로지 어휘가 바뀌는 경우에도,

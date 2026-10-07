@@ -46,6 +46,9 @@ Any ontology release change, such as a new ActionType version, a reviewed LinkTy
 a new readable ObjectType property, or an edited ontology function source whose artifact digest the
 release pins, such as a reader that now returns the exact count its row bound leaves out, rebinds the
 declaration partition, so the same change regenerates the manifest with its builder. Adding the Resource Health reread fence to the source-derived `query.resource_health_inventory` FunctionType is one such release change.
+Adding E10 state list mode and the E11 metric collection reader similarly changes the source-bound
+function set and release digest. The generated manifest records that exact release and its 16004
+repository-only cases; the count is provenance, not a qualification or operational-evidence claim.
 Projection-only ontology vocabulary, such as bilingual query terms used by candidate documents,
 also refreshes the manifest source digests even when the governed release identity stays stable.
 Adding `governance.override-promote-action-type` is a structural catalog change, so the same

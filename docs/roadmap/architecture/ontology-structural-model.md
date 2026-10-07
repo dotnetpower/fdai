@@ -269,6 +269,11 @@ Verified query execution may expose bounded node lifecycle observations for pres
 observation preserves the verified node kind, dependency position, status, and evidence references
 without provider commands or execution authority. Missing, delayed, or failed observation delivery
 does not change the query result; the terminal execution receipt remains authoritative.
+Collection evidence readers may return exactly one row per authorized input Resource. State list
+mode uses typed unknown rows when no fresh conflict-free state exists. Metric collection reads bind
+one source collection, reviewed metric concepts, an absolute window, comparison or order arguments,
+and a member-read budget; their receipt keeps complete values, typed unknowns, and partial
+population status distinct. These additive function revisions remain read-only query structure.
 
 Resource subtype operands come from the reviewed `Resource.type` value domain. Its request-term
 groups may hold up to 192 groups so that each reviewed subtype can bind its own bilingual terms;

@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 3881b79d0d19f59050d70519e5b8b1be5d624b41
-translation_revised: 2026-10-05
+translation_source_sha: 69bc1e1d7868cc47c2cf64c48b836664ee403cfb
+translation_revised: 2026-10-07
 ---
 # 온톨로지 구조 모델
 
@@ -280,6 +280,11 @@ source property path 및 source schema identity와 일치해야 합니다. 카�
 프로바이더 명령이나 실행 권한 없이 검증된 노드 종류, 의존성 위치, 상태 및 근거 참조를 보존합니다.
 관측 전달이 누락되거나 지연되거나 실패해도 조회 결과는 바뀌지 않으며 최종 실행 증적이 권위를
 유지합니다.
+컬렉션 근거 판독기는 권한이 있는 입력 Resource마다 정확히 한 행을 반환할 수 있습니다. 상태
+목록 모드는 최신이며 충돌 없는 상태가 없을 때 타입이 지정된 알 수 없음 행을 사용합니다.
+메트릭 컬렉션 읽기는 원본 컬렉션 하나, 검토된 메트릭 개념, 절대 구간, 비교 또는 정렬 인자,
+구성원 읽기 예산을 결속합니다. 해당 증적은 완전한 값, 타입이 지정된 알 수 없음, 부분 모집단
+상태를 구분합니다. 이 추가형 함수 revision은 계속 읽기 전용 조회 구조입니다.
 
 Resource 하위 유형 피연산자는 검토된 `Resource.type` 값 도메인에서 가져옵니다. 요청 용어 그룹은
 검토된 각 하위 유형이 한국어와 영어 용어를 따로 결속할 수 있도록 최대 192개까지 둘 수 있으며,
