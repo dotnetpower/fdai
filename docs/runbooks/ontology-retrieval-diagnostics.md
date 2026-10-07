@@ -148,7 +148,7 @@ and time-window calibration labels.
 
 **Known structural gap.** Predicates can't compare a value inside an object-valued property, such
 as `properties.purpose` or `properties.node_pool_role` on a Resource. A request constrained by such a
-value leaves the model three outcomes: abstain, emit a predicate that can't match, or select an
+value leaves the model three outcomes: return a clarification, emit a predicate that can't match, or select an
 instance by `object_ids` after judging the nested value itself. The 2026-10-08 diagnostics observed
 all three. A prompt sentence that told the model to select such instances by exact ids caused
 near-match substitution in negative and adversarial cases and was reverted. Closing this gap needs a

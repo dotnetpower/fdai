@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-retrieval-diagnostics.md
-translation_source_sha: ece31f3a47b7e0830c31e856a5ea49d1707daaa1
+translation_source_sha: 62a65278387ce097e9a06a9011576e89d4fc4914
 translation_revised: 2026-10-08
 ---
 
