@@ -43,7 +43,7 @@ describe("panel navigation placement", () => {
       "knowledge", "documents", "github", "gitlab", "azure-devops",
     ]);
     expect(panelsInGroup("evidence").map((panel) => panel.id)).toEqual([
-      "audit", "browser-evidence", "forecast-learning", "assurance-twin", "conversation-search", "conversation-assurance", "reports", "trace", "rca",
+      "audit", "browser-evidence", "forecast-learning", "assurance-twin", "code-security", "conversation-search", "conversation-assurance", "reports", "trace", "rca",
     ]);
     expect(panelsInGroup("labs").map((panel) => panel.id)).toEqual(["labs"]);
     expect(panelsInGroup("settings").map((panel) => panel.id)).toEqual([

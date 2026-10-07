@@ -596,6 +596,11 @@ tracks what remains.
   writer-readback, readiness, positive-issuance, negative-drill, or stop-condition observation. It is not
   independent operational qualification; that stays with #1026.
 
+Code-security remediation follows the same rule. A coding agent's fixed claim counts only after an
+independent, coverage-equivalent rescan of the claimed commit finds no matching root cause. The
+opt-in proof lane reproduces a verified finding in its own sandbox instead of trusting the scanner.
+See [Code Security Findings](../operations/code-security-findings.md#result-import-and-verification).
+
 ## Non-goals
 
 - No new agent or topic, no `owns`, `subscribes`, or role-binding change, and no execution or promotion authority.

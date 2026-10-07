@@ -149,6 +149,8 @@ OPERATIONS_ROUTE_MANIFEST: tuple[OperationRoute, ...] = (
     # (for example ``owner/repo#12``), so it travels as an exact query value
     # instead of a path segment that a router would split or canonicalise.
     OperationRoute("/assurance-twin/review", "GET", "handler", "assurance_twin.review_detail"),
+    OperationRoute("/code-security/reviews", "GET", "handler", "code_security.reviews"),
+    OperationRoute("/code-security/packs", "GET", "handler", "code_security.packs"),
     OperationRoute("/reports", "GET", "list_reports", "report.list"),
     OperationRoute("/reports/registry", "GET", "get_registry", "report.registry"),
     OperationRoute("/reports/formats", "GET", "list_formats", "report.formats"),

@@ -1,0 +1,71 @@
+# FDAI remediation-pack policy.
+#
+# This policy bounds a remediation pack and drives the diff guard. The guard runs on the
+# developer's machine through the pack helper and again on the server when FDAI imports a result,
+# so a coding agent cannot hide a finding, weaken a test, or edit outside the fix group's paths.
+# Patterns are Python regular expressions applied to single added or removed diff lines.
+schema_version: 1
+policy_id: fdai.code-security.remediation
+version: 1.0.0
+limits:
+  max_issues: 50
+  max_groups: 20
+  expiry_days: 14
+  max_groups_per_session: 10
+  max_fix_attempts: 2
+  max_diff_bytes: 5000000
+test_path_globs:
+  - "test/**"
+  - "tests/**"
+  - "**/test/**"
+  - "**/tests/**"
+  - "**/__tests__/**"
+  - "**/test_*.py"
+  - "**/*_test.py"
+  - "**/*_test.go"
+  - "**/*.test.*"
+  - "**/*.spec.*"
+  - "**/*Test.java"
+  - "**/*Tests.cs"
+forbidden_paths:
+  - id: scanner-ignore-file
+    globs: ["**/.trivyignore", "**/.trivyignore.yaml", "**/.semgrepignore", "**/.gitleaksignore", "**/.snyk", "**/codeql-config.yml", "**/codeql-config.yaml"]
+    description: Scanner ignore or suppression configuration
+  - id: remediation-pack-file
+    globs: ["**/fdai-remediation-*/**", "fdai-remediation-*/**"]
+    description: Files from the remediation pack itself
+forbidden_added_patterns:
+  - id: suppression-nosec
+    pattern: "(?i)#\\s*nosec\\b|//\\s*nosec\\b|/\\*\\s*nosec"
+    description: Bandit or gosec suppression
+  - id: suppression-semgrep
+    pattern: "(?i)nosemgrep|noopengrep"
+    description: Semgrep or Opengrep suppression
+  - id: suppression-noqa-security
+    pattern: "(?i)#\\s*noqa\\s*:\\s*[^\\n]*\\bS\\d{3}"
+    description: Ruff or flake8 security-rule suppression
+  - id: suppression-java
+    pattern: "@SuppressWarnings\\(\\s*\"?(?:all|security|unchecked)"
+    description: Java warning suppression
+  - id: suppression-codeql
+    pattern: "(?i)//\\s*lgtm|codeql\\[|#\\s*lgtm"
+    description: CodeQL suppression comment
+  - id: suppression-eslint-security
+    pattern: "(?i)eslint-disable[^\\n]*(security|no-eval|no-implied-eval)"
+    description: ESLint security-rule suppression
+  - id: tls-verification-disabled
+    pattern: "verify\\s*=\\s*False|InsecureSkipVerify\\s*:\\s*true|rejectUnauthorized\\s*:\\s*false|CERT_NONE|NODE_TLS_REJECT_UNAUTHORIZED|ServerCertificateCustomValidationCallback\\s*=\\s*\\([^)]*\\)\\s*=>\\s*true"
+    description: TLS certificate verification disabled
+  - id: exception-swallowed
+    pattern: "except\\s*(?:Exception|BaseException)?\\s*:\\s*pass\\b|catch\\s*\\([^)]*\\)\\s*\\{\\s*\\}"
+    description: Exception swallowed without handling
+  - id: test-skipped
+    pattern: "@pytest\\.mark\\.skip|pytest\\.skip\\(|@unittest\\.skip|\\b(?:it|test|describe)\\.skip\\(|\\bxit\\(|@Disabled\\b|@Ignore\\b|\\bt\\.Skip\\("
+    description: Test skipped
+test_assertion_patterns:
+  - "\\bassert\\b"
+  - "\\bexpect\\s*\\("
+  - "\\bAssert\\."
+  - "\\bassert[A-Z]\\w*\\s*\\("
+  - "\\bself\\.assert\\w*\\s*\\("
+  - "\\bt\\.(?:Error|Fatal)f?\\s*\\("

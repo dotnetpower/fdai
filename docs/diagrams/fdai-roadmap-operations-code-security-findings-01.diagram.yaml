@@ -1,0 +1,120 @@
+id: fdai-roadmap-operations-code-security-findings-01
+version: 1
+kind: flowchart
+updated: 2026-08-20
+formats:
+  - svg
+locales:
+  en:
+    title: Pipeline
+    description: FDAI flow for Pipeline.
+    alt: Pipeline. The main stages are Acquire exact revision, Prepare attack surface, Scan lanes, Ingest SARIF, Canonical
+      issues, Severity and priority, Fix groups and pack, Developer session, Result import, Rescan verification.
+  ko:
+    title: 파이프라인
+    description: 파이프라인에 대한 FDAI 흐름입니다.
+    alt: 파이프라인. 주요 단계는 Acquire exact revision, Prepare attack surface, Scan lanes, Ingest SARIF, Canonical issues, Severity
+      and priority, Fix groups and pack, Developer session, Result import, Rescan verification입니다.
+canvas:
+  width: 1500
+  height: 900
+  direction: RIGHT
+groups: []
+nodes:
+  - id: a
+    kind: process
+    shape: card
+    label:
+      en: Acquire exact revision
+      ko: Acquire exact revision
+  - id: b
+    kind: process
+    shape: card
+    label:
+      en: Prepare attack surface
+      ko: Prepare attack surface
+  - id: c
+    kind: process
+    shape: card
+    label:
+      en: Scan lanes
+      ko: Scan lanes
+  - id: d
+    kind: process
+    shape: card
+    label:
+      en: Ingest SARIF
+      ko: Ingest SARIF
+  - id: e
+    kind: process
+    shape: card
+    label:
+      en: Canonical issues
+      ko: Canonical issues
+  - id: f
+    kind: process
+    shape: card
+    label:
+      en: Severity and priority
+      ko: Severity and priority
+  - id: g
+    kind: process
+    shape: card
+    label:
+      en: Fix groups and pack
+      ko: Fix groups and pack
+  - id: h
+    kind: process
+    shape: card
+    label:
+      en: Developer session
+      ko: Developer session
+  - id: i
+    kind: process
+    shape: card
+    label:
+      en: Result import
+      ko: Result import
+  - id: j
+    kind: process
+    shape: card
+    label:
+      en: Rescan verification
+      ko: Rescan verification
+edges:
+  - id: flow-01
+    from: a
+    to: b
+    kind: request
+  - id: flow-02
+    from: b
+    to: c
+    kind: request
+  - id: flow-03
+    from: c
+    to: d
+    kind: request
+  - id: flow-04
+    from: d
+    to: e
+    kind: request
+  - id: flow-05
+    from: e
+    to: f
+    kind: request
+  - id: flow-06
+    from: f
+    to: g
+    kind: request
+  - id: flow-07
+    from: g
+    to: h
+    kind: request
+  - id: flow-08
+    from: h
+    to: i
+    kind: request
+  - id: flow-09
+    from: i
+    to: j
+    kind: request

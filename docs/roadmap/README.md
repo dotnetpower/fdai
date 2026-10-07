@@ -115,6 +115,8 @@ cap, narrow its owner set or split a multi-responsibility owner instead of addin
 | 20i | [lifecycle-configuration.md](deployment/lifecycle-configuration.md) | value classes, configuration layers, signed configuration packages from customer Git, sealed identifiers, and secret references |
 | 20j | [lifecycle-releases-and-channels.md](deployment/lifecycle-releases-and-channels.md) | Release manifest, release channels, automatic upgrades, recall, catalog integrity, schema compatibility, and upgrade bundles |
 | 21 | [assurance-twin.md](operations/assurance-twin.md) | queryable ontology twin for architecture review / Q&A / assessment: text-to-query, proactive review, whole-graph what-if, shadow proposals |
+| 21a | [code-security-findings.md](operations/code-security-findings.md) | code-security findings from FDAI lanes, MDASH, and other SARIF producers: one severity per root cause, deterministic priority, and conversational remediation packs for GitHub Copilot and Claude Code |
+| 21b | [code-security-scanning.md](operations/code-security-scanning.md) | FDAI-run code scanning: exact-commit acquisition, bubblewrap sandbox without network, scanner catalog, FDAI-authored rule pack, and honest coverage receipts |
 | 22 | [operational-readiness.md](operations/operational-readiness.md) | dev-to-ops handoff gate: ownership-transfer trigger, whole-scope RBAC / policy / reliability review, ReadinessReport, environment-promotion gate |
 | 22a | [operator-initiated-sre-and-arb.md](operations/operator-initiated-sre-and-arb.md) | non-incident identity, operator-initiated SRE response, live stage progress, ARB health/manual start, workflow enforce, and local/deployed parity |
 

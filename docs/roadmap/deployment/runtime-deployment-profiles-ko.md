@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 549a22513b9399a95274d1a8cc0e485880cbcb44
-translation_revised: 2026-10-07
+translation_source_sha: d76f374797d03643bacd07a582015d12e0234a68
+translation_revised: 2026-10-08
 ---
 # 런타임 배포 프로파일
 
@@ -758,6 +758,11 @@ Core가 소유한 `licensing_entitlement_state` 행에 게시합니다. Core 마
 배포 소유자는 이러한 페이로드를 검증하고 전달하는 방법을 선택합니다. Python 패키지 내용이나
 패키지 완료 근거가 아닙니다. Managed Host는 주변 Terraform 공급자, Helm 저장소, 변경 가능한
 이미지 태그 또는 운영자 kubeconfig를 사용하지 않습니다.
+
+코드 보안 스캔 실행 이미지는 아직 어떤 배포 프로필에도 포함되지 않습니다. bubblewrap을 위해
+비특권 사용자 네임스페이스를 허용하는 런타임과 별도의 오프라인 데이터베이스 갱신이 필요하므로,
+프로필이 명시적으로 선택해야 합니다.
+[코드 보안 스캔](../operations/code-security-scanning-ko.md#스캔-실행-이미지)을 참조하세요.
 
 ## 완료 근거
 

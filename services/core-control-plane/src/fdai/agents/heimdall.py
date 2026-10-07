@@ -33,6 +33,7 @@ from fdai.agents._framework.heimdall_alert_window import (
 from fdai.agents._framework.heimdall_alert_window import EpisodeKey as _EpisodeKey
 from fdai.agents._framework.heimdall_alert_window import HeimdallAlertWindowMixin
 from fdai.agents._framework.heimdall_anomaly_runtime import HeimdallAnomalyRuntimeMixin
+from fdai.agents._framework.heimdall_code_security import HeimdallCodeSecurityMixin
 from fdai.agents._framework.heimdall_constants import (
     _DETECTION_READINESS_EVENT as _DETECTION_READINESS_EVENT,
 )
@@ -104,6 +105,7 @@ from fdai.core.readiness import (
     DetectionReadinessObservation,
 )
 from fdai.core.rule_semantic_generation import RuleGenerationValidationHandler
+from fdai.shared.providers.code_security import CodeSecurityDriftProjector
 from fdai.shared.providers.provider_schema import ProviderSchemaDriftProjector
 from fdai.shared.providers.state_store import StateStore
 
@@ -182,6 +184,7 @@ class Heimdall(
     HeimdallActionObservationMixin,
     HeimdallAlertWindowMixin,
     HeimdallProviderSchemaMixin,
+    HeimdallCodeSecurityMixin,
     HeimdallForecastMixin,
     HeimdallStateRecoveryMixin,
     HeimdallPublicationRuntimeMixin,
@@ -212,6 +215,7 @@ class Heimdall(
         forecast_store: ForecastEpisodeStore | None = None,
         action_semantics: ActionSemanticsCatalog | None = None,
         provider_schema_drift_projector: ProviderSchemaDriftProjector | None = None,
+        code_security_drift_projector: CodeSecurityDriftProjector | None = None,
         state_store: StateStore | None = None,
     ) -> None:
         if rate_threshold < 1:
@@ -221,6 +225,7 @@ class Heimdall(
         super().__init__(spec=_HEIMDALL)
         self.bus = bus
         self._provider_schema_drift_projector = provider_schema_drift_projector
+        self._code_security_drift_projector = code_security_drift_projector
         self._state_store = state_store
         self._rate_threshold = rate_threshold
         self._rate_window = rate_window

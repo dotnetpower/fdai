@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: a45ac46c8645bdfc6b82211cbab7f5f8496f94bb
-translation_revised: 2026-10-04
+translation_source_sha: 7b83d3415b55021eccc5693500b2386fd82d2588
+translation_revised: 2026-10-08
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -171,6 +171,10 @@ CODEOWNERS 경로, 앱 레벨 정당화에서 옴.
 모델 호출, 승인 또는 실행기 권한을 부여하지 않습니다. Reader, Contributor, Approver 및
 BreakGlass 역할은 OCR 정책을 저장하거나 계획을 요청할 수 없습니다. BreakGlass는 Owner 상위
 집합이 아니며 이 기능을 상속하지 않습니다.
+
+코드 보안 검토와 조치 팩 화면(`GET /code-security/reviews`, `GET /code-security/packs`)은 모든 읽기
+역할에 읽기 전용입니다. 오탐 판정은 단일 운영자 프로필을 명시적으로 선택하지 않는 한 주장자와 다른
+판정자가 필요하며, 승인 참조와 함께 기록됩니다.
 
 ## 4. Entra ID 아티팩트
 

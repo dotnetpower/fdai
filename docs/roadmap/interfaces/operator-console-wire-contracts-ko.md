@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: f1acba57324b6e4cfe4d08e93e22e55a856f904f
-translation_revised: 2026-10-07
+translation_source_sha: 54af60a855da640681b2d8363f83063ae1df3109
+translation_revised: 2026-10-08
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -512,6 +512,11 @@ Forseti의 최신 버전 2 baseline 커버리지가 있으면 `GET /rules/findin
 
 버전 2 커버리지가 없으면 응답은 `{"evaluated": false, "counts": {}}`입니다. 형식이 잘못되었거나
 모호한 기록은 0으로 추론하지 않고 `503`을 반환합니다. 이 요약은 권한을 부여하지 않습니다.
+
+`GET /code-security/reviews`와 `GET /code-security/packs`는 `surface`, `available`, `complete`,
+`source`, `reviews` 또는 `packs` 목록, `gaps`를 반환합니다. 행에는 건수, 리비전, 불투명한 이슈 ID,
+판단, 판정 건수, 오탐 판정 결과만 담기며 경로, 코드, 판단 근거 문구, 승인 참조는 담기지 않습니다.
+형식이 잘못된 행은 `gaps` 항목이 되므로 빈 목록이 문제없는 상태로 읽히지 않습니다.
 
 ## 구현 상태
 

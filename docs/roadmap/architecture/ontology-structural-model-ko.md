@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: b5e941571b74e42600d2ff976857536073320baf
-translation_revised: 2026-10-07
+translation_source_sha: 017f4bbe923b58dd37f02379afb112caac720a5d
+translation_revised: 2026-10-08
 ---
 # 온톨로지 구조 모델
 
@@ -160,6 +160,7 @@ ResourceType을 선택해야 할 때만 추가합니다.
 첫 release는 하나의 분류 표면을 유지합니다. 범용 개념 체계 엔진은 추가하지 않습니다.
 `Operable`, `Observable` 같은 기능은 계속 InterfaceType 관심사입니다. ResourceType 수준의
 Interface 바인딩은 InterfaceType이 ActionType 대상이 될 수 있으므로 별도 안전 설계가 필요합니다.
+코드 보안 이슈는 온톨로지 객체가 아니므로 온톨로지 쿼리에 들어가지 않습니다.
 
 ## 관계 모델
 

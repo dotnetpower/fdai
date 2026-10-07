@@ -2,6 +2,7 @@ import { afterEach, describe, expect, test } from "vitest";
 
 import liveKo from "../routes/i18n/live.messages.ko.json";
 import { t as liveT } from "../routes/i18n/live";
+import { tForLocale as assuranceTwinT } from "../routes/i18n/assurance-twin";
 import { setLocale, t, tForLocale } from ".";
 import ko from "./messages.ko.json";
 
@@ -54,12 +55,12 @@ describe("mandatory English catalog fallback", () => {
       for (const key of keys) {
         // A missing key resolves to the key itself, which would render raw
         // machine text in the operator-facing evidence-gap and provenance UI.
-        expect(tForLocale(locale, key), `${locale} ${key}`).not.toBe(key);
+        expect(assuranceTwinT(locale, key), `${locale} ${key}`).not.toBe(key);
       }
     }
     // The scalar labels MUST keep resolving alongside their nested values.
-    expect(tForLocale("en", "assuranceTwin.verdict")).toBe("Verdict");
-    expect(tForLocale("en", "assuranceTwin.freshness")).toBe("Freshness");
+    expect(assuranceTwinT("en", "assuranceTwin.verdict")).toBe("Verdict");
+    expect(assuranceTwinT("en", "assuranceTwin.freshness")).toBe("Freshness");
   });
 
   test("renders an explicit conversational locale without changing the UI locale", () => {

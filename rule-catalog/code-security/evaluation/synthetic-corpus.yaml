@@ -1,0 +1,142 @@
+# FDAI code-security evaluation corpus: synthetic, customer-agnostic.
+#
+# Every case is hand-written by the corpus author. Paths, packages, and advisory ids are invented;
+# CVE-2099-* and GHSA-zzzz-* ids do not exist. Reviewer bands and facts are the author's labels,
+# so agreement on this corpus proves that canonicalization, severity, and rescan matching are wired
+# and reproducible. It does not calibrate the rubric against independent reviewers; a curated
+# corpus with post-cutoff advisories, a holdout split, and independent labels remains future work.
+#
+# Run: python -m fdai.delivery.code_security_cli evaluate --corpus <this file>
+schema_version: 1
+corpus_id: fdai.code-security.synthetic
+version: 1.0.0
+provenance: synthetic
+line_shift: 7
+acceptance:
+  dedup_precision: 1.0
+  dedup_recall: 1.0
+  detection_precision: 1.0
+  detection_recall: 1.0
+  severity_range_containment: 1.0
+  severity_exact_agreement: 1.0
+  severity_weighted_kappa: 1.0
+  line_shift_tracking: 1.0
+cases:
+  - id: tri-lane-sqli
+    # The same root cause reported by three lanes at three source severities is one issue.
+    occurrences:
+      - {id: ext-1, producer: MDASH, lane: external, rule_id: mdash-sqli, path: src/orders/repository.py, line: 42, cwe: [89], source_severity: error}
+      - {id: det-1, producer: Opengrep, lane: deterministic, rule_id: fdai.python.sqli-format, path: src/orders/repository.py, line: 42, cwe: [89], source_severity: warning}
+      - {id: lens-1, producer: fdai-lens, lane: llm_lens, rule_id: lens.injection, path: src/orders/repository.py, line: 42, cwe: [943], source_severity: note}
+    expected:
+      - weakness_class: sql_injection
+        path: src/orders/repository.py
+        line: 42
+        occurrences: [ext-1, det-1, lens-1]
+        reviewer_band: critical
+        facts: {impact: data_write, attack_vector: network, privileges_required: none, user_interaction: none}
+  - id: distinct-classes-same-file
+    # Two root causes in one file stay separate even when one producer reports both.
+    occurrences:
+      - {id: a, producer: Opengrep, lane: deterministic, rule_id: fdai.python.sqli-format, path: src/api/handlers.py, line: 18, cwe: [89], source_severity: error}
+      - {id: b, producer: Opengrep, lane: deterministic, rule_id: fdai.python.subprocess-shell, path: src/api/handlers.py, line: 55, cwe: [78], source_severity: error}
+      - {id: c, producer: MDASH, lane: external, rule_id: mdash-cmdi, path: src/api/handlers.py, line: 55, cwe: [77], source_severity: warning}
+    expected:
+      - weakness_class: sql_injection
+        path: src/api/handlers.py
+        line: 18
+        occurrences: [a]
+        reviewer_band: high
+        facts: {impact: data_read, attack_vector: network, privileges_required: low, user_interaction: none}
+      - weakness_class: command_injection
+        path: src/api/handlers.py
+        line: 55
+        occurrences: [b, c]
+        reviewer_band: high
+        facts: {impact: code_execution, attack_vector: local, privileges_required: low, user_interaction: none}
+  - id: same-class-two-sites
+    # The same weakness at two fix sites is two issues; one has verified facts, one does not.
+    occurrences:
+      - {id: p1, producer: Opengrep, lane: deterministic, rule_id: fdai.python.open-user-path, path: src/files/download.py, line: 12, cwe: [22]}
+      - {id: p2, producer: Opengrep, lane: deterministic, rule_id: fdai.python.open-user-path, path: src/files/download.py, line: 40, cwe: [22]}
+      - {id: p3, producer: MDASH, lane: external, rule_id: mdash-path, path: src/files/download.py, line: 40, cwe: [23]}
+    expected:
+      - weakness_class: path_traversal
+        path: src/files/download.py
+        line: 12
+        occurrences: [p1]
+        reviewer_band: high
+        facts: {impact: data_read, attack_vector: network, privileges_required: none, user_interaction: none}
+      - weakness_class: path_traversal
+        path: src/files/download.py
+        line: 40
+        occurrences: [p2, p3]
+        reviewer_band: high
+  - id: dependency-aliases
+    # A CVE and its GHSA alias for the same package merge; the same CVE in another package does not.
+    # Producers disagree on the score, so the issue carries one range instead of two tiers.
+    occurrences:
+      - {id: t1, producer: trivy, lane: deterministic, rule_id: CVE-2099-0001, path: requirements.txt, line: 1, advisories: [CVE-2099-0001, GHSA-zzzz-0001-aaaa], package: example-lib, package_version: 1.2.0, advisory_score: 9.8}
+      - {id: o1, producer: osv-scanner, lane: deterministic, rule_id: GHSA-zzzz-0001-aaaa, path: requirements.txt, line: 1, advisories: [GHSA-zzzz-0001-aaaa], package: example-lib, package_version: 1.2.0, advisory_score: 7.5}
+      - {id: t2, producer: trivy, lane: deterministic, rule_id: CVE-2099-0001, path: services/worker/requirements.txt, line: 1, advisories: [CVE-2099-0001], package: other-lib, package_version: 0.9.1, advisory_score: 9.8}
+    expected:
+      - weakness_class: vulnerable_dependency
+        path: requirements.txt
+        line: 1
+        occurrences: [t1, o1]
+        reviewer_band: critical
+      - weakness_class: vulnerable_dependency
+        path: services/worker/requirements.txt
+        line: 1
+        occurrences: [t2]
+        reviewer_band: critical
+  - id: secret-and-misconfiguration
+    # Tag-classified findings without a CWE join the CWE-classified finding at the same site.
+    occurrences:
+      - {id: g1, producer: gitleaks, lane: deterministic, rule_id: generic-api-key, path: config/settings.py, line: 7, tags: [secret]}
+      - {id: s1, producer: Opengrep, lane: deterministic, rule_id: fdai.generic.hardcoded-credential, path: config/settings.py, line: 7, cwe: [798]}
+      - {id: m1, producer: trivy, lane: deterministic, rule_id: AVD-AZU-0011, path: infra/storage.tf, line: 12, tags: [misconfiguration]}
+    expected:
+      - weakness_class: hardcoded_secret
+        path: config/settings.py
+        line: 7
+        occurrences: [g1, s1]
+        reviewer_band: high
+        facts: {impact: data_read, attack_vector: network, privileges_required: none, user_interaction: none}
+      - weakness_class: insecure_configuration
+        path: infra/storage.tf
+        line: 12
+        occurrences: [m1]
+        reviewer_band: medium
+        facts: {impact: info_disclosure, attack_vector: network, privileges_required: none, user_interaction: none}
+  - id: web-low-and-medium
+    occurrences:
+      - {id: x1, producer: Opengrep, lane: deterministic, rule_id: fdai.js.inner-html, path: web/src/profile.ts, line: 31, cwe: [79]}
+      - {id: r1, producer: Opengrep, lane: deterministic, rule_id: fdai.js.open-redirect, path: web/src/login.ts, line: 9, cwe: [601]}
+    expected:
+      - weakness_class: cross_site_scripting
+        path: web/src/profile.ts
+        line: 31
+        occurrences: [x1]
+        reviewer_band: medium
+        facts: {impact: info_disclosure, attack_vector: network, privileges_required: none, user_interaction: required}
+      - weakness_class: open_redirect
+        path: web/src/login.ts
+        line: 9
+        occurrences: [r1]
+        reviewer_band: low
+        facts: {impact: limited, attack_vector: network, privileges_required: none, user_interaction: required}
+  - id: lens-only-deserialization
+    exposure: exposed
+    occurrences:
+      - {id: l1, producer: fdai-lens, lane: llm_lens, rule_id: lens.deserialization, path: src/jobs/loader.py, line: 23, cwe: [502], source_severity: note}
+    expected:
+      - weakness_class: unsafe_deserialization
+        path: src/jobs/loader.py
+        line: 23
+        occurrences: [l1]
+        reviewer_band: critical
+        facts: {impact: code_execution, attack_vector: network, privileges_required: none, user_interaction: none}
+  - id: clean-negative
+    occurrences: []
+    expected: []

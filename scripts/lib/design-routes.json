@@ -169,6 +169,64 @@
       ]
     },
     {
+      "id": "code-security-findings",
+      "paths": [
+        "docs/roadmap/operations/code-security-findings*.md",
+        "docs/roadmap-implementation/operations/code-security-findings.md",
+        "rule-catalog/code-security/**",
+        "services/core-control-plane/src/fdai/core/security/code_findings/**",
+        "services/core-control-plane/src/fdai/rule_catalog/code_security.py",
+        "services/core-control-plane/tests/core/security/code_findings/**",
+        "services/core-control-plane/src/fdai/agents/_framework/heimdall_code_security.py",
+        "services/core-control-plane/src/fdai/shared/providers/code_security.py",
+        "services/core-control-plane/src/fdai/shared/providers/remediation_pack.py",
+        "services/core-control-plane/src/fdai/delivery/code_security_*.py",
+        "services/core-control-plane/tests/agents/test_code_security_drift.py",
+        "services/core-control-plane/tests/delivery/test_code_security_adapters.py",
+        "config/code-security-agent-providers.yaml",
+        "docs/roadmap/operations/code-security-scanning*.md",
+        "docs/roadmap-implementation/operations/code-security-scanning.md",
+        "services/core-control-plane/src/fdai/rule_catalog/code_security_scanners.py",
+        "services/core-control-plane/tests/delivery/test_code_security_scanning.py",
+        "services/core-control-plane/src/fdai/rule_catalog/code_security_lenses.py",
+        "services/core-control-plane/src/fdai/shared/providers/code_security_lens.py",
+        "services/core-control-plane/src/fdai/delivery/azure/llm/code_security_lens.py",
+        "services/core-control-plane/tests/delivery/azure/test_code_security_lens_adapter.py",
+        "services/core-control-plane/src/fdai/rule_catalog/code_security_verifiers.py",
+        "services/core-control-plane/src/fdai/delivery/persistence/state_store_code_security_review.py",
+        "services/core-control-plane/tests/delivery/test_code_security_review_state.py",
+        "services/operator-service/src/fdai_operator_service/code_security_review_projection.py",
+        "services/operator-service/tests/test_code_security_review_projection.py",
+        "console/src/routes/code-security.tsx",
+        "console/src/routes/code-security.test.ts",
+        "console/tests/e2e/code-security-responsive.spec.ts",
+        "services/core-control-plane/src/fdai/delivery/persistence/state_store_code_security_registry.py",
+        "services/core-control-plane/tests/delivery/test_code_security_state_registry.py",
+        "services/core-control-plane/tests/delivery/test_code_security_prove.py"
+      ],
+      "must_read": [
+        ".github/instructions/architecture.instructions.md",
+        "docs/roadmap/architecture/fdai-constitution.md",
+        "docs/roadmap/operations/code-security-findings.md",
+        "docs/roadmap/rules-and-detection/rule-catalog-collection.md",
+        "docs/roadmap/architecture/llm-strategy.md",
+        "docs/roadmap/operations/code-security-scanning.md"
+      ],
+      "docs_update": [
+        "docs/roadmap/operations/code-security-findings.md",
+        "docs/roadmap-implementation/operations/code-security-findings.md",
+        "docs/roadmap/operations/code-security-scanning.md",
+        "docs/roadmap-implementation/operations/code-security-scanning.md"
+      ],
+      "validate": [
+        "uv run pytest -q --no-cov services/core-control-plane/tests/core/security/code_findings",
+        "python3 scripts/quality/architecture/check-design-routes.py",
+        "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py",
+        "python3 scripts/quality/architecture/check-document-size.py",
+        "bash scripts/quality/localization/check-translations.sh docs/roadmap/operations/code-security-findings.md docs/roadmap/operations/code-security-findings-ko.md"
+      ]
+    },
+    {
       "id": "permission-aware-observation-campaign",
       "paths": [
         "config/observation-sources.yaml",

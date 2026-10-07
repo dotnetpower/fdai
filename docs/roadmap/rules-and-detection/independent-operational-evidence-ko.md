@@ -1,7 +1,7 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 0a958e6d9d401a73de96bf3f80d955cec85ae48d
-translation_revised: 2026-10-07
+translation_source_sha: 5c1d657c747a5b3213fb0554891cf330fa6df8ac
+translation_revised: 2026-10-08
 ---
 # 독립 운영 근거 발급
 
@@ -575,6 +575,11 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준 상대 경로입�
   이 명령은 본문 없는 인계 증적을 만들고 신원, 레지스트리, 작성자 재확인, 준비 상태, 긍정 발급, 부정 훈련,
   중지 조건 관측 중 처음 누락된 단계에서 멈춥니다. 독립 운영 자격 검증은 아니며, 그 범위는 #1026에 남아
   있습니다.
+
+코드 보안 조치도 같은 규칙을 따릅니다. 코딩 에이전트의 수정 주장은 주장한 커밋을 커버리지가 동등한
+재스캔으로 독립적으로 다시 검사해 같은 근본 원인이 없을 때만 인정됩니다. 선택 사항인 입증 레인은
+스캐너를 믿는 대신 자체 샌드박스에서 검증된 결과를 재현합니다.
+[코드 보안 점검 결과](../operations/code-security-findings-ko.md#결과-가져오기와-검증)를 참조하세요.
 
 ## 목표가 아닌 것
 

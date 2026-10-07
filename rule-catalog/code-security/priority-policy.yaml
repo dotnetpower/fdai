@@ -1,0 +1,55 @@
+# FDAI code-security priority policy.
+#
+# Priority orders remediation work. It combines severity (floor and ceiling bands), detection
+# confidence, runtime exposure, and threat intelligence. Rules are evaluated in order and the first
+# match wins. Every condition in `when` must hold; an omitted condition matches anything.
+#
+# Confidence order (weakest first): hypothesis, reported, corroborated, verified, proven.
+# Exposure values: exposed, internal, not_deployed, unknown.
+schema_version: 1
+policy_id: fdai.code-security.priority
+version: 1.0.0
+rules:
+  - id: known-exploited
+    when: {kev: true, exposure_in: [exposed, internal, unknown], confidence_at_least: reported}
+    priority: P0
+    due_days: 2
+  - id: critical-exposed
+    when: {ceiling_at_least: critical, floor_at_least: high, exposure_in: [exposed], confidence_at_least: reported}
+    priority: P0
+    due_days: 7
+  - id: not-deployed-critical
+    when: {ceiling_at_least: critical, exposure_in: [not_deployed], confidence_at_least: reported}
+    priority: P2
+    due_days: 30
+  - id: not-deployed
+    when: {exposure_in: [not_deployed]}
+    priority: P3
+    due_days: 90
+  - id: critical-confirmed
+    when: {floor_at_least: critical, confidence_at_least: reported}
+    priority: P1
+    due_days: 14
+  - id: high-exposed
+    when: {floor_at_least: high, exposure_in: [exposed, unknown], confidence_at_least: reported}
+    priority: P1
+    due_days: 14
+  - id: critical-possible
+    when: {ceiling_at_least: critical, confidence_at_least: reported}
+    priority: P2
+    due_days: 30
+  - id: high-possible
+    when: {ceiling_at_least: high, confidence_at_least: reported}
+    priority: P2
+    due_days: 30
+  - id: hypothesis-high
+    when: {ceiling_at_least: high}
+    priority: P3
+    due_days: 60
+  - id: medium
+    when: {ceiling_at_least: medium}
+    priority: P3
+    due_days: 60
+default:
+  priority: P4
+  due_days: 90

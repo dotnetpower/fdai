@@ -1,0 +1,92 @@
+# FDAI-authored taint-mode verifier rules for JavaScript and TypeScript.
+#
+# A verifier rule fires only when attacker-controlled request input (`req`, `request`, or
+# `ctx.request` in an HTTP handler) reaches the dangerous argument of a sink without passing a
+# sanitizer. A hit at an issue's fix site raises that issue to `verified` confidence. Rules here
+# are deliberately narrow: a miss leaves confidence unchanged, while a false hit would overstate it.
+rules:
+  - id: fdai.verify.js.command-injection
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Request input reaches a shell command.
+    metadata: {cwe: ["CWE-78"], category: security, confidence: HIGH, fdai_verifier: true}
+    mode: taint
+    pattern-sources: &js-sources
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.query
+              - pattern: $REQ.body
+              - pattern: $REQ.params
+              - pattern: $REQ.headers
+              - pattern: $REQ.cookies
+              - pattern: $REQ.request.query
+              - pattern: $REQ.request.body
+          - metavariable-regex: {metavariable: $REQ, regex: '^(req|request|ctx)$'}
+    pattern-sanitizers: &js-sanitizers
+      - pattern-either:
+          - pattern: parseInt(...)
+          - pattern: Number(...)
+          - pattern: path.basename(...)
+          - pattern: encodeURIComponent(...)
+          - pattern: shellQuote.quote(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: child_process.exec($CMD, ...)
+              - pattern: child_process.execSync($CMD, ...)
+              - pattern: cp.exec($CMD, ...)
+              - pattern: cp.execSync($CMD, ...)
+              - pattern: exec($CMD, ...)
+              - pattern: execSync($CMD, ...)
+          - focus-metavariable: $CMD
+  - id: fdai.verify.js.code-injection
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Request input is evaluated as code.
+    metadata: {cwe: ["CWE-95"], category: security, confidence: HIGH, fdai_verifier: true}
+    mode: taint
+    pattern-sources: *js-sources
+    pattern-sanitizers: *js-sanitizers
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: eval($CODE)
+              - pattern: new Function(..., $CODE)
+              - pattern: vm.runInNewContext($CODE, ...)
+              - pattern: vm.runInThisContext($CODE, ...)
+          - focus-metavariable: $CODE
+  - id: fdai.verify.js.sql-injection
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Request input is concatenated into a SQL query.
+    metadata: {cwe: ["CWE-89"], category: security, confidence: HIGH, fdai_verifier: true}
+    mode: taint
+    pattern-sources: *js-sources
+    pattern-sanitizers: *js-sanitizers
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $DB.query($SQL, ...)
+              - pattern: $DB.execute($SQL, ...)
+              - pattern: $DB.raw($SQL, ...)
+          - metavariable-regex: {metavariable: $DB, regex: '(?i)^(db|conn|connection|pool|client|sequelize|knex|models\.sequelize)$'}
+          - focus-metavariable: $SQL
+  - id: fdai.verify.js.path-traversal
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Request input selects a file path.
+    metadata: {cwe: ["CWE-22"], category: security, confidence: HIGH, fdai_verifier: true}
+    mode: taint
+    pattern-sources: *js-sources
+    pattern-sanitizers: *js-sanitizers
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: fs.readFile($P, ...)
+              - pattern: fs.readFileSync($P, ...)
+              - pattern: fs.createReadStream($P, ...)
+              - pattern: fs.writeFile($P, ...)
+              - pattern: fs.writeFileSync($P, ...)
+              - pattern: fs.unlink($P, ...)
+              - pattern: fs.unlinkSync($P, ...)
+          - focus-metavariable: $P

@@ -1,0 +1,23 @@
+# Approved coding-agent providers for FDAI remediation packs.
+#
+# A remediation pack carries vulnerability detail that is not public. When developers run a pack
+# with a hosted coding agent, that detail reaches the provider's service. List only providers
+# your organization has approved for this data, with the terms you verified. Export fails closed
+# for any provider that is not listed, whose approval has expired, or whose allowed modes do not
+# include the requested mode.
+#
+# This upstream file intentionally approves nothing. A deployment supplies its own file through
+# the operator CLI `--provider-policy` option or its configuration layer.
+#
+# Example entry (replace every value with your organization's verified terms):
+#
+#   - id: example-coding-agent
+#     display_name: Example coding agent (enterprise tenant)
+#     modes: [minimized]
+#     data_residency: example-region
+#     training_use: none
+#     retention_days: 0
+#     approved_until: 2027-01-31
+schema_version: 1
+version: 1.0.0
+providers: []

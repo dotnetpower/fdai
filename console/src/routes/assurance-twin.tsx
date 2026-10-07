@@ -13,7 +13,7 @@ import {
 } from "../components/ui";
 import { usePublishViewContext, type ViewSnapshot } from "../deck/context";
 import { composeGlossary } from "../deck/glossary";
-import { t } from "../i18n";
+import { t } from "./i18n/assurance-twin";
 import { currentRoute, routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
 import {

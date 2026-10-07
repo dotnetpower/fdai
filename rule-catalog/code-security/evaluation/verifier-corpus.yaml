@@ -1,0 +1,84 @@
+# FDAI weakness-verifier precision corpus: public, intentionally vulnerable projects.
+#
+# Each source is fetched at an exact commit when the evaluation runs; no third-party code is
+# stored in this repository. Labels come from each project's own documentation: Juice Shop's
+# `vuln-code-snippet vuln-line` source annotations and coding-challenge `*.info.yml` verdicts,
+# NodeGoat's OWASP Top 10 tutorial, WebGoat and pygoat lesson pages, and the dvcsharp-api README.
+# Safe labels mark sinks the projects present as correct fixes or that use only server-controlled
+# values; each one cites its reason.
+#
+# This corpus informed rule development (implicit ASP.NET binding and EF `FromSql` were added after
+# inspecting dvcsharp-api), so it is not a held-out set. Samples are small. A verifier is promoted
+# only when its measured precision meets the floor; everything else stays in shadow.
+#
+# Run: python -m fdai.delivery.code_security_cli evaluate-verifiers --work-root <dir> --engine <opengrep|semgrep>
+schema_version: 1
+corpus_id: fdai.code-security.verifier-real
+version: 1.0.0
+provenance: curated
+precision_floor: 0.90
+min_true_positives: 1
+sources:
+  - id: nodegoat
+    repository: https://github.com/OWASP/NodeGoat
+    commit: c5cb68a7084e4ae7dcc60e6a98768720a81841e8
+    license: Apache-2.0
+    label_source: NodeGoat tutorial, A1 server-side JavaScript injection
+    locations:
+      - {path: app/routes/contributions.js, line: 32, weakness_class: code_injection, verifier: taint, label: vulnerable}
+      - {path: app/routes/contributions.js, line: 33, weakness_class: code_injection, verifier: taint, label: vulnerable}
+      - {path: app/routes/contributions.js, line: 34, weakness_class: code_injection, verifier: taint, label: vulnerable}
+  - id: juice-shop
+    repository: https://github.com/juice-shop/juice-shop
+    commit: 1618a611b173b4bf114028e6e02549950606e29d
+    license: MIT
+    label_source: vuln-code-snippet annotations and data/static/codefixes/*.info.yml
+    locations:
+      - {path: routes/login.ts, line: 34, weakness_class: sql_injection, verifier: taint, label: vulnerable}
+      - {path: routes/search.ts, line: 23, weakness_class: sql_injection, verifier: taint, label: vulnerable}
+      - {path: routes/search.ts, line: 47, weakness_class: sql_injection, verifier: taint, label: safe, reason: constant query}
+      - {path: data/static/codefixes/dbSchemaChallenge_1.ts, line: 5, weakness_class: sql_injection, verifier: taint, label: vulnerable}
+      - {path: data/static/codefixes/dbSchemaChallenge_2_correct.ts, line: 5, weakness_class: sql_injection, verifier: taint, label: safe, reason: documented correct fix with replacements}
+      - {path: data/static/codefixes/dbSchemaChallenge_3.ts, line: 11, weakness_class: sql_injection, verifier: taint, label: vulnerable}
+      - {path: data/static/codefixes/unionSqlInjectionChallenge_1.ts, line: 6, weakness_class: sql_injection, verifier: taint, label: vulnerable}
+      - {path: data/static/codefixes/unionSqlInjectionChallenge_2_correct.ts, line: 5, weakness_class: sql_injection, verifier: taint, label: safe, reason: documented correct fix with replacements}
+      - {path: data/static/codefixes/unionSqlInjectionChallenge_3.ts, line: 10, weakness_class: sql_injection, verifier: taint, label: vulnerable}
+      - {path: data/static/codefixes/loginAdminChallenge_1.ts, line: 18, weakness_class: sql_injection, verifier: taint, label: vulnerable}
+      - {path: data/static/codefixes/loginAdminChallenge_4_correct.ts, line: 15, weakness_class: sql_injection, verifier: taint, label: safe, reason: documented correct fix with bind}
+      - {path: routes/userProfile.ts, line: 65, weakness_class: code_injection, verifier: taint, label: vulnerable}
+      - {path: routes/profileImageFileUpload.ts, line: 42, weakness_class: path_traversal, verifier: taint, label: safe, reason: path uses the server-side user id looked up from the session}
+      - {path: routes/vulnCodeFixes.ts, line: 81, weakness_class: path_traversal, verifier: taint, label: safe, reason: key must match an existing fix file before the read}
+      - {path: routes/vulnCodeSnippet.ts, line: 90, weakness_class: path_traversal, verifier: taint, label: safe, reason: key must resolve to a known snippet before the read}
+  - id: webgoat
+    repository: https://github.com/WebGoat/WebGoat
+    commit: 044948d057b249735be2bfc14eccc9e3dc2eac34
+    license: GPL-2.0
+    label_source: WebGoat SQL injection (advanced) and path traversal lessons
+    locations:
+      - {path: src/main/java/org/owasp/webgoat/lessons/sqlinjection/advanced/SqlInjectionChallenge.java, line: 62, weakness_class: sql_injection, verifier: taint, label: vulnerable}
+      - {path: src/main/java/org/owasp/webgoat/lessons/pathtraversal/ProfileUploadRetrieval.java, line: 101, weakness_class: path_traversal, verifier: taint, label: vulnerable}
+  - id: dvcsharp-api
+    repository: https://github.com/appsecco/dvcsharp-api
+    commit: 76c1de3c9d8d9c2e8ec0b50abe3b198a4330d7fc
+    license: MIT
+    label_source: dvcsharp-api README, SQL injection in product search
+    locations:
+      - {path: Controllers/ProductsController.cs, line: 73, weakness_class: sql_injection, verifier: taint, label: vulnerable}
+  - id: pygoat
+    repository: https://github.com/adeyosemanputra/pygoat
+    commit: 19d17cc8874861142b330636d068bbde54e86b85
+    license: MIT
+    label_source: pygoat lab pages for injection, command injection, insecure deserialization, and SSRF
+    locations:
+      - {path: introduction/views.py, line: 162, weakness_class: sql_injection, verifier: python, label: vulnerable}
+      - {path: introduction/views.py, line: 878, weakness_class: sql_injection, verifier: python, label: vulnerable}
+      - {path: introduction/views.py, line: 214, weakness_class: unsafe_deserialization, verifier: python, label: vulnerable}
+      - {path: introduction/views.py, line: 560, weakness_class: unsafe_deserialization, verifier: python, label: vulnerable}
+      - {path: dockerized_labs/insec_des_lab/main.py, line: 36, weakness_class: unsafe_deserialization, verifier: python, label: vulnerable}
+      - {path: introduction/views.py, line: 430, weakness_class: command_injection, verifier: python, label: vulnerable}
+      - {path: introduction/mitre.py, line: 233, weakness_class: command_injection, verifier: python, label: vulnerable, reason: reached through a helper called with request input}
+      - {path: challenge/views.py, line: 50, weakness_class: command_injection, verifier: python, label: safe, reason: argument list without a shell and server values only}
+      - {path: introduction/views.py, line: 460, weakness_class: code_injection, verifier: python, label: vulnerable}
+      - {path: introduction/mitre.py, line: 218, weakness_class: code_injection, verifier: python, label: vulnerable}
+      - {path: introduction/views.py, line: 927, weakness_class: path_traversal, verifier: python, label: vulnerable}
+      - {path: introduction/views.py, line: 995, weakness_class: path_traversal, verifier: python, label: safe, reason: file name is a server-generated id}

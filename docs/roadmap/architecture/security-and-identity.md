@@ -169,6 +169,19 @@ approved grant, and fresh effective-access evidence is required before the actio
 - **Evidence-source isolation**: Independent read-only sources use separate finite deadlines. One
   source timeout cannot discard evidence already completed by another source, and unavailable or
   empty evidence never becomes a healthy observation, a cause claim, or execution authority.
+- **Code-security remediation packs**: a pack carries undisclosed vulnerability detail to
+  developer machines and their coding-agent services. Export requires a deployment-approved
+  provider (data residency, no training, retention, and allowed pack modes), a signed manifest,
+  and a registry record; result import trusts only that record. Notifications and agent bus
+  messages carry counts and opaque issue ids, never code or paths. See
+  [Code Security Findings](../operations/code-security-findings.md#remediation-pack).
+- **Code-security LLM lens**: the optional lens lane sends bounded source excerpts to configured
+  model deployments, so the same residency and no-retention terms apply. Its output is untrusted;
+  only grounded, quorum-agreed candidates become inert hypotheses.
+- **Code-security proof lane**: the only place FDAI runs repository code. It's opt-in per scan,
+  limited to issues a deterministic verifier already confirmed, and runs in a disposable
+  bubblewrap sandbox with no network, no credentials, a cleared environment, a read-only source,
+  and resource limits. Every sink is a recording hook, so a proof never performs the real effect.
 
 ## Network Boundaries
 
