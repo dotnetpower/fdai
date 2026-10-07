@@ -605,9 +605,11 @@ def test_recovers_legacy_output_inputs_from_stored_state(drift: ModuleType) -> N
     assert inputs == {
         "enable_dev_operations_gateway": True,
         "enable_governed_execution": True,
+        "enable_inventory_evidence_store_reader": True,
         "enable_llm": True,
         "enable_ohl_scale_out_evidence_target": True,
         "enable_operational_history": True,
+        "operator_api_audience": "00000000-0000-0000-0000-000000000010",
         "resolved_capabilities": [
             {
                 "name": "t1.judge",
