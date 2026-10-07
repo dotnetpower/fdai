@@ -3,11 +3,24 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+import runpy
+from collections.abc import Callable, Mapping
+from pathlib import Path
+from typing import Any, cast
 
-from fdai_service_contracts.approval_profile import (
-    approval_profile_from_audit_dict,
-    approval_profile_policy_digest,
+_CONTRACT = runpy.run_path(
+    str(
+        Path(__file__).resolve().parents[3]
+        / "packages/service-contracts/src/fdai_service_contracts/approval_profile.py"
+    )
+)
+approval_profile_from_audit_dict = cast(
+    Callable[[Mapping[str, Any]], object],
+    _CONTRACT["approval_profile_from_audit_dict"],
+)
+approval_profile_policy_digest = cast(
+    Callable[[Mapping[str, Any]], str],
+    _CONTRACT["approval_profile_policy_digest"],
 )
 
 
