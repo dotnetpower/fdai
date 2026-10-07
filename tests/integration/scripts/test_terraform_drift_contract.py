@@ -246,6 +246,7 @@ def test_workflow_plans_every_production_root() -> None:
     assert "Platform state has no Cost pseudonym key binding for $root_id." in workflow
     assert "resolved_model_args+=(--model-binding-transition)" in workflow
     assert '"${resolved_model_args[@]}"' in workflow
+    assert 'PYTHONPATH="$GITHUB_WORKSPACE/packages/service-contracts/src"' in workflow
     assert "terraform -chdir=infra show -json" in workflow
     assert "platform-output-inputs" in workflow
     assert '-var-file="$plan_inputs" -detailed-exitcode' in workflow
@@ -570,6 +571,7 @@ def test_reconcile_applies_only_reviewed_saved_refresh_only_plans() -> None:
     assert "if: inputs.reviewed_drift_digest != ''" in apply_block
     assert "refresh_drift_digest.py summarize" in workflow
     assert "refresh_drift_digest.py digest" in workflow
+    assert 'PYTHONPATH="$GITHUB_WORKSPACE/packages/service-contracts/src"' in workflow
     assert "platform-output-inputs" in workflow
     assert '-var-file="$work/vars/legacy-output-inputs.tfvars.json"' in workflow
     assert "| jq '.variables | map_values(.value)' >\"$work/verify/vars.json\"" in workflow
