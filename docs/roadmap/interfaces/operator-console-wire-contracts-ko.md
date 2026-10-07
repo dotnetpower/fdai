@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: a8d557644fd0c350fb041eb818ef34427d54f68e
-translation_revised: 2026-10-06
+translation_source_sha: 690061fccf920d322caba8b8adb0c8a4c112fbab
+translation_revised: 2026-10-07
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -486,6 +486,26 @@ Operator는 `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`가 켜진 경우�
 `not-activated`를 표시합니다. 인증되지 않은 응답에는 표시가 없으며, 라우트는 이 표시를 바꿀 수
 없습니다. 이 헤더는 가용성 안내이며 권한을 부여하지 않습니다.
 
+### 13.14 규칙 점검 결과 요약
+
+Forseti의 최신 버전 2 baseline 커버리지가 있으면 `GET /rules/findings-summary`는 스키마 버전
+`2.0.0`을 반환합니다. Core는 상태 저장소와 인벤토리 데이터베이스가 구성되어 있으면 시작할 때 범위가
+제한된 Forseti baseline 작업기를 연결합니다. `FDAI_BASELINE_EVALUATION_ENABLED=false`로 끌 수 있고,
+`FDAI_BASELINE_EVALUATION_INTERVAL_SECONDS`와 `FDAI_BASELINE_EVALUATION_MAX_RESOURCES`로 범위를
+제한합니다.
+
+| 필드 | 의미 |
+|------|------|
+| `evaluated` | 커버리지가 완전하고 결과가 결과 집합 다이제스트와 일치할 때만 `true` |
+| `complete` | T0 디스패치 쌍 집합을 모두 다뤘는지 여부 |
+| `counts` | 제한된 규칙 참조별 위반 리소스 수. 평가되지 않으면 비어 있습니다 |
+| `expected_pair_count`, `covered_pair_count` | 디스패치에서 도출한 분모와 그 안의 최종 결과 수 |
+| `limitations` | 완전하지 않을 때의 커버리지 제한 코드(예: `pair_missing`) |
+| `coverage_digest`, `rule_activation_generation_id` | 결합된 커버리지 기록과 활성화 세대 |
+
+버전 2 커버리지가 없으면 응답은 `{"evaluated": false, "counts": {}}`입니다. 형식이 잘못되었거나
+모호한 기록은 0으로 추론하지 않고 `503`을 반환합니다. 이 요약은 권한을 부여하지 않습니다.
+
 ## 구현 상태
 
 ### 구현 범위
@@ -515,6 +535,7 @@ Incident 또는 실행 권한은 바뀌지 않았습니다.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-07 | implemented | 규칙 점검 결과 요약의 wire 형식을 문서화했습니다. 요약은 이제 Forseti의 최신 버전 2 baseline 커버리지를 읽고, 불완전한 커버리지는 제한 코드와 함께 평가되지 않음으로 보고하며, Core baseline 작업기 설정을 나열합니다. | `current change`; `workflow_rule_projection.py`; `services/operator-service/tests/test_rule_findings_summary_admission.py`(20개 통과); `services/core-control-plane/tests/runtime/test_baseline_evaluation_binding.py`(8개 통과). | 이 계약에 남은 작업은 없습니다. |
 | 2026-09-29 | in-progress | Python task workbench 상태를 정정했습니다. Operator 서비스 분리(`8f67c5d76`) 이후 여섯 가지 workbench 작업을 제공하는 Operator 담당 구성 요소가 없으며, `GET /python-tasks/capabilities`는 아무도 쓰지 않는 변환 결과 때문에 HTTP `503`을 반환했습니다([#1655](https://github.com/dotnetpower/fdai/issues/1655)). 이제 Operator 조립 구성이 기능 보고를 소유하며 `available: false`와 누락된 각 담당 구성 요소를 HTTP `200`으로 반환합니다. Console은 workbench를 닫은 상태로 유지하고 그 사유를 알립니다. | `current change`; `python_task_capability.py`, `family_adapters.py` 및 Console `python-task.ts`와 `workflow-builder.catalog.tsx`; `test_python_task_capability.py`, `test_workflow_definition_catalog.py` 및 Console 디코더와 경로 테스트 통과. | 기능이 사용 가능으로 보고되기 전에 통제된 Python 작업 검증기, VM 작업 실행기 및 아티팩트 저장소를 Operator 서비스에 연결합니다. |
 | 2026-09-29 | implemented | 각 HIL 대기열 항목에 `development_owner_only`를 추가하고, Console 결정 경로, Slack 및 Teams 콜백 서비스와 결정 트랜잭션에서 보류된 범주 전용 거부에 대해 증명된 개발 Owner 본인의 승인 외의 모든 승인을 거부했습니다. 다른 권한 있는 승인자는 계속 반려할 수 있습니다. | `current change`; `projection_logic.py`, `families/iam/hil_callback_decision.py`, `postgres_hil_decision.py`; `services/operator-service/tests/test_hil_development_owner_only.py`와 Console `api.test.ts` 통과. | [#1623](https://github.com/dotnetpower/fdai/issues/1623)에서 실제 Owner 실행 기록 하나를 보존합니다. |
 | 2026-09-29 | implemented | Console 결정 경로, Slack 및 Teams 콜백 서비스와 결정 트랜잭션에서 요청한 개발 Owner가 보류된 범주 전용 거부를 반려할 수 있게 하고, 결정 저장소가 영수증이나 outbox 레코드를 쓰기 전에 사람의 approve 또는 reject 외의 값을 거부하도록 했습니다. | `current change`; `families/iam/hil_callback_decision.py`, `postgres_hil_decision.py`; `services/operator-service/tests/test_hil_development_owner_only.py`와 `tests/integration/services/test_hil_development_decision_postgres.py` 통과. | [#1623](https://github.com/dotnetpower/fdai/issues/1623)에서 실제 Owner 실행 기록 하나를 보존합니다. |

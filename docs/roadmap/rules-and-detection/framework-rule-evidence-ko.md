@@ -1,7 +1,7 @@
 ---
 title: T0 기반 프레임워크 규칙 근거
 translation_of: framework-rule-evidence.md
-translation_source_sha: d0e1ca21f10b444a31ae7177ea23b1cb03bcc6b6
+translation_source_sha: 28ab53b5af29dc899e818300055d797dc27cd0be
 translation_revised: 2026-10-07
 ---
 # T0 기반 프레임워크 규칙 근거
@@ -257,6 +257,24 @@ WAF `rule` 요구 사항은 컨트롤 수준 교차워크 관계가 `partial`이
 - **대상 리소스 없음:** 대상 워크로드 리소스가 없는 규칙 요구 사항은 `no_eligible_resource`와 함께
   `unknown`으로 유지합니다. FDAI는 적용 가능성 검토를 자동으로 요청하지 않으며, 책임 담당자가 승인된
   `not_applicable` 결정을 기록할지 판단합니다.
+- **최신 커버리지 포인터:** 실행이 끝날 때마다 Forseti는 버전 2 커버리지 기록을 고유 키에 쓰고
+  `baseline-evaluation:latest:coverage`에도 씁니다. 이전 세대를 재개한 실행은 더 최신 포인터를
+  덮어쓰지 않습니다. Operator 규칙 탐지 결과 요약과 평가 작업은 이 포인터만 읽으며, 버전 1 완료
+  기록만으로는 평가된 요약을 만들지 않습니다.
+- **가벼운 탐색:** 유지 관리 실행은 먼저 활성 인벤토리 세대 ID만 읽습니다. 마지막으로 정착된
+  실행 이후 그 ID나 활성화 세대가 바뀐 경우에만 전체 세대를 읽습니다. `generation_too_large`와
+  `activation_drift`를 포함한 모든 최종 결과는 `baseline-evaluation:status:latest` 상태 기록에
+  남깁니다.
+- **정규화된 결과 집합:** Forseti는 결과 집합을 `(resource_ref, rule_ref)` 순서로 다이제스트하므로,
+  저장 순서대로 결과를 페이지 단위로 읽는 쪽도 정확한 집합을 검증할 수 있습니다.
+- **워크로드 투영:** 평가 작업은 별도 프로세스에서 실행되므로 T0 인덱스를 다시 만들지 않습니다.
+  완전한 버전 2 baseline은 기록된 결과가 디스패치 쌍 집합과 같음을 증명하므로, 작업은 그 결과 중
+  워크로드에 속한 부분을 워크로드 쌍 집합으로 사용합니다. 먼저 전체 결과 집합 다이제스트를
+  검증합니다. 활성화가 없거나, baseline이 없거나 불완전하거나 검증되지 않거나, 다른 활성화 또는
+  인벤토리 세대의 baseline이면 명시적 상태만 남기고 규칙 근거는 만들지 않으므로 규칙 요구 사항은
+  `unknown`으로 남습니다.
+- **인벤토리 최신성:** 워크로드 범위 소스가 작업 실행 전에 인벤토리 최신성 예산을 강제하며, 규칙
+  근거는 baseline 평가 시각을 관측 시각으로 사용합니다.
 
 ## 관련 문서
 

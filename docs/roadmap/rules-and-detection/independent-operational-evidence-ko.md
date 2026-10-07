@@ -1,7 +1,7 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 38e4317eedd0e2992b2c749899c7c6218ac1fff2
-translation_revised: 2026-10-05
+translation_source_sha: 251924dc51fb7692d678e16b955d82c8d27b920d
+translation_revised: 2026-10-07
 ---
 # 독립 운영 근거 발급
 
@@ -52,6 +52,9 @@ Forseti는 Var와 HIL 재개 경로가 원래 정족수와 유효 정족수를 �
 뿐입니다. 검증기 출처 산출물, `DecisionEvidenceAdmission`, 실제 프로바이더 상태의 증명이 아닙니다.
 재정의 승격 중 기록된 운영자 증언 게이트 스냅샷도 레지스트리 문맥입니다. 이 검증기 경계 아래에서
 별도의 gate-evidence 저장소가 스냅샷을 검증하기 전에는 독립 운영 근거가 되지 않습니다.
+Forseti의 버전 2 baseline 평가 커버리지와 그로부터 도출한 T0 규칙 근거는
+[프레임워크 규칙 근거](framework-rule-evidence-ko.md)를 위한 프레임워크 평가 근거입니다. 이 검증기가
+발급한 것이 아니며 통제된 결정 소스를 충족할 수 없습니다.
 
 ## 현재 상태와 공백
 

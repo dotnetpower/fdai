@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: bff170b876413a0224efb0f03b6da42ffcfe8693
-translation_revised: 2026-10-06
+translation_source_sha: 34beac1a69837c32c410ca3b928ed23552eb3ee4
+translation_revised: 2026-10-07
 ---
 # 에이전트 판테온
 
@@ -228,7 +228,7 @@ Forseti의 관찰 모드 ARB 실패 기록은 맥락/근거 수집 실패에도 
 |-------|---------------|-----------|----------|---------|
 | Odin | 주간 portfolio 리뷰, priority-policy 튜닝 | Forseti 신호 에 arbitrate_domain_conflict | portfolio 결과 점수 self-audit | 7 (에이전트 상태), 2 (Predictive 규모) tie-break |
 | Thor | execution-path 상태 검사, retry-strategy 캐시 예열 | 판정 전달, 롤백 트리거, rate-limit 강제 | 고위험 및 의무 전용 경로에서 executor I/O 전에 pre-flight simulation 증적을 기록합니다 | 1 (Cost-aware 교정), 2 (Predictive 규모), 11 (준비 상태), 12 (Scheduled Python) |
-| Forseti | rule-cache 리프레시, 판정 coherence self-test | 이벤트 판단 (T0/T1/T2), domain_conflict 발행, SecurityEvent 발행 | novelty 표류 감지; 보존된 judgment what-if replay가 비활성 불일치 근거와 범위가 제한된 cost annotation을 기록합니다 | 1, 2, 5 (Security 에스컬레이션), 8 (Judgment coherence), 11, 12 |
+| Forseti | rule-cache 리프레시, 판정 coherence self-test, 최신 승격 인벤토리 세대를 활성 규칙 집합으로 평가하는 범위가 제한된 섀도 baseline 평가 ([설계](../rules-and-detection/framework-rule-evidence-ko.md#baseline-트리거)) | 이벤트 판단 (T0/T1/T2), domain_conflict 발행, SecurityEvent 발행 | novelty 표류 감지; 보존된 judgment what-if replay가 비활성 불일치 근거와 범위가 제한된 cost annotation을 기록합니다 | 1, 2, 5 (Security 에스컬레이션), 8 (Judgment coherence), 11, 12 |
 | Huginn | 출처 상태 검사, 발견 커서/backpressure 검사, dedup 구간 유지 | 서명된 operator request를 포함해 Event 및 정규화된 변경 정규화 + dedup + correlate + publish | adaptive schema learning이 off-path 비활성 schema-cluster 근거를 게시합니다 | 모든 워크플로우에 피드 |
 | Heimdall | anomaly 기준선 업데이트, 예측 리프레시, 발견 최신성/커버리지 탐색, T2 제안자 상태 증적 reduction, external-actor 리스트 리프레시, agent-health 탐색 | anomaly detect, 표류 detect, 최종 제안자 exhaustion correlate, 발견 성능 저하 correlate, SecurityEvent correlate, notify_admin | multi-signal 다신호 상관 | 1, 2, 3 (DR 훈련), 5, 7 (에이전트 상태), 9 (Rollback 예행 연습) |
 | Vidar | rollback-path 검증, DR 준비 상태 점수, recovery-time SLI | perform_rollback; recovery-time 결과와 함께 DR failover 계약을 수락하거나 보류합니다 | 주입된 dry-run-only port로 shadow rollback rehearsal 증적을 기록합니다 | 3, 9 |

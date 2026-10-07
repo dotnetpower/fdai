@@ -261,6 +261,25 @@ Rule eligible for T0 observation; it doesn't enable enforcement. See
 - **No eligible resource:** A Rule requirement with no eligible workload resource stays `unknown`
   with `no_eligible_resource`. FDAI doesn't request an applicability review automatically; the
   accountable owner decides whether to record an approved `not_applicable` decision.
+- **Latest coverage pointer:** After each run, Forseti writes the version 2 coverage record under
+  its own key and also under `baseline-evaluation:latest:coverage`. A resumed run for an older
+  generation never replaces a newer pointer. The Operator Rule findings summary and the assessment
+  job read only this pointer, and a version 1 completion alone never yields an evaluated summary.
+- **Cheap discovery:** Each maintenance run reads only the active inventory generation id first.
+  The full generation is read only when that id or the activation generation changes since the
+  last settled run. Every terminal result, including `generation_too_large` and
+  `activation_drift`, is recorded in the `baseline-evaluation:status:latest` status record.
+- **Canonical outcome set:** Forseti digests the outcome set in `(resource_ref, rule_ref)` order, so
+  any reader that pages outcomes in storage order can verify the exact set.
+- **Workload projection:** The assessment job runs in its own process, so it doesn't rebuild the T0
+  index. A complete version 2 baseline proves that the recorded outcomes equal the dispatch pair
+  set, so the job takes the workload subset of those outcomes as the workload pair set. It first
+  verifies the full outcome-set digest. A missing activation, a missing, incomplete, or
+  unverifiable baseline, or a baseline for another activation or inventory generation yields an
+  explicit status and no Rule receipts, so Rule requirements stay `unknown`.
+- **Inventory freshness:** The workload scope source enforces the inventory freshness budget
+  before the job runs, and Rule receipts use the baseline evaluation time as their observation
+  time.
 
 ## Related docs
 
