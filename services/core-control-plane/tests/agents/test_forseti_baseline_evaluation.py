@@ -229,6 +229,69 @@ async def test_stale_and_missing_evidence_abstain() -> None:
 
 
 @pytest.mark.asyncio
+async def test_compliance_requires_every_declared_evaluated_property() -> None:
+    observed = _rule("rule.observed").model_copy(
+        update={"evaluates": ["property.example.resource.diagnostic_settings"]}
+    )
+    foreign = _rule("rule.foreign").model_copy(
+        update={"evaluates": ["property.other.resource.diagnostic_settings"]}
+    )
+    denied = _rule("rule.denied").model_copy(
+        update={"evaluates": ["property.example.resource.tags"]}
+    )
+    rules = (observed, foreign, denied)
+    store = InMemoryStateStore()
+    completion = await record_baseline_evaluation(
+        observation=_observation(
+            ResourceRecord(
+                resource_id="with-property",
+                type="example.resource",
+                props={"diagnostic_settings": []},
+            ),
+            ResourceRecord(
+                resource_id="without-property",
+                type="example.resource",
+                props={"properties": {"diagnosticSettings": []}},
+            ),
+        ),
+        engine=T0Engine(
+            index=RuleIndex.build(rules),
+            evaluator=_Evaluator(
+                {
+                    "rule.observed": PolicyResult(denied=False, context={}),
+                    "rule.foreign": PolicyResult(denied=False, context={}),
+                    "rule.denied": PolicyResult(denied=True, context={"deny_reason": "no_tags"}),
+                }
+            ),
+        ),
+        rules=rules,
+        catalog_revision=CATALOG_A,
+        audit_binder=_audit_binder,
+        state_store=store,
+        evaluated_at=NOW,
+    )
+
+    page, _total = await store.read_state_page(prefix=BASELINE_EVALUATION_OUTCOME_PREFIX, limit=10)
+    outcomes = {(row["resource_ref"], row["rule_ref"]): row for row in page}
+    # An empty but present property was observed; an absent one never proves compliance.
+    assert outcomes[("resource:with-property", "rule:rule.observed")]["outcome"] == "compliant"
+    unobserved = outcomes[("resource:without-property", "rule:rule.observed")]
+    assert (unobserved["outcome"], unobserved["reason_code"]) == (
+        "abstained",
+        "property_unobserved",
+    )
+    assert {
+        outcomes[(ref, "rule:rule.foreign")]["reason_code"]
+        for ref in ("resource:with-property", "resource:without-property")
+    } == {"property_unobserved"}
+    # A deny stays the reviewed Rule's judgment even when its property is absent.
+    assert outcomes[("resource:without-property", "rule:rule.denied")]["outcome"] == "violated"
+    assert completion.compliant_count == 1
+    assert completion.abstained_count == 3
+    assert completion.violated_count == 2
+
+
+@pytest.mark.asyncio
 async def test_policy_evaluator_failure_abstains_without_losing_completion() -> None:
     rule = _rule("rule.compliant")
     store = InMemoryStateStore()

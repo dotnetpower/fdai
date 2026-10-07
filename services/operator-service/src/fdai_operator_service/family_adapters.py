@@ -50,6 +50,7 @@ from fdai_operator_service.families.workflow.contracts import (
     WorkflowReadResult,
 )
 from fdai_operator_service.family_adapter_values import mapping as _mapping
+from fdai_operator_service.framework_rule_coverage_projection import attach_rule_coverage
 from fdai_operator_service.operations_family_adapters import (
     PostgresOperationsAdapters,
     UnavailableOperationsAdapters,
@@ -249,6 +250,19 @@ class PostgresWorkflowAdapters:
                 )
                 projection_key = "operator-projection:workflow:best-practice.list"
                 payload = _best_practice_catalog_payload(stored, request)
+                if request.operation is WorkflowOperation.BEST_PRACTICE_DETAIL:
+                    payload, coverage_revision = await attach_rule_coverage(payload, self.store)
+                    if coverage_revision is not None:
+                        joined_revision = hashlib.sha256(
+                            json.dumps(
+                                {
+                                    "catalog_revision": stored.get("_revision"),
+                                    "rule_coverage": coverage_revision,
+                                },
+                                separators=(",", ":"),
+                                sort_keys=True,
+                            ).encode()
+                        ).hexdigest()
             elif request.operation in {
                 WorkflowOperation.CAF_LIST,
                 WorkflowOperation.CAF_DETAIL,

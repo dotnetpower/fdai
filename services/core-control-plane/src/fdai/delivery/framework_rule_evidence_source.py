@@ -18,6 +18,11 @@ from fdai_service_contracts.baseline_evaluation import (
     BaselineEvaluationCoverage,
     BaselineEvaluationOutcome,
 )
+from fdai_service_contracts.framework_rule_coverage import (
+    FRAMEWORK_RULE_COVERAGE_LATEST_KEY,
+    ScopedRuleCoverageRecord,
+    framework_rule_coverage_record_key,
+)
 from fdai_service_contracts.rule_activation import RuleActivationGeneration
 
 from fdai.core.framework_assessment import (
@@ -25,12 +30,16 @@ from fdai.core.framework_assessment import (
     FrameworkRuleActivationPin,
 )
 from fdai.core.framework_rule_evidence import (
+    SCOPED_COVERAGE_AUDIT_KIND,
+    T0_RULE_EVALUATOR,
     ExpectedRulePair,
+    ScopedCoverageResourceMapping,
     WorkloadRuleResource,
     activation_pin,
     baseline_ref,
     build_rule_requirement_receipts,
     build_scoped_coverage,
+    build_scoped_coverage_record,
     canonical_sha256,
 )
 from fdai.delivery.persistence.postgres_wara_scope import WaraResolvedScope
@@ -53,15 +62,17 @@ class WorkloadRuleEvidenceStatus(StrEnum):
     BASELINE_INCOMPLETE = "baseline_incomplete"
     BASELINE_TOO_LARGE = "baseline_too_large"
     BASELINE_OUTCOMES_UNVERIFIED = "baseline_outcomes_unverified"
+    SCOPE_MISMATCH = "scope_mismatch"
 
 
 @dataclass(frozen=True, slots=True)
 class WorkloadRuleEvidence:
-    """The activation pin and Rule receipts for one workload profile."""
+    """The activation pin, Rule receipts, and scoped coverage record for one workload."""
 
     status: WorkloadRuleEvidenceStatus
     pin: FrameworkRuleActivationPin | None
     receipts: tuple[FrameworkEvidenceReceipt, ...] = ()
+    coverage_record: ScopedRuleCoverageRecord | None = None
 
 
 async def load_workload_rule_evidence(
@@ -99,6 +110,8 @@ async def load_workload_rule_evidence(
         return WorkloadRuleEvidence(WorkloadRuleEvidenceStatus.BASELINE_TOO_LARGE, pin)
     if _outcome_set_digest(outcomes) != coverage.outcome_set_digest:
         return WorkloadRuleEvidence(WorkloadRuleEvidenceStatus.BASELINE_OUTCOMES_UNVERIFIED, pin)
+    if _ambiguous_mapping(scope):
+        return WorkloadRuleEvidence(WorkloadRuleEvidenceStatus.SCOPE_MISMATCH, pin)
     workload_refs = {baseline_ref("resource", item.neutral_resource_id) for item in scope.resources}
     outcomes = tuple(item for item in outcomes if item.resource_ref in workload_refs)
     resources = tuple(
@@ -127,7 +140,68 @@ async def load_workload_rule_evidence(
         evaluated_at=evaluated_at,
         source_identity=source_identity,
     )
-    return WorkloadRuleEvidence(WorkloadRuleEvidenceStatus.READY, pin, receipts)
+    record = build_scoped_coverage_record(
+        framework_id=catalog.framework_id,
+        workload_id=scope.workload_id,
+        scoped=scoped,
+        resources=tuple(
+            ScopedCoverageResourceMapping(
+                provider_resource_id=item.provider_resource_id,
+                resource_id=item.neutral_resource_id,
+                resource_type=item.provider_resource_type,
+            )
+            for item in scope.resources
+        ),
+        baseline=coverage,
+    )
+    return WorkloadRuleEvidence(WorkloadRuleEvidenceStatus.READY, pin, receipts, record)
+
+
+async def persist_scoped_rule_coverage(
+    state_store: StateStore,
+    record: ScopedRuleCoverageRecord,
+) -> bool:
+    """Persist one immutable scoped coverage record with its audit entry, then the pointer.
+
+    The record and its audit entry are written atomically and only once per record digest, so a
+    rerun of the same assessment appends no duplicate audit. The latest pointer always moves to
+    the record of the most recent assessment. Returns whether the record was newly created.
+    """
+
+    value = record.model_dump(mode="json")
+    created = await state_store.write_state_with_audit_if_absent(
+        framework_rule_coverage_record_key(record.record_digest),
+        value,
+        {
+            "action_kind": SCOPED_COVERAGE_AUDIT_KIND,
+            "producer_principal": T0_RULE_EVALUATOR,
+            "audit_ref": record.audit_ref,
+            "audit_digest": record.audit_digest,
+            "payload": {
+                "framework_id": record.framework_id,
+                "record_digest": record.record_digest,
+                "scope_digest": record.scope_digest,
+                "scoped_coverage_digest": record.scoped_coverage_digest,
+                "baseline_coverage_digest": record.baseline_coverage_digest,
+                "rule_activation_generation_id": record.rule_activation_generation_id,
+                "rule_count": len(record.rules),
+                "resource_count": len(record.resources),
+            },
+            "execution_authority": False,
+        },
+    )
+    await state_store.write_state(FRAMEWORK_RULE_COVERAGE_LATEST_KEY, value)
+    return created
+
+
+def _ambiguous_mapping(scope: WaraResolvedScope) -> bool:
+    """Whether one provider id or one inventory reference maps to more than one resource."""
+
+    provider_ids = [item.provider_resource_id for item in scope.resources]
+    resource_refs = [baseline_ref("resource", item.neutral_resource_id) for item in scope.resources]
+    return len(set(provider_ids)) != len(provider_ids) or len(set(resource_refs)) != len(
+        resource_refs
+    )
 
 
 async def _workload_outcomes(
@@ -202,4 +276,5 @@ __all__ = [
     "WorkloadRuleEvidence",
     "WorkloadRuleEvidenceStatus",
     "load_workload_rule_evidence",
+    "persist_scoped_rule_coverage",
 ]

@@ -30,6 +30,7 @@ from fdai.delivery.framework_rule_evidence_source import (
     WorkloadRuleEvidence,
     WorkloadRuleEvidenceStatus,
     load_workload_rule_evidence,
+    persist_scoped_rule_coverage,
 )
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
 from fdai.delivery.persistence.postgres_wara_scope import (
@@ -148,6 +149,7 @@ class FrameworkAssessmentTickReport:
     caf_counts: Mapping[str, int]
     rule_evidence_status: str = WorkloadRuleEvidenceStatus.NO_ACTIVATION.value
     rule_receipt_count: int = 0
+    rule_coverage_record_digest: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -163,6 +165,7 @@ class FrameworkAssessmentTickReport:
             "caf_counts": dict(sorted(self.caf_counts.items())),
             "rule_evidence_status": self.rule_evidence_status,
             "rule_receipt_count": self.rule_receipt_count,
+            "rule_coverage_record_digest": self.rule_coverage_record_digest,
         }
 
 
@@ -456,6 +459,11 @@ async def execute_framework_assessment_tick(
             else WorkloadRuleEvidenceStatus.NO_ACTIVATION.value
         ),
         rule_receipt_count=len(rule_evidence.receipts) if rule_evidence is not None else 0,
+        rule_coverage_record_digest=(
+            rule_evidence.coverage_record.record_digest
+            if rule_evidence is not None and rule_evidence.coverage_record is not None
+            else None
+        ),
     )
 
 
@@ -503,6 +511,9 @@ async def run_once(
         evaluated_at=now,
         source_identity="forseti-baseline-evaluation",
     )
+    if rule_evidence.coverage_record is not None:
+        # The scoped record is durable before any assessment cites its coverage digest.
+        await persist_scoped_rule_coverage(state_store, rule_evidence.coverage_record)
     return await execute_framework_assessment_tick(
         settings=settings,
         scope=scope,

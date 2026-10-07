@@ -423,7 +423,20 @@
         "requirementsHint": "규칙 결과는 근거 중 하나입니다. 문서, 메트릭, 훈련, 승인은 각 생성자가 제공합니다.",
         "openRule": "규칙 {id} 열기",
         "cadenceDays": "{days}일마다",
-        "requirementLimitations": "이 요구 사항이 미확인인 이유"
+        "requirementLimitations": "이 요구 사항이 미확인인 이유",
+        "ruleCoverage": "규칙 커버리지",
+        "ruleCoverageHint": "수치는 한 워크로드의 최신 범위별 규칙 커버리지 기록에서 가져옵니다. 각 규칙 요구 사항의 상태를 설명할 뿐 상태를 바꾸지 않습니다.",
+        "ruleCoverageStatus": "커버리지 상태",
+        "ruleCoverageScope": "커버리지 범위",
+        "ruleCoverageResources": "워크로드 리소스",
+        "ruleCoverageInventory": "인벤토리 세대",
+        "ruleCoverageRecordedAt": "기록 시각",
+        "ruleCoverageActivation": "규칙 활성화 세대",
+        "ruleCoverageOtherScope": "이 커버리지는 최신 평가와 다른 워크로드 범위를 다룹니다.",
+        "ruleCoverageCounts": "대상 {eligible} · 준수 {compliant} · 위반 {violated} · 검토 대기 {held} · 결과 없음 {missing}",
+        "ruleCoverageAnomalies": "중복 {duplicate} · 충돌 {conflicting} · 예상 밖 {unexpected} · 버전 불일치 {revision}",
+        "ruleCoverageNotActivated": "활성 규칙 집합에 없어 평가된 리소스가 없습니다",
+        "ruleCoverageAria": "{id} 규칙 커버리지"
       },
       "subtitle": "Azure WAF, CAF, WARA, MCSB 프레임워크 컨트롤과 각 컨트롤에 필요한 근거입니다. 평가는 shadow 모드로 실행되며 수정 작업을 시작하지 않습니다."
     },
@@ -775,6 +788,16 @@
       "stale_evidence": "근거가 최신성 기준보다 오래되었습니다",
       "wrong_inventory_generation": "다른 인벤토리 세대의 근거입니다",
       "wrong_scope": "다른 범위의 근거입니다"
+    },
+    "ruleCoverageStatus": {
+      "current": "최신",
+      "stale": "오래됨",
+      "unavailable": "사용할 수 없음"
+    },
+    "ruleCoverageReason": {
+      "no_record": "아직 규칙 근거로 평가된 워크로드가 없습니다.",
+      "no_baseline": "이 커버리지의 기반이 된 규칙 기준선을 더 이상 사용할 수 없습니다.",
+      "baseline_changed": "더 새로운 규칙 기준선이 있습니다. 다음 평가 후 수치가 다시 표시됩니다."
     }
   }
 }

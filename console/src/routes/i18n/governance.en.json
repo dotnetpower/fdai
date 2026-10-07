@@ -423,7 +423,20 @@
         "requirementsHint": "A rule result is one input. Documents, metrics, drills, and approvals come from their own producers.",
         "openRule": "Open rule {id}",
         "cadenceDays": "Every {days} day(s)",
-        "requirementLimitations": "Why this requirement is unknown"
+        "requirementLimitations": "Why this requirement is unknown",
+        "ruleCoverage": "Rule coverage",
+        "ruleCoverageHint": "Counts come from the latest scoped rule coverage record for one workload. They explain each rule requirement and never change its status.",
+        "ruleCoverageStatus": "Coverage status",
+        "ruleCoverageScope": "Coverage scope",
+        "ruleCoverageResources": "Workload resources",
+        "ruleCoverageInventory": "Inventory generation",
+        "ruleCoverageRecordedAt": "Recorded at",
+        "ruleCoverageActivation": "Rule activation generation",
+        "ruleCoverageOtherScope": "This coverage covers a different workload scope than the latest assessment.",
+        "ruleCoverageCounts": "Eligible {eligible} · Compliant {compliant} · Violated {violated} · Held for review {held} · Missing {missing}",
+        "ruleCoverageAnomalies": "Duplicate {duplicate} · Conflicting {conflicting} · Unexpected {unexpected} · Revision drift {revision}",
+        "ruleCoverageNotActivated": "Not in the active rule set, so no resource was evaluated",
+        "ruleCoverageAria": "Rule coverage for {id}"
       },
       "subtitle": "Framework controls from Azure WAF, CAF, WARA, and MCSB with the evidence each one requires. Assessments run in shadow mode and never start remediation."
     },
@@ -775,6 +788,16 @@
       "stale_evidence": "Evidence is older than the freshness limit",
       "wrong_inventory_generation": "Evidence is from a different inventory generation",
       "wrong_scope": "Evidence is from a different scope"
+    },
+    "ruleCoverageStatus": {
+      "current": "Current",
+      "stale": "Outdated",
+      "unavailable": "Unavailable"
+    },
+    "ruleCoverageReason": {
+      "no_record": "No workload has been assessed with rule evidence yet.",
+      "no_baseline": "The rule baseline this coverage came from is no longer available.",
+      "baseline_changed": "A newer rule baseline exists. Counts return after the next assessment."
     }
   }
 }
