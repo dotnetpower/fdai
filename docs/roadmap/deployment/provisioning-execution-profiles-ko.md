@@ -1,8 +1,8 @@
 ---
 title: Provisioning 실행 Profile
 translation_of: provisioning-execution-profiles.md
-translation_source_sha: 11f8b3bb6661f6c9cbb981c7aecd287002427307
-translation_revised: 2026-10-05
+translation_source_sha: 59fca64c0243176c079d250b2166421873cfe78e
+translation_revised: 2026-10-07
 ---
 # 프로비저닝 실행 프로파일
 
@@ -381,6 +381,11 @@ Deployment CLI는 `fdai.runtime-release.v3` 매니페스트도 검증합니다. 
 다운타임, 설치 에이전트 이미지를 추가합니다. 순수 검사는 허용 스키마 범위를 벗어난 업그레이드나
 롤백, 회수된 릴리스나 기능을 거부합니다. 릴리스 식별자는 정규 ASCII semantic version이어야 합니다.
 이 검사는 승격이나 적용 권한을 부여하지 않습니다.
+
+같은 모듈은 `parse_runtime_release_manifest`로 아티팩트 트리를 읽지 않고 매니페스트 바이트만으로도
+검증하며, semantic version 우선순위와 식별자 검사를 위한 `compare_release_ids`와 `is_release_id`를
+제공합니다. [Lifecycle Hub](../../../lifecycle/hub/README.md)는 이 함수로 릴리스 카탈로그를 읽으므로
+Hub와 설치본은 같은 코드로 릴리스를 판단합니다.
 
 목표 release 작업 흐름은 읽기 전용 작업에서 휠과 출처 분포를 한 번만 빌드하고 Python과
 번들 버전이 일치하는지 검사합니다. 일치하는 signed 번들을 게시한 후에만 같은 산출물을
