@@ -756,6 +756,10 @@ that allows unprivileged user namespaces for bubblewrap and its own offline-data
 profile must opt in explicitly. See
 [Code Security Scanning](../operations/code-security-scanning.md#scan-runner-image).
 
+The shipped notification matrix carries the code-security A2 alert and A4 digest routes, so every
+profile that composes notification delivery can route code-security reviews. A profile whose
+matrix omits either route records a notification gap and never falls back to the approval route.
+
 ## Completion evidence
 
 Runtime implementation is complete only after focused local checks and the selected deployment
