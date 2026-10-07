@@ -1202,3 +1202,43 @@ async def test_an_incomplete_population_scan_keeps_the_first_page(
     ]
     assert result.receipt.truncation_reason == "result_limit"
     assert result.receipt.population_status is ObjectSetPopulationStatus.UNKNOWN
+
+
+async def test_a_population_scan_over_a_moved_snapshot_keeps_the_first_page(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fdai.core.ontology_platform.models import ObjectSetPopulationStatus
+    from fdai.shared.providers.ontology_instance import OntologyInstanceValidationError
+
+    gateway = await _gateway_with_records(_object_type(), *_resources(3))
+    store = gateway._service._store  # type: ignore[attr-defined]
+    monkeypatch.setattr(
+        store,
+        "scan_objects",
+        AsyncMock(side_effect=OntologyInstanceValidationError("snapshot markers changed")),
+    )
+
+    result = await gateway.materialize(_members(limit=2), projection_request=_request())
+
+    assert len(result.materialization.graph.objects) == 2
+    assert result.receipt.truncation_reason == "result_limit"
+    assert result.receipt.population_status is ObjectSetPopulationStatus.UNKNOWN
+
+
+async def test_a_large_population_states_its_manifest_beyond_the_json_cap() -> None:
+    from fdai.core.ontology_platform.models import ObjectSetPopulationStatus
+
+    identities = [
+        f"scope/resource-group/rg/providers/kind/resource-{index:04d}-" + "x" * 80
+        for index in range(700)
+    ]
+    long_ids = tuple(
+        OntologyObjectRecord(id=identity, object_type="Resource", properties={"id": identity})
+        for identity in identities
+    )
+    gateway = await _gateway_with_records(_object_type(), *long_ids)
+
+    result = await gateway.materialize(_members(limit=10), projection_request=_request())
+
+    assert result.receipt.population_status is ObjectSetPopulationStatus.COMPLETE
+    assert result.receipt.population_count == 700

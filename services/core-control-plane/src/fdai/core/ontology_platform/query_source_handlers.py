@@ -35,6 +35,12 @@ from .query_gateway import (
     SecuredOntologyInstancePathGraph,
     SecuredOntologyInstancePathReceipt,
 )
+from .query_handler_values import argument_name, evidence_refs
+from .query_lineage_batches import (
+    LINEAGE_READ_BUDGET,
+    LINEAGE_ROOT_BATCH,
+    batched_lineage_result,
+)
 from .query_receipt_authority import SecuredQueryReceiptAuthority, secured_query_scope_digest
 from .query_traversal_tables import (
     relationship_lineage_table,
@@ -164,11 +170,25 @@ class SecuredRelationshipTraversalNodeHandler:
             )
             return QueryNodeResult(
                 value=table,
-                evidence_refs=_evidence_refs(dependencies)
+                evidence_refs=evidence_refs(dependencies)
                 + (f"ontology-query-table:{table.digest}",),
                 authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
             )
         root_ids = tuple(row.row_id for row in dependency.rows)
+        if traversal.emit_lineage and len(root_ids) > LINEAGE_ROOT_BATCH:
+            return await batched_lineage_result(
+                traversal,
+                root_ids,
+                dependency=dependency,
+                base_evidence_refs=evidence_refs(dependencies),
+                gateway=self._gateway,
+                request=self._request,
+                receipt_authority=self._receipt_authority,
+                decision_evidence=self._decision_evidence,
+                graph_refresher=self._graph_refresher,
+                root_batch=LINEAGE_ROOT_BATCH,
+                read_budget=LINEAGE_READ_BUDGET,
+            )
         definition = ObjectSetDefinition(
             selector=traversal.selector,
             traversal=ObjectTraversal(
@@ -234,7 +254,7 @@ class SecuredRelationshipTraversalNodeHandler:
             )
         return QueryNodeResult(
             value=table,
-            evidence_refs=_evidence_refs(dependencies)
+            evidence_refs=evidence_refs(dependencies)
             + (
                 f"ontology-object-set:{secured.receipt.projected_result_digest}",
                 *output_refs,
@@ -286,7 +306,7 @@ class SecuredTypedPathNodeHandler:
             raise QueryNodeHeldError("entity_resolution_ambiguous")
         path = TypedPathDefinition.model_validate(node.arguments)
         current = dependency
-        evidence_refs = list(_evidence_refs(dependencies))
+        collected_refs = list(evidence_refs(dependencies))
         for index, step in enumerate(path.steps):
             root_ids = tuple(row.row_id for row in current.rows)
             definition = ObjectSetDefinition(
@@ -326,7 +346,7 @@ class SecuredTypedPathNodeHandler:
                 direction=step.direction,
                 max_depth=step.max_hops,
             )
-            evidence_refs.extend(
+            collected_refs.extend(
                 (
                     f"ontology-object-set:{secured.receipt.projected_result_digest}",
                     f"ontology-query-table:{current.digest}",
@@ -362,10 +382,10 @@ class SecuredTypedPathNodeHandler:
             await _issue_secured_result(
                 self._receipt_authority, output, provider=self._decision_evidence
             )
-            evidence_refs = [
-                ref for ref in evidence_refs if not ref.startswith("ontology-object-set-output:")
+            collected_refs = [
+                ref for ref in collected_refs if not ref.startswith("ontology-object-set-output:")
             ]
-            evidence_refs.append(
+            collected_refs.append(
                 f"ontology-object-set-output:{output.receipt.projected_result_digest}"
             )
         elif self._receipt_authority is not None:
@@ -373,7 +393,7 @@ class SecuredTypedPathNodeHandler:
             raise QueryNodeHeldError("typed_path_endpoint_projection_incomplete")
         return QueryNodeResult(
             value=current,
-            evidence_refs=tuple(dict.fromkeys(evidence_refs)),
+            evidence_refs=tuple(dict.fromkeys(collected_refs)),
             authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
         )
 
@@ -460,7 +480,7 @@ class SecuredOntologyInstancePathNodeHandler:
         )
         return QueryNodeResult(
             value=table,
-            evidence_refs=_evidence_refs(dependencies)
+            evidence_refs=evidence_refs(dependencies)
             + (
                 f"ontology-instance-path:{receipt.receipt_digest}",
                 f"ontology-query-table:{table.digest}",
@@ -632,11 +652,11 @@ class FunctionNodeHandler:
         invocation_context = self._context
         secured_digests: list[str] = []
         for dependency_id, argument_name_raw in raw_bindings.items():
-            argument_name = _argument_name(argument_name_raw)
-            if argument_name in arguments:
+            bound_name = argument_name(argument_name_raw)
+            if bound_name in arguments:
                 raise ValueError("function dependency argument collides with static argument")
             dependency = dependencies[dependency_id]
-            if argument_name.endswith("query_result") and self._receipt_authority is not None:
+            if bound_name.endswith("query_result") and self._receipt_authority is not None:
                 if (
                     self._allow_presentation_read_dependencies
                     and declaration.kind is OntologyFunctionKind.QUERY
@@ -651,10 +671,10 @@ class FunctionNodeHandler:
                     )
                 else:
                     secured = self._receipt_authority.resolve(dependency.evidence_refs)
-                arguments[argument_name] = secured.model_dump(mode="json")
+                arguments[bound_name] = secured.model_dump(mode="json")
                 secured_digests.append(secured.receipt.projected_result_digest)
             else:
-                arguments[argument_name] = _function_value(dependency.value)
+                arguments[bound_name] = _function_value(dependency.value)
         if secured_digests:
             invocation_context = self._context.model_copy(
                 update={"evidence_refs": tuple(sorted(secured_digests))}
@@ -681,7 +701,7 @@ class FunctionNodeHandler:
         )
         return QueryNodeResult(
             value=value,
-            evidence_refs=_evidence_refs(dependencies)
+            evidence_refs=evidence_refs(dependencies)
             + (f"ontology-function:{receipt.invocation_id}",)
             + exact_document_refs,
             authority=receipt.authority,
@@ -709,15 +729,6 @@ def _exact_document_evidence(
         if citation not in citations:
             citations.append(citation)
     return tuple(citations)
-
-
-def _argument_name(value: object) -> str:
-    if not isinstance(value, str) or not value or len(value) > 256:
-        raise ValueError("function argument name MUST contain between 1 and 256 characters")
-    parts = value.split(".")
-    if any(not part or not part.replace("_", "").replace("-", "").isalnum() for part in parts):
-        raise ValueError("function argument name MUST be a dot-separated identifier")
-    return value
 
 
 def _function_value(value: object) -> object:
@@ -777,17 +788,6 @@ def _query_table(value: object) -> QueryTable:
         numeric_fields=tuple(numeric_fields),
         source_generation=source_generation,
         total_rows=total_rows,
-    )
-
-
-def _evidence_refs(dependencies: Mapping[str, QueryNodeResult]) -> tuple[str, ...]:
-    return tuple(
-        dict.fromkeys(
-            evidence_ref
-            for result in dependencies.values()
-            for evidence_ref in result.evidence_refs
-            if not evidence_ref.startswith("ontology-object-set-output:")
-        )
     )
 
 

@@ -366,10 +366,14 @@ to another. The first slice accepts a reviewed anchor kind and keeps every ancho
 walks one attributable relation side.
 
 - **Form:** A discriminated collection-anchor shape, separate from the instance anchor, names the
-  anchor kind and the result kind. It starts with one sense, one hop, and one reviewed LinkType side;
+  anchor kind and the result kind. It reads one sense and one hop, through every reviewed LinkType side of that sense;
   transitive reach and all kinds keep their typed reasons until E9 prerequisites exist.
 - **Compile:** The plan reads the anchor kind's members, emits that anchor table, then asks the
-  secured traversal for one-hop lineage rows over one reviewed LinkType side.
+  secured traversal for one-hop lineage rows, one traversal per reviewed side and at most three
+  sides per plan, with each row naming its LinkType so every pair stays attributable. More than 32 anchors
+  are read in batches of the same source generation; a batch cut at its limit splits in half until
+  one anchor remains, and a budget of 64 reads bounds the walk. A batch left unread or still cut
+  keeps the lineage table incomplete with `lineage_read_budget` or its own reason.
 - **Negative claims:** An anchor with no related member is `VERIFIED_EMPTY` only with complete
   relation coverage for that anchor; otherwise it is `UNKNOWN_INCOMPLETE`, and hidden endpoints are
   never read as absence.
