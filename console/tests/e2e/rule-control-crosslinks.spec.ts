@@ -252,6 +252,12 @@ test("keeps the grouped rail aligned in constrained desktop and mobile", async (
   );
   expect(linkTops).toHaveLength(4);
   expect(new Set(linkTops).size).toBe(1);
+  await expect(page.getByRole("columnheader", { name: "Control" })).toBeVisible();
+  const tableWrap = await page.locator(".controls-catalog-view .data-table-wrap").evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }));
+  expect(tableWrap.scrollWidth).toBeLessThanOrEqual(tableWrap.clientWidth);
   const dimensions = await page.locator("html").evaluate((element) => ({
     clientWidth: element.clientWidth,
     scrollWidth: element.scrollWidth,

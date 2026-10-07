@@ -15,6 +15,7 @@ import {
 import { currentRoute, navigate, replaceRouteState } from "../router";
 import { displayValue, t } from "./i18n/governance";
 import { DetailRow, DetailSection, FacetSelect } from "./rule-catalog-components";
+import { SEVERITY_PILL } from "./rule-catalog-types";
 import {
   decodeWaraDetail,
   decodeWaraResponse,
@@ -212,27 +213,46 @@ function WaraControlsBody({
         key: "recommendation",
         header: t("governance.rules.wara.column.recommendation"),
         render: (item) => (
-          <span
-            class="control-table-identity"
-            style={{ gridTemplateColumns: "74px minmax(0, 1fr)", minWidth: 0 }}
-          >
-            <Tooltip content={item.id} placement="top"><code>{item.id.slice(0, 8)}...</code></Tooltip>
-            <span class="muted" style={{ minWidth: 0, overflowWrap: "anywhere" }}>
-              {item.title}
-              <small class="muted" style={{ display: "block", overflowWrap: "anywhere" }}>{item.resource_type}</small>
-            </span>
+          <span class="wara-recommendation-identity">
+            <span class="wara-recommendation-title">{item.title}</span>
+            <small class="muted">
+              <Tooltip content={item.id} placement="top"><code>{item.id.slice(0, 8)}</code></Tooltip>
+              <span>{item.resource_type}</span>
+            </small>
           </span>
         ),
       },
       {
-        key: "assessment",
-        header: t("governance.rules.wara.column.state"),
+        key: "impact",
+        header: t("governance.rules.wara.column.impact"),
+        cellClass: "control-column-secondary",
+        headerClass: "control-column-secondary",
         render: (item) => (
-          <span style={{ display: "grid", gap: 2, minWidth: 0 }}>
-            <span>{displayValue("waraMapping", item.mapping_disposition)}</span>
-            <small class="muted">{displayValue("controlEvaluation", item.evaluation_status)}</small>
-            <StatusPill kind={SATISFACTION_PILL[item.satisfaction]} label={displayValue("controlStatus", item.satisfaction)} />
-          </span>
+          <StatusPill
+            kind={SEVERITY_PILL[item.impact.toLowerCase()] ?? "neutral"}
+            label={displayValue("severity", item.impact.toLowerCase())}
+          />
+        ),
+      },
+      {
+        key: "mapping",
+        header: t("governance.rules.controls.column.mapping"),
+        cellClass: "control-column-secondary",
+        headerClass: "control-column-secondary",
+        render: (item) => displayValue("waraMapping", item.mapping_disposition),
+      },
+      {
+        key: "evaluation",
+        header: t("governance.rules.controls.column.evaluation"),
+        cellClass: "control-column-secondary",
+        headerClass: "control-column-secondary",
+        render: (item) => displayValue("controlEvaluation", item.evaluation_status),
+      },
+      {
+        key: "satisfaction",
+        header: t("governance.rules.controls.column.satisfaction"),
+        render: (item) => (
+          <StatusPill kind={SATISFACTION_PILL[item.satisfaction]} label={displayValue("controlStatus", item.satisfaction)} />
         ),
       },
     ],

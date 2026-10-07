@@ -13427,17 +13427,28 @@ main { padding-bottom: 60px !important; }
 .rules-route .rule-table-identity small { max-width: 300px; }
 @media (max-width: 1500px) {
   .rules-route .rule-column-secondary { display: none; }
-  .rules-route .data-table {
+  /* Column positions belong to the Rule catalog table only; framework tables own their tracks. */
+  .rules-route #rule-catalog-table .data-table {
     min-width: 100%;
     table-layout: fixed;
   }
-  .rules-route .data-table th:first-child { width: 42%; }
-  .rules-route .data-table th:nth-child(2) { width: 12%; }
-  .rules-route .data-table th:nth-child(3) { width: 12%; }
-  .rules-route .data-table th:nth-child(4) { width: 12%; }
-  .rules-route .data-table th:nth-child(6) { width: 12%; }
-  .rules-route .data-table th:nth-child(9) { width: 7%; }
-  .rules-route .data-table th:last-child { width: 3%; }
+  .rules-route #rule-catalog-table .data-table th:first-child { width: 42%; }
+  .rules-route #rule-catalog-table .data-table th:nth-child(2) { width: 12%; }
+  .rules-route #rule-catalog-table .data-table th:nth-child(3) { width: 12%; }
+  .rules-route #rule-catalog-table .data-table th:nth-child(4) { width: 12%; }
+  .rules-route #rule-catalog-table .data-table th:nth-child(6) { width: 12%; }
+  .rules-route #rule-catalog-table .data-table th:nth-child(9) { width: 7%; }
+  .rules-route #rule-catalog-table .data-table th:last-child { width: 3%; }
+  .controls-catalog-view .data-table {
+    min-width: 100%;
+    table-layout: fixed;
+  }
+  .controls-catalog-view .data-table th:first-child { width: 38%; }
+  .controls-catalog-view .data-table th.chevron-col { width: 32px; }
+  .controls-catalog-view .control-table-identity {
+    grid-template-columns: 54px minmax(0, 1fr);
+    min-width: 0;
+  }
 }
 .rule-activation-stack {
   display: grid;
@@ -13618,6 +13629,26 @@ main { padding-bottom: 60px !important; }
 }
 .control-table-identity code { color: var(--fg); font-weight: 700; }
 .control-table-identity span { color: var(--fg-muted); line-height: 1.35; }
+.controls-catalog-view .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.wara-recommendation-identity {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.wara-recommendation-title {
+  color: var(--fg);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.wara-recommendation-identity small {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.wara-recommendation-identity code { color: var(--fg-muted); }
 .control-requirement-list { display: grid; gap: 7px; }
 .control-requirement-row {
   display: flex;

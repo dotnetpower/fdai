@@ -553,8 +553,7 @@
         "recommendation": "권고",
         "resourceType": "리소스 종류",
         "control": "권고 컨트롤",
-        "impact": "자문 영향도",
-        "state": "평가 상태"
+        "impact": "자문 영향도"
       },
       "filter": {
         "resourceType": "리소스 종류",

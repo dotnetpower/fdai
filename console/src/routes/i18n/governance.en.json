@@ -554,8 +554,7 @@
         "recommendation": "Recommendation",
         "resourceType": "Resource type",
         "control": "Recommendation control",
-        "impact": "Advisory impact",
-        "state": "Assessment state"
+        "impact": "Advisory impact"
       },
       "filter": {
         "resourceType": "Resource type",
