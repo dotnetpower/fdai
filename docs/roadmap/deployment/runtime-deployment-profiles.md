@@ -407,6 +407,9 @@ from the Job's workload identity at connection time.
 FDAI services keep one runtime-neutral workload specification containing the digest-pinned image,
 command, arguments, environment names, resource requests and limits, startup, liveness and readiness
 probes, ingress intent, service port, sidecars, secret references, workload identity and scaling bounds.
+Every shipped Alpine runtime image also pins security-sensitive runtime package revisions across
+all service Dockerfiles. A published fixed package revision moves the shared pin and its repository
+contract together; image scanning verifies the built result before publication.
 
 The Container Apps renderer maps the specification to Container Apps and Container Apps Jobs. The
 AKS renderer maps it to typed Kubernetes `Deployment`, `Service`, `ServiceAccount`,
