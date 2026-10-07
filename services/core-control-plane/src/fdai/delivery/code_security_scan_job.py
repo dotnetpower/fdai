@@ -13,7 +13,7 @@ from __future__ import annotations
 import hashlib
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field, replace
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Protocol
 
@@ -168,12 +168,14 @@ async def run_scan_job(
     occurrences: list[Occurrence] = [occ for result in ingested for occ in result.occurrences]
     lens_report: LensLaneReport | None = None
     lens_notes: list[str] = []
+    lens_found: list[Occurrence] = []
     if lens_catalog is not None and lens_models:
         try:
             lens_occurrences, lens_report = await run_lens_lane(
                 source.path, lens_catalog, lens_models, revision=config.revision
             )
             occurrences.extend(lens_occurrences)
+            lens_found = list(lens_occurrences)
             lens_notes = list(lens_report.notes)
         except LensLaneUnavailableError as exc:
             lens_notes = [str(exc)]
@@ -234,6 +236,20 @@ async def run_scan_job(
                     "kept": lens_report.kept if lens_report else 0,
                     "model_calls": lens_report.model_calls if lens_report else 0,
                     "notes": lens_notes,
+                    "report": (
+                        {key: value for key, value in asdict(lens_report).items() if key != "notes"}
+                        if lens_report
+                        else None
+                    ),
+                    "hypotheses": [
+                        {
+                            "path": occ.location.path,
+                            "line": occ.location.start_line,
+                            "rule_id": occ.rule_id,
+                            "cwe": list(occ.cwe_ids),
+                        }
+                        for occ in lens_found
+                    ],
                 },
                 "proof": {
                     "enabled": prove_python is not None,

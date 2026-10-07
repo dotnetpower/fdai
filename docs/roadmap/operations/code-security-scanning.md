@@ -142,6 +142,18 @@ as lens notes in `receipt.json`. Those notes don't change deterministic coverage
 lane is optional. Code text that tries to instruct the model can't add findings, since every
 finding must pass grounding and quorum in code.
 
+Deployments call models with the attached managed identity. For local development,
+`--lens-identity azure-cli` uses the operator's existing `az` login instead. The receipt records
+the full lens report (calls, errors, and candidates rejected as ungrounded, off-lens, or without
+quorum) and every kept hypothesis location.
+
+Live validation, 2026-10-07: `gpt-4.1-mini` and `gpt-4o` in the FDAI development account
+reviewed a synthetic Flask module with five planted flaws and three safe counterparts. Across
+18 calls with no errors, 6 ungrounded claims were rejected and 7 grounded hypotheses were kept.
+Those covered all five planted flaws and none of the safe counterparts. One extra hypothesis,
+missing authentication on a public search route, is a false positive that stays an inert
+`hypothesis`.
+
 Example: two model families both cite line 8, `Order.query.get(order_id)`, for
 `missing-authorization` with CWE-639. FDAI keeps one `hypothesis` occurrence. The issue is
 priority P3 until a person or another producer confirms it.

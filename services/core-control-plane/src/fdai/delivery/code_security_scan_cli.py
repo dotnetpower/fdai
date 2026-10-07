@@ -45,6 +45,12 @@ def add_scan_command(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -
     scan.add_argument("--bwrap", default="/usr/bin/bwrap")
     scan.add_argument("--kafka-bootstrap-servers")
     scan.add_argument(
+        "--lens-identity",
+        choices=["managed-identity", "azure-cli"],
+        default="managed-identity",
+        help="identity for lens model calls; azure-cli is for local development only",
+    )
+    scan.add_argument(
         "--prove",
         action="store_true",
         help="opt in to the proof lane: run verified Python findings in a disposable sandbox",
@@ -79,7 +85,7 @@ async def run_scan(args: argparse.Namespace) -> dict[str, object]:
 
         publisher = heimdall_publisher(args.kafka_bootstrap_servers)
     lens_catalog = load_lens_catalog(catalog_root) if args.lens_model else None
-    async with _lens_models(args.lens_model, lens_catalog) as lens_models:
+    async with _lens_models(args.lens_model, lens_catalog, args.lens_identity) as lens_models:
         result = await _run(
             args, catalog_root, executables, scanners, publisher, lens_catalog, lens_models
         )
@@ -117,22 +123,32 @@ async def run_scan(args: argparse.Namespace) -> dict[str, object]:
 
 @asynccontextmanager
 async def _lens_models(
-    specs: list[str], catalog: LensCatalog | None
+    specs: list[str], catalog: LensCatalog | None, identity_kind: str = "managed-identity"
 ) -> AsyncIterator[list[CodeSecurityLensModel]]:
-    """Build Azure lens models from ``FAMILY=ENDPOINT|DEPLOYMENT`` specs inside one client."""
+    """Build Azure lens models from ``FAMILY=ENDPOINT|DEPLOYMENT`` specs inside one client.
+
+    ``azure-cli`` uses the operator's existing ``az`` login for local development; deployments
+    use the attached managed identity.
+    """
     if not specs or catalog is None:
         yield []
         return
     import httpx
 
+    from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
     from fdai.delivery.azure.llm.code_security_lens import (
         AzureOpenAICodeSecurityLensModel,
         AzureOpenAILensModelConfig,
     )
     from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
+    from fdai.shared.providers.workload_identity import WorkloadIdentity
 
     async with httpx.AsyncClient() as client:
-        identity = ManagedIdentityWorkloadIdentity.from_env(http_client=client)
+        identity: WorkloadIdentity = (
+            AsyncAzureCliWorkloadIdentity.from_env()
+            if identity_kind == "azure-cli"
+            else ManagedIdentityWorkloadIdentity.from_env(http_client=client)
+        )
         models: list[CodeSecurityLensModel] = []
         for family, target in pairs(specs).items():
             endpoint, _, deployment = target.partition("|")

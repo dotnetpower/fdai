@@ -284,6 +284,15 @@ async def test_scan_job_runs_optional_lens_lane_without_affecting_coverage(tmp_p
     assert result.lens_report is not None and result.lens_report.kept == 1
     receipt = json.loads((result.artifact_dir / "receipt.json").read_text())
     assert receipt["lens"]["ran"] is True and receipt["lens"]["kept"] == 1
+    assert receipt["lens"]["report"]["rejected_ungrounded"] == 0
+    assert receipt["lens"]["hypotheses"] == [
+        {
+            "path": "src/app.py",
+            "line": 2,
+            "rule_id": receipt["lens"]["hypotheses"][0]["rule_id"],
+            "cwe": [78],
+        }
+    ]
     assert all("lens" not in limit for limit in result.coverage_limits)
 
 

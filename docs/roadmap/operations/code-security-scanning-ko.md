@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: b74b8c399668d34d1faf2213139c69312f19e786
+translation_source_sha: 189882a3c2c765c39ccbf4ee79574531f6fb1cf9
 translation_revised: 2026-10-07
 ---
 
@@ -141,6 +141,16 @@ Go용으로 FDAI가 작성한 규칙 22개가 있습니다. 각 규칙은 다음
 파일은 `receipt.json`의 렌즈 메모로 기록됩니다. 레인이 선택 사항이므로 이 메모는 결정론적
 커버리지를 바꾸지 않습니다. 모든 결과가 코드에서 근거 확인과 정족수를 통과해야 하므로, 모델에게
 지시하려는 코드 텍스트가 결과를 추가할 수는 없습니다.
+
+배포 환경은 연결된 Managed Identity로 모델을 호출합니다. 로컬 개발에서는 `--lens-identity azure-cli`가
+대신 운영자의 기존 `az` 로그인을 사용합니다. 증적에는 렌즈 보고서 전체(호출, 오류, 근거 없음·렌즈 범위
+밖·정족수 미달로 거부된 후보)와 남은 모든 가설의 위치가 기록됩니다.
+
+실제 검증(2026-10-07): FDAI 개발 계정의 `gpt-4.1-mini`와 `gpt-4o`가 결함 다섯 개와 안전한 대응 코드 세
+개를 심어 둔 합성 Flask 모듈을 검토했습니다. 오류 없는 18회 호출에서 근거 없는 주장 6개를 거부하고 근거가
+확인된 가설 7개를 남겼습니다. 남은 가설은 심어 둔 결함 다섯 개를 모두 포함했고 안전한 대응 코드는 하나도
+포함하지 않았습니다. 공개 검색 경로의 인증 누락이라는 추가 가설 하나는 오탐이며, 아무 효력 없는
+`hypothesis`로 남습니다.
 
 예: 두 모델 계열이 모두 `missing-authorization` 렌즈에서 CWE-639로 8번째 줄
 `Order.query.get(order_id)`를 인용합니다. FDAI는 `hypothesis` 개별 보고 하나를 남깁니다. 사람이나

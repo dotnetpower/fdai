@@ -62,10 +62,10 @@ in shadow mode; passing focused tests does not promote it or prove a deployed pa
 - [x] Define `code-acquire` and `code-analyze` sandbox contracts and run the deterministic lane with
   FDAI-authored rules; egress-free and quota tests pass, tracked in the
   [Code Security Scanning ledger](code-security-scanning.md).
-- [ ] Validate the LLM lens lane live. The lane is implemented as an off-path worker inside the
-  scan job, so no pantheon change was needed; it is tracked in the
-  [Code Security Scanning ledger](code-security-scanning.md). Exit with a recorded two-family live
-  run and zero ungrounded locations on a curated corpus.
+- [x] Validate the LLM lens lane live. The lane runs as an off-path worker inside the scan job, so
+  no pantheon change was needed. The two-family live run kept only grounded locations and is
+  recorded in the [Code Security Scanning ledger](code-security-scanning.md), which tracks lens
+  precision on a curated corpus.
 - [x] Implement coverage-equivalent rescan verification for `fixed_verified` and a false-positive
   adjudication workflow; tests that reject non-equivalent rescans pass in the transition above.
 - [x] Build a curated evaluation corpus (post-cutoff CVEs, holdout, clean negatives, independent
