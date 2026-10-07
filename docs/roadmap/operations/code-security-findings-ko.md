@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 점검 결과
 translation_of: code-security-findings.md
-translation_source_sha: 65f743a9fe81cd0920f2bb637739eb051d2d67a0
+translation_source_sha: 2a1f67185169bf8404b5caead3aa62187223ebc3
 translation_revised: 2026-10-07
 ---
 
@@ -18,8 +18,8 @@ MDASH(Codename MDASH 에이전트형 코드 스캐너), GitHub code scanning, Op
 > 새 기능은 shadow 모드, 즉 FDAI가 관찰하고 기록하지만 변경하지 않는 모드로 시작합니다.
 
 > **상태:** 결정론적 코어, 카탈로그, 서명된 조치 팩, 팩 레지스트리, 반출 검사, 재스캔 검증,
-> 오탐 판정, 운영자 CLI가 구현되었습니다. 에이전트 연결, 스캔 레인 실행, LLM 렌즈 레인은 남아
-> 있습니다.
+> 오탐 판정, Heimdall 검토 drift, 알림, 운영자 CLI가 구현되었습니다. 스캔 레인 실행과 LLM 렌즈
+> 레인은 남아 있습니다.
 > [구현 원장](../../roadmap-implementation/operations/code-security-findings.md)을 참조하세요.
 
 ## 설계 개요
@@ -223,14 +223,22 @@ FDAI는 내보낼 때 기준 커버리지 증적과 이슈 스냅샷을 팩 기�
 
 ## 에이전트 소유권과 권한
 
-- **새 에이전트 없음:** 스캐너와 팩 생성은 작업자와 어댑터이며 판테온 에이전트가 아닙니다.
-- **이벤트 유입:** 스캔 완료는 Huginn을 통해 불변 아티팩트를 다이제스트로 참조하는 `Event`로
-  들어옵니다.
-- **노출 상관 분석:** Heimdall이 LLM 없이 런타임 노출을 상관 분석합니다.
-- **결정:** Forseti가 알림, 이슈, 수정 pull request에 대한 결정(verdict)을 내립니다. Thor는 Var를
-  통한 사람 승인 뒤에 등록된 ActionType을 실행하고, Saga가 감사합니다.
-- **LLM 렌즈 레인:** 핫패스 LLM 사용은 선언된 위치로 제한되므로, 이 레인은 구현 전에 승인된 판테온
-  설계 변경이 필요합니다.
+- **새 에이전트와 토픽 없음:** 스캐너와 팩 생성은 작업자와 어댑터이며 판테온 에이전트가 아니고,
+  AgentSpec 집합도 바뀌지 않습니다.
+- **검토 신호:** 스캔은 건수, 노출, 커버리지 완전성, 최대 20개의 불투명한 이슈 ID를 담은 엄격한
+  검토 패키지를 만듭니다. 경로, 코드, 심볼, 스캐너 텍스트는 담지 않으며
+  `review_required: true`와 `grants_authority: false`를 선언합니다.
+- **Heimdall:** 주입된 변환기가 패키지를 검증하고, Heimdall이 자신이 소유한 `object.drift`
+  토픽(`event_type: code_security.findings_drift`)에 shadow 상한으로 게시합니다. 결정 값은
+  `urgent`(P0 이슈), `open`, `clear`, `coverage_incomplete` 중 하나입니다. LLM은 사용하지 않습니다.
+- **Forseti와 Saga:** Forseti는 다른 검토 필수 drift와 같은 방식으로 판정해 사람 승인 결정
+  (`hil` verdict)을 내리고, Saga가 그 판정을 감사합니다.
+- **알림:** A2 경로(`code_security_operational_alert`)는 긴급, 알려진 악용, 커버리지 불완전 경고를
+  전달하고, A4 경로(`digest_code_security_findings_daily`)는 요약을 전달합니다. 둘 다 영어와
+  한국어로 표시되며 별칭, 리비전, 건수만 담습니다. 배포 환경의 매트릭스에 두 경로 중 하나라도
+  없으면 승인 채널로 대체하지 않고 계획 단계에서 실패합니다.
+- **LLM 렌즈 레인:** 핫패스 LLM 사용은 선언된 위치로 제한되므로, 렌즈 레인은 출력이 비활성
+  가설뿐인 오프패스 배치 작업자로 실행됩니다(상태는 원장을 참조하세요).
 - **설치:** 이 경로는 FDAI의 세 가지 설치 경로에 어떤 검사도 추가하지 않습니다.
 
 ## 라이선스

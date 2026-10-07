@@ -17,8 +17,8 @@ Opengrep, Trivy, and other producers.
 > act.
 
 > **Status:** The deterministic core, catalog, signed remediation pack, pack registry, export
-> gate, rescan verification, false-positive adjudication, and operator CLI are implemented. Agent
-> wiring, scanning-lane execution, and the LLM lens lane remain open. See the [implementation ledger](../../roadmap-implementation/operations/code-security-findings.md).
+> gate, rescan verification, false-positive adjudication, Heimdall review drift, notifications,
+> and operator CLI are implemented. Scanning-lane execution and the LLM lens lane remain open. See the [implementation ledger](../../roadmap-implementation/operations/code-security-findings.md).
 
 ## Design at a glance
 
@@ -229,15 +229,23 @@ review log.
 
 ## Agent ownership and authority
 
-- **No new agent:** scanners and pack rendering are workers and adapters, not pantheon agents.
-- **Event ingress:** scan completion enters through Huginn as an `Event` that references
-  immutable artifacts by digest.
-- **Exposure correlation:** Heimdall correlates runtime exposure without an LLM.
-- **Decisions:** Forseti issues decisions (verdicts) for notifications, issues, and fix pull
-  requests. Thor executes registered ActionTypes after human approval through Var, and Saga
-  audits.
-- **LLM lens lane:** the lane needs an approved pantheon design change before implementation,
-  because hot-path LLM use is limited to the declared places.
+- **No new agent or topic:** scanners and pack rendering are workers and adapters, not pantheon
+  agents, and the AgentSpec set is unchanged.
+- **Review signal:** a scan produces a strict review package with counts, exposure, coverage
+  completeness, and up to twenty opaque issue ids. It carries no paths, code, symbols, or scanner
+  text, and declares `review_required: true` and `grants_authority: false`.
+- **Heimdall:** an injected projector validates the package and Heimdall publishes it on its owned
+  `object.drift` topic (`event_type: code_security.findings_drift`) with a shadow ceiling. The
+  decision is `urgent` (P0 issues), `open`, `clear`, or `coverage_incomplete`. No LLM is involved.
+- **Forseti and Saga:** Forseti judges the drift like other review-required drift, which yields a
+  human-approval decision (`hil` verdict), and Saga audits that verdict.
+- **Notifications:** an A2 route (`code_security_operational_alert`) carries urgent,
+  known-exploited, and coverage-incomplete alerts, and an A4 route
+  (`digest_code_security_findings_daily`) carries the digest. Both are localized in English and
+  Korean and contain only aliases, revisions, and counts. If a deployment's matrix lacks either
+  route, planning fails instead of falling back to the approval channel.
+- **LLM lens lane:** hot-path LLM use is limited to declared places, so the lens lane runs as an
+  off-path batch worker whose output is inert hypotheses (see the ledger for its status).
 - **Installation:** this path adds no gate to the three FDAI installation paths.
 
 ## Licensing

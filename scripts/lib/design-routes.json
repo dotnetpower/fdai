@@ -176,8 +176,14 @@
         "rule-catalog/code-security/**",
         "services/core-control-plane/src/fdai/core/security/code_findings/**",
         "services/core-control-plane/src/fdai/rule_catalog/code_security.py",
-        "services/core-control-plane/src/fdai/delivery/code_security_cli.py",
-        "services/core-control-plane/tests/core/security/code_findings/**"
+        "services/core-control-plane/tests/core/security/code_findings/**",
+        "services/core-control-plane/src/fdai/agents/_framework/heimdall_code_security.py",
+        "services/core-control-plane/src/fdai/shared/providers/code_security.py",
+        "services/core-control-plane/src/fdai/shared/providers/remediation_pack.py",
+        "services/core-control-plane/src/fdai/delivery/code_security_*.py",
+        "services/core-control-plane/tests/agents/test_code_security_drift.py",
+        "services/core-control-plane/tests/delivery/test_code_security_adapters.py",
+        "config/code-security-agent-providers.yaml"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",

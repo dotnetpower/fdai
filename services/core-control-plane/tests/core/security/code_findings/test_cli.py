@@ -301,3 +301,35 @@ def test_verify_fixes_and_adjudicate_through_the_registry(
         "fix_verification",
         "false_positive_adjudication",
     ]
+
+
+def test_publish_review_without_bus_writes_package_and_plans_notifications(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    scan = tmp_path / "scan.sarif"
+    scan.write_bytes(sarif("Opengrep", [result("python.sqli", "src/db.py", 2, cwe=89)]))
+    out = tmp_path / "review.json"
+    code, published = _run(
+        capsys,
+        "publish-review",
+        "--sarif",
+        f"{scan}:deterministic",
+        "--revision",
+        REVISION,
+        "--repo-alias",
+        "example-service",
+        "--out",
+        str(out),
+        "--catalog-root",
+        str(CATALOG_ROOT),
+    )
+    assert code == 0, published
+    assert published["published"] is False
+    assert published["decision"] == "coverage_incomplete"
+    assert [n["template_key"] for n in published["notifications"]] == [
+        "code_security_coverage_alert",
+        "code_security_digest",
+    ]  # type: ignore[index, union-attr]
+    written = json.loads(out.read_text())
+    assert written["package"]["grants_authority"] is False
+    assert "src/db.py" not in out.read_text()

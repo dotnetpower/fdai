@@ -2,5 +2,17 @@
   "decision": {
     "title": "FDAI decision: {decision} ({resource_title})",
     "body": "**Decision:** {decision}\n\n**Resource type:** {resource_body}\n\n**Citing rules:** {rules}\n\n**Mode:** {mode}"
+  },
+  "code_security_alert": {
+    "title": "Code security: {urgent} urgent findings in {repository}",
+    "body": "**Repository:** {repository} at `{revision}`\n\n**Urgent (P0):** {urgent} | **P1:** {p1} | **Known exploited:** {kev}\n\n**Total issues:** {total} | **Exposure:** {exposure}\n\nOpen the FDAI Console to review the issues and export a remediation pack. Code details are not included in notifications."
+  },
+  "code_security_coverage_alert": {
+    "title": "Code security: scan coverage incomplete for {repository}",
+    "body": "**Repository:** {repository} at `{revision}`\n\nThe scan did not report complete coverage, so missing findings do not mean the code is safe.\n\n**Issues found so far:** {total} | **Urgent (P0):** {urgent}\n\nCheck the scanner run and rescan before relying on this result."
+  },
+  "code_security_digest": {
+    "title": "Code security digest: {total} open issues in {repository}",
+    "body": "**Repository:** {repository} at `{revision}`\n\n**By priority:** P0 {p0} | P1 {p1} | P2 {p2} | P3 {p3} | P4 {p4}\n\n**By severity:** critical {critical} | high {high} | medium {medium} | low {low} | undetermined {undetermined}\n\n**Hypotheses awaiting verification:** {hypothesis} | **Coverage complete:** {coverage}"
   }
 }

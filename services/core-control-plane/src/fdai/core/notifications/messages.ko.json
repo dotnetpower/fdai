@@ -2,5 +2,17 @@
   "decision": {
     "title": "FDAI 판정: {decision} ({resource_title})",
     "body": "**판정:** {decision}\n\n**리소스 유형:** {resource_body}\n\n**근거 규칙:** {rules}\n\n**모드:** {mode}"
+  },
+  "code_security_alert": {
+    "title": "코드 보안: {repository}에서 긴급 결과 {urgent}건",
+    "body": "**저장소:** {repository} (`{revision}`)\n\n**긴급(P0):** {urgent} | **P1:** {p1} | **알려진 악용:** {kev}\n\n**전체 이슈:** {total} | **노출:** {exposure}\n\nFDAI Console에서 이슈를 검토하고 조치 팩을 내보내세요. 알림에는 코드 상세가 포함되지 않습니다."
+  },
+  "code_security_coverage_alert": {
+    "title": "코드 보안: {repository}의 스캔 커버리지가 불완전합니다",
+    "body": "**저장소:** {repository} (`{revision}`)\n\n스캔이 완전한 커버리지를 보고하지 않았으므로, 결과가 없다고 해서 코드가 안전하다는 뜻은 아닙니다.\n\n**지금까지 발견된 이슈:** {total} | **긴급(P0):** {urgent}\n\n이 결과를 신뢰하기 전에 스캐너 실행을 확인하고 다시 스캔하세요."
+  },
+  "code_security_digest": {
+    "title": "코드 보안 요약: {repository}의 열린 이슈 {total}건",
+    "body": "**저장소:** {repository} (`{revision}`)\n\n**우선순위별:** P0 {p0} | P1 {p1} | P2 {p2} | P3 {p3} | P4 {p4}\n\n**심각도별:** critical {critical} | high {high} | medium {medium} | low {low} | undetermined {undetermined}\n\n**검증 대기 중인 가설:** {hypothesis} | **커버리지 완전:** {coverage}"
   }
 }

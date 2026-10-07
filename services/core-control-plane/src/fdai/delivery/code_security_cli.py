@@ -8,6 +8,7 @@ Commands:
 ``import-result`` validate a returned result against the registry record;
 ``verify-fixes``  verify fix claims with a coverage-equivalent rescan;
 ``adjudicate``    record a human decision on a false-positive claim;
+``publish-review`` publish a scan review through Heimdall and plan notifications;
 ``public-key``    print the pack-signing public key that developers pin.
 
 Example::
@@ -60,6 +61,7 @@ from fdai.core.security.code_findings.receipts import (
     build_receipt,
     receipt_to_dict,
 )
+from fdai.delivery.code_security_publish_cli import add_publish_command, publish_review
 from fdai.delivery.code_security_registry import FileRemediationPackRegistry
 from fdai.delivery.code_security_review_cli import (
     add_review_commands,
@@ -114,6 +116,7 @@ def _parser() -> argparse.ArgumentParser:
     revoke.add_argument("--pack-id", required=True)
     revoke.add_argument("--reason", required=True)
     add_review_commands(sub)
+    add_publish_command(sub)
     key = sub.add_parser("public-key", help="print the pack-signing public key")
     key.add_argument("--signing-key", required=True)
     return parser
@@ -264,6 +267,8 @@ def main(argv: list[str] | None = None) -> int:
             output = verify_fixes(args)
         elif args.command == "adjudicate":
             output = adjudicate(args)
+        elif args.command == "publish-review":
+            output = asyncio.run(publish_review(args))
         else:
             signer = Ed25519PackSigner(Path(args.signing_key))
             output = {
