@@ -388,6 +388,8 @@ def traversal_node(
     ctx: CompileContext,
     *,
     emit_lineage: bool = False,
+    emit_coverage: bool = False,
+    read_population: bool = False,
 ) -> OntologyQueryNode:
     arguments: dict[str, Any] = {
         "selector": {"kind": "object_type", "name": side.endpoint_type},
@@ -402,6 +404,10 @@ def traversal_node(
         arguments["endpoint_predicates"] = [dict(item) for item in predicates]
     if emit_lineage:
         arguments["emit_lineage"] = True
+    if emit_coverage:
+        arguments["emit_coverage"] = True
+    if read_population:
+        arguments["read_population"] = True
     return OntologyQueryNode(
         node_id=node_id,
         kind=QueryNodeKind.RELATIONSHIP_TRAVERSAL,

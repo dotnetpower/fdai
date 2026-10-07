@@ -140,6 +140,33 @@ def relationship_lineage_table(
     )
 
 
+def with_root_coverage(
+    table: QueryTable, *, root_ids: tuple[str, ...], names: Mapping[str, str | None]
+) -> QueryTable:
+    """Add one coverage row for each root the lineage rows never reach.
+
+    A root with no related member is ``verified_empty`` only when the read that covered it
+    was complete; otherwise its absence is ``unknown_incomplete`` and never reads as empty.
+    """
+
+    reached = {row.values.get("root_id") for row in table.rows}
+    status = "verified_empty" if table.complete else "unknown_incomplete"
+    coverage = tuple(
+        QueryRow.from_values(
+            f"coverage:{root_id}",
+            {
+                "root_id": root_id,
+                "root_name": names.get(root_id),
+                "coverage": status,
+                "source_generation": table.source_generation,
+            },
+        )
+        for root_id in root_ids
+        if root_id not in reached
+    )
+    return replace(table, rows=table.rows + coverage)
+
+
 def _display_name(record: OntologyObjectRecord | None) -> str | None:
     name = record.properties.get("name") if record is not None else None
     return name if isinstance(name, str) and name else None
@@ -214,6 +241,7 @@ def _row_properties(row: QueryRow) -> Mapping[str, object]:
 
 __all__ = [
     "relationship_lineage_table",
+    "with_root_coverage",
     "relationship_traversal_table",
     "secured_query_table",
     "traversal_endpoints",

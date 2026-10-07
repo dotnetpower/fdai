@@ -170,10 +170,27 @@ def _role(value: object) -> str | None:
     return value if isinstance(value, str) and value else None
 
 
+def containment_scope_sides(
+    descriptors: Sequence[Mapping[str, Any]], *, depth: int
+) -> set[tuple[str, str, Any]]:
+    """Return every transitive Resource containment side a scope reads, at ``depth``."""
+
+    trait = SENSE_TRAITS[RelationSense.CONTAINMENT]
+    return {
+        (str(item.get("name")), "outgoing", depth)
+        for item in descriptors
+        if item.get("kind") == "link"
+        and trait in set(item.get("semantic_traits") or ())
+        and item.get("is_transitive") is True
+        and item.get("from_type") == item.get("to_type") == "Resource"
+    }
+
+
 __all__ = [
     "RECIPROCAL_TRAIT",
     "SENSE_TRAITS",
     "TRANSITIVE_MAX_DEPTH",
+    "containment_scope_sides",
     "RelationSelection",
     "RelationSide",
     "link_descriptors",

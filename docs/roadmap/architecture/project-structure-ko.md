@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 8e5a4e1ee201ad141aedbc28568657b6e7c32d6c
+translation_source_sha: b6b03ce9bfe721cfa05c2eb15d80b2990901c1fa
 translation_revised: 2026-10-07
 ---
 # 프로젝트 구조
@@ -88,6 +88,11 @@ LinkType 계보와 함께 병합하며, 부분 원본 사유를 보존합니다.
 정리하며 권한이 있는 공유 작업 흐름 상태를 추가하지 않습니다.
 Core가 소유한 같은 스케줄러가 기존 잔여 호출 예산 검사 안에서 독립적인 최종 후보 선택도
 처리합니다. 모델, 서비스, 권한 또는 관측 상태 캐시를 추가하지 않습니다.
+
+컬렉션 관계는 앵커별 커버리지 행도 나열하므로, 관련 구성원이 없는 앵커는 읽기가 완전할 때만
+비어 있음으로 확인됩니다. 범위가 정해진 컬렉션 traversal은 한 단계씩 정확한 모집단을 읽을 수 있고,
+컬렉션 메트릭 읽기는 검토된 정성 레시피를 적용할 수 있으며, 멈춘 메트릭 읽기는 임대된 이어받기를
+발급할 수 있습니다. 이 읽기는 모두 읽기 전용으로 유지됩니다.
 
 ## 설계 개요
 테스트 맥락 선택지는 권한이 없는 projection schema로 공유 service-contract SDK를 확장합니다. Operator는 인증과 선택지 렌더링을 소유하고, Core는 계속 허용 및 수명 주기 권한을 유지합니다.

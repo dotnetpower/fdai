@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-semantic-assurance.md
-translation_source_sha: e78f633ca16874f34f15d524b2679219cfaee4a0
+translation_source_sha: a70eeeffc3ee238e5caf4395a877e8f69a0917ba
 translation_revised: 2026-10-07
 ---
 # 지속형 의미 보증
@@ -53,6 +53,10 @@ E10 상태 목록 모드와 E11 메트릭 컬렉션 판독기 추가도 원본�
 governed release 신원이 안정적으로 유지되더라도 매니페스트 원본 다이제스트는 갱신됩니다.
 `governance.override-promote-action-type` 추가는 구조 카탈로그 변경이므로 같은 빌더가 live 보증
 증적을 만들지 않고도 corpus manifest 분모와 원본 다이제스트를 갱신합니다.
+
+이어받기 참조를 받는 함수 버전 1.3.0의 메트릭 컬렉션 판독기와 검토된 정성 메트릭 레시피도 원본에
+결속된 릴리스를 다시 바꿉니다. 다시 생성된 매니페스트는 그 릴리스를 기록하며, 사례 수는 출처 정보로만
+남습니다.
 
 ## 실행 프로필
 

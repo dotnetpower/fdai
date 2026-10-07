@@ -104,6 +104,16 @@ def resolve_question_form(raw: Mapping[str, Any], *, utterance: str) -> FormReso
             if isinstance(item, dict):
                 path = f"goals.{index}.filters.{position}.cue"
                 _bind(item, "cue", utterance, failures, notes, path, required=False)
+                qualifier_path = f"goals.{index}.filters.{position}.qualifier_span"
+                _bind(
+                    item,
+                    "qualifier_span",
+                    utterance,
+                    failures,
+                    notes,
+                    qualifier_path,
+                    required=False,
+                )
                 comparison = item.get("comparison")
                 if isinstance(comparison, dict):
                     base = f"goals.{index}.filters.{position}.comparison"

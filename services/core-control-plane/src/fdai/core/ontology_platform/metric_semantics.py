@@ -32,6 +32,37 @@ class MetricAggregation(StrEnum):
 
 
 @dataclass(frozen=True, slots=True)
+class MetricQualitativeRecipe:
+    """A reviewed threshold that a qualitative word such as high or low stands for.
+
+    The recipe is applied only when the operator states the word without a number, and the
+    answer states the recipe it applied, so a reader never mistakes it for the operator's own.
+    """
+
+    qualifier: str
+    comparator: str
+    threshold: int
+    window_seconds: int | None
+    source: str
+
+    def __post_init__(self) -> None:
+        if self.qualifier not in _QUALIFIERS:
+            raise ValueError("metric recipe qualifier is unsupported")
+        if self.comparator not in _COMPARATORS:
+            raise ValueError("metric recipe comparator is unsupported")
+        if isinstance(self.threshold, bool) or not 0 <= self.threshold <= 10**12:
+            raise ValueError("metric recipe threshold MUST be a bounded non-negative integer")
+        if self.window_seconds is not None and not 300 <= self.window_seconds <= 604_800:
+            raise ValueError("metric recipe window MUST be between 5 minutes and 7 days")
+        if not self.source or len(self.source) > 512:
+            raise ValueError("metric recipe source MUST be bounded and non-empty")
+
+
+_QUALIFIERS = frozenset({"high", "low"})
+_COMPARATORS = frozenset({"gt", "ge", "lt", "le"})
+
+
+@dataclass(frozen=True, slots=True)
 class MetricSemanticDefinition:
     """One reviewed concept resolved after language interpretation, never by phrase routing."""
 
@@ -42,8 +73,12 @@ class MetricSemanticDefinition:
     description: str
     monotonic: bool = False
     scope_label_selectors: Mapping[str, tuple[str, ...]] = field(default_factory=dict)
+    qualitative_recipes: tuple[MetricQualitativeRecipe, ...] = ()
 
     def __post_init__(self) -> None:
+        qualifiers = [item.qualifier for item in self.qualitative_recipes]
+        if len(qualifiers) != len(set(qualifiers)):
+            raise ValueError("metric semantic recipes MUST name each qualifier once")
         for name, value, maximum in (
             ("concept_id", self.concept_id, 128),
             ("provider_metric", self.provider_metric, 256),
@@ -98,6 +133,22 @@ class MetricSemanticRegistry:
                 "scope_label_selectors": {
                     label: list(path) for label, path in item.scope_label_selectors.items()
                 },
+                **(
+                    {
+                        "qualitative_recipes": [
+                            {
+                                "qualifier": recipe.qualifier,
+                                "comparator": recipe.comparator,
+                                "threshold": recipe.threshold,
+                                "window_seconds": recipe.window_seconds,
+                                "source": recipe.source,
+                            }
+                            for recipe in item.qualitative_recipes
+                        ]
+                    }
+                    if item.qualitative_recipes
+                    else {}
+                ),
             }
             for item in sorted(by_id.values(), key=lambda item: item.concept_id)
         ]
@@ -354,6 +405,7 @@ __all__ = [
     "CausalEvidenceJoin",
     "CausalJoinStatus",
     "MetricAggregation",
+    "MetricQualitativeRecipe",
     "MetricSemanticDefinition",
     "MetricSemanticRegistry",
     "MetricWindow",

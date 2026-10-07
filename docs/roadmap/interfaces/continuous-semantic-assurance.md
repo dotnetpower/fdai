@@ -57,6 +57,10 @@ assurance receipt.
 This repository-only inventory is not an executable campaign, a production binding, or a
 certification receipt.
 
+The metric collection reader at function version 1.3.0, which accepts a continuation reference, and
+the reviewed qualitative metric recipes change the source-bound release again. The regenerated
+manifest records that release; the case count stays provenance only.
+
 ## Execution profiles
 
 ### Change-focused validation

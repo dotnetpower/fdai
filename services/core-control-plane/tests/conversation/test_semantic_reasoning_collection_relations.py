@@ -336,3 +336,72 @@ def test_a_sense_of_several_sides_reads_each_side_with_attributable_pairs() -> N
     }
     assert sides == {"attached_to", "kubernetes_scheduled_on"}
     assert set(plan.output_node_ids) == {node.node_id for node in plan.nodes}
+
+
+async def test_an_anchor_without_related_members_is_verified_empty_only_when_read_whole(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fdai.core.ontology_platform import query_source_handlers
+
+    # The anchor kind grounds to clusters here, which contain no VM in the fixture graph.
+    utterance = _UTTERANCE
+    admission = admitted(_form(), utterance)
+    plan = (
+        compile_question_form(
+            admission,
+            concepts=concepts(
+                ("m1", MentionDomain.RESOURCE_TYPE, ("compute.vm",)),
+                ("m2", MentionDomain.RESOURCE_TYPE, ("kubernetes-cluster",)),
+            ),
+            manifest=production_manifest(),
+            verifier=plan_verifier(),
+            purpose=PURPOSE,
+            evaluation_time=NOW,
+            default_lookback_seconds=DEFAULT_LOOKBACK_SECONDS,
+            utterance=utterance,
+            anchors=synthetic_anchors(admission),
+        )
+        .goals[0]
+        .batches[0]
+        .plan
+    )
+    assert plan.nodes[1].arguments["emit_coverage"] is True
+
+    whole = (await execute(plan, await fixture_gateway())).results["g1-related"].value
+    coverage = {row.values["root_name"]: row.values["coverage"] for row in whole.rows}
+    assert coverage == {"aks-prod-01": "verified_empty"}
+
+    groups = _compile(_form()).goals[0].batches[0].plan
+    monkeypatch.setattr(query_source_handlers, "LINEAGE_ROOT_BATCH", 1)
+    monkeypatch.setattr(query_source_handlers, "LINEAGE_READ_BUDGET", 1)
+    unread = (await execute(groups, await fixture_gateway())).results["g1-related"].value
+    assert unread.complete is False
+    assert [
+        (row.values["root_name"], row.values["coverage"])
+        for row in unread.rows
+        if "coverage" in row.values
+    ] == [("rg-app-dev", "unknown_incomplete")]
+
+
+def test_verification_requires_coverage_rows_for_a_collection_anchor() -> None:
+    from fdai.core.conversation.semantic_reasoning_collection_relations import (
+        collection_anchor_violations,
+    )
+    from fdai_service_contracts.ontology_query import OntologyQueryNode, canonical_json
+
+    plan = _compile(_form()).goals[0].batches[0].plan
+    traversal = plan.nodes[1]
+    arguments = {key: value for key, value in traversal.arguments.items() if key != "emit_coverage"}
+    stripped = OntologyQueryNode(
+        node_id=traversal.node_id,
+        kind=traversal.kind,
+        depends_on=traversal.depends_on,
+        arguments_json=canonical_json(arguments),
+        output_kind=traversal.output_kind,
+    )
+    plan = plan.model_copy(update={"nodes": (plan.nodes[0], stripped)})
+    form_goal = admitted(_form(), _UTTERANCE).form.goals[0]
+
+    assert "sem_collection_anchor_lineage_missing" in collection_anchor_violations(
+        form_goal, (plan,), expected_types=("resource-group",), expected_side=None
+    )

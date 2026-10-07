@@ -317,6 +317,25 @@ some predicates run only in memory. The design therefore pins one authorized mem
   incomplete, or the read is a traversal or relationship read. The query table carries the exact
   count as its total rows, and an ungrouped count over that table reads it as a complete value. A
   page that was not cut keeps receipt 1.2.0.
+- **P2 traversal populations:** A scoped collection's member traversal carries `read_population`,
+  which the plan verifier allows only for one hop or a transitive LinkType. When its page is cut at
+  the limit over a complete source, the handler re-reads the population one hop at a time from
+  frontier batches of 32, each a secured read of the same source generation; a cut batch splits down
+  to one member, and a budget of 64 reads bounds the walk. Reached endpoints of the stated kind that
+  match the same endpoint predicates are counted once, and the count becomes the table's total rows,
+  so an ungrouped count is exact. A cut single member, a hidden or unprojected endpoint, a changed
+  generation, or an exhausted budget states no count, and the page keeps its traversal limitation.
+- **P3 processing receipts and continuation:** A collection metric read keeps one terminal row per
+  member: `measured`, `unknown_incomplete` with its reason, or `pending` when the read stopped first.
+  Function version 1.3.0 accepts an optional `continuation_ref`. When a continuation store is bound,
+  a read that stops on its budget or an unavailable provider issues an opaque reference that binds
+  the principal scope, role, and purpose, a digest of the ordered member manifest, the selection, and
+  the pinned window, with the raw cursor kept in Core. A call with the reference leases it, reads only
+  the pending members over the same window, and on success consumes it and issues the successor; a
+  failed or rejected page releases the lease, and another member set, selection, principal, expiry,
+  or a replayed reference returns `continuation_invalid`. The answer names the reference. As with the
+  recent-change continuation, the store is not yet bound in composition, and resuming from a
+  conversational follow-up remains open.
 
 | Population status | Outcome |
 |-------------------|---------|
@@ -357,7 +376,13 @@ most 16 members.
   window and a 128-member budget, ranking complete values by Resource identifier for ties. A list
   keeps one typed unknown per unmeasured member; stopped reads remain incomplete. V-PROV re-derives
   selection arguments, V-SEM rejects unread filters, and review accounts for comparison and order
-  spans. Metric evidence stays scoped; qualitative recipes, continuation, and live gold remain open.
+  spans. Metric evidence stays scoped; continuation and live gold remain open.
+- **Recipes:** A metric filter may carry a `high` or `low` qualifier with its quoted word instead of
+  a number. The metric registry holds reviewed recipes per concept, carried in the manifest under its
+  digest: CPU utilization `high` reads above 80 percent over the stated or default window, after the
+  Azure Monitor recommended VM alert, and `low` reads below 5 percent over 7 days when no period is
+  stated. The answer states the applied threshold and window. A qualifier without a reviewed recipe
+  holds as `metric_classification_unavailable`, and V-PROV re-derives the recipe arguments.
 
 ### E12 Relations anchored on a collection
 
@@ -378,8 +403,11 @@ walks one attributable relation side.
   relation coverage for that anchor; otherwise it is `UNKNOWN_INCOMPLETE`, and hidden endpoints are
   never read as absence.
 - **Verify:** V-SEM re-derives the anchor kind and relation side, rejects a traversal from another
-  kind, and requires the anchor table as an output. Per-anchor coverage receipts and negative-claim
-  verification remain open.
+  kind, and requires the anchor table as an output.
+- **Coverage:** Each lineage read also lists one coverage row for every anchor with no related
+  member: `verified_empty` only when the read that covered that anchor was complete, and
+  `unknown_incomplete` when it was cut or left unread by the read budget. V-SEM requires the coverage
+  rows, so no answer presents an anchor as unrelated without that evidence.
 
 ### Status matrix for E10 to E12
 

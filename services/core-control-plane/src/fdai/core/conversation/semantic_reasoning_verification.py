@@ -78,7 +78,7 @@ from .semantic_reasoning_measure_checks import (
     window_matches,
 )
 from .semantic_reasoning_nodes import GROUP_BY_FIELDS
-from .semantic_reasoning_relations import SENSE_TRAITS, traversal_roots
+from .semantic_reasoning_relations import SENSE_TRAITS, containment_scope_sides, traversal_roots
 from .semantic_resource_visibility import OPERATIONAL_RESOURCE_EXCLUDED_TYPES
 from .semantic_target_health import TARGET_HEALTH_FUNCTIONS
 
@@ -140,6 +140,8 @@ def verify_goal_semantics(
     evaluation_time: datetime | None = None,
     property_reads: tuple[ReviewedPropertyRead, ...] = (),
     health_concepts: tuple[str, ...] = (),
+    metric_recipes: tuple[tuple[str, str, str, int, int], ...] = (),
+    metric_units: tuple[tuple[str, str], ...] = (),
 ) -> tuple[str, ...]:
     """Return every V-SEM, V-PROV, and V-LEVEL violation for one goal.
 
@@ -156,6 +158,8 @@ def verify_goal_semantics(
         goal, admission=admission, concepts=concepts, anchors=anchors or AnchorBindingReceipt()
     )
     allow_listed_measure(goal, allowed, health_concepts)
+    allowed.metric_recipes = metric_recipes
+    allowed.metric_units = dict(metric_units)
     readable_properties = property_ops.readable_resource_properties(
         tuple(dict(item) for item in descriptors)
     )
@@ -234,6 +238,9 @@ class _Allowed:
         self.regions: set[str] = set()
         self.property_fields: tuple[str, ...] | None = None
         self.relation_object_type = False
+        # Reviewed qualitative recipes and canonical units a metric word may read through.
+        self.metric_recipes: tuple[tuple[str, str, str, int, int], ...] = ()
+        self.metric_units: dict[str, str] = {}
         # The reviewed type values of a collection anchor's kind, which the relation starts from.
         self.collection_anchor_types: tuple[str, ...] | None = None
         # The rows an earlier answer showed, when an anaphor makes them the goal's subject.
@@ -494,6 +501,8 @@ def _function_violations(
             goal,
             maximum_window_seconds=_declared_maximum(descriptors, name, "window_seconds"),
             concepts=allowed.metric_concepts,
+            recipes=allowed.metric_recipes,
+            units=allowed.metric_units,
         )
     else:
         return [f"prov_unexpected_function:{node.node_id}:{name}"]
@@ -652,7 +661,7 @@ def _coverage_violations(
             for node in plan.nodes
             if node.kind is QueryNodeKind.RELATIONSHIP_TRAVERSAL
         }
-        if compiled_scope != _containment_scope_sides(descriptors):
+        if compiled_scope != containment_scope_sides(descriptors, depth=_TRANSITIVE_DEPTH):
             violations.append("sem_scope_containment_differs")
         binding = anchors.binding(scope)
         scope_id = binding.object_id if binding is not None else None
@@ -688,20 +697,6 @@ def _schema_violations(goal: FormGoal, functions: set[str], admission: FormAdmis
     if goal.measure is not None and goal.measure.group_by not in {GroupBy.NONE, GroupBy.TYPE}:
         violations.append("sem_schema_group_by_unread")
     return violations
-
-
-def _containment_scope_sides(
-    descriptors: Sequence[Mapping[str, Any]],
-) -> set[tuple[str, str, Any]]:
-    trait = SENSE_TRAITS[RelationSense.CONTAINMENT]
-    return {
-        (str(item.get("name")), "outgoing", _TRANSITIVE_DEPTH)
-        for item in descriptors
-        if item.get("kind") == "link"
-        and trait in set(item.get("semantic_traits") or ())
-        and item.get("is_transitive") is True
-        and item.get("from_type") == item.get("to_type") == "Resource"
-    }
 
 
 def _expected_sides(
