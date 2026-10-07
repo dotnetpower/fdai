@@ -15,7 +15,7 @@ list never reads as a clean estate. ``available`` states whether any usable revi
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
@@ -247,7 +247,26 @@ def code_security_reviews_projection(rows: Sequence[Mapping[str, Any]]) -> dict[
     }
 
 
+CODE_SECURITY_OPERATIONS = frozenset({"code_security.reviews", "code_security.packs"})
+_STATE_ROWS_SQL = (
+    "SELECT key, value FROM state_kv WHERE key LIKE %s ORDER BY updated_at DESC LIMIT 201"
+)
+_FetchAll = Callable[[str, tuple[object, ...]], Awaitable[list[dict[str, Any]]]]
+
+
+async def read_code_security_projection(
+    operation: str, fetch_all: _FetchAll
+) -> Mapping[str, object]:
+    """Read one code-security operation through the runtime reader's bounded ``fetch_all``."""
+    if operation == "code_security.packs":
+        rows = await fetch_all(_STATE_ROWS_SQL, (f"{CODE_SECURITY_PACK_STATE_PREFIX}%",))
+        return code_security_packs_projection(rows)
+    rows = await fetch_all(_STATE_ROWS_SQL, (f"{CODE_SECURITY_REVIEW_STATE_PREFIX}%",))
+    return code_security_reviews_projection(rows)
+
+
 __all__ = [
+    "CODE_SECURITY_OPERATIONS",
     "CODE_SECURITY_PACK_STATE_PREFIX",
     "CODE_SECURITY_REVIEW_STATE_PREFIX",
     "GAP_PACK_MALFORMED",
@@ -255,4 +274,5 @@ __all__ = [
     "GAP_MALFORMED",
     "GAP_TRUNCATED",
     "code_security_reviews_projection",
+    "read_code_security_projection",
 ]
