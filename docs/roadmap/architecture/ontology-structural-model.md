@@ -269,6 +269,10 @@ Verified query execution may expose bounded node lifecycle observations for pres
 observation preserves the verified node kind, dependency position, status, and evidence references
 without provider commands or execution authority. Missing delivery does not change the result; collection relations batch roots, preserve every reviewed LinkType side and partial reason, and population manifests use a bounded length-prefixed digest while all reads remain authority-free.
 
+Per-anchor coverage rows, traversal population counts, and leased metric read continuations are
+derived query evidence over the same projected graph. None of them adds an object, a link, or a
+state fact, and none grants execution authority.
+
 Resource subtype operands come from the reviewed `Resource.type` value domain. Its request-term
 groups may hold up to 192 groups so that each reviewed subtype can bind its own bilingual terms;
 the terms ground stated operands only and never add an ObjectType or capability.
