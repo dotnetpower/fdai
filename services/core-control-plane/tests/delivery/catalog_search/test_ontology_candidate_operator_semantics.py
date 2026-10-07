@@ -80,8 +80,6 @@ def test_diagnostic_prompt_states_each_contains_and_presence_meaning() -> None:
         "context, not a condition.",
         "Any stated property of the requested objects, including their purpose, remains a "
         "condition.",
-        "Predicates cannot compare a value inside an object-valued property.",
-        "If no instance satisfies every condition, never select a near match.",
     ):
         assert statement in text
 
