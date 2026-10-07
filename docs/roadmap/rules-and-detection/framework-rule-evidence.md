@@ -300,7 +300,9 @@ an extension can't be validated against a producer that never reaches `satisfied
   before the job runs, and Rule receipts use the baseline evaluation time as their observation
   time.
 - **Unobserved properties:** A clean policy result on an absent property isn't an observation of
-  compliance. A Rule without a declared `evaluates` list keeps the previous behavior. A Rule whose
+  compliance. Forseti checks the top-level property of each declared path; nested data inside an
+  observed property, such as a tag the policy selects by parameter, stays the policy's judgment.
+  A Rule without a declared `evaluates` list keeps the previous behavior. A Rule whose
   declared properties name only other resource types abstains, because none of them can be
   checked.
 - **Console coverage:** The Operator attaches per-Rule counts to a WAF control detail only while

@@ -239,14 +239,17 @@ async def test_compliance_requires_every_declared_evaluated_property() -> None:
     denied = _rule("rule.denied").model_copy(
         update={"evaluates": ["property.example.resource.tags"]}
     )
-    rules = (observed, foreign, denied)
+    nested = _rule("rule.nested").model_copy(
+        update={"evaluates": ["property.example.resource.tags.required_tag"]}
+    )
+    rules = (observed, foreign, denied, nested)
     store = InMemoryStateStore()
     completion = await record_baseline_evaluation(
         observation=_observation(
             ResourceRecord(
                 resource_id="with-property",
                 type="example.resource",
-                props={"diagnostic_settings": []},
+                props={"diagnostic_settings": [], "tags": {"owner": "team"}},
             ),
             ResourceRecord(
                 resource_id="without-property",
@@ -261,6 +264,7 @@ async def test_compliance_requires_every_declared_evaluated_property() -> None:
                     "rule.observed": PolicyResult(denied=False, context={}),
                     "rule.foreign": PolicyResult(denied=False, context={}),
                     "rule.denied": PolicyResult(denied=True, context={"deny_reason": "no_tags"}),
+                    "rule.nested": PolicyResult(denied=False, context={}),
                 }
             ),
         ),
@@ -286,8 +290,13 @@ async def test_compliance_requires_every_declared_evaluated_property() -> None:
     } == {"property_unobserved"}
     # A deny stays the reviewed Rule's judgment even when its property is absent.
     assert outcomes[("resource:without-property", "rule:rule.denied")]["outcome"] == "violated"
-    assert completion.compliant_count == 1
-    assert completion.abstained_count == 3
+    # A nested path is satisfied by its observed top-level property; the policy judges the rest.
+    assert outcomes[("resource:with-property", "rule:rule.nested")]["outcome"] == "compliant"
+    assert outcomes[("resource:without-property", "rule:rule.nested")]["reason_code"] == (
+        "property_unobserved"
+    )
+    assert completion.compliant_count == 2
+    assert completion.abstained_count == 4
     assert completion.violated_count == 2
 
 

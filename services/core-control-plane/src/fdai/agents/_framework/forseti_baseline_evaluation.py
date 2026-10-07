@@ -276,7 +276,12 @@ def _terminal_outcome(
 
 
 def _unobserved_properties(rule: Rule, resource: ResourceRecord) -> tuple[str, ...]:
-    """Return declared ``property.<type>.<name>`` references absent from the resource props."""
+    """Return declared ``property.<type>.<path>`` references whose top-level property is absent.
+
+    Only the first path segment is checked: it proves inventory collected the property. Deeper
+    segments, such as a tag the policy selects through a parameter, are data inside an observed
+    property, and the policy itself judges their absence.
+    """
 
     declared = tuple(reference for reference in rule.evaluates if reference != "*")
     prefix = f"property.{resource.type}."
@@ -285,7 +290,9 @@ def _unobserved_properties(rule: Rule, resource: ResourceRecord) -> tuple[str, .
         # Declared properties name only other resource types, so none can be checked here.
         return declared
     return tuple(
-        reference for reference in own if resource.props.get(reference.removeprefix(prefix)) is None
+        reference
+        for reference in own
+        if resource.props.get(reference.removeprefix(prefix).split(".", 1)[0]) is None
     )
 
 
