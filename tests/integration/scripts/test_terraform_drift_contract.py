@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import importlib.util
+import json
 import sys
 from pathlib import Path
 from types import ModuleType
@@ -121,6 +123,72 @@ def _platform_state(
     }
 
 
+def _legacy_platform_state(*, incomplete_governed_identities: bool = False) -> dict[str, Any]:
+    resolved_models = {
+        "capabilities": [
+            {
+                "name": "t1.judge",
+                "publisher": "OpenAI",
+                "status": "available",
+            },
+            {
+                "name": "t2.reasoner.primary",
+                "publisher": "OpenAI",
+                "status": "hil-only",
+            },
+        ]
+    }
+    normalized = json.dumps(resolved_models, separators=(",", ":"), sort_keys=True)
+    addresses = [
+        "module.console[0].azurerm_static_web_app.console",
+        "azurerm_function_app_flex_consumption.dev_gateway[0]",
+        "module.ingestion_identity[0].azurerm_user_assigned_identity.primary",
+        "module.document_intelligence[0].azurerm_cognitive_account.primary",
+        "module.identity_change[0].azurerm_user_assigned_identity.primary",
+        "module.identity_resilience[0].azurerm_user_assigned_identity.primary",
+        "module.identity_finops[0].azurerm_user_assigned_identity.primary",
+        "module.isolated_executor_identity[0].azurerm_user_assigned_identity.primary",
+        "module.llm_azure_openai[0].azurerm_cognitive_account.primary",
+        "module.monitoring[0].azurerm_monitor_action_group.main",
+        "azurerm_linux_virtual_machine_scale_set.ohl_evidence[0]",
+        ("module.operational_evidence_verifier_identity[0].azurerm_user_assigned_identity.primary"),
+        "module.operational_history_storage[0].azurerm_storage_account.case_history",
+        "module.operator_api_identity[0].azurerm_user_assigned_identity.primary",
+        "module.operator_channel_edge_identity[0].azurerm_user_assigned_identity.primary",
+    ]
+    if incomplete_governed_identities:
+        addresses.remove("module.identity_finops[0].azurerm_user_assigned_identity.primary")
+    return {
+        "resolved_models": resolved_models,
+        "state": {
+            "values": {
+                "outputs": {
+                    "resolved_models_sha256": {
+                        "value": hashlib.sha256(normalized.encode()).hexdigest()
+                    }
+                },
+                "root_module": {
+                    "resources": [
+                        {
+                            "address": address,
+                            "values": (
+                                {"principal_id": "00000000-0000-0000-0000-000000000001"}
+                                if address
+                                == (
+                                    "module.operator_api_identity[0]."
+                                    "azurerm_user_assigned_identity.primary"
+                                )
+                                else {}
+                            ),
+                        }
+                        for address in addresses
+                    ]
+                },
+            }
+        },
+    }
+
+
 def test_production_roots_cover_legacy_bootstrap_and_all_services(drift: ModuleType) -> None:
     roots = drift.production_roots("dev")
 
@@ -177,6 +245,8 @@ def test_workflow_plans_every_production_root() -> None:
     assert "resolved_model_args+=(--model-binding-transition)" in workflow
     assert '"${resolved_model_args[@]}"' in workflow
     assert "terraform -chdir=infra show -json" in workflow
+    assert "platform-output-inputs" in workflow
+    assert '-var-file="$plan_inputs" -detailed-exitcode' in workflow
     assert "database_host=\"$(jq -er '.database_host'" in workflow
     assert "event_topic=\"$(jq -er '.event_topic'" in workflow
     assert "pipeline_stage_topic=\"$(jq -er '.pipeline_stage_topic'" in workflow
@@ -498,9 +568,79 @@ def test_reconcile_applies_only_reviewed_saved_refresh_only_plans() -> None:
     assert "if: inputs.reviewed_drift_digest != ''" in apply_block
     assert "refresh_drift_digest.py summarize" in workflow
     assert "refresh_drift_digest.py digest" in workflow
+    assert "platform-output-inputs" in workflow
+    assert '-var-file="$work/vars/legacy-output-inputs.tfvars.json"' in workflow
+    assert "| jq '.variables | map_values(.value)' >\"$work/verify/vars.json\"" in workflow
     assert "group: legacy-database-power-window-${{ inputs.environment }}" in workflow
     assert "Drift remains after reconciliation." in workflow
     assert 'printf \'%s\\n\' "$root_id" >>"$work/skipped-roots.txt"' in workflow
     assert "Skipped roots: ${skipped:-none}" in workflow
     assert "Recovered promoted runner plan inputs from authoritative host readback." in workflow
-    assert workflow.count("map_values(.value)") == 2
+    assert workflow.count("map_values(.value)") == 1
+
+
+def test_recovers_legacy_output_inputs_from_stored_state(drift: ModuleType) -> None:
+    fixture = _legacy_platform_state()
+
+    inputs = drift.stored_platform_output_inputs(
+        fixture["state"],
+        resolved_models=fixture["resolved_models"],
+    )
+
+    assert inputs == {
+        "enable_dev_operations_gateway": True,
+        "enable_governed_execution": True,
+        "enable_llm": True,
+        "enable_ohl_scale_out_evidence_target": True,
+        "enable_operational_history": True,
+        "resolved_capabilities": [
+            {
+                "name": "t1.judge",
+                "publisher": "OpenAI",
+                "status": "available",
+            }
+        ],
+        "resolved_models_json": (
+            '{"capabilities":[{"name":"t1.judge","publisher":"OpenAI",'
+            '"status":"available"},{"name":"t2.reasoner.primary",'
+            '"publisher":"OpenAI","status":"hil-only"}]}'
+        ),
+        "resolved_models_sha256": hashlib.sha256(
+            json.dumps(fixture["resolved_models"], separators=(",", ":"), sort_keys=True).encode()
+        ).hexdigest(),
+    }
+
+
+def test_recovers_operator_identity_without_root_output(drift: ModuleType) -> None:
+    fixture = _legacy_platform_state()
+
+    assert drift.stored_platform_operator_identity(fixture["state"]) == {
+        "principal_id": "00000000-0000-0000-0000-000000000001"
+    }
+
+
+def test_rejects_changed_legacy_model_bindings(drift: ModuleType) -> None:
+    fixture = _legacy_platform_state()
+    fixture["resolved_models"]["capabilities"][0]["name"] = "changed"
+
+    with pytest.raises(
+        drift.DriftContractError,
+        match="resolved model bindings do not match",
+    ):
+        drift.stored_platform_output_inputs(
+            fixture["state"],
+            resolved_models=fixture["resolved_models"],
+        )
+
+
+def test_rejects_incomplete_legacy_governed_identities(drift: ModuleType) -> None:
+    fixture = _legacy_platform_state(incomplete_governed_identities=True)
+
+    with pytest.raises(
+        drift.DriftContractError,
+        match="incomplete governed identity set",
+    ):
+        drift.stored_platform_output_inputs(
+            fixture["state"],
+            resolved_models=fixture["resolved_models"],
+        )

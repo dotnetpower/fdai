@@ -156,9 +156,14 @@ platform has no Cost pseudonym key binding, the run skips only the Operator Serv
 in the summary, because the key prerequisite reads platform outputs that the reconciliation records.
 A refresh-only apply also re-evaluates root outputs with the plan's inputs. The run excludes any root
 whose plan would turn a deployed output into an empty, null, unknown, or deleted value, and names
-those outputs in the summary. The legacy platform root falls in this class: its outputs depend on
-deploy-time inputs that targeted `deploy-dev` runs applied piecemeal, which drift workflows can't
-reproduce.
+those outputs in the summary. For the legacy platform root, both drift workflows reconstruct only
+the output-affecting feature inputs from tracked state and require the current resolved-model
+binding to reproduce the stored digest before planning. Missing resources, partial governed
+identity sets, or a changed model digest stop the run before a plan. The saved refresh-only plan
+therefore preserves deploy-owned outputs while recording reviewed provider drift; desired
+configuration changes still require a separately reviewed deployment plan. The bounded Cost
+pseudonym prerequisite reads the tracked legacy Operator identity directly when the newer
+toggle-gated root output is absent, so creating the key does not require a broad platform apply.
 Before the bootstrap plan, it independently reads the runner VM and requires the reviewed size,
 `Local` `ResourceDisk` placement, and no managed OS disk. A mismatch reports the blue/green
 replacement action and fails without changing Azure state. The ephemeral profile stays allocated;
