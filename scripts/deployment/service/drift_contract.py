@@ -278,17 +278,19 @@ def stored_platform_output_inputs(
     if any(decision_evidence) and not all(decision_evidence):
         raise DriftContractError("platform state has incomplete decision evidence outputs")
 
+    gateway_audience = _stored_optional_output_string(outputs, "dev_operations_gateway_audience")
     plan_inputs: dict[str, Any] = {
-        "enable_dev_operations_gateway": (
-            _stored_optional_output_string(outputs, "dev_operations_gateway_audience") is not None
-        ),
+        "enable_dev_operations_gateway": gateway_audience is not None,
         "enable_governed_execution": all(governed_identities),
+        "enable_inventory_evidence_store_reader": all(decision_evidence),
         "enable_llm": (_stored_optional_output_string(outputs, "llm_resource_id") is not None),
         "enable_ohl_scale_out_evidence_target": (
             _stored_optional_output_string(outputs, "ohl_scale_out_evidence_target_id") is not None
         ),
         "enable_operational_history": all(decision_evidence),
     }
+    if gateway_audience is not None:
+        plan_inputs["operator_api_audience"] = gateway_audience
     if not plan_inputs["enable_llm"]:
         return plan_inputs
 
