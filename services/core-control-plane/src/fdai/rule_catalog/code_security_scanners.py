@@ -31,6 +31,7 @@ class ScannerSpec(BaseModel):
     success_exit_codes: Annotated[tuple[int, ...], Field(min_length=1)]
     timeout_seconds: Annotated[int, Field(ge=10, le=3600)]
     max_output_bytes: Annotated[int, Field(ge=1_000, le=50_000_000)]
+    address_space_bytes: Annotated[int, Field(ge=512 * 1024**2, le=64 * 1024**3)] | None = None
 
     @model_validator(mode="after")
     def _placeholders(self) -> ScannerSpec:

@@ -67,6 +67,10 @@ class SarifIngestContext:
     revision: str
     source_roots: tuple[str, ...] = ()
     limits: SarifLimits = field(default_factory=SarifLimits)
+    producer: str | None = None
+    """Catalog producer name when FDAI ran the scanner itself. It replaces the tool's
+    self-reported driver name, which varies by edition (``Opengrep OSS``) and is shared across
+    modes (two Trivy scanners), so coverage receipts bind to the scanner that actually ran."""
 
     def __post_init__(self) -> None:
         if _REVISION.fullmatch(self.revision) is None:
@@ -260,7 +264,7 @@ def ingest_sarif(raw: bytes, ctx: SarifIngestContext) -> SarifIngestResult:
     for run_index, run in enumerate(runs):
         run_map = _as_map(run)
         driver = _as_map(_as_map(run_map.get("tool")).get("driver"))
-        producer = clean_text(driver.get("name"), 128) or "unknown"
+        producer = ctx.producer or clean_text(driver.get("name"), 128) or "unknown"
         version = clean_text(driver.get("semanticVersion") or driver.get("version"), 64)
         if producer not in producers:
             producers.append(producer)

@@ -1,8 +1,8 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: 189882a3c2c765c39ccbf4ee79574531f6fb1cf9
-translation_revised: 2026-10-07
+translation_source_sha: 2771e9895b3cfcfa9d7f3884f8df2a7337574425
+translation_revised: 2026-10-08
 ---
 
 # 코드 보안 스캔
@@ -114,9 +114,36 @@ Go용으로 FDAI가 작성한 규칙 22개가 있습니다. 각 규칙은 다음
 - **규칙 버전:** 스캐너 ID, SARIF의 도구 버전, 그리고 규칙 기반 스캐너라면 규칙 팩의 다이제스트를
   묶습니다. 따라서 규칙이 바뀌면, 새 버전이 이전 버전을 대체한다고 선언하지 않는 한 이후의
   재스캔은 동등하지 않은 것으로 판정됩니다.
+- **생산자:** 도구가 스스로 보고하는 이름이 아니라 FDAI가 실행한 스캐너의 카탈로그 생산자입니다.
+  에디션과 모드에 따라 `Opengrep OSS`나 두 스캐너에 공통인 `Trivy` 같은 이름이 보고되며, 그대로
+  쓰면 규칙 버전과 관측된 완료 여부가 실행과 연결되지 않습니다.
 
 모든 필수 스캐너가 연결되어 완료되고 올바른 SARIF를 만든 경우가 아니면 검토는
 `coverage_incomplete`가 됩니다.
+
+## 스캔 실행 이미지
+
+`services/core-control-plane/docker/code-security-scanner.Dockerfile`은 스캔 작업과 Opengrep,
+gitleaks, OSV-Scanner, Trivy를 하나로 묶습니다. 각 바이너리는 버전과 SHA-256으로, 기본 이미지는
+다이제스트로 고정됩니다. 진입점은 두 단계로 동작합니다.
+
+1. `fdai-scan-runner prepare SOURCE_DIR`는 Trivy와 OSV 오프라인 데이터베이스를 캐시에 갱신합니다.
+   네트워크를 쓰는 유일한 단계입니다.
+2. `fdai-scan-runner scan ...`은 카탈로그의 모든 스캐너와 캐시를 연결한 뒤 스캔 작업을 실행합니다.
+   모든 스캐너는 네트워크 없는 bubblewrap 샌드박스 안에서 실행됩니다.
+
+bubblewrap에는 비특권 사용자 네임스페이스가 필요하므로 컨테이너 런타임이 이를 허용해야 합니다.
+Docker에서는 `--security-opt seccomp=unconfined --security-opt apparmor=unconfined`가 필요합니다.
+
+예: 2026-10-07 이 이미지로 고정된 커밋의 OWASP NodeGoat를 스캔했습니다. 다섯 스캐너가 모두
+샌드박스에서 완료되어 커버리지가 완전했습니다. 스캐너 원시 결과 423개는 정본 이슈 202개가 되었고,
+그중 78개는 둘 이상의 스캐너가 교차 확인했으며 3개는 JavaScript 코드 주입 검증기가 `verified`로
+확인했습니다. 이 실행에서 호스트 테스트로는 재현되지 않던 결함 세 가지도 찾아 고쳤습니다.
+
+- Opengrep은 Semgrep의 `--metrics` 옵션을 거부합니다.
+- gitleaks는 샌드박스의 사용자 네임스페이스 안에서 `/dev/stdout`으로 보고서를 쓰지 못합니다.
+- 도구가 스스로 보고하는 이름(`Opengrep OSS`, 두 모드에 공통인 `Trivy`)이 카탈로그 생산자와 달라
+  증적에서 규칙 팩 다이제스트가 빠졌습니다.
 
 ## LLM 렌즈 레인
 

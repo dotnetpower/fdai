@@ -114,9 +114,37 @@ The job builds the receipt from SARIF run metadata and its own observations:
 - **Rules version:** binds the scanner id, the tool version from SARIF, and, for rule-based
   scanners, a digest of the rule pack. A rule change therefore makes a later rescan
   non-equivalent unless the new version declares that it supersedes the old one.
+- **Producer:** the catalog producer of the scanner FDAI ran, not the tool's self-reported
+  name. Editions and modes report names such as `Opengrep OSS` or one `Trivy` for two scanners,
+  which would otherwise detach the rules version and observed completion from the run.
 
 The review is `coverage_incomplete` unless every required scanner was bound, completed, and
 produced valid SARIF.
+
+## Scan runner image
+
+`services/core-control-plane/docker/code-security-scanner.Dockerfile` packages the scan job with
+Opengrep, gitleaks, OSV-Scanner, and Trivy. Each binary is pinned by version and SHA-256, and the
+base image is pinned by digest. The entrypoint has two steps:
+
+1. `fdai-scan-runner prepare SOURCE_DIR` refreshes the Trivy and OSV offline databases into the
+   cache. It's the only step that uses the network.
+2. `fdai-scan-runner scan ...` binds every catalog scanner and the cache, then runs the scan job.
+   All scanners run inside the bubblewrap sandbox with no network.
+
+bubblewrap needs unprivileged user namespaces, so the container runtime must allow them. With
+Docker, that means `--security-opt seccomp=unconfined --security-opt apparmor=unconfined`.
+
+Example: on 2026-10-07 the image scanned OWASP NodeGoat at its pinned commit. All five scanners
+completed in the sandbox and coverage was complete. The 423 raw scanner results became 202
+canonical issues, 78 of them corroborated by more than one scanner and 3 `verified` by the
+JavaScript code-injection verifier. That run also found and fixed three defects that host tests
+couldn't reproduce:
+
+- Opengrep rejects Semgrep's `--metrics` flag.
+- gitleaks can't write its report through `/dev/stdout` inside the sandbox's user namespace.
+- The tools' self-reported names (`Opengrep OSS`, and one `Trivy` for two modes) didn't match the
+  catalog producers, so receipts lost the rule-pack digest.
 
 ## LLM lens lane
 

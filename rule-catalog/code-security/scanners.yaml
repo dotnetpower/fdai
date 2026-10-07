@@ -10,19 +10,23 @@
 # them. Placeholders other than {source}, {rules}, and {cache} fail validation.
 schema_version: 1
 catalog_id: fdai.code-security.scanners
-version: 1.1.0
+version: 1.2.0
 scanners:
   opengrep:
     producer: Opengrep
-    argv: ["scan", "--config", "{rules}", "--sarif", "--metrics=off", "--disable-version-check", "--quiet", "{source}"]
+    # Opengrep sends no telemetry and rejects Semgrep's --metrics flag.
+    argv: ["scan", "--config", "{rules}", "--sarif", "--disable-version-check", "--quiet", "{source}"]
     mounts: [rules]
     success_exit_codes: [0]
     timeout_seconds: 900
     max_output_bytes: 5000000
   gitleaks:
     producer: gitleaks
-    argv: ["dir", "{source}", "--report-format", "sarif", "--report-path", "/dev/stdout", "--no-banner", "--exit-code", "0", "--redact"]
+    argv: ["dir", "{source}", "--report-format", "sarif", "--report-path", "-", "--no-banner", "--exit-code", "0", "--redact"]
     mounts: []
+    # The RE2 WebAssembly runtime reserves virtual address space up front; real memory stays
+    # bounded by the container's memory limit.
+    address_space_bytes: 34359738368
     success_exit_codes: [0]
     timeout_seconds: 300
     max_output_bytes: 5000000
@@ -35,7 +39,7 @@ scanners:
     timeout_seconds: 600
     max_output_bytes: 5000000
   trivy-config:
-    producer: Trivy
+    producer: Trivy config
     argv: ["config", "--format", "sarif", "--skip-check-update", "--cache-dir", "/scratch/trivy", "--quiet", "{source}"]
     mounts: []
     success_exit_codes: [0]

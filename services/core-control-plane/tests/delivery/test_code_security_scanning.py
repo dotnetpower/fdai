@@ -76,13 +76,13 @@ def _spec(**overrides: object) -> ScannerSpec:
     return ScannerSpec.model_validate(values)
 
 
-def _sarif() -> str:
+def _sarif(driver: str = "Opengrep") -> str:
     return json.dumps(
         {
             "version": "2.1.0",
             "runs": [
                 {
-                    "tool": {"driver": {"name": "Opengrep", "version": "1.0.0"}},
+                    "tool": {"driver": {"name": driver, "version": "1.0.0"}},
                     "results": [
                         {
                             "ruleId": "fdai.python.os-system",
@@ -516,3 +516,47 @@ def test_verifier_evaluation_runs_both_verifiers_on_a_pinned_source(tmp_path: Pa
         {"source": "local", "rule": "fdai.verify.js.code-injection", "path": "app.js", "line": 9}
     ]
     assert json.loads((tmp_path / "receipt.json").read_text())["promoted"] == receipt["promoted"]
+
+
+@needs_bwrap
+async def test_scan_job_binds_receipt_to_the_catalog_producer_not_the_tool_name(
+    tmp_path: Path,
+) -> None:
+    repo, revision = _repo(tmp_path)
+    scanner = _fake_scanner(tmp_path, f"cat <<'SARIF'\n{_sarif('Opengrep OSS')}\nSARIF\n")
+    scanners = load_scanner_catalog(_CATALOG)
+    result = await run_scan_job(
+        ScanJobConfig(
+            repository=str(repo),
+            revision=revision,
+            repository_alias="example-service",
+            work_root=tmp_path / "work",
+            executables={"opengrep": scanner},
+            rules_dir=_CATALOG / "rules",
+            required_scanners=frozenset({"opengrep"}),
+        ),
+        catalog=load_code_security_catalog(_CATALOG),
+        scanners=scanners,
+        acquirer=GitSourceAcquirer(tmp_path / "work"),
+        sandbox=BubblewrapScannerSandbox(),
+    )
+    (run,) = result.receipt.runs
+    assert run.producer == "Opengrep"
+    assert run.rules_version.startswith("opengrep:1.0.0:rules-")
+    assert run.full_repository is True
+    (issue,) = result.issues
+    assert issue.producers == ("Opengrep",)
+
+
+def test_scan_runner_image_pins_every_tool_and_binds_every_scanner() -> None:
+    import re
+
+    docker = _REPO_ROOT / "services" / "core-control-plane" / "docker"
+    dockerfile = (docker / "code-security-scanner.Dockerfile").read_text(encoding="utf-8")
+    entrypoint = (docker / "code-security-scanner-entrypoint.sh").read_text(encoding="utf-8")
+    for tool in ("OPENGREP", "GITLEAKS", "OSV_SCANNER", "TRIVY"):
+        assert re.search(rf"ARG {tool}_SHA256=[0-9a-f]{{64}}\n", dockerfile), tool
+        assert f'"${{{tool}_SHA256}}' in dockerfile, f"{tool} download is not verified"
+    assert re.findall(r"library/python@sha256:[0-9a-f]{64}", dockerfile)
+    bound = set(re.findall(r'--scanner-bin "([a-z-]+)=', entrypoint))
+    assert bound == set(load_scanner_catalog(_CATALOG).scanners)

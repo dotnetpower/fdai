@@ -98,7 +98,16 @@ def _python_outcomes(
 
 def _engine_scan(engine: str, rules: Path, tree: Path) -> Mapping[str, Any]:
     proc = subprocess.run(  # noqa: S603 - fixed argv over an acquired read-only tree
-        [engine, "scan", "--metrics=off", "--quiet", "--json", "--config", str(rules), "."],
+        [
+            engine,
+            "scan",
+            *(["--metrics=off"] if "semgrep" in Path(engine).name else []),
+            "--quiet",
+            "--json",
+            "--config",
+            str(rules),
+            ".",
+        ],
         cwd=tree,
         capture_output=True,
         text=True,

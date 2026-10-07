@@ -156,3 +156,18 @@ def test_external_references_are_kept_as_data_only() -> None:
     ]
     ingested = ingest_sarif(json.dumps(document).encode(), _ctx())
     assert len(ingested.occurrences) == 1
+
+
+def test_caller_asserted_producer_replaces_the_driver_name() -> None:
+    from fdai.core.security.code_findings.models import Lane
+    from fdai.core.security.code_findings.sarif import SarifIngestContext, ingest_sarif
+
+    document = sarif("Opengrep OSS", [result("r", "src/a.py", 3, cwe=89)])
+    plain = ingest_sarif(document, SarifIngestContext(lane=Lane.DETERMINISTIC, revision=REVISION))
+    asserted = ingest_sarif(
+        document,
+        SarifIngestContext(lane=Lane.DETERMINISTIC, revision=REVISION, producer="Opengrep"),
+    )
+    assert plain.occurrences[0].producer == "Opengrep OSS"
+    assert asserted.occurrences[0].producer == "Opengrep"
+    assert asserted.runs[0].producer == "Opengrep"

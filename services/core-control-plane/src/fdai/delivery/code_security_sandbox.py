@@ -105,10 +105,10 @@ class BubblewrapScannerSandbox:
         argv += ["--", "/opt/scanner/bin", *resolve_argv(spec, dict(_MOUNTS))]
         return argv
 
-    def _limit_child(self, timeout_seconds: int) -> None:
+    def _limit_child(self, timeout_seconds: int, address_space: int | None = None) -> None:
         cpu = timeout_seconds + 5
         resource.setrlimit(resource.RLIMIT_CPU, (cpu, cpu))
-        memory = self._limits.memory_bytes
+        memory = address_space or self._limits.memory_bytes
         resource.setrlimit(resource.RLIMIT_AS, (memory, memory))
         size = self._limits.file_size_bytes
         resource.setrlimit(resource.RLIMIT_FSIZE, (size, size))
@@ -134,7 +134,7 @@ class BubblewrapScannerSandbox:
             stderr=asyncio.subprocess.PIPE,
             env=dict(environ) if environ is not None else {"PATH": "/usr/bin:/bin"},
             start_new_session=True,
-            preexec_fn=lambda: self._limit_child(spec.timeout_seconds),
+            preexec_fn=lambda: self._limit_child(spec.timeout_seconds, spec.address_space_bytes),
         )
         reader, errors = process.stdout, process.stderr
         if reader is None or errors is None:

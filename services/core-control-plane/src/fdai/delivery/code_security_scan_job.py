@@ -159,6 +159,7 @@ async def run_scan_job(
                         lane=Lane.DETERMINISTIC,
                         revision=config.revision,
                         source_roots=("/source", str(source.path)),
+                        producer=spec.producer,
                     ),
                 )
             )
