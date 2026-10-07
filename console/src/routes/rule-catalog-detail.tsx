@@ -7,13 +7,16 @@ import {
   StatusPill,
 } from "../components/ui";
 import { routeHref } from "../router";
-import { t } from "./i18n/governance";
+import { CONTROL_STATUS_PILL } from "./best-practice-controls-body";
+import { bestPracticeHref } from "./best-practice-controls.model";
+import { displayValue, t } from "./i18n/governance";
 import { DetailRow, DetailSection } from "./rule-catalog-components";
 import { RuleActivationPanel } from "./rule-catalog-activation-panel";
 import type { RuleActivationProposalReceipt } from "./rule-catalog-activation";
 import {
   type ActivationHistoryState,
   type ActivationState,
+  type ControlCitationState,
   SEVERITY_PILL,
   type DetailState,
   type FindingsState,
@@ -26,6 +29,7 @@ interface RuleDetailDrawerProps {
   readonly findings: FindingsState;
   readonly activation: ActivationState;
   readonly activationHistory: ActivationHistoryState;
+  readonly controlCitations: ControlCitationState;
   readonly onRequestActivation: (enabled: boolean, reason: string) => Promise<RuleActivationProposalReceipt>;
   readonly onApproveActivation: (request: PendingRuleActivationRequest) => Promise<RuleActivationProposalReceipt>;
   readonly onClose: () => void;
@@ -36,6 +40,7 @@ export function RuleDetailDrawer({
   findings,
   activation,
   activationHistory,
+  controlCitations,
   onRequestActivation,
   onApproveActivation,
   onClose,
@@ -120,6 +125,7 @@ export function RuleDetailDrawer({
               findings={findings}
               activation={activation}
               activationHistory={activationHistory}
+              controlCitations={controlCitations}
               onRequestActivation={onRequestActivation}
               onApproveActivation={onApproveActivation}
             />
@@ -135,6 +141,7 @@ function RuleDetailContent({
   findings,
   activation,
   activationHistory,
+  controlCitations,
   onRequestActivation,
   onApproveActivation,
 }: {
@@ -142,6 +149,7 @@ function RuleDetailContent({
   readonly findings: FindingsState;
   readonly activation: ActivationState;
   readonly activationHistory: ActivationHistoryState;
+  readonly controlCitations: ControlCitationState;
   readonly onRequestActivation: RuleDetailDrawerProps["onRequestActivation"];
   readonly onApproveActivation: RuleDetailDrawerProps["onApproveActivation"];
 }) {
@@ -164,6 +172,8 @@ function RuleDetailContent({
       />
 
       <AffectedResources findings={findings} />
+
+      <ControlCitations citations={controlCitations} />
 
       <dl class="detail-grid">
         <DetailRow label={t("governance.rules.detail.source")} value={data.source} />
@@ -263,6 +273,56 @@ function RuleOverview({ data }: { readonly data: RuleDetailDto }) {
         </dl>
       ) : null}
     </section>
+  );
+}
+
+function ControlCitations({ citations }: { readonly citations: ControlCitationState }) {
+  const title = t("governance.rules.detail.citations.title");
+  const subtitle = t("governance.rules.detail.citations.subtitle");
+  if (citations.status === "loading") {
+    return (
+      <DetailSection title={title}>
+        <p class="muted footnote">{subtitle}</p>
+        <LoadingState label={t("governance.rules.detail.citations.loading")} />
+      </DetailSection>
+    );
+  }
+  if (citations.status === "error") {
+    return (
+      <DetailSection title={title}>
+        <p class="muted footnote">{subtitle}</p>
+        <ErrorState message={t("governance.rules.detail.citations.failed", { message: citations.message })} />
+      </DetailSection>
+    );
+  }
+  if (citations.status !== "ready" || citations.controls.length === 0) {
+    const message = citations.status === "not-cited-origin"
+      ? t("governance.rules.detail.citations.collected")
+      : citations.status === "unavailable"
+        ? t("governance.rules.detail.citations.unavailable")
+        : t("governance.rules.detail.citations.none");
+    return (
+      <DetailSection title={title}>
+        <p class="muted footnote">{subtitle}</p>
+        <p class="muted footnote">{message}</p>
+      </DetailSection>
+    );
+  }
+  return (
+    <DetailSection title={t("governance.rules.detail.citations.titleCount", { count: citations.controls.length })}>
+      <p class="muted footnote">{subtitle}</p>
+      <ul class="rule-control-citations">
+        {citations.controls.map((control) => (
+          <li key={control.id}>
+            <a href={bestPracticeHref({ pillar: "", status: "", q: "" }, control.id)}>
+              <code>{control.control_id}</code>
+              <span>{control.title}</span>
+            </a>
+            <StatusPill kind={CONTROL_STATUS_PILL[control.status]} label={displayValue("controlStatus", control.status)} />
+          </li>
+        ))}
+      </ul>
+    </DetailSection>
   );
 }
 

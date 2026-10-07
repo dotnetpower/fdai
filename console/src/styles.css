@@ -13296,23 +13296,34 @@ main { padding-bottom: 60px !important; }
   color: var(--fg-muted);
   font-size: var(--cs-type-compact-size);
 }
-.rules-catalog-rail header > span {
-  position: absolute;
-  top: 17px;
-  right: 16px;
-  min-width: 24px;
-  padding: 3px 7px;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  color: var(--fg-muted);
-  background: var(--bg-elevated);
-  font-size: 11px;
-  text-align: center;
-}
 .rules-catalog-rail nav {
   display: grid;
-  gap: 4px;
+  gap: 12px;
   padding: 10px 8px;
+}
+.rules-catalog-rail-group {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  min-width: 0;
+}
+.rules-catalog-rail-group + .rules-catalog-rail-group {
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.rules-catalog-rail-group > h3 {
+  margin: 0;
+  padding: 2px 11px 0;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-label-size);
+  line-height: var(--cs-type-label-line-height);
+  font-weight: 650;
+  text-transform: uppercase;
+}
+.rules-catalog-rail-group > p {
+  margin: 0 0 4px;
+  padding: 0 11px;
+  line-height: 1.45;
 }
 .rules-catalog-rail nav a {
   display: grid;
@@ -13416,17 +13427,28 @@ main { padding-bottom: 60px !important; }
 .rules-route .rule-table-identity small { max-width: 300px; }
 @media (max-width: 1500px) {
   .rules-route .rule-column-secondary { display: none; }
-  .rules-route .data-table {
+  /* Column positions belong to the Rule catalog table only; framework tables own their tracks. */
+  .rules-route #rule-catalog-table .data-table {
     min-width: 100%;
     table-layout: fixed;
   }
-  .rules-route .data-table th:first-child { width: 42%; }
-  .rules-route .data-table th:nth-child(2) { width: 12%; }
-  .rules-route .data-table th:nth-child(3) { width: 12%; }
-  .rules-route .data-table th:nth-child(4) { width: 12%; }
-  .rules-route .data-table th:nth-child(6) { width: 12%; }
-  .rules-route .data-table th:nth-child(9) { width: 7%; }
-  .rules-route .data-table th:last-child { width: 3%; }
+  .rules-route #rule-catalog-table .data-table th:first-child { width: 42%; }
+  .rules-route #rule-catalog-table .data-table th:nth-child(2) { width: 12%; }
+  .rules-route #rule-catalog-table .data-table th:nth-child(3) { width: 12%; }
+  .rules-route #rule-catalog-table .data-table th:nth-child(4) { width: 12%; }
+  .rules-route #rule-catalog-table .data-table th:nth-child(6) { width: 12%; }
+  .rules-route #rule-catalog-table .data-table th:nth-child(9) { width: 7%; }
+  .rules-route #rule-catalog-table .data-table th:last-child { width: 3%; }
+  .controls-catalog-view .data-table {
+    min-width: 100%;
+    table-layout: fixed;
+  }
+  .controls-catalog-view .data-table th:first-child { width: 38%; }
+  .controls-catalog-view .data-table th.chevron-col { width: 32px; }
+  .controls-catalog-view .control-table-identity {
+    grid-template-columns: 54px minmax(0, 1fr);
+    min-width: 0;
+  }
 }
 .rule-activation-stack {
   display: grid;
@@ -13488,7 +13510,34 @@ main { padding-bottom: 60px !important; }
     border-right: 0;
     border-bottom: 1px solid var(--border);
   }
-  .rules-catalog-rail nav { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .rules-catalog-rail nav {
+    grid-template-columns: minmax(0, 3fr) minmax(0, 1fr);
+    grid-template-rows: repeat(3, auto);
+    row-gap: 4px;
+  }
+  /* Shared rows keep both groups' links on one line when hint lengths differ. */
+  .rules-catalog-rail-group { grid-row: span 3; grid-template-rows: subgrid; }
+  .rules-catalog-rail-group:first-child { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .rules-catalog-rail-group > h3,
+  .rules-catalog-rail-group > p { grid-column: 1 / -1; }
+  .rules-catalog-rail-group + .rules-catalog-rail-group {
+    padding-top: 0;
+    padding-left: 12px;
+    border-top: 0;
+    border-left: 1px solid var(--border);
+  }
+}
+@media (max-width: 760px) {
+  .rules-catalog-rail nav,
+  .rules-catalog-rail-group:first-child { grid-template-columns: minmax(0, 1fr); }
+  .rules-catalog-rail nav { grid-template-rows: none; row-gap: 12px; }
+  .rules-catalog-rail-group { grid-row: auto; grid-template-rows: none; }
+  .rules-catalog-rail-group + .rules-catalog-rail-group {
+    padding-top: 12px;
+    padding-left: 0;
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
 }
 @media (max-width: 900px) {
   .rules-route .rule-facet-toolbar {
@@ -13519,8 +13568,7 @@ main { padding-bottom: 60px !important; }
   .rules-route .rule-facet-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .rules-route .rule-facet-search { grid-column: 1 / -1; }
   .rules-route .rule-facet-select:last-child { grid-column: auto; }
-  .rules-catalog-rail nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .rules-catalog-rail nav a { min-height: 76px; }
+  .rules-catalog-rail nav a { min-height: 56px; }
   .rules-catalog-detail-head { min-height: 0; padding: 14px; }
   .rules-route .rule-facet-search input,
   .rules-route .rule-facet-select select,
@@ -13528,6 +13576,9 @@ main { padding-bottom: 60px !important; }
   .rules-route .rule-activation-form .btn,
   .rules-route .rule-activation-history .btn { min-height: 44px; }
   .rules-route .data-table { min-width: 660px; }
+  /* Controls tables hide secondary columns here, so the remaining columns fit the viewport. */
+  .rules-route .controls-catalog-view .data-table { min-width: 100%; }
+  .rules-route .controls-catalog-view .data-table th:first-child { width: 58%; }
   .rules-route .data-table tbody tr { min-height: 44px; }
 }
 @media (max-width: 360px) {
@@ -13581,6 +13632,26 @@ main { padding-bottom: 60px !important; }
 }
 .control-table-identity code { color: var(--fg); font-weight: 700; }
 .control-table-identity span { color: var(--fg-muted); line-height: 1.35; }
+.controls-catalog-view .kpi-grid { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+.wara-recommendation-identity {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.wara-recommendation-title {
+  color: var(--fg);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.wara-recommendation-identity small {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.wara-recommendation-identity code { color: var(--fg-muted); }
 .control-requirement-list { display: grid; gap: 7px; }
 .control-requirement-row {
   display: flex;
@@ -13594,6 +13665,34 @@ main { padding-bottom: 60px !important; }
 }
 .control-requirement-row > div { display: grid; gap: 3px; min-width: 0; }
 .control-requirement-row code { overflow-wrap: anywhere; }
+.control-requirement-row a { justify-self: start; min-width: 0; }
+.rule-control-citations {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.rule-control-citations li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius);
+}
+.rule-control-citations a {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 10px;
+  min-width: 0;
+}
+.rule-control-citations a span {
+  color: var(--fg);
+  overflow-wrap: anywhere;
+}
 @media (max-width: 760px) {
   .rule-facet-set { width: 100%; }
   .rule-facet-set > div { max-width: 100%; }

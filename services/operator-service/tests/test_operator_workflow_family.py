@@ -889,6 +889,7 @@ async def test_postgres_control_catalogs_project_lists_filters_and_details() -> 
     assert best_list.payload["total"] == 1
     assert best_list.payload["controls"][0]["control_id"] == "RE:01"
     assert "requirements" not in best_list.payload["controls"][0]
+    assert "rule_filter" not in best_list.payload
     assert best_detail.payload == best_practice
     assert best_detail.provenance.revision == "best-practice-revision"
     assert mcsb_list.payload["benchmark"] == benchmark
@@ -910,6 +911,48 @@ async def test_postgres_control_catalogs_project_lists_filters_and_details() -> 
     assert caf_list.payload["facets"]["by_applicability"] == {"applicable": 1}
     assert caf_detail.payload == caf_control
     assert caf_detail.provenance.revision == "caf-revision"
+
+
+async def test_best_practice_list_filters_controls_by_exact_rule_citation() -> None:
+    def control(control_id: str, requirements: list[dict[str, object]]) -> dict[str, object]:
+        return {
+            "id": f"azure-waf.reliability.{control_id.lower().replace(':', '-')}",
+            "control_id": control_id,
+            "pillar": "reliability",
+            "status": "unknown",
+            "title": control_id,
+            "requirements": requirements,
+            "provenance": {},
+        }
+
+    citing = control("RE:05", [{"kind": "rule", "ref": "cache.zone-redundant"}])
+    artifact_only = control("RE:01", [{"kind": "artifact", "ref": "cache.zone-redundant"}])
+    prefix_only = control("RE:06", [{"kind": "rule", "ref": "cache.zone-redundant-premium"}])
+
+    class CatalogStore:
+        async def read_projection(self, *, family: str, operation: str) -> dict[str, object]:
+            return {
+                "_revision": "best-practice-revision",
+                "controls": [citing, artifact_only, prefix_only],
+                "evaluation_source": "not_connected",
+            }
+
+    result = await PostgresWorkflowAdapters(cast(Any, CatalogStore())).read(
+        WorkflowReadRequest(
+            operation=WorkflowOperation.BEST_PRACTICE_LIST,
+            principal_id="operator-a",
+            query={"rule": "cache.zone-redundant"},
+            path_parameters={},
+            limit=100,
+            offset=0,
+        )
+    )
+
+    assert result.payload["total"] == 3
+    assert result.payload["filtered_total"] == 1
+    assert [item["control_id"] for item in result.payload["controls"]] == ["RE:05"]
+    assert "requirements" not in result.payload["controls"][0]
+    assert result.payload["rule_filter"] == "cache.zone-redundant"
 
 
 async def test_postgres_workflow_adapter_submits_inert_proposal() -> None:

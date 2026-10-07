@@ -210,6 +210,12 @@ read-only interaction pattern. The Rules catalog rail links to that Controls vie
 navigation only; it does not merge Rule counts with WAF or CAF applicability, evaluation, or
 satisfaction. The browser never writes evidence or approval.
 
+Rule citations are navigation between definitions, not evidence. A WAF control's `rule` requirement
+links to that rule's detail. `GET /best-practices?rule=<id>` returns only the controls whose
+requirements cite that exact rule and echoes the applied `rule_filter`. The rule detail lists those
+controls with their own server-owned status. A missing echo means the Console reports citations as
+unavailable instead of showing every control.
+
 ## Source-change governance
 
 The source watcher creates a deterministic review package containing additions, removals, semantic

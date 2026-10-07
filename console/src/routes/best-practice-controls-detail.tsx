@@ -5,7 +5,10 @@ import type { BestPracticeDetailState } from "./best-practice-controls";
 import type { BestPracticeDetail } from "./best-practice-controls.model";
 import { displayValue, t } from "./i18n/governance";
 import { DetailRow, DetailSection } from "./rule-catalog-components";
+import { ruleCatalogHref, type RuleFilters } from "./rule-catalog-state";
 import { SEVERITY_PILL } from "./rule-catalog-types";
+
+const EMPTY_RULE_FILTERS: RuleFilters = { origin: "", category: "", severity: "", source: "", q: "" };
 
 export function BestPracticeDrawer({
   detail,
@@ -90,7 +93,7 @@ function BestPracticeDetailContent({ data }: { readonly data: BestPracticeDetail
         <DetailRow label={t("governance.rules.controls.detail.scope")} value={data.evaluation_scope ?? "-"} mono />
         <DetailRow label={t("governance.rules.controls.detail.evaluatedAt")} value={data.evaluated_at ?? "-"} mono />
         <DetailRow label={t("governance.rules.controls.column.owner")} value={data.owner ?? "-"} mono />
-        <DetailRow label={t("governance.rules.controls.detail.cadence")} value={`${data.cadence_days} days`} />
+        <DetailRow label={t("governance.rules.controls.detail.cadence")} value={t("governance.rules.controls.detail.cadenceDays", { days: data.cadence_days })} />
         <DetailRow label={t("governance.rules.controls.detail.profile")} value={data.profile_id ?? "-"} mono />
         <DetailRow label={t("governance.rules.controls.detail.profileDigest")} value={data.profile_digest ?? "-"} mono />
       </dl>
@@ -104,10 +107,21 @@ function BestPracticeDetailContent({ data }: { readonly data: BestPracticeDetail
         </DetailSection>
       ) : null}
       <DetailSection title={t("governance.rules.controls.detail.requirements")}>
+        <p class="muted footnote">{t("governance.rules.controls.detail.requirementsHint")}</p>
         <div class="control-requirement-list">
           {data.requirements.map((requirement) => (
             <article key={`${requirement.kind}:${requirement.ref}`} class="control-requirement-row">
-              <div><span class="muted small">{requirement.kind}</span><code>{requirement.ref}</code></div>
+              <div>
+                <span class="muted small">{displayValue("controlRequirementKind", requirement.kind)}</span>
+                {requirement.kind === "rule" ? (
+                  <a
+                    href={ruleCatalogHref(EMPTY_RULE_FILTERS, 0, { id: requirement.ref, origin: "active" })}
+                    aria-label={t("governance.rules.controls.detail.openRule", { id: requirement.ref })}
+                  >
+                    <code>{requirement.ref}</code>
+                  </a>
+                ) : <code>{requirement.ref}</code>}
+              </div>
               <StatusPill kind={CONTROL_STATUS_PILL[requirement.status]} label={displayValue("controlStatus", requirement.status)} />
             </article>
           ))}

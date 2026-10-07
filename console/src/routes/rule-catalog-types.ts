@@ -1,4 +1,5 @@
 import type { PillKind } from "../components/ui";
+import type { BestPracticeControl } from "./best-practice-controls.model";
 import type { FacetMap } from "./rule-catalog-components";
 import type { DetailState as RuleDetailState } from "./rule-catalog-state";
 
@@ -152,6 +153,14 @@ export type ActivationHistoryState =
   | { readonly status: "loading" }
   | { readonly status: "ready"; readonly data: RuleActivationHistoryDto }
   | { readonly status: "unavailable"; readonly message: string }
+  | { readonly status: "error"; readonly message: string };
+
+/** WAF Controls that cite the selected Rule as one evidence requirement. Catalog navigation only. */
+export type ControlCitationState =
+  | { readonly status: "loading" }
+  | { readonly status: "ready"; readonly controls: readonly BestPracticeControl[] }
+  | { readonly status: "not-cited-origin" }
+  | { readonly status: "unavailable" }
   | { readonly status: "error"; readonly message: string };
 
 export const SEVERITY_PILL: Readonly<Record<string, PillKind>> = {

@@ -4,6 +4,7 @@ import {
   bestPracticeStateFromSearch,
   decodeBestPracticeDetail,
   decodeBestPracticeResponse,
+  decodeRuleCitingControls,
   rulesCatalogViewFromSearch,
 } from "./best-practice-controls.model";
 
@@ -98,6 +99,32 @@ describe("best practice controls contract", () => {
       }],
       provenance: { source_url: "https://learn.microsoft.com/" },
     })).toThrow(/requirement count does not reconcile/);
+  });
+});
+
+describe("Rule citation lookup", () => {
+  test("returns Controls only for the server-confirmed Rule filter", () => {
+    const value = { ...(response() as Record<string, unknown>), rule_filter: "cache.zone-redundant" };
+    expect(decodeRuleCitingControls(value, "cache.zone-redundant")?.map((item) => item.control_id))
+      .toEqual(["RE:09"]);
+  });
+
+  test("treats an unfiltered or mismatched list as unavailable", () => {
+    expect(decodeRuleCitingControls(response(), "cache.zone-redundant")).toBeNull();
+    expect(decodeRuleCitingControls(
+      { ...(response() as Record<string, unknown>), rule_filter: "other.rule" },
+      "cache.zone-redundant",
+    )).toBeNull();
+  });
+
+  test("rejects a truncated citation list", () => {
+    const value = {
+      ...(response() as Record<string, unknown>),
+      total: 2,
+      filtered_total: 2,
+      rule_filter: "cache.zone-redundant",
+    };
+    expect(() => decodeRuleCitingControls(value, "cache.zone-redundant")).toThrow(/truncated/);
   });
 });
 

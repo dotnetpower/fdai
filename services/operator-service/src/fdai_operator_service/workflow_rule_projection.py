@@ -483,6 +483,20 @@ def rule_activation_history_payload(
     return {"rule_id": rule_id, "history": history, "truncated": truncated}
 
 
+def _cites_rule(control: Mapping[str, object], rule_id: str) -> bool:
+    """Match an exact catalog Rule reference; this is navigation, not evaluation evidence."""
+
+    requirements = control.get("requirements")
+    if not isinstance(requirements, list):
+        return False
+    return any(
+        isinstance(requirement, dict)
+        and requirement.get("kind") == "rule"
+        and requirement.get("ref") == rule_id
+        for requirement in requirements
+    )
+
+
 def _best_practice_catalog_payload(
     stored: Mapping[str, object],
     request: WorkflowReadRequest,
@@ -511,11 +525,13 @@ def _best_practice_catalog_payload(
     pillar = request.query.get("pillar", "").strip().lower()
     status = request.query.get("status", "").strip().lower()
     needle = request.query.get("q", "").strip().lower()
+    rule_id = request.query.get("rule", "").strip()
     matched = [
         item
         for item in controls
         if (not pillar or str(item.get("pillar", "")).lower() == pillar)
         and (not status or str(item.get("status", "")).lower() == status)
+        and (not rule_id or _cites_rule(item, rule_id))
         and (
             not needle
             or needle
@@ -526,7 +542,7 @@ def _best_practice_catalog_payload(
     ]
     offset = request.offset or 0
     limit = request.limit or 100
-    return {
+    payload: dict[str, object] = {
         "total": len(controls),
         "filtered_total": len(matched),
         "offset": offset,
@@ -542,3 +558,7 @@ def _best_practice_catalog_payload(
         ],
         "evaluation_source": evaluation_source,
     }
+    if rule_id:
+        # Echo the applied citation filter so a client never mistakes an unfiltered list for it.
+        payload["rule_filter"] = rule_id
+    return payload
