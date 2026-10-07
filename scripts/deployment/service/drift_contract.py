@@ -253,30 +253,41 @@ def stored_platform_output_inputs(
     if not isinstance(root, dict) or not isinstance(outputs, dict):
         raise DriftContractError("Terraform state JSON has no platform values")
 
-    addresses = _resource_addresses(root)
-
-    def has_prefix(prefix: str) -> bool:
-        return any(address.startswith(prefix) for address in addresses)
-
-    governed_identity_prefixes = (
-        "module.identity_change[0].",
-        "module.identity_resilience[0].",
-        "module.identity_finops[0].",
+    governed_identity_outputs = (
+        "identity_change_principal_id",
+        "identity_change_resource_id",
+        "identity_resilience_principal_id",
+        "identity_resilience_resource_id",
+        "identity_finops_principal_id",
+        "identity_finops_resource_id",
     )
-    governed_identities = tuple(has_prefix(prefix) for prefix in governed_identity_prefixes)
+    governed_identities = tuple(
+        _stored_optional_output_string(outputs, name) is not None
+        for name in governed_identity_outputs
+    )
     if any(governed_identities) and not all(governed_identities):
         raise DriftContractError("platform state has an incomplete governed identity set")
 
+    decision_evidence = tuple(
+        _stored_optional_output_string(outputs, name) is not None
+        for name in (
+            "decision_evidence_container_url",
+            "decision_evidence_storage_account_name",
+        )
+    )
+    if any(decision_evidence) and not all(decision_evidence):
+        raise DriftContractError("platform state has incomplete decision evidence outputs")
+
     plan_inputs: dict[str, Any] = {
-        "enable_dev_operations_gateway": has_prefix(
-            "azurerm_function_app_flex_consumption.dev_gateway[0]"
+        "enable_dev_operations_gateway": (
+            _stored_optional_output_string(outputs, "dev_operations_gateway_audience") is not None
         ),
         "enable_governed_execution": all(governed_identities),
-        "enable_llm": has_prefix("module.llm_azure_openai[0].azurerm_cognitive_account.primary"),
-        "enable_ohl_scale_out_evidence_target": has_prefix(
-            "azurerm_linux_virtual_machine_scale_set.ohl_evidence[0]"
+        "enable_llm": (_stored_optional_output_string(outputs, "llm_resource_id") is not None),
+        "enable_ohl_scale_out_evidence_target": (
+            _stored_optional_output_string(outputs, "ohl_scale_out_evidence_target_id") is not None
         ),
-        "enable_operational_history": has_prefix("module.operational_history_storage[0]."),
+        "enable_operational_history": all(decision_evidence),
     }
     if not plan_inputs["enable_llm"]:
         return plan_inputs
@@ -312,22 +323,14 @@ def _stored_output_string(outputs: dict[str, Any], name: str) -> str:
     return value
 
 
-def _resource_addresses(module: dict[str, Any]) -> frozenset[str]:
-    resources = module.get("resources", [])
-    children = module.get("child_modules", [])
-    if not isinstance(resources, list) or not isinstance(children, list):
-        raise DriftContractError("Terraform state contains an invalid module")
-    addresses: set[str] = set()
-    for resource in resources:
-        address = resource.get("address") if isinstance(resource, dict) else None
-        if not isinstance(address, str) or not address:
-            raise DriftContractError("Terraform state contains an invalid resource")
-        addresses.add(address)
-    for child in children:
-        if not isinstance(child, dict):
-            raise DriftContractError("Terraform state contains an invalid child module")
-        addresses.update(_resource_addresses(child))
-    return frozenset(addresses)
+def _stored_optional_output_string(outputs: dict[str, Any], name: str) -> str | None:
+    output = outputs.get(name)
+    if output is None:
+        return None
+    value = output.get("value") if isinstance(output, dict) else None
+    if not isinstance(value, str) or "\n" in value:
+        raise DriftContractError(f"platform state contains an invalid {name} output")
+    return value or None
 
 
 def _stored_openai_capabilities(root: dict[str, Any]) -> list[dict[str, Any]]:

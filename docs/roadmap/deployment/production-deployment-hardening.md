@@ -157,10 +157,10 @@ in the summary, because the key prerequisite reads platform outputs that the rec
 A refresh-only apply also re-evaluates root outputs with the plan's inputs. The run excludes any root
 whose plan would turn a deployed output into an empty, null, unknown, or deleted value, and names
 those outputs in the summary. For the legacy platform root, both drift workflows reconstruct only
-the output-affecting feature inputs from tracked state. Model capabilities come from the exact
-tracked deployments and preserve the stored resolved-model digest without depending on a newer
-repository binding. Missing resources, partial governed identity sets, or malformed model
-deployments stop the run before a plan. The saved refresh-only plan therefore preserves
+the output-affecting feature inputs from existing non-empty tracked outputs. Model capabilities
+come from the exact tracked deployments and preserve the stored resolved-model digest without
+depending on a newer repository binding. Missing outputs, partial governed identity sets, or
+malformed model deployments stop the run before a plan. The saved refresh-only plan therefore preserves
 deploy-owned outputs while recording reviewed provider drift; desired
 configuration changes still require a separately reviewed deployment plan. The bounded Cost
 pseudonym prerequisite reads the tracked legacy Operator identity directly when the newer

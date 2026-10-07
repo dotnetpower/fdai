@@ -162,12 +162,28 @@ def _legacy_platform_state(*, incomplete_governed_identities: bool = False) -> d
             },
         },
     ]
-    if incomplete_governed_identities:
-        addresses.remove("module.identity_finops[0].azurerm_user_assigned_identity.primary")
+    outputs = {
+        "decision_evidence_container_url": {"value": "https://example.com/decision-evidence"},
+        "decision_evidence_storage_account_name": {"value": "exampledecision"},
+        "dev_operations_gateway_audience": {"value": "00000000-0000-0000-0000-000000000010"},
+        "identity_change_principal_id": {"value": "00000000-0000-0000-0000-000000000011"},
+        "identity_change_resource_id": {"value": "/example/change"},
+        "identity_finops_principal_id": {
+            "value": (
+                "" if incomplete_governed_identities else "00000000-0000-0000-0000-000000000012"
+            )
+        },
+        "identity_finops_resource_id": {"value": "/example/finops"},
+        "identity_resilience_principal_id": {"value": "00000000-0000-0000-0000-000000000013"},
+        "identity_resilience_resource_id": {"value": "/example/resilience"},
+        "llm_resource_id": {"value": "/example/openai"},
+        "ohl_scale_out_evidence_target_id": {"value": "/example/vmss"},
+        "resolved_models_sha256": {"value": "a" * 64},
+    }
     return {
         "state": {
             "values": {
-                "outputs": {"resolved_models_sha256": {"value": "a" * 64}},
+                "outputs": outputs,
                 "root_module": {
                     "resources": [
                         {
