@@ -236,6 +236,48 @@ kind, perspective or operation family, and locale, and a root receipt binds ever
   instead of results. Operator confirmations never count as gold.
 - **Rate cap**: If confirm-first exceeds 15% of a family's admitted turns, the family stays in shadow.
 
+## Domain guidance packs
+
+Azure resource questions repeat a small set of reading patterns: a kind, a region, a name fragment, a
+container, a state, and an existence or count operation. Azure SRE Agent carries this knowledge in its
+system prompt. The question-form, constraint-extraction, and concept-selection profiles therefore pin
+one reviewed Azure resource pack each in
+[`rule-catalog/prompts/packs/`](../../../rule-catalog/prompts/packs/). A pack is domain guidance with
+bilingual examples, scoped to one capability and bounded by its profile's system budget. It is not a
+pack per failing question: a pack teaches how to read a pattern into the closed form and never names
+an answer, a concept identifier mapping, or a lexical rule. Packs pin these readings:
+
+- **Name fragment**: A word that appears in resource or group names, such as a project name, is a
+  `name_fragment` filter on the kind, not a scope operand.
+- **Container**: Resources in a complete resource name, such as a named resource group, select over
+  the kind with a scope filter and never request a containment relation. A container question that
+  names no kind reads as resources in general, so both wordings count the same members.
+- **Existence**: An existence question, such as "is there", is a select, not a count.
+- **State union**: An unnarrowed stopped virtual machine selects one reviewed
+  `state:stopped_or_deallocated` candidate. Azure shows a deallocated machine as Stopped
+  (deallocated), so returning two single-state candidates would be an ambiguity by design. While
+  the union is offered, the stopped candidate's reviewed label reads as the narrow still-allocated
+  state.
+- **Narrowed state**: Words that narrow a state, such as still allocated, stay inside that one
+  state mention and its extracted constraint, so concept selection can choose the narrow state.
+- **Generic resources**: Resources with no kind named select the any-resource root.
+- **Verbatim literals**: A region or state is quoted as the operator wrote it, so the blind
+  extractor's review can locate it.
+- **Virtual machine power**: Running, powered on, and up mean the running state; statuses that
+  other kinds report, such as online or ready, are not a virtual machine's power.
+
+Readings come from the utterance alone, and exact lookup in code binds every named object; a name
+that does not exist ends in clarification. A first revision also sent each call the resource-group
+names the operator could read, so the model could tell a container name from a name fragment. An
+independent review rejected it for three reasons: the 200-name bound gave omitted names a
+different reading instead of failing closed, inventory state chose between readings, and the read
+was not scoped beyond the gateway's own access policy.
+
+The compiled-answer event records one closed token per accepted concept value, such as
+`m2:state:resource_state.stopped`, so a trace shows whether a narrowed request bound only its own
+state. A test composes every shipped active prompt profile, because a pack that overflows its
+profile budget makes Core drop the semantic path at startup.
+
 ## Capacity strategy
 
 | Mechanism | Contract |

@@ -234,7 +234,14 @@ def test_a_second_goal_limitation_or_batch_is_never_answered_as_complete(
         assert _ticket(observation).outcome(manifest_digest="d", observations=[]) is None
     two = _observation(
         compilations=(compilation, compilation),
-        passes=(ShadowPass(0, "admitted", shape=("m1:instance:name", "g1:instance:count:anchor")),),
+        passes=(
+            ShadowPass(
+                0,
+                "admitted",
+                shape=("m1:instance:name", "g1:instance:count:anchor"),
+                concept_values=("m2:state:resource_state.deallocated",),
+            ),
+        ),
     )
     assert _ticket(two).outcome(manifest_digest="d", observations=[]) is None
     shapes = [
@@ -245,6 +252,12 @@ def test_a_second_goal_limitation_or_batch_is_never_answered_as_complete(
     # The last pass's content-free shape shows how the declined question was read.
     assert shapes[-1] == ["m1:instance:name", "g1:instance:count:anchor"]
     assert shapes[0] == []
+    # Accepted catalog values show which concept each mention bound, union members apart.
+    assert [
+        record.concept_values
+        for record in caplog.records
+        if record.msg == "semantic_compiled_answer_completed"
+    ][-1] == ["m2:state:resource_state.deallocated"]
     # Every decline names the one rule that kept the compilation from answering.
     assert _decline_reasons(caplog) == [
         "goal_count",

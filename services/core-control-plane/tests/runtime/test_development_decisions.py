@@ -428,6 +428,7 @@ def test_the_compiled_answer_event_keeps_closed_reasons_and_points_a_cue_at_it()
                 "decline_reason": "not_released",
                 "batch_count": 0,
                 "form_shapes": ["m1:instance:name", "qualifier:m1:m2:containment", "m1 kv-a"],
+                "concept_values": ["m2:state:resource_state.deallocated", "m3:region:kv a"],
                 "model_calls": 5,
                 "elapsed_ms": 4100,
             },
@@ -457,6 +458,8 @@ def test_the_compiled_answer_event_keeps_closed_reasons_and_points_a_cue_at_it()
         "qualifier:m1:m2:containment",
         "~",
     )
+    # A bound catalog value is a closed token; anything else keeps only its closed prefix.
+    assert step.attributes["concept_values"] == ("m2:state:resource_state.deallocated", "m3:region")
     assert "compiled_answer_veto" in {cue.code for cue in trace.cues}
     assert "rg-fdai-dev-krc" not in trace.model_dump_json()
     assert "compiled_answer_declined" in {cue.code for cue in trace.cues}

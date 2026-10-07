@@ -524,6 +524,62 @@ def test_reviewed_lifecycle_values_join_the_state_catalog_with_their_object_type
     assert any(candidate.values == ("resource_state.running",) for candidate in catalog)
 
 
+def test_stopped_or_deallocated_is_one_reviewed_state_candidate() -> None:
+    catalog = concept_catalogs(production_manifest().descriptors)[MentionDomain.STATE]
+    union = next(item for item in catalog if item.id == "state:stopped_or_deallocated")
+
+    assert union.values == ("resource_state.deallocated", "resource_state.stopped")
+    # Each state stays selectable on its own, so a narrowed request never needs the union;
+    # the stopped candidate then reads as the narrow still-allocated state.
+    stopped = next(item for item in catalog if item.values == ("resource_state.stopped",))
+    assert "excluding deallocated" in stopped.labels[0]
+    assert any(item.values == ("resource_state.deallocated",) for item in catalog)
+    # One chosen candidate binds both values as one accepted reading, not an ambiguity.
+    utterance = "List the stopped VMs"
+    form = admitted(
+        {
+            "mentions": [
+                {
+                    "id": "m1",
+                    "form": "concept",
+                    "domain": "resource_type",
+                    "span": span(utterance, "VMs"),
+                },
+                {
+                    "id": "m2",
+                    "form": "concept",
+                    "domain": "state",
+                    "span": span(utterance, "stopped"),
+                },
+            ],
+            "goals": [
+                {
+                    "id": "g1",
+                    "level": "instance",
+                    "operation": "select",
+                    "subject": "m1",
+                    "subject_scope": "collection",
+                    "filters": [{"role": "state", "mention": "m2"}],
+                    "cue": span(utterance, "List"),
+                    "confidence": 0.9,
+                }
+            ],
+        },
+        utterance,
+    )
+    receipt = select_concepts(
+        form,
+        catalogs={MentionDomain.STATE: catalog},
+        choose=_chooser({"m2": [union.id]}, []),
+        utterance=utterance,
+        max_model_calls=8,
+    )
+    binding = receipt.binding("m2")
+    assert binding is not None and binding.outcome is ConceptOutcome.ACCEPTED
+    assert binding.values == ("resource_state.deallocated", "resource_state.stopped")
+    assert agree_concepts(receipt, receipt).binding("m2") == binding
+
+
 def test_a_vocabulary_without_health_groups_offers_no_health_concepts() -> None:
     mapping = yaml.safe_load(
         (ROOT / "rule-catalog" / "vocabulary" / "inventory-query-language.yaml").read_text(

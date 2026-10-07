@@ -1684,6 +1684,30 @@ def test_a_stated_state_filters_the_collection_through_the_state_inventory() -> 
     assert batch.frame.measure_concepts == ("resource_state.running",)
 
 
+def test_a_stopped_or_deallocated_reading_reads_both_states_in_one_function() -> None:
+    utterance = "List the stopped VMs"
+    form = _state_form("List the running VMs")
+    form["mentions"][1]["span"] = span(utterance, "stopped")
+    form["goals"][0]["cue"] = span(utterance, "stopped")
+    compilation = _compile(
+        utterance,
+        form,
+        concepts(
+            ("m1", MentionDomain.RESOURCE_TYPE, ("compute.vm",)),
+            ("m2", MentionDomain.STATE, ("resource_state.deallocated", "resource_state.stopped")),
+        ),
+    )
+
+    goal = compilation.goals[0]
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    (batch,) = goal.batches
+    state = batch.plan.nodes[1]
+    assert sorted(state.arguments["arguments"]["state_concepts"]) == [
+        "resource_state.deallocated",
+        "resource_state.stopped",
+    ]
+
+
 def test_a_counted_state_and_an_unbound_state_never_widen_the_read() -> None:
     utterance = "How many running VMs"
     counted = _compile(

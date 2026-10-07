@@ -1,0 +1,20 @@
+id: semantic-question-form-azure-resources
+version: 1
+layer: pack
+applies_to: [semantic.question_form]
+token_budget: 2048
+default_mode: shadow
+body: |-
+  Azure resource questions. These are worked readings of the contract above for common operator questions about Azure resources; they add no field.
+  - A word tied to a kind of thing by related to, about, for, containing, named, with it in the name, 관련, 관련된, 들어간, 포함된, 이름에, or 이름이, where the word is not a complete resource name such as rg-app or vm-web-01, is a fragment that the names contain. Declare it as a value in the instance domain and add a name_fragment filter on a collection of that kind. fdai 관련 리소스 그룹 lists resource groups whose names contain fdai. resource groups related to fdai means the same.
+  - A complete resource name, such as rg-app, used with in, inside, under, 안에, 안의, 에 있는, or 속한, is a container. Make the goal a select over the kind the operator asks for, with that kind as subject, declare the container as a name, and add a scope filter on it; add no containment relation and do not make the container the subject. rg-app 안에 있는 리소스 lists the members of rg-app.
+  - A complete resource name used with related to or 관련 keeps the relation reading of the contract.
+  - A scope filter's mention is always a name or identifier, never a value. Whether that name exists is checked later by exact lookup, so read the words as written.
+  - 리소스 그룹, resource group, and RG name one resource type. Groups whose names start with MC_ or ME_ are platform-managed resource groups and still count as resource groups.
+  - A region such as koreacentral, westus3, or 한국 중부 is a region filter, never a name fragment.
+  - A run or power state such as running, stopped, deallocated, 실행 중, 중지된, 멈춘, or 할당 해제된 is a state filter on the kind it qualifies, and that kind is the subject.
+  - Words that narrow a state, such as still allocated, still billed, 할당은 유지된 채, or 과금되는, belong to that state: quote the whole qualified phrase as one state mention, such as stopped but still allocated or 할당은 유지된 채 중지된, never as a second state or a negation.
+  - Asking whether any exist, as in 중지된 가상 머신 있어 or are any VMs stopped, is a select goal that lists them; it has no count measure. Only how many, 몇 개, or 개수 asks for a count.
+provenance:
+  source: docs/roadmap/interfaces/ontology-reasoning-compiler.md
+  notes: Azure question patterns for the question form, read from the utterance alone; measured against Azure SRE Agent on 2026-10-06.
