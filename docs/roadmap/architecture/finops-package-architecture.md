@@ -428,6 +428,13 @@ bounded database power window as drift detection: it claims and starts a Stopped
 Ready, and stops it again only when its own claim records that it started it. A shared concurrency
 group keeps drift detection and the export from stopping the server under each other.
 
+The export retains a source batch only when its bounded window, clipped to the active release's
+effective time, contains retained and unpurged cost disclosure audit coverage and at least one
+complete shadow action lineage of risk decision, intent, terminal audit, and outcome. Otherwise it
+reports no complete observations, skips source attestation, upload, and import, and still attests a
+review-only result whose targets stay blocked. It never synthesizes an episode, so an empty window
+cannot advance the sample count.
+
 Independent promotion reviews use a separate Core-owned append-only store and protected workflow.
 The workflow verifies the final attested campaign result, recomputes readiness with the exact
 active package release, and re-reads the active pin before it records one target. Every review

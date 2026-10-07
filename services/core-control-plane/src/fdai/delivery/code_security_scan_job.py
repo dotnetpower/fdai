@@ -99,6 +99,7 @@ async def run_scan_job(
     lens_models: Sequence[CodeSecurityLensModel] = (),
     verifier_catalog: VerifierCatalog | None = None,
     prove_python: Path | None = None,
+    prove_runtimes: Mapping[str, Path] | None = None,
 ) -> ScanJobResult:
     """Run the deterministic lane, and the optional LLM lens lane, for one revision.
 
@@ -106,8 +107,9 @@ async def run_scan_job(
     deterministic coverage limits, because the lens lane is optional. When a verifier catalog is
     given, deterministic weakness verifiers run on the same acquired tree and raise confirmed
     issues to ``verified`` confidence; they never change severity or close an issue. When
-    ``prove_python`` is set, the opt-in proof lane reproduces verified Python issues in a
-    disposable sandbox and raises reproduced ones to ``proven``.
+    ``prove_python`` or ``prove_runtimes`` is set, the opt-in proof lane reproduces verified issues
+    of each language with a runtime in a disposable sandbox and raises reproduced ones to
+    ``proven``.
     """
     source = acquirer.acquire(config.repository, config.revision)
     artifacts = config.work_root / "scans" / config.revision
@@ -196,9 +198,15 @@ async def run_scan_job(
     if verified:
         issues = build_issues(occurrences, catalog, replace(context, verifications=verified))
     proof_results: tuple[ProofResult, ...] = ()
-    if prove_python is not None:
+    proof_enabled = prove_python is not None or bool(prove_runtimes)
+    if proof_enabled:
         proof_results = await prove_issues(
-            source.path, issues, verifier_results, sandbox=sandbox, python=prove_python
+            source.path,
+            issues,
+            verifier_results,
+            sandbox=sandbox,
+            python=prove_python,
+            runtimes=prove_runtimes,
         )
         proven = proven_confidence(proof_results)
         if proven:
@@ -253,7 +261,7 @@ async def run_scan_job(
                     ],
                 },
                 "proof": {
-                    "enabled": prove_python is not None,
+                    "enabled": proof_enabled,
                     "results": [item.as_dict() for item in proof_results],
                 },
                 "verifiers": {

@@ -1,10 +1,12 @@
 """Run the weakness verifiers against the real-code verifier corpus and write a receipt.
 
 Each corpus source is acquired at its exact commit, read-only, with the same acquirer the scan job
-uses. The Python AST verifier runs in process on synthetic issues at the labeled locations. The
-taint rules run through the configured Opengrep or Semgrep engine with network metrics disabled.
-Neither path executes project code. Taint hits outside the labeled set are listed for review and
-never counted toward precision.
+uses. Expected-results label files are read from the acquired tree. The Python AST verifier runs
+in process on synthetic issues at the labeled locations; a whole-file label gets one synthetic
+issue per line, and any verified line counts. The taint rules run through the configured Opengrep
+or Semgrep engine with network metrics disabled; for a whole-file label any hit of the rule in the
+file counts. Neither path executes project code. Taint hits outside the labeled set are listed for
+review and never counted toward precision. The receipt reports every verifier per split.
 """
 
 from __future__ import annotations
@@ -23,9 +25,12 @@ from fdai.core.security.code_findings.canonical import AnalysisContext, build_is
 from fdai.core.security.code_findings.models import Lane, Occurrence, SourceLocation
 from fdai.core.security.code_findings.verifier import VerifierOutcome, verify_issues
 from fdai.core.security.code_findings.verifier_evaluation import (
+    SPLITS,
     LabeledLocation,
     LocationOutcome,
-    locations_from_mapping,
+    VerifierCorpus,
+    VerifierCorpusError,
+    load_verifier_corpus,
     verifier_metrics,
 )
 from fdai.delivery.code_security_acquire import GitSourceAcquirer
@@ -59,39 +64,62 @@ def _python_outcomes(
 ) -> dict[LabeledLocation, LocationOutcome]:
     if not locations:
         return {}
-    occurrences = []
-    for index, location in enumerate(locations):
+    sites: dict[LabeledLocation, list[int]] = {}
+    for location in locations:
+        if location.line is not None:
+            sites[location] = [location.line]
+            continue
+        try:
+            count = len((tree / location.path).read_bytes().splitlines())
+        except OSError:
+            count = 0
+        sites[location] = list(range(1, count + 1))
+    occurrences: list[Occurrence] = []
+    for location, lines in sites.items():
         entry = catalog.weakness_classes.classes[location.weakness_class]
-        occurrences.append(
+        occurrences.extend(
             Occurrence(
-                occurrence_id=f"label-{index}",
+                occurrence_id=f"label-{len(occurrences)}-{line}",
                 producer="verifier-corpus",
                 producer_version="1",
                 lane=Lane.DETERMINISTIC,
                 scan_digest="sha256:verifier-corpus",
                 revision=revision,
                 rule_id="label",
-                location=SourceLocation(location.path, location.line),
+                location=SourceLocation(location.path, line),
                 cwe_ids=(entry.cwe[0],),
             )
+            for line in lines
         )
     issues = build_issues(occurrences, catalog, AnalysisContext(revision=revision))
-    verifiers = load_verifier_catalog(catalog_root, frozenset(catalog.weakness_classes.classes))
-    results = {r.issue_id: r for r in verify_issues(tree, issues, verifiers, revision=revision)}
+    by_site = {
+        (issue.weakness_class, issue.fix_site.path, issue.fix_site.start_line): issue
+        for issue in issues
+    }
+    shipped = load_verifier_catalog(catalog_root, frozenset(catalog.weakness_classes.classes))
+    # Measure every Python verifier as if promoted; the receipt, not the current list, decides.
+    promotion = shipped.promotion.model_copy(
+        update={"promoted": tuple(f"python:{name}" for name in shipped.python.classes)}
+    )
+    verifiers = shipped.model_copy(update={"promotion": promotion})
+    batch = verifiers.limits.max_issues
+    results = {
+        r.issue_id: r.outcome
+        for start in range(0, len(issues), batch)
+        for r in verify_issues(tree, issues[start : start + batch], verifiers, revision=revision)
+    }
     outcomes: dict[LabeledLocation, LocationOutcome] = {}
-    for location in locations:
-        issue = next(
-            i
-            for i in issues
-            if i.fix_site.path == location.path and i.fix_site.start_line == location.line
-        )
-        result = results[issue.issue_id]
+    for location, lines in sites.items():
+        found = {
+            results[by_site[(location.weakness_class, location.path, line)].issue_id]
+            for line in lines
+        }
         outcomes[location] = (
             LocationOutcome.VERIFIED
-            if result.outcome is VerifierOutcome.VERIFIED
-            else LocationOutcome.UNSUPPORTED
-            if result.outcome is VerifierOutcome.UNSUPPORTED
+            if VerifierOutcome.VERIFIED in found
             else LocationOutcome.NOT_VERIFIED
+            if VerifierOutcome.NOT_VERIFIED in found
+            else LocationOutcome.UNSUPPORTED
         )
     return outcomes
 
@@ -149,10 +177,16 @@ def _taint_outcomes(
     }
     outcomes: dict[LabeledLocation, LocationOutcome] = {}
     labeled: set[tuple[str, str, int]] = set()
+    whole_files: set[tuple[str, str]] = set()
     for location in locations:
         rule = location.key.removeprefix("fdai.verify.")
-        labeled.add((rule, location.path, location.line))
-        if (rule, location.path, location.line) in hits:
+        if location.line is None:
+            whole_files.add((rule, location.path))
+            hit = any(item[:2] == (rule, location.path) for item in hits)
+        else:
+            labeled.add((rule, location.path, location.line))
+            hit = (rule, location.path, location.line) in hits
+        if hit:
             outcomes[location] = LocationOutcome.VERIFIED
         elif location.path in broken:
             outcomes[location] = LocationOutcome.UNSUPPORTED
@@ -161,22 +195,40 @@ def _taint_outcomes(
     unlabeled = [
         {"rule": f"fdai.verify.{rule}", "path": path, "line": line}
         for rule, path, line in sorted(hits - labeled)
+        if (rule, path) not in whole_files
     ]
     return outcomes, unlabeled
+
+
+def _expand_labels(
+    tree: Path, source_id: str, corpus: VerifierCorpus
+) -> tuple[LabeledLocation, ...]:
+    expanded: list[LabeledLocation] = []
+    for spec in corpus.expected_results:
+        if spec.source_id != source_id:
+            continue
+        label_file = (tree / spec.file).resolve()
+        if not label_file.is_relative_to(tree.resolve()) or not label_file.is_file():
+            raise VerifierCorpusError(f"{source_id}: expected-results file {spec.file} is missing")
+        expanded.extend(spec.expand(label_file.read_text(encoding="utf-8")))
+    return tuple(expanded)
 
 
 def evaluate_verifiers(args: argparse.Namespace) -> dict[str, object]:
     catalog_root = Path(args.catalog_root)
     catalog = load_code_security_catalog(catalog_root)
-    raw = yaml.safe_load(Path(args.corpus).read_text(encoding="utf-8"))
-    header, locations = locations_from_mapping(raw)
+    corpus = load_verifier_corpus(yaml.safe_load(Path(args.corpus).read_text(encoding="utf-8")))
     acquirer = GitSourceAcquirer(Path(args.work_root).resolve())
+    locations: list[LabeledLocation] = list(corpus.locations)
     outcomes: dict[LabeledLocation, LocationOutcome] = {}
     unlabeled: list[dict[str, object]] = []
-    for source in header["sources"]:  # type: ignore[attr-defined]
+    for source in corpus.header["sources"]:  # type: ignore[attr-defined]
         source_id = str(source["id"])
         acquired = acquirer.acquire(str(source["repository"]), str(source["commit"]))
-        mine = [location for location in locations if location.source_id == source_id]
+        expanded = _expand_labels(acquired.path, source_id, corpus)
+        locations.extend(expanded)
+        mine = [item for item in corpus.locations if item.source_id == source_id]
+        mine.extend(expanded)
         outcomes.update(
             _python_outcomes(
                 acquired.path,
@@ -197,14 +249,20 @@ def evaluate_verifiers(args: argparse.Namespace) -> dict[str, object]:
     metrics = verifier_metrics(
         locations,
         outcomes,
-        precision_floor=float(header["precision_floor"]),  # type: ignore[arg-type]
-        min_true_positives=int(header["min_true_positives"]),  # type: ignore[call-overload]
+        precision_floor=corpus.precision_floor,
+        min_true_positives=corpus.min_true_positives,
     )
     receipt: dict[str, object] = {
         "ok": True,
         "kind": "fdai.code-security.verifier-evaluation-receipt",
-        "corpus": header,
+        "corpus": corpus.header,
         "evaluated_at": datetime.now(UTC).isoformat(),
+        "promotion_rule": {
+            "precision_floor": corpus.precision_floor,
+            "min_true_positives": corpus.min_true_positives,
+            "splits": list(SPLITS),
+        },
+        "labels": {split: sum(1 for item in locations if item.split == split) for split in SPLITS},
         "verifiers": [item.as_dict() for item in metrics],
         "promoted": sorted(item.key for item in metrics if item.promoted),
         "shadow": sorted(item.key for item in metrics if not item.promoted),
