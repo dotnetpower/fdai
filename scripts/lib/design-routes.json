@@ -201,7 +201,8 @@
         "console/src/routes/code-security.test.ts",
         "console/tests/e2e/code-security-responsive.spec.ts",
         "services/core-control-plane/src/fdai/delivery/persistence/state_store_code_security_registry.py",
-        "services/core-control-plane/tests/delivery/test_code_security_state_registry.py"
+        "services/core-control-plane/tests/delivery/test_code_security_state_registry.py",
+        "services/core-control-plane/tests/delivery/test_code_security_prove.py"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",

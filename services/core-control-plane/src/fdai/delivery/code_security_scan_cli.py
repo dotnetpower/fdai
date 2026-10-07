@@ -45,6 +45,12 @@ def add_scan_command(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -
     scan.add_argument("--bwrap", default="/usr/bin/bwrap")
     scan.add_argument("--kafka-bootstrap-servers")
     scan.add_argument(
+        "--prove",
+        action="store_true",
+        help="opt in to the proof lane: run verified Python findings in a disposable sandbox",
+    )
+    scan.add_argument("--prove-python", default="/usr/bin/python3")
+    scan.add_argument(
         "--record-state",
         action="store_true",
         help="record the review for the Console in the state store from FDAI_STATE_STORE_DSN",
@@ -103,6 +109,7 @@ async def run_scan(args: argparse.Namespace) -> dict[str, object]:
         "verified": sum(1 for item in result.verifier_results if item.outcome.value == "verified"),
         "published": result.published,
         "recorded": recorded,
+        "proven": sum(1 for item in result.proof_results if item.outcome == "proven"),
         "artifact_dir": str(result.artifact_dir),
         "export_sarif_args": list(sarif_specs(result)),
     }
@@ -177,6 +184,7 @@ async def _run(
         lens_catalog=lens_catalog,
         lens_models=lens_models,
         verifier_catalog=load_verifier_catalog(catalog_root, known),
+        prove_python=Path(args.prove_python).resolve() if args.prove else None,
     )
 
 

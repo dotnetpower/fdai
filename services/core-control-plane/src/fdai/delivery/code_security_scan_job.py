@@ -43,6 +43,7 @@ from fdai.core.security.code_findings.verifier import (
     verify_issues,
 )
 from fdai.delivery.code_security_acquire import GitSourceAcquirer
+from fdai.delivery.code_security_prove import ProofResult, prove_issues, proven_confidence
 from fdai.delivery.code_security_sandbox import BubblewrapScannerSandbox, ScannerRunResult
 from fdai.rule_catalog.code_security import CodeSecurityCatalog, Exposure
 from fdai.rule_catalog.code_security_lenses import LensCatalog
@@ -83,6 +84,7 @@ class ScanJobResult:
     sarif_files: tuple[Path, ...]
     lens_report: LensLaneReport | None = None
     verifier_results: tuple[VerifierResult, ...] = ()
+    proof_results: tuple[ProofResult, ...] = ()
 
 
 async def run_scan_job(
@@ -96,13 +98,16 @@ async def run_scan_job(
     lens_catalog: LensCatalog | None = None,
     lens_models: Sequence[CodeSecurityLensModel] = (),
     verifier_catalog: VerifierCatalog | None = None,
+    prove_python: Path | None = None,
 ) -> ScanJobResult:
     """Run the deterministic lane, and the optional LLM lens lane, for one revision.
 
     Lens findings are inert hypotheses. Lens gaps are recorded as lens notes, not as
     deterministic coverage limits, because the lens lane is optional. When a verifier catalog is
     given, deterministic weakness verifiers run on the same acquired tree and raise confirmed
-    issues to ``verified`` confidence; they never change severity or close an issue.
+    issues to ``verified`` confidence; they never change severity or close an issue. When
+    ``prove_python`` is set, the opt-in proof lane reproduces verified Python issues in a
+    disposable sandbox and raises reproduced ones to ``proven``.
     """
     source = acquirer.acquire(config.repository, config.revision)
     artifacts = config.work_root / "scans" / config.revision
@@ -184,9 +189,19 @@ async def run_scan_job(
         verifier_results += verify_issues(
             source.path, issues, verifier_catalog, revision=config.revision
         )
-    verified = verified_confidence(verifier_results)
+    verified = dict(verified_confidence(verifier_results))
     if verified:
         issues = build_issues(occurrences, catalog, replace(context, verifications=verified))
+    proof_results: tuple[ProofResult, ...] = ()
+    if prove_python is not None:
+        proof_results = await prove_issues(
+            source.path, issues, verifier_results, sandbox=sandbox, python=prove_python
+        )
+        proven = proven_confidence(proof_results)
+        if proven:
+            issues = build_issues(
+                occurrences, catalog, replace(context, verifications={**verified, **proven})
+            )
     receipt = build_receipt(
         config.revision,
         catalog.version_stamp(),
@@ -220,6 +235,10 @@ async def run_scan_job(
                     "model_calls": lens_report.model_calls if lens_report else 0,
                     "notes": lens_notes,
                 },
+                "proof": {
+                    "enabled": prove_python is not None,
+                    "results": [item.as_dict() for item in proof_results],
+                },
                 "verifiers": {
                     "catalog": (
                         f"{verifier_catalog.catalog_id}@{verifier_catalog.version}"
@@ -248,6 +267,7 @@ async def run_scan_job(
         sarif_files=tuple(sarif_files),
         lens_report=lens_report,
         verifier_results=verifier_results,
+        proof_results=proof_results,
     )
 
 

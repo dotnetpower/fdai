@@ -9,13 +9,14 @@ revision, runs deterministic scanners in an isolated sandbox, and records honest
 results feed the canonical issue model, severity, priority, and remediation packs described in
 [Code Security Findings](code-security-findings.md).
 
-> **Scope:** Scanning reads code and produces evidence. It never edits the repository, never runs
-> code from the repository, and never contacts the network after acquisition. Scanner findings are
-> inert until the review flow and a person decide what to do.
+> **Scope:** Scanning reads code and produces evidence. It never edits the repository and never
+> contacts the network after acquisition. It runs repository code only in the opt-in
+> [proof lane](#proof-lane-opt-in), inside a disposable sandbox with recording hooks in place of
+> every sink. Scanner findings are inert until the review flow and a person decide what to do.
 
 > **Status:** The deterministic lane (acquisition, sandbox, scanner catalog, FDAI rule pack, scan
-> job, and CLI), the off-path LLM lens lane, and the Python weakness verifiers are implemented.
-> See the
+> job, and CLI), the off-path LLM lens lane, the Python and taint weakness verifiers with their
+> promotion gate, and the opt-in Python proof lane are implemented. See the
 > [implementation ledger](../../roadmap-implementation/operations/code-security-scanning.md).
 
 ## Design at a glance
@@ -207,6 +208,34 @@ shadow. Rules without real-code evidence, such as the command injection rules, a
 shadow. The corpus informed rule development and samples are small, so it isn't a held-out
 benchmark.
 
+## Proof lane (opt-in)
+
+The proof lane is the dynamic step: it reproduces a finding instead of reasoning about it. It's
+off by default and runs only with `scan --prove`, only for Python issues a promoted verifier
+already marked `verified`, and only for command injection, code injection, unsafe
+deserialization, SQL injection, and path traversal.
+
+A standard-library harness runs on the sandbox's system Python inside the same bubblewrap
+sandbox as the scanners: no network, no credentials, a cleared environment, a read-only source,
+and CPU, memory, file-size, and time limits. It imports the fix-site module, resolving
+unavailable third-party imports to inert stubs, and replaces each sink with a recording hook
+that never performs the real command, evaluation, deserialization, query, or file access. It then
+calls the enclosing function with a class-specific payload in every request field and
+parameter. The issue is `proven` only when the payload reaches the sink in an exploitable shape:
+
+| Class | Payload | Proven when |
+|-------|---------|-------------|
+| Command injection | `x;` and a marker | A shell-aware lexer sees a command separator followed by the marker |
+| Code injection | The marker | The evaluated text parses with the marker as a name, not a string |
+| SQL injection | `x'` and the marker | The quote before the marker survives without escaping |
+| Path traversal | `../../` and the marker | The traversal reaches the file operation intact |
+| Unsafe deserialization | Encoded marker bytes | Attacker bytes reach the loader |
+
+Quoting, escaping, parameterized queries, `basename`, or a failing import therefore leave the issue
+`verified`. On pygoat at its pinned commit, all nine verified issues were proven. The test suite
+runs the same harness against safe variants, including `shlex.quote`, `repr`, parameterized
+`sqlite3`, and `basename`, and requires every one to stay unproven.
+
 ## Failure behavior
 
 | Condition | Outcome |
@@ -221,6 +250,7 @@ benchmark.
 | Unsupported language or class, oversized, unparsable, or escaping file | Verifier result `unsupported`; confidence unchanged |
 | Sink missing, sanitized, validated, or unreachable | Verifier result `not_verified` with a reason; confidence unchanged |
 | Verifier hit from an unpromoted verifier | Result `not_verified` with `verifier_in_shadow`; confidence unchanged |
+| Proof import failure, timeout, or no exploitable payload at the sink | Result `not_proven` with a reason; confidence stays `verified` |
 
 ## Verification
 

@@ -1,7 +1,7 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 83f7c5296fde46b3e5efab6a0d850a5926bbd3c1
+translation_source_sha: 6b2c8ec4da6211890ae756df5c28e007be0bfddd
 translation_revised: 2026-10-07
 ---
 
@@ -171,6 +171,10 @@ fresh effective-access 근거가 있어야 액션을 처음부터 다시 평가�
 - **코드 보안 LLM 렌즈**: 선택 사항인 렌즈 레인은 범위가 제한된 소스 발췌를 설정된 모델 배포로
   보내므로 같은 데이터 상주와 no-retention 조건이 적용됩니다. 출력은 신뢰하지 않으며, 근거가
   확인되고 정족수가 합의한 후보만 비활성 가설이 됩니다.
+- **코드 보안 입증 레인**: FDAI가 저장소 코드를 실행하는 유일한 곳입니다. 스캔마다 선택해야 하고,
+  결정론적 검증기가 이미 확인한 이슈로 제한되며, 네트워크·자격 증명이 없고 환경이 비워진 일회용
+  bubblewrap 샌드박스에서 읽기 전용 소스와 자원 한도를 두고 실행됩니다. 모든 싱크는 기록만 하는
+  후크이므로 입증 과정에서 실제 효과는 일어나지 않습니다.
 
 ## 네트워크 경계
 

@@ -347,6 +347,68 @@ async def test_scan_job_verifier_raises_confirmed_lens_candidate(tmp_path: Path)
     assert receipt["verifiers"]["results"][0]["outcome"] == "verified"
 
 
+@needs_bwrap
+async def test_scan_job_proof_lane_raises_verified_issue_to_proven(tmp_path: Path) -> None:
+    from fdai.rule_catalog.code_security_lenses import load_lens_catalog
+    from fdai.rule_catalog.code_security_verifiers import load_verifier_catalog
+    from fdai.shared.providers.code_security_lens import (
+        LensFinding,
+        LensModelIdentity,
+        LensRequest,
+        LensResponse,
+    )
+
+    class _Model:
+        def __init__(self, family: str) -> None:
+            self.identity = LensModelIdentity(family, family)
+
+        async def review(self, request: LensRequest) -> LensResponse:
+            hits = (
+                (LensFinding(5, 78, "high", "shell command from request"),)
+                if request.lens_id == "command-injection"
+                else ()
+            )
+            return LensResponse(findings=hits, model=self.identity)
+
+    repo = tmp_path / "origin"
+    (repo / "src").mkdir(parents=True)
+    _git(tmp_path, "init", "-q", "-b", "main", str(repo))
+    _git(repo, "config", "uploadpack.allowAnySHA1InWant", "true")
+    (repo / "src" / "app.py").write_text(
+        "import os\nfrom flask import request\n\ndef run():\n    os.system(request.args['cmd'])\n"
+    )
+    _git(repo, "add", "-A")
+    _git(repo, "commit", "-q", "-m", "initial")
+    revision = _git(repo, "rev-parse", "HEAD")
+    catalog = load_code_security_catalog(_CATALOG)
+    result = await run_scan_job(
+        ScanJobConfig(
+            repository=str(repo),
+            revision=revision,
+            repository_alias="example-service",
+            work_root=tmp_path / "work",
+            executables={},
+            rules_dir=_CATALOG / "rules",
+        ),
+        catalog=catalog,
+        scanners=load_scanner_catalog(_CATALOG),
+        acquirer=GitSourceAcquirer(tmp_path / "work"),
+        sandbox=BubblewrapScannerSandbox(),
+        lens_catalog=load_lens_catalog(_CATALOG),
+        lens_models=[_Model("family-a"), _Model("family-b")],
+        verifier_catalog=load_verifier_catalog(
+            _CATALOG, frozenset(catalog.weakness_classes.classes)
+        ),
+        prove_python=Path("/usr/bin/python3").resolve(),
+    )
+    (issue,) = result.issues
+    assert issue.confidence.value == "proven"
+    (proof,) = result.proof_results
+    assert proof.outcome == "proven" and proof.sink == "os.system"
+    receipt = json.loads((result.artifact_dir / "receipt.json").read_text())
+    assert receipt["proof"]["enabled"] is True
+
+
 def test_verifier_evaluation_runs_both_verifiers_on_a_pinned_source(tmp_path: Path) -> None:
     import argparse
 
