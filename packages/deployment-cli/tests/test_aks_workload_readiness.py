@@ -74,15 +74,20 @@ def test_receipt_binding_renders_core_and_operator_configuration() -> None:
     }
 
 
-def test_receipt_binding_reads_the_versionless_resource_ids_the_shared_root_outputs() -> None:
+def test_receipt_binding_renders_plan_stable_versionless_ids() -> None:
     block = _block(
         (_INFRA / "outputs.tf").read_text(encoding="utf-8"),
         'output "operator_request_receipt_binding"',
     )
-    for field in ("core_signing_seed_secret_id", "operator_signing_seed_secret_id"):
-        assert re.search(
-            rf"{field}\s*=\s*azurerm_key_vault_secret\.\S+\.resource_versionless_id", block
-        )
+    assert (
+        'core_signing_seed_secret_id     = "https://${local.key_vault_name}.vault.azure.net/'
+        'secrets/fdai-operator-request-core-signing-seed"' in block
+    )
+    assert (
+        'operator_signing_seed_secret_id = "https://${local.key_vault_name}.vault.azure.net/'
+        'secrets/fdai-operator-request-operator-signing-seed"' in block
+    )
+    assert "resource_versionless_id" not in block
 
 
 @pytest.mark.parametrize(
