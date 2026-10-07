@@ -328,9 +328,11 @@ def _stored_optional_output_string(outputs: dict[str, Any], name: str) -> str | 
     if output is None:
         return None
     value = output.get("value") if isinstance(output, dict) else None
+    if value is None or value == "":
+        return None
     if not isinstance(value, str) or "\n" in value:
         raise DriftContractError(f"platform state contains an invalid {name} output")
-    return value or None
+    return value
 
 
 def _stored_openai_capabilities(root: dict[str, Any]) -> list[dict[str, Any]]:
