@@ -357,7 +357,13 @@ most 16 members.
   window and a 128-member budget, ranking complete values by Resource identifier for ties. A list
   keeps one typed unknown per unmeasured member; stopped reads remain incomplete. V-PROV re-derives
   selection arguments, V-SEM rejects unread filters, and review accounts for comparison and order
-  spans. Metric evidence stays scoped; qualitative recipes, continuation, and live gold remain open.
+  spans. Metric evidence stays scoped; continuation and live gold remain open.
+- **Recipes:** A metric filter may carry a `high` or `low` qualifier with its quoted word instead of
+  a number. The metric registry holds reviewed recipes per concept, carried in the manifest under its
+  digest: CPU utilization `high` reads above 80 percent over the stated or default window, after the
+  Azure Monitor recommended VM alert, and `low` reads below 5 percent over 7 days when no period is
+  stated. The answer states the applied threshold and window. A qualifier without a reviewed recipe
+  holds as `metric_classification_unavailable`, and V-PROV re-derives the recipe arguments.
 
 ### E12 Relations anchored on a collection
 
@@ -378,8 +384,11 @@ walks one attributable relation side.
   relation coverage for that anchor; otherwise it is `UNKNOWN_INCOMPLETE`, and hidden endpoints are
   never read as absence.
 - **Verify:** V-SEM re-derives the anchor kind and relation side, rejects a traversal from another
-  kind, and requires the anchor table as an output. Per-anchor coverage receipts and negative-claim
-  verification remain open.
+  kind, and requires the anchor table as an output.
+- **Coverage:** Each lineage read also lists one coverage row for every anchor with no related
+  member: `verified_empty` only when the read that covered that anchor was complete, and
+  `unknown_incomplete` when it was cut or left unread by the read budget. V-SEM requires the coverage
+  rows, so no answer presents an anchor as unrelated without that evidence.
 
 ### Status matrix for E10 to E12
 

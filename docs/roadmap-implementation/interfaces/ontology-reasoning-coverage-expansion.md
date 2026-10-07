@@ -65,6 +65,7 @@ earlier history stays in that ledger.
 | 2026-10-08 | in-progress | Let a collection anchor read every reviewed side of its sense: one lineage traversal per side, at most three sides per plan with the anchors listed in each, and each lineage row naming its LinkType; V-SEM checks every traversal, and the existing side check re-derives the full side set. A question such as which VM each network interface is attached to now compiles. | `test_semantic_reasoning_collection_relations.py` | E12 per-anchor coverage receipts and negative-claim checks; P2; P3. |
 | 2026-10-08 | in-progress | A second live run answered each resource group's VMs completely with 26 of 26 pairs through batched lineage. Two defects surfaced and were fixed: the population manifest digest exceeded the 64 KiB canonical JSON cap for a 1,176-member population, failing an unfiltered Resource count, and is now a length-prefixed stream digest; and a large first output left later outputs no room, so the renderer rejected the answer, and each output now reserves room for the outputs after it. Which VM each network interface is attached to compiled and read 33 pairs, but the relationship source reported `inventory_relationship_incomplete`, and a later inventory refresh held the anchors as `inventory_observation_pending`. | Session-local live runs; `test_query_gateway.py`; `test_semantic_turn_processor.py` | Live confirmation of the network-interface answer after the inventory settles; E12 per-anchor coverage receipts; P2; P3. |
 | 2026-10-08 | in-progress | A third live run after both fixes answered all five E12 and P1 questions: each resource group's VMs with 26 of 26 pairs, an exact Resource count of 1,176 from the population receipt, 31 managed disks, and which VM each network interface is attached to with 33 pairs over two reviewed sides. One run of the network-interface wording asked a clarification instead, which is reading variance. | Session-local live runs | E12 per-anchor coverage receipts and negative-claim checks; P2; P3. |
+| 2026-10-08 | in-progress | Added E12 per-anchor coverage rows: each collection-anchored lineage read lists every anchor with no related member as `verified_empty` only when its covering read was complete, and as `unknown_incomplete` when cut or left unread; V-SEM requires them. Added E11 qualitative recipes: a `high` or `low` qualifier reads through reviewed per-concept recipes in the metric registry and manifest, the answer states the applied threshold and window, a missing recipe holds as `metric_classification_unavailable`, and V-PROV re-derives the recipe arguments. | `test_semantic_reasoning_collection_relations.py`; `test_semantic_reasoning_metric_selection.py` | E11 continuation and live gold; P2; P3. |
 
 ### Remaining work
 
@@ -82,11 +83,11 @@ earlier history stays in that ledger.
   verification.
 - [x] E11: the typed metric comparison, a pinned absolute window, and a member-read budget with a
   typed stop on throttling.
-- [ ] E11: reviewed qualitative recipes, a continuation after a stopped read, and live gold over
-  the bank's metric questions.
+- [x] E11: reviewed qualitative recipes for high and low metric words.
+- [ ] E11: a continuation after a stopped read, and live gold over the bank's metric questions.
 - [x] E12: the collection-anchor shape, one-hop lineage plan, anchor table output, and V-SEM kind
   and side verification.
-- [ ] E12: per-anchor relation coverage receipts and verified empty/unknown negative claims.
+- [x] E12: per-anchor relation coverage receipts and verified empty/unknown negative claims.
 - [ ] Finish R2: enforce interim operand-provenance and instance-versus-schema checks on the current
   path, with zero invented identity literals and zero schema answers to instance targets on both
   corpora.

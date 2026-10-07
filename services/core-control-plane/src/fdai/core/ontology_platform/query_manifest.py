@@ -77,6 +77,9 @@ class QueryManifest:
     metric_labels: tuple[tuple[str, str], ...] = ()
     # Each offered metric concept's canonical unit, so a stated threshold unit is checked.
     metric_units: tuple[tuple[str, str], ...] = ()
+    # Reviewed qualitative recipes of offered metric concepts: (concept, qualifier,
+    # comparator, threshold, window seconds or 0).
+    metric_recipes: tuple[tuple[str, str, str, int, int], ...] = ()
     # Reviewed Resource Health concepts and their provider values under the same binding.
     health_labels: tuple[tuple[str, tuple[str, ...]], ...] = ()
     # Reviewed Property semantics a property measure may read; bound by the digest too.
@@ -100,6 +103,7 @@ def build_query_manifest(
     health_labels: Mapping[str, Sequence[str]] | None = None,
     property_reads: Sequence[ReviewedPropertyRead] = (),
     metric_units: Mapping[str, str] | None = None,
+    metric_recipes: Sequence[tuple[str, str, str, int, int]] = (),
 ) -> QueryManifest:
     """Project every readable declaration or one typed unavailable record.
 
@@ -184,6 +188,13 @@ def build_query_manifest(
     metrics = tuple(sorted((metric_labels or {}).items())) if _METRIC_READER in readers else ()
     offered = {concept for concept, _label in metrics}
     units = tuple(sorted(item for item in (metric_units or {}).items() if item[0] in offered))
+    recipes = tuple(
+        sorted(
+            (str(a), str(b), str(c), int(d), int(e))
+            for a, b, c, d, e in metric_recipes
+            if a in offered
+        )
+    )
     health = (
         tuple(sorted((concept, tuple(values)) for concept, values in (health_labels or {}).items()))
         if _HEALTH_READER in readers
@@ -204,6 +215,7 @@ def build_query_manifest(
         "mutation_authority": False,
         **({"metric_labels": [list(item) for item in metrics]} if metrics else {}),
         **({"metric_units": [list(item) for item in units]} if units else {}),
+        **({"metric_recipes": [list(item) for item in recipes]} if recipes else {}),
         **({"health_labels": [[key, list(values)] for key, values in health]} if health else {}),
         **(
             {"property_reads": [item.payload() for item in readable_reads]}
@@ -244,6 +256,7 @@ def build_query_manifest(
         object_labels=tuple(sorted(object_labels)),
         metric_labels=metrics,
         metric_units=units,
+        metric_recipes=recipes,
         health_labels=health,
         property_reads=readable_reads,
     )

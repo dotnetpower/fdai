@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+import pytest
 from fdai.core.conversation.semantic_reasoning_compiler import (
     GoalStatus,
     compile_question_form,
@@ -99,11 +100,20 @@ def _ranked(utterance: str, *, limit: int | None = None) -> dict[str, Any]:
     }
 
 
+_RECIPES = ((_CPU, "high", "gt", 80, 0), (_CPU, "low", "lt", 5, 604_800))
+
+
 def _compile(
-    utterance: str, form: dict[str, Any], *, units: tuple[tuple[str, str], ...] = _UNITS
+    utterance: str,
+    form: dict[str, Any],
+    *,
+    units: tuple[tuple[str, str], ...] = _UNITS,
+    recipes: tuple[tuple[str, str, str, int, int], ...] = _RECIPES,
 ) -> Any:
     admission = admitted(form, utterance)
-    manifest = production_manifest(metric_labels=_LABELS, metric_units=units)
+    manifest = production_manifest(
+        metric_labels=_LABELS, metric_units=units, metric_recipes=recipes
+    )
     compilation = compile_question_form(
         admission,
         concepts=_RECEIPT,
@@ -218,3 +228,75 @@ def test_verification_rejects_a_dropped_threshold_and_counted_unknown_members() 
         for item in violations((collection, widened, count))
     )
     assert "sem_metric_unknown_counted" in violations((collection, counted, count))
+
+
+def _qualified(utterance: str, word: str, qualifier: str) -> dict[str, Any]:
+    # Start from a threshold form and replace its comparison with the stated word.
+    form = _threshold("Which VMs have CPU above 90%?")
+    form["goals"][0]["filters"] = [
+        {
+            "role": "metric",
+            "mention": "m2",
+            "qualifier": qualifier,
+            "qualifier_span": span(utterance, word),
+        }
+    ]
+    form["mentions"][0]["span"] = span(utterance, "VMs")
+    form["mentions"][1]["span"] = span(utterance, "CPU")
+    form["goals"][0]["cue"] = span(utterance, "Which")
+    return form
+
+
+def test_a_qualitative_word_reads_through_its_reviewed_recipe_and_states_it() -> None:
+    utterance = "Which VMs have high CPU?"
+    goal, _admission, _manifest = _compile(utterance, _qualified(utterance, "high", "high"))
+
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    arguments = _metric_arguments(goal)
+    assert (arguments["comparator"], arguments["threshold"], arguments["threshold_unit"]) == (
+        "gt",
+        "80",
+        "percent",
+    )
+    assert "metric_recipe.high.gt.80.percent" in goal.batches[0].frame.evidence_requirements
+
+
+def test_a_low_use_recipe_reads_its_own_window_when_none_is_stated() -> None:
+    utterance = "Which VMs have low CPU?"
+    goal, _admission, _manifest = _compile(utterance, _qualified(utterance, "low", "low"))
+
+    assert goal.status is GoalStatus.COMPILED, goal.reasons
+    assert _metric_arguments(goal)["window_seconds"] == 604_800
+    assert "window.recipe.604800" in goal.batches[0].frame.evidence_requirements
+
+
+def test_a_qualitative_word_without_a_reviewed_recipe_holds() -> None:
+    utterance = "Which VMs have high CPU?"
+    goal, _admission, _manifest = _compile(
+        utterance, _qualified(utterance, "high", "high"), recipes=()
+    )
+
+    assert goal.status is GoalStatus.UNSUPPORTED
+    assert goal.reasons == ("metric_classification_unavailable",)
+
+
+def test_the_recipe_notice_states_the_applied_threshold() -> None:
+    from fdai_core_service.semantic_verified_rows import with_stated_notices
+
+    answer = with_stated_notices(
+        "## Verified result\nrows", ("metric_recipe.high.gt.80.percent",), locale="ko"
+    )
+
+    assert "'높음'을(를) 검토된 기준인 80% 초과" in answer
+
+
+def test_a_metric_filter_states_a_number_or_a_qualifier_never_both() -> None:
+    from fdai.core.conversation.semantic_reasoning_form import SemanticQuestionForm
+    from pydantic import ValidationError
+
+    utterance = "Which VMs have high CPU above 90%?"
+    form = _threshold(utterance)
+    form["goals"][0]["filters"][0].update(qualifier="high", qualifier_span=span(utterance, "high"))
+
+    with pytest.raises(ValidationError, match="number or a qualifier"):
+        SemanticQuestionForm.model_validate(form)

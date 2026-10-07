@@ -140,6 +140,8 @@ def verify_goal_semantics(
     evaluation_time: datetime | None = None,
     property_reads: tuple[ReviewedPropertyRead, ...] = (),
     health_concepts: tuple[str, ...] = (),
+    metric_recipes: tuple[tuple[str, str, str, int, int], ...] = (),
+    metric_units: tuple[tuple[str, str], ...] = (),
 ) -> tuple[str, ...]:
     """Return every V-SEM, V-PROV, and V-LEVEL violation for one goal.
 
@@ -156,6 +158,8 @@ def verify_goal_semantics(
         goal, admission=admission, concepts=concepts, anchors=anchors or AnchorBindingReceipt()
     )
     allow_listed_measure(goal, allowed, health_concepts)
+    allowed.metric_recipes = metric_recipes
+    allowed.metric_units = dict(metric_units)
     readable_properties = property_ops.readable_resource_properties(
         tuple(dict(item) for item in descriptors)
     )
@@ -234,6 +238,9 @@ class _Allowed:
         self.regions: set[str] = set()
         self.property_fields: tuple[str, ...] | None = None
         self.relation_object_type = False
+        # Reviewed qualitative recipes and canonical units a metric word may read through.
+        self.metric_recipes: tuple[tuple[str, str, str, int, int], ...] = ()
+        self.metric_units: dict[str, str] = {}
         # The reviewed type values of a collection anchor's kind, which the relation starts from.
         self.collection_anchor_types: tuple[str, ...] | None = None
         # The rows an earlier answer showed, when an anaphor makes them the goal's subject.
@@ -494,6 +501,8 @@ def _function_violations(
             goal,
             maximum_window_seconds=_declared_maximum(descriptors, name, "window_seconds"),
             concepts=allowed.metric_concepts,
+            recipes=allowed.metric_recipes,
+            units=allowed.metric_units,
         )
     else:
         return [f"prov_unexpected_function:{node.node_id}:{name}"]

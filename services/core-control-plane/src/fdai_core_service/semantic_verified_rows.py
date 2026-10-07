@@ -111,6 +111,10 @@ _WINDOW_NOTICES = {
         "조회 기간: 질문의 표현에서 판단한 최근 {span}",
         "Read window: the last {span}, as judged from the question's wording.",
     ),
+    "recipe": (
+        "조회 기간: 기간을 밝히지 않아 검토된 판단 기준의 기간인 최근 {span}",
+        "Read window: no period was stated, so the reviewed recipe's window, the last {span}.",
+    ),
     "fixed": (
         "조회 기간: 상태 이상 평가의 검토된 고정 기간인 최근 {span}",
         "Read window: the last {span}, the reviewed fixed window of the health assessment.",
@@ -155,6 +159,38 @@ _FIXED_NOTICES = {
 }
 
 
+_RECIPE_NOTICE = (
+    "판단 기준: 수치 없이 말한 '{word}'을(를) 검토된 기준인 {threshold}{unit} {comparator}으로 "
+    "적용했습니다. 다른 기준이 필요하면 수치를 밝혀 주세요.",
+    "Threshold: '{word}' was stated without a number, so the reviewed recipe, {comparator} "
+    "{threshold}{unit}, was applied. State a number for another threshold.",
+)
+_RECIPE_WORDS = {"high": ("높음", "high"), "low": ("낮음", "low")}
+_RECIPE_COMPARATORS = {
+    "gt": ("초과", "above"),
+    "ge": ("이상", "at least"),
+    "lt": ("미만", "below"),
+    "le": ("이하", "at most"),
+}
+_RECIPE_UNITS = {"percent": ("%", "%"), "ms": ("ms", " ms"), "count": ("", "")}
+
+
+def _recipe_notice(requirement: str, *, korean: bool) -> str | None:
+    parts = requirement.removeprefix("metric_recipe.").split(".")
+    if len(parts) != 4 or not parts[2].isdigit():
+        return None
+    qualifier, comparator, threshold, unit = parts
+    word = _RECIPE_WORDS.get(qualifier)
+    relation = _RECIPE_COMPARATORS.get(comparator)
+    if word is None or relation is None:
+        return None
+    index = 0 if korean else 1
+    suffix = _RECIPE_UNITS.get(unit, (f" {unit}", f" {unit}"))[index]
+    return _RECIPE_NOTICE[index].format(
+        word=word[index], threshold=threshold, unit=suffix, comparator=relation[index]
+    )
+
+
 def with_stated_notices(answer: str, requirements: tuple[str, ...], *, locale: str) -> str:
     """Insert the reviewed notices a compiled frame requires right after the answer heading."""
 
@@ -164,6 +200,11 @@ def with_stated_notices(answer: str, requirements: tuple[str, ...], *, locale: s
         fixed = _FIXED_NOTICES.get(requirement)
         if fixed is not None:
             notices.append(fixed[0] if korean else fixed[1])
+            continue
+        if requirement.startswith("metric_recipe."):
+            recipe = _recipe_notice(requirement, korean=korean)
+            if recipe is not None:
+                notices.append(recipe)
             continue
         compared = requirement.removeprefix("window.compared.").split(".")
         if requirement.startswith("window.compared.") and len(compared) == 2:

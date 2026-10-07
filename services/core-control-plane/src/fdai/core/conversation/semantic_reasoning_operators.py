@@ -387,7 +387,7 @@ def _collection_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
                     measure_concepts=(
                         () if goal.effective_operation is GoalOperation.COUNT else (metric.concept,)
                     ),
-                    evidence_requirements=(metric.evidence_requirement,),
+                    evidence_requirements=metric.evidence_requirements,
                 ),
             ),
             limitations=(metric.limitation,),
