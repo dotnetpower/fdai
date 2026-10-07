@@ -175,6 +175,11 @@ refresh plan can prove them without an apply-time unknown.
 The installation anchor uses Terraform's plan timestamp with ignored input changes. The first
 apply still records one immutable installation time, while later plans can prove the retained
 binding and timestamp without an apply-time unknown.
+The Terraform data provider can nevertheless project those two retained outputs as unknown during
+a refresh-only plan. Drift summarization treats only an update of
+`installation_binding` or `installation_created_at` with a retained non-empty prior value and an
+unknown next value as plan noise for the legacy root. Another root, output, action, concrete value
+change, resource drift, or move remains drift.
 Before the bootstrap plan, it independently reads the runner VM and requires the reviewed size,
 `Local` `ResourceDisk` placement, and no managed OS disk. A mismatch reports the blue/green
 replacement action and fails without changing Azure state. The ephemeral profile stays allocated;
