@@ -14,6 +14,7 @@ from fdai.agents import (
     ForsetiBaselineScheduler,
     ForsetiBaselineWorker,
 )
+from fdai.core.rule_activation import StateStoreRuleActivationLedger
 from fdai.core.tiers.t0_deterministic import RuleGenerationSnapshot
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventorySnapshotStoreConfig,
@@ -21,6 +22,7 @@ from fdai.delivery.persistence.postgres_inventory_snapshot import (
 from fdai.delivery.persistence.postgres_promoted_inventory_reader import (
     PostgresPromotedInventoryGenerationReader,
 )
+from fdai.runtime.bootstrap_core_model import assurance_twin_inventory_dsn
 from fdai.shared.providers.state_store import StateStore
 
 BASELINE_EVALUATION_ENABLED_ENV = "FDAI_BASELINE_EVALUATION_ENABLED"
@@ -39,16 +41,17 @@ class _RuleGenerationRuntime(Protocol):
 
 
 def bind_forseti_baseline_worker(
-    *,
-    agents: Mapping[str, Any] | None,
+    pantheon: Any | None,
     state_store: StateStore | None,
-    activation_ledger: _ActivationLedger,
     runtime: _RuleGenerationRuntime,
-    inventory_dsn: str | None,
     environment: Mapping[str, str],
+    *,
+    activation_ledger: _ActivationLedger | None = None,
 ) -> ForsetiBaselineScheduler | None:
     """Bind the shadow-only baseline worker to Forseti, or return ``None`` without inputs."""
 
+    agents: Mapping[str, Any] | None = getattr(pantheon, "agents", None)
+    inventory_dsn = assurance_twin_inventory_dsn(environment)
     if environment.get(BASELINE_EVALUATION_ENABLED_ENV, "true").strip().lower() in {
         "0",
         "false",
@@ -69,7 +72,9 @@ def bind_forseti_baseline_worker(
         reader=PostgresPromotedInventoryGenerationReader(
             config=PostgresInventorySnapshotStoreConfig(dsn=str(inventory_dsn))
         ),
-        activation_source=activation_ledger.current_generation,
+        activation_source=(
+            activation_ledger or StateStoreRuleActivationLedger(store=state_store)
+        ).current_generation,
         rule_snapshot_source=runtime.rule_generation_snapshot,
         owner=f"forseti:{os.getpid()}",
         limits=BaselineWorkerLimits(

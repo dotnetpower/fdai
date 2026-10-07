@@ -108,7 +108,10 @@ from fdai.runtime.rule_activation import (
     build_rule_activation_generation,
     reconcile_rule_activation,
 )
-from fdai.runtime.rule_activation_transport import build_rule_activation_consumer
+from fdai.runtime.rule_activation_transport import (
+    build_rule_activation_consumer,
+    rule_activation_source_time,
+)
 from fdai.runtime.stewardship_governance import (
     StewardshipGovernanceWorker,
     build_stewardship_governance_worker,
@@ -494,14 +497,7 @@ async def build_core_runtime(
         or not activation_source_recorded_at
     ):
         raise RuntimeError("Reviewed Rule activation source requires ref, digest, and time")
-    source_time = datetime.now(UTC)
-    if activation_source_recorded_at:
-        try:
-            source_time = datetime.fromisoformat(activation_source_recorded_at)
-        except ValueError as exc:
-            raise RuntimeError("Rule activation source time is invalid") from exc
-        if source_time.tzinfo is None or source_time.utcoffset() is None:
-            raise RuntimeError("Rule activation source time MUST be timezone-aware")
+    source_time = rule_activation_source_time(activation_source_recorded_at)
     activation_ledger = StateStoreRuleActivationLedger(store=state_store)
     activation_preview = build_rule_activation_generation(
         control_loop.available_rules,
@@ -743,14 +739,7 @@ async def build_core_runtime(
                 extra={"reason": "runtime_or_durable_source_identity_unavailable"},
             )
     pantheon_runtime = resources.pantheon.runtime
-    bind_forseti_baseline_worker(
-        agents=pantheon_runtime.agents if pantheon_runtime is not None else None,
-        state_store=state_store,
-        activation_ledger=activation_ledger,
-        runtime=control_loop,
-        inventory_dsn=bootstrap_core_model.assurance_twin_inventory_dsn(environment),
-        environment=environment,
-    )
+    bind_forseti_baseline_worker(pantheon_runtime, state_store, control_loop, environment)
     subscription_scope = str(container.config.azure.subscription_id)
     assurance_twin_publishers, assurance_twin_writers = (
         bootstrap_core_model.build_assurance_twin_runtime_binding(

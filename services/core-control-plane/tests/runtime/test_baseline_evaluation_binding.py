@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -27,15 +28,20 @@ def _bind(**overrides: Any) -> tuple[ForsetiBaselineScheduler | None, Forseti]:
     store = InMemoryStateStore()
     forseti = Forseti(state_store=store)
     values: dict[str, Any] = {
-        "agents": {"Forseti": forseti},
+        "pantheon": SimpleNamespace(agents={"Forseti": forseti}),
         "state_store": store,
-        "activation_ledger": _Ledger(),
         "runtime": _Runtime(),
-        "inventory_dsn": "postgresql://localhost/inventory",
-        "environment": {},
+        "environment": {"FDAI_INVENTORY_DSN": "postgresql://localhost/inventory"},
     }
     values.update(overrides)
-    return bind_forseti_baseline_worker(**values), forseti
+    scheduler = bind_forseti_baseline_worker(
+        values["pantheon"],
+        values["state_store"],
+        values["runtime"],
+        values["environment"],
+        activation_ledger=_Ledger(),
+    )
+    return scheduler, forseti
 
 
 def test_binds_scheduler_to_forseti_when_inputs_exist() -> None:
@@ -48,12 +54,17 @@ def test_binds_scheduler_to_forseti_when_inputs_exist() -> None:
 @pytest.mark.parametrize(
     "overrides",
     [
-        {"inventory_dsn": None},
-        {"inventory_dsn": "  "},
+        {"environment": {}},
+        {"environment": {"FDAI_INVENTORY_DSN": "  "}},
         {"state_store": None},
-        {"agents": None},
-        {"agents": {}},
-        {"environment": {BASELINE_EVALUATION_ENABLED_ENV: "false"}},
+        {"pantheon": None},
+        {"pantheon": SimpleNamespace(agents={})},
+        {
+            "environment": {
+                "FDAI_INVENTORY_DSN": "postgresql://localhost/inventory",
+                BASELINE_EVALUATION_ENABLED_ENV: "false",
+            }
+        },
     ],
 )
 def test_missing_inputs_or_disabled_binds_nothing(overrides: dict[str, Any]) -> None:
@@ -65,4 +76,9 @@ def test_missing_inputs_or_disabled_binds_nothing(overrides: dict[str, Any]) -> 
 
 def test_invalid_interval_fails_startup() -> None:
     with pytest.raises(RuntimeError, match="positive integer"):
-        _bind(environment={BASELINE_EVALUATION_INTERVAL_ENV: "0"})
+        _bind(
+            environment={
+                "FDAI_STATE_STORE_DSN": "postgresql://localhost/state",
+                BASELINE_EVALUATION_INTERVAL_ENV: "0",
+            }
+        )
