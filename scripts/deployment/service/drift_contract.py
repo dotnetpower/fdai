@@ -4,7 +4,6 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 import re
@@ -246,8 +245,6 @@ def stored_platform_operator_identity(payload: dict[str, Any]) -> dict[str, str]
 
 def stored_platform_output_inputs(
     payload: dict[str, Any],
-    *,
-    resolved_models: dict[str, Any],
 ) -> dict[str, Any]:
     """Reproduce output-affecting inputs for a legacy refresh-only plan."""
     values = payload.get("values")
@@ -285,24 +282,9 @@ def stored_platform_output_inputs(
         return plan_inputs
 
     stored_digest = _stored_output_string(outputs, "resolved_models_sha256")
-    capabilities = resolved_models.get("capabilities")
-    if not isinstance(capabilities, list) or not capabilities:
-        raise DriftContractError("resolved model capabilities are missing")
-    if not all(isinstance(capability, dict) for capability in capabilities):
-        raise DriftContractError("resolved model capabilities must contain objects")
-    normalized = json.dumps(resolved_models, separators=(",", ":"), sort_keys=True)
-    observed_digest = hashlib.sha256(normalized.encode("utf-8")).hexdigest()
-    if observed_digest != stored_digest:
-        raise DriftContractError("resolved model bindings do not match the stored platform output")
-    active_capabilities = [
-        capability for capability in capabilities if capability.get("status") != "hil-only"
-    ]
-    if not active_capabilities:
-        raise DriftContractError("resolved model bindings contain no active capabilities")
     plan_inputs.update(
         {
-            "resolved_capabilities": active_capabilities,
-            "resolved_models_json": normalized,
+            "resolved_capabilities": _stored_openai_capabilities(root),
             "resolved_models_sha256": stored_digest,
         }
     )
@@ -346,6 +328,87 @@ def _resource_addresses(module: dict[str, Any]) -> frozenset[str]:
             raise DriftContractError("Terraform state contains an invalid child module")
         addresses.update(_resource_addresses(child))
     return frozenset(addresses)
+
+
+def _stored_openai_capabilities(root: dict[str, Any]) -> list[dict[str, Any]]:
+    prefix = "module.llm_azure_openai[0].azurerm_cognitive_deployment.capability["
+    capabilities: list[dict[str, Any]] = []
+    for resource in sorted(_resources(root), key=lambda item: str(item.get("address", ""))):
+        address = resource.get("address")
+        if not isinstance(address, str) or not address.startswith(prefix):
+            continue
+        values = resource.get("values")
+        name = values.get("name") if isinstance(values, dict) else None
+        models = values.get("model") if isinstance(values, dict) else None
+        skus = values.get("sku") if isinstance(values, dict) else None
+        if (
+            not isinstance(name, str)
+            or not name
+            or not isinstance(models, list)
+            or len(models) != 1
+            or not isinstance(models[0], dict)
+            or not isinstance(skus, list)
+            or len(skus) != 1
+            or not isinstance(skus[0], dict)
+        ):
+            raise DriftContractError("platform state contains an invalid model deployment")
+        family = models[0].get("name")
+        version = models[0].get("version")
+        sku = skus[0].get("name")
+        capacity = skus[0].get("capacity")
+        if (
+            not isinstance(family, str)
+            or not family
+            or not isinstance(version, str)
+            or not version
+            or not isinstance(sku, str)
+            or not sku
+            or isinstance(capacity, bool)
+            or not isinstance(capacity, (int, float))
+            or capacity <= 0
+            or int(capacity) != capacity
+        ):
+            raise DriftContractError("platform state contains an invalid model deployment")
+        capability: dict[str, Any] = {
+            "name": name,
+            "publisher": "OpenAI",
+            "family": family,
+            "version": version,
+            "sku": sku,
+        }
+        if "Provisioned" in sku:
+            capability.update(
+                {"capacity_unit": "ptu", "capacity_tpm": 0, "capacity_value": int(capacity)}
+            )
+        else:
+            capability.update(
+                {
+                    "capacity_unit": "tpm",
+                    "capacity_tpm": int(capacity) * 1000,
+                    "capacity_value": 0,
+                }
+            )
+        capabilities.append(capability)
+    if not capabilities:
+        raise DriftContractError("platform state contains no tracked model deployments")
+    return capabilities
+
+
+def _resources(module: dict[str, Any]) -> tuple[dict[str, Any], ...]:
+    resources = module.get("resources", [])
+    children = module.get("child_modules", [])
+    if not isinstance(resources, list) or not isinstance(children, list):
+        raise DriftContractError("Terraform state contains an invalid module")
+    collected: list[dict[str, Any]] = []
+    for resource in resources:
+        if not isinstance(resource, dict):
+            raise DriftContractError("Terraform state contains an invalid resource")
+        collected.append(resource)
+    for child in children:
+        if not isinstance(child, dict):
+            raise DriftContractError("Terraform state contains an invalid child module")
+        collected.extend(_resources(child))
+    return tuple(collected)
 
 
 def _resource_at_address(module: dict[str, Any], address: str) -> dict[str, Any]:
@@ -421,7 +484,6 @@ def main() -> int:
     platform.add_argument("--state-json", type=Path, required=True)
     platform_output = commands.add_parser("platform-output-inputs")
     platform_output.add_argument("--state-json", type=Path, required=True)
-    platform_output.add_argument("--resolved-models-json", type=Path, required=True)
     platform_output.add_argument("--output", type=Path, required=True)
     database = commands.add_parser("platform-database")
     database.add_argument("--state-json", type=Path, required=True)
@@ -444,10 +506,7 @@ def main() -> int:
         elif args.command == "platform-output-inputs":
             _write_private_json(
                 args.output,
-                stored_platform_output_inputs(
-                    _object(args.state_json),
-                    resolved_models=_object(args.resolved_models_json),
-                ),
+                stored_platform_output_inputs(_object(args.state_json)),
             )
         else:
             print(json.dumps(stored_platform_inputs(_object(args.state_json)), sort_keys=True))
