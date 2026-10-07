@@ -57,6 +57,14 @@ def add_scan_command(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -
     )
     scan.add_argument("--prove-python", default="/usr/bin/python3")
     scan.add_argument(
+        "--prove-node",
+        help="Node.js executable; with --prove, also reproduce verified JavaScript issues",
+    )
+    scan.add_argument(
+        "--prove-cc",
+        help="C or C++ compiler with sanitizers; with --prove, also reproduce native issues",
+    )
+    scan.add_argument(
         "--record-state",
         action="store_true",
         help="record the review for the Console in the state store from FDAI_STATE_STORE_DSN",
@@ -85,7 +93,7 @@ async def run_scan(args: argparse.Namespace) -> dict[str, object]:
 
         publisher = heimdall_publisher(args.kafka_bootstrap_servers)
     lens_catalog = load_lens_catalog(catalog_root) if args.lens_model else None
-    async with _lens_models(args.lens_model, lens_catalog, args.lens_identity) as lens_models:
+    async with open_lens_models(args.lens_model, lens_catalog, args.lens_identity) as lens_models:
         result = await _run(
             args, catalog_root, executables, scanners, publisher, lens_catalog, lens_models
         )
@@ -122,7 +130,7 @@ async def run_scan(args: argparse.Namespace) -> dict[str, object]:
 
 
 @asynccontextmanager
-async def _lens_models(
+async def open_lens_models(
     specs: list[str], catalog: LensCatalog | None, identity_kind: str = "managed-identity"
 ) -> AsyncIterator[list[CodeSecurityLensModel]]:
     """Build Azure lens models from ``FAMILY=ENDPOINT|DEPLOYMENT`` specs inside one client.
@@ -201,7 +209,19 @@ async def _run(
         lens_models=lens_models,
         verifier_catalog=load_verifier_catalog(catalog_root, known),
         prove_python=Path(args.prove_python).resolve() if args.prove else None,
+        prove_runtimes=_prove_runtimes(args),
     )
 
 
-__all__ = ["add_scan_command", "run_scan"]
+def _prove_runtimes(args: argparse.Namespace) -> dict[str, Path] | None:
+    if not args.prove:
+        return None
+    runtimes = {
+        language: Path(value).resolve()
+        for language, value in (("javascript", args.prove_node), ("native", args.prove_cc))
+        if value
+    }
+    return runtimes or None
+
+
+__all__ = ["add_scan_command", "open_lens_models", "run_scan"]

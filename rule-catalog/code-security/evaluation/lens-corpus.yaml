@@ -1,0 +1,33 @@
+# FDAI LLM lens precision corpus: a public benchmark whose maintainers label every test file.
+#
+# OWASP Benchmark for Java ships one servlet per test case and `expectedresults-1.2.csv`, which
+# gives each test its category, whether it is a real vulnerability, and its CWE. Those labels are
+# independent of FDAI. The evaluation acquires the source at the exact commit, takes the first
+# `sample_per_label` true and false test files of every mapped category in test-name order, copies
+# only those files into a scratch root, and runs the lens lane with only the listed lenses. Every
+# kept hypothesis is labeled mechanically: a true positive needs the file's mapped class to equal
+# the lens class and the file to be a real vulnerability; anything else is a false positive.
+#
+# Only the lenses whose class the benchmark labels are evaluated. No lens prompt, hint, or limit
+# was changed for this corpus. No third-party code is stored in this repository.
+#
+# Run: python -m fdai.delivery.code_security_cli evaluate-lens --work-root <dir>
+#      --lens-model FAMILY=ENDPOINT|DEPLOYMENT --lens-model FAMILY=ENDPOINT|DEPLOYMENT
+schema_version: 1
+corpus_id: fdai.code-security.lens-real
+version: 1.0.0
+provenance: curated
+source:
+  id: owasp-benchmark-java
+  repository: https://github.com/OWASP-Benchmark/BenchmarkJava
+  commit: 8b67a88d73b2594570fc21150705283de884620b
+  license: GPL-2.0
+  labels: expectedresults-1.2.csv
+  test_root: src/main/java/org/owasp/benchmark/testcode
+  file_suffix: .java
+categories:
+  cmdi: command_injection
+  pathtraver: path_traversal
+  sqli: sql_injection
+lenses: [command-injection, path-traversal, sql-injection]
+sample_per_label: 10

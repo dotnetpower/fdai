@@ -160,7 +160,8 @@ async def test_budget_and_model_errors_are_reported_not_hidden(tmp_path: Path) -
     )
     assert report.budget_exhausted and report.model_errors == 1 and not report.complete
     assert any("budget exhausted" in note for note in report.notes)
-    assert any("model calls failed" in note for note in report.notes)
+    assert any("model calls failed: provider unavailable x1" in note for note in report.notes)
+    assert report.model_error_reasons == {"provider unavailable": 1}
 
 
 def test_missing_lens_catalog_fails_closed(tmp_path: Path) -> None:

@@ -71,6 +71,7 @@ class LensLaneReport:
     rejected_quorum: int = 0
     kept: int = 0
     budget_exhausted: bool = False
+    model_error_reasons: Counter[str] = field(default_factory=Counter)
     notes: list[str] = field(default_factory=list)
 
     @property
@@ -228,6 +229,7 @@ async def run_lens_lane(
         for result in results:
             if isinstance(result, LensModelError):
                 report.model_errors += 1
+                report.model_error_reasons[clean_text(str(result), 80)] += 1
                 continue
             if isinstance(result, BaseException):
                 raise result
@@ -237,7 +239,10 @@ async def run_lens_lane(
         if occurrence is not None:
             occurrences.append(occurrence)
     if report.model_errors:
-        report.notes.append(f"{report.model_errors} model calls failed")
+        reasons = ", ".join(
+            f"{reason} x{count}" for reason, count in report.model_error_reasons.most_common(5)
+        )
+        report.notes.append(f"{report.model_errors} model calls failed: {reasons}")
     return tuple(occurrences), report
 
 
