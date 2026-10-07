@@ -255,6 +255,14 @@ class ObjectSetTruncationReason(StrEnum):
     TRAVERSAL_LIMIT = "traversal_limit"
 
 
+class ObjectSetPopulationStatus(StrEnum):
+    """What a bounded object-set read can state about the whole set it was cut from."""
+
+    COMPLETE = "population_complete"
+    UNKNOWN = "population_unknown"
+    VISIBILITY_INDETERMINATE = "population_visibility_indeterminate"
+
+
 class ObjectSetMaterialization(ContractBase):
     definition: ObjectSetDefinition
     graph: OntologyGraphSnapshot
@@ -286,6 +294,7 @@ def _bounded_json_operand(value: Any, *, path: str) -> Any:
 
 
 __all__ = [
+    "ObjectSetPopulationStatus",
     "InterfaceImplementation",
     "ObjectPredicate",
     "ObjectPredicateOperator",

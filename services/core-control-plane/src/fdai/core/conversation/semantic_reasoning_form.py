@@ -88,6 +88,9 @@ from fdai_service_contracts.semantic_question_form import (
     MetricUnit as MetricUnit,
 )
 from fdai_service_contracts.semantic_question_form import (
+    RelationAnchorScope as RelationAnchorScope,
+)
+from fdai_service_contracts.semantic_question_form import (
     RelationReach as RelationReach,
 )
 from fdai_service_contracts.semantic_question_form import (
@@ -148,6 +151,7 @@ __all__ = [
     "MentionForm",
     "MetricComparison",
     "MetricUnit",
+    "RelationAnchorScope",
     "RelationReach",
     "RelationScope",
     "RelationSense",

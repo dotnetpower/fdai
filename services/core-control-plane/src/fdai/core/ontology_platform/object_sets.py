@@ -42,8 +42,23 @@ class ObjectSetService:
         self._object_type_names = object_type_names
 
     async def materialize(self, definition: ObjectSetDefinition) -> ObjectSetMaterialization:
+        materialization, _population = await self.materialize_with_population(definition)
+        return materialization
+
+    async def materialize_with_population(
+        self, definition: ObjectSetDefinition
+    ) -> tuple[ObjectSetMaterialization, OntologyGraphSnapshot | None]:
+        """Return the bounded page and, when it was cut, every member from the same read.
+
+        A page cut at its result limit is re-read with one relationship-free scan, so the
+        page and the whole population come from a single store snapshot. The population is
+        ``None`` when the page is whole, when the set is a traversal, an exact-id read, or a
+        relationship read, or when the scan itself reached its candidate bound.
+        """
+
         concrete_types = self.resolve_types(definition)
         source_truncation_reason: ObjectSetTruncationReason | None = None
+        scanned: OntologyGraphSnapshot | None = None
         if definition.traversal is not None:
             graph = await self._store.traverse(
                 root_ids=definition.root_ids,
@@ -81,17 +96,7 @@ class ObjectSetService:
                 )
             else:
                 graph = None
-            filters = {
-                item.property: item.equals
-                for item in definition.predicates
-                if item.operator is ObjectPredicateOperator.EQUALS
-            }
-            text_in_filters = {
-                item.property: tuple(str(value) for value in item.values)
-                for item in definition.predicates
-                if item.operator is ObjectPredicateOperator.IN
-                and all(isinstance(value, str) for value in item.values)
-            }
+            filters, text_in_filters = _pushed_filters(definition.predicates)
             pushed_predicate_count = len(filters) + len(text_in_filters)
             has_memory_predicates = pushed_predicate_count != len(definition.predicates)
             if graph is None:
@@ -114,6 +119,7 @@ class ObjectSetService:
                             property_text_in=text_in_filters,
                             candidate_limit=MAX_ONTOLOGY_OBJECT_SCAN,
                         )
+                        scanned = graph
                     if graph.truncated:
                         source_truncation_reason = ObjectSetTruncationReason.CANDIDATE_LIMIT
                 else:
@@ -149,13 +155,60 @@ class ObjectSetService:
         truncation_reason = source_truncation_reason
         if result_limited:
             truncation_reason = ObjectSetTruncationReason.RESULT_LIMIT
-        return ObjectSetMaterialization(
-            definition=definition,
-            graph=graph,
-            concrete_types=concrete_types,
-            truncated=graph.truncated,
-            truncation_reason=truncation_reason,
+        population: OntologyGraphSnapshot | None = None
+        if truncation_reason is ObjectSetTruncationReason.RESULT_LIMIT and _population_readable(
+            definition
+        ):
+            population = await self._population(definition, concrete_types, scanned=scanned)
+            if population is not None:
+                graph, result_limited = _filter_graph(
+                    population,
+                    concrete_types=concrete_types,
+                    predicates=(),
+                    limit=definition.limit,
+                )
+                truncation_reason = (
+                    ObjectSetTruncationReason.RESULT_LIMIT if result_limited else None
+                )
+                if not result_limited:
+                    population = None
+        return (
+            ObjectSetMaterialization(
+                definition=definition,
+                graph=graph,
+                concrete_types=concrete_types,
+                truncated=graph.truncated,
+                truncation_reason=truncation_reason,
+            ),
+            population,
         )
+
+    async def _population(
+        self,
+        definition: ObjectSetDefinition,
+        concrete_types: Sequence[str],
+        *,
+        scanned: OntologyGraphSnapshot | None,
+    ) -> OntologyGraphSnapshot | None:
+        # A scan the page already read is the population; reading it again adds only cost.
+        filters, text_in_filters = _pushed_filters(definition.predicates)
+        scan = scanned or await self._store.scan_objects(
+            object_types=concrete_types,
+            property_equals=filters,
+            property_text_in=text_in_filters,
+            candidate_limit=MAX_ONTOLOGY_OBJECT_SCAN,
+        )
+        # A cut or incomplete scan states nothing about the population, so the first page and
+        # its own truncation stand.
+        if scan.truncated or not scan.source_complete:
+            return None
+        population, _limited = _filter_graph(
+            scan,
+            concrete_types=concrete_types,
+            predicates=definition.predicates,
+            limit=MAX_ONTOLOGY_OBJECT_SCAN,
+        )
+        return population
 
     async def materialize_instance_path(
         self,
@@ -279,6 +332,32 @@ async def _query_exact_ids(
             "+".join(reasons[:8]) if reasons and not source_complete else None
         ),
     )
+
+
+def _population_readable(definition: ObjectSetDefinition) -> bool:
+    return (
+        definition.traversal is None
+        and definition.object_ids is None
+        and not definition.include_relationships
+        and _exact_id_values(definition.predicates) is None
+    )
+
+
+def _pushed_filters(
+    predicates: Sequence[ObjectPredicate],
+) -> tuple[dict[str, Any], dict[str, tuple[str, ...]]]:
+    filters = {
+        item.property: item.equals
+        for item in predicates
+        if item.operator is ObjectPredicateOperator.EQUALS
+    }
+    text_in_filters = {
+        item.property: tuple(str(value) for value in item.values)
+        for item in predicates
+        if item.operator is ObjectPredicateOperator.IN
+        and all(isinstance(value, str) for value in item.values)
+    }
+    return filters, text_in_filters
 
 
 def _result_limit_proven(

@@ -191,6 +191,14 @@ class AggregateNodeHandler:
                 sort_keys=True,
             )
             groups.setdefault(group_key, (group_values, []))[1].append(row)
+        if operation == "count" and not group_by and table.total_rows is not None:
+            # A table cut by a bound still states its exact source row count, so an ungrouped
+            # count reads that count and is complete.
+            exact = QueryRow.from_values(
+                "aggregate:" + _sha256("{}"),
+                {"group": {}, "operation": operation, "value": table.total_rows},
+            )
+            return _table_result(QueryTable(rows=(exact,), complete=True), dependencies)
         if not groups and not group_by:
             groups["{}"] = ({}, [])
         aggregate_rows: list[QueryRow] = []

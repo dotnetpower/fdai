@@ -14,7 +14,20 @@ _MAX_COLUMNS = 6
 _MAX_CELL_CHARS = 120
 _MAX_TABLE_CHARS = 4_000
 # Display order for common verified fields; every other field follows in first-seen order.
-_LEADING_FIELDS = ("name", "type", "status", "location", "operation", "value", "group")
+_LEADING_FIELDS = (
+    "name",
+    "root_name",
+    "member_name",
+    "type",
+    "status",
+    "location",
+    "operation",
+    "rank",
+    "value",
+    "unit",
+    "group",
+    "missing_reason",
+)
 # The identity and ObjectType of a named row stay in technical details, where they are exact.
 _DETAIL_FIELDS = frozenset({"id", "object_type"})
 
@@ -205,7 +218,8 @@ def _cell(value: object) -> str:
 
 
 def _scalar(value: object) -> str:
-    text = "-" if value is None else str(value)
+    # Fifteen significant digits drop binary float noise and keep every meaningful digit.
+    text = "-" if value is None else f"{value:.15g}" if isinstance(value, float) else str(value)
     # Table syntax characters are escaped so a verified value cannot change the table shape.
     return text.replace("\\", "\\\\").replace("|", "\\|").replace("\r", " ").replace("\n", " ")
 

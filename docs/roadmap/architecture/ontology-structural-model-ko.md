@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 599e1291cdff153e0101a0dcd5f797b91aef4872
+translation_source_sha: 3d465ca719ae38713df6dc83f6ff3dd54c0d4b24
 translation_revised: 2026-10-07
 ---
 # 온톨로지 구조 모델
@@ -285,6 +285,9 @@ source property path 및 source schema identity와 일치해야 합니다. 카�
 메트릭 컬렉션 읽기는 원본 컬렉션 하나, 검토된 메트릭 개념, 절대 구간, 비교 또는 정렬 인자,
 구성원 읽기 예산을 결속합니다. 해당 증적은 완전한 값, 타입이 지정된 알 수 없음, 부분 모집단
 상태를 구분합니다. 이 추가형 함수 revision은 계속 읽기 전용 조회 구조입니다.
+한 단계 컬렉션 관계 계획은 앵커 ObjectSet과 계보 traversal 결과를 모두 노출합니다. 형식은 이
+앵커를 이름이 있는 인스턴스와 구분하며, 검증은 근거가 확인된 종류와 검토된 LinkType 쪽을 다시
+도출합니다. 앵커별 커버리지가 없으면 빈 간선을 입증할 수 없습니다.
 
 Resource 하위 유형 피연산자는 검토된 `Resource.type` 값 도메인에서 가져옵니다. 요청 용어 그룹은
 검토된 각 하위 유형이 한국어와 영어 용어를 따로 결속할 수 있도록 최대 192개까지 둘 수 있으며,

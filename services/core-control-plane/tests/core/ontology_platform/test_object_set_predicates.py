@@ -520,12 +520,17 @@ async def test_object_only_memory_filter_distinguishes_result_limit() -> None:
         ),
         limit=1,
     ).model_copy(update={"include_relationships": False})
-    result = await _service(store, object_type).materialize(definition)
+    result, population = await _service(store, object_type).materialize_with_population(definition)
 
-    assert store.scan_calls == 0
+    # The cut page re-reads its whole population once, and the page comes from that read.
+    assert store.scan_calls == 1
     assert [item.id for item in result.graph.objects] == ["resource-a"]
     assert result.truncated is True
     assert result.truncation_reason is ObjectSetTruncationReason.RESULT_LIMIT
+    assert population is not None
+    assert population.objects[0].id == "resource-a"
+    assert len(population.objects) > 1
+    assert all(item.properties["score"] >= 3 for item in population.objects)
 
 
 async def test_object_only_memory_filter_preserves_candidate_limit() -> None:

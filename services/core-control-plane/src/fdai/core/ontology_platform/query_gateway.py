@@ -44,6 +44,7 @@ from .functions import ontology_function_digest
 from .models import (
     ObjectSetDefinition,
     ObjectSetMaterialization,
+    ObjectSetPopulationStatus,
     ObjectSetTruncationReason,
     OntologyInstancePathDefinition,
 )
@@ -67,7 +68,8 @@ class ObjectSetRedactionSummary(ContractBase):
 class SecuredObjectSetQueryReceipt(ContractBase):
     """Immutable completeness and redaction receipt with no action authority."""
 
-    schema_version: Literal["1.1.0", "1.2.0"] = "1.2.0"
+    # 1.3.0 states the whole population a truncated page was cut from.
+    schema_version: Literal["1.1.0", "1.2.0", "1.3.0"] = "1.2.0"
     ontology_release: OntologyReleaseRef
     projected_result_digest: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")]
     purpose: str = Field(pattern=r"^[a-z][a-z0-9_-]{0,63}$")
@@ -84,12 +86,30 @@ class SecuredObjectSetQueryReceipt(ContractBase):
     truncated: bool
     truncation_reason: ObjectSetTruncationReason | None = None
     redactions: ObjectSetRedactionSummary
+    population_status: ObjectSetPopulationStatus | None = None
+    population_count: int | None = Field(default=None, ge=0)
+    population_manifest_digest: Annotated[str, Field(pattern=r"^sha256:[a-f0-9]{64}$")] | None = (
+        None
+    )
     execution_authority: Literal[False] = False
 
     @model_validator(mode="after")
     def _truncation_reason_matches_state(self) -> SecuredObjectSetQueryReceipt:
         if self.truncated != (self.truncation_reason is not None):
             raise ValueError("object-set query receipt truncation state is inconsistent")
+        if (self.population_status is not None) != (self.schema_version == "1.3.0"):
+            raise ValueError("object-set population status requires receipt version 1.3.0")
+        if self.population_status is not None and not self.truncated:
+            raise ValueError("object-set population status describes a truncated page only")
+        exact = self.population_status is ObjectSetPopulationStatus.COMPLETE
+        if exact != (self.population_count is not None) or exact != (
+            self.population_manifest_digest is not None
+        ):
+            raise ValueError("an exact population needs its count and manifest digest only")
+        if self.population_count is not None and (
+            self.population_count <= self.returned_object_count or not self.source_complete
+        ):
+            raise ValueError("an exact population exceeds its page over a complete source")
         if self.complete and self.truncated:
             raise ValueError("object-set query receipt completeness is inconsistent")
         if self.observation_cutoff.tzinfo is None:
@@ -366,7 +386,7 @@ class SecuredObjectSetQueryGateway:
                 or {record.id for record in visible_roots.objects} != set(definition.root_ids)
             ):
                 raise PermissionError("object-set traversal roots are not authorized")
-        materialization = await self._service.materialize(definition)
+        materialization, population = await self._service.materialize_with_population(definition)
         if (
             roots is not None
             and roots.source_generation is not None
@@ -378,6 +398,7 @@ class SecuredObjectSetQueryGateway:
             definition=definition,
             effective_request=effective_request,
             observation_cutoff=observation_cutoff,
+            population=population,
         )
 
     async def materialize_instance_path(
@@ -477,6 +498,7 @@ class SecuredObjectSetQueryGateway:
         definition: ObjectSetDefinition,
         effective_request: ProjectionRequest,
         observation_cutoff: datetime,
+        population: OntologyGraphSnapshot | None = None,
     ) -> SecuredObjectSetQueryResult:
         projected_graph = project_graph_snapshot(
             materialization.graph,
@@ -519,7 +541,19 @@ class SecuredObjectSetQueryGateway:
             truncated=secured_materialization.truncated,
             truncation_reason=secured_materialization.truncation_reason,
         )
+        population_fields = (
+            self._population_fields(
+                population,
+                request=effective_request,
+                page_size=len(secured_graph.objects),
+                source_complete=source_complete,
+                source_generation=secured_graph.source_generation,
+            )
+            if secured_materialization.truncated
+            else {}
+        )
         receipt = SecuredObjectSetQueryReceipt(
+            **population_fields,
             ontology_release=self._ontology_release,
             projected_result_digest=_projected_result_digest(secured_materialization),
             purpose=definition.purpose,
@@ -540,6 +574,51 @@ class SecuredObjectSetQueryGateway:
             materialization=secured_materialization,
             receipt=receipt,
         )
+
+    def _population_fields(
+        self,
+        population: OntologyGraphSnapshot | None,
+        *,
+        request: ProjectionRequest,
+        page_size: int,
+        source_complete: bool,
+        source_generation: str | None,
+    ) -> dict[str, Any]:
+        """Return what the receipt may state about the whole set a page was cut from.
+
+        Every member passes the same projection as the page; a member the caller cannot
+        see by identity makes the count indeterminate, never smaller.
+        """
+
+        status = ObjectSetPopulationStatus.UNKNOWN
+        fields: dict[str, Any] = {"schema_version": "1.3.0"}
+        if (
+            population is not None
+            and source_complete
+            and population.source_complete
+            and population.source_generation == source_generation
+        ):
+            visible = project_graph_snapshot(
+                population, object_types=self._object_types, request=request
+            )
+            hidden = _summarize_redactions(
+                visible,
+                object_types=self._object_types,
+                source_graph=population,
+                removed_link_count=0,
+            ).redacted_identity_count
+            if hidden or [item.id for item in visible.objects] != [
+                item.id for item in population.objects
+            ]:
+                status = ObjectSetPopulationStatus.VISIBILITY_INDETERMINATE
+            elif len(population.objects) > page_size:
+                status = ObjectSetPopulationStatus.COMPLETE
+                fields["population_count"] = len(population.objects)
+                fields["population_manifest_digest"] = content_digest(
+                    {"members": [item.id for item in population.objects]}
+                )
+        fields["population_status"] = status
+        return fields
 
 
 def _close_links(graph: OntologyGraphSnapshot) -> OntologyGraphSnapshot:

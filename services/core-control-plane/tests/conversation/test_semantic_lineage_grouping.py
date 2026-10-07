@@ -257,3 +257,17 @@ def test_a_container_kind_with_no_members_counts_zero_groups_instead_of_failing(
 
     assert grouped.rows == () and grouped.complete is True
     assert grouped.source_generation == "generation-1"
+
+
+def test_a_cut_input_never_states_an_exact_group_count() -> None:
+    rows = (_lineage("vm-a", "rg-a", 1), _lineage("vm-b", "rg-b", 1), _lineage("vm-c", "rg-c", 1))
+    complete = QueryTable(rows=rows, complete=True, source_generation="fixture-generation")
+    cut = QueryTable(
+        rows=rows,
+        complete=False,
+        truncation_reason="traversal_limit",
+        source_generation="fixture-generation",
+    )
+
+    assert count_by_nearest_container(complete, limit=2).total_rows == 3
+    assert count_by_nearest_container(cut, limit=2).total_rows is None

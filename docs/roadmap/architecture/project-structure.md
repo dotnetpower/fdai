@@ -72,6 +72,10 @@ missing or unusable state as an explicit unknown row. E11 adds one bounded metri
 same collection selection for threshold filtering or ranking under a pinned window and member-read
 budget. The query receipt accounts for complete values and typed unknowns; provider routing and
 answer review cannot turn a partial population into complete evidence.
+E12 adds a discriminated collection relation anchor for one grounded kind, one sense, and one hop.
+Core emits the anchor ObjectSet, traverses one attributable LinkType side with lineage, and
+independently verifies the kind, direction, and visible anchor output. Per-anchor coverage receipts
+still gate verified negative claims and remain a later slice.
 The same typed-only boundary may reuse an independently certified direct read before legacy
 judgment; action, quoted, hypothetical, bound-context, and required-document paths retain their
 existing gates. Numeric call accounting adds no prompt capture or execution authority.
