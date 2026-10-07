@@ -24,17 +24,7 @@ results feed the canonical issue model, severity, priority, and remediation pack
 A scan job turns one repository revision into SARIF (Static Analysis Results Interchange Format)
 reports, a coverage receipt, canonical issues, and a review package for Heimdall:
 
-```mermaid
-flowchart LR
-    A[Acquire exact commit] --> B[Read-only source]
-    B --> C[Sandboxed scanners]
-    C --> D[SARIF per scanner]
-    D --> E[Coverage receipt]
-    D --> F[Canonical issues]
-    E --> G[Review package]
-    F --> G
-    G --> H[Heimdall drift]
-```
+![Design at a glance. The main stages are Acquire exact commit, Read-only source, Sandboxed scanners, SARIF per scanner, Coverage receipt, Canonical issues, Review package, Heimdall drift.](../../diagrams/generated/fdai-roadmap-operations-code-security-scanning-01.en.svg)
 
 Example: an operator runs `scan` for commit `a1b2...` of `payments-api` with Opengrep and gitleaks
 bound. FDAI fetches exactly that commit, extracts it read-only, and runs both scanners without

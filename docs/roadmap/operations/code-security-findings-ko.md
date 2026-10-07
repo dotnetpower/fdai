@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 점검 결과
 translation_of: code-security-findings.md
-translation_source_sha: 00d3d8c7b6290b98686a638b5242c80a7dbf34a4
+translation_source_sha: 6752efa7e2cf96b580417df35b8bea9de33941a1
 translation_revised: 2026-10-08
 ---
 
@@ -44,18 +44,7 @@ Opengrep은 경고로 표시합니다. FDAI는 두 SARIF 파일을 수집하고 
 
 ## 파이프라인
 
-```mermaid
-flowchart LR
-    A[Acquire exact revision] --> B[Prepare attack surface]
-    B --> C[Scan lanes]
-    C --> D[Ingest SARIF]
-    D --> E[Canonical issues]
-    E --> F[Severity and priority]
-    F --> G[Fix groups and pack]
-    G --> H[Developer session]
-    H --> I[Result import]
-    I --> J[Rescan verification]
-```
+![파이프라인. 주요 단계는 Acquire exact revision, Prepare attack surface, Scan lanes, Ingest SARIF, Canonical issues, Severity and priority, Fix groups and pack, Developer session, Result import, Rescan verification입니다.](../../diagrams/generated/fdai-roadmap-operations-code-security-findings-01.ko.svg)
 
 | 레인 | 생산자 | 검증 전 신뢰도 |
 |------|--------|----------------|

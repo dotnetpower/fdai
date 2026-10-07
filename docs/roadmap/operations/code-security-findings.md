@@ -43,18 +43,7 @@ depth D2, and the agent commits a parameterized query with a regression test.
 
 ## Pipeline
 
-```mermaid
-flowchart LR
-    A[Acquire exact revision] --> B[Prepare attack surface]
-    B --> C[Scan lanes]
-    C --> D[Ingest SARIF]
-    D --> E[Canonical issues]
-    E --> F[Severity and priority]
-    F --> G[Fix groups and pack]
-    G --> H[Developer session]
-    H --> I[Result import]
-    I --> J[Rescan verification]
-```
+![Pipeline. The main stages are Acquire exact revision, Prepare attack surface, Scan lanes, Ingest SARIF, Canonical issues, Severity and priority, Fix groups and pack, Developer session, Result import, Rescan verification.](../../diagrams/generated/fdai-roadmap-operations-code-security-findings-01.en.svg)
 
 | Lane | Producer | Confidence before verification |
 |------|----------|--------------------------------|

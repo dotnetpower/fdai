@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: 2771e9895b3cfcfa9d7f3884f8df2a7337574425
+translation_source_sha: 8da8776bbe0da123295a435ed01981a8749c78a2
 translation_revised: 2026-10-08
 ---
 
@@ -27,17 +27,7 @@ translation_revised: 2026-10-08
 스캔 작업은 저장소 리비전 하나를 SARIF(Static Analysis Results Interchange Format) 보고서,
 커버리지 증적, 정본 이슈, Heimdall용 검토 패키지로 바꿉니다:
 
-```mermaid
-flowchart LR
-    A[Acquire exact commit] --> B[Read-only source]
-    B --> C[Sandboxed scanners]
-    C --> D[SARIF per scanner]
-    D --> E[Coverage receipt]
-    D --> F[Canonical issues]
-    E --> G[Review package]
-    F --> G
-    G --> H[Heimdall drift]
-```
+![설계 개요. 주요 단계는 Acquire exact commit, Read-only source, Sandboxed scanners, SARIF per scanner, Coverage receipt, Canonical issues, Review package, Heimdall drift입니다.](../../diagrams/generated/fdai-roadmap-operations-code-security-scanning-01.ko.svg)
 
 예: 운영자가 `payments-api`의 커밋 `a1b2...`에 대해 Opengrep과 gitleaks를 연결한 상태로 `scan`을
 실행합니다. FDAI는 정확히 그 커밋을 가져와 읽기 전용으로 추출하고, 두 스캐너를 네트워크 없이
