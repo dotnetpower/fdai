@@ -33,8 +33,12 @@ body: |-
   over a timestamp property with at_least and at_most, taking any date the request leaves
   implicit from the supplied documents. Wording about why the requester is asking, such as
   the task they are performing, is context, not a condition. Any stated property of the
-  requested objects, including their purpose, remains a condition. Use unsupported_constraint
-  only when none of these forms can express a requested condition.
+  requested objects, including their purpose, remains a condition. Predicates cannot compare
+  a value inside an object-valued property. When a request identifies instances by such
+  nested values, check every requested condition against the supplied documents and select
+  only the instances that satisfy all of them by exact object_ids. If no instance satisfies
+  every condition, never select a near match. Use unsupported_constraint only when none of
+  these forms can express a requested condition.
   Do not enumerate only some matching objects to evade a bound.
 
   When the query identifies a specific instance that is present in the supplied canonical
