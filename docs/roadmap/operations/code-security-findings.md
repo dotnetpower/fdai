@@ -126,7 +126,10 @@ Common Vulnerability Scoring System (CVSS). They are not a CVSS score.
   counts. CWE ancestry never merges findings, and an unlisted CWE stays in an `unclassified`
   bucket keyed by producer and rule.
 - **Dependencies:** findings merge when they name the same package and share any advisory alias
-  (CVE, GHSA, or OSV). Lockfile, image, and workload layers become instances.
+  (CVE, GHSA, or OSV). Lockfile, image, and workload layers become instances. Package identity
+  follows the ecosystem: PyPI names compare after PEP 503 normalization and npm names
+  case-insensitively, so `PyJWT` and `pyjwt` are one package. Other ecosystems, such as Go
+  module paths, keep the exact name.
 - **Issue severity:** the issue floor is the highest instance floor. The ceiling and the governing
   instance come from the instance with the highest ceiling.
 - **Fix groups:** dependency issues group by package, secrets by file, and other code issues by
@@ -296,6 +299,13 @@ harness reports:
 The corpus declares acceptance floors, and the command fails below any of them. The upstream
 corpus, `rule-catalog/code-security/evaluation/synthetic-corpus.yaml`, is synthetic and labeled by
 its author. It proves the wiring and reproducibility, not rubric calibration.
+
+`curated-advisories.yaml` is built from real advisories published between July 2025 and September
+2026. Each case models Trivy (CVE id, NVD score) and OSV-Scanner (GHSA id, GitHub score) as
+they report the package. The reviewer band is the GitHub Advisory Database's reviewed severity,
+an independent label, and cases are split into `dev` and `holdout`. It found a real defect:
+producers that spell one PyPI package differently produced duplicate issues until package
+identity followed the ecosystem rules above.
 
 ## Verification
 

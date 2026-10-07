@@ -17,9 +17,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
+from pathlib import PurePosixPath
 
 from fdai.core.security.code_findings.models import (
     CodeSecurityIssue,
@@ -134,12 +136,49 @@ def _find(parent: dict[str, str], node: str) -> str:
     return node
 
 
+_PYTHON_MANIFESTS = frozenset(
+    {
+        "requirements.txt",
+        "pipfile",
+        "pipfile.lock",
+        "poetry.lock",
+        "pyproject.toml",
+        "uv.lock",
+        "setup.py",
+        "setup.cfg",
+        "pdm.lock",
+    }
+)
+_NPM_MANIFESTS = frozenset(
+    {"package.json", "package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "pnpm-lock.yaml"}
+)
+_PEP503_SEPARATORS = re.compile(r"[-_.]+")
+
+
+def normalized_package(package: str, manifest: str) -> str:
+    """Return the grouping key for a package name as its ecosystem defines identity.
+
+    PyPI names compare after PEP 503 normalization and npm names case-insensitively, so producers
+    that spell one package differently still report one root cause. Other ecosystems, such as Go
+    module paths, are case-sensitive and keep the exact name.
+    """
+    name = PurePosixPath(manifest).name.lower()
+    if name in _PYTHON_MANIFESTS or (name.startswith("requirements") and name.endswith(".txt")):
+        return _PEP503_SEPARATORS.sub("-", package).lower()
+    if name in _NPM_MANIFESTS:
+        return package.lower()
+    return package
+
+
 def _dependency_groups(
     occurrences: Sequence[Occurrence],
 ) -> list[tuple[str, str, list[Occurrence]]]:
     by_package: dict[str, list[Occurrence]] = defaultdict(list)
     for occ in occurrences:
-        by_package[occ.package or occ.location.path].append(occ)
+        key = (
+            normalized_package(occ.package, occ.location.path) if occ.package else occ.location.path
+        )
+        by_package[key].append(occ)
     result: list[tuple[str, str, list[Occurrence]]] = []
     for package_key, members in sorted(by_package.items()):
         parent: dict[str, str] = {}
@@ -334,5 +373,6 @@ __all__ = [
     "AnalysisContext",
     "build_issues",
     "class_impact_range",
+    "normalized_package",
     "resolve_class",
 ]

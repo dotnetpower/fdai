@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 from fdai.core.security.code_findings.canonical import AnalysisContext, build_issues
-from fdai.core.security.code_findings.models import InstanceFacts, Lane, Occurrence
+from fdai.core.security.code_findings.models import InstanceFacts, Lane, Occurrence, SourceLocation
 from fdai.core.security.code_findings.sarif import SarifIngestContext, ingest_sarif
 from fdai.rule_catalog.code_security import (
     AttackVector,
@@ -188,3 +188,46 @@ def test_misconfiguration_and_secret_tags_classify_without_cwe() -> None:
     )
     classes = sorted(issue.weakness_class for issue in _issues(occurrences))
     assert classes == ["hardcoded_secret", "insecure_configuration"]
+
+
+def test_package_spelling_variants_are_one_issue_per_ecosystem_rules() -> None:
+    from fdai.core.security.code_findings.canonical import normalized_package
+
+    assert normalized_package("PyJWT", "requirements.txt") == "pyjwt"
+    assert normalized_package("zope.interface", "services/api/poetry.lock") == "zope-interface"
+    assert normalized_package("@Scope/Pkg", "package-lock.json") == "@scope/pkg"
+    assert (
+        normalized_package("github.com/Sirupsen/logrus", "go.sum") == "github.com/Sirupsen/logrus"
+    )
+
+    def dependency(producer: str, package: str, advisories: list[str], manifest: str) -> Occurrence:
+        return Occurrence(
+            occurrence_id=f"{producer}-{package}",
+            producer=producer,
+            producer_version="1",
+            lane=Lane.DETERMINISTIC,
+            scan_digest="sha256:x",
+            revision=REVISION,
+            rule_id=advisories[0],
+            location=SourceLocation(manifest, 1),
+            advisory_ids=tuple(advisories),
+            package=package,
+            package_version="2.13.0",
+        )
+
+    python = _issues(
+        [
+            dependency("trivy", "pyjwt", ["CVE-2099-0002"], "requirements.txt"),
+            dependency(
+                "osv-scanner", "PyJWT", ["GHSA-zzzz-0002-aaaa", "CVE-2099-0002"], "requirements.txt"
+            ),
+        ]
+    )
+    assert len(python) == 1
+    go = _issues(
+        [
+            dependency("trivy", "github.com/sirupsen/logrus", ["CVE-2099-0003"], "go.sum"),
+            dependency("osv-scanner", "github.com/Sirupsen/logrus", ["CVE-2099-0003"], "go.sum"),
+        ]
+    )
+    assert len(go) == 2

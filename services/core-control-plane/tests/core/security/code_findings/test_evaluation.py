@@ -14,6 +14,7 @@ from fdai.core.security.code_findings.evaluation import (
     acceptance_failures,
     corpus_from_mapping,
     evaluate,
+    split_corpus,
     weighted_kappa,
 )
 from fdai.delivery.code_security_cli import main
@@ -154,3 +155,20 @@ def test_cli_evaluate_fails_below_acceptance(
     assert main(["evaluate", "--corpus", str(corpus)]) == 1
     output = json.loads(capsys.readouterr().out)
     assert "severity_exact_agreement" in output["failures"]
+
+
+def test_curated_advisory_corpus_meets_floors_in_both_splits() -> None:
+    raw = yaml.safe_load((CATALOG_ROOT / "evaluation" / "curated-advisories.yaml").read_text())
+    corpus = corpus_from_mapping(raw)
+    assert corpus.provenance == "curated"
+    for split in ("dev", "holdout"):
+        subset = split_corpus(corpus, split)
+        assert subset is not None
+        assert acceptance_failures(evaluate(subset, catalog()), corpus.acceptance) == []
+
+
+def test_unknown_split_is_rejected() -> None:
+    raw = _raw()
+    raw["cases"][0]["split"] = "test"
+    with pytest.raises(EvaluationCorpusError, match="split"):
+        corpus_from_mapping(raw)

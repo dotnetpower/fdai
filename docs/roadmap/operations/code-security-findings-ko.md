@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 점검 결과
 translation_of: code-security-findings.md
-translation_source_sha: fab82ed5c79177e30a4db86174170840401d2b8b
+translation_source_sha: 734b640c58a6e25529d1ca71fca1fa110c20cd85
 translation_revised: 2026-10-07
 ---
 
@@ -125,7 +125,9 @@ flowchart LR
   CWE 상하위 관계만으로는 합치지 않으며, 목록에 없는 CWE는 생산자와 규칙을 키로 하는
   `unclassified` 묶음에 남습니다.
 - **의존성:** 같은 패키지를 가리키고 권고 별칭(CVE, GHSA, OSV)을 하나라도 공유하면 합칩니다.
-  lockfile, 이미지, 워크로드 계층은 인스턴스가 됩니다.
+  lockfile, 이미지, 워크로드 계층은 인스턴스가 됩니다. 패키지 동일성은 생태계 규칙을 따릅니다.
+  PyPI 이름은 PEP 503 정규화 뒤에, npm 이름은 대소문자 구분 없이 비교하므로 `PyJWT`와 `pyjwt`는
+  같은 패키지입니다. Go 모듈 경로처럼 다른 생태계는 이름을 그대로 유지합니다.
 - **이슈 심각도:** 이슈의 하한은 인스턴스 하한 중 가장 높은 값입니다. 상한과 결정 인스턴스는
   상한이 가장 높은 인스턴스에서 가져옵니다.
 - **수정 그룹:** 의존성 이슈는 패키지별로, 비밀 정보는 파일별로, 그 밖의 코드 이슈는 약점 유형과
@@ -286,6 +288,13 @@ SARIF를 수집합니다. 조치 지침과 규칙은 FDAI가 직접 작성합니
 평가 자료는 합격 하한을 선언하며, 하나라도 하한에 못 미치면 명령이 실패합니다. 업스트림 평가
 자료인 `rule-catalog/code-security/evaluation/synthetic-corpus.yaml`은 작성자가 직접 레이블을 붙인
 합성 자료입니다. 이 자료는 연결과 재현성을 입증할 뿐, 루브릭 보정을 입증하지는 않습니다.
+
+`curated-advisories.yaml`은 2025년 7월부터 2026년 9월 사이에 공개된 실제 권고로 만들었습니다. 각
+사례는 Trivy(CVE ID, NVD 점수)와 OSV-Scanner(GHSA ID, GitHub 점수)가 패키지를 보고하는 방식을
+재현합니다. 검토자 등급은 GitHub Advisory Database가 검토 후 지정한 심각도로, FDAI와 무관한
+독립 레이블이며, 사례는 `dev`와 `holdout`으로 나뉩니다. 이 자료로 실제 결함을 찾았습니다. 한 PyPI
+패키지를 생산자마다 다르게 표기하면 이슈가 중복되었으며, 패키지 동일성이 위의 생태계 규칙을
+따르도록 고친 뒤 해소되었습니다.
 
 ## 검증
 

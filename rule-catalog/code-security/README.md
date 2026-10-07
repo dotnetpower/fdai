@@ -24,7 +24,7 @@ The design is in [Code Security Findings](../../docs/roadmap/operations/code-sec
 | `rules/` | FDAI-authored Opengrep rules with positive and negative fixtures. `rules/verify/` holds taint-mode verifier rules. |
 | `lenses.yaml` | LLM lens definitions: CWE scope, sink hints, and excerpt budgets for the off-path review. |
 | `verifiers.yaml` | Deterministic weakness verifiers: per-class sinks, sanitizers, entrypoints, and validation guards that raise a confirmed issue to `verified`. |
-| `evaluation/` | Labeled evaluation corpora: `synthetic-corpus.yaml` for `evaluate`, `verifier-corpus.yaml` (pinned public projects, fetched at evaluation time) for `evaluate-verifiers`. |
+| `evaluation/` | Labeled evaluation corpora: `synthetic-corpus.yaml` and `curated-advisories.yaml` for `evaluate`, `verifier-corpus.yaml` (pinned public projects, fetched at evaluation time) for `evaluate-verifiers`. |
 
 ## Change rules
 

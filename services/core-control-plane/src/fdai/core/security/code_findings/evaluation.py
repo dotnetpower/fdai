@@ -49,6 +49,7 @@ from fdai.rule_catalog.code_security import (
 
 EVALUATION_REVISION = "0" * 40
 _PROVENANCE = frozenset({"synthetic", "curated"})
+_SPLITS = frozenset({"dev", "holdout"})
 _METRIC_FLOORS = (
     "dedup_precision",
     "dedup_recall",
@@ -81,6 +82,7 @@ class EvaluationCase:
     exposure: Exposure
     occurrences: tuple[Occurrence, ...]
     expected: tuple[ExpectedIssue, ...]
+    split: str = "dev"
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,10 +157,16 @@ def weighted_kappa(pairs: Sequence[tuple[SeverityBand, SeverityBand]]) -> float:
 
 
 def _matches(expected: ExpectedIssue, issue: CodeSecurityIssue) -> bool:
+    """Same class and fix site, and at least one shared member occurrence.
+
+    Dependency issues for different advisories share a manifest line, so the site alone can't
+    tell them apart.
+    """
     return (
         issue.weakness_class == expected.weakness_class
         and issue.fix_site.path == expected.path
         and (issue.fix_site.start_line or 0) == expected.line
+        and bool(expected.occurrence_ids & set(issue.occurrence_ids))
     )
 
 
@@ -261,6 +269,12 @@ def evaluate(corpus: EvaluationCorpus, catalog: CodeSecurityCatalog) -> Evaluati
         stable=stable,
         misses=tuple(misses),
     )
+
+
+def split_corpus(corpus: EvaluationCorpus, split: str) -> EvaluationCorpus | None:
+    """Return the cases of one split as their own corpus, or ``None`` when the split is empty."""
+    cases = tuple(case for case in corpus.cases if case.split == split)
+    return replace(corpus, cases=cases) if cases else None
 
 
 def acceptance_failures(metrics: EvaluationMetrics, acceptance: Mapping[str, float]) -> list[str]:
@@ -411,7 +425,10 @@ def corpus_from_mapping(raw: object) -> EvaluationCorpus:
             exposure = Exposure(str(raw_case.get("exposure", "unknown")))
         except ValueError as exc:
             raise EvaluationCorpusError(f"{case_id}: {exc}") from exc
-        cases.append(EvaluationCase(case_id, exposure, occurrences, expected))
+        split = str(raw_case.get("split", "dev"))
+        if split not in _SPLITS:
+            raise EvaluationCorpusError(f"{case_id}: split must be one of {sorted(_SPLITS)}")
+        cases.append(EvaluationCase(case_id, exposure, occurrences, expected, split))
     shift = raw.get("line_shift", 7)
     if not isinstance(shift, int) or isinstance(shift, bool) or shift < 1:
         raise EvaluationCorpusError("corpus: line_shift must be a positive integer")
@@ -437,5 +454,6 @@ __all__ = [
     "acceptance_failures",
     "corpus_from_mapping",
     "evaluate",
+    "split_corpus",
     "weighted_kappa",
 ]

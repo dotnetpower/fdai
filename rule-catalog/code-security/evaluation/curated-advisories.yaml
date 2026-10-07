@@ -1,0 +1,737 @@
+# FDAI code-security evaluation corpus: curated from real advisories.
+#
+# Every case models one package as Trivy and OSV-Scanner would report it. Trivy reports the CVE id
+# with the NVD (or CNA) CVSS v3 base score; OSV-Scanner reports the GHSA id with its CVE alias and
+# the GitHub-reviewed score. Package names keep the spelling each source uses, so the same PyPI
+# package can appear as `PyJWT`, `pyjwt`, or `pyJWT`. The reviewer band is the severity the GitHub
+# Advisory Database assigned on review, an independent label FDAI never produced. Advisories were
+# published between 2025-07-01 and 2026-09-30. Each `-fixed` case is a clean negative: the package
+# at a patched version reports nothing. Cases are split by a hash of the case id into `dev` and
+# `holdout`; no rule or threshold was tuned on the holdout split.
+#
+# Data: GitHub Advisory Database reviewed advisories (CC-BY 4.0) and NVD CVE records (public
+# domain), retrieved 2026-10-07. Only identifiers, scores, and package names are kept.
+#
+# Run: python -m fdai.delivery.code_security_cli evaluate --corpus <this file>
+schema_version: 1
+corpus_id: fdai.code-security.curated-advisories
+version: 1.0.0
+provenance: curated
+line_shift: 7
+acceptance:
+  dedup_precision: 1.0
+  dedup_recall: 1.0
+  detection_precision: 1.0
+  detection_recall: 1.0
+  severity_range_containment: 1.0
+cases:
+- id: npm-fastify
+  split: dev
+  occurrences:
+  - id: t0
+    producer: trivy
+    lane: deterministic
+    rule_id: CVE-2026-92081
+    path: package-lock.json
+    line: 1
+    advisories:
+    - CVE-2026-92081
+    package: fastify
+    package_version: affected
+    advisory_score: 5.9
+  - id: o0
+    producer: osv-scanner
+    lane: deterministic
+    rule_id: GHSA-4mh8-r7rc-xpvc
+    path: package-lock.json
+    line: 1
+    advisories:
+    - GHSA-4mh8-r7rc-xpvc
+    - CVE-2026-92081
+    package: fastify
+    package_version: affected
+    advisory_score: 5.9
+  - id: t1
+    producer: trivy
+    lane: deterministic
+    rule_id: CVE-2026-84504
+    path: package-lock.json
+    line: 1
+    advisories:
+    - CVE-2026-84504
+    package: fastify
+    package_version: affected
+    advisory_score: 8.1
+  - id: o1
+    producer: osv-scanner
+    lane: deterministic
+    rule_id: GHSA-667r-xxjv-c9mm
+    path: package-lock.json
+    line: 1
+    advisories:
+    - GHSA-667r-xxjv-c9mm
+    - CVE-2026-84504
+    package: fastify
+    package_version: affected
+    advisory_score: 8.1
+  - id: t2
+    producer: trivy
+    lane: deterministic
+    rule_id: CVE-2026-76169
+    path: package-lock.json
+    line: 1
+    advisories:
+    - CVE-2026-76169
+    package: fastify
+    package_version: affected
+    advisory_score: 7.5
+  - id: o2
+    producer: osv-scanner
+    lane: deterministic
+    rule_id: GHSA-p68q-wchp-6fh7
+    path: package-lock.json
+    line: 1
+    advisories:
+    - GHSA-p68q-wchp-6fh7
+    - CVE-2026-76169
+    package: fastify
+    package_version: affected
+    advisory_score: 7.5
+  - id: t3
+    producer: trivy
+    lane: deterministic
+    rule_id: CVE-2026-84469
+    path: package-lock.json
+    line: 1
+    advisories:
+    - CVE-2026-84469
+    package: fastify
+    package_version: affected
+    advisory_score: 7.5
+  - id: o3
+    producer: osv-scanner
+    lane: deterministic
+    rule_id: GHSA-hwr6-493r-vm6h
+    path: package-lock.json
+    line: 1
+    advisories:
+    - GHSA-hwr6-493r-vm6h
+    - CVE-2026-84469
+    package: fastify
+    package_version: affected
+    advisory_score: 7.5
+  - id: t4
+    producer: trivy
+    lane: deterministic
+    rule_id: CVE-2026-84428
+    path: package-lock.json
+    line: 1
+    advisories:
+    - CVE-2026-84428
+    package: fastify
+    package_version: affected
+    advisory_score: 7.5
+  - id: o4
+    producer: osv-scanner
+    lane: deterministic
+    rule_id: GHSA-9q9j-q6p8-xq58
+    path: package-lock.json
+    line: 1
+    advisories:
+    - GHSA-9q9j-q6p8-xq58
+    - CVE-2026-84428
+    package: fastify
+    package_version: affected
+    advisory_score: 7.5
+  expected:
+  - weakness_class: vulnerable_dependency
+    path: package-lock.json
+    line: 1
+    occurrences:
+    - t0
+    - o0
+    reviewer_band: medium
+  - weakness_class: vulnerable_dependency
+    path: package-lock.json
+    line: 1
+    occurrences:
+    - t1
+    - o1
+    reviewer_band: high
+  - weakness_class: vulnerable_dependency
+    path: package-lock.json
+    line: 1
+    occurrences:
+    - t2
+    - o2
+    reviewer_band: high
+  - weakness_class: vulnerable_dependency
+    path: package-lock.json
+    line: 1
+    occurrences:
+    - t3
+    - o3
+    reviewer_band: high
+  - weakness_class: vulnerable_dependency
+    path: package-lock.json
+    line: 1
+    occurrences:
+    - t4
+    - o4
+    reviewer_band: high
+- id: npm-fastify-fixed
+  split: dev
+  occurrences: []
+  expected: []
+- id: npm-grpc-grpc-js
+  split: holdout
+  occurrences:
+  - id: t0
+    producer: trivy
+    lane: deterministic
+    rule_id: CVE-2026-101916
+    path: package-lock.json
+    line: 1
+    advisories:
+    - CVE-2026-101916
+    package: '@grpc/grpc-js'
+    package_version: affected
+    advisory_score: 7.4
+  - id: o0
+    producer: osv-scanner
+    lane: deterministic
+    rule_id: GHSA-m9gg-hp2v-232j
+    path: package-lock.json
+    line: 1
+    advisories:
+    - GHSA-m9gg-hp2v-232j
+    - CVE-2026-101916
+    package: '@grpc/grpc-js'
+    package_version: affected
+    advisory_score: 7.4
+  - id: t1
+    producer: trivy
+    lane: deterministic
+    rule_id: CVE-2026-101915
+    path: package-lock.json
+    line: 1
+    advisories:
+    - CVE-2026-101915
+    package: '@grpc/grpc-js'
+    package_version: affected
+    advisory_score: 3.7
+  - id: o1
+    producer: osv-scanner
+    lane: deterministic
+    rule_id: GHSA-f596-whhp-79r4
+    path: package-lock.json
+    line: 1
+    advisories:
+    - GHSA-f596-whhp-79r4
+    - CVE-2026-101915
+    package: '@grpc/grpc-js'
+    package_version: affected
+    advisory_score: 3.7
+  expected:
+  - weakness_class: vulnerable_dependency
+    path: package-lock.json
+    line: 1
+    occurrences:
+    - t0
+    - o0
+    reviewer_band: high
+  - weakness_class: vulnerable_dependency
+    path: package-lock.json
+    line: 1
+    occurrences:
+    - t1
+    - o1
+    reviewer_band: low
+- id: npm-grpc-grpc-js-fixed
+  split: holdout
+  occurrences: []
+  expected: []
+- id: npm-fast-uri
+  split: dev
+  occurrences:
+  - id: t0
+    producer: trivy
+    lane: deterministic
+    rule_id: CVE-2026-86472
+    path: package-lock.json
+    line: 1
+    advisories:
+    - CVE-2026-86472
+    package: fast-uri
+    package_version: affected
+    advisory_score: 4.8
+  - id: o0
+    producer: osv-scanner
+    lane: deterministic
+    rule_id: GHSA-hrr3-gc8f-f4qj
+    path: package-lock.json
+    line: 1
+    advisories:
+    - GHSA-hrr3-gc8f-f4qj
+    - CVE-2026-86472
+    package: fast-uri
+    package_version: affected
+    advisory_score: 4.8
+  - id: t1
+    producer: trivy
+    lane: deterministic
+    rule_id: CVE-2026-86818
+    path: package-lock.json
+    line: 1
+    advisories:
+    - CVE-2026-86818
+    package: fast-uri
+    package_version: affected
+    advisory_score: 4.8
+  - id: o1
+    producer: osv-scanner
+    lane: deterministic
+    rule_id: GHSA-jvvf-x445-j334
+    path: package-lock.json
+    line: 1
+    advisories:
+    - GHSA-jvvf-x445-j334
+    - CVE-2026-86818
+    package: fast-uri
+    package_version: affected
+    advisory_score: 4.8
+  expected:
+  - weakness_class: vulnerable_dependency
+    path: package-lock.json
+    line: 1
+    occurrences:
+    - t0
+    - o0
+    reviewer_band: medium
+  - weakness_class: vulnerable_dependency
+    path: package-lock.json
+    line: 1
+    occurrences:
+    - t1
+    - o1
+    reviewer_band: medium
+- id: npm-fast-uri-fixed
+  split: dev
+  occurrences: []
+  expected: []
+- id: npm-nodemailer
+  split: holdout
+  occurrences:
+  - id: t0
+    producer: trivy
+    lane: deterministic
+    rule_id: CVE-2026-90776
+    path: package-lock.json
+    line: 1
+    advisories:
+    - CVE-2026-90776
+    package: nodemailer
+    package_version: affected
+    advisory_score: 7.5
+  - id: o0
+    producer: osv-scanner
+    lane: deterministic
+    rule_id: GHSA-prgh-xp8r-p3m5
+    path: package-lock.json
+    line: 1
+    advisories:
+    - GHSA-prgh-xp8r-p3m5
+    - CVE-2026-90776
+    package: nodemailer
+    package_version: affected
+    advisory_score: 7.5
+  expected:
+  - weakness_class: vulnerable_dependency
+    path: package-lock.json
+    line: 1
+    occurrences:
+    - t0
+    - o0
+    reviewer_band: high
+- id: npm-nodemailer-fixed
+  split: holdout
+  occurrences: []
+  expected: []
+- id: npm-moment
+  split: holdout
+  occurrences:
+  - id: t0
+    producer: trivy
+    lane: deterministic
+    rule_id: CVE-2026-17495
+    path: package-lock.json
+    line: 1
+    advisories:
+    - CVE-2026-17495
+    package: moment
+    package_version: affected
+    advisory_score: 5.9
+  - id: o0
+    producer: osv-scanner
+    lane: deterministic
+    rule_id: GHSA-4p3w-j4w9-5jqw
+    path: package-lock.json
+    line: 1
+    advisories:
+    - GHSA-4p3w-j4w9-5jqw
+    - CVE-2026-17495
+    package: moment
+    package_version: affected
+    advisory_score: 5.9
+  expected:
+  - weakness_class: vulnerable_dependency
+    path: package-lock.json
+    line: 1
+    occurrences:
+    - t0
+    - o0
+    reviewer_band: medium
+- id: npm-moment-fixed
+  split: holdout
+  occurrences: []
+  expected: []
+- id: npm-hono
+  split: holdout
+  occurrences:
+  - id: t0
+    producer: trivy
+    lane: deterministic
+    rule_id: CVE-2026-93981
+    path: package-lock.json
+    line: 1
+    advisories:
+    - CVE-2026-93981
+    package: hono
+    package_version: affected
+    advisory_score: 4.7
+  - id: o0
+    producer: osv-scanner
+    lane: deterministic
+    rule_id: GHSA-hxh3-vqpv-xpqv
+    path: package-lock.json
+    line: 1
+    advisories:
+    - GHSA-hxh3-vqpv-xpqv
+    - CVE-2026-93981
+    package: hono
+    package_version: affected
+    advisory_score: 4.7
+  expected:
+  - weakness_class: vulnerable_dependency
+    path: package-lock.json
+    line: 1
+    occurrences:
+    - t0
+    - o0
+    reviewer_band: medium
+- id: npm-hono-fixed
+  split: holdout
+  occurrences: []
+  expected: []
+- id: npm-xhmikosr-decompress
+  split: dev
+  occurrences:
+  - id: t0
+    producer: trivy
+    lane: deterministic
+    rule_id: CVE-2026-101894
+    path: package-lock.json
+    line: 1
+    advisories:
+    - CVE-2026-101894
+    package: '@xhmikosr/decompress'
+    package_version: affected
+    advisory_score: 9.1
+  - id: o0
+    producer: osv-scanner
+    lane: deterministic
+    rule_id: GHSA-hrh2-vp3x-79xf
+    path: package-lock.json
+    line: 1
+    advisories:
+    - GHSA-hrh2-vp3x-79xf
+    - CVE-2026-101894
+    package: '@xhmikosr/decompress'
+    package_version: affected
+    advisory_score: 9.1
+  expected:
+  - weakness_class: vulnerable_dependency
+    path: package-lock.json
+    line: 1
+    occurrences:
+    - t0
+    - o0
+    reviewer_band: critical
+- id: npm-xhmikosr-decompress-fixed
+  split: dev
+  occurrences: []
+  expected: []
+- id: pip-pyjwt
+  split: dev
+  occurrences:
+  - id: t0
+    producer: trivy
+    lane: deterministic
+    rule_id: CVE-2026-103001
+    path: requirements.txt
+    line: 1
+    advisories:
+    - CVE-2026-103001
+    package: pyjwt
+    package_version: affected
+    advisory_score: 6.5
+  - id: o0
+    producer: osv-scanner
+    lane: deterministic
+    rule_id: GHSA-gvp8-978c-rx2q
+    path: requirements.txt
+    line: 1
+    advisories:
+    - GHSA-gvp8-978c-rx2q
+    - CVE-2026-103001
+    package: PyJWT
+    package_version: affected
+    advisory_score: 6.5
+  - id: t1
+    producer: trivy
+    lane: deterministic
+    rule_id: CVE-2026-101918
+    path: requirements.txt
+    line: 1
+    advisories:
+    - CVE-2026-101918
+    package: pyjwt
+    package_version: affected
+    advisory_score: 5.3
+  - id: o1
+    producer: osv-scanner
+    lane: deterministic
+    rule_id: GHSA-42vr-xj54-vc7v
+    path: requirements.txt
+    line: 1
+    advisories:
+    - GHSA-42vr-xj54-vc7v
+    - CVE-2026-101918
+    package: PyJWT
+    package_version: affected
+    advisory_score: 5.3
+  - id: t2
+    producer: trivy
+    lane: deterministic
+    rule_id: CVE-2026-102270
+    path: requirements.txt
+    line: 1
+    advisories:
+    - CVE-2026-102270
+    package: pyjwt
+    package_version: affected
+    advisory_score: 4.9
+  - id: o2
+    producer: osv-scanner
+    lane: deterministic
+    rule_id: GHSA-jwrc-g2q2-pq5p
+    path: requirements.txt
+    line: 1
+    advisories:
+    - GHSA-jwrc-g2q2-pq5p
+    - CVE-2026-102270
+    package: pyjwt
+    package_version: affected
+    advisory_score: 4.4
+  - id: t3
+    producer: trivy
+    lane: deterministic
+    rule_id: CVE-2026-102266
+    path: requirements.txt
+    line: 1
+    advisories:
+    - CVE-2026-102266
+    package: pyjwt
+    package_version: affected
+    advisory_score: 7.4
+  - id: o3
+    producer: osv-scanner
+    lane: deterministic
+    rule_id: GHSA-9j54-fg26-wv3r
+    path: requirements.txt
+    line: 1
+    advisories:
+    - GHSA-9j54-fg26-wv3r
+    - CVE-2026-102266
+    package: PyJWT
+    package_version: affected
+    advisory_score: 7.4
+  - id: t4
+    producer: trivy
+    lane: deterministic
+    rule_id: CVE-2026-102265
+    path: requirements.txt
+    line: 1
+    advisories:
+    - CVE-2026-102265
+    package: pyjwt
+    package_version: affected
+    advisory_score: 5.3
+  - id: o4
+    producer: osv-scanner
+    lane: deterministic
+    rule_id: GHSA-8wjv-2p76-3863
+    path: requirements.txt
+    line: 1
+    advisories:
+    - GHSA-8wjv-2p76-3863
+    - CVE-2026-102265
+    package: pyJWT
+    package_version: affected
+    advisory_score: 5.3
+  expected:
+  - weakness_class: vulnerable_dependency
+    path: requirements.txt
+    line: 1
+    occurrences:
+    - t0
+    - o0
+    reviewer_band: medium
+  - weakness_class: vulnerable_dependency
+    path: requirements.txt
+    line: 1
+    occurrences:
+    - t1
+    - o1
+    reviewer_band: medium
+  - weakness_class: vulnerable_dependency
+    path: requirements.txt
+    line: 1
+    occurrences:
+    - t2
+    - o2
+    reviewer_band: medium
+  - weakness_class: vulnerable_dependency
+    path: requirements.txt
+    line: 1
+    occurrences:
+    - t3
+    - o3
+    reviewer_band: high
+  - weakness_class: vulnerable_dependency
+    path: requirements.txt
+    line: 1
+    occurrences:
+    - t4
+    - o4
+    reviewer_band: medium
+- id: pip-pyjwt-fixed
+  split: dev
+  occurrences: []
+  expected: []
+- id: pip-gitpython
+  split: dev
+  occurrences:
+  - id: t0
+    producer: trivy
+    lane: deterministic
+    rule_id: CVE-2026-87819
+    path: requirements.txt
+    line: 1
+    advisories:
+    - CVE-2026-87819
+    package: gitpython
+    package_version: affected
+    advisory_score: 7.5
+  - id: o0
+    producer: osv-scanner
+    lane: deterministic
+    rule_id: GHSA-g5vv-9gxw-82hx
+    path: requirements.txt
+    line: 1
+    advisories:
+    - GHSA-g5vv-9gxw-82hx
+    - CVE-2026-87819
+    package: GitPython
+    package_version: affected
+    advisory_score: 7.5
+  - id: t1
+    producer: trivy
+    lane: deterministic
+    rule_id: CVE-2026-87817
+    path: requirements.txt
+    line: 1
+    advisories:
+    - CVE-2026-87817
+    package: gitpython
+    package_version: affected
+    advisory_score: 8.8
+  - id: o1
+    producer: osv-scanner
+    lane: deterministic
+    rule_id: GHSA-239g-whfq-7xj9
+    path: requirements.txt
+    line: 1
+    advisories:
+    - GHSA-239g-whfq-7xj9
+    - CVE-2026-87817
+    package: gitpython
+    package_version: affected
+    advisory_score: 8.8
+  expected:
+  - weakness_class: vulnerable_dependency
+    path: requirements.txt
+    line: 1
+    occurrences:
+    - t0
+    - o0
+    reviewer_band: high
+  - weakness_class: vulnerable_dependency
+    path: requirements.txt
+    line: 1
+    occurrences:
+    - t1
+    - o1
+    reviewer_band: high
+- id: pip-gitpython-fixed
+  split: dev
+  occurrences: []
+  expected: []
+- id: pip-litellm
+  split: dev
+  occurrences:
+  - id: t0
+    producer: trivy
+    lane: deterministic
+    rule_id: CVE-2026-84377
+    path: requirements.txt
+    line: 1
+    advisories:
+    - CVE-2026-84377
+    package: litellm
+    package_version: affected
+    advisory_score: 6.5
+  - id: o0
+    producer: osv-scanner
+    lane: deterministic
+    rule_id: GHSA-3cv6-jpf6-8222
+    path: requirements.txt
+    line: 1
+    advisories:
+    - GHSA-3cv6-jpf6-8222
+    - CVE-2026-84377
+    package: litellm
+    package_version: affected
+    advisory_score: 6.5
+  expected:
+  - weakness_class: vulnerable_dependency
+    path: requirements.txt
+    line: 1
+    occurrences:
+    - t0
+    - o0
+    reviewer_band: medium
+- id: pip-litellm-fixed
+  split: dev
+  occurrences: []
+  expected: []

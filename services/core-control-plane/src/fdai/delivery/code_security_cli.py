@@ -61,6 +61,7 @@ from fdai.core.security.code_findings.evaluation import (
     acceptance_failures,
     corpus_from_mapping,
     evaluate,
+    split_corpus,
 )
 from fdai.core.security.code_findings.export_gate import (
     AgentProviderPolicy,
@@ -320,6 +321,15 @@ def _evaluate(args: argparse.Namespace) -> dict[str, object]:
     corpus = corpus_from_mapping(yaml.safe_load(Path(args.corpus).read_text(encoding="utf-8")))
     metrics = evaluate(corpus, catalog)
     failures = acceptance_failures(metrics, corpus.acceptance)
+    splits: dict[str, object] = {}
+    for name in ("dev", "holdout"):
+        subset = split_corpus(corpus, name)
+        if subset is not None and len(subset.cases) < len(corpus.cases):
+            split_metrics = evaluate(subset, catalog)
+            splits[name] = split_metrics.as_dict()
+            failures += [
+                f"{name}:{item}" for item in acceptance_failures(split_metrics, corpus.acceptance)
+            ]
     receipt: dict[str, object] = {
         "ok": not failures,
         "kind": "fdai.code-security.evaluation-receipt",
@@ -331,6 +341,7 @@ def _evaluate(args: argparse.Namespace) -> dict[str, object]:
         },
         "catalog_versions": catalog.version_stamp(),
         "metrics": metrics.as_dict(),
+        "splits": splits,
         "acceptance": dict(corpus.acceptance),
         "failures": failures,
         "evaluated_at": datetime.now(UTC).isoformat(),
