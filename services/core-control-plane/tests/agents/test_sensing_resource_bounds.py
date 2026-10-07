@@ -7,6 +7,7 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
+from fdai.agents._framework import huginn_dedup
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.huginn_dedup import HuginnDedupJournal, request_digest
 from fdai.agents._framework.loki_reservations import LokiReservationJournal
@@ -131,6 +132,31 @@ async def test_huginn_recovery_reads_terminal_page_not_every_shard() -> None:
     assert len(keys) == 64
     assert store.read_states_calls == 1
     assert store.read_state_calls == 1
+
+
+async def test_huginn_shard_recovery_keeps_completion_order_without_repeated_selection(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = InMemoryStateStore()
+    # Fewer published keys than capacity read every shard, the path a live start stalled on.
+    journal = HuginnDedupJournal(store, capacity=4096, clock=lambda: NOW)
+    keys = [f"event:{index}" for index in range(1500)]
+    for key in keys:
+        raw = _raw_event(key)
+        digest = request_digest(raw)
+        await journal.claim(
+            idempotency_key=key, request_digest=digest, payload=raw, change_projection=None
+        )
+        await journal.complete(idempotency_key=key, request_digest=digest)
+
+    def fail_min(*args: object, **kwargs: object) -> object:
+        raise AssertionError("recovery must not select each key with min, which is quadratic")
+
+    # A module global shadows the builtin only inside the journal module.
+    monkeypatch.setattr(huginn_dedup, "min", fail_min, raising=False)
+    recovered = await journal.published_keys()
+
+    assert recovered == tuple(keys)
 
 
 async def test_huginn_lock_map_is_bounded_when_oldest_lock_is_held() -> None:
