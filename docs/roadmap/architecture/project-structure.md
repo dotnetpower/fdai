@@ -600,6 +600,13 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   not make an active agent appear blank. Local dev mode also exposes a `Labs`
   group immediately above Settings; production navigation omits this development-only group.
 
+Code-security findings keep their deterministic core in `core/security/code_findings/`, catalogs
+in `rule-catalog/code-security/`, and adapters in `delivery/code_security_*.py` and
+`delivery/persistence/state_store_code_security_*.py`. The Operator read side is
+`code_security_review_projection.py`, and the Console route is `routes/code-security.tsx`. The
+scan runner image sits beside the core image as `docker/code-security-scanner.Dockerfile`. See
+[Code Security Findings](../operations/code-security-findings.md).
+
 ## Repository Script Layout
 
 Repository automation is grouped by responsibility under `scripts/`; only the layout README, `verify.sh`, and the Python package marker stay

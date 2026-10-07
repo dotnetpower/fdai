@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 3d465ca719ae38713df6dc83f6ff3dd54c0d4b24
-translation_revised: 2026-10-07
+translation_source_sha: 7138765a9be7912df07273b954d7740da98197c3
+translation_revised: 2026-10-08
 ---
 # 온톨로지 구조 모델
 
@@ -564,6 +564,9 @@ Azure 위치처럼 ResourceClass가 애초에 가지지 않는 기록 필드도 
 상자가 담고 있는 관계도 그림이 보여 주는 관계입니다. 선만 세면 중첩이 선을 없앱는 순간
 그래프가 실제로 제시하는 것보다 적은 범위를 보고하게 되며, 이는 과대 보고와 마찬가지로
 운영자가 보고 있는 evidence를 잘못 말하는 일입니다.
+
+코드 보안 이슈는 온톨로지 객체가 아닙니다. 저장소 리비전을 키로 하는 코드 보안 카탈로그, 상태 행,
+Operator 변환 결과에만 머물므로, 그 건수는 온톨로지 완전성이나 관계 쿼리에 들어가지 않습니다.
 
 ## 이행 및 출시
 

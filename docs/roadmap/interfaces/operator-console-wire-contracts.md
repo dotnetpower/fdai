@@ -535,6 +535,12 @@ bound it.
 Without version 2 coverage the response is `{"evaluated": false, "counts": {}}`. A malformed or
 ambiguous record returns `503` instead of an inferred zero. The summary grants no authority.
 
+`GET /code-security/reviews` and `GET /code-security/packs` return `surface`, `available`,
+`complete`, `source`, the `reviews` or `packs` list, and `gaps`. Rows carry only counts, revisions,
+opaque issue ids, decisions, verdict counts, and adjudication decisions, never paths, code,
+rationale, or approval references. Malformed rows become `gaps` entries, so an empty list never
+reads as a clean estate.
+
 ## Implementation status
 
 ### Implementation scope
