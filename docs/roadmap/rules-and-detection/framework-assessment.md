@@ -206,7 +206,9 @@ assessment exists. The Console shows:
 - mapping, applicability, evaluation, and satisfaction as separate fields;
 - evidence references, digests, freshness, completeness, conflicts, and limitations;
 - owner, cadence, approved exception, and WAF tradeoff records; and
-- unavailable and unknown states without a compliance label.
+- unavailable and unknown states without a compliance label; and
+- for a WAF `rule` requirement, server-owned scoped Rule coverage counts and activation state,
+  shown only while their coverage record belongs to the current version 2 baseline.
 
 WAF remains in the existing Controls view. CAF adds a sibling tab that uses the same quiet,
 read-only interaction pattern. The Rules catalog rail links to that Controls view as presentation

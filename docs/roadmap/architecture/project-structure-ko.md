@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: f4adfedd2d2532bc97c6da467b451a3cb2f0e001
+translation_source_sha: 799de507ba9adf3b4ab8d3eae66677d6b2d0b580
 translation_revised: 2026-10-08
 ---
 # 프로젝트 구조
@@ -116,6 +116,9 @@ Core는 계약 하위 모듈이 아니라 공유 계약 파사드를 통해 Rule
 계산하며, 순서가 정해진 결과 표로 각 WAF Rule 요구 사항을 변환합니다. `core/framework_assessment/`는
 프로필이 고정한 활성화 세대와 출처가 정확히 일치하는 Rule 영수증만 수락합니다. 두 모듈 모두 활성화,
 승인, 실행 권한을 부여하지 않습니다([T0 기반 프레임워크 규칙 근거](../rules-and-detection/framework-rule-evidence-ko.md)).
+`core/framework_rule_evidence/record.py`는 버전이 있는 범위별 커버리지 기록을 만들며, 그 wire 계약은
+`fdai_service_contracts.framework_rule_coverage`에 있습니다. 평가 작업은 감사 항목과 함께 기록을 저장하고,
+Operator는 WAF 컨트롤 세부 정보에 수치를 붙일 때만 이 기록을 읽습니다.
 
 Operator 운영 조립 파사드는 런타임 배선을 유지합니다. 목적별 인접 모듈은 수명 주기와 리소스
 정리, 경로 계열 조립 및 읽기 출처 선언을 소유합니다. 호환 내보내기는 기존 가져오기를 보존하며,

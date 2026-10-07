@@ -58,7 +58,7 @@ An AKS diagnostic receipt is typed evidence attached to the selected Resource re
 not create another ObjectType or LinkType, and its content identity cannot replace the Resource UID
 or relationship identity.
 Every canonical ResourceType also has one explicit recorded-state disposition. Missing state is
-never converted into a generic healthy value. The shared Operator workflow adapter may expose an optional `rule.findings-summary` projection with server-recorded counts or explicit `evaluated: false`; that operational summary is not an ontology declaration, relationship, evidence admission, or authority source.
+never converted into a generic healthy value. The shared Operator workflow adapter may expose an optional `rule.findings-summary` projection with server-recorded counts or explicit `evaluated: false`; that operational summary is not an ontology declaration, relationship, evidence admission, or authority source. The same adapter may attach server-owned scoped Rule coverage counts to a WAF control detail; those counts are an operational read model with the same limits.
 Operator ontology projection and role selection now live with the focused operations family
 adapter, while Rule, best-practice, CAF, MCSB, and WARA catalog rendering have separate pure
 projection owners. The ownership split changes no declaration identity, relationship direction,

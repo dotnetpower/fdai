@@ -1,8 +1,8 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: 20950fa66d563ee05aa14b54e82a8db607115a57
-translation_revised: 2026-10-07
+translation_source_sha: 5c57eb9abcef8251e9474e017c45de3869c58e97
+translation_revised: 2026-10-08
 ---
 # WAF 및 CAF 근거 기반 평가
 
@@ -209,6 +209,8 @@ Operator API는 최신 변경 불가능한 변환 결과를 제공하며 평가�
 - 근거 참조, 다이제스트, 최신성, 완전성, 충돌, 제한 사항
 - 담당자, 주기, 승인된 예외, WAF 절충안 레코드
 - 준수 레이블이 없는 사용할 수 없음 및 알 수 없음 상태
+- WAF `rule` 요구 사항의 경우, 커버리지 기록이 현재 버전 2 baseline에 속할 때만 표시되는 서버 소유의
+  범위별 규칙 커버리지 수치와 활성화 상태
 
 WAF는 기존 Controls 보기에 유지합니다. CAF는 동일하게 차분한 읽기 전용 상호 작용 방식을
 사용하는 인접 탭을 추가합니다. 규칙 카탈로그 레일은 표시 탐색으로만 이 Controls 보기에

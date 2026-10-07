@@ -115,6 +115,9 @@ expected Resource and Rule pairs with the same `RuleIndex` dispatch T0 uses, acc
 coverage, and maps each WAF Rule requirement through an ordered outcome table. `core/framework_assessment/` admits a Rule
 receipt only when its provenance matches the activation generation the profile pins. Neither module grants activation,
 approval, or execution authority ([Framework Rule Evidence from T0](../rules-and-detection/framework-rule-evidence.md)).
+`core/framework_rule_evidence/record.py` builds the versioned scoped coverage record whose wire contract lives in
+`fdai_service_contracts.framework_rule_coverage`. The assessment job persists it with an audit entry, and the Operator
+reads it only to attach counts to a WAF control detail.
 
 Operator production composition keeps runtime wiring in its facade. Focused sibling modules own
 lifecycle and resource cleanup, route-family assembly, and read-source declarations. Compatibility

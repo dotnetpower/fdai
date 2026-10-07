@@ -39,6 +39,7 @@ The following gaps were measured in the repository catalog on 2026-10-07:
 | MCSB | 13 of 86 v1 controls cite 25 Rules, all as `partial` mappings. v2-preview has no mappings. | Partial mappings can't decide control satisfaction. |
 | WARA | 143 automatable recommendations are blocked; 3 have reviewed query evaluators. | WARA has no Rule-backed evaluation path. |
 | Collected Azure Policy Rules | 3,628 Rules keep only an `azure-policy://` expression reference. | T0 can't execute them; they need reviewed Rego first. |
+| Inventory properties | On 2026-10-08, the local development inventory's object-storage, network.nsg, secret-store, postgresql-server, and kubernetes-cluster resources kept only raw Azure Resource Manager `properties`. None carried the normalized properties the cited Rules evaluate, such as `diagnostic_settings`, `private_endpoints`, or `security_rules`. | A policy can't deny an absent property, so these pairs looked compliant. They now abstain with `property_unobserved`, and the WAF Rule requirements stay `unknown` until inventory collection supplies the normalized properties. |
 
 ## Ownership and event boundary
 
@@ -59,8 +60,10 @@ implemented by a Forseti baseline worker, not a new agent. The other roles stay 
 - Norns may propose inert Rule candidates for unmapped requirements; it never changes membership.
 
 Coverage records and receipts are authority-free read models persisted with their audit
-references. Forseti is their only writer. The assessment runtime reads committed records through a
-read-model source adapter, and the resulting assessment still goes through the existing audited
+references. Forseti is the only writer of the version 2 baseline coverage record. The framework
+assessment job reads that committed record through a read-model source adapter and derives the
+scoped coverage record and its receipts under the `t0-rule-evaluator` producer identity. It never
+writes Forseti's record, and the resulting assessment still goes through the existing audited
 framework assessment publication. This change adds no topic, subscription, or `AgentSpec`
 ownership. If a later consumer needs push delivery, a separate reviewed change adds a
 schema-registered topic with a single writer.
@@ -141,14 +144,21 @@ The record carries these fields:
 
 | Field group | Contents |
 |-------------|----------|
-| Scope | Workload id, scope digest, resource-set digest, mapping from provider resource id to inventory resource reference. |
-| Activation | Activation generation id and digest, Rule catalog digest, member Rule id, version, and digest, dispatcher and signal type registry digests. |
-| Inventory | Inventory generation, observation digest, observed time. |
-| Coverage | Per-Rule eligible-set digest, expected pair count, covered pair count, compliant, violated, and held-for-review counts. |
-| Provenance | Version 2 baseline completion digest, audit reference and digest, coverage digest. |
+| Scope | Framework id, workload id, scope digest, resource-set digest, mapping from provider resource id to inventory resource reference. |
+| Activation | Activation generation id and digest, Rule catalog digest, evaluated Rule catalog digest, dispatch signal, and the version 2 expected pair set digest that identifies the T0 dispatch. |
+| Inventory | Inventory generation, baseline generation reference, observation digest, observed time. |
+| Coverage | Per Rule: member and evaluated Rule digests, eligible-set digest, eligible count, compliant, violated, held-for-review, missing, duplicate, conflicting, unexpected, and revision-mismatch counts. |
+| Provenance | Version 2 baseline coverage digest and audit reference, the scoped coverage digest every receipt carries, the record's audit reference, and the record digest. |
 | Limitations | Bounded machine codes such as `pair_missing`, `duplicate_pair`, `conflicting_pair`, `unexpected_pair`, `scope_mismatch`, `rule_not_activated`, `rule_revision_drift`, `activation_catalog_drift`, `no_eligible_resource`, and `stale_inventory`. |
 
 A later catalog or activation revision produces a new record. It never reinterprets an older one.
+
+The assessment job stores each record once under its record digest, together with its audit entry
+in one atomic write, before the assessment cites its coverage digest. The
+`framework-rule-coverage:latest` pointer names the most recent assessment's record. Validation
+recomputes the scoped coverage digest, the resource-set digest, and the record digest, so a record
+that mixes scope, activation, catalog, or inventory identity is rejected. Every reader also checks
+the record against the current version 2 baseline before it uses the counts.
 
 ### Identity names
 
@@ -186,6 +196,10 @@ applies these checks in order and stops at the first match:
 | 8 | Any eligible pair is `violated` | `failed` | none |
 | 9 | Any eligible pair is held for review (`abstained`) | `unknown` | `held_for_review` |
 | 10 | Every eligible pair is `compliant` | `satisfied` | none |
+
+Forseti records `compliant` only when the resource carries every property the Rule declares in
+`evaluates`. Otherwise the pair is `abstained` with `property_unobserved`, and row 9 applies. A
+deny stays `violated`, because it's the reviewed Rule's own judgment.
 
 `not_applicable` comes only from an approved applicability decision in the assessment profile. A
 missing resource type is never a pass. The existing framework runtime still combines requirements
@@ -246,6 +260,11 @@ Rule eligible for T0 observation; it doesn't enable enforcement. See
 | 6. MCSB, CAF, and WARA | Each framework meets its prerequisite in the adoption table. |
 | 7. Azure Policy pilot | The feasibility milestone passes before any translated candidate reaches Mimir. |
 
+Step 4 depends on inventory collection that supplies the normalized properties the cited Rules
+evaluate; without them every Rule requirement correctly stays `unknown`. Steps 6 and 7 start only
+after step 4 records decisive receipts, because frameworks adopt Rule evidence one at a time and
+an extension can't be validated against a producer that never reaches `satisfied` or `failed`.
+
 ## Decisions
 
 - **Provider id mapping:** The mapping uses only the ontology release pinned in the resolved
@@ -280,6 +299,20 @@ Rule eligible for T0 observation; it doesn't enable enforcement. See
 - **Inventory freshness:** The workload scope source enforces the inventory freshness budget
   before the job runs, and Rule receipts use the baseline evaluation time as their observation
   time.
+- **Unobserved properties:** A clean policy result on an absent property isn't an observation of
+  compliance. A Rule without a declared `evaluates` list keeps the previous behavior. A Rule whose
+  declared properties name only other resource types abstains, because none of them can be
+  checked.
+- **Console coverage:** The Operator attaches per-Rule counts to a WAF control detail only while
+  the latest scoped coverage record still belongs to the current version 2 baseline. Otherwise
+  it reports the record as outdated or unavailable with a reason and shows no counts. The counts
+  explain a requirement; they never change its server-owned status, and a record for another
+  workload scope is labeled as such.
+- **Local measurement:** `scripts/deployment/local/run-framework-rule-evidence.py` runs this path
+  read-only against the loopback development database. Because the local ontology has no
+  deployment-owned `Workload`, it binds one estate scope to the whole active inventory generation.
+  `--re-evaluate` reruns Forseti's baseline in memory with the repository Rules the current
+  activation pins.
 
 ## Related docs
 

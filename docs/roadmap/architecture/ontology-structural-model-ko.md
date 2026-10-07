@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 017f4bbe923b58dd37f02379afb112caac720a5d
+translation_source_sha: 2ddb38cc13bb8dff731094fd6362a2ee4c3fd39b
 translation_revised: 2026-10-08
 ---
 # 온톨로지 구조 모델
@@ -65,7 +65,7 @@ inventory-to-ontology 변환 이후에도 공통 상태 사실 묶음에 유지�
 AKS 진단 증적은 선택한 Resource 조회 응답에 연결된 형식화된 근거입니다. 별도 ObjectType이나
 LinkType을 만들지 않으며 내용 신원은 Resource UID나 관계 신원을 대체할 수 없습니다.
 모든 정본 ResourceType에는 명시적인 기록 상태 처리 결과가 하나씩 있습니다. 누락된 상태를 일반
-정상 값으로 바꾸지 않습니다. 공유 Operator 워크플로 어댑터는 서버에 기록된 개수 또는 명시적인 `evaluated: false`를 포함하는 선택적 `rule.findings-summary` 변환 결과를 노출할 수 있습니다. 이 운영 요약은 온톨로지 선언, 관계, 근거 승인 또는 권한 출처가 아닙니다.
+정상 값으로 바꾸지 않습니다. 공유 Operator 워크플로 어댑터는 서버에 기록된 개수 또는 명시적인 `evaluated: false`를 포함하는 선택적 `rule.findings-summary` 변환 결과를 노출할 수 있습니다. 이 운영 요약은 온톨로지 선언, 관계, 근거 승인 또는 권한 출처가 아닙니다. 같은 어댑터는 WAF 컨트롤 세부 정보에 서버 소유의 범위별 규칙 커버리지 수치를 붙일 수 있으며, 이 수치도 같은 제한을 받는 운영 읽기 모델입니다.
 Operator 온톨로지 변환 결과와 역할 선택은 이제 목적별 운영 계열 어댑터가 소유하고, Rule,
 모범 사례, CAF, MCSB 및 WARA 카탈로그 렌더링은 각각 별도의 순수 변환 소유자가 담당합니다.
 이 소유권 분리는 선언 신원, 관계 방향, 변환 리비전, 근거 승인 또는 권한을 바꾸지 않습니다.
