@@ -246,6 +246,86 @@ exist.
 **Exit:** each row's cells compile in the coverage receipt with hard zeros on the holdout, or keep a
 typed unavailability reason where the data doesn't exist.
 
+### E10 Collection state and health lists
+
+A question such as "show the connection state of the managed disks" or "are the AKS clusters
+healthy" asks for one measure of every member of a collection, with no restriction. The compiler
+read state or health only as a filter, so the measure held as `measure_unsupported`.
+
+- **Form:** A `select` goal over a collection may carry a `state` or `health` measure with no filter.
+  The same measure on an anchor, a relation, or a schema goal keeps `measure_unsupported`, so it is
+  never dropped.
+- **Compile:** A state measure compiles to the reviewed state inventory with the observed-state
+  concept. A health measure compiles to the reviewed health inventory over every reviewed health
+  concept in the manifest; without one, the goal holds as `health_concepts_unavailable`.
+- **Verify:** V-PROV re-derives the observed-state concept, or the manifest's complete health
+  catalog, from the goal alone.
+- **Implementation note:** The local compiler lists through the existing reader modes. A member
+  without fresh, conflict-free state evidence is not a row; the table is then incomplete with
+  `resource_state_evidence_incomplete`, so the answer is partial rather than complete.
+- **Before promotion:** A versioned list mode returns exactly one row per input resource identity,
+  with an `UNKNOWN_INCOMPLETE` status and a typed member reason when evidence is missing, and V-SEM
+  checks identity-set equality between the object set and the rows.
+
+### E11 Metric filters and ranking over a collection
+
+Questions such as "VMs with CPU above 90%" or "the VM with the highest CPU" restrict or order a
+collection by a metric. Rank and metric filters hold today, and the metric inventory samples at
+most 16 members.
+
+- **Form:** A minor version adds a typed metric comparison: comparator and its cue, an exact decimal
+  threshold and its span, and a stated unit and its span or an explicit `unit_unstated` status. A
+  missing or ambiguous unit clarifies; it never inherits the canonical unit. A rank needs an order
+  cue, and its limit needs a stated count; otherwise the answer is the complete ordered collection
+  through continuations.
+- **Reading:** Qualitative words such as high, low, or underused are not a rank or a threshold. They
+  ground only to a reviewed threshold or utilization recipe per resource type; otherwise the goal
+  clarifies or holds as `metric_classification_unavailable`.
+- **Reader:** A collection metric read runs under a population receipt and an absolute window pinned
+  on the first batch: total and processed counts, cursor, generation, cutoff, scope digests, and the
+  metric registry digest. It reserves provider calls, series, cost, and wall time before each batch,
+  prefers batch or server-side aggregation APIs, and stops on throttling with a typed partial result
+  and continuation, never a retry of the same request.
+- **Verify:** Input identities times metric concepts equal value-or-unknown rows; ranked identities
+  are exactly the members with a complete value; ties order by a stated rule; V-CLAIM checks every
+  value, comparison, unit, window, and rank position.
+
+### E12 Relations anchored on a collection
+
+Questions such as "which VM is each network interface attached to" relate every member of one kind
+to another. A relation needs a named anchor today, so these hold as `relation_anchor_missing`.
+
+- **Form:** A discriminated collection-anchor shape, separate from the instance anchor, names the
+  anchor kind and the result kind. It starts with one sense, one hop, and one reviewed LinkType side;
+  transitive reach and all kinds keep their typed reasons until E9 prerequisites exist.
+- **Compile:** The plan reads the anchor kind's members under a population receipt, then asks the
+  secured traversal for per-anchor lineage rows and a per-anchor relation coverage receipt.
+- **Negative claims:** An anchor with no related member is `VERIFIED_EMPTY` only with complete
+  relation coverage for that anchor; otherwise it is `UNKNOWN_INCOMPLETE`, and hidden endpoints are
+  never read as absence.
+- **Verify:** Anchor identities equal the receipt's anchors, every edge is accounted once, and
+  V-CLAIM rejects a negative relation claim without its coverage receipt.
+
+### Status matrix for E10 to E12
+
+| Condition | Outcome |
+|-----------|---------|
+| Population continuation required | Partial verified answer with a continuation |
+| Population or topology generation changed | Goal hold, `result_generation_changed` |
+| Metric threshold or unit missing or ambiguous | Clarification |
+| Qualitative metric word without a reviewed recipe | Hold, `metric_classification_unavailable` |
+| Metric window incomplete for a member | Member `UNKNOWN_INCOMPLETE`, never ranked or filtered in |
+| Metric budget exhausted or provider throttled | Partial verified answer with a continuation |
+| Member state or health evidence incomplete | Member `UNKNOWN_INCOMPLETE` with its typed reason |
+| Relation coverage incomplete for an anchor | Anchor `UNKNOWN_INCOMPLETE` |
+| Unsupported collection reach or sense | Unsupported with its typed reason |
+
+**Exit for E10 to E12:** the matching bank questions answer with exact gold over the local
+inventory, adversarial tests cover missing members, duplicate rows, truncated pages, ties, swapped
+directions, hidden endpoints, and false empties, and no affected cell keeps
+`measure_unsupported:state`, `measure_unsupported:health`, `measure_unsupported:metric`, or
+`relation_anchor_missing`.
+
 ## Safety and authority
 
 - Every package reads only and adds no execution path. A new slot, domain, recipe, or reader
@@ -275,6 +355,14 @@ revision.
 | E6 multi-root counting was incoherent | Nearest-root lineage, and equal-nearest members reported in a reconciled `ambiguous_membership` total |
 | E5 reservation was neither executable nor falsifiable | A per-path reservation plan over every conditional stage and dimension, with boundary tests |
 | The linked ledger didn't exist | The ledger exists and owns this document's remaining work |
+| E10 to E12 measured completeness only after an upstream bound | A population receipt with counts, cursor, generation, and continuation |
+| E10 relied on a state reader that omits members without evidence | Partial answers now; a one-row-per-member list mode before promotion |
+| E11 had no provider call, cost, or window envelope | Reserved budgets, a pinned absolute window, batch APIs, and a typed stop on throttling |
+| E11 coerced high, low, and underused into ranking | Reviewed thresholds or recipes only; otherwise clarify or hold |
+| E11 could not verify comparator, unit, or rounding | A typed comparison operand with spans and an explicit unstated-unit status |
+| E12 turned missing edges into none | `VERIFIED_EMPTY` only with complete per-anchor relation coverage |
+| E12 reused the instance anchor field | A discriminated collection-anchor shape limited to one sense and one hop |
+| New outcomes had no typed status | The E10 to E12 status matrix |
 
 ## Related docs
 

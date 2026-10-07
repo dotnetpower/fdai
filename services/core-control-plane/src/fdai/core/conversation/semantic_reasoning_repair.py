@@ -150,6 +150,8 @@ def _goal_readings(form: SemanticQuestionForm) -> list[dict[str, Any]]:
             if isinstance(nested, dict):
                 nested.pop("cue", None)
                 nested.pop("reach_cue", None)
+                if isinstance(nested.get("order"), dict):
+                    nested["order"].pop("cue", None)
         for item in reading.get("filters") or ():
             item.pop("cue", None)
         readings.append(reading)

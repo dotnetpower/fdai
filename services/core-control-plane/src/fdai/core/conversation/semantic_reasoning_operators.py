@@ -52,7 +52,7 @@ from .semantic_reasoning_handles import (
 )
 from .semantic_reasoning_lineage_counts import lineage_count_goal
 from .semantic_reasoning_measure_reads import health_lookup, state_history
-from .semantic_reasoning_measures import stated_measure
+from .semantic_reasoning_measures import listed_measure, stated_measure
 from .semantic_reasoning_metrics import METRIC_READER, metric_read
 from .semantic_reasoning_nodes import (
     COLLECTION_LIMIT,
@@ -215,7 +215,8 @@ _READ_MEASURES: dict[GoalOperation, frozenset[MeasureKind]] = {
     ),
     GoalOperation.HISTORY: frozenset({MeasureKind.CHANGE, MeasureKind.EVENT, MeasureKind.STATE}),
     GoalOperation.EXPLAIN_CAUSE: frozenset({MeasureKind.STATE, MeasureKind.CHANGE}),
-    GoalOperation.SELECT: frozenset(),
+    # A collection select may list each member's state or health (E10); see _unread_atom.
+    GoalOperation.SELECT: frozenset({MeasureKind.STATE, MeasureKind.HEALTH}),
     GoalOperation.TRAVERSE: frozenset(),
     # An impact goal reads what could be affected if its anchor fails; a stated failure
     # state or health only restates that premise.
@@ -248,6 +249,13 @@ def _unread_atom(goal: FormGoal, ctx: CompileContext) -> str | None:
         return "measure_mention_unsupported"
     readable = _READ_MEASURES.get(operation)
     if readable is not None and measure.kind not in readable:
+        return f"measure_unsupported:{measure.kind.value}"
+    # Only a collection select without a relation lists a measure; elsewhere it would drop.
+    if operation is GoalOperation.SELECT and (
+        goal.level is GoalLevel.SCHEMA
+        or goal.subject_scope is not SubjectScope.COLLECTION
+        or (goal.relation is not None and not restated_relation(goal))
+    ):
         return f"measure_unsupported:{measure.kind.value}"
     if measure.group_by is not GroupBy.NONE and operation is not GoalOperation.COUNT:
         return f"group_by_unsupported_for_operation:{operation.value}"
@@ -296,6 +304,14 @@ def _collection_goal(goal: FormGoal, ctx: CompileContext) -> OperatorResult:
     measure = stated_measure(goal, ctx)
     if isinstance(measure, OperatorResult):
         return measure
+    listing = listed_measure(goal, ctx)
+    if isinstance(listing, OperatorResult):
+        return listing
+    if listing is not None:
+        # A stated filter of the same reader already lists that measure for each row.
+        if measure is not None and measure.role is not listing.role:
+            return OperatorResult(unsupported=("listed_measure_reader_conflict",))
+        measure = measure or listing
     staged = measure.role if measure is not None else None
     selector, predicates, failure = subject_selection(goal, ctx, staged=staged)
     if failure is not None:
