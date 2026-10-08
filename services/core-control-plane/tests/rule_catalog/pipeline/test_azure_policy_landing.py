@@ -95,23 +95,51 @@ def test_existing_policy_keeps_its_rule_id_and_path(tmp_path: Path) -> None:
     assert after["parameters"]["azure_policy_display_name"] == "Secure transfer renamed"
 
 
-def test_colliding_new_policies_are_reported_not_landed(tmp_path: Path) -> None:
+GUID_A = "0a1b2c3d-synthetic-policy-a"
+GUID_B = "9f8e7d6c-synthetic-policy-b"
+
+
+def test_colliding_new_policies_get_guid_suffixed_identities(tmp_path: Path) -> None:
     tree = _tree(
         tmp_path / "tree",
         {
-            "Storage/a.json": _policy("guid-1", "Same display"),
-            "Storage/b.json": _policy("guid-2", "Same display"),
+            "Storage/a.json": _policy(GUID_A, "Same display"),
+            "Storage/b.json": _policy(GUID_B, "Same display"),
             "Storage/c.json": _policy("guid-3", "Distinct display"),
         },
     )
     output = tmp_path / "collected"
 
     report = _land(tree, output)
+    rerun = _land(tree, output)
 
-    assert report.skipped_collisions == ("guid-1", "guid-2")
-    assert [doc["parameters"]["azure_policy_name"] for doc in _documents(output).values()] == [
-        "guid-3"
-    ]
+    assert report.skipped_collisions == ()
+    assert (rerun.written, rerun.unchanged) == (0, 3)
+    documents = _documents(output)
+    by_policy = {
+        doc["parameters"]["azure_policy_name"]: (path, doc) for path, doc in documents.items()
+    }
+    for guid in (GUID_A, GUID_B):
+        path, doc = by_policy[guid]
+        assert str(doc["id"]).endswith("." + guid[:8])
+        assert path.endswith(f"_{guid[:8]}.yaml")
+    assert not str(by_policy["guid-3"][1]["id"]).endswith("guid-3")
+
+
+def test_colliding_policies_without_a_guid_are_reported_not_landed(tmp_path: Path) -> None:
+    tree = _tree(
+        tmp_path / "tree",
+        {
+            "Storage/a.json": _policy("name-one", "Same display"),
+            "Storage/b.json": _policy("name-two", "Same display"),
+        },
+    )
+    output = tmp_path / "collected"
+
+    report = _land(tree, output)
+
+    assert report.skipped_collisions == ("name-one", "name-two")
+    assert _documents(output) == {}
 
 
 def test_withdrawn_policy_is_kept_and_reported(tmp_path: Path) -> None:
@@ -135,19 +163,21 @@ def test_withdrawn_policy_is_kept_and_reported(tmp_path: Path) -> None:
 
 
 def test_new_policy_cannot_take_a_withdrawn_rules_identity(tmp_path: Path) -> None:
-    tree = _tree(tmp_path / "tree", {"Storage/a.json": _policy("guid-old", "Same display")})
+    tree = _tree(tmp_path / "tree", {"Storage/a.json": _policy(GUID_A, "Same display")})
     output = tmp_path / "collected"
     _land(tree, output)
+    [(old_path, old)] = _documents(output).items()
     (tree / "Storage/a.json").unlink()
-    _tree(tree, {"Storage/b.json": _policy("guid-new", "Same display")})
+    _tree(tree, {"Storage/b.json": _policy(GUID_B, "Same display")})
 
     report = _land(tree, output)
 
-    assert report.withdrawn == ("guid-old",)
-    assert report.skipped_collisions == ("guid-new",)
-    assert [doc["parameters"]["azure_policy_name"] for doc in _documents(output).values()] == [
-        "guid-old"
-    ]
+    assert report.withdrawn == (GUID_A,)
+    assert report.skipped_collisions == ()
+    documents = _documents(output)
+    assert documents[old_path] == old
+    [new] = [doc for path, doc in documents.items() if path != old_path]
+    assert str(new["id"]).endswith("." + GUID_B[:8])
 
 
 def test_one_invalid_rule_fails_the_run_before_any_write(tmp_path: Path) -> None:

@@ -8,8 +8,10 @@ identical bytes. ``content_hash`` stays the parser's SHA-256 of the exact defini
 
 Rule identity is keyed by the Azure Policy definition name (its GUID). A policy that already has a
 collected Rule keeps that Rule's id and path, so a re-collection never renames a Rule. A new
-policy takes the parser's id; when that id or path collides with another Rule, the policy isn't
-landed and is reported instead, because choosing between them would invent an identity.
+policy takes the parser's id. When that id or path collides with another Rule, no policy wins:
+every colliding new policy instead gets a disambiguated id and path that end with the first eight
+hex characters of its GUID. A policy that still collides after disambiguation isn't landed and is
+reported.
 
 Every landed document must pass the strict Rule JSON Schema and the ``Rule`` model before any
 file is written; one invalid Rule fails the whole run. A collected Rule whose policy is absent
@@ -38,6 +40,8 @@ from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 _REVISION: Final = re.compile(r"^[0-9a-f]{40}$")
 _PLACEHOLDER_REVISION: Final = "0" * 40
 _MAX_FILE_STEM: Final = 120
+_MAX_RULE_ID: Final = 128
+_GUID_PREFIX: Final = re.compile(r"^[0-9a-f]{8}")
 
 
 class AzurePolicyLandingError(ValueError):
@@ -103,8 +107,22 @@ def land_azure_policy_rules(
     if len(claimed_ids) != len(existing) or len(claimed_paths) != len(existing):
         raise AzurePolicyLandingError("existing collected Rules share an id or a path")
     skipped: list[str] = []
+    candidates: list[tuple[ParsedRule, str, PurePosixPath]] = []
     for index, (rule, rule_id, relative) in enumerate(fresh):
         others = fresh[:index] + fresh[index + 1 :]
+        if (
+            rule_id in claimed_ids
+            or relative in claimed_paths
+            or any(item[1] == rule_id or item[2] == relative for item in others)
+        ):
+            disambiguated = _disambiguated_identity(rule, rule_id, relative)
+            if disambiguated is None:
+                skipped.append(_policy_name(rule))
+                continue
+            rule_id, relative = disambiguated
+        candidates.append((rule, rule_id, relative))
+    for index, (rule, rule_id, relative) in enumerate(candidates):
+        others = candidates[:index] + candidates[index + 1 :]
         if (
             rule_id in claimed_ids
             or relative in claimed_paths
@@ -147,6 +165,22 @@ def land_azure_policy_rules(
         withdrawn=tuple(sorted(set(existing) - set(planned) - set(skipped))),
         skipped_collisions=tuple(sorted(skipped)),
     )
+
+
+def _disambiguated_identity(
+    rule: ParsedRule,
+    rule_id: str,
+    relative: PurePosixPath,
+) -> tuple[str, PurePosixPath] | None:
+    """Return an id and path suffixed with the policy GUID prefix, or None without a GUID."""
+
+    prefix = _GUID_PREFIX.match(_policy_name(rule).lower())
+    if prefix is None:
+        return None
+    suffix = prefix.group(0)
+    base_id = rule_id[: _MAX_RULE_ID - len(suffix) - 1].rstrip(".-_")
+    stem = relative.stem[: _MAX_FILE_STEM - len(suffix) - 1].rstrip(".-_")
+    return f"{base_id}.{suffix}", relative.with_name(f"{stem}_{suffix}.yaml")
 
 
 def _policy_name(rule: ParsedRule) -> str:

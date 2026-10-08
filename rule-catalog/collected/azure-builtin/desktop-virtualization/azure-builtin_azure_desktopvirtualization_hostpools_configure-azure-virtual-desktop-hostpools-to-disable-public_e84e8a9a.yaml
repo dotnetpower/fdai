@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.desktopvirtualization.hostpools.configure-azure-virtual-desktop-hostpools-to-disable-public-network.e84e8a9a
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.desktopvirtualization.hostpools
+check_logic:
+  kind: expression
+  reference: azure-policy://e84e8a9a-f43e-46e3-9458-bbcfb2d7e429
+remediation:
+  template_ref: remediation/azure-builtin/e84e8a9a-f43e-46e3-9458-bbcfb2d7e429.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: e84e8a9a-f43e-46e3-9458-bbcfb2d7e429
+  azure_policy_display_name: Configure Azure Virtual Desktop hostpools to disable
+    public network access only for session hosts
+  azure_policy_effect_default: Modify
+  azure_policy_category: Desktop Virtualization
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Desktop
+    Virtualization/DVHostpool_PrivateNetworkPublicClient_Modify.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:00c9b6028cffd1410431149ab699e8b239b61de3b9ad5f510860278fa7b48b7e
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-10-08T09:14:46Z'

@@ -298,13 +298,13 @@ def test_complete_discovery_corpus_materializes_with_replayable_identity() -> No
     document_digests = tuple(catalog_search_document_digest(item) for item in documents)
     manifest = build_document_digest_manifest(document_digests)
 
-    assert len(rules) == 8_487
+    assert len(rules) == 8_517
     assert len(documents) == len(rules)
     assert tuple(item.rule_id for item in documents) == tuple(sorted(rule.id for rule in rules))
     assert all(item.corpus == "discovery" for item in documents)
-    assert manifest.document_count == 8_487
+    assert manifest.document_count == 8_517
     assert len(manifest.chunks) == 34
-    assert sum(chunk.document_count for chunk in manifest.chunks) == 8_487
+    assert sum(chunk.document_count for chunk in manifest.chunks) == 8_517
 
     repeated = build_discovery_catalog_search_documents(rules)
     repeated_digests = tuple(catalog_search_document_digest(item) for item in repeated)
@@ -361,7 +361,7 @@ async def test_real_active_and_discovery_corpora_have_isolated_lifecycles() -> N
     index = InMemoryCatalogSemanticIndex()
 
     assert await index.stage_generation(active_metadata, active_documents) == 50
-    assert await index.stage_generation(discovery_first, discovery_documents) == 8_487
+    assert await index.stage_generation(discovery_first, discovery_documents) == 8_517
     assert await index.active_generation("active") is None
     assert await index.active_generation("discovery") is None
     staged_generations: tuple[tuple[CatalogCorpus, CatalogGenerationMetadata], ...] = (
@@ -399,7 +399,7 @@ async def test_real_active_and_discovery_corpora_have_isolated_lifecycles() -> N
     assert all(item.corpus == "active" for item in active_results)
     assert all(item.corpus == "discovery" for item in first_results)
 
-    assert await index.stage_generation(discovery_second, changed_discovery_documents) == 8_487
+    assert await index.stage_generation(discovery_second, changed_discovery_documents) == 8_517
     second = await index.activate_generation(
         discovery_second.generation_id,
         expected_generation_digest=discovery_second.generation_digest,

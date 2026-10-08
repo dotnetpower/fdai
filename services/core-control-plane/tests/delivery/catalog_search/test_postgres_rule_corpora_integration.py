@@ -200,13 +200,13 @@ async def test_postgres_complete_rule_corpora_have_isolated_lifecycles() -> None
 
     try:
         assert len(active_documents) == 50
-        assert len(discovery_documents) == 8_487
+        assert len(discovery_documents) == 8_517
         assert active_metadata.document_digest_manifest.document_count == 50
-        assert discovery_first_metadata.document_digest_manifest.document_count == 8_487
+        assert discovery_first_metadata.document_digest_manifest.document_count == 8_517
         assert len(discovery_first_metadata.document_digest_manifest.chunks) == 34
 
         assert await index.stage_generation(active_metadata, active_documents) == 50
-        assert await index.stage_generation(discovery_first_metadata, discovery_documents) == 8_487
+        assert await index.stage_generation(discovery_first_metadata, discovery_documents) == 8_517
         active = await index.activate_generation(
             ACTIVE_ID,
             expected_generation_digest=active_metadata.generation_digest,
@@ -226,7 +226,7 @@ async def test_postgres_complete_rule_corpora_have_isolated_lifecycles() -> None
 
         assert (
             await index.stage_generation(discovery_second_metadata, changed_discovery_documents)
-            == 8_487
+            == 8_517
         )
         discovery_second = await index.activate_generation(
             DISCOVERY_SECOND_ID,

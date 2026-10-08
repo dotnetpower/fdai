@@ -321,7 +321,8 @@ source manifest ─► fetch ─► verify ─► parse ─► map to schema ─
   parses the pinned snapshot and writes inert `expression` Rules with the snapshot's commit as
   `resolved_ref`, its collection time as `retrieved_at`, and each definition's SHA-256 as
   `content_hash`. Identity is keyed by the policy definition name: an already collected policy
-  keeps its Rule id and path, and a new policy whose id or path collides isn't landed and is
+  keeps its Rule id and path. A new policy whose id or path collides gets an id and path suffixed
+  with the first eight hex characters of its GUID; one that still collides isn't landed and is
   reported. Every document must pass the Rule schema before any file is written. A policy missing
   from the snapshot is kept and reported as withdrawn until tombstoning exists.
 
