@@ -182,6 +182,33 @@ def test_source_preparation_resumes_exact_intent_without_renewal(checkout: Path)
         prepare_source_deployment(**{**arguments, "region": "westus"})
 
 
+def test_source_preparation_admits_in_cluster_postgres(checkout: Path) -> None:
+    receipt = prepare_source_deployment(
+        source_root=checkout,
+        work_dir=checkout.parent / "aks-database-run",
+        runtime_profile=RuntimeDeploymentProfile.create(
+            runtime_platform="aks", database_placement="postgres-aks", user_node_min_count=4
+        ),
+        region="eastus2",
+        monthly_cost_ceiling=1000,
+    )
+    assert receipt["deployment_ready"] is False
+    assert receipt["release_signature_verified"] is False
+
+
+def test_source_preparation_refuses_container_apps(checkout: Path) -> None:
+    with pytest.raises(ValueError, match="requires AKS"):
+        prepare_source_deployment(
+            source_root=checkout,
+            work_dir=checkout.parent / "aca-run",
+            runtime_profile=RuntimeDeploymentProfile.create(
+                runtime_platform="container-apps", database_placement="postgres-flex"
+            ),
+            region="eastus2",
+            monthly_cost_ceiling=1000,
+        )
+
+
 def test_source_preparation_cannot_adopt_kit_state(checkout: Path) -> None:
     work = checkout.parent / "kit-run"
     work.mkdir(mode=0o700)
