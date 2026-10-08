@@ -26,6 +26,7 @@ control assessments without duplicating the normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-08 | in-progress | Added complete subscription role assignment reads: the `atScope()` listing, role definitions, Graph user types with group guest expansion, and PIM schedule instances, treating a tenant without the PIM license as having only standing assignments. Any other failed read leaves the list unobserved. A live collection read 110 assignments; `subscription.role-assignment.no-guest-privileged` is `satisfied` and `no-standing-privileged-access` is `failed`. WAF Rule receipts are now 7 `satisfied`, 22 `failed`, 7 `unknown`. | `current change`; `test_arm_subscription_role_assignments.py` (5 passed); Azure delivery suite (2,156 passed); live refresh and `run-framework-rule-evidence.py --re-evaluate`, read-only. | Grant Graph application permissions to the deployed collector identity; managed-identity assignments stay unobserved. |
 | 2026-10-08 | in-progress | Took the first Azure Policy feasibility step: the collector's Policy parser now records the SHA-256 of the exact definition bytes as `content_hash` instead of an all-zero placeholder. The collected tree is unchanged until the next collection run at the pinned revision. | `current change`; `services/core-control-plane/src/fdai/rule_catalog/pipeline/parse/azure_policy_json.py`; collector pipeline suite (551 passed). | Re-run the Policy collection, add a reviewed alias map, and complete the feasibility milestone. |
 | 2026-10-08 | in-progress | An independent review found that Rule receipts used the baseline evaluation time as their observation time, so a recent baseline over an older snapshot looked fresh. Receipts now use the inventory snapshot's completion time from the scope source; WARA emits no Rule receipt without it. | `current change`; `test_wara_rule_evidence.py` (12 passed); Rule evidence, WARA, and Operator suites (212 passed); live local refresh and `run-framework-rule-evidence.py --re-evaluate` unchanged at 6 `satisfied`, 21 `failed`, 9 `unknown`. | Unchanged from the previous row. |
 | 2026-10-08 | in-progress | Started framework adoption after the WAF producer recorded decisive receipts. WARA gained Rule-backed evaluation through one reviewed exact `t0_rule` binding, `failed` on the live local generation. MCSB and CAF were measured: neither has a reviewed full Rule binding (25 MCSB mappings are `partial`; CAF has no Rule requirements), so Rule evidence stays supporting until a human-authored decomposition exists. The Azure Policy feasibility milestone was measured and fails its first input: the 3,628 collected Policy Rules pin source revision `d315bc3b` but carry an all-zero `content_hash` and no vendored definition, and no alias map exists. | `current change`; `test_wara_rule_evidence.py` (9 passed); WARA suites (103 passed); repository measurement of `rule-catalog/compliance/mcsb/v1/crosswalk.yaml`, `rule-catalog/framework-assessments/generated/azure-caf.json`, and `rule-catalog/collected/azure-builtin/`. | Human-authored MCSB and CAF decompositions with full bindings; a collector change that records Policy definition digests and vendors bodies; a reviewed alias map; then the translation pilot. |
@@ -78,9 +79,12 @@ control assessments without duplicating the normative design.
 - [x] Ran a fresh, operator-approved live inventory collection that recorded diagnostic settings,
   blob data protection, and SQL TDE, and produced decisive results for all 8 WAF controls with
   Rule requirements.
-- [ ] Read complete role assignments for managed identities and subscriptions: every readable
-  subscription, group membership, guest user type, and PIM eligibility from Microsoft Graph and
-  PIM, with their own permission review.
+- [x] Read complete subscription role assignments with Graph guest expansion and PIM standing
+  status (`test_arm_subscription_role_assignments.py`).
+- [ ] Grant Microsoft Graph `User.Read.All` and `GroupMember.Read.All` application permissions to
+  the deployed collector identity through a reviewed infrastructure change.
+- [ ] Prove complete managed-identity role assignment visibility, for example from a tenant-root
+  read scope, before projecting managed-identity `role_assignments`.
 - [x] Show per-Rule coverage counts in the Controls view with focused Playwright checks
   (`console/tests/e2e/rule-control-crosslinks.spec.ts`).
 - [x] Meet the WARA prerequisite with a discriminated `t0_rule` binding and capability matrix

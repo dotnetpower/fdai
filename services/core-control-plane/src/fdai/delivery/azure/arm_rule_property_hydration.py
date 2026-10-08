@@ -21,6 +21,10 @@ import httpx
 
 from fdai.delivery.azure.arm_inventory_transport import fetch_arm_json
 from fdai.delivery.azure.arm_inventory_vm_state import ArmInventoryError
+from fdai.delivery.azure.arm_subscription_role_assignments import (
+    RoleAssignmentReadError,
+    subscription_role_assignments,
+)
 from fdai.delivery.azure.inventory import ResourceQueryResult
 from fdai.shared.providers.inventory import ResourceRecord
 from fdai.shared.providers.workload_identity import WorkloadIdentity
@@ -143,7 +147,10 @@ _READS: Mapping[str, tuple[_ExtensionRead, ...]] = {
     ),
 }
 
-HYDRATED_RESOURCE_TYPES = frozenset(_READS)
+_SUBSCRIPTION = "subscription"
+GRAPH_ENDPOINT = "https://graph.microsoft.com"
+GRAPH_AUDIENCE = "https://graph.microsoft.com/.default"
+HYDRATED_RESOURCE_TYPES = frozenset({*_READS, _SUBSCRIPTION})
 
 
 class ArmHydrationConfig(Protocol):
@@ -219,6 +226,9 @@ class ArmRulePropertyHydrator:
         headers = {"Authorization": f"Bearer {token.token}", "Accept": "application/json"}
         resources: list[ResourceRecord] = []
         for resource in result.resources:
+            if resource.type == _SUBSCRIPTION:
+                resources.append(await self._with_role_assignments(resource, headers))
+                continue
             plan = self._plan(resource)
             if not plan or reads_left < len(plan) or resource.provider_ref is None:
                 resources.append(resource)
@@ -252,6 +262,77 @@ class ArmRulePropertyHydrator:
                 extra={"failed_reads": failures, "read_budget_exhausted": reads_left <= 0},
             )
         return dataclasses.replace(result, resources=tuple(resources))
+
+    async def _with_role_assignments(
+        self,
+        resource: ResourceRecord,
+        arm_headers: Mapping[str, str],
+    ) -> ResourceRecord:
+        """Attach the subscription's complete role assignments, or leave them unobserved."""
+
+        subscription_id = resource.props.get("subscriptionId")
+        if "role_assignments" in resource.props or not isinstance(subscription_id, str):
+            return resource
+        reads_left = self._max_reads
+
+        async def read(url: str, headers: Mapping[str, str]) -> Mapping[str, Any]:
+            nonlocal reads_left
+            if reads_left <= 0:
+                raise RoleAssignmentReadError("role assignment read budget exhausted")
+            reads_left -= 1
+            return await self._read_with_error_code(url, headers)
+
+        try:
+            graph = await self._identity.get_token(GRAPH_AUDIENCE)
+        except (ValueError, RuntimeError, OSError):
+            _LOGGER.warning("arm_role_assignment_graph_token_unavailable")
+            return resource
+        graph_headers = {"Authorization": f"Bearer {graph.token}", "Accept": "application/json"}
+        try:
+            assignments = await subscription_role_assignments(
+                subscription_id=subscription_id,
+                arm_endpoint=self._endpoint,
+                graph_endpoint=GRAPH_ENDPOINT,
+                read_arm=lambda url: read(url, arm_headers),
+                read_graph=lambda url: read(url, graph_headers),
+            )
+        except RoleAssignmentReadError as exc:
+            _LOGGER.warning(
+                "arm_role_assignment_hydration_unavailable",
+                extra={"error_code": exc.error_code},
+            )
+            return resource
+        return dataclasses.replace(
+            resource, props={**resource.props, "role_assignments": assignments}
+        )
+
+    async def _read_with_error_code(
+        self,
+        url: str,
+        headers: Mapping[str, str],
+    ) -> Mapping[str, Any]:
+        """Read one bounded JSON object and surface the provider error code on failure."""
+
+        try:
+            response = await self._http.get(
+                url, headers=dict(headers), timeout=self._timeout, follow_redirects=False
+            )
+        except httpx.HTTPError as exc:
+            raise RoleAssignmentReadError("role assignment read failed") from exc
+        if len(response.content) > self._max_response_bytes:
+            raise RoleAssignmentReadError("role assignment response exceeded its byte limit")
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise RoleAssignmentReadError("role assignment response is not JSON") from exc
+        if response.status_code != 200 or not isinstance(payload, Mapping):
+            error = payload.get("error") if isinstance(payload, Mapping) else None
+            code = error.get("code") if isinstance(error, Mapping) else None
+            raise RoleAssignmentReadError(
+                f"role assignment read returned HTTP {response.status_code}",
+                error_code=code if isinstance(code, str) else None,
+            )
+        return payload
 
     def _plan(self, resource: ResourceRecord) -> tuple[_ExtensionRead, ...]:
         if resource.props.get("_truncated") is True:

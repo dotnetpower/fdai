@@ -325,9 +325,14 @@ an extension can't be validated against a producer that never reaches `satisfied
   port, and one source that isn't an any-source alias, because the NSG Rules match exact literals.
   Broadening those Rules to judge wildcards, ranges, lists, and service tags needs a Rule revision,
   which waits for the revision upgrade path in [Rule governance](rule-governance.md#lifecycle-and-versioning).
-  Role assignments stay unobserved: one subscription's assignments can't prove the complete set
-  for an identity or a subscription, which also needs group membership, guest user type, and
-  just-in-time eligibility from Microsoft Graph and Privileged Identity Management.
+  A subscription's `role_assignments` come from the complete `atScope()` listing, role
+  definitions, Microsoft Graph user types including guests reached through groups, and Privileged
+  Identity Management schedule instances. A tenant without the PIM license can't hold
+  just-in-time assignments, so every active assignment there is standing. Any other failed read,
+  including a missing Graph permission, leaves the whole list unobserved. A deployed collector
+  identity needs Microsoft Graph `User.Read.All` and `GroupMember.Read.All` application
+  permissions for these reads. Managed-identity role assignments stay unobserved, because the
+  collector can't prove it sees grants in subscriptions outside its read scope.
 - **Local measurement:** `scripts/deployment/local/run-framework-rule-evidence.py` runs this path
   read-only against the loopback development database. Because the local ontology has no
   deployment-owned `Workload`, it binds one estate scope to the whole active inventory generation.

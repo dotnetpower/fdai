@@ -1,7 +1,7 @@
 ---
 title: T0 기반 프레임워크 규칙 근거
 translation_of: framework-rule-evidence.md
-translation_source_sha: 714e4a98e4550579eec0b4f945262e7fb9ad8e95
+translation_source_sha: 816973a49ed9fc389f765516ae0666e0efba02c9
 translation_revised: 2026-10-08
 ---
 # T0 기반 프레임워크 규칙 근거
@@ -312,9 +312,13 @@ WAF `rule` 요구 사항은 컨트롤 수준 교차워크 관계가 `partial`이
   모든 인바운드 허용 규칙이 프로토콜 하나, 숫자 포트 하나, 모든 원본 별칭이 아닌 원본 하나를 쓸 때만
   `security_rules`를 투영합니다. 이 규칙이 와일드카드, 범위, 목록, 서비스 태그를 판단하도록 넓히려면 규칙
   개정이 필요하며, 이는 [규칙 거버넌스](rule-governance-ko.md#라이프사이클과-버전-관리)의 개정 업그레이드
-  경로를 기다립니다. 역할 할당은 관측되지 않은 상태로 남습니다. 한 구독의 할당만으로는 ID나
-  구독의 전체 할당 집합을 증명할 수 없고, 그룹 멤버십, 게스트 사용자 형식, Just-In-Time 자격도 Microsoft
-  Graph와 Privileged Identity Management에서 읽어야 하기 때문입니다.
+  경로를 기다립니다. 구독의 `role_assignments`는 전체 `atScope()` 목록, 역할 정의, 그룹을 통해 연결된
+  게스트를 포함한 Microsoft Graph 사용자 형식, Privileged Identity Management 일정 인스턴스에서 만듭니다.
+  PIM 라이선스가 없는 테넌트는 Just-In-Time 할당을 가질 수 없으므로 그곳의 모든 활성 할당은 상시
+  할당입니다. Graph 권한이 없는 경우를 포함해 다른 읽기가 실패하면 목록 전체가 관측되지 않은 상태로
+  남습니다. 배포된 수집 ID에는 이 읽기를 위한 Microsoft Graph `User.Read.All`과 `GroupMember.Read.All`
+  애플리케이션 권한이 필요합니다. 관리 ID의 역할 할당은 수집기가 읽기 범위 밖 구독의 권한까지 본다는 것을
+  증명할 수 없으므로 관측되지 않은 상태로 남습니다.
 - **로컬 측정:** `scripts/deployment/local/run-framework-rule-evidence.py`는 이 경로를 루프백 개발
   데이터베이스에 대해 읽기 전용으로 실행합니다. 로컬 온톨로지에는 배포 소유 `Workload`가 없으므로
   활성 인벤토리 세대 전체를 하나의 estate 범위로 묶습니다. `--re-evaluate`는 현재 활성화가 고정한
