@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "preact/hooks";
 import { ErrorState, LoadingState, StatusPill } from "../components/ui";
 import { displayValue, t } from "./i18n/governance";
-import { MCSB_COVERAGE_PILL } from "./mcsb-controls-body";
+import { MCSB_COVERAGE_PILL, MCSB_SATISFACTION_PILL, mcsbAssessmentSummaryText } from "./mcsb-controls-body";
 import type { McsbDetailState } from "./mcsb-controls";
 import type { McsbControlDetail } from "./mcsb-controls.model";
 import { DetailRow, DetailSection } from "./rule-catalog-components";
@@ -82,6 +82,7 @@ function McsbControlDetailContent({ data }: { readonly data: McsbControlDetail }
         <h4 class="rule-overview-title">{data.title}</h4>
         <p class="rule-overview-desc">{t("governance.rules.mcsb.detail.boundary")}</p>
       </section>
+      {data.benchmark_version === "v1" ? <McsbAssessmentSection data={data} /> : null}
       <DetailSection title={t("governance.rules.mcsb.detail.rules")}>
         <ReferenceList values={data.rule_ids} />
       </DetailSection>
@@ -99,5 +100,53 @@ function McsbControlDetailContent({ data }: { readonly data: McsbControlDetail }
         </dl>
       </DetailSection>
     </div>
+  );
+}
+
+function McsbAssessmentSection({ data }: { readonly data: McsbControlDetail }) {
+  const assessment = data.assessment;
+  return (
+    <DetailSection title={t("governance.rules.mcsb.detail.assessment")}>
+      {assessment === null ? (
+        <p class="muted">
+          {data.assessment_summary?.status === "evaluated"
+            ? t("governance.rules.mcsb.detail.assessmentNone")
+            : mcsbAssessmentSummaryText(data.assessment_summary)}
+        </p>
+      ) : (
+        <div class="stack">
+          <div class="pill-row">
+            <StatusPill
+              kind={MCSB_SATISFACTION_PILL[assessment.satisfaction]}
+              label={displayValue("controlStatus", assessment.satisfaction)}
+            />
+            <StatusPill kind="neutral" label={displayValue("controlEvaluation", assessment.evaluation_status)} />
+          </div>
+          <p class="muted">{t("governance.rules.mcsb.detail.assessmentBoundary")}</p>
+          <dl class="detail-grid">
+            <DetailRow label={t("governance.rules.mcsb.detail.evaluatedAt")} value={assessment.evaluated_at ?? "-"} mono />
+          </dl>
+          {assessment.requirements.length > 0 ? (
+            <ul class="mcsb-assessment-requirements" aria-label={t("governance.rules.mcsb.detail.requirements")}>
+              {assessment.requirements.map((requirement) => (
+                <li key={`${requirement.kind}:${requirement.ref}`}>
+                  <code>{requirement.ref}</code>
+                  <span class="pill-row">
+                    <StatusPill
+                      kind={requirement.evidence_role === "decisive" ? "info" : "neutral"}
+                      label={displayValue("mcsbEvidenceRole", requirement.evidence_role)}
+                    />
+                    <StatusPill
+                      kind={MCSB_SATISFACTION_PILL[requirement.status]}
+                      label={displayValue("controlStatus", requirement.status)}
+                    />
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
+      )}
+    </DetailSection>
   );
 }

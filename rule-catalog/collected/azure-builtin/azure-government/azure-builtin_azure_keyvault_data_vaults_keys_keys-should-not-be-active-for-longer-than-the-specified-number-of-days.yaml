@@ -22,7 +22,7 @@ provenance:
     Government/Key Vault/Keys_ActivePeriod.json
   source_version: 1.0.1
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:aab215871851560c0a135122ce77e99ae95eb079bd490c8c3fe734d1277c1c1d
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

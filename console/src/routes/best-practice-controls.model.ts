@@ -72,11 +72,45 @@ export interface BestPracticeRequirementView {
   readonly evidence_refs: readonly string[];
   /** Server-owned codes explaining an unknown requirement, such as an unactivated Rule. */
   readonly limitations: readonly string[];
+  /** Server-owned scoped Rule coverage counts; `null` when the server attached none. */
+  readonly coverage: RequirementRuleCoverage | null;
+}
+
+export type RequirementRuleCoverage =
+  | { readonly activated: false }
+  | {
+      readonly activated: true;
+      readonly eligible: number;
+      readonly covered: number;
+      readonly compliant: number;
+      readonly violated: number;
+      readonly held_for_review: number;
+      readonly missing: number;
+      readonly duplicate: number;
+      readonly conflicting: number;
+      readonly unexpected: number;
+      readonly revision_mismatch: number;
+    };
+
+export const RULE_COVERAGE_STATUSES = ["current", "stale", "unavailable"] as const;
+export type RuleCoverageStatus = (typeof RULE_COVERAGE_STATUSES)[number];
+
+/** The scoped Rule coverage read model behind the requirement counts. */
+export interface RuleCoverageSummary {
+  readonly status: RuleCoverageStatus;
+  readonly reason: string | null;
+  readonly scope_digest: string | null;
+  readonly resource_count: number | null;
+  readonly inventory_generation: string | null;
+  readonly recorded_at: string | null;
+  readonly rule_activation_generation_id: string | null;
+  readonly matches_assessment_scope: boolean | null;
 }
 
 export interface BestPracticeDetail extends BestPracticeControl {
   readonly requirements: readonly BestPracticeRequirementView[];
   readonly provenance: Readonly<Record<string, unknown>>;
+  readonly rule_coverage: RuleCoverageSummary | null;
 }
 
 export interface BestPracticeResponse {
@@ -267,13 +301,72 @@ export function decodeBestPracticeDetail(value: unknown): BestPracticeDetail {
         limitations: row["limitations"] === undefined
           ? []
           : panelStringArray(row["limitations"], `${label}.limitations`),
+        coverage: row["coverage"] === undefined
+          ? null
+          : decodeRequirementCoverage(row["coverage"], `${label}.coverage`),
       };
     },
   );
   if (requirements.length !== base.requirement_count) {
     throw new OperatorApiError(502, "invalid Operator API response: requirement count does not reconcile");
   }
-  return { ...base, requirements, provenance: panelRecord(root["provenance"], "provenance") };
+  return {
+    ...base,
+    requirements,
+    provenance: panelRecord(root["provenance"], "provenance"),
+    rule_coverage: root["rule_coverage"] === undefined
+      ? null
+      : decodeRuleCoverageSummary(root["rule_coverage"]),
+  };
+}
+
+function decodeRequirementCoverage(value: unknown, label: string): RequirementRuleCoverage {
+  const row = panelRecord(value, label);
+  if (!panelBoolean(row, "activated", label)) return { activated: false };
+  const count = (key: string): number => panelNonNegativeInteger(row, key, label);
+  const coverage = {
+    activated: true as const,
+    eligible: count("eligible"),
+    covered: count("covered"),
+    compliant: count("compliant"),
+    violated: count("violated"),
+    held_for_review: count("held_for_review"),
+    missing: count("missing"),
+    duplicate: count("duplicate"),
+    conflicting: count("conflicting"),
+    unexpected: count("unexpected"),
+    revision_mismatch: count("revision_mismatch"),
+  };
+  // Reject counts that do not reconcile instead of displaying an inconsistent record.
+  if (
+    coverage.covered !== coverage.compliant + coverage.violated + coverage.held_for_review
+    || coverage.eligible
+      !== coverage.covered + coverage.missing + coverage.duplicate + coverage.conflicting
+  ) {
+    throw new OperatorApiError(502, `invalid Operator API response: ${label} counts do not reconcile`);
+  }
+  return coverage;
+}
+
+function decodeRuleCoverageSummary(value: unknown): RuleCoverageSummary {
+  const label = "best practice rule_coverage";
+  const row = panelRecord(value, label);
+  const optionalString = (key: string): string | null =>
+    row[key] === undefined ? null : panelNullableString(row, key, label);
+  return {
+    status: decodeEnum(panelNonEmptyString(row, "status", label), RULE_COVERAGE_STATUSES, `${label}.status`),
+    reason: optionalString("reason"),
+    scope_digest: optionalString("scope_digest"),
+    resource_count: row["resource_count"] === undefined
+      ? null
+      : panelNonNegativeInteger(row, "resource_count", label),
+    inventory_generation: optionalString("inventory_generation"),
+    recorded_at: optionalString("recorded_at"),
+    rule_activation_generation_id: optionalString("rule_activation_generation_id"),
+    matches_assessment_scope: row["matches_assessment_scope"] === undefined
+      ? null
+      : panelBoolean(row, "matches_assessment_scope", label),
+  };
 }
 
 /**

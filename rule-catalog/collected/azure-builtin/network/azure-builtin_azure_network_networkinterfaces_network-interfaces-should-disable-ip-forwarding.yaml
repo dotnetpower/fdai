@@ -20,7 +20,7 @@ provenance:
   source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Network/NetworkIPForwardingNic_Deny.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:d706cc3482dbb098228659c9814be6f0bcd06320a4374d5ba96543b8d5f8c3cc
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

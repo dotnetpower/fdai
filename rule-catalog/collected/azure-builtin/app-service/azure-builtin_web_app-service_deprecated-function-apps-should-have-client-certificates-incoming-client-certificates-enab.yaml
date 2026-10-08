@@ -22,7 +22,7 @@ provenance:
     Service/FunctionApp_Audit_ClientCert.json
   source_version: 3.1.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:e29254ea7ed341f642062ce3e40fe7d38682a99e4bf60bc6e4aa29047da3481f
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

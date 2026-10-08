@@ -70,6 +70,7 @@ from fdai.delivery.azure.arg_transport import (
     fetch_arg_pages,
     fetch_arg_row_pages,
 )
+from fdai.delivery.azure.arm_rule_properties import rule_properties
 from fdai.delivery.azure.generation_relationships import (
     project_complete_generation_relationships,
 )
@@ -448,7 +449,7 @@ class AzureArgQueryFactory:
         return (
             f"{table} | where type =~ '{query_type}' "
             "| order by id asc "
-            "| project id, type, name, location, kind, sku, identity, tags, properties, "
+            "| project id, type, name, location, kind, sku, identity, zones, tags, properties, "
             "resourceGroup, subscriptionId"
         )
 
@@ -702,7 +703,8 @@ class AzureArgQueryFactory:
             nested_schedule.pop("targetResourceId", None)
             props["properties"] = nested_schedule
 
-        props = _truncate_props(props, max_bytes=self._config.max_props_bytes)
+        normalized = rule_properties(resource_type, row)  # bounded; derived before truncation
+        props = _truncate_props(props, max_bytes=self._config.max_props_bytes) | normalized
         if preserve_nested_subnets:
             observed_properties = row.get("properties")
             if isinstance(observed_properties, Mapping) and "subnets" in observed_properties:

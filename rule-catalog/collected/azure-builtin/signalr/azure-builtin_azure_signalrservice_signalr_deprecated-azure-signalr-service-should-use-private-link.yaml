@@ -21,7 +21,7 @@ provenance:
   source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/SignalR/PrivateEndpointEnabled_Audit_deprecated.json
   source_version: 1.0.1
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:e9808f1a0ca2ee4f2f07db25d2953067dad372040699ebae00bfa48548249356
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

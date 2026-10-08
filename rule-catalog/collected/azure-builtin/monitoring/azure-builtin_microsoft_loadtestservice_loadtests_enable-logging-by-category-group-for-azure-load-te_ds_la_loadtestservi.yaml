@@ -21,7 +21,7 @@ provenance:
   source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/DS_LA_loadtestservice-loadtests_DINE.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:d0b9d43d90754ff0d1db06f830e557bb44f6d063c5c0446c9cb82dcb8cf2cfae
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

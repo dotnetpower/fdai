@@ -13562,6 +13562,9 @@ main { padding-bottom: 60px !important; }
   }
   .controls-catalog-view .data-table th:first-child { width: 38%; }
   .controls-catalog-view .data-table th.chevron-col { width: 32px; }
+  /* MCSB adds an assessment column, so identity and count columns give way to the status pills. */
+  .controls-catalog-view #mcsb-control-table .data-table th:first-child { width: 30%; }
+  .controls-catalog-view #mcsb-control-table .data-table th.num { width: 8%; }
   .controls-catalog-view .control-table-identity {
     grid-template-columns: 54px minmax(0, 1fr);
     min-width: 0;
@@ -13696,6 +13699,7 @@ main { padding-bottom: 60px !important; }
   /* Controls tables hide secondary columns here, so the remaining columns fit the viewport. */
   .rules-route .controls-catalog-view .data-table { min-width: 100%; }
   .rules-route .controls-catalog-view .data-table th:first-child { width: 58%; }
+  .rules-route .controls-catalog-view #mcsb-control-table .data-table th:first-child { width: 58%; }
   .rules-route .data-table tbody tr { min-height: 44px; }
 }
 @media (max-width: 360px) {
@@ -13737,6 +13741,19 @@ main { padding-bottom: 60px !important; }
 }
 .mcsb-reference-list { display: grid; gap: 6px; }
 .mcsb-reference-list code { padding: 7px 9px; overflow-wrap: anywhere; border: 1px solid var(--border); border-radius: 4px; background: var(--cs-shade); }
+.mcsb-assessment-summary { display: block; margin-top: 6px; }
+.mcsb-status-cell { display: grid; justify-items: start; gap: 6px; min-width: 0; }
+.mcsb-status-cell .status-pill,
+td.mcsb-assessment-column .status-pill { max-width: 100%; white-space: normal; }
+.mcsb-assessment-inline { display: none; }
+.mcsb-assessment-requirements { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.mcsb-assessment-requirements li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+.mcsb-assessment-requirements code { overflow-wrap: anywhere; }
 .control-evidence-banner {
   background: color-mix(in oklab, var(--cs-terracotta) 5%, var(--cs-shade));
 }
@@ -13791,6 +13808,8 @@ main { padding-bottom: 60px !important; }
   list-style: none;
 }
 .control-requirement-limitations li { overflow-wrap: anywhere; }
+.control-requirement-coverage { display: grid; gap: 2px; margin-top: 2px; }
+.control-requirement-coverage p { margin: 0; overflow-wrap: anywhere; }
 .rule-control-citations {
   display: grid;
   gap: 7px;
@@ -13836,6 +13855,8 @@ main { padding-bottom: 60px !important; }
   }
   .control-column-secondary,
   .control-column-owner { display: none; }
+  .mcsb-assessment-column { display: none; }
+  .mcsb-assessment-inline { display: block; }
   .control-table-identity {
     grid-template-columns: 48px minmax(130px, 1fr);
     min-width: 210px;

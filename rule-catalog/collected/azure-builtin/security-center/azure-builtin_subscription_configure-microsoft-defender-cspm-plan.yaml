@@ -21,7 +21,7 @@ provenance:
     Center/ASC_Azure_Defender_CSPM_Full_Features_DINE.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:1f0085e68ee3dde43e2300836b98d7e80190a77961a8195a71c1c2f9e42d6a0e
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

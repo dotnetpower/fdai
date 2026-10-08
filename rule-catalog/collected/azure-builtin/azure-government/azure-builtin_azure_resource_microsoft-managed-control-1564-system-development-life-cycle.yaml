@@ -22,7 +22,7 @@ provenance:
     Government/Regulatory Compliance/MicrosoftManagedControl1564.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:61397de3ac4dbd20f87ed1e9f94b39593988ca5706729486c5ba31b34aac5a9b
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

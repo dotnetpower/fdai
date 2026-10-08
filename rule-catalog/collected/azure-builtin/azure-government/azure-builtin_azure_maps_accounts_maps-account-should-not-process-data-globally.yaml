@@ -21,7 +21,7 @@ provenance:
     Government/Maps/BlockGlobalDataProcessing_Deny.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:596f721dcf58a274adfcddc38867568fe83a90c9c155d8b305dac98ad1f346a8
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

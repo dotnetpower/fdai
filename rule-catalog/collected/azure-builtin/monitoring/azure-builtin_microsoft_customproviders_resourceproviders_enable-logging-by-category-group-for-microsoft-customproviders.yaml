@@ -21,7 +21,7 @@ provenance:
   source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/DS_EH_customproviders-resourceproviders_DINE.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:c2c29e587afa71359e9af7ed9f820c4e9969c71b14c3fc1a3537ac0ee7f56123
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

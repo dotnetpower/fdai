@@ -22,7 +22,7 @@ provenance:
     Service/FunctionApp_Slot_Audit_python_Latest.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:80e1b993831ce150956d979257bf977fc77d0486e7a16165fb54d917f5865928
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

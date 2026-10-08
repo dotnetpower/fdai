@@ -21,7 +21,7 @@ provenance:
     Service/FunctionApp_Slot_Audit_HTTP_Latest.json
   source_version: 1.1.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:a5952c531bbcac5691a72b3123b5656d8e90aad8c927901fef26450495f54b7b
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

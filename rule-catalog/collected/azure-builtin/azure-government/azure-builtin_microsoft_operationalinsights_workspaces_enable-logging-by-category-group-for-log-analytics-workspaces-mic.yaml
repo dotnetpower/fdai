@@ -22,7 +22,7 @@ provenance:
     Government/Monitoring/DiagSettings_logAnalytics_operationalinsights-workspaces_DINE.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:ec11f192276609edbf52070194e0ccfa84f50ba0cec256936b75b193ee5a0057
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

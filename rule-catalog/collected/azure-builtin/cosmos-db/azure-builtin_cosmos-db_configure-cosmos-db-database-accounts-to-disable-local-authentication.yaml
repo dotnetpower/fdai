@@ -22,7 +22,7 @@ provenance:
     DB/Cosmos_DisableLocalAuth_Modify.json
   source_version: 1.2.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:8dbc6a23824cea14413d042a67f75f1a88046773f1d7f352f07d23b5b2b663c1
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

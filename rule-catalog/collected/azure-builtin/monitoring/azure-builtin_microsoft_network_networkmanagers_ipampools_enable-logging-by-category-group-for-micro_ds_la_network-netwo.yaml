@@ -21,7 +21,7 @@ provenance:
   source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/DS_LA_network-networkmanagers-ipampools_DINE.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:7e7cff8951ba10264f9e757af5eae2537a576fdbd9e8eb0bf197a4c2c17affa4
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

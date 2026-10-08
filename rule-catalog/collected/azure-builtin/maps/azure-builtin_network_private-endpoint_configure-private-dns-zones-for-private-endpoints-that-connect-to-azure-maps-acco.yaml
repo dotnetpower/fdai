@@ -21,7 +21,7 @@ provenance:
   source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Maps/AutoConfigure_PrivateDNSZone_DINE.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:87042165779dfc33d468fb7c15bd431ecc8310ca42538e1e84a10498a91138bd
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

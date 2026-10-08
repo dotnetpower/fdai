@@ -22,7 +22,7 @@ provenance:
     of Things/IoTDps_DeployPrivateDnsZoneForPrivateEndpoint_DINE.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:3fb39445a16bdd378f20aa6dd13f66a3267ca143ca87059a27b8f8f8bab91a13
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

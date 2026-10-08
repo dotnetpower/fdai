@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 22b5c00021d4a7ae07f163d9031f4a976364ae09
-translation_revised: 2026-10-04
+translation_source_sha: 6f7191d1aba0f282dfb4eb5011b41e693c017dea
+translation_revised: 2026-10-08
 ---
 
 # 에이전트 판테온 구현 계획
@@ -29,7 +29,7 @@ translation_revised: 2026-10-04
 | W2-W6 거버넌스, 파이프라인, 인터페이스, 전문 에이전트, 인계 및 보안 메커니즘 | implemented | [`test_runtime_chain.py`](../../../services/core-control-plane/tests/agents/test_runtime_chain.py), [`test_thor_durable.py`](../../../services/core-control-plane/tests/agents/test_thor_durable.py), [`test_conversational_port.py`](../../../services/core-control-plane/tests/agents/test_conversational_port.py), [`test_prompt_deliberation.py`](../../../services/core-control-plane/tests/agents/test_prompt_deliberation.py) | 선택적 T2 종합 전의 T1 답변 평가를 포함한 범위가 제한된 메커니즘을 집중 합성 검사로 실행하지만 실제 운영 검증을 입증하지는 않습니다. |
 | 영속 권한, 복구, 인계 및 학습 재생 | implemented | [`test_runtime.py`](../../../services/core-control-plane/tests/agents/test_runtime.py), [`test_wave2_governance.py`](../../../services/core-control-plane/tests/agents/test_wave2_governance.py), [`test_wave3_pipeline.py`](../../../services/core-control-plane/tests/agents/test_wave3_pipeline.py), [`test_bootstrap_config.py`](../../../services/core-control-plane/tests/runtime/test_bootstrap_config.py) | StateStore 기반 CAS, 점유 유효 기간, 검사 지점, 보낼 편지함 및 시작 복구 경로에는 재시작과 동시성 집중 검사 근거가 있습니다. 범위가 제한된 Low 심각도 복제본 간 및 작업 신원 잔여 문제 두 건은 아래에 열어 둡니다. |
 | 전권 개발 승인 및 복구 | in-progress | `agents/{forseti,thor,var,vidar}.py`; `agents/_framework/*development_authority*.py`; [`test_development_authority.py`](../../../services/core-control-plane/tests/agents/test_development_authority.py) | 명시적 조립은 신뢰 원본으로 검증한 확인 한 건을 Forseti에서 Var와 Thor로 전달하고 Vidar 및 재시작 시 다시 검증하며 신원을 만들어 내지 않습니다. 역할, 토픽 및 `PANTHEON_SPECS`는 바뀌지 않습니다. 업스트림 권위 결속 원본은 구현되거나 배포되지 않았습니다. |
-| Forseti 기준선 평가 구체화 | implemented | `agents/{forseti.py,_framework/forseti_baseline_evaluation.py}`; [`test_forseti_baseline_evaluation.py`](../../../services/core-control-plane/tests/agents/test_forseti_baseline_evaluation.py); Pantheon layout/parity 검사 | Forseti는 활성 T0 엔진으로 하나의 완전한 인벤토리 세대를 평가하고, Saga 감사 바인더가 필요한 감사 참조를 제공한 뒤에만 compliant, violated, abstained 터미널 기록을 쓸 수 있습니다. `PANTHEON_SPECS`, 토픽, `owns`, `subscribes`, 승인 및 실행 권한은 바뀌지 않습니다. |
+| Forseti 기준선 평가 구체화 | implemented | `agents/{forseti.py,_framework/forseti_baseline_evaluation.py}`; [`test_forseti_baseline_evaluation.py`](../../../services/core-control-plane/tests/agents/test_forseti_baseline_evaluation.py); Pantheon layout/parity 검사 | Forseti는 활성 T0 엔진으로 하나의 완전한 인벤토리 세대를 평가하고, Saga 감사 바인더가 필요한 감사 참조를 제공한 뒤에만 compliant, violated, abstained 터미널 기록을 쓸 수 있습니다. compliant 기록은 규칙이 `evaluates`에 선언한 모든 속성이 있어야 하며, 그렇지 않으면 해당 쌍은 `property_unobserved`로 판단을 보류합니다. `PANTHEON_SPECS`, 토픽, `owns`, `subscribes`, 승인 및 실행 권한은 바뀌지 않습니다. |
 | Saga 기준선 평가 감사 바인딩 | implemented | `agents/saga.py`; [`test_saga_baseline_evaluation_audit.py`](../../../services/core-control-plane/tests/agents/test_saga_baseline_evaluation_audit.py); 집중 Saga/Forseti/Pantheon 검사 | Saga는 기준선 평가 결과와 완료에 대한 재생 가능한 감사 근거를 추가한 뒤 안정적인 감사 참조와 다이제스트를 Forseti에 반환합니다. Saga는 여전히 Rule 점검 결과를 판단, 승인, 실행 또는 변환하지 않습니다. |
 | 영속 Huginn 유입 중복 제거 | implemented | `agents/{huginn.py,_framework/huginn_dedup.py}` 및 집중 discovery/runtime 검사 | 프로덕션 조립은 유입 consumer를 시작하기 전에 최대 64개의 정확한 용량 shard에 제한된 key claim, 정확한 정규화 재시도 payload, owner lease 및 게시 checkpoint를 영속화합니다. 일반 claim은 권한 없는 개정 번호 CAS를 사용해 각 이벤트를 감사에 중복 기록하지 않으며, 복구와 이행은 계속 감사합니다. 시작 시 기존 단일 행 원장을 멱등적으로 이행하고 압축합니다. Broker 수락 후 checkpoint 전 crash는 event bus의 at-least-once 계약에 따라 동일한 stable idempotency key를 다시 전달할 수 있습니다. |
 | Loki ResilienceScore 생산 | implemented | `agents/{loki.py,_framework/loki_resilience.py}`; 집중 Wave 5 및 cross-vertical 후보 검사 | Loki는 Huginn이 소유하는 정규화 score Event를 consumer의 정확한 후보 계약으로 검증하고 `object.resilience-score`를 게시하며, 범위가 제한된 읽기 전용 score 변환 결과만 유지합니다. 후보는 판단, 승인 또는 실행 권한을 부여하지 않습니다. |
@@ -51,6 +51,7 @@ translation_revised: 2026-10-04
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-08 | implemented | Forseti 기준선 평가는 규칙이 `evaluates`에 선언한 모든 속성을 리소스가 가질 때만 `compliant`를 기록하며, 그렇지 않으면 해당 쌍은 `property_unobserved`로 판단을 보류합니다. 거부 결과는 `violated`로 유지합니다. | `current change`; `forseti_baseline_evaluation.py`; worker 및 Saga 감사 검사를 포함한 `test_forseti_baseline_evaluation.py` | 인벤토리 수집이 정규화 속성을 제공해야 합니다([프레임워크 규칙 근거 ledger](../../roadmap-implementation/rules-and-detection/framework-rule-evidence.md)). |
 | 2026-10-04 | implemented | `PANTHEON_SPECS`, 토픽, 역할 바인딩, 승인 또는 실행 권한을 바꾸지 않고 Forseti의 prospective-lineage 게시 경로를 강화했습니다. Forseti가 소유한 판단 값이 없으면 이제 `ProspectiveLineage`를 만들지 않고 Verdict에 명시적인 이용 불가 사유를 기록하며, 완전한 값이 있을 때도 Forseti가 소유한 `object.prospective-lineage` 토픽으로만 게시합니다. | `current change`; `agents/_framework/forseti_arbitration.py`; `delivery/prospective_lineage.py`; 집중 prospective-lineage 및 에이전트 layout 검사. | 운영 온톨로지 잔여 항목을 유지합니다. Source/projector 재생 근거를 주장하려면 완전한 governed runtime episode 하나가 필요합니다. |
 | 2026-10-02 | implemented | 기준선 평가 결과와 완료 기록을 위한 Saga의 추가 전용 감사 바인더를 추가했습니다. | `current change`; `saga.py`; `test_saga_baseline_evaluation_audit.py`; 집중 Saga/Forseti/Pantheon 검사. | Operator 변환 결과와 Console 상태는 #1199의 별도 패키지에 남아 있습니다. |
 | 2026-10-02 | implemented | 전용 `_framework` helper와 타입 지정 Forseti 메서드로 완전한 인벤토리 기준선 평가 구체화를 추가했습니다. | `current change`; `forseti_baseline_evaluation.py`; `forseti.py`; 집중 Forseti 및 Pantheon 검사. | Saga 영속성, Operator 변환 결과, Console 상태는 #1199의 별도 패키지에 남아 있습니다. |

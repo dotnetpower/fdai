@@ -28,6 +28,7 @@ Constraints:
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from collections.abc import Iterable, Mapping
@@ -140,9 +141,10 @@ class AzurePolicyJsonParser:
         # rerun produces the same subset.
         seen_guids: set[str] = set()
         for path in sorted(snapshot_tree_root.rglob("*.json")):
+            content = path.read_bytes()
             try:
-                doc = json.loads(path.read_text(encoding="utf-8"))
-            except json.JSONDecodeError as exc:
+                doc = json.loads(content.decode("utf-8"))
+            except (UnicodeDecodeError, json.JSONDecodeError) as exc:
                 raise ParseError(f"{path}: not valid JSON: {exc}") from exc
             if not isinstance(doc, Mapping) or "properties" not in doc:
                 # Azure/azure-policy tree contains non-policy JSONs (e.g.
@@ -155,7 +157,11 @@ class AzurePolicyJsonParser:
                 # earlier subtree. Skip so the caller writes exactly
                 # one file per canonical GUID.
                 continue
-            raw = _to_rule_mapping(doc, origin=path.relative_to(snapshot_tree_root))
+            raw = _to_rule_mapping(
+                doc,
+                origin=path.relative_to(snapshot_tree_root),
+                content_hash="sha256:" + hashlib.sha256(content).hexdigest(),
+            )
             if raw is None:
                 continue
             if guid:
@@ -164,8 +170,17 @@ class AzurePolicyJsonParser:
         return ParseReport(parser=ParserName.AZURE_POLICY_JSON, rules=tuple(rules))
 
 
-def _to_rule_mapping(doc: Mapping[str, Any], *, origin: Path) -> Mapping[str, Any] | None:
-    """Return a mapping in FDAI rule-schema shape, or ``None`` to skip."""
+def _to_rule_mapping(
+    doc: Mapping[str, Any],
+    *,
+    origin: Path,
+    content_hash: str,
+) -> Mapping[str, Any] | None:
+    """Return a mapping in FDAI rule-schema shape, or ``None`` to skip.
+
+    ``content_hash`` is the SHA-256 of the exact definition bytes read, so a collected Rule pins
+    the policy body it was derived from.
+    """
     props = doc.get("properties") or {}
     policy_type = props.get("policyType")
     if policy_type not in ("BuiltIn", "Static", "Custom"):
@@ -223,7 +238,7 @@ def _to_rule_mapping(doc: Mapping[str, Any], *, origin: Path) -> Mapping[str, An
             ),
             "source_version": version,
             "resolved_ref": "0000000000000000000000000000000000000000",
-            "content_hash": "sha256:" + ("0" * 64),
+            "content_hash": content_hash,
             "license": "MIT",
             "redistribution": "embeddable",
             "retrieved_at": datetime.now(tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),

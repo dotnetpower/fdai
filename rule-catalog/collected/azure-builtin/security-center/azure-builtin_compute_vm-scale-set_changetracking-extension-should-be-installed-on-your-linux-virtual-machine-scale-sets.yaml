@@ -22,7 +22,7 @@ provenance:
     Center/ASC_ChangeTrackingLinuxAgent_VMSS_AINE.json
   source_version: 2.0.1
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:812a9bc4176d2a86e980fda57492209b6462b47379f69c07920e5b51ac81081d
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

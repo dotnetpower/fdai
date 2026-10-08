@@ -21,7 +21,7 @@ provenance:
     Government/Kubernetes/MutateContainerAllowedCapabilitiesInitContainers.json
   source_version: 1.2.1
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:b4e61ccc18c4b54c1d3a7c61b836f4ca0648231de1215f406fe6c4fd5200a422
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

@@ -22,7 +22,7 @@ provenance:
     Government/Kubernetes/ContainerAllowedPullPolicy.json
   source_version: 4.2.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:6f38925204040c25afdd54bcf3cfa996a3b79e13d8274f79bacce3acc491b258
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

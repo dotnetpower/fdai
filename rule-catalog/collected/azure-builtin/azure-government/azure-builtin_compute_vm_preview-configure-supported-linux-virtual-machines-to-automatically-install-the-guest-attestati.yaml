@@ -22,7 +22,7 @@ provenance:
     Government/Security Center/ASC_InstallLinuxGAExtOnVM_DINE.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:96db3d6e6073e729217e1321f2e6755a2750b27f9b7c5f85a24242e7401da7c4
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

@@ -22,7 +22,7 @@ provenance:
     Configuration/SetSecureProtocol_DINE.json
   source_version: 1.1.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:75a494656bc451337cb8508905a9f90d9c761423a9db4615a41654cf631ad110
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

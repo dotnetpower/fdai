@@ -21,7 +21,7 @@ provenance:
     Government/Mission/VNETAllowed-ServiceEndPoints_Audit.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:feefe29ea0b6b21142f1b911ec55c9e6ede2d3997c0f3152f0495b34a7b10e5b
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

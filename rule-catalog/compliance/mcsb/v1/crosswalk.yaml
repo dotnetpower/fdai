@@ -28,6 +28,8 @@ mappings:
     rule_ids:
       - network.nsg.no-inbound-any-rdp
       - network.nsg.no-inbound-any-ssh
+      - network.nsg.no-internet-inbound-rdp
+      - network.nsg.no-internet-inbound-ssh
     runtime_observation_ids: []
     manual_evidence_refs: []
   - control_id: IM-1

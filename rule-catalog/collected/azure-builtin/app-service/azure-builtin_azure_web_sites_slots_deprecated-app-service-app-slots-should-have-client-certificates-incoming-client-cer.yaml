@@ -22,7 +22,7 @@ provenance:
     Service/Webapp_Slot_Audit_ClientCert.json
   source_version: 1.1.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:c2bf6459c5ce135a470b9f5b2374f82be11711f06946b03472f8e08dc8fe2e86
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

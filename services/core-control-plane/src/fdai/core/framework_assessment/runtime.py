@@ -217,7 +217,12 @@ class FrameworkAssessmentRuntime:
                 supporting.append(item)
             else:
                 supporting_limitations.add(f"supporting_{reason}")
-        statuses = tuple(item.status for item in requirement_results)
+        # A supporting-only requirement adds context; it can neither decide nor veto the control.
+        statuses = tuple(
+            result.status
+            for requirement, result in zip(specification.evidence, requirement_results, strict=True)
+            if requirement.evidence_role is FrameworkEvidenceRole.DECISIVE
+        )
         satisfaction = _combine_requirement_statuses(specification.requirement_mode, statuses)
         limitations = {
             limitation for item in requirement_results for limitation in item.limitations

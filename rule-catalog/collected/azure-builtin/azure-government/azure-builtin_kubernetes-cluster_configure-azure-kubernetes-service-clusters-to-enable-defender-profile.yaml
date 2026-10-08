@@ -22,7 +22,7 @@ provenance:
     Government/Kubernetes/ASC_Azure_Defender_AKS_SecurityProfile_DINE.json
   source_version: 4.3.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:781a137478c124308aa770a520e9c0f107a33e9e991747d320b2675bf062f697
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

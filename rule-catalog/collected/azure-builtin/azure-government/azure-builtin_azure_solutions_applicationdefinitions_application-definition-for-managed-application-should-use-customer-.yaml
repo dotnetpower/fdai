@@ -22,7 +22,7 @@ provenance:
     Government/Managed Application/ApplicationDefinition_Missing_StorageAccount_Deny.json
   source_version: 1.1.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:54373226d62ea32c9acf8f85506de9c5fa413cd2d8ad2b4d5b753ca8fe5eb602
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

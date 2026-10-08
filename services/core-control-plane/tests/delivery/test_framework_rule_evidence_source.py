@@ -32,7 +32,9 @@ from fdai.delivery.framework_assessment_cli import (
 )
 from fdai.delivery.framework_rule_evidence_source import (
     WorkloadRuleEvidenceStatus,
+    load_scoped_rule_coverage,
     load_workload_rule_evidence,
+    workload_rule_evidence_from_coverage,
 )
 from fdai.delivery.persistence.postgres_wara_scope import (
     WaraResolvedResource,
@@ -368,3 +370,181 @@ async def test_same_rules_under_a_new_activation_profile_stay_verifiable() -> No
     evidence = await _load(store, second)
 
     assert evidence.status is WorkloadRuleEvidenceStatus.READY
+
+
+MCSB = load_framework_assessment_catalog(
+    ROOT / "rule-catalog/framework-assessments/generated/azure-mcsb.json"
+)
+MCSB_VIOLATED_DECISIVE = "secret-store.public-network-access.disabled"
+MCSB_COMPLIANT_DECISIVE = "network.vnet.ddos-plan.required"
+MCSB_VIOLATED_SUPPORTING = "network.nsg.no-inbound-any-rdp"
+
+
+class _McsbEvaluator:
+    def evaluate(self, rule: Rule, resource_props: Mapping[str, Any]) -> PolicyResult:
+        del resource_props
+        denied = rule.id in {MCSB_VIOLATED_DECISIVE, MCSB_VIOLATED_SUPPORTING}
+        return PolicyResult(denied=denied, context={})
+
+
+@pytest.mark.asyncio
+async def test_mcsb_rule_evidence_fails_but_never_satisfies_controls(tmp_path: Path) -> None:
+    rules = (
+        _rule(MCSB_VIOLATED_DECISIVE, "vault"),
+        _rule(MCSB_COMPLIANT_DECISIVE, "vnet"),
+        _rule(MCSB_VIOLATED_SUPPORTING, "nsg"),
+    )
+    activation = build_rule_activation_generation(
+        rules, profile_id="mcsb-test", profile_version="1.0.0", created_at=NOW
+    )
+    store = _Store()
+    records = (
+        ResourceRecord(resource_id="vault-1", type="vault", props={}),
+        ResourceRecord(resource_id="vnet-1", type="vnet", props={}),
+        ResourceRecord(resource_id="nsg-1", type="nsg", props={}),
+    )
+    engine = T0Engine(index=RuleIndex.build(rules), evaluator=_McsbEvaluator())
+
+    async def activation_source() -> RuleActivationGeneration:
+        return activation
+
+    async def snapshot_source() -> RuleGenerationSnapshot:
+        return RuleGenerationSnapshot(
+            engine=engine, rules=rules, generation_digest=activation.generation_digest
+        )
+
+    await ForsetiBaselineWorker(
+        state_store=store,
+        reader=_Reader(
+            PromotedInventoryGeneration(
+                generation="inventory-1", resources=records, complete=True, recorded_at=NOW
+            )
+        ),
+        activation_source=activation_source,
+        rule_snapshot_source=snapshot_source,
+        owner="forseti-test",
+        clock=lambda: NOW,
+    ).run_once()
+    scope = WaraResolvedScope(
+        workload_id="workload-example",
+        ontology_release="2026.09",
+        inventory_generation="inventory-1",
+        resources=tuple(
+            WaraResolvedResource(
+                neutral_resource_id=record.resource_id,
+                provider_resource_id=f"/providers/example/{record.resource_id}",
+                provider_resource_type=f"Example/{record.type}",
+            )
+            for record in records
+        ),
+    )
+
+    async def load(catalog: Any):
+        return await load_workload_rule_evidence(
+            state_store=store,
+            activation=activation,
+            scope=scope,
+            catalog=catalog,
+            profile_scope_digest=_waf_scope_digest(scope),
+            evaluated_at=NOW,
+            source_identity="forseti-baseline-evaluation",
+        )
+
+    mcsb_evidence = await load(MCSB)
+    assert mcsb_evidence.status is WorkloadRuleEvidenceStatus.READY
+    by_rule = {item.requirement_id.removeprefix("rule:"): item for item in mcsb_evidence.receipts}
+    assert by_rule[MCSB_VIOLATED_SUPPORTING].evidence_role.value == "supporting_only"
+    hierarchy = tmp_path / "hierarchy.json"
+    hierarchy.write_text(
+        json.dumps({"count": 1, "totalRecords": 1, "resultTruncated": False, "data": [{}]})
+    )
+    events: list[dict[str, object]] = []
+
+    class AuditStore:
+        async def append_audit_entry(self, entry: Mapping[str, object]) -> None:
+            del entry
+
+    class Bus:
+        async def publish(self, topic: str, key: str, payload: Mapping[str, object]) -> object:
+            del topic, key
+            events.append(dict(payload))
+            return object()
+
+    caf = load_framework_assessment_catalog(
+        ROOT / "rule-catalog/framework-assessments/generated/azure-caf.json"
+    )
+    mcsb_runtime = FrameworkAssessmentRuntime(MCSB)
+    report = await execute_framework_assessment_tick(
+        settings=FrameworkAssessmentJobSettings(
+            dsn="postgresql://localhost/example",
+            workload_id="workload-example",
+            inventory_freshness_seconds=86_400,
+            maximum_resources=1_000,
+            tenant_id="tenant-example",
+            subscription_id="subscription-example",
+            hierarchy_path=hierarchy,
+            reviewer_identity="reviewer@example.com",
+        ),
+        scope=scope,
+        waf_service=FrameworkAssessmentService(
+            FrameworkAssessmentRuntime(WAF), AuditStore(), Bus()
+        ),
+        caf_service=FrameworkAssessmentService(
+            FrameworkAssessmentRuntime(caf), AuditStore(), Bus()
+        ),
+        waf_catalog=WAF,
+        caf_catalog=caf,
+        now=NOW,
+        source_revision="a" * 40,
+        rule_evidence=await load(WAF),
+        mcsb=(FrameworkAssessmentService(mcsb_runtime, AuditStore(), Bus()), MCSB, mcsb_evidence),
+    )
+
+    assert report.mcsb_counts is not None
+    assert report.mcsb_counts["satisfaction.failed"] == 1
+    assert report.mcsb_counts.get("satisfaction.satisfied", 0) == 0
+    assert report.to_dict()["mcsb_result_digest"] == report.mcsb_result_digest
+    mcsb_events = [item for item in events if item.get("framework_id") == "azure-mcsb"]
+    assert len(mcsb_events) == 1
+    assert mcsb_events[0]["execution_authority"] is False
+
+
+@pytest.mark.asyncio
+async def test_one_coverage_load_serves_several_catalogs() -> None:
+    store = _Store()
+    activation = _activation()
+    await _baseline(store, activation)
+    scope = _scope()
+    scope_digest = _waf_scope_digest(scope)
+    loaded = await load_scoped_rule_coverage(
+        state_store=store,
+        activation=activation,
+        scope=scope,
+        framework_id=WAF.framework_id,
+        scope_digest=scope_digest,
+        evaluated_at=NOW,
+    )
+
+    def build(catalog: Any, **kwargs: Any):
+        return workload_rule_evidence_from_coverage(
+            loaded,
+            catalog=catalog,
+            profile_scope_digest=kwargs.pop("scope_digest", scope_digest),
+            evaluated_at=NOW,
+            source_identity="forseti-baseline-evaluation",
+            **kwargs,
+        )
+
+    waf = build(WAF)
+    mcsb = build(MCSB, include_record=False)
+
+    assert waf.coverage_record is not None and mcsb.coverage_record is None
+    assert waf.pin == mcsb.pin
+    coverage_refs = {
+        item.rule_provenance.coverage_digest
+        for item in waf.receipts + mcsb.receipts
+        if item.rule_provenance is not None
+    }
+    assert len(coverage_refs) == 1
+    with pytest.raises(ValueError, match="scope"):
+        build(MCSB, scope_digest="sha256:" + "0" * 64)

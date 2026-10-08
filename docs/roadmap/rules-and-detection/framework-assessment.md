@@ -107,6 +107,9 @@ inventory, truncation, conflicts, or a stale generation remains unknown.
 The profile also pins the Rule activation generation, and a Rule receipt is admitted only when its
 Rule provenance matches that pin exactly. See
 [Framework Rule Evidence from T0](framework-rule-evidence.md#assessment-side-activation-pin).
+A requirement can cite a Rule that the pinned generation doesn't activate, such as a newly shipped
+check. Its receipt stays `unknown` with `rule_not_activated` until an approved activation change
+adds the Rule.
 
 ### CAF catalog
 
@@ -120,6 +123,18 @@ evidence. Ready, Govern, Secure, and Manage combine exact estate observations wi
 The crosswalk records exact references to Rule, WAF, MCSB, `ControlObjective`, Azure Policy,
 provider observation, or manual evidence. Each relationship is `full`, `partial`,
 `supporting_only`, or `unmapped`; similar wording never establishes equivalence.
+
+### MCSB catalog
+
+The MCSB catalog uses the same runtime and workload scope as WAF. It decomposes all 86 imported v1
+controls into one decisive manual control-evidence requirement plus reviewed Rule requirements, so
+Rule evidence can fail an MCSB control but can't satisfy it alone. In every catalog, only decisive
+requirements decide a control; a `supporting_only` requirement can neither fail nor block it. The
+assessment job records MCSB results as no-authority audit receipts. When an MCSB assessment event
+is published, the Operator keeps it in a separate `mcsb-assessment.list` projection and joins each
+v1 control's server-owned state, and each requirement's evidence role, onto the MCSB catalog read.
+The Console shows that state beside implementation coverage and never derives it. See
+[Framework Rule Evidence from T0](framework-rule-evidence.md#mcsb-assessment).
 
 ## Deployment-supplied profile
 
@@ -194,7 +209,10 @@ No assessment module imports an agent, risk gate, approval path, or executor.
 The protected live-validation workflow deliberately uses an audit-only recorder because the deploy
 runner has no assessment-topic sender role. It records `publication_status:
 not_requested_validation_only` and retains a sanitized artifact instead of pretending that an
-Operator projection was published.
+Operator projection was published. A runtime whose identity has that sender role opts in with
+`FDAI_FRAMEWORK_ASSESSMENT_PUBLISH=1` and `KAFKA_BOOTSTRAP_SERVERS`; the job then audits and
+publishes WAF, CAF, and MCSB shadow events and records `publication_status: published`. Any other
+value, or publication without a bootstrap server, fails before database work.
 
 ## Operator surface
 
@@ -206,7 +224,9 @@ assessment exists. The Console shows:
 - mapping, applicability, evaluation, and satisfaction as separate fields;
 - evidence references, digests, freshness, completeness, conflicts, and limitations;
 - owner, cadence, approved exception, and WAF tradeoff records; and
-- unavailable and unknown states without a compliance label.
+- unavailable and unknown states without a compliance label; and
+- for a WAF `rule` requirement, server-owned scoped Rule coverage counts and activation state,
+  shown only while their coverage record belongs to the current version 2 baseline.
 
 WAF remains in the existing Controls view. CAF adds a sibling tab that uses the same quiet,
 read-only interaction pattern. The Rules catalog rail links to that Controls view as presentation

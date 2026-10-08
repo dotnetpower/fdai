@@ -18,4 +18,4 @@ producer_ref: assurance:shipped-catalog-ko@1
 evidence_refs:
 - rule:kubernetes-node-pool.multi-zone@1.0.0
 state: promoted
-validation_receipt_digest: sha256:750784c47a6f70e8ec57172fdc5d40055fbc158871ce3281ecfe4bb18140b5ce
+validation_receipt_digest: sha256:589fce6917c0968fe37fe61d4fce75052dfee290c2eda7df455eb92a247c011d

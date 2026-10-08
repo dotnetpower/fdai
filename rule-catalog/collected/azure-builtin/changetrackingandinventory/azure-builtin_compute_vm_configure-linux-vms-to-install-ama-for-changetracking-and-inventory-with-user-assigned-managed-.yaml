@@ -21,7 +21,7 @@ provenance:
   source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/ChangeTrackingAndInventory/AMA_UAI_Linux_VM_DINE.json
   source_version: 1.7.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:e2a380fbce3067f27b1e9bbea7ebf3469f7845e568924e10ef6863ecf2a9d6b3
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

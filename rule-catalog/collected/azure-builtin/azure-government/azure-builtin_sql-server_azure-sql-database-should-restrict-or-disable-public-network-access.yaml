@@ -22,7 +22,7 @@ provenance:
     Government/Mission/SqlDBDisablePublicNetwork.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:80a85d968110b440721b7ca7a179c74c061eb8e982b1e7e25af3399a356ccaef
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

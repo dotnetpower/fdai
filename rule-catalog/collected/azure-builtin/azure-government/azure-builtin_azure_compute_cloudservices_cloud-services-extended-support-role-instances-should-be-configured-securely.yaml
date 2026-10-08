@@ -22,7 +22,7 @@ provenance:
     Government/Security Center/ASC_CsesOSVulnerabilities_Audit.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:94ec360f9cb3c4a2204c0dbf5e78be618652fc7a71a5fa4fe616b7c6e302b995
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

@@ -22,7 +22,7 @@ provenance:
     Network/ConfigureSIMGroupwithCMK_Audit.json
   source_version: 1.1.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:9599f0f029152520865fef975512b401e9554f9e333800035c60ea38e9a64446
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

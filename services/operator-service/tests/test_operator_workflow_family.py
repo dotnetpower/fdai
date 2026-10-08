@@ -895,7 +895,16 @@ async def test_postgres_control_catalogs_project_lists_filters_and_details() -> 
     assert mcsb_list.payload["benchmark"] == benchmark
     assert mcsb_list.payload["controls"][0]["control_id"] == "NS-1"
     assert "rule_ids" not in mcsb_list.payload["controls"][0]
-    assert mcsb_detail.payload == mcsb_control
+    assert mcsb_detail.payload == {
+        **mcsb_control,
+        "assessment": None,
+        "assessment_summary": {
+            "status": "unavailable",
+            "framework_id": "azure-mcsb",
+            "execution_authority": False,
+        },
+    }
+    assert mcsb_list.payload["controls"][0]["assessment"] is None
     assert mcsb_detail.provenance.revision == "mcsb-revision"
     assert wara_list.payload["filtered_total"] == 1
     assert wara_list.payload["controls"] == [wara_control]

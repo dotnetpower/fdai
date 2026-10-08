@@ -96,7 +96,10 @@ function controlList(controls: readonly unknown[], extra: Record<string, unknown
 
 async function installCrossLinkFixture(
   page: Page,
-  options: { readonly confirmRuleFilter?: boolean } = {},
+  options: {
+    readonly confirmRuleFilter?: boolean;
+    readonly detail?: Readonly<Record<string, unknown>>;
+  } = {},
 ): Promise<string[]> {
   const requests: string[] = [];
   const handleApi = async (route: Route): Promise<void> => {
@@ -161,7 +164,7 @@ async function installCrossLinkFixture(
       return;
     }
     if (path === `/best-practices/${CONTROL_ID}`) {
-      await json(route, { ...CONTROL, requirements: REQUIREMENTS, provenance: {} });
+      await json(route, options.detail ?? { ...CONTROL, requirements: REQUIREMENTS, provenance: {} });
       return;
     }
     await json(route, { detail: `unmocked browser-test route: ${url.pathname}` }, 404);
@@ -241,6 +244,132 @@ test("navigates from a control requirement to its rule and back to citing contro
     scrollWidth: element.scrollWidth,
   }));
   expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
+});
+
+const SECOND_RULE_ID = "compute.vm.managed-identity.assigned";
+const COVERAGE_SCOPE = `sha256:${"1".repeat(64)}`;
+
+function coverageDetail(
+  ruleCoverage: Readonly<Record<string, unknown>>,
+  withCounts: boolean,
+): Readonly<Record<string, unknown>> {
+  return {
+    ...CONTROL,
+    requirement_count: 2,
+    evaluation_status: "evaluated",
+    satisfaction: "failed",
+    status: "failed",
+    evaluation_scope: `sha256:${"2".repeat(64)}`,
+    evaluation_source: "framework-shadow-assessment",
+    requirements: [
+      {
+        kind: "rule",
+        ref: RULE_ID,
+        freshness_days: 1,
+        status: "failed",
+        evidence_refs: ["t0-rule-evidence:example"],
+        limitations: [],
+        ...(withCounts
+          ? {
+              coverage: {
+                activated: true,
+                eligible: 4,
+                covered: 4,
+                compliant: 3,
+                violated: 1,
+                held_for_review: 0,
+                missing: 0,
+                duplicate: 0,
+                conflicting: 0,
+                unexpected: 0,
+                revision_mismatch: 0,
+              },
+            }
+          : {}),
+      },
+      {
+        kind: "rule",
+        ref: SECOND_RULE_ID,
+        freshness_days: 1,
+        status: "unknown",
+        evidence_refs: [],
+        limitations: ["rule_not_activated"],
+        ...(withCounts ? { coverage: { activated: false } } : {}),
+      },
+    ],
+    rule_coverage: ruleCoverage,
+    provenance: {},
+  };
+}
+
+test("shows server-owned rule coverage counts and activation state", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await installCrossLinkFixture(page, {
+    detail: coverageDetail(
+      {
+        status: "current",
+        reason: null,
+        framework_id: "azure-waf",
+        scope_digest: COVERAGE_SCOPE,
+        resource_count: 12,
+        inventory_generation: "inventory-1",
+        inventory_observed_at: "2026-10-07T15:22:01+00:00",
+        recorded_at: "2026-10-07T15:30:00+00:00",
+        rule_activation_generation_id: `rule-activation-${"4".repeat(32)}`,
+        record_digest: `sha256:${"5".repeat(64)}`,
+        matches_assessment_scope: false,
+        execution_authority: false,
+      },
+      true,
+    ),
+  });
+  await page.goto(`/rules?view=controls&control=${CONTROL_ID}`);
+
+  const drawer = page.getByRole("dialog", { name: "Control detail" });
+  await expect(drawer.getByRole("heading", { name: "Rule coverage" })).toBeVisible();
+  await expect(drawer.getByText("Current", { exact: true })).toBeVisible();
+  await expect(drawer.getByText(COVERAGE_SCOPE)).toBeVisible();
+  await expect(drawer.getByText("This coverage covers a different workload scope", { exact: false })).toBeVisible();
+  await expect(drawer.getByLabel(`Rule coverage for ${RULE_ID}`)).toHaveText(
+    "Eligible 4 · Compliant 3 · Violated 1 · Held for review 0 · Missing 0",
+  );
+  // The server's rule_not_activated limitation already explains the second Rule; it is not repeated.
+  await expect(drawer.getByLabel(`Rule coverage for ${SECOND_RULE_ID}`)).toHaveCount(0);
+  await expect(drawer.getByText("Rule is not in the active rule set", { exact: true })).toBeVisible();
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const dimensions = await page.locator("html").evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+  }));
+  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
+});
+
+test("explains outdated rule coverage without showing counts", async ({ page }) => {
+  await installCrossLinkFixture(page, {
+    detail: coverageDetail(
+      {
+        status: "stale",
+        reason: "baseline_changed",
+        framework_id: "azure-waf",
+        scope_digest: COVERAGE_SCOPE,
+        resource_count: 12,
+        inventory_generation: "inventory-1",
+        inventory_observed_at: "2026-10-07T15:22:01+00:00",
+        recorded_at: "2026-10-07T15:30:00+00:00",
+        rule_activation_generation_id: `rule-activation-${"4".repeat(32)}`,
+        record_digest: `sha256:${"5".repeat(64)}`,
+        execution_authority: false,
+      },
+      false,
+    ),
+  });
+  await page.goto(`/rules?view=controls&control=${CONTROL_ID}`);
+
+  const drawer = page.getByRole("dialog", { name: "Control detail" });
+  await expect(drawer.getByText("Outdated", { exact: true })).toBeVisible();
+  await expect(drawer.getByText("A newer rule baseline exists.", { exact: false })).toBeVisible();
+  await expect(drawer.getByLabel(`Rule coverage for ${RULE_ID}`)).toHaveCount(0);
 });
 
 test("never presents an unfiltered control list as rule citations", async ({ page }) => {

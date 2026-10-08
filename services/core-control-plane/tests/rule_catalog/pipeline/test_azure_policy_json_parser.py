@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 
@@ -94,6 +95,16 @@ def test_parse_maps_azure_storage_to_object_storage_and_assigns_severity(tmp_pat
         "reference": "azure-policy://foo-guid-secure-transfer",
     }
     assert raw["parameters"]["azure_policy_name"] == "foo-guid-secure-transfer"
+
+
+def test_parse_pins_the_exact_definition_bytes(tmp_path: Path) -> None:
+    _write_policy(tmp_path, "secure_transfer", _minimal_deny_policy())
+    content = next(tmp_path.rglob("*.json")).read_bytes()
+
+    raw = AzurePolicyJsonParser().parse(tmp_path).rules[0].raw
+
+    assert raw["provenance"]["content_hash"] == "sha256:" + hashlib.sha256(content).hexdigest()
+    assert raw["provenance"]["content_hash"] != "sha256:" + "0" * 64
 
 
 def test_parse_falls_through_to_azure_prefix_for_unknown_resource_type(tmp_path: Path) -> None:

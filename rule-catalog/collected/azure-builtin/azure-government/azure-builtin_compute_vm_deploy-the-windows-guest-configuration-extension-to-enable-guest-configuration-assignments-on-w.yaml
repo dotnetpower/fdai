@@ -22,7 +22,7 @@ provenance:
     Government/Guest Configuration/DeployExtensionWindows_Prerequisite.json
   source_version: 1.2.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:c92d9abad2d236bc8d5d58a11226902283db332a56b593feb6155d64be5621b8
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

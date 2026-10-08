@@ -22,7 +22,7 @@ provenance:
     Learning/Workspace_CMKEnabled_Audit_V2.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:21a951e0bca4c54f89ce5103cee0cbff60611e542a17fca38079c42f0fe1d639
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'
