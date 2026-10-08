@@ -4,6 +4,8 @@
   const P = window.AgentsPreview;
   const D = window.AgentActivityPreviewData;
   const W = window.AgentActivityPreviewWaterfall;
+  const TJ = window.AgentActivityPreviewTrajectory;
+  const trajectoryCorrelations = new Set(window.AgentActivityPreviewTrajectories.trajectories.map((item) => item.correlation));
   // Mirrors AGENT_LOG_LIMIT in console/src/routes/agent-activity-log-model.ts, not the live-frame buffer.
   const LOCAL_LOG_LIMIT = 200;
   const esc = P.escape;
@@ -20,7 +22,8 @@
   const rows = find("activityRows");
   const columns = find("activityColumns");
   const fullscreen = find("activityFullscreen");
-  let view = params.get("view") === "waterfall" ? "waterfall" : "activity";
+  const VIEWS = ["trajectory", "activity", "waterfall"];
+  let view = VIEWS.includes(params.get("view")) ? params.get("view") : "trajectory";
   const requestedStep = Number(params.get("step"));
   let step = Number.isInteger(requestedStep) && requestedStep > 0 ? requestedStep : null;
   let lane = "all";
@@ -65,9 +68,13 @@
       ["Authority", "No execution or approval is granted by this fixture"]
     ]);
   }
+  function trajectoryLink(row) {
+    return P.href("agent-activity.html", { trajectory: row.correlation });
+  }
   function rowHtml(row) {
     const correlationCell = row.correlation
-      ? row.seq ? '<a href="' + esc(auditLink(row)) + '">' + esc(row.correlation) + '</a><small>Audit trace (sample)</small>' : "<code>" + esc(row.correlation) + "</code><small>No audit trace</small>"
+      ? trajectoryCorrelations.has(row.correlation) ? '<a href="' + esc(trajectoryLink(row)) + '">' + esc(row.correlation) + '</a><small>Trajectory (sample)</small>'
+      : row.seq ? '<a href="' + esc(auditLink(row)) + '">' + esc(row.correlation) + '</a><small>Audit trace (sample)</small>' : "<code>" + esc(row.correlation) + "</code><small>No audit trace</small>"
       : "<code>" + esc(row.id) + "</code><small>No correlation</small>";
     return '<tr data-record="' + esc(row.id) + '" data-operational-kind="' + esc(row.lane || "") + '">' +
       '<td data-column="time"><time datetime="' + row.time + '">' + row.time.slice(11, 19) + "</time><small>" + row.time.slice(0, 10) + "</small></td>" +
@@ -118,13 +125,15 @@
     const loading = P.source() === "loading";
     const isWaterfall = view === "waterfall";
     find("activityFlowContext").hidden = correlation.value !== "sample-query-connected-resources-01";
-    journal.hidden = loading || isWaterfall;
+    const isTrajectory = view === "trajectory";
+    journal.hidden = loading || view !== "activity";
+    find("activityTrajectoryView").hidden = loading || !isTrajectory;
     find("activityWaterfallView").hidden = loading || !isWaterfall;
     find("waterfallFilters").hidden = !isWaterfall;
     document.querySelectorAll("[data-view]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.view === view)));
     find("activitySelection").hidden = !agentFilter.value;
     const knownAgent = P.byName(agentFilter.value);
-    find("activitySelectionText").textContent = agentFilter.value + (!knownAgent ? ": not in the fixed pantheon. Choose an agent or clear filters." : isWaterfall ? ": showing touched audit correlations with other-agent context retained." : ": filtering attributed work and conversation participants.");
+    find("activitySelectionText").textContent = agentFilter.value + (!knownAgent ? ": not in the fixed pantheon. Choose an agent or clear filters." : isTrajectory ? ": showing trajectories this agent took part in; other agents' steps stay visible as context." : isWaterfall ? ": showing touched audit correlations with other-agent context retained." : ": filtering attributed work and conversation participants.");
     find("activityAgentLink").hidden = !knownAgent;
     find("activityAgentLink").href = P.href("agents-constellation.html", { agent: agentFilter.value });
     const visible = filteredRows();
@@ -141,9 +150,10 @@
       (P.available() ? retainedRows.filter((row) => id === "all" || row.lane === id).length : "-") + "</small></button>").join("");
     updateColumns();
     if (isWaterfall) W.render(filteredAudit(), agentFilter.value || null, step);
+    if (isTrajectory && !loading) TJ.render({ agent: agentFilter.value, query: query.value, correlation: correlation.value });
     P.writeParams({
       agent: agentFilter.value || null, q: query.value || null, correlation: correlation.value || null,
-      view: isWaterfall ? "waterfall" : null, step: isWaterfall ? step : null, lane: !isWaterfall && lane !== "all" ? lane : null,
+      view: isTrajectory ? null : view, step: isWaterfall ? step : null, lane: view === "activity" && lane !== "all" ? lane : null,
       window: isWaterfall && windowFilter.value !== "24h" ? windowFilter.value : null,
       layer: isWaterfall && layer.value !== "all" ? layer.value : null, verb: isWaterfall && verb.value !== "all" ? verb.value : null
     });
@@ -252,6 +262,16 @@
       openRecords.delete(removed.id);
     }
     render();
+  });
+  TJ.bind({
+    onChange: render,
+    onShowLog: (id) => {
+      view = "activity";
+      correlation.value = id;
+      render();
+      find("activityJournalTitle").setAttribute("tabindex", "-1");
+      find("activityJournalTitle").focus();
+    }
   });
   window.addEventListener("pagehide", () => { cancelAnimationFrame(tailFrame); exitFallback(); });
   P.setupSource(render);

@@ -404,7 +404,7 @@ test("desktop interactions: Activity opens the route-backed role dialog", async 
 });
 
 test("desktop interactions: activity operational lanes never invent audit traces", async ({ page }) => {
-  const frame = await openOperator(page, "agent-activity.html");
+  const frame = await openOperator(page, "agent-activity.html?view=activity");
   await frame.getByRole("button", { name: /^Inventory scan/ }).click();
   await expect(frame.locator("#activityRows tr")).toHaveCount(1);
   await expect(frame.locator('#activityRows a[href*="rule-trace"]')).toHaveCount(0);

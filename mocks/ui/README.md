@@ -52,7 +52,7 @@ Fleet / Safety surfaces (mirror console panels under `Now` and `Safety`):
 |------|---------|
 | [agents.html](agents.html) | Fleet - live state, current work, fixed ownership, role boundaries, throughput, and chat entry for all 15 agents |
 | [agents-constellation.html](agents-constellation.html) | Org - reporting lines with incident focus rings and the per-incident agent conversation panel |
-| [agent-activity.html](agent-activity.html) | Per-agent timeline projected from the audit log - who did what, when, and how; verbs = execute / approve / reject / rollback / hold for review / audit |
+| [agent-activity.html](agent-activity.html) | Trajectory-first agent work: one trajectory per correlation with lifecycle phases, ordered steps on one time scale, received and produced excerpts, decision basis, tool calls, checks, safeguards, event-bus handoffs, and source records; plus the chronological activity log and audit waterfall. Open trajectories without a terminal outcome are labeled partial, and model reasoning is never shown |
 | [impact scope.html](blast-radius.html) | Per-action impact view - responsive query controls, concentric target / direct / indirect rings, and cap bars enforced by the safety check |
 | [provision.html](provision.html) | In-flight re-provision - Terraform stream projected as status + resource list + live event log; console URL surfaces on `provision.done` |
 

@@ -7,13 +7,16 @@
   <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
   <link rel="stylesheet" href="assets/agents-preview-workspace.css?v=16" />
   <link rel="stylesheet" href="assets/agent-activity-preview-workspace.css?v=3" />
+  <link rel="stylesheet" href="assets/agent-activity-preview-trajectory.css?v=1" />
   <link rel="stylesheet" href="assets/connected-operations-flow.css?v=4" />
   <link rel="stylesheet" href="assets/agent-organization-preview-dialog.css?v=2" />
   <script src="assets/calm-slate.js?v=agent-roles-v3" defer></script>
   <script src="assets/agents-preview-data.js?v=3" defer></script>
   <script src="assets/agent-activity-preview-data.js?v=3" defer></script>
   <script src="assets/agent-activity-preview-waterfall.js?v=3" defer></script>
-  <script src="assets/agent-activity-preview-log.js?v=2" defer></script>
+  <script src="assets/agent-activity-preview-trajectory-data.js?v=1" defer></script>
+  <script src="assets/agent-activity-preview-trajectory.js?v=1" defer></script>
+  <script src="assets/agent-activity-preview-log.js?v=3" defer></script>
   <script src="assets/agent-organization-preview-dialog.js?v=15" defer></script>
   <link rel="stylesheet" href="assets/operator-workspace.css?v=4" />
 </head>
@@ -25,7 +28,7 @@
       <button type="button" id="activityRolesOpen" aria-haspopup="dialog" aria-expanded="false">Roles and ownership</button>
     </nav>
     <header class="ap-heading">
-      <div><h1>Agent activity</h1><p>Inspect agent work, operational observations, and audit handoffs.</p></div>
+      <div><h1>Agent activity</h1><p>Follow each unit of agent work step by step: what it received, decided, called, and recorded.</p></div>
       <span class="ap-badge">Synthetic preview</span>
     </header>
     <section class="ap-source" aria-label="Preview evidence source">
@@ -56,7 +59,8 @@
       </nav>
     </section>
     <div class="ap-activity-views ap-chipset" role="group" aria-label="Activity presentation">
-      <button type="button" data-view="activity" aria-pressed="true" aria-controls="activityJournal">Activity</button>
+      <button type="button" data-view="trajectory" aria-pressed="true" aria-controls="activityTrajectoryView">Trajectories</button>
+      <button type="button" data-view="activity" aria-pressed="false" aria-controls="activityJournal">Activity log</button>
       <button type="button" data-view="waterfall" aria-pressed="false" aria-controls="activityWaterfallView">Waterfall</button>
     </div>
     <div id="activitySelection" class="ap-selection" hidden>
@@ -73,6 +77,15 @@
       <label class="ap-field">Layer<select id="activityLayer"><option value="all">All layers</option><option value="governance">Governance</option><option value="pipeline">Pipeline</option><option value="domain">Domain</option></select></label>
       <label class="ap-field">Verb<select id="activityVerb"><option value="all">All verbs</option><option value="execute">Execute / dispatch</option><option value="approve">Approve</option><option value="reject">Reject</option><option value="rollback">Rollback</option><option value="abstain">Abstain</option><option value="audit">Audit</option></select></label>
       <p class="ap-meta">Window is relative to the newest retained audit record, not the wall clock.</p>
+    </section>
+    <section id="activityTrajectoryView" aria-label="Agent trajectories">
+      <div class="tj-layout">
+        <nav class="tj-list" aria-label="Trajectories by correlation">
+          <p id="activityTrajectoryCount" class="ap-meta" role="status" aria-live="polite"></p>
+          <div id="activityTrajectoryList"></div>
+        </nav>
+        <article id="activityTrajectoryDetail" class="tj-detail" aria-labelledby="activityTrajectoryTitle"></article>
+      </div>
     </section>
     <section class="ap-journal" id="activityJournal" aria-labelledby="activityJournalTitle">
       <header class="ap-journal-head">
