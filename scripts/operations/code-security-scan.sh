@@ -11,6 +11,8 @@
 #   --locale en|ko          report language (default: en)
 #   --record-state          also record the review for the Console; reads FDAI_STATE_STORE_DSN
 #                           from this environment and passes it to the container by name only
+#   --prove                 also reproduce verified issues in the proof lane; uses the larger
+#                           `prover` image target with Node.js, gcc, a JDK, and the .NET SDK
 #   --rebuild               rebuild the scanner image first
 #   --refresh-db            refresh the offline vulnerability databases first
 #
@@ -20,7 +22,7 @@
 # mounted read-only. FDAI_CODE_SECURITY_HOME defaults to ~/.cache/fdai-code-security.
 set -euo pipefail
 
-usage() { sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; }
 
 [[ $# -ge 1 ]] || { usage >&2; exit 2; }
 case "$1" in -h|--help) usage; exit 0 ;; esac
@@ -32,6 +34,7 @@ folder="$(cd "$folder" && pwd -P)"
 
 include_uncommitted=""
 record_state=""
+prove=""
 report_dir=""
 alias_name=""
 locale="en"
@@ -41,6 +44,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --include-uncommitted) include_uncommitted="--include-uncommitted" ;;
     --record-state) record_state="--record-state" ;;
+    --prove) prove="--prove" ;;
     --report-dir) report_dir="${2:?--report-dir needs a value}"; shift ;;
     --alias) alias_name="${2:?--alias needs a value}"; shift ;;
     --locale) locale="${2:?--locale needs a value}"; shift ;;
@@ -55,6 +59,11 @@ case "$locale" in en|ko) ;; *) echo "error: --locale must be en or ko" >&2; exit
 
 repo_root="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 image="${FDAI_CODE_SECURITY_IMAGE:-fdai-code-security-scanner:local}"
+target="runtime"
+if [[ -n "$prove" ]]; then
+  image="${FDAI_CODE_SECURITY_PROVER_IMAGE:-fdai-code-security-scanner:prover}"
+  target="prover"
+fi
 home_dir="${FDAI_CODE_SECURITY_HOME:-${XDG_CACHE_HOME:-$HOME/.cache}/fdai-code-security}"
 name="$(basename "$folder" | tr -c 'A-Za-z0-9._\n-' '-' | sed 's/^[-._]*//; s/[-._]*$//' | cut -c1-64)"
 name="${name:-local-folder}"
@@ -66,7 +75,7 @@ report_dir="$(cd "$report_dir" && pwd -P)"
 if [[ $rebuild -eq 1 ]] || ! docker image inspect "$image" > /dev/null 2>&1; then
   echo "building $image ..." >&2
   docker build -f "$repo_root/services/core-control-plane/docker/code-security-scanner.Dockerfile" \
-    -t "$image" "$repo_root" >&2
+    --target "$target" -t "$image" "$repo_root" >&2
 fi
 
 user="$(id -u):$(id -g)"
@@ -104,6 +113,6 @@ docker run --rm --user "$user" --network "$network" -e HOME=/tmp "${env_args[@]}
   "${alias_args[@]}" \
   --work-root /work \
   --report /report --report-locale "$locale" \
-  ${record_state:+"$record_state"}
+  ${record_state:+"$record_state"} ${prove:+"$prove"}
 
 echo "report: $report_dir/report.html" >&2

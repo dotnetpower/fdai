@@ -10,7 +10,7 @@
 #
 # Both scan modes add the scanner bindings and the cache; all other arguments pass through, for
 # example --path, --repository, --revision, --repo-alias, --work-root, --report, --record-state,
-# or --max-requests.
+# --prove, or --max-requests. `scan` also binds each proof toolchain the image carries.
 set -eu
 
 CACHE="${FDAI_SCAN_CACHE:-/cache}"
@@ -34,13 +34,23 @@ case "${1:-}" in
     source_dir="${2:?prepare needs a source directory with lockfiles}"
     mkdir -p "$CACHE"
     "$BIN/trivy" image --download-db-only --cache-dir "$CACHE" --quiet
+    # osv-scanner exits 1 when it finds vulnerabilities and 128 when the folder has no lockfile.
+    status=0
     OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY="$CACHE" "$BIN/osv-scanner" scan source \
       --offline-vulnerabilities --download-offline-databases --recursive "$source_dir" \
-      --format json > /dev/null || [ $? -eq 1 ]
+      --format json > /dev/null || status=$?
+    case "$status" in 0|1|128) ;; *) exit "$status" ;; esac
     echo '{"ok": true, "prepared": "'"$CACHE"'"}'
     ;;
   scan)
     shift
+    # Bind every proof toolchain the image carries; they take effect only with --prove.
+    for runtime in node:node gcc:cc java:java dotnet:dotnet; do
+      executable="$(command -v "${runtime%%:*}" || true)"
+      if [ -n "$executable" ]; then
+        set -- "$@" "--prove-${runtime#*:}" "$executable"
+      fi
+    done
     run_with_scanners scan --prove-python /usr/local/bin/python3 "$@"
     ;;
   process-requests)

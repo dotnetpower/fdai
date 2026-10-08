@@ -607,3 +607,12 @@ def test_scan_runner_image_pins_every_tool_and_binds_every_scanner() -> None:
     assert re.findall(r"library/python@sha256:[0-9a-f]{64}", dockerfile)
     bound = set(re.findall(r'--scanner-bin "([a-z-]+)=', entrypoint))
     assert bound == set(load_scanner_catalog(_CATALOG).scanners)
+    assert re.search(r"ARG DOTNET_SDK_SHA512=[0-9a-f]{128}\n", dockerfile)
+    assert '"${DOTNET_SDK_SHA512}  dotnet.tar.gz" | sha512sum -c -' in dockerfile
+    stages = re.findall(r"^FROM \S+ AS ([a-z]+)$", dockerfile, flags=re.MULTILINE)
+    assert stages[-1] == "runtime" and "prover" in stages
+    prover = dockerfile.split(" AS prover\n", 1)[1].split("\nFROM ", 1)[0]
+    for toolchain in ("nodejs", "gcc", "openjdk-21-jdk-headless", "/usr/lib/dotnet"):
+        assert toolchain in prover, toolchain
+    for flag in ("node:node", "gcc:cc", "java:java", "dotnet:dotnet"):
+        assert flag in entrypoint, flag

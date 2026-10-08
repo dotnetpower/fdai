@@ -116,12 +116,22 @@ produced valid SARIF.
 
 `services/core-control-plane/docker/code-security-scanner.Dockerfile` packages the scan job with
 Opengrep, gitleaks, OSV-Scanner, and Trivy. Each binary is pinned by version and SHA-256, and the
-base image is pinned by digest. The entrypoint has two steps:
+glibc-based Debian image is pinned by digest. The file builds two targets:
+
+- **`runtime` (default):** every scanner and the Python proof lane.
+- **`prover`:** the same image plus Node.js, gcc with AddressSanitizer and
+  UndefinedBehaviorSanitizer, OpenJDK 21, and the .NET SDK, pinned by SHA-512. `--prove` can then
+  reproduce Python, JavaScript, native, Java, and C# issues. The image is glibc-based because the
+  sanitizer runtimes don't support musl.
+
+The entrypoint has two steps:
 
 1. `fdai-scan-runner prepare SOURCE_DIR` refreshes the Trivy and OSV offline databases into the
-   cache. It's the only step that uses the network.
-2. `fdai-scan-runner scan ...` binds every catalog scanner and the cache, then runs the scan job.
-   All scanners run inside the bubblewrap sandbox with no network.
+   cache. It's the only step that uses the network. A folder without a lockfile has no
+   dependencies to scan, so OSV-Scanner's "no package sources" exit doesn't fail the step.
+2. `fdai-scan-runner scan ...` binds every catalog scanner, the cache, and each proof toolchain
+   the image carries, then runs the scan job. All scanners run inside the bubblewrap sandbox with
+   no network, and the toolchains take effect only with `--prove`.
 
 bubblewrap needs unprivileged user namespaces, so the container runtime must allow them. With
 Docker, that means `--security-opt seccomp=unconfined --security-opt apparmor=unconfined`.
@@ -136,6 +146,12 @@ couldn't reproduce:
 - gitleaks can't write its report through `/dev/stdout` inside the sandbox's user namespace.
 - The tools' self-reported names (`Opengrep OSS`, and one `Trivy` for two modes) didn't match the
   catalog producers, so receipts lost the rule-pack digest.
+
+Example: on 2026-10-09 the proof-lane tests ran inside the `prover` image under bubblewrap. Python,
+JavaScript, native, Java, and C# fixtures were each `proven` at their fix sites, and their safe
+counterparts stayed unproven. The first run showed that the sandbox binds the proof interpreter at
+a fixed path without `/etc/ld.so.cache`, so the image links `libpython` onto the loader's default
+path.
 
 ## Local folder scans and reports
 
@@ -165,6 +181,9 @@ builds the image and downloads the offline databases on first use, then scans wi
 ```bash
 scripts/operations/code-security-scan.sh ~/src/payments-api --include-uncommitted --locale ko
 ```
+
+Add `--prove` to also reproduce verified issues. The wrapper then builds and runs the `prover`
+image target.
 
 Example: a developer scans a checkout with one uncommitted file. All five scanners complete in the
 sandbox, the uncommitted `draft.py` command injection appears next to the committed one, and the

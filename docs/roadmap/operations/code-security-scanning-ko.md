@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: b0b477518bc7e3389af24338778b38923b9f24aa
+translation_source_sha: d61872269de64e448d5a20cd0e38fa94f268b6f9
 translation_revised: 2026-10-09
 ---
 
@@ -115,13 +115,23 @@ Go용으로 FDAI가 작성한 규칙 22개가 있습니다. 각 규칙은 다음
 ## 스캔 실행 이미지
 
 `services/core-control-plane/docker/code-security-scanner.Dockerfile`은 스캔 작업과 Opengrep,
-gitleaks, OSV-Scanner, Trivy를 하나로 묶습니다. 각 바이너리는 버전과 SHA-256으로, 기본 이미지는
-다이제스트로 고정됩니다. 진입점은 두 단계로 동작합니다.
+gitleaks, OSV-Scanner, Trivy를 하나로 묶습니다. 각 바이너리는 버전과 SHA-256으로, glibc 기반
+Debian 이미지는 다이제스트로 고정됩니다. 이 파일은 두 대상을 빌드합니다.
+
+- **`runtime`(기본):** 모든 스캐너와 Python 입증 레인을 담습니다.
+- **`prover`:** 같은 이미지에 Node.js, AddressSanitizer와 UndefinedBehaviorSanitizer를 쓰는 gcc,
+  OpenJDK 21, SHA-512로 고정한 .NET SDK를 더합니다. 그러면 `--prove`가 Python, JavaScript,
+  네이티브, Java, C# 이슈를 재현할 수 있습니다. sanitizer 런타임이 musl을 지원하지 않으므로 이미지는
+  glibc 기반입니다.
+
+진입점은 두 단계로 동작합니다.
 
 1. `fdai-scan-runner prepare SOURCE_DIR`는 Trivy와 OSV 오프라인 데이터베이스를 캐시에 갱신합니다.
-   네트워크를 쓰는 유일한 단계입니다.
-2. `fdai-scan-runner scan ...`은 카탈로그의 모든 스캐너와 캐시를 연결한 뒤 스캔 작업을 실행합니다.
-   모든 스캐너는 네트워크 없는 bubblewrap 샌드박스 안에서 실행됩니다.
+   네트워크를 쓰는 유일한 단계입니다. 잠금 파일이 없는 폴더에는 검사할 의존성이 없으므로,
+   OSV-Scanner의 "패키지 소스 없음" 종료는 이 단계를 실패시키지 않습니다.
+2. `fdai-scan-runner scan ...`은 카탈로그의 모든 스캐너, 캐시, 이미지에 있는 각 입증 도구를 연결한 뒤
+   스캔 작업을 실행합니다. 모든 스캐너는 네트워크 없는 bubblewrap 샌드박스 안에서 실행되며, 입증
+   도구는 `--prove`가 있을 때만 쓰입니다.
 
 bubblewrap에는 비특권 사용자 네임스페이스가 필요하므로 컨테이너 런타임이 이를 허용해야 합니다.
 Docker에서는 `--security-opt seccomp=unconfined --security-opt apparmor=unconfined`가 필요합니다.
@@ -135,6 +145,11 @@ Docker에서는 `--security-opt seccomp=unconfined --security-opt apparmor=uncon
 - gitleaks는 샌드박스의 사용자 네임스페이스 안에서 `/dev/stdout`으로 보고서를 쓰지 못합니다.
 - 도구가 스스로 보고하는 이름(`Opengrep OSS`, 두 모드에 공통인 `Trivy`)이 카탈로그 생산자와 달라
   증적에서 규칙 팩 다이제스트가 빠졌습니다.
+
+예: 2026-10-09 입증 레인 테스트를 `prover` 이미지 안의 bubblewrap에서 실행했습니다. Python,
+JavaScript, 네이티브, Java, C# 예제가 각각 수정 위치에서 `proven`이 되었고, 안전한 짝은 입증되지
+않았습니다. 첫 실행에서 샌드박스가 `/etc/ld.so.cache` 없이 입증 인터프리터를 고정 경로에 연결한다는
+점이 드러났으므로, 이미지는 `libpython`을 로더의 기본 경로에 연결합니다.
 
 ## 로컬 폴더 스캔과 보고서
 
@@ -163,6 +178,9 @@ FDAI 배포가 없어도 내 컴퓨터의 폴더를 스캔하고 읽기 쉬운 �
 ```bash
 scripts/operations/code-security-scan.sh ~/src/payments-api --include-uncommitted --locale ko
 ```
+
+검증된 이슈도 재현하려면 `--prove`를 추가합니다. 그러면 래퍼가 `prover` 이미지 대상을 빌드해
+실행합니다.
 
 예: 개발자가 커밋하지 않은 파일이 하나 있는 체크아웃을 스캔합니다. 스캐너 다섯 개가 모두
 샌드박스 안에서 완료되고, 커밋하지 않은 `draft.py`의 명령 주입이 커밋된 것과 나란히 나타나며,

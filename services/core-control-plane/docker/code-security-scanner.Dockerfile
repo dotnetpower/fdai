@@ -1,7 +1,11 @@
 # FDAI code-security scan runner: the deterministic scanners, the bubblewrap sandbox, and the
-# FDAI code-security CLI in one image. Every scanner binary is pinned by version and SHA-256.
+# FDAI code-security CLI in one image. Every downloaded binary is pinned by version and digest.
 #
 # Build:  docker build -f services/core-control-plane/docker/code-security-scanner.Dockerfile .
+#         Add `--target prover` for the proof-lane image, which also carries Node.js, gcc with
+#         AddressSanitizer and UndefinedBehaviorSanitizer, a JDK, and the .NET SDK so `--prove`
+#         can reproduce Python, JavaScript, native, Java, and C# issues. The images are glibc-based
+#         because the sanitizer runtimes don't support musl.
 # Run:    the entrypoint's `prepare` step refreshes offline vulnerability databases into /cache
 #         with network access; `scan` then runs every scanner in the sandbox without network.
 #         bubblewrap needs unprivileged user namespaces, so the container runtime must allow them
@@ -9,10 +13,10 @@
 
 ARG BASE_IMAGE_REGISTRY=docker.io
 
-FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:540c7d91f98ff6880174c40e99067bf5941eb54d818a7a5e094d188b196a934d AS tools
+FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:bf44cdfcb76cd3b41e879bc058fc37ec5872002ccfde7fcb765e218cde0cd79c AS tools
 
 ARG OPENGREP_VERSION=v1.30.1
-ARG OPENGREP_SHA256=e66f22675fae171ac1244d49b7f6a2e15a2d3613f3df9aad3c7fb2aaa1461c3a
+ARG OPENGREP_SHA256=d3195b9d8d5ae93179f6aa5f5daaba6a920a5a09d38c5d5ae5e60924050210c4
 ARG GITLEAKS_VERSION=8.30.1
 ARG GITLEAKS_SHA256=551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
 ARG OSV_SCANNER_VERSION=v2.6.0
@@ -20,10 +24,14 @@ ARG OSV_SCANNER_SHA256=ca69b3d3cd08f889a49dc0a383122f71cc528b83803671df5fd874d97
 ARG TRIVY_VERSION=0.75.0
 ARG TRIVY_SHA256=c6e65abddb348e25f10549df887045629cf28cc72453cd1c63acb717316b3f3f
 
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates wget \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /download
 RUN set -eu \
     && mkdir -p /opt/scanners/bin \
-    && wget -q -O opengrep "https://github.com/opengrep/opengrep/releases/download/${OPENGREP_VERSION}/opengrep_musllinux_x86" \
+    && wget -q -O opengrep "https://github.com/opengrep/opengrep/releases/download/${OPENGREP_VERSION}/opengrep_manylinux_x86" \
     && echo "${OPENGREP_SHA256}  opengrep" | sha256sum -c - \
     && install -m 0755 opengrep /opt/scanners/bin/opengrep \
     && wget -q -O gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
@@ -38,7 +46,7 @@ RUN set -eu \
     && tar -xzf trivy.tar.gz trivy \
     && install -m 0755 trivy /opt/scanners/bin/trivy
 
-FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:540c7d91f98ff6880174c40e99067bf5941eb54d818a7a5e094d188b196a934d AS builder
+FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:bf44cdfcb76cd3b41e879bc058fc37ec5872002ccfde7fcb765e218cde0cd79c AS builder
 
 ENV UV_LINK_MODE=copy \
     UV_COMPILE_BYTECODE=1 \
@@ -46,7 +54,9 @@ ENV UV_LINK_MODE=copy \
     UV_PROJECT_ENVIRONMENT=/app/.venv \
     PIP_DISABLE_PIP_VERSION_CHECK=1
 
-RUN apk add --no-cache build-base zlib-dev
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential zlib1g-dev \
+    && rm -rf /var/lib/apt/lists/*
 RUN pip install --no-cache-dir uv==0.11.32
 
 WORKDIR /build
@@ -81,9 +91,14 @@ RUN uv build --wheel --package fdai-github-app-auth --out-dir /wheels \
         /wheels/fdai_runtime_diagnostics-*.whl \
         /wheels/fdai_core_control_plane-*.whl
 
-FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:540c7d91f98ff6880174c40e99067bf5941eb54d818a7a5e094d188b196a934d AS runtime
+FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:bf44cdfcb76cd3b41e879bc058fc37ec5872002ccfde7fcb765e218cde0cd79c AS base
 
-RUN apk add --no-cache bubblewrap git
+# The sandbox binds the proof interpreter at a fixed path and exposes no /etc/ld.so.cache, so
+# libpython must sit on the loader's default search path.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends bubblewrap ca-certificates git \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -s /usr/local/lib/libpython3.13.so.1.0 /usr/lib/x86_64-linux-gnu/libpython3.13.so.1.0
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -97,10 +112,55 @@ COPY --chown=65532:65532 rule-catalog/code-security/ /app/rule-catalog/code-secu
 COPY --chown=65532:65532 config/ /app/config/
 COPY --chmod=0755 services/core-control-plane/docker/code-security-scanner-entrypoint.sh /usr/local/bin/fdai-scan-runner
 USER 65532
+ENTRYPOINT ["fdai-scan-runner"]
+
+FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:bf44cdfcb76cd3b41e879bc058fc37ec5872002ccfde7fcb765e218cde0cd79c AS dotnet
+
+ARG DOTNET_SDK_VERSION=10.0.401
+ARG DOTNET_SDK_SHA512=51c8b999af9e8dd9998c9edc5944e19a90788862068acd38694e098889054ce8c23d4f0c5cccfa16bf187d044562359e5ee69a9f8ad0bbe913ba90311fbce25b
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates wget \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /download
+RUN set -eu \
+    && wget -q -O dotnet.tar.gz "https://builds.dotnet.microsoft.com/dotnet/Sdk/${DOTNET_SDK_VERSION}/dotnet-sdk-${DOTNET_SDK_VERSION}-linux-x64.tar.gz" \
+    && echo "${DOTNET_SDK_SHA512}  dotnet.tar.gz" | sha512sum -c - \
+    && mkdir -p /usr/lib/dotnet \
+    && tar -xzf dotnet.tar.gz -C /usr/lib/dotnet
+
+# The proof-lane image. Driven toolchains must resolve under /usr, /bin, or /lib, the sandbox's
+# read-only system mounts, so the .NET SDK lives in /usr/lib/dotnet.
+FROM base AS prover
+
+USER root
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        g++ gcc libc6-dev libicu76 nodejs openjdk-21-jdk-headless \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=dotnet /usr/lib/dotnet/ /usr/lib/dotnet/
+RUN ln -s /usr/lib/dotnet/dotnet /usr/bin/dotnet
+ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
+    DOTNET_NOLOGO=1
+USER 65532
+RUN opengrep --version \
+    && gitleaks version \
+    && osv-scanner --version \
+    && trivy --version \
+    && bwrap --version \
+    && node --version \
+    && gcc --version \
+    && javac -version \
+    && dotnet --list-sdks \
+    && python -m fdai.delivery.code_security_cli evaluate > /dev/null
+
+# The default scan runner image: every scanner and the Python proof lane, without the other
+# proof toolchains.
+FROM base AS runtime
+
 RUN opengrep --version \
     && gitleaks version \
     && osv-scanner --version \
     && trivy --version \
     && bwrap --version \
     && python -m fdai.delivery.code_security_cli evaluate > /dev/null
-ENTRYPOINT ["fdai-scan-runner"]
