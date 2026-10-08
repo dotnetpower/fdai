@@ -15,6 +15,10 @@ requirements:
 - kind: rule
   ref: network.nsg.no-inbound-any-ssh
 - kind: rule
+  ref: network.nsg.no-internet-inbound-rdp
+- kind: rule
+  ref: network.nsg.no-internet-inbound-ssh
+- kind: rule
   ref: object-storage.private-endpoint.required
 - kind: rule
   ref: secret-store.public-network-access.disabled

@@ -355,9 +355,15 @@ an extension can't be validated against a producer that never reaches `satisfied
   blob soft delete and versioning, SQL transparent data encryption, and the PostgreSQL flexible
   server `require_secure_transport` parameter. A failed read leaves the property unobserved. NSG
   `security_rules` are projected only when every inbound allow rule uses one protocol, one numeric
-  port, and one source that isn't an any-source alias, because the NSG Rules match exact literals.
-  Broadening those Rules to judge wildcards, ranges, lists, and service tags needs a Rule revision,
-  which waits for the revision upgrade path in [Rule governance](rule-governance.md#lifecycle-and-versioning).
+  port, and one source that isn't an any-source alias, because the locked
+  `network.nsg.no-inbound-any-*` Rules match exact literals. Because a shipped Rule can't change
+  in place ([Rule governance](rule-governance.md#lifecycle-and-versioning)), the broader check
+  ships as new Rules, `network.nsg.no-internet-inbound-rdp` and `-ssh`. They read the separate
+  `inbound_security_rules` property, the complete inbound set with every protocol, port range or
+  list, source prefix or list, and priority, and treat an exposure as blocked only by a
+  higher-priority deny that covers the port for every source, source port, and destination. WAF SE:06 cites them as decisive
+  requirements and MCSB NS-8 as supporting bindings; each starts unactivated, so its requirement
+  stays `unknown` with `rule_not_activated` until an approved activation change adds it.
   A subscription's `role_assignments` come from the complete `atScope()` listing, role
   definitions, Microsoft Graph user types including guests reached through groups, and Privileged
   Identity Management schedule instances. A tenant without the PIM license can't hold

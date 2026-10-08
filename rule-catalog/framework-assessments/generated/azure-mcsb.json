@@ -1,5 +1,5 @@
 {
-  "catalog_digest": "sha256:4f43416cc2c2cba0f302afb6b85c2695f15d019fbd51471b33809ce9652aab29",
+  "catalog_digest": "sha256:0aee3e609e3baf4e11c027ca7fd001375a213afe5b61dd5a593e640cfd26a1de",
   "controls": [
     {
       "area": "am",
@@ -3033,6 +3033,16 @@
           "relationship": "supporting_only",
           "target_kind": "rule",
           "target_ref": "network.nsg.no-inbound-any-ssh"
+        },
+        {
+          "relationship": "supporting_only",
+          "target_kind": "rule",
+          "target_ref": "network.nsg.no-internet-inbound-rdp"
+        },
+        {
+          "relationship": "supporting_only",
+          "target_kind": "rule",
+          "target_ref": "network.nsg.no-internet-inbound-ssh"
         }
       ],
       "evidence": [
@@ -3089,13 +3099,49 @@
           "requirement_id": "rule:network.nsg.no-inbound-any-ssh",
           "scope_contract": "exact-workload",
           "source_ref": "network.nsg.no-inbound-any-ssh"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "supporting_only",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "mcsb-ns-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:network.nsg.no-internet-inbound-rdp",
+          "scope_contract": "exact-workload",
+          "source_ref": "network.nsg.no-internet-inbound-rdp"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "supporting_only",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "mcsb-ns-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:network.nsg.no-internet-inbound-ssh",
+          "scope_contract": "exact-workload",
+          "source_ref": "network.nsg.no-internet-inbound-ssh"
         }
       ],
       "owner_slot": "mcsb-ns-owner",
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:73a7c2b050b916225e457217162e6b5297cf01c9713bdfd4509c3e06698a4fbc",
+      "specification_digest": "sha256:313e0b0de22829a9503862f4aeb6b39319cfdba135d75012784951ae241da7c2",
       "title": "Detect and disable insecure services and  protocols"
     },
     {

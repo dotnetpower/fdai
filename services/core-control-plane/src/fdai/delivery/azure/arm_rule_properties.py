@@ -136,33 +136,79 @@ def _network_security_group(row: Mapping[str, Any]) -> dict[str, Any]:
     if not isinstance(rules, Sequence) or isinstance(rules, str) or len(rules) > MAX_SECURITY_RULES:
         return {}
     projected_rules: list[dict[str, Any]] = []
+    complete_rules: list[dict[str, Any]] = []
     for rule in rules:
         rule_properties_value = rule.get("properties") if isinstance(rule, Mapping) else None
         if not isinstance(rule_properties_value, Mapping):
             # One unreadable rule makes the whole set unobserved instead of partially clean.
             return {}
-        projected_rule: dict[str, Any] = {}
+        projected_rules.append(_security_rule(rule_properties_value))
+        complete = _security_rule(rule_properties_value, scope_fields=True)
+        priority = _priority(rule)
+        if priority is not None:
+            complete["priority"] = priority
+        if str(complete.get("direction", "")).casefold() == "inbound":
+            complete_rules.append(complete)
+    # The complete inbound set, with wildcards, ranges, lists, scope fields, and priorities, for
+    # Rules that judge every shape (network.nsg.no-internet-inbound-*).
+    projected: dict[str, Any] = {"inbound_security_rules": complete_rules}
+    # The exact-literal Rules (network.nsg.no-inbound-any-*) can't judge an alias, wildcard,
+    # range, or list, so their property stays unobserved instead of looking clean.
+    if all(_decidable_inbound_allow(item) for item in projected_rules):
+        projected["security_rules"] = projected_rules
+    return projected
+
+
+def _security_rule(
+    rule_properties_value: Mapping[str, Any],
+    *,
+    scope_fields: bool = False,
+) -> dict[str, Any]:
+    projected_rule: dict[str, Any] = {}
+    for source, target in (
+        ("direction", "direction"),
+        ("access", "access"),
+        ("protocol", "protocol"),
+        ("destinationPortRange", "destination_port_range"),
+        ("sourceAddressPrefix", "source_address_prefix"),
+    ):
+        _set_text(projected_rule, target, rule_properties_value.get(source))
+    for source, target in (
+        ("destinationPortRanges", "destination_port_ranges"),
+        ("sourceAddressPrefixes", "source_address_prefixes"),
+    ):
+        value = rule_properties_value.get(source)
+        if isinstance(value, Sequence) and not isinstance(value, str):
+            projected_rule[target] = [str(item) for item in value]
+    if scope_fields:
+        # A deny scoped to some destinations or source ports blocks only part of the traffic, so
+        # the complete set carries those fields for the Rules to tell a full block from a partial.
         for source, target in (
-            ("direction", "direction"),
-            ("access", "access"),
-            ("protocol", "protocol"),
-            ("destinationPortRange", "destination_port_range"),
-            ("sourceAddressPrefix", "source_address_prefix"),
+            ("destinationAddressPrefix", "destination_address_prefix"),
+            ("sourcePortRange", "source_port_range"),
         ):
             _set_text(projected_rule, target, rule_properties_value.get(source))
         for source, target in (
-            ("destinationPortRanges", "destination_port_ranges"),
-            ("sourceAddressPrefixes", "source_address_prefixes"),
+            ("destinationAddressPrefixes", "destination_address_prefixes"),
+            ("sourcePortRanges", "source_port_ranges"),
         ):
             value = rule_properties_value.get(source)
             if isinstance(value, Sequence) and not isinstance(value, str):
                 projected_rule[target] = [str(item) for item in value]
-        if not _decidable_inbound_allow(projected_rule):
-            # The NSG Rules match exact literals, so an alias, wildcard, range, or list could hide
-            # an exposure. Leave the set unobserved instead of letting it look clean.
-            return {}
-        projected_rules.append(projected_rule)
-    return {"security_rules": projected_rules}
+        groups = rule_properties_value.get("destinationApplicationSecurityGroups")
+        if isinstance(groups, Sequence) and not isinstance(groups, str) and groups:
+            projected_rule["destination_application_security_groups"] = len(groups)
+    return projected_rule
+
+
+def _priority(rule: Any) -> int | None:
+    rule_properties_value = rule.get("properties") if isinstance(rule, Mapping) else None
+    priority = (
+        rule_properties_value.get("priority")
+        if isinstance(rule_properties_value, Mapping)
+        else None
+    )
+    return priority if isinstance(priority, int) and not isinstance(priority, bool) else None
 
 
 def _decidable_inbound_allow(rule: Mapping[str, Any]) -> bool:

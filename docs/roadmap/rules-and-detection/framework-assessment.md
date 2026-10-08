@@ -107,6 +107,9 @@ inventory, truncation, conflicts, or a stale generation remains unknown.
 The profile also pins the Rule activation generation, and a Rule receipt is admitted only when its
 Rule provenance matches that pin exactly. See
 [Framework Rule Evidence from T0](framework-rule-evidence.md#assessment-side-activation-pin).
+A requirement can cite a Rule that the pinned generation doesn't activate, such as a newly shipped
+check. Its receipt stays `unknown` with `rule_not_activated` until an approved activation change
+adds the Rule.
 
 ### CAF catalog
 

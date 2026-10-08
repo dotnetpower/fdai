@@ -306,6 +306,10 @@ A verified `OntologyQueryPlan` is a closed DAG over these operations:
 
 Every node pins the active release, purpose, role, scope, limits, dependencies, and expected receipt
 shape. The plan cannot contain executable provider text or a mutation handler.
+A projection over a Resource provider bag names only a path that a reviewed Property semantic
+offers. For example, the network security group's complete `inbound_security_rules` set and its
+exact-literal `security_rules` set are separate reviewed paths, so a query can't read one as the
+other.
 
 ### Composite read-only instance paths
 

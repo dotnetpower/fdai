@@ -29,7 +29,7 @@ def test_waf_catalog_covers_all_controls_and_evidence_references() -> None:
     catalog = _catalog("azure-waf")
 
     assert len(catalog.controls) == 59
-    assert sum(len(control.evidence) for control in catalog.controls) == 186
+    assert sum(len(control.evidence) for control in catalog.controls) == 188
     assert all(
         item.authoritative_producer is not None or item.blocked_dependency is not None
         for control in catalog.controls

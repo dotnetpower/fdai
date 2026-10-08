@@ -48,7 +48,7 @@ shipped evidence behind them. Provider paths never branch core code, and
 `scripts/quality/architecture/check-property-semantic-coverage.py` measures the coverage below. The Azure inventory adapter produces those normalized provider paths from documented Azure Resource Manager fields and extension resources; a missing or unreadable source leaves the property absent instead of inferring a value. Production control thresholds use the same separation of meaning from active policy: the pinned `ontology/detection-routing-bounds@1.0.0` contract declares type, unit, scope, and hard range for the seven LLM routing controls and five incident-detection controls, while active defaults and values remain in versioned configuration. An AST-derived exact binding check rejects an unregistered consumer, an unused declaration, or drift between the active configuration bound and the ontology bound. The declaration cannot select a value or grant judgment, promotion, or execution authority.
 
 <!-- property-semantic-coverage:begin -->
-Measured reviewed coverage: **62 of 62** rule-evaluated Property references (100.0%) across 45
+Measured reviewed coverage: **63 of 63** rule-evaluated Property references (100.0%) across 46
 reviewed semantics, computed by the gate rather than by hand. Every rule-evaluated Property
 reference has reviewed meaning and bounded canonical normalization; a new reference cannot pass
 the gate without updating the registry and floor.

@@ -76,6 +76,16 @@
       "definition_digest": "sha256:5f68b897887e6573bbed9e1c129262ad9fe95804ac5d5ca7208a9688477b5787",
       "policy_digest": "sha256:b39e7382988fb34e77ca207235eba45e974670e9fd446ca688a1df4a0991e063"
     },
+    "network.nsg.no-internet-inbound-rdp": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:6eaa91998b2b6b483bb7ef03649a6709d5ad9e35793da7487d052c73b99ec964",
+      "policy_digest": "sha256:c0153808d3ae552b08cd88858fec347e6921d34b6bbca9cddf42e49c15cf1311"
+    },
+    "network.nsg.no-internet-inbound-ssh": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:f725a6a79be68496d281dfd9740e9463dc31cbceddc81234890fd462b7dc2697",
+      "policy_digest": "sha256:2b3d681a4bf007eeca00ab17f7f135310c4b7797141d27cc3cf5388a2dd67ab5"
+    },
     "network.vnet.ddos-plan.required": {
       "version": "1.0.0",
       "definition_digest": "sha256:9f8e6b2d88c59cfae22f9b8287063ea7b952c8fb32e5d8ad75212745ff6cedf4",

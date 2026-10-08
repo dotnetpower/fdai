@@ -105,8 +105,10 @@ def test_nsg_rules_are_projected_completely_or_not_at_all() -> None:
             "source_address_prefixes": ["10.0.0.0/8"],
         },
     ]
+    assert projected["inbound_security_rules"] == projected["security_rules"]
     assert rule_properties("network.nsg", {"properties": {"securityRules": []}}) == {
-        "security_rules": []
+        "security_rules": [],
+        "inbound_security_rules": [],
     }
     unreadable = {"properties": {"securityRules": [rdp, {"name": "broken"}]}}
     assert rule_properties("network.nsg", unreadable) == {}
@@ -134,7 +136,42 @@ def test_inbound_allow_rules_outside_the_exact_vocabulary_stay_unobserved() -> N
         {"sourceAddressPrefix": None, "sourceAddressPrefixes": ["1.2.3.4/32"]},
     ):
         rule = _rule(**{**base, **change})
-        assert rule_properties("network.nsg", {"properties": {"securityRules": [rule]}}) == {}
+        projected = rule_properties("network.nsg", {"properties": {"securityRules": [rule]}})
+        assert "security_rules" not in projected
+        assert len(projected["inbound_security_rules"]) == 1
+
+
+def test_inbound_security_rules_keep_every_shape_and_priority() -> None:
+    allow = {
+        **_rule(
+            direction="Inbound",
+            access="Allow",
+            protocol="*",
+            destinationPortRanges=["20-25", "3389"],
+            sourceAddressPrefix="Internet",
+        )
+    }
+    allow["properties"]["priority"] = 300
+    outbound = _rule(direction="Outbound", access="Allow", protocol="Tcp")
+    flagged = _rule(direction="Inbound", access="Deny", protocol="Tcp")
+    flagged["properties"]["priority"] = True
+
+    projected = rule_properties(
+        "network.nsg", {"properties": {"securityRules": [allow, outbound, flagged]}}
+    )
+
+    assert "security_rules" not in projected
+    assert projected["inbound_security_rules"] == [
+        {
+            "direction": "Inbound",
+            "access": "Allow",
+            "protocol": "*",
+            "source_address_prefix": "Internet",
+            "destination_port_ranges": ["20-25", "3389"],
+            "priority": 300,
+        },
+        {"direction": "Inbound", "access": "Deny", "protocol": "Tcp"},
+    ]
 
 
 def test_identity_and_zones_count_only_when_the_projected_column_is_present() -> None:
@@ -184,3 +221,24 @@ def test_database_and_cluster_fields() -> None:
     }
     calico = {"properties": {"networkProfile": {"networkPolicy": "calico"}}}
     assert rule_properties("kubernetes-cluster", calico) == {"network_policy": True}
+
+
+def test_inbound_security_rules_carry_the_scope_of_each_rule() -> None:
+    deny = _rule(
+        direction="Inbound",
+        access="Deny",
+        protocol="*",
+        destinationPortRange="3389",
+        sourceAddressPrefix="Internet",
+        sourcePortRanges=["1-1023"],
+        destinationAddressPrefix="10.0.0.4",
+        destinationApplicationSecurityGroups=[{"id": "asg"}],
+    )
+
+    projected = rule_properties("network.nsg", {"properties": {"securityRules": [deny]}})
+
+    [complete] = projected["inbound_security_rules"]
+    assert complete["destination_address_prefix"] == "10.0.0.4"
+    assert complete["source_port_ranges"] == ["1-1023"]
+    assert complete["destination_application_security_groups"] == 1
+    assert "destination_address_prefix" not in projected["security_rules"][0]

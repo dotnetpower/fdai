@@ -1,7 +1,7 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: 915833d237102cbb1414fe2732276479569136a8
+translation_source_sha: 3cf72f6b649f949db7e8cc0f20e99c16b6e19652
 translation_revised: 2026-10-08
 ---
 # WAF 및 CAF 근거 기반 평가
@@ -109,7 +109,9 @@ WAF 카탈로그는 기존 `BestPractice` 레코드 59개에서 컨트롤 명세
 포함한 깨끗한 Rule 결과는 알 수 없음으로 유지합니다.
 프로필은 Rule 활성화 세대도 고정하며, Rule 영수증은 Rule 출처가 그 고정값과 정확히 일치할 때만
 수락됩니다. [T0 기반 프레임워크 규칙 근거](framework-rule-evidence-ko.md#평가-측-활성화-고정)를
-참조하세요.
+참조하세요. 요구 사항은 새로 배포된 검사처럼 고정된 세대가 활성화하지 않은 규칙을 인용할 수 있습니다.
+이 경우 승인된 활성화 변경이 해당 규칙을 추가하기 전까지 영수증은 `rule_not_activated`와 함께
+`unknown`으로 남습니다.
 
 ### CAF 카탈로그
 

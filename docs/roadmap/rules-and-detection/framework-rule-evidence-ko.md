@@ -1,7 +1,7 @@
 ---
 title: T0 기반 프레임워크 규칙 근거
 translation_of: framework-rule-evidence.md
-translation_source_sha: 6d84882d3c0f46bd1a32fde24c851e9dc7e37209
+translation_source_sha: 1c5cc5f2c9fab4065f8079d3e586769b730a1c54
 translation_revised: 2026-10-08
 ---
 # T0 기반 프레임워크 규칙 근거
@@ -342,9 +342,14 @@ WAF `rule` 요구 사항은 컨트롤 수준 교차워크 관계가 `partial`이
   버전 관리, SQL 투명 데이터 암호화, PostgreSQL 유연한 서버의 `require_secure_transport` 매개 변수가
   대상입니다. 읽기에 실패하면 속성은 관측되지 않은 상태로 남습니다. NSG 규칙은 정확한 리터럴만 비교하므로,
   모든 인바운드 허용 규칙이 프로토콜 하나, 숫자 포트 하나, 모든 원본 별칭이 아닌 원본 하나를 쓸 때만
-  `security_rules`를 투영합니다. 이 규칙이 와일드카드, 범위, 목록, 서비스 태그를 판단하도록 넓히려면 규칙
-  개정이 필요하며, 이는 [규칙 거버넌스](rule-governance-ko.md#라이프사이클과-버전-관리)의 개정 업그레이드
-  경로를 기다립니다. 구독의 `role_assignments`는 전체 `atScope()` 목록, 역할 정의, 그룹을 통해 연결된
+  `security_rules`를 투영합니다. 배포된 규칙은 제자리에서 바꿀 수 없으므로
+  ([규칙 거버넌스](rule-governance-ko.md#라이프사이클과-버전-관리)), 더 넓은 검사는 새 규칙
+  `network.nsg.no-internet-inbound-rdp`와 `-ssh`로 배포합니다. 이 규칙은 별도의 `inbound_security_rules`
+  속성을 읽습니다. 이 속성은 모든 프로토콜, 포트 범위나 목록, 원본 접두사나 목록, 우선순위를 담은 전체
+  인바운드 집합이며, 모든 원본, 원본 포트, 대상에 대해 해당 포트를 막는 더 높은 우선순위의 거부 규칙이 있을 때만 노출이
+  차단된 것으로 봅니다. WAF SE:06은 이 규칙을 결정적 요구 사항으로, MCSB NS-8은 보조 결합으로
+  인용합니다. 각 규칙은 비활성 상태로 시작하므로, 승인된 활성화 변경이 추가하기 전까지 해당 요구 사항은
+  `rule_not_activated`와 함께 `unknown`으로 남습니다. 구독의 `role_assignments`는 전체 `atScope()` 목록, 역할 정의, 그룹을 통해 연결된
   게스트를 포함한 Microsoft Graph 사용자 형식, Privileged Identity Management 일정 인스턴스에서 만듭니다.
   PIM 라이선스가 없는 테넌트는 Just-In-Time 할당을 가질 수 없으므로 그곳의 모든 활성 할당은 상시
   할당입니다. Graph 권한이 없는 경우를 포함해 다른 읽기가 실패하면 목록 전체가 관측되지 않은 상태로

@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 7d1a045060419c661011ef9163b70cb9753db038
-translation_revised: 2026-10-03
+translation_source_sha: 8d3ff5040edbcb34622d48c0684d4fea279c7c41
+translation_revised: 2026-10-08
 ---
 # 온톨로지 조회 커버리지 구현 계획
 
@@ -315,6 +315,9 @@ purpose-bound 변경할 수 없는 변환 결과를 사용할 수 있지만 한 
 
 모든 노드는 활성 release, 용도, 역할, 범위, 한도, 의존성 및 예상 증적 형태를
 고정합니다. 계획은 executable 프로바이더 텍스트 또는 변경 핸들러를 포함할 수 없습니다.
+Resource 프로바이더 bag에 대한 projection은 검토된 Property 의미가 제공하는 경로만 지정할 수
+있습니다. 예를 들어 네트워크 보안 그룹의 전체 `inbound_security_rules` 집합과 정확한 리터럴만 담는
+`security_rules` 집합은 서로 다른 검토된 경로이므로, 쿼리가 하나를 다른 하나로 읽을 수 없습니다.
 
 ### 복합 읽기 전용 인스턴스 경로
 

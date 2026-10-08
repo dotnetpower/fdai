@@ -43,6 +43,14 @@ rule_bindings:
     rule_id: network.nsg.no-inbound-any-ssh
     evidence_role: supporting_only
     rationale: NS-8 targets insecure protocols; internet-exposed SSH is an exposure finding.
+  - control_id: NS-8
+    rule_id: network.nsg.no-internet-inbound-rdp
+    evidence_role: supporting_only
+    rationale: NS-8 targets insecure protocols; Internet-reachable RDP is an exposure finding.
+  - control_id: NS-8
+    rule_id: network.nsg.no-internet-inbound-ssh
+    evidence_role: supporting_only
+    rationale: NS-8 targets insecure protocols; Internet-reachable SSH is an exposure finding.
   - control_id: IM-3
     rule_id: compute.vm.managed-identity.assigned
     evidence_role: supporting_only
