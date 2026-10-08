@@ -91,6 +91,9 @@ port `5433`, writes its ignored DSN as `FDAI_VALIDATION_DATABASE_URL`, and the
 central validation queue maps only that value into integration-test processes. An
 integration-only change without opt-in still exits successfully after confirming
 that integration tests were selected.
+For a direct local test run, `python3 scripts/automation/with-local-test-database.py <command>`
+binds `FDAI_DATABASE_URL` to that same loopback validation cluster without printing the DSN, and
+refuses a non-loopback host or the runtime port `5432`.
 The exact repository inputs that CI classifies as Python-impacting are covered
 by a regression test so local and CI selection can't drift silently.
 Selections with at least 20 pytest paths use up to eight xdist workers by

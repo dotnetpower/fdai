@@ -22,7 +22,7 @@ provenance:
     Government/Kubernetes/MutateResourceCPULimits.json
   source_version: 1.3.1
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:88c144fe841cd142d2406a8c34659a16751833112022a76a378a5a5c2646397c
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

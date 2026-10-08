@@ -22,7 +22,7 @@ provenance:
     Government/Guest Configuration/SecurityOptionsMicrosoftNetworkClient_AINE.json
   source_version: 2.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:0ee6ecc7c64570b83924932f398f491df098ce31a26aee62f26c7dff59ec8d7e
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

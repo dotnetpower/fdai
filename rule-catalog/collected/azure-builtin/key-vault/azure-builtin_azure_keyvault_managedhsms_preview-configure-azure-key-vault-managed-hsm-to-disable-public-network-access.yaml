@@ -22,7 +22,7 @@ provenance:
     Vault/ManagedHsm_FirewallEnabled_Modify.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:0bfe08c380b0f240199faa181b0e6d16c6a5628e61d18f599ec692aae6afe7a8
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

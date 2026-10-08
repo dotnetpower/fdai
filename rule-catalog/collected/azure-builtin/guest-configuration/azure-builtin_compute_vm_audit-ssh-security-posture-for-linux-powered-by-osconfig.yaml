@@ -21,7 +21,7 @@ provenance:
     Configuration/LinuxSshServerSecurityBaseline_AINE.json
   source_version: 1.0.1
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:f2ec6301a708cdaa24f9f3f8745d5d5eb96ff4cd1fece7a2efad2deaecd3de2a
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

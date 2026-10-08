@@ -22,7 +22,7 @@ provenance:
     Government/Guest Configuration/WindowsLogAnalyticsAgentConnection_DINE.json
   source_version: 3.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:c9f6c99c178a49c8325263971a0bc8982bb0b62116904a1f09cf9533b10cf133
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

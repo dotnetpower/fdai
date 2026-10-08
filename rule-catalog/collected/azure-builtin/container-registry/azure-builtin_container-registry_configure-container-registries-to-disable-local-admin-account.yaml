@@ -22,7 +22,7 @@ provenance:
     Registry/ACR_AdminAccountDisabled_Modify.json
   source_version: 1.0.1
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:604e23b4caf1ba22aaeaf460e607b706b697335e51114e1bda27f43ff517f8e5
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

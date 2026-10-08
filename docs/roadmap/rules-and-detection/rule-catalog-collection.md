@@ -317,6 +317,14 @@ source manifest ─► fetch ─► verify ─► parse ─► map to schema ─
 - **collect mode**: incremental by default (only controls whose `content_hash` changed); a
   control removed upstream is **tombstoned/retired** with a version bump, never silently
   dropped. A full re-collection is available for a from-scratch rebuild.
+- **land (Azure Policy)**: `collect_cli --land-collected rule-catalog/collected/azure-builtin`
+  parses the pinned snapshot and writes inert `expression` Rules with the snapshot's commit as
+  `resolved_ref`, its collection time as `retrieved_at`, and each definition's SHA-256 as
+  `content_hash`. Identity is keyed by the policy definition name: an already collected policy
+  keeps its Rule id and path. A new policy whose id or path collides gets an id and path suffixed
+  with the first eight hex characters of its GUID; one that still collides isn't landed and is
+  reported. Every document must pass the Rule schema before any file is written. A policy missing
+  from the snapshot is kept and reported as withdrawn until tombstoning exists.
 
 Authored Rego lives in the **top-level** `policies/` (consumed by T0 and the verifier) and is
 referenced by `check_logic.reference`; source manifests live under `rule-catalog/sources/`, runtime

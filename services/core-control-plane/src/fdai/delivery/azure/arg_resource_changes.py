@@ -127,6 +127,7 @@ from fdai.delivery.azure.arg_transport import (
     ArgThrottleGate,
     fetch_arg_row_pages,
 )
+from fdai.delivery.azure.arm_rule_properties import rule_properties
 from fdai.rule_catalog.schema.provider_relationship_mapping import (
     ProviderRelationshipMappingCatalog,
     load_provider_relationship_mapping_catalog,
@@ -435,7 +436,7 @@ class AzureResourceChangeFeed:
         quoted = ", ".join(f"'{arm_id}'" for arm_id in arm_ids)
         return (
             f"Resources | where id in~ ({quoted}) "
-            "| project id, type, name, location, kind, sku, identity, tags, properties, "
+            "| project id, type, name, location, kind, sku, identity, zones, tags, properties, "
             "resourceGroup, subscriptionId"
         )
 
@@ -589,6 +590,7 @@ class AzureResourceChangeFeed:
             )
         props["providerType"] = arm_type
         props.update(scope)
+        props.update(rule_properties(resolved_type, row))
         try:
             parent = reviewed_containment_parent(
                 arm_id,

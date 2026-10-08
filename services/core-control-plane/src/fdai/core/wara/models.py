@@ -93,6 +93,7 @@ class WaraAssessmentRequest:
     recorded_at: datetime
     evaluator_bindings_digest: str | None = None
     evidence: tuple[WaraEvidenceReceipt, ...] = ()
+    rule_bindings_digest: str | None = None
 
     def __post_init__(self) -> None:
         if any(
@@ -116,11 +117,12 @@ class WaraAssessmentRequest:
             raise ValueError("WARA assessment timestamps MUST be timezone-aware")
         if self.recorded_at < self.evaluated_at:
             raise ValueError("WARA assessment recorded_at MUST follow evaluated_at")
-        if (
-            self.evaluator_bindings_digest is not None
-            and re.fullmatch(r"sha256:[a-f0-9]{64}", self.evaluator_bindings_digest) is None
+        for label, digest in (
+            ("evaluator", self.evaluator_bindings_digest),
+            ("Rule", self.rule_bindings_digest),
         ):
-            raise ValueError("WARA evaluator bindings digest MUST be lowercase SHA-256")
+            if digest is not None and re.fullmatch(r"sha256:[a-f0-9]{64}", digest) is None:
+                raise ValueError(f"WARA {label} bindings digest MUST be lowercase SHA-256")
 
     @property
     def scope_digest(self) -> str:
@@ -184,6 +186,7 @@ class WaraAssessmentResult:
     controls: tuple[WaraControlResult, ...]
     aggregate_counts: dict[str, int]
     result_digest: str
+    rule_bindings_digest: str | None = None
 
     def to_dict(self, *, include_digest: bool = True) -> dict[str, object]:
         value: dict[str, object] = {
@@ -203,6 +206,8 @@ class WaraAssessmentResult:
         }
         if self.evaluator_bindings_digest is not None:
             value["evaluator_bindings_digest"] = self.evaluator_bindings_digest
+        if self.rule_bindings_digest is not None:
+            value["rule_bindings_digest"] = self.rule_bindings_digest
         if include_digest:
             value["result_digest"] = self.result_digest
         return value

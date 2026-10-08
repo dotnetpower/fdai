@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: e6e5adb00e60efab8b88687a5ac44d5414b72210
+translation_source_sha: 6f8783fe7cf1a4c7af2a842dae88516ff2c7a05b
 translation_revised: 2026-10-09
 ---
 # 프로젝트 구조
@@ -116,6 +116,13 @@ Core는 계약 하위 모듈이 아니라 공유 계약 파사드를 통해 Rule
 계산하며, 순서가 정해진 결과 표로 각 WAF Rule 요구 사항을 변환합니다. `core/framework_assessment/`는
 프로필이 고정한 활성화 세대와 출처가 정확히 일치하는 Rule 영수증만 수락합니다. 두 모듈 모두 활성화,
 승인, 실행 권한을 부여하지 않습니다([T0 기반 프레임워크 규칙 근거](../rules-and-detection/framework-rule-evidence-ko.md)).
+`core/framework_rule_evidence/record.py`는 버전이 있는 범위별 커버리지 기록을 만들며, 그 wire 계약은
+`fdai_service_contracts.framework_rule_coverage`에 있습니다. 평가 작업은 감사 항목과 함께 기록을 저장하고,
+Operator는 WAF 컨트롤 세부 정보에 수치를 붙일 때만 이 기록을 읽습니다. `core/framework_rule_evidence/wara.py`는
+같은 범위별 커버리지를 검토된 정확한 `t0_rule` 바인딩의 WARA `rule` 증적으로 바꾸고, `core/wara/`는 결속된
+규칙 개정에서 온 증적만 받아들입니다.
+`core/framework_assessment/`는 결정적 요구 사항으로만 컨트롤을 결정하므로, MCSB의 보조 규칙 결합 같은
+`supporting_only` 요구 사항은 컨트롤을 실패시키거나 막을 수 없습니다.
 
 Operator 운영 조립 파사드는 런타임 배선을 유지합니다. 목적별 인접 모듈은 수명 주기와 리소스
 정리, 경로 계열 조립 및 읽기 출처 선언을 소유합니다. 호환 내보내기는 기존 가져오기를 보존하며,
@@ -295,7 +302,7 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   Core는 `HumanAccessPlanner`만 만들며 변경 신원을 생성하지 않습니다. Core의 공유 `human_access` 파사드는 격리 Executor가 사용하는 SDK의 `parse_human_access_role_groups`와 정확히 같은 파서 객체를 다시 내보내며 래퍼나 중복 파서는 만들지 않습니다. `HumanAccessWorkflowRuntime`은 원래 HIL 검토 전에 전체 원래 Action/사례/역할 맵/승격 자료를 결속하고, 승인된 인자를 바꾸지 않는 준비 CAS `r -> r+1` 및 고정 담당 pub/sub를 Thor의 격리된 전용 Managed Identity에 연결합니다. 정확한 현재 원본/허용 목록, 비상 정지/상태, principal별 ActionType 정책, 7개 안전장치, 연산과 무관한 멤버십 잠금은 계속 필요합니다. 전달 전에 영속 의도를 하나 기록하며 확인 응답은 효과 근거가 아니고 결과를 모르는 시도는 자동 반복하지 않습니다. 독립 Heimdall 관측과 공유 잠금 해제 종결이 Core의 효과 기록보다 먼저입니다. Vidar는 원래 직접 수행한 변경, 현재 수요, 같은 대상 세대에 결속된 새 독립 승인 역방향 작업을 제안하고 마무리합니다. 사례는 이전 승인이나 역할 권한을 복사하지 않고 degraded/대체 가능 상태로 남습니다. 새 ActionType은 shadow가 기본이며 로컬 권한 전환은 허용하지 않습니다.
   완료된 인수인계 소스 작업에는 실행 경로 강화 20회와 [최종 통합 소스 검토 12회](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation)가 포함되며 해당 체크포인트에서 미해결로 확인된 Medium/High 소스 문제는 없었습니다. 두 번째 로컬 main 병합은 성공했고 [PR #1014](https://github.com/dotnetpower/fdai/pull/1014)에 `c8edd2769`로 게시되었지만 [CI 실행 34921323157의 1차 시도](https://github.com/dotnetpower/fdai/actions/runs/34921323157/attempts/1)는 실패했습니다. 집중 소스 수정은 로컬에서 구현되었으며 최신 게시 헤드는 여전히 `c8edd2769`입니다. [구현 원장](../../roadmap-implementation/architecture/project-structure.md)은 검토 후 번역 갱신, 정본 생성, 수정본 훅/PR 갱신, 정확한 헤드의 보호된 CI 통과/병합을 [#946](https://github.com/dotnetpower/fdai/issues/946)의 미완료 요건으로 유지하고 전체 UI/보조 기술/실제 운영/배포/승격 근거와 구분하며 운영 준비 상태는 false로 유지합니다.
 - **관찰 모드 ARB 구성**: `core/architecture_review/observation_loop.py`는 공급자 중립적인 Change -> 인증된 맥락 -> 근거 묶음 -> 시나리오 -> DecisionCase 및 ImpactEnvelope 구성을 소유합니다. Forseti만 기존 타입 지정 버스에 관찰 판정을 게시하고 Saga가 감사하며 `ArchitectureReviewProjector.project_observation`이 읽기 전용 ReviewCase 및 ReviewCheck 객체를 파생합니다.
-- **ARB 정의 범위**: `core/architecture_review/pillar_coverage.py`는 고정된 WAF 프레임워크, BestPractice 및 생성된 평가 카탈로그를 읽고 컨트롤과 근거 정의를 대조합니다. 워크로드를 평가하거나 준비 상태, 승인 또는 실행 권한을 부여할 수 없습니다.
+- **ARB 정의 범위**: `core/architecture_review/pillar_coverage.py`는 고정된 WAF 프레임워크, BestPractice 및 생성된 평가 카탈로그를 읽고, 모듈에 고정된 핵심 요소별 기대 개수로 컨트롤과 근거 정의를 대조합니다. 워크로드를 평가하거나 준비 상태, 승인 또는 실행 권한을 부여할 수 없습니다.
   이 경로에는 승인, 변경, 승격 또는 실행 권한이 없습니다. 주입된 상태 저장소로 중복 및 재시작에 안전한 재생을 지원하며 저장소에 변환 상태 표식 계약이 없을 때만 범위가 제한된 프로세스 로컬 선입선출 캐시가 해당 상태를 보존합니다.
   루프는 계획된 의도만 수락하고 정확한 온톨로지 및 카탈로그 릴리스를 결속하며 기존 점검을 삭제하지 않고 일시적 보류를 표시합니다. 관찰 판정은 감사 전용이므로 Odin은 작업 포트폴리오에서 제외하고 Thor는 전달하지 않습니다.
   프로세스 계보는 기존 타입 지정 Change의 `process_ref`에서 `change_instantiates_process`로만 변환합니다. 검증 충돌은 지름길 간선을 만들지 않으며 정규화된 Change 출처는 정본 `process_ref`를 보존합니다.

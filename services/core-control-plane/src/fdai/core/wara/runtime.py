@@ -20,6 +20,7 @@ from fdai.rule_catalog.schema.wara_evaluator_binding import (
     WaraEvaluatorBinding,
     WaraEvaluatorBindingCatalog,
 )
+from fdai.rule_catalog.schema.wara_rule_binding import WaraRuleBinding, WaraRuleBindingCatalog
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.wara_assessment import (
@@ -48,14 +49,28 @@ class WaraAssessmentRuntime:
         self,
         catalog: WaraAssessmentCatalog,
         evaluator_bindings: WaraEvaluatorBindingCatalog | None = None,
+        rule_bindings: WaraRuleBindingCatalog | None = None,
     ) -> None:
         if evaluator_bindings is not None and (
             evaluator_bindings.source_revision != catalog.source_revision
             or evaluator_bindings.crosswalk_digest != catalog.crosswalk_digest
         ):
             raise ValueError("WARA evaluator bindings do not match the assessment catalog")
+        if rule_bindings is not None:
+            if (
+                rule_bindings.source_revision != catalog.source_revision
+                or rule_bindings.crosswalk_digest != catalog.crosswalk_digest
+            ):
+                raise ValueError("WARA Rule bindings do not match the assessment catalog")
+            query_bound = {
+                binding.aprl_guid
+                for binding in (evaluator_bindings.bindings if evaluator_bindings else ())
+            }
+            if query_bound & {binding.aprl_guid for binding in rule_bindings.bindings}:
+                raise ValueError("a WARA recommendation MUST have one evaluator binding kind")
         self._catalog = catalog
         self._evaluator_bindings = evaluator_bindings
+        self._rule_bindings = rule_bindings
 
     @property
     def recommendations(self) -> tuple[WaraRecommendationCrosswalk, ...]:
@@ -75,6 +90,11 @@ class WaraAssessmentRuntime:
         )
         if request.evaluator_bindings_digest != expected_bindings_digest:
             raise ValueError("WARA assessment evaluator bindings digest mismatch")
+        expected_rule_digest = (
+            self._rule_bindings.overlay_digest if self._rule_bindings is not None else None
+        )
+        if request.rule_bindings_digest != expected_rule_digest:
+            raise ValueError("WARA assessment Rule bindings digest mismatch")
         evidence_by_id = _index_evidence(request.evidence)
         controls = tuple(
             self._evaluate_control(record, request, evidence_by_id.get(record.aprl_guid, ()))
@@ -115,10 +135,13 @@ class WaraAssessmentRuntime:
         }
         if request.evaluator_bindings_digest is not None:
             digest_material["evaluator_bindings_digest"] = request.evaluator_bindings_digest
+        if request.rule_bindings_digest is not None:
+            digest_material["rule_bindings_digest"] = request.rule_bindings_digest
         return WaraAssessmentResult(
             **material,
             evaluator_bindings_digest=request.evaluator_bindings_digest,
             result_digest=canonical_digest(digest_material),
+            rule_bindings_digest=request.rule_bindings_digest,
         )
 
     def _evaluate_control(
@@ -130,7 +153,15 @@ class WaraAssessmentRuntime:
         limitations: list[str] = []
         mapping = record.applicability
         binding = _binding_for(record, self._evaluator_bindings)
+        rule_binding = _rule_binding_for(record, self._rule_bindings)
         evaluator_ref, blocked_reasons = _resolved_query_evaluator(record, binding)
+        if rule_binding is not None:
+            # A reviewed exact Rule binding replaces the missing query evaluator; the query is
+            # never executed for this recommendation.
+            evaluator_ref = rule_binding.evaluator_ref
+            blocked_reasons = tuple(
+                reason for reason in blocked_reasons if reason != "missing_exact_evaluator"
+            )
         matching = tuple(
             resource
             for resource in request.resources
@@ -141,7 +172,11 @@ class WaraAssessmentRuntime:
             limitations.append("unsupported_resource_type")
         if not matching:
             limitations.append("scope_not_observed")
-        query_admitted = _query_is_admitted(record, binding, evaluator_ref, blocked_reasons)
+        query_admitted = (
+            not blocked_reasons
+            if rule_binding is not None
+            else _query_is_admitted(record, binding, evaluator_ref, blocked_reasons)
+        )
         if record.disposition is WaraDisposition.AMBIGUOUS_OR_BLOCKED and not query_admitted:
             limitations.append("crosswalk_blocked")
             if record.query_review is not None:
@@ -173,7 +208,13 @@ class WaraAssessmentRuntime:
         admitted = tuple(
             receipt
             for receipt in evidence
-            if _receipt_admitted(receipt, request, record, evaluator_ref=evaluator_ref)
+            if _receipt_admitted(
+                receipt,
+                request,
+                record,
+                evaluator_ref=evaluator_ref,
+                rule_bound=rule_binding is not None,
+            )
         )
         if not admitted:
             limitations.append("evidence_unavailable_or_inadmissible")
@@ -508,6 +549,16 @@ def _binding_for(
     return evaluator_bindings.resolve(record.aprl_guid, review.body_digest)
 
 
+def _rule_binding_for(
+    record: WaraRecommendationCrosswalk,
+    rule_bindings: WaraRuleBindingCatalog | None,
+) -> WaraRuleBinding | None:
+    review = record.query_review
+    if rule_bindings is None or review is None:
+        return None
+    return rule_bindings.resolve(record.aprl_guid, review.body_digest)
+
+
 def _resolved_query_evaluator(
     record: WaraRecommendationCrosswalk,
     binding: WaraEvaluatorBinding | None,
@@ -566,6 +617,7 @@ def _receipt_admitted(
     record: WaraRecommendationCrosswalk,
     *,
     evaluator_ref: str | None,
+    rule_bound: bool = False,
 ) -> bool:
     if (
         receipt.recommendation_id != record.aprl_guid
@@ -595,7 +647,7 @@ def _receipt_admitted(
         if review is None or evaluator_ref is None:
             return False
         if (
-            receipt.evidence_kind != "provider_observation"
+            receipt.evidence_kind != ("rule" if rule_bound else "provider_observation")
             or receipt.producer != evaluator_ref
             or receipt.freshness_ceiling_seconds != review.evidence_freshness_ceiling_seconds
         ):

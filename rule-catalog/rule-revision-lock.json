@@ -1,0 +1,265 @@
+{
+  "schema_version": "1.0.0",
+  "rules": {
+    "cache.zone-redundant": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:8af5514c0ddd8814a5ffb842c75049de473438240d5bc497d00756c0128047aa",
+      "policy_digest": "sha256:460a7dc6d9bde3b061ac991471e7a53866c77a6d3d75e056a5406f4518ed070a"
+    },
+    "compute.vm-scale-set.zone-redundancy": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:00d7847cde23ac1dbd762ee8ef198c8aa1313f1c63a5cc51a31a5494a34ccb6e",
+      "policy_digest": "sha256:556f16df0c32cd5a8586e618cc15d833c2d0731a9304e698868adf97804fd1af"
+    },
+    "compute.vm.environment-tag.required": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:41682aa9e9f45b2ae54d3ec5ebb78bb6faa930e662d02e74dcac4e1fb99917ed",
+      "policy_digest": "sha256:56ef6f1f9841812aff5fed18a4d8dda55712f9f19febf5e493dcd9190a6ebbe3"
+    },
+    "compute.vm.managed-identity.assigned": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:6d1891266c31cf0f5071a8293107cce96fb80c0a5df1b7f786a1292715b1e1c3",
+      "policy_digest": "sha256:209e45339dcc51b3aae3cfb88899cc0090d14413148d3b87a1fc1be392b3795c"
+    },
+    "disk.snapshot-policy.required": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:0cf87f4cf9fa44a0bb67791a367a1341a4790fa303d2c154deeb0d743d9ec189",
+      "policy_digest": "sha256:b3d88c5cc58d8c00c9dd18cb63f2807fc135c4230404e1c1e570b08b0e456b0c"
+    },
+    "kubernetes-cluster.diagnostic-settings-required": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:24d28ab41338be8bcac7ac95a6a22467b2276d1671a4daad058928b6efb95100",
+      "policy_digest": "sha256:8a52d138b238d7b5d9ae21c433519f7137a8aa8f862f6bc2ac0503ad07946b20"
+    },
+    "kubernetes-cluster.network-policy": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:184992b5de12483e72915842b051a3171a41a6b63e54d8377e89a24b9a3e2db4",
+      "policy_digest": "sha256:c07e5e7b7c7a4d7eb6685f81083deeb33a6e06d9322251cb7cfba9db73b37b95"
+    },
+    "kubernetes-cluster.private-cluster": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:68dcaa9c951b58e6511db118806245c2d4c3ce6a9a06f4f57383b4e42df99051",
+      "policy_digest": "sha256:659a30102c6f0adf58297faf999505f8c6335232d578b7b173884f19dd078ff6"
+    },
+    "kubernetes-cluster.rbac-enabled": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:6f158d5a38dac75c9dfcd7608fb1ab0e92cec7e768c00e1a5ee0ca6bdc62a920",
+      "policy_digest": "sha256:e3ea6a90c62a7a44168c44b0f74e5fdde031b8725f3f23a47952f4b1b6cfbb2a"
+    },
+    "kubernetes-node-pool.multi-zone": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:273319e5f486ca473915a6321046a6220743eb4c3f516008ed737e5a7da77b3e",
+      "policy_digest": "sha256:1f19a9137f2cc4a6b82b5b9b16a6d8b88f259948a8b0f4b7959753c94b4c2f08"
+    },
+    "llm-endpoint.t2-proposer-unavailable": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:36b157afba85702d94eaa739555477a5a195abc954c355af6272589de79c0d65",
+      "policy_digest": "sha256:1ae59345e9a1b3c346b7b2612567b13ef898de71e8f6575f66a24724b4df9095"
+    },
+    "managed-identity.role-assignment.no-privileged-subscription-scope": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:7aaf44ac7f07a067920b52a175178bfaf4abdce0db44bad418110f34872f58ad",
+      "policy_digest": "sha256:24c6c6720adede104bdab7018db29d77dc7d06790231fbb2bd45caed964fe1bc"
+    },
+    "managed-identity.role-assignment.no-wildcard-action": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:9e9048ce4ddb29e3c17f0aac0df791c6d26fb8678302a49537f59f236055a3eb",
+      "policy_digest": "sha256:ffd14fb6ab023596c4c623f420bd56253576e6e05f760d683b6d56bbf16a5049"
+    },
+    "network.nsg.no-inbound-any-rdp": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:af6ef9ef2f1565ca908e3991b20dceee60cfc13dc6102aafb5e90bfd9aa13c05",
+      "policy_digest": "sha256:370f2b60285d3fd8b660819eda107c19111a8f020ee8b65d2d449574414ba03d"
+    },
+    "network.nsg.no-inbound-any-ssh": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:5f68b897887e6573bbed9e1c129262ad9fe95804ac5d5ca7208a9688477b5787",
+      "policy_digest": "sha256:b39e7382988fb34e77ca207235eba45e974670e9fd446ca688a1df4a0991e063"
+    },
+    "network.nsg.no-internet-inbound-rdp": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:6eaa91998b2b6b483bb7ef03649a6709d5ad9e35793da7487d052c73b99ec964",
+      "policy_digest": "sha256:c0153808d3ae552b08cd88858fec347e6921d34b6bbca9cddf42e49c15cf1311"
+    },
+    "network.nsg.no-internet-inbound-ssh": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:f725a6a79be68496d281dfd9740e9463dc31cbceddc81234890fd462b7dc2697",
+      "policy_digest": "sha256:2b3d681a4bf007eeca00ab17f7f135310c4b7797141d27cc3cf5388a2dd67ab5"
+    },
+    "network.vnet.ddos-plan.required": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:9f8e6b2d88c59cfae22f9b8287063ea7b952c8fb32e5d8ad75212745ff6cedf4",
+      "policy_digest": "sha256:ad3d4201116f6f420038df567d1de1276eb1fb7b0405cd5cb272e6698b23feca"
+    },
+    "object-storage.cost-center-tag.required": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:b9f6f8d413b22176e2bf1a4147ad9c0339cee0ad07ff697b4afd1e16c44bee07",
+      "policy_digest": "sha256:43662ed237064cd01bcaeebe97111086bb4f7ab2707e7bad3a4dcd7e5653066d"
+    },
+    "object-storage.diagnostic-settings-required": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:aebcf0383eab49a0c1f7deaec4dcdd30955d293be8b33280948e87961224ff76",
+      "policy_digest": "sha256:54064ca0dc3bfc86a8beccbb47c3c94459a38e70677e3280b9846b77a781cb8b"
+    },
+    "object-storage.encryption-at-rest.required": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:e1950dfbfb41851e80e97d1b983a3fd3d79c45eff84b34b082fac8a5335d8bf3",
+      "policy_digest": "sha256:5948122a52c9b024d44e05229ec8f5b56a8270941c702fb2e5fb8f721630586e"
+    },
+    "object-storage.https-only.required": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:d86c73976c7cbfc6d04fe7db0d33ddaa53507f1bd3ae50f376720dcc0d25c184",
+      "policy_digest": "sha256:425c105086a14d328456b80a10e7e6009353a04f9d7f28958a618db0437ad7d4"
+    },
+    "object-storage.min-tls-version": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:71ae4f661b49051d0d130a0fd3de2e5d4e9123be392b1d7f4a81d4e6e9102780",
+      "policy_digest": "sha256:6a78b8fac761d3bd5f16ddc1a5227640f147b3cd13a93e813c0edbf3860a9225"
+    },
+    "object-storage.owner-tag.required": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:b2fb4b4bcdc0ea8342c4feee42e480f62ecb6b5fa2a6a8ed4dc46c7103a5461c",
+      "policy_digest": "sha256:7ba8011ff576db0a630716e4237345f15f1bdee52e805126dbe39a560ae06c54"
+    },
+    "object-storage.private-endpoint.required": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:e3229722254e36f299241fc0a9c1daa43e633e86de17731860742cabf2a18c02",
+      "policy_digest": "sha256:75a85fe72d53a5302dc03ff52f351d1de1176fb006aae2610f93d91b93a25bc3"
+    },
+    "object-storage.public-access.deny": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:8dbef569a4c6706588533a2a29d22c26b91f276c6389f4a81ae965b1ef5d61ec",
+      "policy_digest": "sha256:26de99121b17f356b6f7d49218fa4e1d6731af79e66bddf4d3e59c0120770062"
+    },
+    "object-storage.shared-key-access.disabled": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:0bf5014a2e019dffd76a1b0ef109e6e9eb4adf750c959e182ab1121a1b26ab90",
+      "policy_digest": "sha256:88ec032d8bbd010e7f3d801fe8c1a5f9707f71078f4935afb36e42606fb75fc0"
+    },
+    "object-storage.soft-delete-blob": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:735a0e6f7c090fa59806f8f3b24fcb334a8e0feeb7c6701fd3f93de59a5846ab",
+      "policy_digest": "sha256:77c0110640557a3e6b82dd0dff0ccde08377ac709f87ca9a0d8240bc09f10c87"
+    },
+    "object-storage.versioning-enabled": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:fb7b4e11f54ae22d6832424febddd520626f7c9a683e31b052ee17b88eb0c7e4",
+      "policy_digest": "sha256:81798d6af356e7b123d05297ac30cc8c37cf109ff7cfb3e38e80a2a647c9cdee"
+    },
+    "ops.change-summary": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:4d8b5cd7122b0dd0091293992dadecdc635021a6d458613f3946a78dee33fe9a",
+      "policy_digest": "sha256:82031e60641d3c4a42fba66964d7001f00d040b97ab53d52c6f5044cb178b91c"
+    },
+    "postgresql-server.diagnostic-settings-required": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:7e2488d77be480a52cb160d19a55be970572f62d92c7c9fade71fabb77d8e0de",
+      "policy_digest": "sha256:d8b04549269fa537e9296e604bf95e81d761e51bd4864e7972f125924d552ed5"
+    },
+    "postgresql-server.encryption-at-rest": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:3970870eb0e030b49387cd3d6884a1af308f360ad3ec27177504006e85af59aa",
+      "policy_digest": "sha256:9bad91367cd8c174f8415db3bbeb17932300f64a0d8b22862f6f291313995fae"
+    },
+    "postgresql-server.high-availability": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:41b5cc8d5704893bb91d9c04a4db2a93f9a628d0237eeb27d1b8af23d26e438f",
+      "policy_digest": "sha256:705ed71b0c38c724214ad026118447fe9b8828e1a47b305faac3a7cc13b8ae79"
+    },
+    "postgresql-server.point-in-time-restore": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:f48de9b6d13d12aa7a5a591e3678b8e9132073ba1495c9a9be18b1a26ad9936a",
+      "policy_digest": "sha256:f4ed0fc10d464bc567ffe8247f4b5bb247b767c6883e09f702d6ca15d9df1f77"
+    },
+    "postgresql-server.ssl-enforcement": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:beda7f48c382911271c1c5883496094895699ee37bf5824c711aa4db4b98c5ea",
+      "policy_digest": "sha256:51c6e2755480de794c66af02988253a45901f04bfa55ea8a5910e528dd3a638c"
+    },
+    "resource-group.cost-center-tag.required": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:a41225e1dc85c571d483a8d33c0de46a4abfd7f5443b368632b372f82fad2dd7",
+      "policy_digest": "sha256:0e6beb5ccd5f310203d50ad9e795b02e898b7b35e15edad90a8d4381567f6812"
+    },
+    "resource-group.environment-tag.required": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:f8da9eb58c463ef365fd97de5c98093d87d524977b1a8f70584d1099f588c8ab",
+      "policy_digest": "sha256:4c8ff5bc6c711ebff51a5a2f18c14052ecd568fd203dc096d45bf7f0212f232c"
+    },
+    "resource-group.owner-tag.required": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:6260cb561bb898fa5c5e23cbc8f7ec0e422e0306d16acafe4273a21c4d10cce1",
+      "policy_digest": "sha256:08f5da5ea17cd063c86b78fc5bf97208676ab61aa1170b5a0b3c2624bd09dd1b"
+    },
+    "resource-group.role-assignment.owner-count-within-limit": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:c6ce6d8f77533e433c42f376662cd987f35fdd7e82706eab8f03049c1cb63730",
+      "policy_digest": "sha256:7a26cd2088a1180a6df5e7a1b7b2195a191e115df75e24f29340887bd303b36c"
+    },
+    "secret-store.diagnostic-settings-required": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:aa10dddd078690f9c8ea85a727dec8a863fb3c4354481e96a36575c4211024fd",
+      "policy_digest": "sha256:0d63f98f05fb7581c57ef71c9a4a23f8f9ec3729223bf0f23145dfa9f5feffa2"
+    },
+    "secret-store.public-network-access.disabled": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:3aa6f67d7df1fe9d97fc743d2e11bd34d2d3e14812ce618faea1affbbff6f622",
+      "policy_digest": "sha256:5377a475a076d713e7e822b4151178fcd51d1b9dfc5b7da7d34e16086e36eb17"
+    },
+    "secret-store.purge-protection.enabled": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:80d7ba8105ad44b283d3ad4ba72bb3437ccc8c9b91ce915a1bd60bd95d14d9d6",
+      "policy_digest": "sha256:7c5984ee113e6d1a0f78efde367fe99f2cedfa57c10a7c49ad4994fe86788ed2"
+    },
+    "secret-store.rbac-authorization.enabled": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:31870908a37450a53adc533e1c77f603797017758566f9eed802606a7bdab7d7",
+      "policy_digest": "sha256:44df256f59c036d9c46844bfc66de3648cd79fdcf299a7dc94fdc5040782059b"
+    },
+    "secret-store.rotation-overdue": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:ee8e5d0a5837d7209b741f2c76f104ce0e18021f59b684d1c031946962a959fe",
+      "policy_digest": "sha256:4aa17c477a9ada4d18859730be10a67bfc4e7fbcd75d17051e303f7bed9ef43f"
+    },
+    "secret-store.soft-delete.enabled": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:aa30f4142d89e316f01f338381dd8722b5d61de2abfa96651c493932db0f601a",
+      "policy_digest": "sha256:f56de9896083683b4ffcd6728c500fbf0fd539b47cc41875d7d59425e0a5c0f5"
+    },
+    "sql-database.audit-enabled": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:33bbf3d6399aed5b37ca54110b7e69b35c10ff889bf413236db0859afeac87e4",
+      "policy_digest": "sha256:e2c6a3b181c2c447ab19fcc80ce317fbf789091606d3903e888e163afb33991e"
+    },
+    "sql-database.diagnostic-settings-required": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:6e18ac6b2842636cfae2ecaa3bd149bff7af8ea99c58daa70b7f35a333ddb7ba",
+      "policy_digest": "sha256:7a39f7617699467422d6292204cfd8b9c16aa023f357e857e82a47adbc1a3f5d"
+    },
+    "sql-database.geo-redundant-backup": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:fbe5fe84b3002b1aa9f18d49a523df924128400b3fecccf0f98380ea43e1fc6a",
+      "policy_digest": "sha256:116b5c02676b76e2f43ab9ec11c0b4edb7c1b24ed372e37599538dd12252ffea"
+    },
+    "sql-database.tde-required": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:725615a00ad77d2ba30166041053d3a7c49802b86b2ab01cd4600a7761dd47a1",
+      "policy_digest": "sha256:9299928b03473fb399d79989287f036e6591c456cd4cfdc6288c38786b52197f"
+    },
+    "sql-database.zone-redundant": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:862e7cfd2013132d61eb5b0e2ca0a7254b0f3bbe8d4092dc252857ded199e663",
+      "policy_digest": "sha256:5fb4b4d7e5e1a89d4068edac90d5d246ea777d7e2d56a8fd06bd5558cd2ed915"
+    },
+    "subscription.role-assignment.no-guest-privileged": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:4a7952ff8659b1487a58868d6db3ba4f359fb3734f59c4062673fb05eb5460de",
+      "policy_digest": "sha256:a51a0a437c6c94ea42273b1ab3725d3252738bdb0f9c743ba672ef04037ed526"
+    },
+    "subscription.role-assignment.no-standing-privileged-access": {
+      "version": "1.0.0",
+      "definition_digest": "sha256:533bdadcc0fb43f4636c8bd9afed4bcfca37b69d2f2f71f00e41fee159ce2740",
+      "policy_digest": "sha256:6670bf8d50b6948b38f6175ee6e6d7519bdb9d752acb42c9f92a6308f150373e"
+    }
+  }
+}

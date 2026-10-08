@@ -149,6 +149,10 @@ unknown, no-op, denial, rollback, or human-review outcome with an audit record.
   database contents between venues ad hoc.
 - Reuse a healthy local stack and `.fdai/local-*.env`. Measure VPN, DNS, route, endpoint,
   authorization, and application state independently before diagnosing private connectivity.
+- Local tests that need `FDAI_DATABASE_URL` use loopback Docker PostgreSQL: the isolated validation
+  cluster recorded as `FDAI_VALIDATION_DATABASE_URL` (port `5433`), never the runtime database on
+  `5432` or a remote DSN. Run them through `scripts/automation/with-local-test-database.py`, which
+  binds it; sourcing `.fdai/local-runtime.env` alone selects the runtime database.
 
 ## Issue Lifecycle (MUST)
 

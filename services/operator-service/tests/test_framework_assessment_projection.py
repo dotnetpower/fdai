@@ -227,3 +227,79 @@ def test_idempotent_redelivery_preserves_projection() -> None:
     repeated = project_framework_assessment(deepcopy(projected), assessment)
 
     assert repeated == projected
+
+
+def _mcsb_catalog() -> dict[str, object]:
+    catalog = _catalog("azure-mcsb")
+    control = catalog["controls"][0]  # type: ignore[index]
+    control["control_id"] = "NS-8"
+    control["evidence_specifications"] = [
+        {
+            "requirement_id": "artifact:mcsb-ns-8-control-evidence",
+            "kind": "artifact",
+            "source_ref": "mcsb-ns-8-control-evidence",
+            "freshness_ceiling_seconds": 86_400,
+            "evidence_role": "decisive",
+        },
+        {
+            "requirement_id": "rule:network.nsg.no-internet-inbound-rdp",
+            "kind": "rule",
+            "source_ref": "network.nsg.no-internet-inbound-rdp",
+            "freshness_ceiling_seconds": 86_400,
+            "evidence_role": "supporting_only",
+        },
+    ]
+    return catalog
+
+
+def _mcsb_assessment() -> dict[str, object]:
+    assessment = _assessment("azure-mcsb")
+    for key in ("applicability_profile", "controls"):
+        assessment[key][0]["control_id"] = "NS-8"  # type: ignore[index]
+    control = assessment["controls"][0]  # type: ignore[index]
+    control.update(
+        {
+            "evaluation": "evaluated",
+            "satisfaction": "failed",
+            "evidence_complete": False,
+            "requirements": [
+                {
+                    "requirement_id": "artifact:mcsb-ns-8-control-evidence",
+                    "status": "unknown",
+                    "evidence_refs": [],
+                    "evidence_digests": [],
+                    "limitations": ["decisive_evidence_unavailable"],
+                },
+                {
+                    "requirement_id": "rule:network.nsg.no-internet-inbound-rdp",
+                    "status": "failed",
+                    "evidence_refs": ["t0-rule-evidence:example"],
+                    "evidence_digests": [DIGEST_C],
+                    "limitations": [],
+                },
+            ],
+        }
+    )
+    return assessment
+
+
+def test_projects_mcsb_requirements_with_their_evidence_roles() -> None:
+    projected = project_framework_assessment(_mcsb_catalog(), _mcsb_assessment())
+
+    control = projected["controls"][0]
+    assert control["satisfaction"] == "failed"
+    assert control["execution_authority"] is False
+    assert [
+        (item["ref"], item["evidence_role"], item["status"]) for item in control["requirements"]
+    ] == [
+        ("mcsb-ns-8-control-evidence", "decisive", "unknown"),
+        ("network.nsg.no-internet-inbound-rdp", "supporting_only", "failed"),
+    ]
+
+
+def test_mcsb_requirement_without_a_known_role_is_rejected() -> None:
+    catalog = _mcsb_catalog()
+    catalog["controls"][0]["evidence_specifications"][1]["evidence_role"] = "advisory"  # type: ignore[index]
+
+    with pytest.raises(FrameworkAssessmentProjectionError, match="evidence_role"):
+        project_framework_assessment(catalog, _mcsb_assessment())

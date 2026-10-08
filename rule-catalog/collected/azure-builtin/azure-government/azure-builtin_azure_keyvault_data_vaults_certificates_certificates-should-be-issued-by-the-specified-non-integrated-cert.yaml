@@ -22,7 +22,7 @@ provenance:
     Government/Key Vault/Certificates_Issuers_CustomCAs.json
   source_version: 2.1.1
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:509a0c106668c82919211c8eee802079981b623b02da606449b6e845b9e6ea92
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

@@ -1,8 +1,8 @@
 ---
 title: Rule-catalog profile 및 collector
 translation_of: rule-catalog-profiles.md
-translation_source_sha: 89f2a4865a85fbd0351e5fcc070a4a9bd66aadbc
-translation_revised: 2026-09-29
+translation_source_sha: 97c5eb596f7f12c9194f328c9e4daf5213144698
+translation_revised: 2026-10-08
 ---
 # Rule-catalog 프로파일 및 수집기
 
@@ -126,7 +126,7 @@ declared 되어 매니페스트 가 이를 참조하면 clear 한
 | 계층 | 개수 |
 |-------|------:|
 | Hand-authored 룰 | 61 |
-| Imported (Azure Policy built-in) | 3628 |
+| Imported (Azure Policy built-in) | 3658 |
 | Imported (kube-bench CIS Kubernetes) | 4859 |
 | Profiles - 업스트림 curated | 3 (`baseline`, `recommended`, `strict`) |
 | Profiles - 검토된 가져온 compliance frameworks | 265 (CIS / NIST / HIPAA / PCI / ISO / FedRAMP / GDPR / DORA / ...) |

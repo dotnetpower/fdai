@@ -22,7 +22,7 @@ provenance:
     Compliance/CMA_C1614.json
   source_version: 1.1.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:c3ea2ad99b683746872e927d0a64212ebdafc1e2d5be2db3a34c6ef70b91bc3b
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

@@ -1,0 +1,29 @@
+# remediate.restrict-network-access - Terraform patch template.
+#
+# Referenced by rule `network.nsg.no-internet-inbound-rdp`.
+# Allow only management CIDRs, then deny Internet-reachable RDP ahead of the exposing allow rule.
+
+
+resource "azurerm_network_security_rule" "${resource_id}_allow_rdp_scoped" {
+  name                       = "AllowRDPFromManagement"
+  priority                   = 999
+  direction                  = "Inbound"
+  access                     = "Allow"
+  protocol                   = "Tcp"
+  destination_port_range     = "3389"
+  source_address_prefixes    = var.management_source_cidrs
+  source_port_range          = "*"
+  destination_address_prefix = "*"
+}
+
+resource "azurerm_network_security_rule" "${resource_id}_deny_internet_rdp" {
+  name                       = "DenyInternetRDP"
+  priority                   = 1000
+  direction                  = "Inbound"
+  access                     = "Deny"
+  protocol                   = "*"
+  destination_port_range     = "3389"
+  source_address_prefix      = "Internet"
+  source_port_range          = "*"
+  destination_address_prefix = "*"
+}

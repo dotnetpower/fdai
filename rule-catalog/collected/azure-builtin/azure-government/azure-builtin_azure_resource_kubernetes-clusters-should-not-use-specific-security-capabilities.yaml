@@ -22,7 +22,7 @@ provenance:
     Government/Kubernetes/ContainerDisallowedCapabilities.json
   source_version: 6.2.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:b85fb531e02b732ebebc6e5357076ff2ef00b9a1634f1e2e90112cd05cfbf525
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

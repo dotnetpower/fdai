@@ -22,7 +22,7 @@ provenance:
     Bus/DisableLocalAuth_AuditDeny.json
   source_version: 1.0.1
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:46de9ea7eb7ae2f812c278a0c3048393f326b4b3ca32bff7cdd7a817831ad0b2
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

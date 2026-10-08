@@ -1,0 +1,28 @@
+{
+  "schema_version": "1.0.0",
+  "source_revision": "1f421a90c157bc8894b3a47b05ba08b8650a0bd5",
+  "crosswalk_digest": "sha256:f35d85799f01eefa91882094725509b11594f19c32df2660037775eacdc5a661",
+  "bindings": [
+    {
+      "aprl_guid": "70fcfe6d-00e9-5544-a63a-fff42b9f2edb",
+      "query_digest": "sha256:0b1445eba4c803f6cc8b022b3aaab74e2790434f43b150f831ec021be3bed9c1",
+      "rule_id": "secret-store.purge-protection.enabled",
+      "rule_version": "1.0.0",
+      "rule_digest": "sha256:2bd76be9c5417e6815f6a628f87c01251980722d0db890dd805f4f2c1d8a5b24",
+      "capability": {
+        "canonical_resource_type": "secret-store",
+        "child_resource_behavior": "none",
+        "inventory_fields": [
+          "purge_protection_enabled"
+        ],
+        "inventory_source": "azure_resource_graph_row",
+        "parameters": "none",
+        "eligible_set": "every_resource_of_type",
+        "failure_semantics": "absent_or_not_true_fails"
+      },
+      "reviewer": "fdai-maintainers",
+      "review_state": "reviewed-exact"
+    }
+  ],
+  "overlay_digest": "sha256:2bcf36c86215f3bb53ed25a0bd2767c562cff2a199ec4b29dfaa193fee82d2b3"
+}

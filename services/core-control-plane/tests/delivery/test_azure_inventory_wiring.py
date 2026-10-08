@@ -69,6 +69,9 @@ def test_default_container_uses_empty_inventory() -> None:
 @pytest.mark.asyncio
 async def test_bind_azure_inventory_makes_full_snapshot_live() -> None:
     def _handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "GET":
+            # Extension hydration reads are out of scope here; a missing extension stays unobserved.
+            return httpx.Response(404, json={"error": {"code": "NotFound"}})
         query = json.loads(request.content)["query"]
         if query.startswith("Resources | summarize resource_count=count()"):
             return httpx.Response(
