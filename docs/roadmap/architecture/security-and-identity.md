@@ -177,7 +177,9 @@ approved grant, and fresh effective-access evidence is required before the actio
   [Code Security Findings](../operations/code-security-findings.md#remediation-pack).
 - **Code-security LLM lens**: the optional lens lane sends bounded source excerpts to configured
   model deployments, so the same residency and no-retention terms apply. Its output is untrusted;
-  only grounded, quorum-agreed candidates become inert hypotheses. The `evaluate-lens` precision
+  only grounded, quorum-agreed candidates become inert hypotheses. Grounding is checked in code: a
+  cited line must be a sink-hint line or a variable assignment that a later sink-hint line of the
+  same excerpt uses, and the hypothesis is anchored at that sink. The `evaluate-lens` precision
   measurement sends excerpts only from a pinned public benchmark sample staged in an owner-only
   scratch root, never from a customer repository.
 - **Code-security proof lane**: the only place FDAI runs repository code. It's opt-in per scan,

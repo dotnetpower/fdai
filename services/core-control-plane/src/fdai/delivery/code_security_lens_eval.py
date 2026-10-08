@@ -65,6 +65,12 @@ def add_lens_evaluation_command(
         action="store_true",
         help="select candidates and count model calls without calling any model",
     )
+    command.add_argument(
+        "--sample-offset",
+        type=int,
+        default=0,
+        help="files to skip per category and verdict; the sample size gives a disjoint sample",
+    )
     command.add_argument("--output", help="write the receipt to this file")
     command.add_argument("--catalog-root", default=str(root))
 
@@ -99,10 +105,13 @@ def _read_labels(source: Path, corpus: LensCorpus) -> str:
 async def _measure(
     args: argparse.Namespace, corpus: LensCorpus, catalog: LensCatalog
 ) -> dict[str, object]:
+    offset = int(getattr(args, "sample_offset", 0))
     acquired = GitSourceAcquirer(Path(args.work_root).resolve()).acquire(
         corpus.repository, corpus.commit
     )
-    sample = select_sample(parse_labels(_read_labels(acquired.path, corpus), corpus), corpus)
+    sample = select_sample(
+        parse_labels(_read_labels(acquired.path, corpus), corpus), corpus, offset
+    )
     lens_classes = {lens_id: lens.weakness_class for lens_id, lens in catalog.lenses.items()}
     stage = Path(tempfile.mkdtemp(prefix="fdai-lens-eval-"))
     try:
@@ -114,6 +123,7 @@ async def _measure(
             return {
                 "dry_run": True,
                 "sample_files": len(sample),
+                "sample_offset": offset,
                 "candidates": len(candidates),
                 "model_calls_needed_per_model": len(candidates),
                 "max_model_calls": catalog.limits.max_model_calls,
@@ -133,6 +143,7 @@ async def _measure(
         "dry_run": False,
         "model_families": families,
         "sample_files": len(sample),
+        "sample_offset": offset,
         "lane": {
             "complete": report.complete,
             "candidates_selected": report.candidates_selected,
@@ -140,6 +151,7 @@ async def _measure(
             "model_calls": report.model_calls,
             "model_errors": report.model_errors,
             "rejected_ungrounded": report.rejected_ungrounded,
+            "anchored_to_sink": report.anchored_to_sink,
             "rejected_cwe": report.rejected_cwe,
             "rejected_quorum": report.rejected_quorum,
             "kept": report.kept,
