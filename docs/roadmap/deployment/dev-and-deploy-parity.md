@@ -120,7 +120,9 @@ target selector; omitting it holds state-bearing candidates as `unverified_state
 does not promote an ActionType, raise autonomy, create a finding, or grant execution authority.
 Standalone ordered preparation refreshes read-only Azure Resource Graph inventory and materializes sanitized model, runtime Settings, Rule, and Ontology projections only when their stage inputs change. Managed full-stack preparation defers only the inventory refresh to the continuous reconciliation process. These declarations do not create findings, observed inventory, readiness, or execution authority. An unavailable or unauthorized provider leaves inventory explicitly unavailable instead of substituting fixture data. Full-stack startup requires a trusted workspace and committed policy without weakening authority.
 Loopback ownership checks use bounded 250 ms IPv4 and IPv6 socket probes and do not retain the
-service lock while connecting. Shutdown allows ten seconds before stopping the child group;
+service lock while connecting. Shutdown allows ten seconds before stopping the child group; the
+Operator ends its open Console streams on the signal, so an open browser no longer exhausts that
+grace;
 local-state cache reuse also verifies the live legacy and all five service migration heads, so same-volume database recreation reruns schema preparation instead of trusting a stale file marker. Wrapper loss signals its leader. Run `console: prepare full stack` before an individual service or
 debug launch.
 The ignored local runtime environment records the validation cluster as

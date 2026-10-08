@@ -175,3 +175,103 @@ def test_uvicorn_signal_drains_an_open_sse_connection_before_timeout() -> None:
     assert process.returncode in {0, -signal.SIGTERM}
     assert "timeout graceful shutdown exceeded" not in output
     assert "Exception in ASGI application" not in output
+
+
+def test_uvicorn_signal_reaches_a_stream_through_a_starlette_middleware_stack() -> None:
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        port = listener.getsockname()[1]
+    # Mirrors the Operator app: the middleware sits in Starlette's stack, so it reaches the
+    # shutdown event through the lifespan scope's app, and the stream only polls the event.
+    application = textwrap.dedent(
+        """
+        import asyncio
+        import os
+        from contextlib import asynccontextmanager
+
+        import uvicorn
+        from starlette.applications import Starlette
+        from starlette.middleware import Middleware
+        from starlette.requests import Request
+        from starlette.responses import StreamingResponse
+        from starlette.routing import Route
+
+        from fdai_operator_service.streaming.shutdown import (
+            STREAM_SHUTDOWN_STATE,
+            shutdown_event,
+            sleep_or_shutdown,
+        )
+        from fdai_operator_service.streaming.signal_shutdown import StreamShutdownSignalMiddleware
+
+        @asynccontextmanager
+        async def lifespan(app):
+            setattr(app.state, STREAM_SHUTDOWN_STATE, asyncio.Event())
+            yield
+
+        async def stream(request: Request):
+            stop = shutdown_event(request)
+
+            async def events():
+                yield b": connected\\n\\n"
+                while not await sleep_or_shutdown(60.0, stop):
+                    yield b": keepalive\\n\\n"
+
+            return StreamingResponse(events(), media_type="text/event-stream")
+
+        app = Starlette(
+            routes=[Route("/stream", stream)],
+            middleware=[Middleware(StreamShutdownSignalMiddleware)],
+            lifespan=lifespan,
+        )
+        uvicorn.run(
+            app,
+            host="127.0.0.1",
+            port=int(os.environ["FDAI_TEST_PORT"]),
+            access_log=False,
+            timeout_graceful_shutdown=5,
+        )
+        """
+    )
+    operator_src = Path(__file__).resolve().parents[1] / "src"
+    pythonpath = os.pathsep.join(
+        value for value in (str(operator_src), os.environ.get("PYTHONPATH", "")) if value
+    )
+    process = subprocess.Popen(  # noqa: S603 - fixed interpreter and test-owned program
+        [sys.executable, "-c", application],
+        env={**os.environ, "FDAI_TEST_PORT": str(port), "PYTHONPATH": pythonpath},
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+    )
+    connection = http.client.HTTPConnection("127.0.0.1", port, timeout=2)
+    try:
+        deadline = time.monotonic() + 5
+        while True:
+            try:
+                with socket.create_connection(("127.0.0.1", port), timeout=0.1):
+                    break
+            except OSError:
+                if process.poll() is not None or time.monotonic() >= deadline:
+                    output = process.communicate(timeout=1)[0]
+                    raise AssertionError(f"Uvicorn did not become ready:\n{output}") from None
+                time.sleep(0.02)
+
+        connection.request("GET", "/stream")
+        response = connection.getresponse()
+        assert response.status == 200
+        assert response.read(1) == b":"
+        signalled = time.monotonic()
+        process.send_signal(signal.SIGTERM)
+        output = process.communicate(timeout=10)[0]
+        elapsed = time.monotonic() - signalled
+    finally:
+        connection.close()
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=2)
+
+    assert process.returncode in {0, -signal.SIGTERM}
+    # Without the published signal the idle stream waits its full 60-second poll and uvicorn
+    # forces the 5-second graceful timeout.
+    assert elapsed < 3.0, output
+    assert "timeout graceful shutdown exceeded" not in output

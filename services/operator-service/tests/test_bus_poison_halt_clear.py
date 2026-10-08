@@ -555,3 +555,14 @@ async def test_clear_retry_after_mark_failure_does_not_republish_live_claim() ->
 
     assert replay.accepted is True
     assert len(publisher.published) == 1
+
+
+def test_operator_app_publishes_signals_to_streams_from_its_outermost_middleware() -> None:
+    from fdai_operator_service.streaming.signal_shutdown import StreamShutdownSignalMiddleware
+
+    client, _store, _publisher = _route_client()
+    app = client.app
+
+    # The lifespan sets the stream shutdown event only after uvicorn has waited for every
+    # connection, so the signal middleware must wrap the stack to reach open streams first.
+    assert app.user_middleware[0].cls is StreamShutdownSignalMiddleware  # type: ignore[attr-defined]

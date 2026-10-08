@@ -414,6 +414,9 @@ from the Job's workload identity at connection time.
 FDAI services keep one runtime-neutral workload specification containing the digest-pinned image,
 command, arguments, environment names, resource requests and limits, startup, liveness and readiness
 probes, ingress intent, service port, sidecars, secret references, workload identity and scaling bounds.
+On either runtime, the Operator publishes a termination signal to its open server-sent event
+streams before Uvicorn waits for connections to close, so a replica replacement drains idle
+streams immediately and clients resume from their last event id within the termination grace.
 Every shipped Alpine runtime image also pins security-sensitive runtime package revisions across
 all service Dockerfiles. A published fixed package revision moves the shared pin and its repository
 contract together; image scanning verifies the built result before publication.

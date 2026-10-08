@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 97b0d7473178034bee8ffa3de3e0476f5cfc4960
+translation_source_sha: afce4eeba1ff43d67a6278dbe20cacc75bdd5f6b
 translation_revised: 2026-10-08
 ---
 # 런타임 배포 프로파일
@@ -364,6 +364,9 @@ Job의 워크로드 신원에서 계속 가져옵니다.
 FDAI 서비스는 하나의 런타임 중립 워크로드 명세를 유지합니다. 이 명세에는 digest로 고정된 이미지,
 명령, 인자, 환경 변수 이름, 리소스 요청량과 제한량, 시작, 활성, 준비 프로브, 수신 의도, 서비스
 포트, sidecar, secret 참조, 워크로드 신원, 확장 범위가 포함됩니다.
+두 런타임 모두에서 Operator는 Uvicorn이 연결 종료를 기다리기 전에 열린 서버 전송 이벤트 스트림에 종료
+신호를 알립니다. 따라서 replica를 교체할 때 유휴 스트림이 즉시 정리되고, 클라이언트는 종료 유예 시간
+안에 마지막 이벤트 ID부터 다시 이어 받습니다.
 출시되는 모든 Alpine 런타임 이미지에서는 보안에 민감한 런타임 패키지 revision도 모든 서비스
 Dockerfile에 걸쳐 고정합니다. 수정된 패키지 revision이 공개되면 공유 고정값과 저장소 계약을
 함께 갱신하고, 이미지를 게시하기 전에 이미지 검사가 빌드 결과를 확인합니다.
