@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-semantic-assurance.md
-translation_source_sha: a70eeeffc3ee238e5caf4395a877e8f69a0917ba
-translation_revised: 2026-10-07
+translation_source_sha: 8147bdcb900922f7f34794413b387513d4763fc0
+translation_revised: 2026-10-08
 ---
 # 지속형 의미 보증
 
@@ -51,6 +51,8 @@ E10 상태 목록 모드와 E11 메트릭 컬렉션 판독기 추가도 원본�
 아닙니다.
 후보 문서에 쓰는 이중 언어 질의 용어처럼 변환 전용 온톨로지 어휘가 바뀌는 경우에도,
 governed release 신원이 안정적으로 유지되더라도 매니페스트 원본 다이제스트는 갱신됩니다.
+부분 결과인 `query.resource_state_inventory`의 원인을 밝히도록 그 함수 원본을 고친 변경도 릴리스를 다시
+결속하므로, 사례 수는 그대로인 채 매니페스트를 다시 생성합니다.
 `governance.override-promote-action-type` 추가는 구조 카탈로그 변경이므로 같은 빌더가 live 보증
 증적을 만들지 않고도 corpus manifest 분모와 원본 다이제스트를 갱신합니다.
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -358,10 +359,29 @@ async def test_state_function_preserves_matches_but_marks_missing_state_incomple
     )
 
     assert result["complete"] is False
-    assert result["truncation_reason"] == "resource_state_evidence_incomplete"
+    assert result["truncation_reason"] == (
+        "resource_state_evidence_incomplete+resource_state_not_reported"
+    )
     rows = result["rows"]
     assert isinstance(rows, list)
     assert len(rows) == 1
+
+
+async def test_a_type_whose_provider_hides_state_names_that_cause() -> None:
+    observed_at = NOW - timedelta(minutes=5)
+    hidden = _resource("cosmos-a", None)
+    hidden = replace(hidden, properties={**hidden.properties, "type": "nosql-database"})
+    result = await _invoke(
+        _query_result((_resource("database-a", "Stopped", observed_at=observed_at), hidden)),
+        concepts=("resource_state.stopped",),
+    )
+
+    # The table stays partial, and the reason says why instead of a generic gap.
+    assert result["complete"] is False
+    assert result["truncation_reason"] == (
+        "resource_state_evidence_incomplete+provider_operational_state_not_exposed"
+    )
+    assert [row["values"]["name"] for row in result["rows"]] == ["database-a"]
 
 
 async def test_state_function_preserves_verified_matches_from_incomplete_scope() -> None:
@@ -414,7 +434,9 @@ async def test_list_mode_returns_one_row_per_resource_with_a_typed_unknown_reaso
         assert rows[name]["observed_state"] is None
     # Every Resource is listed, but unverified members keep the table incomplete.
     assert result["complete"] is False
-    assert result["truncation_reason"] == "resource_state_evidence_incomplete"
+    assert result["truncation_reason"] == (
+        "resource_state_evidence_incomplete+resource_state_not_reported+resource_state_stale"
+    )
 
 
 async def test_list_mode_only_lists_the_observed_concept_and_filter_mode_is_unchanged() -> None:

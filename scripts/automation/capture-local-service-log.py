@@ -39,6 +39,10 @@ _PLAIN_CONTEXT_FIELDS = (
     "target_kinds",
     "canonical_target_types",
     "promotion_rejection_reason",
+    "materialize_ms",
+    "refresh_ms",
+    "receipt_ms",
+    "object_count",
 )
 # Generic keys such as ``result`` or ``reason`` carry free text in other loggers, so the
 # form-path decision fields are allowed only for this logger and only as closed tokens.
@@ -51,6 +55,8 @@ _SCOPED_DECISION_FIELDS: dict[str, tuple[str, ...]] = {
         "review_reasons",
         "pass_dispositions",
         "pass_reasons",
+        "pass_repairs",
+        "repaired_reasons",
         "goal_statuses",
         "goal_reasons",
         "notes",

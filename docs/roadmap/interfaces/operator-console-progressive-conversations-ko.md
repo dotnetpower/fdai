@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: f041b5738faf9a0be7417d6049f1d29c62f78b38
+translation_source_sha: 4d623fd18a010708d0f4fcc6a1f59dcc821d3723
 translation_revised: 2026-10-08
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -89,6 +89,7 @@ Operator는 최종 결과의 검증과 영속 저장이 완료된 뒤 대기 중
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-08 | 구현됨 | 토큰 프레임 없이 도착한 최종 답변의 공개 연출을 최대 60프레임에서 최대 24프레임으로 줄였습니다. 전체 답변은 이미 도착했고, 1초 동안의 재생이 측정된 턴 지연에 더해졌기 때문입니다. 공개 결과는 여전히 정본 텍스트와 바이트 단위로 같고, 숨겨진 탭과 모션 감소 설정은 계속 즉시 완료됩니다. | `current change`; `console/src/deck/stream-paint.ts`; `npx vitest run src/deck/stream-paint.test.ts`(17개 통과). | 이 표시 속도 변경에 남은 작업은 없습니다. |
 | 2026-10-01 | 구현됨 | Console에서 실시간 작업 진행 고정 형태를 받아들이고 적응형 조사 역할을 렌더링했습니다. 스트림은 첫 읽기 전에 도착한 첫 번째 유효한 고정 형태를 받아들입니다. 계획된 읽기가 관찰되거나, 토큰이 도착하거나, 최종 응답이 검증될 때까지 답변을 기다리므로 웨이브 사이의 멈춤에서 더 이상 빈 답변이 시작되거나 패널이 일찍 완료 처리되지 않습니다. 첫 패널은 계획을 표시하고, 답변이 완료되면 턴 예산을 최대치 대비 사용량으로 보여 주며 맥락 영수증도 표시합니다. 마일스톤은 조용한 진행 줄 하나로 읽힙니다. 중지는 읽기를 사용 불가로 바꾸는 대신 활동 패널에 기록되므로, 끝나지 않은 읽기는 중지됨으로 표시되고 지난 시작 안내는 숨겨집니다. | `current change`; `console/src/deck/backend-stream.ts`, `use-command-deck-submit.ts`, `investigation-turn-state.ts`, `investigation-roles.tsx`, `investigation-timeline.tsx`, `command-deck-presenters.tsx`, `use-command-deck-lifecycle.ts`, `transcript-store.ts`, Deck 전용 `console/src/deck/i18n/investigation.{en,ko}.json` 카탈로그와 각 집중 테스트; `npm --prefix console test`(`3880 passed`); Console 타입 검사; `npm --prefix console run check:entry`(gzip `149829`바이트, 변경 없음); `npm --prefix console run test:e2e:quick -- tests/e2e/deck-conversation-layer.spec.ts`(조사 계획, 완료 시점 한도, 맥락 영수증, 웨이브 순서 제어, 중지 사례) | 읽기에 계획된 웨이브가 담기면 웨이브 행을 렌더링합니다. 의미 사전 분류를 턴 예산에 포함할지 결정합니다. |
 | 2026-09-28 | 구현됨 | 의미 경로에서 작업 진행 필드를 방출했습니다([#1629](https://github.com/dotnetpower/fdai/issues/1629)). Core는 검증된 읽기 계획 하나를 실행하기 직전에 고정하고, 첫 노드 진행 상황보다 먼저 `semantic-work-progress` `1.0.0`으로 고정 형태를 게시하며, 턴을 통제한 적응형 턴 예산과 적용된 모델 등급 영수증과 함께 저장합니다. 적응형 근거 읽기는 고정하지 않습니다. Operator는 실시간 스트림과 재생 스트림 모두에서 첫 조회 활동보다 먼저 `work_progress` 프레임을 한 번 전달하고, 검증한 필드를 `trajectory_detail`에 복사하며, 활동을 60 KiB 안에서 최대 8개로 유지합니다. | `current change`; `packages/service-contracts/src/fdai_service_contracts/semantic_work_progress.py`와 `1.0.0` 스키마; Core `work_progress.py`, `adaptive_service.py`, `semantic_runtime.py`, `semantic_turn_processor.py`, `semantic_turn_consumer.py`, `semantic_work_progress_projection.py`; Operator `semantic_progress_relay.py`, `semantic_turn_runtime.py`, `semantic_trajectory_presentation.py`, `semantic_work_progress_presentation.py`; `uv run pytest -q --no-cov packages/service-contracts/tests/test_semantic_work_progress.py services/core-control-plane/tests/test_semantic_work_progress.py services/operator-service/tests/test_semantic_work_progress.py`(`54 passed`); 변경 범위로 선택한 Python 전체 검사(`37838 passed`, `FDAI_DATABASE_URL`이 필요한 데이터베이스 테스트 3개는 `origin/main`에서도 같은 방식으로 실패); `npm --prefix console test -- --run src/deck`(`1036 passed`)와 Console 타입 검사 | Console에서 실시간 프레임을 사용하고 조사 역할을 렌더링해야 합니다. 의미 사전 분류를 턴 예산에 포함할지 결정해야 합니다. |
 | 2026-09-28 | 구현됨 | 작업 진행 계약을 추가했습니다. 표시 밀도는 타입 기반 관찰에서 정하고, 웨이브는 재계획 없이 범위를 제한하며, 마일스톤은 작업 흐름 사실만 담습니다. 또한 턴 예산 계측, 맥락 영수증, 이어서 진행, 초안이 아닌 발견 사항, 분리된 권한 표시를 정의합니다. 이제 Console은 선택 필드를 필드 단위로 fail closed 방식으로 해석하고, 재생한 마일스톤을 완료가 아닌 기록됨으로 표시합니다. | `current change`; `console/src/deck/backend-types.ts`, `work-progress-contract.ts`, `trajectory-detail.ts`, `conversation-trajectory.ts`, `conversation-trajectory-presentation.ts`, `conversation-trajectory-view.tsx`와 각 집중 테스트; `mocks/ui/fixtures/adaptive/`; `npm --prefix console test -- --run src/deck src/shared-style-tokens.test.ts src/components/mock-visual-boundary.test.ts`(`1045 passed`); Console 타입 검사 | 서버에서 필드를 방출하고 Console에서 적응형 조사 역할을 렌더링해야 합니다. |
@@ -300,7 +301,7 @@ Operator는 완료된 목표 증적의 참조가 터미널 의미 근거를 정�
 채웁니다. 상세 trace는 관측된 진행 프레임 뒤에만 표시되므로 완료된 replay에서 수행 작업을 설명하는
 근거는 계속 server 수명 주기 event에 의존합니다. 해당 프레임이 도착하면 브라우저는 전체 패널을 한
 번에 삽입하지 않고 간결한 행의 높이에서 상세 추적을 확장합니다. 토큰 프레임이 없는 최종 응답은
-정확한 정본 텍스트를 최대 60개의 화면 프레임에 걸쳐 공개합니다. 백그라운드 탭은 동기적으로
+정확한 정본 텍스트를 최대 24개의 화면 프레임에 걸쳐 공개합니다. 백그라운드 탭은 동기적으로
 완료되며 모션 감소 설정에서는 두 전환을 모두 생략합니다.
 
 Machine 결과는 계속 권위 있고 재생 가능하지만 primary 사람 답변은 아닙니다. 다음 다섯 작업

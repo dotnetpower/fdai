@@ -7,6 +7,7 @@ import {
   flushStreamPaint,
   shouldFlushStreamPaintSynchronously,
   streamPaintBatchSize,
+  MAX_TERMINAL_REVEAL_FRAMES,
   terminalRevealChunks,
 } from "./stream-paint";
 
@@ -69,7 +70,7 @@ describe("stream paint batching", () => {
     expect(submitSource).not.toContain("MIN_PREPARING_VISIBLE_MS");
     const text = Array.from({ length: 300 }, (_, index) => `word-${index} `).join("");
     const queue = terminalRevealChunks(text);
-    expect(queue).toHaveLength(60);
+    expect(queue).toHaveLength(MAX_TERMINAL_REVEAL_FRAMES);
     expect(flushStreamPaint(queue)).toBe(text);
     expect(queue).toHaveLength(0);
   });
@@ -82,7 +83,7 @@ describe("stream paint batching", () => {
     expect(chunks.join("")).toBe(text);
   });
 
-  it("paces a long terminal-only reveal over roughly one second of display frames", () => {
+  it("paces a long terminal-only reveal over under half a second of display frames", () => {
     const text = Array.from({ length: 300 }, (_, index) => `word-${index} `).join("");
     const chunks = terminalRevealChunks(text);
     const queue = [...chunks];
@@ -92,8 +93,9 @@ describe("stream paint batching", () => {
       frames += 1;
     }
 
-    expect(chunks).toHaveLength(60);
-    expect(frames).toBe(60);
+    expect(MAX_TERMINAL_REVEAL_FRAMES).toBe(24);
+    expect(chunks).toHaveLength(MAX_TERMINAL_REVEAL_FRAMES);
+    expect(frames).toBe(MAX_TERMINAL_REVEAL_FRAMES);
     expect(chunks.join("")).toBe(text);
   });
 

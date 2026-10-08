@@ -9,6 +9,10 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast
 
+from fdai_service_contracts.recorded_resource_state import (
+    PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES,
+)
+
 from fdai.core.ontology_platform.functions import (
     ContextualOntologyFunction,
     FunctionInvocationContext,
@@ -29,6 +33,13 @@ from fdai.shared.providers.state_evidence import (
     StateFactLane,
     StateFactMetadata,
 )
+
+# Each unverified state names why, so a partial answer says what kept it partial.
+_INCOMPLETE_STATE_REASONS = {
+    "state_not_reported": "resource_state_not_reported",
+    "state_stale": "resource_state_stale",
+    "state_conflicting": "resource_state_conflicting",
+}
 
 RESOURCE_STATE_FUNCTION_NAME = "query.resource_state_inventory"
 RESOURCE_STATE_MEASURE_CONCEPTS = (
@@ -160,6 +171,7 @@ def resource_state_inventory_function(
             raise ValueError("resource-state list mode reads only the observed-state concept")
         rows: list[QueryRow] = []
         state_evidence_incomplete = False
+        incomplete_reasons: set[str] = set()
         targets = sorted(secured.materialization.graph.objects, key=lambda item: item.id)
         for target in targets:
             values = verified_resource_state_values(
@@ -168,6 +180,11 @@ def resource_state_inventory_function(
             )
             if values is None:
                 state_evidence_incomplete = True
+                incomplete_reasons.add(
+                    _incomplete_state_reason(
+                        target, observation_cutoff=secured.receipt.observation_cutoff
+                    )
+                )
                 if list_members:
                     rows.append(
                         QueryRow.from_values(
@@ -196,13 +213,31 @@ def resource_state_inventory_function(
             reason=(
                 "resource_scope_incomplete"
                 if scope_incomplete
-                else "resource_state_evidence_incomplete"
+                else "+".join(
+                    (
+                        "resource_state_evidence_incomplete",
+                        *sorted(item for item in incomplete_reasons if item),
+                    )
+                )
                 if state_evidence_incomplete
                 else None
             ),
         )
 
     return evaluate
+
+
+def _incomplete_state_reason(target: OntologyObjectRecord, *, observation_cutoff: Any) -> str:
+    """Return the closed code for why one Resource's state is unverified, or empty."""
+
+    if (
+        _text(target.properties.get("type"))
+        in PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES
+    ):
+        return "provider_operational_state_not_exposed"
+    provider = _mapping(target.properties.get("properties"))
+    reason = _unverified_state_reason(provider, observation_cutoff=observation_cutoff)
+    return _INCOMPLETE_STATE_REASONS.get(reason, "")
 
 
 def verified_resource_state_values(

@@ -216,6 +216,10 @@ When the form path reads a question a second time, the replaced sample's decline
 sample therefore still shows why the first one failed. The local plain service log renders the same
 form-path decision fields for the compiled-answer logger only, and only as closed tokens, so a held
 turn stays explainable from the log file after a restart clears the trace buffer.
+Each compiled-answer event also lists which passes were repaired and the closed codes of the
+faults that caused each repair, because a repair costs one more form call. Each ObjectSet read logs
+`ontology_object_set_stages_timed` with its materialization, refresh, and receipt milliseconds and
+its object count, so a slow read points at its stage without a profiler.
 
 A cue is a review pointer, not a causal conclusion. `dev-discuss explain` captures a snapshot and
 prints each trace with its cues. The reviewer compares them with the questions they asked, because

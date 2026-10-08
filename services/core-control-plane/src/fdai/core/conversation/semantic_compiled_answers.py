@@ -632,6 +632,11 @@ def _log_completion(
                 "pass_reasons": [reason for item in observation.passes for reason in item.reasons][
                     :_MAX_EVENT_ITEMS
                 ],
+                # A repaired pass cost one more form call; its codes say which fault caused it.
+                "pass_repairs": [item.repair for item in observation.passes if item.repair],
+                "repaired_reasons": [
+                    reason for item in observation.passes for reason in item.repaired_reasons
+                ][:_MAX_EVENT_ITEMS],
                 "goal_statuses": [
                     goal.status for item in observation.passes for goal in item.goals
                 ][:_MAX_EVENT_ITEMS],

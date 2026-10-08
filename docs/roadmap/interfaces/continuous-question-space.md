@@ -178,6 +178,7 @@ controlled evidence exists.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-08 | implemented | Named the cause of a partial `query.resource_state_inventory` result. A stopped-database question stayed partial only because two Cosmos DB accounts expose no operational state; the reason now adds `provider_operational_state_not_exposed`, `resource_state_not_reported`, `resource_state_stale`, or `resource_state_conflicting` after `resource_state_evidence_incomplete`, and the answer explains it in the operator's locale. | `current change`; `resource_state_queries.py` and `semantic_source_limitations.py`; focused state-query and limitation tests passed; the live Console answer named the provider cause. | Whether a ResourceType that cannot hold a requested state should leave the result complete needs a reviewed applicability decision. |
 | 2026-09-30 | implemented | Regenerated the dependent semantic-intent coverage artifact after the `case-history-read` binding changed the pinned `core/ontology_platform` source digest: `FunctionInvocationContext` gained the Operator request reference and the Pattern read locator binds it. All question identities, readiness states, metric definitions, denominators, coverage counts, and authority remain unchanged. | `current change`; official `build_semantic_intent_coverage.py`. | Continue case-by-case semantic review and runtime qualification; this digest refresh adds no answerability or operational-readiness evidence. |
 | 2026-09-29 | implemented | Regenerated the 400-question bank and dependent semantic-intent coverage artifact after the test-context review and manual-lookup Console labels changed the joined English and Korean catalog digests. All question identities, readiness states, metric definitions, denominators, coverage counts, and authority remain unchanged. | `current change`; official `build_question_bank.py` then `build_semantic_intent_coverage.py`. | Continue case-by-case semantic review and runtime qualification; this digest refresh adds no answerability or operational-readiness evidence. |
 | 2026-09-29 | implemented | Regenerated the 400-question bank and dependent semantic-intent coverage artifact after the test-context lifecycle Console labels changed the joined English and Korean catalog digests. All question identities, readiness states, metric definitions, denominators, coverage counts, and authority remain unchanged. | `current change`; official `build_question_bank.py` then `build_semantic_intent_coverage.py`. | Continue case-by-case semantic review and runtime qualification; this digest refresh adds no answerability or operational-readiness evidence. |
@@ -527,6 +528,12 @@ bound, reachable, evidence-ready, and expose the exact authority set
 State-history questions can select `query.resource_state_transitions` when a bounded lookback and
 reviewed operational state are present. A complete zero result requires positive coverage for every
 requested resource and state family. Snapshot-only coverage stays incomplete.
+
+A `query.resource_state_inventory` result stays partial when any selected Resource lacks a fresh,
+conflict-free observed state. Its reason keeps `resource_state_evidence_incomplete` and adds one closed
+cause per kind of gap, such as `provider_operational_state_not_exposed` for a ResourceType whose
+provider exposes no operational state, or `resource_state_stale`. The answer then names why it is
+partial instead of a generic gap, and it never treats an unverifiable Resource as matching or not.
 
 ## Related docs
 
