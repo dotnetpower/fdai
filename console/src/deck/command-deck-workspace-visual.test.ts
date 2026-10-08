@@ -370,7 +370,11 @@ describe("Command Deck workspace hierarchy", () => {
     expect(structuredStyles).toMatch(
       /@container deck-transcript \(max-width: 1000px\)[\s\S]*\.deck-presentation-table\[data-layout="wide"\][\s\S]*display: block;/,
     );
-    expect(styles).toContain('.deck-turn-deck:has(.deck-presentation-table[data-layout="wide"])');
+    // Only the wide table breaks out; the turn keeps the reading column so its prose stays aligned.
+    expect(styles).not.toContain('.deck-turn-deck:has(.deck-presentation-table[data-layout="wide"])');
+    expect(styles).toMatch(
+      /\.deck-overlay-mode-workspace \.deck-turn-deck \.deck-presentation-table-wrap\[data-layout="wide"\] \{[^}]*--deck-wide-table-width: min\(1080px, calc\(100cqi - 48px\)\);[^}]*margin-inline: calc\(\(100% - var\(--deck-wide-table-width\)\) \/ 2\);/s,
+    );
     expect(structuredStyles).toMatch(
       /@media \(max-width: 560px\)[\s\S]*\.deck-presentation-table th \{ position: static; \}/,
     );

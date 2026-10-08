@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 4b1a7d48ecbb4398f252b0acf08d6041d1da789f
+translation_source_sha: b1959d7d581074843e60f76dc35fa7a170098f9f
 translation_revised: 2026-10-08
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -89,6 +89,7 @@ Operator는 최종 결과의 검증과 영속 저장이 완료된 뒤 대기 중
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-08 | 구현됨 | 전체 작업 영역의 답변을 읽기 열 안에 유지했습니다. 넓은 레코드 표가 있는 답변은 턴 전체를 1080px로 넓혀, 본문이 질문과 작업 패널보다 120px 왼쪽에서 시작했습니다. 이제 표 wrapper만 대화 컨테이너 폭 안에서 가운데 기준으로 펼쳐집니다. | `current change`; `console/src/styles.css`, `command-deck-workspace-visual.test.ts`; `npx vitest run src`(3776개 통과); Console 타입 검사; 로컬 Console에서 답변 턴이 바로 앞 턴과 같은 x와 폭을 가짐: 1440x900(323, 840px), 993x641(116, 808px), 390x844(24, 332px). 표는 1080px와 889px였고 넘침이 없었음. | 이 배치 수정에 남은 작업은 없습니다. |
 | 2026-10-08 | 구현됨 | 답변을 계획하는 동안 작업 패널이 흔들리지 않게 했습니다. 실행 중인 활동은 상세 패널을 열었기 때문에 실행 중인 모델 호출마다 행 이상의 근거가 없는 수명주기 패널이 표시되었고, 상태도 제목 옆과 메타 열에 두 번 나타났습니다. 이제 모델 호출 행은 하나의 정적 행으로 표시되고 모든 행은 상태를 한 번만 표시합니다. 작업 머리글은 `deck-transcript` 컨테이너 폭을 따르므로 넓은 화면에 도킹한 패널에서 줄바꿈되어 펼침 화살표가 혼자 남지 않습니다. | `current change`; `console/src/deck/investigation-timeline.tsx`와 테스트, `console/src/styles.css`; `npx vitest run src/deck src/shared-style-tokens.test.ts`(1098개 통과); Console 타입 검사; 로컬 Console 1440x900에서 실행 중 턴 동안 상세 패널이 열리지 않았고, 모델 호출 상태 표시가 다른 행과 같은 x 위치에 정렬되었으며, 도킹한 401px 머리글은 실행 중과 정착 후 모두 넘침 없이 그리드로 표시되었고, 전체 작업 영역은 한 줄 44px 머리글을 유지했으며, 390x844에서도 넘침이 없었음. | 이 배치 수정에 남은 작업은 없습니다. |
 | 2026-10-08 | 구현됨 | 계획 단계 모델 호출만 관측된 동안 작업 패널을 실행 중으로 유지했습니다. 두 호출 사이에는 모든 활동이 정착한 것처럼 보이고 계획도 아직 고정되지 않아, Console이 계획 도중 답변 초안을 열고 패널을 `0 ms`의 `Partial`로 정착시켰습니다. 이제 고정 계획 없이 모델 호출만 있는 작업은 읽기, 토큰, 검증된 최종 응답 중 하나가 도착할 때까지 열려 있습니다. | `current change`; `console/src/deck/investigation-turn-state.ts`와 테스트; `npx vitest run src/deck`(1090개 통과); Console 타입 검사; 로컬 Console 턴이 모델 호출 8개 동안 실행 중을 유지하고 6.9초에 Verified 4/4로 정착함. | 이 대기 조건 수정에 남은 작업은 없습니다. |
 | 2026-10-08 | 구현됨 | 의미 계획 단계의 각 모델 호출을 실시간 `model_call` 활동으로 스트리밍해, 첫 읽기 전 대기 동안 "답변 경로를 확인하는 중"만 보이는 대신 단계, 배포, 경과 시간, 결과가 보이게 했습니다. Core는 공유 제공자 호출 관문을 통해 호출을 `semantic-model-call-progress` `1.0.0`으로 보고하고, Operator는 이를 실시간 전용 활동으로 전달하며, Console은 `MODEL` 배지를 붙이고 표시 밀도와 읽기 수에서 제외합니다. 보고는 로컬 실행기에서 켜지고 그 밖의 환경에서는 기본적으로 꺼집니다. | `current change`; `semantic_model_call_progress.py`와 `1.0.0` 스키마; Core `model_call_progress.py`, `adaptive_call_scope.py`, `semantic_turn_consumer.py`; Operator `semantic_progress_relay.py`, `semantic_turn_runtime.py`, `semantic_model_call_presentation.py`; `console/src/deck/conversation-trajectory-presentation.ts`, `investigation-timeline.tsx`; 계약, Core, Operator, Console 집중 테스트 통과; 로컬 Console 턴에서 검증된 읽기 2개 앞에 완료된 모델 호출 행 7개가 표시됨. | 진행 토픽을 소비하는 모든 Operator가 이 레코드를 이해한 뒤 배포 환경에서 보고를 켭니다. |
@@ -345,6 +346,9 @@ Service Health 응답은 결정론적으로 계산한 `yes`, `no`, `partial`, `u
 표시하거나 근거를 만들거나 프로바이더 응답 내용을 노출하지 않습니다. 알 수 없는 사유는 검증된
 답변을 사용할 수 없다는 일반 문구를 사용하고 범위가 제한된 machine 사유를 source 세부 정보에
 보존합니다.
+
+전체 작업 영역에서 답변은 질문, 작업 패널과 같은 읽기 열을 유지합니다. 넓은 레코드 표만 대화 폭
+안에서 가운데 기준으로 그 열 밖으로 펼쳐지므로, 답변 본문이 나머지 대화와 어긋나지 않습니다.
 
 ## 결정론적 교차 채널 표현 설계
 
