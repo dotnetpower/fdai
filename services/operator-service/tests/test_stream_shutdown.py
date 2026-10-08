@@ -10,6 +10,7 @@ from fdai_operator_service.streaming.shutdown import (
     STREAM_SHUTDOWN_STATE,
     next_or_shutdown,
     shutting_down,
+    sleep_or_shutdown,
 )
 from starlette.requests import Request
 
@@ -113,3 +114,68 @@ async def test_next_or_shutdown_without_a_published_event_still_iterates() -> No
     stream = source()
     assert await next_or_shutdown(stream, None) == "only"
     assert await next_or_shutdown(stream, None) is None
+
+
+async def test_live_chunks_release_an_idle_keepalive_wait_on_shutdown() -> None:
+    hub = LiveStreamHub()
+    shutdown = asyncio.Event()
+
+    async def connected() -> bool:
+        return False
+
+    chunks = _live_chunks(
+        hub=hub,
+        is_disconnected=connected,
+        is_shutting_down=shutdown.is_set,
+        shutdown=shutdown,
+        keepalive_seconds=60.0,
+    )
+    assert b"hello" in await anext(chunks)
+    # The stream is now idle inside a 60-second keepalive wait; shutdown must end it at once.
+    pending = asyncio.ensure_future(anext(chunks))
+    await asyncio.sleep(0)
+    shutdown.set()
+
+    with pytest.raises(StopAsyncIteration):
+        await asyncio.wait_for(pending, timeout=1.0)
+
+
+async def test_sleep_or_shutdown_ends_the_poll_interval_when_shutdown_begins() -> None:
+    shutdown = asyncio.Event()
+    waiting = asyncio.ensure_future(sleep_or_shutdown(60.0, shutdown))
+    await asyncio.sleep(0)
+    shutdown.set()
+
+    assert await asyncio.wait_for(waiting, timeout=1.0) is True
+    assert await sleep_or_shutdown(60.0, shutdown) is True
+    assert await sleep_or_shutdown(0.0, asyncio.Event()) is False
+    assert await sleep_or_shutdown(0.0, None) is False
+
+
+async def test_inventory_invalidation_events_stop_polling_on_shutdown() -> None:
+    from fdai_operator_service.families.operations import factory as operations_factory
+    from fdai_operator_service.families.operations.contracts import ReplayBatch, ReplayQuery
+    from fdai_service_contracts import OperatorPrincipal
+
+    replays: list[ReplayQuery] = []
+
+    class _Reader:
+        async def replay(self, query: ReplayQuery) -> ReplayBatch:
+            replays.append(query)
+            return ReplayBatch(events=(), watermark=0)
+
+    shutdown = asyncio.Event()
+    chunks = operations_factory._inventory_invalidation_events(  # noqa: SLF001
+        _Reader(),
+        OperatorPrincipal(subject_id="reader-oid", roles=frozenset()),
+        None,
+        ReplayBatch(events=(), watermark=0),
+        stop=shutdown,
+    )
+    pending = asyncio.ensure_future(anext(chunks))
+    await asyncio.sleep(0)
+    shutdown.set()
+
+    with pytest.raises(StopAsyncIteration):
+        await asyncio.wait_for(pending, timeout=1.0)
+    assert replays == []

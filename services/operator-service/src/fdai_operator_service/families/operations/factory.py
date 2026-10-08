@@ -40,6 +40,7 @@ from fdai_operator_service.families.operations.manifest import (
     OperationRoute,
 )
 from fdai_operator_service.redaction import redact_projection
+from fdai_operator_service.streaming.shutdown import shutdown_event, sleep_or_shutdown
 from fdai_service_contracts import OperatorPrincipal, OperatorRole
 from fdai_service_contracts.azure_monitor import (
     AzureMonitorNormalizationError,
@@ -418,6 +419,8 @@ async def _stream(
     except ValueError as exc:
         return _error(400, str(exc))
 
+    stop = shutdown_event(request)
+
     async def events() -> AsyncIterator[bytes]:
         if resolved_stream == INVENTORY_INVALIDATION_STREAM:
             async for chunk in _inventory_invalidation_events(
@@ -426,6 +429,7 @@ async def _stream(
                 after_sequence,
                 batch,
                 cursor_epoch=cursor_epoch,
+                stop=stop,
             ):
                 yield chunk
             return
@@ -452,7 +456,10 @@ async def _stream(
             if now >= heartbeat_at:
                 yield b": heartbeat\n\n"
                 heartbeat_at = now + READ_INVESTIGATION_HEARTBEAT_SECONDS
-            await asyncio.sleep(READ_INVESTIGATION_POLL_SECONDS)
+            if await sleep_or_shutdown(READ_INVESTIGATION_POLL_SECONDS, stop):
+                # Shutdown ends the stream like its deadline, with a resumable watermark.
+                yield _watermark(max(cursor, current.watermark))
+                return
             try:
                 current = await reader.replay(
                     ReplayQuery(
@@ -479,6 +486,7 @@ async def _inventory_invalidation_events(
     batch: ReplayBatch,
     *,
     cursor_epoch: str | None = None,
+    stop: asyncio.Event | None = None,
 ) -> AsyncIterator[bytes]:
     """Poll durable invalidation replay indefinitely, one bounded page at a time.
 
@@ -486,9 +494,10 @@ async def _inventory_invalidation_events(
     own; the caller only stops it by disconnecting. Every 2 seconds it asks
     the durable reader for events past the last seen watermark, and every 15
     seconds of silence it emits a comment-only heartbeat so idle proxies do
-    not close the connection. It ends only when the client disconnects
-    (cancellation unwinds this generator) or the durable reader itself
-    reports it is unavailable.
+    not close the connection. It ends when the client disconnects
+    (cancellation unwinds this generator), the durable reader itself reports
+    it is unavailable, or the application begins graceful shutdown; the
+    client then resumes from its last event id.
     """
     cursor = after_sequence or 0
     current = batch
@@ -504,7 +513,8 @@ async def _inventory_invalidation_events(
         if now >= heartbeat_at:
             yield b": heartbeat\n\n"
             heartbeat_at = now + INVENTORY_INVALIDATION_HEARTBEAT_SECONDS
-        await asyncio.sleep(INVENTORY_INVALIDATION_POLL_SECONDS)
+        if await sleep_or_shutdown(INVENTORY_INVALIDATION_POLL_SECONDS, stop):
+            return
         try:
             current = await reader.replay(
                 ReplayQuery(
