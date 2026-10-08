@@ -149,6 +149,32 @@ def require_success(result: CommandResult, label: str) -> str:
     return result.stdout.strip()
 
 
+_DIAGNOSTIC_PREFIXES = (
+    "pre-push:",
+    "structural-gates:",
+    "error:",
+    "fatal:",
+    "! [",
+)
+_CREDENTIAL_URL_RE = re.compile(r"(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*://)[^/@\s]+@")
+_TOKEN_RE = re.compile(r"\b(?:gh[opsur]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\b")
+MAX_DIAGNOSTIC_LINES = 12
+MAX_DIAGNOSTIC_CHARS = 240
+
+
+def diagnostic_lines(result: CommandResult) -> list[str]:
+    """Keep only bounded, redacted Git and hook status lines from a failed command."""
+    selected: list[str] = []
+    for line in f"{result.stdout}\n{result.stderr}".splitlines():
+        text = line.strip()
+        if not text.startswith(_DIAGNOSTIC_PREFIXES):
+            continue
+        text = _CREDENTIAL_URL_RE.sub(r"\g<scheme>***@", text)
+        text = _TOKEN_RE.sub("***", text)
+        selected.append(text[:MAX_DIAGNOSTIC_CHARS])
+    return selected[-MAX_DIAGNOSTIC_LINES:]
+
+
 def git(runner: Runner, config: DeliveryConfig, *arguments: str, timeout: int = 60) -> str:
     """Run one bounded Git operation in the pinned delivery worktree."""
     return require_success(

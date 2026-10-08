@@ -141,7 +141,10 @@ The `start` operation returns immediately after creating one detached, finite pr
 private state record and log beneath the Git common directory and reuses an exact live process for
 the same PR instead of starting a duplicate. Do not pass tokens, credentials, URLs containing
 credentials, or environment dumps. Authentication comes only from the existing `gh` and Git
-credential providers.
+credential providers. When its own topic-branch push fails, the coordinator records at most 12
+redacted `pre-push:`, `structural-gates:`, `error:`, `fatal:`, and `! [` lines in the
+`failure_diagnostics` state field and private log, and discards all other command output. Read
+that field through `status` before reproducing the failing gate locally.
 
 The coordinator may:
 

@@ -67,6 +67,7 @@ class FakeRunner:
         self.remote_sha_after_push: str | None = None
         self.fetch_failures = 0
         self.pushes = 0
+        self.push_result: support.CommandResult | None = None
         self.base_contains_head = False
         self.head_tree = "1" * 40
         self.base_tree = "2" * 40
@@ -126,7 +127,7 @@ class FakeRunner:
             return support.CommandResult(0, "", "")
         if args[:2] == ("git", "push"):
             self.pushes += 1
-            return support.CommandResult(0, "", "")
+            return self.push_result or support.CommandResult(0, "", "")
         if args[:2] == ("git", "ls-remote"):
             if self.remote_reads:
                 remote = self.remote_reads.popleft()
@@ -564,6 +565,47 @@ def test_daemon_rejects_a_pushed_sha_mismatch(tmp_path: Path) -> None:
 
     assert not any(command[:3] == ("gh", "pr", "merge") for command in fake.commands)
     assert support.read_state(coordinator.paths.state)["terminal"] is True  # type: ignore[index]
+
+
+def test_daemon_records_bounded_redacted_push_diagnostics(tmp_path: Path) -> None:
+    fake = FakeRunner(tmp_path, [_payload(merge_state="BEHIND")])
+    hook_noise = "\n".join(f"collected test {index}" for index in range(50))
+    fake.push_result = support.CommandResult(
+        1,
+        f"{hook_noise}\n"
+        "pre-push: BLOCKED - Ruff lint or formatting failed on changed Python files.\n",
+        "SECRET_VALUE=do-not-copy\n"
+        "fatal: unable to access 'https://user:ghp_abcdefghijklmnopqrstuvwxyz0123@example.invalid/r'\n"
+        f"error: failed to push some refs {'x' * 400}\n",
+    )
+    coordinator = daemon.DeliveryDaemon(_config(fake), fake)
+
+    with pytest.raises(support.DeliveryError, match="topic branch push failed with exit code 1"):
+        coordinator.run()
+
+    state = support.read_state(coordinator.paths.state)
+    assert state is not None
+    diagnostics = state["failure_diagnostics"]
+    assert diagnostics[0] == (
+        "pre-push: BLOCKED - Ruff lint or formatting failed on changed Python files."
+    )
+    assert diagnostics[1] == "fatal: unable to access 'https://***@example.invalid/r'"
+    assert diagnostics[2].startswith("error: failed to push some refs")
+    assert len(diagnostics[2]) == support.MAX_DIAGNOSTIC_CHARS
+    serialized = json.dumps(state)
+    assert "SECRET_VALUE" not in serialized
+    assert "ghp_" not in serialized
+    assert "collected test" not in serialized
+    assert state["phase"] == "failed"
+
+
+def test_diagnostic_lines_keep_only_the_latest_bounded_tail() -> None:
+    output = "\n".join(f"structural-gates: gate=g{index} status=1" for index in range(30))
+
+    lines = support.diagnostic_lines(support.CommandResult(1, output, ""))
+
+    assert len(lines) == support.MAX_DIAGNOSTIC_LINES
+    assert lines[-1] == "structural-gates: gate=g29 status=1"
 
 
 def test_daemon_rejects_a_primary_checkout(tmp_path: Path) -> None:
