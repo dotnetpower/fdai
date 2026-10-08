@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-retrieval-diagnostics.md
-translation_source_sha: f3be8df42141b044b5223dff899f1857af57d6f3
+translation_source_sha: 12caa9cbe4fc13bcb18ac4d7ce5f4f2e2d62f2d1
 translation_revised: 2026-10-08
 ---
 
@@ -20,7 +20,7 @@ translation_revised: 2026-10-08
 | [instance-holdout.v2.json](../../eval/ontology-retrieval/instance-holdout.v2.json) | 이미 사용한 홀드아웃입니다. 독립 작성과 검토를 거쳤고 `2572f9a1b1`에서 한 번 측정했습니다. 이 문항으로 튜닝하거나 자격 검증에 다시 사용하지 않습니다. |
 | [instance-calibration.v3.json](../../eval/ontology-retrieval/instance-calibration.v3.json) | 홀드아웃 v2의 실패 유형을 진단하기 위한 새 보정 문항 64개입니다. 보정 전용이며 변경의 자격을 검증하지 못합니다. |
 | [instance-holdout.v3.json](../../eval/ontology-retrieval/instance-holdout.v3.json) | 이미 사용한 홀드아웃입니다. 정보가 차단된 작성자가 쓰고 별도로 차단된 검토자가 검토했으며 `19bbbe3c95`에서 한 번 측정했습니다. 이 문항으로 튜닝하거나 자격 검증에 다시 사용하지 않습니다. |
-| [instance-holdout.v4.json](../../eval/ontology-retrieval/instance-holdout.v4.json) | 다음 한 번의 자격 검증 실행을 위해 고정한, 아직 측정하지 않은 홀드아웃입니다. 정보가 차단된 작성자가 쓰고 별도로 차단된 검토자가 검토했습니다. 두 사람 모두 이전 홀드아웃 원문, 프롬프트, 어댑터, 이 런북을 읽지 않았습니다. 그 실행 밖에서는 읽거나 튜닝하거나 측정하지 않습니다. |
+| [instance-holdout.v4.json](../../eval/ontology-retrieval/instance-holdout.v4.json) | 이미 사용한 홀드아웃입니다. 정보가 차단된 작성자가 쓰고 별도로 차단된 검토자가 검토했으며 `2f8eaaaa1f`에서 한 번 측정했습니다. 이 문항으로 튜닝하거나 자격 검증에 다시 사용하지 않습니다. |
 
 v2 보정 자료에는 단일 대상 정답 32개, 복수 대상 정답 8개와 일치 대상이 없는 문항 24개가
 있습니다. 각 언어의 단일 대상 문항은 유형별 서로 다른 대상 네 개를 포함하며, 측정하는
@@ -242,7 +242,18 @@ recall@5와 MRR만 `0.9375`(16건 중 15건)였고, negative, adversarial, ambig
 operand는 요청의 바꿔 말한 표현이 아니라 의미가 일치하는 저장값에서 복사하도록 했습니다.
 `c3559f2c1f`에서 보정 v2는 두 번, 보정 v3는 세 번 연속 모든 코호트에서 `1.0`으로 통과했고 중단은
 없었습니다. 정보가 차단된 작성자가 새 `instance-holdout.v4`를 쓰고, 별도로 차단된 검토자가 한 문항을
-고친 뒤 승인했습니다. 병합 커밋에서 한 번의 자격 검증을 실행하기 전까지 측정하지 않습니다.
+고친 뒤 승인했습니다. 병합된 `2f8eaaaa1f`에서 실행한 자격 검증 진단이 이 홀드아웃을 한 번 측정했습니다. 보정 v2는 모든
+코호트에서 `1.0`으로 통과했습니다. 보정 v3는 같은 프롬프트의 개발 실행 세 번에서 통과했던 시간 구간
+요청 `cal-v3-en-a04`를 unsupported-constraint 명확화로 놓쳤습니다. 홀드아웃 v4는 positive,
+ambiguous, adversarial, 영어 negative 코호트가 모두 `1.0`이었고, ko-negative의 일치 없음 정밀도만
+`0.75`(4건 중 3건)였습니다. 홀드아웃 v4는 이미 사용되었으며 그 문항은 들여다보지 않았습니다.
+
+최근 두 번의 자격 검증에서 실패는 매번 192건 중 서로 다른 한두 건이었고, 실패한 보정 문항은 반복된
+개발 실행에서 통과했던 문항이었습니다. 표본이 4건이나 16건인 코호트마다 임계값이 `1.0`이고 모델이
+확률적이므로, 한 번의 실행은 변동만으로도 실패할 수 있습니다. 한 번 통과할 때까지 주기를 반복하면
+품질을 입증하는 것이 아니라 유리한 표본을 고르는 셈입니다. 따라서 다음 홀드아웃을 사용하기 전에
+자격 검증 절차에 대한 소유자 결정이 필요합니다. `reasoning_effort="medium"` 개발 실험은 호출당 약
+3초로 보정 v3를 두 번 통과했지만, 두 번의 실행으로는 `low`보다 변동이 작다고 보여 줄 수 없습니다.
 
 ## 의미 제안을 별도로 측정
 
