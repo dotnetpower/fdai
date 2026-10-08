@@ -1,8 +1,8 @@
 # FDAI code-security severity rubric.
 #
-# Severity describes intrinsic technical impact only. It is derived from four facts per finding
-# instance: impact, attack vector, privileges required, and user interaction. The rubric is a
-# deterministic decision table aligned with CVSS base-metric concepts; its points are rubric
+# Severity describes intrinsic technical impact only. It is derived from five facts per finding
+# instance: impact, attack vector, attack complexity, privileges required, and user interaction.
+# The rubric is a deterministic decision table aligned with CVSS base-metric concepts; its points are rubric
 # points, not a CVSS score.
 #
 # A fact is either verified or unknown. The floor evaluates unknown facts at their least severe
@@ -15,7 +15,7 @@
 # the fact table.
 schema_version: 1
 rubric_id: fdai.code-security.severity
-version: 1.0.0
+version: 1.1.0
 bands:
   - {band: critical, min_points: 9.0}
   - {band: high, min_points: 7.0}
@@ -39,9 +39,16 @@ attack_vector_penalty:
   adjacent: 1.0
   local: 1.5
   physical: 3.0
+# Version 1.1.0 adds attack complexity. Its high penalty matches `local` because CVSS v3 scales
+# exploitability by 0.57 for AC:H and 0.65 for AV:L; it was set from that alignment, not fitted.
+attack_complexity_penalty:
+  low: 0.0
+  high: 1.5
+# Version 1.1.0 raises `low` from 0.8 to 1.1, the smallest change that makes every `dev` code case
+# of the curated corpus agree with its independent label; `holdout` is reported, not fitted.
 privileges_required_penalty:
   none: 0.0
-  low: 0.8
+  low: 1.1
   high: 2.0
 user_interaction_penalty:
   none: 0.0

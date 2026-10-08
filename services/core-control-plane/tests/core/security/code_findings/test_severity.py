@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from fdai.core.security.code_findings.models import InstanceFacts
 from fdai.core.security.code_findings.severity import assess_advisory, assess_facts
 from fdai.rule_catalog.code_security import (
+    AttackComplexity,
     AttackVector,
     Impact,
     PrivilegesRequired,
@@ -17,6 +20,7 @@ from ._support import catalog
 _FULL = InstanceFacts(
     impact=Impact.CODE_EXECUTION,
     attack_vector=AttackVector.NETWORK,
+    attack_complexity=AttackComplexity.LOW,
     privileges_required=PrivilegesRequired.NONE,
     user_interaction=UserInteraction.NONE,
 )
@@ -35,20 +39,51 @@ def test_authenticated_sql_injection_is_high_not_critical() -> None:
     facts = InstanceFacts(
         impact=Impact.DATA_WRITE,
         attack_vector=AttackVector.NETWORK,
+        attack_complexity=AttackComplexity.LOW,
         privileges_required=PrivilegesRequired.LOW,
         user_interaction=UserInteraction.NONE,
     )
     assert assess_facts(facts, (Impact.DATA_WRITE,), catalog().severity_rubric).label == "high"
 
 
+def test_authenticated_code_execution_is_high_not_critical() -> None:
+    # CVSS AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H is 8.8, high; rubric 1.1.0 agrees.
+    facts = InstanceFacts(
+        impact=Impact.CODE_EXECUTION,
+        attack_vector=AttackVector.NETWORK,
+        attack_complexity=AttackComplexity.LOW,
+        privileges_required=PrivilegesRequired.LOW,
+        user_interaction=UserInteraction.NONE,
+    )
+    assessed = assess_facts(facts, (Impact.CODE_EXECUTION,), catalog().severity_rubric)
+    assert (assessed.label, assessed.floor_points) == ("high", 8.9)
+
+
+def test_high_attack_complexity_lowers_an_unauthenticated_critical_to_high() -> None:
+    # CVSS AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H is 8.1, high.
+    facts = InstanceFacts(
+        impact=Impact.CODE_EXECUTION,
+        attack_vector=AttackVector.NETWORK,
+        attack_complexity=AttackComplexity.HIGH,
+        privileges_required=PrivilegesRequired.NONE,
+        user_interaction=UserInteraction.NONE,
+    )
+    rubric = catalog().severity_rubric
+    assert assess_facts(facts, (Impact.CODE_EXECUTION,), rubric).label == "high"
+    low = replace(facts, attack_complexity=AttackComplexity.LOW)
+    assert assess_facts(low, (Impact.CODE_EXECUTION,), rubric).label == "critical"
+
+
 def test_unknown_facts_give_undetermined_with_range_and_deciding_facts() -> None:
     assessed = assess_facts(InstanceFacts(), (Impact.CODE_EXECUTION,), catalog().severity_rubric)
     assert assessed.label == "undetermined"
-    assert assessed.floor == SeverityBand.MEDIUM
+    # Every exploitability fact at its least severe value: 10 - 3.0 - 1.5 - 2.0 - 1.0 = 2.5.
+    assert assessed.floor == SeverityBand.LOW
     assert assessed.ceiling == SeverityBand.CRITICAL
     assert set(assessed.unknown_facts) == {
         "impact",
         "attack_vector",
+        "attack_complexity",
         "privileges_required",
         "user_interaction",
     }
@@ -69,6 +104,7 @@ def test_non_deciding_unknown_fact_is_not_listed() -> None:
     facts = InstanceFacts(
         impact=Impact.LIMITED,
         attack_vector=AttackVector.NETWORK,
+        attack_complexity=AttackComplexity.LOW,
         privileges_required=PrivilegesRequired.NONE,
     )
     assessed = assess_facts(facts, (Impact.LIMITED,), catalog().severity_rubric)

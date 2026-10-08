@@ -29,7 +29,7 @@ def _edit(path: Path, mutate) -> None:  # type: ignore[no-untyped-def]
 
 def test_shipped_catalog_loads_with_versions() -> None:
     loaded = catalog()
-    assert loaded.version_stamp()["severity_rubric"] == "1.0.0"
+    assert loaded.version_stamp()["severity_rubric"] == "1.1.0"
     assert loaded.weakness_classes.class_for_cwe(89) == "sql_injection"
     assert loaded.weakness_classes.class_for_cwe(20) is None
 

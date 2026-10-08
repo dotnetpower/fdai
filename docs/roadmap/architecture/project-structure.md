@@ -628,8 +628,12 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
 
 Code-security findings keep their deterministic core in `core/security/code_findings/`, catalogs
 in `rule-catalog/code-security/`, and adapters in `delivery/code_security_*.py` and
-`delivery/persistence/state_store_code_security_*.py`. The Operator read side is
-`code_security_review_projection.py`, and the Console route is `routes/code-security.tsx`. The
+`delivery/persistence/state_store_code_security_*.py`. Bounded Console issue summaries are built
+by `issue_summary.py` beside the review signal. The severity rubric is catalog data in
+`rule-catalog/code-security/severity-rubric.yaml`, and its version is stamped into every coverage
+receipt, so a rubric change makes earlier rescans non-equivalent. The Operator read side is
+`code_security_review_projection.py` and `code_security_issue_projection.py`, and the Console route
+is `routes/code-security.tsx` with its request, registration, and issue-detail modules. The
 scan runner image sits beside the core image as `docker/code-security-scanner.Dockerfile`. The
 labeled evaluation corpora, including the code and dependency cases of the curated corpus, live in
 `rule-catalog/code-security/evaluation/` and are measured by the pure `evaluation.py` harness. See

@@ -10,10 +10,10 @@
 # source file. Advisories were selected mechanically: for each of CWE 89, 78, 94, 22, 918, 79, 502,
 # and 611, the first two reviewed advisories in GHSA id order with a CVSS v3 vector, exactly one
 # commit reference, and a fix that modifies exactly one non-test source file. Their facts come from
-# the advisory's CVSS v3 vector without judgment: AV, PR, and UI map directly; impact is
+# the advisory's CVSS v3 vector without judgment: AV, AC, PR, and UI map directly; impact is
 # `code_execution` for command injection, code injection, and unsafe deserialization with I:H, then
 # `data_write` for I:H, `data_read` for C:H, `denial_of_service` for A:H, `info_disclosure` for C:L,
-# and `limited` otherwise. The rubric has no attack-complexity fact, so AC is not mapped.
+# and `limited` otherwise. AC maps since severity rubric 1.1.0 added attack complexity.
 #
 # The reviewer band is the severity the GitHub Advisory Database assigned on review, an independent
 # label FDAI never produced. Advisories were published between 2025-07-01 and 2026-09-30. Each
@@ -28,7 +28,7 @@
 # Run: python -m fdai.delivery.code_security_cli evaluate --corpus <this file>
 schema_version: 1
 corpus_id: fdai.code-security.curated-advisories
-version: 1.1.0
+version: 1.2.0
 provenance: curated
 line_shift: 7
 acceptance:
@@ -792,6 +792,7 @@ cases:
     facts:
       impact: data_write
       attack_vector: network
+      attack_complexity: low
       privileges_required: low
       user_interaction: none
 - id: code-yeswiki-4pf7-fixed
@@ -833,6 +834,7 @@ cases:
     facts:
       impact: info_disclosure
       attack_vector: network
+      attack_complexity: low
       privileges_required: low
       user_interaction: none
 - id: code-phpmyfaq-6pvm-fixed
@@ -874,6 +876,7 @@ cases:
     facts:
       impact: code_execution
       attack_vector: network
+      attack_complexity: low
       privileges_required: low
       user_interaction: none
 - id: code-gitpython-2f96-fixed
@@ -915,6 +918,7 @@ cases:
     facts:
       impact: code_execution
       attack_vector: network
+      attack_complexity: low
       privileges_required: low
       user_interaction: required
 - id: code-rclone-2m8m-fixed
@@ -956,6 +960,7 @@ cases:
     facts:
       impact: code_execution
       attack_vector: network
+      attack_complexity: low
       privileges_required: low
       user_interaction: none
 - id: code-omnigent-756x-fixed
@@ -997,6 +1002,7 @@ cases:
     facts:
       impact: code_execution
       attack_vector: network
+      attack_complexity: low
       privileges_required: none
       user_interaction: none
 - id: code-kobako-7pwq-fixed
@@ -1038,6 +1044,7 @@ cases:
     facts:
       impact: data_write
       attack_vector: network
+      attack_complexity: low
       privileges_required: none
       user_interaction: none
 - id: code-rubyzip-47m2-fixed
@@ -1079,6 +1086,7 @@ cases:
     facts:
       impact: data_read
       attack_vector: network
+      attack_complexity: low
       privileges_required: none
       user_interaction: none
 - id: code-codewhale-62f5-fixed
@@ -1120,6 +1128,7 @@ cases:
     facts:
       impact: data_read
       attack_vector: network
+      attack_complexity: low
       privileges_required: low
       user_interaction: none
 - id: code-vllm-4hhp-fixed
@@ -1161,6 +1170,7 @@ cases:
     facts:
       impact: data_write
       attack_vector: network
+      attack_complexity: high
       privileges_required: none
       user_interaction: none
 - id: code-pyjwt-9v7f-fixed
@@ -1202,6 +1212,7 @@ cases:
     facts:
       impact: info_disclosure
       attack_vector: network
+      attack_complexity: low
       privileges_required: none
       user_interaction: required
 - id: code-swc-5qr2-fixed
@@ -1243,6 +1254,7 @@ cases:
     facts:
       impact: data_write
       attack_vector: network
+      attack_complexity: low
       privileges_required: none
       user_interaction: none
 - id: code-suneditor-6rf4-fixed
@@ -1284,6 +1296,7 @@ cases:
     facts:
       impact: code_execution
       attack_vector: network
+      attack_complexity: high
       privileges_required: none
       user_interaction: none
 - id: code-php-weasyprint-2fmj-fixed
@@ -1325,6 +1338,7 @@ cases:
     facts:
       impact: code_execution
       attack_vector: network
+      attack_complexity: low
       privileges_required: none
       user_interaction: none
 - id: code-lmdeploy-2vh9-fixed
@@ -1366,6 +1380,7 @@ cases:
     facts:
       impact: data_read
       attack_vector: network
+      attack_complexity: low
       privileges_required: none
       user_interaction: none
 - id: code-spring-ws-2mpf-fixed
@@ -1407,6 +1422,7 @@ cases:
     facts:
       impact: data_read
       attack_vector: network
+      attack_complexity: low
       privileges_required: low
       user_interaction: none
 - id: code-openremote-7v6w-fixed

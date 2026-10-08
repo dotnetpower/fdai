@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 
 from fdai.rule_catalog.code_security import (
+    AttackComplexity,
     AttackVector,
     AutofixEligibility,
     Confidence,
@@ -106,6 +107,7 @@ class InstanceFacts:
 
     impact: Impact | None = None
     attack_vector: AttackVector | None = None
+    attack_complexity: AttackComplexity | None = None
     privileges_required: PrivilegesRequired | None = None
     user_interaction: UserInteraction | None = None
     evidence_refs: tuple[str, ...] = ()

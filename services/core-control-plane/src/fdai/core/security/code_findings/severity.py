@@ -26,6 +26,7 @@ from fdai.core.security.code_findings.models import (
 )
 from fdai.rule_catalog.code_security import (
     BAND_ORDER,
+    AttackComplexity,
     AttackVector,
     Impact,
     PrivilegesRequired,
@@ -34,7 +35,13 @@ from fdai.rule_catalog.code_security import (
     UserInteraction,
 )
 
-_FACT_NAMES = ("impact", "attack_vector", "privileges_required", "user_interaction")
+_FACT_NAMES = (
+    "impact",
+    "attack_vector",
+    "attack_complexity",
+    "privileges_required",
+    "user_interaction",
+)
 
 
 def band_for_points(points: float, rubric: SeverityRubric) -> SeverityBand:
@@ -56,6 +63,7 @@ def _points(facts: InstanceFacts, rubric: SeverityRubric) -> float:
     if (
         facts.impact is None
         or facts.attack_vector is None
+        or facts.attack_complexity is None
         or facts.privileges_required is None
         or facts.user_interaction is None
     ):
@@ -63,6 +71,7 @@ def _points(facts: InstanceFacts, rubric: SeverityRubric) -> float:
     return round(
         rubric.impact_points[facts.impact]
         - rubric.attack_vector_penalty[facts.attack_vector]
+        - rubric.attack_complexity_penalty[facts.attack_complexity]
         - rubric.privileges_required_penalty[facts.privileges_required]
         - rubric.user_interaction_penalty[facts.user_interaction],
         2,
@@ -89,6 +98,12 @@ def _resolve(
         or _extreme(
             list(AttackVector),
             lambda v: -rubric.attack_vector_penalty[v],
+            most_severe=most_severe,
+        ),
+        attack_complexity=facts.attack_complexity
+        or _extreme(
+            list(AttackComplexity),
+            lambda v: -rubric.attack_complexity_penalty[v],
             most_severe=most_severe,
         ),
         privileges_required=facts.privileges_required
