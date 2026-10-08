@@ -211,6 +211,12 @@ lists the goals whose relation roles two blind readers swapped. The local prompt
 its diagnostics to standard error, so `dev-discuss explain` can still read the service input digest
 while an explicit uncommitted-prompt opt-in is active.
 
+When the form path reads a question a second time, the replaced sample's decline appears as its own
+`semantic_form_sample_declined` event with the same closed fields. A turn that recovered on the second
+sample therefore still shows why the first one failed. The local plain service log renders the same
+form-path decision fields for the compiled-answer logger only, and only as closed tokens, so a held
+turn stays explainable from the log file after a restart clears the trace buffer.
+
 A cue is a review pointer, not a causal conclusion. `dev-discuss explain` captures a snapshot and
 prints each trace with its cues. The reviewer compares them with the questions they asked, because
 those questions never enter the packet. Frame and plan provenance appears as model call counts
