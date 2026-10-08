@@ -253,6 +253,11 @@ Repair feedback may repeat the judged words to
 the model, but rejection logs keep only its location, type, and reason. `semantic_judgment_review.py`
 owns both the second-tier review requirement and the promotion of a grounded state collection, so
 the review decision and the planned family cannot diverge.
+`composition/typed_selection_shadow.py` binds the typed instance selection shadow proposer only
+when `FDAI_ONTOLOGY_TYPED_SELECTION_SHADOW=enabled`. It accepts only the qualified model, prompt,
+and budget pinned in `config/ontology-typed-selection-shadow.json`, together with that file's
+data-handling policy, and returns a typed reason for any mismatch. The observer it feeds never
+changes an answer and grants no authority.
 
 **Initial design.** Physically move every flat Core subsystem under `pipeline`, `incident`,
 `operator`, `knowledge`, or `platform`, then rewrite every import in one codemod.
