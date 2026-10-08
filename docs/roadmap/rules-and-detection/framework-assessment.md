@@ -130,8 +130,10 @@ The MCSB catalog uses the same runtime and workload scope as WAF. It decomposes 
 controls into one decisive manual control-evidence requirement plus reviewed Rule requirements, so
 Rule evidence can fail an MCSB control but can't satisfy it alone. In every catalog, only decisive
 requirements decide a control; a `supporting_only` requirement can neither fail nor block it. The
-assessment job records MCSB
-results as no-authority audit receipts; they aren't projected to the Operator yet. See
+assessment job records MCSB results as no-authority audit receipts. When an MCSB assessment event
+is published, the Operator keeps it in a separate `mcsb-assessment.list` projection and joins each
+v1 control's server-owned state, and each requirement's evidence role, onto the MCSB catalog read.
+The Console shows that state beside implementation coverage and never derives it. See
 [Framework Rule Evidence from T0](framework-rule-evidence.md#mcsb-assessment).
 
 ## Deployment-supplied profile

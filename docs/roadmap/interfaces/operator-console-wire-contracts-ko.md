@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 54af60a855da640681b2d8363f83063ae1df3109
+translation_source_sha: 458ba0c516a762cb8e413a3bbf6dffadfaed2b3a
 translation_revised: 2026-10-08
 ---
 
@@ -517,6 +517,22 @@ Forseti의 최신 버전 2 baseline 커버리지가 있으면 `GET /rules/findin
 `source`, `reviews` 또는 `packs` 목록, `gaps`를 반환합니다. 행에는 건수, 리비전, 불투명한 이슈 ID,
 판단, 판정 건수, 오탐 판정 결과만 담기며 경로, 코드, 판단 근거 문구, 승인 참조는 담기지 않습니다.
 형식이 잘못된 행은 `gaps` 항목이 되므로 빈 목록이 문제없는 상태로 읽히지 않습니다.
+
+### 13.15 MCSB 컨트롤 평가 필드
+
+`GET /mcsb-controls`와 `GET /mcsb-controls/{benchmark_version}/{control_id}`는 카탈로그 읽기에
+서버 소유 섀도 평가 필드를 추가합니다. `v1`만 평가합니다.
+
+| 필드 | 의미 |
+|------|------|
+| `assessment_summary.status` | `evaluated`, `not_evaluated`, `unavailable`(평가 프로젝션 없음), `not_assessed`(다른 벤치마크 버전) 중 하나 |
+| `assessment_summary.satisfaction_counts` | 프로젝션이 있을 때 충족 상태 값별 컨트롤 수 |
+| `assessment_summary.execution_authority` | 항상 `false` |
+| `controls[].assessment` | 컨트롤의 적용 가능성, 평가, 충족 상태, 평가 시각, 완전성, 제한 사항 또는 `null` |
+| `assessment.requirements` | 세부 정보 전용: 각 요구 사항의 종류, 참조, `decisive` 또는 `supporting_only` 근거 역할, 상태, 제한 사항 |
+
+형식이 잘못되었거나 권한을 담은 평가 프로젝션은 알 수 없음 상태 대신 `503`을 반환합니다. Console은
+이 값을 표시할 뿐 충족 상태를 계산하지 않습니다.
 
 ## 구현 상태
 

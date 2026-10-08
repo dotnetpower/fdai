@@ -548,6 +548,22 @@ opaque issue ids, decisions, verdict counts, and adjudication decisions, never p
 rationale, or approval references. Malformed rows become `gaps` entries, so an empty list never
 reads as a clean estate.
 
+### 13.15 MCSB control assessment fields
+
+`GET /mcsb-controls` and `GET /mcsb-controls/{benchmark_version}/{control_id}` add server-owned
+shadow assessment fields to the catalog read. Only `v1` is assessed.
+
+| Field | Meaning |
+|-------|---------|
+| `assessment_summary.status` | `evaluated`, `not_evaluated`, `unavailable` (no assessment projection), or `not_assessed` (another benchmark version) |
+| `assessment_summary.satisfaction_counts` | Control count per satisfaction value when a projection exists |
+| `assessment_summary.execution_authority` | Always `false` |
+| `controls[].assessment` | The control's applicability, evaluation, satisfaction, evaluation time, completeness, and limitations, or `null` |
+| `assessment.requirements` | Detail only: each requirement's kind, reference, `decisive` or `supporting_only` evidence role, status, and limitations |
+
+A malformed or authority-bearing assessment projection returns `503` instead of an unknown state.
+The Console renders these values and never derives satisfaction.
+
 ## Implementation status
 
 ### Implementation scope
@@ -574,6 +590,7 @@ reads as a clean estate.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-08 | implemented | Documented the MCSB control assessment fields: a no-authority `assessment_summary` and per-control `assessment`, with requirement evidence roles on the detail read. Incident creation and other wire shapes are unchanged. | `test_framework_mcsb_assessment_projection.py`; `test_operator_workflow_family.py`; `mcsb-controls.model.test.ts` | None |
 | 2026-10-07 | implemented | Reserved bounded semantic answer space for later collection outputs without changing the terminal wire, Incident creation, or authority. | [Issue #1970](https://github.com/dotnetpower/fdai/issues/1970); `current change`; focused semantic turn and verified-row tests. | Live presentation evidence remains separate. |
 | 2026-10-07 | implemented | Documented the Rule detected issue summary wire shape, which now reads Forseti's latest version 2 baseline coverage, reports incomplete coverage as not evaluated with limitation codes, and lists the Core baseline worker settings. | `current change`; `workflow_rule_projection.py`; `services/operator-service/tests/test_rule_findings_summary_admission.py` (20 passed); `services/core-control-plane/tests/runtime/test_baseline_evaluation_binding.py` (8 passed). | None for this contract. |
 | 2026-10-02 | implemented | Preserved opt-in trace privacy while carrying recorded call count through the existing numeric usage map. | `current change`; focused Core projection and Console numeric decoding/accounting checks; full task semantic cohort 916 passed. | Exact-source live presentation remains to be measured; no Incident or execution authority changed. |

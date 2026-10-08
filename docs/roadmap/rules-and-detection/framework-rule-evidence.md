@@ -237,8 +237,10 @@ duplicate, unexplained, or unreviewed binding.
   MCSB receipts from it, so both cite the same baseline. It records MCSB as a no-authority audit
   receipt.
 
-Operator projection and Console views of MCSB results aren't implemented; the Operator projection
-accepts only WAF and CAF assessment events.
+The Operator projects MCSB assessment events into a separate `mcsb-assessment.list` projection and
+joins each v1 control's state and each requirement's evidence role onto the MCSB catalog read; the
+Console Controls view shows them. Like WAF and CAF, no production publisher sends framework events
+yet: the live job records audit receipts only.
 
 ### CAF decision
 

@@ -523,7 +523,8 @@
         "coverage": "Coverage",
         "rules": "Rules",
         "runtime": "Runtime",
-        "manual": "Manual"
+        "manual": "Manual",
+        "assessment": "Assessment"
       },
       "filter": {
         "domain": "Domain",
@@ -545,7 +546,19 @@
         "rules": "FDAI rules",
         "runtime": "Runtime observations",
         "manual": "Manual evidence",
-        "none": "No reviewed mapping is recorded."
+        "none": "No reviewed mapping is recorded.",
+        "assessment": "Shadow assessment",
+        "assessmentBoundary": "Decisive control evidence is required to satisfy this control. Rule evidence can fail it, supporting evidence adds context only, and the result grants no execution authority.",
+        "assessmentNone": "No shadow assessment result is recorded for this control.",
+        "evaluatedAt": "Evaluated",
+        "requirements": "Requirements"
+      },
+      "assessment": {
+        "evaluated": "Shadow assessment from {time}: {failed} failed, {unknown} unknown, {satisfied} satisfied. Rule evidence can fail a control but never satisfies it alone.",
+        "not_evaluated": "Shadow assessment is connected, but no workload has been evaluated yet.",
+        "unavailable": "Shadow assessment results aren't available.",
+        "not_assessed": "This benchmark version isn't assessed.",
+        "none": "Not assessed"
       }
     },
     "wara": {
@@ -798,6 +811,10 @@
       "no_record": "No workload has been assessed with rule evidence yet.",
       "no_baseline": "The rule baseline this coverage came from is no longer available.",
       "baseline_changed": "A newer rule baseline exists. Counts return after the next assessment."
+    },
+    "mcsbEvidenceRole": {
+      "decisive": "Decisive",
+      "supporting_only": "Supporting only"
     }
   }
 }

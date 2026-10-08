@@ -1,7 +1,7 @@
 ---
 title: T0 기반 프레임워크 규칙 근거
 translation_of: framework-rule-evidence.md
-translation_source_sha: 1c5cc5f2c9fab4065f8079d3e586769b730a1c54
+translation_source_sha: 799a4237ea97ab96865de7e5bd3998d7bcb35792
 translation_revised: 2026-10-08
 ---
 # T0 기반 프레임워크 규칙 근거
@@ -235,8 +235,10 @@ Forseti는 규칙이 `evaluates`에 선언한 모든 속성을 리소스가 가�
   작업은 범위별 규칙 커버리지를 한 번만 읽어 WAF와 MCSB 영수증을 모두 만들므로 두 프레임워크가 같은
   baseline을 인용합니다. MCSB는 권한 없는 감사 영수증으로 기록합니다.
 
-MCSB 결과의 Operator 프로젝션과 Console 보기는 구현되지 않았습니다. Operator 프로젝션은 WAF와 CAF
-평가 이벤트만 받습니다.
+Operator는 MCSB 평가 이벤트를 별도의 `mcsb-assessment.list` 프로젝션에 투영하고, 각 v1 컨트롤의
+상태와 각 요구 사항의 근거 역할을 MCSB 카탈로그 읽기에 결합하며, Console 컨트롤 보기가 이를
+보여 줍니다. WAF, CAF와 마찬가지로 아직 프레임워크 이벤트를 보내는 운영 게시자는 없으며, 라이브 작업은
+감사 영수증만 기록합니다.
 
 ### CAF 결정
 

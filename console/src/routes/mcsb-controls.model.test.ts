@@ -69,6 +69,87 @@ describe("MCSB controls contract", () => {
   });
 });
 
+describe("MCSB shadow assessment contract", () => {
+  const ASSESSMENT = {
+    applicability: "applicable",
+    evaluation_status: "evaluated",
+    satisfaction: "failed",
+    evaluated_at: "2026-10-08T00:00:00+00:00",
+    evidence_complete: false,
+    limitations: [],
+  } as const;
+  const SUMMARY = {
+    status: "evaluated",
+    framework_id: "azure-mcsb",
+    last_evaluated_at: "2026-10-08T00:00:00+00:00",
+    satisfaction_counts: { failed: 1 },
+    execution_authority: false,
+  } as const;
+
+  test("decodes server-owned control state and treats an absent field as not connected", () => {
+    const decoded = decodeMcsbControlResponse({
+      ...(response([{ ...CONTROL, assessment: ASSESSMENT }]) as Record<string, unknown>),
+      assessment_summary: SUMMARY,
+    });
+    expect(decoded.controls[0]?.assessment?.satisfaction).toBe("failed");
+    expect(decoded.assessment_summary?.satisfaction_counts).toEqual({ failed: 1 });
+    const legacy = decodeMcsbControlResponse(response());
+    expect(legacy.controls[0]?.assessment).toBeNull();
+    expect(legacy.assessment_summary).toBeNull();
+  });
+
+  test("rejects unknown satisfaction and authority-bearing summaries", () => {
+    expect(() =>
+      decodeMcsbControlResponse(response([{ ...CONTROL, assessment: { ...ASSESSMENT, satisfaction: "passed" } }])),
+    ).toThrow(/unknown value passed/);
+    expect(() =>
+      decodeMcsbControlResponse({
+        ...(response() as Record<string, unknown>),
+        assessment_summary: { ...SUMMARY, execution_authority: true },
+      }),
+    ).toThrow(/no authority/);
+  });
+
+  test("decodes detail requirements with evidence roles", () => {
+    const detail = decodeMcsbControlDetail({
+      ...CONTROL,
+      benchmark_version: "v1",
+      rule_ids: [],
+      runtime_observation_ids: [],
+      manual_evidence_refs: [],
+      source: {},
+      evaluation_source: "catalog_crosswalk",
+      assessment: {
+        ...ASSESSMENT,
+        requirements: [
+          { kind: "artifact", ref: "mcsb-dp-3-control-evidence", evidence_role: "decisive", status: "unknown", limitations: [] },
+          { kind: "rule", ref: "object-storage.https-only.required", evidence_role: "supporting_only", status: "failed", limitations: [] },
+        ],
+      },
+      assessment_summary: SUMMARY,
+    });
+    expect(detail.assessment?.requirements.map((item) => item.evidence_role)).toEqual([
+      "decisive",
+      "supporting_only",
+    ]);
+    expect(() =>
+      decodeMcsbControlDetail({
+        ...CONTROL,
+        benchmark_version: "v1",
+        rule_ids: [],
+        runtime_observation_ids: [],
+        manual_evidence_refs: [],
+        source: {},
+        evaluation_source: "catalog_crosswalk",
+        assessment: {
+          ...ASSESSMENT,
+          requirements: [{ kind: "rule", ref: "r", evidence_role: "advisory", status: "failed", limitations: [] }],
+        },
+      }),
+    ).toThrow(/unknown value advisory/);
+  });
+});
+
 describe("MCSB controls URL state", () => {
   test("round-trips version, filters, and selection", () => {
     const href = mcsbControlsHref(

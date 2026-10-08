@@ -2,6 +2,7 @@ import { OperatorApiError } from "../api";
 import { routeHref } from "../router";
 import {
   panelArray,
+  panelBoolean,
   panelNonEmptyString,
   panelNonNegativeInteger,
   panelNullableString,
@@ -11,6 +12,39 @@ import {
 
 export const MCSB_COVERAGES = ["automated", "partial", "manual", "unmapped"] as const;
 export type McsbCoverage = (typeof MCSB_COVERAGES)[number];
+export const MCSB_SATISFACTIONS = ["satisfied", "failed", "not_applicable", "unknown"] as const;
+export type McsbSatisfaction = (typeof MCSB_SATISFACTIONS)[number];
+export const MCSB_ASSESSMENT_STATUSES = ["evaluated", "not_evaluated", "unavailable", "not_assessed"] as const;
+export type McsbAssessmentStatus = (typeof MCSB_ASSESSMENT_STATUSES)[number];
+export const MCSB_EVIDENCE_ROLES = ["decisive", "supporting_only"] as const;
+export type McsbEvidenceRole = (typeof MCSB_EVIDENCE_ROLES)[number];
+
+/** Server-owned shadow assessment state of one control; the browser never derives it. */
+export interface McsbControlAssessment {
+  readonly evaluation_status: string;
+  readonly satisfaction: McsbSatisfaction;
+  readonly evaluated_at: string | null;
+  readonly evidence_complete: boolean;
+  readonly limitations: readonly string[];
+}
+
+export interface McsbAssessmentRequirement {
+  readonly kind: string;
+  readonly ref: string;
+  readonly evidence_role: McsbEvidenceRole;
+  readonly status: McsbSatisfaction;
+  readonly limitations: readonly string[];
+}
+
+export interface McsbControlDetailAssessment extends McsbControlAssessment {
+  readonly requirements: readonly McsbAssessmentRequirement[];
+}
+
+export interface McsbAssessmentSummary {
+  readonly status: McsbAssessmentStatus;
+  readonly last_evaluated_at: string | null;
+  readonly satisfaction_counts: Readonly<Record<string, number>>;
+}
 export type McsbVersion = "v1" | "v2-preview";
 
 export interface McsbPolicyProfile {
@@ -36,15 +70,18 @@ export interface McsbControl {
   readonly rule_count: number;
   readonly runtime_observation_count: number;
   readonly manual_evidence_count: number;
+  readonly assessment: McsbControlAssessment | null;
 }
 
-export interface McsbControlDetail extends McsbControl {
+export interface McsbControlDetail extends Omit<McsbControl, "assessment"> {
   readonly benchmark_version: McsbVersion;
   readonly rule_ids: readonly string[];
   readonly runtime_observation_ids: readonly string[];
   readonly manual_evidence_refs: readonly string[];
   readonly source: Readonly<Record<string, unknown>>;
   readonly evaluation_source: string;
+  readonly assessment: McsbControlDetailAssessment | null;
+  readonly assessment_summary: McsbAssessmentSummary | null;
 }
 
 export interface McsbControlResponse {
@@ -60,6 +97,7 @@ export interface McsbControlResponse {
   };
   readonly controls: readonly McsbControl[];
   readonly evaluation_source: string;
+  readonly assessment_summary: McsbAssessmentSummary | null;
 }
 
 export interface McsbFilters {
@@ -118,6 +156,66 @@ function decodeBenchmark(value: unknown, label: string): McsbBenchmarkSummary {
   };
 }
 
+function decodeMember<T extends string>(
+  value: string,
+  allowed: readonly T[],
+  label: string,
+): T {
+  if (!allowed.includes(value as T)) {
+    throw new OperatorApiError(502, `invalid Operator API response: ${label} has unknown value ${value}`);
+  }
+  return value as T;
+}
+
+function decodeAssessment(value: unknown, label: string): McsbControlAssessment | null {
+  if (value === undefined || value === null) return null;
+  const raw = panelRecord(value, label);
+  return {
+    evaluation_status: panelNonEmptyString(raw, "evaluation_status", label),
+    satisfaction: decodeMember(
+      panelNonEmptyString(raw, "satisfaction", label),
+      MCSB_SATISFACTIONS,
+      `${label}.satisfaction`,
+    ),
+    evaluated_at: panelNullableString(raw, "evaluated_at", label),
+    evidence_complete: panelBoolean(raw, "evidence_complete", label),
+    limitations: panelStringArray(raw["limitations"], `${label}.limitations`),
+  };
+}
+
+function decodeRequirement(value: unknown, index: number): McsbAssessmentRequirement {
+  const label = `MCSB assessment requirements[${index}]`;
+  const raw = panelRecord(value, label);
+  return {
+    kind: panelNonEmptyString(raw, "kind", label),
+    ref: panelNonEmptyString(raw, "ref", label),
+    evidence_role: decodeMember(
+      panelNonEmptyString(raw, "evidence_role", label),
+      MCSB_EVIDENCE_ROLES,
+      `${label}.evidence_role`,
+    ),
+    status: decodeMember(panelNonEmptyString(raw, "status", label), MCSB_SATISFACTIONS, `${label}.status`),
+    limitations: panelStringArray(raw["limitations"], `${label}.limitations`),
+  };
+}
+
+function decodeSummary(value: unknown, label: string): McsbAssessmentSummary | null {
+  if (value === undefined || value === null) return null;
+  const raw = panelRecord(value, label);
+  if (raw["execution_authority"] !== false) {
+    throw new OperatorApiError(502, `invalid Operator API response: ${label} MUST carry no authority`);
+  }
+  return {
+    status: decodeMember(panelNonEmptyString(raw, "status", label), MCSB_ASSESSMENT_STATUSES, `${label}.status`),
+    last_evaluated_at:
+      raw["last_evaluated_at"] === undefined ? null : panelNullableString(raw, "last_evaluated_at", label),
+    satisfaction_counts:
+      raw["satisfaction_counts"] === undefined
+        ? {}
+        : decodeCountMap(raw["satisfaction_counts"], `${label}.satisfaction_counts`),
+  };
+}
+
 function decodeControl(value: unknown, index: number): McsbControl {
   const label = `MCSB controls[${index}]`;
   const raw = panelRecord(value, label);
@@ -129,6 +227,7 @@ function decodeControl(value: unknown, index: number): McsbControl {
     rule_count: panelNonNegativeInteger(raw, "rule_count", label),
     runtime_observation_count: panelNonNegativeInteger(raw, "runtime_observation_count", label),
     manual_evidence_count: panelNonNegativeInteger(raw, "manual_evidence_count", label),
+    assessment: decodeAssessment(raw["assessment"], `${label}.assessment`),
   };
 }
 
@@ -165,13 +264,27 @@ export function decodeMcsbControlResponse(value: unknown): McsbControlResponse {
     },
     controls,
     evaluation_source: panelNonEmptyString(root, "evaluation_source", "MCSB controls"),
+    assessment_summary: decodeSummary(root["assessment_summary"], "MCSB assessment summary"),
   };
 }
 
 export function decodeMcsbControlDetail(value: unknown): McsbControlDetail {
   const root = panelRecord(value, "MCSB control detail");
+  const control = decodeControl({ ...root, assessment: null }, 0);
+  const assessment = decodeAssessment(root["assessment"], "MCSB control detail.assessment");
   return {
-    ...decodeControl(root, 0),
+    ...control,
+    assessment:
+      assessment === null
+        ? null
+        : {
+            ...assessment,
+            requirements: panelArray(
+              panelRecord(root["assessment"], "MCSB control detail.assessment")["requirements"] ?? [],
+              "MCSB control detail.assessment.requirements",
+            ).map(decodeRequirement),
+          },
+    assessment_summary: decodeSummary(root["assessment_summary"], "MCSB assessment summary"),
     benchmark_version: decodeVersion(
       panelNonEmptyString(root, "benchmark_version", "MCSB control detail"),
       "MCSB control detail",

@@ -50,6 +50,7 @@ from fdai_operator_service.families.workflow.contracts import (
     WorkflowReadResult,
 )
 from fdai_operator_service.family_adapter_values import mapping as _mapping
+from fdai_operator_service.framework_mcsb_assessment_projection import attach_mcsb_assessment
 from fdai_operator_service.framework_rule_coverage_projection import attach_rule_coverage
 from fdai_operator_service.operations_family_adapters import (
     PostgresOperationsAdapters,
@@ -293,6 +294,22 @@ class PostgresWorkflowAdapters:
                 )
                 projection_key = "operator-projection:workflow:mcsb.list"
                 payload = _mcsb_catalog_payload(stored, request)
+                payload, assessment_revision = await attach_mcsb_assessment(
+                    payload,
+                    self.store,
+                    detail=request.operation is WorkflowOperation.MCSB_DETAIL,
+                )
+                if assessment_revision is not None:
+                    joined_revision = hashlib.sha256(
+                        json.dumps(
+                            {
+                                "catalog_revision": stored.get("_revision"),
+                                "mcsb_assessment": assessment_revision,
+                            },
+                            separators=(",", ":"),
+                            sort_keys=True,
+                        ).encode()
+                    ).hexdigest()
             elif request.operation is WorkflowOperation.PROMOTION_GATE_LIST:
                 stored = await self.store.read_projection(
                     family="workflow",

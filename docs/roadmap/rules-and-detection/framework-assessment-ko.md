@@ -1,7 +1,7 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: 3cf72f6b649f949db7e8cc0f20e99c16b6e19652
+translation_source_sha: f784a378b9f7d6677c61f663f4b934fc7c24a66a
 translation_revised: 2026-10-08
 ---
 # WAF 및 CAF 근거 기반 평가
@@ -132,8 +132,10 @@ MCSB 카탈로그는 WAF와 같은 런타임과 워크로드 범위를 사용합
 수동 컨트롤 근거 요구 사항 하나와 검토된 규칙 요구 사항으로 분해하므로, 규칙 근거는 MCSB 컨트롤을
 실패시킬 수는 있지만 단독으로 충족시킬 수는 없습니다. 모든 카탈로그에서 컨트롤은 결정적 요구
 사항으로만 결정되며, `supporting_only` 요구 사항은 컨트롤을 실패시키거나 막을 수 없습니다. 평가
-작업은 MCSB 결과를 권한 없는 감사
-영수증으로 기록하며, 아직 Operator로 프로젝션하지 않습니다.
+작업은 MCSB 결과를 권한 없는 감사 영수증으로 기록합니다. MCSB 평가 이벤트가 게시되면 Operator는 이를
+별도의 `mcsb-assessment.list` 프로젝션에 보관하고, 각 v1 컨트롤의 서버 소유 상태와 각 요구 사항의
+근거 역할을 MCSB 카탈로그 읽기에 결합합니다. Console은 이 상태를 구현 커버리지 옆에 보여 주며 직접
+계산하지 않습니다.
 [T0 기반 프레임워크 규칙 근거](framework-rule-evidence-ko.md#mcsb-평가)를 참조하세요.
 
 ## 배포 제공 프로필
