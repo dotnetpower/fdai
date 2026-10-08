@@ -4,7 +4,7 @@ import asyncio
 import json
 from collections.abc import Sequence
 from dataclasses import replace
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import AsyncMock
 
 import pytest
@@ -718,3 +718,55 @@ async def test_proposal_context_keeps_only_the_typed_selection_domain() -> None:
     assert not _selection_context_document("declaration:function:query.example")
     assert not _selection_context_document("declaration:link:example")
     assert not _selection_context_document("unavailable:example")
+
+
+async def test_membership_as_of_is_captured_after_slow_proposals() -> None:
+    observer, proposer, _store, harness = await _observer([("resource-1",), ("resource-1",)])
+    original = proposer.propose_candidate_selection
+
+    async def slow(**kwargs: object) -> OntologyCandidateProposalResult:
+        harness.clock.now += timedelta(seconds=10)
+        return await original(**kwargs)  # type: ignore[arg-type]
+
+    proposer.propose_candidate_selection = slow  # type: ignore[method-assign]
+    record = await _observe(observer, harness)
+    assert record is not None
+    assert record["unavailable_reason"] is None
+    assert record["gated_outcome"] == "selected"
+    assert record["as_of"] == harness.clock.now.isoformat()
+
+
+async def test_sibling_failure_keeps_the_completed_proposal_and_failure_class() -> None:
+    observer, proposer, _store, harness = await _observer(
+        [RuntimeError("private provider detail"), ("resource-0",)]
+    )
+    record = await _observe(observer, harness)
+    assert record is not None
+    assert proposer.calls == 2
+    assert record["unavailable_reason"] == "proposal_unavailable"
+    assert record["failure_types"] == ["RuntimeError"]
+    passes = record["passes"]
+    assert isinstance(passes, list)
+    assert [item["membership"] for item in passes] == ["not_attempted"]
+    assert passes[0]["clause_shapes"] == [
+        {
+            "object_type": "Resource",
+            "predicates": [],
+            "nested_predicates": [],
+            "object_id_count": 1,
+        }
+    ]
+    assert "private provider detail" not in json.dumps(record)
+
+
+async def test_rejected_selection_records_only_its_failure_class() -> None:
+    observer, _proposer, _store, harness = await _observer([("resource-0",), ("resource-0",)])
+
+    async def rejected(*_args: object, **_kwargs: object) -> OntologyCandidateSearchResult:
+        raise PermissionError("ontology predicate property is not readable")
+
+    harness.reader.shadow_select = rejected  # type: ignore[method-assign]
+    record = await _observe(observer, harness)
+    assert record is not None
+    assert record["unavailable_reason"] == "membership_unavailable"
+    assert record["failure_types"] == ["PermissionError"]

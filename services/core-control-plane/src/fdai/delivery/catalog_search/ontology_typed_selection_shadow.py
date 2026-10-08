@@ -18,7 +18,7 @@ import asyncio
 import logging
 import uuid
 from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from typing import Any, Literal, get_args
 
@@ -38,7 +38,7 @@ from .ontology_candidate_reader import (
     OntologyCandidateSearchResult,
     OntologyInstanceCandidateReader,
 )
-from .ontology_candidate_selection import OntologyCandidateSelection
+from .ontology_candidate_selection import OntologyCandidateClause, OntologyCandidateSelection
 from .ontology_index_lifecycle import IndexPointer, IndexScope
 from .ontology_semantic_qualification import PROTOCOL_ID as QUALIFICATION_PROTOCOL_ID
 from .ontology_snapshot_store import OntologyGenerationSnapshotStore, OntologyStagedProjection
@@ -85,9 +85,21 @@ ShadowSkipReason = Literal[
 
 
 class _ShadowUnavailableError(Exception):
-    def __init__(self, reason: ShadowUnavailableReason) -> None:
+    def __init__(self, reason: ShadowUnavailableReason, *, failure_type: str | None = None) -> None:
         super().__init__(reason)
         self.reason: ShadowUnavailableReason = reason
+        self.failure_type = failure_type
+
+
+@dataclass(slots=True)
+class _Progress:
+    """Evidence gathered so far; a failure keeps what completed before it."""
+
+    target: ShadowTarget | None = None
+    binding: OntologyCandidateModelBinding | None = None
+    as_of: datetime | None = None
+    passes: list[_Pass] = field(default_factory=list)
+    failure_types: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True, slots=True)
@@ -330,24 +342,21 @@ class TypedSelectionShadowObserver:
         await self._write(SHADOW_INTENT_PREFIX, observation_id, intent)
         for name in self._skipped:
             self._skipped[name] = 0
-        target: ShadowTarget | None = None
-        binding: OntologyCandidateModelBinding | None = None
-        passes: list[_Pass] = []
-        as_of: datetime | None = None
+        progress = _Progress()
         reason: ShadowUnavailableReason | None = None
         try:
             async with asyncio.timeout(self._budget.total_timeout_seconds):
-                target, binding, as_of, passes = await self._observe(invocation, resolve)
-                if not await current(scope, target):
+                await self._observe(invocation, resolve, progress)
+                if progress.target is None or not await current(scope, progress.target):
                     raise _ShadowUnavailableError("index_changed")
         except _ShadowUnavailableError as exc:
             reason = exc.reason
+            if exc.failure_type is not None:
+                progress.failure_types.append(exc.failure_type)
         except TimeoutError:
             reason = "deadline_exceeded"
         except asyncio.CancelledError:
-            terminal = self._terminal(
-                intent, invocation, target, binding, as_of, [], "cancelled", started
-            )
+            terminal = self._terminal(intent, invocation, progress, "cancelled", started)
             try:
                 async with asyncio.timeout(_CANCEL_RECORD_SECONDS):
                     await asyncio.shield(
@@ -356,9 +365,7 @@ class TypedSelectionShadowObserver:
             except (Exception, asyncio.CancelledError):  # noqa: BLE001 - shutdown is best effort
                 _LOGGER.warning("ontology_typed_selection_shadow_cancel_unrecorded")
             raise
-        terminal = self._terminal(
-            intent, invocation, target, binding, as_of, passes, reason, started
-        )
+        terminal = self._terminal(intent, invocation, progress, reason, started)
         await self._write(SHADOW_TERMINAL_PREFIX, observation_id, terminal)
         return terminal
 
@@ -366,13 +373,16 @@ class TypedSelectionShadowObserver:
         self,
         intent: Mapping[str, object],
         invocation: ShadowInvocation,
-        target: ShadowTarget | None,
-        binding: OntologyCandidateModelBinding | None,
-        as_of: datetime | None,
-        passes: list[_Pass],
+        progress: _Progress,
         reason: ShadowUnavailableReason | None,
         started: float,
     ) -> dict[str, object]:
+        target, binding, as_of, passes = (
+            progress.target,
+            progress.binding,
+            progress.as_of,
+            progress.passes,
+        )
         outcome = _gate(passes) if reason is None else "unavailable"
         selected = passes[0].retrieved if outcome in {"selected", "empty"} else frozenset()
         body: dict[str, object] = {
@@ -393,6 +403,7 @@ class TypedSelectionShadowObserver:
             and len({item.status for item in passes}) == 1,
             "gated_outcome": outcome,
             "unavailable_reason": reason,
+            "failure_types": sorted(progress.failure_types),
             "gated_document_ids": sorted(selected),
             "comparison": _compare(invocation.primary, outcome, selected),
             "completed_at": self._clock().isoformat(),
@@ -422,8 +433,11 @@ class TypedSelectionShadowObserver:
         return False
 
     async def _observe(
-        self, invocation: ShadowInvocation, resolve: ShadowTargetResolver
-    ) -> tuple[ShadowTarget, OntologyCandidateModelBinding, datetime, list[_Pass]]:
+        self,
+        invocation: ShadowInvocation,
+        resolve: ShadowTargetResolver,
+        progress: _Progress,
+    ) -> None:
         try:
             target = await resolve(invocation.scope)
             active = target.pointer.active
@@ -434,7 +448,10 @@ class TypedSelectionShadowObserver:
                 source_projection_digest=target.staged.source_projection_digest,
             )
         except (ValueError, PermissionError, LookupError) as exc:
-            raise _ShadowUnavailableError("index_unavailable") from exc
+            raise _ShadowUnavailableError(
+                "index_unavailable", failure_type=type(exc).__name__
+            ) from exc
+        progress.target = target
         if (
             active is None
             or build is None
@@ -445,6 +462,7 @@ class TypedSelectionShadowObserver:
             binding = self._proposer.candidate_proposal_binding()
         except (ValueError, TypeError) as exc:
             raise _ShadowUnavailableError("proposal_binding_changed") from exc
+        progress.binding = binding
         if self._expected_binding is not None and binding != self._expected_binding:
             raise _ShadowUnavailableError("proposal_binding_changed")
         try:
@@ -455,37 +473,55 @@ class TypedSelectionShadowObserver:
                 staged=target.staged,
             )
         except ValueError as exc:
-            raise _ShadowUnavailableError("context_unavailable") from exc
-        as_of = self._clock()
+            raise _ShadowUnavailableError(
+                "context_unavailable", failure_type=type(exc).__name__
+            ) from exc
         input_digest = str(payload["input_digest"])
-        try:
-            async with asyncio.TaskGroup() as group:
-                tasks = [
-                    group.create_task(
-                        self._pass(index, invocation, target, build, input_digest, as_of)
-                    )
-                    for index in range(PASSES_PER_DECISION)
-                ]
-        except ExceptionGroup as failure:
-            reasons = [
-                item.reason
-                for item in failure.exceptions
-                if isinstance(item, _ShadowUnavailableError)
-            ]
-            if len(reasons) != len(failure.exceptions):
-                raise
-            raise _ShadowUnavailableError(min(reasons, key=_REASON_ORDER.index)) from None
-        return target, binding, as_of, [task.result() for task in tasks]
+        # Both proposals finish before membership: a sibling failure never hides a proposal,
+        # and one as_of captured afterwards stays inside the gateway's current-state skew.
+        results = await asyncio.gather(
+            *(
+                self._propose(index, invocation, target, build, input_digest)
+                for index in range(PASSES_PER_DECISION)
+            ),
+            return_exceptions=True,
+        )
+        failures: list[_ShadowUnavailableError] = []
+        proposals: list[_Proposed] = []
+        for item in results:
+            if isinstance(item, _ShadowUnavailableError):
+                failures.append(item)
+            elif isinstance(item, BaseException):
+                raise item
+            else:
+                proposals.append(item)
+        progress.passes.extend(item.done for item in proposals if item.done is not None)
+        if failures:
+            progress.passes.extend(
+                _Pass({**item.record, "membership": "not_attempted"}, frozenset(), "select")
+                for item in proposals
+                if item.done is None
+            )
+            progress.failure_types.extend(
+                item.failure_type for item in failures if item.failure_type is not None
+            )
+            raise _ShadowUnavailableError(
+                min((item.reason for item in failures), key=_REASON_ORDER.index)
+            )
+        progress.as_of = as_of = self._clock()
+        for item in proposals:
+            if item.done is None:
+                progress.passes.append(await self._membership(item, invocation, target, as_of))
+        progress.passes.sort(key=lambda item: int(str(item.record["pass_index"])))
 
-    async def _pass(
+    async def _propose(
         self,
         index: int,
         invocation: ShadowInvocation,
         target: ShadowTarget,
         build: SemanticGenerationBuild,
         input_digest: str,
-        as_of: datetime,
-    ) -> _Pass:
+    ) -> _Proposed:
         loop = asyncio.get_running_loop()
         started = loop.time()
         query = invocation.query
@@ -495,7 +531,9 @@ class TypedSelectionShadowObserver:
             )
             proposed.proposal.validate_source_quotes(query)
         except Exception as exc:  # noqa: BLE001 - every provider failure is one typed outcome
-            raise _ShadowUnavailableError("proposal_unavailable") from exc
+            raise _ShadowUnavailableError(
+                "proposal_unavailable", failure_type=type(exc).__name__
+            ) from exc
         if proposed.input_digest != input_digest:
             raise _ShadowUnavailableError("proposal_binding_changed")
         proposal = proposed.proposal
@@ -506,30 +544,45 @@ class TypedSelectionShadowObserver:
             "status": proposal.status,
             "reason": proposal.reason,
             "clause_count": len(proposal.clauses),
+            "clause_shapes": [_clause_shape(clause) for clause in proposal.clauses],
             "quote_invalid_clauses": proposed.quote_invalid_clauses,
+            "proposal_latency_ms": round((loop.time() - started) * 1000, 3),
         }
         if proposal.status == "clarify":
             if proposed.selection is not None:
                 raise _ShadowUnavailableError("proposal_binding_changed")
-            record["latency_ms"] = round((loop.time() - started) * 1000, 3)
-            return _Pass(record, frozenset(), "clarify")
+            return _Proposed(record, None, _Pass(record, frozenset(), "clarify"))
         expected = OntologyCandidateSelection.bind(
             query=query, manifest=target.manifest, staged=target.staged, clauses=proposal.clauses
         )
         if proposed.selection != expected:
             raise _ShadowUnavailableError("proposal_binding_changed")
+        return _Proposed(record, expected, None)
+
+    async def _membership(
+        self,
+        proposed: _Proposed,
+        invocation: ShadowInvocation,
+        target: ShadowTarget,
+        as_of: datetime,
+    ) -> _Pass:
+        record, selection = proposed.record, proposed.selection
+        if selection is None:
+            raise _ShadowUnavailableError("proposal_binding_changed")
         try:
             result = await self._reader.shadow_select(
-                query,
+                invocation.query,
                 staged=target.staged,
                 manifest=target.manifest,
                 gateway=target.gateway,
                 as_of=as_of,
-                selection=expected,
+                selection=selection,
                 limit=invocation.limit,
             )
         except (ValueError, PermissionError, TimeoutError, LookupError) as exc:
-            raise _ShadowUnavailableError("membership_unavailable") from exc
+            raise _ShadowUnavailableError(
+                "membership_unavailable", failure_type=type(exc).__name__
+            ) from exc
         authorized = result.authorized
         if result.score_kind != "predicate_membership" or authorized is None:
             raise _ShadowUnavailableError("membership_unavailable")
@@ -549,10 +602,28 @@ class TypedSelectionShadowObserver:
                 "truncated": result.truncated,
                 "query_receipt_digests": list(authorized.query_receipt_digests),
                 "authorized_result_digest": authorized.result_digest,
-                "latency_ms": round((loop.time() - started) * 1000, 3),
             }
         )
         return _Pass(record, frozenset(ids), "select")
+
+
+@dataclass(frozen=True, slots=True)
+class _Proposed:
+    record: dict[str, object]
+    selection: OntologyCandidateSelection | None
+    done: _Pass | None
+
+
+def _clause_shape(clause: OntologyCandidateClause) -> dict[str, object]:
+    """Schema identifiers only; operands may quote the operator and are never retained."""
+    return {
+        "object_type": clause.object_type,
+        "predicates": [[item.property, str(item.operator)] for item in clause.predicates],
+        "nested_predicates": [
+            [item.property, item.key, str(item.operator)] for item in clause.nested_predicates
+        ],
+        "object_id_count": len(clause.object_ids or ()),
+    }
 
 
 def _gate(passes: list[_Pass]) -> ShadowGatedOutcome:
