@@ -1,7 +1,7 @@
 ---
 title: T0 기반 프레임워크 규칙 근거
 translation_of: framework-rule-evidence.md
-translation_source_sha: 3ffcb1846a5e7ee2267b3c00a0c4449dbf6559ff
+translation_source_sha: 0d5f9e40608235c0edb3d1130a4edcb6cc47a550
 translation_revised: 2026-10-08
 ---
 # T0 기반 프레임워크 규칙 근거
@@ -266,6 +266,29 @@ WARA 권고는 기능 매트릭스가 정확한 리소스 형식, 하위 리소�
   규칙 후보
 - 버전, 매개 변수, 범위, 시간을 맞춘 Azure Policy 준수 상태와의 차등 비교. 불일치가 하나라도
   있으면 해당 후보의 활성화를 차단합니다.
+
+### 변환 시범
+
+`fdai.rule_catalog.pipeline.translate.azure_policy`가 문법을 구현하고,
+`rule-catalog/translation/azure-policy/aliases.yaml`이 검토된 별칭 매핑을 담습니다. 각 별칭은 FDAI
+속성, 비교 코덱, ARM 필드가 없을 때의 의미(`unobserved`, `defaulted`, `request_only`)를 지정합니다.
+
+- 조건은 3값 트리로 컴파일됩니다. 지원하지 않는 하위 트리는 알 수 없음이지만, 상수 거짓 멤버가 있는
+  `allOf`나 상수 참 멤버가 있는 `anyOf`는 그 하위 트리 없이 결정됩니다.
+- 후보는 결정된 조건이 읽는 모든 속성을 요구하므로, 관측된 값이 없는 리소스는 판단을 보류합니다. 이
+  조건에서 `unobserved` 별칭의 `exists` 조건은 상수가 되고, `defaulted` 별칭에서는 변환을 거부합니다.
+- 문자열은 대소문자를 구분하지 않고 비교합니다. 매개 변수는 기본값으로만 확정하며 `Audit`와 `Deny`
+  효과만 변환합니다.
+- `scripts/catalog/translate-azure-policy-candidates.py`는 후보와 Rego를 `rule-catalog/`와
+  `policies/` 밖에 씁니다. `scripts/deployment/local/run-azure-policy-differential.py`는 실제 OPA
+  평가기로 후보를 라이브 준수 상태와 비교합니다. 불일치가 없고 비준수 리소스에서 한 번 이상 일치해야만
+  품질 게이트 대상이 됩니다.
+
+고정된 스냅숏에서 정의 3,658개 중 6개가 변환됩니다. 나머지는 주로 Audit 또는 Deny가 아닌 효과(2,105개),
+데이터 평면 모드(977개), 매핑되지 않은 리소스 종류(479개) 때문에 거부됩니다. 2026-10-08 라이브 준수
+상태와 비교한 결과 후보 3개가 비교한 리소스 40개 모두에서 일치했지만 모두 준수 상태였으므로 아직
+품질 게이트 대상인 후보는 없습니다. 후보 1개는 배포된 정의 버전이 고정된 스냅숏과 다르고, 2개는 준수
+상태가 없습니다.
 
 ## 활성화 제안
 

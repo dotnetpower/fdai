@@ -1,0 +1,73 @@
+schema_version: "1.0.0"
+version: "1.0.0"
+reviewer: fdai-maintainers
+review_state: reviewed
+# Reviewed map from Azure Policy aliases to the normalized inventory properties FDAI projects.
+#
+# Every entry names the FDAI resource type and property, how a policy literal is compared with the
+# projected value (`codec`), and what an absent ARM field means (`absence`):
+# - `unobserved`: the projection leaves the property absent, so a translated Rule abstains and an
+#   `exists` condition on the alias can be decided only for an observed resource.
+# - `defaulted`: the projection substitutes a documented default for an absent field, so an
+#   `exists` condition can't be decided and the policy isn't translated.
+# - `request_only`: the field exists only on create or update requests and never on a stored
+#   resource, so on an inventory resource it is always absent and compares as absent.
+# An alias that isn't listed here is never translated.
+resource_types:
+  Microsoft.Storage/storageAccounts: object-storage
+  Microsoft.KeyVault/vaults: secret-store
+aliases:
+  - alias: Microsoft.Storage/storageAccounts/supportsHttpsTrafficOnly
+    resource_type: object-storage
+    property: enable_https_traffic_only
+    codec: boolean
+    absence: unobserved
+    rationale: Projected verbatim from properties.supportsHttpsTrafficOnly.
+  - alias: Microsoft.Storage/storageAccounts/allowSharedKeyAccess
+    resource_type: object-storage
+    property: allow_shared_key_access
+    codec: boolean
+    absence: unobserved
+    rationale: Projected verbatim from properties.allowSharedKeyAccess.
+  - alias: Microsoft.Storage/storageAccounts/minimumTlsVersion
+    resource_type: object-storage
+    property: min_tls_version
+    codec: string
+    absence: unobserved
+    rationale: Projected verbatim from properties.minimumTlsVersion.
+  - alias: Microsoft.Storage/storageAccounts/publicNetworkAccess
+    resource_type: object-storage
+    property: public_network_access_enabled
+    codec: enabled_disabled
+    absence: unobserved
+    rationale: Projected only for the documented Enabled and Disabled states.
+  - alias: Microsoft.KeyVault/vaults/enableRbacAuthorization
+    resource_type: secret-store
+    property: rbac_authorization_enabled
+    codec: boolean
+    absence: unobserved
+    rationale: Projected verbatim from properties.enableRbacAuthorization.
+  - alias: Microsoft.KeyVault/vaults/enableSoftDelete
+    resource_type: secret-store
+    property: soft_delete_enabled
+    codec: boolean
+    absence: unobserved
+    rationale: Projected verbatim from properties.enableSoftDelete.
+  - alias: Microsoft.KeyVault/vaults/enablePurgeProtection
+    resource_type: secret-store
+    property: purge_protection_enabled
+    codec: boolean
+    absence: defaulted
+    rationale: An absent field is projected as false, the documented ARM default.
+  - alias: Microsoft.KeyVault/vaults/publicNetworkAccess
+    resource_type: secret-store
+    property: public_network_access_enabled
+    codec: enabled_disabled
+    absence: unobserved
+    rationale: Projected only for the documented Enabled and Disabled states.
+  - alias: Microsoft.KeyVault/vaults/createMode
+    resource_type: secret-store
+    property: null
+    codec: string
+    absence: request_only
+    rationale: createMode is a create-request field that a stored vault doesn't return.

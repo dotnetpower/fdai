@@ -271,6 +271,31 @@ only after a feasibility milestone proves these inputs:
 - A differential comparison with Azure Policy compliance state matched by version, parameters,
   scope, and time. Any mismatch blocks activation of that candidate.
 
+### Translation pilot
+
+`fdai.rule_catalog.pipeline.translate.azure_policy` implements the grammar, and
+`rule-catalog/translation/azure-policy/aliases.yaml` holds the reviewed alias map. Each alias names
+its FDAI property, a comparison codec, and what an absent ARM field means: `unobserved`,
+`defaulted`, or `request_only`.
+
+- Conditions compile to a three-valued tree. An unsupported subtree is unknown, but an `allOf` with
+  a constant false member, or an `anyOf` with a constant true member, is decided without it.
+- A candidate requires every property its decided conditions read, so a resource without an
+  observed value abstains. Under that requirement an `exists` condition on an `unobserved` alias is
+  constant, and on a `defaulted` alias it refuses translation.
+- Strings compare case-insensitively. Parameters resolve only from defaults. Only the `Audit` and
+  `Deny` effects translate.
+- `scripts/catalog/translate-azure-policy-candidates.py` writes candidates and their Rego outside
+  `rule-catalog/` and `policies/`. `scripts/deployment/local/run-azure-policy-differential.py`
+  compares them with live compliance state through the real OPA evaluator. A candidate is eligible
+  for the quality gate only with no mismatch and at least one agreeing non-compliant resource.
+
+On the pinned snapshot, 6 of 3,658 definitions translate. The rest are refused, mostly for
+effects other than Audit or Deny (2,105), data-plane modes (977), and unmapped resource types
+(479). Against live compliance state on 2026-10-08, three candidates agreed on all 40 compared
+resources, all compliant, so none is eligible yet. One candidate's deployed definition version
+differs from the pinned snapshot, and two have no compliance state.
+
 ## Activation proposals
 
 Framework views never change Rule membership. A control can show which Rules it needs and whether
