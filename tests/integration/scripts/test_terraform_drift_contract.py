@@ -131,6 +131,7 @@ def _legacy_platform_state(*, incomplete_governed_identities: bool = False) -> d
         "module.identity_resilience[0].azurerm_user_assigned_identity.primary",
         "module.identity_finops[0].azurerm_user_assigned_identity.primary",
         "module.isolated_executor_identity[0].azurerm_user_assigned_identity.primary",
+        "module.key_vault.azurerm_key_vault.primary",
         "module.llm_azure_openai[0].azurerm_cognitive_account.primary",
         "module.monitoring[0].azurerm_monitor_action_group.main",
         "azurerm_linux_virtual_machine_scale_set.ohl_evidence[0]",
@@ -195,6 +196,8 @@ def _legacy_platform_state(*, incomplete_governed_identities: bool = False) -> d
                                     "module.operator_api_identity[0]."
                                     "azurerm_user_assigned_identity.primary"
                                 )
+                                else {"id": "/example/key-vault"}
+                                if address == "module.key_vault.azurerm_key_vault.primary"
                                 else {}
                             ),
                         }
@@ -643,6 +646,14 @@ def test_recovers_operator_identity_without_root_output(drift: ModuleType) -> No
 
     assert drift.stored_platform_operator_identity(fixture["state"]) == {
         "principal_id": "00000000-0000-0000-0000-000000000001"
+    }
+
+
+def test_recovers_key_vault_without_root_output(drift: ModuleType) -> None:
+    fixture = _legacy_platform_state()
+
+    assert drift.stored_platform_key_vault(fixture["state"]) == {
+        "resource_id": "/example/key-vault"
     }
 
 

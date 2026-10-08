@@ -53,17 +53,31 @@ def prepare(
         raise common.ManualOperatorUpdateError(
             "platform Cost pseudonym key prerequisite already exists"
         )
-    key_vault_id = common._resource_id(outputs.get("key_vault_id"), "platform Key Vault")
-    identities = outputs.get("runtime_identity_bindings")
-    operator = identities.get("operator") if isinstance(identities, dict) else None
-    if isinstance(operator, dict):
-        principal_id = common._text(operator.get("principal_id"), "Operator principal id")
+    key_vault_output = outputs.get("key_vault_id")
+    platform_state: dict[str, Any] | None = None
+    if isinstance(key_vault_output, str) and key_vault_output:
+        key_vault_id = common._resource_id(key_vault_output, "platform Key Vault")
     else:
         platform_state = common._json_command(
             ("terraform", f"-chdir={platform_root}", "show", "-json"),
             timeout=300,
             label="platform state projection",
         )
+        key_vault_id = common._resource_id(
+            drift_contract.stored_platform_key_vault(platform_state)["resource_id"],
+            "platform Key Vault",
+        )
+    identities = outputs.get("runtime_identity_bindings")
+    operator = identities.get("operator") if isinstance(identities, dict) else None
+    if isinstance(operator, dict):
+        principal_id = common._text(operator.get("principal_id"), "Operator principal id")
+    else:
+        if platform_state is None:
+            platform_state = common._json_command(
+                ("terraform", f"-chdir={platform_root}", "show", "-json"),
+                timeout=300,
+                label="platform state projection",
+            )
         principal_id = drift_contract.stored_platform_operator_identity(platform_state)[
             "principal_id"
         ]
