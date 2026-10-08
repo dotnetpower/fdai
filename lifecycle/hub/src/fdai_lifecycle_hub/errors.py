@@ -29,6 +29,10 @@ class PlanDigestMismatchError(HubStoreError):
     pass
 
 
+class SchemaMismatchError(HubStoreError):
+    """The database holds an earlier Hub schema. Lifecycle I0 has no migrations to upgrade it."""
+
+
 class ConcurrentWriteError(HubStoreError):
     """Another writer committed first, for example the next audit sequence. Retry."""
 

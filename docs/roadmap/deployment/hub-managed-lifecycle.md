@@ -281,8 +281,9 @@ time-bound role that the customer grants in its own tenant. The Hub grants none.
 2. The operator installs the lifecycle agent and infrastructure agent from a signed Release.
 3. The installation proves possession of its installation key by signing its enrollment request,
    and a customer approver accepts the enrollment by naming the key id they verified out of band.
-   Until then the Hub plans nothing for the installation. A request whose proof fails or is older
-   than a few minutes creates no installation, and the Hub audits why.
+   Until then the Hub plans nothing for the installation. A request whose proof fails, or whose
+   request time differs from the Hub clock by more than five minutes in either direction, creates
+   no installation, and the Hub audits why.
 4. Entities start unmanaged. An Entity becomes managed only after its ownership is proven and the
    operator adds its settings. A signed Foundation creation receipt together with a Terraform state
    identity proves ownership. The `fdai:managed=true` tag alone keeps the Entity unmanaged, and the

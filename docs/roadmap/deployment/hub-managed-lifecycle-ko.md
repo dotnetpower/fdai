@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: fea638c9391852411b9ce597874a43caad3b0f96
+translation_source_sha: a065906e999289a340e3629157c0a596fe058a6e
 translation_revised: 2026-10-08
 ---
 # Hub 관리형 수명 주기
@@ -274,9 +274,10 @@ cell이 다른 고객의 cell에 영향을 줄 수 없습니다.
 2. 운영자는 서명된 Release에서 수명 주기 에이전트와 인프라 에이전트를 설치합니다.
 3. 설치는 설치 키로 등록 요청에 서명해 키 보유를 증명하고, 고객 승인자는 별도 경로로 확인한 키
    ID를 지정해 등록을 수락합니다. 그때까지 Hub는 이 설치에 대해 아무것도 계획하지 않습니다.
-   증명이 틀렸거나 몇 분보다 오래된 요청은 설치를 만들지 않으며, Hub는 그 사유를 감사에 남깁니다.
+   증명이 틀렸거나 요청 시각이 Hub 시계와 앞뒤로 5분 넘게 차이 나는 요청은 설치를 만들지 않으며,
+   Hub는 그 사유를 감사에 남깁니다.
 4. Entity는 비관리 상태로 시작합니다. 소유가 증명되고 운영자가 설정을 추가한 뒤에만 관리
-   Entity가 됩니다. 소유는 서명된 Foundation 생성 영수증과 Terraform 상태 식별 정보가 함께 있어야
+   Entity가 됩니다. 소유는 서명된 Foundation 생성 증적과 Terraform 상태 식별 정보가 함께 있어야
    증명됩니다. `fdai:managed=true` 태그만 있으면 Entity는 비관리 상태로 남고, Hub는 그 사유를
    기록합니다. 관리 Entity가 없는 설치는 Plan을 받지 않습니다.
 5. 첫 Plan이 소스 빌드 이미지를 서명된 이미지로 바꿉니다.

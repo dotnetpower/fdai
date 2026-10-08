@@ -269,7 +269,7 @@ def test_managed_entity_keeps_its_ownership_evidence(
         enrolled.record_ownership(INSTALLATION_ID, "core", TAG_ONLY, now=now)
 
 
-def test_managing_again_records_a_new_settings_revision(
+def test_managing_again_replaces_the_settings(
     enrolled: HubStore, installation: Installation, now: datetime
 ) -> None:
     ownership, settings = _core(installation)

@@ -6,7 +6,7 @@ from datetime import datetime, time, timedelta
 from functools import partial
 
 import pytest
-from sqlalchemy import update
+from sqlalchemy import Boolean, Column, MetaData, String, Table, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -31,6 +31,7 @@ from fdai_lifecycle_hub.errors import (
     InstallationExistsError,
     PlanDigestMismatchError,
     ReportConflictError,
+    SchemaMismatchError,
     UnknownInstallationError,
     UnknownPlanError,
 )
@@ -76,6 +77,23 @@ def test_duplicate_enrollment_is_rejected(
 ) -> None:
     with pytest.raises(InstallationExistsError):
         registered.request_enrollment(enrollment, verify=verify_key_proof, now=now)
+
+
+def test_migrate_is_idempotent_and_refuses_an_earlier_schema(hub_store: HubStore) -> None:
+    hub_store.create_schema()
+    hub_store.drop_schema()
+    earlier = MetaData()
+    Table(
+        "lifecycle_entity",
+        earlier,
+        Column("installation_id", String(160), primary_key=True),
+        Column("managed", Boolean),
+    )
+    earlier.create_all(hub_store.engine)
+
+    with pytest.raises(SchemaMismatchError, match="lifecycle_entity"):
+        hub_store.create_schema()
+    earlier.drop_all(hub_store.engine)
 
 
 def test_unknown_installation_is_rejected(hub_store: HubStore, now: datetime) -> None:

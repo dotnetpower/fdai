@@ -36,6 +36,7 @@ from fdai_lifecycle_hub.errors import (
     OwnershipUnprovenError,
     PlanDigestMismatchError,
     ReportConflictError,
+    SchemaMismatchError,
     UnknownEntityError,
     UnknownInstallationError,
     UnknownPlanError,
@@ -57,6 +58,10 @@ class HubStore:
         return cls(create_engine(url))
 
     def create_schema(self) -> None:
+        """Create missing tables, and refuse a schema that an earlier Hub created."""
+
+        if stale := models.stale_tables(self.engine):
+            raise SchemaMismatchError(f"recreate the Hub database; earlier schema in {stale}")
         models.Base.metadata.create_all(self.engine)
 
     def drop_schema(self) -> None:

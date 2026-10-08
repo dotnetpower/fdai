@@ -56,7 +56,7 @@ bytes it checked, and the Hub rejects a report that names other bytes.
 | Path | Purpose |
 |------|---------|
 | `src/fdai_lifecycle_hub/domain.py` | Installation aggregate, reported state, and planning outcomes |
-| `src/fdai_lifecycle_hub/entity.py` | Entities, ownership evidence, and settings revisions |
+| `src/fdai_lifecycle_hub/entity.py` | Entities, ownership evidence, and settings |
 | `src/fdai_lifecycle_hub/enrollment.py` | Enrollment requests, key proof, and enrollment status |
 | `src/fdai_lifecycle_hub/catalog.py` | Release catalog and its development directory loader |
 | `src/fdai_lifecycle_hub/planning.py` | `plan_next`: chooses the target Release and signs the Plan |
@@ -94,10 +94,11 @@ The Hub has its own lock file, like `packages/deployment-cli`, so `uv run` insta
 request for one installation on 1.4.0 whose maintenance window is open all day, ownership evidence,
 and Entity settings. SQLite needs no setup.
 
-Run these from `lifecycle/hub/`:
+Run these from `lifecycle/hub/`. `migrate` refuses a database that an earlier Hub created, because
+Lifecycle I0 has no migrations, so start from a new database file:
 
 ```bash
-mkdir -p /tmp/fdai-hub
+mkdir -p /tmp/fdai-hub && rm -f /tmp/fdai-hub/hub.db
 export FDAI_LIFECYCLE_HUB_DATABASE_URL=sqlite+pysqlite:////tmp/fdai-hub/hub.db
 
 uv run fdai-lifecycle-hub migrate
@@ -175,7 +176,8 @@ A catalog directory contains `releases/<release-id>.json` runtime release manife
 ## Limits
 
 - The API binds to loopback and has no caller authentication. Agent identity is Lifecycle I1 work.
-- `migrate` creates the schema directly. Versioned migrations replace it in Lifecycle I1.
+- `migrate` creates the schema directly and refuses tables from an earlier Hub schema. Versioned
+  migrations replace it in Lifecycle I1.
 - Catalog files are trusted as-is. Vendor signatures on Releases and recalls are Lifecycle I2 work.
 - Signing keys are development keys from `dev-keygen` (#1947).
 - The enrollment proof binds the request bytes to the installation key and a five-minute window,
@@ -191,5 +193,6 @@ A catalog directory contains `releases/<release-id>.json` runtime release manife
   and Hub commands are later stories.
 - Suppressions live on the installation record without an actor. The design's revocable
   `lifecycle_command` record, with actor and expiry, arrives with Hub commands.
-- Entities aren't revisioned yet. Every ownership and settings change is in the hash-chained audit,
-  and Entity revisions with `effective_from` arrive with versioned migrations.
+- Entities aren't revisioned yet. `manage` replaces an Entity's settings, and the hash-chained audit
+  keeps who changed them, when, and the settings digest, but not the earlier content. Entity
+  revisions with `effective_from` arrive with versioned migrations.

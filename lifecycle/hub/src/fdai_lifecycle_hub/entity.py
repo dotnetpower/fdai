@@ -1,4 +1,4 @@
-"""Entities: ownership evidence, settings revisions, and the managed rule."""
+"""Entities: ownership evidence, settings, and the managed rule."""
 
 from __future__ import annotations
 
@@ -50,7 +50,7 @@ class OwnershipEvidence:
 
 @dataclass(frozen=True, slots=True, kw_only=True)
 class EntitySettings:
-    """One revision of an Entity's override blocks, addressed by the digest of its content."""
+    """An Entity's override blocks. The digest names their content in the audit."""
 
     overrides: tuple[Mapping[str, object], ...]
 

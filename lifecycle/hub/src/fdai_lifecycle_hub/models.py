@@ -13,12 +13,14 @@ from typing import Any
 from sqlalchemy import (
     JSON,
     DateTime,
+    Engine,
     Enum,
     ForeignKey,
     ForeignKeyConstraint,
     LargeBinary,
     String,
     UniqueConstraint,
+    inspect,
 )
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.engine import Dialect
@@ -243,3 +245,16 @@ class AuditRecord(Base):
     payload: Mapped[dict[str, Any]]
     previous_hash: Mapped[str] = mapped_column(String(64))
     record_hash: Mapped[str] = mapped_column(String(64), unique=True)
+
+
+def stale_tables(engine: Engine) -> list[str]:
+    """Existing Hub tables whose columns differ from this model, left by an earlier Hub."""
+
+    inspector = inspect(engine)
+    existing = set(inspector.get_table_names())
+    return [
+        table.name
+        for table in Base.metadata.sorted_tables
+        if table.name in existing
+        and {column["name"] for column in inspector.get_columns(table.name)} != set(table.c.keys())
+    ]
