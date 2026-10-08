@@ -5,8 +5,8 @@ the schema revision, and each Entity's Release id, artifact digests, and health.
 the snapshot ``digest`` into the Plan as ``source_state_digest``.
 
 Until the workload render story (#1946) exists, the desired state of each Plan Entity is the
-target Release id and the image digests of the signed Release. Nothing here talks to Kubernetes
-or Azure; the change set is a description, never an apply.
+target Release id and the images of the Release components that Entity runs. Nothing here talks
+to Kubernetes or Azure; the change set is a description, never an apply.
 """
 
 from __future__ import annotations
@@ -22,7 +22,6 @@ from typing import Literal
 from fdai_deployment_cli.contracts import canonical_bytes
 from fdai_deployment_cli.lifecycle_plan import LifecyclePlan
 
-from fdai_lifecycle_agent.inputs import VerifiedRelease
 from fdai_lifecycle_agent.strict_json import load_json, read_limited
 
 _MAX_STATE_BYTES = 1024 * 1024
@@ -91,15 +90,18 @@ class ChangeSet:
         return canonical_bytes(document).decode("ascii")
 
 
-type ChangeSetCalculator = Callable[[LifecyclePlan, VerifiedRelease, CurrentState], ChangeSet]
+# Arguments: the Plan, the images each Plan Entity runs in the target Release, the current state.
+type ChangeSetCalculator = Callable[
+    [LifecyclePlan, Mapping[str, frozenset[str]], CurrentState], ChangeSet
+]
 
 
 def compute_change_set(
-    plan: LifecyclePlan, release: VerifiedRelease, current: CurrentState
+    plan: LifecyclePlan, entity_images: Mapping[str, frozenset[str]], current: CurrentState
 ) -> ChangeSet:
-    """Compare each Plan Entity with the target Release. An Entity is unchanged when it already
-    runs the target Release id with images from that Release. Entities outside the Plan are left
-    untouched, so this computation never produces a delete."""
+    """Compare each Plan Entity with the target Release. An Entity is unchanged only when it
+    already runs the target Release id with exactly the images of its own components. Entities
+    outside the Plan are left untouched, so this computation never produces a delete."""
 
     changes: list[EntityChange] = []
     for entity_id in sorted(plan.entity_ids):
@@ -109,7 +111,7 @@ def compute_change_set(
             action = "create"
         elif (
             observed.release_id == plan.target_release_id
-            and observed.artifact_digests <= release.artifact_digests
+            and observed.artifact_digests == entity_images[entity_id]
         ):
             action = "unchanged"
         else:

@@ -8,8 +8,8 @@ One poll holds the exclusive state lock. Order of checks, each failing closed:
    maximum envelope. A Plan can only narrow that envelope.
 3. Refuse a sequence that this agent already rejected.
 4. Verify the signed Release and configuration package before any change is computed, then
-   require the Plan envelope to fit the maximum derived from local hard policy and the signed
-   Release capability maximums.
+   require the Plan envelope to fit the maximum derived from local hard policy, the signed
+   Release capability maximums, and the configured region.
 5. Compute the dry-run change set and confirm it stays inside the Plan envelope.
 6. Persist the result and the pending report, then send it: a sanitized summary and the digest
    of the exact Plan bytes (``sha256:`` and the hex SHA-256 of ``signed_payload``), or only a
@@ -74,7 +74,7 @@ class AgentReason(StrEnum):
     PLAN_PAYLOAD_MALFORMED = "plan_payload_malformed"
     PLAN_ID_CONFLICT = "plan_id_conflict"
     PLAN_SEQUENCE_PREVIOUSLY_REJECTED = "plan_sequence_previously_rejected"
-    PLAN_ENVELOPE_EXCEEDS_RELEASE_MAXIMUM = "plan_envelope_exceeds_release_maximum"
+    PLAN_ENVELOPE_EXCEEDS_SIGNED_MAXIMUM = "plan_envelope_exceeds_signed_maximum"
     CHANGE_EXCEEDS_ENVELOPE = "change_exceeds_envelope"
     DRY_RUN_COMPUTED = "dry_run_computed"
 
@@ -98,12 +98,20 @@ class HubTrust:
 
 @dataclass(frozen=True, slots=True)
 class AgentSettings:
+    """Local hard policy: ``maximum_envelope`` and the Release components each Entity runs."""
+
     installation_id: str
     trust: HubTrust
     maximum_envelope: LifecycleEffectEnvelope
+    entity_components: Mapping[str, frozenset[str]]
 
     def __post_init__(self) -> None:
         validate_path_segment(self.installation_id, "installation_id")
+        uncovered = self.maximum_envelope.entity_ids - {
+            entity_id for entity_id, components in self.entity_components.items() if components
+        }
+        if uncovered:
+            raise ValueError("every envelope Entity MUST name at least one Release component")
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -233,14 +241,19 @@ class LifecycleAgent:
             )
         if plan.sequence in state.rejected_sequences:
             return _rejection(AgentReason.PLAN_SEQUENCE_PREVIOUSLY_REJECTED)
+        settings = self._settings
         try:
             release = verify_release(plan, deps.artifact_store, deps.verify_release_signature)
-            verify_configuration(plan, deps.artifact_store, deps.verify_configuration_signature)
+            configuration = verify_configuration(
+                plan, deps.artifact_store, deps.verify_configuration_signature
+            )
+            entity_images = release.entity_images(settings.entity_components, plan.entity_ids)
         except InputRejectedError as error:
             return _rejection(error.reason_code, retryable=error.retryable)
-        if not plan.envelope.narrowed_by(release.maximum_envelope(self._settings.maximum_envelope)):
-            return _rejection(AgentReason.PLAN_ENVELOPE_EXCEEDS_RELEASE_MAXIMUM)
-        change_set = deps.compute_change_set(plan, release, current)
+        maximum = configuration.narrow(release.maximum_envelope(settings.maximum_envelope))
+        if not plan.envelope.narrowed_by(maximum):
+            return _rejection(AgentReason.PLAN_ENVELOPE_EXCEEDS_SIGNED_MAXIMUM)
+        change_set = deps.compute_change_set(plan, entity_images, current)
         # Admission bounded the Plan Entities; an injected calculator must stay inside them too.
         if not change_set.entity_ids <= plan.envelope.entity_ids:
             return _rejection(AgentReason.CHANGE_EXCEEDS_ENVELOPE)

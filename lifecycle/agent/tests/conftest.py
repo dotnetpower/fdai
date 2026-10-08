@@ -16,6 +16,11 @@ from fdai_deployment_cli.lifecycle_plan import (
     LifecyclePlan,
     canonical_plan_payload,
 )
+from fdai_deployment_cli.runtime_release import (
+    RUNTIME_INSTALLATION_AGENTS,
+    RUNTIME_SERVICES,
+    RUNTIME_SIDECARS,
+)
 
 from fdai_lifecycle_agent.agent import (
     AgentDependencies,
@@ -44,6 +49,49 @@ def development_key(label: str) -> Ed25519PrivateKey:
 
 def image(label: str) -> str:
     return "sha256:" + hashlib.sha256(label.encode()).hexdigest()
+
+
+def release_manifest(
+    *, version: str = "1.5.0", capabilities: dict[str, str] | None = None, **images: str
+) -> dict[str, object]:
+    """A complete ``fdai.runtime-release.v3`` manifest that passes the shared manifest parser.
+
+    Each component's image is ``image(f"{name}-{version}")`` unless ``images`` overrides it by
+    component name with underscores for dashes.
+    """
+
+    def record(name: str, *, service: bool = True) -> dict[str, str]:
+        fields = {
+            "archive": f"runtime/{name}/archive.bin",
+            "archive_sha256": hashlib.sha256(f"{name}-archive".encode()).hexdigest(),
+            "sbom": f"runtime/{name}/sbom.bin",
+            "sbom_sha256": hashlib.sha256(f"{name}-sbom".encode()).hexdigest(),
+        }
+        if service:
+            fields |= {
+                "provenance": f"runtime/{name}/provenance.bin",
+                "provenance_sha256": hashlib.sha256(f"{name}-provenance".encode()).hexdigest(),
+                "image_digest": images.get(name.replace("-", "_"), image(f"{name}-{version}")),
+            }
+        return fields
+
+    modes = capabilities or {"action:scale-service": "enforce"}
+    return {
+        "schema_version": "fdai.runtime-release.v3",
+        "source_commit": "a" * 40,
+        "platform_tag": "linux-x86_64",
+        "deployment_bundle_sha256": hashlib.sha256(b"bundle").hexdigest(),
+        "services": {name: record(name) for name in sorted(RUNTIME_SERVICES)},
+        "sidecars": {name: record(name) for name in sorted(RUNTIME_SIDECARS)},
+        "installation_agents": {name: record(name) for name in sorted(RUNTIME_INSTALLATION_AGENTS)},
+        "console": record("console", service=False),
+        "deployment_support": record("deployment-support", service=False),
+        "schema": {"target": 15, "tolerates": {"minimum": 12, "maximum": 16}},
+        "capabilities": {
+            name: {"kind": "ActionType", "maximum_mode": mode} for name, mode in modes.items()
+        },
+        "downtime": {"entities": []},
+    }
 
 
 def _encode(document: dict[str, object], *, pretty: bool) -> bytes:
@@ -98,17 +146,10 @@ class Harness:
         self.hub = FakeHubClient()
         self.store = FakeArtifactStore()
         self.state_store = LocalStateStore(state_dir)
-        self.release_document: dict[str, object] = {
-            "schema_version": "fdai.runtime-release.v3",
-            "services": {
-                "core-control-plane": {"image_digest": image("core-1.5.0")},
-                "operator-service": {"image_digest": image("operator-1.5.0")},
-            },
-            "sidecars": {"pgvector": {"image_digest": image("pgvector")}},
-            "installation_agents": {"lifecycle-agent": {"image_digest": image("agent")}},
-            "capabilities": {
-                "action:scale-service": {"kind": "ActionType", "maximum_mode": "enforce"}
-            },
+        self.release_document = release_manifest()
+        self.entity_components = {
+            "core": frozenset({"core-control-plane"}),
+            "operator-api": frozenset({"operator-service"}),
         }
         self.configuration_document: dict[str, object] = {
             "schema": {
@@ -127,10 +168,12 @@ class Harness:
             digest=hashlib.sha256(b"installation-owned state snapshot").hexdigest(),
             schema_revision=15,
             entities={
-                "core": EntityState("1.4.0", frozenset({image("core-1.4.0")}), Health.HEALTHY),
+                "core": EntityState(
+                    "1.4.0", frozenset({image("core-control-plane-1.4.0")}), Health.HEALTHY
+                ),
                 # An Entity runs only its own images, never the whole Release image set.
                 "operator-api": EntityState(
-                    "1.5.0", frozenset({image("operator-1.5.0")}), Health.HEALTHY
+                    "1.5.0", frozenset({image("operator-service-1.5.0")}), Health.HEALTHY
                 ),
             },
             observed_at=NOW - timedelta(hours=1),
@@ -217,6 +260,10 @@ class Harness:
     def image(label: str) -> str:
         return image(label)
 
+    @staticmethod
+    def manifest(**kwargs: Any) -> dict[str, object]:
+        return release_manifest(**kwargs)
+
     def serve(self, plan: LifecyclePlan) -> LifecyclePlan:
         self.hub.plan = SignedPlan(plan.signed_payload, plan.signature)
         return plan
@@ -231,6 +278,7 @@ class Harness:
                 fencing_generation=4,
             ),
             maximum_envelope=self.maximum_envelope(),
+            entity_components=self.entity_components,
         )
         return replace(base, **overrides)
 

@@ -169,6 +169,7 @@ src = [
     "extensions/cost-governance/src",
     "extensions/governed-chaos-provider/src",
     "lifecycle/hub/src",
+    "lifecycle/agent/src",
 ]
 # Mock/design assets and design experiments are not part of the shipped
 # monorepo; they live outside the lint gate on purpose.

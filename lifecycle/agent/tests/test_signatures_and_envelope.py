@@ -26,7 +26,7 @@ def test_declared_mode_order_matches_envelope_narrowing() -> None:
 
 def test_release_lowers_and_drops_capabilities_of_the_local_maximum() -> None:
     release = VerifiedRelease(
-        digest="r" * 64, artifact_digests=frozenset(), capability_maximums={"action:x": "shadow"}
+        digest="r" * 64, component_images={}, capability_maximums={"action:x": "shadow"}
     )
     local = _envelope("enforce")
     local = LifecycleEffectEnvelope(

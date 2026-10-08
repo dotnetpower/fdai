@@ -10,7 +10,7 @@ from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
 from functools import partial
 from pathlib import Path
-from typing import cast, get_args
+from typing import TypedDict, cast, get_args
 
 from fdai_deployment_cli.lifecycle_plan import CapabilityMode, LifecycleEffectEnvelope
 
@@ -26,8 +26,8 @@ from fdai_lifecycle_agent.signatures import (
 from fdai_lifecycle_agent.state import AgentStateError, LocalStateStore
 from fdai_lifecycle_agent.strict_json import load_json, read_limited
 
-ENVELOPE_SCHEMA = "fdai.lifecycle-effect-envelope.v1"
-_ENVELOPE_KEYS = frozenset(
+LOCAL_POLICY_SCHEMA = "fdai.lifecycle-local-policy.v1"
+_LOCAL_POLICY_KEYS = frozenset(
     {
         "schema",
         "entity_ids",
@@ -35,9 +35,10 @@ _ENVELOPE_KEYS = frozenset(
         "capability_modes",
         "destructive_allowed",
         "max_duration_minutes",
+        "entity_components",
     }
 )
-_MAX_ENVELOPE_BYTES = 64 * 1024
+_MAX_LOCAL_POLICY_BYTES = 64 * 1024
 _EXIT_OK = 0
 _EXIT_FAILED = 1
 _EXIT_CONFIGURATION = 2
@@ -74,7 +75,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     poll.add_argument("--current-state", required=True, type=Path, help="Current-state fixture.")
     poll.add_argument(
-        "--envelope", required=True, type=Path, help="Locally derived maximum effect envelope."
+        "--local-policy",
+        required=True,
+        type=Path,
+        help="Local hard policy: maximum effect envelope and the components each Entity runs.",
     )
     poll.add_argument("--timeout-seconds", type=float, default=10.0)
     return parser
@@ -109,7 +113,7 @@ def main(
                 current_hub_key_epoch=arguments.hub_key_epoch,
                 fencing_generation=arguments.fencing_generation,
             ),
-            maximum_envelope=load_envelope(arguments.envelope),
+            **load_local_policy(arguments.local_policy),
         )
         hub_keyring = Ed25519HubKeyring(
             {arguments.hub_key_id: load_ed25519_public_key(arguments.hub_public_key)}
@@ -148,23 +152,31 @@ def main(
     return _EXIT_OK
 
 
-def load_envelope(path: Path) -> LifecycleEffectEnvelope:
-    """Load the locally derived maximum envelope; a Hub Plan can only narrow it."""
+class LocalPolicy(TypedDict):
+    maximum_envelope: LifecycleEffectEnvelope
+    entity_components: dict[str, frozenset[str]]
+
+
+def load_local_policy(path: Path) -> LocalPolicy:
+    """Load local hard policy. A Hub Plan and the signed inputs can only narrow its envelope."""
 
     try:
-        raw = read_limited(path, limit=_MAX_ENVELOPE_BYTES, label="envelope")
+        raw = read_limited(path, limit=_MAX_LOCAL_POLICY_BYTES, label="local policy")
     except OSError as error:
-        raise ValueError(f"envelope is unreadable: {type(error).__name__}") from error
-    document = load_json(raw, label="envelope")
-    if not isinstance(document, dict) or set(document) != _ENVELOPE_KEYS:
-        raise ValueError("envelope fields are invalid")
-    if document["schema"] != ENVELOPE_SCHEMA:
-        raise ValueError("envelope schema is unsupported")
+        raise ValueError(f"local policy is unreadable: {type(error).__name__}") from error
+    document = load_json(raw, label="local policy")
+    if not isinstance(document, dict) or set(document) != _LOCAL_POLICY_KEYS:
+        raise ValueError("local policy fields are invalid")
+    if document["schema"] != LOCAL_POLICY_SCHEMA:
+        raise ValueError("local policy schema is unsupported")
     modes = document["capability_modes"]
     if not isinstance(modes, dict) or not set(modes.values()) <= set(get_args(CapabilityMode)):
-        raise ValueError("envelope capability mode is unsupported")
+        raise ValueError("local policy capability mode is unsupported")
+    components = document["entity_components"]
+    if not isinstance(components, dict):
+        raise ValueError("local policy entity_components MUST be an object")
     try:
-        return LifecycleEffectEnvelope(
+        envelope = LifecycleEffectEnvelope(
             entity_ids=_strings(document["entity_ids"], "entity_ids"),
             regions=_strings(document["regions"], "regions"),
             capability_modes=cast(dict[str, CapabilityMode], modes),
@@ -172,12 +184,19 @@ def load_envelope(path: Path) -> LifecycleEffectEnvelope:
             max_duration_minutes=document["max_duration_minutes"],
         )
     except TypeError as error:
-        raise ValueError(f"envelope is invalid: {error}") from error
+        raise ValueError(f"local policy is invalid: {error}") from error
+    return LocalPolicy(
+        maximum_envelope=envelope,
+        entity_components={
+            str(entity_id): _strings(names, "entity_components")
+            for entity_id, names in components.items()
+        },
+    )
 
 
 def _strings(value: object, label: str) -> frozenset[str]:
     if not isinstance(value, list) or not all(isinstance(item, str) for item in value):
-        raise ValueError(f"envelope {label} MUST be a list of strings")
+        raise ValueError(f"local policy {label} MUST be a list of strings")
     return frozenset(value)
 
 

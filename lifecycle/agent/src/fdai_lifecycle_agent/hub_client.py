@@ -7,8 +7,9 @@ Contract (Lifecycle I0, unauthenticated loopback Hub):
   Plan is pending.
 * ``POST /v1/installations/{installation_id}/plans/{plan_id}/reports`` returns ``202`` for a new
   or identical report, ``409`` for a conflicting attempt or other Plan bytes, ``422`` for an
-  invalid body, ``404`` for an unknown Plan or installation, and ``503`` with ``Retry-After`` when
-  a concurrent write committed first. Only the ``503`` is retried, with the same report.
+  invalid body, ``404`` for an unknown Plan or installation, and ``503 concurrent_write`` with
+  ``Retry-After`` when a concurrent write committed first. Only ``503 concurrent_write`` is retried
+  here; any other failure leaves the persisted report for the next poll.
 * ``exact_plan_digest`` is ``sha256:`` and the hex SHA-256 of the decoded ``signed_payload``.
 
 The client only moves bytes. It never trusts a Plan; admission decides that.
@@ -177,7 +178,10 @@ class HttpHubClient:
                 ) from error
             if response.status_code == 202:
                 return
-            if response.status_code != 503 or retry == MAX_CONCURRENT_WRITE_RETRIES:
+            concurrent_write = (
+                response.status_code == 503 and _error_code(response) == "concurrent_write"
+            )
+            if not concurrent_write or retry == MAX_CONCURRENT_WRITE_RETRIES:
                 break
             # The Hub asks for the identical report again after a concurrent write.
             self._sleep(_retry_after(response))

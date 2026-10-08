@@ -16,13 +16,14 @@ if TYPE_CHECKING:
     from conftest import Harness
 
 NOW = datetime(2026, 10, 7, 12, tzinfo=UTC)
-ENVELOPE = {
-    "schema": "fdai.lifecycle-effect-envelope.v1",
+LOCAL_POLICY = {
+    "schema": "fdai.lifecycle-local-policy.v1",
     "entity_ids": ["core", "operator-api"],
     "regions": ["korea-central"],
     "capability_modes": {"action:scale-service": "enforce"},
     "destructive_allowed": False,
     "max_duration_minutes": 60,
+    "entity_components": {"core": ["core-control-plane"], "operator-api": ["operator-service"]},
 }
 
 
@@ -51,7 +52,7 @@ def _arguments(harness: Harness, tmp_path: Path, **overrides: str) -> list[str]:
     if not inputs.exists():
         _write_inputs(harness, inputs)
     (tmp_path / "current-state.json").write_text(json.dumps(harness.state_document()))
-    (tmp_path / "envelope.json").write_text(json.dumps(ENVELOPE))
+    (tmp_path / "local-policy.json").write_text(json.dumps(LOCAL_POLICY))
     values = {
         "--hub-url": "http://127.0.0.1:8740",
         "--installation-id": "installation-alpha",
@@ -64,7 +65,7 @@ def _arguments(harness: Harness, tmp_path: Path, **overrides: str) -> list[str]:
         "--configuration-public-key": str(keys / "configuration.pem"),
         "--inputs-dir": str(inputs),
         "--current-state": str(tmp_path / "current-state.json"),
-        "--envelope": str(tmp_path / "envelope.json"),
+        "--local-policy": str(tmp_path / "local-policy.json"),
     }
     values.update(overrides)
     return ["poll-once", *(item for pair in values.items() for item in pair)]
@@ -145,9 +146,14 @@ def test_poll_once_without_plan_exits_cleanly(
     ("override", "content", "message"),
     [
         ("--hub-url", None, "Hub URL"),
-        ("--envelope", {**ENVELOPE, "scope": "all"}, "envelope fields"),
-        ("--envelope", {**ENVELOPE, "capability_modes": {"a": "execute"}}, "mode"),
-        ("--envelope", {**ENVELOPE, "max_duration_minutes": 0}, "positive"),
+        ("--local-policy", {**LOCAL_POLICY, "scope": "all"}, "local policy fields"),
+        ("--local-policy", {**LOCAL_POLICY, "capability_modes": {"a": "execute"}}, "mode"),
+        ("--local-policy", {**LOCAL_POLICY, "max_duration_minutes": 0}, "positive"),
+        (
+            "--local-policy",
+            {**LOCAL_POLICY, "entity_components": {"core": ["core-control-plane"]}},
+            "at least one Release component",
+        ),
         ("--current-state", {"digest": "x", "entities": {}}, "current state MUST contain"),
         ("--hub-public-key", "not a key", "PEM public key"),
     ],

@@ -171,7 +171,9 @@ def test_submit_report_retries_the_same_report_after_concurrent_write() -> None:
         bodies.append(request.content)
         status = next(statuses)
         if status == 503:
-            return httpx.Response(503, headers={"Retry-After": "1"}, json={"error": "x"})
+            return httpx.Response(
+                503, headers={"Retry-After": "1"}, json={"error": "concurrent_write"}
+            )
         return httpx.Response(status)
 
     with _client(httpx.MockTransport(handler), sleeps) as client:
@@ -180,6 +182,26 @@ def test_submit_report_retries_the_same_report_after_concurrent_write() -> None:
     assert len(bodies) == 3
     assert len(set(bodies)) == 1
     assert sleeps == [1.0, 1.0]
+
+
+@pytest.mark.parametrize(
+    "body", [{"error": "service_unavailable"}, None], ids=["other-code", "no-code"]
+)
+def test_other_503_is_left_for_the_next_poll_without_waiting(body: dict[str, str] | None) -> None:
+    calls: list[int] = []
+    sleeps: list[float] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        return httpx.Response(503, headers={"Retry-After": "1"}, json=body)
+
+    with (
+        _client(httpx.MockTransport(handler), sleeps) as client,
+        pytest.raises(HubProtocolError, match="returned 503"),
+    ):
+        client.submit_report("installation-alpha", "plan-0008", _report())
+
+    assert (len(calls), sleeps) == (1, [])
 
 
 def test_submit_report_gives_up_after_bounded_concurrent_write_retries() -> None:

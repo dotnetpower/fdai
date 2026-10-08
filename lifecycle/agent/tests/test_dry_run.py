@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from fdai_lifecycle_agent.dry_run import compute_change_set, parse_current_state
-from fdai_lifecycle_agent.inputs import VerifiedRelease
 
 if TYPE_CHECKING:
     from conftest import Harness
@@ -66,14 +65,10 @@ def test_invalid_current_state_is_refused(document: dict[str, Any], message: str
 
 
 def test_entity_with_its_own_target_release_images_is_unchanged(harness: Harness) -> None:
-    release = VerifiedRelease(
-        digest="r" * 64,
-        artifact_digests=frozenset({ARTIFACT, "sha256:" + "c" * 64}),
-        capability_maximums={},
-    )
+    entity_images = {"core": frozenset({ARTIFACT}), "new": frozenset({"sha256:" + "c" * 64})}
     plan = harness.plan(entity_ids=frozenset({"core", "new"}), target_release_id="1.4.0")
 
-    change_set = compute_change_set(plan, release, parse_current_state(_document()))
+    change_set = compute_change_set(plan, entity_images, parse_current_state(_document()))
 
     assert [(change.entity_id, change.action) for change in change_set.changes] == [
         ("core", "unchanged"),

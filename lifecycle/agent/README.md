@@ -11,9 +11,10 @@ computes the change it would make, and reports the result. It never applies anyt
   proves this statically and in a fresh interpreter.
 - Only `hub_client.py` opens a network connection, and only outbound to the Hub. Plain HTTP is
   accepted only for a loopback Hub, because the Lifecycle I0 Hub has no authentication.
-- The maximum effect envelope is derived locally: `--envelope` is local hard policy, and the
-  signed Release's `capabilities.<id>.maximum_mode` lowers each capability mode and drops any
-  capability the Release doesn't name. A Hub Plan can only narrow that maximum.
+- The maximum effect envelope is derived locally. `--local-policy` sets the hard limit. The signed
+  Release's `capabilities.<id>.maximum_mode` lowers each capability mode and drops any capability
+  the Release doesn't name, and a `region` in the signed configuration narrows the regions. Neither
+  signed input can widen the limit, and a Hub Plan can only narrow the result.
 - An admitted report carries a reason code, `exact_plan_digest` (`sha256:` and the hex SHA-256 of
   the decoded `signed_payload`), and a summary string with counts only. Entity ids, digests,
   installation identifiers, and secrets stay inside the installation. A rejection reports only its
@@ -30,18 +31,22 @@ computes the change it would make, and reports the result. It never applies anyt
    expected source-state digest is the `digest` of the current-state snapshot. The Hub echoes the
    installation's reported digest into the Plan.
 4. Refuse a sequence that the agent already rejected.
-5. Verify the Release and configuration signatures over the exact file bytes, then compare the
-   SHA-256 of each document's canonical JSON with the digest that the Plan names, as the Hub
-   computes it. An unsigned input is rejected before any change is computed. Then require the Plan
-   envelope to fit the maximum derived from `--envelope` and the signed Release
-   (`plan_envelope_exceeds_release_maximum`).
-6. Compute the dry-run change set: each Plan Entity is unchanged when it already runs the target
-   Release id with images from that Release, created when it's absent, and updated otherwise.
+5. Verify the Release and configuration signatures over the exact file bytes. An unsigned input is
+   rejected before any change is computed. The Release then passes the full manifest validation
+   of `parse_runtime_release_manifest`, and the configuration package must resolve for the target
+   Release through `resolve_configuration_layers` (`configuration_override_missing` otherwise).
+   Each document's canonical JSON must hash to the digest that the Plan names, as the Hub computes
+   it. Then the Plan envelope must fit the maximum derived from local policy and both signed inputs
+   (`plan_envelope_exceeds_signed_maximum`).
+6. Compute the dry-run change set. `entity_components` in the local policy names the Release
+   components that each Entity runs. An Entity is unchanged only when it already runs the target
+   Release id with exactly those components' images, created when it's absent, and updated
+   otherwise. A Release without a named component is rejected (`release_component_missing`).
    Confirm that the change stays inside the Plan envelope.
 7. Persist the outcome and the pending report (`attempt` and `reported_at`) in
    `<state-dir>/lifecycle-agent-state.json`, then send
-   `POST /v1/installations/{installation_id}/plans/{plan_id}/reports`. A `503` is retried up to
-   three times after `Retry-After`. Any other failure resends the identical report on the next
+   `POST /v1/installations/{installation_id}/plans/{plan_id}/reports`. A `503 concurrent_write`
+   is retried up to three times after `Retry-After`. Any other failure resends the identical report on the next
    poll, which the Hub accepts as a duplicate, so `attempt` doesn't grow while the Hub is
    unreachable. Only a `409 report_conflict` makes the next poll start a new `attempt`. A reported
    Plan is not evaluated again.
@@ -66,7 +71,7 @@ nothing, logs `lifecycle_agent.plan_id_conflict`, and exits `1`.
 |--------|---------|
 | `--inputs-dir` | `releases/<digest>.json` (a runtime release manifest) and `configurations/<digest>.json` (`schema`, `environment`, `entity_overrides`), each with a raw Ed25519 signature over the file bytes in `<digest>.sig`. `<digest>` is the hex SHA-256 of the document's canonical JSON. |
 | `--current-state` | The Hub's reported-state shape: `{"digest": "<64 hex>", "schema_revision": 15, "entities": {"<entity>": {"release_id": "1.4.0", "artifact_digests": ["sha256:..."], "health": "healthy"}}, "observed_at": "<RFC 3339>"}` |
-| `--envelope` | `{"schema": "fdai.lifecycle-effect-envelope.v1", "entity_ids": [...], "regions": [...], "capability_modes": {...}, "destructive_allowed": false, "max_duration_minutes": 60}` |
+| `--local-policy` | `{"schema": "fdai.lifecycle-local-policy.v1", "entity_ids": [...], "regions": [...], "capability_modes": {...}, "destructive_allowed": false, "max_duration_minutes": 60, "entity_components": {"core": ["core-control-plane"]}}`. Every Entity in `entity_ids` must name at least one component. |
 
 ```bash
 fdai-lifecycle-agent poll-once \
@@ -74,7 +79,7 @@ fdai-lifecycle-agent poll-once \
   --state-dir <state-dir> --hub-public-key <hub.pem> --hub-key-id <key-id> \
   --hub-key-epoch <epoch> --fencing-generation <generation> \
   --release-public-key <release.pem> --configuration-public-key <configuration.pem> \
-  --inputs-dir <inputs-dir> --current-state <current-state.json> --envelope <envelope.json>
+  --inputs-dir <inputs-dir> --current-state <current-state.json> --local-policy <local-policy.json>
 ```
 
 `--hub-key-id` is the id that the Hub writes into its Plans. For a `dev-keygen` key, it's `hub-` and

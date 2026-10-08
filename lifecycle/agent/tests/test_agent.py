@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
@@ -16,10 +16,12 @@ from fdai_lifecycle_agent.dry_run import (
     ChangeSet,
     ChangeSetCalculator,
     CurrentState,
+    EntityState,
+    Health,
     compute_change_set,
 )
 from fdai_lifecycle_agent.hub_client import HubProtocolError, SignedPlan
-from fdai_lifecycle_agent.inputs import SignedArtifact, VerifiedRelease
+from fdai_lifecycle_agent.inputs import SignedArtifact
 from fdai_lifecycle_agent.state import AgentStateError
 
 if TYPE_CHECKING:
@@ -83,9 +85,10 @@ def test_dry_run_creates_missing_entities(harness: Harness) -> None:
 
 
 def test_pretty_printed_signed_inputs_match_the_canonical_plan_digest(harness: Harness) -> None:
-    release = harness.add_release(harness.release_document | {"note": "pretty"}, pretty=True)
+    modes = {"action:scale-service": "enforce", "action:extra": "shadow"}
+    release = harness.add_release(harness.manifest(capabilities=modes), pretty=True)
     configuration = harness.add_configuration(
-        harness.configuration_document | {"environment": {"tier": "dev"}}, pretty=True
+        harness.configuration_document | {"environment": {"replicas": 3}}, pretty=True
     )
     harness.serve(
         harness.plan(target_release_digest=release, configuration_revision_digest=configuration)
@@ -159,17 +162,14 @@ def test_envelope_wider_than_local_maximum_is_rejected(harness: Harness) -> None
 
 
 def _release_with_modes(harness: Harness, **modes: str) -> str:
-    capabilities = {
-        name: {"kind": "ActionType", "maximum_mode": mode} for name, mode in modes.items()
-    }
-    return harness.add_release(harness.release_document | {"capabilities": capabilities})
+    return harness.add_release(harness.manifest(capabilities=modes))
 
 
 @pytest.mark.parametrize(
     ("release_modes", "plan_mode", "reason_code"),
     [
-        ({"action:scale-service": "shadow"}, "enforce", "plan_envelope_exceeds_release_maximum"),
-        ({"action:other": "enforce"}, "enforce", "plan_envelope_exceeds_release_maximum"),
+        ({"action:scale-service": "shadow"}, "enforce", "plan_envelope_exceeds_signed_maximum"),
+        ({"action:other": "enforce"}, "enforce", "plan_envelope_exceeds_signed_maximum"),
         ({"action:scale-service": "shadow"}, "shadow", "dry_run_computed"),
     ],
 )
@@ -288,9 +288,11 @@ def test_no_pending_plan_does_nothing(harness: Harness) -> None:
 
 
 def _spy_change_set(calls: list[str]) -> ChangeSetCalculator:
-    def spy(plan: LifecyclePlan, release: VerifiedRelease, current: CurrentState) -> ChangeSet:
+    def spy(
+        plan: LifecyclePlan, entity_images: Mapping[str, frozenset[str]], current: CurrentState
+    ) -> ChangeSet:
         calls.append("called")
-        return compute_change_set(plan, release, current)
+        return compute_change_set(plan, entity_images, current)
 
     return spy
 
@@ -344,20 +346,28 @@ def _missing_configuration(harness: Harness) -> Overrides:
 
 
 def _tampered_release(harness: Harness) -> Overrides:
-    payload = json.dumps(harness.release_document | {"note": "tampered"}).encode()
+    payload = json.dumps(harness.manifest(core_control_plane=harness.image("tampered"))).encode()
     signature = harness.release_key.sign(payload)
     harness.store.releases[harness.release_digest] = SignedArtifact(payload, signature)
     return {}
 
 
 def _release_image_not_a_digest(harness: Harness) -> Overrides:
-    services = {"core-control-plane": {"image_digest": "latest"}}
-    document = harness.release_document | {"services": services}
+    document = harness.manifest(core_control_plane="latest")
+    return {"target_release_digest": harness.add_release(document)}
+
+
+def _release_missing_mandatory_field(harness: Harness) -> Overrides:
+    document = harness.manifest()
+    del document["deployment_bundle_sha256"]
     return {"target_release_digest": harness.add_release(document)}
 
 
 def _release_schema_v2(harness: Harness) -> Overrides:
-    document = harness.release_document | {"schema_version": "fdai.runtime-release.v2"}
+    document = harness.manifest()
+    for key in ("installation_agents", "schema", "capabilities", "downtime"):
+        del document[key]
+    document["schema_version"] = "fdai.runtime-release.v2"
     return {"target_release_digest": harness.add_release(document)}
 
 
@@ -366,7 +376,18 @@ def _release_capability_mode_unknown(harness: Harness) -> Overrides:
 
 
 def _configuration_literal_secret(harness: Harness) -> Overrides:
-    document: dict[str, object] = {"environment": {"client_secret": "literal-value"}}
+    document = harness.configuration_document | {"environment": {"client_secret": "literal"}}
+    return {"configuration_revision_digest": harness.add_configuration(document)}
+
+
+def _configuration_without_matching_override(harness: Harness) -> Overrides:
+    overrides = [{"versions": ">=2.0.0 <3.0.0", "values": {"replicas": 2}}]
+    document = harness.configuration_document | {"entity_overrides": overrides}
+    return {"configuration_revision_digest": harness.add_configuration(document)}
+
+
+def _configuration_extra_field(harness: Harness) -> Overrides:
+    document = harness.configuration_document | {"note": "x"}
     return {"configuration_revision_digest": harness.add_configuration(document)}
 
 
@@ -379,9 +400,12 @@ def _configuration_literal_secret(harness: Harness) -> Overrides:
         (_wrong_configuration_signer, "configuration_signature_invalid"),
         (_missing_configuration, "configuration_unavailable"),
         (_release_image_not_a_digest, "release_malformed"),
+        (_release_missing_mandatory_field, "release_malformed"),
         (_release_schema_v2, "release_schema_unsupported"),
         (_release_capability_mode_unknown, "release_malformed"),
         (_configuration_literal_secret, "configuration_literal_secret"),
+        (_configuration_without_matching_override, "configuration_override_missing"),
+        (_configuration_extra_field, "configuration_malformed"),
     ],
 )
 def test_invalid_signed_inputs_are_rejected(
@@ -394,6 +418,75 @@ def test_invalid_signed_inputs_are_rejected(
 
     assert result.reason_code == reason_code
     assert calls == []
+
+
+def _configuration_with_region(harness: Harness, region: str) -> str:
+    schema = harness.configuration_document["schema"]
+    assert isinstance(schema, dict)
+    region_entry = {
+        "default": "korea-central",
+        "x-fdai-axis": "Deployment environment",
+        "x-fdai-owner": "customer",
+    }
+    document = harness.configuration_document | {
+        "schema": schema | {"region": region_entry},
+        "environment": {"region": region},
+    }
+    return harness.add_configuration(document)
+
+
+@pytest.mark.parametrize(
+    ("region", "reason_code"),
+    [("korea-central", "dry_run_computed"), ("japan-east", "plan_envelope_exceeds_signed_maximum")],
+)
+def test_configured_region_narrows_the_local_maximum(
+    harness: Harness, region: str, reason_code: str
+) -> None:
+    configuration = _configuration_with_region(harness, region)
+    harness.serve(harness.plan(configuration_revision_digest=configuration))
+
+    result = harness.poll()
+
+    assert result.reason_code == reason_code
+
+
+def test_release_without_an_entity_component_is_rejected(harness: Harness) -> None:
+    harness.entity_components = harness.entity_components | {
+        "core": frozenset({"no-such-component"})
+    }
+    harness.serve(harness.plan())
+
+    result = harness.poll()
+
+    assert result.reason_code == "release_component_missing"
+
+
+@pytest.mark.parametrize(
+    "running", [(), ("operator-service-1.5.0",)], ids=["no-artifacts", "another-components-image"]
+)
+def test_entity_on_the_target_release_without_its_own_images_needs_an_update(
+    harness: Harness, running: tuple[str, ...]
+) -> None:
+    artifacts = frozenset(harness.image(label) for label in running)
+    harness.current_state = replace(
+        harness.current_state,
+        entities={"core": EntityState("1.5.0", artifacts, Health.HEALTHY)},
+    )
+    harness.serve(
+        harness.plan(
+            entity_ids=frozenset({"core"}),
+            envelope=harness.maximum_envelope(entity_ids=frozenset({"core"})),
+        )
+    )
+
+    harness.poll()
+
+    assert json.loads(harness.hub.reports[0][2].summary)["update"] == 1
+
+
+def test_local_policy_must_name_components_for_every_envelope_entity(harness: Harness) -> None:
+    with pytest.raises(ValueError, match="at least one Release component"):
+        harness.settings(entity_components={"core": frozenset({"core-control-plane"})})
 
 
 # Durable reporting

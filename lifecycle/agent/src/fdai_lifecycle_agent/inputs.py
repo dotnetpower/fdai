@@ -4,7 +4,8 @@ Both inputs are verified before any change is computed (ADR-0003 A15). The signa
 exact file bytes. The digest that the Plan names is the SHA-256 of the canonical JSON of the
 document, as the Hub computes it (``RuntimeRelease.digest`` and ``canonical_digest`` of the
 configuration). A missing or failed signature, a digest that differs from the Plan, or a malformed
-document rejects the Plan with a stable reason code.
+document rejects the Plan with a stable reason code. Both signed inputs can only narrow the locally
+derived maximum envelope.
 """
 
 from __future__ import annotations
@@ -14,11 +15,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from enum import StrEnum
 from pathlib import Path
-from typing import Literal, Protocol, get_args
+from typing import Literal, Protocol, cast, get_args
 
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.lifecycle_configuration import (
     ConfigurationValidationError,
+    resolve_configuration_layers,
     validate_configuration_package_for_signing,
 )
 from fdai_deployment_cli.lifecycle_plan import (
@@ -26,6 +28,7 @@ from fdai_deployment_cli.lifecycle_plan import (
     LifecycleEffectEnvelope,
     LifecyclePlan,
 )
+from fdai_deployment_cli.runtime_release import RuntimeReleaseError, parse_runtime_release_manifest
 
 from fdai_lifecycle_agent.signatures import ArtifactVerifier
 from fdai_lifecycle_agent.strict_json import load_json, read_limited
@@ -33,8 +36,10 @@ from fdai_lifecycle_agent.strict_json import load_json, read_limited
 LIFECYCLE_RELEASE_SCHEMA = "fdai.runtime-release.v3"
 MAX_INPUT_BYTES = 1024 * 1024
 _HEX_DIGEST = re.compile(r"[0-9a-f]{64}\Z", re.ASCII)
-_IMAGE_DIGEST = re.compile(r"sha256:[0-9a-f]{64}\Z", re.ASCII)
 _IMAGE_SECTIONS = ("services", "sidecars", "installation_agents")
+_CONFIGURATION_KEYS = frozenset({"schema", "environment", "entity_overrides"})
+# The Environment Config key that names the installation's Azure region (data residency).
+REGION_KEY = "region"
 # The shared contract declares capability modes from least to most authority; a test pins this
 # order to LifecycleEffectEnvelope.narrowed_by so the two can't drift apart.
 _AUTHORITY: tuple[CapabilityMode, ...] = get_args(CapabilityMode)
@@ -51,6 +56,8 @@ class InputProblem(StrEnum):
     MALFORMED = "malformed"
     SCHEMA_UNSUPPORTED = "schema_unsupported"
     LITERAL_SECRET = "literal_secret"  # noqa: S105 - a reason code, not a secret
+    OVERRIDE_MISSING = "override_missing"
+    COMPONENT_MISSING = "component_missing"
 
 
 # Inputs that can appear later, for example after a registry or file sync, don't block a Plan.
@@ -111,10 +118,10 @@ class DirectoryArtifactStore:
 
 @dataclass(frozen=True, slots=True)
 class VerifiedRelease:
-    """The image digests and capability maximums of a signature-verified Release manifest."""
+    """A signature-verified, fully validated ``fdai.runtime-release.v3`` manifest."""
 
     digest: str
-    artifact_digests: frozenset[str]
+    component_images: Mapping[str, str]
     capability_maximums: Mapping[str, CapabilityMode]
 
     def maximum_envelope(self, local: LifecycleEffectEnvelope) -> LifecycleEffectEnvelope:
@@ -131,65 +138,126 @@ class VerifiedRelease:
         }
         return replace(local, capability_modes=modes)
 
+    def entity_images(
+        self, entity_components: Mapping[str, frozenset[str]], entity_ids: frozenset[str]
+    ) -> dict[str, frozenset[str]]:
+        """Return the images each Entity runs in this Release, from its local component list.
+
+        Raises ``InputRejectedError`` when the Release lacks a component an Entity runs.
+        """
+
+        try:
+            return {
+                entity_id: frozenset(
+                    self.component_images[component] for component in entity_components[entity_id]
+                )
+                for entity_id in entity_ids
+            }
+        except KeyError as error:
+            raise InputRejectedError("release", InputProblem.COMPONENT_MISSING) from error
+
+
+@dataclass(frozen=True, slots=True)
+class VerifiedConfiguration:
+    """A signature-verified configuration package, resolved for the target Release."""
+
+    digest: str
+    values: Mapping[str, object]
+
+    def narrow(self, envelope: LifecycleEffectEnvelope) -> LifecycleEffectEnvelope:
+        """Narrow ``envelope`` by the configured Azure region. Configuration never widens it."""
+
+        match self.values.get(REGION_KEY):
+            case str(region):
+                return replace(envelope, regions=envelope.regions & {region})
+        return envelope
+
 
 def verify_release(
     plan: LifecyclePlan, store: ArtifactStore, verify_signature: ArtifactVerifier
 ) -> VerifiedRelease:
-    """Verify the Plan's target Release or raise ``InputRejectedError``."""
+    """Verify the Plan's target Release or raise ``InputRejectedError``.
 
-    document = _verified_document("release", plan.target_release_digest, store, verify_signature)
-    if document.get("schema_version") != LIFECYCLE_RELEASE_SCHEMA:
+    The manifest passes the same full validation that the deployment CLI and the Hub apply.
+    """
+
+    payload = _verified_payload("release", plan.target_release_digest, store, verify_signature)
+    try:
+        release = parse_runtime_release_manifest(payload)
+    except RuntimeReleaseError as error:
+        raise InputRejectedError("release", InputProblem.MALFORMED) from error
+    if release.schema_version != LIFECYCLE_RELEASE_SCHEMA:
         raise InputRejectedError("release", InputProblem.SCHEMA_UNSUPPORTED)
-    match document.get("capabilities"):
-        case dict(capabilities) if capabilities:
-            pass
-        case _:
-            raise InputRejectedError("release", InputProblem.MALFORMED)
-    maximums: dict[str, CapabilityMode] = {}
-    for capability, record in capabilities.items():
-        match record:
-            case {"maximum_mode": "shadow" | "enforce" as mode}:
-                maximums[capability] = mode
-            case _:
-                raise InputRejectedError("release", InputProblem.MALFORMED)
-    artifacts: set[str] = set()
-    for section in _IMAGE_SECTIONS:
-        records = document.get(section)
-        if not isinstance(records, dict) or not records:
-            raise InputRejectedError("release", InputProblem.MALFORMED)
-        for record in records.values():
-            match record:
-                case {"image_digest": str(digest)} if _IMAGE_DIGEST.fullmatch(digest):
-                    artifacts.add(digest)
-                case _:
-                    raise InputRejectedError("release", InputProblem.MALFORMED)
+    if release.digest != plan.target_release_digest:
+        raise InputRejectedError("release", InputProblem.DIGEST_MISMATCH)
     return VerifiedRelease(
-        digest=plan.target_release_digest,
-        artifact_digests=frozenset(artifacts),
-        capability_maximums=maximums,
+        digest=release.digest,
+        component_images=_component_images(release.to_mapping()),
+        # The manifest parser restricted every maximum to a CapabilityMode value.
+        capability_maximums=cast(dict[str, CapabilityMode], release.capability_maximums),
     )
 
 
 def verify_configuration(
     plan: LifecyclePlan, store: ArtifactStore, verify_signature: ArtifactVerifier
-) -> None:
-    """Verify the Plan's configuration package or raise ``InputRejectedError``."""
+) -> VerifiedConfiguration:
+    """Verify the Plan's configuration package and resolve it for the target Release.
 
-    document = _verified_document(
+    Raises ``InputRejectedError``. A package without an override block for the target Release
+    isn't deployable (``configuration_override_missing``).
+    """
+
+    payload = _verified_payload(
         "configuration", plan.configuration_revision_digest, store, verify_signature
     )
+    try:
+        document = load_json(payload, label="configuration")
+    except ValueError as error:
+        raise InputRejectedError("configuration", InputProblem.MALFORMED) from error
+    if not isinstance(document, dict) or set(document) != _CONFIGURATION_KEYS:
+        raise InputRejectedError("configuration", InputProblem.MALFORMED)
+    if canonical_digest(document) != plan.configuration_revision_digest:
+        raise InputRejectedError("configuration", InputProblem.DIGEST_MISMATCH)
     try:
         validate_configuration_package_for_signing(document)
     except ConfigurationValidationError as error:
         raise InputRejectedError("configuration", InputProblem.LITERAL_SECRET) from error
+    match document:
+        case {
+            "schema": dict(schema),
+            "environment": dict(environment),
+            "entity_overrides": list(overrides),
+        }:
+            pass
+        case _:
+            raise InputRejectedError("configuration", InputProblem.MALFORMED)
+    try:
+        resolution = resolve_configuration_layers(
+            release_version=plan.target_release_id,
+            configuration_schema=schema,
+            environment_config=environment,
+            entity_overrides=tuple(overrides),
+        )
+    except ConfigurationValidationError as error:
+        problem = (
+            InputProblem.OVERRIDE_MISSING
+            if error.code == "missing_matching_override_block"
+            else InputProblem.MALFORMED
+        )
+        raise InputRejectedError("configuration", problem) from error
+    return VerifiedConfiguration(
+        digest=plan.configuration_revision_digest, values=resolution.values
+    )
 
 
-def _verified_document(
+def _verified_payload(
     kind: InputKind,
     expected_digest: str,
     store: ArtifactStore,
     verify_signature: ArtifactVerifier,
-) -> dict[str, object]:
+) -> bytes:
+    """Load the artifact and verify its signature over the exact bytes; nothing is parsed yet."""
+
     try:
         artifact = store.load(kind, expected_digest)
     except (OSError, ValueError) as error:
@@ -204,15 +272,19 @@ def _verified_document(
         verified = False
     if verified is not True:
         raise InputRejectedError(kind, InputProblem.SIGNATURE_INVALID)
-    try:
-        document = load_json(artifact.payload, label=kind)
-    except ValueError as error:
-        raise InputRejectedError(kind, InputProblem.MALFORMED) from error
-    if not isinstance(document, dict):
-        raise InputRejectedError(kind, InputProblem.MALFORMED)
-    if canonical_digest(document) != expected_digest:
-        raise InputRejectedError(kind, InputProblem.DIGEST_MISMATCH)
-    return document
+    return artifact.payload
+
+
+def _component_images(catalog: Mapping[str, object]) -> dict[str, str]:
+    images: dict[str, str] = {}
+    for section in _IMAGE_SECTIONS:
+        match catalog.get(section):
+            case dict(records):
+                for name, record in records.items():
+                    match record:
+                        case {"image_digest": str(digest)}:
+                            images[str(name)] = digest
+    return images
 
 
 def _read_optional(path: Path) -> bytes | None:
