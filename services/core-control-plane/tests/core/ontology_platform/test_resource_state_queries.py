@@ -43,6 +43,7 @@ from fdai.shared.providers.state_evidence import (
     StateFactMetadata,
 )
 from fdai_service_contracts.recorded_resource_state import (
+    AVAILABILITY_ESTABLISHES_RUNNING_RESOURCE_TYPES,
     OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE,
     PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES,
     UNREACHABLE_OPERATIONAL_STATES_BY_RESOURCE_TYPE,
@@ -431,6 +432,79 @@ async def test_list_mode_keeps_an_unobserved_resource_unverified_despite_the_dec
 
     assert result["complete"] is False
     assert result["rows"][0]["values"]["state_status"] == "unknown_incomplete"
+
+
+def _serving(name: str, resource_type: str, availability: str, *, observed_at: datetime):
+    record = _typed(_resource(name, None), resource_type)
+    provider = {
+        **record.properties["properties"],
+        "availabilityState": availability,
+        STATE_FACT_METADATA_PROPERTY: {"availabilityState": _state_fact(observed_at=observed_at)},
+    }
+    return replace(record, properties={**record.properties, "properties": provider})
+
+
+async def test_fresh_availability_establishes_running_for_a_running_only_lifecycle() -> None:
+    fresh = NOW - timedelta(minutes=5)
+    result = await _invoke(
+        _query_result(
+            (
+                _resource("database-a", "Running", observed_at=fresh),
+                _serving("cosmos-a", "nosql-database", "Available", observed_at=fresh),
+            )
+        ),
+        concepts=("resource_state.running",),
+    )
+
+    # A Cosmos DB account has no steady state but running, so serving means running.
+    assert result["complete"] is True
+    rows = {row["values"]["name"]: row["values"] for row in result["rows"]}
+    assert set(rows) == {"database-a", "cosmos-a"}
+    assert rows["cosmos-a"]["state_concept"] == "resource_state.running"
+    assert rows["cosmos-a"]["observed_state"] == "Available"
+    assert rows["cosmos-a"]["state_basis"] == "availability_on_running_only_lifecycle"
+    assert "state_basis" not in rows["database-a"]
+
+
+@pytest.mark.parametrize(
+    ("availability", "age", "resource_type"),
+    [
+        ("Unavailable", timedelta(minutes=5), "nosql-database"),
+        ("Degraded", timedelta(minutes=5), "nosql-database"),
+        ("Available", timedelta(hours=3), "nosql-database"),
+        ("Available", timedelta(minutes=5), "postgresql-server"),
+    ],
+)
+async def test_availability_establishes_nothing_else(
+    availability: str, age: timedelta, resource_type: str
+) -> None:
+    serving = _serving("target-a", resource_type, availability, observed_at=NOW - age)
+    result = await _invoke(_query_result((serving,)), concepts=("resource_state.running",))
+
+    # Another value, a stale fact, or a type with other steady states stays unverified.
+    assert result["complete"] is False
+    assert result["rows"] == []
+
+
+async def test_list_mode_reports_an_availability_established_running_member() -> None:
+    serving = _serving("cosmos-a", "nosql-database", "Available", observed_at=NOW)
+    result = await _invoke(
+        _query_result((serving,)),
+        concepts=(RESOURCE_STATE_OBSERVED_CONCEPT,),
+        list_members=True,
+    )
+
+    assert result["complete"] is True
+    [row] = result["rows"]
+    assert row["values"]["state_status"] == "observed"
+    assert row["values"]["state_concept"] == "resource_state.running"
+
+
+def test_running_only_lifecycles_also_declare_every_other_steady_state_unreachable() -> None:
+    for resource_type in AVAILABILITY_ESTABLISHES_RUNNING_RESOURCE_TYPES:
+        assert {"stopped", "deallocated", "paused"} <= (
+            UNREACHABLE_OPERATIONAL_STATES_BY_RESOURCE_TYPE[resource_type]
+        )
 
 
 def test_lifecycle_declarations_cover_only_unobservable_types_with_reviewed_mappings() -> None:

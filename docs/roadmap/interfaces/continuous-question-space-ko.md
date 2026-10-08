@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 0b26aaac1b8eafb0d1966e70a3b6bb074e3ea778
+translation_source_sha: 483fa9cf3970a18889b1e74f09848b23a737a544
 translation_revised: 2026-10-08
 ---
 # 지속형 질문 공간
@@ -183,6 +183,7 @@ query 함수 12/36입니다. 검토된 대응표가 없으므로 Pantheon-to-sem
 ### 구현 이력
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-08 | 구현됨 | 실행 중 외의 정상 상태가 없는 수명 주기의 실행 중 요청을 확정했습니다. 이제 신선한 Resource Health `Available` 관측이 `nosql-database`와 `cache`의 실행 중 상태를 확정하고 행에 `state_basis`를 남기므로, 실행 중인 데이터베이스 질문이 Cosmos DB 계정 때문에 부분 결과로 남지 않습니다. 다른 가용성 값, 오래된 관측, 다른 유형은 확인되지 않은 상태로 남습니다. | `current change`; `recorded_resource_state.py`, `resource_state_queries.py`, 상태 조회 테스트, 실제 Console 확인. | 데이터베이스의 `running` 요청이 `online`이나 `ready`도 읽어야 하는지는 개념 선택 결정으로 남아 있습니다. |
 | 2026-10-08 | 구현됨 | 요청한 상태를 결코 가질 수 없는 유형의 관측 불가 리소스를 확정했습니다. 검토된 수명 주기 선언은 `nosql-database`와 `cache`가 `stopped`, `deallocated`, `paused`에 도달하지 않는다고 밝히므로, 중지된 데이터베이스 질문이 Cosmos DB 계정 두 개 때문에 부분 결과로 남지 않습니다. 관측은 여전히 우선하고, 목록 요청이나 도달 가능한 상태 요청은 확인되지 않은 상태로 남습니다. | `current change`; `recorded_resource_state.py`, `resource_state_queries.py`, 계약 및 상태 조회 테스트, 실제 Console 확인. | 공급자가 상태를 노출하지 않는 다른 유형은 같은 검토를 거친 뒤에만 선언을 추가합니다. |
 | 2026-10-08 | 구현됨 | 부분 결과인 `query.resource_state_inventory`의 원인을 밝혔습니다. 중지된 데이터베이스 질문은 Cosmos DB 계정 두 개가 운영 상태를 노출하지 않는다는 이유만으로 부분 결과였습니다. 이제 사유는 `resource_state_evidence_incomplete` 뒤에 `provider_operational_state_not_exposed`, `resource_state_not_reported`, `resource_state_stale`, `resource_state_conflicting` 중 해당 원인을 덧붙이고, 답변은 운영자의 언어로 이를 설명합니다. | `current change`; `resource_state_queries.py`와 `semantic_source_limitations.py`; 상태 조회와 제한 사항 집중 테스트 통과; 실제 Console 답변이 공급자 원인을 밝혔습니다. | 요청한 상태를 가질 수 없는 ResourceType을 완전한 결과로 볼지는 검토된 적용 가능성 결정이 필요합니다. |
 | 2026-09-30 | implemented | `case-history-read` 연결로 고정된 `core/ontology_platform` 소스 다이제스트가 바뀌어 이에 의존하는 의미 의도 범위 산출물을 다시 생성했습니다. `FunctionInvocationContext`에 Operator 요청 참조가 추가되었고 Pattern 읽기 로케이터가 이를 바인딩합니다. 모든 질문 신원, 준비 상태, 지표 정의, 분모, 범위 수치, 권한은 그대로입니다. | `current change`; 공식 `build_semantic_intent_coverage.py` 실행. | 사례별 의미 검토와 런타임 검증을 계속합니다. 이 다이제스트 갱신은 답변 가능 상태나 운영 준비 근거를 추가하지 않습니다. |
@@ -539,6 +540,13 @@ cron, IANA 표준 시간대, 로캘, 관점, 질문 수, 토큰, 비용, 전체 
 것으로 확정합니다. 관측된 상태는 언제나 선언보다 우선하며, 목록 요청이나 `running`처럼 도달할 수 있는 상태
 요청은 확인되지 않은 상태로 남습니다. 선언은 함수 원본의 일부이므로 릴리스 다이제스트와 재생이 이를
 결속합니다.
+
+수명 주기에 실행 중 외의 정상 상태가 없는 ResourceType, 현재 `nosql-database`와 `cache`는 신선한 공급자 가용성
+관측으로도 실행 중 요청을 확정할 수 있습니다. Resource Health가 `Available`로 보고한 그 유형의 리소스는 서비스를
+제공하고 있고 다른 정상 상태에 있을 수 없으므로 실행 중입니다. 그 행은 관측값과 `state_basis`
+`availability_on_running_only_lifecycle`을 유지하므로 답변이 근거를 밝힙니다. 다른 가용성 값, 오래되거나 충돌하는
+관측, 다른 ResourceType은 아무것도 확정하지 않으며, 관측된 운영 상태가 언제나 우선합니다. 그 밖의 곳에서는 여전히
+건강 상태가 상태를 대신하지 않습니다.
 
 ## 관련 문서
 

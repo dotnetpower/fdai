@@ -365,7 +365,8 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   `core/ontology_platform/resource_state_queries.py` appends one closed cause, such as
   `provider_operational_state_not_exposed`, to a partial state result, settles an unobserved
   Resource as not matching only when the reviewed `UNREACHABLE_OPERATIONAL_STATES_BY_RESOURCE_TYPE`
-  declaration in `fdai_service_contracts/recorded_resource_state.py` excludes every requested state, and
+  declaration in `fdai_service_contracts/recorded_resource_state.py` excludes every requested state,
+  establishes running from a fresh `Available` fact only for a reviewed running-only lifecycle, and
   `query_source_handlers.py` logs the content-free materialization, refresh, and receipt timings of
   each ObjectSet read.
   `fdai_core_service/semantic_answer_presentation.py` renders provider

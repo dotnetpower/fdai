@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: bc52e4e41dbc5aeed322d2b4c250274dec05e1f9
+translation_source_sha: 353a30958c4209ed016e3b21a84017b34a863904
 translation_revised: 2026-10-08
 ---
 # 프로젝트 구조
@@ -357,7 +357,8 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   `core/ontology_platform/resource_state_queries.py`는 부분 상태 결과에
   `provider_operational_state_not_exposed` 같은 닫힌 원인 하나를 덧붙이며,
   `fdai_service_contracts/recorded_resource_state.py`의 검토된 `UNREACHABLE_OPERATIONAL_STATES_BY_RESOURCE_TYPE`
-  선언이 요청한 모든 상태를 제외할 때만 관측되지 않은 리소스를 조건에 맞지 않는 것으로 확정하고,
+  선언이 요청한 모든 상태를 제외할 때만 관측되지 않은 리소스를 조건에 맞지 않는 것으로 확정하며,
+  검토된 실행 중 전용 수명 주기에서만 신선한 `Available` 관측으로 실행 중을 확정하고,
   `query_source_handlers.py`는 ObjectSet 조회마다 내용 없이 구체화, 갱신, 영수증 단계의 시간을 기록합니다.
   `fdai_core_service/semantic_answer_presentation.py`는 공급자 lifecycle 상태, ISO 시각, 완전성,
   실행 권한 없음 표시를 운영자 언어로 렌더링하고 기술 상세에는 정확한 값을 유지합니다.

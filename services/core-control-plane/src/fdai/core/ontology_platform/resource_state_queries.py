@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from fdai_service_contracts.recorded_resource_state import (
+    AVAILABILITY_ESTABLISHES_RUNNING_RESOURCE_TYPES,
     PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES,
     UNREACHABLE_OPERATIONAL_STATES_BY_RESOURCE_TYPE,
 )
@@ -150,7 +151,11 @@ def resource_state_function_type() -> OntologyFunctionType:
 def resource_state_inventory_function(
     ontology_release: OntologyRelease,
 ) -> ContextualOntologyFunction:
-    """Filter verified observed state without provider I/O or health inference."""
+    """Filter verified observed state without provider I/O.
+
+    Health never stands in for state, except the reviewed running-only lifecycles, where a fresh
+    Available fact establishes running and nothing else.
+    """
 
     ontology_release.type_ref(
         OntologyDeclarationKind.FUNCTION,
@@ -176,6 +181,9 @@ def resource_state_inventory_function(
         targets = sorted(secured.materialization.graph.objects, key=lambda item: item.id)
         for target in targets:
             values = verified_resource_state_values(
+                target,
+                observation_cutoff=secured.receipt.observation_cutoff,
+            ) or running_values_from_availability(
                 target,
                 observation_cutoff=secured.receipt.observation_cutoff,
             )
@@ -285,6 +293,46 @@ def verified_resource_state_values(
         "region": _text(provider.get("region")) or _text(provider.get("location")),
         "observed_state": raw_state,
         "state_concept": state_concept,
+        "source_observed_at": metadata.effective_at.isoformat(),
+        "inventory_read_at": observation_cutoff.isoformat(),
+        "execution_authority": False,
+    }
+
+
+def running_values_from_availability(
+    target: OntologyObjectRecord,
+    *,
+    observation_cutoff: Any,
+) -> dict[str, object] | None:
+    """Establish running from a fresh Available fact for a reviewed running-only lifecycle.
+
+    The reviewed declaration covers only ResourceTypes that have no steady state other than
+    running, so a serving Resource of that type is running. Any other availability value, a
+    stale or conflicting fact, or another ResourceType establishes nothing.
+    """
+
+    resource_type = _text(target.properties.get("type")) or ""
+    if resource_type not in AVAILABILITY_ESTABLISHES_RUNNING_RESOURCE_TYPES:
+        return None
+    provider = _mapping(target.properties.get("properties"))
+    availability = _text(provider.get("availabilityState"))
+    if availability is None or availability.casefold() != "available":
+        return None
+    metadata = _verified_state_metadata(
+        _mapping(provider.get(STATE_FACT_METADATA_PROPERTY)).get("availabilityState"),
+        observation_cutoff=observation_cutoff,
+    )
+    if metadata is None:
+        return None
+    return {
+        "name": _text(target.properties.get("name")),
+        "type": resource_type,
+        "resource_group": _text(provider.get("resource_group"))
+        or _text(provider.get("resourceGroup")),
+        "region": _text(provider.get("region")) or _text(provider.get("location")),
+        "observed_state": availability,
+        "state_concept": "resource_state.running",
+        "state_basis": "availability_on_running_only_lifecycle",
         "source_observed_at": metadata.effective_at.isoformat(),
         "inventory_read_at": observation_cutoff.isoformat(),
         "execution_authority": False,

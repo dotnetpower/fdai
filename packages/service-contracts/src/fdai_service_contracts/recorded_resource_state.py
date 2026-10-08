@@ -187,6 +187,12 @@ UNREACHABLE_OPERATIONAL_STATES_BY_RESOURCE_TYPE: Mapping[str, frozenset[str]] = 
     # Azure Cache for Redis and Memcached-compatible caches have no stop or pause operation.
     "cache": frozenset({"stopped", "deallocated", "paused"}),
 }
+# Reviewed lifecycle facts: a ResourceType whose lifecycle has no steady state other than running.
+# For such a type, a fresh provider availability fact of Available establishes that the Resource is
+# running, because a serving Resource of that type cannot be in any other steady state. Any other
+# availability value establishes nothing. Every entry MUST also declare stopped, deallocated, and
+# paused unreachable above, and an observed operational state always wins.
+AVAILABILITY_ESTABLISHES_RUNNING_RESOURCE_TYPES = frozenset({"cache", "nosql-database"})
 AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE: Mapping[str, tuple[str, ...]] = {
     "alert-rule": AVAILABILITY_STATE_PATHS,
     "api-gateway": AVAILABILITY_STATE_PATHS,
@@ -352,6 +358,7 @@ def is_recorded_state_value_valid(value: object, *, allow_unknown: bool = False)
 
 
 __all__ = [
+    "AVAILABILITY_ESTABLISHES_RUNNING_RESOURCE_TYPES",
     "AVAILABILITY_STATE_NOT_APPLICABLE_RESOURCE_TYPES",
     "AVAILABILITY_STATE_PATHS",
     "AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE",
