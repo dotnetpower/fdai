@@ -33,8 +33,14 @@ body: |-
   over a timestamp property with at_least and at_most, taking any date the request leaves
   implicit from the supplied documents. Wording about why the requester is asking, such as
   the task they are performing, is context, not a condition. Any stated property of the
-  requested objects, including their purpose, remains a condition. Use unsupported_constraint
-  only when none of these forms can express a requested condition.
+  requested objects, including their purpose, remains a condition. A condition on a value
+  inside an object-valued property uses nested_predicates: name that top-level property, the
+  exact key from allowed_nested_predicate_keys, and the same operators and operand shapes,
+  which apply to the value stored under that key, and only instances whose property holds an
+  object can match. Set a nested operand that the operator does not use to null. For
+  example, a Resource whose purpose mentions backups is properties, key purpose, contains
+  "backup". Use unsupported_constraint only when none of these forms can express a requested
+  condition.
   Do not enumerate only some matching objects to evade a bound.
 
   When the query identifies a specific instance that is present in the supplied canonical

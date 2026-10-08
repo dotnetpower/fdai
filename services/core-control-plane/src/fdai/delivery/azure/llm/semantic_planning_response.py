@@ -73,6 +73,14 @@ def normalize_candidate_proposal_payload(payload: Any) -> Any:
         object_ids = normalized.get("object_ids")
         if isinstance(object_ids, list):
             normalized["object_ids"] = list(dict.fromkeys(object_ids))
+        nested = normalized.get("nested_predicates")
+        if isinstance(nested, list):
+            normalized["nested_predicates"] = [
+                {name: value for name, value in item.items() if value is not None}
+                if isinstance(item, dict)
+                else item
+                for item in nested
+            ]
         normalized_clauses.append(normalized)
         if isinstance(quote, str):
             quotes.append(quote)

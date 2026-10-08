@@ -188,8 +188,19 @@ def test_strict_candidate_schema_matches_pydantic_contract_surface() -> None:
     )
     clause_schema = strict_schema["properties"]["clauses"]["items"]
     assert clause_schema["additionalProperties"] is False
-    assert set(clause_schema["required"]) == {"object_type", "predicates", "object_ids", "quote"}
+    assert set(clause_schema["required"]) == {
+        "object_type",
+        "predicates",
+        "nested_predicates",
+        "object_ids",
+        "quote",
+    }
     assert clause_schema["properties"]["quote"]["type"] == "string"
+    nested_variants = clause_schema["properties"]["nested_predicates"]["items"]["anyOf"]
+    assert {
+        value for variant in nested_variants for value in variant["properties"]["operator"]["enum"]
+    } == set(pydantic_schema["$defs"]["ObjectPredicateOperator"]["enum"])
+    assert all({"property", "key"} <= set(variant["required"]) for variant in nested_variants)
     predicate_variants = clause_schema["properties"]["predicates"]["items"]["anyOf"]
     strict_operators = {
         value
