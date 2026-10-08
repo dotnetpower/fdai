@@ -64,13 +64,13 @@
 .tj-hero p { margin: 6px 0 0; color: var(--cs-text-soft); font-size: var(--cs-type-page-subtitle-size, 15px); }
 
 .tj-route { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 0; margin: 20px 0 0; padding: 0; list-style: none; }
-.tj-route li { display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px 6px 6px; border: 1px solid var(--cs-hairline); border-radius: 999px; background: var(--cs-card); }
-.tj-route li + li { margin-left: 28px; position: relative; }
-.tj-route li + li::before { content: ""; position: absolute; right: calc(100% + 6px); top: 50%; width: 16px; border-top: 1px solid var(--cs-text-soft); }
-.tj-route li + li::after { content: ""; position: absolute; right: calc(100% + 5px); top: calc(50% - 3px); width: 6px; height: 6px; border: solid var(--cs-text-soft); border-width: 1px 1px 0 0; transform: rotate(45deg); }
-.tj-route .tj-avatar { width: 26px; height: 26px; border-radius: 50%; }
+.tj-route li { display: inline-flex; align-items: center; gap: 10px; padding: 8px 18px 8px 8px; border: 1px solid var(--cs-hairline); border-radius: 10px; background: var(--cs-card); }
+.tj-route li + li { margin-left: 32px; position: relative; }
+.tj-route li + li::before { content: ""; position: absolute; right: calc(100% + 7px); top: 50%; width: 18px; border-top: 1px solid var(--cs-text-soft); }
+.tj-route li + li::after { content: ""; position: absolute; right: calc(100% + 6px); top: calc(50% - 3px); width: 6px; height: 6px; border: solid var(--cs-text-soft); border-width: 1px 1px 0 0; transform: rotate(45deg); }
+.tj-route .tj-avatar { width: 30px; height: 30px; border-radius: 7px; }
 .tj-route .tj-avatar img { width: 16px; height: 16px; }
-.tj-route li > span:last-child { display: grid; line-height: 1.25; }
+.tj-route li > span:last-child { display: grid; gap: 1px; line-height: 1.3; white-space: nowrap; }
 .tj-route strong { font-size: var(--cs-type-compact-size); font-weight: 600; }
 .tj-route small { color: var(--cs-text-soft); font-size: var(--cs-type-label-size); }
 .tj-route li[data-tone="attention"] { border-color: color-mix(in srgb, var(--cs-terracotta) 45%, var(--cs-hairline)); }
