@@ -36,6 +36,10 @@ from fdai.delivery.catalog_search.ontology_index_workers import (
     OntologyContextIndexWorkers,
 )
 from fdai.delivery.catalog_search.ontology_snapshot_store import OntologyGenerationSnapshotStore
+from fdai.delivery.catalog_search.ontology_typed_selection_shadow import (
+    TypedSelectionShadowBinding,
+    TypedSelectionShadowObserver,
+)
 from fdai.delivery.catalog_search.ontology_vector_store import OntologyVectorSnapshotStore
 from fdai.delivery.catalog_search.ranking import CatalogRankingPolicy
 from fdai.rule_catalog.schema.ontology_catalog import OntologyCatalog
@@ -65,8 +69,13 @@ def build_ontology_index_runtime(
     embedder: Embedder,
     clock: Callable[[], datetime],
     projection_lock: ResourceLock | None = None,
+    typed_selection_shadow: TypedSelectionShadowBinding | None = None,
 ) -> OntologyIndexRuntime | None:
-    """Bind real adapters only with governed embedding metadata; never call a provider here."""
+    """Bind real adapters only with governed embedding metadata; never call a provider here.
+
+    A typed selection shadow binding enables only shadow observation; the answer path keeps
+    exact-identity reads and never consults its proposals.
+    """
     space = getattr(embedder, "embedding_space_id", None)
     model = getattr(embedder, "embedding_model_version", None)
     dimension = getattr(embedder, "dim", None)
@@ -130,22 +139,38 @@ def build_ontology_index_runtime(
         embedding_model_version=model,
         embedding_dimension=dimension,
     )
+    reader = OntologyInstanceCandidateReader(
+        snapshots=snapshots,
+        vectors=vectors,
+        ranking_policy=CatalogRankingPolicy(),
+        semantic_search_available=False,
+        typed_selection_shadow=typed_selection_shadow is not None,
+    )
     runtime.workers = OntologyContextIndexWorkers(
         store=store,
         snapshots=snapshots,
         vectors=vectors,
-        reader=OntologyInstanceCandidateReader(
-            snapshots=snapshots,
-            vectors=vectors,
-            ranking_policy=CatalogRankingPolicy(),
-            semantic_search_available=False,
-        ),
+        reader=reader,
         resolve_source=runtime.source,
         clock=clock,
         embedding_space_id=space,
         embedding_model_version=model,
         embedding_dimension=dimension,
         projection_lock=projection_lock,
+        typed_selection_shadow=(
+            TypedSelectionShadowObserver(
+                proposer=typed_selection_shadow.proposer,
+                reader=reader,
+                snapshots=snapshots,
+                store=store,
+                clock=clock,
+                data_handling_policy_digest=typed_selection_shadow.data_handling_policy_digest,
+                expected_binding=typed_selection_shadow.expected_binding,
+                budget=typed_selection_shadow.budget,
+            )
+            if typed_selection_shadow is not None
+            else None
+        ),
     )
     return runtime
 
@@ -266,6 +291,13 @@ class OntologyIndexRuntime:
 
     async def run(self, runtime: PantheonRuntime, stop: asyncio.Event) -> None:
         """Run bounded background reconciliation under the existing runtime supervisor."""
+        try:
+            await self._run(runtime, stop)
+        finally:
+            if self.workers is not None:
+                await self.workers.aclose_shadow()
+
+    async def _run(self, runtime: PantheonRuntime, stop: asyncio.Event) -> None:
         while not stop.is_set():
             try:
                 await self.reconcile(runtime)

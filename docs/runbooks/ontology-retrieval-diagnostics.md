@@ -368,6 +368,40 @@ The report keeps `production_qualification` and `execution_authority` at `False`
 only the diagnostic method; runtime activation, latency qualification, and human approval gates
 are unchanged.
 
+## Run the runtime shadow campaign
+
+[typed_selection_runtime_campaign.py](../../scripts/evaluation/typed_selection_runtime_campaign.py)
+judges the pre-registered protocols `typed-selection-runtime-latency.v1` and
+`typed-selection-runtime-window.v1` on the exact runtime shadow path. The
+[ontology query coverage design](../roadmap/interfaces/ontology-query-coverage-implementation-plan.md#runtime-typed-instance-selection)
+defines both protocols.
+
+1. Check out the exact merged commit in a clean worktree. The driver refuses a dirty tracked tree
+   and records `HEAD`.
+2. Run a fake campaign first. It answers from labels through the real adapter request path, without
+   authentication or network:
+
+   ```bash
+   uv run python scripts/evaluation/typed_selection_runtime_campaign.py \
+     --fake --evidence-dir <private-dir> --label fake-<commit>
+   ```
+
+3. With explicit live authorization, run the live campaign with the local runtime environment file
+   that names the resolved models. The driver refuses a resolved model whose family or version
+   differs from the reviewed pin:
+
+   ```bash
+   uv run python scripts/evaluation/typed_selection_runtime_campaign.py \
+     --runtime-env <local-runtime-env> --evidence-dir <private-dir> --label live-<commit>
+   ```
+
+The live campaign makes at most 512 proposal calls within 90 minutes and never retries. It stops
+after three consecutive provider-unavailable observations or once more than five observations are
+unavailable. The decision rows and the summary are created exclusively with mode 0600, and stdout
+prints aggregate figures only. Exit code `0` means both protocols passed, `1` means a protocol
+failed, and `2` means the campaign aborted without a quality outcome. A report never grants
+production qualification or execution authority.
+
 ## Testing
 
 ```bash

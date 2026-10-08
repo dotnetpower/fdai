@@ -1,0 +1,500 @@
+{
+  "schema_version": "1.0.0",
+  "origin": "independently_authored_synthetic_holdout",
+  "independently_reviewed": true,
+  "production_qualification": false,
+  "supersedes": null,
+  "corpus": "instance-corpus.v1.json",
+  "purpose": "Frozen independent 64-case window for the pre-registered runtime typed-selection shadow window protocol typed-selection-runtime-window.v1 (#2011); not production qualification.",
+  "candidate_ranking_policy": {
+    "minimum_score": 0.4,
+    "exact_weight": 1.0,
+    "lexical_weight": 0.25,
+    "semantic_weight": 1.0
+  },
+  "evaluation_policy": {
+    "schema_version": "1.1.0",
+    "top_k": 5,
+    "min_recall_at_k": 1.0,
+    "min_mean_reciprocal_rank": 1.0,
+    "min_no_match_precision": 1.0,
+    "min_samples_per_metric": 4,
+    "required_cohorts": [
+      "en-adversarial",
+      "en-ambiguous",
+      "en-negative",
+      "en-positive",
+      "ko-adversarial",
+      "ko-ambiguous",
+      "ko-negative",
+      "ko-positive"
+    ]
+  },
+  "limits": {
+    "embedding_calls": 128,
+    "total_seconds": 600,
+    "embedding_call_seconds": 5
+  },
+  "cases": [
+    {
+      "case_id": "window1-en-01",
+      "query": "For escalation planning, which business services are rated high or critical criticality?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-a",
+        "object:BusinessService:example-service-b",
+        "object:BusinessService:example-service-d"
+      ]
+    },
+    {
+      "case_id": "window1-en-02",
+      "query": "Show me every incident that is currently in open status.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-a",
+        "object:Incident:example-incident-c"
+      ]
+    },
+    {
+      "case_id": "window1-en-03",
+      "query": "Which critical-severity incidents have not been closed yet?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-a",
+        "object:Incident:example-incident-d"
+      ]
+    },
+    {
+      "case_id": "window1-en-04",
+      "query": "Which workload runs as a scheduled job?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-d"
+      ]
+    },
+    {
+      "case_id": "window1-en-05",
+      "query": "I'm auditing exposure: which object storage resource has public access enabled?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-a"
+      ]
+    },
+    {
+      "case_id": "window1-en-06",
+      "query": "Which resource is configured for zone-redundant high availability?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-c"
+      ]
+    },
+    {
+      "case_id": "window1-en-07",
+      "query": "Find the Kubernetes cluster whose node pool role is batch.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-e"
+      ]
+    },
+    {
+      "case_id": "window1-en-08",
+      "query": "List the business services with medium criticality.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-c",
+        "object:BusinessService:example-service-e"
+      ]
+    },
+    {
+      "case_id": "window1-en-09",
+      "query": "Which incident was last updated at 10:00 UTC on September 1, 2026?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-e"
+      ]
+    },
+    {
+      "case_id": "window1-en-10",
+      "query": "What business service is also known as Employee authentication?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-b"
+      ]
+    },
+    {
+      "case_id": "window1-en-11",
+      "query": "Which workloads are web-facing, i.e. of kind web-api or web-frontend?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-b",
+        "object:Workload:example-workload-f"
+      ]
+    },
+    {
+      "case_id": "window1-en-12",
+      "query": "Pull up the incident tied to correlation id example-correlation-f.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-f"
+      ]
+    },
+    {
+      "case_id": "window1-en-13",
+      "query": "Which VM resource serves the build-agent workload role?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-f"
+      ]
+    },
+    {
+      "case_id": "window1-en-14",
+      "query": "Which secret store has its public network access disabled?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-b"
+      ]
+    },
+    {
+      "case_id": "window1-en-15",
+      "query": "Which workload consumes from a queue to dispatch notifications?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-e"
+      ]
+    },
+    {
+      "case_id": "window1-en-16",
+      "query": "Which business service carries the lowest (low) criticality rating?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-f"
+      ]
+    },
+    {
+      "case_id": "window1-en-17",
+      "query": "Which service did my teammate mention in standup this morning?",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-en-18",
+      "query": "Open the incident I was looking at before lunch.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-en-19",
+      "query": "What's the status of the resource on my other monitor?",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-en-20",
+      "query": "Show me the workload from the alert I just forwarded you.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-en-21",
+      "query": "Is that one still broken?",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-en-22",
+      "query": "Which service did the customer complain about in yesterday's call?",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-en-23",
+      "query": "Give me the details for the workload we discussed last week.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-en-24",
+      "query": "The incident from the previous ticket, has it been resolved?",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-en-25",
+      "query": "Which resource is a Redis cache?",
+      "cohort": "en-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-en-26",
+      "query": "Show incidents with severity informational.",
+      "cohort": "en-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-en-27",
+      "query": "Which workload is deployed as a serverless function?",
+      "cohort": "en-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-en-28",
+      "query": "Which business service handles loyalty points?",
+      "cohort": "en-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-en-29",
+      "query": "I need an incident that is open with severity high exactly; don't substitute a different severity or status.",
+      "cohort": "en-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-en-30",
+      "query": "Find the business service aliased Product discovery that has critical criticality; don't fall back to another criticality.",
+      "cohort": "en-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-en-31",
+      "query": "Which scheduled-job workload is the notification dispatcher? Only that exact combination, no substitutes.",
+      "cohort": "en-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-en-32",
+      "query": "Give me the object-storage resource with public network access disabled; don't return the secret vault instead.",
+      "cohort": "en-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-ko-01",
+      "query": "심각도가 critical인 인시던트 전부 보여줘",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-a",
+        "object:Incident:example-incident-b",
+        "object:Incident:example-incident-d"
+      ]
+    },
+    {
+      "case_id": "window1-ko-02",
+      "query": "이미 closed 처리된 인시던트 목록 좀 뽑아줘",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-b",
+        "object:Incident:example-incident-f"
+      ]
+    },
+    {
+      "case_id": "window1-ko-03",
+      "query": "지금 트리아지 중인 인시던트가 뭐야?",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-d"
+      ]
+    },
+    {
+      "case_id": "window1-ko-04",
+      "query": "소포 배송 조회 서비스 찾아줘",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-c"
+      ]
+    },
+    {
+      "case_id": "window1-ko-05",
+      "query": "고객 알림 쪽 비즈니스 서비스 정보 보여줘",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-e"
+      ]
+    },
+    {
+      "case_id": "window1-ko-06",
+      "query": "중요도가 high로 잡혀 있는 비즈니스 서비스들 알려줘",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-a",
+        "object:BusinessService:example-service-d"
+      ]
+    },
+    {
+      "case_id": "window1-ko-07",
+      "query": "구매 주문 트랜잭션 저장하는 MySQL 서버 리소스가 어떤 거야?",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-c"
+      ]
+    },
+    {
+      "case_id": "window1-ko-08",
+      "query": "접근이 private으로 설정된 가상 네트워크 리소스 찾아줘",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-d"
+      ]
+    },
+    {
+      "case_id": "window1-ko-09",
+      "query": "컨테이너 배치 작업 돌리는 용도의 클러스터가 뭐지?",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-e"
+      ]
+    },
+    {
+      "case_id": "window1-ko-10",
+      "query": "공개 상품 이미지 보관용 스토리지 리소스 알려줘",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-a"
+      ]
+    },
+    {
+      "case_id": "window1-ko-11",
+      "query": "워크로드 유형이 stream-processor인 거 뭐야?",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-c"
+      ]
+    },
+    {
+      "case_id": "window1-ko-12",
+      "query": "백그라운드 워커로 돌아가는 워크로드 찾아줘",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-a"
+      ]
+    },
+    {
+      "case_id": "window1-ko-13",
+      "query": "로그인 요청 받는 웹 API 워크로드 어떤 거야?",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-b"
+      ]
+    },
+    {
+      "case_id": "window1-ko-14",
+      "query": "resolved로 해결 처리된 인시던트 보여줘",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-e"
+      ]
+    },
+    {
+      "case_id": "window1-ko-15",
+      "query": "심각도 high 이상이면서 아직 open이나 triaging 상태인 인시던트 다 알려줘",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-a",
+        "object:Incident:example-incident-d"
+      ]
+    },
+    {
+      "case_id": "window1-ko-16",
+      "query": "콘텐츠 게시 서비스랑 편집 페이지 렌더러 워크로드 둘 다 보여줘",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-f",
+        "object:Workload:example-workload-f"
+      ]
+    },
+    {
+      "case_id": "window1-ko-17",
+      "query": "아까 팀장님이 얘기한 서비스 상태 어때?",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-ko-18",
+      "query": "방금 슬랙에 올라온 그 인시던트 열어줘",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-ko-19",
+      "query": "내 옆 화면에 떠 있는 리소스 뭐야?",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-ko-20",
+      "query": "어제 회의 때 말한 그 워크로드 다시 보여줘",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-ko-21",
+      "query": "그거 아직도 안 고쳐졌어?",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-ko-22",
+      "query": "지난번에 내가 물어본 워크로드 상세 정보 줘",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-ko-23",
+      "query": "고객사가 문의한 그 서비스 어떻게 됐어?",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-ko-24",
+      "query": "전 당번이 넘겨준 인시던트 처리 상황 알려줘",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-ko-25",
+      "query": "로드 밸런서 리소스 있어?",
+      "cohort": "ko-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-ko-26",
+      "query": "심각도가 info인 인시던트 보여줘",
+      "cohort": "ko-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-ko-27",
+      "query": "회원 포인트 적립 서비스 찾아줘",
+      "cohort": "ko-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-ko-28",
+      "query": "서버리스 함수로 배포된 워크로드 알려줘",
+      "cohort": "ko-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-ko-29",
+      "query": "상태가 closed이면서 심각도가 medium인 인시던트만 찾아줘. 다른 걸로 대체하지 마",
+      "cohort": "ko-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-ko-30",
+      "query": "중요도가 low인데 별칭이 고객 알림인 서비스 알려줘. 비슷한 거로 바꾸지 말고",
+      "cohort": "ko-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-ko-31",
+      "query": "workload_kind가 stream-processor인 로그인 API 워크로드 찾아줘. 조건 둘 다 맞는 것만",
+      "cohort": "ko-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "window1-ko-32",
+      "query": "zone-redundant 고가용성으로 구성된 Kubernetes 클러스터 보여줘. MySQL 서버로 대체하지 마",
+      "cohort": "ko-adversarial",
+      "expected_document_ids": []
+    }
+  ]
+}
