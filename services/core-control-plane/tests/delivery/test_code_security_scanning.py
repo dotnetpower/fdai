@@ -427,7 +427,9 @@ async def test_scan_job_proof_lane_raises_verified_issue_to_proven(tmp_path: Pat
     assert receipt["proof"]["enabled"] is True
 
 
-def test_verifier_evaluation_runs_both_verifiers_on_a_pinned_source(tmp_path: Path) -> None:
+def test_verifier_evaluation_runs_both_verifiers_on_a_pinned_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     import argparse
 
     import yaml
@@ -466,7 +468,13 @@ def test_verifier_evaluation_runs_both_verifiers_on_a_pinned_source(tmp_path: Pa
         ],
         "errors": [],
     }
-    engine.write_text("#!/bin/sh\ncat <<'JSON'\n" + json.dumps(hits) + "\nJSON\n")
+    # The engine runs in each source tree, so a rule path it can't resolve there yields no hits.
+    engine.write_text(
+        "#!/bin/sh\n"
+        'while [ "$#" -gt 0 ]; do [ "$1" = --config ] && config="$2"; shift; done\n'
+        '[ -d "$config" ] || { echo \'{"results": [], "errors": []}\'; exit 0; }\n'
+        "cat <<'JSON'\n" + json.dumps(hits) + "\nJSON\n"
+    )
     engine.chmod(0o755)
     corpus = tmp_path / "corpus.yaml"
     corpus.write_text(
@@ -530,13 +538,14 @@ def test_verifier_evaluation_runs_both_verifiers_on_a_pinned_source(tmp_path: Pa
             }
         )
     )
+    monkeypatch.chdir(_CATALOG.parent)
     receipt = evaluate_verifiers(
         argparse.Namespace(
             corpus=str(corpus),
             work_root=str(tmp_path / "work"),
             engine=str(engine),
             output=str(tmp_path / "receipt.json"),
-            catalog_root=str(_CATALOG),
+            catalog_root=_CATALOG.name,
         )
     )
     verifiers: list[dict[str, Any]] = receipt["verifiers"]  # type: ignore[assignment]

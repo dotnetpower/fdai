@@ -297,8 +297,11 @@ intra-procedural, flow-sensitive taint analysis over the enclosing function. The
    annotated as numbers or UUIDs aren't sources. Local inputs such as command-line arguments
    aren't sources, because `verified` claims a network-reachable flow.
 2. **No sanitizer:** no catalog sanitizer, such as `shlex.quote` or `os.path.basename`, cuts the
-   flow. An allowlist or validation guard on the value removes taint on both branches.
-3. **Reachable:** the sink isn't after a `return` or `raise`, or in a constant-false branch.
+   flow. An allowlist or validation guard on the value removes taint on both branches, including
+   a fixed-substring check such as `'../' in name`.
+3. **Reachable:** the sink isn't after a `return` or `raise`, or in a branch that is never taken.
+   The verifier folds `if`, conditional-expression, `while`, and `match` conditions built from
+   literals and function-local names bound once to a literal, and analyzes every branch otherwise.
 4. **Exact revision:** the issue and the acquired tree have the same commit.
 
 Every other outcome leaves confidence unchanged and is recorded in `receipt.json` with a reason,
@@ -345,6 +348,12 @@ early-return guards. Java path traversal and C# SQL injection had no held-out tr
 Python command injection measured 0.75 on `holdout` and stays in shadow. The JavaScript path
 traversal rule no longer treats a one-argument store lookup as tainted, but two safe Juice Shop
 reads gated by a known-key lookup still keep it in shadow.
+
+Example: the verifiers 1.3.0 receipt on the same corpus adds constant-condition folding and
+fixed-substring guards, and returns Python code injection to promotion at precision 1.0 with 11
+`dev` and 3 `holdout` true positives. No true positive was lost in either split. Python path
+traversal rose to 0.90 on `dev` and 0.82 on `holdout`, and unsafe deserialization to 0.88 and 1.0,
+so both stay in shadow.
 
 ## Proof lane (opt-in)
 

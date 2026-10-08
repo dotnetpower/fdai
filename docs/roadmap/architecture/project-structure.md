@@ -646,7 +646,8 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
 Code-security findings keep their deterministic core in `core/security/code_findings/`, catalogs
 in `rule-catalog/code-security/`, and adapters in `delivery/code_security_*.py` and
 `delivery/persistence/state_store_code_security_*.py`. Bounded Console issue summaries are built
-by `issue_summary.py` beside the review signal. The severity rubric is catalog data in
+by `issue_summary.py` beside the review signal. The Python weakness verifier in `verifier.py`
+folds fixed conditions through the pure, side-effect-free `verifier_constants.py`. The severity rubric is catalog data in
 `rule-catalog/code-security/severity-rubric.yaml`, and its version is stamped into every coverage
 receipt, so a rubric change makes earlier rescans non-equivalent. The Operator read side is
 `code_security_review_projection.py` and `code_security_issue_projection.py`, and the Console route

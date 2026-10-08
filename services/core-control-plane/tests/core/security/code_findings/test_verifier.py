@@ -166,6 +166,50 @@ VULNERABLE = {
         """,
         SQLI,
     ),
+    "constant_condition_selects_tainted_branch": (
+        """
+        from flask import request
+
+        def run():
+            param = request.args["expr"]
+            num = 86
+            if 7 * 42 - num > 100:
+                bar = param
+            else:
+                bar = "1 + 1"
+            return eval(bar)  # sink
+        """,
+        CODE,
+    ),
+    "reassigned_name_is_not_folded": (
+        """
+        from flask import request
+
+        def run():
+            param = request.args["expr"]
+            num = 86
+            num = request.args.get("n", 0)
+            if 7 * 42 - num > 200:
+                bar = "1 + 1"
+            else:
+                bar = param
+            return eval(bar)  # sink
+        """,
+        CODE,
+    ),
+    "match_without_wildcard_falls_through": (
+        """
+        from flask import request
+
+        def run():
+            bar = request.args["expr"]
+            match request.args.get("mode"):
+                case "safe":
+                    bar = "1 + 1"
+            return eval(bar)  # sink
+        """,
+        CODE,
+    ),
 }
 
 
@@ -335,6 +379,84 @@ SAFE = {
             return open("/srv/files/" + name).read()  # sink
         """,
         PATH,
+        "argument_not_attacker_controlled",
+    ),
+    "constant_arithmetic_branch": (
+        """
+        from flask import request
+
+        def run():
+            param = request.args["expr"]
+            num = 86
+            if 7 * 42 - num > 200:
+                bar = "1 + 1"
+            else:
+                bar = param
+            return eval(bar)  # sink
+        """,
+        CODE,
+        "argument_not_attacker_controlled",
+    ),
+    "constant_match_subject": (
+        """
+        from flask import request
+
+        def run():
+            param = request.args["expr"]
+            possible = "ABC"
+            guess = possible[1]
+            match guess:
+                case "A":
+                    bar = param
+                case "B":
+                    bar = "1 + 1"
+                case "C" | "D":
+                    bar = param
+                case _:
+                    bar = param
+            return eval(bar)  # sink
+        """,
+        CODE,
+        "argument_not_attacker_controlled",
+    ),
+    "constant_conditional_expression": (
+        """
+        from flask import request
+
+        def run():
+            param = request.args["expr"]
+            num = 106
+            bar = "1 + 1" if (7 * 42) - num > 100 else param
+            return eval(bar)  # sink
+        """,
+        CODE,
+        "argument_not_attacker_controlled",
+    ),
+    "rejecting_substring_guard": (
+        """
+        from flask import request
+
+        def download():
+            name = request.args["file"]
+            if "../" in name:
+                return "rejected"
+            path = f"/srv/files/{name}"
+            return open(path).read()  # sink
+        """,
+        PATH,
+        "argument_not_attacker_controlled",
+    ),
+    "string_literal_only_guard": (
+        """
+        from flask import request
+
+        def run():
+            bar = request.args["expr"]
+            if not bar.startswith("'") or not bar.endswith("'") or "'" in bar[1:-1]:
+                return "rejected"
+            return eval(bar)  # sink
+        """,
+        CODE,
         "argument_not_attacker_controlled",
     ),
 }

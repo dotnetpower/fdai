@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 142ed2962201f520974ccf8c57918de2dc94538f
+translation_source_sha: 6f8783fe7cf1a4c7af2a842dae88516ff2c7a05b
 translation_revised: 2026-10-09
 ---
 # 프로젝트 구조
@@ -627,7 +627,8 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
 코드 보안 점검 결과의 결정론적 코어는 `core/security/code_findings/`, 카탈로그는
 `rule-catalog/code-security/`, 어댑터는 `delivery/code_security_*.py`와
 `delivery/persistence/state_store_code_security_*.py`에 둡니다. 개수가 제한된 Console 이슈 요약은
-검토 신호 옆의 `issue_summary.py`가 만듭니다. 심각도 루브릭은
+검토 신호 옆의 `issue_summary.py`가 만듭니다. `verifier.py`의 Python 취약점 검증기는 부수 효과가 없는
+순수 모듈 `verifier_constants.py`로 고정된 조건을 계산합니다. 심각도 루브릭은
 `rule-catalog/code-security/severity-rubric.yaml`의 카탈로그 데이터이며, 그 버전이 모든 커버리지
 증적에 기록되므로 루브릭이 바뀌면 이전 재스캔과 동등하지 않게 됩니다. Operator 읽기 측은
 `code_security_review_projection.py`와 `code_security_issue_projection.py`이고, Console 경로는 요청,
