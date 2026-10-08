@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import re
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, time, timedelta
 from enum import StrEnum
@@ -160,6 +160,7 @@ class IssuedPlan:
 
     plan_id: str
     sequence: int
+    plan_type: PlanType
     target_release_id: str
     source_state_digest: str
     configuration_digest: str
@@ -174,6 +175,7 @@ class IssuedPlan:
         return cls(
             plan_id=plan.plan_id,
             sequence=plan.sequence,
+            plan_type=plan.plan_type,
             target_release_id=plan.target_release_id,
             source_state_digest=plan.source_state_digest,
             configuration_digest=plan.configuration_revision_digest,
@@ -190,16 +192,28 @@ class IssuedPlan:
 
         return f"sha256:{hashlib.sha256(self.signed_payload).hexdigest()}"
 
+    def held_by(self, suppressions: Iterable[SuppressionWindow], now: datetime) -> bool:
+        """True when an active suppression covers this Plan, by the shared evaluator's scopes."""
+
+        scopes = {
+            "installation",
+            f"plan:{self.plan_type}",
+            *(f"entity:{entity_id}" for entity_id in self.entity_ids),
+        }
+        return any(w.scope in scopes and w.starts_at <= now < w.ends_at for w in suppressions)
+
     def still_valid_for(self, plan: LifecyclePlan, now: datetime) -> bool:
         """True when `plan` would change nothing the open Plan doesn't already carry."""
 
         return now < self.expires_at and (
+            self.plan_type,
             self.target_release_id,
             self.source_state_digest,
             self.configuration_digest,
             self.hub_key_id,
             self.entity_ids,
         ) == (
+            plan.plan_type,
             plan.target_release_id,
             plan.source_state_digest,
             plan.configuration_revision_digest,
@@ -256,10 +270,10 @@ class Installation:
         return tuple(window for window in self.suppressions if window.ends_at > now)
 
     def _is_scope(self, scope: str) -> bool:
+        if scope == "installation":
+            return True
         kind, _, target = scope.partition(":")
         match kind:
-            case "installation":
-                return not target
             case "plan":
                 return target in get_args(PlanType)
             case "entity":

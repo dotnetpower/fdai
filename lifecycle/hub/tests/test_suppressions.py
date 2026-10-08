@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import datetime, timedelta
+from functools import partial
 
 import pytest
 from fdai_deployment_cli.lifecycle_plan import SuppressionWindow
@@ -21,7 +22,10 @@ def test_known_scopes_are_accepted(installation: Installation, now: datetime, sc
     assert installation.suppressed(_window(now, scope), now).suppressions == (_window(now, scope),)
 
 
-@pytest.mark.parametrize("scope", ["entity:missing", "plan:deploy", "installation:x", "region"])
+@pytest.mark.parametrize(
+    "scope",
+    ["installation:", "installation:x", "entity:missing", "entity:", "plan:deploy", "region"],
+)
 def test_unknown_scopes_are_rejected(installation: Installation, now: datetime, scope: str) -> None:
     with pytest.raises(ValueError, match="unknown suppression scope"):
         installation.suppressed(_window(now, scope), now)
@@ -73,13 +77,49 @@ def test_suppression_withdraws_the_plan_until_lifted(
     assert store.audit_chain_intact()
 
 
-def test_future_suppression_keeps_the_open_plan(
+def test_future_suppression_holds_the_plan_from_its_start_without_a_recompute(
     store: HubStore, installation: Installation, planner: Planner, now: datetime
 ) -> None:
     store.register(installation, now=now)
     store.recompute(installation.installation_id, planner, now=now)
-    later = SuppressionWindow("installation", now + timedelta(hours=3), now + timedelta(hours=4))
+    starts_at = now + timedelta(minutes=5)
+    later = SuppressionWindow("installation", starts_at, starts_at + timedelta(hours=1))
 
     store.add_suppression(installation.installation_id, later, now=now)
 
-    assert store.current_plan(installation.installation_id, now=now) is not None
+    served = partial(store.current_plan, installation.installation_id)
+    assert served(now=starts_at - timedelta(seconds=1)) is not None
+    assert served(now=starts_at) is None
+
+
+@pytest.mark.parametrize(
+    ("scope", "held"),
+    [
+        ("installation", True),
+        ("plan:upgrade", True),
+        ("entity:core", True),
+        ("plan:rollback", False),
+        ("entity:console", False),
+    ],
+)
+def test_only_a_matching_suppression_holds_the_plan(
+    store: HubStore,
+    installation: Installation,
+    planner: Planner,
+    now: datetime,
+    scope: str,
+    held: bool,
+) -> None:
+    store.register(installation, now=now)
+    first = store.recompute(installation.installation_id, planner, now=now)
+    client = TestClient(create_app(store, clock=lambda: now))
+
+    store.add_suppression(installation.installation_id, _window(now, scope), now=now)
+
+    assert isinstance(first, Issued)
+    status = client.get(f"/v1/installations/{installation.installation_id}/plan").status_code
+    assert status == (204 if held else 200)
+    served = store.current_plan(installation.installation_id, now=now)
+    assert (served is None) is held
+    if not held:
+        assert served is not None and served.plan_id == first.plan.plan_id

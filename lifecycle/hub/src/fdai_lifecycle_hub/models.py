@@ -181,6 +181,7 @@ class Plan(Base):
     plan_id: Mapped[str] = mapped_column(Identifier, primary_key=True)
     installation_id: Mapped[str] = mapped_column(ForeignKey(Installation.installation_id))
     sequence: Mapped[int]
+    plan_type: Mapped[str] = mapped_column(String(32))
     target_release_id: Mapped[str] = mapped_column(String(64))
     source_state_digest: Mapped[str] = mapped_column(Digest)
     configuration_digest: Mapped[str] = mapped_column(Digest)
