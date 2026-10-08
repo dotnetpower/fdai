@@ -383,6 +383,11 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   If an exact-resource live refresh declines a broader secured Resource set, Core preserves the
   initial graph freshness, completeness, conflict, and synthetic-evidence reasons instead of
   reducing the result to an opaque refresh failure.
+  `shared/providers/exact_resource_state.py` declares the provider-neutral authoritative exact
+  Resource state read, and `delivery/azure/arm_exact_state.py` implements it from Azure Resource
+  Manager for reviewed per-type capabilities only, because Azure Resource Graph is eventually
+  consistent. A denied, ambiguous, or timeless read yields no reading, and throttling or an outage
+  is unavailable rather than absent.
   Conversation-assurance readiness first scopes Resource state and Resource Health probes to
   resource types registered for the requested evidence source, then evaluates freshness from only
   that function's state-fact metadata keys. Missing or conflicting metadata on an unrelated state
