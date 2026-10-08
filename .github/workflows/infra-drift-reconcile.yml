@@ -147,6 +147,7 @@ jobs:
           ENVIRONMENT: ${{ inputs.environment }}
           SERVICE_DEPLOY_TFVARS_JSON: ${{ secrets.SERVICE_DEPLOY_TFVARS_JSON }}
           RESOLVED_MODELS_JSON: ${{ vars.RESOLVED_MODELS_JSON }}
+          OPERATOR_CHANNEL_EDGE_PROVIDER_JSON: ${{ secrets.OPERATOR_CHANNEL_EDGE_PROVIDER_JSON }}
           TF_VAR_dev_operations_gateway_private_probes_json: "${{ vars.DEV_OPERATIONS_GATEWAY_PRIVATE_PROBES_JSON || '{}' }}"
           TF_VAR_ohl_scale_out_evidence_campaign_id: ${{ vars.OHL_SCALE_OUT_EVIDENCE_CAMPAIGN_ID }}
           TF_VAR_ohl_scale_out_evidence_image_version: ${{ vars.OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION }}
@@ -216,6 +217,9 @@ jobs:
           pipeline_stage_topic="$(jq -er '.pipeline_stage_topic' <<<"$platform_inputs")"
           pantheon_object_topic="$(jq -er '.pantheon_object_topic' <<<"$platform_inputs")"
           model_endpoints_json="$(jq -cer '.model_endpoints' <<<"$platform_inputs")"
+          operator_channel_edge_identity_json="$(
+            jq -cer '.operator_channel_edge_identity // {}' <<<"$platform_inputs"
+          )"
           cost_pseudonym_key_secret_id="$(
             jq -r '.cost_pseudonym_key_secret_id // ""' <<<"$platform_inputs"
           )"
@@ -284,6 +288,8 @@ jobs:
                 RESOLVED_MODELS_DIGEST="$resolved_models_digest" \
                 SOURCE_REVISION="$source_revision_binding" \
                 COST_PSEUDONYM_KEY_SECRET_ID="$cost_pseudonym_binding" \
+                OPERATOR_CHANNEL_EDGE_IDENTITY_JSON="$operator_channel_edge_identity_json" \
+                OPERATOR_CHANNEL_EDGE_PROVIDER_JSON="$OPERATOR_CHANNEL_EDGE_PROVIDER_JSON" \
                 python3 scripts/deployment/service/materialize_tfvars.py \
                   --service "$service" \
                   --environment "$ENVIRONMENT" \
