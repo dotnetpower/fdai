@@ -159,6 +159,30 @@ def test_invalid_state_is_rejected_at_the_boundary(
     assert capsys.readouterr().err.startswith("ValidationError")
 
 
+def test_suppress_and_unsuppress(
+    tmp_path: Path,
+    installation: Installation,
+    now: datetime,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv(DATABASE_URL_ENV, f"sqlite+pysqlite:///{tmp_path / 'hub.db'}")
+    monkeypatch.setattr(domain, "utc_now", lambda: now)
+    spec = tmp_path / "installation.json"
+    spec.write_bytes(installation_json.dump_json(installation))
+    _run(capsys, "migrate")
+    _run(capsys, "register", str(spec))
+
+    suppressed = _run(capsys, "suppress", "installation-alpha", "--minutes", "30")
+    lifted = _run(capsys, "unsuppress", "installation-alpha")
+
+    assert suppressed == {"suppressed": "installation", "until": "2026-10-05T03:30:00+00:00"}
+    assert lifted == {"lifted": "installation"}
+    assert main(["unsuppress", "installation-alpha"]) == 1
+    assert main(["suppress", "installation-alpha", "--scope", "region"]) == 1
+    assert "unknown suppression scope" in capsys.readouterr().err
+
+
 def test_refused_request_exits_with_a_message(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:

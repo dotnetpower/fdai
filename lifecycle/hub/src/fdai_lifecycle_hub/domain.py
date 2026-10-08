@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import re
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, time, timedelta
 from enum import StrEnum
 from functools import cmp_to_key
-from typing import ClassVar, Self
+from typing import ClassVar, Self, get_args
 from zoneinfo import ZoneInfo
 
 from fdai_deployment_cli.contracts import canonical_digest
@@ -17,6 +17,7 @@ from fdai_deployment_cli.lifecycle_plan import (
     ConstraintBlock,
     LifecyclePlan,
     MaintenanceWindow,
+    PlanType,
     SuppressionWindow,
 )
 from fdai_deployment_cli.runtime_release import compare_release_ids, is_release_id
@@ -159,6 +160,7 @@ class IssuedPlan:
 
     plan_id: str
     sequence: int
+    plan_type: PlanType
     target_release_id: str
     source_state_digest: str
     configuration_digest: str
@@ -173,6 +175,7 @@ class IssuedPlan:
         return cls(
             plan_id=plan.plan_id,
             sequence=plan.sequence,
+            plan_type=plan.plan_type,
             target_release_id=plan.target_release_id,
             source_state_digest=plan.source_state_digest,
             configuration_digest=plan.configuration_revision_digest,
@@ -189,16 +192,28 @@ class IssuedPlan:
 
         return f"sha256:{hashlib.sha256(self.signed_payload).hexdigest()}"
 
+    def held_by(self, suppressions: Iterable[SuppressionWindow], now: datetime) -> bool:
+        """True when an active suppression covers this Plan, by the shared evaluator's scopes."""
+
+        scopes = {
+            "installation",
+            f"plan:{self.plan_type}",
+            *(f"entity:{entity_id}" for entity_id in self.entity_ids),
+        }
+        return any(w.scope in scopes and w.starts_at <= now < w.ends_at for w in suppressions)
+
     def still_valid_for(self, plan: LifecyclePlan, now: datetime) -> bool:
         """True when `plan` would change nothing the open Plan doesn't already carry."""
 
         return now < self.expires_at and (
+            self.plan_type,
             self.target_release_id,
             self.source_state_digest,
             self.configuration_digest,
             self.hub_key_id,
             self.entity_ids,
         ) == (
+            plan.plan_type,
             plan.target_release_id,
             plan.source_state_digest,
             plan.configuration_revision_digest,
@@ -232,6 +247,39 @@ class Installation:
         if state.observed_at <= self.reported.observed_at:
             raise StaleStateError("reported state is not newer than the current state")
         return replace(self, reported=state)
+
+    def suppressed(self, window: SuppressionWindow, now: datetime) -> Self:
+        """Return this installation with `window` added and its expired windows dropped."""
+
+        if window.ends_at <= max(window.starts_at, now):
+            raise ValueError("a suppression must end in the future and after it starts")
+        if not self._is_scope(window.scope):
+            raise ValueError(f"unknown suppression scope: {window.scope!r}")
+        return replace(self, suppressions=(*self._unexpired(now), window))
+
+    def lifted(self, scope: str, now: datetime) -> Self:
+        """Return this installation without its unexpired suppressions for `scope`."""
+
+        current = self._unexpired(now)
+        remaining = tuple(window for window in current if window.scope != scope)
+        if remaining == current:
+            raise ValueError(f"no active suppression for scope {scope!r}")
+        return replace(self, suppressions=remaining)
+
+    def _unexpired(self, now: datetime) -> tuple[SuppressionWindow, ...]:
+        return tuple(window for window in self.suppressions if window.ends_at > now)
+
+    def _is_scope(self, scope: str) -> bool:
+        if scope == "installation":
+            return True
+        kind, _, target = scope.partition(":")
+        match kind:
+            case "plan":
+                return target in get_args(PlanType)
+            case "entity":
+                return target in {entity.entity_id for entity in self.entities}
+            case _:
+                return False
 
     @property
     def managed_entity_ids(self) -> frozenset[str]:
