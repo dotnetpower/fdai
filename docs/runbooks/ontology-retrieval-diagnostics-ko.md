@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-retrieval-diagnostics.md
-translation_source_sha: bd4d8a6955a30e066dd6d5af87aca8c2b40fa65a
+translation_source_sha: f3be8df42141b044b5223dff899f1857af57d6f3
 translation_revised: 2026-10-08
 ---
 
@@ -19,7 +19,8 @@ translation_revised: 2026-10-08
 | [instance-holdout.v1.json](../../eval/ontology-retrieval/instance-holdout.v1.json) | 이미 사용한 홀드아웃입니다. 근거는 보존하되 튜닝이나 새 자격 검증에 사용하지 않습니다. |
 | [instance-holdout.v2.json](../../eval/ontology-retrieval/instance-holdout.v2.json) | 이미 사용한 홀드아웃입니다. 독립 작성과 검토를 거쳤고 `2572f9a1b1`에서 한 번 측정했습니다. 이 문항으로 튜닝하거나 자격 검증에 다시 사용하지 않습니다. |
 | [instance-calibration.v3.json](../../eval/ontology-retrieval/instance-calibration.v3.json) | 홀드아웃 v2의 실패 유형을 진단하기 위한 새 보정 문항 64개입니다. 보정 전용이며 변경의 자격을 검증하지 못합니다. |
-| [instance-holdout.v3.json](../../eval/ontology-retrieval/instance-holdout.v3.json) | 다음 한 번의 자격 검증 실행을 위해 고정한, 아직 측정하지 않은 홀드아웃입니다. 정보가 차단된 작성자가 쓰고 별도로 차단된 검토자가 검토했습니다. 두 사람 모두 이전 홀드아웃 원문, 프롬프트, 어댑터, 이 런북을 읽지 않았습니다. 그 실행 밖에서는 읽거나 튜닝하거나 측정하지 않습니다. |
+| [instance-holdout.v3.json](../../eval/ontology-retrieval/instance-holdout.v3.json) | 이미 사용한 홀드아웃입니다. 정보가 차단된 작성자가 쓰고 별도로 차단된 검토자가 검토했으며 `19bbbe3c95`에서 한 번 측정했습니다. 이 문항으로 튜닝하거나 자격 검증에 다시 사용하지 않습니다. |
+| [instance-holdout.v4.json](../../eval/ontology-retrieval/instance-holdout.v4.json) | 다음 한 번의 자격 검증 실행을 위해 고정한, 아직 측정하지 않은 홀드아웃입니다. 정보가 차단된 작성자가 쓰고 별도로 차단된 검토자가 검토했습니다. 두 사람 모두 이전 홀드아웃 원문, 프롬프트, 어댑터, 이 런북을 읽지 않았습니다. 그 실행 밖에서는 읽거나 튜닝하거나 측정하지 않습니다. |
 
 v2 보정 자료에는 단일 대상 정답 32개, 복수 대상 정답 8개와 일치 대상이 없는 문항 24개가
 있습니다. 각 언어의 단일 대상 문항은 유형별 서로 다른 대상 네 개를 포함하며, 측정하는
@@ -229,8 +230,19 @@ MRR은 `0.938`(각각 16건 중 15건)이고, ko-adversarial의 일치 없음 �
 `cal-v3-en-p15`를 고쳐 썼습니다. "after the 08:30 update"를 엄격하게 읽으면 라벨의 incident가
 제외되었기 때문이며, 라벨은 바꾸지 않았습니다. `828ff8909b`에서 중첩 조건과 문서로 판단할 수 있는
 조건 문장을 적용하자, 보정 v2와 v3가 각각 두 번 연속 모든 코호트에서 `1.0`으로 통과했고 오프라인
-검증도 성공했습니다. 이는 개발 결과입니다. 자격 검증에는 여전히 병합 커밋에서 보정 자료와 아직
-측정하지 않은 홀드아웃 v3를 한 번 실행해야 합니다.
+검증도 성공했습니다. 병합된 `19bbbe3c95`에서 실행한 자격 검증 진단은 보정 v2, 보정 v3, 홀드아웃 v3를 각각 한 번씩 오프라인
+검증과 함께 측정했습니다. 보정 v2는 모든 코호트에서 `1.0`으로 통과했습니다. 보정 v3는 표현할 수 있는
+positive 문항 2건을 unsupported-constraint 명확화로 놓쳤습니다. 홀드아웃 v3는 en-positive의
+recall@5와 MRR만 `0.9375`(16건 중 15건)였고, negative, adversarial, ambiguous를 포함한 나머지
+코호트는 모두 `1.0`이었습니다. 홀드아웃 v3는 이미 사용되었으며 그 문항은 들여다보지 않았습니다.
+
+다음 주기는 보정 자료만 사용했습니다. 인스턴스 하나를 요청하거나 객체 자신의 역할을 말하는 것은
+조건을 추가하지 않는다는 문장으로 불필요한 명확화를 없앴습니다. 표현할 수 없는 조건을 모델이 직접
+지목하게 한 더 엄격한 문장은 20초 시간 초과를 일으켜 교체했습니다. 또한 자유 텍스트의 `contains`
+operand는 요청의 바꿔 말한 표현이 아니라 의미가 일치하는 저장값에서 복사하도록 했습니다.
+`c3559f2c1f`에서 보정 v2는 두 번, 보정 v3는 세 번 연속 모든 코호트에서 `1.0`으로 통과했고 중단은
+없었습니다. 정보가 차단된 작성자가 새 `instance-holdout.v4`를 쓰고, 별도로 차단된 검토자가 한 문항을
+고친 뒤 승인했습니다. 병합 커밋에서 한 번의 자격 검증을 실행하기 전까지 측정하지 않습니다.
 
 ## 의미 제안을 별도로 측정
 
