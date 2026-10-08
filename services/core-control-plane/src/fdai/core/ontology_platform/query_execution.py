@@ -23,6 +23,7 @@ from fdai_service_contracts.ontology_query import (
 
 from .models import ObjectSetDefinition
 from .object_sets import ObjectSetService
+from .pending_state_coverage import pending_state_plan_scope
 
 _MAX_CONCURRENCY = 8
 _MAX_NODE_TIMEOUT_SECONDS = 30.0
@@ -153,6 +154,20 @@ class OntologyQueryPlanExecutor:
             raise PermissionError("ontology query plan caller role changed")
         if plan.purpose != expected_purpose:
             raise PermissionError("ontology query plan purpose changed")
+        # Certify the plan shape once, so only a verified ObjectSet -> state-filter node may cover
+        # its pending same-type updates with live state.
+        with pending_state_plan_scope(plan):
+            return await self._execute_verified(
+                plan, cancelled=cancelled, progress_observer=progress_observer
+            )
+
+    async def _execute_verified(
+        self,
+        plan: OntologyQueryPlan,
+        *,
+        cancelled: asyncio.Event | None,
+        progress_observer: QueryProgressObserver | None,
+    ) -> QueryPlanExecution:
 
         pending = {node.node_id: node for node in plan.nodes}
         results: dict[str, QueryNodeResult] = {}

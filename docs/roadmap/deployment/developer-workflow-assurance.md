@@ -107,6 +107,10 @@ and Operator processes. Each process exposes one owner-only Unix socket only whe
 venue is `local`; direct process starts outside that launcher require the complete source and digest
 binding before diagnostics can be enabled. No HTTP, browser, Teams, Slack, Event Bus, or
 managed-resource route reaches this socket.
+The same launcher opts the local semantic runtime into skew-bounded pending-state reads when its
+inventory or state-store DSN already exists. This setting binds a read-only product capability, not
+the diagnostic socket; it grants no provider identity, validation authority, or deployment
+activation, and every unsupported or unavailable read remains partial.
 The observer-proposal consumer is a normal application lifecycle worker, not a diagnostic channel.
 Its readiness joins the Operator worker checks; its GET projection neither reaches this socket nor authorizes a stack restart or live provider probe.
 

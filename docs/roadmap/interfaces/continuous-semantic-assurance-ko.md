@@ -1,7 +1,7 @@
 ---
 translation_of: continuous-semantic-assurance.md
-translation_source_sha: b89f51fd8a70c712195bb7a6dcd0ec094430ed19
-translation_revised: 2026-10-08
+translation_source_sha: 350900afd93b4255617ee658aa2ca3d22220c54d
+translation_revised: 2026-10-09
 ---
 # 지속형 의미 보증
 
@@ -55,6 +55,9 @@ governed release 신원이 안정적으로 유지되더라도 매니페스트 �
 결속하므로, 사례 수는 그대로인 채 매니페스트를 다시 생성합니다. ResourceType이 결코 도달하지 않는 상태를
 확정하거나 신선한 가용성 관측으로 실행 중을 확정하는 검토된 수명 주기 선언과, 범위 공백 옆에 타입 지정
 원본 사유를 유지하는 변경도 같은 방식으로 릴리스를 다시 결속합니다.
+답변 전용 대기 상태 보완 원본도 원본에 결속된 온톨로지 다이제스트를 바꿉니다. 매니페스트
+재생성은 릴리스와 자료 목록 다이제스트만 갱신하며 질문, 측정된 커버리지, 프로바이더 근거,
+자격 또는 운영 근거 검증 증적을 추가하지 않습니다.
 `governance.override-promote-action-type` 추가는 구조 카탈로그 변경이므로 같은 빌더가 live 보증
 증적을 만들지 않고도 corpus manifest 분모와 원본 다이제스트를 갱신합니다.
 

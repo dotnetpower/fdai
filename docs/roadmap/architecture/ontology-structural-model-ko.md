@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: b837f0767cc094f4df5e8320868fa2b6874bd957
+translation_source_sha: 334ee8291c426e572beb89d01ae308f3975f5a93
 translation_revised: 2026-10-09
 ---
 # 온톨로지 구조 모델
@@ -334,6 +334,12 @@ principal이 Resource 제공자 속성 묶음을 읽을 수 있을 때만 제공
 않은 관측은 `inventory_observation_pending`으로 보고합니다. 일반 `source_incomplete` 코드는 원본이
 타입이 지정된 사유를 제공하지 않을 때만 대체 값으로 사용합니다. 코드는 빈틈을 설명할 뿐이며
 최신성, 완전성 또는 권한을 부여하지 않습니다.
+검증기가 인증한 토폴로지 없는 리소스 상태 읽기는 보안이 적용된 ObjectSet에 이미 있는 리소스에
+대해서만 요청한 유형의 대기 중인 갱신을 보완할 수 있습니다. 반복 읽기 서술자, 검토된 정확한
+프로바이더 읽기, 두 번째 보안 구체화 및 답변에 결속된 영속 증적이 모두 일치해야 합니다.
+ObjectSet의 원본은 계속 불완전하며 마지막 상태 함수만 해당 답변을 완전한 것으로 처리할 수 있습니다.
+생성, 삭제, 관계 읽기, 지원하지 않는 유형, 변경된 펜스, 사용할 수 없는 프로바이더 및 소진된 시간
+편차 예산은 계속 부분 결과로 남습니다.
 
 추가되는 `telemetry_recipe` 쿼리 노드는 내용 기반 주소가 지정된 `TelemetryEvidenceNeed` 하나를
 받습니다. 검증기 스키마는 검토된 recipe id와 버전, 정확한 리소스와 근거 기준 시점, 고정 lookback

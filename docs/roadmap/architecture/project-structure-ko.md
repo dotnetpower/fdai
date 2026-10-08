@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 4ec167c0eaa972a507d0e24c89b084f89e71fe32
+translation_source_sha: 62762f5d07a9dc63c5fb5eb8771eaae2b608f642
 translation_revised: 2026-10-09
 ---
 # 프로젝트 구조
@@ -380,6 +380,10 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   정확한 리소스용 실시간 새로 고침이 더 넓은 보호 Resource 집합을 처리하지 않으면 Core는 결과를
   불투명한 새로 고침 실패로 축약하지 않고 최초 그래프 최신성, 완전성, 충돌 및 합성 근거 사유를
   보존합니다.
+  `shared/providers/exact_resource_state.py`는 공급자 중립적인 권위 있는 정확한 Resource 상태 읽기를
+  선언하고, `delivery/azure/arm_exact_state.py`는 Azure Resource Graph가 결과적 일관성 저장소이므로
+  검토된 타입별 능력에 한해 Azure Resource Manager에서 이를 구현합니다. 거부되거나 모호하거나 시각이
+  없는 읽기는 결과를 내지 않으며, throttle이나 장애는 부재가 아니라 사용할 수 없음으로 처리합니다.
   대화 보증 준비 상태는 먼저 Resource 상태 및 Resource Health 프로브를 요청한 근거 원본에 등록된
   리소스 유형으로 제한한 뒤 해당 함수의 상태 사실 메타데이터 키만으로 최신성을 평가합니다. 관련
   없는 상태 축의 메타데이터가 없거나 충돌해도 선택한 기능을 무효화하지 않습니다. 분류되지 않은

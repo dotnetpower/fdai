@@ -306,6 +306,12 @@ relationship reconciliation; or incomplete relationships. For example, an unproj
 reports `inventory_observation_pending`. The generic `source_incomplete` code remains only the
 fallback when the source supplies no typed reason. A code explains a gap and never grants
 freshness, completeness, or authority.
+A verifier-certified, topology-free Resource state read may cover pending updates of the requested
+types only for Resources already present in that secured ObjectSet. A repeatable-read descriptor,
+reviewed exact provider reads, a second secured materialization, and a durable answer-bound receipt
+must all agree. The ObjectSet remains source-incomplete; only the terminal state function can treat
+that exact answer as complete. Creations, deletions, relationship reads, unsupported types, changed
+fences, unavailable providers, and exhausted skew budgets stay partial.
 
 The additive `telemetry_recipe` query node accepts one content-addressed `TelemetryEvidenceNeed`.
 Its verifier schema permits only a reviewed recipe id and version, exact resource and evidence
