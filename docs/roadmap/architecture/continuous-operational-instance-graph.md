@@ -74,7 +74,10 @@ substitutes the node identity or local Azure CLI; local credential policy stays 
   A bounded query can return verified positive observations, but missing scope never proves absence.
   An exact-identity object read without relationships counts only the unprojected observations of
   the identities it requests, including a pending creation of one of them, so a pending change to an
-  unrelated object does not make it incomplete. Every other gap keeps every read incomplete.
+  unrelated object does not make it incomplete. A Resource read without relationships whose `type`
+  filter limits it to named Resource types counts only the unprojected object observations of those
+  types, because every object observation, including a creation or a deletion, carries its Resource
+  type and replay rejects a type change. Every other gap keeps every read incomplete.
 - **Read/write separation:** Provider observation and ontology projection are read-plane work.
   Managed-resource writeback remains in the governed action path and closes only after independent
   re-observation. The standalone deploy host's exact-registry `AcrPush` assignment remains a

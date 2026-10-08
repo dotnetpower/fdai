@@ -114,6 +114,12 @@ async def _query_objects(
         expresses_relationships=include_relationships and (bool(links) or len(objects) > 1),
         # Only the requested objects' own pending observations can change an exact-id read.
         exact_subjects=object_ids if object_ids and not include_relationships else (),
+        # Only pending observations of the requested Resource types can change a typed read.
+        subject_types=(
+            _resource_type_constraint(property_equals, property_text_in)
+            if tuple(object_types) == ("Resource",) and not include_relationships
+            else ()
+        ),
     )
     return OntologyGraphSnapshot(
         objects=objects,
@@ -123,6 +129,24 @@ async def _query_objects(
         source_generation=coverage.generation,
         source_incomplete_reason=coverage.reason,
     )
+
+
+def _resource_type_constraint(
+    property_equals: Mapping[str, Any] | None,
+    property_text_in: Mapping[str, Sequence[str]] | None,
+) -> tuple[str, ...]:
+    """Return the Resource types a pushed ``type`` filter limits a read to, or none."""
+
+    equals = (property_equals or {}).get("type")
+    text_in = (property_text_in or {}).get("type")
+    if isinstance(equals, str) and equals:
+        # Both filters apply; a disjoint pair returns no rows and keeps the global gap.
+        if text_in is not None and equals not in text_in:
+            return ()
+        return (equals,)
+    if equals is None and text_in:
+        return tuple(sorted(set(text_in)))
+    return ()
 
 
 async def _traverse(
