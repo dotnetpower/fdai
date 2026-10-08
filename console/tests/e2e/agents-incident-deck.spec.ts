@@ -1256,7 +1256,7 @@ test("keeps the Pantheon fallback focused on role ownership", async ({
   await expect(varRegion.getByRole("button", { name: /incident/i })).toHaveCount(0);
   await expect(varRegion.getByRole("link", { name: "Activity" })).toHaveAttribute(
     "href",
-    "/agent-activity?view=waterfall&agent=Var",
+    "/agent-activity?agent=Var",
   );
   expect(fixture.requestedPaths()).not.toContain("/incidents");
 
@@ -1268,7 +1268,7 @@ test("opens and closes route-backed roles from Agent Activity", async ({ page },
   await installOperatorApiFixture(page);
   await page.goto("/overview");
   await page.goto(
-    "/agent-activity?view=waterfall&window=1h&layer=pipeline&verb=audit&q=approval",
+    "/agent-activity?view=activity&q=approval",
   );
   const activityRoot = page.locator("main > .stack").filter({
     has: page.locator(".agent-workspace-nav"),
@@ -1288,10 +1288,7 @@ test("opens and closes route-backed roles from Agent Activity", async ({ page },
 
   await trigger.click();
   expect(await page.evaluate(() => Object.fromEntries(new URL(location.href).searchParams))).toEqual({
-    view: "waterfall",
-    window: "1h",
-    layer: "pipeline",
-    verb: "audit",
+    view: "activity",
     q: "approval",
     roles: "1",
   });
@@ -1351,7 +1348,7 @@ test("opens and closes route-backed roles from Agent Activity", async ({ page },
   await expect(dialog.getByRole("region", { name: "Var" })).toBeVisible();
   await expect(dialog.getByRole("link", { name: "Activity" })).toHaveAttribute(
     "href",
-    "/agent-activity?view=waterfall&agent=Var",
+    "/agent-activity?agent=Var",
   );
   const activityLink = dialog.getByRole("link", { name: "Activity" });
   await activityLink.focus();
@@ -1363,10 +1360,7 @@ test("opens and closes route-backed roles from Agent Activity", async ({ page },
   await expect(page).not.toHaveURL(/roles=1/);
   await expect(trigger).toBeFocused();
   expect(await page.evaluate(() => Object.fromEntries(new URL(location.href).searchParams))).toEqual({
-    view: "waterfall",
-    window: "1h",
-    layer: "pipeline",
-    verb: "audit",
+    view: "activity",
     q: "approval",
   });
   expect(await activityRootHandle.evaluate((element) => element.isConnected)).toBe(true);

@@ -21,7 +21,6 @@ import type { AuditItem } from "../types";
 import { AgentWorkspaceNav } from "../components/agent-workspace-nav";
 import {
   AsyncBoundary,
-  EmptyState,
   PageHeader,
   UnavailableState,
   type AsyncState,
@@ -60,7 +59,6 @@ import {
   auditProvenanceOf,
   entryStr,
   isAgentActivitySelectionValid,
-  layerOf,
   outcomeOf,
   summaryOf,
   tierOf,
@@ -76,17 +74,12 @@ export {
   lifecycleOf,
   otherEntryFields,
 } from "./agent-activity-semantics";
-import { ActivityWaterfall } from "./agent-activity-waterfall";
+import { AgentTrajectories } from "./agent-activity-trajectory";
 import {
   activityFiltersFromSearch,
   activityRouteFilterParams,
-  ActivityToolbar,
-  filterAgentActivity,
   filterAgentActivityLog,
   type ActivityFilters,
-  type ActivityLayer,
-  type ActivityVerb,
-  type ActivityWindow,
 } from "./agent-activity-groups";
 import {
   activeAgentCount,
@@ -152,7 +145,12 @@ export function agentActivityExplanations(
   };
 }
 
-type ActivityView = "activity" | "waterfall";
+type ActivityView = "trajectory" | "activity";
+
+/** Trajectories are the default; the retired `view=waterfall` URL also opens them. */
+export function activityViewFromSearch(search: URLSearchParams): ActivityView {
+  return search.get("view") === "activity" ? "activity" : "trajectory";
+}
 
 function agentCounts(items: readonly AuditItem[]): readonly (readonly [string, number])[] {
   const counts = new Map<string, number>();
@@ -324,7 +322,6 @@ export function AgentActivityRoute({ client }: Props) {
             streamSource={streamSource}
             liveAgents={activeAgentCount(runtime)}
             lastEventAt={lastEventAt}
-            refreshing={refreshing}
           />
         )}
       </AsyncBoundary>
@@ -342,7 +339,6 @@ interface BodyProps {
   readonly streamSource: ObservationSource;
   readonly liveAgents: number;
   readonly lastEventAt: string | null;
-  readonly refreshing: boolean;
 }
 
 function ActivityBody({
@@ -352,13 +348,12 @@ function ActivityBody({
   streamSource,
   liveAgents,
   lastEventAt,
-  refreshing,
 }: BodyProps) {
   const [selected, setSelected] = useState<string | null>(
     () => currentRoute().search.get("agent"),
   );
   const [view, setView] = useState<ActivityView>(
-    () => currentRoute().search.get("view") === "waterfall" ? "waterfall" : "activity",
+    () => activityViewFromSearch(currentRoute().search),
   );
   const [filters, setFilters] = useState<ActivityFilters>(activityFiltersFromRoute);
   const activitySource = agentActivityObservationSource(
@@ -366,23 +361,11 @@ function ActivityBody({
     streamSource,
   );
 
-  const filtered = useMemo(
-    () => filterAgentActivity(data.items, filters, agentOf),
-    [data.items, filters],
-  );
-  const requestedStep = Number(currentRoute().search.get("step"));
-  const waterfallItems = useMemo(() => {
-    if (!Number.isInteger(requestedStep) || requestedStep <= 0) return filtered;
-    if (filtered.some((item) => item.seq === requestedStep)) return filtered;
-    const requested = data.items.find((item) => item.seq === requestedStep);
-    return requested ? [requested, ...filtered] : filtered;
-  }, [data.items, filtered, requestedStep]);
-
   useEffect(() => {
     const sync = () => {
       const route = currentRoute();
       setSelected(route.search.get("agent"));
-      setView(route.search.get("view") === "waterfall" ? "waterfall" : "activity");
+      setView(activityViewFromSearch(route.search));
       setFilters(activityFiltersFromRoute());
     };
     window.addEventListener("popstate", sync);
@@ -397,19 +380,19 @@ function ActivityBody({
     navigate(routeHref("agent-activity", {
       params: {
         agent,
-        view: nextView === "activity" ? null : nextView,
-        step: nextView === "waterfall" ? currentRoute().search.get("step") : null,
-        ...activityRouteFilterParams(filters, nextView === "waterfall"),
+        view: nextView === "activity" ? "activity" : null,
+        ...activityRouteFilterParams(filters, false),
       },
     }));
   };
   const openFilters = (next: ActivityFilters): void => {
+    const route = currentRoute().search;
     const href = routeHref("agent-activity", {
       params: {
         agent: selected,
-        view: view === "activity" ? null : view,
-        step: view === "waterfall" ? currentRoute().search.get("step") : null,
-        ...activityRouteFilterParams(next, view === "waterfall"),
+        view: view === "activity" ? "activity" : null,
+        trajectory: view === "trajectory" ? route.get("trajectory") : null,
+        ...activityRouteFilterParams(next, false),
       },
     });
     if (next.query !== filters.query) {
@@ -420,19 +403,6 @@ function ActivityBody({
     navigate(href);
   };
 
-  // Newest first: the audit projection already returns newest-first, so
-  // preserve that order for the timeline.
-  // Order: known pantheon agents first (by count), then service producers
-  // (by count), then the System catch-all last.
-  const perAgent = useMemo(() => agentCounts(filtered), [filtered]);
-
-  const visible = useMemo(
-    () =>
-      selected === null
-        ? filtered
-        : filtered.filter((item) => agentOf(item) === selected),
-    [filtered, selected],
-  );
   const activityAudit = useMemo(
     () => filterAgentActivityLog(data.items, selected, filters.query, agentOf),
     [data.items, selected, filters.query],
@@ -441,8 +411,8 @@ function ActivityBody({
     () => agentCounts(filterAgentActivityLog(data.items, null, filters.query, agentOf)),
     [data.items, filters.query],
   );
-  const presentedAudit = view === "activity" ? activityAudit : visible;
-  const presentedAgentCounts = view === "activity" ? activityAgentCounts : perAgent;
+  const presentedAudit = activityAudit;
+  const presentedAgentCounts = activityAgentCounts;
   const selectionValid = isAgentActivitySelectionValid(
     selected,
     [...new Set(data.items.map(agentOf))],
@@ -473,7 +443,7 @@ function ActivityBody({
       purpose: t("nav.panelSub.agentActivity"),
       glossary: composeGlossary([
         TERMS.correlationId,
-        TERMS.waterfall,
+        TERMS.trajectory,
         TERMS.actionKind,
         TERMS.tier,
         TERMS.mode,
@@ -497,9 +467,8 @@ function ActivityBody({
         { key: "live_agents", value: liveAgents, group: "runtime" },
         { key: "operational_audit_rows", value: provenanceCounts.operational, group: "evidence" },
         { key: "sample_audit_rows", value: provenanceCounts.sample, group: "evidence" },
-        { key: "window", value: filters.window, group: "filters" },
-        { key: "layer", value: filters.layer, group: "filters" },
-        { key: "verb", value: filters.verb, group: "filters" },
+        { key: "view", value: view, group: "filters" },
+        { key: "query", value: filters.query || "-", group: "filters" },
       ],
       records: {
         by_agent: presentedAgentCounts.map(([agent, count]) => ({ agent, count })),
@@ -540,38 +509,28 @@ function ActivityBody({
       liveAgents,
       provenanceCounts,
       filters,
+      view,
     ],
   );
 
   return (
     <div class="stack">
-      {view === "waterfall" ? (
-        <ActivityToolbar
-          filters={filters}
-          onChange={openFilters}
-          streamStatus={streamStatus}
-          streamSource={activitySource}
-          liveAgents={liveAgents}
-          lastEventAt={lastEventAt}
-          refreshing={refreshing}
-        />
-      ) : null}
       <div class="view-toggle" role="group" aria-label={t("agentActivity.main.viewLabel")}>
+        <button
+          type="button"
+          class="view-toggle-btn"
+          aria-pressed={view === "trajectory"}
+          onClick={() => openActivity(selected, "trajectory")}
+        >
+          {t("agentActivity.trajectory.view")}
+        </button>
         <button
           type="button"
           class="view-toggle-btn"
           aria-pressed={view === "activity"}
           onClick={() => openActivity(selected, "activity")}
         >
-          {t("agents.workspace.activity")}
-        </button>
-        <button
-          type="button"
-          class="view-toggle-btn"
-          aria-pressed={view === "waterfall"}
-          onClick={() => openActivity(selected, "waterfall")}
-        >
-          {t("agentActivity.main.waterfall")}
+          {t("agentActivity.trajectory.logView")}
         </button>
       </div>
       {provenanceCounts.sample > 0 ? (
@@ -582,7 +541,22 @@ function ActivityBody({
       {!selectionValid && selected ? (
         <UnavailableState message={t("agentActivity.main.unknownAgent", { agent: selected })} />
       ) : null}
-      {presentation.showLiveSummary && selectedNode ? (
+      {view === "trajectory" ? (
+        <AgentTrajectories
+          items={data.items}
+          selectedAgent={selected}
+          query={filters.query}
+          olderAvailable={data.olderAvailable}
+          streamStatus={streamStatus}
+          streamSource={activitySource}
+          onAgentChange={(agent) => openActivity(agent, "trajectory")}
+          onQueryChange={(query) => openFilters({ ...filters, query })}
+          onShowLog={(correlationId) => navigate(routeHref("agent-activity", {
+            params: { agent: selected, view: "activity", q: correlationId },
+          }))}
+        />
+      ) : null}
+      {view === "activity" && presentation.showLiveSummary && selectedNode ? (
         <LiveAgentActivity
           node={selectedNode}
           incidents={selectedIncidents}
@@ -608,63 +582,6 @@ function ActivityBody({
       {view === "activity" && data.olderAvailable ? (
         <p class="muted footnote">{t("agentActivity.main.latestRows", { count: data.items.length })}</p>
       ) : null}
-      {view === "waterfall" ? (
-        <div class="agent-filter" role="group" aria-label={t("agentActivity.main.agentFilterLabel")}>
-        <button
-          type="button"
-          class={`agent-chip ${selected === null ? "agent-chip-on" : ""}`}
-          aria-pressed={selected === null}
-          onClick={() => openActivity(null, view)}
-        >
-          {t("agentActivity.filter.all")}
-          <span class="agent-chip-count">{filtered.length}</span>
-        </button>
-        {perAgent.map(([agent, count]) => (
-          <button
-            key={agent}
-            type="button"
-            class={`agent-chip ${selected === agent ? "agent-chip-on" : ""}`}
-            aria-pressed={selected === agent}
-            data-layer={layerOf(agent)}
-            onClick={() => openActivity(selected === agent ? null : agent, view)}
-          >
-            <span class="agent-dot" data-layer={layerOf(agent)} aria-hidden="true" />
-            {agent}
-            <span class="agent-chip-count">{count}</span>
-          </button>
-        ))}
-        {selectionValid && selected && !perAgent.some(([agent]) => agent === selected) ? (
-          <button
-            type="button"
-            class="agent-chip agent-chip-on"
-            aria-pressed="true"
-            data-layer={layerOf(selected)}
-            onClick={() => openActivity(null, view)}
-          >
-            <span class="agent-dot" data-layer={layerOf(selected)} aria-hidden="true" />
-            {selected}
-            <span class="agent-chip-count">0</span>
-          </button>
-        ) : null}
-        </div>
-      ) : null}
-
-      {view !== "waterfall" ? null : presentation.emptyKind !== null ? (
-        <EmptyState
-          title={presentation.emptyKind === "selected-audit" && selected
-            ? t("agentActivity.main.noSelectedAudit", { agent: selected })
-            : presentation.emptyKind === "all-audit"
-              ? t("agentActivity.main.noAudit")
-              : t("agentActivity.main.noMatches")}
-          body={presentation.emptyKind === "selected-audit"
-            ? selectedAgentAuditEmptyBody(selectedNode, activitySource)
-            : presentation.emptyKind === "all-audit"
-              ? t("agentActivity.main.noAuditBody")
-              : t("agentActivity.main.noMatchesBody")}
-        />
-      ) : !selectionValid ? null : (
-        <ActivityWaterfall items={waterfallItems} selected={selected} />
-      )}
     </div>
   );
 }

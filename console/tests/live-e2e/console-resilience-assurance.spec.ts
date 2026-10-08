@@ -224,7 +224,7 @@ test("Agent Activity refreshes heartbeat state without initialization rows", asy
   const configuration = {
     schema_version: "1.0.0",
     authentication: "browser_entra",
-    route: "/agent-activity",
+    route: "/agent-activity?view=activity",
     refresh_count: 2,
   };
   let authenticatedSelfResponseCount = 0;

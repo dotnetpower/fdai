@@ -157,7 +157,7 @@ async function installBusyActivityLogFixture(page: Page): Promise<void> {
 
 test("highlights only newly appended activity and keeps log text readable", async ({ page }) => {
   await installActivityLogFixture(page);
-  await page.goto("/agent-activity");
+  await page.goto("/agent-activity?view=activity");
 
   const rows = page.locator(".aa-log-row");
   await expect(rows).toHaveCount(1);
@@ -245,7 +245,7 @@ test("highlights only newly appended activity and keeps log text readable", asyn
 test("uses a static bounded cue when reduced motion is requested", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await installActivityLogFixture(page);
-  await page.goto("/agent-activity");
+  await page.goto("/agent-activity?view=activity");
   await expect(page.locator(".aa-log-row")).toHaveCount(1);
 
   await page.getByRole("button", { name: "Refresh history" }).click();
@@ -264,7 +264,7 @@ test("uses a static bounded cue when reduced motion is requested", async ({ page
 test("shows one resource-first row for a completed handler activity", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await installActivityLogFixture(page, handlerActivityStream());
-  await page.goto("/agent-activity");
+  await page.goto("/agent-activity?view=activity");
 
   const resource = page.locator(".aa-log-detail code", { hasText: "vm-example" });
   await expect(resource).toHaveCount(1);
@@ -293,7 +293,7 @@ test("keeps pointer and search controls responsive during a bounded activity bur
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await installBusyActivityLogFixture(page);
-  await page.goto("/agent-activity");
+  await page.goto("/agent-activity?view=activity");
 
   const rows = page.locator(".aa-log-row");
   await expect(page.locator(".aa-log-grid")).toHaveAttribute("aria-rowcount", "602");
@@ -348,7 +348,7 @@ async function installControlledActivityStream(page: Page): Promise<void> {
 test("keeps reading stable across retention eviction and resumes newest activity on request", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await installControlledActivityStream(page);
-  await page.goto("/agent-activity");
+  await page.goto("/agent-activity?view=activity");
   const grid = page.locator(".aa-log-grid");
   const scroll = page.locator(".aa-log-scroll");
   const rows = page.locator(".aa-log-row");
@@ -425,7 +425,7 @@ for (const locale of ["en", "ko"] as const) {
   test(`keeps the virtual activity window readable and operable in ${locale}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 1440, height: 900 });
     await installControlledActivityStream(page);
-    await page.goto(`/agent-activity?locale=${locale}`);
+    await page.goto(`/agent-activity?view=activity&locale=${locale}`);
     const grid = page.locator(".aa-log-grid");
     const scroll = page.locator(".aa-log-scroll");
     await expect(grid).toHaveAttribute("aria-rowcount", "502");

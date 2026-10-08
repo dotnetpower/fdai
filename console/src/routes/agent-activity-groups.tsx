@@ -1,8 +1,5 @@
 import type { AuditItem } from "../types";
 import { StatusPill, type PillKind } from "../components/ui";
-import type { AgentStreamStatus } from "../hooks/use-agent-stream";
-import { observationSourceLabel, type ObservationSource } from "../hooks/observation-source";
-import { t } from "../i18n";
 import { routeHref } from "../router";
 import {
   activityProvenanceCounts,
@@ -58,16 +55,6 @@ interface GroupedActivityProps {
   readonly items: readonly AuditItem[];
   readonly agentOf: (item: AuditItem) => string;
   readonly layerOf: (agent: string) => string;
-}
-
-interface ActivityToolbarProps {
-  readonly filters: ActivityFilters;
-  readonly onChange: (next: ActivityFilters) => void;
-  readonly streamStatus: AgentStreamStatus;
-  readonly streamSource: ObservationSource;
-  readonly liveAgents: number;
-  readonly lastEventAt: string | null;
-  readonly refreshing: boolean;
 }
 
 const WINDOW_MS: Readonly<Record<ActivityWindow, number>> = {
@@ -155,91 +142,6 @@ export function filterAgentActivityLog(
       `${activitySearchText(item, agent)} ${conversationText}`,
     ).includes(normalizedQuery);
   });
-}
-
-export function ActivityToolbar({
-  filters,
-  onChange,
-  streamStatus,
-  streamSource,
-  liveAgents,
-  lastEventAt,
-  refreshing,
-}: ActivityToolbarProps) {
-  return (
-    <section class="aa-toolbar" aria-label={t("agentActivity.toolbar.label")}>
-      <div class="aa-live-state">
-        <span class={`agents-conn conn-${streamStatus}`}>{t(`agents.connection.${streamStatus}`)}</span>
-        <span class="status-pill status-pill-neutral">
-          {observationSourceLabel(streamSource)}
-        </span>
-        <span>{t("agentActivity.toolbar.engaged", { count: liveAgents })}</span>
-        <span>{refreshing
-          ? t("agentActivity.toolbar.refreshing")
-          : lastEventAt
-            ? t("agentActivity.toolbar.lastSignal", { time: clock(lastEventAt) })
-            : t("agentActivity.toolbar.waiting")}</span>
-      </div>
-      <FilterSet
-        label={t("agentActivity.toolbar.window")}
-        values={["15m", "1h", "24h", "7d"]}
-        selected={filters.window}
-        onSelect={(window) => onChange({ ...filters, window: window as ActivityWindow })}
-      />
-      <FilterSet
-        label={t("agentActivity.toolbar.layer")}
-        values={["all", "governance", "pipeline", "domain"]}
-        selected={filters.layer}
-        onSelect={(layer) => onChange({ ...filters, layer: layer as ActivityLayer })}
-      />
-      <FilterSet
-        label={t("agentActivity.toolbar.verb")}
-        values={["all", "execute", "approve", "reject", "rollback", "abstain", "audit"]}
-        selected={filters.verb}
-        onSelect={(verb) => onChange({ ...filters, verb: verb as ActivityVerb })}
-      />
-      <label class="aa-search">
-        <span class="sr-only">{t("agentActivity.toolbar.searchLabel")}</span>
-        <input
-          type="search"
-          value={filters.query}
-          placeholder={t("agentActivity.toolbar.searchPlaceholder")}
-          onInput={(event) => onChange({ ...filters, query: event.currentTarget.value })}
-        />
-      </label>
-    </section>
-  );
-}
-
-function FilterSet({
-  label,
-  values,
-  selected,
-  onSelect,
-}: {
-  readonly label: string;
-  readonly values: readonly string[];
-  readonly selected: string;
-  readonly onSelect: (value: string) => void;
-}) {
-  return (
-    <div class="aa-filter-set">
-      <span>{label}</span>
-      <div role="group" aria-label={t("agentActivity.toolbar.filterLabel", { label })}>
-        {values.map((value) => (
-          <button
-            key={value}
-            type="button"
-            class={selected === value ? "is-active" : undefined}
-            aria-pressed={selected === value}
-            onClick={() => onSelect(value)}
-          >
-            {t(`agentActivity.filter.${value}`)}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
 }
 
 export function GroupedAgentActivity({ items, agentOf, layerOf }: GroupedActivityProps) {
