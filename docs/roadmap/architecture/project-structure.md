@@ -369,6 +369,9 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   establishes running from a fresh `Available` fact only for a reviewed running-only lifecycle, and
   `query_source_handlers.py` logs the content-free materialization, refresh, and receipt timings of
   each ObjectSet read.
+  `delivery/persistence/postgres_inventory_reconciliation.py` makes collection due when the
+  existing ontology projection manifest no longer matches the active generation or the running
+  release that `delivery/inventory_ontology_observer.py` builds once per process.
   `fdai_core_service/semantic_answer_presentation.py` renders provider
   lifecycle states, ISO instants, completeness, and the no-authority marker in operator language
   while the technical details keep the exact values.

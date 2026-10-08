@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 353a30958c4209ed016e3b21a84017b34a863904
+translation_source_sha: 30fc0892a22eeff0b3f430ecf0171b8bbbe370d4
 translation_revised: 2026-10-08
 ---
 # 프로젝트 구조
@@ -360,6 +360,9 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   선언이 요청한 모든 상태를 제외할 때만 관측되지 않은 리소스를 조건에 맞지 않는 것으로 확정하며,
   검토된 실행 중 전용 수명 주기에서만 신선한 `Available` 관측으로 실행 중을 확정하고,
   `query_source_handlers.py`는 ObjectSet 조회마다 내용 없이 구체화, 갱신, 영수증 단계의 시간을 기록합니다.
+  `delivery/persistence/postgres_inventory_reconciliation.py`는 기존 온톨로지 변환 매니페스트가 활성 세대나
+  `delivery/inventory_ontology_observer.py`가 프로세스마다 한 번 만드는 실행 중 release와 더 이상 맞지 않으면
+  수집을 즉시 필요로 판단합니다.
   `fdai_core_service/semantic_answer_presentation.py`는 공급자 lifecycle 상태, ISO 시각, 완전성,
   실행 권한 없음 표시를 운영자 언어로 렌더링하고 기술 상세에는 정확한 값을 유지합니다.
   `fdai_core_service/semantic_source_limitations.py`는 타입이 지정된 원본 제한 코드를 운영자의

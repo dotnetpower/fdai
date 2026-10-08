@@ -128,6 +128,11 @@ class SecuredObjectSetNodeHandler:
                 "refresh_ms": round((refreshed - materialized) * 1000),
                 "receipt_ms": round((issued - refreshed) * 1000),
                 "object_count": len(secured.materialization.graph.objects),
+                # Why a scope is partial, as closed codes, so a partial answer is diagnosable.
+                "scope_complete": secured.receipt.complete,
+                "source_incomplete_reason": secured.materialization.graph.source_incomplete_reason
+                or "none",
+                "truncation_reason": str(secured.receipt.truncation_reason or "none"),
             },
         )
         table = secured_query_table(secured)

@@ -57,6 +57,9 @@ from fdai.delivery.inventory_job_config import InventoryJobConfig
 from fdai.delivery.inventory_ontology_observer import (
     build_ontology_observer as _build_ontology_observer,
 )
+from fdai.delivery.inventory_ontology_observer import (
+    current_ontology_release_digest as _current_ontology_release_digest,
+)
 from fdai.delivery.inventory_process_budget import run_inventory_process
 from fdai.delivery.inventory_progress import InventoryProgressUnavailableError
 from fdai.delivery.inventory_progress_wiring import build_inventory_progress_recorder
@@ -528,6 +531,9 @@ async def _run_due_once(config: InventoryJobConfig | None = None) -> InventoryJo
             ),
             default=0.0,
         ),
+        # A projection made under another release or for an older generation leaves answers
+        # partial, so it makes collection due now instead of after the routine interval.
+        ontology_release_digest=_current_ontology_release_digest(),
     )
     due = await reconciliation_gate(
         config.reconciliation_interval_seconds,

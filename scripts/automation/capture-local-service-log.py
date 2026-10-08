@@ -43,6 +43,8 @@ _PLAIN_CONTEXT_FIELDS = (
     "refresh_ms",
     "receipt_ms",
     "object_count",
+    "scope_complete",
+    "source_incomplete_reason",
 )
 # Generic keys such as ``result`` or ``reason`` carry free text in other loggers, so the
 # form-path decision fields are allowed only for this logger and only as closed tokens.

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import functools
 import os
 from collections.abc import Awaitable, Callable
 from contextlib import AsyncExitStack
@@ -59,7 +60,7 @@ from fdai.delivery.persistence.postgres_topology_history import (
     PostgresTopologyHistoryStoreConfig,
 )
 from fdai.delivery.repo_assets import repo_asset_root
-from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
+from fdai.rule_catalog.schema.ontology_catalog import OntologyCatalog, load_ontology_catalog
 from fdai.rule_catalog.schema.resource_type import (
     ResourceTypeRegistry,
     resource_type_mapping_digests,
@@ -73,6 +74,23 @@ from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 _REPO_ROOT = repo_asset_root()
 
 
+@functools.cache
+def _ontology_catalog() -> OntologyCatalog:
+    catalog_root = _REPO_ROOT / "rule-catalog"
+    return load_ontology_catalog(
+        catalog_root,
+        schema_registry=PackageResourceSchemaRegistry(),
+        probes_root=catalog_root / "probes",
+    )
+
+
+@functools.cache
+def current_ontology_release_digest() -> str:
+    """Return the ontology release digest this process projects under, built once."""
+
+    return _ontology_catalog().build_release().digest
+
+
 def build_ontology_observer(
     config: InventoryJobConfig,
     *,
@@ -84,13 +102,8 @@ def build_ontology_observer(
 ) -> tuple[InventoryPromotionObserver, InventoryPromotionRecovery]:
     """Build projection and recovery observers for promoted inventory generations."""
     observation_journal = build_observation_journal(config.dsn, os.environ)
-    catalog_root = _REPO_ROOT / "rule-catalog"
-    catalog = load_ontology_catalog(
-        catalog_root,
-        schema_registry=PackageResourceSchemaRegistry(),
-        probes_root=catalog_root / "probes",
-    )
-    ontology_release_digest = catalog.build_release().digest
+    catalog = _ontology_catalog()
+    ontology_release_digest = current_ontology_release_digest()
     status_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn))
     if stack is not None:
         stack.push_async_callback(status_store.aclose)
@@ -328,4 +341,4 @@ def build_ontology_observer(
     return _observe, _recover
 
 
-__all__ = ["build_ontology_observer"]
+__all__ = ["build_ontology_observer", "current_ontology_release_digest"]

@@ -20,6 +20,7 @@ from fdai.delivery.persistence.postgres_inventory_reconciliation import (
     failure_retry_delay_seconds,
     has_unreconciled_change,
     inventory_reconciliation_due,
+    projection_misaligned,
 )
 from fdai.delivery.persistence.postgres_inventory_snapshot import (
     PostgresInventorySnapshotStoreConfig,
@@ -407,6 +408,33 @@ def test_pending_ontology_projection_forces_collection() -> None:
 
     assert decision.action is CollectionScheduleAction.COLLECT
     assert decision.reason_codes == ("projection_pending",)
+
+
+_RELEASE = "sha256:" + "a" * 64
+
+
+@pytest.mark.parametrize(
+    ("manifest", "release", "expected"),
+    [
+        # The active generation was projected under the running release.
+        ({"generation": "gen-2", "ontology_release_digest": _RELEASE}, _RELEASE, False),
+        # A promotion that was never projected leaves every answer partial.
+        ({"generation": "gen-1", "ontology_release_digest": _RELEASE}, _RELEASE, True),
+        # A projection made under an older release no longer serves the running release.
+        ({"generation": "gen-2", "ontology_release_digest": "sha256:" + "b" * 64}, _RELEASE, True),
+        # Without a known running release only the generation is compared.
+        ({"generation": "gen-2", "ontology_release_digest": "sha256:" + "b" * 64}, None, False),
+        # A venue that never projected is not forced to collect.
+        (None, _RELEASE, False),
+    ],
+)
+def test_a_misaligned_projection_is_pending(
+    manifest: object, release: str | None, expected: bool
+) -> None:
+    assert (
+        projection_misaligned(manifest, active_generation="gen-2", ontology_release_digest=release)
+        is expected
+    )
 
 
 def test_current_active_scope_checkpoint_ignores_inactive_scope_backlog() -> None:

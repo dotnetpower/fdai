@@ -401,6 +401,11 @@ and provider throttling reduce concurrency and honor `Retry-After`; persistent u
 the circuit and schedules a bounded probe instead of retrying continuously.
 When no newer failed attempt exists, the scheduler uses the active snapshot completion age as the
 last-attempt age and treats overlay rows, tombstones, or an open projection watermark as pending.
+It also treats a misaligned ontology projection as pending: an existing projection manifest whose
+generation is not the active snapshot, or whose ontology release is not the running release. A
+promotion that was never projected or a deployment that changed the ontology release therefore
+recollects after the minimum poll interval instead of leaving every inventory-backed answer partial
+for the routine interval. A venue that never projected has no manifest and is not forced to collect.
 Change demand or maximum staleness therefore cannot be deferred because a failure time is absent.
 The local long-running loop records typed source, projection, or pending-replay failure and retries after its
 configured interval. A one-shot job also fails when source collection or the promoted ontology projection
