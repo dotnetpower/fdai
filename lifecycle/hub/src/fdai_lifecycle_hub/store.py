@@ -11,9 +11,9 @@ from contextlib import contextmanager
 from datetime import datetime
 from itertools import groupby
 from operator import attrgetter
-from typing import Self, assert_never
+from typing import Self, assert_never, cast
 
-from fdai_deployment_cli.lifecycle_plan import ConstraintBlock
+from fdai_deployment_cli.lifecycle_plan import ConstraintBlock, PlanType, SuppressionWindow
 from sqlalchemy import Engine, create_engine, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
@@ -102,6 +102,23 @@ class HubStore:
             row.recorded_at = now
             audit.append(session, now, "state.recorded", installation_id, state.digest)
 
+    def add_suppression(
+        self, installation_id: str, window: SuppressionWindow, *, now: datetime
+    ) -> None:
+        """Add a suppression. The API stops serving a Plan it covers while it is active."""
+
+        with self._write() as session:
+            row = _lock_installation(session, installation_id)
+            _store_suppressions(row, _to_domain(session, row).suppressed(window, now), now)
+            details = {"ends_at": window.ends_at.isoformat()}
+            audit.append(session, now, "suppression.added", installation_id, window.scope, details)
+
+    def lift_suppressions(self, installation_id: str, scope: str, *, now: datetime) -> None:
+        with self._write() as session:
+            row = _lock_installation(session, installation_id)
+            _store_suppressions(row, _to_domain(session, row).lifted(scope, now), now)
+            audit.append(session, now, "suppression.lifted", installation_id, scope)
+
     def load(self, installation_id: str) -> domain.Installation:
         with self._sessions() as session:
             return _to_domain(session, _get_installation(session, installation_id))
@@ -159,12 +176,15 @@ class HubStore:
             return outcome
 
     def current_plan(self, installation_id: str, *, now: datetime) -> domain.IssuedPlan | None:
-        """The open Plan, unless it has expired."""
+        """The open Plan, unless it has expired or an active suppression covers it."""
 
         with self._sessions() as session:
-            _get_installation(session, installation_id)
+            row = _get_installation(session, installation_id)
             plan = _open_plan(session, installation_id)
-            return plan if plan is not None and now < plan.expires_at else None
+            if plan is None or now >= plan.expires_at:
+                return None
+            suppressions = schemas.suppressions_json.validate_python(row.suppressions)
+            return None if plan.held_by(suppressions, now) else plan
 
     def record_report(
         self, installation_id: str, plan_id: str, report: schemas.PlanReport, *, now: datetime
@@ -270,6 +290,7 @@ def _issued_plan(row: models.Plan) -> domain.IssuedPlan:
     return domain.IssuedPlan(
         plan_id=row.plan_id,
         sequence=row.sequence,
+        plan_type=cast(PlanType, row.plan_type),
         target_release_id=row.target_release_id,
         source_state_digest=row.source_state_digest,
         configuration_digest=row.configuration_digest,
@@ -279,6 +300,13 @@ def _issued_plan(row: models.Plan) -> domain.IssuedPlan:
         signed_payload=row.signed_payload,
         signature=row.signature,
     )
+
+
+def _store_suppressions(
+    row: models.Installation, installation: domain.Installation, now: datetime
+) -> None:
+    row.suppressions = schemas.suppressions_json.dump_python(installation.suppressions, mode="json")
+    row.recorded_at = now
 
 
 def _supersede(session: Session, plan: domain.IssuedPlan | None, now: datetime) -> None:
@@ -352,6 +380,7 @@ def _plan_model(plan: domain.IssuedPlan, now: datetime) -> models.Plan:
     return models.Plan(
         plan_id=plan.plan_id,
         sequence=plan.sequence,
+        plan_type=plan.plan_type,
         target_release_id=plan.target_release_id,
         source_state_digest=plan.source_state_digest,
         configuration_digest=plan.configuration_digest,
