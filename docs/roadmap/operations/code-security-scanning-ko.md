@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: 07b0f4c6e4b274e3b11c4565ae9df211639f201d
+translation_source_sha: 0549d9e44f9635c2645793cce4a613b481bc09cb
 translation_revised: 2026-10-09
 ---
 
@@ -289,7 +289,10 @@ lockfile 권고는 패키지 이름과 함께 표시됩니다. 보고서에는 �
    아닙니다.
 2. **정화 없음:** `shlex.quote`나 `os.path.basename` 같은 카탈로그 정화 함수가 흐름을 끊지
    않습니다. 값에 대한 허용 목록이나 검증 가드가 있으면 두 분기 모두에서 오염을 제거합니다.
-3. **도달 가능:** 싱크가 `return`이나 `raise` 뒤, 또는 항상 거짓인 분기 안에 있지 않습니다.
+   `'../' in name`처럼 고정된 부분 문자열을 검사하는 가드도 포함합니다.
+3. **도달 가능:** 싱크가 `return`이나 `raise` 뒤, 또는 실행되지 않는 분기 안에 있지 않습니다.
+   검증기는 리터럴과, 리터럴로 한 번만 바인딩되는 함수 지역 이름으로 만든 `if`, 조건식, `while`,
+   `match` 조건을 계산하고, 그 밖의 경우에는 모든 분기를 분석합니다.
 4. **정확한 리비전:** 이슈와 확보한 트리의 커밋이 같습니다.
 
 그 밖의 결과는 신뢰도를 바꾸지 않으며, `no_sink_at_fix_site`, `argument_not_attacker_controlled`,
@@ -333,6 +336,11 @@ JavaScript와 TypeScript, Java, C#에서는 `rules/verify/` 아래의 FDAI 작�
 보관 분할에서 참 양성이 없었습니다. Python 명령 주입은 `holdout`에서 0.75로 측정되어 shadow에 남습니다.
 JavaScript 경로 조작 규칙은 더 이상 인자 하나짜리 저장소 조회를 오염된 값으로 보지 않지만, 알려진 키
 조회로 보호되는 Juice Shop의 안전한 읽기 두 곳 때문에 여전히 shadow에 남습니다.
+
+예: 같은 평가 자료에 대한 검증기 1.3.0 증적은 상수 조건 계산과 고정 부분 문자열 가드를 추가하고,
+Python 코드 주입을 정밀도 1.0, `dev` 참 양성 11개와 `holdout` 참 양성 3개로 다시 승격합니다. 두 분할
+모두에서 잃은 참 양성은 없습니다. Python 경로 조작은 `dev` 0.90, `holdout` 0.82로, 안전하지 않은
+역직렬화는 0.88과 1.0으로 올랐지만 둘 다 shadow에 남습니다.
 
 ## 입증 레인(선택)
 

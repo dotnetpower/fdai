@@ -215,7 +215,7 @@ def _expand_labels(
 
 
 def evaluate_verifiers(args: argparse.Namespace) -> dict[str, object]:
-    catalog_root = Path(args.catalog_root)
+    catalog_root = Path(args.catalog_root).resolve()
     catalog = load_code_security_catalog(catalog_root)
     corpus = load_verifier_corpus(yaml.safe_load(Path(args.corpus).read_text(encoding="utf-8")))
     acquirer = GitSourceAcquirer(Path(args.work_root).resolve())

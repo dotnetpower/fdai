@@ -23,6 +23,13 @@ from enum import StrEnum
 from pathlib import Path
 
 from fdai.core.security.code_findings.models import CodeSecurityIssue, Lane, Occurrence
+from fdai.core.security.code_findings.verifier_constants import (
+    UNKNOWN,
+    evaluate,
+    irrefutable,
+    selected_case,
+    single_assignment_constants,
+)
 from fdai.rule_catalog.code_security import Confidence
 from fdai.rule_catalog.code_security_verifiers import (
     PythonVerifier,
@@ -159,8 +166,10 @@ class _Taint:
         weakness: VerifierClass,
         statement_of_sink: ast.stmt,
         sink_arg: ast.expr,
+        constants: Mapping[str, object] | None = None,
     ) -> None:
         self.module = module
+        self.constants: Mapping[str, object] = constants or {}
         self.config = config
         self.sanitizers = (*config.global_sanitizers, *weakness.sanitizers)
         self.target = statement_of_sink
@@ -245,6 +254,10 @@ class _Taint:
             return label
         if isinstance(node, ast.Compare | ast.Lambda | ast.Constant):
             return None
+        if isinstance(node, ast.IfExp):
+            fixed = evaluate(node.test, self.constants)
+            if fixed is not UNKNOWN:
+                return self.taint(node.body if fixed else node.orelse, state)
         if isinstance(node, ast.Dict):
             return self._first([*node.keys, *node.values], state)
         if isinstance(node, ast.ListComp | ast.SetComp | ast.GeneratorExp):
@@ -291,6 +304,9 @@ class _Taint:
                 isinstance(op, ast.In | ast.NotIn) for op in node.ops
             ):
                 checked.append(node.left)
+                # A fixed substring test such as `'../' in path` checks the container instead.
+                if isinstance(node.left, ast.Constant) and isinstance(node.left.value, str):
+                    checked.extend(node.comparators)
             elif isinstance(node, ast.Call) and _terminal(node.func) in self.config.validators:
                 checked.extend(node.args)
                 if isinstance(node.func, ast.Attribute):
@@ -362,9 +378,9 @@ class _Taint:
             validated = self._validated(node.test, state)
             for name in validated:
                 state.pop(name, None)
-            if isinstance(node.test, ast.Constant):
-                branch = node.body if node.test.value else node.orelse
-                return self.block(branch, state)
+            fixed = evaluate(node.test, self.constants)
+            if fixed is not UNKNOWN:
+                return self.block(node.body if fixed else node.orelse, state)
             return self._merge(self.block(node.body, state), self.block(node.orelse, state))
         if isinstance(node, ast.For | ast.AsyncFor):
             self._assign(node.target, self.taint(node.iter, state), state)
@@ -372,7 +388,8 @@ class _Taint:
             second = self.block(node.body, self._merge(state, first))
             return self.block(node.orelse, self._merge(state, first, second))
         if isinstance(node, ast.While):
-            if isinstance(node.test, ast.Constant) and not node.test.value:
+            fixed = evaluate(node.test, self.constants)
+            if fixed is not UNKNOWN and not fixed:
                 return self.block(node.orelse, state)
             first = self.block(node.body, state)
             second = self.block(node.body, self._merge(state, first))
@@ -391,7 +408,11 @@ class _Taint:
                 return self.block(node.finalbody, result if result is not None else entry)
             return result
         if isinstance(node, ast.Match):
-            return self._merge(*(self.block(case.body, state) for case in node.cases))
+            chosen = selected_case(node.subject, node.cases, self.constants)
+            if chosen is not None:
+                return state if chosen < 0 else self.block(node.cases[chosen].body, state)
+            fallthrough = None if irrefutable(node.cases) else state
+            return self._merge(fallthrough, *(self.block(case.body, state) for case in node.cases))
         return state
 
 
@@ -438,7 +459,14 @@ def _verify_python(
                 continue
             found_sink = found_sink or _sink_name(sink)
             target, function, body = _owner(tree, parents, call)
-            analysis = _Taint(module, config, weakness, target, call.args[sink.arg])
+            analysis = _Taint(
+                module,
+                config,
+                weakness,
+                target,
+                call.args[sink.arg],
+                single_assignment_constants(function),
+            )
             analysis.block(body, analysis.entry_state(function))
             reached_any = reached_any or analysis.reached
             if analysis.reached and analysis.source:
