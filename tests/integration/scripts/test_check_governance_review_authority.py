@@ -296,7 +296,7 @@ def test_rule_retirement_change_requires_two_phishing_resistant_owner_approvers(
 
 _MATRIX = (_ROOT / "config" / "notifications-matrix.yaml").read_text(encoding="utf-8")
 _A2_ROUTE = """
-    code_security_operational_alert:
+    fixture_only_a2_alert:
       trust_tier: a2_operational_alert
       delivery_mode: fanout
       channels:

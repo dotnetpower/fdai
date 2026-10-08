@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 7e9bcde5a4d53d58e83828b29e0d5bc793a0e404
+translation_source_sha: 97b0d7473178034bee8ffa3de3e0476f5cfc4960
 translation_revised: 2026-10-08
 ---
 # 런타임 배포 프로파일
@@ -771,6 +771,10 @@ Core가 소유한 `licensing_entitlement_state` 행에 게시합니다. Core 마
 비특권 사용자 네임스페이스를 허용하는 런타임과 별도의 오프라인 데이터베이스 갱신이 필요하므로,
 프로필이 명시적으로 선택해야 합니다.
 [코드 보안 스캔](../operations/code-security-scanning-ko.md#스캔-실행-이미지)을 참조하세요.
+
+기본 제공 알림 매트릭스에는 코드 보안 A2 경고 경로와 A4 다이제스트 경로가 들어 있습니다. 따라서
+알림 전달을 구성하는 모든 프로필에서 코드 보안 검토를 전달할 수 있습니다. 매트릭스에 두 경로 중
+하나라도 없는 프로필은 알림 공백을 기록하며, 승인 경로로 대체 전달하지 않습니다.
 
 ## 완료 근거
 
