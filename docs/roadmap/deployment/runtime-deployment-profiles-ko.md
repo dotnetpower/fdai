@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: c231a3c789ad5cf64d6b6a9554de3011cff6348e
+translation_source_sha: e9869a24856b5eb538707c96e870de8a0a188fdd
 translation_revised: 2026-10-09
 ---
 # 런타임 배포 프로파일
@@ -48,7 +48,8 @@ ChatOps 바인딩을 그대로 사용합니다. 런타임 선택을 바꾸거나
 노드 크기·비용·호스트 신원·정확한 계획 승인은 검증하지 않습니다. 이 근거는 프로파일에 연결된
 계획을 대신할 수 없습니다. 지원 자료 설치에는 검증된 경로를 명시적으로 전달하며 소스 자료가
 없다고 kit를 자동 선택하지 않습니다. [소스 경계](installable-deployment-cli-ko.md#명시적-소스-복구)를 참고하세요.
-단일 명령 소스 배포가 standalone 애플리케이션 순서에 도달해도 런타임 프로파일은 바뀌지
+단일 명령 소스 배포는 두 AKS 데이터베이스 배치인 `postgres-flex`와 `postgres-aks`를 모두 받아들이고
+Container Apps는 거부합니다. 이 배포가 standalone 애플리케이션 순서에 도달해도 런타임 프로파일은 바뀌지
 않습니다. managed host는 서명된 키트 아카이브 대신 검증된 소스 전송 아카이브를 받고, 그
 스냅샷에서 `fdaictl`을 설치하며, 스냅샷의 Terraform 루트와 마이그레이션 지원을 사용합니다.
 공급자는 커밋된 lock 파일 기준으로 공개 레지스트리에서 직접 해석합니다. 이미지 참조는 배포

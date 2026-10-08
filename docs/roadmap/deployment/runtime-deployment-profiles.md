@@ -67,8 +67,9 @@ The host's read-only `verify-source-runtime` command checks pinned source/runtim
 runtime or database placement, node sizing, cost, host identity or exact-plan authority. Its evidence
 cannot replace a profile-bound plan. Support installation receives an already-admitted artifact root;
 missing source support never selects a kit implicitly. See the [source boundary](installable-deployment-cli.md#explicit-source-recovery).
-When a one-command source deployment reaches the standalone application sequence, the runtime
-profile does not change. The managed host receives a verified source transport archive instead of a
+The one-command source deployment accepts both AKS database placements, `postgres-flex` and
+`postgres-aks`, and refuses Container Apps. When it reaches the standalone application sequence,
+the runtime profile does not change. The managed host receives a verified source transport archive instead of a
 signed kit archive, installs `fdaictl` from that snapshot, uses Terraform roots and migration
 support from the snapshot, and resolves providers directly from public registries under the
 committed lock files. Image references still enter the runtime profile only as read-back digests
