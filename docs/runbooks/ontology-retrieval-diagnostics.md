@@ -14,7 +14,8 @@ qualification or execution authority.
 | [instance-holdout.v1.json](../../eval/ontology-retrieval/instance-holdout.v1.json) | Spent holdout. Preserve its evidence; don't tune on it or reuse it for qualification. |
 | [instance-holdout.v2.json](../../eval/ontology-retrieval/instance-holdout.v2.json) | Spent holdout. Independently authored and reviewed; measured once at `2572f9a1b1`. Don't tune on its cases or reuse it for qualification. |
 | [instance-calibration.v3.json](../../eval/ontology-retrieval/instance-calibration.v3.json) | 64 new diagnostic calibration cases for the holdout v2 failure classes. Calibration only; it can't qualify a change. |
-| [instance-holdout.v3.json](../../eval/ontology-retrieval/instance-holdout.v3.json) | Frozen, unmeasured holdout for the next single qualifying run. A blinded author wrote it and a separately blinded reviewer reviewed it; neither read earlier holdout text, prompts, adapters, or this runbook. Don't read, tune on, or measure it outside that run. |
+| [instance-holdout.v3.json](../../eval/ontology-retrieval/instance-holdout.v3.json) | Spent holdout. A blinded author wrote it and a separately blinded reviewer reviewed it; measured once at `19bbbe3c95`. Don't tune on its cases or reuse it for qualification. |
+| [instance-holdout.v4.json](../../eval/ontology-retrieval/instance-holdout.v4.json) | Frozen, unmeasured holdout for the next single qualifying run. A blinded author wrote it and a separately blinded reviewer reviewed it; neither read earlier holdout text, prompts, adapters, or this runbook. Don't read, tune on, or measure it outside that run. |
 
 The v2 calibration has 32 singleton positives, eight multi-target positives and 24 no-match cases.
 Each language covers four distinct singleton targets per type and at least four samples for every
@@ -230,8 +231,21 @@ failed v3 with seven. An independent blinded reviewer reworded `cal-v3-en-p15`, 
 reading of "after the 08:30 update" excluded its labeled incident, and kept the labels. With nested
 conditions and the document-visible qualifier statement at `828ff8909b`, calibration v2 and v3
 both passed every cohort at `1.0` in two consecutive attempts each, with offline verification.
-These are development results. Qualification still requires one run of calibration and the
-unmeasured holdout v3 at the merged commit.
+The qualifying diagnostic at merged `19bbbe3c95` ran calibration v2, calibration v3, and holdout
+v3 once each with offline verification. Calibration v2 passed every cohort at `1.0`. Calibration
+v3 missed two expressible positives as unsupported-constraint clarifications. Holdout v3 failed
+only en-positive recall@5 and MRR at `0.9375` (15 of 16); every other cohort, including every
+negative, adversarial, and ambiguous cohort, was `1.0`. Holdout v3 is spent, and its cases weren't
+inspected.
+
+The next cycle used calibration only. A statement that requesting a single instance or naming the
+object's own role doesn't add a condition removed the spurious clarifications. A stricter variant
+that required the model to name the inexpressible condition caused 20-second timeouts and was
+replaced. A further statement copies free-text `contains` operands from a matching stored value
+rather than the request's paraphrase. At `c3559f2c1f`, calibration v2 passed twice and calibration
+v3 passed three times, every cohort at `1.0`, with no abort. A blinded author wrote the new
+`instance-holdout.v4`, and a separately blinded reviewer corrected one case and approved it. It
+stays unmeasured until one qualifying run at the merged commit.
 
 ## Measure semantic proposals separately
 
