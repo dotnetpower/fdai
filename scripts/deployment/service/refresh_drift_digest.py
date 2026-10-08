@@ -121,8 +121,7 @@ def summarize(plan: Mapping[str, Any], *, root_id: str) -> dict[str, Any]:
         if (
             root_id == "legacy"
             and name in _LEGACY_PLAN_UNKNOWN_OUTPUTS
-            and actions == ["update"]
-            and not _empty(change.get("before"))
+            and actions in (["create"], ["update"])
             and bool(change.get("after_unknown"))
         ):
             continue

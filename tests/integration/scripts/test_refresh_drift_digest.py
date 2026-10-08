@@ -121,15 +121,21 @@ def test_clean_plan_has_no_drift() -> None:
 
 
 @pytest.mark.parametrize("name", ["installation_binding", "installation_created_at"])
-def test_legacy_installation_anchor_plan_unknown_is_not_drift(name: str) -> None:
+@pytest.mark.parametrize(
+    ("actions", "before"),
+    [(["create"], None), (["update"], "retained")],
+)
+def test_legacy_installation_anchor_plan_unknown_is_not_drift(
+    name: str, actions: list[str], before: object
+) -> None:
     summary = digest_module.summarize(
         _plan(
             resource_drift=[],
             resource_changes=[],
             output_changes={
                 name: {
-                    "actions": ["update"],
-                    "before": "retained",
+                    "actions": actions,
+                    "before": before,
                     "after": "retained-placeholder",
                     "after_unknown": True,
                 }
@@ -157,10 +163,10 @@ def test_legacy_installation_anchor_plan_unknown_is_not_drift(name: str) -> None
         (
             "legacy",
             {
-                "actions": ["update"],
-                "before": "retained",
+                "actions": ["delete"],
+                "before": None,
                 "after": "changed",
-                "after_unknown": False,
+                "after_unknown": True,
             },
         ),
     ],
