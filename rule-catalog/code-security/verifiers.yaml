@@ -18,7 +18,7 @@
 # receiver.
 schema_version: 1
 catalog_id: fdai.code-security.verifiers
-version: 1.3.0
+version: 1.4.0
 # Promotion gate. Only verifiers listed here may grant `verified`; every other verifier, and every
 # taint rule under rules/verify/ that isn't listed, runs in shadow and records its result without
 # raising confidence. The list comes from the measured receipt of the real-code verifier corpus
@@ -26,14 +26,16 @@ version: 1.3.0
 # `min_true_positives` true positives in both the dev and the held-out split. Re-run
 # `evaluate-verifiers` and update this list in the same change as any rule or corpus edit.
 promotion:
-  evidence: fdai.code-security.verifier-real@1.1.0 measured 2026-10-08 with dev and holdout splits (verifiers 1.3.0)
+  evidence: fdai.code-security.verifier-real@1.1.0 measured 2026-10-09 with dev and holdout splits (verifiers 1.4.0)
   promoted:
     - fdai.verify.java.command-injection
     - fdai.verify.js.code-injection
     - fdai.verify.js.command-injection
     - fdai.verify.js.sql-injection
     - python:code_injection
+    - python:path_traversal
     - python:sql_injection
+    - python:unsafe_deserialization
 limits:
   max_file_bytes: 1000000
   max_issues: 5000
@@ -92,6 +94,7 @@ python:
       sinks:
         - {call: open, arg: 0}
         - {call: io.open, arg: 0}
+        - {call: codecs.open, arg: 0}
         - {call: os.remove, arg: 0}
         - {call: os.unlink, arg: 0}
         - {call: shutil.rmtree, arg: 0}

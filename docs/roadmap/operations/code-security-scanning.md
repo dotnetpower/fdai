@@ -298,10 +298,16 @@ intra-procedural, flow-sensitive taint analysis over the enclosing function. The
    aren't sources, because `verified` claims a network-reachable flow.
 2. **No sanitizer:** no catalog sanitizer, such as `shlex.quote` or `os.path.basename`, cuts the
    flow. An allowlist or validation guard on the value removes taint on both branches, including
-   a fixed-substring check such as `'../' in name`.
+   a fixed-substring check such as `'../' in name` on the value itself, but not on the arguments
+   of a call that produces the checked container. A function-local list built from a literal is
+   tracked element by element while it is only extended with `append` and shrunk with `pop` at a
+   fixed index, so reading a clean element after a tainted one isn't a flow. Any other use of the
+   list, or branches that disagree on its length, fall back to treating the whole list as tainted.
 3. **Reachable:** the sink isn't after a `return` or `raise`, or in a branch that is never taken.
    The verifier folds `if`, conditional-expression, `while`, and `match` conditions built from
    literals and function-local names bound once to a literal, and analyzes every branch otherwise.
+   An assignment made before `break` reaches the code after the loop, and `continue` re-enters
+   the loop body.
 4. **Exact revision:** the issue and the acquired tree have the same commit.
 
 Every other outcome leaves confidence unchanged and is recorded in `receipt.json` with a reason,
@@ -354,6 +360,12 @@ fixed-substring guards, and returns Python code injection to promotion at precis
 `dev` and 3 `holdout` true positives. No true positive was lost in either split. Python path
 traversal rose to 0.90 on `dev` and 0.82 on `holdout`, and unsafe deserialization to 0.88 and 1.0,
 so both stay in shadow.
+
+Example: the verifiers 1.4.0 receipt (2026-10-09) adds element-sensitive list tracking, loop
+`break` and `continue` flow, the `codecs.open` sink, and the narrower substring guard, all tuned on
+`dev` only. It promotes Python path traversal (precision 1.0 on `dev` with 17 true positives and
+0.94 on `holdout` with 16) and unsafe deserialization (1.0 in both splits with 8 and 10). Python
+command injection measured 1.0 on `dev` and 0.75 on `holdout` and stays in shadow.
 
 ## Proof lane (opt-in)
 

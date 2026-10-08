@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
+from fdai.core.security.code_findings import verifier_lists as lists
 from fdai.core.security.code_findings.models import CodeSecurityIssue, Lane, Occurrence
 from fdai.core.security.code_findings.verifier_constants import (
     UNKNOWN,
@@ -47,6 +48,22 @@ _TAINT_ENGINES = ("opengrep", "semgrep")
 TAINT_VERIFIER_VERSION = "fdai.code-security.taint-verifiers"
 _SAFE_CONVERTERS = re.compile(r"<(?:int|float|uuid):([A-Za-z_][A-Za-z0-9_]*)>")
 _State = dict[str, str]
+
+
+def _receiver_root(node: ast.expr) -> ast.Name | None:
+    """Return the name an attribute, subscript, or method-call chain reads from."""
+    while not isinstance(node, ast.Name):
+        if isinstance(node, ast.Attribute | ast.Subscript):
+            node = node.value
+        elif isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            node = node.func.value
+        else:
+            return None
+    return node
+
+
+def _is_index(value: object) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
 
 
 class VerifierOutcome(StrEnum):
@@ -177,6 +194,7 @@ class _Taint:
         self.reached = False
         self.source: str | None = None
         self.validated: set[str] = set()
+        self.loops: list[tuple[list[_State], list[_State]]] = []
 
     def entry_state(self, function: ast.FunctionDef | ast.AsyncFunctionDef | None) -> _State:
         state: _State = {}
@@ -229,7 +247,11 @@ class _Taint:
             ast.dump(node) in self.validated
         ):
             return None
+        handled, tracked = self._tracked_list(node, state)
+        if handled:
+            return tracked
         if isinstance(node, ast.Name):
+            lists.untrack(state, node.id)
             return state.get(node.id)
         if isinstance(node, ast.Attribute):
             if self._request(node):
@@ -268,6 +290,38 @@ class _Taint:
             [child for child in ast.iter_child_nodes(node) if isinstance(child, ast.expr)], state
         )
 
+    def _tracked_list(self, node: ast.expr, state: _State) -> tuple[bool, str | None]:
+        """Resolve a fixed-index read, ``append``, or fixed ``pop`` on a tracked local list."""
+        if isinstance(node, ast.Subscript) and isinstance(node.value, ast.Name):
+            name = node.value.id
+            index = evaluate(node.slice, self.constants)
+            if lists.length(state, name) is not None and _is_index(index):
+                return True, lists.element(state, name, index)  # type: ignore[arg-type]
+            return False, None
+        if not (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and isinstance(node.func.value, ast.Name)
+            and not node.keywords
+            and not any(isinstance(arg, ast.Starred) for arg in node.args)
+            and lists.length(state, node.func.value.id) is not None
+        ):
+            return False, None
+        name, method = node.func.value.id, node.func.attr
+        if method == "append" and len(node.args) == 1:
+            label = self.taint(node.args[0], state)
+            lists.append(state, name, label)
+            if label:
+                state[name] = label
+            return True, None
+        if method == "pop" and len(node.args) <= 1:
+            index = evaluate(node.args[0], self.constants) if node.args else -1
+            if _is_index(index):
+                label = lists.element(state, name, index)  # type: ignore[arg-type]
+                if lists.pop(state, name, index):  # type: ignore[arg-type]
+                    return True, label
+        return False, None
+
     def _first(self, nodes: Sequence[ast.expr | None], state: _State) -> str | None:
         for node in nodes:
             label = self.taint(node, state)
@@ -280,6 +334,7 @@ class _Taint:
     ) -> None:
         """Bind ``label`` to the assigned names; mutating a container taints its base name."""
         if isinstance(target, ast.Name) and not mutation:
+            lists.untrack(state, target.id)
             if label:
                 state[target.id] = label
             else:
@@ -289,12 +344,14 @@ class _Taint:
                 self._assign(element, label, state)
         elif isinstance(target, ast.Starred) and not mutation:
             self._assign(target.value, label, state)
-        elif label:
+        else:
             base: ast.expr = target
-            while isinstance(base, ast.Attribute | ast.Subscript):
+            while isinstance(base, ast.Attribute | ast.Subscript | ast.Starred):
                 base = base.value
             if isinstance(base, ast.Name):
-                state[base.id] = label
+                lists.untrack(state, base.id)
+                if label:
+                    state[base.id] = label
 
     def _validated(self, test: ast.expr, state: _State) -> set[str]:
         names: set[str] = set()
@@ -304,9 +361,14 @@ class _Taint:
                 isinstance(op, ast.In | ast.NotIn) for op in node.ops
             ):
                 checked.append(node.left)
-                # A fixed substring test such as `'../' in path` checks the container instead.
+                # A fixed substring test such as `'../' in path` checks the container instead,
+                # but not the arguments of a call that produces the container.
                 if isinstance(node.left, ast.Constant) and isinstance(node.left.value, str):
-                    checked.extend(node.comparators)
+                    checked.extend(
+                        root
+                        for comparator in node.comparators
+                        if (root := _receiver_root(comparator)) is not None
+                    )
             elif isinstance(node, ast.Call) and _terminal(node.func) in self.config.validators:
                 checked.extend(node.args)
                 if isinstance(node.func, ast.Attribute):
@@ -339,7 +401,29 @@ class _Taint:
         for state in live:
             for name, label in state.items():
                 merged.setdefault(name, label)
+        lists.merge(live, merged)
         return merged
+
+    def _loop(
+        self,
+        body: Sequence[ast.stmt],
+        orelse: Sequence[ast.stmt],
+        state: _State,
+        *,
+        exits_normally: bool,
+    ) -> _State | None:
+        """Run a loop body twice; ``continue`` re-enters it and ``break`` skips ``else``."""
+        breaks: list[_State] = []
+        continues: list[_State] = []
+        self.loops.append((breaks, continues))
+        try:
+            first = self.block(body, state)
+            second = self.block(body, self._merge(state, first, *continues))
+            head = self._merge(state, first, second, *continues)
+        finally:
+            self.loops.pop()
+        normal = self.block(orelse, head) if exits_normally else None
+        return self._merge(normal, *breaks)
 
     def block(self, statements: Sequence[ast.stmt], state: _State | None) -> _State | None:
         for statement in statements:
@@ -357,6 +441,19 @@ class _Taint:
             label = self.taint(node.value, state)
             for target in node.targets:
                 self._assign(target, label, state)
+            value = node.value
+            if (
+                len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)
+                and isinstance(value, ast.List)
+                and not any(isinstance(item, ast.Starred) for item in value.elts)
+            ):
+                labels = [self.taint(item, state) for item in value.elts]
+                lists.track(state, node.targets[0].id, labels)
+            return state
+        if isinstance(node, ast.Delete):
+            for target in node.targets:
+                self._assign(target, None, state, mutation=not isinstance(target, ast.Name))
             return state
         if isinstance(node, ast.AnnAssign):
             if node.value is not None:
@@ -366,6 +463,10 @@ class _Taint:
             label = self.taint(node.target, state) or self.taint(node.value, state)
             self._assign(node.target, label, state)
             return state
+        if isinstance(node, ast.Break | ast.Continue) and self.loops:
+            breaks, continues = self.loops[-1]
+            (breaks if isinstance(node, ast.Break) else continues).append(dict(state))
+            return None
         if isinstance(node, ast.Return | ast.Raise | ast.Continue | ast.Break):
             return None
         if isinstance(node, ast.Expr):
@@ -384,16 +485,12 @@ class _Taint:
             return self._merge(self.block(node.body, state), self.block(node.orelse, state))
         if isinstance(node, ast.For | ast.AsyncFor):
             self._assign(node.target, self.taint(node.iter, state), state)
-            first = self.block(node.body, state)
-            second = self.block(node.body, self._merge(state, first))
-            return self.block(node.orelse, self._merge(state, first, second))
+            return self._loop(node.body, node.orelse, state, exits_normally=True)
         if isinstance(node, ast.While):
             fixed = evaluate(node.test, self.constants)
             if fixed is not UNKNOWN and not fixed:
                 return self.block(node.orelse, state)
-            first = self.block(node.body, state)
-            second = self.block(node.body, self._merge(state, first))
-            return self.block(node.orelse, self._merge(state, first, second))
+            return self._loop(node.body, node.orelse, state, exits_normally=fixed is UNKNOWN)
         if isinstance(node, ast.With | ast.AsyncWith):
             for item in node.items:
                 if item.optional_vars is not None:

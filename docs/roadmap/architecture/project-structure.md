@@ -647,7 +647,8 @@ Code-security findings keep their deterministic core in `core/security/code_find
 in `rule-catalog/code-security/`, and adapters in `delivery/code_security_*.py` and
 `delivery/persistence/state_store_code_security_*.py`. Bounded Console issue summaries are built
 by `issue_summary.py` beside the review signal. The Python weakness verifier in `verifier.py`
-folds fixed conditions through the pure, side-effect-free `verifier_constants.py`. The severity rubric is catalog data in
+folds fixed conditions through the pure, side-effect-free `verifier_constants.py` and tracks
+local list elements through `verifier_lists.py`. The severity rubric is catalog data in
 `rule-catalog/code-security/severity-rubric.yaml`, and its version is stamped into every coverage
 receipt, so a rubric change makes earlier rescans non-equivalent. The Operator read side is
 `code_security_review_projection.py` and `code_security_issue_projection.py`, and the Console route
