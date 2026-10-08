@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from fdai_deployment_cli.lifecycle_configuration import ConfigurationValidationError
 
 from fdai_lifecycle_hub.entity import Entity, EntitySettings, OwnershipEvidence, OwnershipGap
 
@@ -64,3 +65,16 @@ def test_an_entity_with_settings_is_managed() -> None:
 
     assert not Entity(entity_id="core", kind="service", ownership=proven).managed
     assert Entity(entity_id="core", kind="service", ownership=proven, settings=SETTINGS).managed
+
+
+def test_settings_refuse_a_literal_secret_and_allow_a_key_vault_reference() -> None:
+    def settings(value: str) -> EntitySettings:
+        return EntitySettings(
+            overrides=({"versions": ">=1.0.0", "values": {"client_secret": value}},)
+        )
+
+    with pytest.raises(ConfigurationValidationError) as refused:
+        settings("hunter2")
+
+    assert refused.value.code == "literal_secret_value"
+    assert settings("kv://example-vault/client-secret").overrides

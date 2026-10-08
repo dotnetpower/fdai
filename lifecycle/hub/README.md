@@ -47,6 +47,10 @@ Otherwise:
 Every recompute records its outcome and every constraint result. Every change appends to a
 hash-chained audit.
 
+Secret values never enter the Hub. Configuration values and Entity settings pass the shared
+configuration-package secret scan, so a literal value under a secret-bearing key is refused and
+only a Key Vault reference is accepted.
+
 The Hub computes each configuration digest from the canonical JSON of its content, so a digest
 always names exactly one configuration. An admitted report must name the SHA-256 of the exact Plan
 bytes it checked, and the Hub rejects a report that names other bytes.

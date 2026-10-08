@@ -13,6 +13,7 @@ from typing import ClassVar, Self, get_args
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fdai_deployment_cli.contracts import canonical_digest
+from fdai_deployment_cli.lifecycle_configuration import validate_configuration_package_for_signing
 from fdai_deployment_cli.lifecycle_plan import (
     ConstraintBlock,
     LifecyclePlan,
@@ -93,6 +94,12 @@ class Configuration:
     schema: Mapping[str, object]
     environment: Mapping[str, object]
     entity_overrides: tuple[Mapping[str, object], ...]
+
+    def __post_init__(self) -> None:
+        # Secret values never enter the Hub. The schema defines keys and holds no values.
+        validate_configuration_package_for_signing(
+            {"environment": self.environment, "entity_overrides": self.entity_overrides}
+        )
 
     @property
     def digest(self) -> str:

@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 
 from fdai_deployment_cli.contracts import canonical_digest
+from fdai_deployment_cli.lifecycle_configuration import validate_configuration_package_for_signing
 
 _PREFIXED_SHA256 = re.compile(r"sha256:[0-9a-f]{64}")
 
@@ -53,6 +54,10 @@ class EntitySettings:
     """An Entity's override blocks. The digest names their content in the audit."""
 
     overrides: tuple[Mapping[str, object], ...]
+
+    def __post_init__(self) -> None:
+        # Secret values never enter the Hub; a Key Vault reference is allowed.
+        validate_configuration_package_for_signing({"overrides": self.overrides})
 
     @property
     def digest(self) -> str:

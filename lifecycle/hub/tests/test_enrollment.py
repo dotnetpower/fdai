@@ -120,6 +120,12 @@ CORRUPTIONS: dict[str, Callable[[dict[str, Any]], None]] = {
     "release id too long": lambda t: t["reported"]["entities"]["core"].update(
         release_id="1.4.0-" + "a" * 64
     ),
+    "literal secret in environment": lambda t: t["configuration"]["environment"].update(
+        client_secret="hunter2"
+    ),
+    "literal secret in an override": lambda t: t["configuration"]["entity_overrides"][0][
+        "values"
+    ].update(client_secret="hunter2"),
 }
 
 
