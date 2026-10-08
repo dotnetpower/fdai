@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 410169c7ec864fdf3fcd5b8a59fa99a8d8f2faa3
+translation_source_sha: 3a45f6b5d50326c711b4a4b670a8ce283b56f522
 translation_revised: 2026-10-08
 ---
 # 프로젝트 구조
@@ -240,7 +240,9 @@ Resource 수집 청크의 인코딩은 `delivery/inventory_collection.py`에 둡
 `FDAI_SEMANTIC_CONCEPT_SHARD_BYTES`는 개념 샤드 크기를 제한하고, `FDAI_SEMANTIC_SPECULATIVE_FORM_START`는
 `core/conversation/semantic_runtime_speculation.py`가 사전 분류 옆에서 질문 구조화 경로를 시작하게 합니다.
 `core/conversation/semantic_planning_speculation.py`는 계획기에 해당 시작 기능을 제공하며, 계획기는 같은 질문에서만
-티켓을 채택합니다. 수정 피드백은 판단한 발화의 단어를 모델에 다시 보여 줄 수 있지만, 거부
+티켓을 채택합니다. 질문 구조화 경로는 턴의 결정 수집기 밖인 소유 루프에서 실행되므로,
+`semantic_compiled_answers.py`는 다시 샘플링으로 대체된 샘플을 반환 관측값에 담아 두고 그 거절 이유를 턴
+자신의 컨텍스트에서 기록합니다. 수정 피드백은 판단한 발화의 단어를 모델에 다시 보여 줄 수 있지만, 거부
 로그에는 위치, 유형, 사유만 남깁니다. `semantic_judgment_review.py`는 두 번째 계층 검토 요건과 근거화된
 상태 수집의 승격을 함께 소유하므로, 검토 결정과 계획되는 계열이 서로 어긋날 수 없습니다.
 

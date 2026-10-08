@@ -226,6 +226,8 @@ shows "How can I help?", one composer, and three compact examples that send thei
 or keyboard activation. Their tooltips preview the question and explain immediate submission.
 Examples use the normal context-aware send path, including attachment and duplicate-submit checks.
 The bottom launcher and `Ctrl+K` or `/` open a separate current-screen conversation in the right dock.
+The dock transcript is the only scroller, so expanding a run record or moving focus inside a turn
+never shifts the conversation or leaves a blank band above the composer.
 Each entry remembers its own layout choice. General conversations never inherit route evidence.
 An explicit Add current screen control captures a snapshot; a removable Reference screen chip shows
 that selection. Removing it affects future questions, not messages already sent.
