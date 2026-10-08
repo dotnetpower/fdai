@@ -648,7 +648,7 @@ A read-only conversation presents verified rows before explaining an incomplete 
 partial result reports no match in the verified scope, then adds the exact limitation and recovery
 step. It never claims complete inventory or global absence, and holds when no subset is safe. An exact `BusinessService` or `Workload` id, name, or deployment-approved alias can traverse `implemented_by` and `workload_runs_on` to current Resource leaves; the server-owned plan reads verified App Service, Container Apps, and Kubernetes component state without inferring aggregate health, cause, missing identity, replacement, lifecycle source coverage, or execution authority.
 
-### Pending same-type changes (proposed)
+### Pending same-type changes (implemented, local opt-in)
 
 A typed Resource read counts only pending object observations of its own Resource types. A change of
 that type still keeps the answer partial until the next complete reconciliation. Activity Log
@@ -658,7 +658,7 @@ an 80 to 100 second collection, the partial window is three to six minutes. A sh
 raises provider load without removing the window, and inferring a state from an operation name
 would equate an accepted request with an effect.
 
-The proposed `use_live_evidence` path closes only the window between journal arrival and
+The `use_live_evidence` path closes only the window between journal arrival and
 reconciliation, per answer, without changing the graph. A read issued before the observation
 reaches the journal still uses the graph as it is.
 
@@ -757,6 +757,31 @@ metadata.
 | An in-memory receipt does not make the answer replayable | The composite receipt is durable and binds every input and the result digest |
 | Overlaying a secured result can bypass projection and redaction | Live facts apply before projection through a dedicated gateway seam |
 | The state-path allowlist is not a provider capability contract | A reviewed per-type ARM capability map fails closed for every other type |
+
+#### Implemented boundaries
+
+The revision is implemented as a local opt-in path. Implementation fixed these boundaries:
+
+- **Certification.** After plan verification, the executor certifies the eligible shape once per
+  plan and exposes the plan digest only to the certified ObjectSet node. The node's predicates may
+  read only `id`, `type`, `name`, `parent_id`, `location`, or the requirement that provider
+  properties contain state metadata, because the overlay rewrites provider properties after the
+  store has filtered on them.
+- **Descriptor.** One repeatable-read, read-only PostgreSQL transaction returns the active generation
+  and at most ten pending object observations of the constrained types, selected by the same
+  threshold and exclusions as the source-coverage gap. One extra row marks overflow, and the second
+  pass must return an identical descriptor.
+- **Reads.** The reviewed capability map covers virtual machines, PostgreSQL servers, and MySQL
+  servers. A throttle, server error, identity failure, or timeout ends the attempt, and a denied,
+  missing, ambiguous, or timeless response yields no reading.
+- **Receipt.** The ledger stores each composite receipt durably under its content digest and admits
+  it only when it still hashes to its reference. Only the ledger supplies the state function's
+  coverage argument; a plan that binds that argument fails.
+- **Failure.** Every unprovable case, and every descriptor or provider failure, keeps the first
+  partial result unchanged.
+- **Activation.** `FDAI_SEMANTIC_PENDING_STATE_LIVE_READ=1` with a state store DSN enables the path.
+  The local launcher sets it; deployed venues keep it off until receipt replay and throttling are
+  measured in a separately authorized activation.
 
 ## Source-to-store implementation audit
 
