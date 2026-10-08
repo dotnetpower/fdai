@@ -11,12 +11,14 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from scripts.automation.pr_delivery_daemon_support import (
+    CommandResult,
     DeliveryConfig,
     DeliveryError,
     PullRequestSnapshot,
     Runner,
     default_runner,
     delivery_paths,
+    diagnostic_lines,
     git,
     require_success,
     snapshot,
@@ -77,6 +79,14 @@ class DeliveryDaemon:
         )
         write_state(self.paths.state, self.state)
         print(f"pr_delivery event={phase} pr={self.config.pr_number}", flush=True)
+
+    def _record_failure_diagnostics(self, result: CommandResult) -> None:
+        """Persist only allowlisted, redacted status lines so a failed push is diagnosable."""
+        lines = diagnostic_lines(result)
+        self.state["failure_diagnostics"] = lines
+        write_state(self.paths.state, self.state)
+        for line in lines:
+            print(f"pr_delivery diagnostic pr={self.config.pr_number} {line}", flush=True)
 
     def _preflight(self) -> None:
         """Require one clean, non-primary worktree with exclusive branch ownership."""
@@ -274,6 +284,8 @@ class DeliveryDaemon:
             self.config.worktree,
             self.config.command_timeout_seconds,
         )
+        if push.returncode != 0:
+            self._record_failure_diagnostics(push)
         require_success(push, "topic branch push")
         remote_sha = self._remote_topic_head()
         if remote_sha != local_head:

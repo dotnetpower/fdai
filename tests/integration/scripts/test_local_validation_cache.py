@@ -182,6 +182,15 @@ def test_installed_directory_cannot_hide_external_inputs(tmp_path: Path) -> None
         inputs.installed_digest(venv)
 
 
+def test_unrelated_branch_tracking_config_preserves_context(repository: Path) -> None:
+    before = cache.cache_context(repository, "tree", "tools", "installed", ["bash"])
+    _git(repository, "config", "branch.unrelated/topic.remote", "origin")
+    _git(repository, "config", "branch.unrelated/topic.merge", "refs/heads/main")
+    assert cache.cache_context(repository, "tree", "tools", "installed", ["bash"]) == before
+    _git(repository, "config", "core.autocrlf", "true")
+    assert cache.cache_context(repository, "tree", "tools", "installed", ["bash"]) != before
+
+
 def test_runner_digest_includes_venue_and_helpers(repository: Path) -> None:
     assert (
         "scripts/quality/architecture/check-venue-capability-contract.py" in STRUCTURAL_GATE_INPUTS
