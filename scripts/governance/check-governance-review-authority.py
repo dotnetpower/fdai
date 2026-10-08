@@ -5,19 +5,28 @@ The trusted GitHub App performs Entra identity, role, and authentication-assuran
 verification outside this repository. Its exact-head Check Run carries a bounded JSON
 attestation in ``output.summary``. This consumer cross-checks that attestation against
 GitHub's PR, commit, and review records before invoking the pure authority decision.
+
+A change to the notification matrix is A1 routing, and needs that attestation, only when it can
+change decision-bearing routing. ``--scope-only`` reports that scope before CI requires the
+trusted App, so ordinary A2 to A4 route additions follow normal review while every A1 routing
+change still fails closed without the App.
 """
 
 from __future__ import annotations
 
 import argparse
+import copy
 import json
 import os
+import subprocess
 import sys
 from collections.abc import Mapping, Sequence
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import yaml
+from fdai.core.notifications.matrix import load_matrix_from_mapping
 from fdai.core.rbac.roles import Role
 from fdai.delivery.gitops_pr.governance_review import (
     GitHubPullRequestReview,
@@ -30,11 +39,28 @@ from fdai.rule_catalog.schema.governance_review_authority import (
     validate_governance_review,
 )
 from fdai.runtime.approval_profile import load_approval_profile
+from fdai.shared.providers.notifications.base import TrustTier
 
 _MAX_INPUT_BYTES = 1024 * 1024
 _MAX_REVIEWS = 64
 _MAX_CHECK_RUNS = 512
 _CHECK_NAME = "FDAI Governance Identity Attestation"
+_MATRIX_PATH = "config/notifications-matrix.yaml"
+_OVERRIDE_BOUNDS_PATH = "rule-catalog/override-parameter-bounds.yaml"
+# Files whose behavior makes a non-A1 matrix change safe. A pull request that changes any of them
+# can't also use the non-A1 matrix scope, because it could weaken the proof it relies on.
+SCOPE_TRUST_ANCHORS = frozenset(
+    {
+        ".github/workflows/ci.yml",
+        "scripts/governance/check-governance-review-authority.py",
+        "services/core-control-plane/src/fdai/core/notifications/matrix.py",
+        "services/core-control-plane/src/fdai/core/notifications/router.py",
+        "services/core-control-plane/src/fdai/shared/providers/notifications/base.py",
+        "services/core-control-plane/src/fdai/rule_catalog/schema/governance_review_authority.py",
+        "services/core-control-plane/src/fdai/delivery/gitops_pr/governance_review.py",
+    }
+)
+_MAX_MATRIX_BYTES = 256 * 1024
 
 
 def _load_json(path: Path, name: str) -> object:
@@ -194,16 +220,135 @@ def _oid_set(value: object, name: str) -> frozenset[str]:
     return frozenset(_text(item, name) for item in items)
 
 
-def _change_classes(paths: Sequence[str]) -> tuple[GovernanceChangeClass, ...]:
+class _StrictLoader(yaml.SafeLoader):
+    """Safe loader that rejects duplicate mapping keys."""
+
+
+def _strict_mapping(
+    loader: _StrictLoader, node: yaml.MappingNode, deep: bool = False
+) -> dict[object, object]:
+    result: dict[object, object] = {}
+    for key_node, value_node in node.value:
+        key = loader.construct_object(key_node, deep=deep)
+        if key in result:
+            raise ValueError(f"duplicate key {key!r}")
+        result[key] = loader.construct_object(value_node, deep=deep)
+    return result
+
+
+_StrictLoader.add_constructor(
+    yaml.resolver.BaseResolver.DEFAULT_MAPPING_TAG,
+    _strict_mapping,
+)
+
+
+def _strict_yaml(text: str) -> object:
+    """Parse ``text`` with no anchors, aliases, merge keys, or duplicate keys."""
+    if len(text.encode("utf-8")) > _MAX_MATRIX_BYTES:
+        raise ValueError("matrix exceeds its size limit")
+    for token in yaml.scan(text, Loader=yaml.SafeLoader):
+        if isinstance(token, yaml.AnchorToken | yaml.AliasToken):
+            raise ValueError("matrix MUST NOT use anchors or aliases")
+    if "<<:" in text:
+        raise ValueError("matrix MUST NOT use merge keys")
+    return yaml.load(text, Loader=_StrictLoader)  # noqa: S506 - SafeLoader subclass
+
+
+def matrix_change_is_a1_routing(base_text: str | None, head_text: str | None) -> bool:
+    """Return whether a matrix change can alter decision-bearing (A1) routing.
+
+    Fails closed: a missing side, a parse or validation error, or any change outside
+    ``matrix.routes`` is A1 routing. Inside the routes, removing a route, changing the default
+    route, or adding or changing a route that is A1 before or after the change is A1 routing.
+    The router separately refuses to deliver an A1 message through a non-A1 route.
+    """
+    try:
+        if base_text is None or head_text is None:
+            return True
+        base, head = _strict_yaml(base_text), _strict_yaml(head_text)
+        if not isinstance(base, Mapping) or not isinstance(head, Mapping):
+            return True
+        base_matrix = load_matrix_from_mapping(base)
+        head_matrix = load_matrix_from_mapping(head)
+        base_rest, head_rest = copy.deepcopy(dict(base)), copy.deepcopy(dict(head))
+        base_routes = base_rest["matrix"].pop("routes")
+        head_routes = head_rest["matrix"].pop("routes")
+        if base_rest != head_rest:
+            return True
+        for name in sorted(set(base_routes) | set(head_routes), key=str):
+            before, after = base_routes.get(name), head_routes.get(name)
+            if before == after:
+                continue
+            if after is None or name in (base_matrix.default_route, head_matrix.default_route):
+                return True
+            tiers = [head_matrix.routes[name].trust_tier]
+            if before is not None:
+                tiers.append(base_matrix.routes[name].trust_tier)
+            if TrustTier.A1_HIL_APPROVAL in tiers:
+                return True
+        return False
+    except Exception:  # noqa: BLE001 - any doubt is A1 routing
+        return True
+
+
+def _git_blob(revision: str, path: str) -> str | None:
+    proc = subprocess.run(  # noqa: S603 - fixed git argv with validated revisions
+        ["git", "show", f"{revision}:{path}"],  # noqa: S607 - git resolved from PATH
+        capture_output=True,
+        check=False,
+        timeout=60,
+    )
+    if proc.returncode != 0 or len(proc.stdout) > _MAX_MATRIX_BYTES:
+        return None
+    try:
+        return proc.stdout.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+
+
+def _merge_base(base_sha: str, head_sha: str) -> str | None:
+    for revision in (base_sha, head_sha):
+        if len(revision) != 40 or any(char not in "0123456789abcdef" for char in revision):
+            return None
+    proc = subprocess.run(  # noqa: S603 - fixed git argv with validated revisions
+        ["git", "merge-base", base_sha, head_sha],  # noqa: S607 - git resolved from PATH
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=60,
+    )
+    merge_base = proc.stdout.strip()
+    return merge_base if proc.returncode == 0 and len(merge_base) == 40 else None
+
+
+def matrix_is_a1_routing(base_sha: str | None, head_sha: str | None) -> bool:
+    """Classify the matrix change between the merge base and the PR head."""
+    if not base_sha or not head_sha:
+        return True
+    merge_base = _merge_base(base_sha, head_sha)
+    if merge_base is None:
+        return True
+    return matrix_change_is_a1_routing(
+        _git_blob(merge_base, _MATRIX_PATH), _git_blob(head_sha, _MATRIX_PATH)
+    )
+
+
+def _change_classes(
+    paths: Sequence[str], *, matrix_a1_routing: bool = True
+) -> tuple[GovernanceChangeClass, ...]:
     classes: set[GovernanceChangeClass] = set()
     for path in paths:
         normalized = path.strip().replace("\\", "/")
         if not normalized:
             continue
-        if normalized == "config/notifications-matrix.yaml":
+        if normalized == _OVERRIDE_BOUNDS_PATH:
+            classes.add(GovernanceChangeClass.OVERRIDE)
+        elif normalized == _MATRIX_PATH:
             # A1 routing is an authority override: changing its primary or
             # fallback can change who receives a decision-bearing callback.
-            classes.add(GovernanceChangeClass.OVERRIDE)
+            # Other routes are ordinary routing configuration.
+            if matrix_a1_routing:
+                classes.add(GovernanceChangeClass.OVERRIDE)
         elif "/exemptions/" in f"/{normalized}":
             classes.add(GovernanceChangeClass.EXEMPTION)
         elif "/overrides/" in f"/{normalized}":
@@ -223,13 +368,45 @@ def _change_classes(paths: Sequence[str]) -> tuple[GovernanceChangeClass, ...]:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Governance PR review-authority CI gate.")
-    parser.add_argument("--event", type=Path, required=True)
-    parser.add_argument("--commit", type=Path, required=True)
-    parser.add_argument("--reviews", type=Path, required=True)
-    parser.add_argument("--checks", type=Path, required=True)
+    parser.add_argument("--scope-only", action="store_true")
+    parser.add_argument("--event", type=Path)
+    parser.add_argument("--commit", type=Path)
+    parser.add_argument("--reviews", type=Path)
+    parser.add_argument("--checks", type=Path)
     parser.add_argument("--changed-files", type=Path, required=True)
-    parser.add_argument("--trusted-app-id", type=int, required=True)
+    parser.add_argument("--trusted-app-id", type=int)
+    parser.add_argument("--base-sha", help="pull-request base revision")
+    parser.add_argument("--head-sha", help="pull-request head revision")
     args = parser.parse_args(argv)
+
+    paths = args.changed_files.read_text(encoding="utf-8").splitlines()
+    normalized_paths = {path.strip().replace("\\", "/") for path in paths}
+    matrix_changed = _MATRIX_PATH in normalized_paths
+    matrix_a1 = (
+        bool(normalized_paths & SCOPE_TRUST_ANCHORS)
+        or matrix_is_a1_routing(args.base_sha, args.head_sha)
+        if matrix_changed
+        else True
+    )
+    classes = _change_classes(paths, matrix_a1_routing=matrix_a1)
+    if args.scope_only:
+        print(
+            json.dumps(
+                {
+                    "identity_review_required": bool(classes),
+                    "classes": [item.value for item in classes],
+                    "matrix_a1_routing": matrix_changed and matrix_a1,
+                }
+            )
+        )
+        return 0
+    missing = [
+        name
+        for name in ("event", "commit", "reviews", "checks", "trusted_app_id")
+        if getattr(args, name) is None
+    ]
+    if missing:
+        parser.error(f"missing required arguments: {', '.join(missing)}")
 
     try:
         event = _object(_load_json(args.event, "GitHub event"), "GitHub event")
@@ -246,7 +423,6 @@ def main(argv: list[str] | None = None) -> int:
             trusted_app_id=args.trusted_app_id,
             head_revision=head_revision,
         )
-        classes = _change_classes(args.changed_files.read_text(encoding="utf-8").splitlines())
         if not classes:
             print("check-governance-review-authority: no governed catalog changes")
             return 0

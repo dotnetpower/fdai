@@ -1,9 +1,12 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+
+import pytest
 
 from fdai_deployment_cli.contracts import canonical_bytes
 from fdai_deployment_cli.lifecycle_plan import (
@@ -15,6 +18,7 @@ from fdai_deployment_cli.lifecycle_plan import (
     PlanAdmissionState,
     SuppressionWindow,
     canonical_plan_payload,
+    decode_canonical_plan_payload,
     evaluate_lifecycle_constraints,
     evaluate_plan_admission,
 )
@@ -608,3 +612,121 @@ def test_constraints_derive_downtime_artifacts_residency_and_schema_direction() 
     assert "artifact_requirements_missing" in {block.reason_code for block in missing_artifacts}
     assert "data_residency_missing" in {block.reason_code for block in empty_residency}
     assert "schema_target_not_forward" not in {block.reason_code for block in rollback_schema}
+
+
+def _payload_document(**overrides: object) -> dict[str, object]:
+    document = json.loads(canonical_plan_payload(_plan()))
+    assert isinstance(document, dict)
+    document.update(overrides)
+    return document
+
+
+def _encoded(document: Mapping[str, object]) -> bytes:
+    return canonical_bytes(document)
+
+
+@pytest.mark.parametrize(
+    "plan",
+    [
+        _plan(),
+        _plan(
+            plan_type="rollback",
+            rollback_target_plan_id="plan-earlier",
+            capability_ids=("action:b", "action:a"),
+            envelope=_envelope(
+                capability_modes={"action:b": "shadow", "action:a": "enforce"},
+                destructive_allowed=True,
+            ),
+            expires_at=datetime(2026, 10, 5, 21, 30, 15, 250, tzinfo=UTC),
+        ),
+    ],
+)
+def test_decode_round_trips_canonical_plan_payload(plan: LifecyclePlan) -> None:
+    payload = canonical_plan_payload(plan)
+
+    decoded = decode_canonical_plan_payload(payload, b"synthetic-signature")
+
+    assert decoded == replace(plan, signed_payload=payload, signature=b"synthetic-signature")
+    assert canonical_plan_payload(decoded) == payload
+
+
+def test_decoded_plan_is_admitted_by_existing_admission() -> None:
+    payload = canonical_plan_payload(_plan())
+    decoded = decode_canonical_plan_payload(payload, b"synthetic-signature")
+
+    decision = evaluate_plan_admission(
+        decoded,
+        local_state=_state(),
+        locally_derived_maximum=_envelope(),
+        verify_signature=_Verifier(),
+        trusted_now=NOW,
+    )
+
+    assert decision.allowed is True
+
+
+def test_decode_leaves_non_canonical_bytes_to_admission_mismatch() -> None:
+    payload = json.dumps(json.loads(canonical_plan_payload(_plan())), indent=2).encode()
+    decoded = decode_canonical_plan_payload(payload, b"synthetic-signature")
+
+    decision = evaluate_plan_admission(
+        decoded,
+        local_state=_state(),
+        locally_derived_maximum=_envelope(),
+        verify_signature=_Verifier(),
+        trusted_now=NOW,
+    )
+
+    assert decision.reason_code == "plan_payload_mismatch"
+
+
+def _without(field: str) -> bytes:
+    document = _payload_document()
+    del document[field]
+    return _encoded(document)
+
+
+def _envelope_with(**overrides: object) -> bytes:
+    document = _payload_document()
+    envelope = document["envelope"]
+    assert isinstance(envelope, dict)
+    envelope.update(overrides)
+    return _encoded(document)
+
+
+@pytest.mark.parametrize(
+    ("payload", "message"),
+    [
+        (b"\xff", "UTF-8"),
+        (b"{", "valid JSON"),
+        (b"[]", "JSON object"),
+        (_encoded(_payload_document(extra="value")), "unknown fields: extra"),
+        (_without("sequence"), "missing fields: sequence"),
+        (_envelope_with(scope="all"), "envelope contains unknown fields"),
+        (_encoded(_payload_document(sequence="8")), "sequence MUST be an integer"),
+        (_encoded(_payload_document(sequence=True)), "sequence MUST be an integer"),
+        (_encoded(_payload_document(hub_key_epoch=3.0)), "hub_key_epoch MUST be an integer"),
+        (_encoded(_payload_document(audience=None)), "audience MUST be a string"),
+        (_encoded(_payload_document(entity_ids="core")), "entity_ids MUST be a list"),
+        (_encoded(_payload_document(capability_ids=[1])), "capability_ids MUST be a list"),
+        (_encoded(_payload_document(rollback_target_plan_id=3)), "rollback_target_plan_id"),
+        (_encoded(_payload_document(plan_type="uninstall")), "plan_type is unsupported"),
+        (_encoded(_payload_document(expires_at="2026-10-05T12:10:00")), "timezone"),
+        (_encoded(_payload_document(expires_at="tomorrow")), "ISO 8601"),
+        (_encoded(_payload_document(sequence=-1)), "non-negative"),
+        (_envelope_with(destructive_allowed="no"), "destructive_allowed MUST be a boolean"),
+        (_envelope_with(max_duration_minutes=0), "max_duration_minutes MUST be positive"),
+        (_envelope_with(capability_modes={"action:x": "execute"}), "unsupported mode"),
+        (_envelope_with(capability_modes=[]), "capability_modes MUST be a JSON object"),
+        (b'{"sequence": 1, "sequence": 2}', "duplicate field"),
+        (b'{"sequence": NaN}', "non-finite"),
+    ],
+)
+def test_decode_rejects_invalid_plan_payload(payload: bytes, message: str) -> None:
+    with pytest.raises(ValueError, match=message):
+        decode_canonical_plan_payload(payload, b"synthetic-signature")
+
+
+def test_decode_requires_bytes() -> None:
+    with pytest.raises(TypeError, match="MUST be bytes"):
+        decode_canonical_plan_payload("{}", b"synthetic-signature")  # type: ignore[arg-type]

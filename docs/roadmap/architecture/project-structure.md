@@ -736,7 +736,8 @@ Deployment Preflight keeps its publication decision in `core/deploy_preflight/pr
   `lifecycle/agent/` is the lifecycle agent that runs beside an installation. Each is a standalone
   distribution with its own tests, so the governed five-service set and its service-suite manifest
   stay unchanged. Shared Plan and Release checks stay in `packages/deployment-cli/` until the
-  `lifecycle-contracts` extraction in Lifecycle I1.
+  `lifecycle-contracts` extraction in Lifecycle I1. In Lifecycle I0, the agent only polls, admits,
+  dry-runs, and reports. It has no Kubernetes or Azure write path.
 - **A frozen lock for each selected build profile.** The root `uv.lock` is the default workspace
   lock and the root `pyproject.toml` remains a virtual workspace with `package = false`.
   Independently released distributions may own another lock or constraints when their release

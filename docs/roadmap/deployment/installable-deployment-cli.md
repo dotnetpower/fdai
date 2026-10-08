@@ -644,6 +644,13 @@ Release defaults, environment configuration, and the most specific matching over
 reject a package that holds a literal secret value instead of a Key Vault reference before signing.
 No packager calls them yet, and they grant no deployment or apply authority.
 
+The CLI also carries the pure Lifecycle Plan checks that the Hub and the
+[lifecycle agent](../../../lifecycle/agent/README.md) share. `canonical_plan_payload` produces the
+exact bytes that the Hub key signs, and `decode_canonical_plan_payload` parses those bytes back into a
+Plan. The decoder rejects unknown, missing, or mistyped fields and an expiry without a time zone. It
+doesn't verify the signature, so an agent trusts a decoded Plan only after `evaluate_plan_admission`
+admits it.
+
 ## Standalone deployment sequence
 
 The coordinator performs these stages in order:

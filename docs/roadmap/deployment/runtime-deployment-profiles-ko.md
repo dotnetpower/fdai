@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: fb498b9c4f3fc8f2d32e90f246e304a874c2cce9
+translation_source_sha: 97b0d7473178034bee8ffa3de3e0476f5cfc4960
 translation_revised: 2026-10-08
 ---
 # 런타임 배포 프로파일
@@ -13,6 +13,10 @@ translation_revised: 2026-10-08
 > 별도의 마이그레이션 설계가 필요하며, 프로파일 업데이트만으로 자동 전환되지 않습니다.
 > **Azure 범위:** 지원되는 두 런타임 플랫폼은 같은 Azure 공급자 어댑터, 서명된 OCI 이미지,
 > Event Hubs Kafka 엔드포인트, Key Vault, 워크로드 신원, PostgreSQL 스키마를 사용합니다.
+>
+> **Hub 관리형 경로:** Hub 관리형 수명 주기는 AKS만 지원하며 클러스터 안에 수명 주기 에이전트를
+> 추가합니다. `lifecycle/agent/`의 Lifecycle I0 골격은 모의 실행과 보고만 하므로 이 런타임 계약은
+> 바뀌지 않습니다.
 
 ## 설계 개요
 
