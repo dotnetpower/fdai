@@ -374,8 +374,9 @@ an extension can't be validated against a producer that never reaches `satisfied
   identity needs Microsoft Graph `User.Read.All` and `GroupMember.Read.All` application
   permissions for these reads. A managed identity's `role_assignments` come only from a tenant-wide
   read that proves its completeness: the root management group's complete descendant listing,
-  every management group's `atScope()` listing, every subscription's full listing, and every role
-  definition's actions. A grant at a management group or the root applies to every subscription
+  every management group's `atScope()` listing, every subscription's full listing, every role
+  definition's actions, and every group's transitive service principal members, so a grant held
+  through group membership counts. A grant at a management group or the root applies to every subscription
   below it, so it reports `subscription` scope. Any failed read, including a collector without
   read access at the root, leaves every managed identity unobserved.
 - **Local measurement:** `scripts/deployment/local/run-framework-rule-evidence.py` runs this path

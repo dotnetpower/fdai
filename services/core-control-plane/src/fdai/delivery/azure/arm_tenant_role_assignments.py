@@ -9,7 +9,9 @@ own completeness:
   readable, which happens only when the collector can read the whole hierarchy;
 - every management group's ``atScope()`` listing and every subscription's full listing (at and
   below the subscription) are read without error; and
-- every referenced role definition resolves to a name and its actions.
+- every referenced role definition resolves to a name and its actions; and
+- every group principal's transitive service principal members are read from Microsoft Graph, so a
+  grant an identity holds through group membership is attributed to it.
 
 Any failed, malformed, truncated, or over-budget read raises, and the caller leaves every managed
 identity's assignments unobserved. Scopes are normalized for Rules: an assignment at a management
@@ -50,6 +52,8 @@ async def tenant_role_assignments_by_principal(
     tenant_id: str,
     arm_endpoint: str,
     read_arm: ReadJson,
+    graph_endpoint: str | None = None,
+    read_graph: ReadJson | None = None,
 ) -> dict[str, list[dict[str, Any]]]:
     """Return every principal's projected assignments in the tenant, or raise when incomplete."""
 
@@ -100,12 +104,13 @@ async def tenant_role_assignments_by_principal(
             rows.setdefault(assignment_id.casefold(), row)
 
     definitions: dict[str, tuple[str, list[str], list[str]]] = {}
+    members: dict[str, list[str]] = {}
     by_principal: dict[str, list[dict[str, Any]]] = {}
     for row in rows.values():
         properties = row.get("properties")
         if not isinstance(properties, Mapping) or not all(
             isinstance(properties.get(key), str) and properties[key]
-            for key in ("principalId", "roleDefinitionId", "scope")
+            for key in ("principalId", "principalType", "roleDefinitionId", "scope")
         ):
             raise RoleAssignmentReadError("role assignment is malformed")
         definition_id = str(properties["roleDefinitionId"])
@@ -113,17 +118,50 @@ async def tenant_role_assignments_by_principal(
         if key not in definitions:
             definitions[key] = await _definition(read_arm, arm_endpoint, definition_id)
         role_name, actions, data_actions = definitions[key]
-        by_principal.setdefault(str(properties["principalId"]).casefold(), []).append(
-            {
-                "role_name": role_name,
-                "scope": _scope_level(str(properties["scope"])),
-                "actions": actions,
-                "data_actions": data_actions,
-            }
-        )
+        principal = str(properties["principalId"]).casefold()
+        holders = [principal]
+        if str(properties["principalType"]).casefold() == "group":
+            if principal not in members:
+                members[principal] = await _service_principal_members(
+                    read_graph, graph_endpoint, principal
+                )
+            holders.extend(members[principal])
+        for holder in dict.fromkeys(holders):
+            by_principal.setdefault(holder, []).append(
+                {
+                    "role_name": role_name,
+                    "scope": _scope_level(str(properties["scope"])),
+                    "actions": actions,
+                    "data_actions": data_actions,
+                }
+            )
     for assignments in by_principal.values():
         assignments.sort(key=lambda item: (item["scope"], item["role_name"]))
     return by_principal
+
+
+async def _service_principal_members(
+    read_graph: ReadJson | None,
+    graph_endpoint: str | None,
+    group_id: str,
+) -> list[str]:
+    """Return a group's transitive service principal member ids, or raise when unreadable."""
+
+    if read_graph is None or graph_endpoint is None:
+        raise RoleAssignmentReadError("group role assignments need Microsoft Graph membership")
+    rows = await _pages(
+        read_graph,
+        f"{graph_endpoint}/v1.0/groups/{quote(group_id, safe='')}/transitiveMembers/"
+        "microsoft.graph.servicePrincipal?$select=id&$top=999",
+        prefix=graph_endpoint,
+    )
+    identifiers: list[str] = []
+    for row in rows:
+        identifier = row.get("id")
+        if not isinstance(identifier, str) or not identifier:
+            raise RoleAssignmentReadError("group member is malformed")
+        identifiers.append(identifier.casefold())
+    return identifiers
 
 
 def _scope_level(scope: str) -> str:

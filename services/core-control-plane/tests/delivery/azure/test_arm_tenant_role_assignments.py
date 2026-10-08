@@ -33,10 +33,17 @@ class _Identity:
         )
 
 
-def _assignment(name: str, principal: str, definition: str, scope: str) -> dict[str, Any]:
+def _assignment(
+    name: str, principal: str, definition: str, scope: str, kind: str = "ServicePrincipal"
+) -> dict[str, Any]:
     return {
         "id": f"{scope}{ASSIGNMENTS}/{name}",
-        "properties": {"principalId": principal, "roleDefinitionId": definition, "scope": scope},
+        "properties": {
+            "principalId": principal,
+            "principalType": kind,
+            "roleDefinitionId": definition,
+            "scope": scope,
+        },
     }
 
 
@@ -80,6 +87,9 @@ def _responses(**overrides: object) -> dict[str, object]:
     }
     responses.update(overrides)
     return responses
+
+
+GROUP_MEMBERS = "/v1.0/groups/group-admins/transitiveMembers/microsoft.graph.servicePrincipal"
 
 
 def _client(responses: dict[str, object], requested: list[str]) -> httpx.AsyncClient:
@@ -213,3 +223,41 @@ async def test_identity_without_principal_or_tenant_is_not_read() -> None:
 
     assert "role_assignments" not in result.resources[0].props
     assert requested == []
+
+
+@pytest.mark.asyncio
+async def test_group_grants_are_attributed_to_member_identities() -> None:
+    responses = _responses(
+        **{
+            f"{ROOT}{ASSIGNMENTS}": {
+                "value": [_assignment("root-owner", "group-admins", OWNER, ROOT, kind="Group")]
+            },
+            GROUP_MEMBERS: {"value": [{"id": "Principal-C"}]},
+        }
+    )
+
+    a, _, c = await _hydrate(responses, [])
+
+    assert c.props["role_assignments"] == [
+        {"role_name": "Owner", "scope": "subscription", "actions": ["*"], "data_actions": []}
+    ]
+    assert len(a.props["role_assignments"]) == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("members", [403, {"value": [{"displayName": "no id"}]}])
+async def test_unreadable_group_membership_leaves_every_identity_unobserved(
+    members: object,
+) -> None:
+    responses = _responses(
+        **{
+            f"{ROOT}{ASSIGNMENTS}": {
+                "value": [_assignment("root-owner", "group-admins", OWNER, ROOT, kind="Group")]
+            },
+            GROUP_MEMBERS: members,
+        }
+    )
+
+    resources = await _hydrate(responses, [])
+
+    assert all("role_assignments" not in item.props for item in resources)

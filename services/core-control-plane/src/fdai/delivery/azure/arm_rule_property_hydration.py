@@ -346,9 +346,33 @@ class ArmRulePropertyHydrator:
                 reads_left -= 1
                 return await self._read_with_error_code(url, arm_headers)
 
+            graph_headers: Mapping[str, str] | None = None
+            try:
+                graph = await self._identity.get_token(GRAPH_AUDIENCE)
+                graph_headers = {
+                    "Authorization": f"Bearer {graph.token}",
+                    "Accept": "application/json",
+                }
+            except (ValueError, RuntimeError, OSError):
+                # Without Graph, only a tenant with no group grants can be read completely.
+                graph_headers = None
+
+            async def read_graph(url: str) -> Mapping[str, Any]:
+                nonlocal reads_left
+                if graph_headers is None:
+                    raise RoleAssignmentReadError("Microsoft Graph token is unavailable")
+                if reads_left <= 0:
+                    raise RoleAssignmentReadError("role assignment read budget exhausted")
+                reads_left -= 1
+                return await self._read_with_error_code(url, graph_headers)
+
             try:
                 tenant_indexes[key] = await tenant_role_assignments_by_principal(
-                    tenant_id=tenant, arm_endpoint=self._endpoint, read_arm=read
+                    tenant_id=tenant,
+                    arm_endpoint=self._endpoint,
+                    read_arm=read,
+                    graph_endpoint=GRAPH_ENDPOINT,
+                    read_graph=read_graph,
                 )
             except RoleAssignmentReadError as exc:
                 # Without the whole tenant hierarchy a grant elsewhere could be invisible.

@@ -1,7 +1,7 @@
 ---
 title: T0 기반 프레임워크 규칙 근거
 translation_of: framework-rule-evidence.md
-translation_source_sha: 457098262a1b32cb1a958a508ede5717e29b3b85
+translation_source_sha: 3ffcb1846a5e7ee2267b3c00a0c4449dbf6559ff
 translation_revised: 2026-10-08
 ---
 # T0 기반 프레임워크 규칙 근거
@@ -358,7 +358,8 @@ WAF `rule` 요구 사항은 컨트롤 수준 교차워크 관계가 `partial`이
   남습니다. 배포된 수집 ID에는 이 읽기를 위한 Microsoft Graph `User.Read.All`과 `GroupMember.Read.All`
   애플리케이션 권한이 필요합니다. 관리 ID의 `role_assignments`는 완전성을 증명하는 테넌트 전체 읽기에서만
   만듭니다. 루트 관리 그룹의 전체 하위 항목 목록, 모든 관리 그룹의 `atScope()` 목록, 모든 구독의 전체
-  목록, 모든 역할 정의의 동작을 읽습니다. 관리 그룹이나 루트의 권한은 그 아래 모든 구독에 적용되므로
+  목록, 모든 역할 정의의 동작, 모든 그룹의 전이적 서비스 주체 구성원을 읽으므로 그룹 구성원 자격으로
+  받은 권한도 포함됩니다. 관리 그룹이나 루트의 권한은 그 아래 모든 구독에 적용되므로
   `subscription` 범위로 보고합니다. 루트 읽기 권한이 없는 수집기를 포함해 읽기가 하나라도 실패하면 모든
   관리 ID가 관측되지 않은 상태로 남습니다.
 - **로컬 측정:** `scripts/deployment/local/run-framework-rule-evidence.py`는 이 경로를 루프백 개발
