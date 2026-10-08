@@ -82,6 +82,22 @@ uv run fdai-lifecycle-hub serve
 curl -s localhost:8090/v1/installations/example/plan | jq -r .plan.signed_payload | base64 -d | jq
 ```
 
+Hold the Plan with a suppression. While a suppression that covers the open Plan is active, the API
+stops serving it and answers `204`, even before anyone recomputes. A suppression set to start later
+takes effect at its start time. `recompute` then prints `"waiting"` with
+`suppression_window_active`, and after `unsuppress` the next `recompute` issues a new Plan:
+
+```bash
+uv run fdai-lifecycle-hub suppress example --minutes 60
+uv run fdai-lifecycle-hub recompute example --catalog samples/catalog --key /tmp/fdai-hub/hub.pem
+uv run fdai-lifecycle-hub unsuppress example
+uv run fdai-lifecycle-hub recompute example --catalog samples/catalog --key /tmp/fdai-hub/hub.pem
+```
+
+`--scope` takes `installation` (the default), `entity:<entity-id>`, or `plan:<plan-type>`. A
+suppression covers a Plan only when its scope names the installation, that Plan's type, or one of
+its entities, the same rule the shared constraint check uses.
+
 Record the upgraded state, and the Hub reports that nothing is left to do:
 
 ```bash
@@ -105,4 +121,6 @@ A catalog directory contains `releases/<release-id>.json` runtime release manife
 - Catalog files are trusted as-is. Vendor signatures on Releases and recalls are Lifecycle I2 work.
 - Signing keys are development keys from `dev-keygen` (#1947).
 - Enrollment approval, configuration package import, and Hub commands are later stories.
+- Suppressions live on the installation record without an actor. The design's revocable
+  `lifecycle_command` record, with actor and expiry, arrives with Hub commands.
 - Entities aren't revisioned yet. Entity revisions with `effective_from` arrive with enrollment.
