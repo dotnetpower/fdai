@@ -322,3 +322,35 @@ def test_runtime_configuration_string_lists_fail_closed(
 ) -> None:
     with pytest.raises(ValueError, match=message):
         _json_string_tuple({"EXAMPLE_JSON": value}, "EXAMPLE_JSON", maximum=4)
+
+
+@pytest.mark.parametrize(
+    ("environment", "expected"),
+    (
+        ({}, None),
+        ({"FDAI_STATE_STORE_DSN": "postgresql://local/example"}, None),
+        ({"FDAI_SEMANTIC_PENDING_STATE_LIVE_READ": "1"}, None),
+        (
+            {
+                "FDAI_SEMANTIC_PENDING_STATE_LIVE_READ": "true",
+                "FDAI_STATE_STORE_DSN": "postgresql://local/example",
+            },
+            "postgresql://local/example",
+        ),
+        (
+            {
+                "FDAI_SEMANTIC_PENDING_STATE_LIVE_READ": "1",
+                "FDAI_INVENTORY_DSN": "postgresql://local/inventory",
+                "FDAI_STATE_STORE_DSN": "postgresql://local/example",
+            },
+            "postgresql://local/inventory",
+        ),
+    ),
+)
+def test_pending_state_live_reads_are_opt_in_per_venue(
+    environment: dict[str, str],
+    expected: str | None,
+) -> None:
+    from fdai.runtime.bootstrap_semantics import _pending_state_live_read_dsn
+
+    assert _pending_state_live_read_dsn(environment) == expected

@@ -140,6 +140,19 @@ def _semantic_resource_freshness_seconds(environment: Mapping[str, str]) -> int:
     return value
 
 
+def _pending_state_live_read_dsn(environment: Mapping[str, str]) -> str | None:
+    """Return the descriptor DSN only when the venue opts into exact ARM pending-state reads."""
+
+    flag = environment.get("FDAI_SEMANTIC_PENDING_STATE_LIVE_READ", "").strip().lower()
+    if flag not in {"1", "true", "yes"}:
+        return None
+    dsn = (
+        environment.get("FDAI_INVENTORY_DSN", "").strip()
+        or environment.get("FDAI_STATE_STORE_DSN", "").strip()
+    )
+    return dsn or None
+
+
 def _graph_live_refresh_provider(
     *,
     environment: Mapping[str, str],
@@ -429,6 +442,7 @@ async def build_semantic_runtime(
         ),
         resource_freshness_seconds=_semantic_resource_freshness_seconds(environment),
         state_store=state_store,
+        pending_state_dsn=_pending_state_live_read_dsn(environment),
     )
     model_identity_readiness = (
         SemanticModelIdentityReadiness(

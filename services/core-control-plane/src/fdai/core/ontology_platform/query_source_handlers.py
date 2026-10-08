@@ -28,6 +28,7 @@ from .models import (
     RelationshipTraversalDefinition,
     TypedPathDefinition,
 )
+from .pending_state_coverage import PendingStateCoverageLedger, PendingStateRefresher
 from .query_execution import QueryNodeHeldError, QueryNodeResult
 from .query_gateway import (
     SecuredObjectSetQueryGateway,
@@ -70,8 +71,10 @@ class SecuredObjectSetNodeHandler:
         receipt_authority: SecuredQueryReceiptAuthority | None = None,
         decision_evidence: DecisionEvidenceAdmissionProvider | None = None,
         graph_refresher: SecuredGraphEvidenceQueryRefresher | None = None,
+        pending_state_refresher: PendingStateRefresher | None = None,
     ) -> None:
         self._gateway = gateway
+        self._pending_state_refresher = pending_state_refresher
         self._request = ProjectionRequest(
             caller_role=caller_role,
             declared_purposes=frozenset(purposes),
@@ -109,6 +112,14 @@ class SecuredObjectSetNodeHandler:
             except ValueError:
                 _LOGGER.warning("secured_object_set_failed", extra={"stage": "refresh"})
                 raise
+        live_refs: tuple[str, ...] = ()
+        if self._pending_state_refresher is not None:
+            secured, live_refs = await self._pending_state_refresher.cover(
+                node_id=node.node_id,
+                definition=definition,
+                projection_request=self._request,
+                secured=secured,
+            )
         refreshed = time.perf_counter()
         if self._receipt_authority is not None:
             try:
@@ -141,6 +152,7 @@ class SecuredObjectSetNodeHandler:
             evidence_refs=(
                 f"ontology-object-set:{secured.receipt.projected_result_digest}",
                 f"ontology-query-table:{table.digest}",
+                *live_refs,
             ),
             authority=EvidenceAuthority.SERVER_INVENTORY_GRAPH,
         )
@@ -601,10 +613,12 @@ class FunctionNodeHandler:
         context: FunctionInvocationContext,
         receipt_authority: SecuredQueryReceiptAuthority | None = None,
         allow_presentation_read_dependencies: bool = False,
+        pending_state_ledger: PendingStateCoverageLedger | None = None,
     ) -> None:
         self._registry = registry
         self._context = context
         self._receipt_authority = receipt_authority
+        self._pending_state_ledger = pending_state_ledger
         self._allow_presentation_read_dependencies = allow_presentation_read_dependencies
 
     async def __call__(
@@ -631,8 +645,9 @@ class FunctionNodeHandler:
         secured_digests: list[str] = []
         for dependency_id, argument_name_raw in raw_bindings.items():
             bound_name = argument_name(argument_name_raw)
-            if bound_name in arguments:
-                raise ValueError("function dependency argument collides with static argument")
+            # Only the ledger may supply pending-state coverage; a plan can never bind it.
+            if bound_name in arguments or bound_name == "pending_state_coverage":
+                raise ValueError("function dependency argument collides with a reserved argument")
             dependency = dependencies[dependency_id]
             if bound_name.endswith("query_result") and self._receipt_authority is not None:
                 if (
@@ -651,6 +666,12 @@ class FunctionNodeHandler:
                     secured = self._receipt_authority.resolve(dependency.evidence_refs)
                 arguments[bound_name] = secured.model_dump(mode="json")
                 secured_digests.append(secured.receipt.projected_result_digest)
+                if self._pending_state_ledger is not None and (
+                    coverage := await self._pending_state_ledger.coverage_argument(
+                        function_name, dependency.evidence_refs
+                    )
+                ):
+                    arguments["pending_state_coverage"] = coverage
             else:
                 arguments[bound_name] = _function_value(dependency.value)
         if secured_digests:
