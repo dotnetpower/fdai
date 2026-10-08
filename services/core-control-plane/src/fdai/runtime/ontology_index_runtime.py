@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Literal
 
@@ -30,10 +29,6 @@ from fdai.core.ontology_platform.object_sets import ObjectSetService
 from fdai.core.ontology_platform.operational_functions import operational_function_types
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
 from fdai.delivery.catalog_search.generation import build_ontology_semantic_generation
-from fdai.delivery.catalog_search.ontology_candidate_proposal import (
-    OntologyCandidateModelBinding,
-    OntologyCandidateProposer,
-)
 from fdai.delivery.catalog_search.ontology_candidate_reader import OntologyInstanceCandidateReader
 from fdai.delivery.catalog_search.ontology_index_lifecycle import IndexScope, IndexTransition
 from fdai.delivery.catalog_search.ontology_index_workers import (
@@ -42,7 +37,7 @@ from fdai.delivery.catalog_search.ontology_index_workers import (
 )
 from fdai.delivery.catalog_search.ontology_snapshot_store import OntologyGenerationSnapshotStore
 from fdai.delivery.catalog_search.ontology_typed_selection_shadow import (
-    TypedSelectionShadowBudget,
+    TypedSelectionShadowBinding,
     TypedSelectionShadowObserver,
 )
 from fdai.delivery.catalog_search.ontology_vector_store import OntologyVectorSnapshotStore
@@ -178,16 +173,6 @@ def build_ontology_index_runtime(
         ),
     )
     return runtime
-
-
-@dataclass(frozen=True, slots=True)
-class TypedSelectionShadowBinding:
-    """Composition-supplied proposer for shadow evidence; it grants no answer authority."""
-
-    proposer: OntologyCandidateProposer
-    data_handling_policy_digest: str
-    expected_binding: OntologyCandidateModelBinding
-    budget: TypedSelectionShadowBudget | None = None
 
 
 class OntologyIndexRuntime:

@@ -82,6 +82,15 @@ class OntologyCandidateProposer(Protocol):
     ) -> OntologyCandidateProposalResult: ...
 
 
+def _selection_context_document(document_id: str) -> bool:
+    """Instances and their ObjectType declarations are the whole typed-selection domain.
+
+    Function, link, interface, and unavailable declarations cannot be selected or predicated
+    on, so they never enter the proposal context. An object-only manifest keeps every document.
+    """
+    return document_id.startswith(("object:", "declaration:object:"))
+
+
 def candidate_proposal_payload(
     *,
     query: str,
@@ -105,6 +114,7 @@ def candidate_proposal_payload(
         "documents": [
             {"document_id": document.rule_id, "content": json.loads(document.text)}
             for document in build.documents
+            if _selection_context_document(document.rule_id)
         ],
     }
     encoded = json.dumps(payload, ensure_ascii=False, allow_nan=False)

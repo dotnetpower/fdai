@@ -111,6 +111,9 @@ _EXPECTED_FILES = frozenset(
         # Binds Azure models, prompts, and catalog inputs for semantic queries
         # without coupling the provider-neutral semantic wire to Azure setup.
         "semantic_query_azure_composition.py",
+        # Binds only the pinned qualified typed-selection shadow proposer and its
+        # reviewed data-handling policy behind an explicit opt-in (#2011).
+        "typed_selection_shadow.py",
         # Composes authoritative inventory state with ontology-native shadow parity.
         "wire_read_investigation.py",
         # Routes the eleven operational evidence purposes to the insert-only proof

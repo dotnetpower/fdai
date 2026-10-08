@@ -697,3 +697,24 @@ async def test_membership_from_another_source_is_drift_not_disagreement(
     record = await _observe(observer, harness)
     assert record is not None
     assert record["unavailable_reason"] == "source_drift"
+
+
+async def test_proposal_context_keeps_only_the_typed_selection_domain() -> None:
+    from fdai.delivery.catalog_search.ontology_candidate_proposal import (
+        _selection_context_document,
+    )
+
+    harness = await _harness(semantic_available=False, typed_selection_shadow=True)
+    payload = candidate_proposal_payload(
+        query=_QUERY, manifest=harness.manifest, build=harness.build, staged=harness.staged
+    )
+    documents = payload["documents"]
+    assert isinstance(documents, list)
+    assert [item["document_id"] for item in documents] == [
+        item.rule_id for item in harness.build.documents
+    ]
+    assert _selection_context_document("object:Resource:resource-0")
+    assert _selection_context_document("declaration:object:Resource")
+    assert not _selection_context_document("declaration:function:query.example")
+    assert not _selection_context_document("declaration:link:example")
+    assert not _selection_context_document("unavailable:example")

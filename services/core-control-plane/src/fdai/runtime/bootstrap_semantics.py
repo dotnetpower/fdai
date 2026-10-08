@@ -21,6 +21,10 @@ from fdai.composition import (
     compose_resource_state_shadow_hook,
 )
 from fdai.composition.semantic_query_instance_candidates import declare_instance_candidate_query
+from fdai.composition.typed_selection_shadow import (
+    SHADOW_CONFIG_RELATIVE_PATH,
+    compose_typed_selection_shadow,
+)
 from fdai.core.control_loop import ControlLoop
 from fdai.core.ontology_platform.incident_queries import IncidentEvidenceReader
 from fdai.core.ontology_platform.inventory_projection import (
@@ -346,6 +350,21 @@ async def build_semantic_runtime(
                 probes_root=catalog_root / "probes" if (catalog_root / "probes").is_dir() else None,
             )
         )
+        typed_selection_shadow = compose_typed_selection_shadow(
+            container=container,
+            environment=environment,
+            identity=identity,
+            http_client=http_client,
+            endpoint=endpoint,
+            endpoint_resolver=endpoint_resolver,
+            catalog_root=catalog_root,
+            config_path=catalog_root.parent / SHADOW_CONFIG_RELATIVE_PATH,
+            owner_loop=asyncio.get_running_loop(),
+        )
+        _LOGGER.info(
+            "ontology_typed_selection_shadow_composition",
+            extra={"reason": typed_selection_shadow.reason},
+        )
         ontology_index_runtime = build_ontology_index_runtime(
             store=state_store,
             ontology_store=control_loop.ontology_instance_store,
@@ -354,6 +373,7 @@ async def build_semantic_runtime(
             embedder=llm_bindings.embedding_model,
             clock=lambda: datetime.now(UTC),
             projection_lock=_build_resource_lock(environment),
+            typed_selection_shadow=typed_selection_shadow.binding,
         )
     if ontology_index_runtime is None:
         _LOGGER.warning(

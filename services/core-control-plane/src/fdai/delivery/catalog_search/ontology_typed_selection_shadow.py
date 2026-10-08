@@ -104,11 +104,21 @@ class TypedSelectionShadowBudget:
         if (
             not 0 < self.total_timeout_seconds <= 30
             or not 1 <= self.max_concurrent <= 4
-            or not 1 <= self.max_observations_per_hour <= 120
+            or not 1 <= self.max_observations_per_hour <= 600
             or not 1 <= self.max_principal_observations_per_hour <= self.max_observations_per_hour
             or not 1 <= self.retain_newest <= 10_000
         ):
             raise ValueError("typed selection shadow budget must stay bounded")
+
+
+@dataclass(frozen=True, slots=True)
+class TypedSelectionShadowBinding:
+    """Composition-supplied proposer for shadow evidence; it grants no answer authority."""
+
+    proposer: OntologyCandidateProposer
+    data_handling_policy_digest: str
+    expected_binding: OntologyCandidateModelBinding
+    budget: TypedSelectionShadowBudget | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -248,6 +258,11 @@ class TypedSelectionShadowObserver:
             )
             return None
         return task
+
+    async def wait_idle(self) -> None:
+        """Wait for in-flight observations without cancelling them; never raises their errors."""
+        while self._tasks:
+            await asyncio.gather(*tuple(self._tasks), return_exceptions=True)
 
     async def aclose(self) -> None:
         """Cancel in-flight observations; each attempts a bounded `cancelled` terminal row."""
