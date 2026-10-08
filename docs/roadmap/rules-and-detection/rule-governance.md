@@ -411,6 +411,26 @@ and Owner-tier reviewer for loosening changes.
     every replica is compatible; and
   - an audited rollback transition to a previously recorded generation whose artifacts are
     retained.
+
+  A second design kept prior revisions in a retained registry and allowed revision changes only
+  through approved activation changes. Critique found that it still fell short:
+  - `rule_digest` covers the Rule definition but not the referenced Rego, so a policy edit changes
+    behavior without changing any activation or approval identity. Member identity needs a
+    verified policy-content digest, which migrates every stored generation.
+  - Holding unresolvable members installs a partial generation under the full generation's
+    identity. A replica that can't resolve the current generation must stay on its last complete
+    generation or become not ready, with desired and applied generations tracked separately.
+  - Revision migration must name the from and to catalog identities explicitly.
+  - Every enforcing binding needs a revision pin, including explicit Rule assignments, with a
+    staged governance transition.
+  - Reviewed startup sources must carry a signed activation manifest that enumerates the exact
+    revisions.
+  - Stored proposals and results need versioned codecs.
+
+  Until that work lands, `scripts/quality/architecture/check-rule-revision-lock.py` locks each
+  shipped Rule's version, canonical definition digest, and policy content digest in
+  `rule-catalog/rule-revision-lock.json`. Any in-place change or removal fails the check. Ship a
+  changed check as a new Rule id, whose activation is an ordinary approved membership change.
 - **Testability**: every assignment/exemption PR ships fixtures - the expected match set (which
   synthetic resources the scope selects) and, for enforce promotions, the shadow-eval sample the
   promotion gate scored - so governance changes are regression-tested like rule changes
