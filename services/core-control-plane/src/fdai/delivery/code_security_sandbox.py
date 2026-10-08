@@ -9,6 +9,8 @@ Each scanner runs as one sandboxed process with:
 - writable tmpfs ``/scratch`` and ``/tmp`` only, a cleared environment, and CPU, address-space,
   and file-size limits. Only the native proof lane may drop the address-space limit, because
   AddressSanitizer reserves terabytes of shadow address space; its harness bounds memory itself;
+- optional read-only ``/etc/<name>`` configuration directories for a proof toolchain whose
+  installation links its configuration there (the JDK's ``conf`` files); nothing else of ``/etc``;
 - standard output read up to the scanner's byte limit. Exceeding it or the timeout kills the
   process group and marks the run truncated or timed out, which the coverage receipt treats as
   incomplete.
@@ -23,7 +25,7 @@ import os
 import resource
 import signal
 import time
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -67,11 +69,15 @@ class BubblewrapScannerSandbox:
         *,
         rules: Path | None = None,
         cache: Path | None = None,
+        system_config: Sequence[Path] = (),
     ) -> list[str]:
         """Return the full bubblewrap argv for one scanner run."""
         for name, value in (("executable", executable), ("source", source)):
             if not value.is_absolute():
                 raise ValueError(f"{name} path must be absolute")
+        for directory in system_config:
+            if directory.parent != Path("/etc") or directory.name in {"", ".", ".."}:
+                raise ValueError("system configuration mounts must be /etc/<name> directories")
         argv = [
             str(self._bwrap),
             "--die-with-parent",
@@ -85,6 +91,8 @@ class BubblewrapScannerSandbox:
             "--ro-bind", str(executable), "/opt/scanner/bin",
             "--ro-bind", str(source), _MOUNTS["source"],
         ]  # fmt: skip
+        for directory in sorted(set(system_config)):
+            argv += ["--ro-bind-try", str(directory), str(directory)]
         for mount, host in (("rules", rules), ("cache", cache)):
             if mount in spec.mounts:
                 if host is None or not host.is_absolute():
@@ -128,13 +136,16 @@ class BubblewrapScannerSandbox:
         cache: Path | None = None,
         environ: Mapping[str, str] | None = None,
         limit_address_space: bool = True,
+        system_config: Sequence[Path] = (),
     ) -> ScannerRunResult:
         """Run one scanner and return its bounded output and observed completion.
 
         ``limit_address_space=False`` is reserved for the native proof harness, which applies its
         own address-space limit to the compiler and an RSS limit to sanitizer builds.
         """
-        argv = self.command(spec, executable, source, rules=rules, cache=cache)
+        argv = self.command(
+            spec, executable, source, rules=rules, cache=cache, system_config=system_config
+        )
         started = time.monotonic()
         process = await asyncio.create_subprocess_exec(
             *argv,
