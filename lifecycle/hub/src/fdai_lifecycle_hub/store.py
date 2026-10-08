@@ -16,7 +16,7 @@ from fdai_deployment_cli.lifecycle_configuration import (
     resolve_configuration_layers,
 )
 from fdai_deployment_cli.lifecycle_plan import SuppressionWindow
-from sqlalchemy import Engine, create_engine
+from sqlalchemy import Engine, create_engine, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -347,6 +347,21 @@ class HubStore:
             if evaluation is None:
                 return None
             return mapping.evaluation(evaluation)
+
+    def reports(self, installation_id: str) -> tuple[schemas.RecordedReport, ...]:
+        """Every execution report on the installation's Plans, in the order received."""
+
+        with self._sessions() as session:
+            _get_installation(session, installation_id)
+            rows = session.scalars(
+                select(models.PlanReport)
+                .join(models.Plan)
+                .where(models.Plan.installation_id == installation_id)
+                .order_by(models.PlanReport.id)
+            )
+            return tuple(
+                schemas.RecordedReport.model_validate(row, from_attributes=True) for row in rows
+            )
 
     def audit_chain_intact(self) -> bool:
         with self._sessions() as session:
