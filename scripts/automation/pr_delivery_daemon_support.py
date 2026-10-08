@@ -152,10 +152,12 @@ def require_success(result: CommandResult, label: str) -> str:
 _DIAGNOSTIC_PREFIXES = (
     "pre-push:",
     "structural-gates:",
+    "local-validation:",
     "error:",
     "fatal:",
     "! [",
 )
+_PROGRESS_RE = re.compile(r"\bstatus=(?:running|0)\b")
 _CREDENTIAL_URL_RE = re.compile(r"(?P<scheme>[A-Za-z][A-Za-z0-9+.-]*://)[^/@\s]+@")
 _TOKEN_RE = re.compile(r"\b(?:gh[opsur]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,})\b")
 MAX_DIAGNOSTIC_LINES = 12
@@ -167,7 +169,7 @@ def diagnostic_lines(result: CommandResult) -> list[str]:
     selected: list[str] = []
     for line in f"{result.stdout}\n{result.stderr}".splitlines():
         text = line.strip()
-        if not text.startswith(_DIAGNOSTIC_PREFIXES):
+        if not text.startswith(_DIAGNOSTIC_PREFIXES) or _PROGRESS_RE.search(text):
             continue
         text = _CREDENTIAL_URL_RE.sub(r"\g<scheme>***@", text)
         text = _TOKEN_RE.sub("***", text)

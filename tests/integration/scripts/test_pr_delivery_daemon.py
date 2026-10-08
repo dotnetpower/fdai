@@ -608,6 +608,30 @@ def test_diagnostic_lines_keep_only_the_latest_bounded_tail() -> None:
     assert lines[-1] == "structural-gates: gate=g29 status=1"
 
 
+def test_diagnostic_lines_skip_progress_and_keep_validation_blocks() -> None:
+    output = "\n".join(
+        [
+            "structural-gates: gate=check-doc-links status=running",
+            "structural-gates: gate=check-doc-links status=0 duration=0s",
+            "structural-gates: OK",
+        ]
+    )
+    stderr = (
+        "local-validation: BLOCKED - ValueError: validation inputs changed during execution; "
+        "no success recorded\n"
+        "pre-push: BLOCKED - structural gates failed.\n"
+    )
+
+    lines = support.diagnostic_lines(support.CommandResult(1, output, stderr))
+
+    assert lines == [
+        "structural-gates: OK",
+        "local-validation: BLOCKED - ValueError: validation inputs changed during execution; "
+        "no success recorded",
+        "pre-push: BLOCKED - structural gates failed.",
+    ]
+
+
 def test_daemon_rejects_a_primary_checkout(tmp_path: Path) -> None:
     fake = FakeRunner(tmp_path, [_payload()])
     fake.primary = fake.worktree
