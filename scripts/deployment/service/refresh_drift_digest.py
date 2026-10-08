@@ -124,7 +124,6 @@ def summarize(plan: Mapping[str, Any], *, root_id: str) -> dict[str, Any]:
             and actions == ["update"]
             and not _empty(change.get("before"))
             and bool(change.get("after_unknown"))
-            and _empty(change.get("after"))
         ):
             continue
         if not _empty(change.get("before")) and (
