@@ -470,6 +470,96 @@ storage isolation and cleanup. Results remain diagnostic with `production_qualif
 the path neither publishes owner events nor activates a runtime pointer. Independent label and
 representativeness review, real relevance qualification and governed activation remain separate.
 
+### Runtime typed instance selection
+
+Issue #2011 activates the qualified typed instance selection in the runtime query path. The first
+stage is shadow mode only. Protocol `agreement-gated-pooled-qualification.v1` qualifies the
+diagnostic method, not production latency, cost, or answer authority. Until a promotion receipt
+exists, a shadow observation is evidence and never an answer.
+
+**Ownership.** The meaning proposal belongs to the Bragi translator stage. It turns natural
+language into typed ObjectSet clauses with exact source quotes, inside the authenticated
+presentation context that Bragi already uses for `query.ontology_instance_candidates`. Membership
+verification belongs to Muninn's ContextIndex read. The reader resolves the bound selection against
+the current Heimdall-validated, Saga-sealed generation through the secured ObjectSet gateway and
+reauthorizes current facts. Model output never becomes membership. Shadow rows carry no authority,
+so they publish no owner event.
+
+**Answer isolation.** The function keeps its deterministic declaration, five-second deadline,
+payload, result digest, and exact exceptions. After its outcome is fixed, the Muninn workers hand
+that outcome to a no-throw, non-blocking enqueue and never await the observation. The answer reader
+keeps `semantic_search_available=False`. A separate `typed_selection_shadow` capability permits
+only the `shadow_select` membership read, so it can't enable typed selection or hybrid ranking in
+`search`. The observer never invalidates the reader cache or writes enrollment state.
+
+**Runtime agreement gate.** Runtime protocol `typed-selection-runtime-shadow.v1` is one K=2
+decision for each eligible invocation. Both proposals use one input digest and one pinned proposer
+binding. They run concurrently with a single attempt each, and their membership reads share one
+captured `as_of`. The gate is the qualification rule: retrieved identity sets must be equal, and a
+clarification retrieves nothing. The outcomes are `selected`, `empty` (agreed with zero members,
+which is no candidate and never proof of absence), `disagreed`, and `unavailable`. The row also
+records `status_agreement`, so a clarification paired with an empty selection stays visible. Live
+figures relate to the K=2, R=3 qualification, but they never replace it.
+
+**Budgets and deadlines.** Each observation makes exactly two proposal calls with no retry or
+fallback, within a 30-second total deadline. That deadline covers the source and snapshot reads, both
+proposals, both membership reads, and the pointer recheck. A process runs at most one observation
+at a time. Durable hourly quotas, shared across replicas through compare-and-set state, default to 30
+observations for a deployment and 10 for each principal. The adapter's existing request-parameter
+binding carries its token limit.
+
+**Typed outcomes.** An observation that starts records one of these values for
+`unavailable_reason`: `index_unavailable`, `index_changed`, `source_drift`,
+`context_unavailable`, `proposal_unavailable`, `proposal_binding_changed`,
+`membership_unavailable`, `deadline_exceeded`, or `cancelled`. Concurrent pass failures resolve
+by that declared order. Invocations that aren't observed are counted as `shadow_capacity`,
+`shadow_budget_exhausted`, `principal_budget_exhausted`, `schedule_failed`, or
+`observation_unrecorded`. The next intent row reports them, so the window denominator stays complete.
+
+**Evidence.** Each observation writes a write-once intent row before any provider call and a
+write-once terminal row keyed by a random observation identifier. An intent without a terminal row
+is a lost observation. The terminal row binds the runtime and qualification protocol ids, pointer
+and generation identity, manifest and release, proposer binding and prompt digests, the
+data-handling policy digest, the primary answer outcome, every pass with its proposal digest,
+selection digest, membership, and receipts, the gate, the comparison with the answer, and latency.
+It stores the query digest and the authenticated request reference, not the query text. Retention
+keeps the newest 2,000 rows for each prefix.
+
+**Critique and revisions.** An independent critique of the first draft found these problems. The
+revisions are now part of the design:
+
+| Finding | Revision |
+|---------|----------|
+| Reusing the qualification protocol id while changing K/R and the gate made the evidence non-comparable. | The runtime protocol has its own id and uses the qualification's set-equality gate. |
+| Bookkeeping or enqueue failure could replace the answer or its exception. | The enqueue boundary never raises, the exact exception is re-raised, and equivalence tests cover both. |
+| A per-process quota did not bound fleet cost. | Durable deployment and principal quotas are claimed before any provider call. |
+| Cancellation, scheduling, and write failures disappeared from the record. | Intent and terminal rows, a `cancelled` terminal, and counted skip reasons keep them visible. |
+| Storing raw query text in general state was a privacy risk. | Rows keep digests and request references only. |
+| Model egress lacked a data-handling boundary. | Construction requires a reviewed data-handling policy digest, which every row binds. |
+| Concurrent reads could disagree because the graph changed. | Both reads share one `as_of`, and receipt identity drift is typed as `source_drift`. |
+| A newest-row retention and first-available sampling could bias a live window. | This remains open: the live window must pre-register stratified sampling and seal its rows before eviction. |
+| Saga auditing alone isn't a valid promotion path. | Promotion stays outside this change and must use the fixed action roles. |
+| Gated-path latency alone misses foreground regression. | The latency protocol must compare foreground behavior with the shadow off and on. |
+
+**Remaining gates before enforcement.** Composition binds no production proposer until an attested
+qualified target and a reviewed data-handling policy are configured. A binding to a different model
+would produce evidence that can't support promotion. Before any answer uses typed selection, these
+gates must hold:
+
+1. A pre-registered latency protocol passes on the exact merged commit. It pairs foreground p95 and
+   p99 latency, error rate, event-loop lag, and store and gateway pressure with the shadow off and
+   on. Deadlines and HTTP 429 or 503 count as failures, not exclusions.
+2. A bounded live window pre-registers its eligibility, stratified sampling, adjudication of
+   language and expected membership, minimum samples per language, and an unavailable-rate ceiling.
+   It seals its rows and source receipts until review ends, and it reports English correct rate
+   explicitly, because the qualifying margin was 0.958 against 0.95.
+3. Promotion uses a typed event-bus transition. Forseti judges the evidence, Var carries explicit
+   human approval, Thor alone writes the registry, Saga records intent and closure, and Vidar owns
+   demotion. The receipt binds the window, adjudication, latency report, commit, protocol, and
+   proposer binding. An enforced mode also needs a new function declaration with a
+   non-deterministic class, network access, and a larger timeout, which is a reviewed contract
+   change.
+
 ## Twenty-round hardening record
 
 The first three landed slices were reviewed through 20 independent critique lenses covering

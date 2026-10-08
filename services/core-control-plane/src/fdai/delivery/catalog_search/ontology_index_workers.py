@@ -37,6 +37,12 @@ from .ontology_snapshot_validation import (
     OntologySnapshotValidation,
     validate_snapshot_against_current_graph,
 )
+from .ontology_typed_selection_shadow import (
+    ShadowInvocation,
+    ShadowPrimaryAnswer,
+    ShadowTarget,
+    TypedSelectionShadowObserver,
+)
 from .ontology_vector_store import OntologyVectorSnapshotStore
 
 _Digest = Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
@@ -136,6 +142,7 @@ class OntologyContextIndexWorkers:
         embedding_model_version: str,
         embedding_dimension: int,
         projection_lock: ResourceLock | None = None,
+        typed_selection_shadow: TypedSelectionShadowObserver | None = None,
     ) -> None:
         self._store, self._snapshots, self._vectors, self._reader = (
             store,
@@ -152,6 +159,7 @@ class OntologyContextIndexWorkers:
         self.lifecycle = OntologyIndexLifecycle(store=store, admit=self._admit, clock=clock)
         self.journal = OntologyIndexJournal(store)
         self._projection_lock = projection_lock or ResourceLockManager()
+        self._typed_selection_shadow = typed_selection_shadow
 
     @property
     def bindings(self) -> ContextIndexWorkerBindings:
@@ -176,29 +184,16 @@ class OntologyContextIndexWorkers:
         limit: int = 20,
     ) -> OntologyCandidateSearchResult:
         """Consume only the exact current pointer with its durable Saga terminal seal."""
-        pointer = await self.lifecycle.read(scope)
-        target, terminal = pointer.active, pointer.terminal
-        if target is None or terminal is None:
-            raise ValueError("ontology instance index has no current active generation")
-        seal = await self._store.read_state(f"{_PREFIX}terminal-seal:{terminal.command.digest}")
-        if seal is None or _SealedTerminal.model_validate(seal).terminal != terminal:
-            raise ValueError("ontology instance index terminal audit is unavailable")
-        manifest, gateway = await self._source(scope)
-        if manifest.manifest_digest != target.manifest_digest:
-            self._reader.invalidate(principal_scope_digest=scope.principal_scope_digest)
-            raise ValueError("ontology instance index manifest changed")
+        current = await self._current_target(scope, invalidate_on_change=True)
         result = await self._reader.search(
             query,
-            staged=OntologyStagedProjection(
-                target.snapshot_digest,
-                target.source_projection_digest,
-                target.source_generation,
-            ),
-            manifest=manifest,
-            gateway=gateway,
+            staged=current.staged,
+            manifest=current.manifest,
+            gateway=current.gateway,
             as_of=as_of,
             limit=limit,
         )
+        pointer = current.pointer
         if await self.lifecycle.read(scope) != pointer:
             self._reader.invalidate(principal_scope_digest=scope.principal_scope_digest)
             raise ValueError("ontology instance index changed during the query")
@@ -292,7 +287,23 @@ class OntologyContextIndexWorkers:
             role=context.caller_role,
             purpose=context.purposes[0],
         )
-        result = await self.search_current(query, scope=scope, as_of=self._clock(), limit=limit)
+
+        def shadow(primary: ShadowPrimaryAnswer) -> None:
+            # The answer outcome is fixed before this no-throw, non-blocking hand-off.
+            if self._typed_selection_shadow is not None:
+                self._typed_selection_shadow.schedule(
+                    ShadowInvocation(
+                        query, limit, scope, primary, context.authentication_request_ref
+                    ),
+                    resolve=self._current_target,
+                    current=self._shadow_current,
+                )
+
+        try:
+            result = await self.search_current(query, scope=scope, as_of=self._clock(), limit=limit)
+        except Exception as exc:
+            shadow(ShadowPrimaryAnswer.unavailable(exc))
+            raise
         authorized = result.authorized
         candidates = (
             [
@@ -321,7 +332,44 @@ class OntologyContextIndexWorkers:
             "execution_authority": False,
             "exhaustive": False,
         }
-        return {**payload, "result_digest": content_digest(payload)}
+        response = {**payload, "result_digest": content_digest(payload)}
+        shadow(ShadowPrimaryAnswer.returned(result, result_digest=str(response["result_digest"])))
+        return response
+
+    async def _current_target(
+        self, scope: IndexScope, *, invalidate_on_change: bool = False
+    ) -> ShadowTarget:
+        """Resolve the sealed current pointer; only the answer path may invalidate its cache."""
+        pointer = await self.lifecycle.read(scope)
+        target, terminal = pointer.active, pointer.terminal
+        if target is None or terminal is None:
+            raise ValueError("ontology instance index has no current active generation")
+        seal = await self._store.read_state(f"{_PREFIX}terminal-seal:{terminal.command.digest}")
+        if seal is None or _SealedTerminal.model_validate(seal).terminal != terminal:
+            raise ValueError("ontology instance index terminal audit is unavailable")
+        manifest, gateway = await self._source(scope)
+        if manifest.manifest_digest != target.manifest_digest:
+            if invalidate_on_change:
+                self._reader.invalidate(principal_scope_digest=scope.principal_scope_digest)
+            raise ValueError("ontology instance index manifest changed")
+        return ShadowTarget(
+            pointer=pointer,
+            staged=OntologyStagedProjection(
+                target.snapshot_digest,
+                target.source_projection_digest,
+                target.source_generation,
+            ),
+            manifest=manifest,
+            gateway=gateway,
+        )
+
+    async def _shadow_current(self, scope: IndexScope, target: ShadowTarget) -> bool:
+        return await self.lifecycle.read(scope) == target.pointer
+
+    async def aclose_shadow(self) -> None:
+        """Cancel in-flight shadow observations during shutdown."""
+        if self._typed_selection_shadow is not None:
+            await self._typed_selection_shadow.aclose()
 
     def _require_current_request(self, request: IndexPreparationRequest) -> None:
         age = self._clock() - request.requested_at

@@ -105,6 +105,7 @@ async def _harness(
     *,
     semantic_available: bool = True,
     typed_selection_available: bool = False,
+    typed_selection_shadow: bool = False,
     empty_last: bool = False,
     extra_cases: tuple[OntologyRetrievalEvaluationCase, ...] = (),
 ) -> _Harness:
@@ -191,6 +192,7 @@ async def _harness(
         ranking_policy=_RANKING,
         semantic_search_available=semantic_available,
         typed_selection_available=typed_selection_available,
+        typed_selection_shadow=typed_selection_shadow,
     )
     await reader.prepare(
         staged=staged, vector_digest=vector_digest, manifest=manifest, validation=validation
