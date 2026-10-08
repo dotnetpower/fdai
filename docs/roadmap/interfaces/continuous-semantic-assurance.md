@@ -56,6 +56,9 @@ so it also rebinds the release and regenerates the manifest without changing its
 reviewed lifecycle declarations that settle states a ResourceType never reaches, or establish running
 from a fresh availability fact, rebind it the same way, as does keeping the typed source reason
 beside a scope gap.
+The answer-local pending-state coverage source also changes the source-bound ontology digest. Its
+manifest regeneration updates release and inventory digests only; it adds no question, measured
+coverage, provider evidence, qualification, or operational-evidence admission.
 Adding `governance.override-promote-action-type` is a structural catalog change, so the same
 builder refreshes the corpus manifest denominator and source digests without creating a live
 assurance receipt.

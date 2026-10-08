@@ -1,7 +1,7 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 0f8521e080e407be0f7bbef81ec03e4dabe3319e
-translation_revised: 2026-10-08
+translation_source_sha: 21b8db4fbc74e6a6ed5970cc9c3549c2c2131e35
+translation_revised: 2026-10-09
 ---
 # 독립 운영 근거 발급
 
@@ -36,6 +36,9 @@ translation_revised: 2026-10-08
 유지합니다.
 의미 결과 핸들 참조는 Operator/Core 의미 전송의 본문 없는 대화 연속성 레코드입니다. 운영 근거를
 수락하거나 검증기 재확인을 충족하거나 실행 권한을 부여하지 않습니다.
+다시 생성한 의미 corpus와 의도 커버리지 다이제스트는 평가 출처 정보일 뿐입니다. 답변 전용 대기
+상태 보완으로 생긴 다이제스트 갱신은 검증기 출처 산출물, 검증 증적, 프로바이더 근거 또는 운영
+자격 결과가 되지 않습니다.
 봉인된 Core 전용 행 신원은 후속 읽기의 재인가 피연산자일 뿐이며, 검증기 출처 산출물, 수락 기록 또는
 증명 자료가 아닙니다.
 Operator 서비스 제품 프로필 해석도 같은 근거 경계를 따릅니다. `FDAI_PRODUCT_PROFILE_JSON`을 읽으면

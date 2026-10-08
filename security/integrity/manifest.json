@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1950,
+  "file_count": 1951,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "c1de41caedf8069885a5e12c9baadc3436b3f7f5e7afe399efaddbd988afb0bf",
     ".github/instructions/agent-stewardship.instructions.md": "6d34f24fe8879f3edac388d5e7fd9ab138563ca386a5c401f72d8fc3c1698624",
@@ -1024,7 +1024,7 @@
     "services/core-control-plane/src/fdai/core/notifications/messages.en.json": "ec7bcc78c2f6c552dd531402b28768a62f6608ded99bd89e5948878e214da6f0",
     "services/core-control-plane/src/fdai/core/notifications/messages.ko.json": "37a4a1bbe3eabb2d637a35008ca6b58fb2036787b6b9537e7d64320b0c145b6b",
     "services/core-control-plane/src/fdai/core/notifications/renderer.py": "797195dc56ba5b23007feb40d838040f67a2a5cbcc6e6ba6b6d60604d378f568",
-    "services/core-control-plane/src/fdai/core/notifications/router.py": "7919894488ee42033b5fad27d133dace1bea2d590c955aaba4ba1f72f6441b40",
+    "services/core-control-plane/src/fdai/core/notifications/router.py": "87af2da65e06d6834c7f4454f05b2984d8a3d7d4116519a293e9a7c69e3e040b",
     "services/core-control-plane/src/fdai/core/notifications/shadow.py": "1729262378f27b832bb8614bec07a67c54631c09b797fc47372ae6e2b00d2a97",
     "services/core-control-plane/src/fdai/core/onboarding/__init__.py": "b05500d104cf5b35c615cbc5dfb005df8e7a585dbaffcc08ad8e42f4627a1d9a",
     "services/core-control-plane/src/fdai/core/onboarding/models.py": "d8464c7bfa4b73a02fd58b5aa253b34926d065e8562dea958930e283a559a441",
@@ -1822,6 +1822,7 @@
     "services/core-control-plane/src/fdai/shared/providers/document_ingestion.py": "f3cca0670249c2adae12b1e1572467f646ae973b0dc656dd1337b950119cf7fc",
     "services/core-control-plane/src/fdai/shared/providers/dr_experiment.py": "ef9bb95be2b5cdb53087067659b07020b14524011ff478a1c4b2adcbfeea2e09",
     "services/core-control-plane/src/fdai/shared/providers/event_bus.py": "c680a4a9dc4d9b72313d7970303d23189cc5f1c53f71753f525db4e3462e3773",
+    "services/core-control-plane/src/fdai/shared/providers/exact_resource_state.py": "06ba4f975db8646f4005814f1484a361151bb95536f85e813a278e0797da6fff",
     "services/core-control-plane/src/fdai/shared/providers/execution_authorization.py": "770d86a57a7e016bf7cda230503974a3de207ca01b504063655545cda8fd9191",
     "services/core-control-plane/src/fdai/shared/providers/execution_backend.py": "54f94c1209b73b7e96c8e54f2853fa5c87815ab960386895432c5665268952df",
     "services/core-control-plane/src/fdai/shared/providers/executor_receipt_journal.py": "4ee0f8534a6a4bf4acc344bf8e6c023ae2a82ae0ba0d3e64b05a311f60b6bacf",
