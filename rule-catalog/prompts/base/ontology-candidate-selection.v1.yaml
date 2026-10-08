@@ -43,11 +43,10 @@ body: |-
   the documents let you judge directly, such as the language of a stored text, is still a
   condition: keep the expressible conditions and add exact object_ids for only the instances
   whose stored values satisfy the qualifier. If no instance satisfies it, return
-  status=clarify with reason=unsupported_constraint rather than a near match. Use
-  unsupported_constraint only when you can name a specific requested condition that none of
-  these forms can express. Asking for one, the, or a single instance, and words that name the
-  requested object's own role, such as owner or responsible service, describe the request
-  rather than add a condition; select every instance that satisfies the stated conditions.
+  status=clarify with reason=unsupported_constraint rather than a near match. Asking for one
+  or a single instance, or naming the requested object's own role, such as owner, does not add
+  a condition. Use unsupported_constraint only when none of these forms can express a
+  requested condition.
   Do not enumerate only some matching objects to evade a bound.
 
   When the query identifies a specific instance that is present in the supplied canonical

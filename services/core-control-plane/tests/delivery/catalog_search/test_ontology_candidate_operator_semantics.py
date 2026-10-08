@@ -82,8 +82,8 @@ def test_diagnostic_prompt_states_each_contains_and_presence_meaning() -> None:
         "condition.",
         "If no instance satisfies it, return status=clarify with reason=unsupported_constraint "
         "rather than a near match.",
-        "Use unsupported_constraint only when you can name a specific requested condition that "
-        "none of these forms can express.",
+        "Asking for one or a single instance, or naming the requested object's own role, such as "
+        "owner, does not add a condition.",
     ):
         assert statement in text
 
