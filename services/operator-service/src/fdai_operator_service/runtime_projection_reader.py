@@ -111,7 +111,9 @@ class RuntimeProjectionReader:
         if query.operation in ASSURANCE_TWIN_OPERATIONS:
             return await read_assurance_twin_projection(query, self._fetch_all)
         if query.operation in CODE_SECURITY_OPERATIONS:
-            return await read_code_security_projection(query.operation, self._fetch_all)
+            return await read_code_security_projection(
+                query.operation, self._fetch_all, query.params
+            )
         return await self.fallback.read(query)
 
     async def _process_list(self, query: ProjectionQuery) -> Mapping[str, object]:

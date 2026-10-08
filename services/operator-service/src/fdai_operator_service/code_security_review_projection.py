@@ -22,9 +22,9 @@ from __future__ import annotations
 import re
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 CODE_SECURITY_REVIEW_STATE_PREFIX = "runtime:code-security-review:"
 """Mirrors the Core writer; the services stay independently packaged."""
@@ -79,11 +79,15 @@ _REJECTIONS = (
     "requester_role_insufficient",
     "repository_not_registered",
     "repository_disabled",
+    "repository_conflict",
     "source_unavailable",
     "scan_failed",
     "review_conflict",
     "attempts_exhausted",
 )
+REPOSITORY_CHANGE_OPERATION = "code_security.repository_change"
+_CHANGE_ACTIONS = ("register", "enable", "disable")
+_LOCATION_PATTERN = r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})/[A-Za-z0-9._-]{1,100}$"
 
 
 class CodeSecurityScanRequestBody(BaseModel):
@@ -93,6 +97,30 @@ class CodeSecurityScanRequestBody(BaseModel):
 
     repository_alias: str = Field(pattern=_ALIAS_PATTERN)
     ref: str | None = Field(default=None, pattern=_REF_PATTERN)
+
+
+class CodeSecurityRepositoryChangeBody(BaseModel):
+    """An Owner's registration change; ``register`` needs a GitHub ``owner/repository``."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    action: Literal["register", "enable", "disable"]
+    repository_alias: str = Field(pattern=_ALIAS_PATTERN)
+    location: str | None = Field(default=None, pattern=_LOCATION_PATTERN)
+    default_ref: str | None = Field(default=None, pattern=_REF_PATTERN)
+    exposure: Literal["exposed", "internal", "not_deployed", "unknown"] | None = None
+
+    @model_validator(mode="after")
+    def _fields_match_action(self) -> CodeSecurityRepositoryChangeBody:
+        if self.action == "register" and self.location is None:
+            raise ValueError("register needs a location")
+        if self.action != "register" and (
+            self.location is not None or self.default_ref is not None or self.exposure is not None
+        ):
+            raise ValueError("enable and disable take only the alias")
+        if self.default_ref is not None and ".." in self.default_ref:
+            raise ValueError("default_ref is invalid")
+        return self
 
 
 class _MalformedError(ValueError):
@@ -375,7 +403,10 @@ def code_security_repositories_projection(
 
 
 def _scan_request(value: object) -> dict[str, object]:
-    if not isinstance(value, Mapping) or value.get("operation") != SCAN_REQUEST_OPERATION:
+    if not isinstance(value, Mapping) or value.get("operation") not in (
+        SCAN_REQUEST_OPERATION,
+        REPOSITORY_CHANGE_OPERATION,
+    ):
         raise _MalformedError
     envelope = value.get("payload")
     body = envelope.get("payload") if isinstance(envelope, Mapping) else None
@@ -384,9 +415,17 @@ def _scan_request(value: object) -> dict[str, object]:
     status = _REQUEST_STATUSES.get(str(value.get("dispatch_status")))
     if status is None:
         raise _MalformedError
-    ref = body.get("ref")
+    is_change = value.get("operation") == REPOSITORY_CHANGE_OPERATION
+    ref = None if is_change else body.get("ref")
+    action = body.get("action") if is_change else None
+    if is_change and action not in _CHANGE_ACTIONS:
+        raise _MalformedError
+    location = body.get("location") if action == "register" else None
     request: dict[str, object] = {
         "request_id": _match(value.get("proposal_id"), _REQUEST_ID),
+        "kind": "repository_change" if is_change else "scan",
+        "action": action,
+        "location": None if location is None else _match(location, re.compile(_LOCATION_PATTERN)),
         "repository_alias": _match(body.get("repository_alias"), re.compile(_ALIAS_PATTERN)),
         "ref": None if ref is None else _match(ref, _REF),
         "status": status,
@@ -402,8 +441,13 @@ def _scan_request(value: object) -> dict[str, object]:
         if reason not in _REJECTIONS:
             raise _MalformedError
         request["rejection_reason"] = reason
-    if status == "completed":
-        result = value.get("scan_result")
+    if status == "completed" and is_change:
+        result = value.get("request_result")
+        if not isinstance(result, Mapping) or not isinstance(result.get("enabled"), bool):
+            raise _MalformedError
+        request["result"] = {"enabled": result["enabled"]}
+    elif status == "completed":
+        result = value.get("request_result")
         if not isinstance(result, Mapping):
             raise _MalformedError
         decision = result.get("decision")
@@ -426,7 +470,7 @@ def _scan_request(value: object) -> dict[str, object]:
 def code_security_scan_requests_projection(
     rows: Sequence[Mapping[str, Any]],
 ) -> dict[str, object]:
-    """Render Console scan requests, newest first, without requester identities."""
+    """Render Console scan requests and registration changes, newest first, without requesters."""
     requests: list[dict[str, object]] = []
     gaps: list[dict[str, object]] = []
     if len(rows) > _MAX_ITEMS:
@@ -455,6 +499,7 @@ CODE_SECURITY_OPERATIONS = frozenset(
         "code_security.packs",
         "code_security.repositories",
         "code_security.scan_requests",
+        "code_security.issues",
     }
 )
 _STATE_ROWS_SQL = (
@@ -462,15 +507,25 @@ _STATE_ROWS_SQL = (
 )
 _SCAN_REQUEST_ROWS_SQL = (
     "SELECT key, value FROM state_kv WHERE key LIKE 'operator-proposal:operations:%%' "
-    "AND value ->> 'operation' = %s ORDER BY updated_at DESC LIMIT 201"
+    "AND value ->> 'operation' IN (%s, %s) ORDER BY updated_at DESC LIMIT 201"
 )
 _FetchAll = Callable[[str, tuple[object, ...]], Awaitable[list[dict[str, Any]]]]
 
 
 async def read_code_security_projection(
-    operation: str, fetch_all: _FetchAll
+    operation: str,
+    fetch_all: _FetchAll,
+    params: Mapping[str, Sequence[str]] | None = None,
 ) -> Mapping[str, object]:
     """Read one code-security operation through the runtime reader's bounded ``fetch_all``."""
+    if operation == "code_security.issues":
+        from fdai_operator_service.code_security_issue_projection import (
+            read_code_security_issues,
+        )
+
+        return await read_code_security_issues(
+            params or {}, fetch_all, CODE_SECURITY_REVIEW_STATE_PREFIX
+        )
     if operation == "code_security.packs":
         rows = await fetch_all(_STATE_ROWS_SQL, (f"{CODE_SECURITY_PACK_STATE_PREFIX}%",))
         return code_security_packs_projection(rows)
@@ -478,7 +533,9 @@ async def read_code_security_projection(
         rows = await fetch_all(_STATE_ROWS_SQL, (f"{CODE_SECURITY_REPOSITORY_STATE_PREFIX}%",))
         return code_security_repositories_projection(rows)
     if operation == "code_security.scan_requests":
-        rows = await fetch_all(_SCAN_REQUEST_ROWS_SQL, (SCAN_REQUEST_OPERATION,))
+        rows = await fetch_all(
+            _SCAN_REQUEST_ROWS_SQL, (SCAN_REQUEST_OPERATION, REPOSITORY_CHANGE_OPERATION)
+        )
         return code_security_scan_requests_projection(rows)
     rows = await fetch_all(_STATE_ROWS_SQL, (f"{CODE_SECURITY_REVIEW_STATE_PREFIX}%",))
     return code_security_reviews_projection(rows)
@@ -487,6 +544,8 @@ async def read_code_security_projection(
 __all__ = [
     "CODE_SECURITY_OPERATIONS",
     "CODE_SECURITY_REPOSITORY_STATE_PREFIX",
+    "REPOSITORY_CHANGE_OPERATION",
+    "CodeSecurityRepositoryChangeBody",
     "GAP_REPOSITORY_MALFORMED",
     "GAP_REQUEST_MALFORMED",
     "SCAN_REQUEST_OPERATION",

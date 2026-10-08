@@ -11,13 +11,18 @@ from __future__ import annotations
 
 import json
 import os
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
 
+from fdai.core.security.code_findings.issue_summary import (
+    MAX_ISSUE_SUMMARIES,
+    validate_issue_summary,
+)
 from fdai.core.security.code_findings.review_signal import validate_review_package
 from fdai.shared.providers.state_store import StateStore
 
 CODE_SECURITY_REVIEW_STATE_PREFIX = "runtime:code-security-review:"
+CODE_SECURITY_ISSUES_STATE_PREFIX = "runtime:code-security-issues:"
 
 
 class CodeSecurityReviewConflictError(RuntimeError):
@@ -28,14 +33,38 @@ def code_security_review_state_key(repository_alias: str, revision: str) -> str:
     return f"{CODE_SECURITY_REVIEW_STATE_PREFIX}{repository_alias}:{revision}"
 
 
+def code_security_issues_state_key(repository_alias: str, revision: str) -> str:
+    return f"{CODE_SECURITY_ISSUES_STATE_PREFIX}{repository_alias}:{revision}"
+
+
 async def record_code_security_review(
     store: StateStore,
     package: Mapping[str, object],
     *,
     recorded_at: datetime | None = None,
+    issues: Sequence[Mapping[str, object]] | None = None,
+    issues_truncated: bool = False,
 ) -> bool:
-    """Record a validated review package; return ``True`` when a new row was written."""
+    """Record a validated review package; return ``True`` when a new row was written.
+
+    ``issues`` are bounded issue summaries for the Console. They are validated and written once
+    per revision next to the review, bound by its digest; existing summaries are never replaced.
+    """
     validated = validate_review_package(package)
+    if issues is not None:
+        if len(issues) > MAX_ISSUE_SUMMARIES:
+            raise ValueError("too many issue summaries for one review")
+        summaries = [validate_issue_summary(item) for item in issues]
+        await store.write_state_if_absent(
+            code_security_issues_state_key(
+                str(validated["repository_alias"]), str(validated["revision"])
+            ),
+            {
+                "review_digest": validated["review_digest"],
+                "issues": summaries,
+                "truncated": issues_truncated,
+            },
+        )
     key = code_security_review_state_key(
         str(validated["repository_alias"]), str(validated["revision"])
     )
@@ -66,7 +95,12 @@ def _findings(package: Mapping[str, object]) -> str:
     )
 
 
-async def record_review_from_environment(package: Mapping[str, object]) -> bool:
+async def record_review_from_environment(
+    package: Mapping[str, object],
+    *,
+    issues: Sequence[Mapping[str, object]] | None = None,
+    issues_truncated: bool = False,
+) -> bool:
     """Record a review in the PostgreSQL state store named by ``FDAI_STATE_STORE_DSN``.
 
     The DSN is read from the environment only, never from arguments, so it can't leak through
@@ -82,14 +116,18 @@ async def record_review_from_environment(package: Mapping[str, object]) -> bool:
         raise ValueError("--record-state requires FDAI_STATE_STORE_DSN in the environment")
     store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
     try:
-        return await record_code_security_review(store, package)
+        return await record_code_security_review(
+            store, package, issues=issues, issues_truncated=issues_truncated
+        )
     finally:
         await store.aclose()
 
 
 __all__ = [
+    "CODE_SECURITY_ISSUES_STATE_PREFIX",
     "CODE_SECURITY_REVIEW_STATE_PREFIX",
     "CodeSecurityReviewConflictError",
+    "code_security_issues_state_key",
     "code_security_review_state_key",
     "record_code_security_review",
     "record_review_from_environment",

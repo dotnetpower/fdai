@@ -260,8 +260,15 @@ review log.
   Console **Evidence > Code security** route shows decisions, counts by priority and confidence,
   exposure, coverage, and each review's source and trigger, with a filter for local folders, git
   repositories, external SARIF, and unlabeled reviews. Malformed rows appear as withheld records.
+- **Issue detail:** recording a review also stores up to 200 bounded issue summaries for that
+  revision, bound by the review digest: issue id, priority and due interval, severity, confidence,
+  weakness class, CWE ids, up to three advisory ids, the dependency package name, producers, and
+  known exploitation. `GET /code-security/issues?repository_alias=...&revision=...` serves them
+  only when the digest matches, and the Console shows them for a selected review. Paths, lines,
+  symbols, scanner messages, and code never reach the Console.
 - **Scan requests:** Contributors and Owners can request a scan of a registered repository through
-  `POST /code-security/scan-requests`. The route only queues a typed proposal for the scan worker
+  `POST /code-security/scan-requests`, and Owners can register, enable, or disable a repository
+  through `POST /code-security/repositories`. Both routes only queue a typed proposal for the worker
   described in [Code Security Scanning](code-security-scanning.md#repository-scans-from-the-console);
   the view still offers no approval, execution, or remediation control.
 - **Pack registry:** `--registry state-store` keeps pack records, revocation, the export baseline,

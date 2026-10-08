@@ -2,7 +2,8 @@
 
 A registration names one repository that FDAI may scan when an operator asks from the Console.
 It holds the display alias, the provider (``github``), the ``owner/repository`` location, the
-default ref, the exposure used for priority, and whether it is enabled. It never holds a
+default ref (``HEAD`` follows the repository's default branch), the exposure used for priority,
+and whether it is enabled. It never holds a
 credential: the scan worker reads repository access from the deployment's GitHub App or token
 environment, scoped to that one repository with read-only contents permission.
 
@@ -33,6 +34,10 @@ _MAX_REPOSITORIES = 200
 
 class CodeSecurityRepositoryError(ValueError):
     """A registration is malformed, conflicts with another, or does not exist."""
+
+
+class CodeSecurityRepositoryNotFoundError(CodeSecurityRepositoryError):
+    """The alias has no registration."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -144,7 +149,7 @@ async def register_repository(
     *,
     alias: str,
     location: str,
-    default_ref: str = "main",
+    default_ref: str = "HEAD",
     exposure: Exposure = Exposure.UNKNOWN,
     registered_by: str,
     provider: str = "github",
@@ -210,7 +215,7 @@ async def set_repository_enabled(
     for _attempt in range(4):
         existing = await read_repository(store, alias)
         if existing is None:
-            raise CodeSecurityRepositoryError(f"repository alias {alias} is not registered")
+            raise CodeSecurityRepositoryNotFoundError(f"repository alias {alias} is not registered")
         if existing.enabled is enabled:
             return existing
         updated = CodeSecurityRepository(
@@ -248,6 +253,7 @@ __all__ = [
     "REPOSITORY_KIND",
     "CodeSecurityRepository",
     "CodeSecurityRepositoryError",
+    "CodeSecurityRepositoryNotFoundError",
     "clone_url",
     "list_repositories",
     "parse_repository",

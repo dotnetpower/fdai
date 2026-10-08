@@ -605,6 +605,8 @@ tracks what remains.
 Code-security remediation follows the same rule. A coding agent's fixed claim counts only after an
 independent, coverage-equivalent rescan of the claimed commit finds no matching root cause. The
 opt-in proof lane reproduces a verified finding in its own sandbox instead of trusting the scanner.
+A completed Console scan request is evidence only that a scan of that commit ran and recorded a
+review. It never closes an issue, and a review's source or trigger never upgrades a claim.
 See [Code Security Findings](../operations/code-security-findings.md#result-import-and-verification).
 
 ## Non-goals

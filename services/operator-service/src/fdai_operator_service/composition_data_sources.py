@@ -81,6 +81,7 @@ def _build_data_sources(
                 "/code-security/packs",
                 "/code-security/repositories",
                 "/code-security/scan-requests",
+                "/code-security/issues",
             ),
             availability="unknown" if configured else "unavailable",
             configured=configured,

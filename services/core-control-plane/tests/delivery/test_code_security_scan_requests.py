@@ -9,6 +9,11 @@ import pytest
 from fdai.core.security.code_findings.review_signal import ReviewSource
 from fdai.delivery.code_security_acquire import SourceAcquisitionError
 from fdai.delivery.code_security_repo_cli import github_auth_header
+from fdai.delivery.code_security_repository_changes import (
+    REJECT_REPOSITORY_CONFLICT,
+    REPOSITORY_CHANGE_OPERATION,
+    parse_repository_change,
+)
 from fdai.delivery.code_security_scan_requests import (
     REJECT_ATTEMPTS,
     REJECT_CONFLICT,
@@ -19,6 +24,7 @@ from fdai.delivery.code_security_scan_requests import (
     REJECT_UNREGISTERED,
     SCAN_REQUEST_OPERATION,
     ClaimedScanRequest,
+    ScanOutcome,
     parse_scan_request,
     process_scan_requests,
 )
@@ -209,10 +215,10 @@ async def test_processor_scans_enabled_registration_and_closes_the_request() -> 
 
     async def runner(repo: CodeSecurityRepository, ref: str, source: ReviewSource):  # type: ignore[no-untyped-def]
         calls.append((ref, source))
-        return _package(source)
+        return ScanOutcome(_package(source))
 
-    async def recorder(package: Mapping[str, object]) -> bool:
-        recorded.append(package)
+    async def recorder(outcome: ScanOutcome) -> bool:
+        recorded.append(outcome.package)
         return True
 
     queue = _Queue([_claim({"repository_alias": "example-app"})])
@@ -248,9 +254,9 @@ async def test_processor_rejects_every_unsafe_or_failed_request() -> None:
     async def runner(repo: CodeSecurityRepository, ref: str, source: ReviewSource):  # type: ignore[no-untyped-def]
         if repo.repository_alias == "broken":
             raise SourceAcquisitionError("ref did not resolve")
-        return _package(source)
+        return ScanOutcome(_package(source))
 
-    async def recorder(package: Mapping[str, object]) -> bool:
+    async def recorder(outcome: ScanOutcome) -> bool:
         raise CodeSecurityReviewConflictError("different findings")
 
     malformed = ClaimedScanRequest(key="k0", claim_id="c", request=None)
@@ -298,3 +304,111 @@ async def test_github_auth_header_uses_only_configured_credentials() -> None:
 async def test_read_repository_rejects_bad_alias() -> None:
     with pytest.raises(CodeSecurityRepositoryError):
         await read_repository(InMemoryStateStore(), "../x")
+
+
+def _change_record(body: Mapping[str, object], roles: tuple[str, ...] = ("Owner",)) -> dict:  # type: ignore[type-arg]
+    return {
+        "operation": REPOSITORY_CHANGE_OPERATION,
+        "proposal_id": "operator-" + "f" * 32,
+        "principal_id": "owner-oid",
+        "payload": {"payload": dict(body), "principal_roles": list(roles)},
+    }
+
+
+def test_parse_repository_change_accepts_only_typed_actions() -> None:
+    register = parse_repository_change(
+        _change_record(
+            {
+                "action": "register",
+                "repository_alias": "example-app",
+                "location": "example/app",
+                "default_ref": "release/1",
+                "exposure": "exposed",
+            }
+        )
+    )
+    assert register is not None and register.location == "example/app"
+    assert register.exposure == "exposed" and register.principal_id == "owner-oid"
+    toggle = parse_repository_change(
+        _change_record({"action": "disable", "repository_alias": "example-app"})
+    )
+    assert toggle is not None and toggle.action == "disable" and toggle.location is None
+    for body in (
+        {"action": "delete", "repository_alias": "example-app"},
+        {"action": "register", "repository_alias": "example-app"},
+        {"action": "register", "repository_alias": "a", "location": "https://evil/x"},
+        {"action": "register", "repository_alias": "a", "location": "o/r", "default_ref": "../x"},
+        {"action": "register", "repository_alias": "a", "location": "o/r", "exposure": "public"},
+        {"action": "enable", "repository_alias": "a", "location": "o/r"},
+    ):
+        assert parse_repository_change(_change_record(body)) is None, body
+
+
+async def test_processor_applies_owner_changes_before_scans_and_audits_the_requester() -> None:
+    store = InMemoryStateStore()
+
+    def claim(body: Mapping[str, object], roles=("Owner",)):  # type: ignore[no-untyped-def]
+        record = _change_record(body, roles)
+        return ClaimedScanRequest(
+            key=f"k-{len(body)}-{body['action']}",
+            claim_id="c",
+            request=None,
+            operation=REPOSITORY_CHANGE_OPERATION,
+            change=parse_repository_change(record),
+        )
+
+    register = {"action": "register", "repository_alias": "example-app", "location": "example/app"}
+    queue = _Queue(
+        [
+            claim(register),
+            claim(register | {"location": "example/other"}),
+            claim({"action": "disable", "repository_alias": "example-app"}),
+            claim({"action": "enable", "repository_alias": "missing"}),
+            claim({"action": "enable", "repository_alias": "example-app"}, roles=("Contributor",)),
+            ClaimedScanRequest(
+                key="bad", claim_id="c", request=None, operation=REPOSITORY_CHANGE_OPERATION
+            ),
+        ]
+    )
+
+    async def runner(*_args):  # type: ignore[no-untyped-def]
+        raise AssertionError("no scan expected")
+
+    outcomes = await process_scan_requests(queue, store, runner, recorder=None, max_requests=10)  # type: ignore[arg-type]
+    assert [item["status"] for item in outcomes] == [
+        "published",
+        "rejected",
+        "published",
+        "rejected",
+        "rejected",
+        "rejected",
+    ]
+    assert [item.get("reason_code") for item in outcomes if item["status"] == "rejected"] == [
+        REJECT_REPOSITORY_CONFLICT,
+        REJECT_UNREGISTERED,
+        REJECT_ROLE,
+        REJECT_MALFORMED,
+    ]
+    repository = await read_repository(store, "example-app")
+    assert repository is not None and repository.enabled is False
+    assert repository.registered_by == "owner-oid"
+    actors = [item["entry"]["actor"] for item in store.audit_entries]
+    assert actors == ["owner-oid", "owner-oid"]
+    assert queue.completed[0][1] == {
+        "action": "register",
+        "repository_alias": "example-app",
+        "enabled": True,
+        "created": True,
+    }
+
+
+async def test_registration_without_a_ref_follows_the_default_branch() -> None:
+    store = InMemoryStateStore()
+    repository, _ = await register_repository(
+        store, alias="example-app", location="example/app", registered_by="owner"
+    )
+    assert repository.default_ref == "HEAD"
+    change = parse_repository_change(
+        _change_record({"action": "register", "repository_alias": "b", "location": "example/b"})
+    )
+    assert change is not None and change.default_ref == "HEAD"

@@ -175,10 +175,12 @@ report shows the lockfile advisories under their package name. No code text appe
 An operator can ask FDAI to scan a registered GitHub repository from the Console **Code security**
 route. Heimdall is the accountable agent for the result. The request itself grants no authority:
 
-1. **Registration:** an operator registers an alias for an `owner/repository` location with
-   `fdai-code-security repo-register`, plus a default ref and exposure. `repo-enable` and
-   `repo-disable` toggle scanning. Every change uses compare-and-set and appends a
-   Heimdall-attributed audit entry. An alias can't be repointed at another location.
+1. **Registration:** an Owner registers an alias for an `owner/repository` location, plus a
+   default ref (`HEAD`, the repository's default branch, when omitted) and exposure, from the Console (`POST /code-security/repositories`) or with
+   `fdai-code-security repo-register`. Enable and disable toggle scanning. A Console change is a
+   typed proposal (`code_security.repository_change`) that the worker applies before any scan.
+   Every change uses compare-and-set and appends a Heimdall-attributed audit entry naming the
+   requester. An alias can't be repointed at another location.
 2. **Request:** a Contributor or Owner submits `POST /code-security/scan-requests` with an alias
    and an optional branch, tag, or commit. The Operator API validates the body and stores a typed
    proposal (`code_security.scan_request`) in its durable outbox. It doesn't scan or read
@@ -199,8 +201,9 @@ image starts it with `fdai-scan-runner process-requests`.
 | Rejection reason | Meaning |
 |------------------|---------|
 | `request_malformed` | The stored body isn't the typed alias and ref |
-| `requester_role_insufficient` | The requester had neither Contributor nor Owner |
-| `repository_not_registered` / `repository_disabled` | The alias can't be scanned |
+| `requester_role_insufficient` | A scan requester had neither Contributor nor Owner, or a registration requester wasn't an Owner |
+| `repository_not_registered` / `repository_disabled` | The alias can't be scanned or toggled |
+| `repository_conflict` | A registration names an alias that's already bound to another location |
 | `source_unavailable` | The ref, repository, or credential couldn't be resolved |
 | `scan_failed` / `review_conflict` | The scan failed, or different findings exist for that commit |
 | `attempts_exhausted` | The request was claimed more than three times |
@@ -423,6 +426,9 @@ Local scan tests cover committed-`HEAD` and snapshot acquisition, ignored files,
 ref resolution, and report escaping and localization; a real bubblewrap run scans an uncommitted
 snapshot. Request tests cover registration, audit, body validation, and every rejection reason, and
 a throwaway PostgreSQL database validated the proposal claim, completion, and Operator projections.
+A live run against github.com registered `OWASP/NodeGoat` without a ref, resolved `HEAD` to its
+default branch commit, completed all five scanners with complete coverage, and recorded 202 issues
+with the request id.
 
 ## Related docs
 

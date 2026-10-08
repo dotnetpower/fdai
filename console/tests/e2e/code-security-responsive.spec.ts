@@ -24,6 +24,63 @@ function review(alias: string, overrides: Record<string, unknown> = {}): Record<
 async function mockApi(page: Page, posted: unknown[] = []): Promise<void> {
   const handleApi = async (route: Route) => {
     const path = new URL(route.request().url()).pathname.replace(/^\/api/, "");
+    if (path === "/code-security/repositories" && route.request().method() === "POST") {
+      posted.push(route.request().postDataJSON());
+      await route.fulfill({
+        status: 202,
+        json: {
+          request_id: `operator-${"e".repeat(32)}`,
+          correlation_id: null,
+          dispatch_status: "pending",
+          accepted_at: "2026-10-08T08:00:00+00:00",
+          durably_queued: true,
+        },
+      });
+      return;
+    }
+    if (path === "/code-security/issues") {
+      await route.fulfill({
+        json: {
+          surface: "code-security-issues",
+          repository_alias: "payments-api-with-a-deliberately-long-repository-alias",
+          revision,
+          source: "postgresql:state_kv:code-security-issues",
+          available: true,
+          complete: true,
+          truncated: false,
+          issues: [
+            {
+              issue_id: "FDAI-SEC-0123456789ab",
+              priority: "P0",
+              due_days: 2,
+              severity: "critical",
+              confidence: "verified",
+              weakness_class: "command_injection",
+              cwe_ids: [78],
+              advisory_ids: [],
+              package: null,
+              producers: ["Opengrep", "gitleaks"],
+              known_exploited: false,
+            },
+            {
+              issue_id: "FDAI-SEC-ba9876543210",
+              priority: "P1",
+              due_days: 7,
+              severity: "high",
+              confidence: "corroborated",
+              weakness_class: "vulnerable_dependency",
+              cwe_ids: [],
+              advisory_ids: ["CVE-2026-12345", "GHSA-abcd-efgh-ijkl"],
+              package: "example-deliberately-long-dependency-package-name",
+              producers: ["Trivy", "osv-scanner"],
+              known_exploited: true,
+            },
+          ],
+          gaps: [],
+        },
+      });
+      return;
+    }
     if (path === "/code-security/scan-requests" && route.request().method() === "POST") {
       posted.push(route.request().postDataJSON());
       await route.fulfill({
@@ -71,6 +128,9 @@ async function mockApi(page: Page, posted: unknown[] = []): Promise<void> {
           requests: [
             {
               request_id: `operator-${"a".repeat(32)}`,
+              kind: "scan",
+              action: null,
+              location: null,
               repository_alias: "payments-api-with-a-deliberately-long-repository-alias",
               ref: "release/2026-10",
               status: "completed",
@@ -81,6 +141,9 @@ async function mockApi(page: Page, posted: unknown[] = []): Promise<void> {
             },
             {
               request_id: `operator-${"b".repeat(32)}`,
+              kind: "scan",
+              action: null,
+              location: null,
               repository_alias: "payments-api-with-a-deliberately-long-repository-alias",
               ref: null,
               status: "rejected",
@@ -88,6 +151,19 @@ async function mockApi(page: Page, posted: unknown[] = []): Promise<void> {
               closed_at: "2026-10-07T07:00:05+00:00",
               rejection_reason: "source_unavailable",
               result: null,
+            },
+            {
+              request_id: `operator-${"d".repeat(32)}`,
+              kind: "repository_change",
+              action: "register",
+              location: "example-organization/payments-api-with-a-deliberately-long-name",
+              repository_alias: "payments-api-with-a-deliberately-long-repository-alias",
+              ref: null,
+              status: "completed",
+              accepted_at: "2026-10-07T06:00:00+00:00",
+              closed_at: "2026-10-07T06:00:05+00:00",
+              rejection_reason: null,
+              result: { enabled: true },
             },
           ],
           gaps: [],
@@ -108,6 +184,7 @@ async function mockApi(page: Page, posted: unknown[] = []): Promise<void> {
                 "/code-security/packs",
                 "/code-security/repositories",
                 "/code-security/scan-requests",
+                "/code-security/issues",
               ],
               availability: "available",
               configured: true,
@@ -215,6 +292,10 @@ for (const viewport of [
     await expect(page.getByText("mdash-imported-service")).toBeVisible();
     await expect(page.getByText("example-service", { exact: true })).toHaveCount(0);
     await page.getByRole("button", { name: /All sources/ }).click();
+    await page.getByRole("button", { name: /^View payments-api-with-a-deliberately-long-repository-alias/ }).click();
+    await expect(page.getByRole("heading", { name: /Issues in this review/ })).toBeVisible();
+    await expect(page.getByText("example-deliberately-long-dependency-package-name CVE-2026-12345, GHSA-abcd-efgh-ijkl")).toBeVisible();
+    await expect(page.getByText("CWE-78", { exact: true })).toBeVisible();
 
     const geometry = await page.evaluate(() => {
       const main = document.querySelector("main");
@@ -241,5 +322,28 @@ test("queues a scan request for a registered repository", async ({ page }) => {
       repository_alias: "payments-api-with-a-deliberately-long-repository-alias",
       ref: "release/2026-10",
     },
+  ]);
+});
+
+test("queues an Owner registration change from the Console", async ({ page }) => {
+  const posted: unknown[] = [];
+  await mockApi(page, posted);
+  await page.goto("/code-security");
+  await page.getByText("Register a GitHub repository").click();
+  const form = page.locator(".code-security-register-form");
+  await form.getByLabel("Alias", { exact: true }).fill("new-service");
+  await form.getByLabel("GitHub repository", { exact: true }).fill("example-organization/new-service");
+  await form.getByLabel("Exposure", { exact: true }).selectOption("internal");
+  await page.getByRole("button", { name: "Request registration" }).click();
+  await expect(page.getByText("Change request queued.", { exact: false })).toBeVisible();
+  await page.getByRole("button", { name: "Disable" }).first().click();
+  expect(posted).toEqual([
+    {
+      action: "register",
+      repository_alias: "new-service",
+      location: "example-organization/new-service",
+      exposure: "internal",
+    },
+    { action: "disable", repository_alias: "payments-api-with-a-deliberately-long-repository-alias" },
   ]);
 });

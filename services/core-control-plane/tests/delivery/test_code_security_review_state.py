@@ -111,3 +111,34 @@ async def test_same_findings_from_another_trigger_are_a_duplicate_not_a_conflict
     assert row is not None and row["package"]["source"]["trigger"] == "cli"
     with pytest.raises(CodeSecurityReviewConflictError):
         await record_code_security_review(store, {**_sourced("cli", None), "exposure": "internal"})
+
+
+async def test_issue_summaries_are_recorded_once_beside_the_review() -> None:
+    from fdai.delivery.persistence.state_store_code_security_review import (
+        code_security_issues_state_key,
+    )
+
+    store = InMemoryStateStore()
+    summary = {
+        "issue_id": "FDAI-SEC-0123456789ab",
+        "priority": "P1",
+        "due_days": 7,
+        "severity": "high",
+        "confidence": "verified",
+        "weakness_class": "command_injection",
+        "cwe_ids": [78],
+        "advisory_ids": [],
+        "package": None,
+        "producers": ["Opengrep"],
+        "known_exploited": False,
+    }
+    await record_code_security_review(store, _package(), issues=[summary])
+    key = code_security_issues_state_key("example-service", _REVISION)
+    row = await store.read_state(key)
+    assert row is not None and row["review_digest"] == "4" * 64
+    assert row["issues"] == [summary] and row["truncated"] is False
+    await record_code_security_review(store, _package(), issues=[], issues_truncated=True)
+    again = await store.read_state(key)
+    assert again is not None and again["issues"] == [summary]
+    with pytest.raises(ValueError):
+        await record_code_security_review(store, _package(), issues=[{**summary, "path": "x.py"}])

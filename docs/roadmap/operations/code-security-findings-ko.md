@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 점검 결과
 translation_of: code-security-findings.md
-translation_source_sha: 868bf1637967577149d1dd36eb898b859ff60dbc
+translation_source_sha: faf662a036d10bcd9314f1c92504212b52fc96dd
 translation_revised: 2026-10-08
 ---
 
@@ -250,8 +250,15 @@ FDAI는 내보낼 때 기준 커버리지 증적과 이슈 스냅샷을 팩 기�
   건수, 노출, 커버리지와 함께 검토마다 출처와 시작 경로를 보여 줍니다. 로컬 폴더, Git 저장소, 외부
   SARIF, 출처 미기록 검토를 나누어 보는 필터도 있습니다. 형식이 잘못된 행은 보류된 기록으로
   표시됩니다.
+- **이슈 상세:** 검토를 기록할 때 그 리비전의 이슈 요약을 최대 200개까지 검토 다이제스트에 묶어
+  함께 저장합니다. 요약에는 이슈 ID, 우선순위와 처리 기한, 심각도, 신뢰도, 취약점 유형, CWE ID, 최대
+  세 개의 권고 ID, 의존성 패키지 이름, 탐지 도구, 실제 악용 여부만 담깁니다.
+  `GET /code-security/issues?repository_alias=...&revision=...`는 다이제스트가 일치할 때만 요약을
+  제공하며, Console은 선택한 검토의 요약을 보여 줍니다. 경로, 줄 번호, 심볼, 스캐너 메시지, 코드는
+  Console에 전달되지 않습니다.
 - **스캔 요청:** Contributor와 Owner는 `POST /code-security/scan-requests`로 등록된 저장소의 스캔을
-  요청할 수 있습니다. 이 경로는 [코드 보안 스캔](code-security-scanning-ko.md#console에서-저장소-스캔)에
+  요청할 수 있고, Owner는 `POST /code-security/repositories`로 저장소를 등록하거나 켜고 끌 수
+  있습니다. 두 경로 모두 [코드 보안 스캔](code-security-scanning-ko.md#console에서-저장소-스캔)에
   설명된 스캔 작업자가 처리할 정형 제안만 대기열에 넣으며, 화면에는 여전히 승인, 실행, 조치
   컨트롤이 없습니다.
 - **팩 레지스트리:** `--registry state-store`는 팩 기록, 폐기, 반출 시점 기준선, 추가 전용 검토
