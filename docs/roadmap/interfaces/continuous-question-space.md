@@ -178,6 +178,7 @@ controlled evidence exists.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-08 | implemented | Settled unobservable Resources whose type can never hold the requested state. A reviewed lifecycle declaration states that `nosql-database` and `cache` never reach `stopped`, `deallocated`, or `paused`, so a stopped-database question no longer stays partial for two Cosmos DB accounts. Observation still wins, and list or reachable-state requests stay unverified. | `current change`; `recorded_resource_state.py`, `resource_state_queries.py`, contract and state-query tests, and a live Console check. | Other provider-unobservable types gain a declaration only after the same review. |
 | 2026-10-08 | implemented | Named the cause of a partial `query.resource_state_inventory` result. A stopped-database question stayed partial only because two Cosmos DB accounts expose no operational state; the reason now adds `provider_operational_state_not_exposed`, `resource_state_not_reported`, `resource_state_stale`, or `resource_state_conflicting` after `resource_state_evidence_incomplete`, and the answer explains it in the operator's locale. | `current change`; `resource_state_queries.py` and `semantic_source_limitations.py`; focused state-query and limitation tests passed; the live Console answer named the provider cause. | Whether a ResourceType that cannot hold a requested state should leave the result complete needs a reviewed applicability decision. |
 | 2026-09-30 | implemented | Regenerated the dependent semantic-intent coverage artifact after the `case-history-read` binding changed the pinned `core/ontology_platform` source digest: `FunctionInvocationContext` gained the Operator request reference and the Pattern read locator binds it. All question identities, readiness states, metric definitions, denominators, coverage counts, and authority remain unchanged. | `current change`; official `build_semantic_intent_coverage.py`. | Continue case-by-case semantic review and runtime qualification; this digest refresh adds no answerability or operational-readiness evidence. |
 | 2026-09-29 | implemented | Regenerated the 400-question bank and dependent semantic-intent coverage artifact after the test-context review and manual-lookup Console labels changed the joined English and Korean catalog digests. All question identities, readiness states, metric definitions, denominators, coverage counts, and authority remain unchanged. | `current change`; official `build_question_bank.py` then `build_semantic_intent_coverage.py`. | Continue case-by-case semantic review and runtime qualification; this digest refresh adds no answerability or operational-readiness evidence. |
@@ -534,6 +535,17 @@ conflict-free observed state. Its reason keeps `resource_state_evidence_incomple
 cause per kind of gap, such as `provider_operational_state_not_exposed` for a ResourceType whose
 provider exposes no operational state, or `resource_state_stale`. The answer then names why it is
 partial instead of a generic gap, and it never treats an unverifiable Resource as matching or not.
+
+An unobservable state is not always an unknown answer. A reviewed lifecycle declaration in
+`recorded_resource_state.py` lists the lifecycle states a ResourceType never reaches, because no engine
+the type covers has an operation that enters them. Today `nosql-database` and `cache` never reach
+`stopped`, `deallocated`, or `paused`. A declaration is allowed only for a type whose provider exposes
+no operational state, and a test pins each declared type to its reviewed provider type, so a new
+mapping must revisit it. When every requested state is one the Resource's type never reaches, the
+state filter settles that Resource as not matching instead of incomplete. An observed state always
+wins over the declaration, and a list request or a reachable state, such as `running`, stays
+unverified. The declaration is part of the function source, so the release digest and replay bind
+it.
 
 ## Related docs
 

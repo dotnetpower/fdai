@@ -11,6 +11,7 @@ from typing import Any, cast
 
 from fdai_service_contracts.recorded_resource_state import (
     PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES,
+    UNREACHABLE_OPERATIONAL_STATES_BY_RESOURCE_TYPE,
 )
 
 from fdai.core.ontology_platform.functions import (
@@ -179,6 +180,9 @@ def resource_state_inventory_function(
                 observation_cutoff=secured.receipt.observation_cutoff,
             )
             if values is None:
+                if not list_members and _never_reaches(target, requested):
+                    # A reviewed lifecycle fact settles the filter: this Resource cannot match.
+                    continue
                 state_evidence_incomplete = True
                 incomplete_reasons.add(
                     _incomplete_state_reason(
@@ -225,6 +229,21 @@ def resource_state_inventory_function(
         )
 
     return evaluate
+
+
+def _never_reaches(target: OntologyObjectRecord, requested: frozenset[str]) -> bool:
+    """Return whether the reviewed lifecycle of the Resource's type excludes every requested state.
+
+    Only an unobserved Resource reaches this check, so an observed state always wins. The
+    observed-state concept and any reachable state, such as running, keep the Resource unverified.
+    """
+
+    resource_type = _text(target.properties.get("type"))
+    unreachable = UNREACHABLE_OPERATIONAL_STATES_BY_RESOURCE_TYPE.get(
+        resource_type or "", frozenset()
+    )
+    concepts = {f"resource_state.{state}" for state in unreachable}
+    return bool(requested) and requested <= concepts
 
 
 def _incomplete_state_reason(target: OntologyObjectRecord, *, observation_cutoff: Any) -> str:

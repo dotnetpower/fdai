@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
+import yaml
 from fdai.core.ontology_platform.functions import (
     FunctionInvocationContext,
     OntologyFunctionRegistry,
@@ -40,7 +42,13 @@ from fdai.shared.providers.state_evidence import (
     StateFactLane,
     StateFactMetadata,
 )
+from fdai_service_contracts.recorded_resource_state import (
+    OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE,
+    PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES,
+    UNREACHABLE_OPERATIONAL_STATES_BY_RESOURCE_TYPE,
+)
 
+_REPO_ROOT = Path(__file__).resolve().parents[5]
 NOW = datetime(2026, 8, 21, 11, 0, tzinfo=UTC)
 
 
@@ -367,21 +375,79 @@ async def test_state_function_preserves_matches_but_marks_missing_state_incomple
     assert len(rows) == 1
 
 
+def _typed(record: OntologyObjectRecord, resource_type: str) -> OntologyObjectRecord:
+    return replace(record, properties={**record.properties, "type": resource_type})
+
+
 async def test_a_type_whose_provider_hides_state_names_that_cause() -> None:
     observed_at = NOW - timedelta(minutes=5)
-    hidden = _resource("cosmos-a", None)
-    hidden = replace(hidden, properties={**hidden.properties, "type": "nosql-database"})
+    hidden = _typed(_resource("cosmos-a", None), "nosql-database")
     result = await _invoke(
-        _query_result((_resource("database-a", "Stopped", observed_at=observed_at), hidden)),
-        concepts=("resource_state.stopped",),
+        _query_result((_resource("database-a", "Running", observed_at=observed_at), hidden)),
+        concepts=("resource_state.running",),
     )
 
-    # The table stays partial, and the reason says why instead of a generic gap.
+    # Running is a state the type can hold, so the table stays partial and names why.
     assert result["complete"] is False
     assert result["truncation_reason"] == (
         "resource_state_evidence_incomplete+provider_operational_state_not_exposed"
     )
     assert [row["values"]["name"] for row in result["rows"]] == ["database-a"]
+
+
+async def test_a_state_the_type_never_reaches_settles_an_unobserved_resource() -> None:
+    observed_at = NOW - timedelta(minutes=5)
+    result = await _invoke(
+        _query_result(
+            (
+                _resource("database-a", "Stopped", observed_at=observed_at),
+                _typed(_resource("cosmos-a", None), "nosql-database"),
+                _typed(_resource("redis-a", None), "cache"),
+            )
+        ),
+        concepts=("resource_state.stopped", "resource_state.deallocated"),
+    )
+
+    # Neither type has a stop or deallocate operation, so neither can match the filter.
+    assert result == {**result, "complete": True, "truncation_reason": None}
+    assert [row["values"]["name"] for row in result["rows"]] == ["database-a"]
+
+
+async def test_an_observed_state_wins_over_the_lifecycle_declaration() -> None:
+    observed_at = NOW - timedelta(minutes=5)
+    observed = _typed(_resource("cosmos-a", "Stopped", observed_at=observed_at), "nosql-database")
+    result = await _invoke(_query_result((observed,)), concepts=("resource_state.stopped",))
+
+    assert result["complete"] is True
+    assert [row["values"]["name"] for row in result["rows"]] == ["cosmos-a"]
+
+
+async def test_list_mode_keeps_an_unobserved_resource_unverified_despite_the_declaration() -> None:
+    result = await _invoke(
+        _query_result((_typed(_resource("cosmos-a", None), "nosql-database"),)),
+        concepts=(RESOURCE_STATE_OBSERVED_CONCEPT,),
+        list_members=True,
+    )
+
+    assert result["complete"] is False
+    assert result["rows"][0]["values"]["state_status"] == "unknown_incomplete"
+
+
+def test_lifecycle_declarations_cover_only_unobservable_types_with_reviewed_mappings() -> None:
+    vocabulary = _REPO_ROOT / "rule-catalog" / "vocabulary" / "resource-types.yaml"
+    registry = yaml.safe_load(vocabulary.read_text(encoding="utf-8"))
+    arm_types = {item["id"]: item.get("azure_arm_type") for item in registry["types"]}
+    reviewed = {
+        "nosql-database": "Microsoft.DocumentDB/databaseAccounts",
+        "cache": "Microsoft.Cache/redis",
+    }
+
+    # A new provider mapping may add an engine that can stop, so the pairing is pinned.
+    assert set(UNREACHABLE_OPERATIONAL_STATES_BY_RESOURCE_TYPE) == set(reviewed)
+    for resource_type, arm_type in reviewed.items():
+        assert arm_types[resource_type] == arm_type
+        assert resource_type in PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES
+        assert resource_type not in OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE
 
 
 async def test_state_function_preserves_verified_matches_from_incomplete_scope() -> None:
