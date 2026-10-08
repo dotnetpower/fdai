@@ -1,6 +1,7 @@
 """Fake-mode runtime campaign: exact runtime path, no network, label oracle only."""
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -66,3 +67,60 @@ def test_decision_evidence_is_private_and_digested_beyond_the_canonical_bound(
     assert path.stat().st_mode & 0o777 == 0o600
     with pytest.raises(FileExistsError):
         campaign.write_decisions(path, rows)
+
+
+async def test_abort_retains_partial_rows_and_content_free_failure_classes() -> None:
+    import logging
+
+    campaign = _module()
+    cases = campaign.load_cases()
+    fake, http = campaign._fake_binding(cases)
+
+    class _Unavailable:
+        def candidate_proposal_binding(self) -> object:
+            return fake.expected_binding
+
+        async def propose_candidate_selection(self, **_kwargs: object) -> object:
+            raise RuntimeError("private provider detail")
+
+    failing = campaign.TypedSelectionShadowBinding(
+        proposer=_Unavailable(),
+        data_handling_policy_digest=fake.data_handling_policy_digest,
+        expected_binding=fake.expected_binding,
+        budget=fake.budget,
+    )
+    async with http:
+        with pytest.raises(campaign.CampaignAbortedError) as aborted:
+            await campaign.run_campaign(
+                binding=failing,
+                cases=cases[:8],
+                repeats=1,
+                probe_delay_seconds=0.0,
+                progress=lambda _message: None,
+            )
+    rows = aborted.value.rows
+    assert len(rows) == campaign.MAX_CONSECUTIVE_UNAVAILABLE
+    assert {row["unavailable_reason"] for row in rows} == {"proposal_unavailable"}
+    assert all("private provider detail" not in str(row) for row in rows)
+
+    log = campaign.AdapterFailureLog()
+    logger = logging.getLogger("fdai.delivery.azure.llm.semantic_planning")
+    logger.addHandler(log)
+    try:
+        logger.warning(
+            "semantic_planning_candidate_failed",
+            extra={
+                "operation": "candidate_selection",
+                "failure_type": "HTTPStatusError",
+                "status_code": 429,
+            },
+        )
+        logger.warning("unrelated message", extra={"failure_type": "x"})
+    finally:
+        logger.removeHandler(log)
+    expected = {
+        "failure_type": "HTTPStatusError",
+        "operation": "candidate_selection",
+        "status_code": 429,
+    }
+    assert dict(log.counts) == {json.dumps(expected, sort_keys=True): 1}
