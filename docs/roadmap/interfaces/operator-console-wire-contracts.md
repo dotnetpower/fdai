@@ -546,7 +546,16 @@ ambiguous record returns `503` instead of an inferred zero. The summary grants n
 `complete`, `source`, the `reviews` or `packs` list, and `gaps`. Rows carry only counts, revisions,
 opaque issue ids, decisions, verdict counts, and adjudication decisions, never paths, code,
 rationale, or approval references. Malformed rows become `gaps` entries, so an empty list never
-reads as a clean estate.
+reads as a clean estate. Schema `1.1.0` review rows also carry `source` (kind, provider, revision
+kind, trigger, and request id) and `producers`; older rows return `source: null`.
+
+`GET /code-security/repositories` returns registered repositories (alias, provider, location,
+default ref, exposure, enabled, and registration time) without the registrant.
+`GET /code-security/scan-requests` returns Console scan requests with `status` (`queued`,
+`running`, `completed`, or `rejected`), timestamps, a rejection reason code, or a bounded result
+(revision, digest, decision, issue count, coverage, and publication), never the requester.
+`POST /code-security/scan-requests` accepts only `repository_alias` and an optional `ref`, requires
+an `Idempotency-Key`, and returns the `202` proposal receipt.
 
 ## Implementation status
 
@@ -609,6 +618,7 @@ reads as a clean estate.
 | 2026-09-30 | implemented | Kept typed reading-hold reason codes on the semantic terminal instead of the generic evidence hold or unsupported code, with a reviewed bilingual notice that names the closed constraint roles or atom categories, and mapped those codes to restate or unsupported prompts in the Console. The `reason_code` field keeps its bounded pattern, so no wire schema version changes. | `current change`; `services/core-control-plane/src/fdai_core_service/semantic_reading_holds.py`; `services/core-control-plane/src/fdai_core_service/semantic_turn_processor.py`; `console/src/deck/verification-presentation.ts`; `test_semantic_turn_processor.py` and `verification-presentation.test.ts` passed | Retain an authenticated held terminal that shows a typed reading hold after deployment. |
 | 2026-10-01 | implemented | A compiled single-target health answer renders through the current path's reviewed assessment renderer, which now accepts the goal-prefixed node id, and restates its fixed window through a reviewed bilingual notice; the wire schema is unchanged. | `current change`; `services/core-control-plane/src/fdai_core_service/{semantic_turn_processor,semantic_verified_rows}.py`; `test_semantic_reasoning_measure_reads.py` | None for this change. |
 | 2026-10-01 | implemented | A compiled property lookup renders the exact reviewed value of its bound Resource, states a missing value as unknown, and restates the value's inventory source and reviewed freshness bound through a reviewed bilingual notice; the wire schema is unchanged. | `current change`; `services/core-control-plane/src/fdai_core_service/{semantic_property_answer,semantic_verified_rows,semantic_turn_processor}.py`; `test_semantic_reasoning_property_reads.py` | None for this change. |
+| 2026-10-08 | implemented | Added `GET /code-security/repositories`, `GET /code-security/scan-requests`, and the Contributor or Owner `POST /code-security/scan-requests` proposal, and `source` and `producers` on schema `1.1.0` review rows. | `current change`; `fdai_operator_service/code_security_review_projection.py`, `families/operations/manifest.py`, `factory.py`; `services/operator-service/tests/test_code_security_review_projection.py` and `test_operator_operations_family.py` passed. | The scan-request worker isn't scheduled in a deployment yet; see the [Code Security Scanning ledger](../../roadmap-implementation/operations/code-security-scanning.md). |
 
 ### Remaining work
 

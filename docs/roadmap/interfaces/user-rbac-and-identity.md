@@ -164,7 +164,10 @@ authority. Reader, Contributor, Approver, and BreakGlass roles cannot save the O
 its plan. BreakGlass is not an Owner superset and does not inherit this capability.
 
 Code-security review and remediation-pack views (`GET /code-security/reviews` and
-`GET /code-security/packs`) are read-only for every read role. A false-positive adjudication needs
+`GET /code-security/packs`, plus `/repositories` and `/scan-requests`) are read-only for every read
+role. Requesting a scan of a registered repository (`POST /code-security/scan-requests`) needs the
+Contributor or Owner role; the scan worker rechecks that role and grants no approval or execution
+authority. Registering a repository is an operator CLI step. A false-positive adjudication needs
 an adjudicator other than the claimant unless the single-operator profile is explicitly selected,
 and it is recorded with its approval reference.
 

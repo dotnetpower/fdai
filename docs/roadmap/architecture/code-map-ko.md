@@ -1,8 +1,8 @@
 ---
 title: 코드 맵
 translation_of: code-map.md
-translation_source_sha: 79739f167fa64d4137955772faba6482b16c0330
-translation_revised: 2026-10-07
+translation_source_sha: c8921dd96443fc654f56760012ce8eedbbcb85b3
+translation_revised: 2026-10-08
 ---
 # 코드 맵
 
@@ -48,7 +48,7 @@ Core 배포 단위는 전체 `fdai` 네임스페이스를 유지합니다. 다�
 | 감지와 조사 | [detection](../../../services/core-control-plane/src/fdai/core/detection/) 및 [investigation](../../../services/core-control-plane/src/fdai/core/investigation/) | [감지 테스트](../../../services/core-control-plane/tests/core/detection/) 및 [조사 테스트](../../../services/core-control-plane/tests/core/investigation/) | [관측성과 감지](../rules-and-detection/observability-and-detection-ko.md) |
 | 알림 과다 수신 관리 | [alert_noise](../../../services/core-control-plane/src/fdai/core/detection/alert_noise/), [런타임 연결](../../../services/core-control-plane/src/fdai/runtime/alert_noise.py), [Operator 경계](../../../services/operator-service/src/fdai_operator_service/alert_quality.py) | [알림 Core 테스트](../../../services/core-control-plane/tests/core/detection/alert_noise/) 및 [Operator 테스트](../../../services/operator-service/tests/test_alert_quality.py) | [알림 과다 수신 관리](../operations/alert-noise-governance-ko.md) |
 | 근본 원인 분석과 평가 | [RCA](../../../services/core-control-plane/src/fdai/core/rca/) 및 [framework_assessment](../../../services/core-control-plane/src/fdai/core/framework_assessment/) | [RCA 테스트](../../../services/core-control-plane/tests/core/rca/) 및 [평가 테스트](../../../services/core-control-plane/tests/core/framework_assessment/) | [근본 원인 분석](../rules-and-detection/root-cause-analysis-ko.md) |
-| 코드 보안 점검 결과와 조치 팩 | [code_findings](../../../services/core-control-plane/src/fdai/core/security/code_findings/), [카탈로그](../../../rule-catalog/code-security/), and [운영자 CLI](../../../services/core-control-plane/src/fdai/delivery/code_security_cli.py) | [코드 점검 결과 테스트](../../../services/core-control-plane/tests/core/security/code_findings/) | [코드 보안 점검 결과](../operations/code-security-findings-ko.md), [코드 보안 스캔](../operations/code-security-scanning-ko.md) |
+| 코드 보안 점검 결과와 조치 팩 | [code_findings](../../../services/core-control-plane/src/fdai/core/security/code_findings/), [카탈로그](../../../rule-catalog/code-security/), and [운영자 CLI](../../../services/core-control-plane/src/fdai/delivery/code_security_cli.py), [스캔 요청](../../../services/core-control-plane/src/fdai/delivery/code_security_scan_requests.py) | [코드 점검 결과 테스트](../../../services/core-control-plane/tests/core/security/code_findings/), [스캔 요청 테스트](../../../services/core-control-plane/tests/delivery/test_code_security_scan_requests.py) | [코드 보안 점검 결과](../operations/code-security-findings-ko.md), [코드 보안 스캔](../operations/code-security-scanning-ko.md) |
 | Workflow와 실행 조정 | [workflow](../../../services/core-control-plane/src/fdai/core/workflow/) 및 [executor](../../../services/core-control-plane/src/fdai/core/executor/) | [Workflow 테스트](../../../services/core-control-plane/tests/core/workflow/) 및 [실행기 테스트](../../../services/core-control-plane/tests/core/executor/) | [실행 권한 온톨로지](../decisioning/execution-authorization-ontology-ko.md) |
 | Rule Catalog 런타임 | [rule_catalog](../../../services/core-control-plane/src/fdai/rule_catalog/) | [Rule Catalog 테스트](../../../services/core-control-plane/tests/rule_catalog/) | [Rule Catalog 수집](../rules-and-detection/rule-catalog-collection-ko.md) |
 | Rule 활성화 세대 | [rule_activation](../../../services/core-control-plane/src/fdai/core/rule_activation/) 및 [런타임 바인딩](../../../services/core-control-plane/src/fdai/runtime/rule_activation.py) | [Rule 활성화 테스트](../../../services/core-control-plane/tests/core/rule_activation/) | [Rule Governance](../rules-and-detection/rule-governance-ko.md) |

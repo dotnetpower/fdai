@@ -763,7 +763,9 @@ providers, Helm repositories, mutable image tags, or an operator kubeconfig.
 
 The code-security scan runner image isn't part of any deployment profile yet. It needs a runtime
 that allows unprivileged user namespaces for bubblewrap and its own offline-database refresh, so a
-profile must opt in explicitly. See
+profile must opt in explicitly. The same applies to the Console scan-request worker
+(`fdai-scan-runner process-requests`), which also needs a read-only GitHub App token scoped per
+repository. See
 [Code Security Scanning](../operations/code-security-scanning.md#scan-runner-image).
 
 The shipped notification matrix carries the code-security A2 alert and A4 digest routes, so every

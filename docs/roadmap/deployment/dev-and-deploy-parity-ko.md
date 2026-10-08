@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: be2d3426e806d80e954fbde1fd7d55d2f2242e08
+translation_source_sha: f42ae05ddc5d62daee7529946b15e29df31d2937
 translation_revised: 2026-10-08
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -538,7 +538,10 @@ Trial 만료 워터마크도 같은 규칙을 따릅니다. 로컬과 배포된 
 코드 보안 검토와 팩 화면은 로컬과 배포 환경에서 같은 `state_kv` 행을 읽으며, `/code-security/reviews`와
 `/code-security/packs`는 지속형 operational-state 출처로 선언됩니다. 실행 위치에 따른 차이는 LLM
 렌즈 호출의 신원 하나입니다. 배포 환경은 Managed Identity를, 로컬 실행은 `--lens-identity azure-cli`를
-사용합니다.
+사용합니다. 저장소 등록과 Console 스캔 요청도 `state_kv` 행이며, 두 실행 위치 모두
+`/code-security/repositories`와 `/code-security/scan-requests`로 제공됩니다. 스캔 요청 작업자는 두
+위치에서 같은 `process-scan-requests` 배치 작업입니다. 로컬에서는 스캔 실행 이미지로 한 번 실행하며,
+아직 이를 예약 실행하는 배포 프로필은 없습니다.
 
 ## 배포자-스코프 LLM 프로비저닝
 
