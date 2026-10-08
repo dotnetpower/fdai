@@ -92,6 +92,17 @@ def _platform_state(
                 "endpoint": "https://oai-example.openai.azure.com/",
             },
         },
+        {
+            "address": (
+                "module.operator_channel_edge_identity[0].azurerm_user_assigned_identity.primary"
+            ),
+            "values": {
+                "id": "/subscriptions/example/resourceGroups/example/providers/"
+                "Microsoft.ManagedIdentity/userAssignedIdentities/example-channel-edge",
+                "client_id": "00000000-0000-0000-0000-000000000020",
+                "principal_id": "00000000-0000-0000-0000-000000000021",
+            },
+        },
     ]
     root_resources = (
         []
@@ -265,6 +276,8 @@ def test_workflow_plans_every_production_root() -> None:
     assert "Platform state has no Cost pseudonym key binding for $root_id." in workflow
     assert "resolved_model_args+=(--model-binding-transition)" in workflow
     assert "service_feature_args+=(--operator-channel-edge-enabled" in workflow
+    assert "OPERATOR_CHANNEL_EDGE_IDENTITY_JSON=" in workflow
+    assert "OPERATOR_CHANNEL_EDGE_PROVIDER_JSON=" in workflow
     assert ".values.outputs.channel_edge_health_contract.value != null" in workflow
     assert '"${service_feature_args[@]}"' in workflow
     assert '"${resolved_model_args[@]}"' in workflow
@@ -408,6 +421,12 @@ def test_stored_platform_inputs_preserve_pre_refresh_service_bindings(
         "database_host": "postgres.example.com",
         "event_topic": "fdai.change.events",
         "model_endpoints": {"azure-openai:oai-example": "https://oai-example.openai.azure.com"},
+        "operator_channel_edge_identity": {
+            "resource_id": "/subscriptions/example/resourceGroups/example/providers/"
+            "Microsoft.ManagedIdentity/userAssignedIdentities/example-channel-edge",
+            "client_id": "00000000-0000-0000-0000-000000000020",
+            "principal_id": "00000000-0000-0000-0000-000000000021",
+        },
         "pantheon_object_topic": "fdai.pantheon.objects",
         "pipeline_stage_topic": "fdai.pipeline.stages",
     }

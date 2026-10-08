@@ -30,6 +30,10 @@ _PLATFORM_KEY_VAULT_ADDRESS = "module.key_vault.azurerm_key_vault.primary"
 _PLATFORM_OPERATOR_IDENTITY_ADDRESS = (
     "module.operator_api_identity[0].azurerm_user_assigned_identity.primary"
 )
+_PLATFORM_CHANNEL_EDGE_IDENTITY_ADDRESSES = (
+    "module.operator_channel_edge_identity[0].azurerm_user_assigned_identity.primary",
+    "module.operator_channel_edge_identity.azurerm_user_assigned_identity.primary",
+)
 _POSTGRES_SERVER_ID = re.compile(
     r"/subscriptions/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
     r"/resourceGroups/[A-Za-z0-9._()-]{1,90}"
@@ -205,6 +209,9 @@ def stored_platform_inputs(payload: dict[str, Any]) -> dict[str, Any]:
         model_endpoints[f"{reference_prefix}{name}"] = endpoint.rstrip("/")
     resolved["model_endpoints"] = dict(sorted(model_endpoints.items()))
     resolved["cost_pseudonym_key_secret_id"] = _stored_cost_pseudonym_key_secret_id(root)
+    resolved["operator_channel_edge_identity"] = _stored_optional_identity(
+        root, _PLATFORM_CHANNEL_EDGE_IDENTITY_ADDRESSES
+    )
     return resolved
 
 
@@ -333,6 +340,35 @@ def _stored_cost_pseudonym_key_secret_id(root: dict[str, Any]) -> str | None:
     if not isinstance(secret_id, str) or not secret_id or "\n" in secret_id:
         raise DriftContractError("platform state contains an invalid cost pseudonym key binding")
     return secret_id
+
+
+def _stored_optional_identity(
+    root: dict[str, Any], addresses: tuple[str, ...]
+) -> dict[str, str] | None:
+    matches: list[dict[str, Any]] = []
+    for address in addresses:
+        try:
+            matches.append(_resource_at_address(root, address))
+        except LookupError:
+            pass
+    if not matches:
+        return None
+    if len(matches) != 1:
+        raise DriftContractError("platform state contains duplicate optional identities")
+    values = matches[0].get("values")
+    if not isinstance(values, dict):
+        raise DriftContractError("platform state contains an invalid optional identity")
+    resource_id = values.get("id")
+    client_id = values.get("client_id")
+    principal_id = values.get("principal_id")
+    identity_values = (resource_id, client_id, principal_id)
+    if not all(isinstance(value, str) and value and "\n" not in value for value in identity_values):
+        raise DriftContractError("platform state contains an invalid optional identity")
+    return {
+        "resource_id": str(resource_id),
+        "client_id": str(client_id),
+        "principal_id": str(principal_id),
+    }
 
 
 def _stored_output_string(outputs: dict[str, Any], name: str) -> str:
