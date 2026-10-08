@@ -62,13 +62,7 @@ never converted into a generic healthy value. The shared Operator workflow adapt
 Operator ontology projection and role selection now live with the focused operations family
 adapter, while Rule, best-practice, CAF, MCSB, and WARA catalog rendering have separate pure
 projection owners. The ownership split changes no declaration identity, relationship direction,
-projection revision, evidence admission, or authority. The WARA `t0_rule` binding overlay is a
-catalog-schema evaluator binding, not an ontology relationship: it can't add a Rule-to-recommendation
-link or change mapping state.
-The `azure-mcsb` framework assessment catalog likewise adds reviewed Rule requirement roles, not
-ontology relationships; it doesn't change any MCSB crosswalk mapping state. The workflow adapter's
-join of MCSB shadow assessment state onto the MCSB catalog read is an operational read model with
-the same limits.
+projection revision, evidence admission, or authority. The WARA `t0_rule` binding overlay is a catalog-schema evaluator binding, not an ontology relationship: it can't add a Rule-to-recommendation link or change mapping state. The `azure-mcsb` framework assessment catalog likewise adds reviewed Rule requirement roles, not ontology relationships; it doesn't change any MCSB crosswalk mapping state. The workflow adapter's join of MCSB shadow assessment state onto the MCSB catalog read is an operational read model with the same limits.
 The catalog-owned objective binding projection uses the same exact-release object and directed
 link validation as other catalog instances. A candidate binding names one validated objective
 and one exact Rule version; its graph links cannot become an assessment or permission. Reviewed `rule-catalog/objective-effects/` records bind signed expected objective utilities to one exact Rule content digest and ActionType; replay loads them fail-closed, and they inform arbitration evidence only without selecting, approving, or executing an action.

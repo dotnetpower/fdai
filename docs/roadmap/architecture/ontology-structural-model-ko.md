@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: ae63b90b8d5db77cf37db3a5919fc909817d178b
+translation_source_sha: 53a252d373c9b2288074faf4da254b868e23e890
 translation_revised: 2026-10-08
 ---
 # 온톨로지 구조 모델
