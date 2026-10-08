@@ -197,6 +197,83 @@ VULNERABLE = {
         """,
         CODE,
     ),
+    "tracked_list_reads_the_tainted_element": (
+        """
+        from flask import request
+
+        def run():
+            param = request.args["expr"]
+            lst = []
+            lst.append("1 + 1")
+            lst.append(param)
+            lst.append("2 + 2")
+            lst.pop(0)
+            return eval(lst[0])  # sink
+        """,
+        CODE,
+    ),
+    "list_tracking_stops_on_other_use": (
+        """
+        from flask import request
+
+        def run():
+            lst = ["1 + 1", "2 + 2"]
+            lst.insert(0, request.args["expr"])
+            return eval(lst[1])  # sink
+        """,
+        CODE,
+    ),
+    "list_tracking_stops_when_branch_lengths_differ": (
+        """
+        from flask import request
+
+        def run():
+            lst = ["1 + 1"]
+            if request.args.get("mode"):
+                lst.append(request.args["expr"])
+            else:
+                lst.pop(0)
+                lst.append(request.args["expr"])
+            return eval(lst[0])  # sink
+        """,
+        CODE,
+    ),
+    "element_store_stops_list_tracking": (
+        """
+        from flask import request
+
+        def run():
+            lst = ["1 + 1", "2 + 2"]
+            lst[1] = request.args["expr"]
+            del lst[0]
+            return eval(lst[0])  # sink
+        """,
+        CODE,
+    ),
+    "assignment_before_break_reaches_the_sink": (
+        """
+        from flask import request
+
+        def run():
+            param = ""
+            for name in request.form.keys():
+                if "marker" in request.form.getlist(name):
+                    param = name
+                    break
+            return eval(param)  # sink
+        """,
+        CODE,
+    ),
+    "codecs_open_path": (
+        """
+        import codecs
+        from flask import request
+
+        def read():
+            return codecs.open("/srv/" + request.args["file"], "r", "utf-8").read()  # sink
+        """,
+        PATH,
+    ),
     "match_without_wildcard_falls_through": (
         """
         from flask import request
@@ -379,6 +456,51 @@ SAFE = {
             return open("/srv/files/" + name).read()  # sink
         """,
         PATH,
+        "argument_not_attacker_controlled",
+    ),
+    "tracked_list_reads_a_clean_element": (
+        """
+        from flask import request
+
+        def run():
+            param = request.args["expr"]
+            lst = []
+            lst.append("1 + 1")
+            lst.append(param)
+            lst.append("2 + 2")
+            lst.pop(0)
+            return eval(lst[1])  # sink
+        """,
+        CODE,
+        "argument_not_attacker_controlled",
+    ),
+    "deleted_name_is_rebound_clean": (
+        """
+        from flask import request
+
+        def run():
+            bar = request.args["expr"]
+            del bar
+            bar = "1 + 1"
+            return eval(bar)  # sink
+        """,
+        CODE,
+        "argument_not_attacker_controlled",
+    ),
+    "continue_skips_the_tainting_assignment": (
+        """
+        from flask import request
+
+        def run():
+            bar = "1 + 1"
+            while True:
+                if request.args.get("skip"):
+                    break
+                continue
+                bar = request.args["expr"]
+            return eval(bar)  # sink
+        """,
+        CODE,
         "argument_not_attacker_controlled",
     ),
     "constant_arithmetic_branch": (
