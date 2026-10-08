@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: e9869a24856b5eb538707c96e870de8a0a188fdd
+translation_source_sha: baae8c0e4d23b50307f20f0fa29dc554b11aa271
 translation_revised: 2026-10-09
 ---
 # 런타임 배포 프로파일
@@ -704,7 +704,9 @@ CSI를 통해 읽습니다. 클라이언트 트래픽에는 상태가 소유하�
 
 클러스터 내부 데이터베이스 단계는 공유 상태 저장소 DSN과 AKS 문서 수집이 읽는 역할 범위
 `fdai-ingestion-api-dsn`, `fdai-ingestion-worker-dsn` 비밀을 기록합니다. 각 수집 비밀은 일치하는
-워크로드 신원에만 `Key Vault Secrets User`를 부여합니다. `postgres-aks`를 선택하면 기반 구성
+워크로드 신원에만, 그리고 선택한 제품 프로파일이 그 신원을 만들 때만 `Key Vault Secrets User`를
+부여합니다. 공유 DSN은 Core, 인벤토리, 그리고 프로파일이 만드는 Operator와 실행기 신원에 부여하므로,
+관찰 우선 설치는 이 신원들 없이도 데이터베이스를 준비합니다. `postgres-aks`를 선택하면 기반 구성
 플랜은 여전히 Flexible Server 기반 수집 DSN 비밀과 그 읽기 역할을 제외합니다. Terraform
 `-target`은 count가 0인 대상이라도 구성 의존성을 모두 유지하므로, 루트 비밀이 포함되면
 `module.state_store`를 통해 Flexible Server가 플랜에 들어가기 때문입니다.

@@ -707,8 +707,10 @@ but do not claim database high availability, backup, or point-in-time recovery.
 
 The in-cluster database stage writes the shared state-store DSN plus the role-scoped
 `fdai-ingestion-api-dsn` and `fdai-ingestion-worker-dsn` secrets that AKS document ingestion reads.
-Each ingestion secret grants `Key Vault Secrets User` only to the matching workload identity. The
-substrate plan still leaves out the Flexible Server-backed ingestion DSN secrets and their reader
+Each ingestion secret grants `Key Vault Secrets User` only to the matching workload identity, and
+only when the selected product profile creates that identity. The shared DSN is granted to Core,
+inventory, and whichever Operator and executor identities the profile creates, so an
+observation-first installation prepares its database without them. The substrate plan still leaves out the Flexible Server-backed ingestion DSN secrets and their reader
 roles when `postgres-aks` is selected. Terraform `-target` keeps every configuration dependency of a
 target, even at count 0, so including those root secrets would otherwise plan the Flexible Server
 through `module.state_store`.
