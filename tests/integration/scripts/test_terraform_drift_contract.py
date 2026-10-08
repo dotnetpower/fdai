@@ -131,6 +131,7 @@ def _legacy_platform_state(*, incomplete_governed_identities: bool = False) -> d
         "module.identity_resilience[0].azurerm_user_assigned_identity.primary",
         "module.identity_finops[0].azurerm_user_assigned_identity.primary",
         "module.isolated_executor_identity[0].azurerm_user_assigned_identity.primary",
+        "module.key_vault.azurerm_key_vault.primary",
         "module.llm_azure_openai[0].azurerm_cognitive_account.primary",
         "module.monitoring[0].azurerm_monitor_action_group.main",
         "azurerm_linux_virtual_machine_scale_set.ohl_evidence[0]",
@@ -195,6 +196,8 @@ def _legacy_platform_state(*, incomplete_governed_identities: bool = False) -> d
                                     "module.operator_api_identity[0]."
                                     "azurerm_user_assigned_identity.primary"
                                 )
+                                else {"id": "/example/key-vault"}
+                                if address == "module.key_vault.azurerm_key_vault.primary"
                                 else {}
                             ),
                         }
@@ -265,6 +268,8 @@ def test_workflow_plans_every_production_root() -> None:
     assert "terraform -chdir=infra show -json" in workflow
     assert "platform-output-inputs" in workflow
     assert '-var-file="$plan_inputs" -detailed-exitcode' in workflow
+    assert "No semantic drift: legacy" in workflow
+    assert "refresh_drift_digest.py summarize" in workflow
     assert "database_host=\"$(jq -er '.database_host'" in workflow
     assert "event_topic=\"$(jq -er '.event_topic'" in workflow
     assert "pipeline_stage_topic=\"$(jq -er '.pipeline_stage_topic'" in workflow
@@ -605,9 +610,11 @@ def test_recovers_legacy_output_inputs_from_stored_state(drift: ModuleType) -> N
     assert inputs == {
         "enable_dev_operations_gateway": True,
         "enable_governed_execution": True,
+        "enable_inventory_evidence_store_reader": True,
         "enable_llm": True,
         "enable_ohl_scale_out_evidence_target": True,
         "enable_operational_history": True,
+        "operator_api_audience": "00000000-0000-0000-0000-000000000010",
         "resolved_capabilities": [
             {
                 "name": "t1.judge",
@@ -640,6 +647,23 @@ def test_recovers_operator_identity_without_root_output(drift: ModuleType) -> No
     assert drift.stored_platform_operator_identity(fixture["state"]) == {
         "principal_id": "00000000-0000-0000-0000-000000000001"
     }
+
+
+def test_recovers_key_vault_without_root_output(drift: ModuleType) -> None:
+    fixture = _legacy_platform_state()
+
+    assert drift.stored_platform_key_vault(fixture["state"]) == {
+        "resource_id": "/example/key-vault"
+    }
+
+
+def test_treats_null_optional_legacy_output_as_disabled(drift: ModuleType) -> None:
+    fixture = _legacy_platform_state()
+    fixture["state"]["values"]["outputs"]["ohl_scale_out_evidence_target_id"]["value"] = None
+
+    inputs = drift.stored_platform_output_inputs(fixture["state"])
+
+    assert inputs["enable_ohl_scale_out_evidence_target"] is False
 
 
 def test_rejects_invalid_legacy_model_deployment(drift: ModuleType) -> None:

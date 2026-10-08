@@ -44,6 +44,7 @@ def test_platform_prerequisite_recovers_tracked_identity_without_output() -> Non
     source = _SCRIPT.read_text(encoding="utf-8")
 
     assert "stored_platform_operator_identity(platform_state)" in source
+    assert "stored_platform_key_vault(platform_state)" in source
     assert 'label="platform state projection"' in source
 
 

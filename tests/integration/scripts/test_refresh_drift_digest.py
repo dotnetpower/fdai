@@ -120,6 +120,70 @@ def test_clean_plan_has_no_drift() -> None:
     assert digest_module.render([summary]) == "bootstrap: no drift"
 
 
+@pytest.mark.parametrize("name", ["installation_binding", "installation_created_at"])
+@pytest.mark.parametrize(
+    ("actions", "before"),
+    [(["create"], None), (["update"], "retained")],
+)
+def test_legacy_installation_anchor_plan_unknown_is_not_drift(
+    name: str, actions: list[str], before: object
+) -> None:
+    summary = digest_module.summarize(
+        _plan(
+            resource_drift=[],
+            resource_changes=[],
+            output_changes={
+                name: {
+                    "actions": actions,
+                    "before": before,
+                    "after": "retained-placeholder",
+                    "after_unknown": True,
+                }
+            },
+        ),
+        root_id="legacy",
+    )
+
+    assert digest_module.has_drift(summary) is False
+    assert digest_module.output_regressions(summary) == []
+
+
+@pytest.mark.parametrize(
+    ("root_id", "change"),
+    [
+        (
+            "bootstrap",
+            {
+                "actions": ["update"],
+                "before": "retained",
+                "after": None,
+                "after_unknown": True,
+            },
+        ),
+        (
+            "legacy",
+            {
+                "actions": ["delete"],
+                "before": None,
+                "after": "changed",
+                "after_unknown": True,
+            },
+        ),
+    ],
+)
+def test_installation_anchor_exception_is_exact(root_id: str, change: dict[str, Any]) -> None:
+    summary = digest_module.summarize(
+        _plan(
+            resource_drift=[],
+            resource_changes=[],
+            output_changes={"installation_binding": change},
+        ),
+        root_id=root_id,
+    )
+
+    assert digest_module.has_drift(summary) is True
+
+
 def test_cli_summarizes_digests_and_reports_errors(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

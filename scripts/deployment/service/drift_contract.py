@@ -26,6 +26,7 @@ class DriftContractError(ValueError):
 
 _COST_PSEUDONYM_KEY_ADDRESS = "azurerm_key_vault_secret.cost_pseudonym_key[0]"
 _PLATFORM_DATABASE_ADDRESS = "module.state_store.azurerm_postgresql_flexible_server.primary"
+_PLATFORM_KEY_VAULT_ADDRESS = "module.key_vault.azurerm_key_vault.primary"
 _PLATFORM_OPERATOR_IDENTITY_ADDRESS = (
     "module.operator_api_identity[0].azurerm_user_assigned_identity.primary"
 )
@@ -243,6 +244,23 @@ def stored_platform_operator_identity(payload: dict[str, Any]) -> dict[str, str]
     return {"principal_id": principal_id}
 
 
+def stored_platform_key_vault(payload: dict[str, Any]) -> dict[str, str]:
+    """Read the tracked legacy Key Vault id without relying on root outputs."""
+    values = payload.get("values")
+    root = values.get("root_module") if isinstance(values, dict) else None
+    if not isinstance(root, dict):
+        raise DriftContractError("Terraform state JSON has no root module")
+    try:
+        resource = _resource_at_address(root, _PLATFORM_KEY_VAULT_ADDRESS)
+    except LookupError:
+        raise DriftContractError("platform state is missing the Key Vault") from None
+    resource_values = resource.get("values")
+    resource_id = resource_values.get("id") if isinstance(resource_values, dict) else None
+    if not isinstance(resource_id, str) or not resource_id or "\n" in resource_id:
+        raise DriftContractError("platform state contains an invalid Key Vault")
+    return {"resource_id": resource_id}
+
+
 def stored_platform_output_inputs(
     payload: dict[str, Any],
 ) -> dict[str, Any]:
@@ -278,17 +296,19 @@ def stored_platform_output_inputs(
     if any(decision_evidence) and not all(decision_evidence):
         raise DriftContractError("platform state has incomplete decision evidence outputs")
 
+    gateway_audience = _stored_optional_output_string(outputs, "dev_operations_gateway_audience")
     plan_inputs: dict[str, Any] = {
-        "enable_dev_operations_gateway": (
-            _stored_optional_output_string(outputs, "dev_operations_gateway_audience") is not None
-        ),
+        "enable_dev_operations_gateway": gateway_audience is not None,
         "enable_governed_execution": all(governed_identities),
+        "enable_inventory_evidence_store_reader": all(decision_evidence),
         "enable_llm": (_stored_optional_output_string(outputs, "llm_resource_id") is not None),
         "enable_ohl_scale_out_evidence_target": (
             _stored_optional_output_string(outputs, "ohl_scale_out_evidence_target_id") is not None
         ),
         "enable_operational_history": all(decision_evidence),
     }
+    if gateway_audience is not None:
+        plan_inputs["operator_api_audience"] = gateway_audience
     if not plan_inputs["enable_llm"]:
         return plan_inputs
 
@@ -328,9 +348,11 @@ def _stored_optional_output_string(outputs: dict[str, Any], name: str) -> str | 
     if output is None:
         return None
     value = output.get("value") if isinstance(output, dict) else None
+    if value is None or value == "":
+        return None
     if not isinstance(value, str) or "\n" in value:
         raise DriftContractError(f"platform state contains an invalid {name} output")
-    return value or None
+    return value
 
 
 def _stored_openai_capabilities(root: dict[str, Any]) -> list[dict[str, Any]]:
