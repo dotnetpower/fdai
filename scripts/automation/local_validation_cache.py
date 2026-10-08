@@ -205,6 +205,12 @@ def prepare_environment(
     return current
 
 
+def validation_git_config(listing: bytes) -> bytes:
+    """Drop per-branch tracking entries that unrelated branch creation rewrites concurrently."""
+    entries = [entry for entry in listing.split(b"\0") if entry]
+    return b"\0".join(entry for entry in entries if not entry.startswith(b"branch."))
+
+
 def cache_context(
     root: Path,
     tree: str,
@@ -224,7 +230,7 @@ def cache_context(
             "tools": tools,
             "installed": installed,
             "arguments": arguments,
-            "git_config": git(root, "config", "--null", "--list").hex(),
+            "git_config": validation_git_config(git(root, "config", "--null", "--list")).hex(),
             "git_exclude": exclude.read_bytes().hex() if exclude.exists() else "",
         }
     )
