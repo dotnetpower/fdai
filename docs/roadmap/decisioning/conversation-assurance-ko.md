@@ -57,7 +57,7 @@ Core는 영속 큐와 Pantheon 품질 보증 단계의 schema-v2 timing을 기�
 
 ### 명시적 캠페인 운영
 
-`scripts/automation/conversation-assurance.py`로 캠페인을 미리 보고, 시작하고, 조회하거나 중지합니다. 일반 개선 트리거는 새롭고 근거 준비가 완료된 읽기 질문 하나를 준비하고 인증된 Console 턴 하나를 답변, Run Record, 프롬프트 manifest 및 답변 준비 gate에 연결하며, 측정 1회만 허용하고 `code_defect`만 Low 초과 발견이 없는 검증된 비평 10회 이상에 진입시킵니다. 이 메커니즘은 구현됐지만 새로운 라이브 검증 또는 qualification 근거는 아직 없습니다. 하위 캠페인은 최대 20개 질문을 평가하며 큰 census는 순차 하위 캠페인을 사용하고 첫 판단 보류 또는 미완료에서 중지합니다.
+`scripts/automation/conversation-assurance.py`로 캠페인을 미리 보고, 시작하고, 조회하거나 중지합니다. 일반 개선 트리거는 새롭고 근거 준비가 완료된 읽기 질문 하나를 준비하고 인증된 Console 턴 하나를 답변, Run Record, 프롬프트 manifest 및 답변 준비 gate에 연결하며, 측정 1회만 허용하고 `code_defect`만 Low 초과 발견이 없는 검증된 비평 10회 이상에 진입시킵니다. 이 메커니즘은 구현됐지만 새로운 라이브 검증 또는 qualification 근거는 아직 없습니다. 하위 캠페인은 최대 20개 질문을 평가하며 큰 census는 순차 하위 캠페인을 사용하고 첫 판단 보류 또는 미완료에서 중지합니다. 브라우저 워커는 측정할 질문 하나를 보내기 전에 Command Deck 실행기를 열고 새 대화를 시작하므로, 공유 Entra 브라우저 상태에 남아 있던 일반 대화 기록이 측정에 섞여 들어가지 않습니다.
 명시적으로 요청한 비공개 AKS series는 활성 Azure CLI 범위와 검토된 Resource-to-Workload-to-BusinessService 그래프에서 대상이 결속된 질문을 정확히 3개 만들 수 있습니다. 준비 단계는 세 비공개 case를 하나의 소유자 전용 runtime corpus로 결합하고 local Core environment에 exact file과 digest를 결속하며 측정 전에 Core를 성공적으로 다시 시작해야 합니다. Runner는 다시 시작된 Core readiness receipt가 해당 exact digest를 전달할 때까지 browser attempt를 arm하지 않습니다. 이름은 소유자 전용 corpus와 browser memory에만 유지하며 보고서는 case id, digest, 타입이 지정된 상태 및 점수만 보존합니다. 그래프 또는 준비 근거가 없으면 질문을 보내기 전에 판단 보류합니다.
 고정 사례 측정 전에 런타임은 등록된 로캘을 Pantheon 대화 포트에 전달합니다. 추적 증적의 `participants[].situation`이 일치하지 않으면 영어로 대체하지 않고 진단에 실패합니다.
 

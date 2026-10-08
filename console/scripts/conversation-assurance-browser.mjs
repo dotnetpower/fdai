@@ -175,8 +175,19 @@ async function run() {
       response.text().then(responsePromiseResolve, responsePromiseReject);
     });
     await page.goto(origin, { waitUntil: "domcontentloaded", timeout: 30_000 });
+    const launcher = page.locator(".deck-invoke");
+    await launcher.waitFor({ state: "visible", timeout: 30_000 });
+    await launcher.click();
     const input = page.getByPlaceholder(/Ask anything/i);
     await input.waitFor({ state: "visible", timeout: 30_000 });
+    const freshConversation = page.locator(
+      'button.deck-header-action[aria-label*="New conversation" i], ' +
+      'button.deck-header-action[aria-label*="새 대화" i]',
+    );
+    if (await freshConversation.count() > 0) {
+      await freshConversation.first().click();
+      await input.waitFor({ state: "visible", timeout: 10_000 });
+    }
     await page.evaluate(() => {
       const state = {
         preparingSeen: false,
