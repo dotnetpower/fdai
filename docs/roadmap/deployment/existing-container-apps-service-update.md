@@ -37,7 +37,9 @@ The host reads the existing Operator Container App and the shared platform Terra
   only the main Operator Container App. Plan guards reject another resource change.
 - **Drift input recovery:** Scheduled and reviewed refresh planning read the current
   `channel_edge_health_contract` output and reproduce the exact enabled or disabled channel-edge
-  input. They do not infer edge activation from repository defaults.
+  input. When enabled, they bind the exact tracked platform edge identity and the protected
+  provider configuration, matching service deployment. They do not infer edge activation from
+  repository defaults.
 - **Fail-closed drift:** Stop when the live and platform bindings disagree, an identity is missing,
   a secret reference is malformed, or the current image is not digest-pinned.
 
