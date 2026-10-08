@@ -7,6 +7,7 @@ from fdai.core.security.code_findings.canonical import AnalysisContext, build_is
 from fdai.core.security.code_findings.models import InstanceFacts, Lane, Occurrence, SourceLocation
 from fdai.core.security.code_findings.sarif import SarifIngestContext, ingest_sarif
 from fdai.rule_catalog.code_security import (
+    AttackComplexity,
     AttackVector,
     Confidence,
     Exposure,
@@ -138,6 +139,7 @@ def test_verified_facts_and_verification_determine_label_and_confidence() -> Non
     facts = InstanceFacts(
         impact=Impact.CODE_EXECUTION,
         attack_vector=AttackVector.NETWORK,
+        attack_complexity=AttackComplexity.LOW,
         privileges_required=PrivilegesRequired.NONE,
         user_interaction=UserInteraction.NONE,
         evidence_refs=("verifier:entrypoint/1",),

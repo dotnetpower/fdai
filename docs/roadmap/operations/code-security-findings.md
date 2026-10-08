@@ -82,8 +82,8 @@ The caller names the lane and the exact revision. Neither is read from the docum
 | Exposure | `exposed`, `internal`, `not_deployed`, `unknown` | Runtime inventory |
 | Priority | `P0` to `P4` with a due interval | First-match [priority policy](../../../rule-catalog/code-security/priority-policy.yaml) |
 
-- **Facts:** each instance has four facts: impact, attack vector, privileges required, and user
-  interaction. Each is verified or unknown. Facts come from deterministic verifiers, inventory, or
+- **Facts:** each instance has five facts: impact, attack vector, attack complexity, privileges
+  required, and user interaction. Each is verified or unknown. Facts come from deterministic verifiers, inventory, or
   authorized people, never from scanner text.
 - **Range:** the floor evaluates unknown facts at their least severe value and the ceiling at their
   most severe value. Equal bands produce that band. Different bands produce `undetermined` plus the
@@ -328,8 +328,12 @@ selected mechanically by GHSA id. Each case models two SAST lanes at the first l
 commit removed, and its facts map mechanically from the advisory's CVSS v3 vector. The code cases
 found that the cross-site scripting impact range was too narrow: a critical stored script fell
 outside the claimed range, so the class now reaches `data_write`. They also measure how closely
-the fact rubric agrees with independent labels. The rubric has no attack-complexity fact, so it
-can rate an issue one band above the advisory.
+the fact rubric agrees with independent labels. Rubric 1.1.0 added attack complexity and raised
+the low-privileges penalty from 0.8 to 1.1, the smallest change that makes every `dev` code case
+agree; the attack-complexity penalty matches the local attack vector because CVSS scales
+exploitability by a similar factor for both, so it was set without fitting. `holdout` code-kind
+exact agreement rose from 0.5 to 0.75. The two remaining misses are an integrity-only impact
+rated as `data_write` and a confidentiality-high impact with low integrity and availability.
 
 ## Verification
 

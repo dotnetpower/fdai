@@ -42,6 +42,7 @@ from fdai.core.security.code_findings.models import (
 from fdai.core.security.code_findings.verification import BaselineIssue, matches_rescan
 from fdai.rule_catalog.code_security import (
     BAND_ORDER,
+    AttackComplexity,
     AttackVector,
     CodeSecurityCatalog,
     Exposure,
@@ -333,6 +334,7 @@ def _facts(raw: object, where: str) -> InstanceFacts | None:
         return InstanceFacts(
             impact=Impact(raw["impact"]),
             attack_vector=AttackVector(raw["attack_vector"]),
+            attack_complexity=AttackComplexity(raw["attack_complexity"]),
             privileges_required=PrivilegesRequired(raw["privileges_required"]),
             user_interaction=UserInteraction(raw["user_interaction"]),
             evidence_refs=(f"evaluation:{where}",),
