@@ -167,7 +167,10 @@
 }
 
 /* ----- Transcript ----- */
+/* The scroller contains its absolutely positioned descendants, such as visually hidden labels,
+ * so they scroll with the transcript instead of overflowing and shifting the deck body. */
 .cs-deck-transcript {
+  position: relative;
   min-width: 0;
   min-height: 0;
   overflow-x: hidden;

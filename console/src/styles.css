@@ -8270,6 +8270,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   grid-template-columns: minmax(0, 1fr);
   min-height: 0;
   overflow: hidden;
+  /* Focus and scrollIntoView can scroll a hidden-overflow box; clip keeps the transcript anchored. */
+  overflow: clip;
 }
 .deck-body.has-conversations { grid-template-columns: 210px minmax(0, 1fr); }
 .deck-body.has-digest { grid-template-columns: minmax(0, 1fr) 280px; }
