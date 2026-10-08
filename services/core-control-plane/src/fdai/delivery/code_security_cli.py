@@ -89,6 +89,7 @@ from fdai.delivery.code_security_publish_cli import add_publish_command, publish
 from fdai.delivery.code_security_repo_cli import (
     add_repository_commands,
     run_process_scan_requests,
+    run_process_scheduled_scans,
     run_repository_command,
 )
 from fdai.delivery.code_security_review_cli import (
@@ -396,6 +397,8 @@ def main(argv: list[str] | None = None) -> int:
             output = asyncio.run(run_repository_command(args))
         elif args.command == "process-scan-requests":
             output = asyncio.run(run_process_scan_requests(args))
+        elif args.command == "process-scheduled-scans":
+            output = asyncio.run(run_process_scheduled_scans(args))
         elif args.command == "evaluate":
             output = _evaluate(args)
         elif args.command == "evaluate-verifiers":

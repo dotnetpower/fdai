@@ -7,10 +7,12 @@
 #                                             scanner bound
 #   fdai-scan-runner process-requests [ARGS]  run `fdai-code-security process-scan-requests`, the
 #                                             worker for Console scan requests, with the same bindings
+#   fdai-scan-runner process-schedule [ARGS]  run `fdai-code-security process-scheduled-scans`, the
+#                                             scheduled scan of every enabled registered repository
 #
-# Both scan modes add the scanner bindings and the cache; all other arguments pass through, for
+# Every scan mode adds the scanner bindings and the cache; all other arguments pass through, for
 # example --path, --repository, --revision, --repo-alias, --work-root, --report, --record-state,
-# --prove, or --max-requests. `scan` also binds each proof toolchain the image carries.
+# --prove, --max-requests, or --max-repositories. `scan` also binds each proof toolchain the image carries.
 set -eu
 
 CACHE="${FDAI_SCAN_CACHE:-/cache}"
@@ -57,8 +59,12 @@ case "${1:-}" in
     shift
     run_with_scanners process-scan-requests "$@"
     ;;
+  process-schedule)
+    shift
+    run_with_scanners process-scheduled-scans "$@"
+    ;;
   *)
-    echo "usage: fdai-scan-runner prepare SOURCE_DIR | scan [ARGS...] | process-requests [ARGS...]" >&2
+    echo "usage: fdai-scan-runner prepare SOURCE_DIR | scan [ARGS...] | process-requests [ARGS...] | process-schedule [ARGS...]" >&2
     exit 2
     ;;
 esac

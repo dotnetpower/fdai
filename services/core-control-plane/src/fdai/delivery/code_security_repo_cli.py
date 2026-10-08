@@ -31,6 +31,10 @@ from fdai.delivery.code_security_sandbox import BubblewrapScannerSandbox
 from fdai.delivery.code_security_scan_cli import default_work_root
 from fdai.delivery.code_security_scan_job import ScanJobConfig, run_scan_job
 from fdai.delivery.code_security_scan_requests import ScanOutcome, process_scan_requests
+from fdai.delivery.code_security_scheduled_scans import (
+    MAX_SCHEDULED_REPOSITORIES,
+    process_scheduled_scans,
+)
 from fdai.delivery.persistence.state_store_code_security_repository import (
     CodeSecurityRepository,
     clone_url,
@@ -67,13 +71,28 @@ def add_repository_commands(sub: argparse._SubParsersAction[argparse.ArgumentPar
     worker = sub.add_parser(
         "process-scan-requests", help="scan pending Console requests for registered repositories"
     )
+    _add_worker_arguments(worker)
+    worker.add_argument("--max-requests", type=int, default=1)
+    schedule = sub.add_parser(
+        "process-scheduled-scans",
+        help="scan every enabled registered repository at its default ref",
+    )
+    _add_worker_arguments(schedule)
+    schedule.add_argument(
+        "--max-repositories",
+        type=int,
+        default=5,
+        help=f"scan at most this many repositories, 1 to {MAX_SCHEDULED_REPOSITORIES}",
+    )
+
+
+def _add_worker_arguments(worker: argparse.ArgumentParser) -> None:
     worker.add_argument("--work-root", default=str(default_work_root()))
     worker.add_argument("--scanner-bin", action="append", default=[], help="SCANNER=EXECUTABLE")
     worker.add_argument("--required-scanner", action="append", default=[])
     worker.add_argument("--cache-dir")
     worker.add_argument("--bwrap", default="/usr/bin/bwrap")
     worker.add_argument("--kafka-bootstrap-servers")
-    worker.add_argument("--max-requests", type=int, default=1)
     root = repo_asset_root() / "rule-catalog" / "code-security"
     worker.add_argument("--catalog-root", default=str(root))
     worker.add_argument("--rules-dir", default=str(root / "rules"))
@@ -199,48 +218,77 @@ def _scan_runner(args: argparse.Namespace):  # type: ignore[no-untyped-def]
     return run
 
 
+def _publisher(args: argparse.Namespace):  # type: ignore[no-untyped-def]
+    if not args.kafka_bootstrap_servers:
+        return None
+    from fdai.delivery.code_security_publish_cli import heimdall_publisher
+
+    return heimdall_publisher(args.kafka_bootstrap_servers)
+
+
+def _recorder(store: StateStore):  # type: ignore[no-untyped-def]
+    from fdai.delivery.persistence.state_store_code_security_review import (
+        record_code_security_review,
+    )
+
+    async def record(outcome: ScanOutcome) -> bool:
+        return await record_code_security_review(
+            store,
+            outcome.package,
+            issues=outcome.issues,
+            issues_truncated=outcome.issues_truncated,
+        )
+
+    return record
+
+
 async def run_process_scan_requests(args: argparse.Namespace) -> dict[str, object]:
     from fdai.delivery.persistence.postgres_code_security_scan_requests import (
         PostgresCodeSecurityScanRequestQueue,
         PostgresCodeSecurityScanRequestQueueConfig,
     )
-    from fdai.delivery.persistence.state_store_code_security_review import (
-        record_code_security_review,
-    )
 
     runner = _scan_runner(args)
-    publisher = None
-    if args.kafka_bootstrap_servers:
-        from fdai.delivery.code_security_publish_cli import heimdall_publisher
-
-        publisher = heimdall_publisher(args.kafka_bootstrap_servers)
+    publisher = _publisher(args)
     queue = PostgresCodeSecurityScanRequestQueue(
         PostgresCodeSecurityScanRequestQueueConfig(dsn=_state_store_dsn())
     )
     async with _open_store() as store:
-
-        async def record(outcome: ScanOutcome) -> bool:
-            return await record_code_security_review(
-                store,
-                outcome.package,
-                issues=outcome.issues,
-                issues_truncated=outcome.issues_truncated,
-            )
-
         outcomes = await process_scan_requests(
             queue,
             store,
             runner,
-            recorder=record,
+            recorder=_recorder(store),
             publisher=publisher,
             max_requests=args.max_requests,
         )
     return {"ok": True, "processed": len(outcomes), "outcomes": list(outcomes)}
 
 
+async def run_process_scheduled_scans(args: argparse.Namespace) -> dict[str, object]:
+    runner = _scan_runner(args)
+    publisher = _publisher(args)
+    async with _open_store() as store:
+        outcomes = await process_scheduled_scans(
+            store,
+            runner,
+            recorder=_recorder(store),
+            publisher=publisher,
+            max_repositories=args.max_repositories,
+        )
+    scanned = [item for item in outcomes if item["status"] != "deferred"]
+    return {
+        "ok": all(item["status"] == "published" for item in scanned),
+        "scanned": len(scanned),
+        "deferred": len(outcomes) - len(scanned),
+        "outcomes": list(outcomes),
+    }
+
+
 __all__ = [
     "add_repository_commands",
     "github_auth_header",
     "run_process_scan_requests",
+    "run_process_scheduled_scans",
     "run_repository_command",
 ]
