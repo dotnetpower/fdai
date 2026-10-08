@@ -176,7 +176,7 @@ An operator can ask FDAI to scan a registered GitHub repository from the Console
 route. Heimdall is the accountable agent for the result. The request itself grants no authority:
 
 1. **Registration:** an Owner registers an alias for an `owner/repository` location, plus a
-   default ref and exposure, from the Console (`POST /code-security/repositories`) or with
+   default ref (`HEAD`, the repository's default branch, when omitted) and exposure, from the Console (`POST /code-security/repositories`) or with
    `fdai-code-security repo-register`. Enable and disable toggle scanning. A Console change is a
    typed proposal (`code_security.repository_change`) that the worker applies before any scan.
    Every change uses compare-and-set and appends a Heimdall-attributed audit entry naming the
@@ -426,6 +426,9 @@ Local scan tests cover committed-`HEAD` and snapshot acquisition, ignored files,
 ref resolution, and report escaping and localization; a real bubblewrap run scans an uncommitted
 snapshot. Request tests cover registration, audit, body validation, and every rejection reason, and
 a throwaway PostgreSQL database validated the proposal claim, completion, and Operator projections.
+A live run against github.com registered `OWASP/NodeGoat` without a ref, resolved `HEAD` to its
+default branch commit, completed all five scanners with complete coverage, and recorded 202 issues
+with the request id.
 
 ## Related docs
 

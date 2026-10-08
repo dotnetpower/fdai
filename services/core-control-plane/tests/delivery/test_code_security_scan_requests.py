@@ -400,3 +400,15 @@ async def test_processor_applies_owner_changes_before_scans_and_audits_the_reque
         "enabled": True,
         "created": True,
     }
+
+
+async def test_registration_without_a_ref_follows_the_default_branch() -> None:
+    store = InMemoryStateStore()
+    repository, _ = await register_repository(
+        store, alias="example-app", location="example/app", registered_by="owner"
+    )
+    assert repository.default_ref == "HEAD"
+    change = parse_repository_change(
+        _change_record({"action": "register", "repository_alias": "b", "location": "example/b"})
+    )
+    assert change is not None and change.default_ref == "HEAD"

@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: e2407a77917e481102778d5f3cbc2e5e0e58300b
+translation_source_sha: 02a0b00bcb088278632c15e96cf236de01748a77
 translation_revised: 2026-10-08
 ---
 
@@ -173,8 +173,8 @@ lockfile 권고는 패키지 이름과 함께 표시됩니다. 보고서에는 �
 있습니다. 결과의 책임 에이전트는 Heimdall이며, 요청 자체는 어떤 권한도 부여하지 않습니다.
 
 1. **등록:** Owner가 Console(`POST /code-security/repositories`)이나
-   `fdai-code-security repo-register`로 `owner/repository` 위치에 대한 별칭과 기본 ref, 노출을
-   등록합니다. 사용과 사용 안 함으로 스캔을 켜고 끕니다. Console에서 한 변경은 작업자가 스캔보다 먼저
+   `fdai-code-security repo-register`로 `owner/repository` 위치에 대한 별칭과 기본 ref(생략하면 저장소의
+   기본 브랜치를 가리키는 `HEAD`), 노출을 등록합니다. 사용과 사용 안 함으로 스캔을 켜고 끕니다. Console에서 한 변경은 작업자가 스캔보다 먼저
    적용하는 정형 제안(`code_security.repository_change`)입니다. 모든 변경은 비교 후 설정 방식을 쓰고
    요청자를 기록한 Heimdall 명의의 감사 항목을 추가합니다. 별칭을 다른 위치로 바꿀 수는 없습니다.
 2. **요청:** Contributor 또는 Owner가 별칭과 선택적인 브랜치, 태그, 커밋을 담아
@@ -410,7 +410,9 @@ SARIF는 수집 과정을 거쳤습니다.
 로컬 스캔 테스트는 커밋된 `HEAD`와 스냅샷 확보, 무시된 파일, 심볼릭 링크 탈출, ref 확인, 보고서
 이스케이프와 현지화를 다루며, 실제 bubblewrap 실행으로 커밋하지 않은 스냅샷을 스캔했습니다. 요청
 테스트는 등록, 감사, 본문 검증, 모든 거부 사유를 다루며, 일회용 PostgreSQL 데이터베이스에서 제안
-가져오기, 완료, Operator 프로젝션을 검증했습니다.
+가져오기, 완료, Operator 프로젝션을 검증했습니다. github.com을 대상으로 한 실제 실행에서는
+`OWASP/NodeGoat`를 ref 없이 등록하고 `HEAD`를 기본 브랜치 커밋으로 확인한 뒤, 스캐너 다섯 개를 모두
+커버리지 완전 상태로 마치고 요청 ID와 함께 이슈 202개를 기록했습니다.
 
 ## 관련 문서
 

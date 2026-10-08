@@ -109,7 +109,8 @@ export function RepositoryRegistrationForm({
           <input
             value={ref}
             disabled={submitting}
-            placeholder="main"
+            placeholder="HEAD"
+            title={t("codeSecurity.register.defaultRefHint")}
             onInput={(event) => setRef((event.currentTarget as HTMLInputElement).value)}
           />
         </label>

@@ -561,7 +561,7 @@ an `Idempotency-Key`, and returns the `202` proposal receipt. Request rows also 
 
 `POST /code-security/repositories` (Owner only) accepts `action` (`register`, `enable`, or
 `disable`) and `repository_alias`; `register` also requires `location` (`owner/repository`) and
-accepts `default_ref` and `exposure`. Any other field returns `400`.
+accepts `default_ref` (default `HEAD`, the repository's default branch) and `exposure`. Any other field returns `400`.
 `GET /code-security/issues?repository_alias=...&revision=...` returns `available`, `complete`,
 `truncated`, `issues`, and `gaps` for one review. Each issue carries id, priority, due days,
 severity, confidence, weakness class, CWE ids, advisory ids, package, producers, and known

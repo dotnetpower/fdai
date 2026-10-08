@@ -46,7 +46,7 @@ class RepositoryChange:
     principal_id: str
     principal_roles: tuple[str, ...]
     location: str | None = None
-    default_ref: str = "main"
+    default_ref: str = "HEAD"
     exposure: str = Exposure.UNKNOWN.value
 
 
@@ -77,7 +77,7 @@ def parse_repository_change(record: Mapping[str, object]) -> RepositoryChange | 
     if set(body) - {"action", "repository_alias", "location", "default_ref", "exposure"}:
         return None
     location = body.get("location")
-    default_ref = body.get("default_ref", "main")
+    default_ref = body.get("default_ref", "HEAD")
     exposure = body.get("exposure", Exposure.UNKNOWN.value)
     if not isinstance(location, str) or _LOCATION.fullmatch(location) is None:
         return None

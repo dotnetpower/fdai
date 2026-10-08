@@ -146,14 +146,15 @@
     "body": "Owners can allow Console scans of a GitHub repository. The worker applies the change with an audit record; registering grants no write access to the repository.",
     "alias": "Alias",
     "location": "GitHub repository",
-    "defaultRef": "Default branch",
+    "defaultRef": "Default ref",
     "exposure": "Exposure",
     "submit": "Request registration",
     "enable": "Enable",
     "disable": "Disable",
     "queued": "Change request queued. It takes effect when the scan worker runs.",
     "forbidden": "Only an Owner can change repository registrations.",
-    "failed": "The change request was not queued."
+    "failed": "The change request was not queued.",
+    "defaultRefHint": "Blank follows the repository's default branch."
   },
   "issues": {
     "title": "Issues in this review",

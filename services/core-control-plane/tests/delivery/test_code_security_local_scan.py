@@ -158,6 +158,7 @@ def test_resolve_revision_accepts_branches_tags_and_commits(tmp_path: Path) -> N
     acquirer = GitSourceAcquirer(tmp_path / "work")
     assert acquirer.resolve_revision(str(repo), "main") == head
     assert acquirer.resolve_revision(str(repo), "v1") == head
+    assert acquirer.resolve_revision(str(repo), "HEAD") == head
     assert acquirer.resolve_revision(str(repo), "f" * 40) == "f" * 40
     with pytest.raises(SourceAcquisitionError, match="exactly one commit"):
         acquirer.resolve_revision(str(repo), "missing-branch")
@@ -280,7 +281,9 @@ def test_report_escapes_html_and_localizes_to_korean(tmp_path: Path) -> None:
     page = render_html(document, "ko")
     assert "<b>x</b>" not in page and "&lt;b&gt;x&lt;/b&gt;" in page
     assert '<html lang="ko">' in page and "코드 보안 스캔 보고서" in page
+    document["scanners"] = [{"scanner": "opengrep", "completed": True, "exit_code": 0}]
     markdown = render_markdown(document, "ko")
+    assert "| opengrep | 예 | 0 |" in markdown and "True" not in markdown
     assert "커밋하지 않은 스냅샷" in markdown
     assert "fdai-code-security export" not in markdown
     issues = document["issues"]

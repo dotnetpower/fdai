@@ -52,7 +52,11 @@ def add_repository_commands(sub: argparse._SubParsersAction[argparse.ArgumentPar
     register = sub.add_parser("repo-register", help="allow Console scans of a GitHub repository")
     register.add_argument("--alias", required=True)
     register.add_argument("--github", required=True, help="OWNER/REPOSITORY")
-    register.add_argument("--default-ref", default="main")
+    register.add_argument(
+        "--default-ref",
+        default="HEAD",
+        help="ref to scan by default; HEAD follows the default branch",
+    )
     register.add_argument("--exposure", choices=[e.value for e in Exposure], default="unknown")
     register.add_argument("--actor", default=_DEFAULT_ACTOR, help="audited operator principal")
     sub.add_parser("repo-list", help="list repositories registered for Console scans")

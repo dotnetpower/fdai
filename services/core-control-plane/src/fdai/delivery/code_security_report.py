@@ -230,7 +230,8 @@ def render_markdown(document: dict[str, object], locale: str = "en") -> str:
     scanners = document["scanners"]
     for run in scanners if isinstance(scanners, list) else []:
         lines.append(
-            f"| {_md(run['scanner'])} | {_md(run['completed'])} | {_md(run['exit_code'])} |"
+            f"| {_md(run['scanner'])} | {_md(_cell(run['completed'], label))} "
+            f"| {_md(run['exit_code'])} |"
         )
     lines += [
         "",

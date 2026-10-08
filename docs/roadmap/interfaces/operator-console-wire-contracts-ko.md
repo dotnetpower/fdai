@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: de42ee7d92f5953c218e61e5f12125ad023a9127
+translation_source_sha: 5d0c0fe2f9b5d8efef25a27fab329b1658acff39
 translation_revised: 2026-10-08
 ---
 
@@ -530,7 +530,7 @@ Forseti의 최신 버전 2 baseline 커버리지가 있으면 `GET /rules/findin
 
 `POST /code-security/repositories`(Owner 전용)는 `action`(`register`, `enable`, `disable`)과
 `repository_alias`를 받습니다. `register`에는 `location`(`owner/repository`)이 필요하며
-`default_ref`와 `exposure`도 받을 수 있습니다. 그 밖의 필드는 `400`을 반환합니다.
+`default_ref`(기본값은 저장소의 기본 브랜치를 가리키는 `HEAD`)와 `exposure`도 받을 수 있습니다. 그 밖의 필드는 `400`을 반환합니다.
 `GET /code-security/issues?repository_alias=...&revision=...`는 검토 하나의 `available`, `complete`,
 `truncated`, `issues`, `gaps`를 반환합니다. 이슈마다 ID, 우선순위, 처리 기한 일수, 심각도, 신뢰도,
 취약점 유형, CWE ID, 권고 ID, 패키지, 탐지 도구, 실제 악용 여부를 담습니다. 다이제스트가 기록된

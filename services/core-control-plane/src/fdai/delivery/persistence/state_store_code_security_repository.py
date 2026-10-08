@@ -2,7 +2,8 @@
 
 A registration names one repository that FDAI may scan when an operator asks from the Console.
 It holds the display alias, the provider (``github``), the ``owner/repository`` location, the
-default ref, the exposure used for priority, and whether it is enabled. It never holds a
+default ref (``HEAD`` follows the repository's default branch), the exposure used for priority,
+and whether it is enabled. It never holds a
 credential: the scan worker reads repository access from the deployment's GitHub App or token
 environment, scoped to that one repository with read-only contents permission.
 
@@ -148,7 +149,7 @@ async def register_repository(
     *,
     alias: str,
     location: str,
-    default_ref: str = "main",
+    default_ref: str = "HEAD",
     exposure: Exposure = Exposure.UNKNOWN,
     registered_by: str,
     provider: str = "github",
