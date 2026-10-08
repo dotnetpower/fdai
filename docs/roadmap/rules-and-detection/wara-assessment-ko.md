@@ -1,8 +1,8 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: bc35ae3dcbd61df94655acb6304f68fcacbde2be
-translation_revised: 2026-10-07
+translation_source_sha: 49a6632787a76eb27758a1b0af2a5c40a8c1de43
+translation_revised: 2026-10-08
 ---
 # WARA 근거 기반 평가
 
@@ -260,6 +260,27 @@ Azure 관리 호스트와 audience만 허용하며, 범위 밖 또는 잘린 행
 수집을 시작할 때 원래 기준 시각을 넘은 호출자 증적은
 `caller_evidence_after_original_cutoff`로 표시합니다. 이후 프로바이더 시각이 해당 증적을 다른
 권고에 소급 적용할 수 없습니다.
+
+### 규칙 기반 평가
+
+두 번째 내용 주소화 overlay인 `rule-bindings.json`은 검토된 APRL GUID와 정확한 쿼리 다이제스트를 쿼리
+평가기 대신 활성화된 카탈로그 규칙 개정 하나에 결속합니다. 권고 하나에는 한 종류의 바인딩만 둘 수
+있습니다. `t0_rule` 바인딩은 기능 매트릭스를 담습니다. 정본 리소스 종류, 하위 리소스 동작, 검사가 읽는
+인벤토리 원본과 필드, 매개 변수, 대상 집합, 실패 의미가 포함됩니다. Loader는 레코드가 정본이고,
+`missing_exact_evaluator`가 유일한 차단 사유이며, 고정된 쿼리와 규칙이 같은 종류의 같은 필드를 읽고,
+규칙에 매개 변수가 없을 때만 바인딩을 받아들입니다.
+
+작업은 WAF와 같은 범위별 커버리지 계약으로 Forseti의 검증된 버전 2 baseline을 WARA 워크로드 범위에
+투영하고, 생성자가 `t0-rule-evaluator:<rule>@<version>`인 `rule` 증적을 바인딩마다 하나씩 만듭니다.
+활성화된 멤버가 그 개정이고, 모든 대상 쌍에 터미널 결과가 정확히 하나씩 있고, 대상 리소스가 하나 이상일
+때만 결정적입니다. 위반 쌍이 하나라도 있으면 `failed`, 모든 쌍이 준수이면 `satisfied`입니다. 판단 보류,
+누락, 중복, 충돌, 개정 불일치가 있으면 증적을 만들지 않으므로 권고는 `unknown`으로 남습니다. 결속된
+쿼리는 실행하지 않으며, 프로바이더 관측 증적은 규칙 기반 권고를 충족시킬 수 없습니다. 요청과 결과는
+overlay 다이제스트를 고정합니다.
+
+첫 overlay는 Key Vault 제거 보호 권고 하나를 결속합니다. 이 권고의 쿼리와 규칙은 모든 볼트에 대해 값이
+없거나 `true`가 아니면 실패로 판단합니다. 영역, 고가용성, SQL 중복성 권고는 쿼리를 영역 지원 지역으로
+한정하거나 값이 없을 때 통과로 처리하므로 기존 쿼리나 수동 근거 경로를 유지합니다.
 
 ### 예약된 배포 바인딩
 

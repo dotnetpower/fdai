@@ -14,7 +14,9 @@ from typing import Protocol
 
 import httpx
 import psycopg
+from fdai_service_contracts.rule_activation import RuleActivationGeneration
 
+from fdai.core.rule_activation.ledger import StateStoreRuleActivationLedger
 from fdai.core.wara import (
     WaraAssessmentObservationRunner,
     WaraAssessmentRequest,
@@ -36,6 +38,10 @@ from fdai.delivery.persistence.postgres_wara_scope import (
     WaraScopeUnavailableError,
 )
 from fdai.delivery.repo_assets import repo_asset_root
+from fdai.delivery.wara_rule_evidence import (
+    load_release_wara_rule_bindings,
+    with_wara_rule_evidence,
+)
 from fdai.rule_catalog.schema.framework_catalog import load_framework_catalog
 from fdai.rule_catalog.schema.wara_assessment import (
     WaraAssessmentCatalog,
@@ -47,6 +53,7 @@ from fdai.rule_catalog.schema.wara_evaluator_binding import (
     WaraEvaluatorBindingCatalog,
     load_wara_evaluator_bindings,
 )
+from fdai.rule_catalog.schema.wara_rule_binding import WaraRuleBindingCatalog
 from fdai.runtime.venue import (
     bus_security_protocol,
     resolve_execution_venue,
@@ -191,6 +198,15 @@ class WaraJobSettings:
 
 
 @dataclass(frozen=True, slots=True)
+class WaraRuleEvidenceSource:
+    """The Rule overlay, the verified baseline store, and the current activation."""
+
+    bindings: WaraRuleBindingCatalog
+    state_store: StateStore
+    activation: RuleActivationGeneration | None
+
+
+@dataclass(frozen=True, slots=True)
 class WaraTickReport:
     """Privacy-bounded summary for one scheduled assessment pass."""
 
@@ -215,6 +231,7 @@ async def execute_wara_assessment_tick(
     catalog: WaraAssessmentCatalog,
     evaluator_bindings: WaraEvaluatorBindingCatalog,
     now: datetime | None = None,
+    rule_evidence: WaraRuleEvidenceSource | None = None,
 ) -> WaraTickReport:
     """Resolve all configured scopes before publishing any shadow assessment."""
 
@@ -245,6 +262,15 @@ async def execute_wara_assessment_tick(
                 workload_tags=settings.workload_tags[scope.workload_id],
                 evaluated_at=evaluated_at,
             )
+            if rule_evidence is not None:
+                request, _status = await with_wara_rule_evidence(
+                    request,
+                    state_store=rule_evidence.state_store,
+                    activation=rule_evidence.activation,
+                    scope=scope,
+                    catalog=catalog,
+                    bindings=rule_evidence.bindings,
+                )
             results.append(await service.assess(request))
 
     counts: dict[str, int] = {}
@@ -260,7 +286,8 @@ async def run_once(environ: Mapping[str, str] | None = None) -> WaraTickReport:
     environment = os.environ if environ is None else environ
     settings = WaraJobSettings.from_environ(environment)
     catalog, queries, evaluator_bindings = _load_wara_assets()
-    runtime = WaraAssessmentRuntime(catalog, evaluator_bindings)
+    rule_bindings = load_release_wara_rule_bindings(_REPO_ROOT, catalog=catalog, queries=queries)
+    runtime = WaraAssessmentRuntime(catalog, evaluator_bindings, rule_bindings)
     venue = resolve_execution_venue()
     async with httpx.AsyncClient(
         timeout=httpx.Timeout(connect=5.0, read=30.0, write=30.0, pool=5.0)
@@ -306,6 +333,13 @@ async def run_once(environ: Mapping[str, str] | None = None) -> WaraTickReport:
                 service=service,
                 catalog=catalog,
                 evaluator_bindings=evaluator_bindings,
+                rule_evidence=WaraRuleEvidenceSource(
+                    bindings=rule_bindings,
+                    state_store=state_store,
+                    activation=await StateStoreRuleActivationLedger(
+                        store=state_store
+                    ).current_generation(),
+                ),
             )
         finally:
             await event_bus.close()

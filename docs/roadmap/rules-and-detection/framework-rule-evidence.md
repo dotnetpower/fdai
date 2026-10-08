@@ -214,7 +214,7 @@ Frameworks adopt Rule evidence one at a time, because each one has a different a
 | WAF | Version 2 baseline completion, scoped coverage contract, assessment-side activation pin, and receipt provenance fields. | The 8 controls with Rule requirements. |
 | MCSB | A reviewed MCSB assessment catalog, profile, and runtime with explicit requirement decomposition. Current `partial` mappings stay supporting evidence only. | v1 controls with reviewed full Rule bindings. |
 | CAF | A cloud-estate profile that pins both the hierarchy and the inventory generation. | Landing-zone technical areas with reviewed full Rule bindings. Methodology areas stay manual. |
-| WARA | A discriminated evaluator binding, `arg_query` or `t0_rule`, each with its own admission rules. A Rule binding pins Rule references, activation and member digests, scope digest, and how several Rules combine. | Recommendations that pass the capability matrix below. |
+| WARA | A discriminated evaluator binding, `arg_query` or `t0_rule`, each with its own admission rules. A Rule binding pins Rule references, activation and member digests, scope digest, and how several Rules combine. Implemented as a separate `t0_rule` overlay; see [WARA assessment](wara-assessment.md#rule-backed-evaluation). | Recommendations that pass the capability matrix below. |
 
 A WARA recommendation becomes Rule-backed only when a capability matrix proves the exact resource
 type, child-resource behavior, the inventory source and freshness of every field the check reads,

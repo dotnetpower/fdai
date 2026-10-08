@@ -45,6 +45,7 @@ from fdai.core.rule_activation.generation import build_rule_activation_generatio
 from fdai.core.rule_activation.ledger import StateStoreRuleActivationLedger
 from fdai.core.tiers.t0_deterministic import RuleGenerationSnapshot, RuleIndex, T0Engine
 from fdai.core.tiers.t0_deterministic.opa_evaluator import OpaRegoEvaluator
+from fdai.core.wara import WaraAssessmentRequest, WaraAssessmentRuntime, WaraScopedResource
 from fdai.delivery.azure.arm_rule_properties import rule_properties
 from fdai.delivery.framework_assessment_cli import _profile, _waf_scope_digest
 from fdai.delivery.framework_rule_evidence_source import (
@@ -59,11 +60,18 @@ from fdai.delivery.persistence.postgres_promoted_inventory_reader import (
     PostgresPromotedInventoryGenerationReader,
 )
 from fdai.delivery.persistence.postgres_wara_scope import WaraResolvedResource, WaraResolvedScope
+from fdai.delivery.wara_rule_evidence import (
+    load_release_wara_rule_bindings,
+    with_wara_rule_evidence,
+)
 from fdai.rule_catalog.schema.framework_assessment import load_framework_assessment_catalog
+from fdai.rule_catalog.schema.framework_catalog import load_framework_catalog
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
 from fdai.rule_catalog.schema.resource_type import load_resource_type_registry_from_mapping
 from fdai.rule_catalog.schema.rule import load_rule_catalog
 from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_mapping
+from fdai.rule_catalog.schema.wara_assessment import load_wara_assessment_catalog
+from fdai.rule_catalog.schema.wara_evaluator_binding import load_wara_evaluator_bindings
 from fdai.shared.contracts.models import Rule
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.inventory import PromotedInventoryGeneration
@@ -95,7 +103,8 @@ async def _active_scope(dsn: str, now: datetime) -> WaraResolvedScope:
         if snapshot[2] + _FRESHNESS < now:
             raise SystemExit("active inventory generation is older than one day")
         cursor = await connection.execute(
-            "SELECT resource_id, resource_type, provider_ref FROM inventory_snapshot_resource "
+            "SELECT resource_id, lower(coalesce(props->>'providerType', resource_type)), "
+            "provider_ref FROM inventory_snapshot_resource "
             "WHERE snapshot_id=%s ORDER BY resource_id LIMIT %s",
             (snapshot[0], _MAX_RESOURCES + 1),
         )
@@ -336,9 +345,70 @@ async def run(dsn: str, *, re_evaluate: bool = False, candidate: bool = False) -
             "coverage_held_pairs": sum(item.abstained_count for item in record.rules),
             "coverage_record_roundtrip": roundtrip,
             "waf_result_digest": result.result_digest,
+            "wara_rule_bound": await _wara_rule_bound(store, activation, scope, now),
         }
     )
     return report
+
+
+async def _wara_rule_bound(
+    store: StateStore,
+    activation: RuleActivationGeneration | None,
+    scope: WaraResolvedScope,
+    now: datetime,
+) -> dict[str, str]:
+    """Assess the Rule-bound WARA recommendations for the same estate scope, in memory."""
+
+    wara_root = _ROOT / "rule-catalog/collected/wara-aprl"
+    framework = load_framework_catalog(wara_root, best_practices=(), objective_refs=frozenset())[0]
+    catalog, queries = load_wara_assessment_catalog(
+        wara_root / "assessment/crosswalk.json",
+        wara_root / "assessment/queries.json",
+        framework=framework,
+        framework_path=wara_root / "azure-wara.json",
+    )
+    evaluators = load_wara_evaluator_bindings(
+        wara_root / "assessment/evaluator-bindings.json", catalog=catalog, queries=queries
+    )
+    bindings = load_release_wara_rule_bindings(_ROOT, catalog=catalog, queries=queries)
+    request = WaraAssessmentRequest(
+        assessment_id="wara-assessment:local-rule-evidence",
+        framework_revision=catalog.source_revision,
+        crosswalk_digest=catalog.crosswalk_digest,
+        evaluator_bindings_digest=evaluators.overlay_digest,
+        ontology_release=scope.ontology_release,
+        inventory_generation=scope.inventory_generation,
+        workload_id=scope.workload_id,
+        resources=tuple(
+            sorted(
+                (
+                    WaraScopedResource(
+                        resource_id=item.provider_resource_id,
+                        provider_resource_type=item.provider_resource_type,
+                    )
+                    for item in scope.resources
+                ),
+                key=lambda item: item.resource_id,
+            )
+        ),
+        evaluated_at=now,
+        recorded_at=now,
+    )
+    request, _status = await with_wara_rule_evidence(
+        request,
+        state_store=store,
+        activation=activation,
+        scope=scope,
+        catalog=catalog,
+        bindings=bindings,
+    )
+    result = WaraAssessmentRuntime(catalog, evaluators, bindings).assess(request)
+    bound = {binding.aprl_guid for binding in bindings.bindings}
+    return {
+        control.recommendation_id: control.satisfaction.value
+        for control in result.controls
+        if control.recommendation_id in bound
+    }
 
 
 def main() -> int:

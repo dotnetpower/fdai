@@ -117,7 +117,9 @@ receipt only when its provenance matches the activation generation the profile p
 approval, or execution authority ([Framework Rule Evidence from T0](../rules-and-detection/framework-rule-evidence.md)).
 `core/framework_rule_evidence/record.py` builds the versioned scoped coverage record whose wire contract lives in
 `fdai_service_contracts.framework_rule_coverage`. The assessment job persists it with an audit entry, and the Operator
-reads it only to attach counts to a WAF control detail.
+reads it only to attach counts to a WAF control detail. `core/framework_rule_evidence/wara.py` turns
+the same scoped coverage into WARA `rule` receipts for reviewed exact `t0_rule` bindings, and
+`core/wara/` admits them only from the bound Rule revision.
 
 Operator production composition keeps runtime wiring in its facade. Focused sibling modules own
 lifecycle and resource cleanup, route-family assembly, and read-source declarations. Compatibility
