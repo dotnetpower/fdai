@@ -15,7 +15,7 @@ qualification or execution authority.
 | [instance-holdout.v2.json](../../eval/ontology-retrieval/instance-holdout.v2.json) | Spent holdout. Independently authored and reviewed; measured once at `2572f9a1b1`. Don't tune on its cases or reuse it for qualification. |
 | [instance-calibration.v3.json](../../eval/ontology-retrieval/instance-calibration.v3.json) | 64 new diagnostic calibration cases for the holdout v2 failure classes. Calibration only; it can't qualify a change. |
 | [instance-holdout.v3.json](../../eval/ontology-retrieval/instance-holdout.v3.json) | Spent holdout. A blinded author wrote it and a separately blinded reviewer reviewed it; measured once at `19bbbe3c95`. Don't tune on its cases or reuse it for qualification. |
-| [instance-holdout.v4.json](../../eval/ontology-retrieval/instance-holdout.v4.json) | Frozen, unmeasured holdout for the next single qualifying run. A blinded author wrote it and a separately blinded reviewer reviewed it; neither read earlier holdout text, prompts, adapters, or this runbook. Don't read, tune on, or measure it outside that run. |
+| [instance-holdout.v4.json](../../eval/ontology-retrieval/instance-holdout.v4.json) | Spent holdout. A blinded author wrote it and a separately blinded reviewer reviewed it; measured once at `2f8eaaaa1f`. Don't tune on its cases or reuse it for qualification. |
 
 The v2 calibration has 32 singleton positives, eight multi-target positives and 24 no-match cases.
 Each language covers four distinct singleton targets per type and at least four samples for every
@@ -244,8 +244,20 @@ that required the model to name the inexpressible condition caused 20-second tim
 replaced. A further statement copies free-text `contains` operands from a matching stored value
 rather than the request's paraphrase. At `c3559f2c1f`, calibration v2 passed twice and calibration
 v3 passed three times, every cohort at `1.0`, with no abort. A blinded author wrote the new
-`instance-holdout.v4`, and a separately blinded reviewer corrected one case and approved it. It
-stays unmeasured until one qualifying run at the merged commit.
+`instance-holdout.v4`, and a separately blinded reviewer corrected one case and approved it. The
+qualifying diagnostic at merged `2f8eaaaa1f` measured it once. Calibration v2 passed every cohort
+at `1.0`. Calibration v3 missed `cal-v3-en-a04`, a time-window request that had passed three
+development runs at the same prompt, as an unsupported-constraint clarification. Holdout v4 passed
+every positive, ambiguous, adversarial, and English negative cohort at `1.0`; ko-negative no-match
+precision was `0.75` (3 of 4). Holdout v4 is spent, and its cases weren't inspected.
+
+Across the last two qualifying runs, each failure was one or two different cases out of 192, and
+the calibration case that failed had passed repeated development runs. With every threshold at
+`1.0` on cohorts of 4 or 16 samples and a stochastic model, a single run can fail on variance alone.
+Repeating cycles until one run passes would select a favorable sample rather than establish
+quality, so the qualification protocol needs an owner decision before another holdout is spent. A
+development experiment with `reasoning_effort="medium"` passed calibration v3 twice at about 3
+seconds per call; two runs can't show lower variance than `low`.
 
 ## Measure semantic proposals separately
 
