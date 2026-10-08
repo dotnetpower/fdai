@@ -16,9 +16,9 @@
 .tj-layout { display: grid; gap: 20px; min-width: 0; }
 .tj-layout > * { min-width: 0; }
 .tj-list > .ap-meta { margin: 0 0 8px; }
-.tj-list-items { display: grid; margin: 0; padding: 0; list-style: none; border: 1px solid var(--cs-hairline); border-radius: 8px; background: var(--cs-card); overflow: hidden; }
+.tj-list-items { display: grid; margin: 0; padding: 4px; list-style: none; border: 1px solid var(--cs-hairline); border-radius: 10px; background: var(--cs-card); }
 .tj-list-items li + li { border-top: 1px solid var(--tj-soft-line); }
-.agents-preview #activityTrajectoryView .tj-item { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; width: 100%; min-height: 0; padding: 12px 14px; border: 0; border-radius: 0; text-align: left; background: transparent; }
+.agents-preview #activityTrajectoryView .tj-item { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; width: 100%; min-height: 0; padding: 12px 12px; border: 0; border-radius: 7px; text-align: left; background: transparent; }
 .agents-preview #activityTrajectoryView .tj-item:hover { background: var(--cs-shade); }
 .agents-preview #activityTrajectoryView .tj-item[aria-pressed="true"] { background: color-mix(in srgb, var(--cs-steel) 7%, var(--cs-card)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--cs-steel) 40%, transparent); }
 .agents-preview #activityTrajectoryView .tj-item:focus-visible { outline: 2px solid var(--cs-steel); outline-offset: -2px; }
@@ -28,12 +28,21 @@
 .tj-item-meta { display: flex; align-items: center; gap: 10px; color: var(--cs-text-soft); }
 .tj-item-id { display: flex; justify-content: space-between; gap: 8px; color: var(--cs-text-soft); font-size: var(--cs-type-label-size); }
 .tj-item-id code { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0; background: transparent; }
-.tj-stack { display: inline-flex; padding-left: 6px; }
-.tj-stack .tj-avatar { margin-left: -6px; box-shadow: 0 0 0 2px var(--cs-card); }
+.tj-stack { display: inline-flex; flex-wrap: wrap; gap: 4px; }
 
 /* Shared atoms. */
 .tj-avatar { display: inline-grid; flex: 0 0 auto; width: 22px; height: 22px; place-items: center; border-radius: 6px; background: var(--cs-shade); }
 .tj-avatar img { width: 15px; height: 15px; }
+.tj-avatar[data-tip] { position: relative; cursor: default; }
+.tj-avatar[data-tip]::before,
+.tj-avatar[data-tip]::after { position: absolute; left: 50%; z-index: 20; opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .12s ease; }
+.tj-avatar[data-tip]::after { content: attr(data-tip); bottom: calc(100% + 8px); transform: translateX(-50%); padding: 4px 8px; border-radius: 6px; background: var(--cs-text); color: var(--cs-card); font-size: var(--cs-type-label-size); font-weight: 600; line-height: 1.4; white-space: nowrap; box-shadow: 0 4px 12px rgba(30, 43, 57, .18); }
+.tj-avatar[data-tip]::before { content: ""; bottom: calc(100% + 3px); transform: translateX(-50%); border: 5px solid transparent; border-bottom-width: 0; border-top-color: var(--cs-text); }
+.tj-avatar[data-tip]:hover::before,
+.tj-avatar[data-tip]:hover::after { opacity: 1; visibility: visible; }
+.tj-avatar[data-tip]:hover { box-shadow: 0 0 0 1.5px var(--cs-text-soft); }
+.tj-lanes .tj-avatar[data-tip]::after { left: 0; transform: none; }
+.tj-lanes .tj-avatar[data-tip]::before { left: 11px; }
 .tj-detail svg { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; flex: 0 0 auto; }
 .tj-status { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; padding: 2px 9px; border-radius: 999px; background: var(--cs-shade); color: var(--cs-text-soft); font-size: var(--cs-type-label-size); font-weight: 600; line-height: 1.6; white-space: nowrap; }
 .tj-status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .85; }
@@ -229,9 +238,8 @@
 }
 @container (max-width: 1039px) {
   .tj-list-items { grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); }
+  .tj-list-items { gap: 2px 4px; }
   .tj-list-items li + li { border-top: 0; }
-  .tj-list-items li { border-bottom: 1px solid var(--tj-soft-line); }
-  .tj-list-items li:nth-child(odd):not(:only-child) { border-right: 1px solid var(--tj-soft-line); }
 }
 @container (max-width: 640px) {
   .tj-detail { padding: 20px 16px; }
@@ -251,14 +259,12 @@
   .tj-tools :is(th, td) { padding: 8px 4px; }
   .tj-tools thead th { overflow-wrap: anywhere; }
 }
-@container (max-width: 560px) {
-  .tj-list-items li:nth-child(odd):not(:only-child) { border-right: 0; }
-}
 @media (max-width: 700px) {
   .agents-preview #activityTrajectoryView .tj-item, .agents-preview #activityTrajectoryView .tj-segmented button { min-height: var(--cs-control-height-touch); }
   .tj-step > details > summary { min-height: var(--cs-control-height-touch); }
 }
 @media (prefers-reduced-motion: reduce) {
+  .tj-avatar[data-tip]::before, .tj-avatar[data-tip]::after { transition: none; }
   .tj-chevron, .tj-step-main { transition: none; }
   .agents-preview #activityTrajectoryView .tj-mark::before { transition: none; }
 }

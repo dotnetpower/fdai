@@ -63,7 +63,11 @@
   let onChange = () => {};
 
   const svg = (path, size = 16) => '<svg viewBox="0 0 16 16" width="' + size + '" height="' + size + '" aria-hidden="true" focusable="false"><path d="' + path + '"/></svg>';
-  const avatar = (agent) => '<span class="tj-avatar"><img src="../../console/public/agent-icons/' + esc(agent.toLowerCase()) + '.svg" alt="" /></span>';
+  const avatar = (agent, tip) => {
+    const role = P.byName(agent);
+    const label = tip ? ' data-tip="' + esc(agent + (role ? " \u00b7 " + role.role : "")) + '"' : "";
+    return '<span class="tj-avatar"' + label + '><img src="../../console/public/agent-icons/' + esc(agent.toLowerCase()) + '.svg" alt="" /></span>';
+  };
   const time = (value) => Date.parse(value);
   const startOf = (step) => time(step.at) - step.ms;
   function span(trajectory) {
@@ -146,7 +150,7 @@
       const agents = agentsOf(trajectory);
       return '<li><button type="button" class="tj-item" data-trajectory="' + esc(trajectory.correlation) + '" aria-pressed="' + String(trajectory === current) + '" aria-controls="activityTrajectoryDetail">' +
         '<span class="tj-item-head"><strong>' + esc(trajectory.title) + "</strong>" + pill(outcomeOf(trajectory), trajectoryTone(trajectory)) + "</span>" +
-        '<span class="tj-item-meta"><span class="tj-stack" aria-label="' + esc(agents.join(", ")) + '">' + agents.map(avatar).join("") + "</span>" +
+        '<span class="tj-item-meta"><span class="tj-stack" aria-label="' + esc(agents.join(", ")) + '">' + agents.map((agent) => avatar(agent, true)).join("") + "</span>" +
         "<span>" + trajectory.steps.length + " steps &middot; " + duration(s.total) + "</span></span>" +
         '<span class="tj-item-id"><code>' + esc(trajectory.correlation) + "</code><span>" + esc(trajectory.tier) + "</span></span>" +
         "</button></li>";
@@ -217,7 +221,7 @@
     return '<figure class="tj-map" aria-labelledby="activityTrajectoryMapTitle">' +
       '<figcaption><h3 id="activityTrajectoryMapTitle">Trajectory map</h3><span>Long idle gaps are compressed and labeled. Select a marker to open its step.</span></figcaption>' +
       '<div class="tj-map-grid" style="--tj-lanes:' + lanes.length + '">' +
-      '<ul class="tj-lanes" aria-hidden="true">' + lanes.map((agent) => "<li>" + avatar(agent) + "<span>" + esc(agent) + "</span></li>").join("") + "</ul>" +
+      '<ul class="tj-lanes" aria-hidden="true">' + lanes.map((agent) => "<li>" + avatar(agent, true) + "<span>" + esc(agent) + "</span></li>").join("") + "</ul>" +
       '<div class="tj-plot" style="height:' + lanes.length * laneHeight + 'px">' + lanes.map((agent, index) => '<span class="tj-lane-line" style="top:' + (index * laneHeight + laneHeight / 2) + 'px"></span>').join("") +
       breaks + '<svg class="tj-links" viewBox="0 0 1000 ' + lanes.length * laneHeight + '" preserveAspectRatio="none" aria-hidden="true">' + paths + "</svg>" + marks + "</div>" +
       '<span></span><div class="tj-axis"><span>+0</span><span>+' + duration(s.total) + "</span></div></div>" + note + "</figure>";
