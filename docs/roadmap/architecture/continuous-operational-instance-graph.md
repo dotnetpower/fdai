@@ -710,6 +710,21 @@ reaches the journal still uses the graph as it is.
 | Parallel answers could storm the provider | Installation and principal limits, single-flight reads, and stop-on-throttle bound load |
 | Parallel reads are not one moment | Rows keep their own times and completeness is defined against the answer cutoff |
 
+Implementation review found a blocking constraint, so the path stays unimplemented. Every read in a
+turn is bound to one evaluation cutoff fixed before planning: receipts allow at most five seconds
+between the plan's `as_of` and that cutoff, and the state function rejects any fact recorded after
+it as future evidence. A live read necessarily completes after the cutoff, so its reading cannot
+support that turn. Moving the cutoff would change the verified plan's `as_of` and break the plan
+digest, and reading before planning is circular because the plan selects the Resource types. The
+ARG `resourcechanges` accelerator does not close the gap either: it is enabled, but a virtual
+machine's power state lives in its instance view rather than its ARM properties, so start and
+deallocate operations reach the journal only as Activity Log metadata.
+
+A viable revision needs a turn-level cutoff rebind: after the bounded live reads, Core re-verifies
+the whole plan at one later cutoff and reissues every receipt in it, so no reading postdates the
+cutoff it supports. That changes the shared temporal contract of the semantic runtime and needs
+its own design and critique before any implementation.
+
 ## Source-to-store implementation audit
 
 The complete implementation audit and transition ledger are in [Continuous Operational Instance Graph Evidence](continuous-operational-instance-graph-evidence.md).
