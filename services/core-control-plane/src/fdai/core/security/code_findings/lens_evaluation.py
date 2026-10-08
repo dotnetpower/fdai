@@ -194,8 +194,17 @@ def parse_labels(text: str, corpus: LensCorpus) -> tuple[LabeledFile, ...]:
     return tuple(files)
 
 
-def select_sample(files: Sequence[LabeledFile], corpus: LensCorpus) -> tuple[LabeledFile, ...]:
-    """Return the first N true and N false files per category in test-name order."""
+def select_sample(
+    files: Sequence[LabeledFile], corpus: LensCorpus, offset: int = 0
+) -> tuple[LabeledFile, ...]:
+    """Return N true and N false files per category in test-name order, after ``offset``.
+
+    ``offset`` skips that many files per category and verdict, so ``offset`` equal to the sample
+    size selects a sample disjoint from the default one.
+    """
+    if offset < 0:
+        raise LensCorpusError("sample offset must not be negative")
+    size = corpus.sample_per_label
     chosen: list[LabeledFile] = []
     for category in sorted(corpus.categories):
         for vulnerable in (True, False):
@@ -203,9 +212,9 @@ def select_sample(files: Sequence[LabeledFile], corpus: LensCorpus) -> tuple[Lab
                 (f for f in files if f.category == category and f.vulnerable is vulnerable),
                 key=lambda f: f.name,
             )
-            if len(pool) < corpus.sample_per_label:
+            if len(pool) < offset + size:
                 raise LensCorpusError(f"labels: too few {category} files with verdict {vulnerable}")
-            chosen.extend(pool[: corpus.sample_per_label])
+            chosen.extend(pool[offset : offset + size])
     return tuple(chosen)
 
 
