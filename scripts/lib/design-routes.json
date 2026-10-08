@@ -2550,7 +2550,6 @@
       ],
       "must_read": [
         ".github/instructions/app-shape.instructions.md",
-        "docs/roadmap/architecture/service-graduation-and-ownership.md",
         "docs/roadmap/interfaces/operator-console.md",
         "docs/roadmap/interfaces/operator-console-tool-catalog.md",
         "docs/roadmap/interfaces/operator-console-module-map.md",
@@ -2633,8 +2632,7 @@
         "docs/roadmap/architecture/operating-ontology.md",
         "docs/roadmap/architecture/operating-ontology-platform.md",
         "docs/roadmap/architecture/continuous-operational-instance-graph.md",
-        "docs/roadmap/rules-and-detection/rule-semantic-retrieval.md",
-        "docs/roadmap/rules-and-detection/causal-incident-graph.md"
+        "docs/roadmap/rules-and-detection/rule-semantic-retrieval.md"
       ],
       "docs_update_routes": [
         "conversation-attachments",
@@ -2715,7 +2713,6 @@
         "docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md",
         "docs/roadmap/interfaces/continuous-question-space.md",
         "docs/roadmap/architecture/ontology-structural-model.md",
-        "docs/roadmap/architecture/operating-ontology.md",
         "docs/roadmap/architecture/operating-ontology-platform.md",
         "docs/roadmap/architecture/continuous-operational-instance-graph.md",
         "docs/roadmap/interfaces/ontology-reasoning-compiler.md"

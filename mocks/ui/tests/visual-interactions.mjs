@@ -58,9 +58,13 @@ try {
     await check("Search has a visible empty state and restores a filtered route", async () => {
       await open("hil.html?status=pending");
       const search = page.locator("[data-nav-search]");
+      const previewCount = await page.locator(".side [data-page]").count();
       await search.fill("no-such-design-preview");
       assert.equal(await page.locator("[data-nav-empty]").isVisible(), true);
-      assert.match(await page.locator("[data-nav-result]").textContent(), /0 of 102/);
+      assert.equal(
+        await page.locator("[data-nav-result]").textContent(),
+        `0 of ${previewCount} previews match`,
+      );
       assert.equal(await page.locator('.nav-group:visible').count(), 0);
       await page.locator("[data-nav-clear]").click();
       assert.equal(await page.locator('.side [aria-current="page"]').isVisible(), true);

@@ -39,7 +39,7 @@ from fdai_operator_service.families.conversation.semantic_document_presentation 
     apply_document_answer as _apply_document_answer,
 )
 from fdai_operator_service.families.conversation.semantic_model_call_presentation import (
-    model_call_activity_text,
+    model_call_activity,
 )
 from fdai_operator_service.families.conversation.semantic_progress_relay import (
     SemanticProgressRelay as _SemanticProgressRelay,
@@ -411,19 +411,9 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
                     self._queue_work_progress(shape, "0:planning")
                     return
                 self._pin_window_closed = True
-            progress_updates = self._progress_relay.after(
+            progress = self._progress_relay.next_after(
                 self._stored.request_id,
                 self._progress_sequence,
-            )
-            model_calls = self._progress_relay.model_calls_after(
-                self._stored.request_id,
-                self._progress_sequence,
-            )
-            # Node and model-call updates share Core's sequence, so the earliest one goes first.
-            progress = min(
-                (*progress_updates[:1], *model_calls[:1]),
-                key=lambda update: update.progress_sequence,
-                default=None,
             )
             if progress is not None and self._terminal_absent_observed:
                 self._progress_sequence = progress.progress_sequence
@@ -433,7 +423,9 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
                     and progress.turn_sequence == self._request.turn_sequence
                 ):
                     if isinstance(progress, SemanticModelCallProgress):
-                        self._queue_model_call(progress)
+                        self._append_activity(
+                            **model_call_activity(progress, locale=self._request.locale)
+                        )
                     else:
                         self._queue_progress(progress)
                     return
@@ -458,20 +450,6 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
                     {"seq": self._stream_sequence, "revision": 0, "work_progress_shape": shape},
                 ),
             )
-        )
-
-    def _queue_model_call(self, call: SemanticModelCallProgress) -> None:
-        """Stream one planning model call as a live-only step; it never closes the pin window."""
-        label, detail = model_call_activity_text(call, locale=self._request.locale)
-        self._append_activity(
-            f"model:{call.call_index}",
-            label,
-            status=call.status,
-            event_id="0:planning",
-            activity_id=f"semantic:model:{call.call_index}",
-            kind="model_call",
-            detail=detail,
-            observed_at=(call.completed_at or call.started_at).isoformat(),
         )
 
     def _queue_progress(self, progress: SemanticQueryProgress) -> None:

@@ -55,10 +55,8 @@ from fdai.delivery.inventory_change_acceleration import workload_identity as _wo
 from fdai.delivery.inventory_configuration_events import publish_promoted_resource_events
 from fdai.delivery.inventory_job_config import InventoryJobConfig
 from fdai.delivery.inventory_ontology_observer import (
-    build_ontology_observer as _build_ontology_observer,
-)
-from fdai.delivery.inventory_ontology_observer import (
-    current_ontology_release_digest as _current_ontology_release_digest,
+    build_ontology_observer,
+    current_ontology_release_digest,
 )
 from fdai.delivery.inventory_process_budget import run_inventory_process
 from fdai.delivery.inventory_progress import InventoryProgressUnavailableError
@@ -73,9 +71,7 @@ from fdai.delivery.inventory_sync_cli_models import (
     ChangeStreamDrainResult,
     InventoryJobResult,
     generation_digest,
-)
-from fdai.delivery.inventory_sync_cli_models import (
-    scope_ref as _scope_ref,
+    scope_ref,
 )
 from fdai.delivery.kubernetes_api_inventory import (
     KubernetesApiAuth,
@@ -160,7 +156,7 @@ def _build_runtime_call_enricher(
         schema_registry=PackageResourceSchemaRegistry(),
         probes_root=catalog_root / "probes",
     )
-    scope_ref = _scope_ref(config.scopes)
+    scope_reference = scope_ref(config.scopes)
     source = AzureRuntimeCallTelemetrySource(
         provider=AzureLogAnalyticsQueryProvider(
             config=AzureLogAnalyticsQueryConfig(
@@ -176,7 +172,7 @@ def _build_runtime_call_enricher(
             management_endpoint=config.management_endpoint,
             management_audience=config.management_audience,
         ),
-        scope_ref=scope_ref,
+        scope_ref=scope_reference,
         freshness_ceiling_seconds=config.reconciliation_interval_seconds,
     )
     return RuntimeCallInventoryEnricher(
@@ -185,7 +181,7 @@ def _build_runtime_call_enricher(
             authenticator=AzureMonitorRuntimeCallAuthenticator(),
         ),
         ontology_release=catalog.build_release(),
-        scope_ref=scope_ref,
+        scope_ref=scope_reference,
         endpoint_verifier_identity="inventory.runtime-call-endpoint-verifier",
         endpoint_verifier_revision="1.0.0",
     )
@@ -371,7 +367,7 @@ async def run(
             publisher=activity_publisher,
         )
         evidence_counts: dict[str, int] = {}
-        ontology_observer, ontology_recovery = _build_ontology_observer(
+        ontology_observer, ontology_recovery = build_ontology_observer(
             config,
             vocabulary=vocabulary,
             publisher=activity_publisher,
@@ -379,7 +375,7 @@ async def run(
                 publish_promoted_resource_events,
                 event_bus=event_bus,
                 topic=event_topic,
-                scope_ref=_scope_ref(config.scopes),
+                scope_ref=scope_ref(config.scopes),
             ),
             evidence_counts=evidence_counts,
             stack=stack,
@@ -531,9 +527,7 @@ async def _run_due_once(config: InventoryJobConfig | None = None) -> InventoryJo
             ),
             default=0.0,
         ),
-        # A projection made under another release or for an older generation leaves answers
-        # partial, so it makes collection due now instead of after the routine interval.
-        ontology_release_digest=_current_ontology_release_digest(),
+        ontology_release_digest=current_ontology_release_digest(),
     )
     due = await reconciliation_gate(
         config.reconciliation_interval_seconds,

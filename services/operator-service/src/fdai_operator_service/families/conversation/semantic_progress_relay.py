@@ -113,6 +113,20 @@ class SemanticProgressRelay:
             if call.progress_sequence > progress_sequence
         )
 
+    def next_after(
+        self, request_id: str, progress_sequence: int
+    ) -> SemanticQueryProgress | SemanticModelCallProgress | None:
+        """Return the earliest retained query or model-call update after one cursor."""
+        query_updates = self.after(request_id, progress_sequence)
+        model_calls = self.model_calls_after(request_id, progress_sequence)
+        query = query_updates[0] if query_updates else None
+        model_call = model_calls[0] if model_calls else None
+        if query is None:
+            return model_call
+        if model_call is None:
+            return query
+        return query if query.progress_sequence <= model_call.progress_sequence else model_call
+
     def pin(self, request_id: str) -> SemanticWorkProgress | None:
         """Return the plan-time pin published for one request, if it arrived."""
         return self._pins.get(request_id)

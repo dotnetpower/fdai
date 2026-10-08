@@ -2,7 +2,21 @@
 
 from __future__ import annotations
 
+from typing import TypedDict
+
 from fdai_service_contracts.semantic_model_call_progress import SemanticModelCallProgress
+
+
+class ModelCallActivity(TypedDict):
+    phase: str
+    label: str
+    status: str
+    event_id: str
+    activity_id: str
+    kind: str
+    detail: str
+    observed_at: str
+
 
 # Reviewed stage names in the operator's language; the stage itself stays a closed code.
 _STAGE_LABELS: dict[str, tuple[str, str]] = {
@@ -18,8 +32,8 @@ _STAGE_LABELS: dict[str, tuple[str, str]] = {
 }
 
 
-def model_call_activity_text(call: SemanticModelCallProgress, *, locale: str) -> tuple[str, str]:
-    """Return the label and detail for one model call without any model-authored content."""
+def model_call_activity(call: SemanticModelCallProgress, *, locale: str) -> ModelCallActivity:
+    """Return bounded presentation fields for one model call without model-authored content."""
 
     korean = locale.casefold().startswith("ko")
     korean_stage, english_stage = _STAGE_LABELS.get(call.stage, (call.stage, call.stage))
@@ -37,9 +51,18 @@ def model_call_activity_text(call: SemanticModelCallProgress, *, locale: str) ->
         detail = (
             f"{model} · {seconds:.1f}초 · {outcome}"
             if korean
-            else (f"{model} · {seconds:.1f} s · {outcome}")
+            else f"{model} · {seconds:.1f} s · {outcome}"
         )
-    return label, detail
+    return {
+        "phase": f"model:{call.call_index}",
+        "label": label,
+        "status": call.status,
+        "event_id": "0:planning",
+        "activity_id": f"semantic:model:{call.call_index}",
+        "kind": "model_call",
+        "detail": detail,
+        "observed_at": (call.completed_at or call.started_at).isoformat(),
+    }
 
 
-__all__ = ["model_call_activity_text"]
+__all__ = ["ModelCallActivity", "model_call_activity"]

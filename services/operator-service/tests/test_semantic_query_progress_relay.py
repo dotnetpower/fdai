@@ -182,6 +182,9 @@ def test_model_calls_keep_their_own_slot_and_order() -> None:
 
     assert [call.progress_sequence for call in relay.model_calls_after("request-1", 0)] == [1, 3]
     assert [update.progress_sequence for update in relay.after("request-1", 0)] == [2]
+    assert relay.next_after("request-1", 0) == relay.model_calls_after("request-1", 0)[0]
+    assert relay.next_after("request-1", 1) == relay.after("request-1", 1)[0]
+    assert relay.next_after("request-1", 3) is None
     relay.discard("request-1")
     assert relay.model_calls_after("request-1", 0) == ()
 
