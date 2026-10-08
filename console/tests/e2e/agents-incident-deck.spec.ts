@@ -1045,6 +1045,10 @@ test("keeps completed observed work compact across supported viewports", async (
     await investigation.locator(":scope > summary").click();
     await expect(investigation).not.toHaveAttribute("open", "");
     await expect(runRecord).not.toHaveAttribute("open", "");
+    // The panel folds with a short height transition; measure once it has settled.
+    await expect.poll(async () =>
+      investigation.evaluate((element) => element.getBoundingClientRect().height),
+    ).toBeLessThanOrEqual(viewport.width <= 640 ? 90 : 44);
 
     const geometry = await workspace.evaluate((root) => {
       const answer = root.querySelector<HTMLElement>(".deck-turn.is-flow-end");

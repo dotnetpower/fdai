@@ -232,10 +232,9 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toContain('class="deck-investigation-readonly cs-work-summary-safety"');
     expect(component).toContain('t("deck.investigation.readOnly")');
     expect(component).toContain('class="deck-investigation-item-disclosure"');
-    // A read opens only while its panel runs; a stopped read stays folded with its outcome.
-    expect(component).toContain(
-      'open={running && (activity.status === "running" || index === activities.length - 1)}',
-    );
+    // Steps stay folded while the turn runs so the panel grows one row at a time.
+    expect(component).toContain('<details class="deck-investigation-item-disclosure">');
+    expect(component).not.toContain("index === activities.length - 1)}");
     expect(presenter).toContain("showStartNote={investigationFlowStart}");
     expect(presenter).toContain("answerSettled={investigationAnswerSettled}");
     expect(presenter).toContain("trajectory && !turn.streaming && !isActivity && !isProgressMessage");
@@ -276,10 +275,14 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toContain("deck-branch-badge");
     expect(component).toContain('"is-query" : "is-tool"');
     expect(component).toContain('activity.kind === "model_call" ? "MODEL" : "EVENT"');
-    // A model call renders one static row: no disclosure, no lifecycle panel, one status label.
-    expect(component).toContain('<div class="deck-investigation-item-static">');
+    // Planning model calls fold into one group row whose disclosure lists each call without a
+    // lifecycle panel, count as one event, and never repeat their status beside the title.
+    expect(component).toContain("<ModelCallGroup");
+    expect(component).toContain('class="deck-model-call-list"');
+    expect(component).toContain("index === firstModelCallIndex");
+    expect(component).toContain("listedActivities.length + planningGroupCount");
     expect(component).toContain("const meta = modelCall");
-    expect(component).toContain("{!metaNamesStatus &&");
+    expect(component).toContain("{!metaNamesStatus && !modelCall &&");
     expect(component).toContain("executionKindLabel(activity.execution");
     expect(component).toContain('evidence.tool.includes("Azure Resource Graph")');
     expect(component).toContain('evidence.tool === "Azure CLI"');

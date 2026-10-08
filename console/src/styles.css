@@ -10361,14 +10361,60 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   position: relative;
   min-width: 0;
 }
+/* A new step settles in place instead of popping into the list. */
+.deck-investigation-item {
+  animation: deck-investigation-item-enter .22s cubic-bezier(.22, 1, .36, 1) both;
+}
+@keyframes deck-investigation-item-enter {
+  from { opacity: 0; transform: translateY(3px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .deck-investigation-item { animation: none; }
+}
+/* The work panel folds and unfolds its height instead of snapping when the answer settles. */
+@supports (interpolate-size: allow-keywords) {
+  @media (prefers-reduced-motion: no-preference) {
+    .deck-investigation {
+      interpolate-size: allow-keywords;
+    }
+    .deck-investigation::details-content {
+      height: 0;
+      overflow: clip;
+      transition: height .24s cubic-bezier(.22, 1, .36, 1), content-visibility .24s allow-discrete;
+    }
+    .deck-investigation[open]::details-content {
+      height: auto;
+    }
+  }
+}
+/* The planning group lists each model call as a quiet, badge-free line with an inline mark. */
+.deck-model-call-list {
+  display: grid;
+  gap: 2px;
+  margin: 2px 0 6px;
+  padding: 0;
+  list-style: none;
+}
+.deck-model-call-list .deck-investigation-summary,
+.deck-model-call-list .deck-investigation-summary.has-kind-badge {
+  grid-template-columns: 16px minmax(0, 1fr);
+  min-height: 34px;
+  padding: 3px 8px;
+}
+.deck-model-call-list .deck-investigation-kind-badge { display: none; }
+.deck-model-call-list .deck-investigation-summary > .deck-investigation-state {
+  position: static;
+  translate: none;
+  box-shadow: none;
+}
+.deck-model-call-list .deck-investigation-copy strong { font-weight: 600; }
 .deck-investigation-item-static .deck-investigation-summary {
   padding: 5px 8px;
   border-radius: 7px;
 }
 .deck-investigation-item-disclosure > summary:hover .deck-investigation-summary,
-.deck-investigation-item-disclosure[open] > summary .deck-investigation-summary,
-.deck-investigation-item.is-running .deck-investigation-summary,
-.deck-investigation-item.is-pending .deck-investigation-summary {
+.deck-investigation-item-disclosure[open] > summary .deck-investigation-summary {
   background: color-mix(in oklab, var(--accent) 6%, var(--bg-elevated));
 }
 .deck-investigation-summary {
@@ -10423,9 +10469,10 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   line-height: 1;
 }
 .deck-investigation-item.is-running .deck-investigation-state,
-.deck-investigation-item.is-pending .deck-investigation-state {
+.deck-investigation-item.is-pending .deck-investigation-state,
+.deck-model-call:is(.is-running, .is-pending) .deck-investigation-state {
   box-sizing: border-box;
-  border: 2px solid color-mix(in oklab, var(--accent) 28%, transparent);
+  border: 2px solid color-mix(in oklab, var(--accent) 14%, transparent);
   border-top-color: var(--accent);
   background: transparent;
   animation: deck-rt-rot 0.8s linear infinite;

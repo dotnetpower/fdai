@@ -536,6 +536,60 @@ function ActivityObservation({
   );
 }
 
+/**
+ * Planning makes several near-identical model calls before the first read. One row names the
+ * calls in flight and the count done; its disclosure lists each call.
+ */
+function ModelCallGroup({
+  calls,
+  interruption,
+}: {
+  readonly calls: readonly InvestigationActivity[];
+  readonly interruption: ReadInterruption | undefined;
+}) {
+  const statuses = calls.map((call) => activityDisplayStatus(call, interruption));
+  const inFlight = calls.filter((_, index) =>
+    statuses[index] === "running" || statuses[index] === "pending");
+  const done = statuses.filter((status) => status === "completed").length;
+  const status: ActivityDisplayStatus = inFlight.length > 0
+    ? "running"
+    : statuses.find((item) => item !== "completed") ?? "completed";
+  const detail = inFlight.length > 0
+    ? [
+        // The latest call in flight names the stage; the count covers the rest.
+        inFlight[inFlight.length - 1]?.label ?? "",
+        t("deck.investigation.modelGroupRunning", {
+          running: inFlight.length,
+          done,
+          total: calls.length,
+        }),
+      ].join(" · ")
+    : t("deck.investigation.modelGroupDone", { count: calls.length });
+  const group: InvestigationActivity = {
+    activityId: "semantic:model-calls",
+    kind: "model_call",
+    status: status === "running" ? "running" : calls[calls.length - 1]?.status ?? "completed",
+    label: t("deck.investigation.modelGroupTitle"),
+    detail,
+    completed: null,
+    total: null,
+  };
+  return (
+    <li class={`deck-investigation-item is-${status} is-model-group`}>
+      <details class="deck-investigation-item-disclosure">
+        <summary><ActivitySummary activity={group} status={status} /></summary>
+        <ol class="deck-model-call-list">
+          {calls.map((call, index) => (
+            <li key={call.activityId} class={`deck-model-call is-${statuses[index]}`}>
+              <ActivitySummary activity={call} status={statuses[index] ?? call.status} />
+            </li>
+          ))}
+        </ol>
+      </details>
+    </li>
+  );
+}
+
 function ActivitySummary({
   activity,
   status,
@@ -588,7 +642,7 @@ function ActivitySummary({
       <span class="deck-investigation-copy">
         <span class="deck-investigation-title-line">
           <strong>{activity.label}</strong>
-          {!metaNamesStatus &&
+          {!metaNamesStatus && !modelCall &&
             (status === "running" || status === "pending" || status !== activity.status) ? (
             <em>{statusLabel(status)}</em>
           ) : null}
@@ -659,10 +713,16 @@ export function InvestigationTimeline({
   const elapsedMs = useInvestigationElapsed(running, finalDurationMs);
   const tone = investigationTone(activities, branches);
   const visibleBranches = unrepresentedEvidenceBranches(branches, activities);
-  const eventCount = activities.length + visibleBranches.length;
-  const completedEventCount = activities.filter((activity) =>
+  // The planning model calls render as one row, so they count as one event.
+  const plannedCalls = activities.filter(isModelCallStep);
+  const listedActivities = activities.filter((activity) => !isModelCallStep(activity));
+  const planningGroupCount = plannedCalls.length > 0 ? 1 : 0;
+  const planningGroupSettled = plannedCalls.length > 0 && plannedCalls.every((call) =>
+    ["completed", "unavailable", "failed"].includes(call.status));
+  const eventCount = listedActivities.length + planningGroupCount + visibleBranches.length;
+  const completedEventCount = listedActivities.filter((activity) =>
     ["completed", "unavailable", "failed"].includes(activity.status),
-  ).length + visibleBranches.filter((branch) =>
+  ).length + (planningGroupSettled ? 1 : 0) + visibleBranches.filter((branch) =>
     !["pending", "running"].includes(branch.status),
   ).length;
   const firstActivity = activities[0];
@@ -670,7 +730,9 @@ export function InvestigationTimeline({
     ? t(firstActivity.execution.inputKind === "query"
       ? "deck.investigation.startingQuery"
       : "deck.investigation.startingCommand", { tool: firstActivity.execution.tool })
-    : visibleBranches[0]?.summary ?? firstActivity?.label;
+    : visibleBranches[0]?.summary ?? (firstActivity && isModelCallStep(firstActivity)
+      ? t("deck.investigation.modelGroupTitle")
+      : firstActivity?.label);
   const allObservedEventsSettled = eventCount > 0 && completedEventCount === eventCount;
   const phaseTitle = t(running
     ? "deck.investigation.runningTitle"
@@ -689,7 +751,9 @@ export function InvestigationTimeline({
     ? t(branches.length === 1
       ? "deck.investigation.sourceSummaryOne"
       : "deck.investigation.sourceSummaryMany", { count: branches.length })
-    : t("deck.investigation.executionDetails", { count: activities.length });
+    : t("deck.investigation.executionDetails", {
+        count: listedActivities.length + planningGroupCount,
+      });
   const phaseDurationMs = turnTiming?.phases.reduce(
     (total, phase) => total + phase.duration_ms,
     0,
@@ -720,6 +784,8 @@ export function InvestigationTimeline({
   const interruption: ReadInterruption | undefined = running
     ? undefined
     : stopped ? "stopped" : "not_completed";
+  const modelCalls = activities.filter(isModelCallStep);
+  const firstModelCallIndex = activities.findIndex(isModelCallStep);
   const receipts = lead && answerSettled && contextReceipts && contextReceipts.length > 0
     ? contextReceipts
     : undefined;
@@ -806,19 +872,22 @@ export function InvestigationTimeline({
       {activities.length > 0 ? (
         <ol class="deck-investigation-list">
           {activities.map((activity, index) => {
+            if (isModelCallStep(activity)) {
+              // Every planning model call folds into one row at the first call's position.
+              return index === firstModelCallIndex ? (
+                <ModelCallGroup
+                  key="semantic:model-calls"
+                  calls={modelCalls}
+                  interruption={interruption}
+                />
+              ) : null;
+            }
             const status = activityDisplayStatus(activity, interruption);
             return (
               <li key={activity.activityId} class={`deck-investigation-item is-${status}`}>
-                {isModelCallStep(activity) ? (
-                  // A model call has no execution evidence to disclose; its row is the whole record.
-                  <div class="deck-investigation-item-static">
-                    <ActivitySummary activity={activity} status={status} />
-                  </div>
-                ) : (
-                <details
-                  class="deck-investigation-item-disclosure"
-                  open={running && (activity.status === "running" || index === activities.length - 1)}
-                >
+                {/* Steps stay folded while the turn runs, so the panel grows one row at a time
+                    instead of opening and collapsing an evidence panel; the operator opens one. */}
+                <details class="deck-investigation-item-disclosure">
                   <summary><ActivitySummary activity={activity} status={status} /></summary>
                   {activity.execution ? (
                     <ExecutionEvidence
@@ -829,7 +898,6 @@ export function InvestigationTimeline({
                     />
                   ) : <ActivityObservation activity={activity} status={status} />}
                 </details>
-                )}
               </li>
             );
           })}

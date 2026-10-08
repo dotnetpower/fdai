@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 868a721989e88a0a218c3ef338b84283b10b2e22
+translation_source_sha: a7e3eea3265ef455c1f4bc63d6415cb7a27fe727
 translation_revised: 2026-10-08
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -89,6 +89,7 @@ Operator는 최종 결과의 검증과 영속 저장이 완료된 뒤 대기 중
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-08 | 구현됨 | 작업 패널이 차분하게 표시되도록 했습니다. 계획 단계 모델 호출은 진행 중인 최신 호출과 완료 건수를 보여 주는 "답변 계획" 한 행으로 묶이고 이벤트 하나로 셉니다. 턴이 실행되는 동안 단계가 근거 패널을 자동으로 펼치지 않고, 실행 중 행의 채운 배경과 반복 상태 문구를 없앴으며, 스피너는 더 옅은 트랙 위에서 돌고, 새 행은 서서히 나타나며, `interpolate-size`를 지원하는 환경에서는 답변이 정착할 때 패널 높이가 부드럽게 접힙니다. 모션 감소 설정은 두 애니메이션을 끕니다. | `current change`; `console/src/deck/investigation-timeline.tsx`와 테스트, Deck investigation 카탈로그 쌍, `console/src/styles.css`, `tests/e2e/agents-incident-deck.spec.ts`; `npx vitest run src`(3780개 통과); Console 타입 검사; `npm --prefix console run test:e2e:quick -- tests/e2e/deck-conversation-layer.spec.ts tests/e2e/agents-incident-deck.spec.ts`(24개 통과); 로컬 Console에서 패널 높이가 계획 중 96px, 조회 표시 시 172px, 정착 후 44px였고, 이전에는 646px까지 커졌음. | 이 표시 개선에 남은 작업은 없습니다. |
 | 2026-10-08 | 구현됨 | 실행 중 단계의 스피너가 아래로 처지고 튀던 문제를 고치고, 표 답변의 폭을 맞췄습니다. 단계 표시는 `transform: translateY(-50%)`로 가운데 정렬했는데, 회전 애니메이션의 `transform: rotate()`가 이를 대체해 실행 중 표시가 8px 아래에 놓이고 회전하며 튀었습니다. 이제 독립 속성 `translate`로 가운데 정렬합니다. 표 답변의 본문은 72ch 폭을 유지한 반면 표는 1080px로 펼쳐졌습니다. 이제 표는 셀이 단어 단위로 줄바꿈되며 읽기 열에 맞춰지고, 표 옆의 본문은 표의 폭을 사용합니다. 이 변경은 이전의 표 확장 방식을 대체합니다. | `current change`; `console/src/styles.css`, `command-deck-workspace-visual.test.ts`; `npx vitest run src`(3776개 통과); Console 타입 검사; 로컬 Console에서 실행 중 표시를 24번 샘플링한 결과 완료 표시와 같은 x에서 세로 오차 0px였고, 답변, 본문, 표 wrapper, 앞 턴이 1440x900(323, 840px), 993x641(116, 808px), 390x844, 도킹(401px)에서 같은 x와 폭을 가졌으며 단어 중간 줄바꿈과 넘침이 없었음. | 이 배치 수정에 남은 작업은 없습니다. |
 | 2026-10-08 | 구현됨 | 부분 상태 답변에서 Resource 범위가 불완전한 이유를 설명하게 했습니다. 상태 함수가 스냅샷의 타입 지정 원본 사유를 버렸고 이 코드에 검토된 설명도 없어서, 답변에는 `resource_scope_incomplete` 코드만 표시되었습니다. 이제 함수는 `resource_scope_incomplete+inventory_observation_pending` 같은 조합을 보고하고, 두 부분 모두 정확한 코드와 함께 운영자 언어로 표시됩니다. | `current change`; `resource_state_queries.py`, `semantic_source_limitations.py`와 테스트; `eval/golden-dataset/corpus-manifest.json` 재생성; Core ontology-platform, conversation, semantic, prompt 테스트(4952개 통과). | 이 설명에 남은 작업은 없습니다. |
 | 2026-10-08 | 구현됨 | 전체 작업 영역의 답변을 읽기 열 안에 유지했습니다. 넓은 레코드 표가 있는 답변은 턴 전체를 1080px로 넓혀, 본문이 질문과 작업 패널보다 120px 왼쪽에서 시작했습니다. 이제 표 wrapper만 대화 컨테이너 폭 안에서 가운데 기준으로 펼쳐집니다. | `current change`; `console/src/styles.css`, `command-deck-workspace-visual.test.ts`; `npx vitest run src`(3776개 통과); Console 타입 검사; 로컬 Console에서 답변 턴이 바로 앞 턴과 같은 x와 폭을 가짐: 1440x900(323, 840px), 993x641(116, 808px), 390x844(24, 332px). 표는 1080px와 889px였고 넘침이 없었음. | 이 배치 수정에 남은 작업은 없습니다. |
@@ -613,8 +614,9 @@ Console은 실시간 고정 형태와 저장된 필드를 다음 규칙으로 �
   실패는 턴에 영향을 주지 않습니다.
 - **스트림.** Operator는 각 갱신을 종류가 `model_call`인 `activity`로 스트리밍하며, 지역화한 단계 라벨과
   배포 이름 및 경과 시간을 세부 정보로 붙입니다. Console은 이 행에 `EVENT` 대신 `MODEL` 배지를
-  붙이고, 상태 라벨이 하나뿐인 정적 행으로 표시합니다. 행에 이미 단계, 배포, 경과 시간, 결과가 있으므로
-  수명주기 패널을 열지 않습니다. 이 활동은 실시간 전용입니다. 궤적 세부 정보에 저장되지 않고, 읽기로 세지 않으며, 표시
+  붙입니다. 계획 단계의 모든 호출은 "답변 계획" 한 행으로 묶이며, 이 행은 진행 중인 최신 호출과 완료
+  건수를 보여 줍니다. 펼치면 각 호출을 수명주기 패널 없이 조용한 한 줄로 나열하고, 묶음은 관측 이벤트
+  하나로 셉니다. 이 활동은 실시간 전용입니다. 궤적 세부 정보에 저장되지 않고, 읽기로 세지 않으며, 표시
   밀도를 바꾸지 않습니다. 계획이 고정되지 않은 채 모델 호출만 관측된 동안에는 Console이 호출 사이에도
   작업 패널을 실행 중으로 유지하므로, 읽기, 토큰, 검증된 최종 응답 중 하나가 도착하기 전에는 답변 초안을
   열지 않습니다.
