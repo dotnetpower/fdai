@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.microsoft.storagecache.caches.enable-logging-by-category-group-for-hpc-caches-microsoft-storagecache-cach.3d28ea18
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: microsoft.storagecache.caches
+check_logic:
+  kind: expression
+  reference: azure-policy://3d28ea18-8e88-4160-96ff-4b6af4fd94c7
+remediation:
+  template_ref: remediation/azure-builtin/3d28ea18-8e88-4160-96ff-4b6af4fd94c7.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 3d28ea18-8e88-4160-96ff-4b6af4fd94c7
+  azure_policy_display_name: Enable logging by category group for HPC caches (microsoft.storagecache/caches)
+    to Log Analytics
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/DS_LA_storagecache-caches_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:ceed59ff42e7547226ccc9cd26ad9a4a18fad2adce37333afcf365371573c4cd
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-10-08T09:14:46Z'

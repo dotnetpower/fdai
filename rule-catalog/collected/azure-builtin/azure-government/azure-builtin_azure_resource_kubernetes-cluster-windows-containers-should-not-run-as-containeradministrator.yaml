@@ -22,7 +22,7 @@ provenance:
     Government/Kubernetes/WindowsBlockContainerAdmin.json
   source_version: 2.2.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:1c74a65f5154455a53ec9397a4902679dcff3fb62d3866fd2ea5a8ee6c1a7411
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

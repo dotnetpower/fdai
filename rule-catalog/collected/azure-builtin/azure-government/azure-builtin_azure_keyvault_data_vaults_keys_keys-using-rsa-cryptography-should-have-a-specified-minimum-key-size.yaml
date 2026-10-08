@@ -22,7 +22,7 @@ provenance:
     Government/Key Vault/Keys_RSA_MinimumKeySize.json
   source_version: 1.0.1
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:322f3c34e8a53cb9989b74d6c9a34383599974d4f22d6d7441569f9a97ce7406
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

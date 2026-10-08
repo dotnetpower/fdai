@@ -491,7 +491,7 @@ async def test_waf_rule_receipts_are_admitted_only_with_the_assessment_activatio
     rules = tuple(_rule(rule_id) for rule_id in _waf_rule_ids(catalog))
     receipts, pin = await _waf_receipts(catalog, rules)
 
-    assert len(receipts) == 36
+    assert len(receipts) == 38
     assert len({item.control_id for item in receipts}) == 8
     assert all(item.outcome is FrameworkSatisfactionStatus.SATISFIED for item in receipts)
 

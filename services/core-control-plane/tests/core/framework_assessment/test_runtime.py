@@ -32,6 +32,7 @@ from fdai.rule_catalog.schema.framework_assessment import (
     FrameworkGenerationContract,
     FrameworkProcessPhase,
     FrameworkRelationshipState,
+    FrameworkRequirementKind,
     FrameworkScopeKind,
     canonical_digest,
     load_framework_assessment_catalog,
@@ -84,7 +85,7 @@ def _profile(
                 owner_identity=f"{control.owner_slot}@example.com",
             )
         )
-    is_waf = catalog.framework_id == "azure-waf"
+    is_waf = catalog.framework_scope is FrameworkScopeKind.WORKLOAD
     return FrameworkAssessmentProfile.create(
         profile_id=f"{catalog.framework_id}-profile",
         framework_id=catalog.framework_id,
@@ -201,6 +202,32 @@ def test_complete_exact_scope_waf_evidence_satisfies_one_control() -> None:
     assert control.satisfaction is FrameworkSatisfactionStatus.SATISFIED
     assert control.evidence_complete is True
     assert result.execution_authority is False
+
+
+def test_supporting_requirements_neither_decide_nor_veto_a_control() -> None:
+    catalog = _catalog("azure-mcsb")
+    supported = next(item for item in catalog.controls if item.control_id == "NS-8")
+    gated = next(item for item in catalog.controls if item.control_id == "NS-2")
+    assert {item.evidence_role for item in supported.evidence} == {
+        FrameworkEvidenceRole.DECISIVE,
+        FrameworkEvidenceRole.SUPPORTING_ONLY,
+    }
+
+    def manual(control_id: str) -> FrameworkEvidenceReceipt:
+        control = next(item for item in catalog.controls if item.control_id == control_id)
+        index = next(
+            position
+            for position, item in enumerate(control.evidence)
+            if item.kind is FrameworkRequirementKind.ARTIFACT
+        )
+        return _receipt(catalog, control_id, index)
+
+    result = FrameworkAssessmentRuntime(catalog).assess(
+        _request(catalog, (manual(supported.control_id), manual(gated.control_id)))
+    )
+
+    assert _result_control(result, "NS-8").satisfaction is FrameworkSatisfactionStatus.SATISFIED
+    assert _result_control(result, "NS-2").satisfaction is FrameworkSatisfactionStatus.UNKNOWN
 
 
 @pytest.mark.parametrize(

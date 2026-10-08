@@ -134,7 +134,7 @@ async def evaluate_baseline_records(
         for rule_id in hint.citing_rule_ids:
             rule = rules_by_id[rule_id]
             outcome, reason = _terminal_outcome(
-                rule_id=rule_id,
+                rule=rule,
                 resource=resource,
                 finding_by_rule=finding_by_rule,
                 abstained_rule_ids=hint.abstained_rule_ids,
@@ -244,12 +244,20 @@ async def _completion_record(
 
 def _terminal_outcome(
     *,
-    rule_id: str,
+    rule: Rule,
     resource: ResourceRecord,
     finding_by_rule: Mapping[str, object],
     abstained_rule_ids: tuple[str, ...],
     evidence_fresh_after: datetime | None,
 ) -> tuple[BaselineEvaluationTerminalOutcome, str | None]:
+    """Map one T0 result to a terminal outcome, failing closed on unobserved evidence.
+
+    A deny is the reviewed Rule's own judgment and stays ``violated``. ``compliant`` instead
+    requires every property the Rule declares in ``evaluates`` to be present on the resource:
+    a policy that finds nothing to deny on an absent property has not observed compliance.
+    """
+
+    rule_id = rule.id
     if rule_id in abstained_rule_ids:
         return BaselineEvaluationTerminalOutcome.ABSTAINED, "unsupported_evidence"
     if resource.props.get("_truncated") is True:
@@ -262,7 +270,30 @@ def _terminal_outcome(
             return BaselineEvaluationTerminalOutcome.ABSTAINED, "stale_evidence"
     if rule_id in finding_by_rule:
         return BaselineEvaluationTerminalOutcome.VIOLATED, None
+    if _unobserved_properties(rule, resource):
+        return BaselineEvaluationTerminalOutcome.ABSTAINED, "property_unobserved"
     return BaselineEvaluationTerminalOutcome.COMPLIANT, None
+
+
+def _unobserved_properties(rule: Rule, resource: ResourceRecord) -> tuple[str, ...]:
+    """Return declared ``property.<type>.<path>`` references whose top-level property is absent.
+
+    Only the first path segment is checked: it proves inventory collected the property. Deeper
+    segments, such as a tag the policy selects through a parameter, are data inside an observed
+    property, and the policy itself judges their absence.
+    """
+
+    declared = tuple(reference for reference in rule.evaluates if reference != "*")
+    prefix = f"property.{resource.type}."
+    own = tuple(reference for reference in declared if reference.startswith(prefix))
+    if declared and not own:
+        # Declared properties name only other resource types, so none can be checked here.
+        return declared
+    return tuple(
+        reference
+        for reference in own
+        if resource.props.get(reference.removeprefix(prefix).split(".", 1)[0]) is None
+    )
 
 
 async def _write_outcome(state_store: StateStore, outcome: BaselineEvaluationOutcome) -> None:

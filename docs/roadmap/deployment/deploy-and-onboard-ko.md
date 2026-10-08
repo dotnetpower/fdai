@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: b26452c240166320f1f83aca5d2fb7a571b5c3c5
-translation_revised: 2026-10-08
+translation_source_sha: 1bf4f36506c4dec6dc6c5032ed0829f9bcefff60
+translation_revised: 2026-10-09
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 정본(source of truth)입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -165,7 +165,7 @@ recovery-delta forwarding이 부분 구성 없이 타입이 지정된 Event 버�
 `FDAI_MI_CLIENT_ID`로 설정하므로 Azure Monitor 및 Event Hubs 토큰 획득에서 암묵적 신원
 선택을 사용하지 않습니다. 이전 방식 범용 OOB 작업은 탐색 항목 지점이 소유할 때까지 범위가 제한된
 inert 호환성 리소스입니다. 공개 기여자 bootstrap은 배포 소유 image가 생길 때까지 이를 생략하며,
-구현된 recurring 작업은 dedicated 작업이 담당합니다. 공유 인벤토리 보강 builder는 예약 배포와 명시적으로 활성화한 로컬 새로 고침에 같은 구독 검색 경로를 제공합니다. 배포된 인벤토리 작업은 전용 Managed Identity의 구독 범위 `Reader`, `Azure Kubernetes Service Cluster User Role` 및 `Azure Kubernetes Service RBAC Reader`로 이를 기본 활성화합니다. 각 틱은 현재 및 이후 생성된 클러스터를 찾고 실행 형식 접근 프로필을 메모리에서 최소화하며 kubeconfig를 보관하지 않습니다. 명시적 fleet 또는 기존 연결은 범위를 좁히며 이 읽기 전용 역할은 Core, Operator 또는 Thor에 연결하지 않습니다.
+구현된 recurring 작업은 dedicated 작업이 담당합니다. 공유 인벤토리 보강 builder는 예약 배포와 명시적으로 활성화한 로컬 새로 고침에 같은 구독 검색 경로를 제공합니다. 배포된 인벤토리 작업은 전용 Managed Identity의 구독 범위 `Reader`, `Azure Kubernetes Service Cluster User Role` 및 `Azure Kubernetes Service RBAC Reader`로 이를 기본 활성화합니다. 각 틱은 현재 및 이후 생성된 클러스터를 찾고 실행 형식 접근 프로필을 메모리에서 최소화하며 kubeconfig를 보관하지 않습니다. 명시적 fleet 또는 기존 연결은 범위를 좁히며 이 읽기 전용 역할은 Core, Operator 또는 Thor에 연결하지 않습니다. 같은 ID의 `Reader` 역할로 구독 역할 할당과 PIM 일정 인스턴스를 읽지만, 게스트와 그룹을 통해 연결된 주체를 판단하려면 테넌트 관리자 동의를 받은 Microsoft Graph 애플리케이션 권한 `User.Read.All`과 `GroupMember.Read.All`도 필요합니다. Operator API 디렉터리 동의와 마찬가지로 Terraform은 이 권한을 부여하지 않습니다. 관리자가 부여하기 전까지 모든 구독의 `role_assignments` 속성은 관측되지 않은 상태로 남으며, 이 속성을 읽는 규칙은 통과하지 않고 판단을 보류합니다. 관리 ID 역할 할당은 전체 계층 읽기만이 숨겨진 권한이 없음을 증명하므로 테넌트 루트 관리 그룹의 `Reader`도 필요하며, 구독 범위 `Reader`만으로는 관측되지 않은 상태로 남습니다.
 Public-network 프로파일에서 운영자가 realtime-inventory Event Grid 구독을 out-of-band로
 복구한 경우 Terraform은 결정론적 구독을 가져오고 다음 protected 적용에서 Event 허브
 대상, 전달 신원, 이벤트 필터 및 재시도 정책을 수렴시킵니다. Private-networking

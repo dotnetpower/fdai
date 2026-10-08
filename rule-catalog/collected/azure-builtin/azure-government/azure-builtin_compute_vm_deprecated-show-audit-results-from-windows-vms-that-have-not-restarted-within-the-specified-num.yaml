@@ -22,7 +22,7 @@ provenance:
     Government/Guest Configuration/MachineLastBootUpTime_Audit.json
   source_version: 3.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:b4bd2aa0433fe9fbb61054babb649b7e468a3d347f617124fc27c57c5b7d36bc
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

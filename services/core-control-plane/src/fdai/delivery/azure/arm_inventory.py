@@ -38,6 +38,9 @@ from fdai.delivery.azure.arm_inventory_vm_state import (
 from fdai.delivery.azure.arm_inventory_vm_state import (
     with_vm_run_command_state as _with_vm_run_command_state,
 )
+from fdai.delivery.azure.arm_rule_properties import rule_properties
+from fdai.delivery.azure.arm_rule_property_hydration import HYDRATED_RESOURCE_TYPES as _HYDRATED
+from fdai.delivery.azure.arm_rule_property_hydration import ArmRulePropertyHydrator
 from fdai.delivery.azure.inventory import ResourceQueryFn, ResourceQueryResult
 from fdai.delivery.azure.model_deployment import (
     MODEL_DEPLOYMENT_RESOURCE_TYPE,
@@ -280,6 +283,7 @@ class AzureArmInventoryFactory:
         """Overlay ARM-only child collections onto a primary inventory query."""
 
         arm_query = self.build_query_fn()
+        hydrator = ArmRulePropertyHydrator.for_config(self._identity, self._http, self._config)
 
         async def _fetch(
             resource_type: str,
@@ -311,6 +315,8 @@ class AzureArmInventoryFactory:
                 _PRIVATE_DNS_ZONE_GROUP_RESOURCE_TYPE,
             }:
                 return await arm_query(resource_type)
+            if resource_type in _HYDRATED:
+                return await hydrator.hydrate(_as_query_result(await primary_query(resource_type)))
             return await primary_query(resource_type)
 
         return _fetch
@@ -727,6 +733,8 @@ def _map_arm_row(
     if resource_type == MODEL_DEPLOYMENT_RESOURCE_TYPE:
         raw_props.update(model_deployment_summary(row))
     props = truncate_props(raw_props, max_bytes=max_props_bytes)
+    # ARM GET omits null fields, so only a present field is projected; absence stays unobserved.
+    props.update(rule_properties(resource_type, {k: v for k, v in row.items() if v is not None}))
     try:
         provider_type = arm_provider_type(arm_id, row.get("type"))
     except ArmIdentityError as exc:

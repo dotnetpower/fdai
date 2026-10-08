@@ -1,5 +1,5 @@
 {
-  "catalog_digest": "sha256:33fc16a63c818fb1fd000ae07cd9a7e4d6851789a3d4758b06654cc5dc858fe5",
+  "catalog_digest": "sha256:dd443e450a27f0c82f836d9b3ad01a5d344cfd349a443bc4a84fe1223180452c",
   "controls": [
     {
       "area": "cost-optimization",
@@ -4775,6 +4775,16 @@
         {
           "relationship": "partial",
           "target_kind": "rule",
+          "target_ref": "network.nsg.no-internet-inbound-rdp"
+        },
+        {
+          "relationship": "partial",
+          "target_kind": "rule",
+          "target_ref": "network.nsg.no-internet-inbound-ssh"
+        },
+        {
+          "relationship": "partial",
+          "target_kind": "rule",
           "target_ref": "object-storage.private-endpoint.required"
         },
         {
@@ -4875,6 +4885,44 @@
           "kind": "rule",
           "owner_slot": "security-owner",
           "process_phase": "none",
+          "requirement_id": "rule:network.nsg.no-internet-inbound-rdp",
+          "scope_contract": "exact-workload",
+          "source_ref": "network.nsg.no-internet-inbound-rdp"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver",
+            "security-owner"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "security-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:network.nsg.no-internet-inbound-ssh",
+          "scope_contract": "exact-workload",
+          "source_ref": "network.nsg.no-internet-inbound-ssh"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver",
+            "security-owner"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "security-owner",
+          "process_phase": "none",
           "requirement_id": "rule:object-storage.private-endpoint.required",
           "scope_contract": "exact-workload",
           "source_ref": "object-storage.private-endpoint.required"
@@ -4903,7 +4951,7 @@
       "requirement_mode": "all",
       "review_state": "reviewed",
       "reviewer": "fdai-maintainers",
-      "specification_digest": "sha256:41a8cca6dd90d8a95b23294bb4bd2b3ba8e95828f1a87c540b5cc5d683a73f5d",
+      "specification_digest": "sha256:20bbe5eb5b02ac9687a152712b93f69f76f276d554c277520f2c636c7eed0b26",
       "title": "Isolate filter and control network traffic"
     },
     {

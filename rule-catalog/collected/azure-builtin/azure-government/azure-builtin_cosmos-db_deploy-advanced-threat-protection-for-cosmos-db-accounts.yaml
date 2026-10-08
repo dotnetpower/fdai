@@ -21,7 +21,7 @@ provenance:
     Government/Cosmos DB/AdvancedThreatProtection_DINE.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:edec0c25029a09aefb3e6679d35309f006e9869487e9211b4e6f92d5cca295fe
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

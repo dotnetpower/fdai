@@ -548,6 +548,13 @@
       "issue": 252
     },
     {
+      "path": "services/core-control-plane/src/fdai/rule_catalog/pipeline/translate/azure_policy.py",
+      "disposition": "retain",
+      "owner": "rule-catalog-pipeline",
+      "reason": "Retains case-insensitive comparison of Azure Policy definition JSON keys, aliases, and literals against a reviewed alias map to produce inert Rule candidates. It never reads operator question text, selects semantic intent, or grants authority.",
+      "issue": 252
+    },
+    {
       "path": "services/core-control-plane/src/fdai/rule_catalog/schema/wara_assessment.py",
       "disposition": "retain",
       "owner": "rule-catalog-schema",

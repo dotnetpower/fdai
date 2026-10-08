@@ -22,7 +22,7 @@ provenance:
     Configuration/AuditExtensionLinux_Prerequisite.json
   source_version: 1.2.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:3f4a0fdbb8719045e9292d9eb404e2e9717b5fc52915be5a8eb92a84ad0ced2e
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

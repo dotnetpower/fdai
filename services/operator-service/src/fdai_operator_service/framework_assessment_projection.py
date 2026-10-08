@@ -14,7 +14,7 @@ from fdai_service_contracts.framework_assessment import (
 )
 
 _LOGGER = logging.getLogger(__name__)
-_FRAMEWORKS = frozenset({"azure-waf", "azure-caf"})
+_FRAMEWORKS = frozenset({"azure-waf", "azure-caf", "azure-mcsb"})
 _MAPPING = frozenset({"full", "partial", "unmapped"})
 _APPLICABILITY = frozenset({"applicable", "not_applicable"})
 _EVALUATION = frozenset({"evaluated", "not_evaluated", "blocked"})
@@ -183,6 +183,20 @@ def project_framework_assessment(
             common["satisfied_requirement_count"] = sum(
                 item.get("status") == "satisfied" for item in requirements if isinstance(item, dict)
             )
+        if framework_id == "azure-mcsb":
+            requirements = _waf_requirements(controls[control_id], result)
+            roles = {
+                _text(item.get("requirement_id"), "requirement_id"): item.get("evidence_role")
+                for item in _records(
+                    controls[control_id].get("evidence_specifications"),
+                    "evidence_specifications",
+                )
+            }
+            for requirement, role in zip(requirements, roles.values(), strict=True):
+                requirement["evidence_role"] = _member(
+                    role, frozenset({"decisive", "supporting_only"}), "evidence_role"
+                )
+            common["requirements"] = requirements
         controls[control_id].update(common)
 
     return {

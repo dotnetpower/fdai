@@ -21,7 +21,7 @@ provenance:
     Services/EnforceAutoShutdown.json
   source_version: 1.1.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:bf562064badf3d26f0703ee91d97c63722d2473289cf9c360cdc67ae46f08f41
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

@@ -22,7 +22,7 @@ provenance:
     Virtualization/Hostpool_PrivateNetworkOnly_AuditDeny.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:9fc310ac805212be78006882a722306d190ef97e0ee8009ab1fe7ec7f379305b
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

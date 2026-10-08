@@ -21,13 +21,13 @@ from fdai.shared.contracts.models import BestPractice
 
 _PILLAR_COUNTS = {
     "reliability": (10, 39),
-    "security": (12, 51),
+    "security": (12, 53),
     "cost-optimization": (14, 32),
     "operational-excellence": (11, 32),
     "performance-efficiency": (12, 32),
 }
 _EXPECTED_CONTROL_COUNT = 59
-_EXPECTED_EVIDENCE_COUNT = 186
+_EXPECTED_EVIDENCE_COUNT = 188
 
 
 @dataclass(frozen=True, slots=True)

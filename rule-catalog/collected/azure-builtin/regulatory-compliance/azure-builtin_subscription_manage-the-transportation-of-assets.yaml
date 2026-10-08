@@ -21,7 +21,7 @@ provenance:
     Compliance/CMA_0370.json
   source_version: 1.1.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:4dcbfba7e4aa9b9b8efcf77d63b2c33237fda14c73ea95d0d3db7e00bad67ca8
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

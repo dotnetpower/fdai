@@ -21,7 +21,7 @@ provenance:
     Service/PrivateZoneGroup_DINE.json
   source_version: 1.1.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:846aec09a2f26cd735c20bd29f7e7e4506387d637de1e800a46390b526954503
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

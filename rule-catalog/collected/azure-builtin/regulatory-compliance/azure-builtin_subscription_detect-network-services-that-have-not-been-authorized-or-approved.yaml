@@ -22,7 +22,7 @@ provenance:
     Compliance/CMA_C1700.json
   source_version: 1.1.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:890f51f6a68def077e2de1b4ba41b581f762cb962833e42149fa9f6fd398d416
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

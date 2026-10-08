@@ -21,7 +21,7 @@ provenance:
     of Things/IoTHub_DisablePublicNetworkAccess_AuditDeny.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:953d88194486e9d92fa8f59bf20c33d2b22d3691742da4e05d9f8bf46d3329d4
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

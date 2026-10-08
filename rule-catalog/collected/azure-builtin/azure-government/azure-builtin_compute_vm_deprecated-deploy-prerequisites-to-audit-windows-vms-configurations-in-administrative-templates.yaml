@@ -22,7 +22,7 @@ provenance:
     Government/Guest Configuration/AdminstrativeTemplatesMSSLegacy_DINE.json
   source_version: 3.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:1947df59b8339498b2299bac5b1d4539e5c84c201f47f5913aac4ccf4f51413b
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

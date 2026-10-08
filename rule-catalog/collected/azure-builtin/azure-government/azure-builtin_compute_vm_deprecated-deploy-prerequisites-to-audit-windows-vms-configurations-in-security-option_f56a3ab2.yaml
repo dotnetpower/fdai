@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-security-options-networ.f56a3ab2
+version: 3.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: compute.vm
+check_logic:
+  kind: expression
+  reference: azure-policy://f56a3ab2-89d1-44de-ac0d-2ada5962e22a
+remediation:
+  template_ref: remediation/azure-builtin/f56a3ab2-89d1-44de-ac0d-2ada5962e22a.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: f56a3ab2-89d1-44de-ac0d-2ada5962e22a
+  azure_policy_display_name: '[Deprecated]: Deploy prerequisites to audit Windows
+    VMs configurations in ''Security Options - Network Access'''
+  azure_policy_effect_default: deployIfNotExists
+  azure_policy_category: Guest Configuration
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Guest Configuration/SecurityOptionsNetworkAccess_DINE.json
+  source_version: 3.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:15e90e6f32bf8ecdb411305796edd5063c31fa04e2e03da1cde3759102c55a0d
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-10-08T09:14:46Z'

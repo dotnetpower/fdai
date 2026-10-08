@@ -22,7 +22,7 @@ provenance:
     Government/Guest Configuration/AdministrativeTemplatesMSSLegacy_AINE.json
   source_version: 2.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:0aae5f6eb72fa3e3e4a8019485938926a1c5d7725f4168a28fc4db62b16eab8f
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

@@ -21,7 +21,7 @@ provenance:
     Grafana/AMG_PrivateEndpoints_Audit.json
   source_version: 1.0.1
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:62ed7db6369226f88fa43edaf4c7caa61f49e548beaed80cecfbd4c392fc0ddd
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

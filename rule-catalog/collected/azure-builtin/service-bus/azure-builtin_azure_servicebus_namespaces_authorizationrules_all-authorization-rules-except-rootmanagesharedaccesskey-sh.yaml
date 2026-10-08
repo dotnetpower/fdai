@@ -22,7 +22,7 @@ provenance:
     Bus/AuditNamespaceAccessRules_Audit.json
   source_version: 1.0.1
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:4ab0fc25710e747310f8dd1498ef67a6cea54e88844b81efcb8bdff7692cac32
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

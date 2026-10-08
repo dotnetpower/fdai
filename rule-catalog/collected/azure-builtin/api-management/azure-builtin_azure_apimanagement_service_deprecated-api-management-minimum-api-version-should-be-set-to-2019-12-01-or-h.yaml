@@ -22,7 +22,7 @@ provenance:
     Management/MinimumApiVersion_AuditDeny.json
   source_version: 1.1.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:a4e67f530c043fa29a0f99f5016c0d14c84f2a3f0c8628d1becedbc1c71b0bac
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

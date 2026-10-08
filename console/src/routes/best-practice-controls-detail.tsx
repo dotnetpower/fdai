@@ -1,8 +1,12 @@
 import { useEffect, useRef } from "preact/hooks";
-import { ErrorState, LoadingState, StatusPill, UnavailableState } from "../components/ui";
+import { ErrorState, LoadingState, type PillKind, StatusPill, UnavailableState } from "../components/ui";
 import { CONTROL_STATUS_PILL } from "./best-practice-controls-body";
 import type { BestPracticeDetailState } from "./best-practice-controls";
-import type { BestPracticeDetail } from "./best-practice-controls.model";
+import type {
+  BestPracticeDetail,
+  RequirementRuleCoverage,
+  RuleCoverageSummary,
+} from "./best-practice-controls.model";
 import { displayValue, t } from "./i18n/governance";
 import { DetailRow, DetailSection } from "./rule-catalog-components";
 import { ruleCatalogHref, type RuleFilters } from "./rule-catalog-state";
@@ -106,6 +110,7 @@ function BestPracticeDetailContent({ data }: { readonly data: BestPracticeDetail
           </dl>
         </DetailSection>
       ) : null}
+      {data.rule_coverage ? <RuleCoverageSection coverage={data.rule_coverage} /> : null}
       <DetailSection title={t("governance.rules.controls.detail.requirements")}>
         <p class="muted footnote">{t("governance.rules.controls.detail.requirementsHint")}</p>
         <div class="control-requirement-list">
@@ -121,6 +126,10 @@ function BestPracticeDetailContent({ data }: { readonly data: BestPracticeDetail
                     <code>{requirement.ref}</code>
                   </a>
                 ) : <code>{requirement.ref}</code>}
+                {requirement.coverage
+                  && (requirement.coverage.activated || !requirement.limitations.includes("rule_not_activated")) ? (
+                  <RequirementCoverage id={requirement.ref} coverage={requirement.coverage} />
+                ) : null}
                 {requirement.limitations.length > 0 ? (
                   <ul class="control-requirement-limitations" aria-label={t("governance.rules.controls.detail.requirementLimitations")}>
                     {requirement.limitations.map((code) => (
@@ -148,6 +157,76 @@ function BestPracticeDetailContent({ data }: { readonly data: BestPracticeDetail
           ))}
         </dl>
       </DetailSection>
+    </div>
+  );
+}
+
+const COVERAGE_STATUS_PILL: Readonly<Record<RuleCoverageSummary["status"], PillKind>> = {
+  current: "success",
+  stale: "warning",
+  unavailable: "neutral",
+};
+
+function RuleCoverageSection({ coverage }: { readonly coverage: RuleCoverageSummary }) {
+  return (
+    <DetailSection title={t("governance.rules.controls.detail.ruleCoverage")}>
+      <p class="muted footnote">{t("governance.rules.controls.detail.ruleCoverageHint")}</p>
+      <div class="pill-row">
+        <StatusPill kind={COVERAGE_STATUS_PILL[coverage.status]} label={displayValue("ruleCoverageStatus", coverage.status)} />
+      </div>
+      {coverage.reason ? <p class="muted small">{displayValue("ruleCoverageReason", coverage.reason)}</p> : null}
+      {coverage.matches_assessment_scope === false ? (
+        <p class="muted small">{t("governance.rules.controls.detail.ruleCoverageOtherScope")}</p>
+      ) : null}
+      {coverage.scope_digest ? (
+        <dl class="detail-grid">
+          <DetailRow label={t("governance.rules.controls.detail.ruleCoverageScope")} value={coverage.scope_digest} mono />
+          <DetailRow label={t("governance.rules.controls.detail.ruleCoverageResources")} value={String(coverage.resource_count ?? "-")} />
+          <DetailRow label={t("governance.rules.controls.detail.ruleCoverageInventory")} value={coverage.inventory_generation ?? "-"} mono />
+          <DetailRow label={t("governance.rules.controls.detail.ruleCoverageActivation")} value={coverage.rule_activation_generation_id ?? "-"} mono />
+          <DetailRow label={t("governance.rules.controls.detail.ruleCoverageRecordedAt")} value={coverage.recorded_at ?? "-"} mono />
+        </dl>
+      ) : null}
+    </DetailSection>
+  );
+}
+
+function RequirementCoverage({
+  id,
+  coverage,
+}: {
+  readonly id: string;
+  readonly coverage: RequirementRuleCoverage;
+}) {
+  if (!coverage.activated) {
+    return (
+      <p class="muted small control-requirement-coverage" aria-label={t("governance.rules.controls.detail.ruleCoverageAria", { id })}>
+        {t("governance.rules.controls.detail.ruleCoverageNotActivated")}
+      </p>
+    );
+  }
+  const anomalies = coverage.duplicate + coverage.conflicting + coverage.unexpected + coverage.revision_mismatch;
+  return (
+    <div class="control-requirement-coverage" aria-label={t("governance.rules.controls.detail.ruleCoverageAria", { id })}>
+      <p class="small">
+        {t("governance.rules.controls.detail.ruleCoverageCounts", {
+          eligible: coverage.eligible,
+          compliant: coverage.compliant,
+          violated: coverage.violated,
+          held: coverage.held_for_review,
+          missing: coverage.missing,
+        })}
+      </p>
+      {anomalies > 0 ? (
+        <p class="muted small">
+          {t("governance.rules.controls.detail.ruleCoverageAnomalies", {
+            duplicate: coverage.duplicate,
+            conflicting: coverage.conflicting,
+            unexpected: coverage.unexpected,
+            revision: coverage.revision_mismatch,
+          })}
+        </p>
+      ) : null}
     </div>
   );
 }

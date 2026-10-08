@@ -1,8 +1,8 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: 20950fa66d563ee05aa14b54e82a8db607115a57
-translation_revised: 2026-10-07
+translation_source_sha: 5ebd27197f6b203344d2dc2381c4a5d0f74cc121
+translation_revised: 2026-10-09
 ---
 # WAF 및 CAF 근거 기반 평가
 
@@ -109,7 +109,9 @@ WAF 카탈로그는 기존 `BestPractice` 레코드 59개에서 컨트롤 명세
 포함한 깨끗한 Rule 결과는 알 수 없음으로 유지합니다.
 프로필은 Rule 활성화 세대도 고정하며, Rule 영수증은 Rule 출처가 그 고정값과 정확히 일치할 때만
 수락됩니다. [T0 기반 프레임워크 규칙 근거](framework-rule-evidence-ko.md#평가-측-활성화-고정)를
-참조하세요.
+참조하세요. 요구 사항은 새로 배포된 검사처럼 고정된 세대가 활성화하지 않은 규칙을 인용할 수 있습니다.
+이 경우 승인된 활성화 변경이 해당 규칙을 추가하기 전까지 영수증은 `rule_not_activated`와 함께
+`unknown`으로 남습니다.
 
 ### CAF 카탈로그
 
@@ -123,6 +125,18 @@ Govern, Secure, Manage는 정확한 클라우드 자산 관측과 프로세스 �
 교차워크 레코드는 Rule, WAF, MCSB, `ControlObjective`, Azure Policy, 공급자 관측 또는 수동
 근거를 정확히 참조합니다. 각 관계는 `full`, `partial`, `supporting_only`, `unmapped` 중 하나이며
 비슷한 문구만으로 동등성을 결정하지 않습니다.
+
+### MCSB 카탈로그
+
+MCSB 카탈로그는 WAF와 같은 런타임과 워크로드 범위를 사용합니다. 가져온 v1 컨트롤 86개를 각각 결정적
+수동 컨트롤 근거 요구 사항 하나와 검토된 규칙 요구 사항으로 분해하므로, 규칙 근거는 MCSB 컨트롤을
+실패시킬 수는 있지만 단독으로 충족시킬 수는 없습니다. 모든 카탈로그에서 컨트롤은 결정적 요구
+사항으로만 결정되며, `supporting_only` 요구 사항은 컨트롤을 실패시키거나 막을 수 없습니다. 평가
+작업은 MCSB 결과를 권한 없는 감사 영수증으로 기록합니다. MCSB 평가 이벤트가 게시되면 Operator는 이를
+별도의 `mcsb-assessment.list` 프로젝션에 보관하고, 각 v1 컨트롤의 서버 소유 상태와 각 요구 사항의
+근거 역할을 MCSB 카탈로그 읽기에 결합합니다. Console은 이 상태를 구현 커버리지 옆에 보여 주며 직접
+계산하지 않습니다.
+[T0 기반 프레임워크 규칙 근거](framework-rule-evidence-ko.md#mcsb-평가)를 참조하세요.
 
 ## 배포 제공 프로필
 
@@ -197,6 +211,10 @@ Operator 소비자는 잘못된 형식, 일부만 있는 결과, 잘못된 프�
 보호된 실제 검증 워크플로는 배포 러너에 평가 토픽 전송자 역할이 없으므로 의도적으로 감사
 전용 기록기를 사용합니다. Operator 변환 결과를 게시한 것처럼 처리하지 않고
 `publication_status: not_requested_validation_only`를 기록하며 정제된 결과물을 유지합니다.
+ID에 해당 전송자 역할이 있는 런타임은 `FDAI_FRAMEWORK_ASSESSMENT_PUBLISH=1`과 `KAFKA_BOOTSTRAP_SERVERS`로
+게시를 선택합니다. 이 경우 작업은 WAF, CAF, MCSB 섀도 이벤트를 감사한 뒤 게시하고
+`publication_status: published`를 기록합니다. 다른 값을 지정하거나 부트스트랩 서버 없이 게시를 요청하면
+데이터베이스 작업 전에 실패합니다.
 
 ## Operator 화면
 
@@ -209,6 +227,8 @@ Operator API는 최신 변경 불가능한 변환 결과를 제공하며 평가�
 - 근거 참조, 다이제스트, 최신성, 완전성, 충돌, 제한 사항
 - 담당자, 주기, 승인된 예외, WAF 절충안 레코드
 - 준수 레이블이 없는 사용할 수 없음 및 알 수 없음 상태
+- WAF `rule` 요구 사항의 경우, 커버리지 기록이 현재 버전 2 baseline에 속할 때만 표시되는 서버 소유의
+  범위별 규칙 커버리지 수치와 활성화 상태
 
 WAF는 기존 Controls 보기에 유지합니다. CAF는 동일하게 차분한 읽기 전용 상호 작용 방식을
 사용하는 인접 탭을 추가합니다. 규칙 카탈로그 레일은 표시 탐색으로만 이 Controls 보기에

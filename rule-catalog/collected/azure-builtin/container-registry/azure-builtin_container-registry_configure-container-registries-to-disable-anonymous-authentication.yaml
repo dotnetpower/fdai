@@ -21,7 +21,7 @@ provenance:
     Registry/ACR_AnonymousPullDisabled_Modify.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:db881a76f14bea013e7d20853509c7b87486a74fd0ecd79ca22ad48815725911
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

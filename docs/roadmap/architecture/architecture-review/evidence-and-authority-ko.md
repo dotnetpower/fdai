@@ -1,8 +1,8 @@
 ---
 title: ARB 근거 및 권한
 translation_of: evidence-and-authority.md
-translation_source_sha: bbb301acd0712d5ff147d302fe02731ec6844fdc
-translation_revised: 2026-09-26
+translation_source_sha: 8f6515671ec44101c6aa2a852e696bea9797b1de
+translation_revised: 2026-10-08
 ---
 # ARB 근거 및 권한
 
@@ -61,7 +61,7 @@ translation_revised: 2026-09-26
 증거와 별도 승인이 제공될 때까지 `unknown`으로 유지됩니다.
 읽기 전용 검증기 `core/architecture_review/pillar_coverage.py`는 생성된 WAF 평가 카탈로그를
 고정된 프레임워크 및 BestPractice 정의와 비교합니다. 보안, 비용 최적화, 성능 효율성을 포함한
-다섯 핵심 요소의 고유한 컨트롤 정의 59개와 근거 요구 사항 186개를 빠짐없이 대조합니다.
+다섯 핵심 요소의 고유한 컨트롤 정의 59개와 근거 요구 사항 188개를 빠짐없이 대조합니다.
 정의가 누락되거나 모호한 경우, 또는 원본 신원이 일치하지 않는 경우 정의 검사가 실패합니다.
 이는 워크로드 평가, 규정 준수 결과, 운영 준비 판단 또는 승인이 아닙니다.
 

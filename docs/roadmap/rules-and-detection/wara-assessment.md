@@ -264,6 +264,33 @@ unavailability remains `unknown` and is visible in audit evidence. At collection
 receipts beyond the original cutoff are marked `caller_evidence_after_original_cutoff`; later
 provider timing cannot make them admissible for another recommendation.
 
+### Rule-backed evaluation
+
+A second content-addressed overlay, `rule-bindings.json`, binds a reviewed APRL GUID and exact query
+digest to one activated catalog Rule revision instead of a query evaluator. A recommendation can
+have only one binding kind. A `t0_rule` binding carries a capability matrix: the canonical resource
+type, child-resource behavior, the inventory source and fields the check reads, parameters, the
+eligible set, and the failure semantics. Each binding pins the Rule version and the exact Rule
+digest the review compared. The loader admits a binding only when the record is canonical,
+`missing_exact_evaluator` is its only blocker, the pinned query and the Rule read the same fields of
+the same type, the release Rule matches the pinned digest, and the Rule takes no parameters. A
+receipt is produced only when the activated member has that same digest, and it is observed at the
+inventory snapshot's completion time.
+
+The job projects Forseti's verified version 2 baseline onto the WARA workload scope through the
+same scoped coverage contract as WAF, then emits one `rule` receipt per binding whose producer is
+`t0-rule-evaluator:<rule>@<version>`. A receipt is decisive only when the activated member is that
+revision, every eligible pair has exactly one terminal outcome, and at least one resource is
+eligible: any violated pair is `failed`, and every pair compliant is `satisfied`. Held, missing,
+duplicate, conflicting, or drifted coverage emits no receipt, so the recommendation stays
+`unknown`. The bound query is never executed, and a provider observation receipt can't satisfy a
+Rule-bound recommendation. The request and result pin the overlay digest.
+
+The first overlay binds one recommendation, Key Vault purge protection, whose query and Rule both
+treat an absent or non-`true` value as a failure over every vault. Zone, high-availability, and SQL
+redundancy recommendations restrict their query to zonal regions or treat an absent value as
+passing, so they keep their query or manual evidence path.
+
 ### Scheduled deployment binding
 
 The one-shot WARA job receives one deployment-owned umbrella `Workload` id and its reviewed

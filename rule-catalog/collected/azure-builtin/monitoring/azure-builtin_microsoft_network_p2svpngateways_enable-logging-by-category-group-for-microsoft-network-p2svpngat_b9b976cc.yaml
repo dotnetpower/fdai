@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.microsoft.network.p2svpngateways.enable-logging-by-category-group-for-microsoft-network-p2svpngateways-to.b9b976cc
+version: 1.2.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: microsoft.network.p2svpngateways
+check_logic:
+  kind: expression
+  reference: azure-policy://b9b976cc-59ef-468a-807e-19afa2ebfd52
+remediation:
+  template_ref: remediation/azure-builtin/b9b976cc-59ef-468a-807e-19afa2ebfd52.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: b9b976cc-59ef-468a-807e-19afa2ebfd52
+  azure_policy_display_name: Enable logging by category group for microsoft.network/p2svpngateways
+    to Event Hub
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/DS_EH_network-p2svpngateways_DINE.json
+  source_version: 1.2.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:48001471a168b19ccaf3d1e65a829202318bd3daa32da1c7b9a25bdc9efe2190
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-10-08T09:14:46Z'

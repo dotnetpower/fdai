@@ -252,6 +252,8 @@ WAF_CONTROLS: dict[str, list[dict[str, Any]]] = {
             "requirements": [
                 rule("network.nsg.no-inbound-any-rdp"),
                 rule("network.nsg.no-inbound-any-ssh"),
+                rule("network.nsg.no-internet-inbound-rdp"),
+                rule("network.nsg.no-internet-inbound-ssh"),
                 rule("object-storage.private-endpoint.required"),
                 rule("secret-store.public-network-access.disabled"),
                 artifact("network-data-flow-validation", 90),
