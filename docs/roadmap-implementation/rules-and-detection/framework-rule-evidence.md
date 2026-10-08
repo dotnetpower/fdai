@@ -89,8 +89,10 @@ control assessments without duplicating the normative design.
   Rule evidence becomes decisive.
 - [x] Record real Policy definition digests in the collector parser: `content_hash` is now the
   SHA-256 of the definition bytes read (`test_azure_policy_json_parser.py`).
-- [ ] Re-run the Azure Policy collection at the pinned upstream revision so the 3,628 collected
-  Rules carry real digests, and vendor or retain the pinned definition bodies the translator
-  will read.
+- [ ] Add the collection writer stage that lands parsed Azure Policy Rules in
+  `rule-catalog/collected/azure-builtin/` with the pinned `resolved_ref`; `collect_cli` only
+  writes snapshots, and the current tree was produced once on 2026-07-07. Then re-run the
+  collection at the pinned revision so the 3,628 collected Rules carry real digests, and retain
+  the pinned definition bodies the translator will read.
 - [ ] Pass the Azure Policy translation feasibility milestone before any translated candidate
   reaches the Mimir quality gate.
