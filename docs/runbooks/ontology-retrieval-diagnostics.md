@@ -316,6 +316,44 @@ Do not obtain the expected plan or file digest from untrusted evidence and treat
 Example: below-threshold recall remains `passed=False` after verification. Removing the failure
 codes and rewriting the summary metrics does not turn the retained measurements into a pass.
 
+## Qualify with the pre-registered agreement protocol
+
+A stochastic proposal model can't honestly meet a single-run `1.0` threshold. Each of the last two
+qualifying runs failed on one or two different cases out of 192, and repeating runs until one
+passes would select a favorable sample. Protocol `agreement-gated-pooled-qualification.v1`
+replaces that rule. It was fixed in
+[ontology_semantic_qualification.py](../../services/core-control-plane/src/fdai/delivery/catalog_search/ontology_semantic_qualification.py)
+before any holdout it judges was measured, and its parameters can't change without a new protocol
+id.
+
+- **Agreement gate:** a gated decision combines K=2 independent passes of the same stage. A case is
+  selected only when both passes return exactly the same membership set. Any disagreement becomes a
+  clarification, so model variance turns into a safe abstention instead of a wrong selection.
+- **Repetitions:** each case receives R=3 independent gated decisions, so each case set runs six
+  sequential passes. Decision *i* uses passes 2*i*-1 and 2*i* in run order.
+- **Pooling:** calibration pools calibration v2 and v3. Qualification pools the two disjoint halves
+  `instance-holdout.v5a` and `instance-holdout.v5b`. Each half is a separate evaluation binding.
+- **Wrong selection (safety gate):** a gated decision that returns any identity outside its labels.
+  The pooled one-sided 95% Clopper-Pearson upper bound must be at most 2%, and each language's bound
+  at most 3%. With 384 pooled decisions, that allows at most two wrong selections in total and at
+  most one per language.
+- **Correct answers (usefulness):** across answerable cases in each language, at least 95% of gated
+  decisions must return exactly the labeled set. Clarifications lower this rate but are never wrong
+  selections.
+- **Stages:** the calibration pool and the holdout pool must each pass, at one merged commit with
+  the same model, prompt, and budgets.
+- **Evidence:** every pass is verified offline with
+  `verify_ontology_semantic_evidence` and pinned by file digest before aggregation. A digest can't
+  count twice.
+- **Aborts:** an aborted pass has no quality outcome. It's rerun in place at most once, and every
+  attempt is reported. A second abort for the same pass fails the qualification.
+- **Reporting:** the full report is recorded whether it passes or fails. A failed qualification
+  spends both holdout halves.
+
+The report keeps `production_qualification` and `execution_authority` at `False`. Passing qualifies
+only the diagnostic method; runtime activation, latency qualification, and human approval gates
+are unchanged.
+
 ## Testing
 
 ```bash
