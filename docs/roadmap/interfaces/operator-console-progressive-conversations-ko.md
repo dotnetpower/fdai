@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 4d5635afcb1a5e6f264a7d4fe5ca01a0b2c7f83d
+translation_source_sha: 9767551117a07a8d7e34d540b84dbaaeeb0ce404
 translation_revised: 2026-10-08
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -89,6 +89,7 @@ Operator는 최종 결과의 검증과 영속 저장이 완료된 뒤 대기 중
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-08 | 구현됨 | 계획 단계 모델 호출만 관측된 동안 작업 패널을 실행 중으로 유지했습니다. 두 호출 사이에는 모든 활동이 정착한 것처럼 보이고 계획도 아직 고정되지 않아, Console이 계획 도중 답변 초안을 열고 패널을 `0 ms`의 `Partial`로 정착시켰습니다. 이제 고정 계획 없이 모델 호출만 있는 작업은 읽기, 토큰, 검증된 최종 응답 중 하나가 도착할 때까지 열려 있습니다. | `current change`; `console/src/deck/investigation-turn-state.ts`와 테스트; `npx vitest run src/deck`(1090개 통과); Console 타입 검사; 로컬 Console 턴이 모델 호출 8개 동안 실행 중을 유지하고 6.9초에 Verified 4/4로 정착함. | 이 대기 조건 수정에 남은 작업은 없습니다. |
 | 2026-10-08 | 구현됨 | 의미 계획 단계의 각 모델 호출을 실시간 `model_call` 활동으로 스트리밍해, 첫 읽기 전 대기 동안 "답변 경로를 확인하는 중"만 보이는 대신 단계, 배포, 경과 시간, 결과가 보이게 했습니다. Core는 공유 제공자 호출 관문을 통해 호출을 `semantic-model-call-progress` `1.0.0`으로 보고하고, Operator는 이를 실시간 전용 활동으로 전달하며, Console은 `MODEL` 배지를 붙이고 표시 밀도와 읽기 수에서 제외합니다. 보고는 로컬 실행기에서 켜지고 그 밖의 환경에서는 기본적으로 꺼집니다. | `current change`; `semantic_model_call_progress.py`와 `1.0.0` 스키마; Core `model_call_progress.py`, `adaptive_call_scope.py`, `semantic_turn_consumer.py`; Operator `semantic_progress_relay.py`, `semantic_turn_runtime.py`, `semantic_model_call_presentation.py`; `console/src/deck/conversation-trajectory-presentation.ts`, `investigation-timeline.tsx`; 계약, Core, Operator, Console 집중 테스트 통과; 로컬 Console 턴에서 검증된 읽기 2개 앞에 완료된 모델 호출 행 7개가 표시됨. | 진행 토픽을 소비하는 모든 Operator가 이 레코드를 이해한 뒤 배포 환경에서 보고를 켭니다. |
 | 2026-10-08 | 구현됨 | 토큰 프레임 없이 도착한 최종 답변의 공개 연출을 최대 60프레임에서 최대 24프레임으로 줄였습니다. 전체 답변은 이미 도착했고, 1초 동안의 재생이 측정된 턴 지연에 더해졌기 때문입니다. 공개 결과는 여전히 정본 텍스트와 바이트 단위로 같고, 숨겨진 탭과 모션 감소 설정은 계속 즉시 완료됩니다. | `current change`; `console/src/deck/stream-paint.ts`; `npx vitest run src/deck/stream-paint.test.ts`(17개 통과). | 이 표시 속도 변경에 남은 작업은 없습니다. |
 | 2026-10-01 | 구현됨 | Console에서 실시간 작업 진행 고정 형태를 받아들이고 적응형 조사 역할을 렌더링했습니다. 스트림은 첫 읽기 전에 도착한 첫 번째 유효한 고정 형태를 받아들입니다. 계획된 읽기가 관찰되거나, 토큰이 도착하거나, 최종 응답이 검증될 때까지 답변을 기다리므로 웨이브 사이의 멈춤에서 더 이상 빈 답변이 시작되거나 패널이 일찍 완료 처리되지 않습니다. 첫 패널은 계획을 표시하고, 답변이 완료되면 턴 예산을 최대치 대비 사용량으로 보여 주며 맥락 영수증도 표시합니다. 마일스톤은 조용한 진행 줄 하나로 읽힙니다. 중지는 읽기를 사용 불가로 바꾸는 대신 활동 패널에 기록되므로, 끝나지 않은 읽기는 중지됨으로 표시되고 지난 시작 안내는 숨겨집니다. | `current change`; `console/src/deck/backend-stream.ts`, `use-command-deck-submit.ts`, `investigation-turn-state.ts`, `investigation-roles.tsx`, `investigation-timeline.tsx`, `command-deck-presenters.tsx`, `use-command-deck-lifecycle.ts`, `transcript-store.ts`, Deck 전용 `console/src/deck/i18n/investigation.{en,ko}.json` 카탈로그와 각 집중 테스트; `npm --prefix console test`(`3880 passed`); Console 타입 검사; `npm --prefix console run check:entry`(gzip `149829`바이트, 변경 없음); `npm --prefix console run test:e2e:quick -- tests/e2e/deck-conversation-layer.spec.ts`(조사 계획, 완료 시점 한도, 맥락 영수증, 웨이브 순서 제어, 중지 사례) | 읽기에 계획된 웨이브가 담기면 웨이브 행을 렌더링합니다. 의미 사전 분류를 턴 예산에 포함할지 결정합니다. |
@@ -603,8 +604,10 @@ Console은 실시간 고정 형태와 저장된 필드를 다음 규칙으로 �
   실패는 턴에 영향을 주지 않습니다.
 - **스트림.** Operator는 각 갱신을 종류가 `model_call`인 `activity`로 스트리밍하며, 지역화한 단계 라벨과
   배포 이름 및 경과 시간을 세부 정보로 붙입니다. Console은 이 행에 `EVENT` 대신 `MODEL` 배지를
-  붙입니다. 이 활동은 실시간 전용입니다. 궤적 세부 정보에 저장되지
-  않고, 읽기로 세지 않으며, 표시 밀도나 웨이브 대기를 바꾸지 않습니다.
+  붙입니다. 이 활동은 실시간 전용입니다. 궤적 세부 정보에 저장되지 않고, 읽기로 세지 않으며, 표시
+  밀도를 바꾸지 않습니다. 계획이 고정되지 않은 채 모델 호출만 관측된 동안에는 Console이 호출 사이에도
+  작업 패널을 실행 중으로 유지하므로, 읽기, 토큰, 검증된 최종 응답 중 하나가 도착하기 전에는 답변 초안을
+  열지 않습니다.
 - **활성화.** `FDAI_SEMANTIC_MODEL_CALL_PROGRESS=1`이 보고를 켭니다. 로컬 실행기는 이 값을 설정하고,
   배포 환경은 진행 토픽을 소비하는 모든 Operator가 이 레코드를 이해할 때까지 끕니다. 이전 Operator는
   알 수 없는 레코드를 격리하기 때문입니다.
@@ -616,6 +619,7 @@ Console은 실시간 고정 형태와 저장된 필드를 다음 규칙으로 �
 | 앞서 일어난 모델 호출이 8개 활동 한도에서 조회 읽기를 밀어낼 수 있음 | 모델 호출 활동은 실시간 전용이며 저장된 궤적 세부 정보에 들어가지 않음 |
 | 읽기가 아닌 단계가 간결한 답변을 타임라인으로 바꿀 수 있음 | Console은 `model_call` 활동을 표시 밀도와 읽기 수에서 제외함 |
 | 버전이 섞인 배포가 실패 큐를 채울 수 있음 | Operator가 이 레코드를 이해할 때까지 배포 환경에서는 보고를 끔 |
+| 모델 호출 사이의 공백이 작업 완료처럼 보여 계획 도중 답변 초안이 열리고 패널이 부분 완료로 정착함 | 고정 계획 없이 모델 호출만 있는 작업은 읽기, 토큰, 검증된 최종 응답이 올 때까지 열어 둠 |
 
 ## 지표
 

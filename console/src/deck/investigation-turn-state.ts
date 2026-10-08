@@ -46,17 +46,24 @@ export function isInvestigationLead(turns: readonly Turn[], index: number): bool
 
 /**
  * A pinned plan names how many reads the turn runs, so a pause between waves isn't the end of the
- * observed work. Without a pin, the observed reads are all the work there is.
+ * observed work. Without a pin, the observed reads are all the work there is, except while only
+ * planning model calls have been observed: the plan is still being made, so a pause between calls
+ * isn't the end of the work either.
  */
 export function plannedReadsObserved(
   turns: readonly Turn[],
   turnIds: ReadonlySet<string>,
   shape: WorkProgressShape | undefined,
 ): boolean {
-  if (!shape) return true;
-  const reads = new Set(turns
-    .filter((turn) => turnIds.has(turn.id))
-    .flatMap((turn) => turn.activities ?? [])
+  const observedTurns = turns.filter((turn) => turnIds.has(turn.id));
+  const activities = observedTurns.flatMap((turn) => turn.activities ?? []);
+  if (!shape) {
+    const onlyModelCalls = activities.length > 0 &&
+      activities.every((activity) => activity.kind === "model_call") &&
+      observedTurns.every((turn) => (turn.branches ?? []).length === 0);
+    return !onlyModelCalls;
+  }
+  const reads = new Set(activities
     .filter((activity) => activity.execution?.inputKind === "query")
     .map((activity) => activity.activityId));
   return reads.size >= shape.planned_reads;
