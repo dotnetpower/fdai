@@ -381,6 +381,36 @@ sibling governance artifact that decides how each match is routed (`auto` / `hil
 It is edited through the same PR flow as rules and assignments, with an elevated quorum
 and Owner-tier reviewer for loosening changes.
 
+### Notification routing scope
+
+The A1 routing approver row covers decision-bearing routing only. CI therefore classifies a change
+to `config/notifications-matrix.yaml` as A1 routing, the `override` class with a quorum of two and
+the trusted identity attestation, unless it can show that the change leaves A1 routing intact. CI
+compares the matrix at the merge base with the matrix at the pull-request head, so later commits on
+the base branch don't change the result. The change is A1 routing when any of these holds:
+
+- either side is missing, isn't UTF-8, uses YAML anchors, aliases, merge keys, or duplicate keys,
+  or fails the runtime matrix validation;
+- anything outside `matrix.routes` changes, such as channel settings or the default route;
+- a route is removed, because its category then resolves to the default route;
+- the default route is modified;
+- an added or modified route has the A1 trust tier before or after the change.
+
+Adding or modifying any other route, such as an A2 alert or an A4 digest, is ordinary routing
+configuration. It needs no identity attestation and follows normal pull-request review. Comment-only
+edits don't change the parsed matrix. CI decides this scope before it requires
+`FDAI_GOVERNANCE_IDENTITY_APP_ID`, so a missing verifier App still fails closed for every change
+that needs identity review. A pull request can't weaken this proof and use it at the same time: if
+it also changes the CI workflow, the gate script, the matrix validator, the router, the trust-tier
+contract, or the review-authority code, both the gate script and the workflow require identity
+review independently. `rule-catalog/override-parameter-bounds.yaml` always needs identity review
+as an override.
+
+A new non-A1 route can't capture decision-bearing traffic. The router refuses to deliver an A1
+message through a route whose tier isn't A1, and it escalates the message to the HIL sink with a
+`trust_mismatch` audit outcome instead. Before this rule, an A1 message whose category had no route
+reached the A1 default route, so adding a route for that category could have redirected it.
+
 ## Lifecycle and Versioning
 
 - Rules, rule-sets, and assignments are versioned catalog-as-code. Exemptions carry a stable id,

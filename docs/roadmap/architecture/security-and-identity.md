@@ -338,6 +338,11 @@ The PostgreSQL evidence provider follows these boundaries:
   decision receipt in the same transaction that validates the pending approval, and Core routes a
   decision only when the message matches that receipt. A forged or rewritten message is refused
   before any park, quorum slot, or executor is touched.
+- Approval requests travel only through A1 routes. The notification router refuses to deliver an
+  A1 message through a route of another tier and escalates it to the HIL sink, so a routing
+  change outside A1 can't redirect a decision-bearing callback. That is why only A1 routing
+  changes need the governance identity attestation
+  ([Rule Governance](../rules-and-detection/rule-governance.md#notification-routing-scope)).
 
 ## Auditability
 
