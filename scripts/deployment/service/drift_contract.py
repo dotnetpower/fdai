@@ -26,6 +26,7 @@ class DriftContractError(ValueError):
 
 _COST_PSEUDONYM_KEY_ADDRESS = "azurerm_key_vault_secret.cost_pseudonym_key[0]"
 _PLATFORM_DATABASE_ADDRESS = "module.state_store.azurerm_postgresql_flexible_server.primary"
+_PLATFORM_KEY_VAULT_ADDRESS = "module.key_vault.azurerm_key_vault.primary"
 _PLATFORM_OPERATOR_IDENTITY_ADDRESS = (
     "module.operator_api_identity[0].azurerm_user_assigned_identity.primary"
 )
@@ -241,6 +242,23 @@ def stored_platform_operator_identity(payload: dict[str, Any]) -> dict[str, str]
     if not isinstance(principal_id, str) or not principal_id or "\n" in principal_id:
         raise DriftContractError("platform state contains an invalid Operator identity")
     return {"principal_id": principal_id}
+
+
+def stored_platform_key_vault(payload: dict[str, Any]) -> dict[str, str]:
+    """Read the tracked legacy Key Vault id without relying on root outputs."""
+    values = payload.get("values")
+    root = values.get("root_module") if isinstance(values, dict) else None
+    if not isinstance(root, dict):
+        raise DriftContractError("Terraform state JSON has no root module")
+    try:
+        resource = _resource_at_address(root, _PLATFORM_KEY_VAULT_ADDRESS)
+    except LookupError:
+        raise DriftContractError("platform state is missing the Key Vault") from None
+    resource_values = resource.get("values")
+    resource_id = resource_values.get("id") if isinstance(resource_values, dict) else None
+    if not isinstance(resource_id, str) or not resource_id or "\n" in resource_id:
+        raise DriftContractError("platform state contains an invalid Key Vault")
+    return {"resource_id": resource_id}
 
 
 def stored_platform_output_inputs(
