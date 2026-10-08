@@ -1,7 +1,7 @@
 {
-  "subtitle": "저장소 리비전별 코드 보안 스캔 검토를 읽기 전용으로 보여 줍니다. 결과는 승인이나 실행 권한을 부여하지 않습니다.",
-  "readOnlyTitle": "조회 전용입니다.",
-  "readOnlyBody": "건수와 불투명한 이슈 ID만 표시합니다. 코드, 경로, 수정 내용은 개발자 장비의 조치 팩에만 있습니다.",
+  "subtitle": "저장소 리비전별 코드 보안 스캔 검토를 출처별로 구분해 보여 줍니다. 결과는 승인이나 실행 권한을 부여하지 않습니다.",
+  "readOnlyTitle": "조회와 스캔 요청만 할 수 있습니다.",
+  "readOnlyBody": "건수와 불투명한 이슈 ID만 표시합니다. 코드, 경로, 수정 내용은 개발자 장비의 보고서와 조치 팩에만 있습니다. 스캔 요청은 코드를 바꾸거나 승인, 실행하지 않습니다.",
   "resourceLabel": "코드 보안 검토",
   "unavailable": "권위 있는 코드 보안 검토 근거를 사용할 수 없습니다.",
   "empty": "기록된 코드 보안 검토가 아직 없습니다.",
@@ -20,7 +20,9 @@
     "priority": "P0 / P1 / P2",
     "confidence": "검증 또는 입증",
     "exposure": "노출",
-    "recordedAt": "기록 시각"
+    "recordedAt": "기록 시각",
+    "source": "출처",
+    "trigger": "시작 경로"
   },
   "decision": {
     "urgent": "긴급",
@@ -37,7 +39,9 @@
   "gap": {
     "code_security_review_malformed": "저장된 검토 형식이 잘못되어 보류했습니다.",
     "code_security_review_truncated": "이 화면에 표시된 것보다 많은 검토가 있습니다.",
-    "code_security_pack_malformed": "저장된 조치 팩 형식이 잘못되어 보류했습니다."
+    "code_security_pack_malformed": "저장된 조치 팩 형식이 잘못되어 보류했습니다.",
+    "code_security_repository_malformed": "저장된 저장소 등록 형식이 잘못되어 보류했습니다.",
+    "code_security_scan_request_malformed": "저장된 스캔 요청 형식이 잘못되어 보류했습니다."
   },
   "packsTitle": "조치 팩",
   "packsEmpty": "상태 저장소에 기록된 조치 팩이 아직 없습니다.",
@@ -57,5 +61,71 @@
     "revoked": "폐기됨",
     "expired": "만료됨"
   },
-  "noVerification": "검증 전"
+  "noVerification": "검증 전",
+  "filterLabel": "출처별 검토 필터",
+  "source": {
+    "all": "모든 출처",
+    "local_path": "로컬 폴더",
+    "git_repository": "Git 저장소",
+    "external_sarif": "외부 SARIF",
+    "legacy": "출처 미기록"
+  },
+  "trigger": {
+    "cli": "CLI",
+    "console": "Console 요청",
+    "schedule": "예약 실행"
+  },
+  "snapshot": "커밋하지 않은 스냅샷",
+  "scan": {
+    "title": "저장소 스캔",
+    "body": "등록된 저장소의 스캔을 Heimdall에 요청합니다. 스캔 작업자가 읽기 전용 권한으로 정확한 커밋을 가져와 격리 환경에서 스캔하고, 검토 결과를 이 화면에 기록합니다.",
+    "repository": "저장소",
+    "ref": "브랜치, 태그 또는 커밋",
+    "refPlaceholder": "기본 브랜치",
+    "submit": "스캔 요청",
+    "submitting": "요청하는 중...",
+    "queued": "스캔 요청을 접수했습니다. 스캔 작업자가 끝내면 아래에 결과가 표시됩니다.",
+    "forbidden": "스캔을 요청하려면 Contributor 또는 Owner 역할이 필요합니다.",
+    "failed": "스캔 요청을 접수하지 못했습니다.",
+    "noRepositories": "Console 스캔용으로 등록된 저장소가 없습니다. 운영자가 `fdai-code-security repo-register`로 등록합니다.",
+    "unavailable": "등록된 저장소와 스캔 요청을 사용할 수 없습니다.",
+    "requestsTitle": "스캔 요청",
+    "requestsEmpty": "아직 요청된 스캔이 없습니다.",
+    "withheld": "보류된 저장소 또는 요청 기록",
+    "repositoriesTitle": "등록된 저장소"
+  },
+  "repoColumn": {
+    "repository": "저장소",
+    "location": "GitHub 저장소",
+    "defaultRef": "기본 ref",
+    "exposure": "노출",
+    "state": "상태"
+  },
+  "repoState": {
+    "enabled": "사용",
+    "disabled": "사용 안 함"
+  },
+  "requestColumn": {
+    "requestedAt": "요청 시각",
+    "repository": "저장소",
+    "ref": "Ref",
+    "status": "상태",
+    "result": "결과"
+  },
+  "requestStatus": {
+    "queued": "대기",
+    "running": "스캔 중",
+    "completed": "완료",
+    "rejected": "거부"
+  },
+  "rejection": {
+    "request_malformed": "요청 형식이 잘못되었습니다.",
+    "requester_role_insufficient": "요청자에게 Contributor 또는 Owner 역할이 없습니다.",
+    "repository_not_registered": "등록되지 않은 저장소입니다.",
+    "repository_disabled": "이 저장소의 스캔이 꺼져 있습니다.",
+    "source_unavailable": "저장소나 ref를 가져오지 못했습니다.",
+    "scan_failed": "검토 결과를 만들기 전에 스캔이 실패했습니다.",
+    "review_conflict": "이 커밋에는 다른 검토가 이미 기록되어 있습니다.",
+    "attempts_exhausted": "스캔 재시도 횟수를 초과했습니다."
+  }
 }

@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 1b53852e5570b75232f8b97c8aa18c13d6af5a93
-translation_revised: 2026-10-07
+translation_source_sha: cff0883b9ba8ddfc7e412616d316527ea0a37250
+translation_revised: 2026-10-08
 ---
 # 에이전트 판테온
 
@@ -203,6 +203,7 @@ operations / 인터페이스), `3` = 거버넌스 staff.
 
 Heimdall은 결정론적 예측 에피소드 평가와 종결의 책임자이며 비공개 `heimdall_forecast.py`와 `heimdall_alert_window.py`가 계산과 범위가 제한된 에피소드/경고 구간 기록을 소유합니다.
 Heimdall은 주입된 변환기를 통해 비활성 검토 패키지를 검토 필수 drift로 게시하며, 이때 shadow 상한을 적용하고 권한은 부여하지 않습니다. 대상은 provider schema drift와 코드 보안 검토(`heimdall_code_security.py`, [코드 보안 점검 결과](../operations/code-security-findings-ko.md#에이전트-소유권과-권한) 참조)입니다. Forseti는 이 drift를 사람 승인 결정으로 판정하며, 두 경로 모두 토픽이나 객체 유형을 추가하지 않습니다.
+Heimdall은 소스 코드 보안 취약점 관찰을 책임지는 에이전트입니다. 스캐너, 로컬 폴더 스캔, Console 스캔 요청 작업자는 Heimdall에 엄격한 검토 패키지를 넘기는 기계적 작업자이며, 에이전트, 토픽, 객체 유형을 추가하지 않습니다. Heimdall의 `read_drift_status` 대화 도구는 기록된 검토를 상태 저장소에서 다시 읽으므로, 코드 보안 질문에는 저장소별 최신 검토로 답하고 경로, 코드, 스캐너 메시지는 포함하지 않습니다.
 반복 이벤트의 권위 있는 이상 징후를 게시한 뒤 선택적 `incident_candidate_hook`이 정규화된 리소스, 이벤트 타입, 상관관계, 최대 심각도, 사유 코드, 모든 급증 근거 키를 조립 소유 `IncidentLifecycleWorkflow`로 보냅니다.
 임계값 이상 징후를 게시하기 전에는 주입된 읽기 전용 `operational_evidence_hook`으로 보류 전용 Kubernetes 용량 점검 결과 같은 공급자 근거를 범위 안에서 첨부할 수 있지만 판단, 승인, 실행은 하지 않습니다. 공급자 실패는 구조화된 사용 불가 근거가 되며 이상 징후를 억제하지 않습니다.
 비율 제한 구간의 상관관계 에피소드 하나는 최대 심각도의 이상 징후 하나를 만듭니다. 전체/리소스별 상한은 다른 리소스의 기록 제거를 방지합니다. 정기 하트비트, 정상 탐색, 임계값 이내 관측은 점검 결과나 Incident를 만들지 않습니다.

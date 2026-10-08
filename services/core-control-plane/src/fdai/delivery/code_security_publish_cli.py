@@ -31,6 +31,8 @@ from fdai.core.security.code_findings.notify import (
 )
 from fdai.core.security.code_findings.receipts import build_receipt
 from fdai.core.security.code_findings.review_signal import (
+    SOURCE_KINDS,
+    ReviewSource,
     build_review_package,
     code_security_drift_payload,
 )
@@ -50,6 +52,16 @@ def add_publish_command(sub: argparse._SubParsersAction[argparse.ArgumentParser]
     publish.add_argument("--source-root", action="append", default=[])
     publish.add_argument("--full-repository", action="append", default=[], help="PRODUCER")
     publish.add_argument("--out", help="write the review package and planned notifications here")
+    publish.add_argument(
+        "--source-kind",
+        choices=list(SOURCE_KINDS),
+        help="where the SARIF came from; defaults to external_sarif when any lane is external",
+    )
+    publish.add_argument(
+        "--source-provider",
+        default="sarif",
+        help="short provider token shown in the Console, such as mdash or github-code-scanning",
+    )
     publish.add_argument("--kafka-bootstrap-servers", help="publish on the deployment event bus")
     publish.add_argument(
         "--record-state",
@@ -145,12 +157,18 @@ def build_review(
         ingested,
         full_repository=frozenset(args.full_repository),
     )
+    lanes = {spec.rpartition(":")[2] for spec in args.sarif}
+    kind = args.source_kind or (
+        "external_sarif" if Lane.EXTERNAL.value in lanes else "git_repository"
+    )
     package = build_review_package(
         issues,
         repository_alias=args.repo_alias,
         revision=args.revision,
         exposure=Exposure(args.exposure),
         coverage_complete=coverage_complete(receipt),
+        source=ReviewSource(kind=kind, provider=args.source_provider, trigger="cli"),
+        producers=sorted({run.producer for run in receipt.runs}),
     )
     routes = load_matrix_from_yaml(Path(args.matrix)).routes
     try:

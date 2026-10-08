@@ -132,6 +132,28 @@ export class OperatorApiClient {
   }
 
   /**
+   * Queue one code-security scan of a registered repository
+   * (`POST /code-security/scan-requests`). The Operator API stores a typed
+   * proposal only; a Heimdall-attributed scan worker claims it later. The
+   * request never scans, changes code, approves, or executes by itself.
+   */
+  async requestCodeSecurityScan(
+    body: { readonly repository_alias: string; readonly ref?: string },
+    idempotencyKey: string,
+  ): Promise<{ readonly request_id: string; readonly dispatch_status: string }> {
+    const raw = await this.#transport.postJson<unknown>(
+      "/code-security/scan-requests",
+      { ...body },
+      idempotencyKey,
+    );
+    const receipt = raw as { request_id?: unknown; dispatch_status?: unknown };
+    if (typeof receipt.request_id !== "string" || typeof receipt.dispatch_status !== "string") {
+      throw new OperatorApiError(502, "scan request receipt is malformed");
+    }
+    return { request_id: receipt.request_id, dispatch_status: receipt.dispatch_status };
+  }
+
+  /**
    * Fetch the RCA (root-cause analysis) view for one incident
    * (`GET /rca?correlation=...`). Read-only projection of the shadow
    * `rca.hypothesis` audit entries: tiered hypotheses, grounded

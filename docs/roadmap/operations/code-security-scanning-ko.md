@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: 99edabd5bba954627e02e304e47fee6817025c84
+translation_source_sha: 08ea259a64ce1a531d175090ca9b62a377c97e2a
 translation_revised: 2026-10-08
 ---
 
@@ -19,7 +19,7 @@ translation_revised: 2026-10-08
 
 > **상태:** 결정론 레인(코드 확보, 샌드박스, 스캐너 카탈로그, FDAI 규칙 팩, 스캔 작업, CLI),
 > 오프패스 LLM 렌즈 레인, 승격 게이트를 갖춘 Python·오염 약점 검증기, 선택 사항인 Python 입증
-> 레인이 구현되었습니다.
+> 레인, 보고서를 만드는 로컬 폴더 스캔, 등록된 저장소에 대한 Console 스캔 요청이 구현되었습니다.
 > [구현 원장](../../roadmap-implementation/operations/code-security-scanning.md)을 참조하세요.
 
 ## 설계 개요
@@ -134,6 +134,73 @@ Docker에서는 `--security-opt seccomp=unconfined --security-opt apparmor=uncon
 - gitleaks는 샌드박스의 사용자 네임스페이스 안에서 `/dev/stdout`으로 보고서를 쓰지 못합니다.
 - 도구가 스스로 보고하는 이름(`Opengrep OSS`, 두 모드에 공통인 `Trivy`)이 카탈로그 생산자와 달라
   증적에서 규칙 팩 다이제스트가 빠졌습니다.
+
+## 로컬 폴더 스캔과 보고서
+
+FDAI 배포가 없어도 내 컴퓨터의 폴더를 스캔하고 읽기 쉬운 보고서를 받을 수 있습니다.
+`--repository`와 `--revision` 대신 `--path`를 지정합니다.
+
+- **기본은 커밋된 코드:** 폴더가 git 작업 트리의 루트이면 정확한 `HEAD` 커밋을 스캔하므로,
+  커밋하지 않은 변경은 결과에 들어가지 않습니다.
+- **커밋하지 않은 스냅샷:** `--include-uncommitted`를 지정하면 git이 추적할 파일, 즉 추적 중인
+  파일과 무시되지 않은 미추적 파일을 스캔합니다. git 밖의 폴더라면 모든 일반 파일을 스캔합니다.
+  FDAI는 파일을 내용 주소 기반 스냅샷으로 복사하고, 그 SHA-256 다이제스트를 리비전 대신
+  사용합니다. 심볼릭 링크는 따라가지 않으며 크기와 파일 수 제한이 적용됩니다.
+- **보고서:** `--report DIR`은 `report.md`, `report.html`, `report.json`을 소유자 전용 권한으로
+  씁니다. 판단, 스캐너 커버리지, 건수와 함께 정본 이슈마다 우선순위, 심각도, 신뢰도, 취약점 유형,
+  CWE 또는 권고 ID, 수정 위치, 탐지 도구를 한 행으로 보여 줍니다. 소스 코드, 스캐너 메시지, 코드
+  흐름, 비밀 값은 넣지 않습니다. `--report-locale ko`를 지정하면 한국어 레이블로 씁니다.
+- **별칭:** `--repo-alias`의 기본값은 폴더 이름입니다.
+
+스냅샷에는 커밋이 없으므로 조치 팩이나 수정 확인의 기준으로 쓸 수 없습니다. 둘 중 하나가
+필요하면 먼저 커밋하세요.
+
+`scripts/operations/code-security-scan.sh FOLDER`는 같은 스캔을 스캔 실행 이미지에서 실행합니다.
+처음 실행할 때 이미지를 빌드하고 오프라인 데이터베이스를 내려받은 뒤, `--network none`으로
+스캔합니다.
+
+```bash
+scripts/operations/code-security-scan.sh ~/src/payments-api --include-uncommitted --locale ko
+```
+
+예: 개발자가 커밋하지 않은 파일이 하나 있는 체크아웃을 스캔합니다. 스캐너 다섯 개가 모두
+샌드박스 안에서 완료되고, 커밋하지 않은 `draft.py`의 명령 주입이 커밋된 것과 나란히 나타나며,
+lockfile 권고는 패키지 이름과 함께 표시됩니다. 보고서에는 코드 원문이 나타나지 않습니다.
+
+## Console에서 저장소 스캔
+
+운영자는 Console의 **코드 보안** 화면에서 등록된 GitHub 저장소의 스캔을 FDAI에 요청할 수
+있습니다. 결과의 책임 에이전트는 Heimdall이며, 요청 자체는 어떤 권한도 부여하지 않습니다.
+
+1. **등록:** 운영자가 `fdai-code-security repo-register`로 `owner/repository` 위치에 대한 별칭과
+   기본 ref, 노출을 등록합니다. `repo-enable`과 `repo-disable`로 스캔을 켜고 끕니다. 모든 변경은
+   비교 후 설정 방식을 쓰고 Heimdall 명의의 감사 항목을 추가합니다. 별칭을 다른 위치로 바꿀 수는
+   없습니다.
+2. **요청:** Contributor 또는 Owner가 별칭과 선택적인 브랜치, 태그, 커밋을 담아
+   `POST /code-security/scan-requests`를 보냅니다. Operator API는 본문을 검증하고 정형 제안
+   (`code_security.scan_request`)을 지속 아웃박스에 저장합니다. 스캔하거나 저장소 상태를 읽지는
+   않습니다.
+3. **스캔:** 범위가 제한된 작업자 `fdai-code-security process-scan-requests`가 대기 중인 요청을
+   임대 방식으로 하나씩 가져와 요청자 역할과 등록을 다시 확인하고, ref를 정확한 커밋으로 바꾼 뒤
+   샌드박스에서 스캔하고, 시작 경로 `console`과 요청 ID를 담아 검토를 기록합니다. 버스가 연결되어
+   있으면 Heimdall이 `object.drift`에 검토를 게시합니다.
+4. **결과:** 제안은 범위가 제한된 요약(리비전, 판단, 이슈 수, 커버리지)과 함께 완료되거나, 사유
+   코드와 함께 거부되어 닫힙니다. Console은 요청과 상태를 목록으로 보여 줍니다.
+
+작업자는 배포 환경의 GitHub App(`FDAI_GITHUB_APP_*`) 또는 토큰(`FDAI_GITOPS_TOKEN`) 환경에서
+저장소 접근 권한을 읽고, 토큰마다 등록된 저장소 하나와 읽기 전용 contents 권한으로 범위를
+좁힙니다. 자격 증명이 없으면 공개 저장소만 스캔할 수 있습니다. 작업자는 예약 실행이나 일회성
+실행을 위한 배치 작업이며 폴링 데몬이 아닙니다. 스캔 실행 이미지는
+`fdai-scan-runner process-requests`로 작업자를 시작합니다.
+
+| 거부 사유 | 의미 |
+|-----------|------|
+| `request_malformed` | 저장된 본문이 정형 별칭과 ref가 아닙니다 |
+| `requester_role_insufficient` | 요청자에게 Contributor와 Owner 역할이 모두 없었습니다 |
+| `repository_not_registered` / `repository_disabled` | 이 별칭은 스캔할 수 없습니다 |
+| `source_unavailable` | ref, 저장소, 자격 증명을 확인하지 못했습니다 |
+| `scan_failed` / `review_conflict` | 스캔이 실패했거나, 그 커밋에 다른 발견 사항이 이미 있습니다 |
+| `attempts_exhausted` | 요청을 세 번 넘게 가져갔습니다 |
 
 ## LLM 렌즈 레인
 
@@ -324,6 +391,8 @@ import는 아무 동작도 하지 않는 대체 객체로 처리하고, 각 싱�
 | 싱크 없음, 정화됨, 검증됨, 도달 불가 | 검증기 결과가 사유와 함께 `not_verified`이며 신뢰도는 그대로입니다 |
 | 승격되지 않은 검증기의 일치 | 결과가 `verifier_in_shadow` 사유와 함께 `not_verified`이며 신뢰도는 그대로입니다 |
 | 입증 중 import 실패, 시간 초과, 싱크에서 악용 가능한 페이로드 없음 | 결과가 사유와 함께 `not_proven`이며 신뢰도는 `verified`로 유지됩니다 |
+| 로컬 폴더가 저장소 루트가 아니거나, 비어 있거나, 스냅샷 제한을 넘음 | 작업이 멈추고 아무것도 스캔하지 않습니다 |
+| 등록되지 않았거나 꺼진 별칭, 확인할 수 없는 ref에 대한 Console 요청 | 요청이 사유 코드와 함께 거부되어 닫힙니다 |
 
 ## 검증
 
@@ -336,6 +405,10 @@ bubblewrap 실행(소스 쓰기 불가, 네트워크 인터페이스 없음, 잘
 흐름을 확인하고, 매개변수화된 쿼리, 정화 함수, 허용 목록 가드, 타입이 지정된 매개변수, 안전한
 로더, 재할당, 도달할 수 없는 싱크, 로컬 입력, 심볼릭 링크 탈출, 리비전 불일치는 거부합니다. 실제 `trivy` 바이너리를 샌드박스 안에서 실행했고, 그
 SARIF는 수집 과정을 거쳤습니다.
+로컬 스캔 테스트는 커밋된 `HEAD`와 스냅샷 확보, 무시된 파일, 심볼릭 링크 탈출, ref 확인, 보고서
+이스케이프와 현지화를 다루며, 실제 bubblewrap 실행으로 커밋하지 않은 스냅샷을 스캔했습니다. 요청
+테스트는 등록, 감사, 본문 검증, 모든 거부 사유를 다루며, 일회용 PostgreSQL 데이터베이스에서 제안
+가져오기, 완료, Operator 프로젝션을 검증했습니다.
 
 ## 관련 문서
 

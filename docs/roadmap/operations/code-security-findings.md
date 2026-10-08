@@ -19,8 +19,8 @@ Opengrep, Trivy, and other producers.
 > **Status:** The deterministic core, catalog, signed remediation pack, pack registry, export
 > gate, rescan verification, false-positive adjudication, Heimdall review drift, notifications,
 > operator CLI, the deterministic scanning lane ([Code Security Scanning](code-security-scanning.md)),
-> the off-path LLM lens lane, weakness verifiers, the evaluation harness, and the read-only
-> Console view are implemented. See the [implementation ledger](../../roadmap-implementation/operations/code-security-findings.md).
+> the off-path LLM lens lane, weakness verifiers, the evaluation harness, and the Console view with
+> source-separated reviews and repository scan requests are implemented. See the [implementation ledger](../../roadmap-implementation/operations/code-security-findings.md).
 
 ## Design at a glance
 
@@ -225,9 +225,18 @@ review log.
 
 - **No new agent or topic:** scanners and pack rendering are workers and adapters, not pantheon
   agents, and the AgentSpec set is unchanged.
+- **Accountable agent:** Heimdall owns source-code security vulnerability observation. Scanners,
+  local folder scans, and the Console scan-request worker hand Heimdall a review package; its
+  `read_drift_status` conversation tool answers from the newest recorded review per repository.
 - **Review signal:** a scan produces a strict review package with counts, exposure, coverage
   completeness, and up to twenty opaque issue ids. It carries no paths, code, symbols, or scanner
-  text, and declares `review_required: true` and `grants_authority: false`.
+  text, and declares `review_required: true` and `grants_authority: false`. Schema `1.1.0` adds
+  `source` (kind `local_path`, `git_repository`, or `external_sarif`; a provider token such as
+  `local`, `github`, or `mdash`; revision kind `commit` or `snapshot`; trigger `cli`, `console`, or
+  `schedule`; and the request id of a Console scan) and the sorted producer names. Producer names
+  that aren't short display tokens are dropped. `1.0.0` packages stay valid.
+- **External SARIF:** `publish-review --source-provider mdash` labels an imported MDASH or other
+  external report, so the Console shows it apart from FDAI's own scans.
 - **Heimdall:** an injected projector validates the package and Heimdall publishes it on its owned
   `object.drift` topic (`event_type: code_security.findings_drift`) with a shadow ceiling. The
   decision is `urgent` (P0 issues), `open`, `clear`, or `coverage_incomplete`. No LLM is involved.
@@ -245,11 +254,16 @@ review log.
   ([Code Security Scanning](code-security-scanning.md#llm-lens-lane)).
 - **Console view:** `publish-review --record-state` and `scan --record-state` store each review
   package once per repository revision in the state store, reading the database location from
-  `FDAI_STATE_STORE_DSN` only. A different package for a recorded revision is refused. The
-  Operator API serves `GET /code-security/reviews` to reader roles, and the Console
-  **Evidence > Code security** route shows decisions, counts by priority and confidence,
-  exposure, and coverage. Malformed rows appear as withheld records, and the view offers no
-  approval, execution, or remediation control.
+  `FDAI_STATE_STORE_DSN` only. Different findings for a recorded revision are refused; the same
+  findings from another trigger are a duplicate. The Operator API serves
+  `GET /code-security/reviews`, `/repositories`, and `/scan-requests` to reader roles, and the
+  Console **Evidence > Code security** route shows decisions, counts by priority and confidence,
+  exposure, coverage, and each review's source and trigger, with a filter for local folders, git
+  repositories, external SARIF, and unlabeled reviews. Malformed rows appear as withheld records.
+- **Scan requests:** Contributors and Owners can request a scan of a registered repository through
+  `POST /code-security/scan-requests`. The route only queues a typed proposal for the scan worker
+  described in [Code Security Scanning](code-security-scanning.md#repository-scans-from-the-console);
+  the view still offers no approval, execution, or remediation control.
 - **Pack registry:** `--registry state-store` keeps pack records, revocation, the export baseline,
   and the append-only review log in the state store instead of a local directory, with
   revision compare-and-set so concurrent reviews are never lost. `GET /code-security/packs`

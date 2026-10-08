@@ -79,3 +79,55 @@ async def test_code_security_drift_reaches_human_approval_verdict_and_saga_audit
     assert verdict["correlation_id"] == drift["correlation_id"]
     entries = saga.audit_chain.entries_for_correlation(str(drift["correlation_id"]))
     assert len(entries) == 1 and entries[0].topic == "object.verdict"
+
+
+async def test_heimdall_drift_tool_reads_recorded_code_security_reviews() -> None:
+    from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+    store = InMemoryStateStore()
+    sourced = {
+        **_package(),
+        "schema_version": "1.1.0",
+        "source": {
+            "kind": "local_path",
+            "provider": "local",
+            "revision_kind": "commit",
+            "trigger": "cli",
+            "request_id": None,
+        },
+        "producers": ["Opengrep"],
+    }
+    older = {**_package(), "revision": "b" * 40}
+    await store.write_state(
+        f"runtime:code-security-review:example-service:{_REVISION}",
+        {"package": sourced, "recorded_at": "2026-10-08T01:00:00+00:00"},
+    )
+    await store.write_state(
+        "runtime:code-security-review:example-service:" + "b" * 40,
+        {"package": older, "recorded_at": "2026-10-07T01:00:00+00:00"},
+    )
+    await store.write_state(
+        "runtime:code-security-review:broken:" + "c" * 40,
+        {"package": {**_package(), "grants_authority": True}, "recorded_at": "x"},
+    )
+    heimdall = Heimdall(state_store=store)
+    envelope = await heimdall.on_conversation_turn(
+        "Did the latest code scan find vulnerabilities?",
+        {"conversation_tool": "read_drift_status", "trace_ref": "trace-code"},
+    )
+    facts = envelope["facts"]
+    assert envelope["answer"] is not None and "1 urgent" in envelope["answer"]
+    assert "No retained configuration drift finding" in envelope["answer"]
+    (latest,) = facts["code_security_latest_decisions"]
+    assert latest["revision"] == _REVISION[:12] and latest["source_kind"] == "local_path"
+    assert latest["decision"] == "urgent"
+    assert facts["code_security_reviews_read"] == 2
+    assert "Opengrep" not in str(facts) and "top_issue_ids" not in str(facts)
+
+
+async def test_heimdall_drift_tool_abstains_without_a_review_store() -> None:
+    envelope = await Heimdall().on_conversation_turn(
+        "Did the latest code scan find vulnerabilities?",
+        {"conversation_tool": "read_drift_status", "trace_ref": "trace-code"},
+    )
+    assert envelope["answer"] is None

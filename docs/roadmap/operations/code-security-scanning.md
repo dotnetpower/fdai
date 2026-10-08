@@ -16,7 +16,8 @@ results feed the canonical issue model, severity, priority, and remediation pack
 
 > **Status:** The deterministic lane (acquisition, sandbox, scanner catalog, FDAI rule pack, scan
 > job, and CLI), the off-path LLM lens lane, the Python and taint weakness verifiers with their
-> promotion gate, and the opt-in Python proof lane are implemented. See the
+> promotion gate, the opt-in Python proof lane, local folder scans with reports, and Console scan
+> requests for registered repositories are implemented. See the
 > [implementation ledger](../../roadmap-implementation/operations/code-security-scanning.md).
 
 ## Design at a glance
@@ -135,6 +136,74 @@ couldn't reproduce:
 - gitleaks can't write its report through `/dev/stdout` inside the sandbox's user namespace.
 - The tools' self-reported names (`Opengrep OSS`, and one `Trivy` for two modes) didn't match the
   catalog producers, so receipts lost the rule-pack digest.
+
+## Local folder scans and reports
+
+You can scan a folder on your machine and get a readable report without a running FDAI
+deployment. Pass `--path` instead of `--repository` and `--revision`:
+
+- **Committed code by default:** when the folder is the root of a git work tree, FDAI scans its
+  exact `HEAD` commit, so uncommitted edits aren't part of the result.
+- **Uncommitted snapshot:** `--include-uncommitted` scans the files git would track, tracked plus
+  untracked without ignored files, or every regular file of a folder outside git. FDAI copies them
+  into a content-addressed snapshot whose SHA-256 digest stands in for the revision. Symlinks are
+  never followed, and size and file-count limits apply.
+- **Report:** `--report DIR` writes `report.md`, `report.html`, and `report.json` with owner-only
+  permissions. Each lists the decision, scanner coverage, counts, and one row per canonical issue
+  with priority, severity, confidence, weakness class, CWE or advisory ids, fix-site location,
+  and producers. It never includes source code, scanner messages, code flows, or secret values.
+  `--report-locale ko` writes Korean labels.
+- **Alias:** `--repo-alias` defaults to the folder name.
+
+A snapshot has no commit, so it can't be the base of a remediation pack or of fix verification.
+Commit first when you need either.
+
+`scripts/operations/code-security-scan.sh FOLDER` runs the same scan in the scan runner image. It
+builds the image and downloads the offline databases on first use, then scans with
+`--network none`:
+
+```bash
+scripts/operations/code-security-scan.sh ~/src/payments-api --include-uncommitted --locale ko
+```
+
+Example: a developer scans a checkout with one uncommitted file. All five scanners complete in the
+sandbox, the uncommitted `draft.py` command injection appears next to the committed one, and the
+report shows the lockfile advisories under their package name. No code text appears in the report.
+
+## Repository scans from the Console
+
+An operator can ask FDAI to scan a registered GitHub repository from the Console **Code security**
+route. Heimdall is the accountable agent for the result. The request itself grants no authority:
+
+1. **Registration:** an operator registers an alias for an `owner/repository` location with
+   `fdai-code-security repo-register`, plus a default ref and exposure. `repo-enable` and
+   `repo-disable` toggle scanning. Every change uses compare-and-set and appends a
+   Heimdall-attributed audit entry. An alias can't be repointed at another location.
+2. **Request:** a Contributor or Owner submits `POST /code-security/scan-requests` with an alias
+   and an optional branch, tag, or commit. The Operator API validates the body and stores a typed
+   proposal (`code_security.scan_request`) in its durable outbox. It doesn't scan or read
+   repository state.
+3. **Scan:** the bounded worker `fdai-code-security process-scan-requests` claims one pending
+   request at a time with a lease, rechecks the requester role and the registration, resolves the
+   ref to an exact commit, scans it in the sandbox, and records the review with trigger `console`
+   and the request id. With a bus bound, Heimdall publishes the review on `object.drift`.
+4. **Result:** the proposal closes as completed with a bounded summary (revision, decision, issue
+   count, coverage) or rejected with a reason code. The Console lists requests and their status.
+
+The worker reads repository access from the deployment's GitHub App (`FDAI_GITHUB_APP_*`) or token
+(`FDAI_GITOPS_TOKEN`) environment and narrows each token to the one registered repository with
+read-only contents permission. Without credentials only public repositories can be scanned. The
+worker is a batch job for a schedule or a one-shot run, not a polling daemon; the scan runner
+image starts it with `fdai-scan-runner process-requests`.
+
+| Rejection reason | Meaning |
+|------------------|---------|
+| `request_malformed` | The stored body isn't the typed alias and ref |
+| `requester_role_insufficient` | The requester had neither Contributor nor Owner |
+| `repository_not_registered` / `repository_disabled` | The alias can't be scanned |
+| `source_unavailable` | The ref, repository, or credential couldn't be resolved |
+| `scan_failed` / `review_conflict` | The scan failed, or different findings exist for that commit |
+| `attempts_exhausted` | The request was claimed more than three times |
 
 ## LLM lens lane
 
@@ -335,6 +404,8 @@ and C# have no proof harness yet.
 | Sink missing, sanitized, validated, or unreachable | Verifier result `not_verified` with a reason; confidence unchanged |
 | Verifier hit from an unpromoted verifier | Result `not_verified` with `verifier_in_shadow`; confidence unchanged |
 | Proof import failure, timeout, or no exploitable payload at the sink | Result `not_proven` with a reason; confidence stays `verified` |
+| Local folder isn't a repository root, is empty, or exceeds snapshot limits | Job stops; nothing is scanned |
+| Console request for an unregistered or disabled alias, or an unresolvable ref | Request closes as rejected with a reason code |
 
 ## Verification
 
@@ -348,6 +419,10 @@ a mock transport, without live model calls. Verifier tests confirm attacker-cont
 every supported class, and reject parameterized queries, sanitizers, allowlist guards, typed
 parameters, safe loaders, reassignment, unreachable sinks, local inputs, symlink escapes, and
 revision mismatches. A real `trivy` binary ran inside the sandbox, and its SARIF went through ingestion.
+Local scan tests cover committed-`HEAD` and snapshot acquisition, ignored files, symlink escapes,
+ref resolution, and report escaping and localization; a real bubblewrap run scans an uncommitted
+snapshot. Request tests cover registration, audit, body validation, and every rejection reason, and
+a throwaway PostgreSQL database validated the proposal claim, completion, and Operator projections.
 
 ## Related docs
 

@@ -83,3 +83,31 @@ async def test_environment_recording_requires_a_dsn(monkeypatch: pytest.MonkeyPa
     monkeypatch.delenv("FDAI_DATABASE_URL", raising=False)
     with pytest.raises(ValueError, match="FDAI_STATE_STORE_DSN"):
         await record_review_from_environment(_package())
+
+
+def _sourced(trigger: str, request_id: str | None) -> dict[str, object]:
+    return {
+        **_package(),
+        "schema_version": "1.1.0",
+        "source": {
+            "kind": "git_repository",
+            "provider": "github",
+            "revision_kind": "commit",
+            "trigger": trigger,
+            "request_id": request_id,
+        },
+        "producers": ["Opengrep"],
+    }
+
+
+async def test_same_findings_from_another_trigger_are_a_duplicate_not_a_conflict() -> None:
+    store = InMemoryStateStore()
+    assert await record_code_security_review(store, _sourced("cli", None)) is True
+    assert (
+        await record_code_security_review(store, _sourced("console", "operator-" + "b" * 32))
+        is False
+    )
+    row = await store.read_state(code_security_review_state_key("example-service", _REVISION))
+    assert row is not None and row["package"]["source"]["trigger"] == "cli"
+    with pytest.raises(CodeSecurityReviewConflictError):
+        await record_code_security_review(store, {**_sourced("cli", None), "exposure": "internal"})

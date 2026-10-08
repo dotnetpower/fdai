@@ -151,6 +151,18 @@ OPERATIONS_ROUTE_MANIFEST: tuple[OperationRoute, ...] = (
     OperationRoute("/assurance-twin/review", "GET", "handler", "assurance_twin.review_detail"),
     OperationRoute("/code-security/reviews", "GET", "handler", "code_security.reviews"),
     OperationRoute("/code-security/packs", "GET", "handler", "code_security.packs"),
+    OperationRoute("/code-security/repositories", "GET", "handler", "code_security.repositories"),
+    OperationRoute("/code-security/scan-requests", "GET", "handler", "code_security.scan_requests"),
+    # A scan request only queues intent for the Heimdall-attributed scan worker; it never scans,
+    # writes to a repository, or grants approval or execution authority.
+    OperationRoute(
+        "/code-security/scan-requests",
+        "POST",
+        "handler",
+        "code_security.scan_request",
+        "proposal",
+        CONTRIBUTOR_ROLES,
+    ),
     OperationRoute("/reports", "GET", "list_reports", "report.list"),
     OperationRoute("/reports/registry", "GET", "get_registry", "report.registry"),
     OperationRoute("/reports/formats", "GET", "list_formats", "report.formats"),

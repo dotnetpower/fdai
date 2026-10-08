@@ -1,0 +1,233 @@
+"""Repository registration and Console scan-request commands for ``fdai-code-security``.
+
+``repo-register``, ``repo-list``, ``repo-enable``, and ``repo-disable`` manage which repositories
+the Console may ask FDAI to scan. ``process-scan-requests`` is the worker that claims pending
+Console requests, scans the registered repository at the requested ref inside the sandbox, records
+the review for the Console, and publishes it through Heimdall when a bus is bound. It is a
+bounded batch job for a schedule or a one-shot run, not a polling daemon.
+
+Repository access uses the deployment's GitHub App (``FDAI_GITHUB_APP_*``) or token
+(``FDAI_GITOPS_TOKEN``) environment, narrowed to the one registered repository with read-only
+contents permission. The credential reaches git only through environment configuration. Without
+credentials only public repositories can be scanned.
+"""
+
+from __future__ import annotations
+
+import argparse
+import base64
+import os
+from collections.abc import AsyncIterator, Mapping
+from contextlib import asynccontextmanager
+from pathlib import Path
+
+from fdai.core.security.code_findings.review_signal import ReviewSource
+from fdai.delivery.code_security_acquire import GitSourceAcquirer, SourceAcquisitionError
+from fdai.delivery.code_security_review_cli import pairs
+from fdai.delivery.code_security_sandbox import BubblewrapScannerSandbox
+from fdai.delivery.code_security_scan_cli import default_work_root
+from fdai.delivery.code_security_scan_job import ScanJobConfig, run_scan_job
+from fdai.delivery.code_security_scan_requests import process_scan_requests
+from fdai.delivery.persistence.state_store_code_security_repository import (
+    CodeSecurityRepository,
+    clone_url,
+    list_repositories,
+    register_repository,
+    set_repository_enabled,
+)
+from fdai.delivery.repo_assets import repo_asset_root
+from fdai.rule_catalog.code_security import Exposure, load_code_security_catalog
+from fdai.rule_catalog.code_security_scanners import load_scanner_catalog
+from fdai.rule_catalog.code_security_verifiers import load_verifier_catalog
+from fdai.shared.providers.state_store import StateStore
+
+_READ_ONLY_PERMISSIONS = (("contents", "read"), ("metadata", "read"))
+_DEFAULT_ACTOR = "operator-cli"
+
+
+def add_repository_commands(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    register = sub.add_parser("repo-register", help="allow Console scans of a GitHub repository")
+    register.add_argument("--alias", required=True)
+    register.add_argument("--github", required=True, help="OWNER/REPOSITORY")
+    register.add_argument("--default-ref", default="main")
+    register.add_argument("--exposure", choices=[e.value for e in Exposure], default="unknown")
+    register.add_argument("--actor", default=_DEFAULT_ACTOR, help="audited operator principal")
+    sub.add_parser("repo-list", help="list repositories registered for Console scans")
+    for name, text in (("repo-enable", "enable"), ("repo-disable", "disable")):
+        toggle = sub.add_parser(name, help=f"{text} Console scans of a registered repository")
+        toggle.add_argument("--alias", required=True)
+        toggle.add_argument("--actor", default=_DEFAULT_ACTOR)
+    worker = sub.add_parser(
+        "process-scan-requests", help="scan pending Console requests for registered repositories"
+    )
+    worker.add_argument("--work-root", default=str(default_work_root()))
+    worker.add_argument("--scanner-bin", action="append", default=[], help="SCANNER=EXECUTABLE")
+    worker.add_argument("--required-scanner", action="append", default=[])
+    worker.add_argument("--cache-dir")
+    worker.add_argument("--bwrap", default="/usr/bin/bwrap")
+    worker.add_argument("--kafka-bootstrap-servers")
+    worker.add_argument("--max-requests", type=int, default=1)
+    root = repo_asset_root() / "rule-catalog" / "code-security"
+    worker.add_argument("--catalog-root", default=str(root))
+    worker.add_argument("--rules-dir", default=str(root / "rules"))
+
+
+def _state_store_dsn() -> str:
+    dsn = (
+        os.environ.get("FDAI_STATE_STORE_DSN", "").strip()
+        or os.environ.get("FDAI_DATABASE_URL", "").strip()
+    )
+    if not dsn:
+        raise ValueError("this command requires FDAI_STATE_STORE_DSN in the environment")
+    return dsn
+
+
+@asynccontextmanager
+async def _open_store() -> AsyncIterator[StateStore]:
+    from fdai.delivery.persistence.postgres import PostgresStateStore, PostgresStateStoreConfig
+
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=_state_store_dsn()))
+    try:
+        yield store
+    finally:
+        await store.aclose()
+
+
+def _view(repository: CodeSecurityRepository) -> dict[str, object]:
+    record = repository.as_record()
+    return {key: record[key] for key in record if key not in ("kind", "schema_version")}
+
+
+async def run_repository_command(args: argparse.Namespace) -> dict[str, object]:
+    async with _open_store() as store:
+        if args.command == "repo-register":
+            repository, created = await register_repository(
+                store,
+                alias=args.alias,
+                location=args.github,
+                default_ref=args.default_ref,
+                exposure=Exposure(args.exposure),
+                registered_by=args.actor,
+            )
+            return {"ok": True, "created": created, "repository": _view(repository)}
+        if args.command == "repo-list":
+            return {
+                "ok": True,
+                "repositories": [_view(item) for item in await list_repositories(store)],
+            }
+        repository = await set_repository_enabled(
+            store, args.alias, enabled=args.command == "repo-enable", actor=args.actor
+        )
+        return {"ok": True, "repository": _view(repository)}
+
+
+async def github_auth_header(location: str, environment: Mapping[str, str]) -> str | None:
+    """Return a Basic authorization value for git over HTTPS, or ``None`` without credentials.
+
+    The token is scoped to ``location`` with read-only contents permission and never leaves this
+    process except through git's environment configuration.
+    """
+    import httpx
+    from fdai_github_app_auth import build_github_token_provider
+
+    async with httpx.AsyncClient(timeout=httpx.Timeout(15.0)) as client:
+        provider = build_github_token_provider(
+            environment,
+            http_client=client,
+            repository=location,
+            permissions=_READ_ONLY_PERMISSIONS,
+        )
+        if provider is None:
+            return None
+        token = await provider()
+    return "Basic " + base64.b64encode(f"x-access-token:{token}".encode()).decode("ascii")
+
+
+def _scan_runner(args: argparse.Namespace):  # type: ignore[no-untyped-def]
+    catalog_root = Path(args.catalog_root)
+    catalog = load_code_security_catalog(catalog_root)
+    scanners = load_scanner_catalog(catalog_root)
+    verifiers = load_verifier_catalog(catalog_root, frozenset(catalog.weakness_classes.classes))
+    executables = {key: Path(value).resolve() for key, value in pairs(args.scanner_bin).items()}
+    unknown = set(executables) - set(scanners.scanners)
+    if unknown:
+        raise ValueError(f"unknown scanners: {', '.join(sorted(unknown))}")
+    work_root = Path(args.work_root).resolve()
+    base_url = os.environ.get("FDAI_CODE_SECURITY_GITHUB_BASE_URL", "").strip()
+
+    async def run(
+        repository: CodeSecurityRepository, ref: str, source: ReviewSource
+    ) -> Mapping[str, object]:
+        from fdai_github_app_auth import GitHubAppTokenError
+
+        try:
+            header = await github_auth_header(repository.location, os.environ)
+        except GitHubAppTokenError as exc:
+            raise SourceAcquisitionError("repository credentials are unavailable") from exc
+        acquirer = GitSourceAcquirer(work_root, auth_header=lambda: header)
+        url = clone_url(repository, base_url or "https://github.com")
+        revision = acquirer.resolve_revision(url, ref)
+        result = await run_scan_job(
+            ScanJobConfig(
+                repository=url,
+                revision=revision,
+                repository_alias=repository.repository_alias,
+                work_root=work_root,
+                executables=executables,
+                rules_dir=Path(args.rules_dir).resolve(),
+                cache_dir=Path(args.cache_dir).resolve() if args.cache_dir else None,
+                exposure=Exposure(repository.exposure),
+                required_scanners=frozenset(args.required_scanner) or None,
+                source=source,
+            ),
+            catalog=catalog,
+            scanners=scanners,
+            acquirer=acquirer,
+            sandbox=BubblewrapScannerSandbox(Path(args.bwrap)),
+            verifier_catalog=verifiers,
+        )
+        return result.package
+
+    return run
+
+
+async def run_process_scan_requests(args: argparse.Namespace) -> dict[str, object]:
+    from fdai.delivery.persistence.postgres_code_security_scan_requests import (
+        PostgresCodeSecurityScanRequestQueue,
+        PostgresCodeSecurityScanRequestQueueConfig,
+    )
+    from fdai.delivery.persistence.state_store_code_security_review import (
+        record_code_security_review,
+    )
+
+    runner = _scan_runner(args)
+    publisher = None
+    if args.kafka_bootstrap_servers:
+        from fdai.delivery.code_security_publish_cli import heimdall_publisher
+
+        publisher = heimdall_publisher(args.kafka_bootstrap_servers)
+    queue = PostgresCodeSecurityScanRequestQueue(
+        PostgresCodeSecurityScanRequestQueueConfig(dsn=_state_store_dsn())
+    )
+    async with _open_store() as store:
+
+        async def record(package: Mapping[str, object]) -> bool:
+            return await record_code_security_review(store, package)
+
+        outcomes = await process_scan_requests(
+            queue,
+            store,
+            runner,
+            recorder=record,
+            publisher=publisher,
+            max_requests=args.max_requests,
+        )
+    return {"ok": True, "processed": len(outcomes), "outcomes": list(outcomes)}
+
+
+__all__ = [
+    "add_repository_commands",
+    "github_auth_header",
+    "run_process_scan_requests",
+    "run_repository_command",
+]
