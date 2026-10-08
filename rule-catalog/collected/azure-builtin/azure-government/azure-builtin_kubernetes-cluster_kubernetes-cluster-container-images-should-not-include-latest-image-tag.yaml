@@ -22,7 +22,7 @@ provenance:
     Government/Kubernetes/ImagesDoNotUseLatest.json
   source_version: 2.0.1
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:3e6a3800c5ece1c7ce6f408bff4b6f6a4b5de002b23ba2cb4e661fa625defaa5
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

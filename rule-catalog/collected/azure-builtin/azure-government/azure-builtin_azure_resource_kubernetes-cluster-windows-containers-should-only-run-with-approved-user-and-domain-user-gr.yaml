@@ -22,7 +22,7 @@ provenance:
     Government/Kubernetes/WindowsContainerAllowedUsername.json
   source_version: 3.2.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:7ece4e1de6eba0652031176040abeb33083a75ff259f606506b1893a90d3c4f6
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

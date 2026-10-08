@@ -21,7 +21,7 @@ provenance:
     Center/ASC_Azure_Defender_AI_AINE.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:45bcc9c6cb0654e6e9b48d8ad35e6f2fb2d6d543989bd03ef9d8110f5cc93e64
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

@@ -22,7 +22,7 @@ provenance:
     Center/ASC_AzureSecurityWindowsAgent_AINE.json
   source_version: 2.2.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:984ff6e35a586df2a9912a07f887569b788641ca0832215f2e13e4fd57b1934a
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

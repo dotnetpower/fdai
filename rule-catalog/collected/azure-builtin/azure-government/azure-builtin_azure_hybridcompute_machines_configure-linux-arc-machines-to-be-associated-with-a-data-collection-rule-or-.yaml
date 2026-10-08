@@ -22,7 +22,7 @@ provenance:
     Government/Monitoring/AzureMonitor_DCRA_Arc_Linux_DINE.json
   source_version: 2.1.1
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:4e4900c25f5b9110d4aea9f10768a682d750cf07560ae5d4d2a56d977bcac22a
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

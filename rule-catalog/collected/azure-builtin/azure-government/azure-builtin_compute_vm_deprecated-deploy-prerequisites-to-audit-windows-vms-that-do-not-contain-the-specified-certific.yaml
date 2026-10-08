@@ -22,7 +22,7 @@ provenance:
     Government/Guest Configuration/WindowsCertificateInTrustedRoot_DINE.json
   source_version: 3.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:fe0b9909124b839ee27931c68ed5bcb63c38f95351ddc208b6b36365499fa171
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

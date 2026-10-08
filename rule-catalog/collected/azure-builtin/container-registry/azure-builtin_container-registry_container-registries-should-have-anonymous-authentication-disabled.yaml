@@ -22,7 +22,7 @@ provenance:
     Registry/ACR_AnonymousPullDisabled_AuditDeny.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:dc2edcc7a940386204d91f83df3f7893325461d433301d8b99eff776c149f1c4
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

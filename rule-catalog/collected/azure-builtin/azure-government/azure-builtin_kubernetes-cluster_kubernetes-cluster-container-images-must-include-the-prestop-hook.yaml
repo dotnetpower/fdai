@@ -22,7 +22,7 @@ provenance:
     Government/Kubernetes/ContainerEnforcePreStopHook.json
   source_version: 1.1.1
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:4b6c4289a1331f068170198dde0318bea5f1b32e371e0aa67992800869795c9b
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

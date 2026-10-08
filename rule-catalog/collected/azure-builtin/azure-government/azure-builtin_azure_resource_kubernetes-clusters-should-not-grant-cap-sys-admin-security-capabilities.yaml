@@ -22,7 +22,7 @@ provenance:
     Government/Kubernetes/ContainerDisallowedSysAdminCapability.json
   source_version: 6.1.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:6c940afdafb9f14cd94532229fd33fe06e6cd3d2b1d68c8ef5027b2a77f2568b
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

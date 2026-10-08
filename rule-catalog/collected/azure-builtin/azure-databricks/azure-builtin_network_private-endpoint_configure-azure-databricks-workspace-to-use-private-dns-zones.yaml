@@ -22,7 +22,7 @@ provenance:
     Databricks/Databricks_PrivateDNSZone_DINE.json
   source_version: 1.0.1
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:57a6130062370e66149c7ed3b4744f35b771b65fb3f0f9a34ba80ff66fe4838f
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

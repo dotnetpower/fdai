@@ -22,7 +22,7 @@ provenance:
     Compliance/CMA_0495.json
   source_version: 1.1.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:893d04c6f5c89c2bf928dbf891b9fe99fb160cdbb8cf47f0b139fd46f0633a98
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

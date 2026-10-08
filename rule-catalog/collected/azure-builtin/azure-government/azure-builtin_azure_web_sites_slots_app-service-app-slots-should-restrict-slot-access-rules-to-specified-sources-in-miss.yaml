@@ -22,7 +22,7 @@ provenance:
     Government/Mission/AppRestrictSlotAccessRules_Audit.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:6ee9526d692befac3fc0e54cedc5aab3e41c3e9fbf9f7939a78e622479c49c4c
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

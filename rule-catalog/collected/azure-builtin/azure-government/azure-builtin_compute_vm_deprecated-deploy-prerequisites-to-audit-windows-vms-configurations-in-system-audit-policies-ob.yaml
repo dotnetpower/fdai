@@ -22,7 +22,7 @@ provenance:
     Government/Guest Configuration/SystemAuditPoliciesObjectAccess_DINE.json
   source_version: 3.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:d8e8eb3a9f839d45d592e87b3e1714975b563cb920e2a0b1e40f92b6f51aa2a7
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

@@ -22,7 +22,7 @@ provenance:
     Government/Security Center/MDC_DfSQL_AMA_DefaultPipeline_VM.json
   source_version: 1.8.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:6d7c25671a8b104066e9e8dd58eef74d605a774ac36d503deec28d93472c4451
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

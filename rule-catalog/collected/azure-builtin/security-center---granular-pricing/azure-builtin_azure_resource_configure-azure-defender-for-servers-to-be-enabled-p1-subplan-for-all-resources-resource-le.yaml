@@ -22,7 +22,7 @@ provenance:
     Center - Granular Pricing/ASC_Azure_Defender_Servers_EnableP1_ResourceLevel_ByTag_DINE.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:9d847a0245fef439fe3217728903688cedc9d349dd387e61eae0d387a820d032
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

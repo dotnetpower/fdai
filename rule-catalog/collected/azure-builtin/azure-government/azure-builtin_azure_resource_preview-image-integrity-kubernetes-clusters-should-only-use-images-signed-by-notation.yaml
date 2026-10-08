@@ -22,7 +22,7 @@ provenance:
     Government/Kubernetes/ImageIntegrityNotationVerification.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:eda4a7d0c7b47dae778570ae285f9f2f5f2c188559e459e17b4828ff19b43bc4
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

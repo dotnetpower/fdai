@@ -22,7 +22,7 @@ provenance:
     Government/Kubernetes/ReadOnlyRootFileSystem.json
   source_version: 7.3.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:54d4a63f4ebfdc1a4b8b25d45489bc004af25fe31bf33ae8dca76646c94bdb4c
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

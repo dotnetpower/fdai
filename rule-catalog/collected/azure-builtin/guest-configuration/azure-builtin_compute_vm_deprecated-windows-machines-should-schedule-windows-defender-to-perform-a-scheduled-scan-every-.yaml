@@ -22,7 +22,7 @@ provenance:
     Configuration/ACAT_WindowsDefenderScanScheduleDaily_AINE.json
   source_version: 1.3.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:9446837451b84448bfc89dad14e085bb9b826e2102a3c8682e67cb92e8e12a7c
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

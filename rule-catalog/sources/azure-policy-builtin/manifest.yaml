@@ -3,8 +3,9 @@
 # Pins a specific revision of the Azure/azure-policy GitHub repository
 # so the parser (`azure-policy-json`) can reproduce the same set of
 # rules on any machine. The collector fetches this snapshot into a
-# tmp tree; the parser walks it; the loader (invoked separately) lands
-# the normalized rules under `rule-catalog/collected/azure-builtin/`.
+# tmp tree; the parser walks it; `--land-collected` lands the normalized
+# rules under `rule-catalog/collected/azure-builtin/` with this revision
+# as `resolved_ref` and each definition's SHA-256 as `content_hash`.
 #
 # The `resolved_ref` field is a placeholder here (0000...) so the
 # hygiene gate (`scripts/quality/repository/check-guids.sh`) does not flag a real SHA

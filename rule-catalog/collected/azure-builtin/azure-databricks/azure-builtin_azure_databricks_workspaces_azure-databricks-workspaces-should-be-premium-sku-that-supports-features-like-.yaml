@@ -22,7 +22,7 @@ provenance:
     Databricks/AllowedDatabricksSkus_Audit.json
   source_version: 1.0.1
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:84233b3d74fecc71407be396d3a59759425c54320aecde056d2b4a9d010d6a37
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

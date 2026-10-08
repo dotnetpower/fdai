@@ -22,7 +22,7 @@ provenance:
     Learning/Workspace_PrivateEndpoint_Audit_V2.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:b0610a2f2f04d5188dc3961701c6b4187361a4bc59029b9d203bc4f174f2581a
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

@@ -1,7 +1,7 @@
 ---
 title: 규칙 카탈로그 수집(Rule Catalog Collection)
 translation_of: rule-catalog-collection.md
-translation_source_sha: 83347742741671879809451a5e637205f1b84fd8
+translation_source_sha: 80294bb7dd7b0acd93a38f718bc5e4ffec2f9a98
 translation_revised: 2026-10-07
 ---
 
@@ -316,6 +316,12 @@ source manifest ─► fetch ─► verify ─► parse ─► map to schema ─
 - **collect 모드**: 기본 incremental (`content_hash` 가 변경된 컨트롤만); 상류에서 제거된 컨트롤은
   버전 bump로 **tombstone/retire** , 절대 조용히 드롭되지 않음. 처음부터 재빌드를 위한 전체
   재수집 사용 가능.
+- **land (Azure Policy)**: `collect_cli --land-collected rule-catalog/collected/azure-builtin`은
+  고정된 스냅숏을 파싱하고, 스냅숏의 커밋을 `resolved_ref`로, 수집 시각을 `retrieved_at`으로, 각
+  정의의 SHA-256을 `content_hash`로 기록한 비활성 `expression` 규칙을 씁니다. 식별자는 정책 정의
+  이름을 기준으로 합니다. 이미 수집된 정책은 기존 규칙 id와 경로를 유지하며, id나 경로가 충돌하는 새
+  정책은 반영하지 않고 보고합니다. 모든 문서가 규칙 스키마를 통과해야 파일을 하나라도 씁니다. 스냅숏에
+  없는 정책은 tombstone 기능이 생길 때까지 유지하고 withdrawn으로 보고합니다.
 
 Authored Rego는 **top-level** `policies/`(T0와 검증기가 소비) 에 살고 `check_logic.reference` 로
 참조; 출처 매니페스트는 `rule-catalog/sources/`, 런타임 로더/스키마는
