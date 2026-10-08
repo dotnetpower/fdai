@@ -35,6 +35,8 @@ bytes it checked, and the Hub rejects a report that names other bytes.
 | `src/fdai_lifecycle_hub/signing.py` | Ed25519 development Hub keys |
 | `src/fdai_lifecycle_hub/models.py` | SQLAlchemy ORM models for the Hub data model |
 | `src/fdai_lifecycle_hub/store.py` | Repository: transactions and row locks |
+| `src/fdai_lifecycle_hub/mapping.py` | Mapping between ORM rows and domain records |
+| `src/fdai_lifecycle_hub/errors.py` | Requests the Hub refuses |
 | `src/fdai_lifecycle_hub/audit.py` | Hash-chained audit records and chain verification |
 | `src/fdai_lifecycle_hub/schemas.py` | JSON boundary: request bodies and operator input files |
 | `src/fdai_lifecycle_hub/api.py` | Agent HTTP API |

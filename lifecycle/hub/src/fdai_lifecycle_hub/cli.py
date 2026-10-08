@@ -19,9 +19,10 @@ from fdai_deployment_cli.lifecycle_plan import SuppressionWindow
 
 from fdai_lifecycle_hub import domain, schemas
 from fdai_lifecycle_hub.catalog import load_catalog
+from fdai_lifecycle_hub.errors import HubStoreError
 from fdai_lifecycle_hub.planning import plan_next
 from fdai_lifecycle_hub.signing import generate_development_key, load_signing_key
-from fdai_lifecycle_hub.store import HubStore, HubStoreError
+from fdai_lifecycle_hub.store import HubStore
 
 DATABASE_URL_ENV = "FDAI_LIFECYCLE_HUB_DATABASE_URL"
 LOOPBACK = "127.0.0.1"
