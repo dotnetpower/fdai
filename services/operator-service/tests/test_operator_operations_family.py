@@ -96,6 +96,8 @@ LEGACY_ROUTE_SNAPSHOT = {
     (("GET", "HEAD"), "/code-security/repositories", "handler"),
     (("GET", "HEAD"), "/code-security/scan-requests", "handler"),
     (("POST",), "/code-security/scan-requests", "handler"),
+    (("GET", "HEAD"), "/code-security/issues", "handler"),
+    (("POST",), "/code-security/repositories", "handler"),
     (("GET", "HEAD"), "/reports", "list_reports"),
     (("GET", "HEAD"), "/reports/registry", "get_registry"),
     (("GET", "HEAD"), "/reports/formats", "list_formats"),
@@ -178,6 +180,7 @@ def _verify(token: str) -> Mapping[str, object]:
     role = {
         "contributor": OperatorRole.CONTRIBUTOR,
         "approver": OperatorRole.APPROVER,
+        "owner": OperatorRole.OWNER,
     }.get(token, OperatorRole.READER)
     return {"oid": f"{token}-oid", "idtyp": "user", "roles": [role.value]}
 
@@ -235,7 +238,7 @@ def test_manifest_preserves_exact_legacy_paths_methods_and_names() -> None:
         )
         for entry in OPERATIONS_ROUTE_MANIFEST
     } == LEGACY_ROUTE_SNAPSHOT
-    assert len(OPERATIONS_ROUTE_MANIFEST) == 48
+    assert len(OPERATIONS_ROUTE_MANIFEST) == 50
 
 
 def test_observer_proposals_require_authentication_and_never_submit_actions() -> None:
@@ -1395,6 +1398,51 @@ def test_code_security_scan_request_is_a_validated_contributor_proposal() -> Non
             correlation_id=None,
             payload=body,
             principal_roles=("Contributor",),
+        )
+    ]
+    assert dependencies.queries == []
+
+
+def test_code_security_repository_change_is_an_owner_only_validated_proposal() -> None:
+    dependencies = RecordingDependencies()
+    client = _client(dependencies)
+    path = "/code-security/repositories"
+    register = {
+        "action": "register",
+        "repository_alias": "example-app",
+        "location": "example/app",
+        "default_ref": "main",
+        "exposure": "exposed",
+    }
+    contributor = client.post(
+        path,
+        headers={"Authorization": "Bearer contributor", "Idempotency-Key": "repo-1"},
+        json=register,
+    )
+    owner = {"Authorization": "Bearer owner", "Idempotency-Key": "repo-1"}
+    malformed = [
+        client.post(path, headers=owner, json=invalid)
+        for invalid in (
+            {"action": "register", "repository_alias": "example-app"},
+            {"action": "disable", "repository_alias": "example-app", "location": "a/b"},
+            {**register, "location": "https://github.com/example/app"},
+            {**register, "default_ref": "../main"},
+            {"action": "delete", "repository_alias": "example-app"},
+        )
+    ]
+    accepted = client.post(path, headers=owner, json=register)
+
+    assert contributor.status_code == 403
+    assert [response.status_code for response in malformed] == [400] * 5
+    assert accepted.status_code == 202
+    assert dependencies.proposals == [
+        EventProposal(
+            operation="code_security.repository_change",
+            principal_id="owner-oid",
+            idempotency_key="repo-1",
+            correlation_id=None,
+            payload=register,
+            principal_roles=("Owner",),
         )
     ]
     assert dependencies.queries == []

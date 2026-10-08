@@ -1,9 +1,10 @@
-"""Claim and close Console code-security scan requests in the Operator proposal outbox.
+"""Claim and close Console code-security requests in the Operator proposal outbox.
 
 The Operator API persists each request as a pending ``operator-proposal:operations:*`` row with
-operation ``code_security.scan_request``. This queue leases one row at a time with ``SKIP
-LOCKED``, so concurrent workers never scan the same request, and an expired lease is claimed
-again with a higher attempt count. Closing a claim requires the matching claim id.
+operation ``code_security.repository_change`` or ``code_security.scan_request``. This queue
+leases one row at a time with ``SKIP LOCKED``, oldest first, so concurrent workers never process
+the same request and a registration accepted earlier is applied before a later scan. An expired
+lease is claimed again with a higher attempt count. Closing a claim requires the matching id.
 """
 
 from __future__ import annotations
@@ -18,11 +19,17 @@ from uuid import uuid4
 import psycopg
 from psycopg.rows import dict_row
 
+from fdai.delivery.code_security_repository_changes import (
+    REPOSITORY_CHANGE_OPERATION,
+    parse_repository_change,
+)
 from fdai.delivery.code_security_scan_requests import (
     SCAN_REQUEST_OPERATION,
     ClaimedScanRequest,
     parse_scan_request,
 )
+
+_OPERATIONS = [REPOSITORY_CHANGE_OPERATION, SCAN_REQUEST_OPERATION]
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,7 +60,7 @@ class PostgresCodeSecurityScanRequestQueue:
                   FROM state_kv
                  WHERE key LIKE %(prefix)s
                    AND value ->> 'family' = 'operations'
-                   AND value ->> 'operation' = %(operation)s
+                   AND value ->> 'operation' = ANY(%(operations)s)
                    AND (
                         value ->> 'dispatch_status' = 'pending'
                         OR (
@@ -80,7 +87,7 @@ class PostgresCodeSecurityScanRequestQueue:
             """,
             {
                 "prefix": "operator-proposal:operations:%",
-                "operation": SCAN_REQUEST_OPERATION,
+                "operations": _OPERATIONS,
                 "claim_id": claim_id,
                 "worker_id": self._config.worker_id,
                 "lease_seconds": self._config.lease_seconds,
@@ -92,11 +99,16 @@ class PostgresCodeSecurityScanRequestQueue:
         if not isinstance(key, str) or not isinstance(record, Mapping):
             raise ValueError("code-security scan request claim is malformed")
         attempt = record.get("attempt")
+        operation = str(record.get("operation"))
         return ClaimedScanRequest(
             key=key,
             claim_id=str(record.get("claim_id") or claim_id),
             request=parse_scan_request(record),
             attempt=attempt if isinstance(attempt, int) and not isinstance(attempt, bool) else 1,
+            operation=operation,
+            change=parse_repository_change(record)
+            if operation == REPOSITORY_CHANGE_OPERATION
+            else None,
         )
 
     async def mark_completed(
@@ -105,7 +117,7 @@ class PostgresCodeSecurityScanRequestQueue:
         return await self._mark(
             key=key,
             claim_id=claim_id,
-            update={"dispatch_status": "published", "scan_result": dict(result)},
+            update={"dispatch_status": "published", "request_result": dict(result)},
         )
 
     async def mark_rejected(self, *, key: str, claim_id: str, reason_code: str) -> bool:

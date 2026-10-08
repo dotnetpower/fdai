@@ -555,7 +555,17 @@ default ref, exposure, enabled, and registration time) without the registrant.
 `running`, `completed`, or `rejected`), timestamps, a rejection reason code, or a bounded result
 (revision, digest, decision, issue count, coverage, and publication), never the requester.
 `POST /code-security/scan-requests` accepts only `repository_alias` and an optional `ref`, requires
-an `Idempotency-Key`, and returns the `202` proposal receipt.
+an `Idempotency-Key`, and returns the `202` proposal receipt. Request rows also carry `kind`
+(`scan` or `repository_change`), `action`, and `location`; a completed registration change returns
+`result: {"enabled": ...}`.
+
+`POST /code-security/repositories` (Owner only) accepts `action` (`register`, `enable`, or
+`disable`) and `repository_alias`; `register` also requires `location` (`owner/repository`) and
+accepts `default_ref` and `exposure`. Any other field returns `400`.
+`GET /code-security/issues?repository_alias=...&revision=...` returns `available`, `complete`,
+`truncated`, `issues`, and `gaps` for one review. Each issue carries id, priority, due days,
+severity, confidence, weakness class, CWE ids, advisory ids, package, producers, and known
+exploitation. A summary row whose digest doesn't match the recorded review is withheld.
 
 ## Implementation status
 
@@ -619,6 +629,7 @@ an `Idempotency-Key`, and returns the `202` proposal receipt.
 | 2026-10-01 | implemented | A compiled single-target health answer renders through the current path's reviewed assessment renderer, which now accepts the goal-prefixed node id, and restates its fixed window through a reviewed bilingual notice; the wire schema is unchanged. | `current change`; `services/core-control-plane/src/fdai_core_service/{semantic_turn_processor,semantic_verified_rows}.py`; `test_semantic_reasoning_measure_reads.py` | None for this change. |
 | 2026-10-01 | implemented | A compiled property lookup renders the exact reviewed value of its bound Resource, states a missing value as unknown, and restates the value's inventory source and reviewed freshness bound through a reviewed bilingual notice; the wire schema is unchanged. | `current change`; `services/core-control-plane/src/fdai_core_service/{semantic_property_answer,semantic_verified_rows,semantic_turn_processor}.py`; `test_semantic_reasoning_property_reads.py` | None for this change. |
 | 2026-10-08 | implemented | Added `GET /code-security/repositories`, `GET /code-security/scan-requests`, and the Contributor or Owner `POST /code-security/scan-requests` proposal, and `source` and `producers` on schema `1.1.0` review rows. | `current change`; `fdai_operator_service/code_security_review_projection.py`, `families/operations/manifest.py`, `factory.py`; `services/operator-service/tests/test_code_security_review_projection.py` and `test_operator_operations_family.py` passed. | The scan-request worker isn't scheduled in a deployment yet; see the [Code Security Scanning ledger](../../roadmap-implementation/operations/code-security-scanning.md). |
+| 2026-10-08 | implemented | Added Owner-only `POST /code-security/repositories`, `GET /code-security/issues`, and `kind`, `action`, and `location` on request rows. | `current change`; `fdai_operator_service/code_security_review_projection.py`, `code_security_issue_projection.py`, `families/operations/manifest.py`; `test_code_security_review_projection.py` and `test_operator_operations_family.py` passed. | The worker isn't scheduled in a deployment yet; see the [Code Security Scanning ledger](../../roadmap-implementation/operations/code-security-scanning.md). |
 
 ### Remaining work
 

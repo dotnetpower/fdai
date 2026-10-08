@@ -35,6 +35,10 @@ class CodeSecurityRepositoryError(ValueError):
     """A registration is malformed, conflicts with another, or does not exist."""
 
 
+class CodeSecurityRepositoryNotFoundError(CodeSecurityRepositoryError):
+    """The alias has no registration."""
+
+
 @dataclass(frozen=True, slots=True)
 class CodeSecurityRepository:
     repository_alias: str
@@ -210,7 +214,7 @@ async def set_repository_enabled(
     for _attempt in range(4):
         existing = await read_repository(store, alias)
         if existing is None:
-            raise CodeSecurityRepositoryError(f"repository alias {alias} is not registered")
+            raise CodeSecurityRepositoryNotFoundError(f"repository alias {alias} is not registered")
         if existing.enabled is enabled:
             return existing
         updated = CodeSecurityRepository(
@@ -248,6 +252,7 @@ __all__ = [
     "REPOSITORY_KIND",
     "CodeSecurityRepository",
     "CodeSecurityRepositoryError",
+    "CodeSecurityRepositoryNotFoundError",
     "clone_url",
     "list_repositories",
     "parse_repository",

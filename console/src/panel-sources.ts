@@ -48,6 +48,7 @@ const PANEL_SOURCE_ROUTES: Readonly<Record<string, readonly string[]>> = {
     "/code-security/packs",
     "/code-security/repositories",
     "/code-security/scan-requests",
+    "/code-security/issues",
   ],
   reports: ["/reports", "/reports/registry"],
   "conversation-search": ["/me/conversations/search"],

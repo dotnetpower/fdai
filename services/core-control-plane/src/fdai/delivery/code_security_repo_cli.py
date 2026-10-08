@@ -1,9 +1,11 @@
 """Repository registration and Console scan-request commands for ``fdai-code-security``.
 
 ``repo-register``, ``repo-list``, ``repo-enable``, and ``repo-disable`` manage which repositories
-the Console may ask FDAI to scan. ``process-scan-requests`` is the worker that claims pending
-Console requests, scans the registered repository at the requested ref inside the sandbox, records
-the review for the Console, and publishes it through Heimdall when a bus is bound. It is a
+the Console may ask FDAI to scan; an Owner can make the same changes from the Console.
+``process-scan-requests`` is the worker that claims pending Console requests: it applies
+registration changes, then scans the registered repository at the requested ref inside the
+sandbox, records the review and its issue summaries for the Console, and publishes the review
+through Heimdall when a bus is bound. It is a
 bounded batch job for a schedule or a one-shot run, not a polling daemon.
 
 Repository access uses the deployment's GitHub App (``FDAI_GITHUB_APP_*``) or token
@@ -21,13 +23,14 @@ from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 from pathlib import Path
 
+from fdai.core.security.code_findings.issue_summary import summarize_issues
 from fdai.core.security.code_findings.review_signal import ReviewSource
 from fdai.delivery.code_security_acquire import GitSourceAcquirer, SourceAcquisitionError
 from fdai.delivery.code_security_review_cli import pairs
 from fdai.delivery.code_security_sandbox import BubblewrapScannerSandbox
 from fdai.delivery.code_security_scan_cli import default_work_root
 from fdai.delivery.code_security_scan_job import ScanJobConfig, run_scan_job
-from fdai.delivery.code_security_scan_requests import process_scan_requests
+from fdai.delivery.code_security_scan_requests import ScanOutcome, process_scan_requests
 from fdai.delivery.persistence.state_store_code_security_repository import (
     CodeSecurityRepository,
     clone_url,
@@ -157,7 +160,7 @@ def _scan_runner(args: argparse.Namespace):  # type: ignore[no-untyped-def]
 
     async def run(
         repository: CodeSecurityRepository, ref: str, source: ReviewSource
-    ) -> Mapping[str, object]:
+    ) -> ScanOutcome:
         from fdai_github_app_auth import GitHubAppTokenError
 
         try:
@@ -186,7 +189,8 @@ def _scan_runner(args: argparse.Namespace):  # type: ignore[no-untyped-def]
             sandbox=BubblewrapScannerSandbox(Path(args.bwrap)),
             verifier_catalog=verifiers,
         )
-        return result.package
+        summaries, truncated = summarize_issues(result.issues)
+        return ScanOutcome(result.package, summaries, truncated)
 
     return run
 
@@ -211,8 +215,13 @@ async def run_process_scan_requests(args: argparse.Namespace) -> dict[str, objec
     )
     async with _open_store() as store:
 
-        async def record(package: Mapping[str, object]) -> bool:
-            return await record_code_security_review(store, package)
+        async def record(outcome: ScanOutcome) -> bool:
+            return await record_code_security_review(
+                store,
+                outcome.package,
+                issues=outcome.issues,
+                issues_truncated=outcome.issues_truncated,
+            )
 
         outcomes = await process_scan_requests(
             queue,

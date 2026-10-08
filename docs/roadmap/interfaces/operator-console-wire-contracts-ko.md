@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: f307e51718e09a439f8d8f6d8e4e7e6fb8657c54
+translation_source_sha: de42ee7d92f5953c218e61e5f12125ad023a9127
 translation_revised: 2026-10-08
 ---
 
@@ -525,7 +525,16 @@ Forseti의 최신 버전 2 baseline 커버리지가 있으면 `GET /rules/findin
 `status`(`queued`, `running`, `completed`, `rejected`), 시각, 거부 사유 코드 또는 범위가 제한된 결과
 (리비전, 다이제스트, 판단, 이슈 수, 커버리지, 게시 여부)와 함께 반환하며 요청자는 담지 않습니다.
 `POST /code-security/scan-requests`는 `repository_alias`와 선택적인 `ref`만 받고, `Idempotency-Key`가
-필요하며, `202` 제안 접수 영수증을 반환합니다.
+필요하며, `202` 제안 접수 영수증을 반환합니다. 요청 행에는 `kind`(`scan` 또는 `repository_change`),
+`action`, `location`도 담기며, 완료된 등록 변경은 `result: {"enabled": ...}`를 반환합니다.
+
+`POST /code-security/repositories`(Owner 전용)는 `action`(`register`, `enable`, `disable`)과
+`repository_alias`를 받습니다. `register`에는 `location`(`owner/repository`)이 필요하며
+`default_ref`와 `exposure`도 받을 수 있습니다. 그 밖의 필드는 `400`을 반환합니다.
+`GET /code-security/issues?repository_alias=...&revision=...`는 검토 하나의 `available`, `complete`,
+`truncated`, `issues`, `gaps`를 반환합니다. 이슈마다 ID, 우선순위, 처리 기한 일수, 심각도, 신뢰도,
+취약점 유형, CWE ID, 권고 ID, 패키지, 탐지 도구, 실제 악용 여부를 담습니다. 다이제스트가 기록된
+검토와 맞지 않는 요약 행은 보류합니다.
 
 ## 구현 상태
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "preact/hooks";
 import "./code-security.css";
+import { ReviewIssuesPanel } from "./code-security-issues";
 import { isOptionalOperatorApiUnavailable } from "../api";
 import type { OperatorApiClient } from "../api";
 import {
@@ -445,11 +446,12 @@ function CodeSecurityBody({
   onQueued,
 }: {
   readonly state: CodeSecurityState;
-  readonly client: Pick<OperatorApiClient, "requestCodeSecurityScan">;
+  readonly client: Pick<OperatorApiClient, "requestCodeSecurityScan" | "changeCodeSecurityRepository" | "panel">;
   readonly onQueued: () => void;
 }) {
   usePublishViewContext(() => buildCodeSecurityViewSnapshot(state), [state]);
   const [filter, setFilter] = useState<SourceFilter>("all");
+  const [selected, setSelected] = useState<{ readonly alias: string; readonly revision: string } | null>(null);
   const data = state.reviews;
   const href = routeHref("code-security");
   const visible = filterBySource(data.reviews, filter);
@@ -520,6 +522,21 @@ function CodeSecurityBody({
       header: t("codeSecurity.column.recordedAt"),
       render: (row) => formatConsoleTimestamp(row.recorded_at),
     },
+    {
+      key: "detail",
+      header: t("codeSecurity.column.detail"),
+      render: (row) => (
+        <button
+          type="button"
+          class="btn subtle"
+          aria-pressed={selected?.alias === row.repository_alias && selected.revision === row.revision}
+          aria-label={`${t("codeSecurity.issues.open")} ${row.repository_alias} ${row.revision.slice(0, 12)}`}
+          onClick={() => setSelected({ alias: row.repository_alias, revision: row.revision })}
+        >
+          {t("codeSecurity.issues.open")}
+        </button>
+      ),
+    },
   ];
   return (
     <div class="stack">
@@ -565,6 +582,16 @@ function CodeSecurityBody({
           </div>
         )
         : null}
+      {selected === null
+        ? null
+        : (
+          <ReviewIssuesPanel
+            client={client}
+            repositoryAlias={selected.alias}
+            revision={selected.revision}
+            onClose={() => setSelected(null)}
+          />
+        )}
       <RepositoryScanSection
         client={client}
         repositories={state.repositories ?? null}

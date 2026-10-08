@@ -15,7 +15,10 @@ from fdai_operator_service.auth import (
     AuthorizationError,
     OperatorAuthenticator,
 )
-from fdai_operator_service.code_security_review_projection import CodeSecurityScanRequestBody
+from fdai_operator_service.code_security_review_projection import (
+    CodeSecurityRepositoryChangeBody,
+    CodeSecurityScanRequestBody,
+)
 from fdai_operator_service.families.operations.contracts import (
     DurableReplayReader,
     EventProposal,
@@ -292,6 +295,14 @@ async def _proposal(
             )
         except ValidationError:
             return _error(400, "invalid code-security scan request")
+    if entry.operation == "code_security.repository_change":
+        try:
+            body = CodeSecurityRepositoryChangeBody.model_validate(body).model_dump(
+                mode="json",
+                exclude_none=True,
+            )
+        except ValidationError:
+            return _error(400, "invalid code-security repository change")
     idempotency_key = request.headers.get("idempotency-key", "").strip()
     if not idempotency_key or len(idempotency_key) > 256:
         return _error(400, "Idempotency-Key MUST contain 1 to 256 characters")

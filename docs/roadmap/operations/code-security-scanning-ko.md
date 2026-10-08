@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: 08ea259a64ce1a531d175090ca9b62a377c97e2a
+translation_source_sha: e2407a77917e481102778d5f3cbc2e5e0e58300b
 translation_revised: 2026-10-08
 ---
 
@@ -172,10 +172,11 @@ lockfile 권고는 패키지 이름과 함께 표시됩니다. 보고서에는 �
 운영자는 Console의 **코드 보안** 화면에서 등록된 GitHub 저장소의 스캔을 FDAI에 요청할 수
 있습니다. 결과의 책임 에이전트는 Heimdall이며, 요청 자체는 어떤 권한도 부여하지 않습니다.
 
-1. **등록:** 운영자가 `fdai-code-security repo-register`로 `owner/repository` 위치에 대한 별칭과
-   기본 ref, 노출을 등록합니다. `repo-enable`과 `repo-disable`로 스캔을 켜고 끕니다. 모든 변경은
-   비교 후 설정 방식을 쓰고 Heimdall 명의의 감사 항목을 추가합니다. 별칭을 다른 위치로 바꿀 수는
-   없습니다.
+1. **등록:** Owner가 Console(`POST /code-security/repositories`)이나
+   `fdai-code-security repo-register`로 `owner/repository` 위치에 대한 별칭과 기본 ref, 노출을
+   등록합니다. 사용과 사용 안 함으로 스캔을 켜고 끕니다. Console에서 한 변경은 작업자가 스캔보다 먼저
+   적용하는 정형 제안(`code_security.repository_change`)입니다. 모든 변경은 비교 후 설정 방식을 쓰고
+   요청자를 기록한 Heimdall 명의의 감사 항목을 추가합니다. 별칭을 다른 위치로 바꿀 수는 없습니다.
 2. **요청:** Contributor 또는 Owner가 별칭과 선택적인 브랜치, 태그, 커밋을 담아
    `POST /code-security/scan-requests`를 보냅니다. Operator API는 본문을 검증하고 정형 제안
    (`code_security.scan_request`)을 지속 아웃박스에 저장합니다. 스캔하거나 저장소 상태를 읽지는
@@ -196,8 +197,9 @@ lockfile 권고는 패키지 이름과 함께 표시됩니다. 보고서에는 �
 | 거부 사유 | 의미 |
 |-----------|------|
 | `request_malformed` | 저장된 본문이 정형 별칭과 ref가 아닙니다 |
-| `requester_role_insufficient` | 요청자에게 Contributor와 Owner 역할이 모두 없었습니다 |
-| `repository_not_registered` / `repository_disabled` | 이 별칭은 스캔할 수 없습니다 |
+| `requester_role_insufficient` | 스캔 요청자에게 Contributor와 Owner 역할이 모두 없었거나, 등록 요청자가 Owner가 아니었습니다 |
+| `repository_not_registered` / `repository_disabled` | 이 별칭은 스캔하거나 켜고 끌 수 없습니다 |
+| `repository_conflict` | 등록하려는 별칭이 이미 다른 위치에 연결되어 있습니다 |
 | `source_unavailable` | ref, 저장소, 자격 증명을 확인하지 못했습니다 |
 | `scan_failed` / `review_conflict` | 스캔이 실패했거나, 그 커밋에 다른 발견 사항이 이미 있습니다 |
 | `attempts_exhausted` | 요청을 세 번 넘게 가져갔습니다 |

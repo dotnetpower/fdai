@@ -539,7 +539,8 @@ declared as durable operational-state sources at `/code-security/reviews` and
 `/code-security/packs`. The only venue difference is the identity for LLM lens calls: deployments
 use the managed identity, and local runs use `--lens-identity azure-cli`.
 Repository registrations and Console scan requests are also `state_kv` rows, served at
-`/code-security/repositories` and `/code-security/scan-requests` in both venues. The scan-request
+`/code-security/repositories` and `/code-security/scan-requests` in both venues, and issue
+summaries are served at `/code-security/issues`. The scan-request
 worker is the same `process-scan-requests` batch job in both venues; locally you run it once in the
 scan runner image, and no deployment profile schedules it yet.
 

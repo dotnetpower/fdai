@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from fdai_operator_service.code_security_issue_projection import code_security_issues_projection
 from fdai_operator_service.code_security_review_projection import (
     GAP_MALFORMED,
     GAP_PACK_MALFORMED,
@@ -295,7 +296,7 @@ def test_scan_requests_render_status_and_bounded_result() -> None:
     completed = _request_row(
         "published",
         closed_at="2026-10-08T01:05:00+00:00",
-        scan_result={
+        request_result={
             "revision": _REVISION,
             "review_digest": "4" * 64,
             "decision": "open",
@@ -335,7 +336,136 @@ async def test_reader_serves_scan_requests_by_operation(monkeypatch: Any) -> Non
 
     result = await read_code_security_projection("code_security.scan_requests", fetch_all)
     assert result["requests"] == []
-    assert statements[0][1] == ("code_security.scan_request",)
+    assert statements[0][1] == ("code_security.scan_request", "code_security.repository_change")
     assert "operator-proposal:operations:%%" in statements[0][0]
     await read_code_security_projection("code_security.repositories", fetch_all)
     assert statements[1][1] == ("runtime:code-security-repository:%",)
+
+
+def test_repository_changes_render_beside_scan_requests() -> None:
+    change = _request_row(
+        "published",
+        operation="code_security.repository_change",
+        closed_at="2026-10-08T01:05:00+00:00",
+        request_result={"action": "register", "repository_alias": "example-app", "enabled": True},
+        payload={
+            "payload": {
+                "action": "register",
+                "repository_alias": "example-app",
+                "location": "example/app",
+            }
+        },
+    )
+    rejected = _request_row(
+        "rejected",
+        operation="code_security.repository_change",
+        closed_at="2026-10-08T01:05:00+00:00",
+        rejection_reason="repository_conflict",
+        payload={"payload": {"action": "enable", "repository_alias": "example-app"}},
+    )
+    bad = _request_row(
+        "pending",
+        operation="code_security.repository_change",
+        payload={"payload": {"action": "delete", "repository_alias": "example-app"}},
+    )
+    result = code_security_scan_requests_projection(
+        [_request_row("pending"), change, rejected, bad]
+    )
+    kinds = sorted((item["kind"], item["status"]) for item in result["requests"])  # type: ignore[index, union-attr]
+    assert kinds == [
+        ("repository_change", "completed"),
+        ("repository_change", "rejected"),
+        ("scan", "queued"),
+    ]
+    registered = next(
+        item
+        for item in result["requests"]
+        if item["status"] == "completed"  # type: ignore[union-attr]
+    )
+    assert registered["action"] == "register" and registered["location"] == "example/app"
+    assert registered["result"] == {"enabled": True}
+    assert result["gaps"] == [{"reason_code": "code_security_scan_request_malformed"}]
+
+
+def _summary(**overrides: object) -> dict[str, object]:
+    value: dict[str, object] = {
+        "issue_id": "FDAI-SEC-0123456789ab",
+        "priority": "P1",
+        "due_days": 7,
+        "severity": "high",
+        "confidence": "verified",
+        "weakness_class": "command_injection",
+        "cwe_ids": [78],
+        "advisory_ids": [],
+        "package": None,
+        "producers": ["Opengrep"],
+        "known_exploited": False,
+    }
+    value.update(overrides)
+    return value
+
+
+def test_issue_projection_requires_the_matching_review_digest() -> None:
+    review = _row(_package())["value"]
+    digest = review["package"]["review_digest"]
+    ok = code_security_issues_projection(
+        repository_alias="example-service",
+        revision=_REVISION,
+        review=review,
+        issues_row={
+            "review_digest": digest,
+            "issues": [_summary(), _summary(path="src/x.py")],
+            "truncated": True,
+        },
+    )
+    assert ok["available"] is True and len(ok["issues"]) == 1  # type: ignore[arg-type]
+    assert {gap["reason_code"] for gap in ok["gaps"]} == {  # type: ignore[union-attr]
+        "code_security_issue_malformed",
+        "code_security_issues_truncated",
+    }
+    assert "src/x.py" not in str(ok)
+    stale = code_security_issues_projection(
+        repository_alias="example-service",
+        revision=_REVISION,
+        review=review,
+        issues_row={"review_digest": "0" * 64, "issues": [_summary()], "truncated": False},
+    )
+    assert stale["available"] is False and stale["issues"] == []
+    missing = code_security_issues_projection(
+        repository_alias="example-service", revision=_REVISION, review=None, issues_row=None
+    )
+    assert missing["gaps"] == [{"reason_code": "code_security_issues_unavailable"}]
+
+
+async def test_reader_serves_issues_for_one_exact_review() -> None:
+    import pytest
+
+    review = _row(_package())["value"]
+    statements: list[tuple[object, ...]] = []
+
+    async def fetch_all(sql: str, params: tuple[object, ...]) -> list[dict[str, Any]]:
+        statements.append(params)
+        if str(params[0]).startswith("runtime:code-security-review:"):
+            return [{"key": params[0], "value": review}]
+        return [
+            {
+                "key": params[0],
+                "value": {
+                    "review_digest": review["package"]["review_digest"],
+                    "issues": [_summary()],
+                    "truncated": False,
+                },
+            }
+        ]
+
+    params = {"repository_alias": ("example-service",), "revision": (_REVISION,)}
+    result = await read_code_security_projection("code_security.issues", fetch_all, params)
+    assert result["available"] is True and len(result["issues"]) == 1  # type: ignore[arg-type]
+    assert statements == [
+        (f"runtime:code-security-review:example-service:{_REVISION}",),
+        (f"runtime:code-security-issues:example-service:{_REVISION}",),
+    ]
+    with pytest.raises(ValueError, match="revision"):
+        await read_code_security_projection(
+            "code_security.issues", fetch_all, {"repository_alias": ("a",), "revision": ("x",)}
+        )
