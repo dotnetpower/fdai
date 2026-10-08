@@ -107,9 +107,12 @@ def _query_result(
     objects: tuple[OntologyObjectRecord, ...],
     *,
     complete: bool = True,
+    source_incomplete_reason: str | None = None,
 ) -> SecuredObjectSetQueryResult:
     declaration = resource_state_function_type()
     release = build_ontology_release(function_types=(declaration,))
+    # A source gap is incomplete without truncation; otherwise incompleteness is a result limit.
+    truncated = not complete and source_incomplete_reason is None
     definition = ObjectSetDefinition(
         selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
         as_of=NOW,
@@ -118,10 +121,19 @@ def _query_result(
     )
     materialization = ObjectSetMaterialization(
         definition=definition,
-        graph=OntologyGraphSnapshot(objects=objects, links=(), truncated=not complete),
+        graph=(
+            OntologyGraphSnapshot(
+                objects=objects,
+                links=(),
+                source_complete=False,
+                source_incomplete_reason=source_incomplete_reason,
+            )
+            if source_incomplete_reason is not None
+            else OntologyGraphSnapshot(objects=objects, links=(), truncated=not complete)
+        ),
         concrete_types=("Resource",),
-        truncated=not complete,
-        truncation_reason=(None if complete else ObjectSetTruncationReason.RESULT_LIMIT),
+        truncated=truncated,
+        truncation_reason=(ObjectSetTruncationReason.RESULT_LIMIT if truncated else None),
     )
     return SecuredObjectSetQueryResult(
         materialization=materialization,
@@ -135,8 +147,9 @@ def _query_result(
             returned_object_count=len(objects),
             returned_link_count=0,
             complete=complete,
-            truncated=not complete,
-            truncation_reason=(None if complete else ObjectSetTruncationReason.RESULT_LIMIT),
+            truncated=truncated,
+            truncation_reason=(ObjectSetTruncationReason.RESULT_LIMIT if truncated else None),
+            source_complete=source_incomplete_reason is None,
             redactions=ObjectSetRedactionSummary(
                 objects_with_redactions=0,
                 redacted_identity_count=0,
@@ -539,6 +552,24 @@ async def test_state_function_preserves_verified_matches_from_incomplete_scope()
     rows = result["rows"]
     assert isinstance(rows, list)
     assert [row["values"]["name"] for row in rows] == ["database-a"]
+
+
+async def test_state_function_keeps_the_typed_source_reason_beside_the_scope_gap() -> None:
+    observed_at = NOW - timedelta(minutes=5)
+    result = await _invoke(
+        _query_result(
+            (_resource("database-a", "Stopped", observed_at=observed_at),),
+            complete=False,
+            source_incomplete_reason="inventory_observation_pending",
+        ),
+        concepts=("resource_state.stopped",),
+    )
+
+    # The answer can then say why the scope is incomplete, not only that it is.
+    assert result["complete"] is False
+    assert result["truncation_reason"] == (
+        "resource_scope_incomplete+inventory_observation_pending"
+    )
 
 
 async def test_list_mode_returns_one_row_per_resource_with_a_typed_unknown_reason() -> None:

@@ -1,7 +1,7 @@
 ---
 title: FDAI 온톨로지 안전 인프라
 translation_of: operating-ontology-platform.md
-translation_source_sha: 159e3e7e014233a944a02779c54b0f7acee67289
+translation_source_sha: ecffec2477b40ad6e1c2a9c872f258e45f908727
 translation_revised: 2026-10-04
 ---
 # FDAI 온톨로지 안전 인프라
@@ -543,6 +543,11 @@ FunctionType은 하나의 대상 집합 다이제스트, 쿼리 개정, 기한, 
 지정된 필드에서 최종 처분을 계산합니다. 답변 변환 결과는 서술과 함께
 `ResourceHealthNarrationClaims` 및 검증 상세를 운반하며, 거부된 서술은 검증된 행과 코드로
 보류되므로 하위 렌더러는 산문에서 상태를 추론하지 않습니다.
+
+현재 상태 조회의 Resource 범위가 불완전하면 `query.resource_state_inventory`는
+`resource_scope_incomplete`와 함께 보안 처리된 스냅샷의 타입 지정 원본 사유(예:
+`inventory_observation_pending`)를 보고하므로, 답변은 범위가 왜 불완전한지 설명할 수 있습니다. 이
+사유는 공백을 설명할 뿐이며 범위를 완전하게 만들거나 누락된 Resource를 확정하지 않습니다.
 
 ## 제공 순서
 

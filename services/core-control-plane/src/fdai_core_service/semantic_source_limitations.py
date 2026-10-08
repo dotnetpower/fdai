@@ -83,6 +83,10 @@ _DESCRIPTIONS: dict[str, tuple[str, str]] = {
         "인벤토리 범위가 완전하지 않습니다",
         "the inventory scope is incomplete",
     ),
+    "resource_scope_incomplete": (
+        "조회한 리소스 범위가 완전하지 않아 표시되지 않은 리소스가 있을 수 있습니다",
+        "the queried resource scope is incomplete, so some resources may be missing",
+    ),
     "dependency_not_completed": (
         "선행 조회 단계가 완료되지 않았습니다",
         "a prerequisite query step did not complete",

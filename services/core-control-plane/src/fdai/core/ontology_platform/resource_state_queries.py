@@ -223,7 +223,7 @@ def resource_state_inventory_function(
             tuple(rows),
             complete=not scope_incomplete and not state_evidence_incomplete,
             reason=(
-                "resource_scope_incomplete"
+                _scope_incomplete_reason(secured)
                 if scope_incomplete
                 else "+".join(
                     (
@@ -237,6 +237,23 @@ def resource_state_inventory_function(
         )
 
     return evaluate
+
+
+_SOURCE_REASON_PART = re.compile(r"[a-z][a-z0-9_]{0,63}")
+
+
+def _scope_incomplete_reason(secured: SecuredObjectSetQueryResult) -> str:
+    """Keep the typed source reason beside the scope gap so the answer can explain it."""
+
+    graph = secured.materialization.graph
+    parts = ["resource_scope_incomplete"]
+    if not graph.source_complete and graph.source_incomplete_reason:
+        parts.extend(
+            part
+            for part in graph.source_incomplete_reason.split("+")
+            if _SOURCE_REASON_PART.fullmatch(part)
+        )
+    return "+".join(dict.fromkeys(parts))
 
 
 def _never_reaches(target: OntologyObjectRecord, requested: frozenset[str]) -> bool:

@@ -363,7 +363,8 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   `conversation_preflight_family_validation.py` drops model-proposed canonical values on collection
   filters because Core grounds them from source text.
   `core/ontology_platform/resource_state_queries.py` appends one closed cause, such as
-  `provider_operational_state_not_exposed`, to a partial state result, settles an unobserved
+  `provider_operational_state_not_exposed`, to a partial state result, keeps the typed source reason,
+  such as `inventory_observation_pending`, beside `resource_scope_incomplete`, settles an unobserved
   Resource as not matching only when the reviewed `UNREACHABLE_OPERATIONAL_STATES_BY_RESOURCE_TYPE`
   declaration in `fdai_service_contracts/recorded_resource_state.py` excludes every requested state,
   establishes running from a fresh `Available` fact only for a reviewed running-only lifecycle, and
