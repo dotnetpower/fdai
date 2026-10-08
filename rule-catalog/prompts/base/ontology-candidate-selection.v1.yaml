@@ -39,8 +39,12 @@ body: |-
   which apply to the value stored under that key, and only instances whose property holds an
   object can match. Set a nested operand that the operator does not use to null. For
   example, a Resource whose purpose mentions backups is properties, key purpose, contains
-  "backup". Use unsupported_constraint only when none of these forms can express a requested
-  condition.
+  "backup". A qualifier that no stored property records but that the stored values shown in
+  the documents let you judge directly, such as the language of a stored text, is still a
+  condition: keep the expressible conditions and add exact object_ids for only the instances
+  whose stored values satisfy the qualifier. If no instance satisfies it, return
+  status=clarify with reason=unsupported_constraint rather than a near match. Use
+  unsupported_constraint only when none of these forms can express a requested condition.
   Do not enumerate only some matching objects to evade a bound.
 
   When the query identifies a specific instance that is present in the supplied canonical
