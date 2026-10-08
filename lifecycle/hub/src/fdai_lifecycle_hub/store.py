@@ -13,7 +13,7 @@ from itertools import groupby
 from operator import attrgetter
 from typing import Self, assert_never
 
-from fdai_deployment_cli.lifecycle_plan import ConstraintBlock
+from fdai_deployment_cli.lifecycle_plan import ConstraintBlock, SuppressionWindow
 from sqlalchemy import Engine, create_engine, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
@@ -101,6 +101,27 @@ class HubStore:
             row.state_reports.add(_state_report_model(installation_id, updated.reported, now))
             row.recorded_at = now
             audit.append(session, now, "state.recorded", installation_id, state.digest)
+
+    def add_suppression(
+        self, installation_id: str, window: SuppressionWindow, *, now: datetime
+    ) -> None:
+        """Add a suppression. One that is already active withdraws the open Plan at once."""
+
+        with self._write() as session:
+            row = _lock_installation(session, installation_id)
+            current = _to_domain(session, row)
+            _store_suppressions(row, current.suppressed(window, now), now)
+            if window.starts_at <= now:
+                # The next recompute reissues a Plan only if this suppression doesn't cover it.
+                _supersede(session, current.open_plan, now)
+            details = {"ends_at": window.ends_at.isoformat()}
+            audit.append(session, now, "suppression.added", installation_id, window.scope, details)
+
+    def lift_suppressions(self, installation_id: str, scope: str, *, now: datetime) -> None:
+        with self._write() as session:
+            row = _lock_installation(session, installation_id)
+            _store_suppressions(row, _to_domain(session, row).lifted(scope, now), now)
+            audit.append(session, now, "suppression.lifted", installation_id, scope)
 
     def load(self, installation_id: str) -> domain.Installation:
         with self._sessions() as session:
@@ -279,6 +300,13 @@ def _issued_plan(row: models.Plan) -> domain.IssuedPlan:
         signed_payload=row.signed_payload,
         signature=row.signature,
     )
+
+
+def _store_suppressions(
+    row: models.Installation, installation: domain.Installation, now: datetime
+) -> None:
+    row.suppressions = schemas.suppressions_json.dump_python(installation.suppressions, mode="json")
+    row.recorded_at = now
 
 
 def _supersede(session: Session, plan: domain.IssuedPlan | None, now: datetime) -> None:

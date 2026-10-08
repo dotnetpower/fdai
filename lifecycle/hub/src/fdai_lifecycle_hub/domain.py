@@ -9,7 +9,7 @@ from dataclasses import dataclass, replace
 from datetime import UTC, datetime, time, timedelta
 from enum import StrEnum
 from functools import cmp_to_key
-from typing import ClassVar, Self
+from typing import ClassVar, Self, get_args
 from zoneinfo import ZoneInfo
 
 from fdai_deployment_cli.contracts import canonical_digest
@@ -17,6 +17,7 @@ from fdai_deployment_cli.lifecycle_plan import (
     ConstraintBlock,
     LifecyclePlan,
     MaintenanceWindow,
+    PlanType,
     SuppressionWindow,
 )
 from fdai_deployment_cli.runtime_release import compare_release_ids, is_release_id
@@ -232,6 +233,39 @@ class Installation:
         if state.observed_at <= self.reported.observed_at:
             raise StaleStateError("reported state is not newer than the current state")
         return replace(self, reported=state)
+
+    def suppressed(self, window: SuppressionWindow, now: datetime) -> Self:
+        """Return this installation with `window` added and its expired windows dropped."""
+
+        if window.ends_at <= max(window.starts_at, now):
+            raise ValueError("a suppression must end in the future and after it starts")
+        if not self._is_scope(window.scope):
+            raise ValueError(f"unknown suppression scope: {window.scope!r}")
+        return replace(self, suppressions=(*self._unexpired(now), window))
+
+    def lifted(self, scope: str, now: datetime) -> Self:
+        """Return this installation without its unexpired suppressions for `scope`."""
+
+        current = self._unexpired(now)
+        remaining = tuple(window for window in current if window.scope != scope)
+        if remaining == current:
+            raise ValueError(f"no active suppression for scope {scope!r}")
+        return replace(self, suppressions=remaining)
+
+    def _unexpired(self, now: datetime) -> tuple[SuppressionWindow, ...]:
+        return tuple(window for window in self.suppressions if window.ends_at > now)
+
+    def _is_scope(self, scope: str) -> bool:
+        kind, _, target = scope.partition(":")
+        match kind:
+            case "installation":
+                return not target
+            case "plan":
+                return target in get_args(PlanType)
+            case "entity":
+                return target in {entity.entity_id for entity in self.entities}
+            case _:
+                return False
 
     @property
     def managed_entity_ids(self) -> frozenset[str]:
