@@ -307,8 +307,10 @@ Core quantity/accounting checks use the root development extra's locked Kubernet
 When root CI collects service sources, its `dev` extra mirrors every third-party package imported by
 those sources. Service manifests remain authoritative for runtime images and package ownership.
 Root CI also collects the standalone `lifecycle/` distributions: the root pytest, ruff, and mypy
-settings and the changed-path test scope include them. Each one keeps its own lock, like
-`packages/deployment-cli`, and runs its command with `uv run` from its own directory.
+settings and the changed-path test scope include them. The Hub keeps its own lock, like
+`packages/deployment-cli`, and runs its command with `uv run` from its own directory. The lifecycle
+agent has no lock of its own: it runs in the root development environment, which already provides
+its dependencies.
 
 | Stage | Required evidence | Reuse boundary |
 |-------|-------------------|----------------|

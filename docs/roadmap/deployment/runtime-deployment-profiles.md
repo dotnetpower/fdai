@@ -13,6 +13,10 @@ authority. Azure Container Apps remains a supported compatibility profile for ex
 >
 > **Azure focus:** Both supported runtime platforms use the same Azure provider adapters, signed
 > OCI images, Event Hubs Kafka endpoints, Key Vault, workload identities, and PostgreSQL schema.
+>
+> **Hub-managed path:** The Hub-managed lifecycle supports AKS only and adds an in-cluster
+> lifecycle agent. Its Lifecycle I0 skeleton in `lifecycle/agent/` only dry-runs and reports, so
+> this runtime contract doesn't change.
 
 ## Design at a glance
 
