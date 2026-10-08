@@ -21,8 +21,8 @@ It needs no Azure credential and grants no lifecycle authority.
 3. A customer approver runs `approve` with the installation key id they verified out of band, or
    `reject` with a reason code. The audit records the approver. Approval is a command-line action
    only, so an installation can't approve itself through the agent API. Rejection is final.
-4. Every Entity starts unmanaged. `record-ownership` records an Entity's ownership evidence.
-   Ownership is proven only by a Foundation receipt digest together with a Terraform state
+4. Every Entity starts unmanaged. `record-ownership` records an Entity's ownership evidence, and
+   the audit keeps the operator who supplied it and its digests. Ownership is proven only by a Foundation receipt digest together with a Terraform state
    digest. The `fdai:managed=true` tag alone records `ownership_tag_only`, and anything less than
    both digests records `ownership_unproven`.
 5. `manage` gives an Entity with proven ownership its settings: override blocks by Release version
@@ -122,9 +122,9 @@ evidence keeps it unmanaged, so `manage` fails with `ownership_tag_only`. Proven
 `manage` succeed:
 
 ```bash
-uv run fdai-lifecycle-hub record-ownership example core samples/ownership-tag-only.json
+uv run fdai-lifecycle-hub record-ownership example core samples/ownership-tag-only.json --operator bob
 uv run fdai-lifecycle-hub manage example core samples/core-settings.json --operator bob
-uv run fdai-lifecycle-hub record-ownership example core samples/ownership.json
+uv run fdai-lifecycle-hub record-ownership example core samples/ownership.json --operator bob
 uv run fdai-lifecycle-hub manage example core samples/core-settings.json --operator bob
 uv run fdai-lifecycle-hub recompute example --catalog samples/catalog --key /tmp/fdai-hub/hub.pem
 uv run fdai-lifecycle-hub show example

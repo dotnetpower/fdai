@@ -81,6 +81,7 @@ def _parser() -> argparse.ArgumentParser:
     ownership.add_argument("installation_id")
     ownership.add_argument("entity_id")
     ownership.add_argument("path", type=Path)
+    ownership.add_argument("--operator", required=True)
 
     manage = command("manage", _manage, "give an Entity its settings, which makes it managed")
     manage.add_argument("installation_id")
@@ -179,7 +180,13 @@ def _reject(args: argparse.Namespace) -> int:
 
 def _record_ownership(args: argparse.Namespace) -> int:
     evidence = schemas.ownership_json.validate_json(args.path.read_bytes())
-    _store().record_ownership(args.installation_id, args.entity_id, evidence, now=domain.utc_now())
+    _store().record_ownership(
+        args.installation_id,
+        args.entity_id,
+        evidence,
+        operator=args.operator,
+        now=domain.utc_now(),
+    )
     _print({"entity": args.entity_id, "proven": evidence.gap is None, "reason": evidence.gap})
     return 0
 

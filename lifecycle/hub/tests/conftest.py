@@ -222,7 +222,9 @@ def enroll(sign: Sign, now: datetime) -> Enroll:
         store.approve(installation_id, approver="approver", installation_key_id=key_id, now=now)
         for entity in installation.entities:
             if entity.ownership is not None:
-                store.record_ownership(installation_id, entity.entity_id, entity.ownership, now=now)
+                store.record_ownership(
+                    installation_id, entity.entity_id, entity.ownership, operator="bob", now=now
+                )
             if entity.settings is not None:
                 store.manage(
                     installation_id, entity.entity_id, entity.settings, operator="operator", now=now

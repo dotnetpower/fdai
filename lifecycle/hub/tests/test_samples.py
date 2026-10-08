@@ -50,12 +50,13 @@ def test_readme_walkthrough(
     run("approve", "example", "--approver", "alice", "--installation-key-id", key_id)
     assert run(*recompute)["outcome"] == "no-managed-entity"
 
-    tag_only = run("record-ownership", "example", "core", str(SAMPLES / "ownership-tag-only.json"))
+    record_ownership = ("record-ownership", "example", "core", "--operator", "bob")
+    tag_only = run(*record_ownership, str(SAMPLES / "ownership-tag-only.json"))
     assert tag_only == {"entity": "core", "proven": False, "reason": "ownership_tag_only"}
     assert main(list(manage)) == 1
     assert "ownership_tag_only" in capsys.readouterr().err
 
-    proven = run("record-ownership", "example", "core", str(SAMPLES / "ownership.json"))
+    proven = run(*record_ownership, str(SAMPLES / "ownership.json"))
     assert proven == {"entity": "core", "proven": True, "reason": None}
     assert run(*manage)["covering_range"] == ">=1.0.0 <2.0.0"
 

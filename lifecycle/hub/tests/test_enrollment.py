@@ -15,7 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 from starlette.testclient import TestClient
 
-from fdai_lifecycle_hub import models
+from fdai_lifecycle_hub import models, schemas
 from fdai_lifecycle_hub.api import create_app
 from fdai_lifecycle_hub.domain import Installation, Issued, NoManagedEntity, Planner
 from fdai_lifecycle_hub.enrollment import EnrollmentRequest, EnrollmentStatus
@@ -98,7 +98,9 @@ def test_unenrolled_installation_accepts_no_changes(
     ownership, settings = _core(installation)
     window = SuppressionWindow("installation", now, now + timedelta(hours=1))
     changes: list[Callable[[], object]] = [
-        lambda: pending.record_ownership(INSTALLATION_ID, "core", ownership, now=now),
+        lambda: pending.record_ownership(
+            INSTALLATION_ID, "core", ownership, operator="bob", now=now
+        ),
         lambda: pending.manage(INSTALLATION_ID, "core", settings, operator="bob", now=now),
         lambda: pending.record_state(
             INSTALLATION_ID, replace(installation.reported, observed_at=now), now=now
@@ -222,7 +224,7 @@ def test_proven_entity_with_settings_becomes_managed_and_alone_is_planned(
 ) -> None:
     ownership, settings = _core(installation)
 
-    enrolled.record_ownership(INSTALLATION_ID, "core", ownership, now=now)
+    enrolled.record_ownership(INSTALLATION_ID, "core", ownership, operator="bob", now=now)
     covering = enrolled.manage(INSTALLATION_ID, "core", settings, operator="bob", now=now)
     outcome = enrolled.recompute(INSTALLATION_ID, planner, now=now)
 
@@ -230,7 +232,17 @@ def test_proven_entity_with_settings_becomes_managed_and_alone_is_planned(
     assert enrolled.load(INSTALLATION_ID).managed_entity_ids == {"core"}
     assert isinstance(outcome, Issued)
     assert outcome.plan.entity_ids == {"core"}
-    assert _audit(enrolled)[-2] == (
+    ownership_record, managed_record = _audit(enrolled)[-3:-1]
+    assert ownership_record == (
+        "entity.ownership_recorded",
+        "core",
+        {
+            "operator": "bob",
+            "evidence": schemas.ownership_json.dump_python(ownership, mode="json"),
+            "reason": None,
+        },
+    )
+    assert managed_record == (
         "entity.managed",
         "core",
         {"operator": "bob", "settings_digest": settings.digest, "covering_range": covering},
@@ -250,7 +262,7 @@ def test_settings_must_cover_the_running_release(
     enrolled: HubStore, installation: Installation, now: datetime
 ) -> None:
     ownership, _ = _core(installation)
-    enrolled.record_ownership(INSTALLATION_ID, "core", ownership, now=now)
+    enrolled.record_ownership(INSTALLATION_ID, "core", ownership, operator="bob", now=now)
     later_only = EntitySettings(overrides=({"versions": ">=2.0.0", "values": {"replicas": 2}},))
 
     with pytest.raises(EntitySettingsRejectedError, match="missing_matching_override_block"):
@@ -262,18 +274,18 @@ def test_managed_entity_keeps_its_ownership_evidence(
     enrolled: HubStore, installation: Installation, now: datetime
 ) -> None:
     ownership, settings = _core(installation)
-    enrolled.record_ownership(INSTALLATION_ID, "core", ownership, now=now)
+    enrolled.record_ownership(INSTALLATION_ID, "core", ownership, operator="bob", now=now)
     enrolled.manage(INSTALLATION_ID, "core", settings, operator="bob", now=now)
 
     with pytest.raises(EntityManagedError):
-        enrolled.record_ownership(INSTALLATION_ID, "core", TAG_ONLY, now=now)
+        enrolled.record_ownership(INSTALLATION_ID, "core", TAG_ONLY, operator="bob", now=now)
 
 
 def test_managing_again_replaces_the_settings(
     enrolled: HubStore, installation: Installation, now: datetime
 ) -> None:
     ownership, settings = _core(installation)
-    enrolled.record_ownership(INSTALLATION_ID, "core", ownership, now=now)
+    enrolled.record_ownership(INSTALLATION_ID, "core", ownership, operator="bob", now=now)
     enrolled.manage(INSTALLATION_ID, "core", settings, operator="bob", now=now)
     revised = EntitySettings(overrides=({"versions": ">=1.4.0 <2.0.0", "values": {"replicas": 3}},))
 
@@ -291,7 +303,7 @@ def test_entity_missing_from_the_reported_state_is_not_managed(
     core_only = {"core": installation.reported.entities["core"]}
     later = replace(installation.reported, entities=core_only, observed_at=now)
     enrolled.record_state(INSTALLATION_ID, later, now=now)
-    enrolled.record_ownership(INSTALLATION_ID, "console", ownership, now=now)
+    enrolled.record_ownership(INSTALLATION_ID, "console", ownership, operator="bob", now=now)
 
     with pytest.raises(EntityNotReportedError):
         enrolled.manage(INSTALLATION_ID, "console", settings, operator="bob", now=now)
@@ -303,7 +315,7 @@ def test_unknown_entity_is_rejected(
     ownership, _ = _core(installation)
 
     with pytest.raises(UnknownEntityError):
-        enrolled.record_ownership(INSTALLATION_ID, "missing", ownership, now=now)
+        enrolled.record_ownership(INSTALLATION_ID, "missing", ownership, operator="bob", now=now)
 
 
 # Scenario: invalid proof or tag-only ownership
@@ -363,12 +375,20 @@ def test_tag_only_ownership_keeps_the_entity_unmanaged_and_records_why(
 ) -> None:
     _, settings = _core(installation)
 
-    enrolled.record_ownership(INSTALLATION_ID, "core", TAG_ONLY, now=now)
+    enrolled.record_ownership(INSTALLATION_ID, "core", TAG_ONLY, operator="bob", now=now)
 
     assert _audit(enrolled)[-1] == (
         "entity.ownership_recorded",
         "core",
-        {"reason": "ownership_tag_only"},
+        {
+            "operator": "bob",
+            "evidence": {
+                "foundation_receipt_digest": None,
+                "terraform_state_digest": None,
+                "managed_tag": True,
+            },
+            "reason": "ownership_tag_only",
+        },
     )
     with pytest.raises(OwnershipUnprovenError, match="ownership_tag_only"):
         enrolled.manage(INSTALLATION_ID, "core", settings, operator="bob", now=now)

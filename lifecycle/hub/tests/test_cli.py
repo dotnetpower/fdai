@@ -45,7 +45,15 @@ def _enroll(
         evidence.write_bytes(ownership_json.dump_json(entity.ownership))
         settings = tmp_path / f"{entity.entity_id}-settings.json"
         settings.write_bytes(entity_settings_json.dump_json(entity.settings))
-        _run(capsys, "record-ownership", installation_id, entity.entity_id, str(evidence))
+        _run(
+            capsys,
+            "record-ownership",
+            installation_id,
+            entity.entity_id,
+            str(evidence),
+            "--operator",
+            "bob",
+        )
         _run(
             capsys, "manage", installation_id, entity.entity_id, str(settings), "--operator", "bob"
         )

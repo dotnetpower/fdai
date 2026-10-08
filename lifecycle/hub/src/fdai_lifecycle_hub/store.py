@@ -151,24 +151,23 @@ class HubStore:
         entity_id: str,
         evidence: OwnershipEvidence,
         *,
+        operator: str,
         now: datetime,
     ) -> None:
-        """Record an unmanaged Entity's ownership evidence, and in the audit why it falls short."""
+        """Record an unmanaged Entity's ownership evidence, who supplied it, and its shortfall."""
 
+        operator = schemas.actor_name.validate_python(operator)
+        recorded = schemas.ownership_json.dump_python(evidence, mode="json")
         with self._write() as session:
             _lock_enrolled(session, installation_id)
             row = _entity_row(session, installation_id, entity_id)
             if mapping.domain_entity(row).managed:
                 raise EntityManagedError(entity_id)
-            row.ownership = schemas.ownership_json.dump_python(evidence, mode="json")
+            row.ownership = recorded
             row.recorded_at = now
+            details = {"operator": operator, "evidence": recorded, "reason": evidence.gap}
             audit.append(
-                session,
-                now,
-                "entity.ownership_recorded",
-                installation_id,
-                entity_id,
-                {"reason": evidence.gap},
+                session, now, "entity.ownership_recorded", installation_id, entity_id, details
             )
 
     def manage(

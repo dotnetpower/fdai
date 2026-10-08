@@ -490,7 +490,7 @@ Customer C의 온프레미스 런타임과 로컬 모델에는 별도 승인과 
 | 테이블 | 키 | 용도 | 시간 필드 | 변경 방식 |
 |--------|-----|------|-----------|-----------|
 | `installation` | `installation_id` | 등록 상태와 설치 키, Hub 배치, 채널, 버전 범위, 구간 | `requested_at`, `enrolled_at`, `recorded_at` | 개정 관리 |
-| `entity` | `installation_id`, `entity_id` | 종류, 소유 증거, 설정 개정. 설정이 있는 Entity가 관리 Entity | `effective_from`, `recorded_at` | 개정 관리 |
+| `entity` | `installation_id`, `entity_id` | 종류, 소유권 근거, 설정 개정. 설정이 있는 Entity가 관리 Entity | `effective_from`, `recorded_at` | 개정 관리 |
 | `entity_reported_state` | `installation_id`, `entity_id`, `observed_at` | 버전, 다이제스트, 상태, 에이전트 하위 상태 | `observed_at`, `recorded_at` | 추가 전용 |
 | `lifecycle_plan` | `plan_id` | 유형, 목표 Release, 구성 개정, 효과 경계, 만료 | `created_at`, `issued_at`, `expires_at` | 상태 변경은 `lifecycle_plan_event`에 기록 |
 | `plan_evaluation` | `evaluation_id` | 재계산 한 번의 결과, 대상 릴리스, 발급한 Plan(있는 경우) | `evaluated_at` | 추가 전용 |
