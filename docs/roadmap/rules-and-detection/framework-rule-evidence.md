@@ -282,7 +282,8 @@ its FDAI property, a comparison codec, and what an absent ARM field means: `unob
   a constant false member, or an `anyOf` with a constant true member, is decided without it.
 - A candidate requires every property its decided conditions read, so a resource without an
   observed value abstains. Under that requirement an `exists` condition on an `unobserved` alias is
-  constant, and on a `defaulted` alias it refuses translation.
+  constant. A `defaulted` alias projects a missing field as its default, which Azure Policy
+  compares as absent, so no condition on it translates.
 - Strings compare case-insensitively. Parameters resolve only from defaults. Only the `Audit` and
   `Deny` effects translate.
 - `scripts/catalog/translate-azure-policy-candidates.py` writes candidates and their Rego outside

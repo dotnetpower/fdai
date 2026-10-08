@@ -1,7 +1,7 @@
 ---
 title: T0 기반 프레임워크 규칙 근거
 translation_of: framework-rule-evidence.md
-translation_source_sha: 0d5f9e40608235c0edb3d1130a4edcb6cc47a550
+translation_source_sha: d837714f976b6e96d4a65bd3262606b232347e2c
 translation_revised: 2026-10-08
 ---
 # T0 기반 프레임워크 규칙 근거
@@ -276,7 +276,8 @@ WARA 권고는 기능 매트릭스가 정확한 리소스 형식, 하위 리소�
 - 조건은 3값 트리로 컴파일됩니다. 지원하지 않는 하위 트리는 알 수 없음이지만, 상수 거짓 멤버가 있는
   `allOf`나 상수 참 멤버가 있는 `anyOf`는 그 하위 트리 없이 결정됩니다.
 - 후보는 결정된 조건이 읽는 모든 속성을 요구하므로, 관측된 값이 없는 리소스는 판단을 보류합니다. 이
-  조건에서 `unobserved` 별칭의 `exists` 조건은 상수가 되고, `defaulted` 별칭에서는 변환을 거부합니다.
+  조건에서 `unobserved` 별칭의 `exists` 조건은 상수가 됩니다. `defaulted` 별칭은 없는 필드를 기본값으로
+  투영하지만 Azure Policy는 이를 없음으로 비교하므로, 이 별칭의 조건은 변환하지 않습니다.
 - 문자열은 대소문자를 구분하지 않고 비교합니다. 매개 변수는 기본값으로만 확정하며 `Audit`와 `Deny`
   효과만 변환합니다.
 - `scripts/catalog/translate-azure-policy-candidates.py`는 후보와 Rego를 `rule-catalog/`와

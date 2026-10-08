@@ -181,6 +181,17 @@ def test_request_only_create_mode_is_absent_on_stored_vaults(tmp_path: Path) -> 
         ),
         (_definition({"field": HTTPS, "exists": "true"}), "constant_condition"),
         (
+            _definition(
+                {"field": f"{VAULT}/enablePurgeProtection", "notEquals": "false"},
+                resource_type=VAULT,
+            ),
+            "comparison_on_defaulted_alias",
+        ),
+        (
+            _definition({"field": TLS, "notIn": ["[concat('TLS', '1_2')]", "TLS1_3"]}),
+            "expression_literal",
+        ),
+        (
             _definition({"field": HTTPS, "equals": "false"}, resource_type="Microsoft.Web/sites"),
             "unmapped_resource_type",
         ),
@@ -227,3 +238,16 @@ def test_snapshot_translation_dedupes_and_requires_a_pinned_revision(tmp_path: P
         translate_snapshot(
             tree, alias_map=ALIASES, resolved_ref="0" * 40, retrieved_at="2026-10-08T00:00:00Z"
         )
+
+
+def test_parameters_inside_lists_resolve_and_are_recorded() -> None:
+    result = _translate(
+        _definition(
+            {"field": TLS, "notIn": ["[parameters('tls')]", "TLS1_3"]},
+            parameters={"tls": {"type": "String", "defaultValue": "TLS1_2"}},
+        )
+    )
+
+    assert result.status == "translated"
+    assert '{"tls1_2", "tls1_3"}' in result.rego
+    assert result.translation["condition_parameters"] == ["tls"]

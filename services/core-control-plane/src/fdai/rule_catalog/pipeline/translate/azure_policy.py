@@ -14,7 +14,8 @@ Semantics:
   without it.
 - A candidate requires every property its decided conditions read, so a resource without an
   observed value abstains instead of being judged. Under that requirement an ``exists`` condition
-  on an ``unobserved`` alias is constant; on a ``defaulted`` alias it can't be decided.
+  on an ``unobserved`` alias is constant. A ``defaulted`` alias projects a missing field as its
+  default, which Azure Policy compares as absent, so no condition on it is translated.
 - String comparison is case-insensitive, like Azure Policy. A boolean or enabled/disabled literal
   that can't match the projected value compares as unequal.
 - Parameters resolve only from their default values. The effect must be ``Audit`` or ``Deny``;
@@ -387,9 +388,14 @@ class _Context:
             present = entry.absence == "unobserved"
             requires = frozenset({entry.property}) if entry.property else frozenset()
             return _Compiled(_Const(present == wanted), requires)
-        values = tuple(raw) if operator in {"in", "notIn"} else (raw,)
         if operator in {"in", "notIn"} and not isinstance(raw, list):
             raise _RefusedError("malformed_condition")
+        values = (
+            tuple(self.literal(item) for item in raw) if operator in {"in", "notIn"} else (raw,)
+        )
+        if entry.absence == "defaulted":
+            # A missing field is projected as its default, but Azure Policy compares it as absent.
+            raise _RefusedError("comparison_on_defaulted_alias")
         negated = operator in {"notEquals", "notIn"}
         if entry.absence == "request_only":
             # Absent on every stored resource: equality never holds.
