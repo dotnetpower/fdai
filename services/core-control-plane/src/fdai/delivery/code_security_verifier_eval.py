@@ -1,0 +1,276 @@
+"""Run the weakness verifiers against the real-code verifier corpus and write a receipt.
+
+Each corpus source is acquired at its exact commit, read-only, with the same acquirer the scan job
+uses. Expected-results label files are read from the acquired tree. The Python AST verifier runs
+in process on synthetic issues at the labeled locations; a whole-file label gets one synthetic
+issue per line, and any verified line counts. The taint rules run through the configured Opengrep
+or Semgrep engine with network metrics disabled; for a whole-file label any hit of the rule in the
+file counts. Neither path executes project code. Taint hits outside the labeled set are listed for
+review and never counted toward precision. The receipt reports every verifier per split.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import subprocess
+from collections.abc import Mapping, Sequence
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+
+import yaml
+
+from fdai.core.security.code_findings.canonical import AnalysisContext, build_issues
+from fdai.core.security.code_findings.models import Lane, Occurrence, SourceLocation
+from fdai.core.security.code_findings.verifier import VerifierOutcome, verify_issues
+from fdai.core.security.code_findings.verifier_evaluation import (
+    SPLITS,
+    LabeledLocation,
+    LocationOutcome,
+    VerifierCorpus,
+    VerifierCorpusError,
+    load_verifier_corpus,
+    verifier_metrics,
+)
+from fdai.delivery.code_security_acquire import GitSourceAcquirer
+from fdai.delivery.repo_assets import repo_asset_root
+from fdai.rule_catalog.code_security import CodeSecurityCatalog, load_code_security_catalog
+from fdai.rule_catalog.code_security_verifiers import load_verifier_catalog
+
+_ENGINE_TIMEOUT_SECONDS = 900
+
+
+def add_verifier_evaluation_command(
+    sub: argparse._SubParsersAction[argparse.ArgumentParser],
+) -> None:
+    root = repo_asset_root() / "rule-catalog" / "code-security"
+    command = sub.add_parser(
+        "evaluate-verifiers", help="measure verifier precision on pinned public projects"
+    )
+    command.add_argument("--corpus", default=str(root / "evaluation" / "verifier-corpus.yaml"))
+    command.add_argument("--work-root", required=True)
+    command.add_argument("--engine", required=True, help="opengrep or semgrep executable")
+    command.add_argument("--output", help="write the receipt to this file")
+    command.add_argument("--catalog-root", default=str(root))
+
+
+def _python_outcomes(
+    tree: Path,
+    locations: Sequence[LabeledLocation],
+    catalog: CodeSecurityCatalog,
+    catalog_root: Path,
+    revision: str,
+) -> dict[LabeledLocation, LocationOutcome]:
+    if not locations:
+        return {}
+    sites: dict[LabeledLocation, list[int]] = {}
+    for location in locations:
+        if location.line is not None:
+            sites[location] = [location.line]
+            continue
+        try:
+            count = len((tree / location.path).read_bytes().splitlines())
+        except OSError:
+            count = 0
+        sites[location] = list(range(1, count + 1))
+    occurrences: list[Occurrence] = []
+    for location, lines in sites.items():
+        entry = catalog.weakness_classes.classes[location.weakness_class]
+        occurrences.extend(
+            Occurrence(
+                occurrence_id=f"label-{len(occurrences)}-{line}",
+                producer="verifier-corpus",
+                producer_version="1",
+                lane=Lane.DETERMINISTIC,
+                scan_digest="sha256:verifier-corpus",
+                revision=revision,
+                rule_id="label",
+                location=SourceLocation(location.path, line),
+                cwe_ids=(entry.cwe[0],),
+            )
+            for line in lines
+        )
+    issues = build_issues(occurrences, catalog, AnalysisContext(revision=revision))
+    by_site = {
+        (issue.weakness_class, issue.fix_site.path, issue.fix_site.start_line): issue
+        for issue in issues
+    }
+    shipped = load_verifier_catalog(catalog_root, frozenset(catalog.weakness_classes.classes))
+    # Measure every Python verifier as if promoted; the receipt, not the current list, decides.
+    promotion = shipped.promotion.model_copy(
+        update={"promoted": tuple(f"python:{name}" for name in shipped.python.classes)}
+    )
+    verifiers = shipped.model_copy(update={"promotion": promotion})
+    batch = verifiers.limits.max_issues
+    results = {
+        r.issue_id: r.outcome
+        for start in range(0, len(issues), batch)
+        for r in verify_issues(tree, issues[start : start + batch], verifiers, revision=revision)
+    }
+    outcomes: dict[LabeledLocation, LocationOutcome] = {}
+    for location, lines in sites.items():
+        found = {
+            results[by_site[(location.weakness_class, location.path, line)].issue_id]
+            for line in lines
+        }
+        outcomes[location] = (
+            LocationOutcome.VERIFIED
+            if VerifierOutcome.VERIFIED in found
+            else LocationOutcome.NOT_VERIFIED
+            if VerifierOutcome.NOT_VERIFIED in found
+            else LocationOutcome.UNSUPPORTED
+        )
+    return outcomes
+
+
+def _engine_scan(engine: str, rules: Path, tree: Path) -> Mapping[str, Any]:
+    proc = subprocess.run(  # noqa: S603 - fixed argv over an acquired read-only tree
+        [
+            engine,
+            "scan",
+            *(["--metrics=off"] if "semgrep" in Path(engine).name else []),
+            "--quiet",
+            "--json",
+            "--config",
+            str(rules),
+            ".",
+        ],
+        cwd=tree,
+        capture_output=True,
+        text=True,
+        timeout=_ENGINE_TIMEOUT_SECONDS,
+        check=False,
+    )
+    try:
+        document = json.loads(proc.stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"engine produced no JSON (exit {proc.returncode})") from exc
+    if not isinstance(document, dict):
+        raise RuntimeError("engine output is not a JSON object")
+    return document
+
+
+def _relative(path: str) -> str:
+    return path.removeprefix("./")
+
+
+def _taint_outcomes(
+    engine: str, rules: Path, tree: Path, locations: Sequence[LabeledLocation]
+) -> tuple[dict[LabeledLocation, LocationOutcome], list[dict[str, object]]]:
+    if not locations:
+        return {}, []
+    document = _engine_scan(engine, rules, tree)
+    hits = {
+        (
+            str(item["check_id"]).rsplit("fdai.verify.", 1)[-1],
+            _relative(str(item["path"])),
+            int(item["start"]["line"]),
+        )
+        for item in document.get("results", [])
+        if "fdai.verify." in str(item.get("check_id", ""))
+    }
+    broken = {
+        _relative(str(error["path"]))
+        for error in document.get("errors", [])
+        if isinstance(error, Mapping) and error.get("path")
+    }
+    outcomes: dict[LabeledLocation, LocationOutcome] = {}
+    labeled: set[tuple[str, str, int]] = set()
+    whole_files: set[tuple[str, str]] = set()
+    for location in locations:
+        rule = location.key.removeprefix("fdai.verify.")
+        if location.line is None:
+            whole_files.add((rule, location.path))
+            hit = any(item[:2] == (rule, location.path) for item in hits)
+        else:
+            labeled.add((rule, location.path, location.line))
+            hit = (rule, location.path, location.line) in hits
+        if hit:
+            outcomes[location] = LocationOutcome.VERIFIED
+        elif location.path in broken:
+            outcomes[location] = LocationOutcome.UNSUPPORTED
+        else:
+            outcomes[location] = LocationOutcome.NOT_VERIFIED
+    unlabeled = [
+        {"rule": f"fdai.verify.{rule}", "path": path, "line": line}
+        for rule, path, line in sorted(hits - labeled)
+        if (rule, path) not in whole_files
+    ]
+    return outcomes, unlabeled
+
+
+def _expand_labels(
+    tree: Path, source_id: str, corpus: VerifierCorpus
+) -> tuple[LabeledLocation, ...]:
+    expanded: list[LabeledLocation] = []
+    for spec in corpus.expected_results:
+        if spec.source_id != source_id:
+            continue
+        label_file = (tree / spec.file).resolve()
+        if not label_file.is_relative_to(tree.resolve()) or not label_file.is_file():
+            raise VerifierCorpusError(f"{source_id}: expected-results file {spec.file} is missing")
+        expanded.extend(spec.expand(label_file.read_text(encoding="utf-8")))
+    return tuple(expanded)
+
+
+def evaluate_verifiers(args: argparse.Namespace) -> dict[str, object]:
+    catalog_root = Path(args.catalog_root)
+    catalog = load_code_security_catalog(catalog_root)
+    corpus = load_verifier_corpus(yaml.safe_load(Path(args.corpus).read_text(encoding="utf-8")))
+    acquirer = GitSourceAcquirer(Path(args.work_root).resolve())
+    locations: list[LabeledLocation] = list(corpus.locations)
+    outcomes: dict[LabeledLocation, LocationOutcome] = {}
+    unlabeled: list[dict[str, object]] = []
+    for source in corpus.header["sources"]:  # type: ignore[attr-defined]
+        source_id = str(source["id"])
+        acquired = acquirer.acquire(str(source["repository"]), str(source["commit"]))
+        expanded = _expand_labels(acquired.path, source_id, corpus)
+        locations.extend(expanded)
+        mine = [item for item in corpus.locations if item.source_id == source_id]
+        mine.extend(expanded)
+        outcomes.update(
+            _python_outcomes(
+                acquired.path,
+                [item for item in mine if item.verifier == "python"],
+                catalog,
+                catalog_root,
+                str(source["commit"]),
+            )
+        )
+        taint, extra = _taint_outcomes(
+            args.engine,
+            catalog_root / "rules" / "verify",
+            acquired.path,
+            [item for item in mine if item.verifier == "taint"],
+        )
+        outcomes.update(taint)
+        unlabeled.extend({"source": source_id, **item} for item in extra)
+    metrics = verifier_metrics(
+        locations,
+        outcomes,
+        precision_floor=corpus.precision_floor,
+        min_true_positives=corpus.min_true_positives,
+    )
+    receipt: dict[str, object] = {
+        "ok": True,
+        "kind": "fdai.code-security.verifier-evaluation-receipt",
+        "corpus": corpus.header,
+        "evaluated_at": datetime.now(UTC).isoformat(),
+        "promotion_rule": {
+            "precision_floor": corpus.precision_floor,
+            "min_true_positives": corpus.min_true_positives,
+            "splits": list(SPLITS),
+        },
+        "labels": {split: sum(1 for item in locations if item.split == split) for split in SPLITS},
+        "verifiers": [item.as_dict() for item in metrics],
+        "promoted": sorted(item.key for item in metrics if item.promoted),
+        "shadow": sorted(item.key for item in metrics if not item.promoted),
+        "unlabeled_verified": unlabeled,
+    }
+    if args.output:
+        Path(args.output).write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
+    return receipt
+
+
+__all__ = ["add_verifier_evaluation_command", "evaluate_verifiers"]

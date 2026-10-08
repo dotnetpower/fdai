@@ -88,6 +88,11 @@ cancellation drains outstanding work and adds no shared authority-bearing workfl
 The same Core-owned scheduler covers independent finalist runoffs within the existing
 remaining-call gate; no model, service, authority, or observed-state cache is added.
 
+Collection relations also list per-anchor coverage rows, so an anchor with no related member is
+verified empty only when its read was complete. Scoped collection traversals can read their exact
+population hop by hop, collection metric reads can apply reviewed qualitative recipes, and a
+stopped metric read can issue a leased continuation. Every one of these reads stays read-only.
+
 ## Design at a glance
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.
 
@@ -604,6 +609,15 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   not make an active agent appear blank. Local dev mode also exposes a `Labs`
   group immediately above Settings; production navigation omits this development-only group.
 
+Code-security findings keep their deterministic core in `core/security/code_findings/`, catalogs
+in `rule-catalog/code-security/`, and adapters in `delivery/code_security_*.py` and
+`delivery/persistence/state_store_code_security_*.py`. The Operator read side is
+`code_security_review_projection.py`, and the Console route is `routes/code-security.tsx`. The
+scan runner image sits beside the core image as `docker/code-security-scanner.Dockerfile`. The
+labeled evaluation corpora, including the code and dependency cases of the curated corpus, live in
+`rule-catalog/code-security/evaluation/` and are measured by the pure `evaluation.py` harness. See
+[Code Security Findings](../operations/code-security-findings.md).
+
 ## Repository Script Layout
 
 Repository automation is grouped by responsibility under `scripts/`; only the layout README, `verify.sh`, and the Python package marker stay
@@ -717,6 +731,12 @@ Deployment Preflight keeps its publication decision in `core/deploy_preflight/pr
   historical choice matrix are in [tech-stack.md § OD-1](tech-stack.md#od-1-core-runtime-language).
   Non-Python trees are: [rule-catalog/](../../../rule-catalog) (YAML data), [policies/](../../../policies)
   (Rego), and [infra/](../../../infra) (Terraform HCL).
+- **[lifecycle/](../../../lifecycle/README.md) holds the Hub-managed lifecycle components**, which
+  are not installation services. `lifecycle/hub/` is the Lifecycle Hub that computes signed Plans, and
+  `lifecycle/agent/` is the lifecycle agent that runs beside an installation. Each is a standalone
+  distribution with its own tests, so the governed five-service set and its service-suite manifest
+  stay unchanged. Shared Plan and Release checks stay in `packages/deployment-cli/` until the
+  `lifecycle-contracts` extraction in Lifecycle I1.
 - **A frozen lock for each selected build profile.** The root `uv.lock` is the default workspace
   lock and the root `pyproject.toml` remains a virtual workspace with `package = false`.
   Independently released distributions may own another lock or constraints when their release

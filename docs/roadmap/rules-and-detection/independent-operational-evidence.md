@@ -387,6 +387,10 @@ typed query and presentation evidence. They do not issue or admit independent op
 Projection-only ontology vocabulary can refresh that corpus manifest's source digests without
 changing the release digest or any operational-evidence lookup authority.
 
+P2 traversal population counts, E12 per-anchor coverage rows, E11 recipe thresholds, and P3 metric
+read continuations are also typed query evidence. They neither issue nor admit independent
+operational evidence.
+
 | Proof | Read-back subject |
 |-------|-------------------|
 | Authentication | The Operator authentication receipt for the request that carried `principal_ref`, retained like the command receipt |
@@ -591,6 +595,11 @@ tracks what remains.
   This command produces a content-free handoff receipt and stops at the first missing identity, registry,
   writer-readback, readiness, positive-issuance, negative-drill, or stop-condition observation. It is not
   independent operational qualification; that stays with #1026.
+
+Code-security remediation follows the same rule. A coding agent's fixed claim counts only after an
+independent, coverage-equivalent rescan of the claimed commit finds no matching root cause. The
+opt-in proof lane reproduces a verified finding in its own sandbox instead of trusting the scanner.
+See [Code Security Findings](../operations/code-security-findings.md#result-import-and-verification).
 
 ## Non-goals
 

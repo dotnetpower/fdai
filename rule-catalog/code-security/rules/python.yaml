@@ -1,0 +1,123 @@
+# FDAI-authored Opengrep rules for Python. Each rule carries one CWE so canonicalization can map
+# it to a weakness class. Rules favor precision: they flag a sink only when untrusted data or an
+# unsafe option is visible at the call.
+rules:
+  - id: fdai.python.sql-string-built-query
+    languages: [python]
+    severity: ERROR
+    message: SQL text is built from a variable with string formatting. Bind values as parameters.
+    metadata: {cwe: ["CWE-89"], category: security, confidence: MEDIUM}
+    patterns:
+      - pattern-either:
+          - pattern: $CUR.execute(f"...", ...)
+          - pattern: $CUR.execute("..." % $X, ...)
+          - pattern: $CUR.execute("..." + $X, ...)
+          - pattern: $CUR.execute("...".format(...), ...)
+          - pattern: $CUR.executemany(f"...", ...)
+  - id: fdai.python.subprocess-shell-true
+    languages: [python]
+    severity: ERROR
+    message: A command runs through a shell with a non-literal command. Pass an argument list without shell=True.
+    metadata: {cwe: ["CWE-78"], category: security, confidence: MEDIUM}
+    patterns:
+      - pattern-either:
+          - pattern: subprocess.$FN($CMD, ..., shell=True, ...)
+      - pattern-not: subprocess.$FN("...", ..., shell=True, ...)
+  - id: fdai.python.os-system
+    languages: [python]
+    severity: ERROR
+    message: os.system or os.popen runs a non-literal command through the shell. Use subprocess with an argument list.
+    metadata: {cwe: ["CWE-78"], category: security, confidence: MEDIUM}
+    patterns:
+      - pattern-either:
+          - pattern: os.system($CMD)
+          - pattern: os.popen($CMD, ...)
+      - pattern-not: os.system("...")
+      - pattern-not: os.popen("...", ...)
+  - id: fdai.python.eval-exec
+    languages: [python]
+    severity: ERROR
+    message: eval or exec runs a non-literal expression. Parse data explicitly instead of evaluating it.
+    metadata: {cwe: ["CWE-95"], category: security, confidence: MEDIUM}
+    patterns:
+      - pattern-either:
+          - pattern: eval($X, ...)
+          - pattern: exec($X, ...)
+      - pattern-not: eval("...", ...)
+      - pattern-not: exec("...", ...)
+  - id: fdai.python.pickle-load
+    languages: [python]
+    severity: ERROR
+    message: pickle deserializes data that may be untrusted. Use a data-only format such as JSON.
+    metadata: {cwe: ["CWE-502"], category: security, confidence: MEDIUM}
+    pattern-either:
+      - pattern: pickle.loads(...)
+      - pattern: pickle.load(...)
+      - pattern: cPickle.loads(...)
+  - id: fdai.python.yaml-unsafe-load
+    languages: [python]
+    severity: ERROR
+    message: yaml.load without a safe loader can construct arbitrary objects. Use yaml.safe_load.
+    metadata: {cwe: ["CWE-502"], category: security, confidence: HIGH}
+    patterns:
+      - pattern-either:
+          - pattern: yaml.load($X)
+          - pattern: yaml.load($X, Loader=yaml.Loader)
+          - pattern: yaml.load($X, Loader=yaml.UnsafeLoader)
+          - pattern: yaml.unsafe_load(...)
+  - id: fdai.python.tls-verify-disabled
+    languages: [python]
+    severity: WARNING
+    message: TLS certificate verification is disabled for an HTTP request.
+    metadata: {cwe: ["CWE-295"], category: security, confidence: HIGH}
+    pattern-either:
+      - pattern: requests.$FN(..., verify=False, ...)
+      - pattern: httpx.$FN(..., verify=False, ...)
+  - id: fdai.python.weak-hash
+    languages: [python]
+    severity: WARNING
+    message: MD5 or SHA-1 is used. Use SHA-256 or a dedicated password-hashing function.
+    metadata: {cwe: ["CWE-328"], category: security, confidence: MEDIUM}
+    pattern-either:
+      - pattern: hashlib.md5(...)
+      - pattern: hashlib.sha1(...)
+  - id: fdai.python.flask-debug
+    languages: [python]
+    severity: WARNING
+    message: The Flask debugger is enabled, which exposes an interactive console.
+    metadata: {cwe: ["CWE-489"], category: security, confidence: HIGH}
+    pattern: $APP.run(..., debug=True, ...)
+  - id: fdai.python.path-from-request
+    languages: [python]
+    severity: ERROR
+    message: A file path comes from request data. Resolve it and confirm it stays inside the allowed directory.
+    metadata: {cwe: ["CWE-22"], category: security, confidence: MEDIUM}
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: flask.request.$ATTR
+          - pattern: request.args.get(...)
+          - pattern: request.form.get(...)
+    pattern-sinks:
+      - pattern-either:
+          - pattern: open(...)
+          - pattern: send_file(...)
+    pattern-sanitizers:
+      - pattern: os.path.basename(...)
+  - id: fdai.python.ssrf-from-request
+    languages: [python]
+    severity: ERROR
+    message: An outbound request URL comes from request data. Allow only approved destinations.
+    metadata: {cwe: ["CWE-918"], category: security, confidence: MEDIUM}
+    mode: taint
+    pattern-sources:
+      - pattern-either:
+          - pattern: flask.request.$ATTR
+          - pattern: request.args.get(...)
+          - pattern: request.form.get(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: requests.$FN($URL, ...)
+              - pattern: urllib.request.urlopen($URL, ...)
+          - focus-metavariable: $URL

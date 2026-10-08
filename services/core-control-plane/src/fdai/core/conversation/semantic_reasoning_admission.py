@@ -434,7 +434,11 @@ def _unstated_units(form: SemanticQuestionForm) -> tuple[str, ...]:
     reasons: list[str] = []
     for goal in form.goals:
         for item in goal.filters:
-            if item.role is FilterRole.METRIC and item.comparison is None:
+            if (
+                item.role is FilterRole.METRIC
+                and item.comparison is None
+                and item.qualifier is None
+            ):
                 reasons.append(f"metric_threshold_unstated:{goal.id}")
             elif item.comparison is not None and item.comparison.unit is MetricUnit.UNSTATED:
                 reasons.append(f"metric_unit_unstated:{goal.id}")

@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: c8293ca8ed24084978d91bb0a1ca7c28ac49e1b7
-translation_revised: 2026-10-05
+translation_source_sha: dd645666ef684114dec3120d692ea69d87552dd9
+translation_revised: 2026-10-08
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 
@@ -533,6 +533,11 @@ Trial 만료 워터마크도 같은 규칙을 따릅니다. 로컬과 배포된 
 계획된 [Hub 관리형 수명 주기](hub-managed-lifecycle-ko.md)도 같은 규칙을 따릅니다. 설치 경로는
 독립 축입니다. Hub 관리형 설치는 소스 설치나 오프라인 패키지 설치와 같은 권위 있는 소스, 계약,
 런타임 범위 증적을 바인딩하며, 수명 주기 에이전트는 컨트롤 플레인 동작을 바꾸지 않습니다.
+
+코드 보안 검토와 팩 화면은 로컬과 배포 환경에서 같은 `state_kv` 행을 읽으며, `/code-security/reviews`와
+`/code-security/packs`는 지속형 operational-state 출처로 선언됩니다. 실행 위치에 따른 차이는 LLM
+렌즈 호출의 신원 하나입니다. 배포 환경은 Managed Identity를, 로컬 실행은 `--lens-identity azure-cli`를
+사용합니다.
 
 ## 배포자-스코프 LLM 프로비저닝
 

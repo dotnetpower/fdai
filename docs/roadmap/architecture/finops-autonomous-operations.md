@@ -31,6 +31,10 @@ bounded evidence. Agents remain the active control plane and own every state tra
 > `insufficient-cohort` and `missing-live-authoritative-evidence` reasons. It created no campaign
 > episode or promotion review and changed no runtime authority. A qualifying cohort spanning at
 > least 30 days and 100 eligible samples, and the six independent target reviews, do not yet exist.
+> On 2026-10-08 the installation owner withdrew that cohort, and issues #903 and #904 closed as not
+> planned. The catalog promotion gates are unchanged. Before a target's gate passes, promoting it
+> requires a separately approved attributed operator override that records the gate result at that
+> time and never counts as promotion evidence elsewhere.
 > Twelve critique rounds fixed every identified Medium-or-higher defect; the final review found only Low test-organization opportunities. No runtime authority changed.
 
 ## Design at a glance

@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 0b636f68531e090a4e189fc078e6705ea816a5b0
-translation_revised: 2026-10-07
+translation_source_sha: 54af60a855da640681b2d8363f83063ae1df3109
+translation_revised: 2026-10-08
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -476,6 +476,10 @@ Operator는 근거 실행, 근거 검증, 답변 준비 같은 의미 턴 자체
 제한합니다. Operator는 결과 답변과 타입이 지정된 제한을 바꾸지 않고 받습니다. 이 예약은 Incident
 생성, 근거 권한 또는 실행 권한을 바꾸지 않습니다.
 
+멈춘 컬렉션 메트릭 읽기는 불투명한 이어받기 참조를 밝힐 수 있고, 레시피 기준값이나 기간은 답변
+본문에 명시됩니다. Operator는 둘 다 바꾸지 않고 전달하며, 어느 것도 Incident 생성, 근거 권한, 실행
+권한을 바꾸지 않습니다.
+
 ### 13.12 의미 턴 인증 영수증 참조
 
 Operator는 `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`가 켜진 경우에만 `operator-core-request` 1.9.0에 콘텐츠가 없는 선택적 `authentication_receipt_ref`를 보냅니다. 이 설정의 기본값은 꺼짐이며, 꺼져 있으면 모든 envelope는 이전 버전과 바이트를 그대로 유지합니다. 1.9.0을 받는 Core를 먼저 배포한 뒤에만 켜십시오. 이 참조 자체는 권한을 부여하지 않습니다. 설정을 켜면 Operator API와 채널 edge는 참조를 보내기 전에 의미 요청마다 콘텐츠가 없는 영수증을 보존하고, 검증기는 바로 그 요청에 보존된 영수증으로 `case-history-read`를 확인합니다. 설정이 꺼져 있으면 Pattern 읽기는 계속 실패 시 차단됩니다.
@@ -508,6 +512,11 @@ Forseti의 최신 버전 2 baseline 커버리지가 있으면 `GET /rules/findin
 
 버전 2 커버리지가 없으면 응답은 `{"evaluated": false, "counts": {}}`입니다. 형식이 잘못되었거나
 모호한 기록은 0으로 추론하지 않고 `503`을 반환합니다. 이 요약은 권한을 부여하지 않습니다.
+
+`GET /code-security/reviews`와 `GET /code-security/packs`는 `surface`, `available`, `complete`,
+`source`, `reviews` 또는 `packs` 목록, `gaps`를 반환합니다. 행에는 건수, 리비전, 불투명한 이슈 ID,
+판단, 판정 건수, 오탐 판정 결과만 담기며 경로, 코드, 판단 근거 문구, 승인 참조는 담기지 않습니다.
+형식이 잘못된 행은 `gaps` 항목이 되므로 빈 목록이 문제없는 상태로 읽히지 않습니다.
 
 ## 구현 상태
 

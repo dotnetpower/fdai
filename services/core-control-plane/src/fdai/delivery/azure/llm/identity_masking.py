@@ -175,6 +175,8 @@ def _map_quotes(
         return output
 
     def _comparison_quotes(item: Any) -> Any:
+        if isinstance(item, dict) and isinstance(item.get("qualifier_span"), Mapping):
+            item = inside(item, "qualifier_span")
         if not isinstance(item, dict) or not isinstance(item.get("comparison"), Mapping):
             return item
         comparison: Any = item["comparison"]

@@ -159,6 +159,9 @@ Notes:
   `>= 4.0` → `medium`, else `low`), and **KEV presence escalates to `critical`**. The CVSS
   version used (v3.1 or v4.0) is recorded on the rule (e.g. `parameters.cvss_version`) so a score
   is reproducible. Non-vuln rules take a source/category default severity, not this mapping.
+  This escalation applies to catalog rule severity only. Code-security findings keep severity
+  intrinsic and let KEV raise priority and due date instead; see
+  [Code Security Findings](../operations/code-security-findings.md#severity-model).
 - **Threat mappings**: MITRE ATT&CK technique ids and D3FEND control ids attach to a rule as
   mapping tags via the compliance/threat crosswalk (see [Open Decisions](#open-decisions)), never
   as executable `check_logic`.

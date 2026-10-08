@@ -163,6 +163,11 @@ It does not grant Terraform apply, provider mutation, model invocation, approval
 authority. Reader, Contributor, Approver, and BreakGlass roles cannot save the OCR policy or request
 its plan. BreakGlass is not an Owner superset and does not inherit this capability.
 
+Code-security review and remediation-pack views (`GET /code-security/reviews` and
+`GET /code-security/packs`) are read-only for every read role. A false-positive adjudication needs
+an adjudicator other than the claimant unless the single-operator profile is explicitly selected,
+and it is recorded with its approval reference.
+
 ## 4. Entra ID Artifacts
 
 ### 4.1 Target App Registrations

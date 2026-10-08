@@ -149,7 +149,7 @@ ResourceType registry so a new semantic type cannot remain outside the coverage 
 The first release keeps one taxonomic surface. It does not add a generic concept-scheme engine.
 Capabilities such as `Operable` and `Observable` remain InterfaceType concerns. ResourceType-level
 Interface bindings require a separate safety design because InterfaceType can be an ActionType
-target.
+target. Code-security issues aren't ontology objects, so they never enter ontology queries.
 
 ## Relationship model
 
@@ -268,6 +268,7 @@ The query contract separates open graph expansion from an ordered semantic path.
 Verified query execution may expose bounded node lifecycle observations for presentation. Each
 observation preserves the verified node kind, dependency position, status, and evidence references
 without provider commands or execution authority. Missing delivery does not change the result; collection relations batch roots, preserve every reviewed LinkType side and partial reason, and population manifests use a bounded length-prefixed digest while all reads remain authority-free.
+Coverage rows, traversal counts, and metric continuations are derived, no-authority query evidence.
 
 Resource subtype operands come from the reviewed `Resource.type` value domain. Its request-term
 groups may hold up to 192 groups so that each reviewed subtype can bind its own bilingual terms;

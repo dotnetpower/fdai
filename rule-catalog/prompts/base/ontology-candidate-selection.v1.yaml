@@ -22,6 +22,19 @@ body: |-
   equals_ignore_case with the operand shape in the schema. An equality operand is equals;
   in uses values instead. exists and absent have no operands. Prefer property conditions
   for categories and collections. An exact identifier constraint uses object_ids.
+
+  Predicates read the stored JSON value of one top-level property. exists and absent test
+  whether that property is present. contains matches a substring of a text value, an element
+  equal to the operand in an array value, or a key equal to the operand in an object value.
+  A requested entry inside an object-valued property is expressed with contains and that
+  entry's exact key name as shown in the documents. at_least and at_most are inclusive and
+  compare numbers numerically and text in code-point order, so timestamps written in the same
+  ISO 8601 UTC form as the documents compare chronologically. Express a requested time range
+  over a timestamp property with at_least and at_most, taking any date the request leaves
+  implicit from the supplied documents. Wording about why the requester is asking, such as
+  the task they are performing, is context, not a condition. Any stated property of the
+  requested objects, including their purpose, remains a condition. Use unsupported_constraint
+  only when none of these forms can express a requested condition.
   Do not enumerate only some matching objects to evade a bound.
 
   When the query identifies a specific instance that is present in the supplied canonical

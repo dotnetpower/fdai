@@ -90,8 +90,8 @@ from fdai.delivery.catalog_search.ontology_candidate_selection import OntologyCa
 from fdai.delivery.catalog_search.ontology_snapshot_store import OntologyStagedProjection
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
-# Bounded with OntologySemanticEvaluationBudget: one typed-selection call never exceeds 10 s.
-_CANDIDATE_PROPOSAL_MAX_TIMEOUT_SECONDS = 10
+# Bounded with OntologySemanticEvaluationBudget: one typed-selection call never exceeds 20 s.
+_CANDIDATE_PROPOSAL_MAX_TIMEOUT_SECONDS = 20
 
 _LOGGER = logging.getLogger(__name__)
 _MAX_DESCRIPTORS = 512

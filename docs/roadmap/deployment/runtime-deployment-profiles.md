@@ -751,6 +751,11 @@ The deployment owner chooses how to validate and transport those payloads. They 
 package contents or package-completion evidence. The managed host does not use ambient Terraform
 providers, Helm repositories, mutable image tags, or an operator kubeconfig.
 
+The code-security scan runner image isn't part of any deployment profile yet. It needs a runtime
+that allows unprivileged user namespaces for bubblewrap and its own offline-database refresh, so a
+profile must opt in explicitly. See
+[Code Security Scanning](../operations/code-security-scanning.md#scan-runner-image).
+
 ## Completion evidence
 
 Runtime implementation is complete only after focused local checks and the selected deployment

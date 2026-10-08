@@ -28,9 +28,11 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from datetime import UTC, datetime
 from typing import Any
+
+from fdai_operator_service.families.operations import ProjectionNotFoundError, ProjectionQuery
 
 _MAX_ITEMS = 200
 _MAX_TEXT_LEN = 512
@@ -544,7 +546,55 @@ def _timestamp(value: object) -> str | None:
     return parsed.astimezone(UTC).isoformat()
 
 
+ASSURANCE_TWIN_OPERATIONS = frozenset(
+    {"assurance_twin.posture", "assurance_twin.reviews", "assurance_twin.review_detail"}
+)
+_REVIEW_PREFIX = "runtime:assurance-twin-review:"
+_REVIEW_KEY_MAX_CHARS = 256
+_FetchAll = Callable[[str, tuple[object, ...]], Awaitable[list[dict[str, Any]]]]
+
+
+async def read_assurance_twin_projection(
+    query: ProjectionQuery, fetch_all: _FetchAll
+) -> Mapping[str, object]:
+    """Read one Assurance Twin operation through the runtime reader's bounded ``fetch_all``."""
+    if query.operation == "assurance_twin.posture":
+        rows = await fetch_all(
+            "SELECT key, value FROM state_kv WHERE key LIKE %s ORDER BY updated_at DESC LIMIT 201",
+            (f"{POSTURE_STATE_KEY_PREFIX}%",),
+        )
+        return assurance_twin_posture_projection(rows)
+    if query.operation == "assurance_twin.reviews":
+        rows = await fetch_all(
+            "SELECT key, value FROM state_kv WHERE key LIKE %s "
+            "ORDER BY value ->> 'generated_at' DESC NULLS LAST, key ASC LIMIT 201",
+            (f"{_REVIEW_PREFIX}%",),
+        )
+        return assurance_twin_review_list_projection(rows, durable_key_prefix=_REVIEW_PREFIX)
+    # The review key is opaque twin identity: it is compared byte for byte and never trimmed,
+    # normalised, or lowercased here.
+    values = query.params.get("review_key", ())
+    review_id = values[-1] if values else ""
+    if not review_id or len(review_id) > _REVIEW_KEY_MAX_CHARS:
+        raise ProjectionNotFoundError("assurance twin review key is required")
+    rows = await fetch_all(
+        "SELECT value FROM state_kv WHERE key = %s",
+        (f"{_REVIEW_PREFIX}{review_id}",),
+    )
+    # Bind the durable key just fetched to the body's own claimed identity: a row whose stored
+    # ``review_key`` disagrees with the exact key just queried is never rendered as this
+    # identity's evidence.
+    detail = assurance_twin_review_detail_projection(
+        rows[0] if rows else None,
+        requested_review_key=review_id,
+    )
+    if detail is None:
+        raise ProjectionNotFoundError(review_id)
+    return detail
+
+
 __all__ = [
+    "ASSURANCE_TWIN_OPERATIONS",
     "GAP_CONFLICT",
     "GAP_DIGEST_MISMATCH",
     "GAP_MALFORMED",
@@ -553,4 +603,5 @@ __all__ = [
     "assurance_twin_posture_projection",
     "assurance_twin_review_detail_projection",
     "assurance_twin_review_list_projection",
+    "read_assurance_twin_projection",
 ]

@@ -127,6 +127,7 @@ def production_manifest(
     health_labels: tuple[tuple[str, tuple[str, ...]], ...] = (),
     unbound: tuple[str, ...] = (),
     metric_units: tuple[tuple[str, str], ...] = (),
+    metric_recipes: tuple[tuple[str, str, str, int, int], ...] = (),
 ) -> QueryManifest:
     catalog = production_catalog()
     functions = operational_function_types(catalog.function_types)
@@ -159,6 +160,7 @@ def production_manifest(
         ),
         metric_labels=dict(metric_labels),
         metric_units=dict(metric_units),
+        metric_recipes=metric_recipes,
         health_labels=dict(health_labels),
         # Reviewed Property semantics, offered as in production composition.
         property_reads=ConceptVocabularies(

@@ -1,0 +1,61 @@
+{
+  "subtitle": "저장소 리비전별 코드 보안 스캔 검토를 읽기 전용으로 보여 줍니다. 결과는 승인이나 실행 권한을 부여하지 않습니다.",
+  "readOnlyTitle": "조회 전용입니다.",
+  "readOnlyBody": "건수와 불투명한 이슈 ID만 표시합니다. 코드, 경로, 수정 내용은 개발자 장비의 조치 팩에만 있습니다.",
+  "resourceLabel": "코드 보안 검토",
+  "unavailable": "권위 있는 코드 보안 검토 근거를 사용할 수 없습니다.",
+  "empty": "기록된 코드 보안 검토가 아직 없습니다.",
+  "withheld": "보류된 검토 기록",
+  "kpi": {
+    "reviews": "검토",
+    "openIssues": "최신 검토의 이슈",
+    "urgent": "긴급 검토",
+    "incomplete": "커버리지 불완전"
+  },
+  "column": {
+    "repository": "저장소",
+    "revision": "리비전",
+    "decision": "판단",
+    "issues": "이슈",
+    "priority": "P0 / P1 / P2",
+    "confidence": "검증 또는 입증",
+    "exposure": "노출",
+    "recordedAt": "기록 시각"
+  },
+  "decision": {
+    "urgent": "긴급",
+    "open": "열림",
+    "clear": "이상 없음",
+    "coverage_incomplete": "커버리지 불완전"
+  },
+  "exposure": {
+    "exposed": "노출됨",
+    "internal": "내부",
+    "not_deployed": "미배포",
+    "unknown": "알 수 없음"
+  },
+  "gap": {
+    "code_security_review_malformed": "저장된 검토 형식이 잘못되어 보류했습니다.",
+    "code_security_review_truncated": "이 화면에 표시된 것보다 많은 검토가 있습니다.",
+    "code_security_pack_malformed": "저장된 조치 팩 형식이 잘못되어 보류했습니다."
+  },
+  "packsTitle": "조치 팩",
+  "packsEmpty": "상태 저장소에 기록된 조치 팩이 아직 없습니다.",
+  "packsWithheld": "보류된 팩 기록",
+  "packColumn": {
+    "pack": "팩",
+    "base": "기준 리비전",
+    "issues": "이슈",
+    "state": "상태",
+    "fixedVerified": "수정 확인됨",
+    "stillPresent": "여전히 존재",
+    "inconclusive": "판단 불가",
+    "falsePositives": "오탐 인정"
+  },
+  "packState": {
+    "active": "활성",
+    "revoked": "폐기됨",
+    "expired": "만료됨"
+  },
+  "noVerification": "검증 전"
+}

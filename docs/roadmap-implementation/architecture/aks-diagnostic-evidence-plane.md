@@ -87,6 +87,7 @@ the [owner design](../../roadmap/architecture/aks-diagnostic-evidence-plane.md).
 | 2026-09-10 | in-progress | Separated stable UID identity from versioned Kubernetes observation metadata and added a fail-closed exact resolver. | `current change`; focused API inventory and resolver tests. | Bind the resolver to persistence and operator projection after diagnostic facts land. |
 | 2026-09-10 | in-progress | Added the fleet binding and per-cluster source-state implementation. | `current change`; focused configuration, composition, enrichment, and metadata tests. | Complete the remaining diagnostic evidence families and live validation. |
 | 2026-09-10 | in-progress | Adopted the implementation ledger and bounded design after Issue #278 topology completion. Earlier diagnostic provenance was not reconstructed. | Current source paths listed in the scope table and Issue #578. | Implement every open scope row, complete ten hardening rounds, and retain live evidence. |
+| 2026-10-07 | implemented | The shared Operator composition, route tests, and Console panel registry gained the read-only code-security review and pack routes from #1966. AKS diagnostic evidence scope, evidence, projections, topics, and authority are unchanged. | `current change`; focused Operator projection, operations-family, and composition tests and Console panel tests passed. | No AKS diagnostic evidence behavior changed. |
 
 ### Remaining work
 

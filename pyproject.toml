@@ -168,6 +168,7 @@ src = [
     "extensions/aks-commerce/src",
     "extensions/cost-governance/src",
     "extensions/governed-chaos-provider/src",
+    "lifecycle/hub/src",
 ]
 # Mock/design assets and design experiments are not part of the shipped
 # monorepo; they live outside the lint gate on purpose.
@@ -185,6 +186,7 @@ ignore = []
 "services/**/tests/**" = ["S101", "S105", "S106"]
 "packages/**/tests/**" = ["S101", "S105", "S106"]
 "extensions/**/tests/**" = ["S101", "S105", "S106"]
+"lifecycle/**/tests/**" = ["S101", "S105", "S106"]
 "benchmarks/**/tests/**" = ["S101", "S104"]
 # Developer helper scripts shell out to `git` / `python3` with hardcoded
 # argument lists - the S6xx subprocess warnings assume attacker-controlled
@@ -220,6 +222,7 @@ files = [
     "extensions/code-assurance/src/fdai_code_assurance",
     "extensions/aks-commerce/src/fdai_aks_commerce",
     "extensions/cost-governance/src/fdai_cost_governance",
+    "lifecycle/hub/src",
 ]
 mypy_path = [
     "packages/service-contracts/src",
@@ -231,6 +234,8 @@ mypy_path = [
     "services/system-knowledge-service/src",
     "extensions/cost-governance/src",
     "extensions/aks-commerce/src",
+    "lifecycle/hub/src",
+    "packages/deployment-cli/src",
 ]
 
 # aiokafka, the async Azure identity surface, and the Azure Monitor distro ship
@@ -261,6 +266,7 @@ testpaths = [
     "extensions/code-assurance/tests",
     "extensions/aks-commerce/tests",
     "extensions/cost-governance/tests",
+    "lifecycle",
 ]
 addopts = ["-ra", "--strict-markers", "--strict-config", "--import-mode=importlib"]
 pythonpath = [
@@ -268,6 +274,7 @@ pythonpath = [
     "extensions/code-assurance/src",
     "extensions/aks-commerce/src",
     "extensions/cost-governance/src",
+    "lifecycle/hub/src",
     "packages/deployment-cli/src",
     "packages/service-contracts/src",
     "services/core-control-plane",

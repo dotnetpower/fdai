@@ -505,6 +505,10 @@ For multi-output collection answers, Core bounds each verified table while reser
 later outputs. Operator receives the resulting answer and typed limitations unchanged; the
 reservation changes neither Incident creation, evidence authority, nor execution authority.
 
+A stopped collection metric read may name an opaque continuation reference, and a recipe threshold
+or window is stated in the answer text. Operator relays both unchanged; neither changes Incident
+creation, evidence authority, or execution authority.
+
 ### 13.12 Semantic turn authentication receipt reference
 
 The Operator emits the optional content-free `authentication_receipt_ref` in `operator-core-request` 1.9.0 only when `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED` is on. The setting defaults off, and with it off every envelope keeps its earlier version and bytes. Enable it only after a Core that accepts 1.9.0 is deployed. The reference grants no authority by itself. With the setting on, the Operator API and the channel edge retain the content-free receipt for each semantic request before they send the reference, and the verifier checks `case-history-read` against the receipt retained for that exact request. With it off, Pattern reads still fail closed.
@@ -537,6 +541,12 @@ bound it.
 
 Without version 2 coverage the response is `{"evaluated": false, "counts": {}}`. A malformed or
 ambiguous record returns `503` instead of an inferred zero. The summary grants no authority.
+
+`GET /code-security/reviews` and `GET /code-security/packs` return `surface`, `available`,
+`complete`, `source`, the `reviews` or `packs` list, and `gaps`. Rows carry only counts, revisions,
+opaque issue ids, decisions, verdict counts, and adjudication decisions, never paths, code,
+rationale, or approval references. Malformed rows become `gaps` entries, so an empty list never
+reads as a clean estate.
 
 ## Implementation status
 

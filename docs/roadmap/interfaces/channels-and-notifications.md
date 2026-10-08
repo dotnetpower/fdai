@@ -105,9 +105,9 @@ equivalence or conversion between the enum families.
 | Category | Direction | Examples | Auth strength needed |
 |----------|-----------|----------|----------------------|
 | **A1 - HIL approval** | bidirectional (decision returned) | high-risk action approval, enforce-promotion approval, exemption approval, override approval | **highest** - verified Entra identity, action-bound, no replay |
-| **A2 - Operational alert** | outbound only | SLO burn, DLQ depth, verifier failure rate, cold-start miss, IaC drift, adapter unhealthy, canary miss | low - informational |
+| **A2 - Operational alert** | outbound only | SLO burn, DLQ depth, verifier failure rate, cold-start miss, IaC drift, adapter unhealthy, canary miss, urgent or incomplete code-security scan | low - informational |
 | **A3 - Chat command** | bidirectional (query/response) | **read**: `/aw status`, `/aw shadow-report`, `/aw override list`, `/aw kill-switch status`. **write (draft-PR only)**: `/aw override draft`, `/aw exemption draft`, `/aw assignment param-tune` | medium - role-gated per command (see §3.1) |
-| **A4 - Digest** | outbound only | daily shadow-accuracy report, weekly override retrospective, weekly enforce-promotion candidates, weekly governance PR aging, weekly exemption expiry lookahead, monthly KPI + cost roundup, break-glass usage summary | low - recipient scope only |
+| **A4 - Digest** | outbound only | daily shadow-accuracy report, weekly override retrospective, weekly enforce-promotion candidates, weekly governance PR aging, weekly exemption expiry lookahead, monthly KPI + cost roundup, break-glass usage summary, daily code-security digest | low - recipient scope only |
 
 **Category boundaries (MUST)**
 

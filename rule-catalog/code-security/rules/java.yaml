@@ -1,0 +1,26 @@
+# FDAI-authored Opengrep rules for Java.
+rules:
+  - id: fdai.java.sql-concatenated-statement
+    languages: [java]
+    severity: ERROR
+    message: A SQL statement is built by concatenation. Use a PreparedStatement with bound parameters.
+    metadata: {cwe: ["CWE-89"], category: security, confidence: MEDIUM}
+    pattern-either:
+      - pattern: (java.sql.Statement $S).executeQuery("..." + $X)
+      - pattern: (java.sql.Statement $S).execute("..." + $X)
+      - pattern: (java.sql.Statement $S).executeUpdate("..." + $X)
+      - pattern: $S.executeQuery("..." + $X)
+  - id: fdai.java.runtime-exec
+    languages: [java]
+    severity: ERROR
+    message: Runtime.exec runs a non-literal command. Use ProcessBuilder with a fixed argument list.
+    metadata: {cwe: ["CWE-78"], category: security, confidence: MEDIUM}
+    patterns:
+      - pattern: Runtime.getRuntime().exec($CMD)
+      - pattern-not: Runtime.getRuntime().exec("...")
+  - id: fdai.java.object-input-stream
+    languages: [java]
+    severity: ERROR
+    message: ObjectInputStream deserializes data that may be untrusted. Use a data-only format or an allowlist filter.
+    metadata: {cwe: ["CWE-502"], category: security, confidence: MEDIUM}
+    pattern: new ObjectInputStream(...).readObject()

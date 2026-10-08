@@ -1,0 +1,48 @@
+# FDAI code-security severity rubric.
+#
+# Severity describes intrinsic technical impact only. It is derived from four facts per finding
+# instance: impact, attack vector, privileges required, and user interaction. The rubric is a
+# deterministic decision table aligned with CVSS base-metric concepts; its points are rubric
+# points, not a CVSS score.
+#
+# A fact is either verified or unknown. The floor evaluates unknown facts at their least severe
+# value and the ceiling at their most severe value. When floor and ceiling fall in the same band,
+# the severity is that band. Otherwise the severity is `undetermined` and the range plus the facts
+# that decide it are shown. Threat intelligence (KEV, EPSS) and runtime exposure never change
+# severity; they change priority.
+#
+# Dependency advisories that carry a pinned CVSS base score use `advisory_score_bands` instead of
+# the fact table.
+schema_version: 1
+rubric_id: fdai.code-security.severity
+version: 1.0.0
+bands:
+  - {band: critical, min_points: 9.0}
+  - {band: high, min_points: 7.0}
+  - {band: medium, min_points: 4.0}
+  - {band: low, min_points: 0.1}
+advisory_score_bands:
+  - {band: critical, min_score: 9.0}
+  - {band: high, min_score: 7.0}
+  - {band: medium, min_score: 4.0}
+  - {band: low, min_score: 0.1}
+impact_points:
+  code_execution: 10.0
+  privilege_escalation: 9.5
+  data_write: 9.0
+  data_read: 8.0
+  denial_of_service: 7.0
+  info_disclosure: 5.5
+  limited: 3.5
+attack_vector_penalty:
+  network: 0.0
+  adjacent: 1.0
+  local: 1.5
+  physical: 3.0
+privileges_required_penalty:
+  none: 0.0
+  low: 0.8
+  high: 2.0
+user_interaction_penalty:
+  none: 0.0
+  required: 1.0

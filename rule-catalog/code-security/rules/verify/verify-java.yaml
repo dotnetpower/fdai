@@ -1,0 +1,88 @@
+# FDAI-authored taint-mode verifier rules for Java.
+#
+# Sources are servlet request accessors and Spring request-bound parameters. A hit at an issue's
+# fix site raises that issue to `verified` confidence; a miss leaves confidence unchanged.
+rules:
+  - id: fdai.verify.java.command-injection
+    languages: [java]
+    severity: ERROR
+    message: Request input reaches an operating-system command.
+    metadata: {cwe: ["CWE-78"], category: security, confidence: HIGH, fdai_verifier: true}
+    mode: taint
+    pattern-sources: &java-sources
+      - pattern-either:
+          - pattern: (HttpServletRequest $R).getParameter(...)
+          - pattern: (HttpServletRequest $R).getParameterValues(...)
+          - pattern: (HttpServletRequest $R).getHeader(...)
+          - pattern: (HttpServletRequest $R).getQueryString()
+          - pattern: (HttpServletRequest $R).getPathInfo()
+          - pattern: (javax.servlet.http.HttpServletRequest $R).getParameter(...)
+          - pattern: (jakarta.servlet.http.HttpServletRequest $R).getParameter(...)
+          - patterns:
+              - pattern-inside: |
+                  $RET $METHOD(..., @$ANNOTATION(...) $TYPE $PARAM, ...) { ... }
+              - metavariable-regex: {metavariable: $ANNOTATION, regex: '^(RequestParam|PathVariable|RequestBody|RequestHeader)$'}
+              - metavariable-regex: {metavariable: $TYPE, regex: '^(String|Object)$'}
+              - pattern: $PARAM
+          - patterns:
+              - pattern-inside: |
+                  $RET $METHOD(..., @$ANNOTATION $TYPE $PARAM, ...) { ... }
+              - metavariable-regex: {metavariable: $ANNOTATION, regex: '^(RequestParam|PathVariable|RequestBody|RequestHeader)$'}
+              - metavariable-regex: {metavariable: $TYPE, regex: '^(String|Object)$'}
+              - pattern: $PARAM
+    pattern-sanitizers: &java-sanitizers
+      - pattern-either:
+          - pattern: Integer.parseInt(...)
+          - pattern: Long.parseLong(...)
+          - pattern: UUID.fromString(...)
+          - pattern: FilenameUtils.getName(...)
+          - pattern: (java.nio.file.Path $P).getFileName()
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: Runtime.getRuntime().exec($CMD, ...)
+              - pattern: new ProcessBuilder($CMD, ...)
+          - focus-metavariable: $CMD
+  - id: fdai.verify.java.sql-injection
+    languages: [java]
+    severity: ERROR
+    message: Request input is concatenated into a SQL statement.
+    metadata: {cwe: ["CWE-89"], category: security, confidence: HIGH, fdai_verifier: true}
+    mode: taint
+    pattern-sources: *java-sources
+    pattern-sanitizers: *java-sanitizers
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: (java.sql.Statement $S).executeQuery($SQL)
+              - pattern: (java.sql.Statement $S).execute($SQL, ...)
+              - pattern: (java.sql.Statement $S).executeUpdate($SQL, ...)
+              - pattern: (Statement $S).executeQuery($SQL)
+              - pattern: (Statement $S).execute($SQL, ...)
+              - pattern: (Statement $S).executeUpdate($SQL, ...)
+              - pattern: (Connection $C).prepareStatement($SQL, ...)
+              - pattern: (JdbcTemplate $J).query($SQL, ...)
+              - pattern: (JdbcTemplate $J).queryForList($SQL, ...)
+              - pattern: (JdbcTemplate $J).update($SQL, ...)
+              - pattern: (EntityManager $E).createNativeQuery($SQL, ...)
+              - pattern: (EntityManager $E).createQuery($SQL, ...)
+          - focus-metavariable: $SQL
+  - id: fdai.verify.java.path-traversal
+    languages: [java]
+    severity: ERROR
+    message: Request input selects a file path.
+    metadata: {cwe: ["CWE-22"], category: security, confidence: HIGH, fdai_verifier: true}
+    mode: taint
+    pattern-sources: *java-sources
+    pattern-sanitizers: *java-sanitizers
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: new File($P, ...)
+              - pattern: new File($BASE, $P)
+              - pattern: new FileInputStream($P)
+              - pattern: new FileOutputStream($P, ...)
+              - pattern: new FileReader($P)
+              - pattern: Paths.get(..., $P, ...)
+              - pattern: Path.of(..., $P, ...)
+          - focus-metavariable: $P

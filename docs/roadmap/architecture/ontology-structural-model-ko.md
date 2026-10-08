@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 95ae1e261c6046dc88f0552b54d836a31c740e39
-translation_revised: 2026-10-07
+translation_source_sha: 017f4bbe923b58dd37f02379afb112caac720a5d
+translation_revised: 2026-10-08
 ---
 # 온톨로지 구조 모델
 
@@ -160,6 +160,7 @@ ResourceType을 선택해야 할 때만 추가합니다.
 첫 release는 하나의 분류 표면을 유지합니다. 범용 개념 체계 엔진은 추가하지 않습니다.
 `Operable`, `Observable` 같은 기능은 계속 InterfaceType 관심사입니다. ResourceType 수준의
 Interface 바인딩은 InterfaceType이 ActionType 대상이 될 수 있으므로 별도 안전 설계가 필요합니다.
+코드 보안 이슈는 온톨로지 객체가 아니므로 온톨로지 쿼리에 들어가지 않습니다.
 
 ## 관계 모델
 
@@ -291,6 +292,7 @@ source property path 및 source schema identity와 일치해야 합니다. 카�
 대규모 컬렉션 관계는 루트를 배치로 나누고 검토된 모든 LinkType 쪽과 부분 사유를 보존합니다.
 모집단 매니페스트는 범위가 제한된 길이 접두 다이제스트를 사용하며 모든 읽기는 계속 권한이
 없습니다.
+커버리지 행, traversal 개수, 메트릭 이어받기는 권한이 없는 파생 조회 근거입니다.
 
 Resource 하위 유형 피연산자는 검토된 `Resource.type` 값 도메인에서 가져옵니다. 요청 용어 그룹은
 검토된 각 하위 유형이 한국어와 영어 용어를 따로 결속할 수 있도록 최대 192개까지 둘 수 있으며,

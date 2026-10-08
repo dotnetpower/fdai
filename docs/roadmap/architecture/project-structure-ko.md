@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 8e5a4e1ee201ad141aedbc28568657b6e7c32d6c
-translation_revised: 2026-10-07
+translation_source_sha: 92f8fa5452a60a5a2ae6fbbb955f724cb21b4fdf
+translation_revised: 2026-10-08
 ---
 # 프로젝트 구조
 이 시스템은 하나의 웹 앱이 아니라 **headless 컨트롤 플레인 + 얇은 콘솔 + ChatOps**입니다. 이 문서는 검증된 5개 서비스 기준선과 독립 패키지 시스템 지식 서비스 후보의 모듈 경계, 의존성 방향, 조립 및 저장소 규칙을 정의합니다. 공유 서비스 계약 SDK는 권한을 부여하지 않는 `RuntimeScopeReceipt`를 소유하며, 서비스가 소유하는 모든 진입점은 시작 전에 이 증적을 하나 내보내 제품 목적, 실행 위치 및 허용된 완전한 기능 행을 결속하되 프로바이더 상태나 성공을 주장하지 않습니다. 공유 온톨로지 코드는 프로덕션 라우팅 및 탐지 제어의 고정된 절대 범위 레지스트리를 소유하고, 런타임과 전달 계층은 활성 값을 버전이 지정된 구성에 유지하며 새 권한 경로를 가져오지 않습니다. Post-turn 런타임 스킬 초안은 스킬을 활성화하지 않고 정규화된 검증 근거 참조를 제안 식별자, 영속 저장소 및 감사 메타데이터에 보존합니다. 조립 패키지는 서명된 스킬을 서명된 스킬 번들보다 먼저 다시 만들고, 두 후보가 모두 검증된 뒤에만 읽기 전용 공개 스냅샷 두 개를 게시하는 비활성 시작 도우미도 제공합니다. Core 시작은 신뢰 아티팩트 저장소와 배포가 제공하는 신뢰 루트가 조립되기 전까지 이 도우미를 호출하지 않습니다. Bootstrap은 후보를 평가하거나 게시하기 전에 Norns 룰 힌트를 현재 discovery-activation 결정 뒤에 결속합니다. 패키지 release 카탈로그는 도달 가능한 소스 개정 번호에만 고정하며 파생 소스 게이트는 커밋 전과 CI에서 기록된 모든 소스 blob을 비교합니다. 소유 설계 원본만 바뀌면 upstream 통합 뒤에 다시 생성하여 카탈로그 레코드는 유지하고 원본 약속값과 집계 다이제스트만 최종 병합 blob 및 도달 가능한 보호 main 개정 번호에 맞춥니다. 질문은행과 CQAS 산출물도 정확한 원본 카탈로그에서 의존성 순서에 따라 전체를 다시 생성하며 다이제스트만 수동으로 수정하지 않습니다. 확인된 인시던트 생성은 전용 논리 토픽의 버전이 지정된 권한 없는 요청으로 Operator/Core 경계를 통과합니다. Operator는 인증, 원본 초안 재검증 및 영속 수락을 소유하고 Core만 인시던트 수명 주기와 감사 레코드를 기록합니다. 워크플로 카탈로그 로드는 신호 트리거가 관찰 `SignalType` 레지스트리로 해석되었는지, 요청/명령 워크플로 트리거 어휘로 해석되었는지도 기록합니다. 이는 계약 메타데이터일 뿐이며 새 런타임 권한 경로를 추가하지 않습니다. 물리 패키지 소유권은 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md), 로컬 및 배포 topology는 [App 형태](../../../.github/instructions/app-shape.instructions.md)를 참조하세요. 공유 `fdai_service_contracts.post_turn_review` 모듈은 versioned cross-service wire seam입니다. Operator composition은 post-turn review 요청을 발행하고 Core Bragi만 review 묶음을 발행하므로 검토, 라우팅, 소유권은 Core와 Pantheon에 남습니다.
@@ -88,6 +88,11 @@ LinkType 계보와 함께 병합하며, 부분 원본 사유를 보존합니다.
 정리하며 권한이 있는 공유 작업 흐름 상태를 추가하지 않습니다.
 Core가 소유한 같은 스케줄러가 기존 잔여 호출 예산 검사 안에서 독립적인 최종 후보 선택도
 처리합니다. 모델, 서비스, 권한 또는 관측 상태 캐시를 추가하지 않습니다.
+
+컬렉션 관계는 앵커별 커버리지 행도 나열하므로, 관련 구성원이 없는 앵커는 읽기가 완전할 때만
+비어 있음으로 확인됩니다. 범위가 정해진 컬렉션 traversal은 한 단계씩 정확한 모집단을 읽을 수 있고,
+컬렉션 메트릭 읽기는 검토된 정성 레시피를 적용할 수 있으며, 멈춘 메트릭 읽기는 임대된 이어받기를
+발급할 수 있습니다. 이 읽기는 모두 읽기 전용으로 유지됩니다.
 
 ## 설계 개요
 테스트 맥락 선택지는 권한이 없는 projection schema로 공유 service-contract SDK를 확장합니다. Operator는 인증과 선택지 렌더링을 소유하고, Core는 계속 허용 및 수명 주기 권한을 유지합니다.
@@ -590,6 +595,15 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   지연되거나 없어도 활성 에이전트가 빈 화면으로 보이지 않습니다. 로컬 dev 모드는 Settings
   바로 위에 `Labs` 영역도 표시하며, 운영 탐색에서는 이 개발 전용 영역을 생략합니다.
 
+코드 보안 점검 결과의 결정론적 코어는 `core/security/code_findings/`, 카탈로그는
+`rule-catalog/code-security/`, 어댑터는 `delivery/code_security_*.py`와
+`delivery/persistence/state_store_code_security_*.py`에 둡니다. Operator 읽기 측은
+`code_security_review_projection.py`이고, Console 경로는 `routes/code-security.tsx`입니다. 스캔 실행
+이미지는 코어 이미지 옆의 `docker/code-security-scanner.Dockerfile`입니다. 큐레이션 평가 자료의
+코드 사례와 의존성 사례를 포함한 레이블 평가 자료는 `rule-catalog/code-security/evaluation/`에 있으며,
+순수 함수로 이루어진 `evaluation.py` 평가 도구가 측정합니다.
+[코드 보안 점검 결과](../operations/code-security-findings-ko.md)를 참조하세요.
+
 ## 리포지토리 스크립트 레이아웃
 
 리포지토리 자동화는 책임에 따라 `scripts/` 아래에 그룹화합니다. 루트 파일로는 레이아웃 README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이트, 무결성 도구, 거버넌스 검사,
@@ -708,6 +722,11 @@ Muninn은 게시와 원본 소유 legacy 정리에 하나의 Core 소유 cohort 
   [tech-stack-ko.md § OD-1](tech-stack-ko.md#od-1-core-런타임-언어) 에 있습니다. Python이
   아닌 트리: [rule-catalog/](../../../rule-catalog) (YAML 데이터), [policies/](../../../policies)
   (Rego), [infra/](../../../infra) (Terraform HCL).
+- **[lifecycle/](../../../lifecycle/README.md)에는 Hub 관리 수명 주기 구성 요소가 있습니다**. 이
+  구성 요소는 설치 서비스가 아닙니다. `lifecycle/hub/`는 서명된 Plan을 계산하는 Lifecycle Hub이고,
+  `lifecycle/agent/`는 설치본 옆에서 실행되는 수명 주기 에이전트입니다. 각각 자체 테스트를 가진 독립
+  배포 단위이므로 관리되는 5개 서비스 집합과 서비스 스위트 매니페스트는 바뀌지 않습니다. 공유 Plan 및
+  Release 검사는 Lifecycle I1의 `lifecycle-contracts` 분리 전까지 `packages/deployment-cli/`에 있습니다.
 - **선택한 각 빌드 프로파일에 고정된 lock을 사용합니다.** 루트 `uv.lock`은 기본 작업 영역
   lock이며 루트 `pyproject.toml`은 계속 `package = false`인 virtual workspace입니다. 독립
   release 프로세스에 필요한 경우 독립 배포판은 다른 lock 또는 제약 조건을 소유할 수 있습니다.

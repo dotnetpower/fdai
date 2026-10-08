@@ -1,0 +1,196 @@
+# FDAI weakness-verifier precision corpus: public, intentionally vulnerable projects.
+#
+# Each source is fetched at an exact commit when the evaluation runs; no third-party code is
+# stored in this repository. Labels come from each project's own documentation: Juice Shop's
+# `vuln-code-snippet vuln-line` source annotations and coding-challenge `*.info.yml` verdicts,
+# NodeGoat's OWASP Top 10 tutorial, WebGoat and pygoat lesson pages, the dvcsharp-api README,
+# vulnerable-node's lab pages, `VULN:` comments, and SAST `ground-truth.yaml`, DVNA's solution
+# pages and its `fixes` branch, the nodejs-goof README and exploit notes, dvws-node's
+# CHALLENGES.md, AspGoat's lab list and `Vulnerable` source comments, the NotSecDotNet exercise
+# list, and the OWASP Benchmark `expectedresults-*.csv` files. Safe labels mark sinks the projects
+# present as correct fixes or clean controls, or that use only server-controlled values; each one
+# cites its reason.
+#
+# Splits: `dev` locations may inform rule development; `holdout` locations must not. Every source
+# that existed in 1.0.0 (NodeGoat, Juice Shop, WebGoat, dvcsharp-api, pygoat) informed rule
+# development, as did the vulnerable-node shop routes and AspGoat, so they are `dev`. DVNA, the
+# DVNA fixes branch, nodejs-goof, dvws-node, NotSecDotNet, and the vulnerable-node SAST seeds were
+# evaluated only after the rules were frozen, so they are `holdout`. The OWASP Benchmark sources
+# split their expected results by a hash of the test name; rules were never tuned on either half.
+# Whole-file labels (from expected-results files) count any verifier hit in the labeled file.
+#
+# A verifier is promoted only when its precision meets the floor with at least
+# `min_true_positives` true positives in both the dev and the holdout split; everything else stays
+# in shadow.
+#
+# Run: python -m fdai.delivery.code_security_cli evaluate-verifiers --work-root <dir> --engine <opengrep|semgrep>
+schema_version: 1
+corpus_id: fdai.code-security.verifier-real
+version: 1.1.0
+provenance: curated
+precision_floor: 0.90
+min_true_positives: 1
+sources:
+  - id: nodegoat
+    split: dev
+    repository: https://github.com/OWASP/NodeGoat
+    commit: c5cb68a7084e4ae7dcc60e6a98768720a81841e8
+    license: Apache-2.0
+    label_source: NodeGoat tutorial, A1 server-side JavaScript injection
+    locations:
+      - {path: app/routes/contributions.js, line: 32, weakness_class: code_injection, verifier: taint, label: vulnerable}
+      - {path: app/routes/contributions.js, line: 33, weakness_class: code_injection, verifier: taint, label: vulnerable}
+      - {path: app/routes/contributions.js, line: 34, weakness_class: code_injection, verifier: taint, label: vulnerable}
+  - id: juice-shop
+    split: dev
+    repository: https://github.com/juice-shop/juice-shop
+    commit: 1618a611b173b4bf114028e6e02549950606e29d
+    license: MIT
+    label_source: vuln-code-snippet annotations and data/static/codefixes/*.info.yml
+    locations:
+      - {path: routes/login.ts, line: 34, weakness_class: sql_injection, verifier: taint, label: vulnerable}
+      - {path: routes/search.ts, line: 23, weakness_class: sql_injection, verifier: taint, label: vulnerable}
+      - {path: routes/search.ts, line: 47, weakness_class: sql_injection, verifier: taint, label: safe, reason: constant query}
+      - {path: data/static/codefixes/dbSchemaChallenge_1.ts, line: 5, weakness_class: sql_injection, verifier: taint, label: vulnerable}
+      - {path: data/static/codefixes/dbSchemaChallenge_2_correct.ts, line: 5, weakness_class: sql_injection, verifier: taint, label: safe, reason: documented correct fix with replacements}
+      - {path: data/static/codefixes/dbSchemaChallenge_3.ts, line: 11, weakness_class: sql_injection, verifier: taint, label: vulnerable}
+      - {path: data/static/codefixes/unionSqlInjectionChallenge_1.ts, line: 6, weakness_class: sql_injection, verifier: taint, label: vulnerable}
+      - {path: data/static/codefixes/unionSqlInjectionChallenge_2_correct.ts, line: 5, weakness_class: sql_injection, verifier: taint, label: safe, reason: documented correct fix with replacements}
+      - {path: data/static/codefixes/unionSqlInjectionChallenge_3.ts, line: 10, weakness_class: sql_injection, verifier: taint, label: vulnerable}
+      - {path: data/static/codefixes/loginAdminChallenge_1.ts, line: 18, weakness_class: sql_injection, verifier: taint, label: vulnerable}
+      - {path: data/static/codefixes/loginAdminChallenge_4_correct.ts, line: 15, weakness_class: sql_injection, verifier: taint, label: safe, reason: documented correct fix with bind}
+      - {path: routes/userProfile.ts, line: 65, weakness_class: code_injection, verifier: taint, label: vulnerable}
+      - {path: routes/profileImageFileUpload.ts, line: 42, weakness_class: path_traversal, verifier: taint, label: safe, reason: path uses the server-side user id looked up from the session}
+      - {path: routes/vulnCodeFixes.ts, line: 81, weakness_class: path_traversal, verifier: taint, label: safe, reason: key must match an existing fix file before the read}
+      - {path: routes/vulnCodeSnippet.ts, line: 90, weakness_class: path_traversal, verifier: taint, label: safe, reason: key must resolve to a known snippet before the read}
+  - id: webgoat
+    split: dev
+    repository: https://github.com/WebGoat/WebGoat
+    commit: 044948d057b249735be2bfc14eccc9e3dc2eac34
+    license: GPL-2.0
+    label_source: WebGoat SQL injection (advanced) and path traversal lessons
+    locations:
+      - {path: src/main/java/org/owasp/webgoat/lessons/sqlinjection/advanced/SqlInjectionChallenge.java, line: 62, weakness_class: sql_injection, verifier: taint, label: vulnerable}
+      - {path: src/main/java/org/owasp/webgoat/lessons/pathtraversal/ProfileUploadRetrieval.java, line: 101, weakness_class: path_traversal, verifier: taint, label: vulnerable}
+  - id: dvcsharp-api
+    split: dev
+    repository: https://github.com/appsecco/dvcsharp-api
+    commit: 76c1de3c9d8d9c2e8ec0b50abe3b198a4330d7fc
+    license: MIT
+    label_source: dvcsharp-api README, SQL injection in product search
+    locations:
+      - {path: Controllers/ProductsController.cs, line: 73, weakness_class: sql_injection, verifier: taint, label: vulnerable}
+  - id: pygoat
+    split: dev
+    repository: https://github.com/adeyosemanputra/pygoat
+    commit: 19d17cc8874861142b330636d068bbde54e86b85
+    license: MIT
+    label_source: pygoat lab pages for injection, command injection, insecure deserialization, and SSRF
+    locations:
+      - {path: introduction/views.py, line: 162, weakness_class: sql_injection, verifier: python, label: vulnerable}
+      - {path: introduction/views.py, line: 878, weakness_class: sql_injection, verifier: python, label: vulnerable}
+      - {path: introduction/views.py, line: 214, weakness_class: unsafe_deserialization, verifier: python, label: vulnerable}
+      - {path: introduction/views.py, line: 560, weakness_class: unsafe_deserialization, verifier: python, label: vulnerable}
+      - {path: dockerized_labs/insec_des_lab/main.py, line: 36, weakness_class: unsafe_deserialization, verifier: python, label: vulnerable}
+      - {path: introduction/views.py, line: 430, weakness_class: command_injection, verifier: python, label: vulnerable}
+      - {path: introduction/mitre.py, line: 233, weakness_class: command_injection, verifier: python, label: vulnerable, reason: reached through a helper called with request input}
+      - {path: challenge/views.py, line: 50, weakness_class: command_injection, verifier: python, label: safe, reason: argument list without a shell and server values only}
+      - {path: introduction/views.py, line: 460, weakness_class: code_injection, verifier: python, label: vulnerable}
+      - {path: introduction/mitre.py, line: 218, weakness_class: code_injection, verifier: python, label: vulnerable}
+      - {path: introduction/views.py, line: 927, weakness_class: path_traversal, verifier: python, label: vulnerable}
+      - {path: introduction/views.py, line: 995, weakness_class: path_traversal, verifier: python, label: safe, reason: file name is a server-generated id}
+  - id: vulnerable-node
+    repository: https://github.com/cr0hn/vulnerable-node
+    commit: d68f2a3c9277ece2c2feb9976052033bdecd7fbe
+    license: BSD-3-Clause
+    label_source: docs/labs 15 and 16, VULN source comments, and sast/ground-truth.yaml
+    split: dev
+    locations:
+      - {path: routes/extras.js, line: 17, weakness_class: path_traversal, verifier: taint, label: vulnerable}
+      - {path: routes/extras.js, line: 33, weakness_class: command_injection, verifier: taint, label: vulnerable}
+      - {path: sast/seeds/eval-code.js, line: 7, weakness_class: code_injection, verifier: taint, label: vulnerable, split: holdout}
+      - {path: sast/seeds/eval-code.js, line: 16, weakness_class: code_injection, verifier: taint, label: vulnerable, split: holdout}
+      - {path: sast/seeds/path-traversal.js, line: 7, weakness_class: path_traversal, verifier: taint, label: vulnerable, split: holdout}
+      - {path: sast/seeds/sqli-concat.js, line: 6, weakness_class: sql_injection, verifier: taint, label: vulnerable, split: holdout}
+      - {path: sast/seeds/clean-parameterized.js, line: 7, weakness_class: sql_injection, verifier: taint, label: safe, split: holdout, reason: documented clean control with bind parameters}
+      - {path: sast/seeds/clean-parameterized.js, line: 11, weakness_class: sql_injection, verifier: taint, label: safe, split: holdout, reason: documented clean control with bind parameters}
+      - {path: sast/seeds/clean-parameterized.js, line: 16, weakness_class: sql_injection, verifier: taint, label: safe, split: holdout, reason: documented clean control with bind parameters}
+  - id: dvna
+    repository: https://github.com/appsecco/dvna
+    commit: 9ba473add536f66ac9007966acb2a775dd31277a
+    license: MIT
+    label_source: DVNA docs/solution/a1-injection.md
+    split: holdout
+    locations:
+      - {path: core/appHandler.js, line: 11, weakness_class: sql_injection, verifier: taint, label: vulnerable}
+      - {path: core/appHandler.js, line: 39, weakness_class: command_injection, verifier: taint, label: vulnerable}
+  - id: dvna-fixes
+    repository: https://github.com/appsecco/dvna
+    commit: 4b16c488839ac5428b9c2573c96d886bee885b02
+    license: MIT
+    label_source: DVNA docs/solution/a1-injection.md fixes, implemented on the fixes branch
+    split: holdout
+    locations:
+      - {path: core/appHandler.js, line: 10, weakness_class: sql_injection, verifier: taint, label: safe, reason: documented fix with an ORM lookup after input validation}
+      - {path: core/appHandler.js, line: 43, weakness_class: command_injection, verifier: taint, label: safe, reason: documented fix with execFile argument array after IP validation}
+  - id: nodejs-goof
+    repository: https://github.com/snyk-labs/nodejs-goof
+    commit: add14ba59e98240d9e00a235dd7d42cd61ae9912
+    license: Apache-2.0
+    label_source: nodejs-goof README code vulnerabilities and exploits/shell-injection.md
+    split: holdout
+    locations:
+      - {path: routes/index.js, line: 174, weakness_class: command_injection, verifier: taint, label: vulnerable}
+  - id: dvws-node
+    repository: https://github.com/snoopysecurity/dvws-node
+    commit: eb6e2886f2206b88bf709fe1fa311adc3ae3c34f
+    license: GPL-3.0
+    label_source: dvws-node CHALLENGES.md sections 1, 3, and 10
+    split: holdout
+    locations:
+      - {path: src/controllers/passphrase.js, line: 45, weakness_class: sql_injection, verifier: taint, label: vulnerable}
+      - {path: src/controllers/passphrase.js, line: 58, weakness_class: sql_injection, verifier: taint, label: vulnerable}
+      - {path: src/controllers/notes.js, line: 79, weakness_class: command_injection, verifier: taint, label: vulnerable}
+      - {path: src/controllers/files.js, line: 91, weakness_class: path_traversal, verifier: taint, label: vulnerable}
+  - id: aspgoat
+    repository: https://github.com/Soham7-dev/AspGoat
+    commit: db3153f5dae036a9d67e12be22548299855c6b40
+    license: MIT
+    label_source: AspGoat README lab list and Vulnerable source comments in HomeController
+    split: dev
+    locations:
+      - {path: Controllers/HomeController.cs, line: 81, weakness_class: sql_injection, verifier: taint, label: vulnerable}
+      - {path: Controllers/HomeController.cs, line: 232, weakness_class: path_traversal, verifier: taint, label: vulnerable}
+      - {path: Controllers/HomeController.cs, line: 261, weakness_class: path_traversal, verifier: taint, label: vulnerable}
+      - {path: Controllers/HomeController.cs, line: 292, weakness_class: command_injection, verifier: taint, label: vulnerable}
+  - id: notsecdotnet
+    repository: https://github.com/defdeveu/NotSecDotNet
+    commit: 1a682c352b2165bf7ec05316f41244e5d8109f02
+    license: GPL-3.0
+    label_source: NotSecDotNet readme Exercise 1, SQL injection on the /movie endpoint
+    split: holdout
+    locations:
+      - {path: NotSecDotNet/Controllers/MovieController.cs, line: 51, weakness_class: sql_injection, verifier: taint, label: vulnerable}
+      - {path: NotSecDotNet/Services/MovieService.cs, line: 42, weakness_class: sql_injection, verifier: taint, label: vulnerable}
+  - id: owasp-benchmark-java
+    repository: https://github.com/OWASP-Benchmark/BenchmarkJava
+    commit: 8b67a88d73b2594570fc21150705283de884620b
+    license: GPL-2.0
+    label_source: expectedresults-1.2.csv
+    expected_results:
+      file: expectedresults-1.2.csv
+      path_template: src/main/java/org/owasp/benchmark/testcode/{test}.java
+      verifier: taint
+      split: hash
+      categories: {cmdi: command_injection, pathtraver: path_traversal, sqli: sql_injection}
+  - id: owasp-benchmark-python
+    repository: https://github.com/OWASP-Benchmark/BenchmarkPython
+    commit: f1291485808b66e20ddb6b01b10dc71b3df8c8ba
+    license: GPL-3.0
+    label_source: expectedresults-0.1.csv
+    expected_results:
+      file: expectedresults-0.1.csv
+      path_template: testcode/{test}.py
+      verifier: python
+      split: hash
+      categories: {cmdi: command_injection, codeinj: code_injection, deserialization: unsafe_deserialization, pathtraver: path_traversal, sqli: sql_injection}
