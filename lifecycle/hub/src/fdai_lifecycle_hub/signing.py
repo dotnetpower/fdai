@@ -1,4 +1,4 @@
-"""Ed25519 Hub signing keys for Lifecycle Plans.
+"""Ed25519 keys: Hub keys that sign Lifecycle Plans and installation keys that prove enrollment.
 
 Lifecycle I0 uses development keys that are valid only in the full-authority development
 profile's dedicated test scope (#1947). Keys are generated locally and stored outside the
@@ -78,15 +78,41 @@ def generate_development_key(private_path: Path) -> Path:
 
 
 def load_signing_key(private_path: Path, *, epoch: int) -> HubSigningKey:
+    return HubSigningKey(private_key=load_private_key(private_path), epoch=epoch)
+
+
+def load_private_key(private_path: Path) -> Ed25519PrivateKey:
     """Load an unencrypted PKCS8 Ed25519 private key that only its owner can read."""
 
     mode = stat.S_IMODE(private_path.stat().st_mode)
     if mode & 0o077:
-        raise PermissionError("Hub private key must not be readable by group or others")
+        raise PermissionError("a private key must not be readable by group or others")
     key = serialization.load_pem_private_key(private_path.read_bytes(), password=None)
     if not isinstance(key, Ed25519PrivateKey):
-        raise ValueError("Hub key must be an Ed25519 private key")
-    return HubSigningKey(private_key=key, epoch=epoch)
+        raise ValueError("a private key must be an Ed25519 private key")
+    return key
+
+
+def raw_public_key(private_key: Ed25519PrivateKey) -> bytes:
+    return private_key.public_key().public_bytes(
+        serialization.Encoding.Raw, serialization.PublicFormat.Raw
+    )
+
+
+def installation_key_id(public_key: bytes) -> str:
+    """The id an approver compares with the key the installation shows out of band."""
+
+    return "installation-" + hashlib.sha256(public_key).hexdigest()[:16]
+
+
+def verify_key_proof(*, public_key: bytes, payload: bytes, signature: bytes) -> bool:
+    """Ed25519 proof that the holder of `public_key` signed `payload`."""
+
+    try:
+        Ed25519PublicKey.from_public_bytes(public_key).verify(signature, payload)
+    except (ValueError, InvalidSignature):
+        return False
+    return True
 
 
 def load_public_key(public_path: Path) -> Ed25519PublicKey:

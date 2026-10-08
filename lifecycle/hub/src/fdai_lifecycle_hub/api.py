@@ -16,20 +16,29 @@ from starlette.responses import JSONResponse, Response
 from starlette.routing import Route
 
 from fdai_lifecycle_hub.domain import Clock, utc_now
+from fdai_lifecycle_hub.enrollment import EnrollmentStatus, KeyProofVerifier
 from fdai_lifecycle_hub.errors import (
     ConcurrentWriteError,
+    EnrollmentProofError,
+    InstallationExistsError,
     PlanDigestMismatchError,
     ReportConflictError,
     UnknownInstallationError,
     UnknownPlanError,
 )
-from fdai_lifecycle_hub.schemas import PlanReport
+from fdai_lifecycle_hub.schemas import PlanReport, SignedEnrollment, enrollment_request
+from fdai_lifecycle_hub.signing import verify_key_proof
 from fdai_lifecycle_hub.store import HubStore
 
 MAX_REPORT_BYTES = 16 * 1024
+MAX_ENROLLMENT_BYTES = 64 * 1024
 
 
-def create_app(store: HubStore, *, clock: Clock = utc_now) -> Starlette:
+def create_app(
+    store: HubStore, *, clock: Clock = utc_now, verify_proof: KeyProofVerifier = verify_key_proof
+) -> Starlette:
+    """The agent API. Approval is an operator action and is deliberately absent here."""
+
     async def healthz(request: Request) -> Response:
         return JSONResponse({"status": "ok"})
 
@@ -45,6 +54,31 @@ def create_app(store: HubStore, *, clock: Clock = utc_now) -> Starlette:
                     "signature": b64encode(plan.signature).decode("ascii"),
                 }
             }
+        )
+
+    async def post_enrollment(request: Request) -> Response:
+        body = await _read_limited(request, MAX_ENROLLMENT_BYTES)
+        if body is None:
+            return _error(413, "enrollment_too_large")
+        try:
+            signed = SignedEnrollment.model_validate_json(body)
+            enrollment = enrollment_request(signed.signed_payload, signed.proof)
+        except ValueError:  # Includes pydantic's ValidationError.
+            return _error(422, "enrollment_invalid")
+        if enrollment.installation.installation_id != request.path_params["installation_id"]:
+            return _error(422, "enrollment_invalid")
+        try:
+            await run_in_threadpool(
+                store.request_enrollment, enrollment, verify=verify_proof, now=clock()
+            )
+        except EnrollmentProofError as error:
+            return _error(403, error.failure)
+        return JSONResponse(
+            {
+                "enrollment": EnrollmentStatus.PENDING,
+                "installation_key_id": enrollment.installation_key_id,
+            },
+            status_code=202,
         )
 
     async def post_report(request: Request) -> Response:
@@ -67,6 +101,9 @@ def create_app(store: HubStore, *, clock: Clock = utc_now) -> Starlette:
     async def not_found(request: Request, exc: Exception) -> Response:
         return _error(404, "not_found")
 
+    async def exists(request: Request, exc: Exception) -> Response:
+        return _error(409, "installation_exists")
+
     async def conflict(request: Request, exc: Exception) -> Response:
         return _error(409, "report_conflict")
 
@@ -81,6 +118,9 @@ def create_app(store: HubStore, *, clock: Clock = utc_now) -> Starlette:
     return Starlette(
         routes=[
             Route("/healthz", healthz),
+            Route(
+                "/v1/installations/{installation_id}/enrollment", post_enrollment, methods=["POST"]
+            ),
             Route("/v1/installations/{installation_id}/plan", get_plan),
             Route(
                 "/v1/installations/{installation_id}/plans/{plan_id}/reports",
@@ -91,6 +131,7 @@ def create_app(store: HubStore, *, clock: Clock = utc_now) -> Starlette:
         exception_handlers={
             UnknownInstallationError: not_found,
             UnknownPlanError: not_found,
+            InstallationExistsError: exists,
             ReportConflictError: conflict,
             PlanDigestMismatchError: digest_mismatch,
             ConcurrentWriteError: retry,

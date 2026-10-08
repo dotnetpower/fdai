@@ -25,10 +25,12 @@ from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import DeclarativeBase, Mapped, WriteOnlyMapped, mapped_column, relationship
 from sqlalchemy.types import TypeDecorator
 
-from fdai_lifecycle_hub.domain import Health, OutcomeKind
+from fdai_lifecycle_hub.domain import MAX_RELEASE_ID_LENGTH, Health, OutcomeKind
+from fdai_lifecycle_hub.enrollment import EnrollmentStatus
 
 Digest = String(71)
 Identifier = String(160)
+ReleaseId = String(MAX_RELEASE_ID_LENGTH)
 
 
 class UtcDateTime(TypeDecorator[datetime]):
@@ -82,11 +84,14 @@ class Installation(Base):
     __tablename__ = "lifecycle_installation"
 
     installation_id: Mapped[str] = mapped_column(Identifier, primary_key=True)
+    enrollment: Mapped[EnrollmentStatus]
+    installation_key: Mapped[bytes] = mapped_column(LargeBinary)
     settings: Mapped[dict[str, Any]]
     suppressions: Mapped[list[Any]]
     configuration_digest: Mapped[str] = mapped_column(ForeignKey(ConfigurationRevision.digest))
     last_sequence: Mapped[int] = mapped_column(default=0)
-    enrolled_at: Mapped[datetime]
+    requested_at: Mapped[datetime]
+    enrolled_at: Mapped[datetime | None]
     recorded_at: Mapped[datetime]
 
     # An inner join keeps `SELECT ... FOR UPDATE` valid on PostgreSQL.
@@ -98,6 +103,8 @@ class Installation(Base):
 
 
 class Entity(Base):
+    """An Entity is managed when it has settings. Settings need proven ownership."""
+
     __tablename__ = "lifecycle_entity"
 
     installation_id: Mapped[str] = mapped_column(
@@ -105,7 +112,8 @@ class Entity(Base):
     )
     entity_id: Mapped[str] = mapped_column(Identifier, primary_key=True)
     kind: Mapped[str] = mapped_column(String(64))
-    managed: Mapped[bool]
+    ownership: Mapped[dict[str, Any] | None]
+    settings: Mapped[dict[str, Any] | None]
     recorded_at: Mapped[datetime]
 
 
@@ -138,7 +146,7 @@ class EntityReportedState(Base):
     report_id: Mapped[int] = mapped_column(ForeignKey(StateReport.id), primary_key=True)
     installation_id: Mapped[str] = mapped_column(Identifier)
     entity_id: Mapped[str] = mapped_column(Identifier, primary_key=True)
-    release_id: Mapped[str] = mapped_column(String(64))
+    release_id: Mapped[str] = mapped_column(ReleaseId)
     artifact_digests: Mapped[list[Any]]
     health: Mapped[Health]
 
@@ -153,7 +161,7 @@ class PlanEvaluation(Base):
         ForeignKey(Installation.installation_id), index=True
     )
     outcome: Mapped[OutcomeKind]
-    target_release_id: Mapped[str | None] = mapped_column(String(64))
+    target_release_id: Mapped[str | None] = mapped_column(ReleaseId)
     plan_id: Mapped[str | None] = mapped_column(Identifier)
     evaluated_at: Mapped[datetime]
 
@@ -167,7 +175,7 @@ class PlanConstraintResult(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     evaluation_id: Mapped[int] = mapped_column(ForeignKey(PlanEvaluation.id), index=True)
-    release_id: Mapped[str] = mapped_column(String(64))
+    release_id: Mapped[str] = mapped_column(ReleaseId)
     reason_code: Mapped[str | None] = mapped_column(String(96))
     details: Mapped[list[Any]]
 
@@ -182,7 +190,7 @@ class Plan(Base):
     installation_id: Mapped[str] = mapped_column(ForeignKey(Installation.installation_id))
     sequence: Mapped[int]
     plan_type: Mapped[str] = mapped_column(String(32))
-    target_release_id: Mapped[str] = mapped_column(String(64))
+    target_release_id: Mapped[str] = mapped_column(ReleaseId)
     source_state_digest: Mapped[str] = mapped_column(Digest)
     configuration_digest: Mapped[str] = mapped_column(Digest)
     hub_key_id: Mapped[str] = mapped_column(String(64))

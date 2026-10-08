@@ -13,13 +13,42 @@ from fdai_lifecycle_hub import domain
 from fdai_lifecycle_hub.catalog import load_catalog
 from fdai_lifecycle_hub.cli import DATABASE_URL_ENV, main
 from fdai_lifecycle_hub.domain import Installation
-from fdai_lifecycle_hub.schemas import installation_json, reported_state_json
+from fdai_lifecycle_hub.schemas import entity_settings_json, ownership_json, reported_state_json
 
 
 def _run(capsys: pytest.CaptureFixture[str], *argv: str) -> dict[str, Any]:
     assert main(list(argv)) == 0
     output: dict[str, Any] = json.loads(capsys.readouterr().out)
     return output
+
+
+def _enroll(
+    capsys: pytest.CaptureFixture[str],
+    tmp_path: Path,
+    template: dict[str, Any],
+    installation: Installation,
+) -> None:
+    """Migrate, then enroll, approve, and manage the installation's managed entities."""
+
+    request, key = tmp_path / "enrollment.json", tmp_path / "installation.pem"
+    request.write_text(json.dumps(template))
+    _run(capsys, "migrate")
+    _run(capsys, "dev-keygen", str(key))
+    pending = _run(capsys, "dev-enroll", str(request), "--key", str(key))
+    installation_id = pending["pending"]
+    key_id = pending["installation_key_id"]
+    _run(capsys, "approve", installation_id, "--approver", "alice", "--installation-key-id", key_id)
+    for entity in installation.entities:
+        if entity.ownership is None or entity.settings is None:
+            continue
+        evidence = tmp_path / f"{entity.entity_id}-ownership.json"
+        evidence.write_bytes(ownership_json.dump_json(entity.ownership))
+        settings = tmp_path / f"{entity.entity_id}-settings.json"
+        settings.write_bytes(entity_settings_json.dump_json(entity.settings))
+        _run(capsys, "record-ownership", installation_id, entity.entity_id, str(evidence))
+        _run(
+            capsys, "manage", installation_id, entity.entity_id, str(settings), "--operator", "bob"
+        )
 
 
 def test_catalog_directory_loads_releases_and_channels(catalog_dir: Path) -> None:
@@ -54,8 +83,9 @@ def test_dev_keygen_writes_owner_only_private_key(
         main(["dev-keygen", str(private)])
 
 
-def test_register_recompute_show_flow(
+def test_enroll_recompute_show_flow(
     tmp_path: Path,
+    enrollment_template: dict[str, Any],
     catalog_dir: Path,
     installation: Installation,
     now: datetime,
@@ -64,8 +94,6 @@ def test_register_recompute_show_flow(
 ) -> None:
     monkeypatch.setenv(DATABASE_URL_ENV, f"sqlite+pysqlite:///{tmp_path / 'hub.db'}")
     monkeypatch.setattr(domain, "utc_now", lambda: now)
-    spec = tmp_path / "installation.json"
-    spec.write_bytes(installation_json.dump_json(installation))
     key = tmp_path / "hub.pem"
     _run(capsys, "dev-keygen", str(key))
     recompute = [
@@ -77,8 +105,7 @@ def test_register_recompute_show_flow(
         str(key),
     ]
 
-    _run(capsys, "migrate")
-    assert _run(capsys, "register", str(spec)) == {"registered": "installation-alpha"}
+    _enroll(capsys, tmp_path, enrollment_template, installation)
     issued = _run(capsys, *recompute)
     unchanged = _run(capsys, *recompute)
     shown = _run(capsys, "show", "installation-alpha")
@@ -98,10 +125,12 @@ def test_register_recompute_show_flow(
         "expires_at": "2026-10-05T03:30:00+00:00",
     }
     assert shown["last_evaluation"]["outcome"] == "unchanged"
+    assert shown["enrollment"] == "enrolled"
 
 
 def test_record_state_then_recompute_reports_up_to_date(
     tmp_path: Path,
+    enrollment_template: dict[str, Any],
     catalog_dir: Path,
     installation: Installation,
     now: datetime,
@@ -110,8 +139,6 @@ def test_record_state_then_recompute_reports_up_to_date(
 ) -> None:
     monkeypatch.setenv(DATABASE_URL_ENV, f"sqlite+pysqlite:///{tmp_path / 'hub.db'}")
     monkeypatch.setattr(domain, "utc_now", lambda: now)
-    spec = tmp_path / "installation.json"
-    spec.write_bytes(installation_json.dump_json(installation))
     core = replace(installation.reported.entities["core"], release_id="1.6.0")
     upgraded = replace(
         installation.reported,
@@ -122,8 +149,7 @@ def test_record_state_then_recompute_reports_up_to_date(
     state.write_bytes(reported_state_json.dump_json(upgraded))
     key = tmp_path / "hub.pem"
     _run(capsys, "dev-keygen", str(key))
-    _run(capsys, "migrate")
-    _run(capsys, "register", str(spec))
+    _enroll(capsys, tmp_path, enrollment_template, installation)
 
     assert _run(capsys, "record-state", "installation-alpha", str(state)) == {
         "recorded": upgraded.digest
@@ -161,6 +187,7 @@ def test_invalid_state_is_rejected_at_the_boundary(
 
 def test_suppress_and_unsuppress(
     tmp_path: Path,
+    enrollment_template: dict[str, Any],
     installation: Installation,
     now: datetime,
     monkeypatch: pytest.MonkeyPatch,
@@ -168,10 +195,7 @@ def test_suppress_and_unsuppress(
 ) -> None:
     monkeypatch.setenv(DATABASE_URL_ENV, f"sqlite+pysqlite:///{tmp_path / 'hub.db'}")
     monkeypatch.setattr(domain, "utc_now", lambda: now)
-    spec = tmp_path / "installation.json"
-    spec.write_bytes(installation_json.dump_json(installation))
-    _run(capsys, "migrate")
-    _run(capsys, "register", str(spec))
+    _enroll(capsys, tmp_path, enrollment_template, installation)
 
     suppressed = _run(capsys, "suppress", "installation-alpha", "--minutes", "30")
     lifted = _run(capsys, "unsuppress", "installation-alpha")
@@ -181,6 +205,29 @@ def test_suppress_and_unsuppress(
     assert main(["unsuppress", "installation-alpha"]) == 1
     assert main(["suppress", "installation-alpha", "--scope", "region"]) == 1
     assert "unknown suppression scope" in capsys.readouterr().err
+
+
+def test_approval_needs_the_requesting_key_and_rejection_is_final(
+    tmp_path: Path,
+    enrollment_template: dict[str, Any],
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv(DATABASE_URL_ENV, f"sqlite+pysqlite:///{tmp_path / 'hub.db'}")
+    request, key = tmp_path / "enrollment.json", tmp_path / "installation.pem"
+    request.write_text(json.dumps(enrollment_template))
+    _run(capsys, "migrate")
+    _run(capsys, "dev-keygen", str(key))
+    _run(capsys, "dev-enroll", str(request), "--key", str(key))
+    approve = ["approve", "installation-alpha", "--approver", "alice"]
+
+    assert main([*approve, "--installation-key-id", "installation-other"]) == 1
+    assert capsys.readouterr().err.startswith("InstallationKeyMismatchError")
+    rejected = _run(
+        capsys, "reject", "installation-alpha", "--approver", "alice", "--reason", "unknown_key"
+    )
+    assert rejected == {"rejected": "installation-alpha"}
+    assert _run(capsys, "show", "installation-alpha")["enrollment"] == "rejected"
 
 
 def test_refused_request_exits_with_a_message(

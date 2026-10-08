@@ -12,6 +12,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from fdai_lifecycle_hub import domain, models, schemas
+from fdai_lifecycle_hub.enrollment import EnrollmentRequest, EnrollmentStatus
+from fdai_lifecycle_hub.entity import Entity
 from fdai_lifecycle_hub.models import PlanEventKind
 
 
@@ -22,10 +24,7 @@ def to_domain(session: Session, row: models.Installation) -> domain.Installation
     return domain.Installation(
         installation_id=row.installation_id,
         settings=schemas.settings_json.validate_python(row.settings),
-        entities=frozenset(
-            domain.Entity(entity_id=entity.entity_id, kind=entity.kind, managed=entity.managed)
-            for entity in row.entities
-        ),
+        entities=frozenset(map(domain_entity, row.entities)),
         configuration=schemas.configuration_json.validate_python(row.configuration.body),
         reported=domain.ReportedState(
             digest=latest.digest,
@@ -43,6 +42,19 @@ def to_domain(session: Session, row: models.Installation) -> domain.Installation
         suppressions=schemas.suppressions_json.validate_python(row.suppressions),
         last_sequence=row.last_sequence,
         open_plan=open_plan(session, row.installation_id),
+    )
+
+
+def domain_entity(row: models.Entity) -> Entity:
+    return Entity(
+        entity_id=row.entity_id,
+        kind=row.kind,
+        ownership=None
+        if row.ownership is None
+        else schemas.ownership_json.validate_python(row.ownership),
+        settings=None
+        if row.settings is None
+        else schemas.entity_settings_json.validate_python(row.settings),
     )
 
 
@@ -99,14 +111,17 @@ def evaluation(row: models.PlanEvaluation) -> domain.Evaluation:
     )
 
 
-def installation_row(
-    session: Session, installation: domain.Installation, now: datetime
+def pending_installation_row(
+    session: Session, request: EnrollmentRequest, now: datetime
 ) -> models.Installation:
+    installation = request.installation
     configuration = installation.configuration
     return models.Installation(
         installation_id=installation.installation_id,
+        enrollment=EnrollmentStatus.PENDING,
+        installation_key=request.installation_key,
         settings=schemas.settings_json.dump_python(installation.settings, mode="json"),
-        suppressions=schemas.suppressions_json.dump_python(installation.suppressions, mode="json"),
+        suppressions=[],
         # Revisions are content-addressed, so an existing digest already holds this content.
         configuration=session.get(models.ConfigurationRevision, configuration.digest)
         or models.ConfigurationRevision(
@@ -114,15 +129,10 @@ def installation_row(
             body=schemas.configuration_json.dump_python(configuration, mode="json"),
             imported_at=now,
         ),
-        enrolled_at=now,
+        requested_at=request.requested_at,
         recorded_at=now,
         entities=[
-            models.Entity(
-                entity_id=entity.entity_id,
-                kind=entity.kind,
-                managed=entity.managed,
-                recorded_at=now,
-            )
+            models.Entity(entity_id=entity.entity_id, kind=entity.kind, recorded_at=now)
             for entity in installation.entities
         ],
     )

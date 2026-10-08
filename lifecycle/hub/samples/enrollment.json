@@ -19,8 +19,7 @@
   "entities": [
     {
       "entity_id": "core",
-      "kind": "service",
-      "managed": true
+      "kind": "service"
     }
   ],
   "configuration": {

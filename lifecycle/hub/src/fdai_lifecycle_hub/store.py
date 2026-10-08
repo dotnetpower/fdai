@@ -11,17 +11,32 @@ from contextlib import contextmanager
 from datetime import datetime
 from typing import Self, assert_never
 
+from fdai_deployment_cli.lifecycle_configuration import (
+    ConfigurationValidationError,
+    resolve_configuration_layers,
+)
 from fdai_deployment_cli.lifecycle_plan import SuppressionWindow
 from sqlalchemy import Engine, create_engine
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
-from fdai_lifecycle_hub import audit, domain, mapping, models, schemas
+from fdai_lifecycle_hub import audit, domain, mapping, models, schemas, signing
+from fdai_lifecycle_hub.enrollment import EnrollmentRequest, EnrollmentStatus, KeyProofVerifier
+from fdai_lifecycle_hub.entity import EntitySettings, OwnershipEvidence
 from fdai_lifecycle_hub.errors import (
     ConcurrentWriteError,
+    EnrollmentProofError,
+    EntityManagedError,
+    EntityNotReportedError,
+    EntitySettingsRejectedError,
     InstallationExistsError,
+    InstallationKeyMismatchError,
+    NotEnrolledError,
+    NotPendingError,
+    OwnershipUnprovenError,
     PlanDigestMismatchError,
     ReportConflictError,
+    UnknownEntityError,
     UnknownInstallationError,
     UnknownPlanError,
 )
@@ -57,26 +72,146 @@ class HubStore:
                 raise
             raise ConcurrentWriteError("a concurrent write committed first; retry") from error
 
-    def register(self, installation: domain.Installation, *, now: datetime) -> None:
-        if installation.open_plan is not None or installation.last_sequence:
-            raise ValueError("a newly registered installation has no Plans")
-        installation_id = installation.installation_id
+    def request_enrollment(
+        self, request: EnrollmentRequest, *, verify: KeyProofVerifier, now: datetime
+    ) -> None:
+        """Record a pending request, or audit why its key proof fails and raise."""
+
+        installation_id = request.installation.installation_id
+        details = {"installation_key_id": request.installation_key_id}
+        if (failure := request.proof_failure(verify, now)) is not None:
+            with self._write() as session:
+                audit.append(
+                    session,
+                    now,
+                    "enrollment.proof_failed",
+                    installation_id,
+                    installation_id,
+                    details | {"reason": failure},
+                )
+            raise EnrollmentProofError(failure)
         with self._write() as session:
             if session.get(models.Installation, installation_id) is not None:
                 raise InstallationExistsError(installation_id)
-            row = mapping.installation_row(session, installation, now)
+            row = mapping.pending_installation_row(session, request, now)
             session.add(row)
             session.flush()
-            row.state_reports.add(
-                mapping.state_report_row(installation_id, installation.reported, now)
+            reported = request.installation.reported
+            row.state_reports.add(mapping.state_report_row(installation_id, reported, now))
+            audit.append(
+                session, now, "enrollment.requested", installation_id, installation_id, details
             )
-            audit.append(session, now, "installation.registered", installation_id, installation_id)
+
+    def approve(
+        self, installation_id: str, *, approver: str, installation_key_id: str, now: datetime
+    ) -> None:
+        """Enroll a pending installation. Every Entity starts unmanaged."""
+
+        approver = schemas.actor_name.validate_python(approver)
+        with self._write() as session:
+            row = _lock_pending(session, installation_id)
+            if signing.installation_key_id(row.installation_key) != installation_key_id:
+                raise InstallationKeyMismatchError(installation_key_id)
+            row.enrollment = EnrollmentStatus.ENROLLED
+            row.enrolled_at = row.recorded_at = now
+            details = {
+                "approver": approver,
+                "installation_key_id": installation_key_id,
+                "unmanaged_entities": sorted(entity.entity_id for entity in row.entities),
+            }
+            audit.append(
+                session, now, "enrollment.approved", installation_id, installation_id, details
+            )
+
+    def reject(self, installation_id: str, *, approver: str, reason: str, now: datetime) -> None:
+        details = {
+            "approver": schemas.actor_name.validate_python(approver),
+            "reason": schemas.reason_code.validate_python(reason),
+        }
+        with self._write() as session:
+            row = _lock_pending(session, installation_id)
+            row.enrollment = EnrollmentStatus.REJECTED
+            row.recorded_at = now
+            audit.append(
+                session, now, "enrollment.rejected", installation_id, installation_id, details
+            )
+
+    def enrollment_status(self, installation_id: str) -> EnrollmentStatus:
+        with self._sessions() as session:
+            return _get_installation(session, installation_id).enrollment
+
+    def record_ownership(
+        self,
+        installation_id: str,
+        entity_id: str,
+        evidence: OwnershipEvidence,
+        *,
+        now: datetime,
+    ) -> None:
+        """Record an unmanaged Entity's ownership evidence, and in the audit why it falls short."""
+
+        with self._write() as session:
+            _lock_enrolled(session, installation_id)
+            row = _entity_row(session, installation_id, entity_id)
+            if mapping.domain_entity(row).managed:
+                raise EntityManagedError(entity_id)
+            row.ownership = schemas.ownership_json.dump_python(evidence, mode="json")
+            row.recorded_at = now
+            audit.append(
+                session,
+                now,
+                "entity.ownership_recorded",
+                installation_id,
+                entity_id,
+                {"reason": evidence.gap},
+            )
+
+    def manage(
+        self,
+        installation_id: str,
+        entity_id: str,
+        settings: EntitySettings,
+        *,
+        operator: str,
+        now: datetime,
+    ) -> str:
+        """Give an Entity with proven ownership its settings, which makes it managed.
+
+        Returns the override range that covers the Entity's running Release.
+        """
+
+        operator = schemas.actor_name.validate_python(operator)
+        with self._write() as session:
+            installation = mapping.to_domain(session, _lock_enrolled(session, installation_id))
+            row = _entity_row(session, installation_id, entity_id)
+            if (gap := mapping.domain_entity(row).ownership_gap) is not None:
+                raise OwnershipUnprovenError(f"{entity_id}: {gap}")
+            if (state := installation.reported.entities.get(entity_id)) is None:
+                raise EntityNotReportedError(entity_id)
+            try:
+                covering = resolve_configuration_layers(
+                    release_version=state.release_id,
+                    configuration_schema=installation.configuration.schema,
+                    environment_config=installation.configuration.environment,
+                    entity_overrides=settings.overrides,
+                ).version_range
+            except ConfigurationValidationError as error:
+                raise EntitySettingsRejectedError(f"{entity_id}: {error.code}") from error
+            row.settings = schemas.entity_settings_json.dump_python(settings, mode="json")
+            row.recorded_at = now
+            details = {
+                "operator": operator,
+                "settings_digest": settings.digest,
+                "covering_range": covering,
+            }
+            audit.append(session, now, "entity.managed", installation_id, entity_id, details)
+            return covering
 
     def record_state(
         self, installation_id: str, state: domain.ReportedState, *, now: datetime
     ) -> None:
         with self._write() as session:
-            row = _lock_installation(session, installation_id)
+            row = _lock_enrolled(session, installation_id)
             updated = mapping.to_domain(session, row).with_reported(state)
             row.state_reports.add(mapping.state_report_row(installation_id, updated.reported, now))
             row.recorded_at = now
@@ -88,14 +223,14 @@ class HubStore:
         """Add a suppression. The API stops serving a Plan it covers while it is active."""
 
         with self._write() as session:
-            row = _lock_installation(session, installation_id)
+            row = _lock_enrolled(session, installation_id)
             _store_suppressions(row, mapping.to_domain(session, row).suppressed(window, now), now)
             details = {"ends_at": window.ends_at.isoformat()}
             audit.append(session, now, "suppression.added", installation_id, window.scope, details)
 
     def lift_suppressions(self, installation_id: str, scope: str, *, now: datetime) -> None:
         with self._write() as session:
-            row = _lock_installation(session, installation_id)
+            row = _lock_enrolled(session, installation_id)
             _store_suppressions(row, mapping.to_domain(session, row).lifted(scope, now), now)
             audit.append(session, now, "suppression.lifted", installation_id, scope)
 
@@ -109,7 +244,7 @@ class HubStore:
         """Plan under the installation lock and record the outcome and every check."""
 
         with self._write() as session:
-            row = _lock_installation(session, installation_id)
+            row = _lock_enrolled(session, installation_id)
             installation = mapping.to_domain(session, row)
             outcome = planner(installation, now)
             evaluation = models.PlanEvaluation(
@@ -140,7 +275,7 @@ class HubStore:
                 case domain.Waiting(release_id=release_id):
                     _supersede(session, installation.open_plan, now)
                     evaluation.target_release_id = release_id
-                case domain.NoEligibleRelease() | domain.UpToDate():
+                case domain.NoEligibleRelease() | domain.UpToDate() | domain.NoManagedEntity():
                     _supersede(session, installation.open_plan, now)
                 case _:
                     assert_never(outcome)
@@ -156,10 +291,12 @@ class HubStore:
             return outcome
 
     def current_plan(self, installation_id: str, *, now: datetime) -> domain.IssuedPlan | None:
-        """The open Plan, unless it has expired or an active suppression covers it."""
+        """An enrolled installation's open Plan, unless it expired or a suppression holds it."""
 
         with self._sessions() as session:
             row = _get_installation(session, installation_id)
+            if row.enrollment is not EnrollmentStatus.ENROLLED:
+                return None
             plan = mapping.open_plan(session, installation_id)
             if plan is None or now >= plan.expires_at:
                 return None
@@ -230,6 +367,28 @@ def _lock_installation(session: Session, installation_id: str) -> models.Install
     row = session.get(models.Installation, installation_id, with_for_update=True)
     if row is None:
         raise UnknownInstallationError(installation_id)
+    return row
+
+
+def _lock_enrolled(session: Session, installation_id: str) -> models.Installation:
+    row = _lock_installation(session, installation_id)
+    if row.enrollment is not EnrollmentStatus.ENROLLED:
+        raise NotEnrolledError(installation_id)
+    return row
+
+
+def _lock_pending(session: Session, installation_id: str) -> models.Installation:
+    row = _lock_installation(session, installation_id)
+    if row.enrollment is not EnrollmentStatus.PENDING:
+        raise NotPendingError(f"{installation_id} is {row.enrollment.value}")
+    return row
+
+
+def _entity_row(session: Session, installation_id: str, entity_id: str) -> models.Entity:
+    """An Entity row. Callers hold the installation lock, which serializes Entity changes."""
+
+    if (row := session.get(models.Entity, (installation_id, entity_id))) is None:
+        raise UnknownEntityError(entity_id)
     return row
 
 

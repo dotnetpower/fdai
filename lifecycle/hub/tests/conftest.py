@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-from collections.abc import Iterator
+import os
+from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, time, timedelta
 from functools import partial
 from pathlib import Path
@@ -15,11 +16,11 @@ from fdai_deployment_cli.runtime_release import RuntimeRelease, parse_runtime_re
 from sqlalchemy import create_engine
 from sqlalchemy.pool import StaticPool
 
+from fdai_lifecycle_hub import schemas
 from fdai_lifecycle_hub.catalog import ReleaseCatalog
 from fdai_lifecycle_hub.domain import (
     Configuration,
     DailyWindow,
-    Entity,
     EntityState,
     Health,
     Installation,
@@ -27,8 +28,13 @@ from fdai_lifecycle_hub.domain import (
     ReportedState,
     Settings,
 )
+from fdai_lifecycle_hub.enrollment import EnrollmentRequest
+from fdai_lifecycle_hub.entity import Entity, EntitySettings, OwnershipEvidence
 from fdai_lifecycle_hub.planning import plan_next
-from fdai_lifecycle_hub.signing import HubSigningKey
+from fdai_lifecycle_hub.signing import (
+    HubSigningKey,
+    verify_key_proof,
+)
 from fdai_lifecycle_hub.store import HubStore
 
 # 12:00 in Asia/Seoul, inside the fixture's 11:30-12:30 daily window.
@@ -85,6 +91,33 @@ def _release(release_id: str) -> RuntimeRelease:
 
 
 RELEASE_IDS = ("1.4.0", "1.5.0", "1.6.0")
+PROVEN = OwnershipEvidence(
+    foundation_receipt_digest="sha256:" + _digest("foundation-receipt"),
+    terraform_state_digest="sha256:" + _digest("terraform-state"),
+)
+CORE_SETTINGS = EntitySettings(
+    overrides=({"versions": ">=1.0.0 <2.0.0", "values": {"replicas": 2}},)
+)
+
+type Enroll = Callable[[HubStore, Installation], None]
+type Sign = Callable[[Installation, datetime], EnrollmentRequest]
+
+
+def _template(installation: Installation) -> dict[str, Any]:
+    """An enrollment request before the agent adds its key and time: no managed state."""
+
+    return {
+        "installation_id": installation.installation_id,
+        "settings": schemas.settings_json.dump_python(installation.settings, mode="json"),
+        "configuration": schemas.configuration_json.dump_python(
+            installation.configuration, mode="json"
+        ),
+        "entities": [
+            {"entity_id": entity.entity_id, "kind": entity.kind}
+            for entity in sorted(installation.entities, key=lambda e: e.entity_id)
+        ],
+        "reported": schemas.reported_state_json.dump_python(installation.reported, mode="json"),
+    }
 
 
 @pytest.fixture
@@ -114,8 +147,8 @@ def installation() -> Installation:
         ),
         entities=frozenset(
             {
-                Entity(entity_id="core", kind="service", managed=True),
-                Entity(entity_id="console", kind="static-site", managed=False),
+                Entity(entity_id="core", kind="service", ownership=PROVEN, settings=CORE_SETTINGS),
+                Entity(entity_id="console", kind="static-site"),
             }
         ),
         configuration=Configuration(
@@ -153,6 +186,58 @@ def key() -> HubSigningKey:
 
 
 @pytest.fixture
+def installation_key() -> Ed25519PrivateKey:
+    return Ed25519PrivateKey.generate()
+
+
+@pytest.fixture
+def enrollment_template(installation: Installation) -> dict[str, Any]:
+    return _template(installation)
+
+
+@pytest.fixture
+def sign(installation_key: Ed25519PrivateKey) -> Sign:
+    """Sign an enrollment request for `installation` at a time, as its agent would."""
+
+    def run(installation: Installation, at: datetime) -> EnrollmentRequest:
+        return schemas.sign_enrollment(_template(installation), installation_key, at)
+
+    return run
+
+
+@pytest.fixture
+def enrollment(sign: Sign, installation: Installation, now: datetime) -> EnrollmentRequest:
+    return sign(installation, now)
+
+
+@pytest.fixture
+def enroll(sign: Sign, now: datetime) -> Enroll:
+    """Enroll an installation through the public flow and manage its managed entities."""
+
+    def run(store: HubStore, installation: Installation) -> None:
+        installation_id = installation.installation_id
+        request = sign(installation, now)
+        store.request_enrollment(request, verify=verify_key_proof, now=now)
+        key_id = request.installation_key_id
+        store.approve(installation_id, approver="approver", installation_key_id=key_id, now=now)
+        for entity in installation.entities:
+            if entity.ownership is not None:
+                store.record_ownership(installation_id, entity.entity_id, entity.ownership, now=now)
+            if entity.settings is not None:
+                store.manage(
+                    installation_id, entity.entity_id, entity.settings, operator="operator", now=now
+                )
+
+    return run
+
+
+@pytest.fixture
+def enrolled_store(store: HubStore, enroll: Enroll, installation: Installation) -> HubStore:
+    enroll(store, installation)
+    return store
+
+
+@pytest.fixture
 def planner(catalog: ReleaseCatalog, key: HubSigningKey) -> Planner:
     return partial(plan_next, catalog=catalog, key=key)
 
@@ -180,3 +265,18 @@ def catalog_dir(tmp_path: Path) -> Path:
         )
     (root / "channels.json").write_text(json.dumps({"stable": list(RELEASE_IDS)}))
     return root
+
+
+@pytest.fixture(params=["sqlite", pytest.param("postgres", marks=pytest.mark.integration)])
+def hub_store(request: pytest.FixtureRequest, store: HubStore) -> Iterator[HubStore]:
+    if request.param == "sqlite":
+        yield store
+        return
+    url = os.environ.get("FDAI_DATABASE_URL")
+    if not url:
+        pytest.skip("FDAI_DATABASE_URL is not set")
+    postgres = HubStore.connect(url.replace("postgresql://", "postgresql+psycopg://", 1))
+    postgres.drop_schema()
+    postgres.create_schema()
+    yield postgres
+    postgres.drop_schema()

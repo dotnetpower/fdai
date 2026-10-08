@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from base64 import b64decode
+from base64 import b64decode, b64encode
 from collections.abc import Iterator
 from datetime import datetime
 
@@ -9,6 +9,7 @@ from starlette.testclient import TestClient
 
 from fdai_lifecycle_hub.api import MAX_REPORT_BYTES, create_app
 from fdai_lifecycle_hub.domain import Installation, Issued, IssuedPlan, Planner
+from fdai_lifecycle_hub.enrollment import EnrollmentRequest
 from fdai_lifecycle_hub.signing import HubSigningKey, signature_verifier
 from fdai_lifecycle_hub.store import HubStore
 
@@ -22,14 +23,15 @@ REPORT: dict[str, object] = {
 
 
 @pytest.fixture
-def client(store: HubStore, installation: Installation, now: datetime) -> TestClient:
-    store.register(installation, now=now)
-    return TestClient(create_app(store, clock=lambda: now))
+def client(enrolled_store: HubStore, now: datetime) -> TestClient:
+    return TestClient(create_app(enrolled_store, clock=lambda: now))
 
 
 @pytest.fixture
-def issued(store: HubStore, installation: Installation, planner: Planner, now: datetime) -> Issued:
-    outcome = store.recompute(installation.installation_id, planner, now=now)
+def issued(
+    enrolled_store: HubStore, installation: Installation, planner: Planner, now: datetime
+) -> Issued:
+    outcome = enrolled_store.recompute(installation.installation_id, planner, now=now)
     assert isinstance(outcome, Issued)
     return outcome
 
@@ -121,3 +123,65 @@ def test_oversized_report_returns_413(client: TestClient, issued: Issued) -> Non
 
 def test_report_for_unknown_plan_returns_404(client: TestClient, report: dict[str, object]) -> None:
     assert client.post(_reports_url("missing"), json=report).status_code == 404
+
+
+ENROLLMENT_URL = "/v1/installations/installation-alpha/enrollment"
+
+
+def _wire(request: EnrollmentRequest, *, proof: bytes | None = None) -> dict[str, str]:
+    return {
+        "signed_payload": b64encode(request.signed_payload).decode("ascii"),
+        "proof": b64encode(request.proof if proof is None else proof).decode("ascii"),
+    }
+
+
+def test_enrollment_is_accepted_as_pending_and_serves_no_plan(
+    store: HubStore, enrollment: EnrollmentRequest, now: datetime
+) -> None:
+    client = TestClient(create_app(store, clock=lambda: now))
+
+    accepted = client.post(ENROLLMENT_URL, json=_wire(enrollment))
+    duplicate = client.post(ENROLLMENT_URL, json=_wire(enrollment))
+
+    assert (accepted.status_code, accepted.json()) == (
+        202,
+        {"enrollment": "pending", "installation_key_id": enrollment.installation_key_id},
+    )
+    assert (duplicate.status_code, duplicate.json()) == (409, {"error": "installation_exists"})
+    assert client.get("/v1/installations/installation-alpha/plan").status_code == 204
+
+
+def test_invalid_proof_returns_403(
+    store: HubStore, enrollment: EnrollmentRequest, now: datetime
+) -> None:
+    client = TestClient(create_app(store, clock=lambda: now))
+
+    response = client.post(ENROLLMENT_URL, json=_wire(enrollment, proof=b"\0" * 64))
+
+    assert (response.status_code, response.json()) == (403, {"error": "enrollment_proof_invalid"})
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"signed_payload": "not base64!", "proof": "AAAA"},
+        {"signed_payload": "e30=", "proof": "AAAA"},  # "{}" is not an enrollment payload.
+        {"signed_payload": "AAAA"},
+    ],
+)
+def test_malformed_enrollment_returns_422(
+    store: HubStore, now: datetime, body: dict[str, str]
+) -> None:
+    response = TestClient(create_app(store, clock=lambda: now)).post(ENROLLMENT_URL, json=body)
+
+    assert (response.status_code, response.json()) == (422, {"error": "enrollment_invalid"})
+
+
+def test_enrollment_for_another_path_returns_422(
+    store: HubStore, enrollment: EnrollmentRequest, now: datetime
+) -> None:
+    response = TestClient(create_app(store, clock=lambda: now)).post(
+        "/v1/installations/installation-beta/enrollment", json=_wire(enrollment)
+    )
+
+    assert (response.status_code, response.json()) == (422, {"error": "enrollment_invalid"})
