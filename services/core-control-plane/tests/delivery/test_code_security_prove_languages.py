@@ -1,4 +1,4 @@
-"""Tests for the JavaScript and native proof harnesses and their sandbox isolation."""
+"""Tests for the JavaScript, native, Java, and C# proof harnesses and their sandbox isolation."""
 
 from __future__ import annotations
 
@@ -26,8 +26,21 @@ _REVISION = "b" * 40
 _PYTHON = Path("/usr/bin/python3")
 _NODE = shutil.which("node")
 _GCC = shutil.which("gcc")
+_JAVA = shutil.which("java")
+_DOTNET = shutil.which("dotnet")
 needs_node = pytest.mark.skipif(
     not sandbox_available() or _NODE is None, reason="bubblewrap or Node.js unavailable"
+)
+needs_java = pytest.mark.skipif(
+    not sandbox_available()
+    or _JAVA is None
+    or not (Path(_JAVA).resolve().parent / "javac").exists()
+    or not _PYTHON.exists(),
+    reason="bubblewrap, a JDK, or system python unavailable",
+)
+needs_dotnet = pytest.mark.skipif(
+    not sandbox_available() or _DOTNET is None or not _PYTHON.exists(),
+    reason="bubblewrap, the .NET SDK, or system python unavailable",
 )
 needs_gcc = pytest.mark.skipif(
     not sandbox_available() or _GCC is None or not _PYTHON.exists(),
@@ -157,8 +170,10 @@ def test_languages_follow_the_fix_site_extension() -> None:
     assert proof_language("app/views.py").name == "python"  # type: ignore[union-attr]
     assert proof_language("routes/app.js").name == "javascript"  # type: ignore[union-attr]
     assert proof_language("src/parse.cc").name == "native"  # type: ignore[union-attr]
-    assert proof_language("src/App.java") is None
+    assert proof_language("src/App.java").name == "java"  # type: ignore[union-attr]
+    assert proof_language("src/Tools.cs").name == "csharp"  # type: ignore[union-attr]
     assert proof_language("routes/app.mjs") is None
+    assert proof_language("src/App.kt") is None
 
 
 def test_targets_need_an_enabled_language_and_native_needs_a_reported_lane() -> None:
@@ -282,3 +297,323 @@ def test_native_harness_needs_an_interpreter(tmp_path: Path) -> None:
         )
     )
     assert [(r.outcome, r.reason) for r in results] == [("not_proven", "no_interpreter")]
+
+
+_JAVA_TOOLS = """package demo;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
+
+public class Tools {
+    public static void ping(String host) throws IOException {
+        Runtime.getRuntime().exec(new String[] {"sh", "-c", "ping -c 1 " + host});
+    }
+
+    public static void pingSafe(String host) throws IOException {
+        new ProcessBuilder("ping", "-c", "1", host).start();
+    }
+
+    public static byte[] read(String name) throws IOException {
+        return Files.readAllBytes(Path.of("/srv/files/" + name));
+    }
+
+    public static byte[] readSafe(String name) throws IOException {
+        return Files.readAllBytes(Path.of("/srv/files", new File(name).getName()));
+    }
+
+    public static void rows(Connection connection, String name) throws SQLException {
+        connection.createStatement().executeQuery("SELECT * FROM t WHERE name = '" + name + "'");
+    }
+
+    public static void rowsSafe(Connection connection, String name) throws SQLException {
+        PreparedStatement statement = connection.prepareStatement("SELECT * FROM t WHERE name = ?");
+        statement.setString(1, name);
+        statement.executeQuery();
+    }
+
+    public static void touch(String value) throws IOException {
+        Runtime.getRuntime().exec(new String[] {"sh", "-c", "touch created-by-proof; " + value});
+    }
+
+    public static void pingBuilder(String host) throws IOException {
+        new ProcessBuilder("sh", "-c", "ping -c 1 " + host).start();
+    }
+
+    public static void log(String body) throws IOException {
+        Files.writeString(Path.of("/srv/app.log"), body);
+    }
+
+    public static void count(String pattern) throws IOException {
+        new ProcessBuilder("grep", "-c", pattern + " /srv/app.log").start();
+    }
+
+    public static void grepPositional(String name) throws IOException {
+        Runtime.getRuntime().exec(new String[] {"sh", "-c", "grep -- \\"$1\\" f", "sh", name});
+    }
+}
+"""
+
+_JAVA_CASES = {
+    "ping": (13, 78, True),
+    "ping_safe": (17, 78, False),
+    "read": (21, 22, True),
+    "read_safe": (25, 22, False),
+    "rows": (29, 89, True),
+    "rows_safe": (33, 89, False),
+    "touch": (39, 78, True),
+    "ping_builder": (43, 78, True),
+    "log_contents": (47, 22, False),
+    "count_without_shell": (51, 78, False),
+    "positional_parameter": (55, 78, False),
+}
+
+_CSHARP_TOOLS = """using System.Data;
+using System.Diagnostics;
+using System.IO;
+
+namespace Demo
+{
+    public static class Tools
+    {
+        public static void Ping(string host)
+        {
+            Process.Start("/bin/sh", "-c \\"ping -c 1 " + host + "\\"");
+        }
+
+        public static void PingSafe(string host)
+        {
+            var info = new ProcessStartInfo("ping");
+            info.ArgumentList.Add(host);
+            Process.Start(info);
+        }
+
+        public static string Read(string name)
+        {
+            return File.ReadAllText("/srv/files/" + name);
+        }
+
+        public static string ReadSafe(string name)
+        {
+            return File.ReadAllText(Path.Combine("/srv/files", Path.GetFileName(name)));
+        }
+
+        public static void Rows(IDbConnection connection, string name)
+        {
+            var command = connection.CreateCommand();
+            command.CommandText = "SELECT * FROM t WHERE name = '" + name + "'";
+        }
+
+        public static void RowsSafe(IDbConnection connection, string name)
+        {
+            var command = connection.CreateCommand();
+            command.CommandText = "SELECT * FROM t WHERE name = @name";
+        }
+
+        public static void Touch(string value)
+        {
+            var info = new ProcessStartInfo { FileName = "/bin/sh" };
+            info.Arguments = "-c \\"touch created-by-proof; " + value + "\\"";
+            Process.Start(info);
+        }
+
+        public static void Count(string pattern)
+        {
+            Process.Start("grep", "-c " + pattern + " /srv/app.log");
+        }
+
+        public static void Log(string text)
+        {
+            File.WriteAllText("/srv/app.log", text);
+        }
+
+        public static void GrepPositional(string name)
+        {
+            Process.Start("sh", new[] { "-c", "grep -- \\"$1\\" f", "sh", name });
+        }
+
+        public static void EchoQuoted(string name)
+        {
+            var info = new ProcessStartInfo("sh");
+            info.ArgumentList.Add("-c");
+            info.ArgumentList.Add("echo \\"" + name + "\\"");
+            Process.Start(info);
+        }
+    }
+}
+"""
+
+_CSHARP_CASES = {
+    "ping": (11, 78, True),
+    "ping_safe": (17, 78, False),
+    "read": (23, 22, True),
+    "read_safe": (28, 22, False),
+    "rows": (34, 89, True),
+    "rows_safe": (40, 89, False),
+    "touch": (46, 78, True),
+    "count_without_shell": (52, 78, False),
+    "log_contents": (57, 22, False),
+    "positional_parameter": (62, 78, False),
+    "quoted_list_element": (69, 78, False),
+}
+
+
+def _prove_managed(
+    tmp_path: Path,
+    path: str,
+    text: str,
+    cases: dict[str, tuple[int, int, bool]],
+    runtimes: dict[str, Path],
+    timeout_seconds: int = 300,
+) -> tuple[Path, list[CodeSecurityIssue], tuple[object, ...]]:
+    source = tmp_path / "source"
+    (source / path).parent.mkdir(parents=True, exist_ok=True)
+    (source / path).write_text(text, encoding="utf-8")
+    issues = build_issues(
+        _occurrences(path, cases, Lane.DETERMINISTIC), _CATALOG, AnalysisContext(revision=_REVISION)
+    )
+    lines = text.splitlines()
+    assert len(issues) == len(cases), [lines[line - 1] for line, _, _ in cases.values()]
+    results = asyncio.run(
+        prove_issues(
+            source,
+            issues,
+            _verified(issues),
+            sandbox=BubblewrapScannerSandbox(),
+            python=_PYTHON,
+            runtimes=runtimes,
+            timeout_seconds=timeout_seconds,
+        )
+    )
+    return source, issues, results
+
+
+def test_managed_targets_exclude_classes_without_a_hooked_sink() -> None:
+    issues = build_issues(
+        _occurrences(
+            "src/App.java", {"code": (3, 95, True), "cmd": (5, 78, True)}, Lane.DETERMINISTIC
+        ),
+        _CATALOG,
+        AnalysisContext(revision=_REVISION),
+    )
+    targets = proof_targets(issues, _verified(issues), ("java",))
+    assert [target["weakness_class"] for target in targets] == ["command_injection"]
+    assert proof_targets(issues, (), ("java",)) == []
+
+
+@needs_java
+def test_java_sandbox_proves_vulnerable_flows_and_refuses_safe_ones(tmp_path: Path) -> None:
+    source, issues, results = _prove_managed(
+        tmp_path,
+        "src/main/java/demo/Tools.java",
+        _JAVA_TOOLS,
+        _JAVA_CASES,
+        {"java": Path(str(_JAVA)).resolve()},
+    )
+    by_line = _by_line(issues, results)
+    for name, (line, _, vulnerable) in _JAVA_CASES.items():
+        outcome = getattr(by_line[line], "outcome", None)
+        assert outcome == ("proven" if vulnerable else "not_proven"), (name, by_line[line])
+        if not vulnerable:
+            assert getattr(by_line[line], "reason", None) == "canary_not_observed", by_line[line]
+    assert not list(source.rglob("created-by-proof"))
+
+
+@needs_dotnet
+def test_csharp_sandbox_proves_vulnerable_flows_and_refuses_safe_ones(tmp_path: Path) -> None:
+    source, issues, results = _prove_managed(
+        tmp_path,
+        "src/Tools.cs",
+        _CSHARP_TOOLS,
+        _CSHARP_CASES,
+        {"csharp": Path(str(_DOTNET)).resolve()},
+    )
+    by_line = _by_line(issues, results)
+    for name, (line, _, vulnerable) in _CSHARP_CASES.items():
+        outcome = getattr(by_line[line], "outcome", None)
+        assert outcome == ("proven" if vulnerable else "not_proven"), (name, by_line[line])
+        if not vulnerable:
+            assert getattr(by_line[line], "reason", None) == "canary_not_observed", by_line[line]
+    assert not list(source.rglob("created-by-proof"))
+
+
+@needs_dotnet
+def test_csharp_file_with_project_dependencies_stays_unproven(tmp_path: Path) -> None:
+    text = (
+        "using Microsoft.Data.SqlClient;\n"
+        "public static class Rows {\n"
+        "    public static void Run(SqlConnection c, string n) {\n"
+        '        new SqlCommand("SELECT * FROM t WHERE n = \'" + n + "\'", c).ExecuteReader();\n'
+        "    }\n"
+        "}\n"
+    )
+    _, _, results = _prove_managed(
+        tmp_path, "Rows.cs", text, {"rows": (4, 89, True)}, {"csharp": Path(str(_DOTNET)).resolve()}
+    )
+    assert [(r.outcome, r.reason) for r in results] == [("not_proven", "compile_failed")]  # type: ignore[attr-defined]
+
+
+@needs_java
+def test_java_harness_timeouts_leave_targets_unproven(tmp_path: Path) -> None:
+    methods = "\n".join(
+        f"    public static void run{index}(String v) throws Exception "
+        "{ Runtime.getRuntime().exec(v); }"
+        for index in range(8)
+    )
+    text = (
+        "public class Spin {\n    static { spin(); }\n"
+        f"{methods}\n    static void spin() {{ while (true) {{ }} }}\n}}\n"
+    )
+    _, _, results = _prove_managed(
+        tmp_path,
+        "Spin.java",
+        text,
+        {"spin": (3, 78, True)},
+        {"java": Path(str(_JAVA)).resolve()},
+        timeout_seconds=10,
+    )
+    assert [(r.outcome, r.reason) for r in results] == [("not_proven", "timed_out")]  # type: ignore[attr-defined]
+
+
+def test_driven_toolchains_outside_the_sandbox_mounts_are_unavailable(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "App.java").write_text(_JAVA_TOOLS, encoding="utf-8")
+    issues = build_issues(
+        _occurrences("App.java", {"ping": (13, 78, True)}, Lane.DETERMINISTIC),
+        _CATALOG,
+        AnalysisContext(revision=_REVISION),
+    )
+    results = asyncio.run(
+        prove_issues(
+            source,
+            issues,
+            _verified(issues),
+            sandbox=BubblewrapScannerSandbox(),
+            python=_PYTHON,
+            runtimes={"java": tmp_path / "jdk" / "bin" / "java"},
+        )
+    )
+    assert [(r.outcome, r.reason) for r in results] == [("not_proven", "runtime_unavailable")]
+
+
+def test_sandbox_exposes_only_named_etc_configuration_directories(tmp_path: Path) -> None:
+    from fdai.rule_catalog.code_security_scanners import ScannerSpec
+
+    spec = ScannerSpec(
+        producer="fdai-prove-java",
+        argv=("{source}",),
+        success_exit_codes=(0,),
+        timeout_seconds=10,
+        max_output_bytes=1_000,
+    )
+    sandbox = BubblewrapScannerSandbox()
+    argv = sandbox.command(spec, _PYTHON, tmp_path, system_config=(Path("/etc/java-21-openjdk"),))
+    assert argv[argv.index("/etc/java-21-openjdk") - 1] == "--ro-bind-try"
+    for refused in (Path("/etc"), Path("/home/user/conf"), Path("/etc/a/b")):
+        with pytest.raises(ValueError, match="/etc/<name>"):
+            sandbox.command(spec, _PYTHON, tmp_path, system_config=(refused,))

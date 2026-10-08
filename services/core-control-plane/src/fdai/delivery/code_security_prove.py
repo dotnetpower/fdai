@@ -8,9 +8,17 @@ time limits. Every sink is replaced by a recording hook, so a successful proof n
 the real command, evaluation, deserialization, query, or file access.
 
 Each supported language has its own harness payload under ``rule-catalog/code-security/prove/``
-and runtime: Python (``fdai_prove.py``), JavaScript on Node.js (``fdai_prove.js``), and native C
-and C++ (``fdai_prove_native.py``). A target's language comes from its fix-site extension, and a
-language runs only when the operator supplies its runtime.
+and runtime: Python (``fdai_prove.py``), JavaScript on Node.js (``fdai_prove.js``), native C
+and C++ (``fdai_prove_native.py``), and Java and C# (``fdai_prove_managed.py``). A target's
+language comes from its fix-site extension, and a language runs only when the operator supplies
+its runtime.
+
+Java and C# have no module loader to hook, so their harness rewrites a copy of the fix-site file
+without moving any line: every sink argument passes through a recording hook that returns an
+inert value, and the copy is compiled alone with the supplied ``java`` (and the ``javac`` beside
+it) or ``dotnet`` SDK. Like the native harness, it runs on the sandbox's Python with the toolchain
+path as its last argument. A driven toolchain must resolve inside the sandbox's read-only system
+mounts, and a file that needs project dependencies stays unproven.
 
 Native memory-safety issues have no deterministic verifier, so they are eligible when a
 deterministic or external producer reported them (never the LLM lens alone). Their proof is a
@@ -48,6 +56,9 @@ PROVABLE_CLASSES = frozenset(
 )
 _PROVE_ROOT = repo_asset_root() / "rule-catalog" / "code-security" / "prove"
 _OUTCOMES = frozenset({"proven", "not_proven"})
+_MANAGED_CLASSES = frozenset({"command_injection", "sql_injection", "path_traversal"})
+# Read-only system mounts of the scanner sandbox; a driven toolchain must resolve inside them.
+_SANDBOX_SYSTEM_ROOTS = (Path("/usr"), Path("/bin"), Path("/lib"), Path("/lib64"))
 
 
 @dataclass(frozen=True, slots=True)
@@ -60,6 +71,7 @@ class ProofLanguage:
     classes: frozenset[str]
     runtime_args: tuple[str, ...] = ()
     compiled: bool = False
+    driven: bool = False
 
 
 PROOF_LANGUAGES: Mapping[str, ProofLanguage] = {
@@ -77,6 +89,23 @@ PROOF_LANGUAGES: Mapping[str, ProofLanguage] = {
         frozenset({"memory_safety"}),
         ("-I",),
         compiled=True,
+        driven=True,
+    ),
+    "java": ProofLanguage(
+        "java",
+        "fdai_prove_managed.py",
+        (".java",),
+        _MANAGED_CLASSES,
+        ("-I",),
+        driven=True,
+    ),
+    "csharp": ProofLanguage(
+        "csharp",
+        "fdai_prove_managed.py",
+        (".cs",),
+        _MANAGED_CLASSES,
+        ("-I",),
+        driven=True,
     ),
 }
 _REPORTED_LANES = frozenset({Lane.DETERMINISTIC, Lane.EXTERNAL})
@@ -166,6 +195,22 @@ def parse_proof_output(stdout: bytes, targets: Sequence[Mapping[str, object]]) -
     ]
 
 
+def _toolchain_config(java: Path) -> tuple[Path, ...]:
+    """Return the ``/etc/<name>`` directories the JDK's ``conf`` links resolve into.
+
+    Distribution JDKs link ``conf/security/java.security`` and its siblings into ``/etc``; the
+    compiler cannot start without them, and the sandbox exposes nothing else of ``/etc``.
+    """
+    conf = java.parent.parent / "conf"
+    found: set[Path] = set()
+    for path in conf.rglob("*") if conf.is_dir() else ():
+        if path.is_symlink():
+            target = path.resolve()
+            if target.is_relative_to("/etc") and len(target.parts) > 2:
+                found.add(Path("/etc", target.parts[2]))
+    return tuple(sorted(found))
+
+
 async def _prove_language(
     source: Path,
     language: ProofLanguage,
@@ -176,6 +221,13 @@ async def _prove_language(
     interpreter: Path | None,
     timeout_seconds: int,
 ) -> list[ProofResult]:
+    if language.driven:
+        runtime = runtime.resolve()
+        if not any(runtime.is_relative_to(root) for root in _SANDBOX_SYSTEM_ROOTS):
+            return [
+                ProofResult(str(t["issue_id"]), "not_proven", "runtime_unavailable")
+                for t in targets
+            ]
     stage = Path(tempfile.mkdtemp(prefix="fdai-prove-"))
     try:
         os.chmod(stage, 0o700)
@@ -188,24 +240,25 @@ async def _prove_language(
                 f"{{rules}}/{language.harness}",
                 "{source}",
                 "{rules}/targets.json",
-                *((str(runtime),) if language.compiled else ()),
+                *((str(runtime),) if language.driven else ()),
             ),
             mounts=("rules",),
             success_exit_codes=(0,),
             timeout_seconds=timeout_seconds,
             max_output_bytes=1_000_000,
         )
-        if language.compiled and interpreter is None:
+        if language.driven and interpreter is None:
             return [
                 ProofResult(str(t["issue_id"]), "not_proven", "no_interpreter") for t in targets
             ]
         run = await sandbox.run(
             f"fdai-prove-{language.name}",
             spec,
-            interpreter if language.compiled and interpreter is not None else runtime,
+            interpreter if language.driven and interpreter is not None else runtime,
             source,
             rules=stage,
             limit_address_space=not language.compiled,
+            system_config=_toolchain_config(runtime) if language.name == "java" else (),
         )
     finally:
         shutil.rmtree(stage, ignore_errors=True)
@@ -227,9 +280,9 @@ async def prove_issues(
 ) -> tuple[ProofResult, ...]:
     """Run each enabled language's harness in the sandbox and return one result per target.
 
-    ``runtimes`` maps a proof language to its interpreter, or to its compiler for native code;
-    ``python`` is shorthand for the Python runtime, which also runs the native harness. Languages
-    without a runtime are not proven.
+    ``runtimes`` maps a proof language to its interpreter, to its compiler for native code, or to
+    ``java`` or ``dotnet`` for Java and C#; ``python`` is shorthand for the Python runtime, which
+    also runs the native, Java, and C# harnesses. Languages without a runtime are not proven.
     """
     available = dict(runtimes or {})
     if python is not None:

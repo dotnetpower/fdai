@@ -82,6 +82,14 @@ def add_scan_command(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -
         help="C or C++ compiler with sanitizers; with --prove, also reproduce native issues",
     )
     scan.add_argument(
+        "--prove-java",
+        help="java executable with javac beside it; with --prove, also reproduce Java issues",
+    )
+    scan.add_argument(
+        "--prove-dotnet",
+        help="dotnet executable with an SDK; with --prove, also reproduce C# issues",
+    )
+    scan.add_argument(
         "--record-state",
         action="store_true",
         help="record the review for the Console in the state store from FDAI_STATE_STORE_DSN",
@@ -298,7 +306,12 @@ def _prove_runtimes(args: argparse.Namespace) -> dict[str, Path] | None:
         return None
     runtimes = {
         language: Path(value).resolve()
-        for language, value in (("javascript", args.prove_node), ("native", args.prove_cc))
+        for language, value in (
+            ("javascript", args.prove_node),
+            ("native", args.prove_cc),
+            ("java", args.prove_java),
+            ("csharp", args.prove_dotnet),
+        )
         if value
     }
     return runtimes or None

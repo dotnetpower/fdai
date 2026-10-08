@@ -24,7 +24,7 @@ The design is in [Code Security Findings](../../docs/roadmap/operations/code-sec
 | `rules/` | FDAI-authored Opengrep rules with positive and negative fixtures. `rules/verify/` holds taint-mode verifier rules. |
 | `lenses.yaml` | LLM lens definitions: CWE scope, sink hints, and excerpt budgets for the off-path review. |
 | `verifiers.yaml` | Deterministic weakness verifiers: per-class sinks, sanitizers, entrypoints, and validation guards that raise a confirmed issue to `verified`. |
-| `prove/` | Proof-lane harnesses: `fdai_prove.py` (Python), `fdai_prove.js` (Node.js), and `fdai_prove_native.py` (C and C++ with sanitizers). They're sandbox payloads copied into the bubblewrap sandbox; FDAI never imports them. |
+| `prove/` | Proof-lane harnesses: `fdai_prove.py` (Python), `fdai_prove.js` (Node.js), `fdai_prove_native.py` (C and C++ with sanitizers), and `fdai_prove_managed.py` (Java and C#). They're sandbox payloads copied into the bubblewrap sandbox; FDAI never imports them. |
 | `evaluation/` | Labeled evaluation corpora: `synthetic-corpus.yaml` and `curated-advisories.yaml` for `evaluate`, `verifier-corpus.yaml` (pinned public projects, fetched at evaluation time) for `evaluate-verifiers`, and `lens-corpus.yaml` (a pinned public benchmark) for `evaluate-lens`. |
 
 ## Change rules

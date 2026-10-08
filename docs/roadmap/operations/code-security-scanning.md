@@ -16,8 +16,8 @@ results feed the canonical issue model, severity, priority, and remediation pack
 
 > **Status:** The deterministic lane (acquisition, sandbox, scanner catalog, FDAI rule pack, scan
 > job, and CLI), the off-path LLM lens lane, the Python and taint weakness verifiers with their
-> promotion gate, the opt-in Python proof lane, local folder scans with reports, and Console scan
-> requests for registered repositories are implemented. See the
+> promotion gate, the opt-in proof lane for Python, JavaScript, native, Java, and C#, local folder
+> scans with reports, and Console scan requests for registered repositories are implemented. See the
 > [implementation ledger](../../roadmap-implementation/operations/code-security-scanning.md).
 
 ## Design at a glance
@@ -404,12 +404,38 @@ its runtime with `scan --prove`:
   fix-site line. AddressSanitizer can't run under an address-space limit, so this run alone drops
   the sandbox `RLIMIT_AS`. The harness limits the compiler's address space and gives every run a
   CPU limit, `hard_rss_limit_mb`, a timeout, and truncated output.
+- **Java and C#** (`--prove-java`, `--prove-dotnet`): these languages have no module loader to
+  hook, so `fdai_prove_managed.py` rewrites a private copy of the fix-site file without moving any
+  line. Every argument of a known command, query, or file-access call, and every value assigned to
+  `FileName`, `Arguments`, or `CommandText`, passes through a recording hook first. The hook always
+  returns an inert value of the same type, a path that can't exist, so a sink that still runs
+  can't start a real program, open a real file, or send a real query. The harness compiles the copy
+  alone with `javac` beside the given `java`, or with the SDK's Roslyn compiler under the given
+  `dotnet`, then calls every method and constructor with the marker in each string, collection,
+  and interface input. A hit counts only for a hook of the target's class, from a stack frame at the
+  fix-site file and line, in the class predicate's shape. Only the argument that carries the class
+  counts: the path of a file call, the query text, or a command's program and arguments read
+  together. File contents and bound query parameters are made inert but never prove a finding.
+  For command injection the program must be a shell and the value must reach the one argument it
+  runs as its command (`sh -c`, `cmd /c`) after a separator. Only a single command-line string is
+  split into words, and later arguments are positional parameters that the shell never parses. Constructing a `File`,
+  `Path`, or `FileInfo` isn't a file access. A file that needs project dependencies doesn't compile
+  alone and stays unproven with `compile_failed`. The harness runs on the sandbox's Python with the
+  toolchain as its last argument; the toolchain must resolve inside the sandbox's read-only system
+  mounts. Distribution JDKs link their `conf` files into `/etc`, so a Java run alone also mounts
+  those `/etc/<name>` directories read-only. The .NET runtime keeps the sandbox address-space limit
+  through a bounded GC heap and region range and single-mapped JIT memory.
 
 On OWASP NodeGoat at its pinned commit, the three `eval` lines in `contributions.js` were proven in
 the sandbox. Tests prove vulnerable JavaScript fixtures for command, code, SQL, and path flows and
 a stack overflow in a C fixture, and require the safe counterparts (`execFile` with an argument
-list, `Number`, a placeholder query, `basename`, and a bounds-checked copy) to stay unproven. Java
-and C# have no proof harness yet.
+list, `Number`, a placeholder query, `basename`, and a bounds-checked copy) to stay unproven.
+Java and C# fixtures prove shell command, string-built query, and concatenated file-path flows in
+the sandbox, and require the safe counterparts (an argument list without a shell, a `grep -c`
+argument without a shell, input passed as a shell positional parameter, a quoted argument-list
+element, a parameterized query, a base name, and request text written to a constant path) to stay unproven with `canary_not_observed`. A hooked shell command
+creates no file, a spinning class initializer is reported `timed_out`, and a C# file that needs a
+NuGet package stays `compile_failed`. No public-project Java or C# result is recorded yet.
 
 ## Failure behavior
 
