@@ -233,6 +233,13 @@ def test_reports_are_idempotent_and_conflicts_are_rejected(
         record(_report(outcome, outcome="rejected"))
     rejected = _report(outcome, attempt=2, outcome="rejected", reason_code="signature_invalid")
     assert record(rejected) is True
+    assert [
+        (report.plan_id, report.attempt, report.reason_code, report.received_at)
+        for report in registered.reports(installation.installation_id)
+    ] == [
+        (outcome.plan.plan_id, 1, "admitted", now),
+        (outcome.plan.plan_id, 2, "signature_invalid", now),
+    ]
 
 
 def test_report_for_other_plan_bytes_is_rejected(
@@ -267,6 +274,10 @@ def test_report_for_unknown_or_foreign_plan_is_rejected(
         registered.record_report(
             "installation-beta", outcome.plan.plan_id, _report(outcome), now=now
         )
+    registered.record_report(
+        installation.installation_id, outcome.plan.plan_id, _report(outcome), now=now
+    )
+    assert registered.reports("installation-beta") == ()
 
 
 def test_every_change_extends_an_intact_audit_chain(

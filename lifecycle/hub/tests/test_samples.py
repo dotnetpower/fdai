@@ -44,6 +44,7 @@ def test_readme_walkthrough(
         "enrollment": "pending",
         "plan": None,
         "last_evaluation": None,
+        "reports": [],
     }
 
     key_id = pending["installation_key_id"]

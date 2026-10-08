@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import os
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, time, timedelta
 from functools import partial
@@ -274,10 +273,7 @@ def hub_store(request: pytest.FixtureRequest, store: HubStore) -> Iterator[HubSt
     if request.param == "sqlite":
         yield store
         return
-    url = os.environ.get("FDAI_DATABASE_URL")
-    if not url:
-        pytest.skip("FDAI_DATABASE_URL is not set")
-    postgres = HubStore.connect(url.replace("postgresql://", "postgresql+psycopg://", 1))
+    postgres = HubStore.connect(request.getfixturevalue("loopback_postgres_url"))
     postgres.drop_schema()
     postgres.create_schema()
     yield postgres

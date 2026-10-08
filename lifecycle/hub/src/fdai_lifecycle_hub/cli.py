@@ -110,7 +110,9 @@ def _parser() -> argparse.ArgumentParser:
     recompute.add_argument("--key", type=Path, required=True)
     recompute.add_argument("--key-epoch", type=int, default=1)
 
-    show = command("show", _show, "print the open Plan and why the last recompute chose it")
+    show = command(
+        "show", _show, "print the open Plan, why the last recompute chose it, and the reports"
+    )
     show.add_argument("installation_id")
 
     serve = command("serve", _serve, f"serve the agent API on {LOOPBACK}")
@@ -249,6 +251,9 @@ def _show(args: argparse.Namespace) -> int:
             "last_evaluation": (
                 schemas.evaluation_json.dump_python(evaluation, mode="json") if evaluation else None
             ),
+            "reports": [
+                report.model_dump(mode="json") for report in store.reports(args.installation_id)
+            ],
         }
     )
     return 0

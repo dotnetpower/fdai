@@ -166,6 +166,13 @@ class PlanReport(BaseModel):
         return self
 
 
+class RecordedReport(PlanReport):
+    """A stored report, with the Plan it belongs to and when the Hub received it."""
+
+    plan_id: str
+    received_at: AwareDatetime
+
+
 def outcome_record(outcome: PlanOutcome) -> dict[str, Any]:
     record: dict[str, Any] = {
         "outcome": outcome.kind,
