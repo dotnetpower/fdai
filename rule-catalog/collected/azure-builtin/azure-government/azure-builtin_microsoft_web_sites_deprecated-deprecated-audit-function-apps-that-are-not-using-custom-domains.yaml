@@ -22,7 +22,7 @@ provenance:
     Government/Security Center/ASC_UsedCustomDomains_FunctionApp_Audit_Deprecated.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:ec67f9b2ef53a55e2f8888cc13c267d1b842ee6bddc5131429c2a9e8c153a7d9
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

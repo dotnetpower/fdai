@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.azure.cognitiveservices.data.accounts.projects.agents.preview-cognitive-services-agents-should-only-use-a.595f98a5
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: azure.cognitiveservices.data.accounts.projects.agents
+check_logic:
+  kind: expression
+  reference: azure-policy://595f98a5-b562-4ab6-b9c8-2ff9f39a3f7c
+remediation:
+  template_ref: remediation/azure-builtin/595f98a5-b562-4ab6-b9c8-2ff9f39a3f7c.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 595f98a5-b562-4ab6-b9c8-2ff9f39a3f7c
+  azure_policy_display_name: '[Preview]: Cognitive Services Agents should only use
+    allowed control'
+  azure_policy_effect_default: Audit
+  azure_policy_category: Cognitive Services
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Cognitive
+    Services/AllowAgentMultiSeverityControl_Audit.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:857f53f3ac33c1f6a54199e3625b8b83d05e9e77ab4e0e2fbcef5a8e8e6cec1d
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-10-08T09:14:46Z'

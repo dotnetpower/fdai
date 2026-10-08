@@ -21,7 +21,7 @@ provenance:
     DB/Cosmos_MaxThroughput_Deny.json
   source_version: 1.1.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:b8f0ede5631aa07fa1b607af02cc527712983cab9ff5c35cf6b0f8e445692b55
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

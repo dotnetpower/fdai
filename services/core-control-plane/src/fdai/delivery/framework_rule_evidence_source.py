@@ -18,6 +18,11 @@ from fdai_service_contracts.baseline_evaluation import (
     BaselineEvaluationCoverage,
     BaselineEvaluationOutcome,
 )
+from fdai_service_contracts.framework_rule_coverage import (
+    FRAMEWORK_RULE_COVERAGE_LATEST_KEY,
+    ScopedRuleCoverageRecord,
+    framework_rule_coverage_record_key,
+)
 from fdai_service_contracts.rule_activation import RuleActivationGeneration
 
 from fdai.core.framework_assessment import (
@@ -25,12 +30,17 @@ from fdai.core.framework_assessment import (
     FrameworkRuleActivationPin,
 )
 from fdai.core.framework_rule_evidence import (
+    SCOPED_COVERAGE_AUDIT_KIND,
+    T0_RULE_EVALUATOR,
     ExpectedRulePair,
+    ScopedCoverageResourceMapping,
+    ScopedRuleCoverage,
     WorkloadRuleResource,
     activation_pin,
     baseline_ref,
     build_rule_requirement_receipts,
     build_scoped_coverage,
+    build_scoped_coverage_record,
     canonical_sha256,
 )
 from fdai.delivery.persistence.postgres_wara_scope import WaraResolvedScope
@@ -53,15 +63,109 @@ class WorkloadRuleEvidenceStatus(StrEnum):
     BASELINE_INCOMPLETE = "baseline_incomplete"
     BASELINE_TOO_LARGE = "baseline_too_large"
     BASELINE_OUTCOMES_UNVERIFIED = "baseline_outcomes_unverified"
+    SCOPE_MISMATCH = "scope_mismatch"
 
 
 @dataclass(frozen=True, slots=True)
 class WorkloadRuleEvidence:
-    """The activation pin and Rule receipts for one workload profile."""
+    """The activation pin, Rule receipts, and scoped coverage record for one workload."""
 
     status: WorkloadRuleEvidenceStatus
     pin: FrameworkRuleActivationPin | None
     receipts: tuple[FrameworkEvidenceReceipt, ...] = ()
+    coverage_record: ScopedRuleCoverageRecord | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ScopedRuleCoverageLoad:
+    """Scoped coverage of one exact workload scope, or the status explaining its absence."""
+
+    status: WorkloadRuleEvidenceStatus
+    pin: FrameworkRuleActivationPin | None
+    scoped: ScopedRuleCoverage | None = None
+    record: ScopedRuleCoverageRecord | None = None
+
+
+async def load_scoped_rule_coverage(
+    *,
+    state_store: StateStore,
+    activation: RuleActivationGeneration | None,
+    scope: WaraResolvedScope,
+    framework_id: str,
+    scope_digest: str,
+    evaluated_at: datetime,
+    max_outcomes: int = 100_000,
+) -> ScopedRuleCoverageLoad:
+    """Project Forseti's verified version 2 baseline onto one workload scope.
+
+    Any missing, incomplete, unverifiable, or mismatched baseline yields an explicit status and
+    no coverage. ``scope_digest`` is the assessing framework's own scope identity.
+    """
+
+    if activation is None:
+        return ScopedRuleCoverageLoad(WorkloadRuleEvidenceStatus.NO_ACTIVATION, None)
+    pin = activation_pin(activation)
+    raw = await state_store.read_state(BASELINE_EVALUATION_LATEST_COVERAGE_KEY)
+    if raw is None:
+        return ScopedRuleCoverageLoad(WorkloadRuleEvidenceStatus.NO_BASELINE, pin)
+    coverage = BaselineEvaluationCoverage.model_validate(raw)
+    if coverage.rule_activation_generation_digest != pin.generation_digest:
+        return ScopedRuleCoverageLoad(WorkloadRuleEvidenceStatus.BASELINE_ACTIVATION_DRIFT, pin)
+    if coverage.generation_id != baseline_ref("generation", scope.inventory_generation):
+        return ScopedRuleCoverageLoad(WorkloadRuleEvidenceStatus.BASELINE_GENERATION_MISMATCH, pin)
+    if not coverage.complete:
+        return ScopedRuleCoverageLoad(WorkloadRuleEvidenceStatus.BASELINE_INCOMPLETE, pin)
+    outcomes = await _workload_outcomes(
+        state_store,
+        coverage=coverage,
+        max_outcomes=max_outcomes,
+    )
+    if outcomes is None:
+        return ScopedRuleCoverageLoad(WorkloadRuleEvidenceStatus.BASELINE_TOO_LARGE, pin)
+    if _outcome_set_digest(outcomes) != coverage.outcome_set_digest:
+        return ScopedRuleCoverageLoad(WorkloadRuleEvidenceStatus.BASELINE_OUTCOMES_UNVERIFIED, pin)
+    if _ambiguous_mapping(scope):
+        return ScopedRuleCoverageLoad(WorkloadRuleEvidenceStatus.SCOPE_MISMATCH, pin)
+    workload_refs = {baseline_ref("resource", item.neutral_resource_id) for item in scope.resources}
+    outcomes = tuple(item for item in outcomes if item.resource_ref in workload_refs)
+    resources = tuple(
+        WorkloadRuleResource(
+            resource_id=item.neutral_resource_id,
+            resource_type=item.provider_resource_type,
+        )
+        for item in scope.resources
+    )
+    scoped = build_scoped_coverage(
+        scope_digest=scope_digest,
+        resources=resources,
+        expected_pairs=_expected_pairs(outcomes, resources=resources, activation=activation),
+        outcomes=outcomes,
+        activation=activation,
+        requested_rule_ids=(),
+        inventory_generation=scope.inventory_generation,
+        # Rule outcomes describe the inventory snapshot, not the later evaluation run.
+        inventory_observed_at=(
+            min(scope.inventory_observed_at, coverage.completed_at)
+            if scope.inventory_observed_at is not None
+            else coverage.completed_at
+        ),
+        recorded_at=max(evaluated_at, coverage.completed_at),
+    )
+    record = build_scoped_coverage_record(
+        framework_id=framework_id,
+        workload_id=scope.workload_id,
+        scoped=scoped,
+        resources=tuple(
+            ScopedCoverageResourceMapping(
+                provider_resource_id=item.provider_resource_id,
+                resource_id=item.neutral_resource_id,
+                resource_type=item.provider_resource_type,
+            )
+            for item in scope.resources
+        ),
+        baseline=coverage,
+    )
+    return ScopedRuleCoverageLoad(WorkloadRuleEvidenceStatus.READY, pin, scoped, record)
 
 
 async def load_workload_rule_evidence(
@@ -77,57 +181,100 @@ async def load_workload_rule_evidence(
 ) -> WorkloadRuleEvidence:
     """Return the workload's Rule receipts, or an explicit status without receipts."""
 
-    if activation is None:
-        return WorkloadRuleEvidence(WorkloadRuleEvidenceStatus.NO_ACTIVATION, None)
-    pin = activation_pin(activation)
-    raw = await state_store.read_state(BASELINE_EVALUATION_LATEST_COVERAGE_KEY)
-    if raw is None:
-        return WorkloadRuleEvidence(WorkloadRuleEvidenceStatus.NO_BASELINE, pin)
-    coverage = BaselineEvaluationCoverage.model_validate(raw)
-    if coverage.rule_activation_generation_digest != pin.generation_digest:
-        return WorkloadRuleEvidence(WorkloadRuleEvidenceStatus.BASELINE_ACTIVATION_DRIFT, pin)
-    if coverage.generation_id != baseline_ref("generation", scope.inventory_generation):
-        return WorkloadRuleEvidence(WorkloadRuleEvidenceStatus.BASELINE_GENERATION_MISMATCH, pin)
-    if not coverage.complete:
-        return WorkloadRuleEvidence(WorkloadRuleEvidenceStatus.BASELINE_INCOMPLETE, pin)
-    outcomes = await _workload_outcomes(
-        state_store,
-        coverage=coverage,
+    loaded = await load_scoped_rule_coverage(
+        state_store=state_store,
+        activation=activation,
+        scope=scope,
+        framework_id=catalog.framework_id,
+        scope_digest=profile_scope_digest,
+        evaluated_at=evaluated_at,
         max_outcomes=max_outcomes,
     )
-    if outcomes is None:
-        return WorkloadRuleEvidence(WorkloadRuleEvidenceStatus.BASELINE_TOO_LARGE, pin)
-    if _outcome_set_digest(outcomes) != coverage.outcome_set_digest:
-        return WorkloadRuleEvidence(WorkloadRuleEvidenceStatus.BASELINE_OUTCOMES_UNVERIFIED, pin)
-    workload_refs = {baseline_ref("resource", item.neutral_resource_id) for item in scope.resources}
-    outcomes = tuple(item for item in outcomes if item.resource_ref in workload_refs)
-    resources = tuple(
-        WorkloadRuleResource(
-            resource_id=item.neutral_resource_id,
-            resource_type=item.provider_resource_type,
-        )
-        for item in scope.resources
-    )
-    scoped = build_scoped_coverage(
-        scope_digest=profile_scope_digest,
-        resources=resources,
-        expected_pairs=_expected_pairs(outcomes, resources=resources, activation=activation),
-        outcomes=outcomes,
-        activation=activation,
-        requested_rule_ids=(),
-        inventory_generation=scope.inventory_generation,
-        inventory_observed_at=coverage.completed_at,
-        recorded_at=max(evaluated_at, coverage.completed_at),
-    )
-    receipts = build_rule_requirement_receipts(
+    return workload_rule_evidence_from_coverage(
+        loaded,
         catalog=catalog,
-        coverage=scoped,
         profile_scope_digest=profile_scope_digest,
-        pinned_activation=pin,
         evaluated_at=evaluated_at,
         source_identity=source_identity,
     )
-    return WorkloadRuleEvidence(WorkloadRuleEvidenceStatus.READY, pin, receipts)
+
+
+def workload_rule_evidence_from_coverage(
+    loaded: ScopedRuleCoverageLoad,
+    *,
+    catalog: FrameworkAssessmentCatalog,
+    profile_scope_digest: str,
+    evaluated_at: datetime,
+    source_identity: str,
+    include_record: bool = True,
+) -> WorkloadRuleEvidence:
+    """Build one catalog's Rule receipts from an already loaded scoped coverage.
+
+    Several catalogs assessed in one pass share one load, so every catalog cites the same baseline.
+    Only the catalog that persists the coverage record keeps it (``include_record``).
+    """
+
+    if loaded.scoped is None or loaded.pin is None:
+        return WorkloadRuleEvidence(loaded.status, loaded.pin)
+    if loaded.scoped.scope_digest != profile_scope_digest:
+        raise ValueError("loaded Rule coverage scope differs from the assessment profile scope")
+    receipts = build_rule_requirement_receipts(
+        catalog=catalog,
+        coverage=loaded.scoped,
+        profile_scope_digest=profile_scope_digest,
+        pinned_activation=loaded.pin,
+        evaluated_at=evaluated_at,
+        source_identity=source_identity,
+    )
+    record = loaded.record if include_record else None
+    return WorkloadRuleEvidence(loaded.status, loaded.pin, receipts, record)
+
+
+async def persist_scoped_rule_coverage(
+    state_store: StateStore,
+    record: ScopedRuleCoverageRecord,
+) -> bool:
+    """Persist one immutable scoped coverage record with its audit entry, then the pointer.
+
+    The record and its audit entry are written atomically and only once per record digest, so a
+    rerun of the same assessment appends no duplicate audit. The latest pointer always moves to
+    the record of the most recent assessment. Returns whether the record was newly created.
+    """
+
+    value = record.model_dump(mode="json")
+    created = await state_store.write_state_with_audit_if_absent(
+        framework_rule_coverage_record_key(record.record_digest),
+        value,
+        {
+            "action_kind": SCOPED_COVERAGE_AUDIT_KIND,
+            "producer_principal": T0_RULE_EVALUATOR,
+            "audit_ref": record.audit_ref,
+            "audit_digest": record.audit_digest,
+            "payload": {
+                "framework_id": record.framework_id,
+                "record_digest": record.record_digest,
+                "scope_digest": record.scope_digest,
+                "scoped_coverage_digest": record.scoped_coverage_digest,
+                "baseline_coverage_digest": record.baseline_coverage_digest,
+                "rule_activation_generation_id": record.rule_activation_generation_id,
+                "rule_count": len(record.rules),
+                "resource_count": len(record.resources),
+            },
+            "execution_authority": False,
+        },
+    )
+    await state_store.write_state(FRAMEWORK_RULE_COVERAGE_LATEST_KEY, value)
+    return created
+
+
+def _ambiguous_mapping(scope: WaraResolvedScope) -> bool:
+    """Whether one provider id or one inventory reference maps to more than one resource."""
+
+    provider_ids = [item.provider_resource_id for item in scope.resources]
+    resource_refs = [baseline_ref("resource", item.neutral_resource_id) for item in scope.resources]
+    return len(set(provider_ids)) != len(provider_ids) or len(set(resource_refs)) != len(
+        resource_refs
+    )
 
 
 async def _workload_outcomes(
@@ -199,7 +346,10 @@ def _expected_pairs(
 
 
 __all__ = [
+    "ScopedRuleCoverageLoad",
+    "load_scoped_rule_coverage",
     "WorkloadRuleEvidence",
     "WorkloadRuleEvidenceStatus",
     "load_workload_rule_evidence",
+    "persist_scoped_rule_coverage",
 ]

@@ -1,0 +1,27 @@
+schema_version: 1.0.0
+id: azure-builtin.microsoft.documentdb.mongoclusters.enable-logging-by-category-group-for-microsoft-documentdb-mongocluster.064a3695
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: microsoft.documentdb.mongoclusters
+check_logic:
+  kind: expression
+  reference: azure-policy://064a3695-3197-4354-816b-65c7b952db9e
+remediation:
+  template_ref: remediation/azure-builtin/064a3695-3197-4354-816b-65c7b952db9e.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 064a3695-3197-4354-816b-65c7b952db9e
+  azure_policy_display_name: Enable logging by category group for microsoft.documentdb/mongoclusters
+    to Log Analytics
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Monitoring
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Monitoring/DS_LA_documentdb-mongoclusters_DINE.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:8cfef1b0c2b8dbdf0152618baeb09244cb8d5ed2331e375ddc35ecb8cb7bcf98
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-10-08T09:14:46Z'

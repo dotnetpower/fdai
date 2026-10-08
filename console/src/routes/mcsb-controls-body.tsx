@@ -9,6 +9,8 @@ import {
   type McsbControlResponse,
   type McsbCoverage,
   type McsbFilters,
+  type McsbAssessmentSummary,
+  type McsbSatisfaction,
 } from "./mcsb-controls.model";
 import { FacetChips, FacetSelect } from "./rule-catalog-components";
 
@@ -19,6 +21,24 @@ export const MCSB_COVERAGE_PILL: Readonly<Record<McsbCoverage, PillKind>> = {
   manual: "info",
   unmapped: "neutral",
 };
+export const MCSB_SATISFACTION_PILL: Readonly<Record<McsbSatisfaction, PillKind>> = {
+  satisfied: "success",
+  failed: "danger",
+  not_applicable: "info",
+  unknown: "neutral",
+};
+
+export function mcsbAssessmentSummaryText(summary: McsbAssessmentSummary | null): string {
+  if (summary === null) return t("governance.rules.mcsb.assessment.unavailable");
+  if (summary.status !== "evaluated") return t(`governance.rules.mcsb.assessment.${summary.status}`);
+  const counts = summary.satisfaction_counts;
+  return t("governance.rules.mcsb.assessment.evaluated", {
+    time: summary.last_evaluated_at ?? "-",
+    failed: counts["failed"] ?? 0,
+    unknown: counts["unknown"] ?? 0,
+    satisfied: counts["satisfied"] ?? 0,
+  });
+}
 
 export function McsbControlsBody({
   data,
@@ -49,6 +69,7 @@ export function McsbControlsBody({
     (sum, profile) => sum + profile.policy_ref_count,
     0,
   );
+  const assessed = data.assessment_summary !== null && data.assessment_summary.status !== "not_assessed";
   const columns: readonly Column<McsbControl>[] = useMemo(
     () => [
       {
@@ -72,12 +93,42 @@ export function McsbControlsBody({
         key: "coverage",
         header: t("governance.rules.mcsb.column.coverage"),
         render: (control) => (
-          <StatusPill
-            kind={MCSB_COVERAGE_PILL[control.coverage]}
-            label={displayValue("mcsbCoverage", control.coverage)}
-          />
+          <span class="mcsb-status-cell">
+            <StatusPill
+              kind={MCSB_COVERAGE_PILL[control.coverage]}
+              label={displayValue("mcsbCoverage", control.coverage)}
+            />
+            {/* Narrow screens hide the assessment column and show its pill here instead. */}
+            {assessed && control.assessment !== null ? (
+              <span class="mcsb-assessment-inline">
+                <StatusPill
+                  kind={MCSB_SATISFACTION_PILL[control.assessment.satisfaction]}
+                  label={displayValue("controlStatus", control.assessment.satisfaction)}
+                />
+              </span>
+            ) : null}
+          </span>
         ),
       },
+      ...(assessed
+        ? [
+            {
+              key: "assessment",
+              header: t("governance.rules.mcsb.column.assessment"),
+              headerClass: "mcsb-assessment-column",
+              cellClass: "mcsb-assessment-column",
+              render: (control: McsbControl) =>
+                control.assessment === null ? (
+                  <span class="muted">{t("governance.rules.mcsb.assessment.none")}</span>
+                ) : (
+                  <StatusPill
+                    kind={MCSB_SATISFACTION_PILL[control.assessment.satisfaction]}
+                    label={displayValue("controlStatus", control.assessment.satisfaction)}
+                  />
+                ),
+            },
+          ]
+        : []),
       {
         key: "rules",
         header: t("governance.rules.mcsb.column.rules"),
@@ -107,7 +158,7 @@ export function McsbControlsBody({
         render: () => <span class="row-chevron" aria-hidden="true">›</span>,
       },
     ],
-    [],
+    [assessed],
   );
 
   usePublishViewContext(
@@ -131,6 +182,11 @@ export function McsbControlsBody({
         { key: "unmapped_coverage_count", value: unmapped, group: "coverage" },
         { key: "azure_policy_reference_count", value: policyRefs, group: "catalog" },
         { key: "evaluation_source", value: data.evaluation_source, group: "evidence" },
+        {
+          key: "shadow_assessment_status",
+          value: data.assessment_summary?.status ?? "unavailable",
+          group: "evidence",
+        },
       ],
       records: {
         controls: data.controls.map((control) => ({
@@ -141,6 +197,7 @@ export function McsbControlsBody({
           rule_count: control.rule_count,
           runtime_observation_count: control.runtime_observation_count,
           manual_evidence_count: control.manual_evidence_count,
+          assessment_satisfaction: control.assessment?.satisfaction ?? null,
         })),
       },
     }),
@@ -164,6 +221,7 @@ export function McsbControlsBody({
       <div class="governance-readonly-banner mcsb-coverage-banner">
         <strong>{t(bannerTitle)}</strong>
         <span>{t(bannerBody, { policyRefs, total: data.total })}</span>
+        {assessed ? <span class="mcsb-assessment-summary">{mcsbAssessmentSummaryText(data.assessment_summary)}</span> : null}
       </div>
       <KpiGrid>
         <KpiCard href={mcsbControlsHref(version, EMPTY_FILTERS, null)} label={t("governance.rules.mcsb.kpi.total")} value={data.total} />

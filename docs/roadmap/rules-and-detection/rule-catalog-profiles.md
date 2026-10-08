@@ -127,7 +127,7 @@ Coverage as of this document:
 | Layer | Count |
 |-------|------:|
 | Hand-authored rules | 61 |
-| Imported (Azure Policy built-in) | 3628 |
+| Imported (Azure Policy built-in) | 3658 |
 | Imported (kube-bench CIS Kubernetes) | 4859 |
 | Profiles - upstream curated | 3 (`baseline`, `recommended`, `strict`) |
 | Profiles - reviewed imported compliance frameworks | 265 (CIS / NIST / HIPAA / PCI / ISO / FedRAMP / GDPR / DORA / ...) |

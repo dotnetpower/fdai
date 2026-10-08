@@ -22,7 +22,7 @@ provenance:
     Center/ASC_MicrosoftDefenderForEndpoint_WindowsAgent_VM_DINE.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:2b3d01bb9ab6ca1a0c187ec04ed7734bc097c4fe50049a6f0b0577906f22f685
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

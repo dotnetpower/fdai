@@ -21,7 +21,7 @@ provenance:
     Government/Mission/CosmosDBRestrictExternalPrivateEndpoints.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:c4f6cae8485517849a5e76fcd5660995bb605828dc6a842c7851db61766b02d2
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

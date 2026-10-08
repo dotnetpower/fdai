@@ -20,7 +20,7 @@ provenance:
   source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Kubernetes/AKS_DisableRunCommand_DINE.json
   source_version: 1.2.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:6eb12620b53e4c0afc4a9d601eb97c5c14f68cb23b6d255719e6eb9f77a50891
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

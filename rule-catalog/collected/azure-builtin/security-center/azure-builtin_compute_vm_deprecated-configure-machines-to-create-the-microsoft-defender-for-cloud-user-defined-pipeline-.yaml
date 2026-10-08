@@ -22,7 +22,7 @@ provenance:
     Center/ASC_AMA_UserWorkspacePipeline_DINE.json
   source_version: 1.2.1
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:0ecee3686567b765535564635fbbba23bcdf042942c3e899470505556347af26
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

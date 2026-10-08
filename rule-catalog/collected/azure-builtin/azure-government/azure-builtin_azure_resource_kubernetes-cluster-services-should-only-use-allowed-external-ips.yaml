@@ -22,7 +22,7 @@ provenance:
     Government/Kubernetes/AllowedExternalIPs.json
   source_version: 6.2.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:5331e7e6bfdb17804efc944bb8f5455944d8fb57e2a9a1fe36f7d047e449697a
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

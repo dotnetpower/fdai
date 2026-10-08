@@ -21,7 +21,7 @@ provenance:
     Compliance/CMA_C1123.json
   source_version: 1.1.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:f6e1f0467323080f44fa9bd5e18224e380e1c31adfe377e85e63ff1e44ef0278
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

@@ -22,7 +22,7 @@ provenance:
     Government/Guest Configuration/SecureWebProtocol_AINE.json
   source_version: 3.1.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:60f34f4073f4b903155aa2c245a71c7655242a0ebbbcc6c421e7b04a445d294f
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

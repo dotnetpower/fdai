@@ -274,6 +274,148 @@ def build_caf_catalog(
     return _catalog_digest(catalog)
 
 
+def build_mcsb_catalog(
+    *,
+    controls_path: Path,
+    crosswalk_path: Path,
+    source_path: Path,
+) -> dict[str, Any]:
+    """Decompose every MCSB v1 control into a manual requirement plus reviewed Rule bindings."""
+
+    controls_doc = _load_yaml_object(controls_path)
+    crosswalk_doc = _load_yaml_object(crosswalk_path)
+    source = _load_yaml_object(source_path)
+    if (
+        source.get("framework_id") != "azure-mcsb"
+        or source.get("review_state") != "reviewed"
+        or source.get("benchmark_version") != controls_doc.get("benchmark_version")
+    ):
+        raise ValueError("MCSB assessment source identity or review state is invalid")
+    defaults = source["defaults"]
+    raw_controls = controls_doc.get("controls")
+    if (
+        not isinstance(raw_controls, list)
+        or controls_doc.get("control_import_status") != "complete"
+    ):
+        raise ValueError("MCSB assessment requires a complete control import")
+    mapped = {
+        (str(item["control_id"]), str(rule_id))
+        for item in crosswalk_doc.get("mappings", [])
+        for rule_id in item.get("rule_ids", [])
+    }
+    bindings: dict[tuple[str, str], str] = {}
+    for raw in source.get("rule_bindings", []):
+        key = (str(raw["control_id"]), str(raw["rule_id"]))
+        if key in bindings or raw.get("evidence_role") not in {"decisive", "supporting_only"}:
+            raise ValueError(f"MCSB Rule binding {key} is duplicated or has an invalid role")
+        if not str(raw.get("rationale", "")).strip():
+            raise ValueError(f"MCSB Rule binding {key} needs a review rationale")
+        bindings[key] = str(raw["evidence_role"])
+    if set(bindings) != mapped:
+        raise ValueError("MCSB Rule bindings MUST review exactly the crosswalk Rule mappings")
+    source_meta = controls_doc["source"]
+    controls: list[dict[str, Any]] = []
+    for raw in raw_controls:
+        control_id = str(raw["id"])
+        domain = str(raw["domain"]).lower()
+        owner_slot = f"mcsb-{domain}-owner"
+        manual_ref = f"mcsb-{control_id.lower()}-control-evidence"
+        evidence: list[dict[str, Any]] = [
+            _mcsb_requirement(
+                kind="artifact",
+                source_ref=manual_ref,
+                producer=str(defaults["manual_producer"]),
+                freshness_days=int(defaults["manual_freshness_days"]),
+                owner_slot=owner_slot,
+                approval_roles=defaults["approval_roles"],
+                evidence_role="decisive",
+            )
+        ]
+        crosswalk: list[dict[str, object]] = [
+            {"target_kind": "manual_evidence", "target_ref": manual_ref, "relationship": "partial"}
+        ]
+        for (bound_control, rule_id), role in sorted(bindings.items()):
+            if bound_control != control_id:
+                continue
+            evidence.append(
+                _mcsb_requirement(
+                    kind="rule",
+                    source_ref=rule_id,
+                    producer=_PRODUCERS["rule"],
+                    freshness_days=int(defaults["rule_freshness_days"]),
+                    owner_slot=owner_slot,
+                    approval_roles=defaults["approval_roles"],
+                    evidence_role=role,
+                )
+            )
+            crosswalk.append(
+                {
+                    "target_kind": "rule",
+                    "target_ref": rule_id,
+                    "relationship": "partial" if role == "decisive" else "supporting_only",
+                }
+            )
+        specification = {
+            "control_id": control_id,
+            "title": str(raw["title"]),
+            "area": domain,
+            "requirement_mode": "all",
+            "cadence_days": min(item["freshness_ceiling_seconds"] // 86_400 for item in evidence),
+            "owner_slot": owner_slot,
+            "evidence": sorted(evidence, key=lambda item: str(item["requirement_id"])),
+            "crosswalk": sorted(crosswalk, key=_crosswalk_key),
+            "reviewer": source["reviewer"],
+            "review_state": source["review_state"],
+        }
+        controls.append(_specification_digest(specification))
+    catalog = {
+        "schema_version": "1.0.0",
+        "framework_id": "azure-mcsb",
+        "framework_version": str(source_meta["retrieved_at"])[:10],
+        "framework_scope": "workload",
+        "source_revision_digest": canonical_digest(
+            {
+                "resolved_ref": source_meta["resolved_ref"],
+                "content_hash": source_meta["content_hash"],
+            }
+        ),
+        "framework_definition_digest": _file_digest(controls_path),
+        "expected_control_count": len(controls),
+        "controls": sorted(controls, key=lambda item: str(item["control_id"])),
+        "reviewer": source["reviewer"],
+        "review_state": source["review_state"],
+    }
+    return _catalog_digest(catalog)
+
+
+def _mcsb_requirement(
+    *,
+    kind: str,
+    source_ref: str,
+    producer: str,
+    freshness_days: int,
+    owner_slot: str,
+    approval_roles: list[str],
+    evidence_role: str,
+) -> dict[str, Any]:
+    return {
+        "requirement_id": _requirement_id(kind, source_ref),
+        "kind": kind,
+        "source_ref": source_ref,
+        "authoritative_producer": producer,
+        "blocked_dependency": None,
+        "scope_contract": "exact-workload",
+        "generation_contract": "inventory" if kind == "rule" else "none",
+        "freshness_ceiling_seconds": freshness_days * 86_400,
+        "completeness_required": True,
+        "owner_slot": owner_slot,
+        "approval_roles": sorted(approval_roles),
+        "failure_behavior": "unknown",
+        "evidence_role": evidence_role,
+        "process_phase": "none",
+    }
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--catalog-root", type=Path, default=Path("rule-catalog"))
@@ -309,6 +451,11 @@ def main() -> int:
             framework=frameworks["azure-caf"],
             framework_path=caf_path,
             source_path=args.catalog_root / "framework-assessments/azure-caf.source.yaml",
+        ),
+        "azure-mcsb.json": build_mcsb_catalog(
+            controls_path=args.catalog_root / "compliance/mcsb/v1/controls.yaml",
+            crosswalk_path=args.catalog_root / "compliance/mcsb/v1/crosswalk.yaml",
+            source_path=args.catalog_root / "framework-assessments/azure-mcsb.source.yaml",
         ),
     }
     args.output_root.mkdir(parents=True, exist_ok=True)

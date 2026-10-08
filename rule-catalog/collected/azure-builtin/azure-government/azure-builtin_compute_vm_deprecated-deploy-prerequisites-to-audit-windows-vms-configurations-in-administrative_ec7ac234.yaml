@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.compute.vm.deprecated-deploy-prerequisites-to-audit-windows-vms-configurations-in-administrative-template.ec7ac234
+version: 3.0.0
+source: azure_policy
+severity: medium
+category: compliance
+resource_type: compute.vm
+check_logic:
+  kind: expression
+  reference: azure-policy://ec7ac234-2af5-4729-94d2-c557c071799d
+remediation:
+  template_ref: remediation/azure-builtin/ec7ac234-2af5-4729-94d2-c557c071799d.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: ec7ac234-2af5-4729-94d2-c557c071799d
+  azure_policy_display_name: '[Deprecated]: Deploy prerequisites to audit Windows
+    VMs configurations in ''Administrative Templates - Control Panel'''
+  azure_policy_effect_default: deployIfNotExists
+  azure_policy_category: Guest Configuration
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Guest Configuration/AdministrativeTemplatesControlPanel_DINE.json
+  source_version: 3.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:73c37f379f3fcd550cfe7800264a8b8bebe16fbb41b83154d8646593d6c4d6e2
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-10-08T09:14:46Z'

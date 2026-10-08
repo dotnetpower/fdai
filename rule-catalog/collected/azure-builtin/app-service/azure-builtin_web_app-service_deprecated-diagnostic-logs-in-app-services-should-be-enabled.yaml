@@ -22,7 +22,7 @@ provenance:
     Service/AuditLoggingMonitoring_Audit_v2_deprecated.json
   source_version: 2.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:5092526cb94cf12275a44f6b852508d8639ec052256283554c756226db76a28d
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

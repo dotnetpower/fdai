@@ -27,11 +27,16 @@ import argparse
 import json
 import sys
 from collections.abc import Sequence
+from datetime import datetime
 from pathlib import Path
 
 import yaml
 
 from fdai.rule_catalog.pipeline.collect import CollectorPipeline, record_success_receipt
+from fdai.rule_catalog.pipeline.collect.azure_policy_landing import (
+    AzurePolicyLandingError,
+    land_azure_policy_rules,
+)
 from fdai.rule_catalog.pipeline.collect.fetch import FetchError
 from fdai.rule_catalog.pipeline.parse import (
     ParseError,
@@ -110,6 +115,16 @@ def _build_parser() -> argparse.ArgumentParser:
             "vocabulary are read from this root."
         ),
     )
+    parser.add_argument(
+        "--land-collected",
+        type=Path,
+        default=None,
+        help=(
+            "After the snapshot, parse it and land the Rules under this collected tree, for "
+            "example rule-catalog/collected/azure-builtin. Only azure-policy-json sources "
+            "support landing. Landed Rules stay inert expression Rules."
+        ),
+    )
     return parser
 
 
@@ -170,8 +185,59 @@ def main(argv: Sequence[str] | None = None) -> int:
             else:
                 summary["success_receipt"] = receipt.to_mapping()
 
+    if args.land_collected is not None and exit_code == 0:
+        land_summary, land_code = _run_land(
+            report_snapshot_dir=report.snapshot_dir,
+            parser_name=report.parser,
+            resolved_revision=report.resolved_revision,
+            output_root=args.land_collected,
+            dry_run=args.dry_run,
+        )
+        summary["land"] = land_summary
+        exit_code = land_code
+
     print(json.dumps(summary, indent=2, sort_keys=True))
     return exit_code
+
+
+def _run_land(
+    *,
+    report_snapshot_dir: Path,
+    parser_name: str,
+    resolved_revision: str,
+    output_root: Path,
+    dry_run: bool,
+) -> tuple[dict[str, object], int]:
+    """Parse the snapshot and land its Rules with the snapshot's pinned provenance."""
+
+    if dry_run:
+        return ({"skipped": "dry-run"}, 0)
+    if parser_name != "azure-policy-json":
+        message = f"landing supports only azure-policy-json sources, not {parser_name!r}"
+        print(f"error: {message}", file=sys.stderr)
+        return ({"error": message}, 2)
+    try:
+        snapshot = json.loads((report_snapshot_dir / "SNAPSHOT.json").read_text(encoding="utf-8"))
+        parsed = build_parser(parser_name).parse(report_snapshot_dir / "tree")
+        landed = land_azure_policy_rules(
+            parsed.rules,
+            resolved_ref=resolved_revision,
+            retrieved_at=datetime.fromisoformat(str(snapshot["collected_at"])),
+            output_root=output_root,
+        )
+    except (OSError, KeyError, ValueError, ParseError, AzurePolicyLandingError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return ({"error": type(exc).__name__}, 2)
+    return (
+        {
+            "landed": landed.landed,
+            "written": landed.written,
+            "unchanged": landed.unchanged,
+            "withdrawn": list(landed.withdrawn),
+            "skipped_collisions": list(landed.skipped_collisions),
+        },
+        0,
+    )
 
 
 def _run_verify(

@@ -39,6 +39,7 @@ The following gaps were measured in the repository catalog on 2026-10-07:
 | MCSB | 13 of 86 v1 controls cite 25 Rules, all as `partial` mappings. v2-preview has no mappings. | Partial mappings can't decide control satisfaction. |
 | WARA | 143 automatable recommendations are blocked; 3 have reviewed query evaluators. | WARA has no Rule-backed evaluation path. |
 | Collected Azure Policy Rules | 3,628 Rules keep only an `azure-policy://` expression reference. | T0 can't execute them; they need reviewed Rego first. |
+| Inventory properties | On 2026-10-08, the local development inventory's object-storage, network.nsg, secret-store, postgresql-server, and kubernetes-cluster resources kept only raw Azure Resource Manager `properties`. None carried the normalized properties the cited Rules evaluate, such as `diagnostic_settings`, `private_endpoints`, or `security_rules`. | A policy can't deny an absent property, so these pairs looked compliant. They now abstain with `property_unobserved`, and the WAF Rule requirements stay `unknown` until inventory collection supplies the normalized properties. |
 
 ## Ownership and event boundary
 
@@ -59,8 +60,10 @@ implemented by a Forseti baseline worker, not a new agent. The other roles stay 
 - Norns may propose inert Rule candidates for unmapped requirements; it never changes membership.
 
 Coverage records and receipts are authority-free read models persisted with their audit
-references. Forseti is their only writer. The assessment runtime reads committed records through a
-read-model source adapter, and the resulting assessment still goes through the existing audited
+references. Forseti is the only writer of the version 2 baseline coverage record. The framework
+assessment job reads that committed record through a read-model source adapter and derives the
+scoped coverage record and its receipts under the `t0-rule-evaluator` producer identity. It never
+writes Forseti's record, and the resulting assessment still goes through the existing audited
 framework assessment publication. This change adds no topic, subscription, or `AgentSpec`
 ownership. If a later consumer needs push delivery, a separate reviewed change adds a
 schema-registered topic with a single writer.
@@ -141,14 +144,21 @@ The record carries these fields:
 
 | Field group | Contents |
 |-------------|----------|
-| Scope | Workload id, scope digest, resource-set digest, mapping from provider resource id to inventory resource reference. |
-| Activation | Activation generation id and digest, Rule catalog digest, member Rule id, version, and digest, dispatcher and signal type registry digests. |
-| Inventory | Inventory generation, observation digest, observed time. |
-| Coverage | Per-Rule eligible-set digest, expected pair count, covered pair count, compliant, violated, and held-for-review counts. |
-| Provenance | Version 2 baseline completion digest, audit reference and digest, coverage digest. |
+| Scope | Framework id, workload id, scope digest, resource-set digest, mapping from provider resource id to inventory resource reference. |
+| Activation | Activation generation id and digest, Rule catalog digest, evaluated Rule catalog digest, dispatch signal, and the version 2 expected pair set digest that identifies the T0 dispatch. |
+| Inventory | Inventory generation, baseline generation reference, observation digest, observed time. |
+| Coverage | Per Rule: member and evaluated Rule digests, eligible-set digest, eligible count, compliant, violated, held-for-review, missing, duplicate, conflicting, unexpected, and revision-mismatch counts. |
+| Provenance | Version 2 baseline coverage digest and audit reference, the scoped coverage digest every receipt carries, the record's audit reference, and the record digest. |
 | Limitations | Bounded machine codes such as `pair_missing`, `duplicate_pair`, `conflicting_pair`, `unexpected_pair`, `scope_mismatch`, `rule_not_activated`, `rule_revision_drift`, `activation_catalog_drift`, `no_eligible_resource`, and `stale_inventory`. |
 
 A later catalog or activation revision produces a new record. It never reinterprets an older one.
+
+The assessment job stores each record once under its record digest, together with its audit entry
+in one atomic write, before the assessment cites its coverage digest. The
+`framework-rule-coverage:latest` pointer names the most recent assessment's record. Validation
+recomputes the scoped coverage digest, the resource-set digest, and the record digest, so a record
+that mixes scope, activation, catalog, or inventory identity is rejected. Every reader also checks
+the record against the current version 2 baseline before it uses the counts.
 
 ### Identity names
 
@@ -187,6 +197,10 @@ applies these checks in order and stops at the first match:
 | 9 | Any eligible pair is held for review (`abstained`) | `unknown` | `held_for_review` |
 | 10 | Every eligible pair is `compliant` | `satisfied` | none |
 
+Forseti records `compliant` only when the resource carries every property the Rule declares in
+`evaluates`. Otherwise the pair is `abstained` with `property_unobserved`, and row 9 applies. A
+deny stays `violated`, because it's the reviewed Rule's own judgment.
+
 `not_applicable` comes only from an approved applicability decision in the assessment profile. A
 missing resource type is never a pass. The existing framework runtime still combines requirements
 and keeps documents, metrics, drills, and approvals from their own producers.
@@ -198,9 +212,43 @@ Frameworks adopt Rule evidence one at a time, because each one has a different a
 | Framework | Prerequisite before Rule evidence is decisive | First scope |
 |-----------|-----------------------------------------------|-------------|
 | WAF | Version 2 baseline completion, scoped coverage contract, assessment-side activation pin, and receipt provenance fields. | The 8 controls with Rule requirements. |
-| MCSB | A reviewed MCSB assessment catalog, profile, and runtime with explicit requirement decomposition. Current `partial` mappings stay supporting evidence only. | v1 controls with reviewed full Rule bindings. |
-| CAF | A cloud-estate profile that pins both the hierarchy and the inventory generation. | Landing-zone technical areas with reviewed full Rule bindings. Methodology areas stay manual. |
-| WARA | A discriminated evaluator binding, `arg_query` or `t0_rule`, each with its own admission rules. A Rule binding pins Rule references, activation and member digests, scope digest, and how several Rules combine. | Recommendations that pass the capability matrix below. |
+| MCSB | A reviewed MCSB assessment catalog, profile, and runtime with explicit requirement decomposition. Current `partial` mappings stay supporting evidence only. Implemented as the `azure-mcsb` workload catalog; see [MCSB assessment](#mcsb-assessment). | v1 controls with reviewed full Rule bindings. |
+| CAF | A cloud-estate profile that pins both the hierarchy and the inventory generation. Reviewed decision: CAF gets no direct Rule requirements; see [CAF decision](#caf-decision). | Landing-zone technical areas with reviewed full Rule bindings. Methodology areas stay manual. |
+| WARA | A discriminated evaluator binding, `arg_query` or `t0_rule`, each with its own admission rules. A Rule binding pins Rule references, activation and member digests, scope digest, and how several Rules combine. Implemented as a separate `t0_rule` overlay; see [WARA assessment](wara-assessment.md#rule-backed-evaluation). | Recommendations that pass the capability matrix below. |
+
+### MCSB assessment
+
+The generator builds `rule-catalog/framework-assessments/generated/azure-mcsb.json` from the 86
+imported v1 controls, the crosswalk, and the reviewed source
+`rule-catalog/framework-assessments/azure-mcsb.source.yaml`. The source reviews each of the 25
+crosswalk Rule mappings exactly once and records its rationale; the generator rejects a missing,
+duplicate, unexplained, or unreviewed binding.
+
+- Every control has one decisive manual `artifact` requirement for control evidence, and all its
+  requirements must hold. A Rule receipt can therefore fail a control but never satisfy it alone.
+- A binding is `decisive` only when a violation of that Rule by itself shows the control's guidance
+  isn't met for the workload. 17 bindings are decisive.
+- The other 8 bindings are `supporting_only`. They add context to a control without deciding it,
+  for example internet-exposed RDP under NS-8, which targets insecure protocols, or the DDoS plan
+  Rule under NS-5, which also denies internal-only virtual networks. The runtime combines only
+  decisive requirements, so a supporting requirement can neither fail nor block a control.
+- Rule requirements use the same producer, inventory generation, one-day freshness, and activation
+  pin as WAF. The assessment job loads the scoped Rule coverage once and builds both the WAF and
+  MCSB receipts from it, so both cite the same baseline. It records MCSB as a no-authority audit
+  receipt.
+
+The Operator projects MCSB assessment events into a separate `mcsb-assessment.list` projection and
+joins each v1 control's state and each requirement's evidence role onto the MCSB catalog read; the
+Console Controls view shows them. Like WAF and CAF, no production publisher sends framework events
+yet: the live job records audit receipts only.
+
+### CAF decision
+
+CAF gets no direct Rule requirements. Its areas are cloud-estate design and process outcomes, and
+one workload resource that violates a Rule doesn't decisively fail an estate design area. CAF keeps
+its existing crosswalk references to WAF and MCSB controls, so Rule evidence reaches CAF only as
+context through those frameworks. Because CAF never consumes Rule receipts, its profile doesn't
+need a Rule activation pin next to the hierarchy and inventory generations.
 
 A WARA recommendation becomes Rule-backed only when a capability matrix proves the exact resource
 type, child-resource behavior, the inventory source and freshness of every field the check reads,
@@ -223,14 +271,40 @@ only after a feasibility milestone proves these inputs:
 - A differential comparison with Azure Policy compliance state matched by version, parameters,
   scope, and time. Any mismatch blocks activation of that candidate.
 
+### Translation pilot
+
+`fdai.rule_catalog.pipeline.translate.azure_policy` implements the grammar, and
+`rule-catalog/translation/azure-policy/aliases.yaml` holds the reviewed alias map. Each alias names
+its FDAI property, a comparison codec, and what an absent ARM field means: `unobserved`,
+`defaulted`, or `request_only`.
+
+- Conditions compile to a three-valued tree. An unsupported subtree is unknown, but an `allOf` with
+  a constant false member, or an `anyOf` with a constant true member, is decided without it.
+- A candidate requires every property its decided conditions read, so a resource without an
+  observed value abstains. Under that requirement an `exists` condition on an `unobserved` alias is
+  constant. A `defaulted` alias projects a missing field as its documented default, which Azure Policy
+  compares as absent, so a comparison on it translates only when no literal equals the default, and `exists` never does.
+- Strings and operator keys compare case-insensitively. Parameters resolve only from defaults. Only the `Audit` and
+  `Deny` effects translate. A policy whose top-level `anyOf` branches each pin one distinct type becomes one candidate per mapped type.
+- `scripts/catalog/translate-azure-policy-candidates.py` writes candidates and their Rego outside
+  `rule-catalog/` and `policies/`. `scripts/deployment/local/run-azure-policy-differential.py`
+  compares them with live compliance state through the real OPA evaluator. A candidate is eligible
+  for the quality gate only with no mismatch and at least one agreeing non-compliant resource; `--quality-gate` then replays it through the rule pipeline's shadow evaluation and regression gate.
+
+On the pinned snapshot, 9 of 3,658 definitions translate. The rest are refused, mostly for
+effects other than Audit or Deny (2,105), data-plane modes (977), and unmapped resource types
+(470). Against live compliance state on 2026-10-08, no candidate disagreed. AKS Defender profile
+(13 non-compliant clusters) and VM encryption at host (26 non-compliant VMs) agreed on every resource and passed the quality gate with no policy-violation escape; three others agreed only on compliant resources. They stay inert candidates until a catalog-as-code review adds them.
+
 ## Activation proposals
 
 Framework views never change Rule membership. A control can show which Rules it needs and whether
 they're activated. You can then submit one activation proposal through the existing request flow,
 which needs human approval and is installed by Mimir. Proposals come only from reviewed exact
 bindings. A typed WAF `rule` requirement is itself a reviewed exact binding at the requirement
-level, even though its control-level crosswalk relationship stays `partial`. MCSB, CAF, and WARA
-need an explicit reviewed binding field before they can generate proposals. Activation makes a
+level, even though its control-level crosswalk relationship stays `partial`. MCSB and WARA now
+have reviewed binding fields, but proposal generation from them isn't implemented. CAF has no Rule
+bindings. Activation makes a
 Rule eligible for T0 observation; it doesn't enable enforcement. See
 [Rule governance](rule-governance.md).
 
@@ -245,6 +319,11 @@ Rule eligible for T0 observation; it doesn't enable enforcement. See
 | 5. Console coverage | The Controls view shows server-owned Rule coverage and activation state without computing status in the browser. |
 | 6. MCSB, CAF, and WARA | Each framework meets its prerequisite in the adoption table. |
 | 7. Azure Policy pilot | The feasibility milestone passes before any translated candidate reaches Mimir. |
+
+Step 4 depends on inventory collection that supplies the normalized properties the cited Rules
+evaluate; a requirement whose properties aren't collected correctly stays `unknown`. Steps 6 and 7 start only
+after step 4 records decisive receipts, because frameworks adopt Rule evidence one at a time and
+an extension can't be validated against a producer that never reaches `satisfied` or `failed`.
 
 ## Decisions
 
@@ -278,8 +357,60 @@ Rule eligible for T0 observation; it doesn't enable enforcement. See
   unverifiable baseline, or a baseline for another activation or inventory generation yields an
   explicit status and no Rule receipts, so Rule requirements stay `unknown`.
 - **Inventory freshness:** The workload scope source enforces the inventory freshness budget
-  before the job runs, and Rule receipts use the baseline evaluation time as their observation
-  time.
+  before the job runs. Rule receipts use the inventory snapshot's completion time as their
+  observation time, because the outcomes describe that snapshot; a later baseline run doesn't make
+  them fresher. A scope source that can't supply the snapshot time falls back to the baseline
+  evaluation time for WAF, and WARA emits no Rule receipt.
+- **Unobserved properties:** A clean policy result on an absent property isn't an observation of
+  compliance. Forseti checks the top-level property of each declared path; nested data inside an
+  observed property, such as a tag the policy selects by parameter, stays the policy's judgment.
+  A Rule without a declared `evaluates` list keeps the previous behavior. A Rule whose
+  declared properties name only other resource types abstains, because none of them can be
+  checked.
+- **Console coverage:** The Operator attaches per-Rule counts to a WAF control detail only while
+  the latest scoped coverage record still belongs to the current version 2 baseline. Otherwise
+  it reports the record as outdated or unavailable with a reason and shows no counts. The counts
+  explain a requirement; they never change its server-owned status, and a record for another
+  workload scope is labeled as such.
+- **Normalized inventory properties:** The Azure inventory adapter projects each evaluated
+  property from one documented ARM field (`fdai/delivery/azure/arm_rule_properties.py`) during
+  full and real-time collection. A missing field stays absent. The only documented defaults are
+  ARM fields omitted in their default state: Key Vault purge protection, AKS node pool zones,
+  storage infrastructure encryption, and blob versioning. Each default is the non-compliant value,
+  so it can only make a Rule deny, never pass. Full collection also hydrates
+  extension resources with bounded GETs: diagnostic settings (on the blob service for storage),
+  blob soft delete and versioning, SQL transparent data encryption, and the PostgreSQL flexible
+  server `require_secure_transport` parameter. A failed read leaves the property unobserved. NSG
+  `security_rules` are projected only when every inbound allow rule uses one protocol, one numeric
+  port, and one source that isn't an any-source alias, because the locked
+  `network.nsg.no-inbound-any-*` Rules match exact literals. Because a shipped Rule can't change
+  in place ([Rule governance](rule-governance.md#lifecycle-and-versioning)), the broader check
+  ships as new Rules, `network.nsg.no-internet-inbound-rdp` and `-ssh`. They read the separate
+  `inbound_security_rules` property, the complete inbound set with every protocol, port range or
+  list, source prefix or list, and priority, and treat an exposure as blocked only by a
+  higher-priority deny that covers the port for every source, source port, and destination. WAF SE:06 cites them as decisive
+  requirements and MCSB NS-8 as supporting bindings. An existing installation keeps its activation generation, so there the requirement
+  stays `unknown` with `rule_not_activated` until an approved activation change adds the Rule; a fresh installation without a profile activates the whole catalog at genesis.
+  A subscription's `role_assignments` come from the complete `atScope()` listing, role
+  definitions, Microsoft Graph user types including guests reached through groups, and Privileged
+  Identity Management schedule instances. A tenant without the PIM license can't hold
+  just-in-time assignments, so every active assignment there is standing. Any other failed read,
+  including a missing Graph permission, leaves the whole list unobserved. A deployed collector
+  identity needs Microsoft Graph `User.Read.All` and `GroupMember.Read.All` application
+  permissions for these reads. A managed identity's `role_assignments` come only from a tenant-wide
+  read that proves its completeness: the root management group's complete descendant listing,
+  every management group's `atScope()` listing, every subscription's full listing, every role
+  definition's actions, and every group's transitive service principal members, so a grant held
+  through group membership counts. A grant at a management group or the root applies to every subscription
+  below it, so it reports `subscription` scope. Any failed read, including a collector without
+  read access at the root, leaves every managed identity unobserved.
+- **Local measurement:** `scripts/deployment/local/run-framework-rule-evidence.py` runs this path
+  read-only against the loopback development database. Because the local ontology has no
+  deployment-owned `Workload`, it binds one estate scope to the whole active inventory generation.
+  `--re-evaluate` reruns Forseti's baseline in memory with the repository Rules the current
+  activation pins and replays the row projection over the stored raw properties. Extension reads
+  need a fresh collection. `--candidate-activation` measures a pending catalog change with an
+  in-memory activation built from the repository Rule revisions; it's never installed.
 
 ## Related docs
 

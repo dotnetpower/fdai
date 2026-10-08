@@ -22,7 +22,7 @@ provenance:
     Government/Security Center/ASC_DisableWebSockets_ApiApp_Audit_Deprecated.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:da612b20e4e7b8ee9e44ccc51e4d728043ded51d5a8032d60d7e2d0d09cf8ff4
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

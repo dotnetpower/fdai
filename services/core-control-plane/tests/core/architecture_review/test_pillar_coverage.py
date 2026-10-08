@@ -35,12 +35,12 @@ def test_pinned_catalog_accounts_for_every_control_and_evidence_definition() -> 
     report = pillar_coverage.load_pillar_definition_coverage(_ROOT)
     by_pillar = {item.pillar: item for item in report.pillars}
 
-    assert (report.control_count, report.evidence_count) == (59, 186)
+    assert (report.control_count, report.evidence_count) == (59, 188)
     assert {
         name: (item.control_count, item.evidence_count) for name, item in by_pillar.items()
     } == {
         "reliability": (10, 39),
-        "security": (12, 51),
+        "security": (12, 53),
         "cost-optimization": (14, 32),
         "operational-excellence": (11, 32),
         "performance-efficiency": (12, 32),

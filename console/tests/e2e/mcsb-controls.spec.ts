@@ -54,7 +54,34 @@ async function json(route: Route, body: unknown, status = 200): Promise<void> {
   await route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 }
 
-async function installFixture(page: Page): Promise<void> {
+const ASSESSED_AT = "2026-10-08T12:00:00+00:00";
+const assessmentSummary = {
+  status: "evaluated",
+  framework_id: "azure-mcsb",
+  last_evaluated_at: ASSESSED_AT,
+  satisfaction_counts: { failed: 1, unknown: 1 },
+  execution_authority: false,
+};
+const controlAssessments: Readonly<Record<string, unknown>> = {
+  "DP-3": {
+    applicability: "applicable",
+    evaluation_status: "evaluated",
+    satisfaction: "failed",
+    evaluated_at: ASSESSED_AT,
+    evidence_complete: false,
+    limitations: [],
+  },
+  "IR-1": {
+    applicability: "applicable",
+    evaluation_status: "not_evaluated",
+    satisfaction: "unknown",
+    evaluated_at: ASSESSED_AT,
+    evidence_complete: false,
+    limitations: ["decisive_evidence_unavailable"],
+  },
+};
+
+async function installFixture(page: Page, { assessed = false } = {}): Promise<void> {
   const handle = async (route: Route): Promise<void> => {
     if (route.request().resourceType() === "document") {
       await route.continue();
@@ -75,6 +102,30 @@ async function installFixture(page: Page): Promise<void> {
         manual_evidence_refs: [],
         source: { source_url: "https://learn.microsoft.com/" },
         evaluation_source: "catalog_crosswalk",
+        ...(assessed
+          ? {
+              assessment: {
+                ...(controlAssessments["DP-3"] as Record<string, unknown>),
+                requirements: [
+                  {
+                    kind: "artifact",
+                    ref: "mcsb-dp-3-control-evidence",
+                    evidence_role: "decisive",
+                    status: "unknown",
+                    limitations: ["decisive_evidence_unavailable"],
+                  },
+                  {
+                    kind: "rule",
+                    ref: "object-storage.https-only.required",
+                    evidence_role: "decisive",
+                    status: "failed",
+                    limitations: [],
+                  },
+                ],
+              },
+              assessment_summary: assessmentSummary,
+            }
+          : {}),
       });
       return;
     }
@@ -92,8 +143,19 @@ async function installFixture(page: Page): Promise<void> {
           by_domain: selected === preview ? { AI: 1 } : { DP: 1, IR: 1 },
           by_coverage: selected === preview ? { unmapped: 1 } : { partial: 1, manual: 1 },
         },
-        controls: items,
+        controls:
+          assessed && selected === version
+            ? items.map((item) => ({ ...item, assessment: controlAssessments[item.control_id] ?? null }))
+            : items,
         evaluation_source: "catalog_crosswalk",
+        ...(assessed
+          ? {
+              assessment_summary:
+                selected === version
+                  ? assessmentSummary
+                  : { status: "not_assessed", framework_id: "azure-mcsb", execution_authority: false },
+            }
+          : {}),
       });
       return;
     }
@@ -134,4 +196,46 @@ test("shows versioned implementation coverage without compliance claims", async 
     }));
     expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
   }
+});
+
+test("shows server-owned shadow assessment state for v1 controls", async ({ page }) => {
+  await installFixture(page, { assessed: true });
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/rules?view=controls&framework=mcsb-v1");
+
+  await expect(page.getByRole("columnheader", { name: "Assessment" })).toBeVisible();
+  await expect(page.getByText(`Shadow assessment from ${ASSESSED_AT}: 1 failed, 1 unknown, 0 satisfied.`, { exact: false })).toBeVisible();
+  await expect(
+    page.locator("td.mcsb-assessment-column").getByText("Failed", { exact: true }),
+  ).toBeVisible();
+  await expect(page.getByText("Satisfied", { exact: true })).toHaveCount(0);
+
+  await page.getByText("DP-3", { exact: true }).click();
+  const drawer = page.getByRole("dialog", { name: "MCSB control detail" });
+  await expect(drawer.getByRole("heading", { name: "Shadow assessment" })).toBeVisible();
+  const requirements = drawer.getByRole("list", { name: "Requirements" });
+  await expect(requirements.getByText("mcsb-dp-3-control-evidence")).toBeVisible();
+  await expect(requirements.getByText("Decisive", { exact: true })).toHaveCount(2);
+  await expect(drawer.getByText("Decisive control evidence is required to satisfy this control.", { exact: false })).toBeVisible();
+  await drawer.getByRole("button", { name: "Close" }).click();
+
+  for (const viewport of [
+    { width: 1440, height: 900 },
+    { width: 993, height: 641 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    for (const selector of ["html", ".rule-facet-toolbar", ".mcsb-coverage-banner"]) {
+      const dimensions = await page.locator(selector).evaluate((element) => ({
+        clientWidth: element.clientWidth,
+        scrollWidth: element.scrollWidth,
+      }));
+      expect(dimensions.scrollWidth, `${selector} at ${viewport.width}`).toBeLessThanOrEqual(
+        dimensions.clientWidth,
+      );
+    }
+  }
+
+  await page.getByRole("link", { name: "MCSB v2 preview" }).click();
+  await expect(page.getByRole("columnheader", { name: "Assessment" })).toHaveCount(0);
 });

@@ -22,7 +22,7 @@ provenance:
     Center/DeployAtpOnMySqlFlexibleServers_DINE.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:357dc333a22673f96c29042164745d3d6b0f1d0f1b078fdd41f2cd73366175f4
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

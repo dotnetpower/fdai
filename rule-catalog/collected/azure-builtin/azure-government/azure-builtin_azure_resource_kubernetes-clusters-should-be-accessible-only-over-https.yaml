@@ -21,7 +21,7 @@ provenance:
     Government/Kubernetes/IngressHttpsOnly.json
   source_version: 10.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:1896ba3f036d00b2d03ada7e30db057e1e4d6682d9befc692b1f7f2f9feefff3
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

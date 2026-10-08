@@ -22,7 +22,7 @@ provenance:
     Service/DisablePrivateEndpoint_Deny.json
   source_version: 4.3.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:e7fa2a1656271f4f7d9d67593155f89c2b3789e061fc88ae38afd4677480b908
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

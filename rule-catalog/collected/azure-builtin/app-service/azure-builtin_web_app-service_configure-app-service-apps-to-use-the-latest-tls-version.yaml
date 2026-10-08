@@ -21,7 +21,7 @@ provenance:
     Service/RequireLatestTls_WebApp_DINE.json
   source_version: 1.2.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:18e8b1979681f7ff908063f2c8bdc5faa056420cbd7628f2ee25709a1de4ce74
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

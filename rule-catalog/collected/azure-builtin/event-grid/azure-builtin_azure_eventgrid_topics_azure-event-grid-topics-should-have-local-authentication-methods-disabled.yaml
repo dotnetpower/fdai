@@ -22,7 +22,7 @@ provenance:
     Grid/Topics_DisableLocalAuth_AuditDeny.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:3d773928ca0fb8d5fe5762a3e42a5f79edc2d33fd1eca234a5a2b019cab35f47
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

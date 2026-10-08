@@ -25,6 +25,7 @@ from fdai.delivery.authoritative_catalog_persistence import write_catalog_snapsh
 from fdai.delivery.authoritative_framework_projection import (
     _best_practice_snapshot,
     _caf_snapshot,
+    _mcsb_assessment_snapshot,
     _mcsb_snapshot,
     _wara_snapshot,
 )
@@ -96,6 +97,7 @@ BEST_PRACTICE_LIST_KEY = "operator-projection:workflow:best-practice.list"
 CAF_LIST_KEY = "operator-projection:workflow:caf.list"
 WARA_LIST_KEY = "operator-projection:workflow:wara.list"
 MCSB_LIST_KEY = "operator-projection:workflow:mcsb.list"
+MCSB_ASSESSMENT_LIST_KEY = "operator-projection:workflow:mcsb-assessment.list"
 PROMOTION_GATE_LIST_KEY = "operator-projection:workflow:promotion-gate.list"
 CAPABILITY_LIST_KEY = "operator-projection:operations:capabilities"
 ONBOARDING_KEY = "operator-projection:operations:onboarding"
@@ -167,7 +169,7 @@ def catalog_snapshots(repo_root: Path) -> dict[str, dict[str, object]]:
         framework_id: load_framework_assessment_catalog(
             catalog_root / f"framework-assessments/generated/{framework_id}.json"
         )
-        for framework_id in ("azure-waf", "azure-caf")
+        for framework_id in ("azure-waf", "azure-caf", "azure-mcsb")
     }
     caf_framework = next(item for item in frameworks if item.id == "azure-caf")
     wara_framework = next(item for item in frameworks if item.id == "azure-wara")
@@ -248,6 +250,9 @@ def catalog_snapshots(repo_root: Path) -> dict[str, dict[str, object]]:
             _wara_snapshot(wara_framework, wara_assessment, wara_evaluators)
         ),
         MCSB_LIST_KEY: _revisioned(_mcsb_snapshot(mcsb_catalogs)),
+        MCSB_ASSESSMENT_LIST_KEY: _revisioned(
+            _mcsb_assessment_snapshot(framework_assessments["azure-mcsb"])
+        ),
         PROMOTION_GATE_LIST_KEY: _revisioned(_promotion_gate_snapshot(ontology.action_types)),
         CAPABILITY_LIST_KEY: _revisioned(_capability_snapshot()),
         ONBOARDING_KEY: _revisioned(_onboarding_snapshot()),

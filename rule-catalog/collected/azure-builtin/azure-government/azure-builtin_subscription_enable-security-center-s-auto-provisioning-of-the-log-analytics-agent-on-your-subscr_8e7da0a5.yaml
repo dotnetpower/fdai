@@ -1,0 +1,28 @@
+schema_version: 1.0.0
+id: azure-builtin.subscription.enable-security-center-s-auto-provisioning-of-the-log-analytics-agent-on-your-subscriptions.8e7da0a5
+version: 1.0.0
+source: azure_policy
+severity: medium
+category: security
+resource_type: subscription
+check_logic:
+  kind: expression
+  reference: azure-policy://8e7da0a5-0a0e-4bbc-bfc0-7773c018b616
+remediation:
+  template_ref: remediation/azure-builtin/8e7da0a5-0a0e-4bbc-bfc0-7773c018b616.md
+remediates: remediate.azure-policy-managed
+parameters:
+  azure_policy_name: 8e7da0a5-0a0e-4bbc-bfc0-7773c018b616
+  azure_policy_display_name: Enable Security Center's auto provisioning of the Log
+    Analytics agent on your subscriptions with custom workspace.
+  azure_policy_effect_default: DeployIfNotExists
+  azure_policy_category: Security Center
+provenance:
+  source_url: https://github.com/Azure/azure-policy/blob/main/built-in-policies/Azure
+    Government/Security Center/ASC_DINE_monitoring_agent_custom_workspace.json
+  source_version: 1.0.0
+  resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
+  content_hash: sha256:4f49916c0a6bda8ec9d67083f04fe41daf23f6983c119e41b4bdf12a93391ffc
+  license: MIT
+  redistribution: embeddable
+  retrieved_at: '2026-10-08T09:14:46Z'

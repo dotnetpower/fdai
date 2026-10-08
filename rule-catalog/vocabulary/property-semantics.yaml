@@ -3,7 +3,7 @@ version: "3.0.0"
 provenance:
   source_url: repo://rule-catalog/vocabulary/property-semantics.yaml
   resolved_ref: property-semantics@3.0.0
-  content_hash: sha256:5df9c171592d28bbd06e9bc8e9e3ecc224b45ec25417273e2cb97a6a89e27178
+  content_hash: sha256:1b1c5d7e29654c0f8879e246578a25a22bacb030265854761aa93e4966d897ec
   license: Apache-2.0
   retrieved_at: "2026-08-15T00:00:00Z"
 # Reviewed coverage is deliberately partial. Every Property reference without an entry here
@@ -281,6 +281,13 @@ semantics:
     freshness: *inventory_freshness
     equivalent_provider_paths:
       - {provider: azure, resource_type: network.nsg, path: security_rules}
+  - semantic_id: security.network.inbound_rules
+    value_type: array
+    normalization_rule: json.canonical
+    authority: *provider_authority
+    freshness: *inventory_freshness
+    equivalent_provider_paths:
+      - {provider: azure, resource_type: network.nsg, path: inbound_security_rules}
   - semantic_id: security.network.private_endpoints
     value_type: array
     normalization_rule: json.canonical

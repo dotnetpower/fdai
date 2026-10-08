@@ -22,7 +22,7 @@ provenance:
     Center/MDC_DfSQL_DeployMicrosoftDefenderForSQLWindowsAgent_VM.json
   source_version: 1.6.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:74deb72e042c3e04883c47beabd70b8f092024a961ef993c1d4ed16b911c9b91
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

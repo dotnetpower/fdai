@@ -2,8 +2,8 @@
 title: 배포 빠른 시작
 description: clone에서 명령줄 한 줄로 FDAI를 자신의 Azure 구독에 배포하거나 서명된 오프라인 패키지로 설치합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 0dd455e70bfb91f367047ece2d9386f2ec6b953b
-translation_revised: 2026-10-06
+translation_source_sha: 75b9971bd5e674b1e0f27c3706a45548a85dfb05
+translation_revised: 2026-10-09
 ---
 
 # 배포 빠른 시작
@@ -304,6 +304,12 @@ Azure 관리 및 데이터 평면 엔드포인트는 Azure 네트워크 경로�
 있으면 FDAI가 기존 Azure ID를 논리 Resource로 조정할 수 있습니다. 인벤토리가 없으면 두 필드를
 메트릭 기반 대상에 모두 제공하여 발견된 문제와 Incident가 공급자 신원을 대상으로 노출하지
 않도록 하세요. Pod 수명 주기 근거와 같은 비메트릭 대상은 논리 ID만 사용합니다.
+
+역할 할당 검사에는 배포가 부여하지 않는 테넌트 권한이 필요합니다. 테넌트 관리자가 인벤토리 ID에
+구독 할당을 판단하기 위한 Microsoft Graph `User.Read.All`과 `GroupMember.Read.All` 애플리케이션
+권한을, 관리 ID 할당을 판단하기 위한 테넌트 루트 관리 그룹의 `Reader`를 부여해야 합니다. 그 전까지
+이 검사는 통과하지 않고 `unknown`을 보고합니다. 자세한 내용은
+[배포 및 온보딩](../roadmap/deployment/deploy-and-onboard-ko.md)을 참조하세요.
 
 비공개 작업 디렉터리에는 SSH 키, 대상별 입력, 계획, 복구 상태가 포함될 수 있습니다. 내용을
 업로드하거나 공유하지 말고 민감한 값을 제거한 CLI 진단을 사용하세요. 검증 및 필요한 복구가

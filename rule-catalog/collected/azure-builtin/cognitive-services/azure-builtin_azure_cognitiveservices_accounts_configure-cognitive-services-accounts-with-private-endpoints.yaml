@@ -21,7 +21,7 @@ provenance:
     Services/EnablePrivateEndpoints_DINE.json
   source_version: 3.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:fab4c0c48dfdf909f6330034acefa2e5caa20afcbe2c3a428ee4216a73d8cd24
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

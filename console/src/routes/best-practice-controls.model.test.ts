@@ -127,6 +127,60 @@ describe("best practice controls contract", () => {
       provenance: {},
     })).toThrow();
   });
+
+  test("decodes server-owned rule coverage and rejects counts that do not reconcile", () => {
+    const counts = {
+      activated: true,
+      eligible: 3,
+      covered: 2,
+      compliant: 1,
+      violated: 1,
+      held_for_review: 0,
+      missing: 1,
+      duplicate: 0,
+      conflicting: 0,
+      unexpected: 0,
+      revision_mismatch: 0,
+    };
+    const requirement = {
+      kind: "rule",
+      ref: "cache.zone-redundant",
+      freshness_days: 1,
+      status: "unknown",
+      evidence_refs: [],
+      limitations: ["pair_missing"],
+    };
+    const payload = (coverage: unknown) => ({
+      ...CONTROL,
+      requirement_count: 2,
+      requirements: [
+        { ...requirement, coverage },
+        { ...requirement, ref: "cache.other", coverage: { activated: false } },
+      ],
+      rule_coverage: { status: "current", reason: null, scope_digest: "sha256:scope", resource_count: 3 },
+      provenance: {},
+    });
+
+    const detail = decodeBestPracticeDetail(payload(counts));
+
+    expect(detail.requirements[0]!.coverage).toEqual(counts);
+    expect(detail.requirements[1]!.coverage).toEqual({ activated: false });
+    expect(detail.rule_coverage?.status).toBe("current");
+    expect(detail.rule_coverage?.matches_assessment_scope).toBeNull();
+    expect(() => decodeBestPracticeDetail(payload({ ...counts, missing: 0 }))).toThrow(/do not reconcile/);
+    expect(() => decodeBestPracticeDetail({
+      ...payload(counts),
+      rule_coverage: { status: "certified" },
+    })).toThrow(/unknown value certified/);
+    const legacy = decodeBestPracticeDetail({
+      ...CONTROL,
+      requirement_count: 1,
+      requirements: [requirement],
+      provenance: {},
+    });
+    expect(legacy.rule_coverage).toBeNull();
+    expect(legacy.requirements[0]!.coverage).toBeNull();
+  });
 });
 
 describe("Rule citation lookup", () => {

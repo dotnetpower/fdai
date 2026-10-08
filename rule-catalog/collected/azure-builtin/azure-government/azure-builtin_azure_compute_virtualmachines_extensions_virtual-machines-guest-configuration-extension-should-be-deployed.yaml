@@ -22,7 +22,7 @@ provenance:
     Government/Security Center/ASC_GCExtOnVmWithNoSAMI.json
   source_version: 1.0.1
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:e39f7ca682154a5d2f6265f0b0a142a75dd6d09bbbcae12067f44a940ed1d88f
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

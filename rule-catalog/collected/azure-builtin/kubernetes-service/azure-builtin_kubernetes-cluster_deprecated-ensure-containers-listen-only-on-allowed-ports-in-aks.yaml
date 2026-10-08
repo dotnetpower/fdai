@@ -22,7 +22,7 @@ provenance:
     service/ContainerAllowedPorts_EnforceRegoPolicy.json
   source_version: 1.0.1
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:3e19cb319a7fba6c31c631ab0300f2378be9e3926ebb0c4e7698e985f8afd3ac
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:04Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

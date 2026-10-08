@@ -22,7 +22,7 @@ provenance:
     Service/WebApp_Slot_StorageAccountRequired_Audit.json
   source_version: 1.0.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:46c028cd3b34b05faa53c433c87a932c4c6ddcc6ba479014cddbed5af1e6847d
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

@@ -129,6 +129,7 @@ _CONTEXT_SELECTION_PREFIX: Final = "context-selection:evaluation:"
 _FRAMEWORK_PROJECTION_OPERATIONS: Final = {
     "azure-waf": "best-practice.list",
     "azure-caf": "caf.list",
+    "azure-mcsb": "mcsb-assessment.list",
 }
 # The invalidation stream never exposes provider observations. It signals only
 # an ontology commit whose graph, manifest, and cursor were written atomically.
@@ -653,7 +654,7 @@ class PostgresFamilyStore:
         await self.write_state(_projection_key("workflow", "wara.list"), value)
 
     async def read_framework_catalog(self, framework_id: str) -> dict[str, object]:
-        """Read one current WAF or CAF catalog-plus-assessment projection."""
+        """Read one current WAF, CAF, or MCSB catalog-plus-assessment projection."""
 
         operation = _FRAMEWORK_PROJECTION_OPERATIONS.get(framework_id)
         if operation is None:
@@ -665,7 +666,7 @@ class PostgresFamilyStore:
         framework_id: str,
         value: Mapping[str, object],
     ) -> None:
-        """Persist one validated WAF or CAF no-authority projection."""
+        """Persist one validated WAF, CAF, or MCSB no-authority projection."""
 
         operation = _FRAMEWORK_PROJECTION_OPERATIONS.get(framework_id)
         if operation is None:

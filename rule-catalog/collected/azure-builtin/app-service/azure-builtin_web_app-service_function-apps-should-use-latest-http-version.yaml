@@ -21,7 +21,7 @@ provenance:
     Service/FunctionApp_Audit_HTTP_Latest.json
   source_version: 4.1.0
   resolved_ref: d315bc3b9c8a382e540add3562fff4a82e027635
-  content_hash: sha256:0000000000000000000000000000000000000000000000000000000000000000
+  content_hash: sha256:82eb56b7bf6d55a1fc0025b1668ca9b756bfb89d7fa958b1de9a5cde18d759c4
   license: MIT
   redistribution: embeddable
-  retrieved_at: '2026-07-07T14:26:03Z'
+  retrieved_at: '2026-10-08T09:14:46Z'

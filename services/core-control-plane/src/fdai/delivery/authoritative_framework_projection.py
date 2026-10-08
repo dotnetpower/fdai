@@ -156,6 +156,60 @@ def _caf_snapshot(
     }
 
 
+def _mcsb_assessment_snapshot(assessment: FrameworkAssessmentCatalog) -> dict[str, object]:
+    """Seed the MCSB assessment projection that shadow results replace control by control."""
+
+    if assessment.framework_id != "azure-mcsb":
+        raise ValueError("MCSB assessment snapshot requires the azure-mcsb catalog")
+    controls: list[dict[str, object]] = []
+    for specification in assessment.controls:
+        relationships = {item.relationship for item in specification.crosswalk}
+        mapping_state = (
+            "full"
+            if FrameworkRelationshipState.FULL in relationships
+            else "partial"
+            if relationships - {FrameworkRelationshipState.UNMAPPED}
+            else "unmapped"
+        )
+        controls.append(
+            {
+                "control_id": specification.control_id,
+                "title": specification.title,
+                "area": specification.area,
+                "reference_state": "present",
+                "mapping_state": mapping_state,
+                "applicability": "unknown",
+                "evaluation_status": "not_evaluated",
+                "satisfaction": "unknown",
+                "owner_slot": specification.owner_slot,
+                "cadence_days": specification.cadence_days,
+                "evaluation_scope": None,
+                "evaluated_at": None,
+                "profile_id": None,
+                "profile_digest": None,
+                "approved_exception": None,
+                "evidence_complete": False,
+                "evidence_refs": [],
+                "evidence_digests": [],
+                "limitations": ["not_evaluated"],
+                "evidence_specifications": [
+                    item.model_dump(mode="json") for item in specification.evidence
+                ],
+                "crosswalk": [item.model_dump(mode="json") for item in specification.crosswalk],
+                "execution_authority": False,
+            }
+        )
+    return {
+        "framework_id": assessment.framework_id,
+        "framework_version": assessment.framework_version,
+        "catalog_digest": assessment.catalog_digest,
+        "source_revision_digest": assessment.source_revision_digest,
+        "framework_definition_digest": assessment.framework_definition_digest,
+        "evaluation_source": "not_connected",
+        "controls": sorted(controls, key=lambda item: str(item["control_id"])),
+    }
+
+
 def _mcsb_snapshot(catalogs: Sequence[McsbCatalog]) -> dict[str, object]:
     return {
         "catalogs": [
