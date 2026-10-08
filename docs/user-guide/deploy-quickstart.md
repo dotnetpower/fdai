@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to your own Azure subscription from a clone with one command line, or install it from a signed offline package.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: c16516cdccd5e62404ec7ae3bfe49ae9bc27ca37 }, { source: docs/roadmap/deployment/source-deployment.md, sha: a9517a91425226a222e2a6578d75f5dcfc233299 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 7d672614c37fe8fac76571612ce364e5b10f9ba6 }, { source: docs/roadmap/deployment/source-deployment.md, sha: a9517a91425226a222e2a6578d75f5dcfc233299 }]
 ---
 
 # Deploy Quickstart
@@ -314,6 +314,13 @@ If you configure analyzer targets directly, use `resource_id` for the logical FD
 available, FDAI can reconcile a legacy Azure ID to its logical Resource. Without inventory, provide
 both fields for metric-backed targets so detected issues and Incidents never expose the provider identity
 as their target. Non-metric targets, such as Pod lifecycle evidence, use only their logical ID.
+
+Role assignment checks need tenant permissions that the deployment doesn't grant. A tenant
+administrator grants the inventory identity Microsoft Graph `User.Read.All` and
+`GroupMember.Read.All` application permissions to judge subscription assignments, and `Reader` at
+the tenant root management group to judge managed identity assignments. Until then, those checks
+report `unknown` instead of passing. For details, see
+[Deploy and onboard](../roadmap/deployment/deploy-and-onboard.md).
 
 The private work directory can contain SSH keys, target-specific inputs, plans, and recovery state.
 Do not upload or share its contents; use sanitized CLI diagnostics instead. Keep the directory until

@@ -29,6 +29,7 @@ control assessments without duplicating the normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-08 | validated | Projected managed identity role assignments from a tenant-wide read that proves its completeness: the root management group's descendants, every management group's `atScope()` listing, every subscription's full listing, and each role definition's actions; a management group or root grant reports `subscription` scope, and any failed read leaves every identity unobserved. Documented the Graph admin consent and root `Reader` the deployed inventory identity needs. | `test_arm_tenant_role_assignments.py`; operator-approved live refresh: all 65 managed identities observed with 289 assignments, the two managed identity Rule requirements moved from `unknown` to `failed`, WAF receipts 24 failed / 7 satisfied / 7 unknown, and MCSB PA-7 failed | Per-installation consent and root `Reader`. |
 | 2026-10-08 | implemented | Projected MCSB shadow assessment results to the Operator and Console. The materializer seeds a separate `mcsb-assessment.list` projection from the `azure-mcsb` catalog, the framework consumer accepts `azure-mcsb` events and records each requirement's evidence role, and the MCSB catalog read joins each v1 control's state and a no-authority summary; a missing projection reads as unavailable and a malformed or authority-bearing one fails closed. The Console adds an Assessment column, a summary line, and a drawer section, stacking the pill under coverage on narrow screens. | `test_framework_mcsb_assessment_projection.py`; `test_framework_assessment_projection.py`; `test_mcsb_assessment_operator_projection.py` (real catalog, runtime, and consumer); `mcsb-controls.model.test.ts`; `mcsb-controls.spec.ts` on desktop and mobile with 1440, 993, and 390 pixel overflow checks | A deployed framework event publisher. |
 | 2026-10-08 | implemented | Shipped the broader NSG exposure check as new Rules, `network.nsg.no-internet-inbound-rdp` and `-ssh`, because the locked `no-inbound-any-*` Rules can't change in place. They read a new complete `inbound_security_rules` projection and judge wildcard protocols, port ranges and lists, source prefixes and lists, and any-source aliases; an exposure counts as blocked only by a higher-priority deny that covers the port for every source, source port, and destination; an independent review found that a deny scoped to one destination, a destination application security group, or some source ports first counted as a full block, so the complete projection now carries those fields. The old Rules and their exact-literal `security_rules` projection are unchanged. WAF SE:06 and MCSB NS-8 cite the new Rules, which start unactivated. | `test_nsg_exposure_rules.py` (45 cases on the real OPA evaluator); `test_arm_rule_properties.py`; rule revision lock now 52 Rules | Approved activation in each installation. |
 | 2026-10-08 | validated | Landed the 30 new Azure Policy definitions whose 128-character truncated ids collided with each other or with collected Rules. A colliding new policy now gets an id and path suffixed with the first eight hex characters of its GUID, so no policy silently wins and existing Rule ids stay unchanged. The collected corpus grows from 3,628 to 3,658 Rules and the discovery corpus to 8,517 documents. | `test_azure_policy_landing.py`; 2,184 `tests/rule_catalog` and catalog-search tests pass | Translator inputs. |
@@ -91,10 +92,16 @@ control assessments without duplicating the normative design.
   Rule requirements.
 - [x] Read complete subscription role assignments with Graph guest expansion and PIM standing
   status (`test_arm_subscription_role_assignments.py`).
-- [ ] Grant Microsoft Graph `User.Read.All` and `GroupMember.Read.All` application permissions to
-  the deployed collector identity through a reviewed infrastructure change.
-- [ ] Prove complete managed-identity role assignment visibility, for example from a tenant-root
-  read scope, before projecting managed-identity `role_assignments`.
+- [x] Document the Microsoft Graph `User.Read.All` and `GroupMember.Read.All` admin consent for the
+  inventory identity as a deployment step, matching the Operator API directory consent; Terraform
+  doesn't grant tenant-wide Graph roles
+  ([deploy and onboard](../../roadmap/deployment/deploy-and-onboard.md)).
+- [ ] Have a tenant administrator grant that consent in each installation that needs decisive
+  subscription role assignment evidence.
+- [x] Prove complete managed-identity role assignment visibility from a tenant-root read before
+  projecting managed-identity `role_assignments` (`test_arm_tenant_role_assignments.py`).
+- [ ] Grant the deployed inventory identity `Reader` at the tenant root management group in each
+  installation that needs decisive managed identity evidence.
 - [x] Show per-Rule coverage counts in the Controls view with focused Playwright checks
   (`console/tests/e2e/rule-control-crosslinks.spec.ts`).
 - [x] Meet the WARA prerequisite with a discriminated `t0_rule` binding and capability matrix

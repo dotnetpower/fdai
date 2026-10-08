@@ -372,8 +372,12 @@ an extension can't be validated against a producer that never reaches `satisfied
   just-in-time assignments, so every active assignment there is standing. Any other failed read,
   including a missing Graph permission, leaves the whole list unobserved. A deployed collector
   identity needs Microsoft Graph `User.Read.All` and `GroupMember.Read.All` application
-  permissions for these reads. Managed-identity role assignments stay unobserved, because the
-  collector can't prove it sees grants in subscriptions outside its read scope.
+  permissions for these reads. A managed identity's `role_assignments` come only from a tenant-wide
+  read that proves its completeness: the root management group's complete descendant listing,
+  every management group's `atScope()` listing, every subscription's full listing, and every role
+  definition's actions. A grant at a management group or the root applies to every subscription
+  below it, so it reports `subscription` scope. Any failed read, including a collector without
+  read access at the root, leaves every managed identity unobserved.
 - **Local measurement:** `scripts/deployment/local/run-framework-rule-evidence.py` runs this path
   read-only against the loopback development database. Because the local ontology has no
   deployment-owned `Workload`, it binds one estate scope to the whole active inventory generation.

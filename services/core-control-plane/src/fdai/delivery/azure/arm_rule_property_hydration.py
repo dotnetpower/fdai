@@ -25,6 +25,9 @@ from fdai.delivery.azure.arm_subscription_role_assignments import (
     RoleAssignmentReadError,
     subscription_role_assignments,
 )
+from fdai.delivery.azure.arm_tenant_role_assignments import (
+    tenant_role_assignments_by_principal,
+)
 from fdai.delivery.azure.inventory import ResourceQueryResult
 from fdai.shared.providers.inventory import ResourceRecord
 from fdai.shared.providers.workload_identity import WorkloadIdentity
@@ -148,9 +151,10 @@ _READS: Mapping[str, tuple[_ExtensionRead, ...]] = {
 }
 
 _SUBSCRIPTION = "subscription"
+_MANAGED_IDENTITY = "managed-identity"
 GRAPH_ENDPOINT = "https://graph.microsoft.com"
 GRAPH_AUDIENCE = "https://graph.microsoft.com/.default"
-HYDRATED_RESOURCE_TYPES = frozenset({*_READS, _SUBSCRIPTION})
+HYDRATED_RESOURCE_TYPES = frozenset({*_READS, _SUBSCRIPTION, _MANAGED_IDENTITY})
 
 
 class ArmHydrationConfig(Protocol):
@@ -225,9 +229,15 @@ class ArmRulePropertyHydrator:
         token = await self._identity.get_token(self._audience)
         headers = {"Authorization": f"Bearer {token.token}", "Accept": "application/json"}
         resources: list[ResourceRecord] = []
+        tenant_indexes: dict[str, dict[str, list[dict[str, Any]]] | None] = {}
         for resource in result.resources:
             if resource.type == _SUBSCRIPTION:
                 resources.append(await self._with_role_assignments(resource, headers))
+                continue
+            if resource.type == _MANAGED_IDENTITY:
+                resources.append(
+                    await self._with_identity_role_assignments(resource, headers, tenant_indexes)
+                )
                 continue
             plan = self._plan(resource)
             if not plan or reads_left < len(plan) or resource.provider_ref is None:
@@ -304,6 +314,55 @@ class ArmRulePropertyHydrator:
             return resource
         return dataclasses.replace(
             resource, props={**resource.props, "role_assignments": assignments}
+        )
+
+    async def _with_identity_role_assignments(
+        self,
+        resource: ResourceRecord,
+        arm_headers: Mapping[str, str],
+        tenant_indexes: dict[str, dict[str, list[dict[str, Any]]] | None],
+    ) -> ResourceRecord:
+        """Attach a managed identity's assignments only from a provably complete tenant read."""
+
+        properties = resource.props.get("properties")
+        principal = properties.get("principalId") if isinstance(properties, Mapping) else None
+        tenant = properties.get("tenantId") if isinstance(properties, Mapping) else None
+        if (
+            "role_assignments" in resource.props
+            or not isinstance(principal, str)
+            or not principal
+            or not isinstance(tenant, str)
+            or not tenant
+        ):
+            return resource
+        key = tenant.casefold()
+        if key not in tenant_indexes:
+            reads_left = self._max_reads
+
+            async def read(url: str) -> Mapping[str, Any]:
+                nonlocal reads_left
+                if reads_left <= 0:
+                    raise RoleAssignmentReadError("role assignment read budget exhausted")
+                reads_left -= 1
+                return await self._read_with_error_code(url, arm_headers)
+
+            try:
+                tenant_indexes[key] = await tenant_role_assignments_by_principal(
+                    tenant_id=tenant, arm_endpoint=self._endpoint, read_arm=read
+                )
+            except RoleAssignmentReadError as exc:
+                # Without the whole tenant hierarchy a grant elsewhere could be invisible.
+                _LOGGER.warning(
+                    "arm_identity_role_assignment_hydration_unavailable",
+                    extra={"error_code": exc.error_code},
+                )
+                tenant_indexes[key] = None
+        index = tenant_indexes[key]
+        if index is None:
+            return resource
+        return dataclasses.replace(
+            resource,
+            props={**resource.props, "role_assignments": list(index.get(principal.casefold(), []))},
         )
 
     async def _read_with_error_code(
