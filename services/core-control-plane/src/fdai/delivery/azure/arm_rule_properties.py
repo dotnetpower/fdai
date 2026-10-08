@@ -11,7 +11,6 @@ than compliant. The only documented exceptions are listed per mapping below.
 from __future__ import annotations
 
 import json
-import re
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
@@ -19,7 +18,7 @@ MAX_SECURITY_RULES = 1_000
 MAX_PROJECTED_BYTES = 131_072
 
 _Projector = Callable[[Mapping[str, Any]], dict[str, Any]]
-_PORT_SPEC = re.compile(r"^(\*|[0-9]{1,5}|[0-9]{1,5}-[0-9]{1,5})$")
+_ANY_SOURCE_ALIASES = frozenset({"internet", "0.0.0.0/0", "any", "::/0"})
 
 
 def rule_properties(resource_type: str, row: Mapping[str, Any]) -> dict[str, Any]:
@@ -155,42 +154,35 @@ def _network_security_group(row: Mapping[str, Any]) -> dict[str, Any]:
             ("sourceAddressPrefixes", "source_address_prefixes"),
         ):
             value = rule_properties_value.get(source)
-            if isinstance(value, Sequence) and not isinstance(value, str) and value:
+            if isinstance(value, Sequence) and not isinstance(value, str):
                 projected_rule[target] = [str(item) for item in value]
-        groups = rule_properties_value.get("sourceApplicationSecurityGroups")
-        if isinstance(groups, Sequence) and not isinstance(groups, str) and groups:
-            projected_rule["source_application_security_group_count"] = len(groups)
         if not _decidable_inbound_allow(projected_rule):
-            # A port or source the NSG Rules can't read could hide an exposure. Leave the set
-            # unobserved instead of letting it look clean.
+            # The NSG Rules match exact literals, so an alias, wildcard, range, or list could hide
+            # an exposure. Leave the set unobserved instead of letting it look clean.
             return {}
         projected_rules.append(projected_rule)
     return {"security_rules": projected_rules}
 
 
 def _decidable_inbound_allow(rule: Mapping[str, Any]) -> bool:
-    """Whether the NSG Rules can judge an inbound allow rule's protocol, ports, and source.
-
-    Ports must be ``*``, one port, or one ``low-high`` range, alone or in a list. The source must
-    be an address prefix, a prefix list, or application security groups, which are never any-source.
-    """
+    """Whether an inbound allow rule uses only values the exact-literal NSG Rules can judge."""
 
     if str(rule.get("direction", "")).casefold() != "inbound":
         return True
     if str(rule.get("access", "")).casefold() != "allow":
         return True
-    ports = [rule["destination_port_range"]] if "destination_port_range" in rule else []
-    ports.extend(rule.get("destination_port_ranges", ()))
-    has_source = (
-        "source_address_prefix" in rule
-        or "source_address_prefixes" in rule
-        or "source_application_security_group_count" in rule
-    )
+    if "destination_port_ranges" in rule or "source_address_prefixes" in rule:
+        return False
+    protocol = rule.get("protocol")
+    port = rule.get("destination_port_range")
+    source = rule.get("source_address_prefix")
     return (
-        isinstance(rule.get("protocol"), str)
-        and bool(ports)
-        and all(isinstance(port, str) and _PORT_SPEC.fullmatch(port) for port in ports)
-        and has_source
+        isinstance(protocol, str)
+        and protocol != "*"
+        and isinstance(port, str)
+        and port.isdigit()
+        and isinstance(source, str)
+        and source.casefold() not in _ANY_SOURCE_ALIASES
     )
 
 

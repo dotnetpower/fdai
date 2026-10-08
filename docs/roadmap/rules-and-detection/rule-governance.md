@@ -392,6 +392,25 @@ and Owner-tier reviewer for loosening changes.
 - Changing a rule's logic bumps its `version`; changing an assignment's parameters/effect/scope is
   itself an audited, versioned change. A rule set **pins the `version` of each member rule** so a
   rule change cannot silently alter a promoted set.
+- **Rule revision upgrades (not implemented):** An activation generation pins each member's exact
+  version and digest, and the ledger accepts only membership changes against an unchanged
+  catalog. Changing the content of an activated Rule therefore makes an upgraded installation fail
+  closed at startup, because the current generation no longer resolves against installed artifacts.
+  Don't ship a revision of an activated Rule until the upgrade path exists. A proposed startup
+  carry-forward was rejected in critique, because it would let a deployment identity change an
+  enforced Rule's behavior without promotion, bind no exact target revision into the approval,
+  race across replicas, crash old replicas during a rolling deploy, and make ordinary release
+  rollback impossible. The upgrade path needs:
+  - an explicit revision delta that binds from and to version, Rule digest, and target generation
+    into the approved proposal digest;
+  - an activation identity that separates the active members from the full catalog digest;
+  - unattended carry-forward only for shadow Rules, with enforced revisions returning to shadow or
+    carrying a version-specific promotion approval, and promotion evidence keyed by Rule revision;
+  - deterministic release-bound request identity, so concurrent replicas converge by readback;
+  - prepare and activate phases with a versioned artifact registry that holds both revisions until
+    every replica is compatible; and
+  - an audited rollback transition to a previously recorded generation whose artifacts are
+    retained.
 - **Testability**: every assignment/exemption PR ships fixtures - the expected match set (which
   synthetic resources the scope selects) and, for enforce promotions, the shadow-eval sample the
   promotion gate scored - so governance changes are regression-tested like rule changes

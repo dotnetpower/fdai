@@ -1,7 +1,7 @@
 ---
 title: T0 기반 프레임워크 규칙 근거
 translation_of: framework-rule-evidence.md
-translation_source_sha: d1053b20ae2f661f4fa6e4b4ae0a318203c29769
+translation_source_sha: f59bf7fd0390496469a193c8689d432d62f1ebbc
 translation_revised: 2026-10-08
 ---
 # T0 기반 프레임워크 규칙 근거
@@ -304,11 +304,11 @@ WAF `rule` 요구 사항은 컨트롤 수준 교차워크 관계가 `partial`이
   속성도 비워 둡니다. 문서화된 기본값은 ARM 속성이 `false`를 받지 않는 Key Vault 제거 보호 하나뿐입니다.
   전체 수집은 확장 리소스도 제한된 GET으로 읽습니다. 진단 설정(스토리지는 Blob 서비스), Blob 일시 삭제와
   버전 관리, SQL 투명 데이터 암호화, PostgreSQL 유연한 서버의 `require_secure_transport` 매개 변수가
-  대상입니다. 읽기에 실패하면 속성은 관측되지 않은 상태로 남습니다. NSG `security_rules`는 모든 인바운드 허용
-  규칙에 프로토콜이 있고, 포트가 `*`, 단일 포트, 범위 하나로 단독 또는 목록으로 적혀 있고, 원본이 주소
-  접두사, 접두사 목록, 애플리케이션 보안 그룹 중 하나일 때만 투영합니다. NSG 노출 규칙 1.1.0은 와일드카드
-  프로토콜, 포트 범위와 목록, `*`, `Internet`, `Any`, `0.0.0.0/0`, `::/0` 원본을 판단합니다. 1.0.0은
-  정확한 리터럴 형태 하나만 비교했습니다. 역할 할당은 관측되지 않은 상태로 남습니다. 한 구독의 할당만으로는 ID나
+  대상입니다. 읽기에 실패하면 속성은 관측되지 않은 상태로 남습니다. NSG 규칙은 정확한 리터럴만 비교하므로,
+  모든 인바운드 허용 규칙이 프로토콜 하나, 숫자 포트 하나, 모든 원본 별칭이 아닌 원본 하나를 쓸 때만
+  `security_rules`를 투영합니다. 이 규칙이 와일드카드, 범위, 목록, 서비스 태그를 판단하도록 넓히려면 규칙
+  개정이 필요하며, 이는 [규칙 거버넌스](rule-governance-ko.md#라이프사이클과-버전-관리)의 개정 업그레이드
+  경로를 기다립니다. 역할 할당은 관측되지 않은 상태로 남습니다. 한 구독의 할당만으로는 ID나
   구독의 전체 할당 집합을 증명할 수 없고, 그룹 멤버십, 게스트 사용자 형식, Just-In-Time 자격도 Microsoft
   Graph와 Privileged Identity Management에서 읽어야 하기 때문입니다.
 - **로컬 측정:** `scripts/deployment/local/run-framework-rule-evidence.py`는 이 경로를 루프백 개발
