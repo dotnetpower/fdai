@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-retrieval-diagnostics.md
-translation_source_sha: d46450b0bfd3a25d42cbb4f926146e15e91adf7c
+translation_source_sha: 17b353790034deb8b9c3d007dfa45121affae001
 translation_revised: 2026-10-08
 ---
 
@@ -21,6 +21,7 @@ translation_revised: 2026-10-08
 | [instance-calibration.v3.json](../../eval/ontology-retrieval/instance-calibration.v3.json) | 홀드아웃 v2의 실패 유형을 진단하기 위한 새 보정 문항 64개입니다. 보정 전용이며 변경의 자격을 검증하지 못합니다. |
 | [instance-holdout.v3.json](../../eval/ontology-retrieval/instance-holdout.v3.json) | 이미 사용한 홀드아웃입니다. 정보가 차단된 작성자가 쓰고 별도로 차단된 검토자가 검토했으며 `19bbbe3c95`에서 한 번 측정했습니다. 이 문항으로 튜닝하거나 자격 검증에 다시 사용하지 않습니다. |
 | [instance-holdout.v4.json](../../eval/ontology-retrieval/instance-holdout.v4.json) | 이미 사용한 홀드아웃입니다. 정보가 차단된 작성자가 쓰고 별도로 차단된 검토자가 검토했으며 `2f8eaaaa1f`에서 한 번 측정했습니다. 이 문항으로 튜닝하거나 자격 검증에 다시 사용하지 않습니다. |
+| [instance-holdout.v5a.json](../../eval/ontology-retrieval/instance-holdout.v5a.json), [instance-holdout.v5b.json](../../eval/ontology-retrieval/instance-holdout.v5b.json) | 서로 겹치지 않는 두 부분으로 나눈, 이미 사용한 128문항 홀드아웃입니다. 정보가 차단된 작성자가 쓰고 별도로 차단된 검토자가 검토했으며, `b1ac82a6b1`에서 `agreement-gated-pooled-qualification.v1` 프로토콜로 한 번 측정했습니다. 이 문항으로 튜닝하거나 자격 검증에 다시 사용하지 않습니다. |
 
 v2 보정 자료에는 단일 대상 정답 32개, 복수 대상 정답 8개와 일치 대상이 없는 문항 24개가
 있습니다. 각 언어의 단일 대상 문항은 유형별 서로 다른 대상 네 개를 포함하며, 측정하는
@@ -340,6 +341,19 @@ ambiguous, adversarial, 영어 negative 코호트가 모두 `1.0`이었고, ko-n
   보고합니다. 같은 실행이 두 번 중단되면 자격 검증은 실패합니다.
 - **보고:** 통과 여부와 관계없이 전체 보고서를 기록합니다. 자격 검증이 실패하면 두 홀드아웃 부분을
   모두 사용한 것으로 봅니다.
+
+병합된 `b1ac82a6b1`에서 `gpt-5.6-sol` 버전 `2026-07-09`와 `low` effort로 실행한 자격 검증이 이
+프로토콜을 통과했습니다.
+
+| 합산 대상 | 판정 | 잘못된 선택(95% 상한) | 불일치 | 정답 비율(en / ko) |
+|---|---:|---:|---:|---|
+| 보정 v2 + v3 | 384 | 0 (0.78%) | 0 | 1.0 / 1.0 |
+| 홀드아웃 v5a + v5b | 384 | 0 (0.78%) | 5 | 0.958 / 1.0 |
+
+합산 대상마다 64회 호출 실행을 12번 했고 모두 오프라인 검증을 거쳤습니다. 실행 3번이 중단되었고(보정
+v3에서 1번, 홀드아웃 v5b에서 2번), 같은 자리의 재실행은 모두 완료되었습니다. 홀드아웃 v5a와 v5b는 이제
+사용되었습니다. 의미 순위 검색은 계속 비활성화 상태이며, 활성화하려면 여전히 통제된 활성화, 지연 시간
+자격 검증, 사람 승인이 필요합니다.
 
 보고서의 `production_qualification`과 `execution_authority`는 계속 `False`입니다. 통과는 진단 방법의
 자격만 인정하며, 런타임 활성화, 지연 시간 자격 검증, 사람 승인 게이트는 바뀌지 않습니다.
