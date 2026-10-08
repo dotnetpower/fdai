@@ -59,6 +59,9 @@ the snapshot under this verifier boundary.
 Forseti's version 2 baseline evaluation coverage and the T0 Rule receipts derived from it are
 framework assessment evidence for [framework Rule evidence](framework-rule-evidence.md). They are
 not issued by this verifier and can't satisfy a governed decision source.
+Semantic `semantic-model-call-progress` reports are live presentation records of planning model
+calls. They carry no prompt, response, or evidence reference, are not issued by this verifier, and
+can't satisfy a governed decision source or support an answer claim.
 
 ## Current state and gap
 

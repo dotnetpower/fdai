@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1949,
+  "file_count": 1950,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "ed042180bfee08159463b91ee7cacea662634274789a7b336ed504e42c0502bc",
     ".github/instructions/agent-stewardship.instructions.md": "6d34f24fe8879f3edac388d5e7fd9ab138563ca386a5c401f72d8fc3c1698624",
@@ -431,7 +431,7 @@
     "services/core-control-plane/src/fdai/core/conversation/_write_runbook_tool.py": "95354a15932f4a0cdeafa8451766629936eab9cbafff23abba2a509a95209b23",
     "services/core-control-plane/src/fdai/core/conversation/_write_simulation_tool.py": "8ab311b9f2afbfc0464a6031b7da2b89c7687cb2ba7e94924a9cfd7b3ae7b4ed",
     "services/core-control-plane/src/fdai/core/conversation/adapter_health.py": "cde8871557416e5757b4138a2f7272c1eb74c5f04d46f71e18980e4eb7565fe3",
-    "services/core-control-plane/src/fdai/core/conversation/adaptive_call_scope.py": "6de927b442ec1a1e17a6c8080bfc1975eb95ee37844d78c90e1ebdc1d48434df",
+    "services/core-control-plane/src/fdai/core/conversation/adaptive_call_scope.py": "e99d767888cdc7b238a8537363074a07c86de082261774085a24d49851573ff2",
     "services/core-control-plane/src/fdai/core/conversation/adaptive_models.py": "8021c3d52a2deaae0c5bf1b63767b252be9c9b24eca22d8c3620156cddef5bb3",
     "services/core-control-plane/src/fdai/core/conversation/adaptive_prompt.py": "de9be643da3987cbb3d938ac0f69e6223c43711fdab58c91222b7ae180871e9d",
     "services/core-control-plane/src/fdai/core/conversation/adaptive_service.py": "de01f0c086102bb482d27c2bcb440705d42a5a2d98d56a969064168f7aa0e701",
@@ -468,6 +468,7 @@
     "services/core-control-plane/src/fdai/core/conversation/identity_verification.py": "42d9ae0d546d7302d3d8a252e6767895398eee0beb3e14962f52dcb19762232f",
     "services/core-control-plane/src/fdai/core/conversation/intent_graph.py": "cc481a75ec9392f16d7f2cb2aa45bd96ecbf5623d010985bcb22aaea5774cbe2",
     "services/core-control-plane/src/fdai/core/conversation/learner_access.py": "ad85ad8c9d1b390598bc53f9e3e56bca4066d363964f270d0fa7fbba6e90b58d",
+    "services/core-control-plane/src/fdai/core/conversation/model_call_progress.py": "1f824bc6580d62166ee78bb0aeb33985ad75a6adf0281c17ab2d507676af1a6d",
     "services/core-control-plane/src/fdai/core/conversation/model_evidence_view.py": "b81776ce889fa2c07354d4ad4344957eb7f812f0bc5732e2091ec29677610399",
     "services/core-control-plane/src/fdai/core/conversation/model_observation.py": "e00a15471c1945d85fca7bd89855475fc4f2d68b89c8eb2cbbea87902a0b1f0b",
     "services/core-control-plane/src/fdai/core/conversation/narrator.py": "07175bf79b78e9906658db9f1feac3990fc78de99fe8d6e1fc4a5ffd342327ff",

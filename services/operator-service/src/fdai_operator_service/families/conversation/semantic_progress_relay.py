@@ -8,6 +8,10 @@ from collections import OrderedDict, deque
 from collections.abc import Mapping
 
 from fdai_service_contracts import MAX_INTENT_GRAPH_GOALS, SemanticQueryProgress
+from fdai_service_contracts.semantic_model_call_progress import (
+    MAX_MODEL_CALL_UPDATES_PER_TURN,
+    SemanticModelCallProgress,
+)
 from fdai_service_contracts.semantic_work_progress import SemanticWorkProgress
 
 MAX_TRACKED_PROGRESS_REQUESTS = 256
@@ -25,6 +29,8 @@ class SemanticProgressRelay:
     def __init__(self) -> None:
         self._updates: OrderedDict[str, deque[SemanticQueryProgress]] = OrderedDict()
         self._pins: OrderedDict[str, SemanticWorkProgress] = OrderedDict()
+        # Planning model calls keep their own bounded slot so they never evict node progress.
+        self._model_calls: OrderedDict[str, deque[SemanticModelCallProgress]] = OrderedDict()
         self._signals: dict[str, asyncio.Event] = {}
         self._terminals: OrderedDict[str, None] = OrderedDict()
 
@@ -57,6 +63,8 @@ class SemanticProgressRelay:
                 )
             self._signal(pin.request_id)
             return True
+        if payload.get("record_kind") == "model_call_progress":
+            return self._consume_model_call(SemanticModelCallProgress.model_validate(payload))
         progress = SemanticQueryProgress.model_validate(payload)
         updates = self._updates.get(progress.request_id)
         if updates is None:
@@ -77,6 +85,34 @@ class SemanticProgressRelay:
         self._updates.move_to_end(progress.request_id)
         return True
 
+    def _consume_model_call(self, call: SemanticModelCallProgress) -> bool:
+        calls = self._model_calls.get(call.request_id)
+        if calls is None:
+            if len(self._model_calls) >= MAX_TRACKED_PROGRESS_REQUESTS:
+                self._model_calls.popitem(last=False)
+                _LOGGER.warning(
+                    "semantic_progress_capacity_evicted",
+                    extra={"kind": "model_call", "capacity": MAX_TRACKED_PROGRESS_REQUESTS},
+                )
+            calls = deque(maxlen=MAX_MODEL_CALL_UPDATES_PER_TURN)
+            self._model_calls[call.request_id] = calls
+        elif calls and call.progress_sequence <= calls[-1].progress_sequence:
+            return False
+        calls.append(call)
+        self._model_calls.move_to_end(call.request_id)
+        self._signal(call.request_id)
+        return True
+
+    def model_calls_after(
+        self, request_id: str, progress_sequence: int
+    ) -> tuple[SemanticModelCallProgress, ...]:
+        """Return retained planning model-call updates after one stream cursor."""
+        return tuple(
+            call
+            for call in self._model_calls.get(request_id, ())
+            if call.progress_sequence > progress_sequence
+        )
+
     def pin(self, request_id: str) -> SemanticWorkProgress | None:
         """Return the plan-time pin published for one request, if it arrived."""
         return self._pins.get(request_id)
@@ -92,6 +128,7 @@ class SemanticProgressRelay:
     def discard(self, request_id: str) -> None:
         """Drop transient updates once durable terminal replay is authoritative."""
         self._updates.pop(request_id, None)
+        self._model_calls.pop(request_id, None)
         self._pins.pop(request_id, None)
         self._signals.pop(request_id, None)
         self._terminals.pop(request_id, None)
@@ -120,6 +157,7 @@ class SemanticProgressRelay:
         return (
             request_id in self._terminals
             or bool(self.after(request_id, progress_sequence))
+            or bool(self.model_calls_after(request_id, progress_sequence))
             or (pin_pending and request_id in self._pins)
         )
 

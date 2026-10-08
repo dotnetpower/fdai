@@ -471,6 +471,9 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
   Verified semantic query-node transitions use a separate bounded best-effort topic from Core to Operator.
   The same topic carries one plan-time `semantic-work-progress` pin ahead of the pinned plan's first
   node transition. The pin selects presentation density only.
+  With `FDAI_SEMANTIC_MODEL_CALL_PROGRESS=1`, the same topic also carries a content-free
+  `semantic-model-call-progress` report for each planning model call, which Operator streams as a
+  live-only activity.
   Durable terminals and evidence receipts remain authoritative; consumers retain content-free degraded
   health, resettable backoff, atomic Live cursor order, and retryable outbox closure. Transport or optional
   observation failures cannot grant authority or promote partial answers, attachments, or Incident actions.

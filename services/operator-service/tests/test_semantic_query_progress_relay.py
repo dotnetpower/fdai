@@ -148,3 +148,95 @@ async def test_semantic_iterator_streams_query_progress_before_terminal() -> Non
     assert completed_event.event == "activity"
     assert completed_event.data["status"] == "completed"
     await iterator.aclose()
+
+
+def _model_call(*, sequence: int, status: str, **updates: object) -> dict[str, object]:
+    value: dict[str, object] = {
+        "schema_version": "1.0.0",
+        "record_kind": "model_call_progress",
+        "request_id": "request-1",
+        "session_id": "session-1",
+        "turn_id": "turn-1",
+        "turn_sequence": 1,
+        "progress_sequence": sequence,
+        "call_index": 1,
+        "stage": "form",
+        "status": status,
+        "model": "narrator-gpt-5-4-mini",
+        "started_at": "2026-08-26T11:00:00Z",
+        "execution_authority": False,
+    }
+    if status != "running":
+        value.update(completed_at="2026-08-26T11:00:02.300Z", duration_ms=2300)
+    value.update(updates)
+    return value
+
+
+def test_model_calls_keep_their_own_slot_and_order() -> None:
+    relay = _SemanticProgressRelay()
+
+    assert relay.consume(_model_call(sequence=1, status="running")) is True
+    assert relay.consume(_model_call(sequence=1, status="running")) is False
+    assert relay.consume(_progress(sequence=2, status="running")) is True
+    assert relay.consume(_model_call(sequence=3, status="completed")) is True
+
+    assert [call.progress_sequence for call in relay.model_calls_after("request-1", 0)] == [1, 3]
+    assert [update.progress_sequence for update in relay.after("request-1", 0)] == [2]
+    relay.discard("request-1")
+    assert relay.model_calls_after("request-1", 0) == ()
+
+
+async def test_semantic_iterator_streams_model_calls_as_live_steps_in_core_order() -> None:
+    class EmptyStore:
+        async def replay_semantic_turn(self, **kwargs: object) -> tuple[()]:
+            del kwargs
+            return ()
+
+    request = SemanticTurnRequest(
+        utterance="중지된 DB 목록",
+        principal=SemanticTurnPrincipal(subject_id="operator-1", roles=(OperatorRole.READER,)),
+        session_id="session-1",
+        turn_id="turn-1",
+        turn_sequence=1,
+        locale="ko",
+        purpose="operations-review",
+        deadline_at=datetime.now(UTC) + timedelta(minutes=1),
+    )
+    stored = StoredSemanticTurn(
+        key="semantic-turn:request-1",
+        proposal_id="proposal-1",
+        request_id="request-1",
+        principal_id="operator-1",
+        envelope={"semantic_turn": request.model_dump(mode="json")},
+        duplicate=False,
+    )
+    relay = _SemanticProgressRelay()
+    relay.consume(_model_call(sequence=1, status="running"))
+    relay.consume(_model_call(sequence=2, status="completed"))
+    relay.consume(_progress(sequence=3, status="running"))
+    store = EmptyStore()
+    iterator = _SemanticEventIterator(
+        store=cast(Any, store),
+        consumer=SemanticTurnProjectionConsumer(cast(Any, store)),
+        progress_relay=relay,
+        stored=stored,
+        principal_id="operator-1",
+        cursor=None,
+        retry_seconds=0.01,
+    )
+
+    assert (await anext(iterator)).event == "status"
+    assert (await anext(iterator)).event == "status"
+    running = await anext(iterator)
+    completed = await anext(iterator)
+    read = await anext(iterator)
+
+    assert running.event == completed.event == "activity"
+    assert running.data["kind"] == "model_call"
+    assert running.data["activity_id"] == "semantic:model:1"
+    assert running.data["label"] == "질문 해석 모델 호출"
+    assert running.data["detail"] == "narrator-gpt-5-4-mini 응답 대기 중"
+    assert completed.data["status"] == "completed"
+    assert completed.data["detail"] == "narrator-gpt-5-4-mini · 2.3초 · 완료"
+    assert read.data["kind"] == "ontology_query"
+    await iterator.aclose()

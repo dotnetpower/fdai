@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 5c1d657c747a5b3213fb0554891cf330fa6df8ac
+translation_source_sha: 52c990a658b436e74b12dfb1de4b25067d6244f2
 translation_revised: 2026-10-08
 ---
 # 독립 운영 근거 발급
@@ -55,6 +55,9 @@ Forseti는 Var와 HIL 재개 경로가 원래 정족수와 유효 정족수를 �
 Forseti의 버전 2 baseline 평가 커버리지와 그로부터 도출한 T0 규칙 근거는
 [프레임워크 규칙 근거](framework-rule-evidence-ko.md)를 위한 프레임워크 평가 근거입니다. 이 검증기가
 발급한 것이 아니며 통제된 결정 소스를 충족할 수 없습니다.
+`semantic-model-call-progress` 보고는 계획 단계 모델 호출을 실시간으로 보여 주는 표시용 레코드입니다.
+프롬프트, 응답, 근거 참조를 담지 않고 이 검증기가 발급하지 않으며, 통제된 결정 소스를 충족하거나 답변
+주장을 뒷받침할 수 없습니다.
 
 ## 현재 상태와 공백
 

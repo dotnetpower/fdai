@@ -1,6 +1,6 @@
 ---
 translation_of: continuous-question-space.md
-translation_source_sha: 483fa9cf3970a18889b1e74f09848b23a737a544
+translation_source_sha: 9c9fd0551d00f8c5e948d9f63d65ea45a48009e6
 translation_revised: 2026-10-08
 ---
 # 지속형 질문 공간
@@ -41,6 +41,9 @@ deadline 및 의미 계획과 분리합니다. Timing schema v2는 검증된 계
 실패한 계획으로 표시합니다. 따라서 만료된 backlog가 모델 또는 성공한 의미 계획 지연으로
 보이지 않습니다. 또한 Core는 검증된 계획이 취소되면 취소 전용 model-call scope를 닫아
 동기 planner thread에서 시작한 Azure provider 작업을 중지하고 회수합니다.
+같은 model-call scope는 계획 단계 호출마다 시작과 종료를 실시간 표시용 진행으로 보고합니다. Operator는
+첫 읽기를 기다리는 동안 이 보고를 조회 진행과 함께 시간 순서대로 스트리밍합니다. 이 보고는 계획, 기한,
+최종 답변을 바꾸지 않습니다.
 Pantheon 품질 보증 변환 결과는 영속 큐와 `pantheon_assurance` 단계로 구성된 같은 schema-v2
 구간 계약을 사용하며, 독립 검토가 유예되면 후자를 성능 저하로 기록합니다.
 모델 ID만 사용할 수 없을 때는 프로세스 준비 상태가 의미 consumer를 계속 실행합니다. 일반 의미

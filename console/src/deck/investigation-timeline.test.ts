@@ -275,6 +275,7 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toContain('"deck.investigation.readOnly"');
     expect(component).toContain("deck-branch-badge");
     expect(component).toContain('"is-query" : "is-tool"');
+    expect(component).toContain('activity.kind === "model_call" ? "MODEL" : "EVENT"');
     expect(component).toContain("executionKindLabel(activity.execution");
     expect(component).toContain('evidence.tool.includes("Azure Resource Graph")');
     expect(component).toContain('evidence.tool === "Azure CLI"');

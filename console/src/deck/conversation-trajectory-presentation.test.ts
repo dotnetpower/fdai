@@ -91,6 +91,22 @@ describe("buildTrajectoryPresentation", () => {
     expect(workProgressPresentation(trajectory({}, { activities: lifecycle }))).toBe("timeline");
   });
 
+  it("never lets a live model-call step change the density", () => {
+    const read = {
+      activityId: "read-1", kind: "ontology_query", status: "completed" as const, label: "Read", completed: 1, total: 1,
+      execution: { tool: "query.object_set", command: "query.object_set", inputKind: "query" as const, redacted: true as const },
+    };
+    const calls = (["completed", "failed", "running"] as const).map((status, index) => ({
+      activityId: `semantic:model:${index + 1}`, kind: "model_call", status,
+      label: "Question reading model call", completed: null, total: null,
+    }));
+
+    // A failed or still-running call is the wait for a read, not a second read.
+    expect(workProgressPresentation(trajectory({}, { activities: [...calls, read] }))).toBe("compact");
+    // A turn that only called models, such as a general answer, has no observed work.
+    expect(workProgressPresentation(trajectory({}, { activities: calls }))).toBe("none");
+  });
+
   it("selects the smallest sufficient work-progress presentation", () => {
     expect(workProgressPresentation(trajectory({}))).toBe("none");
 

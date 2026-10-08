@@ -38,6 +38,9 @@ that ended before a verified plan as failed planning. Expired backlog therefore 
 to be model or successful semantic-planning latency. Core also closes a cancellation-only
 model-call scope when verified planning is cancelled, which stops and drains Azure provider work
 initiated from the synchronous planner thread.
+The same model-call scope reports the start and end of each planning call as live presentation
+progress. While Operator waits for the first read, it streams those reports in time order with the
+query progress. The reports never change planning, deadlines, or the terminal answer.
 Pantheon assurance projections use the same schema-v2 interval contract with durable queue and
 `pantheon_assurance` phases; a deferred independent review records the latter as degraded.
 Process readiness keeps the semantic consumer active when only model identity is unavailable. Each

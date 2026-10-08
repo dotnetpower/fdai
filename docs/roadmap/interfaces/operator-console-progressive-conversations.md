@@ -86,6 +86,7 @@ remains the recovery path when notifications are absent.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-08 | implemented | Streamed each semantic planning model call as a live `model_call` activity, so the wait before the first read names the stage, deployment, elapsed time, and outcome instead of only "Determining the answer path". Core reports calls through the shared provider call gate as `semantic-model-call-progress` `1.0.0`; Operator relays them as live-only activities; the Console badges them `MODEL` and excludes them from density and read counting. Reports are on in the local launcher and off by default elsewhere. | `current change`; `semantic_model_call_progress.py` and its `1.0.0` schema; Core `model_call_progress.py`, `adaptive_call_scope.py`, and `semantic_turn_consumer.py`; Operator `semantic_progress_relay.py`, `semantic_turn_runtime.py`, and `semantic_model_call_presentation.py`; `console/src/deck/conversation-trajectory-presentation.ts` and `investigation-timeline.tsx`; focused contract, Core, Operator, and Console tests passed; a local Console turn showed seven completed model-call rows before two verified reads. | Enable reports in deployed venues after every Operator that consumes the progress topic understands the record. |
 | 2026-10-08 | implemented | Shortened the terminal-only answer reveal from at most 60 to at most 24 display frames, because the full answer has already arrived and a one-second replay added to the measured turn latency. The reveal still reproduces the canonical text byte for byte, and hidden tabs and reduced motion still finish immediately. | `current change`; `console/src/deck/stream-paint.ts`; `npx vitest run src/deck/stream-paint.test.ts` (17 passed). | None for this pacing change. |
 | 2026-10-01 | implemented | Consumed the live work progress pin in the Console and rendered the adaptive investigation roles. The stream accepts the first valid pin before the first read. A pause between waves no longer starts an empty answer or settles the panel early, because the answer waits until the planned reads are observed, a token arrives, or the terminal reply is validated. The lead panel names the plan and, once the answer settles, states the turn budget as used-of-maximum facts and shows the context receipts. Milestones read as one quiet progress line. A stop is recorded on the activity panels instead of rewriting reads as unavailable, so unfinished reads are shown as stopped and the stale start note is hidden. | `current change`; `console/src/deck/backend-stream.ts`, `use-command-deck-submit.ts`, `investigation-turn-state.ts`, `investigation-roles.tsx`, `investigation-timeline.tsx`, `command-deck-presenters.tsx`, `use-command-deck-lifecycle.ts`, `transcript-store.ts`, the Deck-scoped `console/src/deck/i18n/investigation.{en,ko}.json` catalog, and their focused tests; `npm --prefix console test` (`3880 passed`); Console typecheck; `npm --prefix console run check:entry` (`149829` gzip bytes, unchanged); `npm --prefix console run test:e2e:quick -- tests/e2e/deck-conversation-layer.spec.ts` (investigation plan, settled limits, context receipt, wave gating, and stop cases) | Render wave rows once reads carry their planned wave; decide whether semantic preflight joins the enforcing turn budget. |
 | 2026-09-28 | implemented | Emitted the work progress fields from the semantic path ([#1629](https://github.com/dotnetpower/fdai/issues/1629)). Core pins the one verified read plan before it runs, publishes the pin as `semantic-work-progress` `1.0.0` ahead of the first node progress, and persists it with the enforcing adaptive turn budget and the applied model-tier receipt; adaptive evidence reads stay unpinned. Operator relays one `work_progress` frame before the first query activity in live and replay streams, copies the validated fields into `trajectory_detail`, and keeps at most eight activities within 60 KiB. | `current change`; `packages/service-contracts/src/fdai_service_contracts/semantic_work_progress.py` and its `1.0.0` schema; Core `work_progress.py`, `adaptive_service.py`, `semantic_runtime.py`, `semantic_turn_processor.py`, `semantic_turn_consumer.py`, and `semantic_work_progress_projection.py`; Operator `semantic_progress_relay.py`, `semantic_turn_runtime.py`, `semantic_trajectory_presentation.py`, and `semantic_work_progress_presentation.py`; `uv run pytest -q --no-cov packages/service-contracts/tests/test_semantic_work_progress.py services/core-control-plane/tests/test_semantic_work_progress.py services/operator-service/tests/test_semantic_work_progress.py` (`54 passed`); the diff-selected Python suites (`37838 passed`; three database tests that need `FDAI_DATABASE_URL` fail identically on `origin/main`); `npm --prefix console test -- --run src/deck` (`1036 passed`) and Console typecheck | Consume the live frame and render the investigation roles in the Console; decide whether semantic preflight joins the enforcing turn budget. |
@@ -609,6 +610,37 @@ The Console consumes the live pin and the persisted fields with these rules:
 - **Stop.** A stop is recorded on the activity panels, and each read keeps its last observed
   status. A read that never reported an end is shown as stopped. After any other interruption it
   is shown as not completed, never as running.
+
+### Live model-call progress
+
+Semantic planning makes several model calls before the first read, so the operator previously saw
+only "Determining the answer path" for most of the wait. Core now reports each planning model call
+as it happens:
+
+- **Observation.** The shared provider call gate reports every physical request of a reviewed call
+  stage, such as preflight, question form, constraint extraction, or concept selection, when it
+  starts and when it ends. A report carries the stage, the model deployment, the start and end
+  times, the elapsed milliseconds, the outcome, and token counts. It never carries a prompt, a
+  response, quoted question text, or a reason the model gave.
+- **Transport.** Core publishes `semantic-model-call-progress` `1.0.0` on the same best-effort
+  progress topic as query progress, at most 64 updates for 32 calls per turn. A full queue drops
+  the update, and a publication failure never affects the turn.
+- **Stream.** Operator streams each update as an `activity` with kind `model_call`, a localized stage
+  label, and the deployment and elapsed time as its detail. The Console marks the row with a `MODEL`
+  badge instead of `EVENT`. The activity is live only: it is not
+  persisted in the trajectory detail, it never counts as a read, and it never changes density or
+  wave gating.
+- **Activation.** `FDAI_SEMANTIC_MODEL_CALL_PROGRESS=1` enables the reports. The local launcher sets
+  it; deployed venues keep it off until every Operator that consumes the progress topic understands
+  the record, because an older Operator quarantines an unknown record.
+
+| Critique finding | Revision |
+|------------------|----------|
+| A progress record could leak question or answer content | It carries only the closed stage, deployment, times, outcome, and token counts |
+| Reporting could slow the model call it observes | The report is a non-blocking queue put on the consumer loop; failures are dropped |
+| Leading model calls could push query reads out of the eight-activity envelope | Model-call activities are live only and never enter the persisted trajectory detail |
+| A non-read step would flip compact answers to a timeline | The Console excludes `model_call` activities from density and read counting |
+| Mixed-version rollout floods the dead-letter topic | Reports stay off in deployed venues until the Operator understands them |
 
 ## Metrics
 

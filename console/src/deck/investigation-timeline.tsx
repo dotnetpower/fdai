@@ -572,8 +572,11 @@ function ActivitySummary({
           {terminalActivity ? <TerminalIcon /> : kindLabel}
         </span>
       ) : (
-        <span class="deck-investigation-kind-badge is-event" aria-hidden="true">
-          EVENT
+        <span
+          class={`deck-investigation-kind-badge ${activity.kind === "model_call" ? "is-model" : "is-event"}`}
+          aria-hidden="true"
+        >
+          {activity.kind === "model_call" ? "MODEL" : "EVENT"}
         </span>
       )}
       <span class="deck-investigation-copy">

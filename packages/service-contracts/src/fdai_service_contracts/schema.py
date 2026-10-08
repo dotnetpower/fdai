@@ -186,6 +186,7 @@ _PACKAGE_SCHEMAS: dict[tuple[str, str], str] = {
     ("policy-activation", "1.0.0"): "schemas/policy-activation/1.0.0.json",
     ("policy-revision-request", "1.0.0"): "schemas/policy-revision-request/1.0.0.json",
     ("runtime-scope-receipt", "1.0.0"): "schemas/runtime-scope-receipt/1.0.0.json",
+    ("semantic-model-call-progress", "1.0.0"): "schemas/semantic-model-call-progress/1.0.0.json",
     ("semantic-query-progress", "1.0.0"): "schemas/semantic-query-progress/1.0.0.json",
     ("semantic-work-progress", "1.0.0"): "schemas/semantic-work-progress/1.0.0.json",
     ("service-upgrade-receipt", "1.0.0"): "schemas/service-upgrade-receipt/1.0.0.json",

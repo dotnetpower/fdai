@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import base64
+import contextlib
 import hashlib
 import json
 import logging
@@ -14,6 +15,10 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
+from fdai.core.conversation.model_call_progress import (
+    ModelCallProgress,
+    bind_model_call_progress_observer,
+)
 from fdai.core.conversation.semantic_runtime import (
     SemanticConversationRuntime,
     bind_semantic_query_progress_observer,
@@ -25,6 +30,7 @@ from fdai.core.working_context.shadow import ContextSelectionShadowRunner
 from fdai.shared.providers.event_bus import EventBus, subscription
 from fdai.shared.providers.state_store import StateStore
 from fdai_service_contracts import SemanticQueryProgress
+from fdai_service_contracts.semantic_model_call_progress import SemanticModelCallProgress
 from fdai_service_contracts.semantic_work_progress import SemanticWorkProgress, WorkProgressShape
 from fdai_service_contracts.venue import ExecutionVenue, resolve_execution_venue
 
@@ -41,7 +47,11 @@ from .semantic_turn_processor import (
 _STATE_PREFIX = "semantic-turn-result:"
 _CLAIM_PREFIX = "semantic-turn-claim:"
 _DEFAULT_CLAIM_LEASE_SECONDS = 120.0
-_MAX_PROGRESS_RECORDS = 64
+_MAX_PROGRESS_RECORDS = 128
+# The progress contracts bound their shared per-request sequence at 256.
+_MAX_PROGRESS_SEQUENCE = 256
+MODEL_CALL_PROGRESS_ENV = "FDAI_SEMANTIC_MODEL_CALL_PROGRESS"
+_ProgressRecord = SemanticQueryProgress | SemanticWorkProgress | SemanticModelCallProgress
 _PROGRESS_DRAIN_SECONDS = 0.5
 _RUNTIME_CALL_LOG_SCHEMA = "fdai.runtime-call-endpoint-log@1.0.0"
 _LOGGER = logging.getLogger(__name__)
@@ -106,6 +116,7 @@ class SemanticTurnConsumerBinding:
     available: bool
     unavailable_reason: str | None
     runtime_call_observer: RuntimeCallEndpointObserver | None = None
+    model_call_progress: bool = False
 
     async def run(self, *, bus: EventBus, stop: asyncio.Event) -> None:
         """Consume semantic turns until the shared runtime stop event is set."""
@@ -119,6 +130,7 @@ class SemanticTurnConsumerBinding:
             processor=self.processor,
             stop=stop,
             runtime_call_observer=self.runtime_call_observer,
+            model_call_progress=self.model_call_progress,
         )
 
 
@@ -320,6 +332,7 @@ def semantic_turn_binding_from_config(
             None if runtime is not None else unavailable_reason or "semantic_runtime_unavailable"
         ),
         runtime_call_observer=_runtime_call_observer_from_config(config),
+        model_call_progress=config.get(MODEL_CALL_PROGRESS_ENV, "").strip() == "1",
     )
 
 
@@ -335,6 +348,7 @@ async def consume_semantic_turns(
     publish_attempts: int = 3,
     publish_retry_delay_seconds: float = 0.1,
     runtime_call_observer: RuntimeCallEndpointObserver | None = None,
+    model_call_progress: bool = False,
 ) -> None:
     """Consume at-least-once requests and publish one idempotent projection.
 
@@ -349,8 +363,8 @@ async def consume_semantic_turns(
             try:
                 if runtime_call_observer is not None:
                     runtime_call_observer.observe(envelope.payload)
-                progress_queue: asyncio.Queue[SemanticQueryProgress | SemanticWorkProgress] = (
-                    asyncio.Queue(maxsize=_MAX_PROGRESS_RECORDS)
+                progress_queue: asyncio.Queue[_ProgressRecord] = asyncio.Queue(
+                    maxsize=_MAX_PROGRESS_RECORDS
                 )
                 progress_publisher = asyncio.create_task(
                     _drain_progress(
@@ -364,9 +378,7 @@ async def consume_semantic_turns(
                 async def publish_progress(
                     progress: QueryNodeProgress | WorkProgressShape,
                     request_payload: Mapping[str, Any] = envelope.payload,
-                    queue: asyncio.Queue[SemanticQueryProgress | SemanticWorkProgress] = (
-                        progress_queue
-                    ),
+                    queue: asyncio.Queue[_ProgressRecord] = progress_queue,
                 ) -> None:
                     nonlocal progress_sequence
                     progress_sequence += 1
@@ -388,10 +400,33 @@ async def consume_semantic_turns(
                     except asyncio.QueueFull:
                         return
 
+                def publish_model_call(
+                    progress: ModelCallProgress,
+                    request_payload: Mapping[str, Any] = envelope.payload,
+                    queue: asyncio.Queue[_ProgressRecord] = progress_queue,
+                ) -> None:
+                    nonlocal progress_sequence
+                    if progress_sequence >= _MAX_PROGRESS_SEQUENCE:
+                        return
+                    progress_sequence += 1
+                    try:
+                        queue.put_nowait(
+                            _model_call_mapping(
+                                request_payload,
+                                progress,
+                                progress_sequence=progress_sequence,
+                            )
+                        )
+                    except (asyncio.QueueFull, ValueError):
+                        return
+
                 try:
                     with (
                         bind_semantic_query_progress_observer(publish_progress),
                         bind_semantic_work_progress_publisher(publish_progress),
+                        bind_model_call_progress_observer(publish_model_call)
+                        if model_call_progress
+                        else contextlib.nullcontext(),
                         bind_decision_events(),
                     ):
                         encoded = await processor.process(
@@ -446,7 +481,7 @@ async def _drain_progress(
     *,
     bus: EventBus,
     topic: str,
-    queue: asyncio.Queue[SemanticQueryProgress | SemanticWorkProgress],
+    queue: asyncio.Queue[_ProgressRecord],
 ) -> None:
     while True:
         progress = await queue.get()
@@ -463,7 +498,7 @@ async def _drain_progress(
 
 
 async def _close_progress_publisher(
-    queue: asyncio.Queue[SemanticQueryProgress | SemanticWorkProgress],
+    queue: asyncio.Queue[_ProgressRecord],
     publisher: asyncio.Task[None],
 ) -> None:
     try:
@@ -596,6 +631,33 @@ def _progress_mapping(
         duration_ms=receipt.duration_ms if receipt is not None else None,
         reason=receipt.reason if receipt is not None else None,
         evidence_refs=receipt.evidence_refs if receipt is not None else (),
+    )
+
+
+def _model_call_mapping(
+    request_envelope: Mapping[str, Any],
+    progress: ModelCallProgress,
+    *,
+    progress_sequence: int,
+) -> SemanticModelCallProgress:
+    """Bind one content-free model call report to the request identity."""
+    semantic = request_envelope.get("semantic_turn")
+    request_id = request_envelope.get("request_id")
+    if not isinstance(semantic, Mapping) or not isinstance(request_id, str):
+        raise ValueError("semantic request identity is missing")
+    return SemanticModelCallProgress(
+        request_id=request_id,
+        session_id=str(semantic["session_id"]),
+        turn_id=str(semantic["turn_id"]),
+        turn_sequence=int(semantic["turn_sequence"]),
+        progress_sequence=progress_sequence,
+        call_index=progress.call_index,
+        stage=progress.stage,  # type: ignore[arg-type]
+        status=progress.status,
+        model=progress.model,
+        started_at=progress.started_at,
+        completed_at=progress.completed_at,
+        duration_ms=progress.duration_ms,
     )
 
 
