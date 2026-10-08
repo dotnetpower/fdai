@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 798ee8b118e8cb10fac4fbdd8106b32d2395177e
+translation_source_sha: e4bf4315a65a2dd0e9bad3c4c9d9c83d52165c62
 translation_revised: 2026-10-08
 ---
 # 온톨로지 구조 모델
@@ -71,6 +71,8 @@ Operator 온톨로지 변환 결과와 역할 선택은 이제 목적별 운영 
 이 소유권 분리는 선언 신원, 관계 방향, 변환 리비전, 근거 승인 또는 권한을 바꾸지 않습니다.
 WARA `t0_rule` 바인딩 overlay는 카탈로그 스키마의 평가기 바인딩이며 온톨로지 관계가 아닙니다. 따라서
 규칙과 권고 사이의 링크를 추가하거나 매핑 상태를 바꿀 수 없습니다.
+`azure-mcsb` 프레임워크 평가 카탈로그도 마찬가지로 검토된 규칙 요구 사항 역할을 추가할 뿐 온톨로지
+관계를 추가하지 않으며, MCSB 교차워크 매핑 상태를 바꾸지 않습니다.
 카탈로그 소유 목표 바인딩 변환에는 다른 카탈로그 인스턴스와 같은 정확한 release 객체와 방향이
 있는 링크 검증을 적용합니다. 후보 바인딩은 검증된 목표 하나와 정확한 Rule 버전 하나를
 지정하며, 그래프 링크가 평가 결과나 권한으로 바뀌지 않습니다.

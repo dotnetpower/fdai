@@ -1,7 +1,7 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: 5c57eb9abcef8251e9474e017c45de3869c58e97
+translation_source_sha: 915833d237102cbb1414fe2732276479569136a8
 translation_revised: 2026-10-08
 ---
 # WAF 및 CAF 근거 기반 평가
@@ -123,6 +123,16 @@ Govern, Secure, Manage는 정확한 클라우드 자산 관측과 프로세스 �
 교차워크 레코드는 Rule, WAF, MCSB, `ControlObjective`, Azure Policy, 공급자 관측 또는 수동
 근거를 정확히 참조합니다. 각 관계는 `full`, `partial`, `supporting_only`, `unmapped` 중 하나이며
 비슷한 문구만으로 동등성을 결정하지 않습니다.
+
+### MCSB 카탈로그
+
+MCSB 카탈로그는 WAF와 같은 런타임과 워크로드 범위를 사용합니다. 가져온 v1 컨트롤 86개를 각각 결정적
+수동 컨트롤 근거 요구 사항 하나와 검토된 규칙 요구 사항으로 분해하므로, 규칙 근거는 MCSB 컨트롤을
+실패시킬 수는 있지만 단독으로 충족시킬 수는 없습니다. 모든 카탈로그에서 컨트롤은 결정적 요구
+사항으로만 결정되며, `supporting_only` 요구 사항은 컨트롤을 실패시키거나 막을 수 없습니다. 평가
+작업은 MCSB 결과를 권한 없는 감사
+영수증으로 기록하며, 아직 Operator로 프로젝션하지 않습니다.
+[T0 기반 프레임워크 규칙 근거](framework-rule-evidence-ko.md#mcsb-평가)를 참조하세요.
 
 ## 배포 제공 프로필
 

@@ -120,6 +120,8 @@ approval, or execution authority ([Framework Rule Evidence from T0](../rules-and
 reads it only to attach counts to a WAF control detail. `core/framework_rule_evidence/wara.py` turns
 the same scoped coverage into WARA `rule` receipts for reviewed exact `t0_rule` bindings, and
 `core/wara/` admits them only from the bound Rule revision.
+`core/framework_assessment/` decides a control only from its decisive requirements, so a
+`supporting_only` requirement, such as an MCSB supporting Rule binding, can neither fail nor block it.
 
 Operator production composition keeps runtime wiring in its facade. Focused sibling modules own
 lifecycle and resource cleanup, route-family assembly, and read-source declarations. Compatibility

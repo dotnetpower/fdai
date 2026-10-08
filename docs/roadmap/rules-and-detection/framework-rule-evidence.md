@@ -212,9 +212,41 @@ Frameworks adopt Rule evidence one at a time, because each one has a different a
 | Framework | Prerequisite before Rule evidence is decisive | First scope |
 |-----------|-----------------------------------------------|-------------|
 | WAF | Version 2 baseline completion, scoped coverage contract, assessment-side activation pin, and receipt provenance fields. | The 8 controls with Rule requirements. |
-| MCSB | A reviewed MCSB assessment catalog, profile, and runtime with explicit requirement decomposition. Current `partial` mappings stay supporting evidence only. | v1 controls with reviewed full Rule bindings. |
-| CAF | A cloud-estate profile that pins both the hierarchy and the inventory generation. | Landing-zone technical areas with reviewed full Rule bindings. Methodology areas stay manual. |
+| MCSB | A reviewed MCSB assessment catalog, profile, and runtime with explicit requirement decomposition. Current `partial` mappings stay supporting evidence only. Implemented as the `azure-mcsb` workload catalog; see [MCSB assessment](#mcsb-assessment). | v1 controls with reviewed full Rule bindings. |
+| CAF | A cloud-estate profile that pins both the hierarchy and the inventory generation. Reviewed decision: CAF gets no direct Rule requirements; see [CAF decision](#caf-decision). | Landing-zone technical areas with reviewed full Rule bindings. Methodology areas stay manual. |
 | WARA | A discriminated evaluator binding, `arg_query` or `t0_rule`, each with its own admission rules. A Rule binding pins Rule references, activation and member digests, scope digest, and how several Rules combine. Implemented as a separate `t0_rule` overlay; see [WARA assessment](wara-assessment.md#rule-backed-evaluation). | Recommendations that pass the capability matrix below. |
+
+### MCSB assessment
+
+The generator builds `rule-catalog/framework-assessments/generated/azure-mcsb.json` from the 86
+imported v1 controls, the crosswalk, and the reviewed source
+`rule-catalog/framework-assessments/azure-mcsb.source.yaml`. The source reviews each of the 25
+crosswalk Rule mappings exactly once and records its rationale; the generator rejects a missing,
+duplicate, unexplained, or unreviewed binding.
+
+- Every control has one decisive manual `artifact` requirement for control evidence, and all its
+  requirements must hold. A Rule receipt can therefore fail a control but never satisfy it alone.
+- A binding is `decisive` only when a violation of that Rule by itself shows the control's guidance
+  isn't met for the workload. 17 bindings are decisive.
+- The other 8 bindings are `supporting_only`. They add context to a control without deciding it,
+  for example internet-exposed RDP under NS-8, which targets insecure protocols, or the DDoS plan
+  Rule under NS-5, which also denies internal-only virtual networks. The runtime combines only
+  decisive requirements, so a supporting requirement can neither fail nor block a control.
+- Rule requirements use the same producer, inventory generation, one-day freshness, and activation
+  pin as WAF. The assessment job loads the scoped Rule coverage once and builds both the WAF and
+  MCSB receipts from it, so both cite the same baseline. It records MCSB as a no-authority audit
+  receipt.
+
+Operator projection and Console views of MCSB results aren't implemented; the Operator projection
+accepts only WAF and CAF assessment events.
+
+### CAF decision
+
+CAF gets no direct Rule requirements. Its areas are cloud-estate design and process outcomes, and
+one workload resource that violates a Rule doesn't decisively fail an estate design area. CAF keeps
+its existing crosswalk references to WAF and MCSB controls, so Rule evidence reaches CAF only as
+context through those frameworks. Because CAF never consumes Rule receipts, its profile doesn't
+need a Rule activation pin next to the hierarchy and inventory generations.
 
 A WARA recommendation becomes Rule-backed only when a capability matrix proves the exact resource
 type, child-resource behavior, the inventory source and freshness of every field the check reads,
@@ -243,8 +275,9 @@ Framework views never change Rule membership. A control can show which Rules it 
 they're activated. You can then submit one activation proposal through the existing request flow,
 which needs human approval and is installed by Mimir. Proposals come only from reviewed exact
 bindings. A typed WAF `rule` requirement is itself a reviewed exact binding at the requirement
-level, even though its control-level crosswalk relationship stays `partial`. MCSB, CAF, and WARA
-need an explicit reviewed binding field before they can generate proposals. Activation makes a
+level, even though its control-level crosswalk relationship stays `partial`. MCSB and WARA now
+have reviewed binding fields, but proposal generation from them isn't implemented. CAF has no Rule
+bindings. Activation makes a
 Rule eligible for T0 observation; it doesn't enable enforcement. See
 [Rule governance](rule-governance.md).
 

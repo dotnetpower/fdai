@@ -1,0 +1,3857 @@
+{
+  "catalog_digest": "sha256:4f43416cc2c2cba0f302afb6b85c2695f15d019fbd51471b33809ce9652aab29",
+  "controls": [
+    {
+      "area": "am",
+      "cadence_days": 180,
+      "control_id": "AM-1",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-am-1-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-am-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-am-1-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-am-1-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-am-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:1cfbd7f7ffc76ee122eb429fa429cb24a4003c1b9bb3312707d51e5de6729a1f",
+      "title": "Track asset inventory and their risks"
+    },
+    {
+      "area": "am",
+      "cadence_days": 180,
+      "control_id": "AM-2",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-am-2-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-am-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-am-2-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-am-2-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-am-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:1ea1af12325532966cf92a5855ec5aaa92b569246d4f3606c552f637d8addfb3",
+      "title": "Use only approved services"
+    },
+    {
+      "area": "am",
+      "cadence_days": 180,
+      "control_id": "AM-3",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-am-3-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-am-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-am-3-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-am-3-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-am-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:ef4e89ad4c1205237c3aae5579b17c43fa782f0a1cecd17e9a42771b22f54583",
+      "title": "Ensure security of asset lifecycle management"
+    },
+    {
+      "area": "am",
+      "cadence_days": 180,
+      "control_id": "AM-4",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-am-4-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-am-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-am-4-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-am-4-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-am-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:c4204d0ce050272a758fa3bbf11544bb72c9ae04eb001762ee389321d09c0196",
+      "title": "Limit access to asset management"
+    },
+    {
+      "area": "am",
+      "cadence_days": 180,
+      "control_id": "AM-5",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-am-5-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-am-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-am-5-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-am-5-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-am-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:481288be10b13765c0a6a457be24b57c7a94afa14377f1ca576d25c992561c67",
+      "title": "Use only approved applications in virtual machine"
+    },
+    {
+      "area": "br",
+      "cadence_days": 180,
+      "control_id": "BR-1",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-br-1-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-br-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-br-1-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-br-1-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-br-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:d6122ac092c984f651ffd423786d9a0ef9e30ee88ba77d8ed7e84f8dea0fa60a",
+      "title": "Ensure regular automated backups"
+    },
+    {
+      "area": "br",
+      "cadence_days": 180,
+      "control_id": "BR-2",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-br-2-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-br-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-br-2-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-br-2-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-br-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:1da3a0955d30c2d27d9b4eebe41ec73632adc9a8162c74eed5374cd88fb15d90",
+      "title": "Protect backup and recovery data"
+    },
+    {
+      "area": "br",
+      "cadence_days": 180,
+      "control_id": "BR-3",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-br-3-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-br-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-br-3-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-br-3-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-br-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:0957cd3c0c2d1d85d762370221ae072bb587b273f3215d8eb03162bea6835584",
+      "title": "Monitor backups"
+    },
+    {
+      "area": "br",
+      "cadence_days": 180,
+      "control_id": "BR-4",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-br-4-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-br-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-br-4-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-br-4-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-br-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:34b382d95e797c3f62265bfb0ee74cc1e236b3c43c2c76686dfe0624fe0ec096",
+      "title": "Regularly test backup"
+    },
+    {
+      "area": "dp",
+      "cadence_days": 180,
+      "control_id": "DP-1",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-dp-1-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-dp-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-dp-1-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-dp-1-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-dp-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:095aea7901c63229f34c4be4908da12b8e1c7b2b1aab038b7c0e1046d60f32ad",
+      "title": "Discover, classify, and label sensitive data"
+    },
+    {
+      "area": "dp",
+      "cadence_days": 180,
+      "control_id": "DP-2",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-dp-2-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-dp-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-dp-2-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-dp-2-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-dp-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:de477eb061acaaeaa3ebfc484ff81e54bcc7b80d96b062f9a327e9ae9466c70f",
+      "title": "Monitor anomalies and threats targeting sensitive data"
+    },
+    {
+      "area": "dp",
+      "cadence_days": 1,
+      "control_id": "DP-3",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-dp-3-control-evidence"
+        },
+        {
+          "relationship": "partial",
+          "target_kind": "rule",
+          "target_ref": "object-storage.https-only.required"
+        },
+        {
+          "relationship": "partial",
+          "target_kind": "rule",
+          "target_ref": "object-storage.min-tls-version"
+        },
+        {
+          "relationship": "partial",
+          "target_kind": "rule",
+          "target_ref": "postgresql-server.ssl-enforcement"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-dp-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-dp-3-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-dp-3-control-evidence"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "mcsb-dp-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:object-storage.https-only.required",
+          "scope_contract": "exact-workload",
+          "source_ref": "object-storage.https-only.required"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "mcsb-dp-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:object-storage.min-tls-version",
+          "scope_contract": "exact-workload",
+          "source_ref": "object-storage.min-tls-version"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "mcsb-dp-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:postgresql-server.ssl-enforcement",
+          "scope_contract": "exact-workload",
+          "source_ref": "postgresql-server.ssl-enforcement"
+        }
+      ],
+      "owner_slot": "mcsb-dp-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:3fa2826fa1f714f1063012820cbda8a5683e0728f227fc4189ff46b320ef242d",
+      "title": "Encrypt sensitive data in transit"
+    },
+    {
+      "area": "dp",
+      "cadence_days": 1,
+      "control_id": "DP-4",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-dp-4-control-evidence"
+        },
+        {
+          "relationship": "supporting_only",
+          "target_kind": "rule",
+          "target_ref": "object-storage.encryption-at-rest.required"
+        },
+        {
+          "relationship": "partial",
+          "target_kind": "rule",
+          "target_ref": "postgresql-server.encryption-at-rest"
+        },
+        {
+          "relationship": "partial",
+          "target_kind": "rule",
+          "target_ref": "sql-database.tde-required"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-dp-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-dp-4-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-dp-4-control-evidence"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "supporting_only",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "mcsb-dp-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:object-storage.encryption-at-rest.required",
+          "scope_contract": "exact-workload",
+          "source_ref": "object-storage.encryption-at-rest.required"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "mcsb-dp-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:postgresql-server.encryption-at-rest",
+          "scope_contract": "exact-workload",
+          "source_ref": "postgresql-server.encryption-at-rest"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "mcsb-dp-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:sql-database.tde-required",
+          "scope_contract": "exact-workload",
+          "source_ref": "sql-database.tde-required"
+        }
+      ],
+      "owner_slot": "mcsb-dp-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:d1f795536394c3e88238f48ce6e45b9c2c1cd3c0dd00a6f3a9766f4642d54614",
+      "title": "Enable data at rest encryption by default"
+    },
+    {
+      "area": "dp",
+      "cadence_days": 180,
+      "control_id": "DP-5",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-dp-5-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-dp-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-dp-5-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-dp-5-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-dp-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:33b0d3e80eef404626496f7e6552f69be73a70c6f0bec5218ed3ad8a3e03a1ed",
+      "title": "Use customer-managed key option in data at rest encryption when required"
+    },
+    {
+      "area": "dp",
+      "cadence_days": 1,
+      "control_id": "DP-6",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-dp-6-control-evidence"
+        },
+        {
+          "relationship": "partial",
+          "target_kind": "rule",
+          "target_ref": "secret-store.rotation-overdue"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-dp-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-dp-6-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-dp-6-control-evidence"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "mcsb-dp-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:secret-store.rotation-overdue",
+          "scope_contract": "exact-workload",
+          "source_ref": "secret-store.rotation-overdue"
+        }
+      ],
+      "owner_slot": "mcsb-dp-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:8286ec9ea75c15c3b9d34066eb4b2b3930b5c0ea64fbdfa486b45f7a1677f119",
+      "title": "Use a secure key management process"
+    },
+    {
+      "area": "dp",
+      "cadence_days": 180,
+      "control_id": "DP-7",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-dp-7-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-dp-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-dp-7-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-dp-7-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-dp-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:47738d95bac225126ef13d37edbf7e86f40bd9412a0d8c4d4c4ad4c38e9a384f",
+      "title": "Use a secure certificate management process"
+    },
+    {
+      "area": "dp",
+      "cadence_days": 1,
+      "control_id": "DP-8",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-dp-8-control-evidence"
+        },
+        {
+          "relationship": "partial",
+          "target_kind": "rule",
+          "target_ref": "secret-store.purge-protection.enabled"
+        },
+        {
+          "relationship": "partial",
+          "target_kind": "rule",
+          "target_ref": "secret-store.soft-delete.enabled"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-dp-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-dp-8-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-dp-8-control-evidence"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "mcsb-dp-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:secret-store.purge-protection.enabled",
+          "scope_contract": "exact-workload",
+          "source_ref": "secret-store.purge-protection.enabled"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "mcsb-dp-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:secret-store.soft-delete.enabled",
+          "scope_contract": "exact-workload",
+          "source_ref": "secret-store.soft-delete.enabled"
+        }
+      ],
+      "owner_slot": "mcsb-dp-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:b6dbcc8e5f671693ba1e546030821cdb60652a62b076ee3c5ce10d664e22f1e0",
+      "title": "Ensure security of key and certificate repository"
+    },
+    {
+      "area": "ds",
+      "cadence_days": 180,
+      "control_id": "DS-1",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-ds-1-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-ds-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-ds-1-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-ds-1-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-ds-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:3057adc7dd6c384558756965de75f37f76ea651bd4f149bec49533759c3a6b7e",
+      "title": "Conduct threat modeling"
+    },
+    {
+      "area": "ds",
+      "cadence_days": 180,
+      "control_id": "DS-2",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-ds-2-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-ds-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-ds-2-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-ds-2-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-ds-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:9597f41115caebeb3caddc9759cf28d4cab25c44aa2243214c43e4eef92c06e4",
+      "title": "Ensure software supply chain security"
+    },
+    {
+      "area": "ds",
+      "cadence_days": 180,
+      "control_id": "DS-3",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-ds-3-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-ds-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-ds-3-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-ds-3-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-ds-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:29003886efedad73b5dded01fa702e9eb9070b36b8d1242062d34a2d6bea67ab",
+      "title": "Secure DevOps infrastructure"
+    },
+    {
+      "area": "ds",
+      "cadence_days": 180,
+      "control_id": "DS-4",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-ds-4-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-ds-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-ds-4-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-ds-4-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-ds-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:3e27a58cf8e5a91f7333ca53bb9d1cc5f1a51467bbda0d70b7827c9d97a4fc99",
+      "title": "Integrate static application security testing into DevOps pipeline"
+    },
+    {
+      "area": "ds",
+      "cadence_days": 180,
+      "control_id": "DS-5",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-ds-5-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-ds-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-ds-5-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-ds-5-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-ds-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:3e908aaaea5d0a921fcb915f6ca71f1b8300f41e3bec3c7192983627262797a5",
+      "title": "Integrate dynamic application security testing into DevOps pipeline"
+    },
+    {
+      "area": "ds",
+      "cadence_days": 180,
+      "control_id": "DS-6",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-ds-6-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-ds-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-ds-6-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-ds-6-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-ds-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:9a3090710c7e0e5cf920cc7cd932712db4f928046154830e7a4a3c7e9e331299",
+      "title": "Enforce security of workload throughout DevOps lifecycle"
+    },
+    {
+      "area": "ds",
+      "cadence_days": 180,
+      "control_id": "DS-7",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-ds-7-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-ds-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-ds-7-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-ds-7-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-ds-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:fb4f0bb78f314188798735c244b842e2ed6ff50f1c8fa106d57cfec5f59e19f6",
+      "title": "Enable logging and monitoring in DevOps"
+    },
+    {
+      "area": "es",
+      "cadence_days": 180,
+      "control_id": "ES-1",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-es-1-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-es-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-es-1-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-es-1-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-es-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:0f82d5ae65cb0e14a9e34e1574af062c13dd00d26c3a8045c364bc04bc287c96",
+      "title": "Use Endpoint Detection and Response (EDR)"
+    },
+    {
+      "area": "es",
+      "cadence_days": 180,
+      "control_id": "ES-2",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-es-2-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-es-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-es-2-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-es-2-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-es-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:32bfa344d18e9a7123707e283eb83985143097bdee4f432cd3a912980fc69133",
+      "title": "Use modern anti-malware software"
+    },
+    {
+      "area": "es",
+      "cadence_days": 180,
+      "control_id": "ES-3",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-es-3-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-es-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-es-3-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-es-3-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-es-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:e01a1f75a9a1106c2917bae25af4e981096bb3d6bbce04e40a5eece707dd29a4",
+      "title": "Ensure anti-malware software and signatures are updated"
+    },
+    {
+      "area": "gs",
+      "cadence_days": 180,
+      "control_id": "GS-1",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-gs-1-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-gs-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-gs-1-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-gs-1-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-gs-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:54793902da71bd539f980f6a9b1730d56b002a0702ce663df10f49e3a351ef28",
+      "title": "Align organization roles, responsibilities and accountabilities"
+    },
+    {
+      "area": "gs",
+      "cadence_days": 180,
+      "control_id": "GS-10",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-gs-10-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-gs-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-gs-10-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-gs-10-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-gs-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:625feaa3837998cdd425340b56bc2f84a09732cbcd0642211dd6606a48f8c8d8",
+      "title": "Define and implement DevOps security strategy"
+    },
+    {
+      "area": "gs",
+      "cadence_days": 180,
+      "control_id": "GS-11",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-gs-11-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-gs-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-gs-11-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-gs-11-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-gs-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:4dcdefeed3e2d343bb02c7f6cffe2ffc1fdcbe55447e9f8769b1e60d145b59aa",
+      "title": "Define and implement multi-cloud security strategy"
+    },
+    {
+      "area": "gs",
+      "cadence_days": 180,
+      "control_id": "GS-2",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-gs-2-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-gs-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-gs-2-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-gs-2-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-gs-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:50a7665b14c014680db3252f2d3425a8d987effbff8fc0a56424920f352b1345",
+      "title": "Define and implement enterprise segmentation/separation of duties strategy"
+    },
+    {
+      "area": "gs",
+      "cadence_days": 180,
+      "control_id": "GS-3",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-gs-3-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-gs-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-gs-3-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-gs-3-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-gs-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:c241660bc1b7a4577e4f1f4e54ce0d172e2ff044ec86bac6e3c1c8432d804256",
+      "title": "Define and implement data protection strategy"
+    },
+    {
+      "area": "gs",
+      "cadence_days": 180,
+      "control_id": "GS-4",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-gs-4-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-gs-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-gs-4-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-gs-4-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-gs-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:0c1d3c2d70a7b600037cf1ce80888d9d758e54e4b10d850816463351d8c1b5db",
+      "title": "Define and implement network security strategy"
+    },
+    {
+      "area": "gs",
+      "cadence_days": 180,
+      "control_id": "GS-5",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-gs-5-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-gs-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-gs-5-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-gs-5-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-gs-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:b1eaef70f93e18e9f490ea25463423b4ded086e878bc23ca8ef753f05be8ef48",
+      "title": "Define and implement security posture management strategy"
+    },
+    {
+      "area": "gs",
+      "cadence_days": 180,
+      "control_id": "GS-6",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-gs-6-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-gs-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-gs-6-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-gs-6-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-gs-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:e34f7975f97aa5ce05517195e8fcc849015ab72e15d28650067027301983cba2",
+      "title": "Define and implement identity and privileged access strategy"
+    },
+    {
+      "area": "gs",
+      "cadence_days": 180,
+      "control_id": "GS-7",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-gs-7-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-gs-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-gs-7-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-gs-7-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-gs-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:f30313908f8ce807ed8337ac89a1fb81b9bd8b4c7064143daef72de62bf480fe",
+      "title": "Define and implement logging, threat detection and incident response strategy"
+    },
+    {
+      "area": "gs",
+      "cadence_days": 180,
+      "control_id": "GS-8",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-gs-8-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-gs-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-gs-8-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-gs-8-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-gs-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:a95e4888622896ffe7246e29c4f82b191958842d836584285c107f5ea140709a",
+      "title": "Define and implement backup and recovery strategy"
+    },
+    {
+      "area": "gs",
+      "cadence_days": 180,
+      "control_id": "GS-9",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-gs-9-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-gs-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-gs-9-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-gs-9-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-gs-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:fe036eae755f5760325803d42c86609cf038d069c6627540e2758c2b32128ef6",
+      "title": "Define and implement endpoint security strategy"
+    },
+    {
+      "area": "im",
+      "cadence_days": 180,
+      "control_id": "IM-1",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-im-1-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-im-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-im-1-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-im-1-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-im-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:18930a8960f015ac64976ce1cb28fa02b3b81fdade26973d386abcc8a5f2bafe",
+      "title": "Use centralized identity and authentication system"
+    },
+    {
+      "area": "im",
+      "cadence_days": 180,
+      "control_id": "IM-2",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-im-2-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-im-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-im-2-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-im-2-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-im-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:3c151d70a0b0cd186fd487df6b5d52bcfb431bd7a8051f1a21923cad9c6e9871",
+      "title": "Protect identity and authentication systems"
+    },
+    {
+      "area": "im",
+      "cadence_days": 1,
+      "control_id": "IM-3",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-im-3-control-evidence"
+        },
+        {
+          "relationship": "supporting_only",
+          "target_kind": "rule",
+          "target_ref": "compute.vm.managed-identity.assigned"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-im-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-im-3-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-im-3-control-evidence"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "supporting_only",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "mcsb-im-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:compute.vm.managed-identity.assigned",
+          "scope_contract": "exact-workload",
+          "source_ref": "compute.vm.managed-identity.assigned"
+        }
+      ],
+      "owner_slot": "mcsb-im-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:0738030f1321ff11010391f4c6eef5b96e4771d9f25857295da74e4a9cb0d2fd",
+      "title": "Manage application identities securely and automatically"
+    },
+    {
+      "area": "im",
+      "cadence_days": 180,
+      "control_id": "IM-4",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-im-4-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-im-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-im-4-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-im-4-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-im-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:0b61f38fd9b9d5b184e75438fe5c8354318e0b780808177742990d8fa0739e1c",
+      "title": "Authenticate server and services"
+    },
+    {
+      "area": "im",
+      "cadence_days": 180,
+      "control_id": "IM-5",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-im-5-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-im-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-im-5-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-im-5-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-im-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:e0545336a78e8d7b796bf1c6960a98812f09ad4fbf46f1aa902a2d35bc17c45d",
+      "title": "Use single sign-on (SSO) for application access"
+    },
+    {
+      "area": "im",
+      "cadence_days": 180,
+      "control_id": "IM-6",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-im-6-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-im-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-im-6-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-im-6-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-im-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:e3cdd09477fe7facdecd3becf3fdd65dad2c22bda1b3b4117c752b69c3c8c077",
+      "title": "Use strong authentication controls"
+    },
+    {
+      "area": "im",
+      "cadence_days": 180,
+      "control_id": "IM-7",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-im-7-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-im-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-im-7-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-im-7-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-im-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:91bd1b61f8568cf7e1e122822ce2407f13f9bf3dd7c83761f6f7de85da94ab8b",
+      "title": "Restrict resource access based on  conditions"
+    },
+    {
+      "area": "im",
+      "cadence_days": 1,
+      "control_id": "IM-8",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-im-8-control-evidence"
+        },
+        {
+          "relationship": "supporting_only",
+          "target_kind": "rule",
+          "target_ref": "object-storage.shared-key-access.disabled"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-im-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-im-8-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-im-8-control-evidence"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "supporting_only",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "mcsb-im-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:object-storage.shared-key-access.disabled",
+          "scope_contract": "exact-workload",
+          "source_ref": "object-storage.shared-key-access.disabled"
+        }
+      ],
+      "owner_slot": "mcsb-im-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:9a9db0d3e7a49d260759ccca745e79c694599bbfeed393a9d98ab0b01b1e772f",
+      "title": "Restrict the exposure of credential and secrets"
+    },
+    {
+      "area": "im",
+      "cadence_days": 180,
+      "control_id": "IM-9",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-im-9-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-im-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-im-9-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-im-9-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-im-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:69517f54ba9d87d650c51a0529836314fbde50b392544c163fc26dec9f9330a1",
+      "title": "Secure user access to  existing applications"
+    },
+    {
+      "area": "ir",
+      "cadence_days": 180,
+      "control_id": "IR-1",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-ir-1-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-ir-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-ir-1-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-ir-1-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-ir-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:3a4a5e481a694d8bbeaa356318d6a91dde7ab122036c7d79469a8e33ac3ee690",
+      "title": "Preparation - update incident response plan and handling process"
+    },
+    {
+      "area": "ir",
+      "cadence_days": 180,
+      "control_id": "IR-2",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-ir-2-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-ir-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-ir-2-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-ir-2-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-ir-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:a5df64ebc68ac463b76ea216ec529f94d2201dc018779a6122cf649e6cb25243",
+      "title": "Preparation - setup incident contact information"
+    },
+    {
+      "area": "ir",
+      "cadence_days": 180,
+      "control_id": "IR-3",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-ir-3-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-ir-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-ir-3-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-ir-3-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-ir-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:b8b5330a71e2f0239dbac6a300865976b8c4a8d7c2043a0d9e25abcdace2089b",
+      "title": "Detection and analysis - create incidents based on high-quality alerts"
+    },
+    {
+      "area": "ir",
+      "cadence_days": 180,
+      "control_id": "IR-4",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-ir-4-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-ir-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-ir-4-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-ir-4-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-ir-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:3102f657c2f2dcdc5bed09b6debd53955174d6ee328c02c2a3bcdb3b85c14fcf",
+      "title": "Detection and analysis - investigate an incident"
+    },
+    {
+      "area": "ir",
+      "cadence_days": 180,
+      "control_id": "IR-5",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-ir-5-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-ir-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-ir-5-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-ir-5-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-ir-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:31c24f8de5637bd6231aac62b015e9f0b799e3ac85b255e0c594078466613f77",
+      "title": "Detection and analysis - prioritize incidents"
+    },
+    {
+      "area": "ir",
+      "cadence_days": 180,
+      "control_id": "IR-6",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-ir-6-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-ir-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-ir-6-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-ir-6-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-ir-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:37a2c874798edea48c3ec6f5167259eeb53a2c820373803a035aab5874309049",
+      "title": "Containment, eradication and recovery - automate the incident handling"
+    },
+    {
+      "area": "ir",
+      "cadence_days": 180,
+      "control_id": "IR-7",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-ir-7-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-ir-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-ir-7-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-ir-7-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-ir-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:05202d9eb4850e95cb42ed876816f6d17f2d99a2433bb52dd013b6dbc0b7c56d",
+      "title": "Post-incident activity - conduct lesson learned and retain evidence"
+    },
+    {
+      "area": "lt",
+      "cadence_days": 180,
+      "control_id": "LT-1",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-lt-1-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-lt-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-lt-1-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-lt-1-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-lt-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:f4eae0b69c1600df60ec0e5fd80ab8757ff4e67547f07328a4cb2f82b67c4df4",
+      "title": "Enable threat detection capabilities"
+    },
+    {
+      "area": "lt",
+      "cadence_days": 180,
+      "control_id": "LT-2",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-lt-2-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-lt-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-lt-2-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-lt-2-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-lt-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:d21932b67c607b2d89f443f93a6da0341e04946db164f77b202d6296d45c933a",
+      "title": "Enable threat detection for  identity and access management"
+    },
+    {
+      "area": "lt",
+      "cadence_days": 1,
+      "control_id": "LT-3",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-lt-3-control-evidence"
+        },
+        {
+          "relationship": "partial",
+          "target_kind": "rule",
+          "target_ref": "secret-store.diagnostic-settings-required"
+        },
+        {
+          "relationship": "partial",
+          "target_kind": "rule",
+          "target_ref": "sql-database.audit-enabled"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-lt-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-lt-3-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-lt-3-control-evidence"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "mcsb-lt-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:secret-store.diagnostic-settings-required",
+          "scope_contract": "exact-workload",
+          "source_ref": "secret-store.diagnostic-settings-required"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "mcsb-lt-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:sql-database.audit-enabled",
+          "scope_contract": "exact-workload",
+          "source_ref": "sql-database.audit-enabled"
+        }
+      ],
+      "owner_slot": "mcsb-lt-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:ecde7e27835532f9d54b136fb1abfd8b6ef15f6a51a5d19e619cf291b2de5211",
+      "title": "Enable logging for security investigation"
+    },
+    {
+      "area": "lt",
+      "cadence_days": 180,
+      "control_id": "LT-4",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-lt-4-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-lt-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-lt-4-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-lt-4-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-lt-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:ec214400cd816183939769c274267c4b38a95399cbf6cdfaf1f1f4d5f1b01e58",
+      "title": "Enable network logging for security investigation"
+    },
+    {
+      "area": "lt",
+      "cadence_days": 180,
+      "control_id": "LT-5",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-lt-5-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-lt-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-lt-5-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-lt-5-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-lt-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:4b37bd8604ceea750a0f8a5a018d1dc7b7c125065e34744b83ae7056bc0eda57",
+      "title": "Centralize security log management and analysis"
+    },
+    {
+      "area": "lt",
+      "cadence_days": 180,
+      "control_id": "LT-6",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-lt-6-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-lt-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-lt-6-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-lt-6-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-lt-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:0891a07c35e0b2209b273d73f96949f6ba70981bce63843fa5d061d75359e570",
+      "title": "Configure log storage retention"
+    },
+    {
+      "area": "lt",
+      "cadence_days": 180,
+      "control_id": "LT-7",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-lt-7-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-lt-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-lt-7-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-lt-7-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-lt-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:9295d48ae375df216c0432ef519c9bbf57f80a3edd87f959e818cfc28aa32a81",
+      "title": "Use approved time synchronization sources"
+    },
+    {
+      "area": "ns",
+      "cadence_days": 180,
+      "control_id": "NS-1",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-ns-1-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-ns-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-ns-1-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-ns-1-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-ns-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:00ce38dd8b3eaf8788b0ae92e0bd6c527eee5eff46d7c3dd02b8bd0f2cf07425",
+      "title": "Establish network segmentation boundaries"
+    },
+    {
+      "area": "ns",
+      "cadence_days": 180,
+      "control_id": "NS-10",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-ns-10-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-ns-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-ns-10-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-ns-10-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-ns-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:7555ec210077b675e4ff381b9b1e3da9576795d545b96d723b9b57c3b67a9fec",
+      "title": "Ensure Domain Name System (DNS) security"
+    },
+    {
+      "area": "ns",
+      "cadence_days": 1,
+      "control_id": "NS-2",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-ns-2-control-evidence"
+        },
+        {
+          "relationship": "partial",
+          "target_kind": "rule",
+          "target_ref": "object-storage.private-endpoint.required"
+        },
+        {
+          "relationship": "supporting_only",
+          "target_kind": "rule",
+          "target_ref": "object-storage.public-access.deny"
+        },
+        {
+          "relationship": "partial",
+          "target_kind": "rule",
+          "target_ref": "secret-store.public-network-access.disabled"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-ns-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-ns-2-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-ns-2-control-evidence"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "mcsb-ns-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:object-storage.private-endpoint.required",
+          "scope_contract": "exact-workload",
+          "source_ref": "object-storage.private-endpoint.required"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "supporting_only",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "mcsb-ns-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:object-storage.public-access.deny",
+          "scope_contract": "exact-workload",
+          "source_ref": "object-storage.public-access.deny"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "mcsb-ns-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:secret-store.public-network-access.disabled",
+          "scope_contract": "exact-workload",
+          "source_ref": "secret-store.public-network-access.disabled"
+        }
+      ],
+      "owner_slot": "mcsb-ns-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:fd8380aeb6eec02796bc88948b11cb676bf72064e410facac290f33a307ff3f9",
+      "title": "Secure cloud native services with network controls"
+    },
+    {
+      "area": "ns",
+      "cadence_days": 180,
+      "control_id": "NS-3",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-ns-3-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-ns-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-ns-3-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-ns-3-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-ns-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:6bc4cd915a63686854d526dbb371d2d0e6e245ecb8a8a327e5decdd582d1c490",
+      "title": "Deploy firewall at the edge of enterprise network"
+    },
+    {
+      "area": "ns",
+      "cadence_days": 180,
+      "control_id": "NS-4",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-ns-4-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-ns-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-ns-4-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-ns-4-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-ns-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:0d4652a6472e54abbac91a47caad74871ebafd3048b9c67f6b455bcdc9ab6347",
+      "title": "Deploy intrusion detection/intrusion prevention systems (IDS/IPS)"
+    },
+    {
+      "area": "ns",
+      "cadence_days": 1,
+      "control_id": "NS-5",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-ns-5-control-evidence"
+        },
+        {
+          "relationship": "supporting_only",
+          "target_kind": "rule",
+          "target_ref": "network.vnet.ddos-plan.required"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-ns-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-ns-5-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-ns-5-control-evidence"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "supporting_only",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "mcsb-ns-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:network.vnet.ddos-plan.required",
+          "scope_contract": "exact-workload",
+          "source_ref": "network.vnet.ddos-plan.required"
+        }
+      ],
+      "owner_slot": "mcsb-ns-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:d3a7069bf9c139db49564d6c5055f5a8cb30531a2ad47b4a245cb1a82d183a7f",
+      "title": "Deploy DDOS protection"
+    },
+    {
+      "area": "ns",
+      "cadence_days": 180,
+      "control_id": "NS-6",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-ns-6-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-ns-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-ns-6-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-ns-6-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-ns-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:1edb8654f00dc84602f77ce819a81044d16646edb5d827865660ac0660b627db",
+      "title": "Deploy web application firewall"
+    },
+    {
+      "area": "ns",
+      "cadence_days": 180,
+      "control_id": "NS-7",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-ns-7-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-ns-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-ns-7-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-ns-7-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-ns-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:74819c03e2166a3f3a9200647671f00505e4e9dc80881d773b9b55c41aa96a23",
+      "title": "Simplify network security configuration"
+    },
+    {
+      "area": "ns",
+      "cadence_days": 1,
+      "control_id": "NS-8",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-ns-8-control-evidence"
+        },
+        {
+          "relationship": "supporting_only",
+          "target_kind": "rule",
+          "target_ref": "network.nsg.no-inbound-any-rdp"
+        },
+        {
+          "relationship": "supporting_only",
+          "target_kind": "rule",
+          "target_ref": "network.nsg.no-inbound-any-ssh"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-ns-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-ns-8-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-ns-8-control-evidence"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "supporting_only",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "mcsb-ns-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:network.nsg.no-inbound-any-rdp",
+          "scope_contract": "exact-workload",
+          "source_ref": "network.nsg.no-inbound-any-rdp"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "supporting_only",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "mcsb-ns-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:network.nsg.no-inbound-any-ssh",
+          "scope_contract": "exact-workload",
+          "source_ref": "network.nsg.no-inbound-any-ssh"
+        }
+      ],
+      "owner_slot": "mcsb-ns-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:73a7c2b050b916225e457217162e6b5297cf01c9713bdfd4509c3e06698a4fbc",
+      "title": "Detect and disable insecure services and  protocols"
+    },
+    {
+      "area": "ns",
+      "cadence_days": 180,
+      "control_id": "NS-9",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-ns-9-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-ns-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-ns-9-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-ns-9-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-ns-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:e30e3c4ac401075c31d8af6896a25d78324bc18fdcbeda0710e9e93ede72a334",
+      "title": "Connect on-premises or cloud network privately"
+    },
+    {
+      "area": "pa",
+      "cadence_days": 1,
+      "control_id": "PA-1",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-pa-1-control-evidence"
+        },
+        {
+          "relationship": "supporting_only",
+          "target_kind": "rule",
+          "target_ref": "resource-group.role-assignment.owner-count-within-limit"
+        },
+        {
+          "relationship": "partial",
+          "target_kind": "rule",
+          "target_ref": "subscription.role-assignment.no-guest-privileged"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-pa-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-pa-1-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-pa-1-control-evidence"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "supporting_only",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "mcsb-pa-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:resource-group.role-assignment.owner-count-within-limit",
+          "scope_contract": "exact-workload",
+          "source_ref": "resource-group.role-assignment.owner-count-within-limit"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "mcsb-pa-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:subscription.role-assignment.no-guest-privileged",
+          "scope_contract": "exact-workload",
+          "source_ref": "subscription.role-assignment.no-guest-privileged"
+        }
+      ],
+      "owner_slot": "mcsb-pa-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:eff33fbf5f90e564f8f9471fa928dcb5d008b7476e67262ea0123c35510216a2",
+      "title": "Separate and limit highly privileged/administrative users"
+    },
+    {
+      "area": "pa",
+      "cadence_days": 1,
+      "control_id": "PA-2",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-pa-2-control-evidence"
+        },
+        {
+          "relationship": "partial",
+          "target_kind": "rule",
+          "target_ref": "subscription.role-assignment.no-standing-privileged-access"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-pa-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-pa-2-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-pa-2-control-evidence"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "mcsb-pa-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:subscription.role-assignment.no-standing-privileged-access",
+          "scope_contract": "exact-workload",
+          "source_ref": "subscription.role-assignment.no-standing-privileged-access"
+        }
+      ],
+      "owner_slot": "mcsb-pa-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:b6f749299faeb6403f1058efedfb2c2259e441ba1bd44d6e6dd9122fc4ef003b",
+      "title": "Avoid standing access for user accounts and permissions"
+    },
+    {
+      "area": "pa",
+      "cadence_days": 180,
+      "control_id": "PA-3",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-pa-3-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-pa-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-pa-3-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-pa-3-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-pa-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:a278d3dccf0be7f7325b0808de549d005e18404c1aa6146fed2d9159109eb608",
+      "title": "Manage lifecycle of identities and entitlements"
+    },
+    {
+      "area": "pa",
+      "cadence_days": 180,
+      "control_id": "PA-4",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-pa-4-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-pa-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-pa-4-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-pa-4-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-pa-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:fe96fe785dbbe13a4f8c0cd8cb6f6b50600cf4ec434e137171c313de1eff8e69",
+      "title": "Review and reconcile user access regularly"
+    },
+    {
+      "area": "pa",
+      "cadence_days": 180,
+      "control_id": "PA-5",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-pa-5-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-pa-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-pa-5-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-pa-5-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-pa-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:1fd230f7fb2bd8bf6223bcca8eedcf8dab2ede9078311a67eba9458ea4969818",
+      "title": "Set up emergency access"
+    },
+    {
+      "area": "pa",
+      "cadence_days": 180,
+      "control_id": "PA-6",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-pa-6-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-pa-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-pa-6-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-pa-6-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-pa-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:4d547fb29a4bca8dfabc81d1cf93f3be5fe1f5d3770da98b65f141be34d65e8f",
+      "title": "Use privileged access workstations / channel for administrative tasks"
+    },
+    {
+      "area": "pa",
+      "cadence_days": 1,
+      "control_id": "PA-7",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-pa-7-control-evidence"
+        },
+        {
+          "relationship": "partial",
+          "target_kind": "rule",
+          "target_ref": "managed-identity.role-assignment.no-privileged-subscription-scope"
+        },
+        {
+          "relationship": "partial",
+          "target_kind": "rule",
+          "target_ref": "managed-identity.role-assignment.no-wildcard-action"
+        },
+        {
+          "relationship": "partial",
+          "target_kind": "rule",
+          "target_ref": "secret-store.rbac-authorization.enabled"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-pa-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-pa-7-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-pa-7-control-evidence"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "mcsb-pa-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:managed-identity.role-assignment.no-privileged-subscription-scope",
+          "scope_contract": "exact-workload",
+          "source_ref": "managed-identity.role-assignment.no-privileged-subscription-scope"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "mcsb-pa-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:managed-identity.role-assignment.no-wildcard-action",
+          "scope_contract": "exact-workload",
+          "source_ref": "managed-identity.role-assignment.no-wildcard-action"
+        },
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "t0-rule-evaluator",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 86400,
+          "generation_contract": "inventory",
+          "kind": "rule",
+          "owner_slot": "mcsb-pa-owner",
+          "process_phase": "none",
+          "requirement_id": "rule:secret-store.rbac-authorization.enabled",
+          "scope_contract": "exact-workload",
+          "source_ref": "secret-store.rbac-authorization.enabled"
+        }
+      ],
+      "owner_slot": "mcsb-pa-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:64c458540cf28dd590806d9b8f377c2330a04cae2e4423b016ff787b54084c58",
+      "title": "Follow just enough administration (least privilege) principle"
+    },
+    {
+      "area": "pa",
+      "cadence_days": 180,
+      "control_id": "PA-8",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-pa-8-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-pa-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-pa-8-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-pa-8-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-pa-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:2fabfd10fec1a78521b299ce91e694c1f6673d060a2a1198f3da743cb127907d",
+      "title": "Determine access process for cloud provider support"
+    },
+    {
+      "area": "pv",
+      "cadence_days": 180,
+      "control_id": "PV-1",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-pv-1-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-pv-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-pv-1-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-pv-1-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-pv-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:43ac8a8db6a965aa8cfc7e3e08cb6056a63d8eea5ea805dc1cea2c81a01ee574",
+      "title": "Define and establish secure configurations"
+    },
+    {
+      "area": "pv",
+      "cadence_days": 180,
+      "control_id": "PV-2",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-pv-2-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-pv-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-pv-2-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-pv-2-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-pv-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:35f182b1052aac8b200e77663203554849493df6d7fc2f794a1bb7251ffb9346",
+      "title": "Audit and enforce secure configurations"
+    },
+    {
+      "area": "pv",
+      "cadence_days": 180,
+      "control_id": "PV-3",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-pv-3-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-pv-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-pv-3-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-pv-3-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-pv-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:8976cb09b37aa9424c819350b7951427d7244a577e88bdae8eb331fc79040406",
+      "title": "Define and establish secure configurations for compute resources"
+    },
+    {
+      "area": "pv",
+      "cadence_days": 180,
+      "control_id": "PV-4",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-pv-4-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-pv-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-pv-4-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-pv-4-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-pv-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:b07b0650fbbeaa5cb10ac2c53acfc68f4e003d9af91bf010098ea98b40d3251d",
+      "title": "Audit and enforce secure configurations for compute resources"
+    },
+    {
+      "area": "pv",
+      "cadence_days": 180,
+      "control_id": "PV-5",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-pv-5-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-pv-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-pv-5-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-pv-5-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-pv-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:5f341d6771d9754859879d698daaa73cc5f11c863cf7b17da3be1e9a64157f6a",
+      "title": "Perform vulnerability assessments"
+    },
+    {
+      "area": "pv",
+      "cadence_days": 180,
+      "control_id": "PV-6",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-pv-6-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-pv-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-pv-6-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-pv-6-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-pv-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:afa5c6139fae3e81713a7db8ea9e35cb65683784d51e0f7b8d7b6455228f4b0f",
+      "title": "Rapidly and automatically remediate vulnerabilities"
+    },
+    {
+      "area": "pv",
+      "cadence_days": 180,
+      "control_id": "PV-7",
+      "crosswalk": [
+        {
+          "relationship": "partial",
+          "target_kind": "manual_evidence",
+          "target_ref": "mcsb-pv-7-control-evidence"
+        }
+      ],
+      "evidence": [
+        {
+          "approval_roles": [
+            "framework-assessment-approver"
+          ],
+          "authoritative_producer": "architecture-review-evidence-provider",
+          "blocked_dependency": null,
+          "completeness_required": true,
+          "evidence_role": "decisive",
+          "failure_behavior": "unknown",
+          "freshness_ceiling_seconds": 15552000,
+          "generation_contract": "none",
+          "kind": "artifact",
+          "owner_slot": "mcsb-pv-owner",
+          "process_phase": "none",
+          "requirement_id": "artifact:mcsb-pv-7-control-evidence",
+          "scope_contract": "exact-workload",
+          "source_ref": "mcsb-pv-7-control-evidence"
+        }
+      ],
+      "owner_slot": "mcsb-pv-owner",
+      "requirement_mode": "all",
+      "review_state": "reviewed",
+      "reviewer": "fdai-maintainers",
+      "specification_digest": "sha256:b89b6b45a896d4e420226f340b7c7e9ccb2c79839b8c44164df3db6fb90be0cc",
+      "title": "Conduct regular red team operations"
+    }
+  ],
+  "expected_control_count": 86,
+  "framework_definition_digest": "sha256:8a70fb917f4e7ab48ea8442aa515421064d66f0ca059cf2c283e1cc3e9b18b4a",
+  "framework_id": "azure-mcsb",
+  "framework_scope": "workload",
+  "framework_version": "2026-07-29",
+  "review_state": "reviewed",
+  "reviewer": "fdai-maintainers",
+  "schema_version": "1.0.0",
+  "source_revision_digest": "sha256:dcf83255aac82811747133355ecd04482157e30f3dab0843e0dafd35285e9c11"
+}

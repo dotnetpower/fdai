@@ -29,8 +29,9 @@ from fdai.core.rule_activation.ledger import StateStoreRuleActivationLedger
 from fdai.delivery.framework_rule_evidence_source import (
     WorkloadRuleEvidence,
     WorkloadRuleEvidenceStatus,
-    load_workload_rule_evidence,
+    load_scoped_rule_coverage,
     persist_scoped_rule_coverage,
+    workload_rule_evidence_from_coverage,
 )
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
 from fdai.delivery.persistence.postgres_wara_scope import (
@@ -139,7 +140,7 @@ class FrameworkAssessmentJobSettings:
 
 @dataclass(frozen=True, slots=True)
 class FrameworkAssessmentTickReport:
-    """Sanitized durable evidence summary for one WAF and CAF pass."""
+    """Sanitized durable evidence summary for one WAF, CAF, and optional MCSB pass."""
 
     source_revision: str
     waf_result_digest: str
@@ -150,9 +151,11 @@ class FrameworkAssessmentTickReport:
     rule_evidence_status: str = WorkloadRuleEvidenceStatus.NO_ACTIVATION.value
     rule_receipt_count: int = 0
     rule_coverage_record_digest: str | None = None
+    mcsb_result_digest: str | None = None
+    mcsb_counts: Mapping[str, int] | None = None
 
     def to_dict(self) -> dict[str, object]:
-        return {
+        value: dict[str, object] = {
             "status": "completed",
             "mode": "shadow",
             "execution_authority": False,
@@ -167,6 +170,10 @@ class FrameworkAssessmentTickReport:
             "rule_receipt_count": self.rule_receipt_count,
             "rule_coverage_record_digest": self.rule_coverage_record_digest,
         }
+        if self.mcsb_result_digest is not None:
+            value["mcsb_result_digest"] = self.mcsb_result_digest
+            value["mcsb_counts"] = dict(sorted((self.mcsb_counts or {}).items()))
+        return value
 
 
 class FrameworkAssessmentWriter(Protocol):
@@ -380,6 +387,8 @@ async def execute_framework_assessment_tick(
     now: datetime,
     source_revision: str,
     rule_evidence: WorkloadRuleEvidence | None = None,
+    mcsb: tuple[FrameworkAssessmentWriter, FrameworkAssessmentCatalog, WorkloadRuleEvidence]
+    | None = None,
 ) -> FrameworkAssessmentTickReport:
     """Publish one exact-scope WAF result and one exact-estate CAF result.
 
@@ -446,7 +455,35 @@ async def execute_framework_assessment_tick(
             ),
         )
     )
+    mcsb_result: FrameworkAssessmentResult | None = None
+    if mcsb is not None:
+        mcsb_service, mcsb_catalog, mcsb_evidence = mcsb
+        # MCSB assesses the same exact workload; its Rule receipts come from the same baseline.
+        mcsb_profile = _profile(
+            mcsb_catalog,
+            scope_digest=waf_scope_digest,
+            ontology_release=scope.ontology_release,
+            reviewer_identity=settings.reviewer_identity,
+            reviewed_at=now,
+            inventory_generation=scope.inventory_generation,
+            rule_activation=mcsb_evidence.pin,
+        )
+        mcsb_result = await mcsb_service.assess(
+            FrameworkAssessmentRequest(
+                assessment_id=_assessment_id(
+                    "mcsb",
+                    source_revision=source_revision,
+                    profile_digest=mcsb_profile.profile_digest,
+                ),
+                profile=mcsb_profile,
+                evaluated_at=now,
+                recorded_at=now,
+                evidence=mcsb_evidence.receipts,
+            )
+        )
     return FrameworkAssessmentTickReport(
+        mcsb_result_digest=mcsb_result.result_digest if mcsb_result is not None else None,
+        mcsb_counts=mcsb_result.aggregate_counts if mcsb_result is not None else None,
         source_revision=source_revision,
         waf_result_digest=waf_result.result_digest,
         caf_result_digest=caf_result.result_digest,
@@ -501,15 +538,32 @@ async def run_once(
     ).resolve(settings.workload_id, now=now)
     waf_catalog = _load_catalog("azure-waf")
     caf_catalog = _load_catalog("azure-caf")
+    mcsb_catalog = _load_catalog("azure-mcsb")
     state_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=settings.dsn))
-    rule_evidence = await load_workload_rule_evidence(
+    activation = await StateStoreRuleActivationLedger(store=state_store).current_generation()
+    # One coverage load serves WAF and MCSB, so both cite the same baseline in this pass.
+    coverage = await load_scoped_rule_coverage(
         state_store=state_store,
-        activation=await StateStoreRuleActivationLedger(store=state_store).current_generation(),
+        activation=activation,
         scope=scope,
+        framework_id=waf_catalog.framework_id,
+        scope_digest=_waf_scope_digest(scope),
+        evaluated_at=now,
+    )
+    rule_evidence = workload_rule_evidence_from_coverage(
+        coverage,
         catalog=waf_catalog,
         profile_scope_digest=_waf_scope_digest(scope),
         evaluated_at=now,
         source_identity="forseti-baseline-evaluation",
+    )
+    mcsb_evidence = workload_rule_evidence_from_coverage(
+        coverage,
+        catalog=mcsb_catalog,
+        profile_scope_digest=_waf_scope_digest(scope),
+        evaluated_at=now,
+        source_identity="forseti-baseline-evaluation",
+        include_record=False,
     )
     if rule_evidence.coverage_record is not None:
         # The scoped record is durable before any assessment cites its coverage digest.
@@ -530,6 +584,14 @@ async def run_once(
         now=now,
         source_revision=source_revision,
         rule_evidence=rule_evidence,
+        mcsb=(
+            _AuditOnlyFrameworkAssessmentService(
+                FrameworkAssessmentRuntime(mcsb_catalog),
+                state_store,
+            ),
+            mcsb_catalog,
+            mcsb_evidence,
+        ),
     )
 
 

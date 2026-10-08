@@ -85,6 +85,7 @@ from fdai_service_contracts.rule_activation import RuleActivationGeneration
 
 _ROOT = Path(__file__).resolve().parents[3]
 _WAF = _ROOT / "rule-catalog/framework-assessments/generated/azure-waf.json"
+_MCSB = _ROOT / "rule-catalog/framework-assessments/generated/azure-mcsb.json"
 _FRESHNESS = timedelta(days=1)
 _MAX_RESOURCES = 10_000
 _LOCAL_HOSTS = {"127.0.0.1", "localhost", "::1"}
@@ -347,9 +348,85 @@ async def run(dsn: str, *, re_evaluate: bool = False, candidate: bool = False) -
             "coverage_record_roundtrip": roundtrip,
             "waf_result_digest": result.result_digest,
             "wara_rule_bound": await _wara_rule_bound(store, activation, scope, now),
+            "mcsb": await _mcsb_rule_bound(store, activation, scope, now),
         }
     )
     return report
+
+
+async def _mcsb_rule_bound(
+    store: StateStore,
+    activation: RuleActivationGeneration | None,
+    scope: WaraResolvedScope,
+    now: datetime,
+) -> dict[str, object]:
+    """Assess MCSB with only Rule receipts; manual control evidence is absent locally."""
+
+    catalog = load_framework_assessment_catalog(_MCSB)
+    scope_digest = _waf_scope_digest(scope)
+    evidence = await load_workload_rule_evidence(
+        state_store=store,
+        activation=activation,
+        scope=scope,
+        catalog=catalog,
+        profile_scope_digest=scope_digest,
+        evaluated_at=now,
+        source_identity="forseti-baseline-evaluation",
+    )
+    if evidence.pin is None:
+        return {"rule_evidence_status": evidence.status.value}
+    profile = _profile(
+        catalog,
+        scope_digest=scope_digest,
+        ontology_release=scope.ontology_release,
+        reviewer_identity="local-development-reviewer",
+        reviewed_at=now,
+        inventory_generation=scope.inventory_generation,
+        rule_activation=evidence.pin,
+    )
+    result = FrameworkAssessmentRuntime(catalog).assess(
+        FrameworkAssessmentRequest(
+            assessment_id="framework-assessment:mcsb:local-rule-evidence",
+            profile=profile,
+            evaluated_at=now,
+            recorded_at=now,
+            evidence=evidence.receipts,
+        )
+    )
+    roles = {
+        item.requirement_id: item.evidence_role.value
+        for control in catalog.controls
+        for item in control.evidence
+        if item.kind.value == "rule"
+    }
+    rule_controls = {
+        control.control_id
+        for control in catalog.controls
+        if any(item.kind.value == "rule" for item in control.evidence)
+    }
+    return {
+        "rule_evidence_status": evidence.status.value,
+        "receipt_outcomes_by_role": dict(
+            Counter(
+                f"{roles.get(item.requirement_id, 'unbound')}.{item.outcome.value}"
+                for item in evidence.receipts
+            )
+        ),
+        "rule_controls": len(rule_controls),
+        "rule_control_satisfaction": dict(
+            Counter(
+                control.satisfaction.value
+                for control in result.controls
+                if control.control_id in rule_controls
+            )
+        ),
+        "failed_controls": sorted(
+            control.control_id
+            for control in result.controls
+            if control.satisfaction.value == "failed"
+        ),
+        "result_digest": result.result_digest,
+    }
 
 
 async def _wara_rule_bound(

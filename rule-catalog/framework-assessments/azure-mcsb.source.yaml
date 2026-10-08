@@ -1,0 +1,121 @@
+schema_version: 1.0.0
+framework_id: azure-mcsb
+benchmark_version: v1
+reviewer: fdai-maintainers
+review_state: reviewed
+# Requirement-level decomposition of Microsoft Cloud Security Benchmark v1 for shadow assessment.
+#
+# Every control keeps a decisive manual control-evidence requirement, so catalog Rules can never
+# satisfy a control by themselves. A Rule binding is `decisive` only when a violation of that Rule
+# alone shows that the control's guidance is not met for the workload; the control then fails.
+# Otherwise the binding is `supporting_only` and adds context without deciding the control.
+# Each Rule listed in rule-catalog/compliance/mcsb/v1/crosswalk.yaml has exactly one binding here.
+defaults:
+  manual_producer: architecture-review-evidence-provider
+  manual_freshness_days: 180
+  rule_freshness_days: 1
+  approval_roles:
+    - framework-assessment-approver
+rule_bindings:
+  - control_id: NS-2
+    rule_id: object-storage.private-endpoint.required
+    evidence_role: decisive
+    rationale: NS-2 requires private endpoints or disabled public network access for PaaS services.
+  - control_id: NS-2
+    rule_id: object-storage.public-access.deny
+    evidence_role: supporting_only
+    rationale: Anonymous blob access is a data exposure setting, not a network control NS-2 names.
+  - control_id: NS-2
+    rule_id: secret-store.public-network-access.disabled
+    evidence_role: decisive
+    rationale: NS-2 requires Key Vault public network access to be disabled or restricted.
+  - control_id: NS-5
+    rule_id: network.vnet.ddos-plan.required
+    evidence_role: supporting_only
+    rationale: >-
+      NS-5 requires DDoS protection only for virtual networks with public endpoints, but the Rule
+      denies every virtual network without a plan, including internal-only ones.
+  - control_id: NS-8
+    rule_id: network.nsg.no-inbound-any-rdp
+    evidence_role: supporting_only
+    rationale: NS-8 targets insecure protocols; internet-exposed RDP is an exposure finding.
+  - control_id: NS-8
+    rule_id: network.nsg.no-inbound-any-ssh
+    evidence_role: supporting_only
+    rationale: NS-8 targets insecure protocols; internet-exposed SSH is an exposure finding.
+  - control_id: IM-3
+    rule_id: compute.vm.managed-identity.assigned
+    evidence_role: supporting_only
+    rationale: IM-3 applies to identities applications use; a VM without one may not need access.
+  - control_id: IM-8
+    rule_id: object-storage.shared-key-access.disabled
+    evidence_role: supporting_only
+    rationale: Shared key access reduces credential exposure, but IM-8 is broader secret handling.
+  - control_id: PA-1
+    rule_id: resource-group.role-assignment.owner-count-within-limit
+    evidence_role: supporting_only
+    rationale: PA-1 limits privileged accounts at the subscription; a resource group count is partial.
+  - control_id: PA-1
+    rule_id: subscription.role-assignment.no-guest-privileged
+    evidence_role: decisive
+    rationale: PA-1 requires removing guest accounts with privileged subscription roles.
+  - control_id: PA-2
+    rule_id: subscription.role-assignment.no-standing-privileged-access
+    evidence_role: decisive
+    rationale: PA-2 requires privileged access to be just-in-time rather than standing.
+  - control_id: PA-7
+    rule_id: managed-identity.role-assignment.no-privileged-subscription-scope
+    evidence_role: decisive
+    rationale: PA-7 requires least privilege; a workload identity with subscription Owner violates it.
+  - control_id: PA-7
+    rule_id: managed-identity.role-assignment.no-wildcard-action
+    evidence_role: decisive
+    rationale: PA-7 requires least privilege; wildcard role actions violate it.
+  - control_id: PA-7
+    rule_id: secret-store.rbac-authorization.enabled
+    evidence_role: decisive
+    rationale: PA-7 requires the Key Vault RBAC permission model for least-privilege data access.
+  - control_id: DP-3
+    rule_id: object-storage.https-only.required
+    evidence_role: decisive
+    rationale: DP-3 requires secure transfer for storage accounts.
+  - control_id: DP-3
+    rule_id: object-storage.min-tls-version
+    evidence_role: decisive
+    rationale: DP-3 requires TLS 1.2 or later for data in transit.
+  - control_id: DP-3
+    rule_id: postgresql-server.ssl-enforcement
+    evidence_role: decisive
+    rationale: DP-3 requires encrypted connections to database services.
+  - control_id: DP-4
+    rule_id: object-storage.encryption-at-rest.required
+    evidence_role: supporting_only
+    rationale: Storage is encrypted at rest by default; infrastructure encryption is a second layer.
+  - control_id: DP-4
+    rule_id: postgresql-server.encryption-at-rest
+    evidence_role: decisive
+    rationale: DP-4 requires data at rest encryption for database services.
+  - control_id: DP-4
+    rule_id: sql-database.tde-required
+    evidence_role: decisive
+    rationale: DP-4 requires transparent data encryption on SQL databases.
+  - control_id: DP-6
+    rule_id: secret-store.rotation-overdue
+    evidence_role: decisive
+    rationale: DP-6 requires rotating keys and secrets on a defined schedule.
+  - control_id: DP-8
+    rule_id: secret-store.purge-protection.enabled
+    evidence_role: decisive
+    rationale: DP-8 requires deletion protection for key and certificate repositories.
+  - control_id: DP-8
+    rule_id: secret-store.soft-delete.enabled
+    evidence_role: decisive
+    rationale: DP-8 requires soft delete for key and certificate repositories.
+  - control_id: LT-3
+    rule_id: secret-store.diagnostic-settings-required
+    evidence_role: decisive
+    rationale: LT-3 requires resource logs for Key Vault security investigation.
+  - control_id: LT-3
+    rule_id: sql-database.audit-enabled
+    evidence_role: decisive
+    rationale: LT-3 requires SQL auditing for security investigation.

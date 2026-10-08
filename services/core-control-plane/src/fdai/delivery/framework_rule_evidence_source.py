@@ -190,8 +190,34 @@ async def load_workload_rule_evidence(
         evaluated_at=evaluated_at,
         max_outcomes=max_outcomes,
     )
+    return workload_rule_evidence_from_coverage(
+        loaded,
+        catalog=catalog,
+        profile_scope_digest=profile_scope_digest,
+        evaluated_at=evaluated_at,
+        source_identity=source_identity,
+    )
+
+
+def workload_rule_evidence_from_coverage(
+    loaded: ScopedRuleCoverageLoad,
+    *,
+    catalog: FrameworkAssessmentCatalog,
+    profile_scope_digest: str,
+    evaluated_at: datetime,
+    source_identity: str,
+    include_record: bool = True,
+) -> WorkloadRuleEvidence:
+    """Build one catalog's Rule receipts from an already loaded scoped coverage.
+
+    Several catalogs assessed in one pass share one load, so every catalog cites the same baseline.
+    Only the catalog that persists the coverage record keeps it (``include_record``).
+    """
+
     if loaded.scoped is None or loaded.pin is None:
         return WorkloadRuleEvidence(loaded.status, loaded.pin)
+    if loaded.scoped.scope_digest != profile_scope_digest:
+        raise ValueError("loaded Rule coverage scope differs from the assessment profile scope")
     receipts = build_rule_requirement_receipts(
         catalog=catalog,
         coverage=loaded.scoped,
@@ -200,7 +226,8 @@ async def load_workload_rule_evidence(
         evaluated_at=evaluated_at,
         source_identity=source_identity,
     )
-    return WorkloadRuleEvidence(loaded.status, loaded.pin, receipts, loaded.record)
+    record = loaded.record if include_record else None
+    return WorkloadRuleEvidence(loaded.status, loaded.pin, receipts, record)
 
 
 async def persist_scoped_rule_coverage(

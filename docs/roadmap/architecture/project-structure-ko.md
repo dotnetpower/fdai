@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 942e64d900770cd14649de7b8fa30f13a49502fe
+translation_source_sha: ac23337ad79fcaba2792e7fd2a85ff40c210637f
 translation_revised: 2026-10-08
 ---
 # 프로젝트 구조
@@ -121,6 +121,8 @@ Core는 계약 하위 모듈이 아니라 공유 계약 파사드를 통해 Rule
 Operator는 WAF 컨트롤 세부 정보에 수치를 붙일 때만 이 기록을 읽습니다. `core/framework_rule_evidence/wara.py`는
 같은 범위별 커버리지를 검토된 정확한 `t0_rule` 바인딩의 WARA `rule` 증적으로 바꾸고, `core/wara/`는 결속된
 규칙 개정에서 온 증적만 받아들입니다.
+`core/framework_assessment/`는 결정적 요구 사항으로만 컨트롤을 결정하므로, MCSB의 보조 규칙 결합 같은
+`supporting_only` 요구 사항은 컨트롤을 실패시키거나 막을 수 없습니다.
 
 Operator 운영 조립 파사드는 런타임 배선을 유지합니다. 목적별 인접 모듈은 수명 주기와 리소스
 정리, 경로 계열 조립 및 읽기 출처 선언을 소유합니다. 호환 내보내기는 기존 가져오기를 보존하며,

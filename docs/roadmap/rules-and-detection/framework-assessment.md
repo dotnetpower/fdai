@@ -121,6 +121,16 @@ The crosswalk records exact references to Rule, WAF, MCSB, `ControlObjective`, A
 provider observation, or manual evidence. Each relationship is `full`, `partial`,
 `supporting_only`, or `unmapped`; similar wording never establishes equivalence.
 
+### MCSB catalog
+
+The MCSB catalog uses the same runtime and workload scope as WAF. It decomposes all 86 imported v1
+controls into one decisive manual control-evidence requirement plus reviewed Rule requirements, so
+Rule evidence can fail an MCSB control but can't satisfy it alone. In every catalog, only decisive
+requirements decide a control; a `supporting_only` requirement can neither fail nor block it. The
+assessment job records MCSB
+results as no-authority audit receipts; they aren't projected to the Operator yet. See
+[Framework Rule Evidence from T0](framework-rule-evidence.md#mcsb-assessment).
+
 ## Deployment-supplied profile
 
 A profile covers the catalog's complete control-id set. Every control is explicitly `applicable` or

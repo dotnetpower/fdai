@@ -1,4 +1,4 @@
-"""Strict reviewed catalogs for WAF and CAF evidence-governed assessment."""
+"""Strict reviewed catalogs for WAF, CAF, and MCSB evidence-governed assessment."""
 
 from __future__ import annotations
 
@@ -167,7 +167,7 @@ class FrameworkAssessmentCatalog(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     schema_version: Annotated[str, Field(pattern=r"^1\.0\.0$")]
-    framework_id: Annotated[str, Field(pattern=r"^azure-(waf|caf)$")]
+    framework_id: Annotated[str, Field(pattern=r"^azure-(waf|caf|mcsb)$")]
     framework_version: Annotated[str, Field(pattern=_DATE_VERSION)]
     framework_scope: FrameworkScopeKind
     source_revision_digest: Annotated[str, Field(pattern=_SHA256)]
@@ -187,7 +187,7 @@ class FrameworkAssessmentCatalog(BaseModel):
             raise ValueError("framework assessment control count mismatch")
         expected_scope = (
             FrameworkScopeKind.WORKLOAD
-            if self.framework_id == "azure-waf"
+            if self.framework_id in {"azure-waf", "azure-mcsb"}
             else FrameworkScopeKind.CLOUD_ESTATE
         )
         if self.framework_scope is not expected_scope:
