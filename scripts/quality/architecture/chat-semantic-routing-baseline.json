@@ -107,6 +107,13 @@
       "issue": 252
     },
     {
+      "path": "console/src/routes/agent-activity-trajectory-model.ts",
+      "disposition": "retain",
+      "owner": "console-agent-activity",
+      "reason": "Retains display-only categorization and tone mapping over canonical audit fields. It does not inspect operator question text, choose semantic intent, or grant authority.",
+      "issue": 252
+    },
+    {
       "path": "console/src/routes/agent-oversight-views.tsx",
       "disposition": "retain",
       "owner": "console-agent-oversight",

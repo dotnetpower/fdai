@@ -41,10 +41,8 @@ function rolesHref(): string {
     params: {
       view: route.search.get("view"),
       agent: route.search.get("agent"),
+      trajectory: route.search.get("trajectory"),
       step: route.search.get("step"),
-      window: route.search.get("window"),
-      layer: route.search.get("layer"),
-      verb: route.search.get("verb"),
       q: route.search.get("q"),
       roles: "1",
       roleAgent: route.search.get("agent"),

@@ -27,5 +27,8 @@
     "stale": "Stale",
     "superseded": "Superseded"
   },
-  "receiptObserved": "Observed {time}"
+  "receiptObserved": "Observed {time}",
+  "modelGroupTitle": "Planning the answer",
+  "modelGroupRunning": "{running} in progress · {done} of {total} done",
+  "modelGroupDone": "{count} model calls"
 }

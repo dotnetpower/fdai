@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 410169c7ec864fdf3fcd5b8a59fa99a8d8f2faa3
+translation_source_sha: 6d0396e9725f439f2f22779a798b99945c6b396d
 translation_revised: 2026-10-08
 ---
 # 프로젝트 구조
@@ -240,7 +240,9 @@ Resource 수집 청크의 인코딩은 `delivery/inventory_collection.py`에 둡
 `FDAI_SEMANTIC_CONCEPT_SHARD_BYTES`는 개념 샤드 크기를 제한하고, `FDAI_SEMANTIC_SPECULATIVE_FORM_START`는
 `core/conversation/semantic_runtime_speculation.py`가 사전 분류 옆에서 질문 구조화 경로를 시작하게 합니다.
 `core/conversation/semantic_planning_speculation.py`는 계획기에 해당 시작 기능을 제공하며, 계획기는 같은 질문에서만
-티켓을 채택합니다. 수정 피드백은 판단한 발화의 단어를 모델에 다시 보여 줄 수 있지만, 거부
+티켓을 채택합니다. 질문 구조화 경로는 턴의 결정 수집기 밖인 소유 루프에서 실행되므로,
+`semantic_compiled_answers.py`는 다시 샘플링으로 대체된 샘플을 반환 관측값에 담아 두고 그 거절 이유를 턴
+자신의 컨텍스트에서 기록합니다. 수정 피드백은 판단한 발화의 단어를 모델에 다시 보여 줄 수 있지만, 거부
 로그에는 위치, 유형, 사유만 남깁니다. `semantic_judgment_review.py`는 두 번째 계층 검토 요건과 근거화된
 상태 수집의 승격을 함께 소유하므로, 검토 결정과 계획되는 계열이 서로 어긋날 수 없습니다.
 
@@ -352,6 +354,16 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   `semantic_planning_assembly.py`는 planning 어댑터가 쓰는 frame 의도 키, plan 형태 키, frame 결과
   키와 plan 기술자 선택을 만듭니다. membership planning은 Korean pluralized VM wording처럼 조사가 붙은 검토된 term이 그룹 anchor를 밀어내지 못하도록 group-only subject에서 member filter를 근거화합니다. shadow 전용 `core/conversation/semantic_reasoning_*.py` 모듈은 [온톨로지 추론 컴파일러](../interfaces/ontology-reasoning-compiler-ko.md)의 닫힌 질문 형식, 발화 구간 회계와, 추출된 제한을 다른 제약과 합친 언급과 두 번째 제약을 담은 ObjectType이나 선언 종류 언급은 한 번의 복구로 나누고 여전히 합쳐진 형식은 보류하며, 어떤 목표도 추출기가 밝힌 닫힌 답의 종류에 답하지 못하는 형식, 인스턴스 목표 옆에 인용되지 않은 `declares` 단어, 추출된 리터럴과 인용이 일치하지 않는 이름 조각, 단서나 조사로만 나타낸 제외, 비교, 순서도 보류하는 다른 모델 계열의 블라인드 제약 검토와, 역할이 다투어지면 구체적으로 일치하는 두 답이 필요하도록 방향 있는 모든 관계를 컴파일 전에 다른 계열의 블라인드 reader들로 확정하는 판정을 포함한 수용, 스키마가 정규화한 값을 기준으로 비교하고 파싱되지 않은 제안에서 비교하는 모든 필드가 닫힌 스키마의 형태를 지키지 않으면 안전하게 거부하고, 빠진 인용은 어떤 목표도 인용하지 않은 타입 시간 재진술일 때만 허용하며 진술된 피연산자와 경쟁 해석, 남은 목표 신호를 모두 유지하는 위반마다 어긴 계약 규칙을 밝히고, 비교 전에 앞선 언급의 ID를 돌려주며, 회계만 어긴 제안은 모든 목표를 같게 읽었지만 쓸 수 없는 복구 대신 검토에 맡기는 한 번으로 제한된 형식 복구, 검토된 ObjectType 설명을 레이블로 보고, 검토된 지표와 Resource Health 개념은 매니페스트가 그 reader를 바인딩한 동안에만 보고, 다른 ObjectType의 검토된 수명 주기 값은 상태 카탈로그에서 보며, 두 선택자가 모두 고른 값만 바인딩하고, 밝힌 ObjectType 또는 리소스 유형 카탈로그에서 실패한 인스턴스 컬렉션 주어는 형제 종류 카탈로그로 다시 시도하는 서로 다른 모델 계열의 블라인드 선택자 두 개에 의한 개념 선택, 대소문자를 구분하지 않고 이름을 비교하고, 게이트웨이 시계로 조회하며, 수집 범위가 불완전할 때는 검증된 일치 하나를 유일성이 입증되지 않았다고 밝힌 경우에만 바인딩하고, 어떤 복구도 조회 키 인용을 바꾸지 못하는 앵커 바인딩, 지시 표현이나 순서 표현을 같은 대화에서 표시된 행에만 바인딩하는 후속 결과 핸들, 상호적인 LinkType을 양쪽 모두 읽는 관계와 연산 컴파일, 단어를 나누는 언급을 거부하고 목표의 범위를 다시 말할 뿐인 전이적 포함 관계는 받아들이는 수용, 독립적인 V-SEM, V-PROV, V-LEVEL, V-CLAIM 검증, 검토된 ASCII 선언 식별자만 주어 타입으로 받는 커버리지와 보증 projection, 커버리지 증적, 이어지는 패스를 첫 앵커 스냅숏에 고정하는 다이제스트 전용 shadow 실행기, release된 해석이 판단의 명확화 요청보다 먼저 답할 수 있는지를 혼자 정하는 세 번째 모델 계열의 닫힌 모호성 reader를 담당하고, `core/ontology_platform/resource_health_values.py`는 현재 경로와 매니페스트가 함께 읽는 검토된 Resource Health 그룹을 만들고, `core/conversation/semantic_target_health.py`는 두 경로가 함께 계획하는 검토된 단일 대상 상태 이상 평가 모양 하나를 담으며, `core/conversation/semantic_reasoning_measure_reads.py`와 `semantic_reasoning_measure_checks.py`는 상태 이상 조회와 상태 이력을 컴파일하고 독립적으로 검증하고, `core/conversation/conversation_preflight_boundary.py`는 명시적인 독립 질문에 라우터가 추정한 스레드 의존을 없음으로 읽고, `core/conversation/semantic_direction_receipt.py`는 shadow 턴마다 방향 판독기에 든 비용을 판독기 수별로 기록하고, `core/conversation/turn_reservations.py`는 공유 모델 호출 관문에서 턴 단계마다 최악의 경우를 예약해 어떤 단계도 뒤 단계의 예산을 쓰지 못하게 하고, `core/conversation/semantic_reasoning_property_reads.py`는 바인딩된 리소스 하나의 검토된 속성 하나에 대한 조회를 그 검토된 제공자 경로의 투영으로 컴파일하고 검증하며, `fdai_core_service/semantic_property_answer.py`는 그 값을 정확히 그대로 렌더링하고, `composition/semantic_query_value_domains.py`는 투영이 정식 상태 열거형을 기록하는 모든 ObjectType의 검토된 수명 주기 도메인을 선언하며, `core/conversation/semantic_plan_coverage.py`는 더 넓은 해석이나 밝힌 그룹 기준, 관계를 필터 목록만 읽는 현재 경로의 계획으로, 인스턴스에 대한 답변 종류를 온톨로지 선언만 읽는 계획으로 답하지 못하게 보류하며, `fdai_core_service/semantic_reading_holds.py`는 타입이 지정된 각 해석 보류에 검토된 두 언어 안내를 붙이고, `delivery/azure/llm/identity_masking.py`는 정확한 식별자를 불투명한 자리 표시자로만 형식 모델에 보내며, `core/ontology_platform/query_traversal_tables.py`는 탐색 끝점을 거르고 정확한 출력 증적을 발급하며, 리소스 그룹 구성원 조회는 대소문자를 무시한 정확한 이름으로 그룹을 결속한 뒤 `contains`를 탐색합니다. `conversation_preflight_family_validation.py`는 Core가 컬렉션 필터를 원문에서
   근거화하므로 모델이 제안한 정규 값을 버립니다.
+  `core/ontology_platform/resource_state_queries.py`는 부분 상태 결과에
+  `provider_operational_state_not_exposed` 같은 닫힌 원인 하나를 덧붙이고, `resource_scope_incomplete`
+  옆에 `inventory_observation_pending` 같은 타입 지정 원본 사유를 유지하며,
+  `fdai_service_contracts/recorded_resource_state.py`의 검토된 `UNREACHABLE_OPERATIONAL_STATES_BY_RESOURCE_TYPE`
+  선언이 요청한 모든 상태를 제외할 때만 관측되지 않은 리소스를 조건에 맞지 않는 것으로 확정하며,
+  검토된 실행 중 전용 수명 주기에서만 신선한 `Available` 관측으로 실행 중을 확정하고,
+  `query_source_handlers.py`는 ObjectSet 조회마다 내용 없이 구체화, 갱신, 영수증 단계의 시간을 기록합니다.
+  `delivery/persistence/postgres_inventory_reconciliation.py`는 기존 온톨로지 변환 매니페스트가 활성 세대나
+  `delivery/inventory_ontology_observer.py`가 프로세스마다 한 번 만드는 실행 중 release와 더 이상 맞지 않으면
+  수집을 즉시 필요로 판단합니다.
   `fdai_core_service/semantic_answer_presentation.py`는 공급자 lifecycle 상태, ISO 시각, 완전성,
   실행 권한 없음 표시를 운영자 언어로 렌더링하고 기술 상세에는 정확한 값을 유지합니다.
   `fdai_core_service/semantic_source_limitations.py`는 타입이 지정된 원본 제한 코드를 운영자의
@@ -454,6 +466,8 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   검증된 의미 조회 노드 전이는 Core에서 Operator로 향하는 별도의 범위가 제한된 best-effort topic을 사용합니다.
   같은 topic은 고정된 계획의 첫 노드 전이보다 먼저 계획 시점의 `semantic-work-progress` 고정 형태를
   한 번 전달합니다. 이 고정 형태는 표현 밀도만 정합니다.
+  `FDAI_SEMANTIC_MODEL_CALL_PROGRESS=1`이면 같은 topic이 계획 단계 모델 호출마다 내용 없는
+  `semantic-model-call-progress` 보고도 전달하고, Operator는 이를 실시간 전용 활동으로 스트리밍합니다.
   영속 최종 결과와 근거 증적은 계속 권위가 있으며, 소비자는 내용이 없는 성능 저하 상태, 재설정 가능한
   대기, 원자적 Live cursor 순서, 재시도 가능한 발신함 종료를 유지합니다. 전송 또는 선택적 관찰 실패는
   권한을 부여하거나 부분 답변, 첨부 파일, 인시던트 작업을 승격할 수 없습니다.

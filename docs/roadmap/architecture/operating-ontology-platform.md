@@ -536,6 +536,11 @@ conflicts, synthetic status, and evidence references. Presentation can state `fr
 to_state` only for complete, conflict-free, non-synthetic observations. Derived or otherwise
 unverified rows remain unresolved and cannot become an observed-state claim. `query.resource_health_inventory` follows the same read-only boundary for current availability: it reads the exact secured Resource set twice under one target-set digest, query revision, deadline, and coverage contract, returns `state_changed` when the tuple set does not settle within one retry, and its answers pass an out-of-band validator that computes the terminal disposition from typed fields. The answer projection carries `ResourceHealthNarrationClaims` and validation details with the narration; rejected narration is held with verified rows and codes so downstream renderers never infer health from prose.
 
+When a current-state read covers an incomplete Resource scope, `query.resource_state_inventory`
+reports `resource_scope_incomplete` together with the typed source reason of the secured snapshot,
+such as `inventory_observation_pending`, so the answer can state why the scope is incomplete. The
+reason explains the gap; it never completes the scope or settles a missing Resource.
+
 ## Delivery sequence
 
 | Slice | Deliverable | Exit criteria |

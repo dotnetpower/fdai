@@ -73,6 +73,8 @@ _SERVER_EVENT_LIST_KEYS = frozenset(
         "notes",
         "pass_dispositions",
         "pass_reasons",
+        "pass_repairs",
+        "repaired_reasons",
         "review_reasons",
         "route_keys",
         "temporal_keys",

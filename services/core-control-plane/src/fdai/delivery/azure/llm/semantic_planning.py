@@ -624,6 +624,7 @@ class AzureOpenAISemanticPlanningModel:
                             request=body,
                             output_tokens=self._config.max_tokens,
                             stage=operation,
+                            model=target.deployment,
                         )
                         if response.status_code == 429:
                             response.raise_for_status()

@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 54af60a855da640681b2d8363f83063ae1df3109
+translation_source_sha: f307e51718e09a439f8d8f6d8e4e7e6fb8657c54
 translation_revised: 2026-10-08
 ---
 
@@ -516,7 +516,16 @@ Forseti의 최신 버전 2 baseline 커버리지가 있으면 `GET /rules/findin
 `GET /code-security/reviews`와 `GET /code-security/packs`는 `surface`, `available`, `complete`,
 `source`, `reviews` 또는 `packs` 목록, `gaps`를 반환합니다. 행에는 건수, 리비전, 불투명한 이슈 ID,
 판단, 판정 건수, 오탐 판정 결과만 담기며 경로, 코드, 판단 근거 문구, 승인 참조는 담기지 않습니다.
-형식이 잘못된 행은 `gaps` 항목이 되므로 빈 목록이 문제없는 상태로 읽히지 않습니다.
+형식이 잘못된 행은 `gaps` 항목이 되므로 빈 목록이 문제없는 상태로 읽히지 않습니다. 스키마 `1.1.0`
+검토 행에는 `source`(종류, 제공자, 리비전 종류, 시작 경로, 요청 ID)와 `producers`도 담기며, 이전
+행은 `source: null`을 반환합니다.
+
+`GET /code-security/repositories`는 등록된 저장소(별칭, 제공자, 위치, 기본 ref, 노출, 사용 여부,
+등록 시각)를 등록자 없이 반환합니다. `GET /code-security/scan-requests`는 Console 스캔 요청을
+`status`(`queued`, `running`, `completed`, `rejected`), 시각, 거부 사유 코드 또는 범위가 제한된 결과
+(리비전, 다이제스트, 판단, 이슈 수, 커버리지, 게시 여부)와 함께 반환하며 요청자는 담지 않습니다.
+`POST /code-security/scan-requests`는 `repository_alias`와 선택적인 `ref`만 받고, `Idempotency-Key`가
+필요하며, `202` 제안 접수 영수증을 반환합니다.
 
 ## 구현 상태
 

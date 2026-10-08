@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from fdai_core_service.semantic_source_limitations import source_limitation_text
+from fdai_core_service.semantic_source_limitations import (
+    known_source_limitation,
+    source_limitation_text,
+)
 
 
 def test_known_codes_are_explained_in_order_with_the_exact_code() -> None:
@@ -18,10 +21,30 @@ def test_known_codes_are_explained_in_order_with_the_exact_code() -> None:
 
 
 def test_unknown_codes_stay_visible_without_invented_meaning() -> None:
-    assert source_limitation_text("resource_scope_incomplete", korean=True) == (
-        "`resource_scope_incomplete`"
+    assert source_limitation_text("unreviewed_source_gap", korean=True) == (
+        "`unreviewed_source_gap`"
     )
+
+
+def test_a_scope_gap_explains_its_typed_source_reason() -> None:
+    code = "resource_scope_incomplete+inventory_observation_pending"
+
+    assert known_source_limitation(code)
+    korean = source_limitation_text(code, korean=True)
+    assert "표시되지 않은 리소스가 있을 수 있습니다" in korean
+    assert "최근 관측된 리소스 변경이 아직 그래프에 반영되지 않았습니다" in korean
+    assert korean.endswith(f"(`{code}`)")
 
 
 def test_code_cannot_break_out_of_inline_code() -> None:
     assert source_limitation_text("bad`code\nx", korean=False) == "`bad'code x`"
+
+
+def test_a_partial_state_answer_explains_each_named_cause() -> None:
+    code = "resource_state_evidence_incomplete+provider_operational_state_not_exposed"
+
+    assert known_source_limitation(code)
+    korean = source_limitation_text(code, korean=True)
+    assert "공급자가 운영 상태를 제공하지 않아" in korean
+    assert korean.endswith(f"(`{code}`)")
+    assert "does not expose an operational state" in source_limitation_text(code, korean=False)

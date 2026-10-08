@@ -1,8 +1,8 @@
 ---
 title: 운영자 거버넌스 프로필
 translation_of: operator-governance-profiles.md
-translation_source_sha: 82a1fe3c29b476ebf8897dec204ea993617e62b6
-translation_revised: 2026-10-07
+translation_source_sha: 5c512faaa474d3e443508f68fb9542a9efa952e1
+translation_revised: 2026-10-08
 ---
 # 운영자 거버넌스 프로필
 
@@ -108,6 +108,9 @@ translation_revised: 2026-10-07
 
 감사 항목에는 `approval_profile`, `original_quorum`, `effective_quorum`, 운영자 principal,
 `self_review`가 들어 있으므로, 검토자는 줄어든 직무 분리를 언제든 확인할 수 있습니다.
+
+공유 계약 스키마에 등록된 `semantic-model-call-progress` 레코드를 포함한 실시간 대화 진행 표시는 모든
+프로필에서 표시 용도로만 쓰입니다. 승인, 검토, 확인, 정족수 구성원으로 절대 계산되지 않습니다.
 
 ## 귀속된 운영자 재정의 승격
 

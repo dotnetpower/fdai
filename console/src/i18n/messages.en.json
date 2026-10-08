@@ -481,6 +481,10 @@
       "noActiveCorrelation": "There is no active correlation or incident.",
       "noCorrelationAudit": "Correlation {correlation} has no attributed audit row in the current window.",
       "noDurableAudit": "No durable audit row has been attributed to this agent in the current window."
+    },
+    "trajectory": {
+      "view": "Trajectories",
+      "logView": "Activity log"
     }
   },
   "pantheon": {

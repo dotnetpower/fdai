@@ -603,7 +603,10 @@ When the first reading fails only as a form, because it was invalid, clarified b
 competing reading, not faithful to the blind review, or mislabeled one mention's kind, the path reads the
 question once more. The second sample passes the same admission, grounding, review, and selection
 rules and never lowers the bar; a reading with an unsupported atom is never resampled, and no turn takes
-more than two samples.
+more than two samples. The turn records why the replaced sample was declined as a content-free
+`semantic_form_sample_declined` event, so a resampled or held turn stays diagnosable. A form that cites
+an undeclared mention names the citing role, such as `form_goal_filter_cites_an_undeclared_mention`, so
+the one repair and the trace point at the field to fix.
 
 A selected compilation may carry only reviewed limitations that the answer states as catalog notices:
 the applied, default, or model-judged history window, a cause that is not established, and an impact

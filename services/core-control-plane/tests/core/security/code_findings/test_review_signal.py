@@ -16,6 +16,7 @@ from fdai.core.security.code_findings.notify import (
 )
 from fdai.core.security.code_findings.review_signal import (
     CodeSecurityReviewError,
+    ReviewSource,
     build_review_package,
     code_security_drift_payload,
     validate_review_package,
@@ -121,3 +122,89 @@ def test_templates_render_in_korean() -> None:
         digest.template_key or "", digest.params, "ko"
     )
     assert title.startswith("코드 보안 요약")
+
+
+def _sourced(source: ReviewSource, producers: tuple[str, ...] = ("Opengrep", "MDASH")):  # type: ignore[no-untyped-def]
+    return build_review_package(
+        _issues(),
+        repository_alias="example-service",
+        revision=REVISION,
+        exposure=Exposure.UNKNOWN,
+        coverage_complete=True,
+        source=source,
+        producers=producers,
+    )
+
+
+def test_sourced_package_uses_schema_1_1_and_reaches_drift() -> None:
+    package = _sourced(
+        ReviewSource(
+            kind="git_repository",
+            provider="github",
+            trigger="console",
+            request_id="operator-" + "a" * 32,
+        )
+    )
+    assert package["schema_version"] == "1.1.0"
+    assert package["source"] == {
+        "kind": "git_repository",
+        "provider": "github",
+        "revision_kind": "commit",
+        "trigger": "console",
+        "request_id": "operator-" + "a" * 32,
+    }
+    assert package["producers"] == ["MDASH", "Opengrep"]
+    drift = code_security_drift_payload(package)
+    assert drift["source"] == package["source"] and drift["grants_authority"] is False
+    assert validate_review_package(package) == package
+
+
+def test_legacy_package_stays_valid_without_source() -> None:
+    package = _package()
+    assert package["schema_version"] == "1.0.0" and "source" not in package
+    assert validate_review_package(package) == package
+
+
+def test_unsafe_producer_names_are_dropped_not_stored() -> None:
+    package = _sourced(
+        ReviewSource(kind="external_sarif", provider="mdash"),
+        producers=("MDASH", "../../etc/passwd", "x" * 80, "<script>"),
+    )
+    assert package["producers"] == ["MDASH"]
+
+
+@pytest.mark.parametrize(
+    ("source", "message"),
+    [
+        (ReviewSource(kind="ftp", provider="local"), "kind"),
+        (ReviewSource(kind="local_path", provider="Local!"), "provider"),
+        (
+            ReviewSource(kind="git_repository", provider="github", revision_kind="snapshot"),
+            "snapshot",
+        ),
+        (ReviewSource(kind="local_path", provider="local", trigger="cron"), "trigger"),
+        (
+            ReviewSource(kind="local_path", provider="local", request_id="operator-" + "a" * 32),
+            "request_id",
+        ),
+        (
+            ReviewSource(
+                kind="git_repository", provider="github", trigger="console", request_id="../x"
+            ),
+            "request_id",
+        ),
+    ],
+)
+def test_invalid_sources_are_rejected(source: ReviewSource, message: str) -> None:
+    with pytest.raises(CodeSecurityReviewError, match=message):
+        _sourced(source)
+
+
+def test_sourced_package_rejects_unsorted_or_missing_provenance() -> None:
+    package = dict(_sourced(ReviewSource(kind="local_path", provider="local")))
+    package["producers"] = ["b", "a"]
+    with pytest.raises(CodeSecurityReviewError, match="producers"):
+        validate_review_package(package)
+    del package["producers"]
+    with pytest.raises(CodeSecurityReviewError, match="fields"):
+        validate_review_package(package)

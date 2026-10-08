@@ -86,6 +86,11 @@ from fdai.core.security.code_findings.verifier_evaluation import VerifierCorpusE
 from fdai.delivery.code_security_acquire import GitSourceAcquirer, SourceAcquisitionError
 from fdai.delivery.code_security_lens_eval import add_lens_evaluation_command, evaluate_lens
 from fdai.delivery.code_security_publish_cli import add_publish_command, publish_review
+from fdai.delivery.code_security_repo_cli import (
+    add_repository_commands,
+    run_process_scan_requests,
+    run_repository_command,
+)
 from fdai.delivery.code_security_review_cli import (
     add_review_commands,
     adjudicate,
@@ -157,6 +162,7 @@ def _parser() -> argparse.ArgumentParser:
     add_review_commands(sub)
     add_publish_command(sub)
     add_scan_command(sub)
+    add_repository_commands(sub)
     add_verifier_evaluation_command(sub)
     add_lens_evaluation_command(sub)
     evaluation = sub.add_parser("evaluate", help="measure dedup and severity on a labeled corpus")
@@ -386,6 +392,10 @@ def main(argv: list[str] | None = None) -> int:
             output = asyncio.run(publish_review(args))
         elif args.command == "scan":
             output = asyncio.run(run_scan(args))
+        elif args.command in ("repo-register", "repo-list", "repo-enable", "repo-disable"):
+            output = asyncio.run(run_repository_command(args))
+        elif args.command == "process-scan-requests":
+            output = asyncio.run(run_process_scan_requests(args))
         elif args.command == "evaluate":
             output = _evaluate(args)
         elif args.command == "evaluate-verifiers":

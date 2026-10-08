@@ -188,6 +188,12 @@ approved grant, and fresh effective-access evidence is required before the actio
   and compile the target with sanitizers. That run alone drops the sandbox address-space limit,
   which AddressSanitizer can't run under; the harness limits the compiler's address space and
   every run's CPU time, resident memory, wall-clock time, and output instead.
+- **Code-security repository scans**: a Console scan request only queues a typed proposal for a
+  registered alias and grants no approval or execution authority. The scan worker narrows each
+  GitHub App token to that one repository with read-only contents permission and passes it to git
+  only through environment configuration, never argv, logs, or the extracted tree. Local folder
+  scan reports are owner-only files without code, scanner messages, or secret values. See
+  [Code Security Scanning](../operations/code-security-scanning.md#repository-scans-from-the-console).
 
 ## Network Boundaries
 

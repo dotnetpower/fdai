@@ -1,7 +1,7 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: e667d1943fec3d12875963dc150f1013d1573a6c
+translation_source_sha: 944af2e6a2ded2349fed61008ada82e8e6d31206
 translation_revised: 2026-10-08
 ---
 
@@ -180,6 +180,12 @@ fresh effective-access 근거가 있어야 액션을 처음부터 다시 평가�
   AddressSanitizer는 주소 공간 한도 아래에서 실행할 수 없으므로 이 실행만 샌드박스 주소 공간 한도를
   해제합니다. 대신 하네스가 컴파일러의 주소 공간과 모든 실행의 CPU 시간, 상주 메모리, 경과 시간,
   출력을 제한합니다.
+- **코드 보안 저장소 스캔**: Console 스캔 요청은 등록된 별칭에 대한 정형 제안을 대기열에 넣을 뿐이며
+  승인이나 실행 권한을 부여하지 않습니다. 스캔 작업자는 GitHub App 토큰마다 해당 저장소 하나와 읽기
+  전용 contents 권한으로 범위를 좁히고, 토큰을 git에 환경 설정으로만 전달하며 argv, 로그, 추출된
+  트리에는 남기지 않습니다. 로컬 폴더 스캔 보고서는 소유자 전용 파일이며 코드, 스캐너 메시지, 비밀
+  값을 담지 않습니다. [코드 보안 스캔](../operations/code-security-scanning-ko.md#console에서-저장소-스캔)을
+  참조하세요.
 
 ## 네트워크 경계
 

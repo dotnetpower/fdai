@@ -58,13 +58,20 @@ async def resource_graph_source_coverage_detail(
     requires_resource_coverage: bool = False,
     expresses_relationships: bool = True,
     exact_subjects: Sequence[str] = (),
+    subject_types: Sequence[str] = (),
 ) -> InventoryGraphSourceCoverage:
     """Read inventory projection coverage and keep the typed incompleteness reason.
 
     ``exact_subjects`` names the requested identities of an exact-id object read without
     relationships. Only an unprojected observation of one of those objects can change
     what that read returns, including a pending creation of a requested id, so a pending
-    observation of any other object leaves it complete. Every other gap stays global.
+    observation of any other object leaves it complete.
+
+    ``subject_types`` names the Resource types a type-constrained object read without
+    relationships is limited to. Every object observation, including a creation or a
+    deletion, carries its Resource type and replay rejects a type change, so only an
+    unprojected observation of one of those types can change what that read returns.
+    Every other gap stays global.
     """
 
     if not requires_resource_coverage and not any(
@@ -98,6 +105,8 @@ async def resource_graph_source_coverage_detail(
         "(observation_watermarks.value->>'ontology_projection_watermark')::bigint, 0) END "
         "AND (cardinality(%s::text[])=0 OR (pending.subject_kind='object' "
         "AND pending.subject_ref=ANY(%s::text[]))) "
+        "AND (cardinality(%s::text[])=0 OR (pending.subject_kind='object' "
+        "AND pending.subject_type=ANY(%s::text[]))) "
         "AND NOT (pending.source_revision=active.snapshot_id "
         "OR pending.effective_at<=snapshot.started_at)) AS pending_active_observation "
         "FROM inventory_active AS active "
@@ -111,7 +120,13 @@ async def resource_graph_source_coverage_detail(
         "LEFT JOIN state_kv AS storage_pressure "
         "ON storage_pressure.key='operational-history:storage-pressure' "
         "WHERE active.singleton=TRUE",
-        (list(exact_subjects), list(exact_subjects), INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY),
+        (
+            list(exact_subjects),
+            list(exact_subjects),
+            list(subject_types),
+            list(subject_types),
+            INVENTORY_ACTIVE_SCOPE_CHECKPOINT_KEY,
+        ),
     )
     row = await cursor.fetchone()
     if row is None:

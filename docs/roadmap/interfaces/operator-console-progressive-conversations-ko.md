@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 579acedba838019c21eab2a2559bedab63f3276a
-translation_revised: 2026-10-06
+translation_source_sha: a7e3eea3265ef455c1f4bc63d6415cb7a27fe727
+translation_revised: 2026-10-08
 ---
 # 오퍼레이터 콘솔 점진적 대화
 
@@ -89,6 +89,14 @@ Operator는 최종 결과의 검증과 영속 저장이 완료된 뒤 대기 중
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-08 | 구현됨 | 작업 패널이 차분하게 표시되도록 했습니다. 계획 단계 모델 호출은 진행 중인 최신 호출과 완료 건수를 보여 주는 "답변 계획" 한 행으로 묶이고 이벤트 하나로 셉니다. 턴이 실행되는 동안 단계가 근거 패널을 자동으로 펼치지 않고, 실행 중 행의 채운 배경과 반복 상태 문구를 없앴으며, 스피너는 더 옅은 트랙 위에서 돌고, 새 행은 서서히 나타나며, `interpolate-size`를 지원하는 환경에서는 답변이 정착할 때 패널 높이가 부드럽게 접힙니다. 모션 감소 설정은 두 애니메이션을 끕니다. | `current change`; `console/src/deck/investigation-timeline.tsx`와 테스트, Deck investigation 카탈로그 쌍, `console/src/styles.css`, `tests/e2e/agents-incident-deck.spec.ts`; `npx vitest run src`(3780개 통과); Console 타입 검사; `npm --prefix console run test:e2e:quick -- tests/e2e/deck-conversation-layer.spec.ts tests/e2e/agents-incident-deck.spec.ts`(24개 통과); 로컬 Console에서 패널 높이가 계획 중 96px, 조회 표시 시 172px, 정착 후 44px였고, 이전에는 646px까지 커졌음. | 이 표시 개선에 남은 작업은 없습니다. |
+| 2026-10-08 | 구현됨 | 실행 중 단계의 스피너가 아래로 처지고 튀던 문제를 고치고, 표 답변의 폭을 맞췄습니다. 단계 표시는 `transform: translateY(-50%)`로 가운데 정렬했는데, 회전 애니메이션의 `transform: rotate()`가 이를 대체해 실행 중 표시가 8px 아래에 놓이고 회전하며 튀었습니다. 이제 독립 속성 `translate`로 가운데 정렬합니다. 표 답변의 본문은 72ch 폭을 유지한 반면 표는 1080px로 펼쳐졌습니다. 이제 표는 셀이 단어 단위로 줄바꿈되며 읽기 열에 맞춰지고, 표 옆의 본문은 표의 폭을 사용합니다. 이 변경은 이전의 표 확장 방식을 대체합니다. | `current change`; `console/src/styles.css`, `command-deck-workspace-visual.test.ts`; `npx vitest run src`(3776개 통과); Console 타입 검사; 로컬 Console에서 실행 중 표시를 24번 샘플링한 결과 완료 표시와 같은 x에서 세로 오차 0px였고, 답변, 본문, 표 wrapper, 앞 턴이 1440x900(323, 840px), 993x641(116, 808px), 390x844, 도킹(401px)에서 같은 x와 폭을 가졌으며 단어 중간 줄바꿈과 넘침이 없었음. | 이 배치 수정에 남은 작업은 없습니다. |
+| 2026-10-08 | 구현됨 | 부분 상태 답변에서 Resource 범위가 불완전한 이유를 설명하게 했습니다. 상태 함수가 스냅샷의 타입 지정 원본 사유를 버렸고 이 코드에 검토된 설명도 없어서, 답변에는 `resource_scope_incomplete` 코드만 표시되었습니다. 이제 함수는 `resource_scope_incomplete+inventory_observation_pending` 같은 조합을 보고하고, 두 부분 모두 정확한 코드와 함께 운영자 언어로 표시됩니다. | `current change`; `resource_state_queries.py`, `semantic_source_limitations.py`와 테스트; `eval/golden-dataset/corpus-manifest.json` 재생성; Core ontology-platform, conversation, semantic, prompt 테스트(4952개 통과). | 이 설명에 남은 작업은 없습니다. |
+| 2026-10-08 | 구현됨 | 전체 작업 영역의 답변을 읽기 열 안에 유지했습니다. 넓은 레코드 표가 있는 답변은 턴 전체를 1080px로 넓혀, 본문이 질문과 작업 패널보다 120px 왼쪽에서 시작했습니다. 이제 표 wrapper만 대화 컨테이너 폭 안에서 가운데 기준으로 펼쳐집니다. | `current change`; `console/src/styles.css`, `command-deck-workspace-visual.test.ts`; `npx vitest run src`(3776개 통과); Console 타입 검사; 로컬 Console에서 답변 턴이 바로 앞 턴과 같은 x와 폭을 가짐: 1440x900(323, 840px), 993x641(116, 808px), 390x844(24, 332px). 표는 1080px와 889px였고 넘침이 없었음. | 이 배치 수정에 남은 작업은 없습니다. |
+| 2026-10-08 | 구현됨 | 답변을 계획하는 동안 작업 패널이 흔들리지 않게 했습니다. 실행 중인 활동은 상세 패널을 열었기 때문에 실행 중인 모델 호출마다 행 이상의 근거가 없는 수명주기 패널이 표시되었고, 상태도 제목 옆과 메타 열에 두 번 나타났습니다. 이제 모델 호출 행은 하나의 정적 행으로 표시되고 모든 행은 상태를 한 번만 표시합니다. 작업 머리글은 `deck-transcript` 컨테이너 폭을 따르므로 넓은 화면에 도킹한 패널에서 줄바꿈되어 펼침 화살표가 혼자 남지 않습니다. | `current change`; `console/src/deck/investigation-timeline.tsx`와 테스트, `console/src/styles.css`; `npx vitest run src/deck src/shared-style-tokens.test.ts`(1098개 통과); Console 타입 검사; 로컬 Console 1440x900에서 실행 중 턴 동안 상세 패널이 열리지 않았고, 모델 호출 상태 표시가 다른 행과 같은 x 위치에 정렬되었으며, 도킹한 401px 머리글은 실행 중과 정착 후 모두 넘침 없이 그리드로 표시되었고, 전체 작업 영역은 한 줄 44px 머리글을 유지했으며, 390x844에서도 넘침이 없었음. | 이 배치 수정에 남은 작업은 없습니다. |
+| 2026-10-08 | 구현됨 | 계획 단계 모델 호출만 관측된 동안 작업 패널을 실행 중으로 유지했습니다. 두 호출 사이에는 모든 활동이 정착한 것처럼 보이고 계획도 아직 고정되지 않아, Console이 계획 도중 답변 초안을 열고 패널을 `0 ms`의 `Partial`로 정착시켰습니다. 이제 고정 계획 없이 모델 호출만 있는 작업은 읽기, 토큰, 검증된 최종 응답 중 하나가 도착할 때까지 열려 있습니다. | `current change`; `console/src/deck/investigation-turn-state.ts`와 테스트; `npx vitest run src/deck`(1090개 통과); Console 타입 검사; 로컬 Console 턴이 모델 호출 8개 동안 실행 중을 유지하고 6.9초에 Verified 4/4로 정착함. | 이 대기 조건 수정에 남은 작업은 없습니다. |
+| 2026-10-08 | 구현됨 | 의미 계획 단계의 각 모델 호출을 실시간 `model_call` 활동으로 스트리밍해, 첫 읽기 전 대기 동안 "답변 경로를 확인하는 중"만 보이는 대신 단계, 배포, 경과 시간, 결과가 보이게 했습니다. Core는 공유 제공자 호출 관문을 통해 호출을 `semantic-model-call-progress` `1.0.0`으로 보고하고, Operator는 이를 실시간 전용 활동으로 전달하며, Console은 `MODEL` 배지를 붙이고 표시 밀도와 읽기 수에서 제외합니다. 보고는 로컬 실행기에서 켜지고 그 밖의 환경에서는 기본적으로 꺼집니다. | `current change`; `semantic_model_call_progress.py`와 `1.0.0` 스키마; Core `model_call_progress.py`, `adaptive_call_scope.py`, `semantic_turn_consumer.py`; Operator `semantic_progress_relay.py`, `semantic_turn_runtime.py`, `semantic_model_call_presentation.py`; `console/src/deck/conversation-trajectory-presentation.ts`, `investigation-timeline.tsx`; 계약, Core, Operator, Console 집중 테스트 통과; 로컬 Console 턴에서 검증된 읽기 2개 앞에 완료된 모델 호출 행 7개가 표시됨. | 진행 토픽을 소비하는 모든 Operator가 이 레코드를 이해한 뒤 배포 환경에서 보고를 켭니다. |
+| 2026-10-08 | 구현됨 | 토큰 프레임 없이 도착한 최종 답변의 공개 연출을 최대 60프레임에서 최대 24프레임으로 줄였습니다. 전체 답변은 이미 도착했고, 1초 동안의 재생이 측정된 턴 지연에 더해졌기 때문입니다. 공개 결과는 여전히 정본 텍스트와 바이트 단위로 같고, 숨겨진 탭과 모션 감소 설정은 계속 즉시 완료됩니다. | `current change`; `console/src/deck/stream-paint.ts`; `npx vitest run src/deck/stream-paint.test.ts`(17개 통과). | 이 표시 속도 변경에 남은 작업은 없습니다. |
 | 2026-10-01 | 구현됨 | Console에서 실시간 작업 진행 고정 형태를 받아들이고 적응형 조사 역할을 렌더링했습니다. 스트림은 첫 읽기 전에 도착한 첫 번째 유효한 고정 형태를 받아들입니다. 계획된 읽기가 관찰되거나, 토큰이 도착하거나, 최종 응답이 검증될 때까지 답변을 기다리므로 웨이브 사이의 멈춤에서 더 이상 빈 답변이 시작되거나 패널이 일찍 완료 처리되지 않습니다. 첫 패널은 계획을 표시하고, 답변이 완료되면 턴 예산을 최대치 대비 사용량으로 보여 주며 맥락 영수증도 표시합니다. 마일스톤은 조용한 진행 줄 하나로 읽힙니다. 중지는 읽기를 사용 불가로 바꾸는 대신 활동 패널에 기록되므로, 끝나지 않은 읽기는 중지됨으로 표시되고 지난 시작 안내는 숨겨집니다. | `current change`; `console/src/deck/backend-stream.ts`, `use-command-deck-submit.ts`, `investigation-turn-state.ts`, `investigation-roles.tsx`, `investigation-timeline.tsx`, `command-deck-presenters.tsx`, `use-command-deck-lifecycle.ts`, `transcript-store.ts`, Deck 전용 `console/src/deck/i18n/investigation.{en,ko}.json` 카탈로그와 각 집중 테스트; `npm --prefix console test`(`3880 passed`); Console 타입 검사; `npm --prefix console run check:entry`(gzip `149829`바이트, 변경 없음); `npm --prefix console run test:e2e:quick -- tests/e2e/deck-conversation-layer.spec.ts`(조사 계획, 완료 시점 한도, 맥락 영수증, 웨이브 순서 제어, 중지 사례) | 읽기에 계획된 웨이브가 담기면 웨이브 행을 렌더링합니다. 의미 사전 분류를 턴 예산에 포함할지 결정합니다. |
 | 2026-09-28 | 구현됨 | 의미 경로에서 작업 진행 필드를 방출했습니다([#1629](https://github.com/dotnetpower/fdai/issues/1629)). Core는 검증된 읽기 계획 하나를 실행하기 직전에 고정하고, 첫 노드 진행 상황보다 먼저 `semantic-work-progress` `1.0.0`으로 고정 형태를 게시하며, 턴을 통제한 적응형 턴 예산과 적용된 모델 등급 영수증과 함께 저장합니다. 적응형 근거 읽기는 고정하지 않습니다. Operator는 실시간 스트림과 재생 스트림 모두에서 첫 조회 활동보다 먼저 `work_progress` 프레임을 한 번 전달하고, 검증한 필드를 `trajectory_detail`에 복사하며, 활동을 60 KiB 안에서 최대 8개로 유지합니다. | `current change`; `packages/service-contracts/src/fdai_service_contracts/semantic_work_progress.py`와 `1.0.0` 스키마; Core `work_progress.py`, `adaptive_service.py`, `semantic_runtime.py`, `semantic_turn_processor.py`, `semantic_turn_consumer.py`, `semantic_work_progress_projection.py`; Operator `semantic_progress_relay.py`, `semantic_turn_runtime.py`, `semantic_trajectory_presentation.py`, `semantic_work_progress_presentation.py`; `uv run pytest -q --no-cov packages/service-contracts/tests/test_semantic_work_progress.py services/core-control-plane/tests/test_semantic_work_progress.py services/operator-service/tests/test_semantic_work_progress.py`(`54 passed`); 변경 범위로 선택한 Python 전체 검사(`37838 passed`, `FDAI_DATABASE_URL`이 필요한 데이터베이스 테스트 3개는 `origin/main`에서도 같은 방식으로 실패); `npm --prefix console test -- --run src/deck`(`1036 passed`)와 Console 타입 검사 | Console에서 실시간 프레임을 사용하고 조사 역할을 렌더링해야 합니다. 의미 사전 분류를 턴 예산에 포함할지 결정해야 합니다. |
 | 2026-09-28 | 구현됨 | 작업 진행 계약을 추가했습니다. 표시 밀도는 타입 기반 관찰에서 정하고, 웨이브는 재계획 없이 범위를 제한하며, 마일스톤은 작업 흐름 사실만 담습니다. 또한 턴 예산 계측, 맥락 영수증, 이어서 진행, 초안이 아닌 발견 사항, 분리된 권한 표시를 정의합니다. 이제 Console은 선택 필드를 필드 단위로 fail closed 방식으로 해석하고, 재생한 마일스톤을 완료가 아닌 기록됨으로 표시합니다. | `current change`; `console/src/deck/backend-types.ts`, `work-progress-contract.ts`, `trajectory-detail.ts`, `conversation-trajectory.ts`, `conversation-trajectory-presentation.ts`, `conversation-trajectory-view.tsx`와 각 집중 테스트; `mocks/ui/fixtures/adaptive/`; `npm --prefix console test -- --run src/deck src/shared-style-tokens.test.ts src/components/mock-visual-boundary.test.ts`(`1045 passed`); Console 타입 검사 | 서버에서 필드를 방출하고 Console에서 적응형 조사 역할을 렌더링해야 합니다. |
@@ -226,6 +234,8 @@ Operator는 최종 결과의 검증과 영속 저장이 완료된 뒤 대기 중
 툴팁은 전송할 질문과 즉시 전송 동작을 안내합니다. 예시 질문도 선택한 맥락을 반영하는 일반 전송
 경로를 사용하며 첨부와 중복 전송 검사를 그대로 거칩니다.
 하단 버튼과 `Ctrl+K` 또는 `/`는 현재 화면의 별도 대화를 우측 패널에 엽니다.
+우측 패널에서는 대화 기록만 스크롤되므로, 실행 기록을 펼치거나 턴 안에서 포커스가 옮겨져도 대화가
+밀려나거나 입력창 위에 빈 공간이 생기지 않습니다.
 각 진입점은 배치 선택을 따로 기억합니다. 일반 대화는 현재 화면의 근거를 자동으로 포함하지 않습니다.
 "현재 화면 추가"를 선택하면 스냅샷을 저장하고 제거 가능한 "참고 화면" 칩으로 표시합니다.
 화면을 제거하면 이후 질문에만 적용되며 이미 보낸 메시지는 유지합니다.
@@ -298,7 +308,7 @@ Operator는 완료된 목표 증적의 참조가 터미널 의미 근거를 정�
 채웁니다. 상세 trace는 관측된 진행 프레임 뒤에만 표시되므로 완료된 replay에서 수행 작업을 설명하는
 근거는 계속 server 수명 주기 event에 의존합니다. 해당 프레임이 도착하면 브라우저는 전체 패널을 한
 번에 삽입하지 않고 간결한 행의 높이에서 상세 추적을 확장합니다. 토큰 프레임이 없는 최종 응답은
-정확한 정본 텍스트를 최대 60개의 화면 프레임에 걸쳐 공개합니다. 백그라운드 탭은 동기적으로
+정확한 정본 텍스트를 최대 24개의 화면 프레임에 걸쳐 공개합니다. 백그라운드 탭은 동기적으로
 완료되며 모션 감소 설정에서는 두 전환을 모두 생략합니다.
 
 Machine 결과는 계속 권위 있고 재생 가능하지만 primary 사람 답변은 아닙니다. 다음 다섯 작업
@@ -331,7 +341,8 @@ Service Health 응답은 결정론적으로 계산한 `yes`, `no`, `partial`, `u
 기존 전송 형태를 유지합니다.
 
 판단 보류 응답은 확인할 수 없는 내용, 확인된 범위, 정확한 제한 사항, 다음 안전 읽기 단계를
-먼저 보여 줍니다. 내부 쿼리 실행 과정은 기술 세부 정보에 유지합니다.
+먼저 보여 줍니다. 내부 쿼리 실행 과정은 기술 세부 정보에 유지합니다. 부분 답변은 검토된 각 제한 코드를
+운영자 언어로 설명하며, 불완전한 Resource 범위 뒤의 원본 사유도 포함하고 정확한 코드를 함께 표시합니다.
 
 정본 답변이 없으면 Console은 범위가 제한된 최종 사유를 정확한 운영자용 설명으로 변환합니다.
 오프라인 전송, 누락된 모델 구성, 인증 또는 역할 거부, 프로바이더 사용 제한 또는 장애, 콘텐츠
@@ -339,6 +350,10 @@ Service Health 응답은 결정론적으로 계산한 `yes`, `no`, `partial`, `u
 표시하거나 근거를 만들거나 프로바이더 응답 내용을 노출하지 않습니다. 알 수 없는 사유는 검증된
 답변을 사용할 수 없다는 일반 문구를 사용하고 범위가 제한된 machine 사유를 source 세부 정보에
 보존합니다.
+
+전체 작업 영역에서 답변은 질문, 작업 패널과 같은 읽기 열을 유지하고, 넓은 레코드 표도 셀이 단어
+단위로 줄바꿈되며 그 열에 맞춰집니다. 아주 넓은 표는 wrapper 안에서 스크롤됩니다. 레코드 표 옆의
+본문은 더 좁은 읽기 폭 대신 표의 폭을 사용하므로 표, 본문, 나머지 대화가 정렬됩니다.
 
 ## 결정론적 교차 채널 표현 설계
 
@@ -585,6 +600,40 @@ Console은 실시간 고정 형태와 저장된 필드를 다음 규칙으로 �
 - **중지.** 중지는 활동 패널에 기록되고, 각 읽기는 마지막으로 관찰된 상태를 유지합니다. 끝을 보고하지
   않은 읽기는 중지됨으로 표시합니다. 다른 이유로 중단된 경우에는 완료되지 않음으로 표시하며, 실행
   중으로 표시하지 않습니다.
+
+### 실시간 모델 호출 진행
+
+의미 계획은 첫 읽기 전에 여러 번 모델을 호출하므로, 운영자는 대기 시간 대부분 동안 "답변 경로를 확인하는
+중입니다"만 보았습니다. 이제 Core는 계획 단계의 각 모델 호출을 일어나는 대로 보고합니다.
+
+- **관측.** 공유 제공자 호출 관문은 사전 분류, 질문 형식, 제약 추출, 개념 선택처럼 검토된 호출 단계의 모든
+  물리 요청을 시작할 때와 끝날 때 보고합니다. 보고에는 단계, 모델 배포, 시작과 종료 시각, 경과 밀리초,
+  결과, 토큰 수가 들어갑니다. 프롬프트, 응답, 인용한 질문 문장, 모델이 밝힌 이유는 넣지 않습니다.
+- **전달.** Core는 조회 진행과 같은 best-effort 진행 토픽에 `semantic-model-call-progress` `1.0.0`을
+  게시하며, 턴마다 호출 32개에 대한 갱신을 최대 64개까지 보냅니다. 큐가 가득 차면 갱신을 버리고, 게시
+  실패는 턴에 영향을 주지 않습니다.
+- **스트림.** Operator는 각 갱신을 종류가 `model_call`인 `activity`로 스트리밍하며, 지역화한 단계 라벨과
+  배포 이름 및 경과 시간을 세부 정보로 붙입니다. Console은 이 행에 `EVENT` 대신 `MODEL` 배지를
+  붙입니다. 계획 단계의 모든 호출은 "답변 계획" 한 행으로 묶이며, 이 행은 진행 중인 최신 호출과 완료
+  건수를 보여 줍니다. 펼치면 각 호출을 수명주기 패널 없이 조용한 한 줄로 나열하고, 묶음은 관측 이벤트
+  하나로 셉니다. 이 활동은 실시간 전용입니다. 궤적 세부 정보에 저장되지 않고, 읽기로 세지 않으며, 표시
+  밀도를 바꾸지 않습니다. 계획이 고정되지 않은 채 모델 호출만 관측된 동안에는 Console이 호출 사이에도
+  작업 패널을 실행 중으로 유지하므로, 읽기, 토큰, 검증된 최종 응답 중 하나가 도착하기 전에는 답변 초안을
+  열지 않습니다.
+- **활성화.** `FDAI_SEMANTIC_MODEL_CALL_PROGRESS=1`이 보고를 켭니다. 로컬 실행기는 이 값을 설정하고,
+  배포 환경은 진행 토픽을 소비하는 모든 Operator가 이 레코드를 이해할 때까지 끕니다. 이전 Operator는
+  알 수 없는 레코드를 격리하기 때문입니다.
+
+| 비평 결과 | 수정 |
+|-----------|------|
+| 진행 레코드가 질문이나 답변 내용을 노출할 수 있음 | 닫힌 단계, 배포, 시각, 결과, 토큰 수만 담음 |
+| 보고가 관측 대상 모델 호출을 늦출 수 있음 | 보고는 소비 루프에 대한 비차단 큐 추가이며 실패는 버림 |
+| 앞서 일어난 모델 호출이 8개 활동 한도에서 조회 읽기를 밀어낼 수 있음 | 모델 호출 활동은 실시간 전용이며 저장된 궤적 세부 정보에 들어가지 않음 |
+| 읽기가 아닌 단계가 간결한 답변을 타임라인으로 바꿀 수 있음 | Console은 `model_call` 활동을 표시 밀도와 읽기 수에서 제외함 |
+| 버전이 섞인 배포가 실패 큐를 채울 수 있음 | Operator가 이 레코드를 이해할 때까지 배포 환경에서는 보고를 끔 |
+| 실행 중인 행마다 수명주기 패널이 열리고 상태가 두 번 표시되어, 병렬 호출 여러 개가 대화 화면을 밀어냄 | 모델 호출 행은 패널을 열지 않고 상태를 한 번만 표시함 |
+| 작업 머리글이 뷰포트 폭을 따라, 넓은 화면에 도킹한 패널에서 줄바꿈되고 펼침 화살표가 혼자 남음 | 머리글이 대화 컨테이너 폭을 따름 |
+| 모델 호출 사이의 공백이 작업 완료처럼 보여 계획 도중 답변 초안이 열리고 패널이 부분 완료로 정착함 | 고정 계획 없이 모델 호출만 있는 작업은 읽기, 토큰, 검증된 최종 응답이 올 때까지 열어 둠 |
 
 ## 지표
 

@@ -9,12 +9,8 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from types import FrameType
 
-from fdai_operator_service.contracts import (
-    AsgiApplication,
-    AsgiReceive,
-    AsgiScope,
-    AsgiSend,
-)
+from starlette.types import ASGIApp, Receive, Scope, Send
+
 from fdai_operator_service.streaming.shutdown import STREAM_SHUTDOWN_STATE
 
 type SignalHandler = Callable[[int, FrameType | None], object] | int | None
@@ -23,24 +19,26 @@ type SignalHandler = Callable[[int, FrameType | None], object] | int | None
 class StreamShutdownSignalMiddleware:
     """Notify streams before the ASGI server waits for connections to close."""
 
-    def __init__(self, app: AsgiApplication) -> None:
+    def __init__(self, app: ASGIApp) -> None:
         self._app = app
 
     async def __call__(
         self,
-        scope: AsgiScope,
-        receive: AsgiReceive,
-        send: AsgiSend,
+        scope: Scope,
+        receive: Receive,
+        send: Send,
     ) -> None:
         if scope.get("type") != "lifespan":
             await self._app(scope, receive, send)
             return
-        with _chain_shutdown_signals(self._app):
+        # Inside a Starlette middleware stack the wrapped app has no state; the lifespan scope
+        # carries the Starlette application that owns the shutdown event.
+        with _chain_shutdown_signals(scope.get("app"), self._app):
             await self._app(scope, receive, send)
 
 
 @contextmanager
-def _chain_shutdown_signals(app: object) -> Iterator[None]:
+def _chain_shutdown_signals(*apps: object) -> Iterator[None]:
     if threading.current_thread() is not threading.main_thread():
         yield
         return
@@ -48,7 +46,9 @@ def _chain_shutdown_signals(app: object) -> Iterator[None]:
     previous_handlers: dict[int, SignalHandler] = {}
 
     def handle_shutdown(signum: int, frame: FrameType | None) -> None:
-        _publish_stream_shutdown(app)
+        for app in apps:
+            if _publish_stream_shutdown(app):
+                break
         previous = previous_handlers[signum]
         if callable(previous):
             previous(signum, frame)
@@ -73,7 +73,7 @@ def _handled_signals() -> tuple[int, ...]:
     return tuple(handled)
 
 
-def _publish_stream_shutdown(app: object) -> None:
+def _publish_stream_shutdown(app: object) -> bool:
     candidate: object | None = app
     visited: set[int] = set()
     while candidate is not None and id(candidate) not in visited:
@@ -82,8 +82,9 @@ def _publish_stream_shutdown(app: object) -> None:
         event = getattr(state, STREAM_SHUTDOWN_STATE, None)
         if isinstance(event, asyncio.Event):
             event.set()
-            return
+            return True
         candidate = getattr(candidate, "app", None)
+    return False
 
 
 __all__ = ["StreamShutdownSignalMiddleware"]

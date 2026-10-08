@@ -460,3 +460,33 @@ def test_export_verifies_external_findings_against_the_exact_revision(
         str(repo),
     )
     assert code == 1 and "--work-root" in str(output["error"])
+
+
+def test_publish_review_labels_external_sarif_by_provider(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    scan = tmp_path / "mdash.sarif"
+    scan.write_bytes(sarif("MDASH", [result("sql-injection", "src/db.py", 2, cwe=89)]))
+    out = tmp_path / "review.json"
+    code, published = _run(
+        capsys,
+        "publish-review",
+        "--sarif",
+        f"{scan}:external",
+        "--revision",
+        REVISION,
+        "--repo-alias",
+        "example-service",
+        "--source-provider",
+        "mdash",
+        "--out",
+        str(out),
+        "--catalog-root",
+        str(CATALOG_ROOT),
+    )
+    assert code == 0, published
+    package = json.loads(out.read_text())["package"]
+    assert package["schema_version"] == "1.1.0"
+    assert package["source"]["kind"] == "external_sarif"
+    assert package["source"]["provider"] == "mdash"
+    assert package["producers"] == ["MDASH"]

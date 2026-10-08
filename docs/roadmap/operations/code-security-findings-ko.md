@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 점검 결과
 translation_of: code-security-findings.md
-translation_source_sha: eebb5c012cb29a100fbfa342fb8cc4640e5ec7d2
+translation_source_sha: 868bf1637967577149d1dd36eb898b859ff60dbc
 translation_revised: 2026-10-08
 ---
 
@@ -20,7 +20,7 @@ MDASH(Codename MDASH 에이전트형 코드 스캐너), GitHub code scanning, Op
 > **상태:** 결정론적 코어, 카탈로그, 서명된 조치 팩, 팩 레지스트리, 반출 검사, 재스캔 검증,
 > 오탐 판정, Heimdall 검토 drift, 알림, 운영자 CLI, 결정론 스캔 레인
 > ([코드 보안 스캔](code-security-scanning-ko.md)), 오프패스 LLM 렌즈 레인, 약점 검증기, 평가 도구,
-> 읽기 전용 Console 화면이 구현되었습니다.
+> 출처별로 검토를 구분하고 저장소 스캔을 요청할 수 있는 Console 화면이 구현되었습니다.
 > [구현 원장](../../roadmap-implementation/operations/code-security-findings.md)을 참조하세요.
 
 ## 설계 개요
@@ -217,9 +217,18 @@ FDAI는 내보낼 때 기준 커버리지 증적과 이슈 스냅샷을 팩 기�
 
 - **새 에이전트와 토픽 없음:** 스캐너와 팩 생성은 작업자와 어댑터이며 판테온 에이전트가 아니고,
   AgentSpec 집합도 바뀌지 않습니다.
+- **책임 에이전트:** 소스 코드 보안 취약점 관찰은 Heimdall이 책임집니다. 스캐너, 로컬 폴더 스캔,
+  Console 스캔 요청 작업자는 Heimdall에 검토 패키지를 넘기며, Heimdall의 `read_drift_status` 대화
+  도구는 저장소별로 가장 최근에 기록된 검토로 답합니다.
 - **검토 신호:** 스캔은 건수, 노출, 커버리지 완전성, 최대 20개의 불투명한 이슈 ID를 담은 엄격한
   검토 패키지를 만듭니다. 경로, 코드, 심볼, 스캐너 텍스트는 담지 않으며
-  `review_required: true`와 `grants_authority: false`를 선언합니다.
+  `review_required: true`와 `grants_authority: false`를 선언합니다. 스키마 `1.1.0`은 `source`
+  (종류 `local_path`, `git_repository`, `external_sarif`, `local`, `github`, `mdash` 같은 제공자 토큰,
+  리비전 종류 `commit` 또는 `snapshot`, 시작 경로 `cli`, `console`, `schedule`, Console 스캔의 요청
+  ID)와 정렬된 탐지 도구 이름을 추가합니다. 짧은 표시용 토큰이 아닌 탐지 도구 이름은 버립니다.
+  `1.0.0` 패키지도 계속 유효합니다.
+- **외부 SARIF:** `publish-review --source-provider mdash`로 가져온 MDASH나 다른 외부 보고서에
+  출처를 표시하면, Console이 FDAI 자체 스캔과 구분해 보여 줍니다.
 - **Heimdall:** 주입된 변환기가 패키지를 검증하고, Heimdall이 자신이 소유한 `object.drift`
   토픽(`event_type: code_security.findings_drift`)에 shadow 상한으로 게시합니다. 결정 값은
   `urgent`(P0 이슈), `open`, `clear`, `coverage_incomplete` 중 하나입니다. LLM은 사용하지 않습니다.
@@ -235,10 +244,16 @@ FDAI는 내보낼 때 기준 커버리지 증적과 이슈 스냅샷을 팩 기�
   ([코드 보안 스캔](code-security-scanning-ko.md#llm-렌즈-레인)).
 - **Console 화면:** `publish-review --record-state`와 `scan --record-state`는 각 검토 묶음을 저장소
   리비전마다 한 번 상태 저장소에 기록하며, 데이터베이스 위치는 `FDAI_STATE_STORE_DSN`에서만
-  읽습니다. 이미 기록된 리비전에 다른 묶음이 오면 거부합니다. Operator API는 읽기 역할에
-  `GET /code-security/reviews`를 제공하고, Console의 **감사·증적 > 코드 보안** 화면은 판단, 우선순위와
-  신뢰도별 건수, 노출, 커버리지를 보여 줍니다. 형식이 잘못된 행은 보류된 기록으로 표시되며, 이
-  화면에는 승인, 실행, 조치 컨트롤이 없습니다.
+  읽습니다. 이미 기록된 리비전에 다른 발견 사항이 오면 거부하고, 시작 경로만 다른 같은 발견 사항은
+  중복으로 처리합니다. Operator API는 읽기 역할에 `GET /code-security/reviews`, `/repositories`,
+  `/scan-requests`를 제공하고, Console의 **감사·증적 > 코드 보안** 화면은 판단, 우선순위와 신뢰도별
+  건수, 노출, 커버리지와 함께 검토마다 출처와 시작 경로를 보여 줍니다. 로컬 폴더, Git 저장소, 외부
+  SARIF, 출처 미기록 검토를 나누어 보는 필터도 있습니다. 형식이 잘못된 행은 보류된 기록으로
+  표시됩니다.
+- **스캔 요청:** Contributor와 Owner는 `POST /code-security/scan-requests`로 등록된 저장소의 스캔을
+  요청할 수 있습니다. 이 경로는 [코드 보안 스캔](code-security-scanning-ko.md#console에서-저장소-스캔)에
+  설명된 스캔 작업자가 처리할 정형 제안만 대기열에 넣으며, 화면에는 여전히 승인, 실행, 조치
+  컨트롤이 없습니다.
 - **팩 레지스트리:** `--registry state-store`는 팩 기록, 폐기, 반출 시점 기준선, 추가 전용 검토
   기록을 로컬 디렉터리 대신 상태 저장소에 보관합니다. 리비전 비교 후 설정 방식을 사용하므로 동시에
   들어온 검토가 사라지지 않습니다. `GET /code-security/packs`는 팩마다 상태, 이슈 수, 최신 수정 검증

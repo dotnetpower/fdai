@@ -414,6 +414,9 @@ from the Job's workload identity at connection time.
 FDAI services keep one runtime-neutral workload specification containing the digest-pinned image,
 command, arguments, environment names, resource requests and limits, startup, liveness and readiness
 probes, ingress intent, service port, sidecars, secret references, workload identity and scaling bounds.
+On either runtime, the Operator publishes a termination signal to its open server-sent event
+streams before Uvicorn waits for connections to close, so a replica replacement drains idle
+streams immediately and clients resume from their last event id within the termination grace.
 Every shipped Alpine runtime image also pins security-sensitive runtime package revisions across
 all service Dockerfiles. A published fixed package revision moves the shared pin and its repository
 contract together; image scanning verifies the built result before publication.
@@ -760,7 +763,9 @@ providers, Helm repositories, mutable image tags, or an operator kubeconfig.
 
 The code-security scan runner image isn't part of any deployment profile yet. It needs a runtime
 that allows unprivileged user namespaces for bubblewrap and its own offline-database refresh, so a
-profile must opt in explicitly. See
+profile must opt in explicitly. The same applies to the Console scan-request worker
+(`fdai-scan-runner process-requests`), which also needs a read-only GitHub App token scoped per
+repository. See
 [Code Security Scanning](../operations/code-security-scanning.md#scan-runner-image).
 
 The shipped notification matrix carries the code-security A2 alert and A4 digest routes, so every

@@ -2,8 +2,9 @@
 
 One row per ``(repository alias, revision)`` holds the strict review package that Heimdall
 publishes: counts, coverage, exposure, and opaque issue ids. It never holds paths, code, symbols,
-or scanner text. Rows are immutable: re-recording the same package is a no-op, and a different
-package under the same key is refused so a later scan can't silently replace reviewed evidence.
+or scanner text. Rows are immutable: re-recording the same findings is a no-op even when the
+source or trigger differs, and different findings under the same key are refused so a later scan
+can't silently replace reviewed evidence.
 """
 
 from __future__ import annotations
@@ -46,11 +47,22 @@ async def record_code_security_review(
         return True
     existing = await store.read_state(key)
     stored = existing.get("package") if existing else None
-    if json.dumps(stored, sort_keys=True) == json.dumps(validated, sort_keys=True):
+    if isinstance(stored, Mapping) and _findings(stored) == _findings(validated):
         return False
     raise CodeSecurityReviewConflictError(
         f"a different review is already recorded for {validated['repository_alias']}"
         f"@{validated['revision']}"
+    )
+
+
+_PROVENANCE_KEYS = frozenset({"schema_version", "source", "producers"})
+
+
+def _findings(package: Mapping[str, object]) -> str:
+    """Compare findings only, so the same revision scanned by CLI and Console is a duplicate."""
+    return json.dumps(
+        {key: value for key, value in package.items() if key not in _PROVENANCE_KEYS},
+        sort_keys=True,
     )
 
 

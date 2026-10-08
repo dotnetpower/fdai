@@ -1,7 +1,7 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: dd645666ef684114dec3120d692ea69d87552dd9
+translation_source_sha: f42ae05ddc5d62daee7529946b15e29df31d2937
 translation_revised: 2026-10-08
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
@@ -127,7 +127,8 @@ Supervisor는 허용된 각 `run-console-service.sh`을 자체 잠금, fingerpri
 binding은 ActionType을 승격하거나 자율성을 높이거나 finding을 만들거나 실행 권한을 부여하지 않습니다.
 독립 실행 순서형 준비 작업은 해당 단계 입력이 바뀐 경우에만 읽기 전용 Azure Resource Graph 인벤토리를 새로 읽고 정제된 모델, 런타임 Settings, Rule 및 Ontology 변환 결과를 구체화합니다. 관리되는 전체 스택 준비는 인벤토리 새로 고침만 지속 조정 프로세스에 맡깁니다. 이러한 선언은 발견된 문제, 관측된 인벤토리, 준비 상태 또는 실행 권한을 만들지 않습니다. 프로바이더를 사용할 수 없거나 권한이 없으면 고정본 데이터로 대체하지 않고 인벤토리를 명시적으로 사용할 수 없는 상태로 유지합니다. 전체 스택 시작에는 신뢰된 workspace와 커밋된 정책이 필요하며 권한을 약화하지 않습니다.
 Loopback 소유권 확인에는 범위가 250ms로 제한된 IPv4 및 IPv6 소켓 검사를 사용하며 연결 중에는
-서비스 잠금을 유지하지 않습니다. 종료는 10초 뒤 자식 process group을 중지하고 wrapper가 사라지면
+서비스 잠금을 유지하지 않습니다. 종료는 10초 뒤 자식 process group을 중지합니다. Operator는 종료 신호를
+받으면 열린 Console 스트림을 끝내므로 열린 브라우저가 이 유예 시간을 모두 쓰지 않습니다. wrapper가 사라지면
 로컬 상태 캐시도 실제 legacy migration과 서비스 migration 5개의 head를 확인하므로 같은 volume 안에서 데이터베이스를 다시 만들면 오래된 파일 marker를 신뢰하지 않고 schema 준비를 다시 실행합니다. Wrapper가 사라지면 그 leader에 signal을 보냅니다. 개별 서비스 또는 debug launch 전에는
 `console: prepare full stack`을 실행합니다.
 Git에서 제외된 로컬 런타임 환경은 검증 cluster를 `FDAI_VALIDATION_DATABASE_URL`로 기록하고,
@@ -537,7 +538,10 @@ Trial 만료 워터마크도 같은 규칙을 따릅니다. 로컬과 배포된 
 코드 보안 검토와 팩 화면은 로컬과 배포 환경에서 같은 `state_kv` 행을 읽으며, `/code-security/reviews`와
 `/code-security/packs`는 지속형 operational-state 출처로 선언됩니다. 실행 위치에 따른 차이는 LLM
 렌즈 호출의 신원 하나입니다. 배포 환경은 Managed Identity를, 로컬 실행은 `--lens-identity azure-cli`를
-사용합니다.
+사용합니다. 저장소 등록과 Console 스캔 요청도 `state_kv` 행이며, 두 실행 위치 모두
+`/code-security/repositories`와 `/code-security/scan-requests`로 제공됩니다. 스캔 요청 작업자는 두
+위치에서 같은 `process-scan-requests` 배치 작업입니다. 로컬에서는 스캔 실행 이미지로 한 번 실행하며,
+아직 이를 예약 실행하는 배포 프로필은 없습니다.
 
 ## 배포자-스코프 LLM 프로비저닝
 

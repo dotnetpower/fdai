@@ -24,7 +24,11 @@ from fdai_operator_service.families.iam.http import (
     require_string,
 )
 from fdai_operator_service.redaction import redact_projection
-from fdai_operator_service.streaming.shutdown import shutting_down
+from fdai_operator_service.streaming.shutdown import (
+    shutdown_event,
+    shutting_down,
+    sleep_or_shutdown,
+)
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response, StreamingResponse
 from starlette.routing import Route
@@ -105,6 +109,8 @@ def make_access_grant_routes(
         except IamFamilyError as exc:
             return family_error(exc)
 
+        stop = shutdown_event(request)
+
         async def stream() -> AsyncIterator[bytes]:
             current = snapshot
             canonical = ""
@@ -122,7 +128,11 @@ def make_access_grant_routes(
                 elif keepalive_elapsed >= keepalive_seconds:
                     keepalive_elapsed = 0.0
                     yield _KEEPALIVE
-                await sleep(poll_seconds)
+                # An injected sleep keeps test pacing; the default wait ends on shutdown.
+                if stop is None or sleep is not asyncio.sleep:
+                    await sleep(poll_seconds)
+                elif await sleep_or_shutdown(poll_seconds, stop):
+                    return
                 keepalive_elapsed += poll_seconds
                 current = await outbox.snapshot(
                     AccessGrantSnapshotQuery(

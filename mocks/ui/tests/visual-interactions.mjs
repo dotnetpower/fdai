@@ -58,9 +58,13 @@ try {
     await check("Search has a visible empty state and restores a filtered route", async () => {
       await open("hil.html?status=pending");
       const search = page.locator("[data-nav-search]");
+      const previewCount = await page.locator(".side [data-page]").count();
       await search.fill("no-such-design-preview");
       assert.equal(await page.locator("[data-nav-empty]").isVisible(), true);
-      assert.match(await page.locator("[data-nav-result]").textContent(), /0 of 102/);
+      assert.equal(
+        await page.locator("[data-nav-result]").textContent(),
+        `0 of ${previewCount} previews match`,
+      );
       assert.equal(await page.locator('.nav-group:visible').count(), 0);
       await page.locator("[data-nav-clear]").click();
       assert.equal(await page.locator('.side [aria-current="page"]').isVisible(), true);
@@ -287,8 +291,53 @@ try {
       assert.equal(await frame.locator("#orgTree [data-agent]").count(), 15);
       assert.match(await frame.locator("#incidentWorkflow").innerText(), /No incident evidence is available/);
     });
-    await check("Activity columns have full label targets and preserve the journal", async () => {
+    await check("Activity trajectories expose ordered, inspectable steps", async () => {
       const frame = await open("agent-activity.html");
+      assert.equal(await frame.locator("#activityTrajectoryView").isVisible(), true);
+      assert.equal(await frame.locator("#activityJournal").isVisible(), false);
+      assert.equal(await frame.locator('[data-view="trajectory"]').getAttribute("aria-pressed"), "true");
+      assert.equal(await frame.locator(".tj-item").count(), 5);
+      await frame.locator('.tj-item[data-trajectory="sample-change"]').click();
+      assert.equal(await frame.locator("#activityTrajectoryTitle").evaluate(element => element === document.activeElement), true);
+      assert.match(await frame.locator("#activityTrajectoryTitle").innerText(), /Recovery-policy change/);
+      assert.match(await frame.evaluate(() => location.search), /trajectory=sample-change/);
+      assert.equal(await frame.locator(".tj-step").count(), 7);
+      assert.match(await frame.locator(".tj-open-note").innerText(), /not a governed trajectory export/);
+      assert.equal(await frame.locator('.tj-phases [data-phase="authorization"]').getAttribute("data-state"), "attention");
+      assert.equal(await frame.locator('.tj-phases [data-phase="execution"]').getAttribute("data-state"), "waiting");
+      assert.equal(await frame.locator('details[data-step-index="2"]').getAttribute("open"), "");
+      await frame.locator('[data-trajectory-expand="all"]').click();
+      assert.equal(await frame.locator("details[data-step-index][open]").count(), 7);
+      assert.match(await frame.locator('details[data-step-index="4"]').innerText(), /Metrics within 15-minute freshness bound/);
+      assert.match(await frame.locator(".tj-handoff").nth(2).innerText(), /fdai\.verdict\.hil/);
+      assert.equal(await frame.locator(".tj-mark").count(), 7);
+      await frame.locator('.tj-mark[data-step-jump="6"]').click();
+      assert.equal(await frame.locator('details[data-step-index="6"]').getAttribute("open"), "");
+      await frame.locator('.tj-item[data-trajectory="sample-prior"]').click();
+      await frame.locator('details[data-step-index="4"] > summary').click();
+      assert.equal(await frame.locator('details[data-step-index="4"] .tj-safeguards > div').count(), 7);
+      assert.equal(await frame.locator(".tj-tools tbody tr").count(), 5);
+      assert.ok(await frame.locator(".tj-tools tbody tr.is-unused").count() > 0);
+      const geometry = await frame.locator(".tj-layout").evaluate(element => element.scrollWidth <= element.clientWidth + 1);
+      assert.ok(geometry, "trajectory layout overflows");
+      await frame.locator("#activityAgentFilter").selectOption("Vidar");
+      assert.equal(await frame.locator(".tj-item").count(), 1);
+      await frame.locator("[data-trajectory-log]").click();
+      assert.equal(await frame.locator("#activityJournal").isVisible(), true);
+      assert.equal(await frame.locator("#activityCorrelation").inputValue(), "sample-recovery");
+      await frame.locator("#activityClear").click();
+      await frame.locator('[data-view="trajectory"]').click();
+      await frame.locator("#previewState").selectOption("error");
+      assert.match(await frame.locator("#activityTrajectoryDetail").innerText(), /Trajectory evidence unavailable/);
+      await frame.locator("[data-restore-preview]").click();
+      assert.equal(await frame.locator(".tj-item").count(), 5);
+      const legacy = await open("agent-activity.html?view=waterfall&correlation=sample-recovery&step=106");
+      assert.equal(await legacy.locator("#activityTrajectoryView").isVisible(), true);
+      assert.match(await legacy.locator("#activityTrajectoryTitle").innerText(), /Rollback readiness probe/);
+      assert.doesNotMatch(await legacy.evaluate(() => location.search), /view=waterfall|step=/);
+    });
+    await check("Activity columns have full label targets and preserve the journal", async () => {
+      const frame = await open("agent-activity.html?view=activity");
       const count = await frame.locator("#activityRows tr").count();
       assert.ok(count > 0);
       await frame.locator("#activityColumns summary").click();
@@ -311,16 +360,9 @@ try {
       await frame.locator("#activityFullscreen[aria-pressed='false']").waitFor();
       assert.equal(await frame.locator("#activityFullscreen").evaluate(element => element === document.activeElement), true);
       await page.waitForTimeout(100);
-      await frame.getByRole("button", { name: "Waterfall" }).click();
-      const firstStep = frame.locator("[data-step]").first();
-      await firstStep.click();
-      assert.equal(await frame.locator("#activityStep").isVisible(), true);
-      assert.equal(await frame.locator("#activityStep h2").evaluate(element => element === document.activeElement), true);
-      await frame.locator("[data-close-step]").click();
-      assert.equal(await firstStep.evaluate(element => element === document.activeElement), true);
+      assert.equal(await frame.locator('[data-view="waterfall"], #activityWaterfallView').count(), 0);
       await frame.locator("#previewState").selectOption("error");
-      assert.equal(await frame.locator("#activityWaterfallView").isVisible(), true);
-      assert.match(await frame.locator("#activityWaterfallView").innerText(), /No audit records in this selection/);
+      assert.match(await frame.locator("#activityLogEmpty").innerText(), /Activity evidence unavailable/);
       await frame.locator("[data-restore-preview]").click();
       assert.equal(await frame.locator("#previewState").inputValue(), "snapshot");
     });
@@ -756,7 +798,7 @@ try {
       assert.ok(Math.max(...totals) - Math.min(...totals) <= 1);
     });
     await check("Mobile activity column popup remains entirely inside the viewport", async () => {
-      const frame = await open("agent-activity.html");
+      const frame = await open("agent-activity.html?view=activity");
       await frame.locator("#activityColumns summary").click();
       const box = await frame.locator(".ap-column-menu").evaluate(element => ({ left: element.getBoundingClientRect().left, right: element.getBoundingClientRect().right, width: innerWidth }));
       assert.ok(box.left >= 0 && box.right <= box.width, JSON.stringify(box));

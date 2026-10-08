@@ -1245,6 +1245,8 @@ def test_database_url_binds_service_owned_postgres_projection() -> None:
         "/assurance-twin/review",
         "/code-security/reviews",
         "/code-security/packs",
+        "/code-security/repositories",
+        "/code-security/scan-requests",
     } <= set(source.routes)
     assert isinstance(runtime.lifecycle, operator_composition._LiveActivitySnapshotLoader)
 

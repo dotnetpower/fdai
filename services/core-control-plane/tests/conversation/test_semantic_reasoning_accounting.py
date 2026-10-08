@@ -933,6 +933,25 @@ def test_a_named_resource_or_literal_cited_by_a_measure_is_never_moved_to_its_cu
     assert form.goals[0].measure is not None and form.goals[0].measure.mention == "m2"
 
 
+def test_a_mention_the_counterpart_also_cites_is_never_moved_to_the_measure_cue() -> None:
+    utterance = "aks-app의 이벤트 보여줘"
+    anchor = {"id": "m1", "form": "name", "domain": "instance", "span": _quote("aks-app")}
+    events = {"id": "m2", "form": "concept", "domain": "resource_type", "span": _quote("이벤트")}
+    raw = _event_form({"kind": "event", "mention": "m2"}, [anchor, events])
+    raw["goals"][0]["counterpart"] = "m2"
+
+    resolution = resolve_question_form(raw, utterance=utterance)
+
+    # Dropping a mention the counterpart cites would leave that citation undeclared.
+    assert "form_contract_rule:form_goal_counterpart_cites_an_undeclared_mention" not in (
+        resolution.reasons
+    )
+    assert resolution.form is None or [item.id for item in resolution.form.mentions] == [
+        "m1",
+        "m2",
+    ]
+
+
 def test_a_broken_whole_form_rule_is_named_as_a_closed_code() -> None:
     utterance = "aks-app의 이벤트 보여줘"
     raw = _event_form(
@@ -945,4 +964,4 @@ def test_a_broken_whole_form_rule_is_named_as_a_closed_code() -> None:
 
     assert resolution.form is None
     assert "form_contract_invalid:form" in resolution.reasons
-    assert "form_contract_rule:form_goal_cites_an_undeclared_mention" in resolution.reasons
+    assert "form_contract_rule:form_goal_subject_cites_an_undeclared_mention" in resolution.reasons

@@ -51,6 +51,11 @@ function set and release digest. The generated manifest records that exact relea
 repository-only cases; the count is provenance, not a qualification or operational-evidence claim.
 Projection-only ontology vocabulary, such as bilingual query terms used by candidate documents,
 also refreshes the manifest source digests even when the governed release identity stays stable.
+Naming the cause of a partial `query.resource_state_inventory` result edits that function's source,
+so it also rebinds the release and regenerates the manifest without changing its case count. The
+reviewed lifecycle declarations that settle states a ResourceType never reaches, or establish running
+from a fresh availability fact, rebind it the same way, as does keeping the typed source reason
+beside a scope gap.
 Adding `governance.override-promote-action-type` is a structural catalog change, so the same
 builder refreshes the corpus manifest denominator and source digests without creating a live
 assurance receipt.

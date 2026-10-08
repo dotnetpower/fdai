@@ -21,9 +21,80 @@ function review(alias: string, overrides: Record<string, unknown> = {}): Record<
   };
 }
 
-async function mockApi(page: Page): Promise<void> {
+async function mockApi(page: Page, posted: unknown[] = []): Promise<void> {
   const handleApi = async (route: Route) => {
     const path = new URL(route.request().url()).pathname.replace(/^\/api/, "");
+    if (path === "/code-security/scan-requests" && route.request().method() === "POST") {
+      posted.push(route.request().postDataJSON());
+      await route.fulfill({
+        status: 202,
+        json: {
+          request_id: `operator-${"c".repeat(32)}`,
+          correlation_id: null,
+          dispatch_status: "pending",
+          accepted_at: "2026-10-08T08:00:00+00:00",
+          durably_queued: true,
+        },
+      });
+      return;
+    }
+    if (path === "/code-security/repositories") {
+      await route.fulfill({
+        json: {
+          surface: "code-security-repositories",
+          available: true,
+          complete: true,
+          source: "postgresql:state_kv:code-security-repository",
+          repositories: [
+            {
+              repository_alias: "payments-api-with-a-deliberately-long-repository-alias",
+              provider: "github",
+              location: "example-organization/payments-api-with-a-deliberately-long-name",
+              default_ref: "main",
+              exposure: "exposed",
+              enabled: true,
+              registered_at: "2026-10-07T08:00:00+00:00",
+            },
+          ],
+          gaps: [],
+        },
+      });
+      return;
+    }
+    if (path === "/code-security/scan-requests") {
+      await route.fulfill({
+        json: {
+          surface: "code-security-scan-requests",
+          available: true,
+          complete: true,
+          source: "postgresql:state_kv:operator-proposal",
+          requests: [
+            {
+              request_id: `operator-${"a".repeat(32)}`,
+              repository_alias: "payments-api-with-a-deliberately-long-repository-alias",
+              ref: "release/2026-10",
+              status: "completed",
+              accepted_at: "2026-10-07T08:00:00+00:00",
+              closed_at: "2026-10-07T08:04:00+00:00",
+              rejection_reason: null,
+              result: { revision, decision: "urgent", issue_count: 12, coverage_complete: true },
+            },
+            {
+              request_id: `operator-${"b".repeat(32)}`,
+              repository_alias: "payments-api-with-a-deliberately-long-repository-alias",
+              ref: null,
+              status: "rejected",
+              accepted_at: "2026-10-07T07:00:00+00:00",
+              closed_at: "2026-10-07T07:00:05+00:00",
+              rejection_reason: "source_unavailable",
+              result: null,
+            },
+          ],
+          gaps: [],
+        },
+      });
+      return;
+    }
     if (path === "/system/data-sources") {
       await route.fulfill({
         json: {
@@ -32,7 +103,12 @@ async function mockApi(page: Page): Promise<void> {
             {
               key: "operational-state",
               source: "postgresql",
-              routes: ["/code-security/reviews", "/code-security/packs"],
+              routes: [
+                "/code-security/reviews",
+                "/code-security/packs",
+                "/code-security/repositories",
+                "/code-security/scan-requests",
+              ],
               availability: "available",
               configured: true,
               reachable: true,
@@ -55,7 +131,20 @@ async function mockApi(page: Page): Promise<void> {
           complete: false,
           source: "postgresql:state_kv:code-security-review",
           reviews: [
-            review("payments-api-with-a-deliberately-long-repository-alias"),
+            review("payments-api-with-a-deliberately-long-repository-alias", {
+              source: {
+                kind: "git_repository",
+                provider: "github",
+                revision_kind: "commit",
+                trigger: "console",
+                request_id: `operator-${"a".repeat(32)}`,
+              },
+              producers: ["Opengrep", "gitleaks"],
+            }),
+            review("mdash-imported-service", {
+              source: { kind: "external_sarif", provider: "mdash", revision_kind: "commit", trigger: "cli", request_id: null },
+              producers: ["MDASH"],
+            }),
             review("example-service", {
               decision: "coverage_incomplete",
               coverage_complete: false,
@@ -114,12 +203,18 @@ for (const viewport of [
     await page.goto("/code-security");
 
     await expect(page.getByRole("heading", { name: "Code security" }).first()).toBeVisible();
-    await expect(page.getByText("payments-api-with-a-deliberately-long-repository-alias")).toBeVisible();
+    await expect(page.getByText("payments-api-with-a-deliberately-long-repository-alias").first()).toBeVisible();
     await expect(page.getByText("Coverage incomplete").first()).toBeVisible();
     await expect(page.getByText("Withheld review records")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Remediation packs" })).toBeVisible();
     await expect(page.getByText("fedcba987654", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: /approve|execute|fix/i })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Repository scans" })).toBeVisible();
+    await expect(page.getByText("The repository or ref could not be fetched.")).toBeVisible();
+    await page.getByRole("button", { name: /External SARIF/ }).click();
+    await expect(page.getByText("mdash-imported-service")).toBeVisible();
+    await expect(page.getByText("example-service", { exact: true })).toHaveCount(0);
+    await page.getByRole("button", { name: /All sources/ }).click();
 
     const geometry = await page.evaluate(() => {
       const main = document.querySelector("main");
@@ -133,3 +228,18 @@ for (const viewport of [
     expect(geometry.mainOverflow!).toBeLessThanOrEqual(0);
   });
 }
+
+test("queues a scan request for a registered repository", async ({ page }) => {
+  const posted: unknown[] = [];
+  await mockApi(page, posted);
+  await page.goto("/code-security");
+  await page.getByLabel("Branch, tag, or commit").fill("release/2026-10");
+  await page.getByRole("button", { name: "Request scan" }).click();
+  await expect(page.getByText("Scan request queued.", { exact: false })).toBeVisible();
+  expect(posted).toEqual([
+    {
+      repository_alias: "payments-api-with-a-deliberately-long-repository-alias",
+      ref: "release/2026-10",
+    },
+  ]);
+});

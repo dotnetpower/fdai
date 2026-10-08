@@ -79,6 +79,8 @@ def _build_data_sources(
                 "/assurance-twin/review",
                 "/code-security/reviews",
                 "/code-security/packs",
+                "/code-security/repositories",
+                "/code-security/scan-requests",
             ),
             availability="unknown" if configured else "unavailable",
             configured=configured,

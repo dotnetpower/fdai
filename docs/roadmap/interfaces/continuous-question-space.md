@@ -38,6 +38,9 @@ that ended before a verified plan as failed planning. Expired backlog therefore 
 to be model or successful semantic-planning latency. Core also closes a cancellation-only
 model-call scope when verified planning is cancelled, which stops and drains Azure provider work
 initiated from the synchronous planner thread.
+The same model-call scope reports the start and end of each planning call as live presentation
+progress. While Operator waits for the first read, it streams those reports in time order with the
+query progress. The reports never change planning, deadlines, or the terminal answer.
 Pantheon assurance projections use the same schema-v2 interval contract with durable queue and
 `pantheon_assurance` phases; a deferred independent review records the latter as degraded.
 Process readiness keeps the semantic consumer active when only model identity is unavailable. Each
@@ -178,6 +181,9 @@ controlled evidence exists.
 ### Implementation history
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-08 | implemented | Settled running requests for running-only lifecycles. A fresh Resource Health `Available` fact now establishes running for `nosql-database` and `cache`, with `state_basis` on the row, so a running-database question no longer stays partial for Cosmos DB accounts. Other availability values, stale facts, and other types stay unverified. | `current change`; `recorded_resource_state.py`, `resource_state_queries.py`, state-query tests, and a live Console check. | Whether a database `running` request should also read `online` or `ready` is a concept-selection decision that remains open. |
+| 2026-10-08 | implemented | Settled unobservable Resources whose type can never hold the requested state. A reviewed lifecycle declaration states that `nosql-database` and `cache` never reach `stopped`, `deallocated`, or `paused`, so a stopped-database question no longer stays partial for two Cosmos DB accounts. Observation still wins, and list or reachable-state requests stay unverified. | `current change`; `recorded_resource_state.py`, `resource_state_queries.py`, contract and state-query tests, and a live Console check. | Other provider-unobservable types gain a declaration only after the same review. |
+| 2026-10-08 | implemented | Named the cause of a partial `query.resource_state_inventory` result. A stopped-database question stayed partial only because two Cosmos DB accounts expose no operational state; the reason now adds `provider_operational_state_not_exposed`, `resource_state_not_reported`, `resource_state_stale`, or `resource_state_conflicting` after `resource_state_evidence_incomplete`, and the answer explains it in the operator's locale. | `current change`; `resource_state_queries.py` and `semantic_source_limitations.py`; focused state-query and limitation tests passed; the live Console answer named the provider cause. | Whether a ResourceType that cannot hold a requested state should leave the result complete needs a reviewed applicability decision. |
 | 2026-09-30 | implemented | Regenerated the dependent semantic-intent coverage artifact after the `case-history-read` binding changed the pinned `core/ontology_platform` source digest: `FunctionInvocationContext` gained the Operator request reference and the Pattern read locator binds it. All question identities, readiness states, metric definitions, denominators, coverage counts, and authority remain unchanged. | `current change`; official `build_semantic_intent_coverage.py`. | Continue case-by-case semantic review and runtime qualification; this digest refresh adds no answerability or operational-readiness evidence. |
 | 2026-09-29 | implemented | Regenerated the 400-question bank and dependent semantic-intent coverage artifact after the test-context review and manual-lookup Console labels changed the joined English and Korean catalog digests. All question identities, readiness states, metric definitions, denominators, coverage counts, and authority remain unchanged. | `current change`; official `build_question_bank.py` then `build_semantic_intent_coverage.py`. | Continue case-by-case semantic review and runtime qualification; this digest refresh adds no answerability or operational-readiness evidence. |
 | 2026-09-29 | implemented | Regenerated the 400-question bank and dependent semantic-intent coverage artifact after the test-context lifecycle Console labels changed the joined English and Korean catalog digests. All question identities, readiness states, metric definitions, denominators, coverage counts, and authority remain unchanged. | `current change`; official `build_question_bank.py` then `build_semantic_intent_coverage.py`. | Continue case-by-case semantic review and runtime qualification; this digest refresh adds no answerability or operational-readiness evidence. |
@@ -527,6 +533,31 @@ bound, reachable, evidence-ready, and expose the exact authority set
 State-history questions can select `query.resource_state_transitions` when a bounded lookback and
 reviewed operational state are present. A complete zero result requires positive coverage for every
 requested resource and state family. Snapshot-only coverage stays incomplete.
+
+A `query.resource_state_inventory` result stays partial when any selected Resource lacks a fresh,
+conflict-free observed state. Its reason keeps `resource_state_evidence_incomplete` and adds one closed
+cause per kind of gap, such as `provider_operational_state_not_exposed` for a ResourceType whose
+provider exposes no operational state, or `resource_state_stale`. The answer then names why it is
+partial instead of a generic gap, and it never treats an unverifiable Resource as matching or not.
+
+An unobservable state is not always an unknown answer. A reviewed lifecycle declaration in
+`recorded_resource_state.py` lists the lifecycle states a ResourceType never reaches, because no engine
+the type covers has an operation that enters them. Today `nosql-database` and `cache` never reach
+`stopped`, `deallocated`, or `paused`. A declaration is allowed only for a type whose provider exposes
+no operational state, and a test pins each declared type to its reviewed provider type, so a new
+mapping must revisit it. When every requested state is one the Resource's type never reaches, the
+state filter settles that Resource as not matching instead of incomplete. An observed state always
+wins over the declaration, and a list request or a reachable state, such as `running`, stays
+unverified. The declaration is part of the function source, so the release digest and replay bind
+it.
+
+A ResourceType whose lifecycle has no steady state other than running, today `nosql-database` and
+`cache`, also lets a fresh provider availability fact settle a running request. A Resource of that type
+that Resource Health reports `Available` is running, because it is serving and cannot be in any other
+steady state; its row keeps the observed value and `state_basis`
+`availability_on_running_only_lifecycle`, so the answer names the basis. Any other availability value,
+a stale or conflicting fact, or another ResourceType establishes nothing, and an observed operational
+state always wins. Health still never stands in for state anywhere else.
 
 ## Related docs
 

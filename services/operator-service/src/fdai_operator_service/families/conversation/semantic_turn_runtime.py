@@ -38,6 +38,9 @@ from fdai_operator_service.families.conversation.result_handles import (
 from fdai_operator_service.families.conversation.semantic_document_presentation import (
     apply_document_answer as _apply_document_answer,
 )
+from fdai_operator_service.families.conversation.semantic_model_call_presentation import (
+    model_call_activity,
+)
 from fdai_operator_service.families.conversation.semantic_progress_relay import (
     SemanticProgressRelay as _SemanticProgressRelay,
 )
@@ -85,6 +88,7 @@ from fdai_service_contracts.adaptive_relationship import (
     AdaptiveRelationshipProof,
     AdaptiveRelationshipUnknownReason,
 )
+from fdai_service_contracts.semantic_model_call_progress import SemanticModelCallProgress
 from fdai_service_contracts.semantic_projection import semantic_projection_commitment_violation
 from fdai_service_contracts.test_context import TestContextDraft
 from fdai_service_contracts.venue import ExecutionVenue, resolve_execution_venue
@@ -407,19 +411,23 @@ class _SemanticEventIterator(AsyncIterator[StreamEvent]):
                     self._queue_work_progress(shape, "0:planning")
                     return
                 self._pin_window_closed = True
-            progress_updates = self._progress_relay.after(
+            progress = self._progress_relay.next_after(
                 self._stored.request_id,
                 self._progress_sequence,
             )
-            if progress_updates and self._terminal_absent_observed:
-                progress = progress_updates[0]
+            if progress is not None and self._terminal_absent_observed:
                 self._progress_sequence = progress.progress_sequence
                 if (
                     progress.session_id == self._request.session_id
                     and progress.turn_id == self._request.turn_id
                     and progress.turn_sequence == self._request.turn_sequence
                 ):
-                    self._queue_progress(progress)
+                    if isinstance(progress, SemanticModelCallProgress):
+                        self._append_activity(
+                            **model_call_activity(progress, locale=self._request.locale)
+                        )
+                    else:
+                        self._queue_progress(progress)
                     return
                 continue
             await self._progress_relay.wait_for_update(

@@ -7,10 +7,17 @@ import {
   buildCodeSecurityViewSnapshot,
   decodeCodeSecurityPacks,
   decodeCodeSecurityReviews,
+  filterBySource,
   latestPerRepository,
   loadCodeSecurityState,
   packState,
+  sourceCategory,
 } from "./code-security";
+import {
+  decodeCodeSecurityRepositories,
+  decodeCodeSecurityScanRequests,
+  scanRequestIdempotencyKey,
+} from "./code-security-requests";
 
 function packEnvelope(packs: unknown[], gaps: unknown[] = []): Record<string, unknown> {
   return {
@@ -113,10 +120,13 @@ describe("code-security route", () => {
   });
 
   it("reports withheld rows as gaps", async () => {
-    const state = await loadCodeSecurityState(client(async (path) =>
-      path === "/code-security/packs"
+    const state = await loadCodeSecurityState(client(async (path) => {
+      if (path === "/code-security/repositories") return { repositories: [], gaps: [] };
+      if (path === "/code-security/scan-requests") return { requests: [], gaps: [] };
+      return path === "/code-security/packs"
         ? packEnvelope([], [{ reason_code: "code_security_pack_malformed" }])
-        : envelope([], [{ reason_code: "code_security_review_malformed" }])));
+        : envelope([], [{ reason_code: "code_security_review_malformed" }]);
+    }));
     expect(state.status).toBe("ready");
     if (state.status === "ready") {
       expect(state.data.reviews.available).toBe(false);
@@ -143,5 +153,100 @@ describe("code-security route", () => {
     expect(data.packs[0]?.latest_verification?.verdicts.fixed_verified).toBe(1);
     expect(data.packs[1]?.latest_verification).toBeNull();
     expect(() => decodeCodeSecurityPacks(packEnvelope([pack({ adjudications: [{ decision: "maybe" }] })]))).toThrow();
+  });
+
+  it("decodes review sources and filters by source with legacy reviews kept visible", () => {
+    const data = decodeCodeSecurityReviews(envelope([
+      review({
+        source: { kind: "external_sarif", provider: "mdash", revision_kind: "commit", trigger: "cli", request_id: null },
+        producers: ["MDASH"],
+      }),
+      review({
+        repository_alias: "local-app",
+        source: { kind: "local_path", provider: "local", revision_kind: "snapshot", trigger: "cli", request_id: null },
+        producers: ["Opengrep"],
+      }),
+      review({
+        repository_alias: "repo-app",
+        source: {
+          kind: "git_repository",
+          provider: "github",
+          revision_kind: "commit",
+          trigger: "console",
+          request_id: `operator-${"a".repeat(32)}`,
+        },
+        producers: [],
+      }),
+      review({ repository_alias: "legacy-app", source: null, producers: [] }),
+    ]));
+    expect(data.reviews.map(sourceCategory)).toEqual(["external_sarif", "local_path", "git_repository", "legacy"]);
+    expect(filterBySource(data.reviews, "external_sarif").map((item) => item.source?.provider)).toEqual(["mdash"]);
+    expect(filterBySource(data.reviews, "legacy").map((item) => item.repository_alias)).toEqual(["legacy-app"]);
+    expect(filterBySource(data.reviews, "all")).toHaveLength(4);
+    expect(() => decodeCodeSecurityReviews(envelope([review({ source: { kind: "ftp" } })]))).toThrow();
+  });
+
+  it("loads registrations and requests without hiding reviews when they are unavailable", async () => {
+    const state = await loadCodeSecurityState(client(async (path) => {
+      if (path === "/code-security/repositories" || path === "/code-security/scan-requests") {
+        throw new OperatorApiError(503, "unavailable", "projection-unavailable");
+      }
+      return path === "/code-security/packs" ? packEnvelope([]) : envelope([review()]);
+    }));
+    expect(state.status).toBe("ready");
+    if (state.status === "ready") {
+      expect(state.data.reviews.reviews).toHaveLength(1);
+      expect(state.data.repositories).toBeNull();
+      expect(state.data.requests).toBeNull();
+    }
+  });
+
+  it("decodes registered repositories and scan requests strictly", () => {
+    const repositories = decodeCodeSecurityRepositories({
+      repositories: [{
+        repository_alias: "example-app",
+        provider: "github",
+        location: "example/app",
+        default_ref: "main",
+        exposure: "exposed",
+        enabled: true,
+        registered_at: "2026-10-08T00:00:00+00:00",
+      }],
+      gaps: [],
+    });
+    expect(repositories.repositories[0]?.location).toBe("example/app");
+    const base = {
+      request_id: `operator-${"a".repeat(32)}`,
+      repository_alias: "example-app",
+      ref: null,
+      accepted_at: "2026-10-08T00:00:00+00:00",
+      closed_at: null,
+      rejection_reason: null,
+      result: null,
+    };
+    const requests = decodeCodeSecurityScanRequests({
+      requests: [
+        { ...base, status: "queued" },
+        {
+          ...base,
+          status: "completed",
+          closed_at: "2026-10-08T00:05:00+00:00",
+          result: { revision: "b".repeat(40), decision: "open", issue_count: 2, coverage_complete: true },
+        },
+        { ...base, status: "rejected", rejection_reason: "repository_disabled" },
+      ],
+      gaps: [],
+    });
+    expect(requests.requests.map((item) => item.status)).toEqual(["queued", "completed", "rejected"]);
+    expect(() => decodeCodeSecurityScanRequests({ requests: [{ ...base, status: "completed" }], gaps: [] })).toThrow();
+    expect(() => decodeCodeSecurityScanRequests({ requests: [{ ...base, status: "approved" }], gaps: [] })).toThrow();
+    expect(() => decodeCodeSecurityRepositories({ repositories: [{ provider: "gitlab" }], gaps: [] })).toThrow();
+  });
+
+  it("derives a distinct idempotency key per deliberate submission", () => {
+    expect(scanRequestIdempotencyKey("example-app", "", "n1")).toBe("code-security-scan:example-app:default:n1");
+    expect(scanRequestIdempotencyKey("example-app", "v1", "n2")).not.toBe(
+      scanRequestIdempotencyKey("example-app", "v1", "n3"),
+    );
   });
 });

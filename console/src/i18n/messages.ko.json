@@ -481,6 +481,10 @@
       "noActiveCorrelation": "활성 상관관계나 인시던트가 없습니다.",
       "noCorrelationAudit": "상관관계 {correlation}에는 현재 기간에 귀속된 감사 행이 없습니다.",
       "noDurableAudit": "현재 기간에 이 에이전트로 귀속된 영구 감사 행이 없습니다."
+    },
+    "trajectory": {
+      "view": "Trajectories",
+      "logView": "활동 로그"
     }
   },
   "pantheon": {

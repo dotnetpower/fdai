@@ -542,20 +542,33 @@ class SemanticQuestionForm(_FormModel):
                 raise ValueError("form goal ids MUST be unique")
             if not set(goal.depends_on) <= set(goal_ids):
                 raise ValueError("form goals MAY depend only on earlier goals")
-            cited = {goal.subject} if goal.subject is not None else set()
-            if goal.counterpart is not None:
-                cited.add(goal.counterpart)
-            cited.update(item.mention for item in goal.filters)
-            if goal.relation is not None:
-                cited.update(
-                    item
-                    for item in (goal.relation.anchor, goal.relation.counterpart)
-                    if item is not None
-                )
-            if goal.measure is not None and goal.measure.mention is not None:
-                cited.add(goal.measure.mention)
-            if not cited <= known_mentions:
-                raise ValueError("form goal cites an undeclared mention")
+            # Each citing role is checked on its own so a violation names the field to repair.
+            cited_roles: tuple[tuple[str, set[str]], ...] = (
+                ("subject", {goal.subject} if goal.subject is not None else set()),
+                ("counterpart", {goal.counterpart} if goal.counterpart is not None else set()),
+                ("filter", {item.mention for item in goal.filters}),
+                (
+                    "relation",
+                    {
+                        item
+                        for item in (
+                            (goal.relation.anchor, goal.relation.counterpart)
+                            if goal.relation is not None
+                            else ()
+                        )
+                        if item is not None
+                    },
+                ),
+                (
+                    "measure",
+                    {goal.measure.mention}
+                    if goal.measure is not None and goal.measure.mention is not None
+                    else set(),
+                ),
+            )
+            for role, cited in cited_roles:
+                if not cited <= known_mentions:
+                    raise ValueError(f"form goal {role} cites an undeclared mention")
             goal_ids.append(goal.id)
         if any(alternative.goal not in goal_ids for alternative in self.alternatives):
             raise ValueError("form alternative cites an undeclared goal")

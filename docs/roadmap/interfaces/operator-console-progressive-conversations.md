@@ -86,6 +86,14 @@ remains the recovery path when notifications are absent.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-08 | implemented | Made the work panel render calmly. Planning model calls fold into one "Planning the answer" row that names the latest call in flight and the count done, and count as one event. Steps no longer auto-open their evidence panel while the turn runs, running rows drop their filled background and repeated status text, the spinner turns on a fainter track, new rows fade in, and the panel folds its height when the answer settles where `interpolate-size` is supported; reduced motion disables both animations. | `current change`; `console/src/deck/investigation-timeline.tsx`, its test, the Deck investigation catalog pair, `console/src/styles.css`, and `tests/e2e/agents-incident-deck.spec.ts`; `npx vitest run src` (3780 passed); Console typecheck; `npm --prefix console run test:e2e:quick -- tests/e2e/deck-conversation-layer.spec.ts tests/e2e/agents-incident-deck.spec.ts` (24 passed); on the local Console the panel measured 96 px through planning, 172 px when the read appeared, and 44 px once settled, where it previously jumped to 646 px. | None for this rendering pass. |
+| 2026-10-08 | implemented | Stopped the running-step spinner from sinking and bouncing, and aligned table answers. The step mark centered itself with `transform: translateY(-50%)`, which the spin animation's `transform: rotate()` replaced, so a running mark sat 8 px low and jumped while it spun; it now centers with the independent `translate` property. A table answer's prose kept a 72ch measure while its table broke out to 1080 px; the table now fits the reading column with cells wrapping between words, and prose beside a table uses the table's width. This supersedes the earlier table breakout. | `current change`; `console/src/styles.css` and `command-deck-workspace-visual.test.ts`; `npx vitest run src` (3776 passed); Console typecheck; on the local Console, 24 samples of a running mark kept a 0 px vertical offset at the completed marks' x; the answer, prose, table wrapper, and preceding turn shared x and width at 1440x900 (323, 840 px), 993x641 (116, 808 px), 390x844, and docked (401 px), with no cell split mid-word and no overflow. | None for these layout repairs. |
+| 2026-10-08 | implemented | Explained why a partial state answer's Resource scope is incomplete. The answer showed only the code `resource_scope_incomplete`, because the state function dropped the snapshot's typed source reason and the code had no reviewed explanation. The function now reports `resource_scope_incomplete+inventory_observation_pending` and similar pairs, and both parts render in the operator's language with the exact code kept. | `current change`; `resource_state_queries.py`, `semantic_source_limitations.py`, and their tests; `eval/golden-dataset/corpus-manifest.json` regenerated; Core ontology-platform, conversation, semantic, and prompt tests (4952 passed). | None for this explanation. |
+| 2026-10-08 | implemented | Kept a full-workspace answer in the reading column. An answer with a wide record table widened the whole turn to 1080 px, so its prose started 120 px left of the question and the work panel. Only the table wrapper now breaks out, centered and bounded by the transcript container. | `current change`; `console/src/styles.css` and `command-deck-workspace-visual.test.ts`; `npx vitest run src` (3776 passed); Console typecheck; on the local Console the answer turn matched the preceding turn's x and width at 1440x900 (323, 840 px), 993x641 (116, 808 px), and 390x844 (24, 332 px), with the table at 1080 px and 889 px and no overflow. | None for this layout repair. |
+| 2026-10-08 | implemented | Stopped the work panel from shifting while an answer is planned. A running activity opened its detail panel, so every running model call showed a lifecycle panel with no evidence beyond its row, and its status appeared both beside the title and in the meta column. Model-call rows now render as one static row, and every row names its status once. The work header now follows the `deck-transcript` container width, so a docked deck on a wide screen no longer wraps it into a stranded chevron. | `current change`; `console/src/deck/investigation-timeline.tsx`, its test, and `console/src/styles.css`; `npx vitest run src/deck src/shared-style-tokens.test.ts` (1098 passed); Console typecheck; on the local Console at 1440x900, no detail panel opened during a running turn, model-call status marks aligned with the other rows at the same x, a docked 401 px header rendered as a grid with no overflow while running and settled, the full workspace kept its one-line 44 px header, and 390x844 showed no overflow. | None for this layout repair. |
+| 2026-10-08 | implemented | Kept the work panel running while only planning model calls have been observed. Between two calls every activity looked settled and no plan was pinned yet, so the Console opened the answer draft and settled the panel as `Partial` with `0 ms` mid-planning. Model-call-only work without a pin now stays open until a read, a token, or the validated terminal reply arrives. | `current change`; `console/src/deck/investigation-turn-state.ts` and its test; `npx vitest run src/deck` (1090 passed); Console typecheck; a local Console turn stayed running through eight model calls and settled as Verified 4/4 at 6.9 s. | None for this gating repair. |
+| 2026-10-08 | implemented | Streamed each semantic planning model call as a live `model_call` activity, so the wait before the first read names the stage, deployment, elapsed time, and outcome instead of only "Determining the answer path". Core reports calls through the shared provider call gate as `semantic-model-call-progress` `1.0.0`; Operator relays them as live-only activities; the Console badges them `MODEL` and excludes them from density and read counting. Reports are on in the local launcher and off by default elsewhere. | `current change`; `semantic_model_call_progress.py` and its `1.0.0` schema; Core `model_call_progress.py`, `adaptive_call_scope.py`, and `semantic_turn_consumer.py`; Operator `semantic_progress_relay.py`, `semantic_turn_runtime.py`, and `semantic_model_call_presentation.py`; `console/src/deck/conversation-trajectory-presentation.ts` and `investigation-timeline.tsx`; focused contract, Core, Operator, and Console tests passed; a local Console turn showed seven completed model-call rows before two verified reads. | Enable reports in deployed venues after every Operator that consumes the progress topic understands the record. |
+| 2026-10-08 | implemented | Shortened the terminal-only answer reveal from at most 60 to at most 24 display frames, because the full answer has already arrived and a one-second replay added to the measured turn latency. The reveal still reproduces the canonical text byte for byte, and hidden tabs and reduced motion still finish immediately. | `current change`; `console/src/deck/stream-paint.ts`; `npx vitest run src/deck/stream-paint.test.ts` (17 passed). | None for this pacing change. |
 | 2026-10-01 | implemented | Consumed the live work progress pin in the Console and rendered the adaptive investigation roles. The stream accepts the first valid pin before the first read. A pause between waves no longer starts an empty answer or settles the panel early, because the answer waits until the planned reads are observed, a token arrives, or the terminal reply is validated. The lead panel names the plan and, once the answer settles, states the turn budget as used-of-maximum facts and shows the context receipts. Milestones read as one quiet progress line. A stop is recorded on the activity panels instead of rewriting reads as unavailable, so unfinished reads are shown as stopped and the stale start note is hidden. | `current change`; `console/src/deck/backend-stream.ts`, `use-command-deck-submit.ts`, `investigation-turn-state.ts`, `investigation-roles.tsx`, `investigation-timeline.tsx`, `command-deck-presenters.tsx`, `use-command-deck-lifecycle.ts`, `transcript-store.ts`, the Deck-scoped `console/src/deck/i18n/investigation.{en,ko}.json` catalog, and their focused tests; `npm --prefix console test` (`3880 passed`); Console typecheck; `npm --prefix console run check:entry` (`149829` gzip bytes, unchanged); `npm --prefix console run test:e2e:quick -- tests/e2e/deck-conversation-layer.spec.ts` (investigation plan, settled limits, context receipt, wave gating, and stop cases) | Render wave rows once reads carry their planned wave; decide whether semantic preflight joins the enforcing turn budget. |
 | 2026-09-28 | implemented | Emitted the work progress fields from the semantic path ([#1629](https://github.com/dotnetpower/fdai/issues/1629)). Core pins the one verified read plan before it runs, publishes the pin as `semantic-work-progress` `1.0.0` ahead of the first node progress, and persists it with the enforcing adaptive turn budget and the applied model-tier receipt; adaptive evidence reads stay unpinned. Operator relays one `work_progress` frame before the first query activity in live and replay streams, copies the validated fields into `trajectory_detail`, and keeps at most eight activities within 60 KiB. | `current change`; `packages/service-contracts/src/fdai_service_contracts/semantic_work_progress.py` and its `1.0.0` schema; Core `work_progress.py`, `adaptive_service.py`, `semantic_runtime.py`, `semantic_turn_processor.py`, `semantic_turn_consumer.py`, and `semantic_work_progress_projection.py`; Operator `semantic_progress_relay.py`, `semantic_turn_runtime.py`, `semantic_trajectory_presentation.py`, and `semantic_work_progress_presentation.py`; `uv run pytest -q --no-cov packages/service-contracts/tests/test_semantic_work_progress.py services/core-control-plane/tests/test_semantic_work_progress.py services/operator-service/tests/test_semantic_work_progress.py` (`54 passed`); the diff-selected Python suites (`37838 passed`; three database tests that need `FDAI_DATABASE_URL` fail identically on `origin/main`); `npm --prefix console test -- --run src/deck` (`1036 passed`) and Console typecheck | Consume the live frame and render the investigation roles in the Console; decide whether semantic preflight joins the enforcing turn budget. |
 | 2026-09-28 | implemented | Added the work progress contract: presentation density from typed observations, bounded waves without replanning, workflow-only milestones, turn budget telemetry, context receipts, continuation, findings that are not drafts, and separated authority display. The Console now parses the optional fields fail-closed per field and marks replayed milestones as recorded instead of completed. | `current change`; `console/src/deck/backend-types.ts`, `work-progress-contract.ts`, `trajectory-detail.ts`, `conversation-trajectory.ts`, `conversation-trajectory-presentation.ts`, `conversation-trajectory-view.tsx`, and their focused tests; `mocks/ui/fixtures/adaptive/`; `npm --prefix console test -- --run src/deck src/shared-style-tokens.test.ts src/components/mock-visual-boundary.test.ts` (`1045 passed`); Console typecheck | Emit the fields from the server and render the adaptive investigation roles in the Console. |
@@ -226,6 +234,8 @@ shows "How can I help?", one composer, and three compact examples that send thei
 or keyboard activation. Their tooltips preview the question and explain immediate submission.
 Examples use the normal context-aware send path, including attachment and duplicate-submit checks.
 The bottom launcher and `Ctrl+K` or `/` open a separate current-screen conversation in the right dock.
+The dock transcript is the only scroller, so expanding a run record or moving focus inside a turn
+never shifts the conversation or leaves a blank band above the composer.
 Each entry remembers its own layout choice. General conversations never inherit route evidence.
 An explicit Add current screen control captures a snapshot; a removable Reference screen chip shows
 that selection. Removing it affects future questions, not messages already sent.
@@ -301,7 +311,7 @@ first server frame without naming an unobserved stage. The detailed trace appear
 observed progress frame, so completed replay still relies on server lifecycle evidence to explain
 what work occurred. When that frame arrives, the browser expands the detailed trace from the
 compact row's height instead of inserting the full panel in one layout step. A terminal response
-without token frames reveals the exact canonical text over at most 60 visible display frames.
+without token frames reveals the exact canonical text over at most 24 visible display frames.
 Background tabs complete synchronously, and reduced-motion preferences skip both transitions.
 
 The machine result remains authoritative and replayable, but it isn't the primary human answer.
@@ -336,7 +346,9 @@ and limitation; no synthetic combined authority is created. Single-source respon
 existing wire shape.
 
 Held answers lead with what cannot be determined, the supported scope, exact limitations, and the
-next safe read step. Internal query mechanics remain in technical details.
+next safe read step. Internal query mechanics remain in technical details. A partial answer explains
+each reviewed limitation code in the operator's language, including the source reason behind an
+incomplete Resource scope, and keeps the exact code visible.
 
 When no canonical answer exists, the Console maps the bounded terminal reason to an exact
 operator-facing explanation. Offline transport, missing model configuration, authentication or
@@ -344,6 +356,11 @@ role denial, provider throttling or outage, content-policy refusal, evidence hol
 integrity failure remain distinct. The fallback never presents partial text as an answer, invents
 evidence, or exposes provider response content. Unknown reasons use one generic verified-answer
 unavailable statement while preserving the bounded machine reason in the source detail.
+
+In the full workspace, an answer keeps the same reading column as the question and the work panel,
+and a wide record table fits that column with cells wrapping between words; an unusually wide
+table scrolls inside its wrapper. Prose beside a record table uses the table's width rather than
+the narrower reading measure, so the table, the prose, and the rest of the conversation align.
 
 ## Deterministic cross-channel presentation design
 
@@ -606,6 +623,44 @@ The Console consumes the live pin and the persisted fields with these rules:
 - **Stop.** A stop is recorded on the activity panels, and each read keeps its last observed
   status. A read that never reported an end is shown as stopped. After any other interruption it
   is shown as not completed, never as running.
+
+### Live model-call progress
+
+Semantic planning makes several model calls before the first read, so the operator previously saw
+only "Determining the answer path" for most of the wait. Core now reports each planning model call
+as it happens:
+
+- **Observation.** The shared provider call gate reports every physical request of a reviewed call
+  stage, such as preflight, question form, constraint extraction, or concept selection, when it
+  starts and when it ends. A report carries the stage, the model deployment, the start and end
+  times, the elapsed milliseconds, the outcome, and token counts. It never carries a prompt, a
+  response, quoted question text, or a reason the model gave.
+- **Transport.** Core publishes `semantic-model-call-progress` `1.0.0` on the same best-effort
+  progress topic as query progress, at most 64 updates for 32 calls per turn. A full queue drops
+  the update, and a publication failure never affects the turn.
+- **Stream.** Operator streams each update as an `activity` with kind `model_call`, a localized stage
+  label, and the deployment and elapsed time as its detail. The Console marks the row with a `MODEL`
+  badge instead of `EVENT`. All planning calls fold into one "Planning the answer" row that names
+  the latest call in flight and the count done; its disclosure lists each call as a quiet line with
+  no lifecycle panel, and the group counts as one observed event.
+  The activity is live only: it is not persisted in the trajectory detail,
+  it never counts as a read, and it never changes density. While only model calls have been
+  observed and no plan is pinned, the Console keeps the work panel running between calls, so the
+  answer draft doesn't open until a read, a token, or the validated terminal reply arrives.
+- **Activation.** `FDAI_SEMANTIC_MODEL_CALL_PROGRESS=1` enables the reports. The local launcher sets
+  it; deployed venues keep it off until every Operator that consumes the progress topic understands
+  the record, because an older Operator quarantines an unknown record.
+
+| Critique finding | Revision |
+|------------------|----------|
+| A progress record could leak question or answer content | It carries only the closed stage, deployment, times, outcome, and token counts |
+| Reporting could slow the model call it observes | The report is a non-blocking queue put on the consumer loop; failures are dropped |
+| Leading model calls could push query reads out of the eight-activity envelope | Model-call activities are live only and never enter the persisted trajectory detail |
+| A non-read step would flip compact answers to a timeline | The Console excludes `model_call` activities from density and read counting |
+| Mixed-version rollout floods the dead-letter topic | Reports stay off in deployed venues until the Operator understands them |
+| Running rows opened a lifecycle panel each and named their status twice, so several parallel calls pushed the transcript around | A model-call row never discloses a panel and states its status once |
+| The work header followed the viewport width, so a docked deck on a wide screen wrapped it and stranded the disclosure chevron | The header follows the transcript container width |
+| A pause between model calls looked like finished work, so the answer draft opened and the panel settled as partial mid-planning | Model-call-only work without a pin stays open until a read, a token, or the validated terminal reply |
 
 ## Metrics
 

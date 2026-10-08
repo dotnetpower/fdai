@@ -27,5 +27,8 @@
     "stale": "오래됨",
     "superseded": "대체됨"
   },
-  "receiptObserved": "관찰 시각 {time}"
+  "receiptObserved": "관찰 시각 {time}",
+  "modelGroupTitle": "답변 계획",
+  "modelGroupRunning": "{running}건 진행 중 · {total}건 중 {done}건 완료",
+  "modelGroupDone": "모델 호출 {count}회"
 }

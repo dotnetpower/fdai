@@ -196,4 +196,37 @@ describe("investigation turn state", () => {
     // A read replayed under the same identity is counted once.
     expect(plannedReadsObserved([wave1, { ...wave2, activities: [read("a")] }], ids, shape)).toBe(false);
   });
+
+  it("keeps planning open while only model calls have been observed", () => {
+    const modelCall = (id: string): InvestigationActivity => ({
+      activityId: id,
+      kind: "model_call",
+      status: "completed",
+      label: id,
+      completed: null,
+      total: null,
+    });
+    const planning: Turn = {
+      ...activityTurn("planning"),
+      activities: [modelCall("semantic:model:1"), modelCall("semantic:model:2")],
+    };
+    const ids = new Set([planning.id]);
+
+    // Every call has ended, but the plan has not been pinned or read yet.
+    expect(investigationTurnsAreSettled([planning], ids)).toBe(true);
+    expect(plannedReadsObserved([planning], ids, undefined)).toBe(false);
+
+    const lifecycle: InvestigationActivity = {
+      activityId: "semantic:evidence",
+      kind: "semantic_turn",
+      status: "completed",
+      label: "Evidence checked",
+      completed: 1,
+      total: 1,
+    };
+    const withWork = { ...planning, activities: [...planning.activities ?? [], lifecycle] };
+    expect(plannedReadsObserved([withWork], ids, undefined)).toBe(true);
+    expect(plannedReadsObserved([{ ...activityTurn("empty"), activities: [] }], new Set(["empty"]), undefined))
+      .toBe(true);
+  });
 });

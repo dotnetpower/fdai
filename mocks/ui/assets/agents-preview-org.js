@@ -85,7 +85,7 @@
     const agent = selectedAgent;
     focus.innerHTML = '<header class="ap-section-head"><div><span class="ap-focus-kicker">Selected role</span><h2>' + esc(agent.name) + " / " + esc(agent.role) + '</h2></div><button type="button" data-close-focus aria-label="Close agent focus">Close</button></header><p>' + esc(agent.summary) + "</p>" +
       P.fields([["Reports to", (agent.manager || "Organization root") + (agent.staff ? " (staff)" : "")], ["Observed state", P.stateLabel(agent)], ["Runtime binding", agent.binding], ["Owns", agent.owns]]) +
-      '<p class="ap-role-boundary">This view describes accountability. It grants no judgment, approval, execution, or recovery authority.</p><div class="ap-actions"><a class="ap-button" href="' + esc(P.href("agent-activity.html", { view: "waterfall", agent: agent.name })) + '"' + (overlay ? ' target="_top"' : "") + '>Open ' + esc(agent.name) + ' activity</a></div>';
+      '<p class="ap-role-boundary">This view describes accountability. It grants no judgment, approval, execution, or recovery authority.</p><div class="ap-actions"><a class="ap-button" href="' + esc(P.href("agent-activity.html", { agent: agent.name })) + '"' + (overlay ? ' target="_top"' : "") + '>Open ' + esc(agent.name) + ' activity</a></div>';
   }
   function render() {
     tree.innerHTML = '<svg class="ap-org-lines" aria-hidden="true"></svg><div class="ap-org-structure"><div class="ap-org-tier ap-org-root">' + node("Odin") + '</div><div class="ap-org-tier ap-org-branches">' +

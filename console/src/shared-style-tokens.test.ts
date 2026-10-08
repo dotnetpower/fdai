@@ -200,6 +200,13 @@ describe("shared Calm Slate tokens", () => {
     expect(deckPage).not.toContain("ex-composer-scope");
   });
 
+  test("keeps the transcript anchored when hidden descendants overflow the scroller", () => {
+    // A visually hidden absolute label must scroll with the transcript, not grow the deck body.
+    const uncommented = (css: string) => css.replace(/\/\*[\s\S]*?\*\//g, "");
+    expect(uncommented(conversationLayer)).toMatch(/\n\.cs-deck-transcript \{[^}]*position: relative;/);
+    expect(uncommented(consoleStyles)).toMatch(/\n\.deck-body \{[^}]*overflow: clip;/);
+  });
+
   test("provides a same-state unverified specimen for production comparison", () => {
     expect(deckForms).toContain('answerState: "unverified"');
     expect(deckForms).toContain('label: "Not verified", detail: "Causal claim unsupported"');

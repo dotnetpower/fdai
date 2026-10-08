@@ -1,4 +1,5 @@
-import { useEffect, useState } from "preact/hooks";
+import { useCallback, useEffect, useState } from "preact/hooks";
+import "./code-security.css";
 import { isOptionalOperatorApiUnavailable } from "../api";
 import type { OperatorApiClient } from "../api";
 import {
@@ -19,6 +20,13 @@ import { t as appT } from "../i18n";
 import { t } from "./i18n/code-security";
 import { routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
+import {
+  RepositoryScanSection,
+  decodeCodeSecurityRepositories,
+  decodeCodeSecurityScanRequests,
+  type CodeSecurityRepositoriesResponse,
+  type CodeSecurityScanRequestsResponse,
+} from "./code-security-requests";
 import {
   panelArray,
   panelBoolean,
@@ -42,6 +50,11 @@ const GAPS = [
 const VERDICTS = ["fixed_verified", "still_present", "inconclusive", "not_applicable"] as const;
 const ADJUDICATION_DECISIONS = ["accepted", "rejected"] as const;
 const DISPOSITIONS = ["false_positive", "open"] as const;
+const SOURCE_KINDS = ["local_path", "git_repository", "external_sarif"] as const;
+const REVISION_KINDS = ["commit", "snapshot"] as const;
+const TRIGGERS = ["cli", "console", "schedule"] as const;
+export const SOURCE_FILTERS = ["all", ...SOURCE_KINDS, "legacy"] as const;
+export type SourceFilter = (typeof SOURCE_FILTERS)[number];
 
 type Exposure = (typeof EXPOSURES)[number];
 type Decision = (typeof DECISIONS)[number];
@@ -62,6 +75,16 @@ export interface CodeSecurityReview {
   readonly coverage_complete: boolean;
   readonly top_issue_ids: readonly string[];
   readonly decision: Decision;
+  readonly source: ReviewSource | null;
+  readonly producers: readonly string[];
+}
+
+export interface ReviewSource {
+  readonly kind: (typeof SOURCE_KINDS)[number];
+  readonly provider: string;
+  readonly revision_kind: (typeof REVISION_KINDS)[number];
+  readonly trigger: (typeof TRIGGERS)[number];
+  readonly request_id: string | null;
 }
 
 export interface CodeSecurityReviewsResponse {
@@ -104,6 +127,9 @@ export interface CodeSecurityPacksResponse {
 export interface CodeSecurityState {
   readonly reviews: CodeSecurityReviewsResponse;
   readonly packs: CodeSecurityPacksResponse;
+  /** ``null`` when the registration or request projection is unavailable. */
+  readonly repositories?: CodeSecurityRepositoriesResponse | null;
+  readonly requests?: CodeSecurityScanRequestsResponse | null;
 }
 
 function oneOf<T extends string>(value: unknown, allowed: readonly T[], label: string): T {
@@ -139,7 +165,37 @@ function decodeReview(value: unknown, index: number): CodeSecurityReview {
     coverage_complete: panelBoolean(row, "coverage_complete", label),
     top_issue_ids: panelStringArray(row.top_issue_ids, `${label}.top_issue_ids`),
     decision: oneOf(row.decision, DECISIONS, `${label}.decision`),
+    source: decodeSource(row.source, `${label}.source`),
+    producers: row.producers === undefined ? [] : panelStringArray(row.producers, `${label}.producers`),
   };
+}
+
+function decodeSource(value: unknown, label: string): ReviewSource | null {
+  if (value === null || value === undefined) return null;
+  const record = panelRecord(value, label);
+  const requestId = record.request_id;
+  if (requestId !== null && (typeof requestId !== "string" || requestId.length === 0)) {
+    throw panelContractError(`${label}.request_id must be a string or null`);
+  }
+  return {
+    kind: oneOf(record.kind, SOURCE_KINDS, `${label}.kind`),
+    provider: panelNonEmptyString(record, "provider", label),
+    revision_kind: oneOf(record.revision_kind, REVISION_KINDS, `${label}.revision_kind`),
+    trigger: oneOf(record.trigger, TRIGGERS, `${label}.trigger`),
+    request_id: requestId,
+  };
+}
+
+/** The filter bucket a review belongs to; unlabeled ``1.0.0`` reviews stay visible as legacy. */
+export function sourceCategory(review: CodeSecurityReview): Exclude<SourceFilter, "all"> {
+  return review.source?.kind ?? "legacy";
+}
+
+export function filterBySource(
+  reviews: readonly CodeSecurityReview[],
+  filter: SourceFilter,
+): readonly CodeSecurityReview[] {
+  return filter === "all" ? reviews : reviews.filter((review) => sourceCategory(review) === filter);
 }
 
 export function decodeCodeSecurityReviews(payload: unknown): CodeSecurityReviewsResponse {
@@ -254,6 +310,14 @@ export function buildCodeSecurityViewSnapshot(state: CodeSecurityState): ViewSna
         decision: review.decision,
         issue_count: review.issue_count,
         recorded_at: review.recorded_at,
+        source: sourceCategory(review),
+        provider: review.source?.provider ?? null,
+        trigger: review.source?.trigger ?? null,
+      })),
+      scan_requests: (state.requests?.requests ?? []).map((request) => ({
+        request_id: request.request_id,
+        repository_alias: request.repository_alias,
+        status: request.status,
       })),
       packs: state.packs.packs.map((pack) => ({
         pack_id: pack.pack_id,
@@ -344,11 +408,55 @@ function PacksSection({ data }: { readonly data: CodeSecurityPacksResponse }) {
   );
 }
 
-function CodeSecurityBody({ state }: { readonly state: CodeSecurityState }) {
+function sourceLabel(review: CodeSecurityReview): string {
+  if (review.source === null) return t("codeSecurity.source.legacy");
+  return `${t(`codeSecurity.source.${review.source.kind}`)} (${review.source.provider})`;
+}
+
+function SourceFilterControl({
+  value,
+  counts,
+  onChange,
+}: {
+  readonly value: SourceFilter;
+  readonly counts: Readonly<Record<SourceFilter, number>>;
+  readonly onChange: (next: SourceFilter) => void;
+}) {
+  return (
+    <div class="segmented-control code-security-source-filter" role="group" aria-label={t("codeSecurity.filterLabel")}>
+      {SOURCE_FILTERS.map((filter) => (
+        <button
+          key={filter}
+          type="button"
+          class={filter === value ? "active" : ""}
+          aria-pressed={filter === value}
+          onClick={() => onChange(filter)}
+        >
+          {`${t(`codeSecurity.source.${filter}`)} ${counts[filter]}`}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function CodeSecurityBody({
+  state,
+  client,
+  onQueued,
+}: {
+  readonly state: CodeSecurityState;
+  readonly client: Pick<OperatorApiClient, "requestCodeSecurityScan">;
+  readonly onQueued: () => void;
+}) {
   usePublishViewContext(() => buildCodeSecurityViewSnapshot(state), [state]);
+  const [filter, setFilter] = useState<SourceFilter>("all");
   const data = state.reviews;
   const href = routeHref("code-security");
-  const latest = latestPerRepository(data.reviews);
+  const visible = filterBySource(data.reviews, filter);
+  const latest = latestPerRepository(visible);
+  const counts = Object.fromEntries(
+    SOURCE_FILTERS.map((item) => [item, filterBySource(data.reviews, item).length]),
+  ) as Record<SourceFilter, number>;
   const columns: readonly Column<CodeSecurityReview>[] = [
     {
       key: "repository",
@@ -356,13 +464,31 @@ function CodeSecurityBody({ state }: { readonly state: CodeSecurityState }) {
       render: (row) => <span class="mono">{row.repository_alias}</span>,
     },
     {
+      key: "source",
+      header: t("codeSecurity.column.source"),
+      render: (row) => (
+        <Tooltip content={row.producers.join(", ") || sourceLabel(row)}>
+          <span>{sourceLabel(row)}</span>
+        </Tooltip>
+      ),
+    },
+    {
       key: "revision",
       header: t("codeSecurity.column.revision"),
       render: (row) => (
         <Tooltip content={row.revision}>
-          <span class="mono">{row.revision.slice(0, 12)}</span>
+          <span class="mono">
+            {row.source?.revision_kind === "snapshot"
+              ? `${t("codeSecurity.snapshot")} ${row.revision.slice(0, 8)}`
+              : row.revision.slice(0, 12)}
+          </span>
         </Tooltip>
       ),
+    },
+    {
+      key: "trigger",
+      header: t("codeSecurity.column.trigger"),
+      render: (row) => (row.source === null ? "-" : t(`codeSecurity.trigger.${row.source.trigger}`)),
     },
     {
       key: "decision",
@@ -401,8 +527,9 @@ function CodeSecurityBody({ state }: { readonly state: CodeSecurityState }) {
         <strong>{t("codeSecurity.readOnlyTitle")}</strong>
         <span>{t("codeSecurity.readOnlyBody")}</span>
       </div>
+      <SourceFilterControl value={filter} counts={counts} onChange={setFilter} />
       <KpiGrid>
-        <KpiCard href={href} label={t("codeSecurity.kpi.reviews")} value={data.reviews.length} />
+        <KpiCard href={href} label={t("codeSecurity.kpi.reviews")} value={visible.length} />
         <KpiCard
           href={href}
           label={t("codeSecurity.kpi.openIssues")}
@@ -423,7 +550,7 @@ function CodeSecurityBody({ state }: { readonly state: CodeSecurityState }) {
       </KpiGrid>
       <DataTable
         columns={columns}
-        rows={data.reviews}
+        rows={visible}
         keyOf={(row) => `${row.repository_alias}:${row.revision}`}
         empty={t("codeSecurity.empty")}
         caption={appT("nav.panel.codeSecurity")}
@@ -438,22 +565,44 @@ function CodeSecurityBody({ state }: { readonly state: CodeSecurityState }) {
           </div>
         )
         : null}
+      <RepositoryScanSection
+        client={client}
+        repositories={state.repositories ?? null}
+        requests={state.requests ?? null}
+        onQueued={onQueued}
+      />
       <PacksSection data={state.packs} />
     </div>
   );
+}
+
+async function optionalPanel<T>(load: () => Promise<unknown>, decode: (payload: unknown) => T): Promise<T | null> {
+  try {
+    return decode(await load());
+  } catch (error) {
+    if (isOptionalOperatorApiUnavailable(error)) return null;
+    throw error;
+  }
 }
 
 export async function loadCodeSecurityState(
   client: Pick<OperatorApiClient, "panel">,
 ): Promise<AsyncState<CodeSecurityState>> {
   try {
-    const [reviews, packs] = await Promise.all([
+    const [reviews, packs, repositories, requests] = await Promise.all([
       client.panel<unknown>("/code-security/reviews"),
       client.panel<unknown>("/code-security/packs"),
+      optionalPanel(() => client.panel<unknown>("/code-security/repositories"), decodeCodeSecurityRepositories),
+      optionalPanel(() => client.panel<unknown>("/code-security/scan-requests"), decodeCodeSecurityScanRequests),
     ]);
     return {
       status: "ready",
-      data: { reviews: decodeCodeSecurityReviews(reviews), packs: decodeCodeSecurityPacks(packs) },
+      data: {
+        reviews: decodeCodeSecurityReviews(reviews),
+        packs: decodeCodeSecurityPacks(packs),
+        repositories,
+        requests,
+      },
     };
   } catch (error) {
     if (isOptionalOperatorApiUnavailable(error)) {
@@ -465,18 +614,20 @@ export async function loadCodeSecurityState(
 
 export function CodeSecurityRoute({ client }: { readonly client: OperatorApiClient }) {
   const [state, setState] = useState<AsyncState<CodeSecurityState>>({ status: "loading" });
+  const [generation, setGeneration] = useState(0);
+  const reload = useCallback(() => setGeneration((value) => value + 1), []);
   useEffect(() => {
     let cancelled = false;
     void loadCodeSecurityState(client).then((next) => {
       if (!cancelled) setState(next);
     });
     return () => { cancelled = true; };
-  }, [client]);
+  }, [client, generation]);
   return (
     <div class="stack evidence-route">
       <PageHeader title={appT("nav.panel.codeSecurity")} subtitle={t("codeSecurity.subtitle")} />
       <AsyncBoundary state={state} resourceLabel={t("codeSecurity.resourceLabel")}>
-        {(data) => <CodeSecurityBody state={data} />}
+        {(data) => <CodeSecurityBody state={data} client={client} onQueued={reload} />}
       </AsyncBoundary>
     </div>
   );

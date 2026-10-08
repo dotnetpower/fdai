@@ -1,0 +1,22 @@
+.code-security-scan-form {
+  display: grid;
+  grid-template-columns: minmax(220px, 2fr) minmax(160px, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+.code-security-scan-form label {
+  display: grid;
+  gap: 4px;
+  color: var(--fg-muted);
+  font-size: 11px;
+}
+.code-security-scan-form input,
+.code-security-scan-form select { min-width: 0; width: 100%; min-height: 32px; }
+.code-security-scan-form .btn { min-height: 32px; }
+.code-security-scan-feedback { grid-column: 1 / -1; margin: 0; }
+.code-security-source-filter { flex-wrap: wrap; align-self: start; }
+@media (max-width: 720px) {
+  .code-security-scan-form { grid-template-columns: 1fr; }
+  .code-security-scan-form .btn { min-height: 44px; }
+  .code-security-source-filter button { min-height: 44px; }
+}
