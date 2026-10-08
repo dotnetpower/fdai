@@ -8,7 +8,10 @@ or logic flaws. It never runs in an agent hot path and never decides anything:
 2. **Ask several models.** Send each excerpt, fenced as untrusted JSON data, to every configured
    model. Calls are bounded by a global budget.
 3. **Verify in code.** Keep a model's candidate only if the cited line is inside the excerpt,
-   matches a lens sink hint, and uses one of the lens CWEs.
+   uses one of the lens CWEs, and either matches a lens sink hint or assigns a variable that a
+   later sink-hint line of the same excerpt uses. Such a flow is anchored at that sink line,
+   where SARIF producers place the fix site, so models that cite different source lines of one
+   flow still meet at the same sink.
 4. **Require a quorum.** Emit an occurrence only when at least ``quorum`` distinct model families
    report grounded candidates within ``line_tolerance`` lines of each other.
 
@@ -40,6 +43,11 @@ from fdai.shared.providers.code_security_lens import (
 PRODUCER = "fdai-lens"
 _SKIP_DIRS = frozenset({".git", "node_modules", "vendor", "third_party", "dist", "build", ".venv"})
 _CONFIDENCE = frozenset({"low", "medium", "high"})
+# An assignment target: optional declaration keywords or a type, then `name =` or `name +=`.
+_ASSIGNED = re.compile(
+    r"^\s*(?:(?:final|var|let|const|auto|val)\s+|[A-Za-z_][\w.<>\[\],?]*\s+)*"
+    r"([A-Za-z_]\w*)\s*\+?=(?!=)"
+)
 
 
 class LensLaneUnavailableError(RuntimeError):
@@ -67,6 +75,7 @@ class LensLaneReport:
     model_calls: int = 0
     model_errors: int = 0
     rejected_ungrounded: int = 0
+    anchored_to_sink: int = 0
     rejected_cwe: int = 0
     rejected_quorum: int = 0
     kept: int = 0
@@ -161,6 +170,37 @@ def select_candidates(
     return candidates
 
 
+def sink_line_for(
+    cited: int,
+    last_line: int,
+    source_lines: Sequence[str],
+    hints: Sequence[re.Pattern[str]],
+) -> int | None:
+    """Return the sink line a cited line grounds to, or ``None`` when it is ungrounded.
+
+    A cited sink-hint line grounds to itself. A cited line that assigns a variable grounds to
+    the first later sink-hint line, up to ``last_line``, that uses that variable as a whole
+    word. This is one deterministic hop of syntactic data flow; it never reads meaning from
+    comments or names.
+    """
+
+    def line(number: int) -> str:
+        return source_lines[number - 1] if 0 < number <= len(source_lines) else ""
+
+    text = line(cited)
+    if any(h.search(text) for h in hints):
+        return cited
+    assigned = _ASSIGNED.match(text)
+    if assigned is None:
+        return None
+    use = re.compile(rf"\b{re.escape(assigned.group(1))}\b")
+    for number in range(cited + 1, min(last_line, len(source_lines)) + 1):
+        later = line(number)
+        if any(h.search(later) for h in hints) and use.search(later):
+            return number
+    return None
+
+
 def _grounded(
     response: LensResponse,
     candidate: LensCandidate,
@@ -174,14 +214,16 @@ def _grounded(
         if not candidate.first_line <= finding.line <= candidate.last_line:
             report.rejected_ungrounded += 1
             continue
-        text = source_lines[finding.line - 1] if finding.line <= len(source_lines) else ""
-        if not any(h.search(text) for h in hints) or finding.confidence not in _CONFIDENCE:
+        sink = sink_line_for(finding.line, candidate.last_line, source_lines, hints)
+        if sink is None or finding.confidence not in _CONFIDENCE:
             report.rejected_ungrounded += 1
             continue
         if finding.cwe not in lens.cwe:
             report.rejected_cwe += 1
             continue
-        kept.append((finding.line, finding.cwe, clean_text(finding.explanation, 300)))
+        if sink != finding.line:
+            report.anchored_to_sink += 1
+        kept.append((sink, finding.cwe, clean_text(finding.explanation, 300)))
     return kept
 
 
@@ -289,4 +331,5 @@ __all__ = [
     "LensLaneUnavailableError",
     "run_lens_lane",
     "select_candidates",
+    "sink_line_for",
 ]

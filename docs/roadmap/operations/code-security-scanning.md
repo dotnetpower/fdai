@@ -218,8 +218,11 @@ optional, runs off the agent hot path inside the scan job, and produces only ine
    lens's sink hints in the [lens catalog](../../../rule-catalog/code-security/lenses.yaml).
 2. **Ask several model families:** send each excerpt to every configured model as untrusted JSON
    data with line numbers, a strict JSON schema response, no tools, and a request byte ceiling.
-3. **Verify in code:** keep a candidate only when the cited line is inside the excerpt, matches a
-   sink hint, and uses one of the lens's CWEs.
+3. **Verify in code:** keep a candidate only when the cited line is inside the excerpt, uses one
+   of the lens's CWEs, and either matches a sink hint or assigns a variable that a later sink-hint
+   line of the same excerpt uses as a whole word. Such a one-hop flow is anchored at that sink
+   line, where SARIF producers place the fix site, so models that cite different lines of one flow
+   meet at the same sink. No meaning is read from names or comments.
 4. **Require a quorum:** emit an occurrence only when at least two distinct model families report
    grounded candidates within the line tolerance.
 
@@ -264,6 +267,13 @@ positives, precision 0.5 and recall 0.5. Each false positive is a file where a c
 builds the query or path, while grounding accepts only a sink-hint line, so 79 claims were
 rejected as ungrounded. Lens hypotheses therefore stay inert until another producer or a verifier
 confirms them.
+
+Grounding then accepted the one-hop flow above. On a disjoint sample (`--sample-offset 10`, the
+next ten true and ten false files per category) with the same two models, the strict rule kept 9
+hypotheses (5 true, precision 0.556) with recall 0.5, 0, and 0 for command injection, path
+traversal, and SQL injection. Flow grounding anchored 59 claims to their sink and kept 30 (15
+true, precision 0.5) with recall 0.7, 0.4, and 0.4. Precision stays near 0.5, so lens
+hypotheses remain inert.
 
 Example: two model families both cite line 8, `Order.query.get(order_id)`, for
 `missing-authorization` with CWE-639. FDAI keeps one `hypothesis` occurrence. The issue is
