@@ -21,9 +21,7 @@ from fdai.core.conversation.semantic_manifest import (
     semantic_principal_scope_digest,
 )
 from fdai.core.conversation.semantic_planning import SemanticPlanningService
-from fdai.core.conversation.semantic_planning_models import (
-    SemanticPlanningModel,
-)
+from fdai.core.conversation.semantic_planning_models import SemanticPlanningModel
 from fdai.core.conversation.semantic_second_reader import SemanticSecondReader, planner_arguments
 from fdai.core.conversation.session import Principal
 from fdai.core.ontology_platform import (
@@ -121,6 +119,10 @@ from fdai.core.ontology_platform.network_path import (
 )
 from fdai.core.ontology_platform.operational_functions import operational_function_types
 from fdai.core.ontology_platform.pattern_queries import PATTERN_QUERY, OperatingPatternQuery
+from fdai.core.ontology_platform.pending_state_coverage import (
+    PendingStateSources,
+    bind_pending_state,
+)
 from fdai.core.ontology_platform.pod_telemetry import (
     POD_TELEMETRY_FUNCTION_NAME,
     pod_telemetry_function,
@@ -128,9 +130,7 @@ from fdai.core.ontology_platform.pod_telemetry import (
 from fdai.core.ontology_platform.property_values import PropertyValueDomain
 from fdai.core.ontology_platform.query_execution import QueryNodeHandler
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
-from fdai.core.ontology_platform.query_receipt_authority import (
-    SecuredQueryReceiptAuthority,
-)
+from fdai.core.ontology_platform.query_receipt_authority import SecuredQueryReceiptAuthority
 from fdai.core.ontology_platform.recent_resource_changes import (
     RECENT_RESOURCE_CHANGES_FUNCTION_NAME,
     RecentResourceChangeReader,
@@ -264,6 +264,7 @@ def build_semantic_query_runtime(
     instance_candidate_query: InstanceCandidateQuery | None = None,
     state_store: StateStore | None = None,
     second_reader: SemanticSecondReader | None = None,
+    pending_state_sources: PendingStateSources | None = None,
 ) -> current_evidence.SemanticQueryConversationRuntime:
     """Build a read-only runtime over one exact catalog release and instance store."""
 
@@ -308,6 +309,9 @@ def build_semantic_query_runtime(
         gateway=gateway,
         live_provider=graph_live_refresh_provider,
         auditor=current_evidence.graph_refresh_auditor(state_store, evaluation_cutoff),
+    )
+    pending_state_refresher, pending_state_ledger = bind_pending_state(
+        pending_state_sources, gateway=gateway, store=state_store, clock=evaluation_cutoff
     )
     function_registry = OntologyFunctionRegistry(release=ontology_release)
     declarations = {item.name: item for item in function_types}
@@ -718,6 +722,7 @@ def build_semantic_query_runtime(
                     receipt_authority=receipt_authority,
                     decision_evidence=decision_evidence_admission_provider,
                     graph_refresher=graph_refresher,
+                    pending_state_refresher=pending_state_refresher,
                 ),
                 QueryNodeKind.ONTOLOGY_INSTANCE_PATH: SecuredOntologyInstancePathNodeHandler(
                     gateway,
@@ -756,6 +761,7 @@ def build_semantic_query_runtime(
                     ),
                     receipt_authority=receipt_authority,
                     allow_presentation_read_dependencies=True,
+                    pending_state_ledger=pending_state_ledger,
                 ),
                 **handlers,
                 **scoped_source_handlers(

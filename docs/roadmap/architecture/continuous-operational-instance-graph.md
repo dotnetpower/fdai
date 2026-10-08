@@ -710,6 +710,54 @@ reaches the journal still uses the graph as it is.
 | Parallel answers could storm the provider | Installation and principal limits, single-flight reads, and stop-on-throttle bound load |
 | Parallel reads are not one moment | Rows keep their own times and completeness is defined against the answer cutoff |
 
+#### Skew-bounded re-materialization (revision)
+
+Implementation review corrected the temporal premise. An ObjectSet's observation cutoff is taken
+when it materializes, and its receipt allows at most five seconds between that cutoff and the
+plan's `as_of`. A reading taken before a second materialization therefore precedes that
+materialization's cutoff, so no plan rebind is needed when the reads fit the remaining skew.
+The ARG `resourcechanges` accelerator cannot replace the read: a virtual machine's power state lives
+in its instance view, so start and deallocate operations reach the journal only as Activity Log
+metadata.
+
+1. **Eligibility from the verifier.** The plan verifier certifies the exact
+   `ObjectSet -> query.resource_state_inventory -> output` shape and passes a verified eligibility
+   marker to the executor. Any other consumer, set operation, aggregate, traversal, or relationship
+   keeps today's partial answer.
+2. **Budget.** The handler computes the remaining skew budget from the plan's `as_of`. Reads start
+   only when the budget covers the read deadline, a second materialization, and a one-second margin.
+3. **Fenced descriptor.** One repeatable-read snapshot returns the generation, the authorized Resource
+   ids and types, the exact pending object observations with their effective times, and the journal
+   high-watermark. Only updates of subjects already in the authorized result qualify.
+4. **Authoritative reads.** One exact ARM read per subject, through a reviewed per-type capability
+   map such as the virtual machine instance view or a database server's `properties.state`, supplies
+   the state. ARG is eventually consistent and is not used. A type without a reviewed capability,
+   a missing or ambiguous path, or a provider time earlier than the subject's latest pending
+   effective time keeps the answer partial.
+5. **Second pass and fence.** A second materialization runs through a dedicated gateway seam that
+   applies the live facts before security projection, link closure, redaction accounting, and
+   receipt construction under the same projection request. Its repeatable-read snapshot must match
+   the first descriptor's generation, id and type set, pending observations, and watermark;
+   otherwise the first partial result stands.
+6. **Composite receipt.** A durable composite receipt binds the plan and query digests, the
+   principal scope, the generation, both cutoffs, the pending observation ids and watermark, the
+   normalized live facts with provider and receive times and evidence references, and the final
+   result digest. The ObjectSet receipt keeps `complete=false` from the graph; the state function
+   treats the result as complete only when it resolves that exact composite receipt and every
+   pending subject is covered.
+
+| Critique finding | Revision |
+|------------------|----------|
+| The original premise placed the cutoff before planning | The cutoff is taken at materialization; a second pass after the reads keeps every reading before its cutoff |
+| Reads could push the second pass past the five-second skew | Reads start only when the remaining budget covers them and the second pass |
+| ARG can return cached pre-change state after the change | Only an authoritative exact ARM read with a provider time at or after the pending change qualifies |
+| The receipt requires graph and receipt completeness to agree | A separate composite receipt carries answer completeness; the ObjectSet receipt stays partial |
+| The node handler cannot see the plan shape | The verifier certifies the eligible shape and passes a marker to the executor |
+| Separate queries can race a journal commit | Each pass reads one repeatable-read snapshot and the second must match the first |
+| An in-memory receipt does not make the answer replayable | The composite receipt is durable and binds every input and the result digest |
+| Overlaying a secured result can bypass projection and redaction | Live facts apply before projection through a dedicated gateway seam |
+| The state-path allowlist is not a provider capability contract | A reviewed per-type ARM capability map fails closed for every other type |
+
 ## Source-to-store implementation audit
 
 The complete implementation audit and transition ledger are in [Continuous Operational Instance Graph Evidence](continuous-operational-instance-graph-evidence.md).
