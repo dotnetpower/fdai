@@ -24,11 +24,12 @@ import argparse
 import asyncio
 import hashlib
 import json
+import logging
 import os
 import subprocess
 import sys
 import time
-from collections import defaultdict
+from collections import Counter, defaultdict
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
@@ -93,6 +94,37 @@ _PROVIDER_UNAVAILABLE = frozenset({"proposal_unavailable", "deadline_exceeded"})
 
 class CampaignAbortedError(RuntimeError):
     """The bounded campaign stopped before every planned decision completed."""
+
+    def __init__(self, reason: str, *, rows: Sequence[Mapping[str, Any]] = ()) -> None:
+        super().__init__(reason)
+        self.rows: tuple[Mapping[str, Any], ...] = tuple(rows)
+
+
+_ADAPTER_EVENTS = frozenset(
+    {"semantic_planning_candidate_failed", "adaptive_query_provider_attempt_ended"}
+)
+_ADAPTER_FIELDS = (
+    "operation",
+    "failure_type",
+    "status_code",
+    "provider_error_code",
+    "validation_stage",
+    "validation_errors",
+)
+
+
+class AdapterFailureLog(logging.Handler):
+    """Collect content-free adapter failure classes; never prompts, payloads, or answers."""
+
+    def __init__(self) -> None:
+        super().__init__(level=logging.WARNING)
+        self.counts: Counter[str] = Counter()
+
+    def emit(self, record: logging.LogRecord) -> None:
+        if record.getMessage() not in _ADAPTER_EVENTS:
+            return
+        fields = {name: getattr(record, name) for name in _ADAPTER_FIELDS if hasattr(record, name)}
+        self.counts[json.dumps(fields, sort_keys=True, default=str)] += 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -276,7 +308,7 @@ async def run_campaign(
         for repeat in range(1, repeats + 1):
             for case in cases:
                 if time.monotonic() >= deadline:
-                    raise CampaignAbortedError("campaign total deadline exceeded")
+                    raise CampaignAbortedError("campaign total deadline exceeded", rows=rows)
                 ref = f"campaign:{case.case_id}:r{repeat}"
                 await observer.wait_idle()
                 off_ms, off_outcome = await _call(off, case.query, ref + ":off")
@@ -293,7 +325,7 @@ async def run_campaign(
                     None,
                 )
                 if terminal is None:
-                    raise CampaignAbortedError("shadow observation left no terminal row")
+                    raise CampaignAbortedError("shadow observation left no terminal row", rows=rows)
                 reason = terminal["unavailable_reason"]
                 provider_failure = reason in _PROVIDER_UNAVAILABLE
                 consecutive = consecutive + 1 if provider_failure else 0
@@ -315,7 +347,9 @@ async def run_campaign(
                     }
                 )
                 if consecutive >= MAX_CONSECUTIVE_UNAVAILABLE or unavailable > MAX_UNAVAILABLE:
-                    raise CampaignAbortedError("provider unavailability exceeded the allowance")
+                    raise CampaignAbortedError(
+                        "provider unavailability exceeded the allowance", rows=rows
+                    )
             progress(f"repeat {repeat}/{repeats} complete: {len(rows)} decisions")
     finally:
         stop.set()
@@ -515,6 +549,9 @@ async def main() -> int:
     args.evidence_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     started = datetime.now(UTC).isoformat()
     status = "completed"
+    failures = AdapterFailureLog()
+    logging.getLogger("fdai.delivery.azure.llm").addHandler(failures)
+    partial: tuple[Mapping[str, Any], ...] = ()
     try:
         async with http:
             result = await run_campaign(
@@ -526,6 +563,7 @@ async def main() -> int:
     except CampaignAbortedError as exc:
         status = f"aborted: {exc}"
         result = None
+        partial = exc.rows
     summary: dict[str, Any] = {
         "source_commit": source_commit,
         "label": args.label,
@@ -535,7 +573,16 @@ async def main() -> int:
         "attestation": attestation,
         "binding_digest": content_digest(asdict(binding.expected_binding)),
         "data_handling_policy_digest": binding.data_handling_policy_digest,
+        "adapter_failures": dict(failures.counts),
     }
+    if result is None and partial:
+        summary["completed_decisions"] = len(partial)
+        summary["unavailable_reasons"] = dict(
+            Counter(str(row["unavailable_reason"]) for row in partial)
+        )
+        summary["decisions_digest"] = write_decisions(
+            args.evidence_dir / f"{args.label}-partial-decisions.jsonl", partial
+        )
     if result is not None:
         summary["decisions_digest"] = write_decisions(
             args.evidence_dir / f"{args.label}-decisions.jsonl", result["rows"]

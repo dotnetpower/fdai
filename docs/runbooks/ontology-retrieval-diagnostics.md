@@ -399,8 +399,11 @@ The live campaign makes at most 512 proposal calls within 90 minutes and never r
 after three consecutive provider-unavailable observations or once more than five observations are
 unavailable. The decision rows and the summary are created exclusively with mode 0600, and stdout
 prints aggregate figures only. Exit code `0` means both protocols passed, `1` means a protocol
-failed, and `2` means the campaign aborted without a quality outcome. A report never grants
-production qualification or execution authority.
+failed, and `2` means the campaign aborted without a quality outcome. An aborted campaign still
+writes its completed decisions to `<label>-partial-decisions.jsonl`, and its summary counts the
+unavailable reasons and the content-free adapter failure classes: failure type, HTTP status,
+provider error code, and validation stage. A report never grants production qualification or
+execution authority.
 
 ## Testing
 

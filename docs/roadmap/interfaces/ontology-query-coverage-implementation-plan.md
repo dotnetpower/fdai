@@ -494,8 +494,9 @@ only the `shadow_select` membership read, so it can't enable typed selection or 
 
 **Runtime agreement gate.** Runtime protocol `typed-selection-runtime-shadow.v1` is one K=2
 decision for each eligible invocation. Both proposals use one input digest and one pinned proposer
-binding. They run concurrently with a single attempt each, and their membership reads share one
-captured `as_of`. The gate is the qualification rule: retrieved identity sets must be equal, and a
+binding. They run concurrently with a single attempt each, and both finish before any membership
+read, so a sibling failure never hides a completed proposal. One `as_of` is captured after both
+return, which keeps both reads inside the gateway's five-second current-state skew. The gate is the qualification rule: retrieved identity sets must be equal, and a
 clarification retrieves nothing. The outcomes are `selected`, `empty` (agreed with zero members,
 which is no candidate and never proof of absence), `disagreed`, and `unavailable`. The row also
 records `status_agreement`, so a clarification paired with an empty selection stays visible. Live
@@ -573,6 +574,17 @@ K=2 observation, and one contended call while that observation runs.
 The live campaign makes at most 512 proposal calls within a 90-minute deadline and never retries.
 It stops after three consecutive provider-unavailable observations or once the unavailable
 allowance is spent. Window cases are curated synthetic questions, not organic operator traffic.
+An aborted campaign has no quality outcome. It keeps its completed decisions privately with their
+unavailable reasons and content-free adapter failure classes. Every attempt is reported. A rerun
+requires a new merged commit whose changes are limited to evidence tooling or a diagnosed runtime
+defect, and the protocols, cases, and thresholds never change.
+
+The first live attempt on `5fa946c61f` aborted and kept no rows. A diagnostic attempt on an
+unmerged branch then found five `membership_unavailable` decisions and one proposal timeout in 90
+decisions. The observer had captured `as_of` before both proposals, so slow observations fell
+outside the gateway's skew. With the two-phase fix, a second unmerged diagnostic completed all 256
+decisions with no unavailable outcome. These attempts are diagnostic only; the qualifying campaign
+runs on the merged fix.
 
 **Remaining gates before enforcement.** Composition binds no production proposer until an attested
 qualified target and a reviewed data-handling policy are configured. A binding to a different model
