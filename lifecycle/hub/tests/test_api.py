@@ -7,9 +7,10 @@ from datetime import datetime
 import pytest
 from starlette.testclient import TestClient
 
-from fdai_lifecycle_hub.api import MAX_REPORT_BYTES, create_app
+from fdai_lifecycle_hub.api import MAX_ENROLLMENT_BYTES, MAX_REPORT_BYTES, create_app
 from fdai_lifecycle_hub.domain import Installation, Issued, IssuedPlan, Planner
 from fdai_lifecycle_hub.enrollment import EnrollmentRequest
+from fdai_lifecycle_hub.errors import UnknownInstallationError
 from fdai_lifecycle_hub.signing import HubSigningKey, signature_verifier
 from fdai_lifecycle_hub.store import HubStore
 
@@ -175,6 +176,20 @@ def test_malformed_enrollment_returns_422(
     response = TestClient(create_app(store, clock=lambda: now)).post(ENROLLMENT_URL, json=body)
 
     assert (response.status_code, response.json()) == (422, {"error": "enrollment_invalid"})
+
+
+def test_oversized_enrollment_returns_413(store: HubStore, now: datetime) -> None:
+    def chunks() -> Iterator[bytes]:
+        yield b"x" * MAX_ENROLLMENT_BYTES
+        yield b"x"
+
+    response = TestClient(create_app(store, clock=lambda: now)).post(
+        ENROLLMENT_URL, content=chunks()
+    )
+
+    assert (response.status_code, response.json()) == (413, {"error": "enrollment_too_large"})
+    with pytest.raises(UnknownInstallationError):
+        store.enrollment_status("installation-alpha")
 
 
 def test_enrollment_for_another_path_returns_422(
