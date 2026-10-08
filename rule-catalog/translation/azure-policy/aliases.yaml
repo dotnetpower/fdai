@@ -8,14 +8,18 @@ review_state: reviewed
 # projected value (`codec`), and what an absent ARM field means (`absence`):
 # - `unobserved`: the projection leaves the property absent, so a translated Rule abstains and an
 #   `exists` condition on the alias can be decided only for an observed resource.
-# - `defaulted`: the projection substitutes a documented default for an absent field, so an
-#   `exists` condition can't be decided and the policy isn't translated.
+# - `defaulted`: the projection substitutes the documented `default` for an absent field. Azure
+#   Policy compares an absent field as absent, so a comparison translates only when no literal
+#   equals the default, and an `exists` condition never translates.
 # - `request_only`: the field exists only on create or update requests and never on a stored
 #   resource, so on an inventory resource it is always absent and compares as absent.
 # An alias that isn't listed here is never translated.
 resource_types:
   Microsoft.Storage/storageAccounts: object-storage
   Microsoft.KeyVault/vaults: secret-store
+  Microsoft.ContainerService/managedClusters: kubernetes-cluster
+  Microsoft.Compute/virtualMachines: compute.vm
+  Microsoft.DBforPostgreSQL/flexibleServers: postgresql-server
 aliases:
   - alias: Microsoft.Storage/storageAccounts/supportsHttpsTrafficOnly
     resource_type: object-storage
@@ -58,6 +62,7 @@ aliases:
     property: purge_protection_enabled
     codec: boolean
     absence: defaulted
+    default: false
     rationale: An absent field is projected as false, the documented ARM default.
   - alias: Microsoft.KeyVault/vaults/publicNetworkAccess
     resource_type: secret-store
@@ -71,3 +76,29 @@ aliases:
     codec: string
     absence: request_only
     rationale: createMode is a create-request field that a stored vault doesn't return.
+  - alias: Microsoft.ContainerService/managedClusters/securityProfile.defender.securityMonitoring.enabled
+    resource_type: kubernetes-cluster
+    property: defender_security_monitoring_enabled
+    codec: boolean
+    absence: defaulted
+    default: false
+    rationale: ARM omits securityProfile.defender unless the Defender profile is configured.
+  - alias: Microsoft.Compute/virtualMachines/securityProfile.encryptionAtHost
+    resource_type: compute.vm
+    property: encryption_at_host_enabled
+    codec: boolean
+    absence: defaulted
+    default: false
+    rationale: A standalone VM omits encryptionAtHost unless it is set; the default is false.
+  - alias: Microsoft.DBforPostgreSQL/flexibleServers/authConfig.activeDirectoryAuth
+    resource_type: postgresql-server
+    property: entra_auth_enabled
+    codec: enabled_disabled
+    absence: unobserved
+    rationale: Projected only for the documented Enabled and Disabled states of a flexible server.
+  - alias: Microsoft.DBforPostgreSQL/flexibleServers/authConfig.passwordAuth
+    resource_type: postgresql-server
+    property: password_auth_enabled
+    codec: enabled_disabled
+    absence: unobserved
+    rationale: Projected only for the documented Enabled and Disabled states of a flexible server.

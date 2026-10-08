@@ -218,9 +218,13 @@ def test_database_and_cluster_fields() -> None:
         "network_policy": False,
         "azure_rbac_enabled": True,
         "private_cluster_enabled": False,
+        "defender_security_monitoring_enabled": False,
     }
     calico = {"properties": {"networkProfile": {"networkPolicy": "calico"}}}
-    assert rule_properties("kubernetes-cluster", calico) == {"network_policy": True}
+    assert rule_properties("kubernetes-cluster", calico) == {
+        "network_policy": True,
+        "defender_security_monitoring_enabled": False,
+    }
 
 
 def test_inbound_security_rules_carry_the_scope_of_each_rule() -> None:
@@ -242,3 +246,51 @@ def test_inbound_security_rules_carry_the_scope_of_each_rule() -> None:
     assert complete["source_port_ranges"] == ["1-1023"]
     assert complete["destination_application_security_groups"] == 1
     assert "destination_address_prefix" not in projected["security_rules"][0]
+
+
+def test_aks_defender_profile_absence_means_disabled() -> None:
+    enabled = {
+        "properties": {"securityProfile": {"defender": {"securityMonitoring": {"enabled": True}}}}
+    }
+    absent = {"properties": {"securityProfile": {"workloadIdentity": {"enabled": True}}}}
+    malformed = {"properties": {"securityProfile": {"defender": "on"}}}
+
+    assert rule_properties("kubernetes-cluster", enabled)["defender_security_monitoring_enabled"]
+    assert rule_properties("kubernetes-cluster", absent) == {
+        "defender_security_monitoring_enabled": False
+    }
+    assert "defender_security_monitoring_enabled" not in rule_properties(
+        "kubernetes-cluster", malformed
+    )
+
+
+def test_vm_encryption_at_host_projects_only_for_standalone_vms() -> None:
+    standalone = {
+        "type": "Microsoft.Compute/virtualMachines",
+        "properties": {"securityProfile": {"securityType": "TrustedLaunch"}},
+    }
+    enabled = {
+        "type": "Microsoft.Compute/virtualMachines",
+        "properties": {"securityProfile": {"encryptionAtHost": True}},
+    }
+    instance = {
+        "type": "Microsoft.Compute/virtualMachineScaleSets/virtualMachines",
+        "properties": {},
+    }
+
+    assert rule_properties("compute.vm", standalone) == {"encryption_at_host_enabled": False}
+    assert rule_properties("compute.vm", enabled) == {"encryption_at_host_enabled": True}
+    assert rule_properties("compute.vm", instance) == {}
+
+
+def test_postgresql_flexible_auth_modes_project_only_documented_states() -> None:
+    row = {
+        "properties": {"authConfig": {"activeDirectoryAuth": "Enabled", "passwordAuth": "Disabled"}}
+    }
+    unknown = {"properties": {"authConfig": {"activeDirectoryAuth": "Pending"}}}
+
+    assert rule_properties("postgresql-server", row) == {
+        "entra_auth_enabled": True,
+        "password_auth_enabled": False,
+    }
+    assert rule_properties("postgresql-server", unknown) == {}

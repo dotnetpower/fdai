@@ -251,7 +251,19 @@ def _postgresql_server(row: Mapping[str, Any]) -> dict[str, Any]:
     ssl = properties.get("sslEnforcement")
     if isinstance(ssl, str) and ssl.strip():
         projected["ssl_enforcement"] = ssl.strip().casefold()
+    auth = properties.get("authConfig")
+    if isinstance(auth, Mapping):
+        # Flexible servers report both modes; only the documented states are decisive.
+        _public_network_access_like(
+            projected, "entra_auth_enabled", auth.get("activeDirectoryAuth")
+        )
+        _public_network_access_like(projected, "password_auth_enabled", auth.get("passwordAuth"))
     return projected
+
+
+def _public_network_access_like(target: dict[str, Any], key: str, value: object) -> None:
+    if isinstance(value, str) and value.casefold() in {"enabled", "disabled"}:
+        target[key] = value.casefold() == "enabled"
 
 
 def _sql_database(row: Mapping[str, Any]) -> dict[str, Any]:
@@ -280,6 +292,20 @@ def _kubernetes_cluster(row: Mapping[str, Any]) -> dict[str, Any]:
     api_server = properties.get("apiServerAccessProfile")
     if isinstance(api_server, Mapping):
         _set_bool(projected, "private_cluster_enabled", api_server.get("enablePrivateCluster"))
+    security = properties.get("securityProfile", {})
+    if isinstance(security, Mapping):
+        # ARM omits securityProfile.defender unless the Defender profile is configured, so an
+        # absent profile is the documented "not enabled" state.
+        defender = security.get("defender", {})
+        monitoring = (
+            defender.get("securityMonitoring", {}) if isinstance(defender, Mapping) else None
+        )
+        if isinstance(monitoring, Mapping):
+            _set_bool(
+                projected,
+                "defender_security_monitoring_enabled",
+                monitoring.get("enabled", False),
+            )
     return projected
 
 
@@ -299,14 +325,26 @@ def _kubernetes_node_pool(row: Mapping[str, Any]) -> dict[str, Any]:
 
 
 def _compute_vm(row: Mapping[str, Any]) -> dict[str, Any]:
-    if "identity" not in row:
-        return {}
-    identity = row["identity"]
-    if identity is None:
-        return {"identity_type": "None"}
-    if isinstance(identity, Mapping) and isinstance(identity.get("type"), str):
-        return {"identity_type": str(identity["type"]).strip() or "None"}
-    return {}
+    projected: dict[str, Any] = {}
+    if "identity" in row:
+        identity = row["identity"]
+        if identity is None:
+            projected["identity_type"] = "None"
+        elif isinstance(identity, Mapping) and isinstance(identity.get("type"), str):
+            projected["identity_type"] = str(identity["type"]).strip() or "None"
+    properties = _properties(row)
+    provider_type = str(row.get("type", "")).casefold()
+    if properties is not None and provider_type == "microsoft.compute/virtualmachines":
+        # A standalone VM omits securityProfile.encryptionAtHost unless it is set, and it
+        # defaults to false. Scale set instances use another resource type and stay unobserved.
+        security = properties.get("securityProfile", {})
+        if isinstance(security, Mapping):
+            _set_bool(
+                projected,
+                "encryption_at_host_enabled",
+                security.get("encryptionAtHost", False),
+            )
+    return projected
 
 
 def _zoned(key: str) -> _Projector:

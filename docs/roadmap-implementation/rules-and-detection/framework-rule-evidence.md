@@ -23,12 +23,15 @@ control assessments without duplicating the normative design.
 | MCSB Operator and Console surface | implemented | `services/operator-service/src/fdai_operator_service/framework_mcsb_assessment_projection.py`; `framework_assessment_projection.py`; `_mcsb_assessment_snapshot` in `services/core-control-plane/src/fdai/delivery/authoritative_framework_projection.py`; `console/src/routes/mcsb-controls*.tsx`; `tests/integration/test_mcsb_assessment_operator_projection.py`; `console/tests/e2e/mcsb-controls.spec.ts` | Like WAF and CAF, no production publisher sends framework events; the live job records audit receipts only. |
 | CAF Rule evidence | not-applicable | [CAF decision](../../roadmap/rules-and-detection/framework-rule-evidence.md#caf-decision) | Reviewed decision: CAF areas are estate outcomes, so CAF gets no direct Rule requirements and no Rule activation pin. |
 | Azure Policy collection landing | validated | `services/core-control-plane/src/fdai/rule_catalog/pipeline/collect/azure_policy_landing.py`; `collect_cli --land-collected`; `services/core-control-plane/tests/rule_catalog/pipeline/test_azure_policy_landing.py`; `rule-catalog/collected/azure-builtin/` | Re-collected at the pinned revision on 2026-10-08: all 3,628 previously collected Rules carry the SHA-256 of their definition with ids and paths unchanged, and the 30 new policies whose truncated ids collided landed with GUID-suffixed ids, for 3,658 collected Rules. |
-| Azure Policy translation pilot | implemented | `services/core-control-plane/src/fdai/rule_catalog/pipeline/translate/azure_policy.py`; `rule-catalog/translation/azure-policy/aliases.yaml`; `scripts/catalog/translate-azure-policy-candidates.py`; `scripts/deployment/local/run-azure-policy-differential.py`; `services/core-control-plane/tests/rule_catalog/pipeline/test_azure_policy_translation.py` | 6 of 3,658 definitions translate into inert candidates. The live differential found no mismatch but only compliant agreement, so no candidate is eligible for the quality gate. |
+| Azure Policy translation pilot | validated | `services/core-control-plane/src/fdai/rule_catalog/pipeline/translate/azure_policy.py`; `rule-catalog/translation/azure-policy/aliases.yaml`; `scripts/catalog/translate-azure-policy-candidates.py`; `scripts/deployment/local/run-azure-policy-differential.py`; `services/core-control-plane/tests/rule_catalog/pipeline/test_azure_policy_translation.py` | 9 of 3,658 definitions translate into inert candidates. Two candidates, AKS Defender profile and VM encryption at host, agreed on every live non-compliant resource and passed the rule pipeline's quality gate; none disagreed. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-08 | in-progress | With operator approval, granted the development installation's inventory identity Microsoft Graph `User.Read.All` and `GroupMember.Read.All` application roles and `Reader` at the tenant root management group, the documented prerequisites for decisive subscription and managed identity role assignment evidence. The deployed inventory image doesn't yet contain this branch's readers, so the grants take effect after deployment. | Azure role assignment and Graph app role assignment readback after the grants | Deploy this branch; repeat the grants in other installations. |
+| 2026-10-08 | validated | Widened the Azure Policy pilot to reach non-compliant agreement. Comparisons on a `defaulted` alias now translate when no literal equals its documented default, operator keys match case-insensitively, and a policy whose top-level branches each pin one type yields one candidate per mapped type. Reviewed aliases and projections were added for the AKS Defender profile, VM encryption at host, and PostgreSQL flexible server authentication. The differential's `--quality-gate` mode replays eligible candidates through the rule pipeline's shadow evaluation and regression gate on in-memory scenarios. | `test_azure_policy_translation.py` (25 cases); `test_azure_policy_differential.py`; `test_arm_rule_properties.py`; operator-approved live run: 9 translations, no mismatch, AKS Defender 13/13 and VM encryption at host 26/26 non-compliant agreement, both passing the quality gate with no escape | Catalog-as-code review for the two candidates. |
+| 2026-10-08 | implemented | Corrected the activation statement for the new NSG Rules: an existing installation keeps its activation generation, so they stay inactive there until an approved activation change, while a fresh installation without a profile activates the whole catalog at genesis. The earlier rows' "start unactivated" applies only to existing installations. | `services/core-control-plane/src/fdai/runtime/rule_profile.py` (`bind_rule_profile` returns `None` without `FDAI_PROFILE_ID`); `services/core-control-plane/src/fdai/runtime/rule_activation.py` | None |
 | 2026-10-08 | implemented | An independent review found two translation errors: a comparison on a `defaulted` alias judged a missing field as its default, which Azure Policy compares as absent, and a parameter inside an `in` or `notIn` list stayed a literal string and wasn't recorded. Comparisons on `defaulted` aliases are now refused, and list elements resolve like other operands. The pinned snapshot still translates 6 definitions. | `test_azure_policy_translation.py` (20 cases) | None |
 | 2026-10-08 | implemented | Implemented the Azure Policy translation pilot: a reviewed alias map with codec and absence semantics, a three-valued compiler for the supported grammar with explicit refusal reasons, inert candidates bound to the source policy, translator, and alias map digests, and a differential comparison with live compliance state that blocks on any mismatch and requires a non-compliant agreement before the quality gate. | `test_azure_policy_translation.py` (17 cases, real OPA); pinned snapshot: 6 of 3,658 definitions translated; operator-approved live differential: 3 candidates agreed on 40 compliant resources, 1 skipped on definition version, 2 without state | Non-compliant agreement before any Mimir submission. |
 | 2026-10-08 | validated | An independent review found that a managed identity holding a role through Entra group membership read as clean, because assignments were keyed only by their literal principal. Group assignments now expand to the group's transitive service principal members through Microsoft Graph, and an unreadable membership leaves every identity unobserved. | `test_arm_tenant_role_assignments.py`; operator-approved live refresh unchanged: 65 identities, 289 assignments | None |
@@ -99,12 +102,16 @@ control assessments without duplicating the normative design.
   inventory identity as a deployment step, matching the Operator API directory consent; Terraform
   doesn't grant tenant-wide Graph roles
   ([deploy and onboard](../../roadmap/deployment/deploy-and-onboard.md)).
-- [ ] Have a tenant administrator grant that consent in each installation that needs decisive
-  subscription role assignment evidence.
+- [x] Grant that consent to the development installation's inventory identity (2026-10-08,
+  operator-approved, by a tenant administrator).
+- [ ] Grant the same consent in every other installation that needs decisive subscription role
+  assignment evidence.
 - [x] Prove complete managed-identity role assignment visibility from a tenant-root read before
   projecting managed-identity `role_assignments` (`test_arm_tenant_role_assignments.py`).
-- [ ] Grant the deployed inventory identity `Reader` at the tenant root management group in each
-  installation that needs decisive managed identity evidence.
+- [x] Grant the development installation's inventory identity `Reader` at the tenant root
+  management group (2026-10-08, operator-approved).
+- [ ] Grant root `Reader` in every other installation that needs decisive managed identity
+  evidence, and deploy this branch so the inventory job uses both grants.
 - [x] Show per-Rule coverage counts in the Controls view with focused Playwright checks
   (`console/tests/e2e/rule-control-crosslinks.spec.ts`).
 - [x] Meet the WARA prerequisite with a discriminated `t0_rule` binding and capability matrix
@@ -126,5 +133,6 @@ control assessments without duplicating the normative design.
 - [x] Implement the translation feasibility milestone: reviewed alias map, supported grammar with
   explicit refusals, inert digest-bound candidates, and a live differential comparison
   (`test_azure_policy_translation.py`).
-- [ ] Record agreement on at least one non-compliant resource for a candidate before submitting it
-  to the Mimir quality gate; widen the alias map only through review.
+- [x] Record agreement on non-compliant resources and pass the quality gate for at least one
+  candidate (`run-azure-policy-differential.py --quality-gate`, `test_azure_policy_differential.py`).
+- [ ] Add quality-gate-passed candidates to the catalog through a catalog-as-code review.

@@ -15,7 +15,12 @@ Semantics:
 - A candidate requires every property its decided conditions read, so a resource without an
   observed value abstains instead of being judged. Under that requirement an ``exists`` condition
   on an ``unobserved`` alias is constant. A ``defaulted`` alias projects a missing field as its
-  default, which Azure Policy compares as absent, so no condition on it is translated.
+  documented default, which Azure Policy compares as absent. A comparison on it is exact only when
+  no literal equals that default, so such comparisons translate and every other one, including
+  ``exists``, is refused.
+- Operator and logical keys are matched case-insensitively, like Azure Policy.
+- A policy whose top-level ``anyOf`` branches each pin one distinct resource type becomes one
+  candidate per mapped type: for a resource of that type every other branch is false.
 - String comparison is case-insensitive, like Azure Policy. A boolean or enabled/disabled literal
   that can't match the projected value compares as unequal.
 - Parameters resolve only from their default values. The effect must be ``Audit`` or ``Deny``;
@@ -38,6 +43,10 @@ _CODECS: Final = frozenset({"boolean", "string", "enabled_disabled"})
 _ABSENCE: Final = frozenset({"unobserved", "defaulted", "request_only"})
 _OPERATORS: Final = ("equals", "notEquals", "in", "notIn", "exists")
 _PARAMETER = re.compile(r"^\[parameters\('([^']+)'\)\]$")
+_KEYS: Final = {
+    key.casefold(): key
+    for key in ("allOf", "anyOf", "not", "field", "value", "count", "where", *_OPERATORS)
+}
 _SEVERITY: Final = {"deny": "high", "audit": "medium"}
 _MODULE_PATH: Final = Path(__file__)
 
@@ -59,6 +68,7 @@ class AliasEntry:
     property: str | None
     codec: str
     absence: str
+    default: Any = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,6 +100,7 @@ def load_alias_map(path: Path) -> AliasMap:
             property=item.get("property"),
             codec=str(item.get("codec", "")),
             absence=str(item.get("absence", "")),
+            default=item.get("default"),
         )
         if (
             not entry.alias
@@ -97,6 +108,7 @@ def load_alias_map(path: Path) -> AliasMap:
             or entry.codec not in _CODECS
             or entry.absence not in _ABSENCE
             or (entry.absence == "request_only") != (entry.property is None)
+            or (entry.absence == "defaulted") != ("default" in item)
             or not str(item.get("rationale", "")).strip()
         ):
             raise AzurePolicyTranslationError(f"alias entry {entry.alias!r} is invalid")
@@ -179,8 +191,11 @@ def translate_policy(
     resolved_ref: str,
     retrieved_at: str,
     rule_id_prefix: str = "azure-policy.translated",
-) -> TranslationResult:
-    """Translate one Azure Policy definition, or return a refusal with its reason."""
+) -> tuple[TranslationResult, ...]:
+    """Translate one definition into one result per mapped resource type branch.
+
+    A policy refused as a whole yields one refused result with its reason.
+    """
 
     name = str(definition.get("name") or "")
     try:
@@ -195,7 +210,7 @@ def translate_policy(
             rule_id_prefix=rule_id_prefix,
         )
     except _RefusedError as refused:
-        return TranslationResult(policy_name=name, status="refused", reason=refused.reason)
+        return (TranslationResult(policy_name=name, status="refused", reason=refused.reason),)
 
 
 def _translate(
@@ -208,7 +223,7 @@ def _translate(
     resolved_ref: str,
     retrieved_at: str,
     rule_id_prefix: str,
-) -> TranslationResult:
+) -> tuple[TranslationResult, ...]:
     properties = definition.get("properties")
     if not name or not isinstance(properties, Mapping):
         raise _RefusedError("malformed_definition")
@@ -220,12 +235,60 @@ def _translate(
     parameters = properties.get("parameters") or {}
     if not isinstance(parameters, Mapping):
         raise _RefusedError("malformed_definition")
-    context = _Context(alias_map=alias_map, parameters=parameters)
-    effect = context.literal(rule["then"].get("effect"))
+    effect = _Context(alias_map=alias_map, parameters=parameters).literal(
+        rule["then"].get("effect")
+    )
     if not isinstance(effect, str) or effect.casefold() not in _SEVERITY:
         raise _RefusedError("unsupported_effect")
-    resource_type, conditions = _split_type(rule.get("if"), context)
-    context.resource_type = resource_type
+    branches = _type_branches(_normalized(rule.get("if")), alias_map, parameters)
+    results: list[TranslationResult] = []
+    for provider_type, resource_type, conditions in branches:
+        context = _Context(alias_map=alias_map, parameters=parameters)
+        context.literal(rule["then"].get("effect"))
+        context.resource_type = resource_type
+        try:
+            results.append(
+                _branch(
+                    properties,
+                    name=name,
+                    effect=effect,
+                    context=context,
+                    conditions=conditions,
+                    provider_type=provider_type,
+                    resource_type=resource_type,
+                    suffix=resource_type if len(branches) > 1 else None,
+                    alias_map=alias_map,
+                    content_hash=content_hash,
+                    origin=origin,
+                    resolved_ref=resolved_ref,
+                    retrieved_at=retrieved_at,
+                    rule_id_prefix=rule_id_prefix,
+                )
+            )
+        except _RefusedError as refused:
+            results.append(
+                TranslationResult(policy_name=name, status="refused", reason=refused.reason)
+            )
+    return tuple(results)
+
+
+def _branch(
+    properties: Mapping[str, Any],
+    *,
+    name: str,
+    effect: str,
+    context: _Context,
+    conditions: Sequence[Any],
+    provider_type: str,
+    resource_type: str,
+    suffix: str | None,
+    alias_map: AliasMap,
+    content_hash: str,
+    origin: str,
+    resolved_ref: str,
+    retrieved_at: str,
+    rule_id_prefix: str,
+) -> TranslationResult:
     compiled = context.compile_all(conditions)
     if compiled.node is None:
         raise _RefusedError(compiled.reason or "unsupported_condition")
@@ -234,11 +297,12 @@ def _translate(
     if not compiled.requires:
         raise _RefusedError("no_observed_property")
     guid = name.casefold()
-    package_suffix = re.sub(r"[^a-z0-9]", "_", guid)
+    identity = guid if suffix is None else f"{guid}.{suffix}"
+    package_suffix = re.sub(r"[^a-z0-9]", "_", identity)
     # The OPA evaluator derives the package from the path, so both use Rego identifiers.
     reference = f"policies/azure_policy_candidates/p_{package_suffix}.rego"
     display = str(properties.get("displayName") or name)
-    rule_id = f"{rule_id_prefix}.{guid}"
+    rule_id = f"{rule_id_prefix}.{identity}"
     severity = _SEVERITY[effect.casefold()]
     rego = _rego(
         f"fdai.azure_policy_candidates.p_{package_suffix}",
@@ -295,6 +359,8 @@ def _translate(
     }
     translation = {
         "policy_name": name,
+        "provider_type": provider_type,
+        "resource_type": resource_type,
         "policy_content_hash": content_hash,
         "translator_digest": translator_digest(alias_map),
         "alias_map_digest": alias_map.digest,
@@ -384,6 +450,7 @@ class _Context:
             if wanted is None:
                 raise _RefusedError("malformed_condition")
             if entry.absence == "defaulted":
+                # A projected default can't be told apart from a present value.
                 raise _RefusedError("exists_on_defaulted_alias")
             present = entry.absence == "unobserved"
             requires = frozenset({entry.property}) if entry.property else frozenset()
@@ -395,7 +462,10 @@ class _Context:
         )
         if entry.absence == "defaulted":
             # A missing field is projected as its default, but Azure Policy compares it as absent.
-            raise _RefusedError("comparison_on_defaulted_alias")
+            # The two agree only when no literal equals the default.
+            literals = {_encode(entry.codec, value) for value in values}
+            if _encode(entry.codec, entry.default) in literals:
+                raise _RefusedError("comparison_on_defaulted_alias")
         negated = operator in {"notEquals", "notIn"}
         if entry.absence == "request_only":
             # Absent on every stored resource: equality never holds.
@@ -414,8 +484,23 @@ class _Context:
         )
 
 
-def _split_type(node: Any, context: _Context) -> tuple[str, list[Any]]:
-    members = node.get("allOf") if isinstance(node, Mapping) and "allOf" in node else [node]
+def _normalized(node: Any) -> Any:
+    """Return the condition with Azure Policy keys in their canonical case."""
+
+    if isinstance(node, Mapping):
+        return {
+            _KEYS.get(str(key).casefold(), key): _normalized(value) for key, value in node.items()
+        }
+    if isinstance(node, list):
+        return [_normalized(item) for item in node]
+    return node
+
+
+def _single_type(
+    members: Any, parameters: Mapping[str, Any], alias_map: AliasMap
+) -> tuple[str, list[Any]]:
+    """Split an ``allOf`` member list into its one ``type equals`` literal and the rest."""
+
     if not isinstance(members, list):
         raise _RefusedError("malformed_condition")
     types = [
@@ -425,11 +510,44 @@ def _split_type(node: Any, context: _Context) -> tuple[str, list[Any]]:
     ]
     if len(types) != 1 or set(types[0]) != {"field", "equals"}:
         raise _RefusedError("type_condition")
-    value = context.literal(types[0]["equals"])
-    resource_type = context.alias_map.resource_types.get(str(value).casefold())
-    if resource_type is None:
+    value = _Context(alias_map=alias_map, parameters=parameters).literal(types[0]["equals"])
+    if not isinstance(value, str) or not value:
+        raise _RefusedError("type_condition")
+    return value, [item for item in members if item is not types[0]]
+
+
+def _type_branches(
+    node: Any,
+    alias_map: AliasMap,
+    parameters: Mapping[str, Any],
+) -> list[tuple[str, str, list[Any]]]:
+    """Return ``(provider type, FDAI type, conditions)`` for every mapped type the policy pins."""
+
+    if isinstance(node, Mapping) and set(node) == {"anyOf"} and isinstance(node["anyOf"], list):
+        branches = [
+            _single_type(
+                item.get("allOf") if isinstance(item, Mapping) else None, parameters, alias_map
+            )
+            for item in node["anyOf"]
+        ]
+    else:
+        members = node.get("allOf") if isinstance(node, Mapping) and "allOf" in node else [node]
+        branches = [_single_type(members, parameters, alias_map)]
+    provider_types = [provider.casefold() for provider, _ in branches]
+    if len(set(provider_types)) != len(provider_types):
+        # Two branches for one type would have to be combined; refuse instead of choosing one.
+        raise _RefusedError("type_condition")
+    mapped = [
+        (provider, alias_map.resource_types[provider.casefold()], conditions)
+        for provider, conditions in branches
+        if provider.casefold() in alias_map.resource_types
+    ]
+    if not mapped:
         raise _RefusedError("unmapped_resource_type")
-    return resource_type, [item for item in members if item is not types[0]]
+    fdai_types = [item[1] for item in mapped]
+    if len(set(fdai_types)) != len(fdai_types):
+        raise _RefusedError("type_condition")
+    return mapped
 
 
 def _combine_and(members: list[_Compiled]) -> _Compiled:
@@ -561,7 +679,8 @@ class SnapshotTranslation:
             "resolved_ref": self.resolved_ref,
             "translator_digest": self.translator_digest,
             "alias_map_digest": self.alias_map_digest,
-            "definitions": len(self.results),
+            "definitions": len({item.policy_name for item in self.results}),
+            "results": len(self.results),
             "outcomes": dict(sorted(reasons.items())),
             "translated": sorted(item.policy_name for item in self.results if item.rule),
             "activation": "inert",
@@ -593,7 +712,7 @@ def translate_snapshot(
         if not name or name in seen:
             continue
         seen.add(name)
-        results.append(
+        results.extend(
             translate_policy(
                 document,
                 alias_map=alias_map,

@@ -59,6 +59,11 @@ def _definition(
 
 
 def _translate(definition: dict[str, Any]):
+    [result] = _translate_all(definition)
+    return result
+
+
+def _translate_all(definition: dict[str, Any]):
     return translate_policy(
         definition,
         alias_map=ALIASES,
@@ -188,6 +193,13 @@ def test_request_only_create_mode_is_absent_on_stored_vaults(tmp_path: Path) -> 
             "comparison_on_defaulted_alias",
         ),
         (
+            _definition(
+                {"field": f"{VAULT}/enablePurgeProtection", "in": ["true", "false"]},
+                resource_type=VAULT,
+            ),
+            "comparison_on_defaulted_alias",
+        ),
+        (
             _definition({"field": TLS, "notIn": ["[concat('TLS', '1_2')]", "TLS1_3"]}),
             "expression_literal",
         ),
@@ -251,3 +263,67 @@ def test_parameters_inside_lists_resolve_and_are_recorded() -> None:
     assert result.status == "translated"
     assert '{"tls1_2", "tls1_3"}' in result.rego
     assert result.translation["condition_parameters"] == ["tls"]
+
+
+AKS = "Microsoft.ContainerService/managedClusters"
+DEFENDER = f"{AKS}/securityProfile.defender.securityMonitoring.enabled"
+ENCRYPTION_AT_HOST = "Microsoft.Compute/virtualMachines/securityProfile.encryptionAtHost"
+
+
+@requires_opa
+def test_defaulted_alias_compares_when_no_literal_equals_the_default(tmp_path: Path) -> None:
+    # Azure Policy: an absent field is "notEquals true", so a cluster without Defender is
+    # non-compliant; the projection's documented default false reaches the same answer.
+    result = _translate(_definition({"field": DEFENDER, "notEquals": True}, resource_type=AKS))
+
+    assert result.status == "translated"
+    assert _evaluate(tmp_path, result, {"defender_security_monitoring_enabled": False})
+    assert not _evaluate(tmp_path, result, {"defender_security_monitoring_enabled": True})
+
+
+def test_type_branches_become_one_candidate_per_mapped_type() -> None:
+    definition = _definition({"field": HTTPS, "equals": "false"})
+    definition["properties"]["policyRule"]["if"] = {
+        "anyOf": [
+            {
+                "allOf": [
+                    {"field": "type", "equals": "Microsoft.Compute/virtualMachines"},
+                    {
+                        "field": ENCRYPTION_AT_HOST,
+                        "notEquals": "true",
+                    },
+                ]
+            },
+            {
+                "allOf": [
+                    {"field": "type", "equals": "Microsoft.Compute/virtualMachineScaleSets"},
+                    {"field": "Microsoft.Compute/virtualMachineScaleSets/x", "notEquals": "true"},
+                ]
+            },
+            {"allOf": [{"field": "type", "equals": STORAGE}, {"field": HTTPS, "equals": "false"}]},
+        ]
+    }
+
+    results = _translate_all(definition)
+
+    assert [item.status for item in results] == ["translated", "translated"]
+    assert {item.rule["resource_type"] for item in results} == {"compute.vm", "object-storage"}
+    assert all(item.rule["id"].endswith(item.rule["resource_type"]) for item in results)
+    assert {item.translation["provider_type"] for item in results} == {
+        "Microsoft.Compute/virtualMachines",
+        STORAGE,
+    }
+
+
+def test_repeated_type_branches_are_refused() -> None:
+    definition = _definition({"field": HTTPS, "equals": "false"})
+    branch = {"allOf": [{"field": "type", "equals": STORAGE}, {"field": HTTPS, "equals": "false"}]}
+    definition["properties"]["policyRule"]["if"] = {"anyOf": [branch, branch]}
+
+    assert _translate(definition).reason == "type_condition"
+
+
+def test_operator_keys_match_case_insensitively() -> None:
+    condition = {"anyof": [{"field": HTTPS, "EQUALS": "false"}]}
+
+    assert _translate(_definition(condition)).status == "translated"

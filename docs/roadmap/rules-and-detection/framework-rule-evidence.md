@@ -282,20 +282,19 @@ its FDAI property, a comparison codec, and what an absent ARM field means: `unob
   a constant false member, or an `anyOf` with a constant true member, is decided without it.
 - A candidate requires every property its decided conditions read, so a resource without an
   observed value abstains. Under that requirement an `exists` condition on an `unobserved` alias is
-  constant. A `defaulted` alias projects a missing field as its default, which Azure Policy
-  compares as absent, so no condition on it translates.
-- Strings compare case-insensitively. Parameters resolve only from defaults. Only the `Audit` and
-  `Deny` effects translate.
+  constant. A `defaulted` alias projects a missing field as its documented default, which Azure Policy
+  compares as absent, so a comparison on it translates only when no literal equals the default, and `exists` never does.
+- Strings and operator keys compare case-insensitively. Parameters resolve only from defaults. Only the `Audit` and
+  `Deny` effects translate. A policy whose top-level `anyOf` branches each pin one distinct type becomes one candidate per mapped type.
 - `scripts/catalog/translate-azure-policy-candidates.py` writes candidates and their Rego outside
   `rule-catalog/` and `policies/`. `scripts/deployment/local/run-azure-policy-differential.py`
   compares them with live compliance state through the real OPA evaluator. A candidate is eligible
-  for the quality gate only with no mismatch and at least one agreeing non-compliant resource.
+  for the quality gate only with no mismatch and at least one agreeing non-compliant resource; `--quality-gate` then replays it through the rule pipeline's shadow evaluation and regression gate.
 
-On the pinned snapshot, 6 of 3,658 definitions translate. The rest are refused, mostly for
+On the pinned snapshot, 9 of 3,658 definitions translate. The rest are refused, mostly for
 effects other than Audit or Deny (2,105), data-plane modes (977), and unmapped resource types
-(479). Against live compliance state on 2026-10-08, three candidates agreed on all 40 compared
-resources, all compliant, so none is eligible yet. One candidate's deployed definition version
-differs from the pinned snapshot, and two have no compliance state.
+(470). Against live compliance state on 2026-10-08, no candidate disagreed. AKS Defender profile
+(13 non-compliant clusters) and VM encryption at host (26 non-compliant VMs) agreed on every resource and passed the quality gate with no policy-violation escape; three others agreed only on compliant resources. They stay inert candidates until a catalog-as-code review adds them.
 
 ## Activation proposals
 
@@ -390,8 +389,8 @@ an extension can't be validated against a producer that never reaches `satisfied
   `inbound_security_rules` property, the complete inbound set with every protocol, port range or
   list, source prefix or list, and priority, and treat an exposure as blocked only by a
   higher-priority deny that covers the port for every source, source port, and destination. WAF SE:06 cites them as decisive
-  requirements and MCSB NS-8 as supporting bindings; each starts unactivated, so its requirement
-  stays `unknown` with `rule_not_activated` until an approved activation change adds it.
+  requirements and MCSB NS-8 as supporting bindings. An existing installation keeps its activation generation, so there the requirement
+  stays `unknown` with `rule_not_activated` until an approved activation change adds the Rule; a fresh installation without a profile activates the whole catalog at genesis.
   A subscription's `role_assignments` come from the complete `atScope()` listing, role
   definitions, Microsoft Graph user types including guests reached through groups, and Privileged
   Identity Management schedule instances. A tenant without the PIM license can't hold

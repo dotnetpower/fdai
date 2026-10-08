@@ -6,7 +6,7 @@ Usage:
         --snapshot-dir <collector snapshot dir> --output-dir <private work dir>
 
 The snapshot directory is the collector's ``rule-catalog/sources``-style output with
-``SNAPSHOT.json`` and ``tree/``. Candidates are written as ``candidates/<guid>.yaml`` with a
+``SNAPSHOT.json`` and ``tree/``. Candidates are written as ``candidates/<rule-id>.yaml`` with a
 ``.translation.json`` record, and their Rego at each candidate's ``check_logic`` reference. The
 output directory MUST be outside ``rule-catalog/`` and ``policies/``: candidates stay inert until
 a differential comparison and the Mimir quality gate admit them.
@@ -58,11 +58,11 @@ def main() -> int:
         if item.rule is None or item.rego is None or item.translation is None:
             continue
         Rule.model_validate(item.rule)
-        guid = item.policy_name.casefold()
-        (candidates / f"{guid}.yaml").write_text(
+        rule_id = str(item.rule["id"])
+        (candidates / f"{rule_id}.yaml").write_text(
             yaml.safe_dump(dict(item.rule), sort_keys=False), encoding="utf-8"
         )
-        (candidates / f"{guid}.translation.json").write_text(
+        (candidates / f"{rule_id}.translation.json").write_text(
             json.dumps(dict(item.translation), indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )
         rego_path = output / str(item.rule["check_logic"]["reference"])
