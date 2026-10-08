@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0.0",
+  "runtime_protocol_id": "typed-selection-runtime-shadow.v1",
+  "mode": "shadow",
+  "issue": "#2011",
+  "qualification": {
+    "protocol_id": "agreement-gated-pooled-qualification.v1",
+    "source_commit": "b1ac82a6b18ccc9700098c337235619e5becc7f1",
+    "model_capability": "t2.reasoner.primary",
+    "model_family": "gpt-5.6-sol",
+    "model_version": "2026-07-09",
+    "prompt_profile_id": "diagnostic.ontology-candidate-selection",
+    "prompt_profile_digest": "sha256:3766c69a7a0bb09371de96f59402e67b21c3fdcc9e417423d02418d3cf88065d",
+    "system_text_sha256": "03c92269c81aefce89b089c38880d2e0188e481b855663169d38ebce80af029a",
+    "reasoning_effort": "low",
+    "timeout_seconds": 20,
+    "max_tokens": 2048
+  },
+  "data_handling": {
+    "model_boundary": "in_tenant_azure_openai_deployment",
+    "egress": [
+      "operator_query_text",
+      "principal_authorized_ontology_documents",
+      "principal_manifest_predicate_catalogs"
+    ],
+    "credentials": "workload_identity_bearer_token_only",
+    "shadow_record_query_text": "digest_only",
+    "shadow_record_retention_rows": 2000,
+    "answer_authority": "none"
+  }
+}

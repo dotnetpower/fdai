@@ -94,12 +94,14 @@ class OntologyInstanceCandidateReader:
         max_prepared_documents: int = 20_000,
         semantic_search_available: bool = True,
         typed_selection_available: bool = False,
+        typed_selection_shadow: bool = False,
     ) -> None:
         if not 1 <= max_prepared_scopes <= 32 or not 1 <= max_prepared_documents <= 20_000:
             raise ValueError("ontology candidate cache capacity must be bounded")
         self._snapshots, self._vectors, self._policy = snapshots, vectors, ranking_policy
         self._semantic_search_available = semantic_search_available
         self._typed_selection_available = typed_selection_available
+        self._typed_selection_shadow = typed_selection_shadow
         self._max_scopes, self._max_documents = max_prepared_scopes, max_prepared_documents
         self._prepared: dict[_ScopeKey, _Prepared] = {}
         self._preparing: dict[_ScopeKey, object] = {}
@@ -208,6 +210,54 @@ class OntologyInstanceCandidateReader:
         selection: OntologyCandidateSelection | None = None,
     ) -> OntologyCandidateSearchResult:
         """Return current authorized facts or hold on any stale candidate binding."""
+        return await self._search(
+            query,
+            staged=staged,
+            manifest=manifest,
+            gateway=gateway,
+            as_of=as_of,
+            limit=limit,
+            selection=selection,
+            typed_permitted=self._semantic_search_available and self._typed_selection_available,
+        )
+
+    async def shadow_select(
+        self,
+        query: str,
+        *,
+        staged: OntologyStagedProjection,
+        manifest: QueryManifest,
+        gateway: SecuredObjectSetQueryGateway,
+        as_of: datetime,
+        selection: OntologyCandidateSelection,
+        limit: int = 20,
+    ) -> OntologyCandidateSearchResult:
+        """Verify typed membership for shadow evidence only; never enables answer ranking."""
+        if not self._typed_selection_shadow:
+            raise ValueError("ontology instance typed selection shadow is not enabled")
+        return await self._search(
+            query,
+            staged=staged,
+            manifest=manifest,
+            gateway=gateway,
+            as_of=as_of,
+            limit=limit,
+            selection=selection,
+            typed_permitted=True,
+        )
+
+    async def _search(
+        self,
+        query: str,
+        *,
+        staged: OntologyStagedProjection,
+        manifest: QueryManifest,
+        gateway: SecuredObjectSetQueryGateway,
+        as_of: datetime,
+        limit: int,
+        selection: OntologyCandidateSelection | None,
+        typed_permitted: bool,
+    ) -> OntologyCandidateSearchResult:
         if not query.strip() or len(query.encode("utf-8")) > 16_384 or not 1 <= limit <= 100:
             raise ValueError("ontology candidate query and result limit must be bounded")
         scope = _scope_key(manifest)
@@ -233,7 +283,7 @@ class OntologyInstanceCandidateReader:
                 or document.rule_id in exact_tokens
             )
             if selection is not None:
-                if not self._semantic_search_available or not self._typed_selection_available:
+                if not typed_permitted:
                     raise ValueError("ontology instance typed selection is not qualified")
                 resolved = await resolve_candidate_selection(
                     selection=selection,

@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-retrieval-diagnostics.md
-translation_source_sha: 17b353790034deb8b9c3d007dfa45121affae001
+translation_source_sha: e85feae41d3c935782fbfeef8ccf2d7109e30c08
 translation_revised: 2026-10-08
 ---
 
@@ -357,6 +357,38 @@ v3에서 1번, 홀드아웃 v5b에서 2번), 같은 자리의 재실행은 모�
 
 보고서의 `production_qualification`과 `execution_authority`는 계속 `False`입니다. 통과는 진단 방법의
 자격만 인정하며, 런타임 활성화, 지연 시간 자격 검증, 사람 승인 게이트는 바뀌지 않습니다.
+
+## 런타임 shadow 캠페인 실행
+
+[typed_selection_runtime_campaign.py](../../scripts/evaluation/typed_selection_runtime_campaign.py)는
+정확한 런타임 `shadow` 경로에서 사전 등록한 프로토콜 `typed-selection-runtime-latency.v1`과
+`typed-selection-runtime-window.v1`을 판정합니다. 두 프로토콜은
+[온톨로지 조회 커버리지 설계](../roadmap/interfaces/ontology-query-coverage-implementation-plan-ko.md#런타임-타입-인스턴스-선택)에
+정의되어 있습니다.
+
+1. 병합된 정확한 커밋을 깨끗한 작업 트리에 체크아웃합니다. 실행기는 추적 파일이 변경된 트리를
+   거부하고 `HEAD`를 기록합니다.
+2. 먼저 모의 캠페인을 실행합니다. 모의 캠페인은 인증이나 네트워크 없이 실제 어댑터 요청 경로를
+   거쳐 정답 레이블로 응답합니다.
+
+   ```bash
+   uv run python scripts/evaluation/typed_selection_runtime_campaign.py \
+     --fake --evidence-dir <private-dir> --label fake-<commit>
+   ```
+
+3. 실제 실행 승인을 명시적으로 받은 뒤, 해석된 모델을 지정하는 로컬 런타임 환경 파일로 실제
+   캠페인을 실행합니다. 실행기는 해석된 모델의 계열이나 버전이 검토된 고정값과 다르면 거부합니다.
+
+   ```bash
+   uv run python scripts/evaluation/typed_selection_runtime_campaign.py \
+     --runtime-env <local-runtime-env> --evidence-dir <private-dir> --label live-<commit>
+   ```
+
+실제 캠페인은 90분 안에서 최대 512번의 제안 호출을 하며 재시도하지 않습니다. 제공자 사용 불가
+관찰이 세 번 연속되거나 사용 불가 관찰이 다섯 번을 넘으면 중단합니다. 결정 행과 요약은 권한
+0600으로 배타적으로 생성하고, 표준 출력에는 집계 수치만 출력합니다. 종료 코드 `0`은 두 프로토콜
+통과, `1`은 프로토콜 실패, `2`는 품질 결과 없이 캠페인 중단을 뜻합니다. 보고서는 운영 품질
+자격이나 실행 권한을 부여하지 않습니다.
 
 ## 테스트
 
