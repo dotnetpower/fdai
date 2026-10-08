@@ -232,6 +232,7 @@ jobs:
           while IFS=$'\t' read -r root_id terraform_root backend_key; do
             service="${root_id#service:}"
             resolved_model_args=()
+            service_feature_args=()
             source_revision_binding=""
             if [[ "$service" == "core-control-plane" ]]; then
               resolved_model_args+=(--model-binding-transition)
@@ -255,6 +256,14 @@ jobs:
               -backend-config="key=$backend_key" \
               -backend-config="use_azuread_auth=true"
             terraform -chdir="$terraform_root" show -json >"$work/vars/$service-state.json"
+            if [[ "$service" == "operator-service" ]]; then
+              channel_edge_enabled="$(
+                jq -r '.values.outputs.channel_edge_health_contract.value != null' \
+                  "$work/vars/$service-state.json"
+              )"
+              [[ "$channel_edge_enabled" == "true" || "$channel_edge_enabled" == "false" ]]
+              service_feature_args+=(--operator-channel-edge-enabled "$channel_edge_enabled")
+            fi
             image_ref="$(python3 scripts/deployment/service/drift_contract.py stored-image \
               --service "$service" \
               --environment "$ENVIRONMENT" \
@@ -278,6 +287,7 @@ jobs:
                 python3 scripts/deployment/service/materialize_tfvars.py \
                   --service "$service" \
                   --environment "$ENVIRONMENT" \
+                  "${service_feature_args[@]}" \
                   "${resolved_model_args[@]}" \
                   --output "$work/vars/$service.tfvars.json"
             terraform -chdir="$terraform_root" plan -refresh-only -input=false -lock-timeout=5m \

@@ -11,8 +11,11 @@ import json
 import os
 import sys
 from collections.abc import Callable, Sequence
+from datetime import timedelta
 from functools import partial
 from pathlib import Path
+
+from fdai_deployment_cli.lifecycle_plan import SuppressionWindow
 
 from fdai_lifecycle_hub import domain, schemas
 from fdai_lifecycle_hub.catalog import load_catalog
@@ -56,6 +59,17 @@ def _parser() -> argparse.ArgumentParser:
     record_state = command("record-state", _record_state, "record a reported-state snapshot")
     record_state.add_argument("installation_id")
     record_state.add_argument("path", type=Path)
+
+    suppress = command("suppress", _suppress, "hold Plans for a scope, starting now")
+    suppress.add_argument("installation_id")
+    suppress.add_argument(
+        "--scope", default="installation", help="installation, entity:<id>, or plan:<type>"
+    )
+    suppress.add_argument("--minutes", type=int, default=60)
+
+    unsuppress = command("unsuppress", _unsuppress, "lift the active suppressions for a scope")
+    unsuppress.add_argument("installation_id")
+    unsuppress.add_argument("--scope", default="installation")
 
     recompute = command("recompute", _recompute, "plan the next Release for an installation")
     recompute.add_argument("installation_id")
@@ -105,6 +119,22 @@ def _record_state(args: argparse.Namespace) -> int:
     state = schemas.reported_state_json.validate_json(args.path.read_bytes())
     _store().record_state(args.installation_id, state, now=domain.utc_now())
     _print({"recorded": state.digest})
+    return 0
+
+
+def _suppress(args: argparse.Namespace) -> int:
+    if args.minutes < 1:
+        raise ValueError("--minutes must be at least 1")
+    now = domain.utc_now()
+    window = SuppressionWindow(args.scope, now, now + timedelta(minutes=args.minutes))
+    _store().add_suppression(args.installation_id, window, now=now)
+    _print({"suppressed": window.scope, "until": window.ends_at.isoformat()})
+    return 0
+
+
+def _unsuppress(args: argparse.Namespace) -> int:
+    _store().lift_suppressions(args.installation_id, args.scope, now=domain.utc_now())
+    _print({"lifted": args.scope})
     return 0
 
 

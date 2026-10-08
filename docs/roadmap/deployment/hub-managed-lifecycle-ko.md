@@ -1,8 +1,8 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: f05343abe597fc26440652a835f2df13232528e0
-translation_revised: 2026-10-07
+translation_source_sha: d308204fc7514a9449e554c55cb106fc314d9546
+translation_revised: 2026-10-08
 ---
 # Hub 관리형 수명 주기
 
@@ -488,17 +488,23 @@ Customer C의 온프레미스 런타임과 로컬 모델에는 별도 승인과 
 | `entity` | `installation_id`, `entity_id` | 종류, 관리 여부, 설정 개정 | `effective_from`, `recorded_at` | 개정 관리 |
 | `entity_reported_state` | `installation_id`, `entity_id`, `observed_at` | 버전, 다이제스트, 상태, 에이전트 하위 상태 | `observed_at`, `recorded_at` | 추가 전용 |
 | `lifecycle_plan` | `plan_id` | 유형, 목표 Release, 구성 개정, 효과 경계, 만료 | `created_at`, `issued_at`, `expires_at` | 상태 변경은 `lifecycle_plan_event`에 기록 |
-| `plan_constraint_result` | `plan_id`, `constraint` | 결과와 사유 | `evaluated_at` | 추가 전용 |
+| `plan_evaluation` | `evaluation_id` | 재계산 한 번의 결과, 대상 릴리스, 발급한 Plan(있는 경우) | `evaluated_at` | 추가 전용 |
+| `plan_constraint_result` | `evaluation_id`, 후보 릴리스, `constraint` | 결과와 사유 | `evaluated_at` | 추가 전용 |
 | `plan_execution_report` | `plan_id`, `attempt` | 정확한 계획 다이제스트, 정리된 요약, 결과 | `reported_at` | 추가 전용 |
 | `lifecycle_command` | `command_id` | 범위와 실행자가 있는 억제, 권한 하향, 비상 해제 명령 | `starts_at`, `expires_at`, `recorded_at` | 철회 가능 |
 | `hub_audit` | `sequence` | 모든 Hub 변경의 해시 체인 기록 | `recorded_at` | 추가 전용 |
+
+대기하거나 적격 릴리스가 없는 재계산은 Plan을 발급하지 않으므로, 제약 결과는 Plan이 아니라 재계산에
+속합니다.
 
 Release 테이블은 [Lifecycle Release와 채널](lifecycle-releases-and-channels-ko.md)이, 구성 테이블은
 [수명 주기 구성](lifecycle-configuration-ko.md)이 소유합니다.
 
 ## 현재 한계
 
-- 이 문서의 어떤 내용도 아직 구현되지 않았습니다.
+- 현재 동작하는 것은 Lifecycle Hub의 Plan 계산, 저장, 에이전트 API뿐이며 loopback에서 관찰 모드(shadow
+  mode)로 실행됩니다([Lifecycle Hub](../../../lifecycle/hub/README.md)). 이 문서의 나머지 내용은 설계만
+  있습니다.
 - Terraform 밖의 워크로드 렌더링은 [워크로드 렌더링 마이그레이션](#워크로드-렌더링-마이그레이션)에
   설계되어 있습니다. 에이전트 렌더러, 렌더링 동등성 테스트, 소유 이전은 아직 구현되지 않았습니다.
 - 에이전트와 Target Hub의 두 슬롯 자체 업그레이드에는 별도의 실패 분석이 필요합니다.
