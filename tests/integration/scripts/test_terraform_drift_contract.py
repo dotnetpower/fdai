@@ -264,12 +264,18 @@ def test_workflow_plans_every_production_root() -> None:
     assert 'COST_PSEUDONYM_KEY_SECRET_ID="$cost_pseudonym_binding"' in workflow
     assert "Platform state has no Cost pseudonym key binding for $root_id." in workflow
     assert "resolved_model_args+=(--model-binding-transition)" in workflow
+    assert "service_feature_args+=(--operator-channel-edge-enabled" in workflow
+    assert ".values.outputs.channel_edge_health_contract.value != null" in workflow
+    assert '"${service_feature_args[@]}"' in workflow
     assert '"${resolved_model_args[@]}"' in workflow
     assert "terraform -chdir=infra show -json" in workflow
     assert "platform-output-inputs" in workflow
     assert '-var-file="$plan_inputs" -detailed-exitcode' in workflow
     assert "No semantic drift: legacy" in workflow
     assert "refresh_drift_digest.py summarize" in workflow
+    assert "service_feature_args+=(--operator-channel-edge-enabled" in workflow
+    assert ".values.outputs.channel_edge_health_contract.value != null" in workflow
+    assert '"${service_feature_args[@]}"' in workflow
     assert "database_host=\"$(jq -er '.database_host'" in workflow
     assert "event_topic=\"$(jq -er '.event_topic'" in workflow
     assert "pipeline_stage_topic=\"$(jq -er '.pipeline_stage_topic'" in workflow
