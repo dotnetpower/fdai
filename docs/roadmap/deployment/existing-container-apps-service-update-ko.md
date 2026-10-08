@@ -1,6 +1,6 @@
 ---
 translation_of: existing-container-apps-service-update.md
-translation_source_sha: 2145ce60628fa3e38f4ba702b41d5b330857a08b
+translation_source_sha: f12d5f02475dbb91f7432bcb764aeff5c801b90c
 translation_revised: 2026-10-08
 ---
 # 기존 Container Apps 서비스 업데이트
@@ -36,6 +36,9 @@ Manager readback, 저장된 플랜 적용 및 복구에만 적격한 내부 배�
   및 Cost Governance 가명화 시크릿 참조를 갱신합니다.
 - **Peer 격리:** 복구 입력에서 별도 상태를 사용하는 채널 edge를 제외하고 주 Operator Container
   App만 대상으로 지정합니다. 다른 리소스 변경은 플랜 가드가 차단합니다.
+- **표류 입력 복구:** 예약 및 검토된 새로 고침 계획은 현재 `channel_edge_health_contract`
+  출력을 읽고 정확한 채널 edge 활성화 또는 비활성화 입력을 재현합니다. 리포지토리 기본값에서
+  edge 활성화를 추론하지 않습니다.
 - **안전한 차단:** 라이브 바인딩과 플랫폼 바인딩이 다르거나 신원이 없거나 시크릿 참조가 잘못됐거나
   현재 이미지가 digest에 고정되지 않으면 중단합니다.
 
