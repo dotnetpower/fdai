@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 9767551117a07a8d7e34d540b84dbaaeeb0ce404
+translation_source_sha: 4b1a7d48ecbb4398f252b0acf08d6041d1da789f
 translation_revised: 2026-10-08
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -89,6 +89,7 @@ Operator는 최종 결과의 검증과 영속 저장이 완료된 뒤 대기 중
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-08 | 구현됨 | 답변을 계획하는 동안 작업 패널이 흔들리지 않게 했습니다. 실행 중인 활동은 상세 패널을 열었기 때문에 실행 중인 모델 호출마다 행 이상의 근거가 없는 수명주기 패널이 표시되었고, 상태도 제목 옆과 메타 열에 두 번 나타났습니다. 이제 모델 호출 행은 하나의 정적 행으로 표시되고 모든 행은 상태를 한 번만 표시합니다. 작업 머리글은 `deck-transcript` 컨테이너 폭을 따르므로 넓은 화면에 도킹한 패널에서 줄바꿈되어 펼침 화살표가 혼자 남지 않습니다. | `current change`; `console/src/deck/investigation-timeline.tsx`와 테스트, `console/src/styles.css`; `npx vitest run src/deck src/shared-style-tokens.test.ts`(1098개 통과); Console 타입 검사; 로컬 Console 1440x900에서 실행 중 턴 동안 상세 패널이 열리지 않았고, 모델 호출 상태 표시가 다른 행과 같은 x 위치에 정렬되었으며, 도킹한 401px 머리글은 실행 중과 정착 후 모두 넘침 없이 그리드로 표시되었고, 전체 작업 영역은 한 줄 44px 머리글을 유지했으며, 390x844에서도 넘침이 없었음. | 이 배치 수정에 남은 작업은 없습니다. |
 | 2026-10-08 | 구현됨 | 계획 단계 모델 호출만 관측된 동안 작업 패널을 실행 중으로 유지했습니다. 두 호출 사이에는 모든 활동이 정착한 것처럼 보이고 계획도 아직 고정되지 않아, Console이 계획 도중 답변 초안을 열고 패널을 `0 ms`의 `Partial`로 정착시켰습니다. 이제 고정 계획 없이 모델 호출만 있는 작업은 읽기, 토큰, 검증된 최종 응답 중 하나가 도착할 때까지 열려 있습니다. | `current change`; `console/src/deck/investigation-turn-state.ts`와 테스트; `npx vitest run src/deck`(1090개 통과); Console 타입 검사; 로컬 Console 턴이 모델 호출 8개 동안 실행 중을 유지하고 6.9초에 Verified 4/4로 정착함. | 이 대기 조건 수정에 남은 작업은 없습니다. |
 | 2026-10-08 | 구현됨 | 의미 계획 단계의 각 모델 호출을 실시간 `model_call` 활동으로 스트리밍해, 첫 읽기 전 대기 동안 "답변 경로를 확인하는 중"만 보이는 대신 단계, 배포, 경과 시간, 결과가 보이게 했습니다. Core는 공유 제공자 호출 관문을 통해 호출을 `semantic-model-call-progress` `1.0.0`으로 보고하고, Operator는 이를 실시간 전용 활동으로 전달하며, Console은 `MODEL` 배지를 붙이고 표시 밀도와 읽기 수에서 제외합니다. 보고는 로컬 실행기에서 켜지고 그 밖의 환경에서는 기본적으로 꺼집니다. | `current change`; `semantic_model_call_progress.py`와 `1.0.0` 스키마; Core `model_call_progress.py`, `adaptive_call_scope.py`, `semantic_turn_consumer.py`; Operator `semantic_progress_relay.py`, `semantic_turn_runtime.py`, `semantic_model_call_presentation.py`; `console/src/deck/conversation-trajectory-presentation.ts`, `investigation-timeline.tsx`; 계약, Core, Operator, Console 집중 테스트 통과; 로컬 Console 턴에서 검증된 읽기 2개 앞에 완료된 모델 호출 행 7개가 표시됨. | 진행 토픽을 소비하는 모든 Operator가 이 레코드를 이해한 뒤 배포 환경에서 보고를 켭니다. |
 | 2026-10-08 | 구현됨 | 토큰 프레임 없이 도착한 최종 답변의 공개 연출을 최대 60프레임에서 최대 24프레임으로 줄였습니다. 전체 답변은 이미 도착했고, 1초 동안의 재생이 측정된 턴 지연에 더해졌기 때문입니다. 공개 결과는 여전히 정본 텍스트와 바이트 단위로 같고, 숨겨진 탭과 모션 감소 설정은 계속 즉시 완료됩니다. | `current change`; `console/src/deck/stream-paint.ts`; `npx vitest run src/deck/stream-paint.test.ts`(17개 통과). | 이 표시 속도 변경에 남은 작업은 없습니다. |
@@ -604,7 +605,8 @@ Console은 실시간 고정 형태와 저장된 필드를 다음 규칙으로 �
   실패는 턴에 영향을 주지 않습니다.
 - **스트림.** Operator는 각 갱신을 종류가 `model_call`인 `activity`로 스트리밍하며, 지역화한 단계 라벨과
   배포 이름 및 경과 시간을 세부 정보로 붙입니다. Console은 이 행에 `EVENT` 대신 `MODEL` 배지를
-  붙입니다. 이 활동은 실시간 전용입니다. 궤적 세부 정보에 저장되지 않고, 읽기로 세지 않으며, 표시
+  붙이고, 상태 라벨이 하나뿐인 정적 행으로 표시합니다. 행에 이미 단계, 배포, 경과 시간, 결과가 있으므로
+  수명주기 패널을 열지 않습니다. 이 활동은 실시간 전용입니다. 궤적 세부 정보에 저장되지 않고, 읽기로 세지 않으며, 표시
   밀도를 바꾸지 않습니다. 계획이 고정되지 않은 채 모델 호출만 관측된 동안에는 Console이 호출 사이에도
   작업 패널을 실행 중으로 유지하므로, 읽기, 토큰, 검증된 최종 응답 중 하나가 도착하기 전에는 답변 초안을
   열지 않습니다.
@@ -619,6 +621,8 @@ Console은 실시간 고정 형태와 저장된 필드를 다음 규칙으로 �
 | 앞서 일어난 모델 호출이 8개 활동 한도에서 조회 읽기를 밀어낼 수 있음 | 모델 호출 활동은 실시간 전용이며 저장된 궤적 세부 정보에 들어가지 않음 |
 | 읽기가 아닌 단계가 간결한 답변을 타임라인으로 바꿀 수 있음 | Console은 `model_call` 활동을 표시 밀도와 읽기 수에서 제외함 |
 | 버전이 섞인 배포가 실패 큐를 채울 수 있음 | Operator가 이 레코드를 이해할 때까지 배포 환경에서는 보고를 끔 |
+| 실행 중인 행마다 수명주기 패널이 열리고 상태가 두 번 표시되어, 병렬 호출 여러 개가 대화 화면을 밀어냄 | 모델 호출 행은 패널을 열지 않고 상태를 한 번만 표시함 |
+| 작업 머리글이 뷰포트 폭을 따라, 넓은 화면에 도킹한 패널에서 줄바꿈되고 펼침 화살표가 혼자 남음 | 머리글이 대화 컨테이너 폭을 따름 |
 | 모델 호출 사이의 공백이 작업 완료처럼 보여 계획 도중 답변 초안이 열리고 패널이 부분 완료로 정착함 | 고정 계획 없이 모델 호출만 있는 작업은 읽기, 토큰, 검증된 최종 응답이 올 때까지 열어 둠 |
 
 ## 지표

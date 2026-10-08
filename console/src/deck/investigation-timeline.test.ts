@@ -276,6 +276,10 @@ describe("upsertEvidenceBranch", () => {
     expect(component).toContain("deck-branch-badge");
     expect(component).toContain('"is-query" : "is-tool"');
     expect(component).toContain('activity.kind === "model_call" ? "MODEL" : "EVENT"');
+    // A model call renders one static row: no disclosure, no lifecycle panel, one status label.
+    expect(component).toContain('<div class="deck-investigation-item-static">');
+    expect(component).toContain("const meta = modelCall");
+    expect(component).toContain("{!metaNamesStatus &&");
     expect(component).toContain("executionKindLabel(activity.execution");
     expect(component).toContain('evidence.tool.includes("Azure Resource Graph")');
     expect(component).toContain('evidence.tool === "Azure CLI"');

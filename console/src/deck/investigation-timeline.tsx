@@ -13,6 +13,7 @@ import type {
 import type { ContextReceipt, TurnBudgetTelemetry, WorkProgressShape } from "./backend-types";
 import { ContextReceiptDisclosure, plannedWorkText, TurnBudgetLimits } from "./investigation-roles";
 import { formatJsonValue } from "./json-code-block";
+import { isModelCallStep } from "./conversation-trajectory-presentation";
 import { inventoryExecutionDisplay } from "./inventory-execution-display";
 
 /** How a read that never reported an end reads once its panel stops running. */
@@ -545,10 +546,15 @@ function ActivitySummary({
   const progress = activity.completed !== null && activity.total !== null
     ? `${activity.completed}/${activity.total}`
     : null;
-  const metaNamesStatus = activity.execution?.durationMs === undefined && progress === null;
-  const meta = activity.execution?.durationMs !== undefined
-    ? formatDuration(activity.execution.durationMs)
-    : progress ?? statusLabel(status);
+  // A model-call step already states its deployment, elapsed time, and outcome in its detail.
+  const modelCall = isModelCallStep(activity);
+  const metaNamesStatus = !modelCall &&
+    activity.execution?.durationMs === undefined && progress === null;
+  const meta = modelCall
+    ? null
+    : activity.execution?.durationMs !== undefined
+      ? formatDuration(activity.execution.durationMs)
+      : progress ?? statusLabel(status);
   const inventoryDisplay = activity.execution?.inputKind === "query"
     ? inventoryExecutionDisplay(activity.execution.command)
     : undefined;
@@ -582,16 +588,18 @@ function ActivitySummary({
       <span class="deck-investigation-copy">
         <span class="deck-investigation-title-line">
           <strong>{activity.label}</strong>
-          {status === "running" || status === "pending" ||
-            (status !== activity.status && !metaNamesStatus) ? (
+          {!metaNamesStatus &&
+            (status === "running" || status === "pending" || status !== activity.status) ? (
             <em>{statusLabel(status)}</em>
           ) : null}
         </span>
         {activity.detail ? <small>{activity.detail}</small> : null}
       </span>
-      <span class="deck-investigation-meta muted">
-        {meta}
-      </span>
+      {meta !== null ? (
+        <span class="deck-investigation-meta muted">
+          {meta}
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -801,6 +809,12 @@ export function InvestigationTimeline({
             const status = activityDisplayStatus(activity, interruption);
             return (
               <li key={activity.activityId} class={`deck-investigation-item is-${status}`}>
+                {isModelCallStep(activity) ? (
+                  // A model call has no execution evidence to disclose; its row is the whole record.
+                  <div class="deck-investigation-item-static">
+                    <ActivitySummary activity={activity} status={status} />
+                  </div>
+                ) : (
                 <details
                   class="deck-investigation-item-disclosure"
                   open={running && (activity.status === "running" || index === activities.length - 1)}
@@ -815,6 +829,7 @@ export function InvestigationTimeline({
                     />
                   ) : <ActivityObservation activity={activity} status={status} />}
                 </details>
+                )}
               </li>
             );
           })}

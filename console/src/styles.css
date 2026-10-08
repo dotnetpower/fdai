@@ -9919,6 +9919,54 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 .deck-investigation.is-answer-settled .deck-investigation-head {
   padding-bottom: 0;
 }
+/* A docked or floating deck is narrow on a wide viewport, so the work header follows the
+   transcript width rather than the viewport: the wrapped flex row otherwise strands the
+   disclosure chevron on its own line. */
+@container deck-transcript (max-width: 560px) {
+  .deck-investigation .deck-investigation-head {
+    display: grid;
+    grid-template-columns: 16px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 2px 7px;
+  }
+  .deck-investigation .deck-investigation-head > .deck-investigation-state {
+    grid-column: 1;
+    grid-row: 1 / span 2;
+  }
+  .deck-investigation .deck-investigation-session-copy {
+    grid-column: 2;
+    grid-row: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+  }
+  .deck-investigation .deck-investigation-session-copy > strong { white-space: nowrap; }
+  .deck-investigation .deck-investigation-readonly {
+    grid-column: 2;
+    grid-row: 2;
+    justify-self: start;
+  }
+  .deck-investigation .deck-investigation-badge {
+    grid-column: 3;
+    grid-row: 1 / span 2;
+    margin-left: 0;
+  }
+  .deck-investigation .deck-investigation-session-summary {
+    grid-column: 2;
+    grid-row: 3;
+    min-width: 0;
+  }
+  .deck-investigation > summary.deck-investigation-head::after {
+    grid-column: 3;
+    grid-row: 3;
+    justify-self: center;
+  }
+  .deck-investigation .deck-investigation-turn-facts {
+    grid-column: 2 / -1;
+    padding-left: 0;
+  }
+}
 .deck-investigation-session-copy {
   min-width: 0;
   display: inline-flex;
@@ -10297,6 +10345,14 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
 }
 .deck-investigation-item-disclosure .deck-investigation-summary {
   padding: 5px 26px 5px 8px;
+  border-radius: 7px;
+}
+.deck-investigation-item-static {
+  position: relative;
+  min-width: 0;
+}
+.deck-investigation-item-static .deck-investigation-summary {
+  padding: 5px 8px;
   border-radius: 7px;
 }
 .deck-investigation-item-disclosure > summary:hover .deck-investigation-summary,
