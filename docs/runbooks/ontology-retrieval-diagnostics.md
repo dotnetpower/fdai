@@ -405,6 +405,11 @@ unavailable reasons and the content-free adapter failure classes: failure type, 
 provider error code, and validation stage. A report never grants production qualification or
 execution authority.
 
+The qualifying campaign on merged `5298a2d450` passed both protocols: 256 decisions, 0 wrong
+selections, correct rate 0.984 (en) and 1.0 (ko), gated p95 3.82 s, and no foreground regression.
+The [design](../roadmap/interfaces/ontology-query-coverage-implementation-plan.md#runtime-typed-instance-selection)
+records every attempt.
+
 ## Testing
 
 ```bash
