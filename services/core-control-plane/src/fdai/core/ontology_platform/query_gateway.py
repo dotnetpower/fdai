@@ -353,8 +353,15 @@ class SecuredObjectSetQueryGateway:
         definition: ObjectSetDefinition,
         *,
         projection_request: ProjectionRequest,
+        state_overlay: Mapping[str, Mapping[str, Any]] | None = None,
     ) -> SecuredObjectSetQueryResult:
-        """Return a purpose-narrowed ACL projection and no-authority receipt."""
+        """Return a purpose-narrowed ACL projection and no-authority receipt.
+
+        ``state_overlay`` replaces the nested provider properties of the named Resources before
+        security projection, link closure, redaction accounting, and receipt construction, so an
+        authoritative live state fact is secured exactly like a graph fact. Every named Resource
+        must be present in an untruncated result.
+        """
 
         effective_request, observation_cutoff = self._prepare_current_request(
             purpose=definition.purpose,
@@ -388,6 +395,8 @@ class SecuredObjectSetQueryGateway:
             ):
                 raise PermissionError("object-set traversal roots are not authorized")
         materialization, population = await self._service.materialize_with_population(definition)
+        if state_overlay:
+            materialization = _apply_state_overlay(materialization, state_overlay)
         if (
             roots is not None
             and roots.source_generation is not None
@@ -733,3 +742,27 @@ __all__ = [
     "SecuredObjectSetQueryResult",
     "UnsupportedObjectSetAsOfError",
 ]
+
+
+def _apply_state_overlay(
+    materialization: ObjectSetMaterialization,
+    overlay: Mapping[str, Mapping[str, Any]],
+) -> ObjectSetMaterialization:
+    """Replace named Resources' nested provider properties in an untruncated result."""
+
+    if materialization.truncated:
+        raise ValueError("a state overlay applies only to an untruncated object set")
+    graph = materialization.graph
+    present = {record.id for record in graph.objects}
+    if not set(overlay) <= present:
+        raise ValueError("a state overlay names a Resource outside the object set")
+    objects = tuple(
+        replace(
+            record,
+            properties={**record.properties, "properties": dict(overlay[record.id])},
+        )
+        if record.id in overlay
+        else record
+        for record in graph.objects
+    )
+    return materialization.model_copy(update={"graph": replace(graph, objects=objects)})

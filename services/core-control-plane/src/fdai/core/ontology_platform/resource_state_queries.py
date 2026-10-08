@@ -19,6 +19,7 @@ from fdai.core.ontology_platform.functions import (
     ContextualOntologyFunction,
     FunctionInvocationContext,
 )
+from fdai.core.ontology_platform.pending_state_coverage import coverage_admits
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryResult
 from fdai.core.ontology_platform.query_values import QueryRow, QueryTable
 from fdai.shared.contracts.models import (
@@ -118,6 +119,9 @@ def resource_state_function_type() -> OntologyFunctionType:
                 },
                 # List mode returns one row for every input Resource, never omitting one.
                 "list_members": {"type": "boolean"},
+                # Injected by the function handler from a durable composite receipt; a plan can
+                # never supply it, because dependency-only arguments cannot be static.
+                "pending_state_coverage": {"type": "object", "x-fdai-dependency-only": True},
             },
         },
         output_schema={
@@ -170,6 +174,9 @@ def resource_state_inventory_function(
             raise PermissionError("resource-state purpose does not match invocation context")
         secured = SecuredObjectSetQueryResult.model_validate(arguments["query_result"])
         scope_incomplete = secured.receipt.truncated or not secured.receipt.complete
+        if scope_incomplete and coverage_admits(arguments.get("pending_state_coverage"), secured):
+            # Authoritative live facts cover every pending same-type update in this exact result.
+            scope_incomplete = False
         requested = frozenset(str(item) for item in arguments["state_concepts"])
         include_all_observed = requested == {RESOURCE_STATE_OBSERVED_CONCEPT}
         list_members = arguments.get("list_members") is True

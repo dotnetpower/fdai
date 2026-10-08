@@ -135,7 +135,8 @@ class AzureArmExactStateReader:
                 headers={"Authorization": f"Bearer {token.token}"},
                 timeout=timeout_seconds,
             )
-        except (httpx.HTTPError, TimeoutError) as exc:
+        except (httpx.HTTPError, TimeoutError, RuntimeError) as exc:
+            # Identity adapters report token failures as RuntimeError; no reading is proven.
             raise ExactResourceStateUnavailableError("ARM state read is unavailable") from exc
         if response.status_code == 429 or response.status_code >= 500:
             raise ExactResourceStateUnavailableError(

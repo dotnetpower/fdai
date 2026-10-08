@@ -24,6 +24,7 @@ from fdai.core.ontology_platform.kubernetes_pod_diagnosis_queries import (
     KubernetesPodLogEvidenceReader,
 )
 from fdai.core.ontology_platform.pattern_queries import OperatingPatternQuery
+from fdai.core.ontology_platform.pending_state_coverage import PendingStateSources
 from fdai.core.ontology_platform.property_values import PropertyValueDomain
 from fdai.core.ontology_platform.recent_resource_changes import RecentResourceChangeReader
 from fdai.core.ontology_platform.resource_event_queries import ResourceEventCollectionReader
@@ -114,6 +115,7 @@ def compose_azure_semantic_query_runtime(
     adaptive_model_factory: Callable[[], AdaptiveModel | None] | None = None,
     instance_candidate_query: InstanceCandidateQuery | None = None,
     state_store: StateStore | None = None,
+    pending_state_dsn: str | None = None,
 ) -> SemanticQueryRuntimeComposition:
     """Compose Azure semantic querying over optional exact Rule retrieval."""
 
@@ -253,6 +255,11 @@ def compose_azure_semantic_query_runtime(
             vm_process_cpu_reader=vm_process_cpu_reader,
             pod_log_evidence_reader=pod_log_evidence_reader,
             graph_live_refresh_provider=graph_live_refresh_provider,
+            pending_state_sources=_pending_state_sources(
+                dsn=pending_state_dsn,
+                identity=identity,
+                http_client=http_client,
+            ),
             resource_freshness_seconds=resource_freshness_seconds,
             governed_document_reader=container.governed_document_reader,
             instance_candidate_query=instance_candidate_query,
@@ -338,3 +345,24 @@ def _unavailable(reason: str) -> SemanticQueryRuntimeComposition:
     from .wire_semantic_query import SemanticQueryRuntimeComposition
 
     return SemanticQueryRuntimeComposition(runtime=None, unavailable_reason=reason)
+
+
+def _pending_state_sources(
+    *,
+    dsn: str | None,
+    identity: WorkloadIdentity,
+    http_client: httpx.AsyncClient,
+) -> PendingStateSources | None:
+    """Bind the exact ARM reader and pending descriptor only when a venue enables live reads."""
+
+    if not dsn:
+        return None
+    from fdai.delivery.azure.arm_exact_state import AzureArmExactStateReader
+    from fdai.delivery.persistence.postgres_pending_state import (
+        PostgresPendingStateDescriptorReader,
+    )
+
+    return PendingStateSources(
+        descriptor_reader=PostgresPendingStateDescriptorReader(dsn=dsn),
+        state_reader=AzureArmExactStateReader(identity=identity, http_client=http_client),
+    )

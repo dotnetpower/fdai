@@ -26,6 +26,11 @@ class _Identity:
         )
 
 
+class _UnavailableIdentity:
+    async def get_token(self, audience: str) -> IdentityToken:
+        raise RuntimeError("identity unavailable")
+
+
 def _reader(handler: httpx.MockTransport) -> AzureArmExactStateReader:
     return AzureArmExactStateReader(
         identity=_Identity(),
@@ -119,6 +124,23 @@ async def test_throttling_and_outage_are_unavailable_not_absent(status: int) -> 
 
     with pytest.raises(ExactResourceStateUnavailableError):
         await _reader(httpx.MockTransport(handle)).read_state(
+            resource_ref="vm-a-id",
+            resource_type="compute.vm",
+            provider_ref=_VM,
+            timeout_seconds=3.0,
+        )
+
+
+async def test_identity_failure_is_unavailable_not_absent() -> None:
+    reader = AzureArmExactStateReader(
+        identity=_UnavailableIdentity(),
+        http_client=httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda request: httpx.Response(200))
+        ),
+    )
+
+    with pytest.raises(ExactResourceStateUnavailableError):
+        await reader.read_state(
             resource_ref="vm-a-id",
             resource_type="compute.vm",
             provider_ref=_VM,
