@@ -73,7 +73,7 @@ bytes it checked, and the Hub rejects a report that names other bytes.
 | `src/fdai_lifecycle_hub/schemas.py` | JSON boundary: request bodies and operator input files |
 | `src/fdai_lifecycle_hub/api.py` | Agent HTTP API |
 | `src/fdai_lifecycle_hub/cli.py` | `fdai-lifecycle-hub` command line |
-| `tests/` | Hub-owned tests; the PostgreSQL variants run only when `FDAI_DATABASE_URL` is set |
+| `tests/` | Hub-owned tests; the PostgreSQL variants run only when `FDAI_DATABASE_URL` names a loopback database |
 
 ## Agent API
 

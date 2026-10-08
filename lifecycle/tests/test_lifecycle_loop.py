@@ -185,10 +185,7 @@ def database_url(
     if request.param == "sqlite":
         yield f"sqlite+pysqlite:///{tmp_path / 'hub.db'}"
         return
-    url = os.environ.get("FDAI_DATABASE_URL")
-    if not url:
-        pytest.skip("FDAI_DATABASE_URL is not set")
-    url = url.replace("postgresql://", "postgresql+psycopg://", 1)
+    url: str = request.getfixturevalue("loopback_postgres_url")
     store = HubStore.connect(url)
     store.drop_schema()
     yield url

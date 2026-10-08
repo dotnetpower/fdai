@@ -52,8 +52,10 @@ uv run --no-sync pytest -c pyproject.toml lifecycle/tests -q
 ```
 
 The command runs every scenario on SQLite. To also run them on PostgreSQL, set `FDAI_DATABASE_URL`
-to the loopback database from `infra/local/docker-compose.yml`. CI runs the SQLite scenarios in the
-regression shards and the PostgreSQL scenarios in the database integration job.
+to the loopback database from `infra/local/docker-compose.yml`. The PostgreSQL tests drop every Hub
+table, so `lifecycle/conftest.py` refuses a database URL whose host isn't loopback. CI runs the
+SQLite scenarios in the regression shards and the PostgreSQL scenarios in the database integration
+job.
 
 The Hub and the agent compare the reported-state digest as an opaque value that the installation
 supplies. Neither one derives it from the snapshot content yet.
