@@ -61,9 +61,11 @@ in shadow mode; passing focused tests does not promote it or prove a deployed pa
   transition above.
 - [x] Add A2 immediate and A4 digest notification planning that never falls back to the approval
   route and carries no code excerpts; notification tests pass in the transition above.
-- [ ] Add the two code-security routes to the governed `config/notifications-matrix.yaml` through
+- [x] Add the two code-security routes to the governed `config/notifications-matrix.yaml` through
   governance review, tracked in [#1977](https://github.com/dotnetpower/fdai/issues/1977). Since
   [#2001](https://github.com/dotnetpower/fdai/issues/2001), these non-A1 routes follow normal review.
+  Done: both routes are in `config/notifications-matrix.yaml` on `main` through PR #1979,
+  and #1977 is closed.
 - [x] Add an Operator API projection and Console route over recorded scan reviews; Operator,
   Console unit, and responsive browser tests pass in the transition above without code excerpts.
 - [x] Move the pack registry and review log to the state store and project fix verdicts and
