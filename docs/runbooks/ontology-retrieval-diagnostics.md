@@ -146,14 +146,30 @@ the requested objects, including its `purpose`, remains a condition. Focused tes
 meaning to `object_matches_predicates` and show that declared predicates reproduce the nested-entry
 and time-window calibration labels.
 
-**Known structural gap.** Predicates can't compare a value inside an object-valued property, such
-as `properties.purpose` or `properties.node_pool_role` on a Resource. A request constrained by such a
-value leaves the model three outcomes: return a clarification, emit a predicate that can't match, or select an
-instance by `object_ids` after judging the nested value itself. The 2026-10-08 diagnostics observed
-all three. A prompt sentence that told the model to select such instances by exact ids caused
-near-match substitution in negative and adversarial cases and was reverted. Closing this gap needs a
-reviewed deterministic way to compare nested values, which changes the shared ObjectSet predicate
-contract and requires its own design first.
+**Nested-value conditions.** ObjectSet predicates read top-level properties only, so a request
+constrained by a value inside an object-valued property, such as Resource `properties.purpose`, was
+inexpressible. The model returned a clarification, emitted a predicate that couldn't match, or
+selected an instance it judged itself. A clause can now carry `nested_predicates`. Each one names a
+top-level property, one key inside it, and the same operator and operand shapes as `ObjectPredicate`.
+
+- **Evaluation:** the reader adds an `exists` predicate on each named parent, so the secured gateway
+  authorizes the parent as it does any predicate property. It then applies the nested conditions to
+  the ACL-projected materialized records with `object_matches_predicates`. Only instances whose
+  parent holds an object can match, so `absent` means a missing key inside an existing parent.
+- **Schema:** the payload lists `allowed_nested_predicate_keys`, the keys observed in the prepared
+  projection for each allowed object-valued property. The strict schema has one nested variant per
+  parent with nullable operands. A schema above 500 enum values holds before dispatch.
+- **Bounds and digests:** a clause allows 16 predicates and 16 nested predicates. The shared
+  ObjectSet contract is unchanged. A clause without nested conditions serializes as before, so its
+  proposal digest is unchanged. The payload and response-schema digests do change, so verify
+  earlier evidence with the source commit it records.
+
+A qualifier that no property stores but the documents show directly, such as the language of a
+stored alias, stays a condition. The model keeps the expressible conditions and adds exact
+`object_ids` for only the satisfying instances, and returns an unsupported-constraint clarification
+instead of a near match when none satisfies it. An earlier sentence that sent stored nested values
+to exact `object_ids` caused near-match substitution and was reverted before nested conditions
+existed.
 
 Before a live semantic calibration, dry-run all planned calibration cases with the exact
 manifest-bound response schema and prompt profile. The dry-run should report the maximum and median
@@ -208,15 +224,14 @@ diagnosis from calibration, the corpus, and newly reviewed calibration samples o
 a newly authored independent `instance-holdout.v3`. That holdout now exists and is unmeasured.
 
 Development diagnostics on 2026-10-08 used the attested `gpt-5.6-sol` deployment, version
-`2026-07-09`, with the reviewed `low` effort. At the delivered prompt, calibration v2 passed every
-cohort at `1.0`, and calibration v3 failed with eight positive or ambiguous misses and no
-precision loss. The unchanged `main` prompt on the same deployment and bound also failed calibration
-v3, with seven misses, three of them predicates that misused `contains` on nested values. The
-remaining misses fall in the known structural gap above, plus two calibration labels whose wording
-admits another reading: `cal-v3-en-p15` ("after the 08:30 update" excludes an incident updated at
-08:30 under a strict reading) and `cal-v3-ko-a04` (whether an alias is Korean isn't a stored
-property). Holdout v3 stays unmeasured until a change passes both calibration sets; running it
-earlier would spend it without a qualifying result.
+`2026-07-09`, with the reviewed `low` effort. Before nested conditions, calibration v2 passed and
+calibration v3 failed with eight positive or ambiguous misses; the unchanged earlier prompt also
+failed v3 with seven. An independent blinded reviewer reworded `cal-v3-en-p15`, whose strict
+reading of "after the 08:30 update" excluded its labeled incident, and kept the labels. With nested
+conditions and the document-visible qualifier statement at `828ff8909b`, calibration v2 and v3
+both passed every cohort at `1.0` in two consecutive attempts each, with offline verification.
+These are development results. Qualification still requires one run of calibration and the
+unmeasured holdout v3 at the merged commit.
 
 ## Measure semantic proposals separately
 
