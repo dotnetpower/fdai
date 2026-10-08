@@ -398,7 +398,9 @@ describe("upsertEvidenceBranch", () => {
     expect(styles).toContain("--font-mono:");
     expect(styles).toContain(".deck-investigation-list::before");
     expect(styles).toContain("--deck-investigation-rail-x: 9px;");
-    expect(styles).toMatch(/\.deck-investigation-summary > \.deck-investigation-state \{[^}]*left: -33px;[^}]*top: 22px;[^}]*transform: translateY\(-50%\);/s);
+    // `translate`, not `transform`, so the spinner's rotate animation cannot drop the centering.
+    expect(styles).toMatch(/\.deck-investigation-summary > \.deck-investigation-state \{[^}]*left: -33px;[^}]*top: 22px;[^}]*translate: 0 -50%;/s);
+    expect(styles).not.toMatch(/\.deck-investigation-summary > \.deck-investigation-state \{[^}]*transform:/s);
     expect(styles).toContain(".deck-branch-list::before");
     expect(styles).toMatch(
       /@container deck-transcript \(max-width: 620px\)[\s\S]*?\.deck-table tbody tr/,

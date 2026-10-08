@@ -1,7 +1,7 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: 28e80070a79825ddd2fc0c5f084bbe4cc5428d3f
+translation_source_sha: 868a721989e88a0a218c3ef338b84283b10b2e22
 translation_revised: 2026-10-08
 ---
 # 오퍼레이터 콘솔 점진적 대화
@@ -89,6 +89,7 @@ Operator는 최종 결과의 검증과 영속 저장이 완료된 뒤 대기 중
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-08 | 구현됨 | 실행 중 단계의 스피너가 아래로 처지고 튀던 문제를 고치고, 표 답변의 폭을 맞췄습니다. 단계 표시는 `transform: translateY(-50%)`로 가운데 정렬했는데, 회전 애니메이션의 `transform: rotate()`가 이를 대체해 실행 중 표시가 8px 아래에 놓이고 회전하며 튀었습니다. 이제 독립 속성 `translate`로 가운데 정렬합니다. 표 답변의 본문은 72ch 폭을 유지한 반면 표는 1080px로 펼쳐졌습니다. 이제 표는 셀이 단어 단위로 줄바꿈되며 읽기 열에 맞춰지고, 표 옆의 본문은 표의 폭을 사용합니다. 이 변경은 이전의 표 확장 방식을 대체합니다. | `current change`; `console/src/styles.css`, `command-deck-workspace-visual.test.ts`; `npx vitest run src`(3776개 통과); Console 타입 검사; 로컬 Console에서 실행 중 표시를 24번 샘플링한 결과 완료 표시와 같은 x에서 세로 오차 0px였고, 답변, 본문, 표 wrapper, 앞 턴이 1440x900(323, 840px), 993x641(116, 808px), 390x844, 도킹(401px)에서 같은 x와 폭을 가졌으며 단어 중간 줄바꿈과 넘침이 없었음. | 이 배치 수정에 남은 작업은 없습니다. |
 | 2026-10-08 | 구현됨 | 부분 상태 답변에서 Resource 범위가 불완전한 이유를 설명하게 했습니다. 상태 함수가 스냅샷의 타입 지정 원본 사유를 버렸고 이 코드에 검토된 설명도 없어서, 답변에는 `resource_scope_incomplete` 코드만 표시되었습니다. 이제 함수는 `resource_scope_incomplete+inventory_observation_pending` 같은 조합을 보고하고, 두 부분 모두 정확한 코드와 함께 운영자 언어로 표시됩니다. | `current change`; `resource_state_queries.py`, `semantic_source_limitations.py`와 테스트; `eval/golden-dataset/corpus-manifest.json` 재생성; Core ontology-platform, conversation, semantic, prompt 테스트(4952개 통과). | 이 설명에 남은 작업은 없습니다. |
 | 2026-10-08 | 구현됨 | 전체 작업 영역의 답변을 읽기 열 안에 유지했습니다. 넓은 레코드 표가 있는 답변은 턴 전체를 1080px로 넓혀, 본문이 질문과 작업 패널보다 120px 왼쪽에서 시작했습니다. 이제 표 wrapper만 대화 컨테이너 폭 안에서 가운데 기준으로 펼쳐집니다. | `current change`; `console/src/styles.css`, `command-deck-workspace-visual.test.ts`; `npx vitest run src`(3776개 통과); Console 타입 검사; 로컬 Console에서 답변 턴이 바로 앞 턴과 같은 x와 폭을 가짐: 1440x900(323, 840px), 993x641(116, 808px), 390x844(24, 332px). 표는 1080px와 889px였고 넘침이 없었음. | 이 배치 수정에 남은 작업은 없습니다. |
 | 2026-10-08 | 구현됨 | 답변을 계획하는 동안 작업 패널이 흔들리지 않게 했습니다. 실행 중인 활동은 상세 패널을 열었기 때문에 실행 중인 모델 호출마다 행 이상의 근거가 없는 수명주기 패널이 표시되었고, 상태도 제목 옆과 메타 열에 두 번 나타났습니다. 이제 모델 호출 행은 하나의 정적 행으로 표시되고 모든 행은 상태를 한 번만 표시합니다. 작업 머리글은 `deck-transcript` 컨테이너 폭을 따르므로 넓은 화면에 도킹한 패널에서 줄바꿈되어 펼침 화살표가 혼자 남지 않습니다. | `current change`; `console/src/deck/investigation-timeline.tsx`와 테스트, `console/src/styles.css`; `npx vitest run src/deck src/shared-style-tokens.test.ts`(1098개 통과); Console 타입 검사; 로컬 Console 1440x900에서 실행 중 턴 동안 상세 패널이 열리지 않았고, 모델 호출 상태 표시가 다른 행과 같은 x 위치에 정렬되었으며, 도킹한 401px 머리글은 실행 중과 정착 후 모두 넘침 없이 그리드로 표시되었고, 전체 작업 영역은 한 줄 44px 머리글을 유지했으며, 390x844에서도 넘침이 없었음. | 이 배치 수정에 남은 작업은 없습니다. |
@@ -349,8 +350,9 @@ Service Health 응답은 결정론적으로 계산한 `yes`, `no`, `partial`, `u
 답변을 사용할 수 없다는 일반 문구를 사용하고 범위가 제한된 machine 사유를 source 세부 정보에
 보존합니다.
 
-전체 작업 영역에서 답변은 질문, 작업 패널과 같은 읽기 열을 유지합니다. 넓은 레코드 표만 대화 폭
-안에서 가운데 기준으로 그 열 밖으로 펼쳐지므로, 답변 본문이 나머지 대화와 어긋나지 않습니다.
+전체 작업 영역에서 답변은 질문, 작업 패널과 같은 읽기 열을 유지하고, 넓은 레코드 표도 셀이 단어
+단위로 줄바꿈되며 그 열에 맞춰집니다. 아주 넓은 표는 wrapper 안에서 스크롤됩니다. 레코드 표 옆의
+본문은 더 좁은 읽기 폭 대신 표의 폭을 사용하므로 표, 본문, 나머지 대화가 정렬됩니다.
 
 ## 결정론적 교차 채널 표현 설계
 

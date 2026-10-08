@@ -9637,13 +9637,19 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   max-width: var(--deck-reading-width);
   align-self: center;
 }
-/* A wide table breaks out of the reading column on its own; widening the whole turn shifted the
-   answer prose out of line with the question and the work panel. */
-.deck-overlay-mode-workspace .deck-turn-deck .deck-presentation-table-wrap[data-layout="wide"] {
-  --deck-wide-table-width: min(1080px, calc(100cqi - 48px));
-  width: var(--deck-wide-table-width);
+/* In the full workspace an answer and its wide table share the reading column: a wider table, or
+   a turn widened for it, put the table out of line with the prose and the rest of the
+   conversation. Cells wrap between words; an unusually wide table still scrolls in its wrapper. */
+.deck-overlay-mode-workspace .deck-turn-deck .deck-presentation-table[data-layout="wide"] {
+  min-width: 0;
+}
+.deck-overlay-mode-workspace .deck-turn-deck .deck-presentation-table[data-layout="wide"] :is(th, td) {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+/* Prose beside a record table uses the table's width instead of the narrower reading measure. */
+.deck-turn-deck:has(.deck-presentation-table) :is(.deck-presentation-lead, .cs-deck-prose) {
   max-width: none;
-  margin-inline: calc((100% - var(--deck-wide-table-width)) / 2);
 }
 .deck-turn-deck.is-streaming {
   animation: deck-answer-enter 0.24s cubic-bezier(0.22, 0.61, 0.36, 1) both;
@@ -10379,7 +10385,9 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   position: absolute;
   left: -33px;
   top: 22px;
-  transform: translateY(-50%);
+  /* `translate`, not `transform`: the running spinner animates `transform`, which would otherwise
+     drop the centering offset and make the mark sink and bounce while it spins. */
+  translate: 0 -50%;
   box-shadow: 0 0 0 3px var(--bg-elevated);
 }
 /* The read kind is a quiet annotation, as in the conversation layer's activity cards; the label,
