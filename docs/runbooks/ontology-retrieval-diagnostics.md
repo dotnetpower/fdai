@@ -16,6 +16,7 @@ qualification or execution authority.
 | [instance-calibration.v3.json](../../eval/ontology-retrieval/instance-calibration.v3.json) | 64 new diagnostic calibration cases for the holdout v2 failure classes. Calibration only; it can't qualify a change. |
 | [instance-holdout.v3.json](../../eval/ontology-retrieval/instance-holdout.v3.json) | Spent holdout. A blinded author wrote it and a separately blinded reviewer reviewed it; measured once at `19bbbe3c95`. Don't tune on its cases or reuse it for qualification. |
 | [instance-holdout.v4.json](../../eval/ontology-retrieval/instance-holdout.v4.json) | Spent holdout. A blinded author wrote it and a separately blinded reviewer reviewed it; measured once at `2f8eaaaa1f`. Don't tune on its cases or reuse it for qualification. |
+| [instance-holdout.v5a.json](../../eval/ontology-retrieval/instance-holdout.v5a.json), [instance-holdout.v5b.json](../../eval/ontology-retrieval/instance-holdout.v5b.json) | Spent 128-case holdout in two disjoint halves. A blinded author wrote them and a separately blinded reviewer reviewed them; measured once under protocol `agreement-gated-pooled-qualification.v1` at `b1ac82a6b1`. Don't tune on their cases or reuse them for qualification. |
 
 The v2 calibration has 32 singleton positives, eight multi-target positives and 24 no-match cases.
 Each language covers four distinct singleton targets per type and at least four samples for every
@@ -349,6 +350,19 @@ id.
   attempt is reported. A second abort for the same pass fails the qualification.
 - **Reporting:** the full report is recorded whether it passes or fails. A failed qualification
   spends both holdout halves.
+
+The qualification at merged `b1ac82a6b1` passed under this protocol on `gpt-5.6-sol` version
+`2026-07-09` with `low` effort.
+
+| Pool | Decisions | Wrong selections (95% upper bound) | Disagreements | Correct rate (en / ko) |
+|---|---:|---:|---:|---|
+| Calibration v2 + v3 | 384 | 0 (0.78%) | 0 | 1.0 / 1.0 |
+| Holdout v5a + v5b | 384 | 0 (0.78%) | 5 | 0.958 / 1.0 |
+
+Each pool ran 12 offline-verified passes of 64 calls. Three passes aborted (one in calibration v3,
+two in holdout v5b), and each in-place rerun completed. Holdouts v5a and v5b are now spent. Semantic
+ranking stays disabled; enabling it still requires governed activation, latency qualification, and
+human approval.
 
 The report keeps `production_qualification` and `execution_authority` at `False`. Passing qualifies
 only the diagnostic method; runtime activation, latency qualification, and human approval gates
