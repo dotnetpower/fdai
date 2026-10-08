@@ -144,9 +144,45 @@ jobs:
         if: inputs.scope != 'runner'
         id: legacy_drift
         continue-on-error: true
-        run: >-
-          terraform plan -refresh-only -input=false -lock-timeout=300s
-          -detailed-exitcode
+        working-directory: ${{ github.workspace }}
+        env:
+          TF_VAR_dev_operations_gateway_private_probes_json: "${{ vars.DEV_OPERATIONS_GATEWAY_PRIVATE_PROBES_JSON || '{}' }}"
+          TF_VAR_ohl_scale_out_evidence_campaign_id: ${{ vars.OHL_SCALE_OUT_EVIDENCE_CAMPAIGN_ID }}
+          TF_VAR_ohl_scale_out_evidence_image_version: ${{ vars.OHL_SCALE_OUT_EVIDENCE_IMAGE_VERSION }}
+          TF_VAR_ohl_scale_out_evidence_initiator_principal_id: ${{ vars.OHL_SCALE_OUT_EVIDENCE_INITIATOR_PRINCIPAL_ID }}
+          TF_VAR_ohl_scale_out_evidence_ssh_public_key: ${{ vars.OHL_SCALE_OUT_EVIDENCE_SSH_PUBLIC_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          state_json="$RUNNER_TEMP/legacy-platform-state.json"
+          plan_inputs="$RUNNER_TEMP/legacy-output-inputs.tfvars.json"
+          plan_file="$RUNNER_TEMP/legacy-refresh.tfplan"
+          plan_json="$RUNNER_TEMP/legacy-refresh.json"
+          plan_summary="$RUNNER_TEMP/legacy-refresh-summary.json"
+          terraform -chdir=infra show -json >"$state_json"
+          python3 scripts/deployment/service/drift_contract.py platform-output-inputs \
+            --state-json "$state_json" \
+            --output "$plan_inputs"
+          set +e
+          terraform -chdir=infra plan -refresh-only -input=false -lock-timeout=300s \
+            -var-file="$plan_inputs" -detailed-exitcode -out="$plan_file"
+          plan_status=$?
+          set -e
+          case "$plan_status" in
+            0) echo "No drift: legacy" ;;
+            2)
+              terraform -chdir=infra show -json "$plan_file" >"$plan_json"
+              python3 scripts/deployment/service/refresh_drift_digest.py summarize \
+                --root-id legacy --plan-json "$plan_json" >"$plan_summary"
+              if python3 -c 'import json,sys; s=json.load(open(sys.argv[1])); sys.exit(1 if (s["resource_drift"] or s["output_changes"] or s["moves"]) else 0)' "$plan_summary"; then
+                echo "No semantic drift: legacy"
+              else
+                python3 scripts/deployment/service/refresh_drift_digest.py render "$plan_summary"
+                exit 2
+              fi
+              ;;
+            *) exit "$plan_status" ;;
+          esac
 
       - name: Plan independent service roots
         if: inputs.scope != 'runner'
@@ -422,9 +458,15 @@ jobs:
           always() && steps.protected-source.outcome == 'success' &&
           steps.database_window.outcome != 'skipped'
         working-directory: ${{ github.workspace }}
-        run: >-
-          python3 scripts/deployment/azure/postgres_power_window.py close
-          --record "$RUNNER_TEMP/database-power-window.json"
+        run: |
+          python3 scripts/deployment/azure/postgres_power_window.py close \
+            --record "$RUNNER_TEMP/database-power-window.json"
+          rm -f -- \
+            "$RUNNER_TEMP/legacy-platform-state.json" \
+            "$RUNNER_TEMP/legacy-output-inputs.tfvars.json" \
+            "$RUNNER_TEMP/legacy-refresh.tfplan" \
+            "$RUNNER_TEMP/legacy-refresh.json" \
+            "$RUNNER_TEMP/legacy-refresh-summary.json"
 
       - name: Enforce complete drift evidence
         if: always() && steps.protected-source.outcome == 'success'

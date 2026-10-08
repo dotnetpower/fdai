@@ -1,7 +1,7 @@
 ---
 translation_of: existing-container-apps-service-update.md
-translation_source_sha: 8e86a7192cca23af0f8bb3416091593195a2292f
-translation_revised: 2026-09-19
+translation_source_sha: 2145ce60628fa3e38f4ba702b41d5b330857a08b
+translation_revised: 2026-10-08
 ---
 # 기존 Container Apps 서비스 업데이트
 
@@ -60,6 +60,13 @@ backend를 초기화하고 리소스 하나에 대해 20분 동안 유효한 저
 집중 Terraform root는 32바이트 임의 ID, Key Vault 시크릿 및 정확한 Operator
 `Key Vault Secrets User` 할당에 대한 표준 count 주소를 선언합니다. 세 리소스 모두 표준 플랫폼
 root와 같은 정의 및 주소를 사용하고 같은 AzureRM 및 Random 공급자 버전을 고정합니다.
+조정기는 플랫폼의 `runtime_identity_bindings.operator` 출력을 우선 사용합니다. 이전 상태에 이
+토글 기반 출력이 없으면 Azure 이름으로 신원을 추론하지 않고 비공개 상태 변환 결과에서 추적된
+`module.operator_api_identity[0]` 리소스를 정확히 읽습니다. 추적된 신원이 없거나 잘못됐으면
+계획 전에 중단합니다.
+같은 호환성 읽기는 상태가 루트 `key_vault_id` 출력보다 오래된 경우 추적된
+`module.key_vault.azurerm_key_vault.primary` 리소스를 정확히 복구합니다. 볼트 이름에서 ID를
+파생하지 않습니다.
 
 플랫폼 가드는 세 create 작업만 허용하고 drift, deferred 변경, update, delete, replacement 또는
 다른 주소를 차단합니다. 적용은 먼저 실행 전 기록을 쓴 뒤 정확한 시크릿 참조와 역할 할당을

@@ -14,6 +14,7 @@ from fdai.core.security.code_findings.evaluation import (
     acceptance_failures,
     corpus_from_mapping,
     evaluate,
+    kind_corpus,
     split_corpus,
     weighted_kappa,
 )
@@ -172,3 +173,67 @@ def test_unknown_split_is_rejected() -> None:
     raw["cases"][0]["split"] = "test"
     with pytest.raises(EvaluationCorpusError, match="split"):
         corpus_from_mapping(raw)
+
+
+def test_curated_corpus_measures_severity_agreement_for_code_and_dependencies() -> None:
+    raw = yaml.safe_load((CATALOG_ROOT / "evaluation" / "curated-advisories.yaml").read_text())
+    corpus = corpus_from_mapping(raw)
+    for kind in ("code", "dependency"):
+        subset = kind_corpus(corpus, kind)
+        assert subset is not None
+        for split in ("dev", "holdout"):
+            part = split_corpus(subset, split)
+            assert part is not None
+            metrics = evaluate(part, catalog())
+            assert metrics.severity_pairs == metrics.expected_issues > 0
+            assert metrics.severity_range_containment == 1.0
+            assert metrics.detection_recall == 1.0
+
+
+def test_kind_is_derived_from_occurrences_and_validated() -> None:
+    raw = _raw()
+    corpus = corpus_from_mapping(raw)
+    kinds = {case.case_id: case.kind for case in corpus.cases}
+    assert kinds["tri-lane-sqli"] == "code"
+    assert "dependency" in kinds.values()
+    dependency = next(
+        case
+        for case in raw["cases"]
+        if case.get("occurrences") and any("package" in item for item in case["occurrences"])
+    )
+    dependency["kind"] = "code"
+    with pytest.raises(EvaluationCorpusError, match="contradicts"):
+        corpus_from_mapping(raw)
+    raw = _raw()
+    raw["cases"][0]["kind"] = "binary"
+    with pytest.raises(EvaluationCorpusError, match="kind"):
+        corpus_from_mapping(raw)
+
+
+def test_determined_severity_without_facts_counts_as_an_agreement_pair() -> None:
+    raw = _raw()
+    dependency = next(
+        case
+        for case in raw["cases"]
+        if case.get("occurrences") and any("package" in item for item in case["occurrences"])
+    )
+    raw["cases"] = [dependency]
+    metrics = evaluate(corpus_from_mapping(raw), catalog())
+    assert metrics.severity_pairs == 1
+    assert metrics.severity_exact_agreement == 1.0
+    dependency["expected"][1]["reviewer_band"] = "low"
+    metrics = evaluate(corpus_from_mapping(raw), catalog())
+    assert metrics.severity_exact_agreement == 0.0
+
+
+def test_evaluation_receipt_reports_metrics_per_kind(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    receipt_path = tmp_path / "receipt.json"
+    curated = CATALOG_ROOT / "evaluation" / "curated-advisories.yaml"
+    assert main(["evaluate", "--corpus", str(curated), "--output", str(receipt_path)]) == 0
+    capsys.readouterr()
+    receipt = json.loads(receipt_path.read_text())
+    assert set(receipt["kinds"]) == {"code", "dependency"}
+    assert set(receipt["kinds"]["code"]) == {"all", "dev", "holdout"}
+    assert receipt["kinds"]["code"]["all"]["severity_pairs"] == 16

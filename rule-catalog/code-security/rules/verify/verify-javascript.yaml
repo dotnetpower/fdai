@@ -78,7 +78,21 @@ rules:
     metadata: {cwe: ["CWE-22"], category: security, confidence: HIGH, fdai_verifier: true}
     mode: taint
     pattern-sources: *js-sources
-    pattern-sanitizers: *js-sanitizers
+    # A value looked up from a server-side store by a request key, such as a session map entry,
+    # isn't attacker-chosen path text. Only one-argument `get` lookups count, so route
+    # registrations like `app.get(path, handler)` don't; request accessors stay tainted.
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: parseInt(...)
+          - pattern: Number(...)
+          - pattern: path.basename(...)
+          - pattern: encodeURIComponent(...)
+          - patterns:
+              - pattern: $STORE.get($KEY)
+              - pattern-not: req.get($KEY)
+              - pattern-not: request.get($KEY)
+              - pattern-not: ctx.get($KEY)
+              - pattern-not: $URL.searchParams.get($KEY)
     pattern-sinks:
       - patterns:
           - pattern-either:

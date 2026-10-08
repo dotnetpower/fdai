@@ -7,6 +7,7 @@ import os
 import stat
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import pytest
 from fdai.delivery.code_security_acquire import GitSourceAcquirer, SourceAcquisitionError
@@ -18,6 +19,7 @@ from fdai.rule_catalog.code_security_scanners import (
     ScannerSpec,
     load_scanner_catalog,
 )
+from fdai.rule_catalog.code_security_verifiers import VerifierCatalog
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _CATALOG = _REPO_ROOT / "rule-catalog" / "code-security"
@@ -74,6 +76,13 @@ def _spec(**overrides: object) -> ScannerSpec:
     }
     values.update(overrides)
     return ScannerSpec.model_validate(values)
+
+
+def _promoted(verifiers: VerifierCatalog) -> VerifierCatalog:
+    """Promote every Python verifier so scan-job tests exercise verification, not the gate."""
+    keys = tuple(f"python:{name}" for name in verifiers.python.classes)
+    promotion = verifiers.promotion.model_copy(update={"promoted": keys})
+    return verifiers.model_copy(update={"promotion": promotion})
 
 
 def _sarif(driver: str = "Opengrep") -> str:
@@ -344,8 +353,8 @@ async def test_scan_job_verifier_raises_confirmed_lens_candidate(tmp_path: Path)
         sandbox=BubblewrapScannerSandbox(),
         lens_catalog=load_lens_catalog(_CATALOG),
         lens_models=[_Model("family-a"), _Model("family-b")],
-        verifier_catalog=load_verifier_catalog(
-            _CATALOG, frozenset(catalog.weakness_classes.classes)
+        verifier_catalog=_promoted(
+            load_verifier_catalog(_CATALOG, frozenset(catalog.weakness_classes.classes))
         ),
     )
     (issue,) = result.issues
@@ -405,8 +414,8 @@ async def test_scan_job_proof_lane_raises_verified_issue_to_proven(tmp_path: Pat
         sandbox=BubblewrapScannerSandbox(),
         lens_catalog=load_lens_catalog(_CATALOG),
         lens_models=[_Model("family-a"), _Model("family-b")],
-        verifier_catalog=load_verifier_catalog(
-            _CATALOG, frozenset(catalog.weakness_classes.classes)
+        verifier_catalog=_promoted(
+            load_verifier_catalog(_CATALOG, frozenset(catalog.weakness_classes.classes))
         ),
         prove_python=Path("/usr/bin/python3").resolve(),
     )
@@ -432,6 +441,12 @@ def test_verifier_evaluation_runs_both_verifiers_on_a_pinned_source(tmp_path: Pa
         "import os\nfrom flask import request\n\ndef run():\n    os.system(request.args['c'])\n"
     )
     (repo / "app.js").write_text("db.query('x' + req.query.a)\nfs.readFile(path)\n")
+    (repo / "bench").mkdir()
+    (repo / "bench" / "T1.py").write_text((repo / "views.py").read_text())
+    (repo / "bench" / "T2.py").write_text("import os\n\ndef run():\n    os.system('ls')\n")
+    (repo / "expected.csv").write_text("# test name, category, real vulnerability, cwe\n")
+    with (repo / "expected.csv").open("a") as handle:
+        handle.write("T1,cmdi,true,78\nT2,cmdi,false,78\nT3,xss,true,79\n")
     _git(repo, "add", "-A")
     _git(repo, "commit", "-q", "-m", "initial")
     commit = _git(repo, "rev-parse", "HEAD")
@@ -470,6 +485,7 @@ def test_verifier_evaluation_runs_both_verifiers_on_a_pinned_source(tmp_path: Pa
                         "commit": commit,
                         "license": "MIT",
                         "label_source": "test labels",
+                        "split": "dev",
                         "locations": [
                             {
                                 "path": "views.py",
@@ -481,6 +497,7 @@ def test_verifier_evaluation_runs_both_verifiers_on_a_pinned_source(tmp_path: Pa
                             {
                                 "path": "app.js",
                                 "line": 1,
+                                "split": "holdout",
                                 "weakness_class": "sql_injection",
                                 "verifier": "taint",
                                 "label": "vulnerable",
@@ -494,7 +511,21 @@ def test_verifier_evaluation_runs_both_verifiers_on_a_pinned_source(tmp_path: Pa
                                 "reason": "constant",
                             },
                         ],
-                    }
+                    },
+                    {
+                        "id": "bench",
+                        "repository": str(repo),
+                        "commit": commit,
+                        "license": "MIT",
+                        "label_source": "expected.csv",
+                        "expected_results": {
+                            "file": "expected.csv",
+                            "path_template": "bench/{test}.py",
+                            "verifier": "python",
+                            "split": "holdout",
+                            "categories": {"cmdi": "command_injection"},
+                        },
+                    },
                 ],
             }
         )
@@ -508,10 +539,17 @@ def test_verifier_evaluation_runs_both_verifiers_on_a_pinned_source(tmp_path: Pa
             catalog_root=str(_CATALOG),
         )
     )
-    by_key = {item["key"]: item for item in receipt["verifiers"]}  # type: ignore[union-attr]
-    assert by_key["python:command_injection"]["true_positives"] == 1
-    assert by_key["fdai.verify.js.sql-injection"]["promoted"] is True
-    assert by_key["fdai.verify.js.path-traversal"]["true_negatives"] == 1
+    verifiers: list[dict[str, Any]] = receipt["verifiers"]  # type: ignore[assignment]
+    by_key = {item["key"]: item for item in verifiers}
+    command = by_key["python:command_injection"]
+    assert command["dev"]["true_positives"] == 1
+    assert command["holdout"]["true_positives"] == 1
+    assert command["holdout"]["true_negatives"] == 1
+    assert command["promoted"] is True
+    assert by_key["fdai.verify.js.sql-injection"]["holdout"]["true_positives"] == 1
+    assert by_key["fdai.verify.js.sql-injection"]["promoted"] is False
+    assert by_key["fdai.verify.js.path-traversal"]["dev"]["true_negatives"] == 1
+    assert receipt["labels"] == {"dev": 2, "holdout": 3}
     assert receipt["unlabeled_verified"] == [
         {"source": "local", "rule": "fdai.verify.js.code-injection", "path": "app.js", "line": 9}
     ]

@@ -13,6 +13,8 @@ qualification or execution authority.
 | [instance-calibration.v2.json](../../eval/ontology-retrieval/instance-calibration.v2.json) | Expanded 64-query calibration, including all v1 calibration cases unchanged. |
 | [instance-holdout.v1.json](../../eval/ontology-retrieval/instance-holdout.v1.json) | Spent holdout. Preserve its evidence; don't tune on it or reuse it for qualification. |
 | [instance-holdout.v2.json](../../eval/ontology-retrieval/instance-holdout.v2.json) | Spent holdout. Independently authored and reviewed; measured once at `2572f9a1b1`. Don't tune on its cases or reuse it for qualification. |
+| [instance-calibration.v3.json](../../eval/ontology-retrieval/instance-calibration.v3.json) | 64 new diagnostic calibration cases for the holdout v2 failure classes. Calibration only; it can't qualify a change. |
+| [instance-holdout.v3.json](../../eval/ontology-retrieval/instance-holdout.v3.json) | Frozen, unmeasured holdout for the next single qualifying run. A blinded author wrote it and a separately blinded reviewer reviewed it; neither read earlier holdout text, prompts, adapters, or this runbook. Don't read, tune on, or measure it outside that run. |
 
 The v2 calibration has 32 singleton positives, eight multi-target positives and 24 no-match cases.
 Each language covers four distinct singleton targets per type and at least four samples for every
@@ -104,7 +106,9 @@ Explicitly resolve `diagnostic.ontology-candidate-selection` for `semantic.query
 profile (`shadow`), not a replacement for the active plan profile.
 
 Configure a separate `AzureOpenAISemanticPlanningModel` with that compiled plan text and replay
-manifest, exactly one target and a timeout no greater than ten seconds. Call
+manifest, exactly one target and a timeout no greater than 20 seconds. Pass the profile's
+`reasoning_effort` and `reserved_output_tokens` to the adapter configuration; omitting the effort
+silently runs the provider default instead of the reviewed profile. Call
 `propose_candidate_selection` with the query, manifest, complete canonical build and staged
 snapshot. The source validator checks the generation and principal manifest before dispatch.
 Context above 128 KiB, changed content after input minimization, and prompt-budget overflow hold
@@ -131,6 +135,26 @@ genuine property-constrained sets, such as severity, criticality, type, status, 
 identity mediated by the model and verified by code; it doesn't add phrase tables or lexical lookup
 logic.
 
+The prompt also states the evaluator's exact predicate semantics. A predicate reads one top-level
+property. `exists` and `absent` test only that property's presence. `contains` matches a substring
+of text, an equal element of an array, or an equal key of an object, so a requested entry inside an
+object-valued property, such as a Resource whose `properties` object has an `aliases` entry, is
+expressed as `contains` with that key. `at_least` and `at_most` are inclusive and compare numbers
+numerically and text in code-point order, so ISO 8601 UTC timestamps in the documents' form compare
+chronologically. Wording about why the requester is asking is context, while any stated property of
+the requested objects, including its `purpose`, remains a condition. Focused tests pin each stated
+meaning to `object_matches_predicates` and show that declared predicates reproduce the nested-entry
+and time-window calibration labels.
+
+**Known structural gap.** Predicates can't compare a value inside an object-valued property, such
+as `properties.purpose` or `properties.node_pool_role` on a Resource. A request constrained by such a
+value leaves the model three outcomes: return a clarification, emit a predicate that can't match, or select an
+instance by `object_ids` after judging the nested value itself. The 2026-10-08 diagnostics observed
+all three. A prompt sentence that told the model to select such instances by exact ids caused
+near-match substitution in negative and adversarial cases and was reverted. Closing this gap needs a
+reviewed deterministic way to compare nested values, which changes the shared ObjectSet predicate
+contract and requires its own design first.
+
 Before a live semantic calibration, dry-run all planned calibration cases with the exact
 manifest-bound response schema and prompt profile. The dry-run should report the maximum and median
 estimated request tokens and fail before any provider call when any case exceeds the request-token
@@ -142,12 +166,15 @@ The diagnostic profile owns the model role and optional reasoning effort. The cu
 diagnostic candidate-selection role is `t2.reasoner.primary` with `reasoning_effort="low"` for
 models that support the field; the effort is included in the request-parameter digest.
 
-Semantic evaluation bounds each proposal call at ten seconds and keeps the 600-second stage total;
+Semantic evaluation bounds each proposal call at 20 seconds and keeps the 600-second stage total;
 embedding calibration keeps its five-second call bound. The earlier five-second ceiling came from
 the embedding budget. Calibration evidence on the reviewed role shows provider-side tail latency
 that output size doesn't explain: p50 about 2.2 seconds, p95 about 3.4-3.5 seconds, and calls
 that reached the five-second ceiling about once every 24-36 calls. The qualifying attempt at
-`84d7d1a26b` aborted on that deadline in both stages before any quality result. This is a
+`84d7d1a26b` aborted on that deadline in both stages before any quality result. On 2026-10-08,
+two calibration attempts on `gpt-5.6-sol` version `2026-07-09` aborted on the later 10-second
+deadline after 23-24 calls at different cases, while completed calls showed p50 2.0-2.6 seconds and
+a maximum of 8.2-8.3 seconds, so the bound rose to 20 seconds. This is a
 diagnostic bound only. It doesn't approve production latency, and enabling semantic ranking
 anywhere still requires a separate latency qualification.
 
@@ -178,7 +205,18 @@ of 16 each), and ko-adversarial no-match precision was `0.5`. Every other cohort
 Per-call latency stayed within the 10-second bound, with a holdout maximum of 8.3 seconds.
 Semantic ranking stays disabled. Both holdouts are spent. A later change needs failure-class
 diagnosis from calibration, the corpus, and newly reviewed calibration samples only, followed by
-a newly authored independent `instance-holdout.v3`.
+a newly authored independent `instance-holdout.v3`. That holdout now exists and is unmeasured.
+
+Development diagnostics on 2026-10-08 used the attested `gpt-5.6-sol` deployment, version
+`2026-07-09`, with the reviewed `low` effort. At the delivered prompt, calibration v2 passed every
+cohort at `1.0`, and calibration v3 failed with eight positive or ambiguous misses and no
+precision loss. The unchanged `main` prompt on the same deployment and bound also failed calibration
+v3, with seven misses, three of them predicates that misused `contains` on nested values. The
+remaining misses fall in the known structural gap above, plus two calibration labels whose wording
+admits another reading: `cal-v3-en-p15` ("after the 08:30 update" excludes an incident updated at
+08:30 under a strict reading) and `cal-v3-ko-a04` (whether an alias is Korean isn't a stored
+property). Holdout v3 stays unmeasured until a change passes both calibration sets; running it
+earlier would spend it without a qualifying result.
 
 ## Measure semantic proposals separately
 
@@ -192,7 +230,7 @@ selection strategy, target, transmitted prompt/schema and effective request para
 including output tokens and timeout. Model name and version are caller-attested claims:
 the caller still verifies the live deployment and obtains scoped authorization.
 
-- **Limits:** at most 64 proposal-interface attempts, 600 seconds for measurement and ten
+- **Limits:** at most 64 proposal-interface attempts, 600 seconds for measurement and 20
   seconds per question. Current-source validation runs before and after measurement, with a
   120-second ceiling per check inside the total deadline.
 - **Durable ordering:** each call intent, accepted proposal and measurement is persisted before

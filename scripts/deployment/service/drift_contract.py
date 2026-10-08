@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -25,6 +26,10 @@ class DriftContractError(ValueError):
 
 _COST_PSEUDONYM_KEY_ADDRESS = "azurerm_key_vault_secret.cost_pseudonym_key[0]"
 _PLATFORM_DATABASE_ADDRESS = "module.state_store.azurerm_postgresql_flexible_server.primary"
+_PLATFORM_KEY_VAULT_ADDRESS = "module.key_vault.azurerm_key_vault.primary"
+_PLATFORM_OPERATOR_IDENTITY_ADDRESS = (
+    "module.operator_api_identity[0].azurerm_user_assigned_identity.primary"
+)
 _POSTGRES_SERVER_ID = re.compile(
     r"/subscriptions/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}"
     r"/resourceGroups/[A-Za-z0-9._()-]{1,90}"
@@ -220,6 +225,103 @@ def stored_platform_database(payload: dict[str, Any]) -> dict[str, str]:
     return {"server_id": server_id}
 
 
+def stored_platform_operator_identity(payload: dict[str, Any]) -> dict[str, str]:
+    """Read the tracked legacy Operator identity without relying on root outputs."""
+    values = payload.get("values")
+    root = values.get("root_module") if isinstance(values, dict) else None
+    if not isinstance(root, dict):
+        raise DriftContractError("Terraform state JSON has no root module")
+    try:
+        resource = _resource_at_address(root, _PLATFORM_OPERATOR_IDENTITY_ADDRESS)
+    except LookupError:
+        raise DriftContractError("platform state is missing the Operator identity") from None
+    resource_values = resource.get("values")
+    principal_id = (
+        resource_values.get("principal_id") if isinstance(resource_values, dict) else None
+    )
+    if not isinstance(principal_id, str) or not principal_id or "\n" in principal_id:
+        raise DriftContractError("platform state contains an invalid Operator identity")
+    return {"principal_id": principal_id}
+
+
+def stored_platform_key_vault(payload: dict[str, Any]) -> dict[str, str]:
+    """Read the tracked legacy Key Vault id without relying on root outputs."""
+    values = payload.get("values")
+    root = values.get("root_module") if isinstance(values, dict) else None
+    if not isinstance(root, dict):
+        raise DriftContractError("Terraform state JSON has no root module")
+    try:
+        resource = _resource_at_address(root, _PLATFORM_KEY_VAULT_ADDRESS)
+    except LookupError:
+        raise DriftContractError("platform state is missing the Key Vault") from None
+    resource_values = resource.get("values")
+    resource_id = resource_values.get("id") if isinstance(resource_values, dict) else None
+    if not isinstance(resource_id, str) or not resource_id or "\n" in resource_id:
+        raise DriftContractError("platform state contains an invalid Key Vault")
+    return {"resource_id": resource_id}
+
+
+def stored_platform_output_inputs(
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    """Reproduce output-affecting inputs for a legacy refresh-only plan."""
+    values = payload.get("values")
+    root = values.get("root_module") if isinstance(values, dict) else None
+    outputs = values.get("outputs") if isinstance(values, dict) else None
+    if not isinstance(root, dict) or not isinstance(outputs, dict):
+        raise DriftContractError("Terraform state JSON has no platform values")
+
+    governed_identity_outputs = (
+        "identity_change_principal_id",
+        "identity_change_resource_id",
+        "identity_resilience_principal_id",
+        "identity_resilience_resource_id",
+        "identity_finops_principal_id",
+        "identity_finops_resource_id",
+    )
+    governed_identities = tuple(
+        _stored_optional_output_string(outputs, name) is not None
+        for name in governed_identity_outputs
+    )
+    if any(governed_identities) and not all(governed_identities):
+        raise DriftContractError("platform state has an incomplete governed identity set")
+
+    decision_evidence = tuple(
+        _stored_optional_output_string(outputs, name) is not None
+        for name in (
+            "decision_evidence_container_url",
+            "decision_evidence_storage_account_name",
+        )
+    )
+    if any(decision_evidence) and not all(decision_evidence):
+        raise DriftContractError("platform state has incomplete decision evidence outputs")
+
+    gateway_audience = _stored_optional_output_string(outputs, "dev_operations_gateway_audience")
+    plan_inputs: dict[str, Any] = {
+        "enable_dev_operations_gateway": gateway_audience is not None,
+        "enable_governed_execution": all(governed_identities),
+        "enable_inventory_evidence_store_reader": all(decision_evidence),
+        "enable_llm": (_stored_optional_output_string(outputs, "llm_resource_id") is not None),
+        "enable_ohl_scale_out_evidence_target": (
+            _stored_optional_output_string(outputs, "ohl_scale_out_evidence_target_id") is not None
+        ),
+        "enable_operational_history": all(decision_evidence),
+    }
+    if gateway_audience is not None:
+        plan_inputs["operator_api_audience"] = gateway_audience
+    if not plan_inputs["enable_llm"]:
+        return plan_inputs
+
+    stored_digest = _stored_output_string(outputs, "resolved_models_sha256")
+    plan_inputs.update(
+        {
+            "resolved_capabilities": _stored_openai_capabilities(root),
+            "resolved_models_sha256": stored_digest,
+        }
+    )
+    return plan_inputs
+
+
 def _stored_cost_pseudonym_key_secret_id(root: dict[str, Any]) -> str | None:
     """Return the platform-owned Operator pseudonym key binding when the platform created it."""
     try:
@@ -231,6 +333,107 @@ def _stored_cost_pseudonym_key_secret_id(root: dict[str, Any]) -> str | None:
     if not isinstance(secret_id, str) or not secret_id or "\n" in secret_id:
         raise DriftContractError("platform state contains an invalid cost pseudonym key binding")
     return secret_id
+
+
+def _stored_output_string(outputs: dict[str, Any], name: str) -> str:
+    output = outputs.get(name)
+    value = output.get("value") if isinstance(output, dict) else None
+    if not isinstance(value, str) or not value or "\n" in value:
+        raise DriftContractError(f"platform state is missing required {name} output")
+    return value
+
+
+def _stored_optional_output_string(outputs: dict[str, Any], name: str) -> str | None:
+    output = outputs.get(name)
+    if output is None:
+        return None
+    value = output.get("value") if isinstance(output, dict) else None
+    if value is None or value == "":
+        return None
+    if not isinstance(value, str) or "\n" in value:
+        raise DriftContractError(f"platform state contains an invalid {name} output")
+    return value
+
+
+def _stored_openai_capabilities(root: dict[str, Any]) -> list[dict[str, Any]]:
+    prefix = "module.llm_azure_openai[0].azurerm_cognitive_deployment.capability["
+    capabilities: list[dict[str, Any]] = []
+    for resource in sorted(_resources(root), key=lambda item: str(item.get("address", ""))):
+        address = resource.get("address")
+        if not isinstance(address, str) or not address.startswith(prefix):
+            continue
+        values = resource.get("values")
+        name = values.get("name") if isinstance(values, dict) else None
+        models = values.get("model") if isinstance(values, dict) else None
+        skus = values.get("sku") if isinstance(values, dict) else None
+        if (
+            not isinstance(name, str)
+            or not name
+            or not isinstance(models, list)
+            or len(models) != 1
+            or not isinstance(models[0], dict)
+            or not isinstance(skus, list)
+            or len(skus) != 1
+            or not isinstance(skus[0], dict)
+        ):
+            raise DriftContractError("platform state contains an invalid model deployment")
+        family = models[0].get("name")
+        version = models[0].get("version")
+        sku = skus[0].get("name")
+        capacity = skus[0].get("capacity")
+        if (
+            not isinstance(family, str)
+            or not family
+            or not isinstance(version, str)
+            or not version
+            or not isinstance(sku, str)
+            or not sku
+            or isinstance(capacity, bool)
+            or not isinstance(capacity, (int, float))
+            or capacity <= 0
+            or int(capacity) != capacity
+        ):
+            raise DriftContractError("platform state contains an invalid model deployment")
+        capability: dict[str, Any] = {
+            "name": name,
+            "publisher": "OpenAI",
+            "family": family,
+            "version": version,
+            "sku": sku,
+        }
+        if "Provisioned" in sku:
+            capability.update(
+                {"capacity_unit": "ptu", "capacity_tpm": 0, "capacity_value": int(capacity)}
+            )
+        else:
+            capability.update(
+                {
+                    "capacity_unit": "tpm",
+                    "capacity_tpm": int(capacity) * 1000,
+                    "capacity_value": 0,
+                }
+            )
+        capabilities.append(capability)
+    if not capabilities:
+        raise DriftContractError("platform state contains no tracked model deployments")
+    return capabilities
+
+
+def _resources(module: dict[str, Any]) -> tuple[dict[str, Any], ...]:
+    resources = module.get("resources", [])
+    children = module.get("child_modules", [])
+    if not isinstance(resources, list) or not isinstance(children, list):
+        raise DriftContractError("Terraform state contains an invalid module")
+    collected: list[dict[str, Any]] = []
+    for resource in resources:
+        if not isinstance(resource, dict):
+            raise DriftContractError("Terraform state contains an invalid resource")
+        collected.append(resource)
+    for child in children:
+        if not isinstance(child, dict):
+            raise DriftContractError("Terraform state contains an invalid child module")
+        collected.extend(_resources(child))
+    return tuple(collected)
 
 
 def _resource_at_address(module: dict[str, Any], address: str) -> dict[str, Any]:
@@ -282,6 +485,13 @@ def _object(path: Path) -> dict[str, Any]:
     return payload
 
 
+def _write_private_json(path: Path, payload: dict[str, Any]) -> None:
+    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+        json.dump(payload, stream, separators=(",", ":"), sort_keys=True)
+        stream.write("\n")
+
+
 def main() -> int:
     """Print drift coordinates or stored planning inputs for workflow use."""
     parser = argparse.ArgumentParser()
@@ -297,6 +507,9 @@ def main() -> int:
     bootstrap.add_argument("--state-json", type=Path, required=True)
     platform = commands.add_parser("platform-inputs")
     platform.add_argument("--state-json", type=Path, required=True)
+    platform_output = commands.add_parser("platform-output-inputs")
+    platform_output.add_argument("--state-json", type=Path, required=True)
+    platform_output.add_argument("--output", type=Path, required=True)
     database = commands.add_parser("platform-database")
     database.add_argument("--state-json", type=Path, required=True)
     args = parser.parse_args()
@@ -315,6 +528,11 @@ def main() -> int:
             print(json.dumps(stored_bootstrap_inputs(_object(args.state_json)), sort_keys=True))
         elif args.command == "platform-database":
             print(json.dumps(stored_platform_database(_object(args.state_json)), sort_keys=True))
+        elif args.command == "platform-output-inputs":
+            _write_private_json(
+                args.output,
+                stored_platform_output_inputs(_object(args.state_json)),
+            )
         else:
             print(json.dumps(stored_platform_inputs(_object(args.state_json)), sort_keys=True))
     except (
