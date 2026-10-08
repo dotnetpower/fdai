@@ -392,45 +392,73 @@ and Owner-tier reviewer for loosening changes.
 - Changing a rule's logic bumps its `version`; changing an assignment's parameters/effect/scope is
   itself an audited, versioned change. A rule set **pins the `version` of each member rule** so a
   rule change cannot silently alter a promoted set.
-- **Rule revision upgrades (not implemented):** An activation generation pins each member's exact
-  version and digest, and the ledger accepts only membership changes against an unchanged
-  catalog. Changing the content of an activated Rule therefore makes an upgraded installation fail
-  closed at startup, because the current generation no longer resolves against installed artifacts.
-  Don't ship a revision of an activated Rule until the upgrade path exists. A proposed startup
-  carry-forward was rejected in critique, because it would let a deployment identity change an
-  enforced Rule's behavior without promotion, bind no exact target revision into the approval,
-  race across replicas, crash old replicas during a rolling deploy, and make ordinary release
-  rollback impossible. The upgrade path needs:
-  - an explicit revision delta that binds from and to version, Rule digest, and target generation
-    into the approved proposal digest;
-  - an activation identity that separates the active members from the full catalog digest;
-  - unattended carry-forward only for shadow Rules, with enforced revisions returning to shadow or
-    carrying a version-specific promotion approval, and promotion evidence keyed by Rule revision;
-  - deterministic release-bound request identity, so concurrent replicas converge by readback;
-  - prepare and activate phases with a versioned artifact registry that holds both revisions until
-    every replica is compatible; and
-  - an audited rollback transition to a previously recorded generation whose artifacts are
-    retained.
+- **Rule revision upgrades (designed, not implemented):** An activation generation pins each
+  member's exact version and digest, and the ledger accepts only membership changes against an
+  unchanged catalog, so changing an activated Rule's content makes an upgraded installation fail
+  closed at startup. Until every phase below is operationally validated,
+  `scripts/quality/architecture/check-rule-revision-lock.py` locks each shipped Rule's version,
+  definition digest, and policy content digest in `rule-catalog/rule-revision-lock.json`, and a
+  changed check ships as a new Rule id. Four earlier designs were rejected in critique; their
+  findings are recorded in the
+  [ledger](../../roadmap-implementation/rules-and-detection/rule-governance.md). The current
+  design runs in this order, and each phase keeps startup fail-closed. Phases 2 through 6 ship
+  dormant: they read and validate version 2 data but write none, and no version 2 digest or
+  pointer becomes authoritative before the approved identity upgrade in phase 7.
+  1. **Dual-read codecs.** A compatibility release reads version 1 and 2 of every durable object
+     and event (proposal and change union, approval, command, result, pointer, generation,
+     idempotency row, manifest, and prepare and acknowledgement events) while still writing
+     version 1. It becomes the minimum binary-rollback floor once any later phase runs.
+  2. **Immutable revision identity.** One `(rule_id, rule_version)` maps permanently to one
+     definition digest and one policy identity; a digest change without a version bump is
+     rejected, never approved. The policy identity digests a canonical executable bundle: the
+     referenced Rego, its transitive modules and data, and the OPA and normalization versions.
+     Retained artifacts are stored by the full revision identity.
+  3. **Signed registry and manifests.** Every non-direct startup source, including pull-request
+     sources, carries a signed activation manifest binding the release or package id, target
+     generation, profile, catalog manifest, full member identities, registry root, issuance time,
+     and deployment scope, with defined trust roots, rotation, revocation, and anti-replay. The
+     unsigned installation fallback is removed. Signing proves artifact integrity only and never
+     replaces human approval.
+  4. **Identity separation.** The active generation digest covers only the active member
+     identities and the resolved profile snapshot. The full catalog manifest digest, which indexes
+     every revision identity, becomes proposal provenance and a transition precondition. A profile
+     version identifies a resolved member snapshot, so every revision change bumps it.
+  5. **Replica cohort protocol.** Activation follows a durable state machine: desired (approved,
+     inert), prepared, active, and per-replica applied. Prepare freezes a cohort of authenticated
+     replica ids, release ids, startup epochs, and serving leases. A keyed prepare announcement
+     goes out on the event bus; each replica observes it from its own subscription and publishes an
+     authenticated acknowledgement or refusal with its locally verified artifact digests, and a
+     coordinator persists them idempotently. A refusal blocks activation; a replica leaves the
+     cohort only with drain or lease-expiry evidence. Serving leases are fences bound to the
+     applied generation: during prepare no replica is admitted or renewed unless it joins and
+     prepares, and a replica rejects work once fenced or expired. One CAS then moves the
+     authority-bearing active pointer, which prepare never touches, and that CAS binds the digest
+     of the exact acknowledgement set. A replica records `applied` only after it
+     replaces its complete T0 generation, and runtime evidence cites the replica's applied digest.
+  6. **Enforcement pins and dual-revision slots.** Every enforcing binding, including an explicit
+     assignment, pins the revision it enforces. The runtime gains a prepared shadow slot keyed by
+     full revision identity, so the old revision keeps enforcing while the new one evaluates in
+     shadow, and every evaluation's evidence cites the revision identity it ran. Once every cohort
+     replica reports the new revision applied, a separate approved CAS moves the binding. Combining revision and promotion
+     in one approval requires the stronger promotion quorum and revision-keyed evidence.
+  7. **Approved identity upgrade.** Moving existing version 1 generations to version 2 is an
+     explicit command approved by a distinct human. It binds the source generation digest, every
+     target member identity, the target generation digest, and the signed release, and verifies
+     policy identities against a reviewed baseline, not merely the installed bytes. It runs through
+     the cohort protocol only after every serving binary is dual-read capable, and it is the
+     cutover that makes version 2 authoritative. Startup may read back an approved upgrade but never
+     originates one.
+  8. **Revision changes.** A change names `rule_id`, the from and to revision identities, and the
+     from and to catalog manifest and profile identities, all inside the approved proposal digest,
+     and runs through the cohort protocol. Revisions never carry forward unattended.
+  9. **Retention and rollback.** A release or shared registry retains the full closure that
+     supported rollback needs. A revision can't be retired while any active, desired, prepared,
+     applied, or rollback-eligible generation, enforcement pin, or promotion record references
+     it, and retirement is itself an approved, audited operation. Rollback is an approved
+     transition through the same cohort protocol.
 
-  A second design kept prior revisions in a retained registry and allowed revision changes only
-  through approved activation changes. Critique found that it still fell short:
-  - `rule_digest` covers the Rule definition but not the referenced Rego, so a policy edit changes
-    behavior without changing any activation or approval identity. Member identity needs a
-    verified policy-content digest, which migrates every stored generation.
-  - Holding unresolvable members installs a partial generation under the full generation's
-    identity. A replica that can't resolve the current generation must stay on its last complete
-    generation or become not ready, with desired and applied generations tracked separately.
-  - Revision migration must name the from and to catalog identities explicitly.
-  - Every enforcing binding needs a revision pin, including explicit Rule assignments, with a
-    staged governance transition.
-  - Reviewed startup sources must carry a signed activation manifest that enumerates the exact
-    revisions.
-  - Stored proposals and results need versioned codecs.
-
-  Until that work lands, `scripts/quality/architecture/check-rule-revision-lock.py` locks each
-  shipped Rule's version, canonical definition digest, and policy content digest in
-  `rule-catalog/rule-revision-lock.json`. Any in-place change or removal fails the check. Ship a
-  changed check as a new Rule id, whose activation is an ordinary approved membership change.
+  Request identity derives from the release, the proposal digest, and the target generation, so
+  concurrent replicas converge by reading back the same record.
 - **Testability**: every assignment/exemption PR ships fixtures - the expected match set (which
   synthetic resources the scope selects) and, for enforce promotions, the shadow-eval sample the
   promotion gate scored - so governance changes are regression-tested like rule changes
