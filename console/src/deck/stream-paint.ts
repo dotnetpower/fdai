@@ -29,12 +29,15 @@ export function flushStreamPaint(queue: string[]): string {
   return queue.splice(0).join("");
 }
 
+/** Display frames a terminal-only answer may spend on its reveal, under half a second at 60 Hz. */
+export const MAX_TERMINAL_REVEAL_FRAMES = 24;
+
 /** Split a terminal-only canonical answer into bounded visual deltas. This is
  * presentation pacing only: joining the chunks reproduces the received answer
  * byte-for-byte. */
 export function terminalRevealChunks(text: string): string[] {
   const tokens = text.match(/\S+\s*/g) ?? (text.length > 0 ? [text] : []);
-  const tokensPerChunk = Math.max(1, Math.ceil(tokens.length / 60));
+  const tokensPerChunk = Math.max(1, Math.ceil(tokens.length / MAX_TERMINAL_REVEAL_FRAMES));
   const chunks: string[] = [];
   for (let index = 0; index < tokens.length; index += tokensPerChunk) {
     chunks.push(tokens.slice(index, index + tokensPerChunk).join(""));

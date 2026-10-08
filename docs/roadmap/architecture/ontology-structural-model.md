@@ -149,7 +149,8 @@ ResourceType registry so a new semantic type cannot remain outside the coverage 
 The first release keeps one taxonomic surface. It does not add a generic concept-scheme engine.
 Capabilities such as `Operable` and `Observable` remain InterfaceType concerns. ResourceType-level
 Interface bindings require a separate safety design because InterfaceType can be an ActionType
-target. Code-security issues aren't ontology objects, so they never enter ontology queries.
+target. Code-security issues, issue summaries, repository registrations and their change
+requests, and scan requests aren't ontology objects, so they never enter ontology queries.
 
 ## Relationship model
 
@@ -409,10 +410,11 @@ instance directory. This navigation and loading boundary changes no evidence, gr
 execution authority.
 
 The selected-instance view consumes a durable authenticated inventory-invalidation SSE stream and
-revalidates its bounded response after each committed watermark. A monotonic 15-second countdown
-drives fallback polling while SSE is unavailable. Focus, online, and visible-state recovery trigger
-an immediate revalidation. Overlapping requests coalesce, refresh failure preserves the last
-verified response, and stale data is never silently treated as current. Neither SSE nor polling is
+revalidates its bounded response after each committed watermark. The stream ends when the Operator
+begins graceful shutdown, even between polls, and the view resumes from its last event id. A
+monotonic 15-second countdown drives fallback polling while SSE is unavailable. Focus, online, and
+visible-state recovery trigger an immediate revalidation. Overlapping requests coalesce, refresh
+failure preserves the last verified response, and stale data is never silently treated as current. Neither SSE nor polling is
 provider observation. A Resource or relationship changes only after the inventory authority records
 new evidence. Provider-reported states remain exact values and use text-bearing semantic badges;
 color never becomes the only state signal.

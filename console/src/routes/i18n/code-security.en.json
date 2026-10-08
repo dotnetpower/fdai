@@ -1,7 +1,7 @@
 {
-  "subtitle": "Read-only code-security scan reviews per repository revision. Findings never grant approval or execution authority.",
-  "readOnlyTitle": "Inspection only.",
-  "readOnlyBody": "Counts and opaque issue ids only; code, paths, and fixes stay in remediation packs on developer machines.",
+  "subtitle": "Code-security scan reviews per repository revision, separated by source. Findings never grant approval or execution authority.",
+  "readOnlyTitle": "Inspection and scan requests only.",
+  "readOnlyBody": "Counts and opaque issue ids only; code, paths, and fixes stay in reports and remediation packs on developer machines. A scan request never changes code, approves, or executes.",
   "resourceLabel": "code-security reviews",
   "unavailable": "Authoritative code-security review evidence is unavailable.",
   "empty": "No code-security review has been recorded yet.",
@@ -20,7 +20,10 @@
     "priority": "P0 / P1 / P2",
     "confidence": "Verified or proven",
     "exposure": "Exposure",
-    "recordedAt": "Recorded"
+    "recordedAt": "Recorded",
+    "source": "Source",
+    "trigger": "Started by",
+    "detail": "Issues"
   },
   "decision": {
     "urgent": "Urgent",
@@ -37,7 +40,12 @@
   "gap": {
     "code_security_review_malformed": "A stored review is malformed and was withheld.",
     "code_security_review_truncated": "More reviews exist than this view shows.",
-    "code_security_pack_malformed": "A stored remediation pack is malformed and was withheld."
+    "code_security_pack_malformed": "A stored remediation pack is malformed and was withheld.",
+    "code_security_repository_malformed": "A stored repository registration is malformed and was withheld.",
+    "code_security_scan_request_malformed": "A stored scan request is malformed and was withheld.",
+    "code_security_issue_malformed": "A stored issue summary is malformed and was withheld.",
+    "code_security_issues_unavailable": "No issue summaries are recorded for this review.",
+    "code_security_issues_truncated": "This review has more issues than are shown."
   },
   "packsTitle": "Remediation packs",
   "packsEmpty": "No remediation pack has been recorded in the state store yet.",
@@ -57,5 +65,116 @@
     "revoked": "Revoked",
     "expired": "Expired"
   },
-  "noVerification": "Not verified"
+  "noVerification": "Not verified",
+  "filterLabel": "Filter reviews by source",
+  "source": {
+    "all": "All sources",
+    "local_path": "Local folder",
+    "git_repository": "Git repository",
+    "external_sarif": "External SARIF",
+    "legacy": "Unlabeled"
+  },
+  "trigger": {
+    "cli": "CLI",
+    "console": "Console request",
+    "schedule": "Schedule"
+  },
+  "snapshot": "Uncommitted snapshot",
+  "scan": {
+    "title": "Repository scans",
+    "body": "Ask Heimdall to scan a registered repository. The scan worker fetches the exact commit with read-only access, scans it in the sandbox, and records the review here.",
+    "repository": "Repository",
+    "ref": "Branch, tag, or commit",
+    "refPlaceholder": "Default branch",
+    "submit": "Request scan",
+    "submitting": "Requesting...",
+    "queued": "Scan request queued. The result appears below when the scan worker finishes.",
+    "forbidden": "A Contributor or Owner role is required to request a scan.",
+    "failed": "The scan request was not queued.",
+    "noRepositories": "No repository is registered for Console scans. An Owner registers one below or with `fdai-code-security repo-register`.",
+    "unavailable": "Registered repositories and scan requests are unavailable.",
+    "requestsTitle": "Scan and registration requests",
+    "requestsEmpty": "No scan has been requested yet.",
+    "withheld": "Withheld repository or request records",
+    "repositoriesTitle": "Registered repositories"
+  },
+  "repoColumn": {
+    "repository": "Repository",
+    "location": "GitHub repository",
+    "defaultRef": "Default ref",
+    "exposure": "Exposure",
+    "state": "State",
+    "change": "Change"
+  },
+  "repoState": {
+    "enabled": "Enabled",
+    "disabled": "Disabled"
+  },
+  "requestColumn": {
+    "requestedAt": "Requested",
+    "repository": "Repository",
+    "ref": "Ref",
+    "status": "Status",
+    "result": "Result",
+    "kind": "Request"
+  },
+  "requestStatus": {
+    "queued": "Queued",
+    "running": "Scanning",
+    "completed": "Completed",
+    "rejected": "Rejected"
+  },
+  "rejection": {
+    "request_malformed": "The request was malformed.",
+    "requester_role_insufficient": "The requester lacked a Contributor or Owner role.",
+    "repository_not_registered": "The repository is not registered.",
+    "repository_disabled": "Scans of this repository are disabled.",
+    "source_unavailable": "The repository or ref could not be fetched.",
+    "scan_failed": "The scan failed before producing a review.",
+    "review_conflict": "A different review is already recorded for this commit.",
+    "attempts_exhausted": "The scan was retried too many times.",
+    "repository_conflict": "The alias is already registered for another repository."
+  },
+  "requestKind": {
+    "scan": "Scan",
+    "register": "Register",
+    "enable": "Enable",
+    "disable": "Disable"
+  },
+  "register": {
+    "title": "Register a GitHub repository",
+    "body": "Owners can allow Console scans of a GitHub repository. The worker applies the change with an audit record; registering grants no write access to the repository.",
+    "alias": "Alias",
+    "location": "GitHub repository",
+    "defaultRef": "Default ref",
+    "exposure": "Exposure",
+    "submit": "Request registration",
+    "enable": "Enable",
+    "disable": "Disable",
+    "queued": "Change request queued. It takes effect when the scan worker runs.",
+    "forbidden": "Only an Owner can change repository registrations.",
+    "failed": "The change request was not queued.",
+    "defaultRefHint": "Blank follows the repository's default branch."
+  },
+  "issues": {
+    "title": "Issues in this review",
+    "body": "Priority, severity, confidence, weakness class, and CWE or advisory per issue. Paths, code, and scanner messages stay in reports and remediation packs.",
+    "open": "View",
+    "close": "Close",
+    "loading": "Loading issues",
+    "empty": "This review found no issue.",
+    "notRecorded": "Issue details weren't recorded for this review.",
+    "unavailable": "Issue details are unavailable.",
+    "yes": "Yes",
+    "column": {
+      "issue": "Issue",
+      "priority": "Priority",
+      "severity": "Severity",
+      "confidence": "Confidence",
+      "weaknessClass": "Weakness class",
+      "reference": "CWE or advisory",
+      "producers": "Producers",
+      "knownExploited": "Known exploited"
+    }
+  }
 }

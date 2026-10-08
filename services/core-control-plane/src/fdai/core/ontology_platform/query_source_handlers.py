@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from collections.abc import Mapping, Sequence
 from dataclasses import asdict, is_dataclass, replace
 from functools import partial
@@ -88,6 +89,7 @@ class SecuredObjectSetNodeHandler:
         if dependencies:
             raise ValueError("object_set node MUST NOT consume dependency results")
         definition = ObjectSetDefinition.model_validate(node.arguments.get("definition"))
+        started = time.perf_counter()
         try:
             secured = await self._gateway.materialize(
                 definition,
@@ -96,6 +98,7 @@ class SecuredObjectSetNodeHandler:
         except ValueError:
             _LOGGER.warning("secured_object_set_failed", extra={"stage": "materialize"})
             raise
+        materialized = time.perf_counter()
         if self._graph_refresher is not None:
             try:
                 secured = await self._graph_refresher.refresh(
@@ -106,6 +109,7 @@ class SecuredObjectSetNodeHandler:
             except ValueError:
                 _LOGGER.warning("secured_object_set_failed", extra={"stage": "refresh"})
                 raise
+        refreshed = time.perf_counter()
         if self._receipt_authority is not None:
             try:
                 await _issue_secured_result(
@@ -116,6 +120,21 @@ class SecuredObjectSetNodeHandler:
             except ValueError:
                 _LOGGER.warning("secured_object_set_failed", extra={"stage": "receipt"})
                 raise
+        issued = time.perf_counter()
+        _LOGGER.info(
+            "ontology_object_set_stages_timed",
+            extra={
+                "materialize_ms": round((materialized - started) * 1000),
+                "refresh_ms": round((refreshed - materialized) * 1000),
+                "receipt_ms": round((issued - refreshed) * 1000),
+                "object_count": len(secured.materialization.graph.objects),
+                # Why a scope is partial, as closed codes, so a partial answer is diagnosable.
+                "scope_complete": secured.receipt.complete,
+                "source_incomplete_reason": secured.materialization.graph.source_incomplete_reason
+                or "none",
+                "truncation_reason": str(secured.receipt.truncation_reason or "none"),
+            },
+        )
         table = secured_query_table(secured)
         return QueryNodeResult(
             value=table,

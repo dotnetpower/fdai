@@ -52,6 +52,13 @@ _INSTANCE_HOLDOUT_V2_COHORT_COUNTS = {
     "ko-adversarial": 4,
 }
 _INSTANCE_CALIBRATION_V3_COHORT_COUNTS = _INSTANCE_HOLDOUT_V2_COHORT_COUNTS
+_INSTANCE_HOLDOUT_V3_COHORT_COUNTS = _INSTANCE_HOLDOUT_V2_COHORT_COUNTS
+_INSTANCE_HOLDOUT_V4_COHORT_COUNTS = _INSTANCE_HOLDOUT_V2_COHORT_COUNTS
+_INSTANCE_HOLDOUT_V5_COHORT_COUNTS = _INSTANCE_HOLDOUT_V2_COHORT_COUNTS
+_INSTANCE_HOLDOUT_V5_HALVES = {
+    "instance-holdout.v5a.json": ("hold5a-", "instance-holdout.v5b.json"),
+    "instance-holdout.v5b.json": ("hold5b-", "instance-holdout.v5a.json"),
+}
 
 
 def _load_asset(name: str) -> dict:
@@ -337,6 +344,480 @@ def test_instance_calibration_v3_passes_real_preflight_against_calibration_v1() 
         manifest=manifest,
         cases=cases,
         calibration_queries=tuple(item["query"] for item in calibration_v1["cases"]),
+        ranking_policy=CatalogRankingPolicy(**calibration_v3["candidate_ranking_policy"]),
+        evaluation_policy=load_retrieval_evaluation_policy_from_mapping(
+            calibration_v3["evaluation_policy"]
+        ),
+        required_object_types=names,
+    )
+
+    assert plan.query_count == 64
+    assert plan.embedding_call_upper_bound == 92
+
+
+def test_instance_holdout_v3_has_expected_shape_and_cohorts() -> None:
+    holdout = _load_asset("instance-holdout.v3.json")
+    calibration_v3 = _load_asset("instance-calibration.v3.json")
+    cases = holdout["cases"]
+
+    assert holdout["schema_version"] == "1.0.0"
+    assert holdout["origin"] == "independently_authored_synthetic_holdout"
+    assert holdout["independently_reviewed"] is True
+    assert holdout["production_qualification"] is False
+    assert holdout["supersedes"] == "instance-holdout.v2.json"
+    assert holdout["corpus"] == "instance-corpus.v1.json"
+    assert holdout["candidate_ranking_policy"] == calibration_v3["candidate_ranking_policy"]
+    assert holdout["evaluation_policy"] == calibration_v3["evaluation_policy"]
+    assert holdout["limits"] == calibration_v3["limits"]
+    assert len(cases) == 64
+    assert Counter(item["cohort"] for item in cases) == _INSTANCE_HOLDOUT_V3_COHORT_COUNTS
+    assert len({item["case_id"] for item in cases}) == 64
+    assert all(item["case_id"].startswith(("hold3-en-", "hold3-ko-")) for item in cases)
+
+
+def test_instance_holdout_v3_references_only_corpus_ids() -> None:
+    cases = _load_asset("instance-holdout.v3.json")["cases"]
+    object_ids = _corpus_document_ids()
+
+    for case in cases:
+        expected_ids = case["expected_document_ids"]
+        assert set(expected_ids) <= object_ids
+        if case["cohort"].endswith("-positive"):
+            assert expected_ids
+        if case["cohort"].endswith(("-negative", "-adversarial")):
+            assert expected_ids == []
+
+
+def test_instance_holdout_v3_positive_targets_are_distinct_per_type() -> None:
+    cases = _load_asset("instance-holdout.v3.json")["cases"]
+    object_types = _corpus_document_types()
+
+    for language in ("en", "ko"):
+        targets_by_type: dict[str, set[str]] = {
+            "BusinessService": set(),
+            "Incident": set(),
+            "Resource": set(),
+            "Workload": set(),
+        }
+        positives = [item for item in cases if item["cohort"] == f"{language}-positive"]
+        assert len(positives) == 16
+        for case in positives:
+            expected_id = case["expected_document_ids"][0]
+            targets_by_type[object_types[expected_id]].add(expected_id)
+
+        assert {object_type: len(ids) for object_type, ids in targets_by_type.items()} == {
+            "BusinessService": 4,
+            "Incident": 4,
+            "Resource": 4,
+            "Workload": 4,
+        }
+
+
+def test_instance_holdout_v3_ambiguous_cases_split_match_and_no_match() -> None:
+    cases = _load_asset("instance-holdout.v3.json")["cases"]
+
+    for language in ("en", "ko"):
+        ambiguous = [item for item in cases if item["cohort"] == f"{language}-ambiguous"]
+        assert sum(bool(item["expected_document_ids"]) for item in ambiguous) == 4
+        assert sum(not item["expected_document_ids"] for item in ambiguous) == 4
+
+
+def test_instance_holdout_v3_queries_are_exact_normalized_disjoint() -> None:
+    holdout_v3_queries = {
+        _normalized_query(item["query"])
+        for item in _load_asset("instance-holdout.v3.json")["cases"]
+    }
+    prior_queries = {
+        _normalized_query(item["query"])
+        for asset_name in (
+            "instance-calibration.v1.json",
+            "instance-calibration.v2.json",
+            "instance-calibration.v3.json",
+            "instance-holdout.v1.json",
+            "instance-holdout.v2.json",
+        )
+        for item in _load_asset(asset_name)["cases"]
+    }
+
+    assert len(holdout_v3_queries) == 64
+    assert holdout_v3_queries.isdisjoint(prior_queries)
+
+
+def test_instance_holdout_v3_passes_real_preflight_against_calibration_v2_and_v3() -> None:
+    corpus = _load_asset("instance-corpus.v1.json")
+    calibration_v2 = _load_asset("instance-calibration.v2.json")
+    calibration_v3 = _load_asset("instance-calibration.v3.json")
+    holdout = _load_asset("instance-holdout.v3.json")
+    names = tuple(corpus["required_object_types"])
+    registry = PackageResourceSchemaRegistry()
+    declarations = tuple(
+        load_object_type_from_mapping(
+            yaml.safe_load(
+                (_ROOT / f"rule-catalog/vocabulary/object-types/{name}.yaml").read_text()
+            ),
+            schema_registry=registry,
+        )
+        for name in names
+    )
+    resource_registry = load_resource_type_registry_from_mapping(
+        yaml.safe_load((_ROOT / "rule-catalog/vocabulary/resource-types.yaml").read_text())
+    )
+    objects = tuple(OntologyObjectRecord(**item) for item in corpus["objects"])
+    manifest = build_query_manifest(
+        release=build_ontology_release(object_types=declarations),
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest="sha256:" + "a" * 64,
+        object_types=declarations,
+    )
+    build = build_ontology_semantic_generation(
+        manifest=manifest,
+        embedding_space_id="qualification-space-placeholder",
+        embedding_model_version="unbound-model-version",
+        embedding_dimension=24,
+        runtime_objects=objects,
+        resource_type_query_terms={item.id: item.query_terms for item in resource_registry},
+    )
+    cases = tuple(
+        OntologyRetrievalEvaluationCase(
+            case_id=item["case_id"],
+            query=item["query"],
+            cohort=item["cohort"],
+            expected_document_ids=tuple(item["expected_document_ids"]),
+        )
+        for item in holdout["cases"]
+    )
+
+    plan = prepare_ontology_retrieval_evaluation(
+        build=build,
+        manifest=manifest,
+        cases=cases,
+        calibration_queries=tuple(
+            item["query"] for asset in (calibration_v2, calibration_v3) for item in asset["cases"]
+        ),
+        ranking_policy=CatalogRankingPolicy(**calibration_v3["candidate_ranking_policy"]),
+        evaluation_policy=load_retrieval_evaluation_policy_from_mapping(
+            calibration_v3["evaluation_policy"]
+        ),
+        required_object_types=names,
+    )
+
+    assert plan.query_count == 64
+    assert plan.embedding_call_upper_bound == 92
+
+
+def test_instance_holdout_v4_has_expected_shape_and_cohorts() -> None:
+    holdout = _load_asset("instance-holdout.v4.json")
+    calibration_v3 = _load_asset("instance-calibration.v3.json")
+    cases = holdout["cases"]
+
+    assert holdout["schema_version"] == "1.0.0"
+    assert holdout["origin"] == "independently_authored_synthetic_holdout"
+    assert holdout["independently_reviewed"] is True
+    assert holdout["production_qualification"] is False
+    assert holdout["supersedes"] == "instance-holdout.v3.json"
+    assert holdout["corpus"] == "instance-corpus.v1.json"
+    assert holdout["candidate_ranking_policy"] == calibration_v3["candidate_ranking_policy"]
+    assert holdout["evaluation_policy"] == calibration_v3["evaluation_policy"]
+    assert holdout["limits"] == calibration_v3["limits"]
+    assert len(cases) == 64
+    assert Counter(item["cohort"] for item in cases) == _INSTANCE_HOLDOUT_V4_COHORT_COUNTS
+    assert len({item["case_id"] for item in cases}) == 64
+    assert all(item["case_id"].startswith(("hold4-en-", "hold4-ko-")) for item in cases)
+
+
+def test_instance_holdout_v4_references_only_corpus_ids() -> None:
+    cases = _load_asset("instance-holdout.v4.json")["cases"]
+    object_ids = _corpus_document_ids()
+
+    for case in cases:
+        expected_ids = case["expected_document_ids"]
+        assert expected_ids == sorted(set(expected_ids))
+        assert set(expected_ids) <= object_ids
+        if case["cohort"].endswith("-positive"):
+            assert expected_ids
+        if case["cohort"].endswith(("-negative", "-adversarial")):
+            assert expected_ids == []
+
+
+def test_instance_holdout_v4_positive_targets_are_distinct_per_type() -> None:
+    cases = _load_asset("instance-holdout.v4.json")["cases"]
+    object_types = _corpus_document_types()
+
+    for language in ("en", "ko"):
+        targets_by_type: dict[str, set[str]] = {
+            "BusinessService": set(),
+            "Incident": set(),
+            "Resource": set(),
+            "Workload": set(),
+        }
+        positives = [item for item in cases if item["cohort"] == f"{language}-positive"]
+        assert len(positives) == 16
+        for case in positives:
+            assert len(case["expected_document_ids"]) == 1
+            expected_id = case["expected_document_ids"][0]
+            targets_by_type[object_types[expected_id]].add(expected_id)
+
+        assert {object_type: len(ids) for object_type, ids in targets_by_type.items()} == {
+            "BusinessService": 4,
+            "Incident": 4,
+            "Resource": 4,
+            "Workload": 4,
+        }
+
+
+def test_instance_holdout_v4_ambiguous_cases_split_match_and_no_match() -> None:
+    cases = _load_asset("instance-holdout.v4.json")["cases"]
+
+    for language in ("en", "ko"):
+        ambiguous = [item for item in cases if item["cohort"] == f"{language}-ambiguous"]
+        assert sum(bool(item["expected_document_ids"]) for item in ambiguous) == 4
+        assert sum(not item["expected_document_ids"] for item in ambiguous) == 4
+
+
+def test_instance_holdout_v4_queries_are_exact_normalized_disjoint() -> None:
+    holdout_v4_queries = {
+        _normalized_query(item["query"])
+        for item in _load_asset("instance-holdout.v4.json")["cases"]
+    }
+    prior_queries = {
+        _normalized_query(item["query"])
+        for asset_name in (
+            "instance-calibration.v1.json",
+            "instance-calibration.v2.json",
+            "instance-calibration.v3.json",
+            "instance-holdout.v1.json",
+            "instance-holdout.v2.json",
+            "instance-holdout.v3.json",
+        )
+        for item in _load_asset(asset_name)["cases"]
+    }
+
+    assert len(holdout_v4_queries) == 64
+    assert holdout_v4_queries.isdisjoint(prior_queries)
+
+
+def test_instance_holdout_v4_passes_real_preflight_against_calibration_v2_and_v3() -> None:
+    corpus = _load_asset("instance-corpus.v1.json")
+    calibration_v2 = _load_asset("instance-calibration.v2.json")
+    calibration_v3 = _load_asset("instance-calibration.v3.json")
+    holdout = _load_asset("instance-holdout.v4.json")
+    names = tuple(corpus["required_object_types"])
+    registry = PackageResourceSchemaRegistry()
+    declarations = tuple(
+        load_object_type_from_mapping(
+            yaml.safe_load(
+                (_ROOT / f"rule-catalog/vocabulary/object-types/{name}.yaml").read_text()
+            ),
+            schema_registry=registry,
+        )
+        for name in names
+    )
+    resource_registry = load_resource_type_registry_from_mapping(
+        yaml.safe_load((_ROOT / "rule-catalog/vocabulary/resource-types.yaml").read_text())
+    )
+    objects = tuple(OntologyObjectRecord(**item) for item in corpus["objects"])
+    manifest = build_query_manifest(
+        release=build_ontology_release(object_types=declarations),
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest="sha256:" + "a" * 64,
+        object_types=declarations,
+    )
+    build = build_ontology_semantic_generation(
+        manifest=manifest,
+        embedding_space_id="qualification-space-placeholder",
+        embedding_model_version="unbound-model-version",
+        embedding_dimension=24,
+        runtime_objects=objects,
+        resource_type_query_terms={item.id: item.query_terms for item in resource_registry},
+    )
+    cases = tuple(
+        OntologyRetrievalEvaluationCase(
+            case_id=item["case_id"],
+            query=item["query"],
+            cohort=item["cohort"],
+            expected_document_ids=tuple(item["expected_document_ids"]),
+        )
+        for item in holdout["cases"]
+    )
+
+    plan = prepare_ontology_retrieval_evaluation(
+        build=build,
+        manifest=manifest,
+        cases=cases,
+        calibration_queries=tuple(
+            item["query"] for asset in (calibration_v2, calibration_v3) for item in asset["cases"]
+        ),
+        ranking_policy=CatalogRankingPolicy(**calibration_v3["candidate_ranking_policy"]),
+        evaluation_policy=load_retrieval_evaluation_policy_from_mapping(
+            calibration_v3["evaluation_policy"]
+        ),
+        required_object_types=names,
+    )
+
+    assert plan.query_count == 64
+    assert plan.embedding_call_upper_bound == 92
+
+
+@pytest.mark.parametrize("asset_name", sorted(_INSTANCE_HOLDOUT_V5_HALVES))
+def test_instance_holdout_v5_half_has_expected_shape_and_cohorts(asset_name: str) -> None:
+    holdout = _load_asset(asset_name)
+    calibration_v3 = _load_asset("instance-calibration.v3.json")
+    cases = holdout["cases"]
+    prefix, _ = _INSTANCE_HOLDOUT_V5_HALVES[asset_name]
+
+    assert holdout["schema_version"] == "1.0.0"
+    assert holdout["origin"] == "independently_authored_synthetic_holdout"
+    assert holdout["independently_reviewed"] is True
+    assert holdout["production_qualification"] is False
+    assert holdout["supersedes"] == "instance-holdout.v4.json"
+    assert holdout["corpus"] == "instance-corpus.v1.json"
+    assert holdout["candidate_ranking_policy"] == calibration_v3["candidate_ranking_policy"]
+    assert holdout["evaluation_policy"] == calibration_v3["evaluation_policy"]
+    assert holdout["limits"] == calibration_v3["limits"]
+    assert len(cases) == 64
+    assert Counter(item["cohort"] for item in cases) == _INSTANCE_HOLDOUT_V5_COHORT_COUNTS
+    assert len({item["case_id"] for item in cases}) == 64
+    assert {item["case_id"] for item in cases} == {
+        f"{prefix}{language}-{index:02d}" for language in ("en", "ko") for index in range(1, 33)
+    }
+    for case in cases:
+        assert case["cohort"].startswith(case["case_id"].removeprefix(prefix)[:2] + "-")
+
+
+@pytest.mark.parametrize("asset_name", sorted(_INSTANCE_HOLDOUT_V5_HALVES))
+def test_instance_holdout_v5_half_references_only_corpus_ids(asset_name: str) -> None:
+    cases = _load_asset(asset_name)["cases"]
+    object_ids = _corpus_document_ids()
+
+    for case in cases:
+        expected_ids = case["expected_document_ids"]
+        assert expected_ids == sorted(set(expected_ids))
+        assert set(expected_ids) <= object_ids
+        if case["cohort"].endswith("-positive"):
+            assert expected_ids
+        if case["cohort"].endswith(("-negative", "-adversarial")):
+            assert expected_ids == []
+
+
+@pytest.mark.parametrize("asset_name", sorted(_INSTANCE_HOLDOUT_V5_HALVES))
+def test_instance_holdout_v5_half_positive_targets_are_distinct_per_type(asset_name: str) -> None:
+    cases = _load_asset(asset_name)["cases"]
+    object_types = _corpus_document_types()
+
+    for language in ("en", "ko"):
+        targets_by_type: dict[str, set[str]] = {
+            "BusinessService": set(),
+            "Incident": set(),
+            "Resource": set(),
+            "Workload": set(),
+        }
+        positives = [item for item in cases if item["cohort"] == f"{language}-positive"]
+        assert len(positives) == 16
+        for case in positives:
+            assert len(case["expected_document_ids"]) == 1
+            expected_id = case["expected_document_ids"][0]
+            targets_by_type[object_types[expected_id]].add(expected_id)
+
+        assert {object_type: len(ids) for object_type, ids in targets_by_type.items()} == {
+            "BusinessService": 4,
+            "Incident": 4,
+            "Resource": 4,
+            "Workload": 4,
+        }
+
+
+@pytest.mark.parametrize("asset_name", sorted(_INSTANCE_HOLDOUT_V5_HALVES))
+def test_instance_holdout_v5_half_ambiguous_cases_split_match_and_no_match(
+    asset_name: str,
+) -> None:
+    cases = _load_asset(asset_name)["cases"]
+
+    for language in ("en", "ko"):
+        ambiguous = [item for item in cases if item["cohort"] == f"{language}-ambiguous"]
+        assert sum(bool(item["expected_document_ids"]) for item in ambiguous) == 4
+        assert sum(not item["expected_document_ids"] for item in ambiguous) == 4
+
+
+@pytest.mark.parametrize("asset_name", sorted(_INSTANCE_HOLDOUT_V5_HALVES))
+def test_instance_holdout_v5_half_queries_are_exact_normalized_disjoint(asset_name: str) -> None:
+    _, other_half = _INSTANCE_HOLDOUT_V5_HALVES[asset_name]
+    half_queries = {_normalized_query(item["query"]) for item in _load_asset(asset_name)["cases"]}
+    prior_queries = {
+        _normalized_query(item["query"])
+        for prior_asset in (
+            "instance-calibration.v1.json",
+            "instance-calibration.v2.json",
+            "instance-calibration.v3.json",
+            "instance-holdout.v1.json",
+            "instance-holdout.v2.json",
+            "instance-holdout.v3.json",
+            "instance-holdout.v4.json",
+            other_half,
+        )
+        for item in _load_asset(prior_asset)["cases"]
+    }
+
+    assert len(half_queries) == 64
+    assert half_queries.isdisjoint(prior_queries)
+
+
+@pytest.mark.parametrize("asset_name", sorted(_INSTANCE_HOLDOUT_V5_HALVES))
+def test_instance_holdout_v5_half_passes_real_preflight_against_calibration_v2_and_v3(
+    asset_name: str,
+) -> None:
+    corpus = _load_asset("instance-corpus.v1.json")
+    calibration_v2 = _load_asset("instance-calibration.v2.json")
+    calibration_v3 = _load_asset("instance-calibration.v3.json")
+    holdout = _load_asset(asset_name)
+    names = tuple(corpus["required_object_types"])
+    registry = PackageResourceSchemaRegistry()
+    declarations = tuple(
+        load_object_type_from_mapping(
+            yaml.safe_load(
+                (_ROOT / f"rule-catalog/vocabulary/object-types/{name}.yaml").read_text()
+            ),
+            schema_registry=registry,
+        )
+        for name in names
+    )
+    resource_registry = load_resource_type_registry_from_mapping(
+        yaml.safe_load((_ROOT / "rule-catalog/vocabulary/resource-types.yaml").read_text())
+    )
+    objects = tuple(OntologyObjectRecord(**item) for item in corpus["objects"])
+    manifest = build_query_manifest(
+        release=build_ontology_release(object_types=declarations),
+        principal_role=CeilingRole.READER,
+        purposes=("operations-review",),
+        principal_scope_digest="sha256:" + "a" * 64,
+        object_types=declarations,
+    )
+    build = build_ontology_semantic_generation(
+        manifest=manifest,
+        embedding_space_id="qualification-space-placeholder",
+        embedding_model_version="unbound-model-version",
+        embedding_dimension=24,
+        runtime_objects=objects,
+        resource_type_query_terms={item.id: item.query_terms for item in resource_registry},
+    )
+    cases = tuple(
+        OntologyRetrievalEvaluationCase(
+            case_id=item["case_id"],
+            query=item["query"],
+            cohort=item["cohort"],
+            expected_document_ids=tuple(item["expected_document_ids"]),
+        )
+        for item in holdout["cases"]
+    )
+
+    plan = prepare_ontology_retrieval_evaluation(
+        build=build,
+        manifest=manifest,
+        cases=cases,
+        calibration_queries=tuple(
+            item["query"] for asset in (calibration_v2, calibration_v3) for item in asset["cases"]
+        ),
         ranking_policy=CatalogRankingPolicy(**calibration_v3["candidate_ranking_policy"]),
         evaluation_policy=load_retrieval_evaluation_policy_from_mapping(
             calibration_v3["evaluation_policy"]

@@ -541,6 +541,7 @@ class AzureOpenAISemanticJudgmentModel:
                         request=body,
                         output_tokens=max_tokens,
                         stage=call_kind,
+                        model=target.deployment,
                     )
                     response.raise_for_status()
                     proposal, response_content, usage = _response_mapping(response)

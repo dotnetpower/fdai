@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
+import yaml
 from fdai.core.ontology_platform.functions import (
     FunctionInvocationContext,
     OntologyFunctionRegistry,
@@ -39,7 +42,14 @@ from fdai.shared.providers.state_evidence import (
     StateFactLane,
     StateFactMetadata,
 )
+from fdai_service_contracts.recorded_resource_state import (
+    AVAILABILITY_ESTABLISHES_RUNNING_RESOURCE_TYPES,
+    OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE,
+    PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES,
+    UNREACHABLE_OPERATIONAL_STATES_BY_RESOURCE_TYPE,
+)
 
+_REPO_ROOT = Path(__file__).resolve().parents[5]
 NOW = datetime(2026, 8, 21, 11, 0, tzinfo=UTC)
 
 
@@ -97,9 +107,12 @@ def _query_result(
     objects: tuple[OntologyObjectRecord, ...],
     *,
     complete: bool = True,
+    source_incomplete_reason: str | None = None,
 ) -> SecuredObjectSetQueryResult:
     declaration = resource_state_function_type()
     release = build_ontology_release(function_types=(declaration,))
+    # A source gap is incomplete without truncation; otherwise incompleteness is a result limit.
+    truncated = not complete and source_incomplete_reason is None
     definition = ObjectSetDefinition(
         selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name="Resource"),
         as_of=NOW,
@@ -108,10 +121,19 @@ def _query_result(
     )
     materialization = ObjectSetMaterialization(
         definition=definition,
-        graph=OntologyGraphSnapshot(objects=objects, links=(), truncated=not complete),
+        graph=(
+            OntologyGraphSnapshot(
+                objects=objects,
+                links=(),
+                source_complete=False,
+                source_incomplete_reason=source_incomplete_reason,
+            )
+            if source_incomplete_reason is not None
+            else OntologyGraphSnapshot(objects=objects, links=(), truncated=not complete)
+        ),
         concrete_types=("Resource",),
-        truncated=not complete,
-        truncation_reason=(None if complete else ObjectSetTruncationReason.RESULT_LIMIT),
+        truncated=truncated,
+        truncation_reason=(ObjectSetTruncationReason.RESULT_LIMIT if truncated else None),
     )
     return SecuredObjectSetQueryResult(
         materialization=materialization,
@@ -125,8 +147,9 @@ def _query_result(
             returned_object_count=len(objects),
             returned_link_count=0,
             complete=complete,
-            truncated=not complete,
-            truncation_reason=(None if complete else ObjectSetTruncationReason.RESULT_LIMIT),
+            truncated=truncated,
+            truncation_reason=(ObjectSetTruncationReason.RESULT_LIMIT if truncated else None),
+            source_complete=source_incomplete_reason is None,
             redactions=ObjectSetRedactionSummary(
                 objects_with_redactions=0,
                 redacted_identity_count=0,
@@ -358,10 +381,160 @@ async def test_state_function_preserves_matches_but_marks_missing_state_incomple
     )
 
     assert result["complete"] is False
-    assert result["truncation_reason"] == "resource_state_evidence_incomplete"
+    assert result["truncation_reason"] == (
+        "resource_state_evidence_incomplete+resource_state_not_reported"
+    )
     rows = result["rows"]
     assert isinstance(rows, list)
     assert len(rows) == 1
+
+
+def _typed(record: OntologyObjectRecord, resource_type: str) -> OntologyObjectRecord:
+    return replace(record, properties={**record.properties, "type": resource_type})
+
+
+async def test_a_type_whose_provider_hides_state_names_that_cause() -> None:
+    observed_at = NOW - timedelta(minutes=5)
+    hidden = _typed(_resource("cosmos-a", None), "nosql-database")
+    result = await _invoke(
+        _query_result((_resource("database-a", "Running", observed_at=observed_at), hidden)),
+        concepts=("resource_state.running",),
+    )
+
+    # Running is a state the type can hold, so the table stays partial and names why.
+    assert result["complete"] is False
+    assert result["truncation_reason"] == (
+        "resource_state_evidence_incomplete+provider_operational_state_not_exposed"
+    )
+    assert [row["values"]["name"] for row in result["rows"]] == ["database-a"]
+
+
+async def test_a_state_the_type_never_reaches_settles_an_unobserved_resource() -> None:
+    observed_at = NOW - timedelta(minutes=5)
+    result = await _invoke(
+        _query_result(
+            (
+                _resource("database-a", "Stopped", observed_at=observed_at),
+                _typed(_resource("cosmos-a", None), "nosql-database"),
+                _typed(_resource("redis-a", None), "cache"),
+            )
+        ),
+        concepts=("resource_state.stopped", "resource_state.deallocated"),
+    )
+
+    # Neither type has a stop or deallocate operation, so neither can match the filter.
+    assert result == {**result, "complete": True, "truncation_reason": None}
+    assert [row["values"]["name"] for row in result["rows"]] == ["database-a"]
+
+
+async def test_an_observed_state_wins_over_the_lifecycle_declaration() -> None:
+    observed_at = NOW - timedelta(minutes=5)
+    observed = _typed(_resource("cosmos-a", "Stopped", observed_at=observed_at), "nosql-database")
+    result = await _invoke(_query_result((observed,)), concepts=("resource_state.stopped",))
+
+    assert result["complete"] is True
+    assert [row["values"]["name"] for row in result["rows"]] == ["cosmos-a"]
+
+
+async def test_list_mode_keeps_an_unobserved_resource_unverified_despite_the_declaration() -> None:
+    result = await _invoke(
+        _query_result((_typed(_resource("cosmos-a", None), "nosql-database"),)),
+        concepts=(RESOURCE_STATE_OBSERVED_CONCEPT,),
+        list_members=True,
+    )
+
+    assert result["complete"] is False
+    assert result["rows"][0]["values"]["state_status"] == "unknown_incomplete"
+
+
+def _serving(name: str, resource_type: str, availability: str, *, observed_at: datetime):
+    record = _typed(_resource(name, None), resource_type)
+    provider = {
+        **record.properties["properties"],
+        "availabilityState": availability,
+        STATE_FACT_METADATA_PROPERTY: {"availabilityState": _state_fact(observed_at=observed_at)},
+    }
+    return replace(record, properties={**record.properties, "properties": provider})
+
+
+async def test_fresh_availability_establishes_running_for_a_running_only_lifecycle() -> None:
+    fresh = NOW - timedelta(minutes=5)
+    result = await _invoke(
+        _query_result(
+            (
+                _resource("database-a", "Running", observed_at=fresh),
+                _serving("cosmos-a", "nosql-database", "Available", observed_at=fresh),
+            )
+        ),
+        concepts=("resource_state.running",),
+    )
+
+    # A Cosmos DB account has no steady state but running, so serving means running.
+    assert result["complete"] is True
+    rows = {row["values"]["name"]: row["values"] for row in result["rows"]}
+    assert set(rows) == {"database-a", "cosmos-a"}
+    assert rows["cosmos-a"]["state_concept"] == "resource_state.running"
+    assert rows["cosmos-a"]["observed_state"] == "Available"
+    assert rows["cosmos-a"]["state_basis"] == "availability_on_running_only_lifecycle"
+    assert "state_basis" not in rows["database-a"]
+
+
+@pytest.mark.parametrize(
+    ("availability", "age", "resource_type"),
+    [
+        ("Unavailable", timedelta(minutes=5), "nosql-database"),
+        ("Degraded", timedelta(minutes=5), "nosql-database"),
+        ("Available", timedelta(hours=3), "nosql-database"),
+        ("Available", timedelta(minutes=5), "postgresql-server"),
+    ],
+)
+async def test_availability_establishes_nothing_else(
+    availability: str, age: timedelta, resource_type: str
+) -> None:
+    serving = _serving("target-a", resource_type, availability, observed_at=NOW - age)
+    result = await _invoke(_query_result((serving,)), concepts=("resource_state.running",))
+
+    # Another value, a stale fact, or a type with other steady states stays unverified.
+    assert result["complete"] is False
+    assert result["rows"] == []
+
+
+async def test_list_mode_reports_an_availability_established_running_member() -> None:
+    serving = _serving("cosmos-a", "nosql-database", "Available", observed_at=NOW)
+    result = await _invoke(
+        _query_result((serving,)),
+        concepts=(RESOURCE_STATE_OBSERVED_CONCEPT,),
+        list_members=True,
+    )
+
+    assert result["complete"] is True
+    [row] = result["rows"]
+    assert row["values"]["state_status"] == "observed"
+    assert row["values"]["state_concept"] == "resource_state.running"
+
+
+def test_running_only_lifecycles_also_declare_every_other_steady_state_unreachable() -> None:
+    for resource_type in AVAILABILITY_ESTABLISHES_RUNNING_RESOURCE_TYPES:
+        assert {"stopped", "deallocated", "paused"} <= (
+            UNREACHABLE_OPERATIONAL_STATES_BY_RESOURCE_TYPE[resource_type]
+        )
+
+
+def test_lifecycle_declarations_cover_only_unobservable_types_with_reviewed_mappings() -> None:
+    vocabulary = _REPO_ROOT / "rule-catalog" / "vocabulary" / "resource-types.yaml"
+    registry = yaml.safe_load(vocabulary.read_text(encoding="utf-8"))
+    arm_types = {item["id"]: item.get("azure_arm_type") for item in registry["types"]}
+    reviewed = {
+        "nosql-database": "Microsoft.DocumentDB/databaseAccounts",
+        "cache": "Microsoft.Cache/redis",
+    }
+
+    # A new provider mapping may add an engine that can stop, so the pairing is pinned.
+    assert set(UNREACHABLE_OPERATIONAL_STATES_BY_RESOURCE_TYPE) == set(reviewed)
+    for resource_type, arm_type in reviewed.items():
+        assert arm_types[resource_type] == arm_type
+        assert resource_type in PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES
+        assert resource_type not in OPERATIONAL_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE
 
 
 async def test_state_function_preserves_verified_matches_from_incomplete_scope() -> None:
@@ -379,6 +552,24 @@ async def test_state_function_preserves_verified_matches_from_incomplete_scope()
     rows = result["rows"]
     assert isinstance(rows, list)
     assert [row["values"]["name"] for row in rows] == ["database-a"]
+
+
+async def test_state_function_keeps_the_typed_source_reason_beside_the_scope_gap() -> None:
+    observed_at = NOW - timedelta(minutes=5)
+    result = await _invoke(
+        _query_result(
+            (_resource("database-a", "Stopped", observed_at=observed_at),),
+            complete=False,
+            source_incomplete_reason="inventory_observation_pending",
+        ),
+        concepts=("resource_state.stopped",),
+    )
+
+    # The answer can then say why the scope is incomplete, not only that it is.
+    assert result["complete"] is False
+    assert result["truncation_reason"] == (
+        "resource_scope_incomplete+inventory_observation_pending"
+    )
 
 
 async def test_list_mode_returns_one_row_per_resource_with_a_typed_unknown_reason() -> None:
@@ -414,7 +605,9 @@ async def test_list_mode_returns_one_row_per_resource_with_a_typed_unknown_reaso
         assert rows[name]["observed_state"] is None
     # Every Resource is listed, but unverified members keep the table incomplete.
     assert result["complete"] is False
-    assert result["truncation_reason"] == "resource_state_evidence_incomplete"
+    assert result["truncation_reason"] == (
+        "resource_state_evidence_incomplete+resource_state_not_reported+resource_state_stale"
+    )
 
 
 async def test_list_mode_only_lists_the_observed_concept_and_filter_mode_is_unchanged() -> None:

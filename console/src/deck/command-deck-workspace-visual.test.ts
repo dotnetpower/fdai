@@ -370,7 +370,15 @@ describe("Command Deck workspace hierarchy", () => {
     expect(structuredStyles).toMatch(
       /@container deck-transcript \(max-width: 1000px\)[\s\S]*\.deck-presentation-table\[data-layout="wide"\][\s\S]*display: block;/,
     );
-    expect(styles).toContain('.deck-turn-deck:has(.deck-presentation-table[data-layout="wide"])');
+    // The turn and its wide table share the reading column, and prose beside a table uses its width.
+    expect(styles).not.toContain('.deck-turn-deck:has(.deck-presentation-table[data-layout="wide"])');
+    expect(styles).not.toContain("--deck-wide-table-width");
+    expect(styles).toMatch(
+      /\.deck-overlay-mode-workspace \.deck-turn-deck \.deck-presentation-table\[data-layout="wide"\] :is\(th, td\) \{[^}]*min-width: 0;[^}]*overflow-wrap: break-word;/s,
+    );
+    expect(styles).toMatch(
+      /\.deck-turn-deck:has\(\.deck-presentation-table\) :is\(\.deck-presentation-lead, \.cs-deck-prose\) \{[^}]*max-width: none;/s,
+    );
     expect(structuredStyles).toMatch(
       /@media \(max-width: 560px\)[\s\S]*\.deck-presentation-table th \{ position: static; \}/,
     );

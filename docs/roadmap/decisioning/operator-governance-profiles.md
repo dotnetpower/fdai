@@ -113,6 +113,10 @@ authorization contract that both production profiles use.
 Audit entries carry `approval_profile`, `original_quorum`, `effective_quorum`, the operator
 principal, and `self_review`, so a reviewer can always see the reduced separation of duties.
 
+Live conversation progress, including the `semantic-model-call-progress` records registered with the
+shared contract schemas, is presentation only under every profile. It never counts as an approval,
+a review, a confirmation, or a quorum member.
+
 ## Attributed operator override promotion
 
 An installation operator with the promotion role may move an ActionType or Workflow from shadow

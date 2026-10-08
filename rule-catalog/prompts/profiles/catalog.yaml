@@ -8,7 +8,7 @@ profiles:
     root: {id: ontology-candidate-selection, version: 1, layer: base}
     packs: []
     system_token_budget: 8192
-    request_token_budget: 32768
+    request_token_budget: 36864
     reserved_output_tokens: 2048
     model_role: t2.reasoner.primary
     reasoning_effort: low

@@ -1,7 +1,7 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: 65b13346ccba7ed4ddb39c276e12c728c6935820
+translation_source_sha: 24a7593205f4b22e31e5627e49f5d66a1f07fe2f
 translation_revised: 2026-10-09
 ---
 
@@ -373,6 +373,34 @@ MFA / phishing-resistant, 액션-바인딩 승인 필요
 **Risk-classification 테이블** ([risk-classification-ko.md](../decisioning/risk-classification-ko.md)) 은
 각 매칭을 어떻게 라우팅(`auto` / `hil` / `deny`) 할지 결정하는 형제 거버넌스 아티팩트. 규칙과
 할당과 같은 PR 흐름으로 편집되며, 완화 변경에는 elevated 정족수와 Owner-티어 리뷰어 필요.
+
+### 알림 라우팅 범위
+
+A1 라우팅 승인자 행은 결정이 걸린 라우팅에만 적용됩니다. 그래서 CI는 `config/notifications-matrix.yaml`
+변경이 A1 라우팅을 그대로 둔다는 것을 보여 주지 못하면 A1 라우팅으로 분류합니다. A1 라우팅은
+정족수 2와 신뢰된 신원 attestation이 필요한 `override` 클래스입니다. CI는 merge base 시점의
+매트릭스와 풀 리퀘스트 헤드의 매트릭스를 비교하므로, 기준 브랜치에 나중에 들어온 커밋은 결과를 바꾸지
+않습니다. 다음 중 하나라도 해당하면 A1 라우팅입니다.
+
+- 어느 한쪽이 없거나, UTF-8이 아니거나, YAML 앵커, 별칭, 병합 키, 중복 키를 쓰거나, 런타임 매트릭스
+  검증을 통과하지 못합니다.
+- 채널 설정이나 기본 라우트처럼 `matrix.routes` 밖의 내용이 바뀝니다.
+- 라우트가 삭제됩니다. 그 카테고리는 기본 라우트로 해석되기 때문입니다.
+- 기본 라우트가 수정됩니다.
+- 추가되거나 수정된 라우트의 신뢰 계층이 변경 전이나 후에 A1입니다.
+
+A2 경고나 A4 다이제스트처럼 그 밖의 라우트를 추가하거나 수정하는 것은 일반 라우팅 설정입니다. 신원
+attestation이 필요 없으며 일반 풀 리퀘스트 리뷰를 따릅니다. 주석만 바꾼 경우는 파싱된 매트릭스가 바뀌지
+않습니다. CI는 `FDAI_GOVERNANCE_IDENTITY_APP_ID`를 요구하기 전에 이 범위를 판정하므로, 검증 App이 없어도
+신원 리뷰가 필요한 모든 변경은 계속 fail-closed로 막힙니다. 풀 리퀘스트는 이 증명을 약화하면서 동시에
+이용할 수 없습니다. CI 워크플로, 게이트 스크립트, 매트릭스 검증기, 라우터, 신뢰 계층 계약, 리뷰 권한
+코드 중 하나라도 함께 바꾸면 게이트 스크립트와 워크플로가 각각 독립적으로 신원 리뷰를 요구합니다.
+`rule-catalog/override-parameter-bounds.yaml`은 override로서 항상 신원 리뷰가 필요합니다.
+
+새로 추가한 비A1 라우트는 결정이 걸린 트래픽을 가로챌 수 없습니다. 라우터는 계층이 A1이 아닌 라우트로
+A1 메시지를 전달하지 않으며, 대신 `trust_mismatch` 감사 결과와 함께 메시지를 HIL 싱크로 에스컬레이션합니다.
+이 규칙이 생기기 전에는 라우트가 없는 카테고리의 A1 메시지가 A1 기본 라우트로 갔으므로, 그 카테고리에
+라우트를 추가하면 메시지가 다른 곳으로 갈 수 있었습니다.
 
 ## 라이프사이클과 버전 관리
 

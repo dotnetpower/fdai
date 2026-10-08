@@ -77,6 +77,11 @@ export const TERMS = {
     plain:
       "the timeline view where each incident is one row and each bar is an agent picking the incident up, read left to right as the hand-off cascade",
   },
+  trajectory: {
+    term: "trajectory",
+    plain:
+      "one correlation's recorded audit steps in order - which agent received, decided, approved, acted, and recorded each step, with timing and handoffs between agents",
+  },
   hil: {
     term: "HIL",
     plain:

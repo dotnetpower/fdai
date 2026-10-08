@@ -22,6 +22,34 @@ body: |-
   equals_ignore_case with the operand shape in the schema. An equality operand is equals;
   in uses values instead. exists and absent have no operands. Prefer property conditions
   for categories and collections. An exact identifier constraint uses object_ids.
+
+  Predicates read the stored JSON value of one top-level property. exists and absent test
+  whether that property is present. contains matches a substring of a text value, an element
+  equal to the operand in an array value, or a key equal to the operand in an object value.
+  A requested entry inside an object-valued property is expressed with contains and that
+  entry's exact key name as shown in the documents. at_least and at_most are inclusive and
+  compare numbers numerically and text in code-point order, so timestamps written in the same
+  ISO 8601 UTC form as the documents compare chronologically. Express a requested time range
+  over a timestamp property with at_least and at_most, taking any date the request leaves
+  implicit from the supplied documents. Wording about why the requester is asking, such as
+  the task they are performing, is context, not a condition. Any stated property of the
+  requested objects, including their purpose, remains a condition. A condition on a value
+  inside an object-valued property uses nested_predicates: name that top-level property, the
+  exact key from allowed_nested_predicate_keys, and the same operators and operand shapes,
+  which apply to the value stored under that key, and only instances whose property holds an
+  object can match. Set a nested operand that the operator does not use to null. For
+  example, a Resource whose purpose mentions backups is properties, key purpose, contains
+  "backup". For free-text values such as a purpose or description, a contains operand is a
+  short phrase copied from a stored value whose meaning matches the request, not the request's
+  paraphrase; when no stored value has that meaning, use the request's own words so that
+  nothing matches. A qualifier that no stored property records but that the stored values shown in
+  the documents let you judge directly, such as the language of a stored text, is still a
+  condition: keep the expressible conditions and add exact object_ids for only the instances
+  whose stored values satisfy the qualifier. If no instance satisfies it, return
+  status=clarify with reason=unsupported_constraint rather than a near match. Asking for one
+  or a single instance, or naming the requested object's own role, such as owner, does not add
+  a condition. Use unsupported_constraint only when none of these forms can express a
+  requested condition.
   Do not enumerate only some matching objects to evade a bound.
 
   When the query identifies a specific instance that is present in the supplied canonical

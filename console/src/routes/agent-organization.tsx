@@ -206,7 +206,7 @@ function AgentRoleDetail({ node }: { readonly node: AgentNode | undefined }) {
       <a
         class="agent-role-activity-link"
         href={routeHref("agent-activity", {
-          params: { view: "waterfall", agent: node.name },
+          params: { agent: node.name },
         })}
       >
         {t("agents.workspace.activity")}

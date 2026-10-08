@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 53a252d373c9b2288074faf4da254b868e23e890
-translation_revised: 2026-10-08
+translation_source_sha: b837f0767cc094f4df5e8320868fa2b6874bd957
+translation_revised: 2026-10-09
 ---
 # 온톨로지 구조 모델
 
@@ -165,7 +165,8 @@ ResourceType을 선택해야 할 때만 추가합니다.
 첫 release는 하나의 분류 표면을 유지합니다. 범용 개념 체계 엔진은 추가하지 않습니다.
 `Operable`, `Observable` 같은 기능은 계속 InterfaceType 관심사입니다. ResourceType 수준의
 Interface 바인딩은 InterfaceType이 ActionType 대상이 될 수 있으므로 별도 안전 설계가 필요합니다.
-코드 보안 이슈는 온톨로지 객체가 아니므로 온톨로지 쿼리에 들어가지 않습니다.
+코드 보안 이슈, 이슈 요약, 저장소 등록과 그 변경 요청, 스캔 요청은 온톨로지 객체가 아니므로 온톨로지
+쿼리에 들어가지 않습니다.
 
 ## 관계 모델
 
@@ -434,7 +435,8 @@ Console은 `/ontology`를 관측된 Resource 인스턴스 작업 영역으로 �
 및 불러오기 경계는 근거, 그래프, 쿼리 또는 실행 권한을 바꾸지 않습니다.
 
 선택한 인스턴스 화면은 내구성 있는 인증 인벤토리 무효화 SSE 스트림을 사용하고 커밋된 watermark를
-받을 때마다 범위가 제한된 응답을 다시 검증합니다. SSE를 사용할 수 없으면 단조 증가 15초
+받을 때마다 범위가 제한된 응답을 다시 검증합니다. Operator가 정상 종료를 시작하면 폴링 사이에도
+스트림을 끝내고, 화면은 마지막 이벤트 ID부터 다시 이어 받습니다. SSE를 사용할 수 없으면 단조 증가 15초
 카운트다운으로 fallback 폴링을 실행합니다. 창이 포커스를 얻거나 온라인 또는 표시 상태로 돌아오면
 즉시 다시 확인합니다. 겹치는 요청은 하나로 합치고 새로고침이 실패하면 마지막으로 검증된 응답을
 유지하며 오래된 데이터를 현재 데이터처럼 조용히 처리하지 않습니다. SSE와 폴링은 프로바이더

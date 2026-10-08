@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 5c1d657c747a5b3213fb0554891cf330fa6df8ac
+translation_source_sha: 0f8521e080e407be0f7bbef81ec03e4dabe3319e
 translation_revised: 2026-10-08
 ---
 # 독립 운영 근거 발급
@@ -55,6 +55,12 @@ Forseti는 Var와 HIL 재개 경로가 원래 정족수와 유효 정족수를 �
 Forseti의 버전 2 baseline 평가 커버리지와 그로부터 도출한 T0 규칙 근거는
 [프레임워크 규칙 근거](framework-rule-evidence-ko.md)를 위한 프레임워크 평가 근거입니다. 이 검증기가
 발급한 것이 아니며 통제된 결정 소스를 충족할 수 없습니다.
+`semantic-model-call-progress` 보고는 계획 단계 모델 호출을 실시간으로 보여 주는 표시용 레코드입니다.
+프롬프트, 응답, 근거 참조를 담지 않고 이 검증기가 발급하지 않으며, 통제된 결정 소스를 충족하거나 답변
+주장을 뒷받침할 수 없습니다.
+현재 상태 조회가 `resource_scope_incomplete`와 함께 보고하는 타입 지정 원본 사유(예:
+`inventory_observation_pending`)는 불완전한 인벤토리 범위를 설명합니다. 이 사유는 운영 근거가 아니며
+조회를 완전하게 만들거나 결정 소스를 충족할 수 없습니다.
 
 ## 현재 상태와 공백
 
@@ -578,7 +584,9 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준 상대 경로입�
 
 코드 보안 조치도 같은 규칙을 따릅니다. 코딩 에이전트의 수정 주장은 주장한 커밋을 커버리지가 동등한
 재스캔으로 독립적으로 다시 검사해 같은 근본 원인이 없을 때만 인정됩니다. 선택 사항인 입증 레인은
-스캐너를 믿는 대신 자체 샌드박스에서 검증된 결과를 재현합니다.
+스캐너를 믿는 대신 자체 샌드박스에서 검증된 결과를 재현합니다. 완료된 Console 스캔 요청은 그 커밋을
+스캔해 검토를 기록했다는 증거일 뿐입니다. 이슈를 닫지 않으며, 검토의 출처나 시작 경로가 주장의
+신뢰도를 올리지도 않습니다.
 [코드 보안 점검 결과](../operations/code-security-findings-ko.md#결과-가져오기와-검증)를 참조하세요.
 
 ## 목표가 아닌 것

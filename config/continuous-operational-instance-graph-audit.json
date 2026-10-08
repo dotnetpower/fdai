@@ -258,7 +258,7 @@
         {
           "state": "bound",
           "path": "services/core-control-plane/src/fdai/delivery/inventory_sync_cli.py",
-          "symbol": "_build_ontology_observer"
+          "symbol": "build_ontology_observer"
         },
         {
           "state": "bound",
@@ -313,7 +313,7 @@
         {
           "state": "bound",
           "path": "services/core-control-plane/src/fdai/delivery/inventory_sync_cli.py",
-          "symbol": "_build_ontology_observer"
+          "symbol": "build_ontology_observer"
         },
         {
           "state": "bound",
@@ -346,7 +346,7 @@
         {
           "state": "bound",
           "path": "services/core-control-plane/src/fdai/delivery/inventory_sync_cli.py",
-          "symbol": "_build_ontology_observer"
+          "symbol": "build_ontology_observer"
         },
         {
           "state": "bound",

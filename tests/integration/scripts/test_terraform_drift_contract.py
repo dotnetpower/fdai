@@ -92,6 +92,17 @@ def _platform_state(
                 "endpoint": "https://oai-example.openai.azure.com/",
             },
         },
+        {
+            "address": (
+                "module.operator_channel_edge_identity[0].azurerm_user_assigned_identity.primary"
+            ),
+            "values": {
+                "id": "/subscriptions/example/resourceGroups/example/providers/"
+                "Microsoft.ManagedIdentity/userAssignedIdentities/example-channel-edge",
+                "client_id": "00000000-0000-0000-0000-000000000020",
+                "principal_id": "00000000-0000-0000-0000-000000000021",
+            },
+        },
     ]
     root_resources = (
         []
@@ -118,6 +129,95 @@ def _platform_state(
                 ],
             }
         }
+    }
+
+
+def _legacy_platform_state(*, incomplete_governed_identities: bool = False) -> dict[str, Any]:
+    addresses = [
+        "module.console[0].azurerm_static_web_app.console",
+        "azurerm_function_app_flex_consumption.dev_gateway[0]",
+        "module.ingestion_identity[0].azurerm_user_assigned_identity.primary",
+        "module.document_intelligence[0].azurerm_cognitive_account.primary",
+        "module.identity_change[0].azurerm_user_assigned_identity.primary",
+        "module.identity_resilience[0].azurerm_user_assigned_identity.primary",
+        "module.identity_finops[0].azurerm_user_assigned_identity.primary",
+        "module.isolated_executor_identity[0].azurerm_user_assigned_identity.primary",
+        "module.key_vault.azurerm_key_vault.primary",
+        "module.llm_azure_openai[0].azurerm_cognitive_account.primary",
+        "module.monitoring[0].azurerm_monitor_action_group.main",
+        "azurerm_linux_virtual_machine_scale_set.ohl_evidence[0]",
+        ("module.operational_evidence_verifier_identity[0].azurerm_user_assigned_identity.primary"),
+        "module.operational_history_storage[0].azurerm_storage_account.case_history",
+        "module.operator_api_identity[0].azurerm_user_assigned_identity.primary",
+        "module.operator_channel_edge_identity[0].azurerm_user_assigned_identity.primary",
+    ]
+    model_deployments = [
+        {
+            "address": (
+                'module.llm_azure_openai[0].azurerm_cognitive_deployment.capability["t1.judge"]'
+            ),
+            "values": {
+                "name": "t1.judge",
+                "model": [{"name": "gpt-5-mini", "version": "2026-01-01"}],
+                "sku": [{"name": "GlobalStandard", "capacity": 200}],
+            },
+        },
+        {
+            "address": (
+                "module.llm_azure_openai[0].azurerm_cognitive_deployment."
+                'capability["t2.reasoner.primary"]'
+            ),
+            "values": {
+                "name": "t2.reasoner.primary",
+                "model": [{"name": "gpt-5.4", "version": "2026-02-01"}],
+                "sku": [{"name": "ProvisionedManaged", "capacity": 12}],
+            },
+        },
+    ]
+    outputs = {
+        "decision_evidence_container_url": {"value": "https://example.com/decision-evidence"},
+        "decision_evidence_storage_account_name": {"value": "exampledecision"},
+        "dev_operations_gateway_audience": {"value": "00000000-0000-0000-0000-000000000010"},
+        "identity_change_principal_id": {"value": "00000000-0000-0000-0000-000000000011"},
+        "identity_change_resource_id": {"value": "/example/change"},
+        "identity_finops_principal_id": {
+            "value": (
+                "" if incomplete_governed_identities else "00000000-0000-0000-0000-000000000012"
+            )
+        },
+        "identity_finops_resource_id": {"value": "/example/finops"},
+        "identity_resilience_principal_id": {"value": "00000000-0000-0000-0000-000000000013"},
+        "identity_resilience_resource_id": {"value": "/example/resilience"},
+        "llm_resource_id": {"value": "/example/openai"},
+        "ohl_scale_out_evidence_target_id": {"value": "/example/vmss"},
+        "resolved_models_sha256": {"value": "a" * 64},
+    }
+    return {
+        "state": {
+            "values": {
+                "outputs": outputs,
+                "root_module": {
+                    "resources": [
+                        {
+                            "address": address,
+                            "values": (
+                                {"principal_id": "00000000-0000-0000-0000-000000000001"}
+                                if address
+                                == (
+                                    "module.operator_api_identity[0]."
+                                    "azurerm_user_assigned_identity.primary"
+                                )
+                                else {"id": "/example/key-vault"}
+                                if address == "module.key_vault.azurerm_key_vault.primary"
+                                else {}
+                            ),
+                        }
+                        for address in addresses
+                    ]
+                    + model_deployments
+                },
+            }
+        },
     }
 
 
@@ -175,8 +275,20 @@ def test_workflow_plans_every_production_root() -> None:
     assert 'COST_PSEUDONYM_KEY_SECRET_ID="$cost_pseudonym_binding"' in workflow
     assert "Platform state has no Cost pseudonym key binding for $root_id." in workflow
     assert "resolved_model_args+=(--model-binding-transition)" in workflow
+    assert "service_feature_args+=(--operator-channel-edge-enabled" in workflow
+    assert "OPERATOR_CHANNEL_EDGE_IDENTITY_JSON=" in workflow
+    assert "OPERATOR_CHANNEL_EDGE_PROVIDER_JSON=" in workflow
+    assert ".values.outputs.channel_edge_health_contract.value != null" in workflow
+    assert '"${service_feature_args[@]}"' in workflow
     assert '"${resolved_model_args[@]}"' in workflow
     assert "terraform -chdir=infra show -json" in workflow
+    assert "platform-output-inputs" in workflow
+    assert '-var-file="$plan_inputs" -detailed-exitcode' in workflow
+    assert "No semantic drift: legacy" in workflow
+    assert "refresh_drift_digest.py summarize" in workflow
+    assert "service_feature_args+=(--operator-channel-edge-enabled" in workflow
+    assert ".values.outputs.channel_edge_health_contract.value != null" in workflow
+    assert '"${service_feature_args[@]}"' in workflow
     assert "database_host=\"$(jq -er '.database_host'" in workflow
     assert "event_topic=\"$(jq -er '.event_topic'" in workflow
     assert "pipeline_stage_topic=\"$(jq -er '.pipeline_stage_topic'" in workflow
@@ -309,6 +421,12 @@ def test_stored_platform_inputs_preserve_pre_refresh_service_bindings(
         "database_host": "postgres.example.com",
         "event_topic": "fdai.change.events",
         "model_endpoints": {"azure-openai:oai-example": "https://oai-example.openai.azure.com"},
+        "operator_channel_edge_identity": {
+            "resource_id": "/subscriptions/example/resourceGroups/example/providers/"
+            "Microsoft.ManagedIdentity/userAssignedIdentities/example-channel-edge",
+            "client_id": "00000000-0000-0000-0000-000000000020",
+            "principal_id": "00000000-0000-0000-0000-000000000021",
+        },
         "pantheon_object_topic": "fdai.pantheon.objects",
         "pipeline_stage_topic": "fdai.pipeline.stages",
     }
@@ -498,9 +616,101 @@ def test_reconcile_applies_only_reviewed_saved_refresh_only_plans() -> None:
     assert "if: inputs.reviewed_drift_digest != ''" in apply_block
     assert "refresh_drift_digest.py summarize" in workflow
     assert "refresh_drift_digest.py digest" in workflow
+    assert "platform-output-inputs" in workflow
+    assert '-var-file="$work/vars/legacy-output-inputs.tfvars.json"' in workflow
+    assert "| jq '.variables | map_values(.value)' >\"$work/verify/vars.json\"" in workflow
     assert "group: legacy-database-power-window-${{ inputs.environment }}" in workflow
     assert "Drift remains after reconciliation." in workflow
     assert 'printf \'%s\\n\' "$root_id" >>"$work/skipped-roots.txt"' in workflow
     assert "Skipped roots: ${skipped:-none}" in workflow
     assert "Recovered promoted runner plan inputs from authoritative host readback." in workflow
-    assert workflow.count("map_values(.value)") == 2
+    assert workflow.count("map_values(.value)") == 1
+
+
+def test_recovers_legacy_output_inputs_from_stored_state(drift: ModuleType) -> None:
+    fixture = _legacy_platform_state()
+
+    inputs = drift.stored_platform_output_inputs(fixture["state"])
+
+    assert inputs == {
+        "enable_dev_operations_gateway": True,
+        "enable_governed_execution": True,
+        "enable_inventory_evidence_store_reader": True,
+        "enable_llm": True,
+        "enable_ohl_scale_out_evidence_target": True,
+        "enable_operational_history": True,
+        "operator_api_audience": "00000000-0000-0000-0000-000000000010",
+        "resolved_capabilities": [
+            {
+                "name": "t1.judge",
+                "publisher": "OpenAI",
+                "family": "gpt-5-mini",
+                "version": "2026-01-01",
+                "sku": "GlobalStandard",
+                "capacity_unit": "tpm",
+                "capacity_tpm": 200000,
+                "capacity_value": 0,
+            },
+            {
+                "name": "t2.reasoner.primary",
+                "publisher": "OpenAI",
+                "family": "gpt-5.4",
+                "version": "2026-02-01",
+                "sku": "ProvisionedManaged",
+                "capacity_unit": "ptu",
+                "capacity_tpm": 0,
+                "capacity_value": 12,
+            },
+        ],
+        "resolved_models_sha256": "a" * 64,
+    }
+
+
+def test_recovers_operator_identity_without_root_output(drift: ModuleType) -> None:
+    fixture = _legacy_platform_state()
+
+    assert drift.stored_platform_operator_identity(fixture["state"]) == {
+        "principal_id": "00000000-0000-0000-0000-000000000001"
+    }
+
+
+def test_recovers_key_vault_without_root_output(drift: ModuleType) -> None:
+    fixture = _legacy_platform_state()
+
+    assert drift.stored_platform_key_vault(fixture["state"]) == {
+        "resource_id": "/example/key-vault"
+    }
+
+
+def test_treats_null_optional_legacy_output_as_disabled(drift: ModuleType) -> None:
+    fixture = _legacy_platform_state()
+    fixture["state"]["values"]["outputs"]["ohl_scale_out_evidence_target_id"]["value"] = None
+
+    inputs = drift.stored_platform_output_inputs(fixture["state"])
+
+    assert inputs["enable_ohl_scale_out_evidence_target"] is False
+
+
+def test_rejects_invalid_legacy_model_deployment(drift: ModuleType) -> None:
+    fixture = _legacy_platform_state()
+    resources = fixture["state"]["values"]["root_module"]["resources"]
+    deployment = next(
+        resource for resource in resources if "azurerm_cognitive_deployment" in resource["address"]
+    )
+    deployment["values"]["sku"][0]["capacity"] = 0
+
+    with pytest.raises(
+        drift.DriftContractError,
+        match="invalid model deployment",
+    ):
+        drift.stored_platform_output_inputs(fixture["state"])
+
+
+def test_rejects_incomplete_legacy_governed_identities(drift: ModuleType) -> None:
+    fixture = _legacy_platform_state(incomplete_governed_identities=True)
+
+    with pytest.raises(
+        drift.DriftContractError,
+        match="incomplete governed identity set",
+    ):
+        drift.stored_platform_output_inputs(fixture["state"])

@@ -82,7 +82,7 @@ output "key_vault_id" {
 
 output "application_insights_connection_string_secret_name" {
   description = "Key Vault secret name containing the Application Insights connection string."
-  value       = azurerm_key_vault_secret.application_insights_connection_string.name
+  value       = "fdai-application-insights-connection-string"
 }
 
 output "cost_pseudonym_key_secret_name" {
@@ -398,8 +398,8 @@ output "ohl_observation_context_binding" {
 output "operator_request_receipt_binding" {
   description = "Deployment-owned operator_request receipt signing seed secret references; trusted public keys are hydrated from these seeds by deployment tooling."
   value = {
-    core_signing_seed_secret_id     = azurerm_key_vault_secret.operator_request_core_signing_seed.resource_versionless_id
-    operator_signing_seed_secret_id = azurerm_key_vault_secret.operator_request_operator_signing_seed.resource_versionless_id
+    core_signing_seed_secret_id     = "https://${local.key_vault_name}.vault.azure.net/secrets/fdai-operator-request-core-signing-seed"
+    operator_signing_seed_secret_id = "https://${local.key_vault_name}.vault.azure.net/secrets/fdai-operator-request-operator-signing-seed"
     core_producer_id                = "core-control-plane"
     operator_producer_id            = "operator-service"
   }

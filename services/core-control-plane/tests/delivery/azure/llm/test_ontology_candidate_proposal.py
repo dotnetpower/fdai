@@ -61,9 +61,20 @@ def _candidate_config() -> AzureOpenAISemanticPlanningModelConfig:
     )
 
 
-def test_all_v2_calibration_cases_fit_diagnostic_request_budget() -> None:
+@pytest.mark.parametrize(
+    "asset_name",
+    [
+        "instance-calibration.v2.json",
+        "instance-calibration.v3.json",
+        "instance-holdout.v3.json",
+        "instance-holdout.v4.json",
+        "instance-holdout.v5a.json",
+        "instance-holdout.v5b.json",
+    ],
+)
+def test_all_semantic_evaluation_cases_fit_diagnostic_request_budget(asset_name: str) -> None:
     corpus = json.loads((_ASSETS / "instance-corpus.v1.json").read_text())
-    calibration = json.loads((_ASSETS / "instance-calibration.v2.json").read_text())
+    calibration = json.loads((_ASSETS / asset_name).read_text())
     names = tuple(corpus["required_object_types"])
     registry = PackageResourceSchemaRegistry()
     declarations = tuple(
@@ -180,8 +191,19 @@ def test_strict_candidate_schema_matches_pydantic_contract_surface() -> None:
     )
     clause_schema = strict_schema["properties"]["clauses"]["items"]
     assert clause_schema["additionalProperties"] is False
-    assert set(clause_schema["required"]) == {"object_type", "predicates", "object_ids", "quote"}
+    assert set(clause_schema["required"]) == {
+        "object_type",
+        "predicates",
+        "nested_predicates",
+        "object_ids",
+        "quote",
+    }
     assert clause_schema["properties"]["quote"]["type"] == "string"
+    nested_variants = clause_schema["properties"]["nested_predicates"]["items"]["anyOf"]
+    assert {
+        value for variant in nested_variants for value in variant["properties"]["operator"]["enum"]
+    } == set(pydantic_schema["$defs"]["ObjectPredicateOperator"]["enum"])
+    assert all({"property", "key"} <= set(variant["required"]) for variant in nested_variants)
     predicate_variants = clause_schema["properties"]["predicates"]["items"]["anyOf"]
     strict_operators = {
         value
@@ -658,7 +680,7 @@ async def test_unbounded_or_unbound_configuration_stops_before_dispatch(invalid:
     if invalid == "fallback":
         config = replace(config, candidates=(_target("primary"), _target("secondary")))
     elif invalid == "deadline":
-        config = replace(config, timeout_seconds=10.5)
+        config = replace(config, timeout_seconds=20.5)
     elif invalid == "missing-profile":
         config = replace(config, plan_prompt_manifest=None)
     else:

@@ -97,13 +97,14 @@ export function buildTrajectoryPresentation(
 export function workProgressPresentation(
   trajectory: ConversationTrajectory,
 ): WorkProgressPresentation {
-  const observedCount = trajectory.activities.length + unrepresentedBranchCount(
-    trajectory.activities,
+  const activities = trajectory.activities.filter((activity) => !isModelCallStep(activity));
+  const observedCount = activities.length + unrepresentedBranchCount(
+    activities,
     trajectory.branches,
   );
   if (observedCount === 0 && trajectory.milestones.length === 0) return "none";
   return compactQueryRead({
-    activities: trajectory.activities,
+    activities,
     branches: trajectory.branches,
     milestoneCount: trajectory.milestones.length,
     ...(trajectory.workProgressShape ? { shape: trajectory.workProgressShape } : {}),
@@ -117,6 +118,14 @@ export function workProgressPresentation(
  */
 function isSemanticLifecycleStep(activity: InvestigationActivity): boolean {
   return activity.kind === "semantic_turn" && activity.execution === undefined;
+}
+
+/**
+ * Operator streams each planning model call as a live-only `model_call` step. It shows the wait,
+ * not a read, so it never selects the density or counts as observed work.
+ */
+export function isModelCallStep(activity: InvestigationActivity): boolean {
+  return activity.kind === "model_call";
 }
 
 /**

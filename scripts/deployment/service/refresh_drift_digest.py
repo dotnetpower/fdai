@@ -21,8 +21,9 @@ from collections.abc import Iterator, Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
-SCHEMA_VERSION = "fdai.refresh-drift-summary.v2"
+SCHEMA_VERSION = "fdai.refresh-drift-summary.v3"
 _NO_OP = ["no-op"]
+_LEGACY_PLAN_UNKNOWN_OUTPUTS = frozenset({"installation_binding", "installation_created_at"})
 
 
 class RefreshDriftError(ValueError):
@@ -117,6 +118,13 @@ def summarize(plan: Mapping[str, Any], *, root_id: str) -> dict[str, Any]:
         if change.get("actions") == _NO_OP:
             continue
         actions = list(change.get("actions") or [])
+        if (
+            root_id == "legacy"
+            and name in _LEGACY_PLAN_UNKNOWN_OUTPUTS
+            and actions in (["create"], ["update"])
+            and bool(change.get("after_unknown"))
+        ):
+            continue
         if not _empty(change.get("before")) and (
             "delete" in actions or bool(change.get("after_unknown")) or _empty(change.get("after"))
         ):

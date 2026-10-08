@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import replace
 from datetime import UTC, datetime
 from unittest.mock import AsyncMock
@@ -541,7 +542,10 @@ async def test_function_handler_converts_metric_dataclass_dependency() -> None:
     assert result.evidence_refs[0] == "metric:resource-a"
 
 
-async def test_secured_object_set_handler_applies_property_acl() -> None:
+async def test_secured_object_set_handler_applies_property_acl(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.INFO, logger="fdai.core.ontology_platform.query_source_handlers")
     resource = OntologyObjectType(
         schema_version="1.0.0",
         name="Resource",
@@ -608,6 +612,10 @@ async def test_secured_object_set_handler_applies_property_acl() -> None:
     assert properties["secret"] == "[redacted]"
     assert properties["__redactions__"]["secret"]["reason"] == "access_scope"
     assert result.evidence_refs[0].startswith("ontology-object-set:sha256:")
+    # Each read reports content-free stage timings so a slow read points at its stage.
+    [timed] = [r for r in caplog.records if r.msg == "ontology_object_set_stages_timed"]
+    assert timed.object_count == 1
+    assert {timed.materialize_ms, timed.refresh_ms, timed.receipt_ms} <= set(range(0, 60_000))
 
 
 @pytest.mark.parametrize(

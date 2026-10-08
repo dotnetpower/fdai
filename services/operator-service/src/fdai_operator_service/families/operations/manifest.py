@@ -25,6 +25,8 @@ CONTRIBUTOR_ROLES: Final[frozenset[OperatorRole]] = frozenset(
 APPROVER_ROLES: Final[frozenset[OperatorRole]] = frozenset(
     {OperatorRole.APPROVER, OperatorRole.OWNER}
 )
+# Changing which repositories FDAI may scan is an Owner decision.
+OWNER_ROLES: Final[frozenset[OperatorRole]] = frozenset({OperatorRole.OWNER})
 
 
 @dataclass(frozen=True, slots=True)
@@ -151,6 +153,29 @@ OPERATIONS_ROUTE_MANIFEST: tuple[OperationRoute, ...] = (
     OperationRoute("/assurance-twin/review", "GET", "handler", "assurance_twin.review_detail"),
     OperationRoute("/code-security/reviews", "GET", "handler", "code_security.reviews"),
     OperationRoute("/code-security/packs", "GET", "handler", "code_security.packs"),
+    OperationRoute("/code-security/repositories", "GET", "handler", "code_security.repositories"),
+    OperationRoute("/code-security/scan-requests", "GET", "handler", "code_security.scan_requests"),
+    OperationRoute("/code-security/issues", "GET", "handler", "code_security.issues"),
+    # A registration change only queues intent for the Core worker, which applies it with
+    # compare-and-set and a Heimdall-attributed audit entry.
+    OperationRoute(
+        "/code-security/repositories",
+        "POST",
+        "handler",
+        "code_security.repository_change",
+        "proposal",
+        OWNER_ROLES,
+    ),
+    # A scan request only queues intent for the Heimdall-attributed scan worker; it never scans,
+    # writes to a repository, or grants approval or execution authority.
+    OperationRoute(
+        "/code-security/scan-requests",
+        "POST",
+        "handler",
+        "code_security.scan_request",
+        "proposal",
+        CONTRIBUTOR_ROLES,
+    ),
     OperationRoute("/reports", "GET", "list_reports", "report.list"),
     OperationRoute("/reports/registry", "GET", "get_registry", "report.registry"),
     OperationRoute("/reports/formats", "GET", "list_formats", "report.formats"),

@@ -59,6 +59,7 @@ class PostgresInventoryReconciliationGate:
         cursor_scopes: tuple[str, ...] = (),
         cursor_prefixes: tuple[str, ...] = ("inventory_delta_cursor:",),
         cursor_stale_after_seconds: float = 0.0,
+        ontology_release_digest: str | None = None,
     ) -> None:
         if change_min_interval_seconds < 1:
             raise ValueError("inventory change_min_interval_seconds MUST be >= 1")
@@ -69,6 +70,7 @@ class PostgresInventoryReconciliationGate:
         if cursor_stale_after_seconds < 0:
             raise ValueError("inventory cursor stale threshold MUST NOT be negative")
         self._config = config
+        self._ontology_release_digest = ontology_release_digest
         self._change_min_interval_seconds = change_min_interval_seconds
         self._source_policy = source_policy
         self._cursor_stale_after_seconds = cursor_stale_after_seconds
@@ -223,6 +225,10 @@ class PostgresInventoryReconciliationGate:
             ),
             active_generation=row["active_generation"],
             active_scopes=row["active_scopes"],
+        ) or projection_misaligned(
+            manifest_row["value"] if manifest_row is not None else None,
+            active_generation=row["active_generation"],
+            ontology_release_digest=self._ontology_release_digest,
         )
         cursor_complete = bool(self._cursor_keys) and cursor_count == len(self._cursor_keys)
         self._last_health_state = InventoryReconciliationHealthState(
@@ -440,6 +446,29 @@ def _uncovered_cursor_lag_seconds(
     return max(0.0, cursor_lag_seconds - stale_after_seconds)
 
 
+def projection_misaligned(
+    manifest: object,
+    *,
+    active_generation: object,
+    ontology_release_digest: str | None,
+) -> bool:
+    """Return whether the last ontology projection no longer matches the active inventory.
+
+    A promotion that was never projected, or a projection made under another ontology release,
+    leaves every inventory-backed answer partial until the next projection. Only an existing
+    projection manifest is compared, so a venue that never projects is not forced to collect.
+    """
+
+    if not isinstance(manifest, Mapping) or not isinstance(active_generation, str):
+        return False
+    if manifest.get("generation") != active_generation:
+        return True
+    return (
+        ontology_release_digest is not None
+        and manifest.get("ontology_release_digest") != ontology_release_digest
+    )
+
+
 def _projection_pending(
     value: object,
     *,
@@ -615,4 +644,5 @@ __all__ = [
     "failure_retry_delay_seconds",
     "has_unreconciled_change",
     "inventory_reconciliation_due",
+    "projection_misaligned",
 ]

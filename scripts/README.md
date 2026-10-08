@@ -18,6 +18,7 @@ entry point; place other scripts in the domain directories below.
 | `deployment/local/` | Local pgvector and Redpanda development stack lifecycle. |
 | `deployment/azure/` | Azure provisioning, deployment-plan, runner, and environment operations. |
 | `deployment/release/` | Runtime-release assembly, deployment bundle and offline kit staging, signing, license issuing, complete or toolchain-only air-gap drills, and productization verification. |
+| `operations/` | Operator tools that run FDAI capabilities locally, such as the containerized code-security folder scan. |
 | `automation/` | Session, workflow, Git auto-pull, bounded PR delivery, and diff-scoped test helpers. |
 | `lib/` | Stable machine-readable support data shared by repository scripts. |
 

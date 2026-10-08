@@ -54,7 +54,8 @@ test("Trace separates read investigation from decision and action reconstruction
 
 test("Agent Activity retains machine actions while presenting readable read stages", () => {
   const data = read("assets/agent-activity-preview-data.js");
-  const waterfall = read("assets/agent-activity-preview-waterfall.js");
+  const trajectories = read("assets/agent-activity-preview-trajectory-data.js");
+  const trajectory = read("assets/agent-activity-preview-trajectory.js");
   assert.equal((data.match(new RegExp(correlation, "g")) || []).length, 4);
   for (const action of [
     "read.target-resolved",
@@ -63,9 +64,14 @@ test("Agent Activity retains machine actions while presenting readable read stag
     "read.answer-recorded",
   ]) {
     assert.match(data, new RegExp(action.replace(".", "\\.")));
-    assert.match(waterfall, new RegExp(action.replace(".", "\\.")));
   }
-  assert.match(waterfall, /Handoff bar width is not work duration/);
+  const scenario = trajectories.slice(trajectories.indexOf(`correlation: "${correlation}"`));
+  for (const kind of ["normalized_input_reference", "tool_request", "tool_receipt", "verifier_result", "assistant_output", "terminal_outcome"]) {
+    assert.match(scenario, new RegExp(`kind: "${kind}"`));
+  }
+  assert.match(trajectory, /tool_receipt: "Tool result"/);
+  assert.match(trajectory, /model reasoning is not captured/);
+  assert.match(trajectory, /Long idle gaps are compressed and labeled/);
 });
 
 test("Agents previews preserve the canonical event-bus ownership contract", () => {

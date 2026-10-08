@@ -1,8 +1,8 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: b430d43e91956bd1b4a9f124bbfab7e2103ad9e9
-translation_revised: 2026-10-07
+translation_source_sha: 336843aaf6a64f88350251460fe24a7f541cade1
+translation_revised: 2026-10-08
 ---
 
 # 채널과 알림(Channels and Notifications)
@@ -457,7 +457,10 @@ delta와 driver, forward-looking 예측 리스크, guard-metric breach)로부터
 
 **구성 위치**: 아웃바운드 라우팅은 [`config/notifications-matrix.yaml`](../../../config/notifications-matrix.yaml)에
 있습니다. 라우팅 변경은 거버넌스 변경처럼 리뷰하며 A1 경로 변경에는 Owner-tier 검토가
-필요합니다. 대화 채널 활성화는 별도 환경/구성 계약을 사용합니다.
+필요합니다. 신뢰된 신원 attestation은 A1 라우팅을 바꿀 수 있는 변경에만 필요하며, A2~A4 라우트를
+추가하거나 바꾸는 변경은 일반 리뷰를 따릅니다([규칙 거버넌스](../rules-and-detection/rule-governance-ko.md#알림-라우팅-범위)).
+라우터는 A1이 아닌 라우트로 A1 메시지를 전달하지 않고 HIL 싱크로 에스컬레이션하므로, 새 라우트가 결정이
+걸린 트래픽을 가로챌 수 없습니다. 대화 채널 활성화는 별도 환경/구성 계약을 사용합니다.
 
 ```yaml
 matrix:

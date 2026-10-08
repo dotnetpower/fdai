@@ -120,7 +120,13 @@ from fdai_operator_service.route_middleware import (
     SecurityHeadersMiddleware,
 )
 from fdai_operator_service.streaming import LiveStreamHub, make_live_stream_route
-from fdai_operator_service.streaming.shutdown import STREAM_SHUTDOWN_STATE, shutting_down
+from fdai_operator_service.streaming.shutdown import (
+    STREAM_SHUTDOWN_STATE,
+    shutdown_event,
+    shutting_down,
+    sleep_or_shutdown,
+)
+from fdai_operator_service.streaming.signal_shutdown import StreamShutdownSignalMiddleware
 
 DEFAULT_LIMIT: Final = 50
 MAX_LIMIT: Final = 500
@@ -358,6 +364,8 @@ def build_operator_app(
         after_seq = _last_event_id(request)
         initial = await incident_attention_poller.read(after_seq=after_seq)
 
+        stop = shutdown_event(request)
+
         async def events() -> AsyncIterator[bytes]:
             current = after_seq
             projection = initial
@@ -367,7 +375,8 @@ def build_operator_app(
                     yield _sse_frame(projection)
                 else:
                     yield b": keepalive\n\n"
-                await asyncio.sleep(2.0)
+                if await sleep_or_shutdown(2.0, stop):
+                    return
                 try:
                     projection = await incident_attention_poller.read(after_seq=current)
                 except ProjectionUnavailableError:
@@ -554,6 +563,9 @@ def build_operator_app(
     routes = [*local_auth_routes, *minimal_routes, *family_routes]
     _validate_registered_routes(routes, ownership)
     middleware: list[Middleware] = [
+        # Publishes SIGTERM/SIGINT to open streams before uvicorn waits for connections to close;
+        # the lifespan's own shutdown runs only after every connection has closed.
+        Middleware(StreamShutdownSignalMiddleware),
         Middleware(SecurityHeadersMiddleware),
         Middleware(EntitlementStampMiddleware, stamp=entitlement_stamp or EntitlementStamp(None)),
     ]

@@ -46,7 +46,7 @@ def test_hub_modules_import_no_azure_package() -> None:
 
 
 def test_hub_serves_a_plan_without_credentials_or_azure_sdk(
-    store: HubStore,
+    enrolled_store: HubStore,
     installation: Installation,
     planner: Planner,
     now: datetime,
@@ -58,9 +58,8 @@ def test_hub_serves_a_plan_without_credentials_or_azure_sdk(
         monkeypatch.delitem(sys.modules, module)
     monkeypatch.setattr(sys, "meta_path", [_DenyAzureImports(), *sys.meta_path])
 
-    store.register(installation, now=now)
-    outcome = store.recompute(installation.installation_id, planner, now=now)
-    response = TestClient(create_app(store, clock=lambda: now)).get(
+    outcome = enrolled_store.recompute(installation.installation_id, planner, now=now)
+    response = TestClient(create_app(enrolled_store, clock=lambda: now)).get(
         "/v1/installations/installation-alpha/plan"
     )
 

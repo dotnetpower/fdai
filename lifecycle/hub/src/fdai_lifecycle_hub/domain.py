@@ -4,26 +4,33 @@ from __future__ import annotations
 
 import hashlib
 import re
-from collections.abc import Callable, Iterator, Mapping
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime, time, timedelta
 from enum import StrEnum
 from functools import cmp_to_key
-from typing import ClassVar, Self
-from zoneinfo import ZoneInfo
+from typing import ClassVar, Self, get_args
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fdai_deployment_cli.contracts import canonical_digest
+from fdai_deployment_cli.lifecycle_configuration import validate_configuration_package_for_signing
 from fdai_deployment_cli.lifecycle_plan import (
     ConstraintBlock,
     LifecyclePlan,
     MaintenanceWindow,
+    PlanType,
     SuppressionWindow,
 )
 from fdai_deployment_cli.runtime_release import compare_release_ids, is_release_id
 
+from fdai_lifecycle_hub.entity import Entity
+
 type Clock = Callable[[], datetime]
 
 _SHA256_HEX = re.compile(r"[0-9a-f]{64}")
+# Column bounds in models.py, checked here so oversized input is refused, not a database fault.
+MAX_RELEASE_ID_LENGTH = 64
+MAX_SCHEMA_REVISION = 2**31 - 1
 
 
 class StaleStateError(ValueError):
@@ -48,7 +55,10 @@ class DailyWindow:
             raise ValueError("window start is a local wall-clock time")
         if not timedelta(minutes=1) <= self.duration <= timedelta(days=1):
             raise ValueError("window duration must be between one minute and one day")
-        ZoneInfo(self.timezone)  # Rejects unknown zones at construction.
+        try:
+            ZoneInfo(self.timezone)
+        except ZoneInfoNotFoundError as error:  # A KeyError, which validation wouldn't catch.
+            raise ValueError(f"unknown timezone: {self.timezone!r}") from error
 
     def around(self, now: datetime) -> Iterator[MaintenanceWindow]:
         """Yield the occurrences that start on the previous, current, and next local day."""
@@ -78,21 +88,18 @@ class Settings:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class Entity:
-    """One deployable unit of an installation. Only managed entities receive Plans."""
-
-    entity_id: str
-    kind: str
-    managed: bool
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
 class Configuration:
     """One configuration package revision, addressed by the digest of its content."""
 
     schema: Mapping[str, object]
     environment: Mapping[str, object]
     entity_overrides: tuple[Mapping[str, object], ...]
+
+    def __post_init__(self) -> None:
+        # Secret values never enter the Hub. The schema defines keys and holds no values.
+        validate_configuration_package_for_signing(
+            {"environment": self.environment, "entity_overrides": self.entity_overrides}
+        )
 
     @property
     def digest(self) -> str:
@@ -119,8 +126,11 @@ class EntityState:
     health: Health
 
     def __post_init__(self) -> None:
-        if not is_release_id(self.release_id):
-            raise ValueError(f"release id is not canonical SemVer: {self.release_id!r}")
+        if len(self.release_id) > MAX_RELEASE_ID_LENGTH or not is_release_id(self.release_id):
+            raise ValueError(
+                f"release id is not canonical SemVer of at most {MAX_RELEASE_ID_LENGTH} characters:"
+                f" {self.release_id!r}"
+            )
         Health(self.health)  # Rejects an unknown health value.
 
 
@@ -140,6 +150,8 @@ class ReportedState:
     def __post_init__(self) -> None:
         if not _SHA256_HEX.fullmatch(self.digest):
             raise ValueError("state digest must be 64 lowercase hex characters")
+        if not 0 <= self.schema_revision <= MAX_SCHEMA_REVISION:
+            raise ValueError("schema revision is out of range")
         if self.observed_at.tzinfo is None:
             raise ValueError("observed_at must be timezone-aware")
 
@@ -159,6 +171,7 @@ class IssuedPlan:
 
     plan_id: str
     sequence: int
+    plan_type: PlanType
     target_release_id: str
     source_state_digest: str
     configuration_digest: str
@@ -173,6 +186,7 @@ class IssuedPlan:
         return cls(
             plan_id=plan.plan_id,
             sequence=plan.sequence,
+            plan_type=plan.plan_type,
             target_release_id=plan.target_release_id,
             source_state_digest=plan.source_state_digest,
             configuration_digest=plan.configuration_revision_digest,
@@ -189,16 +203,28 @@ class IssuedPlan:
 
         return f"sha256:{hashlib.sha256(self.signed_payload).hexdigest()}"
 
+    def held_by(self, suppressions: Iterable[SuppressionWindow], now: datetime) -> bool:
+        """True when an active suppression covers this Plan, by the shared evaluator's scopes."""
+
+        scopes = {
+            "installation",
+            f"plan:{self.plan_type}",
+            *(f"entity:{entity_id}" for entity_id in self.entity_ids),
+        }
+        return any(w.scope in scopes and w.starts_at <= now < w.ends_at for w in suppressions)
+
     def still_valid_for(self, plan: LifecyclePlan, now: datetime) -> bool:
         """True when `plan` would change nothing the open Plan doesn't already carry."""
 
         return now < self.expires_at and (
+            self.plan_type,
             self.target_release_id,
             self.source_state_digest,
             self.configuration_digest,
             self.hub_key_id,
             self.entity_ids,
         ) == (
+            plan.plan_type,
             plan.target_release_id,
             plan.source_state_digest,
             plan.configuration_revision_digest,
@@ -221,8 +247,6 @@ class Installation:
     open_plan: IssuedPlan | None = None
 
     def __post_init__(self) -> None:
-        if not self.managed_entity_ids:
-            raise ValueError("an installation needs at least one managed entity")
         if missing := self.managed_entity_ids - self.reported.entities.keys():
             raise ValueError(f"reported state lacks managed entities: {sorted(missing)}")
 
@@ -232,6 +256,39 @@ class Installation:
         if state.observed_at <= self.reported.observed_at:
             raise StaleStateError("reported state is not newer than the current state")
         return replace(self, reported=state)
+
+    def suppressed(self, window: SuppressionWindow, now: datetime) -> Self:
+        """Return this installation with `window` added and its expired windows dropped."""
+
+        if window.ends_at <= max(window.starts_at, now):
+            raise ValueError("a suppression must end in the future and after it starts")
+        if not self._is_scope(window.scope):
+            raise ValueError(f"unknown suppression scope: {window.scope!r}")
+        return replace(self, suppressions=(*self._unexpired(now), window))
+
+    def lifted(self, scope: str, now: datetime) -> Self:
+        """Return this installation without its unexpired suppressions for `scope`."""
+
+        current = self._unexpired(now)
+        remaining = tuple(window for window in current if window.scope != scope)
+        if remaining == current:
+            raise ValueError(f"no active suppression for scope {scope!r}")
+        return replace(self, suppressions=remaining)
+
+    def _unexpired(self, now: datetime) -> tuple[SuppressionWindow, ...]:
+        return tuple(window for window in self.suppressions if window.ends_at > now)
+
+    def _is_scope(self, scope: str) -> bool:
+        if scope == "installation":
+            return True
+        kind, _, target = scope.partition(":")
+        match kind:
+            case "plan":
+                return target in get_args(PlanType)
+            case "entity":
+                return target in {entity.entity_id for entity in self.entities}
+            case _:
+                return False
 
     @property
     def managed_entity_ids(self) -> frozenset[str]:
@@ -253,6 +310,7 @@ class OutcomeKind(StrEnum):
     WAITING = "waiting"
     NO_ELIGIBLE_RELEASE = "no-eligible-release"
     UP_TO_DATE = "up-to-date"
+    NO_MANAGED_ENTITY = "no-managed-entity"
 
 
 @dataclass(frozen=True, slots=True)
@@ -306,6 +364,14 @@ class UpToDate:
     checks: tuple[CandidateCheck, ...] = ()
 
 
+@dataclass(frozen=True, slots=True)
+class NoManagedEntity:
+    """No Entity is managed yet, so there is nothing to plan for."""
+
+    kind: ClassVar[OutcomeKind] = OutcomeKind.NO_MANAGED_ENTITY
+    checks: tuple[CandidateCheck, ...] = ()
+
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Evaluation:
     """A recorded recompute: its outcome and every candidate check behind it."""
@@ -317,5 +383,5 @@ class Evaluation:
     evaluated_at: datetime
 
 
-type PlanOutcome = Issued | Unchanged | Waiting | NoEligibleRelease | UpToDate
+type PlanOutcome = Issued | Unchanged | Waiting | NoEligibleRelease | UpToDate | NoManagedEntity
 type Planner = Callable[[Installation, datetime], PlanOutcome]

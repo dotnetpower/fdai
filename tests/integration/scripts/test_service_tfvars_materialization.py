@@ -1382,6 +1382,25 @@ def test_materializes_optional_core_approval_profile(tfvars: ModuleType) -> None
     assert json.loads(selected["approval_profile_json"]) == payload
 
 
+def test_approval_profile_contract_loads_without_site_packages() -> None:
+    payload = json.dumps(_approval_profile_payload(), separators=(",", ":"), sort_keys=True)
+    command = (
+        "import json,sys;"
+        f"sys.path.insert(0,{str(_SCRIPTS)!r});"
+        "from approval_profile_tfvars import materialize_approval_profile;"
+        "print(materialize_approval_profile(sys.argv[1]))"
+    )
+
+    completed = subprocess.run(  # noqa: S603 - fixed interpreter, static code, fixture input.
+        [sys.executable, "-S", "-c", command, payload],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert json.loads(completed.stdout) == _approval_profile_payload()
+
+
 def test_rejects_approval_profile_with_digest_mismatch(tfvars: ModuleType) -> None:
     payload = {**_approval_profile_payload(), "policy_digest": "sha256:" + "5" * 64}
 

@@ -10,6 +10,7 @@ from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from .model_call_progress import model_call_ended, model_call_started
 from .model_observation import ConversationModelObservation
 from .turn_reservations import StageReservation, fail_call, reconcile_call, reserve_call
 
@@ -122,12 +123,14 @@ async def call_scoped_provider[Result](
     request: Mapping[str, object],
     output_tokens: int,
     stage: str | None = None,
+    model: str | None = None,
 ) -> tuple[Result, ModelCallReservation | None]:
     """Reserve each physical request; any failed request ends this read's retry scope.
 
     ``stage`` is the adapter's reviewed call label. Under a bound turn ledger the call
     first reserves its stage's worst case, and a stage that can't reserve raises the
-    typed hold before anything is sent.
+    typed hold before anything is sent. ``model`` names the deployment for the content-free
+    progress report an invocation may observe.
     """
     scope = _SCOPE.get()
     if scope is not None:
@@ -140,11 +143,14 @@ async def call_scoped_provider[Result](
     )
     turn = reserve_call(stage, input_bytes=size, output_tokens=output_tokens) if stage else None
     if scope is None or budget is None:
+        progress = model_call_started(stage, model)
         try:
             result = await operation()
         except BaseException:
+            model_call_ended(progress, failed=True)
             fail_call(turn)
             raise
+        model_call_ended(progress, failed=False)
         return result, ModelCallReservation(None, 0, turn) if turn is not None else None
     try:
         amount = budget.reserve(size, output_tokens, scope.reserved_calls)
@@ -153,11 +159,13 @@ async def call_scoped_provider[Result](
         raise
     reservation = ModelCallReservation(budget, amount, turn)
     completed = False
+    progress = model_call_started(stage, model)
     try:
         result = await operation()
         completed = True
         return result, reservation
     finally:
+        model_call_ended(progress, failed=not completed)
         if not completed:
             fail_call(turn)
             scope.closed = True

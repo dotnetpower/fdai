@@ -17,7 +17,7 @@ from starlette.requests import Request
 from starlette.responses import Response, StreamingResponse
 from starlette.routing import Route
 
-from fdai_operator_service.streaming.shutdown import shutting_down
+from fdai_operator_service.streaming.shutdown import shutdown_event, shutting_down
 
 _CHANNEL: Final = "fdai.pipeline.stages"
 _KEEPALIVE: Final = b": keepalive\n\n"
@@ -279,6 +279,7 @@ def make_live_stream_route(
                 hub=hub,
                 is_disconnected=request.is_disconnected,
                 is_shutting_down=lambda: shutting_down(request),
+                shutdown=shutdown_event(request),
                 keepalive_seconds=keepalive_seconds,
                 channel=channel,
                 cursor_epoch=cursor_epoch,
@@ -302,6 +303,7 @@ async def _live_chunks(
     is_disconnected: Callable[[], Awaitable[bool]],
     keepalive_seconds: float,
     is_shutting_down: Callable[[], bool] = lambda: False,
+    shutdown: asyncio.Event | None = None,
     channel: str = _CHANNEL,
     cursor_epoch: str | None = None,
     after_sequence: int | None = None,
@@ -333,12 +335,22 @@ async def _live_chunks(
         anext(subscription),
         name="operator-live-next-delivery",
     )
+    # An idle stream waits up to one keepalive interval, so the stop event joins that wait;
+    # otherwise graceful shutdown holds until the next keepalive.
+    stop_task = (
+        asyncio.create_task(shutdown.wait(), name="operator-live-shutdown")
+        if shutdown is not None
+        else None
+    )
     try:
         while not is_shutting_down() and not await is_disconnected():
             completed, _ = await asyncio.wait(
-                {next_delivery},
+                {next_delivery} if stop_task is None else {next_delivery, stop_task},
                 timeout=keepalive_seconds,
+                return_when=asyncio.FIRST_COMPLETED,
             )
+            if stop_task is not None and stop_task in completed:
+                return
             if not completed:
                 yield _KEEPALIVE
                 continue
@@ -356,7 +368,13 @@ async def _live_chunks(
         return
     finally:
         next_delivery.cancel()
-        await asyncio.gather(next_delivery, return_exceptions=True)
+        if stop_task is not None:
+            stop_task.cancel()
+        await asyncio.gather(
+            next_delivery,
+            *(() if stop_task is None else (stop_task,)),
+            return_exceptions=True,
+        )
         await subscription.aclose()
 
 

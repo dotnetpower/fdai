@@ -47,13 +47,13 @@ async def test_a_contract_fault_gets_one_repair_with_authored_violations() -> No
     assert only_pass.repair == "applied"
     assert only_pass.repaired_reasons == (
         "form_contract_invalid:form",
-        "form_contract_rule:form_goal_cites_an_undeclared_mention",
+        "form_contract_rule:form_goal_filter_cites_an_undeclared_mention",
     )
     assert [goal.status for goal in only_pass.goals] == ["compiled"]
     repair = model.form_calls[1]["repair"]
     assert isinstance(repair, FormRepair)
     assert repair.previous == _undeclared_filter()
-    assert repair.violations == ("form: Value error, form goal cites an undeclared mention",)
+    assert repair.violations == ("form: Value error, form goal filter cites an undeclared mention",)
     assert "m9" not in json.dumps(repair.violations)
 
 

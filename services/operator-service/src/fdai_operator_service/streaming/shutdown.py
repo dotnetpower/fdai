@@ -67,6 +67,24 @@ async def next_or_shutdown[Event](
         return None
 
 
+async def sleep_or_shutdown(seconds: float, stop: asyncio.Event | None) -> bool:
+    """Wait one poll interval and report whether shutdown began during it.
+
+    A polling stream that sleeps without watching the stop event holds graceful
+    shutdown for the whole interval, so the wait ends as soon as shutdown begins.
+    """
+    if stop is None:
+        await asyncio.sleep(seconds)
+        return False
+    if stop.is_set():
+        return True
+    try:
+        await asyncio.wait_for(stop.wait(), timeout=seconds)
+    except TimeoutError:
+        return False
+    return True
+
+
 def _event(request: Request) -> asyncio.Event | None:
     application = request.scope.get("app")
     if application is None:
@@ -83,4 +101,5 @@ __all__ = [
     "next_or_shutdown",
     "shutdown_event",
     "shutting_down",
+    "sleep_or_shutdown",
 ]

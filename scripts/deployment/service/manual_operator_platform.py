@@ -13,6 +13,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+import drift_contract
 import manual_operator_update as service_update
 import manual_operator_update_contract as common
 
@@ -52,12 +53,34 @@ def prepare(
         raise common.ManualOperatorUpdateError(
             "platform Cost pseudonym key prerequisite already exists"
         )
-    key_vault_id = common._resource_id(outputs.get("key_vault_id"), "platform Key Vault")
-    identities = common._object(
-        outputs.get("runtime_identity_bindings"), "platform runtime identities"
-    )
-    operator = common._object(identities.get("operator"), "platform Operator identity")
-    principal_id = common._text(operator.get("principal_id"), "Operator principal id")
+    key_vault_output = outputs.get("key_vault_id")
+    platform_state: dict[str, Any] | None = None
+    if isinstance(key_vault_output, str) and key_vault_output:
+        key_vault_id = common._resource_id(key_vault_output, "platform Key Vault")
+    else:
+        platform_state = common._json_command(
+            ("terraform", f"-chdir={platform_root}", "show", "-json"),
+            timeout=300,
+            label="platform state projection",
+        )
+        key_vault_id = common._resource_id(
+            drift_contract.stored_platform_key_vault(platform_state)["resource_id"],
+            "platform Key Vault",
+        )
+    identities = outputs.get("runtime_identity_bindings")
+    operator = identities.get("operator") if isinstance(identities, dict) else None
+    if isinstance(operator, dict):
+        principal_id = common._text(operator.get("principal_id"), "Operator principal id")
+    else:
+        if platform_state is None:
+            platform_state = common._json_command(
+                ("terraform", f"-chdir={platform_root}", "show", "-json"),
+                timeout=300,
+                label="platform state projection",
+            )
+        principal_id = drift_contract.stored_platform_operator_identity(platform_state)[
+            "principal_id"
+        ]
     if common._GUID.fullmatch(principal_id) is None:
         raise common.ManualOperatorUpdateError("platform Operator principal id is invalid")
     key_vault = common._json_command(
@@ -381,7 +404,12 @@ def main() -> int:
                 approval_path=args.approval.resolve(),
                 timeout_seconds=args.timeout_seconds,
             )
-    except (OSError, subprocess.SubprocessError, common.ManualOperatorUpdateError) as exc:
+    except (
+        OSError,
+        subprocess.SubprocessError,
+        common.ManualOperatorUpdateError,
+        drift_contract.DriftContractError,
+    ) as exc:
         parser.error(str(exc))
     print(json.dumps(result, sort_keys=True, separators=(",", ":")))
     return 0

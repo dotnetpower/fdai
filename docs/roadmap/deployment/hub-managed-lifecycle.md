@@ -279,10 +279,15 @@ time-bound role that the customer grants in its own tenant. The Hub grants none.
    from an existing installation. An offline site installs its Target Hub and first Release from
    the signed offline package.
 2. The operator installs the lifecycle agent and infrastructure agent from a signed Release.
-3. The installation proves possession of its installation key to the Hub, and a customer approver
-   accepts the enrollment.
+3. The installation proves possession of its installation key by signing its enrollment request,
+   and a customer approver accepts the enrollment by naming the key id they verified out of band.
+   Until then the Hub plans nothing for the installation. A request whose proof fails, or whose
+   request time differs from the Hub clock by more than five minutes in either direction, creates
+   no installation, and the Hub audits why.
 4. Entities start unmanaged. An Entity becomes managed only after its ownership is proven and the
-   operator adds its settings.
+   operator adds its settings. A signed Foundation creation receipt together with a Terraform state
+   identity proves ownership. The `fdai:managed=true` tag alone keeps the Entity unmanaged, and the
+   Hub records that reason. An installation without a managed Entity receives no Plan.
 5. The first Plan replaces any source-built images with signed images.
 
 Today the Terraform application stage renders workloads. The Hub path moves the rendering of
@@ -504,21 +509,27 @@ installations. Customer C's on-premises runtime and local model need separate ap
 
 | Table | Key | Purpose | Time fields | Mutability |
 |-------|-----|---------|-------------|------------|
-| `installation` | `installation_id` | Enrollment, Hub placement, channel, version range, windows | `enrolled_at`, `recorded_at` | Revisioned |
-| `entity` | `installation_id`, `entity_id` | Kind, managed flag, settings revision | `effective_from`, `recorded_at` | Revisioned |
+| `installation` | `installation_id` | Enrollment status and installation key, Hub placement, channel, version range, windows | `requested_at`, `enrolled_at`, `recorded_at` | Revisioned |
+| `entity` | `installation_id`, `entity_id` | Kind, ownership evidence, settings revision. An Entity with settings is managed | `effective_from`, `recorded_at` | Revisioned |
 | `entity_reported_state` | `installation_id`, `entity_id`, `observed_at` | Version, digests, health, agent sub-state | `observed_at`, `recorded_at` | Append-only |
 | `lifecycle_plan` | `plan_id` | Type, target Release, configuration revision, envelope, expiry | `created_at`, `issued_at`, `expires_at` | Status changes in `lifecycle_plan_event` |
-| `plan_constraint_result` | `plan_id`, `constraint` | Result and reason | `evaluated_at` | Append-only |
+| `plan_evaluation` | `evaluation_id` | One recompute: outcome, target Release, and the issued Plan if any | `evaluated_at` | Append-only |
+| `plan_constraint_result` | `evaluation_id`, candidate Release, `constraint` | Result and reason | `evaluated_at` | Append-only |
 | `plan_execution_report` | `plan_id`, `attempt` | Exact plan digest, sanitized summary, outcome | `reported_at` | Append-only |
 | `lifecycle_command` | `command_id` | Suppression, lowering, or break-glass command with scope and actor | `starts_at`, `expires_at`, `recorded_at` | Revocable |
 | `hub_audit` | `sequence` | Hash-chained record of every Hub change | `recorded_at` | Append-only |
+
+A recompute that waits or finds no eligible Release issues no Plan, so constraint results belong to
+the evaluation rather than to a Plan.
 
 Release tables belong to [Lifecycle Releases and Channels](lifecycle-releases-and-channels.md), and
 configuration tables belong to [Lifecycle Configuration](lifecycle-configuration.md).
 
 ## Honest limits
 
-- Nothing in this document is implemented yet.
+- Only the Lifecycle Hub's enrollment, Plan computation, storage, and agent API run today, in
+  observation mode (shadow mode) on loopback ([Lifecycle Hub](../../../lifecycle/hub/README.md)).
+  Everything else in this document is design only.
 - Workload rendering outside Terraform is designed in
   [Workload rendering migration](#workload-rendering-migration). The agent renderer, the render
   parity test, and the ownership handoff aren't implemented.

@@ -34,7 +34,7 @@ from fdai.core.security.code_findings.lens import (
 )
 from fdai.core.security.code_findings.models import Occurrence
 from fdai.core.security.code_findings.receipts import build_receipt, receipt_to_dict
-from fdai.core.security.code_findings.review_signal import build_review_package
+from fdai.core.security.code_findings.review_signal import ReviewSource, build_review_package
 from fdai.core.security.code_findings.verification import ScanCoverageReceipt
 from fdai.core.security.code_findings.verifier import (
     VerifierResult,
@@ -58,6 +58,14 @@ class ReviewPublisher(Protocol):
 
 @dataclass(frozen=True, slots=True)
 class ScanJobConfig:
+    """One scan target and its bindings.
+
+    ``local_path`` scans a local folder instead of ``repository`` at ``revision``: its ``HEAD``
+    commit, or with ``include_uncommitted`` a content-addressed snapshot of its working files.
+    ``source`` records where the code came from and what started the scan; its revision kind is
+    taken from the acquisition, never from the caller.
+    """
+
     repository: str
     revision: str
     repository_alias: str
@@ -68,6 +76,9 @@ class ScanJobConfig:
     exposure: Exposure = Exposure.UNKNOWN
     required_scanners: frozenset[str] | None = None
     known_exploited: frozenset[str] = field(default_factory=frozenset)
+    local_path: Path | None = None
+    include_uncommitted: bool = False
+    source: ReviewSource | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +96,7 @@ class ScanJobResult:
     lens_report: LensLaneReport | None = None
     verifier_results: tuple[VerifierResult, ...] = ()
     proof_results: tuple[ProofResult, ...] = ()
+    revision_kind: str = "commit"
 
 
 async def run_scan_job(
@@ -99,6 +111,7 @@ async def run_scan_job(
     lens_models: Sequence[CodeSecurityLensModel] = (),
     verifier_catalog: VerifierCatalog | None = None,
     prove_python: Path | None = None,
+    prove_runtimes: Mapping[str, Path] | None = None,
 ) -> ScanJobResult:
     """Run the deterministic lane, and the optional LLM lens lane, for one revision.
 
@@ -106,11 +119,17 @@ async def run_scan_job(
     deterministic coverage limits, because the lens lane is optional. When a verifier catalog is
     given, deterministic weakness verifiers run on the same acquired tree and raise confirmed
     issues to ``verified`` confidence; they never change severity or close an issue. When
-    ``prove_python`` is set, the opt-in proof lane reproduces verified Python issues in a
-    disposable sandbox and raises reproduced ones to ``proven``.
+    ``prove_python`` or ``prove_runtimes`` is set, the opt-in proof lane reproduces verified issues
+    of each language with a runtime in a disposable sandbox and raises reproduced ones to
+    ``proven``.
     """
-    source = acquirer.acquire(config.repository, config.revision)
-    artifacts = config.work_root / "scans" / config.revision
+    source = (
+        acquirer.acquire_path(config.local_path, include_uncommitted=config.include_uncommitted)
+        if config.local_path is not None
+        else acquirer.acquire(config.repository, config.revision)
+    )
+    revision = source.revision
+    artifacts = config.work_root / "scans" / revision
     artifacts.mkdir(parents=True, exist_ok=True, mode=0o700)
     required = config.required_scanners or frozenset(scanners.scanners)
     limits: list[str] = []
@@ -157,7 +176,7 @@ async def run_scan_job(
                     run.stdout,
                     SarifIngestContext(
                         lane=Lane.DETERMINISTIC,
-                        revision=config.revision,
+                        revision=revision,
                         source_roots=("/source", str(source.path)),
                         producer=spec.producer,
                     ),
@@ -173,7 +192,7 @@ async def run_scan_job(
     if lens_catalog is not None and lens_models:
         try:
             lens_occurrences, lens_report = await run_lens_lane(
-                source.path, lens_catalog, lens_models, revision=config.revision
+                source.path, lens_catalog, lens_models, revision=revision
             )
             occurrences.extend(lens_occurrences)
             lens_found = list(lens_occurrences)
@@ -181,7 +200,7 @@ async def run_scan_job(
         except LensLaneUnavailableError as exc:
             lens_notes = [str(exc)]
     context = AnalysisContext(
-        revision=config.revision,
+        revision=revision,
         exposure=config.exposure,
         known_exploited=config.known_exploited,
     )
@@ -189,16 +208,20 @@ async def run_scan_job(
     verifier_results: tuple[VerifierResult, ...] = ()
     if verifier_catalog is not None:
         verifier_results = taint_rule_verifications(issues, occurrences, verifier_catalog)
-        verifier_results += verify_issues(
-            source.path, issues, verifier_catalog, revision=config.revision
-        )
+        verifier_results += verify_issues(source.path, issues, verifier_catalog, revision=revision)
     verified = dict(verified_confidence(verifier_results))
     if verified:
         issues = build_issues(occurrences, catalog, replace(context, verifications=verified))
     proof_results: tuple[ProofResult, ...] = ()
-    if prove_python is not None:
+    proof_enabled = prove_python is not None or bool(prove_runtimes)
+    if proof_enabled:
         proof_results = await prove_issues(
-            source.path, issues, verifier_results, sandbox=sandbox, python=prove_python
+            source.path,
+            issues,
+            verifier_results,
+            sandbox=sandbox,
+            python=prove_python,
+            runtimes=prove_runtimes,
         )
         proven = proven_confidence(proof_results)
         if proven:
@@ -206,7 +229,7 @@ async def run_scan_job(
                 occurrences, catalog, replace(context, verifications={**verified, **proven})
             )
     receipt = build_receipt(
-        config.revision,
+        revision,
         catalog.version_stamp(),
         ingested,
         rules_versions=_rules_versions(ingested, scanners, rules_digest(config.rules_dir)),
@@ -218,12 +241,21 @@ async def run_scan_job(
         and bool(receipt.runs)
         and all(run.completed is True and not run.truncated for run in receipt.runs)
     )
+    review_source = (
+        replace(config.source, revision_kind=source.revision_kind)
+        if config.source is not None
+        else None
+    )
     package = build_review_package(
         issues,
         repository_alias=config.repository_alias,
-        revision=config.revision,
+        revision=revision,
         exposure=config.exposure,
         coverage_complete=complete,
+        source=review_source,
+        producers=sorted(
+            {run.producer for run in receipt.runs} | {o.producer for o in occurrences}
+        ),
     )
     (artifacts / "receipt.json").write_text(
         json.dumps(
@@ -253,7 +285,7 @@ async def run_scan_job(
                     ],
                 },
                 "proof": {
-                    "enabled": prove_python is not None,
+                    "enabled": proof_enabled,
                     "results": [item.as_dict() for item in proof_results],
                 },
                 "verifiers": {
@@ -272,7 +304,7 @@ async def run_scan_job(
     (artifacts / "review.json").write_text(json.dumps(package, indent=2) + "\n")
     published = await publisher.publish_code_security_drift(package) if publisher else False
     return ScanJobResult(
-        revision=config.revision,
+        revision=revision,
         tree_id=source.tree_id,
         issues=issues,
         receipt=receipt,
@@ -285,6 +317,7 @@ async def run_scan_job(
         lens_report=lens_report,
         verifier_results=verifier_results,
         proof_results=proof_results,
+        revision_kind=source.revision_kind,
     )
 
 

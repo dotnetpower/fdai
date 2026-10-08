@@ -211,6 +211,16 @@ lists the goals whose relation roles two blind readers swapped. The local prompt
 its diagnostics to standard error, so `dev-discuss explain` can still read the service input digest
 while an explicit uncommitted-prompt opt-in is active.
 
+When the form path reads a question a second time, the replaced sample's decline appears as its own
+`semantic_form_sample_declined` event with the same closed fields. A turn that recovered on the second
+sample therefore still shows why the first one failed. The local plain service log renders the same
+form-path decision fields for the compiled-answer logger only, and only as closed tokens, so a held
+turn stays explainable from the log file after a restart clears the trace buffer.
+Each compiled-answer event also lists which passes were repaired and the closed codes of the
+faults that caused each repair, because a repair costs one more form call. Each ObjectSet read logs
+`ontology_object_set_stages_timed` with its materialization, refresh, and receipt milliseconds and
+its object count, so a slow read points at its stage without a profiler.
+
 A cue is a review pointer, not a causal conclusion. `dev-discuss explain` captures a snapshot and
 prints each trace with its cues. The reviewer compares them with the questions they asked, because
 those questions never enter the packet. Frame and plan provenance appears as model call counts
@@ -303,12 +313,19 @@ The pre-commit derived-source gate always enters a lightweight staged-input sele
 complete check only when a pinned document, a System Knowledge source, the catalog, its checker, or
 the hook configuration changes. The selector derives the source set from the staged catalog, so a
 new registered source does not require a manually synchronized hook path filter.
+A developer can check a working tree for security issues before committing with
+`scripts/operations/code-security-scan.sh FOLDER --include-uncommitted`. That scan is local
+feedback only: its snapshot revision has no commit, so it can't certify a commit or serve as the
+base of a remediation pack. Local and deployed Operator data-source registries declare the same
+code-security review, repository, and scan-request projections.
 Core quantity/accounting checks use the root development extra's locked Kubernetes utility without contacting a cluster. Its untyped import exception is limited to `kubernetes.utils.quantity`; the adapter validates returned Decimal values. Dependency changes retain focused ownership and Core-wheel checks and do not enable the diagnostic channel or live collection.
 When root CI collects service sources, its `dev` extra mirrors every third-party package imported by
 those sources. Service manifests remain authoritative for runtime images and package ownership.
 Root CI also collects the standalone `lifecycle/` distributions: the root pytest, ruff, and mypy
-settings and the changed-path test scope include them. Each one keeps its own lock, like
-`packages/deployment-cli`, and runs its command with `uv run` from its own directory.
+settings and the changed-path test scope include them. The Hub keeps its own lock, like
+`packages/deployment-cli`, and runs its command with `uv run` from its own directory. The lifecycle
+agent has no lock of its own: it runs in the root development environment, which already provides
+its dependencies.
 
 | Stage | Required evidence | Reuse boundary |
 |-------|-------------------|----------------|

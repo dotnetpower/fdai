@@ -603,6 +603,7 @@ class AzureOpenAIQuestionFormModel:
                         request=body,
                         output_tokens=max_tokens,
                         stage=name,
+                        model=target.deployment,
                     )
                     response.raise_for_status()
                     payload, content, usage = _content_object(response)

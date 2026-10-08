@@ -19,8 +19,8 @@ Opengrep, Trivy, and other producers.
 > **Status:** The deterministic core, catalog, signed remediation pack, pack registry, export
 > gate, rescan verification, false-positive adjudication, Heimdall review drift, notifications,
 > operator CLI, the deterministic scanning lane ([Code Security Scanning](code-security-scanning.md)),
-> the off-path LLM lens lane, weakness verifiers, the evaluation harness, and the read-only
-> Console view are implemented. See the [implementation ledger](../../roadmap-implementation/operations/code-security-findings.md).
+> the off-path LLM lens lane, weakness verifiers, the evaluation harness, and the Console view with
+> source-separated reviews and repository scan requests are implemented. See the [implementation ledger](../../roadmap-implementation/operations/code-security-findings.md).
 
 ## Design at a glance
 
@@ -82,8 +82,8 @@ The caller names the lane and the exact revision. Neither is read from the docum
 | Exposure | `exposed`, `internal`, `not_deployed`, `unknown` | Runtime inventory |
 | Priority | `P0` to `P4` with a due interval | First-match [priority policy](../../../rule-catalog/code-security/priority-policy.yaml) |
 
-- **Facts:** each instance has four facts: impact, attack vector, privileges required, and user
-  interaction. Each is verified or unknown. Facts come from deterministic verifiers, inventory, or
+- **Facts:** each instance has five facts: impact, attack vector, attack complexity, privileges
+  required, and user interaction. Each is verified or unknown. Facts come from deterministic verifiers, inventory, or
   authorized people, never from scanner text.
 - **Range:** the floor evaluates unknown facts at their least severe value and the ceiling at their
   most severe value. Equal bands produce that band. Different bands produce `undetermined` plus the
@@ -225,9 +225,18 @@ review log.
 
 - **No new agent or topic:** scanners and pack rendering are workers and adapters, not pantheon
   agents, and the AgentSpec set is unchanged.
+- **Accountable agent:** Heimdall owns source-code security vulnerability observation. Scanners,
+  local folder scans, and the Console scan-request worker hand Heimdall a review package; its
+  `read_drift_status` conversation tool answers from the newest recorded review per repository.
 - **Review signal:** a scan produces a strict review package with counts, exposure, coverage
   completeness, and up to twenty opaque issue ids. It carries no paths, code, symbols, or scanner
-  text, and declares `review_required: true` and `grants_authority: false`.
+  text, and declares `review_required: true` and `grants_authority: false`. Schema `1.1.0` adds
+  `source` (kind `local_path`, `git_repository`, or `external_sarif`; a provider token such as
+  `local`, `github`, or `mdash`; revision kind `commit` or `snapshot`; trigger `cli`, `console`, or
+  `schedule`; and the request id of a Console scan) and the sorted producer names. Producer names
+  that aren't short display tokens are dropped. `1.0.0` packages stay valid.
+- **External SARIF:** `publish-review --source-provider mdash` labels an imported MDASH or other
+  external report, so the Console shows it apart from FDAI's own scans.
 - **Heimdall:** an injected projector validates the package and Heimdall publishes it on its owned
   `object.drift` topic (`event_type: code_security.findings_drift`) with a shadow ceiling. The
   decision is `urgent` (P0 issues), `open`, `clear`, or `coverage_incomplete`. No LLM is involved.
@@ -245,11 +254,23 @@ review log.
   ([Code Security Scanning](code-security-scanning.md#llm-lens-lane)).
 - **Console view:** `publish-review --record-state` and `scan --record-state` store each review
   package once per repository revision in the state store, reading the database location from
-  `FDAI_STATE_STORE_DSN` only. A different package for a recorded revision is refused. The
-  Operator API serves `GET /code-security/reviews` to reader roles, and the Console
-  **Evidence > Code security** route shows decisions, counts by priority and confidence,
-  exposure, and coverage. Malformed rows appear as withheld records, and the view offers no
-  approval, execution, or remediation control.
+  `FDAI_STATE_STORE_DSN` only. Different findings for a recorded revision are refused; the same
+  findings from another trigger are a duplicate. The Operator API serves
+  `GET /code-security/reviews`, `/repositories`, and `/scan-requests` to reader roles, and the
+  Console **Evidence > Code security** route shows decisions, counts by priority and confidence,
+  exposure, coverage, and each review's source and trigger, with a filter for local folders, git
+  repositories, external SARIF, and unlabeled reviews. Malformed rows appear as withheld records.
+- **Issue detail:** recording a review also stores up to 200 bounded issue summaries for that
+  revision, bound by the review digest: issue id, priority and due interval, severity, confidence,
+  weakness class, CWE ids, up to three advisory ids, the dependency package name, producers, and
+  known exploitation. `GET /code-security/issues?repository_alias=...&revision=...` serves them
+  only when the digest matches, and the Console shows them for a selected review. Paths, lines,
+  symbols, scanner messages, and code never reach the Console.
+- **Scan requests:** Contributors and Owners can request a scan of a registered repository through
+  `POST /code-security/scan-requests`, and Owners can register, enable, or disable a repository
+  through `POST /code-security/repositories`. Both routes only queue a typed proposal for the worker
+  described in [Code Security Scanning](code-security-scanning.md#repository-scans-from-the-console);
+  the view still offers no approval, execution, or remediation control.
 - **Pack registry:** `--registry state-store` keeps pack records, revocation, the export baseline,
   and the append-only review log in the state store instead of a local directory, with
   revision compare-and-set so concurrent reviews are never lost. `GET /code-security/packs`
@@ -284,8 +305,12 @@ harness reports:
 - dedup pairwise precision and recall with false-merge and false-split pairs;
 - issue-level detection precision and recall at the expected fix site;
 - reviewer-band containment in the floor-to-ceiling range before facts, then exact agreement and
-  quadratic-weighted kappa after the labeled facts are supplied;
+  quadratic-weighted kappa over every issue whose severity is determined, either by the labeled
+  facts or already without them, as with a dependency advisory score;
 - rerun stability, and rescan matching after every code line shifts.
+
+Each case has a kind, `code` or `dependency`, and the receipt repeats every metric per kind and
+split so code issues and dependencies are measured separately.
 
 The corpus declares acceptance floors, and the command fails below any of them. The upstream
 corpus, `rule-catalog/code-security/evaluation/synthetic-corpus.yaml`, is synthetic and labeled by
@@ -297,6 +322,18 @@ they report the package. The reviewer band is the GitHub Advisory Database's rev
 an independent label, and cases are split into `dev` and `holdout`. It found a real defect:
 producers that spell one PyPI package differently produced duplicate issues until package
 identity followed the ecosystem rules above.
+
+Its code cases come from 16 reviewed advisories, two for each of eight injection-family CWEs,
+selected mechanically by GHSA id. Each case models two SAST lanes at the first line the single fix
+commit removed, and its facts map mechanically from the advisory's CVSS v3 vector. The code cases
+found that the cross-site scripting impact range was too narrow: a critical stored script fell
+outside the claimed range, so the class now reaches `data_write`. They also measure how closely
+the fact rubric agrees with independent labels. Rubric 1.1.0 added attack complexity and raised
+the low-privileges penalty from 0.8 to 1.1, the smallest change that makes every `dev` code case
+agree; the attack-complexity penalty matches the local attack vector because CVSS scales
+exploitability by a similar factor for both, so it was set without fitting. `holdout` code-kind
+exact agreement rose from 0.5 to 0.75. The two remaining misses are an integrity-only impact
+rated as `data_write` and a confidentiality-high impact with low integrity and availability.
 
 ## Verification
 

@@ -12,6 +12,7 @@ Commands:
 ``scan``          run the deterministic lane in the sandbox against one revision;
 ``evaluate``      measure dedup, severity, and rescan matching on a labeled corpus;
 ``evaluate-verifiers`` measure weakness-verifier precision on pinned public projects;
+``evaluate-lens``  label every kept LLM lens hypothesis on a labeled public benchmark;
 ``public-key``    print the pack-signing public key that developers pin.
 
 Example::
@@ -57,10 +58,12 @@ from fdai.core.security.code_findings import (
 )
 from fdai.core.security.code_findings.adjudication import AdjudicationError
 from fdai.core.security.code_findings.evaluation import (
+    KINDS,
     EvaluationCorpusError,
     acceptance_failures,
     corpus_from_mapping,
     evaluate,
+    kind_corpus,
     split_corpus,
 )
 from fdai.core.security.code_findings.export_gate import (
@@ -68,6 +71,7 @@ from fdai.core.security.code_findings.export_gate import (
     ExportDeniedError,
     authorize_export,
 )
+from fdai.core.security.code_findings.lens import LensLaneUnavailableError
 from fdai.core.security.code_findings.receipts import (
     baseline_to_dict,
     build_receipt,
@@ -80,7 +84,13 @@ from fdai.core.security.code_findings.verifier import (
 )
 from fdai.core.security.code_findings.verifier_evaluation import VerifierCorpusError
 from fdai.delivery.code_security_acquire import GitSourceAcquirer, SourceAcquisitionError
+from fdai.delivery.code_security_lens_eval import add_lens_evaluation_command, evaluate_lens
 from fdai.delivery.code_security_publish_cli import add_publish_command, publish_review
+from fdai.delivery.code_security_repo_cli import (
+    add_repository_commands,
+    run_process_scan_requests,
+    run_repository_command,
+)
 from fdai.delivery.code_security_review_cli import (
     add_review_commands,
     adjudicate,
@@ -152,7 +162,9 @@ def _parser() -> argparse.ArgumentParser:
     add_review_commands(sub)
     add_publish_command(sub)
     add_scan_command(sub)
+    add_repository_commands(sub)
     add_verifier_evaluation_command(sub)
+    add_lens_evaluation_command(sub)
     evaluation = sub.add_parser("evaluate", help="measure dedup and severity on a labeled corpus")
     evaluation.add_argument(
         "--corpus",
@@ -330,6 +342,17 @@ def _evaluate(args: argparse.Namespace) -> dict[str, object]:
             failures += [
                 f"{name}:{item}" for item in acceptance_failures(split_metrics, corpus.acceptance)
             ]
+    kinds: dict[str, object] = {}
+    for kind in KINDS:
+        kind_subset = kind_corpus(corpus, kind)
+        if kind_subset is None or len(kind_subset.cases) == len(corpus.cases):
+            continue
+        by_split: dict[str, object] = {"all": evaluate(kind_subset, catalog).as_dict()}
+        for name in ("dev", "holdout"):
+            subset = split_corpus(kind_subset, name)
+            if subset is not None and len(subset.cases) < len(kind_subset.cases):
+                by_split[name] = evaluate(subset, catalog).as_dict()
+        kinds[kind] = by_split
     receipt: dict[str, object] = {
         "ok": not failures,
         "kind": "fdai.code-security.evaluation-receipt",
@@ -342,6 +365,7 @@ def _evaluate(args: argparse.Namespace) -> dict[str, object]:
         "catalog_versions": catalog.version_stamp(),
         "metrics": metrics.as_dict(),
         "splits": splits,
+        "kinds": kinds,
         "acceptance": dict(corpus.acceptance),
         "failures": failures,
         "evaluated_at": datetime.now(UTC).isoformat(),
@@ -368,10 +392,16 @@ def main(argv: list[str] | None = None) -> int:
             output = asyncio.run(publish_review(args))
         elif args.command == "scan":
             output = asyncio.run(run_scan(args))
+        elif args.command in ("repo-register", "repo-list", "repo-enable", "repo-disable"):
+            output = asyncio.run(run_repository_command(args))
+        elif args.command == "process-scan-requests":
+            output = asyncio.run(run_process_scan_requests(args))
         elif args.command == "evaluate":
             output = _evaluate(args)
         elif args.command == "evaluate-verifiers":
             output = evaluate_verifiers(args)
+        elif args.command == "evaluate-lens":
+            output = evaluate_lens(args)
         else:
             signer = Ed25519PackSigner(Path(args.signing_key))
             output = {
@@ -389,6 +419,8 @@ def main(argv: list[str] | None = None) -> int:
         output = {"ok": False, "reason": "review_conflict", "error": str(exc)}
     except ExportDeniedError as exc:
         output = {"ok": False, "reason": "export_denied", "error": str(exc)}
+    except LensLaneUnavailableError as exc:
+        output = {"ok": False, "reason": "lens_unavailable", "error": str(exc)}
     except (
         EvaluationCorpusError,
         VerifierCorpusError,

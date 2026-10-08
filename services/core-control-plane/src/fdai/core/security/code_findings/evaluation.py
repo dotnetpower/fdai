@@ -10,10 +10,14 @@ supply. The harness runs the real pipeline and measures:
 - **Detection:** issue-level precision and recall, where an expected issue is found when a produced
   issue has the same class and fix site;
 - **Severity:** whether the reviewer band lies inside the produced floor-to-ceiling range before any
-  facts are verified, and exact agreement plus quadratic-weighted Cohen's kappa once the labeled
-  facts are supplied;
+  facts are verified, and exact agreement plus quadratic-weighted Cohen's kappa over every issue
+  whose severity is determined: by the labeled facts once supplied, or already without facts (for
+  example a dependency advisory score);
 - **Stability:** whether rerunning identical inputs reproduces identical issue ids and severities,
   and whether every issue is still matched by rescan matching after all code lines shift.
+
+Each case has a kind, ``code`` for source-code weaknesses or ``dependency`` for vulnerable
+packages, so the same metrics can be reported separately for code issues and for dependencies.
 
 The harness is pure and deterministic: the same corpus and catalog produce the same metrics. It
 measures FDAI's own decision layer, not any scanner's detection quality.
@@ -38,6 +42,7 @@ from fdai.core.security.code_findings.models import (
 from fdai.core.security.code_findings.verification import BaselineIssue, matches_rescan
 from fdai.rule_catalog.code_security import (
     BAND_ORDER,
+    AttackComplexity,
     AttackVector,
     CodeSecurityCatalog,
     Exposure,
@@ -50,6 +55,7 @@ from fdai.rule_catalog.code_security import (
 EVALUATION_REVISION = "0" * 40
 _PROVENANCE = frozenset({"synthetic", "curated"})
 _SPLITS = frozenset({"dev", "holdout"})
+KINDS = ("code", "dependency")
 _METRIC_FLOORS = (
     "dedup_precision",
     "dedup_recall",
@@ -83,6 +89,7 @@ class EvaluationCase:
     occurrences: tuple[Occurrence, ...]
     expected: tuple[ExpectedIssue, ...]
     split: str = "dev"
+    kind: str = "code"
 
 
 @dataclass(frozen=True, slots=True)
@@ -225,6 +232,8 @@ def evaluate(corpus: EvaluationCorpus, catalog: CodeSecurityCatalog) -> Evaluati
                 band = BAND_ORDER[item.reviewer_band]
                 low, high = BAND_ORDER[issue.severity.floor], BAND_ORDER[issue.severity.ceiling]
                 contained += int(low <= band <= high)
+                if item.facts is None and issue.severity.determined:
+                    severity.append((issue.severity.floor, item.reviewer_band))
             if item.facts is not None:
                 facts.update({instance.instance_id: item.facts for instance in issue.instances})
         matched_produced += len({issue.issue_id for issue in matched.values()})
@@ -277,6 +286,12 @@ def split_corpus(corpus: EvaluationCorpus, split: str) -> EvaluationCorpus | Non
     return replace(corpus, cases=cases) if cases else None
 
 
+def kind_corpus(corpus: EvaluationCorpus, kind: str) -> EvaluationCorpus | None:
+    """Return the cases of one kind as their own corpus, or ``None`` when the kind is empty."""
+    cases = tuple(case for case in corpus.cases if case.kind == kind)
+    return replace(corpus, cases=cases) if cases else None
+
+
 def acceptance_failures(metrics: EvaluationMetrics, acceptance: Mapping[str, float]) -> list[str]:
     """Return the metric names that fall below the corpus acceptance floors."""
     failures = [
@@ -319,6 +334,7 @@ def _facts(raw: object, where: str) -> InstanceFacts | None:
         return InstanceFacts(
             impact=Impact(raw["impact"]),
             attack_vector=AttackVector(raw["attack_vector"]),
+            attack_complexity=AttackComplexity(raw["attack_complexity"]),
             privileges_required=PrivilegesRequired(raw["privileges_required"]),
             user_interaction=UserInteraction(raw["user_interaction"]),
             evidence_refs=(f"evaluation:{where}",),
@@ -428,7 +444,13 @@ def corpus_from_mapping(raw: object) -> EvaluationCorpus:
         split = str(raw_case.get("split", "dev"))
         if split not in _SPLITS:
             raise EvaluationCorpusError(f"{case_id}: split must be one of {sorted(_SPLITS)}")
-        cases.append(EvaluationCase(case_id, exposure, occurrences, expected, split))
+        derived = "dependency" if any(occ.package for occ in occurrences) else "code"
+        kind = str(raw_case.get("kind", derived))
+        if kind not in KINDS:
+            raise EvaluationCorpusError(f"{case_id}: kind must be one of {list(KINDS)}")
+        if kind != derived and occurrences:
+            raise EvaluationCorpusError(f"{case_id}: kind {kind} contradicts its occurrences")
+        cases.append(EvaluationCase(case_id, exposure, occurrences, expected, split, kind))
     shift = raw.get("line_shift", 7)
     if not isinstance(shift, int) or isinstance(shift, bool) or shift < 1:
         raise EvaluationCorpusError("corpus: line_shift must be a positive integer")
@@ -446,6 +468,7 @@ def corpus_from_mapping(raw: object) -> EvaluationCorpus:
 
 __all__ = [
     "EVALUATION_REVISION",
+    "KINDS",
     "EvaluationCase",
     "EvaluationCorpus",
     "EvaluationCorpusError",
@@ -454,6 +477,7 @@ __all__ = [
     "acceptance_failures",
     "corpus_from_mapping",
     "evaluate",
+    "kind_corpus",
     "split_corpus",
     "weighted_kappa",
 ]

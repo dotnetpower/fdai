@@ -58,6 +58,23 @@ _DESCRIPTIONS: dict[str, tuple[str, str]] = {
         "리소스 상태 근거가 완전하지 않습니다",
         "resource state evidence is incomplete",
     ),
+    "provider_operational_state_not_exposed": (
+        "일부 리소스는 공급자가 운영 상태를 제공하지 않아 상태 조건에 맞는지 확인할 수 없습니다",
+        "the provider does not expose an operational state for some resources, so whether they "
+        "match the state condition cannot be verified",
+    ),
+    "resource_state_not_reported": (
+        "일부 리소스가 운영 상태를 보고하지 않았습니다",
+        "some resources reported no operational state",
+    ),
+    "resource_state_stale": (
+        "일부 리소스의 상태 관측이 오래되었습니다",
+        "some resource state observations are stale",
+    ),
+    "resource_state_conflicting": (
+        "일부 리소스의 상태 관측이 서로 충돌합니다",
+        "some resource state observations conflict",
+    ),
     "source_observed_at_unavailable": (
         "원본 관측 시각을 확인할 수 없습니다",
         "the source observation time is unavailable",
@@ -65,6 +82,10 @@ _DESCRIPTIONS: dict[str, tuple[str, str]] = {
     "inventory_scope_incomplete": (
         "인벤토리 범위가 완전하지 않습니다",
         "the inventory scope is incomplete",
+    ),
+    "resource_scope_incomplete": (
+        "조회한 리소스 범위가 완전하지 않아 표시되지 않은 리소스가 있을 수 있습니다",
+        "the queried resource scope is incomplete, so some resources may be missing",
     ),
     "dependency_not_completed": (
         "선행 조회 단계가 완료되지 않았습니다",

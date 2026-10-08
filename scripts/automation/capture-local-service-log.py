@@ -5,6 +5,7 @@ import argparse
 import collections
 import json
 import os
+import re
 import select
 import sys
 import threading
@@ -38,7 +39,39 @@ _PLAIN_CONTEXT_FIELDS = (
     "target_kinds",
     "canonical_target_types",
     "promotion_rejection_reason",
+    "materialize_ms",
+    "refresh_ms",
+    "receipt_ms",
+    "object_count",
+    "scope_complete",
+    "source_incomplete_reason",
 )
+# Generic keys such as ``result`` or ``reason`` carry free text in other loggers, so the
+# form-path decision fields are allowed only for this logger and only as closed tokens.
+_SCOPED_DECISION_FIELDS: dict[str, tuple[str, ...]] = {
+    "fdai.core.conversation.semantic_compiled_answers": (
+        "result",
+        "decline_reason",
+        "released",
+        "review",
+        "review_reasons",
+        "pass_dispositions",
+        "pass_reasons",
+        "pass_repairs",
+        "repaired_reasons",
+        "goal_statuses",
+        "goal_reasons",
+        "notes",
+        "model_calls",
+        "elapsed_ms",
+        "decision",
+        "reason",
+        "disposition",
+        "details",
+    ),
+}
+_CLOSED_TOKEN = re.compile(r"^[A-Za-z][A-Za-z0-9_]{0,63}(?:[.:][A-Za-z0-9_]{1,63}){0,3}$")
+_MAX_SCOPED_ITEMS = 24
 _TERMINAL_BUFFER_LINES = 1_024
 _TERMINAL_BUFFER_BYTES = 4 * 1_024 * 1_024
 _TERMINAL_DRAIN_SECONDS = 1.0
@@ -162,12 +195,31 @@ def _render_line(raw: str, output_format: str) -> str:
         for field in _PLAIN_CONTEXT_FIELDS
         if isinstance(payload.get(field), (str, int, float, bool))
     ]
+    for field in _SCOPED_DECISION_FIELDS.get(logger, ()):
+        value = _closed_value(payload.get(field))
+        if value is not None:
+            context.append(f"{field}={json.dumps(value, ensure_ascii=True, separators=(',', ':'))}")
     if context:
         rendered = f"{rendered} [{', '.join(context)}]"
     exception = payload.get("exception")
     if isinstance(exception, str) and exception:
         rendered = f"{rendered}\n{exception}"
     return rendered
+
+
+def _closed_value(value: object) -> object | None:
+    """Return a bool, number, closed token, or bounded list of closed tokens, else ``None``."""
+
+    if isinstance(value, (bool, int, float)):
+        return value
+    if isinstance(value, str):
+        return value if _CLOSED_TOKEN.fullmatch(value) else None
+    if isinstance(value, list):
+        tokens = [item for item in value if isinstance(item, str) and _CLOSED_TOKEN.fullmatch(item)]
+        kept = tokens[:_MAX_SCOPED_ITEMS]
+        # "~" marks a rejected or truncated item so a shortened list never reads as complete.
+        return [*kept, "~"] if len(kept) != len(value) else kept
+    return None
 
 
 def _timestamp_lines(rendered: str, captured_at: str) -> str:

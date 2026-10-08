@@ -20,6 +20,7 @@ import llmCostCatalog from "../routes/i18n/llm-cost.en.json";
 import liveCatalog from "../routes/i18n/live.messages.en.json";
 import ontologyCatalog from "../routes/i18n/ontology.en.json";
 import processesCatalog from "../routes/i18n/processes.en.json";
+import agentTrajectoryCatalog from "../routes/i18n/agent-trajectory.en.json";
 import provisionCatalog from "../routes/i18n/provision.en.json";
 import workflowCatalog from "../routes/i18n/workflow.en.json";
 import investigationCatalog from "../deck/i18n/investigation.en.json";
@@ -139,6 +140,7 @@ describe("console static translation keys", () => {
     const llmCostKeys = catalogKeys({ llmCost: llmCostCatalog });
     const liveKeys = catalogKeys({ live: liveCatalog });
     const processesKeys = catalogKeys({ processesView: processesCatalog });
+    const agentTrajectoryKeys = catalogKeys({ agentActivity: { trajectory: agentTrajectoryCatalog } });
     const provisionKeys = catalogKeys({ provision: provisionCatalog });
     const ontologyKeys = new Set([
       ...catalogKeys(ontologyCatalog),
@@ -195,6 +197,8 @@ describe("console static translation keys", () => {
             ? llmCostKeys
           : catalogImport.includes("i18n/processes")
             ? processesKeys
+          : catalogImport.includes("i18n/agent-trajectory")
+            ? agentTrajectoryKeys
           : catalogImport.includes("i18n/provision")
             ? provisionKeys
           : catalogImport.includes('from "./i18n/investigation"')
@@ -227,6 +231,7 @@ describe("console static translation keys", () => {
       "routes/agents.constellation.tsx",
       "routes/agent-organization.tsx",
       "routes/agents.roster.tsx",
+      "routes/agent-activity-trajectory.tsx",
     ];
     const hardcoded: string[] = [];
 

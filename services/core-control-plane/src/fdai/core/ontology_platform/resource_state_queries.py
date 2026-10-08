@@ -9,6 +9,12 @@ from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast
 
+from fdai_service_contracts.recorded_resource_state import (
+    AVAILABILITY_ESTABLISHES_RUNNING_RESOURCE_TYPES,
+    PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES,
+    UNREACHABLE_OPERATIONAL_STATES_BY_RESOURCE_TYPE,
+)
+
 from fdai.core.ontology_platform.functions import (
     ContextualOntologyFunction,
     FunctionInvocationContext,
@@ -29,6 +35,13 @@ from fdai.shared.providers.state_evidence import (
     StateFactLane,
     StateFactMetadata,
 )
+
+# Each unverified state names why, so a partial answer says what kept it partial.
+_INCOMPLETE_STATE_REASONS = {
+    "state_not_reported": "resource_state_not_reported",
+    "state_stale": "resource_state_stale",
+    "state_conflicting": "resource_state_conflicting",
+}
 
 RESOURCE_STATE_FUNCTION_NAME = "query.resource_state_inventory"
 RESOURCE_STATE_MEASURE_CONCEPTS = (
@@ -138,7 +151,11 @@ def resource_state_function_type() -> OntologyFunctionType:
 def resource_state_inventory_function(
     ontology_release: OntologyRelease,
 ) -> ContextualOntologyFunction:
-    """Filter verified observed state without provider I/O or health inference."""
+    """Filter verified observed state without provider I/O.
+
+    Health never stands in for state, except the reviewed running-only lifecycles, where a fresh
+    Available fact establishes running and nothing else.
+    """
 
     ontology_release.type_ref(
         OntologyDeclarationKind.FUNCTION,
@@ -160,14 +177,26 @@ def resource_state_inventory_function(
             raise ValueError("resource-state list mode reads only the observed-state concept")
         rows: list[QueryRow] = []
         state_evidence_incomplete = False
+        incomplete_reasons: set[str] = set()
         targets = sorted(secured.materialization.graph.objects, key=lambda item: item.id)
         for target in targets:
             values = verified_resource_state_values(
                 target,
                 observation_cutoff=secured.receipt.observation_cutoff,
+            ) or running_values_from_availability(
+                target,
+                observation_cutoff=secured.receipt.observation_cutoff,
             )
             if values is None:
+                if not list_members and _never_reaches(target, requested):
+                    # A reviewed lifecycle fact settles the filter: this Resource cannot match.
+                    continue
                 state_evidence_incomplete = True
+                incomplete_reasons.add(
+                    _incomplete_state_reason(
+                        target, observation_cutoff=secured.receipt.observation_cutoff
+                    )
+                )
                 if list_members:
                     rows.append(
                         QueryRow.from_values(
@@ -194,15 +223,65 @@ def resource_state_inventory_function(
             tuple(rows),
             complete=not scope_incomplete and not state_evidence_incomplete,
             reason=(
-                "resource_scope_incomplete"
+                _scope_incomplete_reason(secured)
                 if scope_incomplete
-                else "resource_state_evidence_incomplete"
+                else "+".join(
+                    (
+                        "resource_state_evidence_incomplete",
+                        *sorted(item for item in incomplete_reasons if item),
+                    )
+                )
                 if state_evidence_incomplete
                 else None
             ),
         )
 
     return evaluate
+
+
+_SOURCE_REASON_PART = re.compile(r"[a-z][a-z0-9_]{0,63}")
+
+
+def _scope_incomplete_reason(secured: SecuredObjectSetQueryResult) -> str:
+    """Keep the typed source reason beside the scope gap so the answer can explain it."""
+
+    graph = secured.materialization.graph
+    parts = ["resource_scope_incomplete"]
+    if not graph.source_complete and graph.source_incomplete_reason:
+        parts.extend(
+            part
+            for part in graph.source_incomplete_reason.split("+")
+            if _SOURCE_REASON_PART.fullmatch(part)
+        )
+    return "+".join(dict.fromkeys(parts))
+
+
+def _never_reaches(target: OntologyObjectRecord, requested: frozenset[str]) -> bool:
+    """Return whether the reviewed lifecycle of the Resource's type excludes every requested state.
+
+    Only an unobserved Resource reaches this check, so an observed state always wins. The
+    observed-state concept and any reachable state, such as running, keep the Resource unverified.
+    """
+
+    resource_type = _text(target.properties.get("type"))
+    unreachable = UNREACHABLE_OPERATIONAL_STATES_BY_RESOURCE_TYPE.get(
+        resource_type or "", frozenset()
+    )
+    concepts = {f"resource_state.{state}" for state in unreachable}
+    return bool(requested) and requested <= concepts
+
+
+def _incomplete_state_reason(target: OntologyObjectRecord, *, observation_cutoff: Any) -> str:
+    """Return the closed code for why one Resource's state is unverified, or empty."""
+
+    if (
+        _text(target.properties.get("type"))
+        in PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES
+    ):
+        return "provider_operational_state_not_exposed"
+    provider = _mapping(target.properties.get("properties"))
+    reason = _unverified_state_reason(provider, observation_cutoff=observation_cutoff)
+    return _INCOMPLETE_STATE_REASONS.get(reason, "")
 
 
 def verified_resource_state_values(
@@ -231,6 +310,46 @@ def verified_resource_state_values(
         "region": _text(provider.get("region")) or _text(provider.get("location")),
         "observed_state": raw_state,
         "state_concept": state_concept,
+        "source_observed_at": metadata.effective_at.isoformat(),
+        "inventory_read_at": observation_cutoff.isoformat(),
+        "execution_authority": False,
+    }
+
+
+def running_values_from_availability(
+    target: OntologyObjectRecord,
+    *,
+    observation_cutoff: Any,
+) -> dict[str, object] | None:
+    """Establish running from a fresh Available fact for a reviewed running-only lifecycle.
+
+    The reviewed declaration covers only ResourceTypes that have no steady state other than
+    running, so a serving Resource of that type is running. Any other availability value, a
+    stale or conflicting fact, or another ResourceType establishes nothing.
+    """
+
+    resource_type = _text(target.properties.get("type")) or ""
+    if resource_type not in AVAILABILITY_ESTABLISHES_RUNNING_RESOURCE_TYPES:
+        return None
+    provider = _mapping(target.properties.get("properties"))
+    availability = _text(provider.get("availabilityState"))
+    if availability is None or availability.casefold() != "available":
+        return None
+    metadata = _verified_state_metadata(
+        _mapping(provider.get(STATE_FACT_METADATA_PROPERTY)).get("availabilityState"),
+        observation_cutoff=observation_cutoff,
+    )
+    if metadata is None:
+        return None
+    return {
+        "name": _text(target.properties.get("name")),
+        "type": resource_type,
+        "resource_group": _text(provider.get("resource_group"))
+        or _text(provider.get("resourceGroup")),
+        "region": _text(provider.get("region")) or _text(provider.get("location")),
+        "observed_state": availability,
+        "state_concept": "resource_state.running",
+        "state_basis": "availability_on_running_only_lifecycle",
         "source_observed_at": metadata.effective_at.isoformat(),
         "inventory_read_at": observation_cutoff.isoformat(),
         "execution_authority": False,

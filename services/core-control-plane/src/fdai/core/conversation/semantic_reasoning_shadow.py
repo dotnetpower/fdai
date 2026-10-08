@@ -200,6 +200,8 @@ class ReasoningShadowObservation:
     # Content-free cost of the turn's direction readers, split by reader count.
     direction_cost: DirectionCostReceipt | None = None
     primary_read: bool = False
+    # The form sample a resample replaced, kept only so its decline stays diagnosable.
+    discarded_sample: ReasoningShadowObservation | None = field(default=None, repr=False)
 
     def summary(self) -> dict[str, Any]:
         return {

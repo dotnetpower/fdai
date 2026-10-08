@@ -303,25 +303,15 @@ def test_verify_fixes_and_adjudicate_through_the_registry(
     ]
 
 
-def _matrix_with_code_security_routes(tmp_path: Path) -> Path:
+def _matrix_without_code_security_routes(tmp_path: Path) -> Path:
     from fdai.delivery.repo_assets import repo_asset_root
 
     document = yaml.safe_load(
         (repo_asset_root() / "config" / "notifications-matrix.yaml").read_text(encoding="utf-8")
     )
     categories = document["matrix"]["routes"]
-    categories["code_security_operational_alert"] = {
-        "trust_tier": "a2_operational_alert",
-        "delivery_mode": "fanout",
-        "channels": ["teams-ops-prd", "email-oncall"],
-        "on_all_fail": "hil_escalate",
-    }
-    categories["digest_code_security_findings_daily"] = {
-        "trust_tier": "a4_digest",
-        "delivery_mode": "fanout",
-        "channels": ["teams-hil-prd", "email-governance"],
-        "on_all_fail": "hil_escalate",
-    }
+    categories.pop("code_security_operational_alert", None)
+    categories.pop("digest_code_security_findings_daily", None)
     path = tmp_path / "notifications-matrix.yaml"
     path.write_text(yaml.safe_dump(document), encoding="utf-8")
     return path
@@ -346,6 +336,8 @@ def test_publish_review_reports_a_gap_when_the_governed_matrix_lacks_routes(
         str(out),
         "--catalog-root",
         str(CATALOG_ROOT),
+        "--matrix",
+        str(_matrix_without_code_security_routes(tmp_path)),
     )
     assert code == 0, published
     assert published["notifications"] == []
@@ -372,8 +364,6 @@ def test_publish_review_without_bus_writes_package_and_plans_notifications(
         str(out),
         "--catalog-root",
         str(CATALOG_ROOT),
-        "--matrix",
-        str(_matrix_with_code_security_routes(tmp_path)),
     )
     assert code == 0, published
     assert published["published"] is False
@@ -470,3 +460,33 @@ def test_export_verifies_external_findings_against_the_exact_revision(
         str(repo),
     )
     assert code == 1 and "--work-root" in str(output["error"])
+
+
+def test_publish_review_labels_external_sarif_by_provider(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    scan = tmp_path / "mdash.sarif"
+    scan.write_bytes(sarif("MDASH", [result("sql-injection", "src/db.py", 2, cwe=89)]))
+    out = tmp_path / "review.json"
+    code, published = _run(
+        capsys,
+        "publish-review",
+        "--sarif",
+        f"{scan}:external",
+        "--revision",
+        REVISION,
+        "--repo-alias",
+        "example-service",
+        "--source-provider",
+        "mdash",
+        "--out",
+        str(out),
+        "--catalog-root",
+        str(CATALOG_ROOT),
+    )
+    assert code == 0, published
+    package = json.loads(out.read_text())["package"]
+    assert package["schema_version"] == "1.1.0"
+    assert package["source"]["kind"] == "external_sarif"
+    assert package["source"]["provider"] == "mdash"
+    assert package["producers"] == ["MDASH"]

@@ -31,7 +31,7 @@
     {"case_id": "cal-v3-en-p12", "query": "For release packaging, identify the compute.vm that acts as the build agent.", "cohort": "en-positive", "expected_document_ids": ["object:Resource:example-resource-f"]},
     {"case_id": "cal-v3-en-p13", "query": "Which critical Incident was already closed at the 09:00 update?", "cohort": "en-positive", "expected_document_ids": ["object:Incident:example-incident-b"]},
     {"case_id": "cal-v3-en-p14", "query": "Show me the Incident that is open but only medium severity.", "cohort": "en-positive", "expected_document_ids": ["object:Incident:example-incident-c"]},
-    {"case_id": "cal-v3-en-p15", "query": "What incident is still in triaging with critical severity after the 08:30 update?", "cohort": "en-positive", "expected_document_ids": ["object:Incident:example-incident-d"]},
+    {"case_id": "cal-v3-en-p15", "query": "Which critical-severity incident is currently triaging and was last updated at 08:30?", "cohort": "en-positive", "expected_document_ids": ["object:Incident:example-incident-d"]},
     {"case_id": "cal-v3-en-p16", "query": "Which Incident is resolved, high severity, and updated at 10:00?", "cohort": "en-positive", "expected_document_ids": ["object:Incident:example-incident-e"]},
     {"case_id": "cal-v3-ko-p01", "query": "billing 확인 중인데 high criticality인 Example invoice settlement 서비스를 보여줘.", "cohort": "ko-positive", "expected_document_ids": ["object:BusinessService:example-service-a"]},
     {"case_id": "cal-v3-ko-p02", "query": "Shipment visibility alias가 붙은 medium 비즈니스 서비스가 뭐야?", "cohort": "ko-positive", "expected_document_ids": ["object:BusinessService:example-service-c"]},

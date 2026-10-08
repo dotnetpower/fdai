@@ -13,6 +13,10 @@ authority. Azure Container Apps remains a supported compatibility profile for ex
 >
 > **Azure focus:** Both supported runtime platforms use the same Azure provider adapters, signed
 > OCI images, Event Hubs Kafka endpoints, Key Vault, workload identities, and PostgreSQL schema.
+>
+> **Hub-managed path:** The Hub-managed lifecycle supports AKS only and adds an in-cluster
+> lifecycle agent. Its Lifecycle I0 skeleton in `lifecycle/agent/` only dry-runs and reports, so
+> this runtime contract doesn't change.
 
 ## Design at a glance
 
@@ -20,6 +24,9 @@ Operator production composition uses the same focused lifecycle, route-family, a
 modules in every runtime profile. The internal ownership split changes no platform selection,
 identity, source binding, readiness condition, or deployment authority.
 Both profiles also use the same authenticated instance-index enrollment and bounded Core reconciliation task. Governed embedding identity gates adapter construction; cached candidates never replace current graph authorization. Unqualified semantic ranking remains closed, and exact-ID availability does not establish AKS diagnostic evidence, provider health, or deployment readiness.
+Both profiles derive static Key Vault secret names and versionless receipt-signing secret
+references from declared resource names. Provider-computed attributes remain the authority for
+resource ownership, but they do not make a no-change refresh plan depend on apply-time unknowns.
 Preparation and retired-generation cleanup share the existing deployment-wide ResourceLock provider and a principal-scoped projection key. Lock contention consumes the original preparation deadline; neither profile may substitute independent per-replica locks for shared storage writes.
 Authenticated index enrollment persists a five-minute service-owned receipt so another worker replica can resolve the same principal, role, groups, and purpose. Each source read recomputes scope and validates receipt lifetime; expired receipts cannot authorize work. Local active enrollment stays bounded at eight per process, and a two-second admission lock includes persistence without extending the receipt lifetime.
 When a source change encounters eight retained rollback generations, reconciliation requests audited retirement of the oldest inactive generation before invalidating the current one. It never increases the retention limit or deletes an active generation directly. Historical AKS reconciliation compares container environment by name and binding rather than Terraform list order, and keeps order significant whenever a value interpolates another variable. An explicit falsy `optional` on a secret reference is treated as unset, which Kubernetes does too. It compares a workload SecretProviderClass by its bindings for the same reason. That comparison uses the effective object, so a recorded manifest catching up to the cluster removes nothing while an unknown object fails closed.
@@ -407,6 +414,9 @@ from the Job's workload identity at connection time.
 FDAI services keep one runtime-neutral workload specification containing the digest-pinned image,
 command, arguments, environment names, resource requests and limits, startup, liveness and readiness
 probes, ingress intent, service port, sidecars, secret references, workload identity and scaling bounds.
+On either runtime, the Operator publishes a termination signal to its open server-sent event
+streams before Uvicorn waits for connections to close, so a replica replacement drains idle
+streams immediately and clients resume from their last event id within the termination grace.
 Every shipped Alpine runtime image also pins security-sensitive runtime package revisions across
 all service Dockerfiles. A published fixed package revision moves the shared pin and its repository
 contract together; image scanning verifies the built result before publication.
@@ -720,7 +730,7 @@ Operator returns the prior page envelope, and new Operators compute the ledger-w
 for that opt-in so Incident, Agent Activity, Trace, and optional cost-package routes do not inherit
 its scan cost.
 
-On AKS, the substrate-targeted `terraform_data.installation` anchor keeps the installation identifier and first-apply time in Terraform state, so no rerun or upgrade changes them. The runtime stage applies the Container Insights association only after `azurerm_kubernetes_cluster.runtime` exists in state: the first fresh-cluster review targets every runtime resource except that association, then a second ordinary full-root runtime review creates the association. Each ordinary review names its managed-host `operation`: `runtime-cluster` or `runtime` here, and otherwise the stage or the bound service update. The controller approves a review only when that operation matches its stage. The Terraform configuration still rebuilds the association target ID instead of depending on the cluster resource, because monitoring-only targeted plans must not pull managed-cluster drift into scope. The application stage gives Core `FDAI_INSTALLATION_BINDING` and `FDAI_LICENSE_DEPLOYMENT_BINDING`. After the application apply and before the initial inventory, the managed host's `activate-trial` step runs the Core Trial writer once with the Key Vault state-store DSN and records a digest-bound receipt. The writer keeps a retained window unchanged, so a keyless installation keeps the 30-day window that started at its first apply ([capability licensing](../fork-and-sequencing/capability-licensing.md#durable-keyless-trial-target)). The deployment receipt reports `license_mode=trial` only while that read-back window is open under a trusted clock.
+On AKS, the substrate-targeted `terraform_data.installation` anchor uses the plan timestamp with ignored input changes and keeps the installation identifier and first-apply time in Terraform state, so no rerun or upgrade changes them while later plans remain fully known. The runtime stage applies the Container Insights association only after `azurerm_kubernetes_cluster.runtime` exists in state: the first fresh-cluster review targets every runtime resource except that association, then a second ordinary full-root runtime review creates the association. Each ordinary review names its managed-host `operation`: `runtime-cluster` or `runtime` here, and otherwise the stage or the bound service update. The controller approves a review only when that operation matches its stage. The Terraform configuration still rebuilds the association target ID instead of depending on the cluster resource, because monitoring-only targeted plans must not pull managed-cluster drift into scope. The application stage gives Core `FDAI_INSTALLATION_BINDING` and `FDAI_LICENSE_DEPLOYMENT_BINDING`. After the application apply and before the initial inventory, the managed host's `activate-trial` step runs the Core Trial writer once with the Key Vault state-store DSN and records a digest-bound receipt. The writer keeps a retained window unchanged, so a keyless installation keeps the 30-day window that started at its first apply ([capability licensing](../fork-and-sequencing/capability-licensing.md#durable-keyless-trial-target)). The deployment receipt reports `license_mode=trial` only while that read-back window is open under a trusted clock.
 
 When the deploying operator holds the upstream integrity signing key, the deployment binding step
 also returns the installation binding. The capability stage then issues a no-expiry installation
@@ -753,8 +763,14 @@ providers, Helm repositories, mutable image tags, or an operator kubeconfig.
 
 The code-security scan runner image isn't part of any deployment profile yet. It needs a runtime
 that allows unprivileged user namespaces for bubblewrap and its own offline-database refresh, so a
-profile must opt in explicitly. See
+profile must opt in explicitly. The same applies to the Console scan-request worker
+(`fdai-scan-runner process-requests`), which also needs a read-only GitHub App token scoped per
+repository. See
 [Code Security Scanning](../operations/code-security-scanning.md#scan-runner-image).
+
+The shipped notification matrix carries the code-security A2 alert and A4 digest routes, so every
+profile that composes notification delivery can route code-security reviews. A profile whose
+matrix omits either route records a notification gap and never falls back to the approval route.
 
 ## Completion evidence
 

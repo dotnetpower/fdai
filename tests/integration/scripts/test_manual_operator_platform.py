@@ -40,6 +40,14 @@ def test_platform_root_owns_exact_existing_state_addresses(platform: ModuleType)
     assert "/subscriptions/" not in terraform
 
 
+def test_platform_prerequisite_recovers_tracked_identity_without_output() -> None:
+    source = _SCRIPT.read_text(encoding="utf-8")
+
+    assert "stored_platform_operator_identity(platform_state)" in source
+    assert "stored_platform_key_vault(platform_state)" in source
+    assert 'label="platform state projection"' in source
+
+
 def test_platform_plan_accepts_only_exact_create_set(platform: ModuleType) -> None:
     plan = {
         "resource_changes": [

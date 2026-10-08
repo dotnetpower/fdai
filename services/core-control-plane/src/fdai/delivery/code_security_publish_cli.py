@@ -25,12 +25,15 @@ from fdai.core.security.code_findings import (
     build_issues,
     ingest_sarif,
 )
+from fdai.core.security.code_findings.issue_summary import summarize_issues
 from fdai.core.security.code_findings.notify import (
     NotificationPlanError,
     plan_code_security_notifications,
 )
 from fdai.core.security.code_findings.receipts import build_receipt
 from fdai.core.security.code_findings.review_signal import (
+    SOURCE_KINDS,
+    ReviewSource,
     build_review_package,
     code_security_drift_payload,
 )
@@ -50,6 +53,16 @@ def add_publish_command(sub: argparse._SubParsersAction[argparse.ArgumentParser]
     publish.add_argument("--source-root", action="append", default=[])
     publish.add_argument("--full-repository", action="append", default=[], help="PRODUCER")
     publish.add_argument("--out", help="write the review package and planned notifications here")
+    publish.add_argument(
+        "--source-kind",
+        choices=list(SOURCE_KINDS),
+        help="where the SARIF came from; defaults to external_sarif when any lane is external",
+    )
+    publish.add_argument(
+        "--source-provider",
+        default="sarif",
+        help="short provider token shown in the Console, such as mdash or github-code-scanning",
+    )
     publish.add_argument("--kafka-bootstrap-servers", help="publish on the deployment event bus")
     publish.add_argument(
         "--record-state",
@@ -113,6 +126,19 @@ def heimdall_publisher(bootstrap_servers: str) -> _BusHeimdallPublisher:
 def build_review(
     args: argparse.Namespace,
 ) -> tuple[dict[str, object], tuple[NotificationMessage, ...], str | None]:
+    package, messages, gap, _ = build_review_with_issues(args)
+    return package, messages, gap
+
+
+def build_review_with_issues(
+    args: argparse.Namespace,
+) -> tuple[
+    dict[str, object],
+    tuple[NotificationMessage, ...],
+    str | None,
+    tuple[list[dict[str, object]], bool],
+]:
+    """Build the review, its notifications, and bounded issue summaries for the Console."""
     catalog = load_code_security_catalog(Path(args.catalog_root))
     ingested = []
     for spec in args.sarif:
@@ -145,22 +171,30 @@ def build_review(
         ingested,
         full_repository=frozenset(args.full_repository),
     )
+    lanes = {spec.rpartition(":")[2] for spec in args.sarif}
+    kind = args.source_kind or (
+        "external_sarif" if Lane.EXTERNAL.value in lanes else "git_repository"
+    )
     package = build_review_package(
         issues,
         repository_alias=args.repo_alias,
         revision=args.revision,
         exposure=Exposure(args.exposure),
         coverage_complete=coverage_complete(receipt),
+        source=ReviewSource(kind=kind, provider=args.source_provider, trigger="cli"),
+        producers=sorted({run.producer for run in receipt.runs}),
     )
+    summaries = summarize_issues(issues)
     routes = load_matrix_from_yaml(Path(args.matrix)).routes
     try:
-        return package, plan_code_security_notifications(package, routes=set(routes)), None
+        planned = plan_code_security_notifications(package, routes=set(routes))
     except NotificationPlanError as exc:
-        return package, (), str(exc)
+        return package, (), str(exc), summaries
+    return package, planned, None, summaries
 
 
 async def publish_review(args: argparse.Namespace) -> dict[str, object]:
-    package, messages, notification_gap = build_review(args)
+    package, messages, notification_gap, (summaries, truncated) = build_review_with_issues(args)
     planned = [
         {
             "category": message.category,
@@ -181,7 +215,9 @@ async def publish_review(args: argparse.Namespace) -> dict[str, object]:
             record_review_from_environment,
         )
 
-        recorded = await record_review_from_environment(package)
+        recorded = await record_review_from_environment(
+            package, issues=summaries, issues_truncated=truncated
+        )
     if args.out:
         Path(args.out).write_text(
             json.dumps({"package": package, "notifications": planned}, indent=2) + "\n"
@@ -200,6 +236,7 @@ async def publish_review(args: argparse.Namespace) -> dict[str, object]:
 __all__ = [
     "add_publish_command",
     "build_review",
+    "build_review_with_issues",
     "coverage_complete",
     "heimdall_publisher",
     "publish_review",

@@ -177,6 +177,22 @@ PROVIDER_OPERATIONAL_STATE_NOT_EXPOSED_RESOURCE_TYPES = frozenset(
         "workflow.api-connection",
     }
 )
+# Reviewed lifecycle facts: the operational states a ResourceType never reaches, because no engine
+# the type covers has an operation that enters them. Only a type whose provider exposes no
+# operational state may be listed, so an observed state always wins over this declaration. A
+# provider mapping that adds an engine with such an operation MUST revisit the entry.
+UNREACHABLE_OPERATIONAL_STATES_BY_RESOURCE_TYPE: Mapping[str, frozenset[str]] = {
+    # Cosmos DB, DynamoDB, and Firestore have no stop, deallocate, or pause operation.
+    "nosql-database": frozenset({"stopped", "deallocated", "paused"}),
+    # Azure Cache for Redis and Memcached-compatible caches have no stop or pause operation.
+    "cache": frozenset({"stopped", "deallocated", "paused"}),
+}
+# Reviewed lifecycle facts: a ResourceType whose lifecycle has no steady state other than running.
+# For such a type, a fresh provider availability fact of Available establishes that the Resource is
+# running, because a serving Resource of that type cannot be in any other steady state. Any other
+# availability value establishes nothing. Every entry MUST also declare stopped, deallocated, and
+# paused unreachable above, and an observed operational state always wins.
+AVAILABILITY_ESTABLISHES_RUNNING_RESOURCE_TYPES = frozenset({"cache", "nosql-database"})
 AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE: Mapping[str, tuple[str, ...]] = {
     "alert-rule": AVAILABILITY_STATE_PATHS,
     "api-gateway": AVAILABILITY_STATE_PATHS,
@@ -342,6 +358,7 @@ def is_recorded_state_value_valid(value: object, *, allow_unknown: bool = False)
 
 
 __all__ = [
+    "AVAILABILITY_ESTABLISHES_RUNNING_RESOURCE_TYPES",
     "AVAILABILITY_STATE_NOT_APPLICABLE_RESOURCE_TYPES",
     "AVAILABILITY_STATE_PATHS",
     "AVAILABILITY_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE",
@@ -355,6 +372,7 @@ __all__ = [
     "SERVING_STATE_PATHS",
     "SERVING_STATE_SOURCE_PATHS_BY_RESOURCE_TYPE",
     "STATE_FACT_UNAVAILABLE_REASONS_PROPERTY",
+    "UNREACHABLE_OPERATIONAL_STATES_BY_RESOURCE_TYPE",
     "availability_state_paths",
     "is_recorded_state_value_valid",
     "operational_state_paths",

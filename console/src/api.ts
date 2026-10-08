@@ -132,6 +132,50 @@ export class OperatorApiClient {
   }
 
   /**
+   * Queue one code-security scan of a registered repository
+   * (`POST /code-security/scan-requests`). The Operator API stores a typed
+   * proposal only; a Heimdall-attributed scan worker claims it later. The
+   * request never scans, changes code, approves, or executes by itself.
+   */
+  async requestCodeSecurityScan(
+    body: { readonly repository_alias: string; readonly ref?: string },
+    idempotencyKey: string,
+  ): Promise<{ readonly request_id: string; readonly dispatch_status: string }> {
+    const raw = await this.#transport.postJson<unknown>(
+      "/code-security/scan-requests",
+      { ...body },
+      idempotencyKey,
+    );
+    const receipt = raw as { request_id?: unknown; dispatch_status?: unknown };
+    if (typeof receipt.request_id !== "string" || typeof receipt.dispatch_status !== "string") {
+      throw new OperatorApiError(502, "scan request receipt is malformed");
+    }
+    return { request_id: receipt.request_id, dispatch_status: receipt.dispatch_status };
+  }
+
+  /**
+   * Queue one Owner registration change (`POST /code-security/repositories`):
+   * register an alias for a GitHub `owner/repository`, or enable or disable it.
+   * The Core worker applies it with compare-and-set and audit; the request
+   * itself grants no scan, approval, or execution authority.
+   */
+  async changeCodeSecurityRepository(
+    body: CodeSecurityRepositoryChange,
+    idempotencyKey: string,
+  ): Promise<{ readonly request_id: string; readonly dispatch_status: string }> {
+    const raw = await this.#transport.postJson<unknown>(
+      "/code-security/repositories",
+      { ...body },
+      idempotencyKey,
+    );
+    const receipt = raw as { request_id?: unknown; dispatch_status?: unknown };
+    if (typeof receipt.request_id !== "string" || typeof receipt.dispatch_status !== "string") {
+      throw new OperatorApiError(502, "repository change receipt is malformed");
+    }
+    return { request_id: receipt.request_id, dispatch_status: receipt.dispatch_status };
+  }
+
+  /**
    * Fetch the RCA (root-cause analysis) view for one incident
    * (`GET /rca?correlation=...`). Read-only projection of the shadow
    * `rca.hypothesis` audit entries: tiered hypotheses, grounded
@@ -422,3 +466,13 @@ export class OperatorApiClient {
 
 export { isOptionalOperatorApiUnavailable, OperatorApiError };
 export type { ReadDataSourceStatus, ReadDataSourcesPayload } from "./api-data-sources";
+
+export type CodeSecurityRepositoryChange =
+  | {
+    readonly action: "register";
+    readonly repository_alias: string;
+    readonly location: string;
+    readonly default_ref?: string;
+    readonly exposure?: "exposed" | "internal" | "not_deployed" | "unknown";
+  }
+  | { readonly action: "enable" | "disable"; readonly repository_alias: string };

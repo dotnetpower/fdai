@@ -5,10 +5,16 @@ fetched commit is exactly the requested one, and extracts its tree (without ``.g
 content-addressed directory that is then made read-only. Analysis never touches the network or
 credentials; only this step does, and credentials reach git through environment-only
 configuration so they never appear in argv, logs, or the extracted tree.
+
+A local folder can also be scanned. When it is a git work tree its ``HEAD`` commit is acquired
+like any other revision. With uncommitted changes included, or for a folder outside git, the
+acquirer copies the files git would track (or every regular file) into a content-addressed
+snapshot whose SHA-256 digest stands in for the revision. Symlinks are never followed.
 """
 
 from __future__ import annotations
 
+import hashlib
 import io
 import os
 import re
@@ -23,6 +29,8 @@ from typing import Any
 
 _REVISION = re.compile(r"^[0-9a-f]{40}([0-9a-f]{24})?$")
 _MAX_ARCHIVE_BYTES = 2 * 1024**3
+_MAX_SNAPSHOT_FILES = 200_000
+_REF = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$")
 
 
 class SourceAcquisitionError(RuntimeError):
@@ -34,6 +42,7 @@ class AcquiredSource:
     path: Path
     revision: str
     tree_id: str
+    revision_kind: str = "commit"
 
 
 class GitSourceAcquirer:
@@ -80,6 +89,119 @@ class GitSourceAcquirer:
             stderr = proc.stderr if isinstance(proc.stderr, str) else proc.stderr.decode("replace")
             raise SourceAcquisitionError(f"git {args[0]} failed: {stderr.strip()[:300]}")
         return proc
+
+    def resolve_revision(self, repository: str, ref: str) -> str:
+        """Return the full commit id that ``ref`` names in ``repository``.
+
+        A full commit id is returned unchanged. A branch or tag is resolved with ``ls-remote``
+        through the same credential path as ``acquire``; an unknown or ambiguous ref fails.
+        """
+        if _REVISION.fullmatch(ref):
+            return ref
+        if _REF.fullmatch(ref) is None or ".." in ref:
+            raise SourceAcquisitionError("ref must be a branch, tag, or full commit id")
+        if not repository or repository.startswith("-") or "\x00" in repository:
+            raise SourceAcquisitionError("repository location is invalid")
+        scratch = self._root / "resolve"
+        scratch.mkdir(parents=True, exist_ok=True, mode=0o700)
+        output = self._git(scratch, "ls-remote", "--", repository, ref, f"{ref}^{{}}").stdout
+        refs: dict[str, str] = {}
+        for line in output.splitlines():
+            commit_id, _, name = line.partition("\t")
+            if name:
+                refs[name] = commit_id
+        tag = refs.get(f"refs/tags/{ref}^{{}}") or refs.get(f"refs/tags/{ref}")
+        candidates = {
+            commit
+            for commit in (refs.get(ref), refs.get(f"refs/heads/{ref}"), tag)
+            if commit is not None
+        }
+        if len(candidates) != 1:
+            raise SourceAcquisitionError(f"ref did not resolve to exactly one commit ({ref})")
+        commits = candidates
+        commit = commits.pop()
+        if _REVISION.fullmatch(commit) is None:
+            raise SourceAcquisitionError("ref resolved to an invalid commit id")
+        return commit
+
+    def acquire_path(self, folder: Path, *, include_uncommitted: bool = False) -> AcquiredSource:
+        """Acquire a local folder: its ``HEAD`` commit, or a snapshot of its working files.
+
+        A git work tree without ``include_uncommitted`` scans exactly the committed ``HEAD``, so
+        uncommitted edits are not part of the result. Otherwise the snapshot holds the files git
+        would track (tracked plus untracked, without ignored files), or every regular file of a
+        folder outside git.
+        """
+        folder = folder.resolve()
+        if not folder.is_dir():
+            raise SourceAcquisitionError("local path must be an existing directory")
+        top = self._work_tree_root(folder)
+        if top is not None and not include_uncommitted:
+            head = self._git(top, "rev-parse", "--verify", "HEAD^{commit}").stdout.strip()
+            if top != folder:
+                raise SourceAcquisitionError(
+                    "local path must be the repository root; pass the root or include uncommitted"
+                )
+            return self.acquire(str(top), head)
+        return self._snapshot(folder, self._snapshot_files(folder, top))
+
+    def _work_tree_root(self, folder: Path) -> Path | None:
+        try:
+            top = self._git(folder, "rev-parse", "--show-toplevel").stdout.strip()
+        except SourceAcquisitionError:
+            return None
+        return Path(top).resolve() if top else None
+
+    def _snapshot_files(self, folder: Path, top: Path | None) -> list[str]:
+        if top is not None:
+            listed = self._git(
+                folder, "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "."
+            ).stdout
+            # Run inside ``folder``, ls-files prints paths relative to it, even below the root.
+            return sorted({name for name in listed.split("\x00") if name})
+        names = []
+        for root, dirs, files in os.walk(folder, followlinks=False):
+            dirs[:] = sorted(d for d in dirs if d != ".git")
+            for name in files:
+                names.append((Path(root) / name).relative_to(folder).as_posix())
+        return sorted(names)
+
+    def _snapshot(self, folder: Path, names: list[str]) -> AcquiredSource:
+        if len(names) > _MAX_SNAPSHOT_FILES:
+            raise SourceAcquisitionError("local folder holds too many files to snapshot")
+        digest = hashlib.sha256()
+        files: list[tuple[str, Path]] = []
+        total = 0
+        for name in names:
+            path = folder / name
+            if path.is_symlink() or not path.is_file():
+                continue
+            if not path.resolve().is_relative_to(folder):
+                continue
+            total += path.stat().st_size
+            if total > _MAX_ARCHIVE_BYTES:
+                raise SourceAcquisitionError("local folder exceeds the snapshot size limit")
+            digest.update(name.encode() + b"\0")
+            digest.update(hashlib.sha256(path.read_bytes()).digest())
+            files.append((name, path))
+        if not files:
+            raise SourceAcquisitionError("local folder has no files to scan")
+        revision = digest.hexdigest()
+        target = self._root / "sources" / revision
+        tree_file = self._root / "sources" / f"{revision}.tree"
+        if target.exists() and tree_file.exists():
+            return AcquiredSource(target, revision, revision, "snapshot")
+        if target.exists():
+            _make_writable(target)
+            shutil.rmtree(target)
+        target.mkdir(parents=True, mode=0o700)
+        for name, path in files:
+            destination = target / name
+            destination.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+            shutil.copyfile(path, destination, follow_symlinks=False)
+        _make_read_only(target)
+        tree_file.write_text(revision + "\n")
+        return AcquiredSource(target, revision, revision, "snapshot")
 
     def acquire(self, repository: str, revision: str) -> AcquiredSource:
         """Return a read-only extraction of ``revision`` from ``repository``."""

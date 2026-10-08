@@ -434,6 +434,21 @@ jobs:
             echo "No governed catalog changes require identity review."
             exit 0
           fi
+          scope="$(uv run python scripts/governance/check-governance-review-authority.py \
+            --scope-only \
+            --changed-files "$changed" \
+            --base-sha "$PR_BASE_SHA" \
+            --head-sha "$PR_HEAD_SHA")"
+          echo "Governance scope: $scope"
+          # The scope proof can't relax a pull request that also changes the code it relies on.
+          if grep -Eqx '\.github/workflows/ci\.yml|scripts/governance/check-governance-review-authority\.py|services/core-control-plane/src/fdai/(core/notifications/(matrix|router)|shared/providers/notifications/base|rule_catalog/schema/governance_review_authority|delivery/gitops_pr/governance_review)\.py' "$changed"; then
+            scope='{"identity_review_required": true}'
+            echo "Governance scope trust anchors changed; identity review is required."
+          fi
+          if [[ "$scope" == *'"identity_review_required": false'* ]]; then
+            echo "Governed paths changed, but none needs identity review (non-A1 routing only)."
+            exit 0
+          fi
           TRUSTED_APP_ID="$(
             python3 - <<'PY'
           import json
@@ -461,7 +476,9 @@ jobs:
             --reviews "$RUNNER_TEMP/governance-reviews.json" \
             --checks "$RUNNER_TEMP/governance-checks.json" \
             --changed-files "$changed" \
-            --trusted-app-id "$TRUSTED_APP_ID"
+            --trusted-app-id "$TRUSTED_APP_ID" \
+            --base-sha "$PR_BASE_SHA" \
+            --head-sha "$PR_HEAD_SHA"
 
       - name: Install OPA (Rego runner)
         uses: ./.github/actions/setup-opa

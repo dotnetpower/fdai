@@ -145,7 +145,7 @@ test("renders authoritative Live activity through one SSE transport", async ({
     const url = new URL(response.url());
     return url.pathname === "/agents/activity" && url.searchParams.get("limit") === "500";
   });
-  await page.goto("/agent-activity?locale=ko");
+  await page.goto("/agent-activity?view=activity&locale=ko");
   const response = await activityResponse;
   expect(response.ok()).toBe(true);
   const activity = await response.json() as {

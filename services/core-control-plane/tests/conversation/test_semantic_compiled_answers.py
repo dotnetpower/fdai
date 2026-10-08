@@ -217,6 +217,34 @@ def test_an_unreleased_or_incomplete_path_leaves_the_turn_to_the_current_path(
     assert _decline_reasons(caplog) == [reason]
 
 
+@pytest.mark.parametrize("answered", [True, False])
+def test_a_resampled_turn_records_why_the_replaced_sample_was_declined(
+    answered: bool, caplog: pytest.LogCaptureFixture, events: list[dict[str, Any]]
+) -> None:
+    replaced = _observation(
+        released=False, review="unfaithful", review_reasons=("review_uncovered",)
+    )
+    kept = _observation() if answered else _observation(released=False)
+    observation = replace(kept, discarded_sample=replaced)
+
+    _ticket(observation).outcome(manifest_digest="sha256:" + "a" * 64, observations=[])
+
+    [sample] = [r for r in caplog.records if r.msg == "semantic_form_sample_declined"]
+    assert sample.result == "resampled"
+    assert sample.decline_reason == "not_released"
+    assert sample.review == "unfaithful"
+    assert sample.review_reasons == ["review_uncovered"]
+    assert _completions(caplog) == (["selected"] if answered else ["declined"])
+
+
+def test_an_unresampled_turn_records_no_replaced_sample(
+    caplog: pytest.LogCaptureFixture, events: list[dict[str, Any]]
+) -> None:
+    _ticket(_observation()).outcome(manifest_digest="sha256:" + "a" * 64, observations=[])
+
+    assert not [r for r in caplog.records if r.msg == "semantic_form_sample_declined"]
+
+
 def test_a_second_goal_limitation_or_batch_is_never_answered_as_complete(
     caplog: pytest.LogCaptureFixture, events: list[dict[str, Any]]
 ) -> None:
@@ -765,6 +793,8 @@ async def test_a_failed_form_is_read_once_more_and_never_more_than_twice(
     assert len(calls) == 2
     assert result.released and "form_resampled" in result.notes
     assert result.model_calls == invalid.model_calls + 4
+    # The replaced sample stays attached so the turn can record why it was declined.
+    assert result.discarded_sample is invalid
 
 
 async def test_an_answerable_or_unsupported_reading_is_never_resampled(

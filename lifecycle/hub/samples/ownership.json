@@ -1,0 +1,5 @@
+{
+  "foundation_receipt_digest": "sha256:a4b057dd1b00319573fafb25f885e9985de3983b1308f7f71ddb513b2bad1464",
+  "terraform_state_digest": "sha256:da71e13c4ec75952f790399d00edffc9936c612242ba4898b374a05b37d030d2",
+  "managed_tag": true
+}

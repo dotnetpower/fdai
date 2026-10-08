@@ -10,12 +10,14 @@ from fdai_service_contracts.ontology_query import content_digest
 from pydantic import BaseModel
 
 from fdai.core.ontology_platform import QueryManifest
+from fdai.core.ontology_platform.models import ObjectPredicateOperator
 from fdai.core.prompts import PromptAssembler, PromptReplayManifest, estimate_prompt_tokens
 from fdai.core.prompts.types import LayerRef, PromptLayer
 from fdai.delivery.catalog_search.generation import SemanticGenerationBuild
 from fdai.delivery.catalog_search.ontology_candidate_proposal import (
     OntologyCandidateModelBinding,
     OntologyCandidateProposal,
+    candidate_nested_property_catalog,
     candidate_object_id_catalog,
     candidate_predicate_property_catalog,
 )
@@ -283,6 +285,17 @@ def strict_candidate_proposal_schema(
 ) -> dict[str, Any]:
     property_catalog = candidate_predicate_property_catalog(manifest) if manifest else ()
     id_catalog = candidate_object_id_catalog(build) if build else ()
+    nested_catalog = (
+        candidate_nested_property_catalog(manifest, build) if manifest and build else ()
+    )
+    nested_by_type: dict[str, list[tuple[str, tuple[str, ...]]]] = {}
+    for entry in nested_catalog:
+        keys = entry.get("keys")
+        if not isinstance(keys, tuple) or not all(isinstance(key, str) for key in keys):
+            raise ValueError("candidate nested property catalog is malformed")
+        nested_by_type.setdefault(str(entry["object_type"]), []).append(
+            (str(entry["property"]), keys)
+        )
     ids_by_type = {str(item["object_type"]): _catalog_object_ids(item) for item in id_catalog}
     all_object_types = tuple(str(item["object_type"]) for item in property_catalog)
     all_properties = tuple(
@@ -353,11 +366,48 @@ def strict_candidate_proposal_schema(
         ]
 
     scalar: dict[str, Any] = {"type": ["string", "number", "integer", "boolean"]}
+
+    def nested_schema(entries: list[tuple[str, tuple[str, ...]]] | None) -> dict[str, Any]:
+        if entries is not None and not entries:
+            return {"type": "array", "maxItems": 0, "items": {"type": "string"}}
+        operators = [operator.value for operator in ObjectPredicateOperator]
+        variants: list[dict[str, Any]] = []
+        # One variant per parent keeps each key enum listed once; unused operands are null.
+        for parent, keys in entries or [("", ())]:
+            variants.append(
+                {
+                    "type": "object",
+                    "additionalProperties": False,
+                    "required": ["property", "key", "operator", "equals", "values"],
+                    "properties": {
+                        "property": (
+                            {"type": "string", "enum": [parent]}
+                            if parent
+                            else {"type": "string", "minLength": 1, "maxLength": 256}
+                        ),
+                        "key": (
+                            {"type": "string", "enum": list(keys)}
+                            if keys
+                            else {"type": "string", "minLength": 1, "maxLength": 256}
+                        ),
+                        "operator": {"type": "string", "enum": operators},
+                        "equals": {"type": ["string", "number", "integer", "boolean", "null"]},
+                        "values": {
+                            "type": ["array", "null"],
+                            "minItems": 1,
+                            "maxItems": 1000,
+                            "items": scalar,
+                        },
+                    },
+                }
+            )
+        return {"type": "array", "maxItems": 16, "items": {"anyOf": variants}}
+
     quote_item: dict[str, Any] = {"type": "string", "minLength": 1, "maxLength": 16384}
     default_clause_schema: dict[str, Any] = {
         "type": "object",
         "additionalProperties": False,
-        "required": ["object_type", "predicates", "object_ids", "quote"],
+        "required": ["object_type", "predicates", "nested_predicates", "object_ids", "quote"],
         "properties": {
             "object_type": object_type_schema,
             "predicates": {
@@ -365,6 +415,7 @@ def strict_candidate_proposal_schema(
                 "maxItems": 16,
                 "items": {"anyOf": predicate_variants()},
             },
+            "nested_predicates": nested_schema(None),
             "object_ids": {
                 "type": ["array", "null"],
                 "minItems": 1,
@@ -380,7 +431,13 @@ def strict_candidate_proposal_schema(
                 {
                     "type": "object",
                     "additionalProperties": False,
-                    "required": ["object_type", "predicates", "object_ids", "quote"],
+                    "required": [
+                        "object_type",
+                        "predicates",
+                        "nested_predicates",
+                        "object_ids",
+                        "quote",
+                    ],
                     "properties": {
                         "object_type": {"type": "string", "enum": [str(item["object_type"])]},
                         "predicates": {
@@ -388,6 +445,11 @@ def strict_candidate_proposal_schema(
                             "maxItems": 16,
                             "items": {"anyOf": predicate_variants(_catalog_properties(item))},
                         },
+                        "nested_predicates": nested_schema(
+                            nested_by_type.get(str(item["object_type"]), [])
+                            if build is not None
+                            else None
+                        ),
                         "object_ids": _object_ids_schema(
                             ids_by_type.get(str(item["object_type"]), ())
                         ),
@@ -399,7 +461,7 @@ def strict_candidate_proposal_schema(
         }
     else:
         clause_items = default_clause_schema
-    return {
+    schema = {
         "type": "object",
         "additionalProperties": False,
         "required": ["status", "reason", "clauses"],
@@ -421,6 +483,22 @@ def strict_candidate_proposal_schema(
             },
         },
     }
+    if _enum_value_count(schema) > _MAX_STRUCTURED_ENUM_VALUES:
+        raise ValueError("candidate proposal schema exceeds the structured-output enum bound")
+    return schema
+
+
+# Azure OpenAI structured outputs reject schemas above this total; hold before dispatch.
+_MAX_STRUCTURED_ENUM_VALUES = 500
+
+
+def _enum_value_count(node: Any) -> int:
+    if isinstance(node, dict):
+        own = len(node["enum"]) if isinstance(node.get("enum"), list) else 0
+        return own + sum(_enum_value_count(value) for value in node.values())
+    if isinstance(node, list):
+        return sum(_enum_value_count(value) for value in node)
+    return 0
 
 
 def _catalog_properties(item: dict[str, object]) -> tuple[str, ...]:

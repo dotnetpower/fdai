@@ -1,0 +1,10 @@
+{
+  "overrides": [
+    {
+      "versions": ">=1.0.0 <2.0.0",
+      "values": {
+        "replicas": 2
+      }
+    }
+  ]
+}

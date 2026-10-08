@@ -1,21 +1,34 @@
 # FDAI code-security evaluation corpus: curated from real advisories.
 #
-# Every case models one package as Trivy and OSV-Scanner would report it. Trivy reports the CVE id
-# with the NVD (or CNA) CVSS v3 base score; OSV-Scanner reports the GHSA id with its CVE alias and
+# Dependency cases model one package as Trivy and OSV-Scanner would report it. Trivy reports the CVE
+# id with the NVD (or CNA) CVSS v3 base score; OSV-Scanner reports the GHSA id with its CVE alias and
 # the GitHub-reviewed score. Package names keep the spelling each source uses, so the same PyPI
-# package can appear as `PyJWT`, `pyjwt`, or `pyJWT`. The reviewer band is the severity the GitHub
-# Advisory Database assigned on review, an independent label FDAI never produced. Advisories were
-# published between 2025-07-01 and 2026-09-30. Each `-fixed` case is a clean negative: the package
-# at a patched version reports nothing. Cases are split by a hash of the case id into `dev` and
-# `holdout`; no rule or threshold was tuned on the holdout split.
+# package can appear as `PyJWT`, `pyjwt`, or `pyJWT`.
+#
+# Code cases (`kind: code`) model one source-code weakness as two SAST lanes would report it at the
+# fix site: the first line the advisory's single fix commit removed from its only changed non-test
+# source file. Advisories were selected mechanically: for each of CWE 89, 78, 94, 22, 918, 79, 502,
+# and 611, the first two reviewed advisories in GHSA id order with a CVSS v3 vector, exactly one
+# commit reference, and a fix that modifies exactly one non-test source file. Their facts come from
+# the advisory's CVSS v3 vector without judgment: AV, AC, PR, and UI map directly; impact is
+# `code_execution` for command injection, code injection, and unsafe deserialization with I:H, then
+# `data_write` for I:H, `data_read` for C:H, `denial_of_service` for A:H, `info_disclosure` for C:L,
+# and `limited` otherwise. AC maps since severity rubric 1.1.0 added attack complexity.
+#
+# The reviewer band is the severity the GitHub Advisory Database assigned on review, an independent
+# label FDAI never produced. Advisories were published between 2025-07-01 and 2026-09-30. Each
+# `-fixed` case is a clean negative: the patched package or revision reports nothing. Dependency
+# cases are split by a hash of the case id into `dev` and `holdout`; code cases use the parity of
+# the SHA-256 of their case id. No rule, rubric value, or threshold was tuned on this corpus.
 #
 # Data: GitHub Advisory Database reviewed advisories (CC-BY 4.0) and NVD CVE records (public
-# domain), retrieved 2026-10-07. Only identifiers, scores, and package names are kept.
+# domain), retrieved 2026-10-07 (dependency cases) and 2026-10-08 (code cases). Only identifiers,
+# scores, vectors, package names, and fix-site paths and lines are kept; no third-party code.
 #
 # Run: python -m fdai.delivery.code_security_cli evaluate --corpus <this file>
 schema_version: 1
 corpus_id: fdai.code-security.curated-advisories
-version: 1.0.0
+version: 1.2.0
 provenance: curated
 line_shift: 7
 acceptance:
@@ -180,6 +193,7 @@ cases:
     - o4
     reviewer_band: high
 - id: npm-fastify-fixed
+  kind: dependency
   split: dev
   occurrences: []
   expected: []
@@ -248,6 +262,7 @@ cases:
     - o1
     reviewer_band: low
 - id: npm-grpc-grpc-js-fixed
+  kind: dependency
   split: holdout
   occurrences: []
   expected: []
@@ -316,6 +331,7 @@ cases:
     - o1
     reviewer_band: medium
 - id: npm-fast-uri-fixed
+  kind: dependency
   split: dev
   occurrences: []
   expected: []
@@ -354,6 +370,7 @@ cases:
     - o0
     reviewer_band: high
 - id: npm-nodemailer-fixed
+  kind: dependency
   split: holdout
   occurrences: []
   expected: []
@@ -392,6 +409,7 @@ cases:
     - o0
     reviewer_band: medium
 - id: npm-moment-fixed
+  kind: dependency
   split: holdout
   occurrences: []
   expected: []
@@ -430,6 +448,7 @@ cases:
     - o0
     reviewer_band: medium
 - id: npm-hono-fixed
+  kind: dependency
   split: holdout
   occurrences: []
   expected: []
@@ -468,6 +487,7 @@ cases:
     - o0
     reviewer_band: critical
 - id: npm-xhmikosr-decompress-fixed
+  kind: dependency
   split: dev
   occurrences: []
   expected: []
@@ -626,6 +646,7 @@ cases:
     - o4
     reviewer_band: medium
 - id: pip-pyjwt-fixed
+  kind: dependency
   split: dev
   occurrences: []
   expected: []
@@ -694,6 +715,7 @@ cases:
     - o1
     reviewer_band: high
 - id: pip-gitpython-fixed
+  kind: dependency
   split: dev
   occurrences: []
   expected: []
@@ -732,6 +754,679 @@ cases:
     - o0
     reviewer_band: medium
 - id: pip-litellm-fixed
+  kind: dependency
   split: dev
+  occurrences: []
+  expected: []
+- id: code-yeswiki-4pf7
+  # GHSA-4pf7-cc4r-g63h (CVE-2026-52775), high, CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H; YesWiki/yeswiki fix 90ca54fb518e, CWE-89.
+  kind: code
+  split: dev
+  occurrences:
+  - id: s0
+    producer: Opengrep
+    lane: deterministic
+    rule_id: sast.cwe-89
+    path: includes/services/ReactionManager.php
+    line: 356
+    cwe:
+    - 89
+    source_severity: error
+  - id: s1
+    producer: CodeQL
+    lane: external
+    rule_id: external.cwe-89
+    path: includes/services/ReactionManager.php
+    line: 356
+    cwe:
+    - 89
+    source_severity: warning
+  expected:
+  - weakness_class: sql_injection
+    path: includes/services/ReactionManager.php
+    line: 356
+    occurrences:
+    - s0
+    - s1
+    reviewer_band: high
+    facts:
+      impact: data_write
+      attack_vector: network
+      attack_complexity: low
+      privileges_required: low
+      user_interaction: none
+- id: code-yeswiki-4pf7-fixed
+  kind: code
+  split: dev
+  occurrences: []
+  expected: []
+- id: code-phpmyfaq-6pvm
+  # GHSA-6pvm-2vjj-rx4w (CVE-2026-47132), medium, CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:L/I:L/A:N; thorsten/phpMyFAQ fix bd4b08b01223, CWE-89.
+  kind: code
+  split: dev
+  occurrences:
+  - id: s0
+    producer: Opengrep
+    lane: deterministic
+    rule_id: sast.cwe-89
+    path: phpmyfaq/src/phpMyFAQ/Chat.php
+    line: 306
+    cwe:
+    - 89
+    source_severity: error
+  - id: s1
+    producer: CodeQL
+    lane: external
+    rule_id: external.cwe-89
+    path: phpmyfaq/src/phpMyFAQ/Chat.php
+    line: 306
+    cwe:
+    - 89
+    source_severity: warning
+  expected:
+  - weakness_class: sql_injection
+    path: phpmyfaq/src/phpMyFAQ/Chat.php
+    line: 306
+    occurrences:
+    - s0
+    - s1
+    reviewer_band: medium
+    facts:
+      impact: info_disclosure
+      attack_vector: network
+      attack_complexity: low
+      privileges_required: low
+      user_interaction: none
+- id: code-phpmyfaq-6pvm-fixed
+  kind: code
+  split: dev
+  occurrences: []
+  expected: []
+- id: code-gitpython-2f96
+  # GHSA-2f96-g7mh-g2hx (CVE-2026-67325), high, CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H; gitpython-developers/GitPython fix 56806080c134, CWE-78.
+  kind: code
+  split: dev
+  occurrences:
+  - id: s0
+    producer: Opengrep
+    lane: deterministic
+    rule_id: sast.cwe-78
+    path: git/cmd.py
+    line: 964
+    cwe:
+    - 78
+    source_severity: error
+  - id: s1
+    producer: CodeQL
+    lane: external
+    rule_id: external.cwe-78
+    path: git/cmd.py
+    line: 964
+    cwe:
+    - 78
+    source_severity: warning
+  expected:
+  - weakness_class: command_injection
+    path: git/cmd.py
+    line: 964
+    occurrences:
+    - s0
+    - s1
+    reviewer_band: high
+    facts:
+      impact: code_execution
+      attack_vector: network
+      attack_complexity: low
+      privileges_required: low
+      user_interaction: none
+- id: code-gitpython-2f96-fixed
+  kind: code
+  split: dev
+  occurrences: []
+  expected: []
+- id: code-rclone-2m8m
+  # GHSA-2m8m-jhrm-w6j2 (CVE-2026-71312), high, CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:U/C:H/I:H/A:H; rclone/rclone fix e122fba1a576, CWE-78.
+  kind: code
+  split: holdout
+  occurrences:
+  - id: s0
+    producer: Opengrep
+    lane: deterministic
+    rule_id: sast.cwe-78
+    path: backend/sftp/sftp.go
+    line: 2455
+    cwe:
+    - 78
+    source_severity: error
+  - id: s1
+    producer: CodeQL
+    lane: external
+    rule_id: external.cwe-78
+    path: backend/sftp/sftp.go
+    line: 2455
+    cwe:
+    - 78
+    source_severity: warning
+  expected:
+  - weakness_class: command_injection
+    path: backend/sftp/sftp.go
+    line: 2455
+    occurrences:
+    - s0
+    - s1
+    reviewer_band: high
+    facts:
+      impact: code_execution
+      attack_vector: network
+      attack_complexity: low
+      privileges_required: low
+      user_interaction: required
+- id: code-rclone-2m8m-fixed
+  kind: code
+  split: holdout
+  occurrences: []
+  expected: []
+- id: code-omnigent-756x
+  # GHSA-756x-9hf6-q4h4 (CVE-2026-62675), high, CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:H; omnigent-ai/omnigent fix 1f3f398f41cb, CWE-94.
+  kind: code
+  split: dev
+  occurrences:
+  - id: s0
+    producer: Opengrep
+    lane: deterministic
+    rule_id: sast.cwe-94
+    path: omnigent/server/bundles.py
+    line: 10
+    cwe:
+    - 94
+    source_severity: error
+  - id: s1
+    producer: CodeQL
+    lane: external
+    rule_id: external.cwe-94
+    path: omnigent/server/bundles.py
+    line: 10
+    cwe:
+    - 94
+    source_severity: warning
+  expected:
+  - weakness_class: code_injection
+    path: omnigent/server/bundles.py
+    line: 10
+    occurrences:
+    - s0
+    - s1
+    reviewer_band: high
+    facts:
+      impact: code_execution
+      attack_vector: network
+      attack_complexity: low
+      privileges_required: low
+      user_interaction: none
+- id: code-omnigent-756x-fixed
+  kind: code
+  split: dev
+  occurrences: []
+  expected: []
+- id: code-kobako-7pwq
+  # GHSA-7pwq-q9jf-539h (CVE-2026-55107), critical, CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H; elct9620/kobako fix 64f84700c81f, CWE-94.
+  kind: code
+  split: dev
+  occurrences:
+  - id: s0
+    producer: Opengrep
+    lane: deterministic
+    rule_id: sast.cwe-94
+    path: lib/kobako/transport/dispatcher.rb
+    line: 114
+    cwe:
+    - 94
+    source_severity: error
+  - id: s1
+    producer: CodeQL
+    lane: external
+    rule_id: external.cwe-94
+    path: lib/kobako/transport/dispatcher.rb
+    line: 114
+    cwe:
+    - 94
+    source_severity: warning
+  expected:
+  - weakness_class: code_injection
+    path: lib/kobako/transport/dispatcher.rb
+    line: 114
+    occurrences:
+    - s0
+    - s1
+    reviewer_band: critical
+    facts:
+      impact: code_execution
+      attack_vector: network
+      attack_complexity: low
+      privileges_required: none
+      user_interaction: none
+- id: code-kobako-7pwq-fixed
+  kind: code
+  split: dev
+  occurrences: []
+  expected: []
+- id: code-rubyzip-47m2
+  # GHSA-47m2-wp7j-p9vc (CVE-2026-85396), high, CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:H/A:N; rubyzip/rubyzip fix 17edfbf4423b, CWE-22.
+  kind: code
+  split: holdout
+  occurrences:
+  - id: s0
+    producer: Opengrep
+    lane: deterministic
+    rule_id: sast.cwe-22
+    path: lib/zip/entry.rb
+    line: 293
+    cwe:
+    - 22
+    source_severity: error
+  - id: s1
+    producer: CodeQL
+    lane: external
+    rule_id: external.cwe-22
+    path: lib/zip/entry.rb
+    line: 293
+    cwe:
+    - 22
+    source_severity: warning
+  expected:
+  - weakness_class: path_traversal
+    path: lib/zip/entry.rb
+    line: 293
+    occurrences:
+    - s0
+    - s1
+    reviewer_band: high
+    facts:
+      impact: data_write
+      attack_vector: network
+      attack_complexity: low
+      privileges_required: none
+      user_interaction: none
+- id: code-rubyzip-47m2-fixed
+  kind: code
+  split: holdout
+  occurrences: []
+  expected: []
+- id: code-codewhale-62f5
+  # GHSA-62f5-cp2p-vq95 (CVE-2026-75859), high, CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N; Hmbown/CodeWhale fix 43563356b98c, CWE-22.
+  kind: code
+  split: dev
+  occurrences:
+  - id: s0
+    producer: Opengrep
+    lane: deterministic
+    rule_id: sast.cwe-22
+    path: crates/tui/src/main.rs
+    line: 5386
+    cwe:
+    - 22
+    source_severity: error
+  - id: s1
+    producer: CodeQL
+    lane: external
+    rule_id: external.cwe-22
+    path: crates/tui/src/main.rs
+    line: 5386
+    cwe:
+    - 22
+    source_severity: warning
+  expected:
+  - weakness_class: path_traversal
+    path: crates/tui/src/main.rs
+    line: 5386
+    occurrences:
+    - s0
+    - s1
+    reviewer_band: high
+    facts:
+      impact: data_read
+      attack_vector: network
+      attack_complexity: low
+      privileges_required: none
+      user_interaction: none
+- id: code-codewhale-62f5-fixed
+  kind: code
+  split: dev
+  occurrences: []
+  expected: []
+- id: code-vllm-4hhp
+  # GHSA-4hhp-h66f-j5j7 (CVE-2026-73560), medium, CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:N/A:N; vllm-project/vllm fix 54503ecec0f3, CWE-918.
+  kind: code
+  split: holdout
+  occurrences:
+  - id: s0
+    producer: Opengrep
+    lane: deterministic
+    rule_id: sast.cwe-918
+    path: vllm/transformers_utils/processors/mimo_v2_omni.py
+    line: 10
+    cwe:
+    - 918
+    source_severity: error
+  - id: s1
+    producer: CodeQL
+    lane: external
+    rule_id: external.cwe-918
+    path: vllm/transformers_utils/processors/mimo_v2_omni.py
+    line: 10
+    cwe:
+    - 918
+    source_severity: warning
+  expected:
+  - weakness_class: server_side_request_forgery
+    path: vllm/transformers_utils/processors/mimo_v2_omni.py
+    line: 10
+    occurrences:
+    - s0
+    - s1
+    reviewer_band: medium
+    facts:
+      impact: data_read
+      attack_vector: network
+      attack_complexity: low
+      privileges_required: low
+      user_interaction: none
+- id: code-vllm-4hhp-fixed
+  kind: code
+  split: holdout
+  occurrences: []
+  expected: []
+- id: code-pyjwt-9v7f
+  # GHSA-9v7f-9g4p-ffgj (CVE-2026-102267), high, CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N; jpadilla/pyjwt fix 0a795b8e1f6e, CWE-918.
+  kind: code
+  split: holdout
+  occurrences:
+  - id: s0
+    producer: Opengrep
+    lane: deterministic
+    rule_id: sast.cwe-918
+    path: jwt/jwks_client.py
+    line: 118
+    cwe:
+    - 918
+    source_severity: error
+  - id: s1
+    producer: CodeQL
+    lane: external
+    rule_id: external.cwe-918
+    path: jwt/jwks_client.py
+    line: 118
+    cwe:
+    - 918
+    source_severity: warning
+  expected:
+  - weakness_class: server_side_request_forgery
+    path: jwt/jwks_client.py
+    line: 118
+    occurrences:
+    - s0
+    - s1
+    reviewer_band: high
+    facts:
+      impact: data_write
+      attack_vector: network
+      attack_complexity: high
+      privileges_required: none
+      user_interaction: none
+- id: code-pyjwt-9v7f-fixed
+  kind: code
+  split: holdout
+  occurrences: []
+  expected: []
+- id: code-swc-5qr2
+  # GHSA-5qr2-v392-m9g8 (CVE-2026-72925), medium, CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N; swc-project/swc fix e1877b44bdac, CWE-79.
+  kind: code
+  split: holdout
+  occurrences:
+  - id: s0
+    producer: Opengrep
+    lane: deterministic
+    rule_id: sast.cwe-79
+    path: crates/swc_html_minifier/src/lib.rs
+    line: 2745
+    cwe:
+    - 79
+    source_severity: error
+  - id: s1
+    producer: CodeQL
+    lane: external
+    rule_id: external.cwe-79
+    path: crates/swc_html_minifier/src/lib.rs
+    line: 2745
+    cwe:
+    - 79
+    source_severity: warning
+  expected:
+  - weakness_class: cross_site_scripting
+    path: crates/swc_html_minifier/src/lib.rs
+    line: 2745
+    occurrences:
+    - s0
+    - s1
+    reviewer_band: medium
+    facts:
+      impact: info_disclosure
+      attack_vector: network
+      attack_complexity: low
+      privileges_required: none
+      user_interaction: required
+- id: code-swc-5qr2-fixed
+  kind: code
+  split: holdout
+  occurrences: []
+  expected: []
+- id: code-suneditor-6rf4
+  # GHSA-6rf4-v2fh-m6p4 (CVE-2026-59167), critical, CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:H/A:H; JiHong88/suneditor fix a94ace269c71, CWE-79.
+  kind: code
+  split: dev
+  occurrences:
+  - id: s0
+    producer: Opengrep
+    lane: deterministic
+    rule_id: sast.cwe-79
+    path: src/lib/core.js
+    line: 4767
+    cwe:
+    - 79
+    source_severity: error
+  - id: s1
+    producer: CodeQL
+    lane: external
+    rule_id: external.cwe-79
+    path: src/lib/core.js
+    line: 4767
+    cwe:
+    - 79
+    source_severity: warning
+  expected:
+  - weakness_class: cross_site_scripting
+    path: src/lib/core.js
+    line: 4767
+    occurrences:
+    - s0
+    - s1
+    reviewer_band: critical
+    facts:
+      impact: data_write
+      attack_vector: network
+      attack_complexity: low
+      privileges_required: none
+      user_interaction: none
+- id: code-suneditor-6rf4-fixed
+  kind: code
+  split: dev
+  occurrences: []
+  expected: []
+- id: code-php-weasyprint-2fmj
+  # GHSA-2fmj-p74r-3wjm (CVE-2026-49286), high, CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H; pontedilana/php-weasyprint fix d1aa487722b5, CWE-502.
+  kind: code
+  split: holdout
+  occurrences:
+  - id: s0
+    producer: Opengrep
+    lane: deterministic
+    rule_id: sast.cwe-502
+    path: src/AbstractGenerator.php
+    line: 240
+    cwe:
+    - 502
+    source_severity: error
+  - id: s1
+    producer: CodeQL
+    lane: external
+    rule_id: external.cwe-502
+    path: src/AbstractGenerator.php
+    line: 240
+    cwe:
+    - 502
+    source_severity: warning
+  expected:
+  - weakness_class: unsafe_deserialization
+    path: src/AbstractGenerator.php
+    line: 240
+    occurrences:
+    - s0
+    - s1
+    reviewer_band: high
+    facts:
+      impact: code_execution
+      attack_vector: network
+      attack_complexity: high
+      privileges_required: none
+      user_interaction: none
+- id: code-php-weasyprint-2fmj-fixed
+  kind: code
+  split: holdout
+  occurrences: []
+  expected: []
+- id: code-lmdeploy-2vh9
+  # GHSA-2vh9-42vm-xmv2 (CVE-2025-66455), critical, CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H; InternLM/lmdeploy fix f05b4ad8bf2e, CWE-502.
+  kind: code
+  split: dev
+  occurrences:
+  - id: s0
+    producer: Opengrep
+    lane: deterministic
+    rule_id: sast.cwe-502
+    path: lmdeploy/pytorch/disagg/conn/engine_conn.py
+    line: 74
+    cwe:
+    - 502
+    source_severity: error
+  - id: s1
+    producer: CodeQL
+    lane: external
+    rule_id: external.cwe-502
+    path: lmdeploy/pytorch/disagg/conn/engine_conn.py
+    line: 74
+    cwe:
+    - 502
+    source_severity: warning
+  expected:
+  - weakness_class: unsafe_deserialization
+    path: lmdeploy/pytorch/disagg/conn/engine_conn.py
+    line: 74
+    occurrences:
+    - s0
+    - s1
+    reviewer_band: critical
+    facts:
+      impact: code_execution
+      attack_vector: network
+      attack_complexity: low
+      privileges_required: none
+      user_interaction: none
+- id: code-lmdeploy-2vh9-fixed
+  kind: code
+  split: dev
+  occurrences: []
+  expected: []
+- id: code-spring-ws-2mpf
+  # GHSA-2mpf-m756-hxjm (CVE-2026-40998), high, CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:L/A:N; spring-projects/spring-ws fix eb8d66c0995d, CWE-611.
+  kind: code
+  split: holdout
+  occurrences:
+  - id: s0
+    producer: Opengrep
+    lane: deterministic
+    rule_id: sast.cwe-611
+    path: spring-xml/src/main/java/org/springframework/xml/xpath/Jaxp13XPathTemplate.java
+    line: 191
+    cwe:
+    - 611
+    source_severity: error
+  - id: s1
+    producer: CodeQL
+    lane: external
+    rule_id: external.cwe-611
+    path: spring-xml/src/main/java/org/springframework/xml/xpath/Jaxp13XPathTemplate.java
+    line: 191
+    cwe:
+    - 611
+    source_severity: warning
+  expected:
+  - weakness_class: xml_external_entity
+    path: spring-xml/src/main/java/org/springframework/xml/xpath/Jaxp13XPathTemplate.java
+    line: 191
+    occurrences:
+    - s0
+    - s1
+    reviewer_band: high
+    facts:
+      impact: data_read
+      attack_vector: network
+      attack_complexity: low
+      privileges_required: none
+      user_interaction: none
+- id: code-spring-ws-2mpf-fixed
+  kind: code
+  split: holdout
+  occurrences: []
+  expected: []
+- id: code-openremote-7v6w
+  # GHSA-7v6w-c3f4-9wpq (CVE-2026-54640), high, CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:L/A:L; openremote/openremote fix c28d3c60ebc2, CWE-611.
+  kind: code
+  split: holdout
+  occurrences:
+  - id: s0
+    producer: Opengrep
+    lane: deterministic
+    rule_id: sast.cwe-611
+    path: agent/src/main/java/org/openremote/agent/protocol/knx/KNXProtocol.java
+    line: 21
+    cwe:
+    - 611
+    source_severity: error
+  - id: s1
+    producer: CodeQL
+    lane: external
+    rule_id: external.cwe-611
+    path: agent/src/main/java/org/openremote/agent/protocol/knx/KNXProtocol.java
+    line: 21
+    cwe:
+    - 611
+    source_severity: warning
+  expected:
+  - weakness_class: xml_external_entity
+    path: agent/src/main/java/org/openremote/agent/protocol/knx/KNXProtocol.java
+    line: 21
+    occurrences:
+    - s0
+    - s1
+    reviewer_band: high
+    facts:
+      impact: data_read
+      attack_vector: network
+      attack_complexity: low
+      privileges_required: low
+      user_interaction: none
+- id: code-openremote-7v6w-fixed
+  kind: code
+  split: holdout
   occurrences: []
   expected: []

@@ -35,6 +35,11 @@ The host reads the existing Operator Container App and the shared platform Terra
   and Cost Governance pseudonym secret reference from the current platform state.
 - **Peer isolation:** Omit the separately stateful channel edge from the recovered input and target
   only the main Operator Container App. Plan guards reject another resource change.
+- **Drift input recovery:** Scheduled and reviewed refresh planning read the current
+  `channel_edge_health_contract` output and reproduce the exact enabled or disabled channel-edge
+  input. When enabled, they bind the exact tracked platform edge identity and the protected
+  provider configuration, matching service deployment. They do not infer edge activation from
+  repository defaults.
 - **Fail-closed drift:** Stop when the live and platform bindings disagree, an identity is missing,
   a secret reference is malformed, or the current image is not digest-pinned.
 
@@ -62,6 +67,13 @@ backend. Its focused Terraform root declares the canonical counted addresses for
 Key Vault secret, and exact Operator `Key Vault Secrets User` assignment. All three resources use
 the same definitions and addresses as the canonical platform root and pin the same AzureRM and
 Random provider versions.
+The coordinator prefers the platform's `runtime_identity_bindings.operator` output. When an older
+state predates that toggle-gated output, it reads the exact tracked
+`module.operator_api_identity[0]` resource from a private state projection instead of inferring an
+identity from an Azure name. A missing or malformed tracked identity stops before planning.
+The same compatibility read recovers the exact tracked
+`module.key_vault.azurerm_key_vault.primary` resource when the state predates the root
+`key_vault_id` output. It never derives a vault id from a name.
 
 The platform guard admits exactly those three create actions and rejects drift, deferred changes,
 updates, deletes, replacements, or another address. Apply writes a claim first, then independently

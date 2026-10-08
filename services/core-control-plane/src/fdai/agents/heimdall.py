@@ -33,7 +33,11 @@ from fdai.agents._framework.heimdall_alert_window import (
 from fdai.agents._framework.heimdall_alert_window import EpisodeKey as _EpisodeKey
 from fdai.agents._framework.heimdall_alert_window import HeimdallAlertWindowMixin
 from fdai.agents._framework.heimdall_anomaly_runtime import HeimdallAnomalyRuntimeMixin
-from fdai.agents._framework.heimdall_code_security import HeimdallCodeSecurityMixin
+from fdai.agents._framework.heimdall_code_security import (
+    DRIFT_TOOL_ID,
+    HeimdallCodeSecurityMixin,
+    code_security_statement,
+)
 from fdai.agents._framework.heimdall_constants import (
     _DETECTION_READINESS_EVENT as _DETECTION_READINESS_EVENT,
 )
@@ -449,11 +453,21 @@ class Heimdall(
                 facts,
                 "No retained forecast episode is bound to this conversational projection",
             )
-        if "drift" in intents:
+        if "drift" in intents or context.get("conversation_tool") == DRIFT_TOOL_ID:
+            # Code-security scan reviews are Heimdall-owned Drift recorded by the scan worker.
+            code_facts = await self.code_security_facts()
+            if code_facts is None:
+                return evidence_backed_result(
+                    self.spec.name,
+                    facts,
+                    "No retained drift finding is bound to this conversational projection",
+                )
+            facts.update(code_facts)
             return evidence_backed_result(
                 self.spec.name,
                 facts,
-                "No retained drift finding is bound to this conversational projection",
+                "No retained configuration drift finding is bound to this conversational "
+                f"projection. {code_security_statement(code_facts)}",
             )
         resources = mentioned(
             question,

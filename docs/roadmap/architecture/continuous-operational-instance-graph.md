@@ -74,7 +74,10 @@ substitutes the node identity or local Azure CLI; local credential policy stays 
   A bounded query can return verified positive observations, but missing scope never proves absence.
   An exact-identity object read without relationships counts only the unprojected observations of
   the identities it requests, including a pending creation of one of them, so a pending change to an
-  unrelated object does not make it incomplete. Every other gap keeps every read incomplete.
+  unrelated object does not make it incomplete. A Resource read without relationships whose `type`
+  filter limits it to named Resource types counts only the unprojected object observations of those
+  types, because every object observation, including a creation or a deletion, carries its Resource
+  type and replay rejects a type change. Every other gap keeps every read incomplete.
 - **Read/write separation:** Provider observation and ontology projection are read-plane work.
   Managed-resource writeback remains in the governed action path and closes only after independent
   re-observation. The standalone deploy host's exact-registry `AcrPush` assignment remains a
@@ -401,6 +404,11 @@ and provider throttling reduce concurrency and honor `Retry-After`; persistent u
 the circuit and schedules a bounded probe instead of retrying continuously.
 When no newer failed attempt exists, the scheduler uses the active snapshot completion age as the
 last-attempt age and treats overlay rows, tombstones, or an open projection watermark as pending.
+It also treats a misaligned ontology projection as pending: an existing projection manifest whose
+generation is not the active snapshot, or whose ontology release is not the running release. A
+promotion that was never projected or a deployment that changed the ontology release therefore
+recollects after the minimum poll interval instead of leaving every inventory-backed answer partial
+for the routine interval. A venue that never projected has no manifest and is not forced to collect.
 Change demand or maximum staleness therefore cannot be deferred because a failure time is absent.
 The local long-running loop records typed source, projection, or pending-replay failure and retries after its
 configured interval. A one-shot job also fails when source collection or the promoted ontology projection
@@ -639,6 +647,68 @@ independently verified observation receipt.
 A read-only conversation presents verified rows before explaining an incomplete source. An empty
 partial result reports no match in the verified scope, then adds the exact limitation and recovery
 step. It never claims complete inventory or global absence, and holds when no subset is safe. An exact `BusinessService` or `Workload` id, name, or deployment-approved alias can traverse `implemented_by` and `workload_runs_on` to current Resource leaves; the server-owned plan reads verified App Service, Container Apps, and Kubernetes component state without inferring aggregate health, cause, missing identity, replacement, lifecycle source coverage, or execution authority.
+
+### Pending same-type changes (proposed)
+
+A typed Resource read counts only pending object observations of its own Resource types. A change of
+that type still keeps the answer partial until the next complete reconciliation. Activity Log
+observations carry the operation, caller, status, and time, but not the resulting state, and they
+reach the journal about three minutes after the operation. With the 120-second change interval and
+an 80 to 100 second collection, the partial window is three to six minutes. A shorter interval
+raises provider load without removing the window, and inferring a state from an operation name
+would equate an accepted request with an effect.
+
+The proposed `use_live_evidence` path closes only the window between journal arrival and
+reconciliation, per answer, without changing the graph. A read issued before the observation
+reaches the journal still uses the graph as it is.
+
+1. **Eligibility.** Only a topology-free ObjectType-plus-state read that expresses no relationships,
+   whose only gap is `inventory_observation_pending`, and whose pending set holds at most ten
+   updates of Resources already present in the secured result. A pending creation, deletion, or
+   tombstone, a relationship observation, any other gap, or an overflow keeps the partial answer,
+   because an exact state read cannot prove membership, absence, or an edge.
+2. **Descriptor.** The secured query gateway, not the function, returns a bounded pending-subject
+   descriptor: the principal-authorized subject ids and types, their observation ids, and the
+   journal high-watermark and server time captured with the read. Subjects outside the principal's
+   projection are never named; when membership cannot be established, the answer stays partial
+   without disclosing the subjects.
+3. **Read.** `SecuredGraphEvidenceQueryRefresher` performs one exact live state read per described
+   subject through the existing exact-resource provider with the Core read identity. Reads are
+   single-flight per subject and observation, run under installation and principal concurrency
+   limits, and stop on the first throttle. Each read has a three-second budget inside a five-second
+   deadline that reserves time for publication and deterministic evaluation.
+4. **Overlay.** The gateway returns an answer-local live overlay and a composite receipt. The
+   state function stays free of provider I/O and filters that materialization deterministically.
+   Each live row carries an explicit live basis with its provider observation, Core receive, and
+   recorded times. The graph is not mutated, and reconciliation stays its only writer.
+5. **Fence and completeness.** The answer is complete only when every described subject has a
+   successful, state-bearing, limitation-free, non-conflicting reading no older than the answer
+   cutoff allows, and a recheck before finalization finds no newer same-type observation above the
+   captured watermark. A failed, throttled, stale, or raced read keeps the answer partial and names
+   only authorized subjects that were not refreshed. Completeness means a fresh bounded view at the
+   answer cutoff, not one atomic provider snapshot.
+6. **Receipt.** A replayable answer-evidence receipt binds the canonical provider evidence, the
+   principal-scope digest, the ontology release, the query digest, the covered observation ids and
+   watermark, every timestamp, and the result digest. Only that bounded coverage completes the
+   answer; graph source completeness stays false until reconciliation, so the published live
+   observation cannot retrigger the same refresh.
+7. **Activation.** A Core setting enables the path. The local launcher turns it on; deployed venues
+   keep it off until its receipts replay and throttling behavior is measured.
+
+| Critique finding | Revision |
+|------------------|----------|
+| Pending subjects were reduced to a Boolean, so the ten-subject bound had no trustworthy input | The gateway returns a bounded, principal-authorized descriptor and fails closed on overflow |
+| The proposal claimed to close the whole three-to-six-minute window | It closes only journal arrival to reconciliation; earlier reads use the graph |
+| Unauthorized pending creations could disclose existence | Authorization precedes provider I/O and unauthorized subjects are never named |
+| Exact state reads cannot rebuild membership for creations, deletions, or other predicates | Only updates of Resources already in the secured result on topology-free state reads qualify |
+| A not-found read is not proof of deletion | Deletions and tombstones keep the answer partial until reconciliation |
+| Concurrent changes could slip in while reads run | A captured watermark and a recheck before finalization fence the answer |
+| Provider I/O does not belong in the state function | The refresher reads, the gateway builds the overlay, and the function only filters |
+| The existing write-through receipt does not bind the answer | A replayable answer-evidence receipt binds principal, query, coverage, times, and result |
+| Relationship reads could be completed by state reads | Reads that express relationships are excluded |
+| Publishing live evidence could retrigger refreshes | Coverage is answer-local and reads are single-flight per subject and observation |
+| Parallel answers could storm the provider | Installation and principal limits, single-flight reads, and stop-on-throttle bound load |
+| Parallel reads are not one moment | Rows keep their own times and completeness is defined against the answer cutoff |
 
 ## Source-to-store implementation audit
 

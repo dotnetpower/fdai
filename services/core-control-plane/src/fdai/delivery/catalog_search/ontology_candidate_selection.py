@@ -5,18 +5,27 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Any
 
 from fdai_service_contracts.ontology_query import content_digest
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SerializerFunctionWrapHandler,
+    model_serializer,
+    model_validator,
+)
 
 from fdai.core.ontology_platform import QueryManifest
 from fdai.core.ontology_platform.models import (
     ObjectPredicate,
+    ObjectPredicateOperator,
     ObjectSelector,
     ObjectSelectorKind,
     ObjectSetDefinition,
 )
+from fdai.core.ontology_platform.object_sets import object_matches_predicates
 from fdai.core.ontology_platform.query_gateway import SecuredObjectSetQueryGateway
 from fdai.shared.ontology.acl import ProjectionRequest
 from fdai.shared.providers.catalog_search import (
@@ -34,6 +43,55 @@ _Identifier = Annotated[str, Field(min_length=1, max_length=512)]
 SELECTION_STRATEGY = "secured-objectset-membership.v1"
 
 
+class OntologyNestedPredicate(BaseModel):
+    """One condition on a key inside an object-valued top-level property.
+
+    ObjectSet predicates read top-level properties only. This diagnostic form applies the
+    same operator semantics to one entry of one object-valued property, evaluated over the
+    ACL-projected record after the gateway has authorized the parent property.
+    """
+
+    model_config = ConfigDict(extra="forbid", frozen=True, hide_input_in_errors=True)
+
+    property: str = Field(min_length=1, max_length=256)
+    key: str = Field(min_length=1, max_length=256)
+    operator: ObjectPredicateOperator = ObjectPredicateOperator.EQUALS
+    equals: Any = None
+    values: tuple[Any, ...] = Field(default=(), max_length=1000)
+
+    @model_validator(mode="after")
+    def _valid_inner_predicate(self) -> OntologyNestedPredicate:
+        self.inner()
+        return self
+
+    def inner(self) -> ObjectPredicate:
+        fields: dict[str, Any] = {"property": self.key, "operator": self.operator}
+        if "equals" in self.model_fields_set:
+            fields["equals"] = self.equals
+        if self.values:
+            fields["values"] = self.values
+        return ObjectPredicate.model_validate(fields)
+
+    @model_serializer(mode="wrap")
+    def _serialize_operands(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        # Mirror ObjectPredicate so persisted evidence round-trips through validation.
+        data: dict[str, Any] = handler(self)
+        inner = self.inner().model_dump(mode="json")
+        data.pop("equals", None)
+        data.pop("values", None)
+        for name in ("equals", "values"):
+            if name in inner:
+                data[name] = inner[name]
+        return data
+
+    def matches(self, properties: Mapping[str, Any]) -> bool:
+        # The parent must be present and object-valued; the gateway authorizes it via EXISTS.
+        parent = properties.get(self.property)
+        if not isinstance(parent, Mapping):
+            return False
+        return object_matches_predicates(parent, (self.inner(),))
+
+
 class OntologyCandidateClause(BaseModel):
     """One typed conjunction; clauses are unioned, never inferred from query words."""
 
@@ -41,6 +99,7 @@ class OntologyCandidateClause(BaseModel):
 
     object_type: str = Field(min_length=1, max_length=256)
     predicates: tuple[ObjectPredicate, ...] = Field(default=(), max_length=16)
+    nested_predicates: tuple[OntologyNestedPredicate, ...] = Field(default=(), max_length=16)
     object_ids: tuple[_Identifier, ...] | None = Field(default=None, min_length=1, max_length=100)
 
     @model_validator(mode="after")
@@ -48,6 +107,14 @@ class OntologyCandidateClause(BaseModel):
         if self.object_ids is not None and len(self.object_ids) != len(set(self.object_ids)):
             raise ValueError("ontology candidate clause object ids must be unique")
         return self
+
+    @model_serializer(mode="wrap")
+    def _omit_empty_nested(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        # Clauses without nested conditions keep their earlier canonical form and digests.
+        data: dict[str, Any] = handler(self)
+        if not self.nested_predicates:
+            data.pop("nested_predicates", None)
+        return data
 
 
 class OntologyCandidateSelection(BaseModel):
@@ -130,9 +197,13 @@ async def resolve_candidate_selection(
     receipts: list[str] = []
     for clause in selection.clauses:
         _check_deadline(deadline)
+        parent_presence = tuple(
+            ObjectPredicate(property=name, operator=ObjectPredicateOperator.EXISTS)
+            for name in dict.fromkeys(item.property for item in clause.nested_predicates)
+        )
         definition = ObjectSetDefinition(
             selector=ObjectSelector(kind=ObjectSelectorKind.OBJECT_TYPE, name=clause.object_type),
-            predicates=clause.predicates,
+            predicates=(*clause.predicates, *parent_presence),
             object_ids=clause.object_ids,
             as_of=as_of,
             purpose=manifest.purposes[0],
@@ -156,14 +227,19 @@ async def resolve_candidate_selection(
             or receipt.purpose != manifest.purposes[0]
         ):
             raise ValueError("ontology candidate selection requires complete current evidence")
+        projected = tuple(
+            projected_candidate_record(record) for record in result.materialization.graph.objects
+        )
         current = _runtime_object_documents(
-            tuple(
-                projected_candidate_record(record)
-                for record in result.materialization.graph.objects
-            ),
+            projected,
             manifest=manifest,
             resource_type_query_terms=resource_type_query_terms,
         )
+        members = {
+            f"object:{record.object_type}:{record.id}"
+            for record in projected
+            if all(item.matches(record.properties) for item in clause.nested_predicates)
+        }
         for document in current:
             _check_deadline(deadline)
             prepared = indexed.get(document.rule_id)
@@ -171,7 +247,8 @@ async def resolve_candidate_selection(
                 prepared
             ) != catalog_search_document_digest(document):
                 raise ValueError("ontology candidate selection source content changed")
-            matched[document.rule_id] = prepared
+            if document.rule_id in members:
+                matched[document.rule_id] = prepared
         receipts.append(content_digest(result.receipt.model_dump(mode="json")))
     _check_deadline(deadline)
     return SelectedOntologyCandidates(

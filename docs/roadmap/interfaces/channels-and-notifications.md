@@ -464,7 +464,11 @@ reordering channels is a config change, never a code change.
 
 **Config location**: outbound routing lives in
 [`config/notifications-matrix.yaml`](../../../config/notifications-matrix.yaml). Routing changes
-receive governance review, with Owner-tier review for A1 routes. Conversation channel enablement
+receive governance review, with Owner-tier review for A1 routes. Only a change that can alter
+A1 routing needs the trusted identity attestation; adding or changing an A2 to A4 route follows
+normal review ([Rule Governance](../rules-and-detection/rule-governance.md#notification-routing-scope)).
+The router refuses to deliver an A1 message through a non-A1 route and escalates it to the HIL
+sink, so a new route can't capture decision-bearing traffic. Conversation channel enablement
 uses its separate environment/configuration contract.
 
 ```yaml

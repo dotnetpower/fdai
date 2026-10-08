@@ -5,6 +5,10 @@ confidence, known exploitation, exposure, coverage completeness, and up to twent
 ids. It carries no paths, code, symbols, or scanner text, because bus messages reach the Console,
 Bragi, and audit. Heimdall projects the package into ``object.drift`` with a shadow ceiling;
 Forseti judges it and Saga audits the verdict. Nothing in the package can grant execution.
+
+Schema ``1.1.0`` adds where the scanned code came from (``source``: a local path, a registered
+git repository, or external SARIF, plus the trigger) and which producers reported, so the Console
+can separate local, repository, and external results. ``1.0.0`` packages stay valid.
 """
 
 from __future__ import annotations
@@ -13,6 +17,7 @@ import hashlib
 import json
 import re
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 
 from fdai.core.security.code_findings.models import UNDETERMINED, CodeSecurityIssue
 from fdai.rule_catalog.code_security import Confidence, Exposure, Priority, SeverityBand
@@ -42,6 +47,42 @@ _KEYS = frozenset(
         "grants_authority",
     }
 )
+_KEYS_V11 = _KEYS | {"source", "producers"}
+SCHEMA_VERSION = "1.1.0"
+LEGACY_SCHEMA_VERSION = "1.0.0"
+SOURCE_KINDS = ("local_path", "git_repository", "external_sarif")
+REVISION_KINDS = ("commit", "snapshot")
+TRIGGERS = ("cli", "console", "schedule")
+_PROVIDER = re.compile(r"^[a-z0-9][a-z0-9-]{0,31}$")
+_PRODUCER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._+-]{0,63}$")
+_REQUEST_ID = re.compile(r"^operator-[0-9a-f]{32}$")
+_MAX_PRODUCERS = 16
+
+
+@dataclass(frozen=True, slots=True)
+class ReviewSource:
+    """Where the scanned code came from and what started the scan.
+
+    ``provider`` is a short lowercase token such as ``local``, ``github``, or ``mdash``. A
+    ``snapshot`` revision is a content digest of an uncommitted working tree, so it is only valid
+    for ``local_path`` sources. ``request_id`` names the Operator proposal that started a Console
+    scan and is only valid for the ``console`` trigger.
+    """
+
+    kind: str
+    provider: str
+    revision_kind: str = "commit"
+    trigger: str = "cli"
+    request_id: str | None = None
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "kind": self.kind,
+            "provider": self.provider,
+            "revision_kind": self.revision_kind,
+            "trigger": self.trigger,
+            "request_id": self.request_id,
+        }
 
 
 class CodeSecurityReviewError(ValueError):
@@ -59,8 +100,15 @@ def build_review_package(
     revision: str,
     exposure: Exposure,
     coverage_complete: bool,
+    source: ReviewSource | None = None,
+    producers: Sequence[str] = (),
 ) -> dict[str, object]:
-    """Return a strict review package for ``issues`` (ordered by priority)."""
+    """Return a strict review package for ``issues`` (ordered by priority).
+
+    With ``source`` the package uses schema ``1.1.0`` and lists the producers that reported;
+    producer names that are not short display tokens are dropped rather than stored. Without
+    ``source`` it stays a ``1.0.0`` package.
+    """
     priorities = [issue.priority.priority.value for issue in issues]
     severities = [issue.severity.label for issue in issues]
     confidences = [issue.confidence.value for issue in issues]
@@ -85,6 +133,12 @@ def build_review_package(
         "review_required": True,
         "grants_authority": False,
     }
+    if source is not None:
+        package["schema_version"] = SCHEMA_VERSION
+        package["source"] = source.as_dict()
+        package["producers"] = sorted({name for name in producers if _PRODUCER.fullmatch(name)})[
+            :_MAX_PRODUCERS
+        ]
     return validate_review_package(package)
 
 
@@ -102,9 +156,10 @@ def _count_map(raw: object, keys: Sequence[str], name: str) -> dict[str, int]:
 
 def validate_review_package(raw: Mapping[str, object]) -> dict[str, object]:
     """Return a normalized copy of an untrusted package or raise."""
-    if set(raw) != _KEYS:
+    version = raw.get("schema_version")
+    if set(raw) != (_KEYS_V11 if version == SCHEMA_VERSION else _KEYS):
         raise CodeSecurityReviewError("code-security review package fields are invalid")
-    if raw["schema_version"] != "1.0.0" or raw["kind"] != PACKAGE_KIND:
+    if version not in (SCHEMA_VERSION, LEGACY_SCHEMA_VERSION) or raw["kind"] != PACKAGE_KIND:
         raise CodeSecurityReviewError("code-security review package identity is invalid")
     if raw["review_required"] is not True or raw["grants_authority"] is not False:
         raise CodeSecurityReviewError("code-security review authority boundary is invalid")
@@ -145,8 +200,8 @@ def validate_review_package(raw: Mapping[str, object]) -> dict[str, object]:
         or not all(isinstance(i, str) and _ISSUE.fullmatch(i) for i in top)
     ):
         raise CodeSecurityReviewError("top_issue_ids must hold at most 20 issue ids")
-    return {
-        "schema_version": "1.0.0",
+    normalized: dict[str, object] = {
+        "schema_version": version,
         "kind": PACKAGE_KIND,
         "repository_alias": alias,
         "revision": revision,
@@ -162,6 +217,57 @@ def validate_review_package(raw: Mapping[str, object]) -> dict[str, object]:
         "review_required": True,
         "grants_authority": False,
     }
+    if version == SCHEMA_VERSION:
+        normalized["source"] = _validate_source(raw["source"])
+        normalized["producers"] = _validate_producers(raw["producers"])
+    return normalized
+
+
+def _validate_source(raw: object) -> dict[str, object]:
+    if not isinstance(raw, Mapping) or set(raw) != {
+        "kind",
+        "provider",
+        "revision_kind",
+        "trigger",
+        "request_id",
+    }:
+        raise CodeSecurityReviewError("source fields are invalid")
+    kind, provider = raw["kind"], raw["provider"]
+    revision_kind, trigger, request_id = raw["revision_kind"], raw["trigger"], raw["request_id"]
+    if kind not in SOURCE_KINDS:
+        raise CodeSecurityReviewError("source.kind is invalid")
+    if not isinstance(provider, str) or _PROVIDER.fullmatch(provider) is None:
+        raise CodeSecurityReviewError("source.provider is invalid")
+    if revision_kind not in REVISION_KINDS:
+        raise CodeSecurityReviewError("source.revision_kind is invalid")
+    if revision_kind == "snapshot" and kind != "local_path":
+        raise CodeSecurityReviewError("only a local_path source may scan a snapshot")
+    if trigger not in TRIGGERS:
+        raise CodeSecurityReviewError("source.trigger is invalid")
+    if request_id is not None and (
+        trigger != "console"
+        or not isinstance(request_id, str)
+        or _REQUEST_ID.fullmatch(request_id) is None
+    ):
+        raise CodeSecurityReviewError("source.request_id is invalid")
+    return {
+        "kind": kind,
+        "provider": provider,
+        "revision_kind": revision_kind,
+        "trigger": trigger,
+        "request_id": request_id,
+    }
+
+
+def _validate_producers(raw: object) -> list[str]:
+    if (
+        not isinstance(raw, list)
+        or len(raw) > _MAX_PRODUCERS
+        or not all(isinstance(item, str) and _PRODUCER.fullmatch(item) for item in raw)
+        or raw != sorted(set(raw))
+    ):
+        raise CodeSecurityReviewError("producers must be a sorted list of short producer names")
+    return list(raw)
 
 
 def review_decision(package: Mapping[str, object]) -> str:
@@ -195,8 +301,14 @@ def code_security_drift_payload(raw: Mapping[str, object]) -> dict[str, object]:
 
 __all__ = [
     "EVENT_TYPE",
+    "LEGACY_SCHEMA_VERSION",
     "PACKAGE_KIND",
+    "REVISION_KINDS",
+    "SCHEMA_VERSION",
+    "SOURCE_KINDS",
+    "TRIGGERS",
     "CodeSecurityReviewError",
+    "ReviewSource",
     "build_review_package",
     "code_security_drift_payload",
     "review_decision",

@@ -59,6 +59,12 @@ the snapshot under this verifier boundary.
 Forseti's version 2 baseline evaluation coverage and the T0 Rule receipts derived from it are
 framework assessment evidence for [framework Rule evidence](framework-rule-evidence.md). They are
 not issued by this verifier and can't satisfy a governed decision source.
+Semantic `semantic-model-call-progress` reports are live presentation records of planning model
+calls. They carry no prompt, response, or evidence reference, are not issued by this verifier, and
+can't satisfy a governed decision source or support an answer claim.
+A typed source reason that a current-state read reports beside `resource_scope_incomplete`, such as
+`inventory_observation_pending`, explains an incomplete inventory scope. It is not operational
+evidence and can't complete a read or satisfy a decision source.
 
 ## Current state and gap
 
@@ -599,6 +605,8 @@ tracks what remains.
 Code-security remediation follows the same rule. A coding agent's fixed claim counts only after an
 independent, coverage-equivalent rescan of the claimed commit finds no matching root cause. The
 opt-in proof lane reproduces a verified finding in its own sandbox instead of trusting the scanner.
+A completed Console scan request is evidence only that a scan of that commit ran and recorded a
+review. It never closes an issue, and a review's source or trigger never upgrades a claim.
 See [Code Security Findings](../operations/code-security-findings.md#result-import-and-verification).
 
 ## Non-goals

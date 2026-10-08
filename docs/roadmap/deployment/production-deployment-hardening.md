@@ -156,9 +156,30 @@ platform has no Cost pseudonym key binding, the run skips only the Operator Serv
 in the summary, because the key prerequisite reads platform outputs that the reconciliation records.
 A refresh-only apply also re-evaluates root outputs with the plan's inputs. The run excludes any root
 whose plan would turn a deployed output into an empty, null, unknown, or deleted value, and names
-those outputs in the summary. The legacy platform root falls in this class: its outputs depend on
-deploy-time inputs that targeted `deploy-dev` runs applied piecemeal, which drift workflows can't
-reproduce.
+those outputs in the summary. For the legacy platform root, both drift workflows reconstruct only
+the output-affecting feature inputs from existing non-empty tracked outputs. Model capabilities
+come from the exact tracked deployments and preserve the stored resolved-model digest without
+depending on a newer repository binding. Missing outputs, partial governed identity sets, or
+malformed model deployments stop the run before a plan. The saved refresh-only plan therefore preserves
+deploy-owned outputs while recording reviewed provider drift; desired
+configuration changes still require a separately reviewed deployment plan. The bounded Cost
+pseudonym prerequisite reads the tracked legacy Operator identity directly when the newer
+toggle-gated root output is absent, so creating the key does not require a broad platform apply.
+Service input materialization loads its standard-library-only approval contract directly from the
+exact checked-out source without executing the package's optional runtime imports. It therefore
+does not depend on packages that happen to be installed in a particular self-hosted runner
+environment.
+Outputs for static Key Vault secret names and versionless operator-request seed references derive
+from their declared names rather than provider-computed attributes, so a post-reconciliation
+refresh plan can prove them without an apply-time unknown.
+The installation anchor uses Terraform's plan timestamp with ignored input changes. The first
+apply still records one immutable installation time, while later plans can prove the retained
+binding and timestamp without an apply-time unknown.
+The Terraform data provider can nevertheless project those two retained outputs as unknown during
+a refresh-only plan. Drift summarization treats only an update of
+`installation_binding` or `installation_created_at` with a retained non-empty prior value and an
+unknown next value as plan noise for the legacy root. Another root, output, action, concrete value
+change, resource drift, or move remains drift.
 Before the bootstrap plan, it independently reads the runner VM and requires the reviewed size,
 `Local` `ResourceDisk` placement, and no managed OS disk. A mismatch reports the blue/green
 replacement action and fails without changing Azure state. The ephemeral profile stays allocated;

@@ -13,6 +13,10 @@ qualification or execution authority.
 | [instance-calibration.v2.json](../../eval/ontology-retrieval/instance-calibration.v2.json) | Expanded 64-query calibration, including all v1 calibration cases unchanged. |
 | [instance-holdout.v1.json](../../eval/ontology-retrieval/instance-holdout.v1.json) | Spent holdout. Preserve its evidence; don't tune on it or reuse it for qualification. |
 | [instance-holdout.v2.json](../../eval/ontology-retrieval/instance-holdout.v2.json) | Spent holdout. Independently authored and reviewed; measured once at `2572f9a1b1`. Don't tune on its cases or reuse it for qualification. |
+| [instance-calibration.v3.json](../../eval/ontology-retrieval/instance-calibration.v3.json) | 64 new diagnostic calibration cases for the holdout v2 failure classes. Calibration only; it can't qualify a change. |
+| [instance-holdout.v3.json](../../eval/ontology-retrieval/instance-holdout.v3.json) | Spent holdout. A blinded author wrote it and a separately blinded reviewer reviewed it; measured once at `19bbbe3c95`. Don't tune on its cases or reuse it for qualification. |
+| [instance-holdout.v4.json](../../eval/ontology-retrieval/instance-holdout.v4.json) | Spent holdout. A blinded author wrote it and a separately blinded reviewer reviewed it; measured once at `2f8eaaaa1f`. Don't tune on its cases or reuse it for qualification. |
+| [instance-holdout.v5a.json](../../eval/ontology-retrieval/instance-holdout.v5a.json), [instance-holdout.v5b.json](../../eval/ontology-retrieval/instance-holdout.v5b.json) | Spent 128-case holdout in two disjoint halves. A blinded author wrote them and a separately blinded reviewer reviewed them; measured once under protocol `agreement-gated-pooled-qualification.v1` at `b1ac82a6b1`. Don't tune on their cases or reuse them for qualification. |
 
 The v2 calibration has 32 singleton positives, eight multi-target positives and 24 no-match cases.
 Each language covers four distinct singleton targets per type and at least four samples for every
@@ -104,7 +108,9 @@ Explicitly resolve `diagnostic.ontology-candidate-selection` for `semantic.query
 profile (`shadow`), not a replacement for the active plan profile.
 
 Configure a separate `AzureOpenAISemanticPlanningModel` with that compiled plan text and replay
-manifest, exactly one target and a timeout no greater than ten seconds. Call
+manifest, exactly one target and a timeout no greater than 20 seconds. Pass the profile's
+`reasoning_effort` and `reserved_output_tokens` to the adapter configuration; omitting the effort
+silently runs the provider default instead of the reviewed profile. Call
 `propose_candidate_selection` with the query, manifest, complete canonical build and staged
 snapshot. The source validator checks the generation and principal manifest before dispatch.
 Context above 128 KiB, changed content after input minimization, and prompt-budget overflow hold
@@ -131,6 +137,42 @@ genuine property-constrained sets, such as severity, criticality, type, status, 
 identity mediated by the model and verified by code; it doesn't add phrase tables or lexical lookup
 logic.
 
+The prompt also states the evaluator's exact predicate semantics. A predicate reads one top-level
+property. `exists` and `absent` test only that property's presence. `contains` matches a substring
+of text, an equal element of an array, or an equal key of an object, so a requested entry inside an
+object-valued property, such as a Resource whose `properties` object has an `aliases` entry, is
+expressed as `contains` with that key. `at_least` and `at_most` are inclusive and compare numbers
+numerically and text in code-point order, so ISO 8601 UTC timestamps in the documents' form compare
+chronologically. Wording about why the requester is asking is context, while any stated property of
+the requested objects, including its `purpose`, remains a condition. Focused tests pin each stated
+meaning to `object_matches_predicates` and show that declared predicates reproduce the nested-entry
+and time-window calibration labels.
+
+**Nested-value conditions.** ObjectSet predicates read top-level properties only, so a request
+constrained by a value inside an object-valued property, such as Resource `properties.purpose`, was
+inexpressible. The model returned a clarification, emitted a predicate that couldn't match, or
+selected an instance it judged itself. A clause can now carry `nested_predicates`. Each one names a
+top-level property, one key inside it, and the same operator and operand shapes as `ObjectPredicate`.
+
+- **Evaluation:** the reader adds an `exists` predicate on each named parent, so the secured gateway
+  authorizes the parent as it does any predicate property. It then applies the nested conditions to
+  the ACL-projected materialized records with `object_matches_predicates`. Only instances whose
+  parent holds an object can match, so `absent` means a missing key inside an existing parent.
+- **Schema:** the payload lists `allowed_nested_predicate_keys`, the keys observed in the prepared
+  projection for each allowed object-valued property. The strict schema has one nested variant per
+  parent with nullable operands. A schema above 500 enum values holds before dispatch.
+- **Bounds and digests:** a clause allows 16 predicates and 16 nested predicates. The shared
+  ObjectSet contract is unchanged. A clause without nested conditions serializes as before, so its
+  proposal digest is unchanged. The payload and response-schema digests do change, so verify
+  earlier evidence with the source commit it records.
+
+A qualifier that no property stores but the documents show directly, such as the language of a
+stored alias, stays a condition. The model keeps the expressible conditions and adds exact
+`object_ids` for only the satisfying instances, and returns an unsupported-constraint clarification
+instead of a near match when none satisfies it. An earlier sentence that sent stored nested values
+to exact `object_ids` caused near-match substitution and was reverted before nested conditions
+existed.
+
 Before a live semantic calibration, dry-run all planned calibration cases with the exact
 manifest-bound response schema and prompt profile. The dry-run should report the maximum and median
 estimated request tokens and fail before any provider call when any case exceeds the request-token
@@ -142,12 +184,15 @@ The diagnostic profile owns the model role and optional reasoning effort. The cu
 diagnostic candidate-selection role is `t2.reasoner.primary` with `reasoning_effort="low"` for
 models that support the field; the effort is included in the request-parameter digest.
 
-Semantic evaluation bounds each proposal call at ten seconds and keeps the 600-second stage total;
+Semantic evaluation bounds each proposal call at 20 seconds and keeps the 600-second stage total;
 embedding calibration keeps its five-second call bound. The earlier five-second ceiling came from
 the embedding budget. Calibration evidence on the reviewed role shows provider-side tail latency
 that output size doesn't explain: p50 about 2.2 seconds, p95 about 3.4-3.5 seconds, and calls
 that reached the five-second ceiling about once every 24-36 calls. The qualifying attempt at
-`84d7d1a26b` aborted on that deadline in both stages before any quality result. This is a
+`84d7d1a26b` aborted on that deadline in both stages before any quality result. On 2026-10-08,
+two calibration attempts on `gpt-5.6-sol` version `2026-07-09` aborted on the later 10-second
+deadline after 23-24 calls at different cases, while completed calls showed p50 2.0-2.6 seconds and
+a maximum of 8.2-8.3 seconds, so the bound rose to 20 seconds. This is a
 diagnostic bound only. It doesn't approve production latency, and enabling semantic ranking
 anywhere still requires a separate latency qualification.
 
@@ -178,7 +223,42 @@ of 16 each), and ko-adversarial no-match precision was `0.5`. Every other cohort
 Per-call latency stayed within the 10-second bound, with a holdout maximum of 8.3 seconds.
 Semantic ranking stays disabled. Both holdouts are spent. A later change needs failure-class
 diagnosis from calibration, the corpus, and newly reviewed calibration samples only, followed by
-a newly authored independent `instance-holdout.v3`.
+a newly authored independent `instance-holdout.v3`. That holdout now exists and is unmeasured.
+
+Development diagnostics on 2026-10-08 used the attested `gpt-5.6-sol` deployment, version
+`2026-07-09`, with the reviewed `low` effort. Before nested conditions, calibration v2 passed and
+calibration v3 failed with eight positive or ambiguous misses; the unchanged earlier prompt also
+failed v3 with seven. An independent blinded reviewer reworded `cal-v3-en-p15`, whose strict
+reading of "after the 08:30 update" excluded its labeled incident, and kept the labels. With nested
+conditions and the document-visible qualifier statement at `828ff8909b`, calibration v2 and v3
+both passed every cohort at `1.0` in two consecutive attempts each, with offline verification.
+The qualifying diagnostic at merged `19bbbe3c95` ran calibration v2, calibration v3, and holdout
+v3 once each with offline verification. Calibration v2 passed every cohort at `1.0`. Calibration
+v3 missed two expressible positives as unsupported-constraint clarifications. Holdout v3 failed
+only en-positive recall@5 and MRR at `0.9375` (15 of 16); every other cohort, including every
+negative, adversarial, and ambiguous cohort, was `1.0`. Holdout v3 is spent, and its cases weren't
+inspected.
+
+The next cycle used calibration only. A statement that requesting a single instance or naming the
+object's own role doesn't add a condition removed the spurious clarifications. A stricter variant
+that required the model to name the inexpressible condition caused 20-second timeouts and was
+replaced. A further statement copies free-text `contains` operands from a matching stored value
+rather than the request's paraphrase. At `c3559f2c1f`, calibration v2 passed twice and calibration
+v3 passed three times, every cohort at `1.0`, with no abort. A blinded author wrote the new
+`instance-holdout.v4`, and a separately blinded reviewer corrected one case and approved it. The
+qualifying diagnostic at merged `2f8eaaaa1f` measured it once. Calibration v2 passed every cohort
+at `1.0`. Calibration v3 missed `cal-v3-en-a04`, a time-window request that had passed three
+development runs at the same prompt, as an unsupported-constraint clarification. Holdout v4 passed
+every positive, ambiguous, adversarial, and English negative cohort at `1.0`; ko-negative no-match
+precision was `0.75` (3 of 4). Holdout v4 is spent, and its cases weren't inspected.
+
+Across the last two qualifying runs, each failure was one or two different cases out of 192, and
+the calibration case that failed had passed repeated development runs. With every threshold at
+`1.0` on cohorts of 4 or 16 samples and a stochastic model, a single run can fail on variance alone.
+Repeating cycles until one run passes would select a favorable sample rather than establish
+quality, so the qualification protocol needs an owner decision before another holdout is spent. A
+development experiment with `reasoning_effort="medium"` passed calibration v3 twice at about 3
+seconds per call; two runs can't show lower variance than `low`.
 
 ## Measure semantic proposals separately
 
@@ -192,7 +272,7 @@ selection strategy, target, transmitted prompt/schema and effective request para
 including output tokens and timeout. Model name and version are caller-attested claims:
 the caller still verifies the live deployment and obtains scoped authorization.
 
-- **Limits:** at most 64 proposal-interface attempts, 600 seconds for measurement and ten
+- **Limits:** at most 64 proposal-interface attempts, 600 seconds for measurement and 20
   seconds per question. Current-source validation runs before and after measurement, with a
   120-second ceiling per check inside the total deadline.
 - **Durable ordering:** each call intent, accepted proposal and measurement is persisted before
@@ -236,6 +316,57 @@ Do not obtain the expected plan or file digest from untrusted evidence and treat
 
 Example: below-threshold recall remains `passed=False` after verification. Removing the failure
 codes and rewriting the summary metrics does not turn the retained measurements into a pass.
+
+## Qualify with the pre-registered agreement protocol
+
+A stochastic proposal model can't honestly meet a single-run `1.0` threshold. Each of the last two
+qualifying runs failed on one or two different cases out of 192, and repeating runs until one
+passes would select a favorable sample. Protocol `agreement-gated-pooled-qualification.v1`
+replaces that rule. It was fixed in
+[ontology_semantic_qualification.py](../../services/core-control-plane/src/fdai/delivery/catalog_search/ontology_semantic_qualification.py)
+before any holdout it judges was measured, and its parameters can't change without a new protocol
+id.
+
+- **Agreement gate:** a gated decision combines K=2 independent passes of the same stage. A case is
+  selected only when both passes return exactly the same membership set. Any disagreement becomes a
+  clarification, so model variance turns into a safe abstention instead of a wrong selection.
+- **Repetitions:** each case receives R=3 independent gated decisions, so each case set runs six
+  sequential passes. Decision *i* uses passes 2*i*-1 and 2*i* in run order.
+- **Pooling:** calibration pools calibration v2 and v3. Qualification pools the two disjoint halves
+  `instance-holdout.v5a` and `instance-holdout.v5b`. Each half is a separate evaluation binding.
+- **Wrong selection (safety gate):** a gated decision that returns any identity outside its labels.
+  The pooled one-sided 95% Clopper-Pearson upper bound must be at most 2%, and each language's bound
+  at most 3%. With 384 pooled decisions, that allows at most two wrong selections in total and at
+  most one per language.
+- **Correct answers (usefulness):** across answerable cases in each language, at least 95% of gated
+  decisions must return exactly the labeled set. Clarifications lower this rate but are never wrong
+  selections.
+- **Stages:** the calibration pool and the holdout pool must each pass, at one merged commit with
+  the same model, prompt, and budgets.
+- **Evidence:** every pass is verified offline with
+  `verify_ontology_semantic_evidence` and pinned by file digest before aggregation. A digest can't
+  count twice.
+- **Aborts:** an aborted pass has no quality outcome. It's rerun in place at most once, and every
+  attempt is reported. A second abort for the same pass fails the qualification.
+- **Reporting:** the full report is recorded whether it passes or fails. A failed qualification
+  spends both holdout halves.
+
+The qualification at merged `b1ac82a6b1` passed under this protocol on `gpt-5.6-sol` version
+`2026-07-09` with `low` effort.
+
+| Pool | Decisions | Wrong selections (95% upper bound) | Disagreements | Correct rate (en / ko) |
+|---|---:|---:|---:|---|
+| Calibration v2 + v3 | 384 | 0 (0.78%) | 0 | 1.0 / 1.0 |
+| Holdout v5a + v5b | 384 | 0 (0.78%) | 5 | 0.958 / 1.0 |
+
+Each pool ran 12 offline-verified passes of 64 calls. Three passes aborted (one in calibration v3,
+two in holdout v5b), and each in-place rerun completed. Holdouts v5a and v5b are now spent. Semantic
+ranking stays disabled; enabling it still requires governed activation, latency qualification, and
+human approval.
+
+The report keeps `production_qualification` and `execution_authority` at `False`. Passing qualifies
+only the diagnostic method; runtime activation, latency qualification, and human approval gates
+are unchanged.
 
 ## Testing
 

@@ -101,6 +101,7 @@ def candidate_proposal_payload(
         "snapshot_digest": staged.snapshot_digest,
         "generation_digest": build.metadata.generation_digest,
         "allowed_predicate_properties": candidate_predicate_property_catalog(manifest),
+        "allowed_nested_predicate_keys": candidate_nested_property_catalog(manifest, build),
         "documents": [
             {"document_id": document.rule_id, "content": json.loads(document.text)}
             for document in build.documents
@@ -166,6 +167,40 @@ def candidate_predicate_property_catalog(manifest: QueryManifest) -> tuple[dict[
             }
         )
     return tuple(sorted(rows, key=lambda item: str(item["object_type"])))
+
+
+def candidate_nested_property_catalog(
+    manifest: QueryManifest, build: SemanticGenerationBuild
+) -> tuple[dict[str, object], ...]:
+    """Return keys observed inside allowed object-valued properties of prepared instances."""
+    allowed = {
+        str(item["object_type"]): set(item["properties"])  # type: ignore[call-overload]
+        for item in candidate_predicate_property_catalog(manifest)
+    }
+    keys: dict[tuple[str, str], set[str]] = {}
+    for document in build.documents:
+        if not document.rule_id.startswith("object:"):
+            continue
+        try:
+            payload = json.loads(document.text)
+            object_type = payload["object_type"]
+            properties = payload["properties"]
+        except (KeyError, TypeError, ValueError):
+            raise ValueError(
+                "candidate nested property catalog requires canonical object documents"
+            ) from None
+        if not isinstance(object_type, str) or not isinstance(properties, dict):
+            raise ValueError("candidate nested property catalog requires object properties")
+        for name, value in properties.items():
+            if name in allowed.get(object_type, ()) and isinstance(value, dict):
+                keys.setdefault((object_type, name), set()).update(
+                    str(key) for key in value if isinstance(key, str)
+                )
+    return tuple(
+        {"object_type": object_type, "property": name, "keys": tuple(sorted(found))}
+        for (object_type, name), found in sorted(keys.items())
+        if found
+    )
 
 
 def candidate_object_id_catalog(build: SemanticGenerationBuild) -> tuple[dict[str, object], ...]:

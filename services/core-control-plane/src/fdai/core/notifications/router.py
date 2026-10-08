@@ -216,8 +216,37 @@ class NotificationRouter:
           delivery failure, not a crash.
         - Every dispatch writes exactly one audit entry, then returns
           the :class:`RoutingResult`.
+        - An A1 message never resolves to a non-A1 route. A route added for
+          another tier therefore can't capture decision-bearing traffic that
+          would otherwise reach the default A1 route; the router escalates
+          instead.
         """
         route = self._matrix.resolve(message.category)
+        if (
+            message.trust_tier is TrustTier.A1_HIL_APPROVAL
+            and route.trust_tier is not TrustTier.A1_HIL_APPROVAL
+        ):
+            reason = (
+                f"route {route.category!r}: an A1 message resolved to a "
+                f"{route.trust_tier.value} route"
+            )
+            await self._hil_sink.escalate(message, reason)
+            await self._audit_dispatch(
+                message=message,
+                route=route,
+                outcome=RouteOutcome.TRUST_MISMATCH,
+                attempted=[],
+                receipts=[],
+                delivered_channel_id=None,
+                escalation_reason=reason,
+                skip_reasons=[],
+            )
+            return RoutingResult(
+                outcome=RouteOutcome.TRUST_MISMATCH,
+                route=route,
+                attempted_channel_ids=(),
+                escalation_reason=reason,
+            )
         if route.delivery_mode is DeliveryMode.FANOUT:
             return await self._dispatch_fanout(message, route)
 

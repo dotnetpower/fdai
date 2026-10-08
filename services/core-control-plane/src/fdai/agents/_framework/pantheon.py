@@ -261,8 +261,10 @@ _HEIMDALL = AgentSpec(
         ),
         conversation_tool(
             "read_drift_status",
-            "Retained drift finding evidence.",
+            "Retained drift evidence, including code-security scan reviews.",
             "drift_evidence_available",
+            "code_security_latest_decisions",
+            "code_security_reviews_read",
         ),
     ),
     executes=(),

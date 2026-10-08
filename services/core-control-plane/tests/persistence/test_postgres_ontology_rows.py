@@ -270,7 +270,7 @@ async def test_pending_reconciliation_is_scoped_to_the_active_snapshot() -> None
     ) in connection.statement
     assert "pending.scope_ref IN" not in connection.statement
     # No exact subjects: every pending object observation in the active scopes counts.
-    assert connection.params == ([], [], "inventory-ontology:active-scope-checkpoint")
+    assert connection.params == ([], [], [], [], "inventory-ontology:active-scope-checkpoint")
     assert "cardinality(%s::text[])=0 OR (pending.subject_kind='object'" in connection.statement
     assert "active_checkpoint.value->'scope_refs'=snapshot.scopes" in connection.statement
     assert "marker.key = 'inventory-relationship-reconciliation:' || active_scope.scope" in (
@@ -512,6 +512,66 @@ async def test_an_exact_id_read_counts_only_its_own_pending_observations() -> No
     assert connection.params == (
         ["object-a", "object-b"],
         ["object-a", "object-b"],
+        [],
+        [],
         "inventory-ontology:active-scope-checkpoint",
     )
     assert "pending.subject_ref=ANY(%s::text[])" in connection.statement
+
+
+async def test_a_typed_read_counts_only_pending_observations_of_its_types() -> None:
+    from fdai.delivery.persistence.postgres_ontology_source_coverage import (
+        resource_graph_source_coverage_detail,
+    )
+
+    connection = _CoverageConnection()
+
+    await resource_graph_source_coverage_detail(
+        connection,  # type: ignore[arg-type]
+        (),
+        requires_resource_coverage=True,
+        expresses_relationships=False,
+        subject_types=("compute.vm",),
+    )
+
+    assert connection.params == (
+        [],
+        [],
+        ["compute.vm"],
+        ["compute.vm"],
+        "inventory-ontology:active-scope-checkpoint",
+    )
+    # A relationship observation cannot change an object-only read; an object observation of
+    # another Resource type cannot change a read limited to these types.
+    assert (
+        "(pending.subject_kind='object' AND pending.subject_type=ANY(%s::text[]))"
+        in connection.statement
+    )
+
+
+@pytest.mark.parametrize(
+    ("equals", "text_in", "expected"),
+    [
+        ({"type": "compute.vm"}, None, ("compute.vm",)),
+        (
+            None,
+            {"type": ("sql.server", "cache.redis", "sql.server")},
+            ("cache.redis", "sql.server"),
+        ),
+        ({"type": "compute.vm"}, {"type": ("compute.vm", "disk")}, ("compute.vm",)),
+        # A disjoint pair returns no rows, so it keeps the global gap.
+        ({"type": "compute.vm"}, {"type": ("disk",)}, ()),
+        # A non-text equality or another property never narrows the gap.
+        ({"type": 3}, None, ()),
+        ({"location": "koreacentral"}, None, ()),
+        (None, None, ()),
+    ],
+)
+def test_resource_type_constraint_reads_only_pushed_type_filters(
+    equals: dict[str, object] | None,
+    text_in: dict[str, tuple[str, ...]] | None,
+    expected: tuple[str, ...],
+) -> None:
+    from fdai.delivery.persistence.postgres_ontology_graph import _resource_type_constraint
+
+    assert _resource_type_constraint(equals, text_in) == expected
