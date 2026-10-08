@@ -110,9 +110,10 @@ export function RepositoryRegistrationForm({
             value={ref}
             disabled={submitting}
             placeholder="HEAD"
-            title={t("codeSecurity.register.defaultRefHint")}
+            aria-describedby="code-security-default-ref-hint"
             onInput={(event) => setRef((event.currentTarget as HTMLInputElement).value)}
           />
+          <small id="code-security-default-ref-hint" class="muted">{t("codeSecurity.register.defaultRefHint")}</small>
         </label>
         <label>
           <span>{t("codeSecurity.register.exposure")}</span>
