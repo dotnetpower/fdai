@@ -305,7 +305,10 @@ try {
       await frame.locator('[data-trajectory-expand="all"]').click();
       assert.equal(await frame.locator("details[data-step-index][open]").count(), 7);
       assert.match(await frame.locator('details[data-step-index="4"]').innerText(), /Metrics within 15-minute freshness bound/);
-      assert.match(await frame.locator('details[data-step-index="5"]').innerText(), /fdai\.verdict\.hil/);
+      assert.match(await frame.locator(".tj-handoff").nth(2).innerText(), /fdai\.verdict\.hil/);
+      assert.equal(await frame.locator(".tj-mark").count(), 7);
+      await frame.locator('.tj-mark[data-step-jump="6"]').click();
+      assert.equal(await frame.locator('details[data-step-index="6"]').getAttribute("open"), "");
       await frame.locator('.tj-item[data-trajectory="sample-prior"]').click();
       await frame.locator('details[data-step-index="4"] > summary').click();
       assert.equal(await frame.locator('details[data-step-index="4"] .tj-safeguards > div').count(), 7);
