@@ -1,7 +1,7 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: a7a0bc559e17a77f7c2cc26816607085ffe022b5
+translation_source_sha: e667d1943fec3d12875963dc150f1013d1573a6c
 translation_revised: 2026-10-08
 ---
 
@@ -324,6 +324,10 @@ PostgreSQL 근거 공급자는 다음 경계를 따릅니다.
 - 이벤트 버스의 결정 메시지는 전달 수단일 뿐 승인이 아닙니다. Operator는 대기 중인 승인을 검증하는
   같은 트랜잭션에서 영속 결정 영수증을 기록하고, Core는 메시지가 그 영수증과 일치할 때만 결정을
   라우팅합니다. 위조되거나 변경된 메시지는 park, 정족수 슬롯, 실행기에 닿기 전에 거부됩니다.
+- 승인 요청은 A1 라우트로만 전달됩니다. 알림 라우터는 다른 계층의 라우트로 A1 메시지를 전달하지 않고
+  HIL 싱크로 에스컬레이션하므로, A1 밖의 라우팅 변경은 결정이 걸린 콜백의 경로를 바꿀 수 없습니다. 그래서
+  거버넌스 신원 attestation은 A1 라우팅 변경에만 필요합니다
+  ([규칙 거버넌스](../rules-and-detection/rule-governance-ko.md#알림-라우팅-범위)).
 
 ## 감사가능성(Auditability)
 

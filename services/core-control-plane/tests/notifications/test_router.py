@@ -606,6 +606,34 @@ class TestRouterTrustTier:
         assert len(list(sink.entries)) == 1
 
 
+class TestRouterA1RouteInvariant:
+    async def test_a1_message_on_a_non_a1_route_escalates_without_sending(self) -> None:
+        router, _, audit, sink, teams_hil, teams_ops, slack_hil, pd, oncall, gov = _build_router()
+        message = NotificationMessage(
+            category="operational_alert",
+            trust_tier=TrustTier.A1_HIL_APPROVAL,
+            correlation_id="cid-captured-1",
+            title="Approval needed",
+            body_markdown="A decision-bearing callback.",
+            severity=Severity.WARN,
+            audit_id="audit-captured-1",
+        )
+        result = await router.dispatch(message)
+        assert result.outcome is RouteOutcome.TRUST_MISMATCH
+        assert result.attempted_channel_ids == ()
+        assert "A1 message resolved to a a2_operational_alert route" in str(
+            result.escalation_reason
+        )
+        assert len(list(sink.entries)) == 1
+        for channel in (teams_hil, teams_ops, slack_hil, pd, oncall, gov):
+            assert channel.records == ()
+
+    async def test_a1_message_through_the_default_a1_route_still_delivers(self) -> None:
+        router, *_ = _build_router()
+        result = await router.dispatch(_hil_message())
+        assert result.outcome is RouteOutcome.DELIVERED
+
+
 # ---------------------------------------------------------------------------
 # Router - unresolved channel-id
 # ---------------------------------------------------------------------------

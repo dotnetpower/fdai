@@ -37,4 +37,5 @@
 /.github/instructions/           @dotnetpower/fdai-owners
 /.github/hooks/                  @dotnetpower/fdai-owners
 /scripts/agent/                  @dotnetpower/fdai-owners
+/scripts/governance/             @dotnetpower/fdai-owners
 /scripts/lib/design-routes.json  @dotnetpower/fdai-owners
