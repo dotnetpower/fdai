@@ -133,8 +133,22 @@ for (const locale of ["en", "ko"] as const) {
     await expect(detail.locator('details[data-step-seq="4"] .tj-step-body')).toContainText("example-workload");
 
     if (!mobile) {
-      await view.locator(".tj-lanes .tj-avatar").nth(2).hover();
+      await view.locator(".tj-lane-label").nth(2).hover();
       await expect(page.getByRole("tooltip")).toContainText("Forseti");
+      await page.mouse.move(0, 0);
+      const lastMarker = markers.last();
+      await lastMarker.hover();
+      const tooltip = page.getByRole("tooltip");
+      await expect(tooltip).toContainText("Var");
+      await expect(tooltip).toContainText("hil_pending");
+      const markerBox = (await lastMarker.boundingBox())!;
+      const tipBox = (await tooltip.boundingBox())!;
+      expect(Math.abs(tipBox.y + tipBox.height - markerBox.y)).toBeLessThanOrEqual(24);
+      expect(tipBox.x).toBeLessThanOrEqual(markerBox.x + markerBox.width);
+      expect(tipBox.x + tipBox.width).toBeGreaterThanOrEqual(markerBox.x);
+      const clipped = await view.locator(".tj-lane-label > span:last-child").evaluateAll((labels) =>
+        labels.filter((label) => label.scrollWidth > label.clientWidth + 1 || label.scrollHeight > label.clientHeight + 1).length);
+      expect(clipped).toBe(0);
     }
 
     const geometry = await page.evaluate(() => {

@@ -103,15 +103,19 @@
 .tj-map figcaption { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; margin-bottom: 14px; }
 .tj-map h3, .tj-section-head h3 { margin: 0; font-size: var(--cs-type-panel-title-size); line-height: var(--cs-type-panel-title-line-height); }
 .tj-map figcaption > span { color: var(--cs-text-soft); font-size: var(--cs-type-label-size); }
-.tj-map-grid { display: grid; grid-template-columns: 120px minmax(0, 1fr); column-gap: 12px; }
+.tj-map-grid { display: grid; grid-template-columns: fit-content(220px) minmax(0, 1fr); column-gap: 16px; }
 .tj-lanes { display: grid; grid-auto-rows: 36px; margin: 0; padding: 0; list-style: none; }
-.tj-lanes li { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: var(--cs-type-compact-size); font-weight: 500; }
-.tj-lanes li > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tj-lanes li { display: flex; align-items: center; min-width: 0; }
+.tj-lane-anchor { min-width: 0; max-width: 100%; }
+.tj-lane-label { display: inline-flex; align-items: center; gap: 8px; min-width: 0; font-size: var(--cs-type-compact-size); font-weight: 500; line-height: 1.2; cursor: default; }
+.tj-lane-label:focus { outline: none; }
+.tj-lane-label > span:last-child { display: -webkit-box; min-width: 0; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow-wrap: anywhere; }
 .tj-plot { position: relative; min-width: 0; }
 .tj-lane-line { position: absolute; left: 0; right: 0; border-top: 1px dashed color-mix(in srgb, var(--cs-text-soft) 25%, transparent); }
 .tj-links { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
 .tj-links path { fill: none; stroke: color-mix(in srgb, var(--cs-text-soft) 55%, transparent); stroke-width: 1.25; vector-effect: non-scaling-stroke; }
-.aa-trajectories .tj-mark { position: absolute; z-index: 1; height: 44px; min-width: 14px; padding: 0; transform: translateX(-2px); border: 0; border-radius: 8px; background: transparent; cursor: pointer; }
+.tj-mark-anchor { position: absolute; z-index: 1; display: block; height: 44px; min-width: 14px; transform: translateX(-2px); }
+.aa-trajectories .tj-mark { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; border-radius: 8px; background: transparent; cursor: pointer; }
 .aa-trajectories .tj-mark::before { content: ""; position: absolute; top: 15px; left: 0; right: 0; height: 14px; min-width: 10px; border: 2px solid var(--cs-card); border-radius: 7px; background: var(--cs-text); box-shadow: 0 1px 2px rgba(30, 43, 57, .2); transition: transform .12s ease; }
 .aa-trajectories .tj-mark[data-tone="good"]::before { background: var(--cs-sage); }
 .aa-trajectories .tj-mark[data-tone="attention"]::before { background: var(--cs-terracotta); }
@@ -201,7 +205,7 @@
   .tj-phases li:nth-child(4)::before { display: none; }
   .tj-map { padding: 14px 12px 12px; }
   .tj-map-grid { grid-template-columns: 26px minmax(0, 1fr); column-gap: 8px; }
-  .tj-lanes li > span:last-child { display: none; }
+  .tj-lane-label > span:last-child { display: none; }
   .tj-step-head { flex-direction: column; align-items: flex-start; gap: 2px; }
   .tj-step-body { margin-left: 0; padding: 14px; }
   .tj-section-head { flex-direction: column; align-items: flex-start; }
@@ -222,3 +226,6 @@
   .tj-phase-node, .tj-node { border-color: CanvasText; }
   .tj-status::before { background: CanvasText; }
 }
+.tj-mark-tip { display: grid; gap: 2px; }
+.tj-mark-tip strong { font-weight: 600; }
+.tj-mark-tip-meta { color: var(--cs-text-soft); font-family: var(--cs-font-mono, monospace); font-size: var(--cs-type-label-size); }

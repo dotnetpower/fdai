@@ -1,3 +1,4 @@
+import { Fragment } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { Tooltip } from "../components/tooltip";
 import type { AgentStreamStatus } from "../hooks/use-agent-stream";
@@ -461,8 +462,12 @@ function TrajectoryMap({
         <ul class="tj-lanes">
           {lanes.map((agent) => (
             <li key={agent}>
-              <AgentAvatar agent={agent} tooltip />
-              <span>{agent}</span>
+              <Tooltip content={agentLabel(agent)} anchorClassName="tj-lane-anchor">
+                <span class="tj-lane-label" tabIndex={-1}>
+                  <AgentAvatar agent={agent} />
+                  <span>{breakableName(agent)}</span>
+                </span>
+              </Tooltip>
             </li>
           ))}
         </ul>
@@ -485,14 +490,30 @@ function TrajectoryMap({
               category: t(`agentActivity.trajectory.category.${step.category}`),
               duration: step.durationMs === null ? "-" : fmtDur(step.durationMs),
             });
+            const outcome = step.outcome ?? step.decision;
             return (
-              <Tooltip key={step.seq} content={label}>
+              <Tooltip
+                key={step.seq}
+                placement="top"
+                anchorClassName="tj-mark-anchor"
+                anchorStyle={{ top: `${yOf(step.agent) - 22}px`, left: `${left.toFixed(2)}%`, width: `${width.toFixed(2)}%` }}
+                content={(
+                  <span class="tj-mark-tip">
+                    <strong>{t("agentActivity.trajectory.field.position", { index: index + 1 })}{" \u00b7 "}{step.agent}</strong>
+                    <span>{t(`agentActivity.trajectory.category.${step.category}`)}</span>
+                    <span class="tj-mark-tip-meta">
+                      +{fmtDur(step.endMs - trajectory.startMs)}
+                      {step.durationMs !== null ? ` \u00b7 ${fmtDur(step.durationMs)}` : ""}
+                    </span>
+                    {outcome ? <span class="tj-mark-tip-meta">{outcome}</span> : null}
+                  </span>
+                )}
+              >
                 <button
                   type="button"
                   class="tj-mark"
                   data-tone={step.tone}
                   aria-label={label}
-                  style={{ top: `${yOf(step.agent) - 22}px`, left: `${left.toFixed(2)}%`, width: `${width.toFixed(2)}%` }}
                   onClick={() => onJump(step.seq)}
                 />
               </Tooltip>
@@ -689,7 +710,19 @@ function AgentAvatar({ agent, tooltip = false }: { readonly agent: string; reado
     </span>
   );
   if (!tooltip) return avatar;
-  return <Tooltip content={role ? `${agent} \u00b7 ${role}` : agent}>{avatar}</Tooltip>;
+  return <Tooltip content={agentLabel(agent)}>{avatar}</Tooltip>;
+}
+
+function agentLabel(agent: string): string {
+  const role = agentRoleTitle(agent);
+  return role ? `${agent} \u00b7 ${role}` : agent;
+}
+
+/** Lets long producer ids wrap at their own separators instead of being cut. */
+function breakableName(name: string) {
+  return name.split(/(?<=[._])/).map((part, index) => (
+    <Fragment key={index}>{index > 0 ? <wbr /> : null}{part}</Fragment>
+  ));
 }
 
 function Icon({ path, size = 16 }: { readonly path: string; readonly size?: number }) {
