@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { chmod, readFile, stat, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { chromium } from "@playwright/test";
 
 const MAX_PRIVATE_BYTES = 2 * 1024 * 1024;
@@ -112,6 +113,11 @@ async function run() {
   const runStatePath = argument("--run-state");
   const outputPath = argument("--output");
   const origin = argument("--origin", "http://localhost:5273");
+  const storageStatePath = argument(
+    "--storage-state",
+    process.env.FDAI_E2E_STORAGE_STATE ??
+      path.join(process.cwd(), ".fdai/live-validation/browser-entra-storage-state.json"),
+  );
   if (!corpusPath || !runStatePath || !outputPath) throw new Error("required arguments are missing");
   const corpus = await privateJson(corpusPath);
   const runState = await privateJson(runStatePath);
@@ -126,9 +132,13 @@ async function run() {
     throw new Error("browser run is not armed");
   }
 
+  const storageState = await stat(storageStatePath)
+    .then((metadata) => (metadata.isFile() ? storageStatePath : undefined))
+    .catch(() => undefined);
+
   const browser = await chromium.launch({ headless: true });
   try {
-    const context = await browser.newContext();
+    const context = await browser.newContext(storageState ? { storageState } : {});
     await context.addInitScript(() => {
       localStorage.setItem("fdai:console:show-model-trace", "true");
     });
@@ -158,21 +168,24 @@ async function run() {
         include_model_trace: true,
       });
       requestSha256 = createHash("sha256").update(modified).digest("hex");
-      await route.continue({
-        postData: modified,
-        headers: { ...route.request().headers(), "content-type": "application/json" },
-      });
-    });
-    page.on("response", (response) => {
-      const url = new URL(response.url());
-      if (url.pathname !== "/chat/stream" || response.request().method() !== "POST") return;
       try {
-        validateChatResponse(response.status(), response.headers()["content-type"]);
+        // The chat endpoint streams text/event-stream; once the page's own
+        // fetch() reader drains it, Chromium no longer has the body
+        // available for Network.getResponseBody. Fetch it from the Node
+        // side instead so the full text is captured before replaying the
+        // identical response to the page.
+        const upstream = await route.fetch({
+          postData: modified,
+          headers: { ...route.request().headers(), "content-type": "application/json" },
+        });
+        validateChatResponse(upstream.status(), upstream.headers()["content-type"]);
+        const bodyText = await upstream.text();
+        await route.fulfill({ response: upstream, body: bodyText });
+        responsePromiseResolve(bodyText);
       } catch (error) {
         responsePromiseReject(error);
-        return;
+        await route.abort("failed").catch(() => {});
       }
-      response.text().then(responsePromiseResolve, responsePromiseReject);
     });
     await page.goto(origin, { waitUntil: "domcontentloaded", timeout: 30_000 });
     const launcher = page.locator(".deck-invoke");
@@ -289,7 +302,8 @@ async function run() {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  run().catch(() => {
+  run().catch((e) => {
+    console.error("DEBUG RUN ERROR:", e && e.stack || e);
     process.exitCode = 1;
   });
 }
