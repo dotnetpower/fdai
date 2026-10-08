@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: b513729af2e1fb77a24ea750efbf021b58e98bbc
+translation_source_sha: eca3ccdf65f7644d01b48b1ad38d4c8a5673e950
 translation_revised: 2026-10-07
 ---
 
@@ -634,6 +634,12 @@ CLI는 [Lifecycle 구성](lifecycle-configuration-ko.md) 패키지용 순수 검
 구체적으로 일치하는 재정의 블록을 해석하며, 서명 전에 Key Vault 참조가 아닌 리터럴 비밀 값이
 든 패키지를 거부합니다. 아직 이 검증기를 호출하는 패키저는 없으며, 배포나 적용 권한을 부여하지
 않습니다.
+
+CLI는 Hub와 [lifecycle 에이전트](../../../lifecycle/agent/README.md)가 함께 쓰는 순수 Lifecycle
+Plan 검사도 포함합니다. `canonical_plan_payload`는 Hub 키가 서명하는 정확한 바이트를 만들고,
+`decode_canonical_plan_payload`는 그 바이트를 다시 Plan으로 해석합니다. 디코더는 알 수 없거나
+빠졌거나 타입이 잘못된 필드와 시간대가 없는 만료 시각을 거부합니다. 서명은 검증하지 않으므로,
+에이전트는 `evaluate_plan_admission`이 수용한 Plan만 신뢰합니다.
 
 ## Standalone 배포 순서
 

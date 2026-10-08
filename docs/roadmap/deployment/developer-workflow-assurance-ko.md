@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: b5bddd9bc5576c54b3f11b94bed21520e20ae7d9
-translation_revised: 2026-10-07
+translation_source_sha: 138dfe15ca9c1d70844925c0d83f8358cfdb3a8f
+translation_revised: 2026-10-08
 ---
 
 # 개발 워크플로 보증
@@ -301,8 +301,9 @@ Core 수량·리소스 계산 검사는 클러스터에 접속하지 않고 루�
 루트 CI가 서비스 소스를 수집할 때는 해당 소스가 가져오는 모든 서드파티 패키지를 `dev`
 extra에 반영합니다. 런타임 이미지와 패키지 소유권은 서비스 매니페스트가 계속 담당합니다.
 루트 CI는 독립 배포 단위인 `lifecycle/`도 수집합니다. 루트 pytest, ruff, mypy 설정과 변경 경로 테스트
-범위에 포함되며, 각 단위는 `packages/deployment-cli`처럼 자체 잠금 파일을 두고 자기 디렉터리에서
-`uv run`으로 명령을 실행합니다.
+범위에 포함됩니다. Hub는 `packages/deployment-cli`처럼 자체 잠금 파일을 두고 자기 디렉터리에서
+`uv run`으로 명령을 실행합니다. 수명 주기 에이전트는 자체 잠금 파일이 없으며, 의존성을 이미 제공하는
+루트 개발 환경에서 실행됩니다.
 
 | 단계 | 필요한 근거 | 재사용 경계 |
 |------|-------------|-------------|
