@@ -313,6 +313,11 @@ The pre-commit derived-source gate always enters a lightweight staged-input sele
 complete check only when a pinned document, a System Knowledge source, the catalog, its checker, or
 the hook configuration changes. The selector derives the source set from the staged catalog, so a
 new registered source does not require a manually synchronized hook path filter.
+A developer can check a working tree for security issues before committing with
+`scripts/operations/code-security-scan.sh FOLDER --include-uncommitted`. That scan is local
+feedback only: its snapshot revision has no commit, so it can't certify a commit or serve as the
+base of a remediation pack. Local and deployed Operator data-source registries declare the same
+code-security review, repository, and scan-request projections.
 Core quantity/accounting checks use the root development extra's locked Kubernetes utility without contacting a cluster. Its untyped import exception is limited to `kubernetes.utils.quantity`; the adapter validates returned Decimal values. Dependency changes retain focused ownership and Core-wheel checks and do not enable the diagnostic channel or live collection.
 When root CI collects service sources, its `dev` extra mirrors every third-party package imported by
 those sources. Service manifests remain authoritative for runtime images and package ownership.

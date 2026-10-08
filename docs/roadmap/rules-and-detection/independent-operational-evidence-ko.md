@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 4da3096d2001dcff1cfe1d5fa2c69d3a7f254144
+translation_source_sha: 0f8521e080e407be0f7bbef81ec03e4dabe3319e
 translation_revised: 2026-10-08
 ---
 # 독립 운영 근거 발급
@@ -584,7 +584,9 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준 상대 경로입�
 
 코드 보안 조치도 같은 규칙을 따릅니다. 코딩 에이전트의 수정 주장은 주장한 커밋을 커버리지가 동등한
 재스캔으로 독립적으로 다시 검사해 같은 근본 원인이 없을 때만 인정됩니다. 선택 사항인 입증 레인은
-스캐너를 믿는 대신 자체 샌드박스에서 검증된 결과를 재현합니다.
+스캐너를 믿는 대신 자체 샌드박스에서 검증된 결과를 재현합니다. 완료된 Console 스캔 요청은 그 커밋을
+스캔해 검토를 기록했다는 증거일 뿐입니다. 이슈를 닫지 않으며, 검토의 출처나 시작 경로가 주장의
+신뢰도를 올리지도 않습니다.
 [코드 보안 점검 결과](../operations/code-security-findings-ko.md#결과-가져오기와-검증)를 참조하세요.
 
 ## 목표가 아닌 것
