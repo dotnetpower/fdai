@@ -5,7 +5,9 @@ Shipped Rules read provider-neutral properties such as ``enable_https_traffic_on
 carry the raw ARM payload instead, so this adapter derives each normalized property from one
 documented ARM field. It never infers a value from a missing field: an absent source leaves the
 normalized property absent, and Forseti then records the pair as ``property_unobserved`` rather
-than compliant. The only documented exceptions are listed per mapping below.
+than compliant. The documented exceptions are ARM fields omitted in their default state: Key Vault
+purge protection, AKS node pool zones, storage infrastructure encryption, and blob versioning. Each
+default is the non-compliant value, so it can only make a Rule deny, never pass.
 """
 
 from __future__ import annotations
@@ -82,11 +84,10 @@ def _object_storage(row: Mapping[str, Any]) -> dict[str, Any]:
     _public_network_access(projected, properties.get("publicNetworkAccess"))
     encryption = properties.get("encryption")
     if isinstance(encryption, Mapping):
-        _set_bool(
-            projected,
-            "infrastructure_encryption_enabled",
-            encryption.get("requireInfrastructureEncryption"),
-        )
+        # ARM omits this create-time flag unless it was set, and it defaults to false. Defaulting
+        # can only make the requiring Rule deny, never pass.
+        infrastructure = encryption.get("requireInfrastructureEncryption", False)
+        _set_bool(projected, "infrastructure_encryption_enabled", infrastructure)
     connections = properties.get("privateEndpointConnections")
     if isinstance(connections, Sequence) and not isinstance(connections, str):
         # Only an approved connection is a usable private endpoint.
@@ -240,6 +241,10 @@ def _kubernetes_node_pool(row: Mapping[str, Any]) -> dict[str, Any]:
     properties = _properties(row)
     if properties is None:
         return {}
+    if "availabilityZones" not in properties:
+        # Node pools come from the complete ARM agentPools response, which omits the field for a
+        # pool without zones; absence there is the documented "no zones" state.
+        return {"availability_zones": []}
     zones = properties.get("availabilityZones")
     if isinstance(zones, Sequence) and not isinstance(zones, str):
         if all(isinstance(item, str) for item in zones):

@@ -312,8 +312,10 @@ an extension can't be validated against a producer that never reaches `satisfied
   workload scope is labeled as such.
 - **Normalized inventory properties:** The Azure inventory adapter projects each evaluated
   property from one documented ARM field (`fdai/delivery/azure/arm_rule_properties.py`) during
-  full and real-time collection. A missing field stays absent; the only documented default is Key
-  Vault purge protection, whose ARM property never accepts `false`. Full collection also hydrates
+  full and real-time collection. A missing field stays absent. The only documented defaults are
+  ARM fields omitted in their default state: Key Vault purge protection, AKS node pool zones,
+  storage infrastructure encryption, and blob versioning. Each default is the non-compliant value,
+  so it can only make a Rule deny, never pass. Full collection also hydrates
   extension resources with bounded GETs: diagnostic settings (on the blob service for storage),
   blob soft delete and versioning, SQL transparent data encryption, and the PostgreSQL flexible
   server `require_secure_transport` parameter. A failed read leaves the property unobserved. NSG

@@ -1,7 +1,7 @@
 ---
 title: T0 기반 프레임워크 규칙 근거
 translation_of: framework-rule-evidence.md
-translation_source_sha: f59bf7fd0390496469a193c8689d432d62f1ebbc
+translation_source_sha: 1027650f95e70434f8e85a5ec0de48b6f6941d7b
 translation_revised: 2026-10-08
 ---
 # T0 기반 프레임워크 규칙 근거
@@ -301,7 +301,9 @@ WAF `rule` 요구 사항은 컨트롤 수준 교차워크 관계가 `partial`이
   않으며, 다른 워크로드 범위의 기록에는 그 사실을 표시합니다.
 - **정규화된 인벤토리 속성:** Azure 인벤토리 어댑터는 전체 수집과 실시간 수집에서 평가 대상 속성을
   문서화된 ARM 필드 하나에서 투영합니다(`fdai/delivery/azure/arm_rule_properties.py`). 필드가 없으면
-  속성도 비워 둡니다. 문서화된 기본값은 ARM 속성이 `false`를 받지 않는 Key Vault 제거 보호 하나뿐입니다.
+  속성도 비워 둡니다. 문서화된 기본값은 기본 상태일 때 ARM이 생략하는 필드뿐입니다. Key Vault 제거 보호,
+  AKS 노드 풀 영역, 스토리지 인프라 암호화, Blob 버전 관리가 해당합니다. 각 기본값은 비준수 값이므로
+  규칙을 거부로만 이끌 수 있고 통과시키지는 않습니다.
   전체 수집은 확장 리소스도 제한된 GET으로 읽습니다. 진단 설정(스토리지는 Blob 서비스), Blob 일시 삭제와
   버전 관리, SQL 투명 데이터 암호화, PostgreSQL 유연한 서버의 `require_secure_transport` 매개 변수가
   대상입니다. 읽기에 실패하면 속성은 관측되지 않은 상태로 남습니다. NSG 규칙은 정확한 리터럴만 비교하므로,

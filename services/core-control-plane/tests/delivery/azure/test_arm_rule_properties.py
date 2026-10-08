@@ -48,7 +48,7 @@ def test_absent_or_unrecognized_fields_stay_unobserved() -> None:
         }
     }
 
-    assert rule_properties("object-storage", row) == {}
+    assert rule_properties("object-storage", row) == {"infrastructure_encryption_enabled": False}
     assert rule_properties("object-storage", {}) == {}
     assert rule_properties("unmapped.type", {"properties": {"x": 1}}) == {}
     assert rule_properties("compute.vm", {"name": "vm"}) == {}
@@ -147,6 +147,10 @@ def test_identity_and_zones_count_only_when_the_projected_column_is_present() ->
     assert rule_properties(
         "kubernetes-node-pool", {"properties": {"availabilityZones": ["2", "1"]}}
     ) == {"availability_zones": ["1", "2"]}
+    assert rule_properties("kubernetes-node-pool", {"properties": {"count": 3}}) == {
+        "availability_zones": []
+    }
+    assert rule_properties("kubernetes-node-pool", {"name": "pool"}) == {}
 
 
 def test_database_and_cluster_fields() -> None:

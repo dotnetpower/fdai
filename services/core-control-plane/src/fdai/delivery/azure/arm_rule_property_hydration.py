@@ -89,8 +89,10 @@ def project_blob_service(payload: Mapping[str, Any]) -> dict[str, Any]:
     retention = properties.get("deleteRetentionPolicy")
     if isinstance(retention, Mapping) and isinstance(retention.get("enabled"), bool):
         projected["blob_soft_delete_enabled"] = retention["enabled"]
-    if isinstance(properties.get("isVersioningEnabled"), bool):
-        projected["blob_versioning_enabled"] = properties["isVersioningEnabled"]
+    # ARM omits isVersioningEnabled until versioning was configured; it defaults to disabled.
+    versioning = properties.get("isVersioningEnabled", False)
+    if isinstance(versioning, bool):
+        projected["blob_versioning_enabled"] = versioning
     return projected
 
 

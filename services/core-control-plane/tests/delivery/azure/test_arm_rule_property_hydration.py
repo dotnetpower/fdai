@@ -5,6 +5,7 @@ from __future__ import annotations
 import httpx
 from fdai.delivery.azure.arm_rule_property_hydration import (
     ArmRulePropertyHydrator,
+    project_blob_service,
     project_diagnostic_settings,
 )
 from fdai.delivery.azure.inventory import ResourceQueryResult
@@ -147,3 +148,8 @@ def test_settings_without_destination_or_enabled_category_do_not_count() -> None
     }
     assert project_diagnostic_settings({"value": [{"name": "broken"}]}) == {}
     assert project_diagnostic_settings({}) == {}
+
+
+def test_blob_versioning_defaults_to_disabled_only_inside_a_blob_service_response() -> None:
+    assert project_blob_service({"properties": {}}) == {"blob_versioning_enabled": False}
+    assert project_blob_service({}) == {}
