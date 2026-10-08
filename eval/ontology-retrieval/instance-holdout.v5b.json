@@ -1,0 +1,517 @@
+{
+  "schema_version": "1.0.0",
+  "origin": "independently_authored_synthetic_holdout",
+  "independently_reviewed": true,
+  "production_qualification": false,
+  "supersedes": "instance-holdout.v4.json",
+  "corpus": "instance-corpus.v1.json",
+  "purpose": "Half B of a frozen independent 128-case holdout for one pre-registered ontology instance-retrieval qualification; not production qualification.",
+  "candidate_ranking_policy": {
+    "minimum_score": 0.4,
+    "exact_weight": 1.0,
+    "lexical_weight": 0.25,
+    "semantic_weight": 1.0
+  },
+  "evaluation_policy": {
+    "schema_version": "1.1.0",
+    "top_k": 5,
+    "min_recall_at_k": 1.0,
+    "min_mean_reciprocal_rank": 1.0,
+    "min_no_match_precision": 1.0,
+    "min_samples_per_metric": 4,
+    "required_cohorts": [
+      "en-adversarial",
+      "en-ambiguous",
+      "en-negative",
+      "en-positive",
+      "ko-adversarial",
+      "ko-ambiguous",
+      "ko-negative",
+      "ko-positive"
+    ]
+  },
+  "limits": {
+    "embedding_calls": 128,
+    "total_seconds": 600,
+    "embedding_call_seconds": 5
+  },
+  "cases": [
+    {
+      "case_id": "hold5b-en-01",
+      "query": "HR says staff cannot authenticate; which critical business service is that?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-b"
+      ]
+    },
+    {
+      "case_id": "hold5b-en-02",
+      "query": "Shoppers report the catalog search page is down; which BusinessService covers product discovery?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-d"
+      ]
+    },
+    {
+      "case_id": "hold5b-en-03",
+      "query": "At the business-service level, which one owns customer-facing notifications?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-e"
+      ]
+    },
+    {
+      "case_id": "hold5b-en-04",
+      "query": "Which business service has the lowest criticality in the catalog?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-f"
+      ]
+    },
+    {
+      "case_id": "hold5b-en-05",
+      "query": "Which workload runs invoice reconciliation in the background?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-a"
+      ]
+    },
+    {
+      "case_id": "hold5b-en-06",
+      "query": "Show the web-api workload that handles sign-in requests.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-b"
+      ]
+    },
+    {
+      "case_id": "hold5b-en-07",
+      "query": "Parcel scan events are lagging; which streaming workload consumes them?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-c"
+      ]
+    },
+    {
+      "case_id": "hold5b-en-08",
+      "query": "Exactly one workload runs on a schedule; which is it?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-d"
+      ]
+    },
+    {
+      "case_id": "hold5b-en-09",
+      "query": "Which storage bucket is open to the public?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-a"
+      ]
+    },
+    {
+      "case_id": "hold5b-en-10",
+      "query": "Which resource holds the app's credentials with public network access turned off?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-b"
+      ]
+    },
+    {
+      "case_id": "hold5b-en-11",
+      "query": "Our internal app-to-app traffic is fenced off by which virtual network?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-d"
+      ]
+    },
+    {
+      "case_id": "hold5b-en-12",
+      "query": "Which cluster has a node pool dedicated to batch?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-e"
+      ]
+    },
+    {
+      "case_id": "hold5b-en-13",
+      "query": "Which critical incident has had no update since it was opened?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-a"
+      ]
+    },
+    {
+      "case_id": "hold5b-en-14",
+      "query": "Which open incident is not critical?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-c"
+      ]
+    },
+    {
+      "case_id": "hold5b-en-15",
+      "query": "Find the only high-severity incident.",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-e"
+      ]
+    },
+    {
+      "case_id": "hold5b-en-16",
+      "query": "Of all incidents, whose updated_at timestamp is the latest?",
+      "cohort": "en-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-f"
+      ]
+    },
+    {
+      "case_id": "hold5b-en-17",
+      "query": "List every business service that has a Korean alias.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-c",
+        "object:BusinessService:example-service-e",
+        "object:BusinessService:example-service-f"
+      ]
+    },
+    {
+      "case_id": "hold5b-en-18",
+      "query": "Return all incidents updated at or after 09:00 UTC.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": [
+        "object:Incident:example-incident-b",
+        "object:Incident:example-incident-e",
+        "object:Incident:example-incident-f"
+      ]
+    },
+    {
+      "case_id": "hold5b-en-19",
+      "query": "Show both the customer notifications business service and the notification dispatcher workload.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-e",
+        "object:Workload:example-workload-e"
+      ]
+    },
+    {
+      "case_id": "hold5b-en-20",
+      "query": "Which incidents are critical but not in open status?",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": [
+        "object:Incident:example-incident-b",
+        "object:Incident:example-incident-d"
+      ]
+    },
+    {
+      "case_id": "hold5b-en-21",
+      "query": "Look up the resource from the architecture diagram I am about to upload.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "hold5b-en-22",
+      "query": "Which incident did I bookmark last Friday?",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "hold5b-en-23",
+      "query": "Give me the workload the previous on-call engineer handed over to me verbally.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "hold5b-en-24",
+      "query": "Find the service highlighted in the email thread I forwarded to myself.",
+      "cohort": "en-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "hold5b-en-25",
+      "query": "Find the business service that handles hotel reservations.",
+      "cohort": "en-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "hold5b-en-26",
+      "query": "Which resource is the CDN endpoint that caches static assets?",
+      "cohort": "en-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "hold5b-en-27",
+      "query": "Show the workload that generates monthly PDF reports.",
+      "cohort": "en-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "hold5b-en-28",
+      "query": "Find the incident that was opened on 2026-08-30.",
+      "cohort": "en-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "hold5b-en-29",
+      "query": "Find a resolved incident with critical severity; do not return the closed or triaging critical ones.",
+      "cohort": "en-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "hold5b-en-30",
+      "query": "Return the kubernetes-cluster whose node pool role is system, not batch.",
+      "cohort": "en-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "hold5b-en-31",
+      "query": "Retrieve the BusinessService called Example shipment event processor; that name belongs to a workload, so do not swap types.",
+      "cohort": "en-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "hold5b-en-32",
+      "query": "Get the compute.vm acting as a web server; the build agent is not acceptable.",
+      "cohort": "en-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "hold5b-ko-01",
+      "query": "인보이스 결제 정산을 맡고 있는 BusinessService가 뭐였지?",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-a"
+      ]
+    },
+    {
+      "case_id": "hold5b-ko-02",
+      "query": "criticality가 critical인 유일한 비즈니스 서비스 찾아줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-b"
+      ]
+    },
+    {
+      "case_id": "hold5b-ko-03",
+      "query": "쇼핑몰 상품 검색 기능 담당 비즈니스 서비스가 뭐야?",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-d"
+      ]
+    },
+    {
+      "case_id": "hold5b-ko-04",
+      "query": "중요도 low로 분류된 비즈니스 서비스 하나 보여줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-f"
+      ]
+    },
+    {
+      "case_id": "hold5b-ko-05",
+      "query": "백그라운드에서 청구 금액 맞춰보는 워커가 어떤 워크로드야?",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-a"
+      ]
+    },
+    {
+      "case_id": "hold5b-ko-06",
+      "query": "로그인 API를 서비스하는 web-api 타입 워크로드 이름이 뭐야?",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-b"
+      ]
+    },
+    {
+      "case_id": "hold5b-ko-07",
+      "query": "출고 후 배송 상태 이벤트를 흘려받아 가공하는 워크로드 뭐야?",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-c"
+      ]
+    },
+    {
+      "case_id": "hold5b-ko-08",
+      "query": "편집 페이지를 렌더링하는 web-frontend 워크로드 보여줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Workload:example-workload-f"
+      ]
+    },
+    {
+      "case_id": "hold5b-ko-09",
+      "query": "zone-redundant 구성으로 HA 잡혀 있는 DB 리소스 뭐야?",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-c"
+      ]
+    },
+    {
+      "case_id": "hold5b-ko-10",
+      "query": "access가 private으로 설정된 network.vnet 리소스 찾아줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-d"
+      ]
+    },
+    {
+      "case_id": "hold5b-ko-11",
+      "query": "컨테이너 배치 작업 돌리는 쿠버네티스 클러스터 찾아줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-e"
+      ]
+    },
+    {
+      "case_id": "hold5b-ko-12",
+      "query": "애플리케이션 컴파일용 가상 머신이 뭐야?",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Resource:example-resource-f"
+      ]
+    },
+    {
+      "case_id": "hold5b-ko-13",
+      "query": "closed로 종료된 인시던트 중 severity가 더 높은 쪽은 어느 거야?",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-b"
+      ]
+    },
+    {
+      "case_id": "hold5b-ko-14",
+      "query": "업데이트가 08:00에 멈춰 있고 severity가 critical이 아닌 인시던트 찾아줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-c"
+      ]
+    },
+    {
+      "case_id": "hold5b-ko-15",
+      "query": "08:30에 마지막으로 갱신된 인시던트가 뭐야?",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-d"
+      ]
+    },
+    {
+      "case_id": "hold5b-ko-16",
+      "query": "severity low 인시던트 상세 보여줘.",
+      "cohort": "ko-positive",
+      "expected_document_ids": [
+        "object:Incident:example-incident-f"
+      ]
+    },
+    {
+      "case_id": "hold5b-ko-17",
+      "query": "updated_at이 opened_at과 같은 인시던트들 전부 찾아줘.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": [
+        "object:Incident:example-incident-a",
+        "object:Incident:example-incident-c"
+      ]
+    },
+    {
+      "case_id": "hold5b-ko-18",
+      "query": "로그인/인증 쪽 BusinessService와 Workload를 함께 찾아줘.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-b",
+        "object:Workload:example-workload-b"
+      ]
+    },
+    {
+      "case_id": "hold5b-ko-19",
+      "query": "10:00 UTC 이전(10:00 미포함)에 마지막으로 업데이트된 인시던트들 찾아줘.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": [
+        "object:Incident:example-incident-a",
+        "object:Incident:example-incident-b",
+        "object:Incident:example-incident-c",
+        "object:Incident:example-incident-d"
+      ]
+    },
+    {
+      "case_id": "hold5b-ko-20",
+      "query": "criticality가 high인 비즈니스 서비스랑 severity가 high인 인시던트 다 모아줘.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": [
+        "object:BusinessService:example-service-a",
+        "object:BusinessService:example-service-d",
+        "object:Incident:example-incident-e"
+      ]
+    },
+    {
+      "case_id": "hold5b-ko-21",
+      "query": "내가 지난주에 즐겨찾기 해둔 그 워크로드 보여줘.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "hold5b-ko-22",
+      "query": "방금 음성 메모로 말한 리소스 찾아줘.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "hold5b-ko-23",
+      "query": "회의록 PDF 첨부한다고 했던 거, 거기 나온 인시던트 조회해줘.",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "hold5b-ko-24",
+      "query": "다른 모니터에 띄워둔 Grafana 패널에서 튄 그 서비스 뭐야?",
+      "cohort": "ko-ambiguous",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "hold5b-ko-25",
+      "query": "고객 상담 챗봇 비즈니스 서비스 찾아줘.",
+      "cohort": "ko-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "hold5b-ko-26",
+      "query": "사내 도메인 관리하는 DNS zone 리소스 보여줘.",
+      "cohort": "ko-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "hold5b-ko-27",
+      "query": "로그 수집하는 daemonset 워크로드 찾아줘.",
+      "cohort": "ko-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "hold5b-ko-28",
+      "query": "9월 2일에 새로 열린 인시던트 있어?",
+      "cohort": "ko-negative",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "hold5b-ko-29",
+      "query": "high_availability가 zone-redundant인 kubernetes-cluster 찾아줘. mysql 서버로 바꾸지 마.",
+      "cohort": "ko-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "hold5b-ko-30",
+      "query": "Example product search라는 이름의 Workload 찾아줘. indexer나 비즈니스 서비스로 대체하지 말고.",
+      "cohort": "ko-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "hold5b-ko-31",
+      "query": "closed 상태이면서 10:00에 업데이트된 인시던트 찾아줘. resolved 건은 제외야.",
+      "cohort": "ko-adversarial",
+      "expected_document_ids": []
+    },
+    {
+      "case_id": "hold5b-ko-32",
+      "query": "criticality가 medium인 Example workforce sign-in 서비스 찾아줘. critical이면 안 맞는 거야.",
+      "cohort": "ko-adversarial",
+      "expected_document_ids": []
+    }
+  ]
+}
