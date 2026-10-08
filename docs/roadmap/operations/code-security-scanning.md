@@ -227,6 +227,92 @@ image starts it with `fdai-scan-runner process-requests`.
 | `scan_failed` / `review_conflict` | The scan failed, or different findings exist for that commit |
 | `attempts_exhausted` | The request was claimed more than three times |
 
+## Deployed scan runtime (proposed)
+
+This section is a design that isn't implemented yet. It describes how a deployment runs the scan
+runner image for scheduled scans and for the Console request worker without weakening a node
+security control. An independent critique on 2026-10-09 shaped the split between credentials and
+scanners, the admission rules, and the cache handling below.
+
+**Problem.** bubblewrap needs unprivileged user namespaces. Kubernetes' default `runc` runtime
+applies the node's seccomp and AppArmor profiles, which block them. Running the pod with
+`Unconfined` profiles on a shared node would let a sandbox escape reach the node kernel that other
+workloads share, so FDAI doesn't do that.
+
+**Runtime.** On AKS, scanners run under
+[Pod Sandboxing](https://learn.microsoft.com/azure/aks/use-pod-sandboxing) (Kata Containers), which
+gives each pod its own lightweight VM and guest kernel:
+
+- **Node pool:** a dedicated user pool with `os_sku = "AzureLinux"`,
+  `workload_runtime = "KataVmIsolation"`, a generation 2 VM size with nested virtualization (for
+  example, Dsv5), autoscaling from zero, and a `NoSchedule` taint so only scanner pods land there.
+  Pod Sandboxing supports only Azure Linux and amd64, which FDAI's AKS profile already uses.
+- **Scanner pod:** `runtimeClassName: kata-vm-isolation`, a toleration and node selector for the
+  pool, user 65532, all capabilities dropped, no privilege escalation, and a read-only root file
+  system. Its seccomp and AppArmor profiles are `Unconfined`, which takes effect inside the guest
+  kernel only. The host still runs the Kata shim, Cloud Hypervisor, and `virtiofsd` for each pod,
+  and shared volumes are host-mediated, so the pod allows only `emptyDir` and the read-only volumes
+  named below, never `hostPath`, and the node pool follows the AKS node image patch cadence.
+- **Resources:** Kata sizes the pod VM from the pod memory limit, and the guest kernel and Kata
+  agent consume part of it. Limits come from measured scanner peaks plus that overhead, and the
+  job deadline includes a cold-start margin.
+
+**Admission guard.** A `ValidatingAdmissionPolicy` with a cluster-wide binding and the `Deny` action
+rejects an `Unconfined` seccomp or AppArmor profile anywhere in a pod: the pod security context,
+every regular, init, and ephemeral container, and legacy annotations. It also covers the
+`pods/ephemeralcontainers` subresource. It allows the profile only when the namespace is exactly
+the code-security namespace and `runtimeClassName` is exactly `kata-vm-isolation`. RBAC limits who
+can change the `RuntimeClass`, the policy, its binding, or create debug pods in that namespace.
+
+**Credentials stay out of the scanner VM.** Kata protects the node, not the other processes in
+the same pod VM. A scanner that escapes bubblewrap mustn't find a GitHub token, a database
+credential, or open egress. Each run therefore splits into three steps:
+
+1. **Acquire** (a `runc` pod with the worker's workload identity): claim the request or select the
+   scheduled repository, mint a read-only installation token for that one repository, fetch the
+   exact commit, and write the extracted tree to a per-run volume.
+2. **Scan** (the Kata pod): mount that tree and the vulnerability cache read-only, run every
+   scanner, and write the bounded result to a per-run output volume. The pod has no service
+   account token, no secret mount, and a default-deny `NetworkPolicy` with no egress.
+3. **Record** (the `runc` pod again): validate the output against the exact commit, record the
+   review in the state store, publish it on `object.drift`, and close the request.
+
+This split changes the worker, which today acquires, scans, and records in one process. It also
+needs a scheduled worker that lists enabled registrations, resolves each default ref, records the
+review with trigger `schedule`, and isolates per-repository failures. No such command exists yet.
+
+**Vulnerability cache.** A separate preparation job refreshes the Trivy and OSV databases through
+the deployment's egress firewall, which allows only those database hosts. It publishes a
+versioned snapshot atomically and keeps the last known-good one, so an upstream outage doesn't
+stop scanning. Scan pods mount the current snapshot read-only, and each receipt records the
+database versions, digests, and age.
+
+**State-store privilege.** Code-security records and the proposal outbox share the generic
+`state_kv` table today, so a database role can't be limited to them by table grants. Least
+privilege needs dedicated tables, row-level security on the key prefixes, or a bounded service API
+first, with a test proving that the worker identity can't read or change unrelated keys.
+
+**Evidence and failures.** The record step wires the bus publisher explicitly. A job attempt that
+fails before a receipt exists, during preparation, acquisition, or scheduling, writes a durable
+attempt record, and `CronJob` failures raise the existing job alert. Microsoft Defender for
+Containers doesn't assess Kata pods, so the image's vulnerability scan before publication is the
+image control. The container supply chain publishes the `runtime` target, or `prover` when the
+proof lane is enabled, and jobs reference it by digest.
+
+**Cost and authority.** The pool scales to zero between runs, but each run starts a node, so a
+deployment profile must opt in with a monthly cost ceiling above zero. Enabling the pool and the
+jobs is a deployment change for an explicitly selected target. Delivery authorization doesn't
+grant it.
+
+**Exit evidence.** From one deployment:
+
+- **Recorded runs:** one scheduled and one Console review, each published, each naming the runtime
+  class, node pool, and cache snapshot.
+- **Admission denials:** for a missing runtime class, a wrong namespace, a container-level or
+  init-container override, an ephemeral container, and a legacy annotation.
+- **Isolation probes:** the scanner pod can't reach any network or read an identity token or
+  secret, and its source and cache mounts are read-only.
+
 ## LLM lens lane
 
 The lens lane looks for weakness families that rules miss, such as missing authorization. It's

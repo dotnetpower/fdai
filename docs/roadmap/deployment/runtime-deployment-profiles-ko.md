@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 5746d27d7a8ee950ca1bdfcc61ded6e974bc1a91
-translation_revised: 2026-10-08
+translation_source_sha: ac1e6d30938446847e718210e8c4c7f5bf09ed33
+translation_revised: 2026-10-09
 ---
 # 런타임 배포 프로파일
 
@@ -775,8 +775,10 @@ Core가 소유한 `licensing_entitlement_state` 행에 게시합니다. Core 마
 코드 보안 스캔 실행 이미지는 아직 어떤 배포 프로필에도 포함되지 않습니다. bubblewrap을 위해
 비특권 사용자 네임스페이스를 허용하는 런타임과 별도의 오프라인 데이터베이스 갱신이 필요하므로,
 프로필이 명시적으로 선택해야 합니다. Console 스캔 요청 작업자(`fdai-scan-runner process-requests`)도
-마찬가지이며, 저장소마다 범위를 좁힌 읽기 전용 GitHub App 토큰도 필요합니다.
-[코드 보안 스캔](../operations/code-security-scanning-ko.md#스캔-실행-이미지)을 참조하세요.
+마찬가지이며, 저장소마다 범위를 좁힌 읽기 전용 GitHub App 토큰도 필요합니다. 제안된 AKS 설계는
+스캐너를 자격 증명이 없는 Kata pod에서 Pod Sandboxing으로 실행하고, 확보와 기록은 별도의 `runc`
+단계로 둡니다. [코드 보안 스캔](../operations/code-security-scanning-ko.md#배포-스캔-런타임제안)을
+참조하세요.
 
 기본 제공 알림 매트릭스에는 코드 보안 A2 경고 경로와 A4 다이제스트 경로가 들어 있습니다. 따라서
 알림 전달을 구성하는 모든 프로필에서 코드 보안 검토를 전달할 수 있습니다. 매트릭스에 두 경로 중
