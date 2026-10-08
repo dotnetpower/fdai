@@ -13,6 +13,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Protocol
 
+import httpx
+
 from fdai.core.framework_assessment import (
     FrameworkApplicabilityDecision,
     FrameworkApplicabilityStatus,
@@ -20,12 +22,16 @@ from fdai.core.framework_assessment import (
     FrameworkAssessmentRequest,
     FrameworkAssessmentResult,
     FrameworkAssessmentRuntime,
+    FrameworkAssessmentService,
     FrameworkEvidenceReceipt,
     FrameworkOwnerBinding,
     FrameworkRuleActivationPin,
     FrameworkSatisfactionStatus,
 )
 from fdai.core.rule_activation.ledger import StateStoreRuleActivationLedger
+from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
+from fdai.delivery.azure.event_bus import EventHubsKafkaBus, EventHubsKafkaBusConfig
+from fdai.delivery.azure.workload_identity import ManagedIdentityWorkloadIdentity
 from fdai.delivery.framework_rule_evidence_source import (
     WorkloadRuleEvidence,
     WorkloadRuleEvidenceStatus,
@@ -48,8 +54,19 @@ from fdai.rule_catalog.schema.framework_assessment import (
     canonical_digest,
     load_framework_assessment_catalog,
 )
+from fdai.runtime.venue import (
+    ExecutionVenue,
+    bus_security_protocol,
+    resolve_execution_venue,
+    uses_developer_identity,
+    uses_workload_identity,
+)
+from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 _LOGGER = logging.getLogger("fdai.framework_assessment")
+_PUBLISH_ENV = "FDAI_FRAMEWORK_ASSESSMENT_PUBLISH"
+_AUDIT_ONLY = "not_requested_validation_only"
+_PUBLISHED = "published"
 _REPO_ROOT = repo_asset_root()
 _CATALOG_ROOT = _REPO_ROOT / "rule-catalog/framework-assessments/generated"
 
@@ -153,13 +170,14 @@ class FrameworkAssessmentTickReport:
     rule_coverage_record_digest: str | None = None
     mcsb_result_digest: str | None = None
     mcsb_counts: Mapping[str, int] | None = None
+    publication_status: str = _AUDIT_ONLY
 
     def to_dict(self) -> dict[str, object]:
         value: dict[str, object] = {
             "status": "completed",
             "mode": "shadow",
             "execution_authority": False,
-            "publication_status": "not_requested_validation_only",
+            "publication_status": self.publication_status,
             "source_revision": self.source_revision,
             "waf_result_digest": self.waf_result_digest,
             "caf_result_digest": self.caf_result_digest,
@@ -389,6 +407,7 @@ async def execute_framework_assessment_tick(
     rule_evidence: WorkloadRuleEvidence | None = None,
     mcsb: tuple[FrameworkAssessmentWriter, FrameworkAssessmentCatalog, WorkloadRuleEvidence]
     | None = None,
+    publication_status: str = _AUDIT_ONLY,
 ) -> FrameworkAssessmentTickReport:
     """Publish one exact-scope WAF result and one exact-estate CAF result.
 
@@ -482,6 +501,7 @@ async def execute_framework_assessment_tick(
             )
         )
     return FrameworkAssessmentTickReport(
+        publication_status=publication_status,
         mcsb_result_digest=mcsb_result.result_digest if mcsb_result is not None else None,
         mcsb_counts=mcsb_result.aggregate_counts if mcsb_result is not None else None,
         source_revision=source_revision,
@@ -528,6 +548,8 @@ async def run_once(
     environment = os.environ if environ is None else environ
     settings = FrameworkAssessmentJobSettings.from_environ(environment)
     source_revision = _required(environment, "FDAI_SOURCE_REVISION")
+    # Validate the publication choice before any database work.
+    publish = publication_requested(environment)
     now = datetime.now(tz=UTC)
     scope = await PostgresWaraScopeSource(
         config=PostgresWaraScopeSourceConfig(
@@ -568,29 +590,69 @@ async def run_once(
     if rule_evidence.coverage_record is not None:
         # The scoped record is durable before any assessment cites its coverage digest.
         await persist_scoped_rule_coverage(state_store, rule_evidence.coverage_record)
-    return await execute_framework_assessment_tick(
-        settings=settings,
-        scope=scope,
-        waf_service=_AuditOnlyFrameworkAssessmentService(
-            FrameworkAssessmentRuntime(waf_catalog),
-            state_store,
-        ),
-        caf_service=_AuditOnlyFrameworkAssessmentService(
-            FrameworkAssessmentRuntime(caf_catalog),
-            state_store,
-        ),
-        waf_catalog=waf_catalog,
-        caf_catalog=caf_catalog,
-        now=now,
-        source_revision=source_revision,
-        rule_evidence=rule_evidence,
-        mcsb=(
-            _AuditOnlyFrameworkAssessmentService(
-                FrameworkAssessmentRuntime(mcsb_catalog),
-                state_store,
-            ),
-            mcsb_catalog,
-            mcsb_evidence,
+    async with httpx.AsyncClient() as client:
+        bus = _build_event_bus(environment, client) if publish else None
+        try:
+
+            def service(catalog: FrameworkAssessmentCatalog) -> FrameworkAssessmentWriter:
+                runtime = FrameworkAssessmentRuntime(catalog)
+                if bus is None:
+                    return _AuditOnlyFrameworkAssessmentService(runtime, state_store)
+                # Audits before publishing the schema-versioned no-authority shadow event.
+                return FrameworkAssessmentService(runtime, state_store, bus)
+
+            return await execute_framework_assessment_tick(
+                settings=settings,
+                scope=scope,
+                waf_service=service(waf_catalog),
+                caf_service=service(caf_catalog),
+                waf_catalog=waf_catalog,
+                caf_catalog=caf_catalog,
+                now=now,
+                source_revision=source_revision,
+                rule_evidence=rule_evidence,
+                mcsb=(service(mcsb_catalog), mcsb_catalog, mcsb_evidence),
+                publication_status=_PUBLISHED if bus is not None else _AUDIT_ONLY,
+            )
+        finally:
+            if bus is not None:
+                await bus.close()
+
+
+def publication_requested(environ: Mapping[str, str]) -> bool:
+    """Whether this run publishes shadow events instead of recording audit-only receipts.
+
+    Publication needs a runtime identity with the assessment topic sender role, so it is an
+    explicit opt-in; the protected validation workflow never sets it.
+    """
+
+    value = environ.get(_PUBLISH_ENV, "").strip()
+    if value not in {"", "0", "1"}:
+        raise FrameworkAssessmentJobConfigurationError(f"{_PUBLISH_ENV} MUST be 0 or 1")
+    if value == "1" and not environ.get("KAFKA_BOOTSTRAP_SERVERS", "").strip():
+        raise FrameworkAssessmentJobConfigurationError(
+            "framework assessment publication requires KAFKA_BOOTSTRAP_SERVERS"
+        )
+    return value == "1"
+
+
+def _build_event_bus(environ: Mapping[str, str], client: httpx.AsyncClient) -> EventHubsKafkaBus:
+    venue: ExecutionVenue = resolve_execution_venue()
+    identity: WorkloadIdentity = (
+        AsyncAzureCliWorkloadIdentity.from_env()
+        if uses_developer_identity(venue)
+        else ManagedIdentityWorkloadIdentity.from_env(
+            http_client=client,
+            client_id_env="FDAI_MI_CLIENT_ID",
+        )
+    )
+    return EventHubsKafkaBus(
+        identity=identity if uses_workload_identity(venue) else None,
+        config=EventHubsKafkaBusConfig(
+            bootstrap_servers=environ["KAFKA_BOOTSTRAP_SERVERS"].strip(),
+            dlq_suffix=environ.get("KAFKA_TOPIC_DLQ_SUFFIX", ".dlq").strip(),
+            security_protocol=bus_security_protocol(venue),
+            client_id="fdai-framework-assessment",
         ),
     )
 

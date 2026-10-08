@@ -1,8 +1,8 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: f784a378b9f7d6677c61f663f4b934fc7c24a66a
-translation_revised: 2026-10-08
+translation_source_sha: 5ebd27197f6b203344d2dc2381c4a5d0f74cc121
+translation_revised: 2026-10-09
 ---
 # WAF 및 CAF 근거 기반 평가
 
@@ -211,6 +211,10 @@ Operator 소비자는 잘못된 형식, 일부만 있는 결과, 잘못된 프�
 보호된 실제 검증 워크플로는 배포 러너에 평가 토픽 전송자 역할이 없으므로 의도적으로 감사
 전용 기록기를 사용합니다. Operator 변환 결과를 게시한 것처럼 처리하지 않고
 `publication_status: not_requested_validation_only`를 기록하며 정제된 결과물을 유지합니다.
+ID에 해당 전송자 역할이 있는 런타임은 `FDAI_FRAMEWORK_ASSESSMENT_PUBLISH=1`과 `KAFKA_BOOTSTRAP_SERVERS`로
+게시를 선택합니다. 이 경우 작업은 WAF, CAF, MCSB 섀도 이벤트를 감사한 뒤 게시하고
+`publication_status: published`를 기록합니다. 다른 값을 지정하거나 부트스트랩 서버 없이 게시를 요청하면
+데이터베이스 작업 전에 실패합니다.
 
 ## Operator 화면
 

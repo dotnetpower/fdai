@@ -6,6 +6,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 
+import pytest
 from fdai.core.framework_assessment import (
     FrameworkAssessmentRuntime,
     FrameworkAssessmentService,
@@ -198,3 +199,67 @@ async def test_tick_publishes_sanitized_waf_and_caf_snapshots(tmp_path: Path) ->
     assert all(event["execution_authority"] is False for event in bus.events)
     assert bus.events[0]["scope_digest"].startswith("sha256:")
     assert "workload-example" not in json.dumps(report.to_dict())
+
+
+def test_publication_is_an_explicit_opt_in_that_needs_a_bus() -> None:
+    from fdai.delivery.framework_assessment_cli import (
+        FrameworkAssessmentJobConfigurationError,
+        publication_requested,
+    )
+
+    assert publication_requested({}) is False
+    assert publication_requested({"FDAI_FRAMEWORK_ASSESSMENT_PUBLISH": "0"}) is False
+    assert (
+        publication_requested(
+            {
+                "FDAI_FRAMEWORK_ASSESSMENT_PUBLISH": "1",
+                "KAFKA_BOOTSTRAP_SERVERS": "127.0.0.1:19092",
+            }
+        )
+        is True
+    )
+    for environ in (
+        {"FDAI_FRAMEWORK_ASSESSMENT_PUBLISH": "1"},
+        {"FDAI_FRAMEWORK_ASSESSMENT_PUBLISH": "yes", "KAFKA_BOOTSTRAP_SERVERS": "x:1"},
+    ):
+        with pytest.raises(FrameworkAssessmentJobConfigurationError):
+            publication_requested(environ)
+
+
+async def test_published_tick_reports_publication_and_publishes_every_framework(
+    tmp_path: Path,
+) -> None:
+    waf = _catalog("azure-waf")
+    caf = _catalog("azure-caf")
+    mcsb = _catalog("azure-mcsb")
+    store = _Store()
+    bus = _Bus()
+    from fdai.delivery.framework_rule_evidence_source import (
+        WorkloadRuleEvidence,
+        WorkloadRuleEvidenceStatus,
+    )
+
+    report = await execute_framework_assessment_tick(
+        settings=_settings(tmp_path),
+        scope=_scope(),
+        waf_service=FrameworkAssessmentService(FrameworkAssessmentRuntime(waf), store, bus),
+        caf_service=FrameworkAssessmentService(FrameworkAssessmentRuntime(caf), store, bus),
+        waf_catalog=waf,
+        caf_catalog=caf,
+        now=NOW,
+        source_revision="a" * 40,
+        mcsb=(
+            FrameworkAssessmentService(FrameworkAssessmentRuntime(mcsb), store, bus),
+            mcsb,
+            WorkloadRuleEvidence(WorkloadRuleEvidenceStatus.NO_ACTIVATION, None),
+        ),
+        publication_status="published",
+    )
+
+    assert report.to_dict()["publication_status"] == "published"
+    assert {event["framework_id"] for event in bus.events} == {
+        "azure-waf",
+        "azure-caf",
+        "azure-mcsb",
+    }
+    assert len(store.entries) == len(bus.events) == 3

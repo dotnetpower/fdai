@@ -29,6 +29,7 @@ control assessments without duplicating the normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-08 | implemented | The assessment job can now publish WAF, CAF, and MCSB shadow events when a runtime opts in with `FDAI_FRAMEWORK_ASSESSMENT_PUBLISH=1` and a Kafka bootstrap server; otherwise it stays audit-only. | `test_framework_assessment_cli.py` | A deployed job whose identity holds the assessment topic sender role. |
 | 2026-10-08 | in-progress | With operator approval, granted the development installation's inventory identity Microsoft Graph `User.Read.All` and `GroupMember.Read.All` application roles and `Reader` at the tenant root management group, the documented prerequisites for decisive subscription and managed identity role assignment evidence. The deployed inventory image doesn't yet contain this branch's readers, so the grants take effect after deployment. | Azure role assignment and Graph app role assignment readback after the grants | Deploy this branch; repeat the grants in other installations. |
 | 2026-10-08 | validated | Widened the Azure Policy pilot to reach non-compliant agreement. Comparisons on a `defaulted` alias now translate when no literal equals its documented default, operator keys match case-insensitively, and a policy whose top-level branches each pin one type yields one candidate per mapped type. Reviewed aliases and projections were added for the AKS Defender profile, VM encryption at host, and PostgreSQL flexible server authentication. The differential's `--quality-gate` mode replays eligible candidates through the rule pipeline's shadow evaluation and regression gate on in-memory scenarios. | `test_azure_policy_translation.py` (25 cases); `test_azure_policy_differential.py`; `test_arm_rule_properties.py`; operator-approved live run: 9 translations, no mismatch, AKS Defender 13/13 and VM encryption at host 26/26 non-compliant agreement, both passing the quality gate with no escape | Catalog-as-code review for the two candidates. |
 | 2026-10-08 | implemented | Corrected the activation statement for the new NSG Rules: an existing installation keeps its activation generation, so they stay inactive there until an approved activation change, while a fresh installation without a profile activates the whole catalog at genesis. The earlier rows' "start unactivated" applies only to existing installations. | `services/core-control-plane/src/fdai/runtime/rule_profile.py` (`bind_rule_profile` returns `None` without `FDAI_PROFILE_ID`); `services/core-control-plane/src/fdai/runtime/rule_activation.py` | None |
@@ -120,8 +121,9 @@ control assessments without duplicating the normative design.
   CAF decision that CAF takes no direct Rule requirements (`test_framework_assessment_catalog.py`).
 - [x] Project MCSB assessment results into the Operator and show them in the Console Controls view
   (`test_mcsb_assessment_operator_projection.py`, `mcsb-controls.spec.ts`).
-- [ ] Publish framework assessment events (WAF, CAF, and MCSB) from a deployed runtime instead of
-  audit-only receipts.
+- [x] Add an explicit publication opt-in to the assessment job (`test_framework_assessment_cli.py`).
+- [ ] Run the assessment job in a deployed runtime whose identity holds the assessment topic
+  sender role, with publication enabled.
 - [x] Record real Policy definition digests in the collector parser: `content_hash` is now the
   SHA-256 of the definition bytes read (`test_azure_policy_json_parser.py`).
 - [x] Add the collection landing stage and re-collect at the pinned revision so the 3,628

@@ -209,7 +209,10 @@ No assessment module imports an agent, risk gate, approval path, or executor.
 The protected live-validation workflow deliberately uses an audit-only recorder because the deploy
 runner has no assessment-topic sender role. It records `publication_status:
 not_requested_validation_only` and retains a sanitized artifact instead of pretending that an
-Operator projection was published.
+Operator projection was published. A runtime whose identity has that sender role opts in with
+`FDAI_FRAMEWORK_ASSESSMENT_PUBLISH=1` and `KAFKA_BOOTSTRAP_SERVERS`; the job then audits and
+publishes WAF, CAF, and MCSB shadow events and records `publication_status: published`. Any other
+value, or publication without a bootstrap server, fails before database work.
 
 ## Operator surface
 
