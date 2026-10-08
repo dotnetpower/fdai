@@ -39,12 +39,17 @@ body: |-
   which apply to the value stored under that key, and only instances whose property holds an
   object can match. Set a nested operand that the operator does not use to null. For
   example, a Resource whose purpose mentions backups is properties, key purpose, contains
-  "backup". A qualifier that no stored property records but that the stored values shown in
+  "backup". For free-text values such as a purpose or description, a contains operand is a
+  short phrase copied from a stored value whose meaning matches the request, not the request's
+  paraphrase; when no stored value has that meaning, use the request's own words so that
+  nothing matches. A qualifier that no stored property records but that the stored values shown in
   the documents let you judge directly, such as the language of a stored text, is still a
   condition: keep the expressible conditions and add exact object_ids for only the instances
   whose stored values satisfy the qualifier. If no instance satisfies it, return
-  status=clarify with reason=unsupported_constraint rather than a near match. Use
-  unsupported_constraint only when none of these forms can express a requested condition.
+  status=clarify with reason=unsupported_constraint rather than a near match. Asking for one
+  or a single instance, or naming the requested object's own role, such as owner, does not add
+  a condition. Use unsupported_constraint only when none of these forms can express a
+  requested condition.
   Do not enumerate only some matching objects to evade a bound.
 
   When the query identifies a specific instance that is present in the supplied canonical

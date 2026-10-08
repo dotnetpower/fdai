@@ -82,6 +82,10 @@ def test_diagnostic_prompt_states_each_contains_and_presence_meaning() -> None:
         "condition.",
         "If no instance satisfies it, return status=clarify with reason=unsupported_constraint "
         "rather than a near match.",
+        "Asking for one or a single instance, or naming the requested object's own role, such as "
+        "owner, does not add a condition.",
+        "a contains operand is a short phrase copied from a stored value whose meaning matches "
+        "the request, not the request's paraphrase;",
     ):
         assert statement in text
 
