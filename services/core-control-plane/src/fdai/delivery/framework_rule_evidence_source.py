@@ -143,7 +143,12 @@ async def load_scoped_rule_coverage(
         activation=activation,
         requested_rule_ids=(),
         inventory_generation=scope.inventory_generation,
-        inventory_observed_at=coverage.completed_at,
+        # Rule outcomes describe the inventory snapshot, not the later evaluation run.
+        inventory_observed_at=(
+            min(scope.inventory_observed_at, coverage.completed_at)
+            if scope.inventory_observed_at is not None
+            else coverage.completed_at
+        ),
         recorded_at=max(evaluated_at, coverage.completed_at),
     )
     record = build_scoped_coverage_record(

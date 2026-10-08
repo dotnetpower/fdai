@@ -1,7 +1,7 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: 49a6632787a76eb27758a1b0af2a5c40a8c1de43
+translation_source_sha: 15190768a4d8a79900aacf657f161dd282cd849b
 translation_revised: 2026-10-08
 ---
 # WARA 근거 기반 평가
@@ -266,9 +266,11 @@ Azure 관리 호스트와 audience만 허용하며, 범위 밖 또는 잘린 행
 두 번째 내용 주소화 overlay인 `rule-bindings.json`은 검토된 APRL GUID와 정확한 쿼리 다이제스트를 쿼리
 평가기 대신 활성화된 카탈로그 규칙 개정 하나에 결속합니다. 권고 하나에는 한 종류의 바인딩만 둘 수
 있습니다. `t0_rule` 바인딩은 기능 매트릭스를 담습니다. 정본 리소스 종류, 하위 리소스 동작, 검사가 읽는
-인벤토리 원본과 필드, 매개 변수, 대상 집합, 실패 의미가 포함됩니다. Loader는 레코드가 정본이고,
-`missing_exact_evaluator`가 유일한 차단 사유이며, 고정된 쿼리와 규칙이 같은 종류의 같은 필드를 읽고,
-규칙에 매개 변수가 없을 때만 바인딩을 받아들입니다.
+인벤토리 원본과 필드, 매개 변수, 대상 집합, 실패 의미가 포함됩니다. 각 바인딩은 규칙 버전과 검토에서 비교한
+정확한 규칙 다이제스트를 고정합니다. Loader는 레코드가 정본이고, `missing_exact_evaluator`가 유일한
+차단 사유이며, 고정된 쿼리와 규칙이 같은 종류의 같은 필드를 읽고, 릴리스 규칙이 고정된 다이제스트와
+일치하며, 규칙에 매개 변수가 없을 때만 바인딩을 받아들입니다. 증적은 활성화된 멤버가 같은 다이제스트를
+가질 때만 만들어지며, 관측 시각은 인벤토리 스냅샷의 완료 시각입니다.
 
 작업은 WAF와 같은 범위별 커버리지 계약으로 Forseti의 검증된 버전 2 baseline을 WARA 워크로드 범위에
 투영하고, 생성자가 `t0-rule-evaluator:<rule>@<version>`인 `rule` 증적을 바인딩마다 하나씩 만듭니다.

@@ -112,6 +112,7 @@ async def _active_scope(dsn: str, now: datetime) -> WaraResolvedScope:
     if not rows or len(rows) > _MAX_RESOURCES:
         raise SystemExit("active inventory generation is empty or over the resource bound")
     return WaraResolvedScope(
+        inventory_observed_at=snapshot[2],
         workload_id="local-active-inventory-estate",
         ontology_release="local-development",
         inventory_generation=str(snapshot[0]),

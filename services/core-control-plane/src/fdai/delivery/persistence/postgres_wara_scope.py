@@ -60,6 +60,8 @@ class WaraResolvedScope:
     ontology_release: str
     inventory_generation: str
     resources: tuple[WaraResolvedResource, ...]
+    # When the inventory generation was completed; evidence derived from it can't be newer.
+    inventory_observed_at: datetime | None = None
 
 
 class PostgresWaraScopeSource:
@@ -113,6 +115,7 @@ class PostgresWaraScopeSource:
             maximum_resources=self._config.maximum_resources,
         )
         return WaraResolvedScope(
+            inventory_observed_at=completed_at,
             workload_id=normalized_workload_id,
             ontology_release=ontology_release,
             inventory_generation=snapshot_id,

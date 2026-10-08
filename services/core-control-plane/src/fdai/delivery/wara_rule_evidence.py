@@ -9,6 +9,7 @@ import yaml
 from fdai_service_contracts.rule_activation import RuleActivationGeneration
 
 from fdai.core.framework_rule_evidence.wara import build_wara_rule_receipts
+from fdai.core.rule_activation.generation import rule_digest
 from fdai.core.wara import WaraAssessmentRequest
 from fdai.delivery.framework_rule_evidence_source import (
     WorkloadRuleEvidenceStatus,
@@ -44,6 +45,7 @@ def load_release_wara_rule_bindings(
         catalog=catalog,
         queries=queries,
         rules=_release_rules(repo_root),
+        rule_digest=rule_digest,
     )
 
 
@@ -63,6 +65,9 @@ async def with_wara_rule_evidence(
     """
 
     pinned = replace(request, rule_bindings_digest=bindings.overlay_digest)
+    if scope.inventory_observed_at is None:
+        # Without the snapshot time a receipt could look fresher than the inventory it reads.
+        return pinned, WorkloadRuleEvidenceStatus.BASELINE_INCOMPLETE
     loaded = await load_scoped_rule_coverage(
         state_store=state_store,
         activation=activation,

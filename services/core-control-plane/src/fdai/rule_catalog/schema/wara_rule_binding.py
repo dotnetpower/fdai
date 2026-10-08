@@ -10,6 +10,7 @@ recommendation's query or manual evidence path.
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
@@ -59,6 +60,7 @@ class WaraRuleBinding(BaseModel):
     query_digest: Annotated[str, Field(pattern=_SHA256)]
     rule_id: Annotated[str, Field(min_length=1, max_length=256)]
     rule_version: Annotated[str, Field(pattern=_SEMVER)]
+    rule_digest: Annotated[str, Field(pattern=_SHA256)]
     capability: WaraRuleCapability
     reviewer: Annotated[str, Field(pattern=_IDENTIFIER)]
     review_state: Literal["reviewed-exact"]
@@ -111,8 +113,13 @@ def load_wara_rule_bindings(
     catalog: WaraAssessmentCatalog,
     queries: WaraQueryCatalog,
     rules: tuple[Rule, ...],
+    rule_digest: Callable[[Rule], str],
 ) -> WaraRuleBindingCatalog:
-    """Load the overlay and reject drift from the WARA catalog, its queries, or the Rules."""
+    """Load the overlay and reject drift from the WARA catalog, its queries, or the Rules.
+
+    ``rule_digest`` is the activation digest function, so a binding names the exact Rule body
+    the capability review compared, not only its version.
+    """
 
     raw: Any = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(raw, dict):
@@ -146,7 +153,11 @@ def load_wara_rule_bindings(
         if set(record.query_review.blocked_reasons) != {"missing_exact_evaluator"}:
             raise ValueError(f"{binding.aprl_guid}: Rule binding would hide other blockers")
         rule = rules_by_id.get(binding.rule_id)
-        if rule is None or str(rule.version) != binding.rule_version:
+        if (
+            rule is None
+            or str(rule.version) != binding.rule_version
+            or f"sha256:{rule_digest(rule).removeprefix('sha256:')}" != binding.rule_digest
+        ):
             raise ValueError(f"{binding.aprl_guid}: Rule binding names an unavailable revision")
         if rule.resource_type != binding.capability.canonical_resource_type:
             raise ValueError(f"{binding.aprl_guid}: Rule binding Rule type mismatch")

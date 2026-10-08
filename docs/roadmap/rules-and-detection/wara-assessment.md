@@ -270,9 +270,12 @@ A second content-addressed overlay, `rule-bindings.json`, binds a reviewed APRL 
 digest to one activated catalog Rule revision instead of a query evaluator. A recommendation can
 have only one binding kind. A `t0_rule` binding carries a capability matrix: the canonical resource
 type, child-resource behavior, the inventory source and fields the check reads, parameters, the
-eligible set, and the failure semantics. The loader admits a binding only when the record is
-canonical, `missing_exact_evaluator` is its only blocker, the pinned query and the Rule read the
-same fields of the same type, and the Rule takes no parameters.
+eligible set, and the failure semantics. Each binding pins the Rule version and the exact Rule
+digest the review compared. The loader admits a binding only when the record is canonical,
+`missing_exact_evaluator` is its only blocker, the pinned query and the Rule read the same fields of
+the same type, the release Rule matches the pinned digest, and the Rule takes no parameters. A
+receipt is produced only when the activated member has that same digest, and it is observed at the
+inventory snapshot's completion time.
 
 The job projects Forseti's verified version 2 baseline onto the WARA workload scope through the
 same scoped coverage contract as WAF, then emits one `rule` receipt per binding whose producer is

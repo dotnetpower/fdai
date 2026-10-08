@@ -43,6 +43,7 @@ def build_wara_rule_receipts(
             or record.query_review is None
             or member is None
             or member.rule_version != binding.rule_version
+            or canonical_sha256(member.rule_digest) != binding.rule_digest
             or rule is None
         ):
             continue

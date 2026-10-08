@@ -8,6 +8,7 @@
       "query_digest": "sha256:0b1445eba4c803f6cc8b022b3aaab74e2790434f43b150f831ec021be3bed9c1",
       "rule_id": "secret-store.purge-protection.enabled",
       "rule_version": "1.0.0",
+      "rule_digest": "sha256:2bd76be9c5417e6815f6a628f87c01251980722d0db890dd805f4f2c1d8a5b24",
       "capability": {
         "canonical_resource_type": "secret-store",
         "child_resource_behavior": "none",
@@ -23,5 +24,5 @@
       "review_state": "reviewed-exact"
     }
   ],
-  "overlay_digest": "sha256:332ac66edf4be54866d0aae1cf76b5e14bee140be81bccae4e344db379af9162"
+  "overlay_digest": "sha256:2bcf36c86215f3bb53ed25a0bd2767c562cff2a199ec4b29dfaa193fee82d2b3"
 }

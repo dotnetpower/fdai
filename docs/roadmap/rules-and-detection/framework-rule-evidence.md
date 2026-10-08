@@ -297,8 +297,10 @@ an extension can't be validated against a producer that never reaches `satisfied
   unverifiable baseline, or a baseline for another activation or inventory generation yields an
   explicit status and no Rule receipts, so Rule requirements stay `unknown`.
 - **Inventory freshness:** The workload scope source enforces the inventory freshness budget
-  before the job runs, and Rule receipts use the baseline evaluation time as their observation
-  time.
+  before the job runs. Rule receipts use the inventory snapshot's completion time as their
+  observation time, because the outcomes describe that snapshot; a later baseline run doesn't make
+  them fresher. A scope source that can't supply the snapshot time falls back to the baseline
+  evaluation time for WAF, and WARA emits no Rule receipt.
 - **Unobserved properties:** A clean policy result on an absent property isn't an observation of
   compliance. Forseti checks the top-level property of each declared path; nested data inside an
   observed property, such as a tag the policy selects by parameter, stays the policy's judgment.

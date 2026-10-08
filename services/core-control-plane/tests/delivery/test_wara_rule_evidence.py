@@ -11,7 +11,7 @@ from typing import Any
 
 import pytest
 from fdai.agents import ForsetiBaselineWorker
-from fdai.core.rule_activation.generation import build_rule_activation_generation
+from fdai.core.rule_activation.generation import build_rule_activation_generation, rule_digest
 from fdai.core.tiers.t0_deterministic import (
     PolicyResult,
     RuleGenerationSnapshot,
@@ -23,6 +23,7 @@ from fdai.core.wara.runtime import WaraEvaluationStatus, WaraSatisfactionStatus
 from fdai.delivery.framework_rule_evidence_source import WorkloadRuleEvidenceStatus
 from fdai.delivery.persistence.postgres_wara_scope import WaraResolvedResource, WaraResolvedScope
 from fdai.delivery.wara_rule_evidence import (
+    _release_rules,
     load_release_wara_rule_bindings,
     with_wara_rule_evidence,
 )
@@ -58,9 +59,9 @@ def _catalogs():  # noqa: ANN202
 
 
 CATALOG, QUERIES = _catalogs()
-BINDINGS = load_release_wara_rule_bindings(ROOT, catalog=CATALOG, queries=QUERIES)
+RELEASE_BINDINGS = load_release_wara_rule_bindings(ROOT, catalog=CATALOG, queries=QUERIES)
 # The public APRL identifier lives only in the collected overlay, never as a literal here.
-PURGE = next(item.aprl_guid for item in BINDINGS.bindings if item.rule_id == RULE_ID)
+PURGE = next(item.aprl_guid for item in RELEASE_BINDINGS.bindings if item.rule_id == RULE_ID)
 EVALUATORS = load_wara_evaluator_bindings(
     ASSESSMENT / "evaluator-bindings.json", catalog=CATALOG, queries=QUERIES
 )
@@ -118,6 +119,19 @@ def _rule() -> Rule:
     )
 
 
+def _bound_to(rule: Rule) -> WaraRuleBindingCatalog:
+    """The release overlay re-pinned to a fixture Rule body, as a reviewer would re-pin it."""
+
+    material = RELEASE_BINDINGS.model_dump(mode="json")
+    material["bindings"][0]["rule_digest"] = "sha256:" + rule_digest(rule)
+    material.pop("overlay_digest")
+    material["overlay_digest"] = canonical_digest(material)
+    return WaraRuleBindingCatalog.model_validate(material)
+
+
+BINDINGS = _bound_to(_rule())
+
+
 async def _baseline(store: InMemoryStateStore, *, violated: set[str]) -> RuleActivationGeneration:
     rule = _rule()
     activation = build_rule_activation_generation(
@@ -157,8 +171,9 @@ async def _baseline(store: InMemoryStateStore, *, violated: set[str]) -> RuleAct
     return activation
 
 
-def _scope() -> WaraResolvedScope:
+def _scope(*, observed: bool = True) -> WaraResolvedScope:
     return WaraResolvedScope(
+        inventory_observed_at=NOW if observed else None,
         workload_id="workload-example",
         ontology_release="2026.10",
         inventory_generation="inventory-1",
@@ -194,7 +209,13 @@ def _request(scope: WaraResolvedScope) -> WaraAssessmentRequest:
     )
 
 
-async def _assess(*, violated: set[str], activation_override: bool = False):  # noqa: ANN202
+async def _assess(  # noqa: ANN202
+    *,
+    violated: set[str],
+    activation_override: bool = False,
+    bindings: WaraRuleBindingCatalog = BINDINGS,
+    observed: bool = True,
+):
     store = _Store()
     activation = await _baseline(store, violated=violated)
     if activation_override:
@@ -204,23 +225,42 @@ async def _assess(*, violated: set[str], activation_override: bool = False):  # 
             profile_version="1.0.0",
             created_at=NOW,
         )
-    scope = _scope()
+    scope = _scope(observed=observed)
     request, status = await with_wara_rule_evidence(
         _request(scope),
         state_store=store,
         activation=activation,
         scope=scope,
         catalog=CATALOG,
-        bindings=BINDINGS,
+        bindings=bindings,
     )
-    result = WaraAssessmentRuntime(CATALOG, EVALUATORS, BINDINGS).assess(request)
+    result = WaraAssessmentRuntime(CATALOG, EVALUATORS, bindings).assess(request)
     control = next(item for item in result.controls if item.recommendation_id == PURGE)
     return status, request, result, control
 
 
 def test_release_overlay_binds_only_the_exactly_equivalent_recommendation() -> None:
-    assert [(item.aprl_guid, item.rule_id) for item in BINDINGS.bindings] == [(PURGE, RULE_ID)]
-    assert BINDINGS.bindings[0].capability.failure_semantics == "absent_or_not_true_fails"
+    bindings = RELEASE_BINDINGS.bindings
+    assert [(item.aprl_guid, item.rule_id) for item in bindings] == [(PURGE, RULE_ID)]
+    assert bindings[0].capability.failure_semantics == "absent_or_not_true_fails"
+
+
+@pytest.mark.asyncio
+async def test_same_version_with_another_rule_body_yields_no_decisive_receipt() -> None:
+    # The release overlay pins the shipped Rule body, which differs from the fixture body.
+    _, request, _, control = await _assess(violated=set(), bindings=RELEASE_BINDINGS)
+
+    assert request.evidence == ()
+    assert control.satisfaction is WaraSatisfactionStatus.UNKNOWN
+
+
+@pytest.mark.asyncio
+async def test_scope_without_a_snapshot_time_yields_no_rule_receipt() -> None:
+    status, request, _, control = await _assess(violated=set(), observed=False)
+
+    assert status is WorkloadRuleEvidenceStatus.BASELINE_INCOMPLETE
+    assert request.evidence == ()
+    assert control.satisfaction is WaraSatisfactionStatus.UNKNOWN
 
 
 @pytest.mark.asyncio
@@ -291,6 +331,7 @@ def test_runtime_rejects_an_unpinned_or_overlapping_rule_overlay() -> None:
     ("change", "message"),
     [
         ({"rule_version": "9.9.9"}, "unavailable revision"),
+        ({"rule_digest": "sha256:" + "1" * 64}, "unavailable revision"),
         ({"query_digest": "sha256:" + "0" * 64}, "query digest mismatch"),
         ({"capability_fields": ["other_field"]}, "fields differ"),
         ({"capability_type": "object-storage"}, "resource type mismatch"),
@@ -311,6 +352,11 @@ def test_loader_rejects_drifted_bindings(
     material["overlay_digest"] = canonical_digest(material)
     path = tmp_path / "rule-bindings.json"
     path.write_text(json.dumps(material), encoding="utf-8")
-    rules = (_rule(),)
     with pytest.raises(ValueError, match=message):
-        load_wara_rule_bindings(path, catalog=CATALOG, queries=QUERIES, rules=rules)
+        load_wara_rule_bindings(
+            path,
+            catalog=CATALOG,
+            queries=QUERIES,
+            rules=_release_rules(ROOT),
+            rule_digest=rule_digest,
+        )
