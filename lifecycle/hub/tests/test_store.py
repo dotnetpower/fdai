@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-import os
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from dataclasses import replace
 from datetime import datetime, time, timedelta
 from functools import partial
 
 import pytest
-from sqlalchemy import update
+from sqlalchemy import Boolean, Column, MetaData, String, Table, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -26,38 +25,27 @@ from fdai_lifecycle_hub.domain import (
     Unchanged,
     Waiting,
 )
-from fdai_lifecycle_hub.schemas import PlanReport
-from fdai_lifecycle_hub.store import (
+from fdai_lifecycle_hub.enrollment import EnrollmentRequest
+from fdai_lifecycle_hub.errors import (
     ConcurrentWriteError,
-    HubStore,
     InstallationExistsError,
     PlanDigestMismatchError,
     ReportConflictError,
+    SchemaMismatchError,
     UnknownInstallationError,
     UnknownPlanError,
 )
+from fdai_lifecycle_hub.schemas import PlanReport
+from fdai_lifecycle_hub.signing import verify_key_proof
+from fdai_lifecycle_hub.store import HubStore
 
 type Recompute = Callable[..., PlanOutcome]
-
-
-@pytest.fixture(params=["sqlite", pytest.param("postgres", marks=pytest.mark.integration)])
-def hub_store(request: pytest.FixtureRequest, store: HubStore) -> Iterator[HubStore]:
-    if request.param == "sqlite":
-        yield store
-        return
-    url = os.environ.get("FDAI_DATABASE_URL")
-    if not url:
-        pytest.skip("FDAI_DATABASE_URL is not set")
-    postgres = HubStore.connect(url.replace("postgresql://", "postgresql+psycopg://", 1))
-    postgres.drop_schema()
-    postgres.create_schema()
-    yield postgres
-    postgres.drop_schema()
+type Enroll = Callable[[HubStore, Installation], None]
 
 
 @pytest.fixture
-def registered(hub_store: HubStore, installation: Installation, now: datetime) -> HubStore:
-    hub_store.register(installation, now=now)
+def registered(hub_store: HubStore, enroll: Enroll, installation: Installation) -> HubStore:
+    enroll(hub_store, installation)
     return hub_store
 
 
@@ -84,11 +72,28 @@ def test_registered_installation_round_trips(
     assert registered.load(installation.installation_id) == installation
 
 
-def test_duplicate_registration_is_rejected(
-    registered: HubStore, installation: Installation, now: datetime
+def test_duplicate_enrollment_is_rejected(
+    registered: HubStore, enrollment: EnrollmentRequest, now: datetime
 ) -> None:
     with pytest.raises(InstallationExistsError):
-        registered.register(installation, now=now)
+        registered.request_enrollment(enrollment, verify=verify_key_proof, now=now)
+
+
+def test_migrate_is_idempotent_and_refuses_an_earlier_schema(hub_store: HubStore) -> None:
+    hub_store.create_schema()
+    hub_store.drop_schema()
+    earlier = MetaData()
+    Table(
+        "lifecycle_entity",
+        earlier,
+        Column("installation_id", String(160), primary_key=True),
+        Column("managed", Boolean),
+    )
+    earlier.create_all(hub_store.engine)
+
+    with pytest.raises(SchemaMismatchError, match="lifecycle_entity"):
+        hub_store.create_schema()
+    earlier.drop_all(hub_store.engine)
 
 
 def test_unknown_installation_is_rejected(hub_store: HubStore, now: datetime) -> None:
@@ -247,14 +252,14 @@ def test_report_for_other_plan_bytes_is_rejected(
 
 def test_report_for_unknown_or_foreign_plan_is_rejected(
     registered: HubStore,
+    enroll: Enroll,
     installation: Installation,
     recompute: Recompute,
     now: datetime,
 ) -> None:
     outcome = recompute(now=now)
     assert isinstance(outcome, Issued)
-    other = replace(installation, installation_id="installation-beta")
-    registered.register(other, now=now)
+    enroll(registered, replace(installation, installation_id="installation-beta"))
 
     with pytest.raises(UnknownPlanError):
         registered.record_report(installation.installation_id, "missing", _report(outcome), now=now)
@@ -297,21 +302,20 @@ def test_timestamps_read_back_as_aware_utc(
 
 
 def test_daily_window_round_trips_as_local_time(
-    hub_store: HubStore, installation: Installation, now: datetime
+    hub_store: HubStore, enroll: Enroll, installation: Installation
 ) -> None:
     window = DailyWindow(time(23, 30), timedelta(hours=2), "Asia/Seoul")
     custom = replace(installation, settings=replace(installation.settings, windows=(window,)))
 
-    hub_store.register(custom, now=now)
+    enroll(hub_store, custom)
 
     assert hub_store.load(custom.installation_id).settings.windows == (window,)
 
 
 def test_configuration_revisions_are_addressed_by_content(
-    registered: HubStore, installation: Installation, now: datetime
+    registered: HubStore, enroll: Enroll, installation: Installation
 ) -> None:
-    twin = replace(installation, installation_id="installation-beta")
-    registered.register(twin, now=now)
+    enroll(registered, replace(installation, installation_id="installation-beta"))
 
     stored = registered.load("installation-beta").configuration
     assert stored == installation.configuration

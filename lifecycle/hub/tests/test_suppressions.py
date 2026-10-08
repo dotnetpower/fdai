@@ -54,18 +54,17 @@ def test_lifting_removes_only_that_scope(installation: Installation, now: dateti
 
 
 def test_suppression_withdraws_the_plan_until_lifted(
-    store: HubStore, installation: Installation, planner: Planner, now: datetime
+    enrolled_store: HubStore, installation: Installation, planner: Planner, now: datetime
 ) -> None:
-    store.register(installation, now=now)
-    first = store.recompute(installation.installation_id, planner, now=now)
-    client = TestClient(create_app(store, clock=lambda: now))
+    first = enrolled_store.recompute(installation.installation_id, planner, now=now)
+    client = TestClient(create_app(enrolled_store, clock=lambda: now))
     plan_url = f"/v1/installations/{installation.installation_id}/plan"
 
-    store.add_suppression(installation.installation_id, _window(now), now=now)
+    enrolled_store.add_suppression(installation.installation_id, _window(now), now=now)
     withdrawn = client.get(plan_url).status_code
-    held = store.recompute(installation.installation_id, planner, now=now)
-    store.lift_suppressions(installation.installation_id, "installation", now=now)
-    reissued = store.recompute(installation.installation_id, planner, now=now)
+    held = enrolled_store.recompute(installation.installation_id, planner, now=now)
+    enrolled_store.lift_suppressions(installation.installation_id, "installation", now=now)
+    reissued = enrolled_store.recompute(installation.installation_id, planner, now=now)
 
     assert isinstance(first, Issued)
     assert withdrawn == 204
@@ -73,21 +72,20 @@ def test_suppression_withdraws_the_plan_until_lifted(
     assert held.checks[0].blocks[0].reason_code == "suppression_window_active"
     assert isinstance(reissued, Issued)
     assert reissued.plan.sequence == 2
-    assert store.load(installation.installation_id).suppressions == ()
-    assert store.audit_chain_intact()
+    assert enrolled_store.load(installation.installation_id).suppressions == ()
+    assert enrolled_store.audit_chain_intact()
 
 
 def test_future_suppression_holds_the_plan_from_its_start_without_a_recompute(
-    store: HubStore, installation: Installation, planner: Planner, now: datetime
+    enrolled_store: HubStore, installation: Installation, planner: Planner, now: datetime
 ) -> None:
-    store.register(installation, now=now)
-    store.recompute(installation.installation_id, planner, now=now)
+    enrolled_store.recompute(installation.installation_id, planner, now=now)
     starts_at = now + timedelta(minutes=5)
     later = SuppressionWindow("installation", starts_at, starts_at + timedelta(hours=1))
 
-    store.add_suppression(installation.installation_id, later, now=now)
+    enrolled_store.add_suppression(installation.installation_id, later, now=now)
 
-    served = partial(store.current_plan, installation.installation_id)
+    served = partial(enrolled_store.current_plan, installation.installation_id)
     assert served(now=starts_at - timedelta(seconds=1)) is not None
     assert served(now=starts_at) is None
 
@@ -103,23 +101,22 @@ def test_future_suppression_holds_the_plan_from_its_start_without_a_recompute(
     ],
 )
 def test_only_a_matching_suppression_holds_the_plan(
-    store: HubStore,
+    enrolled_store: HubStore,
     installation: Installation,
     planner: Planner,
     now: datetime,
     scope: str,
     held: bool,
 ) -> None:
-    store.register(installation, now=now)
-    first = store.recompute(installation.installation_id, planner, now=now)
-    client = TestClient(create_app(store, clock=lambda: now))
+    first = enrolled_store.recompute(installation.installation_id, planner, now=now)
+    client = TestClient(create_app(enrolled_store, clock=lambda: now))
 
-    store.add_suppression(installation.installation_id, _window(now, scope), now=now)
+    enrolled_store.add_suppression(installation.installation_id, _window(now, scope), now=now)
 
     assert isinstance(first, Issued)
     status = client.get(f"/v1/installations/{installation.installation_id}/plan").status_code
     assert status == (204 if held else 200)
-    served = store.current_plan(installation.installation_id, now=now)
+    served = enrolled_store.current_plan(installation.installation_id, now=now)
     assert (served is None) is held
     if not held:
         assert served is not None and served.plan_id == first.plan.plan_id

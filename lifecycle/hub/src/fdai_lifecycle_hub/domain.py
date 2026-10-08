@@ -10,9 +10,10 @@ from datetime import UTC, datetime, time, timedelta
 from enum import StrEnum
 from functools import cmp_to_key
 from typing import ClassVar, Self, get_args
-from zoneinfo import ZoneInfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fdai_deployment_cli.contracts import canonical_digest
+from fdai_deployment_cli.lifecycle_configuration import validate_configuration_package_for_signing
 from fdai_deployment_cli.lifecycle_plan import (
     ConstraintBlock,
     LifecyclePlan,
@@ -22,9 +23,14 @@ from fdai_deployment_cli.lifecycle_plan import (
 )
 from fdai_deployment_cli.runtime_release import compare_release_ids, is_release_id
 
+from fdai_lifecycle_hub.entity import Entity
+
 type Clock = Callable[[], datetime]
 
 _SHA256_HEX = re.compile(r"[0-9a-f]{64}")
+# Column bounds in models.py, checked here so oversized input is refused, not a database fault.
+MAX_RELEASE_ID_LENGTH = 64
+MAX_SCHEMA_REVISION = 2**31 - 1
 
 
 class StaleStateError(ValueError):
@@ -49,7 +55,10 @@ class DailyWindow:
             raise ValueError("window start is a local wall-clock time")
         if not timedelta(minutes=1) <= self.duration <= timedelta(days=1):
             raise ValueError("window duration must be between one minute and one day")
-        ZoneInfo(self.timezone)  # Rejects unknown zones at construction.
+        try:
+            ZoneInfo(self.timezone)
+        except ZoneInfoNotFoundError as error:  # A KeyError, which validation wouldn't catch.
+            raise ValueError(f"unknown timezone: {self.timezone!r}") from error
 
     def around(self, now: datetime) -> Iterator[MaintenanceWindow]:
         """Yield the occurrences that start on the previous, current, and next local day."""
@@ -79,21 +88,18 @@ class Settings:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
-class Entity:
-    """One deployable unit of an installation. Only managed entities receive Plans."""
-
-    entity_id: str
-    kind: str
-    managed: bool
-
-
-@dataclass(frozen=True, slots=True, kw_only=True)
 class Configuration:
     """One configuration package revision, addressed by the digest of its content."""
 
     schema: Mapping[str, object]
     environment: Mapping[str, object]
     entity_overrides: tuple[Mapping[str, object], ...]
+
+    def __post_init__(self) -> None:
+        # Secret values never enter the Hub. The schema defines keys and holds no values.
+        validate_configuration_package_for_signing(
+            {"environment": self.environment, "entity_overrides": self.entity_overrides}
+        )
 
     @property
     def digest(self) -> str:
@@ -120,8 +126,11 @@ class EntityState:
     health: Health
 
     def __post_init__(self) -> None:
-        if not is_release_id(self.release_id):
-            raise ValueError(f"release id is not canonical SemVer: {self.release_id!r}")
+        if len(self.release_id) > MAX_RELEASE_ID_LENGTH or not is_release_id(self.release_id):
+            raise ValueError(
+                f"release id is not canonical SemVer of at most {MAX_RELEASE_ID_LENGTH} characters:"
+                f" {self.release_id!r}"
+            )
         Health(self.health)  # Rejects an unknown health value.
 
 
@@ -141,6 +150,8 @@ class ReportedState:
     def __post_init__(self) -> None:
         if not _SHA256_HEX.fullmatch(self.digest):
             raise ValueError("state digest must be 64 lowercase hex characters")
+        if not 0 <= self.schema_revision <= MAX_SCHEMA_REVISION:
+            raise ValueError("schema revision is out of range")
         if self.observed_at.tzinfo is None:
             raise ValueError("observed_at must be timezone-aware")
 
@@ -236,8 +247,6 @@ class Installation:
     open_plan: IssuedPlan | None = None
 
     def __post_init__(self) -> None:
-        if not self.managed_entity_ids:
-            raise ValueError("an installation needs at least one managed entity")
         if missing := self.managed_entity_ids - self.reported.entities.keys():
             raise ValueError(f"reported state lacks managed entities: {sorted(missing)}")
 
@@ -301,6 +310,7 @@ class OutcomeKind(StrEnum):
     WAITING = "waiting"
     NO_ELIGIBLE_RELEASE = "no-eligible-release"
     UP_TO_DATE = "up-to-date"
+    NO_MANAGED_ENTITY = "no-managed-entity"
 
 
 @dataclass(frozen=True, slots=True)
@@ -354,6 +364,14 @@ class UpToDate:
     checks: tuple[CandidateCheck, ...] = ()
 
 
+@dataclass(frozen=True, slots=True)
+class NoManagedEntity:
+    """No Entity is managed yet, so there is nothing to plan for."""
+
+    kind: ClassVar[OutcomeKind] = OutcomeKind.NO_MANAGED_ENTITY
+    checks: tuple[CandidateCheck, ...] = ()
+
+
 @dataclass(frozen=True, slots=True, kw_only=True)
 class Evaluation:
     """A recorded recompute: its outcome and every candidate check behind it."""
@@ -365,5 +383,5 @@ class Evaluation:
     evaluated_at: datetime
 
 
-type PlanOutcome = Issued | Unchanged | Waiting | NoEligibleRelease | UpToDate
+type PlanOutcome = Issued | Unchanged | Waiting | NoEligibleRelease | UpToDate | NoManagedEntity
 type Planner = Callable[[Installation, datetime], PlanOutcome]

@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: d308204fc7514a9449e554c55cb106fc314d9546
+translation_source_sha: a065906e999289a340e3629157c0a596fe058a6e
 translation_revised: 2026-10-08
 ---
 # Hub 관리형 수명 주기
@@ -272,9 +272,14 @@ cell이 다른 고객의 cell에 영향을 줄 수 없습니다.
 1. 운영자는 다른 경로와 마찬가지로 자신의 로그인으로 Foundation을 만들거나 기존 설치에서
    시작합니다. 오프라인 사이트는 서명된 오프라인 패키지로 Target Hub와 첫 Release를 설치합니다.
 2. 운영자는 서명된 Release에서 수명 주기 에이전트와 인프라 에이전트를 설치합니다.
-3. 설치는 Hub에 설치 키 보유를 증명하고, 고객 승인자가 등록을 수락합니다.
+3. 설치는 설치 키로 등록 요청에 서명해 키 보유를 증명하고, 고객 승인자는 별도 경로로 확인한 키
+   ID를 지정해 등록을 수락합니다. 그때까지 Hub는 이 설치에 대해 아무것도 계획하지 않습니다.
+   증명이 틀렸거나 요청 시각이 Hub 시계와 앞뒤로 5분 넘게 차이 나는 요청은 설치를 만들지 않으며,
+   Hub는 그 사유를 감사에 남깁니다.
 4. Entity는 비관리 상태로 시작합니다. 소유가 증명되고 운영자가 설정을 추가한 뒤에만 관리
-   Entity가 됩니다.
+   Entity가 됩니다. 소유는 서명된 Foundation 생성 증적과 Terraform 상태 식별 정보가 함께 있어야
+   증명됩니다. `fdai:managed=true` 태그만 있으면 Entity는 비관리 상태로 남고, Hub는 그 사유를
+   기록합니다. 관리 Entity가 없는 설치는 Plan을 받지 않습니다.
 5. 첫 Plan이 소스 빌드 이미지를 서명된 이미지로 바꿉니다.
 
 현재는 Terraform 애플리케이션 단계가 워크로드를 만듭니다. Hub 경로는
@@ -484,8 +489,8 @@ Customer C의 온프레미스 런타임과 로컬 모델에는 별도 승인과 
 
 | 테이블 | 키 | 용도 | 시간 필드 | 변경 방식 |
 |--------|-----|------|-----------|-----------|
-| `installation` | `installation_id` | 등록, Hub 배치, 채널, 버전 범위, 구간 | `enrolled_at`, `recorded_at` | 개정 관리 |
-| `entity` | `installation_id`, `entity_id` | 종류, 관리 여부, 설정 개정 | `effective_from`, `recorded_at` | 개정 관리 |
+| `installation` | `installation_id` | 등록 상태와 설치 키, Hub 배치, 채널, 버전 범위, 구간 | `requested_at`, `enrolled_at`, `recorded_at` | 개정 관리 |
+| `entity` | `installation_id`, `entity_id` | 종류, 소유권 근거, 설정 개정. 설정이 있는 Entity가 관리 Entity | `effective_from`, `recorded_at` | 개정 관리 |
 | `entity_reported_state` | `installation_id`, `entity_id`, `observed_at` | 버전, 다이제스트, 상태, 에이전트 하위 상태 | `observed_at`, `recorded_at` | 추가 전용 |
 | `lifecycle_plan` | `plan_id` | 유형, 목표 Release, 구성 개정, 효과 경계, 만료 | `created_at`, `issued_at`, `expires_at` | 상태 변경은 `lifecycle_plan_event`에 기록 |
 | `plan_evaluation` | `evaluation_id` | 재계산 한 번의 결과, 대상 릴리스, 발급한 Plan(있는 경우) | `evaluated_at` | 추가 전용 |
@@ -502,9 +507,9 @@ Release 테이블은 [Lifecycle Release와 채널](lifecycle-releases-and-channe
 
 ## 현재 한계
 
-- 현재 동작하는 것은 Lifecycle Hub의 Plan 계산, 저장, 에이전트 API뿐이며 loopback에서 관찰 모드(shadow
-  mode)로 실행됩니다([Lifecycle Hub](../../../lifecycle/hub/README.md)). 이 문서의 나머지 내용은 설계만
-  있습니다.
+- 현재 동작하는 것은 Lifecycle Hub의 등록, Plan 계산, 저장, 에이전트 API뿐이며 loopback에서 관찰
+  모드(shadow mode)로 실행됩니다([Lifecycle Hub](../../../lifecycle/hub/README.md)). 이 문서의 나머지
+  내용은 설계만 있습니다.
 - Terraform 밖의 워크로드 렌더링은 [워크로드 렌더링 마이그레이션](#워크로드-렌더링-마이그레이션)에
   설계되어 있습니다. 에이전트 렌더러, 렌더링 동등성 테스트, 소유 이전은 아직 구현되지 않았습니다.
 - 에이전트와 Target Hub의 두 슬롯 자체 업그레이드에는 별도의 실패 분석이 필요합니다.

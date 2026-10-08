@@ -18,6 +18,7 @@ from fdai_lifecycle_hub.domain import (
     Issued,
     IssuedPlan,
     NoEligibleRelease,
+    NoManagedEntity,
     Planner,
     Unchanged,
     UpToDate,
@@ -36,6 +37,19 @@ def _with_core_release(installation: Installation, release_id: str) -> Installat
     core = replace(reported.entities["core"], release_id=release_id)
     return replace(
         installation, reported=replace(reported, entities={**reported.entities, "core": core})
+    )
+
+
+def _all_managed(installation: Installation) -> Installation:
+    """Give every entity the core entity's proven ownership and settings."""
+
+    core = next(entity for entity in installation.entities if entity.entity_id == "core")
+    return replace(
+        installation,
+        entities=frozenset(
+            replace(entity, ownership=core.ownership, settings=core.settings)
+            for entity in installation.entities
+        ),
     )
 
 
@@ -150,9 +164,7 @@ def test_unmanaged_entities_do_not_hold_back_the_plan(
 def test_partial_upgrade_plans_from_the_oldest_managed_entity(
     installation: Installation, planner: Planner, now: datetime
 ) -> None:
-    managed = replace(
-        installation, entities=frozenset(replace(e, managed=True) for e in installation.entities)
-    )
+    managed = _all_managed(installation)
     console_ahead = replace(managed.reported.entities["console"], release_id="1.6.0")
     mixed = replace(
         managed,
@@ -214,9 +226,7 @@ def test_open_plan_is_replaced_when_signing_key_or_scope_changed(
     if change == "rotated_key":
         key = HubSigningKey(Ed25519PrivateKey.generate(), epoch=2)
     else:
-        current = replace(
-            current, entities=frozenset(replace(e, managed=True) for e in current.entities)
-        )
+        current = _all_managed(current)
 
     again = plan_next(current, now, catalog=catalog, key=key)
 
@@ -231,11 +241,12 @@ def test_installation_requires_state_for_every_managed_entity(installation: Inst
         replace(installation, reported=replace(installation.reported, entities=entities))
 
 
-def test_installation_requires_a_managed_entity(installation: Installation) -> None:
-    unmanaged = frozenset(replace(entity, managed=False) for entity in installation.entities)
+def test_installation_without_managed_entities_gets_no_plan(
+    installation: Installation, planner: Planner, now: datetime
+) -> None:
+    unmanaged = frozenset(replace(entity, settings=None) for entity in installation.entities)
 
-    with pytest.raises(ValueError, match="at least one managed entity"):
-        replace(installation, entities=unmanaged)
+    assert planner(replace(installation, entities=unmanaged), now) == NoManagedEntity()
 
 
 def test_naive_planning_time_is_rejected(installation: Installation, planner: Planner) -> None:

@@ -29,6 +29,7 @@ from fdai_lifecycle_hub.domain import (
     Installation,
     Issued,
     NoEligibleRelease,
+    NoManagedEntity,
     PlanOutcome,
     Unchanged,
     UpToDate,
@@ -58,6 +59,8 @@ def plan_next(
 
     if now.tzinfo is None:
         raise ValueError("planning time must be timezone-aware")
+    if not installation.managed_entity_ids:
+        return NoManagedEntity()
     windows = installation.maintenance_windows(now)
     checks: list[CandidateCheck] = []
     candidates = catalog.newer_than(installation.settings.channel, installation.current_release)
