@@ -209,7 +209,10 @@
         "services/core-control-plane/tests/delivery/test_code_security_scan_requests.py",
         "console/src/routes/code-security-requests.tsx",
         "scripts/operations/code-security-scan.sh",
-        "console/src/routes/code-security.css"
+        "console/src/routes/code-security.css",
+        "services/operator-service/src/fdai_operator_service/code_security_issue_projection.py",
+        "console/src/routes/code-security-issues.tsx",
+        "console/src/routes/code-security-registration.tsx"
       ],
       "must_read": [
         ".github/instructions/architecture.instructions.md",

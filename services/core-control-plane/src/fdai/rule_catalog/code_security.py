@@ -71,6 +71,13 @@ class AttackVector(StrEnum):
     PHYSICAL = "physical"
 
 
+class AttackComplexity(StrEnum):
+    """Conditions beyond the attacker's control, aligned with the CVSS AC concept."""
+
+    LOW = "low"
+    HIGH = "high"
+
+
 class PrivilegesRequired(StrEnum):
     NONE = "none"
     LOW = "low"
@@ -201,6 +208,7 @@ class SeverityRubric(_Strict):
     advisory_score_bands: Annotated[tuple[ScoreThreshold, ...], Field(min_length=4, max_length=4)]
     impact_points: dict[Impact, Annotated[float, Field(ge=0, le=10)]]
     attack_vector_penalty: dict[AttackVector, Annotated[float, Field(ge=0, le=10)]]
+    attack_complexity_penalty: dict[AttackComplexity, Annotated[float, Field(ge=0, le=10)]]
     privileges_required_penalty: dict[PrivilegesRequired, Annotated[float, Field(ge=0, le=10)]]
     user_interaction_penalty: dict[UserInteraction, Annotated[float, Field(ge=0, le=10)]]
 
@@ -209,6 +217,7 @@ class SeverityRubric(_Strict):
         for name, table, enum in (
             ("impact_points", self.impact_points, Impact),
             ("attack_vector_penalty", self.attack_vector_penalty, AttackVector),
+            ("attack_complexity_penalty", self.attack_complexity_penalty, AttackComplexity),
             ("privileges_required_penalty", self.privileges_required_penalty, PrivilegesRequired),
             ("user_interaction_penalty", self.user_interaction_penalty, UserInteraction),
         ):

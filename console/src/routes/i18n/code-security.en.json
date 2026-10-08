@@ -22,7 +22,8 @@
     "exposure": "Exposure",
     "recordedAt": "Recorded",
     "source": "Source",
-    "trigger": "Started by"
+    "trigger": "Started by",
+    "detail": "Issues"
   },
   "decision": {
     "urgent": "Urgent",
@@ -41,7 +42,10 @@
     "code_security_review_truncated": "More reviews exist than this view shows.",
     "code_security_pack_malformed": "A stored remediation pack is malformed and was withheld.",
     "code_security_repository_malformed": "A stored repository registration is malformed and was withheld.",
-    "code_security_scan_request_malformed": "A stored scan request is malformed and was withheld."
+    "code_security_scan_request_malformed": "A stored scan request is malformed and was withheld.",
+    "code_security_issue_malformed": "A stored issue summary is malformed and was withheld.",
+    "code_security_issues_unavailable": "No issue summaries are recorded for this review.",
+    "code_security_issues_truncated": "This review has more issues than are shown."
   },
   "packsTitle": "Remediation packs",
   "packsEmpty": "No remediation pack has been recorded in the state store yet.",
@@ -87,9 +91,9 @@
     "queued": "Scan request queued. The result appears below when the scan worker finishes.",
     "forbidden": "A Contributor or Owner role is required to request a scan.",
     "failed": "The scan request was not queued.",
-    "noRepositories": "No repository is registered for Console scans. An operator registers one with `fdai-code-security repo-register`.",
+    "noRepositories": "No repository is registered for Console scans. An Owner registers one below or with `fdai-code-security repo-register`.",
     "unavailable": "Registered repositories and scan requests are unavailable.",
-    "requestsTitle": "Scan requests",
+    "requestsTitle": "Scan and registration requests",
     "requestsEmpty": "No scan has been requested yet.",
     "withheld": "Withheld repository or request records",
     "repositoriesTitle": "Registered repositories"
@@ -99,7 +103,8 @@
     "location": "GitHub repository",
     "defaultRef": "Default ref",
     "exposure": "Exposure",
-    "state": "State"
+    "state": "State",
+    "change": "Change"
   },
   "repoState": {
     "enabled": "Enabled",
@@ -110,7 +115,8 @@
     "repository": "Repository",
     "ref": "Ref",
     "status": "Status",
-    "result": "Result"
+    "result": "Result",
+    "kind": "Request"
   },
   "requestStatus": {
     "queued": "Queued",
@@ -126,6 +132,49 @@
     "source_unavailable": "The repository or ref could not be fetched.",
     "scan_failed": "The scan failed before producing a review.",
     "review_conflict": "A different review is already recorded for this commit.",
-    "attempts_exhausted": "The scan was retried too many times."
+    "attempts_exhausted": "The scan was retried too many times.",
+    "repository_conflict": "The alias is already registered for another repository."
+  },
+  "requestKind": {
+    "scan": "Scan",
+    "register": "Register",
+    "enable": "Enable",
+    "disable": "Disable"
+  },
+  "register": {
+    "title": "Register a GitHub repository",
+    "body": "Owners can allow Console scans of a GitHub repository. The worker applies the change with an audit record; registering grants no write access to the repository.",
+    "alias": "Alias",
+    "location": "GitHub repository",
+    "defaultRef": "Default ref",
+    "exposure": "Exposure",
+    "submit": "Request registration",
+    "enable": "Enable",
+    "disable": "Disable",
+    "queued": "Change request queued. It takes effect when the scan worker runs.",
+    "forbidden": "Only an Owner can change repository registrations.",
+    "failed": "The change request was not queued.",
+    "defaultRefHint": "Blank follows the repository's default branch."
+  },
+  "issues": {
+    "title": "Issues in this review",
+    "body": "Priority, severity, confidence, weakness class, and CWE or advisory per issue. Paths, code, and scanner messages stay in reports and remediation packs.",
+    "open": "View",
+    "close": "Close",
+    "loading": "Loading issues",
+    "empty": "This review found no issue.",
+    "notRecorded": "Issue details weren't recorded for this review.",
+    "unavailable": "Issue details are unavailable.",
+    "yes": "Yes",
+    "column": {
+      "issue": "Issue",
+      "priority": "Priority",
+      "severity": "Severity",
+      "confidence": "Confidence",
+      "weaknessClass": "Weakness class",
+      "reference": "CWE or advisory",
+      "producers": "Producers",
+      "knownExploited": "Known exploited"
+    }
   }
 }

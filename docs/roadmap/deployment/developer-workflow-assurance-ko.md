@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 8c6471205a6042333067957db1cfb221e1a02278
+translation_source_sha: 42b8eec8831e3280cd265fe948e84f0a1c4fe48c
 translation_revised: 2026-10-08
 ---
 
@@ -306,6 +306,10 @@ Pre-commit 파생 출처 검사는 경량 staged-input selector에 항상 진입
 Knowledge 출처, 카탈로그, 검사기 또는 hook 설정이 바뀔 때만 전체 검사를 실행합니다. selector는
 staged 카탈로그에서 출처 집합을 파생하므로 새 출처를 등록할 때 hook 경로 필터를 수동으로 맞출
 필요가 없습니다.
+개발자는 커밋하기 전에 `scripts/operations/code-security-scan.sh FOLDER --include-uncommitted`로 작업
+트리의 보안 문제를 점검할 수 있습니다. 이 스캔은 로컬 피드백일 뿐입니다. 스냅샷 리비전에는 커밋이
+없으므로 커밋을 증명하거나 조치 팩의 기준이 될 수 없습니다. 로컬과 배포 환경의 Operator 데이터 출처
+목록은 같은 코드 보안 검토, 저장소, 스캔 요청 프로젝션을 선언합니다.
 Core 수량·리소스 계산 검사는 클러스터에 접속하지 않고 루트 개발 의존성의 잠긴 Kubernetes 도구를 사용합니다. 타입 선언 부재에 대한 예외는 `kubernetes.utils.quantity`에만 적용하며 어댑터는 반환된 Decimal 값을 검증합니다. 의존성 변경은 소유 범위와 Core wheel 검사를 유지하며 진단 채널이나 실제 수집을 활성화하지 않습니다.
 루트 CI가 서비스 소스를 수집할 때는 해당 소스가 가져오는 모든 서드파티 패키지를 `dev`
 extra에 반영합니다. 런타임 이미지와 패키지 소유권은 서비스 매니페스트가 계속 담당합니다.

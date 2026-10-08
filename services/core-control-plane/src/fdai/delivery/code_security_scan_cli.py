@@ -152,11 +152,15 @@ async def run_scan(args: argparse.Namespace) -> dict[str, object]:
     lens = result.lens_report
     recorded = False
     if args.record_state:
+        from fdai.core.security.code_findings.issue_summary import summarize_issues
         from fdai.delivery.persistence.state_store_code_security_review import (
             record_review_from_environment,
         )
 
-        recorded = await record_review_from_environment(result.package)
+        summaries, truncated = summarize_issues(result.issues)
+        recorded = await record_review_from_environment(
+            result.package, issues=summaries, issues_truncated=truncated
+        )
     report: dict[str, str] | None = None
     if args.report:
         from fdai.delivery.code_security_report import write_scan_report

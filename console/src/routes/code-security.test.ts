@@ -18,6 +18,8 @@ import {
   decodeCodeSecurityScanRequests,
   scanRequestIdempotencyKey,
 } from "./code-security-requests";
+import { decodeCodeSecurityIssues, issueReference } from "./code-security-issues";
+import { registrationInputValid, repositoryChangeIdempotencyKey } from "./code-security-registration";
 
 function packEnvelope(packs: unknown[], gaps: unknown[] = []): Record<string, unknown> {
   return {
@@ -217,6 +219,9 @@ describe("code-security route", () => {
     expect(repositories.repositories[0]?.location).toBe("example/app");
     const base = {
       request_id: `operator-${"a".repeat(32)}`,
+      kind: "scan",
+      action: null,
+      location: null,
       repository_alias: "example-app",
       ref: null,
       accepted_at: "2026-10-08T00:00:00+00:00",
@@ -248,5 +253,93 @@ describe("code-security route", () => {
     expect(scanRequestIdempotencyKey("example-app", "v1", "n2")).not.toBe(
       scanRequestIdempotencyKey("example-app", "v1", "n3"),
     );
+  });
+
+  it("decodes repository change requests next to scans", () => {
+    const requests = decodeCodeSecurityScanRequests({
+      requests: [
+        {
+          request_id: `operator-${"b".repeat(32)}`,
+          kind: "repository_change",
+          action: "register",
+          location: "example/app",
+          repository_alias: "example-app",
+          ref: null,
+          status: "completed",
+          accepted_at: "2026-10-08T00:00:00+00:00",
+          closed_at: "2026-10-08T00:01:00+00:00",
+          rejection_reason: null,
+          result: { enabled: true },
+        },
+        {
+          request_id: `operator-${"c".repeat(32)}`,
+          kind: "repository_change",
+          action: "enable",
+          location: null,
+          repository_alias: "other",
+          ref: null,
+          status: "rejected",
+          accepted_at: "2026-10-08T00:00:00+00:00",
+          closed_at: "2026-10-08T00:01:00+00:00",
+          rejection_reason: "repository_conflict",
+          result: null,
+        },
+      ],
+      gaps: [],
+    });
+    expect(requests.requests.map((item) => [item.kind, item.action])).toEqual([
+      ["repository_change", "register"],
+      ["repository_change", "enable"],
+    ]);
+    expect(requests.requests[0]?.result).toEqual({ enabled: true });
+    expect(() => decodeCodeSecurityScanRequests({ requests: [{ kind: "delete" }], gaps: [] })).toThrow();
+  });
+
+  it("decodes issue summaries and renders their reference without paths", () => {
+    const data = decodeCodeSecurityIssues({
+      available: true,
+      issues: [
+        {
+          issue_id: "FDAI-SEC-0123456789ab",
+          priority: "P1",
+          due_days: 7,
+          severity: "high",
+          confidence: "verified",
+          weakness_class: "command_injection",
+          cwe_ids: [78],
+          advisory_ids: [],
+          package: null,
+          producers: ["Opengrep"],
+          known_exploited: false,
+        },
+        {
+          issue_id: "FDAI-SEC-ba9876543210",
+          priority: "P3",
+          due_days: 90,
+          severity: "medium",
+          confidence: "corroborated",
+          weakness_class: "vulnerable_dependency",
+          cwe_ids: [],
+          advisory_ids: ["CVE-2026-0001"],
+          package: "flask",
+          producers: ["Trivy", "osv-scanner"],
+          known_exploited: true,
+        },
+      ],
+      gaps: [{ reason_code: "code_security_issues_truncated" }],
+    });
+    expect(data.issues.map(issueReference)).toEqual(["CWE-78", "flask CVE-2026-0001"]);
+    expect(data.gaps).toEqual(["code_security_issues_truncated"]);
+    expect(() => decodeCodeSecurityIssues({ available: true, issues: [{ priority: "P9" }], gaps: [] })).toThrow();
+  });
+
+  it("validates registration input before submitting an Owner change", () => {
+    expect(registrationInputValid("example-app", "example/app", "")).toBe(true);
+    expect(registrationInputValid("example-app", "example/app", "release/1")).toBe(true);
+    expect(registrationInputValid("bad alias", "example/app", "")).toBe(false);
+    expect(registrationInputValid("a", "https://github.com/example/app", "")).toBe(false);
+    expect(registrationInputValid("a", "example/app", "../main")).toBe(false);
+    expect(repositoryChangeIdempotencyKey({ action: "disable", repository_alias: "a" }, "n1"))
+      .toBe("code-security-repository:disable:a:n1");
   });
 });

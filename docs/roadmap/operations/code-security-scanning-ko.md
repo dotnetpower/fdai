@@ -1,8 +1,8 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: 08ea259a64ce1a531d175090ca9b62a377c97e2a
-translation_revised: 2026-10-08
+translation_source_sha: 07b0f4c6e4b274e3b11c4565ae9df211639f201d
+translation_revised: 2026-10-09
 ---
 
 # 코드 보안 스캔
@@ -172,10 +172,11 @@ lockfile 권고는 패키지 이름과 함께 표시됩니다. 보고서에는 �
 운영자는 Console의 **코드 보안** 화면에서 등록된 GitHub 저장소의 스캔을 FDAI에 요청할 수
 있습니다. 결과의 책임 에이전트는 Heimdall이며, 요청 자체는 어떤 권한도 부여하지 않습니다.
 
-1. **등록:** 운영자가 `fdai-code-security repo-register`로 `owner/repository` 위치에 대한 별칭과
-   기본 ref, 노출을 등록합니다. `repo-enable`과 `repo-disable`로 스캔을 켜고 끕니다. 모든 변경은
-   비교 후 설정 방식을 쓰고 Heimdall 명의의 감사 항목을 추가합니다. 별칭을 다른 위치로 바꿀 수는
-   없습니다.
+1. **등록:** Owner가 Console(`POST /code-security/repositories`)이나
+   `fdai-code-security repo-register`로 `owner/repository` 위치에 대한 별칭과 기본 ref(생략하면 저장소의
+   기본 브랜치를 가리키는 `HEAD`), 노출을 등록합니다. 사용과 사용 안 함으로 스캔을 켜고 끕니다. Console에서 한 변경은 작업자가 스캔보다 먼저
+   적용하는 정형 제안(`code_security.repository_change`)입니다. 모든 변경은 비교 후 설정 방식을 쓰고
+   요청자를 기록한 Heimdall 명의의 감사 항목을 추가합니다. 별칭을 다른 위치로 바꿀 수는 없습니다.
 2. **요청:** Contributor 또는 Owner가 별칭과 선택적인 브랜치, 태그, 커밋을 담아
    `POST /code-security/scan-requests`를 보냅니다. Operator API는 본문을 검증하고 정형 제안
    (`code_security.scan_request`)을 지속 아웃박스에 저장합니다. 스캔하거나 저장소 상태를 읽지는
@@ -196,8 +197,9 @@ lockfile 권고는 패키지 이름과 함께 표시됩니다. 보고서에는 �
 | 거부 사유 | 의미 |
 |-----------|------|
 | `request_malformed` | 저장된 본문이 정형 별칭과 ref가 아닙니다 |
-| `requester_role_insufficient` | 요청자에게 Contributor와 Owner 역할이 모두 없었습니다 |
-| `repository_not_registered` / `repository_disabled` | 이 별칭은 스캔할 수 없습니다 |
+| `requester_role_insufficient` | 스캔 요청자에게 Contributor와 Owner 역할이 모두 없었거나, 등록 요청자가 Owner가 아니었습니다 |
+| `repository_not_registered` / `repository_disabled` | 이 별칭은 스캔하거나 켜고 끌 수 없습니다 |
+| `repository_conflict` | 등록하려는 별칭이 이미 다른 위치에 연결되어 있습니다 |
 | `source_unavailable` | ref, 저장소, 자격 증명을 확인하지 못했습니다 |
 | `scan_failed` / `review_conflict` | 스캔이 실패했거나, 그 커밋에 다른 발견 사항이 이미 있습니다 |
 | `attempts_exhausted` | 요청을 세 번 넘게 가져갔습니다 |
@@ -213,8 +215,11 @@ lockfile 권고는 패키지 이름과 함께 표시됩니다. 보고서에는 �
 2. **여러 모델 계열에 질의:** 각 발췌를 줄 번호가 붙은 신뢰할 수 없는 JSON 데이터로 설정된 모든
    모델에 보냅니다. 엄격한 JSON 스키마 응답을 사용하고, 도구는 사용하지 않으며, 요청 바이트 상한을
    적용합니다.
-3. **코드로 검증:** 인용한 줄이 발췌 안에 있고, 싱크 힌트와 일치하며, 렌즈의 CWE 중 하나를 사용할
-   때만 후보를 남깁니다.
+3. **코드로 검증:** 인용한 줄이 발췌 안에 있고 렌즈의 CWE 중 하나를 사용하며, 싱크 힌트와
+   일치하거나 같은 발췌의 이후 싱크 힌트 줄이 온전한 단어로 사용하는 변수를 대입할 때만 후보를
+   남깁니다. 이런 한 단계 흐름은 SARIF 생산자가 수정 위치를 두는 그 싱크 줄에 고정하므로, 한
+   흐름의 서로 다른 줄을 인용한 모델도 같은 싱크에서 만납니다. 이름이나 주석에서 의미를 읽지
+   않습니다.
 4. **정족수 요구:** 서로 다른 모델 계열 둘 이상이 줄 허용 범위 안에서 근거가 확인된 후보를 보고할
    때만 개별 보고를 만듭니다.
 
@@ -255,6 +260,12 @@ lockfile 권고는 패키지 이름과 함께 표시됩니다. 보고서에는 �
 경로 탐색과 SQL 인젝션은 하나도 남지 않았습니다. 모델은 쿼리나 경로를 만드는 줄을 인용하지만
 근거 확인은 싱크 힌트 줄만 받아들이므로, 주장 79개가 근거 없음으로 거부되었습니다. 따라서 렌즈
 가설은 다른 생산자나 검증기가 확인하기 전까지 아무 효력이 없습니다.
+
+이후 근거 확인이 위의 한 단계 흐름을 받아들이도록 바꿨습니다. 같은 두 모델로 겹치지 않는
+표본(`--sample-offset 10`, 범주마다 다음 참 파일 10개와 거짓 파일 10개)을 측정했습니다. 엄격한 규칙은
+가설 9개(참 5개, 정밀도 0.556)를 남겼고 명령 인젝션, 경로 탐색, SQL 인젝션 재현율은 0.5, 0, 0이었습니다.
+흐름 근거 확인은 주장 59개를 싱크에 고정하고 가설 30개(참 15개, 정밀도 0.5)를 남겼으며 재현율은
+0.7, 0.4, 0.4였습니다. 정밀도가 0.5 안팎이므로 렌즈 가설은 계속 효력이 없습니다.
 
 예: 두 모델 계열이 모두 `missing-authorization` 렌즈에서 CWE-639로 8번째 줄
 `Order.query.get(order_id)`를 인용합니다. FDAI는 `hypothesis` 개별 보고 하나를 남깁니다. 사람이나
@@ -408,7 +419,9 @@ SARIF는 수집 과정을 거쳤습니다.
 로컬 스캔 테스트는 커밋된 `HEAD`와 스냅샷 확보, 무시된 파일, 심볼릭 링크 탈출, ref 확인, 보고서
 이스케이프와 현지화를 다루며, 실제 bubblewrap 실행으로 커밋하지 않은 스냅샷을 스캔했습니다. 요청
 테스트는 등록, 감사, 본문 검증, 모든 거부 사유를 다루며, 일회용 PostgreSQL 데이터베이스에서 제안
-가져오기, 완료, Operator 프로젝션을 검증했습니다.
+가져오기, 완료, Operator 프로젝션을 검증했습니다. github.com을 대상으로 한 실제 실행에서는
+`OWASP/NodeGoat`를 ref 없이 등록하고 `HEAD`를 기본 브랜치 커밋으로 확인한 뒤, 스캐너 다섯 개를 모두
+커버리지 완전 상태로 마치고 요청 ID와 함께 이슈 202개를 기록했습니다.
 
 ## 관련 문서
 

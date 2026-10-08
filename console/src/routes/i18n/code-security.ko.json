@@ -22,7 +22,8 @@
     "exposure": "노출",
     "recordedAt": "기록 시각",
     "source": "출처",
-    "trigger": "시작 경로"
+    "trigger": "시작 경로",
+    "detail": "이슈"
   },
   "decision": {
     "urgent": "긴급",
@@ -41,7 +42,10 @@
     "code_security_review_truncated": "이 화면에 표시된 것보다 많은 검토가 있습니다.",
     "code_security_pack_malformed": "저장된 조치 팩 형식이 잘못되어 보류했습니다.",
     "code_security_repository_malformed": "저장된 저장소 등록 형식이 잘못되어 보류했습니다.",
-    "code_security_scan_request_malformed": "저장된 스캔 요청 형식이 잘못되어 보류했습니다."
+    "code_security_scan_request_malformed": "저장된 스캔 요청 형식이 잘못되어 보류했습니다.",
+    "code_security_issue_malformed": "저장된 이슈 요약 형식이 잘못되어 보류했습니다.",
+    "code_security_issues_unavailable": "이 검토에는 기록된 이슈 요약이 없습니다.",
+    "code_security_issues_truncated": "이 검토에는 표시된 것보다 많은 이슈가 있습니다."
   },
   "packsTitle": "조치 팩",
   "packsEmpty": "상태 저장소에 기록된 조치 팩이 아직 없습니다.",
@@ -87,9 +91,9 @@
     "queued": "스캔 요청을 접수했습니다. 스캔 작업자가 끝내면 아래에 결과가 표시됩니다.",
     "forbidden": "스캔을 요청하려면 Contributor 또는 Owner 역할이 필요합니다.",
     "failed": "스캔 요청을 접수하지 못했습니다.",
-    "noRepositories": "Console 스캔용으로 등록된 저장소가 없습니다. 운영자가 `fdai-code-security repo-register`로 등록합니다.",
+    "noRepositories": "Console 스캔용으로 등록된 저장소가 없습니다. Owner가 아래에서 또는 `fdai-code-security repo-register`로 등록합니다.",
     "unavailable": "등록된 저장소와 스캔 요청을 사용할 수 없습니다.",
-    "requestsTitle": "스캔 요청",
+    "requestsTitle": "스캔·등록 요청",
     "requestsEmpty": "아직 요청된 스캔이 없습니다.",
     "withheld": "보류된 저장소 또는 요청 기록",
     "repositoriesTitle": "등록된 저장소"
@@ -99,7 +103,8 @@
     "location": "GitHub 저장소",
     "defaultRef": "기본 ref",
     "exposure": "노출",
-    "state": "상태"
+    "state": "상태",
+    "change": "변경"
   },
   "repoState": {
     "enabled": "사용",
@@ -110,7 +115,8 @@
     "repository": "저장소",
     "ref": "Ref",
     "status": "상태",
-    "result": "결과"
+    "result": "결과",
+    "kind": "요청"
   },
   "requestStatus": {
     "queued": "대기",
@@ -126,6 +132,49 @@
     "source_unavailable": "저장소나 ref를 가져오지 못했습니다.",
     "scan_failed": "검토 결과를 만들기 전에 스캔이 실패했습니다.",
     "review_conflict": "이 커밋에는 다른 검토가 이미 기록되어 있습니다.",
-    "attempts_exhausted": "스캔 재시도 횟수를 초과했습니다."
+    "attempts_exhausted": "스캔 재시도 횟수를 초과했습니다.",
+    "repository_conflict": "이 별칭은 이미 다른 저장소로 등록되어 있습니다."
+  },
+  "requestKind": {
+    "scan": "스캔",
+    "register": "등록",
+    "enable": "사용",
+    "disable": "사용 안 함"
+  },
+  "register": {
+    "title": "GitHub 저장소 등록",
+    "body": "Owner는 GitHub 저장소의 Console 스캔을 허용할 수 있습니다. 작업자가 감사 기록과 함께 변경을 적용하며, 등록해도 저장소에 쓰기 권한이 생기지 않습니다.",
+    "alias": "별칭",
+    "location": "GitHub 저장소",
+    "defaultRef": "기본 ref",
+    "exposure": "노출",
+    "submit": "등록 요청",
+    "enable": "사용",
+    "disable": "사용 안 함",
+    "queued": "변경 요청을 접수했습니다. 스캔 작업자가 실행되면 적용됩니다.",
+    "forbidden": "저장소 등록은 Owner만 변경할 수 있습니다.",
+    "failed": "변경 요청을 접수하지 못했습니다.",
+    "defaultRefHint": "비워 두면 저장소의 기본 브랜치를 따릅니다."
+  },
+  "issues": {
+    "title": "이 검토의 이슈",
+    "body": "이슈마다 우선순위, 심각도, 신뢰도, 취약점 유형, CWE 또는 권고를 보여 줍니다. 경로, 코드, 스캐너 메시지는 보고서와 조치 팩에만 있습니다.",
+    "open": "보기",
+    "close": "닫기",
+    "loading": "이슈를 불러오는 중",
+    "empty": "이 검토에서 발견된 이슈가 없습니다.",
+    "notRecorded": "이 검토에는 이슈 상세가 기록되지 않았습니다.",
+    "unavailable": "이슈 상세를 사용할 수 없습니다.",
+    "yes": "예",
+    "column": {
+      "issue": "이슈",
+      "priority": "우선순위",
+      "severity": "심각도",
+      "confidence": "신뢰도",
+      "weaknessClass": "취약점 유형",
+      "reference": "CWE 또는 권고",
+      "producers": "탐지 도구",
+      "knownExploited": "실제 악용 확인"
+    }
   }
 }

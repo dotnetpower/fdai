@@ -177,7 +177,9 @@ approved grant, and fresh effective-access evidence is required before the actio
   [Code Security Findings](../operations/code-security-findings.md#remediation-pack).
 - **Code-security LLM lens**: the optional lens lane sends bounded source excerpts to configured
   model deployments, so the same residency and no-retention terms apply. Its output is untrusted;
-  only grounded, quorum-agreed candidates become inert hypotheses. The `evaluate-lens` precision
+  only grounded, quorum-agreed candidates become inert hypotheses. Grounding is checked in code: a
+  cited line must be a sink-hint line or a variable assignment that a later sink-hint line of the
+  same excerpt uses, and the hypothesis is anchored at that sink. The `evaluate-lens` precision
   measurement sends excerpts only from a pinned public benchmark sample staged in an owner-only
   scratch root, never from a customer repository.
 - **Code-security proof lane**: the only place FDAI runs repository code. It's opt-in per scan,
@@ -191,8 +193,11 @@ approved grant, and fresh effective-access evidence is required before the actio
 - **Code-security repository scans**: a Console scan request only queues a typed proposal for a
   registered alias and grants no approval or execution authority. The scan worker narrows each
   GitHub App token to that one repository with read-only contents permission and passes it to git
-  only through environment configuration, never argv, logs, or the extracted tree. Local folder
-  scan reports are owner-only files without code, scanner messages, or secret values. See
+  only through environment configuration, never argv, logs, or the extracted tree. Only an Owner
+  can register or toggle a repository, and the worker rechecks that role. Console issue summaries
+  are bounded, bound to their review digest, and carry no path, line, symbol, scanner message,
+  or code. Local folder scan reports are owner-only files without code, scanner messages, or
+  secret values. See
   [Code Security Scanning](../operations/code-security-scanning.md#repository-scans-from-the-console).
 
 ## Network Boundaries

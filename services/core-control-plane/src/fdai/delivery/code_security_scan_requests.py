@@ -1,4 +1,4 @@
-"""Process Console code-security scan requests for registered repositories.
+"""Process Console code-security scan requests and registration changes.
 
 The Console submits a scan request as a typed Operator proposal (``code_security.scan_request``).
 This worker claims one pending proposal at a time, checks that the alias names an enabled
@@ -20,6 +20,11 @@ from typing import Protocol
 
 from fdai.core.security.code_findings.review_signal import ReviewSource, review_decision
 from fdai.delivery.code_security_acquire import SourceAcquisitionError
+from fdai.delivery.code_security_repository_changes import (
+    REPOSITORY_CHANGE_OPERATION,
+    RepositoryChange,
+    apply_repository_change,
+)
 from fdai.delivery.persistence.state_store_code_security_repository import (
     CodeSecurityRepository,
     CodeSecurityRepositoryError,
@@ -62,6 +67,18 @@ class ClaimedScanRequest:
     request: ScanRequest | None
     """``None`` when the proposal body is malformed; the worker rejects it."""
     attempt: int = 1
+    operation: str = SCAN_REQUEST_OPERATION
+    change: RepositoryChange | None = None
+    """The parsed registration change when ``operation`` is a repository change."""
+
+
+@dataclass(frozen=True, slots=True)
+class ScanOutcome:
+    """The strict review package plus bounded issue summaries for the Console."""
+
+    package: Mapping[str, object]
+    issues: Sequence[Mapping[str, object]] = ()
+    issues_truncated: bool = False
 
 
 class ScanRequestQueue(Protocol):
@@ -74,10 +91,10 @@ class ScanRequestQueue(Protocol):
     async def mark_rejected(self, *, key: str, claim_id: str, reason_code: str) -> bool: ...
 
 
-ScanRunner = Callable[[CodeSecurityRepository, str, ReviewSource], Awaitable[Mapping[str, object]]]
-"""Scan ``repository`` at ``ref`` and return the strict review package."""
+ScanRunner = Callable[[CodeSecurityRepository, str, ReviewSource], Awaitable[ScanOutcome]]
+"""Scan ``repository`` at ``ref`` and return the review package and issue summaries."""
 
-ReviewRecorder = Callable[[Mapping[str, object]], Awaitable[bool]]
+ReviewRecorder = Callable[[ScanOutcome], Awaitable[bool]]
 
 
 class ReviewPublisher(Protocol):
@@ -153,8 +170,29 @@ async def _reject(
     queue: ScanRequestQueue, claim: ClaimedScanRequest, reason: str
 ) -> dict[str, object]:
     await queue.mark_rejected(key=claim.key, claim_id=claim.claim_id, reason_code=reason)
-    request_id = claim.request.request_id if claim.request else None
+    request_id = (
+        claim.request.request_id
+        if claim.request
+        else claim.change.request_id
+        if claim.change
+        else None
+    )
     return {"request_id": request_id, "status": "rejected", "reason_code": reason}
+
+
+async def _process_change(
+    claim: ClaimedScanRequest, queue: ScanRequestQueue, store: StateStore
+) -> dict[str, object]:
+    change = claim.change
+    if change is None:
+        return await _reject(queue, claim, REJECT_MALFORMED)
+    if claim.attempt > MAX_ATTEMPTS:
+        return await _reject(queue, claim, REJECT_ATTEMPTS)
+    result, reason = await apply_repository_change(store, change)
+    if result is None:
+        return await _reject(queue, claim, str(reason))
+    await queue.mark_completed(key=claim.key, claim_id=claim.claim_id, result=result)
+    return {"request_id": change.request_id, "status": "published", **result}
 
 
 async def _process(
@@ -165,6 +203,8 @@ async def _process(
     recorder: ReviewRecorder,
     publisher: ReviewPublisher | None,
 ) -> dict[str, object]:
+    if claim.operation == REPOSITORY_CHANGE_OPERATION:
+        return await _process_change(claim, queue, store)
     request = claim.request
     if request is None:
         return await _reject(queue, claim, REJECT_MALFORMED)
@@ -184,13 +224,14 @@ async def _process(
         request_id=request.request_id,
     )
     try:
-        package = await runner(repository, request.ref or repository.default_ref, source)
+        outcome = await runner(repository, request.ref or repository.default_ref, source)
     except SourceAcquisitionError:
         return await _reject(queue, claim, REJECT_SOURCE)
     except (OSError, ValueError):
         return await _reject(queue, claim, REJECT_SCAN)
+    package = outcome.package
     try:
-        await recorder(package)
+        await recorder(outcome)
     except CodeSecurityReviewConflictError:
         return await _reject(queue, claim, REJECT_CONFLICT)
     published = await publisher.publish_code_security_drift(package) if publisher else False
@@ -215,6 +256,7 @@ __all__ = [
     "ReviewPublisher",
     "ReviewRecorder",
     "ScanRequest",
+    "ScanOutcome",
     "ScanRequestQueue",
     "ScanRunner",
     "parse_scan_request",

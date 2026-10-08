@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -14,6 +15,7 @@ from fdai.core.security.code_findings.lens import (
     LensLaneUnavailableError,
     run_lens_lane,
     select_candidates,
+    sink_line_for,
 )
 from fdai.rule_catalog.code_security import CodeSecurityCatalogError, Confidence
 from fdai.rule_catalog.code_security_lenses import LensCatalog, load_lens_catalog
@@ -169,3 +171,53 @@ def test_missing_lens_catalog_fails_closed(tmp_path: Path) -> None:
     (tmp_path / "cs" / "lenses.yaml").unlink()
     with pytest.raises(CodeSecurityCatalogError, match="lenses.yaml"):
         load_lens_catalog(tmp_path / "cs")
+
+
+_SQL = """public class Orders {
+    public void find(HttpServletRequest request, Statement statement) throws Exception {
+        String param = request.getParameter("id");
+        String sql = "SELECT * FROM orders WHERE id = '" + param + "'";
+        String unrelated = "SELECT 1";
+        statement.executeQuery(sql);
+    }
+}
+"""
+
+
+def test_a_cited_line_grounds_to_the_sink_it_flows_into() -> None:
+    lines = _SQL.splitlines()
+    hints = [
+        re.compile(h) for h in load_lens_catalog(CATALOG_ROOT).lenses["sql-injection"].sink_hints
+    ]
+    assert sink_line_for(6, 8, lines, hints) == 6  # the sink itself
+    assert sink_line_for(4, 8, lines, hints) == 6  # `sql` is built here and executed on line 6
+    assert sink_line_for(5, 8, lines, hints) is None  # assigned but never reaches a sink
+    assert sink_line_for(4, 5, lines, hints) is None  # the sink lies outside the excerpt
+    assert sink_line_for(1, 8, lines, hints) is None  # not an assignment
+    python = ["path = request.args['f']", "path += '.txt'", "data = open(path).read()"]
+    path_hints = [
+        re.compile(h) for h in load_lens_catalog(CATALOG_ROOT).lenses["path-traversal"].sink_hints
+    ]
+    assert sink_line_for(2, 3, python, path_hints) == 3
+
+
+async def test_models_citing_the_build_line_and_the_sink_meet_at_the_sink(tmp_path: Path) -> None:
+    root = tmp_path / "src"
+    (root / "app").mkdir(parents=True)
+    (root / "app" / "Orders.java").write_text(_SQL)
+    models = [
+        _Model("family-a", {"sql-injection": [(4, 89)]}),
+        _Model("family-b", {"sql-injection": [(6, 89)]}),
+    ]
+    occurrences, report = await run_lens_lane(root, _lens_catalog(), models, revision=REVISION)
+    (occ,) = occurrences
+    assert occ.location.start_line == 6 and occ.cwe_ids == (89,)
+    assert report.anchored_to_sink == 1 and report.rejected_ungrounded == 0
+    unrelated = [
+        _Model("family-a", {"sql-injection": [(5, 89)]}),
+        _Model("family-b", {"sql-injection": [(6, 89)]}),
+    ]
+    none, unrelated_report = await run_lens_lane(
+        root, _lens_catalog(), unrelated, revision=REVISION
+    )
+    assert none == () and unrelated_report.rejected_ungrounded == 1

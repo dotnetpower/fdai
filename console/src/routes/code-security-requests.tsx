@@ -6,6 +6,12 @@ import { Tooltip } from "../components/tooltip";
 import { t } from "./i18n/code-security";
 import { formatConsoleTimestamp } from "../time-format";
 import {
+  FeedbackLine,
+  RepositoryRegistrationForm,
+  submitRepositoryChange,
+  type RegistrationFeedback,
+} from "./code-security-registration";
+import {
   panelArray,
   panelBoolean,
   panelContractError,
@@ -22,6 +28,7 @@ const REJECTIONS = [
   "requester_role_insufficient",
   "repository_not_registered",
   "repository_disabled",
+  "repository_conflict",
   "source_unavailable",
   "scan_failed",
   "review_conflict",
@@ -33,6 +40,8 @@ const GAPS = [
   "code_security_review_truncated",
 ] as const;
 const REF = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/;
+const KINDS = ["scan", "repository_change"] as const;
+const ACTIONS = ["register", "enable", "disable"] as const;
 
 type RequestStatus = (typeof STATUSES)[number];
 type Gap = (typeof GAPS)[number];
@@ -52,20 +61,25 @@ export interface CodeSecurityRepositoriesResponse {
   readonly gaps: readonly Gap[];
 }
 
+export interface ScanResult {
+  readonly revision: string;
+  readonly decision: (typeof DECISIONS)[number];
+  readonly issue_count: number;
+  readonly coverage_complete: boolean;
+}
+
 export interface CodeSecurityScanRequest {
   readonly request_id: string;
+  readonly kind: (typeof KINDS)[number];
+  readonly action: (typeof ACTIONS)[number] | null;
+  readonly location: string | null;
   readonly repository_alias: string;
   readonly ref: string | null;
   readonly status: RequestStatus;
   readonly accepted_at: string;
   readonly closed_at: string | null;
   readonly rejection_reason: (typeof REJECTIONS)[number] | null;
-  readonly result: {
-    readonly revision: string;
-    readonly decision: (typeof DECISIONS)[number];
-    readonly issue_count: number;
-    readonly coverage_complete: boolean;
-  } | null;
+  readonly result: ScanResult | { readonly enabled: boolean } | null;
 }
 
 export interface CodeSecurityScanRequestsResponse {
@@ -118,21 +132,27 @@ export function decodeCodeSecurityScanRequests(payload: unknown): CodeSecuritySc
       const label = `code-security scan request ${index}`;
       const row = panelRecord(item, label);
       const status = oneOf(row.status, STATUSES, `${label}.status`);
+      const kind = oneOf(row.kind, KINDS, `${label}.kind`);
       let result: CodeSecurityScanRequest["result"] = null;
       if (row.result !== null) {
         const record = panelRecord(row.result, `${label}.result`);
-        result = {
-          revision: panelNonEmptyString(record, "revision", label),
-          decision: oneOf(record.decision, DECISIONS, `${label}.result.decision`),
-          issue_count: panelNonNegativeInteger(record, "issue_count", label),
-          coverage_complete: panelBoolean(record, "coverage_complete", label),
-        };
+        result = kind === "repository_change"
+          ? { enabled: panelBoolean(record, "enabled", label) }
+          : {
+            revision: panelNonEmptyString(record, "revision", label),
+            decision: oneOf(record.decision, DECISIONS, `${label}.result.decision`),
+            issue_count: panelNonNegativeInteger(record, "issue_count", label),
+            coverage_complete: panelBoolean(record, "coverage_complete", label),
+          };
       }
       if ((status === "completed") !== (result !== null)) {
         throw panelContractError(`${label} result must match its status`);
       }
       return {
         request_id: panelNonEmptyString(row, "request_id", label),
+        kind,
+        action: row.action === null ? null : oneOf(row.action, ACTIONS, `${label}.action`),
+        location: nullableString(row.location, `${label}.location`),
         repository_alias: panelNonEmptyString(row, "repository_alias", label),
         ref: nullableString(row.ref, `${label}.ref`),
         status,
@@ -208,6 +228,7 @@ function ScanRequestForm({
       <label>
         <span>{t("codeSecurity.scan.repository")}</span>
         <select
+          aria-label={t("codeSecurity.scan.repository")}
           value={alias}
           disabled={submitting}
           onChange={(event) => setAlias(event.currentTarget.value)}
@@ -244,12 +265,48 @@ function ScanRequestForm({
   );
 }
 
+function isScanResult(result: CodeSecurityScanRequest["result"]): result is ScanResult {
+  return result !== null && "revision" in result;
+}
+
 function resultText(request: CodeSecurityScanRequest): string {
-  if (request.result !== null) {
+  if (isScanResult(request.result)) {
     return `${t(`codeSecurity.decision.${request.result.decision}`)} - ${request.result.issue_count}`;
+  }
+  if (request.result !== null) {
+    return t(`codeSecurity.repoState.${request.result.enabled ? "enabled" : "disabled"}`);
   }
   if (request.rejection_reason !== null) return t(`codeSecurity.rejection.${request.rejection_reason}`);
   return "-";
+}
+
+function RepositoryToggle({
+  client,
+  repository,
+  onQueued,
+}: {
+  readonly client: Pick<OperatorApiClient, "changeCodeSecurityRepository">;
+  readonly repository: CodeSecurityRepository;
+  readonly onQueued: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState<RegistrationFeedback>(null);
+  const action = repository.enabled ? "disable" : "enable";
+  const toggle = async () => {
+    setBusy(true);
+    const result = await submitRepositoryChange(client, { action, repository_alias: repository.repository_alias });
+    setFeedback(result);
+    setBusy(false);
+    if (result?.kind === "queued") onQueued();
+  };
+  return (
+    <span class="code-security-toggle">
+      <button type="button" class="btn subtle" disabled={busy} onClick={() => void toggle()}>
+        {t(`codeSecurity.register.${action}`)}
+      </button>
+      <FeedbackLine feedback={feedback} />
+    </span>
+  );
 }
 
 export function RepositoryScanSection({
@@ -258,7 +315,7 @@ export function RepositoryScanSection({
   requests,
   onQueued,
 }: {
-  readonly client: Pick<OperatorApiClient, "requestCodeSecurityScan">;
+  readonly client: Pick<OperatorApiClient, "requestCodeSecurityScan" | "changeCodeSecurityRepository">;
   readonly repositories: CodeSecurityRepositoriesResponse | null;
   readonly requests: CodeSecurityScanRequestsResponse | null;
   readonly onQueued: () => void;
@@ -286,15 +343,25 @@ export function RepositoryScanSection({
         />
       ),
     },
+    {
+      key: "change",
+      header: t("codeSecurity.repoColumn.change"),
+      render: (row) => <RepositoryToggle client={client} repository={row} onQueued={onQueued} />,
+    },
   ];
   const requestColumns: readonly Column<CodeSecurityScanRequest>[] = [
     { key: "requested", header: t("codeSecurity.requestColumn.requestedAt"), render: (row) => formatConsoleTimestamp(row.accepted_at) },
     { key: "repository", header: t("codeSecurity.requestColumn.repository"), render: (row) => <span class="mono">{row.repository_alias}</span> },
     {
+      key: "kind",
+      header: t("codeSecurity.requestColumn.kind"),
+      render: (row) => (row.action === null ? t("codeSecurity.requestKind.scan") : t(`codeSecurity.requestKind.${row.action}`)),
+    },
+    {
       key: "ref",
       header: t("codeSecurity.requestColumn.ref"),
-      render: (row) => row.result === null
-        ? <span class="mono">{row.ref ?? "-"}</span>
+      render: (row) => !isScanResult(row.result)
+        ? <span class="mono">{row.ref ?? row.location ?? "-"}</span>
         : (
           <Tooltip content={row.result.revision}>
             <span class="mono">{`${row.ref ?? ""} ${row.result.revision.slice(0, 12)}`.trim()}</span>
@@ -314,6 +381,7 @@ export function RepositoryScanSection({
       <h2 id="code-security-scans">{t("codeSecurity.scan.title")}</h2>
       <p class="muted">{t("codeSecurity.scan.body")}</p>
       <ScanRequestForm client={client} repositories={repositories.repositories} onQueued={onQueued} />
+      <RepositoryRegistrationForm client={client} onQueued={onQueued} />
       <DataTable
         columns={repositoryColumns}
         rows={repositories.repositories}

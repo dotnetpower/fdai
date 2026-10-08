@@ -9,7 +9,7 @@
 # Run: python -m fdai.delivery.code_security_cli evaluate --corpus <this file>
 schema_version: 1
 corpus_id: fdai.code-security.synthetic
-version: 1.0.0
+version: 1.1.0
 provenance: synthetic
 line_shift: 7
 acceptance:
@@ -34,7 +34,7 @@ cases:
         line: 42
         occurrences: [ext-1, det-1, lens-1]
         reviewer_band: critical
-        facts: {impact: data_write, attack_vector: network, privileges_required: none, user_interaction: none}
+        facts: {impact: data_write, attack_vector: network, attack_complexity: low, privileges_required: none, user_interaction: none}
   - id: distinct-classes-same-file
     # Two root causes in one file stay separate even when one producer reports both.
     occurrences:
@@ -46,14 +46,16 @@ cases:
         path: src/api/handlers.py
         line: 18
         occurrences: [a]
-        reviewer_band: high
-        facts: {impact: data_read, attack_vector: network, privileges_required: low, user_interaction: none}
+        # Medium since corpus 1.1.0: CVSS rates AV:N/AC:L/PR:L/UI:N/C:H/I:N/A:N 6.5, matching the
+        # independently labeled curated holdout case code-vllm-4hhp.
+        reviewer_band: medium
+        facts: {impact: data_read, attack_vector: network, attack_complexity: low, privileges_required: low, user_interaction: none}
       - weakness_class: command_injection
         path: src/api/handlers.py
         line: 55
         occurrences: [b, c]
         reviewer_band: high
-        facts: {impact: code_execution, attack_vector: local, privileges_required: low, user_interaction: none}
+        facts: {impact: code_execution, attack_vector: local, attack_complexity: low, privileges_required: low, user_interaction: none}
   - id: same-class-two-sites
     # The same weakness at two fix sites is two issues; one has verified facts, one does not.
     occurrences:
@@ -66,7 +68,7 @@ cases:
         line: 12
         occurrences: [p1]
         reviewer_band: high
-        facts: {impact: data_read, attack_vector: network, privileges_required: none, user_interaction: none}
+        facts: {impact: data_read, attack_vector: network, attack_complexity: low, privileges_required: none, user_interaction: none}
       - weakness_class: path_traversal
         path: src/files/download.py
         line: 40
@@ -102,13 +104,13 @@ cases:
         line: 7
         occurrences: [g1, s1]
         reviewer_band: high
-        facts: {impact: data_read, attack_vector: network, privileges_required: none, user_interaction: none}
+        facts: {impact: data_read, attack_vector: network, attack_complexity: low, privileges_required: none, user_interaction: none}
       - weakness_class: insecure_configuration
         path: infra/storage.tf
         line: 12
         occurrences: [m1]
         reviewer_band: medium
-        facts: {impact: info_disclosure, attack_vector: network, privileges_required: none, user_interaction: none}
+        facts: {impact: info_disclosure, attack_vector: network, attack_complexity: low, privileges_required: none, user_interaction: none}
   - id: web-low-and-medium
     occurrences:
       - {id: x1, producer: Opengrep, lane: deterministic, rule_id: fdai.js.inner-html, path: web/src/profile.ts, line: 31, cwe: [79]}
@@ -119,13 +121,13 @@ cases:
         line: 31
         occurrences: [x1]
         reviewer_band: medium
-        facts: {impact: info_disclosure, attack_vector: network, privileges_required: none, user_interaction: required}
+        facts: {impact: info_disclosure, attack_vector: network, attack_complexity: low, privileges_required: none, user_interaction: required}
       - weakness_class: open_redirect
         path: web/src/login.ts
         line: 9
         occurrences: [r1]
         reviewer_band: low
-        facts: {impact: limited, attack_vector: network, privileges_required: none, user_interaction: required}
+        facts: {impact: limited, attack_vector: network, attack_complexity: low, privileges_required: none, user_interaction: required}
   - id: lens-only-deserialization
     exposure: exposed
     occurrences:
@@ -136,7 +138,7 @@ cases:
         line: 23
         occurrences: [l1]
         reviewer_band: critical
-        facts: {impact: code_execution, attack_vector: network, privileges_required: none, user_interaction: none}
+        facts: {impact: code_execution, attack_vector: network, attack_complexity: low, privileges_required: none, user_interaction: none}
   - id: clean-negative
     occurrences: []
     expected: []

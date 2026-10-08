@@ -175,10 +175,12 @@ report shows the lockfile advisories under their package name. No code text appe
 An operator can ask FDAI to scan a registered GitHub repository from the Console **Code security**
 route. Heimdall is the accountable agent for the result. The request itself grants no authority:
 
-1. **Registration:** an operator registers an alias for an `owner/repository` location with
-   `fdai-code-security repo-register`, plus a default ref and exposure. `repo-enable` and
-   `repo-disable` toggle scanning. Every change uses compare-and-set and appends a
-   Heimdall-attributed audit entry. An alias can't be repointed at another location.
+1. **Registration:** an Owner registers an alias for an `owner/repository` location, plus a
+   default ref (`HEAD`, the repository's default branch, when omitted) and exposure, from the Console (`POST /code-security/repositories`) or with
+   `fdai-code-security repo-register`. Enable and disable toggle scanning. A Console change is a
+   typed proposal (`code_security.repository_change`) that the worker applies before any scan.
+   Every change uses compare-and-set and appends a Heimdall-attributed audit entry naming the
+   requester. An alias can't be repointed at another location.
 2. **Request:** a Contributor or Owner submits `POST /code-security/scan-requests` with an alias
    and an optional branch, tag, or commit. The Operator API validates the body and stores a typed
    proposal (`code_security.scan_request`) in its durable outbox. It doesn't scan or read
@@ -199,8 +201,9 @@ image starts it with `fdai-scan-runner process-requests`.
 | Rejection reason | Meaning |
 |------------------|---------|
 | `request_malformed` | The stored body isn't the typed alias and ref |
-| `requester_role_insufficient` | The requester had neither Contributor nor Owner |
-| `repository_not_registered` / `repository_disabled` | The alias can't be scanned |
+| `requester_role_insufficient` | A scan requester had neither Contributor nor Owner, or a registration requester wasn't an Owner |
+| `repository_not_registered` / `repository_disabled` | The alias can't be scanned or toggled |
+| `repository_conflict` | A registration names an alias that's already bound to another location |
 | `source_unavailable` | The ref, repository, or credential couldn't be resolved |
 | `scan_failed` / `review_conflict` | The scan failed, or different findings exist for that commit |
 | `attempts_exhausted` | The request was claimed more than three times |
@@ -215,8 +218,11 @@ optional, runs off the agent hot path inside the scan job, and produces only ine
    lens's sink hints in the [lens catalog](../../../rule-catalog/code-security/lenses.yaml).
 2. **Ask several model families:** send each excerpt to every configured model as untrusted JSON
    data with line numbers, a strict JSON schema response, no tools, and a request byte ceiling.
-3. **Verify in code:** keep a candidate only when the cited line is inside the excerpt, matches a
-   sink hint, and uses one of the lens's CWEs.
+3. **Verify in code:** keep a candidate only when the cited line is inside the excerpt, uses one
+   of the lens's CWEs, and either matches a sink hint or assigns a variable that a later sink-hint
+   line of the same excerpt uses as a whole word. Such a one-hop flow is anchored at that sink
+   line, where SARIF producers place the fix site, so models that cite different lines of one flow
+   meet at the same sink. No meaning is read from names or comments.
 4. **Require a quorum:** emit an occurrence only when at least two distinct model families report
    grounded candidates within the line tolerance.
 
@@ -261,6 +267,13 @@ positives, precision 0.5 and recall 0.5. Each false positive is a file where a c
 builds the query or path, while grounding accepts only a sink-hint line, so 79 claims were
 rejected as ungrounded. Lens hypotheses therefore stay inert until another producer or a verifier
 confirms them.
+
+Grounding then accepted the one-hop flow above. On a disjoint sample (`--sample-offset 10`, the
+next ten true and ten false files per category) with the same two models, the strict rule kept 9
+hypotheses (5 true, precision 0.556) with recall 0.5, 0, and 0 for command injection, path
+traversal, and SQL injection. Flow grounding anchored 59 claims to their sink and kept 30 (15
+true, precision 0.5) with recall 0.7, 0.4, and 0.4. Precision stays near 0.5, so lens
+hypotheses remain inert.
 
 Example: two model families both cite line 8, `Order.query.get(order_id)`, for
 `missing-authorization` with CWE-639. FDAI keeps one `hypothesis` occurrence. The issue is
@@ -423,6 +436,9 @@ Local scan tests cover committed-`HEAD` and snapshot acquisition, ignored files,
 ref resolution, and report escaping and localization; a real bubblewrap run scans an uncommitted
 snapshot. Request tests cover registration, audit, body validation, and every rejection reason, and
 a throwaway PostgreSQL database validated the proposal claim, completion, and Operator projections.
+A live run against github.com registered `OWASP/NodeGoat` without a ref, resolved `HEAD` to its
+default branch commit, completed all five scanners with complete coverage, and recorded 202 issues
+with the request id.
 
 ## Related docs
 
