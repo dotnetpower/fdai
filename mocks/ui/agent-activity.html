@@ -6,17 +6,16 @@
   <title>Agent activity - FDAI Console</title>
   <link rel="stylesheet" href="assets/calm-slate.css?v=page-context-v3" />
   <link rel="stylesheet" href="assets/agents-preview-workspace.css?v=16" />
-  <link rel="stylesheet" href="assets/agent-activity-preview-workspace.css?v=3" />
+  <link rel="stylesheet" href="assets/agent-activity-preview-workspace.css?v=4" />
   <link rel="stylesheet" href="assets/agent-activity-preview-trajectory.css?v=11" />
   <link rel="stylesheet" href="assets/connected-operations-flow.css?v=4" />
   <link rel="stylesheet" href="assets/agent-organization-preview-dialog.css?v=2" />
   <script src="assets/calm-slate.js?v=agent-roles-v3" defer></script>
   <script src="assets/agents-preview-data.js?v=3" defer></script>
   <script src="assets/agent-activity-preview-data.js?v=3" defer></script>
-  <script src="assets/agent-activity-preview-waterfall.js?v=3" defer></script>
   <script src="assets/agent-activity-preview-trajectory-data.js?v=1" defer></script>
   <script src="assets/agent-activity-preview-trajectory.js?v=6" defer></script>
-  <script src="assets/agent-activity-preview-log.js?v=3" defer></script>
+  <script src="assets/agent-activity-preview-log.js?v=4" defer></script>
   <script src="assets/agent-organization-preview-dialog.js?v=15" defer></script>
   <link rel="stylesheet" href="assets/operator-workspace.css?v=4" />
 </head>
@@ -61,7 +60,6 @@
     <div class="ap-activity-views ap-chipset" role="group" aria-label="Activity presentation">
       <button type="button" data-view="trajectory" aria-pressed="true" aria-controls="activityTrajectoryView">Trajectories</button>
       <button type="button" data-view="activity" aria-pressed="false" aria-controls="activityJournal">Activity log</button>
-      <button type="button" data-view="waterfall" aria-pressed="false" aria-controls="activityWaterfallView">Waterfall</button>
     </div>
     <div id="activitySelection" class="ap-selection" hidden>
       <span id="activitySelectionText"></span><a id="activityAgentLink" class="ap-button" href="agents-constellation.html">Role details</a>
@@ -71,12 +69,6 @@
       <label class="ap-search">Find<input id="activityKeywordFilter" type="search" placeholder="Message, action, evidence..." autocomplete="off" /></label>
       <label class="ap-field">Correlation<select id="activityCorrelation"><option value="">All correlations</option></select></label>
       <button type="button" class="ap-button" id="activityClear">Clear filters</button>
-    </section>
-    <section class="ap-filters" id="waterfallFilters" aria-label="Waterfall audit filters" hidden>
-      <label class="ap-field">Window<select id="activityWindow"><option value="15m">15 minutes</option><option value="1h">1 hour</option><option value="24h" selected>24 hours</option><option value="7d">7 days</option></select></label>
-      <label class="ap-field">Layer<select id="activityLayer"><option value="all">All layers</option><option value="governance">Governance</option><option value="pipeline">Pipeline</option><option value="domain">Domain</option></select></label>
-      <label class="ap-field">Verb<select id="activityVerb"><option value="all">All verbs</option><option value="execute">Execute / dispatch</option><option value="approve">Approve</option><option value="reject">Reject</option><option value="rollback">Rollback</option><option value="abstain">Abstain</option><option value="audit">Audit</option></select></label>
-      <p class="ap-meta">Window is relative to the newest retained audit record, not the wall clock.</p>
     </section>
     <section id="activityTrajectoryView" aria-label="Agent trajectories">
       <div class="tj-layout">
@@ -113,11 +105,6 @@
         <div id="activityLogEmpty" class="ap-empty" hidden></div>
       </div>
       <footer class="ap-journal-footer"><span id="activityRowCount" role="status" aria-live="polite"></span><span id="activityRetention">Local synthetic retention: latest 200 rows</span><button type="button" id="activityAppend">Append sample frame</button><button type="button" id="activityOlder">Older audit evidence</button></footer>
-    </section>
-    <section id="activityWaterfallView" hidden aria-label="Audit waterfall">
-      <p class="ap-interpretation">Audit records only. Bar position shows recorded handoff timing, not measured work duration. Operational-only correlations do not have an audit trace.</p>
-      <p id="waterfallCount" class="ap-meta" role="status" aria-live="polite"></p>
-      <div class="ap-waterfall-layout"><div id="activityWaterfall"></div><aside id="activityStep" class="ap-step-detail" aria-label="Audit step detail" hidden></aside></div>
     </section>
     <noscript><p class="ap-empty">Enable JavaScript for local filters and synthetic evidence inspection. No backend connection is made.</p></noscript>
   </main>

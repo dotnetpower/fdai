@@ -327,6 +327,10 @@ try {
       assert.match(await frame.locator("#activityTrajectoryDetail").innerText(), /Trajectory evidence unavailable/);
       await frame.locator("[data-restore-preview]").click();
       assert.equal(await frame.locator(".tj-item").count(), 5);
+      const legacy = await open("agent-activity.html?view=waterfall&correlation=sample-recovery&step=106");
+      assert.equal(await legacy.locator("#activityTrajectoryView").isVisible(), true);
+      assert.match(await legacy.locator("#activityTrajectoryTitle").innerText(), /Rollback readiness probe/);
+      assert.doesNotMatch(await legacy.evaluate(() => location.search), /view=waterfall|step=/);
     });
     await check("Activity columns have full label targets and preserve the journal", async () => {
       const frame = await open("agent-activity.html?view=activity");
@@ -352,16 +356,9 @@ try {
       await frame.locator("#activityFullscreen[aria-pressed='false']").waitFor();
       assert.equal(await frame.locator("#activityFullscreen").evaluate(element => element === document.activeElement), true);
       await page.waitForTimeout(100);
-      await frame.getByRole("button", { name: "Waterfall" }).click();
-      const firstStep = frame.locator("[data-step]").first();
-      await firstStep.click();
-      assert.equal(await frame.locator("#activityStep").isVisible(), true);
-      assert.equal(await frame.locator("#activityStep h2").evaluate(element => element === document.activeElement), true);
-      await frame.locator("[data-close-step]").click();
-      assert.equal(await firstStep.evaluate(element => element === document.activeElement), true);
+      assert.equal(await frame.locator('[data-view="waterfall"], #activityWaterfallView').count(), 0);
       await frame.locator("#previewState").selectOption("error");
-      assert.equal(await frame.locator("#activityWaterfallView").isVisible(), true);
-      assert.match(await frame.locator("#activityWaterfallView").innerText(), /No audit records in this selection/);
+      assert.match(await frame.locator("#activityLogEmpty").innerText(), /Activity evidence unavailable/);
       await frame.locator("[data-restore-preview]").click();
       assert.equal(await frame.locator("#previewState").inputValue(), "snapshot");
     });

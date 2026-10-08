@@ -353,10 +353,10 @@ test("desktop interactions: role fallback preserves reporting and keyboard focus
 test("desktop interactions: Activity opens the route-backed role dialog", async ({ page }) => {
   const frame = await openOperator(
     page,
-    "agent-activity.html?view=waterfall&agent=Var&sampleState=disconnected",
+    "agent-activity.html?agent=Var&sampleState=disconnected",
   );
   await frame.locator("#activityRolesOpen").click();
-  await expect(page).toHaveURL(/view=waterfall.*agent=Var.*sampleState=disconnected.*roles=1/);
+  await expect(page).toHaveURL(/agent=Var.*sampleState=disconnected.*roles=1/);
   const dialog = frame.getByRole("dialog", { name: "Roles and ownership" });
   await expect(dialog).toBeVisible();
   const organization = dialog.frameLocator('iframe[title="Roles and ownership"]');
@@ -414,8 +414,9 @@ test("desktop interactions: activity operational lanes never invent audit traces
   await frame.getByText("Columns", { exact: true }).click();
   await frame.getByRole("checkbox", { name: "Type", exact: true }).check();
   await expect(frame.locator('th[data-column="type"]')).toBeVisible();
-  await frame.getByRole("button", { name: "Waterfall", exact: true }).click();
-  await expect(frame.locator("#activityWaterfallView")).toBeVisible();
+  await expect(frame.getByRole("button", { name: "Waterfall", exact: true })).toHaveCount(0);
+  await frame.getByRole("button", { name: "Trajectories", exact: true }).click();
+  await expect(frame.locator("#activityTrajectoryView")).toBeVisible();
   await expect(frame.locator("#activityJournal")).toBeHidden();
 });
 
