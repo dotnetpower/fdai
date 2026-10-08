@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import os
 import subprocess
@@ -480,6 +481,13 @@ def _live_binding(
     return _campaign_budget(composed.binding), http, attestation
 
 
+def write_decisions(path: Path, rows: Sequence[Mapping[str, Any]]) -> str:
+    """Write private decision rows and return the file's SHA-256 digest."""
+    text = "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows)
+    _write_private(path, text)
+    return "sha256:" + hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
 def _write_private(path: Path, text: str) -> None:
     descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
@@ -529,10 +537,9 @@ async def main() -> int:
         "data_handling_policy_digest": binding.data_handling_policy_digest,
     }
     if result is not None:
-        rows_text = "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in result["rows"])
-        rows_path = args.evidence_dir / f"{args.label}-decisions.jsonl"
-        _write_private(rows_path, rows_text)
-        summary["decisions_digest"] = content_digest({"rows": rows_text})
+        summary["decisions_digest"] = write_decisions(
+            args.evidence_dir / f"{args.label}-decisions.jsonl", result["rows"]
+        )
         summary.update(judge(result["rows"], result["event_loop_lag_ms"]))
     summary_path = args.evidence_dir / f"{args.label}-summary.json"
     _write_private(summary_path, json.dumps(summary, ensure_ascii=False, indent=2) + "\n")
