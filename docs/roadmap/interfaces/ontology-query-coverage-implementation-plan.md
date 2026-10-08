@@ -583,8 +583,17 @@ The first live attempt on `5fa946c61f` aborted and kept no rows. A diagnostic at
 unmerged branch then found five `membership_unavailable` decisions and one proposal timeout in 90
 decisions. The observer had captured `as_of` before both proposals, so slow observations fell
 outside the gateway's skew. With the two-phase fix, a second unmerged diagnostic completed all 256
-decisions with no unavailable outcome. These attempts are diagnostic only; the qualifying campaign
-runs on the merged fix.
+decisions with no unavailable outcome. These attempts are diagnostic only.
+
+**Qualifying result.** The live campaign on the exact merged commit `5298a2d450` passed both
+protocols, on attested `gpt-5.6-sol` `2026-07-09` with `low` effort.
+
+| Protocol | Result |
+|----------|--------|
+| `typed-selection-runtime-latency.v1` | Passed: 256 observations; gated p50 1.98 s, p95 3.82 s, and p99 4.51 s; one provider timeout (0.4%); foreground p95 1.66 ms with the shadow off and 1.93 ms while an observation ran, with no changed outcome; event-loop lag p99 1.8 ms. |
+| `typed-selection-runtime-window.v1` | Passed: 256 decisions with 0 wrong selections (pooled upper bound 1.16%) and no disagreement. English had 0 wrong (upper bound 2.31%) and a correct rate of 0.984: 63 of 64, with the miss being the one timeout. Korean had 0 wrong and a correct rate of 1.0. |
+
+The result is shadow evidence only. It doesn't promote the capability or change any answer.
 
 **Remaining gates before enforcement.** Composition binds no production proposer until an attested
 qualified target and a reviewed data-handling policy are configured. A binding to a different model
@@ -601,6 +610,11 @@ gates must hold:
    proposer binding. An enforced mode also needs a new function declaration with a
    non-deterministic class, network access, and a larger timeout, which is a reviewed contract
    change.
+
+Gates 1 and 2 have passed. Gate 3 and promotion are tracked in #2034, together with the scale bound:
+a proposal context above 64 KiB returns `context_unavailable`, so enforcement would be inert for
+realistic scopes until that bound is lifted without truncation. Until a registry receipt exists,
+typed selection stays in shadow mode, and no code path can enforce it.
 
 ## Twenty-round hardening record
 

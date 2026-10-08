@@ -1,6 +1,6 @@
 ---
 translation_of: ontology-retrieval-diagnostics.md
-translation_source_sha: fc52ac6e0b65195d0da8f8bd2aa0de187eca3858
+translation_source_sha: 6b9a049bdb68b50cdfc9e9d3f1fae4d14f3ba83b
 translation_revised: 2026-10-08
 ---
 
@@ -391,6 +391,11 @@ v3에서 1번, 홀드아웃 v5b에서 2번), 같은 자리의 재실행은 모�
 결정을 `<label>-partial-decisions.jsonl`에 쓰며, 요약에는 사용 불가 사유와 내용이 없는 어댑터
 실패 분류(실패 유형, HTTP 상태, 제공자 오류 코드, 검증 단계)를 집계합니다. 보고서는 운영 품질
 자격이나 실행 권한을 부여하지 않습니다.
+
+병합된 `5298a2d450`에서 실행한 검증용 캠페인은 두 프로토콜을 모두 통과했습니다. 결정 256개,
+오선택 0건, 정답률 0.984(영어)와 1.0(한국어), 게이트 p95 3.82초이며 전면 성능 저하는 없었습니다.
+모든 시도는 [설계](../roadmap/interfaces/ontology-query-coverage-implementation-plan-ko.md#런타임-타입-인스턴스-선택)에
+기록되어 있습니다.
 
 ## 테스트
 
