@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: be686382e9d5a10fcd001cf791d3b9d403c4c0a7
+translation_source_sha: 15c87d0a1d5fbfc8f7b348a1ed9734da76a974e5
 translation_revised: 2026-10-09
 ---
 
@@ -223,6 +223,21 @@ lockfile 권고는 패키지 이름과 함께 표시됩니다. 보고서에는 �
 | `scan_failed` / `review_conflict` | 스캔이 실패했거나, 그 커밋에 다른 발견 사항이 이미 있습니다 |
 | `attempts_exhausted` | 요청을 세 번 넘게 가져갔습니다 |
 
+### 예약 스캔
+
+`fdai-code-security process-scheduled-scans --max-repositories N`은 활성화된 등록을 별칭 순서대로,
+각 기본 ref에서 요청 작업자와 같은 실행기, 자격 증명, 샌드박스로 스캔합니다. 각 검토는 트리거
+`schedule`로, 요청 ID 없이 기록되며 버스가 연결되어 있으면 게시됩니다. 저장소마다 결과는 하나입니다.
+`published`, 요청 작업자와 같은 `source_unavailable`, `scan_failed`, `review_conflict` 이유가 붙은
+`failed`, 또는 활성화된 저장소가 배치 허용 수보다 많을 때 `schedule_capacity` 이유가 붙은
+`deferred`입니다. 한 저장소의 실패가 다른 저장소를 멈추지 않으며, 스캔한 저장소 중 하나라도 실패하면
+명령은 `ok: false`를 보고합니다. 스캔 실행 이미지는 `fdai-scan-runner process-schedule`로 이 명령을
+시작합니다.
+
+예: 2026-10-09 임시 데이터베이스에서 `--max-repositories 1`로 실행하자 공개 저장소 OWASP NodeGoat
+등록을 `HEAD`에서 스캔했습니다. 커밋 `c5cb68a7`로 확인하고 이슈 202개를 트리거 `schedule`로
+기록했습니다. 활성화된 두 번째 등록은 `deferred`로 보고되었고, 비활성 등록은 건너뛰었습니다.
+
 ## 배포 스캔 런타임(제안)
 
 이 절은 아직 구현되지 않은 설계입니다. 배포 환경이 노드 보안 통제를 약화하지 않고, 예약 스캔과
@@ -272,9 +287,8 @@ code-security 네임스페이스이고 `runtimeClassName`이 정확히 `kata-vm-
 3. **기록**(다시 `runc` pod): 출력이 정확한 커밋과 맞는지 검증하고, 상태 저장소에 검토를 기록하고,
    `object.drift`에 게시한 뒤 요청을 닫습니다.
 
-이렇게 나누려면 지금은 한 프로세스에서 확보, 스캔, 기록을 모두 하는 worker를 바꿔야 합니다. 또
-활성화된 등록을 나열하고, 각 기본 ref를 확인하고, 트리거 `schedule`로 검토를 기록하며, 저장소별 실패를
-격리하는 예약 worker도 필요합니다. 그런 명령은 아직 없습니다.
+이렇게 나누려면 지금은 한 프로세스에서 확보, 스캔, 기록을 모두 하는 두 작업자, 즉 요청 작업자와
+[예약 스캔](#예약-스캔)을 바꿔야 합니다.
 
 **취약점 캐시.** 별도의 준비 작업이 해당 데이터베이스 호스트만 허용하는 배포의 egress 방화벽을 거쳐
 Trivy와 OSV 데이터베이스를 갱신합니다. 버전이 붙은 스냅샷을 원자적으로 게시하고 마지막 정상

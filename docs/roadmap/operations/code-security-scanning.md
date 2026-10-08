@@ -227,6 +227,22 @@ image starts it with `fdai-scan-runner process-requests`.
 | `scan_failed` / `review_conflict` | The scan failed, or different findings exist for that commit |
 | `attempts_exhausted` | The request was claimed more than three times |
 
+### Scheduled scans
+
+`fdai-code-security process-scheduled-scans --max-repositories N` scans the enabled registrations
+in alias order at their default refs with the same runner, credentials, and sandbox as the request
+worker. It records each review with trigger `schedule` and no request id, and publishes it when a
+bus is bound. Each repository ends as `published`, `failed` with the request worker's
+`source_unavailable`, `scan_failed`, or `review_conflict` reason, or `deferred` with
+`schedule_capacity` when more repositories are enabled than the batch allows. One failure doesn't
+stop the others, and the command reports `ok: false` when any scanned repository failed. The scan
+runner image starts it with `fdai-scan-runner process-schedule`.
+
+Example: on 2026-10-09 a run with `--max-repositories 1` against a throwaway database scanned the
+public OWASP NodeGoat registration at `HEAD`. It resolved commit `c5cb68a7` and recorded 202
+issues with trigger `schedule`. A second enabled registration was reported `deferred`, and a
+disabled one was skipped.
+
 ## Deployed scan runtime (proposed)
 
 This section is a design that isn't implemented yet. It describes how a deployment runs the scan
@@ -277,9 +293,8 @@ credential, or open egress. Each run therefore splits into three steps:
 3. **Record** (the `runc` pod again): validate the output against the exact commit, record the
    review in the state store, publish it on `object.drift`, and close the request.
 
-This split changes the worker, which today acquires, scans, and records in one process. It also
-needs a scheduled worker that lists enabled registrations, resolves each default ref, records the
-review with trigger `schedule`, and isolates per-repository failures. No such command exists yet.
+This split changes both workers, the request worker and the
+[scheduled scan](#scheduled-scans), which today acquire, scan, and record in one process.
 
 **Vulnerability cache.** A separate preparation job refreshes the Trivy and OSV databases through
 the deployment's egress firewall, which allows only those database hosts. It publishes a
