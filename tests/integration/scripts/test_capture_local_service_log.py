@@ -48,3 +48,64 @@ def test_raw_format_keeps_the_original_line() -> None:
     line = json.dumps({"level": "INFO", "logger": "x", "message": "y", "reason": "kept raw"})
 
     assert module._render_line(line + "\n", "raw") == line
+
+
+def test_form_path_decision_fields_reach_the_plain_log_as_closed_tokens() -> None:
+    module = _load_module()
+    line = json.dumps(
+        {
+            "level": "INFO",
+            "logger": "fdai.core.conversation.semantic_compiled_answers",
+            "message": "semantic_form_sample_declined",
+            "result": "declined",
+            "decline_reason": "not_released",
+            "released": False,
+            "review": "unfaithful",
+            "review_reasons": ["review_uncovered:resource_type", "free text, not a token"],
+            "pass_dispositions": ["invalid"],
+            "model_calls": 3,
+            "unlisted": "dropped",
+        }
+    )
+
+    rendered = module._render_line(line, "json-plain")
+
+    assert rendered == (
+        "INFO: fdai.core.conversation.semantic_compiled_answers: semantic_form_sample_declined "
+        '[result="declined", decline_reason="not_released", released=false, '
+        'review="unfaithful", review_reasons=["review_uncovered:resource_type","~"], '
+        'pass_dispositions=["invalid"], model_calls=3]'
+    )
+
+
+def test_decision_fields_stay_hidden_for_other_loggers() -> None:
+    module = _load_module()
+    line = json.dumps(
+        {
+            "level": "INFO",
+            "logger": "fdai.other",
+            "message": "event",
+            "result": "free text result",
+            "decision": "deny",
+        }
+    )
+
+    assert module._render_line(line, "json-plain") == "INFO: fdai.other: event"
+
+
+def test_free_text_scalar_is_not_rendered_for_the_scoped_logger() -> None:
+    module = _load_module()
+    line = json.dumps(
+        {
+            "level": "INFO",
+            "logger": "fdai.core.conversation.semantic_compiled_answers",
+            "message": "semantic_typed_only_outcome",
+            "reason": "semantic reading unverified because of free text",
+            "decision": "unverified",
+        }
+    )
+
+    assert module._render_line(line, "json-plain") == (
+        "INFO: fdai.core.conversation.semantic_compiled_answers: semantic_typed_only_outcome "
+        '[decision="unverified"]'
+    )

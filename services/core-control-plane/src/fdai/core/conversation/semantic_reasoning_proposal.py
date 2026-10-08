@@ -256,7 +256,7 @@ def measure_words_to_cue(mentions: list[Any], goals: list[Any]) -> None:
     for goal in goals:
         if not isinstance(goal, dict):
             continue
-        refs = [goal.get("subject")]
+        refs = [goal.get("subject"), goal.get("counterpart")]
         refs.extend(
             item.get("mention") for item in goal.get("filters") or () if isinstance(item, dict)
         )

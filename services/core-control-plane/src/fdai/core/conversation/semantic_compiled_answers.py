@@ -228,6 +228,7 @@ class CompiledAnswerTicket:
             return None
         finally:
             observations.extend(self._collector.observations)
+        _log_discarded_sample(observation)
         selected = single_compiled_batch(observation)
         if isinstance(selected, str):
             self._unsupported = held_word_recovery_reasons(observation)
@@ -574,12 +575,36 @@ async def _run_form_path(
             return first
         second = await run_reasoning_shadow(model=model, retain_compilations=True, **arguments)
     if isinstance(single_compiled_batch(second), str):
-        return replace(first, notes=(*first.notes, "form_resampled_unanswered"))
+        return replace(
+            first,
+            notes=(*first.notes, "form_resampled_unanswered"),
+            discarded_sample=second,
+        )
     return replace(
         second,
         model_calls=first.model_calls + second.model_calls,
         elapsed_ms=first.elapsed_ms + second.elapsed_ms,
         notes=(*second.notes, "form_resampled"),
+        discarded_sample=first,
+    )
+
+
+def _log_discarded_sample(observation: ReasoningShadowObservation) -> None:
+    """Record why the form sample a resample replaced was declined.
+
+    The form path runs on the owner loop, outside the turn's decision collector, so the
+    replaced sample is logged here, on the turn's own context, before selection.
+    """
+
+    discarded = observation.discarded_sample
+    if discarded is None:
+        return
+    decline = single_compiled_batch(discarded)
+    _log_completion(
+        "resampled",
+        observation=discarded,
+        decline_reason=decline if isinstance(decline, str) else "superseded",
+        event="semantic_form_sample_declined",
     )
 
 
@@ -589,6 +614,7 @@ def _log_completion(
     observation: ReasoningShadowObservation | None = None,
     failure_type: str | None = None,
     decline_reason: str | None = None,
+    event: str = "semantic_compiled_answer_completed",
 ) -> None:
     extra: dict[str, object] = {"result": result}
     if failure_type is not None:
@@ -636,7 +662,7 @@ def _log_completion(
                 ),
             }
         )
-    _LOGGER.info("semantic_compiled_answer_completed", extra=extra)
+    _LOGGER.info(event, extra=extra)
 
 
 __all__ = [
