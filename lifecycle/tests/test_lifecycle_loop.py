@@ -170,8 +170,18 @@ def block_reasons(record: dict[str, Any]) -> list[tuple[str, list[str]]]:
     ]
 
 
+@pytest.fixture
+def no_azure_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Remove Azure credential variables before the Hub store, API, or agent is created."""
+
+    for name in [n for n in os.environ if n.startswith(_CREDENTIAL_PREFIXES)]:
+        monkeypatch.delenv(name)
+
+
 @pytest.fixture(params=["sqlite", pytest.param("postgres", marks=pytest.mark.integration)])
-def database_url(request: pytest.FixtureRequest, tmp_path: Path) -> Iterator[str]:
+def database_url(
+    request: pytest.FixtureRequest, tmp_path: Path, no_azure_credentials: None
+) -> Iterator[str]:
     if request.param == "sqlite":
         yield f"sqlite+pysqlite:///{tmp_path / 'hub.db'}"
         return
@@ -211,8 +221,6 @@ def hub_url(database_url: str) -> Iterator[str]:
 def loop(tmp_path: Path, database_url: str, hub_url: str, monkeypatch: pytest.MonkeyPatch) -> Loop:
     """A migrated Hub, development keys, and the agent's signed inputs and local files."""
 
-    for name in [n for n in os.environ if n.startswith(_CREDENTIAL_PREFIXES)]:
-        monkeypatch.delenv(name)
     monkeypatch.setenv(hub_cli.DATABASE_URL_ENV, database_url)
     loop = Loop(tmp_path, hub_url)
     loop.hub("migrate")
