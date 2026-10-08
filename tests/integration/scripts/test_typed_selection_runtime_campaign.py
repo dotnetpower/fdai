@@ -49,3 +49,20 @@ def test_window_assets_and_protocol_agree_on_the_plan() -> None:
     assert len(cases) == 64
     assert campaign.REPEATS == 4
     assert {case.language for case in cases} == {"en", "ko"}
+
+
+def test_decision_evidence_is_private_and_digested_beyond_the_canonical_bound(
+    tmp_path: Path,
+) -> None:
+    import hashlib
+
+    campaign = _module()
+    rows = [{"case_id": f"case-{index}", "padding": "x" * 512} for index in range(256)]
+    path = tmp_path / "decisions.jsonl"
+    digest = campaign.write_decisions(path, rows)
+    data = path.read_bytes()
+    assert len(data) > 65_536
+    assert digest == "sha256:" + hashlib.sha256(data).hexdigest()
+    assert path.stat().st_mode & 0o777 == 0o600
+    with pytest.raises(FileExistsError):
+        campaign.write_decisions(path, rows)
