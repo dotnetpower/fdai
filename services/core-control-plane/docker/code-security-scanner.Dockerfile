@@ -29,6 +29,7 @@ ARG GITLEAKS_VERSION=8.30.1
 ARG GITLEAKS_MODULE_SUM=h1:PmEvCfVI7ti9dV3s5aMZUY7sS2GxRvG3yzih7E+cS3w=
 ARG GITLEAKS_RAR_VERSION=v2.2.0
 ARG GITLEAKS_XZ_VERSION=v0.5.15
+ARG GITLEAKS_ARCHIVES_VERSION=v0.1.5
 RUN go mod download "github.com/zricethezav/gitleaks/v8@v${GITLEAKS_VERSION}" \
     && test "$(go mod download -json "github.com/zricethezav/gitleaks/v8@v${GITLEAKS_VERSION}" | awk '$1 == "\"Sum\":" {gsub(/[",]/, "", $2); print $2}')" = "${GITLEAKS_MODULE_SUM}" \
     && scanner_dir="$(go env GOPATH)/pkg/mod/github.com/zricethezav/gitleaks/v8@v${GITLEAKS_VERSION}" \
@@ -38,11 +39,13 @@ RUN go mod download "github.com/zricethezav/gitleaks/v8@v${GITLEAKS_VERSION}" \
     && go mod edit -require="golang.org/x/text@${SCANNER_X_TEXT_VERSION}" \
     && go mod edit -require="github.com/nwaples/rardecode/v2@${GITLEAKS_RAR_VERSION}" \
     && go mod edit -require="github.com/ulikunitz/xz@${GITLEAKS_XZ_VERSION}" \
+    && go mod edit -require="github.com/mholt/archives@${GITLEAKS_ARCHIVES_VERSION}" \
     && go build -mod=mod -ldflags="-X github.com/zricethezav/gitleaks/v8/version.Version=${GITLEAKS_VERSION}" -o /out/gitleaks . \
     && test "$(go version -m /out/gitleaks | awk '$2 == "golang.org/x/crypto" {print $3}')" = "${SCANNER_X_CRYPTO_VERSION}" \
     && test "$(go version -m /out/gitleaks | awk '$2 == "golang.org/x/text" {print $3}')" = "${SCANNER_X_TEXT_VERSION}" \
     && test "$(go version -m /out/gitleaks | awk '$2 == "github.com/nwaples/rardecode/v2" {print $3}')" = "${GITLEAKS_RAR_VERSION}" \
     && test "$(go version -m /out/gitleaks | awk '$2 == "github.com/ulikunitz/xz" {print $3}')" = "${GITLEAKS_XZ_VERSION}" \
+    && test "$(go version -m /out/gitleaks | awk '$2 == "github.com/mholt/archives" {print $3}')" = "${GITLEAKS_ARCHIVES_VERSION}" \
     && /out/gitleaks version
 
 ARG OSV_SCANNER_VERSION=v2.6.0

@@ -624,6 +624,7 @@ def test_scan_runner_image_pins_every_tool_and_binds_every_scanner() -> None:
     assert "ARG SCANNER_X_TEXT_VERSION=v0.42.0" in dockerfile
     assert "ARG GITLEAKS_RAR_VERSION=v2.2.0" in dockerfile
     assert "ARG GITLEAKS_XZ_VERSION=v0.5.15" in dockerfile
+    assert "ARG GITLEAKS_ARCHIVES_VERSION=v0.1.5" in dockerfile
     assert "COPY --from=scanner-builder /out/ /opt/scanners/bin/" in dockerfile
     base = dockerfile.split(" AS base\n", 1)[1].split("\nFROM ", 1)[0]
     assert "python -m pip uninstall --yes pip" in base
