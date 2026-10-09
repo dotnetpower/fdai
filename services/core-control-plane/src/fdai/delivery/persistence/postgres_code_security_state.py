@@ -27,6 +27,21 @@ class PostgresCodeSecurityStateStore(PostgresStateStore):
         async with super()._connection() as conn:
             async with conn.transaction():
                 await conn.execute("SET LOCAL ROLE fdai_code_security_worker")
+                cursor = await conn.execute(
+                    "SELECT has_table_privilege(current_user, 'public.state_kv', "
+                    "'SELECT, INSERT, UPDATE, DELETE') OR "
+                    "has_any_column_privilege(current_user, 'public.state_kv', "
+                    "'SELECT, INSERT, UPDATE') "
+                    "OR has_table_privilege(current_user, 'public.audit_log', "
+                    "'SELECT, INSERT, UPDATE, DELETE') OR "
+                    "has_any_column_privilege(current_user, 'public.audit_log', "
+                    "'SELECT, INSERT, UPDATE') AS unsafe_grants"
+                )
+                row = await cursor.fetchone()
+                if row is None or row["unsafe_grants"] is not False:
+                    raise ValueError(
+                        "restricted code-security role has unexpected direct privileges"
+                    )
                 yield conn
 
     async def read_state(self, key: str) -> Mapping[str, Any] | None:

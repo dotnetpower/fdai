@@ -86,6 +86,15 @@ from fdai.core.security.code_findings.verifier import (
 )
 from fdai.core.security.code_findings.verifier_evaluation import VerifierCorpusError
 from fdai.delivery.code_security_acquire import GitSourceAcquirer, SourceAcquisitionError
+from fdai.delivery.code_security_input_cli import (
+    add_input_verification_command,
+    verify_scanner_input,
+)
+from fdai.delivery.code_security_kata_client import KataApiError
+from fdai.delivery.code_security_kata_resources import (
+    add_runtime_render_command,
+    render_scanner_runtime,
+)
 from fdai.delivery.code_security_lens_eval import add_lens_evaluation_command, evaluate_lens
 from fdai.delivery.code_security_prepare_cli import add_prepare_command, prepare_scan
 from fdai.delivery.code_security_publish_cli import add_publish_command, publish_review
@@ -103,6 +112,7 @@ from fdai.delivery.code_security_review_cli import (
     verify_fixes,
 )
 from fdai.delivery.code_security_scan_cli import add_scan_command, run_scan
+from fdai.delivery.code_security_scan_requests import ScanRequestClaimLostError
 from fdai.delivery.code_security_signing import Ed25519PackSigner
 from fdai.delivery.code_security_verifier_eval import (
     add_verifier_evaluation_command,
@@ -167,6 +177,8 @@ def _parser() -> argparse.ArgumentParser:
     add_publish_command(sub)
     add_scan_command(sub)
     add_prepare_command(sub)
+    add_runtime_render_command(sub)
+    add_input_verification_command(sub)
     add_repository_commands(sub)
     add_verifier_evaluation_command(sub)
     add_lens_evaluation_command(sub)
@@ -399,6 +411,10 @@ def main(argv: list[str] | None = None) -> int:
             output = asyncio.run(run_scan(args))
         elif args.command == "prepare-scan":
             output = asyncio.run(prepare_scan(args))
+        elif args.command == "render-scanner-runtime":
+            output = render_scanner_runtime(args)
+        elif args.command == "verify-scanner-input":
+            output = verify_scanner_input(args)
         elif args.command in ("repo-register", "repo-list", "repo-enable", "repo-disable"):
             output = asyncio.run(run_repository_command(args))
         elif args.command == "process-scan-requests":
@@ -422,6 +438,10 @@ def main(argv: list[str] | None = None) -> int:
         output = {"ok": False, "reason": exc.reason, "error": str(exc)}
     except AdjudicationError as exc:
         output = {"ok": False, "reason": "adjudication_rejected", "error": str(exc)}
+    except KataApiError as exc:
+        output = {"ok": False, "reason": "scan_runtime_unavailable", "error": str(exc)}
+    except ScanRequestClaimLostError as exc:
+        output = {"ok": False, "reason": "scan_request_claim_lost", "error": str(exc)}
     except SourceAcquisitionError as exc:
         output = {"ok": False, "reason": "source_unavailable", "error": str(exc)}
     except CodeSecurityReviewConflictError as exc:

@@ -39,7 +39,10 @@ from fdai.shared.providers.code_security_lens import CodeSecurityLensModel
 
 
 def add_scan_command(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    from fdai.delivery.code_security_execution import add_execution_arguments
+
     scan = sub.add_parser("scan", help="run the deterministic scanning lane in the sandbox")
+    add_execution_arguments(scan)
     scan.add_argument("--repository", help="git URL or local repository to scan at --revision")
     scan.add_argument("--revision", help="full commit id, branch, or tag of --repository")
     scan.add_argument("--path", help="local folder to scan instead of --repository")
@@ -142,6 +145,9 @@ def scan_target(args: argparse.Namespace) -> tuple[str, ReviewSource]:
 
 
 async def run_scan(args: argparse.Namespace) -> dict[str, object]:
+    from fdai.delivery.code_security_execution import kata_config
+
+    runtime = kata_config(args)
     prepared = _prepared_target(args)
     alias, source = (prepared.repository_alias, prepared.source) if prepared else scan_target(args)
     args.repo_alias = alias
@@ -161,6 +167,8 @@ async def run_scan(args: argparse.Namespace) -> dict[str, object]:
         from fdai.delivery.code_security_publish_cli import heimdall_publisher
 
         publisher = heimdall_publisher(args.kafka_bootstrap_servers)
+    if runtime is not None and publisher is not None:
+        raise ValueError("Kata CLI scanning records locally; use the worker for bus publication")
     lens_catalog = load_lens_catalog(catalog_root) if args.lens_model else None
     async with open_lens_models(args.lens_model, lens_catalog, args.lens_identity) as lens_models:
         result = await _run(
@@ -357,6 +365,19 @@ async def _run(
         else BubblewrapScannerSandbox(Path(args.bwrap))
     )
     verifier_catalog = load_verifier_catalog(catalog_root, known)
+    from fdai.delivery.code_security_execution import kata_config, run_kata_scan
+
+    runtime = kata_config(args)
+    if runtime is not None:
+        return await run_kata_scan(
+            config,
+            runtime=runtime,
+            catalog=catalog,
+            scanners=scanners,
+            verifier_catalog=verifier_catalog,
+            acquirer=acquirer,
+            prepared=prepared,
+        )
     result = await run_scan_job(
         config,
         catalog=catalog,

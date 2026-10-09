@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: 0d55a39336239d5460fb398f3311abeb1d580b82
+translation_source_sha: 5a317224118dff1ef0d8eacf1dfa6e2eb21b6698
 translation_revised: 2026-10-09
 ---
 
@@ -302,14 +302,16 @@ lockfile 권고는 패키지 이름과 함께 표시됩니다. 보고서에는 �
 
 ## 배포 스캔 런타임(제안)
 
-이 절은 아직 구현되지 않은 설계입니다. 배포 환경이 노드 보안 통제를 약화하지 않고, 예약 스캔과
-Console 요청 worker용으로 스캔 실행 이미지를 실행하는 방법을 설명합니다. 2026-10-09의 독립 검토를
-반영해 자격 증명과 스캐너의 분리, 승인 규칙, 캐시 처리를 아래처럼 정했습니다.
+이 런타임은 부분적으로 구현되었습니다. 선택형 Kata 스캐너 백엔드, 인증된 프로세스 관측, 제한된
+데이터베이스 기능, 네임스페이스/RBAC 렌더러는 집중 테스트를 통과했습니다. 실제 배포 스캐너 실행이
+검증됐다고 주장하지는 않습니다. 배포에서는 정확한 클러스터, 불변 이미지, 전용 Kata 풀, 공유 소스와
+캐시 저장소, 조정기 ID를 먼저 연결해야 합니다.
 
-**문제.** bubblewrap에는 비특권 사용자 네임스페이스가 필요합니다. Kubernetes 기본 런타임인 `runc`는
-노드의 seccomp와 AppArmor 프로필을 적용하므로 이를 막습니다. 공유 노드에서 pod를 `Unconfined`
-프로필로 실행하면 샌드박스를 벗어난 코드가 다른 워크로드와 함께 쓰는 노드 커널에 닿을 수 있으므로,
-FDAI는 그렇게 하지 않습니다.
+**문제와 수정.** 로컬 bubblewrap에는 비특권 사용자 네임스페이스가 필요합니다. 배포 백엔드는 대신
+결정론적 스캐너마다 별도의 Kata pod VM에서 직접 실행하므로 중첩 사용자 네임스페이스나 `Unconfined`
+프로필을 요청하지 않습니다. `RuntimeDefault` seccomp, Restricted Pod Security, 읽기 전용 입력과 루트
+파일 시스템, capability 제거, ID와 비밀 마운트 금지는 계속 필수입니다. 이 백엔드는 동적 입증이나
+실시간 렌즈 레인을 활성화하지 않습니다.
 
 **런타임.** AKS에서는 스캐너를
 [Pod Sandboxing](https://learn.microsoft.com/azure/aks/use-pod-sandboxing)(Kata Containers)으로
@@ -320,8 +322,8 @@ FDAI는 그렇게 하지 않습니다.
   taint를 갖춘 전용 사용자 풀입니다. Pod Sandboxing은 Azure Linux와 amd64만 지원하며, FDAI의 AKS
   프로필은 이미 둘 다 사용합니다.
 - **스캐너 pod:** `runtimeClassName: kata-vm-isolation`, 풀에 맞는 toleration과 노드 선택기, 사용자
-  65532, 모든 capability 제거, 권한 상승 금지, 읽기 전용 루트 파일 시스템을 씁니다. seccomp와
-  AppArmor 프로필은 `Unconfined`이며 게스트 커널 안에서만 효력이 있습니다. 호스트는 pod마다 여전히
+  65532, 모든 capability 제거, 권한 상승 금지, 읽기 전용 루트 파일 시스템을 씁니다.
+  `RuntimeDefault` seccomp를 유지합니다. 호스트는 pod마다 여전히
   Kata shim, Cloud Hypervisor, `virtiofsd`를 실행하고 공유 볼륨은 호스트를 거칩니다. 따라서 pod는
   `emptyDir`과 아래에 명시한 읽기 전용 볼륨만 허용하고 `hostPath`는 쓰지 않으며, 노드 풀은 AKS 노드
   이미지 패치 주기를 따릅니다.
@@ -329,12 +331,13 @@ FDAI는 그렇게 하지 않습니다.
   씁니다. 제한값은 측정한 스캐너 최대 사용량에 이 오버헤드를 더해 정하고, 작업 기한에는 콜드 스타트
   여유를 둡니다.
 
-**승인 가드.** 클러스터 전체에 바인딩되고 `Deny` 동작을 쓰는 `ValidatingAdmissionPolicy`가 pod 어디에든
-있는 `Unconfined` seccomp나 AppArmor 프로필을 거부합니다. 대상은 pod 보안 컨텍스트, 모든 일반·init·임시
-컨테이너, 레거시 주석입니다. `pods/ephemeralcontainers` 하위 리소스도 다룹니다. 네임스페이스가 정확히
-code-security 네임스페이스이고 `runtimeClassName`이 정확히 `kata-vm-isolation`일 때만 이 프로필을
-허용합니다. RBAC는 `RuntimeClass`, 정책, 바인딩을 바꾸거나 그 네임스페이스에 디버그 pod를 만들 수 있는
-주체를 제한합니다.
+**승인과 관측.** 스캐너 네임스페이스는 Restricted Pod Security를 강제합니다. 조정기는 작업을 만들기
+전에 설치된 Kata 런타임 클래스와 네임스페이스의 전체 거부 네트워크 정책을 검증합니다. 추가적인
+수신·송신 허용 정책이 있으면 거부합니다. 정확한 작업 UID를 관측하고 pod의 이미지, 명령, ID, 마운트,
+자원, 권한을 제출한 계약과 비교합니다. 추가 init·임시 컨테이너, 비밀 볼륨, 이미지 변경, ID 변경은
+수락을 중단합니다. 조정기 RBAC는 스캐너 작업의 생성·읽기·삭제, pod 메타데이터와 로그 읽기,
+네트워크 정책 읽기, 정확한 네임스페이스와 런타임 클래스 읽기만 부여합니다. 비밀 접근, pod exec,
+워크로드 수정, RBAC 권한 상승은 부여하지 않습니다.
 
 **자격 증명은 스캐너 VM 밖에 둡니다.** Kata는 노드를 보호할 뿐, 같은 pod VM 안의 다른 프로세스는
 보호하지 않습니다. bubblewrap을 벗어난 스캐너가 GitHub 토큰, 데이터베이스 자격 증명, 열린 egress를
@@ -343,14 +346,45 @@ code-security 네임스페이스이고 `runtimeClassName`이 정확히 `kata-vm-
 1. **확보**(worker의 workload identity를 쓰는 `runc` pod): 요청을 점유하거나 예약된 저장소를 고르고,
    그 저장소 하나에 대한 읽기 전용 설치 토큰을 발급해 정확한 커밋을 가져온 뒤, 추출한 트리를 실행별
    볼륨에 씁니다.
-2. **스캔**(Kata pod): 그 트리와 취약점 캐시를 읽기 전용으로 연결하고 모든 스캐너를 실행한 뒤, 제한된
-   결과를 실행별 출력 볼륨에 씁니다. 이 pod에는 service account 토큰도, 비밀 마운트도 없고, egress를
-   전혀 허용하지 않는 기본 거부 `NetworkPolicy`를 씁니다.
+2. **스캔**(스캐너마다 Kata pod 하나): 그 트리, 규칙 팩, 취약점 캐시를 읽기 전용으로 연결합니다.
+   조정기는 인증된 Kubernetes 로그 API로 범위가 제한된 표준 출력을 확보합니다. 이 pod에는
+   service account 토큰, 비밀 마운트, 공유 출력 쓰기 마운트, 송신 접근이 없습니다.
 3. **기록**(다시 `runc` pod): 출력이 정확한 커밋과 맞는지 검증하고, 상태 저장소에 검토를 기록하고,
    `object.drift`에 게시한 뒤 요청을 닫습니다.
 
-이렇게 나누려면 지금은 한 프로세스에서 확보, 스캔, 기록을 모두 하는 두 작업자, 즉 요청 작업자와
-[예약 스캔](#예약-스캔)을 바꿔야 합니다.
+두 작업자는 `--scanner-runtime kata --state-access restricted`로 이 분리 방식을 선택할 수 있습니다.
+로컬 기본값은 기존 통합 bubblewrap 경로입니다. 클러스터 내부 API는 스캐너 VM 밖에서만 조정기의
+service account 토큰과 TLS CA를 사용합니다. 범위가 제한된 표준 출력과 pod의 종료 코드가 결정론적
+결과 수락으로 들어가며, 스캐너가 주장하는 완료 여부는 커버리지를 결정하지 않습니다. API 오류는
+재시도하지 않고, 작업은 실행 기한과 진행 중단 기한을 가지며, 정확한 UID만 정리합니다. 비공개 시도
+기록은 검토 생성 전에 발생한 준비·디스패치·관측 실패를 유지합니다. 제안 점유를 잃은 작업자는 완료나
+거부라는 최종 결과를 보고할 수 없습니다.
+
+`render-scanner-runtime`은 네임스페이스, 전체 거부 정책, 최소 관측 RBAC를 생성합니다. 클러스터,
+노드 풀, ID, 데이터베이스, 저장소를 만들지는 않습니다. 조정기 네임스페이스와 스캐너 네임스페이스는
+달라야 합니다. 설치에서는 확보·기록 조정기와 읽기 전용 스캐너 마운트가 공유할 RWX 소스 저장소와,
+별도의 읽기 전용 캐시 스냅샷을 제공해야 합니다. 전용 풀은 `fdai.io/code-security-scanner=true`를
+레이블과 `NoSchedule` taint로 사용합니다.
+
+작업자 연결 예제입니다. 이름과 다이제스트는 선택한 배포의 값으로 바꾸세요.
+
+```bash
+fdai-code-security process-scan-requests \
+  --state-access restricted --scanner-runtime kata \
+  --scanner-namespace code-security \
+  --scanner-image example.invalid/scanner@sha256:<64-hex-digest> \
+  --scanner-source-pvc scan-source --scanner-source-mount /work \
+  --scanner-cache-pvc scan-cache --scanner-cache-subpath cache --cache-dir /cache
+```
+
+같은 연결을 `process-scheduled-scans`에도 적용합니다. 소스 확보와 기록은 조정기의 기존 자격 증명을
+유지합니다. 실행별 소스와 규칙 팩 전달은 명시된 읽기 전용 하위 디렉터리만 각 스캐너에 공개하고,
+규칙 팩 다이제스트는 실행 전후에 검사합니다. 엔진을 시작하기 전에는 이미지 소유
+`verify-scanner-input`이 실제 스캐너 마운트의 소스, 규칙 팩, 캐시 바이트도 조정기 다이제스트와
+비교합니다. 따라서 다른 PVC나 스냅샷을 요청된 입력으로 수락할 수 없습니다. 정리 API가 실패하면
+시도를 중단하지만 독립적인 프로세스 결과와 표준 출력 다이제스트는 비공개 기록에 남깁니다.
+TTL은 복구 보완책이며 정리 성공을 대신하지 않습니다. 배포의 네트워크 거부와 게스트 커널 격리 확인은 여전히
+필요합니다. 단위 테스트나 Kubernetes 메타데이터만으로 실제 격리가 입증되지는 않습니다.
 
 **취약점 캐시.** 별도의 준비 작업이 해당 데이터베이스 호스트만 허용하는 배포의 egress 방화벽을 거쳐
 Trivy와 OSV 데이터베이스를 갱신합니다. 버전이 붙은 스냅샷을 원자적으로 게시하고 마지막 정상

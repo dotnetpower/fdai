@@ -22,10 +22,16 @@ import os
 from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Literal
 
 from fdai.core.security.code_findings.issue_summary import summarize_issues
 from fdai.core.security.code_findings.review_signal import ReviewSource
 from fdai.delivery.code_security_acquire import GitSourceAcquirer, SourceAcquisitionError
+from fdai.delivery.code_security_execution import (
+    add_execution_arguments,
+    kata_config,
+    run_kata_scan,
+)
 from fdai.delivery.code_security_review_cli import pairs
 from fdai.delivery.code_security_sandbox import BubblewrapScannerSandbox
 from fdai.delivery.code_security_scan_cli import default_work_root
@@ -87,6 +93,7 @@ def add_repository_commands(sub: argparse._SubParsersAction[argparse.ArgumentPar
 
 
 def _add_worker_arguments(worker: argparse.ArgumentParser) -> None:
+    add_execution_arguments(worker)
     worker.add_argument(
         "--state-access",
         choices=("core", "restricted"),
@@ -163,22 +170,43 @@ async def run_repository_command(args: argparse.Namespace) -> dict[str, object]:
         return {"ok": True, "repository": _view(repository)}
 
 
-async def github_auth_header(location: str, environment: Mapping[str, str]) -> str | None:
+async def github_auth_header(
+    location: str,
+    environment: Mapping[str, str],
+    *,
+    credential_reference: Literal["public", "deployment-github-app"] | None = None,
+) -> str | None:
     """Return a Basic authorization value for git over HTTPS, or ``None`` without credentials.
 
     The token is scoped to ``location`` with read-only contents permission and never leaves this
     process except through git's environment configuration.
     """
+    if credential_reference == "public":
+        return None
     import httpx
-    from fdai_github_app_auth import build_github_token_provider
+    from fdai_github_app_auth import (
+        GitHubAppTokenError,
+        GitHubAppTokenProvider,
+        build_github_token_provider,
+    )
+
+    if (
+        credential_reference == "deployment-github-app"
+        and environment.get("FDAI_GITOPS_TOKEN", "").strip()
+    ):
+        raise GitHubAppTokenError("the connected source requires GitHub App credentials")
 
     async with httpx.AsyncClient(timeout=httpx.Timeout(15.0)) as client:
         provider = build_github_token_provider(
             environment,
             http_client=client,
-            repository=location,
+            repository=location.rsplit("/", 1)[-1],
             permissions=_READ_ONLY_PERMISSIONS,
         )
+        if credential_reference == "deployment-github-app" and not isinstance(
+            provider, GitHubAppTokenProvider
+        ):
+            raise GitHubAppTokenError("the connected source GitHub App is unavailable")
         if provider is None:
             return None
         token = await provider()
@@ -186,6 +214,7 @@ async def github_auth_header(location: str, environment: Mapping[str, str]) -> s
 
 
 def _scan_runner(args: argparse.Namespace):  # type: ignore[no-untyped-def]
+    runtime = kata_config(args)
     catalog_root = Path(args.catalog_root)
     catalog = load_code_security_catalog(catalog_root)
     scanners = load_scanner_catalog(catalog_root)
@@ -203,31 +232,50 @@ def _scan_runner(args: argparse.Namespace):  # type: ignore[no-untyped-def]
         from fdai_github_app_auth import GitHubAppTokenError
 
         try:
-            header = await github_auth_header(repository.location, os.environ)
+            header = await github_auth_header(
+                repository.location,
+                os.environ,
+                credential_reference=(
+                    repository.knowledge_source.credential_reference
+                    if repository.knowledge_source
+                    else None
+                ),
+            )
         except GitHubAppTokenError as exc:
             raise SourceAcquisitionError("repository credentials are unavailable") from exc
         acquirer = GitSourceAcquirer(work_root, auth_header=lambda: header)
         url = clone_url(repository, base_url or "https://github.com")
         revision = acquirer.resolve_revision(url, ref)
-        result = await run_scan_job(
-            ScanJobConfig(
-                repository=url,
-                revision=revision,
-                repository_alias=repository.repository_alias,
-                work_root=work_root,
-                executables=executables,
-                rules_dir=Path(args.rules_dir).resolve(),
-                cache_dir=Path(args.cache_dir).resolve() if args.cache_dir else None,
-                exposure=Exposure(repository.exposure),
-                required_scanners=frozenset(args.required_scanner) or None,
-                source=source,
-            ),
-            catalog=catalog,
-            scanners=scanners,
-            acquirer=acquirer,
-            sandbox=BubblewrapScannerSandbox(Path(args.bwrap)),
-            verifier_catalog=verifiers,
+        config = ScanJobConfig(
+            repository=url,
+            revision=revision,
+            repository_alias=repository.repository_alias,
+            work_root=work_root,
+            executables=executables,
+            rules_dir=Path(args.rules_dir).resolve(),
+            cache_dir=Path(args.cache_dir).resolve() if args.cache_dir else None,
+            exposure=Exposure(repository.exposure),
+            required_scanners=frozenset(args.required_scanner) or None,
+            source=source,
         )
+        if runtime is not None:
+            result = await run_kata_scan(
+                config,
+                runtime=runtime,
+                catalog=catalog,
+                scanners=scanners,
+                verifier_catalog=verifiers,
+                acquirer=acquirer,
+            )
+        else:
+            result = await run_scan_job(
+                config,
+                catalog=catalog,
+                scanners=scanners,
+                acquirer=acquirer,
+                sandbox=BubblewrapScannerSandbox(Path(args.bwrap)),
+                verifier_catalog=verifiers,
+            )
         summaries, truncated = summarize_issues(result.issues)
         return ScanOutcome(result.package, summaries, truncated)
 

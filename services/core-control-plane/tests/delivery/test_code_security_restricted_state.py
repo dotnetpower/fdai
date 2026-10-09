@@ -178,6 +178,20 @@ async def test_inherited_operations_cannot_reuse_elevated_login_permissions(
         await store.aclose()
 
 
+async def test_privilege_drift_is_detected_before_any_worker_state_operation(
+    database: tuple[str, str],
+) -> None:
+    admin, restricted = database
+    with psycopg.connect(admin, autocommit=True) as connection:
+        connection.execute("GRANT SELECT(key) ON state_kv TO fdai_code_security_worker")
+    store = PostgresCodeSecurityStateStore(config=PostgresStateStoreConfig(dsn=restricted))
+    try:
+        with pytest.raises(ValueError, match="unexpected direct privileges"):
+            await store.read_state("runtime:code-security-schedule:missing")
+    finally:
+        await store.aclose()
+
+
 async def test_restricted_claim_and_close_cannot_touch_other_outbox_operations(
     database: tuple[str, str],
 ) -> None:

@@ -52,6 +52,10 @@ REJECT_ATTEMPTS = "attempts_exhausted"
 MAX_ATTEMPTS = 3
 
 
+class ScanRequestClaimLostError(RuntimeError):
+    """A stale worker cannot report a terminal result after its claim was replaced."""
+
+
 @dataclass(frozen=True, slots=True)
 class ScanRequest:
     request_id: str
@@ -169,7 +173,8 @@ async def process_scan_requests(
 async def _reject(
     queue: ScanRequestQueue, claim: ClaimedScanRequest, reason: str
 ) -> dict[str, object]:
-    await queue.mark_rejected(key=claim.key, claim_id=claim.claim_id, reason_code=reason)
+    if not await queue.mark_rejected(key=claim.key, claim_id=claim.claim_id, reason_code=reason):
+        raise ScanRequestClaimLostError("code-security request claim was lost before rejection")
     request_id = (
         claim.request.request_id
         if claim.request
@@ -191,7 +196,8 @@ async def _process_change(
     result, reason = await apply_repository_change(store, change)
     if result is None:
         return await _reject(queue, claim, str(reason))
-    await queue.mark_completed(key=claim.key, claim_id=claim.claim_id, result=result)
+    if not await queue.mark_completed(key=claim.key, claim_id=claim.claim_id, result=result):
+        raise ScanRequestClaimLostError("code-security request claim was lost before completion")
     return {"request_id": change.request_id, "status": "published", **result}
 
 
@@ -236,7 +242,8 @@ async def _process(
         return await _reject(queue, claim, REJECT_CONFLICT)
     published = await publisher.publish_code_security_drift(package) if publisher else False
     result = {**scan_result_summary(package), "published": published}
-    await queue.mark_completed(key=claim.key, claim_id=claim.claim_id, result=result)
+    if not await queue.mark_completed(key=claim.key, claim_id=claim.claim_id, result=result):
+        raise ScanRequestClaimLostError("code-security request claim was lost before completion")
     return {"request_id": request.request_id, "status": "published", **result}
 
 
