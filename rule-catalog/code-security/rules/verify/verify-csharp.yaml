@@ -1,8 +1,7 @@
 # FDAI-authored taint-mode verifier rules for C#.
 #
-# Sources are ASP.NET request collections and model-bound string parameters of controller actions.
-# A hit at an issue's fix site raises that issue to `verified` confidence; a miss leaves confidence
-# unchanged.
+# Sources are ASP.NET request collections, model-bound string parameters, and uploaded filenames.
+# Hits only raise confidence when the measured promotion gate admits the verifier.
 rules:
   - id: fdai.verify.csharp.command-injection
     languages: [csharp]
@@ -21,6 +20,10 @@ rules:
           - pattern: HttpContext.Request.Query[...]
           - patterns:
               - pattern-inside: |
+                  public $RET $METHOD(..., IFormFile $UPLOAD, ...) { ... }
+              - pattern: $UPLOAD.FileName
+          - patterns:
+              - pattern-inside: |
                   public $RET $METHOD(..., [$ATTR] string $PARAM, ...) { ... }
               - metavariable-regex: {metavariable: $ATTR, regex: '^(FromQuery|FromRoute|FromForm|FromBody|FromHeader)$'}
               - pattern: $PARAM
@@ -34,17 +37,24 @@ rules:
                       public $RET $METHOD(..., string $PARAM, ...) { ... }
               - metavariable-regex: {metavariable: $HTTP, regex: '^Http(Get|Post|Put|Patch|Delete)$'}
               - pattern: $PARAM
-    pattern-sanitizers: &cs-sanitizers
+    pattern-sanitizers: &cs-numeric-sanitizers
       - pattern-either:
           - pattern: int.Parse(...)
           - pattern: long.Parse(...)
           - pattern: Guid.Parse(...)
-          - pattern: Path.GetFileName(...)
     pattern-sinks:
       - patterns:
           - pattern-either:
               - pattern: Process.Start(..., $CMD, ...)
               - pattern: new ProcessStartInfo(..., $CMD, ...)
+              - pattern: (Process $PROCESS).StartInfo.Arguments = $CMD
+              - pattern: (ProcessStartInfo $INFO).Arguments = $CMD
+              - pattern: (Process $PROCESS).StartInfo.FileName = $CMD
+              - pattern: (ProcessStartInfo $INFO).FileName = $CMD
+              - pattern: |
+                  new ProcessStartInfo { ..., Arguments = $CMD, ... }
+              - pattern: |
+                  new ProcessStartInfo { ..., FileName = $CMD, ... }
           - focus-metavariable: $CMD
   - id: fdai.verify.csharp.sql-injection
     languages: [csharp]
@@ -53,11 +63,12 @@ rules:
     metadata: {cwe: ["CWE-89"], category: security, confidence: HIGH, fdai_verifier: true}
     mode: taint
     pattern-sources: *cs-sources
-    pattern-sanitizers: *cs-sanitizers
+    pattern-sanitizers: *cs-numeric-sanitizers
     pattern-sinks:
       - patterns:
           - pattern-either:
               - pattern: new SqlCommand($SQL, ...)
+              - pattern: new SqliteCommand($SQL, ...)
               - pattern: $CMD.CommandText = $SQL
               - pattern: $DB.Database.ExecuteSqlRaw($SQL, ...)
               - pattern: $SET.FromSqlRaw($SQL, ...)
@@ -70,7 +81,13 @@ rules:
     metadata: {cwe: ["CWE-22"], category: security, confidence: HIGH, fdai_verifier: true}
     mode: taint
     pattern-sources: *cs-sources
-    pattern-sanitizers: *cs-sanitizers
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: int.Parse(...)
+          - pattern: long.Parse(...)
+          - pattern: Guid.Parse(...)
+          - pattern: Path.GetFileName(...)
+          - pattern: System.IO.Path.GetFileName(...)
     pattern-sinks:
       - patterns:
           - pattern-either:
@@ -80,5 +97,7 @@ rules:
               - pattern: File.Delete($P)
               - pattern: File.WriteAllText($P, ...)
               - pattern: System.IO.File.ReadAllText($P, ...)
+              - pattern: System.IO.File.ReadAllBytes($P)
+              - pattern: new FileStream($P, ...)
               - pattern: Path.Combine(..., $P, ...)
           - focus-metavariable: $P

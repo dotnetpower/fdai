@@ -51,4 +51,39 @@ public class VerifyFixture {
         // ruleid: fdai.verify.java.path-traversal
         return Paths.get("/srv/files", file);
     }
+
+    public void helperResults(HttpServletRequest request) throws Exception {
+        String input = request.getParameter("name");
+        // ruleid: fdai.verify.java.path-traversal
+        new java.io.File(input);
+        // ruleid: fdai.verify.java.path-traversal
+        new java.io.File("/srv/files", input);
+        // ruleid: fdai.verify.java.path-traversal
+        new java.io.FileInputStream(input);
+        // ruleid: fdai.verify.java.path-traversal
+        new java.io.FileOutputStream(input, false);
+        // ruleid: fdai.verify.java.path-traversal
+        new java.io.FileReader(input);
+        // ok: fdai.verify.java.path-traversal
+        new java.io.FileReader("/srv/files/fixed");
+        String constant = constantResult(input);
+        // ok: fdai.verify.java.path-traversal
+        new java.io.FileReader(constant);
+        String unknown = unresolvedResult(input);
+        // A miss is abstention, not a claim that this helper or its sink is safe.
+        // ok: fdai.verify.java.path-traversal
+        new java.io.FileReader(unknown);
+        // ruleid: fdai.verify.java.path-traversal
+        new java.io.FileReader(input);
+    }
+
+    private String constantResult(String input) {
+        int offset = 4;
+        if ((2 * 6) - offset > 5) return "fixed";
+        return input;
+    }
+
+    private String unresolvedResult(String input) {
+        return input;
+    }
 }

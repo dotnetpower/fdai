@@ -1,0 +1,1437 @@
+{
+  "kind": "fdai.code-security.managed-verifier-evidence",
+  "baseline_commit": "94bdfafbf5c6baa065f404c54181248d04e26448",
+  "candidate_verifier_version": "1.5.0",
+  "evaluated_at": "2026-10-09T05:30:36.186313+00:00",
+  "engine": {
+    "version": "1.30.1",
+    "sha256": "d3195b9d8d5ae93179f6aa5f5daaba6a920a5a09d38c5d5ae5e60924050210c4",
+    "image_id": "sha256:a67eb329812fd1dbad756d052ec3595901e89260f916c7b979f36ba71220d2a8",
+    "network": "none"
+  },
+  "corpus": {
+    "corpus_id": "fdai.code-security.verifier-real",
+    "version": "1.1.0",
+    "precision_floor": 0.9,
+    "min_true_positives": 1,
+    "sources": [
+      {
+        "id": "nodegoat",
+        "repository": "https://github.com/OWASP/NodeGoat",
+        "commit": "c5cb68a7084e4ae7dcc60e6a98768720a81841e8",
+        "license": "Apache-2.0"
+      },
+      {
+        "id": "juice-shop",
+        "repository": "https://github.com/juice-shop/juice-shop",
+        "commit": "1618a611b173b4bf114028e6e02549950606e29d",
+        "license": "MIT"
+      },
+      {
+        "id": "webgoat",
+        "repository": "https://github.com/WebGoat/WebGoat",
+        "commit": "044948d057b249735be2bfc14eccc9e3dc2eac34",
+        "license": "GPL-2.0"
+      },
+      {
+        "id": "dvcsharp-api",
+        "repository": "https://github.com/appsecco/dvcsharp-api",
+        "commit": "76c1de3c9d8d9c2e8ec0b50abe3b198a4330d7fc",
+        "license": "MIT"
+      },
+      {
+        "id": "pygoat",
+        "repository": "https://github.com/adeyosemanputra/pygoat",
+        "commit": "19d17cc8874861142b330636d068bbde54e86b85",
+        "license": "MIT"
+      },
+      {
+        "id": "vulnerable-node",
+        "repository": "https://github.com/cr0hn/vulnerable-node",
+        "commit": "d68f2a3c9277ece2c2feb9976052033bdecd7fbe",
+        "license": "BSD-3-Clause"
+      },
+      {
+        "id": "dvna",
+        "repository": "https://github.com/appsecco/dvna",
+        "commit": "9ba473add536f66ac9007966acb2a775dd31277a",
+        "license": "MIT"
+      },
+      {
+        "id": "dvna-fixes",
+        "repository": "https://github.com/appsecco/dvna",
+        "commit": "4b16c488839ac5428b9c2573c96d886bee885b02",
+        "license": "MIT"
+      },
+      {
+        "id": "nodejs-goof",
+        "repository": "https://github.com/snyk-labs/nodejs-goof",
+        "commit": "add14ba59e98240d9e00a235dd7d42cd61ae9912",
+        "license": "Apache-2.0"
+      },
+      {
+        "id": "dvws-node",
+        "repository": "https://github.com/snoopysecurity/dvws-node",
+        "commit": "eb6e2886f2206b88bf709fe1fa311adc3ae3c34f",
+        "license": "GPL-3.0"
+      },
+      {
+        "id": "aspgoat",
+        "repository": "https://github.com/Soham7-dev/AspGoat",
+        "commit": "db3153f5dae036a9d67e12be22548299855c6b40",
+        "license": "MIT"
+      },
+      {
+        "id": "notsecdotnet",
+        "repository": "https://github.com/defdeveu/NotSecDotNet",
+        "commit": "1a682c352b2165bf7ec05316f41244e5d8109f02",
+        "license": "GPL-3.0"
+      },
+      {
+        "id": "owasp-benchmark-java",
+        "repository": "https://github.com/OWASP-Benchmark/BenchmarkJava",
+        "commit": "8b67a88d73b2594570fc21150705283de884620b",
+        "license": "GPL-2.0"
+      },
+      {
+        "id": "owasp-benchmark-python",
+        "repository": "https://github.com/OWASP-Benchmark/BenchmarkPython",
+        "commit": "f1291485808b66e20ddb6b01b10dc71b3df8c8ba",
+        "license": "GPL-3.0"
+      }
+    ]
+  },
+  "corpus_sha256": "b2acd7707e3a4dafbc08b97b3a3df5c0fdd863749cfe2a14ef7059c803b670a8",
+  "baseline_rules_sha256": "e3d8939cc7bd1422c5b0c51329adaa0526d0b9cb085a00dc7b52d01a2bdad087",
+  "frozen_rules_sha256": "a7b7de2acffcf4277851130f295de39c4d1d8644355e4ec54002a53c6fea6686",
+  "tuning": "dev only; rule bytes frozen before any holdout execution; no label changes",
+  "acquisition": "existing pinned public-source cache only; network acquisition disabled",
+  "labels": {
+    "dev": 710,
+    "holdout": 681
+  },
+  "promotion_rule": {
+    "precision_floor": 0.9,
+    "min_true_positives": 1,
+    "splits": [
+      "dev",
+      "holdout"
+    ]
+  },
+  "baseline": [
+    {
+      "key": "fdai.verify.csharp.command-injection",
+      "dev": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": null,
+        "recall": 0.0
+      },
+      "holdout": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": null,
+        "recall": null
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.csharp.path-traversal",
+      "dev": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.5
+      },
+      "holdout": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": null,
+        "recall": null
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.csharp.sql-injection",
+      "dev": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.5
+      },
+      "holdout": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": null,
+        "recall": 0.0
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.java.command-injection",
+      "dev": {
+        "true_positives": 2,
+        "false_positives": 0,
+        "false_negatives": 55,
+        "true_negatives": 72,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.0351
+      },
+      "holdout": {
+        "true_positives": 2,
+        "false_positives": 0,
+        "false_negatives": 67,
+        "true_negatives": 53,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.029
+      },
+      "promoted": true
+    },
+    {
+      "key": "fdai.verify.java.path-traversal",
+      "dev": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 78,
+        "true_negatives": 59,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.0127
+      },
+      "holdout": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 55,
+        "true_negatives": 76,
+        "unsupported": 0,
+        "precision": null,
+        "recall": 0.0
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.java.sql-injection",
+      "dev": {
+        "true_positives": 15,
+        "false_positives": 8,
+        "false_negatives": 119,
+        "true_negatives": 110,
+        "unsupported": 0,
+        "precision": 0.6522,
+        "recall": 0.1119
+      },
+      "holdout": {
+        "true_positives": 21,
+        "false_positives": 10,
+        "false_negatives": 118,
+        "true_negatives": 104,
+        "unsupported": 0,
+        "precision": 0.6774,
+        "recall": 0.1511
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.js.code-injection",
+      "dev": {
+        "true_positives": 4,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.5
+      },
+      "promoted": true
+    },
+    {
+      "key": "fdai.verify.js.command-injection",
+      "dev": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 3,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 1,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "promoted": true
+    },
+    {
+      "key": "fdai.verify.js.path-traversal",
+      "dev": {
+        "true_positives": 1,
+        "false_positives": 2,
+        "false_negatives": 0,
+        "true_negatives": 1,
+        "unsupported": 0,
+        "precision": 0.3333,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": null,
+        "recall": 0.0
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.js.sql-injection",
+      "dev": {
+        "true_positives": 6,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 3,
+        "unsupported": 2,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 3,
+        "true_negatives": 4,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.25
+      },
+      "promoted": true
+    },
+    {
+      "key": "python:code_injection",
+      "dev": {
+        "true_positives": 12,
+        "false_positives": 0,
+        "false_negatives": 4,
+        "true_negatives": 18,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.75
+      },
+      "holdout": {
+        "true_positives": 4,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "true_negatives": 15,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.6667
+      },
+      "promoted": true
+    },
+    {
+      "key": "python:command_injection",
+      "dev": {
+        "true_positives": 5,
+        "false_positives": 0,
+        "false_negatives": 3,
+        "true_negatives": 4,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.625
+      },
+      "holdout": {
+        "true_positives": 3,
+        "false_positives": 1,
+        "false_negatives": 4,
+        "true_negatives": 3,
+        "unsupported": 0,
+        "precision": 0.75,
+        "recall": 0.4286
+      },
+      "promoted": false
+    },
+    {
+      "key": "python:path_traversal",
+      "dev": {
+        "true_positives": 17,
+        "false_positives": 0,
+        "false_negatives": 15,
+        "true_negatives": 49,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.5312
+      },
+      "holdout": {
+        "true_positives": 16,
+        "false_positives": 1,
+        "false_negatives": 18,
+        "true_negatives": 54,
+        "unsupported": 0,
+        "precision": 0.9412,
+        "recall": 0.4706
+      },
+      "promoted": true
+    },
+    {
+      "key": "python:sql_injection",
+      "dev": {
+        "true_positives": 3,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "true_negatives": 6,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.6
+      },
+      "holdout": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "true_negatives": 5,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.5
+      },
+      "promoted": true
+    },
+    {
+      "key": "python:unsafe_deserialization",
+      "dev": {
+        "true_positives": 8,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "true_negatives": 18,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.8
+      },
+      "holdout": {
+        "true_positives": 10,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "true_negatives": 18,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.9091
+      },
+      "promoted": true
+    }
+  ],
+  "frozen": [
+    {
+      "key": "fdai.verify.csharp.command-injection",
+      "dev": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": null,
+        "recall": null
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.csharp.path-traversal",
+      "dev": {
+        "true_positives": 2,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": null,
+        "recall": null
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.csharp.sql-injection",
+      "dev": {
+        "true_positives": 2,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": null,
+        "recall": 0.0
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.java.command-injection",
+      "dev": {
+        "true_positives": 2,
+        "false_positives": 0,
+        "false_negatives": 55,
+        "true_negatives": 72,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.0351
+      },
+      "holdout": {
+        "true_positives": 2,
+        "false_positives": 0,
+        "false_negatives": 67,
+        "true_negatives": 53,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.029
+      },
+      "promoted": true
+    },
+    {
+      "key": "fdai.verify.java.path-traversal",
+      "dev": {
+        "true_positives": 5,
+        "false_positives": 2,
+        "false_negatives": 74,
+        "true_negatives": 57,
+        "unsupported": 0,
+        "precision": 0.7143,
+        "recall": 0.0633
+      },
+      "holdout": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 54,
+        "true_negatives": 76,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.0182
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.java.sql-injection",
+      "dev": {
+        "true_positives": 15,
+        "false_positives": 8,
+        "false_negatives": 119,
+        "true_negatives": 110,
+        "unsupported": 0,
+        "precision": 0.6522,
+        "recall": 0.1119
+      },
+      "holdout": {
+        "true_positives": 21,
+        "false_positives": 10,
+        "false_negatives": 118,
+        "true_negatives": 104,
+        "unsupported": 0,
+        "precision": 0.6774,
+        "recall": 0.1511
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.js.code-injection",
+      "dev": {
+        "true_positives": 4,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.5
+      },
+      "promoted": true
+    },
+    {
+      "key": "fdai.verify.js.command-injection",
+      "dev": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 3,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 1,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "promoted": true
+    },
+    {
+      "key": "fdai.verify.js.path-traversal",
+      "dev": {
+        "true_positives": 1,
+        "false_positives": 2,
+        "false_negatives": 0,
+        "true_negatives": 1,
+        "unsupported": 0,
+        "precision": 0.3333,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": null,
+        "recall": 0.0
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.js.sql-injection",
+      "dev": {
+        "true_positives": 6,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 3,
+        "unsupported": 2,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 3,
+        "true_negatives": 4,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.25
+      },
+      "promoted": true
+    },
+    {
+      "key": "python:code_injection",
+      "dev": {
+        "true_positives": 12,
+        "false_positives": 0,
+        "false_negatives": 4,
+        "true_negatives": 18,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.75
+      },
+      "holdout": {
+        "true_positives": 4,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "true_negatives": 15,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.6667
+      },
+      "promoted": true
+    },
+    {
+      "key": "python:command_injection",
+      "dev": {
+        "true_positives": 5,
+        "false_positives": 0,
+        "false_negatives": 3,
+        "true_negatives": 4,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.625
+      },
+      "holdout": {
+        "true_positives": 3,
+        "false_positives": 1,
+        "false_negatives": 4,
+        "true_negatives": 3,
+        "unsupported": 0,
+        "precision": 0.75,
+        "recall": 0.4286
+      },
+      "promoted": false
+    },
+    {
+      "key": "python:path_traversal",
+      "dev": {
+        "true_positives": 17,
+        "false_positives": 0,
+        "false_negatives": 15,
+        "true_negatives": 49,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.5312
+      },
+      "holdout": {
+        "true_positives": 16,
+        "false_positives": 1,
+        "false_negatives": 18,
+        "true_negatives": 54,
+        "unsupported": 0,
+        "precision": 0.9412,
+        "recall": 0.4706
+      },
+      "promoted": true
+    },
+    {
+      "key": "python:sql_injection",
+      "dev": {
+        "true_positives": 3,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "true_negatives": 6,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.6
+      },
+      "holdout": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "true_negatives": 5,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.5
+      },
+      "promoted": true
+    },
+    {
+      "key": "python:unsafe_deserialization",
+      "dev": {
+        "true_positives": 8,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "true_negatives": 18,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.8
+      },
+      "holdout": {
+        "true_positives": 10,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "true_negatives": 18,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.9091
+      },
+      "promoted": true
+    }
+  ],
+  "promoted": [
+    "fdai.verify.java.command-injection",
+    "fdai.verify.js.code-injection",
+    "fdai.verify.js.command-injection",
+    "fdai.verify.js.sql-injection",
+    "python:code_injection",
+    "python:path_traversal",
+    "python:sql_injection",
+    "python:unsafe_deserialization"
+  ],
+  "shadow": [
+    "fdai.verify.csharp.command-injection",
+    "fdai.verify.csharp.path-traversal",
+    "fdai.verify.csharp.sql-injection",
+    "fdai.verify.java.path-traversal",
+    "fdai.verify.java.sql-injection",
+    "fdai.verify.js.path-traversal",
+    "python:command_injection"
+  ],
+  "observations": [
+    {
+      "variant": "baseline",
+      "revision": "c5cb68a7084e4ae7dcc60e6a98768720a81841e8",
+      "tree_id": "839d7b6856ec6da992d649b2423d5f9fcefdcf1f",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 2.115,
+      "stdout_sha256": "f22de8e57d52b14251ea06a0b9226bd8c5c4b412c7a4f13c82db898b91b4fd37",
+      "stdout_bytes": 5182,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 27,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 1,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "d60dac50d446c014b0a9cd92a635e782ed437ab5d937a1da41e56a5bfdd50f75"
+    },
+    {
+      "variant": "baseline",
+      "revision": "1618a611b173b4bf114028e6e02549950606e29d",
+      "tree_id": "339d8833f7111ee1f4ca91fe568d63cb973f2274",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 2.673,
+      "stdout_sha256": "e9b01da79b9799393bdd75343afc90eea663e31f522b9de90fe620c6d550352b",
+      "stdout_bytes": 67713,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 519,
+      "error_count": 12,
+      "errors": [
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginJimChallenge_4.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginBenderChallenge_1.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginAdminChallenge_1.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginBenderChallenge_3.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginBenderChallenge_2_correct.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginAdminChallenge_2.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginAdminChallenge_4_correct.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginJimChallenge_1_correct.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginBenderChallenge_4.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginJimChallenge_2.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginJimChallenge_3.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginAdminChallenge_3.ts"
+        }
+      ],
+      "skipped_rules": [],
+      "labeled_files": 14,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "b3f7c94c7144452af0a2992ec5e2db382d198bfe1cc0636ebf07650b3d580294"
+    },
+    {
+      "variant": "baseline",
+      "revision": "044948d057b249735be2bfc14eccc9e3dc2eac34",
+      "tree_id": "4acdd66d2e63a09c4255cfd10492f6a7ba05eda4",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 5.118,
+      "stdout_sha256": "140604cb21f919f0597568d1e104f5cc71d252b61e7f2cbe4aaa88cc8c15fe20",
+      "stdout_bytes": 38895,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 446,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 2,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "67997ef5febbfe3550ef0ae4cf13443fc1fe1e224279784f25683a7580492759"
+    },
+    {
+      "variant": "baseline",
+      "revision": "76c1de3c9d8d9c2e8ec0b50abe3b198a4330d7fc",
+      "tree_id": "bf120b65737712aaae5a9b0c73dd758013471e26",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 1.81,
+      "stdout_sha256": "61e0e3ab3678c6dc1e638a92fdb99c7ad3efb05da98ca3ada5d4503462488549",
+      "stdout_bytes": 3356,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 24,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 1,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "94575c0529a153ff68fa899b2fb69fc6bfe072edd488e9c0e67c09131f583396"
+    },
+    {
+      "variant": "baseline",
+      "revision": "d68f2a3c9277ece2c2feb9976052033bdecd7fbe",
+      "tree_id": "ae60d3ff48363da9685c553e45505a037fe56935",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 1.9,
+      "stdout_sha256": "18695c3200e27276949cfbfb0a642b5285f04d56720e9cd5f50f4b1f7ee8d4bc",
+      "stdout_bytes": 10982,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 35,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 5,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "31e412048d2f87664c0c8bec15796a444cb503273c3d239bee656bf61c311fe9"
+    },
+    {
+      "variant": "baseline",
+      "revision": "9ba473add536f66ac9007966acb2a775dd31277a",
+      "tree_id": "fb11a01b9c97ec7b979386ddeb5c396783fef1a8",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 1.922,
+      "stdout_sha256": "849e4bc6c9493f9e5ba82c4fcd2c6d7ef2173995901c6fa455271fcf022d9657",
+      "stdout_bytes": 1818,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 12,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 1,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "61c7f001b8495096cc6d97f8edf187d3a22d46a455f4efeace58cfa8b00cf436"
+    },
+    {
+      "variant": "baseline",
+      "revision": "4b16c488839ac5428b9c2573c96d886bee885b02",
+      "tree_id": "52dbbccc7ec74432f588d5190fbb6623fb791658",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 1.839,
+      "stdout_sha256": "022f9536bbc28ed49a2e4a381674deca77c900da90cebf379dbc84a5f85eccb2",
+      "stdout_bytes": 381,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 14,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 1,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "627c8d60c91318a27bea9df8900ce164b58af9de8f7d4ba1be2f99392d10f75e"
+    },
+    {
+      "variant": "baseline",
+      "revision": "add14ba59e98240d9e00a235dd7d42cd61ae9912",
+      "tree_id": "591448f43fd380f78309f987bd17d53901c65594",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 1.873,
+      "stdout_sha256": "bef47fa68f7f480cee3151f901321c1c2bf781b89a4dd8b375c50e8000074e73",
+      "stdout_bytes": 2011,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 9,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 1,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "143350c1da268f0bc0ede71ca71e2ce1e854891ec887a8722de3586d51b483a5"
+    },
+    {
+      "variant": "baseline",
+      "revision": "eb6e2886f2206b88bf709fe1fa311adc3ae3c34f",
+      "tree_id": "f1ba8dac0dc5d1870ec7057aac04c5498327f763",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 1.96,
+      "stdout_sha256": "94f0c2e248d68f0f5844f58d70fcb9b5f87440d9aafd8ca2b2b5f8c6dc774db0",
+      "stdout_bytes": 7156,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 36,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 3,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "d22687331f422b81454b4ff5e534f39d8fb76368061eac65db2c48d8c5347ef3"
+    },
+    {
+      "variant": "baseline",
+      "revision": "db3153f5dae036a9d67e12be22548299855c6b40",
+      "tree_id": "647811ff5a856b62002f32a77071e7a78c5e9bee",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 1.991,
+      "stdout_sha256": "59b27bc833ccf167031cd35e5b913b729b2c7d869b9daeaccc08ae5315a6b127",
+      "stdout_bytes": 2790,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 34,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 1,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "248bece9efd81d7c6d8fb9151fc9eee942d6ff43b235d6cbc73b512cc10d4606"
+    },
+    {
+      "variant": "baseline",
+      "revision": "1a682c352b2165bf7ec05316f41244e5d8109f02",
+      "tree_id": "9ce3db2acbc16ef5bb25209ae7cac3794ac7d94f",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 1.883,
+      "stdout_sha256": "b08cb9e597718ed9bfd7ec9214ca68228b671d86967cd251a09f30fd069512ab",
+      "stdout_bytes": 1715,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 37,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 2,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "f4bfba879f8b03adb71a440ce0f600e8cd8cfef035a8042576a895d2af5970f2"
+    },
+    {
+      "variant": "baseline",
+      "revision": "8b67a88d73b2594570fc21150705283de884620b",
+      "tree_id": "7e0d19b53ef3fa6d1065dc20f9722a6708af6963",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 5.504,
+      "stdout_sha256": "4dc0ed169e67ed2a4377a9b6960f632ec241f1fa5aa087e39a1784578c64b4bc",
+      "stdout_bytes": 345657,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 2770,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 1023,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "806f3343f078abdcf97a3fc639dd215362ccb62c84d146a52bca6721f0cd6746"
+    },
+    {
+      "variant": "frozen",
+      "revision": "c5cb68a7084e4ae7dcc60e6a98768720a81841e8",
+      "tree_id": "839d7b6856ec6da992d649b2423d5f9fcefdcf1f",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 1.905,
+      "stdout_sha256": "a9ad99183092a6316a1c18b148a1646b2b34c95652f25e90c8316fa289a47824",
+      "stdout_bytes": 5152,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 27,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 1,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "d60dac50d446c014b0a9cd92a635e782ed437ab5d937a1da41e56a5bfdd50f75"
+    },
+    {
+      "variant": "frozen",
+      "revision": "1618a611b173b4bf114028e6e02549950606e29d",
+      "tree_id": "339d8833f7111ee1f4ca91fe568d63cb973f2274",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 2.376,
+      "stdout_sha256": "0f57425037ad29f4f428aaf3fa4272fbeda3853dfc5c612ea8e510b9b0f1d7e3",
+      "stdout_bytes": 67623,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 519,
+      "error_count": 12,
+      "errors": [
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginJimChallenge_4.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginBenderChallenge_1.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginAdminChallenge_1.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginBenderChallenge_3.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginBenderChallenge_2_correct.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginAdminChallenge_2.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginAdminChallenge_4_correct.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginJimChallenge_1_correct.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginJimChallenge_2.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginBenderChallenge_4.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginJimChallenge_3.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginAdminChallenge_3.ts"
+        }
+      ],
+      "skipped_rules": [],
+      "labeled_files": 14,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "b3f7c94c7144452af0a2992ec5e2db382d198bfe1cc0636ebf07650b3d580294"
+    },
+    {
+      "variant": "frozen",
+      "revision": "044948d057b249735be2bfc14eccc9e3dc2eac34",
+      "tree_id": "4acdd66d2e63a09c4255cfd10492f6a7ba05eda4",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 4.815,
+      "stdout_sha256": "5e3ba8764026cba671158501423750462ae75a0d98898cd90f1e006e957a16ff",
+      "stdout_bytes": 38875,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 446,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 2,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "67997ef5febbfe3550ef0ae4cf13443fc1fe1e224279784f25683a7580492759"
+    },
+    {
+      "variant": "frozen",
+      "revision": "76c1de3c9d8d9c2e8ec0b50abe3b198a4330d7fc",
+      "tree_id": "bf120b65737712aaae5a9b0c73dd758013471e26",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 1.85,
+      "stdout_sha256": "ba88a76be540e0451754e9a86d9b21ba425f71b940c13c6901706f85496ddb5c",
+      "stdout_bytes": 3346,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 24,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 1,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "94575c0529a153ff68fa899b2fb69fc6bfe072edd488e9c0e67c09131f583396"
+    },
+    {
+      "variant": "frozen",
+      "revision": "d68f2a3c9277ece2c2feb9976052033bdecd7fbe",
+      "tree_id": "ae60d3ff48363da9685c553e45505a037fe56935",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 1.929,
+      "stdout_sha256": "d53ce1f8cccf0043fec8007a4163ffc9f3cf5eebb90a099018ac58c7f5710f1a",
+      "stdout_bytes": 10922,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 35,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 5,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "31e412048d2f87664c0c8bec15796a444cb503273c3d239bee656bf61c311fe9"
+    },
+    {
+      "variant": "frozen",
+      "revision": "9ba473add536f66ac9007966acb2a775dd31277a",
+      "tree_id": "fb11a01b9c97ec7b979386ddeb5c396783fef1a8",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 1.951,
+      "stdout_sha256": "abd15340ee6a4e6eb1bfc40af09dbc6ff912c2560ffe04088c05f40c4fa11625",
+      "stdout_bytes": 1808,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 12,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 1,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "61c7f001b8495096cc6d97f8edf187d3a22d46a455f4efeace58cfa8b00cf436"
+    },
+    {
+      "variant": "frozen",
+      "revision": "4b16c488839ac5428b9c2573c96d886bee885b02",
+      "tree_id": "52dbbccc7ec74432f588d5190fbb6623fb791658",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 1.91,
+      "stdout_sha256": "022f9536bbc28ed49a2e4a381674deca77c900da90cebf379dbc84a5f85eccb2",
+      "stdout_bytes": 381,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 14,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 1,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "627c8d60c91318a27bea9df8900ce164b58af9de8f7d4ba1be2f99392d10f75e"
+    },
+    {
+      "variant": "frozen",
+      "revision": "add14ba59e98240d9e00a235dd7d42cd61ae9912",
+      "tree_id": "591448f43fd380f78309f987bd17d53901c65594",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 1.893,
+      "stdout_sha256": "4eaa67af1b696174b6123ad57c037ebadf2739b268df436a2a780ec2b9316b42",
+      "stdout_bytes": 2001,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 9,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 1,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "143350c1da268f0bc0ede71ca71e2ce1e854891ec887a8722de3586d51b483a5"
+    },
+    {
+      "variant": "frozen",
+      "revision": "eb6e2886f2206b88bf709fe1fa311adc3ae3c34f",
+      "tree_id": "f1ba8dac0dc5d1870ec7057aac04c5498327f763",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 1.865,
+      "stdout_sha256": "09362a2943465e4a7c073318bc9a67201f29eb5ad4c659b692b5efe44c2d6444",
+      "stdout_bytes": 7126,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 36,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 3,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "d22687331f422b81454b4ff5e534f39d8fb76368061eac65db2c48d8c5347ef3"
+    },
+    {
+      "variant": "frozen",
+      "revision": "db3153f5dae036a9d67e12be22548299855c6b40",
+      "tree_id": "647811ff5a856b62002f32a77071e7a78c5e9bee",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 1.882,
+      "stdout_sha256": "b4e9ec4c6b2ba1cde0a56cb4d24af84d9dcb3c9459daff5a6b76dafbd6b4f914",
+      "stdout_bytes": 12576,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 34,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 1,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "248bece9efd81d7c6d8fb9151fc9eee942d6ff43b235d6cbc73b512cc10d4606"
+    },
+    {
+      "variant": "frozen",
+      "revision": "1a682c352b2165bf7ec05316f41244e5d8109f02",
+      "tree_id": "9ce3db2acbc16ef5bb25209ae7cac3794ac7d94f",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 1.89,
+      "stdout_sha256": "b08cb9e597718ed9bfd7ec9214ca68228b671d86967cd251a09f30fd069512ab",
+      "stdout_bytes": 1715,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 37,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 2,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "f4bfba879f8b03adb71a440ce0f600e8cd8cfef035a8042576a895d2af5970f2"
+    },
+    {
+      "variant": "frozen",
+      "revision": "8b67a88d73b2594570fc21150705283de884620b",
+      "tree_id": "7e0d19b53ef3fa6d1065dc20f9722a6708af6963",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 6.489,
+      "stdout_sha256": "afdbd2a9ce544c5767407c3c1f66c856ecf1fac22ac0d92f609d710e27f3ab53",
+      "stdout_bytes": 360122,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 2770,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 1023,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "806f3343f078abdcf97a3fc639dd215362ccb62c84d146a52bca6721f0cd6746"
+    }
+  ],
+  "verifier_python_sha256": "3cbb0aaee7d6c60e26ad4dd7fb8ffc5aa45c239020957eda345b04ff3ff2a278",
+  "baseline_unlabeled_verified_count": 4,
+  "frozen_unlabeled_verified_count": 6,
+  "unsupported_labeled_locations": [
+    {
+      "source_id": "juice-shop",
+      "path": "data/static/codefixes/loginAdminChallenge_1.ts",
+      "line": 18,
+      "key": "fdai.verify.js.sql-injection",
+      "split": "dev"
+    },
+    {
+      "source_id": "juice-shop",
+      "path": "data/static/codefixes/loginAdminChallenge_4_correct.ts",
+      "line": 15,
+      "key": "fdai.verify.js.sql-injection",
+      "split": "dev"
+    }
+  ],
+  "changed_verifier_transitions": {
+    "fdai.verify.csharp.command-injection": {
+      "dev": {
+        "added_true_positives": 1,
+        "removed_true_positives": 0,
+        "added_false_positives": 0,
+        "removed_false_positives": 0
+      },
+      "holdout": {
+        "added_true_positives": 0,
+        "removed_true_positives": 0,
+        "added_false_positives": 0,
+        "removed_false_positives": 0
+      }
+    },
+    "fdai.verify.csharp.path-traversal": {
+      "dev": {
+        "added_true_positives": 1,
+        "removed_true_positives": 0,
+        "added_false_positives": 0,
+        "removed_false_positives": 0
+      },
+      "holdout": {
+        "added_true_positives": 0,
+        "removed_true_positives": 0,
+        "added_false_positives": 0,
+        "removed_false_positives": 0
+      }
+    },
+    "fdai.verify.csharp.sql-injection": {
+      "dev": {
+        "added_true_positives": 1,
+        "removed_true_positives": 0,
+        "added_false_positives": 0,
+        "removed_false_positives": 0
+      },
+      "holdout": {
+        "added_true_positives": 0,
+        "removed_true_positives": 0,
+        "added_false_positives": 0,
+        "removed_false_positives": 0
+      }
+    },
+    "fdai.verify.java.path-traversal": {
+      "dev": {
+        "added_true_positives": 4,
+        "removed_true_positives": 0,
+        "added_false_positives": 2,
+        "removed_false_positives": 0
+      },
+      "holdout": {
+        "added_true_positives": 1,
+        "removed_true_positives": 0,
+        "added_false_positives": 0,
+        "removed_false_positives": 0
+      }
+    }
+  }
+}
