@@ -3,6 +3,14 @@ title: Runtime Parity - Authoritative Local Development and Test Fixtures
 ---
 # Runtime Parity - Authoritative Local Development and Test Fixtures
 
+[GitHub knowledge sources](../../runbooks/knowledge-github-sources.md) use the same Operator
+routes, Owner revalidation, revision checks, credential references, and bounded Core reader
+locally and when deployed. Operator reads the existing repository ledger without GitHub
+credentials or broad Knowledge access. Anonymous public access never borrows a configured token;
+private access requires the deployment GitHub App. Missing prerequisites remain unavailable or
+pending, not fixture-backed connections. Source verification never indexes content or enables scans;
+an authenticated installed lifecycle remains distinct from test and public-provider evidence.
+
 Both local and deployed profiles route Operator post-turn review through `operator.post-turn-review.requests` before Core Bragi writes the Pantheon topic.
 **Goal**: automated tests remain deterministic and secret-free, while the default local and deployed runtime is the same headless observation-first SRE Agent. Explicit Console sessions show authoritative Azure state only when the read-only Console and enterprise identity add-ons are selected. Azure deployment uses the **deployer's permissions and region catalog to select provisioned resources**. The separate `docs site: serve (4321)` task previews public documentation on loopback only; it starts no backend or channel edge and grants no runtime authority. Three truths hold at the same time:
 - **Automated-test truth**: pytest and committed mocks may bind deterministic fakes. They use an explicit test-fixture builder and never represent observed Azure state.

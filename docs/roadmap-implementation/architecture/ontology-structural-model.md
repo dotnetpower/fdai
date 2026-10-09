@@ -9,6 +9,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| GitHub source-provenance separation | implemented | `425fda52ead9`; `fdai_service_contracts/knowledge_github.py`; `test_knowledge_github_projection.py` | Typed repository provenance remains ledger metadata. It creates no Resource, ObjectType, LinkType, provider-health conclusion, indexed evidence, or authority edge. |
 | Structural design and compatibility | implemented | This paired owner document, `design-routes.json`, roadmap index, code map, and focused documentation gates | The additive model preserves existing Resource, ResourceType, direct-link identity, stored direction, and historical declarations. |
 | Semantic Incident draft boundary | implemented | `semantic_incident_creation.py`; `semantic_turn_processor.py`; typed Incident creation contract; focused semantic planning and projection checks | An accepted Incident creation judgment preserves one severity, one target, and the semantic input digest in a candidate-only draft. It does not execute a query, infer an ontology relationship, or grant mutation authority. |
 | ResourceClass catalog and projection | implemented | `resource_class.py`, `resource-classes.yaml`, ResourceClass/ObjectType and membership/specialization declarations, catalog projection, closure receipt, and focused catalog checks | Eleven reviewed classes project all 114 neutral ResourceTypes through 114 direct memberships and 11 bounded specialization links. Closure uses only explicit ids and grants no authority. |
@@ -44,6 +45,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-09 | implemented | Kept verified repository/commit/README observations and credential references outside ontology identity and execution authority; knowledge read and scan permission remain independent. | `425fda52ead9`, `aa246b1f5398`; connector/backend selection: 153 passed; Console source/registration checks: 36 passed. | None for this metadata boundary; existing ontology work remains unchanged. |
 | 2026-10-08 | implemented | Made the inventory-invalidation SSE stream end when the Operator begins graceful shutdown, including while it waits between polls. The loop observed only client disconnection, so an open Console view held a local restart until the supervisor force-stopped the Operator after its 10-second grace. The same change releases the `/live/stream` keepalive wait and the read-investigation poll. | `current change`; Operator `streaming/shutdown.py`, `streaming/live_stream.py`, `families/operations/factory.py`, and `tests/test_stream_shutdown.py`; `uv run pytest -q --no-cov services/operator-service/tests` (2964 passed; one test that needs `FDAI_DATABASE_URL` fails without it). | None for stream shutdown. |
 | 2026-10-07 | implemented | Added versioned E10 state-list and E11 metric-collection query shapes with exact member accounting, typed unknown rows, fixed windows, and bounded processing receipts. | [Issue #1964](https://github.com/dotnetpower/fdai/issues/1964); `current change`; focused contract, query execution, state and metric reader tests in the 283-case cohort. | Retain exact-head protected CI and governed live evidence. |
 | 2026-10-07 | in-progress | Added the discriminated E12 collection anchor and one-hop lineage query with anchor output and independent structural verification. | [Issue #1967](https://github.com/dotnetpower/fdai/issues/1967); `current change`; focused E12, compiler and traversal tests. | Add per-anchor coverage receipts, verified negative claims, and relationship population accounting. |
@@ -175,6 +177,9 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 
 ### Remaining work
+
+- [x] Keep GitHub source provenance outside ontology identities and authority edges; the typed
+  source contract and focused checks in `425fda52ead9` preserve this bounded separation.
 
 - [x] Add the bilingual owner document to design routing and architecture indexes, then pass roadmap,
   translation, punctuation, and link checks.

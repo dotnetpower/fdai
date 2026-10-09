@@ -1,10 +1,11 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 27a734cb12c2e6ebbf94c93510e736289dfd656e
+translation_source_sha: 284bc9be85f414aa43236da30216df0a4154d987
 translation_revised: 2026-10-09
 ---
 # FDAI Console 대화
+
 사람 오퍼레이터가 CLI, Teams, Slack, 웹 챗을 통해 FDAI에 **역으로 말할 수 있는** 방식입니다. 별도 제품이 아닌 FDAI Console의 **대화형 표면**로서 계층 아키텍처, 도구 카탈로그, LLM tier, 세션 지속성, 도구별 RBAC, 안전 invariant, 롤아웃 상태를 정의합니다. FDAI Console은 읽기 전용 제품이 아니라 통제된 운영자 인터페이스입니다. 서버가 인가한 타입 지정 요청을 제출할 수 있지만, 관리 리소스 실행은 브라우저 밖에서 이루어지며 고위험 작업에는 계속 사람 승인이 필요합니다. 모듈 분리 후에도 제안 claim 타입은 목적별 모델 소유자에 유지하고 공개 보증 파사드, 생성된 CQAS 인벤토리, 정본 시각 매핑을 보존하며 요청 또는 실행 권한은 바뀌지 않습니다. 파사드 가져오기 이름을 보존하는 런타임 카탈로그 로더 분리는 사람 보고 관계, 승인 경로, RBAC 또는 Console 요청 계약을 변경하지 않습니다. Rule 활성화 테스트를 소유 Core 및 Operator 서비스 테스트 묶음에 등록하는 변경은 테스트 선택만 바꾸며 보고 관계나 승인 권한을 부여하지 않습니다. Console 카탈로그나 deck 표현 계약 변경 뒤 질문은행과 CQAS 산출물을 다시 생성하는 작업은 원본 약속값만 갱신하며 질문 신원, 보고 권한 또는 대화 실행 권한을 바꾸지 않습니다.
 Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](channels-and-notifications-ko.md)에 있고, 운영 화면과 요청은 [console-operations-ko.md](console-operations-ko.md)에 정의되며 SPA는 [project-structure.md § 콘솔/](../architecture/project-structure-ko.md#모듈-경계모듈-boundaries)에 있습니다. 근거 출처 이력, 스트림 복구, localization 및 아키텍처 지도 복원력은 [console-evidence-and-resilience-ko.md](console-evidence-and-resilience-ko.md)가 소유합니다. Login 초기화는 역할이 할당된 principal의 접근을 검증된 App 역할에서 도출하고 선택적 access-request 변환 결과를 요구하지 않으며, 역할이 없을 때 해당 변환 결과가 사용 불가이면 접근을 계속 차단합니다. 로컬 개발의 독립 서비스 어댑터는 모델 서술에만 Azure CLI를 사용할 수 있고 provider-read 또는 실행 권한은 없습니다. 온톨로지는 하나의 exact-release 레지스트리 변환 결과에서 검토된 의미 모델과 카탈로그 토폴로지를 제공합니다. 런타임 인스턴스는 보안 receipt를 기반으로 하는 별도의 목적 범위 컨텍스트 스냅샷에만 표시됩니다. 인스턴스 화면은 출처 후보 회계, 범위가 제한된 응답 수, 집중 그래프 항목, Inspector 전용 관계, IAM 전용 관계를 분리하여 레이아웃 생략이 프로바이더 근거 누락처럼 보이지 않게 합니다. Fleet 출처 행은 `(source, scope_digest)` 신원을 사용하고 각 불투명 범위 다이제스트를 표시하며 여러 클러스터 상태를 행 하나로 축약하지 않습니다. 화면이 보이는 동안 인증된 인벤토리 무효화 SSE 스트림을 사용하고 커밋된 watermark를 받으면 선택한 인스턴스를 즉시 다시 검증합니다. 교차 출처 재현은 범위가 제한된 `Last-Event-ID` 요청 헤더를 명시적으로 허용합니다. SSE를 사용할 수 없으면 단조 증가 시계를 기준으로 다음 15초 fallback 폴링까지 남은 시간을 표시하며 브라우저 복귀 시에도 즉시 다시 확인합니다. 새로고침 실패 시 마지막으로 검증된 응답을 유지하고 프로바이더 상태를 텍스트가 있는 의미 배지로 표시합니다. SSE와 폴링은 인벤토리 관측을 대체하거나 관계 완전성을 높이지 않습니다. 인시던트 주의 컨트롤은 마운트 중 제출하지 않으며, 명시적으로 클릭할 때마다 인시던트에 결속된 새 대화를 열고, 증적에 결속된 플래너 중단 시 모델 연결 또는 의미 런타임 복구 단계를 현지화해 표시합니다. 서버 검증 결과가 있으면 참조가 0개인 경우까지 그 근거 참조만 인용 출처로 사용하며, 검증 결과가 없을 때만 화면 맥락을 인용합니다.
 
@@ -12,6 +13,14 @@ Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](cha
 Workflow Builder 저장은 이제 커밋된 Operator 레코드를 반환합니다. 비공개 초안과 바인딩은 영속 리비전을 포함하고 요청 principal 의 Mine 또는 My automations projection 에만 나타나며, Built-in 정의는 계속 카탈로그에서 시드되고 읽기 전용으로 유지됩니다. 로컬 Console은 다른 출처에서 Operator API를 호출하므로, Operator의 CORS 정책은 리비전을 확인하는 모든 변경 요청이 보내는 `If-Match` 헤더를 허용합니다. 허용하지 않으면 브라우저 사전 요청이 Operator에 도달하기 전에 이 저장을 차단합니다. 커밋된 리비전은 `X-FDAI-Revision` 응답 헤더로 전달되며, Operator의 CORS 정책은 이 헤더를 노출합니다. Console은 이 헤더에서 초안 리비전을 읽고, 헤더가 없으면 저장을 실패로 처리합니다.
 배포된 Console은 `api://<fdai-api-guid>/access` 범위를 요청하지만, Operator와 Document Ingestion API는 발급된 v2 액세스 토큰을 `fdai-api` 클라이언트 ID로 검증합니다. 이 값이 토큰의 `aud`이기 때문입니다. 배포는 이 클라이언트 ID를 오디언스로 기록하므로 로그인이 잘못된 오디언스로 실패하지 않습니다.
 Console 텍스트는 WCAG 2.1 AA 대비를 충족합니다. 보조 텍스트와 상태 텍스트 역할은 각 표면에서 4.5:1 이상을 유지합니다. 표의 행 버튼은 세부 영역이 렌더링된 동안에만 `aria-controls`로 그 영역을 참조하며, 가로로 스크롤될 수 있는 표는 Scope 축 표처럼 포커스할 수 있는 이름 있는 영역을 선택적으로 사용합니다. 등록된 55개 경로 전체를 대상으로, 실행 중인 Console에 동일한 CSS를 주입하여 인증된 Browser Entra axe-core 점검을 한 차례 수행해 이 규칙이 해결하는 대비 문제를 찾았습니다. `aria-controls` 변경은 단위 테스트로 확인하고, 스크롤 영역 선택 사용에는 아직 자동 테스트가 없으며, 사람의 보조 기술 검토는 별도입니다.
+지식 > GitHub는 이제 [통제된 읽기 전용 연결 절차](../../runbooks/knowledge-github-sources-ko.md)를
+제공합니다. Owner는 별칭, 저장소 위치, 자격 증명 참조 및 예상 버전을 제출합니다.
+HTTP `202`는 검증 완료가 아닌 대기 상태를 의미합니다. 공급자 검증 후 명시적인 새로 고침으로
+Core가 저장한 출처 정보를 읽습니다. 새 소스의 스캔은 별도 Owner 활성화 요청 전까지
+비활성 상태입니다. 지식 연결 해제는 독립적으로 부여된 스캔 권한을 유지합니다.
+Console은 자격 증명 값을 받거나 색인 완료를 주장하거나 표시 데이터 준비 상태를
+소스 접근 권한으로 바꾸지 않습니다.
+
 의미 결과 핸들 참조는 Core가 발급한 불투명 토큰만 영속 턴과 함께 보관하고 다음 의미 요청에서
 최근 참조를 최대 네 개까지 돌려보냅니다. Operator에 행 본문을 노출하거나 사람 보고 경로를
 바꾸거나 Console 실행 권한을 부여하지 않습니다.
