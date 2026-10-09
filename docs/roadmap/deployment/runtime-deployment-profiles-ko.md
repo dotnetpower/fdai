@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: baae8c0e4d23b50307f20f0fa29dc554b11aa271
+translation_source_sha: d49fc2a0e13990d9ad4365eb93e8c8db05087313
 translation_revised: 2026-10-09
 ---
 # 런타임 배포 프로파일
@@ -380,6 +380,13 @@ FDAI 서비스는 하나의 런타임 중립 워크로드 명세를 유지합니
 출시되는 모든 Alpine 런타임 이미지에서는 보안에 민감한 런타임 패키지 revision도 모든 서비스
 Dockerfile에 걸쳐 고정합니다. 수정된 패키지 revision이 공개되면 공유 고정값과 저장소 계약을
 함께 갱신하고, 이미지를 게시하기 전에 이미지 검사가 빌드 결과를 확인합니다.
+
+Core, Cost Governance 프로필, SRE 벤치마크는 OPA 1.18.2를 유지하되 다이제스트로 고정한
+Go 1.27.2와 `golang.org/x/net` 0.60.0으로 빌드합니다. 이 모듈이 요구하는
+`golang.org/x/crypto` 0.57.0과 `golang.org/x/text` 0.42.0도 함께 고정합니다.
+빌더는 도구 체인 자동 다운로드를 거부하고
+실제 컴파일러와 포함된 모듈 버전을 검사합니다. 이는 정책 의미를 바꾸거나 발견 사항을 무시하거나
+게시 전 이미지 검사를 완화하지 않고 관측된 표준 라이브러리와 HTTP/2 모듈 문제를 수정합니다.
 
 Container Apps 렌더러는 명세를 Container Apps와 Container Apps Jobs로 변환합니다. AKS 렌더러는
 명세를 typed Kubernetes `Deployment`, `Service`, `ServiceAccount`, `HorizontalPodAutoscaler`,
