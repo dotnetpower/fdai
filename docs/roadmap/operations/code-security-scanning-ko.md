@@ -1,8 +1,8 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: aa43c535f88a9b983e8212dda5f9bfeb619ac8bd
-translation_revised: 2026-10-09
+translation_source_sha: 3c9c556b81229dba0f4835902f94492cd6abb5d8
+translation_revised: 2026-10-10
 ---
 
 # 코드 보안 스캔
@@ -168,6 +168,12 @@ Go 기반 도구는 스캐너 버전을 유지하되 인증된 상위 프로젝�
   OpenJDK 21, SHA-512로 고정한 .NET SDK를 더합니다. 그러면 `--prove`가 Python, JavaScript,
   네이티브, Java, C# 이슈를 재현할 수 있습니다. sanitizer 런타임이 musl을 지원하지 않으므로 이미지는
   glibc 기반입니다.
+
+JavaScript 런타임은 체크섬으로 고정한 공식 Node.js 24.21.0 LTS 바이너리를 `/usr/bin/node`에서
+사용합니다. 라이선스 고지문을 포함하고, 내장 Undici 버전이 7.29.1인지 명시적으로 확인합니다.
+취약한 Debian Node/Undici 패키지 묶음이나 사용하지 않는 npm 설치 도구는 설치하지 않습니다.
+이 런타임을 변경할 때는 취약한 경우의 입증, 안전한 경우의 거부, 시간 초과, 소스 불변성을
+확인해야 합니다. 남은 Debian 항목과 실제 실행 환경의 커널 항목은 이 수정과 별도로 관리합니다.
 
 이미지 빌드 성공만으로 공급망 준비 상태를 확인할 수는 없습니다. 정확히 빌드한 두 대상을
 최신 취약점 데이터로 검사하고, 배포판에서 수정 버전을 제공하지 않은 발견 사항도 보존합니다.

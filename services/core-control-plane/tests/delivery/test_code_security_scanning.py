@@ -636,7 +636,19 @@ def test_scan_runner_image_pins_every_tool_and_binds_every_scanner() -> None:
     stages = re.findall(r"^FROM \S+ AS ([a-z]+)$", dockerfile, flags=re.MULTILINE)
     assert stages[-1] == "runtime" and "prover" in stages
     prover = dockerfile.split(" AS prover\n", 1)[1].split("\nFROM ", 1)[0]
-    for toolchain in ("nodejs", "gcc", "openjdk-21-jdk-headless", "/usr/lib/dotnet"):
+    for toolchain in ("gcc", "openjdk-21-jdk-headless", "/usr/lib/dotnet"):
         assert toolchain in prover, toolchain
+    assert "nodejs" not in prover.split("COPY", 1)[0]
+    assert "ARG NODE_VERSION=24.21.0" in dockerfile
+    assert "ARG NODE_UNDICI_VERSION=7.29.1" in dockerfile
+    assert re.search(r"ARG NODE_SHA256=[0-9a-f]{64}\n", dockerfile)
+    assert '"${NODE_SHA256}  node.tar.xz" | sha256sum -c -' in dockerfile
+    assert 'test "$(/usr/bin/node --version)" = "v${NODE_VERSION}"' in dockerfile
+    assert (
+        'test "$(/usr/bin/node -p process.versions.undici)" = "${NODE_UNDICI_VERSION}"'
+        in dockerfile
+    )
+    assert "COPY --from=node /usr/bin/node /usr/bin/node" in prover
+    assert "COPY --from=node /usr/share/licenses/nodejs/" in prover
     for flag in ("node:node", "gcc:cc", "java:java", "dotnet:dotnet"):
         assert flag in entrypoint, flag
