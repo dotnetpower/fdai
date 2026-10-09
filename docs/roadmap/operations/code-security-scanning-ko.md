@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: 15c87d0a1d5fbfc8f7b348a1ed9734da76a974e5
+translation_source_sha: 80acde6dfbd5dc3eafcbabfe75dc9bbd8a54148e
 translation_revised: 2026-10-09
 ---
 
@@ -150,6 +150,14 @@ Docker에서는 `--security-opt seccomp=unconfined --security-opt apparmor=uncon
 JavaScript, 네이티브, Java, C# 예제가 각각 수정 위치에서 `proven`이 되었고, 안전한 짝은 입증되지
 않았습니다. 첫 실행에서 샌드박스가 `/etc/ld.so.cache` 없이 입증 인터프리터를 고정 경로에 연결한다는
 점이 드러났으므로, 이미지는 `libpython`을 로더의 기본 경로에 연결합니다.
+
+## CLI 진입점
+
+핵심 control-plane 패키지는 모든 코드 보안 명령을 위한 지원 CLI 표면으로 `fdai-code-security`
+실행 파일을 설치합니다. 소스 체크아웃에서는 `uv run --package fdai-core-control-plane
+fdai-code-security`로 실행할 수 있고, 스캔 실행 이미지는 같은 진입점을 가상 환경에 설치해
+스캔과 작업자에 사용합니다. 모듈 형식(`python -m fdai.delivery.code_security_cli`)은 구현과 테스트
+경로로 남아 있으며 사용자 설치 계약은 아닙니다.
 
 ## 로컬 폴더 스캔과 보고서
 
