@@ -182,7 +182,7 @@ owns the exact contract.
 | Runtime support environment | The committed `uv.lock` closure and the snapshot's workspace wheels, prepared on the workstation as one digest-bound archive and installed on the managed host by hash only |
 | Kubernetes client tools | The kit's pinned `kubectl` and `kubelogin` releases, downloaded on the managed host and kept only when the committed digests match |
 | Terraform providers | Resolved from the public Terraform registry under the committed lock files |
-| Database | Migrations and authoritative catalogs from the checkout, followed by Trial initialization |
+| Database | `postgres-flex` (default) or, with `--database postgres-aks` and at least four user nodes, the in-cluster PostgreSQL stage from the checkout's database root with the imported pgvector image; then migrations and authoritative catalogs from the checkout, followed by Trial initialization |
 | Provenance | Recorded in the private run receipt as `operator-selected-source`, never as a signed release |
 
 The source path never creates a signed kit, deployment bundle, bundle signature,

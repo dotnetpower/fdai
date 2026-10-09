@@ -24,13 +24,15 @@ variable "runtime_principal_ids" {
 }
 
 variable "ingestion_api_principal_id" {
-  description = "Document Ingestion API workload identity principal id."
+  description = "Document Ingestion API workload identity principal id; null when document ingestion is not selected."
   type        = string
+  default     = null
 }
 
 variable "ingestion_worker_principal_id" {
-  description = "Document Processing Worker workload identity principal id."
+  description = "Document Processing Worker workload identity principal id; null when document ingestion is not selected."
   type        = string
+  default     = null
 }
 
 variable "namespace" {

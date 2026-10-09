@@ -1,8 +1,8 @@
 ---
 title: 단일 명령 소스 배포
 translation_of: source-deployment.md
-translation_source_sha: a9517a91425226a222e2a6578d75f5dcfc233299
-translation_revised: 2026-10-06
+translation_source_sha: c6a1dbdce6619681425717d9462fd219a9cb9fb7
+translation_revised: 2026-10-09
 ---
 
 # 단일 명령 소스 배포
@@ -176,7 +176,7 @@ Trial이 끝나면 Core는 재시작 없이 다음 결정부터 새 변경 작�
 | 런타임 지원 환경 | 커밋된 `uv.lock` 의존성 집합과 스냅샷의 워크스페이스 wheel을 워크스테이션에서 다이제스트로 결속된 아카이브 하나로 준비하고, managed host에서 해시로만 설치 |
 | Kubernetes 클라이언트 도구 | 키트에 고정된 `kubectl`과 `kubelogin` 릴리스를 managed host에서 내려받아 커밋된 다이제스트가 일치할 때만 보관 |
 | Terraform 공급자 | 커밋된 lock 파일 기준으로 공개 Terraform 레지스트리에서 해석 |
-| 데이터베이스 | checkout의 마이그레이션과 권위 있는 카탈로그를 적용한 뒤 Trial 초기화 |
+| 데이터베이스 | 기본값인 `postgres-flex`, 또는 `--database postgres-aks`와 사용자 노드 4개 이상을 지정하면 checkout의 데이터베이스 루트와 가져온 pgvector 이미지로 만드는 클러스터 내부 PostgreSQL 단계. 이어서 checkout의 마이그레이션과 권위 있는 카탈로그를 적용한 뒤 Trial 초기화 |
 | 출처 기록 | 비공개 실행 증적에 `operator-selected-source`로 기록하며 서명된 릴리스로 기록하지 않음 |
 
 소스 경로는 서명된 키트, 배포 번들, 번들 서명, 배포 제어 패키지, 서명된 wheelhouse, 런타임

@@ -13,6 +13,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from fdai_deployment_cli.standalone_database_principals import database_reader_principals
 
 from fdai_deployment_cli import (
     aks_workload_jobs,
@@ -4178,7 +4179,44 @@ def test_aks_runtime_configuration_binds_consumer_scoped_dsns_and_roles() -> Non
 def test_postgres_aks_database_stage_passes_ingestion_principals() -> None:
     source = Path(standalone_host.__file__).read_text(encoding="utf-8")
 
-    assert '"ingestion_api_principal_id": str(ingestion_identity["principal_id"])' in source
-    assert (
-        '"ingestion_worker_principal_id": str(ingestion_worker_identity["principal_id"])' in source
+    assert '"ingestion_api_principal_id": ingestion_principal' in source
+    assert '"ingestion_worker_principal_id": ingestion_worker_principal' in source
+    identity = {"resource_id": "r", "client_id": "c"}
+    full = {
+        name: {**identity, "principal_id": f"{name}-principal"}
+        for name in (
+            "core",
+            "operator",
+            "executor",
+            "inventory",
+            "ingestion",
+            "ingestion_worker",
+        )
+    }
+    assert database_reader_principals(full) == (
+        {"core-principal", "operator-principal", "executor-principal", "inventory-principal"},
+        "ingestion-principal",
+        "ingestion_worker-principal",
     )
+
+
+def test_postgres_aks_database_stage_admits_observation_first_identities() -> None:
+    identity = {"resource_id": "r", "client_id": "c"}
+    observation_first = {
+        "core": {**identity, "principal_id": "core-principal"},
+        "inventory": {**identity, "principal_id": "inventory-principal"},
+        "operator": None,
+        "executor": None,
+        "ingestion": None,
+        "ingestion_worker": None,
+    }
+    assert database_reader_principals(observation_first) == (
+        {"core-principal", "inventory-principal"},
+        None,
+        None,
+    )
+    for required in ("core", "inventory"):
+        with pytest.raises(ValueError, match=f"{required} runtime identity"):
+            database_reader_principals({**observation_first, required: None})
+    with pytest.raises(ValueError, match="operator runtime identity"):
+        database_reader_principals({**observation_first, "operator": "invalid"})
