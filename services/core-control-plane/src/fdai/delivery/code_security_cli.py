@@ -86,6 +86,10 @@ from fdai.core.security.code_findings.verifier import (
 )
 from fdai.core.security.code_findings.verifier_evaluation import VerifierCorpusError
 from fdai.delivery.code_security_acquire import GitSourceAcquirer, SourceAcquisitionError
+from fdai.delivery.code_security_cache_snapshot import (
+    add_cache_snapshot_command,
+    run_publish_cache_snapshot,
+)
 from fdai.delivery.code_security_input_cli import (
     add_input_verification_command,
     verify_scanner_input,
@@ -179,6 +183,7 @@ def _parser() -> argparse.ArgumentParser:
     add_prepare_command(sub)
     add_runtime_render_command(sub)
     add_input_verification_command(sub)
+    add_cache_snapshot_command(sub)
     add_repository_commands(sub)
     add_verifier_evaluation_command(sub)
     add_lens_evaluation_command(sub)
@@ -415,6 +420,8 @@ def main(argv: list[str] | None = None) -> int:
             output = render_scanner_runtime(args)
         elif args.command == "verify-scanner-input":
             output = verify_scanner_input(args)
+        elif args.command == "publish-cache-snapshot":
+            output = run_publish_cache_snapshot(args)
         elif args.command in ("repo-register", "repo-list", "repo-enable", "repo-disable"):
             output = asyncio.run(run_repository_command(args))
         elif args.command == "process-scan-requests":

@@ -401,8 +401,13 @@ unit tests and Kubernetes metadata alone do not establish live isolation.
 **Vulnerability cache.** A separate preparation job refreshes the Trivy and OSV databases through
 the deployment's egress firewall, which allows only those database hosts. It publishes a
 versioned snapshot atomically and keeps the last known-good one, so an upstream outage doesn't
-stop scanning. Scan pods mount the current snapshot read-only, and each receipt records the
-database versions, digests, and age.
+stop scanning. `fdai-scan-runner prepare-snapshot SOURCE_DIR ROOT` refreshes in a private staging
+directory, publishes a read-only digest-named generation under `ROOT/snapshots`, and atomically
+updates `ROOT/current.json` only after preparation succeeds. Failed preparation does not replace
+the current pointer. Bind the resulting `cache_subpath` and cache directory to the scanner
+worker's read-only cache PVC. A digest binds the observed bytes; it does not prove database
+freshness or package completeness, which still depend on provider metadata and scanner coverage.
+Deployment firewall configuration and a scheduled preparation job remain installation inputs.
 
 **State-store privilege.** Code-security records and the proposal outbox share the generic
 `state_kv` table, so the worker does not receive table grants. The Core migration
