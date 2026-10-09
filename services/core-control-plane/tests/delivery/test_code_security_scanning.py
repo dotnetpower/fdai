@@ -650,5 +650,8 @@ def test_scan_runner_image_pins_every_tool_and_binds_every_scanner() -> None:
     )
     assert "COPY --from=node /usr/bin/node /usr/bin/node" in prover
     assert "COPY --from=node /usr/share/licenses/nodejs/" in prover
+    assert "COPY --from=node /usr/share/fdai/node-runtime.cdx.json" in prover
+    assert "python /download/node-runtime-sbom.py" in dockerfile
+    assert "--binary /usr/bin/node --archive-sha256" in dockerfile
     for flag in ("node:node", "gcc:cc", "java:java", "dotnet:dotnet"):
         assert flag in entrypoint, flag

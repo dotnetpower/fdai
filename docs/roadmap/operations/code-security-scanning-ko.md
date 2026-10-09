@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: 3c9c556b81229dba0f4835902f94492cd6abb5d8
+translation_source_sha: 008b61d579b51d4e64c1103a446c2a01c44d4088
 translation_revised: 2026-10-10
 ---
 
@@ -174,6 +174,22 @@ JavaScript 런타임은 체크섬으로 고정한 공식 Node.js 24.21.0 LTS 바
 취약한 Debian Node/Undici 패키지 묶음이나 사용하지 않는 npm 설치 도구는 설치하지 않습니다.
 이 런타임을 변경할 때는 취약한 경우의 입증, 안전한 경우의 거부, 시간 초과, 소스 불변성을
 확인해야 합니다. 남은 Debian 항목과 실제 실행 환경의 커널 항목은 이 수정과 별도로 관리합니다.
+
+prover에는 신뢰하는 런타임의 버전 관측값과 실제 실행 파일 SHA-256으로 생성한
+`/usr/share/fdai/node-runtime.cdx.json`도 포함됩니다. CycloneDX 범위는 `embedded-npm-only`로
+명시합니다. Acorn, Amaro, Undici에는 NPM 식별자가 있고, 나머지 관측 필드는 아직 평가하지 않은
+메타데이터로 보존합니다. 일반 이미지 검사는 이렇게 정적으로 내장된 NPM 구성요소를 발견하지
+못하므로 이 목록을 별도로 검사합니다.
+
+```bash
+container=$(docker create "$PROVER_IMAGE")
+docker cp "$container:/usr/share/fdai/node-runtime.cdx.json" node-runtime.cdx.json
+docker rm "$container"
+trivy sbom --exit-code 1 --severity MEDIUM,HIGH,CRITICAL node-runtime.cdx.json
+```
+
+기존 이미지 검사도 함께 실행합니다. 범위를 제한한 SBOM 검사가 통과해도 네이티브 라이브러리,
+커널, 전체 이미지 또는 설치 준비 상태가 확인되는 것은 아닙니다. 이 목록은 증명서도 아닙니다.
 
 이미지 빌드 성공만으로 공급망 준비 상태를 확인할 수는 없습니다. 정확히 빌드한 두 대상을
 최신 취약점 데이터로 검사하고, 배포판에서 수정 버전을 제공하지 않은 발견 사항도 보존합니다.
