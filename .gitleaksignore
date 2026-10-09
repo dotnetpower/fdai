@@ -5,3 +5,5 @@
 0f5524a7ede387aa5f74c308ec8137797d17e4d9:packages/service-contracts/tests/test_semantic_projection.py:generic-api-key:53
 # Synthetic token-shaped validator fixture, now built at runtime; ignore only this historical PR fingerprint.
 3da56c82044fe04e5348dbd9403824097d902c43:packages/deployment-cli/tests/test_lifecycle_configuration.py:github-pat:261
+# Public labeled-source input SHA-256 under dvcsharp-api; exact historical fingerprint, not a credential.
+c393cbbd4ee6c0bc86d9332ec169076e16ec70d6:rule-catalog/code-security/evaluation/managed-verifiers-1.6.0.json:generic-api-key:132
