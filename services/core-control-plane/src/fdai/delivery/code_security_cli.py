@@ -258,13 +258,19 @@ def _export(args: argparse.Namespace) -> dict[str, object]:
     verifier_catalog = load_verifier_catalog(
         Path(args.catalog_root), frozenset(catalog.weakness_classes.classes)
     )
-    results = list(taint_rule_verifications(issues, occurrences, verifier_catalog))
+    source = None
     if args.verify_repository:
         if not args.work_root:
             raise ValueError("--verify-repository requires --work-root")
         source = GitSourceAcquirer(Path(args.work_root).resolve()).acquire(
             args.verify_repository, args.revision
         )
+    results = list(
+        taint_rule_verifications(
+            issues, occurrences, verifier_catalog, repository=source.path if source else None
+        )
+    )
+    if source is not None:
         results += verify_issues(source.path, issues, verifier_catalog, revision=args.revision)
     verifications = verified_confidence(results)
     verified = len(verifications)

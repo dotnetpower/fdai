@@ -609,6 +609,17 @@ Example: the verifiers 1.4.0 receipt (2026-10-09) adds element-sensitive list tr
 0.94 on `holdout` with 16) and unsafe deserialization (1.0 in both splits with 8 and 10). Python
 command injection measured 1.0 on `dev` and 0.75 on `holdout` and stays in shadow.
 
+The managed-language 1.6.0 evaluation adds a generic Java AST constant-flow veto rather than
+Benchmark-specific sanitizers. It recognizes provably constant local/control-flow/helper results,
+keeps unknown flows unchanged, and removes only verifier evidence, not the base reported finding.
+The same helper runs in evaluation, scan jobs, prepared-result acceptance, and repository-backed
+pack export. It removed 13 Java SQL false positives without losing a true positive: precision is
+0.8333 on `dev` (15 TP, 3 FP) and 0.9130 on `holdout` (21 TP, 2 FP). The rule remains in shadow.
+The unresolved `dev` cases include a mutable map and reflection through classloader properties;
+the latter cannot be treated as a known local pure method without further evidence. C# source,
+sink and sanitizer corrections increased `dev` true positives from 2 to 5 with no false positives,
+but the remaining held-out evidence still does not justify promotion.
+
 ## Proof lane (opt-in)
 
 The proof lane is the dynamic step: it reproduces a finding instead of reasoning about it. It's
