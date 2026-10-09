@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: 5bf523b41874a8a9e0613de187c358a705c3e46f
+translation_source_sha: 6dc68ef78f58f85587a065ab4864c6ac6ed433f7
 translation_revised: 2026-10-10
 ---
 
@@ -161,13 +161,23 @@ Go 기반 도구는 스캐너 버전을 유지하되 인증된 상위 프로젝�
 다이제스트로 고정한 Go 1.27.2와 수정된 의존성으로 다시 빌드합니다. 컴파일러나 포함된 모듈
 버전이 고정값과 다르면 빌드를 거부합니다. glibc 기반 Debian 이미지는 다이제스트로 고정하며,
 런타임에서는 사용하지 않는 pip 설치 도구와 취약한 내장 라이브러리를 제거합니다.
-이 파일은 두 대상을 빌드합니다.
+이 파일은 세 대상을 빌드합니다.
 
 - **`runtime`(기본):** 모든 스캐너와 Python 입증 레인을 담습니다.
+- **`prover-javascript`:** 모든 스캐너에 Python과 고정된 Node 런타임을 더합니다. 명시적으로
+  선택한 이 프로필은 다른 언어의 입증을 제공하지 않으므로 네이티브 컴파일, Linux 개발 헤더,
+  Java, .NET은 포함하지 않습니다.
 - **`prover`:** 같은 이미지에 Node.js, AddressSanitizer와 UndefinedBehaviorSanitizer를 쓰는 gcc,
   OpenJDK 21, SHA-512로 고정한 .NET SDK를 더합니다. 그러면 `--prove`가 Python, JavaScript,
   네이티브, Java, C# 이슈를 재현할 수 있습니다. sanitizer 런타임이 musl을 지원하지 않으므로 이미지는
   glibc 기반입니다.
+
+로컬 래퍼의 `--prove`는 기존 전체 프로필을 유지합니다. 경량 프로필은
+`--prove-profile javascript`로 명시적으로 선택합니다. 이 옵션은 `--prove`를 함께 활성화하고,
+해당 빌드 대상을 선택하며 입증 범위의 제한을 알립니다. 이미지 재정의 변수는
+`FDAI_CODE_SECURITY_JS_PROVER_IMAGE`이며, 전체 프로필의 기존 재정의는 그대로 유지합니다.
+이 프로필에서는 다른 언어의 스캐너·검증기 발견 사항을 보존하되 동적으로 입증하지 않습니다.
+위험, 승인, 검증기 승격, 스캐너 연결, 샌드박스 제어는 바꾸지 않습니다.
 
 JavaScript 런타임은 체크섬으로 고정한 공식 Node.js 24.21.0 LTS 바이너리를 `/usr/bin/node`에서
 사용합니다. 라이선스 고지문을 포함하고, 내장 Undici 버전이 7.29.1인지 명시적으로 확인합니다.

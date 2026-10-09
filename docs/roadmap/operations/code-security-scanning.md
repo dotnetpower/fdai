@@ -162,13 +162,23 @@ Opengrep, gitleaks, OSV-Scanner, and Trivy. Opengrep is pinned by version and SH
 tools retain their scanner versions but rebuild authenticated, checksum-pinned upstream modules
 with digest-pinned Go 1.27.2 and patched dependencies. Builds reject compiler or embedded-module
 version drift. The glibc-based Debian image is pinned by digest, and the runtime removes the
-unused pip installer and its vulnerable vendored libraries. The file builds two targets:
+unused pip installer and its vulnerable vendored libraries. The file builds three targets:
 
 - **`runtime` (default):** every scanner and the Python proof lane.
+- **`prover-javascript`:** every scanner plus Python and the pinned Node runtime. It omits
+  native compilation, Linux development headers, Java, and .NET because this explicitly
+  selected profile does not provide those proof languages.
 - **`prover`:** the same image plus Node.js, gcc with AddressSanitizer and
   UndefinedBehaviorSanitizer, OpenJDK 21, and the .NET SDK, pinned by SHA-512. `--prove` can then
   reproduce Python, JavaScript, native, Java, and C# issues. The image is glibc-based because the
   sanitizer runtimes don't support musl.
+
+The local wrapper keeps `--prove` on the full profile. Select the smaller profile explicitly
+with `--prove-profile javascript`; this implies `--prove`, chooses the matching build target,
+and reports its limited proof scope. Its image override is
+`FDAI_CODE_SECURITY_JS_PROVER_IMAGE`; the full profile's existing override remains unchanged.
+Other languages retain their scanner/verifier findings and are not dynamically proven in this
+profile. No risk, approval, verifier-promotion, scanner binding, or sandbox control changes.
 
 The JavaScript runtime uses the checksum-pinned official Node.js 24.21.0 LTS binary at
 `/usr/bin/node`, with its license notices and an explicit check for bundled Undici 7.29.1.
