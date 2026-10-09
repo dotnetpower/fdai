@@ -2,25 +2,32 @@
 
 ARG BASE_IMAGE_REGISTRY=docker.io
 
-FROM ${BASE_IMAGE_REGISTRY}/library/golang@sha256:640a234f4bea3e399c056b7b8f9c667c4939befae8db2f14e9785e16eccd4205 AS opa-builder
+FROM ${BASE_IMAGE_REGISTRY}/library/golang@sha256:85dc1069ac644ea3c527b177303a406eb3358192816cd7f9e5848eb658851673 AS opa-builder
+
+ENV GOTOOLCHAIN=local
 
 ARG OPA_VERSION=v1.18.2
+ARG OPA_GO_VERSION=go1.27.2
 ARG OPA_GRPC_VERSION=v1.83.2
-ARG OPA_X_CRYPTO_VERSION=v0.56.0
-ARG OPA_X_TEXT_VERSION=v0.41.0
+ARG OPA_X_CRYPTO_VERSION=v0.57.0
+ARG OPA_X_TEXT_VERSION=v0.42.0
+ARG OPA_X_NET_VERSION=v0.60.0
 ARG OPA_ORAS_VERSION=v2.6.2
-RUN /usr/local/go/bin/go mod download "github.com/open-policy-agent/opa@${OPA_VERSION}" \
+RUN test "$(/usr/local/go/bin/go env GOVERSION)" = "${OPA_GO_VERSION}" \
+    && /usr/local/go/bin/go mod download "github.com/open-policy-agent/opa@${OPA_VERSION}" \
     && opa_dir="$(/usr/local/go/bin/go env GOPATH)/pkg/mod/github.com/open-policy-agent/opa@${OPA_VERSION}" \
     && chmod -R u+w "${opa_dir}" \
     && cd "${opa_dir}" \
     && /usr/local/go/bin/go mod edit -require="google.golang.org/grpc@${OPA_GRPC_VERSION}" \
     && /usr/local/go/bin/go mod edit -require="golang.org/x/crypto@${OPA_X_CRYPTO_VERSION}" \
     && /usr/local/go/bin/go mod edit -require="golang.org/x/text@${OPA_X_TEXT_VERSION}" \
+    && /usr/local/go/bin/go mod edit -require="golang.org/x/net@${OPA_X_NET_VERSION}" \
     && /usr/local/go/bin/go mod edit -require="oras.land/oras-go/v2@${OPA_ORAS_VERSION}" \
     && CGO_ENABLED=0 /usr/local/go/bin/go build -mod=mod -o /go/bin/opa . \
     && test "$(/usr/local/go/bin/go version -m /go/bin/opa | awk '$2 == "google.golang.org/grpc" {print $3}')" = "${OPA_GRPC_VERSION}" \
     && test "$(/usr/local/go/bin/go version -m /go/bin/opa | awk '$2 == "golang.org/x/crypto" {print $3}')" = "${OPA_X_CRYPTO_VERSION}" \
     && test "$(/usr/local/go/bin/go version -m /go/bin/opa | awk '$2 == "golang.org/x/text" {print $3}')" = "${OPA_X_TEXT_VERSION}" \
+    && test "$(/usr/local/go/bin/go version -m /go/bin/opa | awk '$2 == "golang.org/x/net" {print $3}')" = "${OPA_X_NET_VERSION}" \
     && test "$(/usr/local/go/bin/go version -m /go/bin/opa | awk '$2 == "oras.land/oras-go/v2" {print $3}')" = "${OPA_ORAS_VERSION}" \
     && /go/bin/opa version
 
