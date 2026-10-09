@@ -66,6 +66,27 @@ orchestration. A checksum binds input bytes; it does not attest scanner completi
 untrusted result authoritative. Independent completion evidence, the result-recording boundary,
 minimum-permission state access, and Kata job orchestration remain deployment prerequisites.
 
+### Deterministic result acceptance
+
+Prepared deterministic scans retain immutable process observations in controller memory, apart
+from scanner-writable artifacts. Before returning the candidate, the acceptance adapter replays
+those captured stdout bytes through the existing SARIF ingestion, canonicalization, verifier,
+coverage, and review pipeline with the controller's source identity and catalog bindings.
+It rejects mismatched identities, unknown or duplicate scanners, missing observations,
+inconsistent completion, and differences in findings or coverage. Candidate review and receipt
+files are not read as acceptance evidence.
+
+The recording adapter writes only a successfully rebuilt result. Model and dynamic-proof
+promotions are not accepted through this deterministic adapter; local proof scans remain available.
+For an existing revision, review conflict checks finish before issue-detail insertion, and an
+existing detail row with a different review digest raises a conflict. A crash between the two
+writes may leave detail absent, but never authorizes a conflicting review to fill it.
+
+This is a local controller-owned observation contract, not remote attestation. Distributed Kata
+execution still needs an authenticated observation transport, credentials isolated from the
+scanner VM, restricted state access, and worker orchestration. Supplying observations copied
+from an untrusted receipt does not satisfy the contract.
+
 ### Scanner process controls
 
 Each scanner runs as one bubblewrap process with:
