@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: 6dc68ef78f58f85587a065ab4864c6ac6ed433f7
+translation_source_sha: 063c2cb18f6f8467657f9de639cc269550f34866
 translation_revised: 2026-10-10
 ---
 
@@ -702,6 +702,10 @@ import는 아무 동작도 하지 않는 대체 객체로 처리하고, 각 싱�
 `verified`에 머뭅니다. 고정된 커밋의 pygoat에서는 검증된 이슈 아홉 개가 모두 입증되었습니다. 테스트는
 같은 하네스를 `shlex.quote`, `repr`, 매개변수화된 `sqlite3`, `basename`을 쓰는 안전한 변형에도 실행하며,
 모두 입증되지 않아야 통과합니다.
+
+입증 출력은 신뢰하지 않는 JSON입니다. 문자열이 아닌 이슈 식별자나 결과는 대상 처리를 차지하거나,
+뒤의 유효한 결과 처리를 중단하거나, 신뢰도를 높일 수 없습니다. 올바른 결과가 없는 대상은
+`no_result` 사유의 `not_proven`으로 남습니다.
 
 ### 다른 입증 언어
 

@@ -730,6 +730,10 @@ Quoting, escaping, parameterized queries, `basename`, or a failing import theref
 runs the same harness against safe variants, including `shlex.quote`, `repr`, parameterized
 `sqlite3`, and `basename`, and requires every one to stay unproven.
 
+Proof output is untrusted JSON. Non-string issue identifiers or outcomes cannot consume a
+target, interrupt later valid results, or raise confidence. A target without a well-formed
+result remains `not_proven` with `no_result`.
+
 ### Other proof languages
 
 The lane picks a harness by fix-site extension, and a language runs only when the operator gives

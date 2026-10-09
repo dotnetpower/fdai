@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import shlex
 from pathlib import Path
 
@@ -183,6 +184,23 @@ def test_output_parsing_ignores_noise_and_unknown_targets() -> None:
     assert results["FDAI-SEC-000000000002"].reason == "no_result"
     assert "FDAI-SEC-999999999999" not in results
     assert proven_confidence(list(results.values())) == {"FDAI-SEC-000000000001": Confidence.PROVEN}
+
+
+@pytest.mark.parametrize("field", ["issue_id", "outcome"])
+@pytest.mark.parametrize("value", [[], {}, None, False, 0, ["controlled-id"]])
+def test_non_string_proof_identity_or_outcome_cannot_crash_or_raise_confidence(
+    field: str, value: object
+) -> None:
+    targets = [{"issue_id": "controlled-id"}]
+    malformed: dict[str, object] = {"issue_id": "controlled-id", "outcome": "proven"}
+    malformed[field] = value
+    invalid_line = json.dumps(malformed).encode() + b"\n"
+    results = parse_proof_output(invalid_line, targets)
+    assert [(result.outcome, result.reason) for result in results] == [("not_proven", "no_result")]
+    assert proven_confidence(results) == {}
+    valid_line = b'{"issue_id":"controlled-id","outcome":"proven","reason":"controlled"}\n'
+    recovered = parse_proof_output(invalid_line + valid_line, targets)
+    assert [(result.outcome, result.reason) for result in recovered] == [("proven", "controlled")]
 
 
 @needs_sandbox
