@@ -431,7 +431,8 @@ all service Dockerfiles. A published fixed package revision moves the shared pin
 contract together; image scanning verifies the built result before publication.
 
 Core, the Cost Governance profile, and the SRE benchmark retain OPA 1.18.2 but build it with
-digest-pinned Go 1.27.2 and `golang.org/x/net` 0.60.0. The builder refuses automatic toolchain
+digest-pinned Go 1.27.2 and `golang.org/x/net` 0.60.0, including its required
+`golang.org/x/crypto` 0.57.0 and `golang.org/x/text` 0.42.0 dependencies. The builder refuses automatic toolchain
 downloads and checks the actual compiler and embedded module versions. This fixes the observed
 standard-library and HTTP/2 module findings without changing policy semantics, ignoring findings,
 or relaxing publication's image scan.
