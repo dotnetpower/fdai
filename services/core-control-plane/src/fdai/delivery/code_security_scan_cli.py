@@ -332,33 +332,57 @@ async def _run(
         if acquirer is not None and local_path is None
         else ""
     )
-    return await run_scan_job(
-        ScanJobConfig(
-            repository=args.repository or "",
-            revision=revision,
-            repository_alias=args.repo_alias,
-            work_root=Path(args.work_root).resolve(),
-            executables=executables,
-            rules_dir=Path(args.rules_dir).resolve(),
-            cache_dir=Path(args.cache_dir).resolve() if args.cache_dir else None,
-            exposure=Exposure(args.exposure),
-            required_scanners=frozenset(args.required_scanner) or None,
-            local_path=local_path,
-            include_uncommitted=args.include_uncommitted,
-            source=source,
-        ),
+    config = ScanJobConfig(
+        repository=args.repository or "",
+        revision=revision,
+        repository_alias=args.repo_alias,
+        work_root=Path(args.work_root).resolve(),
+        executables=executables,
+        rules_dir=Path(args.rules_dir).resolve(),
+        cache_dir=Path(args.cache_dir).resolve() if args.cache_dir else None,
+        exposure=Exposure(args.exposure),
+        required_scanners=frozenset(args.required_scanner) or None,
+        local_path=local_path,
+        include_uncommitted=args.include_uncommitted,
+        source=source,
+    )
+    from fdai.delivery.code_security_result_acceptance import (
+        ObservedScanSandbox,
+        accept_prepared_scan,
+    )
+
+    sandbox: BubblewrapScannerSandbox = (
+        ObservedScanSandbox(Path(args.bwrap))
+        if prepared is not None
+        else BubblewrapScannerSandbox(Path(args.bwrap))
+    )
+    verifier_catalog = load_verifier_catalog(catalog_root, known)
+    result = await run_scan_job(
+        config,
         catalog=catalog,
         scanners=scanners,
         acquirer=acquirer,
-        sandbox=BubblewrapScannerSandbox(Path(args.bwrap)),
+        sandbox=sandbox,
         prepared_source=prepared,
         publisher=publisher,
         lens_catalog=lens_catalog,
         lens_models=lens_models,
-        verifier_catalog=load_verifier_catalog(catalog_root, known),
+        verifier_catalog=verifier_catalog,
         prove_python=Path(args.prove_python).resolve() if args.prove else None,
         prove_runtimes=_prove_runtimes(args),
     )
+    if prepared is not None and isinstance(sandbox, ObservedScanSandbox) and not args.prove:
+        await accept_prepared_scan(
+            result,
+            prepared=prepared,
+            observations=sandbox.observations,
+            config=config,
+            catalog=catalog,
+            scanners=scanners,
+            verifier_catalog=verifier_catalog,
+            verification_work_root=config.work_root / "acceptance",
+        )
+    return result
 
 
 def _prove_runtimes(args: argparse.Namespace) -> dict[str, Path] | None:

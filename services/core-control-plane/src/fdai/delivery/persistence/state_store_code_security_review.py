@@ -49,22 +49,15 @@ async def record_code_security_review(
 
     ``issues`` are bounded issue summaries for the Console. They are validated and written once
     per revision next to the review, bound by its digest; existing summaries are never replaced.
+    The accepted review is written first. Retrying after an interrupted detail write can fill the
+    missing detail, but a conflicting review never gets to claim that row.
     """
     validated = validate_review_package(package)
+    summaries = None
     if issues is not None:
         if len(issues) > MAX_ISSUE_SUMMARIES:
             raise ValueError("too many issue summaries for one review")
         summaries = [validate_issue_summary(item) for item in issues]
-        await store.write_state_if_absent(
-            code_security_issues_state_key(
-                str(validated["repository_alias"]), str(validated["revision"])
-            ),
-            {
-                "review_digest": validated["review_digest"],
-                "issues": summaries,
-                "truncated": issues_truncated,
-            },
-        )
     key = code_security_review_state_key(
         str(validated["repository_alias"]), str(validated["revision"])
     )
@@ -72,16 +65,35 @@ async def record_code_security_review(
         "package": validated,
         "recorded_at": (recorded_at or datetime.now(UTC)).isoformat(),
     }
-    if await store.write_state_if_absent(key, row):
-        return True
-    existing = await store.read_state(key)
-    stored = existing.get("package") if existing else None
-    if isinstance(stored, Mapping) and _findings(stored) == _findings(validated):
-        return False
-    raise CodeSecurityReviewConflictError(
-        f"a different review is already recorded for {validated['repository_alias']}"
-        f"@{validated['revision']}"
-    )
+    created = await store.write_state_if_absent(key, row)
+    if not created:
+        existing = await store.read_state(key)
+        stored = existing.get("package") if existing else None
+        if not isinstance(stored, Mapping) or _findings(stored) != _findings(validated):
+            raise CodeSecurityReviewConflictError(
+                f"a different review is already recorded for {validated['repository_alias']}"
+                f"@{validated['revision']}"
+            )
+    if summaries is not None:
+        issue_key = code_security_issues_state_key(
+            str(validated["repository_alias"]), str(validated["revision"])
+        )
+        inserted = await store.write_state_if_absent(
+            issue_key,
+            {
+                "review_digest": validated["review_digest"],
+                "issues": summaries,
+                "truncated": issues_truncated,
+            },
+        )
+        if not inserted:
+            stored_issues = await store.read_state(issue_key)
+            if (
+                stored_issues is None
+                or stored_issues.get("review_digest") != validated["review_digest"]
+            ):
+                raise CodeSecurityReviewConflictError("issue summaries differ from accepted review")
+    return created
 
 
 _PROVENANCE_KEYS = frozenset({"schema_version", "source", "producers"})

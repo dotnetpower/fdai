@@ -142,3 +142,53 @@ async def test_issue_summaries_are_recorded_once_beside_the_review() -> None:
     assert again is not None and again["issues"] == [summary]
     with pytest.raises(ValueError):
         await record_code_security_review(store, _package(), issues=[{**summary, "path": "x.py"}])
+
+
+async def test_rejected_review_cannot_claim_the_issue_detail_row() -> None:
+    from fdai.delivery.persistence.state_store_code_security_review import (
+        code_security_issues_state_key,
+    )
+
+    store = InMemoryStateStore()
+    await record_code_security_review(store, _package())
+    rejected = {**_package(), "review_digest": "5" * 64}
+    with pytest.raises(CodeSecurityReviewConflictError):
+        await record_code_security_review(store, rejected, issues=[])
+    key = code_security_issues_state_key("example-service", _REVISION)
+    assert await store.read_state(key) is None
+    await record_code_security_review(store, _package(), issues=[])
+    assert (await store.read_state(key))["review_digest"] == "4" * 64
+
+
+async def test_concurrent_reviews_cannot_leave_detail_bound_to_the_loser() -> None:
+    import asyncio
+
+    from fdai.delivery.persistence.state_store_code_security_review import (
+        code_security_issues_state_key,
+    )
+
+    store = InMemoryStateStore()
+    results = await asyncio.gather(
+        record_code_security_review(store, _package(), issues=[]),
+        record_code_security_review(store, {**_package(), "review_digest": "5" * 64}, issues=[]),
+        return_exceptions=True,
+    )
+    assert sum(isinstance(item, CodeSecurityReviewConflictError) for item in results) == 1
+    review = await store.read_state(code_security_review_state_key("example-service", _REVISION))
+    detail = await store.read_state(code_security_issues_state_key("example-service", _REVISION))
+    assert review is not None and detail is not None
+    assert detail["review_digest"] == review["package"]["review_digest"]
+
+
+async def test_wrong_digest_in_existing_detail_is_an_explicit_conflict() -> None:
+    from fdai.delivery.persistence.state_store_code_security_review import (
+        code_security_issues_state_key,
+    )
+
+    store = InMemoryStateStore()
+    await store.write_state(
+        code_security_issues_state_key("example-service", _REVISION),
+        {"review_digest": "5" * 64, "issues": [], "truncated": False},
+    )
+    with pytest.raises(CodeSecurityReviewConflictError, match="summaries differ"):
+        await record_code_security_review(store, _package(), issues=[])
