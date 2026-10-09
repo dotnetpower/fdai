@@ -633,8 +633,10 @@ def test_scan_runner_image_pins_every_tool_and_binds_every_scanner() -> None:
     assert bound == set(load_scanner_catalog(_CATALOG).scanners)
     assert re.search(r"ARG DOTNET_SDK_SHA512=[0-9a-f]{128}\n", dockerfile)
     assert '"${DOTNET_SDK_SHA512}  dotnet.tar.gz" | sha512sum -c -' in dockerfile
-    stages = re.findall(r"^FROM \S+ AS ([a-z]+)$", dockerfile, flags=re.MULTILINE)
-    assert stages[-1] == "runtime" and "prover" in stages
+    stages = re.findall(r"^FROM \S+ AS ([a-z-]+)$", dockerfile, flags=re.MULTILINE)
+    assert stages[-1] == "runtime" and {"prover", "prover-javascript"} <= set(stages)
+    assert "FROM prover-javascript AS prover" in dockerfile
+    javascript = dockerfile.split(" AS prover-javascript\n", 1)[1].split("\nFROM ", 1)[0]
     prover = dockerfile.split(" AS prover\n", 1)[1].split("\nFROM ", 1)[0]
     for toolchain in ("gcc", "openjdk-21-jdk-headless", "/usr/lib/dotnet"):
         assert toolchain in prover, toolchain
@@ -648,9 +650,12 @@ def test_scan_runner_image_pins_every_tool_and_binds_every_scanner() -> None:
         'test "$(/usr/bin/node -p process.versions.undici)" = "${NODE_UNDICI_VERSION}"'
         in dockerfile
     )
-    assert "COPY --from=node /usr/bin/node /usr/bin/node" in prover
-    assert "COPY --from=node /usr/share/licenses/nodejs/" in prover
-    assert "COPY --from=node /usr/share/fdai/node-runtime.cdx.json" in prover
+    assert "COPY --from=node /usr/bin/node /usr/bin/node" in javascript
+    assert "COPY --from=node /usr/share/licenses/nodejs/" in javascript
+    assert "COPY --from=node /usr/share/fdai/node-runtime.cdx.json" in javascript
+    assert "gcc" not in javascript and "libc6-dev" not in javascript
+    assert 'LABEL org.fdai.code-security.proof-profile="javascript"' in javascript
+    assert 'LABEL org.fdai.code-security.proof-profile="all"' in prover
     assert "python /download/node-runtime-sbom.py" in dockerfile
     assert "--binary /usr/bin/node --archive-sha256" in dockerfile
     for flag in ("node:node", "gcc:cc", "java:java", "dotnet:dotnet"):

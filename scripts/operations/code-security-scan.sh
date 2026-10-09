@@ -13,16 +13,19 @@
 #                           from this environment and passes it to the container by name only
 #   --prove                 also reproduce verified issues in the proof lane; uses the larger
 #                           `prover` image target with Node.js, gcc, a JDK, and the .NET SDK
+#   --prove-profile PROFILE use `all` (default) or `javascript` (Python and JavaScript only);
+#                           implies --prove and leaves other languages unproven
 #   --rebuild               rebuild the scanner image first
 #   --refresh-db            refresh the offline vulnerability databases first
 #
-# The scanner image pins every scanner by SHA-256. The first run builds the image and downloads
+# The scanner image pins binaries and authenticated tool sources by digest. The first run builds
+# the image and downloads
 # the offline Trivy and OSV databases; those are the only steps that use the network. The scan
 # itself runs with --network none, and every scanner runs inside bubblewrap with the folder
 # mounted read-only. FDAI_CODE_SECURITY_HOME defaults to ~/.cache/fdai-code-security.
 set -euo pipefail
 
-usage() { sed -n '2,24p' "$0" | sed 's/^# \{0,1\}//'; }
+usage() { sed -n '2,/^set -euo pipefail/p' "$0" | sed '$d; s/^# \{0,1\}//'; }
 
 [[ $# -ge 1 ]] || { usage >&2; exit 2; }
 case "$1" in -h|--help) usage; exit 0 ;; esac
@@ -35,6 +38,7 @@ folder="$(cd "$folder" && pwd -P)"
 include_uncommitted=""
 record_state=""
 prove=""
+prove_profile="all"
 report_dir=""
 alias_name=""
 locale="en"
@@ -45,6 +49,7 @@ while [[ $# -gt 0 ]]; do
     --include-uncommitted) include_uncommitted="--include-uncommitted" ;;
     --record-state) record_state="--record-state" ;;
     --prove) prove="--prove" ;;
+    --prove-profile) prove="--prove"; prove_profile="${2:?--prove-profile needs a value}"; shift ;;
     --report-dir) report_dir="${2:?--report-dir needs a value}"; shift ;;
     --alias) alias_name="${2:?--alias needs a value}"; shift ;;
     --locale) locale="${2:?--locale needs a value}"; shift ;;
@@ -56,13 +61,24 @@ while [[ $# -gt 0 ]]; do
   shift
 done
 case "$locale" in en|ko) ;; *) echo "error: --locale must be en or ko" >&2; exit 2 ;; esac
+case "$prove_profile" in
+  all|javascript) ;;
+  *) echo "error: --prove-profile must be all or javascript" >&2; exit 2 ;;
+esac
 
 repo_root="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 image="${FDAI_CODE_SECURITY_IMAGE:-fdai-code-security-scanner:local}"
 target="runtime"
 if [[ -n "$prove" ]]; then
-  image="${FDAI_CODE_SECURITY_PROVER_IMAGE:-fdai-code-security-scanner:prover}"
-  target="prover"
+  if [[ "$prove_profile" == javascript ]]; then
+    image="${FDAI_CODE_SECURITY_JS_PROVER_IMAGE:-fdai-code-security-scanner:prover-javascript}"
+    target="prover-javascript"
+    echo "proof profile: javascript (Python and JavaScript only; other languages remain unproven)" >&2
+  else
+    image="${FDAI_CODE_SECURITY_PROVER_IMAGE:-fdai-code-security-scanner:prover}"
+    target="prover"
+    echo "proof profile: all" >&2
+  fi
 fi
 home_dir="${FDAI_CODE_SECURITY_HOME:-${XDG_CACHE_HOME:-$HOME/.cache}/fdai-code-security}"
 name="$(basename "$folder" | tr -c 'A-Za-z0-9._\n-' '-' | sed 's/^[-._]*//; s/[-._]*$//' | cut -c1-64)"

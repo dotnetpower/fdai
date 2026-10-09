@@ -197,19 +197,31 @@ RUN set -eu \
         --binary /usr/bin/node --archive-sha256 "${NODE_SHA256}" \
         --output /usr/share/fdai/node-runtime.cdx.json
 
-# The proof-lane image. Driven toolchains must resolve under /usr, /bin, or /lib, the sandbox's
-# read-only system mounts, so the .NET SDK lives in /usr/lib/dotnet.
-FROM base AS prover
+# The JavaScript profile also retains the Python proof lane and every scanner.
+FROM base AS prover-javascript
 
+LABEL org.fdai.code-security.proof-profile="javascript"
+COPY --from=node /usr/bin/node /usr/bin/node
+COPY --from=node /usr/share/licenses/nodejs/ /usr/share/licenses/nodejs/
+COPY --from=node /usr/share/fdai/node-runtime.cdx.json /usr/share/fdai/node-runtime.cdx.json
+RUN opengrep --version \
+    && gitleaks version \
+    && osv-scanner --version \
+    && trivy --version \
+    && bwrap --version \
+    && node --version \
+    && python -m fdai.delivery.code_security_cli evaluate > /dev/null
+
+# The full proof lane keeps every toolchain under the sandbox's read-only system mounts.
+FROM prover-javascript AS prover
+
+LABEL org.fdai.code-security.proof-profile="all"
 USER root
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         g++ gcc libc6-dev libicu76 openjdk-21-jdk-headless \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=dotnet /usr/lib/dotnet/ /usr/lib/dotnet/
-COPY --from=node /usr/bin/node /usr/bin/node
-COPY --from=node /usr/share/licenses/nodejs/ /usr/share/licenses/nodejs/
-COPY --from=node /usr/share/fdai/node-runtime.cdx.json /usr/share/fdai/node-runtime.cdx.json
 RUN ln -s /usr/lib/dotnet/dotnet /usr/bin/dotnet
 ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
     DOTNET_NOLOGO=1
