@@ -24,7 +24,7 @@ from fdai.core.security.code_findings.java_constant_values import (
     unary,
 )
 
-VERSION = "fdai.java.constant-guard@1"
+VERSION = "fdai.java.constant-guard@2"
 _SINKS = frozenset(
     {
         "execute",
@@ -130,6 +130,9 @@ class _Slice:
             return None
         if node.type == "method_invocation":
             return self._call(node, parameters, depth)
+        if node.type == "cast_expression" and _text(_field(node, "type")) == "String":
+            value = self.expression(_field(node, "value"), parameters, depth)
+            return value if value is not None and value.kind == "String" else None
         return literal(_text(node), node.type)
 
     def _local(
@@ -182,10 +185,126 @@ class _Slice:
             for binding, value in definitions
         ]
         possible = [entry for entry in possible if entry[2] is not False]
-        if len(possible) != 1 or possible[0][2] is not True:
+        if not possible:
+            return None
+        binding, value, certainty = possible[-1]
+        # Only an unconditional write in the read's own lexical block dominates earlier writes.
+        if len(possible) > 1 and _parent(binding, "block") != _parent(node, "block"):
+            return None
+        if certainty is not True:
             return None
         declared_type = _text(_field(declaration.parent, "type"))
-        return coerce(self.expression(possible[0][1], parameters, depth), declared_type)
+        return coerce(self.expression(value, parameters, depth), declared_type)
+
+    def _map_declaration(self, receiver: Node) -> Node | None:
+        if receiver.type != "identifier":
+            return None
+        method = _parent(receiver, "method_declaration")
+        if method is None:
+            return None
+        name = _text(receiver)
+        declarations = [
+            node
+            for node in self.nodes
+            if node.type == "variable_declarator"
+            and _parent(node, "method_declaration") == method
+            and _text(_field(node, "name")) == name
+            and node.start_byte < receiver.start_byte
+            and (block := _parent(node, "block")) is not None
+            and _contains(block, receiver)
+        ]
+        if len(declarations) != 1:
+            return None
+        declaration = declarations[0]
+        creation = _field(declaration, "value")
+        if creation is None or creation.type != "object_creation_expression":
+            return None
+        type_name = _text(_field(creation, "type"))
+        arguments = _field(creation, "arguments")
+        if (
+            not type_name.startswith("java.util.HashMap<")
+            or arguments is None
+            or arguments.named_children
+            or any(child.type == "class_body" for child in creation.named_children)
+        ):
+            return None
+        # Exact qualified JDK construction only; imports/subclasses/custom dispatch are unknown.
+        if any(
+            node.type
+            in {
+                "formal_parameter",
+                "variable_declarator",
+                "class_declaration",
+                "interface_declaration",
+                "enum_declaration",
+                "record_declaration",
+            }
+            and _text(_field(node, "name")) == "java"
+            for node in self.nodes
+        ):
+            return None
+        return declaration
+
+    def _map_value(
+        self, node: Node, parameters: dict[str, Constant | None], depth: int
+    ) -> Constant | None:
+        receiver = _field(node, "object")
+        declaration = self._map_declaration(receiver) if receiver is not None else None
+        arguments = _field(node, "arguments")
+        if declaration is None or receiver is None or arguments is None:
+            return None
+        if _text(_field(node, "name")) != "get" or len(arguments.named_children) != 1:
+            return None
+        key = self.expression(arguments.named_children[0], parameters, depth)
+        if key is None or key.kind != "String" or not isinstance(key.value, str):
+            return None
+        method = _parent(node, "method_declaration")
+        block = _parent(declaration, "block")
+        if block is None or _parent(node, "block") != block:
+            return None
+        contents: dict[str, Constant | None] = {}
+        for member in self.nodes:
+            if (
+                member.type != "identifier"
+                or _text(member) != _text(receiver)
+                or _parent(member, "method_declaration") != method
+                or member.start_byte <= declaration.start_byte
+                or member.start_byte >= node.start_byte
+            ):
+                continue
+            if _field(declaration, "name") == member:
+                continue
+            call = member.parent
+            if (
+                call is None
+                or call.type != "method_invocation"
+                or _field(call, "object") != member
+                or _parent(call, "block") != block
+                or self.reachable(call, parameters, depth) is not True
+            ):
+                return None
+            method_name = _text(_field(call, "name"))
+            call_args = _field(call, "arguments")
+            if call_args is None or method_name not in {"put", "get"}:
+                return None
+            expected = 2 if method_name == "put" else 1
+            if len(call_args.named_children) != expected:
+                return None
+            member_key = self.expression(call_args.named_children[0], parameters, depth)
+            if (
+                member_key is None
+                or member_key.kind != "String"
+                or not isinstance(member_key.value, str)
+            ):
+                return None
+            if method_name == "put":
+                # Ignore the return value only for an ordinary standalone mutation statement.
+                if call.parent is None or call.parent.type != "expression_statement":
+                    return None
+                contents[member_key.value] = self.expression(
+                    call_args.named_children[1], parameters, depth
+                )
+        return contents.get(key.value)
 
     def reachable(
         self, node: Node, parameters: dict[str, Constant | None], depth: int
@@ -311,6 +430,8 @@ class _Slice:
         if len(arguments.named_children) > 32:
             return None
         args = [self.expression(n, parameters, depth) for n in arguments.named_children]
+        if name == "get" and receiver is not None and self._map_declaration(receiver) is not None:
+            return self._map_value(node, parameters, depth)
         if name in {"charAt", "length"} and receiver is not None:
             value = self.expression(receiver, parameters, depth)
             if value is not None and value.kind == "String" and isinstance(value.value, str):
@@ -422,14 +543,41 @@ class _Slice:
                 "synchronized_statement",
                 "throw_statement",
                 "update_expression",
-                "object_creation_expression",
                 "class_declaration",
                 "lambda_expression",
                 "field_access",
                 "array_access",
             }:
                 return None
+            if member.type == "object_creation_expression":
+                declaration = member.parent
+                identifier = _field(declaration, "name")
+                if identifier is None:
+                    return None
+                # Query the declaration using a later receiver, not its own declaration name.
+                receivers = [
+                    candidate
+                    for candidate in self.nodes
+                    if candidate.type == "identifier"
+                    and _text(candidate) == _text(identifier)
+                    and candidate.start_byte > member.end_byte
+                    and _parent(candidate, "method_declaration") == method
+                ]
+                if not receivers or self._map_declaration(receivers[0]) != declaration:
+                    return None
             if member.type == "method_invocation":
+                receiver_node = _field(member, "object")
+                if receiver_node is not None and self._map_declaration(receiver_node) is not None:
+                    call_name = _text(_field(member, "name"))
+                    if (
+                        call_name == "put"
+                        and member.parent is not None
+                        and (member.parent.type == "expression_statement")
+                    ):
+                        continue
+                    if call_name == "get":
+                        continue
+                    return None
                 known_receiver = self.expression(_field(member, "object"), bindings, depth)
                 if (
                     _text(_field(member, "name")) not in {"charAt", "length"}

@@ -656,6 +656,13 @@ the latter cannot be treated as a known local pure method without further eviden
 sink and sanitizer corrections increased `dev` true positives from 2 to 5 with no false positives,
 but the remaining held-out evidence still does not justify promotion.
 
+Constant guard version 2 (catalog 1.7.0) additionally tracks exact locally constructed JDK
+`HashMap` values at literal String keys and a final unconditional assignment in the same lexical
+block. Aliases, escapes, custom map dispatch, unknown keys, or conditional mutation produce no
+constant proof. Dev precision rises from 0.8333 to 0.8824 (15 TP, 2 FP); holdout stays 0.9130
+(21 TP, 2 FP), with no true-positive loss. Java SQL remains in shadow because dev is still below
+the 0.90 floor. Configuration-selected reflection is not assumed safe.
+
 ## Proof lane (opt-in)
 
 The proof lane is the dynamic step: it reproduces a finding instead of reasoning about it. It's

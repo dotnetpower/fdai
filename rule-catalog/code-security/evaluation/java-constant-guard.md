@@ -10,8 +10,13 @@ and the reasons that Java SQL still remains in observation mode (`shadow`).
 The guard parses the acquired source with tree-sitter, without rewriting, compiling, importing,
 or executing project code. It follows:
 
-- **Local values:** Single reaching definitions of immutable strings and primitive constants.
-  Ambiguous definitions, mutation, or uncertain reachability retain the engine evidence.
+- **Local values:** Immutable strings and primitive constants, including a final unconditional
+  assignment in the read's own lexical block that dominates earlier definitions. Conditional
+  or uncertain final definitions retain the engine evidence.
+- **Local maps (guard version 2):** Exact fully qualified `java.util.HashMap` construction,
+  constant String keys, standalone `put`, and `get` of a known String value. Unknown keys,
+  aliases, escapes, custom dispatch, conditional mutations, and other mutators provide no proof.
+  Only a String cast of an already proven String is supported.
 - **Conditions:** Literal arithmetic, Java 32-bit/64-bit integer overflow, signed division and
   remainder, shift masking, comparisons, Boolean short-circuiting, and fixed switch targets.
   Constant string `charAt` and `length` are supported when UTF-16 indexing is unambiguous.
@@ -28,8 +33,9 @@ concatenated with that return is constant, so the guard records `argument_provab
 The scanner's original issue remains available for review.
 
 The guard does not infer a sanitizer from a helper name or from a literal argument passed to
-an unknown call. Overloads, arbitrary receiver dispatch, reflection, heap collections, casts,
-loops, unknown calls, constructors, field access, and unsupported syntax retain the engine hit.
+an unknown call. Overloads, arbitrary receiver dispatch, reflection, unmodeled collections or
+casts, loops, unknown calls, custom constructors, field access, and unsupported syntax retain
+the engine hit.
 A sink inside a loop is unsupported because a textual write after it may reach the next iteration.
 Java Unicode escapes are unsupported: Java expands them before lexing, even inside comments,
 whereas tree-sitter receives the unexpanded source.
@@ -59,11 +65,20 @@ Unknown flows use the existing engine decision. A promoted Java SQL rule without
 binding returns `java_constant_guard_source_unavailable` and cannot raise confidence.
 An absent fix-site line similarly returns `java_constant_guard_fix_site_unavailable`.
 
-The parent-owned `code_security_scan_job.py` and `code_security_cli.py` were deliberately not
-edited. Their two call sites still need the `repository=...` binding above. Evaluation already
-binds the acquired directory and the catalog's file-size limit. Parent integration and shared
-scanning design/ledger updates remain delivery prerequisites; this local checkpoint does not
-claim the unmodified call sites exercise the guard.
+`code_security_scan_job.py` and repository-backed export in `code_security_cli.py` bind the
+exact acquired directory, as does evaluation. Prepared-result acceptance reuses that same
+scan pipeline. A source-bound proof removes verifier confidence only, never the base finding.
+
+## Version 2 measurement
+
+Catalog 1.7.0 changes no promotion threshold or promoted list. Dev-only work on the exact local
+map and dominating assignments reduces Java SQL false positives from 3 to 2: 15 true positives,
+precision 0.8824, recall 0.1119. Frozen holdout evaluation remains 21 true positives and 2 false
+positives, precision 0.9130 and recall 0.1511. No verifier loses a true positive in either split.
+Java SQL remains in shadow because dev precision is below 0.90. Reflection chosen through
+classloader properties remains unknown rather than being treated as a pure local method.
+The [version 2 receipt](managed-verifiers-1.7.0.json) binds the unchanged corpus and rule-pack
+digests, guard version, promoted set, and actual offline engine process observations.
 
 ## Dependency justification
 

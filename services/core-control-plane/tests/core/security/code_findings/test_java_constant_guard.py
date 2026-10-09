@@ -104,7 +104,7 @@ def test_provably_constant_sql_has_source_bound_veto(
 ) -> None:
     proof = _veto(tmp_path, _source(body, helpers))
     assert proof is not None
-    assert "source_sha256=" in proof and "fdai.java.constant-guard@1" in proof
+    assert "source_sha256=" in proof and java_constant_guard.VERSION in proof
 
 
 @pytest.mark.parametrize(
@@ -215,6 +215,100 @@ def test_unknown_or_mutating_flows_keep_engine_evidence(
     tmp_path: Path, body: str, helpers: str
 ) -> None:
     assert _veto(tmp_path, _source(body, helpers)) is None
+
+
+def _map_source(statements: str) -> str:
+    return _source(
+        "String sql = fixed(input);",
+        """private static String fixed(String input) {
+java.util.HashMap<String, Object> values = new java.util.HashMap<String, Object>();
+"""
+        + statements
+        + "\n}",
+    )
+
+
+@pytest.mark.parametrize(
+    "statements",
+    [
+        'values.put("clean", "SELECT 1"); values.put("user", input); '
+        'String result = (String) values.get("user"); '
+        'result = (String) values.get("clean"); return result;',
+        'values.put("value", input); values.put("value", "SELECT 1"); '
+        'return (String) values.get("value");',
+    ],
+)
+def test_exact_local_map_or_dominating_write_can_prove_a_constant(
+    tmp_path: Path, statements: str
+) -> None:
+    assert _veto(tmp_path, _map_source(statements)) is not None
+
+
+def test_unconditional_same_block_write_dominates_earlier_unknown_value(tmp_path: Path) -> None:
+    assert _veto(tmp_path, _source('String sql = input; sql = "SELECT 1";')) is not None
+
+
+@pytest.mark.parametrize(
+    "statements",
+    [
+        'values.put("value", "SELECT 1"); values.put("value", input); '
+        'return (String) values.get("value");',
+        'values.put("clean", "SELECT 1"); values.put("user", input); '
+        'return (String) values.get("user");',
+        'values.put("clean", "SELECT 1"); mutate(values); return (String) values.get("clean");',
+        'values.put("clean", "SELECT 1"); java.util.HashMap<String,Object> alias = values; '
+        'alias.put("clean", input); return (String) values.get("clean");',
+        'values.put("clean", "SELECT 1"); values.clear(); return (String) values.get("clean");',
+        'values.put("clean", "SELECT 1"); values.put(input, input); '
+        'return (String) values.get("clean");',
+        'values.put("clean", "SELECT 1"); if (input != null) values.put("clean", input); '
+        'return (String) values.get("clean");',
+        'values.put("clean", "SELECT 1"); return (String) values.get(input);',
+        'values.put("clean", "SELECT 1"); values = new java.util.HashMap<String,Object>(); '
+        'values.put("clean", input); return (String) values.get("clean");',
+        'String result = "SELECT 1"; if (input != null) result = input; return result;',
+        'String result = input; if (input != null) result = "SELECT 1"; return result;',
+        'values.put("clean", "SELECT 1"); values.compute("clean", (k,v) -> input); '
+        'return (String) values.get("clean");',
+    ],
+)
+def test_map_escape_mutation_unknown_keys_and_branches_do_not_hide_flow(
+    tmp_path: Path, statements: str
+) -> None:
+    assert _veto(tmp_path, _map_source(statements)) is None
+
+
+@pytest.mark.parametrize(
+    "construction",
+    [
+        "new HashMap<String,Object>()",
+        "new CustomMap<String,Object>()",
+        "new java.util.HashMap<String,Object>() { }",
+        "new java.util.HashMap<String,Object>(other)",
+    ],
+)
+def test_unknown_map_dispatch_does_not_create_a_constant_proof(
+    tmp_path: Path, construction: str
+) -> None:
+    source = _map_source(
+        'values.put("clean", "SELECT 1"); return (String) values.get("clean");'
+    ).replace("new java.util.HashMap<String, Object>()", construction)
+    assert _veto(tmp_path, source) is None
+
+
+def test_source_declared_java_type_cannot_impersonate_the_jdk_map(tmp_path: Path) -> None:
+    source = _map_source('values.put("clean", "SELECT 1"); return (String) values.get("clean");')
+    source += """
+class java {
+static class util {
+static class HashMap<K,V> {
+void put(K key, V value) {}
+Object get(K key) {return external();}
+}
+}
+}
+"""
+    assert _veto(tmp_path, source) is None
 
 
 def test_ambiguous_same_line_sinks_do_not_hide_unknown_flow(tmp_path: Path) -> None:
