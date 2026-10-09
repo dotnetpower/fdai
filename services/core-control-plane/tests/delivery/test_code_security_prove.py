@@ -176,7 +176,8 @@ def test_output_parsing_ignores_noise_and_unknown_targets() -> None:
         b"noise\n"
         b'{"issue_id": "FDAI-SEC-000000000001", "outcome": "proven", "reason": "r",'
         b' "sink": "eval"}\n'
-        b'{"issue_id": "FDAI-SEC-000000000001", "outcome": "not_proven", "reason": "dup"}\n'
+        b'{"issue_id": "FDAI-SEC-000000000001", "outcome": "proven", "reason": "r",'
+        b' "sink": "eval"}\n'
         b'{"issue_id": "FDAI-SEC-999999999999", "outcome": "proven", "reason": "spoof"}\n'
     )
     results = {r.issue_id: r for r in parse_proof_output(stdout, targets)}
@@ -184,6 +185,52 @@ def test_output_parsing_ignores_noise_and_unknown_targets() -> None:
     assert results["FDAI-SEC-000000000002"].reason == "no_result"
     assert "FDAI-SEC-999999999999" not in results
     assert proven_confidence(list(results.values())) == {"FDAI-SEC-000000000001": Confidence.PROVEN}
+
+
+@pytest.mark.parametrize(
+    "outcomes",
+    [
+        ("proven", "not_proven"),
+        ("not_proven", "proven"),
+        ("proven", "not_proven", "proven"),
+        ("not_proven", "proven", "not_proven"),
+    ],
+)
+def test_conflicting_proof_records_abstain_independent_of_order_and_repeats(
+    outcomes: tuple[str, ...],
+) -> None:
+    targets = [{"issue_id": "conflicted"}, {"issue_id": "independent"}]
+    rows = [
+        {"issue_id": "conflicted", "outcome": outcome, "reason": "controlled"}
+        for outcome in outcomes
+    ]
+    rows.append({"issue_id": "independent", "outcome": "proven", "reason": "controlled"})
+    results = {
+        result.issue_id: result
+        for result in parse_proof_output(
+            b"\n".join(json.dumps(row).encode() for row in rows), targets
+        )
+    }
+    assert (results["conflicted"].outcome, results["conflicted"].reason) == (
+        "not_proven",
+        "conflicting_results",
+    )
+    assert results["conflicted"].sink is None
+    assert proven_confidence(list(results.values())) == {"independent": Confidence.PROVEN}
+
+
+@pytest.mark.parametrize("field", ["reason", "sink"])
+def test_different_valid_normalized_proof_records_are_not_silently_collapsed(field: str) -> None:
+    first = {"issue_id": "controlled", "outcome": "proven", "reason": "first", "sink": "eval"}
+    second = {**first, field: "different"}
+    for rows in ([first, second], [second, first]):
+        results = parse_proof_output(
+            b"\n".join(json.dumps(row).encode() for row in rows), [{"issue_id": "controlled"}]
+        )
+        assert [(result.outcome, result.reason) for result in results] == [
+            ("not_proven", "conflicting_results")
+        ]
+        assert proven_confidence(results) == {}
 
 
 @pytest.mark.parametrize("field", ["issue_id", "outcome"])

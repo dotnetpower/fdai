@@ -734,6 +734,11 @@ Proof output is untrusted JSON. Non-string issue identifiers or outcomes cannot 
 target, interrupt later valid results, or raise confidence. A target without a well-formed
 result remains `not_proven` with `no_result`.
 
+Retransmission of the same normalized proof record is idempotent. Distinct valid outcome,
+reason, or sink records for one expected target instead create a sticky, order-independent
+`not_proven` result with `conflicting_results`; later repeats cannot restore proven confidence.
+Other targets remain independent. Neither first-wins nor last-wins resolves conflicting evidence.
+
 ### Other proof languages
 
 The lane picks a harness by fix-site extension, and a language runs only when the operator gives

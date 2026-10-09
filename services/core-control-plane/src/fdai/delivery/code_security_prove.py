@@ -172,6 +172,7 @@ def parse_proof_output(stdout: bytes, targets: Sequence[Mapping[str, object]]) -
     """Parse harness JSON lines; targets without a well-formed line stay unproven."""
     expected = {str(target["issue_id"]) for target in targets}
     seen: dict[str, ProofResult] = {}
+    conflicts: set[str] = set()
     for line in stdout.decode("utf-8", "replace").splitlines():
         try:
             item = json.loads(line)
@@ -182,17 +183,24 @@ def parse_proof_output(stdout: bytes, targets: Sequence[Mapping[str, object]]) -
         issue_id, outcome = item.get("issue_id"), item.get("outcome")
         if not isinstance(issue_id, str) or not isinstance(outcome, str):
             continue
-        if issue_id not in expected or outcome not in _OUTCOMES or issue_id in seen:
+        if issue_id not in expected or outcome not in _OUTCOMES:
             continue
         sink = item.get("sink")
-        seen[str(issue_id)] = ProofResult(
-            str(issue_id),
-            str(outcome),
+        result = ProofResult(
+            issue_id,
+            outcome,
             str(item.get("reason", ""))[:64],
             str(sink)[:128] if isinstance(sink, str) else None,
         )
+        prior = seen.get(issue_id)
+        if prior is not None and prior != result:
+            conflicts.add(issue_id)
+        else:
+            seen[issue_id] = result
     return [
-        seen.get(issue_id, ProofResult(issue_id, "not_proven", "no_result"))
+        ProofResult(issue_id, "not_proven", "conflicting_results")
+        if issue_id in conflicts
+        else seen.get(issue_id, ProofResult(issue_id, "not_proven", "no_result"))
         for issue_id in sorted(expected)
     ]
 
