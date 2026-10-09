@@ -50,6 +50,7 @@ from fdai_service_contracts.azure_monitor import (
     AzureMonitorNormalizationError,
     normalize_common_alert_schema,
 )
+from fdai_service_contracts.knowledge_github import GitHubKnowledgeChangeBody
 from fdai_service_contracts.read_investigation import (
     ReadInvestigationProposalBody,
     read_investigation_task_id,
@@ -297,7 +298,12 @@ async def _proposal(
             return _error(400, "invalid code-security scan request")
     if entry.operation == "code_security.repository_change":
         try:
-            body = CodeSecurityRepositoryChangeBody.model_validate(body).model_dump(
+            model = (
+                GitHubKnowledgeChangeBody
+                if entry.path == "/knowledge/github/sources"
+                else CodeSecurityRepositoryChangeBody
+            )
+            body = model.model_validate(body).model_dump(
                 mode="json",
                 exclude_none=True,
             )

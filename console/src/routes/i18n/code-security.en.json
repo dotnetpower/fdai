@@ -136,6 +136,8 @@
     "repository_conflict": "The alias is already registered for another repository."
   },
   "requestKind": {
+    "connect": "Knowledge connection",
+    "disconnect": "Knowledge disconnection",
     "scan": "Scan",
     "register": "Register",
     "enable": "Enable",

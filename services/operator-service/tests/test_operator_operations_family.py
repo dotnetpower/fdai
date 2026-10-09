@@ -98,6 +98,8 @@ LEGACY_ROUTE_SNAPSHOT = {
     (("POST",), "/code-security/scan-requests", "handler"),
     (("GET", "HEAD"), "/code-security/issues", "handler"),
     (("POST",), "/code-security/repositories", "handler"),
+    (("GET", "HEAD"), "/knowledge/github/sources", "handler"),
+    (("POST",), "/knowledge/github/sources", "handler"),
     (("GET", "HEAD"), "/reports", "list_reports"),
     (("GET", "HEAD"), "/reports/registry", "get_registry"),
     (("GET", "HEAD"), "/reports/formats", "list_formats"),
@@ -219,6 +221,80 @@ def _client(
     return TestClient(Starlette(routes=list(routes)))
 
 
+def _knowledge_body() -> dict[str, object]:
+    return {
+        "action": "connect",
+        "repository_alias": "example-app",
+        "location": "example/app",
+        "credential_reference": "public",
+        "expected_revision": 0,
+    }
+
+
+@pytest.mark.parametrize("role", ["reader", "contributor", "approver"])
+def test_knowledge_connection_changes_require_owner(role: str) -> None:
+    dependencies = RecordingDependencies()
+    response = _client(dependencies).post(
+        "/knowledge/github/sources",
+        json=_knowledge_body(),
+        headers={"Authorization": f"Bearer {role}", "Idempotency-Key": "example-connection"},
+    )
+    assert response.status_code == 403 and dependencies.proposals == []
+
+
+def test_knowledge_connection_queues_typed_intent_without_scan_consent() -> None:
+    dependencies = RecordingDependencies()
+    client = _client(dependencies)
+    response = client.post(
+        "/knowledge/github/sources",
+        json=_knowledge_body(),
+        headers={"Authorization": "Bearer owner", "Idempotency-Key": "example-connection"},
+    )
+    assert response.status_code == 202
+    proposal = dependencies.proposals[0]
+    assert proposal.operation == "code_security.repository_change"
+    assert proposal.payload == _knowledge_body()
+    assert proposal.principal_roles == ("Owner",)
+    assert "enabled" not in proposal.payload and "scan_enabled" not in proposal.payload
+    assert client.get("/knowledge/github/sources", headers=HEADERS).status_code == 200
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"enabled": True},
+        {"action": "enable"},
+        {"credential_reference": "token"},
+        {"expected_revision": True},
+        {"location": "example/.."},
+        {"principal_roles": ["Owner"]},
+        {"private_key": "not-accepted"},
+    ],
+)
+def test_knowledge_route_refuses_credentials_scan_fields_and_malformed_body(extra) -> None:
+    dependencies = RecordingDependencies()
+    response = _client(dependencies).post(
+        "/knowledge/github/sources",
+        json={**_knowledge_body(), **extra},
+        headers={"Authorization": "Bearer owner", "Idempotency-Key": "example-connection"},
+    )
+    assert response.status_code == 400 and not dependencies.proposals
+
+
+def test_knowledge_connection_idempotency_conflict_and_read_unavailable_are_explicit() -> None:
+    dependencies = RecordingDependencies()
+    dependencies.conflict = True
+    client = _client(dependencies)
+    response = client.post(
+        "/knowledge/github/sources",
+        json=_knowledge_body(),
+        headers={"Authorization": "Bearer owner", "Idempotency-Key": "example-connection"},
+    )
+    assert response.status_code == 409
+    dependencies.unavailable = True
+    assert client.get("/knowledge/github/sources", headers=HEADERS).status_code == 503
+
+
 def test_manifest_preserves_exact_legacy_paths_methods_and_names() -> None:
     dependencies = RecordingDependencies()
     app = cast(Starlette, _client(dependencies).app)
@@ -238,7 +314,7 @@ def test_manifest_preserves_exact_legacy_paths_methods_and_names() -> None:
         )
         for entry in OPERATIONS_ROUTE_MANIFEST
     } == LEGACY_ROUTE_SNAPSHOT
-    assert len(OPERATIONS_ROUTE_MANIFEST) == 50
+    assert len(OPERATIONS_ROUTE_MANIFEST) == 52
 
 
 def test_observer_proposals_require_authentication_and_never_submit_actions() -> None:

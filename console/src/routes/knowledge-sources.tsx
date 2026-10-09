@@ -5,6 +5,7 @@ import { t } from "../i18n";
 import type { PanelProps } from "../panels";
 import { currentRoute, routeHref } from "../router";
 import { CloudKnowledgePanel } from "./cloud-knowledge";
+import { KnowledgeGithubRoute } from "./knowledge-github";
 import { knowledgeText, type KnowledgeMessageKey } from "./knowledge-sources.i18n";
 
 export type KnowledgeSourceId = "documents" | "github" | "gitlab" | "azure-devops";
@@ -54,7 +55,7 @@ export function KnowledgeOverviewRoute(props: PanelProps) {
       capturedAt: new Date().toISOString(),
       facts: KNOWLEDGE_SOURCE_DEFINITIONS.map((source) => ({
         key: source.id,
-        value: source.connector ? "setup-required" : "managed-upload",
+        value: source.id === "github" ? "server-owned-state" : source.connector ? "setup-required" : "managed-upload",
         group: "knowledge-source",
       })),
       records: {
@@ -88,7 +89,7 @@ export function KnowledgeOverviewRoute(props: PanelProps) {
                 <h3>{knowledgeSourceTitle(source.id)}</h3>
                 <StatusPill
                   kind={source.connector ? "neutral" : "info"}
-                  label={knowledgeText(source.connector ? "setupRequired" : "managedUpload")}
+                  label={knowledgeText(source.id === "github" ? "checkStatus" : source.connector ? "setupRequired" : "managedUpload")}
                 />
               </div>
               <p>{knowledgeText(source.summaryKey)}</p>
@@ -100,10 +101,6 @@ export function KnowledgeOverviewRoute(props: PanelProps) {
       <CloudKnowledgePanel {...props} />
     </div>
   );
-}
-
-function KnowledgeGithubRoute(props: PanelProps) {
-  return <KnowledgeConnectorRoute {...props} sourceId="github" />;
 }
 
 function KnowledgeGitlabRoute(props: PanelProps) {

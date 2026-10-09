@@ -175,6 +175,21 @@ export class OperatorApiClient {
     return { request_id: receipt.request_id, dispatch_status: receipt.dispatch_status };
   }
 
+  /** Submit Owner knowledge-read intent; acceptance is not verification or scan consent. */
+  async changeKnowledgeGithubSource(
+    body: KnowledgeGithubChange,
+    idempotencyKey: string,
+  ): Promise<{ readonly request_id: string; readonly dispatch_status: string }> {
+    const raw = await this.#transport.postJson<unknown>(
+      "/knowledge/github/sources", { ...body }, idempotencyKey,
+    );
+    const receipt = raw as { request_id?: unknown; dispatch_status?: unknown };
+    if (typeof receipt.request_id !== "string" || typeof receipt.dispatch_status !== "string") {
+      throw new OperatorApiError(502, "knowledge connection receipt is malformed");
+    }
+    return { request_id: receipt.request_id, dispatch_status: receipt.dispatch_status };
+  }
+
   /**
    * Fetch the RCA (root-cause analysis) view for one incident
    * (`GET /rca?correlation=...`). Read-only projection of the shadow
@@ -476,3 +491,17 @@ export type CodeSecurityRepositoryChange =
     readonly exposure?: "exposed" | "internal" | "not_deployed" | "unknown";
   }
   | { readonly action: "enable" | "disable"; readonly repository_alias: string };
+
+export type KnowledgeGithubChange =
+  | {
+    readonly action: "connect";
+    readonly repository_alias: string;
+    readonly expected_revision: number;
+    readonly location: string;
+    readonly credential_reference: "public" | "deployment-github-app";
+  }
+  | {
+    readonly action: "disconnect";
+    readonly repository_alias: string;
+    readonly expected_revision: number;
+  };

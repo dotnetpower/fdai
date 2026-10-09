@@ -1,0 +1,14 @@
+.knowledge-github-route { overflow-wrap: anywhere; }
+.knowledge-github-sources { list-style: none; margin: 0; padding: 0; }
+.knowledge-github-sources li { padding: 24px 0; border-bottom: 1px solid var(--border); }
+.knowledge-github-sources dl { display: grid; grid-template-columns: minmax(120px, 160px) minmax(0, 1fr); gap: 8px 16px; }
+.knowledge-github-sources dd { margin: 0; min-width: 0; }
+.knowledge-github-sources code { overflow-wrap: anywhere; }
+.knowledge-github-form { display: grid; gap: 16px; max-width: 640px; }
+.knowledge-github-form label { display: grid; gap: 8px; }
+.knowledge-github-form input, .knowledge-github-form select { width: 100%; min-width: 0; min-height: 44px; }
+.knowledge-github-route button { min-height: 44px; }
+.knowledge-github-route .knowledge-connector-actions a { display: inline-flex; align-items: center; min-height: 44px; }
+@media (max-width: 600px) {
+  .knowledge-github-sources dl { grid-template-columns: minmax(0, 1fr); }
+}

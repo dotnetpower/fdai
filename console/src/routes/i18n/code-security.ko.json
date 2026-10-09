@@ -136,6 +136,8 @@
     "repository_conflict": "이 별칭은 이미 다른 저장소로 등록되어 있습니다."
   },
   "requestKind": {
+    "connect": "지식 연결",
+    "disconnect": "지식 연결 해제",
     "scan": "스캔",
     "register": "등록",
     "enable": "사용",

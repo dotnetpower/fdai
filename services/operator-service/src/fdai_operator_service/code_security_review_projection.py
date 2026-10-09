@@ -86,7 +86,7 @@ _REJECTIONS = (
     "attempts_exhausted",
 )
 REPOSITORY_CHANGE_OPERATION = "code_security.repository_change"
-_CHANGE_ACTIONS = ("register", "enable", "disable")
+_CHANGE_ACTIONS = ("register", "enable", "disable", "connect", "disconnect")
 _LOCATION_PATTERN = r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})/[A-Za-z0-9._-]{1,100}$"
 
 
@@ -500,6 +500,7 @@ CODE_SECURITY_OPERATIONS = frozenset(
         "code_security.repositories",
         "code_security.scan_requests",
         "code_security.issues",
+        "knowledge.github.sources",
     }
 )
 _STATE_ROWS_SQL = (
@@ -529,8 +530,14 @@ async def read_code_security_projection(
     if operation == "code_security.packs":
         rows = await fetch_all(_STATE_ROWS_SQL, (f"{CODE_SECURITY_PACK_STATE_PREFIX}%",))
         return code_security_packs_projection(rows)
-    if operation == "code_security.repositories":
+    if operation in {"code_security.repositories", "knowledge.github.sources"}:
         rows = await fetch_all(_STATE_ROWS_SQL, (f"{CODE_SECURITY_REPOSITORY_STATE_PREFIX}%",))
+        if operation == "knowledge.github.sources":
+            from fdai_operator_service.knowledge_github_projection import (
+                knowledge_github_projection,
+            )
+
+            return knowledge_github_projection(rows)
         return code_security_repositories_projection(rows)
     if operation == "code_security.scan_requests":
         rows = await fetch_all(

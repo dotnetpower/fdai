@@ -23,6 +23,7 @@ const PANEL_SOURCE_ROUTES: Readonly<Record<string, readonly string[]>> = {
   "scheduler-runs": ["/scheduler-runs"],
   "automation-blueprints": ["/automation-blueprints"],
   "configuration-baselines": ["/configuration-baselines"],
+  github: ["/knowledge/github/sources"],
   "conversation-delivery": ["/conversation-delivery"],
   "background-tasks": ["/background-tasks"],
   agents: ["/incidents", "/agents/stream"],
@@ -69,7 +70,6 @@ const PANEL_SOURCE_ROUTES: Readonly<Record<string, readonly string[]>> = {
 const SEPARATE_CLIENT_PANELS = new Set(["documents"]);
 const SOURCE_INDEPENDENT_PANELS = new Set([
   "knowledge",
-  "github",
   "gitlab",
   "azure-devops",
   "labs",
