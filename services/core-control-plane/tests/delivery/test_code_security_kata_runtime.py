@@ -50,6 +50,7 @@ class _Client(InClusterKataClient):
         self.deleted = False
         self.calls: list[tuple[str, str]] = []
         self.pod_reads = 0
+        self.last_pod: dict[str, object] = {}
 
     async def request(self, method: str, path: str, *, body=None):  # type: ignore[no-untyped-def]
         self.calls.append((method, path))
@@ -91,6 +92,13 @@ class _Client(InClusterKataClient):
                 raise KataApiError("Kubernetes operation failed with HTTP 503")
             self.deleted = True
             return {"status": "Success"}
+        if path.endswith("/pods/scanner-pod"):
+            readback = copy.deepcopy(self.last_pod)
+            if self.mutation == "log-pod-replaced":
+                readback["metadata"]["uid"] = "replacement-pod"
+            elif self.mutation == "log-process-changed":
+                readback["status"]["containerStatuses"][0]["state"]["terminated"]["exitCode"] = 1
+            return readback
         if "/pods?" in path:
             self.pod_reads += 1
             pod = copy.deepcopy(self.job["spec"]["template"])
@@ -142,6 +150,7 @@ class _Client(InClusterKataClient):
                     }
                 else:
                     pod["metadata"]["uid"] = "replacement-pod"
+            self.last_pod = copy.deepcopy(pod)
             return {"items": [pod]}
         return {
             "metadata": {
@@ -191,6 +200,8 @@ async def test_external_process_observation_accepts_only_the_bound_pod(
         "privilege",
         "resource",
         "job-uid",
+        "log-pod-replaced",
+        "log-process-changed",
     ],
 )
 async def test_mismatched_remote_execution_is_denied_and_cleaned(

@@ -122,6 +122,10 @@ from fdai.delivery.code_security_verifier_eval import (
     add_verifier_evaluation_command,
     evaluate_verifiers,
 )
+from fdai.delivery.code_security_worker_resources import (
+    add_worker_render_command,
+    render_scanner_workers,
+)
 from fdai.delivery.persistence.state_store_code_security_registry import open_pack_registry
 from fdai.delivery.persistence.state_store_code_security_review import (
     CodeSecurityReviewConflictError,
@@ -182,6 +186,7 @@ def _parser() -> argparse.ArgumentParser:
     add_scan_command(sub)
     add_prepare_command(sub)
     add_runtime_render_command(sub)
+    add_worker_render_command(sub)
     add_input_verification_command(sub)
     add_cache_snapshot_command(sub)
     add_repository_commands(sub)
@@ -424,6 +429,8 @@ def main(argv: list[str] | None = None) -> int:
             output = asyncio.run(prepare_scan(args))
         elif args.command == "render-scanner-runtime":
             output = render_scanner_runtime(args)
+        elif args.command == "render-scanner-workers":
+            output = render_scanner_workers(args)
         elif args.command == "verify-scanner-input":
             output = verify_scanner_input(args)
         elif args.command == "publish-cache-snapshot":
