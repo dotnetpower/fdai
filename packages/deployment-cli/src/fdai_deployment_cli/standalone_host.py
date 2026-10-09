@@ -71,6 +71,7 @@ from fdai_deployment_cli.standalone_aks_nodepool_guard import (
     guard_existing_runtime_node_pools as _guard_existing_runtime_node_pools,
 )
 from fdai_deployment_cli.standalone_catalog_review import run_catalog_review
+from fdai_deployment_cli.standalone_database_principals import database_reader_principals
 from fdai_deployment_cli.standalone_checkpoint_failure import (
     failure_record as _failure_record,
 )
@@ -140,9 +141,6 @@ from fdai_deployment_cli.standalone_operational_evidence import (
     add_aks_operational_evidence_verifier_workload as _add_aks_operational_evidence_verifier_workload,
 )
 from fdai_deployment_cli.standalone_operational_evidence import aks_workload as _aks_workload
-from fdai_deployment_cli.standalone_operational_evidence import (
-    runtime_principal_ids_with_operational_evidence_verifier as _runtime_principal_ids,
-)
 from fdai_deployment_cli.standalone_product_profile import (
     context_selects_add_on as _selects_add_on,
 )
@@ -764,33 +762,6 @@ def _prepare_runtime(_args: argparse.Namespace, work_dir: Path) -> dict[str, obj
     }
 
 
-def _database_reader_principals(
-    identities: dict[str, object],
-) -> tuple[set[str], str | None, str | None]:
-    """Return the DSN reader principals for the in-cluster database stage.
-
-    Core and inventory always run. The Operator, executor, and document-ingestion identities exist
-    only when their product option is selected, so an absent one is granted nothing instead of
-    stopping the stage. A present identity must still be well formed.
-    """
-
-    names = tuple(
-        name
-        for name in ("core", "operator", "executor", "inventory")
-        if name in {"core", "inventory"} or identities.get(name) is not None
-    )
-
-    def optional(name: str, label: str) -> str | None:
-        value = identities.get(name)
-        return None if value is None else str(_mapping(value, label)["principal_id"])
-
-    return (
-        _runtime_principal_ids(identities, names),
-        optional("ingestion", "ingestion runtime identity"),
-        optional("ingestion_worker", "ingestion worker runtime identity"),
-    )
-
-
 def _prepare_database(_args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     context = _private_json(work_dir / "context.json", "standalone host context")
     profile = _mapping(context.get("runtime_profile"), "runtime deployment profile")
@@ -804,7 +775,7 @@ def _prepare_database(_args: argparse.Namespace, work_dir: Path) -> dict[str, ob
     identities = _terraform_json_output(substrate, "runtime_identity_bindings")
     if not isinstance(identities, dict):
         raise TypeError("AKS runtime identity output contract is invalid")
-    principals, ingestion_principal, ingestion_worker_principal = _database_reader_principals(
+    principals, ingestion_principal, ingestion_worker_principal = database_reader_principals(
         identities
     )
     key_vault_id = _terraform_output(substrate, "key_vault_id")

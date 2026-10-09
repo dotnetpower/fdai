@@ -13,6 +13,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from fdai_deployment_cli.standalone_database_principals import database_reader_principals
 
 from fdai_deployment_cli import (
     aks_workload_jobs,
@@ -4192,7 +4193,7 @@ def test_postgres_aks_database_stage_passes_ingestion_principals() -> None:
             "ingestion_worker",
         )
     }
-    assert standalone_host._database_reader_principals(full) == (
+    assert database_reader_principals(full) == (
         {"core-principal", "operator-principal", "executor-principal", "inventory-principal"},
         "ingestion-principal",
         "ingestion_worker-principal",
@@ -4209,13 +4210,13 @@ def test_postgres_aks_database_stage_admits_observation_first_identities() -> No
         "ingestion": None,
         "ingestion_worker": None,
     }
-    assert standalone_host._database_reader_principals(observation_first) == (
+    assert database_reader_principals(observation_first) == (
         {"core-principal", "inventory-principal"},
         None,
         None,
     )
     for required in ("core", "inventory"):
         with pytest.raises(ValueError, match=f"{required} runtime identity"):
-            standalone_host._database_reader_principals({**observation_first, required: None})
+            database_reader_principals({**observation_first, required: None})
     with pytest.raises(ValueError, match="operator runtime identity"):
-        standalone_host._database_reader_principals({**observation_first, "operator": "invalid"})
+        database_reader_principals({**observation_first, "operator": "invalid"})
