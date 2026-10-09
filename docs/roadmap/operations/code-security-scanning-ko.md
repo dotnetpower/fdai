@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: 324cbdbe6e87dab07bda3cd8c32719ce96c918a1
+translation_source_sha: 47dc8423ccc6ca69bdf5c85c2ceb8d8e81007360
 translation_revised: 2026-10-09
 ---
 
@@ -628,6 +628,13 @@ Python 경로 조작(`dev` 정밀도 1.0, 참 양성 17개, `holdout` 0.94, 참 
 classloader 속성을 통한 reflection이 있습니다. 후자는 추가 근거 없이 알려진 순수 지역 메서드로
 취급할 수 없습니다. C# 입력원·싱크·정화 수정은 `dev` 참 양성을 오탐 없이 2개에서 5개로 늘렸지만,
 남은 별도 보관 근거는 아직 승격을 정당화하지 못합니다.
+
+상수 가드 버전 2(카탈로그 1.7.0)는 정확히 지역에서 생성한 JDK `HashMap`의 리터럴 String 키 값과,
+같은 지역 블록의 마지막 무조건 대입도 추적합니다. 별칭, 외부 전달, 사용자 정의 map 호출,
+알 수 없는 키, 조건부 변경은 상수 증명을 만들지 않습니다. `dev` 정밀도는 0.8333에서
+0.8824(참 양성 15개, 오탐 2개)로 높아졌고, `holdout`은 참 양성 손실 없이 0.9130(참 양성 21개,
+오탐 2개)을 유지합니다. `dev`가 아직 0.90 하한보다 낮으므로 Java SQL은 shadow에 남습니다.
+구성이 선택하는 reflection을 안전하다고 가정하지 않습니다.
 
 ## 입증 레인(선택)
 

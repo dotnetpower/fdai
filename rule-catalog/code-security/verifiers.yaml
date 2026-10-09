@@ -18,7 +18,7 @@
 # receiver.
 schema_version: 1
 catalog_id: fdai.code-security.verifiers
-version: 1.6.0
+version: 1.7.0
 # Promotion gate. Only verifiers listed here may grant `verified`; every other verifier, and every
 # taint rule under rules/verify/ that isn't listed, runs in shadow and records its result without
 # raising confidence. The list comes from the measured receipt of the real-code verifier corpus
@@ -26,7 +26,7 @@ version: 1.6.0
 # `min_true_positives` true positives in both the dev and the held-out split. Re-run
 # `evaluate-verifiers` and update this list in the same change as any rule or corpus edit.
 promotion:
-  evidence: fdai.code-security.verifier-real@1.1.0 measured 2026-10-09 with dev and holdout splits (verifiers 1.6.0; evaluation/managed-verifiers-1.6.0.json)
+  evidence: fdai.code-security.verifier-real@1.1.0 measured 2026-10-09 with dev and holdout splits (verifiers 1.7.0; evaluation/managed-verifiers-1.7.0.json; constant-guard@2)
   promoted:
     - fdai.verify.java.command-injection
     - fdai.verify.js.code-injection

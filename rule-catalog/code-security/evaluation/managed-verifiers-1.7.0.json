@@ -1,0 +1,696 @@
+{
+  "ok": true,
+  "kind": "fdai.code-security.verifier-evaluation-receipt",
+  "corpus": {
+    "corpus_id": "fdai.code-security.verifier-real",
+    "version": "1.1.0",
+    "precision_floor": 0.9,
+    "min_true_positives": 1,
+    "sources": [
+      {
+        "id": "nodegoat",
+        "repository": "https://github.com/OWASP/NodeGoat",
+        "commit": "c5cb68a7084e4ae7dcc60e6a98768720a81841e8",
+        "license": "Apache-2.0"
+      },
+      {
+        "id": "juice-shop",
+        "repository": "https://github.com/juice-shop/juice-shop",
+        "commit": "1618a611b173b4bf114028e6e02549950606e29d",
+        "license": "MIT"
+      },
+      {
+        "id": "webgoat",
+        "repository": "https://github.com/WebGoat/WebGoat",
+        "commit": "044948d057b249735be2bfc14eccc9e3dc2eac34",
+        "license": "GPL-2.0"
+      },
+      {
+        "id": "dvcsharp-api",
+        "repository": "https://github.com/appsecco/dvcsharp-api",
+        "commit": "76c1de3c9d8d9c2e8ec0b50abe3b198a4330d7fc",
+        "license": "MIT"
+      },
+      {
+        "id": "pygoat",
+        "repository": "https://github.com/adeyosemanputra/pygoat",
+        "commit": "19d17cc8874861142b330636d068bbde54e86b85",
+        "license": "MIT"
+      },
+      {
+        "id": "vulnerable-node",
+        "repository": "https://github.com/cr0hn/vulnerable-node",
+        "commit": "d68f2a3c9277ece2c2feb9976052033bdecd7fbe",
+        "license": "BSD-3-Clause"
+      },
+      {
+        "id": "dvna",
+        "repository": "https://github.com/appsecco/dvna",
+        "commit": "9ba473add536f66ac9007966acb2a775dd31277a",
+        "license": "MIT"
+      },
+      {
+        "id": "dvna-fixes",
+        "repository": "https://github.com/appsecco/dvna",
+        "commit": "4b16c488839ac5428b9c2573c96d886bee885b02",
+        "license": "MIT"
+      },
+      {
+        "id": "nodejs-goof",
+        "repository": "https://github.com/snyk-labs/nodejs-goof",
+        "commit": "add14ba59e98240d9e00a235dd7d42cd61ae9912",
+        "license": "Apache-2.0"
+      },
+      {
+        "id": "dvws-node",
+        "repository": "https://github.com/snoopysecurity/dvws-node",
+        "commit": "eb6e2886f2206b88bf709fe1fa311adc3ae3c34f",
+        "license": "GPL-3.0"
+      },
+      {
+        "id": "aspgoat",
+        "repository": "https://github.com/Soham7-dev/AspGoat",
+        "commit": "db3153f5dae036a9d67e12be22548299855c6b40",
+        "license": "MIT"
+      },
+      {
+        "id": "notsecdotnet",
+        "repository": "https://github.com/defdeveu/NotSecDotNet",
+        "commit": "1a682c352b2165bf7ec05316f41244e5d8109f02",
+        "license": "GPL-3.0"
+      },
+      {
+        "id": "owasp-benchmark-java",
+        "repository": "https://github.com/OWASP-Benchmark/BenchmarkJava",
+        "commit": "8b67a88d73b2594570fc21150705283de884620b",
+        "license": "GPL-2.0"
+      },
+      {
+        "id": "owasp-benchmark-python",
+        "repository": "https://github.com/OWASP-Benchmark/BenchmarkPython",
+        "commit": "f1291485808b66e20ddb6b01b10dc71b3df8c8ba",
+        "license": "GPL-3.0"
+      }
+    ]
+  },
+  "evaluated_at": "2026-10-09T13:09:59.416798+00:00",
+  "promotion_rule": {
+    "precision_floor": 0.9,
+    "min_true_positives": 1,
+    "splits": [
+      "dev",
+      "holdout"
+    ]
+  },
+  "labels": {
+    "dev": 710,
+    "holdout": 681
+  },
+  "verifiers": [
+    {
+      "key": "fdai.verify.csharp.command-injection",
+      "dev": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": null,
+        "recall": null
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.csharp.path-traversal",
+      "dev": {
+        "true_positives": 2,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": null,
+        "recall": null
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.csharp.sql-injection",
+      "dev": {
+        "true_positives": 2,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": null,
+        "recall": 0.0
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.java.command-injection",
+      "dev": {
+        "true_positives": 2,
+        "false_positives": 0,
+        "false_negatives": 55,
+        "true_negatives": 72,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.0351
+      },
+      "holdout": {
+        "true_positives": 2,
+        "false_positives": 0,
+        "false_negatives": 67,
+        "true_negatives": 53,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.029
+      },
+      "promoted": true
+    },
+    {
+      "key": "fdai.verify.java.path-traversal",
+      "dev": {
+        "true_positives": 5,
+        "false_positives": 2,
+        "false_negatives": 74,
+        "true_negatives": 57,
+        "unsupported": 0,
+        "precision": 0.7143,
+        "recall": 0.0633
+      },
+      "holdout": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 54,
+        "true_negatives": 76,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.0182
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.java.sql-injection",
+      "dev": {
+        "true_positives": 15,
+        "false_positives": 2,
+        "false_negatives": 119,
+        "true_negatives": 116,
+        "unsupported": 0,
+        "precision": 0.8824,
+        "recall": 0.1119
+      },
+      "holdout": {
+        "true_positives": 21,
+        "false_positives": 2,
+        "false_negatives": 118,
+        "true_negatives": 112,
+        "unsupported": 0,
+        "precision": 0.913,
+        "recall": 0.1511
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.js.code-injection",
+      "dev": {
+        "true_positives": 4,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.5
+      },
+      "promoted": true
+    },
+    {
+      "key": "fdai.verify.js.command-injection",
+      "dev": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 3,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 1,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "promoted": true
+    },
+    {
+      "key": "fdai.verify.js.path-traversal",
+      "dev": {
+        "true_positives": 1,
+        "false_positives": 2,
+        "false_negatives": 0,
+        "true_negatives": 1,
+        "unsupported": 0,
+        "precision": 0.3333,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": null,
+        "recall": 0.0
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.js.sql-injection",
+      "dev": {
+        "true_positives": 6,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 3,
+        "unsupported": 2,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 3,
+        "true_negatives": 4,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.25
+      },
+      "promoted": true
+    },
+    {
+      "key": "python:code_injection",
+      "dev": {
+        "true_positives": 12,
+        "false_positives": 0,
+        "false_negatives": 4,
+        "true_negatives": 18,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.75
+      },
+      "holdout": {
+        "true_positives": 4,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "true_negatives": 15,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.6667
+      },
+      "promoted": true
+    },
+    {
+      "key": "python:command_injection",
+      "dev": {
+        "true_positives": 5,
+        "false_positives": 0,
+        "false_negatives": 3,
+        "true_negatives": 4,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.625
+      },
+      "holdout": {
+        "true_positives": 3,
+        "false_positives": 1,
+        "false_negatives": 4,
+        "true_negatives": 3,
+        "unsupported": 0,
+        "precision": 0.75,
+        "recall": 0.4286
+      },
+      "promoted": false
+    },
+    {
+      "key": "python:path_traversal",
+      "dev": {
+        "true_positives": 17,
+        "false_positives": 0,
+        "false_negatives": 15,
+        "true_negatives": 49,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.5312
+      },
+      "holdout": {
+        "true_positives": 16,
+        "false_positives": 1,
+        "false_negatives": 18,
+        "true_negatives": 54,
+        "unsupported": 0,
+        "precision": 0.9412,
+        "recall": 0.4706
+      },
+      "promoted": true
+    },
+    {
+      "key": "python:sql_injection",
+      "dev": {
+        "true_positives": 3,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "true_negatives": 6,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.6
+      },
+      "holdout": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "true_negatives": 5,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.5
+      },
+      "promoted": true
+    },
+    {
+      "key": "python:unsafe_deserialization",
+      "dev": {
+        "true_positives": 8,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "true_negatives": 18,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.8
+      },
+      "holdout": {
+        "true_positives": 10,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "true_negatives": 18,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.9091
+      },
+      "promoted": true
+    }
+  ],
+  "promoted": [
+    "fdai.verify.java.command-injection",
+    "fdai.verify.js.code-injection",
+    "fdai.verify.js.command-injection",
+    "fdai.verify.js.sql-injection",
+    "python:code_injection",
+    "python:path_traversal",
+    "python:sql_injection",
+    "python:unsafe_deserialization"
+  ],
+  "shadow": [
+    "fdai.verify.csharp.command-injection",
+    "fdai.verify.csharp.path-traversal",
+    "fdai.verify.csharp.sql-injection",
+    "fdai.verify.java.path-traversal",
+    "fdai.verify.java.sql-injection",
+    "fdai.verify.js.path-traversal",
+    "python:command_injection"
+  ],
+  "unlabeled_verified": [
+    {
+      "source": "vulnerable-node",
+      "rule": "fdai.verify.js.command-injection",
+      "path": "sast/seeds/deserialization.js",
+      "line": 21
+    },
+    {
+      "source": "vulnerable-node",
+      "rule": "fdai.verify.js.path-traversal",
+      "path": "routes/progress.js",
+      "line": 67
+    },
+    {
+      "source": "vulnerable-node",
+      "rule": "fdai.verify.js.path-traversal",
+      "path": "sast/seeds/path-traversal.js",
+      "line": 12
+    },
+    {
+      "source": "dvws-node",
+      "rule": "fdai.verify.js.sql-injection",
+      "path": "src/controllers/passphrase.js",
+      "line": 59
+    },
+    {
+      "source": "aspgoat",
+      "rule": "fdai.verify.csharp.path-traversal",
+      "path": "Controllers/HomeController.cs",
+      "line": 240
+    },
+    {
+      "source": "aspgoat",
+      "rule": "fdai.verify.csharp.path-traversal",
+      "path": "Controllers/HomeController.cs",
+      "line": 262
+    }
+  ],
+  "verifier_vetoes": [
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00774.java",
+      "line": 74,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@2; source_sha256=9ac90bcedfdff5c076bcbaed59dff9b604688aeec2ab9dc4547f90e992ac65a6; line=74"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest02546.java",
+      "line": 55,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@2; source_sha256=e66900393b4988c38036e19994a047d0977003728d18c0a04e9090e5e25e6e30; line=55"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01315.java",
+      "line": 53,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@2; source_sha256=ac5496ead236996f80698cabfcf20d30c1a84f799a7dad83481c24abbfd3a1b1; line=53"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00772.java",
+      "line": 74,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@2; source_sha256=c4c796ae4c93ca3d847246049b3016dff58523ed23c84d2e281f878ab2f60e2d; line=74"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01095.java",
+      "line": 58,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@2; source_sha256=a3c3eaa30adc8699002f3a0839956dd0994d5cd5212ed35edf2118d7d315046a; line=58"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01096.java",
+      "line": 58,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@2; source_sha256=62a893d3dbaf217e02fd5795b3d9945f9b3fc79712c07d697c4bb4dbcdddaf6e; line=58"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01629.java",
+      "line": 55,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@2; source_sha256=0cb2953e5d0b42a92f976966f7c925c20461ecda84cf5fcddac447dd83b845ac; line=55"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01973.java",
+      "line": 58,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@2; source_sha256=eb86f280e7accae5a453d900099a9ceb3822796fffaff6e6591f82ccf0fc3862; line=58"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest02648.java",
+      "line": 77,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@2; source_sha256=fdd9ae7fc48c660002528ea2eb8224a84a164baef9e52cf7a7a4a8f05a2f5271; line=77"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01628.java",
+      "line": 55,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@2; source_sha256=324e8804c318d2ca5a44c9283d56930f796e56601198cdf77b3c76918013ea00; line=55"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest02544.java",
+      "line": 55,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@2; source_sha256=ee891a4cd416ff85fa79621d74bf408c45adaec9d53fc7c9b68b3b813c814183; line=55"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest02657.java",
+      "line": 77,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@2; source_sha256=592d0264c61152aa2ab27d619b91484d3390593494e3cd2cefd2dc22096aef4e; line=77"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01732.java",
+      "line": 77,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@2; source_sha256=cd61b83bcd62a549c11667bf07bb1262138f96b3cb684632e08226207eac1458; line=77"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01092.java",
+      "line": 58,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@2; source_sha256=7a11a38c847898ee192bfe291d26164cc005546751df354ded99d88fd3d68c20; line=58"
+    }
+  ],
+  "candidate_verifier_version": "1.7.0",
+  "frozen_rules_sha256": "a7b7de2acffcf4277851130f295de39c4d1d8644355e4ec54002a53c6fea6686",
+  "corpus_sha256": "b2acd7707e3a4dafbc08b97b3a3df5c0fdd863749cfe2a14ef7059c803b670a8",
+  "constant_guard": "fdai.java.constant-guard@2",
+  "constant_guard_source_sha256": "01f742407993b085a9db520d22dcfcf42ae38aa01c5f840b77672572a0b07ad6",
+  "engine": {
+    "name": "Opengrep",
+    "version": "1.30.1",
+    "network": "none"
+  },
+  "observations": [
+    {
+      "source": "nodegoat",
+      "revision": "c5cb68a7084e4ae7dcc60e6a98768720a81841e8",
+      "engine_exit_code": 0,
+      "all_labeled_files_observed": true
+    },
+    {
+      "source": "juice-shop",
+      "revision": "1618a611b173b4bf114028e6e02549950606e29d",
+      "engine_exit_code": 0,
+      "all_labeled_files_observed": true
+    },
+    {
+      "source": "webgoat",
+      "revision": "044948d057b249735be2bfc14eccc9e3dc2eac34",
+      "engine_exit_code": 0,
+      "all_labeled_files_observed": true
+    },
+    {
+      "source": "dvcsharp-api",
+      "revision": "76c1de3c9d8d9c2e8ec0b50abe3b198a4330d7fc",
+      "engine_exit_code": 0,
+      "all_labeled_files_observed": true
+    },
+    {
+      "source": "vulnerable-node",
+      "revision": "d68f2a3c9277ece2c2feb9976052033bdecd7fbe",
+      "engine_exit_code": 0,
+      "all_labeled_files_observed": true
+    },
+    {
+      "source": "dvna",
+      "revision": "9ba473add536f66ac9007966acb2a775dd31277a",
+      "engine_exit_code": 0,
+      "all_labeled_files_observed": true
+    },
+    {
+      "source": "dvna-fixes",
+      "revision": "4b16c488839ac5428b9c2573c96d886bee885b02",
+      "engine_exit_code": 0,
+      "all_labeled_files_observed": true
+    },
+    {
+      "source": "nodejs-goof",
+      "revision": "add14ba59e98240d9e00a235dd7d42cd61ae9912",
+      "engine_exit_code": 0,
+      "all_labeled_files_observed": true
+    },
+    {
+      "source": "dvws-node",
+      "revision": "eb6e2886f2206b88bf709fe1fa311adc3ae3c34f",
+      "engine_exit_code": 0,
+      "all_labeled_files_observed": true
+    },
+    {
+      "source": "aspgoat",
+      "revision": "db3153f5dae036a9d67e12be22548299855c6b40",
+      "engine_exit_code": 0,
+      "all_labeled_files_observed": true
+    },
+    {
+      "source": "notsecdotnet",
+      "revision": "1a682c352b2165bf7ec05316f41244e5d8109f02",
+      "engine_exit_code": 0,
+      "all_labeled_files_observed": true
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "revision": "8b67a88d73b2594570fc21150705283de884620b",
+      "engine_exit_code": 0,
+      "all_labeled_files_observed": true
+    }
+  ]
+}
