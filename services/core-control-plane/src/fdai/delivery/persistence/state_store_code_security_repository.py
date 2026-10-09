@@ -19,6 +19,9 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from fdai_service_contracts.knowledge_github import GitHubKnowledgeSource
+from pydantic import ValidationError
+
 from fdai.rule_catalog.code_security import Exposure
 from fdai.shared.providers.state_store import StateStore
 
@@ -51,9 +54,10 @@ class CodeSecurityRepository:
     registered_at: str
     registered_by: str
     revision: int
+    knowledge_source: GitHubKnowledgeSource | None = None
 
     def as_record(self) -> dict[str, object]:
-        return {
+        record: dict[str, object] = {
             "kind": REPOSITORY_KIND,
             "schema_version": "1.0.0",
             "repository_alias": self.repository_alias,
@@ -66,6 +70,10 @@ class CodeSecurityRepository:
             "registered_by": self.registered_by,
             "revision": self.revision,
         }
+        if self.knowledge_source is not None:
+            record["schema_version"] = "1.1.0"
+            record["knowledge_source"] = self.knowledge_source.model_dump(mode="json")
+        return record
 
 
 def repository_state_key(alias: str) -> str:
@@ -117,6 +125,12 @@ def parse_repository(record: Mapping[str, object]) -> CodeSecurityRepository:
         raise CodeSecurityRepositoryError("registered_by is invalid")
     if not isinstance(revision, int) or isinstance(revision, bool) or revision < 1:
         raise CodeSecurityRepositoryError("revision is invalid")
+    source = None
+    if "knowledge_source" in record:
+        try:
+            source = GitHubKnowledgeSource.model_validate(record["knowledge_source"])
+        except ValidationError as exc:
+            raise CodeSecurityRepositoryError("knowledge_source is invalid") from exc
     return CodeSecurityRepository(
         repository_alias=alias,
         provider=str(provider),
@@ -127,6 +141,7 @@ def parse_repository(record: Mapping[str, object]) -> CodeSecurityRepository:
         registered_at=registered_at,
         registered_by=registered_by,
         revision=revision,
+        knowledge_source=source,
     )
 
 

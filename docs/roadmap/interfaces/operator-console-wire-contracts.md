@@ -7,6 +7,15 @@ title: Operator Console - Data and Wire Contracts
 > Focused owner document extracted from [operator-console.md](operator-console.md) section 13 (13.1-13.3, 13.6-13.9).
 
 ## 13. Data + wire contracts
+
+`GET /knowledge/github/sources` returns typed repository provenance and separate knowledge-read
+and scan-permission state. Owner-only `POST` on the same path accepts `connect` or `disconnect`,
+an alias and expected revision; `connect` also requires location and a credential reference.
+It rejects credential bytes and scan-permission fields, requires `Idempotency-Key`, and reuses
+`code_security.repository_change` without a new topic. HTTP `202` is durable intent, not source
+verification. This [connection contract](../../runbooks/knowledge-github-sources.md) changes no
+Incident creation, approval callback, semantic confirmation, or managed-resource write authority.
+
 The existing numeric `usage` map may include `model_calls` beside token totals. This is
 recorded conversation-call telemetry, not detailed prompt capture, action authority, or
 independent operational evidence. Missing values remain unavailable; older consumers may
@@ -589,6 +598,7 @@ The Console renders these values and never derives satisfaction.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| GitHub knowledge-source request and projection | implemented | `425fda52ead9`; `fdai_service_contracts/knowledge_github.py`; `knowledge_github_projection.py`; focused connection tests | Owner connect/disconnect has a typed revision-checked envelope and no credential bytes or scan-consent fields. Existing Incident confirmation and execution authority are unchanged. |
 | Audit and read-only wire projections | implemented | Operator family manifests and projections; `services/operator-service/tests/test_operator_service_composition.py`; Console trace tests | Default GET/HEAD routes, bounded envelopes, and unavailable behavior have focused coverage. |
 | Exact-release ontology registry and workbench | implemented | `ontology_declaration_projection.py`; `ontology_dependents_projection.py`; `ontology_evidence_health_projection.py`; `ontology_release_diff_projection.py`; Operator operations routes; `console/src/routes/ontology-object-type-detail.tsx`; focused Python and Console checks | Exact declaration detail, server-side redaction, bounded dependents, honest evidence health, retained-release comparison, clean routes, and no-authority rendering are implemented. The authenticated local Browser showed the `Decision` and `Resource` paths without overflow, raw resource ids, or execute controls, but no governed Browser artifact was retained. |
 | Active-inventory runtime impact | implemented | `inventory_impact.py`; `PostgresFamilyStore` impact reads; `operator_inventory_active_read_20260819`; strict Console decoder and route tests | The read-only route traverses bounded stored-direction links from one exact Resource against the active snapshot and reports exact release, source cutoff, completeness, and truncation without provider properties or execution authority. |
@@ -609,6 +619,7 @@ The Console renders these values and never derives satisfaction.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-09 | implemented | Added the GitHub knowledge GET projection and Owner-only connect/disconnect request over the existing repository-change operation, preserving separate scan consent and all Incident/write authority boundaries. | `425fda52ead9`, `b92824a9c150`; connector/backend selection: 153 passed; full Operator composition: 29 passed. | Retain installed authenticated connection/readback evidence; no new Incident or managed-resource confirmation authority is introduced. |
 | 2026-10-08 | implemented | Documented the MCSB control assessment fields: a no-authority `assessment_summary` and per-control `assessment`, with requirement evidence roles on the detail read. Incident creation and other wire shapes are unchanged. | `test_framework_mcsb_assessment_projection.py`; `test_operator_workflow_family.py`; `mcsb-controls.model.test.ts` | None |
 | 2026-10-07 | implemented | Reserved bounded semantic answer space for later collection outputs without changing the terminal wire, Incident creation, or authority. | [Issue #1970](https://github.com/dotnetpower/fdai/issues/1970); `current change`; focused semantic turn and verified-row tests. | Live presentation evidence remains separate. |
 | 2026-10-07 | implemented | Documented the Rule detected issue summary wire shape, which now reads Forseti's latest version 2 baseline coverage, reports incomplete coverage as not evaluated with limitation codes, and lists the Core baseline worker settings. | `current change`; `workflow_rule_projection.py`; `services/operator-service/tests/test_rule_findings_summary_admission.py` (20 passed); `services/core-control-plane/tests/runtime/test_baseline_evaluation_binding.py` (8 passed). | None for this contract. |
@@ -649,6 +660,9 @@ The Console renders these values and never derives satisfaction.
 | 2026-10-08 | implemented | Added Owner-only `POST /code-security/repositories`, `GET /code-security/issues`, and `kind`, `action`, and `location` on request rows. | `current change`; `fdai_operator_service/code_security_review_projection.py`, `code_security_issue_projection.py`, `families/operations/manifest.py`; `test_code_security_review_projection.py` and `test_operator_operations_family.py` passed. | The worker isn't scheduled in a deployment yet; see the [Code Security Scanning ledger](../../roadmap-implementation/operations/code-security-scanning.md). |
 
 ### Remaining work
+
+- [ ] Retain installed authenticated GitHub connect/readback evidence with exact request identity,
+  revision checks, and separately granted scan permission before claiming operational validation.
 
 - [ ] Retain a real Slack signed click to fresh Entra API-token `auth_time` to one-use PostgreSQL decision receipt with a configured canonical Console origin; independently confirm delivery, mapping revision, and no-self-approval before closing #943 criterion 3.
 

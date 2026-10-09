@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: f44a1e39ae169fdaf3ec54785ff888d666a4bca6
+translation_source_sha: 9dec6b7d34931755a44daebccf51e7d506610309
 translation_revised: 2026-10-09
 ---
 
@@ -23,6 +23,14 @@ Local post-turn review mechanics 테스트는 loopback PostgreSQL과 in-memory e
 > 존재 여부로 선택할 수 없습니다.
 
 ## 설계 개요
+
+[GitHub 연결기 검증](../../runbooks/knowledge-github-sources-ko.md)은 테스트 전용 API 및 신원
+고정본과 별도로 승인된 공개 저장소 실시간 검사를 분리합니다. 테스트는 연결, 차단 및 UI
+동작을 확인합니다. 공개 검사는 변경된 판독기 파일의 일치를 확인하고 공급자 결과의 형식만
+보고하며 비공개 자격 증명, 모델 호출 또는 런타임 쓰기를 사용하지 않습니다. 두 근거 모두
+설치된 환경의 Owner 및 GitHub App 수명 주기, 색인, 스캔 완료 또는 배포 준비를 입증하지
+않으며 개발 진단 권한도 바꾸지 않습니다.
+
 테스트 맥락 선택지 경로는 다른 로컬 진단 화면과 같은 Operator 경로 패밀리 조립 방식을 사용합니다. 이 추가는 개발자 워크플로 소켓, 검증 대기열 동작 또는 로컬 실행 권한을 변경하지 않습니다.
 Outcome Assurance 읽기 패널도 Operator 경로 패밀리 조립 방식을 사용하지만, 인증된 읽기 전용
 변환 결과로 남습니다. 이 추가는 개발자 워크플로 소켓, 검증 대기열 동작, 로컬 진단 우회 경로

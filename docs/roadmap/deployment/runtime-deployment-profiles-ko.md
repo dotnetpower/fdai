@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: ac1e6d30938446847e718210e8c4c7f5bf09ed33
+translation_source_sha: c231a3c789ad5cf64d6b6a9554de3011cff6348e
 translation_revised: 2026-10-09
 ---
 # 런타임 배포 프로파일
@@ -19,6 +19,13 @@ translation_revised: 2026-10-09
 > 바뀌지 않습니다.
 
 ## 설계 개요
+
+[GitHub 지식 연결기](../../runbooks/knowledge-github-sources-ko.md)는 두 런타임 프로파일에서
+같은 제한된 저장소, 정확한 커밋 및 README 검증을 사용합니다. 익명 공개 접근에는 토큰이
+필요하지 않으며 비공개 접근에는 배포가 관리하는 읽기 전용 GitHub App 참조를 사용합니다.
+자격 증명이 없거나 공급자 검증이 실패하면 검증된 소스로 표시하지 않습니다. 지식은 자격
+증명 값이나 스캔 권한을 제공하지 않습니다. 새 연결은 별도의 Owner 활성화 요청 전까지
+스캔 비활성 상태를 유지하며 런타임 선택도 바꾸지 않습니다.
 
 Operator 운영 조립은 모든 런타임 프로파일에서 동일한 목적별 수명 주기, 경로 계열 및 읽기 출처 모듈을 사용합니다. 이 내부 소유권 분리는 플랫폼 선택, 신원, 출처 연결, 준비 상태 조건 또는 배포
 권한을 바꾸지 않습니다.

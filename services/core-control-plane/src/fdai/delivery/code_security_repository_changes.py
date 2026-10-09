@@ -14,6 +14,11 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 
+from fdai_github_app_auth.repository_reader import GitHubRepositoryReader
+from fdai_service_contracts.knowledge_github import GitHubKnowledgeChangeBody
+from pydantic import ValidationError
+
+from fdai.delivery.knowledge_github_changes import apply_knowledge_change
 from fdai.delivery.persistence.state_store_code_security_repository import (
     CodeSecurityRepositoryError,
     CodeSecurityRepositoryNotFoundError,
@@ -26,7 +31,7 @@ from fdai.shared.providers.state_store import StateStore
 
 REPOSITORY_CHANGE_OPERATION = "code_security.repository_change"
 CHANGE_ROLES = frozenset({"Owner"})
-ACTIONS = ("register", "enable", "disable")
+ACTIONS = ("register", "enable", "disable", "connect", "disconnect")
 _ALIAS = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 _LOCATION = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})/[A-Za-z0-9._-]{1,100}$")
 _PRINCIPAL = re.compile(r"^[A-Za-z0-9@._:/+-]{1,128}$")
@@ -48,6 +53,7 @@ class RepositoryChange:
     location: str | None = None
     default_ref: str = "HEAD"
     exposure: str = Exposure.UNKNOWN.value
+    knowledge_change: GitHubKnowledgeChangeBody | None = None
 
 
 def parse_repository_change(record: Mapping[str, object]) -> RepositoryChange | None:
@@ -68,6 +74,19 @@ def parse_repository_change(record: Mapping[str, object]) -> RepositoryChange | 
     action, alias = body.get("action"), body.get("repository_alias")
     if action not in ACTIONS or not isinstance(alias, str) or _ALIAS.fullmatch(alias) is None:
         return None
+    if action in {"connect", "disconnect"}:
+        try:
+            knowledge_body = GitHubKnowledgeChangeBody.model_validate(dict(body))
+        except ValidationError:
+            return None
+        return RepositoryChange(
+            request_id,
+            str(action),
+            alias,
+            principal,
+            tuple(str(role) for role in roles),
+            knowledge_change=knowledge_body,
+        )
     if action != "register":
         if set(body) != {"action", "repository_alias"}:
             return None
@@ -100,11 +119,27 @@ def parse_repository_change(record: Mapping[str, object]) -> RepositoryChange | 
 
 
 async def apply_repository_change(
-    store: StateStore, change: RepositoryChange
+    store: StateStore,
+    change: RepositoryChange,
+    *,
+    knowledge_reader: GitHubRepositoryReader | None = None,
 ) -> tuple[dict[str, object] | None, str | None]:
     """Apply one change; return ``(result, None)`` or ``(None, rejection_reason)``."""
     if not CHANGE_ROLES & set(change.principal_roles):
         return None, REJECT_ROLE
+    if change.action in {"connect", "disconnect"}:
+        if change.knowledge_change is None:
+            return None, REJECT_MALFORMED
+        try:
+            return await apply_knowledge_change(
+                store,
+                change.knowledge_change,
+                principal=change.principal_id,
+                request_id=change.request_id,
+                reader=knowledge_reader,
+            )
+        except CodeSecurityRepositoryError:
+            return None, REJECT_REPOSITORY_CONFLICT
     try:
         if change.action == "register":
             repository, created = await register_repository(

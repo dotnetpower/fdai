@@ -1,10 +1,18 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 13782f5ba6c81fe333f6db5eda9530dea833b3a0
-translation_revised: 2026-10-08
+translation_source_sha: 47879233d7d83b504bab1655a901d0aeedf44578
+translation_revised: 2026-10-09
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
+
+[GitHub 지식 소스](../../runbooks/knowledge-github-sources-ko.md)는 로컬과 배포 환경에서 같은
+Operator 경로, Owner 재검증, 버전 검사, 자격 증명 참조 및 제한된 Core 판독기를 사용합니다.
+Operator는 GitHub 자격 증명이나 광범위한 지식 접근 권한 없이 기존 저장소 기록을 읽습니다.
+익명 공개 접근은 구성된 토큰을 빌려 쓰지 않으며 비공개 접근에는 배포 GitHub App이
+필요합니다. 필수 조건이 없으면 사용 불가 또는 대기 상태를 유지하고 고정본으로 연결을
+대체하지 않습니다. 소스 검증은 콘텐츠를 색인하거나 스캔을 활성화하지 않습니다.
+설치된 환경에서 인증된 수명 주기는 테스트 및 공개 공급자 근거와 구분합니다.
 
 Local profile과 deployed profile 모두 Core Bragi가 Pantheon topic을 쓰기 전에 `operator.post-turn-review.requests`를 통해 Operator post-turn review를 라우팅합니다.
 

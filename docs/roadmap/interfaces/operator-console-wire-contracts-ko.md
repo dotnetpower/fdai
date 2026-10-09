@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 58aead528617ef6401d31d5cfd616509cd4ad36a
+translation_source_sha: 9c1cf7cfde50eb92626fbda1a2117bda3d996cd7
 translation_revised: 2026-10-09
 ---
 
@@ -10,6 +10,15 @@ translation_revised: 2026-10-09
 > [operator-console-ko.md](operator-console-ko.md) 섹션 13 (13.1-13.3, 13.6-13.9)에서 분리한 focused 소유자 문서입니다.
 
 ## 13. 데이터 + wire 계약
+
+`GET /knowledge/github/sources`는 형식화된 저장소 출처 정보와 분리된 지식 읽기 및 스캔
+권한 상태를 반환합니다. 같은 경로의 Owner 전용 `POST`는 `connect` 또는 `disconnect`,
+별칭 및 예상 버전을 받습니다. `connect`에는 위치와 자격 증명 참조도 필요합니다.
+자격 증명 값과 스캔 권한 필드는 차단하며 `Idempotency-Key`를 요구하고 새 토픽 없이
+`code_security.repository_change`를 재사용합니다. HTTP `202`는 영속 요청이지 소스 검증
+완료가 아닙니다. 이 [연결 계약](../../runbooks/knowledge-github-sources-ko.md)은 Incident
+생성, 승인 콜백, 의미 확인 또는 관리 리소스 쓰기 권한을 바꾸지 않습니다.
+
 기존 숫자 `usage` 맵은 토큰 합계와 함께 `model_calls`를 포함할 수 있습니다. 이는 기록된
 대화 호출 계측이며, 상세 프롬프트 수집, 행동 권한, 독립 운영 근거가 아닙니다. 없는 값은
 사용 불가로 유지하며, 이전 소비자는 추가 숫자 키를 무시해도 답변 검증이나 Incident 처리를
@@ -558,6 +567,7 @@ Forseti의 최신 버전 2 baseline 커버리지가 있으면 `GET /rules/findin
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| GitHub 지식 소스 요청 및 표시 데이터 | implemented | `425fda52ead9`; `fdai_service_contracts/knowledge_github.py`; `knowledge_github_projection.py`; 연결 집중 테스트 | Owner 연결 및 해제에는 버전을 확인하는 형식화된 요청을 사용하며 자격 증명 값이나 스캔 동의 필드는 받지 않습니다. 기존 Incident 확인과 실행 권한은 변경하지 않습니다. |
 | 감사 및 읽기 전용 wire 변환 결과 | implemented | Operator family 매니페스트 및 변환 결과; `services/operator-service/tests/test_operator_service_composition.py`; Console trace 테스트 | 기본 GET/HEAD 경로, 범위가 제한된 묶음 및 사용 불가 동작에 focused 검사가 있습니다. |
 | Exact-release 온톨로지 레지스트리 및 워크벤치 | implemented | `ontology_declaration_projection.py`; `ontology_dependents_projection.py`; `ontology_evidence_health_projection.py`; `ontology_release_diff_projection.py`; Operator operations 경로; `console/src/routes/ontology-object-type-detail.tsx`; focused Python 및 Console 검사 | 정확한 선언 상세, 서버 측 redaction, 범위가 제한된 종속 항목, 정직한 근거 상태, 보존 release 비교, clean route, 권한 없는 렌더링이 구현됐습니다. 인증된 로컬 Browser에서 `Decision`과 `Resource` 경로에 overflow, 원시 resource id, execute control이 없음을 확인했지만 관리되는 Browser 산출물은 보존하지 않았습니다. |
 | 활성 인벤토리 런타임 영향 범위 | implemented | `inventory_impact.py`, `PostgresFamilyStore` 영향 범위 읽기, `operator_inventory_active_read_20260819`, 엄격한 Console decoder 및 경로 테스트 | 읽기 전용 경로는 정확한 Resource 하나에서 활성 스냅샷의 저장 방향 링크를 제한된 범위로 탐색하고 provider 속성이나 실행 권한 없이 exact release, 원본 기준 시각, 완전성 및 잘림 상태를 보고합니다. |
@@ -582,6 +592,7 @@ Incident 또는 실행 권한은 바뀌지 않았습니다.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-09 | implemented | 기존 저장소 변경 작업으로 GitHub 지식 GET 표시 데이터와 Owner 전용 연결 및 해제 요청을 추가했습니다. 스캔 동의와 모든 Incident 및 쓰기 권한 경계를 계속 분리합니다. | `425fda52ead9`, `b92824a9c150`; 연결 및 백엔드 테스트 153개 통과; 전체 Operator 구성 테스트 29개 통과. | 설치된 환경의 인증된 연결 및 재확인 근거는 별도입니다. 새 Incident 또는 관리 리소스 확인 권한을 추가하지 않습니다. |
 | 2026-10-07 | implemented | 최종 wire, Incident 생성 또는 권한을 바꾸지 않고 이후 컬렉션 출력을 위한 범위가 제한된 의미 답변 공간을 예약했습니다. | [이슈 #1970](https://github.com/dotnetpower/fdai/issues/1970), `current change`, 집중 의미 턴 및 검증 행 테스트 | 실제 presentation 근거는 별도입니다. |
 | 2026-10-07 | implemented | 규칙 점검 결과 요약의 wire 형식을 문서화했습니다. 요약은 이제 Forseti의 최신 버전 2 baseline 커버리지를 읽고, 불완전한 커버리지는 제한 코드와 함께 평가되지 않음으로 보고하며, Core baseline 작업기 설정을 나열합니다. | `current change`; `workflow_rule_projection.py`; `services/operator-service/tests/test_rule_findings_summary_admission.py`(20개 통과); `services/core-control-plane/tests/runtime/test_baseline_evaluation_binding.py`(8개 통과). | 이 계약에 남은 작업은 없습니다. |
 | 2026-09-29 | in-progress | Python task workbench 상태를 정정했습니다. Operator 서비스 분리(`8f67c5d76`) 이후 여섯 가지 workbench 작업을 제공하는 Operator 담당 구성 요소가 없으며, `GET /python-tasks/capabilities`는 아무도 쓰지 않는 변환 결과 때문에 HTTP `503`을 반환했습니다([#1655](https://github.com/dotnetpower/fdai/issues/1655)). 이제 Operator 조립 구성이 기능 보고를 소유하며 `available: false`와 누락된 각 담당 구성 요소를 HTTP `200`으로 반환합니다. Console은 workbench를 닫은 상태로 유지하고 그 사유를 알립니다. | `current change`; `python_task_capability.py`, `family_adapters.py` 및 Console `python-task.ts`와 `workflow-builder.catalog.tsx`; `test_python_task_capability.py`, `test_workflow_definition_catalog.py` 및 Console 디코더와 경로 테스트 통과. | 기능이 사용 가능으로 보고되기 전에 통제된 Python 작업 검증기, VM 작업 실행기 및 아티팩트 저장소를 Operator 서비스에 연결합니다. |
@@ -615,6 +626,9 @@ Incident 또는 실행 권한은 바뀌지 않았습니다.
 | 2026-09-16 | implemented | 공용 PostgreSQL 읽기 컨텍스트에 세대에 결속된 인벤토리 무효화 커서를 추가했습니다. 인시던트 초안, 원본 재검증, 제안 저장, 게시, 수명 주기 소유권 및 실행 권한은 바뀌지 않았습니다. | `current change`, 집중 Operator 인벤토리 상태 및 재생 테스트 153개, strict mypy 및 Ruff | Operator가 시작하는 인시던트 wire 동작은 바뀌지 않았습니다. |
 
 ### 남은 작업
+
+- [ ] 운영 검증을 완료했다고 주장하기 전에 정확한 요청 식별자, 버전 검사 및 별도로 부여된
+  스캔 권한을 포함한 설치 환경의 인증된 GitHub 연결 및 재확인 근거를 보존합니다.
 
 - [ ] 표준 Console 출처가 구성된 환경에서 실제 Slack 서명 클릭부터 새 Entra API 토큰의 `auth_time`, 일회용 PostgreSQL 결정 증적까지 확인하고 전달, 매핑 리비전 및 자기 승인 차단을 독립적으로 검증한 뒤 #943 기준 3을 완료합니다.
 

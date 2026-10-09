@@ -80,6 +80,7 @@ def _build_data_sources(
                 "/code-security/reviews",
                 "/code-security/packs",
                 "/code-security/repositories",
+                "/knowledge/github/sources",
                 "/code-security/scan-requests",
                 "/code-security/issues",
             ),

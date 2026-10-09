@@ -230,7 +230,9 @@ async def run_scan_job(
     issues = build_issues(occurrences, catalog, context)
     verifier_results: tuple[VerifierResult, ...] = ()
     if verifier_catalog is not None:
-        verifier_results = taint_rule_verifications(issues, occurrences, verifier_catalog)
+        verifier_results = taint_rule_verifications(
+            issues, occurrences, verifier_catalog, repository=source.path
+        )
         verifier_results += verify_issues(source.path, issues, verifier_catalog, revision=revision)
     verified = dict(verified_confidence(verifier_results))
     if verified:

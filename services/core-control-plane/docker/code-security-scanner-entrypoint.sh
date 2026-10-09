@@ -3,6 +3,9 @@
 #
 #   fdai-scan-runner prepare SOURCE_DIR       refresh offline vulnerability databases into
 #                                             $FDAI_SCAN_CACHE (the only step that uses the network)
+#   fdai-scan-runner prepare-snapshot SOURCE_DIR ROOT
+#                                           refresh in private staging, then publish an immutable
+#                                           generation and atomically update ROOT/current.json
 #   fdai-scan-runner prepare-source [ARGS]   acquire a source handoff with `prepare-scan`
 #   fdai-scan-runner scan [ARGS...]           run `fdai-code-security scan` with every pinned
 #                                             scanner bound
@@ -33,6 +36,15 @@ run_with_scanners() {
 }
 
 case "${1:-}" in
+  prepare-snapshot)
+    source_dir="${2:?prepare-snapshot needs a source directory}"
+    snapshot_root="${3:?prepare-snapshot needs a snapshot root}"
+    mkdir -p "$snapshot_root/staging"
+    stage="$(mktemp -d "$snapshot_root/staging/cache-XXXXXXXX")"
+    trap 'rm -rf "$stage"' EXIT HUP INT TERM
+    FDAI_SCAN_CACHE="$stage" fdai-scan-runner prepare "$source_dir" > /dev/null
+    fdai-code-security publish-cache-snapshot --path "$stage" --out "$snapshot_root"
+    ;;
   prepare-source)
     shift
     exec fdai-code-security prepare-scan "$@"
@@ -69,7 +81,7 @@ case "${1:-}" in
     run_with_scanners process-scheduled-scans "$@"
     ;;
   *)
-    echo "usage: fdai-scan-runner prepare SOURCE_DIR | prepare-source [ARGS...] | scan [ARGS...] | process-requests [ARGS...] | process-schedule [ARGS...]" >&2
+    echo "usage: fdai-scan-runner prepare SOURCE_DIR | prepare-snapshot SOURCE_DIR ROOT | prepare-source [ARGS...] | scan [ARGS...] | process-requests [ARGS...] | process-schedule [ARGS...]" >&2
     exit 2
     ;;
 esac

@@ -73,6 +73,10 @@ rules:
     message: Request input selects a file path.
     metadata: {cwe: ["CWE-22"], category: security, confidence: HIGH, fdai_verifier: true}
     mode: taint
+    # Do not infer a path from arguments to a helper whose return flow is unresolved.
+    # This is abstention, not a claim that the helper is safe.
+    options:
+      taint_assume_safe_functions: true
     pattern-sources: *java-sources
     pattern-sanitizers: *java-sanitizers
     pattern-sinks:
@@ -83,6 +87,11 @@ rules:
               - pattern: new FileInputStream($P)
               - pattern: new FileOutputStream($P, ...)
               - pattern: new FileReader($P)
+              - pattern: new java.io.File($P, ...)
+              - pattern: new java.io.File($BASE, $P)
+              - pattern: new java.io.FileInputStream($P)
+              - pattern: new java.io.FileOutputStream($P, ...)
+              - pattern: new java.io.FileReader($P)
               - pattern: Paths.get(..., $P, ...)
               - pattern: Path.of(..., $P, ...)
           - focus-metavariable: $P

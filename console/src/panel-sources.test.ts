@@ -73,7 +73,7 @@ describe("panel source availability", () => {
     expect(panels.filter((panel) => panelSourceClassification(panel.id) === null))
       .toEqual([]);
     expect(panelSourceClassification("documents")).toBe("separate-client");
-    expect(panelSourceClassification("github")).toBe("independent");
+    expect(panelSourceClassification("github")).toBe("operator-api");
     expect(panelSourceClassification("settings-diagnostics")).toBe("operator-api");
     expect(panelSourceClassification("settings-environment")).toBe("operator-api");
   });

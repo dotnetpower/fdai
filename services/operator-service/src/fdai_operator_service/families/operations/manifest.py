@@ -154,6 +154,15 @@ OPERATIONS_ROUTE_MANIFEST: tuple[OperationRoute, ...] = (
     OperationRoute("/code-security/reviews", "GET", "handler", "code_security.reviews"),
     OperationRoute("/code-security/packs", "GET", "handler", "code_security.packs"),
     OperationRoute("/code-security/repositories", "GET", "handler", "code_security.repositories"),
+    OperationRoute("/knowledge/github/sources", "GET", "handler", "knowledge.github.sources"),
+    OperationRoute(
+        "/knowledge/github/sources",
+        "POST",
+        "handler",
+        "code_security.repository_change",
+        "proposal",
+        OWNER_ROLES,
+    ),
     OperationRoute("/code-security/scan-requests", "GET", "handler", "code_security.scan_requests"),
     OperationRoute("/code-security/issues", "GET", "handler", "code_security.issues"),
     # A registration change only queues intent for the Core worker, which applies it with

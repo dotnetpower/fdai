@@ -39,6 +39,7 @@ class PostgresCodeSecurityScanRequestQueueConfig:
     connect_timeout_s: int = 10
     worker_id: str = "core-code-security-scan"
     lease_seconds: int = 3_600
+    restricted_access: bool = False
 
 
 class PostgresCodeSecurityScanRequestQueue:
@@ -53,7 +54,22 @@ class PostgresCodeSecurityScanRequestQueue:
 
     async def claim(self) -> ClaimedScanRequest | None:
         claim_id = str(uuid4())
-        rows = await self._fetch_all(
+        if self._config.restricted_access:
+            rows = await self._fetch_all(
+                "SELECT key, value FROM public.fdai_code_security_claim("
+                "%(claim_id)s, %(worker_id)s, %(lease_seconds)s)",
+                {
+                    "claim_id": claim_id,
+                    "worker_id": self._config.worker_id,
+                    "lease_seconds": self._config.lease_seconds,
+                },
+            )
+        else:
+            rows = await self._claim_unrestricted(claim_id)
+        return self._parse_claim(rows, claim_id)
+
+    async def _claim_unrestricted(self, claim_id: str) -> list[dict[str, Any]]:
+        return await self._fetch_all(
             """
             WITH candidate AS (
                 SELECT key
@@ -93,6 +109,9 @@ class PostgresCodeSecurityScanRequestQueue:
                 "lease_seconds": self._config.lease_seconds,
             },
         )
+
+    @staticmethod
+    def _parse_claim(rows: list[dict[str, Any]], claim_id: str) -> ClaimedScanRequest | None:
         if not rows:
             return None
         key, record = rows[0].get("key"), rows[0].get("value")
@@ -129,6 +148,16 @@ class PostgresCodeSecurityScanRequestQueue:
 
     async def _mark(self, *, key: str, claim_id: str, update: Mapping[str, object]) -> bool:
         closed = {**dict(update), "closed_at": datetime.now(UTC).isoformat()}
+        if self._config.restricted_access:
+            rows = await self._fetch_all(
+                "SELECT public.fdai_code_security_close("
+                "%(key)s, %(claim_id)s, %(update)s::jsonb) AS closed",
+                {"key": key, "claim_id": claim_id, "update": json.dumps(closed)},
+            )
+            closed_value = rows[0].get("closed") if len(rows) == 1 else None
+            if not isinstance(closed_value, bool):
+                raise ValueError("code-security close returned no boolean")
+            return closed_value
         rows = await self._fetch_all(
             """
             UPDATE state_kv
@@ -150,6 +179,8 @@ class PostgresCodeSecurityScanRequestQueue:
             row_factory=dict_row,
             connect_timeout=self._config.connect_timeout_s,
         ) as connection:
+            if self._config.restricted_access:
+                await connection.execute("SET LOCAL ROLE fdai_code_security_worker")
             await connection.execute(
                 "SELECT set_config('statement_timeout', %s, true)",
                 (str(self._config.statement_timeout_ms),),

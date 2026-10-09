@@ -16,6 +16,14 @@ product control plane or its execution authority.
 > developer tooling and package presence cannot select them.
 
 ## Design at a glance
+
+[GitHub connector validation](../../runbooks/knowledge-github-sources.md) separates test-only
+API/identity fixtures from a separately authorized live public-repository probe. Tests prove
+connection, rejection, and UI mechanics; the public probe checks the exact changed reader and
+reports provider-result shapes only, without private credentials, model calls, or runtime writes.
+Neither evidence level proves an installed Owner/GitHub App lifecycle, indexing, scan completion,
+or deployment readiness, and neither changes developer diagnostic authority.
+
 The test-context choice route uses the same Operator route-family assembly as other local diagnostic surfaces. Adding it changes no developer workflow socket, validation queue behavior, or local execution authority.
 The Outcome Assurance read panel also uses the Operator route-family assembly, but it remains an
 authenticated read-only projection. Adding it changes no developer workflow socket, validation

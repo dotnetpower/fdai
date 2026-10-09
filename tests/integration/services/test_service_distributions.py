@@ -72,6 +72,8 @@ EXPECTED_DEPENDENCIES = {
         "python-snappy",
         "pyyaml",
         "sqlalchemy",
+        "tree-sitter",
+        "tree-sitter-java",
     },
     "operator-service": {
         "aiohttp",
@@ -178,6 +180,8 @@ IMPORT_DISTRIBUTIONS = {
     "pypdfium2": "pypdfium2",
     "pytesseract": "pytesseract",
     "starlette": "starlette",
+    "tree_sitter": "tree-sitter",
+    "tree_sitter_java": "tree-sitter-java",
     "uvicorn": "uvicorn",
     "weasyprint": "weasyprint",
 }

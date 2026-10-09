@@ -41,7 +41,7 @@ const GAPS = [
 ] as const;
 const REF = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,199}$/;
 const KINDS = ["scan", "repository_change"] as const;
-const ACTIONS = ["register", "enable", "disable"] as const;
+const ACTIONS = ["register", "enable", "disable", "connect", "disconnect"] as const;
 
 type RequestStatus = (typeof STATUSES)[number];
 type Gap = (typeof GAPS)[number];

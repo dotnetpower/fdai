@@ -23,6 +23,12 @@ or a second source of provider truth.
 
 Workflow authoring records remain outside ontology identity. Saved private drafts, bindings, and catalog-seeded Built-in definitions are Operator authoring records and projections; they cannot create a Resource, ObjectType, LinkType, or action authority.
 
+Typed [GitHub source provenance](../../runbooks/knowledge-github-sources.md) likewise remains
+repository-ledger metadata: repository ID, observed commit, README digest, observation time, and
+credential reference do not create Resource, ObjectType, LinkType, or authority edges. A recorded
+read-access observation is neither current provider health nor indexed evidence. Knowledge read
+permission and independently approved scan permission remain separate from ontology meaning.
+
 ## Design at a glance
 
 ![Design at a glance. The main stages are Resource, ResourceType, ResourceClass, Query, Exploratory traversal, Ordered typed path, LinkType, Forward and reverse roles, Semantic traits.](../../diagrams/generated/fdai-roadmap-architecture-ontology-structural-model-01.en.svg)

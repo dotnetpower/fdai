@@ -20,6 +20,13 @@ authority. Azure Container Apps remains a supported compatibility profile for ex
 
 ## Design at a glance
 
+The [GitHub knowledge connector](../../runbooks/knowledge-github-sources.md) uses the same
+bounded repository, exact-commit, and README validation in both runtime profiles. Anonymous
+public access needs no token; private access uses the deployment-owned read-only GitHub App
+reference. Missing credentials or failed provider validation never become a verified source.
+Knowledge supplies neither credential bytes nor scan privilege: new connections remain
+scan-disabled until a separate Owner enable request, without changing runtime selection.
+
 Operator production composition uses the same focused lifecycle, route-family, and read-source
 modules in every runtime profile. The internal ownership split changes no platform selection,
 identity, source binding, readiness condition, or deployment authority.

@@ -673,11 +673,20 @@ def _taint_issue(producer: str, lane: Lane, rule_id: str) -> tuple[CodeSecurityI
     return issue, occurrences
 
 
-def test_taint_verifier_rule_hit_verifies_the_issue() -> None:
+def test_taint_verifier_rule_hit_verifies_the_issue(tmp_path: Path) -> None:
     issue, occurrences = _taint_issue(
         "Semgrep OSS", Lane.DETERMINISTIC, "rules.verify.fdai.verify.java.sql-injection"
     )
-    (verdict,) = taint_rule_verifications((issue,), occurrences, _verifiers())  # type: ignore[arg-type]
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "Orders.java").write_text(
+        "\n" * 24 + "class Orders {void run(String input) {db.executeQuery(input);}}\n"
+    )
+    (verdict,) = taint_rule_verifications(
+        (issue,),
+        occurrences,
+        _verifiers(),
+        repository=tmp_path,  # type: ignore[arg-type]
+    )
     assert verdict.outcome is VerifierOutcome.VERIFIED
     assert verdict.sink == "java:sql-injection"
     assert verified_confidence((verdict,)) == {issue.issue_id: Confidence.VERIFIED}

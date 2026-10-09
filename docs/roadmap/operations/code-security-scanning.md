@@ -269,6 +269,13 @@ read-only contents permission. Without credentials only public repositories can 
 worker is a batch job for a schedule or a one-shot run, not a polling daemon; the scan runner
 image starts it with `fdai-scan-runner process-requests`.
 
+The [Knowledge GitHub connection](../../runbooks/knowledge-github-sources.md) can also register
+a verified repository source, using either public read access or the deployment's read-only
+GitHub App credential reference. Its repository provenance remains on the existing registration;
+credential bytes never enter the stored record. A new Knowledge connection leaves scanning
+disabled. An Owner separately enables scans, so Knowledge read access alone cannot request or
+enable a scan. Disconnecting Knowledge does not revoke independently granted scan permission.
+
 | Rejection reason | Meaning |
 |------------------|---------|
 | `request_malformed` | The stored body isn't the typed alias and ref |
@@ -302,15 +309,16 @@ disabled one was skipped.
 
 ## Deployed scan runtime (proposed)
 
-This section is a design that isn't implemented yet. It describes how a deployment runs the scan
-runner image for scheduled scans and for the Console request worker without weakening a node
-security control. An independent critique on 2026-10-09 shaped the split between credentials and
-scanners, the admission rules, and the cache handling below.
+This runtime is partially implemented. The optional Kata scanner backend, authenticated process
+observation, restricted database capabilities, and namespace/RBAC renderer pass focused tests.
+No live deployed scanner run is claimed. The deployment must bind an exact cluster, immutable
+image, dedicated Kata pool, shared source/cache storage, and controller identity first.
 
-**Problem.** bubblewrap needs unprivileged user namespaces. Kubernetes' default `runc` runtime
-applies the node's seccomp and AppArmor profiles, which block them. Running the pod with
-`Unconfined` profiles on a shared node would let a sandbox escape reach the node kernel that other
-workloads share, so FDAI doesn't do that.
+**Problem and revision.** Local bubblewrap needs unprivileged user namespaces. The deployed
+backend instead runs each deterministic scanner directly in its own Kata pod VM, so it does not
+request nested user namespaces or `Unconfined` profiles. `RuntimeDefault` seccomp, Restricted Pod
+Security, read-only inputs/root filesystem, dropped capabilities, and no identity/secret mounts
+remain required. Dynamic proof and live lens lanes are not enabled by this backend.
 
 **Runtime.** On AKS, scanners run under
 [Pod Sandboxing](https://learn.microsoft.com/azure/aks/use-pod-sandboxing) (Kata Containers), which
@@ -322,20 +330,22 @@ gives each pod its own lightweight VM and guest kernel:
   Pod Sandboxing supports only Azure Linux and amd64, which FDAI's AKS profile already uses.
 - **Scanner pod:** `runtimeClassName: kata-vm-isolation`, a toleration and node selector for the
   pool, user 65532, all capabilities dropped, no privilege escalation, and a read-only root file
-  system. Its seccomp and AppArmor profiles are `Unconfined`, which takes effect inside the guest
-  kernel only. The host still runs the Kata shim, Cloud Hypervisor, and `virtiofsd` for each pod,
+  system. It retains `RuntimeDefault` seccomp. The host still runs the Kata shim, Cloud Hypervisor,
+  and `virtiofsd` for each pod,
   and shared volumes are host-mediated, so the pod allows only `emptyDir` and the read-only volumes
   named below, never `hostPath`, and the node pool follows the AKS node image patch cadence.
 - **Resources:** Kata sizes the pod VM from the pod memory limit, and the guest kernel and Kata
   agent consume part of it. Limits come from measured scanner peaks plus that overhead, and the
   job deadline includes a cold-start margin.
 
-**Admission guard.** A `ValidatingAdmissionPolicy` with a cluster-wide binding and the `Deny` action
-rejects an `Unconfined` seccomp or AppArmor profile anywhere in a pod: the pod security context,
-every regular, init, and ephemeral container, and legacy annotations. It also covers the
-`pods/ephemeralcontainers` subresource. It allows the profile only when the namespace is exactly
-the code-security namespace and `runtimeClassName` is exactly `kata-vm-isolation`. RBAC limits who
-can change the `RuntimeClass`, the policy, its binding, or create debug pods in that namespace.
+**Admission and observation.** The scanner namespace enforces Restricted Pod Security. The
+controller verifies the installed Kata runtime class and the namespace's deny-all network policy
+before creating a Job; additive ingress/egress allowance policies cause a denial. It observes the
+exact Job UID and checks its pod's image, command, identity, mounts, resources and privileges
+against the submitted contract. An extra init/ephemeral container, secret volume, image change,
+or identity drift stops acceptance. Controller RBAC grants only scanner Job create/get/delete,
+pod metadata/log reads, network-policy reads, and exact namespace/runtime-class reads. It grants
+no secret access, pod exec, workload patching, or RBAC escalation.
 
 **Credentials stay out of the scanner VM.** Kata protects the node, not the other processes in
 the same pod VM. A scanner that escapes bubblewrap mustn't find a GitHub token, a database
@@ -344,25 +354,80 @@ credential, or open egress. Each run therefore splits into three steps:
 1. **Acquire** (a `runc` pod with the worker's workload identity): claim the request or select the
    scheduled repository, mint a read-only installation token for that one repository, fetch the
    exact commit, and write the extracted tree to a per-run volume.
-2. **Scan** (the Kata pod): mount that tree and the vulnerability cache read-only, run every
-   scanner, and write the bounded result to a per-run output volume. The pod has no service
-   account token, no secret mount, and a default-deny `NetworkPolicy` with no egress.
+2. **Scan** (one Kata pod per scanner): mount that tree, the rule pack, and vulnerability cache
+   read-only. The controller captures bounded stdout through the authenticated Kubernetes log
+   API. The pod has no service-account token, secret mount, shared output write mount, or egress.
 3. **Record** (the `runc` pod again): validate the output against the exact commit, record the
    review in the state store, publish it on `object.drift`, and close the request.
 
-This split changes both workers, the request worker and the
-[scheduled scan](#scheduled-scans), which today acquire, scan, and record in one process.
+Both workers can select this split with `--scanner-runtime kata --state-access restricted`.
+Their local default remains the existing combined bubblewrap path. The in-cluster API uses the
+controller's service-account token and TLS CA only outside the scanner VM. Bounded stdout and the
+pod's terminated process exit code enter deterministic result acceptance; scanner-supplied
+completion claims never govern coverage. API errors are not retried, Jobs have active and
+no-progress deadlines, and cleanup deletes only the exact UID. Private attempt journals retain
+preflight/dispatch/observation failures that occur before a review exists. A worker that loses
+its proposal claim cannot report a completed or rejected terminal result.
+
+`render-scanner-runtime` produces the namespace, deny-all policy and minimum observer RBAC.
+It does not create a cluster, node pool, identity, database, or storage. The controller namespace
+must differ from the scanner namespace. Installation must supply RWX source storage shared by
+the acquisition/recording controller and the read-only scanner mounts, and a separate read-only
+cache snapshot. The dedicated pool uses `fdai.io/code-security-scanner=true` as its label and
+`NoSchedule` taint.
+
+Example worker binding (replace names and the digest with the selected deployment's values):
+
+```bash
+fdai-code-security process-scan-requests \
+  --state-access restricted --scanner-runtime kata \
+  --scanner-namespace code-security \
+  --scanner-image example.invalid/scanner@sha256:<64-hex-digest> \
+  --scanner-source-pvc scan-source --scanner-source-mount /work \
+  --scanner-cache-pvc scan-cache --scanner-cache-subpath cache --cache-dir /cache
+```
+
+The same bindings apply to `process-scheduled-scans`. Source acquisition and recording retain
+their normal credentials in the controller. Per-run source and rule-pack handoffs expose only
+their named read-only subdirectories to each scanner, and rule-pack digests are checked before
+and after execution. Before starting the engine, the image-owned `verify-scanner-input` bootstrap
+also checks source, rule-pack, and cache bytes from the actual scanner mounts against controller
+digests. A mismatched PVC or snapshot therefore cannot be accepted as the requested input.
+Cleanup API failure stops the attempt but retains the independent process outcome and its stdout
+digest in a private journal; TTL is a recovery backstop, not a success-shaped cleanup fallback.
+Deployment network-denial and guest-kernel isolation probes remain required;
+unit tests and Kubernetes metadata alone do not establish live isolation.
 
 **Vulnerability cache.** A separate preparation job refreshes the Trivy and OSV databases through
 the deployment's egress firewall, which allows only those database hosts. It publishes a
 versioned snapshot atomically and keeps the last known-good one, so an upstream outage doesn't
-stop scanning. Scan pods mount the current snapshot read-only, and each receipt records the
-database versions, digests, and age.
+stop scanning. `fdai-scan-runner prepare-snapshot SOURCE_DIR ROOT` refreshes in a private staging
+directory, publishes a read-only digest-named generation under `ROOT/snapshots`, and atomically
+updates `ROOT/current.json` only after preparation succeeds. Failed preparation does not replace
+the current pointer. Bind the resulting `cache_subpath` and cache directory to the scanner
+worker's read-only cache PVC. A digest binds the observed bytes; it does not prove database
+freshness or package completeness, which still depend on provider metadata and scanner coverage.
+Deployment firewall configuration and a scheduled preparation job remain installation inputs.
 
 **State-store privilege.** Code-security records and the proposal outbox share the generic
-`state_kv` table today, so a database role can't be limited to them by table grants. Least
-privilege needs dedicated tables, row-level security on the key prefixes, or a bounded service API
-first, with a test proving that the worker identity can't read or change unrelated keys.
+`state_kv` table, so the worker does not receive table grants. The Core migration
+`core_code_security_role_20261009` installs fixed-parameter `SECURITY DEFINER` functions and the
+`fdai_code_security_worker` role. `process-scan-requests --state-access restricted` and
+`process-scheduled-scans --state-access restricted` assume that role for every database connection,
+including inherited adapter operations. The deployment grants role membership to its dedicated
+worker login; missing membership or migration fails without falling back to Core.
+
+The functions allow only code-security registration, review, issue-detail, and schedule keys.
+Reviews and issue details are insert-only. The outbox functions claim and close only the two
+code-security operation types with lease and claim-id checks. The audit functions expose the
+current hash anchor, not audit payloads, and append only bounded Heimdall registration events
+with no execution authority. State changes and audit appends remain one transaction.
+Existing Core and Operator access is unchanged, so the Console keeps reading the same records.
+Real validation-database tests prove unrelated state, raw table reads, broad audit access, and
+other proposal operations are inaccessible, including through inherited adapter methods.
+
+The legacy local binding remains `--state-access core` by default for compatibility. Deployed
+isolated workers explicitly select `restricted`; this does not yet supply their Kata orchestration.
 
 **Evidence and failures.** The record step wires the bus publisher explicitly. A job attempt that
 fails before a receipt exists, during preparation, acquisition, or scheduling, writes a durable
@@ -543,6 +608,17 @@ Example: the verifiers 1.4.0 receipt (2026-10-09) adds element-sensitive list tr
 `dev` only. It promotes Python path traversal (precision 1.0 on `dev` with 17 true positives and
 0.94 on `holdout` with 16) and unsafe deserialization (1.0 in both splits with 8 and 10). Python
 command injection measured 1.0 on `dev` and 0.75 on `holdout` and stays in shadow.
+
+The managed-language 1.6.0 evaluation adds a generic Java AST constant-flow veto rather than
+Benchmark-specific sanitizers. It recognizes provably constant local/control-flow/helper results,
+keeps unknown flows unchanged, and removes only verifier evidence, not the base reported finding.
+The same helper runs in evaluation, scan jobs, prepared-result acceptance, and repository-backed
+pack export. It removed 13 Java SQL false positives without losing a true positive: precision is
+0.8333 on `dev` (15 TP, 3 FP) and 0.9130 on `holdout` (21 TP, 2 FP). The rule remains in shadow.
+The unresolved `dev` cases include a mutable map and reflection through classloader properties;
+the latter cannot be treated as a known local pure method without further evidence. C# source,
+sink and sanitizer corrections increased `dev` true positives from 2 to 5 with no false positives,
+but the remaining held-out evidence still does not justify promotion.
 
 ## Proof lane (opt-in)
 
