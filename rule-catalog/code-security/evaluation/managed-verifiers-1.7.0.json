@@ -93,7 +93,7 @@
       }
     ]
   },
-  "evaluated_at": "2026-10-09T12:57:01.600949+00:00",
+  "evaluated_at": "2026-10-09T13:09:59.416798+00:00",
   "promotion_rule": {
     "precision_floor": 0.9,
     "min_true_positives": 1,
@@ -499,38 +499,6 @@
     {
       "source": "owasp-benchmark-java",
       "rule": "fdai.verify.java.sql-injection",
-      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest02648.java",
-      "line": 77,
-      "reason": "argument_provably_constant",
-      "proof": "fdai.java.constant-guard@2; source_sha256=fdd9ae7fc48c660002528ea2eb8224a84a164baef9e52cf7a7a4a8f05a2f5271; line=77"
-    },
-    {
-      "source": "owasp-benchmark-java",
-      "rule": "fdai.verify.java.sql-injection",
-      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01629.java",
-      "line": 55,
-      "reason": "argument_provably_constant",
-      "proof": "fdai.java.constant-guard@2; source_sha256=0cb2953e5d0b42a92f976966f7c925c20461ecda84cf5fcddac447dd83b845ac; line=55"
-    },
-    {
-      "source": "owasp-benchmark-java",
-      "rule": "fdai.verify.java.sql-injection",
-      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01315.java",
-      "line": 53,
-      "reason": "argument_provably_constant",
-      "proof": "fdai.java.constant-guard@2; source_sha256=ac5496ead236996f80698cabfcf20d30c1a84f799a7dad83481c24abbfd3a1b1; line=53"
-    },
-    {
-      "source": "owasp-benchmark-java",
-      "rule": "fdai.verify.java.sql-injection",
-      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01095.java",
-      "line": 58,
-      "reason": "argument_provably_constant",
-      "proof": "fdai.java.constant-guard@2; source_sha256=a3c3eaa30adc8699002f3a0839956dd0994d5cd5212ed35edf2118d7d315046a; line=58"
-    },
-    {
-      "source": "owasp-benchmark-java",
-      "rule": "fdai.verify.java.sql-injection",
       "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00774.java",
       "line": 74,
       "reason": "argument_provably_constant",
@@ -547,34 +515,10 @@
     {
       "source": "owasp-benchmark-java",
       "rule": "fdai.verify.java.sql-injection",
-      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01092.java",
-      "line": 58,
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01315.java",
+      "line": 53,
       "reason": "argument_provably_constant",
-      "proof": "fdai.java.constant-guard@2; source_sha256=7a11a38c847898ee192bfe291d26164cc005546751df354ded99d88fd3d68c20; line=58"
-    },
-    {
-      "source": "owasp-benchmark-java",
-      "rule": "fdai.verify.java.sql-injection",
-      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01628.java",
-      "line": 55,
-      "reason": "argument_provably_constant",
-      "proof": "fdai.java.constant-guard@2; source_sha256=324e8804c318d2ca5a44c9283d56930f796e56601198cdf77b3c76918013ea00; line=55"
-    },
-    {
-      "source": "owasp-benchmark-java",
-      "rule": "fdai.verify.java.sql-injection",
-      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01096.java",
-      "line": 58,
-      "reason": "argument_provably_constant",
-      "proof": "fdai.java.constant-guard@2; source_sha256=62a893d3dbaf217e02fd5795b3d9945f9b3fc79712c07d697c4bb4dbcdddaf6e; line=58"
-    },
-    {
-      "source": "owasp-benchmark-java",
-      "rule": "fdai.verify.java.sql-injection",
-      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest02657.java",
-      "line": 77,
-      "reason": "argument_provably_constant",
-      "proof": "fdai.java.constant-guard@2; source_sha256=592d0264c61152aa2ab27d619b91484d3390593494e3cd2cefd2dc22096aef4e; line=77"
+      "proof": "fdai.java.constant-guard@2; source_sha256=ac5496ead236996f80698cabfcf20d30c1a84f799a7dad83481c24abbfd3a1b1; line=53"
     },
     {
       "source": "owasp-benchmark-java",
@@ -587,10 +531,26 @@
     {
       "source": "owasp-benchmark-java",
       "rule": "fdai.verify.java.sql-injection",
-      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest02544.java",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01095.java",
+      "line": 58,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@2; source_sha256=a3c3eaa30adc8699002f3a0839956dd0994d5cd5212ed35edf2118d7d315046a; line=58"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01096.java",
+      "line": 58,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@2; source_sha256=62a893d3dbaf217e02fd5795b3d9945f9b3fc79712c07d697c4bb4dbcdddaf6e; line=58"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01629.java",
       "line": 55,
       "reason": "argument_provably_constant",
-      "proof": "fdai.java.constant-guard@2; source_sha256=ee891a4cd416ff85fa79621d74bf408c45adaec9d53fc7c9b68b3b813c814183; line=55"
+      "proof": "fdai.java.constant-guard@2; source_sha256=0cb2953e5d0b42a92f976966f7c925c20461ecda84cf5fcddac447dd83b845ac; line=55"
     },
     {
       "source": "owasp-benchmark-java",
@@ -603,16 +563,57 @@
     {
       "source": "owasp-benchmark-java",
       "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest02648.java",
+      "line": 77,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@2; source_sha256=fdd9ae7fc48c660002528ea2eb8224a84a164baef9e52cf7a7a4a8f05a2f5271; line=77"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01628.java",
+      "line": 55,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@2; source_sha256=324e8804c318d2ca5a44c9283d56930f796e56601198cdf77b3c76918013ea00; line=55"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest02544.java",
+      "line": 55,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@2; source_sha256=ee891a4cd416ff85fa79621d74bf408c45adaec9d53fc7c9b68b3b813c814183; line=55"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest02657.java",
+      "line": 77,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@2; source_sha256=592d0264c61152aa2ab27d619b91484d3390593494e3cd2cefd2dc22096aef4e; line=77"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
       "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01732.java",
       "line": 77,
       "reason": "argument_provably_constant",
       "proof": "fdai.java.constant-guard@2; source_sha256=cd61b83bcd62a549c11667bf07bb1262138f96b3cb684632e08226207eac1458; line=77"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01092.java",
+      "line": 58,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@2; source_sha256=7a11a38c847898ee192bfe291d26164cc005546751df354ded99d88fd3d68c20; line=58"
     }
   ],
   "candidate_verifier_version": "1.7.0",
   "frozen_rules_sha256": "a7b7de2acffcf4277851130f295de39c4d1d8644355e4ec54002a53c6fea6686",
   "corpus_sha256": "b2acd7707e3a4dafbc08b97b3a3df5c0fdd863749cfe2a14ef7059c803b670a8",
   "constant_guard": "fdai.java.constant-guard@2",
+  "constant_guard_source_sha256": "01f742407993b085a9db520d22dcfcf42ae38aa01c5f840b77672572a0b07ad6",
   "engine": {
     "name": "Opengrep",
     "version": "1.30.1",

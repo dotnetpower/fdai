@@ -229,6 +229,10 @@ class _Slice:
         ):
             return None
         # Exact qualified JDK construction only; imports/subclasses/custom dispatch are unknown.
+        for imported in (node for node in self.nodes if node.type == "import_declaration"):
+            identifiers = [child for child in _walk(imported) if child.type == "identifier"]
+            if "*" in _text(imported) or (identifiers and _text(identifiers[-1]) == "java"):
+                return None
         if any(
             node.type
             in {

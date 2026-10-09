@@ -17,6 +17,7 @@ or executing project code. It follows:
   constant String keys, standalone `put`, and `get` of a known String value. Unknown keys,
   aliases, escapes, custom dispatch, conditional mutations, and other mutators provide no proof.
   Only a String cast of an already proven String is supported.
+  Source-declared or imported `java` types and unresolved wildcard imports also provide no proof.
 - **Conditions:** Literal arithmetic, Java 32-bit/64-bit integer overflow, signed division and
   remainder, shift masking, comparisons, Boolean short-circuiting, and fixed switch targets.
   Constant string `charAt` and `length` are supported when UTF-16 indexing is unambiguous.
@@ -78,7 +79,7 @@ positives, precision 0.9130 and recall 0.1511. No verifier loses a true positive
 Java SQL remains in shadow because dev precision is below 0.90. Reflection chosen through
 classloader properties remains unknown rather than being treated as a pure local method.
 The [version 2 receipt](managed-verifiers-1.7.0.json) binds the unchanged corpus and rule-pack
-digests, guard version, promoted set, and actual offline engine process observations.
+digests, guard version and source-code digest, promoted set, and actual offline engine process observations.
 
 ## Dependency justification
 

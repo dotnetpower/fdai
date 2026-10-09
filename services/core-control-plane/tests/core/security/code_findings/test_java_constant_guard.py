@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from pathlib import Path
 
 import pytest
@@ -16,6 +18,17 @@ from fdai.delivery import code_security_verifier_eval as evaluation
 from fdai.rule_catalog.code_security_verifiers import load_verifier_catalog
 
 from ._support import CATALOG_ROOT, REVISION, catalog, result, sarif
+
+
+def test_frozen_evaluation_is_bound_to_the_actual_guard_code() -> None:
+    shipped = load_verifier_catalog(CATALOG_ROOT, frozenset(catalog().weakness_classes.classes))
+    receipt = json.loads(
+        (CATALOG_ROOT / "evaluation" / f"managed-verifiers-{shipped.version}.json").read_text()
+    )
+    assert (
+        receipt["constant_guard_source_sha256"]
+        == hashlib.sha256(Path(java_constant_guard.__file__).read_bytes()).hexdigest()
+    )
 
 
 def _source(body: str, helpers: str = "") -> str:
@@ -309,6 +322,23 @@ Object get(K key) {return external();}
 }
 """
     assert _veto(tmp_path, source) is None
+
+
+@pytest.mark.parametrize(
+    "binding",
+    [
+        "import custom.java;",
+        "import custom.java ;",
+        "import custom./* type */java;",
+        "import custom.*;",
+        "import static custom.Owner.*;",
+    ],
+)
+def test_imported_or_unresolved_java_qualifier_cannot_prove_a_jdk_map(
+    tmp_path: Path, binding: str
+) -> None:
+    source = _map_source('values.put("clean", "SELECT 1"); return (String) values.get("clean");')
+    assert _veto(tmp_path, binding + "\n" + source) is None
 
 
 def test_ambiguous_same_line_sinks_do_not_hide_unknown_flow(tmp_path: Path) -> None:
