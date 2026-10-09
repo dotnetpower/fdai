@@ -22,6 +22,7 @@ from typing import Any
 import yaml
 
 from fdai.core.security.code_findings.canonical import AnalysisContext, build_issues
+from fdai.core.security.code_findings.java_constant_guard import java_sql_constant_veto
 from fdai.core.security.code_findings.models import Lane, Occurrence, SourceLocation
 from fdai.core.security.code_findings.verifier import VerifierOutcome, verify_issues
 from fdai.core.security.code_findings.verifier_evaluation import (
@@ -156,7 +157,13 @@ def _relative(path: str) -> str:
 
 
 def _taint_outcomes(
-    engine: str, rules: Path, tree: Path, locations: Sequence[LabeledLocation]
+    engine: str,
+    rules: Path,
+    tree: Path,
+    locations: Sequence[LabeledLocation],
+    *,
+    vetoes: list[dict[str, object]] | None = None,
+    max_file_bytes: int = 1_000_000,
 ) -> tuple[dict[LabeledLocation, LocationOutcome], list[dict[str, object]]]:
     if not locations:
         return {}, []
@@ -170,6 +177,22 @@ def _taint_outcomes(
         for item in document.get("results", [])
         if "fdai.verify." in str(item.get("check_id", ""))
     }
+    for rule, path, line in tuple(hits):
+        if rule != "java.sql-injection":
+            continue
+        proof = java_sql_constant_veto(tree, path, line, max_file_bytes=max_file_bytes)
+        if proof is not None:
+            hits.remove((rule, path, line))
+            if vetoes is not None:
+                vetoes.append(
+                    {
+                        "rule": f"fdai.verify.{rule}",
+                        "path": path,
+                        "line": line,
+                        "reason": "argument_provably_constant",
+                        "proof": proof,
+                    }
+                )
     broken = {
         _relative(str(error["path"]))
         for error in document.get("errors", [])
@@ -217,11 +240,15 @@ def _expand_labels(
 def evaluate_verifiers(args: argparse.Namespace) -> dict[str, object]:
     catalog_root = Path(args.catalog_root).resolve()
     catalog = load_code_security_catalog(catalog_root)
+    verifier_catalog = load_verifier_catalog(
+        catalog_root, frozenset(catalog.weakness_classes.classes)
+    )
     corpus = load_verifier_corpus(yaml.safe_load(Path(args.corpus).read_text(encoding="utf-8")))
     acquirer = GitSourceAcquirer(Path(args.work_root).resolve())
     locations: list[LabeledLocation] = list(corpus.locations)
     outcomes: dict[LabeledLocation, LocationOutcome] = {}
     unlabeled: list[dict[str, object]] = []
+    vetoes: list[dict[str, object]] = []
     for source in corpus.header["sources"]:  # type: ignore[attr-defined]
         source_id = str(source["id"])
         acquired = acquirer.acquire(str(source["repository"]), str(source["commit"]))
@@ -238,14 +265,18 @@ def evaluate_verifiers(args: argparse.Namespace) -> dict[str, object]:
                 str(source["commit"]),
             )
         )
+        source_vetoes: list[dict[str, object]] = []
         taint, extra = _taint_outcomes(
             args.engine,
             catalog_root / "rules" / "verify",
             acquired.path,
             [item for item in mine if item.verifier == "taint"],
+            vetoes=source_vetoes,
+            max_file_bytes=verifier_catalog.limits.max_file_bytes,
         )
         outcomes.update(taint)
         unlabeled.extend({"source": source_id, **item} for item in extra)
+        vetoes.extend({"source": source_id, **item} for item in source_vetoes)
     metrics = verifier_metrics(
         locations,
         outcomes,
@@ -267,6 +298,7 @@ def evaluate_verifiers(args: argparse.Namespace) -> dict[str, object]:
         "promoted": sorted(item.key for item in metrics if item.promoted),
         "shadow": sorted(item.key for item in metrics if not item.promoted),
         "unlabeled_verified": unlabeled,
+        "verifier_vetoes": vetoes,
     }
     if args.output:
         Path(args.output).write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")

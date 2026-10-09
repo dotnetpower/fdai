@@ -1,0 +1,1287 @@
+{
+  "kind": "fdai.code-security.managed-verifier-evidence",
+  "baseline_commit": "3d7eb0d46e64decaf334e0b2dc96eee1687192ba",
+  "candidate_verifier_version": "1.6.0",
+  "evaluated_at": "2026-10-09T06:16:18.428591+00:00",
+  "engine": {
+    "version": "1.30.1",
+    "sha256": "d3195b9d8d5ae93179f6aa5f5daaba6a920a5a09d38c5d5ae5e60924050210c4",
+    "image_id": "sha256:a67eb329812fd1dbad756d052ec3595901e89260f916c7b979f36ba71220d2a8",
+    "network": "none"
+  },
+  "parser": {
+    "tree-sitter": {
+      "version": "0.25.2",
+      "license": "MIT"
+    },
+    "tree-sitter-java": {
+      "version": "0.23.5",
+      "license": "MIT"
+    }
+  },
+  "corpus": {
+    "corpus_id": "fdai.code-security.verifier-real",
+    "version": "1.1.0",
+    "precision_floor": 0.9,
+    "min_true_positives": 1,
+    "sources": [
+      {
+        "id": "nodegoat",
+        "repository": "https://github.com/OWASP/NodeGoat",
+        "commit": "c5cb68a7084e4ae7dcc60e6a98768720a81841e8",
+        "license": "Apache-2.0"
+      },
+      {
+        "id": "juice-shop",
+        "repository": "https://github.com/juice-shop/juice-shop",
+        "commit": "1618a611b173b4bf114028e6e02549950606e29d",
+        "license": "MIT"
+      },
+      {
+        "id": "webgoat",
+        "repository": "https://github.com/WebGoat/WebGoat",
+        "commit": "044948d057b249735be2bfc14eccc9e3dc2eac34",
+        "license": "GPL-2.0"
+      },
+      {
+        "id": "dvcsharp-api",
+        "repository": "https://github.com/appsecco/dvcsharp-api",
+        "commit": "76c1de3c9d8d9c2e8ec0b50abe3b198a4330d7fc",
+        "license": "MIT"
+      },
+      {
+        "id": "pygoat",
+        "repository": "https://github.com/adeyosemanputra/pygoat",
+        "commit": "19d17cc8874861142b330636d068bbde54e86b85",
+        "license": "MIT"
+      },
+      {
+        "id": "vulnerable-node",
+        "repository": "https://github.com/cr0hn/vulnerable-node",
+        "commit": "d68f2a3c9277ece2c2feb9976052033bdecd7fbe",
+        "license": "BSD-3-Clause"
+      },
+      {
+        "id": "dvna",
+        "repository": "https://github.com/appsecco/dvna",
+        "commit": "9ba473add536f66ac9007966acb2a775dd31277a",
+        "license": "MIT"
+      },
+      {
+        "id": "dvna-fixes",
+        "repository": "https://github.com/appsecco/dvna",
+        "commit": "4b16c488839ac5428b9c2573c96d886bee885b02",
+        "license": "MIT"
+      },
+      {
+        "id": "nodejs-goof",
+        "repository": "https://github.com/snyk-labs/nodejs-goof",
+        "commit": "add14ba59e98240d9e00a235dd7d42cd61ae9912",
+        "license": "Apache-2.0"
+      },
+      {
+        "id": "dvws-node",
+        "repository": "https://github.com/snoopysecurity/dvws-node",
+        "commit": "eb6e2886f2206b88bf709fe1fa311adc3ae3c34f",
+        "license": "GPL-3.0"
+      },
+      {
+        "id": "aspgoat",
+        "repository": "https://github.com/Soham7-dev/AspGoat",
+        "commit": "db3153f5dae036a9d67e12be22548299855c6b40",
+        "license": "MIT"
+      },
+      {
+        "id": "notsecdotnet",
+        "repository": "https://github.com/defdeveu/NotSecDotNet",
+        "commit": "1a682c352b2165bf7ec05316f41244e5d8109f02",
+        "license": "GPL-3.0"
+      },
+      {
+        "id": "owasp-benchmark-java",
+        "repository": "https://github.com/OWASP-Benchmark/BenchmarkJava",
+        "commit": "8b67a88d73b2594570fc21150705283de884620b",
+        "license": "GPL-2.0"
+      },
+      {
+        "id": "owasp-benchmark-python",
+        "repository": "https://github.com/OWASP-Benchmark/BenchmarkPython",
+        "commit": "f1291485808b66e20ddb6b01b10dc71b3df8c8ba",
+        "license": "GPL-3.0"
+      }
+    ]
+  },
+  "corpus_sha256": "b2acd7707e3a4dafbc08b97b3a3df5c0fdd863749cfe2a14ef7059c803b670a8",
+  "frozen_rules_sha256": "a7b7de2acffcf4277851130f295de39c4d1d8644355e4ec54002a53c6fea6686",
+  "frozen_guard_inputs": {
+    "services/core-control-plane/src/fdai/core/security/code_findings/java_constant_guard.py": "6df1715c0e65c45332b744fd5189de9d54c19d3a0d466bb252716d54bc7a928a",
+    "services/core-control-plane/src/fdai/core/security/code_findings/java_constant_values.py": "131f0be1fe1751c3b49fbf466431bd88ba5e6d3035267015552f9643561ea171",
+    "services/core-control-plane/src/fdai/core/security/code_findings/verifier.py": "4fe59d822a9f07da870707521b234caff28411ac439304ac172333d2837033ee",
+    "services/core-control-plane/src/fdai/delivery/code_security_verifier_eval.py": "020ae148fa7999d8314aa2d16020e5066acf3c2fdcc0533e3bb2c174d3d592c4",
+    "services/core-control-plane/tests/core/security/code_findings/test_java_constant_guard.py": "15660b4a5014b65e3820e19ad7a2c6ab6d098226576151e989922495c8cb553d",
+    "services/core-control-plane/tests/core/security/code_findings/test_verifier.py": "ec5fbd707520618b6600a553a053c3196b4616c5f6b112e1804922275bae9352",
+    "services/core-control-plane/tests/core/security/code_findings/test_managed_verifiers.py": "c78bfa6e3c690ef4e24adc516519bb044335df3a29ac3396472eb0ffe2c4525b",
+    "services/core-control-plane/pyproject.toml": "2eee8246359a23e8ee8a8ae3661a114f0ca9827019c44d6c6ad894d2753de6cb",
+    "pyproject.toml": "4c15f32dfc113658fac620728b4cd355224ddc9eac2708f2bd4dcab60eb38486",
+    "uv.lock": "821d1f18df51899bba44ca5965162b9ae0d756372b7c26e95508069e1102e4e8"
+  },
+  "labeled_source_inputs": {
+    "nodegoat": "3cfaa7f2ed2dbbc86fdf7471c8cfbe656fe5fbcda9ff1cc15978e5bf9fd01435",
+    "juice-shop": "10f47f941e0ac025118e40215777b6552439e1ae223312bea846773deb143a9c",
+    "webgoat": "022aaea92afe9347b9ac8188f153e572be5beb1f9cfb737217036d674c5d0548",
+    "dvcsharp-api": "ebee6e761a18441fc12d616dfe07ddcfa747d1af2bcb8c0280246f1dd9fbccb8",
+    "pygoat": "27e1677c348cdd93f2cf64e360aa8fd30494ca540842d5be7d1a1de4dd4c9be0",
+    "vulnerable-node": "7e2a4e0c8097bb60ecff30c2630672b2472aa8946261fca619753be5f401071b",
+    "dvna": "ffeda3c1103543345e1a2b569a23a5bd157a42aa5c2b3ed09c9c009a5a0c3e7d",
+    "dvna-fixes": "7973b684e55f563ad541640dd23d2413d79d09efbea0a67bcb6c0102ba32b272",
+    "nodejs-goof": "baeb5932b34e3eaaae089e9d0ea7a8a50578cc752af45cdf6b1f76071f000f3d",
+    "dvws-node": "e38a8a3885f6bf541c76f56e3582c47c4ab42b565488b1a7876c5a2c6ab50c66",
+    "aspgoat": "c31bb3593157cb32081556f1121de765d2a4ed36c30267b4fd1b5805978e3f1b",
+    "notsecdotnet": "63e696ae17d671ed48b52bdba0ca889832cade6413eeafc1b2d68f14aa46e9b8",
+    "owasp-benchmark-java": "f3ff815a110abc19b8c7715f741c83ce1e9867edb623da7b9e5e6de9de4ed014",
+    "owasp-benchmark-python": "9517e21529f8b5e896b1f0553b6bbda09279431526f0c9aae112b5be5725e88a"
+  },
+  "engine_observation_reuse": "1.5.0 stdout and source digests revalidated; rules unchanged; frozen guard rerun on both splits",
+  "tuning": "dev only; guard bytes frozen before holdout analysis; no label changes",
+  "acquisition": "existing pinned public-source cache only; git acquisition rejected",
+  "labels": {
+    "dev": 710,
+    "holdout": 681
+  },
+  "promotion_rule": {
+    "precision_floor": 0.9,
+    "min_true_positives": 1,
+    "splits": [
+      "dev",
+      "holdout"
+    ]
+  },
+  "baseline": [
+    {
+      "key": "fdai.verify.csharp.command-injection",
+      "dev": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": null,
+        "recall": null
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.csharp.path-traversal",
+      "dev": {
+        "true_positives": 2,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": null,
+        "recall": null
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.csharp.sql-injection",
+      "dev": {
+        "true_positives": 2,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": null,
+        "recall": 0.0
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.java.command-injection",
+      "dev": {
+        "true_positives": 2,
+        "false_positives": 0,
+        "false_negatives": 55,
+        "true_negatives": 72,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.0351
+      },
+      "holdout": {
+        "true_positives": 2,
+        "false_positives": 0,
+        "false_negatives": 67,
+        "true_negatives": 53,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.029
+      },
+      "promoted": true
+    },
+    {
+      "key": "fdai.verify.java.path-traversal",
+      "dev": {
+        "true_positives": 5,
+        "false_positives": 2,
+        "false_negatives": 74,
+        "true_negatives": 57,
+        "unsupported": 0,
+        "precision": 0.7143,
+        "recall": 0.0633
+      },
+      "holdout": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 54,
+        "true_negatives": 76,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.0182
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.java.sql-injection",
+      "dev": {
+        "true_positives": 15,
+        "false_positives": 8,
+        "false_negatives": 119,
+        "true_negatives": 110,
+        "unsupported": 0,
+        "precision": 0.6522,
+        "recall": 0.1119
+      },
+      "holdout": {
+        "true_positives": 21,
+        "false_positives": 10,
+        "false_negatives": 118,
+        "true_negatives": 104,
+        "unsupported": 0,
+        "precision": 0.6774,
+        "recall": 0.1511
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.js.code-injection",
+      "dev": {
+        "true_positives": 4,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.5
+      },
+      "promoted": true
+    },
+    {
+      "key": "fdai.verify.js.command-injection",
+      "dev": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 3,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 1,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "promoted": true
+    },
+    {
+      "key": "fdai.verify.js.path-traversal",
+      "dev": {
+        "true_positives": 1,
+        "false_positives": 2,
+        "false_negatives": 0,
+        "true_negatives": 1,
+        "unsupported": 0,
+        "precision": 0.3333,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": null,
+        "recall": 0.0
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.js.sql-injection",
+      "dev": {
+        "true_positives": 6,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 3,
+        "unsupported": 2,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 3,
+        "true_negatives": 4,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.25
+      },
+      "promoted": true
+    },
+    {
+      "key": "python:code_injection",
+      "dev": {
+        "true_positives": 12,
+        "false_positives": 0,
+        "false_negatives": 4,
+        "true_negatives": 18,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.75
+      },
+      "holdout": {
+        "true_positives": 4,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "true_negatives": 15,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.6667
+      },
+      "promoted": true
+    },
+    {
+      "key": "python:command_injection",
+      "dev": {
+        "true_positives": 5,
+        "false_positives": 0,
+        "false_negatives": 3,
+        "true_negatives": 4,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.625
+      },
+      "holdout": {
+        "true_positives": 3,
+        "false_positives": 1,
+        "false_negatives": 4,
+        "true_negatives": 3,
+        "unsupported": 0,
+        "precision": 0.75,
+        "recall": 0.4286
+      },
+      "promoted": false
+    },
+    {
+      "key": "python:path_traversal",
+      "dev": {
+        "true_positives": 17,
+        "false_positives": 0,
+        "false_negatives": 15,
+        "true_negatives": 49,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.5312
+      },
+      "holdout": {
+        "true_positives": 16,
+        "false_positives": 1,
+        "false_negatives": 18,
+        "true_negatives": 54,
+        "unsupported": 0,
+        "precision": 0.9412,
+        "recall": 0.4706
+      },
+      "promoted": true
+    },
+    {
+      "key": "python:sql_injection",
+      "dev": {
+        "true_positives": 3,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "true_negatives": 6,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.6
+      },
+      "holdout": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "true_negatives": 5,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.5
+      },
+      "promoted": true
+    },
+    {
+      "key": "python:unsafe_deserialization",
+      "dev": {
+        "true_positives": 8,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "true_negatives": 18,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.8
+      },
+      "holdout": {
+        "true_positives": 10,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "true_negatives": 18,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.9091
+      },
+      "promoted": true
+    }
+  ],
+  "frozen": [
+    {
+      "key": "fdai.verify.csharp.command-injection",
+      "dev": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": null,
+        "recall": null
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.csharp.path-traversal",
+      "dev": {
+        "true_positives": 2,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": null,
+        "recall": null
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.csharp.sql-injection",
+      "dev": {
+        "true_positives": 2,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": null,
+        "recall": 0.0
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.java.command-injection",
+      "dev": {
+        "true_positives": 2,
+        "false_positives": 0,
+        "false_negatives": 55,
+        "true_negatives": 72,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.0351
+      },
+      "holdout": {
+        "true_positives": 2,
+        "false_positives": 0,
+        "false_negatives": 67,
+        "true_negatives": 53,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.029
+      },
+      "promoted": true
+    },
+    {
+      "key": "fdai.verify.java.path-traversal",
+      "dev": {
+        "true_positives": 5,
+        "false_positives": 2,
+        "false_negatives": 74,
+        "true_negatives": 57,
+        "unsupported": 0,
+        "precision": 0.7143,
+        "recall": 0.0633
+      },
+      "holdout": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 54,
+        "true_negatives": 76,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.0182
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.java.sql-injection",
+      "dev": {
+        "true_positives": 15,
+        "false_positives": 3,
+        "false_negatives": 119,
+        "true_negatives": 115,
+        "unsupported": 0,
+        "precision": 0.8333,
+        "recall": 0.1119
+      },
+      "holdout": {
+        "true_positives": 21,
+        "false_positives": 2,
+        "false_negatives": 118,
+        "true_negatives": 112,
+        "unsupported": 0,
+        "precision": 0.913,
+        "recall": 0.1511
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.js.code-injection",
+      "dev": {
+        "true_positives": 4,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.5
+      },
+      "promoted": true
+    },
+    {
+      "key": "fdai.verify.js.command-injection",
+      "dev": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 3,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 1,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "promoted": true
+    },
+    {
+      "key": "fdai.verify.js.path-traversal",
+      "dev": {
+        "true_positives": 1,
+        "false_positives": 2,
+        "false_negatives": 0,
+        "true_negatives": 1,
+        "unsupported": 0,
+        "precision": 0.3333,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 0,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "true_negatives": 0,
+        "unsupported": 0,
+        "precision": null,
+        "recall": 0.0
+      },
+      "promoted": false
+    },
+    {
+      "key": "fdai.verify.js.sql-injection",
+      "dev": {
+        "true_positives": 6,
+        "false_positives": 0,
+        "false_negatives": 0,
+        "true_negatives": 3,
+        "unsupported": 2,
+        "precision": 1.0,
+        "recall": 1.0
+      },
+      "holdout": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 3,
+        "true_negatives": 4,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.25
+      },
+      "promoted": true
+    },
+    {
+      "key": "python:code_injection",
+      "dev": {
+        "true_positives": 12,
+        "false_positives": 0,
+        "false_negatives": 4,
+        "true_negatives": 18,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.75
+      },
+      "holdout": {
+        "true_positives": 4,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "true_negatives": 15,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.6667
+      },
+      "promoted": true
+    },
+    {
+      "key": "python:command_injection",
+      "dev": {
+        "true_positives": 5,
+        "false_positives": 0,
+        "false_negatives": 3,
+        "true_negatives": 4,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.625
+      },
+      "holdout": {
+        "true_positives": 3,
+        "false_positives": 1,
+        "false_negatives": 4,
+        "true_negatives": 3,
+        "unsupported": 0,
+        "precision": 0.75,
+        "recall": 0.4286
+      },
+      "promoted": false
+    },
+    {
+      "key": "python:path_traversal",
+      "dev": {
+        "true_positives": 17,
+        "false_positives": 0,
+        "false_negatives": 15,
+        "true_negatives": 49,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.5312
+      },
+      "holdout": {
+        "true_positives": 16,
+        "false_positives": 1,
+        "false_negatives": 18,
+        "true_negatives": 54,
+        "unsupported": 0,
+        "precision": 0.9412,
+        "recall": 0.4706
+      },
+      "promoted": true
+    },
+    {
+      "key": "python:sql_injection",
+      "dev": {
+        "true_positives": 3,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "true_negatives": 6,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.6
+      },
+      "holdout": {
+        "true_positives": 1,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "true_negatives": 5,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.5
+      },
+      "promoted": true
+    },
+    {
+      "key": "python:unsafe_deserialization",
+      "dev": {
+        "true_positives": 8,
+        "false_positives": 0,
+        "false_negatives": 2,
+        "true_negatives": 18,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.8
+      },
+      "holdout": {
+        "true_positives": 10,
+        "false_positives": 0,
+        "false_negatives": 1,
+        "true_negatives": 18,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 0.9091
+      },
+      "promoted": true
+    }
+  ],
+  "promoted": [
+    "fdai.verify.java.command-injection",
+    "fdai.verify.js.code-injection",
+    "fdai.verify.js.command-injection",
+    "fdai.verify.js.sql-injection",
+    "python:code_injection",
+    "python:path_traversal",
+    "python:sql_injection",
+    "python:unsafe_deserialization"
+  ],
+  "shadow": [
+    "fdai.verify.csharp.command-injection",
+    "fdai.verify.csharp.path-traversal",
+    "fdai.verify.csharp.sql-injection",
+    "fdai.verify.java.path-traversal",
+    "fdai.verify.java.sql-injection",
+    "fdai.verify.js.path-traversal",
+    "python:command_injection"
+  ],
+  "verifier_vetoes": [
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01095.java",
+      "line": 58,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@1; source_sha256=a3c3eaa30adc8699002f3a0839956dd0994d5cd5212ed35edf2118d7d315046a; line=58"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00772.java",
+      "line": 74,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@1; source_sha256=c4c796ae4c93ca3d847246049b3016dff58523ed23c84d2e281f878ab2f60e2d; line=74"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01092.java",
+      "line": 58,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@1; source_sha256=7a11a38c847898ee192bfe291d26164cc005546751df354ded99d88fd3d68c20; line=58"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01096.java",
+      "line": 58,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@1; source_sha256=62a893d3dbaf217e02fd5795b3d9945f9b3fc79712c07d697c4bb4dbcdddaf6e; line=58"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01315.java",
+      "line": 53,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@1; source_sha256=ac5496ead236996f80698cabfcf20d30c1a84f799a7dad83481c24abbfd3a1b1; line=53"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest00774.java",
+      "line": 74,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@1; source_sha256=9ac90bcedfdff5c076bcbaed59dff9b604688aeec2ab9dc4547f90e992ac65a6; line=74"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest02546.java",
+      "line": 55,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@1; source_sha256=e66900393b4988c38036e19994a047d0977003728d18c0a04e9090e5e25e6e30; line=55"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01629.java",
+      "line": 55,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@1; source_sha256=0cb2953e5d0b42a92f976966f7c925c20461ecda84cf5fcddac447dd83b845ac; line=55"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01973.java",
+      "line": 58,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@1; source_sha256=eb86f280e7accae5a453d900099a9ceb3822796fffaff6e6591f82ccf0fc3862; line=58"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest02657.java",
+      "line": 77,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@1; source_sha256=592d0264c61152aa2ab27d619b91484d3390593494e3cd2cefd2dc22096aef4e; line=77"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest02544.java",
+      "line": 55,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@1; source_sha256=ee891a4cd416ff85fa79621d74bf408c45adaec9d53fc7c9b68b3b813c814183; line=55"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01732.java",
+      "line": 77,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@1; source_sha256=cd61b83bcd62a549c11667bf07bb1262138f96b3cb684632e08226207eac1458; line=77"
+    },
+    {
+      "source": "owasp-benchmark-java",
+      "rule": "fdai.verify.java.sql-injection",
+      "path": "src/main/java/org/owasp/benchmark/testcode/BenchmarkTest01628.java",
+      "line": 55,
+      "reason": "argument_provably_constant",
+      "proof": "fdai.java.constant-guard@1; source_sha256=324e8804c318d2ca5a44c9283d56930f796e56601198cdf77b3c76918013ea00; line=55"
+    }
+  ],
+  "unsupported_labeled_locations": [
+    {
+      "source_id": "juice-shop",
+      "path": "data/static/codefixes/loginAdminChallenge_1.ts",
+      "line": 18,
+      "key": "fdai.verify.js.sql-injection",
+      "split": "dev"
+    },
+    {
+      "source_id": "juice-shop",
+      "path": "data/static/codefixes/loginAdminChallenge_4_correct.ts",
+      "line": 15,
+      "key": "fdai.verify.js.sql-injection",
+      "split": "dev"
+    }
+  ],
+  "observations": [
+    {
+      "variant": "frozen",
+      "revision": "c5cb68a7084e4ae7dcc60e6a98768720a81841e8",
+      "tree_id": "839d7b6856ec6da992d649b2423d5f9fcefdcf1f",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 1.905,
+      "stdout_sha256": "a9ad99183092a6316a1c18b148a1646b2b34c95652f25e90c8316fa289a47824",
+      "stdout_bytes": 5152,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 27,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 1,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "d60dac50d446c014b0a9cd92a635e782ed437ab5d937a1da41e56a5bfdd50f75",
+      "reused_engine_observation": true,
+      "observed_catalog_version": "1.5.0"
+    },
+    {
+      "variant": "frozen",
+      "revision": "1618a611b173b4bf114028e6e02549950606e29d",
+      "tree_id": "339d8833f7111ee1f4ca91fe568d63cb973f2274",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 2.376,
+      "stdout_sha256": "0f57425037ad29f4f428aaf3fa4272fbeda3853dfc5c612ea8e510b9b0f1d7e3",
+      "stdout_bytes": 67623,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 519,
+      "error_count": 12,
+      "errors": [
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginJimChallenge_4.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginBenderChallenge_1.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginAdminChallenge_1.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginBenderChallenge_3.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginBenderChallenge_2_correct.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginAdminChallenge_2.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginAdminChallenge_4_correct.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginJimChallenge_1_correct.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginJimChallenge_2.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginBenderChallenge_4.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginJimChallenge_3.ts"
+        },
+        {
+          "code": 3,
+          "level": "warn",
+          "type": "Syntax error",
+          "path": "data/static/codefixes/loginAdminChallenge_3.ts"
+        }
+      ],
+      "skipped_rules": [],
+      "labeled_files": 14,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "b3f7c94c7144452af0a2992ec5e2db382d198bfe1cc0636ebf07650b3d580294",
+      "reused_engine_observation": true,
+      "observed_catalog_version": "1.5.0"
+    },
+    {
+      "variant": "frozen",
+      "revision": "044948d057b249735be2bfc14eccc9e3dc2eac34",
+      "tree_id": "4acdd66d2e63a09c4255cfd10492f6a7ba05eda4",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 4.815,
+      "stdout_sha256": "5e3ba8764026cba671158501423750462ae75a0d98898cd90f1e006e957a16ff",
+      "stdout_bytes": 38875,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 446,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 2,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "67997ef5febbfe3550ef0ae4cf13443fc1fe1e224279784f25683a7580492759",
+      "reused_engine_observation": true,
+      "observed_catalog_version": "1.5.0"
+    },
+    {
+      "variant": "frozen",
+      "revision": "76c1de3c9d8d9c2e8ec0b50abe3b198a4330d7fc",
+      "tree_id": "bf120b65737712aaae5a9b0c73dd758013471e26",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 1.85,
+      "stdout_sha256": "ba88a76be540e0451754e9a86d9b21ba425f71b940c13c6901706f85496ddb5c",
+      "stdout_bytes": 3346,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 24,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 1,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "94575c0529a153ff68fa899b2fb69fc6bfe072edd488e9c0e67c09131f583396",
+      "reused_engine_observation": true,
+      "observed_catalog_version": "1.5.0"
+    },
+    {
+      "variant": "frozen",
+      "revision": "d68f2a3c9277ece2c2feb9976052033bdecd7fbe",
+      "tree_id": "ae60d3ff48363da9685c553e45505a037fe56935",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 1.929,
+      "stdout_sha256": "d53ce1f8cccf0043fec8007a4163ffc9f3cf5eebb90a099018ac58c7f5710f1a",
+      "stdout_bytes": 10922,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 35,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 5,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "31e412048d2f87664c0c8bec15796a444cb503273c3d239bee656bf61c311fe9",
+      "reused_engine_observation": true,
+      "observed_catalog_version": "1.5.0"
+    },
+    {
+      "variant": "frozen",
+      "revision": "9ba473add536f66ac9007966acb2a775dd31277a",
+      "tree_id": "fb11a01b9c97ec7b979386ddeb5c396783fef1a8",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 1.951,
+      "stdout_sha256": "abd15340ee6a4e6eb1bfc40af09dbc6ff912c2560ffe04088c05f40c4fa11625",
+      "stdout_bytes": 1808,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 12,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 1,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "61c7f001b8495096cc6d97f8edf187d3a22d46a455f4efeace58cfa8b00cf436",
+      "reused_engine_observation": true,
+      "observed_catalog_version": "1.5.0"
+    },
+    {
+      "variant": "frozen",
+      "revision": "4b16c488839ac5428b9c2573c96d886bee885b02",
+      "tree_id": "52dbbccc7ec74432f588d5190fbb6623fb791658",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 1.91,
+      "stdout_sha256": "022f9536bbc28ed49a2e4a381674deca77c900da90cebf379dbc84a5f85eccb2",
+      "stdout_bytes": 381,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 14,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 1,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "627c8d60c91318a27bea9df8900ce164b58af9de8f7d4ba1be2f99392d10f75e",
+      "reused_engine_observation": true,
+      "observed_catalog_version": "1.5.0"
+    },
+    {
+      "variant": "frozen",
+      "revision": "add14ba59e98240d9e00a235dd7d42cd61ae9912",
+      "tree_id": "591448f43fd380f78309f987bd17d53901c65594",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 1.893,
+      "stdout_sha256": "4eaa67af1b696174b6123ad57c037ebadf2739b268df436a2a780ec2b9316b42",
+      "stdout_bytes": 2001,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 9,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 1,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "143350c1da268f0bc0ede71ca71e2ce1e854891ec887a8722de3586d51b483a5",
+      "reused_engine_observation": true,
+      "observed_catalog_version": "1.5.0"
+    },
+    {
+      "variant": "frozen",
+      "revision": "eb6e2886f2206b88bf709fe1fa311adc3ae3c34f",
+      "tree_id": "f1ba8dac0dc5d1870ec7057aac04c5498327f763",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 1.865,
+      "stdout_sha256": "09362a2943465e4a7c073318bc9a67201f29eb5ad4c659b692b5efe44c2d6444",
+      "stdout_bytes": 7126,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 36,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 3,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "d22687331f422b81454b4ff5e534f39d8fb76368061eac65db2c48d8c5347ef3",
+      "reused_engine_observation": true,
+      "observed_catalog_version": "1.5.0"
+    },
+    {
+      "variant": "frozen",
+      "revision": "db3153f5dae036a9d67e12be22548299855c6b40",
+      "tree_id": "647811ff5a856b62002f32a77071e7a78c5e9bee",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 1.882,
+      "stdout_sha256": "b4e9ec4c6b2ba1cde0a56cb4d24af84d9dcb3c9459daff5a6b76dafbd6b4f914",
+      "stdout_bytes": 12576,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 34,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 1,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "248bece9efd81d7c6d8fb9151fc9eee942d6ff43b235d6cbc73b512cc10d4606",
+      "reused_engine_observation": true,
+      "observed_catalog_version": "1.5.0"
+    },
+    {
+      "variant": "frozen",
+      "revision": "1a682c352b2165bf7ec05316f41244e5d8109f02",
+      "tree_id": "9ce3db2acbc16ef5bb25209ae7cac3794ac7d94f",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 1.89,
+      "stdout_sha256": "b08cb9e597718ed9bfd7ec9214ca68228b671d86967cd251a09f30fd069512ab",
+      "stdout_bytes": 1715,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 37,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 2,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "f4bfba879f8b03adb71a440ce0f600e8cd8cfef035a8042576a895d2af5970f2",
+      "reused_engine_observation": true,
+      "observed_catalog_version": "1.5.0"
+    },
+    {
+      "variant": "frozen",
+      "revision": "8b67a88d73b2594570fc21150705283de884620b",
+      "tree_id": "7e0d19b53ef3fa6d1065dc20f9722a6708af6963",
+      "engine_exit_code": 0,
+      "elapsed_seconds": 6.489,
+      "stdout_sha256": "afdbd2a9ce544c5767407c3c1f66c856ecf1fac22ac0d92f609d710e27f3ab53",
+      "stdout_bytes": 360122,
+      "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "scanned_files": 2770,
+      "error_count": 0,
+      "errors": [],
+      "skipped_rules": [],
+      "labeled_files": 1023,
+      "all_labeled_files_observed": true,
+      "scanned_input_sha256": "806f3343f078abdcf97a3fc639dd215362ccb62c84d146a52bca6721f0cd6746",
+      "reused_engine_observation": true,
+      "observed_catalog_version": "1.5.0"
+    }
+  ],
+  "frozen_unlabeled_verified_count": 6,
+  "labeled_inputs_unchanged_after_analysis": true,
+  "external_label_sha256": {
+    "owasp-benchmark-java": {
+      "path": "expectedresults-1.2.csv",
+      "sha256": "1809f6a690c6cf7dd6685df6ebe2eef8fe3ca93d19a7ca0ce45987ca4f5d78e1"
+    },
+    "owasp-benchmark-python": {
+      "path": "expectedresults-0.1.csv",
+      "sha256": "6396f37c97cfd0c018db3d8750095ce6c678a083f83620cfb3e88fe27a46bb0c"
+    }
+  },
+  "java_sql_guard_summary": {
+    "raw_engine_hits": 54,
+    "constant_vetoes": 13,
+    "unknown_fallback_hits": 41,
+    "removed_labeled_true_positives": 0,
+    "dev_false_positives_removed": 5,
+    "holdout_false_positives_removed": 8
+  }
+}

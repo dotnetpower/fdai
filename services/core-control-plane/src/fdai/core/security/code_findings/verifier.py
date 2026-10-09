@@ -23,6 +23,7 @@ from enum import StrEnum
 from pathlib import Path
 
 from fdai.core.security.code_findings import verifier_lists as lists
+from fdai.core.security.code_findings.java_constant_guard import java_sql_constant_veto
 from fdai.core.security.code_findings.models import CodeSecurityIssue, Lane, Occurrence
 from fdai.core.security.code_findings.verifier_constants import (
     UNKNOWN,
@@ -647,13 +648,17 @@ def taint_rule_verifications(
     issues: Sequence[CodeSecurityIssue],
     occurrences: Sequence[Occurrence],
     catalog: VerifierCatalog,
+    *,
+    repository: Path | None = None,
 ) -> tuple[VerifierResult, ...]:
     """Verify issues that an FDAI taint-mode verifier rule confirmed at the same fix site.
 
     Only deterministic-lane occurrences from an Opengrep or Semgrep run count, so external SARIF
     can't claim verification by naming a rule. The rule pack digest in the coverage receipt binds
     the exact rules that produced the hit. A rule the catalog hasn't promoted records its hit as
-    ``verifier_in_shadow`` without raising confidence.
+    ``verifier_in_shadow`` without raising confidence. Java SQL hits additionally use the same
+    constant-flow veto as evaluation when ``repository`` is the exact acquired source tree.
+    A promoted Java SQL verifier cannot grant confidence without that source binding.
     """
     by_id = {occ.occurrence_id: occ for occ in occurrences}
     results: list[VerifierResult] = []
@@ -668,14 +673,37 @@ def taint_rule_verifications(
             if match is None:
                 continue
             promoted = catalog.promoted(f"fdai.verify.{match['language']}.{match['rule']}")
+            outcome = VerifierOutcome.VERIFIED if promoted else VerifierOutcome.NOT_VERIFIED
+            reason = "attacker_controlled_flow" if promoted else "verifier_in_shadow"
+            provenance = f"taint rule {occ.rule_id} ({occ.producer} {occ.producer_version})"
+            if match["language"] == "java" and match["rule"] == "sql-injection":
+                fix_line = issue.fix_site.start_line
+                if (repository is None or fix_line is None) and promoted:
+                    outcome = VerifierOutcome.NOT_VERIFIED
+                    reason = (
+                        "java_constant_guard_source_unavailable"
+                        if repository is None
+                        else "java_constant_guard_fix_site_unavailable"
+                    )
+                elif repository is not None and fix_line is not None:
+                    proof = java_sql_constant_veto(
+                        repository,
+                        issue.fix_site.path,
+                        fix_line,
+                        max_file_bytes=catalog.limits.max_file_bytes,
+                    )
+                    if proof is not None:
+                        outcome = VerifierOutcome.NOT_VERIFIED
+                        reason = "argument_provably_constant"
+                        provenance = f"{provenance}; {proof}"
             results.append(
                 VerifierResult(
                     issue.issue_id,
-                    VerifierOutcome.VERIFIED if promoted else VerifierOutcome.NOT_VERIFIED,
-                    "attacker_controlled_flow" if promoted else "verifier_in_shadow",
+                    outcome,
+                    reason,
                     TAINT_VERIFIER_VERSION,
                     sink=f"{match['language']}:{match['rule']}",
-                    source=f"taint rule {occ.rule_id} ({occ.producer} {occ.producer_version})",
+                    source=provenance,
                 )
             )
             break

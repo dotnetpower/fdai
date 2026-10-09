@@ -3,6 +3,8 @@
 This report records the bounded Java and C# verifier changes in catalog version 1.5.0.
 Use it with the [machine-readable evidence](managed-verifiers-1.5.0.json) to distinguish
 improved source and sink coverage from verified precision. No additional verifier is promoted.
+This is historical evidence; the subsequent [1.6.0 Java constant guard](java-constant-guard.md)
+uses the same rules with a shared runtime/evaluation AST veto.
 
 ## What changed
 

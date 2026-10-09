@@ -44,8 +44,10 @@ def test_managed_verifier_improvements_do_not_bypass_shadow_gate(
 
 
 def test_managed_verifier_receipt_binds_frozen_rules_and_promotion() -> None:
-    receipt = json.loads((CATALOG_ROOT / "evaluation" / "managed-verifiers-1.5.0.json").read_text())
     shipped = load_verifier_catalog(CATALOG_ROOT, frozenset(catalog().weakness_classes.classes))
+    receipt = json.loads(
+        (CATALOG_ROOT / "evaluation" / f"managed-verifiers-{shipped.version}.json").read_text()
+    )
     assert receipt["candidate_verifier_version"] == shipped.version
     assert set(receipt["promoted"]) == set(shipped.promotion.promoted)
     rule_files = sorted((CATALOG_ROOT / "rules" / "verify").glob("*.yaml"))
