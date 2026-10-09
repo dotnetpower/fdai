@@ -69,13 +69,14 @@ def test_invalid_native_observations_are_not_silently_omitted(value: object) -> 
         _MODULE.build_sbom(versions, binary_digest="a" * 64, archive_digest="b" * 64)
 
 
-def test_cli_hashes_actual_bytes_and_writes_standard_inventory(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize("observation_bytes", [0, 8192, 8193])
+def test_cli_hashes_actual_bytes_and_enforces_observation_limit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, observation_bytes: int
 ) -> None:
     import sys
 
     versions = tmp_path / "versions.json"
-    versions.write_text(json.dumps(_VERSIONS))
+    versions.write_text(json.dumps(_VERSIONS).ljust(observation_bytes))
     binary = tmp_path / "node"
     binary.write_bytes(b"controlled-binary-bytes")
     output = tmp_path / "inventory.cdx.json"
@@ -94,9 +95,23 @@ def test_cli_hashes_actual_bytes_and_writes_standard_inventory(
             str(output),
         ],
     )
+    if observation_bytes > 8192:
+        with pytest.raises(ValueError, match="exceeds 8192 bytes"):
+            _MODULE.main()
+        assert not output.exists()
+        return
     _MODULE.main()
     result = json.loads(output.read_text())
     assert (
         result["metadata"]["component"]["hashes"][0]["content"]
         == hashlib.sha256(binary.read_bytes()).hexdigest()
     )
+
+
+def test_observation_field_count_limit_is_exact() -> None:
+    versions = {**_VERSIONS, **{f"native_{index}": "1.0.0" for index in range(58)}}
+    assert len(versions) == 64
+    _MODULE.build_sbom(versions, binary_digest="a" * 64, archive_digest="b" * 64)
+    versions["one_too_many"] = "1.0.0"
+    with pytest.raises(ValueError, match="bounded ASCII string map"):
+        _MODULE.build_sbom(versions, binary_digest="a" * 64, archive_digest="b" * 64)

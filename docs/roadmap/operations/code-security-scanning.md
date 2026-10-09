@@ -179,8 +179,8 @@ remaining Debian and execution-venue kernel findings stay separate from this rep
 The prover also carries `/usr/share/fdai/node-runtime.cdx.json`, generated from the trusted
 runtime's reported versions and the exact executable SHA-256. Its CycloneDX scope is explicitly
 `embedded-npm-only`: Acorn, Amaro, and Undici have NPM identifiers; other reported fields remain
-unassessed metadata. A normal image scan does not discover those statically embedded NPM
-components, so inspect this inventory separately:
+unassessed metadata. Packaging this inventory lets the normal image scan discover those
+statically embedded NPM components. Inspect its scoped contents separately as a cross-check:
 
 ```bash
 container=$(docker create "$PROVER_IMAGE")

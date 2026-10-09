@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: 008b61d579b51d4e64c1103a446c2a01c44d4088
+translation_source_sha: 5bf523b41874a8a9e0613de187c358a705c3e46f
 translation_revised: 2026-10-10
 ---
 
@@ -178,8 +178,8 @@ JavaScript 런타임은 체크섬으로 고정한 공식 Node.js 24.21.0 LTS 바
 prover에는 신뢰하는 런타임의 버전 관측값과 실제 실행 파일 SHA-256으로 생성한
 `/usr/share/fdai/node-runtime.cdx.json`도 포함됩니다. CycloneDX 범위는 `embedded-npm-only`로
 명시합니다. Acorn, Amaro, Undici에는 NPM 식별자가 있고, 나머지 관측 필드는 아직 평가하지 않은
-메타데이터로 보존합니다. 일반 이미지 검사는 이렇게 정적으로 내장된 NPM 구성요소를 발견하지
-못하므로 이 목록을 별도로 검사합니다.
+메타데이터로 보존합니다. 이 목록을 이미지에 포함하면 일반 이미지 검사도 정적으로 내장된 NPM
+구성요소를 발견할 수 있습니다. 범위를 제한한 목록의 내용을 별도로 검사해 교차 확인합니다.
 
 ```bash
 container=$(docker create "$PROVER_IMAGE")
