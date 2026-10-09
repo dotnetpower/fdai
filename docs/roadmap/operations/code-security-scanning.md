@@ -46,6 +46,28 @@ network access. It writes `opengrep.sarif`, `gitleaks.sarif`, and `receipt.json`
 
 ## Scanner sandbox
 
+### Prepared-source handoff
+
+The acquire-to-scan boundary uses `prepare-scan` followed by
+`scan --prepared-source DIR --prepared-digest SHA256`. Acquisition exports only the extracted
+tree and a versioned manifest: alias, exact revision, tree id, source attribution, and a digest
+over relative file names, executable bits, and contents. Keep the returned manifest digest
+outside the scanner's writable volume. The scanner compares it with the manifest and checks the
+tree before and after scanning. A changed tree, symlink, special file, `.git` directory, or
+oversized input stops the prepared scan explicitly; nothing is silently omitted.
+
+The prepared tree is read-only, contains no acquisition credentials, and can be mounted at a
+different path in a credential-free scanner process. Prepared mode does not fetch source, enable
+live lenses, publish to the bus, or write to the state store. It writes local reports, SARIF,
+and receipts only. Existing local and combined worker scans keep their current behavior.
+
+This handoff implements the first boundary of the proposed deployed runtime, not its complete
+orchestration. A checksum binds input bytes; it does not attest scanner completion or make an
+untrusted result authoritative. Independent completion evidence, the result-recording boundary,
+minimum-permission state access, and Kata job orchestration remain deployment prerequisites.
+
+### Scanner process controls
+
 Each scanner runs as one bubblewrap process with:
 
 | Control | Setting |
@@ -239,13 +261,18 @@ image starts it with `fdai-scan-runner process-requests`.
 ### Scheduled scans
 
 `fdai-code-security process-scheduled-scans --max-repositories N` scans the enabled registrations
-in alias order at their default refs with the same runner, credentials, and sandbox as the request
+in rotating alias order at their default refs with the same runner, credentials, and sandbox as the request
 worker. It records each review with trigger `schedule` and no request id, and publishes it when a
 bus is bound. Each repository ends as `published`, `failed` with the request worker's
 `source_unavailable`, `scan_failed`, or `review_conflict` reason, or `deferred` with
 `schedule_capacity` when more repositories are enabled than the batch allows. One failure doesn't
 stop the others, and the command reports `ok: false` when any scanned repository failed. The scan
 runner image starts it with `fdai-scan-runner process-schedule`.
+
+A durable cursor advances after each terminal repository attempt, including a failed attempt.
+The next invocation resumes after that alias and wraps to the beginning. Bounded batches therefore
+do not repeatedly scan only the first aliases while leaving later registrations deferred forever.
+Run one schedule coordinator at a time, as required by the proposed `CronJob` concurrency policy.
 
 Example: on 2026-10-09 a run with `--max-repositories 1` against a throwaway database scanned the
 public OWASP NodeGoat registration at `HEAD`. It resolved commit `c5cb68a7` and recorded 202

@@ -20,6 +20,7 @@ from pathlib import Path
 
 from fdai.core.security.code_findings.review_signal import ReviewSource, review_decision
 from fdai.delivery.code_security_acquire import GitSourceAcquirer
+from fdai.delivery.code_security_prepared_source import PreparedSource, load_prepared_source
 from fdai.delivery.code_security_review_cli import pairs
 from fdai.delivery.code_security_sandbox import BubblewrapScannerSandbox
 from fdai.delivery.code_security_scan_job import (
@@ -42,6 +43,8 @@ def add_scan_command(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -
     scan.add_argument("--repository", help="git URL or local repository to scan at --revision")
     scan.add_argument("--revision", help="full commit id, branch, or tag of --repository")
     scan.add_argument("--path", help="local folder to scan instead of --repository")
+    scan.add_argument("--prepared-source", help="credential-free handoff produced by prepare-scan")
+    scan.add_argument("--prepared-digest", help="manifest SHA-256 retained by the acquire caller")
     scan.add_argument(
         "--include-uncommitted",
         action="store_true",
@@ -70,7 +73,7 @@ def add_scan_command(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -
     scan.add_argument(
         "--prove",
         action="store_true",
-        help="opt in to the proof lane: run verified Python findings in a disposable sandbox",
+        help="opt in to reproduce eligible findings with the configured proof toolchains",
     )
     scan.add_argument("--prove-python", default="/usr/bin/python3")
     scan.add_argument(
@@ -139,7 +142,8 @@ def scan_target(args: argparse.Namespace) -> tuple[str, ReviewSource]:
 
 
 async def run_scan(args: argparse.Namespace) -> dict[str, object]:
-    alias, source = scan_target(args)
+    prepared = _prepared_target(args)
+    alias, source = (prepared.repository_alias, prepared.source) if prepared else scan_target(args)
     args.repo_alias = alias
     catalog_root = Path(args.catalog_root)
     executables = {key: Path(value).resolve() for key, value in pairs(args.scanner_bin).items()}
@@ -147,6 +151,11 @@ async def run_scan(args: argparse.Namespace) -> dict[str, object]:
     unknown = set(executables) - set(scanners.scanners)
     if unknown:
         raise ValueError(f"unknown scanners: {', '.join(sorted(unknown))}")
+    if prepared and any(
+        executable.is_relative_to(prepared.acquired.path.resolve())
+        for executable in executables.values()
+    ):
+        raise ValueError("prepared repository code cannot be a scanner executable")
     publisher = None
     if args.kafka_bootstrap_servers:
         from fdai.delivery.code_security_publish_cli import heimdall_publisher
@@ -155,8 +164,18 @@ async def run_scan(args: argparse.Namespace) -> dict[str, object]:
     lens_catalog = load_lens_catalog(catalog_root) if args.lens_model else None
     async with open_lens_models(args.lens_model, lens_catalog, args.lens_identity) as lens_models:
         result = await _run(
-            args, catalog_root, executables, scanners, publisher, lens_catalog, lens_models, source
+            args,
+            catalog_root,
+            executables,
+            scanners,
+            publisher,
+            lens_catalog,
+            lens_models,
+            source,
+            prepared=prepared,
         )
+    if prepared:
+        prepared.verify_tree()
     lens = result.lens_report
     recorded = False
     if args.record_state:
@@ -189,6 +208,7 @@ async def run_scan(args: argparse.Namespace) -> dict[str, object]:
         "revision": result.revision,
         "revision_kind": result.revision_kind,
         "tree_id": result.tree_id,
+        **({"prepared_manifest_digest": prepared.manifest_digest} if prepared else {}),
         "issues": len(result.issues),
         "decision": review_decision(result.package),
         "coverage_complete": result.package["coverage_complete"],
@@ -208,6 +228,37 @@ async def run_scan(args: argparse.Namespace) -> dict[str, object]:
         "export_sarif_args": list(sarif_specs(result)),
         "report": report,
     }
+
+
+def _prepared_target(args: argparse.Namespace) -> PreparedSource | None:
+    root, digest = getattr(args, "prepared_source", None), getattr(args, "prepared_digest", None)
+    if not root:
+        if digest:
+            raise ValueError("--prepared-digest requires --prepared-source")
+        return None
+    if not digest:
+        raise ValueError("--prepared-source requires --prepared-digest")
+    if any(
+        (
+            args.path,
+            args.repository,
+            args.revision,
+            args.include_uncommitted,
+            args.repo_alias,
+            args.source_provider,
+            args.record_state,
+            args.kafka_bootstrap_servers,
+            args.lens_model,
+        )
+    ):
+        raise ValueError(
+            "prepared scanning cannot acquire, override attribution, record, or publish"
+        )
+    prepared = load_prepared_source(Path(root), digest)
+    for output in (args.work_root, args.report):
+        if output and Path(output).resolve().is_relative_to(Path(root).resolve()):
+            raise ValueError("prepared scan outputs must be outside the handoff")
+    return prepared
 
 
 @asynccontextmanager
@@ -267,12 +318,20 @@ async def _run(
     lens_catalog: LensCatalog | None,
     lens_models: list[CodeSecurityLensModel],
     source: ReviewSource,
+    *,
+    prepared: PreparedSource | None = None,
 ) -> ScanJobResult:
     catalog = load_code_security_catalog(catalog_root)
     known = frozenset(catalog.weakness_classes.classes)
-    acquirer = GitSourceAcquirer(Path(args.work_root).resolve())
+    acquirer = None if prepared else GitSourceAcquirer(Path(args.work_root).resolve())
     local_path = Path(args.path).resolve() if args.path else None
-    revision = "" if local_path else acquirer.resolve_revision(args.repository, args.revision)
+    revision = (
+        prepared.acquired.revision
+        if prepared
+        else acquirer.resolve_revision(args.repository, args.revision)
+        if acquirer is not None and local_path is None
+        else ""
+    )
     return await run_scan_job(
         ScanJobConfig(
             repository=args.repository or "",
@@ -292,6 +351,7 @@ async def _run(
         scanners=scanners,
         acquirer=acquirer,
         sandbox=BubblewrapScannerSandbox(Path(args.bwrap)),
+        prepared_source=prepared,
         publisher=publisher,
         lens_catalog=lens_catalog,
         lens_models=lens_models,
