@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 0792f18c78ef09c300605c905c1d31532b1b62a2
+translation_source_sha: a5095793e7b09f055f656c2d8fe215eedd0fb9d8
 translation_revised: 2026-10-09
 ---
 # 프로젝트 구조
@@ -635,7 +635,10 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
 `code_security_review_projection.py`와 `code_security_issue_projection.py`이고, Console 경로는 요청,
 등록, 이슈 상세 모듈을 갖춘 `routes/code-security.tsx`입니다. 핵심 control-plane 패키지는
 `fdai.delivery.code_security_cli:main`에서 지원되는 `fdai-code-security` 실행 파일을 제공하며,
-컨테이너와 로컬 패키지 호출이 같은 진입점을 사용합니다. 스캔 실행 이미지는 코어 이미지 옆의 `docker/code-security-scanner.Dockerfile`입니다. 큐레이션 평가 자료의
+컨테이너와 로컬 패키지 호출이 같은 진입점을 사용합니다. Core 소유 마이그레이션
+`core_code_security_role_20261009`는 공유 테이블 접근 권한 없이
+`PostgresCodeSecurityStateStore`와 요청 큐에 범위가 제한된 데이터베이스 함수를 제공합니다.
+스캔 실행 이미지는 코어 이미지 옆의 `docker/code-security-scanner.Dockerfile`입니다. 큐레이션 평가 자료의
 코드 사례와 의존성 사례를 포함한 레이블 평가 자료는 `rule-catalog/code-security/evaluation/`에 있으며,
 순수 함수로 이루어진 `evaluation.py` 평가 도구가 측정합니다.
 [코드 보안 점검 결과](../operations/code-security-findings-ko.md)를 참조하세요.

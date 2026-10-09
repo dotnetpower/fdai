@@ -20,7 +20,7 @@ _RENAME_TABLE = re.compile(
     re.IGNORECASE,
 )
 _DDL_TABLE = re.compile(
-    r"(?:CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?|ALTER\s+TABLE|DROP\s+TABLE"
+    r"\b(?:CREATE\s+TABLE(?:\s+IF\s+NOT\s+EXISTS)?|ALTER\s+TABLE|DROP\s+TABLE"
     r"|TRUNCATE(?:\s+TABLE)?|INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+"
     r"(?:public\.)?([a-zA-Z_][a-zA-Z0-9_]*)",
     re.IGNORECASE,
@@ -30,7 +30,7 @@ _TRIGGER_TABLE = re.compile(
     r"(?:public\.)?([a-zA-Z_][a-zA-Z0-9_]*)",
     re.IGNORECASE | re.DOTALL,
 )
-_SQL_NON_TABLE_TOKENS = frozenset({"OF", "ON", "SET", "TABLE"})
+_SQL_NON_TABLE_TOKENS = frozenset({"OF", "ON", "SET", "TABLE", "SKIP", "NOWAIT"})
 _TABLE_ARG_BY_OPERATION = {
     "add_column": 0,
     "alter_column": 0,

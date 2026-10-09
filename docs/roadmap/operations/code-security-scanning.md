@@ -360,9 +360,24 @@ stop scanning. Scan pods mount the current snapshot read-only, and each receipt 
 database versions, digests, and age.
 
 **State-store privilege.** Code-security records and the proposal outbox share the generic
-`state_kv` table today, so a database role can't be limited to them by table grants. Least
-privilege needs dedicated tables, row-level security on the key prefixes, or a bounded service API
-first, with a test proving that the worker identity can't read or change unrelated keys.
+`state_kv` table, so the worker does not receive table grants. The Core migration
+`core_code_security_role_20261009` installs fixed-parameter `SECURITY DEFINER` functions and the
+`fdai_code_security_worker` role. `process-scan-requests --state-access restricted` and
+`process-scheduled-scans --state-access restricted` assume that role for every database connection,
+including inherited adapter operations. The deployment grants role membership to its dedicated
+worker login; missing membership or migration fails without falling back to Core.
+
+The functions allow only code-security registration, review, issue-detail, and schedule keys.
+Reviews and issue details are insert-only. The outbox functions claim and close only the two
+code-security operation types with lease and claim-id checks. The audit functions expose the
+current hash anchor, not audit payloads, and append only bounded Heimdall registration events
+with no execution authority. State changes and audit appends remain one transaction.
+Existing Core and Operator access is unchanged, so the Console keeps reading the same records.
+Real validation-database tests prove unrelated state, raw table reads, broad audit access, and
+other proposal operations are inaccessible, including through inherited adapter methods.
+
+The legacy local binding remains `--state-access core` by default for compatibility. Deployed
+isolated workers explicitly select `restricted`; this does not yet supply their Kata orchestration.
 
 **Evidence and failures.** The record step wires the bus publisher explicitly. A job attempt that
 fails before a receipt exists, during preparation, acquisition, or scheduling, writes a durable

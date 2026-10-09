@@ -87,6 +87,12 @@ def add_repository_commands(sub: argparse._SubParsersAction[argparse.ArgumentPar
 
 
 def _add_worker_arguments(worker: argparse.ArgumentParser) -> None:
+    worker.add_argument(
+        "--state-access",
+        choices=("core", "restricted"),
+        default="core",
+        help="restricted uses code-security database capabilities without shared-table access",
+    )
     worker.add_argument("--work-root", default=str(default_work_root()))
     worker.add_argument("--scanner-bin", action="append", default=[], help="SCANNER=EXECUTABLE")
     worker.add_argument("--required-scanner", action="append", default=[])
@@ -109,10 +115,20 @@ def _state_store_dsn() -> str:
 
 
 @asynccontextmanager
-async def _open_store() -> AsyncIterator[StateStore]:
+async def _open_store(*, restricted: bool = False) -> AsyncIterator[StateStore]:
     from fdai.delivery.persistence.postgres import PostgresStateStore, PostgresStateStoreConfig
 
-    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=_state_store_dsn()))
+    store: PostgresStateStore
+    if restricted:
+        from fdai.delivery.persistence.postgres_code_security_state import (
+            PostgresCodeSecurityStateStore,
+        )
+
+        store = PostgresCodeSecurityStateStore(
+            config=PostgresStateStoreConfig(dsn=_state_store_dsn())
+        )
+    else:
+        store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=_state_store_dsn()))
     try:
         yield store
     finally:
@@ -251,9 +267,11 @@ async def run_process_scan_requests(args: argparse.Namespace) -> dict[str, objec
     runner = _scan_runner(args)
     publisher = _publisher(args)
     queue = PostgresCodeSecurityScanRequestQueue(
-        PostgresCodeSecurityScanRequestQueueConfig(dsn=_state_store_dsn())
+        PostgresCodeSecurityScanRequestQueueConfig(
+            dsn=_state_store_dsn(), restricted_access=args.state_access == "restricted"
+        )
     )
-    async with _open_store() as store:
+    async with _open_store(restricted=args.state_access == "restricted") as store:
         outcomes = await process_scan_requests(
             queue,
             store,
@@ -268,7 +286,7 @@ async def run_process_scan_requests(args: argparse.Namespace) -> dict[str, objec
 async def run_process_scheduled_scans(args: argparse.Namespace) -> dict[str, object]:
     runner = _scan_runner(args)
     publisher = _publisher(args)
-    async with _open_store() as store:
+    async with _open_store(restricted=args.state_access == "restricted") as store:
         outcomes = await process_scheduled_scans(
             store,
             runner,

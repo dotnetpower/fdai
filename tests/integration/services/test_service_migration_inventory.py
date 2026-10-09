@@ -575,6 +575,15 @@ def test_forward_revision_requires_rollback_metadata(tmp_path: Path) -> None:
         inventory_module.load_revision_metadata(revision)
 
 
+def test_function_parameters_and_row_lock_keywords_are_not_owned_tables() -> None:
+    assert inventory_module._sql_tables(
+        "CREATE FUNCTION example(p_update JSONB) RETURNS VOID AS $$ "
+        "SELECT key FROM public.state_kv FOR UPDATE SKIP LOCKED; "
+        "UPDATE public.state_kv SET value = p_update; "
+        "SELECT key FROM public.audit_log FOR UPDATE NOWAIT; $$ LANGUAGE plpgsql;"
+    ) == {"state_kv"}
+
+
 def test_forward_revision_rejects_ddl_for_an_unowned_table(tmp_path: Path) -> None:
     revision = tmp_path / "unowned_table.py"
     revision.write_text(

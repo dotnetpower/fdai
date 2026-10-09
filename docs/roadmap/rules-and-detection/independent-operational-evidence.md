@@ -71,6 +71,10 @@ evidence and can't complete a read or satisfy a decision source.
 
 ## Current state and gap
 
+The restricted code-security worker role is a bounded source writer, not this verifier. Its
+database capabilities preserve code-security review and registration records without direct
+shared-table access; neither those grants nor its audit hash anchor issue operational admissions.
+
 Core paths are relative to `services/core-control-plane/src/fdai/`; other paths are repository-relative. This
 section records the gap the design closes as reviewed; [Implementation notes](#implementation-notes) describe what
 now exists.

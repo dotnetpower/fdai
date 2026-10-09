@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 21b8db4fbc74e6a6ed5970cc9c3549c2c2131e35
+translation_source_sha: 62c753f5f83ea82ce98491e84d8a5ba7876f3d30
 translation_revised: 2026-10-09
 ---
 # 독립 운영 근거 발급
@@ -66,6 +66,10 @@ Forseti의 버전 2 baseline 평가 커버리지와 그로부터 도출한 T0 �
 조회를 완전하게 만들거나 결정 소스를 충족할 수 없습니다.
 
 ## 현재 상태와 공백
+
+제한된 코드 보안 작업자 역할은 범위가 제한된 소스 기록자이며 이 검증기가 아닙니다. 그 데이터베이스
+기능은 공유 테이블 직접 접근 없이 코드 보안 검토와 등록 기록을 유지합니다. 이 권한이나 감사 해시
+기준점은 운영 근거 수락을 발급하지 않습니다.
 
 Core 경로는 `services/core-control-plane/src/fdai/` 기준이며, 그 밖의 경로는 리포지토리 루트 기준입니다. 이
 섹션은 검토 당시 설계가 메우려던 공백을 기록하며, 현재 구현된 내용은 [구현 참고 사항](#구현-참고-사항)에서
