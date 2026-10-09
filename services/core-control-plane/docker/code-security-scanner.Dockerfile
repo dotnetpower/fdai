@@ -173,6 +173,24 @@ RUN set -eu \
     && mkdir -p /usr/lib/dotnet \
     && tar -xzf dotnet.tar.gz -C /usr/lib/dotnet
 
+FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:bf44cdfcb76cd3b41e879bc058fc37ec5872002ccfde7fcb765e218cde0cd79c AS node
+
+ARG NODE_VERSION=24.21.0
+ARG NODE_SHA256=fd8e59d5a511510f6a298afb548f18c7d2b1be404d8b4a27d94fbe49f56cb2d6
+ARG NODE_UNDICI_VERSION=7.29.1
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates wget xz-utils libstdc++6 \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /download
+RUN set -eu \
+    && wget -q -O node.tar.xz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
+    && echo "${NODE_SHA256}  node.tar.xz" | sha256sum -c - \
+    && mkdir -p /usr/share/licenses/nodejs \
+    && tar -xJf node.tar.xz -C /usr --strip-components=1 "node-v${NODE_VERSION}-linux-x64/bin/node" \
+    && tar -xJOf node.tar.xz "node-v${NODE_VERSION}-linux-x64/LICENSE" > /usr/share/licenses/nodejs/LICENSE \
+    && test "$(/usr/bin/node --version)" = "v${NODE_VERSION}" \
+    && test "$(/usr/bin/node -p process.versions.undici)" = "${NODE_UNDICI_VERSION}"
+
 # The proof-lane image. Driven toolchains must resolve under /usr, /bin, or /lib, the sandbox's
 # read-only system mounts, so the .NET SDK lives in /usr/lib/dotnet.
 FROM base AS prover
@@ -180,9 +198,11 @@ FROM base AS prover
 USER root
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        g++ gcc libc6-dev libicu76 nodejs openjdk-21-jdk-headless \
+        g++ gcc libc6-dev libicu76 openjdk-21-jdk-headless \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=dotnet /usr/lib/dotnet/ /usr/lib/dotnet/
+COPY --from=node /usr/bin/node /usr/bin/node
+COPY --from=node /usr/share/licenses/nodejs/ /usr/share/licenses/nodejs/
 RUN ln -s /usr/lib/dotnet/dotnet /usr/bin/dotnet
 ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
     DOTNET_NOLOGO=1

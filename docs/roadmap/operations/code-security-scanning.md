@@ -170,6 +170,12 @@ unused pip installer and its vulnerable vendored libraries. The file builds two 
   reproduce Python, JavaScript, native, Java, and C# issues. The image is glibc-based because the
   sanitizer runtimes don't support musl.
 
+The JavaScript runtime uses the checksum-pinned official Node.js 24.21.0 LTS binary at
+`/usr/bin/node`, with its license notices and an explicit check for bundled Undici 7.29.1.
+It does not install the vulnerable Debian Node/Undici package group or an unused npm installer.
+Changing this runtime requires positive, negative, timeout, and no-source-mutation proof checks;
+remaining Debian and execution-venue kernel findings stay separate from this repair.
+
 Image build success does not prove supply-chain readiness. Scan both exact built targets with
 fresh vulnerability data, retain findings without available vendor fixes, and never report those
 findings as resolved merely because the Go/Python dependency repairs pass.
