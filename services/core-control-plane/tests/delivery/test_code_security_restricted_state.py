@@ -28,6 +28,7 @@ from psycopg import sql
 from psycopg.conninfo import make_conninfo
 
 _ROOT = Path(__file__).resolve().parents[4]
+pytestmark = pytest.mark.integration
 _MIGRATION = _ROOT / (
     "service-migrations/branches/core-control-plane/versions/20261009_core_code_security_role.py"
 )
@@ -39,8 +40,14 @@ def database(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[str, str]]:
     if not raw:
         pytest.skip("requires the isolated local validation database wrapper")
     parsed = urlsplit(raw.replace("postgresql+psycopg://", "postgresql://", 1))
-    if parsed.hostname not in {"localhost", "127.0.0.1", "::1"} or parsed.port != 5433:
-        pytest.fail("restricted role tests require loopback validation PostgreSQL on port 5433")
+    ci_venue = (
+        os.environ.get("GITHUB_ACTIONS") == "true"
+        and os.environ.get("CI") == "true"
+        and os.environ.get("GITHUB_RUN_ID", "").isdecimal()
+    )
+    allowed_port = 5432 if ci_venue else 5433
+    if parsed.hostname not in {"localhost", "127.0.0.1", "::1"} or parsed.port != allowed_port:
+        pytest.fail("restricted role tests require the isolated loopback validation database")
     name = "fdai_security_privileges_" + uuid4().hex[:12]
     admin = urlunsplit(parsed._replace(path="/postgres"))
     dsn = urlunsplit(parsed._replace(path="/" + name))
