@@ -1,18 +1,21 @@
 """Scheduled code-security scans of every enabled registered repository.
 
 A deployment runs this bounded batch on a schedule. It lists the enabled registrations in alias
-order, resolves each default ref to an exact commit through the same scan runner as the Console
+order, starting after the previous invocation's terminal attempt, and resolves each default ref
+to an exact commit through the same scan runner as the Console
 request worker, and records each review with ``trigger: schedule``. Heimdall publishes the review
 on ``object.drift`` when a bus is bound.
 
 Each repository ends in exactly one outcome: ``published`` with the bounded result summary,
 ``failed`` with a reason code, or ``deferred`` when the batch is full. One repository's failure
 never stops the others, and a deferred repository is named so the schedule's capacity gap is
-visible. A scan never writes to the repository and never grants approval or execution authority.
+visible. A durable cursor prevents later aliases from being deferred forever; deployment schedules
+serialize these batches. A scan never writes to the repository and never grants execution authority.
 """
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 
 from fdai.core.security.code_findings.review_signal import ReviewSource
@@ -38,6 +41,8 @@ from fdai.shared.providers.state_store import StateStore
 SCHEDULE_TRIGGER = "schedule"
 DEFERRED_CAPACITY = "schedule_capacity"
 MAX_SCHEDULED_REPOSITORIES = 20
+SCHEDULE_CURSOR_KEY = "runtime:code-security-schedule:cursor"
+_ALIAS = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 
 
 async def process_scheduled_scans(
@@ -52,9 +57,24 @@ async def process_scheduled_scans(
     if not 1 <= max_repositories <= MAX_SCHEDULED_REPOSITORIES:
         raise ValueError(f"max_repositories MUST be in [1, {MAX_SCHEDULED_REPOSITORIES}]")
     enabled = [item for item in await list_repositories(store) if item.enabled]
+    cursor = await store.read_state(SCHEDULE_CURSOR_KEY)
+    if cursor is not None:
+        alias = cursor.get("last_repository_alias")
+        if (
+            set(cursor) != {"last_repository_alias"}
+            or not isinstance(alias, str)
+            or _ALIAS.fullmatch(alias) is None
+        ):
+            raise ValueError("scheduled scan cursor is malformed")
+        enabled = [item for item in enabled if item.repository_alias > alias] + [
+            item for item in enabled if item.repository_alias <= alias
+        ]
     outcomes: list[dict[str, object]] = []
     for repository in enabled[:max_repositories]:
         outcomes.append(await _scan(repository, runner, recorder, publisher))
+        await store.write_state(
+            SCHEDULE_CURSOR_KEY, {"last_repository_alias": repository.repository_alias}
+        )
     outcomes.extend(
         {
             "repository_alias": repository.repository_alias,
@@ -100,5 +120,6 @@ __all__ = [
     "DEFERRED_CAPACITY",
     "MAX_SCHEDULED_REPOSITORIES",
     "SCHEDULE_TRIGGER",
+    "SCHEDULE_CURSOR_KEY",
     "process_scheduled_scans",
 ]

@@ -17,6 +17,7 @@ from fdai.delivery.code_security_scan_requests import (
 )
 from fdai.delivery.code_security_scheduled_scans import (
     DEFERRED_CAPACITY,
+    SCHEDULE_CURSOR_KEY,
     process_scheduled_scans,
 )
 from fdai.delivery.persistence.state_store_code_security_repository import (
@@ -159,3 +160,66 @@ def test_cli_parses_the_scheduled_worker() -> None:
         3,
         ["opengrep=/x"],
     )
+
+
+async def test_bounded_schedule_rotates_past_failed_and_deferred_repositories() -> None:
+    store = InMemoryStateStore()
+    await _register(store, "a-app", "b-app", "c-app")
+    calls: list[str] = []
+
+    async def runner(repo: CodeSecurityRepository, ref: str, source: ReviewSource) -> ScanOutcome:
+        calls.append(repo.repository_alias)
+        if repo.repository_alias == "a-app":
+            raise SourceAcquisitionError("not available")
+        return ScanOutcome(_package(source))
+
+    async def recorder(outcome: ScanOutcome) -> bool:
+        return True
+
+    for _ in range(4):
+        outcomes = await process_scheduled_scans(
+            store, runner, recorder=recorder, max_repositories=1
+        )
+        assert sum(item["status"] == "deferred" for item in outcomes) == 2
+    assert calls == ["a-app", "b-app", "c-app", "a-app"]
+    assert await store.read_state(SCHEDULE_CURSOR_KEY) == {"last_repository_alias": "a-app"}
+
+
+async def test_schedule_cursor_survives_disabled_repository() -> None:
+    store = InMemoryStateStore()
+    await _register(store, "a-app", "b-app", "c-app")
+    await store.write_state(SCHEDULE_CURSOR_KEY, {"last_repository_alias": "b-app"})
+    await set_repository_enabled(store, "b-app", enabled=False, actor="o")
+
+    async def runner(repo: CodeSecurityRepository, ref: str, source: ReviewSource) -> ScanOutcome:
+        return ScanOutcome(_package(source))
+
+    async def recorder(outcome: ScanOutcome) -> bool:
+        return True
+
+    outcomes = await process_scheduled_scans(store, runner, recorder=recorder, max_repositories=1)
+    assert outcomes[0]["repository_alias"] == "c-app"
+
+
+@pytest.mark.parametrize(
+    "cursor",
+    [
+        {},
+        {"last_repository_alias": 42},
+        {
+            "last_repository_alias": "valid",
+            "unexpected": True,
+        },
+    ],
+)
+async def test_malformed_schedule_cursor_is_not_silently_reset(
+    cursor: dict[str, object],
+) -> None:
+    store = InMemoryStateStore()
+    await store.write_state(SCHEDULE_CURSOR_KEY, cursor)
+    with pytest.raises(ValueError, match="cursor is malformed"):
+        await process_scheduled_scans(
+            store,
+            None,
+            recorder=None,  # type: ignore[arg-type]
+        )

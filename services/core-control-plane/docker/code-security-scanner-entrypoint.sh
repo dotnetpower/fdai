@@ -3,6 +3,7 @@
 #
 #   fdai-scan-runner prepare SOURCE_DIR       refresh offline vulnerability databases into
 #                                             $FDAI_SCAN_CACHE (the only step that uses the network)
+#   fdai-scan-runner prepare-source [ARGS]   acquire a source handoff with `prepare-scan`
 #   fdai-scan-runner scan [ARGS...]           run `fdai-code-security scan` with every pinned
 #                                             scanner bound
 #   fdai-scan-runner process-requests [ARGS]  run `fdai-code-security process-scan-requests`, the
@@ -32,6 +33,10 @@ run_with_scanners() {
 }
 
 case "${1:-}" in
+  prepare-source)
+    shift
+    exec fdai-code-security prepare-scan "$@"
+    ;;
   prepare)
     source_dir="${2:?prepare needs a source directory with lockfiles}"
     mkdir -p "$CACHE"
@@ -64,7 +69,7 @@ case "${1:-}" in
     run_with_scanners process-scheduled-scans "$@"
     ;;
   *)
-    echo "usage: fdai-scan-runner prepare SOURCE_DIR | scan [ARGS...] | process-requests [ARGS...] | process-schedule [ARGS...]" >&2
+    echo "usage: fdai-scan-runner prepare SOURCE_DIR | prepare-source [ARGS...] | scan [ARGS...] | process-requests [ARGS...] | process-schedule [ARGS...]" >&2
     exit 2
     ;;
 esac

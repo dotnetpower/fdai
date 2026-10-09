@@ -43,6 +43,7 @@ from fdai.core.security.code_findings.verifier import (
     verify_issues,
 )
 from fdai.delivery.code_security_acquire import GitSourceAcquirer
+from fdai.delivery.code_security_prepared_source import PreparedSource
 from fdai.delivery.code_security_prove import ProofResult, prove_issues, proven_confidence
 from fdai.delivery.code_security_sandbox import BubblewrapScannerSandbox, ScannerRunResult
 from fdai.rule_catalog.code_security import CodeSecurityCatalog, Exposure
@@ -104,8 +105,9 @@ async def run_scan_job(
     *,
     catalog: CodeSecurityCatalog,
     scanners: ScannerCatalog,
-    acquirer: GitSourceAcquirer,
+    acquirer: GitSourceAcquirer | None,
     sandbox: BubblewrapScannerSandbox,
+    prepared_source: PreparedSource | None = None,
     publisher: ReviewPublisher | None = None,
     lens_catalog: LensCatalog | None = None,
     lens_models: Sequence[CodeSecurityLensModel] = (),
@@ -122,12 +124,33 @@ async def run_scan_job(
     ``prove_python`` or ``prove_runtimes`` is set, the opt-in proof lane reproduces verified issues
     of each language with a runtime in a disposable sandbox and raises reproduced ones to
     ``proven``.
+
+    ``prepared_source`` replaces acquisition for the credential-free input boundary. It requires
+    matching attribution, forbids acquisition and live publication/lenses, and verifies input
+    before scanning and before writing the final review. The transport does not attest completion.
     """
-    source = (
-        acquirer.acquire_path(config.local_path, include_uncommitted=config.include_uncommitted)
-        if config.local_path is not None
-        else acquirer.acquire(config.repository, config.revision)
-    )
+    if prepared_source is not None:
+        if acquirer is not None or config.local_path is not None or config.repository:
+            raise ValueError("prepared scanning cannot also acquire source")
+        if config.revision != prepared_source.acquired.revision:
+            raise ValueError("prepared revision does not match the scan")
+        if (
+            config.repository_alias != prepared_source.repository_alias
+            or config.source != prepared_source.source
+        ):
+            raise ValueError("prepared attribution does not match the scan")
+        if publisher is not None or lens_models:
+            raise ValueError("prepared scanning cannot publish or call live lenses")
+        prepared_source.verify_tree()
+        source = prepared_source.acquired
+    else:
+        if acquirer is None:
+            raise ValueError("scanning requires a source acquirer")
+        source = (
+            acquirer.acquire_path(config.local_path, include_uncommitted=config.include_uncommitted)
+            if config.local_path is not None
+            else acquirer.acquire(config.repository, config.revision)
+        )
     revision = source.revision
     artifacts = config.work_root / "scans" / revision
     artifacts.mkdir(parents=True, exist_ok=True, mode=0o700)
@@ -241,6 +264,8 @@ async def run_scan_job(
         and bool(receipt.runs)
         and all(run.completed is True and not run.truncated for run in receipt.runs)
     )
+    if prepared_source is not None:
+        prepared_source.verify_tree()
     review_source = (
         replace(config.source, revision_kind=source.revision_kind)
         if config.source is not None
@@ -263,6 +288,11 @@ async def run_scan_job(
                 "receipt": receipt_to_dict(receipt),
                 "coverage_limits": limits,
                 "tree_id": source.tree_id,
+                **(
+                    {"prepared_manifest_digest": prepared_source.manifest_digest}
+                    if prepared_source
+                    else {}
+                ),
                 "lens": {
                     "ran": lens_report is not None,
                     "complete": lens_report.complete if lens_report else False,

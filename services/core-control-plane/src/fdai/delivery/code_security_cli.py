@@ -10,6 +10,7 @@ Commands:
 ``adjudicate``    record a human decision on a false-positive claim;
 ``publish-review`` publish a scan review through Heimdall and plan notifications;
 ``scan``          run the deterministic lane in the sandbox against one revision;
+``prepare-scan``  acquire a credential-free, digest-bound tree for a separate scanner process;
 ``evaluate``      measure dedup, severity, and rescan matching on a labeled corpus;
 ``evaluate-verifiers`` measure weakness-verifier precision on pinned public projects;
 ``evaluate-lens``  label every kept LLM lens hypothesis on a labeled public benchmark;
@@ -23,8 +24,9 @@ Example::
         --provider example-coding-agent --provider-policy providers.yaml \\
         --signing-key pack-signing.pem --registry ./registry --out ./packs
 
-Apart from the opt-in ``scan --lens-model`` review, the CLI performs no network calls. It grants
-no execution authority.
+Acquisition, evaluation, and publication commands may contact their configured sources and
+services. Prepared scanning performs no acquisition, live model calls, or publication. The CLI
+grants no execution authority.
 """
 
 from __future__ import annotations
@@ -85,6 +87,7 @@ from fdai.core.security.code_findings.verifier import (
 from fdai.core.security.code_findings.verifier_evaluation import VerifierCorpusError
 from fdai.delivery.code_security_acquire import GitSourceAcquirer, SourceAcquisitionError
 from fdai.delivery.code_security_lens_eval import add_lens_evaluation_command, evaluate_lens
+from fdai.delivery.code_security_prepare_cli import add_prepare_command, prepare_scan
 from fdai.delivery.code_security_publish_cli import add_publish_command, publish_review
 from fdai.delivery.code_security_repo_cli import (
     add_repository_commands,
@@ -163,6 +166,7 @@ def _parser() -> argparse.ArgumentParser:
     add_review_commands(sub)
     add_publish_command(sub)
     add_scan_command(sub)
+    add_prepare_command(sub)
     add_repository_commands(sub)
     add_verifier_evaluation_command(sub)
     add_lens_evaluation_command(sub)
@@ -393,6 +397,8 @@ def main(argv: list[str] | None = None) -> int:
             output = asyncio.run(publish_review(args))
         elif args.command == "scan":
             output = asyncio.run(run_scan(args))
+        elif args.command == "prepare-scan":
+            output = asyncio.run(prepare_scan(args))
         elif args.command in ("repo-register", "repo-list", "repo-enable", "repo-disable"):
             output = asyncio.run(run_repository_command(args))
         elif args.command == "process-scan-requests":
