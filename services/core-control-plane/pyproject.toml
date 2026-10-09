@@ -34,6 +34,7 @@ dependencies = [
 
 [project.scripts]
 fdai-core-control-plane = "fdai_core_service.main:main"
+fdai-code-security = "fdai.delivery.code_security_cli:main"
 fdai-browser-evidence-cleanup = "fdai.delivery.browser_evidence_cleanup_cli:main"
 fdai-forecast-evidence-query = "fdai.delivery.forecast_evidence_query_cli:main"
 fdai-inventory-sync = "fdai.delivery.inventory_sync_cli:container_main"

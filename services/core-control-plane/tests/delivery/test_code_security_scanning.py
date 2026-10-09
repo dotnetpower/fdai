@@ -595,6 +595,11 @@ async def test_scan_job_binds_receipt_to_the_catalog_producer_not_the_tool_name(
     assert issue.producers == ("Opengrep",)
 
 
+def test_code_security_cli_entrypoint_is_declared() -> None:
+    pyproject = (_REPO_ROOT / "services" / "core-control-plane" / "pyproject.toml").read_text()
+    assert 'fdai-code-security = "fdai.delivery.code_security_cli:main"' in pyproject
+
+
 def test_scan_runner_image_pins_every_tool_and_binds_every_scanner() -> None:
     import re
 

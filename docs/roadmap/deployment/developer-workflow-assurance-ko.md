@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: e59092e7b7c31710a7064ea67fabc606206eee4f
+translation_source_sha: f44a1e39ae169fdaf3ec54785ff888d666a4bca6
 translation_revised: 2026-10-09
 ---
 
@@ -310,7 +310,8 @@ Pre-commit 파생 출처 검사는 경량 staged-input selector에 항상 진입
 Knowledge 출처, 카탈로그, 검사기 또는 hook 설정이 바뀔 때만 전체 검사를 실행합니다. selector는
 staged 카탈로그에서 출처 집합을 파생하므로 새 출처를 등록할 때 hook 경로 필터를 수동으로 맞출
 필요가 없습니다.
-개발자는 커밋하기 전에 `scripts/operations/code-security-scan.sh FOLDER --include-uncommitted`로 작업
+개발자는 커밋하기 전에 `scripts/operations/code-security-scan.sh FOLDER --include-uncommitted`는 스캔 실행 이미지
+안에서 패키지의 `fdai-code-security` 진입점을 사용해 작업
 트리의 보안 문제를 점검할 수 있습니다. 이 스캔은 로컬 피드백일 뿐입니다. 스냅샷 리비전에는 커밋이
 없으므로 커밋을 증명하거나 조치 팩의 기준이 될 수 없습니다. 로컬과 배포 환경의 Operator 데이터 출처
 목록은 같은 코드 보안 검토, 저장소, 스캔 요청 프로젝션을 선언합니다.

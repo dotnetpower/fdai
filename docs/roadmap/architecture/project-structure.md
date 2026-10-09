@@ -645,7 +645,9 @@ Cloud update comparison validates raw and processing identities; Core rechecks p
 
 Code-security findings keep their deterministic core in `core/security/code_findings/`, catalogs
 in `rule-catalog/code-security/`, and adapters in `delivery/code_security_*.py` and
-`delivery/persistence/state_store_code_security_*.py`. Bounded Console issue summaries are built
+`delivery/persistence/state_store_code_security_*.py`. The core-control-plane package exposes the
+supported `fdai-code-security` executable from `fdai.delivery.code_security_cli:main`; container and
+local package invocations use that same entrypoint. Bounded Console issue summaries are built
 by `issue_summary.py` beside the review signal. The Python weakness verifier in `verifier.py`
 folds fixed conditions through the pure, side-effect-free `verifier_constants.py` and tracks
 local list elements through `verifier_lists.py`. The severity rubric is catalog data in

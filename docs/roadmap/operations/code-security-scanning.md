@@ -153,6 +153,15 @@ counterparts stayed unproven. The first run showed that the sandbox binds the pr
 a fixed path without `/etc/ld.so.cache`, so the image links `libpython` onto the loader's default
 path.
 
+## CLI entrypoint
+
+The core-control-plane package installs the `fdai-code-security` executable, which is the supported
+CLI surface for every code-security command. A source checkout can invoke it with
+`uv run --package fdai-core-control-plane fdai-code-security`; the scanner image installs the same
+entrypoint in its virtual environment and its entrypoint wrapper uses it for scans and workers.
+The module form (`python -m fdai.delivery.code_security_cli`) remains an implementation and test
+path, not the user-facing installation contract.
+
 ## Local folder scans and reports
 
 You can scan a folder on your machine and get a readable report without a running FDAI

@@ -318,7 +318,8 @@ complete check only when a pinned document, a System Knowledge source, the catal
 the hook configuration changes. The selector derives the source set from the staged catalog, so a
 new registered source does not require a manually synchronized hook path filter.
 A developer can check a working tree for security issues before committing with
-`scripts/operations/code-security-scan.sh FOLDER --include-uncommitted`. That scan is local
+`scripts/operations/code-security-scan.sh FOLDER --include-uncommitted` uses the package's
+`fdai-code-security` entrypoint inside the scanner image. That scan is local
 feedback only: its snapshot revision has no commit, so it can't certify a commit or serve as the
 base of a remediation pack. Local and deployed Operator data-source registries declare the same
 code-security review, repository, and scan-request projections.
