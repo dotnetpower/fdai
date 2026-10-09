@@ -180,6 +180,8 @@ def parse_proof_output(stdout: bytes, targets: Sequence[Mapping[str, object]]) -
         if not isinstance(item, dict):
             continue
         issue_id, outcome = item.get("issue_id"), item.get("outcome")
+        if not isinstance(issue_id, str) or not isinstance(outcome, str):
+            continue
         if issue_id not in expected or outcome not in _OUTCOMES or issue_id in seen:
             continue
         sink = item.get("sink")
