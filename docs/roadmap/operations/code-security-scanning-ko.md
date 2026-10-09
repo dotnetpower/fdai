@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: 063c2cb18f6f8467657f9de639cc269550f34866
+translation_source_sha: 86d28e9e263e3fdf20cfc1167fc14e9a98f39412
 translation_revised: 2026-10-10
 ---
 
@@ -706,6 +706,11 @@ import는 아무 동작도 하지 않는 대체 객체로 처리하고, 각 싱�
 입증 출력은 신뢰하지 않는 JSON입니다. 문자열이 아닌 이슈 식별자나 결과는 대상 처리를 차지하거나,
 뒤의 유효한 결과 처리를 중단하거나, 신뢰도를 높일 수 없습니다. 올바른 결과가 없는 대상은
 `no_result` 사유의 `not_proven`으로 남습니다.
+
+동일하게 정규화된 입증 결과의 재전송은 멱등적으로 처리합니다. 하나의 예상 대상에 대해 결과,
+사유, 싱크가 다른 유효한 기록이 들어오면 순서와 관계없이 `conflicting_results` 사유의
+`not_proven`으로 남깁니다. 뒤의 재전송도 입증 신뢰도를 복원할 수 없습니다. 다른 대상의 처리는
+독립적으로 유지합니다. 첫 결과나 마지막 결과를 선택하는 방식으로 상충하는 근거를 해소하지 않습니다.
 
 ### 다른 입증 언어
 
