@@ -182,6 +182,7 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates wget xz-utils libstdc++6 \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /download
+COPY services/core-control-plane/docker/node-runtime-sbom.py /download/node-runtime-sbom.py
 RUN set -eu \
     && wget -q -O node.tar.xz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
     && echo "${NODE_SHA256}  node.tar.xz" | sha256sum -c - \
@@ -189,7 +190,12 @@ RUN set -eu \
     && tar -xJf node.tar.xz -C /usr --strip-components=1 "node-v${NODE_VERSION}-linux-x64/bin/node" \
     && tar -xJOf node.tar.xz "node-v${NODE_VERSION}-linux-x64/LICENSE" > /usr/share/licenses/nodejs/LICENSE \
     && test "$(/usr/bin/node --version)" = "v${NODE_VERSION}" \
-    && test "$(/usr/bin/node -p process.versions.undici)" = "${NODE_UNDICI_VERSION}"
+    && test "$(/usr/bin/node -p process.versions.undici)" = "${NODE_UNDICI_VERSION}" \
+    && /usr/bin/node -p 'JSON.stringify(process.versions)' > /download/node-versions.json \
+    && mkdir -p /usr/share/fdai \
+    && python /download/node-runtime-sbom.py --versions /download/node-versions.json \
+        --binary /usr/bin/node --archive-sha256 "${NODE_SHA256}" \
+        --output /usr/share/fdai/node-runtime.cdx.json
 
 # The proof-lane image. Driven toolchains must resolve under /usr, /bin, or /lib, the sandbox's
 # read-only system mounts, so the .NET SDK lives in /usr/lib/dotnet.
@@ -203,6 +209,7 @@ RUN apt-get update \
 COPY --from=dotnet /usr/lib/dotnet/ /usr/lib/dotnet/
 COPY --from=node /usr/bin/node /usr/bin/node
 COPY --from=node /usr/share/licenses/nodejs/ /usr/share/licenses/nodejs/
+COPY --from=node /usr/share/fdai/node-runtime.cdx.json /usr/share/fdai/node-runtime.cdx.json
 RUN ln -s /usr/lib/dotnet/dotnet /usr/bin/dotnet
 ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
     DOTNET_NOLOGO=1

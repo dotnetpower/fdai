@@ -176,6 +176,22 @@ It does not install the vulnerable Debian Node/Undici package group or an unused
 Changing this runtime requires positive, negative, timeout, and no-source-mutation proof checks;
 remaining Debian and execution-venue kernel findings stay separate from this repair.
 
+The prover also carries `/usr/share/fdai/node-runtime.cdx.json`, generated from the trusted
+runtime's reported versions and the exact executable SHA-256. Its CycloneDX scope is explicitly
+`embedded-npm-only`: Acorn, Amaro, and Undici have NPM identifiers; other reported fields remain
+unassessed metadata. Packaging this inventory lets the normal image scan discover those
+statically embedded NPM components. Inspect its scoped contents separately as a cross-check:
+
+```bash
+container=$(docker create "$PROVER_IMAGE")
+docker cp "$container:/usr/share/fdai/node-runtime.cdx.json" node-runtime.cdx.json
+docker rm "$container"
+trivy sbom --exit-code 1 --severity MEDIUM,HIGH,CRITICAL node-runtime.cdx.json
+```
+
+Run the unchanged image scan as well. A passing scoped SBOM check is not complete native-library,
+kernel, full-image, or installation readiness evidence; the inventory is not an attestation.
+
 Image build success does not prove supply-chain readiness. Scan both exact built targets with
 fresh vulnerability data, retain findings without available vendor fixes, and never report those
 findings as resolved merely because the Go/Python dependency repairs pass.
