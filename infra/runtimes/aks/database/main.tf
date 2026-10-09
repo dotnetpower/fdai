@@ -293,14 +293,30 @@ resource "azurerm_role_assignment" "runtime_secret_reader" {
   principal_id         = each.value
 }
 
+# Document ingestion runs only with the profile option that enables it. Without its identities the
+# role-scoped DSNs exist but no principal can read them.
 resource "azurerm_role_assignment" "ingestion_api_secret_reader" {
+  count = var.ingestion_api_principal_id == null ? 0 : 1
+
   scope                = azurerm_key_vault_secret.ingestion_api_dsn.resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = var.ingestion_api_principal_id
 }
 
+moved {
+  from = azurerm_role_assignment.ingestion_api_secret_reader
+  to   = azurerm_role_assignment.ingestion_api_secret_reader[0]
+}
+
 resource "azurerm_role_assignment" "ingestion_worker_secret_reader" {
+  count = var.ingestion_worker_principal_id == null ? 0 : 1
+
   scope                = azurerm_key_vault_secret.ingestion_worker_dsn.resource_versionless_id
   role_definition_name = "Key Vault Secrets User"
   principal_id         = var.ingestion_worker_principal_id
+}
+
+moved {
+  from = azurerm_role_assignment.ingestion_worker_secret_reader
+  to   = azurerm_role_assignment.ingestion_worker_secret_reader[0]
 }

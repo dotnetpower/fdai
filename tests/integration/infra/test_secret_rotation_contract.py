@@ -48,3 +48,7 @@ def test_postgres_aks_publishes_role_scoped_ingestion_dsns() -> None:
     assert "principal_id         = var.ingestion_worker_principal_id" in root
     assert 'variable "ingestion_api_principal_id"' in variables
     assert 'variable "ingestion_worker_principal_id"' in variables
+    assert "count = var.ingestion_api_principal_id == null ? 0 : 1" in root
+    assert "count = var.ingestion_worker_principal_id == null ? 0 : 1" in root
+    assert "to   = azurerm_role_assignment.ingestion_api_secret_reader[0]" in root
+    assert "to   = azurerm_role_assignment.ingestion_worker_secret_reader[0]" in root

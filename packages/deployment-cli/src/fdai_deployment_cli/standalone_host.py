@@ -71,6 +71,7 @@ from fdai_deployment_cli.standalone_aks_nodepool_guard import (
     guard_existing_runtime_node_pools as _guard_existing_runtime_node_pools,
 )
 from fdai_deployment_cli.standalone_catalog_review import run_catalog_review
+from fdai_deployment_cli.standalone_database_principals import database_reader_principals
 from fdai_deployment_cli.standalone_checkpoint_failure import (
     failure_record as _failure_record,
 )
@@ -140,9 +141,6 @@ from fdai_deployment_cli.standalone_operational_evidence import (
     add_aks_operational_evidence_verifier_workload as _add_aks_operational_evidence_verifier_workload,
 )
 from fdai_deployment_cli.standalone_operational_evidence import aks_workload as _aks_workload
-from fdai_deployment_cli.standalone_operational_evidence import (
-    runtime_principal_ids_with_operational_evidence_verifier as _runtime_principal_ids,
-)
 from fdai_deployment_cli.standalone_product_profile import (
     context_selects_add_on as _selects_add_on,
 )
@@ -777,10 +775,8 @@ def _prepare_database(_args: argparse.Namespace, work_dir: Path) -> dict[str, ob
     identities = _terraform_json_output(substrate, "runtime_identity_bindings")
     if not isinstance(identities, dict):
         raise TypeError("AKS runtime identity output contract is invalid")
-    principals = _runtime_principal_ids(identities, ("core", "operator", "executor", "inventory"))
-    ingestion_identity = _mapping(identities.get("ingestion"), "ingestion runtime identity")
-    ingestion_worker_identity = _mapping(
-        identities.get("ingestion_worker"), "ingestion worker runtime identity"
+    principals, ingestion_principal, ingestion_worker_principal = database_reader_principals(
+        identities
     )
     key_vault_id = _terraform_output(substrate, "key_vault_id")
     _activate_terraform_stage("runtime", context, work_dir)
@@ -802,8 +798,8 @@ def _prepare_database(_args: argparse.Namespace, work_dir: Path) -> dict[str, ob
         "image": refs["pgvector"],
         "key_vault_id": key_vault_id,
         "runtime_principal_ids": sorted(principals),
-        "ingestion_api_principal_id": str(ingestion_identity["principal_id"]),
-        "ingestion_worker_principal_id": str(ingestion_worker_identity["principal_id"]),
+        "ingestion_api_principal_id": ingestion_principal,
+        "ingestion_worker_principal_id": ingestion_worker_principal,
         "tags": {"fdai:runtime": "aks", "fdai:database-placement": "postgres-aks"},
     }
     context.update(
