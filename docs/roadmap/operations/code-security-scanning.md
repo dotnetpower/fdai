@@ -364,7 +364,9 @@ Both workers can select this split with `--scanner-runtime kata --state-access r
 Their local default remains the existing combined bubblewrap path. The in-cluster API uses the
 controller's service-account token and TLS CA only outside the scanner VM. Bounded stdout and the
 pod's terminated process exit code enter deterministic result acceptance; scanner-supplied
-completion claims never govern coverage. API errors are not retried, Jobs have active and
+completion claims never govern coverage. After reading logs by pod name, the controller reads
+that pod again and verifies its UID and terminated process state have not changed, so stdout
+from a replacement cannot be bound to the original execution. API errors are not retried, Jobs have active and
 no-progress deadlines, and cleanup deletes only the exact UID. Private attempt journals retain
 preflight/dispatch/observation failures that occur before a review exists. A worker that loses
 its proposal claim cannot report a completed or rejected terminal result.
@@ -375,6 +377,40 @@ must differ from the scanner namespace. Installation must supply RWX source stor
 the acquisition/recording controller and the read-only scanner mounts, and a separate read-only
 cache snapshot. The dedicated pool uses `fdai.io/code-security-scanner=true` as its label and
 `NoSchedule` taint.
+
+`render-scanner-workers` additionally produces the controller namespace/service account and
+the Console-request and registered-repository CronJobs. Jobs are suspended unless you explicitly
+pass `--enable-jobs`. Both schedules use five-field UTC cron, `concurrencyPolicy: Forbid`,
+no automatic retry, a bounded active deadline, the pinned scanner image, and
+`--scanner-runtime kata --state-access restricted`.
+
+Supply distinct controller and scanner PVC references for source and cache. PVCs are
+namespace-scoped: matching names do not share data. The installer binds each namespace's
+claims to the same respective backing store before enabling jobs. Source storage must be
+writable by controller user 65532; both controller and scanner cache mounts use the same
+digest-named snapshot read-only. No volume or secret values are fabricated by the renderer.
+
+The existing controller Secret supplies `dsn`. A ConfigMap supplies `bootstrap-servers`, so
+accepted reviews are wired to the bus rather than silently running without a publisher.
+An optional GitHub App Secret supplies `client-id`, `installation-id`, and `private-key`;
+without it only public registered sources are available. These are reference names, not
+credentials passed as CLI arguments. Neither renderer creates Secrets, grants database role
+membership, chooses an Azure target, or applies cluster resources.
+
+Example: render suspended worker resources after installation has supplied the referenced
+volumes, role-scoped Secret and broker ConfigMap:
+
+```bash
+fdai-code-security render-scanner-workers \
+  --controller-namespace scan-controller --controller-service-account scan-controller \
+  --scanner-namespace code-security \
+  --image example.invalid/scanner@sha256:<64-hex-digest> \
+  --controller-source-pvc controller-source --scanner-source-pvc scanner-source \
+  --controller-cache-pvc controller-cache --scanner-cache-pvc scanner-cache \
+  --cache-subpath snapshots/<64-hex-cache-digest>/cache \
+  --state-secret scan-state --broker-config-map scan-broker \
+  --request-schedule "*/5 * * * *" --scan-schedule "0 2 * * *"
+```
 
 Example worker binding (replace names and the digest with the selected deployment's values):
 

@@ -250,6 +250,22 @@ class KataScannerSandbox(BubblewrapScannerSandbox):
                             stdout, truncated = await self.client.stdout(
                                 self.config.namespace, pod_name, spec.max_output_bytes
                             )
+                            readback = await self.client.request(
+                                "GET",
+                                f"/api/v1/namespaces/{self.config.namespace}/pods/{pod_name}",
+                            )
+                            validate_scanner_pod(job, readback, uid)
+                            readback_metadata = readback.get("metadata")
+                            readback_status = readback.get("status")
+                            if (
+                                not isinstance(readback_metadata, dict)
+                                or readback_metadata.get("uid") != pod_uid
+                                or not isinstance(readback_status, dict)
+                                or readback_status.get("containerStatuses") != statuses
+                            ):
+                                raise KataApiError(
+                                    "scanner pod identity or process changed while reading stdout"
+                                )
                             result = ScannerRunResult(
                                 scanner_id,
                                 spec.producer,

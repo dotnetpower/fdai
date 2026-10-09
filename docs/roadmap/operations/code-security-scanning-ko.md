@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: 23f777a1bfce125d678ef2bf7e51a8921a26d85c
+translation_source_sha: 324cbdbe6e87dab07bda3cd8c32719ce96c918a1
 translation_revised: 2026-10-09
 ---
 
@@ -355,7 +355,9 @@ lockfile 권고는 패키지 이름과 함께 표시됩니다. 보고서에는 �
 두 작업자는 `--scanner-runtime kata --state-access restricted`로 이 분리 방식을 선택할 수 있습니다.
 로컬 기본값은 기존 통합 bubblewrap 경로입니다. 클러스터 내부 API는 스캐너 VM 밖에서만 조정기의
 service account 토큰과 TLS CA를 사용합니다. 범위가 제한된 표준 출력과 pod의 종료 코드가 결정론적
-결과 수락으로 들어가며, 스캐너가 주장하는 완료 여부는 커버리지를 결정하지 않습니다. API 오류는
+결과 수락으로 들어가며, 스캐너가 주장하는 완료 여부는 커버리지를 결정하지 않습니다.
+pod 이름으로 로그를 읽은 뒤에는 해당 pod를 다시 읽고 UID와 종료된 프로세스 상태가 바뀌지 않았는지
+확인합니다. 따라서 교체된 pod의 출력을 원래 실행에 연결할 수 없습니다. API 오류는
 재시도하지 않고, 작업은 실행 기한과 진행 중단 기한을 가지며, 정확한 UID만 정리합니다. 비공개 시도
 기록은 검토 생성 전에 발생한 준비·디스패치·관측 실패를 유지합니다. 제안 점유를 잃은 작업자는 완료나
 거부라는 최종 결과를 보고할 수 없습니다.
@@ -365,6 +367,39 @@ service account 토큰과 TLS CA를 사용합니다. 범위가 제한된 표준 
 달라야 합니다. 설치에서는 확보·기록 조정기와 읽기 전용 스캐너 마운트가 공유할 RWX 소스 저장소와,
 별도의 읽기 전용 캐시 스냅샷을 제공해야 합니다. 전용 풀은 `fdai.io/code-security-scanner=true`를
 레이블과 `NoSchedule` taint로 사용합니다.
+
+`render-scanner-workers`는 조정기 네임스페이스와 service account, Console 요청 및 등록 저장소
+CronJob도 생성합니다. 작업은 `--enable-jobs`를 명시적으로 전달할 때만 활성화됩니다. 두 예약은
+5개 필드의 UTC cron, `concurrencyPolicy: Forbid`, 자동 재시도 금지, 제한된 실행 기한, 고정된
+스캐너 이미지, `--scanner-runtime kata --state-access restricted`를 사용합니다.
+
+소스와 캐시 각각에 대해 조정기와 스캐너의 PVC 참조를 별도로 제공하세요. PVC는 네임스페이스에
+속하므로 이름이 같다고 데이터를 공유하지는 않습니다. 설치에서는 작업 활성화 전에 각
+네임스페이스의 소스·캐시 PVC를 각각 같은 기반 저장소에 연결합니다. 소스 저장소는 조정기 사용자
+65532가 쓸 수 있어야 하며, 조정기와 스캐너의 캐시 마운트는 같은 다이제스트 이름의 스냅샷을 읽기
+전용으로 사용합니다. 렌더러는 볼륨이나 비밀 값을 만들어 내지 않습니다.
+
+기존 조정기 Secret은 `dsn`을 제공합니다. ConfigMap은 `bootstrap-servers`를 제공하므로
+수락한 검토는 게시자 없이 조용히 실행되는 대신 버스에 연결됩니다. 선택적인 GitHub App Secret은
+`client-id`, `installation-id`, `private-key`를 제공합니다. 이 Secret이 없으면 등록된 공개 소스만
+사용할 수 있습니다. 이는 참조 이름이며 CLI 인자로 전달하는 자격 증명 값이 아닙니다. 어느
+렌더러도 Secret 생성, 데이터베이스 역할 멤버십 부여, Azure 대상 선택, 클러스터 리소스 적용을 하지
+않습니다.
+
+설치에서 참조하는 볼륨, 역할 범위 Secret, broker ConfigMap을 제공한 뒤 비활성 작업 리소스를
+생성하는 예제입니다.
+
+```bash
+fdai-code-security render-scanner-workers \
+  --controller-namespace scan-controller --controller-service-account scan-controller \
+  --scanner-namespace code-security \
+  --image example.invalid/scanner@sha256:<64-hex-digest> \
+  --controller-source-pvc controller-source --scanner-source-pvc scanner-source \
+  --controller-cache-pvc controller-cache --scanner-cache-pvc scanner-cache \
+  --cache-subpath snapshots/<64-hex-cache-digest>/cache \
+  --state-secret scan-state --broker-config-map scan-broker \
+  --request-schedule "*/5 * * * *" --scan-schedule "0 2 * * *"
+```
 
 작업자 연결 예제입니다. 이름과 다이제스트는 선택한 배포의 값으로 바꾸세요.
 
