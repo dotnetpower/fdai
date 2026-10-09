@@ -62,7 +62,7 @@ function GithubWorkspace({ client, auth, dataMode }: PanelProps) {
     routeId: "github", routeLabel: "GitHub",
     purpose: text("githubPurpose"), glossary: composeGlossary([TERMS.humanRbac]),
     headline: text("githubBoundary"), capturedAt: new Date().toISOString(),
-    facts: [{ key: "connection_state", value: view.status, group: "knowledge-source" }],
+    facts: [{ key: "projection_state", value: view.status, group: "knowledge-source" }],
     records: { sources: data?.sources.map((row) => ({
       repository_alias: row.repository_alias, knowledge_read_enabled: row.knowledge_source?.knowledge_read_enabled ?? false,
       scan_enabled: row.enabled, indexed: false,
