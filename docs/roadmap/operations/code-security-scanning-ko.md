@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: 47dc8423ccc6ca69bdf5c85c2ceb8d8e81007360
+translation_source_sha: aa43c535f88a9b983e8212dda5f9bfeb619ac8bd
 translation_revised: 2026-10-09
 ---
 
@@ -156,14 +156,22 @@ Go용으로 FDAI가 작성한 규칙 22개가 있습니다. 각 규칙은 다음
 ## 스캔 실행 이미지
 
 `services/core-control-plane/docker/code-security-scanner.Dockerfile`은 스캔 작업과 Opengrep,
-gitleaks, OSV-Scanner, Trivy를 하나로 묶습니다. 각 바이너리는 버전과 SHA-256으로, glibc 기반
-Debian 이미지는 다이제스트로 고정됩니다. 이 파일은 두 대상을 빌드합니다.
+gitleaks, OSV-Scanner, Trivy를 하나로 묶습니다. Opengrep은 버전과 SHA-256으로 고정합니다.
+Go 기반 도구는 스캐너 버전을 유지하되 인증된 상위 프로젝트 모듈을 체크섬으로 고정하고,
+다이제스트로 고정한 Go 1.27.2와 수정된 의존성으로 다시 빌드합니다. 컴파일러나 포함된 모듈
+버전이 고정값과 다르면 빌드를 거부합니다. glibc 기반 Debian 이미지는 다이제스트로 고정하며,
+런타임에서는 사용하지 않는 pip 설치 도구와 취약한 내장 라이브러리를 제거합니다.
+이 파일은 두 대상을 빌드합니다.
 
 - **`runtime`(기본):** 모든 스캐너와 Python 입증 레인을 담습니다.
 - **`prover`:** 같은 이미지에 Node.js, AddressSanitizer와 UndefinedBehaviorSanitizer를 쓰는 gcc,
   OpenJDK 21, SHA-512로 고정한 .NET SDK를 더합니다. 그러면 `--prove`가 Python, JavaScript,
   네이티브, Java, C# 이슈를 재현할 수 있습니다. sanitizer 런타임이 musl을 지원하지 않으므로 이미지는
   glibc 기반입니다.
+
+이미지 빌드 성공만으로 공급망 준비 상태를 확인할 수는 없습니다. 정확히 빌드한 두 대상을
+최신 취약점 데이터로 검사하고, 배포판에서 수정 버전을 제공하지 않은 발견 사항도 보존합니다.
+Go/Python 의존성 수정이 통과했다는 이유만으로 이러한 발견 사항까지 해결됐다고 보고하지 않습니다.
 
 진입점은 두 단계로 동작합니다.
 

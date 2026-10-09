@@ -606,9 +606,27 @@ def test_scan_runner_image_pins_every_tool_and_binds_every_scanner() -> None:
     docker = _REPO_ROOT / "services" / "core-control-plane" / "docker"
     dockerfile = (docker / "code-security-scanner.Dockerfile").read_text(encoding="utf-8")
     entrypoint = (docker / "code-security-scanner-entrypoint.sh").read_text(encoding="utf-8")
-    for tool in ("OPENGREP", "GITLEAKS", "OSV_SCANNER", "TRIVY"):
-        assert re.search(rf"ARG {tool}_SHA256=[0-9a-f]{{64}}\n", dockerfile), tool
-        assert f'"${{{tool}_SHA256}}' in dockerfile, f"{tool} download is not verified"
+    assert re.search(r"ARG OPENGREP_SHA256=[0-9a-f]{64}\n", dockerfile)
+    assert '"${OPENGREP_SHA256}' in dockerfile
+    for tool, binary in (
+        ("GITLEAKS", "gitleaks"),
+        ("OSV_SCANNER", "osv-scanner"),
+        ("TRIVY", "trivy"),
+    ):
+        assert re.search(rf"ARG {tool}_MODULE_SUM=h1:[A-Za-z0-9+/]{{43}}=\n", dockerfile)
+        assert f'= "${{{tool}_MODULE_SUM}}"' in dockerfile
+        assert f"go version -m /out/{binary}" in dockerfile
+    assert "ENV GOTOOLCHAIN=local" in dockerfile
+    assert 'test "$(go env GOVERSION)" = "${SCANNER_GO_VERSION}"' in dockerfile
+    assert "ARG SCANNER_GO_VERSION=go1.27.2" in dockerfile
+    assert "ARG SCANNER_X_NET_VERSION=v0.60.0" in dockerfile
+    assert "ARG SCANNER_X_CRYPTO_VERSION=v0.57.0" in dockerfile
+    assert "ARG SCANNER_X_TEXT_VERSION=v0.42.0" in dockerfile
+    assert "ARG GITLEAKS_RAR_VERSION=v2.2.0" in dockerfile
+    assert "ARG GITLEAKS_XZ_VERSION=v0.5.15" in dockerfile
+    assert "COPY --from=scanner-builder /out/ /opt/scanners/bin/" in dockerfile
+    base = dockerfile.split(" AS base\n", 1)[1].split("\nFROM ", 1)[0]
+    assert "python -m pip uninstall --yes pip" in base
     assert re.findall(r"library/python@sha256:[0-9a-f]{64}", dockerfile)
     bound = set(re.findall(r'--scanner-bin "([a-z-]+)=', entrypoint))
     assert bound == set(load_scanner_catalog(_CATALOG).scanners)
