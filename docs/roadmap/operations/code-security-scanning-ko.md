@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: 913841da2c5391ffaa92dc4f907fa46c3b75e92e
+translation_source_sha: 0d55a39336239d5460fb398f3311abeb1d580b82
 translation_revised: 2026-10-09
 ---
 
@@ -261,6 +261,13 @@ lockfile 권고는 패키지 이름과 함께 표시됩니다. 보고서에는 �
 좁힙니다. 자격 증명이 없으면 공개 저장소만 스캔할 수 있습니다. 작업자는 예약 실행이나 일회성
 실행을 위한 배치 작업이며 폴링 데몬이 아닙니다. 스캔 실행 이미지는
 `fdai-scan-runner process-requests`로 작업자를 시작합니다.
+
+[Knowledge GitHub 연결](../../runbooks/knowledge-github-sources-ko.md)에서도 공개 읽기 접근이나 배포의
+읽기 전용 GitHub App 자격 증명 참조를 사용해 검증된 저장소 소스를 등록할 수 있습니다. 저장소의
+출처 근거는 기존 등록에 유지되고 자격 증명 원문은 저장하지 않습니다. 새 Knowledge 연결은 스캔이
+비활성인 상태로 시작합니다. Owner가 스캔을 별도로 활성화하므로 Knowledge 읽기 접근만으로 스캔을
+요청하거나 활성화할 수 없습니다. Knowledge 연결을 끊어도 독립적으로 부여한 스캔 권한은 취소하지
+않습니다.
 
 | 거부 사유 | 의미 |
 |-----------|------|

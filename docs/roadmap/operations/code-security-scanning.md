@@ -269,6 +269,13 @@ read-only contents permission. Without credentials only public repositories can 
 worker is a batch job for a schedule or a one-shot run, not a polling daemon; the scan runner
 image starts it with `fdai-scan-runner process-requests`.
 
+The [Knowledge GitHub connection](../../runbooks/knowledge-github-sources.md) can also register
+a verified repository source, using either public read access or the deployment's read-only
+GitHub App credential reference. Its repository provenance remains on the existing registration;
+credential bytes never enter the stored record. A new Knowledge connection leaves scanning
+disabled. An Owner separately enables scans, so Knowledge read access alone cannot request or
+enable a scan. Disconnecting Knowledge does not revoke independently granted scan permission.
+
 | Rejection reason | Meaning |
 |------------------|---------|
 | `request_malformed` | The stored body isn't the typed alias and ref |
