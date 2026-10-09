@@ -43,6 +43,11 @@ allowlisted projection. Raw query tables, provider bodies, handles, and retained
 not reach answer-authoring or review model calls.
 Verified-answer authoring adds a shared proposition contract plus default-off author/reviewer
 ports behind Core. Until promoted, Console answers continue to use the current verified path.
+The verified data fallback distinguishes a scalar result from its transport table. One complete,
+ungrouped count renders as a compact verified value without the one-row table or transport-row
+accounting. Grouped, incomplete, truncated, or multi-row results keep their table and limitation
+presentation. In observed-work timelines, each terminal summary mark is centered on the same
+vertical flow rail as its detail records; this alignment changes presentation only.
 
 Operations > Alert quality decodes signed result `1.1.0` and its provider-neutral plan `1.1.0` through the regenerated TypeScript contract view.
 The browser displays `direct_api` as retained contract metadata only. It never selects a provider

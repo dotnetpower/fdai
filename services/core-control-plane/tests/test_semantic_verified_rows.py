@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from fdai_core_service.semantic_verified_rows import verified_rows_table
+import pytest
+from fdai_core_service.semantic_ontology_answers import render_ontology_schema_answer
+from fdai_core_service.semantic_verified_rows import verified_rows_table, verified_scalar_count
 
 
 def _output(*values: dict[str, object]) -> dict[str, object]:
@@ -13,6 +15,69 @@ def test_a_compiled_count_shows_its_verified_value() -> None:
     lines = verified_rows_table(_output({"operation": "count", "value": 27}), korean=False)
 
     assert lines[1:] == ["| operation | value |", "|---|---|", "| count | 27 |"]
+
+
+def test_only_a_complete_ungrouped_count_is_a_verified_scalar() -> None:
+    output = {
+        **_output({"group": {}, "operation": "count", "value": 27}),
+        "source_complete": True,
+        "display_truncated": False,
+    }
+
+    assert verified_scalar_count(output) == 27
+    assert verified_scalar_count({**output, "source_complete": False}) is None
+    assert verified_scalar_count({**output, "display_truncated": True}) is None
+    assert (
+        verified_scalar_count(
+            {
+                **output,
+                "rows": [
+                    {
+                        "row_id": "r0",
+                        "values": {
+                            "group": {"kind": "resource-group"},
+                            "operation": "count",
+                            "value": 27,
+                        },
+                    }
+                ],
+            }
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    ("korean", "heading", "value"),
+    (
+        (False, "## Verified count", "**68**"),
+        (True, "## 검증된 개수", "**68개**"),
+    ),
+)
+def test_a_resource_count_uses_a_compact_verified_scalar(
+    korean: bool,
+    heading: str,
+    value: str,
+) -> None:
+    answer = render_ontology_schema_answer(
+        [
+            {
+                **_output({"group": {}, "operation": "count", "value": 68}),
+                "source_complete": True,
+                "display_truncated": False,
+            }
+        ],
+        korean=korean,
+        output_shape="aggregation_table",
+        subject_constraints=("Resource",),
+    )
+
+    assert answer is not None
+    assert heading in answer
+    assert value in answer
+    assert "| operation | value |" not in answer
+    assert "1 of 1 rows" not in answer
+    assert "전체 1개 행" not in answer
 
 
 def test_named_rows_lead_with_display_fields_and_keep_identity_in_details() -> None:

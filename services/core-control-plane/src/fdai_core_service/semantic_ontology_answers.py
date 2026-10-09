@@ -1,4 +1,4 @@
-"""Render verified answers derived from the principal-scoped ontology manifest.
+"""Render verified schema answers and compact scalar data views.
 
 Manifest answers are exclusive for their output shapes: a result that cannot be
 verified renders a bounded unavailable answer instead of a generic row count.
@@ -11,6 +11,7 @@ from collections.abc import Mapping
 from fdai.shared.contracts.models import OntologyDeclarationKind
 
 from .semantic_source_limitations import source_limitation_text
+from .semantic_verified_rows import verified_scalar_count
 
 _SOURCE_KO = (
     "- 읽기 전용 출처: 활성 온톨로지 release에 대해 역할과 목적으로 범위가 제한된 `query.manifest`."
@@ -35,11 +36,42 @@ def render_ontology_schema_answer(
             korean=korean,
             subject_constraints=subject_constraints,
         )
-    return _render_declaration_count(
+    declaration_count = _render_declaration_count(
         outputs,
         korean=korean,
         output_shape=output_shape,
         subject_constraints=subject_constraints,
+    )
+    if declaration_count is not None:
+        return declaration_count
+    return _render_scalar_count(outputs, korean=korean, output_shape=output_shape)
+
+
+def _render_scalar_count(
+    outputs: list[dict[str, object]],
+    *,
+    korean: bool,
+    output_shape: str | None,
+) -> str | None:
+    """Render one complete ungrouped count without exposing its transport row."""
+
+    if output_shape != "aggregation_table" or len(outputs) != 1:
+        return None
+    count = verified_scalar_count(outputs[0])
+    if count is None:
+        return None
+    return "\n".join(
+        (
+            "## 검증된 개수" if korean else "## Verified count",
+            "",
+            f"**{count}개**" if korean else f"**{count}**",
+            "",
+            (
+                "이 결과는 실행 권한을 부여하지 않습니다."
+                if korean
+                else "This result grants no execution authority."
+            ),
+        )
     )
 
 
