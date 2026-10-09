@@ -108,6 +108,7 @@ def test_container_opa_build_overrides_vulnerable_go_modules() -> None:
         content = path.read_text(encoding="utf-8")
         assert "ARG OPA_GRPC_VERSION=v1.83.2" in content, path
         assert "ARG OPA_X_CRYPTO_VERSION=v0.57.0" in content, path
+        assert "ARG OPA_X_TEXT_VERSION=v0.42.0" in content, path
         assert "ARG OPA_GO_VERSION=go1.27.2" in content, path
         assert "ARG OPA_X_NET_VERSION=v0.60.0" in content, path
         assert "ENV GOTOOLCHAIN=local" in content, path
@@ -117,6 +118,8 @@ def test_container_opa_build_overrides_vulnerable_go_modules() -> None:
         )
         assert 'go mod edit -require="golang.org/x/net@${OPA_X_NET_VERSION}"' in content
         assert "awk '$2 == \"golang.org/x/net\" {print $3}'" in content
+        assert "awk '$2 == \"golang.org/x/crypto\" {print $3}'" in content
+        assert "awk '$2 == \"golang.org/x/text\" {print $3}'" in content
         assert 'test "$(/usr/local/go/bin/go env GOVERSION)" = "${OPA_GO_VERSION}"' in content
 
     dockerfile = dockerfile_paths[-1].read_text(encoding="utf-8")
