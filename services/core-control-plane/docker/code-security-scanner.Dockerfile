@@ -1,5 +1,5 @@
 # FDAI code-security scan runner: the deterministic scanners, the bubblewrap sandbox, and the
-# FDAI code-security CLI in one image. Every downloaded binary is pinned by version and digest.
+# FDAI code-security CLI in one image. Downloaded binaries and rebuilt sources are digest-pinned.
 #
 # Build:  docker build -f services/core-control-plane/docker/code-security-scanner.Dockerfile .
 #         Add `--target prover` for the proof-lane image, which also carries Node.js, gcc with
@@ -13,16 +13,69 @@
 
 ARG BASE_IMAGE_REGISTRY=docker.io
 
+FROM ${BASE_IMAGE_REGISTRY}/library/golang@sha256:85dc1069ac644ea3c527b177303a406eb3358192816cd7f9e5848eb658851673 AS scanner-builder
+
+ENV GOTOOLCHAIN=local \
+    CGO_ENABLED=0 \
+    GOFLAGS="-p=4"
+
+ARG SCANNER_GO_VERSION=go1.27.2
+ARG SCANNER_X_NET_VERSION=v0.60.0
+ARG SCANNER_X_CRYPTO_VERSION=v0.57.0
+ARG SCANNER_X_TEXT_VERSION=v0.42.0
+RUN test "$(go env GOVERSION)" = "${SCANNER_GO_VERSION}" && mkdir -p /out
+
+ARG GITLEAKS_VERSION=8.30.1
+ARG GITLEAKS_MODULE_SUM=h1:PmEvCfVI7ti9dV3s5aMZUY7sS2GxRvG3yzih7E+cS3w=
+ARG GITLEAKS_RAR_VERSION=v2.2.0
+ARG GITLEAKS_XZ_VERSION=v0.5.15
+ARG GITLEAKS_ARCHIVES_VERSION=v0.1.5
+RUN go mod download "github.com/zricethezav/gitleaks/v8@v${GITLEAKS_VERSION}" \
+    && test "$(go mod download -json "github.com/zricethezav/gitleaks/v8@v${GITLEAKS_VERSION}" | awk '$1 == "\"Sum\":" {gsub(/[",]/, "", $2); print $2}')" = "${GITLEAKS_MODULE_SUM}" \
+    && scanner_dir="$(go env GOPATH)/pkg/mod/github.com/zricethezav/gitleaks/v8@v${GITLEAKS_VERSION}" \
+    && chmod -R u+w "${scanner_dir}" \
+    && cd "${scanner_dir}" \
+    && go mod edit -require="golang.org/x/crypto@${SCANNER_X_CRYPTO_VERSION}" \
+    && go mod edit -require="golang.org/x/text@${SCANNER_X_TEXT_VERSION}" \
+    && go mod edit -require="github.com/nwaples/rardecode/v2@${GITLEAKS_RAR_VERSION}" \
+    && go mod edit -require="github.com/ulikunitz/xz@${GITLEAKS_XZ_VERSION}" \
+    && go mod edit -require="github.com/mholt/archives@${GITLEAKS_ARCHIVES_VERSION}" \
+    && go build -mod=mod -ldflags="-X github.com/zricethezav/gitleaks/v8/version.Version=${GITLEAKS_VERSION}" -o /out/gitleaks . \
+    && test "$(go version -m /out/gitleaks | awk '$2 == "golang.org/x/crypto" {print $3}')" = "${SCANNER_X_CRYPTO_VERSION}" \
+    && test "$(go version -m /out/gitleaks | awk '$2 == "golang.org/x/text" {print $3}')" = "${SCANNER_X_TEXT_VERSION}" \
+    && test "$(go version -m /out/gitleaks | awk '$2 == "github.com/nwaples/rardecode/v2" {print $3}')" = "${GITLEAKS_RAR_VERSION}" \
+    && test "$(go version -m /out/gitleaks | awk '$2 == "github.com/ulikunitz/xz" {print $3}')" = "${GITLEAKS_XZ_VERSION}" \
+    && test "$(go version -m /out/gitleaks | awk '$2 == "github.com/mholt/archives" {print $3}')" = "${GITLEAKS_ARCHIVES_VERSION}" \
+    && /out/gitleaks version
+
+ARG OSV_SCANNER_VERSION=v2.6.0
+ARG OSV_SCANNER_MODULE_SUM=h1:hqtNLANWaKcqOC6znJX8J/23PtzV82RX23oMS9/ab4I=
+RUN go mod download "github.com/google/osv-scanner/v2@${OSV_SCANNER_VERSION}" \
+    && test "$(go mod download -json "github.com/google/osv-scanner/v2@${OSV_SCANNER_VERSION}" | awk '$1 == "\"Sum\":" {gsub(/[",]/, "", $2); print $2}')" = "${OSV_SCANNER_MODULE_SUM}" \
+    && scanner_dir="$(go env GOPATH)/pkg/mod/github.com/google/osv-scanner/v2@${OSV_SCANNER_VERSION}" \
+    && chmod -R u+w "${scanner_dir}" \
+    && cd "${scanner_dir}" \
+    && go mod edit -require="golang.org/x/net@${SCANNER_X_NET_VERSION}" \
+    && go build -mod=mod -o /out/osv-scanner ./cmd/osv-scanner \
+    && test "$(go version -m /out/osv-scanner | awk '$2 == "golang.org/x/net" {print $3}')" = "${SCANNER_X_NET_VERSION}" \
+    && /out/osv-scanner --version
+
+ARG TRIVY_VERSION=0.75.0
+ARG TRIVY_MODULE_SUM=h1:iOMkI0qX3Dfo+A6lznchBvtDD4ZSu+H9RBww1z5Qz58=
+RUN go mod download "github.com/aquasecurity/trivy@v${TRIVY_VERSION}" \
+    && test "$(go mod download -json "github.com/aquasecurity/trivy@v${TRIVY_VERSION}" | awk '$1 == "\"Sum\":" {gsub(/[",]/, "", $2); print $2}')" = "${TRIVY_MODULE_SUM}" \
+    && scanner_dir="$(go env GOPATH)/pkg/mod/github.com/aquasecurity/trivy@v${TRIVY_VERSION}" \
+    && chmod -R u+w "${scanner_dir}" \
+    && cd "${scanner_dir}" \
+    && go mod edit -require="golang.org/x/net@${SCANNER_X_NET_VERSION}" \
+    && go build -mod=mod -ldflags="-X github.com/aquasecurity/trivy/pkg/version/app.ver=${TRIVY_VERSION}" -o /out/trivy ./cmd/trivy \
+    && test "$(go version -m /out/trivy | awk '$2 == "golang.org/x/net" {print $3}')" = "${SCANNER_X_NET_VERSION}" \
+    && /out/trivy --version
+
 FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:bf44cdfcb76cd3b41e879bc058fc37ec5872002ccfde7fcb765e218cde0cd79c AS tools
 
 ARG OPENGREP_VERSION=v1.30.1
 ARG OPENGREP_SHA256=d3195b9d8d5ae93179f6aa5f5daaba6a920a5a09d38c5d5ae5e60924050210c4
-ARG GITLEAKS_VERSION=8.30.1
-ARG GITLEAKS_SHA256=551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb
-ARG OSV_SCANNER_VERSION=v2.6.0
-ARG OSV_SCANNER_SHA256=ca69b3d3cd08f889a49dc0a383122f71cc528b83803671df5fd874d97485b108
-ARG TRIVY_VERSION=0.75.0
-ARG TRIVY_SHA256=c6e65abddb348e25f10549df887045629cf28cc72453cd1c63acb717316b3f3f
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates wget \
@@ -33,18 +86,8 @@ RUN set -eu \
     && mkdir -p /opt/scanners/bin \
     && wget -q -O opengrep "https://github.com/opengrep/opengrep/releases/download/${OPENGREP_VERSION}/opengrep_manylinux_x86" \
     && echo "${OPENGREP_SHA256}  opengrep" | sha256sum -c - \
-    && install -m 0755 opengrep /opt/scanners/bin/opengrep \
-    && wget -q -O gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
-    && echo "${GITLEAKS_SHA256}  gitleaks.tar.gz" | sha256sum -c - \
-    && tar -xzf gitleaks.tar.gz gitleaks \
-    && install -m 0755 gitleaks /opt/scanners/bin/gitleaks \
-    && wget -q -O osv-scanner "https://github.com/google/osv-scanner/releases/download/${OSV_SCANNER_VERSION}/osv-scanner_linux_amd64" \
-    && echo "${OSV_SCANNER_SHA256}  osv-scanner" | sha256sum -c - \
-    && install -m 0755 osv-scanner /opt/scanners/bin/osv-scanner \
-    && wget -q -O trivy.tar.gz "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz" \
-    && echo "${TRIVY_SHA256}  trivy.tar.gz" | sha256sum -c - \
-    && tar -xzf trivy.tar.gz trivy \
-    && install -m 0755 trivy /opt/scanners/bin/trivy
+    && install -m 0755 opengrep /opt/scanners/bin/opengrep
+COPY --from=scanner-builder /out/ /opt/scanners/bin/
 
 FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:bf44cdfcb76cd3b41e879bc058fc37ec5872002ccfde7fcb765e218cde0cd79c AS builder
 
@@ -98,6 +141,7 @@ FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:bf44cdfcb76cd3b41e879bc058fc37
 RUN apt-get update \
     && apt-get install -y --no-install-recommends bubblewrap ca-certificates git \
     && rm -rf /var/lib/apt/lists/* \
+    && python -m pip uninstall --yes pip \
     && ln -s /usr/local/lib/libpython3.13.so.1.0 /usr/lib/x86_64-linux-gnu/libpython3.13.so.1.0
 
 ENV PYTHONDONTWRITEBYTECODE=1 \

@@ -175,11 +175,11 @@ async def test_concurrent_promotions_have_exactly_one_cas_winner() -> None:
     left_receipt = _receipt(left, expected_revision=1, rollback_model=prior)
     right_receipt = _receipt(right, expected_revision=1, rollback_model=prior)
 
+    await _prepare(registry, prior, first_receipt)
+    await registry.promote(first_receipt, actor="Thor")
+    await _prepare(registry, left, left_receipt)
+    await _prepare(registry, right, right_receipt)
     async with asyncio.timeout(0.5):
-        await _prepare(registry, prior, first_receipt)
-        await registry.promote(first_receipt, actor="Thor")
-        await _prepare(registry, left, left_receipt)
-        await _prepare(registry, right, right_receipt)
         results = await asyncio.gather(
             registry.promote(left_receipt, actor="Thor"),
             registry.promote(right_receipt, actor="Thor"),

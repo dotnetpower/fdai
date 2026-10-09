@@ -158,14 +158,21 @@ produced valid SARIF.
 ## Scan runner image
 
 `services/core-control-plane/docker/code-security-scanner.Dockerfile` packages the scan job with
-Opengrep, gitleaks, OSV-Scanner, and Trivy. Each binary is pinned by version and SHA-256, and the
-glibc-based Debian image is pinned by digest. The file builds two targets:
+Opengrep, gitleaks, OSV-Scanner, and Trivy. Opengrep is pinned by version and SHA-256. The Go-based
+tools retain their scanner versions but rebuild authenticated, checksum-pinned upstream modules
+with digest-pinned Go 1.27.2 and patched dependencies. Builds reject compiler or embedded-module
+version drift. The glibc-based Debian image is pinned by digest, and the runtime removes the
+unused pip installer and its vulnerable vendored libraries. The file builds two targets:
 
 - **`runtime` (default):** every scanner and the Python proof lane.
 - **`prover`:** the same image plus Node.js, gcc with AddressSanitizer and
   UndefinedBehaviorSanitizer, OpenJDK 21, and the .NET SDK, pinned by SHA-512. `--prove` can then
   reproduce Python, JavaScript, native, Java, and C# issues. The image is glibc-based because the
   sanitizer runtimes don't support musl.
+
+Image build success does not prove supply-chain readiness. Scan both exact built targets with
+fresh vulnerability data, retain findings without available vendor fixes, and never report those
+findings as resolved merely because the Go/Python dependency repairs pass.
 
 The entrypoint has two steps:
 
