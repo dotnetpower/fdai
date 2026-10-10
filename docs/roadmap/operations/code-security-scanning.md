@@ -337,6 +337,12 @@ route. Heimdall is the accountable agent for the result. The request itself gran
 4. **Result:** the proposal closes as completed with a bounded summary (revision, decision, issue
    count, coverage) or rejected with a reason code. The Console lists requests and their status.
 
+The Console follows the registry state when presenting this flow. With no registered repository,
+it expands the Owner-only registration form, omits the unavailable scan-request controls, and
+removes duplicate empty-state messages. After at least one repository exists, scan request becomes
+the primary task and registration returns to a collapsed secondary disclosure. This presentation
+does not change role checks, proposal semantics, or the worker's effect boundary.
+
 The worker reads repository access from the deployment's GitHub App (`FDAI_GITHUB_APP_*`) or token
 (`FDAI_GITOPS_TOKEN`) environment and narrows each token to the one registered repository with
 read-only contents permission. Without credentials only public repositories can be scanned. The
