@@ -206,7 +206,7 @@ trivy sbom --exit-code 1 --severity MEDIUM,HIGH,CRITICAL node-runtime.cdx.json
 Run the unchanged image scan as well. A passing scoped SBOM check is not complete native-library,
 kernel, full-image, or installation readiness evidence; the inventory is not an attestation.
 
-### Supply-chain remediation and execution scope
+### Supply-chain repairs and execution scope
 
 Treat package/advisory matches as reported findings until their exact component scope is
 reviewed. Image-package metadata does not establish which kernel a container or Kata VM runs.

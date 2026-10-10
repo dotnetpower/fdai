@@ -74,6 +74,8 @@ RUN go mod download "github.com/aquasecurity/trivy@v${TRIVY_VERSION}" \
 
 FROM mcr.microsoft.com/azurelinux/base/core@sha256:a66ca12ae8c8c464e00cc6cc7f9deff5d2dfcd0f1314ba5dac22034ef171d3ae AS platform
 
+RUN timeout --signal=TERM --kill-after=10 180s tdnf install -y ca-certificates
+
 FROM platform AS python-builder
 
 ARG PYTHON_VERSION=3.13.16

@@ -14,6 +14,8 @@ def test_scanner_uses_authenticated_same_python_on_supported_platform() -> None:
         "mcr.microsoft.com/azurelinux/base/core@sha256:"
         "a66ca12ae8c8c464e00cc6cc7f9deff5d2dfcd0f1314ba5dac22034ef171d3ae"
     ) in content
+    assert "tdnf install -y ca-certificates" in _stage(content, "platform")
+    assert "--insecure" not in content and "curl -k" not in content
     python = _stage(content, "python-builder")
     assert "ARG PYTHON_VERSION=3.13.16" in python
     assert (

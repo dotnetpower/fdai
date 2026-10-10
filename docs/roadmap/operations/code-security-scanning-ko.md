@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: 6868c9d48ffd792a1b17573b0bb8c45477b02c7e
+translation_source_sha: 4dc9680a0692e5ac2033c64a76f257cc32d6d182
 translation_revised: 2026-10-10
 ---
 
