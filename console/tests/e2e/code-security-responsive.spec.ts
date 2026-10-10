@@ -335,8 +335,9 @@ test("queues an Owner registration change from the Console", async ({ page }) =>
   await page.goto("/code-security");
   await page.getByText("Register a GitHub repository").click();
   const form = page.locator(".code-security-register-form");
-  await form.getByLabel("Alias", { exact: true }).fill("new-service");
   await form.getByLabel("GitHub repository", { exact: true }).fill("example-organization/new-service");
+  await form.getByText("Repository settings").click();
+  await expect(form.getByLabel("Alias", { exact: true })).toHaveValue("new-service");
   await form.getByLabel("Exposure", { exact: true }).selectOption("internal");
   await page.getByRole("button", { name: "Request registration" }).click();
   await expect(page.getByText("Change request queued.", { exact: false })).toBeVisible();
@@ -359,43 +360,60 @@ test("presents repository registration as the primary empty-state task", async (
 
   const registration = page.locator(".code-security-register");
   await expect(registration).toHaveAttribute("open", "");
-  await expect(page.getByLabel("Alias", { exact: true })).toBeVisible();
   await expect(page.getByLabel("GitHub repository", { exact: true })).toBeVisible();
+  const workflow = page.getByRole("list", { name: "Repository scan workflow" });
+  await expect(workflow.getByText("Register", { exact: true })).toBeVisible();
+  await expect(workflow.getByText("Scan", { exact: true })).toBeVisible();
+  await expect(workflow.getByText("Review", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("Alias", { exact: true })).toBeHidden();
   await expect(page.getByRole("button", { name: "Request registration" })).toBeDisabled();
   await expect(page.getByText("No repository is registered for Console scans.")).toHaveCount(0);
 
+  await page.getByLabel("GitHub repository", { exact: true }).fill("https://github.com/example/new-service.git");
+  await page.getByLabel("GitHub repository", { exact: true }).blur();
+  await expect(page.getByLabel("GitHub repository", { exact: true })).toHaveValue("example/new-service");
+  await expect(page.getByRole("button", { name: "Request registration" })).toBeEnabled();
+  await page.getByText("Repository settings").click();
+  await expect(page.getByLabel("Alias", { exact: true })).toHaveValue("new-service");
+
   const geometry = await registration.evaluate((element) => {
-    const form = element.querySelector(".code-security-register-form");
-    const alias = element.querySelector<HTMLInputElement>('input[required]');
+    const primary = element.querySelector(".code-security-register-primary");
+    const location = element.querySelector<HTMLInputElement>(".code-security-register-location input");
     const summary = element.querySelector("summary");
-    if (form === null || alias === null || summary === null) throw new Error("registration controls missing");
+    if (primary === null || location === null || summary === null) throw new Error("registration controls missing");
     return {
-      columns: getComputedStyle(form).gridTemplateColumns.split(" ").length,
-      inputHeight: alias.getBoundingClientRect().height,
+      columns: getComputedStyle(primary).gridTemplateColumns.split(" ").length,
+      inputHeight: location.getBoundingClientRect().height,
       summaryHeight: summary.getBoundingClientRect().height,
       documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     };
   });
-  expect(geometry.columns).toBe(12);
+  expect(geometry.columns).toBe(2);
   expect(geometry.inputHeight).toBeGreaterThanOrEqual(40);
   expect(geometry.summaryHeight).toBeGreaterThanOrEqual(48);
   expect(geometry.documentOverflow).toBeLessThanOrEqual(0);
 
   await page.setViewportSize({ width: 390, height: 844 });
   const mobileGeometry = await registration.evaluate((element) => {
-    const fields = [...element.querySelectorAll("label")].map((field) => field.getBoundingClientRect());
-    const input = element.querySelector("input");
+    const primary = element.querySelector(".code-security-register-primary");
+    const settings = [...element.querySelectorAll(".code-security-register-settings-grid label")]
+      .map((field) => field.getBoundingClientRect());
+    const input = element.querySelector(".code-security-register-location input");
     const button = element.querySelector("button");
-    if (fields.length === 0 || input === null || button === null) throw new Error("registration controls missing");
+    if (primary === null || settings.length === 0 || input === null || button === null) {
+      throw new Error("registration controls missing");
+    }
     return {
-      oneColumn: fields.every((field) => Math.abs(field.width - fields[0]!.width) < 1)
-        && fields.every((field, index) => index === 0 || field.top > fields[index - 1]!.top),
+      primaryColumns: getComputedStyle(primary).gridTemplateColumns.split(" ").length,
+      settingsOneColumn: settings.every((field) => Math.abs(field.width - settings[0]!.width) < 1)
+        && settings.every((field, index) => index === 0 || field.top > settings[index - 1]!.top),
       inputHeight: input.getBoundingClientRect().height,
       buttonHeight: button.getBoundingClientRect().height,
       documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     };
   });
-  expect(mobileGeometry.oneColumn).toBe(true);
+  expect(mobileGeometry.primaryColumns).toBe(1);
+  expect(mobileGeometry.settingsOneColumn).toBe(true);
   expect(mobileGeometry.inputHeight).toBeGreaterThanOrEqual(44);
   expect(mobileGeometry.buttonHeight).toBeGreaterThanOrEqual(44);
   expect(mobileGeometry.documentOverflow).toBeLessThanOrEqual(0);

@@ -19,7 +19,12 @@ import {
   scanRequestIdempotencyKey,
 } from "./code-security-requests";
 import { decodeCodeSecurityIssues, issueReference } from "./code-security-issues";
-import { registrationInputValid, repositoryChangeIdempotencyKey } from "./code-security-registration";
+import {
+  normalizeGitHubLocation,
+  registrationInputValid,
+  repositoryAliasSuggestion,
+  repositoryChangeIdempotencyKey,
+} from "./code-security-registration";
 
 function packEnvelope(packs: unknown[], gaps: unknown[] = []): Record<string, unknown> {
   return {
@@ -339,6 +344,11 @@ describe("code-security route", () => {
     expect(registrationInputValid("bad alias", "example/app", "")).toBe(false);
     expect(registrationInputValid("a", "https://github.com/example/app", "")).toBe(false);
     expect(registrationInputValid("a", "example/app", "../main")).toBe(false);
+    expect(normalizeGitHubLocation("https://github.com/example/app.git")).toBe("example/app");
+    expect(normalizeGitHubLocation("https://github.com/example/app/?tab=readme")).toBe(
+      "https://github.com/example/app/?tab=readme",
+    );
+    expect(repositoryAliasSuggestion("https://github.com/example/new-service")).toBe("new-service");
     expect(repositoryChangeIdempotencyKey({ action: "disable", repository_alias: "a" }, "n1"))
       .toBe("code-security-repository:disable:a:n1");
   });

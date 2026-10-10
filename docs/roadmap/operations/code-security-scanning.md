@@ -338,10 +338,13 @@ route. Heimdall is the accountable agent for the result. The request itself gran
    count, coverage) or rejected with a reason code. The Console lists requests and their status.
 
 The Console follows the registry state when presenting this flow. With no registered repository,
-it expands the Owner-only registration form, omits the unavailable scan-request controls, and
-removes duplicate empty-state messages. After at least one repository exists, scan request becomes
-the primary task and registration returns to a collapsed secondary disclosure. This presentation
-does not change role checks, proposal semantics, or the worker's effect boundary.
+it expands the Owner-only registration flow, omits the unavailable scan-request controls, and
+connects Register, Scan, and Review as one visible sequence. The primary form accepts
+`owner/repository` or an HTTPS GitHub URL, normalizes the URL before submission, and suggests the
+alias from the repository name. Alias, default ref, and exposure remain editable under secondary
+repository settings. After at least one repository exists, scan request becomes the primary task
+and registration returns to a collapsed secondary disclosure. This presentation does not change
+role checks, proposal semantics, or the worker's effect boundary.
 
 The worker reads repository access from the deployment's GitHub App (`FDAI_GITHUB_APP_*`) or token
 (`FDAI_GITOPS_TOKEN`) environment and narrows each token to the one registered repository with

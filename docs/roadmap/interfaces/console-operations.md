@@ -40,10 +40,12 @@ Test-context proposal, review, and revocation controls follow that boundary. Ope
 Source facets preserve totals; alert table headers use readable text tokens. Isolated fixtures never establish authenticated accessibility.
 [Alert noise requests](../operations/alert-noise-governance.md) expose original acceptances and signed results.
 The Code security Repository scans section treats an empty registry as a bounded setup task. It
-expands Owner-only registration, removes duplicate empty messages, and withholds scan-request
-controls until a repository exists. After registration, scan request becomes the primary task and
-registration returns to a collapsed secondary disclosure. This presentation does not change API
-roles, queued-request semantics, or worker authority.
+connects Register, Scan, and Review as one visible sequence and leads with one GitHub repository
+field plus the truthful queued-request action. HTTPS GitHub URLs normalize to
+`owner/repository`, the alias follows the repository name until the operator edits it, and alias,
+default ref, and exposure stay under secondary settings. After registration, scan request becomes
+the primary task and registration returns to a collapsed secondary disclosure. This presentation
+does not change API roles, queued-request semantics, or worker authority.
 Only an exact-key terminal resolves uncertainty; the canonical Process owns approval and effect state. Configuration baselines, Skills, Conversation Delivery, and Forecast Learning expose an explicit Refresh evidence action using their existing GET projections. Refresh preserves the current view, enters a skeleton immediately, blocks duplicate activation while loading, and can recover after an unavailable source without activating a producer, polling automatically, or issuing a mutation. Forecast Learning exposes recorded total, open, closed and abstained episodes, deletion-in-progress count and the oldest due publication time alongside its outcome table. An empty terminal-outcome table does not hide active episodes, and these recorded counts never establish prediction quality or fill a missing due-cohort measurement. Repeating Scheduler Runs' active task/status lookup re-reads the first evidence page with the existing generation fence rather than navigating to the same URL without fetching. Refresh resets loaded pagination, preserves task/status scope, and never retries, cancels or executes a scheduled task.
 
 Recorded Resource state views consume the shared independent state axes rather than interpreting
