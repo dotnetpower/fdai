@@ -366,7 +366,11 @@ write succeeds. Its readiness and liveness exec probes reject a missing or stale
 thresholds derived from the request interval, without exposing an HTTP endpoint or credentials.
 Each process uses a unique worker identity and renews its 60-second claim while scanning.
 A replacement cannot steal an unexpired claim and recovers abandoned work only after the bounded
-lease expires. The scan runner image owns both the service and one-shot commands.
+lease expires. The local full-stack supervisor runs the worker in the fixed
+`fdai-code-security-worker` container. Its managed wrapper stops that exact container when the
+supervisor terminates, and startup fails closed if the name is already owned, preventing stale
+workers from accumulating across restarts. The scan runner image owns both the service and one-shot
+commands.
 
 Source acquisition resolves the remote ref, clones the exact commit into the private
 content-addressed scan work root, removes `.git`, and makes the extracted tree read-only. The
