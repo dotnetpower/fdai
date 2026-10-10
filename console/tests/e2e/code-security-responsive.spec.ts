@@ -379,17 +379,22 @@ test("presents repository registration as the primary empty-state task", async (
   const geometry = await registration.evaluate((element) => {
     const primary = element.querySelector(".code-security-register-primary");
     const location = element.querySelector<HTMLInputElement>(".code-security-register-location input");
+    const button = element.querySelector<HTMLButtonElement>(".code-security-register-submit");
     const summary = element.querySelector("summary");
-    if (primary === null || location === null || summary === null) throw new Error("registration controls missing");
+    if (primary === null || location === null || button === null || summary === null) {
+      throw new Error("registration controls missing");
+    }
     return {
       columns: getComputedStyle(primary).gridTemplateColumns.split(" ").length,
       inputHeight: location.getBoundingClientRect().height,
+      controlTopDelta: button.getBoundingClientRect().top - location.getBoundingClientRect().top,
       summaryHeight: summary.getBoundingClientRect().height,
       documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
     };
   });
   expect(geometry.columns).toBe(2);
   expect(geometry.inputHeight).toBeGreaterThanOrEqual(40);
+  expect(Math.abs(geometry.controlTopDelta)).toBeLessThanOrEqual(1);
   expect(geometry.summaryHeight).toBeGreaterThanOrEqual(48);
   expect(geometry.documentOverflow).toBeLessThanOrEqual(0);
 

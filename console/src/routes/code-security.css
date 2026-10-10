@@ -148,10 +148,17 @@
 .code-security-register-primary {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
+  grid-template-areas:
+    "field action"
+    "help help";
+  column-gap: 12px;
+  row-gap: 6px;
   align-items: end;
 }
+.code-security-register-location { grid-area: field; }
+.code-security-location-hint { grid-area: help; }
 .code-security-register-submit {
+  grid-area: action;
   min-width: 172px;
   min-height: 40px;
   justify-content: center;
@@ -210,7 +217,13 @@
     width: calc(100% - 40px);
     margin: 0;
   }
-  .code-security-register-primary { grid-template-columns: 1fr; }
+  .code-security-register-primary {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "field"
+      "help"
+      "action";
+  }
   .code-security-register-submit { width: 100%; min-height: 44px; }
   .code-security-register-settings-grid { grid-template-columns: 1fr; }
   .code-security-register-exposure { grid-column: auto; }

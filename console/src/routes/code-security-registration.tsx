@@ -178,10 +178,10 @@ export function RepositoryRegistrationForm({
                 onBlur={normalizeLocationField}
                 onInput={(event) => updateLocation((event.currentTarget as HTMLInputElement).value)}
               />
-              <small id="code-security-location-hint" class="cs-control-help">
-                {t("codeSecurity.register.locationHint")}
-              </small>
             </label>
+            <small id="code-security-location-hint" class="cs-control-help code-security-location-hint">
+              {t("codeSecurity.register.locationHint")}
+            </small>
             <button type="submit" class="btn primary code-security-register-submit" disabled={!valid || submitting}>
               {submitting ? t("codeSecurity.scan.submitting") : t("codeSecurity.register.submit")}
             </button>
