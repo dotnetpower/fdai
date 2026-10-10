@@ -6,6 +6,7 @@ import argparse
 import json
 import os
 import subprocess
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -30,6 +31,10 @@ from fdai.delivery.code_security_report import (
 from fdai.delivery.code_security_sandbox import BubblewrapScannerSandbox, sandbox_available
 from fdai.delivery.code_security_scan_cli import derive_alias, scan_target
 from fdai.delivery.code_security_scan_job import ScanJobConfig, ScanJobResult, run_scan_job
+from fdai.delivery.persistence.state_store_code_security_artifacts import (
+    CodeSecurityArtifactTooLargeError,
+    validate_code_security_artifacts,
+)
 from fdai.rule_catalog.code_security import Exposure, load_code_security_catalog
 from fdai.rule_catalog.code_security_scanners import ScannerCatalog, load_scanner_catalog
 
@@ -276,12 +281,13 @@ def test_report_lists_issues_without_code_or_scanner_text(tmp_path: Path) -> Non
     assert "Content-Security-Policy" in page and "<script" not in page
     assert oct(paths.html.stat().st_mode & 0o777) == "0o600"
     sarif = json.loads(
-        render_sarif(
+        rendered_sarif := render_sarif(
             result,
             repository_alias="example-service",
             generated_at="2026-10-08T00:00:00+00:00",
         )
     )
+    assert "\n " not in rendered_sarif
     sarif_result = sarif["runs"][0]["results"][0]
     assert sarif["version"] == "2.1.0"
     assert sarif_result["properties"]["issue_id"] == issue["issue_id"]
@@ -300,6 +306,35 @@ def test_report_lists_issues_without_code_or_scanner_text(tmp_path: Path) -> Non
         sarif_result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == "src/app.py"
     )
     assert "scanner said" not in json.dumps(sarif)
+
+
+def test_compact_sarif_keeps_large_code_context_within_the_persistence_bound(
+    tmp_path: Path,
+) -> None:
+    result = _result(tmp_path)
+    result = replace(result, issues=result.issues * 600)
+    generated_at = "2026-10-08T00:00:00+00:00"
+    document = scan_report_document(
+        result,
+        repository_alias="example-service",
+        source_label="local_path:local",
+        generated_at=generated_at,
+    )
+    html = render_html(document)
+    sarif = render_sarif(
+        result,
+        repository_alias="example-service",
+        generated_at=generated_at,
+    )
+
+    validate_code_security_artifacts({"html": html, "sarif": sarif})
+    parsed = json.loads(sarif)
+    assert all(
+        item["properties"]["code_context"] is not None for item in parsed["runs"][0]["results"]
+    )
+    pretty = json.dumps(parsed, indent=2, ensure_ascii=False) + "\n"
+    with pytest.raises(CodeSecurityArtifactTooLargeError):
+        validate_code_security_artifacts({"html": html, "sarif": pretty})
 
 
 def test_report_escapes_html_and_localizes_to_korean(tmp_path: Path) -> None:

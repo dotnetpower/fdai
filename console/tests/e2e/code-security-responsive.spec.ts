@@ -403,7 +403,7 @@ for (const viewport of [
     await page.getByRole("button", { name: "View HTML report" }).click();
     await expect(page.getByTitle("Code-security HTML report")).toBeVisible();
     await page.getByRole("button", { name: "View SARIF" }).click();
-    await expect(page.getByLabel("Code-security SARIF")).toContainText('"version":"2.1.0"');
+    await expect(page.getByLabel("Code-security SARIF")).toContainText('"version": "2.1.0"');
 
     const geometry = await page.evaluate(() => {
       const main = document.querySelector("main");

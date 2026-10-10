@@ -473,7 +473,7 @@ def render_sarif(
             }
         ],
     }
-    return json.dumps(document, indent=2, ensure_ascii=False) + "\n"
+    return json.dumps(document, ensure_ascii=False, separators=(",", ":")) + "\n"
 
 
 def _bounded_line(value: str) -> str:

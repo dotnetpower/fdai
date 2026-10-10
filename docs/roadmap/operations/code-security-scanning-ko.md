@@ -1,8 +1,8 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: ee19dd9f3dc95c41bf1d12e6e5972dcbdaf655c4
-translation_revised: 2026-10-10
+translation_source_sha: 15a92487f0b5f56b14d487fa2ae73bc5bdb91676
+translation_revised: 2026-10-11
 ---
 
 # 코드 보안 스캔
@@ -379,7 +379,10 @@ Console은 저장소 상대 수정 경로와 줄을 사용해 스캔한 커밋�
 정확한 리비전 코드 문맥을 최대 7줄까지 보존할 수 있으며, 줄과 발견 사항별 크기를 제한합니다.
 비밀 탐지 도구가 만든 발견 사항은 구조적인 대입 키만 남기고 값을 마스킹하며 주변 줄은
 생략합니다. 다른 발견 사항은 제어 문자를 제거한 범위 제한 텍스트를 보존합니다. FDAI는 전체
-소스 파일이나 마스킹하지 않은 비밀 값을 저장하지 않습니다.
+소스 파일이나 마스킹하지 않은 비밀 값을 저장하지 않습니다. 산출물 스키마 1.3은 공백이 900KB
+저장 묶음을 소비하지 않도록 SARIF를 간결한 JSON으로 저장합니다. 이 과정에서 발견 사항, 문맥 줄,
+마스킹, 기록된 흐름 단계를 제거하지 않습니다. Console은 검증된 JSON을 사람이 읽기 쉬운 형태로
+표시합니다.
 
 이슈 변환 결과는 확정된 Critical, High, Medium, Low, Informational 발견 사항과 정규
 `undetermined` 심각도의 별도 검토 필요 개수를 서로 겹치지 않는 표시 scorecard로 제공합니다.

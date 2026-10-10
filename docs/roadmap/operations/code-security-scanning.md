@@ -390,7 +390,9 @@ boundary. The full artifact can also retain at most seven exact-revision context
 fix site, bounded per line and per finding. Secret-producing findings retain only the structural
 assignment key and replace the value with a redaction marker; surrounding lines are omitted.
 Other findings retain bounded text with control characters removed. FDAI never stores a whole
-source file or an unredacted secret.
+source file or an unredacted secret. Artifact schema 1.3 stores SARIF as compact JSON so whitespace
+does not consume the 900 KB persistence envelope; it removes no finding, context line, redaction,
+or recorded flow step. The Console formats that validated JSON for human-readable display.
 
 The issue projection publishes a mutually exclusive display scorecard for determined Critical,
 High, Medium, Low, and Informational findings plus a separate Needs review count for canonical

@@ -461,6 +461,7 @@ describe("code-security route", () => {
     expect(data.issues.map(issueReference)).toEqual(["CWE-78", "flask CVE-2026-0001"]);
     expect(data.gaps).toEqual(["code_security_issues_truncated"]);
     expect(data.artifacts?.html).toContain("<!doctype html>");
+    expect(data.artifacts?.sarif).toBe('{\n  "version": "2.1.0",\n  "runs": []\n}');
     expect(() => decodeCodeSecurityIssues({ available: true, issues: [{ priority: "P9" }], gaps: [] })).toThrow();
   });
 
