@@ -78,7 +78,10 @@ Managed local preparation also keeps inactive consumer-group offsets within the 
 horizon as ordinary topic data and checks expiry every minute; active groups are unaffected.
 The full-stack profile also prepares and starts one restricted code-security worker. Preparation
 hashes every scanner image input, rebuilds a missing or stale local image, verifies its OCI label,
-and generates a private worker environment. Readiness requires a fresh content-free heartbeat.
+and generates a private worker environment. Readiness requires a fresh content-free heartbeat. The
+worker service fingerprint includes its fixed-name container wrapper, which stops the exact
+container on supervisor termination and refuses an already-owned name instead of creating another
+consumer.
 Supervisor stop and replacement accept only the canonical launcher or its exact repo-local Copilot
 wrapper while preserving PID, checkout, and lock-fd ownership checks.
 

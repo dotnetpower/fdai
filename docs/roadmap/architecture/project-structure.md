@@ -665,7 +665,8 @@ receipt, so a rubric change makes earlier rescans non-equivalent. The Operator r
 is `routes/code-security.tsx` with its request, registration, and issue-detail modules. The
 scan runner image sits beside the core image as `docker/code-security-scanner.Dockerfile`.
 `code_security_worker_service.py` supervises bounded request and revision-check batches through the
-same CLI entry point. Local composition starts it through the managed Console supervisor;
+same CLI entry point. Local composition starts it through the managed Console supervisor and a
+fixed-name container lifecycle wrapper that stops the exact worker on supervisor termination;
 Container Apps owns an independent code-security worker service, while the AKS workload uses the
 existing Kata scanner-job boundary with separate controller and scanner namespaces. These
 workloads retain the restricted database role and create no new agent or execution authority. The
