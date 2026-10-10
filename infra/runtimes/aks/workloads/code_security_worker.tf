@@ -17,8 +17,9 @@ locals {
     "fdai.io/source-commit" = local.code_security_worker_enabled ? var.code_security_worker.source_commit : ""
   })
   code_security_worker_github_app = (
-    local.code_security_worker_enabled &&
-    var.code_security_worker.github.token_secret == ""
+    local.code_security_worker_enabled
+    ? var.code_security_worker.github.token_secret == ""
+    : false
   )
   code_security_worker_secret_environment = local.code_security_worker_enabled ? merge(
     {
