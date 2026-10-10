@@ -14,6 +14,9 @@ or a second source of provider truth.
 > not ontology types or autonomy axes. `standing-authority-promotion` cannot change an ActionType
 > mode or grant A3-E authority, and `operator-override-promotion` is the same kind of change-control metadata for one governed promotion request;
 > the single-operator production profile only lets its named Owner meet those classes' review quorum alone. The Operator promotion-gate view is read-only registry metadata outside ontology identity and classification. [Observer setup projections](aks-outbound-connector.md#operator-delivery-contract) likewise reference an existing neutral cluster identity without creating Resource, ObjectType, LinkType or installation authority.
+> Additive non-ontology Operator routes, including the code-security worker heartbeat, remain
+> operational projections. Registering them in the shared route manifest creates no ontology type,
+> relationship, query authority, or structural-model dependency.
 >
 > **Compatibility boundary:** Existing `Resource`, `ResourceType`, LinkType identities, stored link
 > directions, and historical ontology releases remain valid. New structural surfaces are additive

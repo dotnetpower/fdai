@@ -76,6 +76,11 @@ Managed preparation uses local PostgreSQL and Redpanda plus an explicit Azure CL
 never initializes or reads Terraform state, and gateway discovery grants no local executor identity.
 Managed local preparation also keeps inactive consumer-group offsets within the same 24-hour
 horizon as ordinary topic data and checks expiry every minute; active groups are unaffected.
+The full-stack profile also prepares and starts one restricted code-security worker. Preparation
+hashes every scanner image input, rebuilds a missing or stale local image, verifies its OCI label,
+and generates a private worker environment. Readiness requires a fresh content-free heartbeat.
+Supervisor stop and replacement accept only the canonical launcher or its exact repo-local Copilot
+wrapper while preserving PID, checkout, and lock-fd ownership checks.
 
 ![Design at a glance. The main stages are Edit and focused check, Workflow diagnostics, Focused commit, Structural pre-push, SHA-addressed CI, Remote work, Bounded handover.](../../diagrams/generated/fdai-roadmap-deployment-developer-workflow-assurance-01.en.svg)
 

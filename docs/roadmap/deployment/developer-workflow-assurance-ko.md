@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 9dec6b7d34931755a44daebccf51e7d506610309
-translation_revised: 2026-10-09
+translation_source_sha: 7ffd8ad8be23dbd750ab45b3b0e1207996c63e63
+translation_revised: 2026-10-10
 ---
 
 # 개발 워크플로 보증
@@ -81,6 +81,11 @@ bearer-token 파일 경로를 전달하지만 bearer 값 자체는 전달하지 
 Terraform 상태를 초기화하거나 읽지 않으며 게이트웨이 검색은 로컬 실행기 신원을 부여하지 않습니다.
 관리되는 로컬 준비 과정은 비활성 consumer group offset도 일반 topic 데이터와 같은 24시간 구간으로
 제한하고 1분마다 만료를 확인하며, 활성 group에는 영향을 주지 않습니다.
+전체 스택 프로필은 제한된 코드 보안 작업자 하나도 준비하고 시작합니다. 준비 과정은 스캐너 이미지
+입력을 모두 해시하고, 로컬 이미지가 없거나 오래됐으면 다시 빌드하며, OCI 레이블을 검증하고,
+비공개 작업자 환경을 생성합니다. 준비 상태에는 내용 없는 최신 heartbeat가 필요합니다. supervisor
+중지와 교체는 PID, checkout, lock fd 소유권 검사를 유지하면서 정본 실행기나 저장소 안의 정확한
+Copilot wrapper만 허용합니다.
 
 ![설계 개요. 주요 단계는 편집과 집중 검사, 워크플로 진단, 집중 커밋, 구조 pre-push, SHA 기반 CI, 원격 작업, 제한된 인계입니다.](../../diagrams/generated/fdai-roadmap-deployment-developer-workflow-assurance-01.ko.svg)
 

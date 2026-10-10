@@ -663,7 +663,12 @@ JDK map keys and dominating assignments, without executing repository code. The 
 receipt, so a rubric change makes earlier rescans non-equivalent. The Operator read side is
 `code_security_review_projection.py` and `code_security_issue_projection.py`, and the Console route
 is `routes/code-security.tsx` with its request, registration, and issue-detail modules. The
-scan runner image sits beside the core image as `docker/code-security-scanner.Dockerfile`. The
+scan runner image sits beside the core image as `docker/code-security-scanner.Dockerfile`.
+`code_security_worker_service.py` supervises bounded request and revision-check batches through the
+same CLI entry point. Local composition starts it through the managed Console supervisor;
+Container Apps owns an independent code-security worker service, while the AKS workload uses the
+existing Kata scanner-job boundary with separate controller and scanner namespaces. These
+workloads retain the restricted database role and create no new agent or execution authority. The
 labeled evaluation corpora, including the code and dependency cases of the curated corpus, live in
 `rule-catalog/code-security/evaluation/` and are measured by the pure `evaluation.py` harness. See
 [Code Security Findings](../operations/code-security-findings.md).
