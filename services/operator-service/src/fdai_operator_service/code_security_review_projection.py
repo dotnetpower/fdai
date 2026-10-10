@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -36,8 +36,10 @@ CODE_SECURITY_REPOSITORY_STATE_PREFIX = "runtime:code-security-repository:"
 """Mirrors the Core repository registration store."""
 
 SCAN_REQUEST_OPERATION = "code_security.scan_request"
+CODE_SECURITY_WORKER_STATUS_KEY = "runtime:code-security-worker:v1"
 GAP_REPOSITORY_MALFORMED = "code_security_repository_malformed"
 GAP_REQUEST_MALFORMED = "code_security_scan_request_malformed"
+GAP_WORKER_STATUS_MALFORMED = "code_security_worker_status_malformed"
 
 GAP_MALFORMED = "code_security_review_malformed"
 GAP_PACK_MALFORMED = "code_security_pack_malformed"
@@ -243,6 +245,17 @@ def _timestamp(value: object) -> str:
     return value
 
 
+def _aware_timestamp(value: object) -> tuple[str, datetime]:
+    rendered = _timestamp(value)
+    try:
+        parsed = datetime.fromisoformat(rendered)
+        if parsed.tzinfo is None or parsed.utcoffset() is None:
+            raise _MalformedError
+        return rendered, parsed.astimezone(UTC)
+    except (OverflowError, ValueError) as exc:
+        raise _MalformedError from exc
+
+
 def _pack_reviews(raw: object) -> tuple[dict[str, object] | None, list[dict[str, object]]]:
     """Return the latest fix-verification summary and every adjudication, without free text."""
     if not isinstance(raw, list) or len(raw) > _MAX_REVIEWS:
@@ -445,26 +458,131 @@ def _scan_request(value: object) -> dict[str, object]:
         result = value.get("request_result")
         if not isinstance(result, Mapping) or not isinstance(result.get("enabled"), bool):
             raise _MalformedError
-        request["result"] = {"enabled": result["enabled"]}
+        projected: dict[str, object] = {"enabled": result["enabled"]}
+        initial_scan = result.get("initial_scan")
+        if initial_scan is not None:
+            if not isinstance(initial_scan, Mapping):
+                raise _MalformedError
+            initial_status = initial_scan.get("status")
+            if initial_status == "failed":
+                reason = initial_scan.get("reason_code")
+                if reason not in _REJECTIONS:
+                    raise _MalformedError
+                projected["initial_scan"] = {
+                    "status": "failed",
+                    "reason_code": reason,
+                }
+            elif initial_status == "completed":
+                projected["initial_scan"] = {
+                    "status": "completed",
+                    **_scan_result(initial_scan),
+                }
+            else:
+                raise _MalformedError
+        request["result"] = projected
     elif status == "completed":
         result = value.get("request_result")
         if not isinstance(result, Mapping):
             raise _MalformedError
-        decision = result.get("decision")
-        coverage, published = result.get("coverage_complete"), result.get("published")
-        if decision not in ("urgent", "open", "clear", "coverage_incomplete"):
-            raise _MalformedError
-        if not isinstance(coverage, bool) or not isinstance(published, bool):
-            raise _MalformedError
-        request["result"] = {
-            "revision": _match(result.get("revision"), _REVISION),
-            "review_digest": _match(result.get("review_digest"), _DIGEST),
-            "decision": decision,
-            "issue_count": _count(result.get("issue_count")),
-            "coverage_complete": coverage,
-            "published": published,
-        }
+        request["result"] = _scan_result(result)
     return request
+
+
+def _scan_result(result: Mapping[str, object]) -> dict[str, object]:
+    decision = result.get("decision")
+    coverage, published = result.get("coverage_complete"), result.get("published")
+    if decision not in ("urgent", "open", "clear", "coverage_incomplete"):
+        raise _MalformedError
+    if not isinstance(coverage, bool) or not isinstance(published, bool):
+        raise _MalformedError
+    return {
+        "revision": _match(result.get("revision"), _REVISION),
+        "review_digest": _match(result.get("review_digest"), _DIGEST),
+        "decision": decision,
+        "issue_count": _count(result.get("issue_count")),
+        "coverage_complete": coverage,
+        "published": published,
+    }
+
+
+def code_security_worker_status_projection(
+    rows: Sequence[Mapping[str, Any]], *, now: datetime | None = None
+) -> dict[str, object]:
+    """Render one content-free worker heartbeat with an explicit freshness verdict."""
+    if not rows:
+        return {
+            "surface": "code-security-worker-status",
+            "available": False,
+            "complete": True,
+            "source": "postgresql:state_kv:code-security-worker",
+            "status": None,
+            "gaps": [],
+        }
+    gaps: list[dict[str, object]] = []
+    try:
+        if len(rows) != 1 or rows[0].get("key") != CODE_SECURITY_WORKER_STATUS_KEY:
+            raise _MalformedError
+        value = rows[0].get("value")
+        expected = {
+            "kind",
+            "schema_version",
+            "state",
+            "phase",
+            "recorded_at",
+            "request_interval_seconds",
+            "schedule_interval_seconds",
+            "next_request_at",
+            "next_schedule_at",
+            "request_processed",
+            "schedule_checked",
+            "schedule_scanned",
+            "schedule_unchanged",
+            "schedule_failed",
+        }
+        if (
+            not isinstance(value, Mapping)
+            or set(value) != expected
+            or value.get("kind") != "code-security-worker-status"
+            or value.get("schema_version") != "1.0.0"
+            or value.get("state") not in {"running", "ready"}
+            or value.get("phase") not in {"requests", "schedule", "idle"}
+        ):
+            raise _MalformedError
+        request_interval = _count(value.get("request_interval_seconds"))
+        schedule_interval = _count(value.get("schedule_interval_seconds"))
+        if not 1 <= request_interval <= 60 or not 60 <= schedule_interval <= 86_400:
+            raise _MalformedError
+        recorded_text, recorded_at = _aware_timestamp(value.get("recorded_at"))
+        next_request_at, _ = _aware_timestamp(value.get("next_request_at"))
+        next_schedule_at, _ = _aware_timestamp(value.get("next_schedule_at"))
+        current = (now or datetime.now(UTC)).astimezone(UTC)
+        fresh = 0 <= (current - recorded_at).total_seconds() <= max(30, request_interval * 3)
+        status = {
+            "state": value["state"],
+            "phase": value["phase"],
+            "fresh": fresh,
+            "recorded_at": recorded_text,
+            "next_request_at": next_request_at,
+            "next_schedule_at": next_schedule_at,
+            "request_interval_seconds": request_interval,
+            "schedule_interval_seconds": schedule_interval,
+            "request_processed": _count(value.get("request_processed")),
+            "schedule_checked": _count(value.get("schedule_checked")),
+            "schedule_scanned": _count(value.get("schedule_scanned")),
+            "schedule_unchanged": _count(value.get("schedule_unchanged")),
+            "schedule_failed": _count(value.get("schedule_failed")),
+        }
+    except (OverflowError, ValueError, _MalformedError):
+        gaps.append({"reason_code": GAP_WORKER_STATUS_MALFORMED})
+        status = None
+    return {
+        "surface": "code-security-worker-status",
+        "available": status is not None,
+        "complete": not gaps,
+        "source": "postgresql:state_kv:code-security-worker",
+        "status": status,
+        "gaps": gaps,
+    }
 
 
 def code_security_scan_requests_projection(
@@ -499,6 +617,7 @@ CODE_SECURITY_OPERATIONS = frozenset(
         "code_security.packs",
         "code_security.repositories",
         "code_security.scan_requests",
+        "code_security.worker_status",
         "code_security.issues",
         "knowledge.github.sources",
     }
@@ -544,6 +663,9 @@ async def read_code_security_projection(
             _SCAN_REQUEST_ROWS_SQL, (SCAN_REQUEST_OPERATION, REPOSITORY_CHANGE_OPERATION)
         )
         return code_security_scan_requests_projection(rows)
+    if operation == "code_security.worker_status":
+        rows = await fetch_all(_STATE_ROWS_SQL, (CODE_SECURITY_WORKER_STATUS_KEY,))
+        return code_security_worker_status_projection(rows)
     rows = await fetch_all(_STATE_ROWS_SQL, (f"{CODE_SECURITY_REVIEW_STATE_PREFIX}%",))
     return code_security_reviews_projection(rows)
 
@@ -553,6 +675,7 @@ __all__ = [
     "CODE_SECURITY_REPOSITORY_STATE_PREFIX",
     "REPOSITORY_CHANGE_OPERATION",
     "CodeSecurityRepositoryChangeBody",
+    "code_security_worker_status_projection",
     "GAP_REPOSITORY_MALFORMED",
     "GAP_REQUEST_MALFORMED",
     "SCAN_REQUEST_OPERATION",

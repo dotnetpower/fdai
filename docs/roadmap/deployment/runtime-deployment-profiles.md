@@ -26,6 +26,11 @@ public access needs no token; private access uses the deployment-owned read-only
 reference. Missing credentials or failed provider validation never become a verified source.
 Knowledge supplies neither credential bytes nor scan privilege: new connections remain
 scan-disabled until a separate Owner enable request, without changing runtime selection.
+Code-security automation also preserves runtime parity. Container Apps runs one dedicated
+restricted worker service. AKS runs one controller replica and launches scanner jobs through the
+existing Kata runtime, separate restricted namespaces, immutable scanner image, and source/cache
+PVC bindings. Both profiles share request, heartbeat, revision-watermark, and review contracts;
+runtime selection changes only identity, storage, network, and sandbox adapters.
 
 Operator production composition uses the same focused lifecycle, route-family, and read-source
 modules in every runtime profile. The internal ownership split changes no platform selection,

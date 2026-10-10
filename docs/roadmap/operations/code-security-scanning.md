@@ -337,11 +337,67 @@ route. Heimdall is the accountable agent for the result. The request itself gran
 4. **Result:** the proposal closes as completed with a bounded summary (revision, decision, issue
    count, coverage) or rejected with a reason code. The Console lists requests and their status.
 
+A successful `register` or `enable` change continues through one initial scan of the registered
+default ref before the request closes. Registration remains an independently audited state change:
+an initial scan failure does not erase the registration, and the terminal request result names the
+scan failure so an operator can request a retry. A successful initial scan records the exact
+revision, review digest, decision, issue count, coverage, and publication state in the same bounded
+request result.
+
+The Console follows the registry state when presenting this flow. With no registered repository,
+it expands the Owner-only registration flow, omits the unavailable scan-request controls, and
+connects Register, Scan, and Review as one visible sequence. The primary form accepts
+`owner/repository` or an HTTPS GitHub URL, normalizes the URL before submission, and suggests the
+alias from the repository name. Alias, default ref, and exposure remain editable under secondary
+repository settings. After at least one repository exists, scan request becomes the primary task
+and registration returns to a collapsed secondary disclosure. This presentation does not change
+role checks, proposal semantics, or the worker's effect boundary.
+
 The worker reads repository access from the deployment's GitHub App (`FDAI_GITHUB_APP_*`) or token
 (`FDAI_GITOPS_TOKEN`) environment and narrows each token to the one registered repository with
 read-only contents permission. Without credentials only public repositories can be scanned. The
-worker is a batch job for a schedule or a one-shot run, not a polling daemon; the scan runner
-image starts it with `fdai-scan-runner process-requests`.
+request and scheduled workers remain bounded batches. A supervised code-security worker service
+invokes the request batch every 5 seconds and the scheduled revision check every 5 minutes by
+default; deployments can select bounded intervals without changing scan authority. Every cycle
+writes a content-free heartbeat with the next request and schedule times. A missing or stale
+heartbeat makes automation unavailable in the Console instead of leaving queued work looking
+active. The AKS worker also updates a content-free local health file only after a durable heartbeat
+write succeeds. Its readiness and liveness exec probes reject a missing or stale file with
+thresholds derived from the request interval, without exposing an HTTP endpoint or credentials.
+Each process uses a unique worker identity and renews its 60-second claim while scanning.
+A replacement cannot steal an unexpired claim and recovers abandoned work only after the bounded
+lease expires. The scan runner image owns both the service and one-shot commands.
+
+Source acquisition resolves the remote ref, clones the exact commit into the private
+content-addressed scan work root, removes `.git`, and makes the extracted tree read-only. The
+Console never exposes that local path or source text. It shows the exact revision and review result
+after recording, which is the operator's confirmation that the clone, scan, and review completed.
+Git ref resolution and acquisition run outside the asynchronous coordinator loop so heartbeat and
+claim renewal continue during a slow network fetch or archive extraction.
+
+Automatic scans also produce two bounded, review-digest-bound presentation artifacts: a canonical
+SARIF 2.1.0 document and a self-contained HTML report. They contain canonical issue metadata,
+fix-site locations, severity floor and ceiling, deciding facts, scanner completion, coverage limits,
+and counts, but no source code, scanner messages, code flows, credentials, or secrets. The worker records them immutably beside the issue
+summaries. The authenticated Console can render either artifact for the exact repository revision;
+an absent, oversized, malformed, or digest-mismatched full artifact is explicit, and the Operator
+generates a clearly labeled summary-only HTML/SARIF view from the already validated issue summaries
+without inventing paths or scanner coverage.
+
+The Console uses the exact repository-relative fix-site path and line to build a GitHub blob link
+pinned to the scanned commit. Operators inspect the actual code in the repository's own access
+boundary. The full artifact can also retain at most seven exact-revision context lines around the
+fix site, bounded per line and per finding. Secret-producing findings retain only the structural
+assignment key and replace the value with a redaction marker; surrounding lines are omitted.
+Other findings retain bounded text with control characters removed. FDAI never stores a whole
+source file or an unredacted secret.
+
+The issue projection publishes a mutually exclusive display scorecard for determined Critical,
+High, Medium, Low, and Informational findings plus a separate Needs review count for canonical
+`undetermined` severity. Informational is a display triage bucket for canonical Low findings whose
+deterministic priority is P4; it is not a new canonical severity. Needs review also reports the
+number whose severity ceiling is Critical, High, Medium, or Low so uncertainty never becomes a
+false determined count.
 
 The [Knowledge GitHub connection](../../runbooks/knowledge-github-sources.md) can also register
 a verified repository source, using either public read access or the deployment's read-only
@@ -365,7 +421,12 @@ enable a scan. Disconnecting Knowledge does not revoke independently granted sca
 `fdai-code-security process-scheduled-scans --max-repositories N` scans the enabled registrations
 in rotating alias order at their default refs with the same runner, credentials, and sandbox as the request
 worker. It records each review with trigger `schedule` and no request id, and publishes it when a
-bus is bound. Each repository ends as `published`, `failed` with the request worker's
+bus is bound. Before scanning, the worker resolves the default ref and compares it with the last
+successfully recorded revision for that repository. An unchanged revision records an `unchanged`
+cycle outcome without running scanners or creating another review. A changed revision is scanned
+by its exact commit id; only a successfully recorded review advances the durable revision
+watermark. A failed check remains explicit and never appears as an unchanged or successful review.
+Each repository ends as `published`, `unchanged`, `failed` with the request worker's
 `source_unavailable`, `scan_failed`, or `review_conflict` reason, or `deferred` with
 `schedule_capacity` when more repositories are enabled than the batch allows. One failure doesn't
 stop the others, and the command reports `ok: false` when any scanned repository failed. The scan

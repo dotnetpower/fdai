@@ -130,6 +130,41 @@ class PostgresCodeSecurityScanRequestQueue:
             else None,
         )
 
+    async def renew(self, *, key: str, claim_id: str) -> bool:
+        if self._config.restricted_access:
+            rows = await self._fetch_all(
+                "SELECT public.fdai_code_security_renew("
+                "%(key)s, %(claim_id)s, %(lease_seconds)s) AS renewed",
+                {
+                    "key": key,
+                    "claim_id": claim_id,
+                    "lease_seconds": self._config.lease_seconds,
+                },
+            )
+            renewed = rows[0].get("renewed") if len(rows) == 1 else None
+            if not isinstance(renewed, bool):
+                raise ValueError("code-security renewal returned no boolean")
+            return renewed
+        rows = await self._fetch_all(
+            """
+            UPDATE state_kv
+               SET value = value || jsonb_build_object(
+                   'claim_expires_at', NOW() + make_interval(secs => %(lease_seconds)s)
+               ),
+                   updated_at = NOW()
+             WHERE key = %(key)s
+               AND value ->> 'claim_id' = %(claim_id)s
+               AND value ->> 'dispatch_status' = 'claimed'
+         RETURNING key
+            """,
+            {
+                "key": key,
+                "claim_id": claim_id,
+                "lease_seconds": self._config.lease_seconds,
+            },
+        )
+        return bool(rows)
+
     async def mark_completed(
         self, *, key: str, claim_id: str, result: Mapping[str, object]
     ) -> bool:

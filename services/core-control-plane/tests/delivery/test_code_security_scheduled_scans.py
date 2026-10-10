@@ -60,6 +60,10 @@ async def _register(store: InMemoryStateStore, *aliases: str) -> None:
         )
 
 
+async def _resolve(repository: CodeSecurityRepository, ref: str) -> str:
+    return _REVISION
+
+
 async def test_schedule_scans_enabled_repositories_with_the_schedule_trigger() -> None:
     store = InMemoryStateStore()
     await _register(store, "b-app", "a-app", "off-app")
@@ -77,11 +81,16 @@ async def test_schedule_scans_enabled_repositories_with_the_schedule_trigger() -
 
     publisher = _Publisher()
     outcomes = await process_scheduled_scans(
-        store, runner, recorder=recorder, publisher=publisher, max_repositories=5
+        store,
+        runner,
+        resolver=_resolve,
+        recorder=recorder,
+        publisher=publisher,
+        max_repositories=5,
     )
     assert [alias for alias, _, _ in calls] == ["a-app", "b-app"]
     for _, ref, source in calls:
-        assert ref == "main"
+        assert ref == _REVISION
         assert (source.kind, source.provider, source.trigger) == (
             "git_repository",
             "github",
@@ -121,7 +130,13 @@ async def test_schedule_isolates_failures_and_names_deferred_repositories() -> N
             raise CodeSecurityReviewConflictError("different findings")
         return True
 
-    outcomes = await process_scheduled_scans(store, runner, recorder=recorder, max_repositories=4)
+    outcomes = await process_scheduled_scans(
+        store,
+        runner,
+        resolver=_resolve,
+        recorder=recorder,
+        max_repositories=4,
+    )
     assert [
         (item["repository_alias"], item["status"], item.get("reason_code")) for item in outcomes
     ] == [
@@ -141,13 +156,19 @@ async def test_schedule_bounds_its_batch(bound: int) -> None:
         await process_scheduled_scans(
             InMemoryStateStore(),
             None,  # type: ignore[arg-type]
+            resolver=_resolve,
             recorder=None,  # type: ignore[arg-type]
             max_repositories=bound,
         )
 
 
 async def test_schedule_with_no_enabled_repository_does_nothing() -> None:
-    assert await process_scheduled_scans(InMemoryStateStore(), None, recorder=None) == []  # type: ignore[arg-type]
+    assert (
+        await process_scheduled_scans(  # type: ignore[arg-type]
+            InMemoryStateStore(), None, resolver=_resolve, recorder=None
+        )
+        == []
+    )
 
 
 def test_cli_parses_the_scheduled_worker() -> None:
@@ -160,6 +181,23 @@ def test_cli_parses_the_scheduled_worker() -> None:
         3,
         ["opengrep=/x"],
     )
+    service = _parser().parse_args(
+        [
+            "serve-workers",
+            "--request-interval-seconds",
+            "7",
+            "--schedule-interval-seconds",
+            "600",
+            "--max-requests",
+            "9",
+        ]
+    )
+    assert (
+        service.command,
+        service.request_interval_seconds,
+        service.schedule_interval_seconds,
+        service.max_requests,
+    ) == ("serve-workers", 7, 600, 9)
 
 
 async def test_bounded_schedule_rotates_past_failed_and_deferred_repositories() -> None:
@@ -178,7 +216,11 @@ async def test_bounded_schedule_rotates_past_failed_and_deferred_repositories() 
 
     for _ in range(4):
         outcomes = await process_scheduled_scans(
-            store, runner, recorder=recorder, max_repositories=1
+            store,
+            runner,
+            resolver=_resolve,
+            recorder=recorder,
+            max_repositories=1,
         )
         assert sum(item["status"] == "deferred" for item in outcomes) == 2
     assert calls == ["a-app", "b-app", "c-app", "a-app"]
@@ -197,7 +239,13 @@ async def test_schedule_cursor_survives_disabled_repository() -> None:
     async def recorder(outcome: ScanOutcome) -> bool:
         return True
 
-    outcomes = await process_scheduled_scans(store, runner, recorder=recorder, max_repositories=1)
+    outcomes = await process_scheduled_scans(
+        store,
+        runner,
+        resolver=_resolve,
+        recorder=recorder,
+        max_repositories=1,
+    )
     assert outcomes[0]["repository_alias"] == "c-app"
 
 
@@ -221,5 +269,73 @@ async def test_malformed_schedule_cursor_is_not_silently_reset(
         await process_scheduled_scans(
             store,
             None,
+            resolver=_resolve,
             recorder=None,  # type: ignore[arg-type]
         )
+
+
+async def test_schedule_skips_an_unchanged_successful_revision() -> None:
+    store = InMemoryStateStore()
+    await _register(store, "a-app")
+    calls: list[str] = []
+
+    async def runner(repo: CodeSecurityRepository, ref: str, source: ReviewSource) -> ScanOutcome:
+        calls.append(ref)
+        return ScanOutcome(_package(source))
+
+    async def recorder(outcome: ScanOutcome) -> bool:
+        return True
+
+    first = await process_scheduled_scans(
+        store,
+        runner,
+        resolver=_resolve,
+        recorder=recorder,
+        max_repositories=1,
+    )
+    second = await process_scheduled_scans(
+        store,
+        runner,
+        resolver=_resolve,
+        recorder=recorder,
+        max_repositories=1,
+    )
+    assert first[0]["status"] == "published"
+    assert second == [{"repository_alias": "a-app", "status": "unchanged", "revision": _REVISION}]
+    assert calls == [_REVISION]
+
+
+async def test_schedule_scans_a_new_exact_revision_and_advances_the_watermark() -> None:
+    store = InMemoryStateStore()
+    await _register(store, "a-app")
+    revision = _REVISION
+    calls: list[str] = []
+
+    async def resolver(repository: CodeSecurityRepository, ref: str) -> str:
+        return revision
+
+    async def runner(repo: CodeSecurityRepository, ref: str, source: ReviewSource) -> ScanOutcome:
+        calls.append(ref)
+        return ScanOutcome({**_package(source), "revision": ref})
+
+    async def recorder(outcome: ScanOutcome) -> bool:
+        return True
+
+    await process_scheduled_scans(
+        store,
+        runner,
+        resolver=resolver,
+        recorder=recorder,
+        max_repositories=1,
+    )
+    revision = "f" * 40
+    changed = await process_scheduled_scans(
+        store,
+        runner,
+        resolver=resolver,
+        recorder=recorder,
+        max_repositories=1,
+    )
+    assert calls == [_REVISION, "f" * 40]
+    assert changed[0]["status"] == "published"
+    assert changed[0]["revision"] == "f" * 40

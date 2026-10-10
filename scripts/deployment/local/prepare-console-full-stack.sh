@@ -125,6 +125,13 @@ bounded_runner="$repo_root/scripts/automation/run-bounded-command.py"
 stage_timeout_seconds="${FDAI_CONSOLE_PREPARATION_STAGE_TIMEOUT_SECONDS:-300}"
 stage_no_progress_seconds="${FDAI_CONSOLE_PREPARATION_NO_PROGRESS_SECONDS:-120}"
 dependency_timeout_seconds="${FDAI_CONSOLE_DEPENDENCY_TIMEOUT_SECONDS:-600}"
+scanner_image_contract="$repo_root/scripts/deployment/local/code-security-scanner-image.sh"
+scanner_image="${FDAI_CODE_SECURITY_IMAGE:-fdai-code-security-scanner:local}"
+if [[ ! -x "$scanner_image_contract" ]]; then
+  echo "missing executable code-security scanner image contract: $scanner_image_contract" >&2
+  exit 1
+fi
+mapfile -t scanner_image_inputs < <(bash "$scanner_image_contract" inputs)
 legacy_preparation_inputs=(
   console/.env.local
   console/package.json
@@ -138,6 +145,7 @@ legacy_preparation_inputs=(
   rule-catalog
   scripts/deployment/local
   scripts/deployment/azure
+  "${scanner_image_inputs[@]}"
 )
 required_outputs=(
   console/node_modules/.bin/vite
@@ -149,6 +157,7 @@ required_outputs=(
   .fdai/local-document-ingestion-api.env
   .fdai/local-document-processing-worker.env
   .fdai/local-isolated-executor.env
+  .fdai/local-code-security-worker.env
 )
 for optional_input in \
   resolved-models.json \
@@ -269,6 +278,8 @@ can_reuse_legacy_preparation() {
     [[ -s "$repo_root/$output" ]] || return 1
   done
   auth_mode_outputs_match || return 1
+  bash "$scanner_image_contract" verify "$scanner_image" "$scanner_image_input_digest" \
+    >/dev/null 2>&1 || return 1
   "$repo_root/.venv/bin/python" \
     "$repo_root/scripts/automation/developer-workflow.py" \
     local-services \
@@ -310,6 +321,10 @@ stage_reusable() {
     run_bounded local-state-readiness \
       bash "$repo_root/scripts/deployment/local/prepare-console-state.sh" \
       --check >/dev/null 2>&1; then
+    return 1
+  fi
+  if [[ "$name" == "code-security-scanner-image" ]] && ! \
+    bash "$scanner_image_contract" verify "$scanner_image" "$digest" >/dev/null 2>&1; then
     return 1
   fi
   for output in "$@"; do
@@ -474,7 +489,26 @@ prepare_service_environments() {
     bash "$repo_root/scripts/deployment/local/prepare-operator-service-env.sh" \
     --auth-mode "$auth_mode"
   run_bounded independent-service-environments \
+    env \
+    FDAI_CODE_SECURITY_IMAGE="$scanner_image" \
+    FDAI_CODE_SECURITY_IMAGE_INPUT_DIGEST="$scanner_image_input_digest" \
     bash "$repo_root/scripts/deployment/local/prepare-independent-service-envs.sh"
+}
+
+prepare_code_security_scanner_image() {
+  "$repo_root/.venv/bin/python" \
+    "$bounded_runner" \
+    --label code-security-scanner-image \
+    --timeout-seconds "$dependency_timeout_seconds" \
+    --no-progress-seconds "$stage_no_progress_seconds" \
+    -- \
+    bash "$scanner_image_contract" \
+    ensure "$scanner_image" "$scanner_image_input_digest"
+  if ! bash "$scanner_image_contract" \
+    verify "$scanner_image" "$scanner_image_input_digest"; then
+    echo "code-security scanner image verification failed after preparation" >&2
+    return 1
+  fi
 }
 
 prepare_entra_redirects() {
@@ -491,12 +525,18 @@ run_bounded service-migration-preflight \
 run_bounded local-dependencies \
   bash "$repo_root/scripts/deployment/local/dev-up.sh"
 
+scanner_image_input_digest="$(
+  run_bounded code-security-scanner-input-digest \
+    bash "$scanner_image_contract" digest
+)"
 if [[ "$force_preparation" == "0" && -f "$legacy_preparation_marker" ]]; then
   current_legacy_digest="$(
     configuration_digest \
       "$(legacy_digest "${legacy_preparation_inputs[@]}")" \
       "auth-mode=$auth_mode" \
-      "resolved-models-override=$resolved_models_override"
+      "resolved-models-override=$resolved_models_override" \
+      "code-security-scanner-image=$scanner_image" \
+      "code-security-scanner-input-digest=$scanner_image_input_digest"
   )"
   if can_reuse_legacy_preparation "$current_legacy_digest"; then
     printf '%s service=console-preparation event=reused\n' \
@@ -530,6 +570,10 @@ run_stage \
   "$repo_root/console/node_modules/.bin/vite" \
   "$repo_root/.venv/bin/fdai-document-processing-worker" \
   "$repo_root/.venv/bin/fdai-isolated-executor-service"
+run_stage \
+  code-security-scanner-image \
+  "$scanner_image_input_digest" \
+  prepare_code_security_scanner_image
 
 require_cloud_tools
 run_bounded local-model-settings \
@@ -601,6 +645,7 @@ service_environment_inputs=(
   console/.env.local
   scripts/deployment/local/prepare-operator-service-env.sh
   scripts/deployment/local/prepare-independent-service-envs.sh
+  scripts/deployment/local/code-security-scanner-image.sh
 )
 entra_inputs=(
   console/.env.local
@@ -644,12 +689,15 @@ run_stage \
   service-environments \
   "$(configuration_digest \
     "$(path_digest service-environments "${service_environment_inputs[@]}")" \
-    "auth-mode=$auth_mode")" \
+    "auth-mode=$auth_mode" \
+    "code-security-scanner-image=$scanner_image" \
+    "code-security-scanner-input-digest=$scanner_image_input_digest")" \
   prepare_service_environments \
   "$repo_root/.fdai/local-operator-service.env" \
   "$repo_root/.fdai/local-document-ingestion-api.env" \
   "$repo_root/.fdai/local-document-processing-worker.env" \
-  "$repo_root/.fdai/local-isolated-executor.env"
+  "$repo_root/.fdai/local-isolated-executor.env" \
+  "$repo_root/.fdai/local-code-security-worker.env"
 run_stage \
   entra-redirects \
   "$(path_digest entra-redirects "${entra_inputs[@]}")" \

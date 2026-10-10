@@ -95,6 +95,7 @@ LEGACY_ROUTE_SNAPSHOT = {
     (("GET", "HEAD"), "/code-security/packs", "handler"),
     (("GET", "HEAD"), "/code-security/repositories", "handler"),
     (("GET", "HEAD"), "/code-security/scan-requests", "handler"),
+    (("GET", "HEAD"), "/code-security/worker-status", "handler"),
     (("POST",), "/code-security/scan-requests", "handler"),
     (("GET", "HEAD"), "/code-security/issues", "handler"),
     (("POST",), "/code-security/repositories", "handler"),
@@ -314,7 +315,7 @@ def test_manifest_preserves_exact_legacy_paths_methods_and_names() -> None:
         )
         for entry in OPERATIONS_ROUTE_MANIFEST
     } == LEGACY_ROUTE_SNAPSHOT
-    assert len(OPERATIONS_ROUTE_MANIFEST) == 52
+    assert len(OPERATIONS_ROUTE_MANIFEST) == 53
 
 
 def test_observer_proposals_require_authentication_and_never_submit_actions() -> None:

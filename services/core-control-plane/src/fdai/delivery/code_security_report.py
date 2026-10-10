@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import html
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -389,6 +390,161 @@ def render_html(document: dict[str, object], locale: str = "en") -> str:
     )
 
 
+def render_sarif(
+    result: ScanJobResult,
+    *,
+    repository_alias: str,
+    generated_at: str,
+) -> str:
+    """Render bounded canonical issues as inert SARIF 2.1.0 without scanner messages or code."""
+    severity_level = {
+        "critical": "error",
+        "high": "error",
+        "medium": "warning",
+        "low": "note",
+        "undetermined": "warning",
+    }
+    results = []
+    for issue in result.issues:
+        region = (
+            {"startLine": issue.fix_site.start_line}
+            if issue.fix_site.start_line is not None
+            else {}
+        )
+        results.append(
+            {
+                "ruleId": issue.weakness_class,
+                "level": severity_level.get(issue.severity.label, "warning"),
+                "message": {"text": f"{issue.issue_id}: canonical FDAI code-security issue"},
+                "locations": [
+                    {
+                        "physicalLocation": {
+                            "artifactLocation": {"uri": issue.fix_site.path},
+                            **({"region": region} if region else {}),
+                        }
+                    }
+                ],
+                "properties": {
+                    "issue_id": issue.issue_id,
+                    "title": issue.title,
+                    "priority": issue.priority.priority.value,
+                    "severity": issue.severity.label,
+                    "severity_floor": issue.severity.floor.value,
+                    "severity_ceiling": issue.severity.ceiling.value,
+                    "severity_rationale": issue.severity.rationale,
+                    "deciding_facts": list(issue.severity.deciding_facts),
+                    "confidence": issue.confidence.value,
+                    "cwe_ids": [f"CWE-{cwe}" for cwe in issue.cwe_ids],
+                    "advisory_ids": sorted(issue.advisory_ids)[:3],
+                    "package": issue.package,
+                    "producers": list(issue.producers),
+                    "known_exploited": issue.known_exploited,
+                    "code_context": _code_context(result, issue),
+                    "flow_steps": _flow_steps(issue),
+                },
+            }
+        )
+    document = {
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [
+            {
+                "tool": {
+                    "driver": {
+                        "name": "FDAI",
+                        "informationUri": "https://github.com/dotnetpower/fdai",
+                        "rules": [],
+                    }
+                },
+                "automationDetails": {
+                    "id": f"{repository_alias}/{result.revision}",
+                },
+                "invocations": [
+                    {
+                        "executionSuccessful": True,
+                        "endTimeUtc": generated_at,
+                        "properties": {
+                            "coverage_complete": result.package["coverage_complete"],
+                            "coverage_limits": list(result.coverage_limits),
+                        },
+                    }
+                ],
+                "results": results,
+            }
+        ],
+    }
+    return json.dumps(document, indent=2, ensure_ascii=False) + "\n"
+
+
+def _bounded_line(value: str) -> str:
+    cleaned = "".join(
+        character if character >= " " or character == "\t" else " " for character in value
+    )
+    return cleaned[:240]
+
+
+def _redacted_secret_line(value: str) -> str:
+    line = _bounded_line(value)
+    match = re.match(r"^(\s*[^:=]{1,120}\s*[:=])", line)
+    return (
+        f'{match.group(1)} "<sensitive value redacted>"'
+        if match
+        else "<sensitive content redacted>"
+    )
+
+
+def _code_context(result: ScanJobResult, issue: CodeSecurityIssue) -> dict[str, object] | None:
+    root = result.source_path
+    line_number = issue.fix_site.start_line
+    if root is None or line_number is None or line_number <= 0:
+        return None
+    target = (root / issue.fix_site.path).resolve()
+    if (
+        not target.is_relative_to(root.resolve())
+        or not target.is_file()
+        or target.stat().st_size > 1_000_000
+    ):
+        return None
+    try:
+        lines = target.read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return None
+    if line_number > len(lines):
+        return None
+    secret = any(producer.casefold() == "gitleaks" for producer in issue.producers)
+    if secret:
+        selected = [(line_number, _redacted_secret_line(lines[line_number - 1]))]
+        start = line_number
+        end = line_number
+    else:
+        start = max(1, line_number - 3)
+        end = min(len(lines), max(line_number, issue.fix_site.end_line or line_number) + 3)
+        selected = [(number, _bounded_line(lines[number - 1])) for number in range(start, end + 1)]
+    return {
+        "start_line": start,
+        "highlight_start": line_number,
+        "highlight_end": issue.fix_site.end_line or line_number,
+        "redacted": secret,
+        "lines": [{"number": number, "text": text} for number, text in selected],
+    }
+
+
+def _flow_steps(issue: CodeSecurityIssue) -> list[dict[str, object]]:
+    steps: list[dict[str, object]] = []
+    seen: set[tuple[str, int | None, str]] = set()
+    for instance in issue.instances:
+        if instance.source is None:
+            continue
+        key = (instance.source.path, instance.source.line, "source")
+        if key not in seen:
+            seen.add(key)
+            steps.append({"kind": "source", "path": key[0], "line": key[1]})
+    sink = (issue.fix_site.path, issue.fix_site.start_line, "sink")
+    if sink not in seen:
+        steps.append({"kind": "sink", "path": sink[0], "line": sink[1]})
+    return steps[:12]
+
+
 def write_scan_report(
     result: ScanJobResult,
     out_dir: Path,
@@ -425,6 +581,7 @@ __all__ = [
     "ScanReportPaths",
     "render_html",
     "render_markdown",
+    "render_sarif",
     "scan_report_document",
     "write_scan_report",
 ]

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 from fdai_operator_service.code_security_issue_projection import code_security_issues_projection
@@ -13,6 +14,7 @@ from fdai_operator_service.code_security_review_projection import (
     code_security_repositories_projection,
     code_security_reviews_projection,
     code_security_scan_requests_projection,
+    code_security_worker_status_projection,
     read_code_security_projection,
 )
 from fdai_operator_service.families.operations import ProjectionQuery
@@ -387,6 +389,97 @@ def test_repository_changes_render_beside_scan_requests() -> None:
     assert result["gaps"] == [{"reason_code": "code_security_scan_request_malformed"}]
 
 
+def test_repository_change_projects_automatic_initial_scan() -> None:
+    change = _request_row(
+        "published",
+        operation="code_security.repository_change",
+        closed_at="2026-10-08T01:05:00+00:00",
+        request_result={
+            "action": "register",
+            "repository_alias": "example-app",
+            "enabled": True,
+            "initial_scan": {
+                "status": "completed",
+                "revision": _REVISION,
+                "review_digest": "4" * 64,
+                "decision": "clear",
+                "issue_count": 0,
+                "coverage_complete": True,
+                "published": False,
+            },
+        },
+        payload={
+            "payload": {
+                "action": "register",
+                "repository_alias": "example-app",
+                "location": "example/app",
+            }
+        },
+    )
+    result = code_security_scan_requests_projection([change])
+    assert result["requests"][0]["result"]["initial_scan"] == {  # type: ignore[index]
+        "status": "completed",
+        "revision": _REVISION,
+        "review_digest": "4" * 64,
+        "decision": "clear",
+        "issue_count": 0,
+        "coverage_complete": True,
+        "published": False,
+    }
+
+
+def _worker_row(**overrides: object) -> dict[str, object]:
+    value: dict[str, object] = {
+        "kind": "code-security-worker-status",
+        "schema_version": "1.0.0",
+        "state": "ready",
+        "phase": "idle",
+        "recorded_at": "2026-10-10T01:00:00+00:00",
+        "request_interval_seconds": 5,
+        "schedule_interval_seconds": 300,
+        "next_request_at": "2026-10-10T01:00:05+00:00",
+        "next_schedule_at": "2026-10-10T01:05:00+00:00",
+        "request_processed": 1,
+        "schedule_checked": 3,
+        "schedule_scanned": 1,
+        "schedule_unchanged": 2,
+        "schedule_failed": 0,
+    }
+    value.update(overrides)
+    return {"key": "runtime:code-security-worker:v1", "value": value}
+
+
+def test_worker_status_projects_freshness_and_malformed_gaps() -> None:
+    now = datetime(2026, 10, 10, 1, 0, 10, tzinfo=UTC)
+    result = code_security_worker_status_projection([_worker_row()], now=now)
+    assert result["available"] is True
+    assert result["status"]["fresh"] is True  # type: ignore[index]
+    stale = code_security_worker_status_projection([_worker_row()], now=now.replace(minute=2))
+    assert stale["status"]["fresh"] is False  # type: ignore[index]
+    malformed = code_security_worker_status_projection(
+        [_worker_row(request_interval_seconds=0)], now=now
+    )
+    assert malformed["available"] is False
+    assert malformed["gaps"] == [{"reason_code": "code_security_worker_status_malformed"}]
+    overflow = code_security_worker_status_projection(
+        [_worker_row(recorded_at="0001-01-01T00:00:00+14:00")], now=now
+    )
+    assert overflow["available"] is False
+    assert overflow["gaps"] == [{"reason_code": "code_security_worker_status_malformed"}]
+
+
+async def test_reader_serves_worker_status_by_operation() -> None:
+    statements: list[tuple[str, tuple[object, ...]]] = []
+
+    async def fetch_all(sql: str, params: tuple[object, ...]) -> list[dict[str, Any]]:
+        statements.append((sql, params))
+        return []
+
+    result = await read_code_security_projection("code_security.worker_status", fetch_all)
+    assert result["available"] is False
+    assert statements[0][1] == ("runtime:code-security-worker:v1",)
+
+
 def _summary(**overrides: object) -> dict[str, object]:
     value: dict[str, object] = {
         "issue_id": "FDAI-SEC-0123456789ab",
@@ -417,12 +510,62 @@ def test_issue_projection_requires_the_matching_review_digest() -> None:
             "issues": [_summary(), _summary(path="src/x.py")],
             "truncated": True,
         },
+        artifacts_row={
+            "kind": "code-security-review-artifacts",
+            "schema_version": "1.2.0",
+            "repository_alias": "example-service",
+            "revision": _REVISION,
+            "review_digest": digest,
+            "recorded_at": "2026-10-10T00:00:00+00:00",
+            "html": "<!doctype html><title>report</title>",
+            "sarif": (
+                '{"version":"2.1.0","runs":[{"results":[{"properties":{'
+                '"issue_id":"FDAI-SEC-0123456789ab","title":"Command injection",'
+                '"severity_floor":"medium","severity_ceiling":"critical",'
+                '"severity_rationale":"impact is bounded; attacker position is unknown",'
+                '"deciding_facts":["attack_vector"],'
+                '"code_context":{"start_line":40,"highlight_start":42,"highlight_end":42,'
+                '"redacted":false,"lines":[{"number":42,"text":"run(command)"}]},'
+                '"flow_steps":[{"kind":"source","path":"src/api.py","line":12},'
+                '{"kind":"sink","path":"src/app.py","line":42}]},'
+                '"locations":[{"physicalLocation":{'
+                '"artifactLocation":{"uri":"src/app.py"},"region":{"startLine":42}}}]}]}]}'
+            ),
+        },
     )
     assert ok["available"] is True and len(ok["issues"]) == 1  # type: ignore[arg-type]
     assert {gap["reason_code"] for gap in ok["gaps"]} == {  # type: ignore[union-attr]
         "code_security_issue_malformed",
         "code_security_issues_truncated",
     }
+    assert ok["artifacts"] == {
+        "mode": "full",
+        "html": "<!doctype html><title>report</title>",
+        "sarif": (
+            '{"version":"2.1.0","runs":[{"results":[{"properties":{'
+            '"issue_id":"FDAI-SEC-0123456789ab","title":"Command injection",'
+            '"severity_floor":"medium","severity_ceiling":"critical",'
+            '"severity_rationale":"impact is bounded; attacker position is unknown",'
+            '"deciding_facts":["attack_vector"],'
+            '"code_context":{"start_line":40,"highlight_start":42,"highlight_end":42,'
+            '"redacted":false,"lines":[{"number":42,"text":"run(command)"}]},'
+            '"flow_steps":[{"kind":"source","path":"src/api.py","line":12},'
+            '{"kind":"sink","path":"src/app.py","line":42}]},'
+            '"locations":[{"physicalLocation":{'
+            '"artifactLocation":{"uri":"src/app.py"},"region":{"startLine":42}}}]}]}]}'
+        ),
+    }
+    issue = ok["issues"][0]  # type: ignore[index]
+    assert issue["title"] == "Command injection"
+    assert issue["severity_floor"] == "medium"
+    assert issue["severity_ceiling"] == "critical"
+    assert issue["location"] == {"path": "src/app.py", "start_line": 42}
+    assert issue["code_context"]["lines"] == [{"number": 42, "text": "run(command)"}]
+    assert issue["flow_steps"] == [
+        {"kind": "source", "path": "src/api.py", "line": 12},
+        {"kind": "sink", "path": "src/app.py", "line": 42},
+    ]
+    assert ok["scorecard"]["high"] == 1  # type: ignore[index]
     assert "src/x.py" not in str(ok)
     stale = code_security_issues_projection(
         repository_alias="example-service",
@@ -437,6 +580,71 @@ def test_issue_projection_requires_the_matching_review_digest() -> None:
     assert missing["gaps"] == [{"reason_code": "code_security_issues_unavailable"}]
 
 
+def test_missing_full_artifacts_fall_back_to_bounded_summary_views() -> None:
+    review = _row(_package())["value"]
+    result = code_security_issues_projection(
+        repository_alias="example-service",
+        revision=_REVISION,
+        review=review,
+        issues_row={
+            "review_digest": review["package"]["review_digest"],
+            "issues": [_summary()],
+            "truncated": False,
+        },
+    )
+    artifacts = result["artifacts"]
+    assert artifacts["mode"] == "summary"  # type: ignore[index]
+    assert "summary report" in artifacts["html"]  # type: ignore[index]
+    assert '"version": "2.1.0"' in artifacts["sarif"]  # type: ignore[index]
+
+
+def test_scorecard_keeps_undetermined_and_informational_separate() -> None:
+    review = _row(_package())["value"]
+    result = code_security_issues_projection(
+        repository_alias="example-service",
+        revision=_REVISION,
+        review=review,
+        issues_row={
+            "review_digest": review["package"]["review_digest"],
+            "issues": [
+                _summary(severity="undetermined", priority="P2"),
+                _summary(
+                    issue_id="FDAI-SEC-ba9876543210",
+                    severity="low",
+                    priority="P4",
+                ),
+            ],
+            "truncated": False,
+        },
+        artifacts_row={
+            "kind": "code-security-review-artifacts",
+            "schema_version": "1.2.0",
+            "repository_alias": "example-service",
+            "revision": _REVISION,
+            "review_digest": review["package"]["review_digest"],
+            "recorded_at": "2026-10-10T00:00:00+00:00",
+            "html": "<!doctype html><title>report</title>",
+            "sarif": (
+                '{"version":"2.1.0","runs":[{"results":[{"properties":{'
+                '"issue_id":"FDAI-SEC-0123456789ab","severity_floor":"low",'
+                '"severity_ceiling":"critical"}}]}]}'
+            ),
+        },
+    )
+    assert result["scorecard"] == {
+        "critical": 0,
+        "high": 0,
+        "medium": 0,
+        "low": 0,
+        "informational": 1,
+        "needs_review": 1,
+        "potential_critical": 1,
+        "potential_high": 0,
+        "potential_medium": 0,
+        "potential_low": 0,
+    }
+
+
 async def test_reader_serves_issues_for_one_exact_review() -> None:
     import pytest
 
@@ -447,6 +655,22 @@ async def test_reader_serves_issues_for_one_exact_review() -> None:
         statements.append(params)
         if str(params[0]).startswith("runtime:code-security-review:"):
             return [{"key": params[0], "value": review}]
+        if str(params[0]).endswith(":artifacts-1.2"):
+            return [
+                {
+                    "key": params[0],
+                    "value": {
+                        "kind": "code-security-review-artifacts",
+                        "schema_version": "1.2.0",
+                        "repository_alias": "example-service",
+                        "revision": _REVISION,
+                        "review_digest": review["package"]["review_digest"],
+                        "recorded_at": "2026-10-10T00:00:00+00:00",
+                        "html": "<!doctype html><title>report</title>",
+                        "sarif": '{"version":"2.1.0","runs":[]}',
+                    },
+                }
+            ]
         return [
             {
                 "key": params[0],
@@ -464,6 +688,7 @@ async def test_reader_serves_issues_for_one_exact_review() -> None:
     assert statements == [
         (f"runtime:code-security-review:example-service:{_REVISION}",),
         (f"runtime:code-security-issues:example-service:{_REVISION}",),
+        (f"runtime:code-security-issues:example-service:{_REVISION}:artifacts-1.2",),
     ]
     with pytest.raises(ValueError, match="revision"):
         await read_code_security_projection(

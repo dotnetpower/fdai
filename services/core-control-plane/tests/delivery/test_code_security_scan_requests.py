@@ -2,18 +2,21 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
+import fdai.delivery.code_security_scan_requests as scan_requests_module
 import pytest
 from fdai.core.security.code_findings.review_signal import ReviewSource
 from fdai.delivery.code_security_acquire import SourceAcquisitionError
-from fdai.delivery.code_security_repo_cli import github_auth_header
+from fdai.delivery.code_security_repo_cli import _recorder, github_auth_header
 from fdai.delivery.code_security_repository_changes import (
     REJECT_REPOSITORY_CONFLICT,
     REPOSITORY_CHANGE_OPERATION,
     parse_repository_change,
 )
+from fdai.delivery.code_security_revision_state import read_successful_revision
 from fdai.delivery.code_security_scan_requests import (
     REJECT_ATTEMPTS,
     REJECT_CONFLICT,
@@ -27,6 +30,9 @@ from fdai.delivery.code_security_scan_requests import (
     ScanOutcome,
     parse_scan_request,
     process_scan_requests,
+)
+from fdai.delivery.persistence.state_store_code_security_artifacts import (
+    code_security_artifact_state_key,
 )
 from fdai.delivery.persistence.state_store_code_security_repository import (
     CodeSecurityRepository,
@@ -161,9 +167,14 @@ class _Queue:
     claims: list[ClaimedScanRequest]
     completed: list[tuple[str, Mapping[str, object]]] = field(default_factory=list)
     rejected: list[tuple[str, str]] = field(default_factory=list)
+    renewals: list[tuple[str, str]] = field(default_factory=list)
 
     async def claim(self) -> ClaimedScanRequest | None:
         return self.claims.pop(0) if self.claims else None
+
+    async def renew(self, *, key: str, claim_id: str) -> bool:
+        self.renewals.append((key, claim_id))
+        return True
 
     async def mark_completed(
         self, *, key: str, claim_id: str, result: Mapping[str, object]
@@ -232,6 +243,7 @@ async def test_processor_scans_enabled_registration_and_closes_the_request() -> 
     assert source.request_id == _REQUEST_ID
     assert outcome["status"] == "published" and outcome["decision"] == "urgent"
     assert recorded and publisher.packages == recorded
+    assert await read_successful_revision(store, "example-app") == _REVISION
     ((_, result),) = queue.completed
     assert result == {
         "revision": _REVISION,
@@ -241,6 +253,76 @@ async def test_processor_scans_enabled_registration_and_closes_the_request() -> 
         "coverage_complete": True,
         "published": True,
     }
+
+
+async def test_processor_renews_a_claim_during_long_source_work(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(scan_requests_module, "CLAIM_RENEWAL_SECONDS", 0.01)
+    store = InMemoryStateStore()
+    await register_repository(
+        store,
+        alias="example-app",
+        location="example/app",
+        default_ref="main",
+        registered_by="owner",
+    )
+    queue = _Queue([_claim({"repository_alias": "example-app"})])
+
+    async def runner(repo: CodeSecurityRepository, ref: str, source: ReviewSource) -> ScanOutcome:
+        await asyncio.sleep(0.035)
+        return ScanOutcome(_package(source))
+
+    async def recorder(outcome: ScanOutcome) -> bool:
+        return True
+
+    await process_scan_requests(queue, store, runner, recorder=recorder)
+    assert len(queue.renewals) >= 2
+
+
+async def test_worker_recorder_persists_review_artifacts() -> None:
+    store = InMemoryStateStore()
+    package = {
+        "schema_version": "1.0.0",
+        "kind": "code-security-review",
+        "repository_alias": "example-app",
+        "revision": _REVISION,
+        "review_digest": "e" * 64,
+        "issue_count": 0,
+        "by_priority": {"P0": 0, "P1": 0, "P2": 0, "P3": 0, "P4": 0},
+        "by_severity": {
+            "critical": 0,
+            "high": 0,
+            "medium": 0,
+            "low": 0,
+            "undetermined": 0,
+        },
+        "by_confidence": {
+            "hypothesis": 0,
+            "reported": 0,
+            "corroborated": 0,
+            "verified": 0,
+            "proven": 0,
+        },
+        "known_exploited_count": 0,
+        "exposure": "unknown",
+        "coverage_complete": True,
+        "top_issue_ids": [],
+        "review_required": True,
+        "grants_authority": False,
+    }
+    outcome = ScanOutcome(
+        package,
+        artifacts={
+            "html": "<!doctype html><title>FDAI report</title>",
+            "sarif": '{"version":"2.1.0","runs":[]}',
+        },
+    )
+    assert await _recorder(store)(outcome)
+    key = code_security_artifact_state_key("example-app", _REVISION)
+    artifacts = await store.read_state(key)
+    assert artifacts is not None
+    assert artifacts["review_digest"] == "e" * 64
 
 
 async def test_processor_rejects_every_unsafe_or_failed_request() -> None:
@@ -371,10 +453,16 @@ async def test_processor_applies_owner_changes_before_scans_and_audits_the_reque
         ]
     )
 
-    async def runner(*_args):  # type: ignore[no-untyped-def]
-        raise AssertionError("no scan expected")
+    scan_calls: list[tuple[str, ReviewSource]] = []
 
-    outcomes = await process_scan_requests(queue, store, runner, recorder=None, max_requests=10)  # type: ignore[arg-type]
+    async def runner(repo: CodeSecurityRepository, ref: str, source: ReviewSource) -> ScanOutcome:
+        scan_calls.append((ref, source))
+        return ScanOutcome(_package(source))
+
+    async def recorder(outcome: ScanOutcome) -> bool:
+        return True
+
+    outcomes = await process_scan_requests(queue, store, runner, recorder=recorder, max_requests=10)
     assert [item["status"] for item in outcomes] == [
         "published",
         "rejected",
@@ -394,11 +482,65 @@ async def test_processor_applies_owner_changes_before_scans_and_audits_the_reque
     assert repository.registered_by == "owner-oid"
     actors = [item["entry"]["actor"] for item in store.audit_entries]
     assert actors == ["owner-oid", "owner-oid"]
+    assert len(scan_calls) == 1
+    assert scan_calls[0][0] == "HEAD"
+    assert scan_calls[0][1].request_id == "operator-" + "f" * 32
     assert queue.completed[0][1] == {
         "action": "register",
         "repository_alias": "example-app",
         "enabled": True,
         "created": True,
+        "initial_scan": {
+            "status": "completed",
+            "revision": _REVISION,
+            "review_digest": "e" * 64,
+            "decision": "urgent",
+            "issue_count": 1,
+            "coverage_complete": True,
+            "published": False,
+        },
+    }
+    assert await read_successful_revision(store, "example-app") == _REVISION
+
+
+async def test_registration_survives_an_explicit_initial_scan_failure() -> None:
+    store = InMemoryStateStore()
+    change = parse_repository_change(
+        _change_record(
+            {
+                "action": "register",
+                "repository_alias": "example-app",
+                "location": "example/app",
+            }
+        )
+    )
+    assert change is not None
+    queue = _Queue(
+        [
+            ClaimedScanRequest(
+                key="register",
+                claim_id="claim",
+                request=None,
+                operation=REPOSITORY_CHANGE_OPERATION,
+                change=change,
+            )
+        ]
+    )
+
+    async def runner(*_args):  # type: ignore[no-untyped-def]
+        raise SourceAcquisitionError("repository unavailable")
+
+    (outcome,) = await process_scan_requests(
+        queue,
+        store,
+        runner,
+        recorder=None,  # type: ignore[arg-type]
+    )
+    assert outcome["status"] == "published"
+    assert await read_repository(store, "example-app") is not None
+    assert queue.completed[0][1]["initial_scan"] == {
+        "status": "failed",
+        "reason_code": REJECT_SOURCE,
     }
 
 

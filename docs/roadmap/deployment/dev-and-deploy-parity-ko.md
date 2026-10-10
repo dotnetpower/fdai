@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 47879233d7d83b504bab1655a901d0aeedf44578
-translation_revised: 2026-10-09
+translation_source_sha: 0eef6f9167024fdf6060c22fdf74f00b4e2f70fd
+translation_revised: 2026-10-10
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 
@@ -548,9 +548,13 @@ Trial 만료 워터마크도 같은 규칙을 따릅니다. 로컬과 배포된 
 렌즈 호출의 신원 하나입니다. 배포 환경은 Managed Identity를, 로컬 실행은 `--lens-identity azure-cli`를
 사용합니다. 저장소 등록과 Console 스캔 요청도 `state_kv` 행이며, 두 실행 위치 모두
 `/code-security/repositories`와 `/code-security/scan-requests`로 제공되고, 이슈 요약은
-`/code-security/issues`로 제공됩니다. 스캔 요청 작업자는 두
-위치에서 같은 `process-scan-requests` 배치 작업입니다. 로컬에서는 스캔 실행 이미지로 한 번 실행하며,
-아직 이를 예약 실행하는 배포 프로필은 없습니다.
+`/code-security/issues`로 제공됩니다. 요청 작업자와 예약 작업자는 두 위치에서 같은 범위가 제한된
+배치입니다. 로컬 전체 스택 감독자와 배포된 스캐너 작업자 워크로드는 스캔 실행 이미지에서 같은
+`serve-workers` 명령을 실행합니다. 기본적으로 5초마다 대기 요청을, 5분마다 활성 저장소 리비전을
+확인하고 공유 heartbeat를 기록하며 각 배치를 직렬화합니다. 등록할 때 처음 스캔을 한 번 수행하고,
+이후 예약 주기는 정확한 리비전이 바뀐 경우에만 스캔합니다. 실행 위치별 조립은 데이터베이스 역할,
+스캐너 캐시, GitHub 읽기 신원, 작업 루트, 이벤트 전송만 제공합니다. 어느 위치도 요청, 검토, 권한
+계약을 바꾸지 않습니다.
 
 ## 배포자-스코프 LLM 프로비저닝
 

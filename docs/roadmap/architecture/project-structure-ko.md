@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 8f8ae41649dbefc3daaf9c1cc8da4387ad4c7e44
+translation_source_sha: 3a8ffabc701e029f2ead8d07387fb28099f1a459
 translation_revised: 2026-10-10
 ---
 # 프로젝트 구조
@@ -642,7 +642,12 @@ JDK map 키와 마지막 무조건 대입을 포함한 Java 소스 수준 상수
 컨테이너와 로컬 패키지 호출이 같은 진입점을 사용합니다. Core 소유 마이그레이션
 `core_code_security_role_20261009`는 공유 테이블 접근 권한 없이
 `PostgresCodeSecurityStateStore`와 요청 큐에 범위가 제한된 데이터베이스 함수를 제공합니다.
-스캔 실행 이미지는 코어 이미지 옆의 `docker/code-security-scanner.Dockerfile`입니다. 큐레이션 평가 자료의
+스캔 실행 이미지는 코어 이미지 옆의 `docker/code-security-scanner.Dockerfile`입니다.
+`code_security_worker_service.py`는 같은 CLI 진입점으로 범위가 제한된 요청 배치와 리비전 확인
+배치를 감독합니다. 로컬 조립은 관리되는 Console supervisor로 이를 시작하고, Container Apps는
+독립 코드 보안 작업자 서비스를 소유하며, AKS 워크로드는 컨트롤러와 스캐너 네임스페이스를 분리한
+기존 Kata 스캐너 작업 경계를 사용합니다. 이 워크로드는 제한된 데이터베이스 역할을 유지하고 새
+에이전트나 실행 권한을 만들지 않습니다. 큐레이션 평가 자료의
 코드 사례와 의존성 사례를 포함한 레이블 평가 자료는 `rule-catalog/code-security/evaluation/`에 있으며,
 순수 함수로 이루어진 `evaluation.py` 평가 도구가 측정합니다.
 [코드 보안 점검 결과](../operations/code-security-findings-ko.md)를 참조하세요.

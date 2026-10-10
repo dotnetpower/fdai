@@ -17,12 +17,15 @@ credentials only public repositories can be scanned.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import base64
 import os
 from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
+from uuid import uuid4
 
 from fdai.core.security.code_findings.issue_summary import summarize_issues
 from fdai.core.security.code_findings.review_signal import ReviewSource
@@ -32,6 +35,11 @@ from fdai.delivery.code_security_execution import (
     kata_config,
     run_kata_scan,
 )
+from fdai.delivery.code_security_report import (
+    render_html,
+    render_sarif,
+    scan_report_document,
+)
 from fdai.delivery.code_security_review_cli import pairs
 from fdai.delivery.code_security_sandbox import BubblewrapScannerSandbox
 from fdai.delivery.code_security_scan_cli import default_work_root
@@ -40,6 +48,11 @@ from fdai.delivery.code_security_scan_requests import ScanOutcome, process_scan_
 from fdai.delivery.code_security_scheduled_scans import (
     MAX_SCHEDULED_REPOSITORIES,
     process_scheduled_scans,
+)
+from fdai.delivery.code_security_worker_service import (
+    WORKER_HEALTH_FILE_ENV,
+    CodeSecurityWorkerServiceConfig,
+    run_worker_service,
 )
 from fdai.delivery.persistence.state_store_code_security_repository import (
     CodeSecurityRepository,
@@ -90,6 +103,15 @@ def add_repository_commands(sub: argparse._SubParsersAction[argparse.ArgumentPar
         default=5,
         help=f"scan at most this many repositories, 1 to {MAX_SCHEDULED_REPOSITORIES}",
     )
+    service = sub.add_parser(
+        "serve-workers",
+        help="continuously invoke bounded Console-request and revision-check batches",
+    )
+    _add_worker_arguments(service)
+    service.add_argument("--max-requests", type=int, default=20)
+    service.add_argument("--max-repositories", type=int, default=5)
+    service.add_argument("--request-interval-seconds", type=int, default=5)
+    service.add_argument("--schedule-interval-seconds", type=int, default=300)
 
 
 def _add_worker_arguments(worker: argparse.ArgumentParser) -> None:
@@ -213,6 +235,37 @@ async def github_auth_header(
     return "Basic " + base64.b64encode(f"x-access-token:{token}".encode()).decode("ascii")
 
 
+async def _repository_source(
+    args: argparse.Namespace, repository: CodeSecurityRepository
+) -> tuple[GitSourceAcquirer, str]:
+    from fdai_github_app_auth import GitHubAppTokenError
+
+    try:
+        header = await github_auth_header(
+            repository.location,
+            os.environ,
+            credential_reference=(
+                repository.knowledge_source.credential_reference
+                if repository.knowledge_source
+                else None
+            ),
+        )
+    except GitHubAppTokenError as exc:
+        raise SourceAcquisitionError("repository credentials are unavailable") from exc
+    work_root = Path(args.work_root).resolve()
+    acquirer = GitSourceAcquirer(work_root, auth_header=lambda: header)
+    base_url = os.environ.get("FDAI_CODE_SECURITY_GITHUB_BASE_URL", "").strip()
+    return acquirer, clone_url(repository, base_url or "https://github.com")
+
+
+def _revision_resolver(args: argparse.Namespace):  # type: ignore[no-untyped-def]
+    async def resolve(repository: CodeSecurityRepository, ref: str) -> str:
+        acquirer, url = await _repository_source(args, repository)
+        return await asyncio.to_thread(acquirer.resolve_revision, url, ref)
+
+    return resolve
+
+
 def _scan_runner(args: argparse.Namespace):  # type: ignore[no-untyped-def]
     runtime = kata_config(args)
     catalog_root = Path(args.catalog_root)
@@ -223,29 +276,13 @@ def _scan_runner(args: argparse.Namespace):  # type: ignore[no-untyped-def]
     unknown = set(executables) - set(scanners.scanners)
     if unknown:
         raise ValueError(f"unknown scanners: {', '.join(sorted(unknown))}")
-    work_root = Path(args.work_root).resolve()
-    base_url = os.environ.get("FDAI_CODE_SECURITY_GITHUB_BASE_URL", "").strip()
 
     async def run(
         repository: CodeSecurityRepository, ref: str, source: ReviewSource
     ) -> ScanOutcome:
-        from fdai_github_app_auth import GitHubAppTokenError
-
-        try:
-            header = await github_auth_header(
-                repository.location,
-                os.environ,
-                credential_reference=(
-                    repository.knowledge_source.credential_reference
-                    if repository.knowledge_source
-                    else None
-                ),
-            )
-        except GitHubAppTokenError as exc:
-            raise SourceAcquisitionError("repository credentials are unavailable") from exc
-        acquirer = GitSourceAcquirer(work_root, auth_header=lambda: header)
-        url = clone_url(repository, base_url or "https://github.com")
-        revision = acquirer.resolve_revision(url, ref)
+        acquirer, url = await _repository_source(args, repository)
+        revision = await asyncio.to_thread(acquirer.resolve_revision, url, ref)
+        work_root = Path(args.work_root).resolve()
         config = ScanJobConfig(
             repository=url,
             revision=revision,
@@ -277,7 +314,26 @@ def _scan_runner(args: argparse.Namespace):  # type: ignore[no-untyped-def]
                 verifier_catalog=verifiers,
             )
         summaries, truncated = summarize_issues(result.issues)
-        return ScanOutcome(result.package, summaries, truncated)
+        generated_at = datetime.now(UTC).isoformat(timespec="seconds")
+        document = scan_report_document(
+            result,
+            repository_alias=repository.repository_alias,
+            source_label=f"{source.kind}:{source.provider}",
+            generated_at=generated_at,
+        )
+        return ScanOutcome(
+            result.package,
+            summaries,
+            truncated,
+            {
+                "html": render_html(document),
+                "sarif": render_sarif(
+                    result,
+                    repository_alias=repository.repository_alias,
+                    generated_at=generated_at,
+                ),
+            },
+        )
 
     return run
 
@@ -296,12 +352,16 @@ def _recorder(store: StateStore):  # type: ignore[no-untyped-def]
     )
 
     async def record(outcome: ScanOutcome) -> bool:
-        return await record_code_security_review(
+        if outcome.artifacts is None:
+            raise ValueError("automatic code-security scan outcome has no report artifacts")
+        created = await record_code_security_review(
             store,
             outcome.package,
             issues=outcome.issues,
             issues_truncated=outcome.issues_truncated,
+            artifacts=outcome.artifacts,
         )
+        return created
 
     return record
 
@@ -316,7 +376,10 @@ async def run_process_scan_requests(args: argparse.Namespace) -> dict[str, objec
     publisher = _publisher(args)
     queue = PostgresCodeSecurityScanRequestQueue(
         PostgresCodeSecurityScanRequestQueueConfig(
-            dsn=_state_store_dsn(), restricted_access=args.state_access == "restricted"
+            dsn=_state_store_dsn(),
+            worker_id=f"code-security-worker-{uuid4().hex}",
+            lease_seconds=60,
+            restricted_access=args.state_access == "restricted",
         )
     )
     async with _open_store(restricted=args.state_access == "restricted") as store:
@@ -338,17 +401,78 @@ async def run_process_scheduled_scans(args: argparse.Namespace) -> dict[str, obj
         outcomes = await process_scheduled_scans(
             store,
             runner,
+            resolver=_revision_resolver(args),
             recorder=_recorder(store),
             publisher=publisher,
             max_repositories=args.max_repositories,
         )
     scanned = [item for item in outcomes if item["status"] != "deferred"]
     return {
-        "ok": all(item["status"] == "published" for item in scanned),
-        "scanned": len(scanned),
-        "deferred": len(outcomes) - len(scanned),
+        "ok": all(item["status"] in {"published", "unchanged"} for item in scanned),
+        "checked": len(scanned),
+        "scanned": sum(item["status"] == "published" for item in scanned),
+        "unchanged": sum(item["status"] == "unchanged" for item in scanned),
+        "deferred": sum(item["status"] == "deferred" for item in outcomes),
         "outcomes": list(outcomes),
     }
+
+
+async def run_worker_service_command(args: argparse.Namespace) -> None:
+    from fdai.delivery.persistence.postgres_code_security_scan_requests import (
+        PostgresCodeSecurityScanRequestQueue,
+        PostgresCodeSecurityScanRequestQueueConfig,
+    )
+
+    runner = _scan_runner(args)
+    resolver = _revision_resolver(args)
+    publisher = _publisher(args)
+    queue = PostgresCodeSecurityScanRequestQueue(
+        PostgresCodeSecurityScanRequestQueueConfig(
+            dsn=_state_store_dsn(),
+            worker_id=f"code-security-worker-{uuid4().hex}",
+            lease_seconds=60,
+            restricted_access=args.state_access == "restricted",
+        )
+    )
+    health_file = os.environ.get(WORKER_HEALTH_FILE_ENV, "").strip()
+    config = CodeSecurityWorkerServiceConfig(
+        request_interval_seconds=args.request_interval_seconds,
+        schedule_interval_seconds=args.schedule_interval_seconds,
+        health_file=Path(health_file) if health_file else None,
+    )
+    async with _open_store(restricted=args.state_access == "restricted") as store:
+        recorder = _recorder(store)
+
+        async def request_batch() -> list[dict[str, object]]:
+            return list(
+                await process_scan_requests(
+                    queue,
+                    store,
+                    runner,
+                    recorder=recorder,
+                    publisher=publisher,
+                    max_requests=args.max_requests,
+                )
+            )
+
+        async def schedule_batch() -> list[dict[str, object]]:
+            return list(
+                await process_scheduled_scans(
+                    store,
+                    runner,
+                    resolver=resolver,
+                    recorder=recorder,
+                    publisher=publisher,
+                    max_repositories=args.max_repositories,
+                )
+            )
+
+        await run_worker_service(
+            store,
+            request_batch=request_batch,
+            schedule_batch=schedule_batch,
+            config=config,
+        )
 
 
 __all__ = [
@@ -357,4 +481,5 @@ __all__ = [
     "run_process_scan_requests",
     "run_process_scheduled_scans",
     "run_repository_command",
+    "run_worker_service_command",
 ]

@@ -107,6 +107,7 @@ from fdai.delivery.code_security_repo_cli import (
     run_process_scan_requests,
     run_process_scheduled_scans,
     run_repository_command,
+    run_worker_service_command,
 )
 from fdai.delivery.code_security_review_cli import (
     add_review_commands,
@@ -441,6 +442,9 @@ def main(argv: list[str] | None = None) -> int:
             output = asyncio.run(run_process_scan_requests(args))
         elif args.command == "process-scheduled-scans":
             output = asyncio.run(run_process_scheduled_scans(args))
+        elif args.command == "serve-workers":
+            asyncio.run(run_worker_service_command(args))
+            return 0
         elif args.command == "evaluate":
             output = _evaluate(args)
         elif args.command == "evaluate-verifiers":

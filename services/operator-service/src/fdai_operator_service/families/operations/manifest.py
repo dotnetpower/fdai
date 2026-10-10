@@ -164,6 +164,7 @@ OPERATIONS_ROUTE_MANIFEST: tuple[OperationRoute, ...] = (
         OWNER_ROLES,
     ),
     OperationRoute("/code-security/scan-requests", "GET", "handler", "code_security.scan_requests"),
+    OperationRoute("/code-security/worker-status", "GET", "handler", "code_security.worker_status"),
     OperationRoute("/code-security/issues", "GET", "handler", "code_security.issues"),
     # A registration change only queues intent for the Core worker, which applies it with
     # compare-and-set and a Heimdall-attributed audit entry.

@@ -68,6 +68,15 @@ export interface ScanResult {
   readonly coverage_complete: boolean;
 }
 
+export type InitialScanResult =
+  | ({ readonly status: "completed" } & ScanResult)
+  | { readonly status: "failed"; readonly reason_code: (typeof REJECTIONS)[number] };
+
+export interface RepositoryChangeResult {
+  readonly enabled: boolean;
+  readonly initial_scan?: InitialScanResult;
+}
+
 export interface CodeSecurityScanRequest {
   readonly request_id: string;
   readonly kind: (typeof KINDS)[number];
@@ -79,12 +88,35 @@ export interface CodeSecurityScanRequest {
   readonly accepted_at: string;
   readonly closed_at: string | null;
   readonly rejection_reason: (typeof REJECTIONS)[number] | null;
-  readonly result: ScanResult | { readonly enabled: boolean } | null;
+  readonly result: ScanResult | RepositoryChangeResult | null;
 }
 
 export interface CodeSecurityScanRequestsResponse {
   readonly requests: readonly CodeSecurityScanRequest[];
   readonly gaps: readonly Gap[];
+}
+
+export interface CodeSecurityWorkerStatus {
+  readonly state: "running" | "ready";
+  readonly phase: "requests" | "schedule" | "idle";
+  readonly fresh: boolean;
+  readonly recorded_at: string;
+  readonly next_request_at: string;
+  readonly next_schedule_at: string;
+  readonly request_interval_seconds: number;
+  readonly schedule_interval_seconds: number;
+  readonly request_processed: number;
+  readonly schedule_checked: number;
+  readonly schedule_scanned: number;
+  readonly schedule_unchanged: number;
+  readonly schedule_failed: number;
+}
+
+export interface CodeSecurityWorkerStatusResponse {
+  readonly available: boolean;
+  readonly complete: boolean;
+  readonly status: CodeSecurityWorkerStatus | null;
+  readonly gaps: readonly "code_security_worker_status_malformed"[];
 }
 
 function oneOf<T extends string>(value: unknown, allowed: readonly T[], label: string): T {
@@ -136,18 +168,53 @@ export function decodeCodeSecurityScanRequests(payload: unknown): CodeSecuritySc
       let result: CodeSecurityScanRequest["result"] = null;
       if (row.result !== null) {
         const record = panelRecord(row.result, `${label}.result`);
-        result = kind === "repository_change"
-          ? { enabled: panelBoolean(record, "enabled", label) }
-          : {
+        if (kind === "repository_change") {
+          let initialScan: InitialScanResult | undefined;
+          if (record.initial_scan !== undefined) {
+            const initial = panelRecord(record.initial_scan, `${label}.result.initial_scan`);
+            const initialStatus = oneOf(
+              initial.status,
+              ["completed", "failed"] as const,
+              `${label}.result.initial_scan.status`,
+            );
+            initialScan = initialStatus === "failed"
+              ? {
+                status: "failed",
+                reason_code: oneOf(
+                  initial.reason_code,
+                  REJECTIONS,
+                  `${label}.result.initial_scan.reason_code`,
+                ),
+              }
+              : {
+                status: "completed",
+                revision: panelNonEmptyString(initial, "revision", label),
+                decision: oneOf(
+                  initial.decision,
+                  DECISIONS,
+                  `${label}.result.initial_scan.decision`,
+                ),
+                issue_count: panelNonNegativeInteger(initial, "issue_count", label),
+                coverage_complete: panelBoolean(initial, "coverage_complete", label),
+              };
+          }
+          result = {
+            enabled: panelBoolean(record, "enabled", label),
+            ...(initialScan === undefined ? {} : { initial_scan: initialScan }),
+          };
+        } else {
+          result = {
             revision: panelNonEmptyString(record, "revision", label),
             decision: oneOf(record.decision, DECISIONS, `${label}.result.decision`),
             issue_count: panelNonNegativeInteger(record, "issue_count", label),
             coverage_complete: panelBoolean(record, "coverage_complete", label),
           };
+        }
       }
       if ((status === "completed") !== (result !== null)) {
         throw panelContractError(`${label} result must match its status`);
       }
+
       return {
         request_id: panelNonEmptyString(row, "request_id", label),
         kind,
@@ -168,10 +235,66 @@ export function decodeCodeSecurityScanRequests(payload: unknown): CodeSecuritySc
   };
 }
 
+export function decodeCodeSecurityWorkerStatus(payload: unknown): CodeSecurityWorkerStatusResponse {
+  const root = panelRecord(payload, "code-security worker status");
+  const available = panelBoolean(root, "available", "code-security worker status");
+  const complete = panelBoolean(root, "complete", "code-security worker status");
+  const gaps = panelArray(root.gaps, "code-security worker status.gaps").map((gap, index) =>
+    oneOf(
+      panelRecord(gap, `code-security worker status gap ${index}`).reason_code,
+      ["code_security_worker_status_malformed"] as const,
+      `code-security worker status gap ${index}`,
+    ));
+  if (root.status === null) return { available, complete, status: null, gaps };
+  const status = panelRecord(root.status, "code-security worker status.status");
+  return {
+    available,
+    complete,
+    status: {
+      state: oneOf(status.state, ["running", "ready"] as const, "worker status.state"),
+      phase: oneOf(
+        status.phase,
+        ["requests", "schedule", "idle"] as const,
+        "worker status.phase",
+      ),
+      fresh: panelBoolean(status, "fresh", "worker status"),
+      recorded_at: panelNonEmptyString(status, "recorded_at", "worker status"),
+      next_request_at: panelNonEmptyString(status, "next_request_at", "worker status"),
+      next_schedule_at: panelNonEmptyString(status, "next_schedule_at", "worker status"),
+      request_interval_seconds: panelNonNegativeInteger(
+        status,
+        "request_interval_seconds",
+        "worker status",
+      ),
+      schedule_interval_seconds: panelNonNegativeInteger(
+        status,
+        "schedule_interval_seconds",
+        "worker status",
+      ),
+      request_processed: panelNonNegativeInteger(status, "request_processed", "worker status"),
+      schedule_checked: panelNonNegativeInteger(status, "schedule_checked", "worker status"),
+      schedule_scanned: panelNonNegativeInteger(status, "schedule_scanned", "worker status"),
+      schedule_unchanged: panelNonNegativeInteger(status, "schedule_unchanged", "worker status"),
+      schedule_failed: panelNonNegativeInteger(status, "schedule_failed", "worker status"),
+    },
+    gaps,
+  };
+}
+
 function statusKind(status: RequestStatus): PillKind {
   if (status === "completed") return "success";
   if (status === "rejected") return "danger";
   return "info";
+}
+
+function requestStatusLabel(request: CodeSecurityScanRequest): string {
+  if (
+    request.status === "running"
+    && (request.action === "register" || request.action === "enable")
+  ) {
+    return t("codeSecurity.requestStatus.registering");
+  }
+  return t(`codeSecurity.requestStatus.${request.status}`);
 }
 
 /** A fresh key per deliberate submission; retries of one submission reuse it. */
@@ -274,6 +397,17 @@ function resultText(request: CodeSecurityScanRequest): string {
     return `${t(`codeSecurity.decision.${request.result.decision}`)} - ${request.result.issue_count}`;
   }
   if (request.result !== null) {
+    if (request.result.initial_scan?.status === "completed") {
+      return t("codeSecurity.scan.initialCompleted", {
+        decision: t(`codeSecurity.decision.${request.result.initial_scan.decision}`),
+        count: request.result.initial_scan.issue_count,
+      });
+    }
+    if (request.result.initial_scan?.status === "failed") {
+      return t("codeSecurity.scan.initialFailed", {
+        reason: t(`codeSecurity.rejection.${request.result.initial_scan.reason_code}`),
+      });
+    }
     return t(`codeSecurity.repoState.${request.result.enabled ? "enabled" : "disabled"}`);
   }
   if (request.rejection_reason !== null) return t(`codeSecurity.rejection.${request.rejection_reason}`);
@@ -313,11 +447,13 @@ export function RepositoryScanSection({
   client,
   repositories,
   requests,
+  worker,
   onQueued,
 }: {
   readonly client: Pick<OperatorApiClient, "requestCodeSecurityScan" | "changeCodeSecurityRepository">;
   readonly repositories: CodeSecurityRepositoriesResponse | null;
   readonly requests: CodeSecurityScanRequestsResponse | null;
+  readonly worker: CodeSecurityWorkerStatusResponse | null;
   readonly onQueued: () => void;
 }) {
   if (repositories === null || requests === null) {
@@ -371,24 +507,62 @@ export function RepositoryScanSection({
     {
       key: "status",
       header: t("codeSecurity.requestColumn.status"),
-      render: (row) => <StatusPill kind={statusKind(row.status)} label={t(`codeSecurity.requestStatus.${row.status}`)} />,
+      render: (row) => (
+        <StatusPill kind={statusKind(row.status)} label={requestStatusLabel(row)} />
+      ),
     },
     { key: "result", header: t("codeSecurity.requestColumn.result"), render: resultText },
   ];
   const gaps = [...repositories.gaps, ...requests.gaps];
+  const hasRepositories = repositories.repositories.length > 0;
   return (
     <section class="stack" aria-labelledby="code-security-scans">
-      <h2 id="code-security-scans">{t("codeSecurity.scan.title")}</h2>
-      <p class="muted">{t("codeSecurity.scan.body")}</p>
-      <ScanRequestForm client={client} repositories={repositories.repositories} onQueued={onQueued} />
-      <RepositoryRegistrationForm client={client} onQueued={onQueued} />
-      <DataTable
-        columns={repositoryColumns}
-        rows={repositories.repositories}
-        keyOf={(row) => row.repository_alias}
-        empty={t("codeSecurity.scan.noRepositories")}
-        caption={t("codeSecurity.scan.repositoriesTitle")}
-      />
+      <header class="code-security-scan-header">
+        <h2 id="code-security-scans">{t("codeSecurity.scan.title")}</h2>
+        <p>{t("codeSecurity.scan.body")}</p>
+      </header>
+      <div class="code-security-automation-status" role="status">
+        <div>
+          <StatusPill
+            kind={worker?.available && worker.status?.fresh ? "success" : "warning"}
+            label={t(
+              worker?.available && worker.status?.fresh
+                ? worker.status.state === "running"
+                  ? `codeSecurity.worker.${worker.status.phase}`
+                  : "codeSecurity.worker.ready"
+                : "codeSecurity.worker.unavailable",
+            )}
+          />
+          <span class="muted">
+            {worker?.available && worker.status?.fresh
+              ? t("codeSecurity.worker.nextCheck", {
+                time: formatConsoleTimestamp(worker.status.next_schedule_at),
+                scanned: worker.status.schedule_scanned,
+                unchanged: worker.status.schedule_unchanged,
+                failed: worker.status.schedule_failed,
+              })
+              : t("codeSecurity.worker.unavailableBody")}
+          </span>
+        </div>
+        <button type="button" class="btn subtle" onClick={onQueued}>
+          {t("codeSecurity.worker.refresh")}
+        </button>
+      </div>
+      {hasRepositories
+        ? <ScanRequestForm client={client} repositories={repositories.repositories} onQueued={onQueued} />
+        : null}
+      <RepositoryRegistrationForm client={client} onQueued={onQueued} defaultOpen={!hasRepositories} />
+      {hasRepositories
+        ? (
+          <DataTable
+            columns={repositoryColumns}
+            rows={repositories.repositories}
+            keyOf={(row) => row.repository_alias}
+            empty={t("codeSecurity.scan.noRepositories")}
+            caption={t("codeSecurity.scan.repositoriesTitle")}
+          />
+        )
+        : null}
       <DataTable
         columns={requestColumns}
         rows={requests.requests}

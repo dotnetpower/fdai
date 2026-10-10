@@ -39,6 +39,34 @@ The Operator API relays typed events, never direct agent calls; its feature comp
 Test-context proposal, review, and revocation controls follow that boundary. Operator authenticates the principal, returns only reviewed choices derived from the reviewed case-scope grant registry that the Operator process loaded, persists the chosen lifecycle command in its outbox, and reports delivery, audited policy application, and current authorization as separate states. The browser never derives case scope or execution authority.
 Source facets preserve totals; alert table headers use readable text tokens. Isolated fixtures never establish authenticated accessibility.
 [Alert noise requests](../operations/alert-noise-governance.md) expose original acceptances and signed results.
+The Code security Repository scans section treats an empty registry as a bounded setup task. It
+connects Register, Scan, and Review as one visible sequence and leads with one GitHub repository
+field plus the truthful queued-request action. HTTPS GitHub URLs normalize to
+`owner/repository`, the alias follows the repository name until the operator edits it, and alias,
+default ref, and exposure stay under secondary settings. After registration, scan request becomes
+the primary task and registration returns to a collapsed secondary disclosure. This presentation
+does not change API roles, queued-request semantics, or worker authority.
+The surface reads the code-security worker heartbeat and names unavailable or stale automation.
+While any request is queued or running it refreshes every 5 seconds; while idle it refreshes every
+30 seconds, and a visible Refresh status action remains available. Registration results distinguish
+the applied repository change from its automatic initial scan. Request rows show Waiting,
+Registering and scanning, Scanning, Completed, or Rejected, and completed reviews appear in the
+source-filtered review table with the exact revision. The automation strip also reports the last
+cycle's scanned, unchanged, and failed repository counts with the next check time. The Console does
+not expose the private clone path or source text. Each issue identifier opens a bounded metadata
+detail with a GitHub-review-style finding list, severity range and rationale, deciding facts, exact
+repository-relative file and line, confidence, priority, and producer evidence. An external file
+link is pinned to the scanned commit so the repository remains the source-code authority. The
+workspace begins with a severity scorecard for Critical, High, Medium, Low, Informational, and
+Needs review. Selecting a card filters the finding list without changing the canonical review.
+The selected detail shows a line-numbered bounded code context with the fix-site line highlighted;
+secret findings show a redacted assignment rather than the value. Available source-to-sink steps
+appear in recorded order and never invent a missing flow.
+review panel can render the review-bound self-contained HTML report and
+canonical SARIF as inert content; neither view executes report code, follows external links, or
+grants remediation authority. If the full worker artifact is absent or withheld, the panel keeps
+the actions available with a clearly labeled summary-only HTML/SARIF view that omits paths and
+scanner coverage.
 Only an exact-key terminal resolves uncertainty; the canonical Process owns approval and effect state. Configuration baselines, Skills, Conversation Delivery, and Forecast Learning expose an explicit Refresh evidence action using their existing GET projections. Refresh preserves the current view, enters a skeleton immediately, blocks duplicate activation while loading, and can recover after an unavailable source without activating a producer, polling automatically, or issuing a mutation. Forecast Learning exposes recorded total, open, closed and abstained episodes, deletion-in-progress count and the oldest due publication time alongside its outcome table. An empty terminal-outcome table does not hide active episodes, and these recorded counts never establish prediction quality or fill a missing due-cohort measurement. Repeating Scheduler Runs' active task/status lookup re-reads the first evidence page with the existing generation fence rather than navigating to the same URL without fetching. Refresh resets loaded pagination, preserves task/status scope, and never retries, cancels or executes a scheduled task.
 
 Recorded Resource state views consume the shared independent state axes rather than interpreting

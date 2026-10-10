@@ -13,6 +13,9 @@
 #                                             worker for Console scan requests, with the same bindings
 #   fdai-scan-runner process-schedule [ARGS]  run `fdai-code-security process-scheduled-scans`, the
 #                                             scheduled scan of every enabled registered repository
+#   fdai-scan-runner serve-workers [ARGS]     supervise both bounded workers serially
+#   fdai-scan-runner worker-health SECONDS    verify that the supervised worker heartbeat file is
+#                                             present and no older than SECONDS
 #
 # Every scan mode adds the scanner bindings and the cache; all other arguments pass through, for
 # example --path, --repository, --revision, --repo-alias, --work-root, --report, --record-state,
@@ -80,8 +83,28 @@ case "${1:-}" in
     shift
     run_with_scanners process-scheduled-scans "$@"
     ;;
+  serve-workers)
+    shift
+    run_with_scanners serve-workers "$@"
+    ;;
+  worker-health)
+    max_age_seconds="${2:?worker-health needs a maximum age in seconds}"
+    health_file="${FDAI_CODE_SECURITY_HEALTH_FILE:?worker-health needs FDAI_CODE_SECURITY_HEALTH_FILE}"
+    exec python - "$health_file" "$max_age_seconds" <<'PY'
+import os
+import sys
+import time
+
+try:
+    max_age = float(sys.argv[2])
+    age = time.time() - os.stat(sys.argv[1]).st_mtime
+except (OSError, ValueError):
+    raise SystemExit(1)
+raise SystemExit(0 if max_age > 0 and 0 <= age <= max_age else 1)
+PY
+    ;;
   *)
-    echo "usage: fdai-scan-runner prepare SOURCE_DIR | prepare-snapshot SOURCE_DIR ROOT | prepare-source [ARGS...] | scan [ARGS...] | process-requests [ARGS...] | process-schedule [ARGS...]" >&2
+    echo "usage: fdai-scan-runner prepare SOURCE_DIR | prepare-snapshot SOURCE_DIR ROOT | prepare-source [ARGS...] | scan [ARGS...] | process-requests [ARGS...] | process-schedule [ARGS...] | serve-workers [ARGS...] | worker-health SECONDS" >&2
     exit 2
     ;;
 esac
