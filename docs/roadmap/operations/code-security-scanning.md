@@ -241,8 +241,17 @@ The entrypoint has two steps:
    the image carries, then runs the scan job. All scanners run inside the bubblewrap sandbox with
    no network, and the toolchains take effect only with `--prove`.
 
-bubblewrap needs unprivileged user namespaces, so the container runtime must allow them. With
-Docker, that means `--security-opt seccomp=unconfined --security-opt apparmor=unconfined`.
+bubblewrap needs unprivileged user namespaces under the execution venue's approved security
+policy. A namespace denial means that venue is unavailable, not a completed scan. The #2061
+default-Docker admission probe was denied; its successful proof-harness tests do not qualify
+the nested scanner there.
+
+The separately qualified local scanner venue uses the exact image's exported files in the
+existing host bubblewrap namespaces, a cleared environment, read-only source and image files,
+unshared networking, no new privileges, and an observed user-service memory/process limit.
+It does not disable Docker seccomp, AppArmor, or kernel controls. The existing Docker wrapper's
+unconfined settings were not used or qualified by that receipt. Azure/Kata installation still
+requires a selected target and its own evidence.
 
 Example: on 2026-10-07 the image scanned OWASP NodeGoat at its pinned commit. All five scanners
 completed in the sandbox and coverage was complete. The 423 raw scanner results became 202

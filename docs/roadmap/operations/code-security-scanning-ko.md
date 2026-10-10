@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: 0f4308c17e6f796d30b72e32a3a1ab41b4824cc6
+translation_source_sha: b6626b0c4cfd37914ddf750c20aeb736e6ac75ea
 translation_revised: 2026-10-10
 ---
 
@@ -240,8 +240,17 @@ Go/Python 의존성 수정이 통과했다는 이유만으로 이러한 발견 �
    스캔 작업을 실행합니다. 모든 스캐너는 네트워크 없는 bubblewrap 샌드박스 안에서 실행되며, 입증
    도구는 `--prove`가 있을 때만 쓰입니다.
 
-bubblewrap에는 비특권 사용자 네임스페이스가 필요하므로 컨테이너 런타임이 이를 허용해야 합니다.
-Docker에서는 `--security-opt seccomp=unconfined --security-opt apparmor=unconfined`가 필요합니다.
+bubblewrap은 실행 환경에서 승인된 보안 정책 아래 비특권 사용자 네임스페이스를 사용할 수 있어야
+합니다. 네임스페이스 생성이 차단되면 해당 환경에서 실행할 수 없다는 뜻이지, 스캔이 완료됐다는
+뜻이 아닙니다. #2061의 기본 Docker 실행 가능성 검사는 차단됐습니다. 입증 프로그램 검사가
+통과했어도 그 환경에서 중첩 스캐너가 실행된다는 근거로 사용할 수는 없습니다.
+
+별도로 검증한 로컬 스캐너 환경은 정확한 이미지에서 추출한 파일을 기존 호스트의 bubblewrap
+네임스페이스에서 실행합니다. 환경 변수를 비우고 소스와 이미지 파일을 읽기 전용으로 제공하며,
+네트워크를 분리하고 새 권한 취득을 차단합니다. 사용자 서비스의 메모리·프로세스 한도도 관측합니다.
+Docker seccomp, AppArmor, 커널 제어는 해제하지 않습니다. 이 증적은 기존 Docker 래퍼의
+`unconfined` 설정을 사용하거나 검증하지 않았습니다. Azure/Kata 설치에는 여전히 선택한 대상과
+그 대상에서 수집한 별도의 근거가 필요합니다.
 
 예: 2026-10-07 이 이미지로 고정된 커밋의 OWASP NodeGoat를 스캔했습니다. 다섯 스캐너가 모두
 샌드박스에서 완료되어 커버리지가 완전했습니다. 스캐너 원시 결과 423개는 정본 이슈 202개가 되었고,
