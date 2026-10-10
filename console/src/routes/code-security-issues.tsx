@@ -99,6 +99,23 @@ function oneOf<T extends string>(value: unknown, allowed: readonly T[], label: s
   return value as T;
 }
 
+function formatSarif(value: unknown): string {
+  const text = panelNonEmptyString({ value }, "value", "code-security issues.artifacts.sarif");
+  try {
+    const document = JSON.parse(text) as unknown;
+    const root = panelRecord(document, "code-security issues.artifacts.sarif");
+    if (root.version !== "2.1.0") {
+      throw panelContractError("code-security issues.artifacts.sarif must be SARIF 2.1.0");
+    }
+    return JSON.stringify(document, null, 2);
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      throw panelContractError("code-security issues.artifacts.sarif must be valid JSON");
+    }
+    throw error;
+  }
+}
+
 export function decodeCodeSecurityIssues(payload: unknown): CodeSecurityIssuesResponse {
   const root = panelRecord(payload, "code-security issues");
   const artifacts = root.artifacts === null || root.artifacts === undefined
@@ -112,7 +129,7 @@ export function decodeCodeSecurityIssues(payload: unknown): CodeSecurityIssuesRe
           "code-security issues.artifacts.mode",
         ),
         html: panelNonEmptyString(record, "html", "code-security issues.artifacts"),
-        sarif: panelNonEmptyString(record, "sarif", "code-security issues.artifacts"),
+        sarif: formatSarif(record.sarif),
       };
     })();
   return {

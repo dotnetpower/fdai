@@ -79,7 +79,10 @@ async def test_review_artifacts_are_bounded_immutable_and_digest_bound() -> None
         recorded_at=datetime(2026, 10, 11, tzinfo=UTC),
     )
     row = await store.read_state(code_security_artifact_state_key("example-app", "a" * 40))
-    assert row is not None and row["review_digest"] == "b" * 64
+    assert row is not None
+    assert row["schema_version"] == "1.3.0"
+    assert row["review_digest"] == "b" * 64
+    assert code_security_artifact_state_key("example-app", "a" * 40).endswith(":artifacts-1.3")
     with pytest.raises(ValueError, match="SARIF artifact"):
         await record_code_security_artifacts(
             store,
