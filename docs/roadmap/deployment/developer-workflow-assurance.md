@@ -81,7 +81,8 @@ hashes every scanner image input, rebuilds a missing or stale local image, verif
 and generates a private worker environment. Readiness requires a fresh content-free heartbeat. The
 worker service fingerprint includes its fixed-name container wrapper, which stops the exact
 container on supervisor termination and refuses an already-owned name instead of creating another
-consumer.
+consumer. Its service-runner shutdown budget is longer than the container stop deadline, so the
+generic forced-stop guard cannot interrupt cleanup.
 Supervisor stop and replacement accept only the canonical launcher or its exact repo-local Copilot
 wrapper while preserving PID, checkout, and lock-fd ownership checks.
 

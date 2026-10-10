@@ -911,6 +911,12 @@ def test_supervisor_starts_one_restricted_code_security_worker() -> None:
     worker_container = _WORKER_CONTAINER_SCRIPT.read_text(encoding="utf-8")
     assert '--name "$container_name"' in worker_container
     assert 'docker stop --time "$shutdown_seconds" "$container_name"' in worker_container
+    service_budget = re.search(r"FDAI_LOCAL_SERVICE_SHUTDOWN_SECONDS=([0-9]+)", launcher)
+    container_budget = re.search(
+        r"FDAI_CODE_SECURITY_CONTAINER_SHUTDOWN_SECONDS:-([0-9]+)", worker_container
+    )
+    assert service_budget is not None and container_budget is not None
+    assert int(service_budget.group(1)) > int(container_budget.group(1))
     assert (
         '--request-interval-seconds "${FDAI_CODE_SECURITY_REQUEST_INTERVAL_SECONDS:-5}"' in launcher
     )

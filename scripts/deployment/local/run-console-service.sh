@@ -393,7 +393,12 @@ case "$service" in
     ;;
 esac
 
+runner_environment=()
+if [[ "$service" == "code-security-worker" ]]; then
+  runner_environment=(env FDAI_LOCAL_SERVICE_SHUTDOWN_SECONDS=40)
+fi
 runner=(
+  "${runner_environment[@]}"
   bash "$repo_root/scripts/automation/run-local-service.sh"
   "$service"
   "$repo_root/.fdai/logs/$service.log"
