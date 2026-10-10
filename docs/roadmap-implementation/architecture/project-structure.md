@@ -126,6 +126,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-11 | validated | Verified one fixed-name local code-security worker under the managed Console supervisor and exact cleanup on stop. | Managed stack `12/12` ready; one named worker before stop; zero after a successful 35-second bounded stop. | None for local composition ownership. Deployed venue evidence remains separate. |
 | 2026-10-11 | implemented | Ordered the local worker cleanup deadlines as stack stop > service runner > container stop. | `current change`; focused static budget relation and stop ownership tests. | Retain one managed stop receipt with no named worker container afterward. |
 | 2026-10-11 | implemented | Made the local worker service shutdown budget longer than the exact container stop deadline. | `current change`; focused launcher budget contract and lifecycle tests. | Retain a managed stop receipt showing the named container is absent afterward. |
 | 2026-10-11 | implemented | Added one fixed-name local code-security worker container boundary whose lifecycle remains owned by the managed Console supervisor. | `current change`; task-owned container wrapper, launcher binding, and focused signal lifecycle tests. | Retain one managed restart receipt proving no stale worker container survives. |

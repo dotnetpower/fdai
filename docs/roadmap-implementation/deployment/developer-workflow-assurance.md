@@ -34,6 +34,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-11 | validated | Verified the merged fixed-name worker lifecycle through one managed start and stop. | Standard full stack reached `12/12` ready with exactly one `/fdai-code-security-worker`; stop returned `service=console-stack event=stopped` after 35 seconds and left zero named workers. | None for local worker container lifecycle. |
 | 2026-10-11 | implemented | Extended the top-level managed stack stop wait beyond the code-security service and container cleanup bounds. | `current change`; focused stop ownership and 45 > 40 > 30 budget tests. | Stop the merged stack and retain successful lock release plus absent-container evidence. |
 | 2026-10-11 | implemented | Extended only the code-security service shutdown budget beyond its managed container deadline. | `current change`; focused launcher comparison proves 40 seconds exceeds the 30-second container stop bound. | Restart and stop the merged stack, then retain exact named-container cleanup evidence. |
 | 2026-10-11 | implemented | Made the local code-security worker container lifecycle part of the managed service fingerprint and supervisor shutdown boundary. | `current change`; focused launcher contract and signal-driven fake-Docker lifecycle tests; shell syntax, ShellCheck, Ruff, and format checks. | Restart the managed full stack and retain evidence that exactly one current-image worker remains. |
