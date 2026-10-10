@@ -208,6 +208,25 @@
     "decidingFacts": "심각도 결정에 필요한 사실",
     "due": "기한",
     "dueDays": "{count}일",
+    "scorecard": "심각도 scorecard",
+    "score": {
+      "critical": "치명적",
+      "high": "높음",
+      "medium": "중간",
+      "low": "낮음",
+      "informational": "정보",
+      "needs_review": "검토 필요"
+    },
+    "potentialCritical": "잠재적 치명적 {count}개",
+    "noFilterResults": "이 심각도 필터에 해당하는 발견 사항이 없습니다.",
+    "codeContext": "코드 문맥",
+    "codeUnavailable": "이 발견 사항에는 코드 문맥이 기록되지 않았습니다. GitHub에서 정확한 스캔 리비전을 여세요.",
+    "secretRedacted": "민감한 값 마스킹됨",
+    "flowTitle": "근거 흐름",
+    "flow": {
+      "source": "출처",
+      "sink": "위험 지점"
+    },
     "column": {
       "issue": "이슈",
       "priority": "우선순위",

@@ -208,6 +208,25 @@
     "decidingFacts": "Facts needed to determine severity",
     "due": "Due",
     "dueDays": "{count} days",
+    "scorecard": "Severity scorecard",
+    "score": {
+      "critical": "Critical",
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low",
+      "informational": "Informational",
+      "needs_review": "Needs review"
+    },
+    "potentialCritical": "{count} potentially critical",
+    "noFilterResults": "No findings match this severity filter.",
+    "codeContext": "Code context",
+    "codeUnavailable": "Code context was not recorded for this finding. Open the exact scanned revision on GitHub.",
+    "secretRedacted": "Sensitive value redacted",
+    "flowTitle": "Evidence flow",
+    "flow": {
+      "source": "Source",
+      "sink": "Sink"
+    },
     "column": {
       "issue": "Issue",
       "priority": "Priority",

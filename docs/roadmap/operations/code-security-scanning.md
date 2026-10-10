@@ -383,7 +383,18 @@ without inventing paths or scanner coverage.
 
 The Console uses the exact repository-relative fix-site path and line to build a GitHub blob link
 pinned to the scanned commit. Operators inspect the actual code in the repository's own access
-boundary; FDAI never copies source snippets into its state store or Console response.
+boundary. The full artifact can also retain at most seven exact-revision context lines around the
+fix site, bounded per line and per finding. Secret-producing findings retain only the structural
+assignment key and replace the value with a redaction marker; surrounding lines are omitted.
+Other findings retain bounded text with control characters removed. FDAI never stores a whole
+source file or an unredacted secret.
+
+The issue projection publishes a mutually exclusive display scorecard for determined Critical,
+High, Medium, Low, and Informational findings plus a separate Needs review count for canonical
+`undetermined` severity. Informational is a display triage bucket for canonical Low findings whose
+deterministic priority is P4; it is not a new canonical severity. Needs review also reports the
+number whose severity ceiling is Critical, High, Medium, or Low so uncertainty never becomes a
+false determined count.
 
 The [Knowledge GitHub connection](../../runbooks/knowledge-github-sources.md) can also register
 a verified repository source, using either public read access or the deployment's read-only

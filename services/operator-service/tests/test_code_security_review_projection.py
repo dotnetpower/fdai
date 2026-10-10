@@ -512,7 +512,7 @@ def test_issue_projection_requires_the_matching_review_digest() -> None:
         },
         artifacts_row={
             "kind": "code-security-review-artifacts",
-            "schema_version": "1.1.0",
+            "schema_version": "1.2.0",
             "repository_alias": "example-service",
             "revision": _REVISION,
             "review_digest": digest,
@@ -523,7 +523,12 @@ def test_issue_projection_requires_the_matching_review_digest() -> None:
                 '"issue_id":"FDAI-SEC-0123456789ab","title":"Command injection",'
                 '"severity_floor":"medium","severity_ceiling":"critical",'
                 '"severity_rationale":"impact is bounded; attacker position is unknown",'
-                '"deciding_facts":["attack_vector"]},"locations":[{"physicalLocation":{'
+                '"deciding_facts":["attack_vector"],'
+                '"code_context":{"start_line":40,"highlight_start":42,"highlight_end":42,'
+                '"redacted":false,"lines":[{"number":42,"text":"run(command)"}]},'
+                '"flow_steps":[{"kind":"source","path":"src/api.py","line":12},'
+                '{"kind":"sink","path":"src/app.py","line":42}]},'
+                '"locations":[{"physicalLocation":{'
                 '"artifactLocation":{"uri":"src/app.py"},"region":{"startLine":42}}}]}]}]}'
             ),
         },
@@ -541,7 +546,12 @@ def test_issue_projection_requires_the_matching_review_digest() -> None:
             '"issue_id":"FDAI-SEC-0123456789ab","title":"Command injection",'
             '"severity_floor":"medium","severity_ceiling":"critical",'
             '"severity_rationale":"impact is bounded; attacker position is unknown",'
-            '"deciding_facts":["attack_vector"]},"locations":[{"physicalLocation":{'
+            '"deciding_facts":["attack_vector"],'
+            '"code_context":{"start_line":40,"highlight_start":42,"highlight_end":42,'
+            '"redacted":false,"lines":[{"number":42,"text":"run(command)"}]},'
+            '"flow_steps":[{"kind":"source","path":"src/api.py","line":12},'
+            '{"kind":"sink","path":"src/app.py","line":42}]},'
+            '"locations":[{"physicalLocation":{'
             '"artifactLocation":{"uri":"src/app.py"},"region":{"startLine":42}}}]}]}]}'
         ),
     }
@@ -550,6 +560,12 @@ def test_issue_projection_requires_the_matching_review_digest() -> None:
     assert issue["severity_floor"] == "medium"
     assert issue["severity_ceiling"] == "critical"
     assert issue["location"] == {"path": "src/app.py", "start_line": 42}
+    assert issue["code_context"]["lines"] == [{"number": 42, "text": "run(command)"}]
+    assert issue["flow_steps"] == [
+        {"kind": "source", "path": "src/api.py", "line": 12},
+        {"kind": "sink", "path": "src/app.py", "line": 42},
+    ]
+    assert ok["scorecard"]["high"] == 1  # type: ignore[index]
     assert "src/x.py" not in str(ok)
     stale = code_security_issues_projection(
         repository_alias="example-service",
@@ -582,6 +598,53 @@ def test_missing_full_artifacts_fall_back_to_bounded_summary_views() -> None:
     assert '"version": "2.1.0"' in artifacts["sarif"]  # type: ignore[index]
 
 
+def test_scorecard_keeps_undetermined_and_informational_separate() -> None:
+    review = _row(_package())["value"]
+    result = code_security_issues_projection(
+        repository_alias="example-service",
+        revision=_REVISION,
+        review=review,
+        issues_row={
+            "review_digest": review["package"]["review_digest"],
+            "issues": [
+                _summary(severity="undetermined", priority="P2"),
+                _summary(
+                    issue_id="FDAI-SEC-ba9876543210",
+                    severity="low",
+                    priority="P4",
+                ),
+            ],
+            "truncated": False,
+        },
+        artifacts_row={
+            "kind": "code-security-review-artifacts",
+            "schema_version": "1.2.0",
+            "repository_alias": "example-service",
+            "revision": _REVISION,
+            "review_digest": review["package"]["review_digest"],
+            "recorded_at": "2026-10-10T00:00:00+00:00",
+            "html": "<!doctype html><title>report</title>",
+            "sarif": (
+                '{"version":"2.1.0","runs":[{"results":[{"properties":{'
+                '"issue_id":"FDAI-SEC-0123456789ab","severity_floor":"low",'
+                '"severity_ceiling":"critical"}}]}]}'
+            ),
+        },
+    )
+    assert result["scorecard"] == {
+        "critical": 0,
+        "high": 0,
+        "medium": 0,
+        "low": 0,
+        "informational": 1,
+        "needs_review": 1,
+        "potential_critical": 1,
+        "potential_high": 0,
+        "potential_medium": 0,
+        "potential_low": 0,
+    }
+
+
 async def test_reader_serves_issues_for_one_exact_review() -> None:
     import pytest
 
@@ -592,13 +655,13 @@ async def test_reader_serves_issues_for_one_exact_review() -> None:
         statements.append(params)
         if str(params[0]).startswith("runtime:code-security-review:"):
             return [{"key": params[0], "value": review}]
-        if str(params[0]).endswith(":artifacts-1.1"):
+        if str(params[0]).endswith(":artifacts-1.2"):
             return [
                 {
                     "key": params[0],
                     "value": {
                         "kind": "code-security-review-artifacts",
-                        "schema_version": "1.1.0",
+                        "schema_version": "1.2.0",
                         "repository_alias": "example-service",
                         "revision": _REVISION,
                         "review_digest": review["package"]["review_digest"],
@@ -625,7 +688,7 @@ async def test_reader_serves_issues_for_one_exact_review() -> None:
     assert statements == [
         (f"runtime:code-security-review:example-service:{_REVISION}",),
         (f"runtime:code-security-issues:example-service:{_REVISION}",),
-        (f"runtime:code-security-issues:example-service:{_REVISION}:artifacts-1.1",),
+        (f"runtime:code-security-issues:example-service:{_REVISION}:artifacts-1.2",),
     ]
     with pytest.raises(ValueError, match="revision"):
         await read_code_security_projection(

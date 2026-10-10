@@ -81,6 +81,19 @@ async function mockApi(
               severity_rationale: "The sink permits code execution; the attacker position is not verified.",
               deciding_facts: ["attack_vector"],
               location: { path: "src/app.ts", start_line: 42 },
+              code_context: {
+                highlight_start: 42,
+                highlight_end: 42,
+                redacted: false,
+                lines: [
+                  { number: 41, text: "const command = request.query.command;" },
+                  { number: 42, text: "exec(command);" },
+                ],
+              },
+              flow_steps: [
+                { kind: "source", path: "src/api.ts", line: 18 },
+                { kind: "sink", path: "src/app.ts", line: 42 },
+              ],
             },
             {
               issue_id: "FDAI-SEC-ba9876543210",
@@ -100,12 +113,26 @@ async function mockApi(
               severity_rationale: "The dependency advisory reports a high base severity.",
               deciding_facts: [],
               location: { path: "package-lock.json", start_line: 18 },
+              code_context: null,
+              flow_steps: [],
             },
           ],
           artifacts: {
             mode: "full",
             html: "<!doctype html><html><head><title>FDAI report</title></head><body><h1>FDAI report</h1></body></html>",
             sarif: '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"FDAI"}},"results":[]}]}',
+          },
+          scorecard: {
+            critical: 0,
+            high: 1,
+            medium: 0,
+            low: 0,
+            informational: 0,
+            needs_review: 1,
+            potential_critical: 1,
+            potential_high: 0,
+            potential_medium: 0,
+            potential_low: 0,
           },
           gaps: [],
         },
@@ -353,6 +380,9 @@ for (const viewport of [
     await page.getByRole("button", { name: /All sources/ }).click();
     await page.getByRole("button", { name: /^View payments-api-with-a-deliberately-long-repository-alias/ }).click();
     await expect(page.getByRole("heading", { name: /Issues in this review/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: /Needs review 1/ })).toContainText(
+      "1 potentially critical",
+    );
     await page.getByRole("button", { name: /Vulnerable dependency/ }).click();
     await expect(page.getByRole("article", { name: "Issue details" })).toContainText(
       "example-deliberately-long-dependency-package-name CVE-2026-12345, GHSA-abcd-efgh-ijkl",
@@ -363,6 +393,9 @@ for (const viewport of [
     await expect(detail).toContainText("Command injection from untrusted input");
     await expect(detail).toContainText("medium - critical");
     await expect(detail).toContainText("src/app.ts:42");
+    await expect(detail.getByLabel("Code context")).toContainText("exec(command);");
+    await expect(detail.getByLabel("Evidence flow")).toContainText("src/api.ts:18");
+    await expect(detail.getByLabel("Evidence flow")).toContainText("src/app.ts:42");
     await expect(detail.getByRole("link", { name: "Open file on GitHub" })).toHaveAttribute(
       "href",
       `${"https://github.com/example-organization/payments-api-with-a-deliberately-long-name/blob/"}${revision}/src/app.ts#L42`,

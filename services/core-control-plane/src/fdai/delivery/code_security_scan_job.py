@@ -99,6 +99,7 @@ class ScanJobResult:
     verifier_results: tuple[VerifierResult, ...] = ()
     proof_results: tuple[ProofResult, ...] = ()
     revision_kind: str = "commit"
+    source_path: Path | None = None
 
 
 async def run_scan_job(
@@ -359,6 +360,7 @@ async def run_scan_job(
         verifier_results=verifier_results,
         proof_results=proof_results,
         revision_kind=source.revision_kind,
+        source_path=source.path,
     )
 
 

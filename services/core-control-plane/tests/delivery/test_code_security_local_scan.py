@@ -20,6 +20,7 @@ from fdai.core.security.code_findings.receipts import build_receipt
 from fdai.core.security.code_findings.review_signal import ReviewSource, build_review_package
 from fdai.delivery.code_security_acquire import GitSourceAcquirer, SourceAcquisitionError
 from fdai.delivery.code_security_report import (
+    _redacted_secret_line,
     render_html,
     render_markdown,
     render_sarif,
@@ -230,6 +231,9 @@ def _result(tmp_path: Path, *, revision_kind: str = "commit") -> ScanJobResult:
         producers=["Opengrep"],
     )
     sarif_file = tmp_path / "opengrep.sarif"
+    source_file = tmp_path / "src" / "app.py"
+    source_file.parent.mkdir(exist_ok=True)
+    source_file.write_text("def run(cmd):\n    os.system(cmd)\n")
     return ScanJobResult(
         revision=revision,
         tree_id="t",
@@ -242,6 +246,7 @@ def _result(tmp_path: Path, *, revision_kind: str = "commit") -> ScanJobResult:
         artifact_dir=tmp_path,
         sarif_files=(sarif_file,),
         revision_kind=revision_kind,
+        source_path=tmp_path,
     )
 
 
@@ -284,6 +289,13 @@ def test_report_lists_issues_without_code_or_scanner_text(tmp_path: Path) -> Non
     assert sarif_result["properties"]["severity_floor"] in {"low", "medium", "high", "critical"}
     assert sarif_result["properties"]["severity_ceiling"] in {"low", "medium", "high", "critical"}
     assert isinstance(sarif_result["properties"]["deciding_facts"], list)
+    assert sarif_result["properties"]["code_context"]["highlight_start"] == 2
+    assert sarif_result["properties"]["code_context"]["lines"][1]["text"] == "    os.system(cmd)"
+    assert sarif_result["properties"]["flow_steps"][-1] == {
+        "kind": "sink",
+        "path": "src/app.py",
+        "line": 2,
+    }
     assert (
         sarif_result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == "src/app.py"
     )
@@ -309,6 +321,12 @@ def test_report_escapes_html_and_localizes_to_korean(tmp_path: Path) -> None:
     assert isinstance(issues, list)
     issues[0]["location"] = "src/a|b`c.py:2"
     assert "src/a\\|b'c.py:2" in render_markdown(document)
+
+
+def test_secret_context_redacts_the_value_but_keeps_the_assignment_key() -> None:
+    rendered = _redacted_secret_line("  connectionString: super-secret-value")
+    assert rendered == '  connectionString: "<sensitive value redacted>"'
+    assert "super-secret-value" not in rendered
 
 
 @needs_bwrap

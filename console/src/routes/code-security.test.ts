@@ -444,6 +444,18 @@ describe("code-security route", () => {
         html: "<!doctype html><title>report</title>",
         sarif: '{"version":"2.1.0","runs":[]}',
       },
+      scorecard: {
+        critical: 0,
+        high: 1,
+        medium: 1,
+        low: 0,
+        informational: 0,
+        needs_review: 0,
+        potential_critical: 0,
+        potential_high: 0,
+        potential_medium: 0,
+        potential_low: 0,
+      },
       gaps: [{ reason_code: "code_security_issues_truncated" }],
     });
     expect(data.issues.map(issueReference)).toEqual(["CWE-78", "flask CVE-2026-0001"]);

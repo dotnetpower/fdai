@@ -30,6 +30,15 @@ const GAPS = [
   "code_security_artifacts_unavailable",
   "code_security_artifacts_malformed",
 ] as const;
+const SCORECARD_KEYS = [
+  "critical",
+  "high",
+  "medium",
+  "low",
+  "informational",
+  "needs_review",
+] as const;
+type ScorecardKey = (typeof SCORECARD_KEYS)[number];
 
 export interface CodeSecurityIssueSummary {
   readonly issue_id: string;
@@ -52,6 +61,20 @@ export interface CodeSecurityIssueSummary {
     readonly path: string;
     readonly start_line: number | null;
   } | null;
+  readonly code_context: {
+    readonly highlight_start: number;
+    readonly highlight_end: number;
+    readonly redacted: boolean;
+    readonly lines: readonly {
+      readonly number: number;
+      readonly text: string;
+    }[];
+  } | null;
+  readonly flow_steps: readonly {
+    readonly kind: "source" | "sink";
+    readonly path: string;
+    readonly line: number | null;
+  }[];
 }
 
 export interface CodeSecurityIssuesResponse {
@@ -62,6 +85,10 @@ export interface CodeSecurityIssuesResponse {
     readonly html: string;
     readonly sarif: string;
   } | null;
+  readonly scorecard: Readonly<Record<
+    ScorecardKey | "potential_critical" | "potential_high" | "potential_medium" | "potential_low",
+    number
+  >>;
   readonly gaps: readonly (typeof GAPS)[number][];
 }
 
@@ -119,6 +146,42 @@ export function decodeCodeSecurityIssues(payload: unknown): CodeSecurityIssuesRe
             start_line: line,
           };
         })();
+      const codeContext = row.code_context === null || row.code_context === undefined
+        ? null
+        : (() => {
+          const value = panelRecord(row.code_context, `${label}.code_context`);
+          return {
+            highlight_start: panelNonNegativeInteger(value, "highlight_start", `${label}.code_context`),
+            highlight_end: panelNonNegativeInteger(value, "highlight_end", `${label}.code_context`),
+            redacted: panelBoolean(value, "redacted", `${label}.code_context`),
+            lines: panelArray(value.lines, `${label}.code_context.lines`).map((line, lineIndex) => {
+              const record = panelRecord(line, `${label}.code_context.lines ${lineIndex}`);
+              return {
+                number: panelNonNegativeInteger(record, "number", `${label}.code_context.lines`),
+                text: typeof record.text === "string"
+                  ? record.text
+                  : (() => { throw panelContractError(`${label}.code_context line text must be a string`); })(),
+              };
+            }),
+          };
+        })();
+      const flowSteps = row.flow_steps === undefined
+        ? []
+        : panelArray(row.flow_steps, `${label}.flow_steps`).map((step, stepIndex) => {
+          const value = panelRecord(step, `${label}.flow_steps ${stepIndex}`);
+          const line = value.line;
+          if (
+            line !== null
+            && (typeof line !== "number" || !Number.isInteger(line) || line <= 0)
+          ) {
+            throw panelContractError(`${label}.flow_steps line must be positive or null`);
+          }
+          return {
+            kind: oneOf(value.kind, ["source", "sink"] as const, `${label}.flow_steps.kind`),
+            path: panelNonEmptyString(value, "path", `${label}.flow_steps`),
+            line,
+          };
+        });
       return {
         issue_id: panelNonEmptyString(row, "issue_id", label),
         priority: oneOf(row.priority, PRIORITIES, `${label}.priority`),
@@ -147,9 +210,18 @@ export function decodeCodeSecurityIssues(payload: unknown): CodeSecurityIssuesRe
           ? []
           : panelStringArray(row.deciding_facts, `${label}.deciding_facts`),
         location,
+        code_context: codeContext,
+        flow_steps: flowSteps,
       };
     }),
     artifacts,
+    scorecard: (() => {
+      const scorecard = panelRecord(root.scorecard, "code-security issues.scorecard");
+      return Object.fromEntries(
+        [...SCORECARD_KEYS, "potential_critical", "potential_high", "potential_medium", "potential_low"]
+          .map((key) => [key, panelNonNegativeInteger(scorecard, key, "code-security issues.scorecard")]),
+      ) as CodeSecurityIssuesResponse["scorecard"];
+    })(),
     gaps: panelArray(root.gaps, "code-security issues.gaps").map((gap, index) =>
       oneOf(panelRecord(gap, `issue gap ${index}`).reason_code, GAPS, `issue gap ${index}`)),
   };
@@ -177,6 +249,14 @@ function issueLocation(issue: CodeSecurityIssueSummary): string {
   return issue.location.start_line === null
     ? issue.location.path
     : `${issue.location.path}:${issue.location.start_line}`;
+}
+
+function scorecardMatches(issue: CodeSecurityIssueSummary, key: ScorecardKey | "all"): boolean {
+  if (key === "all") return true;
+  if (key === "needs_review") return issue.severity === "undetermined";
+  if (key === "informational") return issue.severity === "low" && issue.priority === "P4";
+  if (key === "low") return issue.severity === "low" && issue.priority !== "P4";
+  return issue.severity === key;
 }
 
 function githubFileUrl(
@@ -214,6 +294,7 @@ export function ReviewIssuesPanel({
   const [state, setState] = useState<AsyncState<CodeSecurityIssuesResponse>>({ status: "loading" });
   const [selectedIssue, setSelectedIssue] = useState<CodeSecurityIssueSummary | null>(null);
   const [reportView, setReportView] = useState<"html" | "sarif" | null>(null);
+  const [scorecardFilter, setScorecardFilter] = useState<ScorecardKey | "all">("all");
   useEffect(() => {
     let cancelled = false;
     setState({ status: "loading" });
@@ -232,15 +313,20 @@ export function ReviewIssuesPanel({
       });
     return () => { cancelled = true; };
   }, [client, repositoryAlias, revision]);
+  const visibleIssues = state.status === "ready"
+    ? state.data.issues.filter((issue) => scorecardMatches(issue, scorecardFilter))
+    : [];
   useEffect(() => {
     if (
       state.status === "ready"
-      && selectedIssue === null
-      && state.data.issues.length > 0
+      && (
+        selectedIssue === null
+        || !visibleIssues.some((issue) => issue.issue_id === selectedIssue.issue_id)
+      )
     ) {
-      setSelectedIssue(state.data.issues[0] ?? null);
+      setSelectedIssue(visibleIssues[0] ?? null);
     }
-  }, [selectedIssue, state]);
+  }, [scorecardFilter, selectedIssue, state, visibleIssues]);
   return (
     <section class="stack code-security-issues" aria-labelledby="code-security-issues-title">
       <div class="code-security-issues-header">
@@ -253,10 +339,35 @@ export function ReviewIssuesPanel({
       <AsyncBoundary state={state} resourceLabel={t("codeSecurity.issues.title")}>
         {(data) => (
           <>
-            {data.issues.length === 0
+            <div class="code-security-scorecard" role="group" aria-label={t("codeSecurity.issues.scorecard")}>
+              {SCORECARD_KEYS.map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  class={scorecardFilter === key ? "active" : ""}
+                  aria-pressed={scorecardFilter === key}
+                  onClick={() => setScorecardFilter(scorecardFilter === key ? "all" : key)}
+                >
+                  <span>{t(`codeSecurity.issues.score.${key}`)}</span>
+                  <strong>{data.scorecard[key]}</strong>
+                  {key === "needs_review" && data.scorecard.potential_critical > 0
+                    ? (
+                      <small>
+                        {t("codeSecurity.issues.potentialCritical", {
+                          count: data.scorecard.potential_critical,
+                        })}
+                      </small>
+                    )
+                    : null}
+                </button>
+              ))}
+            </div>
+            {visibleIssues.length === 0
               ? (
                 <p class="muted" role="status">
-                  {data.available
+                  {data.issues.length > 0
+                    ? t("codeSecurity.issues.noFilterResults")
+                    : data.available
                     ? t("codeSecurity.issues.empty")
                     : t("codeSecurity.issues.notRecorded")}
                 </p>
@@ -264,7 +375,7 @@ export function ReviewIssuesPanel({
               : (
                 <div class="code-security-review-workspace">
                   <nav class="code-security-finding-list" aria-label={t("codeSecurity.issues.findingsList")}>
-                    {data.issues.map((issue) => (
+                    {visibleIssues.map((issue) => (
                       <button
                         key={issue.issue_id}
                         type="button"
@@ -324,6 +435,63 @@ export function ReviewIssuesPanel({
                                 )}
                             </div>
                           )}
+                        {selectedIssue.code_context === null
+                          ? (
+                            <div class="code-security-code-unavailable">
+                              {t("codeSecurity.issues.codeUnavailable")}
+                            </div>
+                          )
+                          : (
+                            <section
+                              class="code-security-code-context"
+                              aria-label={t("codeSecurity.issues.codeContext")}
+                            >
+                              <header>
+                                <strong>{t("codeSecurity.issues.codeContext")}</strong>
+                                {selectedIssue.code_context.redacted
+                                  ? <span>{t("codeSecurity.issues.secretRedacted")}</span>
+                                  : null}
+                              </header>
+                              <pre>
+                                {selectedIssue.code_context.lines.map((line) => (
+                                  <span
+                                    key={line.number}
+                                    class={
+                                      line.number >= selectedIssue.code_context!.highlight_start
+                                      && line.number <= selectedIssue.code_context!.highlight_end
+                                        ? "highlight"
+                                        : ""
+                                    }
+                                  >
+                                    <b>{line.number}</b>
+                                    <code>{line.text || " "}</code>
+                                  </span>
+                                ))}
+                              </pre>
+                            </section>
+                          )}
+                        {selectedIssue.flow_steps.length > 1
+                          ? (
+                            <section
+                              class="code-security-flow"
+                              aria-label={t("codeSecurity.issues.flowTitle")}
+                            >
+                              <strong>{t("codeSecurity.issues.flowTitle")}</strong>
+                              <ol>
+                                {selectedIssue.flow_steps.map((step, index) => (
+                                  <li key={`${step.kind}:${step.path}:${step.line ?? 0}:${index}`}>
+                                    <span>{t(`codeSecurity.issues.flow.${step.kind}`)}</span>
+                                    <code>
+                                      {step.line === null
+                                        ? step.path
+                                        : `${step.path}:${step.line}`}
+                                    </code>
+                                  </li>
+                                ))}
+                              </ol>
+                            </section>
+                          )
+                          : null}
                         <dl>
                           <div><dt>{t("codeSecurity.issues.column.issue")}</dt><dd class="mono">{selectedIssue.issue_id}</dd></div>
                           <div><dt>{t("codeSecurity.issues.column.confidence")}</dt><dd>{selectedIssue.confidence}</dd></div>

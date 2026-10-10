@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: 1b9a25e54570d7813285a876edbca4e36adc799c
+translation_source_sha: db483e21c9259a3c60006f72fe003e3d0073e042
 translation_revised: 2026-10-10
 ---
 
@@ -372,8 +372,17 @@ Console에서 자동화를 사용할 수 없음으로 표시합니다. 스캔 �
 요약 전용 HTML/SARIF 보기를 만들고, 경로나 스캐너 커버리지를 만들어 내지 않습니다.
 
 Console은 저장소 상대 수정 경로와 줄을 사용해 스캔한 커밋에 고정된 GitHub blob 링크를 만듭니다.
-운영자는 저장소 자체의 접근 경계에서 실제 코드를 확인하며, FDAI는 소스 코드 조각을 상태 저장소나
-Console 응답으로 복사하지 않습니다.
+운영자는 저장소 자체의 접근 경계에서 실제 코드를 확인합니다. 전체 산출물은 수정 위치 주변의
+정확한 리비전 코드 문맥을 최대 7줄까지 보존할 수 있으며, 줄과 발견 사항별 크기를 제한합니다.
+비밀 탐지 도구가 만든 발견 사항은 구조적인 대입 키만 남기고 값을 마스킹하며 주변 줄은
+생략합니다. 다른 발견 사항은 제어 문자를 제거한 범위 제한 텍스트를 보존합니다. FDAI는 전체
+소스 파일이나 마스킹하지 않은 비밀 값을 저장하지 않습니다.
+
+이슈 변환 결과는 확정된 Critical, High, Medium, Low, Informational 발견 사항과 정규
+`undetermined` 심각도의 별도 검토 필요 개수를 서로 겹치지 않는 표시 scorecard로 제공합니다.
+Informational은 정규 Low이면서 결정론적 우선순위가 P4인 표시 분류이며 새 정규 심각도가 아닙니다.
+검토 필요에는 심각도 상한이 Critical, High, Medium, Low인 개수도 함께 제공해 불확실성을 확정
+개수로 잘못 표시하지 않습니다.
 
 [Knowledge GitHub 연결](../../runbooks/knowledge-github-sources-ko.md)에서도 공개 읽기 접근이나 배포의
 읽기 전용 GitHub App 자격 증명 참조를 사용해 검증된 저장소 소스를 등록할 수 있습니다. 저장소의

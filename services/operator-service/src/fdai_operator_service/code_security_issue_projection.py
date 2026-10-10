@@ -53,6 +53,18 @@ _MAX_ISSUES = 200
 _MAX_ARTIFACT_BYTES = 900_000
 _FetchAll = Callable[[str, tuple[object, ...]], Awaitable[list[dict[str, Any]]]]
 _ROW_SQL = "SELECT key, value FROM state_kv WHERE key = %s LIMIT 1"
+_SCORECARD_KEYS = (
+    "critical",
+    "high",
+    "medium",
+    "low",
+    "informational",
+    "needs_review",
+    "potential_critical",
+    "potential_high",
+    "potential_medium",
+    "potential_low",
+)
 
 
 class _MalformedError(ValueError):
@@ -161,6 +173,8 @@ def _sarif_issue_details(document: Mapping[str, object]) -> dict[str, dict[str, 
                     and 0 < line <= 10_000_000
                 ):
                     location = {"path": path, "start_line": line}
+        code_context = _code_context(properties.get("code_context"))
+        flow_steps = _flow_steps(properties.get("flow_steps"))
         details[issue_id] = {
             "title": title if isinstance(title, str) and 1 <= len(title) <= 256 else None,
             "severity_floor": floor if floor in _SEVERITIES[:-1] else None,
@@ -174,8 +188,91 @@ def _sarif_issue_details(document: Mapping[str, object]) -> dict[str, dict[str, 
                 else []
             ),
             "location": location,
+            "code_context": code_context,
+            "flow_steps": flow_steps,
         }
     return details
+
+
+def _code_context(raw: object) -> dict[str, object] | None:
+    if not isinstance(raw, Mapping):
+        return None
+    lines = raw.get("lines")
+    start, highlight_start, highlight_end = (
+        raw.get("start_line"),
+        raw.get("highlight_start"),
+        raw.get("highlight_end"),
+    )
+    if (
+        not isinstance(lines, list)
+        or not 1 <= len(lines) <= 7
+        or not all(
+            isinstance(value, int) and not isinstance(value, bool) and value > 0
+            for value in (start, highlight_start, highlight_end)
+        )
+        or not isinstance(raw.get("redacted"), bool)
+    ):
+        return None
+    normalized = []
+    for line in lines:
+        if not isinstance(line, Mapping):
+            return None
+        number, text = line.get("number"), line.get("text")
+        if (
+            not isinstance(number, int)
+            or isinstance(number, bool)
+            or number <= 0
+            or not isinstance(text, str)
+            or len(text) > 240
+        ):
+            return None
+        normalized.append({"number": number, "text": text})
+    return {
+        "start_line": start,
+        "highlight_start": highlight_start,
+        "highlight_end": highlight_end,
+        "redacted": raw["redacted"],
+        "lines": normalized,
+    }
+
+
+def _flow_steps(raw: object) -> list[dict[str, object]]:
+    if not isinstance(raw, list) or len(raw) > 12:
+        return []
+    result = []
+    for step in raw:
+        if not isinstance(step, Mapping) or step.get("kind") not in {"source", "sink"}:
+            return []
+        path = _relative_path(step.get("path"))
+        line = step.get("line")
+        if path is None or (
+            line is not None
+            and (
+                not isinstance(line, int)
+                or isinstance(line, bool)
+                or line <= 0
+                or line > 10_000_000
+            )
+        ):
+            return []
+        result.append({"kind": step["kind"], "path": path, "line": line})
+    return result
+
+
+def _scorecard(issues: Sequence[Mapping[str, object]]) -> dict[str, int]:
+    counts = {key: 0 for key in _SCORECARD_KEYS}
+    for issue in issues:
+        severity, priority = issue.get("severity"), issue.get("priority")
+        if severity == "undetermined":
+            counts["needs_review"] += 1
+            ceiling = issue.get("severity_ceiling")
+            if ceiling in {"critical", "high", "medium", "low"}:
+                counts[f"potential_{ceiling}"] += 1
+        elif severity == "low" and priority == "P4":
+            counts["informational"] += 1
+        elif severity in {"critical", "high", "medium", "low"}:
+            counts[str(severity)] += 1
+    return counts
 
 
 def _tokens(raw: object, pattern: re.Pattern[str], limit: int) -> list[str]:
@@ -229,6 +326,8 @@ def _issue(raw: object) -> dict[str, object]:
         "severity_rationale": None,
         "deciding_facts": [],
         "location": None,
+        "code_context": None,
+        "flow_steps": [],
     }
 
 
@@ -249,6 +348,7 @@ def code_security_issues_projection(
         "issues": [],
         "truncated": False,
         "artifacts": None,
+        "scorecard": {key: 0 for key in _SCORECARD_KEYS},
     }
     package = review.get("package") if isinstance(review, Mapping) else None
     digest = package.get("review_digest") if isinstance(package, Mapping) else None
@@ -293,7 +393,7 @@ def code_security_issues_projection(
         }
         if (
             set(artifacts_row) == expected_gap
-            and artifacts_row.get("schema_version") == "1.1.0"
+            and artifacts_row.get("schema_version") == "1.2.0"
             and artifacts_row.get("repository_alias") == repository_alias
             and artifacts_row.get("revision") == revision
             and artifacts_row.get("review_digest") == digest
@@ -322,7 +422,7 @@ def code_security_issues_projection(
         if (
             set(artifacts_row) != expected
             or artifacts_row.get("kind") != "code-security-review-artifacts"
-            or artifacts_row.get("schema_version") != "1.1.0"
+            or artifacts_row.get("schema_version") != "1.2.0"
             or artifacts_row.get("repository_alias") != repository_alias
             or artifacts_row.get("revision") != revision
             or artifacts_row.get("review_digest") != digest
@@ -349,6 +449,7 @@ def code_security_issues_projection(
         "issues": issues,
         "truncated": truncated,
         "artifacts": artifacts,
+        "scorecard": _scorecard(issues),
         "gaps": gaps,
     }
 
@@ -374,7 +475,7 @@ async def read_code_security_issues(
     )
     artifact_rows = await fetch_all(
         _ROW_SQL,
-        (f"{CODE_SECURITY_ISSUES_STATE_PREFIX}{alias}:{revision}:artifacts-1.1",),
+        (f"{CODE_SECURITY_ISSUES_STATE_PREFIX}{alias}:{revision}:artifacts-1.2",),
     )
     review = review_rows[0].get("value") if review_rows else None
     issues_row = issue_rows[0].get("value") if issue_rows else None
