@@ -518,12 +518,12 @@ def _code_context(result: ScanJobResult, issue: CodeSecurityIssue) -> dict[str, 
         end = line_number
     else:
         start = max(1, line_number - 3)
-        end = min(len(lines), max(line_number, issue.fix_site.end_line or line_number) + 3)
+        end = min(len(lines), line_number + 3)
         selected = [(number, _bounded_line(lines[number - 1])) for number in range(start, end + 1)]
     return {
         "start_line": start,
         "highlight_start": line_number,
-        "highlight_end": issue.fix_site.end_line or line_number,
+        "highlight_end": min(end, max(line_number, issue.fix_site.end_line or line_number)),
         "redacted": secret,
         "lines": [{"number": number, "text": text} for number, text in selected],
     }
