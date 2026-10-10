@@ -304,7 +304,7 @@
     "unverified_operational_success_claim_rate",
     "worst_slice_regression_count"
   ],
-  "inventory_digest": "sha256:e4742040f3652f5874a6478dca0560f29183f7bee1f644fbde5c9ee3cc1039bc",
+  "inventory_digest": "sha256:639d0a7113144aadab4563f8db0a5c5fa59dc7c4a9e01d9fd686567084fd7640",
   "metric_contract": {
     "ambiguity": [
       {
@@ -937,14 +937,14 @@
     "set_recall": "true_positive_items / expected_items"
   },
   "source_digests": {
-    "console/src/deck/backend-types.ts": "sha256:0f4d227b38d5a7f8aea99c52cea2d6d6255a7730c01c7e2ce40f1767598180f7",
+    "console/src/deck/backend-types.ts": "sha256:cc92c7d28bf989928c8904f8bf1fb4c76d20dcb0d4dc546ed418ef5d0e4eb2e6",
     "console/src/deck/presentation-artifact.ts": "sha256:5946d614e455c632368810c25954a233aaa9de60b69b53f0f733d4b06485973c",
     "console/src/deck/presentation-modules/charts.tsx": "sha256:3b0da88ee3469adce74c965bcaeba86b42149b6d9d4158faf2c9b3704c3220f6",
     "console/src/deck/presentation-modules/registry.tsx": "sha256:27c87816f3c0b81aaea57206a2dba342b6f5a40b95ef6751f54ff43735e0ad6d",
     "console/src/deck/presentation-modules/types.ts": "sha256:b58265852af941105f1b65fc24394f7b7b204c78f8ea95aa952edc23fb8212a2",
     "eval/golden-dataset/azure-incident-intent-golden.yaml": "sha256:8ffa63d40649926dfd04d5d253e7f019163c69bf14f1fabd7d1b7f6281a5202e",
     "eval/golden-dataset/expectations.json": "sha256:5617de665fab4aec0bd038a8a1809d9a662f6cb51c8a0221036997807eb6c97c",
-    "eval/golden-dataset/question-bank/question-bank.json": "sha256:114d5d5760df33891d3c99f06e277b3d04447b6be6e695f207aa9f42af1412c0",
+    "eval/golden-dataset/question-bank/question-bank.json": "sha256:4a175e95cc871dee39f73a5a5e7d056d171509ed182f7cce3084cfb21fecd217",
     "eval/golden-dataset/question-bank/question-bank.source.yaml": "sha256:de3d78de7327eec563742fe7402f3827438152ed27f5c519a2ac3ae66fced495",
     "packages/service-contracts/src/fdai_service_contracts/adaptive_answer.py": "sha256:24b3680abade67a122f7c64c87a7121538a09c4e47ec46bdcc3a8c73c1e9039e",
     "scripts/automation/conversation_quality_metrics.py": "sha256:18b2a8c0fd2eafd708889a1610f776da65e6e514f3ef07b4beaa331200868614",
