@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: f5e3a78c1be26d8f9aae778ed158b2eed2141b9a
+translation_source_sha: ff7885215482c84f5f36095a0c82a912b33f9702
 translation_revised: 2026-10-11
 ---
 # 프로젝트 구조
@@ -647,6 +647,7 @@ JDK map 키와 마지막 무조건 대입을 포함한 Java 소스 수준 상수
 배치를 감독합니다. 로컬 조립은 관리되는 Console supervisor와 고정 이름 컨테이너 수명 주기 래퍼로
 이를 시작합니다. 이 래퍼는 supervisor가 종료될 때 정확한 작업자를 중지합니다. 서비스 종료
 기한은 컨테이너 중지 기한보다 길어서 강제 프로세스 정리가 이 소유권 경계를 중단하지 않습니다.
+최상위 stack 중지는 supervisor lock 실패를 보고하기 전에 두 내부 기한보다 더 오래 기다립니다.
 Container Apps는
 독립 코드 보안 작업자 서비스를 소유하며, AKS 워크로드는 컨트롤러와 스캐너 네임스페이스를 분리한
 기존 Kata 스캐너 작업 경계를 사용합니다. 이 워크로드는 제한된 데이터베이스 역할을 유지하고 새

@@ -126,6 +126,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-11 | implemented | Ordered the local worker cleanup deadlines as stack stop > service runner > container stop. | `current change`; focused static budget relation and stop ownership tests. | Retain one managed stop receipt with no named worker container afterward. |
 | 2026-10-11 | implemented | Made the local worker service shutdown budget longer than the exact container stop deadline. | `current change`; focused launcher budget contract and lifecycle tests. | Retain a managed stop receipt showing the named container is absent afterward. |
 | 2026-10-11 | implemented | Added one fixed-name local code-security worker container boundary whose lifecycle remains owned by the managed Console supervisor. | `current change`; task-owned container wrapper, launcher binding, and focused signal lifecycle tests. | Retain one managed restart receipt proving no stale worker container survives. |
 | 2026-10-10 | implemented | Assigned automatic code-security request and revision processing to one mechanical worker service across local, Container Apps, and AKS composition. | `current change`; worker process/image/runtime paths; 35 Core tests, 113 workflow/entrypoint tests, Terraform tests (`4` Container Apps, `3` AKS). | Live deployed worker evidence remains in the code-security and runtime-profile ledgers. |
