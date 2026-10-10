@@ -626,9 +626,9 @@ def test_scan_runner_image_pins_every_tool_and_binds_every_scanner() -> None:
     assert "ARG GITLEAKS_XZ_VERSION=v0.5.15" in dockerfile
     assert "ARG GITLEAKS_ARCHIVES_VERSION=v0.1.5" in dockerfile
     assert "COPY --from=scanner-builder /out/ /opt/scanners/bin/" in dockerfile
-    base = dockerfile.split(" AS base\n", 1)[1].split("\nFROM ", 1)[0]
-    assert "python -m pip uninstall --yes pip" in base
-    assert re.findall(r"library/python@sha256:[0-9a-f]{64}", dockerfile)
+    assert "--with-ensurepip=no" in dockerfile
+    assert 'assert importlib.util.find_spec("pip") is None' in dockerfile
+    assert re.findall(r"mcr.microsoft.com/azurelinux/base/core@sha256:[0-9a-f]{64}", dockerfile)
     bound = set(re.findall(r'--scanner-bin "([a-z-]+)=', entrypoint))
     assert bound == set(load_scanner_catalog(_CATALOG).scanners)
     assert re.search(r"ARG DOTNET_SDK_SHA512=[0-9a-f]{128}\n", dockerfile)
@@ -638,7 +638,7 @@ def test_scan_runner_image_pins_every_tool_and_binds_every_scanner() -> None:
     assert "FROM prover-javascript AS prover" in dockerfile
     javascript = dockerfile.split(" AS prover-javascript\n", 1)[1].split("\nFROM ", 1)[0]
     prover = dockerfile.split(" AS prover\n", 1)[1].split("\nFROM ", 1)[0]
-    for toolchain in ("gcc", "openjdk-21-jdk-headless", "/usr/lib/dotnet"):
+    for toolchain in ("gcc", "/usr/lib/jvm/msopenjdk-21", "/usr/lib/dotnet"):
         assert toolchain in prover, toolchain
     assert "nodejs" not in prover.split("COPY", 1)[0]
     assert "ARG NODE_VERSION=24.21.0" in dockerfile
@@ -653,7 +653,7 @@ def test_scan_runner_image_pins_every_tool_and_binds_every_scanner() -> None:
     assert "COPY --from=node /usr/bin/node /usr/bin/node" in javascript
     assert "COPY --from=node /usr/share/licenses/nodejs/" in javascript
     assert "COPY --from=node /usr/share/fdai/node-runtime.cdx.json" in javascript
-    assert "gcc" not in javascript and "libc6-dev" not in javascript
+    assert "gcc" not in javascript and "glibc-devel" not in javascript
     assert 'LABEL org.fdai.code-security.proof-profile="javascript"' in javascript
     assert 'LABEL org.fdai.code-security.proof-profile="all"' in prover
     assert "python /download/node-runtime-sbom.py" in dockerfile
