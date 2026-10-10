@@ -466,6 +466,25 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin, SemanticPlanningSp
             )
             if pre_frame_outcome is not None:
                 return preflight_router.finish(pre_frame_outcome)
+            typed_recent_change_frame = (
+                deterministic_pre_frame_selection(
+                    judgment=judgment_proposal,
+                    judgment_accepted=True,
+                    utterance=utterance,
+                    context=context,
+                    descriptors=descriptors,
+                    manifest_descriptors=manifest_descriptors,
+                    inventory_query_language=self._inventory_query_language,
+                    bound_incident=bound_incident is not None,
+                )
+                if self._compiled_answers is not None
+                and self._compiled_answers.typed_only
+                and judgment_decision is not None
+                and judgment_decision.accepted
+                and judgment_proposal is not None
+                and judgment_proposal.primary_intent == "query.resource_change_activity"
+                else None
+            )
             # A released reading answers over a clarification only on a third reader's verdict.
             clarified = judgment_clarification_outcome(judgment_decision, manifest.manifest_digest)
             if clarified is not None:
@@ -481,12 +500,16 @@ class SemanticPlanningService(SemanticPlanningPreflightMixin, SemanticPlanningSp
             )
             if compiled is not None:
                 return preflight_router.finish(compiled)
-            if self._compiled_answers is not None and self._compiled_answers.typed_only:
+            if (
+                self._compiled_answers is not None
+                and self._compiled_answers.typed_only
+                and typed_recent_change_frame is None
+            ):
                 return preflight_router.finish(
                     typed_only_outcome(ticket, manifest_digest=manifest_digest)
                 )
             stage = "frame_proposal"
-            frame_result = deterministic_pre_frame_selection(
+            frame_result = typed_recent_change_frame or deterministic_pre_frame_selection(
                 judgment=judgment_proposal,
                 judgment_accepted=judgment_decision is not None and judgment_decision.accepted,
                 utterance=utterance,

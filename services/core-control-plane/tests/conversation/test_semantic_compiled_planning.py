@@ -27,7 +27,7 @@ from fdai.core.conversation.semantic_reasoning_review import (
 )
 from fdai.core.conversation.session import Principal, Role
 from fdai.core.ontology_platform import OntologyQueryPlanVerifier
-from fdai_service_contracts.ontology_query import QueryNodeKind
+from fdai_service_contracts.ontology_query import QueryNodeKind, content_digest
 from fdai_service_contracts.semantic_judgment import (
     SemanticJudgmentDisposition,
     SemanticJudgmentProposal,
@@ -36,6 +36,7 @@ from fdai_service_contracts.semantic_judgment import (
 from tests.conversation.test_semantic_judgment import _proposal
 from tests.conversation.test_semantic_planning import (
     _VM_GROUP,
+    DIGEST,
     NOW,
     _ManifestProvider,
     _Model,
@@ -221,6 +222,72 @@ def test_a_released_compilation_answers_before_the_frame_model_runs() -> None:
     assert path.ticket.consumed and not path.ticket.cancelled
     assert [item.model for item in outcome.model_observations] == ["form-model"]
     assert path.starts[0]["utterance"] == _UTTERANCE
+
+
+def test_typed_only_recent_state_change_uses_the_accepted_preflight_after_form_declines() -> None:
+    utterance = "최근 상태가 변경된 리소스"
+    manifest, _definition = _typed_fixture(
+        groups=(_VM_GROUP,),
+        include_state_transitions=True,
+    )
+    path = _Path(result=None, typed_only=True)
+    model = _Model(frame=None, plan=None)  # type: ignore[arg-type]
+    service = SemanticPlanningService(
+        model=model,
+        manifests=_ManifestProvider(manifest),
+        verifier=OntologyQueryPlanVerifier(
+            available_kinds=(QueryNodeKind.OBJECT_SET, QueryNodeKind.FUNCTION)
+        ),
+        now=lambda: NOW,
+        semantic_judgment=_Boundary(
+            SemanticJudgmentDisposition.ACCEPTED,
+            proposal=_accepted(),
+        ),  # type: ignore[arg-type]
+        compiled_answers=path,  # type: ignore[arg-type]
+    )
+    preflight_proposal = ConversationPreflightProposal(
+        social_act=SocialAct.NONE,
+        operational_signal=OperationalSignal.EXPLICIT,
+        knowledge_signal="none",
+        context_dependency="none",
+        confidence=0.99,
+        operational_family=OperationalPreflightFamily.RECENT_RESOURCE_STATE_CHANGES,
+        operational_window="server_recent_default",
+        operational_facets=(
+            "recently_changed",
+            "resource_count",
+            "default_recent_window",
+            "limit_5",
+        ),
+        operational_result_limit=5,
+    )
+    preflight = ConversationPreflightResult(
+        proposal=preflight_proposal,
+        observations=(),
+        attempted=True,
+        input_digest=content_digest({"utterance": utterance}),
+        proposal_digest=content_digest(preflight_proposal.model_dump(mode="json")),
+        model_config_digest=DIGEST,
+        prompt_digest=DIGEST,
+    )
+
+    outcome = service.plan(
+        utterance=utterance,
+        prior_turns=(),
+        principal=Principal(id="operator", role=Role.READER),
+        purpose="operations-review",
+        locale="ko",
+        preflight_result=preflight,
+    )
+
+    assert outcome.disposition is SemanticPlanningDisposition.PLANNED
+    assert outcome.frame is not None
+    assert outcome.frame.output_shape == "resource_state_transitions"
+    assert outcome.plan is not None
+    assert outcome.plan.nodes[1].arguments["function_name"] == "query.resource_state_transitions"
+    assert outcome.plan.nodes[1].arguments["arguments"]["result_limit"] == 5
+    assert path.ticket.consumed is True
+    assert model.frame_calls == 0 and model.plan_calls == 0
 
 
 async def test_released_relation_compilation_answers_on_current_path() -> None:
