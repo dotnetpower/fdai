@@ -443,7 +443,8 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "process-scheduled-scans":
             output = asyncio.run(run_process_scheduled_scans(args))
         elif args.command == "serve-workers":
-            output = asyncio.run(run_worker_service_command(args))
+            asyncio.run(run_worker_service_command(args))
+            return 0
         elif args.command == "evaluate":
             output = _evaluate(args)
         elif args.command == "evaluate-verifiers":

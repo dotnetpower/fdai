@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import argparse
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from fdai.delivery import code_security_cli
 from fdai.delivery.code_security_revision_state import (
     read_successful_revision,
     record_successful_revision,
@@ -21,6 +23,18 @@ from fdai.delivery.persistence.state_store_code_security_artifacts import (
     record_code_security_artifacts,
 )
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+
+def test_worker_cli_returns_cleanly_when_service_stops(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    async def run_worker_service_command(args: argparse.Namespace) -> None:
+        assert args.command == "serve-workers"
+
+    monkeypatch.setattr(code_security_cli, "run_worker_service_command", run_worker_service_command)
+
+    assert code_security_cli.main(["serve-workers"]) == 0
+    assert capsys.readouterr().out == ""
 
 
 async def test_successful_revision_round_trips_and_malformed_state_fails() -> None:
