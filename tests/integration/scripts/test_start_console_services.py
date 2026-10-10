@@ -20,6 +20,9 @@ _DEV_UP_SCRIPT = _REPO_ROOT / "scripts/deployment/local/dev-up.sh"
 _LOCAL_COMPOSE = _REPO_ROOT / "infra/local/docker-compose.yml"
 _PREPARE_SCRIPT = _REPO_ROOT / "scripts/deployment/local/prepare-console-full-stack.sh"
 _RUN_SERVICE_SCRIPT = _REPO_ROOT / "scripts/deployment/local/run-console-service.sh"
+_WORKER_CONTAINER_SCRIPT = (
+    _REPO_ROOT / "scripts/deployment/local/run-code-security-worker-container.sh"
+)
 _START_SCRIPT = _REPO_ROOT / "scripts/deployment/local/start-console-services.sh"
 _SCANNER_IMAGE_SCRIPT = _REPO_ROOT / "scripts/deployment/local/code-security-scanner-image.sh"
 _BOUNDED_RUNNER = _REPO_ROOT / "scripts/automation/run-bounded-command.py"
@@ -903,6 +906,11 @@ def test_supervisor_starts_one_restricted_code_security_worker() -> None:
     assert "--state-access restricted" in launcher
     assert "--env FDAI_DATABASE_ROLE" in launcher
     assert "--env FDAI_EXECUTION_VENUE" in launcher
+    assert "run-code-security-worker-container.sh" in launcher
+    assert 'digest_inputs+=("$scanner_image_contract" "$worker_container_runner")' in launcher
+    worker_container = _WORKER_CONTAINER_SCRIPT.read_text(encoding="utf-8")
+    assert '--name "$container_name"' in worker_container
+    assert 'docker stop --time "$shutdown_seconds" "$container_name"' in worker_container
     assert (
         '--request-interval-seconds "${FDAI_CODE_SECURITY_REQUEST_INTERVAL_SECONDS:-5}"' in launcher
     )
@@ -914,6 +922,69 @@ def test_supervisor_starts_one_restricted_code_security_worker() -> None:
     assert "--max-repositories" in launcher
     assert 'verify "$FDAI_CODE_SECURITY_IMAGE" "$FDAI_CODE_SECURITY_IMAGE_INPUT_DIGEST"' in launcher
     assert "code-security scanner source changed after preparation" in launcher
+
+
+def test_worker_container_stops_when_its_managed_wrapper_terminates(tmp_path: Path) -> None:
+    wrapper = tmp_path / "run-code-security-worker-container.sh"
+    shutil.copy2(_WORKER_CONTAINER_SCRIPT, wrapper)
+    wrapper.chmod(wrapper.stat().st_mode | stat.S_IXUSR)
+    launch = tmp_path / "docker-run"
+    stop = tmp_path / "docker-stop"
+    fake_bin = tmp_path / "bin"
+    _write_executable(
+        fake_bin / "docker",
+        """#!/usr/bin/env bash
+set -euo pipefail
+case "${1:-}" in
+  container)
+    exit 1
+    ;;
+  run)
+    shift
+    printf '%s\n' "$@" > "$FDAI_TEST_DOCKER_RUN"
+    while [[ ! -f "$FDAI_TEST_DOCKER_STOP" ]]; do sleep 0.05; done
+    ;;
+  stop)
+    printf '%s\n' "$@" > "$FDAI_TEST_DOCKER_STOP"
+    ;;
+  *)
+    exit 2
+    ;;
+esac
+""",
+    )
+    environment = {
+        **os.environ,
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+        "FDAI_TEST_DOCKER_RUN": str(launch),
+        "FDAI_TEST_DOCKER_STOP": str(stop),
+    }
+    process = subprocess.Popen(  # noqa: S603 - fixed task-owned wrapper and fake Docker.
+        [_BASH, str(wrapper), "example.invalid/scanner:local", "serve-workers"],
+        env=environment,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    try:
+        deadline = time.monotonic() + 3
+        while not launch.is_file() and time.monotonic() < deadline:
+            time.sleep(0.05)
+        assert launch.is_file()
+
+        process.terminate()
+        assert process.wait(timeout=3) == 130
+        assert stop.is_file()
+        assert launch.read_text(encoding="utf-8").splitlines()[:2] == [
+            "--rm",
+            "--name",
+        ]
+        assert "fdai-code-security-worker" in launch.read_text(encoding="utf-8").splitlines()
+    finally:
+        stop.touch(exist_ok=True)
+        if process.poll() is None:
+            process.kill()
+            process.wait(timeout=3)
 
 
 def test_preparation_owns_scanner_image_drift_and_digest_binding() -> None:

@@ -33,6 +33,7 @@ fi
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$repo_root"
 scanner_image_contract="$repo_root/scripts/deployment/local/code-security-scanner-image.sh"
+worker_container_runner="$repo_root/scripts/deployment/local/run-code-security-worker-container.sh"
 local_azure_cli_auth=0
 readiness_seconds="${FDAI_CONSOLE_START_READINESS_SECONDS:-60}"
 if [[ ! "$readiness_seconds" =~ ^[1-9][0-9]*$ ]]; then
@@ -166,7 +167,7 @@ else
       scripts/deployment/local/collect-cost-governance-analytics.py
     )
   elif [[ "$service" == "code-security-worker" ]]; then
-    digest_inputs+=("$scanner_image_contract")
+    digest_inputs+=("$scanner_image_contract" "$worker_container_runner")
   fi
 fi
 input_digest="$(
@@ -343,7 +344,7 @@ case "$service" in
       exit 1
     fi
     service_command=(
-      docker run --rm
+      bash "$worker_container_runner"
       --network host
       --security-opt seccomp=unconfined
       --security-opt apparmor=unconfined
