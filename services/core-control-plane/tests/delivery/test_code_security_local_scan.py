@@ -364,6 +364,29 @@ def test_secret_context_redacts_the_value_but_keeps_the_assignment_key() -> None
     assert "super-secret-value" not in rendered
 
 
+def test_code_context_bounds_a_multiline_fix_region_to_seven_lines(tmp_path: Path) -> None:
+    result = _result(tmp_path)
+    source = tmp_path / "src" / "app.py"
+    source.write_text("\n".join(f"line {number}" for number in range(1, 101)) + "\n")
+    issue = result.issues[0]
+    result = replace(
+        result,
+        issues=(replace(issue, fix_site=replace(issue.fix_site, end_line=100)),),
+    )
+
+    sarif = json.loads(
+        render_sarif(
+            result,
+            repository_alias="example-service",
+            generated_at="2026-10-08T00:00:00+00:00",
+        )
+    )
+    context = sarif["runs"][0]["results"][0]["properties"]["code_context"]
+    assert len(context["lines"]) <= 7
+    assert context["highlight_start"] == 2
+    assert context["highlight_end"] == context["lines"][-1]["number"]
+
+
 @needs_bwrap
 async def test_scan_job_scans_a_local_snapshot_and_records_its_source(tmp_path: Path) -> None:
     repo, _ = _plain_repo(tmp_path)
