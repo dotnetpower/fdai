@@ -25,8 +25,10 @@ import {
   RepositoryScanSection,
   decodeCodeSecurityRepositories,
   decodeCodeSecurityScanRequests,
+  decodeCodeSecurityWorkerStatus,
   type CodeSecurityRepositoriesResponse,
   type CodeSecurityScanRequestsResponse,
+  type CodeSecurityWorkerStatusResponse,
 } from "./code-security-requests";
 import {
   panelArray,
@@ -131,6 +133,7 @@ export interface CodeSecurityState {
   /** ``null`` when the registration or request projection is unavailable. */
   readonly repositories?: CodeSecurityRepositoriesResponse | null;
   readonly requests?: CodeSecurityScanRequestsResponse | null;
+  readonly worker?: CodeSecurityWorkerStatusResponse | null;
 }
 
 function oneOf<T extends string>(value: unknown, allowed: readonly T[], label: string): T {
@@ -596,6 +599,7 @@ function CodeSecurityBody({
         client={client}
         repositories={state.repositories ?? null}
         requests={state.requests ?? null}
+        worker={state.worker ?? null}
         onQueued={onQueued}
       />
       <PacksSection data={state.packs} />
@@ -616,11 +620,12 @@ export async function loadCodeSecurityState(
   client: Pick<OperatorApiClient, "panel">,
 ): Promise<AsyncState<CodeSecurityState>> {
   try {
-    const [reviews, packs, repositories, requests] = await Promise.all([
+    const [reviews, packs, repositories, requests, worker] = await Promise.all([
       client.panel<unknown>("/code-security/reviews"),
       client.panel<unknown>("/code-security/packs"),
       optionalPanel(() => client.panel<unknown>("/code-security/repositories"), decodeCodeSecurityRepositories),
       optionalPanel(() => client.panel<unknown>("/code-security/scan-requests"), decodeCodeSecurityScanRequests),
+      optionalPanel(() => client.panel<unknown>("/code-security/worker-status"), decodeCodeSecurityWorkerStatus),
     ]);
     return {
       status: "ready",
@@ -629,6 +634,7 @@ export async function loadCodeSecurityState(
         packs: decodeCodeSecurityPacks(packs),
         repositories,
         requests,
+        worker,
       },
     };
   } catch (error) {
@@ -637,6 +643,16 @@ export async function loadCodeSecurityState(
     }
     return { status: "error", message: error instanceof Error ? error.message : String(error) };
   }
+}
+
+export function codeSecurityRefreshDelay(state: AsyncState<CodeSecurityState>): number | null {
+  if (state.status === "error" || state.status === "unavailable") return 15_000;
+  if (state.status !== "ready") return null;
+  return (state.data.requests?.requests ?? []).some(
+    (request) => request.status === "queued" || request.status === "running",
+  )
+    ? 5_000
+    : 30_000;
 }
 
 export function CodeSecurityRoute({ client }: { readonly client: OperatorApiClient }) {
@@ -650,12 +666,35 @@ export function CodeSecurityRoute({ client }: { readonly client: OperatorApiClie
     });
     return () => { cancelled = true; };
   }, [client, generation]);
+  useEffect(() => {
+    const delay = codeSecurityRefreshDelay(state);
+    if (delay === null) return;
+    const refresh = () => {
+      if (document.visibilityState === "visible") reload();
+    };
+    const timer = window.setTimeout(refresh, delay);
+    const visibility = () => {
+      if (document.visibilityState === "visible") reload();
+    };
+    document.addEventListener("visibilitychange", visibility);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", visibility);
+    };
+  }, [reload, state]);
   return (
     <div class="stack evidence-route">
       <PageHeader title={appT("nav.panel.codeSecurity")} subtitle={t("codeSecurity.subtitle")} />
       <AsyncBoundary state={state} resourceLabel={t("codeSecurity.resourceLabel")}>
         {(data) => <CodeSecurityBody state={data} client={client} onQueued={reload} />}
       </AsyncBoundary>
+      {state.status === "error" || state.status === "unavailable"
+        ? (
+          <button type="button" class="btn subtle code-security-route-refresh" onClick={reload}>
+            {t("codeSecurity.worker.refresh")}
+          </button>
+        )
+        : null}
     </div>
   );
 }

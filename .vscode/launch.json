@@ -137,6 +137,17 @@
       }
     },
     {
+      "name": "Console Web: Code Security Worker",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "bash scripts/deployment/local/run-console-service.sh code-security-worker",
+      "cwd": "${workspaceFolder}",
+      "presentation": {
+        "group": "1-fullstack",
+        "order": 6
+      }
+    },
+    {
       "name": "Console Web: Frontend",
       "type": "node-terminal",
       "request": "launch",
@@ -158,7 +169,7 @@
       },
       "presentation": {
         "group": "1-fullstack",
-        "order": 6
+        "order": 7
       }
     },
     {
@@ -172,7 +183,7 @@
       },
       "presentation": {
         "group": "1-fullstack",
-        "order": 7
+        "order": 8
       }
     }
   ],
@@ -186,6 +197,7 @@
         "Console Web: Document Ingestion API",
         "Console Web: Document Processing Worker",
         "Console Web: Isolated Executor",
+        "Console Web: Code Security Worker",
         "Console Web: Frontend",
         "Console Web: Manual Studio"
       ],

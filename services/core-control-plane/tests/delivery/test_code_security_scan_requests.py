@@ -14,6 +14,7 @@ from fdai.delivery.code_security_repository_changes import (
     REPOSITORY_CHANGE_OPERATION,
     parse_repository_change,
 )
+from fdai.delivery.code_security_revision_state import read_successful_revision
 from fdai.delivery.code_security_scan_requests import (
     REJECT_ATTEMPTS,
     REJECT_CONFLICT,
@@ -165,6 +166,9 @@ class _Queue:
     async def claim(self) -> ClaimedScanRequest | None:
         return self.claims.pop(0) if self.claims else None
 
+    async def renew(self, *, key: str, claim_id: str) -> bool:
+        return True
+
     async def mark_completed(
         self, *, key: str, claim_id: str, result: Mapping[str, object]
     ) -> bool:
@@ -232,6 +236,7 @@ async def test_processor_scans_enabled_registration_and_closes_the_request() -> 
     assert source.request_id == _REQUEST_ID
     assert outcome["status"] == "published" and outcome["decision"] == "urgent"
     assert recorded and publisher.packages == recorded
+    assert await read_successful_revision(store, "example-app") == _REVISION
     ((_, result),) = queue.completed
     assert result == {
         "revision": _REVISION,
@@ -371,10 +376,16 @@ async def test_processor_applies_owner_changes_before_scans_and_audits_the_reque
         ]
     )
 
-    async def runner(*_args):  # type: ignore[no-untyped-def]
-        raise AssertionError("no scan expected")
+    scan_calls: list[tuple[str, ReviewSource]] = []
 
-    outcomes = await process_scan_requests(queue, store, runner, recorder=None, max_requests=10)  # type: ignore[arg-type]
+    async def runner(repo: CodeSecurityRepository, ref: str, source: ReviewSource) -> ScanOutcome:
+        scan_calls.append((ref, source))
+        return ScanOutcome(_package(source))
+
+    async def recorder(outcome: ScanOutcome) -> bool:
+        return True
+
+    outcomes = await process_scan_requests(queue, store, runner, recorder=recorder, max_requests=10)
     assert [item["status"] for item in outcomes] == [
         "published",
         "rejected",
@@ -394,11 +405,65 @@ async def test_processor_applies_owner_changes_before_scans_and_audits_the_reque
     assert repository.registered_by == "owner-oid"
     actors = [item["entry"]["actor"] for item in store.audit_entries]
     assert actors == ["owner-oid", "owner-oid"]
+    assert len(scan_calls) == 1
+    assert scan_calls[0][0] == "HEAD"
+    assert scan_calls[0][1].request_id == "operator-" + "f" * 32
     assert queue.completed[0][1] == {
         "action": "register",
         "repository_alias": "example-app",
         "enabled": True,
         "created": True,
+        "initial_scan": {
+            "status": "completed",
+            "revision": _REVISION,
+            "review_digest": "e" * 64,
+            "decision": "urgent",
+            "issue_count": 1,
+            "coverage_complete": True,
+            "published": False,
+        },
+    }
+    assert await read_successful_revision(store, "example-app") == _REVISION
+
+
+async def test_registration_survives_an_explicit_initial_scan_failure() -> None:
+    store = InMemoryStateStore()
+    change = parse_repository_change(
+        _change_record(
+            {
+                "action": "register",
+                "repository_alias": "example-app",
+                "location": "example/app",
+            }
+        )
+    )
+    assert change is not None
+    queue = _Queue(
+        [
+            ClaimedScanRequest(
+                key="register",
+                claim_id="claim",
+                request=None,
+                operation=REPOSITORY_CHANGE_OPERATION,
+                change=change,
+            )
+        ]
+    )
+
+    async def runner(*_args):  # type: ignore[no-untyped-def]
+        raise SourceAcquisitionError("repository unavailable")
+
+    (outcome,) = await process_scan_requests(
+        queue,
+        store,
+        runner,
+        recorder=None,  # type: ignore[arg-type]
+    )
+    assert outcome["status"] == "published"
+    assert await read_repository(store, "example-app") is not None
+    assert queue.completed[0][1]["initial_scan"] == {
+        "status": "failed",
+        "reason_code": REJECT_SOURCE,
     }
 
 

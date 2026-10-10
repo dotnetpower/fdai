@@ -21,6 +21,7 @@ _LOCAL_COMPOSE = _REPO_ROOT / "infra/local/docker-compose.yml"
 _PREPARE_SCRIPT = _REPO_ROOT / "scripts/deployment/local/prepare-console-full-stack.sh"
 _RUN_SERVICE_SCRIPT = _REPO_ROOT / "scripts/deployment/local/run-console-service.sh"
 _START_SCRIPT = _REPO_ROOT / "scripts/deployment/local/start-console-services.sh"
+_SCANNER_IMAGE_SCRIPT = _REPO_ROOT / "scripts/deployment/local/code-security-scanner-image.sh"
 _BOUNDED_RUNNER = _REPO_ROOT / "scripts/automation/run-bounded-command.py"
 
 
@@ -34,6 +35,37 @@ def _write_ready_dependency_script(repo: Path) -> None:
     _write_executable(
         repo / "scripts/deployment/local/dev-up.sh",
         "#!/usr/bin/env bash\nexit 0\n",
+    )
+
+
+def _write_scanner_image_script(repo: Path, digest: str) -> None:
+    _write_executable(
+        repo / "scripts/deployment/local/code-security-scanner-image.sh",
+        f"""#!/usr/bin/env bash
+set -euo pipefail
+case "$1" in
+  inputs) printf '%s\\n' scripts/deployment/local/code-security-scanner-image.sh ;;
+  digest) printf '%s\\n' {digest!r} ;;
+  verify|ensure) exit 0 ;;
+  *) exit 2 ;;
+esac
+""",
+    )
+
+
+def _write_stack_lock_holder(path: Path) -> None:
+    _write_executable(
+        path,
+        """#!/usr/bin/env bash
+set -euo pipefail
+lock="$PWD/.fdai/logs/console-stack.log.lock"
+mkdir -p "$(dirname "$lock")"
+exec {lock_fd}>> "$lock"
+flock "$lock_fd"
+printf '%s\n' "$$" > "$lock"
+trap 'exit 0' TERM INT
+while true; do sleep 0.1; done
+""",
     )
 
 
@@ -93,6 +125,104 @@ def test_restart_checks_primary_checkout_before_any_service_effect(
     else:
         assert result.returncode == (75 if checkout == "linked" else 99)
         assert not order.exists()
+
+
+@pytest.mark.parametrize(
+    ("owner_name", "relative_command"),
+    [
+        ("start-console-services.sh", False),
+        (".copilot-start-console-services.sh", True),
+    ],
+)
+def test_stop_accepts_only_exact_repo_local_supervisor_paths(
+    tmp_path: Path,
+    owner_name: str,
+    relative_command: bool,
+) -> None:
+    repo = tmp_path / "repo"
+    local = repo / "scripts/deployment/local"
+    local.mkdir(parents=True)
+    stop_script = local / "stop-console-services.sh"
+    shutil.copy2(_REPO_ROOT / "scripts/deployment/local/stop-console-services.sh", stop_script)
+    owner_script = local / owner_name
+    _write_stack_lock_holder(owner_script)
+    command_path = (
+        Path("scripts/deployment/local") / owner_name if relative_command else owner_script
+    )
+    owner = subprocess.Popen(  # noqa: S603 - fixed test-owned supervisor.
+        [_BASH, str(command_path)],
+        cwd=repo,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    lock = repo / ".fdai/logs/console-stack.log.lock"
+    try:
+        deadline = time.monotonic() + 3
+        while not lock.exists() or lock.read_text(encoding="utf-8").strip() != str(owner.pid):
+            assert owner.poll() is None
+            assert time.monotonic() < deadline
+            time.sleep(0.02)
+
+        result = subprocess.run(  # noqa: S603 - committed stop guard.
+            [_BASH, str(stop_script)],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=3,
+        )
+
+        assert result.returncode == 0, result.stderr
+        assert result.stdout == "service=console-stack event=stopped\n"
+        assert owner.wait(timeout=3) == 0
+    finally:
+        if owner.poll() is None:
+            owner.terminate()
+            owner.wait(timeout=3)
+
+
+def test_stop_rejects_arbitrary_wrapper_path_with_same_name(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    local = repo / "scripts/deployment/local"
+    local.mkdir(parents=True)
+    stop_script = local / "stop-console-services.sh"
+    shutil.copy2(_REPO_ROOT / "scripts/deployment/local/stop-console-services.sh", stop_script)
+    owner_script = repo / "untrusted/scripts/deployment/local/.copilot-start-console-services.sh"
+    _write_stack_lock_holder(owner_script)
+    owner = subprocess.Popen(  # noqa: S603 - fixed test-owned unrelated wrapper.
+        [
+            _BASH,
+            str(owner_script),
+            "scripts/deployment/local/.copilot-start-console-services.sh",
+        ],
+        cwd=repo,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    lock = repo / ".fdai/logs/console-stack.log.lock"
+    try:
+        deadline = time.monotonic() + 3
+        while not lock.exists() or lock.read_text(encoding="utf-8").strip() != str(owner.pid):
+            assert owner.poll() is None
+            assert time.monotonic() < deadline
+            time.sleep(0.02)
+
+        result = subprocess.run(  # noqa: S603 - committed stop guard.
+            [_BASH, str(stop_script)],
+            cwd=repo,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=3,
+        )
+
+        assert result.returncode == 75
+        assert "ownership cannot be verified" in result.stderr
+        assert owner.poll() is None
+    finally:
+        if owner.poll() is None:
+            owner.terminate()
+            owner.wait(timeout=3)
 
 
 def test_local_redpanda_reserves_capacity_for_parallel_semantic_partitions() -> None:
@@ -605,11 +735,21 @@ exec sleep 30
                 process.wait(timeout=5)
 
 
-def test_replace_supervisor_waits_for_existing_owner_cleanup(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "owner_script_name",
+    ["start-console-services.sh", ".copilot-start-console-services.sh"],
+)
+def test_replace_supervisor_waits_for_existing_owner_cleanup(
+    tmp_path: Path,
+    owner_script_name: str,
+) -> None:
     repo = tmp_path / "repo"
     start_script = repo / "scripts/deployment/local/start-console-services.sh"
     start_script.parent.mkdir(parents=True)
     shutil.copy2(_START_SCRIPT, start_script)
+    owner_script = start_script.parent / owner_script_name
+    if owner_script != start_script:
+        shutil.copy2(_START_SCRIPT, owner_script)
     (repo / ".fdai/logs").mkdir(parents=True)
     (repo / ".fdai/local-console-auth-mode").write_text(
         "browser-entra\n",
@@ -640,11 +780,12 @@ exec sleep 30
         **os.environ,
         "FDAI_TEST_ANALYZER_IDS": str(analyzer_ids),
     }
-    command = [_BASH, str(start_script), "--auth-mode", "browser-entra"]
+    owner_command = [_BASH, str(owner_script), "--auth-mode", "browser-entra"]
+    replacement_command = [_BASH, str(start_script), "--auth-mode", "browser-entra"]
     first_output = first_output_path.open("w", encoding="utf-8")
     second_output = second_output_path.open("w", encoding="utf-8")
     first = subprocess.Popen(  # noqa: S603 - fixed test-owned supervisor.
-        command,
+        owner_command,
         cwd=repo,
         env=environment,
         stdout=first_output,
@@ -661,7 +802,7 @@ exec sleep 30
             time.sleep(0.02)
 
         second = subprocess.Popen(  # noqa: S603 - fixed test-owned supervisor.
-            [*command, "--replace-existing"],
+            [*replacement_command, "--replace-existing"],
             cwd=repo,
             env=environment,
             stdout=second_output,
@@ -752,6 +893,338 @@ def test_supervisor_waits_for_the_analyzer_first_clean_tick() -> None:
     assert "collect-cost-governance-analytics.py" in service_source
 
 
+def test_supervisor_starts_one_restricted_code_security_worker() -> None:
+    supervisor = _START_SCRIPT.read_text(encoding="utf-8")
+    launcher = _RUN_SERVICE_SCRIPT.read_text(encoding="utf-8")
+
+    assert supervisor.count("\n  code-security-worker\n") == 1
+    assert 'env_file=".fdai/local-code-security-worker.env"' in launcher
+    assert "FDAI_DATABASE_ROLE=fdai_code_security_worker" in launcher
+    assert "--state-access restricted" in launcher
+    assert "--env FDAI_DATABASE_ROLE" in launcher
+    assert "--env FDAI_EXECUTION_VENUE" in launcher
+    assert (
+        '--request-interval-seconds "${FDAI_CODE_SECURITY_REQUEST_INTERVAL_SECONDS:-5}"' in launcher
+    )
+    assert (
+        '--schedule-interval-seconds "${FDAI_CODE_SECURITY_SCHEDULE_INTERVAL_SECONDS:-300}"'
+        in launcher
+    )
+    assert "--max-requests" in launcher
+    assert "--max-repositories" in launcher
+    assert 'verify "$FDAI_CODE_SECURITY_IMAGE" "$FDAI_CODE_SECURITY_IMAGE_INPUT_DIGEST"' in launcher
+    assert "code-security scanner source changed after preparation" in launcher
+
+
+def test_preparation_owns_scanner_image_drift_and_digest_binding() -> None:
+    preparation = _PREPARE_SCRIPT.read_text(encoding="utf-8")
+    dockerfile = (
+        _REPO_ROOT / "services/core-control-plane/docker/code-security-scanner.Dockerfile"
+    ).read_text(encoding="utf-8")
+
+    assert "code-security-scanner-image.sh" in preparation
+    assert "code-security-scanner-input-digest" in preparation
+    assert "prepare_code_security_scanner_image" in preparation
+    assert 'ensure "$scanner_image" "$scanner_image_input_digest"' in preparation
+    assert "FDAI_CODE_SECURITY_IMAGE_INPUT_DIGEST" in preparation
+    assert "org.fdai.code-security.build-input-digest" in dockerfile
+
+
+def test_scanner_image_digest_contract_names_runtime_build_inputs() -> None:
+    result = subprocess.run(  # noqa: S603 - committed read-only contract command.
+        [_BASH, str(_SCANNER_IMAGE_SCRIPT), "inputs"],
+        cwd=_REPO_ROOT,
+        capture_output=True,
+        text=True,
+        check=True,
+        timeout=3,
+    )
+
+    inputs = set(result.stdout.splitlines())
+    assert {
+        ".dockerignore",
+        "services/core-control-plane/docker/code-security-scanner.Dockerfile",
+        "services/core-control-plane/docker/code-security-scanner-entrypoint.sh",
+        "pyproject.toml",
+        "uv.lock",
+        "LICENSE",
+        "README.md",
+        "evaluation-sdk/pyproject.toml",
+        "benchmarks/sregym/pyproject.toml",
+        "benchmarks/cybergym/pyproject.toml",
+        "extensions/code-assurance/pyproject.toml",
+        "extensions/cost-governance/pyproject.toml",
+        "services/operator-service/pyproject.toml",
+        "services/document-ingestion-api/pyproject.toml",
+        "services/document-processing-worker/pyproject.toml",
+        "services/isolated-executor/pyproject.toml",
+        "services/system-knowledge-service/pyproject.toml",
+        "services/core-control-plane",
+        "packages/github-app-auth",
+        "packages/service-contracts",
+        "packages/runtime-diagnostics",
+        "rule-catalog/code-security",
+        "config",
+    } <= inputs
+
+
+def test_scanner_image_contract_rebuilds_a_stale_tag(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    script = repo / "scripts/deployment/local/code-security-scanner-image.sh"
+    script.parent.mkdir(parents=True)
+    shutil.copy2(_SCANNER_IMAGE_SCRIPT, script)
+    script.chmod(script.stat().st_mode | stat.S_IXUSR)
+    bin_dir = tmp_path / "bin"
+    state = tmp_path / "image-label"
+    calls = tmp_path / "docker-calls"
+    expected = "a" * 64
+    _write_executable(
+        bin_dir / "docker",
+        """#!/usr/bin/env bash
+set -euo pipefail
+printf '%s\n' "$*" >> "$FDAI_TEST_DOCKER_CALLS"
+if [[ "$1 $2" == "image inspect" ]]; then
+  [[ -f "$FDAI_TEST_IMAGE_LABEL" ]] || exit 1
+  cat "$FDAI_TEST_IMAGE_LABEL"
+  exit 0
+fi
+if [[ "$1" == "build" ]]; then
+  for argument in "$@"; do
+    case "$argument" in
+      FDAI_CODE_SECURITY_BUILD_INPUT_DIGEST=*)
+        printf '%s\n' "${argument#*=}" > "$FDAI_TEST_IMAGE_LABEL"
+        ;;
+    esac
+  done
+  exit 0
+fi
+exit 99
+""",
+    )
+    environment = {
+        **os.environ,
+        "PATH": f"{bin_dir}:/usr/bin:/bin",
+        "FDAI_TEST_DOCKER_CALLS": str(calls),
+        "FDAI_TEST_IMAGE_LABEL": str(state),
+    }
+
+    result = subprocess.run(  # noqa: S603 - fixed contract script with test-owned Docker.
+        [_BASH, str(script), "ensure", "fdai-code-security-scanner:local", expected],
+        cwd=repo,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert "image rebuild required" in result.stderr
+    assert state.read_text(encoding="utf-8") == f"{expected}\n"
+    docker_calls = calls.read_text(encoding="utf-8")
+    assert "build -f " in docker_calls
+    assert "--target runtime" in docker_calls
+    assert f"FDAI_CODE_SECURITY_BUILD_INPUT_DIGEST={expected}" in docker_calls
+    assert "-t fdai-code-security-scanner:local" in docker_calls
+
+
+def test_scanner_image_contract_reports_rebuild_failure(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    script = repo / "scripts/deployment/local/code-security-scanner-image.sh"
+    script.parent.mkdir(parents=True)
+    shutil.copy2(_SCANNER_IMAGE_SCRIPT, script)
+    script.chmod(script.stat().st_mode | stat.S_IXUSR)
+    bin_dir = tmp_path / "bin"
+    _write_executable(
+        bin_dir / "docker",
+        """#!/usr/bin/env bash
+if [[ "$1 $2" == "image inspect" ]]; then exit 1; fi
+if [[ "$1" == "build" ]]; then exit 9; fi
+exit 99
+""",
+    )
+
+    result = subprocess.run(  # noqa: S603 - fixed contract script with test-owned Docker.
+        [
+            _BASH,
+            str(script),
+            "ensure",
+            "fdai-code-security-scanner:local",
+            "b" * 64,
+        ],
+        cwd=repo,
+        env={**os.environ, "PATH": f"{bin_dir}:/usr/bin:/bin"},
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 1
+    assert "code-security scanner image rebuild failed" in result.stderr
+
+
+def test_scanner_image_contract_reports_post_build_label_failure(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    script = repo / "scripts/deployment/local/code-security-scanner-image.sh"
+    script.parent.mkdir(parents=True)
+    shutil.copy2(_SCANNER_IMAGE_SCRIPT, script)
+    script.chmod(script.stat().st_mode | stat.S_IXUSR)
+    bin_dir = tmp_path / "bin"
+    _write_executable(
+        bin_dir / "docker",
+        """#!/usr/bin/env bash
+if [[ "$1 $2" == "image inspect" ]]; then
+  printf '%064d\n' 0
+  exit 0
+fi
+if [[ "$1" == "build" ]]; then exit 0; fi
+exit 99
+""",
+    )
+
+    result = subprocess.run(  # noqa: S603 - fixed contract script with test-owned Docker.
+        [
+            _BASH,
+            str(script),
+            "ensure",
+            "fdai-code-security-scanner:local",
+            "c" * 64,
+        ],
+        cwd=repo,
+        env={**os.environ, "PATH": f"{bin_dir}:/usr/bin:/bin"},
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 1
+    assert "post-build label verification failed" in result.stderr
+
+
+def test_worker_launcher_rejects_source_changed_after_preparation(tmp_path: Path) -> None:
+    repo = tmp_path / "repo"
+    launcher = repo / "scripts/deployment/local/run-console-service.sh"
+    launcher.parent.mkdir(parents=True)
+    shutil.copy2(_RUN_SERVICE_SCRIPT, launcher)
+    expected = "a" * 64
+    _write_scanner_image_script(repo, "b" * 64)
+    (repo / ".fdai/code-security-cache").mkdir(parents=True)
+    (repo / ".fdai/code-security-work").mkdir()
+    (repo / ".fdai/local-code-security-worker.env").write_text(
+        "FDAI_STATE_STORE_DSN=postgresql://example.invalid/fdai\n"
+        "FDAI_DATABASE_ROLE=fdai_code_security_worker\n"
+        "FDAI_EXECUTION_VENUE=local\n"
+        "RUNTIME_ENV=dev\n"
+        "FDAI_KAFKA_BOOTSTRAP_SERVERS=127.0.0.1:19092\n"
+        "FDAI_CODE_SECURITY_IMAGE=fdai-code-security-scanner:local\n"
+        f"FDAI_CODE_SECURITY_IMAGE_INPUT_DIGEST={expected}\n"
+        f"FDAI_CODE_SECURITY_CACHE_DIR={repo}/.fdai/code-security-cache\n"
+        f"FDAI_CODE_SECURITY_WORK_DIR={repo}/.fdai/code-security-work\n",
+        encoding="utf-8",
+    )
+    _write_executable(
+        repo / ".venv/bin/python",
+        """#!/usr/bin/env bash
+if [[ "$1" == */local-service-input-digest.py ]]; then
+  printf '%064d\n' 0
+  exit 0
+fi
+exit 99
+""",
+    )
+    (repo / "services/core-control-plane/src").mkdir(parents=True)
+    (repo / "services/core-control-plane/pyproject.toml").write_text("", encoding="utf-8")
+    (repo / "packages/service-contracts/src").mkdir(parents=True)
+    (repo / "pyproject.toml").write_text("", encoding="utf-8")
+    (repo / "uv.lock").write_text("", encoding="utf-8")
+
+    result = subprocess.run(  # noqa: S603 - fixed launcher and test-owned environment.
+        [_BASH, str(launcher), "code-security-worker"],
+        cwd=repo,
+        env=os.environ,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 1
+    assert "scanner source changed after preparation" in result.stderr
+
+
+def test_local_worker_omits_azure_publisher_but_deployed_workers_retain_it(
+    tmp_path: Path,
+) -> None:
+    repo = tmp_path / "repo"
+    launcher = repo / "scripts/deployment/local/run-console-service.sh"
+    launcher.parent.mkdir(parents=True)
+    shutil.copy2(_RUN_SERVICE_SCRIPT, launcher)
+    digest = "a" * 64
+    _write_scanner_image_script(repo, digest)
+    (repo / ".fdai/code-security-cache").mkdir(parents=True)
+    (repo / ".fdai/code-security-work").mkdir()
+    (repo / ".fdai/local-code-security-worker.env").write_text(
+        "FDAI_STATE_STORE_DSN=postgresql://example.invalid/fdai\n"
+        "FDAI_DATABASE_ROLE=fdai_code_security_worker\n"
+        "FDAI_EXECUTION_VENUE=local\n"
+        "RUNTIME_ENV=dev\n"
+        "FDAI_KAFKA_BOOTSTRAP_SERVERS=127.0.0.1:19092\n"
+        "FDAI_CODE_SECURITY_IMAGE=fdai-code-security-scanner:local\n"
+        f"FDAI_CODE_SECURITY_IMAGE_INPUT_DIGEST={digest}\n"
+        f"FDAI_CODE_SECURITY_CACHE_DIR={repo}/.fdai/code-security-cache\n"
+        f"FDAI_CODE_SECURITY_WORK_DIR={repo}/.fdai/code-security-work\n",
+        encoding="utf-8",
+    )
+    _write_executable(
+        repo / ".venv/bin/python",
+        """#!/usr/bin/env bash
+if [[ "$1" == */local-service-input-digest.py ]]; then
+  printf '%064d\n' 0
+  exit 0
+fi
+exit 99
+""",
+    )
+    captured = repo / "worker-argv"
+    _write_executable(
+        repo / "scripts/automation/run-local-service.sh",
+        """#!/usr/bin/env bash
+printf '%s\n' "$@" > "$FDAI_TEST_WORKER_ARGV"
+""",
+    )
+    (repo / "services/core-control-plane/src").mkdir(parents=True)
+    (repo / "services/core-control-plane/pyproject.toml").write_text("", encoding="utf-8")
+    (repo / "packages/service-contracts/src").mkdir(parents=True)
+    (repo / "pyproject.toml").write_text("", encoding="utf-8")
+    (repo / "uv.lock").write_text("", encoding="utf-8")
+
+    result = subprocess.run(  # noqa: S603 - fixed launcher and test-owned runner.
+        [_BASH, str(launcher), "code-security-worker"],
+        cwd=repo,
+        env={**os.environ, "FDAI_TEST_WORKER_ARGV": str(captured)},
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 0, result.stderr
+    argv = captured.read_text(encoding="utf-8").splitlines()
+    assert "serve-workers" in argv
+    assert "--state-access" in argv
+    assert "restricted" in argv
+    assert "FDAI_STATE_STORE_DSN" in argv
+    assert "--kafka-bootstrap-servers" not in argv
+    assert "FDAI_KAFKA_BOOTSTRAP_SERVERS" not in argv
+    for deployed_contract in (
+        _REPO_ROOT / "infra/services/code-security-worker/modules/code-security-worker/main.tf",
+        _REPO_ROOT / "infra/runtimes/aks/workloads/code_security_worker.tf",
+    ):
+        assert "--kafka-bootstrap-servers" in deployed_contract.read_text(encoding="utf-8")
+
+
 def test_inventory_stage_reuse_requires_current_checkpoint() -> None:
     source = _PREPARE_SCRIPT.read_text(encoding="utf-8")
 
@@ -768,6 +1241,7 @@ def test_preparation_reuses_an_unchanged_healthy_stack(
     prepare_script.parent.mkdir(parents=True)
     shutil.copy2(_PREPARE_SCRIPT, prepare_script)
     digest = "a" * 64
+    _write_scanner_image_script(repo, digest)
     required_outputs = (
         ".venv/bin/fdai-document-channel-intake",
         ".venv/bin/fdai-document-processing-worker",
@@ -777,6 +1251,7 @@ def test_preparation_reuses_an_unchanged_healthy_stack(
         ".fdai/local-document-ingestion-api.env",
         ".fdai/local-document-processing-worker.env",
         ".fdai/local-isolated-executor.env",
+        ".fdai/local-code-security-worker.env",
     )
     for relative in required_outputs:
         output = repo / relative
@@ -804,7 +1279,11 @@ def test_preparation_reuses_an_unchanged_healthy_stack(
     (repo / "resolved-models.json").write_text("prepared\n", encoding="utf-8")
     _write_executable(repo / "console/node_modules/.bin/opa", "#!/usr/bin/env bash\nexit 0\n")
     mode_digest = hashlib.sha256(
-        f"{digest}\nauth-mode={auth_mode}\nresolved-models-override=\n".encode()
+        (
+            f"{digest}\nauth-mode={auth_mode}\nresolved-models-override=\n"
+            f"code-security-scanner-image=fdai-code-security-scanner:local\n"
+            f"code-security-scanner-input-digest={digest}\n"
+        ).encode()
     ).hexdigest()
     (repo / ".fdai/console-full-stack-preparation.sha256").write_text(
         f"{mode_digest}\n",
@@ -890,6 +1369,7 @@ def _staged_preparation_repo(
         ".fdai/local-document-ingestion-api.env",
         ".fdai/local-document-processing-worker.env",
         ".fdai/local-isolated-executor.env",
+        ".fdai/local-code-security-worker.env",
     ):
         output = repo / relative
         output.parent.mkdir(parents=True, exist_ok=True)
@@ -932,11 +1412,13 @@ fi
 """,
     )
     digest = "c" * 64
+    _write_scanner_image_script(repo, digest)
     kubernetes_bindings_path = repo / ".fdai/local-kubernetes-bindings.json"
     marker_dir = repo / ".fdai/console-preparation"
     marker_dir.mkdir(parents=True)
     stages = (
         "console-dependencies",
+        "code-security-scanner-image",
         "local-state",
         "runtime-environment",
         "authoritative-inventory",
@@ -959,7 +1441,11 @@ fi
                 ).hexdigest()
             if stage == "service-environments":
                 stage_digest = hashlib.sha256(
-                    f"{digest}\nauth-mode={auth_mode}\n".encode()
+                    (
+                        f"{digest}\nauth-mode={auth_mode}\n"
+                        "code-security-scanner-image=fdai-code-security-scanner:local\n"
+                        f"code-security-scanner-input-digest={digest}\n"
+                    ).encode()
                 ).hexdigest()
             if stage in _DATABASE_BACKED_STAGES:
                 stage_digest = _incarnation_digest(digest)
@@ -1046,7 +1532,7 @@ def test_preparation_reuses_each_unchanged_stage_when_stack_is_stopped(
     )
 
     assert result.returncode == 0
-    assert result.stdout.count("event=reused") == 8
+    assert result.stdout.count("event=reused") == 9
     assert "stage=entra-redirects event=completed" not in result.stdout
 
 
@@ -1073,7 +1559,7 @@ def test_managed_preparation_defers_stale_inventory_to_reconciliation(
     )
 
     assert result.returncode == 0
-    assert result.stdout.count("event=reused") == 7
+    assert result.stdout.count("event=reused") == 8
     assert (
         "stage=authoritative-inventory event=deferred owner=inventory-reconciliation"
         in result.stdout
@@ -1131,8 +1617,29 @@ def test_preparation_reruns_only_the_invalidated_stage(tmp_path: Path) -> None:
     )
 
     assert result.returncode == 0
-    assert result.stdout.count("event=reused") == 7
+    assert result.stdout.count("event=reused") == 8
     assert result.stdout.count("stage=entra-redirects event=completed") == 1
+
+
+def test_preparation_reruns_only_a_stale_scanner_image_stage(tmp_path: Path) -> None:
+    repo, environment = _staged_preparation_repo(
+        tmp_path,
+        stale_stage="code-security-scanner-image",
+    )
+
+    result = subprocess.run(  # noqa: S603 - fixed test-owned preparation contract.
+        [_BASH, str(repo / "scripts/deployment/local/prepare-console-full-stack.sh")],
+        cwd=repo,
+        env=environment,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.count("event=reused") == 8
+    assert result.stdout.count("stage=code-security-scanner-image event=completed") == 1
 
 
 def test_preparation_reruns_local_state_when_database_was_recreated(tmp_path: Path) -> None:
@@ -1150,7 +1657,7 @@ def test_preparation_reruns_local_state_when_database_was_recreated(tmp_path: Pa
     )
 
     assert result.returncode == 0
-    assert result.stdout.count("event=reused") == 7
+    assert result.stdout.count("event=reused") == 8
     assert result.stdout.count("stage=local-state event=completed") == 1
 
 
@@ -1179,8 +1686,8 @@ def test_database_backed_stages_rerun_when_the_database_was_recreated_in_place(
     # Size-bounded maintenance drops and recreates the database inside the same volume.
     recreated = prepare("24576")
 
-    assert retained.count("event=reused") == 7
-    assert recreated.count("event=reused") == 4
+    assert retained.count("event=reused") == 8
+    assert recreated.count("event=reused") == 5
     for stage in ("local-state", *sorted(_DATABASE_BACKED_STAGES)):
         assert recreated.count(f"stage={stage} event=completed") == 1
 
@@ -1369,7 +1876,7 @@ chmod +x console/node_modules/.bin/vite
 
     assert result.returncode == 0
     assert result.stdout.count("stage=console-dependencies event=completed") == 1
-    assert result.stdout.count("event=reused") == 7
+    assert result.stdout.count("event=reused") == 8
     assert (repo / "console/node_modules/.bin/vite").is_file()
     assert (repo / ".venv/bin/fdai-document-processing-worker").is_file()
     assert (repo / ".venv/bin/fdai-document-channel-intake").is_file()

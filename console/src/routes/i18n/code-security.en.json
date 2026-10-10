@@ -95,8 +95,20 @@
     "unavailable": "Registered repositories and scan requests are unavailable.",
     "requestsTitle": "Scan and registration requests",
     "requestsEmpty": "No scan has been requested yet.",
+    "initialCompleted": "Initial scan: {decision} - {count} issues",
+    "initialFailed": "Registered; initial scan failed: {reason}",
     "withheld": "Withheld repository or request records",
     "repositoriesTitle": "Registered repositories"
+  },
+  "worker": {
+    "ready": "Automation ready",
+    "requests": "Processing requests",
+    "schedule": "Checking repository revisions",
+    "idle": "Automation ready",
+    "unavailable": "Automation unavailable",
+    "unavailableBody": "No fresh code-security worker heartbeat is recorded. Queued work will not progress.",
+    "nextCheck": "Next repository revision check: {time}",
+    "refresh": "Refresh status"
   },
   "repoColumn": {
     "repository": "Repository",
@@ -121,6 +133,7 @@
   "requestStatus": {
     "queued": "Queued",
     "running": "Scanning",
+    "registering": "Registering and scanning",
     "completed": "Completed",
     "rejected": "Rejected"
   },

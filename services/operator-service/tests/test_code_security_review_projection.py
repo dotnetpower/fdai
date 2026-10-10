@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any
 
 from fdai_operator_service.code_security_issue_projection import code_security_issues_projection
@@ -13,6 +14,7 @@ from fdai_operator_service.code_security_review_projection import (
     code_security_repositories_projection,
     code_security_reviews_projection,
     code_security_scan_requests_projection,
+    code_security_worker_status_projection,
     read_code_security_projection,
 )
 from fdai_operator_service.families.operations import ProjectionQuery
@@ -385,6 +387,97 @@ def test_repository_changes_render_beside_scan_requests() -> None:
     assert registered["action"] == "register" and registered["location"] == "example/app"
     assert registered["result"] == {"enabled": True}
     assert result["gaps"] == [{"reason_code": "code_security_scan_request_malformed"}]
+
+
+def test_repository_change_projects_automatic_initial_scan() -> None:
+    change = _request_row(
+        "published",
+        operation="code_security.repository_change",
+        closed_at="2026-10-08T01:05:00+00:00",
+        request_result={
+            "action": "register",
+            "repository_alias": "example-app",
+            "enabled": True,
+            "initial_scan": {
+                "status": "completed",
+                "revision": _REVISION,
+                "review_digest": "4" * 64,
+                "decision": "clear",
+                "issue_count": 0,
+                "coverage_complete": True,
+                "published": False,
+            },
+        },
+        payload={
+            "payload": {
+                "action": "register",
+                "repository_alias": "example-app",
+                "location": "example/app",
+            }
+        },
+    )
+    result = code_security_scan_requests_projection([change])
+    assert result["requests"][0]["result"]["initial_scan"] == {  # type: ignore[index]
+        "status": "completed",
+        "revision": _REVISION,
+        "review_digest": "4" * 64,
+        "decision": "clear",
+        "issue_count": 0,
+        "coverage_complete": True,
+        "published": False,
+    }
+
+
+def _worker_row(**overrides: object) -> dict[str, object]:
+    value: dict[str, object] = {
+        "kind": "code-security-worker-status",
+        "schema_version": "1.0.0",
+        "state": "ready",
+        "phase": "idle",
+        "recorded_at": "2026-10-10T01:00:00+00:00",
+        "request_interval_seconds": 5,
+        "schedule_interval_seconds": 300,
+        "next_request_at": "2026-10-10T01:00:05+00:00",
+        "next_schedule_at": "2026-10-10T01:05:00+00:00",
+        "request_processed": 1,
+        "schedule_checked": 3,
+        "schedule_scanned": 1,
+        "schedule_unchanged": 2,
+        "schedule_failed": 0,
+    }
+    value.update(overrides)
+    return {"key": "runtime:code-security-worker:v1", "value": value}
+
+
+def test_worker_status_projects_freshness_and_malformed_gaps() -> None:
+    now = datetime(2026, 10, 10, 1, 0, 10, tzinfo=UTC)
+    result = code_security_worker_status_projection([_worker_row()], now=now)
+    assert result["available"] is True
+    assert result["status"]["fresh"] is True  # type: ignore[index]
+    stale = code_security_worker_status_projection([_worker_row()], now=now.replace(minute=2))
+    assert stale["status"]["fresh"] is False  # type: ignore[index]
+    malformed = code_security_worker_status_projection(
+        [_worker_row(request_interval_seconds=0)], now=now
+    )
+    assert malformed["available"] is False
+    assert malformed["gaps"] == [{"reason_code": "code_security_worker_status_malformed"}]
+    overflow = code_security_worker_status_projection(
+        [_worker_row(recorded_at="0001-01-01T00:00:00+14:00")], now=now
+    )
+    assert overflow["available"] is False
+    assert overflow["gaps"] == [{"reason_code": "code_security_worker_status_malformed"}]
+
+
+async def test_reader_serves_worker_status_by_operation() -> None:
+    statements: list[tuple[str, tuple[object, ...]]] = []
+
+    async def fetch_all(sql: str, params: tuple[object, ...]) -> list[dict[str, Any]]:
+        statements.append((sql, params))
+        return []
+
+    result = await read_code_security_projection("code_security.worker_status", fetch_all)
+    assert result["available"] is False
+    assert statements[0][1] == ("runtime:code-security-worker:v1",)
 
 
 def _summary(**overrides: object) -> dict[str, object]:

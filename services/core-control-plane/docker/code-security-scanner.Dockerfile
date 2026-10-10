@@ -178,6 +178,9 @@ RUN timeout --signal=TERM --kill-after=10 180s uv export --frozen --all-packages
 
 FROM python-runtime AS base
 
+ARG FDAI_CODE_SECURITY_BUILD_INPUT_DIGEST=unbound
+LABEL org.fdai.code-security.build-input-digest="${FDAI_CODE_SECURITY_BUILD_INPUT_DIGEST}"
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     HOME=/tmp/fdai \

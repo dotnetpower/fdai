@@ -32,6 +32,7 @@ if [[ $# -eq 2 ]]; then
 fi
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 cd "$repo_root"
+scanner_image_contract="$repo_root/scripts/deployment/local/code-security-scanner-image.sh"
 local_azure_cli_auth=0
 readiness_seconds="${FDAI_CONSOLE_START_READINESS_SECONDS:-60}"
 if [[ ! "$readiness_seconds" =~ ^[1-9][0-9]*$ ]]; then
@@ -98,6 +99,11 @@ case "$service" in
     source_root="services/isolated-executor/src"
     project_file="services/isolated-executor/pyproject.toml"
     ;;
+  code-security-worker)
+    env_file=".fdai/local-code-security-worker.env"
+    source_root="services/core-control-plane/src"
+    project_file="services/core-control-plane/pyproject.toml"
+    ;;
   console-frontend)
     env_file=""
     source_root="console/src"
@@ -159,6 +165,8 @@ else
       services/core-control-plane/src
       scripts/deployment/local/collect-cost-governance-analytics.py
     )
+  elif [[ "$service" == "code-security-worker" ]]; then
+    digest_inputs+=("$scanner_image_contract")
   fi
 fi
 input_digest="$(
@@ -305,6 +313,62 @@ case "$service" in
       env -u AZURE_CONFIG_DIR
       PYTHONPATH="$service_pythonpath"
       "$repo_root/.venv/bin/fdai-isolated-executor-service"
+    )
+    ;;
+  code-security-worker)
+    : "${FDAI_CODE_SECURITY_IMAGE:?FDAI_CODE_SECURITY_IMAGE MUST be configured}"
+    : "${FDAI_CODE_SECURITY_IMAGE_INPUT_DIGEST:?FDAI_CODE_SECURITY_IMAGE_INPUT_DIGEST MUST be configured}"
+    : "${FDAI_CODE_SECURITY_CACHE_DIR:?FDAI_CODE_SECURITY_CACHE_DIR MUST be configured}"
+    : "${FDAI_CODE_SECURITY_WORK_DIR:?FDAI_CODE_SECURITY_WORK_DIR MUST be configured}"
+    if [[ "$FDAI_DATABASE_ROLE" != "fdai_code_security_worker" ]]; then
+      echo "code-security worker requires FDAI_DATABASE_ROLE=fdai_code_security_worker" >&2
+      exit 1
+    fi
+    if [[ "${FDAI_EXECUTION_VENUE:-}" != "local" ]]; then
+      echo "code-security worker requires FDAI_EXECUTION_VENUE=local" >&2
+      exit 1
+    fi
+    current_scanner_image_digest="$(bash "$scanner_image_contract" digest)"
+    if [[ "$current_scanner_image_digest" != "$FDAI_CODE_SECURITY_IMAGE_INPUT_DIGEST" ]]; then
+      echo "code-security scanner source changed after preparation; rerun full-stack preparation" >&2
+      exit 1
+    fi
+    if [[ ! -d "$FDAI_CODE_SECURITY_CACHE_DIR" || ! -d "$FDAI_CODE_SECURITY_WORK_DIR" ]]; then
+      echo "code-security worker cache and work bindings MUST exist" >&2
+      exit 1
+    fi
+    if ! bash "$scanner_image_contract" \
+      verify "$FDAI_CODE_SECURITY_IMAGE" "$FDAI_CODE_SECURITY_IMAGE_INPUT_DIGEST"; then
+      echo "code-security scanner image does not match prepared source" >&2
+      exit 1
+    fi
+    service_command=(
+      docker run --rm
+      --network host
+      --security-opt seccomp=unconfined
+      --security-opt apparmor=unconfined
+      --user "$(id -u):$(id -g)"
+      --read-only
+      --tmpfs "/tmp:rw,nosuid,nodev,size=1g"
+      --volume "$FDAI_CODE_SECURITY_CACHE_DIR:/cache:ro"
+      --volume "$FDAI_CODE_SECURITY_WORK_DIR:/work:rw"
+      --env HOME=/tmp
+      --env FDAI_STATE_STORE_DSN
+      --env FDAI_DATABASE_ROLE
+      --env FDAI_EXECUTION_VENUE
+      --env RUNTIME_ENV
+      --env FDAI_GITHUB_APP_CLIENT_ID
+      --env FDAI_GITHUB_APP_INSTALLATION_ID
+      --env FDAI_GITHUB_APP_PRIVATE_KEY
+      --env FDAI_GITOPS_TOKEN
+      "$FDAI_CODE_SECURITY_IMAGE"
+      serve-workers
+      --state-access restricted
+      --work-root /work
+      --request-interval-seconds "${FDAI_CODE_SECURITY_REQUEST_INTERVAL_SECONDS:-5}"
+      --schedule-interval-seconds "${FDAI_CODE_SECURITY_SCHEDULE_INTERVAL_SECONDS:-300}"
+      --max-requests "${FDAI_CODE_SECURITY_MAX_REQUESTS:-20}"
+      --max-repositories "${FDAI_CODE_SECURITY_MAX_REPOSITORIES:-5}"
     )
     ;;
   console-frontend)

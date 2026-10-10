@@ -45,6 +45,13 @@ locals {
         }
       }
     ]...),
+    var.code_security_worker == null ? {} : {
+      "workload-code-security-worker" = {
+        service_account_name = "code-security-worker"
+        resource_id          = var.code_security_worker.identity_resource_id
+        client_id            = var.code_security_worker.identity_client_id
+      }
+    },
   )
   service_accounts = merge(
     {
@@ -57,6 +64,12 @@ locals {
       for name, job in var.scheduled_jobs : "job-${name}" => {
         name      = "${name}-job"
         client_id = job.identity_client_id
+      }
+    },
+    var.code_security_worker == null ? {} : {
+      "workload-code-security-worker" = {
+        name      = "code-security-worker"
+        client_id = var.code_security_worker.identity_client_id
       }
     },
   )

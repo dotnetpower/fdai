@@ -5,6 +5,7 @@ import { parseConsoleRoute } from "../router";
 import { panelSourceClassification } from "../panel-sources";
 import {
   buildCodeSecurityViewSnapshot,
+  codeSecurityRefreshDelay,
   decodeCodeSecurityPacks,
   decodeCodeSecurityReviews,
   filterBySource,
@@ -16,6 +17,7 @@ import {
 import {
   decodeCodeSecurityRepositories,
   decodeCodeSecurityScanRequests,
+  decodeCodeSecurityWorkerStatus,
   scanRequestIdempotencyKey,
 } from "./code-security-requests";
 import { decodeCodeSecurityIssues, issueReference } from "./code-security-issues";
@@ -103,6 +105,45 @@ describe("code-security route", () => {
     expect(panelSourceClassification("code-security")).toBe("operator-api");
   });
 
+  it("uses bounded refresh intervals for active and idle requests", () => {
+    const base = {
+      reviews: decodeCodeSecurityReviews(envelope([])),
+      packs: decodeCodeSecurityPacks(packEnvelope([])),
+    };
+    expect(codeSecurityRefreshDelay({ status: "loading" })).toBeNull();
+    expect(codeSecurityRefreshDelay({ status: "error", message: "temporary" })).toBe(15_000);
+    expect(codeSecurityRefreshDelay({ status: "unavailable", message: "offline" })).toBe(15_000);
+    expect(codeSecurityRefreshDelay({
+      status: "ready",
+      data: {
+        ...base,
+        requests: { requests: [], gaps: [] },
+      },
+    })).toBe(30_000);
+    expect(codeSecurityRefreshDelay({
+      status: "ready",
+      data: {
+        ...base,
+        requests: {
+          requests: [{
+            request_id: `operator-${"a".repeat(32)}`,
+            kind: "scan",
+            action: null,
+            location: null,
+            repository_alias: "example-app",
+            ref: null,
+            status: "queued",
+            accepted_at: "2026-10-10T01:00:00+00:00",
+            closed_at: null,
+            rejection_reason: null,
+            result: null,
+          }],
+          gaps: [],
+        },
+      },
+    })).toBe(5_000);
+  });
+
   it("decodes reviews and keeps the newest review per repository", () => {
     const data = decodeCodeSecurityReviews(envelope([
       review({ revision: "b".repeat(40), recorded_at: "2026-10-08T00:00:00+00:00", decision: "clear", issue_count: 0 }),
@@ -130,6 +171,9 @@ describe("code-security route", () => {
     const state = await loadCodeSecurityState(client(async (path) => {
       if (path === "/code-security/repositories") return { repositories: [], gaps: [] };
       if (path === "/code-security/scan-requests") return { requests: [], gaps: [] };
+      if (path === "/code-security/worker-status") {
+        return { available: false, complete: true, status: null, gaps: [] };
+      }
       return path === "/code-security/packs"
         ? packEnvelope([], [{ reason_code: "code_security_pack_malformed" }])
         : envelope([], [{ reason_code: "code_security_review_malformed" }]);
@@ -195,7 +239,11 @@ describe("code-security route", () => {
 
   it("loads registrations and requests without hiding reviews when they are unavailable", async () => {
     const state = await loadCodeSecurityState(client(async (path) => {
-      if (path === "/code-security/repositories" || path === "/code-security/scan-requests") {
+      if (
+        path === "/code-security/repositories"
+        || path === "/code-security/scan-requests"
+        || path === "/code-security/worker-status"
+      ) {
         throw new OperatorApiError(503, "unavailable", "projection-unavailable");
       }
       return path === "/code-security/packs" ? packEnvelope([]) : envelope([review()]);
@@ -205,6 +253,7 @@ describe("code-security route", () => {
       expect(state.data.reviews.reviews).toHaveLength(1);
       expect(state.data.repositories).toBeNull();
       expect(state.data.requests).toBeNull();
+      expect(state.data.worker).toBeNull();
     }
   });
 
@@ -298,6 +347,65 @@ describe("code-security route", () => {
     ]);
     expect(requests.requests[0]?.result).toEqual({ enabled: true });
     expect(() => decodeCodeSecurityScanRequests({ requests: [{ kind: "delete" }], gaps: [] })).toThrow();
+  });
+
+  it("decodes automatic initial scans and worker status", () => {
+    const requests = decodeCodeSecurityScanRequests({
+      requests: [{
+        request_id: `operator-${"d".repeat(32)}`,
+        kind: "repository_change",
+        action: "register",
+        location: "example/app",
+        repository_alias: "example-app",
+        ref: null,
+        status: "completed",
+        accepted_at: "2026-10-10T01:00:00+00:00",
+        closed_at: "2026-10-10T01:01:00+00:00",
+        rejection_reason: null,
+        result: {
+          enabled: true,
+          initial_scan: {
+            status: "completed",
+            revision: "a".repeat(40),
+            decision: "clear",
+            issue_count: 0,
+            coverage_complete: true,
+          },
+        },
+      }],
+      gaps: [],
+    });
+    expect(requests.requests[0]?.result).toEqual({
+      enabled: true,
+      initial_scan: {
+        status: "completed",
+        revision: "a".repeat(40),
+        decision: "clear",
+        issue_count: 0,
+        coverage_complete: true,
+      },
+    });
+    const worker = decodeCodeSecurityWorkerStatus({
+      available: true,
+      complete: true,
+      status: {
+        state: "ready",
+        phase: "idle",
+        fresh: true,
+        recorded_at: "2026-10-10T01:00:00+00:00",
+        next_request_at: "2026-10-10T01:00:05+00:00",
+        next_schedule_at: "2026-10-10T01:05:00+00:00",
+        request_interval_seconds: 5,
+        schedule_interval_seconds: 300,
+        request_processed: 1,
+        schedule_checked: 2,
+        schedule_scanned: 1,
+        schedule_unchanged: 1,
+        schedule_failed: 0,
+      },
+      gaps: [],
+    });
+    expect(worker.status?.fresh).toBe(true);
   });
 
   it("decodes issue summaries and renders their reference without paths", () => {

@@ -46,6 +46,13 @@ field plus the truthful queued-request action. HTTPS GitHub URLs normalize to
 default ref, and exposure stay under secondary settings. After registration, scan request becomes
 the primary task and registration returns to a collapsed secondary disclosure. This presentation
 does not change API roles, queued-request semantics, or worker authority.
+The surface reads the code-security worker heartbeat and names unavailable or stale automation.
+While any request is queued or running it refreshes every 5 seconds; while idle it refreshes every
+30 seconds, and a visible Refresh status action remains available. Registration results distinguish
+the applied repository change from its automatic initial scan. Request rows show Waiting,
+Registering and scanning, Scanning, Completed, or Rejected, and completed reviews appear in the
+source-filtered review table with the exact revision. The Console does not expose the private clone
+path or source text.
 Only an exact-key terminal resolves uncertainty; the canonical Process owns approval and effect state. Configuration baselines, Skills, Conversation Delivery, and Forecast Learning expose an explicit Refresh evidence action using their existing GET projections. Refresh preserves the current view, enters a skeleton immediately, blocks duplicate activation while loading, and can recover after an unavailable source without activating a producer, polling automatically, or issuing a mutation. Forecast Learning exposes recorded total, open, closed and abstained episodes, deletion-in-progress count and the oldest due publication time alongside its outcome table. An empty terminal-outcome table does not hide active episodes, and these recorded counts never establish prediction quality or fill a missing due-cohort measurement. Repeating Scheduler Runs' active task/status lookup re-reads the first evidence page with the existing generation fence rather than navigating to the same URL without fetching. Refresh resets loaded pagination, preserves task/status scope, and never retries, cancels or executes a scheduled task.
 
 Recorded Resource state views consume the shared independent state axes rather than interpreting

@@ -29,8 +29,15 @@ from psycopg.conninfo import make_conninfo
 
 _ROOT = Path(__file__).resolve().parents[4]
 pytestmark = pytest.mark.integration
-_MIGRATION = _ROOT / (
-    "service-migrations/branches/core-control-plane/versions/20261009_core_code_security_role.py"
+_MIGRATIONS = (
+    _ROOT
+    / "service-migrations/branches/core-control-plane/versions/20261009_core_code_security_role.py",
+    _ROOT / "service-migrations/branches/core-control-plane/versions/"
+    "20261010_core_code_security_automation_state.py",
+    _ROOT / "service-migrations/branches/core-control-plane/versions/"
+    "20261010_core_code_security_claim_recovery.py",
+    _ROOT / "service-migrations/branches/core-control-plane/versions/"
+    "20261010_core_code_security_claim_renewal.py",
 )
 
 
@@ -64,12 +71,15 @@ def database(monkeypatch: pytest.MonkeyPatch) -> Iterator[tuple[str, str]]:
                 INSERT INTO state_kv(key,value) VALUES
                     ('unrelated:private', '{"secret":"must-not-be-readable"}');
             """)
-            spec = importlib.util.spec_from_file_location("security_role_migration", _MIGRATION)
-            assert spec is not None and spec.loader is not None
-            migration = importlib.util.module_from_spec(spec)
-            spec.loader.exec_module(migration)
-            monkeypatch.setattr(migration.op, "execute", connection.execute)
-            migration.upgrade()
+            for index, migration_path in enumerate(_MIGRATIONS):
+                spec = importlib.util.spec_from_file_location(
+                    f"security_role_migration_{index}", migration_path
+                )
+                assert spec is not None and spec.loader is not None
+                migration = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(migration)
+                monkeypatch.setattr(migration.op, "execute", connection.execute)
+                migration.upgrade()
         restricted = make_conninfo(dsn, options="-c role=fdai_code_security_worker")
         yield dsn, restricted
     finally:
@@ -116,6 +126,18 @@ async def test_restricted_store_records_registration_and_cas_with_valid_chain(
         assert await store.read_state("runtime:code-security-schedule:cursor") == {
             "last_repository_alias": "example-app"
         }
+        await store.write_state(
+            "runtime:code-security-revision:example-app",
+            {"revision": "a" * 40},
+        )
+        await store.write_state(
+            "runtime:code-security-worker:v1",
+            {"state": "ready"},
+        )
+        assert await store.read_state("runtime:code-security-revision:example-app") == {
+            "revision": "a" * 40
+        }
+        assert await store.read_state("runtime:code-security-worker:v1") == {"state": "ready"}
     finally:
         await store.aclose()
     with psycopg.connect(admin) as connection:
@@ -228,6 +250,8 @@ async def test_restricted_claim_and_close_cannot_touch_other_outbox_operations(
     )
     claim = await queue.claim()
     assert claim is not None and claim.key.endswith(":scan")
+    assert await queue.renew(key=claim.key, claim_id=claim.claim_id)
+    assert not await queue.renew(key=claim.key, claim_id="wrong")
     assert not await queue.mark_completed(key=claim.key, claim_id="wrong", result={})
     assert await queue.mark_rejected(
         key=claim.key, claim_id=claim.claim_id, reason_code="request_malformed"
@@ -247,6 +271,40 @@ async def test_restricted_claim_and_close_cannot_touch_other_outbox_operations(
             "SELECT value FROM state_kv WHERE key='operator-proposal:operations:other'"
         ).fetchone()[0]
     assert other["dispatch_status"] == "pending"
+
+
+async def test_worker_cannot_steal_another_instances_unexpired_claim(
+    database: tuple[str, str],
+) -> None:
+    admin, restricted = database
+    with psycopg.connect(admin, autocommit=True) as connection:
+        connection.execute(
+            "INSERT INTO state_kv(key,value) VALUES (%s,%s::jsonb)",
+            (
+                "operator-proposal:operations:recover",
+                json.dumps(
+                    {
+                        "family": "operations",
+                        "operation": "code_security.scan_request",
+                        "dispatch_status": "claimed",
+                        "accepted_at": "2026-10-09T00:00:00Z",
+                        "proposal_id": "operator-" + "b" * 32,
+                        "claim_id": "abandoned",
+                        "claim_worker_id": "core-code-security-scan",
+                        "claim_expires_at": "2099-01-01T00:00:00Z",
+                        "attempt": 1,
+                        "payload": {
+                            "payload": {"repository_alias": "example-app"},
+                            "principal_roles": ["Owner"],
+                        },
+                    }
+                ),
+            ),
+        )
+    queue = PostgresCodeSecurityScanRequestQueue(
+        PostgresCodeSecurityScanRequestQueueConfig(dsn=restricted, restricted_access=True)
+    )
+    assert await queue.claim() is None
 
 
 def test_capabilities_are_not_public_and_invalid_parameters_fail_closed(
@@ -272,6 +330,7 @@ def test_capabilities_are_not_public_and_invalid_parameters_fail_closed(
             "SELECT public.fdai_code_security_state_write("
             "'runtime:code-security-repository:x', '{}', 'cas', -1)",
             "SELECT * FROM public.fdai_code_security_claim('claim', 'worker', 1)",
+            "SELECT public.fdai_code_security_renew('operator-proposal:operations:x', 'claim', 1)",
         ):
             with pytest.raises(psycopg.Error):
                 connection.execute(query)
@@ -281,13 +340,16 @@ def test_downgrade_removes_capabilities_without_deleting_shared_state(
     database: tuple[str, str], monkeypatch: pytest.MonkeyPatch
 ) -> None:
     admin, restricted = database
-    spec = importlib.util.spec_from_file_location("security_role_rollback", _MIGRATION)
-    assert spec is not None and spec.loader is not None
-    migration = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(migration)
     with psycopg.connect(admin, autocommit=True) as connection:
-        monkeypatch.setattr(migration.op, "execute", connection.execute)
-        migration.downgrade()
+        for index, migration_path in enumerate(reversed(_MIGRATIONS)):
+            spec = importlib.util.spec_from_file_location(
+                f"security_role_rollback_{index}", migration_path
+            )
+            assert spec is not None and spec.loader is not None
+            migration = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(migration)
+            monkeypatch.setattr(migration.op, "execute", connection.execute)
+            migration.downgrade()
         assert (
             connection.execute(
                 "SELECT value FROM state_kv WHERE key='unrelated:private'"

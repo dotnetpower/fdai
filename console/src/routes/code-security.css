@@ -34,6 +34,28 @@
   font-size: var(--cs-type-body-size);
   line-height: var(--cs-type-body-line-height);
 }
+.code-security-automation-status {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding-block: 8px;
+  border-block: 1px solid var(--border);
+}
+.code-security-automation-status > div {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+.code-security-automation-status .muted {
+  overflow-wrap: anywhere;
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+}
+.code-security-route-refresh { align-self: start; min-height: 40px; }
 .code-security-register {
   overflow: clip;
   border: 1px solid var(--border);
@@ -208,6 +230,8 @@
 }
 @media (max-width: 720px) {
   .code-security-register-content { padding: 16px; }
+  .code-security-automation-status { align-items: stretch; flex-direction: column; }
+  .code-security-automation-status .btn { min-height: 44px; }
   .code-security-register-form { gap: 16px; }
   .code-security-register-journey li { display: grid; justify-items: center; gap: 4px; text-align: center; }
   .code-security-register-journey li:not(:last-child)::after {

@@ -13,6 +13,7 @@
 #                                             worker for Console scan requests, with the same bindings
 #   fdai-scan-runner process-schedule [ARGS]  run `fdai-code-security process-scheduled-scans`, the
 #                                             scheduled scan of every enabled registered repository
+#   fdai-scan-runner serve-workers [ARGS]     supervise both bounded workers serially
 #
 # Every scan mode adds the scanner bindings and the cache; all other arguments pass through, for
 # example --path, --repository, --revision, --repo-alias, --work-root, --report, --record-state,
@@ -80,8 +81,12 @@ case "${1:-}" in
     shift
     run_with_scanners process-scheduled-scans "$@"
     ;;
+  serve-workers)
+    shift
+    run_with_scanners serve-workers "$@"
+    ;;
   *)
-    echo "usage: fdai-scan-runner prepare SOURCE_DIR | prepare-snapshot SOURCE_DIR ROOT | prepare-source [ARGS...] | scan [ARGS...] | process-requests [ARGS...] | process-schedule [ARGS...]" >&2
+    echo "usage: fdai-scan-runner prepare SOURCE_DIR | prepare-snapshot SOURCE_DIR ROOT | prepare-source [ARGS...] | scan [ARGS...] | process-requests [ARGS...] | process-schedule [ARGS...] | serve-workers [ARGS...]" >&2
     exit 2
     ;;
 esac

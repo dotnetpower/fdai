@@ -109,6 +109,33 @@ async function mockApi(
       });
       return;
     }
+    if (path === "/code-security/worker-status") {
+      await route.fulfill({
+        json: {
+          surface: "code-security-worker-status",
+          available: true,
+          complete: true,
+          source: "postgresql:state_kv:code-security-worker",
+          status: {
+            state: "ready",
+            phase: "idle",
+            fresh: true,
+            recorded_at: "2026-10-08T08:00:00+00:00",
+            next_request_at: "2026-10-08T08:00:05+00:00",
+            next_schedule_at: "2026-10-08T08:05:00+00:00",
+            request_interval_seconds: 5,
+            schedule_interval_seconds: 300,
+            request_processed: 0,
+            schedule_checked: 1,
+            schedule_scanned: 0,
+            schedule_unchanged: 1,
+            schedule_failed: 0,
+          },
+          gaps: [],
+        },
+      });
+      return;
+    }
     if (path === "/code-security/repositories") {
       await route.fulfill({
         json: {
@@ -167,7 +194,16 @@ async function mockApi(
               accepted_at: "2026-10-07T06:00:00+00:00",
               closed_at: "2026-10-07T06:00:05+00:00",
               rejection_reason: null,
-              result: { enabled: true },
+              result: {
+                enabled: true,
+                initial_scan: {
+                  status: "completed",
+                  revision,
+                  decision: "urgent",
+                  issue_count: 12,
+                  coverage_complete: true,
+                },
+              },
             },
           ],
           gaps: [],
@@ -291,7 +327,9 @@ for (const viewport of [
     await expect(page.getByText("fedcba987654", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: /approve|execute|fix/i })).toHaveCount(0);
     await expect(page.getByRole("heading", { name: "Repository scans" })).toBeVisible();
+    await expect(page.getByText("Automation ready").first()).toBeVisible();
     await expect(page.getByText("The repository or ref could not be fetched.")).toBeVisible();
+    await expect(page.getByText("Initial scan: Urgent - 12 issues")).toBeVisible();
     await page.getByRole("button", { name: /External SARIF/ }).click();
     await expect(page.getByText("mdash-imported-service")).toBeVisible();
     await expect(page.getByText("example-service", { exact: true })).toHaveCount(0);

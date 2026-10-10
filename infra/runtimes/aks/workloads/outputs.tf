@@ -13,6 +13,11 @@ output "scheduled_job_names" {
   value       = sort(keys(kubernetes_cron_job_v1.job))
 }
 
+output "code_security_worker_name" {
+  description = "Dedicated code-security worker Deployment name, or null when unbound."
+  value       = var.code_security_worker == null ? null : kubernetes_deployment_v1.code_security_worker[0].metadata[0].name
+}
+
 output "external_service_names" {
   description = "Public service names selected by the workload specification."
   value       = sort([for name, workload in var.workloads : name if workload.external])

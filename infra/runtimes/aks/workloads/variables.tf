@@ -166,6 +166,95 @@ variable "workloads" {
   }
 }
 
+variable "code_security_worker" {
+  description = "Optional dedicated scanner-image worker; null leaves code-security automation unbound."
+  type = object({
+    source_commit           = string
+    image                   = string
+    scanner_job_image       = string
+    scanner_namespace       = string
+    identity_resource_id    = string
+    identity_client_id      = string
+    database_secret_name    = string
+    database_host           = string
+    database_role           = optional(string, "fdai_code_security_worker")
+    kafka_bootstrap_servers = string
+    controller_source_pvc   = string
+    controller_cache_pvc    = string
+    scanner_source_pvc      = string
+    scanner_cache_pvc       = string
+    scanner_cache_subpath   = string
+    runtime_env             = string
+    github = object({
+      app_client_id          = optional(string, "")
+      app_installation_id    = optional(string, "")
+      app_private_key_secret = optional(string, "")
+      token_secret           = optional(string, "")
+    })
+    request_interval_seconds  = optional(number, 5)
+    schedule_interval_seconds = optional(number, 300)
+    max_requests              = optional(number, 20)
+    max_repositories          = optional(number, 5)
+    cpu                       = optional(string, "2")
+    memory                    = optional(string, "4Gi")
+  })
+  default  = null
+  nullable = true
+
+  validation {
+    condition = var.code_security_worker == null ? true : (
+      can(regex("^[0-9a-f]{40}$", var.code_security_worker.source_commit)) &&
+      can(regex("^[a-z0-9.-]+(?::[0-9]+)?/[a-z0-9._/-]+@sha256:[0-9a-f]{64}$", var.code_security_worker.image)) &&
+      can(regex("^[a-z0-9.-]+(?::[0-9]+)?/[a-z0-9._/-]+@sha256:[0-9a-f]{64}$", var.code_security_worker.scanner_job_image)) &&
+      var.code_security_worker.scanner_job_image == var.code_security_worker.image &&
+      can(regex("^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$", var.code_security_worker.scanner_namespace)) &&
+      var.code_security_worker.scanner_namespace != var.namespace &&
+      var.code_security_worker.scanner_namespace != "default" &&
+      !startswith(var.code_security_worker.scanner_namespace, "kube-") &&
+      trimspace(var.code_security_worker.identity_resource_id) != "" &&
+      trimspace(var.code_security_worker.identity_client_id) != "" &&
+      trimspace(var.code_security_worker.database_secret_name) != "" &&
+      trimspace(var.code_security_worker.database_host) != "" &&
+      var.code_security_worker.database_role == "fdai_code_security_worker" &&
+      trimspace(var.code_security_worker.kafka_bootstrap_servers) != "" &&
+      alltrue([
+        for pvc in [
+          var.code_security_worker.controller_source_pvc,
+          var.code_security_worker.controller_cache_pvc,
+          var.code_security_worker.scanner_source_pvc,
+          var.code_security_worker.scanner_cache_pvc,
+        ] : can(regex("^[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?$", pvc))
+      ]) &&
+      var.code_security_worker.controller_source_pvc != var.code_security_worker.controller_cache_pvc &&
+      var.code_security_worker.scanner_source_pvc != var.code_security_worker.scanner_cache_pvc &&
+      can(regex("^snapshots/[0-9a-f]{64}/cache$", var.code_security_worker.scanner_cache_subpath)) &&
+      contains(["dev", "staging", "prod"], var.code_security_worker.runtime_env) &&
+      var.code_security_worker.request_interval_seconds >= 1 &&
+      var.code_security_worker.request_interval_seconds <= 60 &&
+      var.code_security_worker.schedule_interval_seconds >= 60 &&
+      var.code_security_worker.schedule_interval_seconds <= 86400 &&
+      var.code_security_worker.max_requests >= 1 &&
+      var.code_security_worker.max_requests <= 20 &&
+      var.code_security_worker.max_repositories >= 1 &&
+      var.code_security_worker.max_repositories <= 20 &&
+      (
+        (
+          trimspace(var.code_security_worker.github.app_client_id) != "" &&
+          trimspace(var.code_security_worker.github.app_installation_id) != "" &&
+          trimspace(var.code_security_worker.github.app_private_key_secret) != "" &&
+          trimspace(var.code_security_worker.github.token_secret) == ""
+          ) || (
+          trimspace(var.code_security_worker.github.app_client_id) == "" &&
+          trimspace(var.code_security_worker.github.app_installation_id) == "" &&
+          trimspace(var.code_security_worker.github.app_private_key_secret) == "" &&
+          trimspace(var.code_security_worker.github.token_secret) != ""
+        )
+      )
+    )
+    error_message = "code_security_worker requires one digest-pinned controller/scanner image, a separate scanner namespace, restricted database role, broker, controller/scanner source and immutable cache PVC bindings, bounded settings, and exactly one complete GitHub binding."
+  }
+}
+
 variable "identity_bridge" {
   description = "Optional compatibility bridge retained for images that require a managed-identity endpoint."
   type = object({

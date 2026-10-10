@@ -13,6 +13,7 @@ and never grants approval or execution authority.
 
 from __future__ import annotations
 
+import asyncio
 import re
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
@@ -25,6 +26,7 @@ from fdai.delivery.code_security_repository_changes import (
     RepositoryChange,
     apply_repository_change,
 )
+from fdai.delivery.code_security_revision_state import record_successful_revision
 from fdai.delivery.persistence.state_store_code_security_repository import (
     CodeSecurityRepository,
     CodeSecurityRepositoryError,
@@ -50,6 +52,7 @@ REJECT_SCAN = "scan_failed"
 REJECT_CONFLICT = "review_conflict"
 REJECT_ATTEMPTS = "attempts_exhausted"
 MAX_ATTEMPTS = 3
+CLAIM_RENEWAL_SECONDS = 20
 
 
 class ScanRequestClaimLostError(RuntimeError):
@@ -87,6 +90,8 @@ class ScanOutcome:
 
 class ScanRequestQueue(Protocol):
     async def claim(self) -> ClaimedScanRequest | None: ...
+
+    async def renew(self, *, key: str, claim_id: str) -> bool: ...
 
     async def mark_completed(
         self, *, key: str, claim_id: str, result: Mapping[str, object]
@@ -166,8 +171,44 @@ async def process_scan_requests(
         claim = await queue.claim()
         if claim is None:
             break
-        outcomes.append(await _process(claim, queue, store, runner, recorder, publisher))
+        outcomes.append(
+            await _process_with_renewal(claim, queue, store, runner, recorder, publisher)
+        )
     return outcomes
+
+
+async def _process_with_renewal(
+    claim: ClaimedScanRequest,
+    queue: ScanRequestQueue,
+    store: StateStore,
+    runner: ScanRunner,
+    recorder: ReviewRecorder,
+    publisher: ReviewPublisher | None,
+) -> dict[str, object]:
+    async def renew() -> None:
+        while True:
+            await asyncio.sleep(CLAIM_RENEWAL_SECONDS)
+            if not await queue.renew(key=claim.key, claim_id=claim.claim_id):
+                raise ScanRequestClaimLostError(
+                    "code-security request claim was lost during renewal"
+                )
+
+    processing = asyncio.create_task(_process(claim, queue, store, runner, recorder, publisher))
+    renewal = asyncio.create_task(renew())
+    done, _ = await asyncio.wait({processing, renewal}, return_when=asyncio.FIRST_COMPLETED)
+    if renewal in done and not renewal.cancelled() and renewal.exception() is not None:
+        processing.cancel()
+        try:
+            await processing
+        except asyncio.CancelledError:
+            pass
+        renewal.result()
+    renewal.cancel()
+    try:
+        await renewal
+    except asyncio.CancelledError:
+        pass
+    return await processing
 
 
 async def _reject(
@@ -186,7 +227,12 @@ async def _reject(
 
 
 async def _process_change(
-    claim: ClaimedScanRequest, queue: ScanRequestQueue, store: StateStore
+    claim: ClaimedScanRequest,
+    queue: ScanRequestQueue,
+    store: StateStore,
+    runner: ScanRunner,
+    recorder: ReviewRecorder,
+    publisher: ReviewPublisher | None,
 ) -> dict[str, object]:
     change = claim.change
     if change is None:
@@ -196,9 +242,68 @@ async def _process_change(
     result, reason = await apply_repository_change(store, change)
     if result is None:
         return await _reject(queue, claim, str(reason))
+    if change.action in {"register", "enable"} and result.get("enabled") is True:
+        repository = await read_repository(store, change.repository_alias)
+        if repository is None:
+            raise RuntimeError("registered code-security repository was not readable")
+        source = ReviewSource(
+            kind="git_repository",
+            provider=repository.provider,
+            trigger="console",
+            request_id=change.request_id,
+        )
+        scan_result, scan_reason = await _run_scan(
+            store,
+            repository,
+            repository.default_ref,
+            source,
+            runner,
+            recorder,
+            publisher,
+            track_default_revision=True,
+        )
+        result = {
+            **result,
+            "initial_scan": (
+                {"status": "completed", **scan_result}
+                if scan_result is not None
+                else {"status": "failed", "reason_code": str(scan_reason)}
+            ),
+        }
     if not await queue.mark_completed(key=claim.key, claim_id=claim.claim_id, result=result):
         raise ScanRequestClaimLostError("code-security request claim was lost before completion")
     return {"request_id": change.request_id, "status": "published", **result}
+
+
+async def _run_scan(
+    store: StateStore,
+    repository: CodeSecurityRepository,
+    ref: str,
+    source: ReviewSource,
+    runner: ScanRunner,
+    recorder: ReviewRecorder,
+    publisher: ReviewPublisher | None,
+    *,
+    track_default_revision: bool,
+) -> tuple[dict[str, object] | None, str | None]:
+    try:
+        outcome = await runner(repository, ref, source)
+    except SourceAcquisitionError:
+        return None, REJECT_SOURCE
+    except (OSError, ValueError):
+        return None, REJECT_SCAN
+    package = outcome.package
+    try:
+        await recorder(outcome)
+    except CodeSecurityReviewConflictError:
+        return None, REJECT_CONFLICT
+    published = await publisher.publish_code_security_drift(package) if publisher else False
+    result = {**scan_result_summary(package), "published": published}
+    if track_default_revision:
+        await record_successful_revision(
+            store, repository.repository_alias, str(package["revision"])
+        )
+    return result, None
 
 
 async def _process(
@@ -210,7 +315,7 @@ async def _process(
     publisher: ReviewPublisher | None,
 ) -> dict[str, object]:
     if claim.operation == REPOSITORY_CHANGE_OPERATION:
-        return await _process_change(claim, queue, store)
+        return await _process_change(claim, queue, store, runner, recorder, publisher)
     request = claim.request
     if request is None:
         return await _reject(queue, claim, REJECT_MALFORMED)
@@ -229,19 +334,19 @@ async def _process(
         trigger="console",
         request_id=request.request_id,
     )
-    try:
-        outcome = await runner(repository, request.ref or repository.default_ref, source)
-    except SourceAcquisitionError:
-        return await _reject(queue, claim, REJECT_SOURCE)
-    except (OSError, ValueError):
-        return await _reject(queue, claim, REJECT_SCAN)
-    package = outcome.package
-    try:
-        await recorder(outcome)
-    except CodeSecurityReviewConflictError:
-        return await _reject(queue, claim, REJECT_CONFLICT)
-    published = await publisher.publish_code_security_drift(package) if publisher else False
-    result = {**scan_result_summary(package), "published": published}
+    selected_ref = request.ref or repository.default_ref
+    result, reason = await _run_scan(
+        store,
+        repository,
+        selected_ref,
+        source,
+        runner,
+        recorder,
+        publisher,
+        track_default_revision=request.ref is None or request.ref == repository.default_ref,
+    )
+    if result is None:
+        return await _reject(queue, claim, str(reason))
     if not await queue.mark_completed(key=claim.key, claim_id=claim.claim_id, result=result):
         raise ScanRequestClaimLostError("code-security request claim was lost before completion")
     return {"request_id": request.request_id, "status": "published", **result}
@@ -249,6 +354,7 @@ async def _process(
 
 __all__ = [
     "MAX_ATTEMPTS",
+    "CLAIM_RENEWAL_SECONDS",
     "REJECT_ATTEMPTS",
     "REJECT_CONFLICT",
     "REJECT_DISABLED",

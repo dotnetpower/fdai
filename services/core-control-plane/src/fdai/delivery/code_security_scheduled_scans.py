@@ -16,10 +16,14 @@ serialize these batches. A scan never writes to the repository and never grants 
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 
 from fdai.core.security.code_findings.review_signal import ReviewSource
 from fdai.delivery.code_security_acquire import SourceAcquisitionError
+from fdai.delivery.code_security_revision_state import (
+    read_successful_revision,
+    record_successful_revision,
+)
 from fdai.delivery.code_security_scan_requests import (
     REJECT_CONFLICT,
     REJECT_SCAN,
@@ -43,12 +47,14 @@ DEFERRED_CAPACITY = "schedule_capacity"
 MAX_SCHEDULED_REPOSITORIES = 20
 SCHEDULE_CURSOR_KEY = "runtime:code-security-schedule:cursor"
 _ALIAS = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+RevisionResolver = Callable[[CodeSecurityRepository, str], Awaitable[str]]
 
 
 async def process_scheduled_scans(
     store: StateStore,
     runner: ScanRunner,
     *,
+    resolver: RevisionResolver,
     recorder: ReviewRecorder,
     publisher: ReviewPublisher | None = None,
     max_repositories: int = 5,
@@ -71,7 +77,7 @@ async def process_scheduled_scans(
         ]
     outcomes: list[dict[str, object]] = []
     for repository in enabled[:max_repositories]:
-        outcomes.append(await _scan(repository, runner, recorder, publisher))
+        outcomes.append(await _scan(store, repository, resolver, runner, recorder, publisher))
         await store.write_state(
             SCHEDULE_CURSOR_KEY, {"last_repository_alias": repository.repository_alias}
         )
@@ -87,7 +93,9 @@ async def process_scheduled_scans(
 
 
 async def _scan(
+    store: StateStore,
     repository: CodeSecurityRepository,
+    resolver: RevisionResolver,
     runner: ScanRunner,
     recorder: ReviewRecorder,
     publisher: ReviewPublisher | None,
@@ -97,7 +105,13 @@ async def _scan(
         kind="git_repository", provider=repository.provider, trigger=SCHEDULE_TRIGGER
     )
     try:
-        outcome = await runner(repository, repository.default_ref, source)
+        revision = await resolver(repository, repository.default_ref)
+    except SourceAcquisitionError:
+        return {"repository_alias": alias, "status": "failed", "reason_code": REJECT_SOURCE}
+    if await read_successful_revision(store, alias) == revision:
+        return {"repository_alias": alias, "status": "unchanged", "revision": revision}
+    try:
+        outcome = await runner(repository, revision, source)
     except SourceAcquisitionError:
         return {"repository_alias": alias, "status": "failed", "reason_code": REJECT_SOURCE}
     except (OSError, ValueError):
@@ -108,6 +122,7 @@ async def _scan(
         return {"repository_alias": alias, "status": "failed", "reason_code": REJECT_CONFLICT}
     package = outcome.package
     published = await publisher.publish_code_security_drift(package) if publisher else False
+    await record_successful_revision(store, alias, str(package["revision"]))
     return {
         "repository_alias": alias,
         "status": "published",
@@ -121,5 +136,6 @@ __all__ = [
     "MAX_SCHEDULED_REPOSITORIES",
     "SCHEDULE_TRIGGER",
     "SCHEDULE_CURSOR_KEY",
+    "RevisionResolver",
     "process_scheduled_scans",
 ]

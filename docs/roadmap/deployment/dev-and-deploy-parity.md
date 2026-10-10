@@ -549,8 +549,13 @@ use the managed identity, and local runs use `--lens-identity azure-cli`.
 Repository registrations and Console scan requests are also `state_kv` rows, served at
 `/code-security/repositories` and `/code-security/scan-requests` in both venues, and issue
 summaries are served at `/code-security/issues`. The scan-request
-worker is the same `process-scan-requests` batch job in both venues; locally you run it once in the
-scan runner image, and no deployment profile schedules it yet.
+and scheduled workers are the same bounded batches in both venues. The local full-stack supervisor
+and the deployed scanner-worker workload run the same `serve-workers` command from the scan runner
+image. It checks queued requests every 5 seconds and enabled repository revisions every 5 minutes
+by default, records a shared heartbeat, and serializes each batch. Registration performs one
+initial scan, while later schedule cycles scan only a changed exact revision. Venue-specific
+composition supplies the database role, scanner cache, GitHub read identity, work root, and event
+transport; neither venue changes the request, review, or authority contracts.
 
 ## Deployer-Scoped LLM Provisioning
 

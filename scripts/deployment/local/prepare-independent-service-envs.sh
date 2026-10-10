@@ -20,6 +20,11 @@ set +a
 
 : "${FDAI_STATE_STORE_DSN:?FDAI_STATE_STORE_DSN MUST be configured}"
 : "${FDAI_KAFKA_BOOTSTRAP_SERVERS:?FDAI_KAFKA_BOOTSTRAP_SERVERS MUST be configured}"
+: "${FDAI_CODE_SECURITY_IMAGE_INPUT_DIGEST:?FDAI_CODE_SECURITY_IMAGE_INPUT_DIGEST MUST be configured}"
+if [[ ! "$FDAI_CODE_SECURITY_IMAGE_INPUT_DIGEST" =~ ^[0-9a-f]{64}$ ]]; then
+  echo "FDAI_CODE_SECURITY_IMAGE_INPUT_DIGEST MUST be a SHA-256 digest" >&2
+  exit 1
+fi
 if [[ "${FDAI_EXECUTION_VENUE:-}" != "local" ]]; then
   echo "independent local service environments require FDAI_EXECUTION_VENUE=local" >&2
   exit 1
@@ -45,7 +50,7 @@ write_env() {
   shift 2
   local temporary
   temporary="$(mktemp "${target}.XXXXXX")"
-  grep -vE '^(FDAI_DATABASE_URL|FDAI_DATABASE_ROLE|FDAI_STATE_STORE_DSN|FDAI_INGESTION_DEPLOYMENT_ROLE|FDAI_INGESTION_CORS_ALLOW_ORIGINS|FDAI_DOCUMENT_EVENT_TOPIC|FDAI_LOCAL_DOCUMENT_STORE_DIR|FDAI_CLAMAV_HOST|FDAI_CLAMAV_PORT|FDAI_INGESTION_WORKER_HEALTH_PORT|FDAI_ISOLATED_EXECUTOR_(DEPLOYED|AUTHORITY_CUTOVER|MI_CLIENT_ID|HEALTH_PORT|LOCK_FILE))=' "$source" > "$temporary" || true
+  grep -vE '^(FDAI_DATABASE_URL|FDAI_DATABASE_ROLE|FDAI_STATE_STORE_DSN|FDAI_INGESTION_DEPLOYMENT_ROLE|FDAI_INGESTION_CORS_ALLOW_ORIGINS|FDAI_DOCUMENT_EVENT_TOPIC|FDAI_LOCAL_DOCUMENT_STORE_DIR|FDAI_CLAMAV_HOST|FDAI_CLAMAV_PORT|FDAI_INGESTION_WORKER_HEALTH_PORT|FDAI_ISOLATED_EXECUTOR_(DEPLOYED|AUTHORITY_CUTOVER|MI_CLIENT_ID|HEALTH_PORT|LOCK_FILE)|FDAI_CODE_SECURITY_(IMAGE|IMAGE_INPUT_DIGEST|CACHE_DIR|WORK_DIR|REQUEST_INTERVAL_SECONDS|SCHEDULE_INTERVAL_SECONDS|MAX_REQUESTS|MAX_REPOSITORIES))=' "$source" > "$temporary" || true
   printf '%s\n' "$@" >> "$temporary"
   chmod 600 "$temporary"
   mv "$temporary" "$target"
@@ -79,5 +84,19 @@ write_env "$repo_root/.fdai/local-isolated-executor.env" "$runtime_env" \
   "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER=0" \
   "FDAI_ISOLATED_EXECUTOR_HEALTH_PORT=8013" \
   "FDAI_ISOLATED_EXECUTOR_LOCK_FILE=$repo_root/.fdai/isolated-executor.lock"
+mkdir -p \
+  "$repo_root/.fdai/code-security-cache" \
+  "$repo_root/.fdai/code-security-work"
+write_env "$repo_root/.fdai/local-code-security-worker.env" "$runtime_env" \
+  "FDAI_STATE_STORE_DSN=$(role_dsn fdai_code_security_worker)" \
+  "FDAI_DATABASE_ROLE=fdai_code_security_worker" \
+  "FDAI_CODE_SECURITY_IMAGE=${FDAI_CODE_SECURITY_IMAGE:-fdai-code-security-scanner:local}" \
+  "FDAI_CODE_SECURITY_IMAGE_INPUT_DIGEST=$FDAI_CODE_SECURITY_IMAGE_INPUT_DIGEST" \
+  "FDAI_CODE_SECURITY_CACHE_DIR=$repo_root/.fdai/code-security-cache" \
+  "FDAI_CODE_SECURITY_WORK_DIR=$repo_root/.fdai/code-security-work" \
+  "FDAI_CODE_SECURITY_REQUEST_INTERVAL_SECONDS=${FDAI_CODE_SECURITY_REQUEST_INTERVAL_SECONDS:-5}" \
+  "FDAI_CODE_SECURITY_SCHEDULE_INTERVAL_SECONDS=${FDAI_CODE_SECURITY_SCHEDULE_INTERVAL_SECONDS:-300}" \
+  "FDAI_CODE_SECURITY_MAX_REQUESTS=${FDAI_CODE_SECURITY_MAX_REQUESTS:-20}" \
+  "FDAI_CODE_SECURITY_MAX_REPOSITORIES=${FDAI_CODE_SECURITY_MAX_REPOSITORIES:-5}"
 
-echo "prepared local environments for Document Ingestion API, Document Processing Worker, and Isolated Executor"
+echo "prepared local environments for Document Ingestion API, Document Processing Worker, Isolated Executor, and Code Security Worker"
