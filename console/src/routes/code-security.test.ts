@@ -471,6 +471,7 @@ describe("code-security route", () => {
     expect(registrationInputValid("a", "https://github.com/example/app", "")).toBe(false);
     expect(registrationInputValid("a", "example/app", "../main")).toBe(false);
     expect(normalizeGitHubLocation("https://github.com/example/app.git")).toBe("example/app");
+    expect(normalizeGitHubLocation("https://GitHub.com/example/app.git")).toBe("example/app");
     expect(normalizeGitHubLocation("https://github.com/example/app/?tab=readme")).toBe(
       "https://github.com/example/app/?tab=readme",
     );

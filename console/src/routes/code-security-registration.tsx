@@ -26,7 +26,7 @@ export function normalizeGitHubLocation(value: string): string {
     const url = new URL(trimmed);
     const parts = url.pathname.split("/").filter(Boolean);
     if (
-      url.hostname.toLowerCase() !== "github.com"
+      url.hostname !== "github.com"
       || url.username !== ""
       || url.password !== ""
       || url.port !== ""
