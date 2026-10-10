@@ -50,3 +50,6 @@ def test_application_is_rebuilt_from_frozen_current_source_not_old_image() -> No
     assert "gcc gcc-c++ binutils glibc-devel kernel-headers icu" in full
     assert "/usr/lib/jvm/msopenjdk-21/" in full
     assert "/usr/lib/dotnet/" in full
+    assert "msopenjdk-21-21.0.12.1-1" in full
+    assert "sha256sum -c /tmp/jdk-content.sha256" in full
+    assert "COPY --from=jdk /usr/lib/jvm/" not in full

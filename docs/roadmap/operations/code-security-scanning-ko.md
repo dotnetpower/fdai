@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: 4dc9680a0692e5ac2033c64a76f257cc32d6d182
+translation_source_sha: 0f4308c17e6f796d30b72e32a3a1ab41b4824cc6
 translation_revised: 2026-10-10
 ---
 
@@ -175,6 +175,10 @@ CPython 3.13.16은 인증된 상위 프로젝트 소스 체크섬을 유지하�
   OpenJDK 21, SHA-512로 고정한 .NET SDK를 더합니다. 그러면 `--prove`가 Python, JavaScript,
   네이티브, Java, C# 이슈를 재현할 수 있습니다. sanitizer 런타임이 musl을 지원하지 않으므로 이미지는
   glibc 기반입니다.
+
+전체 프로필은 패키지 정보가 없는 JDK 파일 트리를 복사하지 않고 서명된 정확한
+`msopenjdk-21-21.0.12.1-1` 패키지를 설치합니다. RPM 목록을 유지하고 빌드를 수락하기 전에
+Java, javac, 모듈 이미지가 다이제스트로 고정한 공식 JDK 이미지와 일치하는지 확인합니다.
 
 로컬 래퍼의 `--prove`는 기존 전체 프로필을 유지합니다. 경량 프로필은
 `--prove-profile javascript`로 명시적으로 선택합니다. 이 옵션은 `--prove`를 함께 활성화하고,

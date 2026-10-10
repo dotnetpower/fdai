@@ -208,6 +208,9 @@ RUN set -eu \
 
 FROM mcr.microsoft.com/openjdk/jdk@sha256:673bed7263ec02e4cd33fcaf9b1d0de8869f657fb36b5cec1b051d2ef4ba2bec AS jdk
 
+RUN sha256sum /usr/lib/jvm/msopenjdk-21/bin/java /usr/lib/jvm/msopenjdk-21/bin/javac \
+        /usr/lib/jvm/msopenjdk-21/lib/modules > /jdk-content.sha256
+
 FROM python-runtime AS node
 
 ARG NODE_VERSION=24.21.0
@@ -251,13 +254,17 @@ FROM prover-javascript AS prover
 
 LABEL org.fdai.code-security.proof-profile="all"
 USER root
+COPY --from=jdk /jdk-content.sha256 /tmp/jdk-content.sha256
+# Package installation retains the RPM inventory; pinned-image content rejects binary drift.
 RUN timeout --signal=TERM --kill-after=10 180s tdnf install -y \
-        gcc gcc-c++ binutils glibc-devel kernel-headers icu
-COPY --from=jdk /usr/lib/jvm/msopenjdk-21/ /usr/lib/jvm/msopenjdk-21/
+        gcc gcc-c++ binutils glibc-devel kernel-headers icu msopenjdk-21-21.0.12.1-1 \
+    && test "$(rpm -q msopenjdk-21)" = "msopenjdk-21-21.0.12.1-1.x86_64" \
+    && sha256sum -c /tmp/jdk-content.sha256 \
+    && rm /tmp/jdk-content.sha256
 COPY --from=dotnet /usr/lib/dotnet/ /usr/lib/dotnet/
 RUN ln -s /usr/lib/dotnet/dotnet /usr/bin/dotnet \
-    && ln -s /usr/lib/jvm/msopenjdk-21/bin/java /usr/bin/java \
-    && ln -s /usr/lib/jvm/msopenjdk-21/bin/javac /usr/bin/javac
+    && test "$(readlink -f /usr/bin/java)" = "/usr/lib/jvm/msopenjdk-21/bin/java" \
+    && test "$(readlink -f /usr/bin/javac)" = "/usr/lib/jvm/msopenjdk-21/bin/javac"
 ENV JAVA_HOME=/usr/lib/jvm/msopenjdk-21 \
     DOTNET_CLI_TELEMETRY_OPTOUT=1 \
     DOTNET_NOLOGO=1

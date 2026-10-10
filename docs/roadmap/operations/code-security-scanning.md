@@ -177,6 +177,10 @@ The file builds three targets:
   reproduce Python, JavaScript, native, Java, and C# issues. The image is glibc-based because the
   sanitizer runtimes don't support musl.
 
+The full profile installs the exact signed `msopenjdk-21-21.0.12.1-1` package rather than
+copying an unpackaged JDK tree. It retains the RPM inventory and verifies Java, javac and the
+module image against the digest-pinned official JDK image before accepting the build.
+
 The local wrapper keeps `--prove` on the full profile. Select the smaller profile explicitly
 with `--prove-profile javascript`; this implies `--prove`, chooses the matching build target,
 and reports its limited proof scope. Its image override is
