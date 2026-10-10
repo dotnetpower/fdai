@@ -10,6 +10,7 @@ recorded as a coverage limit and makes the review ``coverage_incomplete``.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 from collections.abc import Mapping, Sequence
@@ -147,9 +148,17 @@ async def run_scan_job(
         if acquirer is None:
             raise ValueError("scanning requires a source acquirer")
         source = (
-            acquirer.acquire_path(config.local_path, include_uncommitted=config.include_uncommitted)
+            await asyncio.to_thread(
+                acquirer.acquire_path,
+                config.local_path,
+                include_uncommitted=config.include_uncommitted,
+            )
             if config.local_path is not None
-            else acquirer.acquire(config.repository, config.revision)
+            else await asyncio.to_thread(
+                acquirer.acquire,
+                config.repository,
+                config.revision,
+            )
         )
     revision = source.revision
     artifacts = config.work_root / "scans" / revision

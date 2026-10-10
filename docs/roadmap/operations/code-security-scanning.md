@@ -369,6 +369,8 @@ Source acquisition resolves the remote ref, clones the exact commit into the pri
 content-addressed scan work root, removes `.git`, and makes the extracted tree read-only. The
 Console never exposes that local path or source text. It shows the exact revision and review result
 after recording, which is the operator's confirmation that the clone, scan, and review completed.
+Git ref resolution and acquisition run outside the asynchronous coordinator loop so heartbeat and
+claim renewal continue during a slow network fetch or archive extraction.
 
 The [Knowledge GitHub connection](../../runbooks/knowledge-github-sources.md) can also register
 a verified repository source, using either public read access or the deployment's read-only

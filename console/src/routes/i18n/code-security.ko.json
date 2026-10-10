@@ -107,7 +107,7 @@
     "idle": "자동화 준비됨",
     "unavailable": "자동화 사용 불가",
     "unavailableBody": "최신 코드 보안 작업자 heartbeat가 없습니다. 대기 중인 작업이 진행되지 않습니다.",
-    "nextCheck": "다음 저장소 리비전 확인: {time}",
+    "nextCheck": "최근 리비전 확인: 스캔 {scanned}개, 변경 없음 {unchanged}개, 실패 {failed}개. 다음 확인: {time}",
     "refresh": "상태 새로 고침"
   },
   "repoColumn": {

@@ -17,6 +17,7 @@ credentials only public repositories can be scanned.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import base64
 import os
 from collections.abc import AsyncIterator, Mapping
@@ -253,7 +254,7 @@ async def _repository_source(
 def _revision_resolver(args: argparse.Namespace):  # type: ignore[no-untyped-def]
     async def resolve(repository: CodeSecurityRepository, ref: str) -> str:
         acquirer, url = await _repository_source(args, repository)
-        return acquirer.resolve_revision(url, ref)
+        return await asyncio.to_thread(acquirer.resolve_revision, url, ref)
 
     return resolve
 
@@ -273,7 +274,7 @@ def _scan_runner(args: argparse.Namespace):  # type: ignore[no-untyped-def]
         repository: CodeSecurityRepository, ref: str, source: ReviewSource
     ) -> ScanOutcome:
         acquirer, url = await _repository_source(args, repository)
-        revision = acquirer.resolve_revision(url, ref)
+        revision = await asyncio.to_thread(acquirer.resolve_revision, url, ref)
         work_root = Path(args.work_root).resolve()
         config = ScanJobConfig(
             repository=url,

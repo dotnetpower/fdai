@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: b6626b0c4cfd37914ddf750c20aeb736e6ac75ea
+translation_source_sha: c63dc4789ea80d00fe34520a1f905e2a1ad79f92
 translation_revised: 2026-10-10
 ---
 
@@ -360,7 +360,8 @@ Console에서 자동화를 사용할 수 없음으로 표시합니다. 스캔 �
 소스 확보 단계는 원격 ref를 확인하고 정확한 커밋을 비공개 내용 주소 기반 스캔 작업 루트로
 복제한 뒤 `.git`을 제거하고 추출한 트리를 읽기 전용으로 만듭니다. Console은 이 로컬 경로나 소스
 원문을 노출하지 않습니다. 기록이 끝나면 정확한 리비전과 검토 결과를 표시하며, 이것이 복제,
-스캔, 검토가 완료됐다는 운영자 확인 근거입니다.
+스캔, 검토가 완료됐다는 운영자 확인 근거입니다. Git ref 확인과 소스 확보는 비동기 조정기 루프
+밖에서 실행하므로 네트워크 가져오기나 압축 해제가 느려도 heartbeat와 요청 임대를 계속 갱신합니다.
 
 [Knowledge GitHub 연결](../../runbooks/knowledge-github-sources-ko.md)에서도 공개 읽기 접근이나 배포의
 읽기 전용 GitHub App 자격 증명 참조를 사용해 검증된 저장소 소스를 등록할 수 있습니다. 저장소의

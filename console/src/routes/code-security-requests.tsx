@@ -537,6 +537,9 @@ export function RepositoryScanSection({
             {worker?.available && worker.status?.fresh
               ? t("codeSecurity.worker.nextCheck", {
                 time: formatConsoleTimestamp(worker.status.next_schedule_at),
+                scanned: worker.status.schedule_scanned,
+                unchanged: worker.status.schedule_unchanged,
+                failed: worker.status.schedule_failed,
               })
               : t("codeSecurity.worker.unavailableBody")}
           </span>

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
+import fdai.delivery.code_security_scan_requests as scan_requests_module
 import pytest
 from fdai.core.security.code_findings.review_signal import ReviewSource
 from fdai.delivery.code_security_acquire import SourceAcquisitionError
@@ -162,11 +164,13 @@ class _Queue:
     claims: list[ClaimedScanRequest]
     completed: list[tuple[str, Mapping[str, object]]] = field(default_factory=list)
     rejected: list[tuple[str, str]] = field(default_factory=list)
+    renewals: list[tuple[str, str]] = field(default_factory=list)
 
     async def claim(self) -> ClaimedScanRequest | None:
         return self.claims.pop(0) if self.claims else None
 
     async def renew(self, *, key: str, claim_id: str) -> bool:
+        self.renewals.append((key, claim_id))
         return True
 
     async def mark_completed(
@@ -246,6 +250,31 @@ async def test_processor_scans_enabled_registration_and_closes_the_request() -> 
         "coverage_complete": True,
         "published": True,
     }
+
+
+async def test_processor_renews_a_claim_during_long_source_work(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(scan_requests_module, "CLAIM_RENEWAL_SECONDS", 0.01)
+    store = InMemoryStateStore()
+    await register_repository(
+        store,
+        alias="example-app",
+        location="example/app",
+        default_ref="main",
+        registered_by="owner",
+    )
+    queue = _Queue([_claim({"repository_alias": "example-app"})])
+
+    async def runner(repo: CodeSecurityRepository, ref: str, source: ReviewSource) -> ScanOutcome:
+        await asyncio.sleep(0.035)
+        return ScanOutcome(_package(source))
+
+    async def recorder(outcome: ScanOutcome) -> bool:
+        return True
+
+    await process_scan_requests(queue, store, runner, recorder=recorder)
+    assert len(queue.renewals) >= 2
 
 
 async def test_processor_rejects_every_unsafe_or_failed_request() -> None:

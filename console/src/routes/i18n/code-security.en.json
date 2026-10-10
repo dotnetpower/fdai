@@ -107,7 +107,7 @@
     "idle": "Automation ready",
     "unavailable": "Automation unavailable",
     "unavailableBody": "No fresh code-security worker heartbeat is recorded. Queued work will not progress.",
-    "nextCheck": "Next repository revision check: {time}",
+    "nextCheck": "Last revision check: {scanned} scanned, {unchanged} unchanged, {failed} failed. Next check: {time}",
     "refresh": "Refresh status"
   },
   "repoColumn": {
