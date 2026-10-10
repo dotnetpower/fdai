@@ -13,6 +13,7 @@ from fdai.delivery.azure.llm.model_trace import (
     start_model_trace,
 )
 from fdai.delivery.azure.llm.semantic_judgment import _response_mapping
+from fdai.delivery.azure.llm.semantic_question_form import _content_free
 
 
 def test_model_trace_redacts_sensitive_request_and_response_content() -> None:
@@ -51,6 +52,32 @@ def test_model_trace_redacts_sensitive_request_and_response_content() -> None:
         "total_tokens": 15,
     }
     assert trace["status"] == "completed"
+
+
+def test_content_free_trace_explicitly_marks_omitted_request_and_response_bodies() -> None:
+    trace = complete_model_trace(
+        start_model_trace(({"role": "user", "content": "list groups"},)),
+        call_id="question-form-1",
+        kind="semantic-question-form",
+        model="semantic-test",
+        response_content='{"goals":[]}',
+        usage={"prompt_tokens": 20, "completion_tokens": 2, "total_tokens": 22},
+    )
+
+    content_free = _content_free(trace)
+
+    assert content_free["content_omitted"] is True
+    assert content_free["request"] == {
+        "messages": [],
+        "sha256": trace["request"]["sha256"],  # type: ignore[index]
+    }
+    assert content_free["response"] == {
+        "role": "assistant",
+        "content": "",
+        "sha256": trace["response"]["sha256"],  # type: ignore[index]
+    }
+    assert content_free["usage"] == trace["usage"]
+    assert content_free["duration_ms"] == trace["duration_ms"]
 
 
 def test_response_mapping_preserves_only_measured_provider_usage() -> None:

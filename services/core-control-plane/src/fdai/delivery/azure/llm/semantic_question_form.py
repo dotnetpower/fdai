@@ -762,6 +762,7 @@ def _content_free(trace: Mapping[str, object]) -> dict[str, object]:
     response = trace.get("response")
     return {
         **trace,
+        "content_omitted": True,
         "request": {
             "messages": [],
             "sha256": request.get("sha256") if isinstance(request, Mapping) else None,

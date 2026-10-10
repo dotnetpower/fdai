@@ -48,6 +48,11 @@ ungrouped count renders as a compact verified value without the one-row table or
 accounting. Grouped, incomplete, truncated, or multi-row results keep their table and limitation
 presentation. In observed-work timelines, each terminal summary mark is centered on the same
 vertical flow rail as its detail records; this alignment changes presentation only.
+The Run Record also distinguishes an intentionally content-free model trace from a provider request
+that carried zero messages. For a content-free trace, it shows that request and response bodies
+weren't retained while preserving the request and response hashes, timing, usage, prompt layers,
+and redaction counts. Evidence-phase accounting counts each unique evidence branch and standalone
+observed read once; live model-call progress never counts as evidence.
 
 Operations > Alert quality decodes signed result `1.1.0` and its provider-neutral plan `1.1.0` through the regenerated TypeScript contract view.
 The browser displays `direct_api` as retained contract metadata only. It never selects a provider

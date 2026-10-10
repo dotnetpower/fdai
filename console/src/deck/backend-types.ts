@@ -387,6 +387,7 @@ export interface ModelTraceCall {
   readonly call_id: string;
   readonly kind: string;
   readonly model: string;
+  readonly content_omitted?: true;
   readonly status: "completed" | "incomplete";
   readonly started_at: string;
   readonly completed_at: string | null;

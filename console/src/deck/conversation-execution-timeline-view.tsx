@@ -122,6 +122,10 @@ function executionFactValue(fact: ExecutionTimelineFact): string {
       (fact.value === "recorded" || fact.value === "notRecorded")) {
     return t(`deck.trajectory.${fact.value}`);
   }
+  if ((fact.key === "requestMessages" || fact.key === "response") &&
+      fact.value === "contentOmitted") {
+    return t("deck.modelTrace.contentNotRetained");
+  }
   return fact.value;
 }
 

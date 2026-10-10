@@ -3450,6 +3450,8 @@
       "response": "Assistant 응답",
       "responseHash": "응답 SHA-256",
       "responseMissing": "이 호출에는 terminal assistant 응답이 기록되지 않았습니다.",
+      "contentNotRetained": "보관하지 않음(본문 없는 추적)",
+      "contentOmitted": "요청과 응답 내용은 의도적으로 보관하지 않았습니다. 해시, 시간, 사용량, 프롬프트 계층 및 비공개 처리 횟수는 계속 확인할 수 있습니다.",
       "redactions": "적용된 redaction"
     },
     "rich": {

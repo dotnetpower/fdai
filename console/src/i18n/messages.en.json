@@ -3450,6 +3450,8 @@
       "response": "Assistant response",
       "responseHash": "Response SHA-256",
       "responseMissing": "No terminal assistant response was recorded for this call.",
+      "contentNotRetained": "Not retained (content-free trace)",
+      "contentOmitted": "Request and response content were intentionally not retained. Hashes, timing, usage, prompt layers, and redaction counts remain available.",
       "redactions": "Applied redactions"
     },
     "rich": {

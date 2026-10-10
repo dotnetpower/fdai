@@ -159,6 +159,90 @@ describe("buildExecutionTimeline", () => {
     expect(hidden.every((item) => item.kind !== "model")).toBe(true);
   });
 
+  it("labels content-free model traces without rendering fake empty payloads", () => {
+    const input = trajectory({
+      modelTrace: {
+        schema_version: 1,
+        redacted: true,
+        omitted_calls: 0,
+        calls: [{
+          call_id: "call-content-free",
+          kind: "semantic-question-form",
+          model: "test-model",
+          content_omitted: true,
+          status: "completed",
+          started_at: "2026-07-31T07:00:00Z",
+          completed_at: "2026-07-31T07:00:01Z",
+          duration_ms: 1000,
+          request: { messages: [], sha256: "a".repeat(64) },
+          response: { role: "assistant", content: "", sha256: "b".repeat(64) },
+          usage: { prompt_tokens: 10, completion_tokens: 2, total_tokens: 12 },
+          redactions: [],
+        }],
+      },
+    }, { branches: [] });
+
+    const model = buildExecutionTimeline(input).find((item) => item.kind === "model");
+
+    expect(model?.details.facts).toContainEqual({
+      key: "requestMessages",
+      value: "contentOmitted",
+    });
+    expect(model?.details.facts).toContainEqual({
+      key: "response",
+      value: "contentOmitted",
+    });
+    expect(model?.details.records).toBeUndefined();
+  });
+
+  it("counts standalone observed reads in the evidence phase", () => {
+    const input = trajectory({
+      turnTiming: {
+        schema_version: 1,
+        started_at: "2026-07-31T07:00:00Z",
+        completed_at: "2026-07-31T07:00:01Z",
+        duration_ms: 1000,
+        phases: [{
+          phase: "evidence",
+          status: "completed",
+          started_at: "2026-07-31T07:00:00Z",
+          completed_at: "2026-07-31T07:00:01Z",
+          duration_ms: 1000,
+        }],
+      },
+    }, {
+      branches: [],
+      activities: [{
+        activityId: "query-1",
+        kind: "ontology_query",
+        status: "completed",
+        label: "Object set",
+        completed: 1,
+        total: 1,
+      }, {
+        activityId: "model-1",
+        kind: "model_call",
+        status: "completed",
+        label: "Question form",
+        completed: null,
+        total: null,
+      }, {
+        activityId: "lifecycle-1",
+        kind: "semantic_turn",
+        status: "completed",
+        label: "Evidence completed",
+        completed: 1,
+        total: 1,
+      }],
+    });
+
+    const evidence = buildExecutionTimeline(input).find(
+      (item) => item.kind === "phase" && item.label === "evidence",
+    );
+
+    expect(evidence?.details.facts).toContainEqual({ key: "evidence", value: "1/1" });
+  });
+
   it("does not invent lanes when no observed timestamps exist", () => {
     const input = trajectory({}, { branches: [] });
     delete (input as { startedAt?: string }).startedAt;
