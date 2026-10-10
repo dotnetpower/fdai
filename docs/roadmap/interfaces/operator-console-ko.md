@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 6b67314156a304385727001d5f799a6f205ef7d0
+translation_source_sha: c3481de152fe39d3a75e4840517865a870a96a8d
 translation_revised: 2026-10-10
 ---
 # FDAI Console 대화
@@ -55,6 +55,8 @@ Run Record는 의도적으로 본문을 보관하지 않은 모델 추적과 메
 응답 해시, 시간, 사용량, 프롬프트 계층 및 비공개 처리 횟수는 유지합니다. 근거 단계 회계는 고유한
 근거 분기와 독립 관측 읽기를 각각 한 번만 계산하며, 실시간 모델 호출 진행 상황은 근거로 계산하지
 않습니다.
+턴 전체 모델 호출 합계는 Run Record 요약과 프로바이더 레인에만 표시합니다. 검증된 답변을 렌더링한
+출처만 표시하는 답변 생성 단계에는 이 합계를 반복해서 표시하지 않습니다.
 
 운영 > 알림 품질은 다시 생성한 TypeScript 계약 뷰로 서명된 결과 `1.1.0`과 그 안의 공급자 중립 계획 `1.1.0`을 디코딩합니다.
 브라우저는 `direct_api`를 보존된 계약 메타데이터로만 표시합니다. 공급자 어댑터를 선택하거나

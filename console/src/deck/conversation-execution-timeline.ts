@@ -166,7 +166,7 @@ function rawItems(
       startedAt: phase.started_at,
       completedAt: phase.completed_at,
       durationMs: phase.duration_ms,
-      details: phaseDetails(trajectory, phase.phase, includeModelCalls),
+      details: phaseDetails(trajectory, phase.phase),
     });
   }
   const representedBranchIds = new Set<string>();
@@ -352,7 +352,6 @@ function pointItem(
 function phaseDetails(
   trajectory: ConversationTrajectory,
   phase: string,
-  includeModelCalls: boolean,
 ): ExecutionTimelineDetails {
   const { answer, branches } = trajectory;
   const evidenceRefs = uniqueStrings([
@@ -408,18 +407,10 @@ function phaseDetails(
   }
   if (phase === "generation") {
     return {
-      facts: [
-        {
-          key: "source",
-          value: answer.source ?? answer.agent ?? "recorded",
-        },
-        {
-          key: "modelCalls",
-          value: includeModelCalls && answer.modelTrace
-            ? String(answer.modelTrace.calls.length)
-            : "notRecorded",
-        },
-      ],
+      facts: [{
+        key: "source",
+        value: answer.source ?? answer.agent ?? "recorded",
+      }],
       evidenceRefs: [],
       ...(answer.answerPlan
         ? { records: [{ key: "plan" as const, value: JSON.stringify(answer.answerPlan, null, 2) }] }

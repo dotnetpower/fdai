@@ -53,6 +53,9 @@ that carried zero messages. For a content-free trace, it shows that request and 
 weren't retained while preserving the request and response hashes, timing, usage, prompt layers,
 and redaction counts. Evidence-phase accounting counts each unique evidence branch and standalone
 observed read once; live model-call progress never counts as evidence.
+Turn-wide model-call totals remain in the Run Record summary and provider lanes. They aren't
+repeated under the answer-generation phase, which reports only the source that rendered the
+verified answer.
 
 Operations > Alert quality decodes signed result `1.1.0` and its provider-neutral plan `1.1.0` through the regenerated TypeScript contract view.
 The browser displays `direct_api` as retained contract metadata only. It never selects a provider
