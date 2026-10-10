@@ -376,19 +376,28 @@ export function RepositoryScanSection({
     { key: "result", header: t("codeSecurity.requestColumn.result"), render: resultText },
   ];
   const gaps = [...repositories.gaps, ...requests.gaps];
+  const hasRepositories = repositories.repositories.length > 0;
   return (
     <section class="stack" aria-labelledby="code-security-scans">
-      <h2 id="code-security-scans">{t("codeSecurity.scan.title")}</h2>
-      <p class="muted">{t("codeSecurity.scan.body")}</p>
-      <ScanRequestForm client={client} repositories={repositories.repositories} onQueued={onQueued} />
-      <RepositoryRegistrationForm client={client} onQueued={onQueued} />
-      <DataTable
-        columns={repositoryColumns}
-        rows={repositories.repositories}
-        keyOf={(row) => row.repository_alias}
-        empty={t("codeSecurity.scan.noRepositories")}
-        caption={t("codeSecurity.scan.repositoriesTitle")}
-      />
+      <header class="code-security-scan-header">
+        <h2 id="code-security-scans">{t("codeSecurity.scan.title")}</h2>
+        <p>{t("codeSecurity.scan.body")}</p>
+      </header>
+      {hasRepositories
+        ? <ScanRequestForm client={client} repositories={repositories.repositories} onQueued={onQueued} />
+        : null}
+      <RepositoryRegistrationForm client={client} onQueued={onQueued} defaultOpen={!hasRepositories} />
+      {hasRepositories
+        ? (
+          <DataTable
+            columns={repositoryColumns}
+            rows={repositories.repositories}
+            keyOf={(row) => row.repository_alias}
+            empty={t("codeSecurity.scan.noRepositories")}
+            caption={t("codeSecurity.scan.repositoriesTitle")}
+          />
+        )
+        : null}
       <DataTable
         columns={requestColumns}
         rows={requests.requests}

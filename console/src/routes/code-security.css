@@ -20,31 +20,129 @@
   .code-security-scan-form .btn { min-height: 44px; }
   .code-security-source-filter button { min-height: 44px; }
 }
-.code-security-register summary { cursor: pointer; font-weight: 600; min-height: 32px; }
+.code-security-scan-header {
+  display: grid;
+  gap: 8px;
+}
+.code-security-scan-header h2,
+.code-security-scan-header p {
+  margin: 0;
+}
+.code-security-scan-header p {
+  max-width: 76ch;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-body-size);
+  line-height: var(--cs-type-body-line-height);
+}
+.code-security-register {
+  overflow: clip;
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius);
+  background: var(--bg-elevated);
+}
+.code-security-register summary {
+  position: relative;
+  display: flex;
+  min-height: 48px;
+  box-sizing: border-box;
+  align-items: center;
+  padding: 12px 48px 12px 16px;
+  color: var(--fg);
+  font-size: var(--cs-type-panel-title-size);
+  font-weight: 650;
+  line-height: var(--cs-type-panel-title-line-height);
+  cursor: pointer;
+  list-style: none;
+}
+.code-security-register summary::-webkit-details-marker { display: none; }
+.code-security-register summary::after {
+  position: absolute;
+  right: 18px;
+  width: 8px;
+  height: 8px;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  content: "";
+  transform: rotate(45deg) translateY(-2px);
+  transition: transform 140ms ease;
+}
+.code-security-register[open] summary {
+  border-bottom: 1px solid var(--border);
+}
+.code-security-register[open] summary::after {
+  transform: rotate(225deg) translate(-2px, -2px);
+}
+.code-security-register summary:focus-visible {
+  outline: 2px solid color-mix(in oklab, var(--accent) 38%, transparent);
+  outline-offset: -3px;
+}
+.code-security-register-content {
+  display: grid;
+  gap: 20px;
+  padding: 20px;
+}
+.code-security-register-content > p {
+  max-width: 76ch;
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-body-size);
+  line-height: var(--cs-type-body-line-height);
+}
 .code-security-register-form {
   display: grid;
-  grid-template-columns: minmax(140px, 1fr) minmax(200px, 2fr) minmax(120px, 1fr) minmax(140px, 1fr) auto;
-  gap: 10px;
-  align-items: end;
-  margin-top: 8px;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 18px 16px;
+  align-items: start;
 }
-.code-security-register-form label {
-  display: grid;
-  gap: 4px;
-  color: var(--fg-muted);
-  font-size: 11px;
+.code-security-register-alias { grid-column: span 4; }
+.code-security-register-location { grid-column: span 8; }
+.code-security-register-ref,
+.code-security-register-exposure { grid-column: span 6; }
+.code-security-register-form .cs-control-input,
+.code-security-register-form .cs-control-select {
+  height: 40px;
+  min-height: 40px;
+  border-color: color-mix(in srgb, var(--fg-muted) 65%, var(--border));
 }
-.code-security-register-form input,
-.code-security-register-form select { min-width: 0; width: 100%; min-height: 32px; }
+.code-security-register-actions {
+  display: flex;
+  grid-column: 1 / -1;
+  justify-content: flex-end;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+.code-security-register-submit {
+  min-width: 172px;
+  min-height: 40px;
+  justify-content: center;
+}
+.code-security-register-form .code-security-scan-feedback {
+  grid-column: 1 / -1;
+}
 .code-security-toggle { display: inline-grid; gap: 4px; }
 .code-security-issues-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .code-security-issues-header h3 { margin: 0; overflow-wrap: anywhere; }
 @media (max-width: 960px) {
-  .code-security-register-form { grid-template-columns: 1fr 1fr; }
+  .code-security-register-alias,
+  .code-security-register-location,
+  .code-security-register-ref,
+  .code-security-register-exposure { grid-column: span 6; }
 }
 @media (max-width: 720px) {
-  .code-security-register-form { grid-template-columns: 1fr; }
+  .code-security-register-content { padding: 16px; }
+  .code-security-register-form { gap: 16px; }
+  .code-security-register-alias,
+  .code-security-register-location,
+  .code-security-register-ref,
+  .code-security-register-exposure { grid-column: 1 / -1; }
+  .code-security-register-actions { padding-top: 0; border-top: 0; }
+  .code-security-register-submit { width: 100%; min-height: 44px; }
+  .code-security-register-form .cs-control-input,
+  .code-security-register-form .cs-control-select { height: 44px; min-height: 44px; }
   .code-security-register-form .btn,
   .code-security-toggle .btn,
   .code-security-issues-header .btn { min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .code-security-register summary::after { transition: none; }
 }

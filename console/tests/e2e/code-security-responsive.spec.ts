@@ -21,7 +21,21 @@ function review(alias: string, overrides: Record<string, unknown> = {}): Record<
   };
 }
 
-async function mockApi(page: Page, posted: unknown[] = []): Promise<void> {
+async function mockApi(
+  page: Page,
+  posted: unknown[] = [],
+  repositories: readonly Record<string, unknown>[] = [
+    {
+      repository_alias: "payments-api-with-a-deliberately-long-repository-alias",
+      provider: "github",
+      location: "example-organization/payments-api-with-a-deliberately-long-name",
+      default_ref: "main",
+      exposure: "exposed",
+      enabled: true,
+      registered_at: "2026-10-07T08:00:00+00:00",
+    },
+  ],
+): Promise<void> {
   const handleApi = async (route: Route) => {
     const path = new URL(route.request().url()).pathname.replace(/^\/api/, "");
     if (path === "/code-security/repositories" && route.request().method() === "POST") {
@@ -102,17 +116,7 @@ async function mockApi(page: Page, posted: unknown[] = []): Promise<void> {
           available: true,
           complete: true,
           source: "postgresql:state_kv:code-security-repository",
-          repositories: [
-            {
-              repository_alias: "payments-api-with-a-deliberately-long-repository-alias",
-              provider: "github",
-              location: "example-organization/payments-api-with-a-deliberately-long-name",
-              default_ref: "main",
-              exposure: "exposed",
-              enabled: true,
-              registered_at: "2026-10-07T08:00:00+00:00",
-            },
-          ],
+          repositories,
           gaps: [],
         },
       });
@@ -346,4 +350,53 @@ test("queues an Owner registration change from the Console", async ({ page }) =>
     },
     { action: "disable", repository_alias: "payments-api-with-a-deliberately-long-repository-alias" },
   ]);
+});
+
+test("presents repository registration as the primary empty-state task", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await mockApi(page, [], []);
+  await page.goto("/code-security");
+
+  const registration = page.locator(".code-security-register");
+  await expect(registration).toHaveAttribute("open", "");
+  await expect(page.getByLabel("Alias", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("GitHub repository", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Request registration" })).toBeDisabled();
+  await expect(page.getByText("No repository is registered for Console scans.")).toHaveCount(0);
+
+  const geometry = await registration.evaluate((element) => {
+    const form = element.querySelector(".code-security-register-form");
+    const alias = element.querySelector<HTMLInputElement>('input[required]');
+    const summary = element.querySelector("summary");
+    if (form === null || alias === null || summary === null) throw new Error("registration controls missing");
+    return {
+      columns: getComputedStyle(form).gridTemplateColumns.split(" ").length,
+      inputHeight: alias.getBoundingClientRect().height,
+      summaryHeight: summary.getBoundingClientRect().height,
+      documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  });
+  expect(geometry.columns).toBe(12);
+  expect(geometry.inputHeight).toBeGreaterThanOrEqual(40);
+  expect(geometry.summaryHeight).toBeGreaterThanOrEqual(48);
+  expect(geometry.documentOverflow).toBeLessThanOrEqual(0);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  const mobileGeometry = await registration.evaluate((element) => {
+    const fields = [...element.querySelectorAll("label")].map((field) => field.getBoundingClientRect());
+    const input = element.querySelector("input");
+    const button = element.querySelector("button");
+    if (fields.length === 0 || input === null || button === null) throw new Error("registration controls missing");
+    return {
+      oneColumn: fields.every((field) => Math.abs(field.width - fields[0]!.width) < 1)
+        && fields.every((field, index) => index === 0 || field.top > fields[index - 1]!.top),
+      inputHeight: input.getBoundingClientRect().height,
+      buttonHeight: button.getBoundingClientRect().height,
+      documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    };
+  });
+  expect(mobileGeometry.oneColumn).toBe(true);
+  expect(mobileGeometry.inputHeight).toBeGreaterThanOrEqual(44);
+  expect(mobileGeometry.buttonHeight).toBeGreaterThanOrEqual(44);
+  expect(mobileGeometry.documentOverflow).toBeLessThanOrEqual(0);
 });

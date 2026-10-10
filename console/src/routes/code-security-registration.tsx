@@ -53,9 +53,11 @@ export function FeedbackLine({ feedback }: { readonly feedback: RegistrationFeed
 export function RepositoryRegistrationForm({
   client,
   onQueued,
+  defaultOpen = false,
 }: {
   readonly client: ChangeClient;
   readonly onQueued: () => void;
+  readonly defaultOpen?: boolean;
 }) {
   const [alias, setAlias] = useState("");
   const [location, setLocation] = useState("");
@@ -63,6 +65,7 @@ export function RepositoryRegistrationForm({
   const [exposure, setExposure] = useState<(typeof EXPOSURES)[number]>("unknown");
   const [submitting, setSubmitting] = useState(false);
   const [feedback, setFeedback] = useState<RegistrationFeedback>(null);
+  const [expanded, setExpanded] = useState(defaultOpen);
   const trimmedRef = ref.trim();
   const valid = registrationInputValid(alias.trim(), location.trim(), trimmedRef);
   const submit = async (event: Event) => {
@@ -87,50 +90,83 @@ export function RepositoryRegistrationForm({
     }
   };
   return (
-    <details class="code-security-register">
-      <summary>{t("codeSecurity.register.title")}</summary>
-      <p class="muted">{t("codeSecurity.register.body")}</p>
-      <form class="code-security-register-form" onSubmit={submit}>
-        <label>
-          <span>{t("codeSecurity.register.alias")}</span>
-          <input value={alias} disabled={submitting} onInput={(event) => setAlias((event.currentTarget as HTMLInputElement).value)} />
-        </label>
-        <label>
-          <span>{t("codeSecurity.register.location")}</span>
-          <input
-            value={location}
-            disabled={submitting}
-            placeholder="owner/repository"
-            onInput={(event) => setLocation((event.currentTarget as HTMLInputElement).value)}
-          />
-        </label>
-        <label>
-          <span>{t("codeSecurity.register.defaultRef")}</span>
-          <input
-            value={ref}
-            disabled={submitting}
-            placeholder="HEAD"
-            aria-describedby="code-security-default-ref-hint"
-            onInput={(event) => setRef((event.currentTarget as HTMLInputElement).value)}
-          />
-          <small id="code-security-default-ref-hint" class="muted">{t("codeSecurity.register.defaultRefHint")}</small>
-        </label>
-        <label>
-          <span>{t("codeSecurity.register.exposure")}</span>
-          <select
-            aria-label={t("codeSecurity.register.exposure")}
-            value={exposure}
-            disabled={submitting}
-            onChange={(event) => setExposure(event.currentTarget.value as (typeof EXPOSURES)[number])}
-          >
-            {EXPOSURES.map((item) => <option key={item} value={item}>{t(`codeSecurity.exposure.${item}`)}</option>)}
-          </select>
-        </label>
-        <button type="submit" class="btn" disabled={!valid || submitting}>
-          {submitting ? t("codeSecurity.scan.submitting") : t("codeSecurity.register.submit")}
-        </button>
-        <FeedbackLine feedback={feedback} />
-      </form>
+    <details
+      class="code-security-register"
+      open={expanded}
+      onToggle={(event) => setExpanded(event.currentTarget.open)}
+    >
+      <summary>
+        <span>{t("codeSecurity.register.title")}</span>
+      </summary>
+      <div class="code-security-register-content">
+        <p id="code-security-register-description">{t("codeSecurity.register.body")}</p>
+        <form
+          class="code-security-register-form"
+          aria-describedby="code-security-register-description"
+          onSubmit={submit}
+        >
+          <label class="cs-control-field code-security-register-alias">
+            <span class="cs-control-label">{t("codeSecurity.register.alias")}</span>
+            <input
+              class="cs-control-input"
+              value={alias}
+              required
+              disabled={submitting}
+              autoComplete="off"
+              onInput={(event) => setAlias((event.currentTarget as HTMLInputElement).value)}
+            />
+          </label>
+          <label class="cs-control-field code-security-register-location">
+            <span class="cs-control-label">{t("codeSecurity.register.location")}</span>
+            <input
+              class="cs-control-input"
+              value={location}
+              required
+              disabled={submitting}
+              placeholder="owner/repository"
+              autoCapitalize="none"
+              autoComplete="off"
+              spellcheck={false}
+              onInput={(event) => setLocation((event.currentTarget as HTMLInputElement).value)}
+            />
+          </label>
+          <label class="cs-control-field code-security-register-ref">
+            <span class="cs-control-label">{t("codeSecurity.register.defaultRef")}</span>
+            <input
+              class="cs-control-input"
+              value={ref}
+              disabled={submitting}
+              placeholder="HEAD"
+              autoCapitalize="none"
+              autoComplete="off"
+              spellcheck={false}
+              aria-describedby="code-security-default-ref-hint"
+              onInput={(event) => setRef((event.currentTarget as HTMLInputElement).value)}
+            />
+            <small id="code-security-default-ref-hint" class="cs-control-help">
+              {t("codeSecurity.register.defaultRefHint")}
+            </small>
+          </label>
+          <label class="cs-control-field code-security-register-exposure">
+            <span class="cs-control-label">{t("codeSecurity.register.exposure")}</span>
+            <select
+              class="cs-control-select"
+              aria-label={t("codeSecurity.register.exposure")}
+              value={exposure}
+              disabled={submitting}
+              onChange={(event) => setExposure(event.currentTarget.value as (typeof EXPOSURES)[number])}
+            >
+              {EXPOSURES.map((item) => <option key={item} value={item}>{t(`codeSecurity.exposure.${item}`)}</option>)}
+            </select>
+          </label>
+          <div class="code-security-register-actions">
+            <button type="submit" class="btn primary code-security-register-submit" disabled={!valid || submitting}>
+              {submitting ? t("codeSecurity.scan.submitting") : t("codeSecurity.register.submit")}
+            </button>
+          </div>
+          <FeedbackLine feedback={feedback} />
+        </form>
+      </div>
     </details>
   );
 }
