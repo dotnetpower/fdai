@@ -293,7 +293,7 @@ def code_security_issues_projection(
         }
         if (
             set(artifacts_row) == expected_gap
-            and artifacts_row.get("schema_version") == "1.0.0"
+            and artifacts_row.get("schema_version") == "1.1.0"
             and artifacts_row.get("repository_alias") == repository_alias
             and artifacts_row.get("revision") == revision
             and artifacts_row.get("review_digest") == digest
@@ -322,7 +322,7 @@ def code_security_issues_projection(
         if (
             set(artifacts_row) != expected
             or artifacts_row.get("kind") != "code-security-review-artifacts"
-            or artifacts_row.get("schema_version") != "1.0.0"
+            or artifacts_row.get("schema_version") != "1.1.0"
             or artifacts_row.get("repository_alias") != repository_alias
             or artifacts_row.get("revision") != revision
             or artifacts_row.get("review_digest") != digest
@@ -374,7 +374,7 @@ async def read_code_security_issues(
     )
     artifact_rows = await fetch_all(
         _ROW_SQL,
-        (f"{CODE_SECURITY_ISSUES_STATE_PREFIX}{alias}:{revision}:artifacts",),
+        (f"{CODE_SECURITY_ISSUES_STATE_PREFIX}{alias}:{revision}:artifacts-1.1",),
     )
     review = review_rows[0].get("value") if review_rows else None
     issues_row = issue_rows[0].get("value") if issue_rows else None

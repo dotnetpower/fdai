@@ -512,7 +512,7 @@ def test_issue_projection_requires_the_matching_review_digest() -> None:
         },
         artifacts_row={
             "kind": "code-security-review-artifacts",
-            "schema_version": "1.0.0",
+            "schema_version": "1.1.0",
             "repository_alias": "example-service",
             "revision": _REVISION,
             "review_digest": digest,
@@ -592,13 +592,13 @@ async def test_reader_serves_issues_for_one_exact_review() -> None:
         statements.append(params)
         if str(params[0]).startswith("runtime:code-security-review:"):
             return [{"key": params[0], "value": review}]
-        if str(params[0]).endswith(":artifacts"):
+        if str(params[0]).endswith(":artifacts-1.1"):
             return [
                 {
                     "key": params[0],
                     "value": {
                         "kind": "code-security-review-artifacts",
-                        "schema_version": "1.0.0",
+                        "schema_version": "1.1.0",
                         "repository_alias": "example-service",
                         "revision": _REVISION,
                         "review_digest": review["package"]["review_digest"],
@@ -625,7 +625,7 @@ async def test_reader_serves_issues_for_one_exact_review() -> None:
     assert statements == [
         (f"runtime:code-security-review:example-service:{_REVISION}",),
         (f"runtime:code-security-issues:example-service:{_REVISION}",),
-        (f"runtime:code-security-issues:example-service:{_REVISION}:artifacts",),
+        (f"runtime:code-security-issues:example-service:{_REVISION}:artifacts-1.1",),
     ]
     with pytest.raises(ValueError, match="revision"):
         await read_code_security_projection(

@@ -27,7 +27,7 @@ class CodeSecurityArtifactTooLargeError(ValueError):
 def code_security_artifact_state_key(repository_alias: str, revision: str) -> str:
     if _ALIAS.fullmatch(repository_alias) is None or _REVISION.fullmatch(revision) is None:
         raise ValueError("code-security artifact identity is invalid")
-    return f"{CODE_SECURITY_ARTIFACT_STATE_PREFIX}{repository_alias}:{revision}:artifacts"
+    return f"{CODE_SECURITY_ARTIFACT_STATE_PREFIX}{repository_alias}:{revision}:artifacts-1.1"
 
 
 def validate_code_security_artifacts(raw: Mapping[str, object]) -> dict[str, str]:
@@ -68,7 +68,7 @@ async def record_code_security_artifacts(
     key = code_security_artifact_state_key(repository_alias, revision)
     row = {
         "kind": "code-security-review-artifacts",
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "repository_alias": repository_alias,
         "revision": revision,
         "review_digest": review_digest,
@@ -105,7 +105,7 @@ async def record_code_security_artifact_gap(
     key = code_security_artifact_state_key(repository_alias, revision)
     row = {
         "kind": "code-security-review-artifacts-unavailable",
-        "schema_version": "1.0.0",
+        "schema_version": "1.1.0",
         "repository_alias": repository_alias,
         "revision": revision,
         "review_digest": review_digest,
