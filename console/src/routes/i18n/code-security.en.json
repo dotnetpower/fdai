@@ -45,7 +45,9 @@
     "code_security_scan_request_malformed": "A stored scan request is malformed and was withheld.",
     "code_security_issue_malformed": "A stored issue summary is malformed and was withheld.",
     "code_security_issues_unavailable": "No issue summaries are recorded for this review.",
-    "code_security_issues_truncated": "This review has more issues than are shown."
+    "code_security_issues_truncated": "This review has more issues than are shown.",
+    "code_security_artifacts_unavailable": "HTML and SARIF artifacts are not recorded for this review.",
+    "code_security_artifacts_malformed": "The recorded HTML or SARIF artifact is malformed and was withheld."
   },
   "packsTitle": "Remediation packs",
   "packsEmpty": "No remediation pack has been recorded in the state store yet.",
@@ -190,6 +192,15 @@
     "notRecorded": "Issue details weren't recorded for this review.",
     "unavailable": "Issue details are unavailable.",
     "yes": "Yes",
+    "detailTitle": "Issue details",
+    "detailClose": "Close issue details",
+    "reportTitle": "Review artifacts",
+    "viewHtml": "View HTML report",
+    "viewSarif": "View SARIF",
+    "hideReport": "Hide report",
+    "htmlTitle": "Code-security HTML report",
+    "sarifTitle": "Code-security SARIF",
+    "summaryArtifact": "Full scan artifacts are unavailable. These views are generated from the bounded recorded issue summaries and omit paths and scanner coverage.",
     "column": {
       "issue": "Issue",
       "priority": "Priority",

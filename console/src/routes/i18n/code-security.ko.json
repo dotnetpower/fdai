@@ -45,7 +45,9 @@
     "code_security_scan_request_malformed": "저장된 스캔 요청 형식이 잘못되어 보류했습니다.",
     "code_security_issue_malformed": "저장된 이슈 요약 형식이 잘못되어 보류했습니다.",
     "code_security_issues_unavailable": "이 검토에는 기록된 이슈 요약이 없습니다.",
-    "code_security_issues_truncated": "이 검토에는 표시된 것보다 많은 이슈가 있습니다."
+    "code_security_issues_truncated": "이 검토에는 표시된 것보다 많은 이슈가 있습니다.",
+    "code_security_artifacts_unavailable": "이 검토에는 HTML과 SARIF 산출물이 기록되지 않았습니다.",
+    "code_security_artifacts_malformed": "기록된 HTML 또는 SARIF 산출물 형식이 잘못되어 보류했습니다."
   },
   "packsTitle": "조치 팩",
   "packsEmpty": "상태 저장소에 기록된 조치 팩이 아직 없습니다.",
@@ -190,6 +192,15 @@
     "notRecorded": "이 검토에는 이슈 상세가 기록되지 않았습니다.",
     "unavailable": "이슈 상세를 사용할 수 없습니다.",
     "yes": "예",
+    "detailTitle": "이슈 상세",
+    "detailClose": "이슈 상세 닫기",
+    "reportTitle": "검토 산출물",
+    "viewHtml": "HTML 보고서 보기",
+    "viewSarif": "SARIF 보기",
+    "hideReport": "보고서 숨기기",
+    "htmlTitle": "코드 보안 HTML 보고서",
+    "sarifTitle": "코드 보안 SARIF",
+    "summaryArtifact": "전체 스캔 산출물을 사용할 수 없습니다. 이 보기는 기록된 범위 제한 이슈 요약으로 만들며 경로와 스캐너 커버리지를 포함하지 않습니다.",
     "column": {
       "issue": "이슈",
       "priority": "우선순위",

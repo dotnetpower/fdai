@@ -224,6 +224,52 @@
 .code-security-toggle { display: inline-grid; gap: 4px; }
 .code-security-issues-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .code-security-issues-header h3 { margin: 0; overflow-wrap: anywhere; }
+.code-security-issue-detail,
+.code-security-report-viewer {
+  display: grid;
+  gap: 12px;
+  padding-block: 16px;
+  border-block: 1px solid var(--border);
+}
+.code-security-issue-detail > div,
+.code-security-report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.code-security-issue-detail dl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px 20px;
+  margin: 0;
+}
+.code-security-issue-detail dl > div { min-width: 0; }
+.code-security-issue-detail dt {
+  color: var(--fg-muted);
+  font-size: var(--cs-type-label-size);
+  font-weight: 600;
+}
+.code-security-issue-detail dd { margin: 4px 0 0; overflow-wrap: anywhere; }
+.code-security-report-frame {
+  width: 100%;
+  min-height: 640px;
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius-sm);
+  background: #fff;
+}
+.code-security-sarif {
+  max-height: 640px;
+  margin: 0;
+  overflow: auto;
+  padding: 16px;
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-code-bg);
+  color: var(--cs-code-text);
+  font: var(--cs-type-compact-size)/1.55 var(--cs-font-mono);
+  white-space: pre;
+}
 @media (max-width: 960px) {
   .code-security-register-settings-grid { grid-template-columns: 1fr 1fr; }
   .code-security-register-exposure { grid-column: 1 / -1; }
@@ -251,6 +297,9 @@
   .code-security-register-submit { width: 100%; min-height: 44px; }
   .code-security-register-settings-grid { grid-template-columns: 1fr; }
   .code-security-register-exposure { grid-column: auto; }
+  .code-security-issue-detail dl { grid-template-columns: 1fr; }
+  .code-security-report-actions .btn { min-height: 44px; }
+  .code-security-report-frame { min-height: 520px; }
   .code-security-register-form .cs-control-input,
   .code-security-register-form .cs-control-select { height: 44px; min-height: 44px; }
   .code-security-register-form .btn,

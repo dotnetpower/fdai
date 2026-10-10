@@ -19,6 +19,11 @@ from fdai.core.security.code_findings.issue_summary import (
     validate_issue_summary,
 )
 from fdai.core.security.code_findings.review_signal import validate_review_package
+from fdai.delivery.persistence.state_store_code_security_artifacts import (
+    CodeSecurityArtifactTooLargeError,
+    record_code_security_artifact_gap,
+    record_code_security_artifacts,
+)
 from fdai.shared.providers.state_store import StateStore
 
 CODE_SECURITY_REVIEW_STATE_PREFIX = "runtime:code-security-review:"
@@ -44,6 +49,7 @@ async def record_code_security_review(
     recorded_at: datetime | None = None,
     issues: Sequence[Mapping[str, object]] | None = None,
     issues_truncated: bool = False,
+    artifacts: Mapping[str, object] | None = None,
 ) -> bool:
     """Record a validated review package; return ``True`` when a new row was written.
 
@@ -93,6 +99,28 @@ async def record_code_security_review(
                 or stored_issues.get("review_digest") != validated["review_digest"]
             ):
                 raise CodeSecurityReviewConflictError("issue summaries differ from accepted review")
+    if artifacts is not None:
+        artifact_identity = {
+            "repository_alias": str(validated["repository_alias"]),
+            "revision": str(validated["revision"]),
+            "review_digest": str(validated["review_digest"]),
+        }
+        try:
+            await record_code_security_artifacts(
+                store,
+                repository_alias=artifact_identity["repository_alias"],
+                revision=artifact_identity["revision"],
+                review_digest=artifact_identity["review_digest"],
+                artifacts=artifacts,
+            )
+        except CodeSecurityArtifactTooLargeError:
+            await record_code_security_artifact_gap(
+                store,
+                repository_alias=artifact_identity["repository_alias"],
+                revision=artifact_identity["revision"],
+                review_digest=artifact_identity["review_digest"],
+                reason_code="artifact_size_exceeded",
+            )
     return created
 
 

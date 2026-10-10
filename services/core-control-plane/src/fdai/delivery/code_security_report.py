@@ -389,6 +389,85 @@ def render_html(document: dict[str, object], locale: str = "en") -> str:
     )
 
 
+def render_sarif(
+    result: ScanJobResult,
+    *,
+    repository_alias: str,
+    generated_at: str,
+) -> str:
+    """Render bounded canonical issues as inert SARIF 2.1.0 without scanner messages or code."""
+    severity_level = {
+        "critical": "error",
+        "high": "error",
+        "medium": "warning",
+        "low": "note",
+        "undetermined": "warning",
+    }
+    results = []
+    for issue in result.issues:
+        region = (
+            {"startLine": issue.fix_site.start_line}
+            if issue.fix_site.start_line is not None
+            else {}
+        )
+        results.append(
+            {
+                "ruleId": issue.weakness_class,
+                "level": severity_level.get(issue.severity.label, "warning"),
+                "message": {"text": f"{issue.issue_id}: canonical FDAI code-security issue"},
+                "locations": [
+                    {
+                        "physicalLocation": {
+                            "artifactLocation": {"uri": issue.fix_site.path},
+                            **({"region": region} if region else {}),
+                        }
+                    }
+                ],
+                "properties": {
+                    "issue_id": issue.issue_id,
+                    "priority": issue.priority.priority.value,
+                    "severity": issue.severity.label,
+                    "confidence": issue.confidence.value,
+                    "cwe_ids": [f"CWE-{cwe}" for cwe in issue.cwe_ids],
+                    "advisory_ids": sorted(issue.advisory_ids)[:3],
+                    "package": issue.package,
+                    "producers": list(issue.producers),
+                    "known_exploited": issue.known_exploited,
+                },
+            }
+        )
+    document = {
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [
+            {
+                "tool": {
+                    "driver": {
+                        "name": "FDAI",
+                        "informationUri": "https://github.com/dotnetpower/fdai",
+                        "rules": [],
+                    }
+                },
+                "automationDetails": {
+                    "id": f"{repository_alias}/{result.revision}",
+                },
+                "invocations": [
+                    {
+                        "executionSuccessful": True,
+                        "endTimeUtc": generated_at,
+                        "properties": {
+                            "coverage_complete": result.package["coverage_complete"],
+                            "coverage_limits": list(result.coverage_limits),
+                        },
+                    }
+                ],
+                "results": results,
+            }
+        ],
+    }
+    return json.dumps(document, indent=2, ensure_ascii=False) + "\n"
+
+
 def write_scan_report(
     result: ScanJobResult,
     out_dir: Path,
@@ -425,6 +504,7 @@ __all__ = [
     "ScanReportPaths",
     "render_html",
     "render_markdown",
+    "render_sarif",
     "scan_report_document",
     "write_scan_report",
 ]

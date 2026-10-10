@@ -8,8 +8,10 @@ fields only; paths, lines, symbols, scanner messages, and code never leave devel
 
 from __future__ import annotations
 
+import json
 import re
 from collections.abc import Awaitable, Callable, Mapping, Sequence
+from html import escape
 from typing import Any
 
 CODE_SECURITY_ISSUES_STATE_PREFIX = "runtime:code-security-issues:"
@@ -18,6 +20,8 @@ CODE_SECURITY_ISSUES_STATE_PREFIX = "runtime:code-security-issues:"
 GAP_ISSUES_MALFORMED = "code_security_issue_malformed"
 GAP_ISSUES_UNAVAILABLE = "code_security_issues_unavailable"
 GAP_ISSUES_TRUNCATED = "code_security_issues_truncated"
+GAP_ARTIFACTS_UNAVAILABLE = "code_security_artifacts_unavailable"
+GAP_ARTIFACTS_MALFORMED = "code_security_artifacts_malformed"
 
 _ALIAS = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 _REVISION = re.compile(r"^[0-9a-f]{40}([0-9a-f]{24})?$")
@@ -46,12 +50,68 @@ _KEYS = frozenset(
     }
 )
 _MAX_ISSUES = 200
+_MAX_ARTIFACT_BYTES = 900_000
 _FetchAll = Callable[[str, tuple[object, ...]], Awaitable[list[dict[str, Any]]]]
 _ROW_SQL = "SELECT key, value FROM state_kv WHERE key = %s LIMIT 1"
 
 
 class _MalformedError(ValueError):
     pass
+
+
+def _summary_artifacts(
+    repository_alias: str,
+    revision: str,
+    issues: Sequence[Mapping[str, object]],
+) -> dict[str, str]:
+    rows = "".join(
+        "<tr>"
+        f"<td>{escape(str(issue['issue_id']))}</td>"
+        f"<td>{escape(str(issue['priority']))}</td>"
+        f"<td>{escape(str(issue['severity']))}</td>"
+        f"<td>{escape(str(issue['confidence']))}</td>"
+        f"<td>{escape(str(issue['weakness_class']))}</td>"
+        "</tr>"
+        for issue in issues
+    )
+    html = (
+        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; '
+        "style-src 'unsafe-inline'\"><title>FDAI code-security summary report</title>"
+        "<style>body{font-family:system-ui,sans-serif;margin:2rem}table{border-collapse:collapse}"
+        "th,td{border:1px solid #ccc;padding:.35rem .6rem;text-align:left}</style></head><body>"
+        "<h1>FDAI code-security summary report</h1>"
+        "<p>Full review artifacts are unavailable. This report contains bounded issue metadata "
+        "only, with no source code, scanner messages, paths, or code flows.</p>"
+        f"<p><strong>Repository:</strong> {escape(repository_alias)}<br>"
+        f"<strong>Revision:</strong> {escape(revision)}</p>"
+        "<table><thead><tr><th>Issue</th><th>Priority</th><th>Severity</th>"
+        "<th>Confidence</th><th>Weakness class</th></tr></thead>"
+        f"<tbody>{rows}</tbody></table></body></html>\n"
+    )
+    sarif = {
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [
+            {
+                "tool": {"driver": {"name": "FDAI summary projection", "rules": []}},
+                "automationDetails": {"id": f"{repository_alias}/{revision}"},
+                "results": [
+                    {
+                        "ruleId": str(issue["weakness_class"]),
+                        "message": {"text": f"{issue['issue_id']}: FDAI issue summary"},
+                        "properties": dict(issue),
+                    }
+                    for issue in issues
+                ],
+            }
+        ],
+    }
+    return {
+        "mode": "summary",
+        "html": html,
+        "sarif": json.dumps(sarif, indent=2, ensure_ascii=False) + "\n",
+    }
 
 
 def _tokens(raw: object, pattern: re.Pattern[str], limit: int) -> list[str]:
@@ -108,6 +168,7 @@ def code_security_issues_projection(
     revision: str,
     review: Mapping[str, Any] | None,
     issues_row: Mapping[str, Any] | None,
+    artifacts_row: Mapping[str, Any] | None = None,
 ) -> dict[str, object]:
     """Render one review's issue summaries, withholding rows that don't match its digest."""
     base: dict[str, object] = {
@@ -117,6 +178,7 @@ def code_security_issues_projection(
         "source": "postgresql:state_kv:code-security-issues",
         "issues": [],
         "truncated": False,
+        "artifacts": None,
     }
     package = review.get("package") if isinstance(review, Mapping) else None
     digest = package.get("review_digest") if isinstance(package, Mapping) else None
@@ -145,12 +207,74 @@ def code_security_issues_projection(
             gaps.append({"reason_code": GAP_ISSUES_MALFORMED})
     if truncated or len(raw_issues) > _MAX_ISSUES:
         gaps.append({"reason_code": GAP_ISSUES_TRUNCATED})
+    artifacts: dict[str, str] | None = None
+    if artifacts_row is None:
+        gaps.append({"reason_code": GAP_ARTIFACTS_UNAVAILABLE})
+    elif artifacts_row.get("kind") == "code-security-review-artifacts-unavailable":
+        expected_gap = {
+            "kind",
+            "schema_version",
+            "repository_alias",
+            "revision",
+            "review_digest",
+            "recorded_at",
+            "reason_code",
+        }
+        if (
+            set(artifacts_row) == expected_gap
+            and artifacts_row.get("schema_version") == "1.0.0"
+            and artifacts_row.get("repository_alias") == repository_alias
+            and artifacts_row.get("revision") == revision
+            and artifacts_row.get("review_digest") == digest
+            and isinstance(artifacts_row.get("recorded_at"), str)
+            and artifacts_row.get("reason_code") == "artifact_size_exceeded"
+        ):
+            gaps.append({"reason_code": GAP_ARTIFACTS_UNAVAILABLE})
+        else:
+            gaps.append({"reason_code": GAP_ARTIFACTS_MALFORMED})
+    else:
+        expected = {
+            "kind",
+            "schema_version",
+            "repository_alias",
+            "revision",
+            "review_digest",
+            "recorded_at",
+            "html",
+            "sarif",
+        }
+        html, sarif = artifacts_row.get("html"), artifacts_row.get("sarif")
+        try:
+            sarif_document = json.loads(sarif) if isinstance(sarif, str) else None
+        except json.JSONDecodeError:
+            sarif_document = None
+        if (
+            set(artifacts_row) != expected
+            or artifacts_row.get("kind") != "code-security-review-artifacts"
+            or artifacts_row.get("schema_version") != "1.0.0"
+            or artifacts_row.get("repository_alias") != repository_alias
+            or artifacts_row.get("revision") != revision
+            or artifacts_row.get("review_digest") != digest
+            or not isinstance(artifacts_row.get("recorded_at"), str)
+            or not isinstance(html, str)
+            or not html.startswith("<!doctype html>")
+            or not isinstance(sarif, str)
+            or not isinstance(sarif_document, Mapping)
+            or sarif_document.get("version") != "2.1.0"
+            or len(str(artifacts_row).encode()) > _MAX_ARTIFACT_BYTES
+        ):
+            gaps.append({"reason_code": GAP_ARTIFACTS_MALFORMED})
+        else:
+            artifacts = {"mode": "full", "html": html, "sarif": sarif}
+    if artifacts is None:
+        artifacts = _summary_artifacts(repository_alias, revision, issues)
     return {
         **base,
         "available": True,
         "complete": not gaps,
         "issues": issues,
         "truncated": truncated,
+        "artifacts": artifacts,
         "gaps": gaps,
     }
 
@@ -174,18 +298,26 @@ async def read_code_security_issues(
     issue_rows = await fetch_all(
         _ROW_SQL, (f"{CODE_SECURITY_ISSUES_STATE_PREFIX}{alias}:{revision}",)
     )
+    artifact_rows = await fetch_all(
+        _ROW_SQL,
+        (f"{CODE_SECURITY_ISSUES_STATE_PREFIX}{alias}:{revision}:artifacts",),
+    )
     review = review_rows[0].get("value") if review_rows else None
     issues_row = issue_rows[0].get("value") if issue_rows else None
+    artifacts_row = artifact_rows[0].get("value") if artifact_rows else None
     return code_security_issues_projection(
         repository_alias=alias,
         revision=revision,
         review=review if isinstance(review, Mapping) else None,
         issues_row=issues_row if isinstance(issues_row, Mapping) else None,
+        artifacts_row=artifacts_row if isinstance(artifacts_row, Mapping) else None,
     )
 
 
 __all__ = [
     "CODE_SECURITY_ISSUES_STATE_PREFIX",
+    "GAP_ARTIFACTS_MALFORMED",
+    "GAP_ARTIFACTS_UNAVAILABLE",
     "GAP_ISSUES_MALFORMED",
     "GAP_ISSUES_TRUNCATED",
     "GAP_ISSUES_UNAVAILABLE",

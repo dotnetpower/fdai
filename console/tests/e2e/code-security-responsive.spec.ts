@@ -90,6 +90,11 @@ async function mockApi(
               known_exploited: true,
             },
           ],
+          artifacts: {
+            mode: "full",
+            html: "<!doctype html><html><head><title>FDAI report</title></head><body><h1>FDAI report</h1></body></html>",
+            sarif: '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"FDAI"}},"results":[]}]}',
+          },
           gaps: [],
         },
       });
@@ -338,6 +343,12 @@ for (const viewport of [
     await expect(page.getByRole("heading", { name: /Issues in this review/ })).toBeVisible();
     await expect(page.getByText("example-deliberately-long-dependency-package-name CVE-2026-12345, GHSA-abcd-efgh-ijkl")).toBeVisible();
     await expect(page.getByText("CWE-78", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "FDAI-SEC-0123456789ab" }).click();
+    await expect(page.getByRole("region", { name: "Issue details" })).toContainText("command_injection");
+    await page.getByRole("button", { name: "View HTML report" }).click();
+    await expect(page.getByTitle("Code-security HTML report")).toBeVisible();
+    await page.getByRole("button", { name: "View SARIF" }).click();
+    await expect(page.getByLabel("Code-security SARIF")).toContainText('"version":"2.1.0"');
 
     const geometry = await page.evaluate(() => {
       const main = document.querySelector("main");

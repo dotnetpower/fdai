@@ -372,6 +372,15 @@ after recording, which is the operator's confirmation that the clone, scan, and 
 Git ref resolution and acquisition run outside the asynchronous coordinator loop so heartbeat and
 claim renewal continue during a slow network fetch or archive extraction.
 
+Automatic scans also produce two bounded, review-digest-bound presentation artifacts: a canonical
+SARIF 2.1.0 document and a self-contained HTML report. They contain canonical issue metadata,
+fix-site locations, scanner completion, coverage limits, and counts, but no source code, scanner
+messages, code flows, credentials, or secrets. The worker records them immutably beside the issue
+summaries. The authenticated Console can render either artifact for the exact repository revision;
+an absent, oversized, malformed, or digest-mismatched full artifact is explicit, and the Operator
+generates a clearly labeled summary-only HTML/SARIF view from the already validated issue summaries
+without inventing paths or scanner coverage.
+
 The [Knowledge GitHub connection](../../runbooks/knowledge-github-sources.md) can also register
 a verified repository source, using either public read access or the deployment's read-only
 GitHub App credential reference. Its repository provenance remains on the existing registration;

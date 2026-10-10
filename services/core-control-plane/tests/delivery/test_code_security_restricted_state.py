@@ -18,6 +18,9 @@ from fdai.delivery.persistence.postgres_code_security_scan_requests import (
     PostgresCodeSecurityScanRequestQueueConfig,
 )
 from fdai.delivery.persistence.postgres_code_security_state import PostgresCodeSecurityStateStore
+from fdai.delivery.persistence.state_store_code_security_artifacts import (
+    record_code_security_artifacts,
+)
 from fdai.delivery.persistence.state_store_code_security_repository import (
     list_repositories,
     register_repository,
@@ -138,6 +141,16 @@ async def test_restricted_store_records_registration_and_cas_with_valid_chain(
             "revision": "a" * 40
         }
         assert await store.read_state("runtime:code-security-worker:v1") == {"state": "ready"}
+        assert await record_code_security_artifacts(
+            store,
+            repository_alias="example-app",
+            revision="a" * 40,
+            review_digest="b" * 64,
+            artifacts={
+                "html": "<!doctype html><title>FDAI report</title>",
+                "sarif": '{"version":"2.1.0","runs":[]}',
+            },
+        )
     finally:
         await store.aclose()
     with psycopg.connect(admin) as connection:

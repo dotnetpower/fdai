@@ -86,6 +86,7 @@ class ScanOutcome:
     package: Mapping[str, object]
     issues: Sequence[Mapping[str, object]] = ()
     issues_truncated: bool = False
+    artifacts: Mapping[str, str] | None = None
 
 
 class ScanRequestQueue(Protocol):

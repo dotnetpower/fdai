@@ -22,6 +22,7 @@ import base64
 import os
 from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 from uuid import uuid4
@@ -33,6 +34,11 @@ from fdai.delivery.code_security_execution import (
     add_execution_arguments,
     kata_config,
     run_kata_scan,
+)
+from fdai.delivery.code_security_report import (
+    render_html,
+    render_sarif,
+    scan_report_document,
 )
 from fdai.delivery.code_security_review_cli import pairs
 from fdai.delivery.code_security_sandbox import BubblewrapScannerSandbox
@@ -307,7 +313,26 @@ def _scan_runner(args: argparse.Namespace):  # type: ignore[no-untyped-def]
                 verifier_catalog=verifiers,
             )
         summaries, truncated = summarize_issues(result.issues)
-        return ScanOutcome(result.package, summaries, truncated)
+        generated_at = datetime.now(UTC).isoformat(timespec="seconds")
+        document = scan_report_document(
+            result,
+            repository_alias=repository.repository_alias,
+            source_label=f"{source.kind}:{source.provider}",
+            generated_at=generated_at,
+        )
+        return ScanOutcome(
+            result.package,
+            summaries,
+            truncated,
+            {
+                "html": render_html(document),
+                "sarif": render_sarif(
+                    result,
+                    repository_alias=repository.repository_alias,
+                    generated_at=generated_at,
+                ),
+            },
+        )
 
     return run
 
@@ -326,12 +351,16 @@ def _recorder(store: StateStore):  # type: ignore[no-untyped-def]
     )
 
     async def record(outcome: ScanOutcome) -> bool:
-        return await record_code_security_review(
+        if outcome.artifacts is None:
+            raise ValueError("automatic code-security scan outcome has no report artifacts")
+        created = await record_code_security_review(
             store,
             outcome.package,
             issues=outcome.issues,
             issues_truncated=outcome.issues_truncated,
+            artifacts=outcome.artifacts,
         )
+        return created
 
     return record
 

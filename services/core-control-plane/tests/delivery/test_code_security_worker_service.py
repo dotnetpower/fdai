@@ -15,6 +15,11 @@ from fdai.delivery.code_security_worker_service import (
     CodeSecurityWorkerServiceConfig,
     run_worker_service,
 )
+from fdai.delivery.persistence.state_store_code_security_artifacts import (
+    code_security_artifact_state_key,
+    record_code_security_artifact_gap,
+    record_code_security_artifacts,
+)
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 
@@ -34,6 +39,47 @@ async def test_successful_revision_round_trips_and_malformed_state_fails() -> No
     await store.write_state(revision_state_key("example-app"), {"revision": "bad"})
     with pytest.raises(ValueError, match="revision state is malformed"):
         await read_successful_revision(store, "example-app")
+
+
+async def test_review_artifacts_are_bounded_immutable_and_digest_bound() -> None:
+    store = InMemoryStateStore()
+    artifacts = {
+        "html": "<!doctype html><title>FDAI report</title>",
+        "sarif": '{"version":"2.1.0","runs":[]}',
+    }
+    assert await record_code_security_artifacts(
+        store,
+        repository_alias="example-app",
+        revision="a" * 40,
+        review_digest="b" * 64,
+        artifacts=artifacts,
+        recorded_at=datetime(2026, 10, 10, tzinfo=UTC),
+    )
+    assert not await record_code_security_artifacts(
+        store,
+        repository_alias="example-app",
+        revision="a" * 40,
+        review_digest="b" * 64,
+        artifacts=artifacts,
+        recorded_at=datetime(2026, 10, 11, tzinfo=UTC),
+    )
+    row = await store.read_state(code_security_artifact_state_key("example-app", "a" * 40))
+    assert row is not None and row["review_digest"] == "b" * 64
+    with pytest.raises(ValueError, match="SARIF artifact"):
+        await record_code_security_artifacts(
+            store,
+            repository_alias="example-app",
+            revision="c" * 40,
+            review_digest="d" * 64,
+            artifacts={"html": artifacts["html"], "sarif": "{}"},
+        )
+    assert await record_code_security_artifact_gap(
+        store,
+        repository_alias="large-app",
+        revision="e" * 40,
+        review_digest="f" * 64,
+        reason_code="artifact_size_exceeded",
+    )
 
 
 @pytest.mark.parametrize(

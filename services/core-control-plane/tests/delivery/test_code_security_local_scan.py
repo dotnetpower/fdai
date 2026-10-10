@@ -22,6 +22,7 @@ from fdai.delivery.code_security_acquire import GitSourceAcquirer, SourceAcquisi
 from fdai.delivery.code_security_report import (
     render_html,
     render_markdown,
+    render_sarif,
     scan_report_document,
     write_scan_report,
 )
@@ -269,6 +270,20 @@ def test_report_lists_issues_without_code_or_scanner_text(tmp_path: Path) -> Non
     assert "fdai-code-security export --revision" in markdown
     assert "Content-Security-Policy" in page and "<script" not in page
     assert oct(paths.html.stat().st_mode & 0o777) == "0o600"
+    sarif = json.loads(
+        render_sarif(
+            result,
+            repository_alias="example-service",
+            generated_at="2026-10-08T00:00:00+00:00",
+        )
+    )
+    sarif_result = sarif["runs"][0]["results"][0]
+    assert sarif["version"] == "2.1.0"
+    assert sarif_result["properties"]["issue_id"] == issue["issue_id"]
+    assert (
+        sarif_result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == "src/app.py"
+    )
+    assert "scanner said" not in json.dumps(sarif)
 
 
 def test_report_escapes_html_and_localizes_to_korean(tmp_path: Path) -> None:

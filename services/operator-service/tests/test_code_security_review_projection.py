@@ -510,11 +510,26 @@ def test_issue_projection_requires_the_matching_review_digest() -> None:
             "issues": [_summary(), _summary(path="src/x.py")],
             "truncated": True,
         },
+        artifacts_row={
+            "kind": "code-security-review-artifacts",
+            "schema_version": "1.0.0",
+            "repository_alias": "example-service",
+            "revision": _REVISION,
+            "review_digest": digest,
+            "recorded_at": "2026-10-10T00:00:00+00:00",
+            "html": "<!doctype html><title>report</title>",
+            "sarif": '{"version":"2.1.0","runs":[]}',
+        },
     )
     assert ok["available"] is True and len(ok["issues"]) == 1  # type: ignore[arg-type]
     assert {gap["reason_code"] for gap in ok["gaps"]} == {  # type: ignore[union-attr]
         "code_security_issue_malformed",
         "code_security_issues_truncated",
+    }
+    assert ok["artifacts"] == {
+        "mode": "full",
+        "html": "<!doctype html><title>report</title>",
+        "sarif": '{"version":"2.1.0","runs":[]}',
     }
     assert "src/x.py" not in str(ok)
     stale = code_security_issues_projection(
@@ -530,6 +545,24 @@ def test_issue_projection_requires_the_matching_review_digest() -> None:
     assert missing["gaps"] == [{"reason_code": "code_security_issues_unavailable"}]
 
 
+def test_missing_full_artifacts_fall_back_to_bounded_summary_views() -> None:
+    review = _row(_package())["value"]
+    result = code_security_issues_projection(
+        repository_alias="example-service",
+        revision=_REVISION,
+        review=review,
+        issues_row={
+            "review_digest": review["package"]["review_digest"],
+            "issues": [_summary()],
+            "truncated": False,
+        },
+    )
+    artifacts = result["artifacts"]
+    assert artifacts["mode"] == "summary"  # type: ignore[index]
+    assert "summary report" in artifacts["html"]  # type: ignore[index]
+    assert '"version": "2.1.0"' in artifacts["sarif"]  # type: ignore[index]
+
+
 async def test_reader_serves_issues_for_one_exact_review() -> None:
     import pytest
 
@@ -540,6 +573,22 @@ async def test_reader_serves_issues_for_one_exact_review() -> None:
         statements.append(params)
         if str(params[0]).startswith("runtime:code-security-review:"):
             return [{"key": params[0], "value": review}]
+        if str(params[0]).endswith(":artifacts"):
+            return [
+                {
+                    "key": params[0],
+                    "value": {
+                        "kind": "code-security-review-artifacts",
+                        "schema_version": "1.0.0",
+                        "repository_alias": "example-service",
+                        "revision": _REVISION,
+                        "review_digest": review["package"]["review_digest"],
+                        "recorded_at": "2026-10-10T00:00:00+00:00",
+                        "html": "<!doctype html><title>report</title>",
+                        "sarif": '{"version":"2.1.0","runs":[]}',
+                    },
+                }
+            ]
         return [
             {
                 "key": params[0],
@@ -557,6 +606,7 @@ async def test_reader_serves_issues_for_one_exact_review() -> None:
     assert statements == [
         (f"runtime:code-security-review:example-service:{_REVISION}",),
         (f"runtime:code-security-issues:example-service:{_REVISION}",),
+        (f"runtime:code-security-issues:example-service:{_REVISION}:artifacts",),
     ]
     with pytest.raises(ValueError, match="revision"):
         await read_code_security_projection(

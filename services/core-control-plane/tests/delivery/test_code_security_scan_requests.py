@@ -10,7 +10,7 @@ import fdai.delivery.code_security_scan_requests as scan_requests_module
 import pytest
 from fdai.core.security.code_findings.review_signal import ReviewSource
 from fdai.delivery.code_security_acquire import SourceAcquisitionError
-from fdai.delivery.code_security_repo_cli import github_auth_header
+from fdai.delivery.code_security_repo_cli import _recorder, github_auth_header
 from fdai.delivery.code_security_repository_changes import (
     REJECT_REPOSITORY_CONFLICT,
     REPOSITORY_CHANGE_OPERATION,
@@ -30,6 +30,9 @@ from fdai.delivery.code_security_scan_requests import (
     ScanOutcome,
     parse_scan_request,
     process_scan_requests,
+)
+from fdai.delivery.persistence.state_store_code_security_artifacts import (
+    code_security_artifact_state_key,
 )
 from fdai.delivery.persistence.state_store_code_security_repository import (
     CodeSecurityRepository,
@@ -275,6 +278,51 @@ async def test_processor_renews_a_claim_during_long_source_work(
 
     await process_scan_requests(queue, store, runner, recorder=recorder)
     assert len(queue.renewals) >= 2
+
+
+async def test_worker_recorder_persists_review_artifacts() -> None:
+    store = InMemoryStateStore()
+    package = {
+        "schema_version": "1.0.0",
+        "kind": "code-security-review",
+        "repository_alias": "example-app",
+        "revision": _REVISION,
+        "review_digest": "e" * 64,
+        "issue_count": 0,
+        "by_priority": {"P0": 0, "P1": 0, "P2": 0, "P3": 0, "P4": 0},
+        "by_severity": {
+            "critical": 0,
+            "high": 0,
+            "medium": 0,
+            "low": 0,
+            "undetermined": 0,
+        },
+        "by_confidence": {
+            "hypothesis": 0,
+            "reported": 0,
+            "corroborated": 0,
+            "verified": 0,
+            "proven": 0,
+        },
+        "known_exploited_count": 0,
+        "exposure": "unknown",
+        "coverage_complete": True,
+        "top_issue_ids": [],
+        "review_required": True,
+        "grants_authority": False,
+    }
+    outcome = ScanOutcome(
+        package,
+        artifacts={
+            "html": "<!doctype html><title>FDAI report</title>",
+            "sarif": '{"version":"2.1.0","runs":[]}',
+        },
+    )
+    assert await _recorder(store)(outcome)
+    key = code_security_artifact_state_key("example-app", _REVISION)
+    artifacts = await store.read_state(key)
+    assert artifacts is not None
+    assert artifacts["review_digest"] == "e" * 64
 
 
 async def test_processor_rejects_every_unsafe_or_failed_request() -> None:

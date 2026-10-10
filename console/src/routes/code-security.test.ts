@@ -439,10 +439,16 @@ describe("code-security route", () => {
           known_exploited: true,
         },
       ],
+      artifacts: {
+        mode: "full",
+        html: "<!doctype html><title>report</title>",
+        sarif: '{"version":"2.1.0","runs":[]}',
+      },
       gaps: [{ reason_code: "code_security_issues_truncated" }],
     });
     expect(data.issues.map(issueReference)).toEqual(["CWE-78", "flask CVE-2026-0001"]);
     expect(data.gaps).toEqual(["code_security_issues_truncated"]);
+    expect(data.artifacts?.html).toContain("<!doctype html>");
     expect(() => decodeCodeSecurityIssues({ available: true, issues: [{ priority: "P9" }], gaps: [] })).toThrow();
   });
 
