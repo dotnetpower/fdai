@@ -56,7 +56,7 @@ if [[ "$supervisor_is_managed" != "1" ]]; then
 fi
 
 kill -TERM "$supervisor_pid"
-if ! flock -w 15 "$stack_lock_fd"; then
+if ! flock -w 45 "$stack_lock_fd"; then
   echo "existing Console supervisor did not release its lock" >&2
   exit 75
 fi

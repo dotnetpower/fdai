@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 65bf31c69ceaad9301ea9a6bf51fb62aa99dd4d9
+translation_source_sha: 52ce6f8b9aef6dd10ec3a68fb11765ddb62b1e55
 translation_revised: 2026-10-11
 ---
 
@@ -87,7 +87,8 @@ Terraform 상태를 초기화하거나 읽지 않으며 게이트웨이 검색�
 서비스 지문은 고정 이름 컨테이너 래퍼를 포함합니다. 이 래퍼는 supervisor가 종료될 때 정확한
 컨테이너를 중지하며, 이름이 이미 사용 중이면 다른 consumer를 만들지 않고 시작을 거부합니다.
 서비스 실행기의 종료 기한은 컨테이너 중지 기한보다 길어서 공통 강제 중지 보호가 정리를 중단하지
-않습니다.
+않습니다. 최상위 중지 명령은 supervisor lock이 해제되지 않았다고 보고하기 전에 이 서비스
+기한보다 더 오래 기다립니다.
 supervisor
 중지와 교체는 PID, checkout, lock fd 소유권 검사를 유지하면서 정본 실행기나 저장소 안의 정확한
 Copilot wrapper만 허용합니다.

@@ -82,7 +82,8 @@ and generates a private worker environment. Readiness requires a fresh content-f
 worker service fingerprint includes its fixed-name container wrapper, which stops the exact
 container on supervisor termination and refuses an already-owned name instead of creating another
 consumer. Its service-runner shutdown budget is longer than the container stop deadline, so the
-generic forced-stop guard cannot interrupt cleanup.
+generic forced-stop guard cannot interrupt cleanup. The top-level stop command waits longer than
+that service budget before reporting that the supervisor lock was not released.
 Supervisor stop and replacement accept only the canonical launcher or its exact repo-local Copilot
 wrapper while preserving PID, checkout, and lock-fd ownership checks.
 

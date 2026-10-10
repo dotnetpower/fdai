@@ -23,6 +23,7 @@ _RUN_SERVICE_SCRIPT = _REPO_ROOT / "scripts/deployment/local/run-console-service
 _WORKER_CONTAINER_SCRIPT = (
     _REPO_ROOT / "scripts/deployment/local/run-code-security-worker-container.sh"
 )
+_STOP_SCRIPT = _REPO_ROOT / "scripts/deployment/local/stop-console-services.sh"
 _START_SCRIPT = _REPO_ROOT / "scripts/deployment/local/start-console-services.sh"
 _SCANNER_IMAGE_SCRIPT = _REPO_ROOT / "scripts/deployment/local/code-security-scanner-image.sh"
 _BOUNDED_RUNNER = _REPO_ROOT / "scripts/automation/run-bounded-command.py"
@@ -991,6 +992,22 @@ esac
         if process.poll() is None:
             process.kill()
             process.wait(timeout=3)
+
+
+def test_stack_stop_budget_exceeds_worker_cleanup_deadlines() -> None:
+    stop_source = _STOP_SCRIPT.read_text(encoding="utf-8")
+    launcher = _RUN_SERVICE_SCRIPT.read_text(encoding="utf-8")
+    worker_container = _WORKER_CONTAINER_SCRIPT.read_text(encoding="utf-8")
+    stack_budget = re.search(r'flock -w ([0-9]+) "\$stack_lock_fd"', stop_source)
+    service_budget = re.search(r"FDAI_LOCAL_SERVICE_SHUTDOWN_SECONDS=([0-9]+)", launcher)
+    container_budget = re.search(
+        r"FDAI_CODE_SECURITY_CONTAINER_SHUTDOWN_SECONDS:-([0-9]+)", worker_container
+    )
+
+    assert stack_budget is not None and service_budget is not None and container_budget is not None
+    assert (
+        int(stack_budget.group(1)) > int(service_budget.group(1)) > int(container_budget.group(1))
+    )
 
 
 def test_preparation_owns_scanner_image_drift_and_digest_binding() -> None:
