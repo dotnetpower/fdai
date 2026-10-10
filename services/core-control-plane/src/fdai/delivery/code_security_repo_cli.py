@@ -50,6 +50,7 @@ from fdai.delivery.code_security_scheduled_scans import (
     process_scheduled_scans,
 )
 from fdai.delivery.code_security_worker_service import (
+    WORKER_HEALTH_FILE_ENV,
     CodeSecurityWorkerServiceConfig,
     run_worker_service,
 )
@@ -433,9 +434,11 @@ async def run_worker_service_command(args: argparse.Namespace) -> None:
             restricted_access=args.state_access == "restricted",
         )
     )
+    health_file = os.environ.get(WORKER_HEALTH_FILE_ENV, "").strip()
     config = CodeSecurityWorkerServiceConfig(
         request_interval_seconds=args.request_interval_seconds,
         schedule_interval_seconds=args.schedule_interval_seconds,
+        health_file=Path(health_file) if health_file else None,
     )
     async with _open_store(restricted=args.state_access == "restricted") as store:
         recorder = _recorder(store)

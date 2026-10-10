@@ -361,7 +361,10 @@ invokes the request batch every 5 seconds and the scheduled revision check every
 default; deployments can select bounded intervals without changing scan authority. Every cycle
 writes a content-free heartbeat with the next request and schedule times. A missing or stale
 heartbeat makes automation unavailable in the Console instead of leaving queued work looking
-active. Each process uses a unique worker identity and renews its 60-second claim while scanning.
+active. The AKS worker also updates a content-free local health file only after a durable heartbeat
+write succeeds. Its readiness and liveness exec probes reject a missing or stale file with
+thresholds derived from the request interval, without exposing an HTTP endpoint or credentials.
+Each process uses a unique worker identity and renews its 60-second claim while scanning.
 A replacement cannot steal an unexpired claim and recovers abandoned work only after the bounded
 lease expires. The scan runner image owns both the service and one-shot commands.
 

@@ -6,10 +6,12 @@ import asyncio
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 from fdai.shared.providers.state_store import StateStore
 
 WORKER_STATUS_KEY = "runtime:code-security-worker:v1"
+WORKER_HEALTH_FILE_ENV = "FDAI_CODE_SECURITY_HEALTH_FILE"
 Batch = Callable[[], Awaitable[Sequence[Mapping[str, object]]]]
 Clock = Callable[[], datetime]
 Sleep = Callable[[float], Awaitable[None]]
@@ -19,12 +21,15 @@ Sleep = Callable[[float], Awaitable[None]]
 class CodeSecurityWorkerServiceConfig:
     request_interval_seconds: int = 5
     schedule_interval_seconds: int = 300
+    health_file: Path | None = None
 
     def __post_init__(self) -> None:
         if not 1 <= self.request_interval_seconds <= 60:
             raise ValueError("request_interval_seconds MUST be in [1, 60]")
         if not 60 <= self.schedule_interval_seconds <= 86_400:
             raise ValueError("schedule_interval_seconds MUST be in [60, 86400]")
+        if self.health_file is not None and not self.health_file.is_absolute():
+            raise ValueError("health_file MUST be absolute")
 
 
 def _timestamp(value: datetime) -> str:
@@ -69,6 +74,8 @@ async def _write_status(
             ),
         },
     )
+    if config.health_file is not None:
+        config.health_file.touch()
 
 
 async def _run_with_heartbeat(
@@ -194,6 +201,7 @@ async def run_worker_service(
 
 
 __all__ = [
+    "WORKER_HEALTH_FILE_ENV",
     "WORKER_STATUS_KEY",
     "CodeSecurityWorkerServiceConfig",
     "run_worker_service",

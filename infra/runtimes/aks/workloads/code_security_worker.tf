@@ -300,6 +300,34 @@ resource "kubernetes_deployment_v1" "code_security_worker" {
             }
           }
 
+          readiness_probe {
+            exec {
+              command = [
+                "/usr/local/bin/fdai-scan-runner",
+                "worker-health",
+                tostring(max(15, var.code_security_worker.request_interval_seconds * 3)),
+              ]
+            }
+            initial_delay_seconds = 5
+            period_seconds        = 10
+            timeout_seconds       = 3
+            failure_threshold     = 3
+          }
+
+          liveness_probe {
+            exec {
+              command = [
+                "/usr/local/bin/fdai-scan-runner",
+                "worker-health",
+                tostring(max(60, var.code_security_worker.request_interval_seconds * 6)),
+              ]
+            }
+            initial_delay_seconds = 30
+            period_seconds        = 30
+            timeout_seconds       = 3
+            failure_threshold     = 3
+          }
+
           env {
             name  = "POSTGRES_HOST"
             value = var.code_security_worker.database_host
@@ -327,6 +355,10 @@ resource "kubernetes_deployment_v1" "code_security_worker" {
           env {
             name  = "FDAI_SCAN_CACHE"
             value = "/cache"
+          }
+          env {
+            name  = "FDAI_CODE_SECURITY_HEALTH_FILE"
+            value = "/tmp/fdai-code-security-worker.health"
           }
           env {
             name  = "FDAI_KAFKA_BOOTSTRAP_SERVERS"

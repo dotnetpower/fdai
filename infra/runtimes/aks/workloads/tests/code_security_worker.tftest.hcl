@@ -101,9 +101,16 @@ run "dedicated_worker_contract" {
         for item in kubernetes_deployment_v1.code_security_worker[0].spec[0].template[0].spec[0].container[0].env :
         item.name => item.value
         if item.value != null
-      }["FDAI_EXECUTION_VENUE"] == "deployed"
+      }["FDAI_EXECUTION_VENUE"] == "deployed" &&
+      {
+        for item in kubernetes_deployment_v1.code_security_worker[0].spec[0].template[0].spec[0].container[0].env :
+        item.name => item.value
+        if item.value != null
+      }["FDAI_CODE_SECURITY_HEALTH_FILE"] == "/tmp/fdai-code-security-worker.health" &&
+      join(" ", kubernetes_deployment_v1.code_security_worker[0].spec[0].template[0].spec[0].container[0].readiness_probe[0].exec[0].command) == "/usr/local/bin/fdai-scan-runner worker-health 15" &&
+      join(" ", kubernetes_deployment_v1.code_security_worker[0].spec[0].template[0].spec[0].container[0].liveness_probe[0].exec[0].command) == "/usr/local/bin/fdai-scan-runner worker-health 60"
     )
-    error_message = "The scanner must retain a restricted container and read-only cache binding."
+    error_message = "The scanner must retain restricted storage and freshness-bound health probes."
   }
 
   assert {

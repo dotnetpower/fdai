@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from fdai.delivery import code_security_cli
@@ -113,9 +114,13 @@ def test_worker_service_rejects_unbounded_intervals() -> None:
         CodeSecurityWorkerServiceConfig(request_interval_seconds=0)
     with pytest.raises(ValueError, match="schedule_interval_seconds"):
         CodeSecurityWorkerServiceConfig(schedule_interval_seconds=59)
+    with pytest.raises(ValueError, match="health_file"):
+        CodeSecurityWorkerServiceConfig(health_file=Path("relative-health"))
 
 
-async def test_worker_service_runs_requests_each_cycle_and_schedule_when_due() -> None:
+async def test_worker_service_runs_requests_each_cycle_and_schedule_when_due(
+    tmp_path: Path,
+) -> None:
     store = InMemoryStateStore()
     current = datetime(2026, 10, 10, tzinfo=UTC)
     request_calls = 0
@@ -149,6 +154,7 @@ async def test_worker_service_runs_requests_each_cycle_and_schedule_when_due() -
         config=CodeSecurityWorkerServiceConfig(
             request_interval_seconds=5,
             schedule_interval_seconds=300,
+            health_file=tmp_path / "worker.health",
         ),
         clock=clock,
         sleep=sleep,
@@ -165,3 +171,4 @@ async def test_worker_service_runs_requests_each_cycle_and_schedule_when_due() -
     assert status["schedule_unchanged"] == 1
     assert status["schedule_failed"] == 1
     assert status["next_schedule_at"] == "2026-10-10T00:05:00+00:00"
+    assert (tmp_path / "worker.health").is_file()
