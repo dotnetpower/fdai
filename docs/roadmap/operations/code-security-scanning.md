@@ -161,8 +161,12 @@ produced valid SARIF.
 Opengrep, gitleaks, OSV-Scanner, and Trivy. Opengrep is pinned by version and SHA-256. The Go-based
 tools retain their scanner versions but rebuild authenticated, checksum-pinned upstream modules
 with digest-pinned Go 1.27.2 and patched dependencies. Builds reject compiler or embedded-module
-version drift. The glibc-based Debian image is pinned by digest, and the runtime removes the
-unused pip installer and its vulnerable vendored libraries. The file builds three targets:
+version drift. The glibc-based scanner image uses digest-pinned Azure Linux 3.0, an officially
+supported .NET 10 operating system. CPython 3.13.16 retains its authenticated upstream source
+checksum and is built against maintained distribution libraries; compilation, installation and
+bytecode workers are bounded. The application is rebuilt from the current source and frozen
+lock, not copied from a previous scanner image. No unused pip installer is shipped.
+The file builds three targets:
 
 - **`runtime` (default):** every scanner and the Python proof lane.
 - **`prover-javascript`:** every scanner plus Python and the pinned Node runtime. It omits
@@ -202,7 +206,25 @@ trivy sbom --exit-code 1 --severity MEDIUM,HIGH,CRITICAL node-runtime.cdx.json
 Run the unchanged image scan as well. A passing scoped SBOM check is not complete native-library,
 kernel, full-image, or installation readiness evidence; the inventory is not an attestation.
 
-Image build success does not prove supply-chain readiness. Scan both exact built targets with
+### Supply-chain remediation and execution scope
+
+Treat package/advisory matches as reported findings until their exact component scope is
+reviewed. Image-package metadata does not establish which kernel a container or Kata VM runs.
+Keep raw findings, any separate not-affected assessment, and execution-venue observations distinct.
+
+The #2061 platform review rejected Debian 12 for the .NET 10 support gap and did not adopt the
+Ubuntu candidate from a lower unmatched package count. The selected supported platform instead
+requires recognized operating-system and language-package inventory, unchanged
+`MEDIUM,HIGH,CRITICAL` checks, all scanner/proof capabilities and independent runtime evidence.
+Missing coverage is not a zero-finding result; unsupported native-library coverage remains explicit.
+
+Local development verification binds one exact image to UID, no-new-privileges, dropped
+capabilities, default seccomp, read-only source, no scanner egress, resource limits and actual
+positive/negative proof cases. Compiled proof programs require a private bounded executable
+workspace; this does not require disabling seccomp or making the source writable. Local evidence
+establishes only that selected development venue, not Azure installation or another venue's kernel.
+
+Image build success does not prove supply-chain readiness. Scan all three exact built targets with
 fresh vulnerability data, retain findings without available vendor fixes, and never report those
 findings as resolved merely because the Go/Python dependency repairs pass.
 

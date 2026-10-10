@@ -72,35 +72,72 @@ RUN go mod download "github.com/aquasecurity/trivy@v${TRIVY_VERSION}" \
     && test "$(go version -m /out/trivy | awk '$2 == "golang.org/x/net" {print $3}')" = "${SCANNER_X_NET_VERSION}" \
     && /out/trivy --version
 
-FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:bf44cdfcb76cd3b41e879bc058fc37ec5872002ccfde7fcb765e218cde0cd79c AS tools
+FROM mcr.microsoft.com/azurelinux/base/core@sha256:a66ca12ae8c8c464e00cc6cc7f9deff5d2dfcd0f1314ba5dac22034ef171d3ae AS platform
+
+FROM platform AS python-builder
+
+ARG PYTHON_VERSION=3.13.16
+ARG PYTHON_SHA256=f4b1bfb3c79b5bb11b8d228a12504163b4c0dab4d679828d8f5f26b6cb6ab35d
+ENV TMPDIR=/build/scratch
+RUN mkdir -p /build/scratch \
+    && timeout --signal=TERM --kill-after=10 180s tdnf install -y \
+        gcc gcc-c++ binutils glibc-devel kernel-headers gawk make tar \
+        openssl-devel zlib-devel libffi-devel sqlite-devel xz-devel bzip2-devel \
+        expat-devel readline-devel ncurses-devel gdbm-devel util-linux-devel
+WORKDIR /build
+RUN curl --fail --location --retry 0 --connect-timeout 30 --max-time 180 \
+        -o Python.tar.xz "https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tar.xz" \
+    && echo "${PYTHON_SHA256}  Python.tar.xz" | sha256sum -c - \
+    && tar -xf Python.tar.xz \
+    && timeout --signal=TERM --kill-after=10 900s sh -ec '\
+        cd "Python-${PYTHON_VERSION}"; \
+        ./configure --prefix=/usr/local --enable-shared --with-system-expat \
+            --with-openssl=/usr --with-ensurepip=no --enable-loadable-sqlite-extensions; \
+        make -j4; \
+        make -j4 install COMPILEALL_OPTS=-j4' \
+    && ln -s python3.13 /usr/local/bin/python \
+    && ln -s /usr/local/lib/libpython3.13.so.1.0 /usr/lib/libpython3.13.so.1.0
+
+FROM platform AS python-runtime
+RUN timeout --signal=TERM --kill-after=10 180s tdnf install -y \
+        bubblewrap git openssl-libs expat-libs sqlite-libs libffi bzip2-libs xz-libs \
+        zlib readline ncurses-libs gdbm util-linux-libs libstdc++
+COPY --from=python-builder /usr/local/ /usr/local/
+# Bubblewrap exposes /usr but no /etc/ld.so.cache; use the loader's default library directory.
+RUN ln -s /usr/local/lib/libpython3.13.so.1.0 /usr/lib/libpython3.13.so.1.0 \
+    && /lib64/ld-linux-x86-64.so.2 --inhibit-cache /usr/local/bin/python3.13 --version \
+    && python -c 'import ssl, sqlite3, ctypes, bz2, lzma, zlib, decimal, venv, pyexpat, readline, curses, dbm.gnu, uuid; import importlib.util; assert importlib.util.find_spec("pip") is None'
+
+FROM ghcr.io/astral-sh/uv@sha256:0d127b3a7049b879a6e18a79c7f33fea59aa83c226464248f89cfb716a6b96f5 AS uv
+
+FROM platform AS tools
 
 ARG OPENGREP_VERSION=v1.30.1
 ARG OPENGREP_SHA256=d3195b9d8d5ae93179f6aa5f5daaba6a920a5a09d38c5d5ae5e60924050210c4
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates wget \
-    && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /download
 RUN set -eu \
     && mkdir -p /opt/scanners/bin \
-    && wget -q -O opengrep "https://github.com/opengrep/opengrep/releases/download/${OPENGREP_VERSION}/opengrep_manylinux_x86" \
+    && curl --fail --location --retry 0 --connect-timeout 30 --max-time 180 \
+        -o opengrep "https://github.com/opengrep/opengrep/releases/download/${OPENGREP_VERSION}/opengrep_manylinux_x86" \
     && echo "${OPENGREP_SHA256}  opengrep" | sha256sum -c - \
     && install -m 0755 opengrep /opt/scanners/bin/opengrep
 COPY --from=scanner-builder /out/ /opt/scanners/bin/
 
-FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:bf44cdfcb76cd3b41e879bc058fc37ec5872002ccfde7fcb765e218cde0cd79c AS builder
+FROM python-builder AS builder
 
 ENV UV_LINK_MODE=copy \
-    UV_COMPILE_BYTECODE=1 \
+    UV_COMPILE_BYTECODE=0 \
+    UV_CONCURRENT_BUILDS=4 \
+    UV_CONCURRENT_INSTALLS=4 \
+    UV_CONCURRENT_DOWNLOADS=4 \
+    UV_HTTP_RETRIES=0 \
+    UV_HTTP_TIMEOUT=30 \
     UV_PYTHON_DOWNLOADS=never \
-    UV_PROJECT_ENVIRONMENT=/app/.venv \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    UV_PROJECT_ENVIRONMENT=/app/.venv
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends build-essential zlib1g-dev \
-    && rm -rf /var/lib/apt/lists/*
-RUN pip install --no-cache-dir uv==0.11.32
+COPY --from=uv /uv /usr/local/bin/uv
+RUN test "$(uv --version | cut -d ' ' -f 1-2)" = "uv 0.11.32"
 
 WORKDIR /build
 COPY pyproject.toml uv.lock LICENSE README.md ./
@@ -118,31 +155,26 @@ COPY packages/github-app-auth/ ./packages/github-app-auth/
 COPY packages/service-contracts/ ./packages/service-contracts/
 COPY packages/runtime-diagnostics/ ./packages/runtime-diagnostics/
 COPY services/core-control-plane/ ./services/core-control-plane/
-RUN uv build --wheel --package fdai-github-app-auth --out-dir /wheels \
-    && uv build --wheel --package fdai-service-contracts --out-dir /wheels \
-    && uv build --wheel --package fdai-runtime-diagnostics --out-dir /wheels \
-    && uv build --wheel --package fdai-core-control-plane --out-dir /wheels \
-    && uv sync --frozen --package fdai-core-control-plane --no-dev --no-editable \
+RUN timeout --signal=TERM --kill-after=10 180s uv export --frozen --all-packages --all-extras \
+        --no-emit-workspace --output-file /build/build-constraints.txt \
+    && timeout --signal=TERM --kill-after=10 180s uv build --build-constraints /build/build-constraints.txt --require-hashes --wheel --package fdai-github-app-auth --out-dir /wheels \
+    && timeout --signal=TERM --kill-after=10 180s uv build --build-constraints /build/build-constraints.txt --require-hashes --wheel --package fdai-service-contracts --out-dir /wheels \
+    && timeout --signal=TERM --kill-after=10 180s uv build --build-constraints /build/build-constraints.txt --require-hashes --wheel --package fdai-runtime-diagnostics --out-dir /wheels \
+    && timeout --signal=TERM --kill-after=10 180s uv build --build-constraints /build/build-constraints.txt --require-hashes --wheel --package fdai-core-control-plane --out-dir /wheels \
+    && timeout --signal=TERM --kill-after=10 180s uv sync --frozen --package fdai-core-control-plane --no-dev --no-editable \
         --no-install-package fdai \
         --no-install-package fdai-github-app-auth \
         --no-install-package fdai-service-contracts \
         --no-install-package fdai-runtime-diagnostics \
         --no-install-package fdai-core-control-plane \
-    && uv pip install --python /app/.venv/bin/python --no-deps \
+    && timeout --signal=TERM --kill-after=10 180s uv pip install --python /app/.venv/bin/python --no-deps \
         /wheels/fdai_github_app_auth-*.whl \
         /wheels/fdai_service_contracts-*.whl \
         /wheels/fdai_runtime_diagnostics-*.whl \
-        /wheels/fdai_core_control_plane-*.whl
+        /wheels/fdai_core_control_plane-*.whl \
+    && timeout --signal=TERM --kill-after=10 180s /app/.venv/bin/python -m compileall -q -j4 /app/.venv/lib/python3.13
 
-FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:bf44cdfcb76cd3b41e879bc058fc37ec5872002ccfde7fcb765e218cde0cd79c AS base
-
-# The sandbox binds the proof interpreter at a fixed path and exposes no /etc/ld.so.cache, so
-# libpython must sit on the loader's default search path.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends bubblewrap ca-certificates git \
-    && rm -rf /var/lib/apt/lists/* \
-    && python -m pip uninstall --yes pip \
-    && ln -s /usr/local/lib/libpython3.13.so.1.0 /usr/lib/x86_64-linux-gnu/libpython3.13.so.1.0
+FROM python-runtime AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
@@ -158,33 +190,33 @@ COPY --chmod=0755 services/core-control-plane/docker/code-security-scanner-entry
 USER 65532
 ENTRYPOINT ["fdai-scan-runner"]
 
-FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:bf44cdfcb76cd3b41e879bc058fc37ec5872002ccfde7fcb765e218cde0cd79c AS dotnet
+FROM platform AS dotnet
 
 ARG DOTNET_SDK_VERSION=10.0.401
 ARG DOTNET_SDK_SHA512=51c8b999af9e8dd9998c9edc5944e19a90788862068acd38694e098889054ce8c23d4f0c5cccfa16bf187d044562359e5ee69a9f8ad0bbe913ba90311fbce25b
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates wget \
-    && rm -rf /var/lib/apt/lists/*
+RUN timeout --signal=TERM --kill-after=10 180s tdnf install -y tar
 WORKDIR /download
 RUN set -eu \
-    && wget -q -O dotnet.tar.gz "https://builds.dotnet.microsoft.com/dotnet/Sdk/${DOTNET_SDK_VERSION}/dotnet-sdk-${DOTNET_SDK_VERSION}-linux-x64.tar.gz" \
+    && curl --fail --location --retry 0 --connect-timeout 30 --max-time 180 \
+        -o dotnet.tar.gz "https://builds.dotnet.microsoft.com/dotnet/Sdk/${DOTNET_SDK_VERSION}/dotnet-sdk-${DOTNET_SDK_VERSION}-linux-x64.tar.gz" \
     && echo "${DOTNET_SDK_SHA512}  dotnet.tar.gz" | sha512sum -c - \
     && mkdir -p /usr/lib/dotnet \
     && tar -xzf dotnet.tar.gz -C /usr/lib/dotnet
 
-FROM ${BASE_IMAGE_REGISTRY}/library/python@sha256:bf44cdfcb76cd3b41e879bc058fc37ec5872002ccfde7fcb765e218cde0cd79c AS node
+FROM mcr.microsoft.com/openjdk/jdk@sha256:673bed7263ec02e4cd33fcaf9b1d0de8869f657fb36b5cec1b051d2ef4ba2bec AS jdk
+
+FROM python-runtime AS node
 
 ARG NODE_VERSION=24.21.0
 ARG NODE_SHA256=fd8e59d5a511510f6a298afb548f18c7d2b1be404d8b4a27d94fbe49f56cb2d6
 ARG NODE_UNDICI_VERSION=7.29.1
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates wget xz-utils libstdc++6 \
-    && rm -rf /var/lib/apt/lists/*
+RUN timeout --signal=TERM --kill-after=10 180s tdnf install -y tar
 WORKDIR /download
 COPY services/core-control-plane/docker/node-runtime-sbom.py /download/node-runtime-sbom.py
 RUN set -eu \
-    && wget -q -O node.tar.xz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
+    && curl --fail --location --retry 0 --connect-timeout 30 --max-time 180 \
+        -o node.tar.xz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
     && echo "${NODE_SHA256}  node.tar.xz" | sha256sum -c - \
     && mkdir -p /usr/share/licenses/nodejs \
     && tar -xJf node.tar.xz -C /usr --strip-components=1 "node-v${NODE_VERSION}-linux-x64/bin/node" \
@@ -217,13 +249,15 @@ FROM prover-javascript AS prover
 
 LABEL org.fdai.code-security.proof-profile="all"
 USER root
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        g++ gcc libc6-dev libicu76 openjdk-21-jdk-headless \
-    && rm -rf /var/lib/apt/lists/*
+RUN timeout --signal=TERM --kill-after=10 180s tdnf install -y \
+        gcc gcc-c++ binutils glibc-devel kernel-headers icu
+COPY --from=jdk /usr/lib/jvm/msopenjdk-21/ /usr/lib/jvm/msopenjdk-21/
 COPY --from=dotnet /usr/lib/dotnet/ /usr/lib/dotnet/
-RUN ln -s /usr/lib/dotnet/dotnet /usr/bin/dotnet
-ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
+RUN ln -s /usr/lib/dotnet/dotnet /usr/bin/dotnet \
+    && ln -s /usr/lib/jvm/msopenjdk-21/bin/java /usr/bin/java \
+    && ln -s /usr/lib/jvm/msopenjdk-21/bin/javac /usr/bin/javac
+ENV JAVA_HOME=/usr/lib/jvm/msopenjdk-21 \
+    DOTNET_CLI_TELEMETRY_OPTOUT=1 \
     DOTNET_NOLOGO=1
 USER 65532
 RUN opengrep --version \
