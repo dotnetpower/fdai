@@ -425,8 +425,13 @@ def render_sarif(
                 ],
                 "properties": {
                     "issue_id": issue.issue_id,
+                    "title": issue.title,
                     "priority": issue.priority.priority.value,
                     "severity": issue.severity.label,
+                    "severity_floor": issue.severity.floor.value,
+                    "severity_ceiling": issue.severity.ceiling.value,
+                    "severity_rationale": issue.severity.rationale,
+                    "deciding_facts": list(issue.severity.deciding_facts),
                     "confidence": issue.confidence.value,
                     "cwe_ids": [f"CWE-{cwe}" for cwe in issue.cwe_ids],
                     "advisory_ids": sorted(issue.advisory_ids)[:3],

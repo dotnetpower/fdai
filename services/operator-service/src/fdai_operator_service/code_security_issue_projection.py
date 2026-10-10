@@ -114,6 +114,70 @@ def _summary_artifacts(
     }
 
 
+def _relative_path(value: object) -> str | None:
+    if not isinstance(value, str) or not 1 <= len(value) <= 512:
+        return None
+    if value.startswith("/") or "\\" in value or "\x00" in value or ".." in value.split("/"):
+        return None
+    return value
+
+
+def _sarif_issue_details(document: Mapping[str, object]) -> dict[str, dict[str, object]]:
+    runs = document.get("runs")
+    if not isinstance(runs, list) or len(runs) != 1 or not isinstance(runs[0], Mapping):
+        return {}
+    raw_results = runs[0].get("results")
+    if not isinstance(raw_results, list) or len(raw_results) > _MAX_ISSUES:
+        return {}
+    details: dict[str, dict[str, object]] = {}
+    for result in raw_results:
+        if not isinstance(result, Mapping):
+            continue
+        properties = result.get("properties")
+        if not isinstance(properties, Mapping):
+            continue
+        issue_id = properties.get("issue_id")
+        if not isinstance(issue_id, str) or _ISSUE.fullmatch(issue_id) is None:
+            continue
+        title = properties.get("title")
+        floor, ceiling = properties.get("severity_floor"), properties.get("severity_ceiling")
+        rationale = properties.get("severity_rationale")
+        deciding = properties.get("deciding_facts")
+        locations = result.get("locations")
+        location: dict[str, object] | None = None
+        if isinstance(locations, list) and locations and isinstance(locations[0], Mapping):
+            physical = locations[0].get("physicalLocation")
+            if isinstance(physical, Mapping):
+                artifact = physical.get("artifactLocation")
+                path = (
+                    _relative_path(artifact.get("uri")) if isinstance(artifact, Mapping) else None
+                )
+                region = physical.get("region")
+                line = region.get("startLine") if isinstance(region, Mapping) else None
+                if path is not None and (
+                    line is None
+                    or isinstance(line, int)
+                    and not isinstance(line, bool)
+                    and 0 < line <= 10_000_000
+                ):
+                    location = {"path": path, "start_line": line}
+        details[issue_id] = {
+            "title": title if isinstance(title, str) and 1 <= len(title) <= 256 else None,
+            "severity_floor": floor if floor in _SEVERITIES[:-1] else None,
+            "severity_ceiling": ceiling if ceiling in _SEVERITIES[:-1] else None,
+            "severity_rationale": (
+                rationale if isinstance(rationale, str) and len(rationale) <= 1024 else None
+            ),
+            "deciding_facts": (
+                [item for item in deciding if isinstance(item, str) and len(item) <= 64][:8]
+                if isinstance(deciding, list)
+                else []
+            ),
+            "location": location,
+        }
+    return details
+
+
 def _tokens(raw: object, pattern: re.Pattern[str], limit: int) -> list[str]:
     if not isinstance(raw, list) or len(raw) > limit:
         raise _MalformedError
@@ -159,6 +223,12 @@ def _issue(raw: object) -> dict[str, object]:
         "package": package,
         "producers": _tokens(raw["producers"], _PRODUCER, 8),
         "known_exploited": raw["known_exploited"],
+        "title": None,
+        "severity_floor": None,
+        "severity_ceiling": None,
+        "severity_rationale": None,
+        "deciding_facts": [],
+        "location": None,
     }
 
 
@@ -208,6 +278,7 @@ def code_security_issues_projection(
     if truncated or len(raw_issues) > _MAX_ISSUES:
         gaps.append({"reason_code": GAP_ISSUES_TRUNCATED})
     artifacts: dict[str, str] | None = None
+    artifact_details: dict[str, dict[str, object]] = {}
     if artifacts_row is None:
         gaps.append({"reason_code": GAP_ARTIFACTS_UNAVAILABLE})
     elif artifacts_row.get("kind") == "code-security-review-artifacts-unavailable":
@@ -265,7 +336,10 @@ def code_security_issues_projection(
         ):
             gaps.append({"reason_code": GAP_ARTIFACTS_MALFORMED})
         else:
+            artifact_details = _sarif_issue_details(sarif_document)
             artifacts = {"mode": "full", "html": html, "sarif": sarif}
+    if artifact_details:
+        issues = [{**issue, **artifact_details.get(str(issue["issue_id"]), {})} for issue in issues]
     if artifacts is None:
         artifacts = _summary_artifacts(repository_alias, revision, issues)
     return {

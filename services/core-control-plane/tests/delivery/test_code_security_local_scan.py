@@ -280,6 +280,10 @@ def test_report_lists_issues_without_code_or_scanner_text(tmp_path: Path) -> Non
     sarif_result = sarif["runs"][0]["results"][0]
     assert sarif["version"] == "2.1.0"
     assert sarif_result["properties"]["issue_id"] == issue["issue_id"]
+    assert sarif_result["properties"]["title"]
+    assert sarif_result["properties"]["severity_floor"] in {"low", "medium", "high", "critical"}
+    assert sarif_result["properties"]["severity_ceiling"] in {"low", "medium", "high", "critical"}
+    assert isinstance(sarif_result["properties"]["deciding_facts"], list)
     assert (
         sarif_result["locations"][0]["physicalLocation"]["artifactLocation"]["uri"] == "src/app.py"
     )

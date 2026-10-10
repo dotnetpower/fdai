@@ -184,7 +184,7 @@
   },
   "issues": {
     "title": "이 검토의 이슈",
-    "body": "이슈마다 우선순위, 심각도, 신뢰도, 취약점 유형, CWE 또는 권고를 보여 줍니다. 경로, 코드, 스캐너 메시지는 보고서와 조치 팩에만 있습니다.",
+    "body": "각 발견 사항의 심각도 범위, 신뢰도, 정확한 수정 경로, 취약점 유형, 스캐너 근거를 검토합니다. 소스 코드는 저장소에 유지합니다.",
     "open": "보기",
     "close": "닫기",
     "loading": "이슈를 불러오는 중",
@@ -201,6 +201,13 @@
     "htmlTitle": "코드 보안 HTML 보고서",
     "sarifTitle": "코드 보안 SARIF",
     "summaryArtifact": "전체 스캔 산출물을 사용할 수 없습니다. 이 보기는 기록된 범위 제한 이슈 요약으로 만들며 경로와 스캐너 커버리지를 포함하지 않습니다.",
+    "findingsList": "보안 발견 사항",
+    "locationUnavailable": "위치 확인 불가",
+    "openGithub": "GitHub에서 파일 열기",
+    "severityReason": "이 심각도인 이유",
+    "decidingFacts": "심각도 결정에 필요한 사실",
+    "due": "기한",
+    "dueDays": "{count}일",
     "column": {
       "issue": "이슈",
       "priority": "우선순위",

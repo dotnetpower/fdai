@@ -374,12 +374,16 @@ claim renewal continue during a slow network fetch or archive extraction.
 
 Automatic scans also produce two bounded, review-digest-bound presentation artifacts: a canonical
 SARIF 2.1.0 document and a self-contained HTML report. They contain canonical issue metadata,
-fix-site locations, scanner completion, coverage limits, and counts, but no source code, scanner
-messages, code flows, credentials, or secrets. The worker records them immutably beside the issue
+fix-site locations, severity floor and ceiling, deciding facts, scanner completion, coverage limits,
+and counts, but no source code, scanner messages, code flows, credentials, or secrets. The worker records them immutably beside the issue
 summaries. The authenticated Console can render either artifact for the exact repository revision;
 an absent, oversized, malformed, or digest-mismatched full artifact is explicit, and the Operator
 generates a clearly labeled summary-only HTML/SARIF view from the already validated issue summaries
 without inventing paths or scanner coverage.
+
+The Console uses the exact repository-relative fix-site path and line to build a GitHub blob link
+pinned to the scanned commit. Operators inspect the actual code in the repository's own access
+boundary; FDAI never copies source snippets into its state store or Console response.
 
 The [Knowledge GitHub connection](../../runbooks/knowledge-github-sources.md) can also register
 a verified repository source, using either public read access or the deployment's read-only

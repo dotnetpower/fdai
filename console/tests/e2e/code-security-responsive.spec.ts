@@ -65,9 +65,10 @@ async function mockApi(
           issues: [
             {
               issue_id: "FDAI-SEC-0123456789ab",
+              title: "Command injection from untrusted input",
               priority: "P0",
               due_days: 2,
-              severity: "critical",
+              severity: "undetermined",
               confidence: "verified",
               weakness_class: "command_injection",
               cwe_ids: [78],
@@ -75,9 +76,15 @@ async function mockApi(
               package: null,
               producers: ["Opengrep", "gitleaks"],
               known_exploited: false,
+              severity_floor: "medium",
+              severity_ceiling: "critical",
+              severity_rationale: "The sink permits code execution; the attacker position is not verified.",
+              deciding_facts: ["attack_vector"],
+              location: { path: "src/app.ts", start_line: 42 },
             },
             {
               issue_id: "FDAI-SEC-ba9876543210",
+              title: "Vulnerable dependency",
               priority: "P1",
               due_days: 7,
               severity: "high",
@@ -88,6 +95,11 @@ async function mockApi(
               package: "example-deliberately-long-dependency-package-name",
               producers: ["Trivy", "osv-scanner"],
               known_exploited: true,
+              severity_floor: "high",
+              severity_ceiling: "high",
+              severity_rationale: "The dependency advisory reports a high base severity.",
+              deciding_facts: [],
+              location: { path: "package-lock.json", start_line: 18 },
             },
           ],
           artifacts: {
@@ -341,10 +353,20 @@ for (const viewport of [
     await page.getByRole("button", { name: /All sources/ }).click();
     await page.getByRole("button", { name: /^View payments-api-with-a-deliberately-long-repository-alias/ }).click();
     await expect(page.getByRole("heading", { name: /Issues in this review/ })).toBeVisible();
-    await expect(page.getByText("example-deliberately-long-dependency-package-name CVE-2026-12345, GHSA-abcd-efgh-ijkl")).toBeVisible();
-    await expect(page.getByText("CWE-78", { exact: true })).toBeVisible();
+    await page.getByRole("button", { name: /Vulnerable dependency/ }).click();
+    await expect(page.getByRole("article", { name: "Issue details" })).toContainText(
+      "example-deliberately-long-dependency-package-name CVE-2026-12345, GHSA-abcd-efgh-ijkl",
+    );
     await page.getByRole("button", { name: "FDAI-SEC-0123456789ab" }).click();
-    await expect(page.getByRole("region", { name: "Issue details" })).toContainText("command_injection");
+    const detail = page.getByRole("article", { name: "Issue details" });
+    await expect(detail).toContainText("CWE-78");
+    await expect(detail).toContainText("Command injection from untrusted input");
+    await expect(detail).toContainText("medium - critical");
+    await expect(detail).toContainText("src/app.ts:42");
+    await expect(detail.getByRole("link", { name: "Open file on GitHub" })).toHaveAttribute(
+      "href",
+      `${"https://github.com/example-organization/payments-api-with-a-deliberately-long-name/blob/"}${revision}/src/app.ts#L42`,
+    );
     await page.getByRole("button", { name: "View HTML report" }).click();
     await expect(page.getByTitle("Code-security HTML report")).toBeVisible();
     await page.getByRole("button", { name: "View SARIF" }).click();

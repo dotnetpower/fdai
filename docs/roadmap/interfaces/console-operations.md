@@ -54,7 +54,10 @@ Registering and scanning, Scanning, Completed, or Rejected, and completed review
 source-filtered review table with the exact revision. The automation strip also reports the last
 cycle's scanned, unchanged, and failed repository counts with the next check time. The Console does
 not expose the private clone path or source text. Each issue identifier opens a bounded metadata
-detail for that issue. The review panel can render the review-bound self-contained HTML report and
+detail with a GitHub-review-style finding list, severity range and rationale, deciding facts, exact
+repository-relative file and line, confidence, priority, and producer evidence. An external file
+link is pinned to the scanned commit so the repository remains the source-code authority. The
+review panel can render the review-bound self-contained HTML report and
 canonical SARIF as inert content; neither view executes report code, follows external links, or
 grants remediation authority. If the full worker artifact is absent or withheld, the panel keeps
 the actions available with a clearly labeled summary-only HTML/SARIF view that omits paths and

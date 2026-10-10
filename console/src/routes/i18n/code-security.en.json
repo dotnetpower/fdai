@@ -184,7 +184,7 @@
   },
   "issues": {
     "title": "Issues in this review",
-    "body": "Priority, severity, confidence, weakness class, and CWE or advisory per issue. Paths, code, and scanner messages stay in reports and remediation packs.",
+    "body": "Review each finding by severity range, confidence, exact fix-site path, weakness class, and scanner evidence. Source code remains in the repository.",
     "open": "View",
     "close": "Close",
     "loading": "Loading issues",
@@ -201,6 +201,13 @@
     "htmlTitle": "Code-security HTML report",
     "sarifTitle": "Code-security SARIF",
     "summaryArtifact": "Full scan artifacts are unavailable. These views are generated from the bounded recorded issue summaries and omit paths and scanner coverage.",
+    "findingsList": "Security findings",
+    "locationUnavailable": "Location unavailable",
+    "openGithub": "Open file on GitHub",
+    "severityReason": "Why this severity",
+    "decidingFacts": "Facts needed to determine severity",
+    "due": "Due",
+    "dueDays": "{count} days",
     "column": {
       "issue": "Issue",
       "priority": "Priority",

@@ -3,10 +3,9 @@ import { isOptionalOperatorApiUnavailable } from "../api";
 import type { OperatorApiClient } from "../api";
 import {
   AsyncBoundary,
-  DataTable,
+  ExternalLink,
   StatusPill,
   type AsyncState,
-  type Column,
   type PillKind,
 } from "../components/ui";
 import { t } from "./i18n/code-security";
@@ -22,6 +21,7 @@ import {
 
 const PRIORITIES = ["P0", "P1", "P2", "P3", "P4"] as const;
 const SEVERITIES = ["critical", "high", "medium", "low", "undetermined"] as const;
+const DETERMINED_SEVERITIES = ["critical", "high", "medium", "low"] as const;
 const CONFIDENCES = ["hypothesis", "reported", "corroborated", "verified", "proven"] as const;
 const GAPS = [
   "code_security_issue_malformed",
@@ -43,6 +43,15 @@ export interface CodeSecurityIssueSummary {
   readonly package: string | null;
   readonly producers: readonly string[];
   readonly known_exploited: boolean;
+  readonly title: string | null;
+  readonly severity_floor: Exclude<(typeof SEVERITIES)[number], "undetermined"> | null;
+  readonly severity_ceiling: Exclude<(typeof SEVERITIES)[number], "undetermined"> | null;
+  readonly severity_rationale: string | null;
+  readonly deciding_facts: readonly string[];
+  readonly location: {
+    readonly path: string;
+    readonly start_line: number | null;
+  } | null;
 }
 
 export interface CodeSecurityIssuesResponse {
@@ -94,6 +103,22 @@ export function decodeCodeSecurityIssues(payload: unknown): CodeSecurityIssuesRe
       if (pkg !== null && (typeof pkg !== "string" || pkg.length === 0)) {
         throw panelContractError(`${label}.package must be a string or null`);
       }
+      const location = row.location === null || row.location === undefined
+        ? null
+        : (() => {
+          const value = panelRecord(row.location, `${label}.location`);
+          const line = value.start_line;
+          if (
+            line !== null
+            && (typeof line !== "number" || !Number.isInteger(line) || line <= 0)
+          ) {
+            throw panelContractError(`${label}.location.start_line must be positive or null`);
+          }
+          return {
+            path: panelNonEmptyString(value, "path", `${label}.location`),
+            start_line: line,
+          };
+        })();
       return {
         issue_id: panelNonEmptyString(row, "issue_id", label),
         priority: oneOf(row.priority, PRIORITIES, `${label}.priority`),
@@ -106,6 +131,22 @@ export function decodeCodeSecurityIssues(payload: unknown): CodeSecurityIssuesRe
         package: pkg,
         producers: panelStringArray(row.producers, `${label}.producers`),
         known_exploited: panelBoolean(row, "known_exploited", label),
+        title: row.title === null || row.title === undefined
+          ? null
+          : panelNonEmptyString(row, "title", label),
+        severity_floor: row.severity_floor === null || row.severity_floor === undefined
+          ? null
+          : oneOf(row.severity_floor, DETERMINED_SEVERITIES, `${label}.severity_floor`),
+        severity_ceiling: row.severity_ceiling === null || row.severity_ceiling === undefined
+          ? null
+          : oneOf(row.severity_ceiling, DETERMINED_SEVERITIES, `${label}.severity_ceiling`),
+        severity_rationale: row.severity_rationale === null || row.severity_rationale === undefined
+          ? null
+          : panelNonEmptyString(row, "severity_rationale", label),
+        deciding_facts: row.deciding_facts === undefined
+          ? []
+          : panelStringArray(row.deciding_facts, `${label}.deciding_facts`),
+        location,
       };
     }),
     artifacts,
@@ -120,6 +161,36 @@ function severityKind(severity: CodeSecurityIssueSummary["severity"]): PillKind 
   return "neutral";
 }
 
+function severityLabel(issue: CodeSecurityIssueSummary): string {
+  if (
+    issue.severity === "undetermined"
+    && issue.severity_floor !== null
+    && issue.severity_ceiling !== null
+  ) {
+    return `${issue.severity_floor} - ${issue.severity_ceiling}`;
+  }
+  return issue.severity;
+}
+
+function issueLocation(issue: CodeSecurityIssueSummary): string {
+  if (issue.location === null) return t("codeSecurity.issues.locationUnavailable");
+  return issue.location.start_line === null
+    ? issue.location.path
+    : `${issue.location.path}:${issue.location.start_line}`;
+}
+
+function githubFileUrl(
+  repositoryLocation: string | null,
+  revision: string,
+  issue: CodeSecurityIssueSummary,
+): string | null {
+  if (repositoryLocation === null || issue.location === null) return null;
+  const repository = repositoryLocation.split("/").map(encodeURIComponent).join("/");
+  const path = issue.location.path.split("/").map(encodeURIComponent).join("/");
+  const line = issue.location.start_line === null ? "" : `#L${issue.location.start_line}`;
+  return `https://github.com/${repository}/blob/${revision}/${path}${line}`;
+}
+
 /** CWE ids for code issues; advisory ids and the package for dependency issues. */
 export function issueReference(issue: CodeSecurityIssueSummary): string {
   if (issue.cwe_ids.length > 0) return issue.cwe_ids.map((cwe) => `CWE-${cwe}`).join(", ");
@@ -130,11 +201,13 @@ export function issueReference(issue: CodeSecurityIssueSummary): string {
 export function ReviewIssuesPanel({
   client,
   repositoryAlias,
+  repositoryLocation,
   revision,
   onClose,
 }: {
   readonly client: Pick<OperatorApiClient, "panel">;
   readonly repositoryAlias: string;
+  readonly repositoryLocation: string | null;
   readonly revision: string;
   readonly onClose: () => void;
 }) {
@@ -159,37 +232,15 @@ export function ReviewIssuesPanel({
       });
     return () => { cancelled = true; };
   }, [client, repositoryAlias, revision]);
-  const columns: readonly Column<CodeSecurityIssueSummary>[] = [
-    {
-      key: "id",
-      header: t("codeSecurity.issues.column.issue"),
-      render: (row) => (
-        <button
-          type="button"
-          class="btn subtle mono"
-          aria-pressed={selectedIssue?.issue_id === row.issue_id}
-          onClick={() => setSelectedIssue(row)}
-        >
-          {row.issue_id}
-        </button>
-      ),
-    },
-    { key: "priority", header: t("codeSecurity.issues.column.priority"), render: (row) => row.priority },
-    {
-      key: "severity",
-      header: t("codeSecurity.issues.column.severity"),
-      render: (row) => <StatusPill kind={severityKind(row.severity)} label={row.severity} />,
-    },
-    { key: "confidence", header: t("codeSecurity.issues.column.confidence"), render: (row) => row.confidence },
-    { key: "class", header: t("codeSecurity.issues.column.weaknessClass"), render: (row) => row.weakness_class },
-    { key: "reference", header: t("codeSecurity.issues.column.reference"), render: (row) => <span class="mono">{issueReference(row)}</span> },
-    { key: "producers", header: t("codeSecurity.issues.column.producers"), render: (row) => row.producers.join(", ") },
-    {
-      key: "kev",
-      header: t("codeSecurity.issues.column.knownExploited"),
-      render: (row) => (row.known_exploited ? t("codeSecurity.issues.yes") : "-"),
-    },
-  ];
+  useEffect(() => {
+    if (
+      state.status === "ready"
+      && selectedIssue === null
+      && state.data.issues.length > 0
+    ) {
+      setSelectedIssue(state.data.issues[0] ?? null);
+    }
+  }, [selectedIssue, state]);
   return (
     <section class="stack code-security-issues" aria-labelledby="code-security-issues-title">
       <div class="code-security-issues-header">
@@ -202,32 +253,88 @@ export function ReviewIssuesPanel({
       <AsyncBoundary state={state} resourceLabel={t("codeSecurity.issues.title")}>
         {(data) => (
           <>
-            <DataTable
-              columns={columns}
-              rows={data.issues}
-              keyOf={(row) => row.issue_id}
-              empty={data.available ? t("codeSecurity.issues.empty") : t("codeSecurity.issues.notRecorded")}
-              caption={t("codeSecurity.issues.title")}
-            />
-            {selectedIssue === null
-              ? null
+            {data.issues.length === 0
+              ? (
+                <p class="muted" role="status">
+                  {data.available
+                    ? t("codeSecurity.issues.empty")
+                    : t("codeSecurity.issues.notRecorded")}
+                </p>
+              )
               : (
-                <section class="code-security-issue-detail" aria-label={t("codeSecurity.issues.detailTitle")}>
-                  <div>
-                    <strong class="mono">{selectedIssue.issue_id}</strong>
-                    <button type="button" class="btn subtle" onClick={() => setSelectedIssue(null)}>
-                      {t("codeSecurity.issues.detailClose")}
-                    </button>
-                  </div>
-                  <dl>
-                    <div><dt>{t("codeSecurity.issues.column.priority")}</dt><dd>{selectedIssue.priority}</dd></div>
-                    <div><dt>{t("codeSecurity.issues.column.severity")}</dt><dd>{selectedIssue.severity}</dd></div>
-                    <div><dt>{t("codeSecurity.issues.column.confidence")}</dt><dd>{selectedIssue.confidence}</dd></div>
-                    <div><dt>{t("codeSecurity.issues.column.weaknessClass")}</dt><dd>{selectedIssue.weakness_class}</dd></div>
-                    <div><dt>{t("codeSecurity.issues.column.reference")}</dt><dd class="mono">{issueReference(selectedIssue)}</dd></div>
-                    <div><dt>{t("codeSecurity.issues.column.producers")}</dt><dd>{selectedIssue.producers.join(", ")}</dd></div>
-                  </dl>
-                </section>
+                <div class="code-security-review-workspace">
+                  <nav class="code-security-finding-list" aria-label={t("codeSecurity.issues.findingsList")}>
+                    {data.issues.map((issue) => (
+                      <button
+                        key={issue.issue_id}
+                        type="button"
+                        aria-current={selectedIssue?.issue_id === issue.issue_id ? "true" : undefined}
+                        onClick={() => setSelectedIssue(issue)}
+                      >
+                        <span>
+                          <strong>{issue.title ?? issue.weakness_class.replaceAll("_", " ")}</strong>
+                          <StatusPill kind={severityKind(issue.severity)} label={severityLabel(issue)} />
+                        </span>
+                        <span class="mono">{issueLocation(issue)}</span>
+                        <small>{`${issue.priority} · ${issue.confidence} · ${issue.issue_id}`}</small>
+                      </button>
+                    ))}
+                  </nav>
+                  {selectedIssue === null
+                    ? null
+                    : (
+                      <article class="code-security-finding-detail" aria-label={t("codeSecurity.issues.detailTitle")}>
+                        <header>
+                          <div>
+                            <StatusPill
+                              kind={severityKind(selectedIssue.severity)}
+                              label={severityLabel(selectedIssue)}
+                            />
+                            <StatusPill kind="neutral" label={selectedIssue.priority} />
+                          </div>
+                          <h4>
+                            {selectedIssue.title
+                              ?? selectedIssue.weakness_class.replaceAll("_", " ")}
+                          </h4>
+                          <p class="mono">{issueLocation(selectedIssue)}</p>
+                          {githubFileUrl(repositoryLocation, revision, selectedIssue) === null
+                            ? null
+                            : (
+                              <ExternalLink
+                                href={githubFileUrl(repositoryLocation, revision, selectedIssue)!}
+                              >
+                                {t("codeSecurity.issues.openGithub")}
+                              </ExternalLink>
+                            )}
+                        </header>
+                        {selectedIssue.severity_rationale === null
+                          ? null
+                          : (
+                            <div class="code-security-severity-reason">
+                              <strong>{t("codeSecurity.issues.severityReason")}</strong>
+                              <p>{selectedIssue.severity_rationale}</p>
+                              {selectedIssue.deciding_facts.length === 0
+                                ? null
+                                : (
+                                  <p>
+                                    {`${t("codeSecurity.issues.decidingFacts")}: ${
+                                      selectedIssue.deciding_facts.join(", ")
+                                    }`}
+                                  </p>
+                                )}
+                            </div>
+                          )}
+                        <dl>
+                          <div><dt>{t("codeSecurity.issues.column.issue")}</dt><dd class="mono">{selectedIssue.issue_id}</dd></div>
+                          <div><dt>{t("codeSecurity.issues.column.confidence")}</dt><dd>{selectedIssue.confidence}</dd></div>
+                          <div><dt>{t("codeSecurity.issues.column.weaknessClass")}</dt><dd>{selectedIssue.weakness_class}</dd></div>
+                          <div><dt>{t("codeSecurity.issues.column.reference")}</dt><dd class="mono">{issueReference(selectedIssue)}</dd></div>
+                          <div><dt>{t("codeSecurity.issues.column.producers")}</dt><dd>{selectedIssue.producers.join(", ")}</dd></div>
+                          <div><dt>{t("codeSecurity.issues.due")}</dt><dd>{t("codeSecurity.issues.dueDays", { count: selectedIssue.due_days })}</dd></div>
+                        </dl>
+                      </article>
+                    )}
+                </div>
               )}
             {data.artifacts === null
               ? null

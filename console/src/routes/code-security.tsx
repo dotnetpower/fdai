@@ -591,6 +591,11 @@ function CodeSecurityBody({
           <ReviewIssuesPanel
             client={client}
             repositoryAlias={selected.alias}
+            repositoryLocation={
+              state.repositories?.repositories.find(
+                (repository) => repository.repository_alias === selected.alias,
+              )?.location ?? null
+            }
             revision={selected.revision}
             onClose={() => setSelected(null)}
           />

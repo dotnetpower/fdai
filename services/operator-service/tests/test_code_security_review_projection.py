@@ -518,7 +518,14 @@ def test_issue_projection_requires_the_matching_review_digest() -> None:
             "review_digest": digest,
             "recorded_at": "2026-10-10T00:00:00+00:00",
             "html": "<!doctype html><title>report</title>",
-            "sarif": '{"version":"2.1.0","runs":[]}',
+            "sarif": (
+                '{"version":"2.1.0","runs":[{"results":[{"properties":{'
+                '"issue_id":"FDAI-SEC-0123456789ab","title":"Command injection",'
+                '"severity_floor":"medium","severity_ceiling":"critical",'
+                '"severity_rationale":"impact is bounded; attacker position is unknown",'
+                '"deciding_facts":["attack_vector"]},"locations":[{"physicalLocation":{'
+                '"artifactLocation":{"uri":"src/app.py"},"region":{"startLine":42}}}]}]}]}'
+            ),
         },
     )
     assert ok["available"] is True and len(ok["issues"]) == 1  # type: ignore[arg-type]
@@ -529,8 +536,20 @@ def test_issue_projection_requires_the_matching_review_digest() -> None:
     assert ok["artifacts"] == {
         "mode": "full",
         "html": "<!doctype html><title>report</title>",
-        "sarif": '{"version":"2.1.0","runs":[]}',
+        "sarif": (
+            '{"version":"2.1.0","runs":[{"results":[{"properties":{'
+            '"issue_id":"FDAI-SEC-0123456789ab","title":"Command injection",'
+            '"severity_floor":"medium","severity_ceiling":"critical",'
+            '"severity_rationale":"impact is bounded; attacker position is unknown",'
+            '"deciding_facts":["attack_vector"]},"locations":[{"physicalLocation":{'
+            '"artifactLocation":{"uri":"src/app.py"},"region":{"startLine":42}}}]}]}]}'
+        ),
     }
+    issue = ok["issues"][0]  # type: ignore[index]
+    assert issue["title"] == "Command injection"
+    assert issue["severity_floor"] == "medium"
+    assert issue["severity_ceiling"] == "critical"
+    assert issue["location"] == {"path": "src/app.py", "start_line": 42}
     assert "src/x.py" not in str(ok)
     stale = code_security_issues_projection(
         repository_alias="example-service",
