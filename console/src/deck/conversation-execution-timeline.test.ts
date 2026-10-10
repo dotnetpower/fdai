@@ -159,6 +159,136 @@ describe("buildExecutionTimeline", () => {
     expect(hidden.every((item) => item.kind !== "model")).toBe(true);
   });
 
+  it("labels content-free model traces without rendering fake empty payloads", () => {
+    const input = trajectory({
+      modelTrace: {
+        schema_version: 1,
+        redacted: true,
+        omitted_calls: 0,
+        calls: [{
+          call_id: "call-content-free",
+          kind: "semantic-question-form",
+          model: "test-model",
+          content_omitted: true,
+          status: "completed",
+          started_at: "2026-07-31T07:00:00Z",
+          completed_at: "2026-07-31T07:00:01Z",
+          duration_ms: 1000,
+          request: { messages: [], sha256: "a".repeat(64) },
+          response: { role: "assistant", content: "", sha256: "b".repeat(64) },
+          usage: { prompt_tokens: 10, completion_tokens: 2, total_tokens: 12 },
+          redactions: [],
+        }],
+      },
+    }, { branches: [] });
+
+    const model = buildExecutionTimeline(input).find((item) => item.kind === "model");
+
+    expect(model?.details.facts).toContainEqual({
+      key: "requestMessages",
+      value: "contentOmitted",
+    });
+    expect(model?.details.facts).toContainEqual({
+      key: "response",
+      value: "contentOmitted",
+    });
+    expect(model?.details.records).toBeUndefined();
+  });
+
+  it("counts standalone observed reads in the evidence phase", () => {
+    const input = trajectory({
+      turnTiming: {
+        schema_version: 1,
+        started_at: "2026-07-31T07:00:00Z",
+        completed_at: "2026-07-31T07:00:01Z",
+        duration_ms: 1000,
+        phases: [{
+          phase: "evidence",
+          status: "completed",
+          started_at: "2026-07-31T07:00:00Z",
+          completed_at: "2026-07-31T07:00:01Z",
+          duration_ms: 1000,
+        }],
+      },
+    }, {
+      branches: [],
+      activities: [{
+        activityId: "query-1",
+        kind: "ontology_query",
+        status: "completed",
+        label: "Object set",
+        completed: 1,
+        total: 1,
+      }, {
+        activityId: "model-1",
+        kind: "model_call",
+        status: "completed",
+        label: "Question form",
+        completed: null,
+        total: null,
+      }, {
+        activityId: "lifecycle-1",
+        kind: "semantic_turn",
+        status: "completed",
+        label: "Evidence completed",
+        completed: 1,
+        total: 1,
+      }],
+    });
+
+    const evidence = buildExecutionTimeline(input).find(
+      (item) => item.kind === "phase" && item.label === "evidence",
+    );
+
+    expect(evidence?.details.facts).toContainEqual({ key: "evidence", value: "1/1" });
+  });
+
+  it("does not attribute turn-wide model calls to deterministic answer generation", () => {
+    const input = trajectory({
+      source: "server_inventory_graph",
+      turnTiming: {
+        schema_version: 1,
+        started_at: "2026-07-31T07:00:00Z",
+        completed_at: "2026-07-31T07:00:01Z",
+        duration_ms: 1000,
+        phases: [{
+          phase: "generation",
+          status: "completed",
+          started_at: "2026-07-31T07:00:00.900Z",
+          completed_at: "2026-07-31T07:00:01Z",
+          duration_ms: 100,
+        }],
+      },
+      modelTrace: {
+        schema_version: 1,
+        redacted: true,
+        omitted_calls: 0,
+        calls: [{
+          call_id: "planning-call",
+          kind: "semantic-question-form",
+          model: "test-model",
+          content_omitted: true,
+          status: "completed",
+          started_at: "2026-07-31T07:00:00Z",
+          completed_at: "2026-07-31T07:00:00.800Z",
+          duration_ms: 800,
+          request: { messages: [], sha256: "a".repeat(64) },
+          response: { role: "assistant", content: "", sha256: "b".repeat(64) },
+          usage: null,
+          redactions: [],
+        }],
+      },
+    }, { branches: [] });
+
+    const generation = buildExecutionTimeline(input).find(
+      (item) => item.kind === "phase" && item.label === "generation",
+    );
+
+    expect(generation?.details.facts).toEqual([
+      { key: "source", value: "server_inventory_graph" },
+    ]);
+  });
+
   it("does not invent lanes when no observed timestamps exist", () => {
     const input = trajectory({}, { branches: [] });
     delete (input as { startedAt?: string }).startedAt;
@@ -294,7 +424,7 @@ describe("buildExecutionTimeline", () => {
     });
   });
 
-  it("does not infer zero model calls when trace capture is absent", () => {
+  it("keeps turn-wide model-call accounting out of answer generation", () => {
     const input = trajectory({
       turnTiming: {
         schema_version: 1,
@@ -313,15 +443,12 @@ describe("buildExecutionTimeline", () => {
 
     expect(buildExecutionTimeline(input).find((item) => item.label === "generation")?.details)
       .toEqual({
-        facts: [
-          { key: "source", value: "recorded" },
-          { key: "modelCalls", value: "notRecorded" },
-        ],
+        facts: [{ key: "source", value: "recorded" }],
         evidenceRefs: [],
       });
   });
 
-  it("hides a recorded model-call count when trace presentation is disabled", () => {
+  it("does not change generation facts when model-call lanes are hidden", () => {
     const input = trajectory({
       modelTrace: {
         schema_version: 1,
@@ -348,7 +475,7 @@ describe("buildExecutionTimeline", () => {
     const hidden = buildExecutionTimeline(input, { includeModelCalls: false })
       .find((item) => item.label === "generation");
 
-    expect(visible?.details.facts.at(-1)?.value).toBe("0");
-    expect(hidden?.details.facts.at(-1)?.value).toBe("notRecorded");
+    expect(visible?.details.facts).toEqual([{ key: "source", value: "recorded" }]);
+    expect(hidden?.details.facts).toEqual(visible?.details.facts);
   });
 });

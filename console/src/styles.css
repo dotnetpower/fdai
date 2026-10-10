@@ -9911,6 +9911,10 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   font-size: 12px;
   list-style: none;
 }
+.deck-investigation-head > .deck-investigation-state {
+  /* Center the 15px status mark on the 1px flow rail whose left edge sits at 9px. */
+  transform: translateX(-5.5px);
+}
 .deck-investigation > summary.deck-investigation-head { cursor: pointer; }
 .deck-investigation-head::-webkit-details-marker { display: none; }
 .deck-investigation > summary.deck-investigation-head::after {

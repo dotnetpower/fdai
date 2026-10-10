@@ -578,9 +578,13 @@ that both blind readers classify as a direct read skips the judgment and answers
 compilation. Otherwise, the only change is what happens after the form path:
 
 1. A released compilation that the selection rules accept answers the turn.
-2. Otherwise the form path's tagged decision ends the turn with a typed outcome. The turn never reaches
-   the legacy frame and plan cascade, its keyword signals, stated-value matching, recoveries, or the
-   frame model.
+2. When that compilation declines, one accepted `query.resource_change_activity` preflight may
+   compile the reviewed recent-Resource-change or recent-state-change frame and verified plan. This
+   exception requires the closed preflight family, facets, target shape, window mode, and result
+   limit; it never runs the frame model or a general legacy recovery.
+3. Otherwise the form path's tagged decision ends the turn with a typed outcome. The turn never
+   reaches the legacy frame and plan cascade, its keyword signals, stated-value matching,
+   recoveries, or the frame model.
 
 | Decision | Planner outcome | Meaning |
 |----------|-----------------|---------|

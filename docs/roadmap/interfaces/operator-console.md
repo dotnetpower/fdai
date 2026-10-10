@@ -43,6 +43,19 @@ allowlisted projection. Raw query tables, provider bodies, handles, and retained
 not reach answer-authoring or review model calls.
 Verified-answer authoring adds a shared proposition contract plus default-off author/reviewer
 ports behind Core. Until promoted, Console answers continue to use the current verified path.
+The verified data fallback distinguishes a scalar result from its transport table. One complete,
+ungrouped count renders as a compact verified value without the one-row table or transport-row
+accounting. Grouped, incomplete, truncated, or multi-row results keep their table and limitation
+presentation. In observed-work timelines, each terminal summary mark is centered on the same
+vertical flow rail as its detail records; this alignment changes presentation only.
+The Run Record also distinguishes an intentionally content-free model trace from a provider request
+that carried zero messages. For a content-free trace, it shows that request and response bodies
+weren't retained while preserving the request and response hashes, timing, usage, prompt layers,
+and redaction counts. Evidence-phase accounting counts each unique evidence branch and standalone
+observed read once; live model-call progress never counts as evidence.
+Turn-wide model-call totals remain in the Run Record summary and provider lanes. They aren't
+repeated under the answer-generation phase, which reports only the source that rendered the
+verified answer.
 
 Operations > Alert quality decodes signed result `1.1.0` and its provider-neutral plan `1.1.0` through the regenerated TypeScript contract view.
 The browser displays `direct_api` as retained contract metadata only. It never selects a provider

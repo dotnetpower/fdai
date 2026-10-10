@@ -36,6 +36,27 @@ _DETAIL_FIELDS = frozenset({"id", "object_type"})
 _LINEAGE_DETAIL_FIELDS = frozenset({"member_id", "root_id", "path_evidence", "source_generation"})
 
 
+def verified_scalar_count(output: Mapping[str, object]) -> int | None:
+    """Return one complete ungrouped count, or none when a compact value could mislead."""
+
+    if output.get("source_complete") is not True or output.get("display_truncated") is True:
+        return None
+    rows = output.get("rows")
+    if not isinstance(rows, list) or len(rows) != 1:
+        return None
+    row = rows[0]
+    values = row.get("values") if isinstance(row, Mapping) else None
+    if not isinstance(values, Mapping) or values.get("operation") != "count":
+        return None
+    group = values.get("group")
+    if group is not None and (not isinstance(group, Mapping) or group):
+        return None
+    value = values.get("value")
+    if not isinstance(value, int) or isinstance(value, bool) or value < 0:
+        return None
+    return value
+
+
 def verified_rows_table(
     output: Mapping[str, object], *, korean: bool, leading: tuple[str, ...] = ()
 ) -> list[str]:

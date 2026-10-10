@@ -100,11 +100,24 @@ describe("buildTrajectoryPresentation", () => {
       activityId: `semantic:model:${index + 1}`, kind: "model_call", status,
       label: "Question reading model call", completed: null, total: null,
     }));
+    const lifecycle = {
+      activityId: "semantic:lifecycle:evidence",
+      kind: "semantic_turn",
+      status: "completed" as const,
+      label: "Evidence completed",
+      completed: 1,
+      total: 1,
+    };
 
     // A failed or still-running call is the wait for a read, not a second read.
     expect(workProgressPresentation(trajectory({}, { activities: [...calls, read] }))).toBe("compact");
     // A turn that only called models, such as a general answer, has no observed work.
     expect(workProgressPresentation(trajectory({}, { activities: calls }))).toBe("none");
+    const presentation = buildTrajectoryPresentation(trajectory({}, {
+      activities: [...calls, lifecycle, read],
+    }));
+    expect(presentation.evidenceAttemptCount).toBe(1);
+    expect(presentation.evidenceCompletedCount).toBe(1);
   });
 
   it("selects the smallest sufficient work-progress presentation", () => {

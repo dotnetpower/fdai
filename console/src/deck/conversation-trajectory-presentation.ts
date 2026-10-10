@@ -128,6 +128,11 @@ export function isModelCallStep(activity: InvestigationActivity): boolean {
   return activity.kind === "model_call";
 }
 
+/** Return whether an activity is an observed evidence read rather than progress metadata. */
+export function isObservedEvidenceActivity(activity: InvestigationActivity): boolean {
+  return !isModelCallStep(activity) && !isSemanticLifecycleStep(activity);
+}
+
 /**
  * Returns the turn's one query read when the work is compact, otherwise undefined.
  *
@@ -197,7 +202,8 @@ function uniqueEvidenceStatuses(
 ): readonly (EvidenceBranchStatus | InvestigationActivityStatus)[] {
   const branchIds = new Set(trajectory.branches.map((branch) => branch.branchId));
   const standaloneActivities = trajectory.activities.filter(
-    (activity) => activity.branchId === undefined || !branchIds.has(activity.branchId),
+    (activity) => isObservedEvidenceActivity(activity) &&
+      (activity.branchId === undefined || !branchIds.has(activity.branchId)),
   );
   return [
     ...trajectory.branches.map((branch) => branch.status),

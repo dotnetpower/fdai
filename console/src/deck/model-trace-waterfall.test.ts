@@ -135,6 +135,17 @@ describe("buildModelTraceBars", () => {
     expect(source).not.toContain("system_text:");
   });
 
+  it("renders a content-omission notice instead of empty request and response payloads", () => {
+    const source = readFileSync(
+      fileURLToPath(new URL("./model-trace-waterfall.tsx", import.meta.url)),
+      "utf8",
+    );
+
+    expect(source).toContain("call.content_omitted === true");
+    expect(source).toContain('t("deck.modelTrace.contentOmitted")');
+    expect(source).toContain("!contentOmitted");
+  });
+
   it("expands escaped JSON inside a model request message", () => {
     const nested = JSON.stringify({
       role: "user",

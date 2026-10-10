@@ -1,5 +1,8 @@
 import type { ConversationTrajectory } from "./conversation-trajectory";
-import type { TrajectoryPhaseState } from "./conversation-trajectory-presentation";
+import {
+  isObservedEvidenceActivity,
+  type TrajectoryPhaseState,
+} from "./conversation-trajectory-presentation";
 
 const MIN_BAR_PCT = 1.5;
 const SINGLETON_SPAN_MS = 1000;
@@ -163,7 +166,7 @@ function rawItems(
       startedAt: phase.started_at,
       completedAt: phase.completed_at,
       durationMs: phase.duration_ms,
-      details: phaseDetails(trajectory, phase.phase, includeModelCalls),
+      details: phaseDetails(trajectory, phase.phase),
     });
   }
   const representedBranchIds = new Set<string>();
@@ -227,6 +230,7 @@ function rawItems(
   if (includeModelCalls) {
     for (const call of trajectory.answer.modelTrace?.calls ?? []) {
       if (!call.completed_at || call.duration_ms === null) continue;
+      const contentOmitted = call.content_omitted === true;
       items.push({
         id: `model-${call.call_id}`,
         kind: "model",
@@ -239,8 +243,16 @@ function rawItems(
         details: {
           facts: [
             { key: "model", value: call.model },
-            { key: "requestMessages", value: String(call.request.messages.length) },
-            { key: "response", value: call.response ? "recorded" : "notRecorded" },
+            {
+              key: "requestMessages",
+              value: contentOmitted ? "contentOmitted" : String(call.request.messages.length),
+            },
+            {
+              key: "response",
+              value: contentOmitted
+                ? "contentOmitted"
+                : call.response ? "recorded" : "notRecorded",
+            },
             ...(call.usage ? [{ key: "usage" as const, value: formatUsage(call.usage) }] : []),
             {
               key: "redactions",
@@ -251,12 +263,19 @@ function rawItems(
             },
           ],
           evidenceRefs: [],
-          records: [
-            { key: "request", value: JSON.stringify(call.request.messages, null, 2) },
-            ...(call.response
-              ? [{ key: "response" as const, value: JSON.stringify(call.response, null, 2) }]
-              : []),
-          ],
+          ...(!contentOmitted
+            ? {
+                records: [
+                  { key: "request" as const, value: JSON.stringify(call.request.messages, null, 2) },
+                  ...(call.response
+                    ? [{
+                        key: "response" as const,
+                        value: JSON.stringify(call.response, null, 2),
+                      }]
+                    : []),
+                ],
+              }
+            : {}),
         },
       });
     }
@@ -333,7 +352,6 @@ function pointItem(
 function phaseDetails(
   trajectory: ConversationTrajectory,
   phase: string,
-  includeModelCalls: boolean,
 ): ExecutionTimelineDetails {
   const { answer, branches } = trajectory;
   const evidenceRefs = uniqueStrings([
@@ -372,28 +390,27 @@ function phaseDetails(
     };
   }
   if (phase === "evidence") {
-    const completed = branches.filter((branch) => branch.status === "completed").length;
+    const branchIds = new Set(branches.map((branch) => branch.branchId));
+    const standaloneActivities = trajectory.activities.filter(
+      (activity) => isObservedEvidenceActivity(activity) &&
+        (activity.branchId === undefined || !branchIds.has(activity.branchId)),
+    );
+    const completed = branches.filter((branch) => branch.status === "completed").length +
+      standaloneActivities.filter((activity) => activity.status === "completed").length;
+    const attempted = branches.length + standaloneActivities.length;
     const summary = branches.map((branch) => branch.summary).filter(Boolean).join(" · ");
     return {
       ...(summary ? { summary } : {}),
-      facts: [{ key: "evidence", value: `${completed}/${branches.length}` }],
+      facts: [{ key: "evidence", value: `${completed}/${attempted}` }],
       evidenceRefs,
     };
   }
   if (phase === "generation") {
     return {
-      facts: [
-        {
-          key: "source",
-          value: answer.source ?? answer.agent ?? "recorded",
-        },
-        {
-          key: "modelCalls",
-          value: includeModelCalls && answer.modelTrace
-            ? String(answer.modelTrace.calls.length)
-            : "notRecorded",
-        },
-      ],
+      facts: [{
+        key: "source",
+        value: answer.source ?? answer.agent ?? "recorded",
+      }],
       evidenceRefs: [],
       ...(answer.answerPlan
         ? { records: [{ key: "plan" as const, value: JSON.stringify(answer.answerPlan, null, 2) }] }

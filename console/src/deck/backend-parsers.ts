@@ -25,6 +25,13 @@ const MAX_MODEL_TRACE_CALLS = 8;
 const MAX_MODEL_TRACE_MESSAGES = 24;
 const MAX_MODEL_TRACE_REQUEST_CHARS = 12_000;
 const MAX_MODEL_TRACE_RESPONSE_CHARS = 6_000;
+const LEGACY_CONTENT_FREE_MODEL_KINDS = new Set([
+  "semantic-question-form",
+  "semantic-concept-selection",
+  "semantic-constraint-extraction",
+  "semantic-direction-check",
+  "semantic-ambiguity-check",
+]);
 const MAX_MODEL_TRACE_REDACTIONS = 16;
 const MAX_TURN_TIMING_PHASES = 8;
 const MAX_TURN_DURATION_MS = 7_200_000;
@@ -295,8 +302,22 @@ function parseModelTraceCall(raw: unknown): ModelTraceCall | undefined {
   const promptManifest = call.prompt_manifest === undefined
     ? undefined
     : parseModelTracePromptManifest(call.prompt_manifest);
+  const explicitContentOmitted = call.content_omitted === undefined
+    ? undefined
+    : call.content_omitted === true ? true : null;
   if (!request || response === undefined || usage === undefined || !redactions) return undefined;
   if (call.prompt_manifest !== undefined && promptManifest === undefined) return undefined;
+  if (explicitContentOmitted === null) return undefined;
+  const legacyContentOmitted = explicitContentOmitted === undefined &&
+    LEGACY_CONTENT_FREE_MODEL_KINDS.has(call.kind) &&
+    request.messages.length === 0 &&
+    response !== null &&
+    response.content === "";
+  const contentOmitted = explicitContentOmitted === true || legacyContentOmitted;
+  if (contentOmitted &&
+      (request.messages.length !== 0 || (response !== null && response.content !== ""))) {
+    return undefined;
+  }
   if (call.status === "completed" && (completedAt === null || durationMs === null || response === null)) {
     return undefined;
   }
@@ -315,6 +336,7 @@ function parseModelTraceCall(raw: unknown): ModelTraceCall | undefined {
     response,
     usage,
     redactions,
+    ...(contentOmitted ? { content_omitted: true as const } : {}),
     ...(promptManifest ? { prompt_manifest: promptManifest } : {}),
   };
 }

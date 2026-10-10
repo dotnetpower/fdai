@@ -311,6 +311,9 @@ describe("upsertEvidenceBranch", () => {
     expect(styles).toContain(".deck-turn.is-investigation-flow > .deck-start-note {");
     expect(styles).toContain(".deck-turn.is-investigation-flow::before");
     expect(styles).toContain(".deck-marker-glyph {");
+    expect(styles).toMatch(
+      /\.deck-investigation-head > \.deck-investigation-state\s*\{[^}]*transform:\s*translateX\(-5\.5px\);/,
+    );
     expect(conversationLayer).toContain(".cs-run-axis {");
     expect(conversationLayer).toMatch(/\.cs-run-bar \{[^}]*width: max\(3px, calc\(var\(--cs-run-width, 0\) \* 1%\)\);/s);
     expect(styles).not.toContain(".deck-execution-");

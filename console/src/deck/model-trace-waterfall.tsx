@@ -170,6 +170,7 @@ export function ModelTraceWaterfall({
 
 function ModelTraceDetail({ call }: { readonly call: ModelTraceCall }) {
   const manifest = call.prompt_manifest;
+  const contentOmitted = call.content_omitted === true;
   return (
     <div class="cs-model-trace-detail">
       <TraceHash label={t("deck.modelTrace.requestHash")} value={call.request.sha256} />
@@ -204,19 +205,25 @@ function ModelTraceDetail({ call }: { readonly call: ModelTraceCall }) {
           </ol>
         </section>
       ) : null}
-      <ol class="cs-model-trace-messages">
-        {groupModelTraceMessages(call.request.messages).map((group, groupIndex) => (
-          <li key={`${call.call_id}-request-${groupIndex}`}>
-            <strong class="cs-model-trace-role">{group.role}</strong>
-            <TraceMessageContent group={group} />
-          </li>
-        ))}
-      </ol>
+      {contentOmitted ? (
+        <p class="cs-model-trace-notice">{t("deck.modelTrace.contentOmitted")}</p>
+      ) : (
+        <ol class="cs-model-trace-messages">
+          {groupModelTraceMessages(call.request.messages).map((group, groupIndex) => (
+            <li key={`${call.call_id}-request-${groupIndex}`}>
+              <strong class="cs-model-trace-role">{group.role}</strong>
+              <TraceMessageContent group={group} />
+            </li>
+          ))}
+        </ol>
+      )}
       {call.response ? (
         <section class="cs-run-payload" aria-label={t("deck.modelTrace.response")}>
           <strong>{t("deck.modelTrace.response")}</strong>
           <TraceHash label={t("deck.modelTrace.responseHash")} value={call.response.sha256} />
-          <JsonCodeBlock value={call.response.content} expandNestedStrings />
+          {!contentOmitted ? (
+            <JsonCodeBlock value={call.response.content} expandNestedStrings />
+          ) : null}
         </section>
       ) : (
         <p class="cs-model-trace-notice">{t("deck.modelTrace.responseMissing")}</p>

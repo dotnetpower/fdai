@@ -55,6 +55,46 @@ describe("parseModelTrace", () => {
     })?.calls[0]?.prompt_manifest).toEqual(promptManifest);
   });
 
+  it("distinguishes intentionally omitted content from an actual empty request", () => {
+    const contentFree = {
+      ...trace().calls[0],
+      content_omitted: true,
+      request: { messages: [], sha256: SHA },
+      response: { role: "assistant", content: "", sha256: SHA },
+    };
+
+    expect(parseModelTrace({
+      ...trace(),
+      calls: [contentFree],
+    })?.calls[0]?.content_omitted).toBe(true);
+    expect(parseModelTrace({
+      ...trace(),
+      calls: [{ ...contentFree, request: trace().calls[0]!.request }],
+    })).toBeUndefined();
+    expect(parseModelTrace({
+      ...trace(),
+      calls: [{ ...contentFree, content_omitted: false }],
+    })).toBeUndefined();
+  });
+
+  it("recognizes legacy content-free calls without changing actual empty traces", () => {
+    const legacy = {
+      ...trace().calls[0],
+      kind: "semantic-constraint-extraction",
+      request: { messages: [], sha256: SHA },
+      response: { role: "assistant", content: "", sha256: SHA },
+    };
+
+    expect(parseModelTrace({
+      ...trace(),
+      calls: [legacy],
+    })?.calls[0]?.content_omitted).toBe(true);
+    expect(parseModelTrace({
+      ...trace(),
+      calls: [{ ...legacy, kind: "answer-stream" }],
+    })?.calls[0]?.content_omitted).toBeUndefined();
+  });
+
   it("rejects a malformed prompt manifest instead of dropping it", () => {
     expect(parseModelTrace({
       ...trace(),

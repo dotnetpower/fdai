@@ -83,6 +83,9 @@ large table invalidate the whole verified answer.
 The same typed-only boundary may reuse an independently certified direct read before legacy
 judgment; action, quoted, hypothetical, bound-context, and required-document paths retain their
 existing gates. Numeric call accounting adds no prompt capture or execution authority.
+When a form compilation declines, an accepted closed recent-change preflight may reuse only the
+reviewed deterministic recent-change frame and verified plan. It does not reopen the general legacy
+frame model or lexical recovery path.
 Reader-local two-shard waves are read-only concurrency inside the same bounded turn; their
 cancellation drains outstanding work and adds no shared authority-bearing workflow state.
 The same Core-owned scheduler covers independent finalist runoffs within the existing
