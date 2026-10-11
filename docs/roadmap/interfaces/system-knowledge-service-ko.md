@@ -1,8 +1,8 @@
 ---
 title: 시스템 지식 서비스
 translation_of: system-knowledge-service.md
-translation_source_sha: cd3fdecc0d4e15b6515d814c78f806292e839613
-translation_revised: 2026-10-07
+translation_source_sha: 9d12ce5af5e672e7245b31ddd13126ac7659ac47
+translation_revised: 2026-10-11
 ---
 # 시스템 지식 서비스
 
@@ -259,6 +259,12 @@ Vault HMAC secret 하나를 선택적으로 결속합니다. 보호된 workflow�
 부여하지 않습니다.
 
 ## 출시 순서
+
+저장소 검사와 배포 증적은 서로 다른 범위를 확인합니다. 서비스와 계약에 대한 집중 테스트,
+Terraform 검증, 워크플로 및 CI 계약 검사, 정적 분석, 정적 타입 검사와 문서 검사는 검증 대상
+커밋의 소스 수준 동작을 확인합니다. 이러한 검사는 게시된 이미지, 보호된 적용, 실제 Teams 응답,
+재시작 후 복구, 비용, 비활성화 또는 롤백을 입증하지 않습니다. 정확한 배포 개정의 필수 증적이
+보존될 때까지 서비스는 후보 상태로 유지됩니다.
 
 1. 카탈로그, 결정적 검색, 멘션 검증 및 응답 렌더러를 build하고 검사합니다.
 2. 저장소 소스 없이 서비스와 이미지를 패키징합니다.
