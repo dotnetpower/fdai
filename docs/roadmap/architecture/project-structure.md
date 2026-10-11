@@ -856,7 +856,11 @@ Deployment Preflight keeps its publication decision in `core/deploy_preflight/pr
   `services/core-control-plane/src/fdai/shared/contracts/`, while catalog schemas live in
   `rule-catalog/schema/` (per-kind JSON Schema), carry a **semver** version, and change
   only in a backward-compatible way within a major version; breaking changes bump the
-  major and ship a migration note. Runtime instance storage for those types is covered in
+  major and ship a migration note. Complete promoted inventory observations use the shared
+  `inventory_observation.py` transport contract. The producer and Huginn validate the same finite
+  byte, depth, object-key, list-length, and string-length limits so complete properties cross the
+  event bus without truncation, while an oversized observation fails before broker acceptance.
+  Runtime instance storage for those types is covered in
   [llm-strategy.md § Ontology Storage Layout](llm-strategy.md#ontology-storage-layout).
 - Tests for `services/core-control-plane/src/fdai/core/tiers/t0_deterministic` (the
   deterministic-engine) and `services/core-control-plane/src/fdai/core/risk_gate` are the safety

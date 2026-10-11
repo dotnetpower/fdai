@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ff7885215482c84f5f36095a0c82a912b33f9702
+translation_source_sha: 7be01b31dcc5d784e66a95cd2ff53574800def4f
 translation_revised: 2026-10-11
 ---
 # 프로젝트 구조
@@ -838,7 +838,10 @@ Muninn은 게시와 원본 소유 legacy 정리에 하나의 Core 소유 cohort 
   `services/core-control-plane/src/fdai/shared/contracts/`에 남고 카탈로그 스키마는 `rule-catalog/schema/` (종류별
   JSON 스키마)에 있으며 **semver** 버전을 갖고, 메이저 안에서는 하위 호환되는
   하게만 변경됩니다; breaking 변경은 메이저를 올리고 마이그레이션 노트를 제공합니다. 이들
-  타입의 런타임 인스턴스 저장은
+  완전한 승격 인벤토리 관찰은 공유 `inventory_observation.py` 전송 계약을 사용합니다.
+  생산자와 Huginn은 동일한 유한 바이트 크기, 깊이, 객체 키 수, 목록 길이 및 문자열 길이
+  상한을 검증합니다. 따라서 완전한 속성은 잘리지 않고 이벤트 버스를 통과하며, 크기 상한을
+  넘는 관찰은 브로커가 수락하기 전에 실패합니다. 이들 타입의 런타임 인스턴스 저장은
   [llm-strategy-ko.md § 온톨로지 Storage 배치](llm-strategy-ko.md#ontology-storage-layout)
   에서 다룹니다.
 - `services/core-control-plane/src/fdai/core/tiers/t0_deterministic` (deterministic-engine)과
