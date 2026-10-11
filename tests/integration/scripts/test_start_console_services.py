@@ -2226,5 +2226,8 @@ esac
     assert result.returncode == 0
     assert 'local-broker-cleanup: {"candidates": 0, "removed": 0} apply=True' in result.stdout
     assert "semantic-topic-created" in result.stdout
+    assert result.stdout.index("local-broker-cleanup:") < result.stdout.index(
+        "semantic-topic-created"
+    )
     assert "bounded-probe-topic-created" in result.stdout
     assert "bounded-probe-retention-reconciled" in result.stdout
