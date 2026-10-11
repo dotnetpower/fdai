@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1961,
+  "file_count": 1962,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "c1de41caedf8069885a5e12c9baadc3436b3f7f5e7afe399efaddbd988afb0bf",
     ".github/instructions/agent-stewardship.instructions.md": "6d34f24fe8879f3edac388d5e7fd9ab138563ca386a5c401f72d8fc3c1698624",
@@ -1756,6 +1756,7 @@
     "services/core-control-plane/src/fdai/shared/contracts/forecast-outcome/schema-1.2.0.json": "20fc5afac4baf4c0691e14c45976daca79dd7fae58e08fecbc1c2df122ec8d1a",
     "services/core-control-plane/src/fdai/shared/contracts/forecast-outcome/schema.json": "45d383d590859573545e746e3d57ed96e1ecb11b04b9b7f2bbc2904163675b30",
     "services/core-control-plane/src/fdai/shared/contracts/incident/schema.json": "32f3d72fc1473aa76012d866c546c36995848a1e94d4d0702941d10b042e688b",
+    "services/core-control-plane/src/fdai/shared/contracts/inventory_observation.py": "558644b8fec1f30a5525ae6fdc77fe935b6f69987d378044e24a6ade5c32f496",
     "services/core-control-plane/src/fdai/shared/contracts/models/__init__.py": "1174584642d7a121c4fe8f14c9d0e7e7286dd3bf8c3e213183e5fea6a6985eca",
     "services/core-control-plane/src/fdai/shared/contracts/models/_base.py": "320b96f02612368c72f99c83d915ce81d3baeb9aa0423a928de037414eb16f72",
     "services/core-control-plane/src/fdai/shared/contracts/models/action.py": "1ab14ac5b16c6db66742d09a8b0cde33876f0b976ccaef3ced3989557662171a",
