@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
+import yaml
 from fdai.core.metering.pricing import ModelPricing, PricingTable
 from fdai.core.metering.usage import TokenUsage
 
@@ -66,6 +68,18 @@ def test_pricing_table_unpriced_returns_none() -> None:
     usage = TokenUsage(prompt_tokens=10, completion_tokens=10)
     assert table.pricing_for("absent") is None
     assert table.cost_of(model_key="absent", usage=usage) is None
+
+
+def test_shipped_pricing_covers_the_primary_reasoner_family() -> None:
+    repo_root = Path(__file__).resolve().parents[5]
+    mapping = yaml.safe_load((repo_root / "rule-catalog/llm-pricing.yaml").read_text())
+    table = PricingTable.from_mapping(mapping["models"])
+
+    pricing = table.pricing_for("gpt-5.6-sol")
+
+    assert pricing is not None
+    assert pricing.input_per_1k == Decimal("0.00400")
+    assert pricing.output_per_1k == Decimal("0.02000")
 
 
 def test_float_price_routed_through_str() -> None:

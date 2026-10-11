@@ -488,28 +488,31 @@ async def forward_resource_changes(
     """Forward one bounded resourcechanges poll per configured scope."""
 
     state_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn))
-    published = 0
-    for scope in config.scopes:
-        async with scope_lock.acquire(f"inventory-resource-change-feed:{scope}"):
-            feed = AzureResourceChangeFeed(
-                identity=identity,
-                resource_types=vocabulary,
-                http_client=http_client,
-                config=AzureResourceChangeFeedConfig(
-                    subscription_scope=scope,
-                    arg_endpoint=config.management_endpoint,
-                    audience=config.management_audience,
-                    requests_per_second=config.arg_requests_per_second,
-                ),
-            )
-            published += await forward_arg_resource_changes_fn(
-                feed=feed,
-                state_store=state_store,
-                event_bus=event_bus,
-                topic=topic,
-                scope=scope,
-            )
-    return published
+    try:
+        published = 0
+        for scope in config.scopes:
+            async with scope_lock.acquire(f"inventory-resource-change-feed:{scope}"):
+                feed = AzureResourceChangeFeed(
+                    identity=identity,
+                    resource_types=vocabulary,
+                    http_client=http_client,
+                    config=AzureResourceChangeFeedConfig(
+                        subscription_scope=scope,
+                        arg_endpoint=config.management_endpoint,
+                        audience=config.management_audience,
+                        requests_per_second=config.arg_requests_per_second,
+                    ),
+                )
+                published += await forward_arg_resource_changes_fn(
+                    feed=feed,
+                    state_store=state_store,
+                    event_bus=event_bus,
+                    topic=topic,
+                    scope=scope,
+                )
+        return published
+    finally:
+        await state_store.aclose()
 
 
 async def collect_kubernetes_lifecycle(

@@ -77,10 +77,16 @@ reconcile_redpanda_community_config() {
 reconcile_semantic_topic_partitions() {
   local topic="${FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC:-fdai.pantheon.objects}"
   local description
+  if ! docker exec fdai-redpanda \
+    rpk topic create "$topic" --if-not-exists -p 2 -r 1; then
+    echo "dev-up: failed to create the semantic topic" >&2
+    return 1
+  fi
   if ! description="$(
     docker exec fdai-redpanda rpk topic describe "$topic" --print-partitions 2>/dev/null
   )"; then
-    return 0
+    echo "dev-up: failed to describe the semantic topic" >&2
+    return 1
   fi
   local partition_count
   partition_count="$(

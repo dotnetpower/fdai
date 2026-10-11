@@ -10,6 +10,7 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
+from fdai.agents._framework.bus_bridge_context import event_correlation_scope
 from fdai.agents._framework.bus_bridge_observer import (
     AgentHandlerObserver,
     AgentHandlerPhase,
@@ -409,21 +410,22 @@ class EventBusBridge:
                         )
                         continue
                     try:
-                        await notify_handler_observer(
-                            self,
-                            agent=agent_name,
-                            topic=topic,
-                            phase=AgentHandlerPhase.STARTED,
-                            payload=envelope.payload,
-                        )
-                        await self._deliver(topic, handler, envelope.payload)
-                        await notify_handler_observer(
-                            self,
-                            agent=agent_name,
-                            topic=topic,
-                            phase=AgentHandlerPhase.COMPLETED,
-                            payload=envelope.payload,
-                        )
+                        with event_correlation_scope(envelope.payload):
+                            await notify_handler_observer(
+                                self,
+                                agent=agent_name,
+                                topic=topic,
+                                phase=AgentHandlerPhase.STARTED,
+                                payload=envelope.payload,
+                            )
+                            await self._deliver(topic, handler, envelope.payload)
+                            await notify_handler_observer(
+                                self,
+                                agent=agent_name,
+                                topic=topic,
+                                phase=AgentHandlerPhase.COMPLETED,
+                                payload=envelope.payload,
+                            )
                         self.metrics.delivered += 1
                         self.metrics.record_handler_result(agent_name, failed=False)
                         self._consumer_delivery_counts[consumer_id] = (

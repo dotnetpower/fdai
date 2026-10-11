@@ -95,16 +95,20 @@ async def run_once(*, campaign_id: str | None = None) -> dict[str, object]:
             http_client=client,
         )
         bus = _build_event_bus(identity=identity, venue=venue)
+        store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
         try:
             summary = await ObservationCampaignRunner(
                 sources=catalog.sources,
                 probes=probes,
-                store=PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn)),
+                store=store,
                 publisher=EventBusOperationalActivityPublisher(event_bus=bus),
                 max_concurrency=catalog.max_concurrency,
             ).run(campaign_id or _campaign_id())
         finally:
-            await bus.close()
+            try:
+                await bus.close()
+            finally:
+                await store.aclose()
     return {
         "campaign_id": summary.campaign_id,
         "status": summary.status,

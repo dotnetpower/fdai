@@ -457,8 +457,13 @@ class MimirRuleGenerationMixin(_AgentMixinBase):
             self.record_behavior("rule_generation_activation_result_rejected_owner")
             raise ValueError("Rule generation activation result MUST be published by Mimir")
         result_payload = dict(payload)
+        wire_correlation = str(result_payload.pop("correlation_id", "") or "")
         result_payload.pop("producer_principal", None)
+        result_payload.pop("envelope_schema_version", None)
         result = RuleGenerationActivationResultEvent.model_validate(result_payload)
+        expected_correlation = result.command.validation_result.build_result.request.correlation_id
+        if wire_correlation and wire_correlation != expected_correlation:
+            raise ValueError("Rule generation activation result correlation identity mismatch")
         store = self._rule_generation_state_store
         if store is None:
             raise RuntimeError("Mimir Rule generation receipt store is unavailable")

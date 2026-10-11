@@ -9,6 +9,12 @@ from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from fdai.shared.contracts.inventory_observation import (
+    InventoryObservationTransportError,
+    is_inventory_observation_event,
+    validate_inventory_observation_event,
+)
+
 _DEDUP_CAPACITY = 100_000
 _MAX_FIELD_CHARS = 512
 _MAX_RAW_DEPTH = 6
@@ -168,7 +174,13 @@ def _validate_raw_ingress(raw: Mapping[str, Any]) -> None:
             raise HuginnIngressRejected("invalid_idempotency_key", field=field)
         if len(value.strip()) > _MAX_FIELD_CHARS or _has_control_characters(value):
             raise HuginnIngressRejected("invalid_idempotency_key", field=field)
-    _validate_raw_value(raw, path="raw")
+    if is_inventory_observation_event(raw):
+        try:
+            validate_inventory_observation_event(raw)
+        except InventoryObservationTransportError as exc:
+            raise HuginnIngressRejected(exc.reason_code, field=exc.field) from exc
+    else:
+        _validate_raw_value(raw, path="raw")
     for field in ("event_type", "source", "resource_type"):
         if field in raw and raw[field] not in (None, ""):
             _safe_identity(raw[field], field=field)

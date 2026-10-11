@@ -34,7 +34,7 @@ from fdai.agents._framework.runtime_subscriptions import RuleGenerationWorkerBin
 from fdai.agents.bragi import Bragi
 from fdai.agents.forseti import Forseti
 from fdai.agents.heimdall import Heimdall
-from fdai.agents.huginn import Huginn
+from fdai.agents.huginn import Huginn, HuginnIngressRejected
 from fdai.agents.mimir import Mimir
 from fdai.agents.muninn import Muninn
 from fdai.agents.norns import Norns
@@ -550,7 +550,10 @@ async def test_rule_generation_command_reaches_durable_mimir_result_projection()
     await event_bus.publish(
         RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
         command.command_digest,
-        command.model_dump(mode="json"),
+        {
+            **command.model_dump(mode="json"),
+            "correlation_id": command.validation_result.build_result.request.correlation_id,
+        },
     )
     await runtime.run()
 
@@ -1300,6 +1303,21 @@ def test_health_snapshot_reports_agents_mode_and_metrics() -> None:
     assert health["ingress_dropped"] == 0
     assert "metrics" in health
     assert "subscriptions" in health
+
+
+def test_runtime_ingress_rejection_log_names_safe_reason(caplog: pytest.LogCaptureFixture) -> None:
+    runtime, _ = _build()
+
+    runtime._record_ingress_drop(  # noqa: SLF001 - verifies the diagnostic boundary
+        HuginnIngressRejected(
+            "raw_depth_exceeded",
+            field="raw.payload.resource.props",
+            payload_digest="a" * 64,
+        )
+    )
+
+    assert "pantheon_ingress_rejected_event reason_code=raw_depth_exceeded" in caplog.text
+    assert runtime.health()["ingress_dropped"] == 1
 
 
 def test_health_includes_per_agent_state() -> None:

@@ -143,6 +143,8 @@ async def reconcile_local_operator_graph(dsn: str, environ: Mapping[str, str] = 
             "inventory_operator_graph_projection_failed", extra={"error": type(exc).__name__}
         )
         return
+    finally:
+        await store.aclose()
     if written:
         _LOGGER.info("inventory_operator_graph_projection_written")
 

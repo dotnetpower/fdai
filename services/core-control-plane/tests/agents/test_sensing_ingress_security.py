@@ -467,6 +467,60 @@ async def test_huginn_rejects_unbounded_or_controlled_raw_fields(
     assert exc.value.payload_digest
 
 
+async def test_huginn_preserves_bounded_complete_inventory_observation() -> None:
+    nested: dict[str, object] = {
+        "items": list(range(161)),
+        "description": "x" * 1_797,
+        **{f"property_{index}": index for index in range(110)},
+    }
+    for index in range(12):
+        nested = {f"level_{index}": nested}
+    raw = _raw_event(
+        idempotency_key="inventory-snapshot:bounded",
+        event_id="event:inventory-snapshot:bounded",
+        event_type="inventory.resource_observed",
+        source="fdai.delivery.inventory_configuration_events",
+        resource_id=None,
+        resource_ref="resource:bounded",
+        payload={
+            "signal_kind": "inventory.full_reconciliation",
+            "resource": {
+                "resource_id": "resource:bounded",
+                "type": "example.resource",
+                "props": nested,
+                "provider_ref": None,
+                "last_seen": NOW.isoformat(),
+            },
+            "inventory_observation": {
+                "kind": "full",
+                "properties_complete": True,
+                "generation_digest": "sha256:" + "a" * 64,
+                "scope_ref": "scope:example",
+            },
+        },
+    )
+
+    payload = await Huginn(clock=lambda: NOW).ingest(raw)
+
+    assert payload is not None
+    assert payload["resource_id"] == "resource:bounded"
+    assert payload["resource_type"] == "example.resource"
+    assert payload["resource"]["props"] == nested
+    assert payload["inventory_observation"]["properties_complete"] is True
+    assert payload["signal_kind"] == "inventory.full_reconciliation"
+
+
+async def test_inventory_transport_limits_do_not_widen_generic_raw_ingress() -> None:
+    nested: dict[str, object] = {"value": "bounded"}
+    for index in range(12):
+        nested = {f"level_{index}": nested}
+
+    with pytest.raises(HuginnIngressRejected) as exc:
+        await Huginn(clock=lambda: NOW).ingest(_raw_event(attributes=nested))
+
+    assert exc.value.reason_code == "raw_depth_exceeded"
+
+
 async def test_huginn_change_actor_ignores_raw_initiator_principal() -> None:
     bus = _bus()
     payload = await Huginn(bus=bus, clock=lambda: NOW).ingest(

@@ -221,8 +221,10 @@ async def _build_kubernetes_enricher(
             capability="inventory.snapshot",
             now=datetime.now(UTC),
         )
+        connector_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn))
+        stack.push_async_callback(connector_store.aclose)
         inbox = ConnectorSnapshotInbox(
-            PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn)),
+            connector_store,
             registrations=registrations,
             allow_cluster_resources=config.kubernetes_connector_cluster_resources,
             now=lambda: datetime.now(UTC),

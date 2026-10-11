@@ -701,7 +701,13 @@ def _validate_incident_notification_route(
     )
     if eligible:
         return
-    _LOGGER.warning(
+    log_unavailable = (
+        _LOGGER.info
+        if os.environ.get("FDAI_EXECUTION_VENUE", "").strip().casefold() == "local"
+        or os.environ.get("FDAI_RUNTIME_LOCAL_AZURE_CLI", "").strip() == "1"
+        else _LOGGER.warning
+    )
+    log_unavailable(
         "notification_route_unavailable",
         extra={
             "route": route.category,

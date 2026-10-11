@@ -509,25 +509,33 @@ async def run_once() -> AnalyzerJobReport:
         )
         try:
             if targets:
-                analyzer_report = await AnalyzerTickRunner(
-                    coordinator=build_analyzer_coordinator(
-                        container.metric_provider,
-                        targets=targets,
-                    ),
-                    event_bus=bus,
-                    publication_ledger=build_publication_ledger(),
-                    publication_reconciler=build_publication_reconciler(
-                        bootstrap_servers, venue, identity
-                    ),
-                    receipt_store=build_receipt_store(),
-                    window_seconds=window_seconds,
-                    publication_window_seconds=DEFAULT_PUBLICATION_WINDOW_SECONDS,
-                    topic=topic,
-                ).run_once(targets)
-                await build_lifecycle_recorder().record_report(
-                    analyzer_report,
-                    at=datetime.now(tz=UTC),
-                )
+                receipt_store = build_receipt_store()
+                lifecycle_recorder = build_lifecycle_recorder()
+                try:
+                    analyzer_report = await AnalyzerTickRunner(
+                        coordinator=build_analyzer_coordinator(
+                            container.metric_provider,
+                            targets=targets,
+                        ),
+                        event_bus=bus,
+                        publication_ledger=build_publication_ledger(),
+                        publication_reconciler=build_publication_reconciler(
+                            bootstrap_servers, venue, identity
+                        ),
+                        receipt_store=receipt_store,
+                        window_seconds=window_seconds,
+                        publication_window_seconds=DEFAULT_PUBLICATION_WINDOW_SECONDS,
+                        topic=topic,
+                    ).run_once(targets)
+                    await lifecycle_recorder.record_report(
+                        analyzer_report,
+                        at=datetime.now(tz=UTC),
+                    )
+                finally:
+                    try:
+                        await lifecycle_recorder.aclose()
+                    finally:
+                        await receipt_store.aclose()
             else:
                 analyzer_report = AnalyzerTickReport(targets=0, findings=0, published=0)
 

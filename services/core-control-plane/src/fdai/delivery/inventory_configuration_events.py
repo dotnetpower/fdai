@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 from uuid import NAMESPACE_URL, uuid5
 
 from fdai.delivery.inventory_sync import PromotedInventoryObservation
+from fdai.shared.contracts.inventory_observation import validate_inventory_observation_event
 from fdai.shared.contracts.models import Event, IncidentCorrelation, Mode
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.inventory import ResourceRecord
@@ -253,7 +254,7 @@ def _resource_observation_event(
         }
     ).removeprefix("sha256:")
     detected_at = _resource_observed_at(resource, fallback=recorded_at)
-    return Event(
+    event = Event(
         schema_version="1.0.0",
         event_id=uuid5(NAMESPACE_URL, f"fdai.inventory-snapshot://{identity_digest}"),
         idempotency_key=f"inventory-snapshot:{identity_digest}",
@@ -275,6 +276,8 @@ def _resource_observation_event(
         incident_correlation=IncidentCorrelation.NONE,
         mode=Mode.SHADOW,
     )
+    validate_inventory_observation_event(event.model_dump(mode="json"))
+    return event
 
 
 def _resource_observed_at(resource: ResourceRecord, *, fallback: datetime) -> datetime:

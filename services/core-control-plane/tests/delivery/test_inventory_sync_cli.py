@@ -67,6 +67,9 @@ from fdai.delivery.inventory_sync_cli import (
     container_argv,
     run,
 )
+from fdai.delivery.inventory_sync_cli_support import (
+    forward_resource_changes as _forward_resource_changes,
+)
 from fdai.delivery.kubernetes_api_inventory import KubernetesApiInventoryConfig
 from fdai.delivery.kubernetes_cluster_binding import KubernetesClusterBinding
 from fdai.delivery.kubernetes_inventory import (
@@ -2478,6 +2481,50 @@ async def test_recovery_delta_forwards_every_scope(monkeypatch: pytest.MonkeyPat
     assert all(call.kwargs["properties_complete"] is False for call in forward.await_args_list)
     assert all(call.kwargs["initial_replay_after"] is None for call in forward.await_args_list)
     assert locked_scopes == [f"inventory-recovery-delta:{scope}" for scope in config.scopes]
+    state_store.aclose.assert_awaited_once_with()
+
+
+async def test_resource_change_feed_closes_its_state_store(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    config = InventoryJobConfig.from_env(
+        {
+            "FDAI_INVENTORY_DSN": "postgresql://example",
+            "FDAI_INVENTORY_SCOPES": (
+                "00000000-0000-0000-0000-000000000001,00000000-0000-0000-0000-000000000002"
+            ),
+        }
+    )
+    state_store = SimpleNamespace(aclose=AsyncMock())
+    monkeypatch.setattr(
+        inventory_sync_cli_support,
+        "PostgresStateStore",
+        lambda **_: state_store,
+    )
+    forward = AsyncMock(side_effect=(2, 3))
+    locked_scopes: list[str] = []
+
+    class ScopeLock:
+        @asynccontextmanager
+        async def acquire(self, resource_id: str) -> AsyncIterator[None]:
+            locked_scopes.append(resource_id)
+            yield
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(_http_ok)) as client:
+        published = await _forward_resource_changes(
+            config=config,
+            identity=StaticWorkloadIdentity(audience="unused", token="unused"),
+            vocabulary=_vocabulary(),
+            http_client=client,
+            event_bus=InMemoryEventBus(),
+            topic="events",
+            scope_lock=ScopeLock(),
+            forward_arg_resource_changes_fn=forward,
+        )
+
+    assert published == 5
+    assert [call.kwargs["scope"] for call in forward.await_args_list] == list(config.scopes)
+    assert locked_scopes == [f"inventory-resource-change-feed:{scope}" for scope in config.scopes]
     state_store.aclose.assert_awaited_once_with()
 
 
