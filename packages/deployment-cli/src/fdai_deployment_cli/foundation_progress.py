@@ -37,7 +37,7 @@ _INSTALLER_RECORD = re.compile(
     r"(RUNNING|WAITING|BLOCKED|FAILED|COMPLETE) \| "
     r"([0-9]{1,2}) complete \| ([0-9]{1,2}) skipped \| ([0-9]{1,2}) remaining"
 )
-_INSTALLER_MARKERS = {
+_STATE_PREFIXES = {
     "RUNNING": "==>",
     "WAITING": "WAIT",
     "COMPLETE": " OK ",
@@ -85,7 +85,7 @@ def parse_checkpoint(line: str) -> FoundationCheckpoint | None:
         marker, number, label, state, count, skipped, remaining = match.groups()
         completed, index, omitted = int(count), int(number), int(skipped)
         if (
-            _INSTALLER_MARKERS[state] != marker
+            _STATE_PREFIXES[state] != marker
             or not 0 <= omitted <= completed <= _TOTAL
             or not 1 <= index <= _TOTAL
             or label != CHECKPOINT_LABELS[index - 1]
