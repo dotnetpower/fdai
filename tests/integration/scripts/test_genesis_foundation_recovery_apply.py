@@ -572,3 +572,97 @@ def test_recovery_retained_claim_has_exact_identity_and_evidence(review, defect)
     else:
         with pytest.raises(ValueError):
             recovery._validate_claim(claim, review)
+
+
+@pytest.mark.parametrize(
+    "defect",
+    [None, "wrong-address", "extra-address", "wrong-id", "not-succeeded"],
+)
+def test_verification_only_imports_one_observed_orphaned_bastion(
+    tmp_path, monkeypatch, review, defect
+):
+    tmp_path.chmod(0o700)
+    work = tmp_path / "recovery"
+    work.mkdir(mode=0o700)
+    state_path = tmp_path / "terraform.tfstate"
+    state = {"version": 4, "serial": 1, "lineage": "synthetic", "resources": []}
+    write_private_bytes(state_path, canonical_bytes(state))
+    resource_id = (
+        "/subscriptions/00000000-0000-0000-0000-000000000000/"
+        "resourceGroups/rg-example-ops-wus3/providers/Microsoft.Network/"
+        "bastionHosts/bas-runner-example-dev-wus3"
+    )
+    addresses = [recovery._BASTION_ADDRESS]
+    if defect == "wrong-address":
+        addresses = ["module.bootstrap.azurerm_nat_gateway.runner[0]"]
+    elif defect == "extra-address":
+        addresses.append("module.bootstrap.azurerm_public_ip.runner[0]")
+    review.update(remaining_addresses=addresses)
+    projection = {
+        "resource_changes": [
+            {
+                "address": recovery._BASTION_ADDRESS,
+                "change": {
+                    "actions": ["create"],
+                    "after": {"id": resource_id},
+                },
+            }
+        ]
+    }
+    claim = {"claim": "retained"}
+    calls = []
+
+    def capture(*_args, **_kwargs):
+        return json.dumps(
+            {
+                "id": resource_id if defect != "wrong-id" else resource_id + "-other",
+                "provisioningState": ("Updating" if defect == "not-succeeded" else "Succeeded"),
+            }
+        )
+
+    def run(command, **kwargs):
+        calls.append(kwargs["label"])
+        assert command[-2:] == [recovery._BASTION_ADDRESS, resource_id]
+        state["serial"] = 2
+        state["resources"] = [
+            {
+                "module": "module.bootstrap",
+                "mode": "managed",
+                "type": "azurerm_bastion_host",
+                "name": "runner",
+                "instances": [{"index_key": 0, "attributes": {"id": resource_id}}],
+            }
+        ]
+        state_path.write_bytes(canonical_bytes(state))
+        return b""
+
+    monkeypatch.setattr(recovery.image, "_capture", capture)
+    monkeypatch.setattr(recovery.image, "_trusted_azure_cli", lambda: Path("/synthetic/az"))
+    monkeypatch.setattr(recovery, "_run", run)
+    arguments = dict(
+        review=review,
+        claim=claim,
+        projection=projection,
+        state_path=state_path,
+        binary=tmp_path / "terraform",
+        root=tmp_path,
+        work=work,
+        environment={},
+        deadline=recovery.DeploymentDeadline(60),
+    )
+    if defect in {"wrong-id", "not-succeeded"}:
+        with pytest.raises(ValueError, match="effect is unverified"):
+            recovery._recover_orphaned_bastion(**arguments)
+        assert calls == []
+        return
+
+    recovery._recover_orphaned_bastion(**arguments)
+    if defect is None:
+        assert calls == ["import-bastion"]
+        receipt = recovery._json(work / "recovery-bastion-import-receipt.json")
+        assert receipt["provider_effect_verified"] is True
+        assert receipt["cloud_mutation_performed"] is False
+        recovery._recover_orphaned_bastion(**arguments)
+        assert calls == ["import-bastion"]
+    else:
+        assert calls == []
