@@ -122,6 +122,10 @@ incomplete provider state, or version mismatch remains blocked.
 Recovery execution uses the same operator-selected source admission as a fresh source deployment:
 the current clean checkout must be the exact recovery source, but no protected branch, CI result,
 published artifact, or signed release is required.
+When recovered application orchestration needs newer deployment code, the workstation transfers a
+digest-verified recovery-only host zip application from that checkout. The managed host runs it
+only for deployment checkpoints. Service images, migrations, catalogs, Console content, and the
+source tree in Terraform remain pinned to the original retained application snapshot.
 
 **Guarded teardown revision:** Teardown originally could have reused Terraform destroy from the
 current work tree. That would be too broad for source deployment because retained state can be

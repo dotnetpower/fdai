@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import hashlib
+import os
 import shutil
+import zipapp
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
@@ -208,6 +211,33 @@ def source_transfer_inputs(
             source_snapshot / "tree", prepared_root
         ),
     )
+
+
+def prepare_source_recovery_host(*, source_root: Path, prepared_root: Path) -> tuple[Path, str]:
+    """Build current recovery-only host tooling without replacing application source."""
+
+    package_root = source_root / "packages/deployment-cli/src"
+    package = package_root / "fdai_deployment_cli"
+    if (
+        not source_root.is_absolute()
+        or not package.is_dir()
+        or package.is_symlink()
+        or not prepared_root.is_absolute()
+    ):
+        raise ValueError("source recovery host input is invalid")
+    output = prepared_root / "source-recovery-host.pyz"
+    temporary = prepared_root / ".source-recovery-host.pyz"
+    if output.is_symlink() or temporary.exists() or temporary.is_symlink():
+        raise ValueError("source recovery host output is invalid")
+    zipapp.create_archive(
+        package_root,
+        target=temporary,
+        main="fdai_deployment_cli.standalone_host:main",
+        compressed=True,
+    )
+    temporary.chmod(0o600)
+    os.replace(temporary, output)
+    return output, hashlib.sha256(output.read_bytes()).hexdigest()
 
 
 def build_source_console(

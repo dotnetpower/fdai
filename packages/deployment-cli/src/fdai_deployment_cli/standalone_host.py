@@ -145,9 +145,7 @@ from fdai_deployment_cli.standalone_product_profile import (
     context_selects_add_on as _selects_add_on,
 )
 from fdai_deployment_cli.standalone_product_profile import product_terraform_values
-from fdai_deployment_cli.standalone_residual_apply import (
-    apply_residual_plan as _apply_residual_plan,
-)
+from fdai_deployment_cli.standalone_host_residual import apply_residual_checkpoint
 from fdai_deployment_cli.standalone_residual_apply import (
     prepare_residual_review as _prepare_residual_review,
 )
@@ -159,6 +157,9 @@ from fdai_deployment_cli.standalone_residual_apply import (
 )
 from fdai_deployment_cli.standalone_residual_apply import (
     seal_terraform_plan as _seal_terraform_plan,
+)
+from fdai_deployment_cli.standalone_residual_successor import (
+    successor_prerequisite_verified as _residual_successor_prerequisite,
 )
 from fdai_deployment_cli.standalone_stage_targets import (
     database_placement as _database_placement,
@@ -2512,40 +2513,18 @@ def _apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
 
 
 def _apply_residual(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
-    stage = str(args.stage)
-    context = _private_json(work_dir / "context.json", "standalone host context")
-    receipt_path = work_dir / f"{stage}-receipt.json"
-    if receipt_path.exists():
-        return _private_json(receipt_path, "standalone residual apply receipt")
-    original_review = _private_json(
-        work_dir / f"{stage}-review.json", "standalone original plan review"
-    )
-    original_claim = _private_json(
-        work_dir / f"{stage}-claim.json", "standalone original apply claim"
-    )
-    residual_review = _private_json(
-        work_dir / f"{stage}-residual-review.json", "standalone residual plan review"
-    )
-    approval = _private_json(_absolute(args.approval), "standalone residual plan approval")
-    _validate_approval(residual_review, approval, context=context)
-    _managed_identity_login_from_context(context, work_dir)
-    infra, variables = _stage_paths(stage, context, work_dir)
-    _activate_terraform_stage(stage, context, work_dir)
-    targets = _stage_targets(stage, context)
-    if stage == "runtime":
-        _guard_existing_runtime_node_pools(context, work_dir)
-    return _apply_residual_plan(
-        work_dir=work_dir,
-        stage=stage,
-        context=context,
-        infra=infra,
-        variables=variables,
-        targets=targets,
-        original_review=original_review,
-        original_claim=original_claim,
-        residual_review=residual_review,
-        approval=approval,
-        effect_readback=lambda: _readback_stage(stage, context),
+    return apply_residual_checkpoint(
+        args,
+        work_dir,
+        private_json=_private_json,
+        validate_approval=_validate_approval,
+        managed_identity_login=_managed_identity_login_from_context,
+        stage_paths=_stage_paths,
+        activate_stage=_activate_terraform_stage,
+        stage_targets=_stage_targets,
+        guard_runtime=_guard_existing_runtime_node_pools,
+        readback_stage=_readback_stage,
+        absolute_path=_absolute,
     )
 
 
@@ -2644,6 +2623,7 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
                 original_review=review,
                 original_claim=claim,
                 effect_readback=lambda: _readback_stage(stage, context),
+                successor_prerequisite_verified=_residual_successor_prerequisite(work_dir, stage),
             )
         residual_review = _prepare_residual_review(
             work_dir=work_dir,

@@ -31,9 +31,16 @@ class DeadlineTransport:
     returning after expiry cannot advance the next stage or produce a ready receipt.
     """
 
-    def __init__(self, transport: DeploymentTransport, deadline: DeploymentDeadline) -> None:
+    def __init__(
+        self,
+        transport: DeploymentTransport,
+        deadline: DeploymentDeadline,
+        *,
+        host_program: str | None = None,
+    ) -> None:
         self._transport = transport
         self._deadline = deadline
+        self.host_program = host_program
 
     def ssh(
         self, remote_arguments: Sequence[str], *, timeout: int, input_text: str | None = None

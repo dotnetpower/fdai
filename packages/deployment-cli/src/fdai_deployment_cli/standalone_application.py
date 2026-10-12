@@ -34,6 +34,7 @@ from fdai_deployment_cli.private_output import read_private_bytes, write_private
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.source_application_inputs import (
     build_source_console,
+    prepare_source_recovery_host,
     source_transfer_inputs,
 )
 from fdai_deployment_cli.standalone_checkpoint_failure import remote_failure as _remote_failure
@@ -115,6 +116,8 @@ def deploy_standalone_application(
     if module.validate_ssh_private_key(private_key) != runner.get("ssh_key_digest"):
         raise ValueError("standalone host SSH key differs from Foundation evidence")
     source_transfer = None
+    recovery_host: Path | None = None
+    recovery_host_digest: str | None = None
     if source_mode:
         if (
             kit is not None
@@ -128,6 +131,11 @@ def deploy_standalone_application(
             source_snapshot=source_snapshot,
             source_snapshot_digest=source_snapshot_digest,
         )
+        if foundation_recovery_directory is not None:
+            recovery_host, recovery_host_digest = prepare_source_recovery_host(
+                source_root=source_root,
+                prepared_root=prepared.root,
+            )
         transport_archive = source_transfer.archive
         archive_digest = None
     else:
@@ -216,6 +224,17 @@ def deploy_standalone_application(
             operational_evidence_verifier_input=operational_evidence_verifier_input,
             control_package=control_package,
         )
+        if recovery_host is not None:
+            assert recovery_host_digest is not None
+            remote_recovery_host = f"{remote_root}/source-recovery-host.pyz"
+            tunnel.copy_to(recovery_host, remote_recovery_host, timeout=300)
+            observed = tunnel.ssh(("sha256sum", remote_recovery_host), timeout=120)
+            if (
+                observed.returncode != 0
+                or observed.stdout.split(maxsplit=1)[0] != recovery_host_digest
+            ):
+                raise ValueError("source recovery host digest differs")
+            tunnel.host_program = remote_recovery_host
         if (
             isinstance(host_preparation, dict)
             and host_preparation.get("focused_private_access") is True
@@ -693,6 +712,8 @@ def _plan_after_recovery(
 ) -> tuple[dict[str, Any], str]:
     """Use a separately bound residual review, or request an ordinary current plan."""
 
+    if isinstance(recovery.get("residual_successor"), dict):
+        return recovery, "apply-residual"
     if isinstance(recovery.get("residual_recovery"), dict):
         return recovery, "apply-residual"
     return (
@@ -716,11 +737,16 @@ def _remote_json(
     timeout: int,
     input_text: str | None = None,
 ) -> dict[str, Any]:
+    host_program = getattr(tunnel, "host_program", None)
+    invocation = (
+        (str(host_program),)
+        if isinstance(host_program, str) and host_program
+        else ("-m", "fdai_deployment_cli.standalone_host")
+    )
     result = tunnel.ssh(
         (
             f"{remote_root}/venv/bin/python",
-            "-m",
-            "fdai_deployment_cli.standalone_host",
+            *invocation,
             "--work-dir",
             app_work,
             *arguments,

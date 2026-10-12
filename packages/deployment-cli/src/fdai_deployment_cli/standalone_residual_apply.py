@@ -227,37 +227,59 @@ def recover_residual_apply(
     original_review: dict[str, object],
     original_claim: dict[str, object],
     effect_readback: Callable[[], bool],
+    successor_prerequisite_verified: bool = False,
 ) -> dict[str, object]:
     """Verify a claimed residual effect without issuing another apply."""
 
     operation = _operation(stage)
     review = private_json(work_dir / f"{operation}-review.json", "standalone residual plan review")
     claim = private_json(work_dir / f"{operation}-claim.json", "standalone residual apply claim")
-    _validate_residual_review(
+    _validate_residual_claim(
         stage=stage,
         context=context,
         original_review=original_review,
         original_claim=original_claim,
         residual_review=review,
-        allow_expired=True,
+        residual_claim=claim,
     )
-    expected_claim = _residual_claim_binding(
-        stage=stage,
-        context=context,
-        original_claim=original_claim,
-        residual_review=review,
-    )
-    if (
-        claim.get("schema_version") != "fdai.standalone-residual-claim.v1"
-        or any(claim.get(key) != value for key, value in expected_claim.items())
-        or not isinstance(claim.get("approval_digest"), str)
-        or _DIGEST.fullmatch(str(claim["approval_digest"])) is None
-        or not isinstance(claim.get("claimed_at"), str)
-        or claim.get("mutation_performed") is not False
-    ):
-        raise ValueError("standalone residual apply recovery claim is invalid")
+    successor_operation = _successor_operation(stage)
+    successor_claim_path = work_dir / f"{successor_operation}-claim.json"
+    if successor_claim_path.exists() or successor_claim_path.is_symlink():
+        from fdai_deployment_cli.standalone_residual_successor import (
+            recover_residual_successor,
+        )
+
+        return recover_residual_successor(
+            work_dir=work_dir,
+            stage=stage,
+            context=context,
+            infra=infra,
+            variables=variables,
+            targets=targets,
+            original_review=original_review,
+            original_claim=original_claim,
+            residual_review=review,
+            residual_claim=claim,
+            effect_readback=effect_readback,
+        )
     if not _zero_change(infra=infra, variables=variables, targets=targets):
-        raise ValueError("standalone residual apply effect is not recoverably converged")
+        from fdai_deployment_cli.standalone_residual_successor import (
+            prepare_residual_successor_review,
+        )
+
+        return prepare_residual_successor_review(
+            work_dir=work_dir,
+            stage=stage,
+            context=context,
+            infra=infra,
+            variables=variables,
+            targets=targets,
+            original_review=original_review,
+            original_claim=original_claim,
+            residual_review=review,
+            residual_claim=claim,
+            successor_prerequisite_verified=successor_prerequisite_verified,
+        )
     if not effect_readback():
         raise ValueError("standalone residual apply effect readback is incomplete")
     return _write_receipt(
@@ -270,6 +292,40 @@ def recover_residual_apply(
         residual_claim=claim,
         verification_only=True,
     )
+
+
+def _validate_residual_claim(
+    *,
+    stage: str,
+    context: dict[str, object],
+    original_review: dict[str, object],
+    original_claim: dict[str, object],
+    residual_review: dict[str, object],
+    residual_claim: dict[str, object],
+) -> None:
+    _validate_residual_review(
+        stage=stage,
+        context=context,
+        original_review=original_review,
+        original_claim=original_claim,
+        residual_review=residual_review,
+        allow_expired=True,
+    )
+    expected_claim = _residual_claim_binding(
+        stage=stage,
+        context=context,
+        original_claim=original_claim,
+        residual_review=residual_review,
+    )
+    if (
+        residual_claim.get("schema_version") != "fdai.standalone-residual-claim.v1"
+        or any(residual_claim.get(key) != value for key, value in expected_claim.items())
+        or not isinstance(residual_claim.get("approval_digest"), str)
+        or _DIGEST.fullmatch(str(residual_claim["approval_digest"])) is None
+        or not isinstance(residual_claim.get("claimed_at"), str)
+        or residual_claim.get("mutation_performed") is not False
+    ):
+        raise ValueError("standalone residual apply recovery claim is invalid")
 
 
 def residual_claim_exists(work_dir: Path, stage: str) -> bool:
@@ -438,6 +494,12 @@ def _operation(stage: str) -> str:
     if stage not in _STAGES:
         raise ValueError("standalone residual stage is invalid")
     return f"{stage}-residual"
+
+
+def _successor_operation(stage: str) -> str:
+    if stage not in _STAGES:
+        raise ValueError("standalone residual successor stage is invalid")
+    return f"{stage}-residual-successor"
 
 
 def _runtime_profile_digest(value: dict[str, object]) -> str:

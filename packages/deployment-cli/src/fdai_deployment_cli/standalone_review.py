@@ -30,6 +30,14 @@ _HISTORICAL_RECONCILIATION_FIELDS = frozenset({"operation", "variables_digest", 
 _RESIDUAL_RECOVERY_FIELDS = frozenset(
     {"operation", "original_plan_digest", "original_claim_digest"}
 )
+_RESIDUAL_SUCCESSOR_FIELDS = frozenset(
+    {
+        "operation",
+        "original_claim_digest",
+        "residual_plan_digest",
+        "residual_claim_digest",
+    }
+)
 _ACTIONS = frozenset({"create", "update", "delete", "replace", "read", "no-op"})
 _ERROR = "standalone plan review is invalid or expired; request a current exact plan"
 
@@ -50,6 +58,7 @@ def validate_plan_review(review: dict[str, Any], *, allow_expired: bool = False)
             _FIELDS | {"operation", "service_update"},
             _FIELDS | {"historical_reconciliation"},
             _FIELDS | {"residual_recovery"},
+            _FIELDS | {"residual_successor"},
         )
         or review.get("schema_version") != "fdai.standalone-application-plan.v1"
         or not isinstance(stage, str)
@@ -120,6 +129,22 @@ def validate_plan_review(review: dict[str, Any], *, allow_expired: bool = False)
             not isinstance(residual_recovery.get(field), str)
             or re.fullmatch(r"[0-9a-f]{64}", str(residual_recovery[field])) is None
             for field in ("original_plan_digest", "original_claim_digest")
+        )
+    ):
+        raise ValueError(_ERROR)
+    residual_successor = review.get("residual_successor")
+    if residual_successor is not None and (
+        not isinstance(residual_successor, dict)
+        or set(residual_successor) != _RESIDUAL_SUCCESSOR_FIELDS
+        or residual_successor.get("operation") != f"{stage}-residual-successor"
+        or any(
+            not isinstance(residual_successor.get(field), str)
+            or re.fullmatch(r"[0-9a-f]{64}", str(residual_successor[field])) is None
+            for field in (
+                "original_claim_digest",
+                "residual_plan_digest",
+                "residual_claim_digest",
+            )
         )
     ):
         raise ValueError(_ERROR)
