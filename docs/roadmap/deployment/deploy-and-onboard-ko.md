@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 1bf4f36506c4dec6dc6c5032ed0829f9bcefff60
-translation_revised: 2026-10-09
+translation_source_sha: 686f2993ac28d824624acc0b004cf04dde102028
+translation_revised: 2026-10-12
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 정본(source of truth)입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
@@ -13,6 +13,9 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 > 플레인 적용을 대상 VNet 내부의 Managed Host에서 실행합니다. 대상 환경 배포에는 GitHub
 > Actions를 사용하지 않습니다. [설치형 배포 CLI](installable-deployment-cli-ko.md)와
 > [배포 아티팩트](#배포-아티팩트)를 참조하세요.
+> 대화형 소스 설치는 번호가 있는 단계, 범위가 제한된 세부 정보, 경과 시간 활동 신호를 추가
+> 전용으로 기록합니다. 터미널을 지우거나 공급자 완료를 추정하지 않으며 표시 진행률을 배포 준비
+> 상태로 취급하지 않습니다.
 ## 전제조건(Prerequisites)
 
 ### 배포자 아이덴티티 (Azure)
