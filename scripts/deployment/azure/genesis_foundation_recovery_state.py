@@ -203,21 +203,13 @@ def prepare_recovery_migration(
     if claim.get("enrollment_source_commit") != enrolled.get("enrollment_source_commit"):
         raise ValueError("recovered state migration enrollment source differs")
     source = inspect_source(root)
-    checks = GenesisChecks(root)
+    checks = GenesisChecks(root, operator_selected_source=True)
     context = RecoveryMigration(
         original_directory, directory, recovered, source, enrolled, args.recovery_approval_file
     )
     state_claim = state_contract.load_claim(directory / "foundation-state-handoff-claim.json")
-    migration_claim_source = (
-        context.validate_claim_record(state_claim) if state_claim is not None else None
-    )
-    source_commits = {
-        source.commit,
-        str(recovered.receipt["execution_source_commit"]),
-        str(enrolled.get("enrollment_source_commit")),
-    }
-    if migration_claim_source is not None:
-        source_commits.add(migration_claim_source)
+    if state_claim is not None:
+        context.validate_claim_record(state_claim)
     state_receipt_path = directory / "foundation-state-handoff-receipt.json"
     if state_receipt_path.exists() or state_receipt_path.is_symlink():
         state_receipt = state_contract.load_receipt(
@@ -225,12 +217,9 @@ def prepare_recovery_migration(
             schema="fdai.genesis-foundation-state-handoff-receipt.v1",
             expected_digest=None,
         )
-        source_commits.add(context.validate_record(state_receipt))
-    repair_claim_source = retained_repair_source_commit(directory)
-    if repair_claim_source is not None:
-        source_commits.add(repair_claim_source)
-    for commit in source_commits:
-        checks.verify_source(source_commit=commit, repository=args.repository, apply=True)
+        context.validate_record(state_receipt)
+    retained_repair_source_commit(directory)
+    checks.verify_source(source_commit=source.commit, repository=args.repository, apply=True)
     context.verify_configuration()
     authority = state_contract.load_authority(directory / "foundation-state-authority.json")
     if authority is None:
