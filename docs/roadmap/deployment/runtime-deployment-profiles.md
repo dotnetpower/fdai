@@ -79,6 +79,9 @@ signed kit archive, installs `fdaictl` from that snapshot, uses Terraform roots 
 support from the snapshot, and resolves providers directly from public registries under the
 committed lock files. Image references still enter the runtime profile only as read-back digests
 after the deployment registry build stage completes.
+If the Foundation needed exact recovery, verified state handoff enters this same sequence. The
+recovery checkout supplies only current recovery code; runtime artifacts remain pinned to the
+original source snapshot, and recovery cannot change the selected runtime profile.
 Host preparation runs exactly one host subcommand: `prepare --kit` for a signed kit and
 `prepare-source` for a source snapshot. A focused test parses the command the coordinator sends with
 the host's own parser in both modes, because a rejected command fails before the host records any

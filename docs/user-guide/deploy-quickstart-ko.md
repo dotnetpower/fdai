@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: clone에서 명령줄 한 줄로 FDAI를 자신의 Azure 구독에 배포하거나 서명된 오프라인 패키지로 설치합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 5ed23092ebcd24b9291bbf3043182216c182f66d
+translation_source_sha: 94dd6fe9a111253ff631dd6869d81d14bbc10ff4
 translation_revised: 2026-10-13
 ---
 
@@ -167,6 +167,10 @@ git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azu
 추가로 한 번 입력해 확인해야 합니다. 명령은 응답이 없다고 승인한 것으로 해석하지 않습니다.
 적용 결과가 불분명하면 같은 명령을 다시 실행할 때 적용을 반복하지 않고 검증 전용 복구를
 수행합니다. 나중에 명령을 다시 실행하면 현재 clone으로 같은 설치를 업그레이드합니다.
+
+정확한 Foundation 복구는 복구 논리에 더 새로운 깨끗한 checkout을 사용할 수 있습니다. 검증된
+상태 인계 후에도 애플리케이션 배포는 원래 보존된 소스 스냅샷과 원래 런타임 프로파일을 사용합니다.
+복구는 애플리케이션 바이트를 자동으로 업그레이드하거나 서명된 키트를 선택하지 않습니다.
 
 먼저 가능성을 확인하려면 Azure 접근 없이 스냅샷만 고정하는 `--prepare-only`나 리소스를 바꾸지
 않고 AKS SKU와 할당량을 읽는 `--preflight-only`를 추가합니다. 준비나 사전 점검의 성공은
