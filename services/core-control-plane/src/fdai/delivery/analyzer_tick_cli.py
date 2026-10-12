@@ -1,19 +1,8 @@
-"""One-shot analyzer tick for a Container Apps scheduled Job.
+"""Run one analyzer tick or the managed local loop.
 
-Reads `FDAI_ANALYZER_TARGETS` (a JSON list of
-``{resource_id, kind, provider_resource_id?}`` objects), adds every eligible
-resource the durable inventory projection already observed when
-`FDAI_INVENTORY_DSN` is bound, binds the reference analyzers to whichever
-`MetricProvider` composition wired, and publishes one canonical Event per
-finding to the analyzer ingest topic.
-
-One-shot and bounded-loop exit codes are `0` after a clean final pass,
-including a pass with no resolved target, and `1` when the final pass is
-incomplete. The unbounded local loop remains alive across a failed pass,
-target-resolution outage, tick deadline, or run-receipt persistence outage,
-withholds readiness, and retries on the next interval. Configuration and
-programming errors still propagate. An unreadable inventory projection raises
-instead of degrading to the configured list alone.
+Targets come from configuration and the durable inventory projection. Findings
+are published as canonical Events. Incomplete passes return failure and keep
+local readiness unavailable; configuration and programming errors propagate.
 """
 
 from __future__ import annotations
@@ -509,25 +498,33 @@ async def run_once() -> AnalyzerJobReport:
         )
         try:
             if targets:
-                analyzer_report = await AnalyzerTickRunner(
-                    coordinator=build_analyzer_coordinator(
-                        container.metric_provider,
-                        targets=targets,
-                    ),
-                    event_bus=bus,
-                    publication_ledger=build_publication_ledger(),
-                    publication_reconciler=build_publication_reconciler(
-                        bootstrap_servers, venue, identity
-                    ),
-                    receipt_store=build_receipt_store(),
-                    window_seconds=window_seconds,
-                    publication_window_seconds=DEFAULT_PUBLICATION_WINDOW_SECONDS,
-                    topic=topic,
-                ).run_once(targets)
-                await build_lifecycle_recorder().record_report(
-                    analyzer_report,
-                    at=datetime.now(tz=UTC),
-                )
+                receipt_store = build_receipt_store()
+                lifecycle_recorder = build_lifecycle_recorder()
+                try:
+                    analyzer_report = await AnalyzerTickRunner(
+                        coordinator=build_analyzer_coordinator(
+                            container.metric_provider,
+                            targets=targets,
+                        ),
+                        event_bus=bus,
+                        publication_ledger=build_publication_ledger(),
+                        publication_reconciler=build_publication_reconciler(
+                            bootstrap_servers, venue, identity
+                        ),
+                        receipt_store=receipt_store,
+                        window_seconds=window_seconds,
+                        publication_window_seconds=DEFAULT_PUBLICATION_WINDOW_SECONDS,
+                        topic=topic,
+                    ).run_once(targets)
+                    await lifecycle_recorder.record_report(
+                        analyzer_report,
+                        at=datetime.now(tz=UTC),
+                    )
+                finally:
+                    try:
+                        await lifecycle_recorder.aclose()
+                    finally:
+                        await receipt_store.aclose()
             else:
                 analyzer_report = AnalyzerTickReport(targets=0, findings=0, published=0)
 

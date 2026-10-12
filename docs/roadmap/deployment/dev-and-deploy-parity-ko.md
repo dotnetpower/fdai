@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: 0eef6f9167024fdf6060c22fdf74f00b4e2f70fd
-translation_revised: 2026-10-10
+translation_source_sha: 5b41c8e7ba3fe9491f8fae283ba5a53ead532ae2
+translation_revised: 2026-10-12
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 
@@ -225,6 +225,9 @@ reasoning 후보가 지원하는 Azure Responses API output-token 예산을 사�
 샘플은 안정적인 `startup-readiness:<probe-id>` 상관관계 id를 사용하고 Operator API 지연 시간 샘플은
 안정적인 `operator-api:*:latency-probe` 상관관계 id를 사용하므로 측정된 탐색 사용량이 uncorrelated
 트래픽으로 기록되지 않습니다.
+운영 경고 채널을 사용할 수 없을 때는 명시적인 로컬 실행 장소에서만 `INFO`로 기록하고 그 외에는
+`WARNING`으로 기록합니다. 공유 실행 장소 확인기가 정본입니다. 각 관측 캠페인 실행은 실패한 경우를
+포함해 종료 전에 활동 및 스냅샷 저장소를 닫습니다.
 로컬 및 deployed 콘솔 모두 에이전트 카드의 Ask 액션에서 새 user-scoped 대화 키를
 할당하고 제출 전에 선택한 에이전트를 대화 요약에 저장합니다. 브라우저는 고정된 per-agent
 키를 사용해 이전 대화 기록을 묵시적으로 재개하지 않습니다.

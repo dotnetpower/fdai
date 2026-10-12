@@ -77,10 +77,16 @@ reconcile_redpanda_community_config() {
 reconcile_semantic_topic_partitions() {
   local topic="${FDAI_SEMANTIC_TURN_PHYSICAL_TOPIC:-fdai.pantheon.objects}"
   local description
+  if ! docker exec fdai-redpanda \
+    rpk topic create "$topic" --if-not-exists -p 2 -r 1; then
+    echo "dev-up: failed to create the semantic topic" >&2
+    return 1
+  fi
   if ! description="$(
     docker exec fdai-redpanda rpk topic describe "$topic" --print-partitions 2>/dev/null
   )"; then
-    return 0
+    echo "dev-up: failed to describe the semantic topic" >&2
+    return 1
   fi
   local partition_count
   partition_count="$(
@@ -107,7 +113,6 @@ fi
 echo "dev-up: bringing up postgres + redpanda + clamav..."
 docker compose up -d --wait
 reconcile_redpanda_community_config
-reconcile_semantic_topic_partitions
 docker exec fdai-redpanda rpk topic create fdai.startup.probes --if-not-exists -p 2 -r 1 \
   -c cleanup.policy=delete -c retention.ms=3600000 -c retention.bytes=1048576 -c segment.ms=600000
 docker exec fdai-redpanda rpk topic alter-config fdai.startup.probes \
@@ -116,6 +121,7 @@ docker exec fdai-redpanda rpk topic alter-config fdai.startup.probes \
 if ! python3 "$script_dir/cleanup-local-broker.py" --apply; then
   echo "dev-up: optional stale local consumer cleanup unavailable; retained existing groups" >&2
 fi
+reconcile_semantic_topic_partitions
 
 echo
 echo "dev-up: OK"

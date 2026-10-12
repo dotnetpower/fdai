@@ -379,6 +379,10 @@ the same owner, envelope, and payload validation, and runtime composition binds 
 payload validator by default so malformed `object.verdict`, `object.approval`, `object.action-run`,
 `object.rollback`, `object.issue`, `object.audit-entry`, `object.rule`, `object.policy`, and
 `object.policy-activation-request` records do not reach handlers.
+The bridge binds each validated wire `correlation_id` only for that delivery's telemetry scope.
+Inventory observation Events pass a versioned, bounded transport validator before Huginn accepts
+their structured resource payload; rejection diagnostics retain only a safe reason code, field, and
+payload digest.
 Consumer modes, multi-handler consumer groups, and shutdown follow the
 [event-bus invariants](agent-pantheon-implementation.md#event-bus-invariants); startup recovery and
 Loki proposal evidence checks are runtime mechanics in the same implementation plan.

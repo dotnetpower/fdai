@@ -221,7 +221,9 @@ These tables live in the installation's PostgreSQL database. Mimir is the single
   bootstrap fallback when no pointer exists; a malformed pointer fails closed, and a
   pointer/bootstrap mismatch is logged and audited. Deployed Core can receive a reviewed approval
   profile through the protected service deployment input. Revisions use the StateStore convention;
-  no dedicated `approval_profile_revision` or `policy_revision` table exists yet.
+  no dedicated `approval_profile_revision` or `policy_revision` table exists yet. A raw-ingress
+  rejection remains outside profile selection and approval evidence; runtime diagnostics retain
+  only its bounded reason code, field, and payload digest.
 - The standing-authorization schema and evaluator, and the governance review authority for the
   `standing-authority-promotion` and `operator-override-promotion` change classes, accept one
   approval only under the single-operator production profile.

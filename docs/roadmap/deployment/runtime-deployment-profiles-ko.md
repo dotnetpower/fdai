@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 0765f41cc5180fa7be163af4285c81f1b2ec9646
-translation_revised: 2026-10-10
+translation_source_sha: a3e8bf6ea1c2a6408b7a8c134c52049fcfe61ea5
+translation_revised: 2026-10-12
 ---
 # 런타임 배포 프로파일
 
@@ -251,6 +251,9 @@ Managed Host는 Azure CLI 작업을 위해 선택된 user-assigned Managed Ident
 권한을 부여하지 않습니다. 표현 및 통합 계약은 이 단계를 16번째 단계로, `provisioning-events`를
 세 번째 비공개 Foundation 컨테이너로 반영합니다. 이전 추가 필드 방식의 증적 테스트 대역에
 `inventory_ready`가 없어도 준비 상태로 해석하지 않습니다. 초기 또는 반복 검사가 완전한 승격 세대를 온톨로지에 반영하면 범위가 제한된 delivery 모듈 `inventory_ontology_observer.py`가 Resource마다 재시도에 안정적인 관측 Event 하나를 기존 컨트롤 루프 토픽에 게시하고 CLI는 조립만 담당합니다. 규칙 판단은 계속 Forseti가 소유하고 감사는 Saga가 소유합니다. 불완전한 변환 결과나 게시 실패로는 인벤토리 종결 조건을 충족하거나 실행 권한을 만들 수 없습니다.
+각 반복 인벤토리 실행은 반환하기 전에 커넥터 스냅샷 상태를 명시적으로 닫고, 각 분석기
+실행은 증적 및 수명 주기 저장소를 닫습니다. 런타임 완료 시 이러한 비동기 StateStore
+리소스 해제를 가비지 컬렉션에 의존하지 않습니다.
 
 AKS에서 Managed Host는 정확히 배포된 inventory CronJob에서 내용 주소 방식 Job 하나를
 파생하고 `inventory-job` ServiceAccount와 digest-pinned Core 이미지를 보존하며 초기 실행

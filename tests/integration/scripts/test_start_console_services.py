@@ -2089,7 +2089,10 @@ case "$*" in
     "exec fdai-redpanda rpk cluster config set retention_bytes 268435456") exit 0 ;;
     "exec fdai-redpanda rpk cluster config set group_offset_retention_sec 86400") exit 0 ;;
     "exec fdai-redpanda rpk cluster config set group_offset_retention_check_ms 60000") exit 0 ;;
-  "exec fdai-redpanda rpk topic describe fdai.pantheon.objects --print-partitions")
+    "exec fdai-redpanda rpk topic create fdai.pantheon.objects --if-not-exists -p 2 -r 1")
+      printf 'semantic-topic-created\\n'
+      ;;
+    "exec fdai-redpanda rpk topic describe fdai.pantheon.objects --print-partitions")
     printf 'PARTITION LEADER\\n0 0\\n'
     ;;
   "exec fdai-redpanda rpk topic add-partitions fdai.pantheon.objects --num 1")
@@ -2106,6 +2109,7 @@ esac
     assert "partition-balancing-disabled" in result.stdout
     assert "core-balancing-disabled" in result.stdout
     assert "topic-default-set" in result.stdout
+    assert "semantic-topic-created" in result.stdout
     assert "semantic-topic-expanded" in result.stdout
     assert "dev-up: OK" in result.stdout
 
@@ -2124,8 +2128,9 @@ case "$*" in
     "exec fdai-redpanda rpk cluster config set retention_bytes 268435456") exit 0 ;;
     "exec fdai-redpanda rpk cluster config set group_offset_retention_sec 86400") exit 0 ;;
     "exec fdai-redpanda rpk cluster config set group_offset_retention_check_ms 60000") exit 0 ;;
+  "exec fdai-redpanda rpk topic create fdai.pantheon.objects --if-not-exists -p 2 -r 1") exit 0 ;;
   "exec fdai-redpanda rpk topic describe fdai.pantheon.objects --print-partitions")
-    printf 'PARTITION LEADER\\n'
+    printf 'PARTITION LEADER\\n0 0\\n1 0\\n'
     ;;
     "exec fdai-redpanda rpk topic create fdai.startup.probes "*) exit 0 ;;
     "exec fdai-redpanda rpk topic alter-config fdai.startup.probes "*) exit 0 ;;
@@ -2152,6 +2157,7 @@ case "$*" in
     "exec fdai-redpanda rpk cluster config set retention_bytes 268435456") exit 0 ;;
     "exec fdai-redpanda rpk cluster config set group_offset_retention_sec 86400") exit 0 ;;
     "exec fdai-redpanda rpk cluster config set group_offset_retention_check_ms 60000") exit 0 ;;
+  "exec fdai-redpanda rpk topic create fdai.pantheon.objects --if-not-exists -p 2 -r 1") exit 0 ;;
   "exec fdai-redpanda rpk topic describe fdai.pantheon.objects --print-partitions")
     printf 'PARTITION LEADER\\n0 0\\n1 0\\n'
     ;;
@@ -2191,6 +2197,8 @@ set -euo pipefail
 case "$*" in
     "compose version"|"info"|"compose up -d --wait") exit 0 ;;
     "exec fdai-redpanda rpk cluster config set "*) exit 0 ;;
+    "exec fdai-redpanda rpk topic create fdai.pantheon.objects --if-not-exists -p 2 -r 1")
+        printf 'semantic-topic-created\\n' ;;
     "exec fdai-redpanda rpk topic describe fdai.pantheon.objects --print-partitions")
         printf 'PARTITION LEADER\\n0 0\\n1 0\\n'
         ;;
@@ -2217,5 +2225,9 @@ esac
 
     assert result.returncode == 0
     assert 'local-broker-cleanup: {"candidates": 0, "removed": 0} apply=True' in result.stdout
+    assert "semantic-topic-created" in result.stdout
+    assert result.stdout.index("local-broker-cleanup:") < result.stdout.index(
+        "semantic-topic-created"
+    )
     assert "bounded-probe-topic-created" in result.stdout
     assert "bounded-probe-retention-reconciled" in result.stdout

@@ -1,8 +1,8 @@
 ---
 title: 운영자 거버넌스 프로필
 translation_of: operator-governance-profiles.md
-translation_source_sha: 5c512faaa474d3e443508f68fb9542a9efa952e1
-translation_revised: 2026-10-08
+translation_source_sha: e465040632f1f590420dcf26427c6c8972ed481e
+translation_revised: 2026-10-12
 ---
 # 운영자 거버넌스 프로필
 
@@ -209,7 +209,8 @@ Release 업그레이드는 설치 안에서 활성 개정을 새 기준 정책�
   잘못된 포인터는 안전하게 실패하며, 포인터와 부트스트랩 값이 다르면 로그와 감사 기록을 남깁니다.
   배포된 Core는 보호된 서비스 배포 입력으로 검토된 승인 프로필을 받을 수 있습니다. 개정은
   StateStore 규칙을 사용하며, 전용 `approval_profile_revision`과 `policy_revision` 테이블은 아직
-  없습니다.
+  없습니다. 원시 수신 거부는 프로필 선택 및 승인 근거의 범위 밖에 유지됩니다. 런타임 진단에는
+  범위가 제한된 사유 코드, 필드, 페이로드 다이제스트만 남습니다.
 - 상시 권한 스키마와 평가기, 그리고 `standing-authority-promotion`과
   `operator-override-promotion` 변경 등급의 거버넌스 검토 권한은 단독 운영자 프로덕션
   프로필에서만 승인 하나를 받아들입니다.

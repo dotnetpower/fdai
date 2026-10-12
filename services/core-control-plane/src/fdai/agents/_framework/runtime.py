@@ -55,7 +55,7 @@ from fdai.agents.heimdall import (
     OperationalEvidenceHook,
     ReadInvestigationHook,
 )
-from fdai.agents.huginn import DiscoveryProjector, Huginn
+from fdai.agents.huginn import DiscoveryProjector, Huginn, HuginnIngressRejectedError
 from fdai.agents.mimir import Mimir
 from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga
@@ -744,11 +744,18 @@ class PantheonRuntime(RuntimeConversationPort):
         prefix = "shadow_action_run" if payload.get("shadow_mode") is True else "action_run"
         self.shadow_decisions[f"{prefix}:{state}"] += 1
 
-    def _record_ingress_drop(self, error: ValueError) -> None:
+    def _record_ingress_drop(self, error: HuginnIngressRejectedError) -> None:
         self._ingress_dropped += 1
         _LOG.warning(
-            "pantheon_ingress_unkeyed_event",
-            extra={"error_type": type(error).__name__, "raw_event_topic": self.raw_event_topic},
+            "pantheon_ingress_rejected_event reason_code=%s",
+            error.reason_code,
+            extra={
+                "error_type": type(error).__name__,
+                "field": error.field,
+                "payload_digest": error.payload_digest,
+                "raw_event_topic": self.raw_event_topic,
+                "reason_code": error.reason_code,
+            },
         )
 
 

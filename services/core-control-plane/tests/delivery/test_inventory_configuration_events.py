@@ -24,6 +24,9 @@ from fdai.delivery.inventory_configuration_events import (
 from fdai.delivery.inventory_sync import PromotedInventoryObservation
 from fdai.delivery.persistence.postgres_inventory_delivery import verified_delivery_observation
 from fdai.rule_catalog.schema.signal_type import load_signal_type_registry_from_mapping
+from fdai.shared.contracts.inventory_observation import (
+    MAX_INVENTORY_OBSERVATION_STRING_CHARS,
+)
 from fdai.shared.contracts.models import Event, Rule
 from fdai.shared.providers.event_bus import PublishReceipt
 from fdai.shared.providers.inventory import ResourceRecord
@@ -206,6 +209,70 @@ async def test_promoted_inventory_publishes_configuration_observations() -> None
         "scope_ref": "scope-example",
     }
     assert re.fullmatch(r"sha256:[0-9a-f]{64}", inventory_observation["generation_digest"])
+
+
+@pytest.mark.asyncio
+async def test_promoted_inventory_preserves_bounded_provider_property_shapes() -> None:
+    bus = InMemoryEventBus()
+    nested: dict[str, object] = {
+        "items": list(range(161)),
+        "description": "x" * 1_797,
+        **{f"property_{index}": index for index in range(110)},
+    }
+    for index in range(12):
+        nested = {f"level_{index}": nested}
+    observation = PromotedInventoryObservation(
+        generation="generation-deep",
+        resources=(
+            ResourceRecord(
+                resource_id="resource-deep",
+                type="example.resource",
+                props=nested,
+            ),
+        ),
+        links=(),
+        complete=True,
+        recorded_at=datetime(2026, 9, 17, tzinfo=UTC),
+    )
+
+    assert (
+        await publish_promoted_resource_events(
+            observation,
+            event_bus=bus,
+            topic="events",
+            scope_ref="scope-example",
+        )
+        == 1
+    )
+    record = [item async for item in bus.subscribe("events", "reader")][0]
+    assert record.payload["payload"]["resource"]["props"] == nested
+
+
+@pytest.mark.asyncio
+async def test_oversized_promoted_inventory_fails_before_broker_publication() -> None:
+    bus = InMemoryEventBus()
+    observation = PromotedInventoryObservation(
+        generation="generation-oversized",
+        resources=(
+            ResourceRecord(
+                resource_id="resource-oversized",
+                type="example.resource",
+                props={"value": "x" * (MAX_INVENTORY_OBSERVATION_STRING_CHARS + 1)},
+            ),
+        ),
+        links=(),
+        complete=True,
+        recorded_at=datetime(2026, 9, 17, tzinfo=UTC),
+    )
+
+    with pytest.raises(ValueError, match="inventory observation transport rejected"):
+        await publish_promoted_resource_events(
+            observation,
+            event_bus=bus,
+            topic="events",
+            scope_ref="scope-example",
+        )
+    assert [item async for item in bus.subscribe("events", "reader")] == []
 
 
 @pytest.mark.asyncio

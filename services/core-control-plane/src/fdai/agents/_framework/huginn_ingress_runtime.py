@@ -46,6 +46,7 @@ from fdai.agents._framework.huginn_operator_receipt import (
 from fdai.agents._framework.huginn_schema_learning import HuginnSchemaLearningLedger
 from fdai.agents._framework.topics import stable_idempotency_key
 from fdai.core.case_history import OperationalCaseInput
+from fdai.shared.contracts.inventory_observation import is_inventory_observation_event
 
 if TYPE_CHECKING:
     from fdai.agents._framework.bus import PantheonBus
@@ -293,11 +294,14 @@ class HuginnIngressMixin:
             raise ValueError("Huginn clock MUST return a timezone-aware datetime")
         event_payload = raw.get("payload")
         canonical_payload = event_payload if isinstance(event_payload, Mapping) else {}
+        complete_inventory_observation = is_inventory_observation_event(raw)
         inventory_change = canonical_payload.get("inventory_change")
         detection_readiness = canonical_payload.get("detection_readiness")
         resource_value = (
             inventory_change.get("resource") if isinstance(inventory_change, Mapping) else None
         )
+        if complete_inventory_observation:
+            resource_value = canonical_payload.get("resource")
         resource: Mapping[str, Any] = resource_value if isinstance(resource_value, Mapping) else {}
 
         event_type = _safe_identity(raw.get("event_type") or "generic", field="event_type")
@@ -360,6 +364,12 @@ class HuginnIngressMixin:
             signal_kind = canonical_payload.get("signal_kind")
             if isinstance(signal_kind, str):
                 payload["attributes"]["signal_kind"] = _bound(signal_kind)
+        if complete_inventory_observation:
+            payload["signal_kind"] = canonical_payload["signal_kind"]
+            payload["resource"] = _copy_validated_json(canonical_payload["resource"])
+            payload["inventory_observation"] = _copy_validated_json(
+                canonical_payload["inventory_observation"]
+            )
         if isinstance(detection_readiness, Mapping):
             for field in (
                 "dimension",

@@ -122,6 +122,13 @@ class DetectionLifecycleRecorder:
         self._retention = retention
         self._freshness_budget = freshness_budget
 
+    async def aclose(self) -> None:
+        """Close the recorder-owned async state store when available."""
+
+        close = getattr(self._state_store, "aclose", None)
+        if callable(close):
+            await close()
+
     async def record_report(
         self,
         report: AnalyzerTickReport,

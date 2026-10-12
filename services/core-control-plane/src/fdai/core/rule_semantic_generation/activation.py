@@ -90,10 +90,12 @@ class RuleGenerationActivationBinder:
         if self._event_bus is None:
             raise RuntimeError("Rule generation activation command transport is unavailable")
         request_id = validated.validation_result.build_result.request.generation_request_id
+        payload = validated.model_dump(mode="json")
+        payload["correlation_id"] = validated.validation_result.build_result.request.correlation_id
         receipt = await self._event_bus.publish(
             RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
             request_id,
-            validated.model_dump(mode="json"),
+            payload,
         )
         if receipt.topic != RULE_GENERATION_ACTIVATION_COMMAND_TOPIC:
             raise RuntimeError("Rule generation activation command broker receipt mismatch")

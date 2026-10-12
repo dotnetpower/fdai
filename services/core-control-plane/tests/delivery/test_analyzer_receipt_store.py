@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
+from unittest.mock import AsyncMock
 
 import pytest
 from fdai.delivery.analyzer_receipt_store import (
@@ -58,6 +59,16 @@ async def test_store_retains_publication_and_duplicate_as_distinct_bounded_recei
     }
     assert records[0]["cause_claim_supported"] is False
     assert records[0]["execution_authority"] is False
+
+
+async def test_store_closes_owned_async_state_store() -> None:
+    state = InMemoryStateStore()
+    state.aclose = AsyncMock()  # type: ignore[method-assign]
+    store = StateStoreAnalyzerReceiptStore(state)
+
+    await store.aclose()
+
+    state.aclose.assert_awaited_once_with()  # type: ignore[attr-defined]
 
 
 async def test_store_rejects_rewriting_an_immutable_receipt_identity() -> None:

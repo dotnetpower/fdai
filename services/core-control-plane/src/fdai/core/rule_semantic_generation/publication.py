@@ -78,12 +78,16 @@ class RuleGenerationOutboxPublisher:
         if result is None:
             return None
         request_id = _generation_request_id(result)
+        payload = result.model_dump(mode="json")
+        payload["correlation_id"] = (
+            result.command.validation_result.build_result.request.correlation_id
+        )
         try:
             async with asyncio.timeout(self._publish_timeout_seconds):
                 receipt = await self._event_bus.publish(
                     self._topic,
                     request_id,
-                    result.model_dump(mode="json"),
+                    payload,
                 )
             if receipt.topic != self._topic:
                 raise RuleGenerationReceiptMismatchError(

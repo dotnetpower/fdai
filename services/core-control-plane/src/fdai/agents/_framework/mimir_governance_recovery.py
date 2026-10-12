@@ -315,7 +315,14 @@ class MimirGovernanceRecoveryMixin(_AgentMixinBase):
         ):
             await self._record_rule_generation_validation_result(payload)
         elif topic == RULE_GENERATION_ACTIVATION_COMMAND_TOPIC:
-            command = RuleGenerationActivationCommandEvent.model_validate(payload)
+            command_payload = dict(payload)
+            wire_correlation = str(command_payload.pop("correlation_id", "") or "")
+            command_payload.pop("producer_principal", None)
+            command_payload.pop("envelope_schema_version", None)
+            command = RuleGenerationActivationCommandEvent.model_validate(command_payload)
+            expected_correlation = command.validation_result.build_result.request.correlation_id
+            if wire_correlation and wire_correlation != expected_correlation:
+                raise ValueError("Rule generation activation correlation identity mismatch")
             binder = self._rule_generation_activation_binder
             if binder is None:
                 raise RuntimeError("Mimir Rule generation activation binder is unavailable")

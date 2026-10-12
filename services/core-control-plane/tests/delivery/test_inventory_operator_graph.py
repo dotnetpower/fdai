@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping
 from datetime import UTC, datetime
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock
 
@@ -96,6 +97,8 @@ async def test_the_local_loop_projection_runs_only_when_enabled_and_never_raises
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     failing = AsyncMock(side_effect=psycopg.OperationalError("connection refused"))
+    store = SimpleNamespace(aclose=AsyncMock())
+    monkeypatch.setattr(graph, "PostgresStateStore", lambda **_: store)
     monkeypatch.setattr(graph, "reconcile_operator_inventory_graph", failing)
 
     await graph.reconcile_local_operator_graph("postgresql://example", {})
@@ -113,6 +116,7 @@ async def test_the_local_loop_projection_runs_only_when_enabled_and_never_raises
     assert [record.message for record in caplog.records] == [
         "inventory_operator_graph_projection_failed"
     ]
+    store.aclose.assert_awaited_once_with()
 
 
 async def test_the_reconciliation_loop_refreshes_the_local_graph_after_every_tick(

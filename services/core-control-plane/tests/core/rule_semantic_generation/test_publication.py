@@ -139,7 +139,13 @@ async def test_publish_acknowledges_exact_receipt_and_suppresses_duplicate() -> 
     records = await _records(event_bus)
     assert len(records) == 1
     assert records[0].key == _request_id(result)
-    assert RuleGenerationActivationResultEvent.model_validate(records[0].payload) == result
+    assert (
+        records[0].payload["correlation_id"]
+        == result.command.validation_result.build_result.request.correlation_id
+    )
+    model_payload = dict(records[0].payload)
+    model_payload.pop("correlation_id")
+    assert RuleGenerationActivationResultEvent.model_validate(model_payload) == result
     delivery = await _delivery(store, result)
     assert delivery.state is RuleGenerationOutboxDeliveryState.PUBLISHED
     assert delivery.published_at == NOW

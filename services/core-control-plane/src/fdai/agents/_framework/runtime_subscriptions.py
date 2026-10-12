@@ -62,7 +62,7 @@ class RuleGenerationWorkerBindings:
 def build_ingress_handler(
     *,
     agent: Agent,
-    on_unkeyed: Callable[[ValueError], None],
+    on_unkeyed: Callable[[HuginnIngressRejectedError], None],
 ) -> Callable[[str, dict[str, Any]], Awaitable[None]]:
     """Return the raw-event handler that feeds Huginn without DLQ noise."""
     if not isinstance(agent, Huginn):  # pragma: no cover - factory guarantee

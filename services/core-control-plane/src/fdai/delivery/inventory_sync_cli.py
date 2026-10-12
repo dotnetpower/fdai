@@ -221,8 +221,10 @@ async def _build_kubernetes_enricher(
             capability="inventory.snapshot",
             now=datetime.now(UTC),
         )
+        connector_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn))
+        stack.push_async_callback(connector_store.aclose)
         inbox = ConnectorSnapshotInbox(
-            PostgresStateStore(config=PostgresStateStoreConfig(dsn=config.dsn)),
+            connector_store,
             registrations=registrations,
             allow_cluster_resources=config.kubernetes_connector_cluster_resources,
             now=lambda: datetime.now(UTC),
@@ -765,8 +767,6 @@ async def _main(argv: list[str]) -> None:
 
 
 def container_argv(argv: list[str]) -> list[str]:
-    """Translate the Container Apps positional mode into the existing CLI contract."""
-
     if argv == ["once"]:
         return []
     if argv == ["loop"]:
@@ -775,13 +775,10 @@ def container_argv(argv: list[str]) -> list[str]:
 
 
 def container_main() -> None:
-    """Run inventory synchronization from a positional Container Apps command."""
-
     run_inventory_process(lambda: _main(container_argv(sys.argv[1:])))
 
 
 def main() -> None:
-    """Run one due-checked reconciliation under the job process identity."""
     run_inventory_process(lambda: _main(sys.argv[1:]))
 
 

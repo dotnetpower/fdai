@@ -11,6 +11,7 @@ from fdai.agents._framework.bus_bridge import EventBusBridge
 from fdai.agents._framework.registry import load_pantheon
 from fdai.shared.providers.event_bus import EventEnvelope
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
+from fdai.shared.telemetry import current_correlation_id
 
 
 def _bridge(provider: InMemoryEventBus | None = None) -> EventBusBridge:
@@ -145,6 +146,33 @@ def test_owned_topic_principal_verification_cannot_be_disabled() -> None:
 
     assert seen == []
     assert bridge.metrics.producer_principal_mismatch == 1
+
+
+def test_consumer_binds_and_restores_payload_correlation_context() -> None:
+    provider = InMemoryEventBus()
+    bridge = _bridge(provider)
+    observed: list[str | None] = []
+
+    async def handler(_topic: str, _payload: dict[str, object]) -> None:
+        observed.append(current_correlation_id())
+
+    bridge.subscribe("object.verdict", "Thor", handler)
+    asyncio.run(
+        provider.publish(
+            "object.verdict",
+            "corr-handler",
+            {
+                "correlation_id": "corr-handler",
+                "idempotency_key": "verdict:corr-handler",
+                "producer_principal": "Forseti",
+            },
+        )
+    )
+
+    _drain(bridge)
+
+    assert observed == ["corr-handler"]
+    assert current_correlation_id() is None
 
 
 def test_ordered_poison_halt_and_handler_timeout_are_safe_defaults() -> None:

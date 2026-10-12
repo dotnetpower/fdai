@@ -139,7 +139,13 @@ async def test_binder_reads_prior_identity_and_publishes_exact_command() -> None
     )
     assert len(records) == 1
     assert records[0].key == command.validation_result.build_result.request.generation_request_id
-    assert RuleGenerationActivationCommandEvent.model_validate(records[0].payload) == command
+    assert (
+        records[0].payload["correlation_id"]
+        == command.validation_result.build_result.request.correlation_id
+    )
+    model_payload = dict(records[0].payload)
+    model_payload.pop("correlation_id")
+    assert RuleGenerationActivationCommandEvent.model_validate(model_payload) == command
 
 
 async def test_restart_replay_does_not_touch_provider_after_successor_activation() -> None:
