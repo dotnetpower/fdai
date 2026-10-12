@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
+
 from fdai_service_contracts.system_knowledge import (
     SystemKnowledgeAuthorityRole,
     SystemKnowledgeCatalog,

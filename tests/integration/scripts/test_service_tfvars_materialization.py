@@ -1382,23 +1382,37 @@ def test_materializes_optional_core_approval_profile(tfvars: ModuleType) -> None
     assert json.loads(selected["approval_profile_json"]) == payload
 
 
-def test_approval_profile_contract_loads_without_site_packages() -> None:
-    payload = json.dumps(_approval_profile_payload(), separators=(",", ":"), sort_keys=True)
-    command = (
-        "import json,sys;"
-        f"sys.path.insert(0,{str(_SCRIPTS)!r});"
-        "from approval_profile_tfvars import materialize_approval_profile;"
-        "print(materialize_approval_profile(sys.argv[1]))"
-    )
-
-    completed = subprocess.run(  # noqa: S603 - fixed interpreter, static code, fixture input.
-        [sys.executable, "-S", "-c", command, payload],
+def test_materialize_tfvars_cli_runs_without_site_packages(tmp_path: Path) -> None:
+    approval_profile = _approval_profile_payload()
+    service_tfvars = {
+        "environments": {"prod": {"core-control-plane": {"name": "example", "platform": {}}}}
+    }
+    output = tmp_path / "service.tfvars.json"
+    subprocess.run(  # noqa: S603 - fixed interpreter, script, and synthetic fixture input.
+        [
+            sys.executable,
+            "-S",
+            str(_SCRIPTS / "materialize_tfvars.py"),
+            "--service",
+            "core-control-plane",
+            "--environment",
+            "prod",
+            "--output",
+            str(output),
+        ],
+        input=json.dumps(service_tfvars),
         check=True,
         capture_output=True,
+        cwd=tmp_path,
+        env={
+            "FDAI_APPROVAL_PROFILE_JSON": json.dumps(approval_profile),
+        },
         text=True,
     )
 
-    assert json.loads(completed.stdout) == _approval_profile_payload()
+    materialized = json.loads(output.read_text(encoding="utf-8"))
+    assert json.loads(materialized["approval_profile_json"]) == approval_profile
+    assert output.stat().st_mode & 0o777 == 0o600
 
 
 def test_rejects_approval_profile_with_digest_mismatch(tfvars: ModuleType) -> None:

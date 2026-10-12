@@ -262,6 +262,12 @@ identity, approval, catalog-promotion, or execution authority.
 
 ## Rollout
 
+Repository checks and deployed evidence answer different questions. Focused service and contract
+tests, Terraform validation, workflow and CI-contract checks, lint, type checks, and documentation
+checks establish source-level behavior for the tested commit. They do not prove a published image,
+a protected apply, live Teams replies, restart recovery, cost, disable, or rollback. Keep the service
+a candidate until the required receipts are retained for the exact deployed revision.
+
 1. Build and test the catalog, deterministic search, mention verification, and reply renderer.
 2. Package the service and image without repository source.
 3. Run a local Activity Protocol or Outgoing Webhook canary against synthetic signed activities.
