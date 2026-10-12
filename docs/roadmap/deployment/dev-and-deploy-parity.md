@@ -220,6 +220,9 @@ output-token budget supported by every configured reasoning candidate. Core read
 stable `startup-readiness:<probe-id>` correlation ids, and Operator API latency samples use stable
 `operator-api:*:latency-probe` correlation ids, so measured probe usage isn't filed as uncorrelated
 traffic.
+An unavailable operational-alert channel is logged at `INFO` only for the explicit local execution
+venue and at `WARNING` otherwise; the shared execution-venue resolver is authoritative. Each
+observation campaign run closes its activity and snapshot stores before exit, including failure.
 In both local and deployed consoles, an agent-card Ask action allocates a fresh user-scoped
 conversation key while persisting the selected agent in the conversation summary before submit.
 The browser never uses a stable per-agent key to resume an earlier transcript implicitly.

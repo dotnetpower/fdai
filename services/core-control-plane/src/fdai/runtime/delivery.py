@@ -16,8 +16,7 @@ from fdai.core.executor.safeguard_lifecycle_coordinator import (
     SafeguardLifecycleCoordinator,
 )
 from fdai.core.executor.tool_call import ToolCallShadowExecutor, ToolReceiptObserver
-from fdai.core.notifications.matrix import NotificationMatrix, load_matrix_from_yaml
-from fdai.core.notifications.router import ChannelRegistry
+from fdai.core.notifications.matrix import load_matrix_from_yaml
 from fdai.core.risk_gate.approval_profile import ApprovalProfileRevision
 from fdai.delivery.chatops.slack_binding import build_slack_hil_channel
 from fdai.delivery.direct_api_router import RoutedDirectApiExecutor
@@ -26,6 +25,9 @@ from fdai.runtime.github_auth import build_github_token_provider
 from fdai.runtime.human_access import build_human_access_direct_api
 from fdai.runtime.notification_registry import (
     _build_notification_registry as _build_notification_registry,
+)
+from fdai.runtime.notification_registry import (
+    _validate_incident_notification_route as _validate_incident_notification_route,
 )
 from fdai.runtime.notification_registry import (
     build_notification_delivery_store as build_notification_delivery_store,
@@ -683,37 +685,6 @@ def _build_tool_executor(
         receipt_observer=receipt_observer,
         enforce=bool(enforce_actions),
         safeguard_coordinator=safeguard_coordinator,
-    )
-
-
-def _validate_incident_notification_route(
-    matrix: NotificationMatrix,
-    registry: ChannelRegistry,
-) -> None:
-    """Report an unavailable A2 route without disabling unrelated runtime paths."""
-
-    route = matrix.resolve("operational_alert")
-    eligible = tuple(
-        channel_id
-        for channel_id in route.channel_ids
-        if (channel := registry.resolve(channel_id)) is not None
-        and route.trust_tier in channel.trust_tiers
-    )
-    if eligible:
-        return
-    log_unavailable = (
-        _LOGGER.info
-        if os.environ.get("FDAI_EXECUTION_VENUE", "").strip().casefold() == "local"
-        or os.environ.get("FDAI_RUNTIME_LOCAL_AZURE_CLI", "").strip() == "1"
-        else _LOGGER.warning
-    )
-    log_unavailable(
-        "notification_route_unavailable",
-        extra={
-            "route": route.category,
-            "required_trust_tier": route.trust_tier.value,
-            "configured_channel_count": len(registry.channels),
-        },
     )
 
 

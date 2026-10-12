@@ -1,19 +1,8 @@
-"""One-shot analyzer tick for a Container Apps scheduled Job.
+"""Run one analyzer tick or the managed local loop.
 
-Reads `FDAI_ANALYZER_TARGETS` (a JSON list of
-``{resource_id, kind, provider_resource_id?}`` objects), adds every eligible
-resource the durable inventory projection already observed when
-`FDAI_INVENTORY_DSN` is bound, binds the reference analyzers to whichever
-`MetricProvider` composition wired, and publishes one canonical Event per
-finding to the analyzer ingest topic.
-
-One-shot and bounded-loop exit codes are `0` after a clean final pass,
-including a pass with no resolved target, and `1` when the final pass is
-incomplete. The unbounded local loop remains alive across a failed pass,
-target-resolution outage, tick deadline, or run-receipt persistence outage,
-withholds readiness, and retries on the next interval. Configuration and
-programming errors still propagate. An unreadable inventory projection raises
-instead of degrading to the configured list alone.
+Targets come from configuration and the durable inventory projection. Findings
+are published as canonical Events. Incomplete passes return failure and keep
+local readiness unavailable; configuration and programming errors propagate.
 """
 
 from __future__ import annotations

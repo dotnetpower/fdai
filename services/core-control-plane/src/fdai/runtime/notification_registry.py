@@ -18,14 +18,44 @@ from typing import Any, cast
 
 import httpx
 
+from fdai.core.notifications.matrix import NotificationMatrix
 from fdai.core.notifications.router import ChannelBinding, ChannelRegistry
 from fdai.core.notifications.shadow import ShadowDeliveryRecorder
 from fdai.delivery.integration_readiness import endpoint_is_placeholder
+from fdai.runtime.venue import ExecutionVenue, resolve_execution_venue
 from fdai.shared.providers.notifications import NotificationChannel
 
 _LOGGER = logging.getLogger("fdai.startup")
 _ACS_SCOPE = "https://communication.azure.com/.default"
 _TEAMS_WORKFLOW_SCOPE = "https://service.flow.microsoft.com/.default"
+
+
+def _validate_incident_notification_route(
+    matrix: NotificationMatrix,
+    registry: ChannelRegistry,
+) -> None:
+    """Report an unavailable A2 route without disabling unrelated runtime paths."""
+
+    route = matrix.resolve("operational_alert")
+    eligible = tuple(
+        channel_id
+        for channel_id in route.channel_ids
+        if (channel := registry.resolve(channel_id)) is not None
+        and route.trust_tier in channel.trust_tiers
+    )
+    if eligible:
+        return
+    log_unavailable = (
+        _LOGGER.info if resolve_execution_venue() is ExecutionVenue.LOCAL else _LOGGER.warning
+    )
+    log_unavailable(
+        "notification_route_unavailable",
+        extra={
+            "route": route.category,
+            "required_trust_tier": route.trust_tier.value,
+            "configured_channel_count": len(registry.channels),
+        },
+    )
 
 
 def _build_notification_registry(

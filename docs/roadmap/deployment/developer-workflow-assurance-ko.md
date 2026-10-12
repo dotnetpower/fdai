@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: 52ce6f8b9aef6dd10ec3a68fb11765ddb62b1e55
-translation_revised: 2026-10-11
+translation_source_sha: adc998581d32237349e3f9ff48cf04a82ff513ee
+translation_revised: 2026-10-12
 ---
 
 # 개발 워크플로 보증
@@ -305,6 +305,8 @@ pool을 만들지 않습니다. Pantheon subscriber 종료에서 broker 정리�
 로컬 analyzer는 다음 loop interval 전에 tick 범위의 decision-evidence 및 run-receipt StateStore
 pool을 닫습니다. 정상 tick은 garbage collection 대상으로 비동기 pool worker를 남길 수 없으며,
 영속화 실패도 준비 상태를 사용할 수 없음으로 유지하기 전에 store를 닫습니다.
+인벤토리 커넥터 스냅샷 저장소와 관측 캠페인 저장소도 실패한 실행을 포함해 같은 명시적 종료
+계약을 따르므로 관리형 로컬 루프에 오래된 풀 작업자가 누적되지 않습니다.
 분석기의 로컬 브로커 연결은 재시작 후 결과가 불확실한 분석기 이벤트를 범위가 제한된 읽기 전용
 조회로 확인합니다. 일치하는 기록이 없더라도 재발행하거나 준비 완료로 판단할 수 없습니다.
 분석기 의존성 조립 모듈이 조회 구성을 소유하며 CLI는 검증된 브로커 엔드포인트, 실행 장소,

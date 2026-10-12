@@ -311,6 +311,8 @@ gathered before their references are removed.
 The local analyzer closes its tick-scoped decision-evidence and run-receipt StateStore pools before
 the next loop interval. A clean tick cannot leave asynchronous pool workers for garbage collection,
 and a persistence failure still closes its store before readiness remains unavailable.
+The inventory connector snapshot store and observation campaign stores follow the same explicit
+close contract, including failed runs, so managed local loops do not accumulate stale pool workers.
 The analyzer's local broker connection also performs a bounded read-only lookup of an uncertain
 analyzer publication after restart. A missing match never authorizes republication or readiness.
 The analyzer dependency-composition module owns the lookup construction; the CLI passes only the

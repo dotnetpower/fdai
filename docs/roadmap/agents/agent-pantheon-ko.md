@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: cff0883b9ba8ddfc7e412616d316527ea0a37250
-translation_revised: 2026-10-08
+translation_source_sha: 6ec2c816c4ffd6863a6b61c06858bfa9ded5c9b4
+translation_revised: 2026-10-12
 ---
 # 에이전트 판테온
 
@@ -379,8 +379,11 @@ Dead-letter 쓰기는 제한된 재시도 대기 후 소비자를 재시작합�
 차단하고 거부된 전달로 계산합니다. live 브리지와 redrive 경로는 같은 소유자, 묶음, payload
 검증을 적용하며, 런타임 조립은 기본적으로 권한 payload 검증기를 연결하므로 잘못된
 `object.verdict`, `object.approval`, `object.action-run`, `object.rollback`, `object.issue`,
-`object.audit-entry`, `object.rule`, `object.policy`, `object.policy-activation-request` 레코드는
-처리기에 도달하지 않습니다.
+`object.audit-entry`, `object.rule`, `object.policy`, `object.policy-activation-request` 기록이
+핸들러에 도달하지 않습니다. 브리지는 검증된 각 wire `correlation_id`를 해당 전달의 텔레메트리
+범위에만 연결합니다. 인벤토리 관측 Event는 구조화된 리소스 페이로드를 Huginn이 수락하기 전에
+버전이 지정되고 범위가 제한된 전송 검증기를 통과합니다. 거부 진단에는 안전한 사유 코드, 필드,
+페이로드 다이제스트만 남습니다.
 소비자 모드, multi-handler 소비자 그룹, 종료 처리는
 [이벤트 버스 불변식](agent-pantheon-implementation-ko.md#이벤트-버스-불변식)을 따르며, 시작 복구와
 Loki 제안 근거 검사는 같은 구현 계획의 런타임 메커니즘입니다.

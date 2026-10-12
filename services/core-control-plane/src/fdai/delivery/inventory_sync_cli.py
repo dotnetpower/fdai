@@ -767,8 +767,6 @@ async def _main(argv: list[str]) -> None:
 
 
 def container_argv(argv: list[str]) -> list[str]:
-    """Translate the Container Apps positional mode into the existing CLI contract."""
-
     if argv == ["once"]:
         return []
     if argv == ["loop"]:
@@ -777,13 +775,10 @@ def container_argv(argv: list[str]) -> list[str]:
 
 
 def container_main() -> None:
-    """Run inventory synchronization from a positional Container Apps command."""
-
     run_inventory_process(lambda: _main(container_argv(sys.argv[1:])))
 
 
 def main() -> None:
-    """Run one due-checked reconciliation under the job process identity."""
     run_inventory_process(lambda: _main(sys.argv[1:]))
 
 
