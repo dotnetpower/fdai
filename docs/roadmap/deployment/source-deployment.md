@@ -102,11 +102,12 @@ Signed-kit adoption remains available only for recovered Foundations that explic
 an offline package.
 
 **Ambiguous Foundation create recovery:** A source Foundation recovery may import only the exact
-Bastion address when its retained review names that address as the sole pending create, Azure
-independently reports the exact resource in `Succeeded`, and an existing recovery claim blocks
-another apply. The import changes only the owner-only local Terraform state, records a private
-receipt, and still requires the ordinary independent readback and zero-change plan. Any additional
-address, changed identity, incomplete provider state, or version mismatch remains blocked.
+Bastion address when its retained review names that address as the sole pending create, the
+operator explicitly selects the observed-Bastion adoption mode, Azure independently reports the
+exact resource in `Succeeded`, and an existing recovery claim blocks another apply. The import
+changes only the owner-only local Terraform state, records a private receipt, and still requires
+the ordinary independent readback and zero-change plan. Any additional address, changed identity,
+incomplete provider state, or version mismatch remains blocked.
 
 **Guarded teardown revision:** Teardown originally could have reused Terraform destroy from the
 current work tree. That would be too broad for source deployment because retained state can be

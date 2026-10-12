@@ -666,3 +666,20 @@ def test_verification_only_imports_one_observed_orphaned_bastion(
         assert calls == ["import-bastion"]
     else:
         assert calls == []
+
+
+def test_bastion_adoption_and_verification_only_are_mutually_exclusive(
+    tmp_path,
+) -> None:
+    with pytest.raises(ValueError, match="cannot be verification-only"):
+        recovery.apply_recovery(
+            repository_root=ROOT,
+            original_directory=tmp_path,
+            source_snapshot=tmp_path,
+            work_dir=tmp_path,
+            terraform=tmp_path,
+            expected_review_digest="a" * 64,
+            repository="example/project",
+            verify_only=True,
+            adopt_observed_bastion=True,
+        )

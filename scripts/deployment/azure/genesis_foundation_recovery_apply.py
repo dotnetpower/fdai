@@ -90,6 +90,7 @@ def apply_recovery(
     repository: str,
     approval_file: Path | None = None,
     verify_only: bool = False,
+    adopt_observed_bastion: bool = False,
     timeout_seconds: int = 7800,
 ) -> dict[str, object]:
     """Execute a fresh claim once against original state; retained claims allow readback only.
@@ -102,6 +103,8 @@ def apply_recovery(
         for path in (repository_root, original_directory, source_snapshot, work_dir, terraform)
     ):
         raise ValueError("Foundation recovery requires absolute execution paths")
+    if verify_only and adopt_observed_bastion:
+        raise ValueError("Foundation recovery adoption cannot be verification-only")
     image._validate_timeout(timeout_seconds)
     deadline = DeploymentDeadline(timeout_seconds)
     lock_path = original_directory.parent / "source-execution.lock"
@@ -130,6 +133,7 @@ def apply_recovery(
             repository,
             approval_file,
             verify_only,
+            adopt_observed_bastion,
             deadline,
         )
     finally:
@@ -146,6 +150,7 @@ def _locked(
     repository: str,
     approval_file: Path | None,
     verify_only: bool,
+    adopt_observed_bastion: bool,
     deadline: DeploymentDeadline,
 ) -> dict[str, object]:
     review = _json(work / "recovery-review.json")
@@ -337,22 +342,35 @@ def _locked(
             "claimed_at": datetime.now(UTC).isoformat(),
         }
         write_private_bytes(claim_path, canonical_bytes(claim))
-        _run(
-            [
-                str(binary),
-                "apply",
-                "-input=false",
-                "-no-color",
-                "-lock-timeout=0s",
-                f"-state={state_path}",
-                str(work / "recovery.tfplan"),
-            ],
-            cwd=root,
-            environment=environment,
-            deadline=deadline,
-            work=work,
-            label="apply",
-        )
+        if adopt_observed_bastion:
+            _recover_orphaned_bastion(
+                review=review,
+                claim=claim,
+                projection=projection,
+                state_path=state_path,
+                binary=binary,
+                root=root,
+                work=work,
+                environment=environment,
+                deadline=deadline,
+            )
+        else:
+            _run(
+                [
+                    str(binary),
+                    "apply",
+                    "-input=false",
+                    "-no-color",
+                    "-lock-timeout=0s",
+                    f"-state={state_path}",
+                    str(work / "recovery.tfplan"),
+                ],
+                cwd=root,
+                environment=environment,
+                deadline=deadline,
+                work=work,
+                label="apply",
+            )
     else:
         claim = _json(claim_path)
         _validate_claim(claim, review)
@@ -614,6 +632,7 @@ def main() -> int:
     selection = parser.add_mutually_exclusive_group(required=True)
     selection.add_argument("--approval-file", type=Path)
     selection.add_argument("--verify-only", action="store_true")
+    parser.add_argument("--adopt-observed-bastion", action="store_true")
     parser.add_argument("--timeout-seconds", type=int, default=7800)
     args = parser.parse_args()
     try:
