@@ -1,8 +1,8 @@
 ---
 title: 단일 명령 소스 배포
 translation_of: source-deployment.md
-translation_source_sha: 7a08c12cfe8f4fc712ea96b2e7bd20e84e4c32b6
-translation_revised: 2026-10-12
+translation_source_sha: 429dddf67f55c09645f1e6ee2e09184c8f0ab2e3
+translation_revised: 2026-10-13
 ---
 
 # 단일 명령 소스 배포
@@ -105,6 +105,10 @@ Azure가 정확한 리소스를 `Succeeded`로 독립 확인하고, 기존 복�
 때만 정확한 Bastion 주소를 가져올 수 있습니다. 이 가져오기는 소유자 전용 로컬 Terraform
 상태만 바꾸고 비공개 증적을 기록하며, 이후에도 일반 독립 재조회와 무변경 계획을 요구합니다.
 주소 추가, 신원 변경, 불완전한 공급자 상태, 버전 불일치는 계속 차단됩니다.
+
+복구 실행은 새 소스 배포와 같은 운영자 선택 소스 허용을 사용합니다. 현재의 깨끗한 checkout은
+정확한 복구 소스여야 하지만 보호된 브랜치, CI 결과, 게시된 산출물 또는 서명된 release는
+요구하지 않습니다.
 
 **보호된 해체 수정:** 처음에는 현재 작업 트리에서 Terraform destroy를 재사용할 수 있었습니다.
 그러나 소스 배포에서는 보존된 상태가 부분적이거나 복구됐거나 실패한 실행 뒤 없을 수 있으므로

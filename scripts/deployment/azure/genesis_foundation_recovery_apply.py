@@ -244,11 +244,17 @@ def _locked(
     environment = image._terraform_environment(
         work, subscription_id=target.subscription_id, tenant_id=target.tenant_id
     )
-    GenesisChecks(repository_root, environment=environment).verify_source(
-        source_commit=source.commit, repository=repository, apply=True
-    )
+    GenesisChecks(
+        repository_root,
+        environment=environment,
+        operator_selected_source=True,
+    ).verify_source(source_commit=source.commit, repository=repository, apply=True)
     if predecessor is not None:
-        GenesisChecks(repository_root, environment=environment).verify_source(
+        GenesisChecks(
+            repository_root,
+            environment=environment,
+            operator_selected_source=True,
+        ).verify_source(
             source_commit=str(predecessor[0]["recovery_source_commit"]),
             repository=repository,
             apply=True,
