@@ -340,13 +340,12 @@ def test_recovery_execution_records_claim_before_effect_and_never_reapplies(
     monkeypatch.setattr(recovery.image, "_file_digest", lambda *_args: "b" * 64)
     monkeypatch.setattr(recovery.image, "_execution_tree_digest", lambda *_args: "f" * 64)
     monkeypatch.setattr(recovery.image, "_terraform_environment", lambda *_args, **_kwargs: {})
-    monkeypatch.setattr(
-        recovery,
-        "GenesisChecks",
-        lambda *_args, **_kwargs: SimpleNamespace(
-            verify_source=lambda **_kwargs: calls.append("ci")
-        ),
-    )
+
+    def source_checks(*_args, **kwargs):
+        assert kwargs["operator_selected_source"] is True
+        return SimpleNamespace(verify_source=lambda **_kwargs: calls.append("source"))
+
+    monkeypatch.setattr(recovery, "GenesisChecks", source_checks)
     monkeypatch.setattr(recovery, "current_actor_digest", lambda *_args: "1" * 64)
     monkeypatch.setattr(
         recovery,

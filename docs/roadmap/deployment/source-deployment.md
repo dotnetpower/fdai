@@ -109,6 +109,10 @@ changes only the owner-only local Terraform state, records a private receipt, an
 the ordinary independent readback and zero-change plan. Any additional address, changed identity,
 incomplete provider state, or version mismatch remains blocked.
 
+Recovery execution uses the same operator-selected source admission as a fresh source deployment:
+the current clean checkout must be the exact recovery source, but no protected branch, CI result,
+published artifact, or signed release is required.
+
 **Guarded teardown revision:** Teardown originally could have reused Terraform destroy from the
 current work tree. That would be too broad for source deployment because retained state can be
 partial, recovered, or absent after a failed run. The source path instead derives a teardown review
