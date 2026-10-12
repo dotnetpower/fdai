@@ -112,9 +112,25 @@ def test_installer_stream_is_append_only_and_emits_heartbeats(monkeypatch) -> No
     text = display.console.export_text()
     assert not display.dynamic
     assert display.stream
-    assert text.count("Preparing the clean source snapshot") >= 3
+    assert text.count("Preparing the clean source snapshot") >= 4
+    assert "=> Preparing the clean source snapshot" in text
+    assert "[OK] Preparing the clean source snapshot" in text
     assert "elapsed 00:00" in text
     assert "\r" not in output.getvalue()
+
+
+def test_installer_stream_marks_failed_quiet_operation(monkeypatch) -> None:
+    monkeypatch.setenv("TERM", "xterm-256color")
+    display, _output = _display(mode="stream", terminal=True)
+    with pytest.raises(ValueError, match="provider unavailable"), display:
+        begin_stage("discovery")
+        with installer_activity("Checking provider availability", heartbeat_seconds=0.01):
+            time.sleep(0.02)
+            raise ValueError("provider unavailable")
+
+    text = display.console.export_text()
+    assert "[FAIL] Checking provider availability" in text
+    assert "[OK] Checking provider availability" not in text
 
 
 def test_source_route_records_inapplicable_kit_without_inflating_completion() -> None:

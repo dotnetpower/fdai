@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 938ee37731bb05b9d8bd61be64b3c21e253962ff
+translation_source_sha: ebf67831714f8e2f7a3a24a22d66a24ac2a8e74c
 translation_revised: 2026-10-12
 ---
 
@@ -493,6 +493,10 @@ Foundation 생산자는 ASCII 백분율 막대 대신 정확한 추가 전용 �
 하위 명령은 경과 시간이 포함된 범위 제한 `still running` 줄을 냅니다. 서명된 키트의 임시
 `auto` 보기가 하위 출력을 사용할 때는 호환 어댑터가 현재 설치 기록과 이전 백분율 기록을 모두
 식별합니다. 어느 형식도 조정기 상태나 준비 상태를 변경하지 않습니다.
+
+출력이 없는 소스 준비, 신원 이름 검사, AKS 및 데이터베이스 사전 검사, 공개 비용 검토,
+Terraform 준비는 각각 즉시 시작 기록을 내고 10초마다 `still working` 기록을 낸 뒤 명시적인
+완료 또는 실패 기록 하나를 냅니다. 이 활동 신호는 로컬 조정기가 실행 중이라는 것만 증명합니다.
 
 알 수 없거나 형식이 잘못된 출력은 원래 진단 내용으로 표시합니다. 줄바꿈으로 끝나지 않는 경고나
 입력 안내도 숨기지 않습니다. 이런 상세 내용과 별도의 정확한 승인 절차가 터미널을 사용할 때는

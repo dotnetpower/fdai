@@ -1,7 +1,7 @@
 ---
 title: 단일 명령 소스 배포
 translation_of: source-deployment.md
-translation_source_sha: 9a18dcef01cebb8ed4e8c888b521ca1e0a6c964c
+translation_source_sha: c614165b65f5a640ab3f4ec5754d3a402700906f
 translation_revised: 2026-10-12
 ---
 
@@ -123,8 +123,9 @@ git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azu
 
 대화형 소스 배포는 추가 전용 설치 진행 스트림을 사용합니다. 각 전환은 번호가 있는 단계 제목,
 정확한 완료/건너뜀/남은 단계 수, 출력이 없는 장기 하위 작업의 경과 시간 활동 신호를 기록합니다.
-스트림은 터미널을 지우거나 다시 그리지 않으므로 scrollback이 전체 표시 기록으로 남습니다.
-공급자 완료를 추정하지 않으며 진행 표시를 준비 상태 근거로 바꾸지 않습니다.
+출력이 없는 각 작업 경계는 시작 줄, 10초 주기의 `still working` 활동 신호, 명시적인 완료 또는
+실패 줄을 기록합니다. 스트림은 터미널을 지우거나 다시 그리지 않으므로 scrollback이 전체 표시
+기록으로 남습니다. 공급자 완료를 추정하지 않으며 진행 표시를 준비 상태 근거로 바꾸지 않습니다.
 
 작업 스테이션에는 Bash, `git`, Azure CLI, `uv`가 필요합니다. Console 추가 기능을 선택하면 커밋된
 lockfile로 Console을 빌드할 Node.js와 npm도 필요합니다. 컨테이너 엔진, GitHub 계정, 저장소
