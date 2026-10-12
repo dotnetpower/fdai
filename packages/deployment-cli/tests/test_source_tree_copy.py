@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import hashlib
+import subprocess
+import sys
 import zipfile
 from pathlib import Path
 
@@ -39,7 +41,7 @@ def test_recovery_host_archive_uses_current_tooling_without_application_bytes(
     package = source / "packages/deployment-cli/src/fdai_deployment_cli"
     package.mkdir(parents=True)
     (package / "__init__.py").write_text("")
-    (package / "standalone_host.py").write_text("def main(): return 0\n")
+    (package / "standalone_host.py").write_text("def main(): return 7\n")
     prepared = tmp_path / "prepared"
     prepared.mkdir(mode=0o700)
 
@@ -53,6 +55,8 @@ def test_recovery_host_archive_uses_current_tooling_without_application_bytes(
     with zipfile.ZipFile(archive) as package_archive:
         assert "fdai_deployment_cli/standalone_host.py" in package_archive.namelist()
         assert "source-snapshot" not in " ".join(package_archive.namelist())
+    completed = subprocess.run((sys.executable, str(archive)), check=False)
+    assert completed.returncode == 7
 
 
 def test_a_retained_source_context_is_rebound_out_of_the_snapshot(tmp_path: Path) -> None:
