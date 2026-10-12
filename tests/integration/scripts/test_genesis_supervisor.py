@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import sys
 import threading
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -335,3 +337,70 @@ def test_entra_receipt_with_a_different_audience_application_fails_closed(
 
     with pytest.raises(ValueError, match="receipt differs from current readback"):
         genesis_supervisor._configure_entra(prepared=prepared, status={}, actor_digest="f" * 64)
+
+
+def test_recovered_entra_configuration_reads_explicit_foundation_handoff(
+    tmp_path: Path, monkeypatch
+) -> None:
+    prepared = _receipt_prepared(tmp_path)
+    recovery_handoff = tmp_path / "recovery-private-handoff.json"
+    recovery_handoff.write_text("{}")
+    observed: list[Path] = []
+
+    def read_handoff(path: Path, _label: str) -> dict[str, object]:
+        observed.append(path)
+        return {"runner": {"principal_id": "00000000-0000-0000-0000-000000000001"}}
+
+    monkeypatch.setattr(genesis_supervisor, "_private_json", read_handoff)
+    monkeypatch.setattr(
+        genesis_supervisor,
+        "plan_entra",
+        lambda: (_ for _ in ()).throw(AssertionError("supplied plan must be used")),
+    )
+    plan = SimpleNamespace(projection=lambda: {}, digest="a" * 64)
+    monkeypatch.setattr(
+        genesis_supervisor,
+        "create_approval",
+        lambda **kwargs: genesis_supervisor.write_private_output(
+            kwargs["output"],
+            json.dumps(
+                {
+                    "schema_version": "fdai.genesis-approval.v1",
+                    "run_binding": prepared.run_binding,
+                    "source_commit": prepared.source_commit,
+                    "stage": "entra-config",
+                    "approved": True,
+                    "approved_at": "2026-10-12T18:00:00+00:00",
+                    "expires_at": "2026-10-12T18:30:00+00:00",
+                    "actor_digest": "f" * 64,
+                    "evidence": {"plan_digest": plan.digest},
+                }
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        genesis_supervisor,
+        "load_genesis_approval",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            authorizes=lambda stage, **evidence: (
+                stage == "entra-config" and evidence == {"plan_digest": plan.digest}
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        genesis_supervisor,
+        "apply_entra",
+        lambda *_args, **_kwargs: dict(_OBSERVED_BINDINGS),
+    )
+    monkeypatch.setattr(genesis_supervisor, "_write_entra_receipt", lambda **_kwargs: None)
+
+    result = genesis_supervisor._configure_entra(
+        prepared=prepared,
+        status={"foundation_report": {"foundation_plan": {"plan_ref": "original"}}},
+        actor_digest="f" * 64,
+        plan=plan,
+        foundation_handoff_path=recovery_handoff,
+    )
+
+    assert observed == [recovery_handoff]
+    assert result == _OBSERVED_BINDINGS

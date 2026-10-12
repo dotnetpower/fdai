@@ -456,6 +456,7 @@ def _configure_entra(
     status: dict[str, Any],
     actor_digest: str,
     plan: EntraPlan | None = None,
+    foundation_handoff_path: Path | None = None,
 ) -> dict[str, str]:
     """Plan, approve, apply, and reobserve tenant-local identity bindings."""
 
@@ -513,10 +514,10 @@ def _configure_entra(
         foundation_plan.get("plan_ref"), str
     ):
         raise ValueError("Foundation plan reference is unavailable for Entra configuration")
-    handoff = _private_json(
-        prepared.root / str(foundation_plan["plan_ref"]) / foundation_apply.HANDOFF_NAME,
-        "Foundation handoff",
+    handoff_path = foundation_handoff_path or (
+        prepared.root / str(foundation_plan["plan_ref"]) / foundation_apply.HANDOFF_NAME
     )
+    handoff = _private_json(handoff_path, "Foundation handoff")
     runner = handoff.get("runner")
     runner_principal = runner.get("principal_id") if isinstance(runner, dict) else None
     if not isinstance(runner_principal, str):

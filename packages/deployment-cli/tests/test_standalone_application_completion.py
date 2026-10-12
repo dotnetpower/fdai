@@ -124,9 +124,11 @@ def test_explicit_enterprise_add_on_preserves_entra_configuration(
         application_state_adoption=None,
         foundation_state_receipt_digest="f" * 64,
         current_operator_object_id=lambda: "operator-id",
+        foundation_recovery_directory=tmp_path / "foundation-recovery-attempt-5",
     )
 
     assert captured["entra_bindings"] == {
         "OPERATOR_API_AUDIENCE": "audience",
         "CURRENT_OPERATOR_OBJECT_ID": "operator-id",
     }
+    assert captured["foundation_recovery_directory"] == (tmp_path / "foundation-recovery-attempt-5")

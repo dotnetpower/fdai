@@ -68,6 +68,11 @@ def complete_application(
                     status=status,
                     actor_digest=actor_digest,
                     plan=entra.plan_entra(),
+                    foundation_handoff_path=(
+                        foundation_recovery_directory / "recovery-private-handoff.json"
+                        if foundation_recovery_directory is not None
+                        else None
+                    ),
                 )
             entra_bindings["CURRENT_OPERATOR_OBJECT_ID"] = current_operator_object_id()
         finally:
