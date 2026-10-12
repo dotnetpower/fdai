@@ -74,6 +74,22 @@ def test_receipt_binding_renders_core_and_operator_configuration() -> None:
     }
 
 
+def test_receipt_binding_accepts_plan_stable_versionless_urls() -> None:
+    binding = {
+        **_BINDING,
+        "core_signing_seed_secret_id": (
+            "https://kv-fdai-dev-wus3.vault.azure.net/secrets/"
+            "fdai-operator-request-core-signing-seed"
+        ),
+        "operator_signing_seed_secret_id": (
+            "https://kv-fdai-dev-wus3.vault.azure.net/secrets/"
+            "fdai-operator-request-operator-signing-seed"
+        ),
+    }
+
+    assert aks_operator_request_receipts(binding) == aks_operator_request_receipts(_BINDING)
+
+
 def test_receipt_binding_renders_plan_stable_versionless_ids() -> None:
     block = _block(
         (_INFRA / "outputs.tf").read_text(encoding="utf-8"),
@@ -97,6 +113,12 @@ def test_receipt_binding_renders_plan_stable_versionless_ids() -> None:
         {"operator_signing_seed_secret_id": "fdai-operator-request-operator-signing-seed"},
         {"core_signing_seed_secret_id": _VAULT + "a/versions/0123456789abcdef"},
         {"core_signing_seed_secret_id": "https://kv-fdai-dev-wus3.vault.azure.net/secrets/a"},
+        {
+            "core_signing_seed_secret_id": (
+                "https://kv-fdai-dev-wus3.vault.azure.net/secrets/"
+                "fdai-operator-request-core-signing-seed/0123456789abcdef"
+            )
+        },
         {"core_producer_id": "operator-service"},
         {"operator_producer_id": "core-control-plane"},
         {"operator_producer_id": ""},

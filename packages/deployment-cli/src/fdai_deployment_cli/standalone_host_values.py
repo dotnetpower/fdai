@@ -239,6 +239,15 @@ _KEY_VAULT_SECRET_ID = re.compile(
     r"Microsoft[.]KeyVault/vaults/[A-Za-z0-9-]{3,24}/secrets/([A-Za-z0-9-]{1,127})",
     re.IGNORECASE,
 )
+_KEY_VAULT_SECRET_URL = re.compile(
+    r"https://[A-Za-z0-9-]{3,24}[.]vault[.]azure[.]net/"
+    r"secrets/([A-Za-z0-9-]{1,127})",
+    re.IGNORECASE,
+)
+_OPERATOR_REQUEST_SEED_NAMES = {
+    "core_signing_seed_secret_id": "fdai-operator-request-core-signing-seed",
+    "operator_signing_seed_secret_id": "fdai-operator-request-operator-signing-seed",
+}
 
 
 def aks_operator_request_receipts(
@@ -253,9 +262,12 @@ def aks_operator_request_receipts(
     if not isinstance(binding, dict):
         raise ValueError("operator_request receipt binding is invalid")
     names: dict[str, str] = {}
-    for field in ("core_signing_seed_secret_id", "operator_signing_seed_secret_id"):
-        match = _KEY_VAULT_SECRET_ID.fullmatch(str(binding.get(field, "")))
-        if match is None:
+    for field, expected_name in _OPERATOR_REQUEST_SEED_NAMES.items():
+        reference = str(binding.get(field, ""))
+        match = _KEY_VAULT_SECRET_ID.fullmatch(reference) or _KEY_VAULT_SECRET_URL.fullmatch(
+            reference
+        )
+        if match is None or match.group(1) != expected_name:
             raise ValueError("operator_request receipt seed reference is invalid")
         names[field] = match.group(1)
     core_producer = binding.get("core_producer_id")
