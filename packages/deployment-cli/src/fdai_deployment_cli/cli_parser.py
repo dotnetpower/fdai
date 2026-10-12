@@ -322,9 +322,12 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
     )
     output.add_argument(
         "--progress",
-        choices=("auto", "plain", "off"),
+        choices=("auto", "stream", "plain", "off"),
         default="auto",
-        help="Color activity stream, plain phase logs, or off (default: auto); json disables it",
+        help=(
+            "Live view, append-only color stream, plain logs, or off (default: auto); "
+            "source deployment maps auto to the installer stream; json disables it"
+        ),
     )
     advanced = azure.add_argument_group("Advanced (optional)")
     advanced.add_argument(

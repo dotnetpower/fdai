@@ -301,23 +301,26 @@ class StatusStore:
 
 
 def render_progress(payload: dict[str, object]) -> None:
-    """Render an ASCII progress bar with exact completed and remaining counts."""
+    """Render append-only installer progress with exact stage counts."""
 
     total = int(payload["stages_total"])
     completed = int(payload["stages_completed"])
     skipped = int(payload["stages_skipped"])
-    percent = int(payload["progress_percent"])
-    width = 24
-    filled = width * completed // total
-    bar = "#" * filled + "." * (width - filled)
     current = str(payload["current_stage"])
     label = dict(STAGES)[current]
     stage_number = [item[0] for item in STAGES].index(current) + 1
     state = str(payload["state"]).upper()
     remaining = total - completed
+    marker = {
+        "RUNNING": "==>",
+        "WAITING": "WAIT",
+        "COMPLETE": " OK ",
+        "BLOCKED": "HOLD",
+        "FAILED": "FAIL",
+    }.get(state, " .. ")
     print(
-        f"[{bar}] {percent:3d}%  done {completed}/{total} | stage {stage_number}/{total} "
-        f"{label} - {state} | skipped {skipped} | remaining {remaining}",
+        f"{marker} [{stage_number:02d}/{total:02d}] {label} | {state} | "
+        f"{completed} complete | {skipped} skipped | {remaining} remaining",
         file=sys.stderr,
     )
 

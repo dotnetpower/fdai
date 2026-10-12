@@ -42,6 +42,18 @@ def record(*, number=4, completed=3, skipped=0, state="running") -> str:
     return output.getvalue()
 
 
+def legacy_record(*, number=4, completed=3, skipped=0, state="running") -> str:
+    width = 24
+    filled = width * completed // 15
+    bar = "#" * filled + "." * (width - filled)
+    label = CHECKPOINT_LABELS[number - 1]
+    return (
+        f"[{bar}] {completed * 100 // 15:3d}%  done {completed}/15 | "
+        f"stage {number}/15 {label} - {state.upper()} | "
+        f"skipped {skipped} | remaining {15 - completed}\n"
+    )
+
+
 def adapter():
     output, checkpoints, signals, modes = [], [], [], []
     stream = FoundationProgressStream(
@@ -57,7 +69,12 @@ def adapter():
 @pytest.mark.parametrize("chunk_size", [1, 3, 17, 1024, 4096])
 def test_real_producer_banner_and_records_compact_across_chunks(mode, chunk_size) -> None:
     stream, output, checkpoints, signals, modes = adapter()
-    text = introduction(mode) + record() + "..\n" + record(number=5, completed=4)
+    text = (
+        introduction(mode)
+        + record()
+        + "    .. still running | elapsed 00:10\n"
+        + record(number=5, completed=4)
+    )
     for offset in range(0, len(text), chunk_size):
         stream.feed(text[offset : offset + chunk_size])
     stream.finish()
@@ -67,6 +84,10 @@ def test_real_producer_banner_and_records_compact_across_chunks(mode, chunk_size
     assert checkpoints[-1].completed == 4
     assert signals
     assert modes == ["mutation-enabled preflight" if mode == "apply" else "read-only inspection"]
+
+
+def test_legacy_percentage_record_remains_compatible() -> None:
+    assert parse_checkpoint(legacy_record().rstrip("\n")) == parse_checkpoint(record().rstrip("\n"))
 
 
 @pytest.mark.parametrize("number", range(1, 16))
@@ -91,17 +112,16 @@ def test_exact_counts_include_skipped_without_inventing_success(completed) -> No
 @pytest.mark.parametrize(
     ("old", "new"),
     [
-        (" 20%", " 21%"),
-        ("done 3/15", "done 16/15"),
-        ("stage 4/15", "stage 0/15"),
-        ("stage 4/15", "stage 16/15"),
+        ("3 complete", "16 complete"),
+        ("[04/15]", "[00/15]"),
+        ("[04/15]", "[16/15]"),
         ("/15", "/16"),
-        ("skipped 0", "skipped 4"),
-        ("remaining 12", "remaining 11"),
+        ("0 skipped", "4 skipped"),
+        ("12 remaining", "11 remaining"),
         ("Azure resource providers", "unrecognized provider text"),
         ("RUNNING", "APPROVED"),
-        ("####", "###."),
-        ("done 3", "done 03"),
+        ("==>", "..>"),
+        ("3 complete", "03 complete"),
     ],
 )
 def test_malformed_or_unknown_records_remain_native(old, new) -> None:
@@ -147,7 +167,7 @@ def test_unknown_and_incomplete_introductions_are_never_hidden(text) -> None:
 def test_oversized_and_unicode_diagnostics_are_not_retained_in_the_parser() -> None:
     stream, output, checkpoints, _signals, _modes = adapter()
     stream.feed(introduction())
-    text = record().split(" | stage ")[0] + " | stage " + "검토 " * 20000
+    text = "==> [04/15] " + "검토 " * 20000
     stream.feed(text)
     assert "".join(output) == text
     assert len(stream._pending) <= 512

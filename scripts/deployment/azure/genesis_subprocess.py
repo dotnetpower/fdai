@@ -40,7 +40,7 @@ def run_with_heartbeat(
     umask: int = -1,
     input_text: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    """Run one command and emit dots without mixing them into captured output.
+    """Run one command and emit installer heartbeats without mixing captured output.
 
     The command starts in a new process group. A timeout or caller interruption
     terminates that complete group before returning or raising. Captured stdout
@@ -85,7 +85,7 @@ def run_with_heartbeat(
         umask=umask,
     )
     deadline = time.monotonic() + timeout
-    heartbeat_emitted = False
+    started = time.monotonic()
     pending_input = input_text
     previous_sigterm = None
     if threading.current_thread() is threading.main_thread():
@@ -109,9 +109,16 @@ def run_with_heartbeat(
                 pending_input = None
             except subprocess.TimeoutExpired:
                 pending_input = None
-                stream.write(".")
+                elapsed = max(0, int(time.monotonic() - started))
+                minutes, seconds = divmod(elapsed, 60)
+                hours, minutes = divmod(minutes, 60)
+                duration = (
+                    f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+                    if hours
+                    else f"{minutes:02d}:{seconds:02d}"
+                )
+                stream.write(f"    .. still running | elapsed {duration}\n")
                 stream.flush()
-                heartbeat_emitted = True
                 continue
             return subprocess.CompletedProcess(
                 command,
@@ -129,9 +136,6 @@ def run_with_heartbeat(
     finally:
         if previous_sigterm is not None:
             signal.signal(signal.SIGTERM, previous_sigterm)
-        if heartbeat_emitted:
-            stream.write("\n")
-            stream.flush()
 
 
 def _terminate_process_group(

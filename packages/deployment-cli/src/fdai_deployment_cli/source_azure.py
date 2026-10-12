@@ -19,6 +19,11 @@ from fdai_deployment_cli.catalog_review_profile import CatalogReviewDeploymentPr
 from fdai_deployment_cli.contracts import load_json_object
 from fdai_deployment_cli.deployment_cost import inspect_aks_compute_cost
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
+from fdai_deployment_cli.deployment_progress import (
+    begin_stage,
+    installer_activity,
+    progress_detail,
+)
 from fdai_deployment_cli.installation_scope import InstallationOptions, confirm_installation_scope
 from fdai_deployment_cli.operational_evidence_verifier_input import (
     OperationalEvidenceVerifierDeploymentInput,
@@ -79,15 +84,19 @@ def plan_source_installation(
             approval_file=approval_file,
         )
     deadline = DeploymentDeadline(timeout_seconds)
-    prepared = prepare_source_deployment(
-        source_root=source_root,
-        work_dir=work_dir,
-        runtime_profile=runtime_profile,
-        region=region,
-        monthly_cost_ceiling=monthly_cost_ceiling,
-    )
+    begin_stage("discovery")
+    with installer_activity("Preparing the clean source snapshot"):
+        prepared = prepare_source_deployment(
+            source_root=source_root,
+            work_dir=work_dir,
+            runtime_profile=runtime_profile,
+            region=region,
+            monthly_cost_ceiling=monthly_cost_ceiling,
+        )
+    progress_detail("Verifying source identity and tenant-local application names")
     source = inspect_source(source_root, expected_commit=str(prepared["source_commit"]))
     _require_unique_entra_display_names(runtime_profile, source.root / "scripts/deployment/azure")
+    progress_detail("Checking AKS SKU, quota, and PostgreSQL availability")
     preflight = inspect_aks_target(
         profile=runtime_profile, region=region, timeout_seconds=deadline.remaining(180)
     )
@@ -95,6 +104,7 @@ def plan_source_installation(
         return {**preflight, "stage": "aks-preflight"}
     work_dir = work_dir.absolute()
     if installation_options is not None:
+        progress_detail("Waiting for the one-time installation scope confirmation")
         confirmation = confirm_installation_scope(
             work_dir=work_dir,
             binding={
@@ -113,6 +123,7 @@ def plan_source_installation(
         source.reverify()
         if confirmation["state"] != "confirmed":
             return {**confirmation, "source_commit": source.commit}
+    progress_detail("Checking the public compute estimate against the selected ceiling")
     cost_review = inspect_aks_compute_cost(
         profile=runtime_profile,
         region=region,
@@ -134,6 +145,7 @@ def plan_source_installation(
         if hashlib.sha256(terraform.read_bytes()).hexdigest() != digest:
             raise ValueError("retained source Terraform differs; preserve the run")
     else:
+        progress_detail("Preparing the checksum-pinned Terraform executable")
         installed = shutil.which("terraform")
         try:
             if installed is None:
@@ -147,6 +159,8 @@ def plan_source_installation(
             )
     scripts = source.root / "scripts/deployment/azure"
     foundation = work_dir / "foundation"
+    begin_stage("foundation")
+    progress_detail("Preparing Foundation inputs and the retained execution context")
     environment = {
         key: value
         for key, value in os.environ.items()

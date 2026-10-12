@@ -485,23 +485,23 @@ their full names rather than accepting abbreviations.
 
 ### Terminal progress
 
-Interactive text output uses an unboxed, scrolling activity stream on stderr. Colored status labels
-distinguish running work, completed phases, approval waits, and failures without relying on color
-alone. Phase transitions and bounded details remain in terminal history. A small transient view
-updates only the current phase, elapsed time, observed download bytes, and Foundation checkpoint;
-it never reserves a fixed panel or lists work that has not started. Completed coordinator phases
-and reported child checkpoints remain separate counts, not time estimates or subscription readiness.
+Interactive source deployment uses an append-only Linux installer stream on stderr. Colored status
+labels distinguish running work, completed phases, route skips, approval waits, and failures
+without relying on color alone. Numbered transitions, bounded details, and periodic elapsed
+heartbeats remain in terminal history. The stream never clears or redraws the terminal and never
+turns a progress observation into readiness evidence.
 
-`--progress auto` is the default. Redirected output, `TERM=dumb`, or `NO_COLOR` selects plain
-phase messages without terminal control sequences. Use `--progress plain` for readable logs or
-`--progress off` to hide progress. `--output json` disables progress and preserves one
-final result on stdout. Intermediate Foundation JSON is not repeated on stdout.
+`--progress auto` is the default and selects the installer stream for source deployment. Use
+`--progress stream` to request that form explicitly, `--progress plain` for the same append-only
+events without terminal styling, or `--progress off` to hide progress. `--output json` disables
+progress and preserves one final result on stdout. Intermediate Foundation JSON is not repeated on
+stdout.
 
-Interactive `auto` output appends each distinct Foundation checkpoint transition once and updates
-the last observed activity without appending heartbeat-only lines. A bounded adapter recognizes only
-the complete known Genesis introduction and exact progress format. It replaces duplicate banners
-and ASCII bars; those observations never advance coordinator state or readiness. The current view
-stays compact in short terminals, and final failure context remains in the scrolling output.
+The Foundation producer emits an exact append-only stage record instead of an ASCII percentage bar.
+Long-running child commands emit bounded `still running` lines with elapsed time. A compatibility
+adapter recognizes both the current installer record and the prior percentage record when a signed
+kit's transient auto view consumes child output. Neither format advances coordinator state or
+readiness.
 
 Unrecognized or malformed output remains native diagnostics, including warnings or prompts without
 a trailing newline. Live redraw pauses for those details and for the separate exact approval path.

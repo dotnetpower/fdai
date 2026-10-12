@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: clone에서 명령줄 한 줄로 FDAI를 자신의 Azure 구독에 배포하거나 서명된 오프라인 패키지로 설치합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: f5c16768874b94f485e3b65683564bc5bce1e497
+translation_source_sha: 475cc519a807d986f47f229001e4463de29f7e49
 translation_revised: 2026-10-12
 ---
 
@@ -144,8 +144,8 @@ git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azu
 이미 clone이 있다면 그 루트에서 `scripts/deployment/azure/fdai-up.sh --region koreacentral`을 대신
 실행합니다. 래퍼는 clone의 잠긴 환경을 준비하고 지정한 옵션으로 `fdaictl provision azure --source .`를
 실행합니다. CLI를 설치했다면 clone에서 그 명령을 직접 실행할 수 있습니다. 대화형 터미널에서는
-활동 내역이 자동으로 표시되며, 줄 단위 로그가 필요하면 `--progress plain`을 추가합니다. 비공개
-작업 디렉터리는 clone 밖에 있어야 합니다.
+추가 전용 설치 이벤트가 자동으로 표시됩니다. 같은 스크롤 기록을 유지하면서 터미널 스타일을
+제거하려면 `--progress plain`을 추가합니다. 비공개 작업 디렉터리는 clone 밖에 있어야 합니다.
 
 조정기는 재개할 수 있는 단일 프로세스에서 다음 작업을 수행합니다.
 

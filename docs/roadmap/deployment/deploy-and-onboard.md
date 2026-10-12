@@ -10,6 +10,9 @@ Azure focus: this document targets an Azure subscription. Non-Azure providers ar
 > runs private data-plane apply on the managed host inside the target VNet. Tenant deployment does
 > not use GitHub Actions. See [Installable Deployment CLI](installable-deployment-cli.md) and
 > [Deployment Artifacts](#deployment-artifacts).
+> Interactive source installation writes append-only numbered stages, bounded details, and elapsed
+> activity heartbeats. It doesn't clear the terminal, estimate provider completion, or treat
+> presentation progress as deployment readiness.
 ## Prerequisites
 
 ### Deployer Identity (Azure)

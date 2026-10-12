@@ -26,12 +26,25 @@ CHECKPOINT_LABELS = (
 _TOTAL = len(CHECKPOINT_LABELS)
 _MAX_LINE = 512
 _CHUNK_SIZE = 4096
-_RECORD = re.compile(
+_LEGACY_RECORD = re.compile(
     r"\[([#.]{24})\] +([0-9]{1,3})%  done ([0-9]{1,2})/15 \| "
     r"stage ([0-9]{1,2})/15 ([^\r\n]{1,80}) - "
     r"(RUNNING|WAITING|BLOCKED|FAILED|COMPLETE) \| "
     r"skipped ([0-9]{1,2}) \| remaining ([0-9]{1,2})"
 )
+_INSTALLER_RECORD = re.compile(
+    r"(==>|WAIT| OK |HOLD|FAIL) \[([0-9]{2})/15\] ([^|\r\n]{1,80}) \| "
+    r"(RUNNING|WAITING|BLOCKED|FAILED|COMPLETE) \| "
+    r"([0-9]{1,2}) complete \| ([0-9]{1,2}) skipped \| ([0-9]{1,2}) remaining"
+)
+_STATE_PREFIXES = {
+    "RUNNING": "==>",
+    "WAITING": "WAIT",
+    "COMPLETE": " OK ",
+    "BLOCKED": "HOLD",
+    "FAILED": "FAIL",
+}
+_HEARTBEAT = re.compile(r" {4}\.\. still running \| elapsed (?:[0-9]{2}:){1,2}[0-9]{2}")
 
 
 @dataclass(frozen=True)
@@ -54,12 +67,39 @@ def _prefix(completed: int) -> str:
     )
 
 
-_PREFIXES = tuple(_prefix(count) for count in range(_TOTAL + 1))
+_PREFIXES = (
+    *(_prefix(count) for count in range(_TOTAL + 1)),
+    "==> ",
+    "WAIT ",
+    " OK  ",
+    "HOLD ",
+    "FAIL ",
+    "    .. still running | elapsed ",
+)
 
 
 def parse_checkpoint(line: str) -> FoundationCheckpoint | None:
-    """Accept only the producer's exact labels, arithmetic, bar, and field layout."""
-    match = _RECORD.fullmatch(line)
+    """Accept only current or legacy producer labels, arithmetic, and field layout."""
+
+    if (match := _INSTALLER_RECORD.fullmatch(line)) is not None:
+        marker, number, label, state, count, skipped, remaining = match.groups()
+        completed, index, omitted = int(count), int(number), int(skipped)
+        if (
+            _STATE_PREFIXES[state] != marker
+            or not 0 <= omitted <= completed <= _TOTAL
+            or not 1 <= index <= _TOTAL
+            or label != CHECKPOINT_LABELS[index - 1]
+            or int(remaining) != _TOTAL - completed
+        ):
+            return None
+        expected = (
+            f"{marker} [{index:02d}/{_TOTAL}] {label} | {state} | "
+            f"{completed} complete | {omitted} skipped | {_TOTAL - completed} remaining"
+        )
+        if line != expected:
+            return None
+        return FoundationCheckpoint(index, label, state, completed, omitted)
+    match = _LEGACY_RECORD.fullmatch(line)
     if match is None:
         return None
     _bar, _percent, count, number, label, state, skipped, remaining = match.groups()
@@ -159,7 +199,7 @@ class FoundationProgressStream:
             if newline:
                 line, self._pending = self._pending, ""
                 candidate = line.lstrip(".")
-                if not candidate and line:
+                if (not candidate and line) or _HEARTBEAT.fullmatch(line):
                     self._heartbeat()
                 elif (record := parse_checkpoint(candidate)) is not None:
                     self._checkpoint(record)

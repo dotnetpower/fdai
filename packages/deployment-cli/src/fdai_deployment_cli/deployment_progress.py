@@ -10,7 +10,7 @@ import os
 import sys
 import threading
 import time
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Mapping
 from contextlib import contextmanager
 from contextvars import ContextVar, Token
 from dataclasses import dataclass
@@ -68,6 +68,7 @@ _STATES = {
     "running": ("RUN", "cyan"),
     "waiting": ("WAIT", "yellow"),
     "done": ("OK", "green"),
+    "skipped": ("SKIP", "dim"),
     "failed": ("FAIL", "red"),
     "interrupted": ("STOP", "yellow"),
     "incomplete": ("HOLD", "yellow"),
@@ -99,8 +100,8 @@ class DeploymentProgress:
         clock: Callable[[], float] = time.monotonic,
         auto_refresh: bool = True,
     ) -> None:
-        if mode not in {"auto", "plain", "off"}:
-            raise ValueError("deployment progress mode must be auto, plain, or off")
+        if mode not in {"auto", "stream", "plain", "off"}:
+            raise ValueError("deployment progress mode must be auto, stream, plain, or off")
         self.console = console or Console(
             stderr=True, force_terminal=sys.stderr.isatty(), markup=False, highlight=False
         )
@@ -111,6 +112,7 @@ class DeploymentProgress:
             and os.environ.get("TERM") != "dumb"
             and "NO_COLOR" not in os.environ
         )
+        self.stream = mode == "stream" and self.console.is_terminal
         self._clock = clock
         self._lock = threading.RLock()
         self._phases = {name: _Phase(label) for name, label in _STAGES}
@@ -143,6 +145,33 @@ class DeploymentProgress:
             redirect_stdout=False,
             redirect_stderr=True,
         )
+
+    @classmethod
+    def for_source(
+        cls,
+        *,
+        mode: str,
+        output: str,
+    ) -> DeploymentProgress:
+        """Select the append-only installer stream for interactive source deployment."""
+
+        selected = "off" if output != "text" else "stream" if mode == "auto" else mode
+        return cls(mode=selected)
+
+    def begin_source(self) -> None:
+        """Record source-route prerequisites without inventing signed-kit work."""
+
+        self.begin("azure")
+        self.detail("Using the authenticated Azure CLI session")
+        self.skip("kit", "Source checkout selected; no deployment kit is used")
+
+    def finish_source(self, result: Mapping[str, object]) -> bool:
+        """Render ready only for the source coordinator's verified terminal result."""
+
+        ready = result.get("deployment_ready") is True and result["state"] == "deployment-ready"
+        if ready:
+            self.ready()
+        return ready
 
     def __enter__(self) -> Self:
         self._token = _CURRENT.set(self)
@@ -255,6 +284,24 @@ class DeploymentProgress:
         if log:
             self._refresh()
 
+    def skip(self, name: StageName, reason: str) -> None:
+        """Record one route-inapplicable presentation phase without claiming an effect."""
+
+        reason = "".join(character if character.isprintable() else " " for character in reason)[
+            :120
+        ]
+        with self._lock:
+            if name == self._active:
+                raise ValueError("active deployment phase cannot be skipped")
+            phase = self._phases[name]
+            if phase.state == "done":
+                raise ValueError("completed deployment phase cannot be skipped")
+            phase.state = "skipped"
+            phase.ended = self._clock()
+        self._phase_event(name)
+        self._emit(Text(f"      {reason}", style="dim"))
+        self._refresh()
+
     def reset_foundation(self) -> None:
         """Begin a new display-only child pass without changing the coordinator phase."""
         with self._lock:
@@ -301,6 +348,45 @@ class DeploymentProgress:
         )
         if notice:
             self._last_download_notice = byte_count
+
+    @contextmanager
+    def installer_activity(
+        self,
+        label: str,
+        *,
+        heartbeat_seconds: float = 15.0,
+    ) -> Iterator[None]:
+        """Emit bounded append-only heartbeats while one local preparation step runs."""
+
+        if heartbeat_seconds <= 0:
+            raise ValueError("installer heartbeat interval must be positive")
+        label = "".join(character if character.isprintable() else " " for character in label)[:120]
+        self.detail(label)
+        if not self.enabled or self.dynamic:
+            yield
+            return
+        started = self._clock()
+        stopped = threading.Event()
+
+        def heartbeat() -> None:
+            while not stopped.wait(heartbeat_seconds):
+                line = Text("    .. ", style="bold cyan")
+                line.append(label)
+                line.append(f" | elapsed {_elapsed(started, self._clock())}", style="dim")
+                with self._lock:
+                    self._emit(line)
+
+        worker = threading.Thread(
+            target=heartbeat,
+            name="fdai-installer-progress",
+            daemon=True,
+        )
+        worker.start()
+        try:
+            yield
+        finally:
+            stopped.set()
+            worker.join(timeout=max(1.0, heartbeat_seconds))
 
     def ready(self) -> None:
         """Finish presentation only after the caller has a verified deployment-ready result."""
@@ -359,6 +445,7 @@ class DeploymentProgress:
                 phase.ended if phase is not None and phase.ended is not None else now,
             )
             completed = sum(item.state == "done" for item in self._phases.values())
+            skipped = sum(item.state == "skipped" for item in self._phases.values())
             elapsed = _elapsed(self._started, now)
             headline, style, detail = self._headline, self._style, self._detail
             checkpoint = self._checkpoint
@@ -375,7 +462,13 @@ class DeploymentProgress:
         )
         lines = [
             Text(f"FDAI | {headline}", style=f"bold {style}", no_wrap=True, overflow="ellipsis"),
-            Text(f"{completed}/{len(_STAGES)} phases | elapsed {elapsed}", style="dim"),
+            Text(
+                f"{completed} complete | {skipped} skipped | "
+                f"{len(_STAGES) - completed - skipped} remaining | elapsed {elapsed}",
+                style="dim",
+                no_wrap=True,
+                overflow="ellipsis",
+            ),
         ]
         children: list[Text] = []
         if checkpoint is not None:
@@ -413,7 +506,7 @@ class DeploymentProgress:
 
     def _emit(self, text: Text) -> None:
         """Serialize one event through Rich outside the state lock; keep plain output literal."""
-        if self.dynamic:
+        if self.dynamic or self.stream:
             self.console.print(text)
         elif self.enabled:
             self._plain(text.plain)
@@ -463,11 +556,30 @@ def progress_detail(text: str) -> None:
         progress.detail(text)
 
 
+def skip_stage(name: StageName, reason: str) -> None:
+    """Record one presentation-only stage as inapplicable to this deployment route."""
+
+    if (progress := _CURRENT.get()) is not None:
+        progress.skip(name, reason)
+
+
 def downloaded_bytes(count: int) -> None:
     """Publish an observed byte count without changing artifact verification."""
 
     if (progress := _CURRENT.get()) is not None:
         progress.downloaded(count)
+
+
+@contextmanager
+def installer_activity(label: str, *, heartbeat_seconds: float = 15.0) -> Iterator[None]:
+    """Show append-only activity while a local preparation boundary is silent."""
+
+    progress = _CURRENT.get()
+    if progress is None:
+        yield
+    else:
+        with progress.installer_activity(label, heartbeat_seconds=heartbeat_seconds):
+            yield
 
 
 @contextmanager
