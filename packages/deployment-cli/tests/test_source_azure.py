@@ -9,7 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from fdai_deployment_cli import cli, source_azure
+from fdai_deployment_cli import cli, source_azure, source_recovery
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.private_output import write_private_bytes
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
@@ -509,6 +509,66 @@ def test_explicit_foundation_recovery_never_reconfirms_initial_scope(monkeypatch
         assert calls[0]["foundation_recovery_directory"] == Path("/tmp/example-recovery")
         assert calls[0]["installation_options"] is None
         assert calls[0]["confirm_initial"] is False
+
+
+def test_verified_foundation_recovery_continues_original_source_application(tmp_path, monkeypatch):
+    runtime = RuntimeDeploymentProfile.create(
+        runtime_platform="aks",
+        database_placement="postgres-flex",
+    )
+    source_root = tmp_path / "checkout"
+    source_root.mkdir()
+    work_dir = tmp_path / "run"
+    recovery = work_dir / "foundation-recovery-attempt-5"
+    progress = {
+        "stage": "application-plan",
+        "source_commit": "a" * 40,
+        "execution_source_commit": "b" * 40,
+        "target_binding": "c" * 64,
+        "foundation_receipt_digest": "d" * 64,
+        "receipt_digest": "e" * 64,
+    }
+    evidence = source_recovery.RecoveredApplicationEvidence(
+        status={"foundation_report": {}},
+        run_binding="f" * 64,
+        state_handoff_digest="1" * 64,
+        source_snapshot_digest="2" * 64,
+    )
+    monkeypatch.setattr(source_recovery, "resume_source_installation", lambda **_kwargs: progress)
+    monkeypatch.setattr(
+        source_recovery, "recovered_application_evidence", lambda **_kwargs: evidence
+    )
+    source = SimpleNamespace(root=source_root, commit="b" * 40)
+    monkeypatch.setattr(source_azure, "inspect_source", lambda *_args, **_kwargs: source)
+    captured = {}
+
+    def complete(**kwargs):
+        captured.update(kwargs)
+        return {
+            "state": "deployment-ready",
+            "deployment_ready": True,
+            "source_commit": "a" * 40,
+        }
+
+    monkeypatch.setattr(source_azure, "complete_application", complete)
+    result = source_azure.plan_source_installation(
+        source_root=source_root,
+        work_dir=work_dir,
+        foundation_recovery_directory=recovery,
+        runtime_profile=runtime,
+        region="westus3",
+        monthly_cost_ceiling=1500,
+        timeout_seconds=14400,
+    )
+
+    assert result["deployment_ready"] is True
+    assert result["foundation_recovery_receipt_digest"] == "d" * 64
+    assert result["source_recovery_progress_digest"] == "e" * 64
+    assert result["recovery_execution_source_commit"] == "b" * 40
+    assert captured["source_snapshot"] == work_dir / "source-snapshot"
+    assert captured["source_snapshot_digest"] == "2" * 64
+    assert captured["foundation_recovery_directory"] == recovery
+    assert captured["prepared"].source_commit == "a" * 40
 
 
 @pytest.mark.parametrize("confirmation_state", ["review", "confirmed"])

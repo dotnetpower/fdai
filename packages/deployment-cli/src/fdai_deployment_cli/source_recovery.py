@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 from fdai_deployment_cli.contracts import canonical_digest, load_json_object
@@ -12,6 +13,16 @@ from fdai_deployment_cli.private_output import read_private_bytes
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
 from fdai_deployment_cli.source_input import inspect_source
 from fdai_deployment_cli.source_snapshot import verify_source_snapshot
+
+
+@dataclass(frozen=True)
+class RecoveredApplicationEvidence:
+    """Verified recovered Foundation inputs for source application continuation."""
+
+    status: dict[str, object]
+    run_binding: str
+    state_handoff_digest: str
+    source_snapshot_digest: str
 
 
 def retained_source_run(
@@ -68,6 +79,107 @@ def retained_source_run(
         raise ValueError("source recovery application snapshot differs from the original run")
     preparation["receipt_digest"] = digest
     return preparation
+
+
+def recovered_application_evidence(
+    *,
+    work_dir: Path,
+    recovery_directory: Path,
+    progress: dict[str, object],
+    runtime_profile_digest: str,
+    region: str,
+    monthly_cost_ceiling: int,
+) -> RecoveredApplicationEvidence:
+    """Reverify the complete recovered handoff before source application effects."""
+
+    prepared = retained_source_run(
+        work_dir,
+        runtime_profile_digest=runtime_profile_digest,
+        region=region,
+        monthly_cost_ceiling=monthly_cost_ceiling,
+    )
+    if (
+        progress.get("stage") != "application-plan"
+        or progress.get("reason_code") != "source_application_continuation_ready"
+        or progress.get("next_action") != "continue_with_original_source_snapshot"
+    ):
+        raise ValueError("source recovery is not ready for application continuation")
+
+    foundation_root = work_dir / "foundation"
+    marker = _private_record(foundation_root / "source-genesis.json", "source Genesis marker")
+    marker_digest = marker.pop("receipt_digest", None)
+    recovery = _private_record(
+        recovery_directory / "recovery-apply-receipt.json",
+        "Foundation recovery receipt",
+    )
+    recovery_digest = recovery.pop("receipt_digest", None)
+    enrollment = _private_record(
+        recovery_directory / "runner-enrollment-receipt.json",
+        "recovered runner enrollment receipt",
+    )
+    enrollment_digest = enrollment.pop("receipt_digest", None)
+    state = _private_record(
+        recovery_directory / "foundation-state-handoff-receipt.json",
+        "recovered Foundation state receipt",
+    )
+    state_digest = state.pop("receipt_digest", None)
+    handoff = read_private_bytes(
+        recovery_directory / "recovery-private-handoff.json",
+        max_bytes=1024 * 1024,
+    )
+    status = _private_record(foundation_root / "status.json", "source Foundation status")
+    required_state = (
+        "effect_verified",
+        "runner_attested",
+        "remote_backend_authority_verified",
+        "zero_change_verified",
+        "remote_transient_deleted",
+        "local_state_deleted",
+    )
+    if (
+        canonical_digest(marker) != marker_digest
+        or marker.get("source_commit") != prepared["source_commit"]
+        or marker.get("run_binding") != progress.get("run_binding")
+        or marker.get("target_binding") != progress.get("target_binding")
+        or canonical_digest(recovery) != recovery_digest
+        or recovery.get("schema_version") != "fdai.foundation-recovery-receipt.v1"
+        or recovery.get("state") != "verified"
+        or recovery.get("source_commit") != prepared["source_commit"]
+        or recovery.get("control_plane_readback_verified") is not True
+        or recovery.get("zero_change_verified") is not True
+        or recovery_digest != progress.get("foundation_receipt_digest")
+        or canonical_digest(enrollment) != enrollment_digest
+        or enrollment.get("schema_version") != "fdai.genesis-runner-enrollment-receipt.v1"
+        or enrollment.get("state") != "attested"
+        or enrollment.get("foundation_receipt_digest") != recovery_digest
+        or enrollment_digest != progress.get("enrollment_receipt_digest")
+        or canonical_digest(state) != state_digest
+        or state.get("schema_version") != "fdai.genesis-foundation-state-handoff-receipt.v1"
+        or state.get("state") != "verified"
+        or state.get("source_commit") != prepared["source_commit"]
+        or state.get("target_binding") != progress.get("target_binding")
+        or state.get("foundation_receipt_digest") != recovery_digest
+        or state.get("enrollment_receipt_digest") != enrollment_digest
+        or any(state.get(field) is not True for field in required_state)
+        or state_digest != progress.get("state_handoff_digest")
+        or canonical_digest(load_json_object(handoff, label="recovered Foundation handoff"))
+        != recovery.get("handoff_digest")
+    ):
+        raise ValueError("recovered source application evidence differs from the verified handoff")
+    return RecoveredApplicationEvidence(
+        status=status,
+        run_binding=str(marker["run_binding"]),
+        state_handoff_digest=str(state_digest),
+        source_snapshot_digest=str(prepared["source_snapshot_digest"]),
+    )
+
+
+def _private_record(path: Path, label: str) -> dict[str, object]:
+    return load_json_object(
+        read_private_bytes(path, max_bytes=1024 * 1024),
+        label=label,
+        max_bytes=1024 * 1024,
+    )
 
 
 def resume_source_installation(
