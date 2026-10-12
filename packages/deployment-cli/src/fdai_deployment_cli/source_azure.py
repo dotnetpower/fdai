@@ -93,13 +93,15 @@ def plan_source_installation(
             region=region,
             monthly_cost_ceiling=monthly_cost_ceiling,
         )
-    progress_detail("Verifying source identity and tenant-local application names")
-    source = inspect_source(source_root, expected_commit=str(prepared["source_commit"]))
-    _require_unique_entra_display_names(runtime_profile, source.root / "scripts/deployment/azure")
-    progress_detail("Checking AKS SKU, quota, and PostgreSQL availability")
-    preflight = inspect_aks_target(
-        profile=runtime_profile, region=region, timeout_seconds=deadline.remaining(180)
-    )
+    with installer_activity("Verifying source and tenant-local identity names"):
+        source = inspect_source(source_root, expected_commit=str(prepared["source_commit"]))
+        _require_unique_entra_display_names(
+            runtime_profile, source.root / "scripts/deployment/azure"
+        )
+    with installer_activity("Checking AKS SKU, quota, and PostgreSQL availability"):
+        preflight = inspect_aks_target(
+            profile=runtime_profile, region=region, timeout_seconds=deadline.remaining(180)
+        )
     if preflight["state"] != "feasible":
         return {**preflight, "stage": "aks-preflight"}
     work_dir = work_dir.absolute()
@@ -123,13 +125,13 @@ def plan_source_installation(
         source.reverify()
         if confirmation["state"] != "confirmed":
             return {**confirmation, "source_commit": source.commit}
-    progress_detail("Checking the public compute estimate against the selected ceiling")
-    cost_review = inspect_aks_compute_cost(
-        profile=runtime_profile,
-        region=region,
-        monthly_cost_ceiling=monthly_cost_ceiling,
-        timeout_seconds=deadline.remaining(120),
-    )
+    with installer_activity("Checking the public compute estimate"):
+        cost_review = inspect_aks_compute_cost(
+            profile=runtime_profile,
+            region=region,
+            monthly_cost_ceiling=monthly_cost_ceiling,
+            timeout_seconds=deadline.remaining(120),
+        )
     source.reverify()
     if cost_review["state"] == "blocked":
         return {**cost_review, "source_commit": source.commit}
@@ -141,22 +143,22 @@ def plan_source_installation(
         label="source toolchain",
     )
     digest = toolchain.get("terraform_binary_sha256")
-    if terraform.exists():
-        if hashlib.sha256(terraform.read_bytes()).hexdigest() != digest:
-            raise ValueError("retained source Terraform differs; preserve the run")
-    else:
-        progress_detail("Preparing the checksum-pinned Terraform executable")
-        installed = shutil.which("terraform")
-        try:
-            if installed is None:
-                raise ValueError("no Terraform on PATH")
-            _copy_terraform(Path(installed), terraform, expected_digest=digest)
-        except (OSError, ValueError):
-            download_pinned_terraform(
-                toolchain=toolchain,
-                destination=terraform,
-                timeout_seconds=deadline.remaining(300),
-            )
+    with installer_activity("Preparing the checksum-pinned Terraform executable"):
+        if terraform.exists():
+            if hashlib.sha256(terraform.read_bytes()).hexdigest() != digest:
+                raise ValueError("retained source Terraform differs; preserve the run")
+        else:
+            installed = shutil.which("terraform")
+            try:
+                if installed is None:
+                    raise ValueError("no Terraform on PATH")
+                _copy_terraform(Path(installed), terraform, expected_digest=digest)
+            except (OSError, ValueError):
+                download_pinned_terraform(
+                    toolchain=toolchain,
+                    destination=terraform,
+                    timeout_seconds=deadline.remaining(300),
+                )
     scripts = source.root / "scripts/deployment/azure"
     foundation = work_dir / "foundation"
     begin_stage("foundation")

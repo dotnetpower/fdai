@@ -354,23 +354,24 @@ class DeploymentProgress:
         self,
         label: str,
         *,
-        heartbeat_seconds: float = 15.0,
+        heartbeat_seconds: float = 10.0,
     ) -> Iterator[None]:
-        """Emit bounded append-only heartbeats while one local preparation step runs."""
+        """Emit append-only start, heartbeat, and terminal events for one quiet operation."""
 
         if heartbeat_seconds <= 0:
             raise ValueError("installer heartbeat interval must be positive")
         label = "".join(character if character.isprintable() else " " for character in label)[:120]
-        self.detail(label)
         if not self.enabled or self.dynamic:
+            self.detail(label)
             yield
             return
         started = self._clock()
         stopped = threading.Event()
+        self._emit(Text.assemble(("    => ", "bold cyan"), label))
 
         def heartbeat() -> None:
             while not stopped.wait(heartbeat_seconds):
-                line = Text("    .. ", style="bold cyan")
+                line = Text("    [..] ", style="bold cyan")
                 line.append(label)
                 line.append(f" | elapsed {_elapsed(started, self._clock())}", style="dim")
                 with self._lock:
@@ -382,11 +383,19 @@ class DeploymentProgress:
             daemon=True,
         )
         worker.start()
+        succeeded = False
         try:
             yield
+            succeeded = True
         finally:
             stopped.set()
             worker.join(timeout=max(1.0, heartbeat_seconds))
+            elapsed = _elapsed(started, self._clock())
+            status = Text("    [OK] " if succeeded else "    [FAIL] ")
+            status.stylize("bold green" if succeeded else "bold red")
+            status.append(label)
+            status.append(f" | elapsed {elapsed}", style="dim")
+            self._emit(status)
 
     def ready(self) -> None:
         """Finish presentation only after the caller has a verified deployment-ready result."""
@@ -571,7 +580,7 @@ def downloaded_bytes(count: int) -> None:
 
 
 @contextmanager
-def installer_activity(label: str, *, heartbeat_seconds: float = 15.0) -> Iterator[None]:
+def installer_activity(label: str, *, heartbeat_seconds: float = 10.0) -> Iterator[None]:
     """Show append-only activity while a local preparation boundary is silent."""
 
     progress = _CURRENT.get()

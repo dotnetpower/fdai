@@ -127,9 +127,10 @@ same installation.
 
 Interactive source deployment uses an append-only installer stream. Each transition writes a
 numbered stage heading, exact completed/skipped/remaining counts, and elapsed heartbeats for a
-silent long-running child. The stream never clears or redraws the terminal, so scrollback remains
-the complete presentation record. It doesn't estimate provider completion or turn progress into
-readiness evidence.
+silent long-running operation. Every quiet boundary records a start line, a 10-second
+`still working` heartbeat, and an explicit completion or failure line. The stream never clears or
+redraws the terminal, so scrollback remains the complete presentation record. It doesn't estimate
+provider completion or turn progress into readiness evidence.
 
 The workstation needs Bash, `git`, Azure CLI, and `uv`. Selecting the Console add-on also needs
 Node.js and npm to build the Console from the committed lockfile. No container engine, GitHub

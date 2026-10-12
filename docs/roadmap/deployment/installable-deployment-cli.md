@@ -503,6 +503,11 @@ adapter recognizes both the current installer record and the prior percentage re
 kit's transient auto view consumes child output. Neither format advances coordinator state or
 readiness.
 
+Quiet source preparation, identity-name checks, AKS and database preflight, public cost review, and
+Terraform acquisition each emit an immediate start record, a `still working` record every 10
+seconds, and one explicit completion or failure record. These heartbeats prove only that the local
+coordinator remains active.
+
 Unrecognized or malformed output remains native diagnostics, including warnings or prompts without
 a trailing newline. Live redraw pauses for those details and for the separate exact approval path.
 Original review and confirmation remain visible and unchanged. Plain, off, and JSON modes keep
