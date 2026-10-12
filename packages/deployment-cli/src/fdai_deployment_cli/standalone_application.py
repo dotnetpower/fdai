@@ -713,7 +713,7 @@ def _plan_after_recovery(
     """Use a separately bound residual review, or request an ordinary current plan."""
 
     if isinstance(recovery.get("residual_successor"), dict):
-        return recovery, "apply-residual-successor"
+        return recovery, "apply-residual"
     if isinstance(recovery.get("residual_recovery"), dict):
         return recovery, "apply-residual"
     return (

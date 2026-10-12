@@ -401,32 +401,3 @@ def test_residual_apply_command_is_explicit(
 
     assert result == 0
     assert json.loads(capsys.readouterr().out)["state"] == "applied"
-
-
-def test_residual_successor_command_is_explicit(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    tmp_path.chmod(0o700)
-    monkeypatch.setattr(
-        standalone_host,
-        "_apply_residual_successor",
-        lambda _args, _work_dir: {
-            "schema_version": "fdai.standalone-residual-successor-receipt.v1",
-            "state": "applied",
-        },
-    )
-
-    result = standalone_host.main(
-        [
-            "--work-dir",
-            str(tmp_path),
-            "apply-residual-successor",
-            "--stage",
-            "substrate",
-            "--approval",
-            str(tmp_path / "approval.json"),
-        ]
-    )
-
-    assert result == 0
-    assert json.loads(capsys.readouterr().out)["state"] == "applied"

@@ -131,7 +131,7 @@ def test_residual_successor_review_uses_successor_apply() -> None:
     )
 
     assert selected is review
-    assert command == "apply-residual-successor"
+    assert command == "apply-residual"
 
 
 def test_remote_checkpoint_uses_recovery_host_program() -> None:

@@ -31,6 +31,23 @@ from fdai_deployment_cli.standalone_residual_apply import (
 from fdai_deployment_cli.standalone_review import validate_plan_review
 
 
+def successor_prerequisite_verified(work_dir: Path, stage: str) -> bool:
+    """Require completed focused private access before the one substrate successor."""
+
+    if stage != "substrate":
+        return False
+    receipt_path = work_dir / "access-receipt.json"
+    if not receipt_path.exists() or receipt_path.is_symlink():
+        return False
+    receipt = private_json(receipt_path, "focused private access receipt")
+    return (
+        receipt.get("schema_version") == "fdai.standalone-application-apply-receipt.v1"
+        and receipt.get("state") == "applied"
+        and receipt.get("control_plane_readback_verified") is True
+        and receipt.get("mutation_performed") is True
+    )
+
+
 def prepare_residual_successor_review(
     *,
     work_dir: Path,
