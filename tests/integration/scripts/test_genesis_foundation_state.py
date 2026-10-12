@@ -1071,6 +1071,19 @@ def test_recovered_state_uses_original_owner_and_exact_approval(tmp_path, monkey
         "inspect_source",
         lambda *_args: SimpleNamespace(commit=migration_source[0], reverify=lambda: None),
     )
+    admitted_sources: list[str] = []
+    if defect is None:
+
+        class OperatorSelectedChecks:
+            def __init__(self, *_args, operator_selected_source=False, **_kwargs):
+                assert operator_selected_source is True
+
+            def verify_source(self, *, source_commit, repository, apply):
+                assert repository == "example/repository"
+                assert apply is True
+                admitted_sources.append(source_commit)
+
+        monkeypatch.setattr(recovery_state, "GenesisChecks", OperatorSelectedChecks)
     monkeypatch.setattr(recovery_state, "current_actor_digest", lambda _binding: "8" * 64)
     known_hosts = directory / state_command.KNOWN_HOSTS_NAME
     known_hosts.write_text("synthetic-host-key\n")
@@ -1210,9 +1223,13 @@ def test_recovered_state_uses_original_owner_and_exact_approval(tmp_path, monkey
     assert (
         json.loads((original / state_command.foundation_apply.RECEIPT_NAME).read_bytes()) == prior
     )
+    if defect is None:
+        assert admitted_sources == ["7" * 40]
     migration_source[0] = "e" * 40
     FakeTunnel.calls = []
     assert state_command.main(arguments + ["--resume-verification"]) == 0
+    if defect is None:
+        assert admitted_sources == ["7" * 40, "e" * 40]
     assert len(FakeTunnel.copied) == 2
     assert [command[:3] for command in FakeTunnel.calls if command[0] == "/usr/bin/python3"] == [
         ("/usr/bin/python3", FakeTunnel.copied[-1], "observe")

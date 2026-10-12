@@ -228,6 +228,9 @@ Resume with `--source <current-checkout> --work-dir <original-run> --foundation-
 Original snapshot, profile, region and budget remain immutable; execution source is separate. Missing
 success returns review. Separate exact approvals advance enrollment/migration; claims allow verification
 only, never repeated apply or scope changes. Completed migration observes the backend without reenrollment.
+Recovery apply, enrollment, and state migration admit the current clean operator-selected checkout
+without requiring protected-branch CI. Historical execution revisions remain authenticated by their
+immutable receipts and original snapshot rather than being re-admitted as current source.
 The original lock protects source transfer; immutable progress preserves old status and false readiness.
 Existing claims build/reverify five original-source images; wrong revisions, inventories or readiness
 are rejected. After verified state handoff, the coordinator rechecks the complete recovery chain and
