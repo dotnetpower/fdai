@@ -7,7 +7,7 @@ description: |
   Hub-managed lifecycle path is designed but not implemented. Load before running `fdaictl
   provision azure`, `fdai-up.sh`, building an offline package, Terraform apply for FDAI resources,
   or onboarding a new Azure target.
-version: 4.2.0
+version: 4.2.1
 scope: repository
 ---
 
@@ -40,16 +40,15 @@ git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azu
   setting, flag, or data path that hides it; only a full entitlement does.
 - Never copy, print, or pass a private key value. Only the signed entitlement reaches Key Vault.
 
-Current status: the keyless source run stops after Foundation handoff with
-`prebuilt_runtime_artifacts_required` until the
+Current status: the source path continues through application convergence. It builds the five
+service images and imports the two dependency images into the deployment registry, runs service
+migrations and catalogs, initializes the Trial or installation entitlement, executes initial
+inventory, verifies browser access, and requires a second zero-change plan. The
 [source deployment ledger](../../../docs/roadmap-implementation/deployment/source-deployment.md)
-closes its application work packages. Licenses already verify against the upstream integrity key,
-but a key holder still receives a 30-day token rather than the installation entitlement, and no
-watermark exists yet. The bare command deploys its own checkout, approves each Foundation
-checkpoint it shows, and refuses the retired `--signing-key` option. Until the application work
-packages close, a holder of the offline-package signing key reaches the application stage only by
-building the signed offline package and passing `--offline-kit`. Report that limitation instead of
-presenting the offline package as the source path.
+retains one keyless new-subscription completion and unchanged rerun receipt. A current-revision
+keyless acceptance run, a key-holder new installation, and a Trial-to-full rerun remain operational
+evidence work. Do not treat those open receipts as an implementation gate, and do not report a
+specific installation as accepted until its own terminal receipt is verified.
 
 ## Offline package
 

@@ -33,15 +33,17 @@ Review this read scope in the plan.
 
 GitHub Actions tests the repository. It is not part of either deployment path.
 
-> **Current status:** The one-command source deployment is still being completed, as its
+> **Current status:** The one-command source deployment is implemented through application
+> convergence. Its
 > [implementation ledger](../roadmap-implementation/deployment/source-deployment.md) records:
 >
 > - A source run continues past the Foundation into the application stage: it builds the service
 >   images in your registry, applies the AKS runtime and workloads, runs migrations, and starts the
->   30-day Trial. No complete end-to-end acceptance run has been recorded yet, so expect to resume
->   or report a failed stage.
+>   30-day Trial. One keyless new-subscription run and unchanged rerun reached terminal readiness.
+>   A current-revision acceptance run is still required for each new installation.
 > - With `secrets/integrity-signing-key.pem`, the application stage installs the installation
->   entitlement instead of the Trial. No live key-holder run has been recorded yet.
+>   entitlement instead of the Trial. A live key-holder new installation and Trial-to-full rerun
+>   have not yet been recorded.
 > - A run stops for review if it outlives its confirmed installation scope; start a fresh run in
 >   a new work directory after a guarded teardown.
 
