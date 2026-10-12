@@ -43,6 +43,7 @@ def complete_application(
     source_snapshot: Path | None = None,
     source_snapshot_digest: str | None = None,
     source_root: Path | None = None,
+    foundation_recovery_directory: Path | None = None,
 ) -> dict[str, object]:
     """Configure identity and complete one exact standalone application deployment."""
 
@@ -89,6 +90,7 @@ def complete_application(
         source_snapshot=source_snapshot,
         source_snapshot_digest=source_snapshot_digest,
         source_root=source_root,
+        foundation_recovery_directory=foundation_recovery_directory,
     )
     deadline.remaining()
     result: dict[str, object] = {

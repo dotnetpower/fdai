@@ -202,8 +202,8 @@ def test_source_recovery_retains_application_source_and_never_repeats_effects(
     }
     assert calls == expected_calls[stage]
     if stage in {"migrate", "completed"}:
-        assert result["reason_code"] == "prebuilt_runtime_artifacts_required"
-        assert result["next_action"] == "resume_with_signed_kit_and_foundation_adoption"
+        assert result["reason_code"] == "source_application_continuation_ready"
+        assert result["next_action"] == "continue_with_original_source_snapshot"
     assert result["stage"] == (
         "application-plan"
         if stage in {"migrate", "completed"}
@@ -213,6 +213,90 @@ def test_source_recovery_retains_application_source_and_never_repeats_effects(
         if stage == "needs-enrollment"
         else "foundation-state"
     )
+
+
+@pytest.mark.parametrize("tamper_handoff", [False, True])
+def test_recovered_source_application_requires_complete_verified_evidence(
+    source_recovery_run, tamper_handoff
+):
+    from fdai_deployment_cli.source_recovery import recovered_application_evidence
+
+    args, _, profile = source_recovery_run
+    recovery = args.recovery_directory
+    handoff = {
+        "source_commit": "a" * 40,
+        "run_digest": "e" * 64,
+    }
+    handoff_bytes = canonical_bytes(handoff)
+    write_private_bytes(recovery / "recovery-private-handoff.json", handoff_bytes)
+    recovery_receipt = {
+        "schema_version": "fdai.foundation-recovery-receipt.v1",
+        "state": "verified",
+        "source_commit": "a" * 40,
+        "control_plane_readback_verified": True,
+        "zero_change_verified": True,
+        "handoff_digest": hashlib.sha256(handoff_bytes).hexdigest(),
+    }
+    recovery_receipt["receipt_digest"] = canonical_digest(recovery_receipt)
+    write_private_bytes(recovery / "recovery-apply-receipt.json", canonical_bytes(recovery_receipt))
+    enrollment = {
+        "schema_version": "fdai.genesis-runner-enrollment-receipt.v1",
+        "state": "attested",
+        "foundation_receipt_digest": recovery_receipt["receipt_digest"],
+    }
+    enrollment["receipt_digest"] = canonical_digest(enrollment)
+    write_private_bytes(recovery / "runner-enrollment-receipt.json", canonical_bytes(enrollment))
+    state = {
+        "schema_version": "fdai.genesis-foundation-state-handoff-receipt.v1",
+        "state": "verified",
+        "source_commit": "a" * 40,
+        "target_binding": "d" * 64,
+        "foundation_receipt_digest": recovery_receipt["receipt_digest"],
+        "enrollment_receipt_digest": enrollment["receipt_digest"],
+        "effect_verified": True,
+        "runner_attested": True,
+        "remote_backend_authority_verified": True,
+        "zero_change_verified": True,
+        "remote_transient_deleted": True,
+        "local_state_deleted": True,
+    }
+    state["receipt_digest"] = canonical_digest(state)
+    write_private_bytes(recovery / "foundation-state-handoff-receipt.json", canonical_bytes(state))
+    progress = {
+        "stage": "application-plan",
+        "reason_code": "source_application_continuation_ready",
+        "next_action": "continue_with_original_source_snapshot",
+        "run_binding": "e" * 64,
+        "target_binding": "d" * 64,
+        "foundation_receipt_digest": recovery_receipt["receipt_digest"],
+        "enrollment_receipt_digest": enrollment["receipt_digest"],
+        "state_handoff_digest": state["receipt_digest"],
+    }
+    if tamper_handoff:
+        (recovery / "recovery-private-handoff.json").write_bytes(b"{}")
+
+    if tamper_handoff:
+        with pytest.raises(ValueError, match="differs from the verified handoff"):
+            recovered_application_evidence(
+                work_dir=args.work_dir,
+                recovery_directory=recovery,
+                progress=progress,
+                runtime_profile_digest=profile.digest,
+                region=args.region,
+                monthly_cost_ceiling=args.monthly_cost_ceiling,
+            )
+    else:
+        evidence = recovered_application_evidence(
+            work_dir=args.work_dir,
+            recovery_directory=recovery,
+            progress=progress,
+            runtime_profile_digest=profile.digest,
+            region=args.region,
+            monthly_cost_ceiling=args.monthly_cost_ceiling,
+        )
+        assert evidence.run_binding == "e" * 64
+        assert evidence.state_handoff_digest == state["receipt_digest"]
+        assert evidence.source_snapshot_digest == "c" * 64
 
 
 @pytest.mark.parametrize(

@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to your own Azure subscription from a clone with one command line, or install it from a signed offline package.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 686f2993ac28d824624acc0b004cf04dde102028 }, { source: docs/roadmap/deployment/source-deployment.md, sha: 429dddf67f55c09645f1e6ee2e09184c8f0ab2e3 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 686f2993ac28d824624acc0b004cf04dde102028 }, { source: docs/roadmap/deployment/source-deployment.md, sha: e98383489a11d9a9ac25ea1e604f2cf6bdb3fabe }]
 ---
 
 # Deploy Quickstart
@@ -173,6 +173,11 @@ requires one extra typed confirmation. The command never interprets silence as a
 apply result is ambiguous, rerunning the same command performs verification-only recovery rather
 than repeating the apply. Rerunning the command later upgrades the same installation from your
 current clone.
+
+An exact Foundation recovery may use a newer clean checkout for recovery logic. After verified
+state handoff, application deployment still uses the original retained source snapshot and the
+original runtime profile. Recovery does not silently upgrade application bytes or select a signed
+kit.
 
 To check feasibility first, add `--prepare-only` to pin the snapshot without Azure access, or
 `--preflight-only` to read AKS SKU and quota feasibility without changing resources. A successful

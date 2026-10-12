@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: ebf67831714f8e2f7a3a24a22d66a24ac2a8e74c
-translation_revised: 2026-10-12
+translation_source_sha: 2fe9b205ce61ffea7ffb7995d93c4a154a3fe44e
+translation_revised: 2026-10-13
 ---
 
 # 설치형 배포 CLI
@@ -229,7 +229,10 @@ SKU·할당량, 구성·provider·계획·도구·상태 해시와 만료를 검
 원격 저장소를 관측합니다. 원래 잠금이 소스 전송을 보호하고 불변 진행 기록은 기존 상태와
 미완료 결과를 보존합니다. 기존 빌드 기록으로 원래 서비스 이미지 5개를 빌드하거나 재검증합니다.
 다른 리비전·불완전한 목록·잘못된 준비 표식은 거부하며 도구가 없으면 검토 결과를 반환합니다.
-레지스트리 import와 활성화는 아직 연결되지 않았습니다.
+검증된 상태 인계 후 조정기는 전체 복구 근거를 다시 확인하고 원래 스냅샷으로 일반 소스
+애플리케이션 경로를 계속 진행합니다. 최종 증적은 복구된 상태 인계를 결속하고, 최종 결과는 복구 apply와 불변 복구 진행
+다이제스트를 반환합니다. 도구가 없으면 검토 결과를 반환하며, 오프라인 패키지 선택은 별도의
+명시적 서명 키트 채택 경로로 남습니다.
 
 **설계와 검토:** kit 형태의 소스 객체는 release 신뢰로 오해될 수 있습니다. 대신 호스트의
 `verify-source-runtime`은 스냅샷의 정규 `source_commit`, 고정된 해시, OCI 이미지 6개와 플랫폼을 검증하고

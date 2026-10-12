@@ -230,7 +230,11 @@ success returns review. Separate exact approvals advance enrollment/migration; c
 only, never repeated apply or scope changes. Completed migration observes the backend without reenrollment.
 The original lock protects source transfer; immutable progress preserves old status and false readiness.
 Existing claims build/reverify five original-source images; wrong revisions, inventories or readiness
-are rejected. Missing tools return review; registry import and activation remain unconnected.
+are rejected. After verified state handoff, the coordinator rechecks the complete recovery chain and
+continues the ordinary source application path with the original snapshot. The terminal receipt binds
+the recovered state handoff, and the final result returns the recovery apply and immutable
+recovery-progress digests. Missing tools return review; selecting an
+offline package remains a separate explicit signed-kit adoption path.
 
 **Design and critique:** A kit-shaped source object implies release trust. Instead, `standalone_host
 verify-source-runtime` binds the snapshot's canonical `source_commit`, pinned digests and six OCI images, then

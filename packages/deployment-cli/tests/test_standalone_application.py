@@ -5,6 +5,8 @@ import inspect
 import json
 import subprocess
 from datetime import UTC, datetime
+from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -23,6 +25,46 @@ def test_standalone_application_reuses_foundation_host_key_alias() -> None:
 
     assert "module.stable_host_key_alias" in source
     assert "fdai-standalone-" not in source
+
+
+def test_source_recovery_uses_recovered_private_handoff(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    foundation = tmp_path / "foundation"
+    recovery = tmp_path / "foundation-recovery-attempt-5"
+    foundation.mkdir()
+    recovery.mkdir()
+    captured: dict[str, Path] = {}
+
+    class ExpectedStop(Exception):
+        pass
+
+    def stop_after_path(path: Path, _label: str):
+        captured["handoff"] = path
+        raise ExpectedStop
+
+    monkeypatch.setattr(standalone_application, "_private_json", stop_after_path)
+    runtime = standalone_application.RuntimeDeploymentProfile.create(
+        runtime_platform="aks",
+        database_placement="postgres-flex",
+    )
+    with pytest.raises(ExpectedStop):
+        standalone_application.deploy_standalone_application(
+            kit=None,
+            prepared=SimpleNamespace(root=foundation),
+            foundation_status={"foundation_report": {}},
+            entra_bindings=None,
+            scripts=tmp_path,
+            trial_token=None,
+            timeout_seconds=60,
+            runtime_profile=runtime,
+            source_snapshot=tmp_path,
+            source_snapshot_digest="a" * 64,
+            source_root=tmp_path,
+            foundation_recovery_directory=recovery,
+        )
+
+    assert captured["handoff"] == recovery / "recovery-private-handoff.json"
 
 
 def test_focused_access_converges_before_substrate() -> None:

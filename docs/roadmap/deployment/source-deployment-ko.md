@@ -1,7 +1,7 @@
 ---
 title: 단일 명령 소스 배포
 translation_of: source-deployment.md
-translation_source_sha: 429dddf67f55c09645f1e6ee2e09184c8f0ab2e3
+translation_source_sha: e98383489a11d9a9ac25ea1e604f2cf6bdb3fabe
 translation_revised: 2026-10-13
 ---
 
@@ -96,6 +96,13 @@ FDAI 저장소를 clone한 누구나 `az login` 뒤 명령줄 한 줄로 모든 
   계속 진행 경로로 전달할 수 있습니다. 생략하면 소스 배포 값은 그대로 유지되고 검증기는 꺼져
   있습니다.
 - 모든 증적은 `operator-selected-source`와 `release_signature_verified=false`를 기록합니다.
+
+정확한 Foundation 복구가 검증된 상태 인계에 도달하면 소스 경로는 같은 패키지 없는
+애플리케이션 계속 진행 단계로 들어갑니다. 복구 실행 코드는 더 새로운 깨끗한 운영자 선택
+checkout에서 가져올 수 있지만, 이미지, 마이그레이션, 카탈로그, Console 콘텐츠는 원래 보존된
+소스 스냅샷에 계속 고정됩니다. 조정기는 애플리케이션 효과 전에 복구 apply, runner 등록, 상태
+인계, 비공개 인계, 대상, 원래 실행 바인딩을 다시 확인합니다. 최종 배포 결과는 복구와 불변 진행
+다이제스트를 반환합니다.
 
 서명된 키트 채택은 오프라인 패키지로 계속 진행하겠다고 명시한 복구 Foundation에만 남습니다.
 

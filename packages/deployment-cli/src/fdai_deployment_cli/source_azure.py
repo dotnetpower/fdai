@@ -67,13 +67,18 @@ def plan_source_installation(
     if interactive and approval_file is not None:
         raise ValueError("explicit source approval cannot be combined with interactive approval")
     if foundation_recovery_directory is not None:
-        from fdai_deployment_cli.source_recovery import resume_source_installation
+        from fdai_deployment_cli.source_recovery import (
+            recovered_application_evidence,
+            resume_source_installation,
+        )
 
         if interactive or confirm_initial or installation_options is not None:
             raise ValueError("source recovery cannot replace the retained initial scope or prompt")
         if operational_evidence_verifier_input is not None:
             raise ValueError("source recovery cannot add a new operational evidence verifier input")
-        return resume_source_installation(
+        work_dir = work_dir.absolute()
+        foundation_recovery_directory = foundation_recovery_directory.absolute()
+        progress = resume_source_installation(
             source_root=source_root,
             work_dir=work_dir,
             recovery_directory=foundation_recovery_directory,
@@ -83,6 +88,47 @@ def plan_source_installation(
             timeout_seconds=timeout_seconds,
             approval_file=approval_file,
         )
+        if progress.get("stage") != "application-plan":
+            return progress
+        evidence = recovered_application_evidence(
+            work_dir=work_dir,
+            recovery_directory=foundation_recovery_directory,
+            progress=progress,
+            runtime_profile_digest=runtime_profile.digest,
+            region=region,
+            monthly_cost_ceiling=monthly_cost_ceiling,
+        )
+        execution_source = inspect_source(source_root)
+        prepared_source = SimpleNamespace(
+            root=work_dir / "foundation",
+            ssh_private_key=work_dir / "foundation/runner_ed25519",
+            target_binding=progress["target_binding"],
+            source_commit=progress["source_commit"],
+            run_binding=evidence.run_binding,
+        )
+        application = complete_application(
+            kit=None,
+            prepared=prepared_source,
+            status=evidence.status,
+            scripts=execution_source.root / "scripts/deployment/azure",
+            deadline=DeploymentDeadline(timeout_seconds),
+            selected_runtime=runtime_profile,
+            trial_token=None,
+            application_state_adoption=None,
+            foundation_state_receipt_digest=evidence.state_handoff_digest,
+            catalog_review_profile=CatalogReviewDeploymentProfile.unselected(),
+            current_operator_object_id=current_operator_object_id,
+            source_snapshot=work_dir / "source-snapshot",
+            source_snapshot_digest=evidence.source_snapshot_digest,
+            source_root=execution_source.root,
+            foundation_recovery_directory=foundation_recovery_directory,
+        )
+        return {
+            **application,
+            "foundation_recovery_receipt_digest": progress["foundation_receipt_digest"],
+            "source_recovery_progress_digest": progress["receipt_digest"],
+            "recovery_execution_source_commit": progress["execution_source_commit"],
+        }
     deadline = DeploymentDeadline(timeout_seconds)
     begin_stage("discovery")
     with installer_activity("Preparing the clean source snapshot"):

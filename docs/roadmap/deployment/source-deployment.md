@@ -98,6 +98,13 @@ only the artifact input seam:
   unchanged and the verifier off;
 - every receipt records `operator-selected-source` and `release_signature_verified=false`.
 
+After an exact Foundation recovery reaches verified state handoff, the source route enters this
+same package-free application continuation. Recovery execution code may come from a newer clean
+operator-selected checkout, but images, migrations, catalogs, and Console content remain pinned to
+the original retained source snapshot. Before any application effect, the coordinator rechecks the
+recovery apply, runner enrollment, state handoff, private handoff, target, and original run binding.
+The final deployment result returns the recovery and immutable progress digests.
+
 Signed-kit adoption remains available only for recovered Foundations that explicitly continue with
 an offline package.
 

@@ -65,6 +65,7 @@ def deploy_standalone_application(
     source_snapshot: Path | None = None,
     source_snapshot_digest: str | None = None,
     source_root: Path | None = None,
+    foundation_recovery_directory: Path | None = None,
 ) -> dict[str, object]:
     """Deploy and independently replan the application without a workflow host."""
 
@@ -81,9 +82,21 @@ def deploy_standalone_application(
         else "Verifying the handoff and preparing the signed kit for Bastion transfer"
     )
     report = _mapping(foundation_status.get("foundation_report"), "Foundation report")
-    plan = _mapping(report.get("foundation_plan"), "Foundation plan")
-    plan_directory = prepared.root / str(plan["plan_ref"])
-    handoff_path = plan_directory / "foundation-private-handoff.json"
+    if foundation_recovery_directory is None:
+        plan = _mapping(report.get("foundation_plan"), "Foundation plan")
+        plan_directory = prepared.root / str(plan["plan_ref"])
+        handoff_path = plan_directory / "foundation-private-handoff.json"
+    else:
+        plan_directory = foundation_recovery_directory.absolute()
+        if (
+            not source_mode
+            or plan_directory.parent != prepared.root.parent
+            or re.fullmatch(r"foundation-recovery-attempt-[1-9][0-9]*", plan_directory.name) is None
+            or not plan_directory.is_dir()
+            or plan_directory.is_symlink()
+        ):
+            raise ValueError("source application recovery directory is invalid")
+        handoff_path = plan_directory / "recovery-private-handoff.json"
     handoff = _private_json(handoff_path, "Foundation handoff")
     adoption_descriptor_digest = (
         canonical_digest(

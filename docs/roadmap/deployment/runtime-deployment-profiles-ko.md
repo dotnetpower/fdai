@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 2d9ffb1419942cd9a500d75abe4c77a2f3691755
-translation_revised: 2026-10-12
+translation_source_sha: 75635b5057730dca18b64afab2638519a3854f47
+translation_revised: 2026-10-13
 ---
 # 런타임 배포 프로파일
 
@@ -59,6 +59,9 @@ Container Apps는 거부합니다. 이 배포가 standalone 애플리케이션 �
 스냅샷에서 `fdaictl`을 설치하며, 스냅샷의 Terraform 루트와 마이그레이션 지원을 사용합니다.
 공급자는 커밋된 lock 파일 기준으로 공개 레지스트리에서 직접 해석합니다. 이미지 참조는 배포
 레지스트리 빌드 단계가 끝난 뒤 다시 읽은 다이제스트로만 런타임 프로파일에 들어갑니다.
+Foundation에 정확한 복구가 필요했다면 검증된 상태 인계가 같은 순서로 들어갑니다. 복구 checkout은
+현재 복구 코드만 제공하며, 런타임 산출물은 원래 소스 스냅샷에 계속 고정되고 복구는 선택된
+런타임 프로파일을 바꿀 수 없습니다.
 호스트 준비는 호스트 하위 명령을 정확히 하나만 실행합니다. 서명된 키트에는 `prepare --kit`,
 소스 스냅샷에는 `prepare-source`를 사용합니다. 거부된 명령은 호스트가 이유를 기록하기 전에
 실패하므로, 집중 테스트가 두 모드 모두에서 조정기가 보내는 명령을 호스트 자체 파서로 해석합니다.

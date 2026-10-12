@@ -84,6 +84,7 @@ def resume(args: argparse.Namespace) -> dict[str, object]:
             "reason_code": reason,
             "source_commit": prepared["source_commit"],
             "execution_source_commit": source.commit,
+            "run_binding": marker["run_binding"],
             "source_preparation_digest": prepared["receipt_digest"],
             "runtime_profile_digest": args.runtime_profile_digest,
             "snapshot_digest": prepared["source_snapshot_digest"],
@@ -228,10 +229,10 @@ def resume(args: argparse.Namespace) -> dict[str, object]:
     state = state_command._execute(state_args)
     return finish(
         "application-plan",
-        "prebuilt_runtime_artifacts_required",
+        "source_application_continuation_ready",
         enrollment_receipt_digest=enrollment_digest,
         state_handoff_digest=state["receipt_digest"],
-        next_action="resume_with_signed_kit_and_foundation_adoption",
+        next_action="continue_with_original_source_snapshot",
     )
 
 
