@@ -145,6 +145,53 @@ def source_run(tmp_path: Path) -> Path:
     return _build_source_run(tmp_path)
 
 
+def _build_recovery(source_run: Path) -> Path:
+    recovery = source_run / "foundation-recovery-attempt-5"
+    recovery.mkdir(mode=0o700)
+    original = source_run / "foundation/foundation-plan-attempt-1"
+    located = json.loads((original / "foundation-private-handoff.json").read_text())
+    _write_plain(recovery / "recovery-private-handoff.json", located)
+    review = {
+        "schema_version": "fdai.foundation-recovery-review.v1",
+        "state": "review",
+        "source_commit": SOURCE_COMMIT,
+        "target_binding": TARGET,
+    }
+    review["review_digest"] = canonical_digest(review)
+    _write_plain(recovery / "recovery-review.json", review)
+    apply = _write_signed(
+        recovery / "recovery-apply-receipt.json",
+        {
+            "schema_version": "fdai.foundation-recovery-receipt.v1",
+            "state": "verified",
+            "source_commit": SOURCE_COMMIT,
+            "handoff_digest": canonical_digest(located),
+            "control_plane_readback_verified": True,
+            "zero_change_verified": True,
+        },
+    )
+    _write_signed(
+        recovery / "foundation-state-handoff-receipt.json",
+        {
+            "schema_version": "fdai.genesis-foundation-state-handoff-receipt.v1",
+            "state": "verified",
+            "source_commit": SOURCE_COMMIT,
+            "target_binding": TARGET,
+            "foundation_receipt_digest": apply,
+            "effect_verified": True,
+            "runner_attested": True,
+            "remote_backend_authority_verified": True,
+            "zero_change_verified": True,
+            "remote_transient_deleted": True,
+            "local_state_deleted": True,
+        },
+    )
+    status = json.loads((source_run / "foundation/status.json").read_text())
+    status["foundation_report"].pop("state_handoff")
+    _write_plain(source_run / "foundation/status.json", status)
+    return recovery
+
+
 def test_teardown_plans_only_proven_owned_groups(source_run: Path) -> None:
     plan = plan_source_teardown(
         work_dir=source_run,
@@ -157,6 +204,38 @@ def test_teardown_plans_only_proven_owned_groups(source_run: Path) -> None:
 
     assert plan.resource_groups == ("rg-fdai-dev-eus", "rg-fdai-ops-eus")
     assert plan.confirmation.startswith("delete ")
+
+
+def test_teardown_accepts_verified_recovered_foundation(source_run: Path) -> None:
+    recovery = _build_recovery(source_run)
+
+    plan = plan_source_teardown(
+        work_dir=source_run,
+        runtime_profile=RuntimeDeploymentProfile.create(
+            runtime_platform="aks", database_placement="postgres-flex"
+        ),
+        region="eastus",
+        monthly_cost_ceiling=1000,
+        recovery_directory=recovery,
+    )
+
+    assert plan.resource_groups == ("rg-fdai-dev-eus", "rg-fdai-ops-eus")
+
+
+def test_teardown_rejects_changed_recovered_handoff(source_run: Path) -> None:
+    recovery = _build_recovery(source_run)
+    (recovery / "recovery-private-handoff.json").write_text("{}")
+
+    with pytest.raises(ValueError, match="ownership proof differs"):
+        plan_source_teardown(
+            work_dir=source_run,
+            runtime_profile=RuntimeDeploymentProfile.create(
+                runtime_platform="aks", database_placement="postgres-flex"
+            ),
+            region="eastus",
+            monthly_cost_ceiling=1000,
+            recovery_directory=recovery,
+        )
 
 
 def test_teardown_refuses_unproven_foreign_resource_before_delete(tmp_path: Path) -> None:
@@ -380,6 +459,43 @@ def test_cli_teardown_keeps_the_retained_ceiling_by_default(
     )
     assert code == 0
     assert seen == [expected]
+
+
+def test_cli_teardown_passes_explicit_foundation_recovery(tmp_path, monkeypatch):
+    from fdai_deployment_cli import cli
+
+    work_dir = tmp_path / "work"
+    recovery = work_dir / "foundation-recovery-attempt-5"
+    work_dir.mkdir(mode=0o700)
+    intent = work_dir / "source-intent.json"
+    intent.write_text(json.dumps({"monthly_cost_ceiling": 1000}))
+    intent.chmod(0o600)
+    seen = []
+    monkeypatch.setattr(
+        cli,
+        "apply_source_teardown",
+        lambda **kwargs: seen.append(kwargs["recovery_directory"]) or {"state": "review"},
+    )
+    monkeypatch.setattr(cli, "AzureResourceGroupClient", lambda: None)
+
+    code = cli.main(
+        [
+            "provision",
+            "azure",
+            "--source",
+            str(tmp_path),
+            "--teardown",
+            "--work-dir",
+            str(work_dir),
+            "--foundation-recovery-directory",
+            str(recovery),
+            "--output",
+            "json",
+        ]
+    )
+
+    assert code == 3
+    assert seen == [recovery]
 
 
 def test_teardown_rerun_skips_groups_already_absent(source_run: Path) -> None:

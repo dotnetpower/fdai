@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 4eb2382af005d29d3f08dce080970d600fcb95e4
+translation_source_sha: cd2e07a968021d2794c12782303f87993fd9874a
 translation_revised: 2026-10-13
 ---
 
@@ -63,6 +63,9 @@ GitHub Actions는 소스를 검증하고 이미지를 빌드하며 선택적으�
 원래 토큰을 유지하고, 새 작업 디렉터리는 계획 전에 일치하는 FDAI 소유 설치 토큰 하나를
 검색하며, 새 설치에는 검토된 공용 지역 토큰만 사용합니다. 알 수 없거나 모호한 토큰은 Azure
 효과 전에 중지합니다.
+복구된 소스 설치를 보호된 방식으로 해체하려면 같은 원래 작업 디렉터리와 정확한
+`--foundation-recovery-directory`가 필요합니다. 해체는 기존 입력 확인을 제공하기 전에 복구 검토,
+apply 증적, 원격 상태 인계, 비공개 인계를 검증합니다.
 조정기는 정확한 승인 범위 안에서 진행하고 다음 체크포인트에 권한이 필요하면 검토 상태를
 반환합니다. 승인을 만들거나 표준 입력을 읽거나 성공으로 보고하지 않습니다. 검증된 Foundation
 인계 뒤에는 소스 모드가 서명된 키트 없이 공유 managed-host 애플리케이션 순서로 이어집니다.

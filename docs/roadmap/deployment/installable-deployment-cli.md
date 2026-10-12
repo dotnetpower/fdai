@@ -63,6 +63,9 @@ The region suffix is selected by the same naming owner as the offline package pa
 Foundation variables keep their original token, a fresh work directory discovers one matching
 FDAI-owned installation token before planning, and only reviewed public-region tokens are used for
 new installs. An unknown or ambiguous token stops before Azure effects.
+Guarded teardown of a recovered source installation requires the same original work directory plus
+its exact `--foundation-recovery-directory`. Teardown verifies the recovery review, apply receipt,
+remote-state handoff, and private handoff before it offers the existing typed confirmation.
 Initial confirmation is separate from that approval. The coordinator advances within exact
 approval and returns review state when another checkpoint needs authority; it does not create
 approval, read stdin or report success. After the verified Foundation handoff, source mode

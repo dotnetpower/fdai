@@ -131,7 +131,10 @@ source tree in Terraform remain pinned to the original retained application snap
 current work tree. That would be too broad for source deployment because retained state can be
 partial, recovered, or absent after a failed run. The source path instead derives a teardown review
 only from retained source evidence: the source intent, source preparation receipt, Genesis marker,
-and verified Foundation state handoff. The review names only the application and operations
+and verified Foundation state handoff. For a recovered Foundation, the operator also supplies its
+exact recovery directory. The review requires its recovery review, verified apply receipt,
+verified remote-state handoff, and digest-bound private handoff instead of fabricating an ordinary
+Foundation receipt. The review names only the application and operations
 resource groups from that proof, binds them to the target binding and source run binding, requires
 one typed confirmation, deletes only those groups, and then reads back their absence. If any
 resource name, digest, target, source, or handoff field cannot be proven, teardown refuses before
