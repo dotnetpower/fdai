@@ -52,6 +52,12 @@ from genesis_foundation_workspace import verify_execution_copy
 from genesis_vm_sku_preflight import recheck_foundation_vm
 
 _MAX = 64 * 1024 * 1024
+_BASTION_ADDRESS = "module.bootstrap.azurerm_bastion_host.runner[0]"
+_ARM_ID = re.compile(
+    r"/subscriptions/[0-9a-fA-F-]{36}/resourceGroups/[^/]{1,90}/providers/"
+    r"Microsoft[.]Network/bastionHosts/[^/]{1,80}",
+    re.IGNORECASE,
+)
 
 
 def require_current_approval(review: dict[str, object], approval_file: Path | None) -> str:
@@ -350,6 +356,17 @@ def _locked(
     else:
         claim = _json(claim_path)
         _validate_claim(claim, review)
+        _recover_orphaned_bastion(
+            review=review,
+            claim=claim,
+            projection=_json(work / "show.stdout"),
+            state_path=state_path,
+            binary=binary,
+            root=root,
+            work=work,
+            environment=environment,
+            deadline=deadline,
+        )
     source.reverify()
     raw = image._capture(
         [str(binary), "output", f"-state={state_path}", "-json", "private_handoff"],
@@ -423,6 +440,136 @@ def _locked(
     else:
         write_private_bytes(receipt_path, canonical_bytes(receipt))
     return receipt
+
+
+def _recover_orphaned_bastion(
+    *,
+    review: dict[str, object],
+    claim: dict[str, object],
+    projection: dict[str, object],
+    state_path: Path,
+    binary: Path,
+    root: Path,
+    work: Path,
+    environment: dict[str, str],
+    deadline: DeploymentDeadline,
+) -> None:
+    """Import one provider-created Bastion after an ambiguous create response."""
+
+    if review.get("remaining_addresses") != [_BASTION_ADDRESS]:
+        return
+    changes = projection.get("resource_changes")
+    if not isinstance(changes, list):
+        raise ValueError("Foundation recovery Bastion projection is unavailable")
+    matches = [
+        entry
+        for entry in changes
+        if isinstance(entry, dict) and entry.get("address") == _BASTION_ADDRESS
+    ]
+    if len(matches) != 1:
+        raise ValueError("Foundation recovery Bastion projection is ambiguous")
+    change = matches[0].get("change")
+    after = change.get("after") if isinstance(change, dict) else None
+    resource_id = after.get("id") if isinstance(after, dict) else None
+    if (
+        not isinstance(resource_id, str)
+        or _ARM_ID.fullmatch(resource_id) is None
+        or not isinstance(change, dict)
+        or change.get("actions") != ["create"]
+    ):
+        raise ValueError("Foundation recovery Bastion identity is invalid")
+    observation = json.loads(
+        image._capture(
+            [
+                str(image._trusted_azure_cli()),
+                "resource",
+                "show",
+                "--ids",
+                resource_id,
+                "--query",
+                "{id:id,provisioningState:properties.provisioningState}",
+                "--output",
+                "json",
+                "--only-show-errors",
+            ],
+            cwd=work,
+            env=environment,
+            timeout=deadline.remaining(60),
+            reason="Foundation recovery Bastion observation is unavailable",
+        )
+    )
+    if (
+        not isinstance(observation, dict)
+        or str(observation.get("id", "")).casefold() != resource_id.casefold()
+        or observation.get("provisioningState") != "Succeeded"
+    ):
+        raise ValueError("Foundation recovery Bastion effect is unverified")
+    receipt_path = work / "recovery-bastion-import-receipt.json"
+    current_id = _state_bastion_id(_json(state_path))
+    if current_id is None:
+        _run(
+            [
+                str(binary),
+                "import",
+                "-input=false",
+                "-no-color",
+                "-lock-timeout=0s",
+                f"-state={state_path}",
+                f"-var-file={work / 'recovery-variables.json'}",
+                _BASTION_ADDRESS,
+                resource_id,
+            ],
+            cwd=root,
+            environment=environment,
+            deadline=deadline,
+            work=work,
+            label="import-bastion",
+        )
+        current_id = _state_bastion_id(_json(state_path))
+    if current_id is None or current_id.casefold() != resource_id.casefold():
+        raise ValueError("Foundation recovery Bastion state import is incomplete")
+    receipt: dict[str, object] = {
+        "schema_version": "fdai.foundation-recovery-bastion-import.v1",
+        "review_digest": review["review_digest"],
+        "claim_digest": canonical_digest(claim),
+        "resource_id": resource_id,
+        "state_digest": _hash(state_path),
+        "provider_effect_verified": True,
+        "cloud_mutation_performed": False,
+    }
+    receipt["receipt_digest"] = canonical_digest(receipt)
+    if receipt_path.exists():
+        if _json(receipt_path) != receipt:
+            raise ValueError("Foundation recovery Bastion import receipt changed")
+    else:
+        write_private_bytes(receipt_path, canonical_bytes(receipt))
+
+
+def _state_bastion_id(state: dict[str, object]) -> str | None:
+    resources = state.get("resources")
+    if not isinstance(resources, list):
+        raise ValueError("Foundation recovery state resource inventory is invalid")
+    matches: list[str] = []
+    for resource in resources:
+        if (
+            not isinstance(resource, dict)
+            or resource.get("module") != "module.bootstrap"
+            or resource.get("mode") != "managed"
+            or resource.get("type") != "azurerm_bastion_host"
+            or resource.get("name") != "runner"
+        ):
+            continue
+        instances = resource.get("instances")
+        if not isinstance(instances, list):
+            raise ValueError("Foundation recovery Bastion state is invalid")
+        for instance in instances:
+            attributes = instance.get("attributes") if isinstance(instance, dict) else None
+            resource_id = attributes.get("id") if isinstance(attributes, dict) else None
+            if instance.get("index_key") == 0 and isinstance(resource_id, str):
+                matches.append(resource_id)
+    if len(matches) > 1:
+        raise ValueError("Foundation recovery Bastion state is ambiguous")
+    return matches[0] if matches else None
 
 
 def _validate_claim(claim: dict[str, object], review: dict[str, object]) -> None:
