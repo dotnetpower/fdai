@@ -45,6 +45,7 @@ def plan_source_teardown(
     runtime_profile: RuntimeDeploymentProfile,
     region: str,
     monthly_cost_ceiling: int,
+    recovery_directory: Path | None = None,
 ) -> SourceTeardownPlan:
     """Prove exactly one retained source installation before naming resources to remove."""
 
@@ -82,16 +83,43 @@ def plan_source_teardown(
         "plan_ref",
         pattern=r"foundation-plan-attempt-[1-9][0-9]*",
     )
-    handoff_digest = _text(
-        _object(report.get("state_handoff"), "Foundation handoff reference"),
-        "receipt_digest",
-        pattern=r"[0-9a-f]{64}",
-    )
-    handoff = _verified(
-        foundation / plan_ref / "foundation-state-handoff-receipt.json",
-        "Foundation handoff",
-        handoff_digest,
-    )
+    if recovery_directory is not None:
+        handoff, located = _recovered_foundation_ownership(
+            recovery_directory=recovery_directory.absolute(),
+            source_commit=source_commit,
+            target_binding=target_binding,
+            run_binding=run_binding,
+        )
+    else:
+        handoff_digest = _text(
+            _object(report.get("state_handoff"), "Foundation handoff reference"),
+            "receipt_digest",
+            pattern=r"[0-9a-f]{64}",
+        )
+        handoff = _verified(
+            foundation / plan_ref / "foundation-state-handoff-receipt.json",
+            "Foundation handoff",
+            handoff_digest,
+        )
+        apply = _verified(
+            foundation / plan_ref / "foundation-apply-receipt.json",
+            "Foundation apply",
+            _text(handoff, "foundation_receipt_digest", pattern=r"[0-9a-f]{64}"),
+        )
+        if (
+            apply.get("schema_version") != "fdai.genesis-foundation-apply-receipt.v1"
+            or apply.get("state") != "applied"
+            or apply.get("source_commit") != source_commit
+            or apply.get("target_binding") != target_binding
+        ):
+            raise ValueError("source teardown Foundation apply proof differs")
+        located = _plain_json(foundation / plan_ref / "foundation-private-handoff.json", "handoff")
+        if (
+            canonical_digest(located) != apply.get("handoff_digest")
+            or located.get("source_commit") != source_commit
+            or located.get("run_digest") != run_binding
+        ):
+            raise ValueError("source teardown Foundation location proof differs")
     if (
         handoff.get("schema_version") != "fdai.genesis-foundation-state-handoff-receipt.v1"
         or handoff.get("source_commit") != source_commit
@@ -108,26 +136,6 @@ def plan_source_teardown(
         )
     ):
         raise ValueError("source teardown Foundation ownership proof is incomplete")
-    apply = _verified(
-        foundation / plan_ref / "foundation-apply-receipt.json",
-        "Foundation apply",
-        _text(handoff, "foundation_receipt_digest", pattern=r"[0-9a-f]{64}"),
-    )
-    if (
-        apply.get("schema_version") != "fdai.genesis-foundation-apply-receipt.v1"
-        or apply.get("state") != "applied"
-        or apply.get("source_commit") != source_commit
-        or apply.get("target_binding") != target_binding
-    ):
-        raise ValueError("source teardown Foundation apply proof differs")
-    # Resource locations live only in the private handoff that the apply receipt binds.
-    located = _plain_json(foundation / plan_ref / "foundation-private-handoff.json", "handoff")
-    if (
-        canonical_digest(located) != apply.get("handoff_digest")
-        or located.get("source_commit") != source_commit
-        or located.get("run_digest") != run_binding
-    ):
-        raise ValueError("source teardown Foundation location proof differs")
     app = _object(located.get("app_resource_group"), "application resource group")
     ops = _object(located.get("ops"), "operations resource group")
     groups = tuple(
@@ -157,6 +165,71 @@ def plan_source_teardown(
     )
 
 
+def _recovered_foundation_ownership(
+    *,
+    recovery_directory: Path,
+    source_commit: str,
+    target_binding: str,
+    run_binding: str,
+) -> tuple[dict[str, object], dict[str, object]]:
+    """Verify recovered Foundation ownership without fabricating an ordinary apply receipt."""
+
+    if (
+        not recovery_directory.is_dir()
+        or recovery_directory.is_symlink()
+        or re.fullmatch(r"foundation-recovery-attempt-[1-9][0-9]*", recovery_directory.name) is None
+    ):
+        raise ValueError("source teardown recovery directory is invalid")
+    review = _verified_full(
+        recovery_directory / "recovery-review.json",
+        "Foundation recovery review",
+        digest_field="review_digest",
+    )
+    apply = _verified_full(
+        recovery_directory / "recovery-apply-receipt.json",
+        "Foundation recovery apply",
+    )
+    handoff = _verified_full(
+        recovery_directory / "foundation-state-handoff-receipt.json",
+        "recovered Foundation handoff",
+    )
+    located = _plain_json(
+        recovery_directory / "recovery-private-handoff.json",
+        "recovered private handoff",
+    )
+    if (
+        review.get("schema_version") != "fdai.foundation-recovery-review.v1"
+        or review.get("source_commit") != source_commit
+        or review.get("target_binding") != target_binding
+        or apply.get("schema_version") != "fdai.foundation-recovery-receipt.v1"
+        or apply.get("state") != "verified"
+        or apply.get("source_commit") != source_commit
+        or apply.get("control_plane_readback_verified") is not True
+        or apply.get("zero_change_verified") is not True
+        or handoff.get("schema_version") != "fdai.genesis-foundation-state-handoff-receipt.v1"
+        or handoff.get("state") != "verified"
+        or handoff.get("source_commit") != source_commit
+        or handoff.get("target_binding") != target_binding
+        or handoff.get("foundation_receipt_digest") != apply.get("receipt_digest")
+        or any(
+            handoff.get(key) is not True
+            for key in (
+                "effect_verified",
+                "runner_attested",
+                "remote_backend_authority_verified",
+                "zero_change_verified",
+                "remote_transient_deleted",
+                "local_state_deleted",
+            )
+        )
+        or canonical_digest(located) != apply.get("handoff_digest")
+        or located.get("source_commit") != source_commit
+        or located.get("run_digest") != run_binding
+    ):
+        raise ValueError("source teardown recovered Foundation ownership proof differs")
+    return handoff, located
+
+
 def apply_source_teardown(
     *,
     work_dir: Path,
@@ -168,6 +241,7 @@ def apply_source_teardown(
     readback_timeout_seconds: float = 1800,
     readback_interval_seconds: float = 30,
     sleep: Callable[[float], None] = time.sleep,
+    recovery_directory: Path | None = None,
 ) -> dict[str, object]:
     """Delete only proven-owned groups, then read back their absence."""
 
@@ -176,6 +250,7 @@ def apply_source_teardown(
         runtime_profile=runtime_profile,
         region=region,
         monthly_cost_ceiling=monthly_cost_ceiling,
+        recovery_directory=recovery_directory,
     )
     review = _review(plan)
     if confirmation != plan.confirmation:
@@ -281,14 +356,22 @@ def _review(plan: SourceTeardownPlan) -> dict[str, object]:
 
 
 def _verified(path: Path, label: str, expected_digest: str | None) -> dict[str, object]:
-    value = _plain_json(path, label)
-    digest = value.get("receipt_digest")
-    unsigned = {key: item for key, item in value.items() if key != "receipt_digest"}
-    if not isinstance(digest, str) or canonical_digest(unsigned) != digest:
-        raise ValueError(f"{label} digest is invalid")
+    value = _verified_full(path, label)
+    digest = value["receipt_digest"]
     if expected_digest is not None and digest != expected_digest:
         raise ValueError(f"{label} digest differs")
-    return unsigned
+    return {key: item for key, item in value.items() if key != "receipt_digest"}
+
+
+def _verified_full(
+    path: Path, label: str, *, digest_field: str = "receipt_digest"
+) -> dict[str, object]:
+    value = _plain_json(path, label)
+    digest = value.get(digest_field)
+    unsigned = {key: item for key, item in value.items() if key != digest_field}
+    if not isinstance(digest, str) or canonical_digest(unsigned) != digest:
+        raise ValueError(f"{label} digest is invalid")
+    return value
 
 
 def _plain_json(path: Path, label: str) -> dict[str, object]:

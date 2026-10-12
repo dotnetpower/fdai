@@ -241,11 +241,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
     if args.foundation_workload != "fdai" and args.source is None:
         raise ValueError("--foundation-workload is supported only for source deployment")
     if args.foundation_recovery_directory is not None and (
-        args.source is None
-        or args.work_dir is None
-        or args.prepare_only
-        or args.preflight_only
-        or args.teardown
+        args.source is None or args.work_dir is None or args.prepare_only or args.preflight_only
     ):
         raise ValueError(
             "Foundation recovery requires --source and the original --work-dir without preparation or preflight"
@@ -329,6 +325,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
                 monthly_cost_ceiling=args.monthly_cost_ceiling,
                 confirmation=args.teardown_confirmation,
                 client=AzureResourceGroupClient(),
+                recovery_directory=args.foundation_recovery_directory,
             )
             _print_mapping(
                 result,
