@@ -1,7 +1,7 @@
 ---
 title: 단일 명령 소스 배포
 translation_of: source-deployment.md
-translation_source_sha: 7a5c1820afc352b2199ec4b2a6d64ab291f8d023
+translation_source_sha: 7a08c12cfe8f4fc712ea96b2e7bd20e84e4c32b6
 translation_revised: 2026-10-12
 ---
 
@@ -100,11 +100,11 @@ FDAI 저장소를 clone한 누구나 `az login` 뒤 명령줄 한 줄로 모든 
 서명된 키트 채택은 오프라인 패키지로 계속 진행하겠다고 명시한 복구 Foundation에만 남습니다.
 
 **모호한 Foundation 생성 복구:** 소스 Foundation 복구는 보존된 검토가 Bastion 주소 하나만
-유일한 미완료 생성으로 지정하고, Azure가 정확한 리소스를 `Succeeded`로 독립 확인하며, 기존 복구
-claim이 다른 apply를 차단할 때만 정확한 Bastion 주소를 가져올 수 있습니다. 이 가져오기는
-소유자 전용 로컬 Terraform 상태만 바꾸고 비공개 증적을 기록하며, 이후에도 일반 독립 재조회와
-무변경 계획을 요구합니다. 주소 추가, 신원 변경, 불완전한 공급자 상태, 버전 불일치는 계속
-차단됩니다.
+유일한 미완료 생성으로 지정하고, 운영자가 관측된 Bastion 채택 모드를 명시적으로 선택하며,
+Azure가 정확한 리소스를 `Succeeded`로 독립 확인하고, 기존 복구 claim이 다른 apply를 차단할
+때만 정확한 Bastion 주소를 가져올 수 있습니다. 이 가져오기는 소유자 전용 로컬 Terraform
+상태만 바꾸고 비공개 증적을 기록하며, 이후에도 일반 독립 재조회와 무변경 계획을 요구합니다.
+주소 추가, 신원 변경, 불완전한 공급자 상태, 버전 불일치는 계속 차단됩니다.
 
 **보호된 해체 수정:** 처음에는 현재 작업 트리에서 Terraform destroy를 재사용할 수 있었습니다.
 그러나 소스 배포에서는 보존된 상태가 부분적이거나 복구됐거나 실패한 실행 뒤 없을 수 있으므로
