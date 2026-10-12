@@ -8,6 +8,7 @@ import shutil
 import zipapp
 from dataclasses import dataclass
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from typing import Any, Protocol
 
 from fdai_service_contracts.product_profile import ObservationDataSource, ProductAddOn
@@ -229,12 +230,14 @@ def prepare_source_recovery_host(*, source_root: Path, prepared_root: Path) -> t
     temporary = prepared_root / ".source-recovery-host.pyz"
     if output.is_symlink() or temporary.exists() or temporary.is_symlink():
         raise ValueError("source recovery host output is invalid")
-    zipapp.create_archive(
-        package_root,
-        target=temporary,
-        main="fdai_deployment_cli.standalone_host:main",
-        compressed=True,
-    )
+    with TemporaryDirectory(prefix=".source-recovery-host-", dir=prepared_root) as staging:
+        staging_root = Path(staging)
+        shutil.copytree(package, staging_root / "fdai_deployment_cli")
+        (staging_root / "__main__.py").write_text(
+            "from fdai_deployment_cli.standalone_host import main\nraise SystemExit(main())\n",
+            encoding="utf-8",
+        )
+        zipapp.create_archive(staging_root, target=temporary, compressed=True)
     temporary.chmod(0o600)
     os.replace(temporary, output)
     return output, hashlib.sha256(output.read_bytes()).hexdigest()

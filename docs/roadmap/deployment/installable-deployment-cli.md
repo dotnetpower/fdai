@@ -234,6 +234,8 @@ immutable receipts and original snapshot rather than being re-admitted as curren
 When the enterprise identity add-on is selected, recovered continuation supplies the verified
 recovery handoff to the Entra stage so runner-principal readback does not depend on a superseded
 original apply handoff file.
+The recovery-only host zip application exits with the managed-host checkpoint result, so a
+fail-closed remote error cannot appear as a successful command with empty output.
 The original lock protects source transfer; immutable progress preserves old status and false readiness.
 Existing claims build/reverify five original-source images; wrong revisions, inventories or readiness
 are rejected. After verified state handoff, the coordinator rechecks the complete recovery chain and
