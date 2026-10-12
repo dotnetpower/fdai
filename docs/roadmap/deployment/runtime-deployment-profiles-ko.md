@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 75635b5057730dca18b64afab2638519a3854f47
+translation_source_sha: 5a6e52c1da5846852d8eff2c9d72a46f89f87e17
 translation_revised: 2026-10-13
 ---
 # 런타임 배포 프로파일
@@ -90,7 +90,19 @@ Core와 Operator 모두에 전달합니다. Core 전용 편의 입력은 Operato
 
 운영자는 런타임 플랫폼과 데이터베이스 배치를 하나씩 선택합니다. `fdaictl`은 조합을 검증하고,
 용량과 비용을 추정하며, 플랫폼별 프로비저닝 그래프를 컴파일하고, 각 정확한 플랜에 대한 승인을
-요청합니다. 재시도는 불확실한 효과를 검증할 수 있지만 선택을 바꾸거나 불명확한 적용을 반복할 수는 없습니다. 검증 전용 복구는 apply claim에 대한 첫 번째이자 유일한 암묵적 대응입니다. 새 zero-change plan과 권위 있는 재조회가 원 claim을 종결합니다. 갱신된 exact plan이 제한된 잔여 변경을 입증하면 조정기는 원 claim을 보존하고 원 claim·현재 state·target·source·runtime profile·잔여 이진 plan에 연결된 별도 residual review를 만듭니다. 한 번의 효과 전에 새 exact `<stage>-residual-apply` 승인과 새 residual claim이 필요하며 파괴적 잔여 변경에는 두 번째 확인을 유지합니다. Residual apply가 모호하면 검증만 허용하고 다른 residual apply를 만들 수 없습니다. 완료에는 계속 권위 있는 효과 재조회와 zero-change plan이 필요합니다. 존재하거나 symbolic link인 claim 경로는 검증된 복구 전까지 일반 재계획을 차단하며, 잘못된 보존 claim은 닫힌 상태로 실패합니다.
+요청합니다. 재시도는 불확실한 효과를 검증할 수 있지만 선택을 바꾸거나 불명확한 적용을 반복할 수는
+없습니다. 검증 전용 복구는 apply claim에 대한 첫 번째이자 유일한 암묵적 대응입니다. 새
+zero-change plan과 권위 있는 재조회가 원 claim을 종결합니다. 갱신된 exact plan이 제한된 잔여
+변경을 입증하면 조정기는 원 claim을 보존하고 원 claim, 현재 state, target, source, runtime
+profile, 잔여 이진 plan에 연결된 별도 residual review를 만듭니다. 한 번의 효과 전에 새 exact
+`<stage>-residual-apply` 승인과 새 residual claim이 필요하며 파괴적 잔여 변경에는 두 번째 확인을
+유지합니다. Residual apply가 모호하면 검증을 먼저 수행하고 저장된 plan을 반복하지 않습니다.
+집중 비공개 접근 단계가 수렴한 뒤 권위 있는 재계획에서 create 작업만 남았음이 입증되면 조정기는
+새 residual-successor plan을 한 번만 만들 수 있습니다. 또 다른 exact 승인과 별도 successor
+claim이 필요합니다. update, replace, delete, 접근 증적 누락, 모호한 successor 효과 또는 무변경이
+아닌 successor 검증 결과는 자동 복구를 영구 차단합니다. 완료에는 계속 권위 있는 효과 재조회와
+zero-change plan이 필요합니다. 존재하거나 symbolic link인 claim 경로는 검증된 복구 전까지 일반
+재계획을 차단하며, 잘못된 보존 claim은 닫힌 상태로 실패합니다.
 
 runtime plan, apply, residual review 또는 residual apply를 진행하기 전에 Managed Host는 배포
 Managed Identity로 AKS agent pool을 다시 조회합니다. `runtime` 사용자 풀이 Azure에는 이미

@@ -118,6 +118,48 @@ def test_residual_recovery_review_skips_ordinary_replanning(
     assert command == "apply-residual"
 
 
+def test_residual_successor_review_uses_successor_apply() -> None:
+    review = {"residual_successor": {"operation": "substrate-residual-successor"}}
+
+    selected, command = standalone_application._plan_after_recovery(
+        object(),
+        "/remote",
+        "/application",
+        review,
+        stage="substrate",
+        timeout=60,
+    )
+
+    assert selected is review
+    assert command == "apply-residual-successor"
+
+
+def test_remote_checkpoint_uses_recovery_host_program() -> None:
+    commands: list[tuple[str, ...]] = []
+
+    class Tunnel:
+        host_program = "/remote/source-recovery-host.pyz"
+
+        def ssh(self, command, **_kwargs):
+            commands.append(tuple(command))
+            return subprocess.CompletedProcess(command, 0, stdout="{}", stderr="")
+
+    result = standalone_application._remote_json(
+        Tunnel(),
+        "/remote",
+        "/remote/application",
+        ("recover-apply", "--stage", "substrate"),
+        timeout=60,
+    )
+
+    assert result == {}
+    assert commands[0][:3] == (
+        "/remote/venv/bin/python",
+        "/remote/source-recovery-host.pyz",
+        "--work-dir",
+    )
+
+
 def test_missing_license_material_keeps_deployment_observation_only(monkeypatch) -> None:
     monkeypatch.setattr(license_issue, "discover_license_signing_key", lambda: None)
 

@@ -1,7 +1,7 @@
 ---
 title: 단일 명령 소스 배포
 translation_of: source-deployment.md
-translation_source_sha: 40e2d1bca556962977ccf624b12e180401635b1a
+translation_source_sha: 38724527c574b27e86b4e936e0cc8609a22ca647
 translation_revised: 2026-10-13
 ---
 
@@ -118,6 +118,10 @@ Azure가 정확한 리소스를 `Succeeded`로 독립 확인하고, 기존 복�
 복구 실행은 새 소스 배포와 같은 운영자 선택 소스 허용을 사용합니다. 현재의 깨끗한 checkout은
 정확한 복구 소스여야 하지만 보호된 브랜치, CI 결과, 게시된 산출물 또는 서명된 release는
 요구하지 않습니다.
+복구된 애플리케이션 조정에 더 새로운 배포 코드가 필요하면 워크스테이션은 그 checkout에서
+다이제스트가 검증된 복구 전용 host zip 애플리케이션을 전송합니다. managed host는 배포
+checkpoint에만 이를 사용합니다. 서비스 이미지, 마이그레이션, 카탈로그, Console 콘텐츠,
+Terraform의 소스 트리는 원래 보존된 애플리케이션 스냅샷에 계속 고정됩니다.
 
 **보호된 해체 수정:** 처음에는 현재 작업 트리에서 Terraform destroy를 재사용할 수 있었습니다.
 그러나 소스 배포에서는 보존된 상태가 부분적이거나 복구됐거나 실패한 실행 뒤 없을 수 있으므로

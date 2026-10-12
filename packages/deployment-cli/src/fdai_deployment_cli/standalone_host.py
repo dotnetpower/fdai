@@ -148,6 +148,9 @@ from fdai_deployment_cli.standalone_product_profile import product_terraform_val
 from fdai_deployment_cli.standalone_residual_apply import (
     apply_residual_plan as _apply_residual_plan,
 )
+from fdai_deployment_cli.standalone_residual_successor import (
+    apply_residual_successor as _apply_residual_successor_plan,
+)
 from fdai_deployment_cli.standalone_residual_apply import (
     prepare_residual_review as _prepare_residual_review,
 )
@@ -297,6 +300,11 @@ def main(argv: list[str] | None = None) -> int:
     apply_residual.add_argument("--stage", choices=_STAGES, required=True)
     apply_residual.add_argument("--approval", type=Path, required=True)
     apply_residual.set_defaults(handler=_apply_residual)
+
+    apply_successor = subcommands.add_parser("apply-residual-successor")
+    apply_successor.add_argument("--stage", choices=_STAGES, required=True)
+    apply_successor.add_argument("--approval", type=Path, required=True)
+    apply_successor.set_defaults(handler=_apply_residual_successor)
 
     recover = subcommands.add_parser("recover-apply")
     recover.add_argument("--stage", choices=_STAGES, required=True)
@@ -2549,6 +2557,66 @@ def _apply_residual(args: argparse.Namespace, work_dir: Path) -> dict[str, objec
     )
 
 
+def _apply_residual_successor(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
+    stage = str(args.stage)
+    context = _private_json(work_dir / "context.json", "standalone host context")
+    receipt_path = work_dir / f"{stage}-receipt.json"
+    if receipt_path.exists():
+        return _private_json(receipt_path, "standalone residual successor receipt")
+    original_review = _private_json(
+        work_dir / f"{stage}-review.json", "standalone original plan review"
+    )
+    original_claim = _private_json(
+        work_dir / f"{stage}-claim.json", "standalone original apply claim"
+    )
+    residual_review = _private_json(
+        work_dir / f"{stage}-residual-review.json", "standalone residual plan review"
+    )
+    residual_claim = _private_json(
+        work_dir / f"{stage}-residual-claim.json", "standalone residual claim"
+    )
+    successor_review = _private_json(
+        work_dir / f"{stage}-residual-successor-review.json",
+        "standalone residual successor review",
+    )
+    approval = _private_json(_absolute(args.approval), "residual successor approval")
+    _validate_approval(successor_review, approval, context=context)
+    _managed_identity_login_from_context(context, work_dir)
+    infra, variables = _stage_paths(stage, context, work_dir)
+    _activate_terraform_stage(stage, context, work_dir)
+    targets = _stage_targets(stage, context)
+    return _apply_residual_successor_plan(
+        work_dir=work_dir,
+        stage=stage,
+        context=context,
+        infra=infra,
+        variables=variables,
+        targets=targets,
+        original_review=original_review,
+        original_claim=original_claim,
+        residual_review=residual_review,
+        residual_claim=residual_claim,
+        successor_review=successor_review,
+        approval=approval,
+        effect_readback=lambda: _readback_stage(stage, context),
+    )
+
+
+def _residual_successor_prerequisite(work_dir: Path, stage: str) -> bool:
+    if stage != "substrate":
+        return False
+    receipt_path = work_dir / "access-receipt.json"
+    if not receipt_path.exists() or receipt_path.is_symlink():
+        return False
+    receipt = _private_json(receipt_path, "focused private access receipt")
+    return (
+        receipt.get("schema_version") == "fdai.standalone-application-apply-receipt.v1"
+        and receipt.get("state") == "applied"
+        and receipt.get("control_plane_readback_verified") is True
+        and receipt.get("mutation_performed") is True
+    )
+
+
 def _apply_historical_aks_reconciliation(
     args: argparse.Namespace, work_dir: Path
 ) -> dict[str, object]:
@@ -2644,6 +2712,7 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
                 original_review=review,
                 original_claim=claim,
                 effect_readback=lambda: _readback_stage(stage, context),
+                successor_prerequisite_verified=_residual_successor_prerequisite(work_dir, stage),
             )
         residual_review = _prepare_residual_review(
             work_dir=work_dir,

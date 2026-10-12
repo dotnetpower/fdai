@@ -8,7 +8,12 @@ from pathlib import Path
 
 import pytest
 
-from fdai_deployment_cli import standalone_host, standalone_residual_apply, standalone_review
+from fdai_deployment_cli import (
+    standalone_host,
+    standalone_residual_apply,
+    standalone_residual_successor,
+    standalone_review,
+)
 from fdai_deployment_cli.contracts import canonical_digest
 
 
@@ -214,6 +219,161 @@ def test_claimed_residual_effect_recovers_without_another_apply(
     assert receipt["terraform_zero_change_verified"] is True
 
 
+def test_failed_residual_creates_and_applies_one_create_only_successor(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tmp_path.chmod(0o700)
+    context, original_review, original_claim = _prepare_review(tmp_path, monkeypatch)
+    residual_review = json.loads((tmp_path / "substrate-residual-review.json").read_text())
+    monkeypatch.setattr(
+        standalone_residual_apply.subprocess,
+        "run",
+        lambda command, **_kwargs: subprocess.CompletedProcess(
+            command, 1 if command[1] == "apply" else 0, stdout=b"", stderr=b""
+        ),
+    )
+    with pytest.raises(ValueError, match="verification-only"):
+        standalone_residual_apply.apply_residual_plan(
+            work_dir=tmp_path,
+            stage="substrate",
+            context=context,
+            infra=tmp_path,
+            variables=tmp_path / "application.auto.tfvars.json",
+            targets=("module.example",),
+            original_review=original_review,
+            original_claim=original_claim,
+            residual_review=residual_review,
+            approval={"approved": True},
+            effect_readback=lambda: False,
+        )
+
+    def successor_plan(command, **_kwargs):
+        if command[1] == "plan":
+            output = next((value for value in command if value.startswith("-out=")), None)
+            if output is not None:
+                plan = Path(output.removeprefix("-out="))
+                plan.write_bytes(b"successor-plan")
+                plan.chmod(0o600)
+            return subprocess.CompletedProcess(command, 2, stdout=b"", stderr=b"")
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=json.dumps(
+                {
+                    "resource_changes": [
+                        {
+                            "address": "azurerm_role_assignment.remaining",
+                            "type": "azurerm_role_assignment",
+                            "change": {"actions": ["create"]},
+                        }
+                    ]
+                }
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(standalone_residual_apply.subprocess, "run", successor_plan)
+    monkeypatch.setattr(standalone_residual_successor.subprocess, "run", successor_plan)
+    successor = standalone_residual_apply.recover_residual_apply(
+        work_dir=tmp_path,
+        stage="substrate",
+        context=context,
+        infra=tmp_path,
+        variables=tmp_path / "application.auto.tfvars.json",
+        targets=("module.example",),
+        original_review=original_review,
+        original_claim=original_claim,
+        effect_readback=lambda: False,
+        successor_prerequisite_verified=True,
+    )
+    assert successor["residual_successor"]["operation"] == "substrate-residual-successor"
+
+    commands: list[tuple[str, ...]] = []
+
+    def apply_successor(command, **_kwargs):
+        commands.append(tuple(command))
+        return subprocess.CompletedProcess(command, 0, stdout=b"", stderr=b"")
+
+    monkeypatch.setattr(standalone_residual_apply.subprocess, "run", apply_successor)
+    receipt = standalone_residual_successor.apply_residual_successor(
+        work_dir=tmp_path,
+        stage="substrate",
+        context=context,
+        infra=tmp_path,
+        variables=tmp_path / "application.auto.tfvars.json",
+        targets=("module.example",),
+        original_review=original_review,
+        original_claim=original_claim,
+        residual_review=residual_review,
+        residual_claim=json.loads((tmp_path / "substrate-residual-claim.json").read_text()),
+        successor_review=successor,
+        approval={"approved": True},
+        effect_readback=lambda: True,
+    )
+    assert [command[1] for command in commands] == ["apply", "plan"]
+    assert receipt["residual_successor"] is True
+    assert receipt["terraform_zero_change_verified"] is True
+
+
+def test_residual_successor_rejects_non_create_plan(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    tmp_path.chmod(0o700)
+    context, original_review, original_claim = _prepare_review(tmp_path, monkeypatch)
+    residual_review = json.loads((tmp_path / "substrate-residual-review.json").read_text())
+    residual_claim = standalone_residual_apply._residual_claim(
+        stage="substrate",
+        context=context,
+        original_claim=original_claim,
+        residual_review=residual_review,
+        approval={"approved": True},
+    )
+    residual_claim_path = tmp_path / "substrate-residual-claim.json"
+    residual_claim_path.write_text(json.dumps(residual_claim))
+    residual_claim_path.chmod(0o600)
+
+    def changed_plan(command, **_kwargs):
+        if command[1] == "plan":
+            output = next((value for value in command if value.startswith("-out=")), None)
+            if output is not None:
+                plan = Path(output.removeprefix("-out="))
+                plan.write_bytes(b"successor-plan")
+                plan.chmod(0o600)
+            return subprocess.CompletedProcess(command, 2, stdout=b"", stderr=b"")
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=json.dumps(
+                {
+                    "resource_changes": [
+                        {
+                            "address": "azurerm_resource.changed",
+                            "type": "azurerm_resource",
+                            "change": {"actions": ["update"]},
+                        }
+                    ]
+                }
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(standalone_residual_apply.subprocess, "run", changed_plan)
+    monkeypatch.setattr(standalone_residual_successor.subprocess, "run", changed_plan)
+    with pytest.raises(ValueError, match="create actions only"):
+        standalone_residual_apply.recover_residual_apply(
+            work_dir=tmp_path,
+            stage="substrate",
+            context=context,
+            infra=tmp_path,
+            variables=tmp_path / "application.auto.tfvars.json",
+            targets=("module.example",),
+            original_review=original_review,
+            original_claim=original_claim,
+            effect_readback=lambda: False,
+            successor_prerequisite_verified=True,
+        )
+
+
 def test_residual_apply_command_is_explicit(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
@@ -232,6 +392,35 @@ def test_residual_apply_command_is_explicit(
             "--work-dir",
             str(tmp_path),
             "apply-residual",
+            "--stage",
+            "substrate",
+            "--approval",
+            str(tmp_path / "approval.json"),
+        ]
+    )
+
+    assert result == 0
+    assert json.loads(capsys.readouterr().out)["state"] == "applied"
+
+
+def test_residual_successor_command_is_explicit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    tmp_path.chmod(0o700)
+    monkeypatch.setattr(
+        standalone_host,
+        "_apply_residual_successor",
+        lambda _args, _work_dir: {
+            "schema_version": "fdai.standalone-residual-successor-receipt.v1",
+            "state": "applied",
+        },
+    )
+
+    result = standalone_host.main(
+        [
+            "--work-dir",
+            str(tmp_path),
+            "apply-residual-successor",
             "--stage",
             "substrate",
             "--approval",

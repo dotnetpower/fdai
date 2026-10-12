@@ -103,10 +103,14 @@ instead proves bounded residual changes, the coordinator preserves the original 
 distinct residual review bound to the original claim, current state, target, source, runtime
 profile, and residual binary plan. It requires a new exact `<stage>-residual-apply` approval and a
 new residual claim before one effect. Destructive residuals retain the second confirmation.
-Residual apply ambiguity is verification-only; it cannot create another residual apply. Completion
-still requires authoritative effect readback and a zero-change plan. Any present or symbolic-link
-claim path blocks ordinary replanning until validated recovery; malformed retained claims fail
-closed.
+Residual apply ambiguity is verification-first and never repeats the saved plan. If authoritative
+replanning proves that only create actions remain after the focused private-access stage has
+converged, the coordinator may emit one fresh residual-successor plan. It requires another exact
+approval and a distinct successor claim. Any update, replace, delete, missing access receipt,
+ambiguous successor effect, or non-zero successor verification permanently blocks automatic
+recovery. Completion still requires authoritative effect readback and a zero-change plan. Any
+present or symbolic-link claim path blocks ordinary replanning until validated recovery; malformed
+retained claims fail closed.
 
 Before a runtime plan, apply, residual review, or residual apply can proceed, the managed host
 reads back AKS agent pools with its deployment Managed Identity. If the `runtime` user pool already

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -28,6 +30,29 @@ def test_terraform_writes_go_to_a_private_copy_not_the_snapshot(tmp_path: Path) 
     assert copy.stat().st_mode & 0o777 == 0o700
     assert inputs.source_tree_copy(tree, work) == copy
     assert (copy / "infra/backend.tf").exists()
+
+
+def test_recovery_host_archive_uses_current_tooling_without_application_bytes(
+    tmp_path: Path,
+) -> None:
+    source = tmp_path / "current"
+    package = source / "packages/deployment-cli/src/fdai_deployment_cli"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("")
+    (package / "standalone_host.py").write_text("def main(): return 0\n")
+    prepared = tmp_path / "prepared"
+    prepared.mkdir(mode=0o700)
+
+    archive, digest = inputs.prepare_source_recovery_host(
+        source_root=source.absolute(),
+        prepared_root=prepared.absolute(),
+    )
+
+    assert archive.stat().st_mode & 0o777 == 0o600
+    assert hashlib.sha256(archive.read_bytes()).hexdigest() == digest
+    with zipfile.ZipFile(archive) as package_archive:
+        assert "fdai_deployment_cli/standalone_host.py" in package_archive.namelist()
+        assert "source-snapshot" not in " ".join(package_archive.namelist())
 
 
 def test_a_retained_source_context_is_rebound_out_of_the_snapshot(tmp_path: Path) -> None:
