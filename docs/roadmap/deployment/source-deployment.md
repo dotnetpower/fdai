@@ -104,6 +104,9 @@ operator-selected checkout, but images, migrations, catalogs, and Console conten
 the original retained source snapshot. Before any application effect, the coordinator rechecks the
 recovery apply, runner enrollment, state handoff, private handoff, target, and original run binding.
 The final deployment result returns the recovery and immutable progress digests.
+When enterprise identity is selected, the Entra configuration stage reads the same verified
+recovery handoff for the runner principal instead of requiring the superseded original apply
+handoff file.
 
 Signed-kit adoption remains available only for recovered Foundations that explicitly continue with
 an offline package.

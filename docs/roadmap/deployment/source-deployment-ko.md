@@ -1,7 +1,7 @@
 ---
 title: 단일 명령 소스 배포
 translation_of: source-deployment.md
-translation_source_sha: e98383489a11d9a9ac25ea1e604f2cf6bdb3fabe
+translation_source_sha: 40e2d1bca556962977ccf624b12e180401635b1a
 translation_revised: 2026-10-13
 ---
 
@@ -103,6 +103,8 @@ checkout에서 가져올 수 있지만, 이미지, 마이그레이션, 카탈로
 소스 스냅샷에 계속 고정됩니다. 조정기는 애플리케이션 효과 전에 복구 apply, runner 등록, 상태
 인계, 비공개 인계, 대상, 원래 실행 바인딩을 다시 확인합니다. 최종 배포 결과는 복구와 불변 진행
 다이제스트를 반환합니다.
+enterprise identity를 선택하면 Entra 구성 단계는 runner principal을 확인할 때 대체된 원래 apply
+인계 파일을 요구하지 않고 같은 검증된 복구 인계를 읽습니다.
 
 서명된 키트 채택은 오프라인 패키지로 계속 진행하겠다고 명시한 복구 Foundation에만 남습니다.
 

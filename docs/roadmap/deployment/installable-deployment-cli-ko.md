@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: eed9f76463107ff4e58612f855d179445e99b772
+translation_source_sha: c689274bea4cabe93604e1c87c52ac655301ffdb
 translation_revised: 2026-10-13
 ---
 
@@ -231,6 +231,8 @@ SKU·할당량, 구성·provider·계획·도구·상태 해시와 만료를 검
 복구 apply, 등록, 상태 이행은 현재의 깨끗한 운영자 선택 checkout을 보호된 브랜치 CI 없이
 허용합니다. 이전 실행 리비전은 현재 소스로 다시 허용하지 않고, 불변 증적과 원래 스냅샷으로
 인증합니다.
+enterprise identity 추가 기능을 선택하면 복구 계속 진행 경로는 검증된 복구 인계를 Entra 단계에
+전달합니다. 따라서 runner principal 재조회가 대체된 원래 apply 인계 파일에 의존하지 않습니다.
 다른 리비전·불완전한 목록·잘못된 준비 표식은 거부하며 도구가 없으면 검토 결과를 반환합니다.
 검증된 상태 인계 후 조정기는 전체 복구 근거를 다시 확인하고 원래 스냅샷으로 일반 소스
 애플리케이션 경로를 계속 진행합니다. 최종 증적은 복구된 상태 인계를 결속하고, 최종 결과는 복구 apply와 불변 복구 진행
