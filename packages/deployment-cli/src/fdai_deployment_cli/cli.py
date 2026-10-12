@@ -340,33 +340,35 @@ def _provision_azure(args: argparse.Namespace) -> int:
             )
             return 0 if result["state"] == "torn-down" else 3
         if not args.prepare_only and not args.preflight_only:
-            result = plan_source_installation(
-                source_root=args.source,
-                work_dir=work_dir,
-                runtime_profile=runtime_profile,
-                region=args.region,
-                monthly_cost_ceiling=args.monthly_cost_ceiling,
-                foundation_workload=args.foundation_workload,
-                timeout_seconds=args.timeout_seconds,
-                approval_file=args.approval_file,
-                foundation_recovery_directory=args.foundation_recovery_directory,
-                operational_evidence_verifier_input=operational_evidence_verifier_input,
-                interactive=args.approval_file is None,
-                installation_options=(
-                    InstallationOptions(
-                        setup_cost_ceiling=args.setup_cost_ceiling,
-                        console_access=args.console_access or "none",
-                        allow_dedicated_identities=args.allow_dedicated_identities,
-                        cleanup_temporary_resources=args.cleanup_temporary_resources,
-                    )
-                    if args.approval_file is None and args.foundation_recovery_directory is None
-                    else None
-                ),
-                confirm_initial=args.foundation_recovery_directory is None
-                and args.output == "text"
-                and sys.stdin.isatty(),
-            )
-            ready = result.get("deployment_ready") is True and result["state"] == "deployment-ready"
+            with DeploymentProgress.for_source(mode=args.progress, output=args.output) as progress:
+                progress.begin_source()
+                result = plan_source_installation(
+                    source_root=args.source,
+                    work_dir=work_dir,
+                    runtime_profile=runtime_profile,
+                    region=args.region,
+                    monthly_cost_ceiling=args.monthly_cost_ceiling,
+                    foundation_workload=args.foundation_workload,
+                    timeout_seconds=args.timeout_seconds,
+                    approval_file=args.approval_file,
+                    foundation_recovery_directory=args.foundation_recovery_directory,
+                    operational_evidence_verifier_input=operational_evidence_verifier_input,
+                    interactive=args.approval_file is None,
+                    installation_options=(
+                        InstallationOptions(
+                            setup_cost_ceiling=args.setup_cost_ceiling,
+                            console_access=args.console_access or "none",
+                            allow_dedicated_identities=args.allow_dedicated_identities,
+                            cleanup_temporary_resources=args.cleanup_temporary_resources,
+                        )
+                        if args.approval_file is None and args.foundation_recovery_directory is None
+                        else None
+                    ),
+                    confirm_initial=args.foundation_recovery_directory is None
+                    and args.output == "text"
+                    and sys.stdin.isatty(),
+                )
+                ready = progress.finish_source(result)
             _print_mapping(
                 result,
                 output=args.output,

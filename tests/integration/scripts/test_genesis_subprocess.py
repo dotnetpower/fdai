@@ -35,7 +35,8 @@ def test_silent_command_prints_periodic_stderr_heartbeat() -> None:
     assert result.stdout == ""
     assert result.stderr == ""
     assert heartbeat.getvalue().endswith("\n")
-    assert heartbeat.getvalue().count(".") >= 2
+    assert heartbeat.getvalue().count("still running") >= 2
+    assert "elapsed 00:00" in heartbeat.getvalue()
 
 
 def test_captured_output_and_json_are_separate_from_heartbeat() -> None:
@@ -58,8 +59,8 @@ def test_captured_output_and_json_are_separate_from_heartbeat() -> None:
 
     assert result.stdout == '{"state":"review"}\n'
     assert result.stderr == "bounded diagnostic\n"
-    assert "." not in result.stdout + result.stderr
-    assert heartbeat.getvalue().count(".") >= 1
+    assert "still running" not in result.stdout + result.stderr
+    assert heartbeat.getvalue().count("still running") >= 1
 
 
 def test_timeout_preserves_output_and_terminates_the_descendant_group(tmp_path: Path) -> None:

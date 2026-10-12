@@ -5,6 +5,7 @@ import json
 import re
 import subprocess
 import sys
+import time
 from types import SimpleNamespace
 
 import pytest
@@ -21,7 +22,9 @@ from fdai_deployment_cli.deployment_progress import (
     DeploymentProgress,
     begin_stage,
     downloaded_bytes,
+    installer_activity,
     progress_detail,
+    skip_stage,
     terminal_output,
 )
 
@@ -72,7 +75,7 @@ def test_failure_and_interruption_preserve_unfinished_phase(error) -> None:
     assert output.getvalue() == text
 
 
-@pytest.mark.parametrize("mode", ["off", "plain", "auto"])
+@pytest.mark.parametrize("mode", ["off", "plain", "stream", "auto"])
 def test_approval_never_redirects_or_consumes_standard_streams(mode, monkeypatch) -> None:
     monkeypatch.setenv("TERM", "xterm-256color")
     monkeypatch.delenv("NO_COLOR", raising=False)
@@ -90,8 +93,43 @@ def test_approval_never_redirects_or_consumes_standard_streams(mode, monkeypatch
     if mode == "off":
         assert output.getvalue() == ""
     else:
-        text = display.console.export_text() if display.dynamic else output.getvalue()
+        text = (
+            display.console.export_text()
+            if display.dynamic or display.stream
+            else output.getvalue()
+        )
         assert "[WAIT] Review the exact Foundation plan" in text
+
+
+def test_installer_stream_is_append_only_and_emits_heartbeats(monkeypatch) -> None:
+    monkeypatch.setenv("TERM", "xterm-256color")
+    display, output = _display(mode="stream", terminal=True)
+    with display:
+        begin_stage("discovery")
+        with installer_activity("Preparing the clean source snapshot", heartbeat_seconds=0.01):
+            time.sleep(0.035)
+
+    text = display.console.export_text()
+    assert not display.dynamic
+    assert display.stream
+    assert text.count("Preparing the clean source snapshot") >= 3
+    assert "elapsed 00:00" in text
+    assert "\r" not in output.getvalue()
+
+
+def test_source_route_records_inapplicable_kit_without_inflating_completion() -> None:
+    display, output = _display()
+    with display:
+        begin_stage("azure")
+        skip_stage("kit", "Source checkout selected; no deployment kit is used")
+        begin_stage("discovery")
+
+    text = output.getvalue()
+    assert "[02/17] SKIP Signed deployment kit" in text
+    assert "Source checkout selected; no deployment kit is used" in text
+    frame = Console(file=io.StringIO(), record=True)
+    frame.print(display.render())
+    assert "1 complete | 1 skipped | 15 remaining" in frame.export_text()
 
 
 @pytest.mark.parametrize("environment", [{"NO_COLOR": ""}, {"TERM": "dumb"}])
@@ -146,7 +184,7 @@ def test_current_work_view_fits_terminal_width(width, monkeypatch) -> None:
     frame.print(display.render())
     snapshot = frame.export_text()
     assert "FDAI" in snapshot
-    assert "1/17 phases" in snapshot
+    assert "1 complete | 0 skipped | 16" in " ".join(snapshot.split())
     assert "128.0 MiB received" in snapshot
     assert all(cell_len(line) <= width for line in snapshot.splitlines())
 

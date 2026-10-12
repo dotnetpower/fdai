@@ -1,8 +1,8 @@
 ---
 title: 단일 명령 소스 배포
 translation_of: source-deployment.md
-translation_source_sha: c6a1dbdce6619681425717d9462fd219a9cb9fb7
-translation_revised: 2026-10-09
+translation_source_sha: 9a18dcef01cebb8ed4e8c888b521ca1e0a6c964c
+translation_revised: 2026-10-12
 ---
 
 # 단일 명령 소스 배포
@@ -120,6 +120,11 @@ git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azu
 `fdai-up.sh`는 checkout의 잠긴 환경을 준비하고 나머지 옵션과 함께
 `fdaictl provision azure --source <checkout>`을 호출합니다. 두 진입점은 같은 조정기를 실행하고
 같은 결과를 냅니다. 명령을 다시 실행하면 같은 설치를 재개하거나 업그레이드합니다.
+
+대화형 소스 배포는 추가 전용 설치 진행 스트림을 사용합니다. 각 전환은 번호가 있는 단계 제목,
+정확한 완료/건너뜀/남은 단계 수, 출력이 없는 장기 하위 작업의 경과 시간 활동 신호를 기록합니다.
+스트림은 터미널을 지우거나 다시 그리지 않으므로 scrollback이 전체 표시 기록으로 남습니다.
+공급자 완료를 추정하지 않으며 진행 표시를 준비 상태 근거로 바꾸지 않습니다.
 
 작업 스테이션에는 Bash, `git`, Azure CLI, `uv`가 필요합니다. Console 추가 기능을 선택하면 커밋된
 lockfile로 Console을 빌드할 Node.js와 npm도 필요합니다. 컨테이너 엔진, GitHub 계정, 저장소

@@ -34,6 +34,7 @@ from genesis_status import (  # noqa: E402
     StatusStore,
     StatusStoreError,
     render_plan,
+    render_progress,
 )
 from resource_provider_reconcile import (  # noqa: E402
     APPLICATION_PROVIDERS,
@@ -65,6 +66,25 @@ _GENESIS_PYTHON = (
     _SCRIPT_DIR / "genesis_subprocess.py",
     _SCRIPT_DIR / "resource_provider_reconcile.py",
 )
+
+
+def test_progress_is_append_only_installer_output_without_percentage_bar(capsys) -> None:
+    render_progress(
+        {
+            "stages_total": 15,
+            "stages_completed": 7,
+            "stages_skipped": 2,
+            "current_stage": "foundation-plan",
+            "state": "running",
+        }
+    )
+
+    output = capsys.readouterr().err
+    assert (
+        "==> [09/15] Foundation exact plan | RUNNING | 7 complete | 2 skipped | 8 remaining"
+    ) in output
+    assert "%" not in output
+    assert "#" not in output
 
 
 class ProviderRunner:

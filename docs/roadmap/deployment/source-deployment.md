@@ -125,6 +125,12 @@ itself. `fdai-up.sh` prepares the checkout's locked environment and invokes
 same coordinator and produce the same result. Running the command again resumes or upgrades the
 same installation.
 
+Interactive source deployment uses an append-only installer stream. Each transition writes a
+numbered stage heading, exact completed/skipped/remaining counts, and elapsed heartbeats for a
+silent long-running child. The stream never clears or redraws the terminal, so scrollback remains
+the complete presentation record. It doesn't estimate provider completion or turn progress into
+readiness evidence.
+
 The workstation needs Bash, `git`, Azure CLI, and `uv`. Selecting the Console add-on also needs
 Node.js and npm to build the Console from the committed lockfile. No container engine, GitHub
 account, repository secret, workflow, or registered runner is required.

@@ -430,8 +430,14 @@ def test_source_plan_pending_approval_is_not_cli_success(
     assert calls[0]["confirm_initial"] is (output == "text")
     assert (calls[0]["installation_options"] is None) is approved
     assert calls[0]["approval_file"] == (Path("/tmp/example-approval.json") if approved else None)
-    text = capsys.readouterr().out
-    assert ('"deployment_ready":false' in text) if output == "json" else ("not ready" in text)
+    captured = capsys.readouterr()
+    assert (
+        ('"deployment_ready":false' in captured.out)
+        if output == "json"
+        else ("not ready" in captured.out)
+    )
+    assert ("FDAI | Azure deployment" in captured.err) is (output == "text")
+    assert ("[02/17] SKIP Signed deployment kit" in captured.err) is (output == "text")
 
 
 @pytest.mark.parametrize(
