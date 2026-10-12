@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to your own Azure subscription from a clone with one command line, or install it from a signed offline package.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 686f2993ac28d824624acc0b004cf04dde102028 }, { source: docs/roadmap/deployment/source-deployment.md, sha: 9a18dcef01cebb8ed4e8c888b521ca1e0a6c964c }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 686f2993ac28d824624acc0b004cf04dde102028 }, { source: docs/roadmap/deployment/source-deployment.md, sha: c614165b65f5a640ab3f4ec5754d3a402700906f }]
 ---
 
 # Deploy Quickstart
@@ -149,7 +149,9 @@ its root instead. The wrapper prepares your clone's locked environment and runs
 `fdaictl provision azure --source .` with your options. With an installed CLI, you can run that
 command directly from the clone. The activity stream appears automatically in an interactive
 terminal as append-only installer events; add `--progress plain` to remove terminal styling while
-keeping the same scrolling records. The private work directory must be outside your clone.
+keeping the same scrolling records. Quiet preparation and preflight work writes a `still working`
+record every 10 seconds, followed by an explicit completion or failure record. The private work
+directory must be outside your clone.
 
 The coordinator performs the following operations in one resumable process:
 
