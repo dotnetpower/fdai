@@ -2,8 +2,8 @@
 title: 배포 빠른 시작
 description: clone에서 명령줄 한 줄로 FDAI를 자신의 Azure 구독에 배포하거나 서명된 오프라인 패키지로 설치합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 68ae00b6c0ca71c98c3e4d7614330fdd685ba11e
-translation_revised: 2026-10-09
+translation_source_sha: f5c16768874b94f485e3b65683564bc5bce1e497
+translation_revised: 2026-10-12
 ---
 
 # 배포 빠른 시작
@@ -33,15 +33,16 @@ Kubernetes 객체를 읽을 수 있으며 Core, Operator 또는 Thor에는 이 �
 
 GitHub Actions는 저장소를 테스트합니다. 두 배포 경로 어디에도 포함되지 않습니다.
 
-> **현재 상태:** 단일 명령 소스 배포는 아직 완성되는 중이며,
-> [구현 원장](../roadmap-implementation/deployment/source-deployment.md)이 다음 상태를 기록합니다.
+> **현재 상태:** 단일 명령 소스 배포는 애플리케이션 수렴까지 구현되었습니다.
+> [구현 원장](../roadmap-implementation/deployment/source-deployment.md)은 다음 상태를 기록합니다.
 >
 > - 소스 실행은 Foundation 이후 애플리케이션 단계로 계속 진행합니다. 레지스트리에서 서비스
 >   이미지를 빌드하고, AKS 런타임과 워크로드를 적용하고, 마이그레이션을 실행한 뒤 30일 Trial을
->   시작합니다. 아직 처음부터 끝까지 완료된 인수 실행은 기록되지 않았으므로, 실패한 단계는
->   재개하거나 보고해야 할 수 있습니다.
+>   시작합니다. 키가 없는 신규 구독 실행 하나와 변경 없는 재실행 하나가 최종 준비 상태에
+>   도달했습니다. 각 신규 설치에는 현재 리비전의 인수 실행이 여전히 필요합니다.
 > - `secrets/integrity-signing-key.pem`이 있으면 애플리케이션 단계는 Trial 대신 설치 사용권을
->   설치합니다. 아직 실제 키 보유자 실행은 기록되지 않았습니다.
+>   설치합니다. 실제 키 보유자의 신규 설치와 Trial에서 전체 사용권으로 전환하는 재실행은 아직
+>   기록되지 않았습니다.
 > - 확인한 설치 범위보다 오래 걸린 실행은 검토 상태로 멈춥니다. 보호된 해체 후 새 작업
 >   디렉터리에서 새 실행을 시작하세요.
 
