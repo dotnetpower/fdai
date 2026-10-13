@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from fdai.rule_catalog.schema.bounded_process import (
     ProcessOutputLimitError,
     run_bounded_process,
@@ -64,11 +66,20 @@ def load_rego_semantics(
         ast = json.loads(completed.stdout)
     except json.JSONDecodeError as exc:
         raise RegoSemanticsError("OPA returned invalid JSON") from exc
+    source_annotation: Mapping[str, Any] | None = None
+    if isinstance(ast, str):
+        source_annotation = _source_package_annotation(ast)
+        ast = _parse_module_ast(
+            ast,
+            filename=path.name,
+            opa_binary=opa_binary,
+            timeout_seconds=timeout_seconds,
+        )
     if not isinstance(ast, Mapping):
         raise RegoSemanticsError("OPA AST root MUST be an object")
 
     package = _package(ast.get("package"))
-    annotation = _package_annotation(ast.get("annotations"))
+    annotation = source_annotation or _package_annotation(ast.get("annotations"))
     custom = annotation.get("custom")
     if not isinstance(custom, Mapping):
         raise RegoSemanticsError("Rego package metadata custom block MUST be an object")
@@ -135,6 +146,62 @@ def _package_annotation(raw: object) -> Mapping[str, Any]:
     if len(matches) != 1:
         raise RegoSemanticsError("Rego policy MUST carry exactly one package metadata block")
     return matches[0]
+
+
+def _source_package_annotation(source: str) -> Mapping[str, Any]:
+    """Load the package metadata from OPA's JSON-encoded formatted-source output."""
+
+    lines = source.splitlines()
+    try:
+        marker = lines.index("# METADATA")
+    except ValueError as exc:
+        raise RegoSemanticsError("Rego package metadata MUST be present") from exc
+    metadata_lines: list[str] = []
+    for line in lines[marker + 1 :]:
+        if not line.startswith("#"):
+            break
+        metadata_lines.append(line[1:].removeprefix(" "))
+    if not metadata_lines:
+        raise RegoSemanticsError("Rego package metadata MUST be present")
+    try:
+        value = yaml.safe_load("\n".join(metadata_lines))
+    except yaml.YAMLError as exc:
+        raise RegoSemanticsError("Rego package metadata MUST be valid YAML") from exc
+    if not isinstance(value, Mapping):
+        raise RegoSemanticsError("Rego package metadata MUST be an object")
+    return value
+
+
+def _parse_module_ast(
+    source: str,
+    *,
+    filename: str,
+    opa_binary: str,
+    timeout_seconds: float,
+) -> Mapping[str, Any]:
+    """Ask OPA's parse_module builtin for an AST when parse emits formatted source."""
+
+    query = f"rego.parse_module({json.dumps(filename)}, input)"
+    try:
+        completed = run_bounded_process(
+            [opa_binary, "eval", "--stdin-input", "--format=json", query],
+            input_data=json.dumps(source).encode("utf-8"),
+            timeout_seconds=timeout_seconds,
+            max_stdout_bytes=_MAX_AST_BYTES,
+        )
+    except (OSError, ProcessOutputLimitError, subprocess.TimeoutExpired) as exc:
+        raise RegoSemanticsError(f"OPA AST evaluation unavailable: {type(exc).__name__}") from exc
+    if completed.returncode != 0 or not completed.stdout:
+        raise RegoSemanticsError("OPA AST evaluation failed")
+    try:
+        response = json.loads(completed.stdout)
+        result = response["result"]
+        ast = result[0]["expressions"][0]["value"]
+    except (json.JSONDecodeError, KeyError, IndexError, TypeError) as exc:
+        raise RegoSemanticsError("OPA AST evaluation returned an invalid result") from exc
+    if not isinstance(ast, Mapping):
+        raise RegoSemanticsError("OPA AST root MUST be an object")
+    return ast
 
 
 def _property_paths(value: object) -> Iterator[str]:
