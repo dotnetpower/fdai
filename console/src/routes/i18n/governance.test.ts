@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { setLocale } from "../../i18n";
+import capabilitiesEn from "./capabilities.en.json";
+import capabilitiesKo from "./capabilities.ko.json";
+import { t as capabilityText } from "./capabilities";
 import en from "./governance.en.json";
 import ko from "./governance.ko.json";
 import { displayValue, formatNumber, t } from "./governance";
@@ -16,7 +19,7 @@ function leafPaths(value: unknown, prefix = ""): string[] {
 
 describe("governance route localization", () => {
   it("renders the English source and interpolates values", () => {
-    expect(t("governance.capabilities.unregistered", { id: "cap.read" }))
+    expect(capabilityText("governance.capabilities.unregistered", { id: "cap.read" }))
       .toBe("Capability cap.read is not registered.");
   });
 
@@ -34,6 +37,20 @@ describe("governance route localization", () => {
     for (const path of paths) {
       const key = `governance.${path}`;
       expect(t(key)).not.toBe(key);
+    }
+  });
+
+  it("keeps the capability catalog complete in both locales", () => {
+    expect(leafPaths(capabilitiesKo).sort()).toEqual(leafPaths(capabilitiesEn).sort());
+    const paths = leafPaths(capabilitiesEn);
+    for (const path of paths) {
+      const key = `governance.capabilities.${path}`;
+      expect(capabilityText(key)).not.toBe(key);
+    }
+    setLocale("ko");
+    for (const path of paths) {
+      const key = `governance.capabilities.${path}`;
+      expect(capabilityText(key)).not.toBe(key);
     }
   });
 

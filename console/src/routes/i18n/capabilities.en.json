@@ -1,0 +1,133 @@
+{
+  "resourceLabel": "capability catalog",
+  "unavailable": "Capability data is currently unavailable.",
+  "column": {
+    "id": "Capability id",
+    "name": "Name",
+    "category": "Category",
+    "sideEffectClass": "Side-effect class",
+    "defaultMode": "Default mode",
+    "requiredRole": "Required role",
+    "operatorPath": "Operator path",
+    "summary": "Summary"
+  },
+  "context": {
+    "routeLabel": "Capabilities",
+    "purpose": "Directory of declared operator capability contracts, required roles, side-effect classes, and default safety modes. Catalog presence does not grant execution eligibility.",
+    "headline": "{count} declarations across {categories} categories; {mutating} declare a mutating side-effect class"
+  },
+  "banner": {
+    "title": "Catalog declarations only.",
+    "body": "Source: {source}. Entries describe governed contracts; they do not prove provider binding, runtime health, or execution eligibility."
+  },
+  "kpi": {
+    "declarations": "Declarations",
+    "categories": "Categories",
+    "mutating": "Mutating declarations",
+    "shown": "Shown"
+  },
+  "filter": {
+    "aria": "Capability filters",
+    "searchAria": "Filter capabilities",
+    "searchPlaceholder": "Filter capability id, name, tag, or summary",
+    "category": "Category",
+    "sideEffect": "Side effect",
+    "role": "Role",
+    "reset": "Reset filters"
+  },
+  "sort": {
+    "label": "Sort by",
+    "category": "Category",
+    "name": "Name",
+    "effect": "Side effect",
+    "role": "Required role"
+  },
+  "result": {
+    "count": "Showing {start}-{end} of {count}"
+  },
+  "pagination": {
+    "aria": "Capability catalog pages",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {page} of {pages}"
+  },
+  "empty": "No capabilities match these filters",
+  "tableAria": "Capability directory",
+  "openRow": "Open {name}",
+  "copyView": "Copy view link",
+  "unregistered": "Capability {id} is not registered.",
+  "detail": {
+    "category": "Category",
+    "sideEffect": "Side effect",
+    "defaultMode": "Default mode",
+    "requiredRole": "Required role",
+    "operatorPath": "Operator path",
+    "openPromotionEvidence": "Open ActionType promotion evidence",
+    "tags": "Tags",
+    "openRelated": "Open {surface}",
+    "openAccess": "Review identity and access"
+  },
+  "state": {
+    "aria": "Capability assurance state",
+    "declaration": "Catalog declaration",
+    "declared": "Declared",
+    "runtime": "Runtime availability",
+    "binding": "Provider binding",
+    "role": "Your role",
+    "execution": "Execution authority",
+    "notMeasured": "Not measured",
+    "notGranted": "Not granted by catalog",
+    "roleMeets": "Meets declared minimum",
+    "roleMissing": "Required role not present",
+    "roleLoading": "Checking role",
+    "roleUnavailable": "Role unavailable"
+  },
+  "parity": {
+    "native": "Native",
+    "safer-alternative": "Safer alternative",
+    "external-binding": "External binding required"
+  },
+  "provenance": {
+    "title": "Evidence and provenance",
+    "implementation": "Implementation model",
+    "reference": "Source reference",
+    "officialSource": "Open official source",
+    "evidence": "Implementation references",
+    "noEvidence": "No implementation references were supplied."
+  },
+  "destination": {
+    "impactScope": "Impact scope",
+    "llmCost": "LLM cost",
+    "architecture": "Architecture",
+    "audit": "Audit log",
+    "trace": "Trace",
+    "detectionCoverage": "Detection coverage",
+    "incidents": "Incidents",
+    "backgroundTasks": "Background tasks",
+    "rootCauseAnalysis": "Root-cause analysis",
+    "userMemory": "Operator memory",
+    "forecastLearning": "Forecast learning",
+    "documents": "Documents",
+    "github": "GitHub",
+    "azureDevOps": "Azure DevOps",
+    "skills": "Skills",
+    "promotionGates": "Promotion gates",
+    "approvals": "Approvals",
+    "reports": "Reports",
+    "operatingOutcomes": "Operating outcomes",
+    "conversationDelivery": "Conversation delivery",
+    "workflowBuilder": "Workflow builder",
+    "agents": "Agents",
+    "schedulerRuns": "Scheduler runs"
+  },
+  "operatorPath": {
+    "directRead": "Direct read",
+    "governedRequest": "Governed request",
+    "humanApproval": "Human approval",
+    "ownerBreakGlass": "Owner break-glass"
+  },
+  "error": {
+    "count": "invalid Operator API response: capabilities.count MUST match items",
+    "uniqueIds": "invalid Operator API response: capability ids MUST be unique"
+  }
+}

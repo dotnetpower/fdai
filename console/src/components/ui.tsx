@@ -325,6 +325,12 @@ export function dataTableMinWidth(columnCount: number): string {
   return `${Math.max(1, columnCount) * 120}px`;
 }
 
+function dataTableInteractiveTarget(target: EventTarget | null): boolean {
+  return target instanceof Element
+    && target.closest("a, button, input, select, textarea, summary, [role='button'], [role='link']")
+      !== null;
+}
+
 export function DataTable<Row>({
   columns,
   rows,
@@ -375,7 +381,13 @@ export function DataTable<Row>({
                 aria-selected={explicitAction ? active : undefined}
                 tabIndex={clickable && !explicitAction ? 0 : undefined}
                 role={clickable && !explicitAction ? "button" : undefined}
-                onClick={clickable && !explicitAction ? () => onRowClick?.(row, index) : undefined}
+                onClick={clickable
+                  ? (event) => {
+                      if (!dataTableInteractiveTarget(event.target)) {
+                        onRowClick?.(row, index);
+                      }
+                    }
+                  : undefined}
                 onKeyDown={
                   clickable && !explicitAction
                     ? (e) => {
@@ -395,7 +407,10 @@ export function DataTable<Row>({
                         class="data-table-row-action"
                         aria-pressed={active}
                         aria-controls={dataTableRowActionControls(active, rowActionControls)}
-                        onClick={() => onRowClick?.(row, index)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onRowClick?.(row, index);
+                        }}
                       >
                         <span>{c.render(row)}</span>
                         <span class="sr-only">{rowActionLabel(row, index)}</span>
