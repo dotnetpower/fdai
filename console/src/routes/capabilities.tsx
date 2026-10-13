@@ -296,44 +296,51 @@ function CapabilitiesBody({ data }: { readonly data: CapabilityResponse }) {
         <CapabilitySelect label={t("governance.capabilities.filter.sideEffect")} value={effect} options={optionValues("side_effect_class")} onChange={(value) => updateRoute({ effect: value, selectedId: null })} />
         <CapabilitySelect label={t("governance.capabilities.filter.role")} value={role} options={optionValues("required_role")} onChange={(value) => updateRoute({ role: value, selectedId: null })} />
       </section>
-      <div id="capabilities-table">
-        <DataTable
-          rows={visible}
-          columns={columns}
-          keyOf={(row) => row.capability_id}
-          empty={t("governance.capabilities.empty")}
-          onRowClick={(row) => selectCapability(row.capability_id)}
-          isRowActive={(row) => row.capability_id === selectedId}
-          rowActionLabel={(row) => t("governance.capabilities.openRow", { name: row.name })}
-          rowActionControls="capability-detail"
-        />
+      <div class={`capabilities-workspace${selectedId ? " has-selection" : ""}`}>
+        <div id="capabilities-table">
+          <DataTable
+            rows={visible}
+            columns={columns}
+            keyOf={(row) => row.capability_id}
+            empty={t("governance.capabilities.empty")}
+            onRowClick={(row) => selectCapability(row.capability_id)}
+            isRowActive={(row) => row.capability_id === selectedId}
+            rowActionLabel={(row) => t("governance.capabilities.openRow", { name: row.name })}
+            rowActionControls="capability-detail"
+            scrollRegionLabel={t("governance.capabilities.tableAria")}
+          />
+        </div>
+        {selectedId ? (
+          <div class="capability-detail-pane">
+            {!selected ? (
+              <UnavailableState message={t("governance.capabilities.unregistered", { id: selectedId })} />
+            ) : (
+              <section id="capability-detail" class="capability-detail stack-section">
+                <header class="section-header">
+                  <div><h3>{selected.name}</h3><code>{selected.capability_id}</code></div>
+                  <div class="cluster">
+                    <CopyButton text={selected.capability_id} label={t("governance.common.copyId")} />
+                    <button type="button" onClick={() => selectCapability(null)}>{t("governance.common.close")}</button>
+                  </div>
+                </header>
+                <p>{selected.summary}</p>
+                <dl>
+                  <div><dt>{t("governance.capabilities.detail.category")}</dt><dd>{selected.category}</dd></div>
+                  <div><dt>{t("governance.capabilities.detail.sideEffect")}</dt><dd>{selected.side_effect_class}</dd></div>
+                  <div><dt>{t("governance.capabilities.detail.defaultMode")}</dt><dd>{selected.default_mode}</dd></div>
+                  <div><dt>{t("governance.capabilities.detail.requiredRole")}</dt><dd>{selected.required_role}</dd></div>
+                  <div><dt>{t("governance.capabilities.detail.operatorPath")}</dt><dd>{t(`governance.capabilities.operatorPath.${capabilityRequestPath(selected.side_effect_class).key}`)}</dd></div>
+                  <div><dt>{t("governance.capabilities.detail.tags")}</dt><dd>{selected.tags.join(", ") || "-"}</dd></div>
+                </dl>
+                {isMutatingCapability(selected.side_effect_class) ? (
+                  <a href={routeHref("promotion-gates")}>{t("governance.capabilities.detail.openPromotionEvidence")}</a>
+                ) : null}
+                <a href={routeHref(capabilityPanel(selected.category))}>{t("governance.capabilities.detail.openRelated")}</a>
+              </section>
+            )}
+          </div>
+        ) : null}
       </div>
-      {selectedId && !selected ? (
-        <UnavailableState message={t("governance.capabilities.unregistered", { id: selectedId })} />
-      ) : selected ? (
-        <section id="capability-detail" class="capability-detail stack-section">
-          <header class="section-header">
-            <div><h3>{selected.name}</h3><code>{selected.capability_id}</code></div>
-            <div class="cluster">
-              <CopyButton text={selected.capability_id} label={t("governance.common.copyId")} />
-              <button type="button" onClick={() => selectCapability(null)}>{t("governance.common.close")}</button>
-            </div>
-          </header>
-          <p>{selected.summary}</p>
-          <dl>
-            <div><dt>{t("governance.capabilities.detail.category")}</dt><dd>{selected.category}</dd></div>
-            <div><dt>{t("governance.capabilities.detail.sideEffect")}</dt><dd>{selected.side_effect_class}</dd></div>
-            <div><dt>{t("governance.capabilities.detail.defaultMode")}</dt><dd>{selected.default_mode}</dd></div>
-            <div><dt>{t("governance.capabilities.detail.requiredRole")}</dt><dd>{selected.required_role}</dd></div>
-            <div><dt>{t("governance.capabilities.detail.operatorPath")}</dt><dd>{t(`governance.capabilities.operatorPath.${capabilityRequestPath(selected.side_effect_class).key}`)}</dd></div>
-            <div><dt>{t("governance.capabilities.detail.tags")}</dt><dd>{selected.tags.join(", ") || "-"}</dd></div>
-          </dl>
-          {isMutatingCapability(selected.side_effect_class) ? (
-            <a href={routeHref("promotion-gates")}>{t("governance.capabilities.detail.openPromotionEvidence")}</a>
-          ) : null}
-          <a href={routeHref(capabilityPanel(selected.category))}>{t("governance.capabilities.detail.openRelated")}</a>
-        </section>
-      ) : null}
     </div>
   );
 }

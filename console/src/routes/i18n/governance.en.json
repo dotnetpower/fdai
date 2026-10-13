@@ -124,6 +124,7 @@
       "role": "Role"
     },
     "empty": "No capabilities match these filters",
+    "tableAria": "Capability directory",
     "openRow": "Open {name}",
     "unregistered": "Capability {id} is not registered.",
     "detail": {

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import { OperatorApiError } from "../api";
 import {
@@ -7,6 +8,9 @@ import {
   isMutatingCapability,
   loadCapabilitiesState,
 } from "./capabilities";
+
+const routeSource = readFileSync(new URL("./capabilities.tsx", import.meta.url), "utf8");
+const styles = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
 
 describe("capability catalog provenance", () => {
   test("renders an unavailable state when the optional catalog is not served", async () => {
@@ -70,6 +74,22 @@ describe("capability catalog provenance", () => {
       role: "owner",
       selectedId: "incident.restart",
     });
+  });
+
+  test("places selected capability details beside the directory on desktop", () => {
+    expect(routeSource).toContain(
+      'class={`capabilities-workspace${selectedId ? " has-selection" : ""}`}',
+    );
+    expect(routeSource).toContain('class="capability-detail-pane"');
+    expect(routeSource).toContain(
+      'scrollRegionLabel={t("governance.capabilities.tableAria")}',
+    );
+    expect(styles).toMatch(
+      /\.capabilities-workspace\.has-selection\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(320px,\s*360px\);/s,
+    );
+    expect(styles).toMatch(
+      /@media \(max-width:\s*1080px\)\s*\{[^}]*\.capabilities-workspace\.has-selection\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\);/s,
+    );
   });
 
   test("rejects contradictory or ambiguous catalog evidence", () => {
