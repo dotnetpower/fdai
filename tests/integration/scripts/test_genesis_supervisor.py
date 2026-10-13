@@ -302,6 +302,11 @@ def test_entra_receipt_with_the_legacy_app_id_uri_audience_is_upgraded(
         "read_entra_bindings",
         lambda **_kwargs: dict(_OBSERVED_BINDINGS),
     )
+    monkeypatch.setattr(
+        genesis_supervisor,
+        "plan_entra",
+        lambda: pytest.fail("retained Entra receipt must not trigger replanning"),
+    )
 
     bindings = genesis_supervisor._configure_entra(
         prepared=prepared, status={}, actor_digest="f" * 64
@@ -330,6 +335,11 @@ def test_entra_receipt_with_any_other_difference_still_fails_closed(
         "read_entra_bindings",
         lambda **_kwargs: dict(_OBSERVED_BINDINGS),
     )
+    monkeypatch.setattr(
+        genesis_supervisor,
+        "plan_entra",
+        lambda: pytest.fail("retained Entra receipt must not trigger replanning"),
+    )
 
     with pytest.raises(ValueError, match="receipt differs from current readback"):
         genesis_supervisor._configure_entra(prepared=prepared, status={}, actor_digest="f" * 64)
@@ -347,6 +357,11 @@ def test_entra_receipt_with_a_different_audience_application_fails_closed(
         genesis_supervisor,
         "read_entra_bindings",
         lambda **_kwargs: dict(_OBSERVED_BINDINGS),
+    )
+    monkeypatch.setattr(
+        genesis_supervisor,
+        "plan_entra",
+        lambda: pytest.fail("retained Entra receipt must not trigger replanning"),
     )
 
     with pytest.raises(ValueError, match="receipt differs from current readback"):

@@ -460,7 +460,6 @@ def _configure_entra(
 ) -> dict[str, str]:
     """Plan, approve, apply, and reobserve tenant-local identity bindings."""
 
-    plan = plan or plan_entra()
     receipt_path = prepared.root / "entra-config-receipt.json"
     if receipt_path.exists():
         receipt = _private_json(receipt_path, "Entra configuration receipt")
@@ -488,6 +487,7 @@ def _configure_entra(
             )
             os.replace(upgraded, receipt_path)
         return {str(key): str(value) for key, value in observed.items()}
+    plan = plan or plan_entra()
     claim_path = prepared.root / "entra-config-claim.json"
     if claim_path.exists():
         retained_claim = _private_json(claim_path, "Entra configuration claim")
