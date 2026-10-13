@@ -1303,6 +1303,18 @@ test("opens and closes route-backed roles from Agent Activity", async ({ page },
   await expect(dialog.locator(".agent-node")).toHaveCount(15);
   await expect(dialog.locator(".agents-org-lines line")).toHaveCount(14);
   await expect(dialog.locator(".agent-role-tooltip > small")).toHaveCount(0);
+  const odinIconStyle = await dialog
+    .getByRole("button", { name: /Open Odin/ })
+    .locator(".agent-icon")
+    .evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        backgroundColor: style.backgroundColor,
+        maskImage: style.maskImage,
+      };
+    });
+  expect(odinIconStyle.backgroundColor).toBe("rgb(123, 108, 156)");
+  expect(odinIconStyle.maskImage).toContain("/agent-icons/odin.svg");
   const closeButton = dialog.getByRole("button", { name: "Close roles and ownership" });
   await expect(closeButton).toBeFocused();
   await page.keyboard.press("Shift+Tab");
