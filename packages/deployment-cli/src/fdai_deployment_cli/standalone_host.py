@@ -1191,7 +1191,7 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
                 current=values,
             )
     else:
-        _replace_private_json(workloads_path, values)
+        _replace_or_verify_private_json(workloads_path, values)
     _replace_private_json(work_dir / "context.json", context)
     _initialize_terraform_stage("application", context, work_dir)
     return {
