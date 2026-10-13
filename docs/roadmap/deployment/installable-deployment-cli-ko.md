@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: cd2e07a968021d2794c12782303f87993fd9874a
+translation_source_sha: a3f0fa867ea2c3ac9093626a18a02275662a8e0f
 translation_revised: 2026-10-13
 ---
 
@@ -573,14 +573,18 @@ Rich를 사용하며, 잠긴 의존성은 기존 오프라인 wheel 모음 내�
 ### Entra 표시 이름 모호성 사전 점검
 
 **결정과 비판:** `read-only-console` 또는 `enterprise-identity-governance`를 선택한 설치는
-테넌트 로컬 공유 Entra 등록과 그룹 한 세트를 사용하며, 고유한 정확한 표시 이름으로만
-확인합니다. 이전 대안은 중복 등록 중 하나를 추측하거나, 설치 범위 이름을 생성하거나, 명시적
-바인딩 파일을 도입하는 방식이었습니다. 추측은 실행 중인 Console을 깨뜨릴 수 있고, 설치 범위
-이름은 공유 테넌트 계약을 분기시키며, 바인딩 파일은 별도의 소유자 검토 흐름이 필요합니다.
-개정된 계약은 첫 Azure 효과 전에 읽기 전용 사전 점검을 수행합니다. `fdai-api`,
-`fdai-console-spa`, `fdai-approval-bot` 또는 `aw-*` 표시 이름이 중복되면 실행은 고정된
-모호성 이유로 멈춥니다. 운영자는 추가 등록의 이름을 바꾸거나 제거한 뒤 같은 설치를 다시
-실행합니다. 이후 각 설치는 공유 SPA 등록에 자신의 정확한 Static Web Apps origin만 추가하고 다른 redirect는 모두 유지합니다. Microsoft Graph는 redirect 순서를 보존하지 않고 쓰기 직후 읽기 일관성도 보장하지 않으므로, 효과 확인은 제출한 redirect 집합이 순서와 무관하게 정확히 일치하는지를 5초 간격으로 최대 6번 읽어 확인합니다.
+테넌트 로컬 `fdai-api`, `fdai-approval-bot`, `aw-*` 역할 그룹 세트 하나를 공유하며, 고유한
+정확한 표시 이름으로만 확인합니다. Console SPA까지 공유하면 새 구독이 모든 redirect에 대한
+이전 배포 runner의 소유권 유지 여부에 종속됩니다. 중복 등록 중 하나를 추측하거나 명시적
+바인딩 파일을 받는 방식도 대상을 모호하게 만듭니다. 따라서 개정된 계약은 설치마다 안정적인
+`fdai-console-spa-<target-binding>` 이름을 파생하고 첫 Azure 효과 전에 읽기 전용 사전
+점검을 수행합니다. 접미사는 정확한 대상 바인딩의 완전한 64자리 값이며 테넌트 이름이나
+리소스 이름을 포함하지 않습니다. 정확한 공유 이름이나 파생 이름이 중복되면 실행은 고정된
+모호성 이유로 멈춥니다. 운영자는 중복 항목을 해결한 다음 같은 설치를 다시 실행합니다. 이후
+각 설치는 자신의 SPA 등록에 정확한 Static Web Apps origin만 추가하고 고정된 loopback
+redirect 두 개를 보존합니다. Microsoft Graph는 redirect 순서를 보존하지 않고 쓰기 직후 읽기
+일관성을 보장하지 않으므로, 효과 확인은 제출한 redirect 집합이 순서와 무관하게 정확히
+일치하는지를 5초 간격으로 최대 6번 읽어 확인합니다.
 
 공개 CLI는 `deploy plan`, `deploy apply` 또는 `deploy status`를 등록하지 않습니다. 이 명령들은
 이전에 GitHub workflow를 dispatch했으며 standalone 배포 계약에 포함되지 않습니다. 실제

@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to your own Azure subscription from a clone with one command line, or install it from a signed offline package.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 686f2993ac28d824624acc0b004cf04dde102028 }, { source: docs/roadmap/deployment/source-deployment.md, sha: 8735c6a37d14177ccdfc1015edc265b722a3f2f4 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 686f2993ac28d824624acc0b004cf04dde102028 }, { source: docs/roadmap/deployment/source-deployment.md, sha: 78261ab0f29c2cb156f8e73185d483177719989a }]
 ---
 
 # Deploy Quickstart
@@ -63,9 +63,11 @@ Before you start, confirm the following requirements:
   pinned release; otherwise it downloads that release once and verifies its committed digests.
 - An Azure identity that can create the Foundation resources and assign the documented deployment
   roles in the selected subscription.
-- If you select the Console or enterprise identity add-on, tenant-local FDAI Entra application and
-  group display names must be unique. Duplicate `fdai-*` applications or `aw-*` groups stop the
-  run before Azure resources are created.
+- If you select the Console or enterprise identity add-on, the shared tenant-local FDAI API,
+  approval-bot, and role-group display names must be unique. The installer derives a separate
+  Console SPA from the exact target binding, so another FDAI installation doesn't own its
+  redirects. Duplicate exact shared or derived names stop the run before Azure resources are
+  created.
 - Capacity in the selected Azure region for the required resource types.
 - An interactive Azure session for the intended subscription.
 

@@ -460,17 +460,20 @@ def _configure_entra(
 ) -> dict[str, str]:
     """Plan, approve, apply, and reobserve tenant-local identity bindings."""
 
+    plan = plan or plan_entra()
     receipt_path = prepared.root / "entra-config-receipt.json"
     if receipt_path.exists():
         receipt = _private_json(receipt_path, "Entra configuration receipt")
         bindings = receipt.get("bindings")
-        observed = read_entra_bindings()
         if (
             receipt.get("schema_version") != "fdai.genesis-entra-receipt.v1"
             or receipt.get("state") != "applied"
             or not isinstance(bindings, dict)
         ):
             raise ValueError("Entra configuration receipt differs from current readback")
+        observed = read_entra_bindings(
+            spa_client_id=str(bindings.get("ENTRA_CONSOLE_SPA_CLIENT_ID", ""))
+        )
         if bindings != observed:
             if not _legacy_audience_receipt(bindings, observed):
                 raise ValueError("Entra configuration receipt differs from current readback")
@@ -495,7 +498,7 @@ def _configure_entra(
         ):
             raise ValueError("Entra configuration claim context is invalid")
         try:
-            bindings = read_entra_bindings()
+            bindings = read_entra_bindings(spa_display_name=plan.spa_display_name)
         except ValueError as exc:
             raise ValueError(
                 "claimed Entra configuration is incomplete; automatic retry is blocked"
@@ -522,7 +525,6 @@ def _configure_entra(
     runner_principal = runner.get("principal_id") if isinstance(runner, dict) else None
     if not isinstance(runner_principal, str):
         raise ValueError("Foundation runner principal is unavailable")
-    plan = plan or plan_entra()
     projection = plan.projection()
     print(json.dumps(projection, indent=2, sort_keys=True), file=sys.stderr)
     approval_path = prepared.root / "entra-config-approval.json"

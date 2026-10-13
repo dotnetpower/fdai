@@ -67,7 +67,9 @@ def complete_application(
                     prepared=prepared,
                     status=status,
                     actor_digest=actor_digest,
-                    plan=entra.plan_entra(),
+                    plan=entra.plan_entra(
+                        spa_display_name=entra.scoped_spa_display_name(str(prepared.target_binding))
+                    ),
                     foundation_handoff_path=(
                         foundation_recovery_directory / "recovery-private-handoff.json"
                         if foundation_recovery_directory is not None

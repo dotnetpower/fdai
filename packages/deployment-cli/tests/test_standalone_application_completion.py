@@ -78,7 +78,10 @@ def test_explicit_enterprise_add_on_preserves_entra_configuration(
                 "OPERATOR_API_AUDIENCE": "audience",
             }
         ),
-        "genesis_entra": SimpleNamespace(plan_entra=lambda: "plan"),
+        "genesis_entra": SimpleNamespace(
+            plan_entra=lambda **_kwargs: "plan",
+            scoped_spa_display_name=lambda binding: f"fdai-console-spa-{binding}",
+        ),
         "genesis_approval_prompt": SimpleNamespace(current_actor_digest=lambda _binding: "actor"),
     }
     monkeypatch.setattr(
@@ -115,7 +118,7 @@ def test_explicit_enterprise_add_on_preserves_entra_configuration(
             verification=SimpleNamespace(manifest_digest="d" * 64),
             runtime=SimpleNamespace(digest="e" * 64),
         ),
-        prepared=SimpleNamespace(run_binding="binding"),
+        prepared=SimpleNamespace(run_binding="binding", target_binding="a" * 64),
         status={},
         scripts=tmp_path,
         deadline=SimpleNamespace(remaining=lambda: 60),

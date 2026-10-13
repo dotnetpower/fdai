@@ -142,7 +142,9 @@ def plan_source_installation(
     with installer_activity("Verifying source and tenant-local identity names"):
         source = inspect_source(source_root, expected_commit=str(prepared["source_commit"]))
         _require_unique_entra_display_names(
-            runtime_profile, source.root / "scripts/deployment/azure"
+            runtime_profile,
+            source.root / "scripts/deployment/azure",
+            target_binding=str(prepared["target_binding"]),
         )
     with installer_activity("Checking AKS SKU, quota, and PostgreSQL availability"):
         preflight = inspect_aks_target(
@@ -442,6 +444,8 @@ def _capture(
 def _require_unique_entra_display_names(
     profile: RuntimeDeploymentProfile,
     scripts: Path,
+    *,
+    target_binding: str,
 ) -> None:
     product = profile.product_profile
     if not (
@@ -452,12 +456,13 @@ def _require_unique_entra_display_names(
     sys.path.insert(0, str(scripts))
     try:
         genesis_entra = importlib.import_module("genesis_entra")
+        spa_display_name = genesis_entra.scoped_spa_display_name(target_binding)
         check = getattr(genesis_entra, "check_unique_display_names", None)
         if callable(check):
-            check()
+            check(spa_display_name=spa_display_name)
             return
         plan_entra = getattr(genesis_entra, "plan_entra", None)
         if callable(plan_entra):
-            plan_entra()
+            plan_entra(spa_display_name=spa_display_name)
     finally:
         sys.path.remove(str(scripts))

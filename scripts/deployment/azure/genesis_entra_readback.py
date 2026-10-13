@@ -61,11 +61,12 @@ def read_entra_effects(
     post_plan = plan_entra(
         bounded=True,
         approved_role_groups=dict(plan.role_groups),
+        spa_display_name=plan.spa_display_name,
     )
     if post_plan.create_apps or post_plan.create_groups:
         raise ValueError("bounded Entra object readback is incomplete")
-    bindings = read_entra_bindings()
-    apps, groups_by_name = _directory_inventory()
+    bindings = read_entra_bindings(spa_display_name=plan.spa_display_name)
+    apps, groups_by_name = _directory_inventory(spa_display_name=plan.spa_display_name)
     api_app = apps["fdai-api"]
     spa_app = apps["fdai-console-spa"]
     approval_bot_app = apps["fdai-approval-bot"]
