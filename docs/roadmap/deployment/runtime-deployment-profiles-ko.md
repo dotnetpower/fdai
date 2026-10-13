@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 6afbefe8f827c47c37fc85e8caf97fd88f8f9e79
+translation_source_sha: 82146515cc7aaa4b768e0018b8537b39f96b0a28
 translation_revised: 2026-10-13
 ---
 # 런타임 배포 프로파일
@@ -66,6 +66,9 @@ Foundation에 정확한 복구가 필요했다면 검증된 상태 인계가 같
 소스 스냅샷에는 `prepare-source`를 사용합니다. 거부된 명령은 호스트가 이유를 기록하기 전에
 실패하므로, 집중 테스트가 두 모드 모두에서 조정기가 보내는 명령을 호스트 자체 파서로 해석합니다.
 두 프로파일 모두 읽기 측 리소스 계산을 위해 Core의 잠긴 Kubernetes 수량 도구를 패키징합니다. 이 의존성은 런타임을 선택하거나 Kubernetes 접근을 허용하거나 노드 적합성을 입증하거나 Cost Governance를 활성화하지 않습니다. 독립 배포 CLI는 별도 의존성 집합을 유지합니다. 런타임 Dockerfile의 Alpine 패키지 고정값 갱신은 패키지 유지보수일 뿐이며 런타임 프로파일, 배포 권한, 프로바이더 접근 또는 제품 추가 기능 선택을 바꾸지 않습니다.
+소스에서 빌드하는 세 OPA binary는 Go의 실험적 JSON v2 encoder도 비활성화합니다. 검토된 OPA
+AST JSON 계약은 v1 encoder에 의존합니다. JSON v2를 활성화하면 AST 객체가 정리된 소스 문자열로
+바뀌어 카탈로그 변환을 차단합니다. 이 빌드 설정은 Rego 의미나 런타임 권한을 바꾸지 않습니다.
 
 배포 CLI에는 향후 Hub 관리형 Lifecycle Plan을 위한 순수 shadow 전용 검사가 포함됩니다. 이
 검사는 이미 해석된 입력에 대해 로컬 Plan 접수와 차단 제약을 평가하지만, Hub를 폴링하거나
