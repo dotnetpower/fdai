@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: f77eed9b5fae791d8b01cc3814b48c78994c374b
+translation_source_sha: 6afbefe8f827c47c37fc85e8caf97fd88f8f9e79
 translation_revised: 2026-10-13
 ---
 # 런타임 배포 프로파일
@@ -125,6 +125,9 @@ Managed Identity로 AKS agent pool을 다시 조회합니다. `runtime` 사용�
 체인을 이루고 successor가 검토된 Core 교체와 범위가 제한된 HPA 및 gateway rule 생성만 포함할
 때에만 Core 소스 업데이트를 허용할 수 있습니다. peer 서비스, 더 넓은 애플리케이션 계획, 다른
 모든 서비스 업데이트에는 여전히 적용 또는 채택이 완료된 애플리케이션 증적이 필요합니다.
+이 Core 전용 업데이트는 계획할 때 같은 부분 복구 허용을 다시 검증한 경우에만 교체 plan 하나를
+사용할 수 있습니다. 선택된 Core Deployment만 변경 가능한 주소이며 peer Deployment, Service,
+HPA, namespace와 그 밖의 모든 리소스는 범위 밖으로 유지됩니다.
 
 | 축 | 지원 값 | 기본값 | 의미 |
 |----|---------|--------|------|

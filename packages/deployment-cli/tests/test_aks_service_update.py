@@ -113,6 +113,19 @@ def test_plan_scope_accepts_only_selected_deployment_update() -> None:
     )
 
 
+def test_plan_scope_accepts_selected_replacement_only_when_explicit() -> None:
+    change = {
+        "address": f'kubernetes_deployment_v1.workload["{SERVICE}"]',
+        "actions": ["delete", "create"],
+    }
+
+    validate_plan_scope(
+        {"resource_changes": [change]},
+        service=SERVICE,
+        allow_replacement=True,
+    )
+
+
 @pytest.mark.parametrize(
     "change",
     [

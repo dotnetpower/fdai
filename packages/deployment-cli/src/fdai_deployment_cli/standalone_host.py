@@ -2390,7 +2390,16 @@ def _plan(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     value = json.loads(show)
     summary = _plan_summary(value)
     if update is not None:
-        validate_plan_scope(summary, service=str(update["service"]))
+        service_name = str(update["service"])
+        validate_plan_scope(
+            summary,
+            service=service_name,
+            allow_replacement=partial_core_update_admissible(
+                work_dir,
+                context,
+                service=service_name,
+            ),
+        )
     digest = _file_digest(plan_path)
     review: dict[str, object] = {
         "schema_version": "fdai.standalone-application-plan.v1",
