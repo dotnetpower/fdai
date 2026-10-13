@@ -6,6 +6,7 @@ import json
 from typing import Any
 
 import pytest
+from fdai.core.conversation.semantic_compiled_selection import _limitations_stated
 from fdai.core.conversation.semantic_reasoning_compiler import (
     GoalStatus,
     compile_question_form,
@@ -268,6 +269,8 @@ def test_a_low_use_recipe_reads_its_own_window_when_none_is_stated() -> None:
     assert goal.status is GoalStatus.COMPILED, goal.reasons
     assert _metric_arguments(goal)["window_seconds"] == 604_800
     assert "window.recipe.604800" in goal.batches[0].frame.evidence_requirements
+    assert _limitations_stated(goal.limitations, goal.batches)
+    assert not _limitations_stated(("recipe_window_applied:3600",), goal.batches)
 
 
 def test_a_qualitative_word_without_a_reviewed_recipe_holds() -> None:

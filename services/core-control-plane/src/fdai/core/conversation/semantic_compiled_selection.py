@@ -95,6 +95,7 @@ def single_compiled_batch(
 # Reviewed limitations an answer states as catalog notices, keyed by limitation code.
 _STATED_LIMITATIONS = {
     "default_window_applied": "window.default",
+    "recipe_window_applied": "window.recipe",
     "time_window_applied": "window.applied",
     "time_window_model_judged": "window.model_judged",
     "time_window_fixed": "window.fixed",
