@@ -121,6 +121,95 @@ def test_unique_display_name_preflight_accepts_unique_tenant(monkeypatch) -> Non
     assert len(calls) == 8
 
 
+def test_scoped_spa_name_is_stable_and_separate_from_shared_apps(monkeypatch) -> None:
+    requested_apps = []
+
+    def read_app(name):
+        requested_apps.append(name)
+        return None
+
+    monkeypatch.setattr(genesis_entra, "_single_app", read_app)
+    monkeypatch.setattr(genesis_entra, "_single_group", lambda _name: None)
+    spa_name = genesis_entra.scoped_spa_display_name("a" * 64)
+
+    plan = genesis_entra.plan_entra(spa_display_name=spa_name)
+
+    assert spa_name == f"fdai-console-spa-{'a' * 64}"
+    assert plan.spa_display_name == spa_name
+    assert plan.create_apps == ("fdai-api", "fdai-approval-bot", spa_name)
+    assert sorted(requested_apps) == ["fdai-api", "fdai-approval-bot", spa_name]
+    assert plan.projection()["console_spa_display_name"] == spa_name
+
+
+def test_scoped_spa_name_rejects_unbound_input() -> None:
+    with pytest.raises(ValueError, match="target binding is invalid"):
+        genesis_entra.scoped_spa_display_name("not-a-binding")
+
+
+def test_retained_spa_binding_allows_different_list_and_show_projections(monkeypatch) -> None:
+    spa_id = "00000000-0000-0000-0000-000000000020"
+    spa_object_id = "00000000-0000-0000-0000-000000000021"
+    api_id = "00000000-0000-0000-0000-000000000022"
+    scope_id = "00000000-0000-0000-0000-000000000023"
+    api = {
+        "id": "00000000-0000-0000-0000-000000000024",
+        "appId": api_id,
+        "displayName": "fdai-api",
+        "signInAudience": "AzureADMyOrg",
+        "appRoles": [
+            {
+                "allowedMemberTypes": list(member_types),
+                "isEnabled": True,
+                "value": role,
+            }
+            for role, member_types in genesis_entra._ROLE_MEMBER_TYPES.items()
+        ],
+        "api": {"oauth2PermissionScopes": [{"id": scope_id, "isEnabled": True, "value": "access"}]},
+    }
+    required_access = [
+        {
+            "resourceAppId": api_id,
+            "resourceAccess": [{"id": scope_id, "type": "Scope"}],
+        }
+    ]
+    shown_spa = {
+        "id": spa_object_id,
+        "appId": spa_id,
+        "displayName": "fdai-console-spa",
+        "signInAudience": "AzureADMyOrg",
+        "requiredResourceAccess": required_access,
+        "showOnly": True,
+    }
+    listed_spa = {key: value for key, value in shown_spa.items() if key != "showOnly"}
+    bot = {
+        **listed_spa,
+        "id": "00000000-0000-0000-0000-000000000025",
+        "appId": "00000000-0000-0000-0000-000000000026",
+        "displayName": "fdai-approval-bot",
+    }
+    groups = {
+        name: {"id": f"00000000-0000-0000-0000-{index:012d}"}
+        for index, (name, _role) in enumerate(genesis_entra._GROUPS.values(), start=30)
+    }
+    monkeypatch.setattr(genesis_entra, "_app", lambda _app_id: shown_spa)
+    monkeypatch.setattr(
+        genesis_entra,
+        "_directory_inventory",
+        lambda **_kwargs: (
+            {
+                "fdai-api": api,
+                "fdai-console-spa": listed_spa,
+                "fdai-approval-bot": bot,
+            },
+            groups,
+        ),
+    )
+
+    bindings = genesis_entra.read_entra_bindings(spa_client_id=spa_id)
+
+    assert bindings["ENTRA_CONSOLE_SPA_CLIENT_ID"] == spa_id
+
+
 def test_bounded_plan_requires_existing_groups_and_never_proposes_group_creation(
     monkeypatch,
 ) -> None:
@@ -153,10 +242,10 @@ def test_apply_entra_does_not_grant_provider_consent(monkeypatch) -> None:
     app = {"appId": GUID}
     authority_calls = []
 
-    monkeypatch.setattr(genesis_entra, "plan_entra", lambda: plan)
+    monkeypatch.setattr(genesis_entra, "plan_entra", lambda **_kwargs: plan)
     monkeypatch.setattr(genesis_entra, "_ensure_group", lambda _name: GUID)
     monkeypatch.setattr(genesis_entra, "_ensure_api_app", lambda: app)
-    monkeypatch.setattr(genesis_entra, "_ensure_spa_app", lambda _api: app)
+    monkeypatch.setattr(genesis_entra, "_ensure_spa_app", lambda _api, _name: app)
     monkeypatch.setattr(genesis_entra, "_ensure_approval_bot_app", lambda _api: app)
     monkeypatch.setattr(genesis_entra, "_ensure_service_principal", lambda _app_id: {"id": GUID})
     monkeypatch.setattr(genesis_entra, "_assign_group_roles", lambda **_kwargs: None)
@@ -176,7 +265,7 @@ def test_apply_entra_does_not_grant_provider_consent(monkeypatch) -> None:
         lambda _runner_id: authority_calls.append("graph-role"),
     )
     monkeypatch.setattr(genesis_entra, "_verify_complete", lambda **_kwargs: None)
-    monkeypatch.setattr(genesis_entra, "read_entra_bindings", lambda: {})
+    monkeypatch.setattr(genesis_entra, "read_entra_bindings", lambda **_kwargs: {})
     monkeypatch.setattr(
         genesis_entra,
         "_az",
@@ -209,7 +298,7 @@ def test_bounded_apply_never_grants_runner_directory_authority(monkeypatch) -> N
         lambda _name, expected: expected,
     )
     monkeypatch.setattr(genesis_entra, "_ensure_api_app", lambda: app)
-    monkeypatch.setattr(genesis_entra, "_ensure_spa_app", lambda _api: app)
+    monkeypatch.setattr(genesis_entra, "_ensure_spa_app", lambda _api, _name: app)
     monkeypatch.setattr(genesis_entra, "_ensure_approval_bot_app", lambda _api: app)
     monkeypatch.setattr(genesis_entra, "_ensure_service_principal", lambda _app_id: {"id": GUID})
     monkeypatch.setattr(genesis_entra, "_assign_group_roles", lambda **_kwargs: None)
@@ -305,7 +394,7 @@ def test_bounded_apply_stops_on_crash_before_each_effect(
         lambda _name, expected: expected,
     )
     monkeypatch.setattr(genesis_entra, "_ensure_api_app", lambda: app)
-    monkeypatch.setattr(genesis_entra, "_ensure_spa_app", lambda _api: app)
+    monkeypatch.setattr(genesis_entra, "_ensure_spa_app", lambda _api, _name: app)
     monkeypatch.setattr(genesis_entra, "_ensure_approval_bot_app", lambda _api: app)
     monkeypatch.setattr(genesis_entra, "_ensure_service_principal", lambda _app_id: {"id": GUID})
     monkeypatch.setattr(genesis_entra, "_assign_group_roles", lambda **_kwargs: None)
@@ -646,11 +735,15 @@ def test_complete_bounded_readback_requires_all_five_existing_group_assignments(
         for name, role in genesis_entra._GROUPS.values()
     ]
     monkeypatch.setattr(genesis_entra_readback, "plan_entra", lambda **_kwargs: plan)
-    monkeypatch.setattr(genesis_entra_readback, "read_entra_bindings", lambda: {})
+    monkeypatch.setattr(
+        genesis_entra_readback,
+        "read_entra_bindings",
+        lambda **_kwargs: {},
+    )
     monkeypatch.setattr(
         genesis_entra_readback,
         "_directory_inventory",
-        lambda: (
+        lambda **_kwargs: (
             {
                 "fdai-api": api,
                 "fdai-console-spa": spa,

@@ -67,6 +67,7 @@ def test_source_plan_runs_preparation_before_review(tmp_path, monkeypatch, deplo
             "source_commit": source.commit,
             "source_snapshot_digest": "e" * 64,
             "receipt_digest": "d" * 64,
+            "target_binding": "a" * 64,
         },
     )
     monkeypatch.setattr(
@@ -276,7 +277,9 @@ def test_source_orchestration_stops_before_foundation_on_capacity_block(
     monkeypatch, tmp_path
 ) -> None:
     monkeypatch.setattr(
-        source_azure, "prepare_source_deployment", lambda **_: {"source_commit": "c" * 40}
+        source_azure,
+        "prepare_source_deployment",
+        lambda **_: {"source_commit": "c" * 40, "target_binding": "a" * 64},
     )
     monkeypatch.setattr(
         source_azure,
@@ -319,12 +322,15 @@ def test_source_identity_preflight_runs_before_aks_preflight(tmp_path, monkeypat
             "source_commit": source.commit,
             "source_snapshot_digest": "e" * 64,
             "receipt_digest": "d" * 64,
+            "target_binding": "a" * 64,
         },
     )
     monkeypatch.setattr(
         source_azure,
         "_require_unique_entra_display_names",
-        lambda *_args: events.append("entra") or (_ for _ in ()).throw(ValueError("ambiguous")),
+        lambda *_args, **_kwargs: (
+            events.append("entra") or (_ for _ in ()).throw(ValueError("ambiguous"))
+        ),
     )
     monkeypatch.setattr(
         source_azure,
@@ -354,7 +360,9 @@ def test_source_identity_preflight_runs_before_aks_preflight(tmp_path, monkeypat
 
 def test_over_budget_source_stops_before_foundation(tmp_path, monkeypatch):
     monkeypatch.setattr(
-        source_azure, "prepare_source_deployment", lambda **_: {"source_commit": "c" * 40}
+        source_azure,
+        "prepare_source_deployment",
+        lambda **_: {"source_commit": "c" * 40, "target_binding": "a" * 64},
     )
     monkeypatch.setattr(
         source_azure,
@@ -584,6 +592,7 @@ def test_initial_confirmation_precedes_foundation_and_does_not_enable_interactiv
         lambda **_: {
             "source_commit": source.commit,
             "receipt_digest": "d" * 64,
+            "target_binding": "a" * 64,
         },
     )
     monkeypatch.setattr(source_azure, "inspect_source", lambda *_, **__: source)
@@ -723,7 +732,11 @@ def test_unpinned_path_terraform_fetches_the_committed_release(tmp_path, monkeyp
     monkeypatch.setattr(
         source_azure,
         "prepare_source_deployment",
-        lambda **_: {"source_commit": source.commit, "receipt_digest": "d" * 64},
+        lambda **_: {
+            "source_commit": source.commit,
+            "receipt_digest": "d" * 64,
+            "target_binding": "a" * 64,
+        },
     )
     monkeypatch.setattr(source_azure, "inspect_source", lambda *_, **__: source)
     monkeypatch.setattr(

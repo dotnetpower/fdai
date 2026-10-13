@@ -68,9 +68,12 @@ effect instead of silently selecting Trial.
 
 When the source deployment selects `read-only-console` or `enterprise-identity-governance`, it also
 checks tenant-local Entra display names before Foundation preparation. FDAI binds to one shared
-tenant-local set of exact display names. Duplicate `fdai-*` application or `aw-*` group names stop
-the source run with a fixed ambiguity reason before any Azure effect. The command does not guess,
-create installation-scoped names, or accept an unreviewed binding file.
+tenant-local `fdai-api`, `fdai-approval-bot`, and `aw-*` role-group set. Each installation derives
+one Console SPA display name, `fdai-console-spa-<target-binding>`, from its complete 64-character
+target binding. This keeps API roles and human role groups shared while giving each deployment
+runner ownership of only its Console redirects. Duplicate exact shared or derived names stop the
+source run with a fixed ambiguity reason before any Azure effect. The command does not guess among
+duplicates or accept an unreviewed binding file.
 
 **Application continuation revision:** The first implementation option was to route a completed
 source Foundation into signed-kit adoption. That preserved the existing application code, but it

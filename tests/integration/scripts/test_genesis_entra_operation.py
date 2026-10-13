@@ -151,6 +151,7 @@ def _plan(*, complete: bool = False):
         "role_group_binding_digest": canonical_digest({"role_groups": ROLE_GROUPS}),
         "configure_api_roles_and_scope": True,
         "configure_runner_owned_spa_graph_permission": False,
+        "console_spa_display_name": "fdai-console-spa",
         "provider_admin_consent": False,
     }
     return genesis_entra_operation.EntraPlan(

@@ -329,6 +329,7 @@ def test_real_coordinator_keeps_approval_and_intermediate_json_off_stdout(
         terraform=root / "terraform",
         ssh_private_key=root / "private-key-path-only",
         run_binding="e" * 64,
+        target_binding="f" * 64,
     )
     status_base = {
         "schema_version": "fdai.genesis-orchestration-status.v2",
@@ -379,7 +380,10 @@ def test_real_coordinator_keeps_approval_and_intermediate_json_off_stdout(
     modules = {
         "genesis_prepare": SimpleNamespace(prepare_standalone_genesis=lambda **_kwargs: prepared),
         "genesis_supervisor": SimpleNamespace(_configure_entra=configure_identity),
-        "genesis_entra": SimpleNamespace(plan_entra=lambda: {}),
+        "genesis_entra": SimpleNamespace(
+            plan_entra=lambda **_kwargs: {},
+            scoped_spa_display_name=lambda binding: f"fdai-console-spa-{binding}",
+        ),
         "genesis_approval_prompt": SimpleNamespace(current_actor_digest=lambda _binding: "a" * 64),
     }
     original_import = standalone_deploy.importlib.import_module
