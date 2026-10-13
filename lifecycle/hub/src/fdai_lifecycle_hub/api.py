@@ -21,17 +21,26 @@ from fdai_lifecycle_hub.errors import (
     ConcurrentWriteError,
     EnrollmentProofError,
     InstallationExistsError,
+    NotEnrolledError,
     PlanDigestMismatchError,
     ReportConflictError,
+    StateRejectedError,
     UnknownInstallationError,
     UnknownPlanError,
 )
-from fdai_lifecycle_hub.schemas import PlanReport, SignedEnrollment, enrollment_request
+from fdai_lifecycle_hub.schemas import (
+    PlanReport,
+    SignedEnrollment,
+    enrollment_request,
+    reported_state_json,
+)
 from fdai_lifecycle_hub.signing import verify_key_proof
 from fdai_lifecycle_hub.store import HubStore
 
 MAX_REPORT_BYTES = 16 * 1024
 MAX_ENROLLMENT_BYTES = 64 * 1024
+# An enrollment request carries the same reported-state snapshot, so the same bound fits.
+MAX_STATE_BYTES = 64 * 1024
 
 
 def create_app(
@@ -98,6 +107,22 @@ def create_app(
         )
         return Response(status_code=202)
 
+    async def post_state(request: Request) -> Response:
+        body = await _read_limited(request, MAX_STATE_BYTES)
+        if body is None:
+            return _error(413, "state_too_large")
+        try:
+            state = reported_state_json.validate_json(body)
+        except ValidationError:
+            return _error(422, "state_invalid")
+        try:
+            await run_in_threadpool(
+                store.record_state, request.path_params["installation_id"], state, now=clock()
+            )
+        except StateRejectedError as error:
+            return _error(409, "stale_state") if error.stale else _error(422, "state_invalid")
+        return Response(status_code=202)
+
     async def not_found(request: Request, exc: Exception) -> Response:
         return _error(404, "not_found")
 
@@ -127,10 +152,13 @@ def create_app(
                 post_report,
                 methods=["POST"],
             ),
+            Route("/v1/installations/{installation_id}/state", post_state, methods=["POST"]),
         ],
         exception_handlers={
             UnknownInstallationError: not_found,
             UnknownPlanError: not_found,
+            # The agent API serves nothing to an installation that isn't enrolled.
+            NotEnrolledError: not_found,
             InstallationExistsError: exists,
             ReportConflictError: conflict,
             PlanDigestMismatchError: digest_mismatch,

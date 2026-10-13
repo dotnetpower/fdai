@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: a065906e999289a340e3629157c0a596fe058a6e
+translation_source_sha: 87b5597d9f9045585d860da586a4a0dc4125c3c9
 translation_revised: 2026-10-08
 ---
 # Hub 관리형 수명 주기
@@ -512,6 +512,10 @@ Release 테이블은 [Lifecycle Release와 채널](lifecycle-releases-and-channe
   내용은 설계만 있습니다.
 - Terraform 밖의 워크로드 렌더링은 [워크로드 렌더링 마이그레이션](#워크로드-렌더링-마이그레이션)에
   설계되어 있습니다. 에이전트 렌더러, 렌더링 동등성 테스트, 소유 이전은 아직 구현되지 않았습니다.
+- Lifecycle I0에서는 적용이 실패해도 별도의 rollback Plan을 만들지 않습니다. 에이전트가 실패한 Plan
+  안에서 이전 이미지를 복원하고 `rolled-back`을 보고합니다. 그러면 Hub는 그 Plan의 각 Entity에 24시간
+  동안 실패 suppression을 두며, 운영자는 이를 더 일찍 해제할 수 있습니다. 설치 전체에 대한 실패
+  임계값은 구현되지 않았습니다.
 - 에이전트와 Target Hub의 두 슬롯 자체 업그레이드에는 별도의 실패 분석이 필요합니다.
 - Hub 관리형 설치에 사용권이 어떻게 전달되는지는 아직 정하지 않았습니다. Hub 업그레이드는
   Trial을 갱신하지 않습니다.
