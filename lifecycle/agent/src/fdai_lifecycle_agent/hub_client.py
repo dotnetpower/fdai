@@ -11,6 +11,11 @@ Contract (Lifecycle I0, unauthenticated loopback Hub):
   ``Retry-After`` when a concurrent write committed first. Only ``503 concurrent_write`` is retried
   here; any other failure leaves the persisted report for the next poll.
 * ``exact_plan_digest`` is ``sha256:`` and the hex SHA-256 of the decoded ``signed_payload``.
+  Every outcome except ``rejected`` carries it. An applying agent reports ``apply-started`` right
+  before the change and ``applied`` or ``rolled-back`` with the next attempt.
+* ``POST /v1/installations/{installation_id}/state`` takes a reported-state snapshot and returns
+  ``202``, ``409 stale_state`` when its ``observed_at`` isn't newer, ``422 state_invalid``, or
+  ``404``. ``503 concurrent_write`` is retried as for reports.
 
 The client only moves bytes. It never trusts a Plan; admission decides that.
 """
@@ -22,7 +27,7 @@ import binascii
 import ipaddress
 import re
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from types import TracebackType
@@ -33,7 +38,9 @@ import httpx
 
 from fdai_lifecycle_agent.strict_json import load_json
 
-type ReportOutcome = Literal["dry-run-admitted", "rejected"]
+type ReportOutcome = Literal[
+    "dry-run-admitted", "rejected", "apply-started", "applied", "rolled-back"
+]
 
 MAX_PLAN_RESPONSE_BYTES = 256 * 1024
 MAX_SUMMARY_CHARACTERS = 2000
@@ -82,7 +89,7 @@ class PlanReport:
             raise ValueError("reason_code MUST match ^[a-z][a-z0-9_]{0,95}$")
         if len(self.summary) > MAX_SUMMARY_CHARACTERS:
             raise ValueError("summary MUST be at most 2000 characters")
-        if self.outcome == "dry-run-admitted" and self.exact_plan_digest is None:
+        if self.outcome != "rejected" and self.exact_plan_digest is None:
             raise ValueError("an admitted report MUST name exact_plan_digest")
         if self.reported_at.utcoffset() is None:
             raise ValueError("reported_at MUST include timezone information")
@@ -111,6 +118,10 @@ class HubClient(Protocol):
 
     def submit_report(self, installation_id: str, plan_id: str, report: PlanReport) -> None:
         """Deliver one report; raise ``HubProtocolError`` unless the Hub accepted it."""
+        ...
+
+    def submit_state(self, installation_id: str, snapshot: Mapping[str, object]) -> None:
+        """Deliver one state snapshot; raise ``HubProtocolError`` unless the Hub accepted it."""
         ...
 
 
@@ -169,12 +180,21 @@ class HttpHubClient:
             f"/v1/installations/{_segment(installation_id, 'installation_id')}"
             f"/plans/{_segment(plan_id, 'plan_id')}/reports"
         )
+        self._post(path, report.to_json(), label="report")
+
+    def submit_state(self, installation_id: str, snapshot: Mapping[str, object]) -> None:
+        path = f"/v1/installations/{_segment(installation_id, 'installation_id')}/state"
+        self._post(path, snapshot, label="state")
+
+    def _post(self, path: str, body: Mapping[str, object], *, label: str) -> None:
+        """POST ``body``; resend it after ``503 concurrent_write``, otherwise raise unless 202."""
+
         for retry in range(MAX_CONCURRENT_WRITE_RETRIES + 1):
             try:
-                response = self._client.post(path, json=report.to_json())
+                response = self._client.post(path, json=body)
             except httpx.HTTPError as error:
                 raise HubProtocolError(
-                    f"Hub report request failed: {type(error).__name__}"
+                    f"Hub {label} request failed: {type(error).__name__}"
                 ) from error
             if response.status_code == 202:
                 return
@@ -183,11 +203,10 @@ class HttpHubClient:
             )
             if not concurrent_write or retry == MAX_CONCURRENT_WRITE_RETRIES:
                 break
-            # The Hub asks for the identical report again after a concurrent write.
             self._sleep(_retry_after(response))
         code = _error_code(response)
         raise HubProtocolError(
-            f"Hub report request returned {response.status_code} {code}".rstrip(), code=code
+            f"Hub {label} request returned {response.status_code} {code}".rstrip(), code=code
         )
 
 

@@ -17,6 +17,7 @@ from contextlib import contextmanager
 from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
+from typing import cast, get_args
 
 from fdai_lifecycle_agent.hub_client import ReportOutcome
 from fdai_lifecycle_agent.strict_json import load_json, read_limited
@@ -53,7 +54,7 @@ class PlanResult:
 
     @property
     def admitted(self) -> bool:
-        return self.outcome == "dry-run-admitted"
+        return self.outcome != "rejected"
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -150,31 +151,33 @@ class LocalStateStore:
 
     def save(self, state: AgentState) -> None:
         try:
-            self._write(state)
+            write_json_atomically(self._path, _state_document(state))
         except OSError as error:
             raise AgentStateError(f"agent state is not writable: {type(error).__name__}") from error
 
-    def _write(self, state: AgentState) -> None:
-        self._state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
-        data = json.dumps(_state_document(state), sort_keys=True, indent=2).encode() + b"\n"
-        descriptor, temporary = tempfile.mkstemp(
-            prefix=".lifecycle-agent-state-", dir=self._state_dir
-        )
-        try:
-            with os.fdopen(descriptor, "wb") as handle:
-                handle.write(data)
-                handle.flush()
-                os.fsync(handle.fileno())
-            os.chmod(temporary, 0o600)
-            os.replace(temporary, self._path)
-        except BaseException:
-            Path(temporary).unlink(missing_ok=True)
-            raise
-        directory = os.open(self._state_dir, os.O_RDONLY)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
+
+def write_json_atomically(path: Path, document: object) -> None:
+    """Write ``document`` as owner-only JSON that a crash can't leave half-written."""
+
+    directory = path.parent
+    directory.mkdir(mode=0o700, parents=True, exist_ok=True)
+    data = json.dumps(document, sort_keys=True, indent=2).encode() + b"\n"
+    descriptor, temporary = tempfile.mkstemp(prefix=f".{path.stem}-", dir=directory)
+    try:
+        with os.fdopen(descriptor, "wb") as handle:
+            handle.write(data)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(temporary, 0o600)
+        os.replace(temporary, path)
+    except BaseException:
+        Path(temporary).unlink(missing_ok=True)
+        raise
+    directory_fd = os.open(directory, os.O_RDONLY)
+    try:
+        os.fsync(directory_fd)
+    finally:
+        os.close(directory_fd)
 
 
 def _state_document(state: AgentState) -> dict[str, object]:
@@ -221,7 +224,7 @@ def _parse_record(record: object) -> PlanRecord:
             return PlanRecord(
                 sequence=_integer(record["sequence"], minimum=0),
                 payload_digest=payload_digest,
-                result=_parse_result(result),
+                result=parse_plan_result(result),
                 attempts=_integer(record["attempts"], minimum=0),
                 reported_at=None if reported_at is None else _aware(reported_at),
                 reported=reported,
@@ -229,19 +232,19 @@ def _parse_record(record: object) -> PlanRecord:
     raise ValueError("plan record values are invalid")
 
 
-def _parse_result(result: object) -> PlanResult:
+def parse_plan_result(result: object) -> PlanResult:
     if not isinstance(result, dict) or set(result) != _RESULT_KEYS:
         raise ValueError("plan result fields are invalid")
     match result:
         case {
-            "outcome": "dry-run-admitted" | "rejected" as outcome,
+            "outcome": str(outcome),
             "reason_code": str(reason_code),
             "exact_plan_digest": str() | None as digest,
             "summary": str(summary),
             "retryable": bool(retryable),
-        }:
+        } if outcome in get_args(ReportOutcome.__value__):
             return PlanResult(
-                outcome=outcome,
+                outcome=cast(ReportOutcome, outcome),
                 reason_code=reason_code,
                 exact_plan_digest=digest,
                 summary=summary,

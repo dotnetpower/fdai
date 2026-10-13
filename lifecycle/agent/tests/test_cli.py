@@ -13,7 +13,7 @@ from fdai_lifecycle_agent import cli
 from fdai_lifecycle_agent.hub_client import HttpHubClient
 
 if TYPE_CHECKING:
-    from conftest import Harness
+    from conftest import FakeCluster, Harness
 
 NOW = datetime(2026, 10, 7, 12, tzinfo=UTC)
 LOCAL_POLICY = {
@@ -95,8 +95,15 @@ class FakeHubServer:
         transport = httpx.MockTransport(self.handle)
         return HttpHubClient(url, timeout_seconds=timeout_seconds, transport=transport)
 
-    def run(self, arguments: list[str]) -> int:
-        return cli.main(arguments, clock=lambda: NOW, connect_hub=self.connect)
+    def run(self, arguments: list[str], cluster: FakeCluster | None = None) -> int:
+        def connect_cluster(context: str, namespace: str) -> FakeCluster:
+            assert cluster is not None, "a dry run MUST NOT connect to a cluster"
+            assert (context, namespace) == ("kind-fdai", cluster.namespace)
+            return cluster
+
+        return cli.main(
+            arguments, clock=lambda: NOW, connect_hub=self.connect, connect_cluster=connect_cluster
+        )
 
 
 @pytest.fixture
@@ -191,3 +198,80 @@ def test_unsafe_installation_id_is_a_configuration_error(
     assert exit_code == 2
     assert "installation_id is not a safe path segment" in capsys.readouterr().err
     assert hub_server.reports == []
+
+
+APPLY_FLAGS = ["--apply", "--kube-context", "kind-fdai", "--namespace", "fdai-demo"]
+APPLY_POLICY = {
+    **LOCAL_POLICY,
+    "component_images": {
+        "core-control-plane": "registry.example.test/fdai/core",
+        "operator-service": "registry.example.test/fdai/operator",
+    },
+}
+
+
+def test_poll_once_applies_end_to_end(
+    harness: Harness,
+    hub_server: FakeHubServer,
+    cluster: FakeCluster,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    harness.serve(harness.plan())
+    arguments = _arguments(harness, tmp_path)
+    (tmp_path / "local-policy.json").write_text(json.dumps(APPLY_POLICY))
+
+    exit_code = hub_server.run([*arguments, *APPLY_FLAGS], cluster)
+
+    assert exit_code == 0
+    assert json.loads(capsys.readouterr().out)["outcome"] == "applied"
+    assert [report.get("outcome") for report in hub_server.reports] == [
+        "apply-started",
+        "applied",
+        None,
+    ]
+    state = hub_server.reports[-1]
+    assert state["path"] == "/v1/installations/installation-alpha/state"
+    current = json.loads((tmp_path / "current-state.json").read_text())
+    assert current == {key: value for key, value in state.items() if key != "path"}
+    assert cluster.image("operator-service") == "registry.example.test/fdai/operator@" + (
+        harness.image("operator-service-1.5.0")
+    )
+
+
+@pytest.mark.parametrize(
+    ("flags", "policy", "message"),
+    [
+        (["--apply", "--namespace", "fdai-demo"], APPLY_POLICY, "--kube-context"),
+        ([*APPLY_FLAGS[:-1], "Not_A_Namespace"], APPLY_POLICY, "valid Kubernetes namespace"),
+        (APPLY_FLAGS, LOCAL_POLICY, "component_images lacks"),
+        ([*APPLY_FLAGS, "--health-timeout-seconds", "0"], APPLY_POLICY, "MUST be positive"),
+        (
+            APPLY_FLAGS,
+            {**APPLY_POLICY, "component_images": {"core-control-plane": "repo/core:1.0"}},
+            "without a tag",
+        ),
+    ],
+)
+def test_invalid_apply_configuration_exits_before_polling(
+    harness: Harness,
+    hub_server: FakeHubServer,
+    cluster: FakeCluster,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    flags: list[str],
+    policy: dict[str, object],
+    message: str,
+) -> None:
+    harness.serve(harness.plan())
+    arguments = _arguments(harness, tmp_path)
+    (tmp_path / "local-policy.json").write_text(json.dumps(policy))
+
+    # argparse exits for a missing flag; the other checks return the same code.
+    with pytest.raises(SystemExit) as raised:
+        raise SystemExit(hub_server.run([*arguments, *flags], cluster))
+
+    assert raised.value.code == 2
+    assert message in capsys.readouterr().err
+    assert hub_server.reports == []
+    assert cluster.calls == []

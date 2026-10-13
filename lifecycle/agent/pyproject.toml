@@ -1,13 +1,15 @@
 [project]
 name = "fdai-lifecycle-agent"
 version = "0.1.0"
-description = "Hub-managed lifecycle agent skeleton: poll, admit, dry-run, and report without applying"
+description = "Hub-managed lifecycle agent skeleton: poll, admit, dry-run, report, and a demo apply mode"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "cryptography>=45,<51",
     "fdai-deployment-cli==0.1.1",
     "httpx>=0.27,<1",
+    # Apply mode only; kube.py is the one importer.
+    "kubernetes>=35,<37",
 ]
 
 [project.scripts]

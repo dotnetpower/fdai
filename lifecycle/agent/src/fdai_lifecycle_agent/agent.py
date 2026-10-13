@@ -1,4 +1,4 @@
-"""One Lifecycle I0 poll: fetch, admit, verify inputs, dry-run, and report. Never applies.
+"""One poll: fetch, admit, verify inputs, dry-run, report, and in apply mode apply the Plan.
 
 One poll holds the exclusive state lock. Order of checks, each failing closed:
 
@@ -18,6 +18,13 @@ One poll holds the exclusive state lock. Order of checks, each failing closed:
 A rejection blocks its sequence durably unless it is retryable: an input that may appear later,
 or bytes that no configured Hub key signed. A retryable result is evaluated again on the next poll
 and reported again only when it changes.
+
+In apply mode (``AgentDependencies.apply``), step 6 first renders the workload, runs the
+preflight in ``Workload.preflight``, and journals the rollback target, then reports
+``apply-started``. Only after the Hub accepts that report does the agent apply, verify the
+rollout, and roll back on failure. It reports ``applied`` or ``rolled-back`` with the next
+attempt, then the new state snapshot. The journal in ``journal.py`` makes each step resumable
+without applying a Plan twice. A failed rollback halts every later apply.
 """
 
 from __future__ import annotations
@@ -26,11 +33,12 @@ import hashlib
 import json
 import logging
 from collections.abc import Callable, Mapping
-from dataclasses import asdict, dataclass, replace
-from datetime import datetime
+from dataclasses import asdict, dataclass, field, replace
+from datetime import datetime, timedelta
 from enum import StrEnum
 from typing import Literal
 
+from fdai_deployment_cli.contracts import canonical_bytes
 from fdai_deployment_cli.lifecycle_plan import (
     LifecycleEffectEnvelope,
     LifecyclePlan,
@@ -40,7 +48,14 @@ from fdai_deployment_cli.lifecycle_plan import (
     evaluate_plan_admission,
 )
 
-from fdai_lifecycle_agent.dry_run import ChangeSetCalculator, CurrentState, compute_change_set
+from fdai_lifecycle_agent.dry_run import (
+    ChangeSetCalculator,
+    CurrentState,
+    EntityState,
+    Health,
+    compute_change_set,
+    snapshot_document,
+)
 from fdai_lifecycle_agent.hub_client import (
     HubClient,
     HubProtocolError,
@@ -50,9 +65,11 @@ from fdai_lifecycle_agent.hub_client import (
 from fdai_lifecycle_agent.inputs import (
     ArtifactStore,
     InputRejectedError,
+    VerifiedRelease,
     verify_configuration,
     verify_release,
 )
+from fdai_lifecycle_agent.journal import ApplyJournal, WorkloadState, WorkloadStore
 from fdai_lifecycle_agent.signatures import ArtifactVerifier
 from fdai_lifecycle_agent.state import (
     AgentState,
@@ -61,9 +78,18 @@ from fdai_lifecycle_agent.state import (
     PlanRecord,
     PlanResult,
 )
+from fdai_lifecycle_agent.workload import Workload, WorkloadError, object_key, render
 
 type PollOutcome = Literal[
-    "no-plan", "malformed-plan", "dry-run-admitted", "rejected", "already-reported"
+    "no-plan",
+    "malformed-plan",
+    "dry-run-admitted",
+    "rejected",
+    "already-reported",
+    "apply-started",
+    "applied",
+    "rolled-back",
+    "halted",
 ]
 
 
@@ -77,6 +103,13 @@ class AgentReason(StrEnum):
     PLAN_ENVELOPE_EXCEEDS_SIGNED_MAXIMUM = "plan_envelope_exceeds_signed_maximum"
     CHANGE_EXCEEDS_ENVELOPE = "change_exceeds_envelope"
     DRY_RUN_COMPUTED = "dry_run_computed"
+    APPLY_STARTED = "apply_started"
+    APPLIED = "applied"
+    HEALTH_CHECK_FAILED = "health_check_failed"
+    APPLY_FAILED = "apply_failed"
+    ROLLBACK_FAILED = "rollback_failed"
+    PLAN_EXPIRED = "plan_expired"
+    WORKLOAD_RENDER_FAILED = "workload_render_failed"
 
 
 # Admission rejections whose bytes no configured Hub key signed. Blocking their sequence would let
@@ -84,6 +117,8 @@ class AgentReason(StrEnum):
 UNVERIFIED_REJECTIONS = frozenset({"plan_signature_invalid", "plan_payload_mismatch"})
 
 _LOGGER = logging.getLogger("fdai.lifecycle_agent")
+# The Hub accepts a state snapshot only when its observed_at is newer than the last one.
+_MIN_STATE_STEP = timedelta(milliseconds=1)
 
 
 @dataclass(frozen=True, slots=True)
@@ -98,12 +133,14 @@ class HubTrust:
 
 @dataclass(frozen=True, slots=True)
 class AgentSettings:
-    """Local hard policy: ``maximum_envelope`` and the Release components each Entity runs."""
+    """Local hard policy: ``maximum_envelope``, the Release components each Entity runs, and,
+    for apply mode, the image repository of each component."""
 
     installation_id: str
     trust: HubTrust
     maximum_envelope: LifecycleEffectEnvelope
     entity_components: Mapping[str, frozenset[str]]
+    component_repositories: Mapping[str, str] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         validate_path_segment(self.installation_id, "installation_id")
@@ -115,8 +152,17 @@ class AgentSettings:
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
+class ApplyMode:
+    """Apply-mode seams. Only ``workload`` writes to Kubernetes, inside its one namespace."""
+
+    workload: Workload
+    store: WorkloadStore
+    write_current_state: Callable[[Mapping[str, object]], None]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
 class AgentDependencies:
-    """Injected seams. None of them may write to Kubernetes or Azure."""
+    """Injected seams. Without ``apply``, none of them writes to Kubernetes or Azure."""
 
     hub: HubClient
     state_store: LocalStateStore
@@ -127,6 +173,7 @@ class AgentDependencies:
     read_current_state: Callable[[], CurrentState]
     clock: Callable[[], datetime]
     compute_change_set: ChangeSetCalculator = compute_change_set
+    apply: ApplyMode | None = None
 
 
 @dataclass(frozen=True, slots=True, kw_only=True)
@@ -144,7 +191,7 @@ class PollResult:
 
 
 class LifecycleAgent:
-    """Facade over one installation's poll loop. Holds no Kubernetes or Azure client."""
+    """Facade over one installation's poll loop. Only apply mode holds a Kubernetes client."""
 
     def __init__(self, settings: AgentSettings, deps: AgentDependencies) -> None:
         self._settings = settings
@@ -161,10 +208,20 @@ class LifecycleAgent:
             return self._poll()
 
     def _poll(self) -> PollResult:
-        try:
-            current = self._deps.read_current_state()
-        except ValueError as error:
-            raise AgentStateError(f"current state is invalid: {error}") from error
+        current = self._read_current_state()
+        if (apply := self._deps.apply) is not None:
+            workload_state = apply.store.load()
+            journal = workload_state.journal
+            # Work that may have touched the cluster finishes before anything else.
+            if journal is not None and journal.phase != "prepared":
+                return self._continue(apply, workload_state, journal)
+            if (halted_plan_id := apply.store.halted_plan_id()) is not None:
+                _log("lifecycle_agent.halted", level=logging.ERROR, plan_id=halted_plan_id)
+                return PollResult(
+                    outcome="halted",
+                    reason_code=AgentReason.ROLLBACK_FAILED,
+                    plan_id=halted_plan_id,
+                )
         signed = self._deps.hub.fetch_plan(self._settings.installation_id)
         if signed is None:
             _log("lifecycle_agent.no_plan")
@@ -189,9 +246,7 @@ class LifecycleAgent:
                 return _poll_result(plan.plan_id, existing, outcome="already-reported")
             return self._deliver(state, plan.plan_id, existing)
         _log(
-            "lifecycle_agent.dry_run_admitted"
-            if result.admitted
-            else "lifecycle_agent.plan_rejected",
+            _ADMITTED_EVENTS.get(result.outcome, "lifecycle_agent.plan_rejected"),
             level=logging.INFO if result.admitted else logging.WARNING,
             plan_id=plan.plan_id,
             sequence=plan.sequence,
@@ -204,7 +259,9 @@ class LifecycleAgent:
             result=result,
             attempts=existing.attempts if existing is not None else 0,
         )
-        return self._deliver(state.with_result(plan.plan_id, record), plan.plan_id, record)
+        return self._deliver_then_apply(
+            state.with_result(plan.plan_id, record), plan.plan_id, record
+        )
 
     def _resume(
         self, state: AgentState, plan: LifecyclePlan, payload_digest: str, existing: PlanRecord
@@ -219,13 +276,16 @@ class LifecycleAgent:
                 outcome="rejected", reason_code=AgentReason.PLAN_ID_CONFLICT, plan_id=plan.plan_id
             )
         if existing.reported:
+            if existing.result.outcome == "apply-started" and self._deps.apply is not None:
+                # Reported, then interrupted before the apply began; the journal decides.
+                return self._apply(self._deps.apply, plan.plan_id)
             return _poll_result(plan.plan_id, existing, outcome="already-reported")
-        return self._deliver(state, plan.plan_id, existing)
+        return self._deliver_then_apply(state, plan.plan_id, existing)
 
     def _evaluate(
         self, plan: LifecyclePlan, state: AgentState, current: CurrentState, payload_digest: str
     ) -> PlanResult:
-        """Return the local result for one Plan without side effects."""
+        """Return the local result for one Plan. Only apply mode writes, and only its journal."""
 
         deps = self._deps
         decision = evaluate_plan_admission(
@@ -257,12 +317,233 @@ class LifecycleAgent:
         # Admission bounded the Plan Entities; an injected calculator must stay inside them too.
         if not change_set.entity_ids <= plan.envelope.entity_ids:
             return _rejection(AgentReason.CHANGE_EXCEEDS_ENVELOPE)
-        return PlanResult(
+        result = PlanResult(
             outcome="dry-run-admitted",
             reason_code=AgentReason.DRY_RUN_COMPUTED,
             exact_plan_digest=f"sha256:{payload_digest}",
             summary=change_set.sanitized_summary(),
         )
+        if deps.apply is None:
+            return result
+        return self._prepare(deps.apply, plan, release, entity_images, result)
+
+    def _prepare(
+        self,
+        apply: ApplyMode,
+        plan: LifecyclePlan,
+        release: VerifiedRelease,
+        entity_images: Mapping[str, frozenset[str]],
+        admitted: PlanResult,
+    ) -> PlanResult:
+        """Render, preflight, and journal the rollback target; return ``apply-started``."""
+
+        settings = self._settings
+        try:
+            images = {
+                (entity_id, component): f"{settings.component_repositories[component]}"
+                f"@{release.component_images[component]}"
+                for entity_id in plan.entity_ids
+                for component in settings.entity_components[entity_id]
+            }
+        except KeyError:
+            return _rejection(AgentReason.WORKLOAD_RENDER_FAILED)
+        workload_state = apply.store.load()
+        healthy = {object_key(manifest): manifest for manifest in workload_state.healthy}
+        try:
+            desired = render(apply.workload.namespace, images)
+            previous = tuple(healthy[key] for key in map(object_key, desired) if key in healthy)
+            apply.workload.preflight(desired, previous)
+        except WorkloadError as error:
+            return _rejection(error.reason_code, retryable=error.retryable)
+        journal = ApplyJournal(
+            plan_id=plan.plan_id,
+            phase="prepared",
+            expires_at=plan.expires_at,
+            target_release_id=plan.target_release_id,
+            entity_images=entity_images,
+            desired=desired,
+            previous=previous,
+        )
+        apply.store.save(replace(workload_state, journal=journal))
+        return replace(admitted, outcome="apply-started", reason_code=AgentReason.APPLY_STARTED)
+
+    def _deliver_then_apply(
+        self, state: AgentState, plan_id: str, record: PlanRecord
+    ) -> PollResult:
+        """Deliver the pending report; apply only once the Hub accepted ``apply-started``."""
+
+        result = self._deliver(state, plan_id, record)
+        if result.outcome == "apply-started" and result.reported and self._deps.apply is not None:
+            return self._apply(self._deps.apply, plan_id)
+        return result
+
+    def _apply(self, apply: ApplyMode, plan_id: str) -> PollResult:
+        """Apply a ``prepared`` journal once, verify the rollout, and roll back on failure."""
+
+        workload_state = apply.store.load()
+        journal = workload_state.journal
+        if journal is None or journal.plan_id != plan_id or journal.phase != "prepared":
+            # A later Plan replaced the journal; this one never touched the cluster.
+            record = self._record(self._deps.state_store.load(), plan_id)
+            return _poll_result(plan_id, record, outcome="already-reported")
+        if self._deps.clock() >= journal.expires_at:
+            _log("lifecycle_agent.plan_expired", level=logging.WARNING, plan_id=plan_id)
+            apply.store.save(replace(workload_state, journal=None))
+            return self._replace_result(plan_id, _rejection(AgentReason.PLAN_EXPIRED))
+        journal = replace(journal, phase="applying")
+        apply.store.save(replace(workload_state, journal=journal))
+        _log("lifecycle_agent.apply_begun", plan_id=plan_id)
+        try:
+            healthy = apply.workload.apply(journal.desired)
+        except WorkloadError as error:
+            _log(
+                "lifecycle_agent.apply_failed",
+                level=logging.ERROR,
+                plan_id=plan_id,
+                error=error.reason_code,
+            )
+            return self._complete(apply, workload_state, journal, AgentReason.APPLY_FAILED)
+        failure = None if healthy else AgentReason.HEALTH_CHECK_FAILED
+        return self._complete(apply, workload_state, journal, failure)
+
+    def _continue(
+        self, apply: ApplyMode, workload_state: WorkloadState, journal: ApplyJournal
+    ) -> PollResult:
+        if journal.phase == "applying":
+            # The agent stopped mid-apply; never apply again, restore the rollback target.
+            _log("lifecycle_agent.apply_interrupted", level=logging.ERROR, plan_id=journal.plan_id)
+            return self._complete(apply, workload_state, journal, AgentReason.APPLY_FAILED)
+        return self._finish(apply, workload_state, journal)
+
+    def _complete(
+        self,
+        apply: ApplyMode,
+        workload_state: WorkloadState,
+        journal: ApplyJournal,
+        failure: AgentReason | None,
+    ) -> PollResult:
+        """Roll back on ``failure``, then commit the outcome and the new snapshot in one write."""
+
+        started = self._record(self._deps.state_store.load(), journal.plan_id).result
+        current = self._read_current_state()
+        entities = dict(current.entities)
+        healthy = workload_state.healthy
+        if failure is None:
+            result = replace(started, outcome="applied", reason_code=AgentReason.APPLIED)
+            entities |= {
+                entity_id: EntityState(journal.target_release_id, images, Health.HEALTHY)
+                for entity_id, images in journal.entity_images.items()
+            }
+            replaced = {object_key(manifest) for manifest in journal.desired}
+            healthy = (
+                *(item for item in healthy if object_key(item) not in replaced),
+                *journal.desired,
+            )
+        else:
+            restored = self._roll_back(apply, journal)
+            result = replace(
+                started,
+                outcome="rolled-back",
+                reason_code=failure,
+                summary=_with_rollback(started.summary, verified=restored),
+            )
+            if not restored:
+                apply.store.halt(journal.plan_id)
+                entities |= {
+                    entity_id: replace(entities[entity_id], health=Health.UNHEALTHY)
+                    for entity_id in journal.entity_images
+                    if entity_id in entities
+                }
+        snapshot = snapshot_document(
+            entities,
+            schema_revision=current.schema_revision,
+            observed_at=max(self._deps.clock(), current.observed_at + _MIN_STATE_STEP),
+        )
+        done = replace(journal, phase="done", result=result, snapshot=snapshot)
+        workload_state = WorkloadState(healthy=tuple(healthy), journal=done)
+        apply.store.save(workload_state)
+        _log(
+            "lifecycle_agent.apply_completed",
+            level=logging.INFO if failure is None else logging.ERROR,
+            plan_id=journal.plan_id,
+            outcome=result.outcome,
+            reason_code=result.reason_code,
+        )
+        return self._finish(apply, workload_state, done)
+
+    def _roll_back(self, apply: ApplyMode, journal: ApplyJournal) -> bool:
+        if apply.store.halted_plan_id() == journal.plan_id:
+            # This Plan's rollback already failed before a restart; never retry it automatically.
+            return False
+        try:
+            restored = apply.workload.roll_back(journal.desired, journal.previous)
+        except WorkloadError as error:
+            _log(
+                "lifecycle_agent.rollback_failed",
+                level=logging.ERROR,
+                plan_id=journal.plan_id,
+                error=error.reason_code,
+            )
+            return False
+        if not restored:
+            _log(
+                "lifecycle_agent.rollback_unverified", level=logging.ERROR, plan_id=journal.plan_id
+            )
+        return restored
+
+    def _finish(
+        self, apply: ApplyMode, workload_state: WorkloadState, journal: ApplyJournal
+    ) -> PollResult:
+        """Write the committed snapshot, deliver the final report and the snapshot, and only
+        then drop the journal. Each step repeats safely on the next poll."""
+
+        if journal.result is None or journal.snapshot is None:
+            raise AgentStateError("a done apply journal MUST hold its result and snapshot")
+        try:
+            apply.write_current_state(journal.snapshot)
+        except OSError as error:
+            raise AgentStateError(
+                f"current state is not writable: {type(error).__name__}"
+            ) from error
+        result = self._replace_result(journal.plan_id, journal.result)
+        if not result.reported:
+            return result
+        try:
+            self._deps.hub.submit_state(self._settings.installation_id, journal.snapshot)
+        except HubProtocolError as error:
+            if error.code != "stale_state":
+                _log("lifecycle_agent.state_report_failed", level=logging.ERROR, error=str(error))
+                return replace(result, reported=False)
+            # The Hub already holds a newer snapshot; this one can never land.
+            _log("lifecycle_agent.state_report_stale", level=logging.WARNING)
+        apply.store.save(replace(workload_state, journal=None))
+        _log("lifecycle_agent.state_reported", plan_id=journal.plan_id)
+        return result
+
+    def _replace_result(self, plan_id: str, result: PlanResult) -> PollResult:
+        """Make ``result`` the Plan's result, reported with the next attempt, and deliver it."""
+
+        state = self._deps.state_store.load()
+        record = self._record(state, plan_id)
+        if record.result != result:
+            record = replace(record, result=result, reported_at=None, reported=False)
+            state = state.with_record(plan_id, record)
+        if record.reported:
+            return _poll_result(plan_id, record)
+        return self._deliver(state, plan_id, record)
+
+    @staticmethod
+    def _record(state: AgentState, plan_id: str) -> PlanRecord:
+        try:
+            return state.plans[plan_id]
+        except KeyError as error:
+            raise AgentStateError("the apply journal names a Plan without a record") from error
+
+    def _read_current_state(self) -> CurrentState:
+        try:
+            return self._deps.read_current_state()
+        except ValueError as error:
+            raise AgentStateError(f"current state is invalid: {error}") from error
 
     def _admission_state(self, state: AgentState, current: CurrentState) -> PlanAdmissionState:
         trust = self._settings.trust
@@ -321,6 +602,20 @@ class LifecycleAgent:
         self._deps.state_store.save(state.with_record(plan_id, record))
         _log("lifecycle_agent.reported", plan_id=plan_id, attempt=record.attempts)
         return _poll_result(plan_id, record)
+
+
+_ADMITTED_EVENTS = {
+    "dry-run-admitted": "lifecycle_agent.dry_run_admitted",
+    "apply-started": "lifecycle_agent.apply_prepared",
+}
+
+
+def _with_rollback(summary: str, *, verified: bool) -> str:
+    """Add whether the rollback was verified to the counts-only summary."""
+
+    document = json.loads(summary) if summary else {}
+    document["rollback"] = "verified" if verified else "failed"
+    return canonical_bytes(document).decode("ascii")
 
 
 def _rejection(reason_code: str, *, retryable: bool = False) -> PlanResult:

@@ -1,7 +1,8 @@
-"""Scenario: no write. The Lifecycle I0 agent performs no Kubernetes or Azure write.
+"""Scenario: no write. A dry run performs no Kubernetes or Azure write.
 
-Two independent proofs: no agent module imports a Kubernetes, Azure, or process-spawning
-client, and a full poll in a fresh interpreter never loads one.
+Three independent proofs: no agent module imports an Azure or process-spawning client, only the
+apply-mode adapter ``kube.py`` imports a Kubernetes client, and a full dry-run poll in a fresh
+interpreter never loads one.
 """
 
 from __future__ import annotations
@@ -13,7 +14,8 @@ import sys
 from pathlib import Path
 
 PACKAGE_ROOT = Path(__file__).resolve().parents[1] / "src" / "fdai_lifecycle_agent"
-FORBIDDEN_ROOTS = ("kubernetes", "azure", "subprocess", "msrest", "msal")
+FORBIDDEN_ROOTS = ("azure", "subprocess", "msrest", "msal")
+KUBERNETES_ADAPTER = "kube.py"
 
 
 def _imported_modules(path: Path) -> set[str]:
@@ -33,7 +35,7 @@ def _imported_modules(path: Path) -> set[str]:
     return modules
 
 
-def test_agent_sources_import_no_kubernetes_azure_or_process_client() -> None:
+def test_agent_sources_import_no_azure_or_process_client() -> None:
     sources = sorted(PACKAGE_ROOT.glob("*.py"))
     assert sources
 
@@ -43,6 +45,16 @@ def test_agent_sources_import_no_kubernetes_azure_or_process_client() -> None:
         assert "importlib" not in modules, source.name
         offending = {module for module in modules if module.split(".")[0] in FORBIDDEN_ROOTS}
         assert offending == set(), source.name
+
+
+def test_kubernetes_client_is_confined_to_the_adapter() -> None:
+    users = {
+        source.name
+        for source in PACKAGE_ROOT.glob("*.py")
+        if any(module.split(".")[0] == "kubernetes" for module in _imported_modules(source))
+    }
+
+    assert users == {KUBERNETES_ADAPTER}
 
 
 def test_network_client_is_confined_to_the_hub_client() -> None:

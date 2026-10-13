@@ -1,4 +1,4 @@
-"""``fdai-lifecycle-agent`` command line. Lifecycle I0 offers only ``poll-once``."""
+"""``fdai-lifecycle-agent`` command line: ``poll-once``, a dry run unless ``--apply`` is given."""
 
 from __future__ import annotations
 
@@ -14,17 +14,25 @@ from typing import TypedDict, cast, get_args
 
 from fdai_deployment_cli.lifecycle_plan import CapabilityMode, LifecycleEffectEnvelope
 
-from fdai_lifecycle_agent.agent import AgentDependencies, AgentSettings, HubTrust, LifecycleAgent
+from fdai_lifecycle_agent.agent import (
+    AgentDependencies,
+    AgentSettings,
+    ApplyMode,
+    HubTrust,
+    LifecycleAgent,
+)
 from fdai_lifecycle_agent.dry_run import load_current_state
 from fdai_lifecycle_agent.hub_client import HttpHubClient, HubProtocolError
 from fdai_lifecycle_agent.inputs import DirectoryArtifactStore
+from fdai_lifecycle_agent.journal import WorkloadStore
 from fdai_lifecycle_agent.signatures import (
     Ed25519ArtifactVerifier,
     Ed25519HubKeyring,
     load_ed25519_public_key,
 )
-from fdai_lifecycle_agent.state import AgentStateError, LocalStateStore
+from fdai_lifecycle_agent.state import AgentStateError, LocalStateStore, write_json_atomically
 from fdai_lifecycle_agent.strict_json import load_json, read_limited
+from fdai_lifecycle_agent.workload import Cluster, Workload, is_dns_label, is_repository
 
 LOCAL_POLICY_SCHEMA = "fdai.lifecycle-local-policy.v1"
 _LOCAL_POLICY_KEYS = frozenset(
@@ -38,6 +46,7 @@ _LOCAL_POLICY_KEYS = frozenset(
         "entity_components",
     }
 )
+_OPTIONAL_LOCAL_POLICY_KEYS = frozenset({"component_images"})
 _MAX_LOCAL_POLICY_BYTES = 64 * 1024
 _EXIT_OK = 0
 _EXIT_FAILED = 1
@@ -47,7 +56,7 @@ _EXIT_CONFIGURATION = 2
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="fdai-lifecycle-agent",
-        description="Hub-managed lifecycle agent (Lifecycle I0: dry-run only, never applies).",
+        description="Hub-managed lifecycle agent. Dry-runs a Plan unless --apply is given.",
     )
     commands = parser.add_subparsers(dest="command", required=True)
     poll = commands.add_parser(
@@ -81,6 +90,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Local hard policy: maximum effect envelope and the components each Entity runs.",
     )
     poll.add_argument("--timeout-seconds", type=float, default=10.0)
+    poll.add_argument(
+        "--apply",
+        action="store_true",
+        help="Apply an admitted Plan to one namespace, verify it, and roll back on failure.",
+    )
+    poll.add_argument("--kube-context", help="kubeconfig context; required with --apply.")
+    poll.add_argument("--namespace", help="The only namespace to change; required with --apply.")
+    poll.add_argument(
+        "--health-timeout-seconds",
+        type=float,
+        default=180.0,
+        help="Time each Deployment rollout and each rollback has to complete.",
+    )
     return parser
 
 
@@ -92,18 +114,30 @@ def _connect_hub(url: str, timeout_seconds: float) -> HttpHubClient:
     return HttpHubClient(url, timeout_seconds=timeout_seconds)
 
 
+def _connect_cluster(context: str, namespace: str) -> Cluster:
+    # Imported here so that a dry run never loads a Kubernetes client.
+    from fdai_lifecycle_agent.kube import KubernetesCluster
+
+    return KubernetesCluster(context=context, namespace=namespace)
+
+
 def main(
     argv: Sequence[str] | None = None,
     *,
     clock: Callable[[], datetime] = _utc_now,
     connect_hub: Callable[[str, float], HttpHubClient] = _connect_hub,
+    connect_cluster: Callable[[str, str], Cluster] = _connect_cluster,
 ) -> int:
-    """Run the command. ``clock`` and ``connect_hub`` are seams for tests; defaults are real."""
+    """Run the command. ``clock``, ``connect_hub``, and ``connect_cluster`` are seams for tests;
+    defaults are real."""
 
     logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stderr)
     # Keep stderr to the agent's structured events; httpx logs every request URL at INFO.
     logging.getLogger("httpx").setLevel(logging.WARNING)
-    arguments = build_parser().parse_args(argv)
+    parser = build_parser()
+    arguments = parser.parse_args(argv)
+    if arguments.apply and not (arguments.kube_context and arguments.namespace):
+        parser.error("--apply requires --kube-context and --namespace")
     try:
         settings = AgentSettings(
             installation_id=arguments.installation_id,
@@ -124,11 +158,29 @@ def main(
         )
         # Fail fast as a configuration error; each poll then reads the current state again.
         load_current_state(arguments.current_state)
+        if arguments.apply:
+            _check_apply_settings(settings, arguments.namespace, arguments.health_timeout_seconds)
         hub = connect_hub(arguments.hub_url, arguments.timeout_seconds)
     except ValueError as error:
         print(f"fdai-lifecycle-agent: configuration error: {error}", file=sys.stderr)
         return _EXIT_CONFIGURATION
     with hub:
+        apply = None
+        if arguments.apply:
+            try:
+                cluster = connect_cluster(arguments.kube_context, arguments.namespace)
+            except ValueError as error:
+                print(f"fdai-lifecycle-agent: configuration error: {error}", file=sys.stderr)
+                return _EXIT_CONFIGURATION
+            apply = ApplyMode(
+                workload=Workload(
+                    cluster=cluster,
+                    namespace=arguments.namespace,
+                    health_timeout_seconds=arguments.health_timeout_seconds,
+                ),
+                store=WorkloadStore(arguments.state_dir),
+                write_current_state=partial(write_json_atomically, arguments.current_state),
+            )
         dependencies = AgentDependencies(
             hub=hub,
             state_store=LocalStateStore(arguments.state_dir),
@@ -138,6 +190,7 @@ def main(
             verify_configuration_signature=configuration_verifier,
             read_current_state=partial(load_current_state, arguments.current_state),
             clock=clock,
+            apply=apply,
         )
         try:
             result = LifecycleAgent(settings, dependencies).poll_once()
@@ -145,16 +198,27 @@ def main(
             print(f"fdai-lifecycle-agent: poll failed: {error}", file=sys.stderr)
             return _EXIT_FAILED
     print(json.dumps(result.to_json(), sort_keys=True))
-    if result.outcome == "malformed-plan":
+    if result.outcome in {"malformed-plan", "halted"}:
         return _EXIT_FAILED
-    if result.outcome in {"dry-run-admitted", "rejected"} and not result.reported:
+    if result.outcome not in {"no-plan", "already-reported"} and not result.reported:
         return _EXIT_FAILED
     return _EXIT_OK
+
+
+def _check_apply_settings(settings: AgentSettings, namespace: str, timeout: float) -> None:
+    if not is_dns_label(namespace):
+        raise ValueError("--namespace is not a valid Kubernetes namespace")
+    if timeout <= 0:
+        raise ValueError("--health-timeout-seconds MUST be positive")
+    components = set().union(*settings.entity_components.values())
+    if missing := components - settings.component_repositories.keys():
+        raise ValueError(f"local policy component_images lacks {sorted(missing)}")
 
 
 class LocalPolicy(TypedDict):
     maximum_envelope: LifecycleEffectEnvelope
     entity_components: dict[str, frozenset[str]]
+    component_repositories: dict[str, str]
 
 
 def load_local_policy(path: Path) -> LocalPolicy:
@@ -165,7 +229,9 @@ def load_local_policy(path: Path) -> LocalPolicy:
     except OSError as error:
         raise ValueError(f"local policy is unreadable: {type(error).__name__}") from error
     document = load_json(raw, label="local policy")
-    if not isinstance(document, dict) or set(document) != _LOCAL_POLICY_KEYS:
+    if not isinstance(document, dict) or not (
+        _LOCAL_POLICY_KEYS <= set(document) <= _LOCAL_POLICY_KEYS | _OPTIONAL_LOCAL_POLICY_KEYS
+    ):
         raise ValueError("local policy fields are invalid")
     if document["schema"] != LOCAL_POLICY_SCHEMA:
         raise ValueError("local policy schema is unsupported")
@@ -175,6 +241,14 @@ def load_local_policy(path: Path) -> LocalPolicy:
     components = document["entity_components"]
     if not isinstance(components, dict):
         raise ValueError("local policy entity_components MUST be an object")
+    repositories = document.get("component_images", {})
+    if not isinstance(repositories, dict) or not all(
+        isinstance(repository, str) and is_repository(repository)
+        for repository in repositories.values()
+    ):
+        raise ValueError(
+            "local policy component_images MUST map components to repositories without a tag"
+        )
     try:
         envelope = LifecycleEffectEnvelope(
             entity_ids=_strings(document["entity_ids"], "entity_ids"),
@@ -191,6 +265,7 @@ def load_local_policy(path: Path) -> LocalPolicy:
             str(entity_id): _strings(names, "entity_components")
             for entity_id, names in components.items()
         },
+        component_repositories={str(name): str(repo) for name, repo in repositories.items()},
     )
 
 
