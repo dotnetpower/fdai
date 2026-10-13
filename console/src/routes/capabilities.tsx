@@ -1,50 +1,35 @@
 import { useEffect, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable, type OperatorApiClient } from "../api";
-import { AsyncBoundary, CopyButton, DataTable, KpiCard, KpiGrid, PageHeader, StatusPill, UnavailableState, type AsyncState, type Column } from "../components/ui";
+import {
+  AsyncBoundary,
+  CopyButton,
+  DataTable,
+  KpiCard,
+  KpiGrid,
+  PageHeader,
+  StatusPill,
+  UnavailableState,
+  type AsyncState,
+  type Column,
+} from "../components/ui";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { currentRoute, navigate, replaceRouteState, routeHref } from "../router";
-import { t } from "./i18n/governance";
 import {
-  panelArray,
-  panelBoolean,
-  panelNonEmptyString,
-  panelNonNegativeInteger,
-  panelNullableString,
-  panelRecord,
-  panelStringArray,
-} from "./panel-decode";
-
-const CAPABILITY_SIDE_EFFECT_CLASSES = [
-  "read",
-  "simulate",
-  "approve",
-  "execute",
-  "breakglass",
-] as const;
-type CapabilitySideEffectClass = typeof CAPABILITY_SIDE_EFFECT_CLASSES[number];
-
-const CAPABILITY_MODES = ["shadow", "enforce"] as const;
-type CapabilityMode = typeof CAPABILITY_MODES[number];
-
-interface Capability {
-  readonly capability_id: string;
-  readonly name: string;
-  readonly category: string;
-  readonly summary: string;
-  readonly side_effect_class: CapabilitySideEffectClass;
-  readonly default_mode: CapabilityMode;
-  readonly required_role: string;
-  readonly slide_ref: string | null;
-  readonly tags: readonly string[];
-}
-
-interface CapabilityResponse {
-  readonly source: string;
-  readonly execution_eligibility: boolean;
-  readonly count: number;
-  readonly capabilities: readonly Capability[];
-}
+  CAPABILITY_PAGE_SIZE,
+  capabilityRoleMatch,
+  capabilityRouteStateFromSearch,
+  decodeCapabilities,
+  isMutatingCapability,
+  sortCapabilities,
+  type Capability,
+  type CapabilityResponse,
+  type CapabilityRoleMatch,
+  type CapabilitySort,
+} from "./capabilities.model";
+import { CapabilityDetail } from "./capabilities.detail";
+import { t } from "./i18n/capabilities";
+import type { IamOverview } from "./settings-iam.model";
 
 export async function loadCapabilitiesState(
   client: Pick<OperatorApiClient, "panel">,
@@ -63,80 +48,35 @@ export async function loadCapabilitiesState(
 
 export function CapabilitiesRoute({ client }: { readonly client: OperatorApiClient }) {
   const [state, setState] = useState<AsyncState<CapabilityResponse>>({ status: "loading" });
+  const [iamState, setIamState] = useState<AsyncState<IamOverview>>({ status: "loading" });
   useEffect(() => {
     let cancelled = false;
     void loadCapabilitiesState(client).then((nextState) => {
       if (!cancelled) setState(nextState);
     });
+    void client.iamOverview().then(
+      (data) => {
+        if (!cancelled) setIamState({ status: "ready", data });
+      },
+      (error) => {
+        if (!cancelled) {
+          setIamState({
+            status: "unavailable",
+            message: error instanceof Error ? error.message : String(error),
+          });
+        }
+      },
+    );
     return () => { cancelled = true; };
   }, [client]);
-  return <div class="stack"><PageHeader title={t("route.capabilities")} subtitle={t("nav.panelSub.capabilities")} /><AsyncBoundary state={state} resourceLabel={t("governance.capabilities.resourceLabel")}>{(data) => <CapabilitiesBody data={data} />}</AsyncBoundary></div>;
-}
-
-export function decodeCapabilities(value: unknown): CapabilityResponse {
-  const root = panelRecord(value, "capabilities");
-  const capabilities = panelArray(root["capabilities"], "capabilities.items").map((raw, index) => {
-      const item = panelRecord(raw, `capabilities.items[${index}]`);
-      return {
-        capability_id: panelNonEmptyString(item, "capability_id", "capability"),
-        name: panelNonEmptyString(item, "name", "capability"),
-        category: panelNonEmptyString(item, "category", "capability"),
-        summary: panelNonEmptyString(item, "summary", "capability"),
-        side_effect_class: decodeCapabilitySideEffectClass(item),
-        default_mode: decodeCapabilityMode(item),
-        required_role: panelNonEmptyString(item, "required_role", "capability"),
-        slide_ref: panelNullableString(item, "slide_ref", "capability"),
-        tags: panelStringArray(item["tags"], "capability.tags"),
-      };
-    });
-  const count = panelNonNegativeInteger(root, "count", "capabilities");
-  if (count !== capabilities.length) throw new Error("invalid Operator API response: capabilities.count MUST match items");
-  const ids = capabilities.map((item) => item.capability_id);
-  if (new Set(ids).size !== ids.length) throw new Error("invalid Operator API response: capability ids MUST be unique");
-  return {
-    source: panelNonEmptyString(root, "source", "capabilities"),
-    execution_eligibility: panelBoolean(root, "execution_eligibility", "capabilities"),
-    count,
-    capabilities,
-  };
-}
-
-function decodeCapabilitySideEffectClass(
-  item: Readonly<Record<string, unknown>>,
-): CapabilitySideEffectClass {
-  const value = panelNonEmptyString(item, "side_effect_class", "capability");
-  if (!CAPABILITY_SIDE_EFFECT_CLASSES.some((candidate) => candidate === value)) {
-    throw new Error("invalid Operator API response: capability.side_effect_class is invalid");
-  }
-  return value as CapabilitySideEffectClass;
-}
-
-function decodeCapabilityMode(
-  item: Readonly<Record<string, unknown>>,
-): CapabilityMode {
-  const value = panelNonEmptyString(item, "default_mode", "capability");
-  if (!CAPABILITY_MODES.some((candidate) => candidate === value)) {
-    throw new Error("invalid Operator API response: capability.default_mode is invalid");
-  }
-  return value as CapabilityMode;
-}
-
-export interface CapabilityRouteState {
-  readonly query: string;
-  readonly category: string;
-  readonly effect: string;
-  readonly role: string;
-  readonly selectedId: string | null;
-}
-
-export function capabilityRouteStateFromSearch(search: URLSearchParams): CapabilityRouteState {
-  return {
-    query: search.get("q") ?? "",
-    category: search.get("category") ?? "all",
-    effect: search.get("effect") ?? "all",
-    role: search.get("role") ?? "all",
-    selectedId: search.get("capability"),
-  };
+  return (
+    <div class="stack">
+      <PageHeader title={t("route.capabilities")} subtitle={t("nav.panelSub.capabilities")} />
+      <AsyncBoundary state={state} resourceLabel={t("governance.capabilities.resourceLabel")}>
+        {(data) => <CapabilitiesBody data={data} iamState={iamState} />}
+      </AsyncBoundary>
+    </div>
+  );
 }
 
 const columns: readonly Column<Capability>[] = [
@@ -144,32 +84,23 @@ const columns: readonly Column<Capability>[] = [
   { key: "name", header: t("governance.capabilities.column.name"), render: (row) => row.name },
   { key: "category", header: t("governance.capabilities.column.category"), render: (row) => row.category },
   { key: "effect", header: t("governance.capabilities.column.sideEffectClass"), render: (row) => <StatusPill kind={row.side_effect_class === "read" ? "info" : "warning"} label={row.side_effect_class} /> },
-  { key: "mode", header: t("governance.capabilities.column.defaultMode"), render: (row) => <StatusPill kind={row.default_mode === "shadow" ? "shadow" : "enforce"} label={row.default_mode} /> },
   { key: "role", header: t("governance.capabilities.column.requiredRole"), render: (row) => row.required_role },
-  { key: "path", header: t("governance.capabilities.column.operatorPath"), render: (row) => <StatusPill kind={capabilityRequestPath(row.side_effect_class).tone} label={t(`governance.capabilities.operatorPath.${capabilityRequestPath(row.side_effect_class).key}`)} /> },
-  { key: "summary", header: t("governance.capabilities.column.summary"), render: (row) => row.summary },
 ];
 
-export function isMutatingCapability(sideEffectClass: CapabilitySideEffectClass): boolean {
-  return sideEffectClass === "execute" || sideEffectClass === "breakglass";
-}
-
-export function capabilityRequestPath(sideEffectClass: CapabilitySideEffectClass): Readonly<{
-  key: "directRead" | "governedRequest" | "humanApproval" | "ownerBreakGlass";
-  tone: "info" | "shadow" | "hil" | "danger";
-}> {
-  if (sideEffectClass === "read") return { key: "directRead", tone: "info" };
-  if (sideEffectClass === "simulate") return { key: "governedRequest", tone: "shadow" };
-  if (sideEffectClass === "breakglass") return { key: "ownerBreakGlass", tone: "danger" };
-  return { key: "humanApproval", tone: "hil" };
-}
-
-function CapabilitiesBody({ data }: { readonly data: CapabilityResponse }) {
+function CapabilitiesBody({
+  data,
+  iamState,
+}: {
+  readonly data: CapabilityResponse;
+  readonly iamState: AsyncState<IamOverview>;
+}) {
   const initial = capabilityRouteStateFromSearch(currentRoute().search);
   const [query, setQuery] = useState(initial.query);
   const [category, setCategory] = useState(initial.category);
   const [effect, setEffect] = useState(initial.effect);
   const [role, setRole] = useState(initial.role);
+  const [sort, setSort] = useState(initial.sort);
+  const [page, setPage] = useState(initial.page);
   const [selectedId, setSelectedId] = useState(initial.selectedId);
   useEffect(() => {
     const sync = () => {
@@ -178,6 +109,8 @@ function CapabilitiesBody({ data }: { readonly data: CapabilityResponse }) {
       setCategory(route.category);
       setEffect(route.effect);
       setRole(route.role);
+      setSort(route.sort);
+      setPage(route.page);
       setSelectedId(route.selectedId);
     };
     window.addEventListener("popstate", sync);
@@ -195,13 +128,17 @@ function CapabilitiesBody({ data }: { readonly data: CapabilityResponse }) {
     ...new Set(data.capabilities.map((item) => item[key])),
   ].sort();
   const normalized = query.trim().toLocaleLowerCase();
-  const visible = data.capabilities.filter((item) => {
+  const filtered = sortCapabilities(data.capabilities.filter((item) => {
     if (category !== "all" && item.category !== category) return false;
     if (effect !== "all" && item.side_effect_class !== effect) return false;
     if (role !== "all" && item.required_role !== role) return false;
     return !normalized || [item.capability_id, item.name, item.summary, ...item.tags]
       .join(" ").toLocaleLowerCase().includes(normalized);
-  });
+  }), sort);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / CAPABILITY_PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const pageStart = (currentPage - 1) * CAPABILITY_PAGE_SIZE;
+  const pageRows = filtered.slice(pageStart, pageStart + CAPABILITY_PAGE_SIZE);
   const selected = selectedId
     ? data.capabilities.find((item) => item.capability_id === selectedId) ?? null
     : null;
@@ -212,6 +149,8 @@ function CapabilitiesBody({ data }: { readonly data: CapabilityResponse }) {
       category: category === "all" ? null : category,
       effect: effect === "all" ? null : effect,
       role: role === "all" ? null : role,
+      sort: sort === "category" ? null : sort,
+      page: currentPage === 1 ? null : currentPage,
     },
   })}#capabilities-table`;
   const updateRoute = (next: {
@@ -219,17 +158,23 @@ function CapabilitiesBody({ data }: { readonly data: CapabilityResponse }) {
     readonly category?: string;
     readonly effect?: string;
     readonly role?: string;
+    readonly sort?: CapabilitySort;
+    readonly page?: number;
     readonly selectedId?: string | null;
   }): void => {
     const nextQuery = next.query ?? query;
     const nextCategory = next.category ?? category;
     const nextEffect = next.effect ?? effect;
     const nextRole = next.role ?? role;
+    const nextSort = next.sort ?? sort;
+    const nextPage = next.page ?? page;
     const nextSelected = next.selectedId === undefined ? selectedId : next.selectedId;
     setQuery(nextQuery);
     setCategory(nextCategory);
     setEffect(nextEffect);
     setRole(nextRole);
+    setSort(nextSort);
+    setPage(nextPage);
     setSelectedId(nextSelected);
     replaceRouteState(routeHref("capabilities", {
       params: {
@@ -237,6 +182,8 @@ function CapabilitiesBody({ data }: { readonly data: CapabilityResponse }) {
         category: nextCategory === "all" ? null : nextCategory,
         effect: nextEffect === "all" ? null : nextEffect,
         role: nextRole === "all" ? null : nextRole,
+        sort: nextSort === "category" ? null : nextSort,
+        page: nextPage === 1 ? null : nextPage,
         capability: nextSelected,
       },
     }));
@@ -248,10 +195,45 @@ function CapabilitiesBody({ data }: { readonly data: CapabilityResponse }) {
         category: category === "all" ? null : category,
         effect: effect === "all" ? null : effect,
         role: role === "all" ? null : role,
+        sort: sort === "category" ? null : sort,
+        page: currentPage === 1 ? null : currentPage,
         capability: capabilityId,
       },
     }));
   };
+  const resetFilters = (): void => {
+    updateRoute({
+      query: "",
+      category: "all",
+      effect: "all",
+      role: "all",
+      sort: "category",
+      page: 1,
+      selectedId: null,
+    });
+  };
+  const shareHref = new URL(
+    routeHref("capabilities", {
+      params: {
+        q: query || null,
+        category: category === "all" ? null : category,
+        effect: effect === "all" ? null : effect,
+        role: role === "all" ? null : role,
+        sort: sort === "category" ? null : sort,
+        page: currentPage === 1 ? null : currentPage,
+        capability: selectedId,
+      },
+    }),
+    window.location.origin,
+  ).toString();
+  const roleMatch: CapabilityRoleMatch | "loading" = selected === null
+    ? "unavailable"
+    : iamState.status === "loading"
+      ? "loading"
+      : capabilityRoleMatch(
+          selected.required_role,
+          iamState.status === "ready" ? iamState.data.principal.roles : null,
+        );
   usePublishViewContext(
     () => ({
       routeId: "capabilities",
@@ -288,52 +270,81 @@ function CapabilitiesBody({ data }: { readonly data: CapabilityResponse }) {
         <KpiCard href={allCapabilitiesHref} label={t("governance.capabilities.kpi.declarations")} value={data.count.toLocaleString()} />
         <KpiCard href={allCapabilitiesHref} label={t("governance.capabilities.kpi.categories")} value={categories.toLocaleString()} />
         <KpiCard href={allCapabilitiesHref} label={t("governance.capabilities.kpi.mutating")} value={mutatingDeclarations.toLocaleString()} />
-        <KpiCard href={visibleCapabilitiesHref} label={t("governance.capabilities.kpi.shown")} value={visible.length.toLocaleString()} />
+        <KpiCard href={visibleCapabilitiesHref} label={t("governance.capabilities.kpi.shown")} value={filtered.length.toLocaleString()} />
       </KpiGrid>
       <section class="capabilities-filterbar" aria-label={t("governance.capabilities.filter.aria")}>
-        <input id="capability-search" type="search" aria-label={t("governance.capabilities.filter.searchAria")} value={query} placeholder={t("governance.capabilities.filter.searchPlaceholder")} onInput={(event) => updateRoute({ query: event.currentTarget.value, selectedId: null })} />
-        <CapabilitySelect label={t("governance.capabilities.filter.category")} value={category} options={optionValues("category")} onChange={(value) => updateRoute({ category: value, selectedId: null })} />
-        <CapabilitySelect label={t("governance.capabilities.filter.sideEffect")} value={effect} options={optionValues("side_effect_class")} onChange={(value) => updateRoute({ effect: value, selectedId: null })} />
-        <CapabilitySelect label={t("governance.capabilities.filter.role")} value={role} options={optionValues("required_role")} onChange={(value) => updateRoute({ role: value, selectedId: null })} />
+        <input id="capability-search" type="search" aria-label={t("governance.capabilities.filter.searchAria")} value={query} placeholder={t("governance.capabilities.filter.searchPlaceholder")} onInput={(event) => updateRoute({ query: event.currentTarget.value, page: 1, selectedId: null })} />
+        <CapabilitySelect label={t("governance.capabilities.filter.category")} value={category} options={optionValues("category")} onChange={(value) => updateRoute({ category: value, page: 1, selectedId: null })} />
+        <CapabilitySelect label={t("governance.capabilities.filter.sideEffect")} value={effect} options={optionValues("side_effect_class")} onChange={(value) => updateRoute({ effect: value, page: 1, selectedId: null })} />
+        <CapabilitySelect label={t("governance.capabilities.filter.role")} value={role} options={optionValues("required_role")} onChange={(value) => updateRoute({ role: value, page: 1, selectedId: null })} />
       </section>
-      <div id="capabilities-table">
-        <DataTable
-          rows={visible}
-          columns={columns}
-          keyOf={(row) => row.capability_id}
-          empty={t("governance.capabilities.empty")}
-          onRowClick={(row) => selectCapability(row.capability_id)}
-          isRowActive={(row) => row.capability_id === selectedId}
-          rowActionLabel={(row) => t("governance.capabilities.openRow", { name: row.name })}
-          rowActionControls="capability-detail"
-        />
+      <div class="capabilities-results-toolbar">
+        <p aria-live="polite">
+          {t("governance.capabilities.result.count", {
+            start: filtered.length === 0 ? 0 : pageStart + 1,
+            end: Math.min(pageStart + CAPABILITY_PAGE_SIZE, filtered.length),
+            count: filtered.length,
+          })}
+        </p>
+        <div class="cluster">
+          <CapabilitySortSelect value={sort} onChange={(value) =>
+            updateRoute({ sort: value, page: 1, selectedId: null })} />
+          <button type="button" onClick={resetFilters}>
+            {t("governance.capabilities.filter.reset")}
+          </button>
+          <CopyButton text={shareHref} label={t("governance.capabilities.copyView")} />
+        </div>
       </div>
-      {selectedId && !selected ? (
-        <UnavailableState message={t("governance.capabilities.unregistered", { id: selectedId })} />
-      ) : selected ? (
-        <section id="capability-detail" class="capability-detail stack-section">
-          <header class="section-header">
-            <div><h3>{selected.name}</h3><code>{selected.capability_id}</code></div>
-            <div class="cluster">
-              <CopyButton text={selected.capability_id} label={t("governance.common.copyId")} />
-              <button type="button" onClick={() => selectCapability(null)}>{t("governance.common.close")}</button>
-            </div>
-          </header>
-          <p>{selected.summary}</p>
-          <dl>
-            <div><dt>{t("governance.capabilities.detail.category")}</dt><dd>{selected.category}</dd></div>
-            <div><dt>{t("governance.capabilities.detail.sideEffect")}</dt><dd>{selected.side_effect_class}</dd></div>
-            <div><dt>{t("governance.capabilities.detail.defaultMode")}</dt><dd>{selected.default_mode}</dd></div>
-            <div><dt>{t("governance.capabilities.detail.requiredRole")}</dt><dd>{selected.required_role}</dd></div>
-            <div><dt>{t("governance.capabilities.detail.operatorPath")}</dt><dd>{t(`governance.capabilities.operatorPath.${capabilityRequestPath(selected.side_effect_class).key}`)}</dd></div>
-            <div><dt>{t("governance.capabilities.detail.tags")}</dt><dd>{selected.tags.join(", ") || "-"}</dd></div>
-          </dl>
-          {isMutatingCapability(selected.side_effect_class) ? (
-            <a href={routeHref("promotion-gates")}>{t("governance.capabilities.detail.openPromotionEvidence")}</a>
+      <div class={`capabilities-workspace${selectedId ? " has-selection" : ""}`}>
+        <div id="capabilities-table">
+          <DataTable
+            rows={pageRows}
+            columns={columns}
+            keyOf={(row) => row.capability_id}
+            empty={t("governance.capabilities.empty")}
+            onRowClick={(row) => selectCapability(row.capability_id)}
+            isRowActive={(row) => row.capability_id === selectedId}
+            rowActionLabel={(row) => t("governance.capabilities.openRow", { name: row.name })}
+            rowActionControls="capability-detail"
+            scrollRegionLabel={t("governance.capabilities.tableAria")}
+          />
+          {filtered.length > CAPABILITY_PAGE_SIZE ? (
+            <nav class="capabilities-pagination" aria-label={t("governance.capabilities.pagination.aria")}>
+              <button
+                type="button"
+                disabled={currentPage === 1}
+                onClick={() => updateRoute({ page: currentPage - 1, selectedId: null })}
+              >
+                {t("governance.capabilities.pagination.previous")}
+              </button>
+              <span>{t("governance.capabilities.pagination.page", {
+                page: currentPage,
+                pages: pageCount,
+              })}</span>
+              <button
+                type="button"
+                disabled={currentPage === pageCount}
+                onClick={() => updateRoute({ page: currentPage + 1, selectedId: null })}
+              >
+                {t("governance.capabilities.pagination.next")}
+              </button>
+            </nav>
           ) : null}
-          <a href={routeHref(capabilityPanel(selected.category))}>{t("governance.capabilities.detail.openRelated")}</a>
-        </section>
-      ) : null}
+        </div>
+        {selectedId ? (
+          <div class="capability-detail-pane">
+            {!selected ? (
+              <UnavailableState message={t("governance.capabilities.unregistered", { id: selectedId })} />
+            ) : (
+              <CapabilityDetail
+                capability={selected}
+                roleMatch={roleMatch}
+                onClose={() => selectCapability(null)}
+              />
+            )}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -347,11 +358,24 @@ function CapabilitySelect({ label, value, options, onChange }: {
   return <label><span>{label}</span><select value={value} onChange={(event) => onChange(event.currentTarget.value)}><option value="all">{t("governance.common.all")}</option>{options.map((option) => <option key={option} value={option}>{option}</option>)}</select></label>;
 }
 
-function capabilityPanel(category: string): string {
-  if (category === "cost") return "llm-cost";
-  if (category === "incident") return "incidents";
-  if (category === "investigation") return "rca";
-  if (category === "knowledge") return "documents";
-  if (category === "reporting") return "reports";
-  return "workflow-builder";
+function CapabilitySortSelect({
+  value,
+  onChange,
+}: {
+  readonly value: CapabilitySort;
+  readonly onChange: (value: CapabilitySort) => void;
+}) {
+  const options: readonly CapabilitySort[] = ["category", "name", "effect", "role"];
+  return (
+    <label class="capabilities-sort">
+      <span>{t("governance.capabilities.sort.label")}</span>
+      <select value={value} onChange={(event) => onChange(event.currentTarget.value as CapabilitySort)}>
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {t(`governance.capabilities.sort.${option}`)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
 }

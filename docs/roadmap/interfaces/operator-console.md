@@ -29,6 +29,18 @@ missing from the active Rule set, in readable English and Korean.
 The Promotion gates view joins the measured readiness projection with the durable promotion registry
 and marks `operator_override` modes, operator-attested gate snapshots, and their read-only authority
 source without granting approval or execution authority.
+The Governance Capability catalog is a read-only directory of declared FDAI functions. Selecting
+any non-interactive part of a row opens an adjacent detail panel, while the capability id remains an
+explicit keyboard button. The master list keeps only identity, category, side-effect class, and
+required role, limits each page to 20 declarations, and preserves search, filters, sorting, page,
+and selection in the URL.
+The detail panel separates catalog declaration from runtime availability, provider binding, and
+execution authority. A declaration never fills a missing runtime measurement or grants execution.
+The current principal's minimum-role match comes only from the server-verified IAM projection and
+remains unavailable when that read fails. Capability-specific links lead to the narrowest existing
+Console surface; mutating declarations also link to the separate Promotion gates view without
+claiming an ActionType mapping. Catalog parity, official source, source reference, and implementation
+references remain secondary provenance details.
 Policy administration is also product-profile gated. The Operator API registers
 `POST /policy/revisions` only when the canonical product profile selects the
 `policy-administration` add-on, and the route publishes only a typed request for Mimir. Missing or

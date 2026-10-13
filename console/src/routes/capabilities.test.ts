@@ -1,12 +1,19 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import { OperatorApiError } from "../api";
+import { loadCapabilitiesState } from "./capabilities";
 import {
+  capabilityDestination,
   capabilityRequestPath,
+  capabilityRoleMatch,
   capabilityRouteStateFromSearch,
   decodeCapabilities,
   isMutatingCapability,
-  loadCapabilitiesState,
-} from "./capabilities";
+  sortCapabilities,
+} from "./capabilities.model";
+
+const routeSource = readFileSync(new URL("./capabilities.tsx", import.meta.url), "utf8");
+const styles = readFileSync(new URL("../styles.css", import.meta.url), "utf8");
 
 describe("capability catalog provenance", () => {
   test("renders an unavailable state when the optional catalog is not served", async () => {
@@ -52,24 +59,73 @@ describe("capability catalog provenance", () => {
         required_role: "reader",
         slide_ref: null,
         tags: [],
+        parity: "native",
+        official_source: null,
+        evidence_refs: [],
       }],
     });
 
     expect(decoded.source).toBe("static-catalog");
     expect(decoded.execution_eligibility).toBe(false);
     expect(decoded.capabilities[0]?.slide_ref).toBeNull();
+    expect(decoded.capabilities[0]?.parity).toBe("native");
   });
 
   test("restores filters and selection from a canonical route", () => {
     expect(capabilityRouteStateFromSearch(new URLSearchParams(
-      "q=restart&category=incident&effect=execute&role=owner&capability=incident.restart",
+      "q=restart&category=incident&effect=execute&role=owner&sort=role&page=3&capability=incident.restart",
     ))).toEqual({
       query: "restart",
       category: "incident",
       effect: "execute",
       role: "owner",
+      sort: "role",
+      page: 3,
       selectedId: "incident.restart",
     });
+  });
+
+  test("sorts declarations and maps exact owning surfaces", () => {
+    const decoded = decodeCapabilities({
+      source: "static-catalog",
+      execution_eligibility: false,
+      count: 2,
+      capabilities: [
+        capabilityItem({ capability_id: "devops.github", name: "GitHub", category: "knowledge" }),
+        capabilityItem({ capability_id: "observability.topology", name: "Topology", category: "investigation" }),
+      ],
+    });
+
+    expect(sortCapabilities(decoded.capabilities, "name").map((item) => item.name))
+      .toEqual(["GitHub", "Topology"]);
+    expect(capabilityDestination(decoded.capabilities[0]!))
+      .toEqual({ routeId: "github", labelKey: "github" });
+    expect(capabilityDestination(decoded.capabilities[1]!))
+      .toEqual({ routeId: "architecture", labelKey: "architecture" });
+  });
+
+  test("compares server-verified ordinary roles without elevating BreakGlass", () => {
+    expect(capabilityRoleMatch("reader", ["Reader"])).toBe("meets");
+    expect(capabilityRoleMatch("contributor", ["Approver"])).toBe("meets");
+    expect(capabilityRoleMatch("approver", ["Contributor"])).toBe("does-not-meet");
+    expect(capabilityRoleMatch("reader", ["BreakGlass"])).toBe("does-not-meet");
+    expect(capabilityRoleMatch("reader", null)).toBe("unavailable");
+  });
+
+  test("places selected capability details beside the directory on desktop", () => {
+    expect(routeSource).toContain(
+      'class={`capabilities-workspace${selectedId ? " has-selection" : ""}`}',
+    );
+    expect(routeSource).toContain('class="capability-detail-pane"');
+    expect(routeSource).toContain(
+      'scrollRegionLabel={t("governance.capabilities.tableAria")}',
+    );
+    expect(styles).toMatch(
+      /\.capabilities-workspace\.has-selection\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(340px,\s*380px\);/s,
+    );
+    expect(styles).toMatch(
+      /@media \(max-width:\s*1080px\)\s*\{[^}]*\.capabilities-workspace\.has-selection\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\);/s,
+    );
   });
 
   test("rejects contradictory or ambiguous catalog evidence", () => {
@@ -83,6 +139,9 @@ describe("capability catalog provenance", () => {
       required_role: "owner",
       slide_ref: "workflow-builder",
       tags: [],
+      parity: "native",
+      official_source: null,
+      evidence_refs: [],
     };
     const root = {
       source: "static-catalog",
@@ -105,5 +164,29 @@ describe("capability catalog provenance", () => {
       ...root,
       capabilities: [{ ...item, default_mode: "observe" }],
     })).toThrow(/default_mode is invalid/);
+    expect(() => decodeCapabilities({
+      ...root,
+      capabilities: [{ ...item, parity: "partial" }],
+    })).toThrow(/capability.parity is invalid/);
+    expect(() => decodeCapabilities({ ...root, execution_eligibility: true }))
+      .toThrow(/MUST NOT grant execution/);
   });
 });
+
+function capabilityItem(overrides: Readonly<Record<string, unknown>> = {}) {
+  return {
+    capability_id: "incident.inspect",
+    name: "Inspect incident",
+    category: "incident",
+    summary: "Inspect bounded incident evidence.",
+    side_effect_class: "read",
+    default_mode: "shadow",
+    required_role: "reader",
+    slide_ref: null,
+    tags: [],
+    parity: "native",
+    official_source: null,
+    evidence_refs: [],
+    ...overrides,
+  };
+}

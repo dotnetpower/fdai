@@ -1,0 +1,133 @@
+{
+  "resourceLabel": "기능 카탈로그",
+  "unavailable": "기능 데이터를 현재 사용할 수 없습니다.",
+  "column": {
+    "id": "기능 ID",
+    "name": "이름",
+    "category": "범주",
+    "sideEffectClass": "부작용 클래스",
+    "defaultMode": "기본 모드",
+    "requiredRole": "필수 역할",
+    "operatorPath": "운영자 경로",
+    "summary": "요약"
+  },
+  "context": {
+    "routeLabel": "기능",
+    "purpose": "선언된 운영자 기능 계약, 필수 역할, 부작용 클래스 및 기본 안전 모드의 디렉터리입니다. 카탈로그에 존재한다고 실행 적격성이 부여되지는 않습니다.",
+    "headline": "{categories}개 범주의 선언 {count}개 중 {mutating}개가 변경 부작용 클래스를 선언함"
+  },
+  "banner": {
+    "title": "카탈로그 선언 전용입니다.",
+    "body": "소스: {source}. 항목은 관리되는 계약을 설명하며 공급자 바인딩, 런타임 상태 또는 실행 적격성을 증명하지 않습니다."
+  },
+  "kpi": {
+    "declarations": "선언",
+    "categories": "범주",
+    "mutating": "변경 선언",
+    "shown": "표시됨"
+  },
+  "filter": {
+    "aria": "기능 필터",
+    "searchAria": "기능 필터링",
+    "searchPlaceholder": "기능 ID, 이름, 태그 또는 요약 필터링",
+    "category": "범주",
+    "sideEffect": "부작용",
+    "role": "역할",
+    "reset": "필터 초기화"
+  },
+  "sort": {
+    "label": "정렬 기준",
+    "category": "범주",
+    "name": "이름",
+    "effect": "부작용",
+    "role": "필요 역할"
+  },
+  "result": {
+    "count": "{count}개 중 {start}-{end}개 표시"
+  },
+  "pagination": {
+    "aria": "기능 카탈로그 페이지",
+    "previous": "이전",
+    "next": "다음",
+    "page": "{pages}페이지 중 {page}페이지"
+  },
+  "empty": "이 필터와 일치하는 기능이 없습니다",
+  "tableAria": "기능 디렉터리",
+  "openRow": "{name} 열기",
+  "copyView": "화면 링크 복사",
+  "unregistered": "기능 {id}이(가) 등록되지 않았습니다.",
+  "detail": {
+    "category": "범주",
+    "sideEffect": "부작용",
+    "defaultMode": "기본 모드",
+    "requiredRole": "필수 역할",
+    "operatorPath": "운영자 경로",
+    "openPromotionEvidence": "ActionType 승격 근거 열기",
+    "tags": "태그",
+    "openRelated": "{surface} 열기",
+    "openAccess": "ID 및 접근 권한 검토"
+  },
+  "state": {
+    "aria": "기능 보증 상태",
+    "declaration": "카탈로그 선언",
+    "declared": "선언됨",
+    "runtime": "런타임 가용성",
+    "binding": "프로바이더 바인딩",
+    "role": "내 역할",
+    "execution": "실행 권한",
+    "notMeasured": "측정되지 않음",
+    "notGranted": "카탈로그가 부여하지 않음",
+    "roleMeets": "선언된 최소 역할 충족",
+    "roleMissing": "필요 역할 미충족",
+    "roleLoading": "역할 확인 중",
+    "roleUnavailable": "역할 확인 불가"
+  },
+  "parity": {
+    "native": "기본 제공",
+    "safer-alternative": "더 안전한 대안",
+    "external-binding": "외부 바인딩 필요"
+  },
+  "provenance": {
+    "title": "근거 및 출처",
+    "implementation": "구현 방식",
+    "reference": "원본 참조",
+    "officialSource": "공식 출처 열기",
+    "evidence": "구현 참조",
+    "noEvidence": "제공된 구현 참조가 없습니다."
+  },
+  "destination": {
+    "impactScope": "영향 범위",
+    "llmCost": "LLM 비용",
+    "architecture": "아키텍처",
+    "audit": "감사 로그",
+    "trace": "추적",
+    "detectionCoverage": "감지 커버리지",
+    "incidents": "인시던트",
+    "backgroundTasks": "백그라운드 작업",
+    "rootCauseAnalysis": "근본 원인 분석",
+    "userMemory": "운영자 메모리",
+    "forecastLearning": "예측 학습",
+    "documents": "문서",
+    "github": "GitHub",
+    "azureDevOps": "Azure DevOps",
+    "skills": "스킬",
+    "promotionGates": "승격 게이트",
+    "approvals": "승인",
+    "reports": "보고서",
+    "operatingOutcomes": "운영 성과",
+    "conversationDelivery": "대화 전송",
+    "workflowBuilder": "워크플로 작성기",
+    "agents": "에이전트",
+    "schedulerRuns": "스케줄러 실행"
+  },
+  "operatorPath": {
+    "directRead": "직접 읽기",
+    "governedRequest": "통제된 요청",
+    "humanApproval": "사람 승인",
+    "ownerBreakGlass": "Owner 긴급 접근"
+  },
+  "error": {
+    "count": "잘못된 Operator API 응답: capabilities.count는 항목 수와 반드시 일치해야 합니다",
+    "uniqueIds": "잘못된 Operator API 응답: 기능 ID는 반드시 고유해야 합니다"
+  }
+}
