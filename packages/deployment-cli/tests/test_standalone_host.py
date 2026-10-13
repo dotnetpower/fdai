@@ -4157,7 +4157,10 @@ def test_oras_copy_uses_the_destination_registry_config() -> None:
 
 
 def test_aks_runtime_configuration_binds_consumer_scoped_dsns_and_roles() -> None:
-    source = Path(standalone_host.__file__).read_text(encoding="utf-8")
+    source = "\n".join(
+        Path(module.__file__).read_text(encoding="utf-8")
+        for module in (standalone_host, standalone_host_values)
+    )
 
     assert '"FDAI_START_CONSUMER": "1"' in source
     assert '"FDAI_INSTALLATION_BINDING": str(substrate_outputs["installation_binding"])' in source

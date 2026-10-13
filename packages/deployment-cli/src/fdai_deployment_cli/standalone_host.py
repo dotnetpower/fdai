@@ -45,9 +45,6 @@ from fdai_deployment_cli.aks_service_update import (
     validate_update_request,
 )
 from fdai_deployment_cli.aks_workload_jobs import (
-    AKS_CANARY_TOPIC,
-)
-from fdai_deployment_cli.aks_workload_jobs import (
     aks_kubernetes_direct_api_environment as _aks_kubernetes_direct_api_environment,
 )
 from fdai_deployment_cli.aks_workload_jobs import (
@@ -1011,28 +1008,15 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     canary_identity = _mapping(identities.get("canary"), "canary runtime identity")
     ingestion_identity = _selected_identity(identities, "ingestion", console_selected)
     ingestion_worker_identity = _selected_identity(identities, "ingestion_worker", console_selected)
-    core_environment = {
-        "AZURE_TENANT_ID": context["tenant_id"],
-        "AZURE_SUBSCRIPTION_ID": context["subscription_id"],
-        "AZURE_RESOURCE_GROUP": resource_group,
-        "AZURE_REGION": application_values["region"],
-        "AZURE_CLIENT_ID": core_identity["client_id"],
-        "KAFKA_BOOTSTRAP_SERVERS": substrate_outputs["kafka"],
-        "KAFKA_TOPIC_EVENTS": str(topics[0]),
-        "FDAI_CANARY_TOPIC": AKS_CANARY_TOPIC,
-        "POSTGRES_HOST": substrate_outputs["postgres_fqdn"],
-        "POSTGRES_DATABASE": substrate_outputs["postgres_database"],
-        "RUNTIME_ENV": application_values["env"],
-        "AUTONOMY_MODE_DEFAULT": "shadow",
-        "FDAI_MONITOR_WORKSPACE_ID": substrate_outputs["workspace"],
-        "FDAI_OPERATING_MODEL_TOPIC": substrate_outputs["operating_model_topic"],
-        "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS": substrate_outputs["operational_kafka"],
-        "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER": "1",
-        "FDAI_PRODUCT_PROFILE_JSON": str(application_values["product_profile_json"]),
-        "FDAI_START_CONSUMER": "1",
-        "FDAI_INSTALLATION_BINDING": str(substrate_outputs["installation_binding"]),
-        "FDAI_LICENSE_DEPLOYMENT_BINDING": deployment_binding,
-    }
+    core_environment = standalone_host_values.aks_core_environment(
+        context=context,
+        application_values=application_values,
+        substrate_outputs=substrate_outputs,
+        resource_group=resource_group,
+        core_identity=core_identity,
+        topics=topics,
+        deployment_binding=deployment_binding,
+    )
     core_environment.update(
         _aks_core_conversation_environment(
             application_values=application_values,
