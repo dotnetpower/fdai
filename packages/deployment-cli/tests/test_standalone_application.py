@@ -4,6 +4,7 @@ import hashlib
 import inspect
 import json
 import subprocess
+import tarfile
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -352,6 +353,157 @@ def test_publish_verified_console_uses_verified_prebuilt_artifact(tmp_path, monk
     assert receipt["entra_redirect_verified"] is True
     assert len(str(receipt["receipt_digest"])) == 64
     assert (tmp_path / "console-publication-receipt.json").is_file()
+
+
+def _publish_with_stubbed_effects(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    archive: Path,
+    archive_digest: str,
+) -> dict[str, object]:
+    published: dict[str, object] = {}
+
+    def configure(directory, settings, *, manual_studio_url):
+        return {"runtime_config_digest": "b" * 64}
+
+    def run(command, **kwargs):
+        directory = Path(kwargs["env"]["CONSOLE_PREBUILT_DIRECTORY"])
+        published["index"] = (directory / "index.html").read_text()
+        published["stale"] = (directory / "assets/stale.css").exists()
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    monkeypatch.setattr(standalone_console_publish, "configure_console", configure)
+    monkeypatch.setattr(standalone_console_publish.subprocess, "run", run)
+    subscription_id = "00000000-0000-0000-0000-000000000002"
+    spa_client_id = "00000000-0000-0000-0000-000000000003"
+    scripts = tmp_path / "bundle/scripts/deployment/azure"
+    scripts.mkdir(parents=True, exist_ok=True)
+    receipt = standalone_application.publish_verified_console(
+        console_archive=archive,
+        console_archive_sha256=archive_digest,
+        bundle_root=tmp_path / "bundle",
+        prepared_root=tmp_path,
+        entra_bindings={
+            "ENTRA_CONSOLE_SPA_CLIENT_ID": spa_client_id,
+            "ENTRA_CONSOLE_API_SCOPE": f"api://{spa_client_id}/access",
+        },
+        browser_console={
+            "console_hostname": "calm-field-012345678.3.azurestaticapps.net",
+            "console_origin": "https://calm-field-012345678.3.azurestaticapps.net",
+            "console_static_web_app_id": (
+                f"/subscriptions/{subscription_id}/resourceGroups/rg-app/providers/"
+                "Microsoft.Web/staticSites/swa-console"
+            ),
+            "operator_api_base_url": "https://apim-fdai.azure-api.net",
+            "ingestion_api_base_url": "https://apim-fdai.azure-api.net/ingestion",
+        },
+        scripts=scripts,
+        subscription_id=subscription_id,
+        tenant_id="00000000-0000-0000-0000-000000000001",
+        timeout_seconds=900,
+        redirect_changed=False,
+    )
+    assert receipt["console_archive_sha256"] == archive_digest
+    return published
+
+
+def _console_archive(tmp_path: Path, index: str) -> tuple[Path, str]:
+    source = tmp_path / "archive-source/dist"
+    source.mkdir(parents=True)
+    (source / "index.html").write_text(index)
+    archive = tmp_path / "console.tar.gz"
+    with tarfile.open(archive, "w:gz") as stream:
+        stream.add(source, arcname="dist")
+    return archive, hashlib.sha256(archive.read_bytes()).hexdigest()
+
+
+def test_publish_verified_console_replaces_a_retained_prior_extraction(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    retained = tmp_path / "console-publish/dist/assets"
+    retained.mkdir(parents=True)
+    (retained.parent / "index.html").write_text("prior release")
+    (retained / "stale.css").write_text("prior")
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (elsewhere / "index.html").write_text("untouched")
+    (retained / "linked").symlink_to(elsewhere)
+    archive, digest = _console_archive(tmp_path, "current release")
+
+    published = _publish_with_stubbed_effects(tmp_path, monkeypatch, archive, digest)
+
+    assert published == {"index": "current release", "stale": False}
+    assert (elsewhere / "index.html").read_text() == "untouched"
+
+
+@pytest.mark.parametrize("dangling", [False, True])
+def test_publish_verified_console_rejects_a_substituted_extraction_link(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, dangling: bool
+) -> None:
+    elsewhere = tmp_path / "elsewhere/dist"
+    if not dangling:
+        elsewhere.mkdir(parents=True)
+        (elsewhere / "index.html").write_text("untouched")
+    extraction = tmp_path / "console-publish"
+    extraction.symlink_to(elsewhere.parent)
+    archive, digest = _console_archive(tmp_path, "current release")
+
+    with pytest.raises(ValueError, match="not a private directory"):
+        _publish_with_stubbed_effects(tmp_path, monkeypatch, archive, digest)
+
+    assert extraction.is_symlink()
+    assert not (tmp_path / "console-runtime-settings.json").exists()
+    assert not (tmp_path / "console-publication-receipt.json").exists()
+    if not dangling:
+        assert (elsewhere / "index.html").read_text() == "untouched"
+
+
+def test_publish_verified_console_rejects_a_foreign_owned_extraction(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    retained = tmp_path / "console-publish/dist"
+    retained.mkdir(parents=True)
+    (retained / "index.html").write_text("untouched")
+    archive, digest = _console_archive(tmp_path, "current release")
+    monkeypatch.setattr(standalone_console_publish.os, "getuid", lambda: retained.stat().st_uid + 1)
+
+    with pytest.raises(ValueError, match="not a private directory"):
+        _publish_with_stubbed_effects(tmp_path, monkeypatch, archive, digest)
+
+    assert (retained / "index.html").read_text() == "untouched"
+    assert not (tmp_path / "console-runtime-settings.json").exists()
+    assert not (tmp_path / "console-publication-receipt.json").exists()
+
+
+def test_publish_verified_console_rejects_a_non_directory_extraction(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    extraction = tmp_path / "console-publish"
+    extraction.write_text("untouched")
+    archive, digest = _console_archive(tmp_path, "current release")
+
+    with pytest.raises(ValueError, match="not a private directory"):
+        _publish_with_stubbed_effects(tmp_path, monkeypatch, archive, digest)
+
+    assert extraction.read_text() == "untouched"
+    assert not (tmp_path / "console-runtime-settings.json").exists()
+    assert not (tmp_path / "console-publication-receipt.json").exists()
+
+
+def test_publish_verified_console_rejects_unsigned_bytes_before_removing_extraction(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    retained = tmp_path / "console-publish/dist"
+    retained.mkdir(parents=True)
+    (retained / "index.html").write_text("untouched")
+    archive, _digest = _console_archive(tmp_path, "current release")
+
+    with pytest.raises(ValueError, match="signed release"):
+        _publish_with_stubbed_effects(tmp_path, monkeypatch, archive, "a" * 64)
+
+    assert (retained / "index.html").read_text() == "untouched"
+    assert not (tmp_path / "console-runtime-settings.json").exists()
+    assert not (tmp_path / "console-publication-receipt.json").exists()
 
 
 def test_console_archive_digest_rejects_unsigned_bytes(tmp_path) -> None:

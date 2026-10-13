@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+import shutil
 import stat
 import subprocess
 from pathlib import Path
@@ -40,11 +41,9 @@ def publish_verified_console(
 
     _require_archive_digest(console_archive, console_archive_sha256)
     extraction = prepared_root / "console-publish"
-    console_directory = (
-        extraction / "dist"
-        if extraction.exists()
-        else extract_bundle_archive(console_archive, extraction)
-    )
+    # A retained extraction may contain a prior release, not the just-verified archive.
+    _remove_retained_extraction(extraction)
+    console_directory = extract_bundle_archive(console_archive, extraction)
     console_directory.chmod(0o700)
     settings: dict[str, object] = {
         "schema_version": "fdai.console-runtime.v1",
@@ -130,6 +129,18 @@ def _publisher_failure_reason(publisher: Path, stderr: str | None) -> str | None
         if line.strip():
             return line.strip() if line.strip() in fixed_reasons else None
     return None
+
+
+def _remove_retained_extraction(extraction: Path) -> None:
+    """Remove a prior Console extraction without following a substituted link."""
+
+    try:
+        status = extraction.lstat()
+    except FileNotFoundError:
+        return
+    if not stat.S_ISDIR(status.st_mode) or status.st_uid != os.getuid():
+        raise ValueError("retained Console extraction is not a private directory")
+    shutil.rmtree(extraction)
 
 
 def _require_archive_digest(path: Path, expected_digest: str) -> None:
