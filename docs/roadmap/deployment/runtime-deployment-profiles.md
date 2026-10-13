@@ -123,6 +123,12 @@ exists in Azure but the `azurerm_kubernetes_cluster_node_pool.user` address is a
 Terraform state, the run stops before any effect with `aks_node_pool_exists_outside_state`.
 The message names the pool and explains that removal requires explicit Owner confirmation. The
 coordinator does not delete or import that pool automatically.
+Application preparation also rereads the backend network security group after AKS and substrate
+effects. If an ambiguous application apply retained an empty `backend_nsg_id` and authoritative
+readback now supplies the sole changed value, the managed host records a distinct input-rebind
+claim and receipt before replacing the local Terraform variable. The original and residual claims
+remain immutable. Only a new create-only residual successor can consume the rebound input; any
+other field change remains blocked.
 
 | Axis | Supported values | Default | Meaning |
 |------|------------------|---------|---------|

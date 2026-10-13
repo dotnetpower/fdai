@@ -145,6 +145,12 @@ from fdai_deployment_cli.standalone_product_profile import (
     context_selects_add_on as _selects_add_on,
 )
 from fdai_deployment_cli.standalone_product_profile import product_terraform_values
+from fdai_deployment_cli.standalone_application_input_recovery import (
+    bind_authoritative_backend_nsg,
+)
+from fdai_deployment_cli.standalone_application_input_recovery import (
+    successor_prerequisite_verified as _application_successor_prerequisite,
+)
 from fdai_deployment_cli.standalone_private_access_probe import wait_for_private_data_planes
 from fdai_deployment_cli.standalone_host_residual import apply_residual_checkpoint
 from fdai_deployment_cli.standalone_residual_apply import (
@@ -1175,7 +1181,17 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         protected_aks_job_identity_bindings=job_preparation.protected_identity_bindings,
         catalog_review_available=job_preparation.catalog_review_available,
     )
-    _replace_or_verify_private_json(work_dir / "workloads.auto.tfvars.json", values)
+    workloads_path = work_dir / "workloads.auto.tfvars.json"
+    if workloads_path.exists():
+        retained_values = _private_json(workloads_path, "workloads.auto.tfvars.json")
+        if retained_values != values:
+            bind_authoritative_backend_nsg(
+                work_dir=work_dir,
+                retained=retained_values,
+                current=values,
+            )
+    else:
+        _replace_private_json(workloads_path, values)
     _replace_private_json(work_dir / "context.json", context)
     _initialize_terraform_stage("application", context, work_dir)
     return {
@@ -2624,7 +2640,10 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
                 original_review=review,
                 original_claim=claim,
                 effect_readback=lambda: _readback_stage(stage, context),
-                successor_prerequisite_verified=_residual_successor_prerequisite(work_dir, stage),
+                successor_prerequisite_verified=(
+                    _residual_successor_prerequisite(work_dir, stage)
+                    or _application_successor_prerequisite(work_dir, stage)
+                ),
             )
         residual_review = _prepare_residual_review(
             work_dir=work_dir,

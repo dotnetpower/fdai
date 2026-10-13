@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 714becb07e93d290333011d3835449ce1f9c0d86
+translation_source_sha: 0f5aa4ffc57df618bb911bf79c7717bcc71f2554
 translation_revised: 2026-10-13
 ---
 # 런타임 배포 프로파일
@@ -114,6 +114,11 @@ Managed Identity로 AKS agent pool을 다시 조회합니다. `runtime` 사용�
 효과도 내기 전에 `aks_node_pool_exists_outside_state`로 멈춥니다. 메시지는 해당 풀 이름을
 표시하고, 제거에는 명시적인 Owner 확인이 필요하다고 설명합니다. 조정기는 그 풀을 자동으로
 삭제하거나 import하지 않습니다.
+애플리케이션 준비는 AKS와 substrate 효과 이후 backend network security group도 다시 조회합니다.
+모호한 애플리케이션 apply가 빈 `backend_nsg_id`를 보존했고 권위 있는 재조회에서 그 값 하나만
+새로 확인되면 managed host는 로컬 Terraform 변수를 바꾸기 전에 별도 입력 재결속 claim과 증적을
+기록합니다. 원래 claim과 residual claim은 불변으로 유지됩니다. 새 create-only residual
+successor만 재결속된 입력을 사용할 수 있으며 다른 필드 변경은 계속 차단됩니다.
 
 | 축 | 지원 값 | 기본값 | 의미 |
 |----|---------|--------|------|
