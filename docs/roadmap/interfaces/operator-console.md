@@ -10,6 +10,8 @@ A deployed Console requests the `api://<fdai-api-guid>/access` scope, but the Op
 The tenant API, approval bot, and human role groups remain shared. Each installation derives its
 own Console SPA registration from the complete target binding, so its deployment runner owns only
 that installation's Static Web Apps redirect and the fixed loopback redirects.
+Redirect registration accepts the retained legacy SPA name or the exact target-bound SPA name and
+stops before a Graph write for every other display name.
 Console text meets WCAG 2.1 AA contrast: soft text and the state text roles keep at least 4.5:1 on their surfaces. Table row buttons reference a detail region with `aria-controls` only while that region is rendered, and a table that can scroll horizontally opts in as a focusable, named region, as the Scope axis tables do. A one-time authenticated Browser Entra axe-core sweep of all 55 registered routes, run with the equivalent CSS injected into the running Console, found the contrast failures these rules fix; the `aria-controls` change is covered by a unit test, the scroll-region opt-in has no automated test yet, and human assistive-technology review is separate.
 Knowledge > GitHub now exposes a [governed read-only connection workflow](../../runbooks/knowledge-github-sources.md).
 An Owner submits an alias, repository location, credential reference, and expected revision;
