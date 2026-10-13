@@ -109,3 +109,92 @@ def validate_service_update_plan(
             service=service,
         ),
     )
+
+
+def failed_core_update_repair_digest(
+    work_dir: Path,
+    context: dict[str, object],
+    *,
+    service: str,
+) -> str | None:
+    """Return one exact failed Core update digest eligible for a single repair."""
+
+    if not partial_core_update_admissible(work_dir, context, service=service):
+        return None
+    active = context.get("active_service_update")
+    operation = active.get("operation") if isinstance(active, dict) else None
+    if (
+        not isinstance(active, dict)
+        or active.get("service") != service
+        or not isinstance(operation, str)
+    ):
+        return None
+    record_path = work_dir / f"{operation}.json"
+    review_path = work_dir / f"{operation}-review.json"
+    claim_path = work_dir / f"{operation}-claim.json"
+    receipt_path = work_dir / f"{operation}-receipt.json"
+    if (
+        any(
+            not path.is_file() or path.is_symlink()
+            for path in (record_path, review_path, claim_path)
+        )
+        or receipt_path.exists()
+        or receipt_path.is_symlink()
+    ):
+        return None
+    record = private_json(record_path, "failed Core service update")
+    review = private_json(review_path, "failed Core service update review")
+    claim = private_json(claim_path, "failed Core service update claim")
+    digest = record.get("update_digest")
+    document = {key: value for key, value in record.items() if key != "update_digest"}
+    counts = review.get("summary", {}).get("action_counts")
+    return (
+        str(digest)
+        if isinstance(digest, str)
+        and active.get("update_digest") == digest
+        and digest == canonical_digest(document)
+        and record.get("schema_version") == "fdai.aks-service-update.v1"
+        and record.get("service") == "core-control-plane"
+        and record.get("superseded_update_digest") is None
+        and review.get("schema_version") == "fdai.standalone-application-plan.v1"
+        and review.get("plan_digest") == claim.get("plan_digest")
+        and claim.get("schema_version") == "fdai.standalone-application-claim.v1"
+        and claim.get("stage") == "application"
+        and isinstance(counts, dict)
+        and counts.get("replace") == 1
+        and counts.get("update") == 0
+        and counts.get("delete") == 0
+        else None
+    )
+
+
+def superseded_update_digest(
+    work_dir: Path,
+    context: dict[str, object],
+    *,
+    service: str,
+) -> str | None:
+    """Return the one failed update to supersede, or reject an incomplete operation."""
+
+    active = context.get("active_service_update")
+    if not isinstance(active, dict):
+        return None
+    operation = active.get("operation")
+    if isinstance(operation, str) and (work_dir / f"{operation}-receipt.json").is_file():
+        return None
+    digest = failed_core_update_repair_digest(work_dir, context, service=service)
+    if digest is None:
+        raise ValueError("AKS service update already has an incomplete active operation")
+    return digest
+
+
+def validate_repair_binding(record: dict[str, object]) -> None:
+    """Require any optional superseded update binding to be one canonical digest."""
+
+    value = record.get("superseded_update_digest")
+    if value is not None and (
+        not isinstance(value, str)
+        or len(value) != 64
+        or any(char not in "0123456789abcdef" for char in value)
+    ):
+        raise ValueError("active AKS service update repair binding is invalid")

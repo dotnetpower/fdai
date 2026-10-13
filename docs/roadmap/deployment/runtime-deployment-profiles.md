@@ -142,6 +142,10 @@ application receipt.
 That Core-only update may use one replacement plan only when the same partial-recovery admission
 is revalidated while planning. The selected Core Deployment is the sole mutable address; peer
 Deployments, Services, HPAs, namespaces, and every other resource remain out of scope.
+If that exact Core-only update is claimed but does not converge, one repair may supersede it with a
+new source commit and image digest. The repair record binds the failed update digest, requires a
+fresh selected-Deployment plan and approval, and cannot itself be superseded. Peer services and
+broader application recovery remain blocked.
 
 | Axis | Supported values | Default | Meaning |
 |------|------------------|---------|---------|
