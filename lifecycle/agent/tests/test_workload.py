@@ -220,6 +220,46 @@ def test_health_wait_treats_a_failed_read_as_not_yet_healthy(cluster: FakeCluste
     assert _workload(FlakyReads()).apply(_render()) is True
 
 
+def test_a_non_retryable_read_failure_ends_the_wait_at_once(cluster: FakeCluster) -> None:
+    """A rejected request (for example 403 or 422) must not be retried out to the full timeout,
+    and must not be mistaken for a slow rollout."""
+
+    class RejectingReads:
+        def apply(self, manifest: Manifest, *, dry_run: bool = False) -> None:
+            cluster.apply(manifest, dry_run=dry_run)
+
+        def get(self, kind: str, name: str) -> Manifest | None:
+            raise WorkloadError("kubernetes_request_rejected")
+
+        def delete(self, kind: str, name: str) -> None:
+            cluster.delete(kind, name)
+
+    sleeps: list[float] = []
+    workload = _workload(RejectingReads(), sleep=sleeps.append, health_timeout_seconds=1000.0)
+
+    with pytest.raises(WorkloadError, match="kubernetes_request_rejected"):
+        workload.apply(_render())
+
+    assert sleeps == []
+
+
+def test_apply_is_unhealthy_when_the_service_is_missing(cluster: FakeCluster) -> None:
+    """A Deployment can roll out while its Service was deleted between the write and the
+    verification; the rollout is not healthy until every rendered object is read back."""
+
+    class DeploymentOnly:
+        def apply(self, manifest: Manifest, *, dry_run: bool = False) -> None:
+            cluster.apply(manifest, dry_run=dry_run)
+
+        def get(self, kind: str, name: str) -> Manifest | None:
+            return None if kind == "Service" else cluster.get(kind, name)
+
+        def delete(self, kind: str, name: str) -> None:
+            cluster.delete(kind, name)
+
+    assert _workload(DeploymentOnly()).apply(_render()) is False
+
+
 def test_roll_back_restores_recorded_objects_and_deletes_created_ones(
     cluster: FakeCluster,
 ) -> None:

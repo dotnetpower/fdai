@@ -243,23 +243,31 @@ class Workload:
         )
 
     def _rolled_out(self, manifests: Sequence[Manifest]) -> bool:
+        """Whether every object exists and, for a Deployment, its rollout is complete."""
+
         for kind, name in map(object_key, manifests):
-            if kind == "Deployment":
-                live = self.cluster.get(kind, name)
-                if live is None or not rollout_complete(live):
-                    return False
+            live = self.cluster.get(kind, name)
+            if live is None:
+                return False
+            if kind == "Deployment" and not rollout_complete(live):
+                return False
         return True
 
     def _wait_until(self, condition: Callable[[], bool]) -> bool:
-        """Poll ``condition`` until the health timeout. A failed read counts as not yet true."""
+        """Poll ``condition`` until the health timeout.
+
+        A retryable read failure counts as not yet true. A non-retryable one, such as a
+        rejected request, ends the check at once instead of waiting out the full timeout.
+        """
 
         deadline = self.monotonic() + self.health_timeout_seconds
         while True:
             try:
                 if condition():
                     return True
-            except WorkloadError:
-                pass
+            except WorkloadError as error:
+                if not error.retryable:
+                    raise
             if self.monotonic() >= deadline:
                 return False
             self.sleep(self.poll_interval_seconds)

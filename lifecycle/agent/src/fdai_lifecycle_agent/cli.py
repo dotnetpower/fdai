@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import math
 import sys
 from collections.abc import Callable, Sequence
 from datetime import UTC, datetime
@@ -208,8 +209,8 @@ def main(
 def _check_apply_settings(settings: AgentSettings, namespace: str, timeout: float) -> None:
     if not is_dns_label(namespace):
         raise ValueError("--namespace is not a valid Kubernetes namespace")
-    if timeout <= 0:
-        raise ValueError("--health-timeout-seconds MUST be positive")
+    if not math.isfinite(timeout) or timeout <= 0:
+        raise ValueError("--health-timeout-seconds MUST be positive and finite")
     components = set().union(*settings.entity_components.values())
     if missing := components - settings.component_repositories.keys():
         raise ValueError(f"local policy component_images lacks {sorted(missing)}")

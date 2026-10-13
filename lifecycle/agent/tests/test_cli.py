@@ -246,6 +246,8 @@ def test_poll_once_applies_end_to_end(
         ([*APPLY_FLAGS[:-1], "Not_A_Namespace"], APPLY_POLICY, "valid Kubernetes namespace"),
         (APPLY_FLAGS, LOCAL_POLICY, "component_images lacks"),
         ([*APPLY_FLAGS, "--health-timeout-seconds", "0"], APPLY_POLICY, "MUST be positive"),
+        ([*APPLY_FLAGS, "--health-timeout-seconds", "nan"], APPLY_POLICY, "MUST be positive"),
+        ([*APPLY_FLAGS, "--health-timeout-seconds", "inf"], APPLY_POLICY, "MUST be positive"),
         (
             APPLY_FLAGS,
             {**APPLY_POLICY, "component_images": {"core-control-plane": "repo/core:1.0"}},
