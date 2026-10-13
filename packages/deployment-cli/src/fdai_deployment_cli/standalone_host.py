@@ -145,17 +145,12 @@ from fdai_deployment_cli.standalone_product_profile import (
     context_selects_add_on as _selects_add_on,
 )
 from fdai_deployment_cli.standalone_product_profile import product_terraform_values
+from fdai_deployment_cli.standalone_private_access_probe import wait_for_private_data_planes
 from fdai_deployment_cli.standalone_host_residual import apply_residual_checkpoint
 from fdai_deployment_cli.standalone_residual_apply import (
     prepare_residual_review as _prepare_residual_review,
-)
-from fdai_deployment_cli.standalone_residual_apply import (
     recover_residual_apply as _recover_residual_apply,
-)
-from fdai_deployment_cli.standalone_residual_apply import (
     residual_claim_exists as _residual_claim_exists,
-)
-from fdai_deployment_cli.standalone_residual_apply import (
     seal_terraform_plan as _seal_terraform_plan,
 )
 from fdai_deployment_cli.standalone_residual_successor import (
@@ -2612,6 +2607,12 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
             plan_path,
         )
     elif update is None:
+        if (
+            stage == "substrate"
+            and context.get("key_vault_private_access") is True
+            and context.get("document_storage_private_access") is True
+        ):
+            wait_for_private_data_planes(context=context, work_dir=work_dir)
         if _residual_claim_exists(work_dir, stage):
             return _recover_residual_apply(
                 work_dir=work_dir,

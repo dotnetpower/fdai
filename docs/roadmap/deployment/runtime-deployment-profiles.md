@@ -111,6 +111,11 @@ ambiguous successor effect, or non-zero successor verification permanently block
 recovery. Completion still requires authoritative effect readback and a zero-change plan. Any
 present or symbolic-link claim path blocks ordinary replanning until validated recovery; malformed
 retained claims fail closed.
+Before substrate residual planning can consume that one recovery opportunity, the managed host
+uses its deployment identity to read both the selected private Key Vault and document Data Lake.
+It waits within a bounded deadline for DNS, private-link routing, and data-plane RBAC propagation.
+Failure creates no residual plan or claim, so a later invocation can repeat only the read-only
+probe.
 
 Before a runtime plan, apply, residual review, or residual apply can proceed, the managed host
 reads back AKS agent pools with its deployment Managed Identity. If the `runtime` user pool already

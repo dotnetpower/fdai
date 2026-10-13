@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 5a6e52c1da5846852d8eff2c9d72a46f89f87e17
+translation_source_sha: 61da1f1d0a9073971538688a585a80157867c3f5
 translation_revised: 2026-10-13
 ---
 # 런타임 배포 프로파일
@@ -103,6 +103,10 @@ claim이 필요합니다. update, replace, delete, 접근 증적 누락, 모호�
 아닌 successor 검증 결과는 자동 복구를 영구 차단합니다. 완료에는 계속 권위 있는 효과 재조회와
 zero-change plan이 필요합니다. 존재하거나 symbolic link인 claim 경로는 검증된 복구 전까지 일반
 재계획을 차단하며, 잘못된 보존 claim은 닫힌 상태로 실패합니다.
+substrate residual 계획이 한 번뿐인 복구 기회를 사용하기 전에 managed host는 자신의 배포 신원으로
+선택된 비공개 Key Vault와 문서 Data Lake를 모두 읽습니다. 제한된 기한 안에서 DNS, private-link
+경로, 데이터 플레인 RBAC 전파를 기다립니다. 실패하면 residual plan이나 claim을 만들지 않으므로
+이후 호출은 읽기 전용 probe만 반복할 수 있습니다.
 
 runtime plan, apply, residual review 또는 residual apply를 진행하기 전에 Managed Host는 배포
 Managed Identity로 AKS agent pool을 다시 조회합니다. `runtime` 사용자 풀이 Azure에는 이미
