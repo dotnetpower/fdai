@@ -2905,8 +2905,9 @@ def _import_source_service_image(args: argparse.Namespace, work_dir: Path) -> di
     target_binding = context.get("target_binding")
     if not isinstance(target_binding, str) or _DIGEST.fullmatch(target_binding) is None:
         raise ValueError("source service image target binding is invalid")
-    claim_path = work_dir / f"source-image-import-{service}-claim.json"
-    receipt_path = work_dir / f"source-image-import-{service}-receipt.json"
+    claim_path, receipt_path = service_recovery.source_image_import_paths(
+        work_dir, service, source_commit, image_digest
+    )
     verification_only = claim_path.exists() or claim_path.is_symlink()
     approval = _private_json(_absolute(args.approval), "source service image import approval")
     approval_digest = _validate_source_image_import_approval(

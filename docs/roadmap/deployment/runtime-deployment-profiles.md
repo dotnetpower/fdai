@@ -146,6 +146,9 @@ If that exact Core-only update is claimed but does not converge, one repair may 
 new source commit and image digest. The repair record binds the failed update digest, requires a
 fresh selected-Deployment plan and approval, and cannot itself be superseded. Peer services and
 broader application recovery remain blocked.
+Source image import keeps the legacy fixed claim for the same image. After that import has a
+receipt, a different source commit and image digest receive a digest-qualified claim and receipt,
+so one completed Core update cannot block a later exact repair or be mistaken for its authority.
 
 | Axis | Supported values | Default | Meaning |
 |------|------------------|---------|---------|

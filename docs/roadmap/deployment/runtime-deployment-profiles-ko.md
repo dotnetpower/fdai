@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 9cc8333981801542a0c402e8df172ac547e77193
+translation_source_sha: 8c58758e4617d5cab294cceff4be340161b7157a
 translation_revised: 2026-10-13
 ---
 # 런타임 배포 프로파일
@@ -135,6 +135,9 @@ HPA, namespace와 그 밖의 모든 리소스는 범위 밖으로 유지됩니�
 digest로 이를 대체할 수 있습니다. repair 기록은 실패한 update digest를 결속하고 선택된
 Deployment의 새 plan과 승인을 요구하며, repair 자체는 다시 대체할 수 없습니다. peer 서비스와 더
 넓은 애플리케이션 복구는 계속 차단됩니다.
+소스 이미지 import는 같은 이미지에 대해 기존 고정 claim을 유지합니다. 해당 import에 증적이
+생긴 뒤 다른 source commit과 image digest에는 digest-qualified claim과 증적을 부여합니다. 따라서
+완료된 Core 업데이트가 이후 exact repair를 차단하거나 그 권한으로 잘못 해석되지 않습니다.
 
 | 축 | 지원 값 | 기본값 | 의미 |
 |----|---------|--------|------|
