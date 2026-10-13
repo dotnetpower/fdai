@@ -16478,7 +16478,8 @@ body.aa-log-fullscreen-fallback { overflow: hidden; }
 /* Local semantic tokens: pantheon layer accent colours. Kept as
    theme-neutral muted hex values; color-mix with the surface behind
    them keeps them readable in both light and dark themes. */
-.agents-route {
+.agents-route,
+.agent-organization-scrim {
   --agent-plum: #7b6c9c;        /* judge */
   --agent-steel: #44688e;       /* executor */
   --agent-teal: #4f847e;        /* sensing */
