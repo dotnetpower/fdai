@@ -15,6 +15,8 @@ Successive all-kinds relation continuations stay in Core conversation modules as
 Container-kind lineage grouping stays split between Core conversation compilation and generic ontology query handlers: the compiler selects the reviewed container kind, secured traversal emits typed lineage rows, and the aggregate handler computes nearest-root counts and `ambiguous_membership` without adding authority.
 Remaining E9 operators keep their missing-prerequisite decisions in a focused Core conversation helper, so unsupported rank, aggregate, comparison, version, evidence, diagnose, and path rows do not fall back to another operation's plan.
 Metric window comparison planning is likewise isolated in a focused Core conversation helper: form fields carry the two windows, while the query runtime uses the existing metric comparison node and grants no execution authority.
+Core's compiled-answer selection also owns the mapping from reviewed metric-recipe window
+limitations to the exact frame notice. A missing or mismatched notice keeps the answer held.
 Current-path operand provenance checks stay in focused Core conversation helpers: model-proposed plan identities are accepted only from text, prior context, result handles, or server binding receipts, while server-built plans keep their existing authority boundary.
 Residual reasoning hardening keeps server identity, plan coverage, and reviewed provider-property
 authorization in focused Core helpers. Bound context receipts are accepted only after principal,

@@ -833,6 +833,11 @@ re-derives the window. An ungrounded metric, too many concepts for one read, or 
 bounds returns a typed unsupported reason, and a metric the provider cannot read for that Resource stays
 incomplete.
 
+For a reviewed metric-classification recipe, the compiler may apply the recipe's own window.
+Compiled-answer selection accepts `recipe_window_applied:<seconds>` only when every batch frame
+requires the matching `window.recipe.<seconds>` notice. A different or missing window notice
+continues to hold the answer; this mapping changes neither verification nor execution authority.
+
 **Health filters**
 
 When the Resource Health reader is a readable, bound declaration, the manifest also offers the reviewed
