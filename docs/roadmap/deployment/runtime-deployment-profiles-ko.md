@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 0f5aa4ffc57df618bb911bf79c7717bcc71f2554
+translation_source_sha: b0fbfc02ffe5da02b033ccdbfe4ef4eeb47e5cfb
 translation_revised: 2026-10-13
 ---
 # 런타임 배포 프로파일
@@ -117,8 +117,10 @@ Managed Identity로 AKS agent pool을 다시 조회합니다. `runtime` 사용�
 애플리케이션 준비는 AKS와 substrate 효과 이후 backend network security group도 다시 조회합니다.
 모호한 애플리케이션 apply가 빈 `backend_nsg_id`를 보존했고 권위 있는 재조회에서 그 값 하나만
 새로 확인되면 managed host는 로컬 Terraform 변수를 바꾸기 전에 별도 입력 재결속 claim과 증적을
-기록합니다. 원래 claim과 residual claim은 불변으로 유지됩니다. 새 create-only residual
-successor만 재결속된 입력을 사용할 수 있으며 다른 필드 변경은 계속 차단됩니다.
+기록합니다. 원래 claim과 residual claim은 불변으로 유지됩니다. 새 residual successor만
+재결속된 입력을 사용할 수 있습니다. 새 exact destructive 확인이 successor plan을
+승인하면 같은 애플리케이션 Deployment 교체 하나는 유지할 수 있습니다. 그 밖의 교체와 필드
+변경은 계속 차단됩니다.
 
 | 축 | 지원 값 | 기본값 | 의미 |
 |----|---------|--------|------|

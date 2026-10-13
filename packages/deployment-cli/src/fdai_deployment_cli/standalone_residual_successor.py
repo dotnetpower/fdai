@@ -124,9 +124,14 @@ def prepare_residual_successor_review(
         not isinstance(counts, dict)
         or type(counts.get("create")) is not int
         or counts["create"] <= 0
-        or any(counts.get(action, 0) != 0 for action in ("update", "replace", "delete"))
+        or any(counts.get(action, 0) != 0 for action in ("update", "delete"))
+        or type(counts.get("replace", 0)) is not int
+        or counts.get("replace", 0) not in {0, 1}
+        or (counts.get("replace", 0) == 1 and stage != "application")
     ):
-        raise ValueError("standalone residual successor must contain create actions only")
+        raise ValueError(
+            "standalone residual successor must contain creates and at most one application replacement"
+        )
     review: dict[str, object] = {
         "schema_version": "fdai.standalone-application-plan.v1",
         "stage": stage,
@@ -310,13 +315,12 @@ def _validate_review(
         residual_review=residual_review,
         residual_claim=residual_claim,
     )
-    validated_stage, destructive = validate_plan_review(
+    validated_stage, _destructive = validate_plan_review(
         successor_review, allow_expired=allow_expired
     )
     binding = successor_review.get("residual_successor")
     if (
         validated_stage != stage
-        or destructive
         or successor_review.get("target_binding") != context.get("target_binding")
         or successor_review.get("source_commit") != context.get("source_commit")
         or _runtime_profile_digest(successor_review) != _runtime_profile_digest(context)

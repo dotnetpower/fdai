@@ -127,8 +127,9 @@ Application preparation also rereads the backend network security group after AK
 effects. If an ambiguous application apply retained an empty `backend_nsg_id` and authoritative
 readback now supplies the sole changed value, the managed host records a distinct input-rebind
 claim and receipt before replacing the local Terraform variable. The original and residual claims
-remain immutable. Only a new create-only residual successor can consume the rebound input; any
-other field change remains blocked.
+remain immutable. Only a new residual successor can consume the rebound input. It may retain the
+same single application Deployment replacement when a new exact destructive confirmation approves
+the successor plan; every other replacement and field change remains blocked.
 
 | Axis | Supported values | Default | Meaning |
 |------|------------------|---------|---------|
