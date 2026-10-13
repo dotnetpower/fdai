@@ -162,6 +162,9 @@ from fdai_deployment_cli.standalone_residual_apply import (
 from fdai_deployment_cli.standalone_residual_successor import (
     successor_prerequisite_verified as _residual_successor_prerequisite,
 )
+from fdai_deployment_cli.standalone_service_update_recovery import (
+    partial_core_update_admissible,
+)
 from fdai_deployment_cli.standalone_stage_targets import (
     database_placement as _database_placement,
 )
@@ -1212,9 +1215,9 @@ def _prepare_aks_service_update(args: argparse.Namespace, work_dir: Path) -> dic
     context = _private_json(work_dir / "context.json", "standalone host context")
     if _runtime_platform(context) != "aks":
         raise ValueError("AKS service update requires an AKS installation")
-    _require_aks_application_baseline(work_dir, context)
-    _managed_identity_login_from_context(context, work_dir)
     service = str(args.service)
+    _require_aks_application_baseline(work_dir, context, service=service)
+    _managed_identity_login_from_context(context, work_dir)
     values = _private_json(work_dir / "workloads.auto.tfvars.json", "AKS workload variables")
     workloads = _mapping(values.get("workloads"), "AKS workloads")
     expected = _mapping(context.get("expected_workloads"), "expected AKS workloads")
@@ -1768,8 +1771,15 @@ def _adoption_work_path(
     return path
 
 
-def _require_aks_application_baseline(work_dir: Path, context: dict[str, object]) -> None:
+def _require_aks_application_baseline(
+    work_dir: Path,
+    context: dict[str, object],
+    *,
+    service: str | None = None,
+) -> None:
     if (work_dir / "application-receipt.json").is_file():
+        return
+    if partial_core_update_admissible(work_dir, context, service=service):
         return
     path = work_dir / "historical-aks-application-adoption-receipt.json"
     if not path.is_file():
@@ -3109,9 +3119,9 @@ def _service_update_context(args: argparse.Namespace, work_dir: Path) -> dict[st
     context = _private_json(work_dir / "context.json", "standalone host context")
     if _runtime_platform(context) != "aks":
         raise ValueError("source service update requires an applied AKS application baseline")
-    _require_aks_application_baseline(work_dir, context)
-    _require_source_service_update_dev_environment(work_dir)
     service = str(args.service)
+    _require_aks_application_baseline(work_dir, context, service=service)
+    _require_source_service_update_dev_environment(work_dir)
     expected = _mapping(context.get("expected_workloads"), "expected AKS workloads")
     selected = _mapping(expected.get(service), f"expected AKS workload {service}")
     active = context.get("active_service_update")

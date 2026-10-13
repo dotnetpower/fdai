@@ -130,6 +130,11 @@ claim and receipt before replacing the local Terraform variable. The original an
 remain immutable. Only a new residual successor can consume the rebound input. It may retain the
 same single application Deployment replacement when a new exact destructive confirmation approves
 the successor plan; every other replacement and field change remains blocked.
+A partial development baseline may then admit a source update for Core only when the original,
+residual, successor, and NSG-rebind evidence forms one exact chain and the successor contains only
+the reviewed Core replacement plus bounded HPA and gateway-rule creates. Peer services, broader
+application planning, and every other service update still require an applied or adopted complete
+application receipt.
 
 | Axis | Supported values | Default | Meaning |
 |------|------------------|---------|---------|

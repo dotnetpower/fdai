@@ -1,0 +1,99 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from fdai_deployment_cli.contracts import canonical_digest
+from fdai_deployment_cli.standalone_service_update_recovery import (
+    partial_core_update_admissible,
+)
+
+
+def _write(path: Path, value: dict[str, object]) -> None:
+    path.write_text(json.dumps(value), encoding="utf-8")
+    path.chmod(0o600)
+
+
+def _recovery(work_dir: Path) -> dict[str, object]:
+    original = {
+        "schema_version": "fdai.standalone-application-claim.v1",
+        "stage": "application",
+    }
+    residual_review = {
+        "schema_version": "fdai.standalone-application-plan.v1",
+        "stage": "application",
+        "plan_digest": "a" * 64,
+    }
+    residual = {
+        "schema_version": "fdai.standalone-residual-claim.v1",
+        "stage": "application",
+    }
+    successor_review = {
+        "schema_version": "fdai.standalone-application-plan.v1",
+        "stage": "application",
+        "source_commit": "b" * 40,
+        "plan_digest": "c" * 64,
+        "residual_successor": {
+            "original_claim_digest": canonical_digest(original),
+            "residual_plan_digest": residual_review["plan_digest"],
+            "residual_claim_digest": canonical_digest(residual),
+        },
+        "summary": {
+            "resource_changes": [
+                {
+                    "address": 'kubernetes_deployment_v1.workload["core-control-plane"]',
+                    "actions": ["delete", "create"],
+                },
+                {
+                    "address": 'kubernetes_horizontal_pod_autoscaler_v2.workload["core-control-plane"]',
+                    "actions": ["create"],
+                },
+            ]
+        },
+    }
+    successor = {
+        "schema_version": "fdai.standalone-residual-successor-claim.v1",
+        "stage": "application",
+        "plan_digest": successor_review["plan_digest"],
+        "original_claim_digest": canonical_digest(original),
+        "residual_claim_digest": canonical_digest(residual),
+    }
+    rebind = {
+        "schema_version": "fdai.application-input-rebind-receipt.v1",
+        "field": "browser_gateway.backend_nsg_id",
+        "mutation_performed": True,
+    }
+    rebind["receipt_digest"] = canonical_digest(rebind)
+    for name, value in (
+        ("application-claim.json", original),
+        ("application-residual-review.json", residual_review),
+        ("application-residual-claim.json", residual),
+        ("application-residual-successor-review.json", successor_review),
+        ("application-residual-successor-claim.json", successor),
+        ("application-input-rebind-receipt.json", rebind),
+    ):
+        _write(work_dir / name, value)
+    return {"source_commit": "b" * 40}
+
+
+def test_partial_core_update_accepts_exact_failed_application_recovery(
+    tmp_path: Path,
+) -> None:
+    tmp_path.chmod(0o700)
+    context = _recovery(tmp_path)
+
+    assert partial_core_update_admissible(tmp_path, context, service="core-control-plane")
+    assert not partial_core_update_admissible(tmp_path, context, service="operator-service")
+
+
+def test_partial_core_update_rejects_unreviewed_change(tmp_path: Path) -> None:
+    tmp_path.chmod(0o700)
+    context = _recovery(tmp_path)
+    review_path = tmp_path / "application-residual-successor-review.json"
+    review = json.loads(review_path.read_text())
+    review["summary"]["resource_changes"].append(
+        {"address": "kubernetes_service_v1.workload", "actions": ["update"]}
+    )
+    _write(review_path, review)
+
+    assert not partial_core_update_admissible(tmp_path, context, service="core-control-plane")
