@@ -87,6 +87,10 @@ Host preparation runs exactly one host subcommand: `prepare --kit` for a signed 
 the host's own parser in both modes, because a rejected command fails before the host records any
 reason.
 Both profiles package Core's locked Kubernetes quantity utility for read-side resource accounting. This dependency neither chooses a runtime nor grants Kubernetes access, proves node fit, or enables Cost Governance; the standalone deployment CLI retains its independent dependency set. Runtime Dockerfile Alpine package pin updates are package maintenance only and do not change profiles, authority, provider access, or add-ons.
+The three source-built OPA binaries also disable Go's experimental JSON v2 encoder. OPA's reviewed
+AST JSON contract depends on the v1 encoder; enabling JSON v2 converts AST objects into formatted
+source strings and blocks catalog projection. This build setting changes neither Rego semantics nor
+runtime authority.
 
 The deployment CLI also carries pure, shadow-only checks for future Hub-managed Lifecycle Plans.
 Those checks evaluate local Plan admission and blocking constraints against already parsed inputs,

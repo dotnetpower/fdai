@@ -1,8 +1,8 @@
 ---
 title: 벤치마크 어댑터
 translation_of: benchmark-adapters.md
-translation_source_sha: 24032e9529fb843c8f6456c7ca6a7cedd0710de2
-translation_revised: 2026-10-09
+translation_source_sha: 58c8bb189fea9568f0522dece76eb92ab96b9467
+translation_revised: 2026-10-13
 ---
 
 # 벤치마크 어댑터
@@ -447,7 +447,8 @@ digest-pinned Go toolchain 위에서 취약한 전이 모듈을 핀 고정한 �
 핀과 각 모듈 override는 advisory 피드에 결함이 보고되면 올리며, 빌드가 결과 모듈 버전을
 단언합니다. 따라서 스캔된 이미지가 알려진 취약 의존성을 실어 나르지 않습니다. Core, Cost
 Governance, SREGym Dockerfile은 이러한 OPA override 핀을 동일하게 유지하며, 집중 정합성 검사는
-오래된 모듈 버전이 특정 이미지 프로필에 다시 포함되는 것을 차단합니다. 검토된
+오래된 모듈 버전이 특정 이미지 프로필에 다시 포함되는 것을 차단합니다. 또한 검토된 OPA AST
+JSON 계약이 v1 encoder를 요구하므로 Go의 실험적 JSON v2 encoder를 비활성화합니다. 검토된
 `golang.org/x/crypto` 재정의는 `v0.57.0`입니다. 컴파일러와 HTTP/2 의존성 고정값은
 [Runtime Deployment Profiles](../deployment/runtime-deployment-profiles-ko.md)를 따릅니다.
 

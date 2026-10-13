@@ -112,6 +112,7 @@ def test_container_opa_build_overrides_vulnerable_go_modules() -> None:
         assert "ARG OPA_GO_VERSION=go1.27.2" in content, path
         assert "ARG OPA_X_NET_VERSION=v0.60.0" in content, path
         assert "ENV GOTOOLCHAIN=local" in content, path
+        assert "GOEXPERIMENT=nojsonv2" in content, path
         assert (
             "golang@sha256:85dc1069ac644ea3c527b177303a406eb3358192816cd7f9e5848eb658851673"
             in content
