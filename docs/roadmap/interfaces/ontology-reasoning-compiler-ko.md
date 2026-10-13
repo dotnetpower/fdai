@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-reasoning-compiler.md
-translation_source_sha: 674a01f7d6c315ec38f9cb6ef7126f5919f6c931
-translation_revised: 2026-10-10
+translation_source_sha: d9dfea3d85be168346209a48edfd7cea29e10517
+translation_revised: 2026-10-13
 ---
 # 온톨로지 추론 컴파일러
 
@@ -839,6 +839,11 @@ release는 바뀌지 않습니다.
 reader를 요구하고 현재 상태 조회로는 답하지 않게 하며, V-PROV는 개념이 그 바인딩에서 왔는지 확인하고 기간을
 다시 계산합니다. 근거화되지 않은 지표, 한 번에 읽을 수 있는 수보다 많은 개념, 범위를 벗어난 기간은 타입이
 지정된 지원되지 않음 이유를 돌려주며, 제공자가 그 Resource에 대해 읽지 못한 지표는 불완전으로 남습니다.
+
+검토된 지표 분류 레시피에서는 컴파일러가 레시피에 지정된 조회 구간을 적용할 수 있습니다.
+컴파일된 답변 선택은 모든 묶음의 프레임이 일치하는 `window.recipe.<seconds>` 안내를 요구할 때만
+`recipe_window_applied:<seconds>`를 수락합니다. 구간 안내가 다르거나 없으면 답변을 계속 보류하며,
+이 연결은 검증이나 실행 권한을 바꾸지 않습니다.
 
 **Resource Health 필터**
 
