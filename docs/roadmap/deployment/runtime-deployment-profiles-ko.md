@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 8c58758e4617d5cab294cceff4be340161b7157a
-translation_revised: 2026-10-13
+translation_source_sha: f450882a11bd34e4f999065403c0b6fbf4855c35
+translation_revised: 2026-10-14
 ---
 # 런타임 배포 프로파일
 
@@ -507,6 +507,10 @@ AKS 기본 구성은 analyzer, canary, inventory, observation campaign, operatio
 CronJob을 렌더링합니다. 이력 작업은 읽기 전용 inventory 신원, 서비스 소유 상태 DSN, 비공개
 archive URL을 고정 `shadow` 모드로 사용합니다. Non-shadow lifecycle은 별도의 보호된 전환과
 정확히 저장된 인증 증적을 요구하며 런타임 선택은 어느 권한도 부여하지 않습니다.
+Core와 canary CronJob은 동일한 고정 canary topic을 받습니다. Core는 보조 전송을 통해 이
+topic을 사용하고 신뢰할 수 있는 canary를 `shadow` no-op으로 기록합니다. 따라서 consumer가
+연결되지 않은 상태에서 publisher Job만 성공한 결과를 end-to-end canary 성공으로 오인하지
+않습니다.
 목적별 `aks_workload_jobs.py` 모듈이 순수 scheduled-job assembly를 소유합니다. Managed Host는 orchestration만 유지하며 이 소유권 분리는 렌더링된 Job, identity, schedule 또는 authority를 변경하지 않습니다.
 분석기 작업은 결과가 불확실한 발행을 대조할 때 기존 인벤토리 신원으로 정확한 수집 Event Hub만
 읽습니다. 새 토픽 범위 수신자 역할에는 쓰기, 배포 또는 실행 권한이 없으며, 역할 선언만으로
