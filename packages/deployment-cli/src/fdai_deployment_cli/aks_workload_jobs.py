@@ -20,6 +20,7 @@ _AKS_RESOURCE_ID = re.compile(
     re.IGNORECASE,
 )
 _SERVICE_ACCOUNT_ROOT = "/var/run/secrets/kubernetes.io/serviceaccount"
+AKS_CANARY_TOPIC = "fdai.control.canary"
 
 
 @dataclass(frozen=True, slots=True)
@@ -116,7 +117,7 @@ def prepare_aks_scheduled_jobs(
             {
                 "AZURE_CLIENT_ID": canary_identity["client_id"],
                 "KAFKA_BOOTSTRAP_SERVERS": substrate_outputs["operational_kafka"],
-                "FDAI_CANARY_TOPIC": "fdai.control.canary",
+                "FDAI_CANARY_TOPIC": AKS_CANARY_TOPIC,
                 "FDAI_MI_CLIENT_ID": canary_identity["client_id"],
             },
             {},

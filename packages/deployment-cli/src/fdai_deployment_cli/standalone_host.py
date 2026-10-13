@@ -29,6 +29,7 @@ from fdai_deployment_cli import (
 )
 from fdai_deployment_cli import foundation_adoption_host as foundation_host
 from fdai_deployment_cli import operational_evidence_verifier_input as oev
+from fdai_deployment_cli import standalone_service_update_recovery as service_recovery
 from fdai_deployment_cli.aks_historical_reconciliation import (
     reconciled_variables,
     secret_binding_reordered,
@@ -70,14 +71,21 @@ from fdai_deployment_cli.standalone_aks_inventory import (
 from fdai_deployment_cli.standalone_aks_nodepool_guard import (
     guard_existing_runtime_node_pools as _guard_existing_runtime_node_pools,
 )
+from fdai_deployment_cli.standalone_application_input_recovery import (
+    bind_authoritative_backend_nsg,
+)
+from fdai_deployment_cli.standalone_application_input_recovery import (
+    successor_prerequisite_verified as _application_successor_prerequisite,
+)
 from fdai_deployment_cli.standalone_catalog_review import run_catalog_review
-from fdai_deployment_cli.standalone_database_principals import database_reader_principals
 from fdai_deployment_cli.standalone_checkpoint_failure import (
     failure_record as _failure_record,
 )
 from fdai_deployment_cli.standalone_checkpoint_failure import (
     terraform_failure as _terraform_failure,
 )
+from fdai_deployment_cli.standalone_database_principals import database_reader_principals
+from fdai_deployment_cli.standalone_host_residual import apply_residual_checkpoint
 from fdai_deployment_cli.standalone_host_state import (
     absolute as _absolute,
 )
@@ -141,28 +149,26 @@ from fdai_deployment_cli.standalone_operational_evidence import (
     add_aks_operational_evidence_verifier_workload as _add_aks_operational_evidence_verifier_workload,
 )
 from fdai_deployment_cli.standalone_operational_evidence import aks_workload as _aks_workload
+from fdai_deployment_cli.standalone_private_access_probe import wait_for_private_data_planes
 from fdai_deployment_cli.standalone_product_profile import (
     context_selects_add_on as _selects_add_on,
 )
 from fdai_deployment_cli.standalone_product_profile import product_terraform_values
-from fdai_deployment_cli.standalone_application_input_recovery import (
-    bind_authoritative_backend_nsg,
-)
-from fdai_deployment_cli.standalone_application_input_recovery import (
-    successor_prerequisite_verified as _application_successor_prerequisite,
-)
-from fdai_deployment_cli.standalone_private_access_probe import wait_for_private_data_planes
-from fdai_deployment_cli.standalone_host_residual import apply_residual_checkpoint
 from fdai_deployment_cli.standalone_residual_apply import (
     prepare_residual_review as _prepare_residual_review,
+)
+from fdai_deployment_cli.standalone_residual_apply import (
     recover_residual_apply as _recover_residual_apply,
+)
+from fdai_deployment_cli.standalone_residual_apply import (
     residual_claim_exists as _residual_claim_exists,
+)
+from fdai_deployment_cli.standalone_residual_apply import (
     seal_terraform_plan as _seal_terraform_plan,
 )
 from fdai_deployment_cli.standalone_residual_successor import (
     successor_prerequisite_verified as _residual_successor_prerequisite,
 )
-from fdai_deployment_cli import standalone_service_update_recovery as service_recovery
 from fdai_deployment_cli.standalone_stage_targets import (
     database_placement as _database_placement,
 )
@@ -1002,27 +1008,15 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     canary_identity = _mapping(identities.get("canary"), "canary runtime identity")
     ingestion_identity = _selected_identity(identities, "ingestion", console_selected)
     ingestion_worker_identity = _selected_identity(identities, "ingestion_worker", console_selected)
-    core_environment = {
-        "AZURE_TENANT_ID": context["tenant_id"],
-        "AZURE_SUBSCRIPTION_ID": context["subscription_id"],
-        "AZURE_RESOURCE_GROUP": resource_group,
-        "AZURE_REGION": application_values["region"],
-        "AZURE_CLIENT_ID": core_identity["client_id"],
-        "KAFKA_BOOTSTRAP_SERVERS": substrate_outputs["kafka"],
-        "KAFKA_TOPIC_EVENTS": str(topics[0]),
-        "POSTGRES_HOST": substrate_outputs["postgres_fqdn"],
-        "POSTGRES_DATABASE": substrate_outputs["postgres_database"],
-        "RUNTIME_ENV": application_values["env"],
-        "AUTONOMY_MODE_DEFAULT": "shadow",
-        "FDAI_MONITOR_WORKSPACE_ID": substrate_outputs["workspace"],
-        "FDAI_OPERATING_MODEL_TOPIC": substrate_outputs["operating_model_topic"],
-        "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS": substrate_outputs["operational_kafka"],
-        "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER": "1",
-        "FDAI_PRODUCT_PROFILE_JSON": str(application_values["product_profile_json"]),
-        "FDAI_START_CONSUMER": "1",
-        "FDAI_INSTALLATION_BINDING": str(substrate_outputs["installation_binding"]),
-        "FDAI_LICENSE_DEPLOYMENT_BINDING": deployment_binding,
-    }
+    core_environment = standalone_host_values.aks_core_environment(
+        context=context,
+        application_values=application_values,
+        substrate_outputs=substrate_outputs,
+        resource_group=resource_group,
+        core_identity=core_identity,
+        topics=topics,
+        deployment_binding=deployment_binding,
+    )
     core_environment.update(
         _aks_core_conversation_environment(
             application_values=application_values,
