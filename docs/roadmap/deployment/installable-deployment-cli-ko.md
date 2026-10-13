@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: a3f0fa867ea2c3ac9093626a18a02275662a8e0f
+translation_source_sha: c29550fb46810725fba317234d26e4b0e5d4fe55
 translation_revised: 2026-10-13
 ---
 
@@ -585,6 +585,8 @@ Rich를 사용하며, 잠긴 의존성은 기존 오프라인 wheel 모음 내�
 redirect 두 개를 보존합니다. Microsoft Graph는 redirect 순서를 보존하지 않고 쓰기 직후 읽기
 일관성을 보장하지 않으므로, 효과 확인은 제출한 redirect 집합이 순서와 무관하게 정확히
 일치하는지를 5초 간격으로 최대 6번 읽어 확인합니다.
+redirect 등록은 기존 설치에 남은 고정 SPA 이름 또는 범위가 지정된 설치의 정확한 대상 바인딩
+SPA 이름만 허용합니다. 그 밖의 표시 이름은 Graph 쓰기 전에 실행을 중단합니다.
 
 공개 CLI는 `deploy plan`, `deploy apply` 또는 `deploy status`를 등록하지 않습니다. 이 명령들은
 이전에 GitHub workflow를 dispatch했으며 standalone 배포 계약에 포함되지 않습니다. 실제

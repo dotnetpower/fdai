@@ -599,6 +599,9 @@ installation adds only its exact Static Web Apps origin to its own SPA registrat
 the two fixed loopback redirects. Microsoft Graph neither preserves
 redirect order nor guarantees read-after-write consistency, so the effect check requires the exact
 submitted redirect set, in any order, within six reads taken five seconds apart.
+Redirect registration accepts the retained fixed SPA name for an existing installation or the
+exact target-bound SPA name for a scoped installation. Any other display name stops before a
+Graph write.
 
 The public CLI does not register `deploy plan`, `deploy apply`, or `deploy status`. Those commands
 previously dispatched GitHub workflows and are not part of the standalone deployment contract.

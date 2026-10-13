@@ -318,7 +318,9 @@ def ensure_console_spa_redirect(spa_client_id: str, console_origin: str) -> bool
     if _GUID.fullmatch(spa_client_id) is None or _SWA_ORIGIN.fullmatch(console_origin) is None:
         raise ValueError("Console SPA redirect binding is invalid")
     app = _app(spa_client_id)
-    _validate_app("fdai-console-spa", app)
+    spa_display_name = str(app.get("displayName", ""))
+    _require_spa_display_name(spa_display_name)
+    _validate_app(spa_display_name, app)
     if str(app.get("appId", "")).casefold() != spa_client_id.casefold():
         raise ValueError("Console SPA application readback differs")
     object_id = str(app.get("id", ""))

@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 07abba26380b8aef3c89724b54b8cc6b324ab366
+translation_source_sha: ef88cec38c8666af669be225fde5ba04a5937c0a
 translation_revised: 2026-10-13
 ---
 # FDAI Console 대화
@@ -15,6 +15,8 @@ Workflow Builder 저장은 이제 커밋된 Operator 레코드를 반환합니�
 테넌트 API, approval bot, 사람 역할 그룹은 계속 공유합니다. 각 설치는 완전한 대상 바인딩에서
 자신의 Console SPA 등록을 파생하므로 해당 배포 runner는 그 설치의 Static Web Apps
 redirect와 고정된 loopback redirect만 소유합니다.
+redirect 등록은 남아 있는 legacy SPA 이름 또는 정확한 대상 바인딩 SPA 이름만 허용하며, 그
+밖의 표시 이름은 Graph 쓰기 전에 실행을 중단합니다.
 Console 텍스트는 WCAG 2.1 AA 대비를 충족합니다. 보조 텍스트와 상태 텍스트 역할은 각 표면에서 4.5:1 이상을 유지합니다. 표의 행 버튼은 세부 영역이 렌더링된 동안에만 `aria-controls`로 그 영역을 참조하며, 가로로 스크롤될 수 있는 표는 Scope 축 표처럼 포커스할 수 있는 이름 있는 영역을 선택적으로 사용합니다. 등록된 55개 경로 전체를 대상으로, 실행 중인 Console에 동일한 CSS를 주입하여 인증된 Browser Entra axe-core 점검을 한 차례 수행해 이 규칙이 해결하는 대비 문제를 찾았습니다. `aria-controls` 변경은 단위 테스트로 확인하고, 스크롤 영역 선택 사용에는 아직 자동 테스트가 없으며, 사람의 보조 기술 검토는 별도입니다.
 지식 > GitHub는 이제 [통제된 읽기 전용 연결 절차](../../runbooks/knowledge-github-sources-ko.md)를
 제공합니다. Owner는 별칭, 저장소 위치, 자격 증명 참조 및 예상 버전을 제출합니다.
