@@ -561,14 +561,21 @@ def test_read_entra_bindings_rejects_missing_attachment_role(monkeypatch) -> Non
         genesis_entra.read_entra_bindings()
 
 
-def test_console_spa_redirect_preserves_existing_values_and_verifies(monkeypatch) -> None:
+@pytest.mark.parametrize(
+    "display_name",
+    ["fdai-console-spa", f"fdai-console-spa-{'a' * 64}"],
+)
+def test_console_spa_redirect_preserves_existing_values_and_verifies(
+    monkeypatch,
+    display_name: str,
+) -> None:
     client_id = "00000000-0000-0000-0000-000000000001"
     object_id = "00000000-0000-0000-0000-000000000002"
     origin = "https://calm-field-012345678.3.azurestaticapps.net"
     app = {
         "id": object_id,
         "appId": client_id,
-        "displayName": "fdai-console-spa",
+        "displayName": display_name,
         "signInAudience": "AzureADMyOrg",
         "spa": {"redirectUris": ["http://localhost:5273"]},
     }
