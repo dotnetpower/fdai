@@ -162,9 +162,7 @@ from fdai_deployment_cli.standalone_residual_apply import (
 from fdai_deployment_cli.standalone_residual_successor import (
     successor_prerequisite_verified as _residual_successor_prerequisite,
 )
-from fdai_deployment_cli.standalone_service_update_recovery import (
-    partial_core_update_admissible,
-)
+from fdai_deployment_cli import standalone_service_update_recovery as service_recovery
 from fdai_deployment_cli.standalone_stage_targets import (
     database_placement as _database_placement,
 )
@@ -1779,7 +1777,7 @@ def _require_aks_application_baseline(
 ) -> None:
     if (work_dir / "application-receipt.json").is_file():
         return
-    if partial_core_update_admissible(work_dir, context, service=service):
+    if service_recovery.partial_core_update_admissible(work_dir, context, service=service):
         return
     path = work_dir / "historical-aks-application-adoption-receipt.json"
     if not path.is_file():
@@ -2390,7 +2388,7 @@ def _plan(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     value = json.loads(show)
     summary = _plan_summary(value)
     if update is not None:
-        validate_plan_scope(summary, service=str(update["service"]))
+        service_recovery.validate_service_update_plan(summary, work_dir, context, update)
     digest = _file_digest(plan_path)
     review: dict[str, object] = {
         "schema_version": "fdai.standalone-application-plan.v1",

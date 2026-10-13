@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from fdai_deployment_cli.aks_service_update import validate_plan_scope
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.standalone_host_state import private_json
 
@@ -85,4 +86,26 @@ def partial_core_update_admissible(
         and observed.get(_CORE) == ("delete", "create")
         and set(observed).issubset(_ALLOWED_CHANGES)
         and all(observed[address] == _ALLOWED_CHANGES[address] for address in observed)
+    )
+
+
+def validate_service_update_plan(
+    summary: dict[str, object],
+    work_dir: Path,
+    context: dict[str, object],
+    update: dict[str, object],
+) -> None:
+    """Apply the ordinary or recovery-specific selected Deployment scope."""
+
+    service = update.get("service")
+    if not isinstance(service, str):
+        raise ValueError("AKS service update plan service is invalid")
+    validate_plan_scope(
+        summary,
+        service=service,
+        allow_replacement=partial_core_update_admissible(
+            work_dir,
+            context,
+            service=service,
+        ),
     )

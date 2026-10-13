@@ -135,6 +135,9 @@ residual, successor, and NSG-rebind evidence forms one exact chain and the succe
 the reviewed Core replacement plus bounded HPA and gateway-rule creates. Peer services, broader
 application planning, and every other service update still require an applied or adopted complete
 application receipt.
+That Core-only update may use one replacement plan only when the same partial-recovery admission
+is revalidated while planning. The selected Core Deployment is the sole mutable address; peer
+Deployments, Services, HPAs, namespaces, and every other resource remain out of scope.
 
 | Axis | Supported values | Default | Meaning |
 |------|------------------|---------|---------|
