@@ -124,7 +124,6 @@
       "role": "역할"
     },
     "empty": "이 필터와 일치하는 기능이 없습니다",
-    "tableAria": "기능 디렉터리",
     "openRow": "{name} 열기",
     "unregistered": "기능 {id}이(가) 등록되지 않았습니다.",
     "detail": {
