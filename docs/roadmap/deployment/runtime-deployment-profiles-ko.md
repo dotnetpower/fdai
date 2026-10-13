@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: b0fbfc02ffe5da02b033ccdbfe4ef4eeb47e5cfb
+translation_source_sha: f77eed9b5fae791d8b01cc3814b48c78994c374b
 translation_revised: 2026-10-13
 ---
 # 런타임 배포 프로파일
@@ -121,6 +121,10 @@ Managed Identity로 AKS agent pool을 다시 조회합니다. `runtime` 사용�
 재결속된 입력을 사용할 수 있습니다. 새 exact destructive 확인이 successor plan을
 승인하면 같은 애플리케이션 Deployment 교체 하나는 유지할 수 있습니다. 그 밖의 교체와 필드
 변경은 계속 차단됩니다.
+부분 완료된 개발 baseline은 원래 claim, residual, successor, NSG 재결속 근거가 하나의 정확한
+체인을 이루고 successor가 검토된 Core 교체와 범위가 제한된 HPA 및 gateway rule 생성만 포함할
+때에만 Core 소스 업데이트를 허용할 수 있습니다. peer 서비스, 더 넓은 애플리케이션 계획, 다른
+모든 서비스 업데이트에는 여전히 적용 또는 채택이 완료된 애플리케이션 증적이 필요합니다.
 
 | 축 | 지원 값 | 기본값 | 의미 |
 |----|---------|--------|------|
