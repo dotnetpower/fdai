@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 82146515cc7aaa4b768e0018b8537b39f96b0a28
+translation_source_sha: 9cc8333981801542a0c402e8df172ac547e77193
 translation_revised: 2026-10-13
 ---
 # 런타임 배포 프로파일
@@ -131,6 +131,10 @@ Managed Identity로 AKS agent pool을 다시 조회합니다. `runtime` 사용�
 이 Core 전용 업데이트는 계획할 때 같은 부분 복구 허용을 다시 검증한 경우에만 교체 plan 하나를
 사용할 수 있습니다. 선택된 Core Deployment만 변경 가능한 주소이며 peer Deployment, Service,
 HPA, namespace와 그 밖의 모든 리소스는 범위 밖으로 유지됩니다.
+그 exact Core 전용 업데이트가 claim된 뒤 수렴하지 않으면 repair 하나가 새 source commit과 image
+digest로 이를 대체할 수 있습니다. repair 기록은 실패한 update digest를 결속하고 선택된
+Deployment의 새 plan과 승인을 요구하며, repair 자체는 다시 대체할 수 없습니다. peer 서비스와 더
+넓은 애플리케이션 복구는 계속 차단됩니다.
 
 | 축 | 지원 값 | 기본값 | 의미 |
 |----|---------|--------|------|

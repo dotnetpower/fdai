@@ -1221,11 +1221,9 @@ def _prepare_aks_service_update(args: argparse.Namespace, work_dir: Path) -> dic
     expected = _mapping(context.get("expected_workloads"), "expected AKS workloads")
     if set(workloads) != set(expected) or service not in workloads:
         raise ValueError("AKS service update workload inventory is incomplete")
-    active = context.get("active_service_update")
-    if isinstance(active, dict):
-        operation = active.get("operation")
-        if not isinstance(operation, str) or not (work_dir / f"{operation}-receipt.json").is_file():
-            raise ValueError("AKS service update already has an incomplete active operation")
+    superseded_update_digest = service_recovery.superseded_update_digest(
+        work_dir, context, service=service
+    )
     default_source = str(context.get("source_commit", ""))
     for name, workload_value in workloads.items():
         workload = _mapping(workload_value, f"AKS workload {name}")
@@ -1282,6 +1280,8 @@ def _prepare_aks_service_update(args: argparse.Namespace, work_dir: Path) -> dic
         "mutation_performed": False,
         "subscription_ready": False,
     }
+    if superseded_update_digest is not None:
+        record["superseded_update_digest"] = superseded_update_digest
     record["update_digest"] = canonical_digest(record)
     _replace_private_json(work_dir / f"{operation}.json", record)
     context["expected_workloads"] = expected
@@ -1951,6 +1951,7 @@ def _service_update_record(
         or not isinstance(record.get("baseline"), dict)
     ):
         raise ValueError("active AKS service update record is invalid")
+    service_recovery.validate_repair_binding(record)
     image = record.get("image")
     source_commit = record.get("source_commit")
     previous_image = record.get("previous_image")

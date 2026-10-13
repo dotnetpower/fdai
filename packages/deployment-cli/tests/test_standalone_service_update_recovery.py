@@ -5,6 +5,7 @@ from pathlib import Path
 
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.standalone_service_update_recovery import (
+    failed_core_update_repair_digest,
     partial_core_update_admissible,
 )
 
@@ -97,3 +98,67 @@ def test_partial_core_update_rejects_unreviewed_change(tmp_path: Path) -> None:
     _write(review_path, review)
 
     assert not partial_core_update_admissible(tmp_path, context, service="core-control-plane")
+
+
+def test_failed_core_update_allows_one_exact_repair(tmp_path: Path) -> None:
+    tmp_path.chmod(0o700)
+    context = _recovery(tmp_path)
+    operation = "service-update-core-control-plane-aaaaaaaaaaaa"
+    record = {
+        "schema_version": "fdai.aks-service-update.v1",
+        "service": "core-control-plane",
+        "operation": operation,
+        "baseline": {},
+    }
+    record["update_digest"] = canonical_digest(record)
+    context["active_service_update"] = {
+        "operation": operation,
+        "service": "core-control-plane",
+        "update_digest": record["update_digest"],
+    }
+    review = {
+        "schema_version": "fdai.standalone-application-plan.v1",
+        "plan_digest": "d" * 64,
+        "summary": {
+            "action_counts": {
+                "create": 0,
+                "delete": 0,
+                "no-op": 1,
+                "read": 0,
+                "replace": 1,
+                "update": 0,
+            }
+        },
+    }
+    claim = {
+        "schema_version": "fdai.standalone-application-claim.v1",
+        "stage": "application",
+        "plan_digest": review["plan_digest"],
+    }
+    _write(tmp_path / f"{operation}.json", record)
+    _write(tmp_path / f"{operation}-review.json", review)
+    _write(tmp_path / f"{operation}-claim.json", claim)
+
+    assert (
+        failed_core_update_repair_digest(
+            tmp_path,
+            context,
+            service="core-control-plane",
+        )
+        == record["update_digest"]
+    )
+
+    record["superseded_update_digest"] = record["update_digest"]
+    record["update_digest"] = canonical_digest(
+        {key: value for key, value in record.items() if key != "update_digest"}
+    )
+    context["active_service_update"]["update_digest"] = record["update_digest"]  # type: ignore[index]
+    _write(tmp_path / f"{operation}.json", record)
+    assert (
+        failed_core_update_repair_digest(
+            tmp_path,
+            context,
+            service="core-control-plane",
+        )
+        is None
+    )
