@@ -198,3 +198,37 @@ def validate_repair_binding(record: dict[str, object]) -> None:
         or any(char not in "0123456789abcdef" for char in value)
     ):
         raise ValueError("active AKS service update repair binding is invalid")
+
+
+def source_image_import_paths(
+    work_dir: Path,
+    service: str,
+    source_commit: str,
+    image_digest: str,
+) -> tuple[Path, Path]:
+    """Preserve one legacy import while giving each later image an exact identity."""
+
+    prefix = f"source-image-import-{service}"
+    legacy_claim = work_dir / f"{prefix}-claim.json"
+    legacy_receipt = work_dir / f"{prefix}-receipt.json"
+    if not legacy_claim.exists() and not legacy_claim.is_symlink():
+        return legacy_claim, legacy_receipt
+    retained = private_json(legacy_claim, "source service image import claim")
+    if (
+        retained.get("source_commit") == source_commit
+        and retained.get("image_digest") == image_digest
+    ):
+        return legacy_claim, legacy_receipt
+    if not legacy_receipt.is_file() or legacy_receipt.is_symlink():
+        return legacy_claim, legacy_receipt
+    identity = canonical_digest(
+        {
+            "service": service,
+            "source_commit": source_commit,
+            "image_digest": image_digest,
+        }
+    )[:12]
+    return (
+        work_dir / f"{prefix}-{identity}-claim.json",
+        work_dir / f"{prefix}-{identity}-receipt.json",
+    )

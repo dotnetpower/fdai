@@ -7,6 +7,7 @@ from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.standalone_service_update_recovery import (
     failed_core_update_repair_digest,
     partial_core_update_admissible,
+    source_image_import_paths,
 )
 
 
@@ -162,3 +163,44 @@ def test_failed_core_update_allows_one_exact_repair(tmp_path: Path) -> None:
         )
         is None
     )
+
+
+def test_later_source_image_uses_versioned_import_identity(tmp_path: Path) -> None:
+    tmp_path.chmod(0o700)
+    service = "core-control-plane"
+    _write(
+        tmp_path / f"source-image-import-{service}-claim.json",
+        {"source_commit": "a" * 40, "image_digest": "sha256:" + "b" * 64},
+    )
+    _write(
+        tmp_path / f"source-image-import-{service}-receipt.json",
+        {"state": "imported"},
+    )
+
+    claim, receipt = source_image_import_paths(
+        tmp_path,
+        service=service,
+        source_commit="c" * 40,
+        image_digest="sha256:" + "d" * 64,
+    )
+
+    assert claim.name.startswith(f"source-image-import-{service}-")
+    assert claim.name.endswith("-claim.json")
+    assert receipt.name == claim.name.removesuffix("-claim.json") + "-receipt.json"
+
+
+def test_same_source_image_reuses_legacy_import_identity(tmp_path: Path) -> None:
+    tmp_path.chmod(0o700)
+    service = "core-control-plane"
+    commit = "a" * 40
+    digest = "sha256:" + "b" * 64
+    claim = tmp_path / f"source-image-import-{service}-claim.json"
+    receipt = tmp_path / f"source-image-import-{service}-receipt.json"
+    _write(claim, {"source_commit": commit, "image_digest": digest})
+
+    assert source_image_import_paths(
+        tmp_path,
+        service=service,
+        source_commit=commit,
+        image_digest=digest,
+    ) == (claim, receipt)
