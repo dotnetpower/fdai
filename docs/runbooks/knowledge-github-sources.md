@@ -13,20 +13,26 @@ Owner scan permission. Operator reads the durable record and never holds GitHub 
 
 ## Authority review
 
+Repository registration records an identity; it is not, by itself, a verified knowledge
+connection or scan consent. Connecting or disconnecting does not change runtime selection,
+Incident creation, approval, or managed-resource write authority.
+
 The initial proposal reused registration, which enables scanning. That would incorrectly turn
 knowledge read access into scan consent. The revised contract creates a disabled registration
 for a new knowledge source. Connecting an existing registration preserves its independently
 granted scan permission. Disconnecting knowledge only revokes knowledge access, not separately
 granted scan permission. A source cannot silently change its repository or credential reference.
 
+Both connect and disconnect require an authenticated Owner and an expected repository revision.
+Operator checks submission authority, and Core rechecks Owner authority before applying the request.
 Revision checks, safe-to-retry request identity (idempotency), and atomic state plus audit protect
 connection changes. Failed provider validation leaves the prior record unchanged. A queued
 request is not a verified connection; use Refresh to read the applied state.
 
 ## Configure access
 
-- **Public access:** Select anonymous public access. FDAI does not acquire a token and refuses a
-  provider response identifying the repository as private.
+- **Public access:** Select anonymous public access. FDAI does not acquire or borrow a configured
+  token and refuses a provider response identifying the repository as private.
 - **Private access:** Select the deployment GitHub App reference. Configure the existing
   `FDAI_GITHUB_APP_CLIENT_ID`, `FDAI_GITHUB_APP_INSTALLATION_ID`, and
   `FDAI_GITHUB_APP_PRIVATE_KEY` through deployment-owned secret injection. Never enter keys or
@@ -50,6 +56,16 @@ The connector verifies the current default branch and README. It does not claim 
 inventory, continuous synchronization, indexed citations, freshness beyond the recorded observation,
 or scan completion. Searchable ingestion remains subject to the existing agent-owned document
 admission and indexing workflow.
+
+## Read the connection response
+
+`GET /knowledge/github/sources` exposes recorded connection state and provenance, not credential
+bytes. `credential_reference` names the access mode; it does not contain a private key or token.
+The response keeps `knowledge_read_enabled` separate from scan permission (`enabled`), reports
+`gaps` and `complete` for the bounded projection, and returns `indexed: false`.
+An unavailable projection or incomplete evidence does not establish connection readiness.
+Stored provenance also does not prove current private-App access or an authenticated installed
+connect/readback lifecycle; retain that operational evidence separately.
 
 ## Next steps
 
