@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 68f12e6503e8eda971d14286490576a7f315fec6
-translation_revised: 2026-10-10
+translation_source_sha: bc01498ede176da3abee027a893a9b00f4ec84b5
+translation_revised: 2026-10-13
 ---
 # 온톨로지 구조 모델
 
@@ -471,6 +471,11 @@ Node가 Ready 상태라는 증거로 사용하지 않습니다.
 release는 소스에서 파생된 역량 FunctionType을 더하며 런타임 계획을 식별합니다. 운영 release는 항상
 거버넌스 release에 function 선언만 더한 것과 같으므로, 한 식별자에 바인딩하는 소비자는 두 다이제스트를
 서로 비교하지 않고 이 관계를 확인합니다.
+Rule 의미 변환은 지원되는 OPA binary의 두 가지 parse 계약을 모두 수용합니다. binary는 AST
+객체를 직접 반환하거나 JSON으로 인코딩된 정리된 Rego 소스를 반환할 수 있습니다. 두 번째 형식은
+OPA의 범위가 제한된 `rego.parse_module` 기본 제공 함수로 다시 구문 분석하고, 패키지 metadata는
+정리된 소스의 범위가 제한된 `METADATA` 블록에서 읽습니다. 두 경로는 같은 typed package, 결정,
+속성, 정규화된 의미 식별자를 만들며 Rule 활성화 권한을 부여하지 않습니다.
 
 Operator 변환 결과는 출처 세대, 온톨로지 release, 쿼리 상한, 관계 커버리지, 정확한 제한 코드를
 보존합니다. Console은 의미 특성으로 포함, 의존성, 접속, 권한 부여, 분류, 근거 보기를 만들 수
