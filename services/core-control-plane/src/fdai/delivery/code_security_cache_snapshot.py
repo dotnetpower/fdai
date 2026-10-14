@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shutil
 import stat
 import tempfile
@@ -11,6 +12,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from fdai.delivery.code_security_prepared_source import source_tree_digest
+
+_DIGEST = re.compile(r"^[0-9a-f]{64}$")
+_MAX_POINTER_BYTES = 4096
 
 
 def publish_cache_snapshot(source: Path, root: Path) -> dict[str, object]:
@@ -63,13 +67,69 @@ def publish_cache_snapshot(source: Path, root: Path) -> dict[str, object]:
     return {"ok": True, **pointer}
 
 
+def resolve_cache_snapshot(root: Path) -> Path:
+    """Return the current immutable cache only after validating its pointer and bytes."""
+    pointer_path = root / "current.json"
+    if pointer_path.is_symlink() or not pointer_path.is_file():
+        raise ValueError("vulnerability cache pointer is missing")
+    if pointer_path.stat().st_size > _MAX_POINTER_BYTES:
+        raise ValueError("vulnerability cache pointer exceeds its byte bound")
+    try:
+        pointer = json.loads(pointer_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as exc:
+        raise ValueError("vulnerability cache pointer is malformed") from exc
+    if not isinstance(pointer, dict) or set(pointer) != {
+        "schema_version",
+        "cache_digest",
+        "cache_subpath",
+        "prepared_at",
+    }:
+        raise ValueError("vulnerability cache pointer has an invalid envelope")
+    digest = pointer.get("cache_digest")
+    subpath = pointer.get("cache_subpath")
+    prepared_at = pointer.get("prepared_at")
+    try:
+        prepared_time = (
+            datetime.fromisoformat(prepared_at) if isinstance(prepared_at, str) else None
+        )
+    except ValueError as exc:
+        raise ValueError("vulnerability cache pointer has invalid fields") from exc
+    if (
+        pointer.get("schema_version") != 1
+        or not isinstance(digest, str)
+        or _DIGEST.fullmatch(digest) is None
+        or subpath != f"snapshots/{digest}/cache"
+        or prepared_time is None
+        or prepared_time.tzinfo is None
+    ):
+        raise ValueError("vulnerability cache pointer has invalid fields")
+    cache = root / subpath
+    if cache.is_symlink() or not cache.is_dir():
+        raise ValueError("vulnerability cache snapshot is missing")
+    if not cache.resolve().is_relative_to(root.resolve()):
+        raise ValueError("vulnerability cache snapshot escapes its root")
+    if source_tree_digest(cache) != digest:
+        raise ValueError("vulnerability cache snapshot digest does not match its pointer")
+    return cache
+
+
 def add_cache_snapshot_command(
     sub: argparse._SubParsersAction[argparse.ArgumentParser],
 ) -> None:
     parser = sub.add_parser("publish-cache-snapshot", help="publish a prepared immutable cache")
     parser.add_argument("--path", required=True)
     parser.add_argument("--out", required=True)
+    resolve = sub.add_parser(
+        "resolve-cache-snapshot",
+        help="validate and resolve the current immutable vulnerability cache",
+    )
+    resolve.add_argument("--root", required=True)
 
 
 def run_publish_cache_snapshot(args: argparse.Namespace) -> dict[str, object]:
     return publish_cache_snapshot(Path(args.path), Path(args.out))
+
+
+def run_resolve_cache_snapshot(args: argparse.Namespace) -> dict[str, object]:
+    cache = resolve_cache_snapshot(Path(args.root))
+    return {"ok": True, "cache_path": str(cache)}

@@ -89,6 +89,7 @@ from fdai.delivery.code_security_acquire import GitSourceAcquirer, SourceAcquisi
 from fdai.delivery.code_security_cache_snapshot import (
     add_cache_snapshot_command,
     run_publish_cache_snapshot,
+    run_resolve_cache_snapshot,
 )
 from fdai.delivery.code_security_input_cli import (
     add_input_verification_command,
@@ -436,6 +437,8 @@ def main(argv: list[str] | None = None) -> int:
             output = verify_scanner_input(args)
         elif args.command == "publish-cache-snapshot":
             output = run_publish_cache_snapshot(args)
+        elif args.command == "resolve-cache-snapshot":
+            output = run_resolve_cache_snapshot(args)
         elif args.command in ("repo-register", "repo-list", "repo-enable", "repo-disable"):
             output = asyncio.run(run_repository_command(args))
         elif args.command == "process-scan-requests":

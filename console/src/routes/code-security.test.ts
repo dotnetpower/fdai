@@ -445,6 +445,8 @@ describe("code-security route", () => {
         sarif: '{"version":"2.1.0","runs":[]}',
       },
       scorecard: {
+        total: 2,
+        determined: 2,
         critical: 0,
         high: 1,
         medium: 1,
@@ -456,12 +458,34 @@ describe("code-security route", () => {
         potential_medium: 0,
         potential_low: 0,
       },
+      coverage: {
+        complete: true,
+        limits: [],
+        details_available: true,
+      },
+      review_summary: {
+        recorded_total: 2,
+        recorded_determined: 2,
+        recorded_needs_review: 0,
+        shown_total: 2,
+        truncated: false,
+        recorded_by_severity: {
+          critical: 0,
+          high: 1,
+          medium: 1,
+          low: 0,
+          undetermined: 0,
+        },
+      },
       gaps: [{ reason_code: "code_security_issues_truncated" }],
     });
     expect(data.issues.map(issueReference)).toEqual(["CWE-78", "flask CVE-2026-0001"]);
     expect(data.gaps).toEqual(["code_security_issues_truncated"]);
     expect(data.artifacts?.html).toContain("<!doctype html>");
     expect(data.artifacts?.sarif).toBe('{\n  "version": "2.1.0",\n  "runs": []\n}');
+    expect(data.scorecard.total).toBe(2);
+    expect(data.coverage.complete).toBe(true);
+    expect(data.review_summary.recorded_total).toBe(2);
     expect(() => decodeCodeSecurityIssues({ available: true, issues: [{ priority: "P9" }], gaps: [] })).toThrow();
   });
 

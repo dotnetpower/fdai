@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable } from "../api";
 import type { OperatorApiClient } from "../api";
 import {
@@ -39,6 +39,11 @@ const SCORECARD_KEYS = [
   "needs_review",
 ] as const;
 type ScorecardKey = (typeof SCORECARD_KEYS)[number];
+const PRIORITY_ORDER = new Map(PRIORITIES.map((priority, index) => [priority, index]));
+const SEVERITY_ORDER = new Map(
+  ["critical", "high", "medium", "low", "undetermined"].map((severity, index) => [severity, index]),
+);
+const PAGE_SIZE = 25;
 
 export interface CodeSecurityIssueSummary {
   readonly issue_id: string;
@@ -86,9 +91,31 @@ export interface CodeSecurityIssuesResponse {
     readonly sarif: string;
   } | null;
   readonly scorecard: Readonly<Record<
-    ScorecardKey | "potential_critical" | "potential_high" | "potential_medium" | "potential_low",
+    | ScorecardKey
+    | "total"
+    | "determined"
+    | "potential_critical"
+    | "potential_high"
+    | "potential_medium"
+    | "potential_low",
     number
   >>;
+  readonly coverage: {
+    readonly complete: boolean;
+    readonly limits: readonly string[];
+    readonly details_available: boolean;
+  };
+  readonly review_summary: {
+    readonly recorded_total: number;
+    readonly recorded_determined: number;
+    readonly recorded_needs_review: number;
+    readonly shown_total: number;
+    readonly truncated: boolean;
+    readonly recorded_by_severity: Readonly<Record<
+      (typeof SEVERITIES)[number],
+      number
+    >>;
+  };
   readonly gaps: readonly (typeof GAPS)[number][];
 }
 
@@ -235,9 +262,68 @@ export function decodeCodeSecurityIssues(payload: unknown): CodeSecurityIssuesRe
     scorecard: (() => {
       const scorecard = panelRecord(root.scorecard, "code-security issues.scorecard");
       return Object.fromEntries(
-        [...SCORECARD_KEYS, "potential_critical", "potential_high", "potential_medium", "potential_low"]
+        [
+          ...SCORECARD_KEYS,
+          "total",
+          "determined",
+          "potential_critical",
+          "potential_high",
+          "potential_medium",
+          "potential_low",
+        ]
           .map((key) => [key, panelNonNegativeInteger(scorecard, key, "code-security issues.scorecard")]),
       ) as CodeSecurityIssuesResponse["scorecard"];
+    })(),
+    coverage: (() => {
+      const coverage = panelRecord(root.coverage, "code-security issues.coverage");
+      return {
+        complete: panelBoolean(coverage, "complete", "code-security issues.coverage"),
+        limits: panelStringArray(coverage.limits, "code-security issues.coverage.limits"),
+        details_available: panelBoolean(
+          coverage,
+          "details_available",
+          "code-security issues.coverage",
+        ),
+      };
+    })(),
+    review_summary: (() => {
+      const summary = panelRecord(root.review_summary, "code-security issues.review_summary");
+      return {
+        recorded_total: panelNonNegativeInteger(
+          summary,
+          "recorded_total",
+          "code-security issues.review_summary",
+        ),
+        recorded_determined: panelNonNegativeInteger(
+          summary,
+          "recorded_determined",
+          "code-security issues.review_summary",
+        ),
+        recorded_needs_review: panelNonNegativeInteger(
+          summary,
+          "recorded_needs_review",
+          "code-security issues.review_summary",
+        ),
+        shown_total: panelNonNegativeInteger(
+          summary,
+          "shown_total",
+          "code-security issues.review_summary",
+        ),
+        truncated: panelBoolean(summary, "truncated", "code-security issues.review_summary"),
+        recorded_by_severity: Object.fromEntries(
+          SEVERITIES.map((severity) => [
+            severity,
+            panelNonNegativeInteger(
+              panelRecord(
+                summary.recorded_by_severity,
+                "code-security issues.review_summary.recorded_by_severity",
+              ),
+              severity,
+              "code-security issues.review_summary.recorded_by_severity",
+            ),
+          ]),
+        ) as CodeSecurityIssuesResponse["review_summary"]["recorded_by_severity"],
+      };
     })(),
     gaps: panelArray(root.gaps, "code-security issues.gaps").map((gap, index) =>
       oneOf(panelRecord(gap, `issue gap ${index}`).reason_code, GAPS, `issue gap ${index}`)),
@@ -276,6 +362,64 @@ function scorecardMatches(issue: CodeSecurityIssueSummary, key: ScorecardKey | "
   return issue.severity === key;
 }
 
+function findingSearchText(issue: CodeSecurityIssueSummary): string {
+  return [
+    issue.title,
+    issue.issue_id,
+    issue.weakness_class,
+    issue.location?.path,
+    issue.package,
+    ...issue.producers,
+    ...issue.advisory_ids,
+    ...issue.cwe_ids.map((cwe) => `CWE-${cwe}`),
+  ].filter((value): value is string => typeof value === "string").join(" ").toLocaleLowerCase();
+}
+
+function compareIssues(
+  left: CodeSecurityIssueSummary,
+  right: CodeSecurityIssueSummary,
+  sort: "priority" | "severity" | "path",
+): number {
+  if (sort === "path") return issueLocation(left).localeCompare(issueLocation(right));
+  if (sort === "severity") {
+    const leftSeverity = left.severity_ceiling ?? left.severity;
+    const rightSeverity = right.severity_ceiling ?? right.severity;
+    return (SEVERITY_ORDER.get(leftSeverity) ?? 99) - (SEVERITY_ORDER.get(rightSeverity) ?? 99)
+      || (PRIORITY_ORDER.get(left.priority) ?? 99) - (PRIORITY_ORDER.get(right.priority) ?? 99)
+      || issueLocation(left).localeCompare(issueLocation(right));
+  }
+  return (PRIORITY_ORDER.get(left.priority) ?? 99) - (PRIORITY_ORDER.get(right.priority) ?? 99)
+    || (SEVERITY_ORDER.get(left.severity_ceiling ?? left.severity) ?? 99)
+      - (SEVERITY_ORDER.get(right.severity_ceiling ?? right.severity) ?? 99)
+    || issueLocation(left).localeCompare(issueLocation(right));
+}
+
+function coverageLimitLabel(limit: string): string {
+  const exited = /^scanner ([A-Za-z0-9._-]+) exited (-?[0-9]+)$/.exec(limit);
+  if (exited !== null) {
+    return t("codeSecurity.issues.coverageScannerExit", {
+      scanner: exited[1]!,
+      code: exited[2]!,
+    });
+  }
+  return limit;
+}
+
+function decidingFactLabel(fact: string): string {
+  const key = `codeSecurity.issues.fact.${fact}`;
+  const translated = t(key);
+  return translated === key ? fact.replaceAll("_", " ") : translated;
+}
+
+function downloadArtifact(name: string, content: string, type: string): void {
+  const url = URL.createObjectURL(new Blob([content], { type }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = name;
+  link.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
 function githubFileUrl(
   repositoryLocation: string | null,
   revision: string,
@@ -312,6 +456,11 @@ export function ReviewIssuesPanel({
   const [selectedIssue, setSelectedIssue] = useState<CodeSecurityIssueSummary | null>(null);
   const [reportView, setReportView] = useState<"html" | "sarif" | null>(null);
   const [scorecardFilter, setScorecardFilter] = useState<ScorecardKey | "all">("all");
+  const [query, setQuery] = useState("");
+  const [producer, setProducer] = useState("all");
+  const [weakness, setWeakness] = useState("all");
+  const [sort, setSort] = useState<"priority" | "severity" | "path">("priority");
+  const [page, setPage] = useState(1);
   useEffect(() => {
     let cancelled = false;
     setState({ status: "loading" });
@@ -330,20 +479,45 @@ export function ReviewIssuesPanel({
       });
     return () => { cancelled = true; };
   }, [client, repositoryAlias, revision]);
-  const visibleIssues = state.status === "ready"
-    ? state.data.issues.filter((issue) => scorecardMatches(issue, scorecardFilter))
-    : [];
+  const producers = useMemo(
+    () => state.status === "ready"
+      ? [...new Set(state.data.issues.flatMap((issue) => issue.producers))].sort()
+      : [],
+    [state],
+  );
+  const weaknesses = useMemo(
+    () => state.status === "ready"
+      ? [...new Set(state.data.issues.map((issue) => issue.weakness_class))].sort()
+      : [],
+    [state],
+  );
+  const visibleIssues = useMemo(() => {
+    if (state.status !== "ready") return [];
+    const normalizedQuery = query.trim().toLocaleLowerCase();
+    return state.data.issues
+      .filter((issue) => scorecardMatches(issue, scorecardFilter))
+      .filter((issue) => producer === "all" || issue.producers.includes(producer))
+      .filter((issue) => weakness === "all" || issue.weakness_class === weakness)
+      .filter((issue) => normalizedQuery === "" || findingSearchText(issue).includes(normalizedQuery))
+      .sort((left, right) => compareIssues(left, right, sort));
+  }, [producer, query, scorecardFilter, sort, state, weakness]);
+  const pageCount = Math.max(1, Math.ceil(visibleIssues.length / PAGE_SIZE));
+  const pageIssues = visibleIssues.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  useEffect(() => setPage(1), [producer, query, scorecardFilter, sort, weakness]);
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
   useEffect(() => {
     if (
       state.status === "ready"
       && (
         selectedIssue === null
-        || !visibleIssues.some((issue) => issue.issue_id === selectedIssue.issue_id)
+        || !pageIssues.some((issue) => issue.issue_id === selectedIssue.issue_id)
       )
     ) {
-      setSelectedIssue(visibleIssues[0] ?? null);
+      setSelectedIssue(pageIssues[0] ?? null);
     }
-  }, [scorecardFilter, selectedIssue, state, visibleIssues]);
+  }, [pageIssues, selectedIssue, state]);
   return (
     <section class="stack code-security-issues" aria-labelledby="code-security-issues-title">
       <div class="code-security-issues-header">
@@ -356,28 +530,165 @@ export function ReviewIssuesPanel({
       <AsyncBoundary state={state} resourceLabel={t("codeSecurity.issues.title")}>
         {(data) => (
           <>
-            <div class="code-security-scorecard" role="group" aria-label={t("codeSecurity.issues.scorecard")}>
+            {data.coverage.complete
+              ? (
+                <div class="code-security-coverage-status complete" role="status">
+                  <strong>{t("codeSecurity.issues.coverageComplete")}</strong>
+                  <span>{t("codeSecurity.issues.coverageCompleteBody")}</span>
+                </div>
+              )
+              : (
+                <div class="code-security-coverage-status incomplete" role="alert">
+                  <div>
+                    <strong>{t("codeSecurity.issues.coverageIncomplete")}</strong>
+                    <span>{t("codeSecurity.issues.coverageIncompleteBody")}</span>
+                  </div>
+                  {data.coverage.limits.length === 0
+                    ? (
+                      <span class="muted">
+                        {data.coverage.details_available
+                          ? t("codeSecurity.issues.coverageLimitsUnknown")
+                          : t("codeSecurity.issues.coverageDetailsUnavailable")}
+                      </span>
+                    )
+                    : (
+                      <ul>
+                        {data.coverage.limits.map((limit) => (
+                          <li key={limit}>{coverageLimitLabel(limit)}</li>
+                        ))}
+                      </ul>
+                    )}
+                </div>
+              )}
+            <section class="code-security-review-summary" aria-label={t("codeSecurity.issues.scorecard")}>
+              <div class="code-security-review-primary">
+                <span>{t("codeSecurity.issues.reviewRequired")}</span>
+                <strong>{data.review_summary.recorded_needs_review}</strong>
+                <p>
+                  {t("codeSecurity.issues.reviewRequiredBody", {
+                    total: data.review_summary.recorded_total,
+                    determined: data.review_summary.recorded_determined,
+                  })}
+                </p>
+                {data.review_summary.truncated
+                  ? (
+                    <small>
+                      {t("codeSecurity.issues.boundedSummary", {
+                        shown: data.review_summary.shown_total,
+                        total: data.review_summary.recorded_total,
+                      })}
+                    </small>
+                  )
+                  : null}
+              </div>
+              <dl>
+                <div>
+                  <dt>{t("codeSecurity.issues.totalFindings")}</dt>
+                  <dd>{data.review_summary.recorded_total}</dd>
+                </div>
+                <div>
+                  <dt>{t("codeSecurity.issues.determinedFindings")}</dt>
+                  <dd>{data.review_summary.recorded_determined}</dd>
+                </div>
+                <div>
+                  <dt>{t("codeSecurity.issues.potentialCriticalLabel")}</dt>
+                  <dd>{data.scorecard.potential_critical}</dd>
+                </div>
+                <div>
+                  <dt>{t("codeSecurity.issues.coverage")}</dt>
+                  <dd>
+                    {data.coverage.complete
+                      ? t("codeSecurity.issues.complete")
+                      : t("codeSecurity.issues.incomplete")}
+                  </dd>
+                </div>
+              </dl>
+              <div class="code-security-recorded-severity">
+                <span>{t("codeSecurity.issues.recordedSeverity")}</span>
+                {(["critical", "high", "medium", "low", "undetermined"] as const).map(
+                  (severity) => (
+                    <span key={severity}>
+                      {`${t(`codeSecurity.issues.score.${
+                        severity === "undetermined" ? "needs_review" : severity
+                      }`)} ${data.review_summary.recorded_by_severity[severity]}`}
+                    </span>
+                  ),
+                )}
+              </div>
+            </section>
+            <div
+              class="code-security-severity-filters"
+              role="group"
+              aria-label={t("codeSecurity.issues.severityFilters")}
+            >
+              <button
+                type="button"
+                class={scorecardFilter === "all" ? "active" : ""}
+                aria-pressed={scorecardFilter === "all"}
+                onClick={() => setScorecardFilter("all")}
+              >
+                {`${t("codeSecurity.issues.score.all")} ${data.scorecard.total}`}
+              </button>
               {SCORECARD_KEYS.map((key) => (
                 <button
                   key={key}
                   type="button"
                   class={scorecardFilter === key ? "active" : ""}
                   aria-pressed={scorecardFilter === key}
-                  onClick={() => setScorecardFilter(scorecardFilter === key ? "all" : key)}
+                  onClick={() => setScorecardFilter(key)}
                 >
-                  <span>{t(`codeSecurity.issues.score.${key}`)}</span>
-                  <strong>{data.scorecard[key]}</strong>
-                  {key === "needs_review" && data.scorecard.potential_critical > 0
-                    ? (
-                      <small>
-                        {t("codeSecurity.issues.potentialCritical", {
-                          count: data.scorecard.potential_critical,
-                        })}
-                      </small>
-                    )
-                    : null}
+                  {`${t(`codeSecurity.issues.score.${key}`)} ${data.scorecard[key]}`}
                 </button>
               ))}
+            </div>
+            <div class="code-security-finding-tools">
+              <label class="cs-control-field code-security-finding-search">
+                <span class="cs-control-label">{t("codeSecurity.issues.search")}</span>
+                <input
+                  class="cs-control-input"
+                  type="search"
+                  value={query}
+                  placeholder={t("codeSecurity.issues.searchPlaceholder")}
+                  onInput={(event) => setQuery(event.currentTarget.value)}
+                />
+              </label>
+              <label class="cs-control-field">
+                <span class="cs-control-label">{t("codeSecurity.issues.producer")}</span>
+                <select
+                  class="cs-control-select"
+                  value={producer}
+                  onChange={(event) => setProducer(event.currentTarget.value)}
+                >
+                  <option value="all">{t("codeSecurity.issues.allProducers")}</option>
+                  {producers.map((item) => <option key={item} value={item}>{item}</option>)}
+                </select>
+              </label>
+              <label class="cs-control-field">
+                <span class="cs-control-label">{t("codeSecurity.issues.weakness")}</span>
+                <select
+                  class="cs-control-select"
+                  value={weakness}
+                  onChange={(event) => setWeakness(event.currentTarget.value)}
+                >
+                  <option value="all">{t("codeSecurity.issues.allWeaknesses")}</option>
+                  {weaknesses.map((item) => (
+                    <option key={item} value={item}>{item.replaceAll("_", " ")}</option>
+                  ))}
+                </select>
+              </label>
+              <label class="cs-control-field">
+                <span class="cs-control-label">{t("codeSecurity.issues.sort")}</span>
+                <select
+                  class="cs-control-select"
+                  value={sort}
+                  onChange={(event) =>
+                    setSort(event.currentTarget.value as "priority" | "severity" | "path")}
+                >
+                  <option value="priority">{t("codeSecurity.issues.sortPriority")}</option>
+                  <option value="severity">{t("codeSecurity.issues.sortSeverity")}</option>
+                  <option value="path">{t("codeSecurity.issues.sortPath")}</option>
+                </select>
+              </label>
             </div>
             {visibleIssues.length === 0
               ? (
@@ -392,7 +703,7 @@ export function ReviewIssuesPanel({
               : (
                 <div class="code-security-review-workspace">
                   <nav class="code-security-finding-list" aria-label={t("codeSecurity.issues.findingsList")}>
-                    {visibleIssues.map((issue) => (
+                    {pageIssues.map((issue) => (
                       <button
                         key={issue.issue_id}
                         type="button"
@@ -407,6 +718,35 @@ export function ReviewIssuesPanel({
                         <small>{`${issue.priority} · ${issue.confidence} · ${issue.issue_id}`}</small>
                       </button>
                     ))}
+                    <footer class="code-security-finding-pagination">
+                      <span>
+                        {t("codeSecurity.issues.resultCount", {
+                          visible: visibleIssues.length,
+                          total: data.review_summary.recorded_total,
+                        })}
+                      </span>
+                      <div>
+                        <button
+                          type="button"
+                          class="btn subtle"
+                          disabled={page <= 1}
+                          onClick={() => setPage((current) => Math.max(1, current - 1))}
+                        >
+                          {t("codeSecurity.issues.previousPage")}
+                        </button>
+                        <span>
+                          {t("codeSecurity.issues.pageStatus", { page, pages: pageCount })}
+                        </span>
+                        <button
+                          type="button"
+                          class="btn subtle"
+                          disabled={page >= pageCount}
+                          onClick={() => setPage((current) => Math.min(pageCount, current + 1))}
+                        >
+                          {t("codeSecurity.issues.nextPage")}
+                        </button>
+                      </div>
+                    </footer>
                   </nav>
                   {selectedIssue === null
                     ? null
@@ -435,23 +775,45 @@ export function ReviewIssuesPanel({
                               </ExternalLink>
                             )}
                         </header>
-                        {selectedIssue.severity_rationale === null
-                          ? null
-                          : (
-                            <div class="code-security-severity-reason">
-                              <strong>{t("codeSecurity.issues.severityReason")}</strong>
-                              <p>{selectedIssue.severity_rationale}</p>
-                              {selectedIssue.deciding_facts.length === 0
-                                ? null
-                                : (
-                                  <p>
-                                    {`${t("codeSecurity.issues.decidingFacts")}: ${
-                                      selectedIssue.deciding_facts.join(", ")
-                                    }`}
-                                  </p>
-                                )}
-                            </div>
-                          )}
+                        <section class="code-security-severity-reason">
+                          <strong>
+                            {selectedIssue.severity === "undetermined"
+                              ? t("codeSecurity.issues.severityUndetermined")
+                              : t("codeSecurity.issues.severityDetermined")}
+                          </strong>
+                          <p>
+                            {selectedIssue.severity === "undetermined"
+                              && selectedIssue.severity_floor !== null
+                              && selectedIssue.severity_ceiling !== null
+                              ? t("codeSecurity.issues.severityRangeBody", {
+                                floor: selectedIssue.severity_floor,
+                                ceiling: selectedIssue.severity_ceiling,
+                              })
+                              : t("codeSecurity.issues.severityDeterminedBody", {
+                                severity: selectedIssue.severity,
+                              })}
+                          </p>
+                          {selectedIssue.deciding_facts.length === 0
+                            ? null
+                            : (
+                              <>
+                                <span>{t("codeSecurity.issues.decidingFacts")}</span>
+                                <ul>
+                                  {selectedIssue.deciding_facts.map((fact) => (
+                                    <li key={fact}>{decidingFactLabel(fact)}</li>
+                                  ))}
+                                </ul>
+                              </>
+                            )}
+                          {selectedIssue.severity_rationale === null
+                            ? null
+                            : (
+                              <details>
+                                <summary>{t("codeSecurity.issues.technicalRationale")}</summary>
+                                <p>{selectedIssue.severity_rationale}</p>
+                              </details>
+                            )}
+                        </section>
                         {selectedIssue.code_context === null
                           ? (
                             <div class="code-security-code-unavailable">
@@ -534,6 +896,30 @@ export function ReviewIssuesPanel({
                     </button>
                     <button type="button" class="btn subtle" onClick={() => setReportView("sarif")}>
                       {t("codeSecurity.issues.viewSarif")}
+                    </button>
+                    <button
+                      type="button"
+                      class="btn subtle"
+                      onClick={() =>
+                        downloadArtifact(
+                          `${repositoryAlias}-${revision.slice(0, 12)}.html`,
+                          data.artifacts!.html,
+                          "text/html;charset=utf-8",
+                        )}
+                    >
+                      {t("codeSecurity.issues.downloadHtml")}
+                    </button>
+                    <button
+                      type="button"
+                      class="btn subtle"
+                      onClick={() =>
+                        downloadArtifact(
+                          `${repositoryAlias}-${revision.slice(0, 12)}.sarif`,
+                          data.artifacts!.sarif,
+                          "application/sarif+json;charset=utf-8",
+                        )}
+                    >
+                      {t("codeSecurity.issues.downloadSarif")}
                     </button>
                     {reportView === null
                       ? null
