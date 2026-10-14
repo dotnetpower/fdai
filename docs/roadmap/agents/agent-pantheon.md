@@ -253,6 +253,8 @@ Bragi training run, publication and stage identities bind the complete content s
 consent references, candidate lineage, evaluation results and reviewed-promotion inputs. Exact
 replay reuses the identity; changed snapshots retain separate audited stages within the existing
 retention window and never replace runtime routing.
+Evaluator inputs are isolated copies. Changes to either revision are rejected before storage or
+publication, and retained evaluator references cannot rewrite the returned candidate.
 
 Forseti what-if comparisons preserve the original recorded ActionType, including a no-rule
 abstention, and its recorded judgment-table digest. Current rules never fill the original action

@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 44c7ba522a335314f4c056bb3352657eb65c2893
+translation_source_sha: 891730d9f04efd17eab63cac2e7aed42cdf9f2b5
 translation_revised: 2026-10-15
 ---
 
@@ -102,6 +102,7 @@ sampler는 검토된 `resource.cpu.utilization_pct` 선언을 사용하고 조�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-15 | implemented | Bragi 평가 입력 리비전을 원본과 분리하고, 기준·후보의 내용이나 JSON 타입이 바뀌면 저장·게시 전에 거절하며, 보관된 평가기 참조로 반환된 후보를 바꾸지 못하게 했습니다. | `current change`; `bragi_intent_training.py`; 변조·격리 반례 5개 추가, 학습·구조 검사 35개, 한 소스 mypy와 Ruff 통과. | 독립 평가기, 동의가 확인된 원본 표본, 검토된 활성화와 배포된 공급자의 수락 근거는 아직 남아 있습니다. |
 | 2026-10-15 | implemented | Bragi 학습의 실행·게시·단계 식별자를 전체 표본, 동의, 후보 및 단계 스냅샷에 결속하고, 런타임 라우팅 변경 없이 검토 개정마다 기록을 별도로 보존했습니다. | `current change`; `bragi_intent_training.py`, `bragi_runtime_helpers.py`, `bragi.py`; 식별자·저장 반례 6개 추가, 학습·구조 검사 30개, 세 소스 mypy와 Ruff 통과. | 독립 평가기, 동의가 확인된 원본 표본, 검토된 활성화와 배포된 공급자의 수락 근거는 아직 남아 있습니다. |
 | 2026-10-15 | implemented | 닫힌 형식·내용 해시, 복제본 claim 결속 게시, 완료 기록만 정리, 시작·유지 작업 복구 및 같은 키의 종료 후 재전달로 요청에 고정된 Forseti what-if outbox를 연결했습니다. | `current change`; `forseti_what_if_publication.py`; what-if·outbox·구조·워크플로·판정 파이프라인 검사 211개, 세 소스 mypy와 Ruff 통과. | 보관된 제한 구간의 요청 중복 방지를 구현했습니다. 전체 과거 맥락, 배포 DB·브로커 수락과 다른 유지 작업 소스 연결은 남아 있습니다. |
 | 2026-10-15 | implemented | 명시적 빈 대상 또는 불일치하는 단일 대상 선언이 선언 밖 리소스 실행으로 내려가지 않도록 차단했습니다. 정확히 일치하는 단일 대상 실행을 보존하고 기존 배치 구현을 재확인했습니다. | `current change`; `thor_batch.py`; 배치·구조·워크플로 검사 51개, 한 파일 mypy와 Ruff 통과. | 대상별 롤백·집계 감사·영속 승인 및 복구는 합성 검사를 통과했습니다. 배포 신원·롤백/효과·브로커 수락은 별도입니다. |
@@ -687,6 +688,11 @@ intent-training 근거를 기록합니다. Candidate 평가는 off-path, 결정�
 키와 감사 기록도 이 실행에 결속되므로, 검토된 개정이 이전의 보류 단계를 재사용하지 않습니다.
 기존 행은 정해진 보존 정책에 따라 제거될 때까지 바뀌지 않습니다. 최소 한 번 전달 계약은 같은
 페이로드를 반복할 수 있으며, 정확히 한 번만 게시된다는 보장은 아닙니다.
+
+평가기에는 기준 및 후보 리비전의 중첩 구조까지 복사한 사본을 전달합니다. 평가 뒤에도 중첩
+값과 JSON 타입을 포함한 정규 JSON 해시가 같아야 합니다. 다르면 단계를 저장하거나 게시하기
+전에 실행을 거절합니다. 평가기가 보관한 참조로 평가 뒤에 반환된 원본 후보를 바꿀 수는
+없습니다.
 
 #### Multi-target batch
 
