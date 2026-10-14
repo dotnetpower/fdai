@@ -27,6 +27,14 @@ not prove actual broker/database restart, remote issue identity or replica-safe 
 
 
 ### Implementation scope
+Standard Mimir source polling now reads ControlLoop's current validated Rule generation snapshot
+through `MimirActiveCatalogPoller`. It records one complete active-membership source, not a
+guessed file subset. Create-only audit artifacts and revision CAS preserve restart and replica
+observations, retain at most 1,000 content-free artifacts, reject corrupted records and
+same-digest membership substitution, and count a changed generation once. The read grants no
+Rule activation, regression-pass, promotion or issue-close authority. Focused observation,
+issue-close and bootstrap checks: 20 passed; two-file mypy and Ruff passed.
+
 Loki recurring schedules require an explicit timezone-aware `start_at`. A missing anchor stays
 held instead of using each tick's current time as a fresh window. The existing window id and
 always-HIL proposal gates remain unchanged. Focused schedule/adversarial/sampling checks: 25
@@ -76,6 +84,7 @@ not authorize scaling. Local routed-provider, sampling and bootstrap checks: 56 
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-15 | implemented | Bound Mimir's read-only active Rule generation poller through standard bootstrap with create-only audit, bounded retention and revision CAS. | `current change`; observation/issue-close/bootstrap checks: 20 passed; restart, concurrent change and corruption/substitution checks; Ruff and two-file mypy passed. | Promotion/regression/deprecation readers, Bragi evaluator and actual runtime receipts remain open. |
 | 2026-10-15 | implemented | Required an explicit aware Loki schedule anchor and reconciled the current shared development binding-source implementation against actual code. | `current change`; schedule/adversarial/sampling checks: 25 passed; one-file mypy and Ruff; development composition/source checks: 26 passed. | Reviewed schedule/scenario sources, actual profile/Owner receipts and other operational acceptance remain open. |
 | 2026-10-15 | implemented | Added explicit current-inventory Freyr MetricProvider sampling and standard bootstrap binding without default targets or fabricated freshness. | `current change`; routed provider/sampling/bootstrap checks: 56 passed; seven source substitution/positive cases; Ruff and two-file mypy passed. | Retain actual configured sampler receipts. Reviewed Loki scheduling, maintenance sources and operational acceptance remain open. |
 | 2026-10-15 | implemented | Bound standard ordered-poison halt persistence to the existing service-owned StateStore and globally bound local Saga issue operation identity, including retained-history rehydration. | `current change`; bootstrap, poison-clear, runtime and Mimir issue checks: 114 passed; Ruff and two-file mypy passed. Freyr source-time checkpoint `6014bf1bd9`: 11 passed. | Remote broker/database restart, remote GitHub App identity, Saga replica publication, recurring source bindings and governed handover remain open. |

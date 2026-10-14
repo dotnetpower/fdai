@@ -26,7 +26,7 @@ Synthetic tests never satisfy operational readiness or production promotion.
 | 8 | Narrow structured conflict vocabulary | Bounded design, not proof of complete reasoning: add only typed, evidenced comparisons; never infer conflict from lexical prose. |
 | 9 | Process-local discussion budget | Fixed for standard per-correlation bootstrap in round 4: policy-pinned StateStore CAS survives restart/replicas without eviction or memory fallback. Fleet totals and live provider receipts remain separate. |
 | 10 | Freyr/Loki recurring bindings absent | Explicit reviewed-metric/current-inventory Freyr source and standard bootstrap binding added; 56 focused checks pass. Actual target/provider receipts and reviewed Loki schedule/adversarial sources remain open; no samples or Chaos authority are invented. |
-| 11 | Mimir/Bragi maintenance bindings absent | Open integration work: bind reviewed source/regression/promotion/activation readers without granting activation authority. |
+| 11 | Mimir/Bragi maintenance bindings absent | Mimir current active Rule generation observer is now standard-bound, create-only audited and replica/restart CAS-safe; 20 focused checks pass. Reviewed promotion/regression/deprecation readers and Bragi evaluator remain open; observation grants no activation authority. |
 | 12 | Durable what-if and multi-target attempt model | Open design/implementation work: prove restart-safe retained inputs and per-target rollback plus aggregate audit. |
 | 13 | Ordered poison halt persistence unbound | Standard Core source now binds the existing service-owned StateStore and receipt-gated clear handler; actual initialization and related durability checks pass. Governed provider restart/clear receipts remain open. |
 | 14 | Saga replica and issue-operation identity residuals | Local StateStore adapter now globally binds operation id to fingerprint/content and restores legacy bindings before reuse. Replica-safe audit/publication and remote GitHub App operation identity remain open. |
@@ -162,6 +162,16 @@ Schedule/adversarial/sampling checks: 25 passed; one-file mypy and Ruff passed. 
 development source was separately found implemented in runtime/development_authority.py and
 delivery/development_bindings.py; 26 existing composition/source tests pass. The source-absence
 finding is corrected, not replaced with a false selected-profile or live-authority claim.
+
+### Residual active Rule source observation
+
+Mimir now observes ControlLoop's complete current validated Rule generation rather than
+unreviewed files. Exact membership, generation digest and content-free audit artifacts survive
+restart, concurrent observation advances the revision once, and corrupt state or same-generation
+membership substitution holds. Artifact retention is bounded at 1,000. Standard bootstrap binds
+the existing reader API; missing source/API stays unavailable. Focused observation, issue-close
+and bootstrap checks: 20 passed; two-file mypy and Ruff passed. No regression result, promotion,
+deprecation decision, issue close or live authority is manufactured by this observer.
 
 ### Round 4 design and critique
 

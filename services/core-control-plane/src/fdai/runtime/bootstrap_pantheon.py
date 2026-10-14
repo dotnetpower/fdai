@@ -42,6 +42,7 @@ from fdai.delivery.agent_activity import (
 )
 from fdai.delivery.evidence_conflict import StateStoreEvidenceConflictProjection
 from fdai.delivery.kinetic_proposal import StateStoreKineticActionProposalStore
+from fdai.delivery.mimir_catalog_observation import MimirActiveCatalogPoller
 from fdai.delivery.persistence import (
     PostgresCaseHistoryMetadataStore,
     PostgresCaseHistoryMetadataStoreConfig,
@@ -513,6 +514,11 @@ async def initialize_pantheon(
         freyr_utilization_sampler=build_capacity_sampler(
             container=config.container, environment=config.environment
         ),
+        mimir_rule_source_poller=MimirActiveCatalogPoller(
+            reader=config.control_loop, store=config.incident_audit_store
+        )
+        if callable(getattr(config.control_loop, "rule_generation_snapshot", None))
+        else None,
         ordered_poison_halt_state_store=config.incident_audit_store,
         proposal_rate_limit_state_store=config.incident_audit_store,
         execution_resource_lock=execution_resource_lock,

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -26,8 +27,55 @@ from fdai.agents.mimir import (
 )
 from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga
+from fdai.delivery.mimir_catalog_observation import MimirActiveCatalogPoller
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+
+async def test_mimir_actual_catalog_observation_is_durable_and_never_promotes() -> None:
+    class Reader:
+        digest = "a" * 64
+        rule_id = "rule-one"
+
+        async def rule_generation_snapshot(self) -> Any:
+            return SimpleNamespace(
+                generation_digest=self.digest,
+                rules=(SimpleNamespace(id=self.rule_id),),
+            )
+
+    reader = Reader()
+    store = InMemoryStateStore()
+    now = datetime(2026, 10, 15, tzinfo=UTC)
+    initial = await MimirActiveCatalogPoller(reader=reader, store=store).poll_rule_sources(
+        limit=1, now=now
+    )
+    assert initial.checked == 1 and initial.changed == 0
+    repeated = await MimirActiveCatalogPoller(reader=reader, store=store).poll_rule_sources(
+        limit=1, now=now
+    )
+    assert repeated == initial
+    reader.digest = "b" * 64
+    advanced = await asyncio.gather(
+        MimirActiveCatalogPoller(reader=reader, store=store).poll_rule_sources(limit=1, now=now),
+        MimirActiveCatalogPoller(reader=reader, store=store).poll_rule_sources(limit=1, now=now),
+    )
+    assert sum(result.changed for result in advanced) == 1
+    reader.rule_id = "substituted-rule"
+    with pytest.raises(ValueError, match="without its digest"):
+        await MimirActiveCatalogPoller(reader=reader, store=store).poll_rule_sources(
+            limit=1, now=now
+        )
+    retained = await store.read_state("pantheon/mimir/active-rule-generation-observation")
+    assert retained["execution_authority"] is False
+    assert retained["generation_digest"] == "b" * 64
+    reader.rule_id = "rule-one"
+    await store.write_state(
+        "pantheon/mimir/active-rule-generation-observation", {**retained, "revision": True}
+    )
+    with pytest.raises(ValueError, match="malformed"):
+        await MimirActiveCatalogPoller(reader=reader, store=store).poll_rule_sources(
+            limit=1, now=now
+        )
 
 
 class _PromotionReader:

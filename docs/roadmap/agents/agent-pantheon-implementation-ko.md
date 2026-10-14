@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 4ffde74d1b0067e5f6ec475a1596e6c9705c3e97
+translation_source_sha: b61cd88f4f3dce37ad749e4a08ce136ced1b7487
 translation_revised: 2026-10-15
 ---
 
@@ -28,6 +28,13 @@ Freyr 반복 샘플은 수집 시각으로 최신성을 만들지 않고 시간�
 
 
 ### 구현 범위
+표준 Mimir 원본 감시는 `MimirActiveCatalogPoller`를 통해 ControlLoop의 현재 검증된 Rule
+세대 스냅샷을 읽습니다. 추정한 파일 일부가 아니라 활성 멤버십 원본 하나를 완전히 기록합니다.
+생성 전용 감사 산출물과 리비전 CAS로 재시작·복제본 관측을 보존하며, 내용 없는 산출물은 최대
+1,000개만 보관합니다. 손상된 기록과 같은 해시의 멤버십 치환을 거절하고 세대 변경은 한 번만
+계산합니다. 이 읽기는 Rule 활성화, 회귀 통과, 승격 또는 이슈 종료 권한을 부여하지 않습니다.
+관측·이슈 종료·초기화 집중 검사 20개와 두 파일 mypy·Ruff가 통과했습니다.
+
 Loki 반복 일정은 시간대가 있는 명시적 `start_at`을 요구합니다. 기준이 없으면 매 tick의 현재
 시각으로 새 창을 만들지 않고 보류합니다. 기존 창 식별자와 항상 사람 승인을 요구하는 제안
 관문은 바뀌지 않습니다. 일정·비활성 시나리오·반복 샘플 집중 검사 25개가 통과했습니다.
@@ -77,6 +84,7 @@ sampler는 검토된 `resource.cpu.utilization_pct` 선언을 사용하고 조�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-15 | implemented | 생성 전용 감사, 제한된 보관과 리비전 CAS를 갖춘 Mimir 읽기 전용 활성 Rule 세대 감시를 표준 초기화에 연결했습니다. | `current change`; 관측·이슈 종료·초기화 검사 20개 통과; 재시작·동시 변경·손상/치환 검사; Ruff와 두 파일 mypy 통과. | 승격·회귀·폐기 reader, Bragi evaluator와 실제 런타임 증거는 남아 있습니다. |
 | 2026-10-15 | implemented | 명시적 시간대 있는 Loki 일정 기준을 요구하고 현재 공유 개발 바인딩 소스 구현을 실제 코드와 대조했습니다. | `current change`; 일정·비활성 시나리오·반복 샘플 검사 25개 통과; 한 파일 mypy와 Ruff; 개발 조립·소스 검사 26개 통과. | 검토된 일정·시나리오 출처, 실제 프로필·Owner 증거와 다른 운영 수락은 남아 있습니다. |
 | 2026-10-15 | implemented | 기본 대상이나 조작된 최신성 없이 현재 인벤토리에 대한 Freyr MetricProvider 샘플 수집과 표준 초기화 연결을 추가했습니다. | `current change`; routed provider·샘플·초기화 검사 56개 통과; 일곱 소스 양성·치환 반례; Ruff와 두 파일 mypy 통과. | 실제 설정 sampler 증거를 보존해야 합니다. 검토된 Loki 일정, 유지 작업 출처와 운영 수락은 남아 있습니다. |
 | 2026-10-15 | implemented | 표준 순서 오류 정지 저장소를 기존 서비스 소유 StateStore에 연결하고 보관 이력 재수화를 포함해 로컬 Saga 이슈 작업 식별자를 전역으로 연결했습니다. | `current change`; 부트스트랩·정지 해제·런타임·Mimir 이슈 검사 114개 통과; Ruff 및 두 파일 mypy 통과. Freyr 출처 시간 체크포인트 `6014bf1bd9`: 11개 통과. | 원격 브로커·DB 재시작, 원격 GitHub App 식별자, Saga 복제본 게시, 정기 출처 연결과 실제 인수인계 검증은 남아 있습니다. |
