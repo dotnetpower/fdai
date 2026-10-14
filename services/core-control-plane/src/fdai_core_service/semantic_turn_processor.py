@@ -31,7 +31,7 @@ from fdai.core.conversation.semantic_runtime import (
 )
 from fdai.core.conversation.semantic_runtime import optional_document_evidence_degraded
 from fdai.core.conversation.semantic_stored_result_handles import StoredReferenceContext
-from fdai.core.conversation.session import Principal, Turn
+from fdai.core.conversation.session import Principal, Role, Turn
 from fdai.core.conversation.work_progress import (
     WorkProgressRecorder,
     record_semantic_work_progress,
@@ -278,6 +278,12 @@ class PantheonAssuranceRuntime(Protocol):
     ) -> Mapping[str, object]: ...
 
 
+class AgentDiscussionRuntime(Protocol):
+    async def present(
+        self, request: SemanticTurnRequest, *, principal: Principal
+    ) -> ContractSemanticTurnResult: ...
+
+
 class OperationalEvidenceProjectionReader(Protocol):
     """Project admitted evidence for one authenticated resource-scoped turn."""
 
@@ -329,6 +335,7 @@ class SemanticTurnProcessor:
         results: SemanticTurnResultStore,
         purpose: str = "operations-review",
         pantheon_assurance: PantheonAssuranceRuntime | None = None,
+        agent_discussion: AgentDiscussionRuntime | None = None,
         operational_evidence: OperationalEvidenceProjectionReader | None = None,
         answer_continuity_enabled: bool = False,
         runtime_settings: RuntimeSettingsReader | None = None,
@@ -351,6 +358,7 @@ class SemanticTurnProcessor:
         self._results = results
         self._purpose = purpose
         self._pantheon_assurance = pantheon_assurance
+        self._agent_discussion = agent_discussion
         self._operational_evidence = operational_evidence
         self._answer_continuity_enabled = answer_continuity_enabled
         self._runtime_settings = runtime_settings
@@ -367,6 +375,11 @@ class SemanticTurnProcessor:
         if self._pantheon_assurance is not None:
             raise RuntimeError("Pantheon conversation assurance is already bound")
         self._pantheon_assurance = runtime
+
+    def bind_agent_discussion(self, runtime: AgentDiscussionRuntime) -> None:
+        if self._agent_discussion is not None:
+            raise RuntimeError("agent discussion is already bound")
+        self._agent_discussion = runtime
 
     async def process(
         self,
@@ -724,7 +737,12 @@ class SemanticTurnProcessor:
                 ),
                 None,
             )
-        if self._runtime is None:
+        is_discussion = request.presentation_mode == "agent_discussion"
+        if is_discussion and principal.role is not Role.OWNER:
+            return _terminal_result(request, "held", "semantic_discussion_owner_required"), None
+        if is_discussion and self._agent_discussion is None:
+            return _terminal_result(request, "held", "semantic_agent_discussion_unavailable"), None
+        if self._runtime is None and not is_discussion:
             return (
                 self._with_answer_continuity(
                     request,
@@ -746,7 +764,9 @@ class SemanticTurnProcessor:
         runtime_cancelled = asyncio.Event()
         bound_resource_context = _bound_resource_context(request)
         runtime_task = asyncio.create_task(
-            self._handle_runtime(
+            self._agent_discussion.present(request, principal=principal)
+            if is_discussion and self._agent_discussion is not None
+            else self._handle_runtime(
                 request=request,
                 requested_at=requested_at,
                 principal=principal,
@@ -788,6 +808,30 @@ class SemanticTurnProcessor:
             if pending:
                 await asyncio.gather(*pending, return_exceptions=True)
             runtime_result = runtime_task.result()
+            if is_discussion:
+                if (
+                    not isinstance(runtime_result, ContractSemanticTurnResult)
+                    or runtime_result.session_id != request.session_id
+                    or runtime_result.turn_id != request.turn_id
+                    or runtime_result.turn_sequence != request.turn_sequence
+                    or runtime_result.disposition
+                    not in {
+                        SemanticTurnDisposition.HELD,
+                        SemanticTurnDisposition.ADVISORY_RESPONSE,
+                    }
+                ):
+                    return _terminal_result(
+                        request, "held", "semantic_discussion_result_invalid"
+                    ), None
+                if runtime_result.answer is None:
+                    runtime_result = _terminal_result(
+                        request, runtime_result.disposition.value, runtime_result.reason_code
+                    )
+                return self._with_answer_continuity(request, runtime_result), _with_work_progress(
+                    None, recorder
+                )
+            if not isinstance(runtime_result, RuntimeSemanticTurnResult):
+                return _terminal_result(request, "held", "semantic_runtime_failed"), None
             result, extensions = _project_runtime_result(request, runtime_result)
             result, extensions = await self._bind_operational_evidence(
                 request=request,

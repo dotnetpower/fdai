@@ -22,6 +22,15 @@ owners keep consuming them through the unchanged admission seam.
 > agent's `owns` or `subscribes`, and grants no execution or promotion authority.
 
 ## Design at a glance
+Explicit Operator discussion adds the separate `agent-discussion-read` purpose. It reuses the
+independent retained authentication-receipt reader, but requires a current human Owner and a
+distinct `agent-discussion.read` grant for one exact `pantheon-installation:` selector. The
+verifier recomputes the complete locator and principal-scope digests and requires the current
+grant-registry pin. Neither case-history grants nor partial Resource selectors substitute for
+installation admission. The generic trust-registry revision adds a method only, not a real
+principal, deployment anchor, grant, or live readiness claim. Core admits before Bragi and keeps
+the result presentation-only; this admission cannot verify cloud facts or a model's answer.
+
 Conversation model-call counts, token usage, and local per-call timing are diagnostic metadata.
 They cannot issue an admission, replace any source readback, qualify operational evidence,
 or prove human authorization. Adding numeric usage telemetry leaves this verifier boundary unchanged.

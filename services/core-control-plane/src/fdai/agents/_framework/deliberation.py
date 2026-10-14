@@ -234,11 +234,14 @@ class ConversationDeliberator:
         requester: str,
         correlation_id: str = "",
         locale: str = "en",
+        allow_t2: bool = True,
         routing_decision: RoutingDecision | None = None,
         fixed_assurance_facts: Mapping[str, Mapping[str, object]] | None = None,
         fixed_assurance_scenario_id: str | None = None,
     ) -> dict[str, Any]:
         """Return a bounded presentation outcome without typed authority."""
+        if type(allow_t2) is not bool:
+            raise ValueError("allow_t2 MUST be a boolean")
         if len(question) > _MAX_QUESTION_CHARS:
             raise ValueError("question MUST be at most 2000 characters")
         if requester not in self._specs:
@@ -433,6 +436,9 @@ class ConversationDeliberator:
         result["status"] = "held"
         result["reason"] = "structured_conflict_unresolved"
         result["conclusion"] = None
+        if not allow_t2:
+            result["t2_status"] = "disabled_by_request"
+            return result
         if self._t2_synthesizer is None:
             result["t2_status"] = "unavailable"
             return result

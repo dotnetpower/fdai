@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 1e9c087a3e7cab0cc825f2e8e77fce95559cca2f
+translation_source_sha: 7a7ca1c366b9e14f8952b366b880e5a7ba0892ec
 translation_revised: 2026-10-14
 ---
 # 판테온 대화형 숙의
@@ -41,6 +41,29 @@ situational 계층을 더해 자신의 프롬프트를 조립합니다.
 시나리오를 재현합니다. 내부 기본 제공 품질 보증 시나리오로 범위가 제한되며 participant 답변이나
 근거 참조를 대체하지 않고 운영 근거가 되지 않습니다. 일반 숙의와 비공개 외부 corpus는 계속
 에이전트가 소유한 사실에서만 T1 신호를 도출합니다.
+
+## 명시적 Operator 토론
+
+`SemanticTurnRequest.presentation_mode=agent_discussion`은 읽기 전용 토론 경로를 선택합니다.
+일반 요청의 기본값은 직렬화에서 생략하며, 추가 요청 스키마 버전은 1.11.0입니다.
+Operator는 인간 Owner와 인증 영수증 보관 활성화를 요구합니다. Core는 별도로 Owner와 현재의
+독립 `agent-discussion-read` 인가를 확인한 뒤 Bragi를 호출합니다. verifier는 정확한 요청의
+영수증을 다시 읽고 전체 조회 좌표와 범위 해시를 재계산하며, 현재 허가 레지스트리 pin과 정확한
+`pantheon-installation:` 선택자 하나에 대한 `agent-discussion.read` 허가를 요구합니다.
+사례 조회 허가나 일부 Resource 허가로 이를 대신할 수 없습니다.
+
+표준 부트스트랩에는 `FDAI_PANTHEON_INSTALLATION_REF`,
+`FDAI_PANTHEON_DISCUSSION_SCOPE_DIGEST`와 독립 운영 근거 verifier가 필요합니다.
+설정이나 인가가 없으면 명시적으로 보류하며, upstream에는 실제 허가를 넣지 않습니다.
+토론도 기존 턴의 취소, 기한, 변경 불가능한 최종 결과와 멱등 투영 경로를 사용합니다.
+품질 보증 목적이나 문서·조사 문맥을 받지 않고, 고정 품질 보증 사실을 제공하거나 행동 초안을
+생성하지 않습니다.
+
+명시적으로 T2를 선택한 경우에만 선택적 합성을 허용합니다. T1 토론은 기존의 의미 판단 추가
+추론 금지 옵션을 전달하며, 구조화된 충돌을 합성할 수 없습니다. 검증되지 않은 결과에는 최종
+결론 없이 참여자의 근거를 보존합니다. 검증된 합성이 완료돼도 에이전트 소유 상태에 관한 제한된
+자문일 뿐, 현재 클라우드 상태나 승인 또는 효과 검증은 아닙니다. 출력 한도를 초과하면 자르지
+않고 보류합니다. Console 표시와 실제 환경의 품질·인가·비용·재시작 수락 검증은 별도로 남아 있습니다.
 
 ## 상황별 프롬프트 조립
 

@@ -69,6 +69,28 @@ an explicit 200-line structural ceiling. No live model, identity, deployment or 
 
 ## Completion boundary
 
+### Residual group-discussion design and critique
+
+An additive `presentation_mode` on the existing semantic request selects ordinary operation or
+explicit `agent_discussion`. Ordinary default requests keep their existing serialized shape.
+The Operator continues to validate authentication, roles, session, deadline and idempotency; Core
+admits the discussion only for an authenticated Owner. The fixed Bragi port and independent
+verified synthesis remain read-only and cannot submit actions or accept assurance fixture facts.
+The result is advisory or held and stays inside the existing durable result/projection path.
+Cancellation and deadline bounds apply before any model call. Missing Pantheon or evidence is a
+visible hold, not a lexical or template fallback. This is separate from live validation or promotion.
+
+The first critique found that the regular semantic executor's authorization cannot be assumed
+for a separate group branch. Discussion therefore adds a distinct independent
+`agent-discussion-read` purpose and `agent-discussion.read` grant rather than reusing case-history
+authority. The verifier reads the request-bound retained human Owner receipt, recomputes both
+lookup digests, checks the current grant-registry pin, and requires one exact installation
+selector. No grant, real principal or deployment anchor is supplied by this change. The next
+critique binds T1 selection to no optional synthesis and validates result type, session, trace,
+verification envelope and conclusion digest before advisory presentation. Unverified conclusions
+are removed, not templated. Current evidence is local only: 13 readback checks, 7 discussion
+checks, and three-file mypy passed. Console presentation and governed acceptance remain open.
+
 ### Round 4 design and critique
 
 The existing `BudgetLedger` seam receives a StateStore-backed per-correlation implementation.

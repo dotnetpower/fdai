@@ -316,6 +316,19 @@ def _runtime(*, t2: T2ConversationSynthesizer | None = None) -> PantheonRuntime:
     )
 
 
+def test_explicit_t1_discussion_holds_conflict_without_synthesis_calls() -> None:
+    synthesizer = _T2Synthesizer()
+    result = asyncio.run(
+        _runtime(t2=synthesizer).deliberate(
+            question="Compare cost and capacity.", requester="Forseti", allow_t2=False
+        )
+    )
+    assert result["status"] == "held"
+    assert result["conclusion"] is None
+    assert result["t2_status"] == "disabled_by_request"
+    assert synthesizer.requests == []
+
+
 def test_t2_without_independent_verification_does_not_call_the_generator() -> None:
     synthesizer = _T2Synthesizer()
     runtime = _runtime(t2=synthesizer)

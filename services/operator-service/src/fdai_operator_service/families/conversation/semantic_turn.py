@@ -97,6 +97,11 @@ class SemanticTurnEnvelopeBuilder:
         session_id = _session_id(proposal, identity_seed)
         turn_id = str(uuid5(_IDENTITY_NAMESPACE, f"turn\0{identity_seed}"))
         roles = _authorized_roles(proposal)
+        if proposal.body.get("presentation_mode") == "agent_discussion":
+            if OperatorRole.OWNER not in roles:
+                raise ValueError("agent discussion requires an authenticated Owner")
+            if not self._emit_authentication_receipt_ref or proposal.authentication_receipt is None:
+                raise ValueError("agent discussion requires retained authentication receipts")
         purpose = _optional_text(proposal.body, "purpose", default="operations-review")
         semantic_turn = SemanticTurnRequest(
             authentication_receipt_ref=(
@@ -135,12 +140,15 @@ class SemanticTurnEnvelopeBuilder:
             include_model_trace=proposal.body.get("include_model_trace") is True,
             cancelled=proposal.cancellation,
             target_agent=target_agent,
+            presentation_mode=proposal.body.get("presentation_mode", "operator"),
             relationship_proof=relationship_proof,
             relationship_unknown_reason=relationship_unknown_reason,
         )
         semantic_payload = semantic_turn.model_dump(mode="json", exclude_none=True)
         schema_version = (
-            "1.10.0"
+            "1.11.0"
+            if semantic_turn.presentation_mode == "agent_discussion"
+            else "1.10.0"
             if semantic_turn.recent_result_handles
             else "1.9.0"
             if semantic_turn.authentication_receipt_ref is not None

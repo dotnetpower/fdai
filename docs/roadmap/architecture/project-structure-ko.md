@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: b017a8ce0921da4228dda8eba470589df7967d9c
+translation_source_sha: 0d6298416b01f273304c61c533d26c5cb3a64b86
 translation_revised: 2026-10-14
 ---
 # 프로젝트 구조
@@ -100,6 +100,13 @@ Core가 소유한 같은 스케줄러가 기존 잔여 호출 예산 검사 안�
 발급할 수 있습니다. 이 읽기는 모두 읽기 전용으로 유지됩니다.
 
 ## 설계 개요
+명시적 Operator 토론도 기존 의미 요청과 내구성 결과 경로를 사용합니다. service-contract SDK는
+추가 1.11 요청 모드를 소유하고, 별도의 운영 근거 verifier만 보관된 인증 영수증과 현재의 정확한
+설치 단위 토론 허가를 다시 읽습니다. Core의 전용 `fdai_core_service/agent_discussion.py`는
+Bragi 호출 전에 인가를 확인하고, `runtime/bootstrap_agent_discussion.py`는 명시적 설치 설정과
+독립 인가의 선행 조건이 갖춰졌을 때만 연결합니다. 연결이 없으면 보류합니다. 이 변경은 행동,
+승인, 승격 또는 클라우드 관측 권한을 부여하지 않으며 Console 표시나 실제 환경 수락을 증명하지 않습니다.
+
 테스트 맥락 선택지는 권한이 없는 projection schema로 공유 service-contract SDK를 확장합니다. Operator는 인증과 선택지 렌더링을 소유하고, Core는 계속 허용 및 수명 주기 권한을 유지합니다.
 
 

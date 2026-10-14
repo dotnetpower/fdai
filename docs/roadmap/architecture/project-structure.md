@@ -99,6 +99,14 @@ population hop by hop, collection metric reads can apply reviewed qualitative re
 stopped metric read can issue a leased continuation. Every one of these reads stays read-only.
 
 ## Design at a glance
+Explicit Operator discussion stays on the existing semantic request and durable result path.
+The service-contract SDK owns the additive 1.11 request mode; the separate operational verifier
+alone rereads the retained authentication receipt and current exact-installation discussion grant.
+Core's focused `fdai_core_service/agent_discussion.py` presenter admits before Bragi, and
+`runtime/bootstrap_agent_discussion.py` binds only explicit installation configuration and
+independent admission prerequisites. Missing bindings hold. These additions grant no action,
+approval, promotion, or cloud observation authority and do not establish Console or live acceptance.
+
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.
 
 

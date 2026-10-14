@@ -1,8 +1,38 @@
 {
   "schema_version": "1.0.0",
   "registry_id": "fdai.operational-evidence.trust-registry",
-  "revision": 1,
+  "revision": 2,
   "purposes": [
+    {
+      "purpose_id": "agent-discussion-read",
+      "authority_class": "case_scope_grant_readback",
+      "method_id": "agent-discussion-read-readback",
+      "method_version": "1.0.0",
+      "evidence_class": "live",
+      "producers": [
+        {"producer_id": "core-control-plane", "producer_version": "1.0.0", "anchor_id": "anchor:core-runtime"}
+      ],
+      "sources": [
+        {"source_id": "operator-service.authentication-receipts", "role": "authoritative", "anchor_id": "anchor:operator-service"},
+        {"source_id": "deployment.case-scope-grants", "role": "corroborating", "anchor_id": "anchor:operating-intent-source"}
+      ],
+      "freshness_policy": {"policy_id": "agent-discussion-read-freshness", "policy_version": "1.0.0", "ceiling_seconds": 60},
+      "verifiers": [
+        {
+          "verifier_id": "operational-evidence-verifier",
+          "verifier_version": "1.0.0",
+          "trust_anchor_id": "anchor:operational-evidence-verifier",
+          "valid_from": "2026-09-28T00:00:00+00:00",
+          "valid_until": "2027-09-28T00:00:00+00:00",
+          "revoked": false
+        }
+      ],
+      "separation": [
+        "anchor:core-runtime", "anchor:deploy-runner", "anchor:dev-operations-gateway-executor",
+        "anchor:isolated-executor", "anchor:operator-reviewers", "anchor:vertical-effect-executors"
+      ],
+      "revoked": false
+    },
     {
       "purpose_id": "case-history-read",
       "authority_class": "case_scope_grant_readback",

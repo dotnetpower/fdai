@@ -42,6 +42,30 @@ scenarios, does not replace participant answers or evidence references, and is n
 evidence. Ordinary deliberation and private external corpora continue to derive T1 signals only
 from agent-owned facts.
 
+## Explicit Operator discussion
+
+`SemanticTurnRequest.presentation_mode=agent_discussion` selects the read-only discussion path.
+Its ordinary default is omitted from serialization; the additive request schema is 1.11.0.
+Operator requires a human Owner and enabled retained authentication receipts. Core separately
+requires Owner and a current independent `agent-discussion-read` admission before calling Bragi.
+The verifier re-reads the exact request's receipt, recomputes the complete locator and scope
+digests, and requires the current grant-registry pin plus `agent-discussion.read` on one exact
+`pantheon-installation:` selector. Case-history or partial Resource grants cannot substitute.
+
+Standard bootstrap requires `FDAI_PANTHEON_INSTALLATION_REF`,
+`FDAI_PANTHEON_DISCUSSION_SCOPE_DIGEST`, and the independently bound operational verifier.
+Missing configuration or admission remains an explicit hold; upstream supplies no real grants.
+Discussion uses the existing per-turn cancellation, deadline, immutable terminal result, and
+idempotent projection path. It accepts neither assurance purposes nor document/investigation
+context, never supplies fixed assurance facts, and cannot emit an action draft.
+
+Only explicit T2 selection permits optional synthesis. A T1 discussion forwards the existing
+no-escalation judgment option and cannot synthesize a structured conflict. Unverified outcomes
+preserve participant evidence without a final conclusion. A completed verified synthesis is
+still limited advice over agent-owned projections, not current cloud truth, approval, or effect
+verification. Output overflow holds without truncation. Console presentation and governed live
+quality, authorization, cost, and restart acceptance remain separate unfinished work.
+
 ## Situational prompt composition
 
 One static string cannot serve every turn. An operator asking in Korean, a read-only peer
