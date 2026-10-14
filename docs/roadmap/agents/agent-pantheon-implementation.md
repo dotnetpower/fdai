@@ -27,6 +27,14 @@ not prove actual broker/database restart, remote issue identity or replica-safe 
 
 
 ### Implementation scope
+Loki recurring schedules require an explicit timezone-aware `start_at`. A missing anchor stays
+held instead of using each tick's current time as a fresh window. The existing window id and
+always-HIL proposal gates remain unchanged. Focused schedule/adversarial/sampling checks: 25
+passed. The development binding source is also present in current runtime composition through
+`PreparedDevelopmentBindingRegistry`, shared with ControlLoop and Pantheon; existing composition
+and durable-source checks: 26 passed. Earlier source-absence wording is superseded by that
+source fact only, not by a selected profile, real Owner approval or live execution receipt.
+
 Freyr's standard source binding is `runtime/bootstrap_capacity_sampling.py`. Deployment may
 provide `FDAI_FREYR_TARGETS_JSON`, a bounded mapping of logical Resource ids to canonical types.
 Without targets, a real MetricProvider or the current inventory reader it stays unavailable.
@@ -68,6 +76,7 @@ not authorize scaling. Local routed-provider, sampling and bootstrap checks: 56 
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-15 | implemented | Required an explicit aware Loki schedule anchor and reconciled the current shared development binding-source implementation against actual code. | `current change`; schedule/adversarial/sampling checks: 25 passed; one-file mypy and Ruff; development composition/source checks: 26 passed. | Reviewed schedule/scenario sources, actual profile/Owner receipts and other operational acceptance remain open. |
 | 2026-10-15 | implemented | Added explicit current-inventory Freyr MetricProvider sampling and standard bootstrap binding without default targets or fabricated freshness. | `current change`; routed provider/sampling/bootstrap checks: 56 passed; seven source substitution/positive cases; Ruff and two-file mypy passed. | Retain actual configured sampler receipts. Reviewed Loki scheduling, maintenance sources and operational acceptance remain open. |
 | 2026-10-15 | implemented | Bound standard ordered-poison halt persistence to the existing service-owned StateStore and globally bound local Saga issue operation identity, including retained-history rehydration. | `current change`; bootstrap, poison-clear, runtime and Mimir issue checks: 114 passed; Ruff and two-file mypy passed. Freyr source-time checkpoint `6014bf1bd9`: 11 passed. | Remote broker/database restart, remote GitHub App identity, Saga replica publication, recurring source bindings and governed handover remain open. |
 | 2026-10-08 | implemented | Forseti's baseline evaluation records `compliant` only when the resource carries every property the Rule declares in `evaluates`; otherwise the pair abstains with `property_unobserved`. A deny stays `violated`. | `current change`; `forseti_baseline_evaluation.py`; `test_forseti_baseline_evaluation.py` with worker and Saga audit suites. | Inventory collection still has to supply the normalized properties ([framework Rule evidence ledger](../../roadmap-implementation/rules-and-detection/framework-rule-evidence.md)). |

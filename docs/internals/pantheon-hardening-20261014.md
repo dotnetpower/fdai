@@ -30,7 +30,7 @@ Synthetic tests never satisfy operational readiness or production promotion.
 | 12 | Durable what-if and multi-target attempt model | Open design/implementation work: prove restart-safe retained inputs and per-target rollback plus aggregate audit. |
 | 13 | Ordered poison halt persistence unbound | Standard Core source now binds the existing service-owned StateStore and receipt-gated clear handler; actual initialization and related durability checks pass. Governed provider restart/clear receipts remain open. |
 | 14 | Saga replica and issue-operation identity residuals | Local StateStore adapter now globally binds operation id to fingerprint/content and restores legacy bindings before reuse. Replica-safe audit/publication and remote GitHub App operation identity remain open. |
-| 15 | Development authority source absent | Open authority binding: use the current exact deployment source; never manufacture or relax authorization. |
+| 15 | Development authority source absent | Reconciled: current runtime implements PreparedDevelopmentBindingRegistry and shares the selected source with ControlLoop and Pantheon; 26 existing composition/source checks pass. Actual selected profile/current Owner/live approval and execution receipts remain unverified; no authority is manufactured. |
 | 16 | Workflow/KPI/effect/promotion evidence absent | Operational blocker: retain complete pinned live-shadow cohorts, independent effects, recovery and zero policy escapes. |
 | 17 | Generic v1 placeholder ownership map | Intended upstream example, not readiness: a deployment supplies v2 live primary and distinct backup/escalation identities. |
 | 18 | Free-prose handover interpreter absent | Open integration work: bind a grounded interpreter; structured input and explicit hold remain safe defaults. |
@@ -152,6 +152,16 @@ inventory generations and reference sets must match. Standard Core binds it only
 `FDAI_FREYR_TARGETS_JSON`, a real MetricProvider and the existing inventory source. Local routed
 provider, Freyr sampling and bootstrap checks: 56 passed; seven exact-source cases and two-file
 mypy passed. No actual target, metrics call, scaling, Chaos or live acceptance was performed.
+
+### Residual recurring-window and authority-source critique
+
+An unanchored Loki cadence previously used each tick's current time as the new start and could
+generate a distinct window repeatedly. Missing or naive anchors now hold, while complete
+aware anchored schedules retain existing window deduplication and always-HIL proposals.
+Schedule/adversarial/sampling checks: 25 passed; one-file mypy and Ruff passed. The current
+development source was separately found implemented in runtime/development_authority.py and
+delivery/development_bindings.py; 26 existing composition/source tests pass. The source-absence
+finding is corrected, not replaced with a false selected-profile or live-authority claim.
 
 ### Round 4 design and critique
 
