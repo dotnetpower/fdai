@@ -33,7 +33,7 @@ Synthetic tests never satisfy operational readiness or production promotion.
 | 15 | Development authority source absent | Reconciled: current runtime implements PreparedDevelopmentBindingRegistry and shares the selected source with ControlLoop and Pantheon; 26 existing composition/source checks pass. Actual selected profile/current Owner/live approval and execution receipts remain unverified; no authority is manufactured. |
 | 16 | Workflow/KPI/effect/promotion evidence absent | Operational blocker: retain complete pinned live-shadow cohorts, independent effects, recovery and zero policy escapes. |
 | 17 | Generic v1 placeholder ownership map | Intended upstream example, not readiness: a deployment supplies v2 live primary and distinct backup/escalation identities. |
-| 18 | Free-prose handover interpreter absent | Open integration work: bind a grounded interpreter; structured input and explicit hold remain safe defaults. |
+| 18 | Free-prose handover interpreter absent | Actual Worker now has private opt-in managed-identity author/independent reviewer, explicit 1.1 model provenance, exact source/proposal checks, durable two-call/cost records and draft replay. 16 Worker/Ingestion API checks and seven-file mypy pass. Actual private config/model/identity/backup/notification acceptance remains open. |
 | 19 | Readiness report is permanently observation-only | Intentional authority boundary: add independent evidence evaluation without allowing a report to self-certify deployment. |
 | 20 | GitHub App/merge/restart evidence absent | Operational blocker: retain real refresh, signature, idempotent PR, merge and restart observations. |
 | 21 | Executor/replacement identity evidence absent | Operational blocker: retain current target-bound authorization and independent identity/role readback. |
@@ -182,6 +182,24 @@ boundary. It now accepts only explicit assignment grammar without a model; free 
 Long structured lines keep all source text in ordered per-span-bounded citations. Worker parity,
 prose abstention and lossless-citation checks: 5 passed; Ruff and focused mypy passed. Adaptive
 interpretation must be bound into this actual Worker path, not a test-only legacy factory.
+
+### Actual adaptive Worker handover design and critique
+
+Adaptive interpretation belongs to the actual Document Worker consumer, not the unused legacy
+Core bootstrap. Existing deterministic source/draft 1.0 records remain readable. A 1.1 artifact
+adds an explicit model source with bounded author/reviewer provenance so a model proposal is
+never labelled deterministic. The Worker invokes a schema-constrained author only after bounded
+structured extraction cannot resolve free prose, then validates exact document/version/line/quote,
+canonical agent and cited person. An independently configured reviewer must accept every proposed
+mapping; missing/conflicting/partial review abstains rather than silently dropping candidates.
+Only the existing directory resolves person ids, and the result remains a never-applied draft.
+
+The entire document, candidate, model-call, deadline, directory and output budget is shared;
+overflow holds without truncation. Private deployment supplies separate targets and exact prompt
+packs, never customer identifiers or credentials committed upstream. Tests use scripted adapters
+only. Source implementation cannot establish actual identity, notification, approval, model quality
+or deployment acceptance. The first critique specifically forbids a nominal interpreter class
+with no production consumer caller and rejects source/version or reviewer-identity substitution.
 
 ### Round 4 design and critique
 

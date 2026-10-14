@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import re
@@ -28,6 +29,13 @@ from fdai_service_contracts import (
     StewardshipInput,
     StewardshipSubject,
     UploadSession,
+)
+from fdai_service_contracts.handover import HandoverModelReview
+
+from .handover_interpretation import (
+    HandoverInterpreter,
+    ReviewedHandoverInterpretation,
+    validate_interpretation,
 )
 
 _AGENT_NAMES = (
@@ -98,6 +106,7 @@ class HandoverBootstrapConsumer:
         stewardship: StewardshipInput | None,
         confidence_floor: float = 0.6,
         budget: HandoverGenerationBudget | None = None,
+        interpreter: HandoverInterpreter | None = None,
     ) -> None:
         if not 0.0 <= confidence_floor <= 1.0:
             raise ValueError("handover confidence floor MUST be in [0, 1]")
@@ -106,10 +115,27 @@ class HandoverBootstrapConsumer:
         self._stewardship = stewardship
         self._confidence_floor = confidence_floor
         self._budget = budget or HandoverGenerationBudget()
+        self._interpreter = interpreter
 
     async def consume(
         self, *, session: UploadSession, envelope: DocumentEnvelope
     ) -> tuple[str, ...]:
+        read_existing = getattr(self._store, "get", None)
+        if callable(read_existing):
+            existing = await read_existing(session.upload_id)
+            if existing is not None:
+                if not isinstance(existing, HandoverDraftArtifact):
+                    raise ValueError("retained handover draft is malformed")
+                if (
+                    existing.document_id != envelope.document_id
+                    or existing.version_id != envelope.version_id
+                    or existing.model_review is not None
+                    and existing.model_review.source_sha256 != envelope.source_sha256
+                ):
+                    raise ValueError(
+                        "retained handover draft does not match the current source version"
+                    )
+                return existing.draft.warnings
         if self._stewardship is None:
             unavailable_warnings = (
                 "current stewardship input is unavailable; nothing was drafted",
@@ -148,6 +174,41 @@ class HandoverBootstrapConsumer:
                 )
             )
             return budget_warnings
+        model_review: HandoverModelReview | None = None
+        interpretation_warning: str | None = None
+        free_prose = any(
+            line.strip() and _STRUCTURED_ASSIGNMENT.fullmatch(line.strip()) is None
+            for unit in envelope.units
+            for line in unit.text.splitlines()
+        )
+        if self._interpreter is not None and free_prose:
+            interpretation_warning = "adaptive handover review held; free prose remains unmapped"
+            try:
+                async with asyncio.timeout(30):
+                    interpretation = await self._interpreter.interpret(envelope)
+            except Exception:
+                interpretation = ReviewedHandoverInterpretation(
+                    unavailable_reason="provider_unavailable"
+                )
+            if validate_interpretation(
+                interpretation, envelope, max_candidates=self._budget.max_candidates
+            ):
+                identities = {
+                    (mapping.agent_name, mapping.person.display_name, mapping.responsibility)
+                    for mapping in candidates
+                }
+                proposed = {
+                    (mapping.agent_name, mapping.person.display_name, mapping.responsibility)
+                    for mapping in interpretation.mappings
+                }
+                if (
+                    not identities & proposed
+                    and len(candidates) + len(interpretation.mappings)
+                    <= self._budget.max_candidates
+                ):
+                    candidates = (*candidates, *interpretation.mappings)
+                    model_review = interpretation.review
+                    interpretation_warning = None
         resolved: list[HandoverMapping] = []
         cache: dict[str, ResolvedStewardIdentity | None] = {}
         for mapping in candidates:
@@ -192,6 +253,8 @@ class HandoverBootstrapConsumer:
         )
         unmapped = _unmapped_agents(self._stewardship, mappings)
         warnings = _warnings(mappings, abstained, unresolved, unmapped)
+        if interpretation_warning is not None:
+            warnings = (*warnings, interpretation_warning)
         draft = StewardshipDraft(
             outcome=(HandoverDraftOutcome.DRAFTED if mappings else HandoverDraftOutcome.ABSTAINED),
             mappings=mappings,
@@ -206,6 +269,7 @@ class HandoverBootstrapConsumer:
             draft=draft,
             stewardship=self._stewardship,
             max_yaml_bytes=self._budget.max_yaml_bytes,
+            model_review=model_review,
         )
         await self._store.put(artifact)
         return warnings
@@ -359,6 +423,7 @@ def _artifact(
     draft: StewardshipDraft,
     stewardship: StewardshipInput,
     max_yaml_bytes: int,
+    model_review: HandoverModelReview | None = None,
 ) -> HandoverDraftArtifact:
     rendered = _render_yaml(draft, stewardship)
     if len(rendered.encode("utf-8")) > max_yaml_bytes:
@@ -369,14 +434,17 @@ def _artifact(
             warnings=(warning, "nothing was drafted"),
         )
         rendered = _render_yaml(draft, stewardship)
+        model_review = None
         if len(rendered.encode("utf-8")) > max_yaml_bytes:
             rendered = "# handover draft unavailable: rendered YAML budget exceeded\n"
     return HandoverDraftArtifact(
+        schema_version="1.1.0" if model_review is not None else "1.0.0",
         upload_id=session.upload_id,
         document_id=envelope.document_id,
         version_id=envelope.version_id,
         draft=draft,
         yaml=rendered,
+        model_review=model_review,
     )
 
 

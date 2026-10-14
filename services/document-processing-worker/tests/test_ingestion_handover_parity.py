@@ -2,14 +2,32 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from uuid import uuid4
 
+import httpx
+import pytest
+from fdai_document_worker_service.adapters import handover as handover_store_module
+from fdai_document_worker_service.adapters.handover_model import (
+    AzureReviewedHandoverInterpreter,
+    HandoverModelTarget,
+    HandoverStructuredResponse,
+)
+from fdai_document_worker_service.adapters.handover_model_configuration import (
+    build_handover_interpreter,
+)
 from fdai_document_worker_service.handover import (
     HandoverBootstrapConsumer,
     HandoverGenerationBudget,
     _extract_line,
     stewardship_input_from_environment,
+)
+from fdai_document_worker_service.handover_interpretation import (
+    ReviewedHandoverInterpretation,
+    handover_proposal_digest,
 )
 from fdai_service_contracts import (
     AccessDescriptor,
@@ -17,6 +35,7 @@ from fdai_service_contracts import (
     DocumentPurpose,
     DocumentState,
     HandoverDraftArtifact,
+    HandoverMapping,
     ProtectionState,
     ResolvedStewardIdentity,
     RetentionPolicy,
@@ -30,6 +49,143 @@ from fdai_service_contracts import (
     StructuralUnit,
     UploadSession,
 )
+from fdai_service_contracts.handover import HandoverModelReview
+from pydantic import ValidationError
+
+
+async def test_handover_model_call_reservation_and_usage_never_reset(monkeypatch) -> None:
+    rows = [("reserved",), None, ("usage",), None]
+    statements: list[str] = []
+
+    class Cursor:
+        async def fetchone(self):
+            return rows.pop(0)
+
+    class Connection:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return None
+
+        async def execute(self, statement: str, values):
+            statements.append(statement)
+            return Cursor()
+
+    async def connect(*args, **kwargs):
+        return Connection()
+
+    monkeypatch.setattr(handover_store_module.psycopg.AsyncConnection, "connect", connect)
+    store = handover_store_module.PostgresHandoverDraftStore(dsn="synthetic-test-dsn")
+    document_id, version_id = uuid4(), uuid4()
+    reservation = dict(document_id=document_id, version_id=version_id, source_sha256="a" * 64)
+    assert await store.reserve_model_calls(**reservation) is True
+    assert await store.reserve_model_calls(**reservation) is False
+    usage = dict(
+        document_id=document_id,
+        version_id=version_id,
+        stage="author",
+        prompt_tokens=12,
+        completion_tokens=3,
+        cost_micros=1,
+        pricing_sha256="b" * 64,
+    )
+    await store.record_model_usage(**usage)
+    with pytest.raises(ValueError, match="cannot replace"):
+        await store.record_model_usage(**usage)
+    assert all("DO NOTHING" in statement for statement in statements[:2])
+    assert all("AND NOT" in statement for statement in statements[2:])
+
+
+async def test_handover_model_transport_rejects_malformed_json_but_retains_measured_usage() -> None:
+    class Credential:
+        async def get_token(self, scope: str):
+            assert scope == "https://cognitiveservices.azure.com/.default"
+            return SimpleNamespace(token="synthetic-test-token")
+
+    async def respond(request: httpx.Request) -> httpx.Response:
+        body = json.loads(request.content)
+        assert body["response_format"]["json_schema"]["strict"] is True
+        return httpx.Response(
+            200,
+            json={
+                "usage": {"prompt_tokens": 12, "completion_tokens": 3},
+                "choices": [{"finish_reason": "stop", "message": {"content": "not-json"}}],
+            },
+        )
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(respond)) as client:
+        interpreter = AzureReviewedHandoverInterpreter(
+            author=HandoverModelTarget(
+                "https://author.example.invalid", "author", "first", "first-family"
+            ),
+            reviewer=HandoverModelTarget(
+                "https://reviewer.example.invalid", "reviewer", "second", "second-family"
+            ),
+            credential=Credential(),
+            client=client,
+            reservations=None,
+            author_prompt="Ground exact source mappings.",
+            reviewer_prompt="Verify every source mapping.",
+        )
+        result = await interpreter._complete(
+            interpreter._author, "Ground mappings.", {}, {"type": "object"}
+        )
+        assert result is not None and result.proposal is None
+        assert result.prompt_tokens == 12 and result.completion_tokens == 3
+
+
+def test_adaptive_handover_factory_defaults_closed_and_requires_reviewed_targets(tmp_path) -> None:
+    assert (
+        build_handover_interpreter(environment={}, credential=None, client=None, store=None) is None
+    )
+    prompt = tmp_path / "reviewed-handover.txt"
+    prompt.write_text(
+        "Ground mappings in exact document spans. Never grant authority.", encoding="utf-8"
+    )
+    digest = hashlib.sha256(prompt.read_bytes()).hexdigest()
+    target = {
+        "endpoint": "https://model.example.invalid",
+        "deployment": "model-deployment",
+        "publisher": "publisher-one",
+        "family": "family-one",
+        "input_micros_per_million": 1_000_000,
+        "output_micros_per_million": 2_000_000,
+    }
+    config = {
+        "author": target,
+        "reviewer": {**target, "publisher": "publisher-two", "family": "family-two"},
+        "author_prompt_path": str(prompt),
+        "author_prompt_sha256": digest,
+        "reviewer_prompt_path": str(prompt),
+        "reviewer_prompt_sha256": digest,
+    }
+    with pytest.raises(ValueError, match="invalid"):
+        build_handover_interpreter(
+            environment={"FDAI_HANDOVER_MODELS_JSON": json.dumps(config)},
+            credential=None,
+            client=None,
+            store=None,
+        )
+
+
+def test_handover_model_review_rejects_self_review_and_missing_provenance() -> None:
+    material = {
+        "author_identity": "publisher:author",
+        "reviewer_identity": "publisher:reviewer",
+        "source_sha256": "a" * 64,
+        "proposal_sha256": "b" * 64,
+        "reviewed_mapping_count": 1,
+    }
+    assert HandoverModelReview.model_validate(material).model_calls == 2
+    for override in (
+        {"reviewer_identity": "publisher:author"},
+        {"author_identity": " "},
+        {"source_sha256": "unbound"},
+        {"reviewed_mapping_count": True},
+    ):
+        with pytest.raises(ValidationError):
+            HandoverModelReview.model_validate({**material, **override})
 
 
 def test_worker_handover_never_guesses_prose_or_truncates_citations() -> None:
@@ -57,8 +213,19 @@ class Store:
     async def put(self, artifact: HandoverDraftArtifact) -> None:
         self.artifact = artifact
 
+    async def get(self, upload_id) -> HandoverDraftArtifact | None:
+        if self.artifact is not None:
+            assert self.artifact.upload_id == upload_id
+        return self.artifact
 
-async def test_handover_consumer_generates_grounded_review_only_draft() -> None:
+
+@pytest.mark.parametrize(
+    "adaptive,invalid",
+    [(False, None), (True, None), (True, "review"), (True, "quote"), (True, "identity")],
+)
+async def test_handover_consumer_generates_grounded_review_only_draft(
+    adaptive: bool, invalid: str | None
+) -> None:
     now = datetime.now(UTC)
     upload_id = uuid4()
     document_id = uuid4()
@@ -111,19 +278,158 @@ async def test_handover_consumer_generates_grounded_review_only_draft() -> None:
         extractor_version="1",
     )
     store = Store()
+    authored: list[HandoverMapping] = []
+    if adaptive:
+        units = tuple(
+            unit.model_copy(update={"text": text})
+            for unit, text in zip(
+                envelope.units,
+                (
+                    "Jane Kim is the accountable cost-governance lead.",
+                    "Sam Lee leads chaos and resilience testing.",
+                ),
+                strict=True,
+            )
+        )
+        envelope = envelope.model_copy(update={"units": units})
+        for index, (agent, name) in enumerate((("Njord", "Jane Kim"), ("Loki", "Sam Lee"))):
+            authored.append(
+                HandoverMapping.model_validate(
+                    {
+                        "agent_name": agent,
+                        "person": {"display_name": name},
+                        "responsibility": "accountable",
+                        "confidence": 0.9,
+                        "source": "model",
+                        "citations": [
+                            {
+                                "doc_id": str(document_id),
+                                "line": index + 1,
+                                "quote": units[index].text,
+                            }
+                        ],
+                    }
+                )
+            )
+
+    class Interpreter:
+        async def interpret(self, source: DocumentEnvelope) -> ReviewedHandoverInterpretation:
+            mappings = tuple(authored)
+            return ReviewedHandoverInterpretation(
+                mappings=mappings,
+                review=HandoverModelReview(
+                    author_identity="publisher:author",
+                    reviewer_identity="other:reviewer",
+                    source_sha256=source.source_sha256,
+                    proposal_sha256=handover_proposal_digest(mappings),
+                    reviewed_mapping_count=len(mappings),
+                ),
+            )
+
+    if adaptive:
+
+        class Reservation:
+            calls = 0
+
+            async def record_model_usage(self, **kwargs: object) -> None:
+                assert kwargs["stage"] in {"author", "reviewer"}
+
+            async def reserve_model_calls(self, **kwargs: object) -> bool:
+                self.calls += 1
+                return self.calls == 1
+
+        class ScriptedModel(AzureReviewedHandoverInterpreter):
+            calls = 0
+
+            async def _complete(
+                self, target: HandoverModelTarget, prompt: str, payload: dict, schema: dict
+            ) -> HandoverStructuredResponse:
+                from jsonschema import Draft202012Validator
+
+                self.calls += 1
+                if self.calls == 1:
+                    output = {
+                        "mappings": [
+                            mapping.model_dump(mode="json", exclude_computed_fields=True)
+                            for mapping in authored
+                        ]
+                    }
+                    if invalid == "quote":
+                        output["mappings"][0]["citations"][0]["quote"] = (
+                            "Invented source quotation."
+                        )
+                    if invalid == "identity":
+                        output["mappings"][0]["person"]["oid"] = "invented-person-id"
+                    Draft202012Validator(schema).validate(output)
+                    return HandoverStructuredResponse(output, 100, 40)
+                return HandoverStructuredResponse(
+                    {
+                        "proposal_sha256": payload["proposal_sha256"],
+                        "accepted": invalid != "review",
+                        "reviewed_mapping_count": len(authored),
+                    },
+                    80,
+                    20,
+                )
+
+        interpreter = ScriptedModel(
+            author=HandoverModelTarget(
+                "https://author.example.invalid", "author", "provider-one", "family-one"
+            ),
+            reviewer=HandoverModelTarget(
+                "https://reviewer.example.invalid", "reviewer", "provider-two", "family-two"
+            ),
+            credential=None,
+            client=None,
+            reservations=Reservation(),
+            author_prompt="Ground source mappings only.",
+            reviewer_prompt="Independently verify every mapping.",
+        )
+    else:
+        interpreter = None
 
     warnings = await HandoverBootstrapConsumer(
-        directory=Directory(), store=store, stewardship=_stewardship_input()
+        directory=Directory(),
+        store=store,
+        stewardship=_stewardship_input(),
+        interpreter=interpreter,
     ).consume(
         session=session,
         envelope=envelope,
     )
 
     assert store.artifact is not None
+    if invalid is not None:
+        assert store.artifact.draft.outcome.value == "abstained"
+        assert store.artifact.draft.mappings == ()
+        assert store.artifact.model_review is None
+        assert store.artifact.schema_version == "1.0.0"
+        assert interpreter.calls == (2 if invalid == "review" else 1)
+        return
     by_agent = {item.agent_name: item for item in store.artifact.draft.mappings}
     assert by_agent["Njord"].person.oid == "user-jane"
     assert by_agent["Loki"].person.unresolved is True
-    assert by_agent["Njord"].citations[0].quote.startswith("Agent: Njord;")
+    assert (
+        by_agent["Njord"].citations[0].quote.startswith("Jane Kim" if adaptive else "Agent: Njord;")
+    )
+    assert store.artifact.schema_version == ("1.1.0" if adaptive else "1.0.0")
+    assert (store.artifact.model_review is not None) is adaptive
+    if adaptive:
+        serialized = store.artifact.to_dict()
+        altered = {
+            **serialized,
+            "draft": {
+                **serialized["draft"],
+                "mappings": [
+                    {**serialized["draft"]["mappings"][0], "agent_name": "Odin"},
+                    serialized["draft"]["mappings"][1],
+                ],
+            },
+        }
+        with pytest.raises(ValidationError, match="every exact model mapping"):
+            HandoverDraftArtifact.model_validate(altered)
+        with pytest.raises(ValidationError, match="version 1.1"):
+            HandoverDraftArtifact.model_validate({**serialized, "schema_version": "1.0.0"})
     assert "Jane Kim" in store.artifact.yaml
     assert "user-jane" in store.artifact.yaml
     assert "existing-njord" in store.artifact.yaml
@@ -131,6 +437,14 @@ async def test_handover_consumer_generates_grounded_review_only_draft() -> None:
     assert "accept_autonomous" not in store.artifact.yaml
     assert "review" in store.artifact.yaml.casefold()
     assert any("did not resolve" in warning for warning in warnings)
+    if adaptive:
+        await HandoverBootstrapConsumer(
+            directory=Directory(),
+            store=store,
+            stewardship=_stewardship_input(),
+            interpreter=interpreter,
+        ).consume(session=session, envelope=envelope)
+        assert interpreter.calls == 2
 
 
 async def test_handover_consumer_abstains_on_unknown_agent_or_ungrounded_text() -> None:
