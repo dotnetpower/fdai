@@ -112,6 +112,24 @@ def test_core_reads_the_endpoint_secret_and_never_writes_it() -> None:
     assert "module.teams_workflow_binding_identity" in officer.group("body")
 
 
+def test_console_owned_endpoint_metadata_is_not_reverted_during_activation() -> None:
+    secret = re.search(
+        r'resource "azurerm_key_vault_secret" "teams_workflow_endpoint" '
+        r"\{(?P<body>.*?)\n\}",
+        _PLATFORM,
+        re.DOTALL,
+    )
+    assert secret is not None
+    ignored = re.search(r"ignore_changes\s*=\s*\[(?P<fields>[^]]+)\]", secret.group("body"))
+    assert ignored is not None
+    assert {field.strip() for field in ignored.group("fields").split(",")} == {
+        "value",
+        "content_type",
+        "tags",
+    }
+    assert "ignore_changes = all" not in secret.group("body")
+
+
 def test_activation_is_an_explicit_input_that_defaults_to_disabled() -> None:
     assert 'variable "enable_teams_notification_delivery"' in _PLATFORM_VARS
     activation = re.search(
