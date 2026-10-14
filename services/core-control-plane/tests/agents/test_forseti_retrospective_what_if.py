@@ -7,6 +7,7 @@ from collections.abc import Callable
 from typing import Any
 
 import pytest
+from fdai.agents._framework.forseti_judgment import JudgmentTable
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents.forseti import Forseti
 from fdai.shared.providers.local.event_bus import LocalEventBus
@@ -110,6 +111,55 @@ async def test_retrospective_what_if_publish_failure_stays_retryable_until_succe
     behavior = forseti.behavior_snapshot()
     assert behavior["retrospective_what_if:published"] == 1
     assert behavior["retrospective_what_if:duplicate"] == 1
+
+
+async def test_what_if_preserves_the_original_abstention_and_table_after_an_update() -> None:
+    bus = _FailOnceWhatIfBus()
+    bus.failures_remaining = 0
+    forseti = Forseti(bus=bus)
+    original = await forseti.judge(
+        {
+            "event_type": "unknown_signal",
+            "resource_id": "resource-what-if",
+            "correlation_id": "corr-original",
+        }
+    )
+    assert original is not None
+    assert original["action_type"] == ""
+    forseti._judgment_table = JudgmentTable(
+        rule_match={"unknown_signal": "remediate.disable-public-access"},
+        risk_verdict={"remediate.disable-public-access": "auto"},
+        source="updated-after-judgment",
+    )
+    await forseti.on_typed_message(
+        "object.event",
+        {
+            "kind": "retrospective_what_if_request",
+            "producer_principal": "Huginn",
+            "event_type": "retrospective.what_if.request",
+            "correlation_id": "corr-what-if",
+            "idempotency_key": "what-if-update",
+            "resource_id": "resource-what-if",
+            "judgment_table": {
+                "source": "proposed-overlay",
+                "rule_match": {"unknown_signal": "remediate.disable-public-access"},
+                "risk_verdict": {"remediate.disable-public-access": "auto"},
+            },
+            "sample_limit": 4,
+        },
+    )
+    payload = next(
+        payload
+        for _, topic, payload in bus.published
+        if topic == "object.verdict" and payload.get("kind") == "retrospective_what_if"
+    )
+    assert payload["outcomes"][0]["original"] == {
+        "action_type": original["action_type"],
+        "risk_verdict": original["risk_verdict"],
+        "judgment_table_digest": original["judgment_table_digest"],
+    }
+    assert payload["action_type"] == ""
+    assert payload["resolved_autonomy_ceiling"] == "shadow_only"
 
 
 def test_retrospective_what_if_publishes_inert_disagreement_on_async_bus() -> None:

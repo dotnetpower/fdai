@@ -249,6 +249,11 @@ issue-close regression evidence only after promotion and completed observation, 
 timestamps and pre-promotion runs. Neither check binds missing evidence producers or grants
 activation or issue-close authority.
 
+Forseti what-if comparisons preserve the original recorded ActionType, including a no-rule
+abstention, and its recorded judgment-table digest. Current rules never fill the original action
+or replace its source digest. The bounded sample and publication deduplication windows remain
+process-local; durable full-context replay is a separate remaining capability.
+
 ### 4.2 Per-agent KPI (success and degradation signals)
 
 Standard bootstrap accepts an explicit `FDAI_LOKI_SCHEDULE_JSON` declaration for Loki's existing

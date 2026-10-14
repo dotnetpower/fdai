@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: d63128e7e56b27eeee46f43549fbceda1cdb07db
+translation_source_sha: 50a616d689b320830e9af1c41ff85f67de8a0150
 translation_revised: 2026-10-15
 ---
 
@@ -102,6 +102,7 @@ sampler는 검토된 `resource.cpu.utilization_pct` 선언을 사용하고 조�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-15 | implemented | 테이블 변경 뒤의 회고 비교에서도 Forseti의 원래 무규칙 ActionType과 기록된 판정 테이블 해시를 보존했습니다. | `current change`; `forseti_quality_runtime.py`, `forseti_what_if.py`; what-if·구조·워크플로 검사 41개, 두 파일 mypy와 Ruff 통과. | 전체 과거 입력과 게시 중복 방지 기록을 영속 보관해야 합니다. 전체 맥락 재생과 프로바이더 재시작 수락도 아직 남아 있습니다. |
 | 2026-10-15 | implemented | Mimir 이슈 종료 회귀 근거를 승격 이후 관찰 창에 결속했습니다. 미래 승격, 승격 전 회귀 또는 미래 완료는 아무것도 게시하지 않으며 Saga 이슈를 열린 상태로 남깁니다. | `current change`; `mimir_governance_maintenance.py`; 이슈 종료·구조 검사 35개, 한 파일 mypy와 Ruff 통과. | 검토된 승격·회귀·폐기 생산자를 연결하고 런타임 증적을 보존해야 합니다. 시간 검사는 원본의 권위를 만들지 않습니다. |
 | 2026-10-15 | implemented | Bragi 후보 생성에서 독립 검증 표본을 제외하고, 평가 전에 입력 해시 중복을 거절하며, 원본 기준 소유자와 정답 소유자에 표본별 평가 결과 하나를 결속했습니다. | `current change`; `bragi_intent_training.py`; 학습·구조 검사 24개, 한 파일 mypy와 Ruff 통과. | 독립 평가기와 동의가 확인된 원본 표본을 연결해야 합니다. 검토된 활성화와 런타임 수락도 아직 남아 있습니다. |
 | 2026-10-15 | implemented | 정확한 카탈로그 검증, 필수 출처 기준 시각·근거 참조, 중복 키 거절 및 권한 필드 금지로 명시적인 제한된 Loki 반복 일정을 표준 초기화에 연결했습니다. | `current change`; 초기화·Loki·비활성 시나리오·샘플·레이아웃 검사 57개와 집중 mypy·Ruff 통과 | 실제 선언 일정·사람 승인·복구·Chaos 증적이 필요하며 비활성 생성과 다른 초기 통합 항목은 남아 있습니다. |
@@ -628,6 +629,12 @@ versioned contract로 비교하고 권한을 바꾸지 않는 disagreement 근�
 correlation이 포함되므로 같은 규칙을 다른 이벤트에 재생한 결과가 구분됩니다. 실행 가능 및
 자문 Verdict와 ArbitrationRequest는 범위가 제한된 `cost_annotation` 근거나 명시적 unavailable
 상태를 담습니다. Odin은 이를 보존하고 Thor는 non-identity metadata로 저장합니다.
+
+원본 결과는 당시 기록된 ActionType과 판정 테이블 해시를 사용하며 현재 테이블 값으로
+대체하지 않습니다. 따라서 일치하는 규칙이 나중에 생겨도 원래 규칙 없음으로 보류한
+ActionType은 빈 값으로 남습니다. 출처 해시가 없으면 알 수 없는 상태를 유지합니다. 이 출처
+정확성 수정은 표본이나 게시 중복 방지 창을 영속화하지 않으며, 과거 Rule·정책·근거의 전체
+맥락 재생을 입증하지 않습니다.
 
 #### Bragi intent-training loop
 

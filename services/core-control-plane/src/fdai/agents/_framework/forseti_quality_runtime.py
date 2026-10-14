@@ -168,6 +168,7 @@ class ForsetiQualityRuntimeMixin:
                 "event_type": str(event.get("event_type") or ""),
                 "action_type": str(verdict.get("action_type") or ""),
                 "risk_verdict": str(verdict.get("risk_verdict") or ""),
+                "judgment_table_digest": str(verdict.get("judgment_table_digest") or ""),
                 "tier": tier,
             },
         )

@@ -51,7 +51,7 @@ def build_what_if_batch(
         original_action = str(sample.get("action_type") or "")
         original_verdict = str(sample.get("risk_verdict") or "")
         input_digest = _input_digest(key, sample)
-        active_action = original_action or active_table.rule_match.get(event_type, "")
+        active_action = original_action
         what_if_action = what_if_table.rule_match.get(event_type, active_action)
         what_if_verdict = what_if_table.risk_verdict.get(what_if_action, "hil")
         reason_codes = _reason_codes(
@@ -69,7 +69,7 @@ def build_what_if_batch(
                 "original": {
                     "action_type": active_action,
                     "risk_verdict": original_verdict,
-                    "judgment_table_digest": active_table.digest,
+                    "judgment_table_digest": str(sample.get("judgment_table_digest") or ""),
                 },
                 "what_if": {
                     "action_type": what_if_action,
