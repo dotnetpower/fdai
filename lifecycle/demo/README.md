@@ -39,6 +39,12 @@ Releases 1.0.0 and 1.1.0 pin the public `docker.io/nginxinc/nginx-unprivileged` 
 `python -m lifecycle.demo` from the repository root. Every run starts from a fresh work directory,
 `/tmp/fdai-lifecycle-demo` unless you pass `--work`. The demo removes only a directory it created.
 
+> **Apply mode isn't runnable yet.** `--apply`, `--kube-context`, `--namespace`, and
+> `--health-timeout-seconds` belong to the lifecycle agent's apply mode, delivered separately from
+> this change. Until that lands, `demo.sh run --apply ...` fails at argument parsing. The commands
+> below are the intended usage once the agent's apply mode is available; only "Dry run, no
+> cluster" and "Step by step" run today.
+
 ### Dry run, no cluster
 
 The agent admits each Plan and computes the change without applying it. The scenario stops after
@@ -50,7 +56,8 @@ lifecycle/demo/demo.sh run
 
 ### Apply on a local kind cluster
 
-Create the cluster and the namespace once, then run the scenario:
+Needs the agent's apply mode (see the note above). Create the cluster and the namespace once, then
+run the scenario:
 
 ```bash
 kind create cluster --name fdai-lifecycle-demo
@@ -66,9 +73,9 @@ terminal with `kubectl --context kind-fdai-lifecycle-demo -n fdai-lifecycle-demo
 
 ### Apply on AKS
 
-Only the context and the namespace change. Get the credentials for the cluster you choose, create
-the namespace, and pass both through environment variables so they stay out of the command history
-you share:
+Needs the agent's apply mode (see the note above). Only the context and the namespace change from
+the kind walkthrough. Get the credentials for the cluster you choose, create the namespace, and
+pass both through environment variables so they stay out of the command history you share:
 
 ```bash
 export FDAI_DEMO_KUBE_CONTEXT=<your-aks-context>

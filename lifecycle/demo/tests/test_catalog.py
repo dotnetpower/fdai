@@ -102,6 +102,20 @@ def test_reset_removes_only_a_demo_directory(tmp_path: Path, layout: Layout) -> 
     assert (foreign / "keep.txt").exists()
 
 
+def test_reset_refuses_an_existing_empty_directory(tmp_path: Path) -> None:
+    empty = tmp_path / "empty"
+    empty.mkdir()
+
+    with pytest.raises(ValueError, match="wasn't created by the demo"):
+        catalog.reset(empty)
+
+    assert empty.is_dir()
+
+
+def test_reset_does_nothing_for_a_path_that_does_not_exist(tmp_path: Path) -> None:
+    catalog.reset(tmp_path / "never-created")
+
+
 def test_local_policy_names_the_image_repository_only_for_apply() -> None:
     assert "component_images" not in catalog.local_policy(apply=False)
     assert catalog.local_policy(apply=True)["component_images"] == {

@@ -247,7 +247,9 @@ def _show(args: argparse.Namespace) -> int:
     now = domain.utc_now()
     plan = store.current_plan(args.installation_id, now=now)
     evaluation = store.last_evaluation(args.installation_id)
-    active = tuple(w for w in store.load(args.installation_id).suppressions if w.ends_at > now)
+    active = tuple(
+        w for w in store.load(args.installation_id).suppressions if w.starts_at <= now < w.ends_at
+    )
     _print(
         {
             "enrollment": store.enrollment_status(args.installation_id),

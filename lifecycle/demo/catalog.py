@@ -237,12 +237,12 @@ def local_policy(*, apply: bool) -> dict[str, Any]:
 
 
 def reset(root: Path) -> None:
-    """Remove an earlier demo work directory. Refuses a non-empty one the demo didn't create."""
+    """Remove an earlier demo work directory. Refuses one the demo didn't create, even if empty."""
 
-    if not root.exists() or not any(root.iterdir()):
+    if not root.exists():
         return
     if not (root / MARKER).is_file():
-        raise ValueError(f"{root} is not empty and wasn't created by the demo")
+        raise ValueError(f"{root} exists and wasn't created by the demo")
     shutil.rmtree(root)
 
 
