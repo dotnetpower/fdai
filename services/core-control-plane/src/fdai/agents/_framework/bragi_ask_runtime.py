@@ -30,6 +30,7 @@ from fdai.agents._framework.bragi_models import ConversationSession, RoutingDeci
 from fdai.agents._framework.bragi_progress import evict_oldest
 from fdai.agents._framework.bragi_runtime_helpers import (
     _append_turn,
+    _locale_is_supported,
     _principal_scope,
     _prior_turns_ref,
     _resource_type_from_proposal,
@@ -37,6 +38,7 @@ from fdai.agents._framework.bragi_runtime_helpers import (
     _validate_question,
     _validate_tool_answer_envelope,
 )
+from fdai.agents._framework.pantheon import PANTHEON_NAMES
 
 if TYPE_CHECKING:
     from fdai.agents.bragi import ToolAnswerFn
@@ -129,6 +131,7 @@ class BragiAskRuntimeMixin:
         user_id: str,
         question: str,
         locale: str = "en",
+        target_agent: str | None = None,
         initiator_role: str | None = None,
         allow_action_proposal: bool = False,
         materialize_handoff: bool = False,
@@ -143,6 +146,10 @@ class BragiAskRuntimeMixin:
         publishing anything from the conversational port.
         """
         _validate_question(question)
+        if target_agent is not None and target_agent not in PANTHEON_NAMES:
+            raise ValueError("target_agent MUST name a canonical Pantheon agent")
+        if not _locale_is_supported(locale):
+            raise ValueError("locale MUST be a supported canonical language tag")
         session_lock = self._session_locks.setdefault(session_id, asyncio.Lock())
         ended_session: ConversationSession | None = None
         async with session_lock:
@@ -179,6 +186,8 @@ class BragiAskRuntimeMixin:
             turn_index = await self._reserve_turn_index(session_id, session)
             prior_turns_ref = _prior_turns_ref(session)
             semantic_context = (prior_turns_ref,) if prior_turns_ref else ()
+            if target_agent is not None:
+                semantic_context = (*semantic_context, f"requested_agent={target_agent}")
             session.last_active_at = now
             # Bound the session map so a long-lived narrator cannot leak one entry
             # per session id forever (evicts oldest, never the active session).
@@ -266,6 +275,13 @@ class BragiAskRuntimeMixin:
                 ),
             )
         )
+        if judgment is not None and target_agent is not None:
+            decision = RoutingDecision(
+                primary_agent=target_agent,
+                scores={},
+                tie_break=None,
+                method="explicit_target",
+            )
         if judgment is None or decision.primary_agent is None:
             clarification = (
                 judgment_result.proposal.clarification

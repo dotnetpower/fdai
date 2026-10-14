@@ -20,7 +20,7 @@ Synthetic tests never satisfy operational readiness or production promotion.
 | 2 | Lost failed discussion participants | Fixed in round 1: preserve all selected participants and reasons; block synthesis after partial evidence. |
 | 3 | Peer critique does not consume the peer claim | Open source limitation: attribute structured comparisons to the exact peer evidence without inventing semantic critique. |
 | 4 | Template operational answers | Open migration debt: use verified answer composition; keep fact views and role descriptions distinct from operational conclusions. |
-| 5 | Remote target and locale are lost | Open source defect: bind an explicit canonical target and validated locale end to end. |
+| 5 | Remote target and locale are lost | Fixed in round 3 within client/server/Bragi: explicit target, validated locale and locale-bound replay identity. General Operator surface wiring remains open. |
 | 6 | Operator group discussion is not wired | Open integration work: expose an authenticated read-only boundary without transferring typed authority. |
 | 7 | Concrete T2 synthesis is unbound | Open integration work: bind only a verified, priced, metered implementation. |
 | 8 | Narrow structured conflict vocabulary | Bounded design, not proof of complete reasoning: add only typed, evidenced comparisons; never infer conflict from lexical prose. |
@@ -50,6 +50,7 @@ Synthetic tests never satisfy operational readiness or production promotion.
 |-------|----------|--------|------------------|----------|
 | 1 | One failed peer disappeared while a three-participant discussion reported completion. | Preserve selected/attempted participant accounting and return partial or abstain; no synthesis of incomplete branches. | `pytest -q --no-cov test_prompt_deliberation.py test_framework_layout.py`: 60 passed; Ruff and focused mypy passed. | Synthesis grounding, remote dispatch, persistent limits, integrations, and operational acceptance remain open. |
 | 2 | Generated prose passed only output-size and sensitivity checks; a fabricated 999-resource claim was accepted. | Require an independent verifier and exact request/conclusion/evidence receipt; hold on absence, rejection, substitution, self-verification or provider failure. | Focused deliberation/layout/bootstrap checks: 82 passed; Ruff and six-file mypy passed. | The verifier contract is tested, not a live independent entailment or production readiness claim. |
+| 3 | Remote dispatch discarded its selected agent and locale; generic agent mentions could select the target. | Preserve exact canonical target and locale through Bragi, include locale in request identity and reject invalid inputs before startup. | Remote/deliberation/conversational checks: 196 passed; Ruff and three-file mypy passed. | No general Operator caller of this standalone client was found; group-chat invocation and live locale evidence remain open. |
 
 ## Completion boundary
 

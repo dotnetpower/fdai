@@ -148,6 +148,13 @@ action.
 
 ## Tool planning
 
+An explicitly selected canonical agent is server-validated presentation routing, not inferred
+meaning or authority. The remote introspection boundary carries that target and `en`/`ko` locale
+through Bragi, includes locale in replay identity, and never selects a target merely because its
+name appears in prose. Semantic judgment remains required and action requests still re-enter the
+typed pipeline. The standalone client/server contract does not establish an Operator group-chat
+route or deployed availability.
+
 A charter tells its agent to answer "through the allowed tools", and the grounding layer now names
 them. Until it did, that instruction described a surface no turn could reach: the registry existed,
 but nothing in the read path dispatched a tool, so the sentence asked the agent to work through

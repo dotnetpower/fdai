@@ -406,6 +406,24 @@ def test_t2_generator_cannot_be_its_own_verifier() -> None:
         )
 
 
+def test_explicit_operator_target_survives_a_different_semantic_owner() -> None:
+    runtime = _runtime()
+    turn = asyncio.run(
+        runtime.ask(
+            session_id="explicit-target-session",
+            user_id="operator-example",
+            question="Compare cost and capacity evidence.",
+            target_agent="Saga",
+            locale="ko",
+        )
+    )
+    assert turn is not None
+    assert turn.primary_agent == "Saga"
+    assert turn.decision.method == "explicit_target"
+    assert turn.answer["primary_agent"] == "Saga"
+    assert "locale_ko" in turn.answer["prompt_composition"]["layers"]
+
+
 def _agent_index(name: str) -> int:
     return next(index for index, spec in enumerate(PANTHEON_SPECS) if spec.name == name)
 

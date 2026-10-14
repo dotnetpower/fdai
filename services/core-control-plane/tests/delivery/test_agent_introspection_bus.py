@@ -6,6 +6,7 @@ import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
+import pytest
 from fdai.delivery.agent_introspection_bus import (
     AGENT_INTROSPECTION_TOPICS,
     EventBusAgentIntrospectionClient,
@@ -87,6 +88,8 @@ async def test_routes_to_runtime_and_returns_agent_owned_evidence() -> None:
             prompt="@Huginn What have you been working on?",
             user_id="operator-1",
             session_id="conversation-1",
+            locale="ko",
+            target_agent="Huginn",
         )
     finally:
         await client.stop()
@@ -103,8 +106,28 @@ async def test_routes_to_runtime_and_returns_agent_owned_evidence() -> None:
     call = runtime.ask.await_args.kwargs
     assert call["allow_action_proposal"] is False
     assert call["materialize_handoff"] is False
+    assert call["target_agent"] == "Huginn"
+    assert call["locale"] == "ko"
     assert call["user_id"] != "operator-1"
     assert call["session_id"] != "conversation-1"
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [{"locale": "invalid"}, {"target_agent": "UnknownAgent"}],
+)
+async def test_invalid_address_or_locale_is_rejected_before_startup(
+    kwargs: dict[str, str],
+) -> None:
+    client = EventBusAgentIntrospectionClient(event_bus=_bus(), instance_id="operator-api-test")
+    with pytest.raises(ValueError):
+        await client.delegate(
+            prompt="@Huginn What have you been working on?",
+            user_id="operator-1",
+            session_id="conversation-1",
+            **kwargs,
+        )
+    assert client._consumer_task is None  # noqa: SLF001
 
 
 async def test_unavailable_server_returns_explicit_bounded_handoff() -> None:
