@@ -1,8 +1,8 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: cc042d345eccc0b266ca225dce3701e523446660
-translation_revised: 2026-10-11
+translation_source_sha: afaf8c39f861f19b936be4d3a725eb2b3354a445
+translation_revised: 2026-10-14
 ---
 
 # 코드 보안 스캔
@@ -465,6 +465,10 @@ Informational은 정규 Low이면서 결정론적 우선순위가 P4인 표시 �
 - **자원:** Kata는 pod 메모리 제한으로 pod VM 크기를 정하고, 게스트 커널과 Kata 에이전트가 그 일부를
   씁니다. 제한값은 측정한 스캐너 최대 사용량에 이 오버헤드를 더해 정하고, 작업 기한에는 콜드 스타트
   여유를 둡니다.
+  현재 결정론적 작업은 실제 메모리 요청과 제한을 모두 4 GiB로 설정합니다.
+  로컬 `address_space_bytes`는 가상 주소 공간 한도이며 게스트 RAM 크기가 아닙니다.
+  Go 스캐너가 가상 주소 범위 32 GiB를 예약해도 VM 메모리 32 GiB가 필요한 것은 아닙니다.
+  메모리가 부족하면 관측된 불완전 스캔으로 처리하며, 문제가 없다는 검사 결과로 간주하지 않습니다.
 
 **승인과 관측.** 스캐너 네임스페이스는 Restricted Pod Security를 강제합니다. 조정기는 작업을 만들기
 전에 설치된 Kata 런타임 클래스와 네임스페이스의 전체 거부 네트워크 정책을 검증합니다. 추가적인

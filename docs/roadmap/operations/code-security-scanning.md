@@ -478,6 +478,10 @@ gives each pod its own lightweight VM and guest kernel:
 - **Resources:** Kata sizes the pod VM from the pod memory limit, and the guest kernel and Kata
   agent consume part of it. Limits come from measured scanner peaks plus that overhead, and the
   job deadline includes a cold-start margin.
+  The current deterministic Jobs use a 4 GiB physical-memory request and limit. Local
+  `address_space_bytes` is a virtual-address limit, not guest RAM: Go scanners can reserve a
+  32 GiB virtual address range without requiring a 32 GiB VM. Memory exhaustion remains an
+  observed incomplete scan; it never establishes clean coverage.
 
 **Admission and observation.** The scanner namespace enforces Restricted Pod Security. The
 controller verifies the installed Kata runtime class and the namespace's deny-all network policy
