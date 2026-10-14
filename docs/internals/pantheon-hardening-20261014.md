@@ -21,7 +21,7 @@ Synthetic tests never satisfy operational readiness or production promotion.
 | 3 | Peer critique does not consume the peer claim | Structured evidence critique implemented in residual-work batch 1: exact primary/reviewer attribution and both source sets with consistent/conflicting/not-comparable states. Free-prose entailment remains the independent verified-composition boundary. |
 | 4 | Template operational answers | Open migration debt: use verified answer composition; keep fact views and role descriptions distinct from operational conclusions. |
 | 5 | Remote target and locale are lost | Fixed in round 3 within client/server/Bragi: explicit target, validated locale and locale-bound replay identity. General Operator surface wiring remains open. |
-| 6 | Operator group discussion is not wired | Open integration work: expose an authenticated read-only boundary without transferring typed authority. |
+| 6 | Operator group discussion is not wired | Backend and Console source connected in residual-work batches 3-4 with independent current Owner/exact-installation read admission, existing durable stream and explicit mode. Local backend: 541 passed; Console: 61 unit checks and 2 focused synthetic E2E passed. Actual verifier/model/authorization/cost acceptance remains open. |
 | 7 | Concrete T2 synthesis is unbound | Implemented default source binding in residual-work batch 2 when exact independent targets, reviewed prompts, prices, identity/client and metering exist. Existing custom bindings are preserved; deployment receipts remain open. |
 | 8 | Narrow structured conflict vocabulary | Bounded design, not proof of complete reasoning: add only typed, evidenced comparisons; never infer conflict from lexical prose. |
 | 9 | Process-local discussion budget | Fixed for standard per-correlation bootstrap in round 4: policy-pinned StateStore CAS survives restart/replicas without eviction or memory fallback. Fleet totals and live provider receipts remain separate. |
@@ -90,6 +90,27 @@ critique binds T1 selection to no optional synthesis and validates result type, 
 verification envelope and conclusion digest before advisory presentation. Unverified conclusions
 are removed, not templated. Current evidence is local only: 13 readback checks, 7 discussion
 checks, and three-file mypy passed. Console presentation and governed acceptance remain open.
+
+### Residual Console discussion evidence
+
+The existing Command Deck now selects ordinary chat or explicit agent discussion and forwards
+the mode through the existing streaming request. Ordinary requests omit the mode. Discussion
+does not carry previous incident, selected Resource or document attachment context, and pending
+attachments remain intact when discussion submission is refused. The structured reply preserves
+position, peer critique, evidence disclosures and every participant outcome; held conclusions
+remain absent, and a conclusion is labelled verified only for a completed verified T2 envelope.
+
+UI review scope is the production Command Deck on `/overview`, full-workspace navigation,
+synthetic in-process API frames only, partial/held outcomes including one abstained participant,
+and sequential 1440x900, 993x641 and 390x844 views. The rubric's core checks and overlap, wrapping,
+language, authority/status, keyboard-control and responsive gates are applicable. Unexercised
+human screen-reader and live authorization behavior remain unverified, not not-applicable.
+Local evidence: request/render/Korean-label checks: 61 passed; Console typecheck passed; focused
+discussion and existing narrow-screen E2E: 2 passed. Captures under the leased `/tmp/fdai-playwright`
+slot were reviewed and contain generic synthetic records only. E2E measures topmost pointer
+exposure, disjoint selector rectangles, retained mode, failed participant visibility and page
+horizontal overflow. Desktop and mobile selector overlap was reproduced and repaired. This is
+not Browser Entra, actual model, verifier, task-competence or operational acceptance evidence.
 
 ### Round 4 design and critique
 

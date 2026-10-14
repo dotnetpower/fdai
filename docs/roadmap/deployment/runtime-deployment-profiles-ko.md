@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 184fe7b693a9dac7a240c9e3e2eb2cecb53cb9c3
-translation_revised: 2026-10-14
+translation_source_sha: fb2e5dc76d3bfa649b9ce81bb1974ebf5e882113
+translation_revised: 2026-10-15
 ---
 # 런타임 배포 프로파일
 
@@ -19,6 +19,11 @@ translation_revised: 2026-10-14
 > 바뀌지 않습니다.
 
 ## 설계 개요
+두 프로필은 독립 verifier 설정, 현재 허가 레지스트리 pin, 설치 참조와 정확한 설치 단위 읽기
+범위가 있을 때만 명시적 Operator 토론을 연결합니다. 선행 조건이 없으면 Owner, 허가나 실제
+모델 호출을 만들지 않고 보류합니다. Console 모드 선택은 런타임 프로필, 실행기 신원 또는
+운영 준비 상태를 바꾸지 않습니다.
+
 
 두 런타임 프로파일 모두 대화 표시를 실행 및 패키지 활성화와 분리합니다. 표준 Core 구성은
 독립적인 종합 검증기를 전달하고 상관 ID별 영속 예산 원장을 연결합니다. 대상과 언어의 전송,

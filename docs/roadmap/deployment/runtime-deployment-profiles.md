@@ -19,6 +19,11 @@ authority. Azure Container Apps remains a supported compatibility profile for ex
 > this runtime contract doesn't change.
 
 ## Design at a glance
+Both profiles bind explicit Operator discussion only when the independently configured verifier,
+current grant-registry pin, installation reference and exact installation read scope exist.
+Missing prerequisites hold rather than creating an Owner, grant or live model invocation.
+Console mode selection changes no runtime profile, executor identity or operational readiness.
+
 
 Both runtime profiles keep conversational presentation separate from execution and package
 activation. Standard Core composition forwards the independent synthesis verifier and binds the

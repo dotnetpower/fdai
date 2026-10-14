@@ -122,9 +122,24 @@ export function createBackendRequestPayload(
   semanticPlanningProfile?: "interactive" | "golden_campaign_no_t2",
   handoverGoalId?: string,
   conversationModelTier?: "t1" | "t2",
+  presentationMode?: "operator" | "agent_discussion",
 ): Record<string, unknown> {
   const locale = responseLocale(prompt);
   const includeModelTrace = readConsolePreferences().showModelTrace;
+  if (presentationMode === "agent_discussion") {
+    if (attachments && attachments.length > 0) {
+      throw new Error("agent discussion cannot carry attachments");
+    }
+    return {
+      ...(requestId === undefined ? {} : { request_id: requestId, idempotency_key: requestId }),
+      ...(includeModelTrace ? { include_model_trace: true } : {}),
+      prompt, locale, session_id: sessionId, presentation_mode: presentationMode,
+      ...(conversationModelTier ? { conversation_model_tier: conversationModelTier } : {}),
+      ...(semanticPlanningProfile && semanticPlanningProfile !== "interactive"
+        ? { semantic_planning_profile: semanticPlanningProfile } : {}),
+      history: toBackendHistory(history),
+    };
+  }
   const normalizedBinding = normalizeIncidentBinding(binding) ?? latestConversationBinding(history);
   const resourceContext = latestResourceContext(history);
   const evidenceFreshnessContext = latestEvidenceFreshnessContext(history);

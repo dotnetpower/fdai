@@ -63,8 +63,11 @@ Only explicit T2 selection permits optional synthesis. A T1 discussion forwards 
 no-escalation judgment option and cannot synthesize a structured conflict. Unverified outcomes
 preserve participant evidence without a final conclusion. A completed verified synthesis is
 still limited advice over agent-owned projections, not current cloud truth, approval, or effect
-verification. Output overflow holds without truncation. Console presentation and governed live
-quality, authorization, cost, and restart acceptance remain separate unfinished work.
+verification. Output overflow holds without truncation. The Command Deck exposes an explicit
+conversation mode and renders position, critique, evidence and every participant outcome. It
+does not forward incident, selected-resource or attachment context into discussion. Synthetic
+desktop/responsive tests and bilingual labels verify this source connection, not governed live
+quality, authorization, cost, accessibility or restart acceptance, which remain unfinished.
 
 ## Situational prompt composition
 
