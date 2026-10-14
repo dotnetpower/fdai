@@ -6,7 +6,9 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from uuid import NAMESPACE_URL, uuid5
 
+import httpx
 import pytest
+from fdai_operator_service.entra_directory import EntraHumanIdentityDirectory
 from fdai_operator_service.families.conversation.contracts import (
     ConversationProposal,
     PrincipalScope,
@@ -17,11 +19,15 @@ from fdai_operator_service.families.iam.contracts import (
     IamPrincipal,
 )
 from fdai_operator_service.families.iam.errors import IamConflictError, IamUnavailableError
+from fdai_operator_service.families.iam.handover import make_handover_routes
 from fdai_operator_service.families.iam.handover_runtime import ProactiveHandoverRuntime
 from fdai_operator_service.families.operations.contracts import ProjectionQuery
 from fdai_operator_service.postgres_family_store import PostgresProposalConflict
 from fdai_service_contracts import OperatorRole
 from fdai_service_contracts.handover_checklist import HANDOVER_SLOTS
+from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.cors import CORSMiddleware
 
 _NOW = datetime(2026, 9, 5, 3, 0, tzinfo=UTC)
 _SUBJECT = str(uuid5(NAMESPACE_URL, "fdai-test-handover-subject"))
@@ -194,6 +200,41 @@ def _runtime(
         resolved_store,
         reader,
     )
+
+
+@pytest.mark.asyncio
+async def test_graph_denial_returns_cors_visible_unavailability_without_goal_writes() -> None:
+    runtime, store, _reader = _runtime()
+
+    async def token(_scope: str) -> str:
+        return "test-token"
+
+    async def authorize(_request) -> IamPrincipal:
+        return IamPrincipal(oid=_SUBJECT, roles=frozenset({OperatorRole.OWNER}))
+
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _request: httpx.Response(403))
+    ) as graph:
+        runtime = replace(
+            runtime,
+            directory=EntraHumanIdentityDirectory(client=graph, token_provider=token),
+        )
+        app = Starlette(
+            routes=make_handover_routes(outbox=runtime, authorize=authorize),
+            middleware=[Middleware(CORSMiddleware, allow_origins=["https://console.example.com"])],
+        )
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://operator.example.com"
+        ) as client:
+            response = await client.get(
+                "/handover/goals/invitation?session_id=test-session",
+                headers={"Origin": "https://console.example.com"},
+            )
+
+    assert response.status_code == 503
+    assert response.headers["access-control-allow-origin"] == "https://console.example.com"
+    assert response.json()["error"]["message"] == "human identity directory is unavailable"
+    assert store.states == {}
 
 
 @pytest.mark.asyncio

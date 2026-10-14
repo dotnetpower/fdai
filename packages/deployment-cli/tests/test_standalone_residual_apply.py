@@ -359,7 +359,7 @@ def test_residual_successor_rejects_non_create_plan(
 
     monkeypatch.setattr(standalone_residual_apply.subprocess, "run", changed_plan)
     monkeypatch.setattr(standalone_residual_successor.subprocess, "run", changed_plan)
-    with pytest.raises(ValueError, match="create actions only"):
+    with pytest.raises(ValueError, match="creates and at most one"):
         standalone_residual_apply.recover_residual_apply(
             work_dir=tmp_path,
             stage="substrate",
@@ -372,6 +372,69 @@ def test_residual_successor_rejects_non_create_plan(
             effect_readback=lambda: False,
             successor_prerequisite_verified=True,
         )
+
+
+def test_application_successor_allows_one_replacement(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    context = _context()
+    original_review, original_claim = _original(context)
+    original_claim["stage"] = "application"
+    residual_review = {
+        "plan_digest": "e" * 64,
+    }
+    residual_claim = {"claim": "residual"}
+    monkeypatch.setattr(
+        standalone_residual_successor,
+        "_validate_residual_claim",
+        lambda **_kwargs: None,
+    )
+
+    def plan(command, **_kwargs):
+        if command[1] == "plan":
+            output = next(value for value in command if value.startswith("-out="))
+            path = Path(output.removeprefix("-out="))
+            path.write_bytes(b"successor")
+            path.chmod(0o600)
+            return subprocess.CompletedProcess(command, 2, stdout=b"", stderr=b"")
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=json.dumps(
+                {
+                    "resource_changes": [
+                        {
+                            "address": "kubernetes_deployment_v1.workload",
+                            "type": "kubernetes_deployment_v1",
+                            "change": {"actions": ["delete", "create"]},
+                        },
+                        {
+                            "address": "azurerm_network_security_rule.gateway",
+                            "type": "azurerm_network_security_rule",
+                            "change": {"actions": ["create"]},
+                        },
+                    ]
+                }
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(standalone_residual_successor.subprocess, "run", plan)
+    review = standalone_residual_successor.prepare_residual_successor_review(
+        work_dir=tmp_path,
+        stage="application",
+        context=context,
+        infra=tmp_path,
+        variables=tmp_path / "workloads.auto.tfvars.json",
+        targets=("module.example",),
+        original_review=original_review,
+        original_claim=original_claim,
+        residual_review=residual_review,
+        residual_claim=residual_claim,
+        successor_prerequisite_verified=True,
+    )
+
+    assert review["summary"]["action_counts"]["replace"] == 1
 
 
 def test_residual_apply_command_is_explicit(

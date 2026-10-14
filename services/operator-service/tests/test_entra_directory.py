@@ -5,10 +5,46 @@ from __future__ import annotations
 import httpx
 import pytest
 from fdai_operator_service.entra_directory import EntraHumanIdentityDirectory
+from fdai_operator_service.families.iam.errors import IamUnavailableError
 
 
 async def _token(_: str) -> str:
     return "token"
+
+
+@pytest.mark.parametrize("status", [401, 403, 429, 500, 503])
+async def test_provider_failures_are_explicit_iam_unavailability(status: int) -> None:
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _request: httpx.Response(status))
+    ) as client:
+        directory = EntraHumanIdentityDirectory(
+            client=client, token_provider=_token, max_attempts=1
+        )
+        with pytest.raises(IamUnavailableError, match=f"HTTP {status}") as captured:
+            await directory.get_by_subject_id("example-user")
+    assert "example-user" not in str(captured.value)
+    assert "graph.microsoft.com" not in str(captured.value)
+    assert (await directory.directory_status()).availability == "unavailable"
+
+
+async def test_directory_transport_failure_is_explicit_iam_unavailability() -> None:
+    def failed(request: httpx.Request) -> httpx.Response:
+        raise httpx.ConnectError("connection failed", request=request)
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(failed)) as client:
+        directory = EntraHumanIdentityDirectory(client=client, token_provider=_token)
+        with pytest.raises(IamUnavailableError, match="directory connection is unavailable"):
+            await directory.get_by_subject_id("example-user")
+    assert (await directory.directory_status()).availability == "unavailable"
+
+
+@pytest.mark.parametrize("kind", ["user", "group"])
+async def test_absent_directory_subject_still_returns_none(kind: str) -> None:
+    async with httpx.AsyncClient(
+        transport=httpx.MockTransport(lambda _request: httpx.Response(404))
+    ) as client:
+        directory = EntraHumanIdentityDirectory(client=client, token_provider=_token)
+        assert await directory.get_steward_subject_by_id("example-subject", kind=kind) is None
 
 
 async def test_search_and_roster_project_only_bounded_identity_fields() -> None:

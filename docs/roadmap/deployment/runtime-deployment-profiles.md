@@ -87,6 +87,10 @@ Host preparation runs exactly one host subcommand: `prepare --kit` for a signed 
 the host's own parser in both modes, because a rejected command fails before the host records any
 reason.
 Both profiles package Core's locked Kubernetes quantity utility for read-side resource accounting. This dependency neither chooses a runtime nor grants Kubernetes access, proves node fit, or enables Cost Governance; the standalone deployment CLI retains its independent dependency set. Runtime Dockerfile Alpine package pin updates are package maintenance only and do not change profiles, authority, provider access, or add-ons.
+The three source-built OPA binaries also disable Go's experimental JSON v2 encoder. OPA's reviewed
+AST JSON contract depends on the v1 encoder; enabling JSON v2 converts AST objects into formatted
+source strings and blocks catalog projection. This build setting changes neither Rego semantics nor
+runtime authority.
 
 The deployment CLI also carries pure, shadow-only checks for future Hub-managed Lifecycle Plans.
 Those checks evaluate local Plan admission and blocking constraints against already parsed inputs,
@@ -123,6 +127,28 @@ exists in Azure but the `azurerm_kubernetes_cluster_node_pool.user` address is a
 Terraform state, the run stops before any effect with `aks_node_pool_exists_outside_state`.
 The message names the pool and explains that removal requires explicit Owner confirmation. The
 coordinator does not delete or import that pool automatically.
+Application preparation also rereads the backend network security group after AKS and substrate
+effects. If an ambiguous application apply retained an empty `backend_nsg_id` and authoritative
+readback now supplies the sole changed value, the managed host records a distinct input-rebind
+claim and receipt before replacing the local Terraform variable. The original and residual claims
+remain immutable. Only a new residual successor can consume the rebound input. It may retain the
+same single application Deployment replacement when a new exact destructive confirmation approves
+the successor plan; every other replacement and field change remains blocked.
+A partial development baseline may then admit a source update for Core only when the original,
+residual, successor, and NSG-rebind evidence forms one exact chain and the successor contains only
+the reviewed Core replacement plus bounded HPA and gateway-rule creates. Peer services, broader
+application planning, and every other service update still require an applied or adopted complete
+application receipt.
+That Core-only update may use one replacement plan only when the same partial-recovery admission
+is revalidated while planning. The selected Core Deployment is the sole mutable address; peer
+Deployments, Services, HPAs, namespaces, and every other resource remain out of scope.
+If that exact Core-only update is claimed but does not converge, one repair may supersede it with a
+new source commit and image digest. The repair record binds the failed update digest, requires a
+fresh selected-Deployment plan and approval, and cannot itself be superseded. Peer services and
+broader application recovery remain blocked.
+Source image import keeps the legacy fixed claim for the same image. After that import has a
+receipt, a different source commit and image digest receive a digest-qualified claim and receipt,
+so one completed Core update cannot block a later exact repair or be mistaken for its authority.
 
 | Axis | Supported values | Default | Meaning |
 |------|------------------|---------|---------|
@@ -520,6 +546,9 @@ a retry limit, and bounded history. Manual jobs require a separate approval and 
 The AKS baseline renders analyzer, canary, inventory, observation campaign, and operational-history lifecycle
 CronJobs. The history job uses the read-only inventory identity, service-owned state DSN, and private archive URL
 in fixed `shadow` mode. A non-shadow lifecycle requires a separate protected transition and exact persisted certification receipt.
+Core and the canary CronJob receive the same fixed canary topic. Core consumes it through the
+auxiliary transport and records the trusted canary as a shadow no-op, so a successful publisher
+Job cannot be mistaken for an end-to-end canary result when no consumer is bound.
 The focused `aks_workload_jobs.py` module owns pure scheduled-job assembly; the managed host remains orchestration-only, and this ownership split changes no rendered Job, identity, schedule, or authority.
 The analyzer Job reuses the inventory identity to read only the exact ingest Event Hub for
 uncertain-publication reconciliation. Its new topic-scoped receiver assignment adds no write,
@@ -651,6 +680,9 @@ Neither identity choice grants execution authority, and local interactive never 
 binding.
 
 The AKS managed Key Vault CSI provider synchronizes fixed Key Vault references into namespaced Kubernetes Secrets by using each workload's federated identity. Applications continue to read environment variables and never call Key Vault directly. Terraform plans contain secret names and versionless references, not secret values.
+The Teams endpoint placeholder is platform-owned, but the Console's dedicated binding writer owns
+its saved value, content type, and purpose/request tags. Later Terraform activation preserves
+those fields so it cannot erase the binding marker or rewrite the operator-tested endpoint.
 The Operator Cost Governance pseudonym key follows the same service-owned secret boundary. Container Apps and AKS retain one high-entropy Key Vault value and inject it only as `FDAI_COST_PSEUDONYM_KEY`; the root passes its secret reference only to Operator, never isolated Executor. Protected independent-service planning hydrates that reference from the current platform Terraform output instead of relying on a retained service-input snapshot. Plans, outputs, logs, contracts, and browser responses contain no key. Local preparation preserves an existing gitignored value or generates one with the same minimum strength. The key changes identity disclosure only and grants no cost-data or action authority.
 
 The managed CSI provider is enabled with the cluster and is separate from FDAI workload rollout.

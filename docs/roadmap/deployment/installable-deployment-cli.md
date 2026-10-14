@@ -586,15 +586,22 @@ promotion, or approval authority.
 ### Entra display-name ambiguity preflight
 
 **Decision and critique:** Installations that select `read-only-console` or
-`enterprise-identity-governance` use one tenant-local shared set of Entra registrations and groups,
-resolved only by unique exact display name. Earlier alternatives would have guessed among duplicate
-registrations, generated installation-scoped names, or introduced an explicit binding file. Guessing
-can break a running Console, installation-scoped names would fork the shared tenant contract, and a
-binding file needs a separate owner-review flow. The revised contract therefore performs a read-only
-preflight before the first Azure effect: duplicate `fdai-api`, `fdai-console-spa`,
-`fdai-approval-bot`, or `aw-*` display names stop the run with a fixed ambiguity reason. The
-operator resolves the tenant by renaming or removing the extra registration, then reruns the same
-installation. Each installation then adds only its exact Static Web Apps origin to the shared SPA registration and keeps every other redirect. Microsoft Graph neither preserves redirect order nor guarantees read-after-write consistency, so the effect check requires the exact submitted redirect set, in any order, within six reads taken five seconds apart.
+`enterprise-identity-governance` share one tenant-local `fdai-api`, `fdai-approval-bot`, and `aw-*`
+role-group set, resolved only by unique exact display name. Sharing the Console SPA as well made a
+new subscription depend on an earlier deployment runner retaining ownership of every redirect.
+Guessing among duplicate registrations or accepting an explicit binding file would still make the
+target ambiguous. The revised contract therefore derives one stable
+`fdai-console-spa-<target-binding>` name per installation and performs a read-only preflight before
+the first Azure effect. The suffix is the complete 64-character target binding and contains no
+tenant or resource name. Duplicate exact shared or derived names stop the run with a fixed
+ambiguity reason. The operator resolves the duplicate, then reruns the same installation. Each
+installation adds only its exact Static Web Apps origin to its own SPA registration and preserves
+the two fixed loopback redirects. Microsoft Graph neither preserves
+redirect order nor guarantees read-after-write consistency, so the effect check requires the exact
+submitted redirect set, in any order, within six reads taken five seconds apart.
+Redirect registration accepts the retained fixed SPA name for an existing installation or the
+exact target-bound SPA name for a scoped installation. Any other display name stops before a
+Graph write.
 
 The public CLI does not register `deploy plan`, `deploy apply`, or `deploy status`. Those commands
 previously dispatched GitHub workflows and are not part of the standalone deployment contract.

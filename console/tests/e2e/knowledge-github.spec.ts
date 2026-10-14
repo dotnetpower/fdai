@@ -13,8 +13,9 @@ function source() {
   };
 }
 
-async function setup(page: Page, options: { owner?: boolean; empty?: boolean; unavailable?: boolean; writeError?: boolean; locale?: string } = {}) {
+async function setup(page: Page, options: { owner?: boolean; idTokenOwner?: boolean; subject?: string; empty?: boolean; unavailable?: boolean; writeError?: boolean; locale?: string } = {}) {
   const owner = options.owner ?? true;
+  const idTokenOwner = options.idTokenOwner ?? owner;
   const writes: { path: string; body: Record<string, unknown> }[] = [];
   let sources = options.empty ? [] : [source()];
   let unavailable = options.unavailable ?? false;
@@ -23,7 +24,7 @@ async function setup(page: Page, options: { owner?: boolean; empty?: boolean; un
     body: `export async function initAuth() { return {
       devMode: false, interactiveSignIn: false,
       account: { homeAccountId: "example-operator", localAccountId: "example-operator",
-        username: "operator@example.com", idTokenClaims: { roles: ["${owner ? "Owner" : "Reader"}"] } },
+        username: "operator@example.com", idTokenClaims: { roles: ["${idTokenOwner ? "Owner" : "Reader"}"] } },
       getAuthorizationHeader: async () => "Bearer test-only-identity",
       signIn: async () => {}, signOut: async () => {}
     }; }`,
@@ -33,7 +34,7 @@ async function setup(page: Page, options: { owner?: boolean; empty?: boolean; un
     if (request.resourceType() === "document") return route.continue();
     const path = new URL(request.url()).pathname.replace(/^\/api/, "");
     if (path === "/iam/self") return route.fulfill({ json: {
-      principal: { subject_id: "example-operator", username: "operator@example.com", roles: [owner ? "Owner" : "Reader"] },
+      principal: { subject_id: options.subject ?? "example-operator", username: "operator@example.com", roles: [owner ? "Owner" : "Reader"] },
       request: null, can_access_console: true,
     } });
     if (path === "/system/data-sources") return route.fulfill({ json: { surface: "read-data-sources", sources: [] } });
@@ -82,7 +83,7 @@ test("desktop verifies provenance and scan separation before responsive checks",
 
 test("Owner connects and disconnects with manual applied-state refresh and no scan request", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  const { writes } = await setup(page, { empty: true });
+  const { writes } = await setup(page, { empty: true, idTokenOwner: false });
   await expect(page.getByText("No repository sources are registered.", { exact: true })).toBeVisible();
   await page.getByLabel("Repository alias", { exact: true }).fill("example-app");
   await page.getByLabel("GitHub owner/repository", { exact: true }).fill("example/app");
@@ -102,6 +103,19 @@ test("Owner connects and disconnects with manual applied-state refresh and no sc
   ]);
   await geometry(page);
 });
+
+for (const options of [
+  { owner: false, idTokenOwner: true },
+  { owner: true, subject: "another-operator" },
+]) {
+  test(`SPA roles cannot authorize connection controls: ${JSON.stringify(options)}`, async ({ page }) => {
+    const { writes } = await setup(page, options);
+    await expect(page.getByText("Only an authenticated Owner can change knowledge connections.", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Connect read-only source", exact: true })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Disconnect knowledge access", exact: true })).toHaveCount(0);
+    expect(writes).toEqual([]);
+  });
+}
 
 test("Reader has no writes and unavailable source remains recoverable", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });

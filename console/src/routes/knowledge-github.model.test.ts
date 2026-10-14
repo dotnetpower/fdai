@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { decodeGithubSources, githubConnectionInputValid } from "./knowledge-github.model";
+import { decodeGithubSources, githubConnectionInputValid, githubConnectionOwner } from "./knowledge-github.model";
+import type { IamSelfStatus } from "./settings-iam.model";
 
 function payload() {
   return {
@@ -46,4 +47,22 @@ describe("GitHub knowledge sources", () => {
   it("accepts a bounded alias and repository", () => {
     expect(githubConnectionInputValid("example-app", "example/app")).toBe(true);
   });
+  const principal: IamSelfStatus = {
+    principal: { subjectId: "example-operator", username: null, roles: ["Owner"] },
+    canAccessConsole: true, request: null,
+  };
+  it("uses server-verified Owner for the current principal", () => {
+    expect(githubConnectionOwner(principal, "example-operator")).toBe(true);
+  });
+  it.each([
+    [null, "example-operator"],
+    [principal, undefined],
+    [principal, "another-operator"],
+    [{ ...principal, canAccessConsole: false }, "example-operator"],
+    [{ ...principal, principal: { ...principal.principal, roles: ["Reader"] } }, "example-operator"],
+  ] satisfies readonly (readonly [IamSelfStatus | null, string | undefined])[])(
+    "keeps controls closed without matching server Owner %#", (status, subject) => {
+      expect(githubConnectionOwner(status, subject)).toBe(false);
+    },
+  );
 });

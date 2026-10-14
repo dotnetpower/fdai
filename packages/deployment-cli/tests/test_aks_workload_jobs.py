@@ -59,8 +59,10 @@ def test_prepares_inventory_jobs_and_protected_bindings() -> None:
         "operational-history-lifecycle",
     }
     inventory = prepared.jobs["inventory"]
+    canary = prepared.jobs["canary"]
     assert inventory["environment"]["FDAI_INVENTORY_SCOPES"] == _SUBSCRIPTION  # type: ignore[index]
     assert inventory["environment"]["FDAI_INVENTORY_SOURCES"] == "arg,arm"  # type: ignore[index]
+    assert canary["environment"]["FDAI_CANARY_TOPIC"] == "fdai.control.canary"  # type: ignore[index]
     assert set(prepared.protected_template_digests) == set(prepared.jobs)
     assert all(len(digest) == 64 for digest in prepared.protected_template_digests.values())
     assert set(prepared.protected_identity_bindings) == set(prepared.jobs)

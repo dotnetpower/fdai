@@ -2,7 +2,7 @@
 title: 배포 빠른 시작
 description: clone에서 명령줄 한 줄로 FDAI를 자신의 Azure 구독에 배포하거나 서명된 오프라인 패키지로 설치합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: 6dd703d2e443b4294cfe67acd54300a9fb079b88
+translation_source_sha: 86455dbc595d96d3a58243377eba8ee55b4440dc
 translation_revised: 2026-10-13
 ---
 
@@ -61,9 +61,10 @@ GitHub Actions는 저장소를 테스트합니다. 두 배포 경로 어디에�
 - 로컬 Terraform 설치는 필요하지 않습니다. 명령은 `PATH`의 `terraform`이 고정된 릴리스일 때만
   사용하고, 그렇지 않으면 해당 릴리스를 한 번 내려받아 커밋된 다이제스트를 검증합니다.
 - 선택한 구독에서 Foundation 리소스를 만들고 문서화된 배포 역할을 할당할 수 있는 Azure 신원
-- Console 또는 enterprise identity 추가 기능을 선택하는 경우 테넌트 로컬 FDAI Entra
-  애플리케이션과 그룹 표시 이름이 고유해야 합니다. `fdai-*` 애플리케이션 또는 `aw-*` 그룹이
-  중복되면 Azure 리소스를 만들기 전에 실행이 멈춥니다.
+- Console 또는 enterprise identity 추가 기능을 선택하는 경우 테넌트 로컬 공유 FDAI API,
+  approval bot, 역할 그룹 표시 이름이 고유해야 합니다. 설치 관리자는 정확한 대상 바인딩에서
+  별도 Console SPA를 파생하므로 다른 FDAI 설치가 해당 redirect를 소유하지 않습니다. 정확한
+  공유 이름이나 파생 이름이 중복되면 Azure 리소스를 만들기 전에 실행이 멈춥니다.
 - 선택한 Azure 리전에서 필요한 리소스 형식의 사용 가능한 용량
 - 의도한 구독을 선택한 대화형 Azure 세션
 

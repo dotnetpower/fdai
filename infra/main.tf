@@ -2548,7 +2548,7 @@ resource "azurerm_key_vault_secret" "teams_workflow_endpoint" {
   tags         = local.tags
 
   lifecycle {
-    ignore_changes = [value]
+    ignore_changes = [value, content_type, tags]
   }
 
   depends_on = [azurerm_role_assignment.kv_officer_self, module.kv_private_endpoint, azurerm_virtual_network_peering.spoke_to_hub, azurerm_virtual_network_peering.hub_to_spoke]

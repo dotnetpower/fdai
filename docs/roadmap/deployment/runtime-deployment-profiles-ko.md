@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 714becb07e93d290333011d3835449ce1f9c0d86
-translation_revised: 2026-10-13
+translation_source_sha: 9bee1ea165809603f079dd10945774dd6e1b9e5e
+translation_revised: 2026-10-14
 ---
 # 런타임 배포 프로파일
 
@@ -66,6 +66,9 @@ Foundation에 정확한 복구가 필요했다면 검증된 상태 인계가 같
 소스 스냅샷에는 `prepare-source`를 사용합니다. 거부된 명령은 호스트가 이유를 기록하기 전에
 실패하므로, 집중 테스트가 두 모드 모두에서 조정기가 보내는 명령을 호스트 자체 파서로 해석합니다.
 두 프로파일 모두 읽기 측 리소스 계산을 위해 Core의 잠긴 Kubernetes 수량 도구를 패키징합니다. 이 의존성은 런타임을 선택하거나 Kubernetes 접근을 허용하거나 노드 적합성을 입증하거나 Cost Governance를 활성화하지 않습니다. 독립 배포 CLI는 별도 의존성 집합을 유지합니다. 런타임 Dockerfile의 Alpine 패키지 고정값 갱신은 패키지 유지보수일 뿐이며 런타임 프로파일, 배포 권한, 프로바이더 접근 또는 제품 추가 기능 선택을 바꾸지 않습니다.
+소스에서 빌드하는 세 OPA binary는 Go의 실험적 JSON v2 encoder도 비활성화합니다. 검토된 OPA
+AST JSON 계약은 v1 encoder에 의존합니다. JSON v2를 활성화하면 AST 객체가 정리된 소스 문자열로
+바뀌어 카탈로그 변환을 차단합니다. 이 빌드 설정은 Rego 의미나 런타임 권한을 바꾸지 않습니다.
 
 배포 CLI에는 향후 Hub 관리형 Lifecycle Plan을 위한 순수 shadow 전용 검사가 포함됩니다. 이
 검사는 이미 해석된 입력에 대해 로컬 Plan 접수와 차단 제약을 평가하지만, Hub를 폴링하거나
@@ -114,6 +117,27 @@ Managed Identity로 AKS agent pool을 다시 조회합니다. `runtime` 사용�
 효과도 내기 전에 `aks_node_pool_exists_outside_state`로 멈춥니다. 메시지는 해당 풀 이름을
 표시하고, 제거에는 명시적인 Owner 확인이 필요하다고 설명합니다. 조정기는 그 풀을 자동으로
 삭제하거나 import하지 않습니다.
+애플리케이션 준비는 AKS와 substrate 효과 이후 backend network security group도 다시 조회합니다.
+모호한 애플리케이션 apply가 빈 `backend_nsg_id`를 보존했고 권위 있는 재조회에서 그 값 하나만
+새로 확인되면 managed host는 로컬 Terraform 변수를 바꾸기 전에 별도 입력 재결속 claim과 증적을
+기록합니다. 원래 claim과 residual claim은 불변으로 유지됩니다. 새 residual successor만
+재결속된 입력을 사용할 수 있습니다. 새 exact destructive 확인이 successor plan을
+승인하면 같은 애플리케이션 Deployment 교체 하나는 유지할 수 있습니다. 그 밖의 교체와 필드
+변경은 계속 차단됩니다.
+부분 완료된 개발 baseline은 원래 claim, residual, successor, NSG 재결속 근거가 하나의 정확한
+체인을 이루고 successor가 검토된 Core 교체와 범위가 제한된 HPA 및 gateway rule 생성만 포함할
+때에만 Core 소스 업데이트를 허용할 수 있습니다. peer 서비스, 더 넓은 애플리케이션 계획, 다른
+모든 서비스 업데이트에는 여전히 적용 또는 채택이 완료된 애플리케이션 증적이 필요합니다.
+이 Core 전용 업데이트는 계획할 때 같은 부분 복구 허용을 다시 검증한 경우에만 교체 plan 하나를
+사용할 수 있습니다. 선택된 Core Deployment만 변경 가능한 주소이며 peer Deployment, Service,
+HPA, namespace와 그 밖의 모든 리소스는 범위 밖으로 유지됩니다.
+그 exact Core 전용 업데이트가 claim된 뒤 수렴하지 않으면 repair 하나가 새 source commit과 image
+digest로 이를 대체할 수 있습니다. repair 기록은 실패한 update digest를 결속하고 선택된
+Deployment의 새 plan과 승인을 요구하며, repair 자체는 다시 대체할 수 없습니다. peer 서비스와 더
+넓은 애플리케이션 복구는 계속 차단됩니다.
+소스 이미지 import는 같은 이미지에 대해 기존 고정 claim을 유지합니다. 해당 import에 증적이
+생긴 뒤 다른 source commit과 image digest에는 digest-qualified claim과 증적을 부여합니다. 따라서
+완료된 Core 업데이트가 이후 exact repair를 차단하거나 그 권한으로 잘못 해석되지 않습니다.
 
 | 축 | 지원 값 | 기본값 | 의미 |
 |----|---------|--------|------|
@@ -483,6 +507,10 @@ AKS 기본 구성은 analyzer, canary, inventory, observation campaign, operatio
 CronJob을 렌더링합니다. 이력 작업은 읽기 전용 inventory 신원, 서비스 소유 상태 DSN, 비공개
 archive URL을 고정 `shadow` 모드로 사용합니다. Non-shadow lifecycle은 별도의 보호된 전환과
 정확히 저장된 인증 증적을 요구하며 런타임 선택은 어느 권한도 부여하지 않습니다.
+Core와 canary CronJob은 동일한 고정 canary topic을 받습니다. Core는 보조 전송을 통해 이
+topic을 사용하고 신뢰할 수 있는 canary를 `shadow` no-op으로 기록합니다. 따라서 consumer가
+연결되지 않은 상태에서 publisher Job만 성공한 결과를 end-to-end canary 성공으로 오인하지
+않습니다.
 목적별 `aks_workload_jobs.py` 모듈이 순수 scheduled-job assembly를 소유합니다. Managed Host는 orchestration만 유지하며 이 소유권 분리는 렌더링된 Job, identity, schedule 또는 authority를 변경하지 않습니다.
 분석기 작업은 결과가 불확실한 발행을 대조할 때 기존 인벤토리 신원으로 정확한 수집 Event Hub만
 읽습니다. 새 토픽 범위 수신자 역할에는 쓰기, 배포 또는 실행 권한이 없으며, 역할 선언만으로
@@ -653,6 +681,9 @@ Resilience 실행 자격 증명 계보를 기록합니다. 어떤 신원 선택�
 로컬 interactive는 이 결속을 받지 않습니다.
 
 AKS managed Key Vault CSI 공급자는 각 워크로드의 federated identity를 사용해 고정된 Key Vault 참조를 namespace의 Kubernetes Secrets로 동기화합니다. 애플리케이션은 계속 환경 변수를 읽으며 Key Vault를 직접 호출하지 않습니다. Terraform 플랜에는 secret 값이 아니라 secret 이름과 버전 없는 참조가 포함됩니다.
+Teams 엔드포인트의 초기 자리 표시자는 플랫폼이 소유하지만, 저장된 값, content type, 목적 및
+요청 태그는 Console의 전용 바인딩 작성자가 소유합니다. 이후 Terraform 활성화는 이 필드를
+보존하므로 바인딩 표식을 지우거나 운영자가 테스트한 엔드포인트를 덮어쓰지 않습니다.
 Operator Cost Governance 가명 키도 같은 서비스 소유 비밀 경계를 따릅니다. Container Apps와 AKS 프로필은 Key Vault에 엔트로피가 높은 값 하나를 보존하고 `FDAI_COST_PSEUDONYM_KEY`로만 주입합니다. root는 비밀 참조를 Operator에만 전달하며 격리된 Executor에는 전달하지 않습니다. 보호된 독립 서비스 플랜은 보관된 서비스 입력 스냅샷에 의존하지 않고 현재 플랫폼 Terraform 출력에서 해당 참조를 주입합니다. 플랜, 출력, 로그, 계약 및 브라우저 응답에는 키가 포함되지 않습니다. 로컬 준비는 gitignored 기존 값을 보존하거나 같은 최소 강도의 값을 생성합니다. 이 키는 신원 공개 방식만 바꾸며 비용 데이터 접근 권한이나 작업 권한을 부여하지 않습니다.
 
 managed CSI 공급자는 클러스터와 함께 활성화되며 FDAI 워크로드 롤아웃과 분리됩니다. 배포 키트에는

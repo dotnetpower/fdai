@@ -450,7 +450,9 @@ toolchain with pinned overrides for its vulnerable transitive modules. Both the 
 each module override advance whenever the advisory feed flags a defect, and the build asserts the
 resulting module versions, so no scanned image ships a known-vulnerable dependency. The Core, Cost
 Governance, and SREGym Dockerfiles keep these OPA override pins aligned, and a focused parity check
-blocks an outdated module version from re-entering one image profile. The reviewed
+blocks an outdated module version from re-entering one image profile. They also disable Go's
+experimental JSON v2 encoder because OPA's reviewed AST JSON contract requires the v1 encoder.
+The reviewed
 `golang.org/x/crypto` override is `v0.57.0`. The compiler and HTTP/2 dependency pins follow
 [Runtime Deployment Profiles](../deployment/runtime-deployment-profiles.md).
 
@@ -532,7 +534,7 @@ and both benchmark lifecycles.
 |------|-------|----------|-------|
 | Evaluation SDK package | implemented | `evaluation-sdk/src/fdai_evaluation_sdk/`; `evaluation-sdk/tests/`; evaluation-package CI job | Versioned contracts and runner lifecycle remain focused-tested and independently buildable while runtime integration is dormant. |
 | FDAI evaluation host integration | deferred | Current-tree absence of `services/core-control-plane/src/fdai/evaluation/`; this document's [dormant-status decision](#dormant-status) | No public host, runtime entry point, or focused host suite exists. Reactivation requires a new reviewed implementation and evidence boundary. |
-| SREGym driver package | implemented | `benchmarks/sregym/`; `benchmarks/sregym/tests/` | Adapter mechanics remain tested. No current FDAI host can run the adapter. |
+| SREGym driver package | implemented | `benchmarks/sregym/`; `benchmarks/sregym/tests/`; shared OPA build parity test | Adapter mechanics and the OPA AST-object JSON build contract remain tested. No current FDAI host can run the adapter. |
 | CyberGym package and independent shadow runner | implemented | `benchmarks/cybergym/`; `benchmarks/cybergym/tests/`; `scripts/benchmarking/run_cybergym.py` | Adapter mechanics remain tested, and the explicit repository shadow runner remains separate from FDAI host integration. |
 | Evaluation dependency and boundary gates | implemented | Root `pyproject.toml`; `uv.lock`; `scripts/quality/architecture/check-evaluation-boundaries.py` | Runtime and root development dependencies omit the dormant packages; all-package CI preserves their isolated contracts and boundaries. |
 | Governed live benchmark evidence | deferred | [Dormant status](#dormant-status) | No new live benchmark evidence is required while host integration remains dormant. |
@@ -541,6 +543,7 @@ and both benchmark lifecycles.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-13 | implemented | Kept the dormant SREGym OPA build aligned with Core and Cost Governance by disabling Go's experimental JSON v2 encoder. This preserves OPA's AST-object JSON output and changes no benchmark host availability or authority. | `current change`; shared Dockerfile parity test and exact pinned-Go container build evidence. | Keep benchmark host integration dormant until its separate reactivation criteria are met. |
 | 2026-10-09 | implemented | Aligned the dormant SREGym OPA compiler and transitive-module pins with the repaired Core image profiles and made every override's embedded-version check explicit. | #2057; `benchmarks/sregym/Dockerfile`; three-recipe parity regressions. | Retain the isolated OPA builder result and exact-head CI; benchmark host integration remains dormant. |
 | 2026-09-09 | implemented | Advanced the shared OPA `golang.org/x/crypto` override to `v0.56.0` across Core, Cost Governance, and SREGym after the image scanner reported two fixed denial-of-service vulnerabilities in `v0.55.0`. | `current change`; failed supply-chain run `34398041249`; focused three-image pin parity test; local Core OPA metadata and MEDIUM/HIGH/CRITICAL image scan passed. | Publish the exact images and retain a passing supply-chain receipt; benchmark host integration remains dormant. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. | `current change`; package source, focused suites, and boundary checks listed in the scope table. | Retain governed readiness and benchmark-run evidence without raising execution authority. |

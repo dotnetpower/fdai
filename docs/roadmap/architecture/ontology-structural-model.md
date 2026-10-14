@@ -446,6 +446,11 @@ catalog artifacts: Rule semantic pins, the Cost Governance semantic profile, and
 projections. The runtime's operational release adds source-derived competency FunctionTypes and
 identifies runtime plans. It always equals the governed release plus function declarations, so a
 consumer that binds one identity checks that relationship instead of comparing digests across them.
+Rule semantic projection accepts both OPA parse contracts used by supported binaries. A binary may
+return the AST object directly or return JSON-encoded formatted Rego source. The second form is
+parsed again through OPA's bounded `rego.parse_module` builtin, while the package metadata is read
+from the formatted source's bounded `METADATA` block. Both paths produce the same typed package,
+decision, property, and normalized semantic identity and grant no rule activation authority.
 
 Operator projections preserve source generation, ontology release, query bounds, relationship
 coverage, and exact limitation codes. The Console may build containment, dependency, connectivity,

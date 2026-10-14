@@ -25,6 +25,8 @@ granted scan permission. A source cannot silently change its repository or crede
 
 Both connect and disconnect require an authenticated Owner and an expected repository revision.
 Operator checks submission authority, and Core rechecks Owner authority before applying the request.
+The Console uses `/iam/self` roles for the current signed-in principal, not SPA ID-token roles.
+A failed IAM read or a different principal keeps connection controls closed.
 Revision checks, safe-to-retry request identity (idempotency), and atomic state plus audit protect
 connection changes. Failed provider validation leaves the prior record unchanged. A queued
 request is not a verified connection; use Refresh to read the applied state.
