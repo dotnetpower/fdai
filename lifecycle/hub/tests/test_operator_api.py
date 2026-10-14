@@ -1,0 +1,231 @@
+"""The read-only and approval routes the Hub operator UI calls."""
+
+from __future__ import annotations
+
+from datetime import datetime
+
+import pytest
+from starlette.testclient import TestClient
+
+from fdai_lifecycle_hub.api import create_app
+from fdai_lifecycle_hub.domain import Installation, Issued, IssuedPlan, OutcomeKind, Planner
+from fdai_lifecycle_hub.enrollment import EnrollmentRequest
+from fdai_lifecycle_hub.signing import verify_key_proof
+from fdai_lifecycle_hub.store import HubStore
+
+
+@pytest.fixture
+def client(enrolled_store: HubStore, now: datetime) -> TestClient:
+    return TestClient(create_app(enrolled_store, clock=lambda: now))
+
+
+@pytest.fixture
+def issued(
+    enrolled_store: HubStore, installation: Installation, planner: Planner, now: datetime
+) -> Issued:
+    outcome = enrolled_store.recompute(installation.installation_id, planner, now=now)
+    assert isinstance(outcome, Issued)
+    return outcome
+
+
+def test_list_installations_summarizes_the_latest_evaluation(
+    client: TestClient, issued: Issued, installation: Installation
+) -> None:
+    response = client.get("/v1/installations")
+
+    assert response.status_code == 200
+    (summary,) = response.json()["installations"]
+    assert summary["installation_id"] == installation.installation_id
+    assert summary["channel"] == installation.settings.channel
+    assert summary["current_release"] == "1.4.0"
+    assert summary["target_release_id"] == issued.plan.target_release_id
+    assert summary["outcome"] == OutcomeKind.ISSUED
+    assert summary["health"] == "healthy"
+
+
+def test_list_installations_is_empty_before_any_enrollment(store: HubStore, now: datetime) -> None:
+    client = TestClient(create_app(store, clock=lambda: now))
+
+    assert client.get("/v1/installations").json() == {"installations": []}
+
+
+def test_get_installation_detail_includes_entities_and_open_plan(
+    client: TestClient, issued: Issued, installation: Installation
+) -> None:
+    response = client.get(f"/v1/installations/{installation.installation_id}")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["enrollment"] == "enrolled"
+    assert body["open_plan"]["plan_id"] == issued.plan.plan_id
+    assert body["last_evaluation"]["outcome"] == OutcomeKind.ISSUED
+    entities = {entity["entity_id"]: entity for entity in body["entities"]}
+    assert entities["core"]["managed"] is True
+    assert entities["core"]["release_id"] == "1.4.0"
+    assert entities["console"]["managed"] is False
+
+
+def test_get_installation_for_unknown_returns_404(client: TestClient) -> None:
+    response = client.get("/v1/installations/missing")
+
+    assert (response.status_code, response.json()) == (404, {"error": "not_found"})
+
+
+def test_get_installation_for_a_pending_installation_returns_404(
+    store: HubStore, enrollment: EnrollmentRequest, now: datetime
+) -> None:
+
+    store.request_enrollment(enrollment, verify=verify_key_proof, now=now)
+    client = TestClient(create_app(store, clock=lambda: now))
+
+    response = client.get(f"/v1/installations/{enrollment.installation.installation_id}")
+
+    assert (response.status_code, response.json()) == (404, {"error": "not_found"})
+
+
+def test_get_plan_detail_returns_status_events_and_reports(
+    client: TestClient, issued: Issued, installation: Installation
+) -> None:
+    report = {
+        "attempt": 1,
+        "outcome": "dry-run-admitted",
+        "reason_code": "admitted",
+        "exact_plan_digest": IssuedPlan.from_signed(issued.plan).digest,
+        "summary": "dry run admitted",
+        "reported_at": "2026-10-05T03:01:00Z",
+    }
+    plan_id = issued.plan.plan_id
+    reports_url = f"/v1/installations/{installation.installation_id}/plans/{plan_id}/reports"
+    assert client.post(reports_url, json=report).status_code == 202
+
+    response = client.get(f"/v1/installations/{installation.installation_id}/plans/{plan_id}")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert (body["plan_id"], body["status"], body["target_release_id"]) == (
+        plan_id,
+        "open",
+        issued.plan.target_release_id,
+    )
+    assert [event["kind"] for event in body["events"]] == ["issued", "reported"]
+    (stored_report,) = body["reports"]
+    assert stored_report["outcome"] == "dry-run-admitted"
+
+
+def test_get_plan_detail_for_unknown_plan_returns_404(
+    client: TestClient, installation: Installation
+) -> None:
+    response = client.get(f"/v1/installations/{installation.installation_id}/plans/missing")
+
+    assert (response.status_code, response.json()) == (404, {"error": "not_found"})
+
+
+def test_list_and_get_pending_enrollment(
+    store: HubStore, enrollment: EnrollmentRequest, now: datetime
+) -> None:
+
+    store.request_enrollment(enrollment, verify=verify_key_proof, now=now)
+    client = TestClient(create_app(store, clock=lambda: now))
+    installation_id = enrollment.installation.installation_id
+
+    listed = client.get("/v1/enrollments/pending")
+    fetched = client.get(f"/v1/enrollments/pending/{installation_id}")
+
+    assert listed.status_code == fetched.status_code == 200
+    (summary,) = listed.json()["enrollments"]
+    assert summary == fetched.json()
+    assert summary["installation_key_id"] == enrollment.installation_key_id
+    assert {entity["entity_id"] for entity in summary["entities"]} == {"core", "console"}
+
+
+def test_get_pending_enrollment_for_unknown_installation_returns_404(
+    store: HubStore, now: datetime
+) -> None:
+    client = TestClient(create_app(store, clock=lambda: now))
+
+    response = client.get("/v1/enrollments/pending/missing")
+
+    assert (response.status_code, response.json()) == (404, {"error": "not_found"})
+
+
+def test_approve_enrolls_the_installation(
+    store: HubStore, enrollment: EnrollmentRequest, now: datetime
+) -> None:
+
+    store.request_enrollment(enrollment, verify=verify_key_proof, now=now)
+    client = TestClient(create_app(store, clock=lambda: now))
+    installation_id = enrollment.installation.installation_id
+    body = {"approver": "alice", "installation_key_id": enrollment.installation_key_id}
+
+    response = client.post(f"/v1/installations/{installation_id}/enrollment/approve", json=body)
+
+    assert (response.status_code, response.json()) == (200, {"enrolled": installation_id})
+    assert store.enrollment_status(installation_id) == "enrolled"
+    assert client.get(f"/v1/enrollments/pending/{installation_id}").status_code == 409
+
+
+def test_approve_with_the_wrong_key_id_returns_422(
+    store: HubStore, enrollment: EnrollmentRequest, now: datetime
+) -> None:
+
+    store.request_enrollment(enrollment, verify=verify_key_proof, now=now)
+    client = TestClient(create_app(store, clock=lambda: now))
+    installation_id = enrollment.installation.installation_id
+    body = {"approver": "alice", "installation_key_id": "installation-" + "0" * 16}
+
+    response = client.post(f"/v1/installations/{installation_id}/enrollment/approve", json=body)
+
+    assert (response.status_code, response.json()) == (
+        422,
+        {"error": "installation_key_mismatch"},
+    )
+
+
+def test_approve_an_already_enrolled_installation_returns_409(
+    client: TestClient, installation: Installation
+) -> None:
+    body = {"approver": "alice", "installation_key_id": "installation-" + "0" * 16}
+
+    response = client.post(
+        f"/v1/installations/{installation.installation_id}/enrollment/approve", json=body
+    )
+
+    assert (response.status_code, response.json()) == (409, {"error": "not_pending"})
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        {"approver": "alice"},
+        {"approver": "", "installation_key_id": "installation-" + "0" * 16},
+        {"approver": "alice", "installation_key_id": "not-a-key-id"},
+    ],
+)
+def test_invalid_approval_body_returns_422(
+    store: HubStore, enrollment: EnrollmentRequest, now: datetime, body: dict[str, str]
+) -> None:
+
+    store.request_enrollment(enrollment, verify=verify_key_proof, now=now)
+    client = TestClient(create_app(store, clock=lambda: now))
+
+    response = client.post(
+        f"/v1/installations/{enrollment.installation.installation_id}/enrollment/approve",
+        json=body,
+    )
+
+    assert (response.status_code, response.json()) == (422, {"error": "approval_invalid"})
+
+
+def test_reject_rejects_the_enrollment(
+    store: HubStore, enrollment: EnrollmentRequest, now: datetime
+) -> None:
+
+    store.request_enrollment(enrollment, verify=verify_key_proof, now=now)
+    client = TestClient(create_app(store, clock=lambda: now))
+    installation_id = enrollment.installation.installation_id
+    body = {"approver": "alice", "reason": "unknown_key"}
+
+    response = client.post(f"/v1/installations/{installation_id}/enrollment/reject", json=body)
+
+    assert (response.status_code, response.json()) == (200, {"rejected": installation_id})
+    assert store.enrollment_status(installation_id) == "rejected"

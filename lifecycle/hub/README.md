@@ -89,10 +89,11 @@ newer than the current one, include every managed Entity, and name only known En
 | `src/fdai_lifecycle_hub/reports.py` | Report outcomes, their reason codes, and failure holds |
 | `src/fdai_lifecycle_hub/errors.py` | Requests the Hub refuses |
 | `src/fdai_lifecycle_hub/audit.py` | Hash-chained audit records and chain verification |
-| `src/fdai_lifecycle_hub/schemas.py` | JSON boundary: request bodies and operator input files |
-| `src/fdai_lifecycle_hub/api.py` | Agent HTTP API |
+| `src/fdai_lifecycle_hub/schemas.py` | JSON boundary: request bodies, operator input files, and the UI's read-only view records |
+| `src/fdai_lifecycle_hub/api.py` | The agent HTTP API, the operator UI's read-only and approval routes, and serving the built UI |
 | `src/fdai_lifecycle_hub/cli.py` | `fdai-lifecycle-hub` command line |
 | `tests/` | Hub-owned tests; the PostgreSQL variants run only when `FDAI_DATABASE_URL` names a loopback database |
+| `ui/` | The operator UI: a read-only Preact and Vite single-page app. See [Operator UI](#operator-ui) |
 
 ## Agent API
 
@@ -103,6 +104,22 @@ newer than the current one, include every managed Entity, and name only known En
 | `POST /v1/installations/{id}/plans/{plan_id}/reports` | `202` for a new or identical report, `409` for a conflicting attempt or other Plan bytes, `413` above 16 KiB, `422` for an invalid body, `503` with `Retry-After` when a concurrent write committed first |
 | `POST /v1/installations/{id}/state` | `202` when the snapshot becomes current, `409` with `stale_state` when its `observed_at` isn't newer, `413` above 64 KiB, `422` with `state_invalid`, `404` for an unknown or unenrolled installation |
 | `GET /healthz` | `200` |
+
+## Operator UI API
+
+Read-only routes for the installations and Plans screens, and the two routes an approver's
+browser calls to decide a pending enrollment. Like the agent API, these serve on loopback only
+and have no caller authentication yet (see [Limits](#limits)).
+
+| Method and path | Result |
+|-----------------|--------|
+| `GET /v1/installations` | `200` with every enrolled installation's channel, current and target Release, latest outcome, health, and next maintenance window |
+| `GET /v1/installations/{id}` | `200` with settings, Entities, suppressions, the open Plan, the last evaluation, and every report; `404` for an unknown or not-yet-enrolled installation |
+| `GET /v1/installations/{id}/plans/{plan_id}` | `200` with the Plan's status (`open` or `superseded`), its events, every report, and every recompute that targeted it; `404` for an unknown Plan |
+| `GET /v1/enrollments/pending` | `200` with every pending enrollment request: the installation key id, requested time, settings, and declared Entities (unmanaged; ownership evidence doesn't exist until after approval) |
+| `GET /v1/enrollments/pending/{id}` | `200` with one pending request's full detail; `404` when it isn't pending |
+| `POST /v1/installations/{id}/enrollment/approve` | Body `{"approver", "installation_key_id"}`. `200` with `{"enrolled": id}`, `409` with `not_pending`, `422` with `installation_key_mismatch` or `approval_invalid` |
+| `POST /v1/installations/{id}/enrollment/reject` | Body `{"approver", "reason"}`. `200` with `{"rejected": id}`, `409` with `not_pending`, `422` with `rejection_invalid` |
 
 An enrollment body is `{"signed_payload", "proof"}` in base64. `signed_payload` is the JSON request
 with `installation_key` (the raw Ed25519 public key in base64) and a timezone-aware
@@ -201,6 +218,38 @@ process arguments. For PostgreSQL, use the loopback database from `infra/local/d
 A catalog directory contains `releases/<release-id>.json` runtime release manifests,
 `channels.json` (`{"<channel>": ["<release-id>", ...]}`), and an optional `recalls.json`.
 
+## Operator UI
+
+[`ui/`](ui) is a small read-only Preact, Vite, and TypeScript single-page app: the installations
+list, one installation's detail, one Plan's detail, and the pending-enrollment list and approval
+screen. It calls only the [Operator UI API](#operator-ui-api) above, and the Hub serves it as a
+static build from `ui/dist/` - there's no separate frontend server in production. It shares the
+Console's `ui/calm-slate-tokens.css` and `ui/calm-slate-primitives.css`, but it's a separate app:
+the Hub sits outside every installation and keeps working when one installation's Console doesn't
+(see the design note in #1945).
+
+For local development, run the Hub API from this directory as in
+[Try it locally](#try-it-locally), then in a second terminal:
+
+```bash
+cd ui
+npm install
+npm run dev
+```
+
+Vite serves the UI on `http://127.0.0.1:5290` and proxies `/v1` and `/healthz` to the Hub API on
+its default port, 8090. For a production-shaped check, build it and let the Hub serve the result:
+
+```bash
+npm run build
+cd ..
+uv run fdai-lifecycle-hub serve
+```
+
+`serve` picks up `ui/dist/` automatically when it exists; pass `--ui <path>` to serve a different
+build, or omit the build entirely to run the Hub API alone. `npm test` runs the UI's Vitest unit
+tests, and `npm run typecheck` runs strict TypeScript across the app and its tests.
+
 ## Limits
 
 - The API binds to loopback and has no caller authentication. Agent identity is Lifecycle I1 work.
@@ -212,8 +261,9 @@ A catalog directory contains `releases/<release-id>.json` runtime release manife
   not to a Hub-issued challenge or a Hub identity. Without caller authentication, a request signed
   with any key can claim a free installation id, and rejecting it keeps the id. Every failed proof
   also appends an audit record, so the API needs a rate limit before it leaves loopback.
-  Re-enrollment and rate limiting arrive with agent authentication in Lifecycle I1. Approvers aren't authenticated; Microsoft Entra
-  ID sign-in, key rotation, and the enrollment screen are later stories.
+  Re-enrollment and rate limiting arrive with agent authentication in Lifecycle I1. The enrollment
+  screen exists, but whoever can reach the loopback API can approve or reject through it; Microsoft
+  Entra ID sign-in and key rotation for approvers are later stories.
 - The Hub records ownership evidence as digests that the installation reports. It doesn't verify
   the Foundation receipt signature or match it to the Terraform state. By design the installation
   agent checks both locally; that check arrives with its ownership-evidence inputs in Lifecycle I1.

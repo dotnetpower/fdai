@@ -1,19 +1,21 @@
-"""The Hub HTTP API that installation agents poll.
+"""The Hub HTTP API: the routes installation agents poll and the routes the operator UI reads.
 
-Lifecycle I0 serves on loopback only and has no caller authentication. Agent identity and
-transport authentication are Lifecycle I1 work and gate any non-loopback binding.
+Lifecycle I0 serves on loopback only and has no caller authentication. Agent identity, operator
+sign-in, and transport authentication are Lifecycle I1 work and gate any non-loopback binding.
 """
 
 from __future__ import annotations
 
 from base64 import b64encode
+from pathlib import Path
 
 from pydantic import ValidationError
 from starlette.applications import Starlette
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
-from starlette.routing import Route
+from starlette.responses import FileResponse, JSONResponse, Response
+from starlette.routing import BaseRoute, Mount, Route
+from starlette.staticfiles import StaticFiles
 
 from fdai_lifecycle_hub.domain import Clock, utc_now
 from fdai_lifecycle_hub.enrollment import EnrollmentStatus, KeyProofVerifier
@@ -21,7 +23,9 @@ from fdai_lifecycle_hub.errors import (
     ConcurrentWriteError,
     EnrollmentProofError,
     InstallationExistsError,
+    InstallationKeyMismatchError,
     NotEnrolledError,
+    NotPendingError,
     PlanDigestMismatchError,
     ReportConflictError,
     StateRejectedError,
@@ -29,9 +33,15 @@ from fdai_lifecycle_hub.errors import (
     UnknownPlanError,
 )
 from fdai_lifecycle_hub.schemas import (
+    ApprovalRequest,
     PlanReport,
+    RejectionRequest,
     SignedEnrollment,
     enrollment_request,
+    installation_detail_record,
+    installation_summary_record,
+    pending_enrollment_record,
+    plan_record,
     reported_state_json,
 )
 from fdai_lifecycle_hub.signing import verify_key_proof
@@ -41,12 +51,23 @@ MAX_REPORT_BYTES = 16 * 1024
 MAX_ENROLLMENT_BYTES = 64 * 1024
 # An enrollment request carries the same reported-state snapshot, so the same bound fits.
 MAX_STATE_BYTES = 64 * 1024
+MAX_APPROVAL_BYTES = 4 * 1024
+# `src/fdai_lifecycle_hub/api.py` -> `src` -> `hub`, then the UI's Vite build output.
+DEFAULT_UI_DIST = Path(__file__).resolve().parent.parent.parent / "ui" / "dist"
 
 
 def create_app(
-    store: HubStore, *, clock: Clock = utc_now, verify_proof: KeyProofVerifier = verify_key_proof
+    store: HubStore,
+    *,
+    clock: Clock = utc_now,
+    verify_proof: KeyProofVerifier = verify_key_proof,
+    static_dir: Path | None = None,
 ) -> Starlette:
-    """The agent API. Approval is an operator action and is deliberately absent here."""
+    """The agent API, plus the read-only and approval routes the operator UI calls.
+
+    `static_dir`, when given an existing directory, serves the built operator UI from it as a
+    single-page app, so `/v1/...` and `/healthz` always take priority over the UI's own routes.
+    """
 
     async def healthz(request: Request) -> Response:
         return JSONResponse({"status": "ok"})
@@ -123,6 +144,90 @@ def create_app(
             return _error(409, "stale_state") if error.stale else _error(422, "state_invalid")
         return Response(status_code=202)
 
+    async def list_installations(request: Request) -> Response:
+        now = clock()
+        overviews = await run_in_threadpool(store.list_installations)
+        return JSONResponse(
+            {
+                "installations": [
+                    installation_summary_record(overview, now=now) for overview in overviews
+                ]
+            }
+        )
+
+    async def get_installation(request: Request) -> Response:
+        installation_id = request.path_params["installation_id"]
+        status = await run_in_threadpool(store.enrollment_status, installation_id)
+        if status is not EnrollmentStatus.ENROLLED:
+            # Only an enrolled installation is on the list screen or has its own detail page.
+            raise NotEnrolledError(installation_id)
+        now = clock()
+        installation = await run_in_threadpool(store.load, installation_id)
+        last_evaluation = await run_in_threadpool(store.last_evaluation, installation_id)
+        open_plan = await run_in_threadpool(store.current_plan, installation_id, now=now)
+        reports = await run_in_threadpool(store.reports, installation_id)
+        return JSONResponse(
+            installation_detail_record(
+                installation,
+                enrollment=status,
+                open_plan=open_plan,
+                last_evaluation=last_evaluation,
+                reports=reports,
+            )
+        )
+
+    async def get_plan_detail(request: Request) -> Response:
+        installation_id = request.path_params["installation_id"]
+        plan_id = request.path_params["plan_id"]
+        record = await run_in_threadpool(store.plan_detail, installation_id, plan_id)
+        reports = await run_in_threadpool(store.plan_reports, plan_id)
+        return JSONResponse(plan_record(record, installation_id=installation_id, reports=reports))
+
+    async def list_pending(request: Request) -> Response:
+        pending = await run_in_threadpool(store.list_pending_enrollments)
+        return JSONResponse({"enrollments": [pending_enrollment_record(item) for item in pending]})
+
+    async def get_pending(request: Request) -> Response:
+        installation_id = request.path_params["installation_id"]
+        pending = await run_in_threadpool(store.pending_enrollment, installation_id)
+        return JSONResponse(pending_enrollment_record(pending))
+
+    async def post_approve(request: Request) -> Response:
+        body = await _read_limited(request, MAX_APPROVAL_BYTES)
+        if body is None:
+            return _error(413, "request_too_large")
+        try:
+            approval = ApprovalRequest.model_validate_json(body)
+        except ValidationError:
+            return _error(422, "approval_invalid")
+        installation_id = request.path_params["installation_id"]
+        await run_in_threadpool(
+            store.approve,
+            installation_id,
+            approver=approval.approver,
+            installation_key_id=approval.installation_key_id,
+            now=clock(),
+        )
+        return JSONResponse({"enrolled": installation_id})
+
+    async def post_reject(request: Request) -> Response:
+        body = await _read_limited(request, MAX_APPROVAL_BYTES)
+        if body is None:
+            return _error(413, "request_too_large")
+        try:
+            rejection = RejectionRequest.model_validate_json(body)
+        except ValidationError:
+            return _error(422, "rejection_invalid")
+        installation_id = request.path_params["installation_id"]
+        await run_in_threadpool(
+            store.reject,
+            installation_id,
+            approver=rejection.approver,
+            reason=rejection.reason,
+            now=clock(),
+        )
+        return JSONResponse({"rejected": installation_id})
+
     async def not_found(request: Request, exc: Exception) -> Response:
         return _error(404, "not_found")
 
@@ -135,25 +240,59 @@ def create_app(
     async def digest_mismatch(request: Request, exc: Exception) -> Response:
         return _error(409, "plan_digest_mismatch")
 
+    async def not_pending(request: Request, exc: Exception) -> Response:
+        return _error(409, "not_pending")
+
+    async def key_mismatch(request: Request, exc: Exception) -> Response:
+        return _error(422, "installation_key_mismatch")
+
     async def retry(request: Request, exc: Exception) -> Response:
         response = _error(503, "concurrent_write")
         response.headers["Retry-After"] = "1"
         return response
 
+    routes: list[BaseRoute] = [
+        Route("/healthz", healthz),
+        Route("/v1/installations/{installation_id}/enrollment", post_enrollment, methods=["POST"]),
+        Route("/v1/installations/{installation_id}/plan", get_plan),
+        Route(
+            "/v1/installations/{installation_id}/plans/{plan_id}/reports",
+            post_report,
+            methods=["POST"],
+        ),
+        Route("/v1/installations/{installation_id}/state", post_state, methods=["POST"]),
+        # Operator UI routes: read-only, plus enrollment approval.
+        Route("/v1/installations", list_installations),
+        Route("/v1/installations/{installation_id}", get_installation),
+        Route("/v1/installations/{installation_id}/plans/{plan_id}", get_plan_detail),
+        Route("/v1/enrollments/pending", list_pending),
+        Route("/v1/enrollments/pending/{installation_id}", get_pending),
+        Route(
+            "/v1/installations/{installation_id}/enrollment/approve",
+            post_approve,
+            methods=["POST"],
+        ),
+        Route(
+            "/v1/installations/{installation_id}/enrollment/reject",
+            post_reject,
+            methods=["POST"],
+        ),
+    ]
+    if static_dir is not None:
+        # The UI is a single-page app: any path that isn't an API route above or a built asset
+        # gets `index.html`, and its own router reads `location.pathname` from there.
+        index_file = static_dir / "index.html"
+
+        async def spa_index(request: Request) -> Response:
+            if not index_file.is_file():
+                return _error(404, "not_found")
+            return FileResponse(index_file)
+
+        routes.append(Mount("/assets", app=StaticFiles(directory=static_dir / "assets")))
+        routes.append(Route("/{path:path}", spa_index))
+
     return Starlette(
-        routes=[
-            Route("/healthz", healthz),
-            Route(
-                "/v1/installations/{installation_id}/enrollment", post_enrollment, methods=["POST"]
-            ),
-            Route("/v1/installations/{installation_id}/plan", get_plan),
-            Route(
-                "/v1/installations/{installation_id}/plans/{plan_id}/reports",
-                post_report,
-                methods=["POST"],
-            ),
-            Route("/v1/installations/{installation_id}/state", post_state, methods=["POST"]),
-        ],
+        routes=routes,
         exception_handlers={
             UnknownInstallationError: not_found,
             UnknownPlanError: not_found,
@@ -162,6 +301,8 @@ def create_app(
             InstallationExistsError: exists,
             ReportConflictError: conflict,
             PlanDigestMismatchError: digest_mismatch,
+            NotPendingError: not_pending,
+            InstallationKeyMismatchError: key_mismatch,
             ConcurrentWriteError: retry,
         },
     )
