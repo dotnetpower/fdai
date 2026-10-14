@@ -41,6 +41,11 @@ def test_list_installations_summarizes_the_latest_evaluation(
     assert summary["target_release_id"] == issued.plan.target_release_id
     assert summary["outcome"] == OutcomeKind.ISSUED
     assert summary["health"] == "healthy"
+    # `now` sits inside the fixture's daily window, so it must read as currently open rather
+    # than a future "starts in" time an operator could misread as not-yet-open.
+    assert summary["next_window_open"] is True
+    assert summary["next_window_starts_at"] is not None
+    assert summary["next_window_ends_at"] is not None
 
 
 def test_list_installations_is_empty_before_any_enrollment(store: HubStore, now: datetime) -> None:

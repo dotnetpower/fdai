@@ -14,8 +14,7 @@ from starlette.applications import Starlette
 from starlette.concurrency import run_in_threadpool
 from starlette.requests import Request
 from starlette.responses import FileResponse, JSONResponse, Response
-from starlette.routing import BaseRoute, Mount, Route
-from starlette.staticfiles import StaticFiles
+from starlette.routing import BaseRoute, Route
 
 from fdai_lifecycle_hub.domain import Clock, utc_now
 from fdai_lifecycle_hub.enrollment import EnrollmentStatus, KeyProofVerifier
@@ -279,17 +278,20 @@ def create_app(
         ),
     ]
     if static_dir is not None:
-        # The UI is a single-page app: any path that isn't an API route above or a built asset
-        # gets `index.html`, and its own router reads `location.pathname` from there.
+        # The UI is a single-page app: any built file (an asset, the brand image, the favicon)
+        # is served as-is; any other path (a route the UI's own router reads) gets `index.html`.
         index_file = static_dir / "index.html"
+        resolved_static_dir = static_dir.resolve()
 
-        async def spa_index(request: Request) -> Response:
+        async def serve_ui(request: Request) -> Response:
+            requested = (static_dir / request.path_params["path"]).resolve()
+            if requested.is_relative_to(resolved_static_dir) and requested.is_file():
+                return FileResponse(requested)
             if not index_file.is_file():
                 return _error(404, "not_found")
             return FileResponse(index_file)
 
-        routes.append(Mount("/assets", app=StaticFiles(directory=static_dir / "assets")))
-        routes.append(Route("/{path:path}", spa_index))
+        routes.append(Route("/{path:path}", serve_ui))
 
     return Starlette(
         routes=routes,

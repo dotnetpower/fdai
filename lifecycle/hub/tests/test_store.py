@@ -10,7 +10,7 @@ from sqlalchemy import Boolean, Column, MetaData, String, Table, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from fdai_lifecycle_hub import audit, models
+from fdai_lifecycle_hub import audit, models, schemas
 from fdai_lifecycle_hub.domain import (
     DailyWindow,
     EntityState,
@@ -416,6 +416,23 @@ def test_list_installations_excludes_a_pending_installation(
     store.request_enrollment(enrollment, verify=verify_key_proof, now=now)
 
     assert store.list_installations() == ()
+
+
+def test_installation_summary_distinguishes_an_open_window_from_an_upcoming_one(
+    registered: HubStore, installation: Installation, now: datetime
+) -> None:
+    (overview,) = registered.list_installations()
+
+    # `now` sits inside the fixture's 11:30-12:30 Asia/Seoul daily window.
+    open_record = schemas.installation_summary_record(overview, now=now)
+    assert open_record["next_window_open"] is True
+    assert open_record["next_window_starts_at"] is not None
+    assert open_record["next_window_ends_at"] is not None
+
+    # Two hours later the window has closed for today, and the next occurrence starts tomorrow.
+    closed_record = schemas.installation_summary_record(overview, now=now + timedelta(hours=2))
+    assert closed_record["next_window_open"] is False
+    assert closed_record["next_window_starts_at"] is not None
 
 
 def test_list_and_fetch_pending_enrollments_round_trip(

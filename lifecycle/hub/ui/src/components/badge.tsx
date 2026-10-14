@@ -3,16 +3,35 @@ import type { Health, Outcome } from "../api";
 
 type Variant = "ok" | "warn" | "fail" | "info" | "mute";
 
+// A leading glyph repeats the status in shape, not only in color, matching the ✓/✕/◷ vocabulary
+// already used for constraint and report rows elsewhere in this app. "info" and "mute" carry no
+// judgment (open/inactive, not good or bad), so they stay textual.
+const VARIANT_GLYPH: Partial<Record<Variant, string>> = {
+  ok: "✓",
+  warn: "●",
+  fail: "✕",
+};
+
 function Badge({ variant, children }: { variant: Variant; children: JSX.Element | string }) {
-  return <span class={`badge ${variant}`}>{children}</span>;
+  const glyph = VARIANT_GLYPH[variant];
+  return (
+    <span class={`badge ${variant}`}>
+      {glyph && (
+        <span class="badge-glyph" aria-hidden="true">
+          {glyph}
+        </span>
+      )}
+      {children}
+    </span>
+  );
 }
 
 const OUTCOME_LABELS: Record<Outcome, { label: string; variant: Variant }> = {
-  issued: { label: "Plan open", variant: "info" },
-  unchanged: { label: "Plan open", variant: "info" },
+  issued: { label: "Plan issued", variant: "info" },
+  unchanged: { label: "Plan unchanged", variant: "info" },
   waiting: { label: "Waiting", variant: "warn" },
   "up-to-date": { label: "Up to date", variant: "ok" },
-  "no-eligible-release": { label: "No eligible release", variant: "mute" },
+  "no-eligible-release": { label: "No eligible release", variant: "warn" },
   "no-managed-entity": { label: "No managed Entity", variant: "mute" },
 };
 
@@ -33,10 +52,4 @@ export function HealthBadge({ health }: { health: Health | null }) {
   if (health === null) return <Badge variant="mute">No managed Entity</Badge>;
   const { label, variant } = HEALTH_LABELS[health];
   return <Badge variant={variant}>{label}</Badge>;
-}
-
-export function EnrollmentBadge({ status }: { status: string }) {
-  if (status === "enrolled") return <Badge variant="ok">Enrolled</Badge>;
-  if (status === "rejected") return <Badge variant="fail">Rejected</Badge>;
-  return <Badge variant="warn">Pending</Badge>;
 }

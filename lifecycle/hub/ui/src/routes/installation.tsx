@@ -1,27 +1,15 @@
 import { useState } from "preact/hooks";
-import { hubApi, type CandidateCheck } from "../api";
+import { hubApi } from "../api";
 import { AsyncBoundary } from "../components/async-boundary";
 import { HealthBadge, OutcomeBadge } from "../components/badge";
 import { Link } from "../components/link";
+import { ConstraintResults } from "../components/constraint-results";
 import { formatDurationMinutes, formatRelative, formatTimestamp } from "../format";
 import { useAsync } from "../hooks/use-async";
-import { installationPath, installationsPath, planPath } from "../router";
+import { reportSeverity, reportSeverityClass } from "../report-status";
+import { installationsPath, planPath } from "../router";
 
 type Tab = "constraints" | "entities";
-
-function ConstraintRow({ check }: { check: CandidateCheck }) {
-  const passed = check.blocks.length === 0;
-  return (
-    <li>
-      <span class={`ic ${passed ? "ok" : "warn"}`}>{passed ? "✓" : "◷"}</span>
-      <span>
-        <b>{check.release_id}</b>
-        {passed ? " passed every constraint" : ` blocked by ${check.blocks[0]!.reason_code}`}
-      </span>
-      <span class="soft">{passed ? "Passed" : "Blocked"}</span>
-    </li>
-  );
-}
 
 export function InstallationPage({ installationId }: { installationId: string }) {
   const detail = useAsync(() => hubApi.getInstallation(installationId), [installationId]);
@@ -31,7 +19,6 @@ export function InstallationPage({ installationId }: { installationId: string })
     <AsyncBoundary state={detail}>
       {(installation) => {
         const evaluation = installation.last_evaluation;
-        const window = installation.settings.windows[0];
 
         return (
           <>
@@ -47,6 +34,9 @@ export function InstallationPage({ installationId }: { installationId: string })
                   {formatTimestamp(installation.reported_at)} (
                   {formatRelative(installation.reported_at)})
                 </div>
+                <div class="acts">
+                  <button type="button" class="btn" onClick={detail.reload}>Refresh</button>
+                </div>
               </div>
             </div>
 
@@ -56,7 +46,7 @@ export function InstallationPage({ installationId }: { installationId: string })
                 <div class="v">{installation.current_release ?? "\u2013"}</div>
               </div>
               <div>
-                <div class="k">Health</div>
+                <div class="k">Reported health</div>
                 <div class="v">
                   <HealthBadge health={installation.health} />
                 </div>
@@ -78,9 +68,16 @@ export function InstallationPage({ installationId }: { installationId: string })
               <div>
                 <div class="k">Maintenance window</div>
                 <div class="v small">
-                  {window
-                    ? `${window.start} ${window.timezone} · ${formatDurationMinutes(window.duration_minutes)}`
-                    : "\u2013"}
+                  {installation.settings.windows.length > 0 ? (
+                    installation.settings.windows.map((window, index) => (
+                      <div key={index} class="maintenance-window">
+                        {window.start} {window.timezone}
+                        <div class="soft">{formatDurationMinutes(window.duration_minutes)} window</div>
+                      </div>
+                    ))
+                  ) : (
+                    "\u2013"
+                  )}
                 </div>
               </div>
             </div>
@@ -89,6 +86,7 @@ export function InstallationPage({ installationId }: { installationId: string })
               <button
                 type="button"
                 class={tab === "constraints" ? "on" : ""}
+                aria-pressed={tab === "constraints"}
                 onClick={() => setTab("constraints")}
               >
                 Constraints and next Plan
@@ -96,38 +94,37 @@ export function InstallationPage({ installationId }: { installationId: string })
               <button
                 type="button"
                 class={tab === "entities" ? "on" : ""}
+                aria-pressed={tab === "entities"}
                 onClick={() => setTab("entities")}
               >
                 Entities
               </button>
-              <span class="soft" title="Not built in this scope">
+              <button type="button" disabled title="Not available yet">
                 Configuration
-              </span>
+              </button>
             </nav>
 
             {tab === "constraints" && (
               <section aria-label="Constraints">
-                <div class="panel-title">
-                  {evaluation ? `Target ${evaluation.target_release_id}` : "No recompute yet"}
+                <h2 class="panel-title">
+                  {evaluation?.target_release_id ? `Target ${evaluation.target_release_id}` : "Latest evaluation"}
                   {evaluation && <OutcomeBadge outcome={evaluation.outcome} />}
-                </div>
-                {!evaluation && (
-                  <p class="note">This installation hasn't been recomputed yet.</p>
-                )}
-                {evaluation && (
-                  <ul class="list">
-                    {evaluation.checks.map((check) => (
-                      <ConstraintRow key={check.release_id} check={check} />
-                    ))}
-                  </ul>
-                )}
+                </h2>
+                {evaluation ? (
+                  <>
+                    <p class="note">Evaluated {formatTimestamp(evaluation.evaluated_at)}</p>
+                    <ConstraintResults checks={evaluation.checks} />
+                  </>
+                ) : <p class="note">The Hub has not evaluated this installation yet.</p>}
                 {installation.suppressions.length > 0 && (
                   <>
-                    <div class="panel-title">Active suppressions</div>
+                    <h2 class="panel-title">Active suppressions</h2>
                     <ul class="list">
                       {installation.suppressions.map((suppression) => (
                         <li key={`${suppression.scope}-${suppression.starts_at}`}>
-                          <span class="ic wait">■</span>
+                          <span class={`ic ${suppression.origin === "failure" ? "fail" : "warn"}`}>
+                            ■
+                          </span>
                           <span>
                             {suppression.scope} ({suppression.origin})
                           </span>
@@ -142,10 +139,10 @@ export function InstallationPage({ installationId }: { installationId: string })
 
             {tab === "entities" && (
               <section aria-label="Entities">
-                <div class="panel-title">
+                <h2 class="panel-title">
                   Entities <span class="hint">Reported by the installation agent</span>
-                </div>
-                <table class="t">
+                </h2>
+                <div class="table-scroll"><table class="t">
                   <thead>
                     <tr>
                       <th>Name</th>
@@ -159,7 +156,9 @@ export function InstallationPage({ installationId }: { installationId: string })
                       <tr key={entity.entity_id}>
                         <td>
                           {entity.entity_id}
-                          {!entity.managed && <div class="soft">Unmanaged</div>}
+                          {!entity.managed && (
+                            <div class="soft">Unmanaged{entity.ownership_gap && <> - <code>{entity.ownership_gap}</code></>}</div>
+                          )}
                         </td>
                         <td>{entity.kind}</td>
                         <td>{entity.release_id}</td>
@@ -169,20 +168,18 @@ export function InstallationPage({ installationId }: { installationId: string })
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></div>
               </section>
             )}
 
             {installation.reports.length > 0 && (
               <section aria-label="Reports">
-                <div class="panel-title">Reports</div>
+                <h2 class="panel-title">Reports</h2>
                 <ol class="timeline">
                   {installation.reports.map((report) => (
                     <li
                       key={`${report.plan_id}-${report.attempt}`}
-                      class={report.outcome === "rejected" || report.outcome === "rolled-back"
-                        ? "fail"
-                        : "ok"}
+                      class={reportSeverityClass(reportSeverity(report.outcome))}
                     >
                       <div class="when">{formatTimestamp(report.received_at)}</div>
                       <Link href={planPath(installationId, report.plan_id)}>

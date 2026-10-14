@@ -1,12 +1,6 @@
-import { hubApi } from "../api";
-import { useAsync } from "../hooks/use-async";
 import { enrollmentsPath, installationsPath, type Route } from "../router";
 import { Link } from "./link";
-
-const DISABLED: Record<string, readonly string[]> = {
-  Catalog: ["Available Releases", "Custom channels", "Configuration packages"],
-  Admin: ["Customer Git configuration", "Confirmations", "Commands", "Audit"],
-};
+import { EnrollmentsIcon, InstallationsIcon } from "./nav-icons";
 
 function isOnInstallations(route: Route): boolean {
   return route.kind === "installations" || route.kind === "installation" || route.kind === "plan";
@@ -16,42 +10,46 @@ function isOnEnrollments(route: Route): boolean {
   return route.kind === "enrollments" || route.kind === "enrollment";
 }
 
-export function Nav({ route }: { route: Route }) {
-  // Refetch on every navigation so the counts don't go stale after an approve/reject action.
-  const installations = useAsync(() => hubApi.listInstallations(), [route]);
-  const pending = useAsync(() => hubApi.listPendingEnrollments(), [route]);
+/** Hub surfaces with no backend yet (see hub-managed-lifecycle.md "Remaining work").
+ * Listed so an operator can see the Hub's full intended footprint, same as the approved
+ * mockup, but inert: no link, no hover state, nothing to click. */
+const UNBUILT_SURFACES = [
+  "Confirmations",
+  "Commands",
+  "Available releases",
+  "Custom channels",
+  "Configuration packages",
+  "Audit",
+];
 
+export function Nav({ route }: { route: Route }) {
   return (
     <nav class="side" aria-label="Lifecycle Hub">
-      <div class="brand">FDAI Lifecycle Hub</div>
-      <div class="grp">Operate</div>
+      <div class="brand">
+        <img class="brand-logo" src={`${import.meta.env.BASE_URL}brand/fdai-logo.png`} alt="" />
+        <span class="brand-wordmark">FDAI</span>
+        <span class="brand-separator" aria-hidden="true" />
+        <span class="brand-product">Lifecycle Hub</span>
+      </div>
       <Link
         href={installationsPath()}
         class={`it ${isOnInstallations(route) ? "on" : ""}`}
         aria-current={isOnInstallations(route) ? "page" : undefined}
       >
-        <span>Installations</span>
-        {installations.status === "ready" && (
-          <span class="cnt">{installations.data.installations.length}</span>
-        )}
+        <InstallationsIcon />
+        Installations
       </Link>
-      <div class="grp">Catalog</div>
-      {DISABLED.Catalog!.map((label) => (
-        <span key={label} class="it disabled" aria-disabled="true">
-          {label}
-        </span>
-      ))}
-      <div class="grp">Admin</div>
       <Link
         href={enrollmentsPath()}
         class={`it ${isOnEnrollments(route) ? "on" : ""}`}
         aria-current={isOnEnrollments(route) ? "page" : undefined}
       >
-        <span>Enrollment requests</span>
-        {pending.status === "ready" && <span class="cnt">{pending.data.enrollments.length}</span>}
+        <EnrollmentsIcon />
+        Enrollment requests
       </Link>
-      {DISABLED.Admin!.map((label) => (
-        <span key={label} class="it disabled" aria-disabled="true">
+      <div class="side-divider" role="separator" />
+      {UNBUILT_SURFACES.map((label) => (
+        <span key={label} class="it disabled" aria-disabled="true" title="Not available yet">
           {label}
         </span>
       ))}

@@ -40,6 +40,10 @@ export interface InstallationSummary {
   outcome: Outcome | null;
   health: Health | null;
   next_window_starts_at: string | null;
+  next_window_ends_at: string | null;
+  // Whether the next window is already open, as opposed to still upcoming. `next_window_starts_at`
+  // alone can't tell these apart: a daily window that opened hours ago still has a past start time.
+  next_window_open: boolean;
   last_evaluated_at: string | null;
 }
 
@@ -63,7 +67,7 @@ export interface Suppression {
   scope: string;
   starts_at: string;
   ends_at: string;
-  origin: string;
+  origin: "manual" | "failure";
   failed_plan_id: string | null;
 }
 

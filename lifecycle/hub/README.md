@@ -113,7 +113,7 @@ and have no caller authentication yet (see [Limits](#limits)).
 
 | Method and path | Result |
 |-----------------|--------|
-| `GET /v1/installations` | `200` with every enrolled installation's channel, current and target Release, latest outcome, health, and next maintenance window |
+| `GET /v1/installations` | `200` with every enrolled installation's channel, current and target Release, latest outcome, health, and the next maintenance window with whether it's already open |
 | `GET /v1/installations/{id}` | `200` with settings, Entities, suppressions, the open Plan, the last evaluation, and every report; `404` for an unknown or not-yet-enrolled installation |
 | `GET /v1/installations/{id}/plans/{plan_id}` | `200` with the Plan's status (`open` or `superseded`), its events, every report, and every recompute that targeted it; `404` for an unknown Plan |
 | `GET /v1/enrollments/pending` | `200` with every pending enrollment request: the installation key id, requested time, settings, and declared Entities (unmanaged; ownership evidence doesn't exist until after approval) |
@@ -224,9 +224,16 @@ A catalog directory contains `releases/<release-id>.json` runtime release manife
 list, one installation's detail, one Plan's detail, and the pending-enrollment list and approval
 screen. It calls only the [Operator UI API](#operator-ui-api) above, and the Hub serves it as a
 static build from `ui/dist/` - there's no separate frontend server in production. It shares the
-Console's `ui/calm-slate-tokens.css` and `ui/calm-slate-primitives.css`, but it's a separate app:
-the Hub sits outside every installation and keeps working when one installation's Console doesn't
-(see the design note in #1945).
+Console's `ui/calm-slate-tokens.css` and `ui/calm-slate-primitives.css` foundation but keeps its
+own accent (`--lc-accent`, teal) and sidebar instead of Console's steel-blue lockup, so the two
+stay visually distinguishable: the Hub sits outside every installation and keeps working when one
+installation's Console doesn't (see the design note in #1945).
+
+The installations list separates update status from reported health and supports filtering by
+installation ID. Use **Refresh** to fetch a new snapshot; the UI does not stream agent state.
+Installation and Plan details show every recorded constraint block, including its reason code
+and details. Failed reads offer **Try again** without reloading the application. Loading
+placeholders and enrollment submissions honor the reduced-motion preference.
 
 For local development, run the Hub API from this directory as in
 [Try it locally](#try-it-locally), then in a second terminal:
@@ -238,7 +245,9 @@ npm run dev
 ```
 
 Vite serves the UI on `http://127.0.0.1:5290` and proxies `/v1` and `/healthz` to the Hub API on
-its default port, 8090. For a production-shaped check, build it and let the Hub serve the result:
+its default port, 8090. If that port is already in use, start the Hub with `serve --port 8099`
+and run `FDAI_HUB_API_URL=http://127.0.0.1:8099 npm run dev`.
+For a production-shaped check, build it and let the Hub serve the result:
 
 ```bash
 npm run build

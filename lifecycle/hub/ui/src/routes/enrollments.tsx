@@ -19,19 +19,18 @@ function EnrollmentsList() {
 
   return (
     <>
-      <div class="crumb">Enrollment requests</div>
       <div class="m-head">
-        <div>
-          <h1>Enrollment requests</h1>
-          <div class="sub">Awaiting a customer approver's decision</div>
+        <h1>Enrollment requests</h1>
+        <div class="acts">
+          <button type="button" class="btn" onClick={pending.reload} disabled={pending.status === "loading"}>Refresh</button>
         </div>
       </div>
-      <AsyncBoundary state={pending}>
+      <AsyncBoundary state={pending} layout="table">
         {({ enrollments }) =>
           enrollments.length === 0 ? (
-            <p class="empty">No enrollment request is waiting.</p>
+            <p class="empty">No enrollment requests pending.</p>
           ) : (
-            <table class="t">
+            <div class="table-scroll"><table class="t">
               <thead>
                 <tr>
                   <th>Installation</th>
@@ -54,7 +53,7 @@ function EnrollmentsList() {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           )
         }
       </AsyncBoundary>
@@ -66,19 +65,23 @@ function EnrollmentDetail({ installationId }: { installationId: string }) {
   const pending = useAsync(() => hubApi.getPendingEnrollment(installationId), [installationId]);
   const [approver, setApprover] = useState("");
   const [reason, setReason] = useState("");
-  const [busy, setBusy] = useState(false);
+  // Deliberately not pre-filled from the request: the approver must retype the key id they
+  // verified through an independent, out-of-band channel. Auto-submitting the id the request
+  // already claims for itself would make the check a no-op (it would always match itself).
+  const [keyId, setKeyId] = useState("");
+  const [busy, setBusy] = useState<"accept" | "reject" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  async function decide(action: (approver: string) => Promise<unknown>) {
-    setBusy(true);
+  async function decide(kind: "accept" | "reject", action: (approver: string) => Promise<unknown>) {
+    setBusy(kind);
     setError(null);
     try {
-      await action(approver);
+      await action(approver.trim());
       navigate(enrollmentsPath());
     } catch (cause) {
-      setError(cause instanceof HubApiError ? cause.reasonCode : "Something went wrong.");
+      setError(cause instanceof HubApiError ? cause.message : "Could not confirm the decision. Refresh the request before trying again.");
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   }
 
@@ -94,10 +97,16 @@ function EnrollmentDetail({ installationId }: { installationId: string }) {
             <div>
               <h1>{request.installation_id}</h1>
               <div class="sub">
-                Requested {formatTimestamp(request.requested_at)} · key{" "}
-                {request.installation_key_id}
+                Requested {formatTimestamp(request.requested_at)}
               </div>
             </div>
+          </div>
+
+          <div class="callout">
+            <strong>Verify the installation before accepting</strong>
+            <p>Verify <code>{request.installation_key_id}</code> against the key id you obtained
+              outside this screen (for example, from the installation's own enrollment output)
+              before accepting. Do not accept solely because this screen shows a key id.</p>
           </div>
 
           <div class="kv">
@@ -120,10 +129,10 @@ function EnrollmentDetail({ installationId }: { installationId: string }) {
           </div>
 
           <section aria-label="Discovered Entities">
-            <div class="panel-title">
+            <h2 class="panel-title">
               Discovered Entities <span class="hint">All start unmanaged after acceptance</span>
-            </div>
-            <table class="t">
+            </h2>
+            <div class="table-scroll"><table class="t">
               <thead>
                 <tr>
                   <th>Name</th>
@@ -140,57 +149,78 @@ function EnrollmentDetail({ installationId }: { installationId: string }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </table></div>
           </section>
 
           <section aria-label="Decision">
-            <div class="panel-title">Decision</div>
-            <div class="form-row">
-              <label class="lbl" for="approver">
-                Approver
-              </label>
-              <input
-                id="approver"
-                class="input"
-                value={approver}
-                placeholder="name or email"
-                onInput={(event) => setApprover((event.target as HTMLInputElement).value)}
-              />
-            </div>
-            <div class="form-row">
-              <label class="lbl" for="reason">
-                Rejection reason
-              </label>
-              <input
-                id="reason"
-                class="input"
-                value={reason}
-                placeholder="a reason code, e.g. unknown_key"
-                onInput={(event) => setReason((event.target as HTMLInputElement).value)}
-              />
-            </div>
-            {error && <p class="note">{error}</p>}
+            <h2 class="panel-title">Enrollment decision</h2>
+            <p class="note">Accepting enrolls this installation; it does not manage its Entities or deploy a release.</p>
+            <fieldset disabled={busy !== null} class="decision-fields">
+              <div class="form-row">
+                <label class="lbl" for="approver">
+                  Approver
+                </label>
+                <input
+                  id="approver"
+                  class="input"
+                  value={approver}
+                  required
+                  placeholder="name or email"
+                  onInput={(event) => setApprover(event.currentTarget.value)}
+                />
+              </div>
+              <div class="form-row">
+                <label class="lbl" for="key-id">
+                  Verified key id
+                </label>
+                <input
+                  id="key-id"
+                  class="input"
+                  value={keyId}
+                  aria-describedby="key-help"
+                  placeholder="the key id you verified out of band"
+                  onInput={(event) => setKeyId(event.currentTarget.value)}
+                />
+              </div>
+              <p class="note" id="key-help">Required only to accept. Use the independently verified key id.</p>
+              <div class="form-row">
+                <label class="lbl" for="reason">
+                  Rejection reason
+                </label>
+                <input
+                  id="reason"
+                  class="input"
+                  value={reason}
+                  placeholder="a reason code, e.g. unknown_key"
+                  aria-describedby="rejection-help"
+                  onInput={(event) => setReason(event.currentTarget.value)}
+                />
+              </div>
+              <p class="note" id="rejection-help">Required only to reject. The installation ID remains reserved after rejection.</p>
+            </fieldset>
+            {error && <p class="banner fail" role="alert">{error}</p>}
+            <div role="status" class="note">{busy === "accept" ? "Accepting enrollment..." : busy === "reject" ? "Rejecting enrollment..." : ""}</div>
             <div class="acts">
               <button
                 type="button"
                 class="btn"
-                disabled={busy || approver.length === 0 || reason.length === 0}
+                disabled={busy !== null || approver.trim().length === 0 || reason.trim().length === 0}
                 onClick={() =>
-                  decide((who) => hubApi.rejectEnrollment(installationId, who, reason))
+                  decide("reject", (who) => hubApi.rejectEnrollment(installationId, who, reason.trim()))
                 }
               >
+                {busy === "reject" && <span class="spinner" aria-hidden="true" />}
                 Reject
               </button>
               <button
                 type="button"
                 class="btn primary"
-                disabled={busy || approver.length === 0}
+                disabled={busy !== null || approver.trim().length === 0 || keyId.trim().length === 0}
                 onClick={() =>
-                  decide((who) =>
-                    hubApi.approveEnrollment(installationId, who, request.installation_key_id),
-                  )
+                  decide("accept", (who) => hubApi.approveEnrollment(installationId, who, keyId.trim()))
                 }
               >
+                {busy === "accept" && <span class="spinner" aria-hidden="true" />}
                 Accept enrollment
               </button>
             </div>

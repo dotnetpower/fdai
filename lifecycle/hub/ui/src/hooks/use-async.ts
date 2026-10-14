@@ -1,4 +1,4 @@
-import { useEffect, useState } from "preact/hooks";
+import { useCallback, useEffect, useState } from "preact/hooks";
 
 export type AsyncState<T> =
   | { status: "loading"; data: null; error: null }
@@ -9,8 +9,13 @@ export type AsyncState<T> =
  * Run `fetcher` whenever `deps` changes, and expose its loading/ready/error state.
  * A later effect run's result always wins over a slower earlier one.
  */
-export function useAsync<T>(fetcher: () => Promise<T>, deps: readonly unknown[]): AsyncState<T> {
+export function useAsync<T>(
+  fetcher: () => Promise<T>,
+  deps: readonly unknown[],
+): AsyncState<T> & { reload: () => void } {
   const [state, setState] = useState<AsyncState<T>>({ status: "loading", data: null, error: null });
+  const [revision, setRevision] = useState(0);
+  const reload = useCallback(() => setRevision((value) => value + 1), []);
 
   useEffect(() => {
     let current = true;
@@ -34,7 +39,7 @@ export function useAsync<T>(fetcher: () => Promise<T>, deps: readonly unknown[])
     };
     // `fetcher` is intentionally excluded: callers pass a fresh closure each render and list
     // their real dependencies in `deps` instead.
-  }, deps);
+  }, [...deps, revision]);
 
-  return state;
+  return { ...state, reload };
 }

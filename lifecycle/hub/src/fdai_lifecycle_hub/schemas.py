@@ -234,6 +234,10 @@ def installation_summary_record(overview: InstallationOverview, *, now: datetime
         "outcome": evaluation.outcome if evaluation else None,
         "health": installation.overall_health,
         "next_window_starts_at": window.starts_at.isoformat() if window else None,
+        "next_window_ends_at": window.ends_at.isoformat() if window else None,
+        # An operator can't tell "about to start" from "already open" by starts_at alone, since
+        # a currently open daily window's starts_at already lies in the past.
+        "next_window_open": window is not None and window.starts_at <= now,
         "last_evaluated_at": evaluation.evaluated_at.isoformat() if evaluation else None,
     }
 
