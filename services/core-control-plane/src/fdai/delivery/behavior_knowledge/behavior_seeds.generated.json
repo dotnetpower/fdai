@@ -921,22 +921,22 @@
         "Can Bragi execute a command?",
         "Bragi는 명령을 직접 실행하나요?"
       ],
-      "source_manifest_hash": "ab9a178749884b9d05354bdd6ec09a2e7b6ef5a04f8003a9694a0844776e8016",
+      "source_manifest_hash": "7878abd06a904a40273f2d02423f95357ad7ef4a7cfd417bb6389b6d7d491914",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "4a046b008346510012297868fd8783e7325283ac",
-          "line_end": 451,
-          "line_start": 125,
+          "blob_sha": "87fe88f010aa1861ddfb6df2fad3e6afd9cfce26",
+          "line_end": 484,
+          "line_start": 130,
           "path": "services/core-control-plane/src/fdai/agents/_framework/bragi_ask_runtime.py",
           "source_kind": "code",
           "symbol": "BragiAskRuntimeMixin.ask"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "85d9532d5ff4b5eb9a2b7cb7f6d7a89030e416cc",
-          "line_end": 1442,
-          "line_start": 1420,
+          "blob_sha": "8a70d9aa2b5efcb62555236c70235286ac830e34",
+          "line_end": 1444,
+          "line_start": 1422,
           "path": "services/core-control-plane/tests/agents/test_conversational_port.py",
           "source_kind": "test",
           "symbol": "test_ask_refuses_action_intent_and_routes_to_typed_pipeline"

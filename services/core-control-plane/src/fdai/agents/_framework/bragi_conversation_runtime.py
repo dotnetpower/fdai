@@ -104,15 +104,25 @@ class BragiConversationRuntimeMixin:
         if self._semantic_judgment is None:
             return None, "unbound"
         try:
+            judgment_call = (
+                asyncio.to_thread(
+                    self._semantic_judgment.judge,
+                    utterance=question,
+                    context=context,
+                    capabilities=semantic_capabilities(self._action_type_names),
+                    allow_escalation=False,
+                )
+                if not allow_escalation
+                else asyncio.to_thread(
+                    self._semantic_judgment.judge,
+                    utterance=question,
+                    context=context,
+                    capabilities=semantic_capabilities(self._action_type_names),
+                )
+            )
             return (
                 await asyncio.wait_for(
-                    asyncio.to_thread(
-                        self._semantic_judgment.judge,
-                        utterance=question,
-                        context=context,
-                        capabilities=semantic_capabilities(self._action_type_names),
-                        **({"allow_escalation": False} if not allow_escalation else {}),
-                    ),
+                    judgment_call,
                     timeout=self._semantic_judgment_timeout_seconds,
                 ),
                 "ok",

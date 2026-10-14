@@ -12,7 +12,7 @@ promotion authority remain unchanged. Bragi remains a read-only conversational t
 No push, deployment, live model call, provider mutation, or live identity is authorized here.
 Synthetic tests never satisfy operational readiness or production promotion.
 
-## Finding inventory
+## Review inventory
 
 | Review ID | Finding | Current disposition and observable exit |
 |-----------|---------|-----------------------------------------|
@@ -213,7 +213,7 @@ exercise actual initialization, receipt ordering, local upgrade/restart identity
 Mimir close evidence: 114 passed; two-file mypy and Ruff passed. This source result does not prove
 remote provider restart, remote issue adapter identity, replica publication or live handover.
 
-### Residual handover source-grounding evidence
+### Residual ownership-transfer source citation evidence
 
 The model bootstrap previously accepted any nonempty citation tuple, including a quote and
 person absent from the current document. It now requires the exact document, valid line,
@@ -261,7 +261,7 @@ the existing reader API; missing source/API stays unavailable. Focused observati
 and bootstrap checks: 20 passed; two-file mypy and Ruff passed. No regression result, promotion,
 deprecation decision, issue close or live authority is manufactured by this observer.
 
-### Residual actual Worker handover path
+### Residual actual Worker ownership-transfer path
 
 The legacy Core HandoverBootstrapper has no current runtime caller. Actual document handover
 uses the independently packaged Worker's HandoverBootstrapConsumer. That path still guessed
@@ -271,7 +271,7 @@ Long structured lines keep all source text in ordered per-span-bounded citations
 prose abstention and lossless-citation checks: 5 passed; Ruff and focused mypy passed. Adaptive
 interpretation must be bound into this actual Worker path, not a test-only legacy factory.
 
-### Actual adaptive Worker handover design and critique
+### Actual adaptive Worker ownership-transfer design and critique
 
 Adaptive interpretation belongs to the actual Document Worker consumer, not the unused legacy
 Core bootstrap. Existing deterministic source/draft 1.0 records remain readable. A 1.1 artifact
