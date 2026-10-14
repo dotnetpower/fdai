@@ -437,7 +437,7 @@ describe("Command Deck workspace hierarchy", () => {
 
   test("keeps mobile header and composer compact", () => {
     expect(styles).toMatch(
-      /@media \(max-width: 640px\)[\s\S]*grid-template-areas:\s*"title title actions window"\s*"model headline headline headline";/,
+      /@media \(max-width: 640px\)[\s\S]*grid-template-areas:\s*"title title actions window"\s*"model model model model"\s*"headline headline headline headline";/,
     );
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*\.deck-header-action \{ width: 44px; height: 44px; \}/);
     expect(styles).toMatch(/@media \(max-width: 640px\)[\s\S]*grid-template-columns: 120px minmax\(0, 1fr\) auto 44px;/);
