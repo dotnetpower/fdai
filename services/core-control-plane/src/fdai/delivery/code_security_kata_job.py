@@ -135,7 +135,8 @@ def build_scanner_job(
     ]
     if spec.cache_env:
         environment.append({"name": spec.cache_env, "value": "/cache"})
-    memory = spec.address_space_bytes or 4 * 1024**3
+    # Go's virtual address-space reservation is not the Kata VM's physical RAM budget.
+    memory = 4 * 1024**3
     rule_digest = (
         source_tree_digest(config.source_mount / config.rules_subpath)
         if "rules" in spec.mounts and config.rules_subpath is not None
