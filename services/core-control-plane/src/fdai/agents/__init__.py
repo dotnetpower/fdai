@@ -59,9 +59,11 @@ from fdai.agents._framework.conversation_prompt import (
 )
 from fdai.agents._framework.conversation_tools import AgentToolResult, AgentToolStatus
 from fdai.agents._framework.deliberation import (
+    ConversationSynthesisVerifier,
     DeliberationClaim,
     DeliberationRequest,
     SynthesisOutcome,
+    SynthesisVerification,
     T2ConversationSynthesizer,
 )
 from fdai.agents._framework.development_authority_runtime import (
@@ -270,6 +272,8 @@ __all__ = [
     "StateStorePolicyRevisionStore",
     "StateStoreIssueTrackerAdapter",
     "SynthesisOutcome",
+    "SynthesisVerification",
+    "ConversationSynthesisVerifier",
     "T2ConversationSynthesizer",
     "ThorPreflightSimulator",
     "bind_recovery_effect_observation",

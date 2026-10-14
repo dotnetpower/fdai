@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 74a698299e4a2be7f9170bc341d2406ae7eb2c1e
+translation_source_sha: a83be6fbe1795307982cc7951dfa6d0ccab18ddd
 translation_revised: 2026-10-14
 ---
 # 판테온 대화형 숙의
@@ -343,6 +343,14 @@ pricing, 모델 키 없이 바인딩된 대화 synthesizer를 거부합니다. �
 Synthesized conclusion은 presentation-only입니다. 4,000자로 제한하며 민감한 내용을
 검사합니다. 프로바이더 오류, 빈 출력, oversized 출력 또는 민감한 출력은 T1 결과를
 보존하고 범위가 제한된 T2 상태를 기록합니다.
+
+종합에는 별도로 주입한 `ConversationSynthesisVerifier`도 필요합니다. 연결하지 않으면 모델
+호출이나 예산 예약 전에 `verification_unavailable`로 보류합니다. 검증기는 V-CLAIM과 독립적인
+함의 검토를 수행하고 정확한 요청 다이제스트, 결론 다이제스트 및 전체 근거 참조 집합에 결합된
+`SynthesisVerification`을 반환합니다. 생성기는 자신을 검증할 수 없습니다. 검증 결과가 없거나
+거절, 불일치, 실패하면 T1 근거를 보존하며 생성한 결론을 채택하지 않습니다. 검증된 결론에는
+내용이 없는 다이제스트와 인용 메타데이터가 포함됩니다. 증적은 작업, 승인, 승격 또는 실행
+권한을 부여하지 않습니다.
 
 업스트림은 이 프로토콜의 기본값 Azure 어댑터를 제공하지 않습니다. 연결이 없으면 런타임은
 T1에 머뭅니다. 어댑터 추가에는 프로바이더 선택, metering, 배포 검증 및 focused

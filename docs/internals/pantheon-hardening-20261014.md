@@ -16,7 +16,7 @@ Synthetic tests never satisfy operational readiness or production promotion.
 
 | Review ID | Finding | Current disposition and observable exit |
 |-----------|---------|-----------------------------------------|
-| 1 | Unsupported T2 conclusions | Open source defect: reject unsupported synthesis before displaying its conclusion. |
+| 1 | Unsupported T2 conclusions | Hardened boundary in round 2: unbound/rejected/invalid verification cannot display synthesis; actual V-CLAIM/independent-review production binding remains open. |
 | 2 | Lost failed discussion participants | Fixed in round 1: preserve all selected participants and reasons; block synthesis after partial evidence. |
 | 3 | Peer critique does not consume the peer claim | Open source limitation: attribute structured comparisons to the exact peer evidence without inventing semantic critique. |
 | 4 | Template operational answers | Open migration debt: use verified answer composition; keep fact views and role descriptions distinct from operational conclusions. |
@@ -49,8 +49,20 @@ Synthetic tests never satisfy operational readiness or production promotion.
 | Round | Critique | Repair | Focused evidence | Residual |
 |-------|----------|--------|------------------|----------|
 | 1 | One failed peer disappeared while a three-participant discussion reported completion. | Preserve selected/attempted participant accounting and return partial or abstain; no synthesis of incomplete branches. | `pytest -q --no-cov test_prompt_deliberation.py test_framework_layout.py`: 60 passed; Ruff and focused mypy passed. | Synthesis grounding, remote dispatch, persistent limits, integrations, and operational acceptance remain open. |
+| 2 | Generated prose passed only output-size and sensitivity checks; a fabricated 999-resource claim was accepted. | Require an independent verifier and exact request/conclusion/evidence receipt; hold on absence, rejection, substitution, self-verification or provider failure. | Focused deliberation/layout/bootstrap checks: 82 passed; Ruff and six-file mypy passed. | The verifier contract is tested, not a live independent entailment or production readiness claim. |
 
 ## Completion boundary
+
+### Round 2 design and critique
+
+An independent, composition-owned synthesis verifier reads the same bounded request and
+generated outcome. Its immutable receipt binds the canonical request digest, exact conclusion
+digest, and complete cited evidence set. The generator cannot act as its own verifier. Missing,
+timed-out, malformed, mismatched, or rejected verification retains T1 evidence and never displays
+an unverified T2 conclusion. Verification is presentation-only and grants no action authority.
+The verifier seam is not itself operational validation: a deployment still needs a real
+V-CLAIM/independent-review binding and governed receipts. Synthetic acceptance tests establish
+the fail-closed transport boundary only.
 
 This record does not label the Pantheon or ownership handover operationally ready. Open items
 remain resumable with the exact exits above. A completed local round means only its stated source

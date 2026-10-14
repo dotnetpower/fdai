@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from collections.abc import Callable, Sequence
+from dataclasses import replace
 from decimal import Decimal
 
 import pytest
@@ -14,6 +16,7 @@ from fdai.agents._framework.deliberation import (
     DeliberationClaim,
     DeliberationRequest,
     SynthesisOutcome,
+    SynthesisVerification,
     T2ConversationSynthesizer,
     _claim,
 )
@@ -208,6 +211,22 @@ class _T2Synthesizer:
         )
 
 
+class _SynthesisVerifier:
+    async def verify(
+        self, request: DeliberationRequest, outcome: SynthesisOutcome
+    ) -> SynthesisVerification:
+        return SynthesisVerification(
+            accepted=outcome.conclusion
+            == "Capacity evidence outweighs the bounded cost objection; disagreement remains.",
+            request_sha256=request.sha256,
+            conclusion_sha256=hashlib.sha256(outcome.conclusion.encode()).hexdigest(),
+            evidence_refs=tuple(
+                sorted({ref for claim in request.claims for ref in claim.evidence_refs})
+            ),
+            verifier_identity="publisher-d:independent-reviewer",
+        )
+
+
 class _T2FailureSynthesizer:
     def __init__(self, outcome: str | None | Exception) -> None:
         self.outcome = outcome
@@ -288,10 +307,103 @@ def _runtime(*, t2: T2ConversationSynthesizer | None = None) -> PantheonRuntime:
             margin_threshold=0.08,
         ),
         conversation_t2_synthesizer=t2,
+        conversation_synthesis_verifier=_SynthesisVerifier(),
     )
     return (
         _bind_t1_recommendations(runtime, ("scale_down", "scale_up")) if t2 is not None else runtime
     )
+
+
+def test_t2_without_independent_verification_does_not_call_the_generator() -> None:
+    synthesizer = _T2Synthesizer()
+    runtime = _runtime(t2=synthesizer)
+    runtime.agents["Bragi"]._deliberator._synthesis_verifier = None  # noqa: SLF001
+    result = asyncio.run(
+        runtime.deliberate(question="Compare cost and capacity.", requester="Forseti")
+    )
+    assert result["tier"] == "T1"
+    assert result["t2_status"] == "verification_unavailable"
+    assert synthesizer.requests == []
+
+
+def test_t2_rejects_unsupported_operational_conclusion() -> None:
+    fabricated = "Independent observation proves 999 production resources are healthy."
+    runtime = _runtime(t2=_T2FailureSynthesizer(fabricated))
+    result = asyncio.run(
+        runtime.deliberate(question="Compare cost and capacity.", requester="Forseti")
+    )
+    assert result["tier"] == "T1"
+    assert result["t2_status"] == "verification_rejected"
+    assert result["conclusion"] != fabricated
+
+
+@pytest.mark.parametrize(
+    "changed_field, changed_value",
+    [
+        ("request_sha256", "c" * 64),
+        ("conclusion_sha256", "d" * 64),
+        ("evidence_refs", ("unrelated:evidence",)),
+        ("verifier_identity", "publisher-c:model-c"),
+        ("accepted", 1),
+    ],
+)
+def test_t2_rejects_verification_receipt_substitution(
+    changed_field: str,
+    changed_value: object,
+) -> None:
+    class SubstitutingVerifier(_SynthesisVerifier):
+        async def verify(
+            self, request: DeliberationRequest, outcome: SynthesisOutcome
+        ) -> SynthesisVerification:
+            receipt = await super().verify(request, outcome)
+            return replace(receipt, **{changed_field: changed_value})
+
+    runtime = _runtime(t2=_T2Synthesizer())
+    runtime.agents["Bragi"]._deliberator._synthesis_verifier = SubstitutingVerifier()  # noqa: SLF001
+    result = asyncio.run(
+        runtime.deliberate(question="Compare cost and capacity.", requester="Forseti")
+    )
+    assert result["tier"] == "T1"
+    assert result["t2_status"] == "verification_invalid"
+
+
+@pytest.mark.parametrize(
+    "failure, expected_status",
+    [(TimeoutError(), "verification_timeout"), (RuntimeError(), "verification_error")],
+)
+def test_t2_verifier_failure_preserves_the_t1_evidence(
+    failure: Exception,
+    expected_status: str,
+) -> None:
+    class FailingVerifier(_SynthesisVerifier):
+        async def verify(
+            self, request: DeliberationRequest, outcome: SynthesisOutcome
+        ) -> SynthesisVerification:
+            raise failure
+
+    runtime = _runtime(t2=_T2Synthesizer())
+    runtime.agents["Bragi"]._deliberator._synthesis_verifier = FailingVerifier()  # noqa: SLF001
+    result = asyncio.run(
+        runtime.deliberate(question="Compare cost and capacity.", requester="Forseti")
+    )
+    assert result["tier"] == "T1"
+    assert result["t2_status"] == expected_status
+    assert result["conclusion"] == result["rounds"][0]["contributions"][0]["answer"]
+
+
+def test_t2_generator_cannot_be_its_own_verifier() -> None:
+    class SelfVerifyingSynthesizer(_T2Synthesizer, _SynthesisVerifier):
+        pass
+
+    synthesizer = SelfVerifyingSynthesizer()
+    with pytest.raises(ValueError, match="independent verifier"):
+        ConversationDeliberator(
+            specs=PANTHEON_SPECS,
+            semantic_router=None,
+            t2_synthesizer=synthesizer,
+            synthesis_verifier=synthesizer,
+            call_responder=_runtime().agents["Bragi"]._call_responder,  # noqa: SLF001
+        )
 
 
 def _agent_index(name: str) -> int:
@@ -798,6 +910,7 @@ def test_t2_synthesis_stops_at_the_declared_budget_instead_of_calling_again() ->
                 cosine_threshold=0.6, margin_threshold=0.08
             ),
             conversation_t2_synthesizer=synthesizer,
+            conversation_synthesis_verifier=_SynthesisVerifier(),
             conversation_escalation_budget=ModelBudget(max_calls_per_correlation=1),
         ),
         ("scale_down", "scale_up"),
@@ -890,6 +1003,7 @@ def test_a_zero_budget_never_calls_the_model_at_all() -> None:
                 cosine_threshold=0.6, margin_threshold=0.08
             ),
             conversation_t2_synthesizer=synthesizer,
+            conversation_synthesis_verifier=_SynthesisVerifier(),
             conversation_escalation_budget=ModelBudget(
                 max_calls_per_correlation=0,
                 max_calls_total=0,
@@ -1019,6 +1133,7 @@ def _priced_runtime(
                 cosine_threshold=0.6, margin_threshold=0.08
             ),
             conversation_t2_synthesizer=synthesizer,
+            conversation_synthesis_verifier=_SynthesisVerifier(),
             conversation_escalation_budget=budget,
             conversation_escalation_ledger=ledger,
             conversation_pricing=pricing if pricing is not None else _PRICING,

@@ -613,6 +613,11 @@ async def initialize_pantheon(
             if config.container.llm_bindings is not None
             else None
         ),
+        conversation_synthesis_verifier=(
+            config.container.llm_bindings.conversation_synthesis_verifier
+            if config.container.llm_bindings is not None
+            else None
+        ),
         conversation_metering=(
             config.container.llm_bindings.conversation_metering
             if config.container.llm_bindings is not None

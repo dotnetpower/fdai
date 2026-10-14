@@ -6,6 +6,13 @@ This companion owns the supported dependency-injection seams and composition bou
 
 This focused owner preserves the detailed contract formerly embedded in [project-structure.md](project-structure.md).
 
+Conversational synthesis uses the optional `LlmBindings.conversation_synthesis_verifier` seam.
+Core bootstrap forwards it to Bragi's read-only deliberator. Implement
+`ConversationSynthesisVerifier` from `fdai.agents` with independent V-CLAIM and entailment review;
+its `SynthesisVerification` binds the exact request, conclusion, and complete citation set.
+Unbound or failed verification holds before displaying a generated conclusion. This seam grants
+no typed judgment, approval, execution, or promotion authority.
+
 ## Customization via Dependency Injection
 
 Upstream defines generic interfaces and working defaults. Forks customize through dependency injection at their own composition root, without editing or copying `core/`; see [the fork model](../../../.github/instructions/generic-scope.instructions.md). [Alert noise governance](../operations/alert-noise-governance.md) uses bounded readers, independent evidence, existing Workflow/Process orchestration, GitOps delivery, source fencing, and effect relays. Its shared alert codec owns private-evidence size bounds without widening ontology-query limits; its pure assessment propagates incomplete routing to report coverage. Shared temporal-series schemas pin complete uniform exposure and paired detector outcomes. Core compares one window/frequency axis, while delivery authenticates frozen source records and renders only supported Azure Terraform duration fields. Operator request history joins its own acceptance to the exact signed terminal; shared proposal details bind baseline and replay metrics without accessing Core tables or creating approval/outcome authority. Factories provide mechanics, not independent authority or recipient/effect receipts; operational adoption remains gated.

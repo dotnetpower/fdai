@@ -6,7 +6,7 @@ import asyncio
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 
-from ..agents import T2ConversationSynthesizer
+from ..agents import ConversationSynthesisVerifier, T2ConversationSynthesizer
 from ..core import operational_context as _oc
 from ..core import rca as _rca
 from ..core.architecture_review import ProductionEvidenceProvider
@@ -165,6 +165,7 @@ class LlmBindings:
     rubric_evaluator: RubricEvaluator | None = None
     t2_proposer: T2Proposer | None = None
     conversation_t2_synthesizer: T2ConversationSynthesizer | None = None
+    conversation_synthesis_verifier: ConversationSynthesisVerifier | None = None
     conversation_metering: MeteringSink | None = None
     conversation_pricing: PricingTable | None = None
     conversation_t2_model_key: str = ""

@@ -106,6 +106,22 @@ class DeliberationRequest:
         if prompt_agents != claim_agents:
             raise ValueError("deliberation prompts MUST align with claim agents")
 
+    @property
+    def sha256(self) -> str:
+        material = json.dumps(
+            {
+                "question": self.question,
+                "requester": self.requester,
+                "correlation_id": self.correlation_id,
+                "primary_agent": self.primary_agent,
+                "claims": [_claim_dict(claim) for claim in self.claims],
+                "participant_prompts": self.participant_prompts,
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        return hashlib.sha256(material.encode()).hexdigest()
+
 
 @dataclass(frozen=True, slots=True)
 class SynthesisOutcome:
@@ -136,6 +152,25 @@ class T2ConversationSynthesizer(Protocol):
         """Return one grounded presentation conclusion, or abstain."""
 
 
+@dataclass(frozen=True, slots=True)
+class SynthesisVerification:
+    """Independent claim-verification receipt bound to the exact source and answer."""
+
+    accepted: bool
+    request_sha256: str
+    conclusion_sha256: str
+    evidence_refs: tuple[str, ...]
+    verifier_identity: str
+
+
+class ConversationSynthesisVerifier(Protocol):
+    """Composition-owned V-CLAIM and independent entailment review boundary."""
+
+    async def verify(
+        self, request: DeliberationRequest, outcome: SynthesisOutcome
+    ) -> SynthesisVerification | None: ...
+
+
 class ConversationDeliberator:
     """Orchestrate one T1 position/critique round and optional T2 synthesis."""
 
@@ -151,9 +186,12 @@ class ConversationDeliberator:
         pricing: PricingTable | None = None,
         metering: MeteringSink | None = None,
         t2_model_key: str = "",
+        synthesis_verifier: ConversationSynthesisVerifier | None = None,
     ) -> None:
         if not specs:
             raise ValueError("conversation deliberator requires agent specs")
+        if synthesis_verifier is not None and id(synthesis_verifier) == id(t2_synthesizer):
+            raise ValueError("conversation synthesis requires an independent verifier")
         self._specs = {spec.name: spec for spec in specs}
         self._semantic_router = semantic_router
         self._t2_synthesizer = t2_synthesizer
@@ -170,6 +208,7 @@ class ConversationDeliberator:
             BudgetChargingMeteringSink(metering, self._ledger) if metering is not None else None
         )
         self._t2_model_key = t2_model_key
+        self._synthesis_verifier = synthesis_verifier
 
     async def deliberate(
         self,
@@ -434,6 +473,10 @@ class ConversationDeliberator:
         synthesizer = self._t2_synthesizer
         if synthesizer is None:
             return result
+        verifier = self._synthesis_verifier
+        if verifier is None:
+            result["t2_status"] = "verification_unavailable"
+            return result
         # The budget is a ceiling, not a target: when it is spent the round
         # stays at T1 rather than calling a model anyway. The bound is
         # reported so the answer can say the deeper pass did not run.
@@ -487,16 +530,58 @@ class ConversationDeliberator:
             metering_receipt_digest = await self._meter(outcome, correlation_id=budget_key)
             if metering_receipt_digest is not None:
                 result["metering_receipt_digest"] = metering_receipt_digest
-        if not isinstance(conclusion, str) or not conclusion.strip():
+        if (
+            not isinstance(outcome, SynthesisOutcome)
+            or not isinstance(conclusion, str)
+            or not conclusion.strip()
+        ):
             result["t2_status"] = "abstained"
         elif len(conclusion) > _MAX_T2_CONCLUSION_CHARS:
             result["t2_status"] = "output_too_large"
         elif scan_text(conclusion):
             result["t2_status"] = "sensitive_output"
         else:
-            result["tier"] = "T2"
-            result["t2_status"] = "completed"
-            result["conclusion"] = conclusion.strip()
+            try:
+                verification = await asyncio.wait_for(
+                    verifier.verify(request, outcome), timeout=_T2_SYNTHESIS_TIMEOUT_SECONDS
+                )
+            except TimeoutError:
+                result["t2_status"] = "verification_timeout"
+            except Exception as exc:  # noqa: BLE001 - fail-closed presentation boundary
+                _LOG.warning(
+                    "pantheon_synthesis_verification_failed",
+                    extra={"error_type": type(exc).__name__, "correlation_id": correlation_id},
+                )
+                result["t2_status"] = "verification_error"
+            else:
+                evidence_refs = tuple(
+                    sorted({ref for claim in claims for ref in claim.evidence_refs})
+                )
+                conclusion_sha256 = hashlib.sha256(conclusion.encode()).hexdigest()
+                if (
+                    not isinstance(verification, SynthesisVerification)
+                    or type(verification.accepted) is not bool
+                    or verification.request_sha256 != request.sha256
+                    or verification.conclusion_sha256 != conclusion_sha256
+                    or verification.evidence_refs != evidence_refs
+                    or not isinstance(verification.verifier_identity, str)
+                    or not verification.verifier_identity.strip()
+                    or len(verification.verifier_identity) > 256
+                    or verification.verifier_identity.strip().casefold()
+                    == outcome.model_identity.strip().casefold()
+                ):
+                    result["t2_status"] = "verification_invalid"
+                elif not verification.accepted:
+                    result["t2_status"] = "verification_rejected"
+                else:
+                    result["tier"] = "T2"
+                    result["t2_status"] = "completed"
+                    result["conclusion"] = conclusion.strip()
+                    result["synthesis_verification"] = {
+                        "request_sha256": request.sha256,
+                        "conclusion_sha256": conclusion_sha256,
+                        "evidence_refs": list(evidence_refs),
+                    }
         result["escalation_budget"] = await self._budget_snapshot(budget_key)
         return result
 
@@ -631,8 +716,10 @@ def _claim_dict(claim: DeliberationClaim) -> dict[str, Any]:
 
 __all__ = [
     "ConversationDeliberator",
+    "ConversationSynthesisVerifier",
     "DeliberationClaim",
     "DeliberationRequest",
+    "SynthesisVerification",
     "T2ConversationSynthesizer",
 ]
 

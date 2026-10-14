@@ -352,6 +352,14 @@ The synthesized conclusion is presentation-only. It is bounded to 4,000 characte
 sensitive content. Provider errors, empty output, oversized output, or sensitive output preserve
 the T1 result and record a bounded T2 status.
 
+Synthesis also requires a separately injected `ConversationSynthesisVerifier`. Without it,
+`verification_unavailable` holds before a model call or budget reservation. The verifier performs
+V-CLAIM and independent entailment review and returns a `SynthesisVerification` bound to the exact
+request digest, conclusion digest, and complete evidence-reference set. A generator cannot verify
+itself. Missing, rejected, mismatched, or failed verification preserves T1 evidence and never adopts
+the generated conclusion. A verified conclusion carries content-free digest and citation metadata;
+the receipt grants no action, approval, promotion, or execution authority.
+
 Upstream does not ship a default Azure adapter for this Protocol. When the binding is absent, the
 runtime remains at T1. Adding an adapter requires provider selection, metering, deployment
 validation, and focused failure tests.

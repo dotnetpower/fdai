@@ -20,7 +20,10 @@ from fdai.agents._framework.bragi_intent_training import IntentTrainingEvaluator
 from fdai.agents._framework.bus_bridge import AgentHandlerObserver, EventBusBridge
 from fdai.agents._framework.catalog_review_wiring import CatalogReviewBindings, bind_catalog_review
 from fdai.agents._framework.conversation_tools import AgentConversationToolRegistry
-from fdai.agents._framework.deliberation import T2ConversationSynthesizer
+from fdai.agents._framework.deliberation import (
+    ConversationSynthesisVerifier,
+    T2ConversationSynthesizer,
+)
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
 from fdai.agents._framework.freyr_sampling import CapacityUtilizationSampler
 from fdai.agents._framework.huginn_operator_receipt import OperatorRequestReceiptGate
@@ -219,6 +222,7 @@ class PantheonRuntime(RuntimeConversationPort):
         conversation_semantic_judgment: SemanticJudgmentBoundary | None = None,
         conversation_embedding_model: EmbeddingModel | None = None,
         conversation_t2_synthesizer: T2ConversationSynthesizer | None = None,
+        conversation_synthesis_verifier: ConversationSynthesisVerifier | None = None,
         conversation_escalation_budget: ModelBudget | None = None,
         conversation_escalation_ledger: BudgetLedger | None = None,
         conversation_pricing: PricingTable | None = None,
@@ -316,6 +320,7 @@ class PantheonRuntime(RuntimeConversationPort):
                     else None
                 ),
                 t2_synthesizer=conversation_t2_synthesizer,
+                synthesis_verifier=conversation_synthesis_verifier,
                 escalation_budget=conversation_escalation_budget,
                 escalation_ledger=conversation_escalation_ledger,
                 pricing=conversation_pricing,

@@ -9,6 +9,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Independently verified synthesis boundary | implemented | `ConversationSynthesisVerifier`; `SynthesisVerification`; model-binding/bootstrap wiring; focused deliberation, layout and bootstrap checks: 82 passed | Unbound verification makes no generator call. Exact request, conclusion and evidence binding, rejection, identity separation and failure are tested. A real production verifier remains unbound. |
 | Complete participant accounting | implemented | `deliberation.py`; `test_deliberation_accounts_for_failed_peers_without_claiming_completion`; focused deliberation and layout checks: 60 passed | Failed and unattempted selected peers remain visible. A partial discussion cannot start T2 or claim complete participation. |
 | Immutable charters and situational prompt composition | implemented | `services/core-control-plane/src/fdai/agents/_framework/charters.py`, `services/core-control-plane/src/fdai/agents/_framework/conversation_prompt.py`, and the focused prompt composition tests | The server-owned baseline, selected layers, prompt digests, and untrusted-context boundary are deterministic and covered by focused checks. |
 | Bounded T1 deliberation and authority isolation | implemented | `services/core-control-plane/src/fdai/agents/_framework/deliberation.py`, `services/core-control-plane/src/fdai/agents/_framework/deliberation_evaluation.py`, `services/core-control-plane/src/fdai/agents/bragi.py`, `services/core-control-plane/src/fdai/agents/_framework/runtime.py`, and `services/core-control-plane/tests/agents/test_prompt_deliberation.py` | Position and critique rounds remain read-only, reject action intent, evaluate bounded high-signal facts, and return presentation-only outcomes. |
@@ -20,6 +21,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-14 | implemented | Hardening round 2 requires independently verified synthesis with exact request, conclusion and citation binding through actual composition. | `current change`; focused deliberation/layout/bootstrap checks: 82 passed; Ruff and focused six-file mypy passed. | Bind an actual V-CLAIM/independent reviewer, metered synthesis and operational receipts; see [the five-round review](../../internals/pantheon-hardening-20261014.md). |
 | 2026-10-14 | implemented | Hardening round 1 preserves every selected participant and fail-closed partial discussion before synthesis. | `current change`; `deliberation.py`; focused deliberation/layout checks: 60 passed; Ruff and focused mypy passed. | Complete the remaining source and operational work in [the five-round review](../../internals/pantheon-hardening-20261014.md). No deployed readiness is claimed. |
 | 2026-09-19 | implemented | Added bounded server-owned scenario facts for fixed assurance cases so deterministic T1 conflict admission no longer depends on a model inventing comparable facts from prose. Ordinary deliberation keeps agent-owned signals, and the path remains presentation-only. | `current change`; `deliberation.py`; `runtime.py`; `bragi.py`; focused deliberation and Pantheon assurance runtime tests. | Retain a clean authenticated fixed-census run after provider capacity is available; no operational validation is claimed here. |
 | 2026-09-03 | implemented | Normalized the model's contradictory exact-resource clarification when an exact bound collection function requires no resource identity. | `current change`; focused semantic judgment and planning checks cover acceptance, low confidence, alternative candidates, and additional unresolved terms. | Retain the corrected authenticated starter-question receipt. |
@@ -30,7 +32,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 ### Remaining work
 
 - [ ] Bind a concrete `T2ConversationSynthesizer` with `conversation_metering`,
-  `conversation_pricing`, and `conversation_t2_model_key` in a deployed composition, then record a
+  `conversation_pricing`, `conversation_t2_model_key`, and an independent
+  `conversation_synthesis_verifier` in a deployed composition, then record a
   focused integration result that proves successful synthesis and the exact budget and metering
   charge.
 - [ ] Invoke `PantheonRuntime.deliberate` through an approved operator or runtime boundary and
