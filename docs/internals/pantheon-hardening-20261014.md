@@ -46,6 +46,16 @@ Synthetic tests never satisfy operational readiness or production promotion.
 
 ## Round evidence
 
+### Residual Bragi training-evidence integrity
+
+Nearest-consumer review found that holdout corrections entered candidate calibration and that
+duplicate evaluator results or substituted baseline/expected owners could pass the gate. Narrow
+counterexamples reproduced each defect before repair. Candidates now use targeted corrections
+only; overlapping training/holdout input digests fail before evaluation, and every result must
+preserve its frozen case identity and owners exactly. Learning/layout checks: 24 passed; one-file
+mypy and Ruff passed. No source corpus, concrete evaluator, reviewed activation or live acceptance
+was supplied. Finding 11 remains open for those bindings and Mimir's authority-bearing sources.
+
 Residual-work batch 1 implements evidence-attributed peer critique. Same, opposite and absent
 recommendations produce consistent, conflicting and not-comparable results without prose matching
 or invented consensus. Deliberation/layout checks passed 75 tests; Ruff and focused mypy passed.

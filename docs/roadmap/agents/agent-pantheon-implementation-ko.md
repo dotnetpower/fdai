@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 8f89c0792423ae633f1c80f6752a9a0158a9dee1
+translation_source_sha: df712f40f6c0476e078336d9a04861ba9f3f8f43
 translation_revised: 2026-10-15
 ---
 
@@ -97,6 +97,7 @@ sampler는 검토된 `resource.cpu.utilization_pct` 선언을 사용하고 조�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-15 | implemented | Bragi 후보 생성에서 독립 검증 표본을 제외하고, 평가 전에 입력 해시 중복을 거절하며, 원본 기준 소유자와 정답 소유자에 표본별 평가 결과 하나를 결속했습니다. | `current change`; `bragi_intent_training.py`; 학습·구조 검사 24개, 한 파일 mypy와 Ruff 통과. | 독립 평가기와 동의가 확인된 원본 표본을 연결해야 합니다. 검토된 활성화와 런타임 수락도 아직 남아 있습니다. |
 | 2026-10-15 | implemented | 정확한 카탈로그 검증, 필수 출처 기준 시각·근거 참조, 중복 키 거절 및 권한 필드 금지로 명시적인 제한된 Loki 반복 일정을 표준 초기화에 연결했습니다. | `current change`; 초기화·Loki·비활성 시나리오·샘플·레이아웃 검사 57개와 집중 mypy·Ruff 통과 | 실제 선언 일정·사람 승인·복구·Chaos 증적이 필요하며 비활성 생성과 다른 초기 통합 항목은 남아 있습니다. |
 | 2026-10-15 | implemented | 생성 전용 감사, 제한된 보관과 리비전 CAS를 갖춘 Mimir 읽기 전용 활성 Rule 세대 감시를 표준 초기화에 연결했습니다. | `current change`; 관측·이슈 종료·초기화 검사 20개 통과; 재시작·동시 변경·손상/치환 검사; Ruff와 두 파일 mypy 통과. | 승격·회귀·폐기 reader, Bragi evaluator와 실제 런타임 증거는 남아 있습니다. |
 | 2026-10-15 | implemented | 명시적 시간대 있는 Loki 일정 기준을 요구하고 현재 공유 개발 바인딩 소스 구현을 실제 코드와 대조했습니다. | `current change`; 일정·비활성 시나리오·반복 샘플 검사 25개 통과; 한 파일 mypy와 Ruff; 개발 조립·소스 검사 26개 통과. | 검토된 일정·시나리오 출처, 실제 프로필·Owner 증거와 다른 운영 수락은 남아 있습니다. |
@@ -629,6 +630,12 @@ intent-training 근거를 기록합니다. Candidate 평가는 off-path, 결정�
 입니다. Routing 권한은 바뀌지 않으며 reviewed activation은 별도 binding으로 남습니다. Norns는
 이 근거와 `object.post-turn-review`의 다른 비 review 종류를 관측 가능한 비학습 결과로 기록하며,
 `kind: post_turn_review`만 학습기 검토에 들어갑니다.
+
+후보 보정 항목은 수정 대상 표본만 사용합니다. 독립 검증 표본인 holdout의 입력 해시는 학습
+입력 해시와 겹칠 수 없으며, 후보의 근거 계보나 지지 횟수에도 들어가지 않습니다. 평가기는
+원본 표본마다 결과 하나를 반환해야 하며 기준 소유자나 정답 소유자를 바꿀 수 없습니다.
+이 무결성 검사는 평가기, 원본 표본 또는 활성화 권한을 제공하지 않습니다. 각각의 연결은
+별도 작업으로 남아 있습니다.
 
 #### Multi-target batch
 

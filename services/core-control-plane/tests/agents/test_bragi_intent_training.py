@@ -9,6 +9,7 @@ from fdai.agents._framework.bragi_intent_training import (
     IntentTrainingEvaluationResult,
     IntentTrainingEvidence,
     ReviewedIntentTrainingPromotion,
+    evaluate_training_contract,
 )
 from fdai.agents._framework.bragi_routing import route_semantic_judgment
 from fdai.agents._framework.bus import InMemoryBus
@@ -122,6 +123,53 @@ async def test_unbound_intent_training_is_visible_no_op_without_degrading_bragi(
     assert message.payload["kind"] == "bragi_intent_training_evidence"
 
 
+@pytest.mark.parametrize("substitution", ["duplicate", "baseline", "expected"])
+def test_training_evaluator_cannot_replace_the_frozen_case_identity(substitution: str) -> None:
+    class SubstitutingEvaluator(_DeterministicEvaluator):
+        def evaluate(
+            self,
+            *,
+            baseline_revision: Mapping[str, Any],
+            candidate_revision: Mapping[str, Any],
+            holdout_cases: Sequence[IntentTrainingEvidence],
+        ) -> Sequence[IntentTrainingEvaluationResult]:
+            results = list(
+                super().evaluate(
+                    baseline_revision=baseline_revision,
+                    candidate_revision=candidate_revision,
+                    holdout_cases=holdout_cases,
+                )
+            )
+            if substitution == "duplicate":
+                return (*results, results[0])
+            original = results[0]
+            results[0] = IntentTrainingEvaluationResult(
+                evidence_id=original.evidence_id,
+                baseline_owner="Freyr" if substitution == "baseline" else original.baseline_owner,
+                candidate_owner=original.candidate_owner,
+                expected_owner="Freyr" if substitution == "expected" else original.expected_owner,
+            )
+            return tuple(results)
+
+    corpus = (
+        _evidence("holdout", _PRINCIPAL_A, _INPUT_A, baseline_owner="Njord", targeted=False),
+        _evidence("target", _PRINCIPAL_B, _INPUT_B, baseline_owner=None, targeted=True),
+    )
+    with pytest.raises(ValueError):
+        evaluate_training_contract(corpus, evaluator=SubstitutingEvaluator())
+
+
+def test_training_candidate_cannot_share_an_input_with_the_holdout() -> None:
+    evaluator = _DeterministicEvaluator()
+    corpus = (
+        _evidence("holdout", _PRINCIPAL_A, _INPUT_A, baseline_owner="Njord", targeted=False),
+        _evidence("target", _PRINCIPAL_B, _INPUT_A, baseline_owner=None, targeted=True),
+    )
+    with pytest.raises(ValueError, match="independent input digests"):
+        evaluate_training_contract(corpus, evaluator=evaluator)
+    assert not evaluator.calls
+
+
 async def test_intent_training_gate_promotes_shadow_only_and_norns_records_new_kind() -> None:
     bus = InMemoryBus(registry=load_pantheon())
     bragi = Bragi()
@@ -165,6 +213,9 @@ async def test_intent_training_gate_promotes_shadow_only_and_norns_records_new_k
 
     assert run.gate_passed is True
     assert run.candidate_revision is not None
+    assert run.candidate_revision["calibration_entries"][0]["support_count"] == 1
+    assert run.candidate_revision["calibration_entries"][0]["lineage_digests"] == (_INPUT_B,)
+    assert _INPUT_A not in str(run.candidate_revision)
     assert run.candidate_revision["runtime_routing_authority_changed"] is False
     assert run.payload["stages"]["corpus_selection"]["selection_rules"] == {
         "sources": [
