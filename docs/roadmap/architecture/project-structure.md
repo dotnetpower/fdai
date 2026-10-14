@@ -99,6 +99,11 @@ population hop by hop, collection metric reads can apply reviewed qualitative re
 stopped metric read can issue a leased continuation. Every one of these reads stays read-only.
 
 ## Design at a glance
+Core's handover bootstrap checks actual document/line/quote/person grounding before directory
+resolution; the model supplies no identity id and only a governance draft survives. Freyr's
+read-only source binding stays in runtime and delivery, reusing current inventory identities
+and reviewed metric declarations. Neither change adds a service, authority or live-readiness claim.
+
 Explicit Operator discussion stays on the existing semantic request and durable result path.
 The service-contract SDK owns the additive 1.11 request mode; the separate operational verifier
 alone rereads the retained authentication receipt and current exact-installation discussion grant.

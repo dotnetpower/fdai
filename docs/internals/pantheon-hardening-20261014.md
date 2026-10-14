@@ -25,7 +25,7 @@ Synthetic tests never satisfy operational readiness or production promotion.
 | 7 | Concrete T2 synthesis is unbound | Implemented default source binding in residual-work batch 2 when exact independent targets, reviewed prompts, prices, identity/client and metering exist. Existing custom bindings are preserved; deployment receipts remain open. |
 | 8 | Narrow structured conflict vocabulary | Bounded design, not proof of complete reasoning: add only typed, evidenced comparisons; never infer conflict from lexical prose. |
 | 9 | Process-local discussion budget | Fixed for standard per-correlation bootstrap in round 4: policy-pinned StateStore CAS survives restart/replicas without eviction or memory fallback. Fleet totals and live provider receipts remain separate. |
-| 10 | Freyr/Loki recurring bindings absent | Open integration work: bind authoritative read-only sampling and reviewed schedules; do not synthesize samples or authorize Chaos. |
+| 10 | Freyr/Loki recurring bindings absent | Explicit reviewed-metric/current-inventory Freyr source and standard bootstrap binding added; 56 focused checks pass. Actual target/provider receipts and reviewed Loki schedule/adversarial sources remain open; no samples or Chaos authority are invented. |
 | 11 | Mimir/Bragi maintenance bindings absent | Open integration work: bind reviewed source/regression/promotion/activation readers without granting activation authority. |
 | 12 | Durable what-if and multi-target attempt model | Open design/implementation work: prove restart-safe retained inputs and per-target rollback plus aggregate audit. |
 | 13 | Ordered poison halt persistence unbound | Standard Core source now binds the existing service-owned StateStore and receipt-gated clear handler; actual initialization and related durability checks pass. Governed provider restart/clear receipts remain open. |
@@ -142,6 +142,16 @@ directory-only identity. Corrected positive fixtures cite real text; seven subst
 abstain without directory resolution. Stewardship checks: 91 passed; structural gate: 15 agents
 and 2 maintainers; focused mypy and Ruff passed. No concrete adaptive model, real identities,
 backup assignment, notification arrival or operational handover receipt is created by this fix.
+
+### Residual current-inventory sampler evidence
+
+`CapacityMetricSampler` uses only the reviewed CPU percent declaration and exact active logical
+Resource/provider references. It preserves source timestamps and excludes missing, invalid,
+stale, future or cross-target values. Point limits and target limits reject overflow, and start/end
+inventory generations and reference sets must match. Standard Core binds it only for explicit
+`FDAI_FREYR_TARGETS_JSON`, a real MetricProvider and the existing inventory source. Local routed
+provider, Freyr sampling and bootstrap checks: 56 passed; seven exact-source cases and two-file
+mypy passed. No actual target, metrics call, scaling, Chaos or live acceptance was performed.
 
 ### Round 4 design and critique
 

@@ -27,6 +27,14 @@ not prove actual broker/database restart, remote issue identity or replica-safe 
 
 
 ### Implementation scope
+Freyr's standard source binding is `runtime/bootstrap_capacity_sampling.py`. Deployment may
+provide `FDAI_FREYR_TARGETS_JSON`, a bounded mapping of logical Resource ids to canonical types.
+Without targets, a real MetricProvider or the current inventory reader it stays unavailable.
+The sampler uses the reviewed `resource.cpu.utilization_pct` declaration, verifies exact
+provider references before and after the read, preserves original source timestamps, rejects
+invalid/old/future values and generation/reference changes, and never truncates configured
+targets. Its source key binds the metric declaration digest. Sampling stays read-only and does
+not authorize scaling. Local routed-provider, sampling and bootstrap checks: 56 passed.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
@@ -60,6 +68,7 @@ not prove actual broker/database restart, remote issue identity or replica-safe 
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-15 | implemented | Added explicit current-inventory Freyr MetricProvider sampling and standard bootstrap binding without default targets or fabricated freshness. | `current change`; routed provider/sampling/bootstrap checks: 56 passed; seven source substitution/positive cases; Ruff and two-file mypy passed. | Retain actual configured sampler receipts. Reviewed Loki scheduling, maintenance sources and operational acceptance remain open. |
 | 2026-10-15 | implemented | Bound standard ordered-poison halt persistence to the existing service-owned StateStore and globally bound local Saga issue operation identity, including retained-history rehydration. | `current change`; bootstrap, poison-clear, runtime and Mimir issue checks: 114 passed; Ruff and two-file mypy passed. Freyr source-time checkpoint `6014bf1bd9`: 11 passed. | Remote broker/database restart, remote GitHub App identity, Saga replica publication, recurring source bindings and governed handover remain open. |
 | 2026-10-08 | implemented | Forseti's baseline evaluation records `compliant` only when the resource carries every property the Rule declares in `evaluates`; otherwise the pair abstains with `property_unobserved`. A deny stays `violated`. | `current change`; `forseti_baseline_evaluation.py`; `test_forseti_baseline_evaluation.py` with worker and Saga audit suites. | Inventory collection still has to supply the normalized properties ([framework Rule evidence ledger](../../roadmap-implementation/rules-and-detection/framework-rule-evidence.md)). |
 | 2026-10-04 | implemented | Hardened Forseti's prospective-lineage publication path without changing `PANTHEON_SPECS`, topics, role bindings, approval, or execution authority. Missing Forseti-owned judgment values now produce no `ProspectiveLineage` and an explicit unavailable reason on the Verdict, while complete values still publish only through Forseti's owned `object.prospective-lineage` topic. | `current change`; `agents/_framework/forseti_arbitration.py`; `delivery/prospective_lineage.py`; focused prospective-lineage and agent layout checks. | Retain the operating-ontology residual: one complete governed runtime episode is required before claiming source/projector replay evidence. |

@@ -16,6 +16,7 @@ from fdai.agents import Forseti, PantheonRuntime
 from fdai.composition import default_container
 from fdai.core.chaos.symptom_index import build_from_entries
 from fdai.delivery.runtime_settings import RuntimeSettingsService
+from fdai.runtime import bootstrap_pantheon as pantheon_bootstrap
 from fdai.runtime.bootstrap_lifecycle import (
     build_mutation_dependency_readiness,
     build_runtime_saga,
@@ -72,6 +73,8 @@ async def test_initialize_pantheon_passes_the_product_selection_to_forseti(
     settings = RuntimeSettingsService(store=None, env={})
     original_build = PantheonRuntime.build
     captured: dict[str, Any] = {}
+    sampler = object()
+    monkeypatch.setattr(pantheon_bootstrap, "build_capacity_sampler", lambda **kwargs: sampler)
 
     def build(**kwargs: Any) -> PantheonRuntime:
         captured.update(kwargs)
@@ -114,3 +117,4 @@ async def test_initialize_pantheon_passes_the_product_selection_to_forseti(
     assert isinstance(forseti, Forseti)
     assert forseti._governed_execution_selected is selected  # noqa: SLF001
     assert captured["ordered_poison_halt_state_store"] is store
+    assert captured["freyr_utilization_sampler"] is sampler

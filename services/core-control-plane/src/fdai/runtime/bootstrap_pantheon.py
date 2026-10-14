@@ -63,6 +63,7 @@ from fdai.runtime.aks_commerce import (
     chain_acceptance_observer,
 )
 from fdai.runtime.approval_policy import approver_authorizer_from_environment
+from fdai.runtime.bootstrap_capacity_sampling import build_capacity_sampler
 from fdai.runtime.bootstrap_pantheon_models import (
     PantheonInitialization,
     PantheonInitializationResult,
@@ -509,6 +510,9 @@ async def initialize_pantheon(
         forseti_state_store=config.incident_audit_store,
         bragi_state_store=config.incident_audit_store,
         odin_state_store=config.incident_audit_store,
+        freyr_utilization_sampler=build_capacity_sampler(
+            container=config.container, environment=config.environment
+        ),
         ordered_poison_halt_state_store=config.incident_audit_store,
         proposal_rate_limit_state_store=config.incident_audit_store,
         execution_resource_lock=execution_resource_lock,
