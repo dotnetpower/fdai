@@ -18,7 +18,7 @@ Synthetic tests never satisfy operational readiness or production promotion.
 |-----------|---------|-----------------------------------------|
 | 1 | Unsupported T2 conclusions | Hardened boundary in round 2: unbound/rejected/invalid verification cannot display synthesis; actual V-CLAIM/independent-review production binding remains open. |
 | 2 | Lost failed discussion participants | Fixed in round 1: preserve all selected participants and reasons; block synthesis after partial evidence. |
-| 3 | Peer critique does not consume the peer claim | Open source limitation: attribute structured comparisons to the exact peer evidence without inventing semantic critique. |
+| 3 | Peer critique does not consume the peer claim | Structured evidence critique implemented in residual-work batch 1: exact primary/reviewer attribution and both source sets with consistent/conflicting/not-comparable states. Free-prose entailment remains the independent verified-composition boundary. |
 | 4 | Template operational answers | Open migration debt: use verified answer composition; keep fact views and role descriptions distinct from operational conclusions. |
 | 5 | Remote target and locale are lost | Fixed in round 3 within client/server/Bragi: explicit target, validated locale and locale-bound replay identity. General Operator surface wiring remains open. |
 | 6 | Operator group discussion is not wired | Open integration work: expose an authenticated read-only boundary without transferring typed authority. |
@@ -45,6 +45,11 @@ Synthetic tests never satisfy operational readiness or production promotion.
 | 27 | Real speech/assistive evidence absent | Needs human: retain actual EN/KO speech and screen-reader results; browser simulations are insufficient. |
 
 ## Round evidence
+
+Residual-work batch 1 implements evidence-attributed peer critique. Same, opposite and absent
+recommendations produce consistent, conflicting and not-comparable results without prose matching
+or invented consensus. Deliberation/layout checks passed 75 tests; Ruff and focused mypy passed.
+All authority, promotion and operational evidence boundaries remain unchanged.
 
 | Round | Critique | Repair | Focused evidence | Residual |
 |-------|----------|--------|------------------|----------|

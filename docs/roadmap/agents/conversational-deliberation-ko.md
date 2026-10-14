@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: d7169a99e2995930a4ed4cf2c7791baea6268cc3
+translation_source_sha: 00da77456f6cc10ad8fd37287459692b2f0b7443
 translation_revised: 2026-10-14
 ---
 # 판테온 대화형 숙의
@@ -255,6 +255,11 @@ Discussion 경로는 clear T0 경로를 재사용하지 않습니다. T1 임베�
 충족했다고 인증할 수 없습니다.
 
 ### T1 답변 평가
+
+각 동료 기여는 정확한 주 담당자 주장에 대한 `peer_review`를 기록합니다. 양쪽 소유자와 근거
+집합을 식별하고 공통 신원/필드 비교 신호에 따라 `consistent`, `conflicting` 또는
+`not_comparable`을 보고합니다. 공통 신호가 없으면 합의로 계산하지 않습니다. 이는 결정론적
+근거 비평이며, 산문에서 추론한 판단이나 운영 권한이 아닙니다.
 
 수락된 각 claim은 결정론적 비교에 필요한 필드만 보존합니다. Identity는 `resource_id`,
 `scope_ref`, `id` 또는 `correlation_id`에서 가져옵니다. 비교 가능한 결론은 고정된 `state`,

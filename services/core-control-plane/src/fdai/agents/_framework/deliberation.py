@@ -389,7 +389,13 @@ class ConversationDeliberator:
                 {"phase": "position", "contributions": [_claim_dict(primary_claim)]},
                 {
                     "phase": "critique",
-                    "contributions": [_claim_dict(claim) for claim in peer_claims],
+                    "contributions": [
+                        {
+                            **_claim_dict(claim),
+                            "peer_review": _peer_review(primary_claim, claim),
+                        }
+                        for claim in peer_claims
+                    ],
                 },
             ],
             "conclusion": primary_claim.answer,
@@ -717,6 +723,26 @@ def _claim_dict(claim: DeliberationClaim) -> dict[str, Any]:
         "answer": claim.answer,
         "evidence_refs": list(claim.evidence_refs),
         "prompt_sha256": claim.prompt_sha256,
+    }
+
+
+def _peer_review(primary: DeliberationClaim, peer: DeliberationClaim) -> dict[str, Any]:
+    evaluation = evaluate_t1_answers((primary, peer))
+    primary_keys = {(signal.identity_digest, signal.field) for signal in primary.evaluation_signals}
+    peer_keys = {(signal.identity_digest, signal.field) for signal in peer.evaluation_signals}
+    return {
+        "primary_agent": primary.agent,
+        "reviewer": peer.agent,
+        "primary_evidence_refs": list(primary.evidence_refs),
+        "reviewer_evidence_refs": list(peer.evidence_refs),
+        "comparison_status": (
+            "not_comparable"
+            if not primary_keys.intersection(peer_keys)
+            else "conflicting"
+            if evaluation.requires_t2
+            else "consistent"
+        ),
+        **evaluation.to_mapping(),
     }
 
 

@@ -259,6 +259,11 @@ certify missing deployment, identity, notification, document, recovery, or promo
 
 ### T1 answer evaluation
 
+Every peer contribution records a `peer_review` against the exact primary claim. It identifies
+both owners and both evidence sets and reports `consistent`, `conflicting`, or `not_comparable`
+from shared identity/field comparison signals. Missing shared signals never count as agreement.
+This is a deterministic evidence critique, not an inferred prose judgment or operational authority.
+
 Each accepted claim retains only the fields needed for deterministic comparison. Identity comes
 from `resource_id`, `scope_ref`, `id`, or `correlation_id`. Comparable conclusions come from the
 fixed `state`, `status`, `verdict`, `mode`, `health`, `outcome`, and `recommendation` fields. The

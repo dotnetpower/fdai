@@ -510,6 +510,43 @@ def test_t1_deliberation_collects_position_and_peer_critique() -> None:
     assert result["authority"] == "presentation_only"
 
 
+@pytest.mark.parametrize(
+    "peer_recommendation, expected_reason",
+    [
+        ("scale_down", "no_structured_conflict"),
+        ("scale_up", "structured_conflict"),
+        (None, "no_structured_conflict"),
+    ],
+)
+def test_peer_critique_compares_the_exact_primary_and_owned_evidence(
+    peer_recommendation: str | None,
+    expected_reason: str,
+) -> None:
+    runtime = _bind_t1_recommendations(_runtime(), ("scale_down", peer_recommendation))
+    result = asyncio.run(
+        runtime.deliberate(
+            question="Compare cost and capacity.",
+            requester="Forseti",
+            correlation_id="peer-review-example",
+        )
+    )
+    contribution = result["rounds"][1]["contributions"][0]
+    review = contribution["peer_review"]
+    assert review["reason"] == expected_reason
+    assert review["primary_agent"] == "Njord"
+    assert review["reviewer"] == contribution["agent"] == "Freyr"
+    assert review["primary_evidence_refs"] == [_agent_state_ref("Njord")]
+    assert review["reviewer_evidence_refs"] == [_agent_state_ref("Freyr")]
+    assert bool(review["conflicts"]) is (expected_reason == "structured_conflict")
+    assert review["comparison_status"] == (
+        "not_comparable"
+        if peer_recommendation is None
+        else "conflicting"
+        if peer_recommendation != "scale_down"
+        else "consistent"
+    )
+
+
 @pytest.mark.parametrize("failed_peers", [("Heimdall",), ("Freyr", "Heimdall")])
 def test_deliberation_accounts_for_failed_peers_without_claiming_completion(
     failed_peers: tuple[str, ...],
