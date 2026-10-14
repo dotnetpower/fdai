@@ -27,18 +27,23 @@ FINAL_REASONS: Mapping[str, frozenset[str]] = {
     ROLLED_BACK: frozenset({"health_check_failed", "apply_failed"}),
 }
 FAILURE_HOLD = timedelta(hours=24)
+# The Hub writes this hold from its own process's clock, and a later recompute, possibly on
+# another process or host, reads it back from its own clock. Backdating the start absorbs small
+# clock skew between the two without weakening an operator's own future-dated suppression.
+FAILURE_HOLD_GRACE = timedelta(minutes=1)
 
 
 def failure_suppressions(
     plan: IssuedPlan, now: datetime, *, hold: timedelta = FAILURE_HOLD
 ) -> tuple[SuppressionWindow, ...]:
-    """One failure-origin suppression per Entity of a rolled-back Plan, starting now."""
+    """One failure-origin suppression per Entity of a rolled-back Plan, starting just before now."""
 
+    starts_at = now - FAILURE_HOLD_GRACE
     return tuple(
         SuppressionWindow(
             scope=f"entity:{entity_id}",
-            starts_at=now,
-            ends_at=now + hold,
+            starts_at=starts_at,
+            ends_at=starts_at + hold,
             origin="failure",
             failed_plan_id=plan.plan_id,
         )

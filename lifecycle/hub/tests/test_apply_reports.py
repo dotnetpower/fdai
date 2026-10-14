@@ -18,7 +18,7 @@ from fdai_lifecycle_hub import models
 from fdai_lifecycle_hub.api import MAX_STATE_BYTES, create_app
 from fdai_lifecycle_hub.domain import Installation, Issued, IssuedPlan, Planner, Waiting
 from fdai_lifecycle_hub.enrollment import EnrollmentRequest
-from fdai_lifecycle_hub.reports import FAILURE_HOLD
+from fdai_lifecycle_hub.reports import FAILURE_HOLD, FAILURE_HOLD_GRACE
 from fdai_lifecycle_hub.schemas import PlanReport, reported_state_json
 from fdai_lifecycle_hub.signing import verify_key_proof
 from fdai_lifecycle_hub.store import HubStore
@@ -123,7 +123,10 @@ def test_rolled_back_report_holds_every_plan_entity_until_lifted(
     record(_report(issued.digest, 1, "apply-started", "started"))
     record(_report(issued.digest, 2, "rolled-back", "health_check_failed"))
 
-    hold = SuppressionWindow("entity:core", now, now + FAILURE_HOLD, "failure", issued.plan_id)
+    starts_at = now - FAILURE_HOLD_GRACE
+    hold = SuppressionWindow(
+        "entity:core", starts_at, starts_at + FAILURE_HOLD, "failure", issued.plan_id
+    )
     assert registered.load(installation_id).suppressions == (hold,)
     assert registered.current_plan(installation_id, now=now) is None
     assert _audited_suppressions(registered) == [
@@ -156,10 +159,34 @@ def test_failure_hold_ends_by_itself(
     report = _report(issued.digest, 2, "rolled-back", "apply_failed")
     registered.record_report(installation.installation_id, issued.plan_id, report, now=now)
 
-    later = now + FAILURE_HOLD
+    later = now - FAILURE_HOLD_GRACE + FAILURE_HOLD
     outcome = registered.recompute(installation.installation_id, planner, now=later)
 
     assert not isinstance(outcome, Waiting)
+
+
+def test_failure_hold_absorbs_a_reader_clock_slightly_behind_the_writer(
+    registered: HubStore,
+    installation: Installation,
+    issued: IssuedPlan,
+    planner: Planner,
+    now: datetime,
+) -> None:
+    """A recompute whose own clock reads a little earlier than the writer's still sees the hold,
+    within the grace margin; past it, the hold is correctly not yet in effect."""
+
+    report = _report(issued.digest, 2, "rolled-back", "apply_failed")
+    registered.record_report(installation.installation_id, issued.plan_id, report, now=now)
+
+    within_grace = registered.recompute(
+        installation.installation_id, planner, now=now - FAILURE_HOLD_GRACE + timedelta(seconds=1)
+    )
+    beyond_grace = registered.recompute(
+        installation.installation_id, planner, now=now - FAILURE_HOLD_GRACE - timedelta(seconds=1)
+    )
+
+    assert isinstance(within_grace, Waiting)
+    assert not isinstance(beyond_grace, Waiting)
 
 
 def test_repeated_rolled_back_report_adds_no_second_hold(
