@@ -20,7 +20,7 @@
     "rule-catalog/schema/policy_admin_opa_capabilities.json": "d665c47a62c54a651f547c290b84a84d04a24b83b10e7504a4e82548f27a9305",
     "rule-catalog/schema/skill-bundle.schema.json": "45dbd3b41a03fcf62a7cde47ff3f95e2fa720a8899ac2895445d41c596dbe550",
     "services/core-control-plane/src/fdai/agents/README.md": "ae63f24c8c243dc5165390e68d6336539b0682407fb2795cdbc530ba4f805cfe",
-    "services/core-control-plane/src/fdai/agents/__init__.py": "b06b08de997711fafa99cc8242471aee1e45a7b3c194f01207135f96178e3d59",
+    "services/core-control-plane/src/fdai/agents/__init__.py": "c221dd4397cea3f1be35c441452a7ccf19997ebbac4383248c536fd92e538476",
     "services/core-control-plane/src/fdai/agents/_framework/__init__.py": "0b42a7672bae9f19312f54a570edd139da6e1462f5e42f48ff49cc485aafd346",
     "services/core-control-plane/src/fdai/agents/_framework/action_run_identity.py": "a646155daef05daa7544623fb495c632fa38578c09bcf0d047b1276be126f879",
     "services/core-control-plane/src/fdai/agents/_framework/action_run_lineage.py": "1d5abff4d7dd1243e856e85273f6ff7afefb78a14a26511c06bf49639fff83b9",

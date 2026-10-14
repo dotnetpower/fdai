@@ -245,6 +245,12 @@ Every agent performs four task categories: **R**ecurring (scheduled), **E**vent 
 
 ### 4.2 Per-agent KPI (success and degradation signals)
 
+Standard bootstrap accepts an explicit `FDAI_LOKI_SCHEDULE_JSON` declaration for Loki's existing
+recurring proposal port. The loader preserves the timezone-aware anchor and supplied evidence
+references, rejects incomplete or unknown fields and unregistered/non-Chaos actions, and never
+supplies a synthetic schedule. The declaration grants no approval, verified recovery, promotion,
+or Chaos execution authority; the existing always-HIL and shadow boundaries remain unchanged.
+
 Every agent reports these metrics to the [measurement pipeline](../architecture/goals-and-metrics.md) on every health snapshot for deterministic shadow -> enforce promotion evaluation.
 Insufficient outcome evidence produces `value: null` plus an explicit evidence state; promotion gates treat it as failure, never zero.
 

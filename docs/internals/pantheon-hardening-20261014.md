@@ -25,7 +25,7 @@ Synthetic tests never satisfy operational readiness or production promotion.
 | 7 | Concrete T2 synthesis is unbound | Implemented default source binding in residual-work batch 2 when exact independent targets, reviewed prompts, prices, identity/client and metering exist. Existing custom bindings are preserved; deployment receipts remain open. |
 | 8 | Narrow structured conflict vocabulary | Bounded design, not proof of complete reasoning: add only typed, evidenced comparisons; never infer conflict from lexical prose. |
 | 9 | Process-local discussion budget | Fixed for standard per-correlation bootstrap in round 4: policy-pinned StateStore CAS survives restart/replicas without eviction or memory fallback. Fleet totals and live provider receipts remain separate. |
-| 10 | Freyr/Loki recurring bindings absent | Explicit reviewed-metric/current-inventory Freyr source and standard bootstrap binding added; 56 focused checks pass. Actual target/provider receipts and reviewed Loki schedule/adversarial sources remain open; no samples or Chaos authority are invented. |
+| 10 | Freyr/Loki recurring bindings absent | Exact-source Freyr sampling is standard-bound (56 checks). Explicit complete Loki declarations now reach the existing schedule port (57 checks), preserving always-HIL/shadow. Actual targets/provider/schedule/approval/Chaos receipts and off-path adversarial generation remain open. |
 | 11 | Mimir/Bragi maintenance bindings absent | Mimir current active Rule generation observer is now standard-bound, create-only audited and replica/restart CAS-safe; 20 focused checks pass. Reviewed promotion/regression/deprecation readers and Bragi evaluator remain open; observation grants no activation authority. |
 | 12 | Durable what-if and multi-target attempt model | Open design/implementation work: prove restart-safe retained inputs and per-target rollback plus aggregate audit. |
 | 13 | Ordered poison halt persistence unbound | Standard Core source now binds the existing service-owned StateStore and receipt-gated clear handler; actual initialization and related durability checks pass. Governed provider restart/clear receipts remain open. |
@@ -171,6 +171,14 @@ provider, Freyr sampling and bootstrap checks: 56 passed; seven exact-source cas
 mypy passed. No actual target, metrics call, scaling, Chaos or live acceptance was performed.
 
 ### Residual recurring-window and authority-source critique
+
+Standard Core now parses an optional `FDAI_LOKI_SCHEDULE_JSON` with closed fields, bounded
+size/cadence/targets, exact active ActionType identity, source anchor and all existing evidence
+references. Unknown fields, duplicate JSON keys, invalid/missing evidence, non-Chaos actions and
+invalid correlations fail before the schedule reaches Loki. The actual initialization test
+proves the exact object is handed to Loki and enforcement remains false. Bootstrap/Loki,
+adversarial, sampling and layout checks: 57 passed; two-file mypy and Ruff passed. The input is
+not deployment approval or operational evidence and no real schedule, model or Chaos call ran.
 
 An unanchored Loki cadence previously used each tick's current time as the new start and could
 generate a distinct window repeatedly. Missing or naive anchors now hold, while complete

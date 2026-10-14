@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: b61cd88f4f3dce37ad749e4a08ce136ced1b7487
+translation_source_sha: 8f89c0792423ae633f1c80f6752a9a0158a9dee1
 translation_revised: 2026-10-15
 ---
 
@@ -28,6 +28,18 @@ Freyr 반복 샘플은 수집 시각으로 최신성을 만들지 않고 시간�
 
 
 ### 구현 범위
+
+배포가 `FDAI_LOKI_SCHEDULE_JSON`을 제공하면 표준 Loki 일정은
+`runtime/bootstrap_chaos_schedule.py`를 통해 소스에 연결됩니다. 닫힌 선언에는 `schedule_id`,
+1-31536000의 정수 `cadence_seconds`, 중복 없는 정본 `targets` 1-32개, 등록된 Chaos
+`action_type`, 시간대가 있는 `start_at`, `causal_hypothesis_ref`, `refutation_query_ref`,
+`impact_envelope_id`, `recovery_plan_id`, `dry_run_receipt`가 필요합니다. 선택적
+`correlation_id`는 비어 있지 않은 최대 256자입니다. 전체 입력은 최대 16KiB이며 중복 JSON
+키를 거절합니다. 설정이 없으면 미연결 상태를 유지합니다. 참조는 후보 근거일 뿐 승인이나
+독립적으로 검증된 롤백 증적이 아닙니다. 초기화 및 Loki·구조 인접 검사 57개와 집중 mypy·Ruff가
+통과했습니다. 실제 일정 설정과 Chaos 수락은 별도이며 비활성 적대적 시나리오 소스는 아직
+연결되지 않았습니다.
+
 표준 Mimir 원본 감시는 `MimirActiveCatalogPoller`를 통해 ControlLoop의 현재 검증된 Rule
 세대 스냅샷을 읽습니다. 추정한 파일 일부가 아니라 활성 멤버십 원본 하나를 완전히 기록합니다.
 생성 전용 감사 산출물과 리비전 CAS로 재시작·복제본 관측을 보존하며, 내용 없는 산출물은 최대
@@ -54,6 +66,7 @@ sampler는 검토된 `resource.cpu.utilization_pct` 선언을 사용하고 조�
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 명시적인 표준 Loki 반복 일정 | implemented | `bootstrap_chaos_schedule.py`; `bootstrap_pantheon.py`; 초기화·Loki·비활성 시나리오·샘플·레이아웃 검사 57개 통과 | 완전한 명시적 선언을 기존 Loki 처리기에 전달하며 enforce를 켜거나 입력을 만들지 않습니다. 실제 배포 일정, 승인 및 실행 근거는 남아 있습니다. |
 | 현재 순서 정지 및 로컬 이슈 작업 바인딩 | implemented | `bootstrap_pantheon.py`; `state_store_issue_tracker.py`; 부트스트랩·정지 해제·런타임·Mimir 이슈 검사 114개 통과 | 정지 저장소의 소스 미연결과 로컬 fingerprint별 작업 ID 공백만 해결합니다. 원격 이슈 어댑터, 복제본 게시와 실제 재시작 증거는 남아 있습니다. |
 | 온톨로지 ContextIndex 소유자 라우팅 | implemented | `agents/_framework/ontology_index.py`; `test_ontology_context_index.py`; 실제 인메모리 EventBus 단계 연결 검사 | Huginn 유입, Muninn 준비 및 전이 게시, Heimdall 검증 게시, Saga 감사 및 봉인 게시는 기존 소유 토픽을 사용합니다. 래퍼는 소유자, 토픽, 내용, 단계 불일치를 거부하고 일반 판단과 학습에서 분리합니다. 이 라우팅 검사의 기계적 처리기는 합성이며 영속 원본 및 수명주기 처리기와 운영 bootstrap 연결은 남아 있습니다. |
 | W0-W1 문서, 온톨로지 및 프레임워크 기반 | implemented | [`test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py), [`test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py) | 고정 레지스트리, 패키지 경계, 문서 일치 및 타입이 지정된 토픽 기반을 실행하고 검사할 수 있습니다. |
@@ -84,6 +97,7 @@ sampler는 검토된 `resource.cpu.utilization_pct` 선언을 사용하고 조�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-15 | implemented | 정확한 카탈로그 검증, 필수 출처 기준 시각·근거 참조, 중복 키 거절 및 권한 필드 금지로 명시적인 제한된 Loki 반복 일정을 표준 초기화에 연결했습니다. | `current change`; 초기화·Loki·비활성 시나리오·샘플·레이아웃 검사 57개와 집중 mypy·Ruff 통과 | 실제 선언 일정·사람 승인·복구·Chaos 증적이 필요하며 비활성 생성과 다른 초기 통합 항목은 남아 있습니다. |
 | 2026-10-15 | implemented | 생성 전용 감사, 제한된 보관과 리비전 CAS를 갖춘 Mimir 읽기 전용 활성 Rule 세대 감시를 표준 초기화에 연결했습니다. | `current change`; 관측·이슈 종료·초기화 검사 20개 통과; 재시작·동시 변경·손상/치환 검사; Ruff와 두 파일 mypy 통과. | 승격·회귀·폐기 reader, Bragi evaluator와 실제 런타임 증거는 남아 있습니다. |
 | 2026-10-15 | implemented | 명시적 시간대 있는 Loki 일정 기준을 요구하고 현재 공유 개발 바인딩 소스 구현을 실제 코드와 대조했습니다. | `current change`; 일정·비활성 시나리오·반복 샘플 검사 25개 통과; 한 파일 mypy와 Ruff; 개발 조립·소스 검사 26개 통과. | 검토된 일정·시나리오 출처, 실제 프로필·Owner 증거와 다른 운영 수락은 남아 있습니다. |
 | 2026-10-15 | implemented | 기본 대상이나 조작된 최신성 없이 현재 인벤토리에 대한 Freyr MetricProvider 샘플 수집과 표준 초기화 연결을 추가했습니다. | `current change`; routed provider·샘플·초기화 검사 56개 통과; 일곱 소스 양성·치환 반례; Ruff와 두 파일 mypy 통과. | 실제 설정 sampler 증거를 보존해야 합니다. 검토된 Loki 일정, 유지 작업 출처와 운영 수락은 남아 있습니다. |

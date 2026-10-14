@@ -97,6 +97,12 @@ from fdai.agents._framework.huginn_operator_receipt import (
     ReservedOperatorRequestReceipt,
 )
 from fdai.agents._framework.introspection import agent_state_evidence_ref
+from fdai.agents._framework.loki_scheduling import (
+    ChaosScheduleConfig,
+)
+from fdai.agents._framework.loki_scheduling import (
+    validate_config as validate_chaos_schedule,
+)
 from fdai.agents._framework.mimir_maintenance import MimirRuleSourcePollResult
 from fdai.agents._framework.mimir_policy_administration import (
     POLICY_ADMIN_OPA_CAPABILITIES_RELATIVE,
@@ -235,6 +241,7 @@ __all__ = [
     "bind_availability_probe",
     "Bragi",
     "CatalogReviewBindings",
+    "ChaosScheduleConfig",
     "ComposedConversationPrompt",
     "ConversationCharter",
     "ConversationDeliberator",
@@ -301,6 +308,7 @@ __all__ = [
     "topic_for_object_type",
     "partition_key_for",
     "stable_idempotency_key",
+    "validate_chaos_schedule",
     "WORKFLOWS",
     "WorkflowSpec",
 ]

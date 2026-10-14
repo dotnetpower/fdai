@@ -65,6 +65,7 @@ from fdai.runtime.aks_commerce import (
 )
 from fdai.runtime.approval_policy import approver_authorizer_from_environment
 from fdai.runtime.bootstrap_capacity_sampling import build_capacity_sampler
+from fdai.runtime.bootstrap_chaos_schedule import build_chaos_schedule
 from fdai.runtime.bootstrap_pantheon_models import (
     PantheonInitialization,
     PantheonInitializationResult,
@@ -513,6 +514,10 @@ async def initialize_pantheon(
         odin_state_store=config.incident_audit_store,
         freyr_utilization_sampler=build_capacity_sampler(
             container=config.container, environment=config.environment
+        ),
+        loki_recurring_schedule=build_chaos_schedule(
+            environment=config.environment,
+            action_type_names=frozenset(action.name for action in config.control_loop.action_types),
         ),
         mimir_rule_source_poller=MimirActiveCatalogPoller(
             reader=config.control_loop, store=config.incident_audit_store

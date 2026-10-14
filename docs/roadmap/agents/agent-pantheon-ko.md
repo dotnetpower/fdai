@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 6ec2c816c4ffd6863a6b61c06858bfa9ded5c9b4
-translation_revised: 2026-10-12
+translation_source_sha: 5ec1945d98a2fb1b2ff990acd5464da5bba3d5ef
+translation_revised: 2026-10-15
 ---
 # 에이전트 판테온
 
@@ -245,6 +245,12 @@ Forseti의 관찰 모드 ARB 실패 기록은 맥락/근거 수집 실패에도 
 | Loki | 결정론적 반복 chaos 예약과 resilience-score refresh | 범위가 제한된 예약 트리거 -> always-HIL 실험 제안 또는 보이는 hold, 범위가 제한된 정규화 score Event -> 검증된 cross-vertical 후보, blast-radius 계산 | off-path adversarial scenario generation은 범위가 제한되고 회귀로 검증되며 감사되고 비활성이며 기본 바인딩이 없습니다 | 3, 9 |
 
 ### 4.2 Per-agent KPI (성공과 성능 저하 신호)
+
+표준 시작 구성은 Loki의 기존 반복 제안 포트에 사용할 명시적 `FDAI_LOKI_SCHEDULE_JSON`
+선언을 받습니다. 로더는 시간대가 있는 기준 시각과 제공된 근거 참조를 보존하고, 불완전하거나
+알 수 없는 필드와 미등록 또는 비-Chaos 작업을 거절하며 합성 일정을 만들지 않습니다.
+선언은 승인, 검증된 복구, 승격 또는 Chaos 실행 권한을 부여하지 않습니다. 기존의 항상 사람
+승인을 요구하는 경계와 shadow 경계는 바뀌지 않습니다.
 
 모든 에이전트는 상태 스냅샷마다 [측정 파이프라인](../architecture/goals-and-metrics-ko.md)에 이 지표를 보고하여 shadow -> enforce 승격을 결정론적으로 평가하도록 합니다.
 결과 근거가 부족하면 `value: null`과 명시적 근거 상태를 사용하며 승격 게이트는 이를 0이 아닌 실패로 처리합니다.

@@ -27,6 +27,18 @@ not prove actual broker/database restart, remote issue identity or replica-safe 
 
 
 ### Implementation scope
+
+Standard Loki scheduling is source-bound through `runtime/bootstrap_chaos_schedule.py` when a
+deployment supplies `FDAI_LOKI_SCHEDULE_JSON`. The closed declaration requires `schedule_id`,
+integer `cadence_seconds` from 1 through 31536000, 1-32 unique canonical `targets`, registered
+Chaos `action_type`, timezone-aware `start_at`, `causal_hypothesis_ref`, `refutation_query_ref`,
+`impact_envelope_id`, `recovery_plan_id`, and `dry_run_receipt`. Optional `correlation_id` is
+nonblank and at most 256 characters. The entire input is at most 16 KiB and duplicate JSON keys
+fail. Missing configuration stays unbound. References remain candidate evidence, not approval
+or independently verified rollback receipts. Bootstrap and adjacent Loki/structure checks:
+57 passed; focused mypy and Ruff passed. Actual configured schedule and Chaos acceptance remain
+separate, and the off-path adversarial source remains unbound.
+
 Standard Mimir source polling now reads ControlLoop's current validated Rule generation snapshot
 through `MimirActiveCatalogPoller`. It records one complete active-membership source, not a
 guessed file subset. Create-only audit artifacts and revision CAS preserve restart and replica
@@ -54,6 +66,7 @@ not authorize scaling. Local routed-provider, sampling and bootstrap checks: 56 
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Explicit standard Loki recurring schedule | implemented | `bootstrap_chaos_schedule.py`; `bootstrap_pantheon.py`; initialization/Loki/adversarial/sampling/layout checks: 57 passed | Complete explicit declarations reach the existing Loki handler without enabling enforcement or fabricating input. Actual deployment schedule, approval and execution evidence remain open. |
 | Current ordered-halt and local issue-operation binding | implemented | `bootstrap_pantheon.py`; `state_store_issue_tracker.py`; bootstrap/poison-clear/runtime/Mimir issue checks: 114 passed | Supersedes the source opt-in halt absence and local per-fingerprint operation-id gap only. Remote issue adapters, replica publication and governed restart evidence remain open. |
 | Ontology ContextIndex owner routing | implemented | `agents/_framework/ontology_index.py`; `test_ontology_context_index.py`; real in-memory EventBus phase-chain test | Huginn ingress, Muninn preparation/transition publication, Heimdall validation publication, and Saga audit/seal publication use existing owned topics. The wrapper rejects owner, topic, content, and phase drift and isolates ordinary judgment and learning. Mechanical handlers in this routing test are synthetic; durable source/lifecycle workers and production bootstrap remain open. |
 | W0-W1 documentation, ontology, and framework scaffolding | implemented | [`test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py), [`test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py) | The fixed registry, package boundary, documentation parity, and typed-topic foundation are executable and checked. |
@@ -84,6 +97,7 @@ not authorize scaling. Local routed-provider, sampling and bootstrap checks: 56 
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-15 | implemented | Connected explicit bounded Loki recurring schedules to standard initialization with exact catalog validation, required source anchor/evidence references, duplicate-key rejection and no authority-bearing extra fields. | `current change`; bootstrap/Loki/adversarial/sampling/layout checks: 57 passed; focused mypy and Ruff passed. | Retain actual declared-schedule/HIL/recovery/Chaos receipts; off-path generation and other original integrations remain open. |
 | 2026-10-15 | implemented | Bound Mimir's read-only active Rule generation poller through standard bootstrap with create-only audit, bounded retention and revision CAS. | `current change`; observation/issue-close/bootstrap checks: 20 passed; restart, concurrent change and corruption/substitution checks; Ruff and two-file mypy passed. | Promotion/regression/deprecation readers, Bragi evaluator and actual runtime receipts remain open. |
 | 2026-10-15 | implemented | Required an explicit aware Loki schedule anchor and reconciled the current shared development binding-source implementation against actual code. | `current change`; schedule/adversarial/sampling checks: 25 passed; one-file mypy and Ruff; development composition/source checks: 26 passed. | Reviewed schedule/scenario sources, actual profile/Owner receipts and other operational acceptance remain open. |
 | 2026-10-15 | implemented | Added explicit current-inventory Freyr MetricProvider sampling and standard bootstrap binding without default targets or fabricated freshness. | `current change`; routed provider/sampling/bootstrap checks: 56 passed; seven source substitution/positive cases; Ruff and two-file mypy passed. | Retain actual configured sampler receipts. Reviewed Loki scheduling, maintenance sources and operational acceptance remain open. |
