@@ -189,7 +189,7 @@ def test_pantheon_runtime_assets_use_the_layout_aware_root(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    monkeypatch.setattr("fdai.runtime.bootstrap_pantheon.repo_asset_root", lambda: tmp_path)
+    monkeypatch.setattr("fdai.runtime.bootstrap_agent_discussion.repo_asset_root", lambda: tmp_path)
 
     assert _runtime_asset_root() == tmp_path
 
