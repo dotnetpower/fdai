@@ -52,6 +52,7 @@ Synthetic tests never satisfy operational readiness or production promotion.
 | 2 | Generated prose passed only output-size and sensitivity checks; a fabricated 999-resource claim was accepted. | Require an independent verifier and exact request/conclusion/evidence receipt; hold on absence, rejection, substitution, self-verification or provider failure. | Focused deliberation/layout/bootstrap checks: 82 passed; Ruff and six-file mypy passed. | The verifier contract is tested, not a live independent entailment or production readiness claim. |
 | 3 | Remote dispatch discarded its selected agent and locale; generic agent mentions could select the target. | Preserve exact canonical target and locale through Bragi, include locale in request identity and reject invalid inputs before startup. | Remote/deliberation/conversational checks: 196 passed; Ruff and three-file mypy passed. | No general Operator caller of this standalone client was found; group-chat invocation and live locale evidence remain open. |
 | 4 | Per-correlation call reservations disappeared after process replacement. | Bind policy-pinned StateStore accounting to standard bootstrap; preserve exact costs and reject corruption, policy substitution, unsupported fleet totals and bounded CAS contention. | Persistent/default budget, deliberation and bootstrap checks: 95 passed; Ruff and two-file mypy passed. | Real durable-provider restart evidence, declared fleet windows and other operating bindings remain open. |
+| 5 | A known structured conflict still reported completion and the primary position when synthesis was missing or failed; partial results also exposed a final conclusion. | Remove final conclusions from partial/held results; preserve all participant evidence and allow only independently verified conflict synthesis to close. Reconcile parent composition/profile authority boundaries. | Cumulative 31-selector Pantheon/conversation/budget/handover checks: 966 passed; Ruff, focused mypy and stewardship gate passed. | This is five completed local hardening rounds, not closure of every initial source integration or any live operational blocker. |
 
 ## Completion boundary
 
@@ -79,3 +80,19 @@ the fail-closed transport boundary only.
 This record does not label the Pantheon or ownership handover operationally ready. Open items
 remain resumable with the exact exits above. A completed local round means only its stated source
 repair and focused verification succeeded.
+
+The original 27-item scope is not fully complete: items 2, 5 and 9 have bounded source repairs;
+item 1 has a fail-closed independent-verification boundary but no concrete production verifier.
+Items 3, 4, 6, 7, 10-15 and 18 retain source or integration work. Item 8 remains a bounded design
+rather than complete reasoning. Items 16-17 and 19-27 require separately governed operational,
+deployment or human acceptance evidence; intended safety defaults are not removed to manufacture
+completion. No Azure/live-model action, notification, deployment, promotion, push or PR occurred.
+
+Round 5 also reproduced the new verifier shifting the existing positional `LlmBindings`
+constructor at argument 9. Appending the optional field restores the complete original 13-field
+prefix. The final focused binding/deliberation/layout/bootstrap selection passed 84 tests after
+this correction; two-file mypy and Ruff passed. The earlier cumulative selection passed 966
+tests before that compatibility-only correction, and the relevant changed slice was rerun.
+These checks are development feedback from the shared checkout, not a clean-release or deployed
+receipt. Concurrent code-security work was excluded from edits and task-owned design validation;
+the 25-path task-owned design check reported no failures.

@@ -7,6 +7,7 @@ import hashlib
 from collections.abc import Callable, Sequence
 from dataclasses import replace
 from decimal import Decimal
+from inspect import signature
 
 import pytest
 from fdai.agents._framework.bragi_models import RoutingDecision
@@ -322,6 +323,8 @@ def test_t2_without_independent_verification_does_not_call_the_generator() -> No
         runtime.deliberate(question="Compare cost and capacity.", requester="Forseti")
     )
     assert result["tier"] == "T1"
+    assert result["status"] == "held"
+    assert result["conclusion"] is None
     assert result["t2_status"] == "verification_unavailable"
     assert synthesizer.requests == []
 
@@ -333,6 +336,8 @@ def test_t2_rejects_unsupported_operational_conclusion() -> None:
         runtime.deliberate(question="Compare cost and capacity.", requester="Forseti")
     )
     assert result["tier"] == "T1"
+    assert result["status"] == "held"
+    assert result["conclusion"] is None
     assert result["t2_status"] == "verification_rejected"
     assert result["conclusion"] != fabricated
 
@@ -364,6 +369,8 @@ def test_t2_rejects_verification_receipt_substitution(
         runtime.deliberate(question="Compare cost and capacity.", requester="Forseti")
     )
     assert result["tier"] == "T1"
+    assert result["status"] == "held"
+    assert result["conclusion"] is None
     assert result["t2_status"] == "verification_invalid"
 
 
@@ -388,7 +395,9 @@ def test_t2_verifier_failure_preserves_the_t1_evidence(
     )
     assert result["tier"] == "T1"
     assert result["t2_status"] == expected_status
-    assert result["conclusion"] == result["rounds"][0]["contributions"][0]["answer"]
+    assert result["status"] == "held"
+    assert result["conclusion"] is None
+    assert result["rounds"][0]["contributions"][0]["answer"]
 
 
 def test_t2_generator_cannot_be_its_own_verifier() -> None:
@@ -422,6 +431,26 @@ def test_explicit_operator_target_survives_a_different_semantic_owner() -> None:
     assert turn.decision.method == "explicit_target"
     assert turn.answer["primary_agent"] == "Saga"
     assert "locale_ko" in turn.answer["prompt_composition"]["layers"]
+
+
+def test_new_verifier_preserves_the_llm_binding_constructor_prefix() -> None:
+    from fdai.composition import LlmBindings
+
+    assert list(signature(LlmBindings).parameters)[:13] == [
+        "embedding_model",
+        "cross_check_models",
+        "critic_model",
+        "judge_model",
+        "debate_orchestrator",
+        "rca_reasoner",
+        "rubric_evaluator",
+        "t2_proposer",
+        "conversation_t2_synthesizer",
+        "conversation_metering",
+        "conversation_pricing",
+        "conversation_t2_model_key",
+        "conversation_semantic_judgment_factory",
+    ]
 
 
 def _agent_index(name: str) -> int:
@@ -692,7 +721,8 @@ def test_deliberation_reuses_verified_semantic_participant_selection() -> None:
         )
     )
 
-    assert result["status"] == "completed"
+    assert result["status"] == "held"
+    assert result["conclusion"] is None
     assert result["primary_agent"] == "Njord"
     assert result["participants"] == ["Njord", "Freyr"]
     assert result["routing_method"] == "semantic_judgment"
@@ -719,7 +749,8 @@ def test_deliberation_supplements_peers_without_replacing_verified_primary() -> 
         )
     )
 
-    assert result["status"] == "completed"
+    assert result["status"] == "held"
+    assert result["conclusion"] is None
     assert result["primary_agent"] == "Freyr"
     assert result["participants"][0] == "Freyr"
     assert result["routing_method"] == "explicit"
@@ -745,7 +776,8 @@ def test_deliberation_deduplicates_reused_contributors() -> None:
         )
     )
 
-    assert result["status"] == "completed"
+    assert result["status"] == "held"
+    assert result["conclusion"] is None
     assert result["participants"] == ["Freyr", "Njord"]
 
 
@@ -890,7 +922,9 @@ def test_t2_failure_preserves_t1_discussion(
         )
     )
 
-    assert result["status"] == "completed"
+    assert result["status"] == "held"
+    assert result["conclusion"] is None
+    assert result["reason"] == "structured_conflict_unresolved"
     assert result["tier"] == "T1"
     assert result["t2_status"] == expected_status
     assert result["authority"] == "presentation_only"
@@ -962,7 +996,8 @@ def test_t2_synthesis_stops_at_the_declared_budget_instead_of_calling_again() ->
         "max_cost_microusd_per_correlation": 50_000,
     }
     # Denying escalation degrades to the T1 result, never to an error.
-    assert second["status"] == "completed"
+    assert second["status"] == "held"
+    assert second["conclusion"] is None
     assert second["tier"] == "T1"
 
 

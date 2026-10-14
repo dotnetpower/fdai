@@ -20,6 +20,12 @@ authority. Azure Container Apps remains a supported compatibility profile for ex
 
 ## Design at a glance
 
+Both runtime profiles keep conversational presentation separate from execution and package
+activation. Standard Core composition forwards the independent synthesis verifier and binds the
+durable per-correlation budget ledger. Target/locale transport, verification holds and restart
+accounting follow the same contracts in every venue; these bindings neither enable Cost
+Governance nor prove operational or handover readiness.
+
 The [GitHub knowledge connector](../../runbooks/knowledge-github-sources.md) uses the same
 bounded repository, exact-commit, and README validation in both runtime profiles. Anonymous
 public access needs no token; private access uses the deployment-owned read-only GitHub App

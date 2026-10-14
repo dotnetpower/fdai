@@ -401,11 +401,15 @@ class ConversationDeliberator:
         if len(peer_claims) != len(participants) - 1:
             result["status"] = "partial"
             result["reason"] = "participant_evidence_incomplete"
+            result["conclusion"] = None
             result["t2_status"] = "held_incomplete_participants"
             return result
         if not evaluation.requires_t2:
             result["t2_status"] = "not_required"
             return result
+        result["status"] = "held"
+        result["reason"] = "structured_conflict_unresolved"
+        result["conclusion"] = None
         if self._t2_synthesizer is None:
             result["t2_status"] = "unavailable"
             return result
@@ -574,6 +578,8 @@ class ConversationDeliberator:
                 elif not verification.accepted:
                     result["t2_status"] = "verification_rejected"
                 else:
+                    result["status"] = "completed"
+                    result.pop("reason", None)
                     result["tier"] = "T2"
                     result["t2_status"] = "completed"
                     result["conclusion"] = conclusion.strip()

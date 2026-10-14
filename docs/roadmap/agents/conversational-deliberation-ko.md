@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: ce25f529c88a7fa92fcfb44f2f473a7429d32e20
+translation_source_sha: d7169a99e2995930a4ed4cf2c7791baea6268cc3
 translation_revised: 2026-10-14
 ---
 # 판테온 대화형 숙의
@@ -247,6 +247,12 @@ Discussion 경로는 clear T0 경로를 재사용하지 않습니다. T1 임베�
 `participant_outcomes`에 남습니다. 주 담당자 또는 모든 동료가 근거를 제공하지 못하면
 토론을 보류합니다. 일부 동료만 실패하면 결과는 정확한 실패 사유를 포함한 `partial`이며,
 전체 참여가 완료됐다고 보고하거나 T2 종합을 시작하지 않습니다.
+
+부분 토론과 해결되지 않은 구조적 충돌은 최종 `conclusion`을 노출하지 않습니다. 종합기 부재,
+예산 소진, 프로바이더 실패 또는 검증 실패가 있으면 충돌 결과는 `held`로 유지됩니다. 입장과
+비평의 근거는 읽을 수 있지만, 검증된 종합만 충돌이 해결된 완료 결론을 반환할 수 있습니다.
+관찰 전용 인수인계 보고서도 배포, 신원, 알림, 문서, 복구 또는 승격 근거가 없으면 이를
+충족했다고 인증할 수 없습니다.
 
 ### T1 답변 평가
 

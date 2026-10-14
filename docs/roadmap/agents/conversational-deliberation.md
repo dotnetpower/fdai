@@ -251,6 +251,12 @@ including failed and unattempted branches. If the primary or every peer lacks ev
 discussion abstains. If only some peers fail, the result is `partial` with the exact failure
 reasons; it never reports complete participation or starts T2 synthesis.
 
+Partial discussion and unresolved structured conflicts expose no final `conclusion`. Conflict
+results stay `held` through missing synthesis, exhausted budget, provider failure, or failed
+verification. Position and critique evidence remain readable, but only verified synthesis can
+return a completed conflict conclusion. Observation-only handover reports likewise cannot
+certify missing deployment, identity, notification, document, recovery, or promotion evidence.
+
 ### T1 answer evaluation
 
 Each accepted claim retains only the fields needed for deterministic comparison. Identity comes

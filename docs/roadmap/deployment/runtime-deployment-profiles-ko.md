@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 9bee1ea165809603f079dd10945774dd6e1b9e5e
+translation_source_sha: 184fe7b693a9dac7a240c9e3e2eb2cecb53cb9c3
 translation_revised: 2026-10-14
 ---
 # 런타임 배포 프로파일
@@ -19,6 +19,11 @@ translation_revised: 2026-10-14
 > 바뀌지 않습니다.
 
 ## 설계 개요
+
+두 런타임 프로파일 모두 대화 표시를 실행 및 패키지 활성화와 분리합니다. 표준 Core 구성은
+독립적인 종합 검증기를 전달하고 상관 ID별 영속 예산 원장을 연결합니다. 대상과 언어의 전송,
+검증 보류 및 재시작 회계는 모든 실행 위치에서 같은 계약을 따릅니다. 이 연결은 Cost Governance를
+활성화하거나 운영 및 인수인계 준비 완료를 입증하지 않습니다.
 
 [GitHub 지식 연결기](../../runbooks/knowledge-github-sources-ko.md)는 두 런타임 프로파일에서
 같은 제한된 저장소, 정확한 커밋 및 README 검증을 사용합니다. 익명 공개 접근에는 토큰이

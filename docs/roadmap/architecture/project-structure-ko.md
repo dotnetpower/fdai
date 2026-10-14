@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 53c4698ba96724b5cfc8cf634cb3a06efe898156
-translation_revised: 2026-10-13
+translation_source_sha: 3c85614818dd1f5fb12c7e8d4f009a26967b633a
+translation_revised: 2026-10-14
 ---
 # 프로젝트 구조
 이 시스템은 하나의 웹 앱이 아니라 **headless 컨트롤 플레인 + 얇은 콘솔 + ChatOps**입니다. 이 문서는 검증된 5개 서비스 기준선과 독립 패키지 시스템 지식 서비스 후보의 모듈 경계, 의존성 방향, 조립 및 저장소 규칙을 정의합니다. 공유 서비스 계약 SDK는 권한을 부여하지 않는 `RuntimeScopeReceipt`를 소유하며, 서비스가 소유하는 모든 진입점은 시작 전에 이 증적을 하나 내보내 제품 목적, 실행 위치 및 허용된 완전한 기능 행을 결속하되 프로바이더 상태나 성공을 주장하지 않습니다. 공유 온톨로지 코드는 프로덕션 라우팅 및 탐지 제어의 고정된 절대 범위 레지스트리를 소유하고, 런타임과 전달 계층은 활성 값을 버전이 지정된 구성에 유지하며 새 권한 경로를 가져오지 않습니다. Post-turn 런타임 스킬 초안은 스킬을 활성화하지 않고 정규화된 검증 근거 참조를 제안 식별자, 영속 저장소 및 감사 메타데이터에 보존합니다. 조립 패키지는 서명된 스킬을 서명된 스킬 번들보다 먼저 다시 만들고, 두 후보가 모두 검증된 뒤에만 읽기 전용 공개 스냅샷 두 개를 게시하는 비활성 시작 도우미도 제공합니다. Core 시작은 신뢰 아티팩트 저장소와 배포가 제공하는 신뢰 루트가 조립되기 전까지 이 도우미를 호출하지 않습니다. Bootstrap은 후보를 평가하거나 게시하기 전에 Norns 룰 힌트를 현재 discovery-activation 결정 뒤에 결속합니다. 패키지 release 카탈로그는 도달 가능한 소스 개정 번호에만 고정하며 파생 소스 게이트는 커밋 전과 CI에서 기록된 모든 소스 blob을 비교합니다. 소유 설계 원본만 바뀌면 upstream 통합 뒤에 다시 생성하여 카탈로그 레코드는 유지하고 원본 약속값과 집계 다이제스트만 최종 병합 blob 및 도달 가능한 보호 main 개정 번호에 맞춥니다. 질문은행과 CQAS 산출물도 정확한 원본 카탈로그에서 의존성 순서에 따라 전체를 다시 생성하며 다이제스트만 수동으로 수정하지 않습니다. 확인된 인시던트 생성은 전용 논리 토픽의 버전이 지정된 권한 없는 요청으로 Operator/Core 경계를 통과합니다. Operator는 인증, 원본 초안 재검증 및 영속 수락을 소유하고 Core만 인시던트 수명 주기와 감사 레코드를 기록합니다. 워크플로 카탈로그 로드는 신호 트리거가 관찰 `SignalType` 레지스트리로 해석되었는지, 요청/명령 워크플로 트리거 어휘로 해석되었는지도 기록합니다. 이는 계약 메타데이터일 뿐이며 새 런타임 권한 경로를 추가하지 않습니다. 물리 패키지 소유권은 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md), 로컬 및 배포 topology는 [App 형태](../../../.github/instructions/app-shape.instructions.md)를 참조하세요. 공유 `fdai_service_contracts.post_turn_review` 모듈은 versioned cross-service wire seam입니다. Operator composition은 post-turn review 요청을 발행하고 Core Bragi만 review 묶음을 발행하므로 검토, 라우팅, 소유권은 Core와 Pantheon에 남습니다.
@@ -708,6 +708,12 @@ Container Apps는
    기록하세요. 붉은 파이프라인을 풀려고 임계값을 낮추는 것은 거버넌스 회귀입니다.
 
 ## 의존성 주입을 통한 커스터마이제이션
+
+Bragi가 소유하는 대화 구성은 정확한 선택 대상과 언어, 독립적인 종합 검증 및 정책을 고정한
+상관 ID별 영속 모델 회계를 전달합니다. 참여가 누락되거나 근거 충돌이 해결되지 않으면 최종
+결론 없이 부분 완료 또는 보류로 남습니다. 이 읽기 전용 연결은 MSCP 활성화, 실행 권한, 승인,
+감사, 복구, ActionType 승격 또는 Cost Governance 패키지 권한을 바꾸지 않습니다. 정확한
+주입 경계는 [의존성 주입 보조 문서](project-structure-dependency-injection-ko.md)를 참조하세요.
 
 전체 경계 카탈로그와 구성 규칙은 [프로젝트 구조 의존성 주입](project-structure-dependency-injection-ko.md)을 참조하세요.
 Core 결과 핸들 저장소도 같은 규칙을 따릅니다. `ResultHandleStore`는 Core 조립에서 주입되며, 인메모리 로컬 구현과 PostgreSQL 구현은 암호화된 핸들 본문을 Core 소유로 유지하고 Operator에는 불투명 참조만 영속화하게 합니다. 해당 참조의 서수 후속 질문 바인딩은 기본적으로 꺼진 compiled-answer shadow 경로 안에 머물며 실행 권한을 추가하지 않습니다.

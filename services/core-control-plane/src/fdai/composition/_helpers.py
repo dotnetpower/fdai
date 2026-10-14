@@ -165,7 +165,6 @@ class LlmBindings:
     rubric_evaluator: RubricEvaluator | None = None
     t2_proposer: T2Proposer | None = None
     conversation_t2_synthesizer: T2ConversationSynthesizer | None = None
-    conversation_synthesis_verifier: ConversationSynthesisVerifier | None = None
     conversation_metering: MeteringSink | None = None
     conversation_pricing: PricingTable | None = None
     conversation_t2_model_key: str = ""
@@ -179,6 +178,7 @@ class LlmBindings:
     and no ceiling bounds: the deliberator can only charge the cost of
     an invocation it was able to price and record. ``__post_init__``
     rejects the half-wired combination rather than degrading quietly."""
+    conversation_synthesis_verifier: ConversationSynthesisVerifier | None = None
 
     def __post_init__(self) -> None:
         if not self.cross_check_models:
