@@ -41,6 +41,11 @@ a bad or superseded version retains a Vidar rollback path.
 
 ## Ingress implementation
 
+Forseti's auxiliary v1 comparison-input retention uses bounded asynchronous storage without
+retaining document bodies. Storage failure preserves the original document-admission verdict and
+holds retrospective comparison. It does not alter ingestion purpose, independent approval, Saga
+audit, Muninn indexing or Thor's no-action boundary.
+
 The ingress step is wired first. The gateway composition wraps the durable activity sink with a
 `PantheonDocumentActivitySink` that promotes the `document.received` transition onto the pantheon
 bus as Huginn's owned `object.event`. The `EventBusDocumentIngestionIntake` claims the Huginn
@@ -142,6 +147,7 @@ exact identity and do not fall back to an ambient or system-assigned principal.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-15 | not-applicable | Clarified bounded asynchronous quality-input retention beside Forseti admission; storage faults preserve the original verdict and never replace document approval, audit or indexing. | `23b1573756`; 176 focused retention and primary-pipeline checks, four-source mypy and Ruff passed. | No document authority changed; deployed identity, transport and recovery evidence remain open. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. | `current change`; agent-chain, core ingestion, service package, and contract evidence listed in the scope table. | Retain exact deployed identity, transport, restart, and authority-ceiling evidence. |
 | 2026-08-27 | implemented | Isolated native-PDF parsing from the long-lived document worker with server-owned wall-time, CPU, address-space, page, and character ceilings. | `current change`; document worker isolation and parser-parity checks. | Deployed identity, transport, restart, and end-to-end agent evidence remain open below. |
 | 2026-09-15 | not-started | Distinguished current per-document approval from the requester application target under prior independent content policy. | `current change`; this owner and the linked cloud lifecycle design. Documentation only; no runtime check or approval is claimed. | Implement exact policy authorization, revocation fencing and actor attribution through the existing agents; retain focused and independent promotion evidence. |

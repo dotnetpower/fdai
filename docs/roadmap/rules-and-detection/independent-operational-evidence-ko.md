@@ -1,7 +1,7 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: db08bfeb9802d9d559d7d9a94c6f3ce6857872b0
-translation_revised: 2026-10-14
+translation_source_sha: fc0bdf111ed4aa74563371b6ca446aa76300aa21
+translation_revised: 2026-10-15
 ---
 # 독립 운영 근거 발급
 
@@ -35,6 +35,11 @@ verifier는 전체 조회 좌표와 주체 범위 해시를 다시 계산하고 
 대화 모델 호출 수, 토큰 사용량, 로컬 호출별 시간은 진단 메타데이터입니다. 검증 증적을
 발급하거나 출처 재확인을 대체하거나 운영 근거를 입증하거나 사람의 인가를 증명할 수
 없습니다. 숫자 사용량 계측을 추가해도 이 검증기 경계는 바뀌지 않습니다.
+
+Forseti의 제한된 v1 what-if 비교 저널은 선택된 진단 입력을 기존 StateStore에 보관합니다.
+내용 해시, 리비전 CAS와 재시작 복구로 저장 손상을 탐지하지만, 독립 검증기 증명이나
+`DecisionEvidenceAdmission` 기록은 아닙니다. 보조 보관은 출처 재확인, 사람 인가 또는 기존
+결정 근거 관문을 대신할 수 없습니다.
 
 여덟 개 판단 영역에 걸친 목적 id 열한 개는 이미 정확한 `DecisionEvidenceAdmission`(다섯 가지 독립 증명을
 거친 뒤에만 생기는, 권한 없는 단기 적격성 기록)을 요구하지만 이를 발급하는 곳이 없습니다. 자체 워크로드

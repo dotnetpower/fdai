@@ -35,6 +35,11 @@ Conversation model-call counts, token usage, and local per-call timing are diagn
 They cannot issue an admission, replace any source readback, qualify operational evidence,
 or prove human authorization. Adding numeric usage telemetry leaves this verifier boundary unchanged.
 
+Forseti's bounded v1 what-if comparison journal retains selected diagnostic inputs in its existing
+StateStore. Content hashes, revision CAS and restart recovery detect storage corruption; they are
+not independent verifier proofs or `DecisionEvidenceAdmission` records. Auxiliary retention
+cannot replace source readback, human authorization or the existing decision-evidence gate.
+
 Eleven purpose ids across eight decision slices already require an exact `DecisionEvidenceAdmission` (a
 short-lived, no-authority eligibility record that exists only after five independent proofs), but nothing
 issues one. A non-agent verifier with its own workload identity fills that gap: it reads the authoritative
