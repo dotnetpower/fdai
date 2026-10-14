@@ -55,16 +55,11 @@ natural default for an Azure-only deployment; Datadog is appropriate when it alr
 on-call monitoring. Normalize both into the same logical GPU observation contract rather
 than building two independent remediation paths.
 
-```text
-GPU VM / AKS GPU node
-  -> DCGM exporter + Azure managed Prometheus OR Datadog GPU Monitoring
-  -> scoped metric window + workload metrics + driver logs + change history
-  -> Huginn: normalize and deduplicate Event
-  -> Heimdall: grounded findings and independent effect observations
-  -> Forseti: deterministic-first routing, quality/risk gates
-  -> notification/report OR Var approval -> Thor execution
-  -> effect verification / Vidar rollback -> Saga audit -> post-action report
-```
+![GPU monitoring architecture and workflow: Azure Monitor or Datadog telemetry enters the governed FDAI sensing and decision path, then branches into advisory reporting or authorized recovery with independent effect observation, rollback and audit. The separate blue lane shows only the implemented offline replay.](gpu-monitoring-workflow.svg)
+
+Dashed paths show the proposed live integration. The solid blue lane shows the implemented
+offline evaluation. Both language guides share this bilingual SVG; agent connectors denote
+governed event-bus contracts, not direct agent calls.
 
 This is an integration design, not the execution trace of the replay. No new pantheon
 agent is needed. Agent cooperation stays on governed event-bus contracts. Bragi can render

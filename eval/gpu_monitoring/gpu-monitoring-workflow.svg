@@ -1,0 +1,141 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="1490" viewBox="0 0 1280 1490" role="img" aria-labelledby="workflow-title workflow-desc">
+  <title id="workflow-title">FDAI GPU monitoring architecture and workflow / GPU 모니터링 아키텍처와 흐름</title>
+  <desc id="workflow-desc">Proposed live integration: Azure GPU VMs or AKS nodes send telemetry through Azure Monitor with DCGM or Datadog GPU Monitoring. Scoped metrics, logs and change evidence enter Huginn, Heimdall and Forseti over governed event-bus contracts. The decision produces an advisory report or a recovery plan gated by promotion, policy, human authority and safeguards. Thor executes only an authorized plan. Heimdall independently observes the effect; unknown or failed outcomes trigger review or Vidar rollback. Saga records audit evidence and configured channels deliver reports. The separate solid blue replay lane is the implemented offline evaluation, not live agent execution. 운영 연동은 제안 경로이며 파란색 구간만 오프라인 검증 범위입니다.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#53657d"/>
+    </marker>
+    <marker id="replay-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0L10 5L0 10Z" fill="#0866b5"/>
+    </marker>
+    <style>
+      text { font-family: "Segoe UI", "Malgun Gothic", Arial, sans-serif; }
+      .title { font-size: 30px; font-weight: 700; fill: #13243c; }
+      .subtitle { font-size: 18px; fill: #455973; }
+      .heading { font-size: 22px; font-weight: 700; fill: #13243c; }
+      .body { font-size: 17px; fill: #344861; }
+      .small { font-size: 15px; fill: #455973; }
+      .label { font-size: 15px; font-weight: 600; fill: #455973; }
+      .blue { fill: #07558e; }
+      .amber { fill: #854900; }
+      .card { fill: #fff; stroke: #a3b1c3; stroke-width: 1.5; }
+      .planned { fill: none; stroke: #53657d; stroke-width: 2; stroke-dasharray: 7 5; marker-end: url(#arrow); }
+      .replay { fill: none; stroke: #0866b5; stroke-width: 2.5; marker-end: url(#replay-arrow); }
+    </style>
+  </defs>
+
+  <rect width="1280" height="1490" fill="#fff"/>
+  <text x="40" y="48" class="title">FDAI GPU monitoring / GPU 모니터링</text>
+  <text x="40" y="79" class="subtitle">Observe, investigate, authorize, act and verify / 관측, 조사, 승인, 조치, 검증</text>
+  <line x1="42" y1="113" x2="83" y2="113" stroke="#53657d" stroke-width="2" stroke-dasharray="7 5"/>
+  <text x="96" y="119" class="label">Proposed live integration / 실환경 연동 제안</text>
+  <line x1="644" y1="113" x2="685" y2="113" stroke="#0866b5" stroke-width="3"/>
+  <text x="698" y="119" class="label blue">Verified offline replay / 오프라인 검증 범위</text>
+
+  <rect x="32" y="150" width="1216" height="1100" rx="18" fill="#f7f9fc" stroke="#a3b1c3" stroke-width="1.5" stroke-dasharray="8 6"/>
+  <text x="56" y="177" class="label">TARGET DESIGN ONLY: live collectors, agent bindings and actions are not connected by this PoC.</text>
+
+  <rect x="425" y="198" width="430" height="100" rx="12" class="card"/>
+  <text x="640" y="230" text-anchor="middle" class="heading">Azure GPU VM / AKS GPU node</text>
+  <text x="640" y="257" text-anchor="middle" class="body">A10 / T4 / H100 + GPU UUID / MIG identity</text>
+  <text x="640" y="281" text-anchor="middle" class="small">Workload, driver and host / 작업 부하, 드라이버, 호스트</text>
+  <path d="M640 298V316H330V338" class="planned"/>
+  <path d="M640 316H950V338" class="planned"/>
+
+  <rect x="80" y="340" width="500" height="108" rx="12" class="card"/>
+  <text x="330" y="372" text-anchor="middle" class="heading">Azure Monitor</text>
+  <text x="330" y="400" text-anchor="middle" class="body">DCGM exporter + managed Prometheus on AKS</text>
+  <text x="330" y="425" text-anchor="middle" class="small">VM: supported guest collector / VM은 별도 수집 경로 검증</text>
+  <rect x="700" y="340" width="500" height="108" rx="12" class="card"/>
+  <text x="950" y="372" text-anchor="middle" class="heading">Datadog GPU Monitoring</text>
+  <text x="950" y="400" text-anchor="middle" class="body">GPU-capable Agent + workload / cloud context</text>
+  <text x="950" y="425" text-anchor="middle" class="small">Confirm metric names and units / 지표 이름과 단위 확인</text>
+  <text x="640" y="394" text-anchor="middle" class="label">OR / 또는</text>
+  <path d="M330 448V468H530V484" class="planned"/>
+  <path d="M950 448V468H750V484" class="planned"/>
+
+  <rect x="270" y="486" width="740" height="98" rx="12" fill="#edf3f9" stroke="#a3b1c3" stroke-width="1.5"/>
+  <text x="640" y="516" text-anchor="middle" class="heading">Scoped evidence / 범위가 제한된 근거</text>
+  <text x="640" y="542" text-anchor="middle" class="body">GPU utilization, VRAM, temperature, XID / ECC + queue / latency</text>
+  <text x="640" y="566" text-anchor="middle" class="small">Driver logs + topology + changes | freshness + completeness + provenance</text>
+  <path d="M270 535H58V693H70" class="planned"/>
+  <text x="80" y="610" class="label">Authenticated ingress / 인증된 수집 경계</text>
+
+  <rect x="72" y="635" width="350" height="118" rx="12" class="card"/>
+  <text x="247" y="668" text-anchor="middle" class="heading">Huginn</text>
+  <text x="247" y="696" text-anchor="middle" class="body">Normalize + deduplicate Event</text>
+  <text x="247" y="724" text-anchor="middle" class="small">정규화, 중복 제거, 논리적 리소스 연결</text>
+  <rect x="464" y="635" width="350" height="118" rx="12" class="card"/>
+  <text x="639" y="668" text-anchor="middle" class="heading">Heimdall</text>
+  <text x="639" y="696" text-anchor="middle" class="body">Observe + detect grounded findings</text>
+  <text x="639" y="724" text-anchor="middle" class="small">이상 탐지, 근거 부족 시 판단 보류</text>
+  <rect x="856" y="635" width="350" height="118" rx="12" class="card"/>
+  <text x="1031" y="668" text-anchor="middle" class="heading">Forseti</text>
+  <text x="1031" y="696" text-anchor="middle" class="body">T0 / T1 first; verified T2 residual</text>
+  <text x="1031" y="724" text-anchor="middle" class="small">품질 검증, 안전성 검토, 권한 판단</text>
+  <path d="M422 694H462" class="planned"/>
+  <path d="M814 694H854" class="planned"/>
+  <text x="639" y="615" text-anchor="middle" class="label">Agent connectors represent governed event-bus contracts, not direct calls.</text>
+
+  <path d="M1031 753V777H292V798" class="planned"/>
+  <path d="M1031 777H914V798" class="planned"/>
+  <rect x="72" y="800" width="440" height="112" rx="12" class="card"/>
+  <text x="292" y="832" text-anchor="middle" class="heading">Advisory / held / denied</text>
+  <text x="292" y="860" text-anchor="middle" class="body">관찰 리포트 / 판단 보류 / 조치 차단</text>
+  <text x="292" y="889" text-anchor="middle" class="small">Hypothesis != root cause | no resource mutation</text>
+
+  <rect x="620" y="800" width="588" height="136" rx="12" fill="#fff7e9" stroke="#c48b35" stroke-width="1.5"/>
+  <text x="914" y="830" text-anchor="middle" class="heading amber">Authorized recovery plan / 승인된 복구 계획</text>
+  <text x="914" y="856" text-anchor="middle" class="body">Registered ActionType + promotion + policy + risk</text>
+  <text x="914" y="881" text-anchor="middle" class="small">Var approval when required / 필요 시 사람 승인 또는 유효한 상시 권한</text>
+  <text x="914" y="905" text-anchor="middle" class="small">Stop, rollback, impact limit, dry-run, lock, idempotency, two-phase audit</text>
+  <text x="914" y="925" text-anchor="middle" class="small amber">Without every gate: no action / 필수 검증이 없으면 조치하지 않음</text>
+  <path d="M735 936V963" class="planned"/>
+
+  <rect x="620" y="965" width="230" height="108" rx="12" class="card"/>
+  <text x="735" y="998" text-anchor="middle" class="heading">Thor</text>
+  <text x="735" y="1024" text-anchor="middle" class="body">Authorized execution</text>
+  <text x="735" y="1051" text-anchor="middle" class="small">승인된 범위만 실행</text>
+  <rect x="900" y="965" width="308" height="108" rx="12" class="card"/>
+  <text x="1054" y="998" text-anchor="middle" class="heading">Heimdall</text>
+  <text x="1054" y="1024" text-anchor="middle" class="body">Independent effect observation</text>
+  <text x="1054" y="1051" text-anchor="middle" class="small">API 성공 != 복구 성공 | 독립 관측</text>
+  <path d="M850 1019H898" class="planned"/>
+  <path d="M1054 1073V1095H430V1118" class="planned"/>
+  <text x="575" y="1087" class="label">Verified effect / 효과 확인</text>
+  <path d="M1054 1095V1174H852" class="planned"/>
+  <text x="897" y="1132" class="label">Failed / unknown</text>
+  <text x="897" y="1153" class="small">실패 / 확인 불가</text>
+  <path d="M292 912V1118" class="planned"/>
+  <text x="308" y="1000" class="small">No changes / 변경 미적용</text>
+
+  <rect x="620" y="1120" width="230" height="108" rx="12" fill="#fff7e9" stroke="#c48b35" stroke-width="1.5"/>
+  <text x="735" y="1152" text-anchor="middle" class="heading">Vidar / review</text>
+  <text x="735" y="1178" text-anchor="middle" class="body">Rollback or escalate</text>
+  <text x="735" y="1204" text-anchor="middle" class="small">롤백 또는 사람 검토</text>
+  <path d="M620 1174H514" class="planned"/>
+  <rect x="72" y="1120" width="440" height="108" rx="12" fill="#edf3f9" stroke="#a3b1c3" stroke-width="1.5"/>
+  <text x="292" y="1150" text-anchor="middle" class="heading">Saga audit + configured channels</text>
+  <text x="292" y="1178" text-anchor="middle" class="body">알림 및 사후 리포트 / 감사 근거 기록</text>
+  <text x="292" y="1204" text-anchor="middle" class="small">Bragi: presentation only, never execution authority</text>
+
+  <rect x="32" y="1280" width="1216" height="166" rx="18" fill="#edf7ff" stroke="#0866b5" stroke-width="2"/>
+  <text x="56" y="1313" class="heading blue">IMPLEMENTED PoC / 현재 구현한 오프라인 검증</text>
+  <rect x="56" y="1336" width="270" height="60" rx="10" fill="#fff" stroke="#0866b5"/>
+  <rect x="356" y="1336" width="270" height="60" rx="10" fill="#fff" stroke="#0866b5"/>
+  <rect x="656" y="1336" width="270" height="60" rx="10" fill="#fff" stroke="#0866b5"/>
+  <rect x="956" y="1336" width="268" height="60" rx="10" fill="#fff" stroke="#0866b5"/>
+  <text x="191" y="1362" text-anchor="middle" class="body">Synthetic metric snapshots</text>
+  <text x="191" y="1384" text-anchor="middle" class="small">합성 GPU 지표</text>
+  <text x="491" y="1362" text-anchor="middle" class="body">Deterministic findings</text>
+  <text x="491" y="1384" text-anchor="middle" class="small">규칙 기반 이상 탐지</text>
+  <text x="791" y="1362" text-anchor="middle" class="body">Shadow FDAI Event + report</text>
+  <text x="791" y="1384" text-anchor="middle" class="small">변경 미적용 Event와 리포트</text>
+  <text x="1090" y="1362" text-anchor="middle" class="body">Later replay comparison</text>
+  <text x="1090" y="1384" text-anchor="middle" class="small">후속 합성 관측 비교</text>
+  <path d="M326 1366H354" class="replay"/>
+  <path d="M626 1366H654" class="replay"/>
+  <path d="M926 1366H954" class="replay"/>
+  <text x="56" y="1425" class="label blue">53 tests / 54 scenarios | No live collector, running agents, notification or action | external_effect_verified=false</text>
+  <text x="40" y="1475" class="small">Design diagram only; the offline lane does not grant live-call, promotion or execution authority. / 도식은 운영 권한을 부여하지 않습니다.</text>
+</svg>

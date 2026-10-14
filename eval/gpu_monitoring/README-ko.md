@@ -56,16 +56,11 @@ Azure push 경계에는
 활용합니다. 둘을 같은 논리적 GPU 관측 계약으로 정규화하면 서로 다른 자동 조치
 경로를 만드는 것을 피할 수 있습니다.
 
-```text
-GPU VM / AKS GPU node
-  -> DCGM exporter + Azure managed Prometheus 또는 Datadog GPU Monitoring
-  -> 범위가 제한된 지표 window + workload 지표 + driver log + 변경 이력
-  -> Huginn: Event 정규화 및 중복 제거
-  -> Heimdall: 증거에 근거한 finding 및 독립적인 사후 관측
-  -> Forseti: deterministic-first 판단, quality/risk gate
-  -> 알림/리포트 또는 Var 승인 -> Thor 실행
-  -> 효과 검증 / Vidar rollback -> Saga audit -> 사후 리포트
-```
+![GPU 모니터링 아키텍처와 흐름: Azure Monitor 또는 Datadog 지표가 FDAI의 관측과 판단 경로로 들어온 뒤 권고 리포트 또는 승인된 복구로 나뉩니다. 조치 결과는 독립 관측, 롤백, 감사 기록으로 검증합니다. 별도의 파란색 구간은 현재 구현한 오프라인 재현 검증만 표시합니다.](gpu-monitoring-workflow.svg)
+
+점선은 제안한 실환경 연동 경로이고 파란색 실선은 구현된 오프라인 평가 범위입니다.
+두 언어 가이드는 같은 한국어·영어 병기 SVG를 사용합니다. 에이전트 연결선은
+직접 호출이 아니라 통제된 event-bus 계약을 나타냅니다.
 
 이 흐름은 연동 설계입니다. replay에서 위 Agent들을 실행한 것은 아닙니다.
 새 pantheon Agent를 만들 필요는 없습니다. Agent 간 협력은 기존 event-bus 계약을
