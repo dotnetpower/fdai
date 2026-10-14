@@ -48,7 +48,11 @@ def _proposal(
         citations=(
             citations
             if citations is not None
-            else (SourceSpan(doc_id="doc-1", line=1, quote="Cost governance owner"),)
+            else (
+                SourceSpan(
+                    doc_id="doc-1", line=1, quote="Cost governance owner: Ria Han is accountable."
+                ),
+            )
         ),
     )
 
@@ -104,7 +108,7 @@ async def test_a_grounded_proposal_reaches_the_draft_and_resolves_identity() -> 
     draft = await HandoverBootstrapper(
         interpreter=_StubInterpreter(_proposal()),
         directory=_directory(),
-    ).bootstrap((_document("No deterministic cue."),))
+    ).bootstrap((_document(),))
 
     proposed = next(mapping for mapping in draft.mappings if mapping.agent_name == "Njord")
     assert proposed.source is MappingSource.MODEL
@@ -127,7 +131,7 @@ async def test_a_low_confidence_proposal_is_set_aside_for_a_human() -> None:
     draft = await HandoverBootstrapper(
         interpreter=_StubInterpreter(_proposal(confidence=0.2)),
         directory=_directory(),
-    ).bootstrap((_document("No deterministic cue."),))
+    ).bootstrap((_document(),))
 
     assert draft.mappings == ()
     assert [mapping.agent_name for mapping in draft.abstained] == ["Njord"]
@@ -135,10 +139,16 @@ async def test_a_low_confidence_proposal_is_set_aside_for_a_human() -> None:
 
 @pytest.mark.asyncio
 async def test_a_proposal_never_invents_an_identity() -> None:
+    quote = "Cost governance owner: Nobody Here is accountable."
     draft = await HandoverBootstrapper(
-        interpreter=_StubInterpreter(_proposal(display_name="Nobody Here")),
+        interpreter=_StubInterpreter(
+            _proposal(
+                display_name="Nobody Here",
+                citations=(SourceSpan("doc-1", 1, quote),),
+            )
+        ),
         directory=_directory(),
-    ).bootstrap((_document("No deterministic cue."),))
+    ).bootstrap((_document(quote),))
 
     proposed = next(mapping for mapping in draft.mappings if mapping.agent_name == "Njord")
     assert proposed.person.unresolved

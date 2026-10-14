@@ -133,6 +133,16 @@ exercise actual initialization, receipt ordering, local upgrade/restart identity
 Mimir close evidence: 114 passed; two-file mypy and Ruff passed. This source result does not prove
 remote provider restart, remote issue adapter identity, replica publication or live handover.
 
+### Residual handover source-grounding evidence
+
+The model bootstrap previously accepted any nonempty citation tuple, including a quote and
+person absent from the current document. It now requires the exact document, valid line,
+nonempty quote on that line and a cited person, plus a canonical agent, finite confidence and
+directory-only identity. Corrected positive fixtures cite real text; seven substitution cases
+abstain without directory resolution. Stewardship checks: 91 passed; structural gate: 15 agents
+and 2 maintainers; focused mypy and Ruff passed. No concrete adaptive model, real identities,
+backup assignment, notification arrival or operational handover receipt is created by this fix.
+
 ### Round 4 design and critique
 
 The existing `BudgetLedger` seam receives a StateStore-backed per-correlation implementation.

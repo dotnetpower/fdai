@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-and-handover.md
-translation_source_sha: 247a0caa38432dc23105f2b917c9be59bcb8b875
-translation_revised: 2026-09-16
+translation_source_sha: 1f1fa5fb74a09bd794a2a5ef99b9e65b00cbd4fc
+translation_revised: 2026-10-15
 title: 에이전트 스튜어드십과 인수인계
 ---
 # 에이전트 스튜어드십과 인수인계
@@ -23,6 +23,13 @@ RBAC은 "누가 FDAI를 조작할 수 있나"(읽기 담당 / 기여자 / Approv
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 
 ## 구현 상태
+모델의 인수인계 제안은 디렉터리 조회 전에 실제로 전달된 문서와 대조합니다. 모든 인용은 그
+문서와 유효한 1부터 시작하는 행 번호, 해당 행의 정확하고 비어 있지 않은 부분 문자열을
+지정해야 하며, 적어도 하나의 인용에 제안한 사람의 이름이 있어야 합니다. 에이전트는 고정된
+이름이어야 하고 신뢰도는 유한한 `[0, 1]` 값이어야 하며 모델이 제공한 정체성 ID는 거절합니다.
+ID는 별도 디렉터리만 해석합니다. 이 검사는 초안 전용 동작을 유지하고 RBAC, 승인 또는 실행
+권한을 부여하지 않습니다.
+
 
 ### 구현 범위
 
@@ -39,6 +46,7 @@ RBAC은 "누가 FDAI를 조작할 수 있나"(읽기 담당 / 기여자 / Approv
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-15 | implemented | 인용 객체 유무만 보던 모델 검사를 실제 문서·행·인용·사람, 고정 에이전트, 유한 신뢰도와 디렉터리 전용 정체성 검사로 바꿨습니다. | `current change`; 일곱 가지 치환 반례; stewardship 검사 91개 통과; 구조 관문: 에이전트 15개, maintainer 2명; Ruff와 집중 mypy 통과. | 실제 적응형 해석기, schema v2 사람·백업 바인딩 및 실제 알림·인가 수락은 남아 있습니다. |
 | 2026-09-04 | implemented | 서버 소유 통합 현재 담당자 변환 결과와 정확한 기술 ID, 필터, 담당 범위, 최신성, 변경 대기 근거를 갖춘 에이전트 중심 콘솔 보기를 추가했습니다. | `current change`; 집중 담당 체계 변환 결과, 디렉터리, PostgreSQL IAM, 콘솔 계약, 형식 및 카탈로그 검사 통과. | 관리형 배포에서 실제 schema v2 연결을 제공하고 실제 ID 및 백업 범위 근거를 보존해야 합니다. |
 | 2026-08-13 | implemented | 이전 출처를 재구성하지 않고 구현 원장을 도입했으며 이 문서의 범위를 스키마, 결정론적 담당 체계 기본 요소, 마이그레이션, 인수인계 부트스트랩으로 한정했습니다. | `current change`; 구현 범위 표에 나열된 담당 체계 소스와 집중 검사. | 업스트림 저장소에 테넌트 신원을 넣지 않고 배포별 스키마 v2 `primary` 및 `backup` 범위를 기록합니다. |
 | 2026-08-15 | implemented | 기본 abstain 동작, 문서별 호출, 제안 게이팅을 다루는 `HandoverInterpreter` 배포 시임의 집중 근거를 추가했습니다. | `current change`; `services/core-control-plane/tests/core/stewardship/handover_bootstrap/test_interpreter_binding.py`; `pytest services/core-control-plane/tests/core/stewardship/handover_bootstrap/` (26 passed). | 구체적인 적응형 해석기 배포 바인딩과 런타임 증적은 남아 있습니다. |

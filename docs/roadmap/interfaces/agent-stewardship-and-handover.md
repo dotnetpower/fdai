@@ -22,6 +22,13 @@ manager gains no approval capability from either relationship.
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 
 ## Implementation status
+Model handover proposals are checked against the actual supplied document before directory
+resolution. Every citation must name that document, a valid 1-based line and an exact nonempty
+substring on that line; at least one citation contains the proposed person's name. The agent
+must be canonical, confidence finite and within `[0, 1]`, and any model-supplied identity id is
+rejected. Only the separate directory resolves ids. These checks preserve draft-only behavior
+and do not grant RBAC, approval or execution authority.
+
 
 ### Implementation scope
 
@@ -38,6 +45,7 @@ manager gains no approval capability from either relationship.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-15 | implemented | Replaced citation-presence-only model gating with actual document/line/quote/person, canonical agent, finite confidence and directory-only identity checks. | `current change`; seven substitution regressions; stewardship domain: 91 passed; stewardship gate: 15 agents, 2 maintainers; Ruff and focused mypy passed. | Concrete adaptive interpreter, actual schema v2 people/backup bindings and governed notification/authorization acceptance remain open. |
 | 2026-09-04 | implemented | Added the server-owned joined Current owners projection and an agent-first Console view with exact technical identity, filters, coverage, freshness, and pending-change evidence. | `current change`; focused ownership projection, directory, PostgreSQL IAM, Console contract, type, and catalog checks passed. | A governed deployment must still supply real schema v2 bindings and retain live identity and backup-coverage evidence. |
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and bounded this document to schema, deterministic ownership primitives, migration, and handover bootstrap. | `current change`; ownership source and focused checks listed in the scope table. | Record deployment-specific schema v2 primary and backup coverage without placing tenant identities in the upstream repository. |
 | 2026-08-15 | implemented | Added focused evidence for the `HandoverInterpreter` deployment seam covering the abstaining default, per-document consultation, and proposal gating. | `current change`; `services/core-control-plane/tests/core/stewardship/handover_bootstrap/test_interpreter_binding.py`; `pytest services/core-control-plane/tests/core/stewardship/handover_bootstrap/` (26 passed). | A concrete adaptive interpreter deployment binding and its runtime receipt remain open. |

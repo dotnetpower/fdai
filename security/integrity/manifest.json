@@ -1570,7 +1570,7 @@
     "services/core-control-plane/src/fdai/core/stewardship/escalation.py": "3fa5145c438544f9a50b5b9befcc0a559ffffce9c3b1a3b065ea2ad35ab1f572",
     "services/core-control-plane/src/fdai/core/stewardship/governance.py": "3411d26582394a57216feb343b2cd694eb3828f2153d90780a42f5c06bde6329",
     "services/core-control-plane/src/fdai/core/stewardship/handover_bootstrap/__init__.py": "27efc8c251d4417979c44a00e48e0165b8c43cc57c99da47794f3a9ea4879ce5",
-    "services/core-control-plane/src/fdai/core/stewardship/handover_bootstrap/bootstrap.py": "e3fefa0406ccad4719f439d76c19639d4ae043449c3d4d9f75c8b69b8b4168aa",
+    "services/core-control-plane/src/fdai/core/stewardship/handover_bootstrap/bootstrap.py": "0be1a9941bc3acb8e0ba7c83b928cfac257b181bd4be45fabc2730bd2bb62834",
     "services/core-control-plane/src/fdai/core/stewardship/handover_bootstrap/contract.py": "e24a657de48bbbd835707d54626d3c23ca25029bbcbf055802f7ea43d72fd799",
     "services/core-control-plane/src/fdai/core/stewardship/handover_bootstrap/draft_yaml.py": "f76cd2e093c8f69cbba3039535809bb794fa3b18600d5e4e0cf2ba21619b5ca3",
     "services/core-control-plane/src/fdai/core/stewardship/handover_bootstrap/extractor.py": "871fb8ce8fe1bacdac67c0348d2506969d746b43dc0e17cc05d796b0298cb8fd",
