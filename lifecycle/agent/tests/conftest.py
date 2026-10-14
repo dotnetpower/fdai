@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import copy
 import hashlib
+import itertools
 import json
+from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -25,20 +28,25 @@ from fdai_deployment_cli.runtime_release import (
 from fdai_lifecycle_agent.agent import (
     AgentDependencies,
     AgentSettings,
+    ApplyMode,
     HubTrust,
     LifecycleAgent,
     PollResult,
 )
-from fdai_lifecycle_agent.dry_run import CurrentState, EntityState, Health
+from fdai_lifecycle_agent.dry_run import CurrentState, EntityState, Health, load_current_state
 from fdai_lifecycle_agent.hub_client import HubProtocolError, PlanReport, SignedPlan
 from fdai_lifecycle_agent.inputs import InputKind, SignedArtifact
+from fdai_lifecycle_agent.journal import WorkloadStore
 from fdai_lifecycle_agent.signatures import Ed25519ArtifactVerifier, Ed25519HubKeyring
-from fdai_lifecycle_agent.state import LocalStateStore
+from fdai_lifecycle_agent.state import LocalStateStore, write_json_atomically
+from fdai_lifecycle_agent.workload import Cluster, Manifest, Workload, WorkloadError
 
 NOW = datetime(2026, 10, 7, 12, tzinfo=UTC)
 INSTALLATION_ID = "installation-alpha"
 ACTIVE_HUB_KEY = "hub-key-active"
 REVOKED_HUB_KEY = "hub-key-revoked"
+NAMESPACE = "fdai-demo"
+REPOSITORY = "registry.example.test/fdai/core"
 
 
 def development_key(label: str) -> Ed25519PrivateKey:
@@ -102,12 +110,14 @@ def _encode(document: dict[str, object], *, pretty: bool) -> bytes:
 
 @dataclass
 class FakeHubClient:
-    """In-memory ``HubClient`` that records every report and raises queued report errors."""
+    """In-memory ``HubClient`` that records reports and snapshots and raises queued errors."""
 
     plan: SignedPlan | None = None
     report_errors: list[HubProtocolError] = field(default_factory=list)
     reports: list[tuple[str, str, PlanReport]] = field(default_factory=list)
     attempted: list[PlanReport] = field(default_factory=list)
+    state_errors: list[HubProtocolError] = field(default_factory=list)
+    states: list[dict[str, object]] = field(default_factory=list)
     fetches: int = 0
 
     def fetch_plan(self, installation_id: str) -> SignedPlan | None:
@@ -119,6 +129,11 @@ class FakeHubClient:
         if self.report_errors:
             raise self.report_errors.pop(0)
         self.reports.append((installation_id, plan_id, report))
+
+    def submit_state(self, installation_id: str, snapshot: Mapping[str, object]) -> None:
+        if self.state_errors:
+            raise self.state_errors.pop(0)
+        self.states.append(dict(snapshot))
 
 
 @dataclass
@@ -133,8 +148,66 @@ class FakeArtifactStore:
         return (self.releases if kind == "release" else self.configurations).get(digest)
 
 
+@dataclass
+class FakeCluster:
+    """In-memory namespace. A Deployment whose image is in ``broken_images`` never finishes its
+    rollout; applying one whose image is in ``failing_images`` passes the dry run, then raises."""
+
+    namespace: str = NAMESPACE
+    objects: dict[tuple[str, str], dict[str, Any]] = field(default_factory=dict)
+    broken_images: set[str] = field(default_factory=set)
+    failing_images: set[str] = field(default_factory=set)
+    calls: list[tuple[str, str, str]] = field(default_factory=list)
+
+    def apply(self, manifest: Manifest, *, dry_run: bool = False) -> None:
+        key = (manifest["kind"], manifest["metadata"]["name"])
+        self.calls.append(("dry-run" if dry_run else "apply", *key))
+        if dry_run:
+            return
+        image = _image_of(manifest)
+        if image in self.failing_images:
+            raise WorkloadError("kubernetes_request_rejected")
+        live = copy.deepcopy(dict(manifest))
+        generation = self.objects.get(key, {}).get("metadata", {}).get("generation", 0) + 1
+        live["metadata"] = {**live["metadata"], "generation": generation}
+        if key[0] == "Deployment":
+            done = image not in self.broken_images
+            live["status"] = {
+                "observedGeneration": generation,
+                "replicas": 1 if done else 2,
+                "updatedReplicas": 1,
+                "readyReplicas": 1,
+                "availableReplicas": 1,
+            }
+        self.objects[key] = live
+
+    def get(self, kind: str, name: str) -> Manifest | None:
+        return copy.deepcopy(self.objects.get((kind, name)))
+
+    def delete(self, kind: str, name: str) -> None:
+        self.calls.append(("delete", kind, name))
+        self.objects.pop((kind, name), None)
+
+    def image(self, name: str = "core-control-plane") -> str | None:
+        live = self.objects.get(("Deployment", name))
+        return None if live is None else _image_of(live)
+
+    def writes(self) -> list[tuple[str, str, str]]:
+        return [call for call in self.calls if call[0] != "dry-run"]
+
+
+def _image_of(manifest: Manifest) -> str | None:
+    if manifest["kind"] != "Deployment":
+        return None
+    image: str = manifest["spec"]["template"]["spec"]["containers"][0]["image"]
+    return image
+
+
 class Harness:
     """Builds signed Plans, signed inputs, and agent dependencies for one test."""
+
+    namespace = NAMESPACE
+    repository = REPOSITORY
 
     def __init__(self, state_dir: Path) -> None:
         self.hub_keys = {
@@ -304,7 +377,71 @@ class Harness:
             self.settings(), self.dependencies(**dependency_overrides)
         ).poll_once()
 
+    # Apply mode keeps the current state in a file that the agent rewrites after each apply.
+
+    @property
+    def state_file(self) -> Path:
+        return self.state_store.path.parent.parent / "current-state.json"
+
+    def apply_mode(self, cluster: Cluster, **workload_overrides: Any) -> ApplyMode:
+        """Apply mode over ``cluster``; by default each health check gets five instant ticks."""
+
+        if not self.state_file.exists():
+            write_json_atomically(self.state_file, self.state_document())
+        ticks = itertools.count()
+        workload: dict[str, Any] = {
+            "cluster": cluster,
+            "namespace": NAMESPACE,
+            "health_timeout_seconds": 5.0,
+            "monotonic": lambda: float(next(ticks)),
+            "sleep": lambda _seconds: None,
+        }
+        return ApplyMode(
+            workload=Workload(**(workload | workload_overrides)),
+            store=WorkloadStore(self.state_store.path.parent),
+            write_current_state=lambda document: write_json_atomically(self.state_file, document),
+        )
+
+    def release_plan(self, version: str, image_digest: str, **overrides: Any) -> LifecyclePlan:
+        """A signed upgrade Plan of ``core`` to ``version`` from the current state file."""
+
+        if not self.state_file.exists():
+            write_json_atomically(self.state_file, self.state_document())
+        sequence = overrides.pop("sequence", 8)
+        return self.plan(
+            plan_id=f"plan-{sequence:04d}",
+            sequence=sequence,
+            target_release_id=version,
+            target_release_digest=self.add_release(
+                release_manifest(version=version, core_control_plane=image_digest)
+            ),
+            entity_ids=frozenset({"core"}),
+            source_state_digest=load_current_state(self.state_file).digest,
+            **overrides,
+        )
+
+    def apply_poll(
+        self,
+        cluster: Cluster,
+        *,
+        repository: str = REPOSITORY,
+        now: datetime = NOW,
+        **workload_overrides: Any,
+    ) -> PollResult:
+        settings = self.settings(component_repositories={"core-control-plane": repository})
+        dependencies = self.dependencies(
+            read_current_state=lambda: load_current_state(self.state_file),
+            apply=self.apply_mode(cluster, **workload_overrides),
+            clock=lambda: now,
+        )
+        return LifecycleAgent(settings, dependencies).poll_once()
+
 
 @pytest.fixture
 def harness(tmp_path: Path) -> Harness:
     return Harness(tmp_path / "state")
+
+
+@pytest.fixture
+def cluster() -> FakeCluster:
+    return FakeCluster()

@@ -14,12 +14,12 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 from typing import Literal
 
-from fdai_deployment_cli.contracts import canonical_bytes
+from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest
 from fdai_deployment_cli.lifecycle_plan import LifecyclePlan
 
 from fdai_lifecycle_agent.strict_json import load_json, read_limited
@@ -118,6 +118,29 @@ def compute_change_set(
             action = "update"
         changes.append(EntityChange(entity_id=entity_id, action=action))
     return ChangeSet(plan_type=plan.plan_type, changes=tuple(changes))
+
+
+def snapshot_document(
+    entities: Mapping[str, EntityState], *, schema_revision: int, observed_at: datetime
+) -> dict[str, object]:
+    """Return a reported-state snapshot whose ``digest`` the agent computes: the hex SHA-256 of
+    the canonical JSON of every other field. The Hub echoes it into the next Plan."""
+
+    document: dict[str, object] = {
+        "schema_revision": schema_revision,
+        "entities": {
+            entity_id: {
+                "release_id": state.release_id,
+                "artifact_digests": sorted(state.artifact_digests),
+                "health": str(state.health),
+            }
+            for entity_id, state in sorted(entities.items())
+        },
+        "observed_at": observed_at.astimezone(UTC)
+        .isoformat(timespec="milliseconds")
+        .replace("+00:00", "Z"),
+    }
+    return {"digest": canonical_digest(document), **document}
 
 
 def load_current_state(path: Path) -> CurrentState:
