@@ -1,3 +1,7 @@
+---
+description: Repository-owned FDAI evaluation assets and focused validation entry points.
+---
+
 # Evaluation assets
 
 This directory owns repository evaluation data that exercises active FDAI behavior. It is separate
@@ -11,6 +15,7 @@ packages under `benchmarks/`.
 | `golden-dataset/` | 280 English/Korean cloud-operations question pairs with 35 semantic, runtime-context, ontology traversal, evidence, limitation, and authority expectations. |
 | `ontology-reasoning/` | 60 English/Korean reasoning cases with gold closed question forms and reviewed outcomes on a generic fixture graph, for the [ontology reasoning compiler](../docs/roadmap/interfaces/ontology-reasoning-compiler.md). |
 | `ontology-retrieval/` | 24 synthetic instances across four current ObjectType schemas, 24 calibration questions, and 64 separately authored English/Korean holdout questions. Offline admission checks sample floors and frozen inputs; no live quality or production qualification is claimed. |
+| [`gpu_monitoring/`](gpu_monitoring/README.md) | Offline A10/T4/H100 metric normalization, shadow Event, advisory-report and follow-up tests. No live collector, Agent execution or remediation is claimed. [Korean guide](gpu_monitoring/README-ko.md). |
 
 Evaluation assets contain no customer observations, fixed operational answers, credentials, or
 execution authority. A runner should resolve each question against the exact principal-scoped
