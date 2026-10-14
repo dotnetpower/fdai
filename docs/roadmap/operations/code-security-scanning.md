@@ -452,8 +452,10 @@ disabled one was skipped.
 
 This runtime is partially implemented. The optional Kata scanner backend, authenticated process
 observation, restricted database capabilities, and namespace/RBAC renderer pass focused tests.
-No live deployed scanner run is claimed. The deployment must bind an exact cluster, immutable
-image, dedicated Kata pool, shared source/cache storage, and controller identity first.
+One development installation has verified Kata kernel/network isolation, private TLS-only
+source/cache storage, and a ready restricted controller. Its first Console-triggered scan is
+in progress; no complete deployed scan or end-to-end business acceptance is claimed. The
+deployment must bind and independently verify each installation's exact prerequisites.
 
 **Problem and revision.** Local bubblewrap needs unprivileged user namespaces. The deployed
 backend instead runs each deterministic scanner directly in its own Kata pod VM, so it does not
@@ -468,6 +470,8 @@ gives each pod its own lightweight VM and guest kernel:
 - **Node pool:** a dedicated user pool with `os_sku = "AzureLinux"`,
   `workload_runtime = "KataVmIsolation"`, a generation 2 VM size with nested virtualization (for
   example, Dsv5), autoscaling from zero, and a `NoSchedule` taint so only scanner pods land there.
+  Current AKS APIs require the provider value `KataMshvVmIsolation`; the observed Kubernetes
+  runtime class and scheduling contract remain `kata-vm-isolation`.
   Pod Sandboxing supports only Azure Linux and amd64, which FDAI's AKS profile already uses.
 - **Scanner pod:** `runtimeClassName: kata-vm-isolation`, a toleration and node selector for the
   pool, user 65532, all capabilities dropped, no privilege escalation, and a read-only root file
