@@ -243,6 +243,12 @@ Every agent performs four task categories: **R**ecurring (scheduled), **E**vent 
 | Freyr | recurring utilization sampling through injected read-only sampler plus capacity forecasting and sizing analysis | bounded utilization sample -> forecast; capacity advisor query; governed advisory-to-verdict path emits shadow/HIL proposals | multi-dimensional capacity (CPU + IOPS + net + mem) | 2, 3 |
 | Loki | deterministic recurring chaos scheduling plus resilience-score refresh | bounded schedule trigger -> always-HIL experiment proposal or visible hold; bounded normalized score Event -> validated cross-vertical candidate; blast-radius calc | off-path adversarial scenario generation is bounded, regression-gated, audited, inert, and unbound by default | 3, 9 |
 
+Bragi's off-path training builds candidates only from targeted corrections, with disjoint
+holdout input digests and exactly one baseline-preserving evaluation per case. Mimir forwards
+issue-close regression evidence only after promotion and completed observation, rejecting future
+timestamps and pre-promotion runs. Neither check binds missing evidence producers or grants
+activation or issue-close authority.
+
 ### 4.2 Per-agent KPI (success and degradation signals)
 
 Standard bootstrap accepts an explicit `FDAI_LOKI_SCHEDULE_JSON` declaration for Loki's existing

@@ -46,6 +46,15 @@ Synthetic tests never satisfy operational readiness or production promotion.
 
 ## Round evidence
 
+### Residual Mimir post-promotion observation integrity
+
+Memory-provider counterexamples confirmed that future promotions, pre-promotion regression and
+future regression completion could publish issue-close support. Mimir now requires a completed
+post-promotion regression window before publication, and rejects future promotion before runner
+I/O. All three invalid-time cases leave Saga issues open; the valid 24-hour close remains passing.
+Issue-close/layout checks: 35 passed; one-file mypy and Ruff passed. Actual reviewed promotion,
+regression and deprecation producers remain unbound; no live issue or provider was modified.
+
 ### Residual Bragi training-evidence integrity
 
 Nearest-consumer review found that holdout corrections entered candidate calibration and that

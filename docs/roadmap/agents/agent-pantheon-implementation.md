@@ -47,6 +47,11 @@ same-digest membership substitution, and count a changed generation once. The re
 Rule activation, regression-pass, promotion or issue-close authority. Focused observation,
 issue-close and bootstrap checks: 20 passed; two-file mypy and Ruff passed.
 
+Mimir's promotion consumer rejects future promotion timestamps before running regression. Clean
+regression evidence must start at or after promotion and finish by the observation clock; an old
+pre-promotion run cannot begin Saga's quiet window. Focused issue-close/layout checks: 35 passed;
+one-file mypy and Ruff passed. These checks supply no promotion, regression or deprecation reader.
+
 Loki recurring schedules require an explicit timezone-aware `start_at`. A missing anchor stays
 held instead of using each tick's current time as a fresh window. The existing window id and
 always-HIL proposal gates remain unchanged. Focused schedule/adversarial/sampling checks: 25
@@ -97,6 +102,7 @@ not authorize scaling. Local routed-provider, sampling and bootstrap checks: 56 
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-15 | implemented | Bound Mimir issue-close regression evidence to the post-promotion observation window; future promotion, pre-promotion regression and future completion publish nothing and leave Saga issues open. | `current change`; `mimir_governance_maintenance.py`; issue-close/layout checks: 35 passed; one-file mypy and Ruff passed. | Bind reviewed promotion/regression/deprecation producers and retain runtime receipts; temporal checks do not create source authority. |
 | 2026-10-15 | implemented | Isolated Bragi candidate construction from holdout records, rejected shared input digests before evaluation, and bound exactly one evaluation result to each frozen baseline and expected owner. | `current change`; `bragi_intent_training.py`; learning/layout checks: 24 passed; one-file mypy and Ruff passed. | Bind an independent evaluator and consent-filtered source corpus; reviewed activation and runtime acceptance remain open. |
 | 2026-10-15 | implemented | Connected explicit bounded Loki recurring schedules to standard initialization with exact catalog validation, required source anchor/evidence references, duplicate-key rejection and no authority-bearing extra fields. | `current change`; bootstrap/Loki/adversarial/sampling/layout checks: 57 passed; focused mypy and Ruff passed. | Retain actual declared-schedule/HIL/recovery/Chaos receipts; off-path generation and other original integrations remain open. |
 | 2026-10-15 | implemented | Bound Mimir's read-only active Rule generation poller through standard bootstrap with create-only audit, bounded retention and revision CAS. | `current change`; observation/issue-close/bootstrap checks: 20 passed; restart, concurrent change and corruption/substitution checks; Ruff and two-file mypy passed. | Promotion/regression/deprecation readers, Bragi evaluator and actual runtime receipts remain open. |

@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 5ec1945d98a2fb1b2ff990acd5464da5bba3d5ef
+translation_source_sha: a8380269756f7924f292cdb84bf1c1fd49ef2b5c
 translation_revised: 2026-10-15
 ---
 # 에이전트 판테온
@@ -243,6 +243,11 @@ Forseti의 관찰 모드 ARB 실패 기록은 맥락/근거 수집 실패에도 
 | Njord | 비용 인제스트 (daily), 예산 모니터, 비용 forecasting | 범위가 제한된 비용 샘플 -> anomaly, 시작할 때 수락된 보존 완료 USD 기준선을 복원하되 과거 finding은 다시 게시하지 않음, 예산 breach 경보, cost-advisor 조회 | RI / SP 최적화 제안 | 1, 2 |
 | Freyr | 주입된 읽기 전용 sampler를 통한 반복 사용률 표본 추출과 용량 예측 및 sizing 분석 | 범위가 제한된 사용률 샘플 -> 예측, 용량 advisor 조회; 통제된 advisory-to-verdict 경로가 shadow/HIL 제안을 냅니다 | 다차원 용량 (CPU + IOPS + net + mem) | 2, 3 |
 | Loki | 결정론적 반복 chaos 예약과 resilience-score refresh | 범위가 제한된 예약 트리거 -> always-HIL 실험 제안 또는 보이는 hold, 범위가 제한된 정규화 score Event -> 검증된 cross-vertical 후보, blast-radius 계산 | off-path adversarial scenario generation은 범위가 제한되고 회귀로 검증되며 감사되고 비활성이며 기본 바인딩이 없습니다 | 3, 9 |
+
+Bragi의 비활성 학습은 수정 대상 표본만으로 후보를 만듭니다. 독립 검증 표본의 입력 해시는
+학습 입력과 겹칠 수 없으며, 표본마다 원본 기준값을 보존한 평가 하나를 요구합니다. Mimir는
+승격 이후 완료된 회귀만 이슈 종료 근거로 전달하며, 미래 시각과 승격 전 실행을 거절합니다.
+이 검사는 누락된 근거 생산자를 연결하거나 활성화 또는 이슈 종료 권한을 부여하지 않습니다.
 
 ### 4.2 Per-agent KPI (성공과 성능 저하 신호)
 

@@ -306,6 +306,56 @@ async def test_mimir_promotion_evidence_closes_only_after_clean_24h_window() -> 
     assert len(bus.messages_on("object.rule")) == 1
 
 
+@pytest.mark.parametrize("invalid_time", ["future_promotion", "pre_promotion", "future_completion"])
+async def test_mimir_rejects_regression_outside_the_promoted_observation_window(
+    invalid_time: str,
+) -> None:
+    now = datetime(2032, 1, 2, 1, 0, tzinfo=UTC)
+    saga = Saga(clock=lambda: now)
+    norns = Norns(promotion_threshold=1)
+    mimir = Mimir(governance_state_store=InMemoryStateStore(), clock=lambda: now)
+    bus = _wire(saga, norns, mimir)
+    saga.bind_issue_close_promotion_evidence_producer()
+    handoff = handoff_event_payload(
+        session_id="invalid-promotion-time",
+        question="unknown closeable",
+        turn_index=0,
+        reason="no_route",
+        emitted_at=now - timedelta(hours=48),
+    )
+    fingerprint = str(handoff["problem_fingerprint"])
+    await saga.on_typed_message("object.handoff-escalation", handoff)
+    promoted_at = now - timedelta(hours=26)
+    started_at = now - timedelta(hours=25)
+    if invalid_time == "future_promotion":
+        promoted_at = now + timedelta(hours=1)
+    elif invalid_time == "pre_promotion":
+        promoted_at = now - timedelta(hours=1)
+    else:
+        started_at = now - timedelta(minutes=1)
+    reader = _PromotionReader()
+    reader.outcomes.append(
+        MimirCatalogPromotionOutcome(
+            problem_fingerprint=fingerprint,
+            promotion_pr="https://github.com/dotnetpower/fdai/pull/999",
+            correlation_id="invalid-time",
+            outcome="promoted",
+            rule_id="rule.closeable",
+            promoted_at=promoted_at,
+        )
+    )
+    runner = _RegressionRunner(started_at=started_at)
+    mimir.bind_catalog_promotion_outcome_reader(reader)
+    mimir.bind_regression_runner(runner)
+
+    await mimir.maintenance_tick()
+    await saga.maintenance_tick()
+
+    assert not bus.messages_on("object.rule")
+    assert saga.github.issues[fingerprint].open is True
+    assert runner.calls == (0 if invalid_time == "future_promotion" else 1)
+
+
 async def test_mimir_promotion_evidence_waits_when_regression_window_is_short() -> None:
     now = datetime(2032, 1, 2, 1, 0, tzinfo=UTC)
     saga = Saga(clock=lambda: now)
