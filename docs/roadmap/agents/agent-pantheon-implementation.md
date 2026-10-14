@@ -102,6 +102,7 @@ not authorize scaling. Local routed-provider, sampling and bootstrap checks: 56 
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-15 | implemented | Prevented explicit empty or mismatched single-target declarations from falling through to an undeclared outer resource; preserved exact single-target execution and reconciled the existing batch implementation. | `current change`; `thor_batch.py`; batch/layout/workflow checks: 51 passed; one-file mypy and Ruff passed. | Existing target-scoped rollback, rollup audit and durable approval/restart mechanics pass synthetic checks; deployed identity, rollback/effect and broker acceptance remain separate. |
 | 2026-10-15 | implemented | Persisted the bounded v1 Forseti comparison window through the existing StateStore: 512 records, closed fields, content hashes, eight bounded CAS attempts and two-second storage deadlines. Startup and each comparison restore validated committed inputs; storage faults preserve primary judgments and hold comparison. | `current change`; `forseti_quality_retention.py`; what-if/layout/workflow/primary-pipeline checks: 176 passed; four-source mypy and Ruff passed. | Publication deduplication and complete historical Rule/policy/evidence replay remain open; memory-provider tests are not deployed database or broker acceptance. |
 | 2026-10-15 | implemented | Preserved Forseti's original no-rule ActionType and recorded judgment-table digest when retrospective comparison follows a table update. | `current change`; `forseti_quality_runtime.py`, `forseti_what_if.py`; what-if/layout/workflow checks: 41 passed; two-file mypy and Ruff passed. | Retain complete historical inputs and publication deduplication durably; full-context replay and provider restart acceptance remain open. |
 | 2026-10-15 | implemented | Bound Mimir issue-close regression evidence to the post-promotion observation window; future promotion, pre-promotion regression and future completion publish nothing and leave Saga issues open. | `current change`; `mimir_governance_maintenance.py`; issue-close/layout checks: 35 passed; one-file mypy and Ruff passed. | Bind reviewed promotion/regression/deprecation producers and retain runtime receipts; temporal checks do not create source authority. |
@@ -690,6 +691,12 @@ bounded target list so approval after restart binds the same set. The rollup cou
 `deny_dropped` targets separately; a terminal batch with any rejected or deny-dropped attempt
 becomes `rollback_failed` with outcome `batch_refused_attempt`. Single-target runs keep unchanged
 identity and payloads.
+
+Explicit empty declarations and single-target declarations with a missing or different
+`resource_id` yield `batch_target_set_unknown` before executor I/O. Exact matching single-target
+declarations retain the legacy identity and path. Both `targets` and `target_set` are covered;
+the owning batch tests also exercise target-scoped rollback, rollup audit, no repeated execution
+after recovery, and approval against the durable target set.
 
 #### Muninn compaction
 

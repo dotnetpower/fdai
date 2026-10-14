@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: f7d718544b209d03aff56483d292227cf0f29511
+translation_source_sha: 583bc492c228c7d08a169e666318822b95915b96
 translation_revised: 2026-10-15
 ---
 
@@ -102,6 +102,7 @@ sampler는 검토된 `resource.cpu.utilization_pct` 선언을 사용하고 조�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-15 | implemented | 명시적 빈 대상 또는 불일치하는 단일 대상 선언이 선언 밖 리소스 실행으로 내려가지 않도록 차단했습니다. 정확히 일치하는 단일 대상 실행을 보존하고 기존 배치 구현을 재확인했습니다. | `current change`; `thor_batch.py`; 배치·구조·워크플로 검사 51개, 한 파일 mypy와 Ruff 통과. | 대상별 롤백·집계 감사·영속 승인 및 복구는 합성 검사를 통과했습니다. 배포 신원·롤백/효과·브로커 수락은 별도입니다. |
 | 2026-10-15 | implemented | 기존 StateStore로 제한된 v1 Forseti 비교 창을 영속화했습니다. 512개 기록, 닫힌 필드, 내용 해시, 최대 여덟 번 CAS와 2초 저장소 기한을 적용합니다. 시작과 비교 때 검증된 저장 입력을 복원하며, 저장소 오류는 원래 판정을 보존하고 비교를 보류합니다. | `current change`; `forseti_quality_retention.py`; what-if·구조·워크플로·판정 파이프라인 검사 176개, 네 소스 mypy와 Ruff 통과. | 게시 중복 방지와 과거 Rule·정책·근거의 전체 맥락 재생은 남아 있습니다. 메모리 프로바이더 검사는 배포 DB·브로커 수락이 아닙니다. |
 | 2026-10-15 | implemented | 테이블 변경 뒤의 회고 비교에서도 Forseti의 원래 무규칙 ActionType과 기록된 판정 테이블 해시를 보존했습니다. | `current change`; `forseti_quality_runtime.py`, `forseti_what_if.py`; what-if·구조·워크플로 검사 41개, 두 파일 mypy와 Ruff 통과. | 전체 과거 입력과 게시 중복 방지 기록을 영속 보관해야 합니다. 전체 맥락 재생과 프로바이더 재시작 수락도 아직 남아 있습니다. |
 | 2026-10-15 | implemented | Mimir 이슈 종료 회귀 근거를 승격 이후 관찰 창에 결속했습니다. 미래 승격, 승격 전 회귀 또는 미래 완료는 아무것도 게시하지 않으며 Saga 이슈를 열린 상태로 남깁니다. | `current change`; `mimir_governance_maintenance.py`; 이슈 종료·구조 검사 35개, 한 파일 mypy와 Ruff 통과. | 검토된 승격·회귀·폐기 생산자를 연결하고 런타임 증적을 보존해야 합니다. 시간 검사는 원본의 권위를 만들지 않습니다. |
@@ -676,6 +677,11 @@ list를 기록하므로 재시작 후 승인도 같은 set에 결속됩니다. R
 대상을 따로 집계하며, rejected 또는 deny-dropped 시도가 하나라도 있는 종료 batch는
 `batch_refused_attempt` outcome과 함께 `rollback_failed`가 됩니다. Single-target run은 기존
 신원과 payload를 유지합니다.
+
+명시적 빈 선언 또는 `resource_id`가 없거나 다른 단일 대상 선언은 실행기 I/O 전에
+`batch_target_set_unknown`이 됩니다. 정확히 일치하는 단일 대상 선언은 기존 신원과 경로를
+유지합니다. `targets`와 `target_set`을 모두 검사하며, 소유 배치 검사는 대상별 롤백, 집계
+감사, 복구 후 실행 중복 방지와 영속 대상 집합에 결속된 승인도 다룹니다.
 
 #### Muninn compaction
 

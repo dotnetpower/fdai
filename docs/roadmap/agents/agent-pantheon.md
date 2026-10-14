@@ -256,6 +256,10 @@ or replace its source digest. With Forseti's existing StateStore bound, a closed
 Storage failure or corruption holds comparison without changing the original judgment.
 Publication deduplication remains process-local; durable full-context replay is separate work.
 
+Thor holds an explicit empty target declaration instead of falling back to another resource.
+A single declared target uses the legacy single-action path only when it exactly matches
+`resource_id`; a missing or conflicting resource is held without executor calls.
+
 ### 4.2 Per-agent KPI (success and degradation signals)
 
 Standard bootstrap accepts an explicit `FDAI_LOKI_SCHEDULE_JSON` declaration for Loki's existing

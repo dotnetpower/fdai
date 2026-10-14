@@ -27,7 +27,7 @@ Synthetic tests never satisfy operational readiness or production promotion.
 | 9 | Process-local discussion budget | Fixed for standard per-correlation bootstrap in round 4: policy-pinned StateStore CAS survives restart/replicas without eviction or memory fallback. Fleet totals and live provider receipts remain separate. |
 | 10 | Freyr/Loki recurring bindings absent | Exact-source Freyr sampling is standard-bound (56 checks). Explicit complete Loki declarations now reach the existing schedule port (57 checks), preserving always-HIL/shadow. Actual targets/provider/schedule/approval/Chaos receipts and off-path adversarial generation remain open. |
 | 11 | Mimir/Bragi maintenance bindings absent | Mimir current active Rule generation observer is now standard-bound, create-only audited and replica/restart CAS-safe; 20 focused checks pass. Reviewed promotion/regression/deprecation readers and Bragi evaluator remain open; observation grants no activation authority. |
-| 12 | Durable what-if and multi-target attempt model | Original no-rule ActionType/table digest are preserved (41 checks). Limited v1 comparison inputs now survive restart/replicas in a 512-record validated CAS window (176 checks). Publication deduplication, complete historical context and per-target rollback/aggregate audit acceptance remain open. |
+| 12 | Durable what-if and multi-target attempt model | Limited v1 comparison inputs survive restart/replicas in a 512-record CAS window (176 checks). Existing per-target identity/rollback, rollup audit and durable approval/restart mechanics are implemented, not absent; explicit target-declaration fallthrough is fixed (51 checks). Full what-if context, durable replay deduplication and deployed provider acceptance remain open. |
 | 13 | Ordered poison halt persistence unbound | Standard Core source now binds the existing service-owned StateStore and receipt-gated clear handler; actual initialization and related durability checks pass. Governed provider restart/clear receipts remain open. |
 | 14 | Saga replica and issue-operation identity residuals | Local StateStore adapter now globally binds operation id to fingerprint/content and restores legacy bindings before reuse. Replica-safe audit/publication and remote GitHub App operation identity remain open. |
 | 15 | Development authority source absent | Reconciled: current runtime implements PreparedDevelopmentBindingRegistry and shares the selected source with ControlLoop and Pantheon; 26 existing composition/source checks pass. Actual selected profile/current Owner/live approval and execution receipts remain unverified; no authority is manufactured. |
@@ -45,6 +45,16 @@ Synthetic tests never satisfy operational readiness or production promotion.
 | 27 | Real speech/assistive evidence absent | Needs human: retain actual EN/KO speech and screen-reader results; browser simulations are insufficient. |
 
 ## Round evidence
+
+### Residual Thor explicit-target boundary and implementation reconciliation
+
+The original multi-target source-absence claim is superseded: the existing batch implementation
+and owning tests cover distinct attempts, target-only rollback, rollup audit, restart without
+re-execution and approval over retained targets. Two new counterexamples nevertheless executed
+an undeclared outer resource for empty or mismatched single-target declarations. Both aliases
+now hold empty, missing-resource or conflicting declarations; exact matching single-target calls
+retain their legacy path. Batch/layout/workflow checks: 51 passed; one-file mypy and Ruff passed.
+Synthetic executor, rollback and observation callbacks do not certify deployed effects or identity.
 
 ### Residual Forseti bounded v1 comparison retention
 

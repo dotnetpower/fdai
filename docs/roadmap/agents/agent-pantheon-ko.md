@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 8fcbac312635006809d6480b3b6632eeedfbc0e1
+translation_source_sha: 7267446a4edbc0cd6a63afa14a6c251c0ef98bf5
 translation_revised: 2026-10-15
 ---
 # 에이전트 판테온
@@ -255,6 +255,10 @@ Forseti의 what-if 비교는 규칙 없음으로 보류한 경우를 포함해 �
 제한된 v1 비교 입력을 재시작과 복제본 사이에 보존합니다. 저장소 실패나 손상은 원래 판정을
 바꾸지 않고 비교를 보류합니다. 게시 중복 방지는 아직 프로세스 내부이며, 전체 맥락을 영속
 보관해 재생하는 기능은 별도 잔여 작업입니다.
+
+Thor는 명시된 대상 선언이 비어 있으면 다른 리소스로 대신 실행하지 않고 보류합니다.
+단일 선언 대상은 `resource_id`와 정확히 일치할 때만 기존 단일 작업 경로를 사용합니다.
+리소스가 없거나 충돌하면 실행기를 호출하지 않고 보류합니다.
 
 ### 4.2 Per-agent KPI (성공과 성능 저하 신호)
 
