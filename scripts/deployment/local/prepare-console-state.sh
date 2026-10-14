@@ -6,6 +6,7 @@ database_url="postgresql+psycopg://fdai:devonly@127.0.0.1:5432/fdai"
 validation_database_url="postgresql+psycopg://fdai:devonly@127.0.0.1:5433/fdai_validation"
 adoption_dir="$repo_root/.fdai/service-migration-adoption"
 database_recreated_marker="$repo_root/.fdai/local-database-recreated"
+preserved_state="$repo_root/.fdai/local-database-preserved-state.json"
 rollback_reference="$(git -C "$repo_root" rev-parse HEAD)"
 
 if [[ $# -gt 1 || ( $# -eq 1 && "${1:-}" != "--dependencies-ready" && "${1:-}" != "--check" ) ]]; then
@@ -51,12 +52,12 @@ fi
 FDAI_DATABASE_URL="$database_url" \
   "$repo_root/.venv/bin/python" \
     "$repo_root/scripts/deployment/local/maintain-development-database.py" \
-      --recreated-marker "$database_recreated_marker"
+    --recreated-marker "$database_recreated_marker" \
+    --preserved-state "$preserved_state"
 
 if [[ -f "$database_recreated_marker" ]]; then
   "$repo_root/.venv/bin/python" \
-    "$repo_root/scripts/deployment/local/reset-development-broker.py"
-  rm -f "$database_recreated_marker"
+  "$repo_root/scripts/deployment/local/reset-development-broker.py"
 fi
 
 FDAI_DATABASE_URL="$validation_database_url" \
@@ -80,5 +81,13 @@ for service_id in "${service_ids[@]}"; do
       --schema-output "$schema_evidence" \
       --rollback-reference "$rollback_reference"
 done
+
+if [[ -f "$database_recreated_marker" ]]; then
+  FDAI_DATABASE_URL="$database_url" \
+    "$repo_root/.venv/bin/python" \
+      "$repo_root/scripts/deployment/local/maintain-development-database.py" \
+        --restore-preserved-state "$preserved_state"
+  rm -f "$preserved_state" "$database_recreated_marker"
+fi
 
 echo "local PostgreSQL legacy schema and all five service migrations are current"
