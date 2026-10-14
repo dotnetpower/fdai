@@ -15,6 +15,7 @@ from fdai.agents._framework.forseti_quality_retention import (
     restore_quality_samples,
     retain_quality_sample,
 )
+from fdai.agents._framework.forseti_what_if_publication import PUBLICATION_WINDOW_KEY
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents.forseti import Forseti
 from fdai.shared.providers.local.event_bus import LocalEventBus
@@ -212,6 +213,248 @@ async def test_what_if_restores_the_bounded_comparison_inputs_after_restart() ->
         "risk_verdict": original["risk_verdict"],
         "judgment_table_digest": original["judgment_table_digest"],
     }
+
+
+async def test_what_if_deduplicates_a_successful_publication_after_restart() -> None:
+    store = InMemoryStateStore()
+    bus = _FailOnceWhatIfBus()
+    bus.failures_remaining = 0
+    initial = Forseti(bus=bus, state_store=store)
+    await initial.judge(
+        {
+            "event_type": "unknown_signal",
+            "resource_id": "resource-retained",
+            "correlation_id": "corr-retained",
+        }
+    )
+    request = {
+        "kind": "retrospective_what_if_request",
+        "producer_principal": "Huginn",
+        "event_type": "retrospective.what_if.request",
+        "correlation_id": "corr-same-comparison",
+        "idempotency_key": "comparison-retry",
+        "judgment_table": {
+            "source": "retry-overlay",
+            "rule_match": {},
+            "risk_verdict": {},
+        },
+    }
+    await initial.on_typed_message("object.event", request)
+    restarted = Forseti(bus=bus, state_store=store)
+    await restarted.rehydrate()
+    await restarted.on_typed_message("object.event", request)
+    payloads = [
+        payload
+        for _, topic, payload in bus.published
+        if topic == "object.verdict" and payload.get("kind") == "retrospective_what_if"
+    ]
+    assert len(payloads) == 1
+
+
+async def test_what_if_failed_publication_recovers_its_frozen_payload_without_input_window() -> (
+    None
+):
+    store = InMemoryStateStore()
+    bus = _FailOnceWhatIfBus()
+    initial = Forseti(bus=bus, state_store=store)
+    await initial.judge(
+        {
+            "event_type": "unknown_signal",
+            "resource_id": "resource-frozen",
+            "correlation_id": "corr-frozen",
+        }
+    )
+    request = {
+        "kind": "retrospective_what_if_request",
+        "producer_principal": "Huginn",
+        "event_type": "retrospective.what_if.request",
+        "correlation_id": "corr-frozen-retry",
+        "idempotency_key": "frozen-retry",
+        "judgment_table": {"rule_match": {}, "risk_verdict": {}, "source": "frozen"},
+    }
+    with pytest.raises(RuntimeError, match="transient verdict publish failure"):
+        await initial.on_typed_message("object.event", request)
+    journal = await store.read_state(PUBLICATION_WINDOW_KEY)
+    assert journal is not None
+    original_payload = journal["records"][0]["payload"]
+    await store.delete_state(QUALITY_WINDOW_KEY)
+    restarted = Forseti(bus=bus, state_store=store)
+    await restarted.on_typed_message("object.event", request)
+    published = [
+        payload for _, _, payload in bus.published if payload.get("kind") == "retrospective_what_if"
+    ]
+    assert published == [original_payload]
+
+
+async def test_what_if_two_replicas_publish_one_frozen_comparison() -> None:
+    store = InMemoryStateStore()
+    bus = _FailOnceWhatIfBus()
+    bus.failures_remaining = 0
+    initial = Forseti(bus=bus, state_store=store)
+    await initial.judge(
+        {
+            "event_type": "unknown_signal",
+            "resource_id": "resource-race",
+            "correlation_id": "corr-race",
+        }
+    )
+    request = {
+        "kind": "retrospective_what_if_request",
+        "producer_principal": "Huginn",
+        "event_type": "retrospective.what_if.request",
+        "correlation_id": "corr-race-request",
+        "idempotency_key": "race-request",
+        "judgment_table": {"rule_match": {}, "risk_verdict": {}, "source": "race"},
+    }
+    replicas = [Forseti(bus=bus, state_store=store), Forseti(bus=bus, state_store=store)]
+    await asyncio.gather(
+        *(replica.on_typed_message("object.event", request) for replica in replicas)
+    )
+    assert (
+        len(
+            [
+                payload
+                for _, _, payload in bus.published
+                if payload.get("kind") == "retrospective_what_if"
+            ]
+        )
+        == 1
+    )
+
+
+async def test_what_if_acceptance_checkpoint_failure_replays_identical_payload() -> None:
+    class FailingCheckpointStore(InMemoryStateStore):
+        fail_checkpoint = True
+
+        async def compare_and_set_state(
+            self, key: str, value: dict[str, Any], *, expected_revision: int
+        ) -> bool:
+            if (
+                key == PUBLICATION_WINDOW_KEY
+                and self.fail_checkpoint
+                and any(row["status"] == "published" for row in value["records"])
+            ):
+                return False
+            return await super().compare_and_set_state(
+                key, value, expected_revision=expected_revision
+            )
+
+    store = FailingCheckpointStore()
+    bus = _FailOnceWhatIfBus()
+    bus.failures_remaining = 0
+    initial = Forseti(bus=bus, state_store=store)
+    await initial.judge(
+        {
+            "event_type": "unknown_signal",
+            "resource_id": "resource-crash",
+            "correlation_id": "corr-crash",
+        }
+    )
+    request = {
+        "kind": "retrospective_what_if_request",
+        "producer_principal": "Huginn",
+        "event_type": "retrospective.what_if.request",
+        "correlation_id": "corr-crash-request",
+        "idempotency_key": "crash-request",
+        "judgment_table": {"rule_match": {}, "risk_verdict": {}, "source": "crash"},
+    }
+    with pytest.raises(RuntimeError, match="CAS contention"):
+        await initial.on_typed_message("object.event", request)
+    store.fail_checkpoint = False
+    await Forseti(bus=bus, state_store=store).on_typed_message("object.event", request)
+    payloads = [
+        payload for _, _, payload in bus.published if payload.get("kind") == "retrospective_what_if"
+    ]
+    assert len(payloads) == 2
+    assert payloads[0] == payloads[1]
+
+
+async def test_what_if_completed_request_does_not_reselect_new_inputs() -> None:
+    store = InMemoryStateStore()
+    bus = _FailOnceWhatIfBus()
+    bus.failures_remaining = 0
+    forseti = Forseti(bus=bus, state_store=store)
+    await forseti.judge(
+        {
+            "event_type": "unknown_signal",
+            "resource_id": "resource-first",
+            "correlation_id": "corr-first",
+        }
+    )
+    request = {
+        "kind": "retrospective_what_if_request",
+        "producer_principal": "Huginn",
+        "event_type": "retrospective.what_if.request",
+        "correlation_id": "corr-fixed-request",
+        "idempotency_key": "fixed-request",
+        "judgment_table": {"rule_match": {}, "risk_verdict": {}, "source": "fixed"},
+    }
+    await forseti.on_typed_message("object.event", request)
+    await forseti.judge(
+        {
+            "event_type": "another_signal",
+            "resource_id": "resource-second",
+            "correlation_id": "corr-second",
+        }
+    )
+    await Forseti(bus=bus, state_store=store).on_typed_message("object.event", request)
+    await forseti.on_typed_message(
+        "object.event", {**request, "correlation_id": "corr-new-request"}
+    )
+    payloads = [
+        payload for _, _, payload in bus.published if payload.get("kind") == "retrospective_what_if"
+    ]
+    assert [len(payload["outcomes"]) for payload in payloads] == [1, 2]
+
+
+@pytest.mark.parametrize("corruption", ["payload", "authority", "revision", "claim", "request"])
+async def test_what_if_publication_corruption_holds_without_republishing(corruption: str) -> None:
+    store = InMemoryStateStore()
+    bus = _FailOnceWhatIfBus()
+    bus.failures_remaining = 0
+    forseti = Forseti(bus=bus, state_store=store)
+    await forseti.judge(
+        {
+            "event_type": "unknown_signal",
+            "resource_id": "resource-corrupt",
+            "correlation_id": "corr-corrupt",
+        }
+    )
+    request = {
+        "kind": "retrospective_what_if_request",
+        "producer_principal": "Huginn",
+        "event_type": "retrospective.what_if.request",
+        "correlation_id": "corr-corrupt-request",
+        "idempotency_key": "corrupt-request",
+        "judgment_table": {"rule_match": {}, "risk_verdict": {}, "source": "corrupt"},
+    }
+    await forseti.on_typed_message("object.event", request)
+    raw = await store.read_state(PUBLICATION_WINDOW_KEY)
+    assert raw is not None
+    if corruption == "payload":
+        raw["records"][0]["payload"]["outcomes"][0]["original"]["risk_verdict"] = "auto"
+    elif corruption == "authority":
+        raw["execution_authority"] = True
+    elif corruption == "revision":
+        raw["revision"] = True
+    elif corruption == "request":
+        raw["records"][0]["request_key"] = "different-request"
+    else:
+        raw["records"][0].update(status="publishing", claim_owner="foreign", claimed_at="invalid")
+    await store.write_state(PUBLICATION_WINDOW_KEY, raw)
+    restarted = Forseti(bus=bus, state_store=store)
+    await restarted.on_typed_message("object.event", request)
+    assert (
+        len(
+            [
+                payload
+                for _, _, payload in bus.published
+                if payload.get("kind") == "retrospective_what_if"
+            ]
+        )
+        == 1
+    )
+    assert restarted.health()["retrospective_what_if"]["evidence_state"] == "retention_unavailable"
 
 
 def _retained_sample() -> dict[str, str]:

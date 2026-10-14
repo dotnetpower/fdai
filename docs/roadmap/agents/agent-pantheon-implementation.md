@@ -102,6 +102,7 @@ not authorize scaling. Local routed-provider, sampling and bootstrap checks: 56 
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-15 | implemented | Added request-pinned Forseti what-if outbox delivery with closed/content-hashed records, claim-fenced replica publication, completed-only compaction, startup/maintenance recovery and identical-key crash replay. | `current change`; `forseti_what_if_publication.py`; focused what-if/outbox/layout/workflow/primary-pipeline checks: 211 passed; three-source mypy and Ruff passed. | Bounded retained-request deduplication is implemented; full historical context, deployed database/broker acceptance and other maintenance-source bindings remain open. |
 | 2026-10-15 | implemented | Prevented explicit empty or mismatched single-target declarations from falling through to an undeclared outer resource; preserved exact single-target execution and reconciled the existing batch implementation. | `current change`; `thor_batch.py`; batch/layout/workflow checks: 51 passed; one-file mypy and Ruff passed. | Existing target-scoped rollback, rollup audit and durable approval/restart mechanics pass synthetic checks; deployed identity, rollback/effect and broker acceptance remain separate. |
 | 2026-10-15 | implemented | Persisted the bounded v1 Forseti comparison window through the existing StateStore: 512 records, closed fields, content hashes, eight bounded CAS attempts and two-second storage deadlines. Startup and each comparison restore validated committed inputs; storage faults preserve primary judgments and hold comparison. | `current change`; `forseti_quality_retention.py`; what-if/layout/workflow/primary-pipeline checks: 176 passed; four-source mypy and Ruff passed. | Publication deduplication and complete historical Rule/policy/evidence replay remain open; memory-provider tests are not deployed database or broker acceptance. |
 | 2026-10-15 | implemented | Preserved Forseti's original no-rule ActionType and recorded judgment-table digest when retrospective comparison follows a table update. | `current change`; `forseti_quality_runtime.py`, `forseti_what_if.py`; what-if/layout/workflow checks: 41 passed; two-file mypy and Ruff passed. | Retain complete historical inputs and publication deduplication durably; full-context replay and provider restart acceptance remain open. |
@@ -648,16 +649,15 @@ Original outcomes use their recorded ActionType and judgment-table digest, never
 from the current table. A no-rule abstention therefore remains an empty original ActionType even
 after a matching rule appears. Missing source digests remain unknown. This source-fidelity fix
 alone does not certify complete historical Rule, policy or evidence replay. The v1 retention
-implementation below stores selected comparison inputs, while publication deduplication remains
-process-local.
+implementation below stores selected comparison inputs and pins delivery of each retained request.
 
 The bounded v1 retention design uses Forseti's existing StateStore and a 512-record revision-CAS
 window of content-free event kind, recorded decision, table digest and tier. It retains only
 selected comparison inputs, not complete historical execution context. Design critique identified
 replica lost updates, malformed journal data and a new primary-path dependency: bounded CAS,
 closed-field validation and explicit comparison holds address them. Quality-storage failures do
-not replace the original judgment or silently fall back to memory. Publication deduplication is
-a separate design; this window supplies no execution, activation or effect-verification authority.
+not replace the original judgment or silently fall back to memory. The separate delivery window
+below supplies no execution, activation or effect-verification authority.
 
 `forseti_quality_retention.py` implements that window using closed records and content hashes,
 eight CAS attempts inside a two-second deadline. Same-key input substitution is rejected; only
@@ -666,6 +666,19 @@ primary judgment remains unchanged after auxiliary storage failure. Standard boo
 the existing `incident_audit_store` as `forseti_state_store`; absent storage preserves explicitly
 unbound local behavior rather than claiming durability. Focused checks: 176 passed, including
 restart, replica race, bounded retention, six corruptions and primary-path compatibility.
+
+The reviewed delivery design pins the first comparison result to correlation, alternate-table
+digest and normalized sample bound. Critique identified restart duplication, changed-input retries,
+live-claim races, abandoned pending work and request-slot substitution. The implementation uses
+`forseti_what_if_publication.py` with closed/content-hashed records, revision CAS and the shared
+claim-fenced outbox helper. Limits are 512 requests/512 KiB, eight CAS attempts with two-second
+storage deadlines, a four-second claim lease and an eight-second publication ceiling. Recovery
+handles at most 16 eligible records within 15 seconds at startup and on maintenance. It does not
+run the comparison again and does not require the original input window. Active leases defer;
+malformed storage holds, and only completed records may leave the bounded window. A new comparison
+over newer inputs requires a new correlation. Broker acceptance before checkpoint can replay the
+same bytes and idempotency key, not a different result. Inactive storage preserves explicitly
+process-local behavior; this is not full historical Rule/policy/evidence or live effect acceptance.
 
 #### Bragi intent-training loop
 

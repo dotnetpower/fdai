@@ -254,7 +254,12 @@ abstention, and its recorded judgment-table digest. Current rules never fill the
 or replace its source digest. With Forseti's existing StateStore bound, a closed, content-hashed
 512-record CAS window preserves the limited v1 comparison inputs across restart and replicas.
 Storage failure or corruption holds comparison without changing the original judgment.
-Publication deduplication remains process-local; durable full-context replay is separate work.
+Comparison delivery also uses the existing StateStore: the first payload is pinned to the request,
+alternate-table digest and sample bound. Completed requests are suppressed across restart and
+replicas within a closed 512-record/512 KiB window. Only completed records may be compacted;
+pending results recover at startup and on maintenance. A broker-acceptance/checkpoint crash can
+redeliver identical bytes and key under the existing at-least-once contract. Full-context replay
+and deployed provider acceptance remain separate work.
 
 Thor holds an explicit empty target declaration instead of falling back to another resource.
 A single declared target uses the legacy single-action path only when it exactly matches

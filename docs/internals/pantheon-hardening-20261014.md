@@ -27,7 +27,7 @@ Synthetic tests never satisfy operational readiness or production promotion.
 | 9 | Process-local discussion budget | Fixed for standard per-correlation bootstrap in round 4: policy-pinned StateStore CAS survives restart/replicas without eviction or memory fallback. Fleet totals and live provider receipts remain separate. |
 | 10 | Freyr/Loki recurring bindings absent | Exact-source Freyr sampling is standard-bound (56 checks). Explicit complete Loki declarations now reach the existing schedule port (57 checks), preserving always-HIL/shadow. Actual targets/provider/schedule/approval/Chaos receipts and off-path adversarial generation remain open. |
 | 11 | Mimir/Bragi maintenance bindings absent | Mimir current active Rule generation observer is now standard-bound, create-only audited and replica/restart CAS-safe; 20 focused checks pass. Reviewed promotion/regression/deprecation readers and Bragi evaluator remain open; observation grants no activation authority. |
-| 12 | Durable what-if and multi-target attempt model | Limited v1 comparison inputs survive restart/replicas in a 512-record CAS window (176 checks). Existing per-target identity/rollback, rollup audit and durable approval/restart mechanics are implemented, not absent; explicit target-declaration fallthrough is fixed (51 checks). Full what-if context, durable replay deduplication and deployed provider acceptance remain open. |
+| 12 | Durable what-if and multi-target attempt model | Limited v1 inputs survive restart/replicas (176 checks). Request-pinned outbox now suppresses completed-request duplicates and recovers pending results in a 512-record/512 KiB retained window (211 checks). Existing per-target identity/rollback, rollup audit and durable approval/restart mechanics exist; declaration fallthrough is fixed (51 checks). Full what-if context and deployed provider acceptance remain open. |
 | 13 | Ordered poison halt persistence unbound | Standard Core source now binds the existing service-owned StateStore and receipt-gated clear handler; actual initialization and related durability checks pass. Governed provider restart/clear receipts remain open. |
 | 14 | Saga replica and issue-operation identity residuals | Local StateStore adapter now globally binds operation id to fingerprint/content and restores legacy bindings before reuse. Replica-safe audit/publication and remote GitHub App operation identity remain open. |
 | 15 | Development authority source absent | Reconciled: current runtime implements PreparedDevelopmentBindingRegistry and shares the selected source with ControlLoop and Pantheon; 26 existing composition/source checks pass. Actual selected profile/current Owner/live approval and execution receipts remain unverified; no authority is manufactured. |
@@ -45,6 +45,19 @@ Synthetic tests never satisfy operational readiness or production promotion.
 | 27 | Real speech/assistive evidence absent | Needs human: retain actual EN/KO speech and screen-reader results; browser simulations are insufficient. |
 
 ## Round evidence
+
+### Residual Forseti request-pinned durable comparison delivery
+
+Restart duplicated completed what-if delivery; narrow counterexamples then exposed changed-input
+recovery, byte-cap compaction, unreported claim deferral and request-slot substitution. The reviewed
+design pins the first result per correlation/alternate-table/sample bound in the existing StateStore.
+Closed content hashes, revision CAS and the shared claim-fenced helper bound 512 requests/512 KiB.
+Only completed rows are compacted; startup and maintenance recover at most 16 eligible rows with
+deadlines. Concurrent replicas publish one result, canceled claims recover after expiry, and broker
+acceptance/checkpoint failure replays identical bytes/key. Input-window loss does not erase pending
+results. Focused what-if/outbox/layout/workflow/primary-pipeline checks: 211 passed; three-source mypy
+and Ruff passed. Retention-window deduplication is not unbounded exactly-once transport, complete
+historical context, independent operational evidence or deployed provider acceptance.
 
 ### Residual Thor explicit-target boundary and implementation reconciliation
 
