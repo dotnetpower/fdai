@@ -255,6 +255,8 @@ class Installation:
 
         if state.observed_at <= self.reported.observed_at:
             raise StaleStateError("reported state is not newer than the current state")
+        if unknown := state.entities.keys() - {entity.entity_id for entity in self.entities}:
+            raise ValueError(f"reported state names unknown entities: {sorted(unknown)}")
         return replace(self, reported=state)
 
     def suppressed(self, window: SuppressionWindow, now: datetime) -> Self:
