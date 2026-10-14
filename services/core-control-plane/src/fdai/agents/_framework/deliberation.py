@@ -10,7 +10,7 @@ import re
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 from fdai.agents._framework.base import AgentSpec
 from fdai.agents._framework.bragi_constants import _MAX_ANSWER_CHARS, _MAX_QUESTION_CHARS
@@ -99,6 +99,7 @@ class DeliberationRequest:
     claims: tuple[DeliberationClaim, ...]
     participant_prompts: tuple[tuple[str, str], ...]
     locale: str = "en"
+    purpose: Literal["discussion", "owned_answer"] = "discussion"
 
     def __post_init__(self) -> None:
         if not self.question or len(self.question) > _MAX_QUESTION_CHARS:
@@ -107,7 +108,9 @@ class DeliberationRequest:
             raise ValueError("deliberation requester and primary_agent MUST be non-empty")
         if len(self.correlation_id) > 256:
             raise ValueError("deliberation correlation_id MUST be at most 256 characters")
-        if not 2 <= len(self.claims) <= _MAX_CLAIMS:
+        if self.purpose not in {"discussion", "owned_answer"}:
+            raise ValueError("conversation writing purpose is invalid")
+        if not (1 if self.purpose == "owned_answer" else 2) <= len(self.claims) <= _MAX_CLAIMS:
             raise ValueError("deliberation requires between two and three claims")
         if self.primary_agent != self.claims[0].agent:
             raise ValueError("deliberation primary_agent MUST own the first claim")
@@ -133,6 +136,7 @@ class DeliberationRequest:
                 "claims": [_claim_dict(claim) for claim in self.claims],
                 "participant_prompts": self.participant_prompts,
                 "locale": self.locale,
+                **({"purpose": self.purpose} if self.purpose != "discussion" else {}),
             },
             sort_keys=True,
             separators=(",", ":"),
@@ -442,7 +446,7 @@ class ConversationDeliberator:
         if self._t2_synthesizer is None:
             result["t2_status"] = "unavailable"
             return result
-        return await self._synthesize(
+        return await self.synthesize_answer(
             result,
             question=question,
             requester=requester,
@@ -493,7 +497,7 @@ class ConversationDeliberator:
             "escalation_limit": self._budget.max_calls_per_correlation,
         }
 
-    async def _synthesize(
+    async def synthesize_answer(
         self,
         result: dict[str, Any],
         *,
@@ -504,6 +508,7 @@ class ConversationDeliberator:
         primary_agent: str,
         claims: tuple[DeliberationClaim, ...],
         locale: str,
+        purpose: Literal["discussion", "owned_answer"] = "discussion",
     ) -> dict[str, Any]:
         synthesizer = self._t2_synthesizer
         if synthesizer is None:
@@ -537,6 +542,7 @@ class ConversationDeliberator:
             primary_agent=primary_agent,
             claims=claims,
             locale=locale,
+            purpose=purpose,
             participant_prompts=tuple(
                 (claim.agent, self._specs[claim.agent].conversation.system_prompt)
                 for claim in claims
@@ -618,7 +624,7 @@ class ConversationDeliberator:
                     result.pop("reason", None)
                     result["tier"] = "T2"
                     result["t2_status"] = "completed"
-                    result["conclusion"] = conclusion.strip()
+                    result["conclusion"] = conclusion
                     result["synthesis_verification"] = {
                         "request_sha256": request.sha256,
                         "conclusion_sha256": conclusion_sha256,

@@ -61,6 +61,7 @@ def _payload(request: DeliberationRequest) -> dict[str, object]:
     return {
         "question": request.question,
         "locale": request.locale,
+        "purpose": request.purpose,
         "request_sha256": request.sha256,
         "authority": "presentation_only",
         "goals": [

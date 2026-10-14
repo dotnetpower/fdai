@@ -768,6 +768,72 @@ def test_deliberation_request_rejects_prompt_claim_order_mismatch() -> None:
         )
 
 
+def test_owned_answer_purpose_accepts_one_owner_without_relaxing_discussion() -> None:
+    values = {
+        "question": "Explain the current owned cost snapshot.",
+        "requester": "Bragi",
+        "correlation_id": "owned-answer-one",
+        "primary_agent": "Njord",
+        "claims": (_test_claim("Njord", "a"),),
+        "participant_prompts": (("Njord", "Njord prompt"),),
+    }
+    with pytest.raises(ValueError, match="requires between"):
+        DeliberationRequest(**values)
+    request = DeliberationRequest(**values, purpose="owned_answer")
+    assert request.purpose == "owned_answer"
+    discussion_values = {
+        **values,
+        "claims": (*values["claims"], _test_claim("Freyr", "b")),
+        "participant_prompts": (*values["participant_prompts"], ("Freyr", "Freyr prompt")),
+    }
+    assert (
+        DeliberationRequest(**discussion_values).sha256
+        != DeliberationRequest(**discussion_values, purpose="owned_answer").sha256
+    )
+    with pytest.raises(ValueError, match="purpose is invalid"):
+        DeliberationRequest(**values, purpose="execute")
+
+
+def test_verified_conclusion_preserves_exact_digest_bound_text(monkeypatch) -> None:
+    from dataclasses import replace
+
+    original_review = _SynthesisVerifier.verify
+
+    async def review_exact_whitespace(self, request, outcome):
+        receipt = await original_review(self, request, outcome)
+        return replace(
+            receipt,
+            accepted=outcome.conclusion
+            == "  Capacity evidence outweighs the bounded cost objection; disagreement remains.  ",
+        )
+
+    monkeypatch.setattr(_SynthesisVerifier, "verify", review_exact_whitespace)
+
+    class WhitespaceSynthesizer(_T2Synthesizer):
+        async def synthesize(self, request: DeliberationRequest) -> SynthesisOutcome:
+            outcome = await super().synthesize(request)
+            return SynthesisOutcome(
+                conclusion=f"  {outcome.conclusion}  ",
+                model_identity=outcome.model_identity,
+                model_family=outcome.model_family,
+            )
+
+    result = asyncio.run(
+        _runtime(t2=WhitespaceSynthesizer()).deliberate(
+            question="Compare cost and capacity evidence.",
+            requester="Bragi",
+            correlation_id="exact-verified-prose",
+        )
+    )
+    assert result["status"] == "completed"
+    assert result["conclusion"].startswith("  ")
+    assert result["conclusion"].endswith("  ")
+    assert (
+        result["synthesis_verification"]["conclusion_sha256"]
+        == hashlib.sha256(result["conclusion"].encode()).hexdigest()
+    )
+
+
 def test_t2_deliberation_synthesizes_without_raising_authority() -> None:
     synthesizer = _T2Synthesizer()
     result = asyncio.run(

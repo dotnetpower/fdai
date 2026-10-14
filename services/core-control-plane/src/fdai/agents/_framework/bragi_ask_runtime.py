@@ -38,9 +38,11 @@ from fdai.agents._framework.bragi_runtime_helpers import (
     _validate_question,
     _validate_tool_answer_envelope,
 )
+from fdai.agents._framework.owned_answer import compose_owned_answer
 from fdai.agents._framework.pantheon import PANTHEON_NAMES
 
 if TYPE_CHECKING:
+    from fdai.agents._framework.deliberation import ConversationDeliberator
     from fdai.agents.bragi import ToolAnswerFn
 
 _LOG = logging.getLogger("fdai.agents.bragi")
@@ -54,6 +56,7 @@ class BragiAskRuntimeMixin:
     _sessions: dict[str, ConversationSession]
     _tool_answer: ToolAnswerFn | None
     _agent_responders: dict[str, AnswerFn]
+    _deliberator: ConversationDeliberator
 
     if TYPE_CHECKING:
 
@@ -398,14 +401,28 @@ class BragiAskRuntimeMixin:
                     answer["abstain_reason"] = "agent_evidence_conflict"
                     answer["handoff_needed"] = True
                     answer["unresolved_conflicts"] = conflicts
-                elif isinstance(primary_text, str) and contributor_answers:
-                    lines = [f"{decision.primary_agent}: {primary_text}"]
-                    lines.extend(
-                        f"{item['agent']}: {item['answer']}"
-                        for item in contributor_answers
-                        if isinstance(item.get("answer"), str)
+                elif (
+                    isinstance(primary_text, str)
+                    and tool_answer is None
+                    and judgment.primary_intent != "agent_role"
+                ):
+                    composition = await compose_owned_answer(
+                        self._deliberator,
+                        question=question,
+                        correlation_id=(
+                            f"{_session_ref(session_id, session.generation)}:{turn_index}"
+                        ),
+                        primary_agent=decision.primary_agent,
+                        answer=answer,
+                        contributors=contributor_answers,
+                        locale=locale,
+                        incomplete=bool(contributor_errors),
                     )
-                    answer["answer"] = "\n".join(lines)
+                    answer["owned_answer_composition"] = composition
+                    answer["answer"] = composition["conclusion"]
+                    if composition["status"] != "completed":
+                        answer["abstain_reason"] = "owned_answer_verification_held"
+                        answer["handoff_needed"] = True
                 answer["score_breakdown"] = decision.scores
                 answer["tie_break_reason"] = decision.tie_break
                 answer["routing_method"] = decision.method

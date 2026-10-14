@@ -59,6 +59,7 @@ from fdai.agents._framework.conversation_prompt import (
 )
 from fdai.agents._framework.conversation_tools import AgentToolResult, AgentToolStatus
 from fdai.agents._framework.deliberation import (
+    ConversationDeliberator,
     ConversationSynthesisVerifier,
     DeliberationClaim,
     DeliberationRequest,
@@ -90,11 +91,13 @@ from fdai.agents._framework.forseti_baseline_worker import (
     ForsetiBaselineScheduler,
     ForsetiBaselineWorker,
 )
+from fdai.agents._framework.freyr_sampling import MAX_RECURRING_SAMPLES, UtilizationSample
 from fdai.agents._framework.huginn_operator_receipt import (
     OperatorRequestReceiptGate,
     ReservedOperatorRequestReceipt,
 )
 from fdai.agents._framework.introspection import agent_state_evidence_ref
+from fdai.agents._framework.mimir_maintenance import MimirRuleSourcePollResult
 from fdai.agents._framework.mimir_policy_administration import (
     POLICY_ADMIN_OPA_CAPABILITIES_RELATIVE,
     MimirPolicyAdministration,
@@ -109,6 +112,7 @@ from fdai.agents._framework.ontology_index import (
     ContextIndexWorkerBindings,
     recover_context_index_publications,
 )
+from fdai.agents._framework.owned_answer import compose_owned_answer
 from fdai.agents._framework.pantheon import (
     HARD_DEPENDENCY_AGENTS,
     LLM_HOT_PATH_ALLOWLIST,
@@ -152,6 +156,7 @@ from fdai.agents._framework.topics import (
     ENVELOPE_SCHEMA_VERSION,
     OWNED_OBJECT_TOPICS,
     partition_key_for,
+    stable_idempotency_key,
     topic_for_object_type,
 )
 from fdai.agents._framework.vertical_precedence import InitialVerticalPrecedence
@@ -232,6 +237,7 @@ __all__ = [
     "CatalogReviewBindings",
     "ComposedConversationPrompt",
     "ConversationCharter",
+    "ConversationDeliberator",
     "ConversationSituation",
     "ConversationTool",
     "CompositeThorPreflightSimulator",
@@ -250,6 +256,9 @@ __all__ = [
     "Layer",
     "Mimir",
     "MimirPolicyAdministration",
+    "MimirRuleSourcePollResult",
+    "MAX_RECURRING_SAMPLES",
+    "UtilizationSample",
     "Norns",
     "OperatorRequestReceiptGate",
     "OpaRegoPolicyCompiler",
@@ -278,6 +287,7 @@ __all__ = [
     "ThorPreflightSimulator",
     "bind_recovery_effect_observation",
     "plan_conversation_tools",
+    "compose_owned_answer",
     "request_rule_generation",
     "load_pantheon",
     "instantiate_pantheon",
@@ -290,6 +300,7 @@ __all__ = [
     "OWNED_OBJECT_TOPICS",
     "topic_for_object_type",
     "partition_key_for",
+    "stable_idempotency_key",
     "WORKFLOWS",
     "WorkflowSpec",
 ]

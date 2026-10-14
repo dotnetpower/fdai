@@ -59,7 +59,22 @@ class FrozenSemanticJudgmentModel:
             action_subject = "ActionType"
         elif explicit_agents:
             targets.extend(explicit_agents)
-            primary_intent = "open_question"
+            primary_intent = (
+                "agent_role"
+                if any(
+                    marker in folded
+                    for marker in (
+                        "role",
+                        "report",
+                        "forbidden",
+                        "authority",
+                        "capability",
+                        "역할",
+                        "보고",
+                    )
+                )
+                else "open_question"
+            )
         else:
             primary_intent = _intent_for(folded)
         return {

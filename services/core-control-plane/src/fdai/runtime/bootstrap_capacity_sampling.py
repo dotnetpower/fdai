@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from fdai.agents._framework.freyr_sampling import MAX_RECURRING_SAMPLES
+from fdai.agents import MAX_RECURRING_SAMPLES
 from fdai.composition import Container
 from fdai.core.operational_evidence.registry_json import load_strict_json_text
 from fdai.delivery.analyzer_inventory import build_analyzer_inventory_sources

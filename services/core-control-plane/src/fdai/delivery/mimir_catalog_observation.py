@@ -8,7 +8,7 @@ from typing import Protocol
 
 from fdai_service_contracts.ontology_query import content_digest
 
-from fdai.agents._framework.mimir_maintenance import MimirRuleSourcePollResult
+from fdai.agents import MimirRuleSourcePollResult
 from fdai.core.tiers.t0_deterministic import RuleGenerationSnapshot
 from fdai.shared.providers.state_store import StateStore
 

@@ -6,8 +6,7 @@ import math
 from collections.abc import Mapping, Sequence
 from datetime import datetime, timedelta
 
-from fdai.agents._framework.freyr_sampling import MAX_RECURRING_SAMPLES, UtilizationSample
-from fdai.agents._framework.topics import stable_idempotency_key
+from fdai.agents import MAX_RECURRING_SAMPLES, UtilizationSample, stable_idempotency_key
 from fdai.core.ontology_platform.metric_semantics import MetricSemanticRegistry
 from fdai.delivery.analyzer_inventory import (
     AnalyzerProviderReferenceReader,

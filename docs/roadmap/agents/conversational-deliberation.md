@@ -69,6 +69,22 @@ does not forward incident, selected-resource or attachment context into discussi
 desktop/responsive tests and bilingual labels verify this source connection, not governed live
 quality, authorization, cost, accessibility or restart acceptance, which remain unfinished.
 
+## Verified owned operational answers
+
+Ordinary Bragi `ask` keeps direct introspection as an owned-data view. An accepted typed
+`agent_role` intent preserves the role description, and an exact fact-scoped tool preserves its
+data view. Final operational prose is composed separately from one to three complete canonical
+owner snapshots, the original question and locale. It never concatenates responder templates.
+The explicit `owned_answer` purpose is bound into request identity; ordinary discussion still
+requires two to three agents and retains its previous default request hash.
+
+The existing structured writer, V-CLAIM, independent reviewer, sensitivity/output bounds and
+measured per-correlation budget apply. The budget key includes session generation and turn, so
+distinct turns do not reuse one allowance. Missing writer/reviewer, incomplete contributors,
+unentailed claims or exhausted budget hold the prose while retaining structured owned evidence.
+Review remains presentation-only over agent-owned projections, not live cloud truth or execution
+authority. Source connection and focused synthetic checks do not establish deployed model quality.
+
 ## Situational prompt composition
 
 One static string cannot serve every turn. An operator asking in Korean, a read-only peer

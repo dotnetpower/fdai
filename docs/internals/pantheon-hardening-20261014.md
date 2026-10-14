@@ -19,7 +19,7 @@ Synthetic tests never satisfy operational readiness or production promotion.
 | 1 | Unsupported T2 conclusions | Concrete V-CLAIM and independent-model review implemented and default-bound in residual-work batch 2; exact owned snapshots, names, values, limitations and row coverage are verified. Live deployed quality remains open. |
 | 2 | Lost failed discussion participants | Fixed in round 1: preserve all selected participants and reasons; block synthesis after partial evidence. |
 | 3 | Peer critique does not consume the peer claim | Structured evidence critique implemented in residual-work batch 1: exact primary/reviewer attribution and both source sets with consistent/conflicting/not-comparable states. Free-prose entailment remains the independent verified-composition boundary. |
-| 4 | Template operational answers | Open migration debt: use verified answer composition; keep fact views and role descriptions distinct from operational conclusions. |
+| 4 | Template operational answers | Bragi final owned operational prose now uses the existing structured writer/V-CLAIM/independent reviewer; exact purpose, owner snapshots and generation/turn budget are bound. Typed agent_role and exact tools remain separate owned-data views. Missing verification or contributors holds prose. Live quality acceptance remains open. |
 | 5 | Remote target and locale are lost | Fixed in round 3 within client/server/Bragi: explicit target, validated locale and locale-bound replay identity. General Operator surface wiring remains open. |
 | 6 | Operator group discussion is not wired | Backend and Console source connected in residual-work batches 3-4 with independent current Owner/exact-installation read admission, existing durable stream and explicit mode. Local backend: 541 passed; Console: 61 unit checks and 2 focused synthetic E2E passed. Actual verifier/model/authorization/cost acceptance remains open. |
 | 7 | Concrete T2 synthesis is unbound | Implemented default source binding in residual-work batch 2 when exact independent targets, reviewed prompts, prices, identity/client and metering exist. Existing custom bindings are preserved; deployment receipts remain open. |
@@ -68,6 +68,23 @@ an explicit 200-line structural ceiling. No live model, identity, deployment or 
 | 5 | A known structured conflict still reported completion and the primary position when synthesis was missing or failed; partial results also exposed a final conclusion. | Remove final conclusions from partial/held results; preserve all participant evidence and allow only independently verified conflict synthesis to close. Reconcile parent composition/profile authority boundaries. | Cumulative 31-selector Pantheon/conversation/budget/handover checks: 966 passed; Ruff, focused mypy and stewardship gate passed. | This is five completed local hardening rounds, not closure of every initial source integration or any live operational blocker. |
 
 ## Completion boundary
+
+### Residual verified owned-answer evidence
+
+Final Bragi `ask` operational prose now consumes complete attributed owner snapshots through an
+explicit `owned_answer` purpose. Single-owner writing does not relax the default two-to-three
+discussion rule, and only the non-default purpose changes the request hash. Accepted typed
+`agent_role` and exact fact-scoped tools retain owned-data views. Missing or rejected review,
+invented state, incomplete peer evidence or spent correlation allowance holds final prose; raw
+templates are not concatenated or passed as model grounding. Source/model text creates no
+approval, execution, promotion or live observation authority. Actual Bragi connection proves
+separate two-call budgets per turn and no extra role-view calls. Writing checks: 13 passed;
+framework layout: 14 passed; four-file mypy passed. Earlier conversation regression checks:
+191 passed. The structural gate also found earlier task-owned Freyr/Mimir internal imports;
+public facade exports now preserve that boundary. Final task-scoped checks passed 256 tests;
+four-file and latest five-file mypy plus Ruff passed. A further critique repaired post-review
+`strip()` changing the verified conclusion digest and literal spans: returned prose now preserves
+the exact reviewed text, including leading/trailing whitespace. Live model quality is unverified.
 
 ### Residual group-discussion design and critique
 
@@ -200,6 +217,19 @@ packs, never customer identifiers or credentials committed upstream. Tests use s
 only. Source implementation cannot establish actual identity, notification, approval, model quality
 or deployment acceptance. The first critique specifically forbids a nominal interpreter class
 with no production consumer caller and rejects source/version or reviewer-identity substitution.
+
+### Ordinary owned-answer design and critique
+
+Direct agent introspection remains a deterministic owned-fact view, including role descriptions
+and fact-scoped tools. Final Bragi operator prose is a separate presentation stage. It may use
+an explicitly purpose-tagged `owned_answer` request with one to three complete canonical owner
+snapshots and the original question/locale; default discussion still requires two to three agents.
+The existing structured answer/V-CLAIM/independent reviewer and per-correlation measured budget
+boundary is reused rather than inventing operational claims from template fragments. Source-only
+role/fact views remain distinct from reviewed final conclusions. Missing writing or verification
+holds the final prose and preserves the owned structured evidence; never concatenate templates
+as a claim of a verified answer. No action, approval, promotion or provider observation authority
+is created by the purpose tag, and tests never invoke a live model.
 
 ### Round 4 design and critique
 
