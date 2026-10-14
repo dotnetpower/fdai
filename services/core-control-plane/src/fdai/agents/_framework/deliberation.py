@@ -17,6 +17,7 @@ from fdai.agents._framework.bragi_constants import _MAX_ANSWER_CHARS, _MAX_QUEST
 from fdai.agents._framework.bragi_models import RoutingDecision
 from fdai.agents._framework.deliberation_evaluation import (
     DeliberationSignal,
+    evaluate_peer_claim,
     evaluate_t1_answers,
     evaluation_signals,
 )
@@ -61,6 +62,7 @@ class DeliberationClaim:
     evidence_refs: tuple[str, ...]
     prompt_sha256: str
     evaluation_signals: tuple[DeliberationSignal, ...] = ()
+    facts_json: str = "{}"
 
     def __post_init__(self) -> None:
         if not self.agent or not self.answer or len(self.answer) > _MAX_ANSWER_CHARS:
@@ -73,6 +75,17 @@ class DeliberationClaim:
             raise ValueError("deliberation claim evidence_refs MUST be bounded and non-empty")
         if _SHA256.fullmatch(self.prompt_sha256) is None:
             raise ValueError("deliberation claim prompt_sha256 MUST be a SHA-256 digest")
+        if len(self.facts_json.encode()) > 16_384:
+            raise ValueError("deliberation owned facts MUST fit 16384 bytes")
+        facts = json.loads(self.facts_json)
+        if (
+            not isinstance(facts, dict)
+            or json.dumps(
+                facts, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
+            )
+            != self.facts_json
+        ):
+            raise ValueError("deliberation owned facts MUST be canonical object JSON")
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +98,7 @@ class DeliberationRequest:
     primary_agent: str
     claims: tuple[DeliberationClaim, ...]
     participant_prompts: tuple[tuple[str, str], ...]
+    locale: str = "en"
 
     def __post_init__(self) -> None:
         if not self.question or len(self.question) > _MAX_QUESTION_CHARS:
@@ -105,6 +119,8 @@ class DeliberationRequest:
         prompt_agents = tuple(agent for agent, _ in self.participant_prompts)
         if prompt_agents != claim_agents:
             raise ValueError("deliberation prompts MUST align with claim agents")
+        if self.locale not in {"en", "ko"}:
+            raise ValueError("deliberation locale MUST be en or ko")
 
     @property
     def sha256(self) -> str:
@@ -116,6 +132,7 @@ class DeliberationRequest:
                 "primary_agent": self.primary_agent,
                 "claims": [_claim_dict(claim) for claim in self.claims],
                 "participant_prompts": self.participant_prompts,
+                "locale": self.locale,
             },
             sort_keys=True,
             separators=(",", ":"),
@@ -392,7 +409,7 @@ class ConversationDeliberator:
                     "contributions": [
                         {
                             **_claim_dict(claim),
-                            "peer_review": _peer_review(primary_claim, claim),
+                            "peer_review": evaluate_peer_claim(primary_claim, claim),
                         }
                         for claim in peer_claims
                     ],
@@ -427,6 +444,7 @@ class ConversationDeliberator:
             budget_key=budget_key,
             primary_agent=primary_agent,
             claims=claims,
+            locale=locale,
         )
 
     async def _critique(
@@ -479,6 +497,7 @@ class ConversationDeliberator:
         budget_key: str,
         primary_agent: str,
         claims: tuple[DeliberationClaim, ...],
+        locale: str,
     ) -> dict[str, Any]:
         synthesizer = self._t2_synthesizer
         if synthesizer is None:
@@ -497,7 +516,11 @@ class ConversationDeliberator:
         # fails still consumed what it was granted. Cost is charged where
         # it becomes known - the metering record - so this ledger has
         # exactly one place that accounts for money.
-        if not await self._ledger.reserve(budget_key, calls=1, cost_microusd=0):
+        required_calls = getattr(synthesizer, "model_calls_per_synthesis", 1)
+        if type(required_calls) is not int or not 1 <= required_calls <= 2:
+            result["t2_status"] = "invalid_model_call_budget"
+            return result
+        if not await self._ledger.reserve(budget_key, calls=required_calls, cost_microusd=0):
             result["t2_status"] = "budget_denied"
             result["escalation_budget"] = await self._budget_snapshot(budget_key)
             return result
@@ -507,6 +530,7 @@ class ConversationDeliberator:
             correlation_id=correlation_id,
             primary_agent=primary_agent,
             claims=claims,
+            locale=locale,
             participant_prompts=tuple(
                 (claim.agent, self._specs[claim.agent].conversation.system_prompt)
                 for claim in claims
@@ -680,13 +704,19 @@ def _claim(agent_name: str, response: dict[str, Any] | None) -> DeliberationClai
     prompt_sha256 = composition.get("prompt_sha256") if isinstance(composition, dict) else None
     if not isinstance(prompt_sha256, str) or _SHA256.fullmatch(prompt_sha256) is None:
         return None
-    return DeliberationClaim(
-        agent=agent_name,
-        answer=response["answer"],
-        evidence_refs=evidence_refs,
-        prompt_sha256=prompt_sha256,
-        evaluation_signals=evaluation_signals(facts),
-    )
+    try:
+        return DeliberationClaim(
+            agent=agent_name,
+            answer=response["answer"],
+            evidence_refs=evidence_refs,
+            prompt_sha256=prompt_sha256,
+            evaluation_signals=evaluation_signals(facts),
+            facts_json=json.dumps(
+                facts, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
+            ),
+        )
+    except (TypeError, ValueError):
+        return None
 
 
 def _trusted_scenario_signals(
@@ -723,26 +753,7 @@ def _claim_dict(claim: DeliberationClaim) -> dict[str, Any]:
         "answer": claim.answer,
         "evidence_refs": list(claim.evidence_refs),
         "prompt_sha256": claim.prompt_sha256,
-    }
-
-
-def _peer_review(primary: DeliberationClaim, peer: DeliberationClaim) -> dict[str, Any]:
-    evaluation = evaluate_t1_answers((primary, peer))
-    primary_keys = {(signal.identity_digest, signal.field) for signal in primary.evaluation_signals}
-    peer_keys = {(signal.identity_digest, signal.field) for signal in peer.evaluation_signals}
-    return {
-        "primary_agent": primary.agent,
-        "reviewer": peer.agent,
-        "primary_evidence_refs": list(primary.evidence_refs),
-        "reviewer_evidence_refs": list(peer.evidence_refs),
-        "comparison_status": (
-            "not_comparable"
-            if not primary_keys.intersection(peer_keys)
-            else "conflicting"
-            if evaluation.requires_t2
-            else "consistent"
-        ),
-        **evaluation.to_mapping(),
+        "facts": json.loads(claim.facts_json),
     }
 
 

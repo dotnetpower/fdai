@@ -271,6 +271,10 @@ evaluator admits T2 only when two claims use the same identity field and canonic
 then name the same conclusion field with different canonical values. Different identity fields are
 separate namespaces even when their rendered values happen to match.
 
+The claim also retains its normalized owned facts as canonical, immutable `facts_json` bounded
+at 16 KiB. Unsupported values, non-finite numbers and overflow hold before synthesis. The complete
+snapshot participates in request identity, so later caller mutation cannot substitute evidence.
+
 No comparable signal means that T2 is not required. A prose difference, an available synthesizer,
 or remaining budget never opens escalation by itself. Missing evidence references still cause T1
 abstention before evaluation, and the evaluator records bounded owner and field metadata rather
@@ -386,9 +390,15 @@ itself. Missing, rejected, mismatched, or failed verification preserves T1 evide
 the generated conclusion. A verified conclusion carries content-free digest and citation metadata;
 the receipt grants no action, approval, promotion, or execution authority.
 
-Upstream does not ship a default Azure adapter for this Protocol. When the binding is absent, the
-runtime remains at T1. Adding an adapter requires provider selection, metering, deployment
-validation, and focused failure tests.
+Standard Core bootstrap now binds `VerifiedPantheonSynthesizer` and its independent verifier when
+the existing independent Azure reasoner targets, both USD prices, exact reviewed prompt packs,
+workload identity, HTTP client and metering are available. Existing custom bindings are preserved.
+The author returns `ComposedAnswer`; V-CLAIM checks exact values, names, references, limitations and
+complete row accounting before the separate reviewer checks every claim. Missing or rejected
+review cannot approve an answer. Agent-owned projections are explicitly not live cloud evidence.
+Both model calls are reserved before generation, reviewer usage is metered separately, and malformed
+generation still retains measured cost. The operator locale is bound to the request. These are
+implemented source mechanics, not a live quality, latency, cost or deployment acceptance receipt.
 
 ## Authority boundary
 

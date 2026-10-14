@@ -1,6 +1,6 @@
 {
   "algorithm": "sha256",
-  "file_count": 1962,
+  "file_count": 1963,
   "files": {
     ".github/instructions/agent-pantheon.instructions.md": "c1de41caedf8069885a5e12c9baadc3436b3f7f5e7afe399efaddbd988afb0bf",
     ".github/instructions/agent-stewardship.instructions.md": "6d34f24fe8879f3edac388d5e7fd9ab138563ca386a5c401f72d8fc3c1698624",
@@ -68,8 +68,8 @@
     "services/core-control-plane/src/fdai/agents/_framework/conversation_prompt.py": "7f9ab6b4ea5304affb8530de67844fc2e94e5ef376c7d73d96245e5a95d90b92",
     "services/core-control-plane/src/fdai/agents/_framework/conversation_tools.py": "7e68ecf019023ee897a4ae35ae96634600f00f1644be1586091518394164c805",
     "services/core-control-plane/src/fdai/agents/_framework/cross_vertical_candidates.py": "3795eef12a8c9fdd831442dea84925a3aa651db1ee67e4eebab67a729f688cc6",
-    "services/core-control-plane/src/fdai/agents/_framework/deliberation.py": "4e8fd54b4c6e2f2efb2fff7b5b98fe91cace37ccc41e85252bcb24d884a5c1c7",
-    "services/core-control-plane/src/fdai/agents/_framework/deliberation_evaluation.py": "bf8eb74340e17494e1f14a5868902f2c9d2f90195f8e07ea39b452f86a9056ca",
+    "services/core-control-plane/src/fdai/agents/_framework/deliberation.py": "c4f3a4ff16884c1b9fac1ef8ff10b7f3237b71a4685cd3f5e8e77462e33e3e54",
+    "services/core-control-plane/src/fdai/agents/_framework/deliberation_evaluation.py": "152e2738ebbbd9cdb84f4e4d4dce84e722dc97ccc54c9bce898efe04218eab04",
     "services/core-control-plane/src/fdai/agents/_framework/development_authority.py": "6f0b9bf6a18abf14a5c6755cbfaf31aa803d48b3455fa7e357e6b23c00f49d39",
     "services/core-control-plane/src/fdai/agents/_framework/development_authority_runtime.py": "36e1b618fdc6d26ea2566fd7d0cb395e593c9d2c02f38391e945eeebec6b3da6",
     "services/core-control-plane/src/fdai/agents/_framework/divergence.py": "0304d6e035bf126bf02893794bef8453df40c042c264e89ceb7946254ddd8d0a",
@@ -254,6 +254,7 @@
     "services/core-control-plane/src/fdai/composition/adaptive_model_targets.py": "8505697eaf49fd82766cac8d19f592d5b4a4060adb46816336dc59f8117401b1",
     "services/core-control-plane/src/fdai/composition/cost_governance_activation.py": "04c7862a386b282447c8bfd4268f4da718bdecdc4defd36eff64e8a941b0e28b",
     "services/core-control-plane/src/fdai/composition/operational_evidence_binding.py": "12c5f441cd4228a2156ad165cd4adf91643ee5189634b6721516aa8a1a0296a3",
+    "services/core-control-plane/src/fdai/composition/pantheon_synthesis.py": "a938f6b59d27a7b4dd47ab4933c7d4eee2e32b4efa4cdf045e1c5a7486cf4128",
     "services/core-control-plane/src/fdai/composition/readiness.py": "f967cb276f1f2365d0a2d95063352222c6745be86d9206217a054e5757572bef",
     "services/core-control-plane/src/fdai/composition/readiness_catalog.py": "186cb88f6983755a80d1dd478fce4fe2870fa6bb1375101904fea7ead775fce9",
     "services/core-control-plane/src/fdai/composition/readiness_evidence.py": "0924483390b408f5e6e16994e5891f264032cf540e9a1fcd2cfba0ed09de79d1",

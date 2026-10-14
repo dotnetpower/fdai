@@ -149,6 +149,31 @@ def evaluate_t1_answers(claims: Sequence[_EvaluatedClaim]) -> T1AnswerEvaluation
     )
 
 
+class _PeerClaim(_EvaluatedClaim, Protocol):
+    @property
+    def evidence_refs(self) -> tuple[str, ...]: ...
+
+
+def evaluate_peer_claim(primary: _PeerClaim, peer: _PeerClaim) -> dict[str, object]:
+    evaluation = evaluate_t1_answers((primary, peer))
+    primary_keys = {(signal.identity_digest, signal.field) for signal in primary.evaluation_signals}
+    peer_keys = {(signal.identity_digest, signal.field) for signal in peer.evaluation_signals}
+    return {
+        "primary_agent": primary.agent,
+        "reviewer": peer.agent,
+        "primary_evidence_refs": list(primary.evidence_refs),
+        "reviewer_evidence_refs": list(peer.evidence_refs),
+        "comparison_status": (
+            "not_comparable"
+            if not primary_keys.intersection(peer_keys)
+            else "conflicting"
+            if evaluation.requires_t2
+            else "consistent"
+        ),
+        **evaluation.to_mapping(),
+    }
+
+
 def _canonical_scalar(value: object) -> str | None:
     if not isinstance(value, str | int | float | bool):
         return None
@@ -171,6 +196,7 @@ def _is_sha256(value: str) -> bool:
 __all__ = [
     "DeliberationSignal",
     "T1AnswerEvaluation",
+    "evaluate_peer_claim",
     "evaluate_t1_answers",
     "evaluation_signals",
 ]

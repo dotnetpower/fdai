@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 3c85614818dd1f5fb12c7e8d4f009a26967b633a
+translation_source_sha: b017a8ce0921da4228dda8eba470589df7967d9c
 translation_revised: 2026-10-14
 ---
 # 프로젝트 구조
@@ -714,6 +714,11 @@ Bragi가 소유하는 대화 구성은 정확한 선택 대상과 언어, 독립
 결론 없이 부분 완료 또는 보류로 남습니다. 이 읽기 전용 연결은 MSCP 활성화, 실행 권한, 승인,
 감사, 복구, ActionType 승격 또는 Cost Governance 패키지 권한을 바꾸지 않습니다. 정확한
 주입 경계는 [의존성 주입 보조 문서](project-structure-dependency-injection-ko.md)를 참조하세요.
+
+`composition/pantheon_synthesis.py`는 정확한 기존 독립 Azure 대상, 검토된 프롬프트 팩,
+USD 가격, 신원/클라이언트 및 계측이 있을 때 검증된 기본 표시 경로를 제공합니다.
+사용자 주입을 보존하고 V-CLAIM/독립 검토를 영속적인 두 호출 예산에 결합합니다.
+전제조건이 없으면 보류하며 실시간 사실을 인증하거나 작업 및 패키지 권한을 부여할 수 없습니다.
 
 전체 경계 카탈로그와 구성 규칙은 [프로젝트 구조 의존성 주입](project-structure-dependency-injection-ko.md)을 참조하세요.
 Core 결과 핸들 저장소도 같은 규칙을 따릅니다. `ResultHandleStore`는 Core 조립에서 주입되며, 인메모리 로컬 구현과 PostgreSQL 구현은 암호화된 핸들 본문을 Core 소유로 유지하고 Operator에는 불투명 참조만 영속화하게 합니다. 해당 참조의 서수 후속 질문 바인딩은 기본적으로 꺼진 compiled-answer shadow 경로 안에 머물며 실행 권한을 추가하지 않습니다.

@@ -16,13 +16,13 @@ Synthetic tests never satisfy operational readiness or production promotion.
 
 | Review ID | Finding | Current disposition and observable exit |
 |-----------|---------|-----------------------------------------|
-| 1 | Unsupported T2 conclusions | Hardened boundary in round 2: unbound/rejected/invalid verification cannot display synthesis; actual V-CLAIM/independent-review production binding remains open. |
+| 1 | Unsupported T2 conclusions | Concrete V-CLAIM and independent-model review implemented and default-bound in residual-work batch 2; exact owned snapshots, names, values, limitations and row coverage are verified. Live deployed quality remains open. |
 | 2 | Lost failed discussion participants | Fixed in round 1: preserve all selected participants and reasons; block synthesis after partial evidence. |
 | 3 | Peer critique does not consume the peer claim | Structured evidence critique implemented in residual-work batch 1: exact primary/reviewer attribution and both source sets with consistent/conflicting/not-comparable states. Free-prose entailment remains the independent verified-composition boundary. |
 | 4 | Template operational answers | Open migration debt: use verified answer composition; keep fact views and role descriptions distinct from operational conclusions. |
 | 5 | Remote target and locale are lost | Fixed in round 3 within client/server/Bragi: explicit target, validated locale and locale-bound replay identity. General Operator surface wiring remains open. |
 | 6 | Operator group discussion is not wired | Open integration work: expose an authenticated read-only boundary without transferring typed authority. |
-| 7 | Concrete T2 synthesis is unbound | Open integration work: bind only a verified, priced, metered implementation. |
+| 7 | Concrete T2 synthesis is unbound | Implemented default source binding in residual-work batch 2 when exact independent targets, reviewed prompts, prices, identity/client and metering exist. Existing custom bindings are preserved; deployment receipts remain open. |
 | 8 | Narrow structured conflict vocabulary | Bounded design, not proof of complete reasoning: add only typed, evidenced comparisons; never infer conflict from lexical prose. |
 | 9 | Process-local discussion budget | Fixed for standard per-correlation bootstrap in round 4: policy-pinned StateStore CAS survives restart/replicas without eviction or memory fallback. Fleet totals and live provider receipts remain separate. |
 | 10 | Freyr/Loki recurring bindings absent | Open integration work: bind authoritative read-only sampling and reviewed schedules; do not synthesize samples or authorize Chaos. |
@@ -50,6 +50,14 @@ Residual-work batch 1 implements evidence-attributed peer critique. Same, opposi
 recommendations produce consistent, conflicting and not-comparable results without prose matching
 or invented consensus. Deliberation/layout checks passed 75 tests; Ruff and focused mypy passed.
 All authority, promotion and operational evidence boundaries remain unchanged.
+
+Residual-work batch 2 implements canonical immutable owned snapshots, locale-bound structured
+synthesis and a concrete V-CLAIM/independent-review adapter. Standard bootstrap resolves the exact
+existing independent models and reviewed prompt packs, reserves both calls, preserves custom
+bindings and holds missing prerequisites. Reviewer and malformed-generation costs are measured.
+The focused snapshot/synthesis/layout/bootstrap selection passed 138 tests; exact prompt registry
+loading, Ruff and three-file mypy passed. The new composition file owns only this binding and has
+an explicit 200-line structural ceiling. No live model, identity, deployment or quality claim was made.
 
 | Round | Critique | Repair | Focused evidence | Residual |
 |-------|----------|--------|------------------|----------|

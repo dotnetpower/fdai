@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import json
 from collections.abc import Callable, Sequence
 from dataclasses import replace
 from decimal import Decimal
@@ -433,6 +434,23 @@ def test_explicit_operator_target_survives_a_different_semantic_owner() -> None:
     assert "locale_ko" in turn.answer["prompt_composition"]["layers"]
 
 
+def test_two_model_synthesis_reserves_both_calls_before_generation() -> None:
+    class TwoModelSynthesizer(_T2Synthesizer):
+        model_calls_per_synthesis = 2
+
+    synthesizer = TwoModelSynthesizer()
+    runtime = _runtime(t2=synthesizer)
+    result = asyncio.run(
+        runtime.deliberate(
+            question="Compare cost and capacity.",
+            requester="Forseti",
+            locale="ko",
+        )
+    )
+    assert result["t2_status"] == "budget_denied"
+    assert synthesizer.requests == []
+
+
 def test_new_verifier_preserves_the_llm_binding_constructor_prefix() -> None:
     from fdai.composition import LlmBindings
 
@@ -617,6 +635,36 @@ def test_deliberation_claim_uses_the_effective_composed_prompt_digest() -> None:
 
     assert claim is not None
     assert claim.prompt_sha256 == composed_digest
+
+
+def test_deliberation_claim_preserves_immutable_owned_fact_values() -> None:
+    facts = {"count": 7, "state": "held", "evidence_refs": [_agent_state_ref("Njord")]}
+    claim = _claim(
+        "Njord",
+        {
+            "answer": "Owned snapshot.",
+            "facts": facts,
+            "prompt_composition": {"prompt_sha256": "a" * 64},
+        },
+    )
+    assert claim is not None
+    facts["count"] = 999
+    assert json.loads(claim.facts_json)["count"] == 7
+
+
+@pytest.mark.parametrize("value", [float("nan"), object(), "x" * 16_385])
+def test_deliberation_claim_holds_unserializable_or_oversized_owned_facts(value: object) -> None:
+    assert (
+        _claim(
+            "Njord",
+            {
+                "answer": "Owned snapshot.",
+                "facts": {"value": value, "evidence_refs": [_agent_state_ref("Njord")]},
+                "prompt_composition": {"prompt_sha256": "a" * 64},
+            },
+        )
+        is None
+    )
 
 
 def test_deliberation_claim_rejects_non_hex_prompt_digest() -> None:
