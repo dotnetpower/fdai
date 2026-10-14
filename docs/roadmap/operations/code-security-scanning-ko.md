@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: afaf8c39f861f19b936be4d3a725eb2b3354a445
+translation_source_sha: 63ecca39a818f136ef7ea7a072f18f6715dd40bc
 translation_revised: 2026-10-14
 ---
 
@@ -438,9 +438,10 @@ Informational은 정규 Low이면서 결정론적 우선순위가 P4인 표시 �
 ## 배포 스캔 런타임(제안)
 
 이 런타임은 부분적으로 구현되었습니다. 선택형 Kata 스캐너 백엔드, 인증된 프로세스 관측, 제한된
-데이터베이스 기능, 네임스페이스/RBAC 렌더러는 집중 테스트를 통과했습니다. 실제 배포 스캐너 실행이
-검증됐다고 주장하지는 않습니다. 배포에서는 정확한 클러스터, 불변 이미지, 전용 Kata 풀, 공유 소스와
-캐시 저장소, 조정기 ID를 먼저 연결해야 합니다.
+데이터베이스 기능, 네임스페이스/RBAC 렌더러는 집중 테스트를 통과했습니다. 개발 설치 한 곳에서 Kata
+커널과 네트워크 격리, TLS로만 접근하는 비공개 소스·캐시 저장소, 제한된 권한의 조정기 준비 상태를
+검증했습니다. 첫 Console 요청 스캔은 진행 중이며, 전체 배포 스캔이나 업무 흐름 검증 완료를
+주장하지 않습니다. 설치마다 정확한 선행 조건을 연결하고 독립적으로 확인해야 합니다.
 
 **문제와 수정.** 로컬 bubblewrap에는 비특권 사용자 네임스페이스가 필요합니다. 배포 백엔드는 대신
 결정론적 스캐너마다 별도의 Kata pod VM에서 직접 실행하므로 중첩 사용자 네임스페이스나 `Unconfined`
@@ -456,6 +457,8 @@ Informational은 정규 Low이면서 결정론적 우선순위가 P4인 표시 �
   지원하는 2세대 VM 크기(예: Dsv5), 0부터 시작하는 자동 확장, 스캐너 pod만 배치되는 `NoSchedule`
   taint를 갖춘 전용 사용자 풀입니다. Pod Sandboxing은 Azure Linux와 amd64만 지원하며, FDAI의 AKS
   프로필은 이미 둘 다 사용합니다.
+  현재 AKS API는 공급자 값으로 `KataMshvVmIsolation`을 요구합니다. 관측된 Kubernetes 런타임
+  클래스와 배치 계약은 계속 `kata-vm-isolation`을 사용합니다.
 - **스캐너 pod:** `runtimeClassName: kata-vm-isolation`, 풀에 맞는 toleration과 노드 선택기, 사용자
   65532, 모든 capability 제거, 권한 상승 금지, 읽기 전용 루트 파일 시스템을 씁니다.
   `RuntimeDefault` seccomp를 유지합니다. 호스트는 pod마다 여전히
