@@ -139,12 +139,9 @@ class IntentTrainingRun:
 def build_unbound_training_payload(*, reason: str) -> dict[str, Any]:
     """Return visible no-op evidence for an unbound off-path dependency."""
 
-    run_id = _run_id(("unbound", reason))
     corpus_digest = _digest_value(("unbound", reason))
     candidate_digest = _digest_value(("no-candidate", reason))
     return _base_payload(
-        run_id=run_id,
-        idempotency_parts=("unbound", reason),
         corpus_digest=corpus_digest,
         candidate_digest=candidate_digest,
         stages={
@@ -196,10 +193,7 @@ def evaluate_training_contract(
     )
     gate = _gate_results(results, holdout=holdout, target_cases=target_cases)
     promotion = _promotion_stage(gate, reviewed_promotion=reviewed_promotion)
-    run_id = _run_id(tuple(item.evidence_id for item in selected))
     payload = _base_payload(
-        run_id=run_id,
-        idempotency_parts=("evaluated", tuple(item.evidence_id for item in selected)),
         corpus_digest=corpus_digest,
         candidate_digest=str(candidate["candidate_digest"]),
         stages={
@@ -341,10 +335,7 @@ def _payload_for_hold(
     corpus_digest: str,
     reason: str,
 ) -> dict[str, Any]:
-    run_id = _run_id(tuple(item.evidence_id for item in selected))
     return _base_payload(
-        run_id=run_id,
-        idempotency_parts=("held", tuple(item.evidence_id for item in selected), reason),
         corpus_digest=corpus_digest,
         candidate_digest=str(candidate["candidate_digest"]),
         stages={
@@ -388,12 +379,19 @@ def _corpus_stage(selected: Sequence[IntentTrainingEvidence]) -> dict[str, Any]:
 
 def _base_payload(
     *,
-    run_id: str,
-    idempotency_parts: Sequence[Any],
     corpus_digest: str,
     candidate_digest: str,
     stages: Mapping[str, Any],
 ) -> dict[str, Any]:
+    snapshot_digest = _digest_value(
+        {
+            "contract_version": _CONTRACT_VERSION,
+            "corpus_digest": corpus_digest,
+            "candidate_digest": candidate_digest,
+            "stages": stages,
+        }
+    )
+    run_id = _run_id((snapshot_digest,))
     return {
         "producer_principal": "Bragi",
         "kind": "bragi_intent_training_evidence",
@@ -401,7 +399,7 @@ def _base_payload(
         "correlation_id": run_id,
         "idempotency_key": stable_idempotency_key(
             "bragi-intent-training",
-            *idempotency_parts,
+            snapshot_digest,
         ),
         "contract_version": _CONTRACT_VERSION,
         "corpus_digest": corpus_digest,
@@ -459,6 +457,7 @@ def _corpus_digest(selected: Sequence[IntentTrainingEvidence]) -> str:
             "evidence_id": item.evidence_id,
             "source_kind": item.source_kind,
             "principal_scope_digest": item.principal_scope_digest,
+            "consent_ref": item.consent_ref,
             "input_digest": item.input_digest,
             "baseline_owner": item.baseline_owner,
             "corrected_owner": item.corrected_owner,

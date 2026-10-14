@@ -350,6 +350,7 @@ class Bragi(
             raise RuntimeError("intent training evidence requires contract and lineage digests")
         if not isinstance(stages, Mapping):
             raise RuntimeError("intent training evidence requires stage mapping")
+        run_id = str(payload["id"])
         created = 0
         for stage_name, raw_stage in stages.items():
             if not isinstance(raw_stage, Mapping):
@@ -359,6 +360,7 @@ class Bragi(
                 contract_version=contract_version,
                 corpus_digest=corpus_digest,
                 candidate_digest=candidate_digest,
+                run_id=run_id,
                 stage=stage,
             )
             value = {
@@ -369,7 +371,7 @@ class Bragi(
                 "candidate_digest": candidate_digest,
                 "stage": stage,
                 "stage_status": str(raw_stage.get("status") or ""),
-                "run_id": str(payload.get("id") or ""),
+                "run_id": run_id,
                 "stage_payload": dict(raw_stage),
                 "routes_runtime_traffic": False,
                 "grants_action_authority": False,
@@ -377,6 +379,7 @@ class Bragi(
             audit = {
                 "kind": "bragi_intent_training_stage_recorded",
                 "principal": "Bragi",
+                "run_id": run_id,
                 "contract_version": contract_version,
                 "corpus_digest": corpus_digest,
                 "candidate_digest": candidate_digest,
