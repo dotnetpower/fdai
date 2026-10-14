@@ -251,8 +251,10 @@ activation or issue-close authority.
 
 Forseti what-if comparisons preserve the original recorded ActionType, including a no-rule
 abstention, and its recorded judgment-table digest. Current rules never fill the original action
-or replace its source digest. The bounded sample and publication deduplication windows remain
-process-local; durable full-context replay is a separate remaining capability.
+or replace its source digest. With Forseti's existing StateStore bound, a closed, content-hashed
+512-record CAS window preserves the limited v1 comparison inputs across restart and replicas.
+Storage failure or corruption holds comparison without changing the original judgment.
+Publication deduplication remains process-local; durable full-context replay is separate work.
 
 ### 4.2 Per-agent KPI (success and degradation signals)
 

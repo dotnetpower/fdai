@@ -472,6 +472,12 @@ class ForsetiRuntimeEventsMixin:
                         )
                         restored += 1
         restored += await forseti_durability.rehydrate_arbitration_state(self)
+        from fdai.agents._framework.forseti_quality_retention import restore_quality_samples
+
+        try:
+            restored += await restore_quality_samples(self)
+        except Exception:
+            self.record_behavior("retrospective_what_if:retention_unavailable")
         return restored
 
     async def maintenance_tick(self) -> None:

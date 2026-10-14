@@ -102,6 +102,7 @@ not authorize scaling. Local routed-provider, sampling and bootstrap checks: 56 
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-15 | implemented | Persisted the bounded v1 Forseti comparison window through the existing StateStore: 512 records, closed fields, content hashes, eight bounded CAS attempts and two-second storage deadlines. Startup and each comparison restore validated committed inputs; storage faults preserve primary judgments and hold comparison. | `current change`; `forseti_quality_retention.py`; what-if/layout/workflow/primary-pipeline checks: 176 passed; four-source mypy and Ruff passed. | Publication deduplication and complete historical Rule/policy/evidence replay remain open; memory-provider tests are not deployed database or broker acceptance. |
 | 2026-10-15 | implemented | Preserved Forseti's original no-rule ActionType and recorded judgment-table digest when retrospective comparison follows a table update. | `current change`; `forseti_quality_runtime.py`, `forseti_what_if.py`; what-if/layout/workflow checks: 41 passed; two-file mypy and Ruff passed. | Retain complete historical inputs and publication deduplication durably; full-context replay and provider restart acceptance remain open. |
 | 2026-10-15 | implemented | Bound Mimir issue-close regression evidence to the post-promotion observation window; future promotion, pre-promotion regression and future completion publish nothing and leave Saga issues open. | `current change`; `mimir_governance_maintenance.py`; issue-close/layout checks: 35 passed; one-file mypy and Ruff passed. | Bind reviewed promotion/regression/deprecation producers and retain runtime receipts; temporal checks do not create source authority. |
 | 2026-10-15 | implemented | Isolated Bragi candidate construction from holdout records, rejected shared input digests before evaluation, and bound exactly one evaluation result to each frozen baseline and expected owner. | `current change`; `bragi_intent_training.py`; learning/layout checks: 24 passed; one-file mypy and Ruff passed. | Bind an independent evaluator and consent-filtered source corpus; reviewed activation and runtime acceptance remain open. |
@@ -645,8 +646,25 @@ or an explicit unavailable state; Odin preserves it and Thor stores it as non-id
 Original outcomes use their recorded ActionType and judgment-table digest, never a substitute
 from the current table. A no-rule abstention therefore remains an empty original ActionType even
 after a matching rule appears. Missing source digests remain unknown. This source-fidelity fix
-does not persist the bounded sample or publication-deduplication windows and does not certify
-complete historical Rule, policy or evidence replay.
+alone does not certify complete historical Rule, policy or evidence replay. The v1 retention
+implementation below stores selected comparison inputs, while publication deduplication remains
+process-local.
+
+The bounded v1 retention design uses Forseti's existing StateStore and a 512-record revision-CAS
+window of content-free event kind, recorded decision, table digest and tier. It retains only
+selected comparison inputs, not complete historical execution context. Design critique identified
+replica lost updates, malformed journal data and a new primary-path dependency: bounded CAS,
+closed-field validation and explicit comparison holds address them. Quality-storage failures do
+not replace the original judgment or silently fall back to memory. Publication deduplication is
+a separate design; this window supplies no execution, activation or effect-verification authority.
+
+`forseti_quality_retention.py` implements that window using closed records and content hashes,
+eight CAS attempts inside a two-second deadline. Same-key input substitution is rejected; only
+validated committed records replace the memory window at startup and before comparison. The
+primary judgment remains unchanged after auxiliary storage failure. Standard bootstrap supplies
+the existing `incident_audit_store` as `forseti_state_store`; absent storage preserves explicitly
+unbound local behavior rather than claiming durability. Focused checks: 176 passed, including
+restart, replica race, bounded retention, six corruptions and primary-path compatibility.
 
 #### Bragi intent-training loop
 

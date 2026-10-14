@@ -9,6 +9,10 @@ from typing import TYPE_CHECKING, Any
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.forseti_judgment import JudgmentTable
+from fdai.agents._framework.forseti_quality_retention import (
+    restore_quality_samples,
+    retain_quality_sample,
+)
 from fdai.agents._framework.forseti_telemetry_introspection import telemetry_recipe_facts
 from fdai.agents._framework.forseti_what_if import (
     MAX_WHAT_IF_SAMPLES,
@@ -78,6 +82,7 @@ class ForsetiQualityRuntimeMixin:
 
     _last_verdict_coherence: dict[str, object]
     _last_novelty_drift: dict[str, object]
+    _last_retrospective_what_if: dict[str, object]
 
     def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
         """Report whether any judged runtime state backs this turn.
@@ -149,7 +154,7 @@ class ForsetiQualityRuntimeMixin:
             "behavior": behavior,
         }
 
-    def _remember_verdict_for_quality(
+    async def _remember_verdict_for_quality(
         self,
         event: Mapping[str, Any],
         verdict: Mapping[str, Any],
@@ -172,6 +177,11 @@ class ForsetiQualityRuntimeMixin:
                 "tier": tier,
             },
         )
+        try:
+            await retain_quality_sample(self, key, self._verdict_quality_samples.get(key) or {})
+        except Exception:
+            self.record_behavior("retrospective_what_if:retention_failed")
+            self._last_retrospective_what_if = {"evidence_state": "retention_unavailable"}
 
     async def _run_retrospective_what_if(self, request: Mapping[str, Any]) -> None:
         what_if_table = judgment_table_from_request(request.get("judgment_table"))
@@ -186,6 +196,12 @@ class ForsetiQualityRuntimeMixin:
             self.record_behavior("retrospective_what_if:invalid")
             return
         raw_limit = request.get("sample_limit", MAX_WHAT_IF_SAMPLES)
+        try:
+            await restore_quality_samples(self)
+        except Exception:
+            self._last_retrospective_what_if = {"evidence_state": "retention_unavailable"}
+            self.record_behavior("retrospective_what_if:retention_unavailable")
+            return
         sample_limit = (
             raw_limit if isinstance(raw_limit, int) and not isinstance(raw_limit, bool) else 1
         )

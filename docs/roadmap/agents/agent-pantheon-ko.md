@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: e7bf75805f188fbab499c20d445d1579bdceaac2
+translation_source_sha: 8fcbac312635006809d6480b3b6632eeedfbc0e1
 translation_revised: 2026-10-15
 ---
 # 에이전트 판테온
@@ -251,8 +251,10 @@ Bragi의 비활성 학습은 수정 대상 표본만으로 후보를 만듭니�
 
 Forseti의 what-if 비교는 규칙 없음으로 보류한 경우를 포함해 당시 기록된 ActionType과 판정
 테이블 해시를 보존합니다. 현재 규칙으로 원래 작업을 채우거나 출처 해시를 바꾸지 않습니다.
-범위가 제한된 표본과 게시 중복 방지 창은 아직 프로세스 내부에만 있습니다. 전체 맥락을
-영속 보관해 재생하는 기능은 별도 잔여 작업입니다.
+기존 Forseti StateStore가 연결되면 닫힌 형식과 내용 해시를 가진 최대 512개 CAS 창으로
+제한된 v1 비교 입력을 재시작과 복제본 사이에 보존합니다. 저장소 실패나 손상은 원래 판정을
+바꾸지 않고 비교를 보류합니다. 게시 중복 방지는 아직 프로세스 내부이며, 전체 맥락을 영속
+보관해 재생하는 기능은 별도 잔여 작업입니다.
 
 ### 4.2 Per-agent KPI (성공과 성능 저하 신호)
 
