@@ -243,7 +243,35 @@ Every agent performs four task categories: **R**ecurring (scheduled), **E**vent 
 | Freyr | recurring utilization sampling through injected read-only sampler plus capacity forecasting and sizing analysis | bounded utilization sample -> forecast; capacity advisor query; governed advisory-to-verdict path emits shadow/HIL proposals | multi-dimensional capacity (CPU + IOPS + net + mem) | 2, 3 |
 | Loki | deterministic recurring chaos scheduling plus resilience-score refresh | bounded schedule trigger -> always-HIL experiment proposal or visible hold; bounded normalized score Event -> validated cross-vertical candidate; blast-radius calc | off-path adversarial scenario generation is bounded, regression-gated, audited, inert, and unbound by default | 3, 9 |
 
+Bragi's off-path training builds candidates only from targeted corrections, with disjoint
+holdout input digests and exactly one baseline-preserving evaluation per case. Mimir forwards
+issue-close regression evidence only after promotion and completed observation, rejecting future
+timestamps and pre-promotion runs. Neither check binds missing evidence producers or grants
+activation or issue-close authority.
+
+Forseti what-if comparisons preserve the original recorded ActionType, including a no-rule
+abstention, and its recorded judgment-table digest. Current rules never fill the original action
+or replace its source digest. With Forseti's existing StateStore bound, a closed, content-hashed
+512-record CAS window preserves the limited v1 comparison inputs across restart and replicas.
+Storage failure or corruption holds comparison without changing the original judgment.
+Comparison delivery also uses the existing StateStore: the first payload is pinned to the request,
+alternate-table digest and sample bound. Completed requests are suppressed across restart and
+replicas within a closed 512-record/512 KiB window. Only completed records may be compacted;
+pending results recover at startup and on maintenance. A broker-acceptance/checkpoint crash can
+redeliver identical bytes and key under the existing at-least-once contract. Full-context replay
+and deployed provider acceptance remain separate work.
+
+Thor holds an explicit empty target declaration instead of falling back to another resource.
+A single declared target uses the legacy single-action path only when it exactly matches
+`resource_id`; a missing or conflicting resource is held without executor calls.
+
 ### 4.2 Per-agent KPI (success and degradation signals)
+
+Standard bootstrap accepts an explicit `FDAI_LOKI_SCHEDULE_JSON` declaration for Loki's existing
+recurring proposal port. The loader preserves the timezone-aware anchor and supplied evidence
+references, rejects incomplete or unknown fields and unregistered/non-Chaos actions, and never
+supplies a synthetic schedule. The declaration grants no approval, verified recovery, promotion,
+or Chaos execution authority; the existing always-HIL and shadow boundaries remain unchanged.
 
 Every agent reports these metrics to the [measurement pipeline](../architecture/goals-and-metrics.md) on every health snapshot for deterministic shadow -> enforce promotion evaluation.
 Insufficient outcome evidence produces `value: null` plus an explicit evidence state; promotion gates treat it as failure, never zero.

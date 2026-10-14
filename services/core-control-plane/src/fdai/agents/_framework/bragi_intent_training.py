@@ -173,10 +173,12 @@ def evaluate_training_contract(
     """Build and gate one deterministic shadow-only routing evidence revision."""
 
     selected = _select_corpus(corpus)
-    candidate = _candidate_revision(selected)
     corpus_digest = _corpus_digest(selected)
     holdout = tuple(item for item in selected if not item.targeted)
     target_cases = tuple(item for item in selected if item.targeted)
+    if {item.input_digest for item in holdout} & {item.input_digest for item in target_cases}:
+        raise ValueError("training and holdout MUST have independent input digests")
+    candidate = _candidate_revision(target_cases)
     if not holdout or not target_cases:
         payload = _payload_for_hold(
             selected=selected,
@@ -267,9 +269,16 @@ def _gate_results(
     if len(results) > _MAX_HOLDOUT_CASES:
         raise ValueError("training evaluation exceeds the bounded holdout limit")
     by_id = {item.evidence_id: item for item in results}
-    expected_ids = {item.evidence_id for item in (*holdout, *target_cases)}
-    if set(by_id) != expected_ids:
+    cases = (*holdout, *target_cases)
+    expected_ids = {item.evidence_id for item in cases}
+    if len(results) != len(cases) or len(by_id) != len(results) or set(by_id) != expected_ids:
         raise ValueError("training evaluator MUST return exactly one result per case")
+    if any(
+        by_id[item.evidence_id].baseline_owner != item.baseline_owner
+        or by_id[item.evidence_id].expected_owner != item.corrected_owner
+        for item in cases
+    ):
+        raise ValueError("training evaluator MUST preserve the frozen baseline and expected owner")
     regressions = tuple(
         item.evidence_id
         for item in holdout

@@ -11,6 +11,7 @@ import {
 import type { WorkProgressShape } from "./backend-types";
 import {
   hasPendingComposerAttachments,
+  stagedComposerAttachmentCount,
   takeComposerAttachments,
 } from "./composer-attachment-store";
 import { DEFAULT_NARRATOR, type Turn } from "./command-deck-presenters";
@@ -47,6 +48,7 @@ import { completedWorkRevealTarget } from "./scroll-stick";
 import { backendHistoryForTurns } from "./turn-history";
 import type { IncidentConversationBinding } from "./open-deck";
 import type { ConversationModelTier } from "./conversation-model-selection";
+import { conversationModelText } from "./conversation-model-i18n";
 import {
   isSemanticDirectResponseSource,
   queueNextRequestId,
@@ -125,6 +127,7 @@ interface UseCommandDeckSubmitOptions {
   readonly followLatestContent: () => void;
   readonly revealCompletedWork: (turnId: string, childSelector: string) => void;
   readonly conversationModelTier: ConversationModelTier;
+  readonly presentationMode?: "operator" | "agent_discussion";
 }
 
 export function resolveConversationSummary(
@@ -182,6 +185,7 @@ export function useCommandDeckSubmit({
   followLatestContent,
   revealCompletedWork,
   conversationModelTier,
+  presentationMode = "operator",
 }: UseCommandDeckSubmitOptions) {
   return useCallback(async (raw: string, options: CommandDeckSubmitOptions = {}) => {
     const text = raw.trim();
@@ -195,6 +199,10 @@ export function useCommandDeckSubmit({
     // silently discards the operator's pending images. Draining here also means
     // exactly this turn owns them, so a concurrent composer clear cannot race
     // the payload away.
+    if (presentationMode === "agent_discussion" && stagedComposerAttachmentCount() > 0) {
+      setSrStatus(conversationModelText("discussionAttachmentHold"));
+      return;
+    }
     const attachments = takeComposerAttachments();
     const originSessionKey = sessionKeyRef.current;
     const conversationId = sessionIdFor(sessionIdsRef.current, originSessionKey);
@@ -362,6 +370,7 @@ export function useCommandDeckSubmit({
           ...(conversationBinding
             ? { conversationBinding }
             : {}),
+          presentationMode,
           ...(conversationModelTier === "auto"
             ? {}
             : { conversationModelTier }),
@@ -746,5 +755,6 @@ export function useCommandDeckSubmit({
     followLatestContent,
     revealCompletedWork,
     conversationModelTier,
+    presentationMode,
   ]);
 }

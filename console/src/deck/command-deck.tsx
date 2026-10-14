@@ -126,6 +126,7 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
     startFloatingDrag,
   } = useCommandDeckLayout(open, entryMode);
   const [pending, setPending] = useState(false);
+  const [presentationMode, setPresentationMode] = useState<"operator" | "agent_discussion">("operator");
   const [retrievalProgress, setRetrievalProgress] =
     useState<VerificationProgress | null>(null);
   const health = useDeckBackendHealth(open);
@@ -151,6 +152,7 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
 
   useEffect(() => {
     setConversationModelTier(readConversationModelTier(sessionStore(), sessionKey));
+    setPresentationMode("operator");
   }, [sessionKey]);
 
   useEffect(() => {
@@ -297,6 +299,7 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
     followQuestion,
     revealCompletedWork,
     conversationModelTier,
+    presentationMode,
   });
 
   const submitForContext = useCallback((
@@ -416,6 +419,10 @@ export function CommandDeck({ client }: { readonly client: OperatorApiClient }) 
       canAttachScreen={snapshot !== null && snapshotPath === currentPathname()}
       health={health}
       conversationModelTier={conversationModelTier}
+      presentationMode={presentationMode}
+      onPresentationMode={(mode) => {
+        if (!inFlightRef.current) setPresentationMode(mode);
+      }}
       conversationModelAvailability={conversationModelAvailability}
       client={client}
       sessionLabel={sessionLabel}

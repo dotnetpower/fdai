@@ -3,8 +3,12 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 from collections.abc import Callable, Sequence
+from dataclasses import replace
 from decimal import Decimal
+from inspect import signature
 
 import pytest
 from fdai.agents._framework.bragi_models import RoutingDecision
@@ -14,6 +18,7 @@ from fdai.agents._framework.deliberation import (
     DeliberationClaim,
     DeliberationRequest,
     SynthesisOutcome,
+    SynthesisVerification,
     T2ConversationSynthesizer,
     _claim,
 )
@@ -208,6 +213,22 @@ class _T2Synthesizer:
         )
 
 
+class _SynthesisVerifier:
+    async def verify(
+        self, request: DeliberationRequest, outcome: SynthesisOutcome
+    ) -> SynthesisVerification:
+        return SynthesisVerification(
+            accepted=outcome.conclusion
+            == "Capacity evidence outweighs the bounded cost objection; disagreement remains.",
+            request_sha256=request.sha256,
+            conclusion_sha256=hashlib.sha256(outcome.conclusion.encode()).hexdigest(),
+            evidence_refs=tuple(
+                sorted({ref for claim in request.claims for ref in claim.evidence_refs})
+            ),
+            verifier_identity="publisher-d:independent-reviewer",
+        )
+
+
 class _T2FailureSynthesizer:
     def __init__(self, outcome: str | None | Exception) -> None:
         self.outcome = outcome
@@ -288,10 +309,179 @@ def _runtime(*, t2: T2ConversationSynthesizer | None = None) -> PantheonRuntime:
             margin_threshold=0.08,
         ),
         conversation_t2_synthesizer=t2,
+        conversation_synthesis_verifier=_SynthesisVerifier(),
     )
     return (
         _bind_t1_recommendations(runtime, ("scale_down", "scale_up")) if t2 is not None else runtime
     )
+
+
+def test_explicit_t1_discussion_holds_conflict_without_synthesis_calls() -> None:
+    synthesizer = _T2Synthesizer()
+    result = asyncio.run(
+        _runtime(t2=synthesizer).deliberate(
+            question="Compare cost and capacity.", requester="Forseti", allow_t2=False
+        )
+    )
+    assert result["status"] == "held"
+    assert result["conclusion"] is None
+    assert result["t2_status"] == "disabled_by_request"
+    assert synthesizer.requests == []
+
+
+def test_t2_without_independent_verification_does_not_call_the_generator() -> None:
+    synthesizer = _T2Synthesizer()
+    runtime = _runtime(t2=synthesizer)
+    runtime.agents["Bragi"]._deliberator._synthesis_verifier = None  # noqa: SLF001
+    result = asyncio.run(
+        runtime.deliberate(question="Compare cost and capacity.", requester="Forseti")
+    )
+    assert result["tier"] == "T1"
+    assert result["status"] == "held"
+    assert result["conclusion"] is None
+    assert result["t2_status"] == "verification_unavailable"
+    assert synthesizer.requests == []
+
+
+def test_t2_rejects_unsupported_operational_conclusion() -> None:
+    fabricated = "Independent observation proves 999 production resources are healthy."
+    runtime = _runtime(t2=_T2FailureSynthesizer(fabricated))
+    result = asyncio.run(
+        runtime.deliberate(question="Compare cost and capacity.", requester="Forseti")
+    )
+    assert result["tier"] == "T1"
+    assert result["status"] == "held"
+    assert result["conclusion"] is None
+    assert result["t2_status"] == "verification_rejected"
+    assert result["conclusion"] != fabricated
+
+
+@pytest.mark.parametrize(
+    "changed_field, changed_value",
+    [
+        ("request_sha256", "c" * 64),
+        ("conclusion_sha256", "d" * 64),
+        ("evidence_refs", ("unrelated:evidence",)),
+        ("verifier_identity", "publisher-c:model-c"),
+        ("accepted", 1),
+    ],
+)
+def test_t2_rejects_verification_receipt_substitution(
+    changed_field: str,
+    changed_value: object,
+) -> None:
+    class SubstitutingVerifier(_SynthesisVerifier):
+        async def verify(
+            self, request: DeliberationRequest, outcome: SynthesisOutcome
+        ) -> SynthesisVerification:
+            receipt = await super().verify(request, outcome)
+            return replace(receipt, **{changed_field: changed_value})
+
+    runtime = _runtime(t2=_T2Synthesizer())
+    runtime.agents["Bragi"]._deliberator._synthesis_verifier = SubstitutingVerifier()  # noqa: SLF001
+    result = asyncio.run(
+        runtime.deliberate(question="Compare cost and capacity.", requester="Forseti")
+    )
+    assert result["tier"] == "T1"
+    assert result["status"] == "held"
+    assert result["conclusion"] is None
+    assert result["t2_status"] == "verification_invalid"
+
+
+@pytest.mark.parametrize(
+    "failure, expected_status",
+    [(TimeoutError(), "verification_timeout"), (RuntimeError(), "verification_error")],
+)
+def test_t2_verifier_failure_preserves_the_t1_evidence(
+    failure: Exception,
+    expected_status: str,
+) -> None:
+    class FailingVerifier(_SynthesisVerifier):
+        async def verify(
+            self, request: DeliberationRequest, outcome: SynthesisOutcome
+        ) -> SynthesisVerification:
+            raise failure
+
+    runtime = _runtime(t2=_T2Synthesizer())
+    runtime.agents["Bragi"]._deliberator._synthesis_verifier = FailingVerifier()  # noqa: SLF001
+    result = asyncio.run(
+        runtime.deliberate(question="Compare cost and capacity.", requester="Forseti")
+    )
+    assert result["tier"] == "T1"
+    assert result["t2_status"] == expected_status
+    assert result["status"] == "held"
+    assert result["conclusion"] is None
+    assert result["rounds"][0]["contributions"][0]["answer"]
+
+
+def test_t2_generator_cannot_be_its_own_verifier() -> None:
+    class SelfVerifyingSynthesizer(_T2Synthesizer, _SynthesisVerifier):
+        pass
+
+    synthesizer = SelfVerifyingSynthesizer()
+    with pytest.raises(ValueError, match="independent verifier"):
+        ConversationDeliberator(
+            specs=PANTHEON_SPECS,
+            semantic_router=None,
+            t2_synthesizer=synthesizer,
+            synthesis_verifier=synthesizer,
+            call_responder=_runtime().agents["Bragi"]._call_responder,  # noqa: SLF001
+        )
+
+
+def test_explicit_operator_target_survives_a_different_semantic_owner() -> None:
+    runtime = _runtime()
+    turn = asyncio.run(
+        runtime.ask(
+            session_id="explicit-target-session",
+            user_id="operator-example",
+            question="Compare cost and capacity evidence.",
+            target_agent="Saga",
+            locale="ko",
+        )
+    )
+    assert turn is not None
+    assert turn.primary_agent == "Saga"
+    assert turn.decision.method == "explicit_target"
+    assert turn.answer["primary_agent"] == "Saga"
+    assert "locale_ko" in turn.answer["prompt_composition"]["layers"]
+
+
+def test_two_model_synthesis_reserves_both_calls_before_generation() -> None:
+    class TwoModelSynthesizer(_T2Synthesizer):
+        model_calls_per_synthesis = 2
+
+    synthesizer = TwoModelSynthesizer()
+    runtime = _runtime(t2=synthesizer)
+    result = asyncio.run(
+        runtime.deliberate(
+            question="Compare cost and capacity.",
+            requester="Forseti",
+            locale="ko",
+        )
+    )
+    assert result["t2_status"] == "budget_denied"
+    assert synthesizer.requests == []
+
+
+def test_new_verifier_preserves_the_llm_binding_constructor_prefix() -> None:
+    from fdai.composition import LlmBindings
+
+    assert list(signature(LlmBindings).parameters)[:13] == [
+        "embedding_model",
+        "cross_check_models",
+        "critic_model",
+        "judge_model",
+        "debate_orchestrator",
+        "rca_reasoner",
+        "rubric_evaluator",
+        "t2_proposer",
+        "conversation_t2_synthesizer",
+        "conversation_metering",
+        "conversation_pricing",
+        "conversation_t2_model_key",
+        "conversation_semantic_judgment_factory",
+    ]
 
 
 def _agent_index(name: str) -> int:
@@ -351,6 +541,94 @@ def test_t1_deliberation_collects_position_and_peer_critique() -> None:
     assert result["authority"] == "presentation_only"
 
 
+@pytest.mark.parametrize(
+    "peer_recommendation, expected_reason",
+    [
+        ("scale_down", "no_structured_conflict"),
+        ("scale_up", "structured_conflict"),
+        (None, "no_structured_conflict"),
+    ],
+)
+def test_peer_critique_compares_the_exact_primary_and_owned_evidence(
+    peer_recommendation: str | None,
+    expected_reason: str,
+) -> None:
+    runtime = _bind_t1_recommendations(_runtime(), ("scale_down", peer_recommendation))
+    result = asyncio.run(
+        runtime.deliberate(
+            question="Compare cost and capacity.",
+            requester="Forseti",
+            correlation_id="peer-review-example",
+        )
+    )
+    contribution = result["rounds"][1]["contributions"][0]
+    review = contribution["peer_review"]
+    assert review["reason"] == expected_reason
+    assert review["primary_agent"] == "Njord"
+    assert review["reviewer"] == contribution["agent"] == "Freyr"
+    assert review["primary_evidence_refs"] == [_agent_state_ref("Njord")]
+    assert review["reviewer_evidence_refs"] == [_agent_state_ref("Freyr")]
+    assert bool(review["conflicts"]) is (expected_reason == "structured_conflict")
+    assert review["comparison_status"] == (
+        "not_comparable"
+        if peer_recommendation is None
+        else "conflicting"
+        if peer_recommendation != "scale_down"
+        else "consistent"
+    )
+
+
+@pytest.mark.parametrize("failed_peers", [("Heimdall",), ("Freyr", "Heimdall")])
+def test_deliberation_accounts_for_failed_peers_without_claiming_completion(
+    failed_peers: tuple[str, ...],
+) -> None:
+    synthesizer = _T2Synthesizer()
+
+    async def responder(
+        agent: str, _question: str, _context: dict[str, object]
+    ) -> tuple[dict[str, object] | None, str | None]:
+        if agent in failed_peers:
+            return None, "timeout"
+        return {
+            "answer": f"{agent} owned evidence.",
+            "facts": {
+                "resource_id": "resource-example",
+                "recommendation": "scale_down" if agent == "Njord" else "scale_up",
+                "evidence_refs": [_agent_state_ref(agent)],
+            },
+            "prompt_composition": {"prompt_sha256": "a" * 64},
+        }, None
+
+    deliberator = ConversationDeliberator(
+        specs=PANTHEON_SPECS,
+        semantic_router=None,
+        t2_synthesizer=synthesizer,
+        call_responder=responder,
+    )
+    result = asyncio.run(
+        deliberator.deliberate(
+            question="Compare cost, capacity, and observation evidence.",
+            requester="Forseti",
+            routing_decision=RoutingDecision(
+                primary_agent="Njord",
+                scores={},
+                tie_break=None,
+                contributors=("Freyr", "Heimdall"),
+            ),
+        )
+    )
+
+    assert result["status"] == ("partial" if len(failed_peers) == 1 else "abstain")
+    assert result["requested_participants"] == ["Njord", "Freyr", "Heimdall"]
+    assert len(result["participant_outcomes"]) == 3
+    assert {
+        outcome["agent"]
+        for outcome in result["participant_outcomes"]
+        if outcome["status"] == "abstained" and outcome["reason"] == "timeout"
+    } == set(failed_peers)
+    assert synthesizer.requests == []
+
+
 def test_deliberation_claim_uses_the_effective_composed_prompt_digest() -> None:
     baseline_digest = "a" * 64
     composed_digest = "b" * 64
@@ -370,6 +648,36 @@ def test_deliberation_claim_uses_the_effective_composed_prompt_digest() -> None:
 
     assert claim is not None
     assert claim.prompt_sha256 == composed_digest
+
+
+def test_deliberation_claim_preserves_immutable_owned_fact_values() -> None:
+    facts = {"count": 7, "state": "held", "evidence_refs": [_agent_state_ref("Njord")]}
+    claim = _claim(
+        "Njord",
+        {
+            "answer": "Owned snapshot.",
+            "facts": facts,
+            "prompt_composition": {"prompt_sha256": "a" * 64},
+        },
+    )
+    assert claim is not None
+    facts["count"] = 999
+    assert json.loads(claim.facts_json)["count"] == 7
+
+
+@pytest.mark.parametrize("value", [float("nan"), object(), "x" * 16_385])
+def test_deliberation_claim_holds_unserializable_or_oversized_owned_facts(value: object) -> None:
+    assert (
+        _claim(
+            "Njord",
+            {
+                "answer": "Owned snapshot.",
+                "facts": {"value": value, "evidence_refs": [_agent_state_ref("Njord")]},
+                "prompt_composition": {"prompt_sha256": "a" * 64},
+            },
+        )
+        is None
+    )
 
 
 def test_deliberation_claim_rejects_non_hex_prompt_digest() -> None:
@@ -460,6 +768,72 @@ def test_deliberation_request_rejects_prompt_claim_order_mismatch() -> None:
         )
 
 
+def test_owned_answer_purpose_accepts_one_owner_without_relaxing_discussion() -> None:
+    values = {
+        "question": "Explain the current owned cost snapshot.",
+        "requester": "Bragi",
+        "correlation_id": "owned-answer-one",
+        "primary_agent": "Njord",
+        "claims": (_test_claim("Njord", "a"),),
+        "participant_prompts": (("Njord", "Njord prompt"),),
+    }
+    with pytest.raises(ValueError, match="requires between"):
+        DeliberationRequest(**values)
+    request = DeliberationRequest(**values, purpose="owned_answer")
+    assert request.purpose == "owned_answer"
+    discussion_values = {
+        **values,
+        "claims": (*values["claims"], _test_claim("Freyr", "b")),
+        "participant_prompts": (*values["participant_prompts"], ("Freyr", "Freyr prompt")),
+    }
+    assert (
+        DeliberationRequest(**discussion_values).sha256
+        != DeliberationRequest(**discussion_values, purpose="owned_answer").sha256
+    )
+    with pytest.raises(ValueError, match="purpose is invalid"):
+        DeliberationRequest(**values, purpose="execute")
+
+
+def test_verified_conclusion_preserves_exact_digest_bound_text(monkeypatch) -> None:
+    from dataclasses import replace
+
+    original_review = _SynthesisVerifier.verify
+
+    async def review_exact_whitespace(self, request, outcome):
+        receipt = await original_review(self, request, outcome)
+        return replace(
+            receipt,
+            accepted=outcome.conclusion
+            == "  Capacity evidence outweighs the bounded cost objection; disagreement remains.  ",
+        )
+
+    monkeypatch.setattr(_SynthesisVerifier, "verify", review_exact_whitespace)
+
+    class WhitespaceSynthesizer(_T2Synthesizer):
+        async def synthesize(self, request: DeliberationRequest) -> SynthesisOutcome:
+            outcome = await super().synthesize(request)
+            return SynthesisOutcome(
+                conclusion=f"  {outcome.conclusion}  ",
+                model_identity=outcome.model_identity,
+                model_family=outcome.model_family,
+            )
+
+    result = asyncio.run(
+        _runtime(t2=WhitespaceSynthesizer()).deliberate(
+            question="Compare cost and capacity evidence.",
+            requester="Bragi",
+            correlation_id="exact-verified-prose",
+        )
+    )
+    assert result["status"] == "completed"
+    assert result["conclusion"].startswith("  ")
+    assert result["conclusion"].endswith("  ")
+    assert (
+        result["synthesis_verification"]["conclusion_sha256"]
+        == hashlib.sha256(result["conclusion"].encode()).hexdigest()
+    )
+
+
 def test_t2_deliberation_synthesizes_without_raising_authority() -> None:
     synthesizer = _T2Synthesizer()
     result = asyncio.run(
@@ -511,7 +885,8 @@ def test_deliberation_reuses_verified_semantic_participant_selection() -> None:
         )
     )
 
-    assert result["status"] == "completed"
+    assert result["status"] == "held"
+    assert result["conclusion"] is None
     assert result["primary_agent"] == "Njord"
     assert result["participants"] == ["Njord", "Freyr"]
     assert result["routing_method"] == "semantic_judgment"
@@ -538,7 +913,8 @@ def test_deliberation_supplements_peers_without_replacing_verified_primary() -> 
         )
     )
 
-    assert result["status"] == "completed"
+    assert result["status"] == "held"
+    assert result["conclusion"] is None
     assert result["primary_agent"] == "Freyr"
     assert result["participants"][0] == "Freyr"
     assert result["routing_method"] == "explicit"
@@ -564,7 +940,8 @@ def test_deliberation_deduplicates_reused_contributors() -> None:
         )
     )
 
-    assert result["status"] == "completed"
+    assert result["status"] == "held"
+    assert result["conclusion"] is None
     assert result["participants"] == ["Freyr", "Njord"]
 
 
@@ -709,7 +1086,9 @@ def test_t2_failure_preserves_t1_discussion(
         )
     )
 
-    assert result["status"] == "completed"
+    assert result["status"] == "held"
+    assert result["conclusion"] is None
+    assert result["reason"] == "structured_conflict_unresolved"
     assert result["tier"] == "T1"
     assert result["t2_status"] == expected_status
     assert result["authority"] == "presentation_only"
@@ -747,6 +1126,7 @@ def test_t2_synthesis_stops_at_the_declared_budget_instead_of_calling_again() ->
                 cosine_threshold=0.6, margin_threshold=0.08
             ),
             conversation_t2_synthesizer=synthesizer,
+            conversation_synthesis_verifier=_SynthesisVerifier(),
             conversation_escalation_budget=ModelBudget(max_calls_per_correlation=1),
         ),
         ("scale_down", "scale_up"),
@@ -780,7 +1160,8 @@ def test_t2_synthesis_stops_at_the_declared_budget_instead_of_calling_again() ->
         "max_cost_microusd_per_correlation": 50_000,
     }
     # Denying escalation degrades to the T1 result, never to an error.
-    assert second["status"] == "completed"
+    assert second["status"] == "held"
+    assert second["conclusion"] is None
     assert second["tier"] == "T1"
 
 
@@ -839,6 +1220,7 @@ def test_a_zero_budget_never_calls_the_model_at_all() -> None:
                 cosine_threshold=0.6, margin_threshold=0.08
             ),
             conversation_t2_synthesizer=synthesizer,
+            conversation_synthesis_verifier=_SynthesisVerifier(),
             conversation_escalation_budget=ModelBudget(
                 max_calls_per_correlation=0,
                 max_calls_total=0,
@@ -968,6 +1350,7 @@ def _priced_runtime(
                 cosine_threshold=0.6, margin_threshold=0.08
             ),
             conversation_t2_synthesizer=synthesizer,
+            conversation_synthesis_verifier=_SynthesisVerifier(),
             conversation_escalation_budget=budget,
             conversation_escalation_ledger=ledger,
             conversation_pricing=pricing if pricing is not None else _PRICING,

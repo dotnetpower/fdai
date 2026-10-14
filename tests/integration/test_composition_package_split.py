@@ -122,6 +122,7 @@ _EXPECTED_FILES = frozenset(
         # Reconstructs signed runtime skills before governed skill bundles and
         # publishes both read-only disclosure snapshots before readiness.
         "wire_skill_disclosure.py",
+        "pantheon_synthesis.py",
     }
 )
 
@@ -258,6 +259,7 @@ def test_no_external_caller_reaches_into_wire_files() -> None:
 _LOC_LIMITS = {
     "__init__.py": 400,
     "_helpers.py": 400,
+    "pantheon_synthesis.py": 200,
     "resolved_models.py": 100,
     "resolved_models_revision.py": 100,
     "semantic_judgment_model_binding.py": 100,

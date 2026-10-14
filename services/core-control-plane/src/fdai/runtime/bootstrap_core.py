@@ -30,6 +30,7 @@ from fdai.runtime import bootstrap_core_model, bootstrap_incidents
 from fdai.runtime import product_profile as _product_profile
 from fdai.runtime.baseline_evaluation import bind_forseti_baseline_worker
 from fdai.runtime.blast_probe import bind_live_blast_probe_failure_streak
+from fdai.runtime.bootstrap_agent_discussion import build_agent_discussion
 from fdai.runtime.bootstrap_bindings import (
     build_effect_reconciliation_worker as _build_effect_reconciliation_worker,
 )
@@ -716,6 +717,11 @@ async def build_core_runtime(
         human_access_workflow, resources.pantheon.runtime
     )
     if semantic.semantic_turn_binding is not None:
+        discussion = build_agent_discussion(
+            container=container, environment=environment, pantheon=resources.pantheon.runtime
+        )
+        if discussion is not None:
+            semantic.semantic_turn_binding.processor.bind_agent_discussion(discussion)
         llm_bindings = container.llm_bindings
         pantheon_assurance = build_runtime_pantheon_conversation_assurance(
             pantheon=resources.pantheon.runtime,

@@ -822,6 +822,7 @@ export interface StreamCallbacks {
   readonly sessionId?: string;
   readonly semanticPlanningProfile?: "interactive" | "golden_campaign_no_t2";
   readonly conversationModelTier?: "t1" | "t2";
+  readonly presentationMode?: "operator" | "agent_discussion";
   readonly targetAgent?: string;
   readonly handoverGoalId?: string;
   readonly conversationBinding?: import("./open-deck").IncidentConversationBinding;

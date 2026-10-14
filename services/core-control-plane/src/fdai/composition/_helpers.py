@@ -6,7 +6,7 @@ import asyncio
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 
-from ..agents import T2ConversationSynthesizer
+from ..agents import ConversationSynthesisVerifier, T2ConversationSynthesizer
 from ..core import operational_context as _oc
 from ..core import rca as _rca
 from ..core.architecture_review import ProductionEvidenceProvider
@@ -178,6 +178,7 @@ class LlmBindings:
     and no ceiling bounds: the deliberator can only charge the cost of
     an invocation it was able to price and record. ``__post_init__``
     rejects the half-wired combination rather than degrading quietly."""
+    conversation_synthesis_verifier: ConversationSynthesisVerifier | None = None
 
     def __post_init__(self) -> None:
         if not self.cross_check_models:

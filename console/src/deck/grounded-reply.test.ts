@@ -14,6 +14,37 @@ import {
   verificationTone,
 } from "./grounded-reply";
 import { secondaryEvidencePostureIssueKind } from "./verification-presentation";
+import { decodeAgentDiscussion } from "./agent-discussion-reply";
+import { conversationModelText } from "./conversation-model-i18n";
+
+describe("read-only discussion presentation", () => {
+  const held = {
+    authority: "presentation_only", status: "held", conclusion: null,
+    rounds: [{phase: "position", contributions: [{
+      agent: "Bragi", answer: "Owned evidence only.", evidence_refs: ["agent-state:Bragi"],
+    }]}],
+  };
+  it("preserves held participant speech without inventing a conclusion", () => {
+    expect(decodeAgentDiscussion(JSON.stringify(held))?.rounds[0]?.contributions[0]?.agent).toBe("Bragi");
+    expect(decodeAgentDiscussion(JSON.stringify(held))?.conclusion).toBeNull();
+  });
+  it("rejects forged authority, unknown agents and unverified conclusions", () => {
+    expect(decodeAgentDiscussion(JSON.stringify({...held, authority: "execute"}))).toBeNull();
+    expect(decodeAgentDiscussion(JSON.stringify({...held, conclusion: "Unverified claim."}))).toBeNull();
+    expect(decodeAgentDiscussion(JSON.stringify({...held, rounds: [{phase: "position", contributions: [{
+      agent: "UnknownAgent", answer: "Claim.", evidence_refs: [],
+    }]}]}))).toBeNull();
+  });
+  it("labels Korean rounds, participant gaps and held conclusions explicitly", () => {
+    setLocale("ko");
+    try {
+      expect(conversationModelText("discussionMode")).toBe("에이전트 토론");
+      expect(conversationModelText("critique")).toBe("동료 비평");
+      expect(conversationModelText("abstained")).toBe("기권");
+      expect(conversationModelText("discussionHeld")).toBe("결론 보류");
+    } finally { setLocale("en"); }
+  });
+});
 
 function verification(authority: string): AnswerVerification {
   return {

@@ -1,7 +1,7 @@
 ---
 translation_of: project-structure-dependency-injection.md
-translation_source_sha: c623764bdd88ba3529f7811227c8997c5ea44de6
-translation_revised: 2026-10-07
+translation_source_sha: ac36eec9dd9803fa56b22e9f928f2f89899dbab0
+translation_revised: 2026-10-14
 ---
 
 # 프로젝트 구조 의존성 주입
@@ -11,6 +11,18 @@ translation_revised: 2026-10-07
 ## 설계 개요
 
 이 문서는 [project-structure-ko.md](project-structure-ko.md)에 포함되어 있던 상세 계약을 그대로 보존하는 집중 소유 문서입니다.
+
+대화 종합은 선택적인 `LlmBindings.conversation_synthesis_verifier` 주입 경계를 사용합니다.
+Core 시작 구성은 이를 Bragi의 읽기 전용 숙의 처리기에 전달합니다. `fdai.agents`의
+`ConversationSynthesisVerifier`를 독립적인 V-CLAIM 및 함의 검토로 구현합니다.
+`SynthesisVerification`은 정확한 요청, 결론 및 전체 인용 집합에 결합됩니다. 검증기가
+연결되지 않거나 실패하면 생성한 결론을 표시하기 전에 보류합니다. 이 경계는 타입이 지정된
+판단, 승인, 실행 또는 승격 권한을 부여하지 않습니다.
+
+표준 대화 시작 구성은 기존 영속 StateStore에 `StateStoreBudgetLedger`도 연결합니다.
+정책을 고정한 CAS, 해시된 키, 제한된 재시도 및 프로세스 메모리 우회 금지로 `BudgetLedger`의
+상관 ID별 계약을 구현합니다. 구성된 전체 한도에는 다른 원자적 원장이 필요합니다.
+영속 회계나 연결만으로 작업 권한이 부여되지는 않습니다.
 
 ## 의존성 주입을 통한 커스터마이제이션
 

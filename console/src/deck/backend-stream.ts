@@ -245,6 +245,7 @@ export async function askBackendStream(
           callbacks.semanticPlanningProfile,
           callbacks.handoverGoalId,
           callbacks.conversationModelTier,
+          callbacks.presentationMode,
         ),
       ),
       signal: callbacks.signal ?? null,

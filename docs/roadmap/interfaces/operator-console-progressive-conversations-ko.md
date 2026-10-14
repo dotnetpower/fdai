@@ -1,13 +1,21 @@
 ---
 title: 오퍼레이터 콘솔 점진적 대화
 translation_of: operator-console-progressive-conversations.md
-translation_source_sha: a7e3eea3265ef455c1f4bc63d6415cb7a27fe727
-translation_revised: 2026-10-08
+translation_source_sha: 3f9505ea43637c55089d6130c865ae807d880f04
+translation_revised: 2026-10-15
 ---
 # 오퍼레이터 콘솔 점진적 대화
 
 이 문서는 점진적으로 진행되는 오퍼레이터 콘솔 대화의 채널 중립적인 가지 수명 주기, 순서가 있는
 집약, 검증된 개정판, 범위가 제한된 진행 상황 계약을 소유합니다.
+
+명시적 에이전트 토론은 같은 스트림에서 사용하는 별도의 읽기 전용 표현 모드입니다. Console은
+현재 화면, Incident 또는 Resource 이어받기 문맥을 붙이지 않으며, 대기 중인 이미지 첨부를
+버리지 않고 그대로 보존한 채 전송을 보류합니다. 서버는 Bragi 호출 전에 인가를 확인합니다.
+응답은 기본 발언, 비평, 소유 근거와 요청한 모든 참여자의 발언 완료·기권·미시도 상태를
+보존합니다. 일부 응답에는 결론이 없으며 검증된 T2 결론도 제한된 자문입니다. 모드 선택기나
+표시기로 승인, 실행 또는 승격할 수 없습니다.
+
 
 Command Deck의 화면 대화는 경로 범위 `ViewSnapshot`을 받습니다. 등록된 모든 패널은 로딩, 오류,
 화면 전환 상태에서 대체 정보로 화면 식별자와 목적을 제공합니다. 검증된 표시 근거가 있는 경로는

@@ -21,7 +21,13 @@ from fdai_service_contracts.operator_authentication import OperatorAuthenticatio
 _MAX_REGISTRY_BYTES = 256 * 1024
 GRANT_REGISTRY_ID = "fdai.operational-evidence.case-scope-grants"
 GRANT_OPERATIONS = frozenset(
-    {"test-context.propose", "test-context.review", "test-context.revoke", "case-history.read"}
+    {
+        "test-context.propose",
+        "test-context.review",
+        "test-context.revoke",
+        "case-history.read",
+        "agent-discussion.read",
+    }
 )
 _SCOPE_DIGEST = re.compile(r"^[a-f0-9]{64}$")
 _TOP_FIELDS = frozenset(

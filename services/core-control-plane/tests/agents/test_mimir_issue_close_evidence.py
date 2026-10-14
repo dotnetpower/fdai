@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -26,8 +27,55 @@ from fdai.agents.mimir import (
 )
 from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga
+from fdai.delivery.mimir_catalog_observation import MimirActiveCatalogPoller
 from fdai.shared.providers.testing.event_bus import InMemoryEventBus
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+
+async def test_mimir_actual_catalog_observation_is_durable_and_never_promotes() -> None:
+    class Reader:
+        digest = "a" * 64
+        rule_id = "rule-one"
+
+        async def rule_generation_snapshot(self) -> Any:
+            return SimpleNamespace(
+                generation_digest=self.digest,
+                rules=(SimpleNamespace(id=self.rule_id),),
+            )
+
+    reader = Reader()
+    store = InMemoryStateStore()
+    now = datetime(2026, 10, 15, tzinfo=UTC)
+    initial = await MimirActiveCatalogPoller(reader=reader, store=store).poll_rule_sources(
+        limit=1, now=now
+    )
+    assert initial.checked == 1 and initial.changed == 0
+    repeated = await MimirActiveCatalogPoller(reader=reader, store=store).poll_rule_sources(
+        limit=1, now=now
+    )
+    assert repeated == initial
+    reader.digest = "b" * 64
+    advanced = await asyncio.gather(
+        MimirActiveCatalogPoller(reader=reader, store=store).poll_rule_sources(limit=1, now=now),
+        MimirActiveCatalogPoller(reader=reader, store=store).poll_rule_sources(limit=1, now=now),
+    )
+    assert sum(result.changed for result in advanced) == 1
+    reader.rule_id = "substituted-rule"
+    with pytest.raises(ValueError, match="without its digest"):
+        await MimirActiveCatalogPoller(reader=reader, store=store).poll_rule_sources(
+            limit=1, now=now
+        )
+    retained = await store.read_state("pantheon/mimir/active-rule-generation-observation")
+    assert retained["execution_authority"] is False
+    assert retained["generation_digest"] == "b" * 64
+    reader.rule_id = "rule-one"
+    await store.write_state(
+        "pantheon/mimir/active-rule-generation-observation", {**retained, "revision": True}
+    )
+    with pytest.raises(ValueError, match="malformed"):
+        await MimirActiveCatalogPoller(reader=reader, store=store).poll_rule_sources(
+            limit=1, now=now
+        )
 
 
 class _PromotionReader:
@@ -256,6 +304,56 @@ async def test_mimir_promotion_evidence_closes_only_after_clean_24h_window() -> 
 
     assert runner.calls == 1
     assert len(bus.messages_on("object.rule")) == 1
+
+
+@pytest.mark.parametrize("invalid_time", ["future_promotion", "pre_promotion", "future_completion"])
+async def test_mimir_rejects_regression_outside_the_promoted_observation_window(
+    invalid_time: str,
+) -> None:
+    now = datetime(2032, 1, 2, 1, 0, tzinfo=UTC)
+    saga = Saga(clock=lambda: now)
+    norns = Norns(promotion_threshold=1)
+    mimir = Mimir(governance_state_store=InMemoryStateStore(), clock=lambda: now)
+    bus = _wire(saga, norns, mimir)
+    saga.bind_issue_close_promotion_evidence_producer()
+    handoff = handoff_event_payload(
+        session_id="invalid-promotion-time",
+        question="unknown closeable",
+        turn_index=0,
+        reason="no_route",
+        emitted_at=now - timedelta(hours=48),
+    )
+    fingerprint = str(handoff["problem_fingerprint"])
+    await saga.on_typed_message("object.handoff-escalation", handoff)
+    promoted_at = now - timedelta(hours=26)
+    started_at = now - timedelta(hours=25)
+    if invalid_time == "future_promotion":
+        promoted_at = now + timedelta(hours=1)
+    elif invalid_time == "pre_promotion":
+        promoted_at = now - timedelta(hours=1)
+    else:
+        started_at = now - timedelta(minutes=1)
+    reader = _PromotionReader()
+    reader.outcomes.append(
+        MimirCatalogPromotionOutcome(
+            problem_fingerprint=fingerprint,
+            promotion_pr="https://github.com/dotnetpower/fdai/pull/999",
+            correlation_id="invalid-time",
+            outcome="promoted",
+            rule_id="rule.closeable",
+            promoted_at=promoted_at,
+        )
+    )
+    runner = _RegressionRunner(started_at=started_at)
+    mimir.bind_catalog_promotion_outcome_reader(reader)
+    mimir.bind_regression_runner(runner)
+
+    await mimir.maintenance_tick()
+    await saga.maintenance_tick()
+
+    assert not bus.messages_on("object.rule")
+    assert saga.github.issues[fingerprint].open is True
+    assert runner.calls == (0 if invalid_time == "future_promotion" else 1)
 
 
 async def test_mimir_promotion_evidence_waits_when_regression_window_is_short() -> None:

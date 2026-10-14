@@ -42,6 +42,49 @@ scenarios, does not replace participant answers or evidence references, and is n
 evidence. Ordinary deliberation and private external corpora continue to derive T1 signals only
 from agent-owned facts.
 
+## Explicit Operator discussion
+
+`SemanticTurnRequest.presentation_mode=agent_discussion` selects the read-only discussion path.
+Its ordinary default is omitted from serialization; the additive request schema is 1.11.0.
+Operator requires a human Owner and enabled retained authentication receipts. Core separately
+requires Owner and a current independent `agent-discussion-read` admission before calling Bragi.
+The verifier re-reads the exact request's receipt, recomputes the complete locator and scope
+digests, and requires the current grant-registry pin plus `agent-discussion.read` on one exact
+`pantheon-installation:` selector. Case-history or partial Resource grants cannot substitute.
+
+Standard bootstrap requires `FDAI_PANTHEON_INSTALLATION_REF`,
+`FDAI_PANTHEON_DISCUSSION_SCOPE_DIGEST`, and the independently bound operational verifier.
+Missing configuration or admission remains an explicit hold; upstream supplies no real grants.
+Discussion uses the existing per-turn cancellation, deadline, immutable terminal result, and
+idempotent projection path. It accepts neither assurance purposes nor document/investigation
+context, never supplies fixed assurance facts, and cannot emit an action draft.
+
+Only explicit T2 selection permits optional synthesis. A T1 discussion forwards the existing
+no-escalation judgment option and cannot synthesize a structured conflict. Unverified outcomes
+preserve participant evidence without a final conclusion. A completed verified synthesis is
+still limited advice over agent-owned projections, not current cloud truth, approval, or effect
+verification. Output overflow holds without truncation. The Command Deck exposes an explicit
+conversation mode and renders position, critique, evidence and every participant outcome. It
+does not forward incident, selected-resource or attachment context into discussion. Synthetic
+desktop/responsive tests and bilingual labels verify this source connection, not governed live
+quality, authorization, cost, accessibility or restart acceptance, which remain unfinished.
+
+## Verified owned operational answers
+
+Ordinary Bragi `ask` keeps direct introspection as an owned-data view. An accepted typed
+`agent_role` intent preserves the role description, and an exact fact-scoped tool preserves its
+data view. Final operational prose is composed separately from one to three complete canonical
+owner snapshots, the original question and locale. It never concatenates responder templates.
+The explicit `owned_answer` purpose is bound into request identity; ordinary discussion still
+requires two to three agents and retains its previous default request hash.
+
+The existing structured writer, V-CLAIM, independent reviewer, sensitivity/output bounds and
+measured per-correlation budget apply. The budget key includes session generation and turn, so
+distinct turns do not reuse one allowance. Missing writer/reviewer, incomplete contributors,
+unentailed claims or exhausted budget hold the prose while retaining structured owned evidence.
+Review remains presentation-only over agent-owned projections, not live cloud truth or execution
+authority. Source connection and focused synthetic checks do not establish deployed model quality.
+
 ## Situational prompt composition
 
 One static string cannot serve every turn. An operator asking in Korean, a read-only peer
@@ -148,6 +191,13 @@ action.
 
 ## Tool planning
 
+An explicitly selected canonical agent is server-validated presentation routing, not inferred
+meaning or authority. The remote introspection boundary carries that target and `en`/`ko` locale
+through Bragi, includes locale in replay identity, and never selects a target merely because its
+name appears in prose. Semantic judgment remains required and action requests still re-enter the
+typed pipeline. The standalone client/server contract does not establish an Operator group-chat
+route or deployed availability.
+
 A charter tells its agent to answer "through the allowed tools", and the grounding layer now names
 them. Until it did, that instruction described a surface no turn could reach: the registry existed,
 but nothing in the read path dispatched a tool, so the sentence asked the agent to work through
@@ -239,7 +289,23 @@ Missing embeddings, provider failure, low confidence, one relevant agent, unknow
 action intent, or responder failure results in an abstention. The path never substitutes T0 to
 manufacture a discussion.
 
+Every selected participant remains in `requested_participants` and `participant_outcomes`,
+including failed and unattempted branches. If the primary or every peer lacks evidence, the
+discussion abstains. If only some peers fail, the result is `partial` with the exact failure
+reasons; it never reports complete participation or starts T2 synthesis.
+
+Partial discussion and unresolved structured conflicts expose no final `conclusion`. Conflict
+results stay `held` through missing synthesis, exhausted budget, provider failure, or failed
+verification. Position and critique evidence remain readable, but only verified synthesis can
+return a completed conflict conclusion. Observation-only handover reports likewise cannot
+certify missing deployment, identity, notification, document, recovery, or promotion evidence.
+
 ### T1 answer evaluation
+
+Every peer contribution records a `peer_review` against the exact primary claim. It identifies
+both owners and both evidence sets and reports `consistent`, `conflicting`, or `not_comparable`
+from shared identity/field comparison signals. Missing shared signals never count as agreement.
+This is a deterministic evidence critique, not an inferred prose judgment or operational authority.
 
 Each accepted claim retains only the fields needed for deterministic comparison. Identity comes
 from `resource_id`, `scope_ref`, `id`, or `correlation_id`. Comparable conclusions come from the
@@ -247,6 +313,10 @@ fixed `state`, `status`, `verdict`, `mode`, `health`, `outcome`, and `recommenda
 evaluator admits T2 only when two claims use the same identity field and canonical identity value,
 then name the same conclusion field with different canonical values. Different identity fields are
 separate namespaces even when their rendered values happen to match.
+
+The claim also retains its normalized owned facts as canonical, immutable `facts_json` bounded
+at 16 KiB. Unsupported values, non-finite numbers and overflow hold before synthesis. The complete
+snapshot participates in request identity, so later caller mutation cannot substitute evidence.
 
 No comparable signal means that T2 is not required. A prose difference, an available synthesizer,
 or remaining budget never opens escalation by itself. Missing evidence references still cause T1
@@ -334,6 +404,14 @@ silently refund it, and a ceiling that refunds itself is not a ceiling.
 
 ## Optional T2 synthesis
 
+Standard Core bootstrap binds `StateStoreBudgetLedger` for persistent per-correlation spend.
+It hashes correlation keys, pins the exact budget policy, and reserves before a call through
+bounded revision CAS. Restart, replica overlap, malformed state, and policy substitution never
+refund a consumed allowance. Store failure holds rather than falling back to memory. This
+implementation supports the default undeclared fleet totals; explicitly configured fleet totals
+require a separate atomic binding and are rejected rather than ignored. The process-local
+`InMemoryBudgetLedger` remains available for standalone construction and focused tests.
+
 `T2ConversationSynthesizer` is an optional Protocol on `LlmBindings`. A deployment can bind an
 implementation at the composition root. The request contains the question, requester, correlation
 id, primary owner, bounded owner-attributed claims, evidence refs, prompt digests, and immutable
@@ -347,9 +425,23 @@ The synthesized conclusion is presentation-only. It is bounded to 4,000 characte
 sensitive content. Provider errors, empty output, oversized output, or sensitive output preserve
 the T1 result and record a bounded T2 status.
 
-Upstream does not ship a default Azure adapter for this Protocol. When the binding is absent, the
-runtime remains at T1. Adding an adapter requires provider selection, metering, deployment
-validation, and focused failure tests.
+Synthesis also requires a separately injected `ConversationSynthesisVerifier`. Without it,
+`verification_unavailable` holds before a model call or budget reservation. The verifier performs
+V-CLAIM and independent entailment review and returns a `SynthesisVerification` bound to the exact
+request digest, conclusion digest, and complete evidence-reference set. A generator cannot verify
+itself. Missing, rejected, mismatched, or failed verification preserves T1 evidence and never adopts
+the generated conclusion. A verified conclusion carries content-free digest and citation metadata;
+the receipt grants no action, approval, promotion, or execution authority.
+
+Standard Core bootstrap now binds `VerifiedPantheonSynthesizer` and its independent verifier when
+the existing independent Azure reasoner targets, both USD prices, exact reviewed prompt packs,
+workload identity, HTTP client and metering are available. Existing custom bindings are preserved.
+The author returns `ComposedAnswer`; V-CLAIM checks exact values, names, references, limitations and
+complete row accounting before the separate reviewer checks every claim. Missing or rejected
+review cannot approve an answer. Agent-owned projections are explicitly not live cloud evidence.
+Both model calls are reserved before generation, reviewer usage is metered separately, and malformed
+generation still retains measured cost. The operator locale is bound to the request. These are
+implemented source mechanics, not a live quality, latency, cost or deployment acceptance receipt.
 
 ## Authority boundary
 

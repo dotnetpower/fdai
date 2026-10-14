@@ -20,6 +20,8 @@ export function CommandDeckHeader({
   sessionLabel,
   health,
   conversationModelTier,
+  presentationMode = "operator",
+  onPresentationMode,
   conversationModelAvailability,
   modelSelectionDisabled,
   searchAvailable,
@@ -47,6 +49,8 @@ export function CommandDeckHeader({
   readonly sessionLabel: string | null;
   readonly health: BackendHealth | null;
   readonly conversationModelTier: ConversationModelTier;
+  readonly presentationMode?: "operator" | "agent_discussion";
+  readonly onPresentationMode?: (mode: "operator" | "agent_discussion") => void;
   readonly conversationModelAvailability: ConversationModelAvailability;
   readonly modelSelectionDisabled: boolean;
   readonly searchAvailable: boolean;
@@ -118,6 +122,19 @@ export function CommandDeckHeader({
         )}
         <BackendBadge health={health} placement="header" />
       </div>
+      <div class="deck-model-controls">
+      {onPresentationMode && <label class="deck-model-selector deck-mode-selector">
+        <span class="sr-only">{conversationModelText("mode")}</span>
+        <select
+          value={presentationMode}
+          disabled={modelSelectionDisabled || sessionLabel !== null}
+          aria-label={conversationModelText("mode")}
+          onChange={(event) => onPresentationMode(event.currentTarget.value as "operator" | "agent_discussion")}
+        >
+          <option value="operator">{conversationModelText("operatorMode")}</option>
+          <option value="agent_discussion">{conversationModelText("discussionMode")}</option>
+        </select>
+      </label>}
       <label class="deck-model-selector">
         <span class="sr-only">{conversationModelText("label")}</span>
         <Tooltip content={conversationModelText("hint")}>
@@ -143,6 +160,7 @@ export function CommandDeckHeader({
           </select>
         </Tooltip>
       </label>
+      </div>
       <div class="deck-header-center">
         {searchAvailable ? <div class="deck-search" role="search">
           <span class="deck-search-icon" aria-hidden="true">⌕</span>

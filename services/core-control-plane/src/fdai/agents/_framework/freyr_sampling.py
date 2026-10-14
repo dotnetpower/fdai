@@ -68,7 +68,7 @@ async def run_recurring_sampling(
         return 0
     accepted = 0
     for index, sample in enumerate(tuple(raw_samples)[:bounded_limit]):
-        normalized = _normalize_sample(sample, default_observed_at=sampled_at, index=index)
+        normalized = _normalize_sample(sample, index=index)
         if normalized is None:
             record_behavior("capacity_sampling:invalid", 1)
             continue
@@ -90,7 +90,6 @@ async def run_recurring_sampling(
 def _normalize_sample(
     sample: UtilizationSample,
     *,
-    default_observed_at: datetime,
     index: int,
 ) -> UtilizationSample | None:
     resource_id = _bounded_string(sample.resource_id)
@@ -99,9 +98,15 @@ def _normalize_sample(
     utilization = sample.utilization
     if isinstance(utilization, bool) or not math.isfinite(utilization) or not 0 <= utilization <= 1:
         return None
-    observed_at = (
-        _bounded_string(sample.observed_at, required=False) or default_observed_at.isoformat()
-    )
+    observed_at = _bounded_string(sample.observed_at, required=False)
+    if observed_at is None:
+        return None
+    try:
+        source_time = datetime.fromisoformat(observed_at)
+    except ValueError:
+        return None
+    if source_time.tzinfo is None or source_time.utcoffset() is None:
+        return None
     correlation_id = _bounded_string(
         sample.correlation_id, required=False
     ) or stable_idempotency_key(

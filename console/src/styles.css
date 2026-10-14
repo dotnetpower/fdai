@@ -2,6 +2,26 @@
 @import url("../../ui/calm-slate-primitives.css");
 @import url("../../ui/calm-slate-deck-conversation.css");
 
+:root .deck-agent-discussion {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
+}
+
+.deck-agent-discussion h4 {
+  margin: 0 0 16px;
+  font-size: var(--cs-type-panel-title-size);
+  line-height: var(--cs-type-panel-title-line-height);
+}
+
+.deck-agent-discussion article + article { margin-top: 24px; }
+.deck-agent-discussion article > header { display: flex; gap: 12px; flex-wrap: wrap; }
+.deck-agent-discussion article > header > span { color: var(--cs-text-soft); }
+.deck-agent-discussion details { margin-top: 8px; }
+.deck-agent-discussion code { overflow-wrap: anywhere; }
+.deck-discussion-participants { display: flex; gap: 24px; flex-wrap: wrap; margin: 0; }
+.deck-discussion-participants dd { margin: 4px 0 0; color: var(--cs-text-soft); }
+
 .deck-incident-candidates {
   display: grid;
   gap: 8px;
@@ -8031,6 +8051,14 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   align-items: center;
   min-width: 0;
 }
+.deck-model-controls {
+  grid-area: model;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 0;
+}
+.deck-model-controls > .deck-model-selector { flex: none; }
 .deck-model-selector select {
   min-width: 112px;
   min-height: 32px;
@@ -11932,7 +11960,8 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
     grid-template-columns: 120px minmax(0, 1fr) auto 44px;
     grid-template-areas:
       "title title actions window"
-      "model headline headline headline";
+      "model model model model"
+      "headline headline headline headline";
     gap: 6px 10px;
     padding: 6px 12px;
   }
@@ -11956,7 +11985,10 @@ button.wf-node:hover { border-color: var(--accent); background: color-mix(in okl
   .deck-model-selector select {
     width: 120px;
     max-width: 120px !important;
+    min-height: 44px;
   }
+  .deck-mode-selector select { width: 164px; max-width: 164px !important; }
+  .deck-model-controls { flex-wrap: wrap; }
   .deck-layout-controls { display: none; }
   .deck-header-action { width: 44px; height: 44px; }
   /* Three header actions keep 44px targets; the title column absorbs the narrower width. */

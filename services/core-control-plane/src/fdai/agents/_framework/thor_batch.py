@@ -71,7 +71,13 @@ def parse_batch_target_set(verdict: Mapping[str, Any]) -> BatchTargetSet | Batch
             )
         seen.add(normalized)
         targets.append(normalized)
-    if len(targets) <= 1:
+    if not targets or (len(targets) == 1 and verdict.get("resource_id") != targets[0]):
+        return BatchHold(
+            outcome="batch_target_set_unknown",
+            target_count=len(targets),
+            max_targets=max_targets,
+        )
+    if len(targets) == 1:
         return None
     if len(targets) > max_targets or len(targets) > _MAX_TARGETS:
         return BatchHold(

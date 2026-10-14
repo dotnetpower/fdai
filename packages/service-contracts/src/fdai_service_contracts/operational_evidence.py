@@ -9,6 +9,7 @@ record the verifier wrote; it never carries evidence content, and it never grant
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from typing import Annotated, Literal, Self
@@ -20,6 +21,7 @@ from fdai_service_contracts.executor_models import ContractBase, Digest, SemVer
 from fdai_service_contracts.ontology_query import content_digest
 
 OPERATIONAL_EVIDENCE_PURPOSES: tuple[str, ...] = (
+    "agent-discussion-read",
     "case-history-read",
     "current-case-reuse",
     "forecast-context",
@@ -37,6 +39,17 @@ _FORECAST_COORDINATES = frozenset(
     {"access_scope_digest", "target_digest", "horizon_started_at", "horizon_ended_at"}
 )
 LOCATOR_COORDINATES: dict[str, frozenset[str]] = {
+    "agent-discussion-read": frozenset(
+        {
+            "installation_ref",
+            "principal_ref",
+            "request_ref",
+            "case_scope_digest",
+            "authentication_receipt_ref",
+            "principal_groups_digest",
+            "purpose",
+        }
+    ),
     "case-history-read": frozenset(
         {
             "principal_ref",
@@ -62,6 +75,22 @@ _ATTEMPT_ID = r"^[a-f0-9]{32}$"
 _REASON_CODE = re.compile(r"^[a-z][a-z0-9_.-]{0,63}$")
 _MAX_COORDINATE_CHARS = 512
 AttemptId = Annotated[str, Field(pattern=_ATTEMPT_ID)]
+
+
+def agent_discussion_lookup_digests(coordinates: Mapping[str, str]) -> tuple[str, str]:
+    """Bind the complete exact-key read locator and its principal authorization scope."""
+    locator = OperationalEvidenceLocator(
+        purpose_id="agent-discussion-read", coordinates=dict(coordinates)
+    )
+    return content_digest(dict(locator.coordinates)), content_digest(
+        {
+            "principal_ref": locator.coordinate("principal_ref"),
+            "principal_groups_digest": locator.coordinate("principal_groups_digest"),
+            "case_scope_digest": locator.coordinate("case_scope_digest"),
+            "installation_ref": locator.coordinate("installation_ref"),
+            "purpose_id": "agent-discussion-read",
+        }
+    )
 
 
 class OperationalEvidenceRejectionClass(StrEnum):

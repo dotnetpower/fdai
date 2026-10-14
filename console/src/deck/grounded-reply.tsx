@@ -45,6 +45,7 @@ import {
 } from "./backend";
 import { presentationArtifactSupersedesText } from "./presentation-artifact";
 import { RichContent } from "./rich-content";
+import { AgentDiscussionReply, decodeAgentDiscussion } from "./agent-discussion-reply";
 import { openDeckWithContext, type DeckOpenDetail } from "./open-deck";
 import { relevantCitations, type Citation } from "./citations";
 import type { ConversationTrajectory } from "./conversation-trajectory";
@@ -133,6 +134,7 @@ export function GroundedReply({
   const renderedText = incidentCandidates && incidentCandidates.length > 0
     ? incidentCandidateAnswerLead(primaryText)
     : primaryText;
+  const discussion = !streaming ? decodeAgentDiscussion(renderedText) : null;
   const sources = buildSources(verification, cites);
   const evidenceReferences = hasEvidenceReferenceCitations(cites);
   const groundingIssue = groundingAttentionIssueKind(verification, semanticReceipt);
@@ -295,7 +297,9 @@ export function GroundedReply({
             {t(`deck.answerState.${answerState}`)}
           </span>
         ) : null}
-        {structuredPresentation ? (
+        {discussion ? (
+          <AgentDiscussionReply discussion={discussion} />
+        ) : structuredPresentation ? (
           <>
             {renderedText.trim() ? (
               <div class="deck-presentation-lead">

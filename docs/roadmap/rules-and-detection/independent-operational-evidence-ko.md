@@ -1,7 +1,7 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 62c753f5f83ea82ce98491e84d8a5ba7876f3d30
-translation_revised: 2026-10-09
+translation_source_sha: fc0bdf111ed4aa74563371b6ca446aa76300aa21
+translation_revised: 2026-10-15
 ---
 # 독립 운영 근거 발급
 
@@ -23,9 +23,23 @@ translation_revised: 2026-10-09
 > 어떤 에이전트의 `owns`나 `subscribes`도 바꾸지 않으며, 실행 권한이나 승격 권한을 부여하지 않습니다.
 
 ## 설계 요약
+명시적 Operator 토론은 별도의 `agent-discussion-read` 목적을 추가합니다. 독립적으로 보관된
+인증 영수증을 읽는 기존 경계를 재사용하지만, 현재의 인간 Owner와 정확한
+`pantheon-installation:` 선택자 하나에 대한 별도 `agent-discussion.read` 허가를 요구합니다.
+verifier는 전체 조회 좌표와 주체 범위 해시를 다시 계산하고 현재 허가 레지스트리 pin을
+확인합니다. 사례 조회 허가나 일부 Resource 선택자로 설치 인가를 대신할 수 없습니다.
+일반 신뢰 레지스트리 리비전은 검증 방법만 추가하며, 실제 주체·배포 신뢰 기준·허가나 실제 환경의
+준비 완료를 주장하지 않습니다. Core는 Bragi 호출 전에 인가를 확인하고 결과를 표현 전용으로
+유지합니다. 이 인가로 클라우드 사실이나 모델의 답변을 검증할 수는 없습니다.
+
 대화 모델 호출 수, 토큰 사용량, 로컬 호출별 시간은 진단 메타데이터입니다. 검증 증적을
 발급하거나 출처 재확인을 대체하거나 운영 근거를 입증하거나 사람의 인가를 증명할 수
 없습니다. 숫자 사용량 계측을 추가해도 이 검증기 경계는 바뀌지 않습니다.
+
+Forseti의 제한된 v1 what-if 비교 저널은 선택된 진단 입력을 기존 StateStore에 보관합니다.
+내용 해시, 리비전 CAS와 재시작 복구로 저장 손상을 탐지하지만, 독립 검증기 증명이나
+`DecisionEvidenceAdmission` 기록은 아닙니다. 보조 보관은 출처 재확인, 사람 인가 또는 기존
+결정 근거 관문을 대신할 수 없습니다.
 
 여덟 개 판단 영역에 걸친 목적 id 열한 개는 이미 정확한 `DecisionEvidenceAdmission`(다섯 가지 독립 증명을
 거친 뒤에만 생기는, 권한 없는 단기 적격성 기록)을 요구하지만 이를 발급하는 곳이 없습니다. 자체 워크로드
