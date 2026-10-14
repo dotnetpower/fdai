@@ -1,8 +1,8 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 4c5ddbe65b3ad87cb3be306184beac69963cfa47
-translation_revised: 2026-10-01
+translation_source_sha: 74a698299e4a2be7f9170bc341d2406ae7eb2c1e
+translation_revised: 2026-10-14
 ---
 # 판테온 대화형 숙의
 
@@ -236,6 +236,11 @@ Discussion 경로는 clear T0 경로를 재사용하지 않습니다. T1 임베�
 임베딩 부재, 프로바이더 실패, 낮은 확신도, 관련 에이전트 1개, 알 수 없음 요청자, 액션
 의도 또는 응답자 실패는 abstention을 반환합니다. Discussion을 만들기 위해 T0를
 대체하지 않습니다.
+
+선택한 모든 참여자는 실패했거나 시도하지 않은 경우에도 `requested_participants`와
+`participant_outcomes`에 남습니다. 주 담당자 또는 모든 동료가 근거를 제공하지 못하면
+토론을 보류합니다. 일부 동료만 실패하면 결과는 정확한 실패 사유를 포함한 `partial`이며,
+전체 참여가 완료됐다고 보고하거나 T2 종합을 시작하지 않습니다.
 
 ### T1 답변 평가
 

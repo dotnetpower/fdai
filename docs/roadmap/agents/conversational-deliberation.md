@@ -239,6 +239,11 @@ Missing embeddings, provider failure, low confidence, one relevant agent, unknow
 action intent, or responder failure results in an abstention. The path never substitutes T0 to
 manufacture a discussion.
 
+Every selected participant remains in `requested_participants` and `participant_outcomes`,
+including failed and unattempted branches. If the primary or every peer lacks evidence, the
+discussion abstains. If only some peers fail, the result is `partial` with the exact failure
+reasons; it never reports complete participation or starts T2 synthesis.
+
 ### T1 answer evaluation
 
 Each accepted claim retains only the fields needed for deterministic comparison. Identity comes

@@ -195,7 +195,7 @@ class ConversationDeliberator:
             else None,
             known_agents=set(self._specs),
         )
-        base = {
+        base: dict[str, Any] = {
             "requester": requester,
             "trace_ref": correlation_id,
             "authority": "presentation_only",
@@ -249,6 +249,10 @@ class ConversationDeliberator:
         )
         base["routing_method"] = decision.method
         participants = (primary_agent, *decision.contributors)[:_MAX_PARTICIPANTS]
+        base["requested_participants"] = list(participants)
+        base["participant_outcomes"] = [
+            {"agent": agent, "status": "not_attempted"} for agent in participants
+        ]
         if len(participants) < 2:
             return {
                 **base,
@@ -281,6 +285,11 @@ class ConversationDeliberator:
             },
         )
         primary_claim = _claim(primary_agent, primary_raw)
+        base["participant_outcomes"][0] = {
+            "agent": primary_agent,
+            "status": "completed" if primary_claim is not None else "abstained",
+            "reason": None if primary_claim is not None else primary_error or "primary_abstained",
+        }
         if primary_claim is None:
             return {
                 **base,
@@ -305,9 +314,20 @@ class ConversationDeliberator:
                 for peer in participants[1:]
             )
         )
+        base["participant_outcomes"] = [
+            base["participant_outcomes"][0],
+            *(
+                {
+                    "agent": agent,
+                    "status": "completed" if claim is not None else "abstained",
+                    "reason": reason,
+                }
+                for agent, (claim, reason) in zip(participants[1:], critiques, strict=True)
+            ),
+        ]
         peer_claims = tuple(
             _with_scenario_signals(claim, scenario_signals)
-            for claim in critiques
+            for claim, _reason in critiques
             if claim is not None
         )
         if not peer_claims:
@@ -339,6 +359,11 @@ class ConversationDeliberator:
         }
         evaluation = evaluate_t1_answers(claims)
         result["t1_evaluation"] = evaluation.to_mapping()
+        if len(peer_claims) != len(participants) - 1:
+            result["status"] = "partial"
+            result["reason"] = "participant_evidence_incomplete"
+            result["t2_status"] = "held_incomplete_participants"
+            return result
         if not evaluation.requires_t2:
             result["t2_status"] = "not_required"
             return result
@@ -365,8 +390,8 @@ class ConversationDeliberator:
         locale: str,
         budget_key: str,
         primary_claim: DeliberationClaim,
-    ) -> DeliberationClaim | None:
-        response, _ = await self._call_responder(
+    ) -> tuple[DeliberationClaim | None, str | None]:
+        response, error = await self._call_responder(
             agent_name,
             question,
             {
@@ -384,7 +409,8 @@ class ConversationDeliberator:
                 "handoff_owner": primary_claim.agent,
             },
         )
-        return _claim(agent_name, response)
+        claim = _claim(agent_name, response)
+        return claim, None if claim is not None else error or "peer_abstained"
 
     async def _escalation_counters(self, correlation_id: str) -> dict[str, int]:
         """Return the bound a turn may state, as bounded integers."""

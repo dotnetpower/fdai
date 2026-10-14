@@ -351,6 +351,57 @@ def test_t1_deliberation_collects_position_and_peer_critique() -> None:
     assert result["authority"] == "presentation_only"
 
 
+@pytest.mark.parametrize("failed_peers", [("Heimdall",), ("Freyr", "Heimdall")])
+def test_deliberation_accounts_for_failed_peers_without_claiming_completion(
+    failed_peers: tuple[str, ...],
+) -> None:
+    synthesizer = _T2Synthesizer()
+
+    async def responder(
+        agent: str, _question: str, _context: dict[str, object]
+    ) -> tuple[dict[str, object] | None, str | None]:
+        if agent in failed_peers:
+            return None, "timeout"
+        return {
+            "answer": f"{agent} owned evidence.",
+            "facts": {
+                "resource_id": "resource-example",
+                "recommendation": "scale_down" if agent == "Njord" else "scale_up",
+                "evidence_refs": [_agent_state_ref(agent)],
+            },
+            "prompt_composition": {"prompt_sha256": "a" * 64},
+        }, None
+
+    deliberator = ConversationDeliberator(
+        specs=PANTHEON_SPECS,
+        semantic_router=None,
+        t2_synthesizer=synthesizer,
+        call_responder=responder,
+    )
+    result = asyncio.run(
+        deliberator.deliberate(
+            question="Compare cost, capacity, and observation evidence.",
+            requester="Forseti",
+            routing_decision=RoutingDecision(
+                primary_agent="Njord",
+                scores={},
+                tie_break=None,
+                contributors=("Freyr", "Heimdall"),
+            ),
+        )
+    )
+
+    assert result["status"] == ("partial" if len(failed_peers) == 1 else "abstain")
+    assert result["requested_participants"] == ["Njord", "Freyr", "Heimdall"]
+    assert len(result["participant_outcomes"]) == 3
+    assert {
+        outcome["agent"]
+        for outcome in result["participant_outcomes"]
+        if outcome["status"] == "abstained" and outcome["reason"] == "timeout"
+    } == set(failed_peers)
+    assert synthesizer.requests == []
+
+
 def test_deliberation_claim_uses_the_effective_composed_prompt_digest() -> None:
     baseline_digest = "a" * 64
     composed_digest = "b" * 64
