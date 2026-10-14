@@ -117,6 +117,7 @@ def _intent_training_stage_key(
     contract_version: str,
     corpus_digest: str,
     candidate_digest: str,
+    run_id: str,
     stage: str,
 ) -> str:
     key = stable_idempotency_key(
@@ -124,6 +125,7 @@ def _intent_training_stage_key(
         contract_version,
         corpus_digest,
         candidate_digest,
+        run_id,
         stage,
     )
     return f"{_INTENT_TRAINING_EVIDENCE_PREFIX}{key}"

@@ -249,6 +249,11 @@ issue-close regression evidence only after promotion and completed observation, 
 timestamps and pre-promotion runs. Neither check binds missing evidence producers or grants
 activation or issue-close authority.
 
+Bragi training run, publication and stage identities bind the complete content snapshot, including
+consent references, candidate lineage, evaluation results and reviewed-promotion inputs. Exact
+replay reuses the identity; changed snapshots retain separate audited stages within the existing
+retention window and never replace runtime routing.
+
 Forseti what-if comparisons preserve the original recorded ActionType, including a no-rule
 abstention, and its recorded judgment-table digest. Current rules never fill the original action
 or replace its source digest. With Forseti's existing StateStore bound, a closed, content-hashed

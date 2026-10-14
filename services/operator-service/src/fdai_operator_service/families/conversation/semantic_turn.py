@@ -6,7 +6,7 @@ import hashlib
 import json
 from collections.abc import Callable, Mapping
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID, uuid5
 
 from fdai_operator_service.context_selection import ContextSelectionRegistry
@@ -41,6 +41,9 @@ _IDENTITY_NAMESPACE = UUID("00000000-0000-0000-0000-000000000000")
 _DEFAULT_DEADLINE_SECONDS = 90
 _MAX_DEADLINE_SECONDS = 90
 _TARGET_AGENT: TypeAdapter[AdaptiveAgentName] = TypeAdapter(AdaptiveAgentName)
+_PRESENTATION_MODE: TypeAdapter[Literal["operator", "agent_discussion"]] = TypeAdapter(
+    Literal["operator", "agent_discussion"]
+)
 
 Clock = Callable[[], datetime]
 
@@ -140,7 +143,9 @@ class SemanticTurnEnvelopeBuilder:
             include_model_trace=proposal.body.get("include_model_trace") is True,
             cancelled=proposal.cancellation,
             target_agent=target_agent,
-            presentation_mode=proposal.body.get("presentation_mode", "operator"),
+            presentation_mode=_PRESENTATION_MODE.validate_python(
+                proposal.body.get("presentation_mode", "operator")
+            ),
             relationship_proof=relationship_proof,
             relationship_unknown_reason=relationship_unknown_reason,
         )

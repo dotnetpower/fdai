@@ -102,6 +102,7 @@ not authorize scaling. Local routed-provider, sampling and bootstrap checks: 56 
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-15 | implemented | Bound Bragi training run/publication/stage identity to the complete corpus, consent, candidate and stage snapshot; retained distinct review revisions without changing runtime routing. | `current change`; `bragi_intent_training.py`, `bragi_runtime_helpers.py`, `bragi.py`; six new identity/storage regressions; learning/layout checks: 30 passed; three-source mypy and Ruff passed. | Independent evaluator, consent-filtered source corpus, reviewed activation and deployed-provider acceptance remain open. |
 | 2026-10-15 | implemented | Added request-pinned Forseti what-if outbox delivery with closed/content-hashed records, claim-fenced replica publication, completed-only compaction, startup/maintenance recovery and identical-key crash replay. | `current change`; `forseti_what_if_publication.py`; focused what-if/outbox/layout/workflow/primary-pipeline checks: 211 passed; three-source mypy and Ruff passed. | Bounded retained-request deduplication is implemented; full historical context, deployed database/broker acceptance and other maintenance-source bindings remain open. |
 | 2026-10-15 | implemented | Prevented explicit empty or mismatched single-target declarations from falling through to an undeclared outer resource; preserved exact single-target execution and reconciled the existing batch implementation. | `current change`; `thor_batch.py`; batch/layout/workflow checks: 51 passed; one-file mypy and Ruff passed. | Existing target-scoped rollback, rollup audit and durable approval/restart mechanics pass synthetic checks; deployed identity, rollback/effect and broker acceptance remain separate. |
 | 2026-10-15 | implemented | Persisted the bounded v1 Forseti comparison window through the existing StateStore: 512 records, closed fields, content hashes, eight bounded CAS attempts and two-second storage deadlines. Startup and each comparison restore validated committed inputs; storage faults preserve primary judgments and hold comparison. | `current change`; `forseti_quality_retention.py`; what-if/layout/workflow/primary-pipeline checks: 176 passed; four-source mypy and Ruff passed. | Publication deduplication and complete historical Rule/policy/evidence replay remain open; memory-provider tests are not deployed database or broker acceptance. |
@@ -693,6 +694,13 @@ disjoint from training input digests and never enter candidate lineage or suppor
 evaluator must return exactly one result per frozen case without replacing its baseline or
 expected owner. These integrity checks do not supply an evaluator, source corpus, or activation
 authority; those bindings remain separate.
+
+Run and publication identity bind the contract version, corpus digest, candidate digest and all
+stage results. The corpus digest includes the consent reference. Changed input, correction,
+consent, evaluation or review creates a new run; exact replay preserves its payload and key.
+Each stage key and audit binds that run, so a reviewed revision cannot reuse a previous held
+stage. Existing rows remain unchanged until the established retention policy removes them.
+At-least-once transport may repeat identical payloads; this is not exactly-once publication.
 
 #### Multi-target batches
 

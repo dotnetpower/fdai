@@ -62,7 +62,9 @@ async def test_bragi_routes_to_composed_heimdall_read_responder() -> None:
     )
 
     assert turn.primary_agent == "Heimdall"
-    assert turn.answer["answer"] == "Investigated: Who stopped vm-01?"
+    assert turn.answer["answer"] is None
+    assert turn.answer["abstain_reason"] == "owned_answer_verification_held"
+    assert turn.answer["owned_answer_composition"]["authority"] == "presentation_only"
     assert turn.answer["facts"]["status"] == "matched"
     assert len(contexts) == 1
     assert str(contexts[0]["session_ref"]).startswith("sha256:")

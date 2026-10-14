@@ -7,7 +7,6 @@ import logging
 from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any, cast
 
 from fdai.agents import (
@@ -19,7 +18,6 @@ from fdai.agents import (
 )
 from fdai.composition.cost_governance_activation import build_cost_runtime_bindings
 from fdai.composition.operational_evidence_binding import build_test_context_command_handler
-from fdai.composition.pantheon_synthesis import build_pantheon_synthesis
 from fdai.core.capacity import CapacityGraduationController
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.impact_analysis import ChangeAssessmentService, ImpactAnalyzer
@@ -55,7 +53,6 @@ from fdai.delivery.prospective_lineage import (
     OperationalPlanningProspectiveFinalizer,
     StateStoreProspectiveLineageMaterializer,
 )
-from fdai.delivery.repo_assets import repo_asset_root
 from fdai.rule_catalog.schema.capacity_graduation_policy import load_capacity_graduation_policy
 from fdai.runtime.aks_commerce import (
     ActionObservation,
@@ -64,6 +61,8 @@ from fdai.runtime.aks_commerce import (
     chain_acceptance_observer,
 )
 from fdai.runtime.approval_policy import approver_authorizer_from_environment
+from fdai.runtime.bootstrap_agent_discussion import _runtime_asset_root as _runtime_asset_root
+from fdai.runtime.bootstrap_agent_discussion import build_runtime_pantheon_synthesis
 from fdai.runtime.bootstrap_capacity_sampling import build_capacity_sampler
 from fdai.runtime.bootstrap_chaos_schedule import build_chaos_schedule
 from fdai.runtime.bootstrap_pantheon_models import (
@@ -142,12 +141,6 @@ def _pantheon_enforce_enabled(
     return requested and (
         startup_readiness.authority_ceiling("autonomous-action") is AuthorityCeiling.DEPLOYMENT
     )
-
-
-def _runtime_asset_root() -> Path:
-    """Locate shipped runtime assets in either checkout or installed image layout."""
-
-    return repo_asset_root()
 
 
 async def initialize_pantheon(
@@ -460,29 +453,7 @@ async def initialize_pantheon(
         else None
     )
     llm_bindings = config.container.llm_bindings
-    synthesis = None
-    if llm_bindings is not None and (
-        llm_bindings.conversation_t2_synthesizer is None
-        and llm_bindings.conversation_synthesis_verifier is None
-    ):
-        endpoint = config.environment.get("FDAI_LLM_ENDPOINT", "")
-        synthesis = build_pantheon_synthesis(
-            resolved=config.container.resolved_models,
-            identity=config.identity,
-            http_client=config.http_client,
-            endpoint=endpoint or None,
-            endpoint_resolver=_model_endpoint_resolver(
-                endpoint,
-                config.environment.get("FDAI_MODEL_ENDPOINTS_JSON"),
-            )
-            if endpoint
-            else None,
-            catalog_root=asset_root / "rule-catalog",
-            state_store=config.incident_audit_store,
-            pricing=llm_bindings.conversation_pricing,
-            metering=llm_bindings.conversation_metering,
-            held_capabilities=config.container.held_model_capabilities,
-        )
+    synthesis = build_runtime_pantheon_synthesis(config, asset_root)
     pantheon_runtime = PantheonRuntime.build(
         assignment_workflow=config.assignment_workflow,
         provider=config.bus,
@@ -645,11 +616,9 @@ async def initialize_pantheon(
             and config.container.llm_bindings.conversation_semantic_judgment_factory is not None
             else None
         ),
-        conversation_embedding_model=(
-            config.container.llm_bindings.embedding_model
-            if config.container.llm_bindings is not None
-            else None
-        ),
+        conversation_embedding_model=llm_bindings.embedding_model
+        if llm_bindings is not None
+        else None,
         conversation_t2_synthesizer=(
             synthesis.synthesizer
             if synthesis is not None
@@ -670,16 +639,12 @@ async def initialize_pantheon(
             if synthesis is not None
             else StateStoreBudgetLedger(config.incident_audit_store)
         ),
-        conversation_metering=(
-            config.container.llm_bindings.conversation_metering
-            if config.container.llm_bindings is not None
-            else None
-        ),
-        conversation_pricing=(
-            config.container.llm_bindings.conversation_pricing
-            if config.container.llm_bindings is not None
-            else None
-        ),
+        conversation_metering=llm_bindings.conversation_metering
+        if llm_bindings is not None
+        else None,
+        conversation_pricing=llm_bindings.conversation_pricing
+        if llm_bindings is not None
+        else None,
         conversation_t2_model_key=(
             synthesis.model_key
             if synthesis is not None
