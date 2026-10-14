@@ -30,34 +30,28 @@ from fdai_service_contracts import (
     UploadSession,
 )
 
-_AGENT_DOMAINS: tuple[tuple[str, tuple[str, ...], float], ...] = (
-    ("Odin", ("prioritization", "arbitration", "tie-break", "steering"), 1.0),
-    ("Thor", ("deployment", "release", "run the runbook", "rollout"), 0.8),
-    ("Forseti", ("change approval", "change advisory", "safety review"), 1.0),
-    ("Huginn", ("alert intake", "event triage", "incident intake"), 1.0),
-    ("Heimdall", ("monitoring", "observability", "anomaly", "drift"), 1.0),
-    ("Vidar", ("rollback", "disaster recovery", "failover", "recovery"), 1.0),
-    ("Var", ("approver", "sign-off", "authorize", "dual control"), 1.0),
-    ("Bragi", ("status report", "stakeholder comms", "communications"), 1.0),
-    ("Saga", ("audit", "compliance", "record keeping", "evidence"), 1.0),
-    ("Mimir", ("policy", "standards", "rule owner", "control catalog"), 1.0),
-    ("Muninn", ("runbook owner", "knowledge base", "documentation owner"), 1.0),
-    ("Norns", ("postmortem", "retrospective", "lessons learned", "rca owner"), 1.0),
-    ("Njord", ("cost", "finops", "budget", "spend"), 1.0),
-    ("Freyr", ("capacity", "sizing", "performance", "scaling"), 1.0),
-    ("Loki", ("chaos", "resilience testing", "fault injection", "game day"), 1.0),
+_AGENT_NAMES = (
+    "Odin",
+    "Thor",
+    "Forseti",
+    "Huginn",
+    "Heimdall",
+    "Vidar",
+    "Var",
+    "Bragi",
+    "Saga",
+    "Mimir",
+    "Muninn",
+    "Norns",
+    "Njord",
+    "Freyr",
+    "Loki",
 )
-_AGENT_NAMES = tuple(item[0] for item in _AGENT_DOMAINS)
 _STRUCTURED_ASSIGNMENT = re.compile(
     r"^agent\s*:\s*([^;]+)\s*;\s*responsibility\s*:\s*(accountable|informed)\s*;\s*"
     r"subject\s*:\s*(user|group)\s*;\s*identity\s*:\s*([^;\r\n]{1,128})\s*$",
     re.IGNORECASE,
 )
-_OWNER_NAME = re.compile(
-    r"(?i:owner|accountable|responsible|lead|owned by|primary)\s*[:\-]?\s*"
-    r"([A-Z][\w'.-]+(?:\s+[A-Z][\w'.-]+){0,3})"
-)
-_NAME = re.compile(r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})\b")
 
 
 @dataclass(frozen=True, slots=True)
@@ -328,48 +322,16 @@ def _extract_line(line: str, doc_id: str, line_number: int) -> tuple[HandoverMap
                 ),
                 responsibility=StewardResponsibility(structured.group(2).casefold()),
                 confidence=1.0,
-                citations=(HandoverSourceSpan(doc_id=doc_id, line=line_number, quote=line[:200]),),
+                citations=tuple(
+                    HandoverSourceSpan(
+                        doc_id=doc_id, line=line_number, quote=line[start : start + 200]
+                    )
+                    for start in range(0, len(line), 200)
+                ),
                 rationale="explicit structured assignment",
             ),
         )
-    lowered = line.casefold()
-    person_match = _OWNER_NAME.search(line) or _NAME.search(line)
-    if person_match is None:
-        return ()
-    person = HandoverPerson(display_name=person_match.group(1).strip().rstrip(" .,;:"))
-    explicit_person = _OWNER_NAME.search(line) is not None
-    explicit_responsibility = any(
-        marker in lowered
-        for marker in ("accountable", "responsible", "owner", "owned by", "lead", "(a)", "(r)")
-    )
-    responsibility = (
-        StewardResponsibility.INFORMED
-        if any(marker in lowered for marker in ("informed", "consulted", "(i)", "(c)"))
-        else StewardResponsibility.ACCOUNTABLE
-    )
-    mappings: list[HandoverMapping] = []
-    for agent, keywords, specificity in _AGENT_DOMAINS:
-        matches = tuple(keyword for keyword in keywords if keyword in lowered)
-        if not matches:
-            continue
-        confidence = min(
-            1.0,
-            0.45
-            + specificity * 0.25
-            + (0.2 if explicit_responsibility else 0.0)
-            + (0.15 if explicit_person else 0.0),
-        )
-        mappings.append(
-            HandoverMapping(
-                agent_name=agent,
-                person=person,
-                responsibility=responsibility,
-                confidence=round(confidence, 3),
-                citations=(HandoverSourceSpan(doc_id=doc_id, line=line_number, quote=line[:200]),),
-                rationale=f"domain keyword {max(matches, key=len)!r} -> {agent}",
-            )
-        )
-    return tuple(mappings)
+    return ()
 
 
 def _warnings(

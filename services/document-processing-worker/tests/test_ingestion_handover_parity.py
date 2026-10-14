@@ -8,6 +8,7 @@ from uuid import uuid4
 from fdai_document_worker_service.handover import (
     HandoverBootstrapConsumer,
     HandoverGenerationBudget,
+    _extract_line,
     stewardship_input_from_environment,
 )
 from fdai_service_contracts import (
@@ -29,6 +30,17 @@ from fdai_service_contracts import (
     StructuralUnit,
     UploadSession,
 )
+
+
+def test_worker_handover_never_guesses_prose_or_truncates_citations() -> None:
+    assert (
+        _extract_line("Cost governance owner: Jane Kim is accountable for spend.", "doc-one", 1)
+        == ()
+    )
+    line = "Agent: Njord; responsibility: accountable; subject: user; identity: " + "Name" * 32
+    (mapping,) = _extract_line(line, "doc-one", 1)
+    assert "".join(span.quote for span in mapping.citations) == line
+    assert all(len(span.quote) <= 200 for span in mapping.citations)
 
 
 class Directory:
@@ -86,13 +98,13 @@ async def test_handover_consumer_generates_grounded_review_only_draft() -> None:
                 unit_id="line-1",
                 kind="paragraph",
                 locator="paragraph:1",
-                text="Cost governance owner: Jane Kim is accountable for spend.",
+                text="Agent: Njord; responsibility: accountable; subject: user; identity: Jane Kim",
             ),
             StructuralUnit(
                 unit_id="line-2",
                 kind="paragraph",
                 locator="paragraph:2",
-                text="Chaos engineering owner: Sam Lee.",
+                text="Agent: Loki; responsibility: accountable; subject: user; identity: Sam Lee",
             ),
         ),
         extractor_name="test",
@@ -111,7 +123,7 @@ async def test_handover_consumer_generates_grounded_review_only_draft() -> None:
     by_agent = {item.agent_name: item for item in store.artifact.draft.mappings}
     assert by_agent["Njord"].person.oid == "user-jane"
     assert by_agent["Loki"].person.unresolved is True
-    assert by_agent["Njord"].citations[0].quote.startswith("Cost governance")
+    assert by_agent["Njord"].citations[0].quote.startswith("Agent: Njord;")
     assert "Jane Kim" in store.artifact.yaml
     assert "user-jane" in store.artifact.yaml
     assert "existing-njord" in store.artifact.yaml

@@ -173,6 +173,16 @@ the existing reader API; missing source/API stays unavailable. Focused observati
 and bootstrap checks: 20 passed; two-file mypy and Ruff passed. No regression result, promotion,
 deprecation decision, issue close or live authority is manufactured by this observer.
 
+### Residual actual Worker handover path
+
+The legacy Core HandoverBootstrapper has no current runtime caller. Actual document handover
+uses the independently packaged Worker's HandoverBootstrapConsumer. That path still guessed
+roles from keywords and people from name patterns, contradicting the deterministic structured
+boundary. It now accepts only explicit assignment grammar without a model; free prose abstains.
+Long structured lines keep all source text in ordered per-span-bounded citations. Worker parity,
+prose abstention and lossless-citation checks: 5 passed; Ruff and focused mypy passed. Adaptive
+interpretation must be bound into this actual Worker path, not a test-only legacy factory.
+
 ### Round 4 design and critique
 
 The existing `BudgetLedger` seam receives a StateStore-backed per-correlation implementation.

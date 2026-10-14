@@ -31,6 +31,13 @@ and do not grant RBAC, approval or execution authority.
 
 
 ### Implementation scope
+The independently packaged Document Worker uses the same deterministic-first boundary. Only
+the explicit `Agent: ...; responsibility: ...; subject: ...; identity: ...` assignment form is
+parsed without a model. Role keywords or capitalized name patterns never choose a steward from
+free prose. Long structured source lines are represented by complete ordered citation segments
+within the existing per-span bound, never by a silently cut prefix. The Worker still owns its
+document, candidate, directory and YAML budgets and stores review-only drafts.
+
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
@@ -45,6 +52,7 @@ and do not grant RBAC, approval or execution authority.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-15 | implemented | Removed role-keyword/person-name guessing from the actual Document Worker handover path and preserved structured source lines as complete bounded citation segments. | `current change`; Worker handover parity and prose/no-truncation checks: 5 passed; Ruff and focused mypy passed. | Concrete independently reviewed adaptive Worker interpretation and actual person/backup/notification receipts remain open. |
 | 2026-10-15 | implemented | Replaced citation-presence-only model gating with actual document/line/quote/person, canonical agent, finite confidence and directory-only identity checks. | `current change`; seven substitution regressions; stewardship domain: 91 passed; stewardship gate: 15 agents, 2 maintainers; Ruff and focused mypy passed. | Concrete adaptive interpreter, actual schema v2 people/backup bindings and governed notification/authorization acceptance remain open. |
 | 2026-09-04 | implemented | Added the server-owned joined Current owners projection and an agent-first Console view with exact technical identity, filters, coverage, freshness, and pending-change evidence. | `current change`; focused ownership projection, directory, PostgreSQL IAM, Console contract, type, and catalog checks passed. | A governed deployment must still supply real schema v2 bindings and retain live identity and backup-coverage evidence. |
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and bounded this document to schema, deterministic ownership primitives, migration, and handover bootstrap. | `current change`; ownership source and focused checks listed in the scope table. | Record deployment-specific schema v2 primary and backup coverage without placing tenant identities in the upstream repository. |
