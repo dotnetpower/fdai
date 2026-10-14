@@ -161,6 +161,50 @@ def _proposal(
     )
 
 
+def test_discussion_envelope_requires_owner_and_retained_authentication() -> None:
+    with pytest.raises(ValueError, match="authenticated Owner"):
+        SemanticTurnEnvelopeBuilder().build(
+            _proposal(
+                body={"prompt": "Compare agent evidence.", "presentation_mode": "agent_discussion"}
+            )
+        )
+    proposal = ConversationProposal(
+        operation="chat.stream",
+        scope=PrincipalScope("operator-1", frozenset({"Owner"})),
+        idempotency_key="discussion-request",
+        body={"prompt": "Compare agent evidence.", "presentation_mode": "agent_discussion"},
+    )
+    with pytest.raises(ValueError, match="retained authentication receipts"):
+        SemanticTurnEnvelopeBuilder(emit_authentication_receipt_ref=True).build(proposal)
+
+
+def test_discussion_envelope_uses_additive_schema_and_exact_authentication_ref() -> None:
+    now = datetime(2026, 8, 11, tzinfo=UTC)
+    receipt = local_authentication_receipt(
+        OperatorPrincipal(
+            subject_id="operator-1", roles=frozenset({OperatorRole.OWNER}), groups=frozenset()
+        ),
+        session_token="local-session-token",
+        group_ids={},
+        now=now,
+    )
+    proposal = ConversationProposal(
+        operation="chat.stream",
+        scope=PrincipalScope("operator-1", frozenset({"Owner"})),
+        idempotency_key="discussion-request",
+        body={"prompt": "Compare agent evidence.", "presentation_mode": "agent_discussion"},
+        authentication_receipt=receipt.model_dump(mode="json"),
+    )
+    envelope = SemanticTurnEnvelopeBuilder(
+        clock=lambda: now, emit_authentication_receipt_ref=True
+    ).build(proposal)
+    assert envelope["schema_version"] == "1.11.0"
+    semantic = SemanticTurnRequest.model_validate(envelope["semantic_turn"])
+    assert semantic.presentation_mode == "agent_discussion"
+    assert semantic.authentication_receipt_ref == receipt.receipt_digest
+    assert "local-session-token" not in json.dumps(envelope)
+
+
 def _channel_document_context(
     *,
     principal_ref: str = "operator-1",

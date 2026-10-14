@@ -52,7 +52,11 @@ def due_window(config: ChaosScheduleConfig, *, now: datetime) -> DueChaosWindow 
     reason = validate_config(config)
     if reason:
         return reason
-    start_at = config.start_at or now
+    start_at = config.start_at
+    if start_at is None:
+        return "invalid_start_at"
+    if now.tzinfo is None or now.utcoffset() is None:
+        return "invalid_clock"
     if now < start_at:
         return "not_due"
     elapsed = now - start_at
@@ -90,6 +94,12 @@ def validate_config(config: ChaosScheduleConfig) -> str:
         return "invalid_schedule_id"
     if config.cadence <= timedelta(0):
         return "invalid_cadence"
+    if (
+        not isinstance(config.start_at, datetime)
+        or config.start_at.tzinfo is None
+        or config.start_at.utcoffset() is None
+    ):
+        return "invalid_start_at"
     if config.action_type not in CHAOS_ACTION_TYPES:
         return "invalid_action_type"
     if not 1 <= len(config.targets) <= MAX_SCHEDULE_TARGETS:

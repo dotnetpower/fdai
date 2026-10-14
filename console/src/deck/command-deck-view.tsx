@@ -64,6 +64,8 @@ interface CommandDeckViewProps {
   readonly routeLabel: string;
   readonly health: BackendHealth | null;
   readonly conversationModelTier: ConversationModelTier;
+  readonly presentationMode?: "operator" | "agent_discussion";
+  readonly onPresentationMode?: (mode: "operator" | "agent_discussion") => void;
   readonly conversationModelAvailability: ConversationModelAvailability;
   readonly client: OperatorApiClient;
   readonly sessionLabel: string | null;
@@ -134,6 +136,8 @@ export function CommandDeckView({
   routeLabel,
   health,
   conversationModelTier,
+  presentationMode = "operator",
+  onPresentationMode,
   conversationModelAvailability,
   client,
   sessionLabel,
@@ -372,6 +376,8 @@ export function CommandDeckView({
             sessionLabel={sessionLabel}
             health={health}
             conversationModelTier={conversationModelTier}
+            presentationMode={presentationMode}
+            {...(onPresentationMode ? { onPresentationMode } : {})}
             conversationModelAvailability={conversationModelAvailability}
             modelSelectionDisabled={inFlight}
             searchAvailable={!emptyConversation}

@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-and-handover.md
-translation_source_sha: 247a0caa38432dc23105f2b917c9be59bcb8b875
-translation_revised: 2026-09-16
+translation_source_sha: 7f8c4d63064bde9dd47149122036302e0212d92a
+translation_revised: 2026-10-15
 title: 에이전트 스튜어드십과 인수인계
 ---
 # 에이전트 스튜어드십과 인수인계
@@ -23,11 +23,40 @@ RBAC은 "누가 FDAI를 조작할 수 있나"(읽기 담당 / 기여자 / Approv
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 
 ## 구현 상태
+모델의 인수인계 제안은 디렉터리 조회 전에 실제로 전달된 문서와 대조합니다. 모든 인용은 그
+문서와 유효한 1부터 시작하는 행 번호, 해당 행의 정확하고 비어 있지 않은 부분 문자열을
+지정해야 하며, 적어도 하나의 인용에 제안한 사람의 이름이 있어야 합니다. 에이전트는 고정된
+이름이어야 하고 신뢰도는 유한한 `[0, 1]` 값이어야 하며 모델이 제공한 정체성 ID는 거절합니다.
+ID는 별도 디렉터리만 해석합니다. 이 검사는 초안 전용 동작을 유지하고 RBAC, 승인 또는 실행
+권한을 부여하지 않습니다.
+
 
 ### 구현 범위
+실제 Worker에는 명시적 설정으로 연결하는 독립 검토 적응형 해석기가 있습니다. 비공개
+`FDAI_HANDOVER_MODELS_JSON`은 별도 Azure OpenAI author/reviewer 배포, publisher/계열 신원,
+명시적 토큰 가격과 SHA가 고정된 프롬프트 파일 두 개를 제공합니다. 설정이 없으면 결정론적
+경로에서 모델을 호출하지 않습니다. 두 모델은 같은 고정 역할 선언과 제한된 전체 원문을 받고,
+정확한 인용·모든 후보·정확한 제안의 독립 검토를 모두 확인해야 합니다.
+
+모델 매핑은 artifact 1.1.0의 명시적 `source=model`, 원문/제안 해시, 전체 검토 수, 신원,
+측정 사용량과 가격 해시를 사용합니다. 결정론적 1.0.0 형태는 계속 읽을 수 있습니다. 저장된
+매핑 치환과 출처 위장은 검증에 실패하며 사람 ID는 디렉터리만 지정합니다. 문서 버전별 두
+호출은 기존 Worker 소유 namespace에 원자 예약하고 실패·검토의 측정 비용도 보존하며,
+재전달 때 저장된 정확한 버전 초안을 재사용합니다. 한도 초과는 자르지 않고 보류합니다.
+혼합 문서의 모델 보류는 구조화 후보 옆에 명시합니다. Worker/Ingestion API 검사 16개와
+일곱 파일 mypy·Ruff가 통과했습니다. scripted 모델·mock HTTP/DB 검사는 실제 수락이 아닙니다.
+
+독립 패키지인 Document Worker도 같은 결정론적 우선 경계를 사용합니다. 모델 없이 해석하는
+형식은 명시적 `Agent: ...; responsibility: ...; subject: ...; identity: ...` 배정뿐입니다.
+자유 산문의 역할 키워드나 대문자 이름 패턴으로 담당자를 고르지 않습니다. 긴 구조화 원문은
+기존 인용 구간 한도 안에서 완전하고 순서가 있는 여러 구간으로 보존하며, 앞부분을 조용히
+잘라내지 않습니다. 문서·후보·디렉터리·YAML 예산은 Worker가 계속 소유하고 검토용 초안만
+저장합니다.
+
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 실제 독립 검토 적응형 Worker 소스 연결 | implemented | `handover_interpretation.py`; `adapters/handover_model*.py`; 실제 production consumer; Worker/Ingestion API 검사 16개 통과 | 원문·버전·정체성·검토·비용·재생 검사는 검토 초안만 보존합니다. 기본은 미연결이며 실제 모델·DB·사람/백업·알림 증거는 남아 있습니다. |
 | 담당 체계 스키마, 해석기, 판테온 동등성 | implemented | `services/core-control-plane/src/fdai/core/stewardship/`; `services/core-control-plane/tests/core/stewardship/test_resolver.py`; `test_pantheon_parity.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/stewardship` (71 passed) | 스키마 v1을 계속 읽을 수 있고, 스키마 v2는 순서가 있는 임무를 보존하며, 유효하지 않거나 불완전한 매핑은 실패 시 차단됩니다. |
 | 스키마 v2 마이그레이션 | implemented | `scripts/governance/migrate-stewardship-v2.py`; `services/core-control-plane/tests/core/stewardship/test_migration.py` | 마이그레이션은 검토 가능한 후보를 렌더링하고 활성 지도를 인플레이스 방식으로 수정하지 않습니다. |
 | 범위, 에스컬레이션, 알림 기본 요소 | implemented | `services/core-control-plane/src/fdai/core/stewardship/coverage.py`; `escalation.py`; `notify.py`; 집중 담당 체계 테스트 모음 (71 passed) | 이 결정론적 기본 요소는 발견 사항과 수신자를 계산합니다. 런타임 스케줄링과 전달은 수명 주기 소유 문서에서 다룹니다. |
@@ -39,6 +68,9 @@ RBAC은 "누가 FDAI를 조작할 수 있나"(읽기 담당 / 기여자 / Approv
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-15 | implemented | 1.1 모델 출처, 정확한 원문/제안 검증, 영속 두-call 예약과 측정 가격을 갖춘 독립 검토 적응형 해석을 실제 Worker consumer에 연결했습니다. | `current change`; Worker/Ingestion API 검사 16개; scripted 검토/원문/정체성/버전 거절, mock HTTP/DB와 저장 초안 재생; 일곱 파일 mypy·Ruff 통과. | 검토된 비공개 target·프롬프트·가격을 구성하고 실제 모델 품질·정체성·백업·DB/재시작·알림 수락 증거를 보존해야 합니다. |
+| 2026-10-15 | implemented | 실제 Document Worker 인수인계 경로에서 역할 키워드·사람 이름 추측을 제거하고 구조화 원문을 완전한 제한 인용 구간으로 보존했습니다. | `current change`; Worker 인수인계 동등성·산문 기권·무손실 인용 검사 5개 통과; Ruff와 집중 mypy 통과. | 독립 검토된 적응형 Worker 해석과 실제 사람·백업·알림 증거는 남아 있습니다. |
+| 2026-10-15 | implemented | 인용 객체 유무만 보던 모델 검사를 실제 문서·행·인용·사람, 고정 에이전트, 유한 신뢰도와 디렉터리 전용 정체성 검사로 바꿨습니다. | `current change`; 일곱 가지 치환 반례; stewardship 검사 91개 통과; 구조 관문: 에이전트 15개, maintainer 2명; Ruff와 집중 mypy 통과. | 실제 적응형 해석기, schema v2 사람·백업 바인딩 및 실제 알림·인가 수락은 남아 있습니다. |
 | 2026-09-04 | implemented | 서버 소유 통합 현재 담당자 변환 결과와 정확한 기술 ID, 필터, 담당 범위, 최신성, 변경 대기 근거를 갖춘 에이전트 중심 콘솔 보기를 추가했습니다. | `current change`; 집중 담당 체계 변환 결과, 디렉터리, PostgreSQL IAM, 콘솔 계약, 형식 및 카탈로그 검사 통과. | 관리형 배포에서 실제 schema v2 연결을 제공하고 실제 ID 및 백업 범위 근거를 보존해야 합니다. |
 | 2026-08-13 | implemented | 이전 출처를 재구성하지 않고 구현 원장을 도입했으며 이 문서의 범위를 스키마, 결정론적 담당 체계 기본 요소, 마이그레이션, 인수인계 부트스트랩으로 한정했습니다. | `current change`; 구현 범위 표에 나열된 담당 체계 소스와 집중 검사. | 업스트림 저장소에 테넌트 신원을 넣지 않고 배포별 스키마 v2 `primary` 및 `backup` 범위를 기록합니다. |
 | 2026-08-15 | implemented | 기본 abstain 동작, 문서별 호출, 제안 게이팅을 다루는 `HandoverInterpreter` 배포 시임의 집중 근거를 추가했습니다. | `current change`; `services/core-control-plane/tests/core/stewardship/handover_bootstrap/test_interpreter_binding.py`; `pytest services/core-control-plane/tests/core/stewardship/handover_bootstrap/` (26 passed). | 구체적인 적응형 해석기 배포 바인딩과 런타임 증적은 남아 있습니다. |

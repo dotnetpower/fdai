@@ -9,11 +9,21 @@ from typing import TYPE_CHECKING, Any
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
 from fdai.agents._framework.forseti_judgment import JudgmentTable
+from fdai.agents._framework.forseti_quality_retention import (
+    restore_quality_samples,
+    retain_quality_sample,
+)
 from fdai.agents._framework.forseti_telemetry_introspection import telemetry_recipe_facts
 from fdai.agents._framework.forseti_what_if import (
     MAX_WHAT_IF_SAMPLES,
+    WhatIfBatch,
     build_what_if_batch,
     judgment_table_from_request,
+)
+from fdai.agents._framework.forseti_what_if_publication import (
+    frozen_publication,
+    publish_comparison,
+    recover_comparisons,
 )
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
@@ -30,6 +40,7 @@ if TYPE_CHECKING:
     from fdai.agents._framework.base import AgentSpec
     from fdai.agents._framework.bus import PantheonBus
     from fdai.core.architecture_review import OntologyArchitectureReviewLoop
+    from fdai.shared.providers.state_store import StateStore
 
 
 def _ratio_kpi(numerator: int, denominator: int, *, unit: str = "ratio") -> dict[str, object]:
@@ -67,6 +78,7 @@ class ForsetiQualityRuntimeMixin:
     _last_owner_rule_update_at: datetime | None
     _verdict_quality_samples: BoundedLruDict[str, dict[str, str]]
     _published_what_if_inputs: BoundedLruSet[str]
+    _forseti_state_store: StateStore | None
     bus: PantheonBus | None
     spec: AgentSpec
 
@@ -78,6 +90,7 @@ class ForsetiQualityRuntimeMixin:
 
     _last_verdict_coherence: dict[str, object]
     _last_novelty_drift: dict[str, object]
+    _last_retrospective_what_if: dict[str, object]
 
     def conversation_evidence_available(self, context: dict[str, Any]) -> bool:
         """Report whether any judged runtime state backs this turn.
@@ -149,7 +162,7 @@ class ForsetiQualityRuntimeMixin:
             "behavior": behavior,
         }
 
-    def _remember_verdict_for_quality(
+    async def _remember_verdict_for_quality(
         self,
         event: Mapping[str, Any],
         verdict: Mapping[str, Any],
@@ -168,9 +181,15 @@ class ForsetiQualityRuntimeMixin:
                 "event_type": str(event.get("event_type") or ""),
                 "action_type": str(verdict.get("action_type") or ""),
                 "risk_verdict": str(verdict.get("risk_verdict") or ""),
+                "judgment_table_digest": str(verdict.get("judgment_table_digest") or ""),
                 "tier": tier,
             },
         )
+        try:
+            await retain_quality_sample(self, key, self._verdict_quality_samples.get(key) or {})
+        except Exception:
+            self.record_behavior("retrospective_what_if:retention_failed")
+            self._last_retrospective_what_if = {"evidence_state": "retention_unavailable"}
 
     async def _run_retrospective_what_if(self, request: Mapping[str, Any]) -> None:
         what_if_table = judgment_table_from_request(request.get("judgment_table"))
@@ -185,15 +204,34 @@ class ForsetiQualityRuntimeMixin:
             self.record_behavior("retrospective_what_if:invalid")
             return
         raw_limit = request.get("sample_limit", MAX_WHAT_IF_SAMPLES)
+        sample_limit = max(1, min(raw_limit, MAX_WHAT_IF_SAMPLES)) if type(raw_limit) is int else 1
+        request_key = stable_idempotency_key(
+            "forseti-what-if-request", correlation_id, what_if_table.digest, sample_limit
+        )
+        try:
+            retained = await frozen_publication(self, request_key)
+            if retained is not None and retained["status"] == "published":
+                self.record_behavior("retrospective_what_if:duplicate")
+                return
+            if retained is None:
+                await restore_quality_samples(self)
+        except Exception:
+            self._last_retrospective_what_if = {"evidence_state": "retention_unavailable"}
+            self.record_behavior("retrospective_what_if:retention_unavailable")
+            return
         sample_limit = (
             raw_limit if isinstance(raw_limit, int) and not isinstance(raw_limit, bool) else 1
         )
-        batch = build_what_if_batch(
-            correlation_id=correlation_id,
-            active_table=self._judgment_table,
-            what_if_table=what_if_table,
-            retained_samples=self._verdict_quality_samples.items(),
-            sample_limit=sample_limit,
+        batch = (
+            WhatIfBatch(payload=retained["payload"], idempotency_keys=())
+            if retained is not None
+            else build_what_if_batch(
+                correlation_id=correlation_id,
+                active_table=self._judgment_table,
+                what_if_table=what_if_table,
+                retained_samples=self._verdict_quality_samples.items(),
+                sample_limit=sample_limit,
+            )
         )
         if batch is None:
             self._last_retrospective_what_if = {
@@ -207,19 +245,23 @@ class ForsetiQualityRuntimeMixin:
         new_keys = tuple(
             key for key in batch.idempotency_keys if key not in self._published_what_if_inputs
         )
-        if not new_keys:
+        if not new_keys and self._forseti_state_store is None:
             self.record_behavior("retrospective_what_if:duplicate")
             return
-        payload = {
-            **batch.payload,
-            "idempotency_key": stable_idempotency_key(
-                "forseti-retrospective-what-if",
-                correlation_id,
-                self._judgment_table.digest,
-                what_if_table.digest,
-                new_keys,
-            ),
-        }
+        payload = (
+            retained["payload"]
+            if retained is not None
+            else {
+                **batch.payload,
+                "idempotency_key": stable_idempotency_key(
+                    "forseti-retrospective-what-if",
+                    correlation_id,
+                    self._judgment_table.digest,
+                    what_if_table.digest,
+                    new_keys,
+                ),
+            }
+        )
         outcomes = payload["outcomes"]
         disagreement_count = int(payload["disagreement_count"])
         measured_state = {
@@ -238,7 +280,14 @@ class ForsetiQualityRuntimeMixin:
             self.record_behavior("retrospective_what_if:publication_unavailable")
             return
         try:
-            await self.bus.publish("Forseti", "object.verdict", payload)
+            if self._forseti_state_store is None:
+                await self.bus.publish("Forseti", "object.verdict", payload)
+            else:
+                published, payload = await publish_comparison(self, request_key, payload)
+                if not published:
+                    self._last_retrospective_what_if = {"evidence_state": "publication_deferred"}
+                    self.record_behavior("retrospective_what_if:duplicate")
+                    return
         except Exception:
             self._last_retrospective_what_if = {
                 **measured_state,
@@ -248,10 +297,27 @@ class ForsetiQualityRuntimeMixin:
             raise
         for key in new_keys:
             self._published_what_if_inputs.add(key)
+        disagreement_count = int(payload["disagreement_count"])
+        measured_state.update(
+            sample_size=len(payload["outcomes"]), disagreements=disagreement_count
+        )
         self._last_retrospective_what_if = measured_state
         self.record_behavior("retrospective_what_if:published")
         if disagreement_count:
             self.record_behavior("retrospective_what_if:disagreement", disagreement_count)
+
+    async def _recover_what_if_publications(self) -> int:
+        try:
+            recovered = await recover_comparisons(self)
+        except Exception:
+            self._last_retrospective_what_if = {
+                "evidence_state": "publication_recovery_unavailable"
+            }
+            self.record_behavior("retrospective_what_if:publication_recovery_failed")
+            return 0
+        if recovered:
+            self.record_behavior("retrospective_what_if:publication_recovered", recovered)
+        return recovered
 
     def _run_verdict_coherence_self_test(self) -> None:
         disagreements = 0

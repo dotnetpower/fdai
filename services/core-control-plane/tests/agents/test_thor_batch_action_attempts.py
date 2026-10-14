@@ -6,6 +6,7 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import pytest
 from fdai.agents._framework import thor_batch
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.bus import InMemoryBus
@@ -245,6 +246,48 @@ def test_multi_target_batch_attempts_roll_back_only_failed_target_and_audit_roll
     ]
     assert {payload["resource_id"] for payload in attempt_audits} == {"resource-a", "resource-b"}
     assert rollup_audits[-1]["batch_rollup"]["terminal"] is True
+
+
+@pytest.mark.parametrize("targets", [[], ["resource-a"]])
+@pytest.mark.parametrize("field", ["targets", "target_set"])
+@pytest.mark.parametrize("resource_id", ["resource-b", None])
+def test_explicit_target_declaration_cannot_execute_an_undeclared_outer_resource(
+    targets: list[str],
+    field: str,
+    resource_id: str | None,
+) -> None:
+    executed: list[str] = []
+
+    async def executor(command: dict[str, object]) -> bool:
+        executed.append(str(command["run"].resource_id))
+        return True
+
+    thor = Thor(bus=_bus(), executor=executor, action_semantics_catalog=_semantics())
+    verdict = _batch_verdict(resource_id=resource_id)
+    verdict.pop("targets")
+    verdict[field] = targets
+    run = asyncio.run(thor.dispatch_verdict(verdict))
+
+    assert executed == []
+    assert run.state is ActionRunState.DENY_DROPPED
+    assert run.outcome == "batch_target_set_unknown"
+
+
+def test_matching_explicit_single_target_preserves_the_single_execution_path() -> None:
+    executed: list[str] = []
+
+    async def executor(command: dict[str, object]) -> bool:
+        executed.append(str(command["run"].resource_id))
+        return True
+
+    thor = Thor(bus=_bus(), executor=executor, action_semantics_catalog=_semantics())
+    run = asyncio.run(
+        thor.dispatch_verdict(_batch_verdict(targets=["resource-a"], resource_id="resource-a"))
+    )
+    assert executed == ["resource-a"]
+    assert run.batch_role is None
+    assert run.attempt_id is None
+    assert run.state is ActionRunState.EFFECT_PENDING
 
 
 def test_multi_target_batch_over_limit_is_held_visibly_without_attempts() -> None:

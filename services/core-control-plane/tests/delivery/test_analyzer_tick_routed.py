@@ -15,6 +15,11 @@ from traceback import format_exception
 
 import pytest
 from fdai.core.investigation import InvestigationCoordinator, default_analyzers
+from fdai.core.ontology_platform.metric_semantics import (
+    MetricAggregation,
+    MetricSemanticDefinition,
+    MetricSemanticRegistry,
+)
 from fdai.delivery.analyzer_metric_provider import AnalyzerMetricProvider
 from fdai.delivery.analyzer_targets import resolve_analyzer_targets
 from fdai.delivery.analyzer_telemetry_admission import discovered_telemetry_holds
@@ -25,11 +30,13 @@ from fdai.delivery.analyzer_tick import (
     AnalyzerTarget,
     AnalyzerTickRunner,
 )
+from fdai.delivery.capacity_metric_sampler import CapacityMetricSampler
 from fdai.delivery.persistence.postgres_analyzer_publication import (
     PostgresAnalyzerPublicationLedger,
 )
 from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.event_bus import PublishReceipt
+from fdai.shared.providers.inventory import ResourceRecord
 from fdai.shared.providers.metric import (
     MetricFailureReason,
     MetricPoint,
@@ -80,6 +87,87 @@ class StubBackend:
             value=value,
             labels=dict(query.labels),
         )
+
+
+@pytest.mark.parametrize(
+    "invalid", [None, "value", "future", "stale", "identity", "generation", "reference"]
+)
+async def test_capacity_sampler_preserves_exact_source_identity_and_time(
+    invalid: str | None,
+) -> None:
+    class Inventory:
+        calls = 0
+
+        async def read_active_resources(self, *, resource_ids: tuple[str, ...]):
+            self.calls += 1
+            assert resource_ids == ("resource-capacity",)
+            generation = (
+                "other-generation"
+                if invalid == "generation" and self.calls == 3
+                else "generation-one"
+            )
+            return generation, {
+                "resource-capacity": ResourceRecord(
+                    resource_id="resource-capacity",
+                    type="VirtualMachine",
+                    provider_ref="provider://other"
+                    if invalid == "reference" and self.calls == 3
+                    else "provider://capacity",
+                )
+            }
+
+        async def read_active_resources_by_provider_refs(self, *, provider_refs: tuple[str, ...]):
+            raise AssertionError("logical resource selection must not be replaced by provider ids")
+
+    class Provider(StubBackend):
+        async def query(self, query: MetricQuery) -> AsyncIterator[MetricPoint]:
+            self.requests.append(query)
+            assert query.labels["resource_id"] == "provider://capacity"
+            yield MetricPoint(
+                metric_name=query.metric_name,
+                at=NOW + timedelta(seconds=1)
+                if invalid == "future"
+                else NOW - timedelta(minutes=10)
+                if invalid == "stale"
+                else NOW - timedelta(seconds=30),
+                value=101 if invalid == "value" else 92,
+                labels={
+                    "resource_id": "provider://other"
+                    if invalid == "identity"
+                    else "provider://capacity"
+                },
+            )
+
+    registry = MetricSemanticRegistry.build(
+        (
+            MetricSemanticDefinition(
+                concept_id="resource.cpu.utilization_pct",
+                provider_metric="host.cpu.percent",
+                canonical_unit="percent",
+                aggregation=MetricAggregation.AVERAGE,
+                description="Reviewed CPU utilization percent.",
+            ),
+        )
+    )
+    provider = Provider("capacity", {})
+    sampler = CapacityMetricSampler(
+        provider=provider,
+        inventory=Inventory(),
+        registry=registry,
+        targets={"resource-capacity": "VirtualMachine"},
+    )
+    if invalid is not None:
+        with pytest.raises((ValueError, RuntimeError)):
+            await sampler.read_utilization_samples(limit=64, observed_at=NOW)
+        return
+    samples = await sampler.read_utilization_samples(limit=64, observed_at=NOW)
+    assert len(samples) == 1
+    assert samples[0].resource_id == "resource-capacity"
+    assert samples[0].utilization == 0.92
+    assert samples[0].observed_at == (NOW - timedelta(seconds=30)).isoformat()
+    assert "provider://" not in samples[0].sample_key
+    with pytest.raises(ValueError, match="truncate"):
+        await sampler.read_utilization_samples(limit=0, observed_at=NOW)
 
 
 class RecordingBus:

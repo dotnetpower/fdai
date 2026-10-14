@@ -3739,6 +3739,153 @@ def test_answer_continuity_requires_boolean_configuration() -> None:
         )
 
 
+@pytest.mark.parametrize("admitted,verified", [(False, False), (True, False), (True, True)])
+async def test_discussion_presenter_requires_admission_and_verified_conclusion(
+    monkeypatch: Any, admitted: bool, verified: bool
+) -> None:
+    from fdai.core.conversation.session import Principal, Role
+    from fdai.core.operational_evidence.owner_outcome import UNAVAILABLE_ATTEMPT
+    from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
+    from fdai_core_service import agent_discussion as module
+    from fdai_service_contracts import SemanticTurnRequest
+
+    async def issuance(*args: Any, **kwargs: Any) -> Any:
+        return UNAVAILABLE_ATTEMPT
+
+    class Admission:
+        async def admit(self, **lookup: Any) -> Any:
+            return (
+                DecisionEvidenceAdmission(
+                    receipt_digest="sha256:" + "a" * 64,
+                    verification_bundle_digest="sha256:" + "b" * 64,
+                    verified_at=NOW,
+                    valid_until=NOW + timedelta(seconds=60),
+                    **lookup,
+                )
+                if admitted
+                else None
+            )
+
+    class Runtime:
+        calls = 0
+        allow_t2: bool | None = None
+
+        async def deliberate(self, **kwargs: Any) -> dict[str, Any]:
+            self.calls += 1
+            self.allow_t2 = kwargs["allow_t2"]
+            return {
+                "status": "completed",
+                "authority": "presentation_only",
+                "trace_ref": kwargs["correlation_id"],
+                "conclusion": "Bounded independently reviewed answer.",
+                "t2_status": "completed" if verified else "not_required",
+                "synthesis_verification": {
+                    "request_sha256": "a" * 64,
+                    "conclusion_sha256": hashlib.sha256(
+                        b"Bounded independently reviewed answer."
+                    ).hexdigest(),
+                    "evidence_refs": ["agent-state:Bragi"],
+                }
+                if verified
+                else None,
+                "rounds": [],
+            }
+
+    monkeypatch.setattr(module, "request_operational_evidence", issuance)
+    runtime = Runtime()
+    request = SemanticTurnRequest.model_validate(
+        {
+            **_request(roles=["Owner"])["semantic_turn"],
+            "presentation_mode": "agent_discussion",
+            "authentication_receipt_ref": "sha256:" + "c" * 64,
+            "conversation_model_tier": "t2" if verified else "t1",
+        }
+    )
+    presenter = module.AgentDiscussionPresenter(
+        runtime=runtime,
+        admission=Admission(),
+        evidence=Any,
+        installation_ref="pantheon-installation:example",
+        access_scope_digest="sha256:" + "d" * 64,
+        source_revision="sha256:" + "e" * 64,
+        clock=lambda: NOW,
+    )
+    result = await presenter.present(
+        request,
+        principal=Principal(
+            id="operator-1",
+            role=Role.OWNER,
+            authentication_receipt_ref=request.authentication_receipt_ref,
+            authentication_request_ref="semantic-request-1",
+        ),
+    )
+    assert runtime.calls == int(admitted)
+    assert result.execution_authority is False
+    if admitted:
+        assert runtime.allow_t2 is verified
+        assert json.loads(result.answer)["conclusion"] == (
+            "Bounded independently reviewed answer." if verified else None
+        )
+    assert result.disposition.value == ("advisory_response" if admitted and verified else "held")
+
+
+@pytest.mark.parametrize("wrong_session", [False, True])
+async def test_bound_discussion_uses_durable_result_and_checks_session(wrong_session: bool) -> None:
+    from fdai_service_contracts import SemanticTurnResult
+
+    class Discussion:
+        calls = 0
+
+        async def present(self, request: Any, *, principal: Any) -> SemanticTurnResult:
+            self.calls += 1
+            return SemanticTurnResult.model_validate(
+                {
+                    "disposition": "held",
+                    "reason_code": "semantic_discussion_admission_unavailable",
+                    "unavailable_reason": "authoritative_evidence_unavailable",
+                    "session_id": "other-session" if wrong_session else request.session_id,
+                    "turn_id": request.turn_id,
+                    "turn_sequence": request.turn_sequence,
+                }
+            )
+
+    discussion = Discussion()
+    ordinary = _Runtime()
+    processor = _processor(ordinary)
+    processor.bind_agent_discussion(discussion)
+    request = _request(roles=["Owner"])
+    request["schema_version"] = "1.11.0"
+    request["semantic_turn"]["presentation_mode"] = "agent_discussion"
+    first = _projection(await processor.process(request))
+    second = _projection(await processor.process(request))
+    assert first == second
+    assert ordinary.calls == 0
+    assert discussion.calls == 1
+    assert first["semantic_result"]["disposition"] == "held"
+    assert first["semantic_result"]["reason_code"] == (
+        "semantic_discussion_result_invalid"
+        if wrong_session
+        else "semantic_discussion_admission_unavailable"
+    )
+
+
+@pytest.mark.parametrize("roles", [["Reader"], ["Owner"]])
+async def test_unbound_discussion_never_uses_ordinary_runtime(roles: list[str]) -> None:
+    runtime = _Runtime()
+    request = _request(roles=roles)
+    request["schema_version"] = "1.11.0"
+    request["semantic_turn"]["presentation_mode"] = "agent_discussion"
+    projection = _projection(await _processor(runtime).process(request))
+    assert projection["semantic_result"]["disposition"] == "held"
+    assert projection["semantic_result"]["reason_code"] == (
+        "semantic_agent_discussion_unavailable"
+        if roles == ["Owner"]
+        else "semantic_discussion_owner_required"
+    )
+    assert projection["semantic_result"]["execution_authority"] is False
+    assert runtime.calls == 0
+
+
 async def test_pantheon_assurance_purpose_uses_bound_diagnostic_runtime() -> None:
     processor = _processor(_Runtime())
     processor.bind_pantheon_assurance(_PantheonAssurance())

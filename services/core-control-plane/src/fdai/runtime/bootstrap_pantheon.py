@@ -7,7 +7,6 @@ import logging
 from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any, cast
 
 from fdai.agents import (
@@ -41,18 +40,19 @@ from fdai.delivery.agent_activity import (
 )
 from fdai.delivery.evidence_conflict import StateStoreEvidenceConflictProjection
 from fdai.delivery.kinetic_proposal import StateStoreKineticActionProposalStore
+from fdai.delivery.mimir_catalog_observation import MimirActiveCatalogPoller
 from fdai.delivery.persistence import (
     PostgresCaseHistoryMetadataStore,
     PostgresCaseHistoryMetadataStoreConfig,
     StateStoreSemanticFeedbackCandidateStore,
 )
 from fdai.delivery.persistence.state_store_forecast_context import StateStoreForecastContextProvider
+from fdai.delivery.persistence.state_store_model_budget import StateStoreBudgetLedger
 from fdai.delivery.post_turn_review_ingress import PostTurnReviewRequestConsumer
 from fdai.delivery.prospective_lineage import (
     OperationalPlanningProspectiveFinalizer,
     StateStoreProspectiveLineageMaterializer,
 )
-from fdai.delivery.repo_assets import repo_asset_root
 from fdai.rule_catalog.schema.capacity_graduation_policy import load_capacity_graduation_policy
 from fdai.runtime.aks_commerce import (
     ActionObservation,
@@ -61,6 +61,10 @@ from fdai.runtime.aks_commerce import (
     chain_acceptance_observer,
 )
 from fdai.runtime.approval_policy import approver_authorizer_from_environment
+from fdai.runtime.bootstrap_agent_discussion import _runtime_asset_root as _runtime_asset_root
+from fdai.runtime.bootstrap_agent_discussion import build_runtime_pantheon_synthesis
+from fdai.runtime.bootstrap_capacity_sampling import build_capacity_sampler
+from fdai.runtime.bootstrap_chaos_schedule import build_chaos_schedule
 from fdai.runtime.bootstrap_pantheon_models import (
     PantheonInitialization,
     PantheonInitializationResult,
@@ -137,12 +141,6 @@ def _pantheon_enforce_enabled(
     return requested and (
         startup_readiness.authority_ceiling("autonomous-action") is AuthorityCeiling.DEPLOYMENT
     )
-
-
-def _runtime_asset_root() -> Path:
-    """Locate shipped runtime assets in either checkout or installed image layout."""
-
-    return repo_asset_root()
 
 
 async def initialize_pantheon(
@@ -454,6 +452,8 @@ async def initialize_pantheon(
         if policy_administration_selected(config.container.config.product_profile)
         else None
     )
+    llm_bindings = config.container.llm_bindings
+    synthesis = build_runtime_pantheon_synthesis(config, asset_root)
     pantheon_runtime = PantheonRuntime.build(
         assignment_workflow=config.assignment_workflow,
         provider=config.bus,
@@ -483,6 +483,19 @@ async def initialize_pantheon(
         forseti_state_store=config.incident_audit_store,
         bragi_state_store=config.incident_audit_store,
         odin_state_store=config.incident_audit_store,
+        freyr_utilization_sampler=build_capacity_sampler(
+            container=config.container, environment=config.environment
+        ),
+        loki_recurring_schedule=build_chaos_schedule(
+            environment=config.environment,
+            action_type_names=frozenset(action.name for action in config.control_loop.action_types),
+        ),
+        mimir_rule_source_poller=MimirActiveCatalogPoller(
+            reader=config.control_loop, store=config.incident_audit_store
+        )
+        if callable(getattr(config.control_loop, "rule_generation_snapshot", None))
+        else None,
+        ordered_poison_halt_state_store=config.incident_audit_store,
         proposal_rate_limit_state_store=config.incident_audit_store,
         execution_resource_lock=execution_resource_lock,
         approver_authorizer=approver_authorizer_from_environment(config.environment),
@@ -603,29 +616,40 @@ async def initialize_pantheon(
             and config.container.llm_bindings.conversation_semantic_judgment_factory is not None
             else None
         ),
-        conversation_embedding_model=(
-            config.container.llm_bindings.embedding_model
-            if config.container.llm_bindings is not None
-            else None
-        ),
+        conversation_embedding_model=llm_bindings.embedding_model
+        if llm_bindings is not None
+        else None,
         conversation_t2_synthesizer=(
-            config.container.llm_bindings.conversation_t2_synthesizer
-            if config.container.llm_bindings is not None
+            synthesis.synthesizer
+            if synthesis is not None
+            else llm_bindings.conversation_t2_synthesizer
+            if llm_bindings is not None
             else None
         ),
-        conversation_metering=(
-            config.container.llm_bindings.conversation_metering
-            if config.container.llm_bindings is not None
+        conversation_synthesis_verifier=(
+            synthesis.verifier
+            if synthesis is not None
+            else llm_bindings.conversation_synthesis_verifier
+            if llm_bindings is not None
             else None
         ),
-        conversation_pricing=(
-            config.container.llm_bindings.conversation_pricing
-            if config.container.llm_bindings is not None
-            else None
+        conversation_escalation_budget=synthesis.budget if synthesis is not None else None,
+        conversation_escalation_ledger=(
+            synthesis.ledger
+            if synthesis is not None
+            else StateStoreBudgetLedger(config.incident_audit_store)
         ),
+        conversation_metering=llm_bindings.conversation_metering
+        if llm_bindings is not None
+        else None,
+        conversation_pricing=llm_bindings.conversation_pricing
+        if llm_bindings is not None
+        else None,
         conversation_t2_model_key=(
-            config.container.llm_bindings.conversation_t2_model_key
-            if config.container.llm_bindings is not None
+            synthesis.model_key
+            if synthesis is not None
+            else llm_bindings.conversation_t2_model_key
+            if llm_bindings is not None
             else ""
         ),
         semantic_router_config=config.semantic_router_config_from_env(),

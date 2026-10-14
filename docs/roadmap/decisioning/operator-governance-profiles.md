@@ -24,6 +24,11 @@ administration in FDAI Console.
 > from the executor (Thor).
 
 ## Design at a glance
+An Owner-only discussion request does not select a governance profile or inherit mutation
+authority. Independent `agent-discussion-read` admission requires the current retained human
+receipt and a separate exact-installation read grant; its result cannot approve, promote or
+execute. Conversation mode and model-tier selection never replace these gates.
+
 
 | Concern | Decision |
 |---------|----------|

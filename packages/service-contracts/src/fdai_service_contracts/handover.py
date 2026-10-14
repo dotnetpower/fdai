@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 from enum import StrEnum
 from typing import Annotated, Literal
 from uuid import UUID
@@ -105,7 +106,7 @@ class HandoverMapping(HandoverContract):
     person: HandoverPerson
     responsibility: StewardResponsibility
     confidence: Annotated[float, Field(ge=0.0, le=1.0)]
-    source: Literal["deterministic"] = "deterministic"
+    source: Literal["deterministic", "model"] = "deterministic"
     citations: Annotated[tuple[HandoverSourceSpan, ...], Field(min_length=1)]
     rationale: Annotated[str, Field(max_length=256)] = ""
 
@@ -120,13 +121,73 @@ class StewardshipDraft(HandoverContract):
     warnings: tuple[str, ...] = ()
 
 
+class HandoverModelReview(HandoverContract):
+    author_identity: Annotated[str, Field(min_length=1, max_length=256)]
+    reviewer_identity: Annotated[str, Field(min_length=1, max_length=256)]
+    source_sha256: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
+    proposal_sha256: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
+    reviewed_mapping_count: Annotated[int, Field(strict=True, ge=1, le=2_000)]
+    prompt_tokens: Annotated[int, Field(strict=True, ge=0)] = 0
+    completion_tokens: Annotated[int, Field(strict=True, ge=0)] = 0
+    cost_micros: Annotated[int, Field(strict=True, ge=0)] = 0
+    pricing_sha256: Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")] | None = None
+    model_calls: Literal[2] = 2
+    execution_authority: Literal[False] = False
+
+    @model_validator(mode="after")
+    def _independent_review(self) -> HandoverModelReview:
+        if (
+            not self.author_identity.strip()
+            or not self.reviewer_identity.strip()
+            or self.author_identity.strip().casefold() == self.reviewer_identity.strip().casefold()
+        ):
+            raise ValueError("handover model author and reviewer MUST be independent")
+        return self
+
+
+def handover_model_proposal_digest(mappings: tuple[HandoverMapping, ...]) -> str:
+    normalized: list[dict[str, object]] = []
+    for mapping in mappings:
+        body = mapping.model_dump(mode="json", exclude_computed_fields=True)
+        body["person"]["oid"] = None
+        normalized.append(body)
+    normalized.sort(key=lambda item: json.dumps(item, sort_keys=True, ensure_ascii=False))
+    return hashlib.sha256(
+        json.dumps(
+            normalized,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+            allow_nan=False,
+        ).encode()
+    ).hexdigest()
+
+
 class HandoverDraftArtifact(HandoverContract):
-    schema_version: Literal["1.0.0"] = "1.0.0"
+    schema_version: Literal["1.0.0", "1.1.0"] = "1.0.0"
     upload_id: UUID
     document_id: UUID
     version_id: UUID
     draft: StewardshipDraft
     yaml: str
+    model_review: HandoverModelReview | None = Field(
+        default=None,
+        exclude_if=lambda review: review is None,
+    )
+
+    @model_validator(mode="after")
+    def _model_source_is_explicit(self) -> HandoverDraftArtifact:
+        mappings = (*self.draft.mappings, *self.draft.abstained)
+        authored = tuple(mapping for mapping in mappings if mapping.source == "model")
+        if authored and (self.schema_version != "1.1.0" or self.model_review is None):
+            raise ValueError("model handover mappings require version 1.1 and independent review")
+        if self.model_review is not None and (
+            self.schema_version != "1.1.0"
+            or self.model_review.reviewed_mapping_count != len(authored)
+            or self.model_review.proposal_sha256 != handover_model_proposal_digest(authored)
+        ):
+            raise ValueError("handover model review MUST cover every exact model mapping")
+        return self
 
     def to_dict(self) -> dict[str, object]:
         """Return the JSON-compatible API projection."""

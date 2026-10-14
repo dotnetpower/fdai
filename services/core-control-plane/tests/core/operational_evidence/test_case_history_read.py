@@ -2,14 +2,18 @@
 
 from __future__ import annotations
 
+import copy
+import json
 from dataclasses import dataclass
 from datetime import timedelta
 
+import pytest
 from fdai.core.operational_evidence.issuance import (
     OperationalEvidenceVerifierEngine,
     VerifierIdentity,
 )
 from fdai.core.operational_evidence.readback.case_history_read import (
+    AgentDiscussionReadback,
     CaseHistoryReadback,
     SemanticAuthenticationReceiptRow,
 )
@@ -20,6 +24,7 @@ from fdai_service_contracts.operational_evidence import (
     OperationalEvidenceLocator,
     OperationalEvidenceLookup,
     OperationalEvidenceRejectionClass,
+    agent_discussion_lookup_digests,
 )
 from fdai_service_contracts.operator_authentication import OperatorAuthenticationEvidenceClass
 from tests.core.operational_evidence.support import (
@@ -32,6 +37,7 @@ from tests.core.operational_evidence.support import (
     grant_document,
     history,
     receipt,
+    trust_bytes,
 )
 
 
@@ -141,6 +147,84 @@ def _request(
         producer_version="1.0.0",
         requested_at=NOW,
     )
+
+
+@pytest.mark.parametrize(
+    ("roles", "grant", "expected"),
+    [
+        (("Owner",), True, OperationalEvidenceIssuanceStatus.ISSUED),
+        (("Reader",), True, OperationalEvidenceIssuanceStatus.REJECTED),
+        (("Owner",), False, OperationalEvidenceIssuanceStatus.REJECTED),
+    ],
+)
+async def test_discussion_requires_independent_owner_and_separate_grant(
+    roles: tuple[str, ...], grant: bool, expected: OperationalEvidenceIssuanceStatus
+) -> None:
+    auth = receipt(REQUESTER, REQUESTER_GROUP, roles, issued_at=NOW)
+    source = _ReceiptSource(
+        (
+            SemanticAuthenticationReceiptRow(
+                receipt_digest=auth.receipt_digest,
+                request_id="semantic-request-1",
+                principal_id=REQUESTER,
+                receipt=auth.model_dump(mode="json"),
+                recorded_at=NOW,
+            ),
+        )
+    )
+    document = copy.deepcopy(grant_document())
+    document["case_scopes"][0]["purposes"].append("agent-discussion-read")
+    document["case_scopes"][0]["resource_selectors"] = ["pantheon-installation:example"]
+    if grant:
+        document["principal_grants"].append(
+            {
+                **document["principal_grants"][0],
+                "grant_id": "g-agent-discussion",
+                "operations": ["agent-discussion.read"],
+                "purposes": ["agent-discussion-read"],
+            }
+        )
+    trust = json.loads(trust_bytes())
+    base = next(item for item in trust["purposes"] if item["purpose_id"] == "case-history-read")
+    trust["purposes"] = [
+        item for item in trust["purposes"] if item["purpose_id"] != "agent-discussion-read"
+    ]
+    trust["purposes"].append({**base, "purpose_id": "agent-discussion-read"})
+    registry = history(document, trust=json.dumps(trust).encode())
+    request = _request(auth.receipt_digest)
+    coordinates = {
+        **request.locator.coordinates,
+        "installation_ref": "pantheon-installation:example",
+    }
+    evidence_digest, scope_digest = agent_discussion_lookup_digests(coordinates)
+    request = request.model_copy(
+        update={
+            "lookup": request.lookup.model_copy(
+                update={
+                    "purpose_id": "agent-discussion-read",
+                    "evidence_digest": evidence_digest,
+                    "scope_digest": scope_digest,
+                    "source_revision": registry.current.grants.pin,
+                }
+            ),
+            "locator": OperationalEvidenceLocator(
+                purpose_id="agent-discussion-read", coordinates=coordinates
+            ),
+        }
+    )
+    proofs = MemoryProofStore()
+    engine = OperationalEvidenceVerifierEngine(
+        identity=VerifierIdentity("operational-evidence-verifier", "1.0.0"),
+        history=lambda: registry,
+        anchors=anchors(),
+        readbacks=(AgentDiscussionReadback(receipts=source),),
+        writer=proofs,
+        clock=lambda: NOW,
+    )
+    response = await engine.issue(request, caller_principal="fdai_core")
+    assert response.status is expected
+    if expected is OperationalEvidenceIssuanceStatus.ISSUED:
+        assert proofs.admissions[0][0].binding.matched_grants == ("g-agent-discussion",)
 
 
 async def test_case_history_read_issues_with_current_receipt_and_grant() -> None:

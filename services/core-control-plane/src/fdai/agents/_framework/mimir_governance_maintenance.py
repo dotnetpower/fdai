@@ -359,7 +359,10 @@ class MimirGovernanceMaintenanceMixin(_AgentMixinBase):
         attempted = 0
         published = 0
         for outcome in outcomes[:_MAX_MAINTENANCE_RECORDS]:
-            if not promotion_outcome_is_authoritative(outcome):
+            if (
+                not promotion_outcome_is_authoritative(outcome)
+                or outcome.promoted_at > self._clock()
+            ):
                 self.record_behavior("promotion_evidence:invalid_outcome")
                 continue
             idempotency_key = _issue_close_evidence_idempotency_key(outcome)
@@ -377,7 +380,11 @@ class MimirGovernanceMaintenanceMixin(_AgentMixinBase):
             except Exception:
                 self.record_behavior("promotion_evidence:regression_failed")
                 continue
-            if not regression_result_is_clean(result):
+            if (
+                not regression_result_is_clean(result)
+                or result.started_at < outcome.promoted_at
+                or result.completed_at > self._clock()
+            ):
                 self.record_behavior("promotion_evidence:regression_not_clean")
                 continue
             if await self._publish_issue_close_evidence(outcome, result.started_at.isoformat()):

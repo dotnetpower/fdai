@@ -7,6 +7,13 @@ title: Operator Console - Data and Wire Contracts
 > Focused owner document extracted from [operator-console.md](operator-console.md) section 13 (13.1-13.3, 13.6-13.9).
 
 ## 13. Data + wire contracts
+Semantic request 1.11.0 adds the explicit no-authority `presentation_mode=agent_discussion`.
+The ordinary default stays absent from serialized requests. Operator requires Owner and retained
+authentication receipts; Core independently admits the exact current installation read grant.
+Discussion uses existing stream, cancellation, deadline and durable terminal projection fields,
+never Incident creation or action drafts. Console renders the returned position, critique,
+participant outcomes and held/verified conclusion without inferring operational truth from them.
+
 
 `GET /knowledge/github/sources` returns typed repository provenance and separate knowledge-read
 and scan-permission state. Owner-only `POST` on the same path accepts `connect` or `disconnect`,

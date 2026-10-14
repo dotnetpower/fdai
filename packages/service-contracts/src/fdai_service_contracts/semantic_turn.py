@@ -487,6 +487,10 @@ class SemanticTurnRequest(QueryContract):
     include_model_trace: bool = False
     cancelled: bool = False
     target_agent: AdaptiveAgentName = "Bragi"
+    presentation_mode: Literal["operator", "agent_discussion"] = Field(
+        default="operator",
+        exclude_if=lambda mode: mode == "operator",
+    )
     relationship_proof: AdaptiveRelationshipProof | None = None
     relationship_unknown_reason: AdaptiveRelationshipUnknownReason | None = None
     execution_authority: Literal[False] = False
@@ -500,6 +504,15 @@ class SemanticTurnRequest(QueryContract):
             and self.conversation_model_tier is SemanticConversationModelTier.T2
         ):
             raise ValueError("golden campaign planning profile MUST NOT select T2")
+        if self.presentation_mode == "agent_discussion" and (
+            self.planning_profile is SemanticPlanningProfile.GOLDEN_CAMPAIGN_NO_T2
+            or self.purpose != "operations-review"
+            or self.document_context is not None
+            or self.investigation_continuation is not None
+        ):
+            raise ValueError(
+                "agent discussion MUST NOT carry campaign, document or investigation context"
+            )
         if self.document_context is not None and (
             self.document_context.principal_ref != self.principal.subject_id
             or self.document_context.conversation_ref != self.session_id

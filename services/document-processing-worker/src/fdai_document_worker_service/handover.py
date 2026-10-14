@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import re
@@ -29,35 +30,36 @@ from fdai_service_contracts import (
     StewardshipSubject,
     UploadSession,
 )
+from fdai_service_contracts.handover import HandoverModelReview
 
-_AGENT_DOMAINS: tuple[tuple[str, tuple[str, ...], float], ...] = (
-    ("Odin", ("prioritization", "arbitration", "tie-break", "steering"), 1.0),
-    ("Thor", ("deployment", "release", "run the runbook", "rollout"), 0.8),
-    ("Forseti", ("change approval", "change advisory", "safety review"), 1.0),
-    ("Huginn", ("alert intake", "event triage", "incident intake"), 1.0),
-    ("Heimdall", ("monitoring", "observability", "anomaly", "drift"), 1.0),
-    ("Vidar", ("rollback", "disaster recovery", "failover", "recovery"), 1.0),
-    ("Var", ("approver", "sign-off", "authorize", "dual control"), 1.0),
-    ("Bragi", ("status report", "stakeholder comms", "communications"), 1.0),
-    ("Saga", ("audit", "compliance", "record keeping", "evidence"), 1.0),
-    ("Mimir", ("policy", "standards", "rule owner", "control catalog"), 1.0),
-    ("Muninn", ("runbook owner", "knowledge base", "documentation owner"), 1.0),
-    ("Norns", ("postmortem", "retrospective", "lessons learned", "rca owner"), 1.0),
-    ("Njord", ("cost", "finops", "budget", "spend"), 1.0),
-    ("Freyr", ("capacity", "sizing", "performance", "scaling"), 1.0),
-    ("Loki", ("chaos", "resilience testing", "fault injection", "game day"), 1.0),
+from .handover_interpretation import (
+    HandoverInterpreter,
+    ReviewedHandoverInterpretation,
+    validate_interpretation,
 )
-_AGENT_NAMES = tuple(item[0] for item in _AGENT_DOMAINS)
+
+_AGENT_NAMES = (
+    "Odin",
+    "Thor",
+    "Forseti",
+    "Huginn",
+    "Heimdall",
+    "Vidar",
+    "Var",
+    "Bragi",
+    "Saga",
+    "Mimir",
+    "Muninn",
+    "Norns",
+    "Njord",
+    "Freyr",
+    "Loki",
+)
 _STRUCTURED_ASSIGNMENT = re.compile(
     r"^agent\s*:\s*([^;]+)\s*;\s*responsibility\s*:\s*(accountable|informed)\s*;\s*"
     r"subject\s*:\s*(user|group)\s*;\s*identity\s*:\s*([^;\r\n]{1,128})\s*$",
     re.IGNORECASE,
 )
-_OWNER_NAME = re.compile(
-    r"(?i:owner|accountable|responsible|lead|owned by|primary)\s*[:\-]?\s*"
-    r"([A-Z][\w'.-]+(?:\s+[A-Z][\w'.-]+){0,3})"
-)
-_NAME = re.compile(r"\b([A-Z][a-z]+(?:\s+[A-Z][a-z]+){1,2})\b")
 
 
 @dataclass(frozen=True, slots=True)
@@ -104,6 +106,7 @@ class HandoverBootstrapConsumer:
         stewardship: StewardshipInput | None,
         confidence_floor: float = 0.6,
         budget: HandoverGenerationBudget | None = None,
+        interpreter: HandoverInterpreter | None = None,
     ) -> None:
         if not 0.0 <= confidence_floor <= 1.0:
             raise ValueError("handover confidence floor MUST be in [0, 1]")
@@ -112,10 +115,27 @@ class HandoverBootstrapConsumer:
         self._stewardship = stewardship
         self._confidence_floor = confidence_floor
         self._budget = budget or HandoverGenerationBudget()
+        self._interpreter = interpreter
 
     async def consume(
         self, *, session: UploadSession, envelope: DocumentEnvelope
     ) -> tuple[str, ...]:
+        read_existing = getattr(self._store, "get", None)
+        if callable(read_existing):
+            existing = await read_existing(session.upload_id)
+            if existing is not None:
+                if not isinstance(existing, HandoverDraftArtifact):
+                    raise ValueError("retained handover draft is malformed")
+                if (
+                    existing.document_id != envelope.document_id
+                    or existing.version_id != envelope.version_id
+                    or existing.model_review is not None
+                    and existing.model_review.source_sha256 != envelope.source_sha256
+                ):
+                    raise ValueError(
+                        "retained handover draft does not match the current source version"
+                    )
+                return existing.draft.warnings
         if self._stewardship is None:
             unavailable_warnings = (
                 "current stewardship input is unavailable; nothing was drafted",
@@ -154,6 +174,41 @@ class HandoverBootstrapConsumer:
                 )
             )
             return budget_warnings
+        model_review: HandoverModelReview | None = None
+        interpretation_warning: str | None = None
+        free_prose = any(
+            line.strip() and _STRUCTURED_ASSIGNMENT.fullmatch(line.strip()) is None
+            for unit in envelope.units
+            for line in unit.text.splitlines()
+        )
+        if self._interpreter is not None and free_prose:
+            interpretation_warning = "adaptive handover review held; free prose remains unmapped"
+            try:
+                async with asyncio.timeout(30):
+                    interpretation = await self._interpreter.interpret(envelope)
+            except Exception:
+                interpretation = ReviewedHandoverInterpretation(
+                    unavailable_reason="provider_unavailable"
+                )
+            if validate_interpretation(
+                interpretation, envelope, max_candidates=self._budget.max_candidates
+            ):
+                identities = {
+                    (mapping.agent_name, mapping.person.display_name, mapping.responsibility)
+                    for mapping in candidates
+                }
+                proposed = {
+                    (mapping.agent_name, mapping.person.display_name, mapping.responsibility)
+                    for mapping in interpretation.mappings
+                }
+                if (
+                    not identities & proposed
+                    and len(candidates) + len(interpretation.mappings)
+                    <= self._budget.max_candidates
+                ):
+                    candidates = (*candidates, *interpretation.mappings)
+                    model_review = interpretation.review
+                    interpretation_warning = None
         resolved: list[HandoverMapping] = []
         cache: dict[str, ResolvedStewardIdentity | None] = {}
         for mapping in candidates:
@@ -198,6 +253,8 @@ class HandoverBootstrapConsumer:
         )
         unmapped = _unmapped_agents(self._stewardship, mappings)
         warnings = _warnings(mappings, abstained, unresolved, unmapped)
+        if interpretation_warning is not None:
+            warnings = (*warnings, interpretation_warning)
         draft = StewardshipDraft(
             outcome=(HandoverDraftOutcome.DRAFTED if mappings else HandoverDraftOutcome.ABSTAINED),
             mappings=mappings,
@@ -212,6 +269,7 @@ class HandoverBootstrapConsumer:
             draft=draft,
             stewardship=self._stewardship,
             max_yaml_bytes=self._budget.max_yaml_bytes,
+            model_review=model_review,
         )
         await self._store.put(artifact)
         return warnings
@@ -328,48 +386,16 @@ def _extract_line(line: str, doc_id: str, line_number: int) -> tuple[HandoverMap
                 ),
                 responsibility=StewardResponsibility(structured.group(2).casefold()),
                 confidence=1.0,
-                citations=(HandoverSourceSpan(doc_id=doc_id, line=line_number, quote=line[:200]),),
+                citations=tuple(
+                    HandoverSourceSpan(
+                        doc_id=doc_id, line=line_number, quote=line[start : start + 200]
+                    )
+                    for start in range(0, len(line), 200)
+                ),
                 rationale="explicit structured assignment",
             ),
         )
-    lowered = line.casefold()
-    person_match = _OWNER_NAME.search(line) or _NAME.search(line)
-    if person_match is None:
-        return ()
-    person = HandoverPerson(display_name=person_match.group(1).strip().rstrip(" .,;:"))
-    explicit_person = _OWNER_NAME.search(line) is not None
-    explicit_responsibility = any(
-        marker in lowered
-        for marker in ("accountable", "responsible", "owner", "owned by", "lead", "(a)", "(r)")
-    )
-    responsibility = (
-        StewardResponsibility.INFORMED
-        if any(marker in lowered for marker in ("informed", "consulted", "(i)", "(c)"))
-        else StewardResponsibility.ACCOUNTABLE
-    )
-    mappings: list[HandoverMapping] = []
-    for agent, keywords, specificity in _AGENT_DOMAINS:
-        matches = tuple(keyword for keyword in keywords if keyword in lowered)
-        if not matches:
-            continue
-        confidence = min(
-            1.0,
-            0.45
-            + specificity * 0.25
-            + (0.2 if explicit_responsibility else 0.0)
-            + (0.15 if explicit_person else 0.0),
-        )
-        mappings.append(
-            HandoverMapping(
-                agent_name=agent,
-                person=person,
-                responsibility=responsibility,
-                confidence=round(confidence, 3),
-                citations=(HandoverSourceSpan(doc_id=doc_id, line=line_number, quote=line[:200]),),
-                rationale=f"domain keyword {max(matches, key=len)!r} -> {agent}",
-            )
-        )
-    return tuple(mappings)
+    return ()
 
 
 def _warnings(
@@ -397,6 +423,7 @@ def _artifact(
     draft: StewardshipDraft,
     stewardship: StewardshipInput,
     max_yaml_bytes: int,
+    model_review: HandoverModelReview | None = None,
 ) -> HandoverDraftArtifact:
     rendered = _render_yaml(draft, stewardship)
     if len(rendered.encode("utf-8")) > max_yaml_bytes:
@@ -407,14 +434,17 @@ def _artifact(
             warnings=(warning, "nothing was drafted"),
         )
         rendered = _render_yaml(draft, stewardship)
+        model_review = None
         if len(rendered.encode("utf-8")) > max_yaml_bytes:
             rendered = "# handover draft unavailable: rendered YAML budget exceeded\n"
     return HandoverDraftArtifact(
+        schema_version="1.1.0" if model_review is not None else "1.0.0",
         upload_id=session.upload_id,
         document_id=envelope.document_id,
         version_id=envelope.version_id,
         draft=draft,
         yaml=rendered,
+        model_review=model_review,
     )
 
 

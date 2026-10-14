@@ -110,6 +110,8 @@ class ForsetiRuntimeEventsMixin:
 
         async def _run_retrospective_what_if(self, request: Mapping[str, Any]) -> None: ...
 
+        async def _recover_what_if_publications(self) -> int: ...
+
         async def judge_document_ingestion(self, event: dict[str, Any]) -> dict[str, Any]: ...
 
         async def judge_document_safety(self, signal: dict[str, Any]) -> dict[str, Any]: ...
@@ -472,6 +474,13 @@ class ForsetiRuntimeEventsMixin:
                         )
                         restored += 1
         restored += await forseti_durability.rehydrate_arbitration_state(self)
+        from fdai.agents._framework.forseti_quality_retention import restore_quality_samples
+
+        try:
+            restored += await restore_quality_samples(self)
+        except Exception:
+            self.record_behavior("retrospective_what_if:retention_unavailable")
+        restored += await self._recover_what_if_publications()
         return restored
 
     async def maintenance_tick(self) -> None:
@@ -485,6 +494,7 @@ class ForsetiRuntimeEventsMixin:
             self.record_behavior("rule_cache:stale")
         self._run_verdict_coherence_self_test()
         self._refresh_novelty_drift_signal()
+        await self._recover_what_if_publications()
         baseline_scheduler = getattr(self, "_baseline_scheduler", None)
         if baseline_scheduler is not None and baseline_scheduler.tick():
             self.record_behavior("baseline_evaluation:started")

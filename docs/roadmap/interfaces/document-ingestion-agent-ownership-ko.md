@@ -1,7 +1,7 @@
 ---
 translation_of: document-ingestion-agent-ownership.md
-translation_source_sha: 2911871c69b35c20f6ee7e2bd3c639a49906dd70
-translation_revised: 2026-09-16
+translation_source_sha: fe89d63b0ccf8601ef57135f372800d165ce7d7c
+translation_revised: 2026-10-15
 ---
 
 # 문서 인제스트 에이전트 소유권
@@ -47,6 +47,10 @@ Saga 감사 항목이 없는 전이는 결함입니다. 충돌은 Odin으로 라
 버전은 Vidar 롤백 경로를 유지합니다.
 
 ## Ingress 구현
+
+Forseti의 보조 v1 비교 입력 보관은 문서 본문을 저장하지 않는 제한된 비동기 저장소를
+사용합니다. 저장소 실패 때 원래 문서 반입 판정을 보존하고 회고 비교를 보류합니다. 반입
+목적, 독립 승인, Saga 감사, Muninn 색인 또는 Thor의 비작업 경계는 바뀌지 않습니다.
 
 Ingress 단계를 먼저 배선합니다. 게이트웨이 구성은 영속 activity 싱크를
 `PantheonDocumentActivitySink`로 감싸 `document.received` 전이를 Huginn 소유 `object.event`로
@@ -150,6 +154,7 @@ system-assigned principal로 대체 경로하지 않습니다.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-15 | not-applicable | Forseti 반입 판정 옆의 제한된 비동기 품질 입력 보관을 명확히 했습니다. 저장소 오류는 원래 판정을 보존하며 문서 승인·감사·색인을 대체하지 않습니다. | `23b1573756`; 보관·판정 파이프라인 집중 검사 176개, 네 소스 mypy와 Ruff 통과. | 문서 권한은 바뀌지 않았습니다. 배포 신원·전송·복구 근거는 아직 남아 있습니다. |
 | 2026-08-14 | in-progress | 구현 ledger를 도입했으며 이전 출처 이력은 재구성하지 않았습니다. | `current change`; 구현 범위 표에 나열된 agent-chain, core ingestion, service 패키지 및 계약 근거입니다. | 정확한 배포 신원, 전송, 재시작 및 권한 상한 근거를 보존해야 합니다. |
 | 2026-08-27 | implemented | 서버가 소유하는 벽시계, CPU, 주소 공간, 페이지 및 문자 상한을 적용해 native PDF 구문 분석을 장기 실행 문서 worker와 격리했습니다. | `current change`; 문서 worker 격리 및 구문 분석기 동등성 검사입니다. | 배포 신원, 전송, 재시작 및 엔드투엔드 에이전트 근거는 아래 열린 작업으로 유지합니다. |
 | 2026-09-15 | not-started | 현재 문서별 승인과 기존 독립 내용 정책에 따른 요청자 적용 목표를 구분했습니다. | `current change`; 이 담당 문서와 연결된 클라우드 수명 주기 설계입니다. 문서만 변경하며 런타임 검사나 승인을 주장하지 않습니다. | 기존 에이전트로 정확한 정책 승인 검증, 철회 시 이전 작업 차단 및 요청자 기록을 구현하고 집중 검증과 독립적인 승격 근거를 보존해야 합니다. |

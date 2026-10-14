@@ -53,7 +53,10 @@ from fdai.core.operational_evidence.own_role_readback import (
     evaluate_verifier_own_roles,
 )
 from fdai.core.operational_evidence.readback.base import PurposeReadback
-from fdai.core.operational_evidence.readback.case_history_read import CaseHistoryReadback
+from fdai.core.operational_evidence.readback.case_history_read import (
+    AgentDiscussionReadback,
+    CaseHistoryReadback,
+)
 from fdai.core.operational_evidence.readback.current_case_reuse import CurrentCaseReuseReadback
 from fdai.core.operational_evidence.readback.forecast_history import (
     ForecastContextAggregateReadback,
@@ -379,6 +382,7 @@ def build_verifier_workload(
 
     readbacks: list[PurposeReadback] = [
         CaseHistoryReadback(receipts=semantic_receipts),
+        AgentDiscussionReadback(receipts=semantic_receipts),
         OperatorTestContextCommandReadback(commands=sources),
         ContextTransitionReadback(commands=sources, history=sources, audit=sources),
         OperationalTestContextReadback(commands=sources, history=sources, audit=sources),

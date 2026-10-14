@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
+import pytest
 import yaml
 from fdai.core.stewardship.handover_bootstrap import (
     DocumentKind,
@@ -119,7 +122,7 @@ class _FakeInterpreter:
                 responsibility=Responsibility.ACCOUNTABLE,
                 confidence=0.82,
                 source=MappingSource.MODEL,
-                citations=(SourceSpan(document.doc_id, 1, "status updates to stakeholders"),),
+                citations=(SourceSpan(document.doc_id, 1, document.text),),
                 rationale="model: status comms owner",
             ),
         )
@@ -128,11 +131,49 @@ class _FakeInterpreter:
 async def test_model_proposals_merge_when_grounded() -> None:
     draft = await HandoverBootstrapper(
         directory=_directory(), interpreter=_FakeInterpreter()
-    ).bootstrap(_docs())
+    ).bootstrap(
+        (
+            HandoverDocument(
+                doc_id="memo-model",
+                kind=DocumentKind.HANDOVER_MEMO,
+                text="Bragi status updates to stakeholders are handled by Dana Cho.",
+            ),
+        )
+    )
     bragi = next((m for m in draft.mappings if m.agent_name == "Bragi"), None)
     assert bragi is not None
     assert bragi.source is MappingSource.MODEL
     assert bragi.grounded
+
+
+@pytest.mark.parametrize(
+    "substitution", ["document", "line", "quote", "person", "agent", "confidence", "identity"]
+)
+async def test_model_mapping_requires_actual_document_grounding(substitution: str) -> None:
+    document = HandoverDocument(
+        doc_id="model-memo",
+        kind=DocumentKind.HANDOVER_MEMO,
+        text="Bragi status updates to stakeholders are handled by Dana Cho.",
+    )
+    mapping = (await _FakeInterpreter().interpret(document))[0]
+    updates = {
+        "document": {"citations": (SourceSpan("other-memo", 1, document.text),)},
+        "line": {"citations": (SourceSpan(document.doc_id, 2, document.text),)},
+        "quote": {"citations": (SourceSpan(document.doc_id, 1, "Invented quotation."),)},
+        "person": {"person": PersonRef("Invented Person")},
+        "agent": {"agent_name": "InventedAgent"},
+        "confidence": {"confidence": float("nan")},
+        "identity": {"person": PersonRef("Dana Cho", oid=_JANE_OID)},
+    }
+
+    class Interpreter:
+        async def interpret(self, _document: HandoverDocument) -> tuple[ExtractedMapping, ...]:
+            return (replace(mapping, **updates[substitution]),)
+
+    draft = await HandoverBootstrapper(interpreter=Interpreter()).bootstrap((document,))
+    assert draft.outcome is DraftOutcome.ABSTAINED
+    assert draft.mappings == ()
+    assert draft.unresolved_people == ()
 
 
 async def test_draft_yaml_round_trips_through_the_resolver() -> None:
