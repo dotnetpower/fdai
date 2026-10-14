@@ -112,6 +112,16 @@ exposure, disjoint selector rectangles, retained mode, failed participant visibi
 horizontal overflow. Desktop and mobile selector overlap was reproduced and repaired. This is
 not Browser Entra, actual model, verifier, task-competence or operational acceptance evidence.
 
+### Residual recurring-sample hardening
+
+Freyr's recurring sampler previously replaced absent source observation time with the current
+collection time. This could manufacture freshness before a real provider was bound. It now
+rejects missing, malformed and timezone-naive observation timestamps without emitting a
+capacity forecast. Existing source-attributed sampling, default advisory behavior and shadow
+verdict tests remain valid: focused recurring sampling checks: 11 passed; one-file mypy passed.
+This source-time repair does not bind a provider, reviewed Loki schedule, maintenance reader or
+current authority source, and does not close review ids 10-15.
+
 ### Round 4 design and critique
 
 The existing `BudgetLedger` seam receives a StateStore-backed per-correlation implementation.
