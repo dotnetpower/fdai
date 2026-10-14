@@ -24,7 +24,7 @@ Synthetic tests never satisfy operational readiness or production promotion.
 | 6 | Operator group discussion is not wired | Open integration work: expose an authenticated read-only boundary without transferring typed authority. |
 | 7 | Concrete T2 synthesis is unbound | Open integration work: bind only a verified, priced, metered implementation. |
 | 8 | Narrow structured conflict vocabulary | Bounded design, not proof of complete reasoning: add only typed, evidenced comparisons; never infer conflict from lexical prose. |
-| 9 | Process-local discussion budget | Open integration work: retain atomic limits across restarts and replicas using the existing budget seam. |
+| 9 | Process-local discussion budget | Fixed for standard per-correlation bootstrap in round 4: policy-pinned StateStore CAS survives restart/replicas without eviction or memory fallback. Fleet totals and live provider receipts remain separate. |
 | 10 | Freyr/Loki recurring bindings absent | Open integration work: bind authoritative read-only sampling and reviewed schedules; do not synthesize samples or authorize Chaos. |
 | 11 | Mimir/Bragi maintenance bindings absent | Open integration work: bind reviewed source/regression/promotion/activation readers without granting activation authority. |
 | 12 | Durable what-if and multi-target attempt model | Open design/implementation work: prove restart-safe retained inputs and per-target rollback plus aggregate audit. |
@@ -51,8 +51,19 @@ Synthetic tests never satisfy operational readiness or production promotion.
 | 1 | One failed peer disappeared while a three-participant discussion reported completion. | Preserve selected/attempted participant accounting and return partial or abstain; no synthesis of incomplete branches. | `pytest -q --no-cov test_prompt_deliberation.py test_framework_layout.py`: 60 passed; Ruff and focused mypy passed. | Synthesis grounding, remote dispatch, persistent limits, integrations, and operational acceptance remain open. |
 | 2 | Generated prose passed only output-size and sensitivity checks; a fabricated 999-resource claim was accepted. | Require an independent verifier and exact request/conclusion/evidence receipt; hold on absence, rejection, substitution, self-verification or provider failure. | Focused deliberation/layout/bootstrap checks: 82 passed; Ruff and six-file mypy passed. | The verifier contract is tested, not a live independent entailment or production readiness claim. |
 | 3 | Remote dispatch discarded its selected agent and locale; generic agent mentions could select the target. | Preserve exact canonical target and locale through Bragi, include locale in request identity and reject invalid inputs before startup. | Remote/deliberation/conversational checks: 196 passed; Ruff and three-file mypy passed. | No general Operator caller of this standalone client was found; group-chat invocation and live locale evidence remain open. |
+| 4 | Per-correlation call reservations disappeared after process replacement. | Bind policy-pinned StateStore accounting to standard bootstrap; preserve exact costs and reject corruption, policy substitution, unsupported fleet totals and bounded CAS contention. | Persistent/default budget, deliberation and bootstrap checks: 95 passed; Ruff and two-file mypy passed. | Real durable-provider restart evidence, declared fleet windows and other operating bindings remain open. |
 
 ## Completion boundary
+
+### Round 4 design and critique
+
+The existing `BudgetLedger` seam receives a StateStore-backed per-correlation implementation.
+Only a hash of the bounded correlation is stored. Exact policy identity, strict counters and
+revision CAS prevent restart resets, parallel double admission and silent policy substitution.
+There is no process-local cache or correlation eviction. Mutation retries and total I/O time are
+bounded. Undeclared fleet limits remain undeclared; explicitly configured fleet totals are
+rejected until a separate atomic fleet implementation is bound, never silently ignored.
+This accounting controls model calls only and grants no operational authority.
 
 ### Round 2 design and critique
 

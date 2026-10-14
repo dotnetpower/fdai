@@ -1,7 +1,7 @@
 ---
 title: 판테온 대화형 숙의
 translation_of: conversational-deliberation.md
-translation_source_sha: 37c65401b328133081f0d858b8ac664c91a1807b
+translation_source_sha: ce25f529c88a7fa92fcfb44f2f473a7429d32e20
 translation_revised: 2026-10-14
 ---
 # 판테온 대화형 숙의
@@ -336,6 +336,14 @@ pricing, 모델 키 없이 바인딩된 대화 synthesizer를 거부합니다. �
 스스로 환불하는 천장은 천장이 아니기 때문입니다.
 
 ## 선택적 T2 종합
+
+표준 Core 시작 구성은 상관 ID별 사용량을 영속화하는 `StateStoreBudgetLedger`를 연결합니다.
+상관 키를 해시하고 정확한 예산 정책을 고정하며 호출 전에 범위가 제한된 개정 CAS로 예약합니다.
+재시작, 복제본 경합, 손상된 상태 및 정책 치환은 소모한 예산을 돌려주지 않습니다. 저장소가
+실패하면 메모리로 우회하지 않고 보류합니다. 이 구현은 전체 한도가 선언되지 않은 기본 구성을
+지원합니다. 명시적으로 구성한 전체 한도는 별도의 원자적 연결이 필요하며 무시하지 않고
+거절합니다. 프로세스 내 `InMemoryBudgetLedger`는 독립적인 구성과 집중 테스트에 계속 사용할
+수 있습니다.
 
 `T2ConversationSynthesizer`는 `LlmBindings`의 선택적 프로토콜입니다. 배포는
 조립 루트에서 구현을 연결할 수 있습니다. 요청은 질문, 요청자,

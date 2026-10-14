@@ -47,6 +47,7 @@ from fdai.delivery.persistence import (
     StateStoreSemanticFeedbackCandidateStore,
 )
 from fdai.delivery.persistence.state_store_forecast_context import StateStoreForecastContextProvider
+from fdai.delivery.persistence.state_store_model_budget import StateStoreBudgetLedger
 from fdai.delivery.post_turn_review_ingress import PostTurnReviewRequestConsumer
 from fdai.delivery.prospective_lineage import (
     OperationalPlanningProspectiveFinalizer,
@@ -618,6 +619,7 @@ async def initialize_pantheon(
             if config.container.llm_bindings is not None
             else None
         ),
+        conversation_escalation_ledger=StateStoreBudgetLedger(config.incident_audit_store),
         conversation_metering=(
             config.container.llm_bindings.conversation_metering
             if config.container.llm_bindings is not None

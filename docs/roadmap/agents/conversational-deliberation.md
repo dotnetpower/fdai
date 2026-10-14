@@ -346,6 +346,14 @@ silently refund it, and a ceiling that refunds itself is not a ceiling.
 
 ## Optional T2 synthesis
 
+Standard Core bootstrap binds `StateStoreBudgetLedger` for persistent per-correlation spend.
+It hashes correlation keys, pins the exact budget policy, and reserves before a call through
+bounded revision CAS. Restart, replica overlap, malformed state, and policy substitution never
+refund a consumed allowance. Store failure holds rather than falling back to memory. This
+implementation supports the default undeclared fleet totals; explicitly configured fleet totals
+require a separate atomic binding and are rejected rather than ignored. The process-local
+`InMemoryBudgetLedger` remains available for standalone construction and focused tests.
+
 `T2ConversationSynthesizer` is an optional Protocol on `LlmBindings`. A deployment can bind an
 implementation at the composition root. The request contains the question, requester, correlation
 id, primary owner, bounded owner-attributed claims, evidence refs, prompt digests, and immutable
