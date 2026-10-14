@@ -14,6 +14,8 @@ Redirect registration accepts the retained legacy SPA name or the exact target-b
 stops before a Graph write for every other display name.
 Console text meets WCAG 2.1 AA contrast: soft text and the state text roles keep at least 4.5:1 on their surfaces. Table row buttons reference a detail region with `aria-controls` only while that region is rendered, and a table that can scroll horizontally opts in as a focusable, named region, as the Scope axis tables do. A one-time authenticated Browser Entra axe-core sweep of all 55 registered routes, run with the equivalent CSS injected into the running Console, found the contrast failures these rules fix; the `aria-controls` change is covered by a unit test, the scroll-region opt-in has no automated test yet, and human assistive-technology review is separate.
 Knowledge > GitHub now exposes a [governed read-only connection workflow](../../runbooks/knowledge-github-sources.md).
+Its controls use the current principal's server-verified `/iam/self` roles, not SPA ID-token roles;
+failed IAM reads and mismatched principals keep the controls closed.
 An Owner submits an alias, repository location, credential reference, and expected revision;
 HTTP `202` means queued, not verified. Explicit Refresh reads Core's stored provenance after
 bounded provider validation. New sources stay scan-disabled until a separate Owner enable request;

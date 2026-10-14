@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: ef88cec38c8666af669be225fde5ba04a5937c0a
-translation_revised: 2026-10-13
+translation_source_sha: d82f3549232cf8e7aaf184b629ec3e92f05c55b2
+translation_revised: 2026-10-14
 ---
 # FDAI Console 대화
 
@@ -19,7 +19,9 @@ redirect 등록은 남아 있는 legacy SPA 이름 또는 정확한 대상 바�
 밖의 표시 이름은 Graph 쓰기 전에 실행을 중단합니다.
 Console 텍스트는 WCAG 2.1 AA 대비를 충족합니다. 보조 텍스트와 상태 텍스트 역할은 각 표면에서 4.5:1 이상을 유지합니다. 표의 행 버튼은 세부 영역이 렌더링된 동안에만 `aria-controls`로 그 영역을 참조하며, 가로로 스크롤될 수 있는 표는 Scope 축 표처럼 포커스할 수 있는 이름 있는 영역을 선택적으로 사용합니다. 등록된 55개 경로 전체를 대상으로, 실행 중인 Console에 동일한 CSS를 주입하여 인증된 Browser Entra axe-core 점검을 한 차례 수행해 이 규칙이 해결하는 대비 문제를 찾았습니다. `aria-controls` 변경은 단위 테스트로 확인하고, 스크롤 영역 선택 사용에는 아직 자동 테스트가 없으며, 사람의 보조 기술 검토는 별도입니다.
 지식 > GitHub는 이제 [통제된 읽기 전용 연결 절차](../../runbooks/knowledge-github-sources-ko.md)를
-제공합니다. Owner는 별칭, 저장소 위치, 자격 증명 참조 및 예상 버전을 제출합니다.
+제공합니다. 변경 컨트롤은 SPA ID 토큰이 아니라 `/iam/self`가 반환한 현재 사용자의 서버 검증 역할을
+사용합니다. IAM 조회가 실패하거나 사용자 신원이 일치하지 않으면 변경을 허용하지 않습니다.
+Owner는 별칭, 저장소 위치, 자격 증명 참조 및 예상 버전을 제출합니다.
 HTTP `202`는 검증 완료가 아닌 대기 상태를 의미합니다. 공급자 검증 후 명시적인 새로 고침으로
 Core가 저장한 출처 정보를 읽습니다. 새 소스의 스캔은 별도 Owner 활성화 요청 전까지
 비활성 상태입니다. 지식 연결 해제는 독립적으로 부여된 스캔 권한을 유지합니다.
