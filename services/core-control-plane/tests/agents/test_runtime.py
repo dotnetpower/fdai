@@ -13,6 +13,7 @@ drains one hop.
 from __future__ import annotations
 
 import asyncio
+import hashlib
 from datetime import UTC, datetime, timedelta
 from functools import lru_cache
 from pathlib import Path
@@ -396,6 +397,29 @@ def test_runtime_rehydrates_pending_norns_issue_candidate() -> None:
     assert replayed.pending_candidates == []
 
 
+def test_saga_operation_identity_cannot_cross_fingerprints_after_restart() -> None:
+    store = InMemoryStateStore()
+    asyncio.run(
+        StateStoreIssueTrackerAdapter(store).create_or_comment_once(
+            operation_id="handoff:global-operation",
+            fingerprint="first-fingerprint",
+            title="First issue",
+            body="First owned handoff.",
+        )
+    )
+    with pytest.raises(ValueError, match="different content or fingerprint"):
+        asyncio.run(
+            StateStoreIssueTrackerAdapter(store).create_or_comment_once(
+                operation_id="handoff:global-operation",
+                fingerprint="other-fingerprint",
+                title="Other issue",
+                body="Other owned handoff.",
+            )
+        )
+    rows = asyncio.run(store.read_states("pantheon/saga/issues/", limit=10))
+    assert len(rows) == 1
+
+
 def test_runtime_rehydrates_durable_saga_issue_projection() -> None:
     store = InMemoryStateStore()
     first_adapter = StateStoreIssueTrackerAdapter(store)
@@ -407,6 +431,10 @@ def test_runtime_rehydrates_durable_saga_issue_projection() -> None:
             body="Correlation id: runtime-rehydrate",
         )
     )
+    operation_key = (
+        "pantheon/saga/issue-operations/" + hashlib.sha256(b"handoff:runtime-rehydrate").hexdigest()
+    )
+    assert asyncio.run(store.delete_state(operation_key))
     restarted = Saga(github=StateStoreIssueTrackerAdapter(store))
     runtime = PantheonRuntime.build(
         provider=InMemoryEventBus(),
@@ -419,6 +447,16 @@ def test_runtime_rehydrates_durable_saga_issue_projection() -> None:
     assert len(restarted.github.issues) == 1
     issue = restarted.github.issues["runtime-rehydrate-fingerprint"]
     assert issue.title == "[no_route] Bragi handoff"
+    assert asyncio.run(store.read_state(operation_key)) is not None
+    with pytest.raises(ValueError, match="different content or fingerprint"):
+        asyncio.run(
+            StateStoreIssueTrackerAdapter(store).create_or_comment_once(
+                operation_id="handoff:runtime-rehydrate",
+                fingerprint="other-fingerprint",
+                title="Other issue",
+                body="Other owned handoff.",
+            )
+        )
 
 
 def test_runtime_recovers_unpublished_var_approval() -> None:

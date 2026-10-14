@@ -12,7 +12,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from fdai.agents import Forseti
+from fdai.agents import Forseti, PantheonRuntime
 from fdai.composition import default_container
 from fdai.core.chaos.symptom_index import build_from_entries
 from fdai.delivery.runtime_settings import RuntimeSettingsService
@@ -66,9 +66,18 @@ async def _unused(*args: Any, **kwargs: Any) -> bool:
 async def test_initialize_pantheon_passes_the_product_selection_to_forseti(
     app_config: AppConfig,
     selected: bool,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     store = InMemoryStateStore()
     settings = RuntimeSettingsService(store=None, env={})
+    original_build = PantheonRuntime.build
+    captured: dict[str, Any] = {}
+
+    def build(**kwargs: Any) -> PantheonRuntime:
+        captured.update(kwargs)
+        return original_build(**kwargs)
+
+    monkeypatch.setattr(PantheonRuntime, "build", build)
 
     result = await initialize_pantheon(
         PantheonInitialization(
@@ -104,3 +113,4 @@ async def test_initialize_pantheon_passes_the_product_selection_to_forseti(
     forseti = result.runtime.agents["Forseti"]
     assert isinstance(forseti, Forseti)
     assert forseti._governed_execution_selected is selected  # noqa: SLF001
+    assert captured["ordered_poison_halt_state_store"] is store

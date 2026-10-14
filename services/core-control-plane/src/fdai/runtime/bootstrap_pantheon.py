@@ -509,6 +509,7 @@ async def initialize_pantheon(
         forseti_state_store=config.incident_audit_store,
         bragi_state_store=config.incident_audit_store,
         odin_state_store=config.incident_audit_store,
+        ordered_poison_halt_state_store=config.incident_audit_store,
         proposal_rate_limit_state_store=config.incident_audit_store,
         execution_resource_lock=execution_resource_lock,
         approver_authorizer=approver_authorizer_from_environment(config.environment),

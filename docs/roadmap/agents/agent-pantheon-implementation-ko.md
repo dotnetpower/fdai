@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 6f7191d1aba0f282dfb4eb5011b41e693c017dea
-translation_revised: 2026-10-08
+translation_source_sha: 4409616c6abe47981e4af7619f11d301175fc7e9
+translation_revised: 2026-10-15
 ---
 
 # 에이전트 판테온 구현 계획
@@ -17,11 +17,21 @@ translation_revised: 2026-10-08
 > shadow 승격 경계를 변경하지 않습니다.
 
 ## 구현 상태
+표준 Core 부트스트랩은 기존 서비스 소유 StateStore를 순서 보장 오류 정지 저장소와 영수증을
+확인하는 해제 처리기에 연결합니다. 정지 복원은 의도적으로 프로세스 내부 상태로 돌아가지
+않습니다. StateStore 이슈 어댑터는 변경 전에 각 작업 ID를 하나의 fingerprint와 요청 해시에
+전역으로 연결하며, 재수화도 이전 이슈 이력의 같은 바인딩을 복원하고 충돌을 거절합니다.
+Freyr 반복 샘플은 수집 시각으로 최신성을 만들지 않고 시간대가 있는 유효한 출처 관측 시간을
+요구합니다. 내구성·부트스트랩·이슈 집중 검사 114개, Freyr 검사 11개와 집중 타입 검사가
+통과했습니다. 이 소스 수정은 역할, 승인, 위험 분류나 실행기를 바꾸지 않으며 실제 브로커·DB
+재시작, 원격 작업 식별자 또는 복제본 간 게시를 입증하지 않습니다.
+
 
 ### 구현 범위
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 현재 순서 정지 및 로컬 이슈 작업 바인딩 | implemented | `bootstrap_pantheon.py`; `state_store_issue_tracker.py`; 부트스트랩·정지 해제·런타임·Mimir 이슈 검사 114개 통과 | 정지 저장소의 소스 미연결과 로컬 fingerprint별 작업 ID 공백만 해결합니다. 원격 이슈 어댑터, 복제본 게시와 실제 재시작 증거는 남아 있습니다. |
 | 온톨로지 ContextIndex 소유자 라우팅 | implemented | `agents/_framework/ontology_index.py`; `test_ontology_context_index.py`; 실제 인메모리 EventBus 단계 연결 검사 | Huginn 유입, Muninn 준비 및 전이 게시, Heimdall 검증 게시, Saga 감사 및 봉인 게시는 기존 소유 토픽을 사용합니다. 래퍼는 소유자, 토픽, 내용, 단계 불일치를 거부하고 일반 판단과 학습에서 분리합니다. 이 라우팅 검사의 기계적 처리기는 합성이며 영속 원본 및 수명주기 처리기와 운영 bootstrap 연결은 남아 있습니다. |
 | W0-W1 문서, 온톨로지 및 프레임워크 기반 | implemented | [`test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py), [`test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py) | 고정 레지스트리, 패키지 경계, 문서 일치 및 타입이 지정된 토픽 기반을 실행하고 검사할 수 있습니다. |
 | Bus 및 graph ownership 분리 | implemented | `_framework/{pantheon,topics}.py`; ontology alignment, topic, registry, doc parity 및 Console agent contract 검사 | 이제 `AgentSpec.owns`에는 생산 가능한 event-bus 객체만 포함됩니다. `Budget`과 `SizingRecommendation`은 사용되지 않는 topic을 만들지 않고 Njord와 Freyr의 graph lifecycle ownership을 유지합니다. ActionRun에 포함된 attempt 상태와 core RCA projection은 bus registry 밖에 유지됩니다. |
@@ -51,6 +61,7 @@ translation_revised: 2026-10-08
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-15 | implemented | 표준 순서 오류 정지 저장소를 기존 서비스 소유 StateStore에 연결하고 보관 이력 재수화를 포함해 로컬 Saga 이슈 작업 식별자를 전역으로 연결했습니다. | `current change`; 부트스트랩·정지 해제·런타임·Mimir 이슈 검사 114개 통과; Ruff 및 두 파일 mypy 통과. Freyr 출처 시간 체크포인트 `6014bf1bd9`: 11개 통과. | 원격 브로커·DB 재시작, 원격 GitHub App 식별자, Saga 복제본 게시, 정기 출처 연결과 실제 인수인계 검증은 남아 있습니다. |
 | 2026-10-08 | implemented | Forseti 기준선 평가는 규칙이 `evaluates`에 선언한 모든 속성을 리소스가 가질 때만 `compliant`를 기록하며, 그렇지 않으면 해당 쌍은 `property_unobserved`로 판단을 보류합니다. 거부 결과는 `violated`로 유지합니다. | `current change`; `forseti_baseline_evaluation.py`; worker 및 Saga 감사 검사를 포함한 `test_forseti_baseline_evaluation.py` | 인벤토리 수집이 정규화 속성을 제공해야 합니다([프레임워크 규칙 근거 ledger](../../roadmap-implementation/rules-and-detection/framework-rule-evidence.md)). |
 | 2026-10-04 | implemented | `PANTHEON_SPECS`, 토픽, 역할 바인딩, 승인 또는 실행 권한을 바꾸지 않고 Forseti의 prospective-lineage 게시 경로를 강화했습니다. Forseti가 소유한 판단 값이 없으면 이제 `ProspectiveLineage`를 만들지 않고 Verdict에 명시적인 이용 불가 사유를 기록하며, 완전한 값이 있을 때도 Forseti가 소유한 `object.prospective-lineage` 토픽으로만 게시합니다. | `current change`; `agents/_framework/forseti_arbitration.py`; `delivery/prospective_lineage.py`; 집중 prospective-lineage 및 에이전트 layout 검사. | 운영 온톨로지 잔여 항목을 유지합니다. Source/projector 재생 근거를 주장하려면 완전한 governed runtime episode 하나가 필요합니다. |
 | 2026-10-02 | implemented | 기준선 평가 결과와 완료 기록을 위한 Saga의 추가 전용 감사 바인더를 추가했습니다. | `current change`; `saga.py`; `test_saga_baseline_evaluation_audit.py`; 집중 Saga/Forseti/Pantheon 검사. | Operator 변환 결과와 Console 상태는 #1199의 별도 패키지에 남아 있습니다. |

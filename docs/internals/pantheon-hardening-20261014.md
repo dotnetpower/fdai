@@ -28,8 +28,8 @@ Synthetic tests never satisfy operational readiness or production promotion.
 | 10 | Freyr/Loki recurring bindings absent | Open integration work: bind authoritative read-only sampling and reviewed schedules; do not synthesize samples or authorize Chaos. |
 | 11 | Mimir/Bragi maintenance bindings absent | Open integration work: bind reviewed source/regression/promotion/activation readers without granting activation authority. |
 | 12 | Durable what-if and multi-target attempt model | Open design/implementation work: prove restart-safe retained inputs and per-target rollback plus aggregate audit. |
-| 13 | Ordered poison halt persistence unbound | Open deployment decision: preserve ordered halts through restart and retain an authorized clear receipt. |
-| 14 | Saga replica and issue-operation identity residuals | Recorded Low-severity residuals: reproduce before repair; prove one audit/publication and reject cross-fingerprint operation reuse. |
+| 13 | Ordered poison halt persistence unbound | Standard Core source now binds the existing service-owned StateStore and receipt-gated clear handler; actual initialization and related durability checks pass. Governed provider restart/clear receipts remain open. |
+| 14 | Saga replica and issue-operation identity residuals | Local StateStore adapter now globally binds operation id to fingerprint/content and restores legacy bindings before reuse. Replica-safe audit/publication and remote GitHub App operation identity remain open. |
 | 15 | Development authority source absent | Open authority binding: use the current exact deployment source; never manufacture or relax authorization. |
 | 16 | Workflow/KPI/effect/promotion evidence absent | Operational blocker: retain complete pinned live-shadow cohorts, independent effects, recovery and zero policy escapes. |
 | 17 | Generic v1 placeholder ownership map | Intended upstream example, not readiness: a deployment supplies v2 live primary and distinct backup/escalation identities. |
@@ -121,6 +121,17 @@ capacity forecast. Existing source-attributed sampling, default advisory behavio
 verdict tests remain valid: focused recurring sampling checks: 11 passed; one-file mypy passed.
 This source-time repair does not bind a provider, reviewed Loki schedule, maintenance reader or
 current authority source, and does not close review ids 10-15.
+
+### Residual ordered-halt and issue identity evidence
+
+Standard Pantheon initialization now passes its service-owned StateStore to the existing durable
+ordered halt and authorized-clear framework. It does not clear a halt or grant a new authority.
+Saga's StateStore issue adapter now claims a global operation binding before applying the existing
+per-issue revision CAS, and rehydration backfills the exact binding for retained older histories.
+A different fingerprint or content cannot reuse the same operation id after restart. The tests
+exercise actual initialization, receipt ordering, local upgrade/restart identity and adjacent
+Mimir close evidence: 114 passed; two-file mypy and Ruff passed. This source result does not prove
+remote provider restart, remote issue adapter identity, replica publication or live handover.
 
 ### Round 4 design and critique
 

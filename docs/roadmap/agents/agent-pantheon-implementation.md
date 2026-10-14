@@ -15,11 +15,22 @@ cross-agent workflow has an independent rollout record in
 > role bindings, or bypass shadow promotion.
 
 ## Implementation status
+Standard Core bootstrap now supplies its existing service-owned StateStore to ordered poison
+halt persistence and the receipt-gated clear handler. Halt recovery cannot deliberately fall
+back to process-only state. The StateStore issue adapter globally binds each operation id to
+one fingerprint and request digest before mutation; rehydration restores the same bindings for
+older retained issue histories and rejects conflicts. Freyr recurring sampling requires valid
+timezone-aware source observation time instead of fabricating collection-time freshness.
+Focused durability/bootstrap/issue checks: 114 passed; Freyr checks: 11 passed; focused mypy
+passed. These source repairs change no role, approval, risk classification or executor and do
+not prove actual broker/database restart, remote issue identity or replica-safe publication.
+
 
 ### Implementation scope
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Current ordered-halt and local issue-operation binding | implemented | `bootstrap_pantheon.py`; `state_store_issue_tracker.py`; bootstrap/poison-clear/runtime/Mimir issue checks: 114 passed | Supersedes the source opt-in halt absence and local per-fingerprint operation-id gap only. Remote issue adapters, replica publication and governed restart evidence remain open. |
 | Ontology ContextIndex owner routing | implemented | `agents/_framework/ontology_index.py`; `test_ontology_context_index.py`; real in-memory EventBus phase-chain test | Huginn ingress, Muninn preparation/transition publication, Heimdall validation publication, and Saga audit/seal publication use existing owned topics. The wrapper rejects owner, topic, content, and phase drift and isolates ordinary judgment and learning. Mechanical handlers in this routing test are synthetic; durable source/lifecycle workers and production bootstrap remain open. |
 | W0-W1 documentation, ontology, and framework scaffolding | implemented | [`test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py), [`test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py) | The fixed registry, package boundary, documentation parity, and typed-topic foundation are executable and checked. |
 | Bus and graph ownership separation | implemented | `_framework/{pantheon,topics}.py`; ontology alignment, topic, registry, doc-parity, and Console agent-contract tests | `AgentSpec.owns` now lists only producible event-bus objects. `Budget` and `SizingRecommendation` retain Njord and Freyr graph lifecycle ownership without inventing dead topics; embedded ActionRun attempt state and core RCA projections remain outside the bus registry. |
@@ -49,6 +60,7 @@ cross-agent workflow has an independent rollout record in
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-15 | implemented | Bound standard ordered-poison halt persistence to the existing service-owned StateStore and globally bound local Saga issue operation identity, including retained-history rehydration. | `current change`; bootstrap, poison-clear, runtime and Mimir issue checks: 114 passed; Ruff and two-file mypy passed. Freyr source-time checkpoint `6014bf1bd9`: 11 passed. | Remote broker/database restart, remote GitHub App identity, Saga replica publication, recurring source bindings and governed handover remain open. |
 | 2026-10-08 | implemented | Forseti's baseline evaluation records `compliant` only when the resource carries every property the Rule declares in `evaluates`; otherwise the pair abstains with `property_unobserved`. A deny stays `violated`. | `current change`; `forseti_baseline_evaluation.py`; `test_forseti_baseline_evaluation.py` with worker and Saga audit suites. | Inventory collection still has to supply the normalized properties ([framework Rule evidence ledger](../../roadmap-implementation/rules-and-detection/framework-rule-evidence.md)). |
 | 2026-10-04 | implemented | Hardened Forseti's prospective-lineage publication path without changing `PANTHEON_SPECS`, topics, role bindings, approval, or execution authority. Missing Forseti-owned judgment values now produce no `ProspectiveLineage` and an explicit unavailable reason on the Verdict, while complete values still publish only through Forseti's owned `object.prospective-lineage` topic. | `current change`; `agents/_framework/forseti_arbitration.py`; `delivery/prospective_lineage.py`; focused prospective-lineage and agent layout checks. | Retain the operating-ontology residual: one complete governed runtime episode is required before claiming source/projector replay evidence. |
 | 2026-10-02 | implemented | Added Saga's append-only audit binder for baseline evaluation outcome and completion records. | `current change`; `saga.py`; `test_saga_baseline_evaluation_audit.py`; focused Saga/Forseti/Pantheon tests. | Operator projection and Console status remain in their own #1199 package. |
