@@ -2,6 +2,7 @@ import {
   panelArray, panelBoolean, panelContractError, panelNonEmptyString,
   panelNonNegativeInteger, panelRecord,
 } from "./panel-decode";
+import type { IamSelfStatus } from "./settings-iam.model";
 
 export interface GithubSource {
   readonly repository_alias: string;
@@ -20,6 +21,11 @@ export interface GithubSource {
 export interface GithubSources {
   readonly sources: readonly GithubSource[];
   readonly gaps: readonly string[];
+}
+
+export function githubConnectionOwner(status: IamSelfStatus | null, subjectId: string | undefined): boolean {
+  return Boolean(subjectId) && status !== null && status.canAccessConsole
+    && status.principal.subjectId === subjectId && status.principal.roles.includes("Owner");
 }
 
 export function decodeGithubSources(value: unknown): GithubSources {

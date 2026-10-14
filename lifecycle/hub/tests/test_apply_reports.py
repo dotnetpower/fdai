@@ -1,0 +1,318 @@
+"""Apply reports, failure suppressions, and the reported-state API."""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Iterator
+from datetime import datetime, timedelta
+from functools import partial
+from typing import Any
+
+import pytest
+from fdai_deployment_cli.lifecycle_plan import SuppressionWindow
+from pydantic import ValidationError
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+from starlette.testclient import TestClient
+
+from fdai_lifecycle_hub import models
+from fdai_lifecycle_hub.api import MAX_STATE_BYTES, create_app
+from fdai_lifecycle_hub.domain import Installation, Issued, IssuedPlan, Planner, Waiting
+from fdai_lifecycle_hub.enrollment import EnrollmentRequest
+from fdai_lifecycle_hub.reports import FAILURE_HOLD, FAILURE_HOLD_GRACE
+from fdai_lifecycle_hub.schemas import PlanReport, reported_state_json
+from fdai_lifecycle_hub.signing import verify_key_proof
+from fdai_lifecycle_hub.store import HubStore
+
+type Enroll = Callable[[HubStore, Installation], None]
+
+STATE_URL = "/v1/installations/installation-alpha/state"
+
+
+def _report(digest: str, attempt: int, outcome: str, reason_code: str) -> PlanReport:
+    return PlanReport.model_validate(
+        {
+            "attempt": attempt,
+            "outcome": outcome,
+            "reason_code": reason_code,
+            "exact_plan_digest": digest,
+            "summary": "1 entity",
+            "reported_at": "2026-10-05T03:01:00Z",
+        }
+    )
+
+
+@pytest.fixture
+def registered(hub_store: HubStore, enroll: Enroll, installation: Installation) -> HubStore:
+    enroll(hub_store, installation)
+    return hub_store
+
+
+@pytest.fixture
+def issued(
+    registered: HubStore, installation: Installation, planner: Planner, now: datetime
+) -> IssuedPlan:
+    outcome = registered.recompute(installation.installation_id, planner, now=now)
+    assert isinstance(outcome, Issued)
+    return IssuedPlan.from_signed(outcome.plan)
+
+
+def _audited_suppressions(store: HubStore) -> list[tuple[str, dict[str, Any]]]:
+    with Session(store.engine) as session:
+        records = session.scalars(
+            select(models.AuditRecord)
+            .where(models.AuditRecord.action == "suppression.added")
+            .order_by(models.AuditRecord.sequence)
+        )
+        return [(record.subject, record.payload) for record in records]
+
+
+@pytest.mark.parametrize(
+    ("outcome", "reason_code"),
+    [
+        ("apply-started", "apply_started"),
+        ("applied", "applied"),
+        ("rolled-back", "health_check_failed"),
+        ("rolled-back", "apply_failed"),
+    ],
+)
+def test_apply_outcomes_are_accepted_with_their_reason_codes(
+    outcome: str, reason_code: str
+) -> None:
+    report = _report("sha256:" + "a" * 64, 1, outcome, reason_code)
+
+    assert (report.outcome, report.reason_code) == (outcome, reason_code)
+
+
+@pytest.mark.parametrize(
+    ("outcome", "reason_code", "digest"),
+    [
+        ("apply-started", "apply_started", None),
+        ("applied", "applied", None),
+        ("rolled-back", "health_check_failed", None),
+        ("applied", "health_check_failed", "sha256:" + "a" * 64),
+        ("rolled-back", "applied", "sha256:" + "a" * 64),
+        ("deployed", "applied", "sha256:" + "a" * 64),
+    ],
+)
+def test_apply_reports_need_the_plan_digest_and_their_reason_codes(
+    outcome: str, reason_code: str, digest: str | None
+) -> None:
+    with pytest.raises(ValidationError):
+        PlanReport.model_validate(
+            {
+                "attempt": 1,
+                "outcome": outcome,
+                "reason_code": reason_code,
+                "exact_plan_digest": digest,
+                "summary": "",
+                "reported_at": "2026-10-05T03:01:00Z",
+            }
+        )
+
+
+def test_rolled_back_report_holds_every_plan_entity_until_lifted(
+    registered: HubStore,
+    installation: Installation,
+    issued: IssuedPlan,
+    planner: Planner,
+    now: datetime,
+) -> None:
+    installation_id = installation.installation_id
+    record = partial(registered.record_report, installation_id, issued.plan_id, now=now)
+
+    record(_report(issued.digest, 1, "apply-started", "started"))
+    record(_report(issued.digest, 2, "rolled-back", "health_check_failed"))
+
+    starts_at = now - FAILURE_HOLD_GRACE
+    hold = SuppressionWindow(
+        "entity:core", starts_at, starts_at + FAILURE_HOLD, "failure", issued.plan_id
+    )
+    assert registered.load(installation_id).suppressions == (hold,)
+    assert registered.current_plan(installation_id, now=now) is None
+    assert _audited_suppressions(registered) == [
+        (
+            "entity:core",
+            {
+                "ends_at": hold.ends_at.isoformat(),
+                "origin": "failure",
+                "failed_plan_id": issued.plan_id,
+            },
+        )
+    ]
+    held = registered.recompute(installation_id, planner, now=now)
+    assert isinstance(held, Waiting)
+    assert held.release_id == issued.target_release_id
+    assert [block.reason_code for block in held.checks[0].blocks] == ["suppression_window_active"]
+
+    registered.lift_suppressions(installation_id, "entity:core", now=now)
+    assert isinstance(registered.recompute(installation_id, planner, now=now), Issued)
+    assert registered.audit_chain_intact()
+
+
+def test_failure_hold_ends_by_itself(
+    registered: HubStore,
+    installation: Installation,
+    issued: IssuedPlan,
+    planner: Planner,
+    now: datetime,
+) -> None:
+    report = _report(issued.digest, 2, "rolled-back", "apply_failed")
+    registered.record_report(installation.installation_id, issued.plan_id, report, now=now)
+
+    later = now - FAILURE_HOLD_GRACE + FAILURE_HOLD
+    outcome = registered.recompute(installation.installation_id, planner, now=later)
+
+    assert not isinstance(outcome, Waiting)
+
+
+def test_failure_hold_absorbs_a_reader_clock_slightly_behind_the_writer(
+    registered: HubStore,
+    installation: Installation,
+    issued: IssuedPlan,
+    planner: Planner,
+    now: datetime,
+) -> None:
+    """A recompute whose own clock reads a little earlier than the writer's still sees the hold,
+    within the grace margin; past it, the hold is correctly not yet in effect."""
+
+    report = _report(issued.digest, 2, "rolled-back", "apply_failed")
+    registered.record_report(installation.installation_id, issued.plan_id, report, now=now)
+
+    within_grace = registered.recompute(
+        installation.installation_id, planner, now=now - FAILURE_HOLD_GRACE + timedelta(seconds=1)
+    )
+    beyond_grace = registered.recompute(
+        installation.installation_id, planner, now=now - FAILURE_HOLD_GRACE - timedelta(seconds=1)
+    )
+
+    assert isinstance(within_grace, Waiting)
+    assert not isinstance(beyond_grace, Waiting)
+
+
+def test_repeated_rolled_back_report_adds_no_second_hold(
+    registered: HubStore, installation: Installation, issued: IssuedPlan, now: datetime
+) -> None:
+    report = _report(issued.digest, 2, "rolled-back", "apply_failed")
+
+    assert registered.record_report(installation.installation_id, issued.plan_id, report, now=now)
+    assert not registered.record_report(
+        installation.installation_id, issued.plan_id, report, now=now + timedelta(minutes=1)
+    )
+    assert len(registered.load(installation.installation_id).suppressions) == 1
+
+
+def test_applied_report_holds_nothing(
+    registered: HubStore, installation: Installation, issued: IssuedPlan, now: datetime
+) -> None:
+    for attempt, outcome, reason in ((1, "apply-started", "started"), (2, "applied", "applied")):
+        report = _report(issued.digest, attempt, outcome, reason)
+        registered.record_report(installation.installation_id, issued.plan_id, report, now=now)
+
+    assert registered.load(installation.installation_id).suppressions == ()
+    assert [r.outcome for r in registered.reports(installation.installation_id)] == [
+        "apply-started",
+        "applied",
+    ]
+
+
+@pytest.fixture
+def client(registered: HubStore, now: datetime) -> TestClient:
+    return TestClient(create_app(registered, clock=lambda: now))
+
+
+def _state_body(installation: Installation, **changes: object) -> dict[str, Any]:
+    body: dict[str, Any] = reported_state_json.dump_python(installation.reported, mode="json")
+    return body | changes
+
+
+def test_reported_state_is_accepted_and_becomes_current(
+    client: TestClient, registered: HubStore, installation: Installation, now: datetime
+) -> None:
+    body = _state_body(installation, digest="c" * 64, observed_at=now.isoformat())
+    body["entities"]["core"]["release_id"] = "1.6.0"
+
+    response = client.post(STATE_URL, json=body)
+
+    assert response.status_code == 202
+    reported = registered.load(installation.installation_id).reported
+    assert (reported.digest, reported.entities["core"].release_id) == ("c" * 64, "1.6.0")
+
+
+def test_state_that_is_not_newer_returns_409(
+    client: TestClient, installation: Installation
+) -> None:
+    response = client.post(STATE_URL, json=_state_body(installation))
+
+    assert (response.status_code, response.json()) == (409, {"error": "stale_state"})
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"digest": "sha256:" + "c" * 64},
+        {"observed_at": "2026-10-05T03:00:00"},
+        {"schema_revision": -1},
+        {"entities": {"core": {"release_id": "v1", "artifact_digests": [], "health": "healthy"}}},
+        {"entities": {}},
+    ],
+)
+def test_invalid_state_returns_422(
+    client: TestClient, installation: Installation, now: datetime, change: dict[str, object]
+) -> None:
+    body = _state_body(installation, observed_at=now.isoformat()) | change
+
+    response = client.post(STATE_URL, json=body)
+
+    assert (response.status_code, response.json()) == (422, {"error": "state_invalid"})
+
+
+def test_state_naming_an_unknown_entity_returns_422(
+    client: TestClient, installation: Installation, now: datetime
+) -> None:
+    body = _state_body(installation, observed_at=now.isoformat())
+    body["entities"]["ghost"] = body["entities"]["core"]
+
+    response = client.post(STATE_URL, json=body)
+
+    assert (response.status_code, response.json()) == (422, {"error": "state_invalid"})
+
+
+def test_state_for_an_unknown_or_pending_installation_returns_404(
+    hub_store: HubStore,
+    installation: Installation,
+    enrollment: EnrollmentRequest,
+    now: datetime,
+) -> None:
+    client = TestClient(create_app(hub_store, clock=lambda: now))
+    body = _state_body(installation, observed_at=now.isoformat())
+
+    unknown = client.post(STATE_URL, json=body)
+    hub_store.request_enrollment(enrollment, verify=verify_key_proof, now=now)
+    pending = client.post(STATE_URL, json=body)
+
+    assert (unknown.status_code, unknown.json()) == (404, {"error": "not_found"})
+    assert (pending.status_code, pending.json()) == (404, {"error": "not_found"})
+
+
+def test_oversized_state_returns_413(client: TestClient) -> None:
+    def chunks() -> Iterator[bytes]:
+        yield b"x" * MAX_STATE_BYTES
+        yield b"x"
+
+    response = client.post(STATE_URL, content=chunks())
+
+    assert (response.status_code, response.json()) == (413, {"error": "state_too_large"})
+
+
+def test_rolled_back_report_over_http_withdraws_the_plan(
+    client: TestClient, installation: Installation, issued: IssuedPlan
+) -> None:
+    reports_url = f"/v1/installations/installation-alpha/plans/{issued.plan_id}/reports"
+    plan_url = "/v1/installations/installation-alpha/plan"
+    started = _report(issued.digest, 1, "apply-started", "started").model_dump(mode="json")
+    rolled_back = _report(issued.digest, 2, "rolled-back", "health_check_failed")
+
+    assert client.get(plan_url).status_code == 200
+    assert client.post(reports_url, json=started).status_code == 202
+    assert client.post(reports_url, json=rolled_back.model_dump(mode="json")).status_code == 202
+    assert client.get(plan_url).status_code == 204

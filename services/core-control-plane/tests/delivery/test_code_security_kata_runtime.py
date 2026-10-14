@@ -396,6 +396,22 @@ async def test_a_replacement_pod_cannot_complete_the_original_process(
     assert client.deleted
 
 
+@pytest.mark.parametrize("address_space_bytes", [None, 4 * 1024**3, 32 * 1024**3])
+def test_guest_memory_budget_is_independent_of_virtual_address_space(
+    tmp_path: Path, address_space_bytes: int | None
+) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    spec = _spec().model_copy(update={"address_space_bytes": address_space_bytes})
+    job = build_scanner_job(
+        _config(tmp_path), "opengrep", spec, Path("/opt/scanners/bin/opengrep"), source, "job"
+    )
+    resources = job["spec"]["template"]["spec"]["containers"][0]["resources"]
+    assert resources["requests"]["memory"] == str(4 * 1024**3)
+    assert resources["limits"]["memory"] == str(4 * 1024**3)
+    assert spec.address_space_bytes == address_space_bytes
+
+
 def test_manifest_rejects_unbound_code_and_source_locations(tmp_path: Path) -> None:
     source = tmp_path / "source"
     source.mkdir()

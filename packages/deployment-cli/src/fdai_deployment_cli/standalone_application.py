@@ -805,8 +805,11 @@ def _approve_plan(
 
     historical_reconciliation = review.get("historical_reconciliation")
     residual_recovery = review.get("residual_recovery")
+    residual_successor = review.get("residual_successor")
     operation = (
-        str(residual_recovery["operation"])
+        str(residual_successor["operation"])
+        if isinstance(residual_successor, dict)
+        else str(residual_recovery["operation"])
         if isinstance(residual_recovery, dict)
         else str(historical_reconciliation["operation"])
         if isinstance(historical_reconciliation, dict)

@@ -371,10 +371,11 @@ def _retained_plan(
     plan = value.get("plan")
     if not isinstance(plan, dict):
         raise ValueError("retained Entra plan is unavailable")
-    apps, groups, digest = (
+    apps, groups, digest, spa_display_name = (
         plan.get("create_apps"),
         plan.get("create_groups"),
         plan.get("plan_digest"),
+        plan.get("console_spa_display_name"),
     )
     role_groups = tuple(sorted(approved_role_groups.items()))
     binding_digest = canonical_digest({"role_groups": dict(role_groups)})
@@ -385,6 +386,7 @@ def _retained_plan(
         or any(not isinstance(item, str) for item in groups)
         or not isinstance(digest, str)
         or _DIGEST.fullmatch(digest) is None
+        or not isinstance(spa_display_name, str)
         or plan.get("role_group_binding_digest") != binding_digest
     ):
         raise ValueError("retained Entra plan is invalid")
@@ -395,6 +397,7 @@ def _retained_plan(
         configure_runner_graph=False,
         digest=digest,
         role_groups=role_groups,
+        spa_display_name=spa_display_name,
     )
 
 

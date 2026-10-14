@@ -3,17 +3,19 @@ from __future__ import annotations
 import json
 import stat
 from dataclasses import replace
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import pytest
+from fdai_deployment_cli.lifecycle_plan import SuppressionWindow
 
 from fdai_lifecycle_hub import domain
 from fdai_lifecycle_hub.catalog import load_catalog
 from fdai_lifecycle_hub.cli import DATABASE_URL_ENV, main
 from fdai_lifecycle_hub.domain import Installation
 from fdai_lifecycle_hub.schemas import entity_settings_json, ownership_json, reported_state_json
+from fdai_lifecycle_hub.store import HubStore
 
 
 def _run(capsys: pytest.CaptureFixture[str], *argv: str) -> dict[str, Any]:
@@ -167,6 +169,31 @@ def test_record_state_then_recompute_reports_up_to_date(
     )
 
     assert outcome == {"outcome": "up-to-date", "checks": []}
+
+
+def test_show_lists_only_suppressions_active_right_now(
+    tmp_path: Path,
+    enrollment_template: dict[str, Any],
+    installation: Installation,
+    now: datetime,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """A future-dated or expired suppression doesn't appear, only one whose window covers now."""
+
+    database_url = f"sqlite+pysqlite:///{tmp_path / 'hub.db'}"
+    monkeypatch.setenv(DATABASE_URL_ENV, database_url)
+    monkeypatch.setattr(domain, "utc_now", lambda: now)
+    _enroll(capsys, tmp_path, enrollment_template, installation)
+    store = HubStore.connect(database_url)
+    active = SuppressionWindow("entity:core", now - timedelta(minutes=1), now + timedelta(hours=1))
+    future = SuppressionWindow("entity:console", now + timedelta(hours=1), now + timedelta(hours=2))
+    store.add_suppression("installation-alpha", active, now=now)
+    store.add_suppression("installation-alpha", future, now=now)
+
+    shown = _run(capsys, "show", "installation-alpha")
+
+    assert [s["scope"] for s in shown["suppressions"]] == ["entity:core"]
 
 
 @pytest.mark.parametrize(

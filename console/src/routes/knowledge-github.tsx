@@ -7,20 +7,23 @@ import { composeGlossary, TERMS } from "../deck/glossary";
 import type { PanelProps } from "../panels";
 import { routeHref } from "../router";
 import { formatConsoleTimestamp } from "../time-format";
-import { decodeGithubSources, githubConnectionInputValid, type GithubSources } from "./knowledge-github.model";
+import { decodeGithubSources, githubConnectionInputValid, githubConnectionOwner, type GithubSources } from "./knowledge-github.model";
 import { knowledgeText as text } from "./knowledge-sources.i18n";
+import type { IamSelfStatus } from "./settings-iam.model";
 import "./knowledge-github.css";
+
+type GithubWorkspaceData = GithubSources & { readonly principal: IamSelfStatus | null };
 
 export function KnowledgeGithubRoute(props: PanelProps) {
   return <GithubWorkspace {...props} key={props.auth.account?.homeAccountId ?? "anonymous"} />;
 }
 
 function GithubWorkspace({ client, auth, dataMode }: PanelProps) {
-  const [snapshot, setSnapshot] = useState<{ client: typeof client; state: AsyncState<GithubSources> }>({
+  const [snapshot, setSnapshot] = useState<{ client: typeof client; state: AsyncState<GithubWorkspaceData> }>({
     client, state: { status: "loading" },
   });
-  const view: AsyncState<GithubSources> = snapshot.client === client ? snapshot.state : { status: "loading" };
-  const setView = (state: AsyncState<GithubSources>) => setSnapshot({ client, state });
+  const view: AsyncState<GithubWorkspaceData> = snapshot.client === client ? snapshot.state : { status: "loading" };
+  const setView = (state: AsyncState<GithubWorkspaceData>) => setSnapshot({ client, state });
   const [alias, setAlias] = useState("");
   const [location, setLocation] = useState("");
   const [reference, setReference] = useState<"public" | "deployment-github-app">("public");
@@ -30,18 +33,21 @@ function GithubWorkspace({ client, auth, dataMode }: PanelProps) {
   const generation = useRef(0);
   const pending = useRef(false);
   const identity = auth.account?.homeAccountId ?? "";
-  const roles = auth.account?.idTokenClaims?.roles;
-  const owner = Array.isArray(roles) && roles.includes("Owner") && dataMode === "live";
+  const subjectId = auth.account?.localAccountId;
   const data = view.status === "ready" ? view.data : null;
+  const owner = dataMode === "live" && githubConnectionOwner(data?.principal ?? null, subjectId);
 
   const refresh = async () => {
     if (pending.current) return;
     const current = ++generation.current;
     setView({ status: "loading" });
     try {
-      const result = decodeGithubSources(await client.panel("/knowledge/github/sources"));
+      const [result, principal] = await Promise.all([
+        client.panel("/knowledge/github/sources").then(decodeGithubSources),
+        dataMode === "live" && subjectId ? client.iamSelf() : Promise.resolve(null),
+      ]);
       if (current !== generation.current) return;
-      setView({ status: "ready", data: result });
+      setView({ status: "ready", data: { ...result, principal } });
       setNeedsRefresh(false);
     } catch {
       if (current === generation.current) setView({ status: "unavailable", message: text("githubUnavailable") });
@@ -56,7 +62,7 @@ function GithubWorkspace({ client, auth, dataMode }: PanelProps) {
     setNeedsRefresh(false);
     void refresh();
     return () => { generation.current += 1; };
-  }, [client, identity]);
+  }, [client, identity, subjectId, dataMode]);
 
   usePublishViewContext(() => ({
     routeId: "github", routeLabel: "GitHub",

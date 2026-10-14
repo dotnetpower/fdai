@@ -6,7 +6,7 @@ import binascii
 from base64 import b64decode, b64encode
 from collections.abc import Mapping
 from datetime import datetime
-from typing import Annotated, Any, Literal, Self, assert_never
+from typing import Annotated, Any, Self, assert_never
 
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fdai_deployment_cli.contracts import canonical_bytes
@@ -39,6 +39,7 @@ from fdai_lifecycle_hub.domain import (
 )
 from fdai_lifecycle_hub.enrollment import EnrollmentRequest
 from fdai_lifecycle_hub.entity import Entity, EntitySettings, OwnershipEvidence
+from fdai_lifecycle_hub.reports import FINAL_REASONS, ReportOutcome
 from fdai_lifecycle_hub.signing import raw_public_key
 
 Digest = Annotated[str, Field(pattern=r"^sha256:[0-9a-f]{64}$")]
@@ -153,16 +154,19 @@ class PlanReport(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid")
 
     attempt: int = Field(ge=1)
-    outcome: Literal["dry-run-admitted", "rejected"]
+    outcome: ReportOutcome
     reason_code: ReasonCode
     exact_plan_digest: Digest | None
     summary: str = Field(max_length=2000)
     reported_at: AwareDatetime
 
     @model_validator(mode="after")
-    def _admitted_names_the_plan_bytes(self) -> Self:
-        if self.outcome == "dry-run-admitted" and self.exact_plan_digest is None:
-            raise ValueError("an admitted report must carry exact_plan_digest")
+    def _outcome_rules(self) -> Self:
+        if self.outcome != "rejected" and self.exact_plan_digest is None:
+            raise ValueError(f"a {self.outcome} report must carry exact_plan_digest")
+        allowed = FINAL_REASONS.get(self.outcome)
+        if allowed is not None and self.reason_code not in allowed:
+            raise ValueError(f"a {self.outcome} report needs reason_code in {sorted(allowed)}")
         return self
 
 

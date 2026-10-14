@@ -322,6 +322,7 @@ def _validate_plan_projection(value: object, plan_digest: str) -> None:
         "role_group_binding_digest",
         "configure_api_roles_and_scope",
         "configure_runner_owned_spa_graph_permission",
+        "console_spa_display_name",
         "provider_admin_consent",
         "plan_digest",
         "mutation_performed",
@@ -343,6 +344,7 @@ def _validate_plan_projection(value: object, plan_digest: str) -> None:
         or _DIGEST.fullmatch(str(value["role_group_binding_digest"])) is None
         or value.get("configure_api_roles_and_scope") is not True
         or value.get("configure_runner_owned_spa_graph_permission") is not False
+        or value.get("console_spa_display_name") != "fdai-console-spa"
         or value.get("provider_admin_consent") is not False
         or value.get("plan_digest") != plan_digest
         or value.get("mutation_performed") is not False

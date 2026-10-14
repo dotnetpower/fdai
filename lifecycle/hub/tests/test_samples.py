@@ -44,6 +44,7 @@ def test_readme_walkthrough(
         "enrollment": "pending",
         "plan": None,
         "last_evaluation": None,
+        "suppressions": [],
         "reports": [],
     }
 

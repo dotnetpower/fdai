@@ -20,7 +20,7 @@ from sqlalchemy import Engine, create_engine, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
-from fdai_lifecycle_hub import audit, domain, mapping, models, schemas, signing
+from fdai_lifecycle_hub import audit, domain, mapping, models, rows, schemas, signing
 from fdai_lifecycle_hub.enrollment import EnrollmentRequest, EnrollmentStatus, KeyProofVerifier
 from fdai_lifecycle_hub.entity import EntitySettings, OwnershipEvidence
 from fdai_lifecycle_hub.errors import (
@@ -31,17 +31,15 @@ from fdai_lifecycle_hub.errors import (
     EntitySettingsRejectedError,
     InstallationExistsError,
     InstallationKeyMismatchError,
-    NotEnrolledError,
-    NotPendingError,
     OwnershipUnprovenError,
     PlanDigestMismatchError,
     ReportConflictError,
     SchemaMismatchError,
-    UnknownEntityError,
-    UnknownInstallationError,
+    StateRejectedError,
     UnknownPlanError,
 )
 from fdai_lifecycle_hub.models import PlanEventKind
+from fdai_lifecycle_hub.reports import ROLLED_BACK, failure_suppressions
 
 _UNIQUE_VIOLATION = "23505"
 
@@ -114,7 +112,7 @@ class HubStore:
 
         approver = schemas.actor_name.validate_python(approver)
         with self._write() as session:
-            row = _lock_pending(session, installation_id)
+            row = rows.lock_pending(session, installation_id)
             if signing.installation_key_id(row.installation_key) != installation_key_id:
                 raise InstallationKeyMismatchError(installation_key_id)
             row.enrollment = EnrollmentStatus.ENROLLED
@@ -134,7 +132,7 @@ class HubStore:
             "reason": schemas.reason_code.validate_python(reason),
         }
         with self._write() as session:
-            row = _lock_pending(session, installation_id)
+            row = rows.lock_pending(session, installation_id)
             row.enrollment = EnrollmentStatus.REJECTED
             row.recorded_at = now
             audit.append(
@@ -143,7 +141,7 @@ class HubStore:
 
     def enrollment_status(self, installation_id: str) -> EnrollmentStatus:
         with self._sessions() as session:
-            return _get_installation(session, installation_id).enrollment
+            return rows.get_installation(session, installation_id).enrollment
 
     def record_ownership(
         self,
@@ -159,8 +157,8 @@ class HubStore:
         operator = schemas.actor_name.validate_python(operator)
         recorded = schemas.ownership_json.dump_python(evidence, mode="json")
         with self._write() as session:
-            _lock_enrolled(session, installation_id)
-            row = _entity_row(session, installation_id, entity_id)
+            rows.lock_enrolled(session, installation_id)
+            row = rows.entity_row(session, installation_id, entity_id)
             if mapping.domain_entity(row).managed:
                 raise EntityManagedError(entity_id)
             row.ownership = recorded
@@ -186,8 +184,8 @@ class HubStore:
 
         operator = schemas.actor_name.validate_python(operator)
         with self._write() as session:
-            installation = mapping.to_domain(session, _lock_enrolled(session, installation_id))
-            row = _entity_row(session, installation_id, entity_id)
+            installation = mapping.to_domain(session, rows.lock_enrolled(session, installation_id))
+            row = rows.entity_row(session, installation_id, entity_id)
             if (gap := mapping.domain_entity(row).ownership_gap) is not None:
                 raise OwnershipUnprovenError(f"{entity_id}: {gap}")
             if (state := installation.reported.entities.get(entity_id)) is None:
@@ -214,9 +212,17 @@ class HubStore:
     def record_state(
         self, installation_id: str, state: domain.ReportedState, *, now: datetime
     ) -> None:
+        """Make `state` current, or raise StateRejectedError for a stale or mismatched one."""
+
         with self._write() as session:
-            row = _lock_enrolled(session, installation_id)
-            updated = mapping.to_domain(session, row).with_reported(state)
+            row = rows.lock_enrolled(session, installation_id)
+            installation = mapping.to_domain(session, row)
+            try:
+                updated = installation.with_reported(state)
+            except domain.StaleStateError as error:
+                raise StateRejectedError(str(error), stale=True) from error
+            except ValueError as error:
+                raise StateRejectedError(str(error), stale=False) from error
             row.state_reports.add(mapping.state_report_row(installation_id, updated.reported, now))
             row.recorded_at = now
             audit.append(session, now, "state.recorded", installation_id, state.digest)
@@ -227,20 +233,20 @@ class HubStore:
         """Add a suppression. The API stops serving a Plan it covers while it is active."""
 
         with self._write() as session:
-            row = _lock_enrolled(session, installation_id)
-            _store_suppressions(row, mapping.to_domain(session, row).suppressed(window, now), now)
-            details = {"ends_at": window.ends_at.isoformat()}
-            audit.append(session, now, "suppression.added", installation_id, window.scope, details)
+            row = rows.lock_enrolled(session, installation_id)
+            installation = mapping.to_domain(session, row).suppressed(window, now)
+            rows.store_suppressions(row, installation, now)
+            _audit_suppression(session, now, installation_id, window)
 
     def lift_suppressions(self, installation_id: str, scope: str, *, now: datetime) -> None:
         with self._write() as session:
-            row = _lock_enrolled(session, installation_id)
-            _store_suppressions(row, mapping.to_domain(session, row).lifted(scope, now), now)
+            row = rows.lock_enrolled(session, installation_id)
+            rows.store_suppressions(row, mapping.to_domain(session, row).lifted(scope, now), now)
             audit.append(session, now, "suppression.lifted", installation_id, scope)
 
     def load(self, installation_id: str) -> domain.Installation:
         with self._sessions() as session:
-            return mapping.to_domain(session, _get_installation(session, installation_id))
+            return mapping.to_domain(session, rows.get_installation(session, installation_id))
 
     def recompute(
         self, installation_id: str, planner: domain.Planner, *, now: datetime
@@ -248,25 +254,13 @@ class HubStore:
         """Plan under the installation lock and record the outcome and every check."""
 
         with self._write() as session:
-            row = _lock_enrolled(session, installation_id)
+            row = rows.lock_enrolled(session, installation_id)
             installation = mapping.to_domain(session, row)
             outcome = planner(installation, now)
-            evaluation = models.PlanEvaluation(
-                outcome=outcome.kind,
-                evaluated_at=now,
-                results=[
-                    models.PlanConstraintResult(
-                        release_id=check.release_id,
-                        reason_code=block.reason_code if block else None,
-                        details=list(block.details) if block else [],
-                    )
-                    for check in outcome.checks
-                    for block in check.blocks or (None,)
-                ],
-            )
+            evaluation = mapping.evaluation_row(outcome, now)
             match outcome:
                 case domain.Issued(plan=plan):
-                    _supersede(session, installation.open_plan, now)
+                    rows.supersede(session, installation.open_plan, now)
                     issued = mapping.plan_row(domain.IssuedPlan.from_signed(plan), now)
                     row.plans.add(issued)
                     issued.events.add(models.PlanEvent(kind=PlanEventKind.ISSUED, recorded_at=now))
@@ -277,10 +271,10 @@ class HubStore:
                     evaluation.plan_id = open_plan.plan_id
                     evaluation.target_release_id = open_plan.target_release_id
                 case domain.Waiting(release_id=release_id):
-                    _supersede(session, installation.open_plan, now)
+                    rows.supersede(session, installation.open_plan, now)
                     evaluation.target_release_id = release_id
                 case domain.NoEligibleRelease() | domain.UpToDate() | domain.NoManagedEntity():
-                    _supersede(session, installation.open_plan, now)
+                    rows.supersede(session, installation.open_plan, now)
                 case _:
                     assert_never(outcome)
             row.evaluations.add(evaluation)
@@ -298,7 +292,7 @@ class HubStore:
         """An enrolled installation's open Plan, unless it expired or a suppression holds it."""
 
         with self._sessions() as session:
-            row = _get_installation(session, installation_id)
+            row = rows.get_installation(session, installation_id)
             if row.enrollment is not EnrollmentStatus.ENROLLED:
                 return None
             plan = mapping.open_plan(session, installation_id)
@@ -310,14 +304,18 @@ class HubStore:
     def record_report(
         self, installation_id: str, plan_id: str, report: schemas.PlanReport, *, now: datetime
     ) -> bool:
-        """Store one report. Returns False when the identical report already exists."""
+        """Store one report. Returns False when the identical report already exists.
+
+        A new `rolled-back` report also holds every Entity of the Plan in the same transaction.
+        """
 
         with self._write() as session:
-            _lock_installation(session, installation_id)
+            row = rows.lock_installation(session, installation_id)
             plan = session.get(models.Plan, plan_id)
             if plan is None or plan.installation_id != installation_id:
                 raise UnknownPlanError(plan_id)
-            if report.exact_plan_digest not in {None, mapping.issued_plan(plan).digest}:
+            issued = mapping.issued_plan(plan)
+            if report.exact_plan_digest not in {None, issued.digest}:
                 raise PlanDigestMismatchError(f"report names other bytes than Plan {plan_id}")
             existing = session.scalars(
                 plan.reports.select().where(models.PlanReport.attempt == report.attempt)
@@ -336,11 +334,17 @@ class HubStore:
                 plan_id,
                 {"attempt": report.attempt, "outcome": report.outcome},
             )
+            if report.outcome == ROLLED_BACK:
+                installation = mapping.to_domain(session, row)
+                for window in failure_suppressions(issued, now):
+                    installation = installation.suppressed(window, now)
+                    _audit_suppression(session, now, installation_id, window)
+                rows.store_suppressions(row, installation, now)
             return True
 
     def last_evaluation(self, installation_id: str) -> domain.Evaluation | None:
         with self._sessions() as session:
-            row = _get_installation(session, installation_id)
+            row = rows.get_installation(session, installation_id)
             evaluation = session.scalars(
                 row.evaluations.select().order_by(models.PlanEvaluation.id.desc()).limit(1)
             ).one_or_none()
@@ -352,15 +356,16 @@ class HubStore:
         """Every execution report on the installation's Plans, in the order received."""
 
         with self._sessions() as session:
-            _get_installation(session, installation_id)
-            rows = session.scalars(
+            rows.get_installation(session, installation_id)
+            records = session.scalars(
                 select(models.PlanReport)
                 .join(models.Plan)
                 .where(models.Plan.installation_id == installation_id)
                 .order_by(models.PlanReport.id)
             )
             return tuple(
-                schemas.RecordedReport.model_validate(row, from_attributes=True) for row in rows
+                schemas.RecordedReport.model_validate(record, from_attributes=True)
+                for record in records
             )
 
     def audit_chain_intact(self) -> bool:
@@ -376,50 +381,10 @@ def _is_unique_violation(error: IntegrityError) -> bool:
     return str(error.orig).startswith("UNIQUE constraint failed")  # SQLite
 
 
-def _get_installation(session: Session, installation_id: str) -> models.Installation:
-    if (row := session.get(models.Installation, installation_id)) is None:
-        raise UnknownInstallationError(installation_id)
-    return row
-
-
-def _lock_installation(session: Session, installation_id: str) -> models.Installation:
-    row = session.get(models.Installation, installation_id, with_for_update=True)
-    if row is None:
-        raise UnknownInstallationError(installation_id)
-    return row
-
-
-def _lock_enrolled(session: Session, installation_id: str) -> models.Installation:
-    row = _lock_installation(session, installation_id)
-    if row.enrollment is not EnrollmentStatus.ENROLLED:
-        raise NotEnrolledError(installation_id)
-    return row
-
-
-def _lock_pending(session: Session, installation_id: str) -> models.Installation:
-    row = _lock_installation(session, installation_id)
-    if row.enrollment is not EnrollmentStatus.PENDING:
-        raise NotPendingError(f"{installation_id} is {row.enrollment.value}")
-    return row
-
-
-def _entity_row(session: Session, installation_id: str, entity_id: str) -> models.Entity:
-    """An Entity row. Callers hold the installation lock, which serializes Entity changes."""
-
-    if (row := session.get(models.Entity, (installation_id, entity_id))) is None:
-        raise UnknownEntityError(entity_id)
-    return row
-
-
-def _store_suppressions(
-    row: models.Installation, installation: domain.Installation, now: datetime
+def _audit_suppression(
+    session: Session, now: datetime, installation_id: str, window: SuppressionWindow
 ) -> None:
-    row.suppressions = schemas.suppressions_json.dump_python(installation.suppressions, mode="json")
-    row.recorded_at = now
-
-
-def _supersede(session: Session, plan: domain.IssuedPlan | None, now: datetime) -> None:
-    if plan is not None:
-        session.add(
-            models.PlanEvent(plan_id=plan.plan_id, kind=PlanEventKind.SUPERSEDED, recorded_at=now)
-        )
+    details = {"ends_at": window.ends_at.isoformat(), "origin": window.origin}
+    if window.failed_plan_id is not None:
+        details["failed_plan_id"] = window.failed_plan_id
+    audit.append(session, now, "suppression.added", installation_id, window.scope, details)

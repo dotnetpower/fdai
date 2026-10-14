@@ -29,6 +29,7 @@ from fdai_deployment_cli import (
 )
 from fdai_deployment_cli import foundation_adoption_host as foundation_host
 from fdai_deployment_cli import operational_evidence_verifier_input as oev
+from fdai_deployment_cli import standalone_service_update_recovery as service_recovery
 from fdai_deployment_cli.aks_historical_reconciliation import (
     reconciled_variables,
     secret_binding_reordered,
@@ -70,14 +71,21 @@ from fdai_deployment_cli.standalone_aks_inventory import (
 from fdai_deployment_cli.standalone_aks_nodepool_guard import (
     guard_existing_runtime_node_pools as _guard_existing_runtime_node_pools,
 )
+from fdai_deployment_cli.standalone_application_input_recovery import (
+    bind_authoritative_backend_nsg,
+)
+from fdai_deployment_cli.standalone_application_input_recovery import (
+    successor_prerequisite_verified as _application_successor_prerequisite,
+)
 from fdai_deployment_cli.standalone_catalog_review import run_catalog_review
-from fdai_deployment_cli.standalone_database_principals import database_reader_principals
 from fdai_deployment_cli.standalone_checkpoint_failure import (
     failure_record as _failure_record,
 )
 from fdai_deployment_cli.standalone_checkpoint_failure import (
     terraform_failure as _terraform_failure,
 )
+from fdai_deployment_cli.standalone_database_principals import database_reader_principals
+from fdai_deployment_cli.standalone_host_residual import apply_residual_checkpoint
 from fdai_deployment_cli.standalone_host_state import (
     absolute as _absolute,
 )
@@ -141,16 +149,21 @@ from fdai_deployment_cli.standalone_operational_evidence import (
     add_aks_operational_evidence_verifier_workload as _add_aks_operational_evidence_verifier_workload,
 )
 from fdai_deployment_cli.standalone_operational_evidence import aks_workload as _aks_workload
+from fdai_deployment_cli.standalone_private_access_probe import wait_for_private_data_planes
 from fdai_deployment_cli.standalone_product_profile import (
     context_selects_add_on as _selects_add_on,
 )
 from fdai_deployment_cli.standalone_product_profile import product_terraform_values
-from fdai_deployment_cli.standalone_private_access_probe import wait_for_private_data_planes
-from fdai_deployment_cli.standalone_host_residual import apply_residual_checkpoint
 from fdai_deployment_cli.standalone_residual_apply import (
     prepare_residual_review as _prepare_residual_review,
+)
+from fdai_deployment_cli.standalone_residual_apply import (
     recover_residual_apply as _recover_residual_apply,
+)
+from fdai_deployment_cli.standalone_residual_apply import (
     residual_claim_exists as _residual_claim_exists,
+)
+from fdai_deployment_cli.standalone_residual_apply import (
     seal_terraform_plan as _seal_terraform_plan,
 )
 from fdai_deployment_cli.standalone_residual_successor import (
@@ -995,27 +1008,15 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     canary_identity = _mapping(identities.get("canary"), "canary runtime identity")
     ingestion_identity = _selected_identity(identities, "ingestion", console_selected)
     ingestion_worker_identity = _selected_identity(identities, "ingestion_worker", console_selected)
-    core_environment = {
-        "AZURE_TENANT_ID": context["tenant_id"],
-        "AZURE_SUBSCRIPTION_ID": context["subscription_id"],
-        "AZURE_RESOURCE_GROUP": resource_group,
-        "AZURE_REGION": application_values["region"],
-        "AZURE_CLIENT_ID": core_identity["client_id"],
-        "KAFKA_BOOTSTRAP_SERVERS": substrate_outputs["kafka"],
-        "KAFKA_TOPIC_EVENTS": str(topics[0]),
-        "POSTGRES_HOST": substrate_outputs["postgres_fqdn"],
-        "POSTGRES_DATABASE": substrate_outputs["postgres_database"],
-        "RUNTIME_ENV": application_values["env"],
-        "AUTONOMY_MODE_DEFAULT": "shadow",
-        "FDAI_MONITOR_WORKSPACE_ID": substrate_outputs["workspace"],
-        "FDAI_OPERATING_MODEL_TOPIC": substrate_outputs["operating_model_topic"],
-        "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS": substrate_outputs["operational_kafka"],
-        "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER": "1",
-        "FDAI_PRODUCT_PROFILE_JSON": str(application_values["product_profile_json"]),
-        "FDAI_START_CONSUMER": "1",
-        "FDAI_INSTALLATION_BINDING": str(substrate_outputs["installation_binding"]),
-        "FDAI_LICENSE_DEPLOYMENT_BINDING": deployment_binding,
-    }
+    core_environment = standalone_host_values.aks_core_environment(
+        context=context,
+        application_values=application_values,
+        substrate_outputs=substrate_outputs,
+        resource_group=resource_group,
+        core_identity=core_identity,
+        topics=topics,
+        deployment_binding=deployment_binding,
+    )
     core_environment.update(
         _aks_core_conversation_environment(
             application_values=application_values,
@@ -1175,7 +1176,17 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
         protected_aks_job_identity_bindings=job_preparation.protected_identity_bindings,
         catalog_review_available=job_preparation.catalog_review_available,
     )
-    _replace_or_verify_private_json(work_dir / "workloads.auto.tfvars.json", values)
+    workloads_path = work_dir / "workloads.auto.tfvars.json"
+    if workloads_path.exists():
+        retained_values = _private_json(workloads_path, "workloads.auto.tfvars.json")
+        if retained_values != values:
+            bind_authoritative_backend_nsg(
+                work_dir=work_dir,
+                retained=retained_values,
+                current=values,
+            )
+    else:
+        _replace_or_verify_private_json(workloads_path, values)
     _replace_private_json(work_dir / "context.json", context)
     _initialize_terraform_stage("application", context, work_dir)
     return {
@@ -1196,19 +1207,17 @@ def _prepare_aks_service_update(args: argparse.Namespace, work_dir: Path) -> dic
     context = _private_json(work_dir / "context.json", "standalone host context")
     if _runtime_platform(context) != "aks":
         raise ValueError("AKS service update requires an AKS installation")
-    _require_aks_application_baseline(work_dir, context)
-    _managed_identity_login_from_context(context, work_dir)
     service = str(args.service)
+    _require_aks_application_baseline(work_dir, context, service=service)
+    _managed_identity_login_from_context(context, work_dir)
     values = _private_json(work_dir / "workloads.auto.tfvars.json", "AKS workload variables")
     workloads = _mapping(values.get("workloads"), "AKS workloads")
     expected = _mapping(context.get("expected_workloads"), "expected AKS workloads")
     if set(workloads) != set(expected) or service not in workloads:
         raise ValueError("AKS service update workload inventory is incomplete")
-    active = context.get("active_service_update")
-    if isinstance(active, dict):
-        operation = active.get("operation")
-        if not isinstance(operation, str) or not (work_dir / f"{operation}-receipt.json").is_file():
-            raise ValueError("AKS service update already has an incomplete active operation")
+    superseded_update_digest = service_recovery.superseded_update_digest(
+        work_dir, context, service=service
+    )
     default_source = str(context.get("source_commit", ""))
     for name, workload_value in workloads.items():
         workload = _mapping(workload_value, f"AKS workload {name}")
@@ -1265,6 +1274,8 @@ def _prepare_aks_service_update(args: argparse.Namespace, work_dir: Path) -> dic
         "mutation_performed": False,
         "subscription_ready": False,
     }
+    if superseded_update_digest is not None:
+        record["superseded_update_digest"] = superseded_update_digest
     record["update_digest"] = canonical_digest(record)
     _replace_private_json(work_dir / f"{operation}.json", record)
     context["expected_workloads"] = expected
@@ -1752,8 +1763,15 @@ def _adoption_work_path(
     return path
 
 
-def _require_aks_application_baseline(work_dir: Path, context: dict[str, object]) -> None:
+def _require_aks_application_baseline(
+    work_dir: Path,
+    context: dict[str, object],
+    *,
+    service: str | None = None,
+) -> None:
     if (work_dir / "application-receipt.json").is_file():
+        return
+    if service_recovery.partial_core_update_admissible(work_dir, context, service=service):
         return
     path = work_dir / "historical-aks-application-adoption-receipt.json"
     if not path.is_file():
@@ -1927,6 +1945,7 @@ def _service_update_record(
         or not isinstance(record.get("baseline"), dict)
     ):
         raise ValueError("active AKS service update record is invalid")
+    service_recovery.validate_repair_binding(record)
     image = record.get("image")
     source_commit = record.get("source_commit")
     previous_image = record.get("previous_image")
@@ -2364,7 +2383,7 @@ def _plan(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     value = json.loads(show)
     summary = _plan_summary(value)
     if update is not None:
-        validate_plan_scope(summary, service=str(update["service"]))
+        service_recovery.validate_service_update_plan(summary, work_dir, context, update)
     digest = _file_digest(plan_path)
     review: dict[str, object] = {
         "schema_version": "fdai.standalone-application-plan.v1",
@@ -2624,7 +2643,10 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
                 original_review=review,
                 original_claim=claim,
                 effect_readback=lambda: _readback_stage(stage, context),
-                successor_prerequisite_verified=_residual_successor_prerequisite(work_dir, stage),
+                successor_prerequisite_verified=(
+                    _residual_successor_prerequisite(work_dir, stage)
+                    or _application_successor_prerequisite(work_dir, stage)
+                ),
             )
         residual_review = _prepare_residual_review(
             work_dir=work_dir,
@@ -2877,8 +2899,9 @@ def _import_source_service_image(args: argparse.Namespace, work_dir: Path) -> di
     target_binding = context.get("target_binding")
     if not isinstance(target_binding, str) or _DIGEST.fullmatch(target_binding) is None:
         raise ValueError("source service image target binding is invalid")
-    claim_path = work_dir / f"source-image-import-{service}-claim.json"
-    receipt_path = work_dir / f"source-image-import-{service}-receipt.json"
+    claim_path, receipt_path = service_recovery.source_image_import_paths(
+        work_dir, service, source_commit, image_digest
+    )
     verification_only = claim_path.exists() or claim_path.is_symlink()
     approval = _private_json(_absolute(args.approval), "source service image import approval")
     approval_digest = _validate_source_image_import_approval(
@@ -3090,9 +3113,9 @@ def _service_update_context(args: argparse.Namespace, work_dir: Path) -> dict[st
     context = _private_json(work_dir / "context.json", "standalone host context")
     if _runtime_platform(context) != "aks":
         raise ValueError("source service update requires an applied AKS application baseline")
-    _require_aks_application_baseline(work_dir, context)
-    _require_source_service_update_dev_environment(work_dir)
     service = str(args.service)
+    _require_aks_application_baseline(work_dir, context, service=service)
+    _require_source_service_update_dev_environment(work_dir)
     expected = _mapping(context.get("expected_workloads"), "expected AKS workloads")
     selected = _mapping(expected.get(service), f"expected AKS workload {service}")
     active = context.get("active_service_update")

@@ -15,6 +15,7 @@ tests, so the five-service set under `services/` stays unchanged.
 | [hub/](hub/README.md) | Lifecycle Hub: computes, signs, and serves Lifecycle Plans, and records execution reports | #1949 |
 | `agent/` | Lifecycle agent: polls the Hub, verifies Plans, and reports dry-run results | #1951 |
 | `tests/` | Hub-agent lifecycle loop, end to end on loopback | #1952 |
+| [demo/](demo/README.md) | Apply demo: the agent upgrades one workload by Hub Plans, rolls back a broken Release, and the Hub holds the Entity | |
 
 Shared Plan, Release, and constraint checks stay in
 [packages/deployment-cli/](../packages/deployment-cli) until the `lifecycle-contracts` extraction in
@@ -58,4 +59,5 @@ SQLite scenarios in the regression shards and the PostgreSQL scenarios in the da
 job.
 
 The Hub and the agent compare the reported-state digest as an opaque value that the installation
-supplies. Neither one derives it from the snapshot content yet.
+supplies. The Hub doesn't derive it from the snapshot content. The demo writes it as the SHA-256 of
+the canonical JSON of every other snapshot field.

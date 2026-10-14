@@ -31,6 +31,7 @@ def coordinator(tmp_path, monkeypatch):
         terraform=tmp_path / "terraform",
         ssh_private_key=tmp_path / "key-path-only",
         run_binding="a" * 64,
+        target_binding="b" * 64,
     )
     kit = SimpleNamespace(
         bundle_root=bundle,
@@ -90,7 +91,10 @@ def coordinator(tmp_path, monkeypatch):
     modules = {
         "genesis_prepare": SimpleNamespace(prepare_standalone_genesis=prepare),
         "genesis_supervisor": SimpleNamespace(_configure_entra=identity),
-        "genesis_entra": SimpleNamespace(plan_entra=dict),
+        "genesis_entra": SimpleNamespace(
+            plan_entra=dict,
+            scoped_spa_display_name=lambda binding: f"fdai-console-spa-{binding}",
+        ),
         "genesis_approval_prompt": SimpleNamespace(current_actor_digest=lambda _binding: "a" * 64),
         "genesis_runner_image_contract": SimpleNamespace(
             materialize_foundation_image_input=lambda **kwargs: (

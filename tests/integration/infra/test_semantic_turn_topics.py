@@ -144,9 +144,12 @@ def test_legacy_container_modules_export_exact_semantic_env_vars() -> None:
 
 
 def test_aks_and_local_profiles_bind_the_operating_model_logical_topic() -> None:
-    standalone = (
-        _ROOT / "packages/deployment-cli/src/fdai_deployment_cli/standalone_host.py"
-    ).read_text(encoding="utf-8")
+    standalone = "\n".join(
+        (_ROOT / f"packages/deployment-cli/src/fdai_deployment_cli/{name}").read_text(
+            encoding="utf-8"
+        )
+        for name in ("standalone_host.py", "standalone_host_values.py")
+    )
     local_prepare = (_ROOT / "scripts/deployment/azure/prepare-local-runtime-env.sh").read_text(
         encoding="utf-8"
     )

@@ -1,7 +1,7 @@
 ---
 translation_of: knowledge-github-sources.md
-translation_source_sha: f6349efd5d2675b9b22875cbb6b66023ca13299b
-translation_revised: 2026-10-13
+translation_source_sha: 660bef618709b6f4ade8a5443e5e81c537ebf552
+translation_revised: 2026-10-14
 ---
 # GitHub 지식 소스 연결
 
@@ -29,6 +29,8 @@ Core는 GitHub API로 저장소 메타데이터, 정확한 커밋, 크기가 제
 
 연결과 연결 해제 모두 인증된 Owner와 예상 저장소 버전이 필요합니다.
 Operator는 제출 권한을 검사하고, Core는 요청을 적용하기 전에 Owner 권한을 다시 검사합니다.
+Console은 SPA ID 토큰의 역할이 아니라 `/iam/self`가 반환한 현재 로그인 사용자의 역할을 사용합니다.
+IAM 조회가 실패하거나 사용자 신원이 일치하지 않으면 연결 변경을 허용하지 않습니다.
 버전 검사, 안전하게 재시도할 수 있는 요청 식별자(멱등성), 상태와 감사의 원자적 저장으로
 연결 변경을 보호합니다. 공급자 검증이 실패하면 기존 레코드는 그대로 유지됩니다.
 대기 중인 요청은 검증된 연결이 아닙니다. 새로 고침으로 적용된 상태를 확인하세요.

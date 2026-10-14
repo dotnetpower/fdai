@@ -15,7 +15,8 @@ from typing import Any
 
 from fdai_deployment_cli.contracts import canonical_digest
 
-_APP_NAMES = ("fdai-api", "fdai-console-spa", "fdai-approval-bot")
+_DEFAULT_SPA_DISPLAY_NAME = "fdai-console-spa"
+_SHARED_APP_NAMES = ("fdai-api", "fdai-approval-bot")
 _GROUPS = {
     "RBAC_READERS_GROUP_ID": ("aw-readers", "Reader"),
     "RBAC_CONTRIBUTORS_GROUP_ID": ("aw-contributors", "Contributor"),
@@ -36,6 +37,8 @@ _ROLE_MEMBER_TYPES = {
     _CHANNEL_ATTACHMENT_ROLE: ("Application",),
 }
 _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
+_TARGET_BINDING = re.compile(r"[0-9a-f]{64}")
+_SCOPED_SPA_DISPLAY_NAME = re.compile(r"fdai-console-spa-[0-9a-f]{64}")
 _SWA_ORIGIN = re.compile(
     r"https://[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:[.][0-9]+)?[.]azurestaticapps[.]net"
 )
@@ -54,6 +57,7 @@ class EntraPlan:
     configure_runner_graph: bool
     digest: str
     role_groups: tuple[tuple[str, str], ...] = ()
+    spa_display_name: str = _DEFAULT_SPA_DISPLAY_NAME
 
     def projection(self) -> dict[str, object]:
         """Return value-free operations suitable for exact human review."""
@@ -66,6 +70,7 @@ class EntraPlan:
             "role_group_binding_digest": _role_group_binding_digest(self.role_groups),
             "configure_api_roles_and_scope": self.configure_roles,
             "configure_runner_owned_spa_graph_permission": self.configure_runner_graph,
+            "console_spa_display_name": self.spa_display_name,
             "provider_admin_consent": False,
             "plan_digest": self.digest,
             "mutation_performed": False,
@@ -77,17 +82,20 @@ def plan_entra(
     *,
     bounded: bool = False,
     approved_role_groups: Mapping[str, str] | None = None,
+    spa_display_name: str = _DEFAULT_SPA_DISPLAY_NAME,
 ) -> EntraPlan:
     """Inspect independent exact names concurrently and block ambiguous adoption."""
 
-    apps, groups = _directory_inventory()
-    for name, app in apps.items():
+    _require_spa_display_name(spa_display_name)
+    app_names = _application_display_names(spa_display_name)
+    apps, groups = _directory_inventory(spa_display_name=spa_display_name)
+    for slot, app in apps.items():
         if app is not None:
-            _validate_app(name, app)
+            _validate_app(app_names[slot], app)
     role_groups = _normalize_role_groups(approved_role_groups) if bounded else ()
     if bounded:
         _verify_role_group_inventory(groups, role_groups)
-    create_apps = tuple(sorted(name for name, value in apps.items() if value is None))
+    create_apps = tuple(sorted(app_names[slot] for slot, value in apps.items() if value is None))
     create_groups = (
         () if bounded else tuple(sorted(name for name, value in groups.items() if value is None))
     )
@@ -99,6 +107,7 @@ def plan_entra(
         "role_group_binding_digest": _role_group_binding_digest(role_groups),
         "configure_api_roles_and_scope": True,
         "configure_runner_owned_spa_graph_permission": not bounded,
+        "console_spa_display_name": spa_display_name,
         "provider_admin_consent": False,
     }
     return EntraPlan(
@@ -108,15 +117,27 @@ def plan_entra(
         configure_runner_graph=not bounded,
         digest=canonical_digest(body),
         role_groups=role_groups,
+        spa_display_name=spa_display_name,
     )
 
 
-def check_unique_display_names() -> dict[str, object]:
+def scoped_spa_display_name(target_binding: str) -> str:
+    """Derive one stable tenant-local Console SPA name for a deployment target."""
+
+    if _TARGET_BINDING.fullmatch(target_binding) is None:
+        raise ValueError("Console SPA target binding is invalid")
+    return f"fdai-console-spa-{target_binding}"
+
+
+def check_unique_display_names(
+    *,
+    spa_display_name: str = _DEFAULT_SPA_DISPLAY_NAME,
+) -> dict[str, object]:
     """Fail before mutation when shared tenant-local FDAI names are ambiguous."""
 
-    ambiguous_apps = tuple(
-        name for name in _APP_NAMES if len(_matching_apps(name, max_items=2)) > 1
-    )
+    _require_spa_display_name(spa_display_name)
+    app_names = tuple(_application_display_names(spa_display_name).values())
+    ambiguous_apps = tuple(name for name in app_names if len(_matching_apps(name, max_items=2)) > 1)
     ambiguous_groups = tuple(
         name for name, _role in _GROUPS.values() if len(_matching_groups(name, max_items=2)) > 1
     )
@@ -130,7 +151,7 @@ def check_unique_display_names() -> dict[str, object]:
     return {
         "schema_version": "fdai.genesis-entra-preflight.v1",
         "state": "unique",
-        "applications": list(_APP_NAMES),
+        "applications": list(app_names),
         "groups": [name for name, _role in _GROUPS.values()],
         "mutation_performed": False,
         "subscription_ready": False,
@@ -172,12 +193,12 @@ def apply_entra(plan: EntraPlan, *, runner_principal_id: str) -> dict[str, str]:
 
     if not _GUID.fullmatch(runner_principal_id):
         raise ValueError("runner principal identity is invalid")
-    if plan_entra().digest != plan.digest:
+    if plan_entra(spa_display_name=plan.spa_display_name).digest != plan.digest:
         raise ValueError("Entra plan changed before apply")
     result = _converge_entra(plan)
     _grant_runner_spa_ownership(str(result["spa_app"]["appId"]), runner_principal_id)
     _grant_runner_graph_permission(runner_principal_id)
-    return read_entra_bindings()
+    return read_entra_bindings(spa_display_name=plan.spa_display_name)
 
 
 def apply_entra_bounded(plan: EntraPlan) -> None:
@@ -186,6 +207,7 @@ def apply_entra_bounded(plan: EntraPlan) -> None:
     if plan != plan_entra(
         bounded=True,
         approved_role_groups=dict(plan.role_groups),
+        spa_display_name=plan.spa_display_name,
     ):
         raise ValueError("bounded Entra plan changed before apply")
     _converge_entra(plan, bounded=True)
@@ -210,7 +232,7 @@ def _converge_entra(
             for variable, (display_name, _role) in _GROUPS.items()
         }
     api_app = _ensure_api_app()
-    spa_app = _ensure_spa_app(api_app)
+    spa_app = _ensure_spa_app(api_app, plan.spa_display_name)
     approval_bot_app = _ensure_approval_bot_app(api_app)
     api_sp = _ensure_service_principal(str(api_app["appId"]))
     _ensure_service_principal(str(spa_app["appId"]))
@@ -223,6 +245,7 @@ def _converge_entra(
         spa_app=spa_app,
         approval_bot_app=approval_bot_app,
         groups=groups,
+        spa_display_name=plan.spa_display_name,
     )
     return {
         "api_app": api_app,
@@ -231,12 +254,25 @@ def _converge_entra(
     }
 
 
-def read_entra_bindings() -> dict[str, str]:
+def read_entra_bindings(
+    *,
+    spa_display_name: str = _DEFAULT_SPA_DISPLAY_NAME,
+    spa_client_id: str | None = None,
+) -> dict[str, str]:
     """Read tenant-local app and group bindings concurrently, then validate them."""
 
-    apps, groups_by_name = _directory_inventory()
+    if spa_client_id is not None:
+        if _GUID.fullmatch(spa_client_id) is None:
+            raise ValueError("Console SPA client binding is invalid")
+        retained_spa = _app(spa_client_id)
+        spa_display_name = str(retained_spa.get("displayName", ""))
+        _require_spa_display_name(spa_display_name)
+    else:
+        retained_spa = None
+    _require_spa_display_name(spa_display_name)
+    apps, groups_by_name = _directory_inventory(spa_display_name=spa_display_name)
     api_app = apps["fdai-api"]
-    spa_app = apps["fdai-console-spa"]
+    spa_app = retained_spa or apps["fdai-console-spa"]
     approval_bot_app = apps["fdai-approval-bot"]
     groups = {
         variable: groups_by_name[display_name]
@@ -249,8 +285,15 @@ def read_entra_bindings() -> dict[str, str]:
         or any(value is None for value in groups.values())
     ):
         raise ValueError("Entra binding readback is incomplete")
+    named_spa = apps["fdai-console-spa"]
+    if spa_client_id is not None and (
+        named_spa is None
+        or named_spa.get("id") != spa_app.get("id")
+        or named_spa.get("appId") != spa_app.get("appId")
+    ):
+        raise ValueError("Console SPA client and display-name readback differ")
     _validate_app("fdai-api", api_app)
-    _validate_app("fdai-console-spa", spa_app)
+    _validate_app(spa_display_name, spa_app)
     _validate_app("fdai-approval-bot", approval_bot_app)
     if not _roles_valid(api_app.get("appRoles")):
         raise ValueError("FDAI API App Role readback is incomplete")
@@ -275,7 +318,9 @@ def ensure_console_spa_redirect(spa_client_id: str, console_origin: str) -> bool
     if _GUID.fullmatch(spa_client_id) is None or _SWA_ORIGIN.fullmatch(console_origin) is None:
         raise ValueError("Console SPA redirect binding is invalid")
     app = _app(spa_client_id)
-    _validate_app("fdai-console-spa", app)
+    spa_display_name = str(app.get("displayName", ""))
+    _require_spa_display_name(spa_display_name)
+    _validate_app(spa_display_name, app)
     if str(app.get("appId", "")).casefold() != spa_client_id.casefold():
         raise ValueError("Console SPA application readback differs")
     object_id = str(app.get("id", ""))
@@ -318,18 +363,23 @@ def _same_redirects(observed: object, expected: list[str]) -> bool:
     )
 
 
-def _directory_inventory() -> tuple[
-    dict[str, dict[str, Any] | None], dict[str, dict[str, Any] | None]
-]:
+def _directory_inventory(
+    *,
+    spa_display_name: str = _DEFAULT_SPA_DISPLAY_NAME,
+) -> tuple[dict[str, dict[str, Any] | None], dict[str, dict[str, Any] | None]]:
     """Read independent app and group identities concurrently, then restore stable key order."""
 
+    app_names = _application_display_names(spa_display_name)
     group_names = tuple(display_name for display_name, _role in _GROUPS.values())
     with concurrent.futures.ThreadPoolExecutor(
-        max_workers=len(_APP_NAMES) + len(group_names)
+        max_workers=len(app_names) + len(group_names)
     ) as executor:
-        app_futures = {name: executor.submit(_single_app, name) for name in _APP_NAMES}
+        app_futures = {
+            slot: executor.submit(_single_app, display_name)
+            for slot, display_name in app_names.items()
+        }
         group_futures = {name: executor.submit(_single_group, name) for name in group_names}
-        apps = {name: app_futures[name].result() for name in _APP_NAMES}
+        apps = {slot: app_futures[slot].result() for slot in app_names}
         groups = {name: group_futures[name].result() for name in group_names}
     return apps, groups
 
@@ -414,8 +464,12 @@ def _ensure_api_app() -> dict[str, Any]:
     return app
 
 
-def _ensure_spa_app(api_app: dict[str, Any]) -> dict[str, Any]:
-    app = _single_app("fdai-console-spa")
+def _ensure_spa_app(
+    api_app: dict[str, Any],
+    spa_display_name: str = _DEFAULT_SPA_DISPLAY_NAME,
+) -> dict[str, Any]:
+    _require_spa_display_name(spa_display_name)
+    app = _single_app(spa_display_name)
     if app is None:
         app_id = _az(
             (
@@ -423,7 +477,7 @@ def _ensure_spa_app(api_app: dict[str, Any]) -> dict[str, Any]:
                 "app",
                 "create",
                 "--display-name",
-                "fdai-console-spa",
+                spa_display_name,
                 "--sign-in-audience",
                 "AzureADMyOrg",
                 "--query",
@@ -700,6 +754,7 @@ def _verify_complete(
     spa_app: dict[str, Any],
     approval_bot_app: dict[str, Any],
     groups: dict[str, str],
+    spa_display_name: str = _DEFAULT_SPA_DISPLAY_NAME,
 ) -> None:
     verified_api = _app(str(api_app["appId"]))
     _validate_app("fdai-api", verified_api)
@@ -707,7 +762,7 @@ def _verify_complete(
         raise ValueError("FDAI API App Role readback is incomplete")
     scope = _scope(verified_api)
     verified_spa = _app(str(spa_app["appId"]))
-    _validate_app("fdai-console-spa", verified_spa)
+    _validate_app(spa_display_name, verified_spa)
     if not _has_required_scope(verified_spa, api_app=verified_api, scope=scope):
         raise ValueError("Console SPA delegated scope readback is incomplete")
     verified_bot = _app(str(approval_bot_app["appId"]))
@@ -718,6 +773,20 @@ def _verify_complete(
         not _GUID.fullmatch(value) for value in groups.values()
     ):
         raise ValueError("Entra binding readback is incomplete")
+
+
+def _application_display_names(spa_display_name: str) -> dict[str, str]:
+    _require_spa_display_name(spa_display_name)
+    return {
+        "fdai-api": "fdai-api",
+        "fdai-console-spa": spa_display_name,
+        "fdai-approval-bot": "fdai-approval-bot",
+    }
+
+
+def _require_spa_display_name(value: str) -> None:
+    if value != _DEFAULT_SPA_DISPLAY_NAME and _SCOPED_SPA_DISPLAY_NAME.fullmatch(value) is None:
+        raise ValueError("Console SPA display name is invalid")
 
 
 def _validate_app(name: str, app: dict[str, Any]) -> None:

@@ -270,8 +270,10 @@ def _receipt_prepared(tmp_path: Path) -> PreparedGenesis:
 
 
 _API_CLIENT_ID = "00000000-0000-0000-0000-0000000000a1"
+_SPA_CLIENT_ID = "00000000-0000-0000-0000-0000000000a2"
 _OBSERVED_BINDINGS = {
     "ENTRA_CONSOLE_API_SCOPE": f"api://{_API_CLIENT_ID}/access",
+    "ENTRA_CONSOLE_SPA_CLIENT_ID": _SPA_CLIENT_ID,
     "OPERATOR_API_AUDIENCE": _API_CLIENT_ID,
     "RBAC_READERS_GROUP_ID": "00000000-0000-0000-0000-0000000000b1",
 }
@@ -295,7 +297,16 @@ def test_entra_receipt_with_the_legacy_app_id_uri_audience_is_upgraded(
     prepared = _receipt_prepared(tmp_path)
     legacy = _OBSERVED_BINDINGS | {"OPERATOR_API_AUDIENCE": f"api://{_API_CLIENT_ID}"}
     receipt_path = _write_receipt(prepared, legacy)
-    monkeypatch.setattr(genesis_supervisor, "read_entra_bindings", lambda: dict(_OBSERVED_BINDINGS))
+    monkeypatch.setattr(
+        genesis_supervisor,
+        "read_entra_bindings",
+        lambda **_kwargs: dict(_OBSERVED_BINDINGS),
+    )
+    monkeypatch.setattr(
+        genesis_supervisor,
+        "plan_entra",
+        lambda: pytest.fail("retained Entra receipt must not trigger replanning"),
+    )
 
     bindings = genesis_supervisor._configure_entra(
         prepared=prepared, status={}, actor_digest="f" * 64
@@ -319,7 +330,16 @@ def test_entra_receipt_with_any_other_difference_still_fails_closed(
         "RBAC_READERS_GROUP_ID": "00000000-0000-0000-0000-0000000000b2",
     }
     _write_receipt(prepared, drifted)
-    monkeypatch.setattr(genesis_supervisor, "read_entra_bindings", lambda: dict(_OBSERVED_BINDINGS))
+    monkeypatch.setattr(
+        genesis_supervisor,
+        "read_entra_bindings",
+        lambda **_kwargs: dict(_OBSERVED_BINDINGS),
+    )
+    monkeypatch.setattr(
+        genesis_supervisor,
+        "plan_entra",
+        lambda: pytest.fail("retained Entra receipt must not trigger replanning"),
+    )
 
     with pytest.raises(ValueError, match="receipt differs from current readback"):
         genesis_supervisor._configure_entra(prepared=prepared, status={}, actor_digest="f" * 64)
@@ -333,7 +353,16 @@ def test_entra_receipt_with_a_different_audience_application_fails_closed(
         "OPERATOR_API_AUDIENCE": "api://00000000-0000-0000-0000-0000000000c9"
     }
     _write_receipt(prepared, other)
-    monkeypatch.setattr(genesis_supervisor, "read_entra_bindings", lambda: dict(_OBSERVED_BINDINGS))
+    monkeypatch.setattr(
+        genesis_supervisor,
+        "read_entra_bindings",
+        lambda **_kwargs: dict(_OBSERVED_BINDINGS),
+    )
+    monkeypatch.setattr(
+        genesis_supervisor,
+        "plan_entra",
+        lambda: pytest.fail("retained Entra receipt must not trigger replanning"),
+    )
 
     with pytest.raises(ValueError, match="receipt differs from current readback"):
         genesis_supervisor._configure_entra(prepared=prepared, status={}, actor_digest="f" * 64)

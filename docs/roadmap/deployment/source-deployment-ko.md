@@ -1,7 +1,7 @@
 ---
 title: 단일 명령 소스 배포
 translation_of: source-deployment.md
-translation_source_sha: 8735c6a37d14177ccdfc1015edc265b722a3f2f4
+translation_source_sha: 78261ab0f29c2cb156f8e73185d483177719989a
 translation_revised: 2026-10-13
 ---
 
@@ -68,10 +68,13 @@ FDAI 저장소를 clone한 누구나 `az login` 뒤 명령줄 한 줄로 모든 
 조용히 Trial을 선택하지 않고 첫 Azure 영향 전에 실행을 멈춥니다.
 
 소스 배포가 `read-only-console` 또는 `enterprise-identity-governance`를 선택하면 Foundation 준비
-전에 테넌트 로컬 Entra 표시 이름도 확인합니다. FDAI는 정확한 표시 이름으로 확인되는 테넌트
-로컬 공유 세트 하나에 바인딩됩니다. `fdai-*` 애플리케이션 또는 `aw-*` 그룹 이름이 중복되면
-소스 실행은 Azure에 어떤 영향도 주기 전에 고정된 모호성 이유로 멈춥니다. 명령은 추측하거나,
-설치 범위 이름을 만들거나, 검토되지 않은 바인딩 파일을 받지 않습니다.
+전에 테넌트 로컬 Entra 표시 이름도 확인합니다. FDAI는 테넌트 로컬 `fdai-api`,
+`fdai-approval-bot`, `aw-*` 역할 그룹 세트 하나를 공유합니다. 각 설치는 대상 바인딩의
+완전한 64자리 값에서 Console SPA 표시 이름인 `fdai-console-spa-<target-binding>`을 하나
+파생합니다. API 역할과 사람 역할 그룹은 공유하면서 각 배포 runner가 자신의 Console
+redirect만 소유하도록 합니다. 정확한 공유 이름이나 파생 이름이 중복되면 소스 실행은 Azure에
+어떤 영향도 주기 전에 고정된 모호성 이유로 멈춥니다. 명령은 중복 항목 중 하나를 추측하거나
+검토되지 않은 바인딩 파일을 받지 않습니다.
 
 **애플리케이션 계속 진행 수정:** 첫 구현 선택지는 완료된 소스 Foundation을 서명된 키트 채택
 경로로 보내는 것이었습니다. 그러면 기존 애플리케이션 코드를 보존할 수 있지만, 키트 아카이브,

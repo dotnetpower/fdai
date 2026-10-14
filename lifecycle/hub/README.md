@@ -5,8 +5,9 @@ enrolled installation, and serves it to the installation's lifecycle agent. It r
 Release, configuration, and Plan checks in `fdai-deployment-cli`, so the Hub and the agent judge a
 Plan with the same code.
 
-Lifecycle I0 runs in observation mode (shadow mode): the Hub decides, but nothing applies a change.
-It needs no Azure credential and grants no lifecycle authority.
+Lifecycle I0 runs in observation mode (shadow mode): the Hub decides and records what the agent
+reports, but never applies a change itself. It needs no Azure credential and grants no lifecycle
+authority.
 
 ## Enrollment and managed Entities
 
@@ -52,8 +53,24 @@ configuration-package secret scan, so a literal value under a secret-bearing key
 only a Key Vault reference is accepted.
 
 The Hub computes each configuration digest from the canonical JSON of its content, so a digest
-always names exactly one configuration. An admitted report must name the SHA-256 of the exact Plan
-bytes it checked, and the Hub rejects a report that names other bytes.
+always names exactly one configuration. Every report except `rejected` must name the SHA-256 of the
+exact Plan bytes it checked, and the Hub rejects a report that names other bytes.
+
+## Apply reports and failure holds
+
+An agent that applies a Plan reports `apply-started` with attempt *k* right before the change, then
+`applied` (reason code `applied`) or `rolled-back` (reason code `health_check_failed` or
+`apply_failed`) with attempt *k*+1. The Hub doesn't apply anything itself.
+
+A new `rolled-back` report holds every Entity of its Plan in the same transaction: the Hub adds an
+`entity:<id>` suppression with origin `failure`, the failed Plan id, and a 24-hour end, and audits
+it. The agent API stops serving the Plan at once, and the next `recompute` waits with
+`suppression_window_active` instead of planning the failed Release again. `unsuppress --scope
+entity:<id>` lifts the hold early, and `show` lists every active suppression with its origin.
+
+After an apply or a rollback, the agent reports its new snapshot with
+`POST /v1/installations/{id}/state`. The Hub checks it as `record-state` does: the snapshot must be
+newer than the current one, include every managed Entity, and name only known Entities.
 
 ## Layout
 
@@ -66,8 +83,10 @@ bytes it checked, and the Hub rejects a report that names other bytes.
 | `src/fdai_lifecycle_hub/planning.py` | `plan_next`: chooses the target Release and signs the Plan |
 | `src/fdai_lifecycle_hub/signing.py` | Ed25519 development Hub keys |
 | `src/fdai_lifecycle_hub/models.py` | SQLAlchemy ORM models for the Hub data model |
-| `src/fdai_lifecycle_hub/store.py` | Repository: transactions and row locks |
+| `src/fdai_lifecycle_hub/store.py` | Repository: one transaction per public method |
+| `src/fdai_lifecycle_hub/rows.py` | Row lookups, locks, and small row writes the transactions share |
 | `src/fdai_lifecycle_hub/mapping.py` | Mapping between ORM rows and domain records |
+| `src/fdai_lifecycle_hub/reports.py` | Report outcomes, their reason codes, and failure holds |
 | `src/fdai_lifecycle_hub/errors.py` | Requests the Hub refuses |
 | `src/fdai_lifecycle_hub/audit.py` | Hash-chained audit records and chain verification |
 | `src/fdai_lifecycle_hub/schemas.py` | JSON boundary: request bodies and operator input files |
@@ -81,7 +100,8 @@ bytes it checked, and the Hub rejects a report that names other bytes.
 |-----------------|--------|
 | `POST /v1/installations/{id}/enrollment` | `202` with the installation key id for a pending request, `403` with `enrollment_proof_invalid` or `enrollment_proof_stale`, `409` when the installation exists, `422` for an invalid body or another installation id |
 | `GET /v1/installations/{id}/plan` | `200` with `{"plan": {"signed_payload", "signature"}}` in base64, or `204` when the installation isn't enrolled or no Plan is open |
-| `POST /v1/installations/{id}/plans/{plan_id}/reports` | `202` for a new or identical report, `409` for a conflicting attempt or other Plan bytes, `422` for an invalid body, `503` with `Retry-After` when a concurrent write committed first |
+| `POST /v1/installations/{id}/plans/{plan_id}/reports` | `202` for a new or identical report, `409` for a conflicting attempt or other Plan bytes, `413` above 16 KiB, `422` for an invalid body, `503` with `Retry-After` when a concurrent write committed first |
+| `POST /v1/installations/{id}/state` | `202` when the snapshot becomes current, `409` with `stale_state` when its `observed_at` isn't newer, `413` above 64 KiB, `422` with `state_invalid`, `404` for an unknown or unenrolled installation |
 | `GET /healthz` | `200` |
 
 An enrollment body is `{"signed_payload", "proof"}` in base64. `signed_payload` is the JSON request
@@ -89,7 +109,9 @@ with `installation_key` (the raw Ed25519 public key in base64) and a timezone-aw
 `requested_at`, and `proof` is the installation key's signature over exactly those bytes.
 
 A Plan's `signed_payload` is exactly the canonical Plan bytes that the signature covers. A report's
-`exact_plan_digest` is `sha256:` followed by the hex SHA-256 of those bytes.
+`exact_plan_digest` is `sha256:` followed by the hex SHA-256 of those bytes. A report's `outcome` is
+`dry-run-admitted`, `rejected`, `apply-started`, `applied`, or `rolled-back`; only `rejected` may
+omit the digest. A state body has the shape of [samples/state-1.6.0.json](samples/state-1.6.0.json).
 
 ## Try it locally
 
@@ -197,8 +219,12 @@ A catalog directory contains `releases/<release-id>.json` runtime release manife
   agent checks both locally; that check arrives with its ownership-evidence inputs in Lifecycle I1.
 - Entity settings are stored and checked but don't change Plans yet. Configuration package import
   and Hub commands are later stories.
-- Suppressions live on the installation record without an actor. The design's revocable
-  `lifecycle_command` record, with actor and expiry, arrives with Hub commands.
+- Suppressions live on the installation record without an actor. A failure hold records its origin
+  and failed Plan id. The design's revocable `lifecycle_command` record, with actor and expiry,
+  arrives with Hub commands.
+- A failure hold lasts a fixed 24 hours, and repeated failures don't suppress the whole
+  installation yet. The Hub doesn't check that `applied` or `rolled-back` follows `apply-started`,
+  and it treats the reported-state digest as an opaque value.
 - Entities aren't revisioned yet. `manage` replaces an Entity's settings, and the hash-chained audit
   keeps who changed them, when, and the settings digest, but not the earlier content. Entity
   revisions with `effective_from` arrive with versioned migrations.

@@ -248,6 +248,7 @@ def test_aks_core_and_operator_receive_readiness_and_receipt_bindings(
     core, operator = workloads["core-control-plane"], workloads["operator-service"]
 
     assert core["env"]["FDAI_STARTUP_KAFKA_SETTLE_SECONDS"] == "12"
+    assert core["env"]["FDAI_CANARY_TOPIC"] == "fdai.control.canary"
     assert core["env"]["FDAI_STARTUP_PROBE_TIMEOUT_SECONDS"] == "30"
     assert core["env"]["FDAI_STARTUP_PHASE_TIMEOUT_SECONDS"] == "60"
     assert core["env"]["FDAI_OPERATOR_REQUEST_CORE_PRODUCER_ID"] == "core-control-plane"

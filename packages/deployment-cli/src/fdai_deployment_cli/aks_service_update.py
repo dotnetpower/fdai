@@ -101,8 +101,13 @@ def deployment_snapshot(raw: str, *, expected_services: set[str]) -> dict[str, d
     return dict(sorted(result.items()))
 
 
-def validate_plan_scope(summary: dict[str, Any], *, service: str) -> None:
-    """Accept exactly one in-place Deployment update and no other planned mutation."""
+def validate_plan_scope(
+    summary: dict[str, Any],
+    *,
+    service: str,
+    allow_replacement: bool = False,
+) -> None:
+    """Accept exactly one selected Deployment mutation and no other planned mutation."""
 
     target = f'kubernetes_deployment_v1.workload["{service}"]'
     changes = summary.get("resource_changes")
@@ -119,7 +124,9 @@ def validate_plan_scope(summary: dict[str, Any], *, service: str) -> None:
         action_set = set(actions)
         if action_set.issubset({"no-op", "read"}):
             continue
-        if action_set == {"update"} and address == target:
+        if (
+            action_set == {"update"} or (allow_replacement and action_set == {"create", "delete"})
+        ) and address == target:
             updates.append(address)
             continue
         raise ValueError("AKS service update plan contains an out-of-scope mutation")

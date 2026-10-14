@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 import httpx
 
 from fdai_operator_service.families.iam.contracts import DirectoryIdentity, DirectoryStatus
+from fdai_operator_service.families.iam.errors import IamUnavailableError
 
 _GRAPH_SCOPE: Final = "https://graph.microsoft.com/.default"
 _GRAPH_BASE_URL: Final = "https://graph.microsoft.com/v1.0"
@@ -22,7 +23,11 @@ TokenProvider = Callable[[str], Awaitable[str]]
 
 @dataclass(slots=True)
 class EntraHumanIdentityDirectory:
-    """Read exact users and configured role groups without Graph write permission."""
+    """Read users and role groups without Graph write permission.
+
+    Provider HTTP and transport failures raise ``IamUnavailableError``. An absent
+    exact user or group still returns ``None`` through the subject lookup methods.
+    """
 
     client: httpx.AsyncClient | None
     token_provider: TokenProvider
@@ -377,6 +382,18 @@ class EntraHumanIdentityDirectory:
             payload = response.json()
             if not isinstance(payload, Mapping):
                 raise RuntimeError("Microsoft Graph directory response MUST be an object")
+        except httpx.HTTPStatusError as exc:
+            self._available = False
+            if exc.response.status_code == 404:
+                raise
+            raise IamUnavailableError(
+                f"Microsoft Graph directory read is unavailable (HTTP {exc.response.status_code})"
+            ) from exc
+        except httpx.RequestError as exc:
+            self._available = False
+            raise IamUnavailableError(
+                "Microsoft Graph directory connection is unavailable"
+            ) from exc
         except Exception:
             self._available = False
             raise

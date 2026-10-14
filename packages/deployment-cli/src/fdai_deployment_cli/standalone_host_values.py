@@ -6,7 +6,44 @@ import hashlib
 import re
 from typing import Any
 
+from fdai_deployment_cli.aks_workload_jobs import AKS_CANARY_TOPIC
 from fdai_deployment_cli.contracts import canonical_digest
+
+
+def aks_core_environment(
+    *,
+    context: dict[str, object],
+    application_values: dict[str, object],
+    substrate_outputs: dict[str, object],
+    resource_group: str,
+    core_identity: dict[str, object],
+    topics: list[object],
+    deployment_binding: str,
+) -> dict[str, object]:
+    """Project the baseline AKS Core environment from verified deployment values."""
+
+    return {
+        "AZURE_TENANT_ID": context["tenant_id"],
+        "AZURE_SUBSCRIPTION_ID": context["subscription_id"],
+        "AZURE_RESOURCE_GROUP": resource_group,
+        "AZURE_REGION": application_values["region"],
+        "AZURE_CLIENT_ID": core_identity["client_id"],
+        "KAFKA_BOOTSTRAP_SERVERS": substrate_outputs["kafka"],
+        "KAFKA_TOPIC_EVENTS": str(topics[0]),
+        "FDAI_CANARY_TOPIC": AKS_CANARY_TOPIC,
+        "POSTGRES_HOST": substrate_outputs["postgres_fqdn"],
+        "POSTGRES_DATABASE": substrate_outputs["postgres_database"],
+        "RUNTIME_ENV": application_values["env"],
+        "AUTONOMY_MODE_DEFAULT": "shadow",
+        "FDAI_MONITOR_WORKSPACE_ID": substrate_outputs["workspace"],
+        "FDAI_OPERATING_MODEL_TOPIC": substrate_outputs["operating_model_topic"],
+        "FDAI_AUXILIARY_KAFKA_BOOTSTRAP_SERVERS": substrate_outputs["operational_kafka"],
+        "FDAI_ISOLATED_EXECUTOR_AUTHORITY_CUTOVER": "1",
+        "FDAI_PRODUCT_PROFILE_JSON": str(application_values["product_profile_json"]),
+        "FDAI_START_CONSUMER": "1",
+        "FDAI_INSTALLATION_BINDING": str(substrate_outputs["installation_binding"]),
+        "FDAI_LICENSE_DEPLOYMENT_BINDING": deployment_binding,
+    }
 
 
 def plan_summary(value: object) -> dict[str, object]:

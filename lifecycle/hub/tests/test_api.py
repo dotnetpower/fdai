@@ -97,6 +97,7 @@ def test_report_naming_other_plan_bytes_returns_409(
     "change",
     [
         {"attempt": 0},
+        {"outcome": "deployed"},
         {"outcome": "applied"},
         {"exact_plan_digest": "sha256:short"},
         {"exact_plan_digest": None},
