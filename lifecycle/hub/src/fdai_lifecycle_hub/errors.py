@@ -29,6 +29,14 @@ class PlanDigestMismatchError(HubStoreError):
     pass
 
 
+class StateRejectedError(HubStoreError):
+    """A reported-state snapshot the Hub refuses. `stale` when it isn't the newest one."""
+
+    def __init__(self, message: str, *, stale: bool) -> None:
+        super().__init__(message)
+        self.stale = stale
+
+
 class SchemaMismatchError(HubStoreError):
     """The database holds an earlier Hub schema. Lifecycle I0 has no migrations to upgrade it."""
 

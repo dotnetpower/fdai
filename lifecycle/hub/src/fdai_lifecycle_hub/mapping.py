@@ -90,6 +90,24 @@ def issued_plan(row: models.Plan) -> domain.IssuedPlan:
     )
 
 
+def evaluation_row(outcome: domain.PlanOutcome, now: datetime) -> models.PlanEvaluation:
+    """The recorded outcome and every check. Callers fill in the Plan and target it chose."""
+
+    return models.PlanEvaluation(
+        outcome=outcome.kind,
+        evaluated_at=now,
+        results=[
+            models.PlanConstraintResult(
+                release_id=check.release_id,
+                reason_code=block.reason_code if block else None,
+                details=list(block.details) if block else [],
+            )
+            for check in outcome.checks
+            for block in check.blocks or (None,)
+        ],
+    )
+
+
 def evaluation(row: models.PlanEvaluation) -> domain.Evaluation:
     results = sorted(row.results, key=attrgetter("id"))
     return domain.Evaluation(

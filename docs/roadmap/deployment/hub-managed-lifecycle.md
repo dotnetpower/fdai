@@ -533,6 +533,10 @@ configuration tables belong to [Lifecycle Configuration](lifecycle-configuration
 - Workload rendering outside Terraform is designed in
   [Workload rendering migration](#workload-rendering-migration). The agent renderer, the render
   parity test, and the ownership handoff aren't implemented.
+- In Lifecycle I0, a failed apply doesn't produce a separate rollback Plan. The agent restores the
+  previous images within the failed Plan and reports `rolled-back`. The Hub then holds each Entity
+  of that Plan with a 24-hour failure suppression, which an operator can lift earlier. The
+  installation-wide failure threshold isn't implemented.
 - The dual-slot self-upgrade of agents and Target Hubs needs its own failure analysis.
 - How entitlement reaches a Hub-managed installation is an open question. A Hub upgrade never
   renews a Trial.

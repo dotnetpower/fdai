@@ -21,7 +21,6 @@ from fdai_lifecycle_hub.domain import (
     OutcomeKind,
     Planner,
     PlanOutcome,
-    StaleStateError,
     Unchanged,
     Waiting,
 )
@@ -32,6 +31,7 @@ from fdai_lifecycle_hub.errors import (
     PlanDigestMismatchError,
     ReportConflictError,
     SchemaMismatchError,
+    StateRejectedError,
     UnknownInstallationError,
     UnknownPlanError,
 )
@@ -204,18 +204,31 @@ def test_recorded_state_becomes_current(
     assert registered.load(installation.installation_id).reported == upgraded
 
 
-def test_stale_or_incomplete_state_is_rejected(
+def test_stale_or_mismatched_state_is_rejected(
     registered: HubStore, installation: Installation, now: datetime
 ) -> None:
-    with pytest.raises(StaleStateError):
+    with pytest.raises(StateRejectedError) as stale:
         registered.record_state(installation.installation_id, installation.reported, now=now)
     partial_state = replace(
         installation.reported,
         entities={"console": installation.reported.entities["console"]},
         observed_at=now,
     )
-    with pytest.raises(ValueError, match="lacks managed entities"):
+    with pytest.raises(StateRejectedError, match="lacks managed entities") as partial_error:
         registered.record_state(installation.installation_id, partial_state, now=now)
+    states = installation.reported.entities
+    unknown_state = replace(
+        installation.reported, entities={**states, "ghost": states["core"]}, observed_at=now
+    )
+    with pytest.raises(StateRejectedError, match="unknown entities") as unknown:
+        registered.record_state(installation.installation_id, unknown_state, now=now)
+
+    assert (stale.value.stale, partial_error.value.stale, unknown.value.stale) == (
+        True,
+        False,
+        False,
+    )
+    assert registered.load(installation.installation_id).reported == installation.reported
 
 
 def test_reports_are_idempotent_and_conflicts_are_rejected(
