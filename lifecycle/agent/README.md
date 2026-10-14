@@ -177,6 +177,13 @@ namespace by hand, then remove the halt file.
   unrecorded live object blocks the first apply.
 - The rollback target is the agent's last verified rendering, not an arbitrary earlier Release.
 - The Hub must accept the apply outcomes and the state endpoint described above.
+- If the Hub supersedes a Plan before the agent's `apply-started` report for it ever lands (for
+  example because the Hub was briefly unreachable for writes), the agent abandons that Plan's
+  local record once it fetches the superseding one. Nothing was ever applied for the abandoned
+  Plan, and the superseding Plan gets its own independent, correctly numbered reports, but the
+  abandoned Plan's `apply-started` record never resolves to `applied` or `rolled-back` locally.
+  `tests/test_cross_process_resumption.py` drives this with two real `poll-once` processes
+  against a real kind cluster and confirms the cluster and the superseding Plan stay correct.
 
 ## Not in Lifecycle I0
 
@@ -200,6 +207,12 @@ kind create cluster --name fdai-lifecycle-demo
 FDAI_LIFECYCLE_KIND_CONTEXT=kind-fdai-lifecycle-demo PYTHONPATH=lifecycle/agent/src \
   uv run --no-sync python -m pytest -q --no-cov lifecycle/agent/tests/test_kind_apply.py
 ```
- From `lifecycle/agent/`, `mypy --config-file pyproject.toml` checks the
+
+`tests/test_cross_process_resumption.py` uses the same opt-in and the same cluster. It runs
+`poll-once --apply` as two separate OS processes sharing one `--state-dir` against a real loopback
+HTTP stub Hub, to check the on-disk journal and state files the way two separate agent invocations
+actually see them, not an in-process harness.
+
+From `lifecycle/agent/`, `mypy --config-file pyproject.toml` checks the
 sources and the tests in strict mode. The package isn't a uv workspace member. It runs in the root
 development environment, which already provides its dependencies.
