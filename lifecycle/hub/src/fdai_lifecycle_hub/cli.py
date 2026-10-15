@@ -119,6 +119,12 @@ def _parser() -> argparse.ArgumentParser:
 
     serve = command("serve", _serve, f"serve the agent API on {LOOPBACK}")
     serve.add_argument("--port", type=int, default=8090)
+    serve.add_argument(
+        "--ui",
+        type=Path,
+        default=None,
+        help="built operator UI directory; defaults to ui/dist when it exists",
+    )
     return parser
 
 
@@ -277,9 +283,14 @@ def _plan_record(plan: domain.IssuedPlan) -> dict[str, str]:
 def _serve(args: argparse.Namespace) -> int:
     import uvicorn
 
-    from fdai_lifecycle_hub.api import create_app
+    from fdai_lifecycle_hub.api import DEFAULT_UI_DIST, create_app
 
-    uvicorn.run(create_app(_store()), host=LOOPBACK, port=args.port)
+    static_dir = args.ui if args.ui is not None else DEFAULT_UI_DIST
+    uvicorn.run(
+        create_app(_store(), static_dir=static_dir if static_dir.is_dir() else None),
+        host=LOOPBACK,
+        port=args.port,
+    )
     return 0
 
 

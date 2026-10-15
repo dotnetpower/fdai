@@ -10,7 +10,7 @@ from sqlalchemy import Boolean, Column, MetaData, String, Table, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from fdai_lifecycle_hub import audit, models
+from fdai_lifecycle_hub import audit, models, schemas
 from fdai_lifecycle_hub.domain import (
     DailyWindow,
     EntityState,
@@ -21,6 +21,7 @@ from fdai_lifecycle_hub.domain import (
     OutcomeKind,
     Planner,
     PlanOutcome,
+    PlanStatus,
     Unchanged,
     Waiting,
 )
@@ -28,6 +29,7 @@ from fdai_lifecycle_hub.enrollment import EnrollmentRequest
 from fdai_lifecycle_hub.errors import (
     ConcurrentWriteError,
     InstallationExistsError,
+    NotPendingError,
     PlanDigestMismatchError,
     ReportConflictError,
     SchemaMismatchError,
@@ -390,3 +392,140 @@ def test_other_integrity_faults_are_not_reported_as_retryable(
 
     with pytest.raises(IntegrityError):
         registered.record_state(installation.installation_id, state, now=now)
+
+
+def test_list_installations_summarizes_the_latest_evaluation(
+    registered: HubStore, installation: Installation, recompute: Recompute, now: datetime
+) -> None:
+    outcome = recompute(now=now)
+    assert isinstance(outcome, Issued)
+
+    overviews = registered.list_installations()
+
+    assert [overview.installation.installation_id for overview in overviews] == [
+        installation.installation_id
+    ]
+    evaluation = overviews[0].last_evaluation
+    assert evaluation is not None
+    assert (evaluation.outcome, evaluation.plan_id) == (OutcomeKind.ISSUED, outcome.plan.plan_id)
+
+
+def test_list_installations_excludes_a_pending_installation(
+    store: HubStore, enrollment: EnrollmentRequest, now: datetime
+) -> None:
+    store.request_enrollment(enrollment, verify=verify_key_proof, now=now)
+
+    assert store.list_installations() == ()
+
+
+def test_installation_summary_distinguishes_an_open_window_from_an_upcoming_one(
+    registered: HubStore, installation: Installation, now: datetime
+) -> None:
+    (overview,) = registered.list_installations()
+
+    # `now` sits inside the fixture's 11:30-12:30 Asia/Seoul daily window.
+    open_record = schemas.installation_summary_record(overview, now=now)
+    assert open_record["next_window_open"] is True
+    assert open_record["next_window_starts_at"] is not None
+    assert open_record["next_window_ends_at"] is not None
+
+    # Two hours later the window has closed for today, and the next occurrence starts tomorrow.
+    closed_record = schemas.installation_summary_record(overview, now=now + timedelta(hours=2))
+    assert closed_record["next_window_open"] is False
+    assert closed_record["next_window_starts_at"] is not None
+
+
+def test_list_and_fetch_pending_enrollments_round_trip(
+    store: HubStore, enrollment: EnrollmentRequest, now: datetime
+) -> None:
+    store.request_enrollment(enrollment, verify=verify_key_proof, now=now)
+
+    pending = store.list_pending_enrollments()
+
+    assert [item.installation.installation_id for item in pending] == [
+        enrollment.installation.installation_id
+    ]
+    assert (pending[0].installation_key_id, pending[0].requested_at) == (
+        enrollment.installation_key_id,
+        now,
+    )
+    assert store.pending_enrollment(enrollment.installation.installation_id) == pending[0]
+
+
+def test_pending_enrollment_rejects_an_enrolled_installation(
+    registered: HubStore, installation: Installation
+) -> None:
+    with pytest.raises(NotPendingError):
+        registered.pending_enrollment(installation.installation_id)
+    assert registered.list_pending_enrollments() == ()
+
+
+def test_plan_detail_reports_status_events_and_matching_evaluations(
+    registered: HubStore, installation: Installation, recompute: Recompute, now: datetime
+) -> None:
+    first = recompute(now=now)
+    assert isinstance(first, Issued)
+    second = recompute(now=now)
+    assert isinstance(second, Unchanged)
+
+    record = registered.plan_detail(installation.installation_id, first.plan.plan_id)
+
+    assert record.status == PlanStatus.OPEN
+    assert [event.kind for event in record.events] == ["issued"]
+    assert [evaluation.outcome for evaluation in record.evaluations] == [
+        OutcomeKind.ISSUED,
+        OutcomeKind.UNCHANGED,
+    ]
+
+
+def test_plan_detail_marks_a_superseded_plan(
+    registered: HubStore, installation: Installation, recompute: Recompute, now: datetime
+) -> None:
+    first = recompute(now=now)
+    assert isinstance(first, Issued)
+    moved = replace(installation.reported, digest="e" * 64, observed_at=now)
+    registered.record_state(installation.installation_id, moved, now=now)
+
+    second = recompute(now=now)
+
+    assert isinstance(second, Issued)
+    assert registered.plan_detail(installation.installation_id, first.plan.plan_id).status == (
+        PlanStatus.SUPERSEDED
+    )
+
+
+def test_plan_detail_for_unknown_or_foreign_plan_is_rejected(
+    registered: HubStore,
+    enroll: Enroll,
+    installation: Installation,
+    recompute: Recompute,
+    now: datetime,
+) -> None:
+    outcome = recompute(now=now)
+    assert isinstance(outcome, Issued)
+    enroll(registered, replace(installation, installation_id="installation-beta"))
+
+    with pytest.raises(UnknownPlanError):
+        registered.plan_detail(installation.installation_id, "missing")
+    with pytest.raises(UnknownPlanError):
+        registered.plan_detail("installation-beta", outcome.plan.plan_id)
+
+
+def test_plan_reports_are_scoped_to_one_plan(
+    registered: HubStore, installation: Installation, recompute: Recompute, now: datetime
+) -> None:
+    first = recompute(now=now)
+    assert isinstance(first, Issued)
+    registered.record_report(
+        installation.installation_id, first.plan.plan_id, _report(first), now=now
+    )
+    moved = replace(installation.reported, digest="e" * 64, observed_at=now)
+    registered.record_state(installation.installation_id, moved, now=now)
+
+    second = recompute(now=now)
+
+    assert isinstance(second, Issued)
+    assert [report.plan_id for report in registered.plan_reports(first.plan.plan_id)] == [
+        first.plan.plan_id
+    ]
+    assert registered.plan_reports(second.plan.plan_id) == ()
