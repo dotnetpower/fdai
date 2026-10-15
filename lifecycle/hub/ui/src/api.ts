@@ -59,8 +59,8 @@ export interface EntityView {
   kind: string;
   managed: boolean;
   ownership_gap: OwnershipGap;
-  release_id: string;
-  health: Health;
+  release_id: string | null;
+  health: Health | null;
 }
 
 export interface Suppression {

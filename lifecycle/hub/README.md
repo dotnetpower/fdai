@@ -111,6 +111,15 @@ Read-only routes for the installations and Plans screens, and the two routes an 
 browser calls to decide a pending enrollment. Like the agent API, these serve on loopback only
 and have no caller authentication yet (see [Limits](#limits)).
 
+Enrollment decisions require `Content-Type: application/json` and a loopback Host.
+When the browser sends `Origin`, it must match the request's scheme, Host, and port;
+cross-site requests are refused before their bodies are read. The Vite development
+proxy preserves Host and Origin, so browser decisions stay same-origin in both modes.
+This protects browser requests against cross-origin submission; it is not authentication.
+Installation details include only suppressions active at the Hub's current clock.
+Declared Entities missing from the latest report keep their rows with `null` release
+and health values, displayed as "Not reported".
+
 | Method and path | Result |
 |-----------------|--------|
 | `GET /v1/installations` | `200` with every enrolled installation's channel, current and target Release, latest outcome, health, and the next maintenance window with whether it's already open |

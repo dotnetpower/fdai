@@ -10,7 +10,7 @@ export function EnrollmentsPage({ selectedId }: { selectedId: string | null }) {
   return selectedId === null ? (
     <EnrollmentsList />
   ) : (
-    <EnrollmentDetail installationId={selectedId} />
+    <EnrollmentDetail key={selectedId} installationId={selectedId} />
   );
 }
 
@@ -145,7 +145,7 @@ function EnrollmentDetail({ installationId }: { installationId: string }) {
                   <tr key={entity.entity_id}>
                     <td>{entity.entity_id}</td>
                     <td>{entity.kind}</td>
-                    <td>{entity.release_id}</td>
+                    <td>{entity.release_id ?? "Not reported"}</td>
                   </tr>
                 ))}
               </tbody>

@@ -249,6 +249,7 @@ def installation_detail_record(
     open_plan: IssuedPlan | None,
     last_evaluation: Evaluation | None,
     reports: tuple[RecordedReport, ...],
+    now: datetime,
 ) -> dict[str, Any]:
     """Everything the installation detail screen shows: settings, Entities, and the open Plan."""
 
@@ -279,7 +280,14 @@ def installation_detail_record(
         ),
         "health": installation.overall_health,
         "entities": [_entity_record(entity, reported) for entity in _sorted_entities(installation)],
-        "suppressions": suppressions_json.dump_python(installation.suppressions, mode="json"),
+        "suppressions": suppressions_json.dump_python(
+            tuple(
+                window
+                for window in installation.suppressions
+                if window.starts_at <= now < window.ends_at
+            ),
+            mode="json",
+        ),
         "open_plan": (
             {
                 "plan_id": open_plan.plan_id,
@@ -350,12 +358,12 @@ def _sorted_entities(installation: Installation) -> list[Entity]:
 
 
 def _entity_record(entity: Entity, reported: ReportedState) -> dict[str, Any]:
-    state = reported.entities[entity.entity_id]
+    state = reported.entities.get(entity.entity_id)
     return {
         "entity_id": entity.entity_id,
         "kind": entity.kind,
         "managed": entity.managed,
         "ownership_gap": entity.ownership_gap,
-        "release_id": state.release_id,
-        "health": state.health,
+        "release_id": state.release_id if state else None,
+        "health": state.health if state else None,
     }

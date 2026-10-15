@@ -161,9 +161,9 @@ export function InstallationPage({ installationId }: { installationId: string })
                           )}
                         </td>
                         <td>{entity.kind}</td>
-                        <td>{entity.release_id}</td>
+                        <td>{entity.release_id ?? "Not reported"}</td>
                         <td>
-                          <HealthBadge health={entity.health} />
+                          {entity.health === null ? "Not reported" : <HealthBadge health={entity.health} />}
                         </td>
                       </tr>
                     ))}

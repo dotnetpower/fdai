@@ -172,6 +172,7 @@ def create_app(
                 open_plan=open_plan,
                 last_evaluation=last_evaluation,
                 reports=reports,
+                now=now,
             )
         )
 
@@ -192,6 +193,8 @@ def create_app(
         return JSONResponse(pending_enrollment_record(pending))
 
     async def post_approve(request: Request) -> Response:
+        if error := _decision_request_error(request):
+            return error
         body = await _read_limited(request, MAX_APPROVAL_BYTES)
         if body is None:
             return _error(413, "request_too_large")
@@ -210,6 +213,8 @@ def create_app(
         return JSONResponse({"enrolled": installation_id})
 
     async def post_reject(request: Request) -> Response:
+        if error := _decision_request_error(request):
+            return error
         body = await _read_limited(request, MAX_APPROVAL_BYTES)
         if body is None:
             return _error(413, "request_too_large")
@@ -308,6 +313,25 @@ def create_app(
             ConcurrentWriteError: retry,
         },
     )
+
+
+def _decision_request_error(request: Request) -> Response | None:
+    """Reject browser cross-origin decisions before reading their body.
+
+    Vite preserves the browser Host and Origin when proxying to the Hub. Clients
+    without Origin must still use JSON and a loopback Host; no CORS is enabled.
+    """
+    if request.url.hostname not in {"localhost", "127.0.0.1", "::1"}:
+        return _error(403, "untrusted_host")
+    origin = request.headers.get("origin")
+    if origin is not None and origin != str(request.base_url).rstrip("/"):
+        return _error(403, "untrusted_origin")
+    if request.headers.get("sec-fetch-site") == "cross-site":
+        return _error(403, "untrusted_origin")
+    media_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
+    if media_type != "application/json":
+        return _error(415, "json_required")
+    return None
 
 
 async def _read_limited(request: Request, limit: int) -> bytes | None:

@@ -10,7 +10,7 @@
   --lc-control-border: #c9cdd1;
   /* The Hub's own accent, distinct from Console's --cs-steel, so an operator who has both open
    * can tell them apart at a glance instead of reading them as the same product. */
-  --lc-accent: var(--cs-teal);
+  --lc-accent: var(--lc-accent-dark);
   --lc-accent-dark: #3c655f;
   --lc-accent-tint: #e8f0ef;
 }
