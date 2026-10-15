@@ -161,11 +161,11 @@ async def test_failed_saga_audit_never_seals_or_materializes(monkeypatch):
     audit = InMemoryStateStore()
     attempted = asyncio.Event()
 
-    async def unavailable(_entry):
+    async def unavailable(_key, _value, *, expected_revision, audit_entry):
         attempted.set()
         raise OSError("test audit unavailable")
 
-    monkeypatch.setattr(audit, "append_audit_entry", unavailable)
+    monkeypatch.setattr(audit, "compare_and_set_state_with_audit", unavailable)
     runtime = _runtime(processor, bus, audit_store=audit)
     task = asyncio.create_task(runtime.run())
     try:
