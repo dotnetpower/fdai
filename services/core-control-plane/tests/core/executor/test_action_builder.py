@@ -491,6 +491,21 @@ def test_build_from_readiness_remediation_rejects_untrusted_event_source() -> No
         builder.build_from_readiness_remediation(event=event)
 
 
+def test_build_from_readiness_remediation_rejects_idempotency_identity_mismatch() -> None:
+    action_type = _shipped_action_types()["remediate.tag-add"]
+    release = build_ontology_release(action_types=(action_type,))  # type: ignore[arg-type]
+    builder = ActionBuilder(  # type: ignore[attr-defined]
+        action_types_by_name={action_type.name: action_type},
+        ontology_release=release,
+    )
+    event = _readiness_remediation_event(target_revision=release.digest).model_copy(
+        update={"idempotency_key": "different-envelope-key"}
+    )
+
+    with pytest.raises(ActionBuildError, match="idempotency identity does not match"):
+        builder.build_from_readiness_remediation(event=event)
+
+
 def test_build_from_readiness_remediation_rejects_stale_ontology_release() -> None:
     action_type = _shipped_action_types()["remediate.tag-add"]
     release = build_ontology_release(action_types=(action_type,))  # type: ignore[arg-type]

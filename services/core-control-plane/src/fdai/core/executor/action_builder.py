@@ -298,6 +298,8 @@ class ActionBuilder:
             request = ReadinessRemediationRequest.model_validate(raw)
         except ValueError as exc:
             raise ActionBuildError("readiness remediation request is malformed") from exc
+        if event.idempotency_key != request.idempotency_key:
+            raise ActionBuildError("readiness remediation idempotency identity does not match")
         if event.resource_ref != request.target_resource_ref:
             raise ActionBuildError("readiness remediation target does not match the event")
         if self.ontology_release is None:
