@@ -1,8 +1,8 @@
 ---
 title: 운영과 검증(Operating and Verification)
 translation_of: operating-and-verification.md
-translation_source_sha: 7be4ecc94d99feeb101a1ffd4588308a77f33ff1
-translation_revised: 2026-09-09
+translation_source_sha: 01c3b2d064dbc6ab70d96c57d57126b71659b3e6
+translation_revised: 2026-10-15
 ---
 
 # 운영과 검증(Operating and Verification)
@@ -54,7 +54,8 @@ translation_revised: 2026-09-09
 | 범위가 제한된 전이 구간과 메트릭 및 안전한 OTLP 구성 | implemented | [`transitions.py`](../../../services/core-control-plane/src/fdai/shared/telemetry/transitions.py), [`test_transition_telemetry.py`](../../../services/core-control-plane/tests/shared/test_transition_telemetry.py) | 안정적인 허용 목록 속성은 페이로드와 프로바이더 오류가 텔레메트리 레이블이 되지 않도록 합니다. |
 | 합성 카나리 발행기, 정규 소비자, no-op 감사 경로, 예약된 Container Apps 작업 | implemented | [`canary_cli.py`](../../../services/core-control-plane/src/fdai/delivery/canary_cli.py), [`_canary.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_canary.py), [`canary_job.tf`](../../../infra/modules/compute/container-apps/canary_job.tf), 카나리 집중 테스트 | 카나리는 T0/T1/T2, risk, 실행, 인시던트, 학습 경로와 격리됩니다. |
 | 배포 후 승격 smoke | in-progress | [`deploy-dev.yml`](../../../.github/workflows/deploy-dev.yml)이 이행, 선택적 상태 확인, 카나리 발행기 작업을 실행합니다. | 발행기 실패는 차단하지만 소비된 감사 항목, 고정본 재생, 비상 정지 주기, 사람 승인 예행 실행은 아직 검증하지 않습니다. |
-| 전체 자체 상태 신호 내보내기, 경보 규칙 대응, 대체 전달, 운영 훈련 | in-progress | 위 전이 텔레메트리, 준비 상태, 카나리 출처가 필수 신호의 일부를 제공합니다. | 업스트림에는 상태 계약의 모든 신호를 경보 임계값, 담당 경로, 대체 경로, 테스트된 전달 증적에 연결하는 구성이 없습니다. |
+| 전체 자체 상태 신호 정책 및 라우팅 매핑 | implemented | `config/self-health-signals.yaml`, `core/readiness/self_health.py`, 운영 시작 연결, 집중 자체 상태 및 준비 상태 테스트 | 필수 신호 15개를 각각 하나의 메트릭, 임계값 방향, 신선도 한도, 일반 담당 경로, 알림 route, 실패 시 안전한 대체 경로에 연결합니다. 범위 누락이나 route 불일치는 시작을 차단하며 어떤 결정도 실행 권한을 부여하지 않습니다. |
+| 전체 자체 상태 신호 내보내기, 경보 전달, 운영 훈련 | in-progress | 전이 텔레메트리, 준비 상태, 카나리, 전체 신호 정책 카탈로그 | 아직 모든 카탈로그 메트릭을 방출하는 런타임 원본 연결이 없고, 각 경보의 기본 및 대체 전달과 복구 훈련을 입증하는 배포 증적도 없습니다. |
 | 상관관계 기반 감사 조사와 통합 버전 및 구성 노출 | in-progress | [`rule_fire_trace.py`](../../../services/core-control-plane/src/fdai/core/audit/rule_fire_trace.py), [`audit_rca.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py), 런타임 상태 변환 결과 | 상관관계와 보고 기본 기능은 있지만 아래에 나열한 모든 버전, 해시, 규칙 효과, 재정의, 카나리, 비상 정지, 긴급 액세스 필드를 한 공개 읽기 표면에서 제공하지는 않습니다. |
 | 출시 전 지연 측정과 고정 시나리오 재생 | implemented | [`latency_budget.py`](../../../services/core-control-plane/src/fdai/core/measurement/latency_budget.py), [`baseline_run.py`](../../../tools/baseline_run.py), 집중 테스트 | 기본 기능은 범위가 제한된 측정과 릴리스 게이트 결과를 만듭니다. 외부 부하 생성기와 배포별 예산은 운영자 입력으로 남습니다. |
 | 라이브 Azure 읽기 조사 시나리오 | in-progress | [Azure 읽기 조사](../interfaces/azure-read-investigations-ko.md#검증-및-release-근거) | 범위가 제한된 읽기 전용 시나리오 4개는 통과했지만 게스트 이벤트 일치, 실제 프로바이더 `429`, 서비스 간 동등성 증적은 릴리스 근거로 남아 있습니다. |
@@ -65,6 +66,7 @@ translation_revised: 2026-09-09
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-15 | implemented | 전체 15개 자체 상태 신호 정책 카탈로그, 실패 시 안전한 신선도 및 임계값 평가, 알림 route 대체 경로 검증, 필수 운영 시작 연결을 추가했습니다. | `current change`, 자체 상태 카탈로그, 판정 코어, 준비 상태 및 bootstrap 연결, 집중 테스트. | 모든 메트릭 내보내기를 연결하고 기본 및 대체 전달과 복구 훈련 근거를 보존합니다. |
 | 2026-08-14 | in-progress | 구현 원장을 도입하고 테스트된 자체 관측성 기본 기능과 미완성 운영 근거를 분리했습니다. 이전 구현 이력은 재구성하지 않았습니다. | 현재 변경과 구현 범위 표에 인용한 준비 상태, 텔레메트리, 카나리, 지연, 기준선 실행기 집중 테스트. | 배포 왕복 근거, 경보와 훈련 범위, 통합 노출, 안정화 연결을 완료합니다. |
 | 2026-08-14 | implemented | 운영자 런북 front matter 스키마를 정의하고 제공되는 모든 ActionType에 CI 커버리지를 추가했습니다. | 현재 변경의 `check-action-runbooks.py`와 `test_check_action_runbooks.py`. | 배포 소유 명령과 절차를 같은 필수 의미 섹션에 맞게 유지합니다. |
 
@@ -73,8 +75,10 @@ translation_revised: 2026-09-09
 - [ ] 배포 smoke가 수치형 지연 예산 안에서 소비된 카나리 감사 항목을 검증하고 shadow 고정본을
   재생하며 비상 정지 on/off를 실행하고, 연결된 감사 증적으로 실행 없는 사람 승인 예행 실행을
   완료하도록 확장합니다.
-- [ ] 모든 자체 상태 신호를 구체적인 임계값, 담당 경로, 대체 경로, 테스트된 전달 증적에
-  연결한 다음 거버넌스가 적용된 운영 근거를 기록합니다.
+- [x] 모든 자체 상태 신호를 구체적인 임계값, 일반 담당 경로, 알림 route, 실패 시 안전한 대체
+  경로에 연결하고 운영 시작 시 전체 카탈로그를 검증합니다.
+- [ ] 모든 카탈로그 신호를 런타임 내보내기에 연결하고 하나의 관리되는 배포에서 기본 및 대체
+  전달과 복구 훈련 증적을 보존합니다.
 - [ ] 전체 버전, 구성, 규칙 효과, 재정의, 발견, 카나리, 비상 정지, 긴급 액세스 상태를 하나의
   권한 있는 읽기 표면에서 제공하고 필드 신선도를 테스트합니다.
 - [x] 필수 런북 스키마를 정의하고 모든 자동화된 ActionType에 검증 및 롤백 지침이 있는 제네릭

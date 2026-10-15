@@ -53,6 +53,13 @@ traverse from a widened collection is held before any Operator or document route
 Resource Health answer composition is split the same way: `ontology_platform` preserves the
 typed exact-denominator rows, `fdai_core_service` owns locale presentation and validator
 holds, and Operator receives only the terminal no-authority answer plus technical details.
+Self-health follows the same boundary. Generic thresholds, freshness, owner lanes, routes, and
+fallbacks live in `config/self-health-signals.yaml`; `core/readiness/self_health.py` makes the pure
+authority-neutral decision; runtime bootstrap validates the complete catalog against notification
+routes; delivery and provider adapters remain responsible for emitting source-qualified metrics.
+Rule activation version compatibility is also split: service contracts own the version 1/2
+envelope codec and Core's activation ledger applies it while version 1 remains the only write
+format. Neither compatibility path grants approval, activation, promotion, or execution authority.
 
 Question-form concept-choice reuse is owned by Core conversation processing and ends with one
 run. Its exact-input, reader-separated cache never stores observed state, authorization, or

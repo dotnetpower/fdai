@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: c0eb484bc1c5fd717f7381f74f5d095332b4b0d8
+translation_source_sha: 90d0de0d8066c547c56ed9868c3cc3a40bc07781
 translation_revised: 2026-10-15
 ---
 # 프로젝트 구조
@@ -53,6 +53,13 @@ Operator 또는 문서 route가 답하기 전에 보류됩니다.
 Resource Health 답변 조합도 같은 분리를 따릅니다. `ontology_platform`은 타입이 지정된
 정확한 분모 행을 보존하고, `fdai_core_service`는 locale 표현과 검증기 보류를 소유하며,
 Operator는 권한 없는 최종 답변과 기술 상세만 받습니다.
+자체 상태도 같은 경계를 따릅니다. 일반 임계값, 신선도, 담당 경로, 알림 route, 대체 경로는
+`config/self-health-signals.yaml`에 있고, `core/readiness/self_health.py`는 권한을 부여하지
+않는 순수 판정을 수행합니다. 런타임 bootstrap은 전체 카탈로그와 알림 route의 일치를 검증하고,
+전달 및 공급자 어댑터는 출처가 명시된 메트릭 방출을 담당합니다. 규칙 활성화 버전 호환성도
+분리합니다. 서비스 계약은 버전 1/2 묶음 codec을 소유하고 Core 활성화 원장이 이를 적용하며,
+버전 1만 쓰는 형식을 유지합니다. 어떤 호환성 경로도 승인, 활성화, 승격, 실행 권한을 부여하지
+않습니다.
 
 질문 구조의 개념 선택 재사용은 Core 대화 처리가 소유하며 한 번의 처리가 끝나면 종료됩니다.
 정확한 입력과 판독기별로 분리된 캐시는 관측 상태, 인가 결정, 이전 요청의 의미를 저장하지
