@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: b091f790ba7eed729c64b910b8cc41726d950282
+translation_source_sha: cc7eb5bb1ea0daac834dc736f9c7de74a90e41a4
 translation_revised: 2026-10-15
 ---
 
@@ -127,11 +127,13 @@ sampler는 검토된 `resource.cpu.utilization_pct` 선언을 사용하고 조�
 | Phase-2 학습 및 거버넌스 루프 | implemented | `agents/{huginn.py,bragi.py,mimir.py,norns.py}`; `_framework/{huginn_schema_learning,bragi_intent_training,norns_issue_close_support}.py`; `test_mimir_issue_close_evidence.py`; `test_wave7_workflows.py`; `test_runtime.py` | 서명된 operator-request 증적, schema-cluster 근거, shadow 전용 Bragi intent-training 근거, Mimir promotion/deprecation 근거, Norns quiet-window 적격성은 검토된 활성화나 Saga 소유 종료 경로가 소비하기 전까지 비활성입니다. |
 | Phase-2 전문 에이전트 sampling 및 scenario generation | implemented | `agents/{freyr.py,loki.py}`; `_framework/{capacity_utilization,loki_scheduling,loki_adversarial}.py`; `test_sensing_specialist_contracts.py`; `test_loki_recurring_scheduler.py`; `test_loki_adversarial_generation.py` | Freyr는 주입된 읽기 전용 sampler로 표본을 수집하고 capacity forecast 또는 shadow/HIL scale proposal을 냅니다. Loki는 always-HIL 제안 또는 hold를 예약하고 기본 바인딩이 없는 off-path port로 비활성 adversarial scenario 후보를 생성할 수 있습니다. |
 | Phase-2 replay, cost, backlog 제어 | implemented | `agents/{forseti.py,odin.py,muninn.py,thor.py}`; `_framework/{forseti_what_if,thor_persistence}.py`; `test_forseti_retrospective_what_if.py`; `test_wave7_workflows.py`; `muninn.py` compaction regressions | Cost annotation은 Forseti, Odin, Thor를 지나며 명시적으로 유지됩니다. Retrospective what-if replay는 비활성입니다. Muninn publication outbox compaction과 provider replay 근거는 보존 상태를 제한합니다. 영속 poison-halt 저장소는 opt-in으로 남습니다. |
+| 검토된 Forseti 과거 재생 소스 | implemented | `delivery/forseti_historical_replay.py`; `runtime/bootstrap_forseti_replay.py`; 소스·what-if·초기화·레이아웃 검사 64개 통과 | 정확한 해시와 원본 리비전에 결속된 보관 기록 하나가 최근 512개 변환 결과로 대체되지 않고 검토된 완전한 유한 구간을 제공할 수 있습니다. 실제 검토 보관 기록과 배포된 프로바이더 수락은 외부 조건으로 남습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-15 | implemented | 명시적인 유한 구간 완전성, 오래된 항목부터의 입력 순서와 최근 구간 대체 금지를 적용해 Forseti의 비활성 회고 what-if 경로를 정확한 해시·원본 리비전에 결속된 검토 과거 보관 기록 하나에 연결했습니다. | `현재 변경`, `forseti_historical_replay.py`, `bootstrap_forseti_replay.py`, 소스·what-if·초기화·레이아웃 검사 64개와 strict mypy·Ruff | 실제 검토 보관 기록을 제공하고 배포 데이터베이스·브로커 수락을 보존해야 합니다. 이 소스는 이력을 만들거나 운영 완전성을 인증하거나 승인·실행하지 않습니다. |
 | 2026-10-15 | implemented | Loki의 비활성 생성기와 고정 표본을 정확한 해시·원본 리비전에 결속된 검토 불변 스냅샷 하나에 연결하고 중복 커버리지를 거절하며 호출을 정확한 설계 참조에 결속했습니다. | `현재 변경`, `loki_scenario_evidence.py`, `bootstrap_loki_scenarios.py`, 소스·초기화·비활성 생성·일정·레이아웃 검사 49개와 strict mypy·Ruff | 실제 검토 입력을 제공하고 명시적 호출, 사람 승인, Chaos 실행, 검증된 복구 증적을 보존해야 합니다. 권한이나 운영 수락은 추론하지 않습니다. |
 | 2026-10-15 | implemented | 초안 카탈로그 검토를 승격으로 취급하지 않으면서 Mimir의 승격·회귀·폐기 유지보수 포트를 정확한 해시와 원본 리비전에 결속된 닫힌 불변 근거 스냅샷 하나에 연결했습니다. | `현재 변경`, `mimir_maintenance_evidence.py`, `bootstrap_mimir_maintenance.py`, 근거·초기화·이슈 종료·구조 집중 검사 58개와 strict mypy·Ruff | 실제로 검토한 배포 매니페스트를 제공하고 런타임 증적을 보존해야 합니다. 이 소스 변경은 검토·회귀·승격·폐기·이슈 종료를 수행하지 않습니다. |
 | 2026-10-15 | implemented | 내용 해시를 가진 공유 리비전 기록과 원자적 head·감사 확정으로 재현된 A/B/A 내부 체인 분기를 수정했습니다. 제한 안에서 이전 기록을 보존하거나 검증 불가 시 이행을 보류합니다. | `current change`; #2149; `audit_chain_journal.py`; `audit_chain_rehydrate.py`; 소유 범위 검사 165개, 1,500회 추가 후 복구 검사 1개, 실제 격리 PostgreSQL 검사 5개; 다섯 소스 strict mypy와 Ruff. | 배포 전에 구버전 writer를 중지하고 더 긴 이력의 이행을 별도로 검토해야 합니다. 원격 식별자와 실제 배포 수락도 아직 남아 있습니다. |

@@ -65,6 +65,7 @@ from fdai.runtime.bootstrap_agent_discussion import _runtime_asset_root as _runt
 from fdai.runtime.bootstrap_agent_discussion import build_runtime_pantheon_synthesis
 from fdai.runtime.bootstrap_capacity_sampling import build_capacity_sampler
 from fdai.runtime.bootstrap_chaos_schedule import build_chaos_schedule
+from fdai.runtime.bootstrap_forseti_replay import build_forseti_historical_replay_source
 from fdai.runtime.bootstrap_loki_scenarios import build_loki_scenario_bindings
 from fdai.runtime.bootstrap_mimir_maintenance import build_mimir_maintenance_source
 from fdai.runtime.bootstrap_pantheon_models import (
@@ -461,6 +462,7 @@ async def initialize_pantheon(
         environment=config.environment,
         action_type_names=frozenset(action.name for action in config.control_loop.action_types),
     )
+    forseti_historical_replay_source = build_forseti_historical_replay_source(config.environment)
     pantheon_runtime = PantheonRuntime.build(
         assignment_workflow=config.assignment_workflow,
         provider=config.bus,
@@ -488,6 +490,7 @@ async def initialize_pantheon(
         vidar_state_store=config.incident_audit_store,
         var_state_store=config.incident_audit_store,
         forseti_state_store=config.incident_audit_store,
+        forseti_historical_replay_source=forseti_historical_replay_source,
         bragi_state_store=config.incident_audit_store,
         odin_state_store=config.incident_audit_store,
         freyr_utilization_sampler=build_capacity_sampler(

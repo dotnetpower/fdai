@@ -91,6 +91,11 @@ from fdai.agents._framework.forseti_baseline_worker import (
     ForsetiBaselineScheduler,
     ForsetiBaselineWorker,
 )
+from fdai.agents._framework.forseti_historical_replay import (
+    ForsetiHistoricalQualitySample,
+    ForsetiHistoricalReplay,
+    ForsetiHistoricalReplaySource,
+)
 from fdai.agents._framework.freyr_sampling import MAX_RECURRING_SAMPLES, UtilizationSample
 from fdai.agents._framework.huginn_operator_receipt import (
     OperatorRequestReceiptGate,
@@ -233,6 +238,9 @@ __all__ = [
     "AssignmentWorkflowBindings",
     "Agent",
     "Forseti",
+    "ForsetiHistoricalQualitySample",
+    "ForsetiHistoricalReplay",
+    "ForsetiHistoricalReplaySource",
     "AdminCard",
     "AdminNotificationAdapter",
     "AuditEntry",

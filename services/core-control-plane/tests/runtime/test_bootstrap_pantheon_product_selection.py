@@ -78,11 +78,17 @@ async def test_initialize_pantheon_passes_the_product_selection_to_forseti(
     captured: dict[str, Any] = {}
     sampler = object()
     mimir_maintenance = object()
+    forseti_replay_source = object()
     monkeypatch.setattr(pantheon_bootstrap, "build_capacity_sampler", lambda **kwargs: sampler)
     monkeypatch.setattr(
         pantheon_bootstrap,
         "build_mimir_maintenance_source",
         lambda environment: mimir_maintenance,
+    )
+    monkeypatch.setattr(
+        pantheon_bootstrap,
+        "build_forseti_historical_replay_source",
+        lambda environment: forseti_replay_source,
     )
     monkeypatch.setattr(
         pantheon_bootstrap,
@@ -144,6 +150,7 @@ async def test_initialize_pantheon_passes_the_product_selection_to_forseti(
     assert captured["mimir_promotion_outcome_reader"] is mimir_maintenance
     assert captured["mimir_regression_runner"] is mimir_maintenance
     assert captured["mimir_rule_deprecation_reader"] is mimir_maintenance
+    assert captured["forseti_historical_replay_source"] is forseti_replay_source
     assert result.runtime.agents["Loki"]._recurring_schedule is schedule  # noqa: SLF001
     assert result.runtime.enforce is False
 

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import re
 from collections.abc import Callable, Mapping
 from copy import deepcopy
 from datetime import datetime, timedelta
@@ -26,6 +27,26 @@ PUBLICATION_LEASE = timedelta(seconds=4)
 _ROW_FIELDS = frozenset(
     {"request_key", "payload", "payload_digest", "status", "claim_owner", "claimed_at"}
 )
+_RECENT_CONTRACT_FIELDS = frozenset(
+    {
+        "contract_version",
+        "active_judgment_table_digest",
+        "what_if_judgment_table_digest",
+        "sample_limit",
+        "selection",
+    }
+)
+_HISTORICAL_CONTRACT_FIELDS = _RECENT_CONTRACT_FIELDS | {
+    "historical_archive_ref",
+    "historical_content_digest",
+    "historical_source_revision",
+    "historical_review_ref",
+    "historical_window_started_at",
+    "historical_window_ended_at",
+    "historical_evidence_refs",
+}
+_SHA256 = re.compile(r"^[0-9a-f]{64}$")
+_REVISION = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 
 
 def _canonical(value: object) -> str:
@@ -34,6 +55,86 @@ def _canonical(value: object) -> str:
 
 def _digest(value: object) -> str:
     return "sha256:" + hashlib.sha256(_canonical(value).encode("utf-8")).hexdigest()
+
+
+def what_if_request_key(
+    correlation_id: str,
+    what_if_judgment_table_digest: str,
+    sample_limit: int,
+    historical_archive_ref: str = "",
+) -> str:
+    if historical_archive_ref:
+        return stable_idempotency_key(
+            "forseti-what-if-request",
+            correlation_id,
+            what_if_judgment_table_digest,
+            sample_limit,
+            historical_archive_ref,
+        )
+    return stable_idempotency_key(
+        "forseti-what-if-request",
+        correlation_id,
+        what_if_judgment_table_digest,
+        sample_limit,
+    )
+
+
+def _historical_archive_ref(contract: Mapping[str, object]) -> str:
+    selection = contract.get("selection")
+    if selection == "recent_retained_judgment_inputs":
+        if set(contract) != _RECENT_CONTRACT_FIELDS:
+            raise ValueError("Forseti what-if recent contract fields are invalid")
+        return ""
+    if selection != "reviewed_historical_archive" or set(contract) != _HISTORICAL_CONTRACT_FIELDS:
+        raise ValueError("Forseti what-if historical contract fields are invalid")
+    archive_ref = contract.get("historical_archive_ref")
+    content_digest = contract.get("historical_content_digest")
+    source_revision = contract.get("historical_source_revision")
+    review_ref = contract.get("historical_review_ref")
+    window_started_at_text = contract.get("historical_window_started_at")
+    window_ended_at_text = contract.get("historical_window_ended_at")
+    evidence_refs = contract.get("historical_evidence_refs")
+    if (
+        not isinstance(archive_ref, str)
+        or not archive_ref
+        or archive_ref != archive_ref.strip()
+        or len(archive_ref) > 512
+        or not isinstance(content_digest, str)
+        or _SHA256.fullmatch(content_digest) is None
+        or not isinstance(source_revision, str)
+        or _REVISION.fullmatch(source_revision) is None
+        or not isinstance(evidence_refs, list)
+        or not evidence_refs
+        or len(evidence_refs) > 256
+        or len(set(evidence_refs)) != len(evidence_refs)
+        or any(
+            not isinstance(item, str) or not item or item != item.strip() or len(item) > 512
+            for item in evidence_refs
+        )
+        or any(
+            not isinstance(value, str) or not value or value != value.strip() or len(value) > 512
+            for value in (
+                review_ref,
+                window_started_at_text,
+                window_ended_at_text,
+            )
+        )
+    ):
+        raise ValueError("Forseti what-if historical contract is invalid")
+    if not isinstance(window_started_at_text, str) or not isinstance(window_ended_at_text, str):
+        raise ValueError("Forseti what-if historical window is invalid")
+    try:
+        window_started_at = datetime.fromisoformat(window_started_at_text)
+        window_ended_at = datetime.fromisoformat(window_ended_at_text)
+    except ValueError as exc:
+        raise ValueError("Forseti what-if historical window is invalid") from exc
+    if (
+        window_started_at.utcoffset() is None
+        or window_ended_at.utcoffset() is None
+        or window_ended_at < window_started_at
+    ):
+        raise ValueError("Forseti what-if historical window is invalid")
+    return archive_ref
 
 
 def _decode(raw: Any) -> tuple[int, list[dict[str, Any]]]:
@@ -109,26 +210,21 @@ def _decode(raw: Any) -> tuple[int, list[dict[str, Any]]]:
         ):
             raise ValueError("Forseti what-if publication lost its inert contract")
         contract = payload["what_if_contract"]
+        try:
+            historical_archive_ref = _historical_archive_ref(contract)
+        except ValueError as exc:
+            raise ValueError("Forseti what-if publication request binding is invalid") from exc
         if (
-            set(contract)
-            != {
-                "contract_version",
-                "active_judgment_table_digest",
-                "what_if_judgment_table_digest",
-                "sample_limit",
-                "selection",
-            }
-            or contract["contract_version"] != "retrospective-what-if.v1"
-            or contract["selection"] != "recent_retained_judgment_inputs"
+            contract["contract_version"] != "retrospective-what-if.v1"
             or type(contract["sample_limit"]) is not int
             or not 1 <= contract["sample_limit"] <= 32
             or not isinstance(contract["what_if_judgment_table_digest"], str)
             or row["request_key"]
-            != stable_idempotency_key(
-                "forseti-what-if-request",
+            != what_if_request_key(
                 payload["correlation_id"],
                 contract["what_if_judgment_table_digest"],
                 contract["sample_limit"],
+                historical_archive_ref,
             )
         ):
             raise ValueError("Forseti what-if publication request binding is invalid")
@@ -277,3 +373,6 @@ async def recover_comparisons(host: Any) -> int:
                 continue
             published += int(accepted)
     return published
+
+
+__all__ = ["what_if_request_key"]

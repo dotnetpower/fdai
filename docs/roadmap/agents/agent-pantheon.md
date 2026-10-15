@@ -310,6 +310,16 @@ pending results recover at startup and on maintenance. A broker-acceptance/check
 redeliver identical bytes and key under the existing at-least-once contract. Full-context replay
 and deployed provider acceptance remain separate work.
 
+Standard bootstrap can additionally bind one deployment-reviewed historical archive through
+`FDAI_FORSETI_REPLAY_EVIDENCE_PATH` and `FDAI_FORSETI_REPLAY_EVIDENCE_SHA256`. The bounded regular
+file must match `FDAI_SOURCE_REVISION`, declare one complete finite time window, carry an exact
+review reference and evidence manifest, and contain at most 4,096 oldest-first comparison inputs.
+An explicit what-if request selects the exact archive reference; an unavailable or different
+archive holds instead of falling back to the recent 512-record window. The emitted inert Verdict
+pins the archive digest, revision, review, time bounds and evidence references. This read-only
+binding does not create historical evidence, certify that a deployment supplied a complete
+archive, change Forseti's judge role, or establish database or broker acceptance.
+
 Thor holds an explicit empty target declaration instead of falling back to another resource.
 A single declared target uses the legacy single-action path only when it exactly matches
 `resource_id`; a missing or conflicting resource is held without executor calls.

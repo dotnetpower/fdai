@@ -45,6 +45,7 @@ from fdai.agents._framework.forseti_decision_helpers import (
 from fdai.agents._framework.forseti_development_authority import (
     ForsetiDevelopmentAuthorityMixin,
 )
+from fdai.agents._framework.forseti_historical_replay import ForsetiHistoricalReplaySource
 from fdai.agents._framework.forseti_judgment import (
     DEFAULT_JUDGMENT_TABLE,
     ForsetiJudgmentMixin,
@@ -171,6 +172,7 @@ class Forseti(
         governed_execution_selected: bool = False,
         rule_staleness_window: timedelta = _DEFAULT_RULE_STALENESS_WINDOW,
         state_store: StateStore | None = None,
+        historical_replay_source: ForsetiHistoricalReplaySource | None = None,
     ) -> None:
         if cross_vertical_timeout_seconds <= 0.0 or cross_vertical_timeout_seconds > 300.0:
             raise ValueError("cross_vertical_timeout_seconds MUST be in (0, 300]")
@@ -192,6 +194,7 @@ class Forseti(
         self._action_semantics = action_semantics
         self._judgment_table = judgment_table or DEFAULT_JUDGMENT_TABLE
         self._forseti_state_store = state_store
+        self._historical_replay_source = historical_replay_source
         self._baseline_scheduler: ForsetiBaselineScheduler | None = None
         self._operational_context = operational_context
         self._test_context_source = test_context_source

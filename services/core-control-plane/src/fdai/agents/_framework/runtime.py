@@ -25,6 +25,7 @@ from fdai.agents._framework.deliberation import (
     T2ConversationSynthesizer,
 )
 from fdai.agents._framework.divergence import ShadowDivergenceLedger
+from fdai.agents._framework.forseti_historical_replay import ForsetiHistoricalReplaySource
 from fdai.agents._framework.freyr_sampling import CapacityUtilizationSampler
 from fdai.agents._framework.huginn_operator_receipt import OperatorRequestReceiptGate
 from fdai.agents._framework.kpi import KpiCollector
@@ -169,6 +170,7 @@ class PantheonRuntime(RuntimeConversationPort):
         vidar_state_store: StateStore | None = None,
         var_state_store: StateStore | None = None,
         forseti_state_store: StateStore | None = None,
+        forseti_historical_replay_source: ForsetiHistoricalReplaySource | None = None,
         bragi_state_store: StateStore | None = None,
         odin_state_store: StateStore | None = None,
         proposal_rate_limit_state_store: StateStore | None = None,
@@ -375,6 +377,7 @@ class PantheonRuntime(RuntimeConversationPort):
             action_types=action_types,
             governed_execution_selected=governed_execution_selected,
             forseti_state_store=forseti_state_store,
+            forseti_historical_replay_source=forseti_historical_replay_source,
         )
         runtime_sensing.configure_heimdall(
             instantiated,

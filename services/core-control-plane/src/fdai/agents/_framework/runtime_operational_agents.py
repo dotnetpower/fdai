@@ -14,6 +14,7 @@ from fdai.agents._framework.development_authority_runtime import (
     ApprovalRuntimeBindings,
     DevelopmentRuntimeBindings,
 )
+from fdai.agents._framework.forseti_historical_replay import ForsetiHistoricalReplaySource
 from fdai.agents._framework.freyr_sampling import CapacityUtilizationSampler
 from fdai.agents._framework.ontology_index import (
     ContextIndexWorkerBindings,
@@ -267,6 +268,7 @@ def bind_operational_agents(
     action_types: tuple[OntologyActionType, ...] = (),
     governed_execution_selected: bool = False,
     forseti_state_store: StateStore | None = None,
+    forseti_historical_replay_source: ForsetiHistoricalReplaySource | None = None,
 ) -> None:
     """Replace baseline instances only when runtime bindings are available."""
 
@@ -350,6 +352,7 @@ def bind_operational_agents(
         approval_profile=(approval.profile if approval is not None else None),
         governed_execution_selected=governed_execution_selected,
         state_store=forseti_state_store,
+        historical_replay_source=forseti_historical_replay_source,
     )
     if forseti is not None:
         agents["Forseti"] = forseti
