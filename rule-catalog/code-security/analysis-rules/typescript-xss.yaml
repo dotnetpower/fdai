@@ -1,0 +1,15 @@
+schema_version: 1.0.0
+rule_id: fdai.typescript.xss
+version: 1.0.0
+analysis_kind: graph_flow
+languages: [typescript]
+cwe_ids: [79]
+selectors:
+  - {role: source, symbol: Request.query}
+  - {role: source, symbol: Request.body}
+  - {role: sink, symbol: send, argument_index: 0}
+  - {role: sink, symbol: end, argument_index: 0}
+  - {role: propagator, symbol: toString}
+  - {role: sanitizer, symbol: escapeHtml, security_context: html-text-encoding}
+vulnerable_cases: [typescript-xss-response]
+safe_cases: [typescript-xss-escaped]

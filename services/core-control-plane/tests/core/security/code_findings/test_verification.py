@@ -91,6 +91,34 @@ def test_equivalent_clean_rescan_verifies_the_fix() -> None:
     assert verdict.verdict is FixVerdict.FIXED_VERIFIED
 
 
+@pytest.mark.parametrize(
+    "validation",
+    [
+        ValidationState.TESTS_FAILED,
+        ValidationState.MANUAL_VALIDATION_REQUIRED,
+        ValidationState.NOT_RUN,
+    ],
+)
+def test_clean_rescan_without_passing_tests_is_inconclusive(
+    validation: ValidationState,
+) -> None:
+    issue, stored, baseline = _baseline()
+    rescan_issues, rescan = _scan(_sarif([]), FIXED)
+    claim = IssueClaim(
+        issue.issue_id,
+        ClaimStatus.FIXED_CLAIMED,
+        validation,
+        (FIXED,),
+        NextStep.RESCAN_REQUIRED,
+        "model-generated fix claim",
+    )
+
+    (verdict,) = verify_fix_claims([claim], stored, baseline, rescan, rescan_issues, FIXED)
+
+    assert verdict.verdict is FixVerdict.INCONCLUSIVE
+    assert "tests did not pass" in verdict.reasons[0]
+
+
 def test_root_cause_still_reported_after_line_shift_is_still_present() -> None:
     issue, stored, baseline = _baseline()
     moved = result("python.sqli", "src/db.py", 9, cwe=89)

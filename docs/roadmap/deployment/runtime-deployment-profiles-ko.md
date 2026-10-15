@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: e8028887e8154d69523c74097f6d9d6f65ab2d0c
+translation_source_sha: 577025587d4d8282a8088e78cf5371d516d20d48
 translation_revised: 2026-10-15
 ---
 # 런타임 배포 프로파일
@@ -58,6 +58,12 @@ readback이 있을 때만 원격 전달을 선택합니다. App 토큰은 `issue
 네임스페이스, 불변 스캐너 이미지, 소스와 캐시 PVC 바인딩을 통해 스캐너 작업을 시작합니다. 두
 프로필은 요청, heartbeat, 리비전 기준점, 검토 계약을 공유하며, 런타임 선택은 신원, 저장소,
 네트워크, 샌드박스 어댑터만 바꿉니다.
+스캐너 이미지 빌드 컨텍스트는 저장소 전체 `tools/` 트리를 제외하고 분석 런타임에 필요한 자체
+TypeScript, Java, C# 프런트엔드 소스만 명시적으로 허용합니다. 이미지는 고정된 TypeScript, JDK,
+.NET/Roslyn 도구 체인을 바인딩하고, 런타임 패키지를 수락하기 전에 컨테이너 안에서 신뢰하는 각
+도우미를 빌드하거나 불러와야 합니다. Java는 annotation processing을 끄고 C#은 대상 assembly를
+만들지 않으며 두 도우미 모두 저장소 코드를 실행하지 않습니다. 이 패키징 규칙은 런타임 프로필이나
+권한을 바꾸지 않습니다.
 
 Operator 운영 조립은 모든 런타임 프로파일에서 동일한 목적별 수명 주기, 경로 계열 및 읽기 출처 모듈을 사용합니다. 이 내부 소유권 분리는 플랫폼 선택, 신원, 출처 연결, 준비 상태 조건 또는 배포
 권한을 바꾸지 않습니다.

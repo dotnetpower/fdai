@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0.0",
+  "receipt_id": "fdai.code-security.analysis-hardening.20261015",
+  "reviewed_commit": "0b614d9245093c3704aab5ebc3073823e45aa38d",
+  "rounds": [
+    {"round": 1, "lens": "contract-integrity", "accepted_severity": "none"},
+    {"round": 2, "lens": "path-symlink-file-bounds", "accepted_severity": "medium"},
+    {"round": 3, "lens": "subprocess-isolation", "accepted_severity": "none"},
+    {"round": 4, "lens": "compiler-host-supply-chain", "accepted_severity": "medium"},
+    {"round": 5, "lens": "python-taint", "accepted_severity": "none"},
+    {"round": 6, "lens": "typescript-taint-control-flow", "accepted_severity": "none"},
+    {"round": 7, "lens": "context-alias-recursion-budgets", "accepted_severity": "medium"},
+    {"round": 8, "lens": "coverage-replay-kata", "accepted_severity": "medium"},
+    {"round": 9, "lens": "sarif-canonical-fix", "accepted_severity": "none"},
+    {"round": 10, "lens": "license-image-runtime", "accepted_severity": "none"},
+    {"round": 11, "lens": "contract-integrity", "accepted_severity": "none"},
+    {"round": 12, "lens": "path-symlink-file-bounds", "accepted_severity": "none"},
+    {"round": 13, "lens": "subprocess-isolation", "accepted_severity": "none"},
+    {"round": 14, "lens": "compiler-host-supply-chain", "accepted_severity": "none"},
+    {"round": 15, "lens": "python-taint", "accepted_severity": "none"},
+    {"round": 16, "lens": "typescript-taint-control-flow", "accepted_severity": "none"},
+    {"round": 17, "lens": "context-alias-recursion-budgets", "accepted_severity": "none"},
+    {"round": 18, "lens": "coverage-replay-kata", "accepted_severity": "none"},
+    {"round": 19, "lens": "sarif-canonical-fix", "accepted_severity": "none"},
+    {"round": 20, "lens": "license-image-runtime", "accepted_severity": "none"}
+  ],
+  "repairs": [
+    "python-root-bound-no-follow-read",
+    "python-and-typescript-graph-budgets",
+    "typescript-requested-file-output-validation",
+    "typescript-failure-to-incomplete-coverage"
+  ],
+  "final_findings": {"critical": 0, "high": 0, "medium": 0, "low": 0},
+  "claims": {
+    "codeql_parity": false,
+    "production_promotion": false,
+    "rebuilt_image_validation": false
+  }
+}

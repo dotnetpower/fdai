@@ -1,0 +1,15 @@
+schema_version: 1.0.0
+rule_id: fdai.typescript.command-injection
+version: 1.0.0
+analysis_kind: graph_flow
+languages: [typescript]
+cwe_ids: [78]
+selectors:
+  - {role: source, symbol: Request.query}
+  - {role: source, symbol: Request.body}
+  - {role: sink, symbol: exec, argument_index: 0}
+  - {role: sink, symbol: execSync, argument_index: 0}
+  - {role: propagator, symbol: trim}
+  - {role: sanitizer, symbol: shellEscape, security_context: shell-argument-quoting}
+vulnerable_cases: [typescript-command-cross-file]
+safe_cases: [typescript-command-argument-list]

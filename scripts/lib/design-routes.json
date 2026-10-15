@@ -186,6 +186,8 @@
         "config/code-security-agent-providers.yaml",
         "docs/roadmap/operations/code-security-scanning*.md",
         "docs/roadmap-implementation/operations/code-security-scanning.md",
+        "docs/roadmap/operations/code-security-analysis-engine*.md",
+        "docs/roadmap-implementation/operations/code-security-analysis-engine.md",
         "services/core-control-plane/src/fdai/rule_catalog/code_security_scanners.py",
         "services/core-control-plane/tests/delivery/test_code_security_scanning.py",
         "services/core-control-plane/src/fdai/rule_catalog/code_security_lenses.py",
@@ -220,20 +222,23 @@
         "docs/roadmap/operations/code-security-findings.md",
         "docs/roadmap/rules-and-detection/rule-catalog-collection.md",
         "docs/roadmap/architecture/llm-strategy.md",
-        "docs/roadmap/operations/code-security-scanning.md"
+        "docs/roadmap/operations/code-security-scanning.md",
+        "docs/roadmap/operations/code-security-analysis-engine.md"
       ],
       "docs_update": [
         "docs/roadmap/operations/code-security-findings.md",
         "docs/roadmap-implementation/operations/code-security-findings.md",
         "docs/roadmap/operations/code-security-scanning.md",
-        "docs/roadmap-implementation/operations/code-security-scanning.md"
+        "docs/roadmap-implementation/operations/code-security-scanning.md",
+        "docs/roadmap/operations/code-security-analysis-engine.md",
+        "docs/roadmap-implementation/operations/code-security-analysis-engine.md"
       ],
       "validate": [
         "uv run pytest -q --no-cov services/core-control-plane/tests/core/security/code_findings",
         "python3 scripts/quality/architecture/check-design-routes.py",
         "python3 scripts/quality/architecture/check-roadmap-implementation-tracking.py",
         "python3 scripts/quality/architecture/check-document-size.py",
-        "bash scripts/quality/localization/check-translations.sh docs/roadmap/operations/code-security-findings.md docs/roadmap/operations/code-security-findings-ko.md"
+        "bash scripts/quality/localization/check-translations.sh docs/roadmap/operations/code-security-findings.md docs/roadmap/operations/code-security-findings-ko.md docs/roadmap/operations/code-security-analysis-engine.md docs/roadmap/operations/code-security-analysis-engine-ko.md"
       ]
     },
     {

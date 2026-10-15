@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 4137f085f585d67e1fccd1fb172d4908ff4d591d
+translation_source_sha: b69a879cf3a1876e7819abad62dd255b5f9f0448
 translation_revised: 2026-10-15
 ---
 # 프로젝트 구조
@@ -682,6 +682,23 @@ Container Apps는
 코드 사례와 의존성 사례를 포함한 레이블 평가 자료는 `rule-catalog/code-security/evaluation/`에 있으며,
 순수 함수로 이루어진 `evaluation.py` 평가 도구가 측정합니다.
 [코드 보안 점검 결과](../operations/code-security-findings-ko.md)를 참조하세요.
+
+FDAI 자체 분석 엔진도 같은 경계 안에 유지합니다. `analysis_contracts.py`는 엄격한 그래프, 규칙,
+경로 근거를 소유하고, `python_graph.py`와 `python_analysis.py`는 범위가 제한된 읽기 전용 Python
+근거를 만듭니다. `analysis_build_context.py`는 소스 바이트를 구성으로 취급하지 않고 언어 루트와
+빌드 구성을 결속합니다. `analysis_incremental.py`는 엄격한 스냅샷 재사용과 보수적인 무효화를
+소유하며, 스캔 작업은 저장소와 규칙별 캐시를 소유합니다. `analysis_graph_flow.py`는 언어 중립
+문맥 경로 탐색을 소유합니다.
+`typescript_analysis.py`는 `tools/code-security-typescript-frontend/`의 루트 제한 Compiler API
+프로세스를 검증하고, `java_analysis.py`는 실험적 tree-sitter Java SQL 시나리오를 소유합니다.
+`analysis_sarif.py`는 모든 결과를 정본 수집 경로로 돌려보냅니다.
+분석 규칙, 구성 요소 약관, 고정 코퍼스는 `rule-catalog/code-security/`에 유지합니다. 전달 계층은
+이 레인을 조립하고 prepared 및 Kata 스캔에서 결정론적으로 재현할 뿐이며, 스캐너 이미지는
+컴파일러와 프런트엔드를 고정합니다. 새 서비스, pantheon 에이전트, 저장소 쓰기, 승인 또는 실행
+권한을 추가하지 않습니다.
+[코드 보안 분석 엔진](../operations/code-security-analysis-engine-ko.md)을 참조하세요.
+두 프런트엔드는 소스 읽기를 정확한 루트에 연결하고 근거를 수락하기 전에 그래프 예산을
+강제합니다. 프런트엔드 실패는 작업자 또는 권한 경계를 바꾸지 않고 커버리지를 낮춥니다.
 
 ## 리포지토리 스크립트 레이아웃
 

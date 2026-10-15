@@ -1,0 +1,15 @@
+schema_version: 1.0.0
+rule_id: fdai.python.path-traversal
+version: 1.0.0
+analysis_kind: graph_flow
+languages: [python]
+cwe_ids: [22]
+selectors:
+  - {role: source, symbol: flask.request.args}
+  - {role: source, symbol: request.args}
+  - {role: sink, symbol: open, argument_index: 0}
+  - {role: sink, symbol: flask.send_file, argument_index: 0}
+  - {role: propagator, symbol: join}
+  - {role: sanitizer, symbol: os.path.basename, security_context: path-component-reduction}
+vulnerable_cases: [python-path-cross-file]
+safe_cases: [python-path-basename]

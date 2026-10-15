@@ -1,0 +1,20 @@
+schema_version: 1.0.0
+rule_id: fdai.csharp.sql-injection
+version: 1.0.0
+analysis_kind: graph_flow
+languages: [csharp]
+cwe_ids: [89]
+selectors:
+  - {role: source, symbol: Microsoft.AspNetCore.Mvc.FromQueryAttribute}
+  - {role: source, symbol: Microsoft.AspNetCore.Http.HttpRequest.Query}
+  - {role: sink, symbol: Microsoft.Data.SqlClient.SqlCommand, argument_index: 0}
+  - {role: sink, symbol: Microsoft.EntityFrameworkCore.RelationalDatabaseFacadeExtensions.ExecuteSqlRaw, argument_index: 1}
+  - {role: propagator, symbol: string.Trim}
+  - role: sanitizer
+    symbol: int.Parse
+    security_context: sql-numeric-conversion
+  - role: sanitizer
+    symbol: System.Guid.Parse
+    security_context: sql-guid-conversion
+vulnerable_cases: [csharp-sqli-cross-file, csharp-sqli-query]
+safe_cases: [csharp-sqli-parameterized, csharp-sqli-numeric]

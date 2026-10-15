@@ -1,0 +1,46 @@
+# FDAI-authored shadow taint verifier for same-condition Python SQL evaluation.
+rules:
+  - id: fdai.verify.python.sql-injection
+    languages: [python]
+    severity: ERROR
+    message: Request input reaches a SQL execution argument.
+    metadata: {cwe: ["CWE-89"], category: security, confidence: HIGH, fdai_verifier: true}
+    mode: taint
+    pattern-sources:
+      - patterns:
+          - pattern-either:
+              - pattern: $REQ.args
+              - pattern: $REQ.args.get(...)
+              - pattern: $REQ.args[...]
+              - pattern: $REQ.form
+              - pattern: $REQ.form.get(...)
+              - pattern: $REQ.form[...]
+              - pattern: $REQ.values
+              - pattern: $REQ.values.get(...)
+              - pattern: $REQ.values[...]
+              - pattern: $REQ.json
+              - pattern: $REQ.json.get(...)
+              - pattern: $REQ.json[...]
+              - pattern: $REQ.data
+              - pattern: $REQ.query_params
+              - pattern: $REQ.query_params.get(...)
+              - pattern: $REQ.query_params[...]
+              - pattern: $REQ.path_params
+              - pattern: $REQ.path_params.get(...)
+              - pattern: $REQ.path_params[...]
+          - metavariable-regex: {metavariable: $REQ, regex: '^(request|req)$'}
+    pattern-sanitizers:
+      - pattern-either:
+          - pattern: int(...)
+          - pattern: float(...)
+          - pattern: bool(...)
+          - pattern: uuid.UUID(...)
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern: $CURSOR.execute($QUERY, ...)
+              - pattern: $CURSOR.executemany($QUERY, ...)
+              - pattern: $CURSOR.executescript($QUERY, ...)
+              - pattern: $CURSOR.raw($QUERY, ...)
+              - pattern: sqlalchemy.text($QUERY)
+          - focus-metavariable: $QUERY

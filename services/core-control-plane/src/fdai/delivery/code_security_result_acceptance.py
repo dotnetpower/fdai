@@ -11,7 +11,11 @@ from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
 
+from fdai.core.security.code_findings.analysis_contracts import CodeSecurityRuleSpec
+from fdai.core.security.code_findings.csharp_analysis import CSharpCompilerConfig
 from fdai.core.security.code_findings.issue_summary import summarize_issues
+from fdai.core.security.code_findings.java_analysis import JavaCompilerConfig
+from fdai.core.security.code_findings.typescript_analysis import TypeScriptFrontendConfig
 from fdai.delivery.code_security_prepared_source import PreparedSource
 from fdai.delivery.code_security_sandbox import BubblewrapScannerSandbox, ScannerRunResult
 from fdai.delivery.code_security_scan_job import ScanJobConfig, ScanJobResult, run_scan_job
@@ -116,6 +120,10 @@ async def accept_prepared_scan(
     scanners: ScannerCatalog,
     verifier_catalog: VerifierCatalog | None,
     verification_work_root: Path,
+    analysis_rules: Sequence[CodeSecurityRuleSpec] = (),
+    typescript_frontend: TypeScriptFrontendConfig | None = None,
+    java_compiler: JavaCompilerConfig | None = None,
+    csharp_compiler: CSharpCompilerConfig | None = None,
 ) -> ScanOutcome:
     """Recompute findings using trusted bindings and captured stdout, never candidate files.
 
@@ -144,6 +152,10 @@ async def accept_prepared_scan(
         sandbox=replay,
         prepared_source=prepared,
         verifier_catalog=verifier_catalog,
+        analysis_rules=analysis_rules,
+        typescript_frontend=typescript_frontend,
+        java_compiler=java_compiler,
+        csharp_compiler=csharp_compiler,
     )
     replay.require_consumed()
     if (
@@ -168,6 +180,10 @@ async def record_accepted_prepared_scan(
     scanners: ScannerCatalog,
     verifier_catalog: VerifierCatalog | None,
     verification_work_root: Path,
+    analysis_rules: Sequence[CodeSecurityRuleSpec] = (),
+    typescript_frontend: TypeScriptFrontendConfig | None = None,
+    java_compiler: JavaCompilerConfig | None = None,
+    csharp_compiler: CSharpCompilerConfig | None = None,
 ) -> bool:
     """Record only an independently rebuilt result; rejection performs no state-store writes."""
     outcome = await accept_prepared_scan(
@@ -179,6 +195,10 @@ async def record_accepted_prepared_scan(
         scanners=scanners,
         verifier_catalog=verifier_catalog,
         verification_work_root=verification_work_root,
+        analysis_rules=analysis_rules,
+        typescript_frontend=typescript_frontend,
+        java_compiler=java_compiler,
+        csharp_compiler=csharp_compiler,
     )
     return await record_code_security_review(
         store, outcome.package, issues=outcome.issues, issues_truncated=outcome.issues_truncated

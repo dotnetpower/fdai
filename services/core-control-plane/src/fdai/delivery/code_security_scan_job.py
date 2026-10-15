@@ -28,14 +28,41 @@ from fdai.core.security.code_findings import (
     build_issues,
     ingest_sarif,
 )
+from fdai.core.security.code_findings.analysis_build_context import build_analysis_context
+from fdai.core.security.code_findings.analysis_contracts import CodeSecurityRuleSpec
+from fdai.core.security.code_findings.analysis_incremental import (
+    IncrementalPlan,
+    analyze_python_incremental,
+    load_incremental_snapshot,
+    save_incremental_snapshot,
+)
+from fdai.core.security.code_findings.analysis_sarif import PRODUCER as ANALYSIS_PRODUCER
+from fdai.core.security.code_findings.analysis_sarif import render_analysis_sarif
+from fdai.core.security.code_findings.csharp_analysis import (
+    CSharpAnalysisResult,
+    CSharpCompilerConfig,
+    analyze_csharp_repository,
+)
+from fdai.core.security.code_findings.java_analysis import (
+    JavaAnalysisResult,
+    JavaCompilerConfig,
+    analyze_java_repository,
+)
 from fdai.core.security.code_findings.lens import (
     LensLaneReport,
     LensLaneUnavailableError,
     run_lens_lane,
 )
 from fdai.core.security.code_findings.models import Occurrence
+from fdai.core.security.code_findings.python_analysis import PythonAnalysisResult
 from fdai.core.security.code_findings.receipts import build_receipt, receipt_to_dict
 from fdai.core.security.code_findings.review_signal import ReviewSource, build_review_package
+from fdai.core.security.code_findings.typescript_analysis import (
+    TypeScriptAnalysisError,
+    TypeScriptAnalysisResult,
+    TypeScriptFrontendConfig,
+    analyze_typescript_repository,
+)
 from fdai.core.security.code_findings.verification import ScanCoverageReceipt
 from fdai.core.security.code_findings.verifier import (
     VerifierResult,
@@ -95,6 +122,12 @@ class ScanJobResult:
     published: bool
     artifact_dir: Path
     sarif_files: tuple[Path, ...]
+    analysis_results: tuple[
+        CSharpAnalysisResult | JavaAnalysisResult | PythonAnalysisResult | TypeScriptAnalysisResult,
+        ...,
+    ] = ()
+    analysis_incremental_plans: tuple[IncrementalPlan, ...] = ()
+    analysis_cache_notes: tuple[str, ...] = ()
     lens_report: LensLaneReport | None = None
     verifier_results: tuple[VerifierResult, ...] = ()
     proof_results: tuple[ProofResult, ...] = ()
@@ -116,6 +149,10 @@ async def run_scan_job(
     verifier_catalog: VerifierCatalog | None = None,
     prove_python: Path | None = None,
     prove_runtimes: Mapping[str, Path] | None = None,
+    analysis_rules: Sequence[CodeSecurityRuleSpec] = (),
+    typescript_frontend: TypeScriptFrontendConfig | None = None,
+    java_compiler: JavaCompilerConfig | None = None,
+    csharp_compiler: CSharpCompilerConfig | None = None,
 ) -> ScanJobResult:
     """Run the deterministic lane, and the optional LLM lens lane, for one revision.
 
@@ -164,7 +201,11 @@ async def run_scan_job(
     revision = source.revision
     artifacts = config.work_root / "scans" / revision
     artifacts.mkdir(parents=True, exist_ok=True, mode=0o700)
-    required = config.required_scanners or frozenset(scanners.scanners)
+    required = (
+        frozenset(scanners.scanners)
+        if config.required_scanners is None
+        else config.required_scanners
+    )
     limits: list[str] = []
     runs: list[ScannerRunResult] = []
     ingested: list[SarifIngestResult] = []
@@ -218,6 +259,147 @@ async def run_scan_job(
         except SarifIngestError as exc:
             observed[spec.producer] = False
             limits.append(f"scanner {scanner_id} produced invalid SARIF: {exc}")
+    analysis_results: list[
+        CSharpAnalysisResult | JavaAnalysisResult | PythonAnalysisResult | TypeScriptAnalysisResult
+    ] = []
+    analysis_incremental_plans: list[IncrementalPlan] = []
+    analysis_cache_notes: list[str] = []
+    analysis_versions: dict[str, str] = {}
+    if analysis_rules:
+        build_context_digest = build_analysis_context(source.path).digest()
+        analysis_versions[ANALYSIS_PRODUCER] = f"owned:{_analysis_rules_digest(analysis_rules)}"
+        observed[ANALYSIS_PRODUCER] = True
+        for rule in analysis_rules:
+            result: (
+                CSharpAnalysisResult
+                | JavaAnalysisResult
+                | PythonAnalysisResult
+                | TypeScriptAnalysisResult
+                | None
+            )
+            if "python" in rule.languages and not _has_python_source(source.path):
+                continue
+            if "python" in rule.languages:
+                cache_path = _analysis_cache_path(
+                    config.work_root, config.repository_alias, rule.rule_id
+                )
+                previous = None
+                if cache_path.exists() or cache_path.is_symlink():
+                    try:
+                        previous = load_incremental_snapshot(cache_path)
+                    except (OSError, ValueError):
+                        analysis_cache_notes.append(
+                            f"owned analysis {rule.rule_id} cache rejected; full analysis used"
+                        )
+                incremental = await asyncio.to_thread(
+                    analyze_python_incremental,
+                    source.path,
+                    revision=revision,
+                    build_context_digest=build_context_digest,
+                    framework_model_digest=rule.digest(),
+                    rule=rule,
+                    previous=previous,
+                )
+                result = incremental.result
+                analysis_incremental_plans.append(incremental.plan)
+                try:
+                    save_incremental_snapshot(cache_path, incremental.snapshot)
+                except (OSError, ValueError):
+                    analysis_cache_notes.append(f"owned analysis {rule.rule_id} cache write failed")
+            elif "typescript" in rule.languages and typescript_frontend is not None:
+                try:
+                    result = await asyncio.to_thread(
+                        analyze_typescript_repository,
+                        source.path,
+                        revision=revision,
+                        build_context_digest=build_context_digest,
+                        framework_model_digest=rule.digest(),
+                        rule=rule,
+                        config=typescript_frontend,
+                    )
+                except TypeScriptAnalysisError as exc:
+                    observed[ANALYSIS_PRODUCER] = False
+                    limits.append(
+                        f"owned analysis {rule.rule_id} unavailable: {type(exc).__name__}"
+                    )
+                    continue
+                if result is None:
+                    continue
+            elif "typescript" in rule.languages and not _has_typescript_source(source.path):
+                continue
+            elif "java" in rule.languages and not _has_java_source(source.path):
+                continue
+            elif "java" in rule.languages and java_compiler is None:
+                observed[ANALYSIS_PRODUCER] = False
+                limits.append(f"owned analysis {rule.rule_id} has no compiler binding")
+                continue
+            elif "java" in rule.languages:
+                try:
+                    result = await asyncio.to_thread(
+                        analyze_java_repository,
+                        source.path,
+                        revision=revision,
+                        build_context_digest=build_context_digest,
+                        framework_model_digest=rule.digest(),
+                        rule=rule,
+                        compiler=java_compiler,
+                    )
+                except ValueError as exc:
+                    observed[ANALYSIS_PRODUCER] = False
+                    limits.append(
+                        f"owned analysis {rule.rule_id} unavailable: {type(exc).__name__}"
+                    )
+                    continue
+                if result is None:
+                    continue
+            elif "csharp" in rule.languages and not _has_csharp_source(source.path):
+                continue
+            elif "csharp" in rule.languages and csharp_compiler is not None:
+                try:
+                    result = await asyncio.to_thread(
+                        analyze_csharp_repository,
+                        source.path,
+                        revision=revision,
+                        build_context_digest=build_context_digest,
+                        framework_model_digest=rule.digest(),
+                        rule=rule,
+                        config=csharp_compiler,
+                    )
+                except ValueError as exc:
+                    observed[ANALYSIS_PRODUCER] = False
+                    limits.append(
+                        f"owned analysis {rule.rule_id} unavailable: {type(exc).__name__}"
+                    )
+                    continue
+                if result is None:
+                    continue
+            else:
+                observed[ANALYSIS_PRODUCER] = False
+                limits.append(f"owned analysis rule {rule.rule_id} has no bound frontend")
+                continue
+            analysis_results.append(result)
+            raw = render_analysis_sarif(result, rule)
+            path = artifacts / f"analysis-{rule.rule_id.replace('.', '-')}.sarif"
+            path.write_bytes(raw)
+            sarif_files.append(path)
+            ingested.append(
+                ingest_sarif(
+                    raw,
+                    SarifIngestContext(
+                        lane=Lane.DETERMINISTIC,
+                        revision=revision,
+                        source_roots=(str(source.path),),
+                        producer=ANALYSIS_PRODUCER,
+                        trusted_analysis_evidence=True,
+                    ),
+                )
+            )
+            if result.graph.coverage_limits:
+                observed[ANALYSIS_PRODUCER] = False
+                limits.extend(
+                    f"owned analysis {rule.rule_id} incomplete: {item}"
+                    for item in result.graph.coverage_limits
+                )
     occurrences: list[Occurrence] = [occ for result in ingested for occ in result.occurrences]
     lens_report: LensLaneReport | None = None
     lens_notes: list[str] = []
@@ -267,7 +449,10 @@ async def run_scan_job(
         revision,
         catalog.version_stamp(),
         ingested,
-        rules_versions=_rules_versions(ingested, scanners, rules_digest(config.rules_dir)),
+        rules_versions={
+            **_rules_versions(ingested, scanners, rules_digest(config.rules_dir)),
+            **analysis_versions,
+        },
         full_repository=frozenset(p for p, done in observed.items() if done),
         observed_completion=observed,
     )
@@ -338,6 +523,16 @@ async def run_scan_job(
                     ),
                     "results": [item.as_dict() for item in verifier_results],
                 },
+                "analysis": [
+                    {
+                        "graph_digest": item.graph.digest(),
+                        "coverage_limits": list(item.graph.coverage_limits),
+                        "path_digests": [path.digest() for path in item.paths],
+                    }
+                    for item in analysis_results
+                ],
+                "analysis_incremental": [asdict(item) for item in analysis_incremental_plans],
+                "analysis_cache_notes": analysis_cache_notes,
             },
             indent=2,
         )
@@ -356,6 +551,9 @@ async def run_scan_job(
         published=published,
         artifact_dir=artifacts,
         sarif_files=tuple(sarif_files),
+        analysis_results=tuple(analysis_results),
+        analysis_incremental_plans=tuple(analysis_incremental_plans),
+        analysis_cache_notes=tuple(analysis_cache_notes),
         lens_report=lens_report,
         verifier_results=verifier_results,
         proof_results=proof_results,
@@ -371,6 +569,46 @@ def rules_digest(rules_dir: Path) -> str:
         digest.update(path.relative_to(rules_dir).as_posix().encode() + b"\0")
         digest.update(path.read_bytes() + b"\0")
     return digest.hexdigest()[:16]
+
+
+def _digest_values(*values: str) -> str:
+    digest = hashlib.sha256()
+    for value in values:
+        digest.update(value.encode("utf-8") + b"\0")
+    return f"sha256:{digest.hexdigest()}"
+
+
+def _analysis_rules_digest(rules: Sequence[CodeSecurityRuleSpec]) -> str:
+    digest = hashlib.sha256()
+    for rule in sorted(rules, key=lambda item: (item.rule_id, item.version)):
+        digest.update(rule.canonical_bytes() + b"\0")
+    return digest.hexdigest()[:16]
+
+
+def _analysis_cache_path(work_root: Path, repository_alias: str, rule_id: str) -> Path:
+    repository_key = hashlib.sha256(repository_alias.encode("utf-8")).hexdigest()
+    rule_key = hashlib.sha256(rule_id.encode("utf-8")).hexdigest()
+    return work_root / "analysis-cache" / repository_key / f"{rule_key}.json"
+
+
+def _has_typescript_source(root: Path) -> bool:
+    return any(
+        path.is_file() and not path.is_symlink()
+        for pattern in ("*.ts", "*.tsx", "*.mts", "*.cts")
+        for path in root.rglob(pattern)
+    )
+
+
+def _has_python_source(root: Path) -> bool:
+    return any(path.is_file() and not path.is_symlink() for path in root.rglob("*.py"))
+
+
+def _has_java_source(root: Path) -> bool:
+    return any(path.is_file() and not path.is_symlink() for path in root.rglob("*.java"))
+
+
+def _has_csharp_source(root: Path) -> bool:
+    return any(path.is_file() and not path.is_symlink() for path in root.rglob("*.cs"))
 
 
 def _rules_versions(
