@@ -256,6 +256,17 @@ retention window and never replace runtime routing.
 Evaluator inputs are isolated copies. Changes to either revision are rejected before storage or
 publication, and retained evaluator references cannot rewrite the returned candidate.
 
+Standard runtime composition can bind one reviewed off-path training batch through
+`FDAI_BRAGI_INTENT_TRAINING_EVIDENCE_PATH` and
+`FDAI_BRAGI_INTENT_TRAINING_EVIDENCE_SHA256`. The bounded regular file must match
+`FDAI_SOURCE_REVISION` and carries a consent-filtered digest-only corpus, complete externally
+produced evaluation results, distinct evaluator and reviewer principal digests, and one reviewed
+promotion input. When configured, startup invokes Bragi's existing training path once and emits
+only retained `shadow_ready` evidence. Missing configuration remains unbound; partial, stale,
+changed, non-independent, incomplete, or type-substituted input fails startup. The adapter does
+not run a model, establish semantic quality, alter runtime routing, activate a candidate, or widen
+Bragi's translator-only role.
+
 Standard runtime composition can bind Mimir's promotion, regression, and deprecation ports to one
 deployment-reviewed immutable evidence file. `FDAI_MIMIR_MAINTENANCE_EVIDENCE_PATH` names an
 absolute bounded regular file, `FDAI_MIMIR_MAINTENANCE_EVIDENCE_SHA256` pins its exact bytes, and

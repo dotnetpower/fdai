@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 916630f50fad641aa7950fcd44f2553f0c34093b
+translation_source_sha: 67513c8b7dc9af8246fd519ff967dd04860d70bf
 translation_revised: 2026-10-15
 ---
 # 에이전트 판테온
@@ -255,6 +255,16 @@ Bragi 학습의 실행, 게시, 단계 식별자는 동의 참조, 후보 근거
 않습니다.
 평가기에는 원본과 분리한 사본을 전달합니다. 기준 또는 후보 리비전이 바뀌면 저장과 게시 전에
 거절하며, 평가기가 보관한 참조로 반환된 후보를 바꿀 수도 없습니다.
+
+표준 런타임 조립은 `FDAI_BRAGI_INTENT_TRAINING_EVIDENCE_PATH`와
+`FDAI_BRAGI_INTENT_TRAINING_EVIDENCE_SHA256`으로 검토된 비활성 학습 배치 하나를 연결할 수
+있습니다. 범위가 제한된 일반 파일은 `FDAI_SOURCE_REVISION`과 일치해야 하며, 동의를 확인한
+해시 전용 표본, 외부에서 만든 완전한 평가 결과, 서로 다른 평가자·검토자 principal 해시와
+검토된 승격 입력 하나를 포함합니다. 설정하면 시작 과정에서 Bragi의 기존 학습 경로를 한 번
+호출하고 보존되는 `shadow_ready` 근거만 게시합니다. 설정이 없으면 미연결 상태를 유지합니다.
+일부 설정만 있거나 오래됨, 내용 변경, 독립성 위반, 불완전함, JSON 타입 치환이 있으면 시작에
+실패합니다. 이 어댑터는 모델을 실행하거나 의미 정확성을 입증하거나 런타임 라우팅을 바꾸거나
+후보를 활성화하지 않으며 Bragi의 변환 전용 역할도 넓히지 않습니다.
 
 표준 런타임 조립은 Mimir의 승격, 회귀, 폐기 포트를 배포 환경에서 검토한 하나의 불변 근거
 파일에 연결할 수 있습니다. `FDAI_MIMIR_MAINTENANCE_EVIDENCE_PATH`는 크기가 제한된 일반

@@ -63,6 +63,10 @@ from fdai.runtime.aks_commerce import (
 from fdai.runtime.approval_policy import approver_authorizer_from_environment
 from fdai.runtime.bootstrap_agent_discussion import _runtime_asset_root as _runtime_asset_root
 from fdai.runtime.bootstrap_agent_discussion import build_runtime_pantheon_synthesis
+from fdai.runtime.bootstrap_bragi_intent_training import (
+    build_bragi_intent_training_batch,
+    run_bragi_intent_training_batch,
+)
 from fdai.runtime.bootstrap_capacity_sampling import build_capacity_sampler
 from fdai.runtime.bootstrap_chaos_schedule import build_chaos_schedule
 from fdai.runtime.bootstrap_forseti_replay import build_forseti_historical_replay_source
@@ -463,6 +467,7 @@ async def initialize_pantheon(
         action_type_names=frozenset(action.name for action in config.control_loop.action_types),
     )
     forseti_historical_replay_source = build_forseti_historical_replay_source(config.environment)
+    bragi_intent_training = build_bragi_intent_training_batch(config.environment)
     pantheon_runtime = PantheonRuntime.build(
         assignment_workflow=config.assignment_workflow,
         provider=config.bus,
@@ -667,9 +672,12 @@ async def initialize_pantheon(
             if llm_bindings is not None
             else ""
         ),
+        conversation_intent_training_evaluator=bragi_intent_training,
         semantic_router_config=config.semantic_router_config_from_env(),
         cost_runtime=cost_runtime,
     )
+    if bragi_intent_training is not None:
+        await run_bragi_intent_training_batch(pantheon_runtime, bragi_intent_training)
     cast(Heimdall, pantheon_runtime.agents["Heimdall"]).bind_forecast_history_ingress(
         forecast_context.ingest
     )

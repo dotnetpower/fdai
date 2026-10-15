@@ -31,6 +31,15 @@ durable per-correlation budget ledger. Target/locale transport, verification hol
 accounting follow the same contracts in every venue; these bindings neither enable Cost
 Governance nor prove operational or handover readiness.
 
+Both profiles can mount the same optional deployment-reviewed Pantheon evidence files. Core binds
+Mimir maintenance, Loki off-path scenarios, Forseti historical replay, and Bragi off-path training
+only when each feature's absolute path and exact SHA-256 environment pair is complete and the file
+matches `FDAI_SOURCE_REVISION`. Bragi's configured batch runs once at startup and remains
+shadow-only; the other adapters remain explicit read-only inputs to their owning paths. Missing
+configuration stays unbound, while partial, changed, stale, or malformed input fails startup.
+Runtime platform selection never supplies an evidence file, review, semantic-quality claim,
+approval, promotion, action authority, or operational acceptance.
+
 The [GitHub knowledge connector](../../runbooks/knowledge-github-sources.md) uses the same
 bounded repository, exact-commit, and README validation in both runtime profiles. Anonymous
 public access needs no token; private access uses the deployment-owned read-only GitHub App

@@ -44,6 +44,13 @@ from fdai.agents._framework.base import (
     ConversationTool,
     Layer,
 )
+from fdai.agents._framework.bragi_intent_training import (
+    IntentTrainingEvaluationResult,
+    IntentTrainingEvaluator,
+    IntentTrainingEvidence,
+    IntentTrainingRun,
+    ReviewedIntentTrainingPromotion,
+)
 from fdai.agents._framework.bus import InMemoryBus, PantheonBus
 from fdai.agents._framework.bus_bridge import (
     AgentHandlerObserver,
@@ -304,6 +311,10 @@ __all__ = [
     "PantheonBus",
     "InMemoryBus",
     "InMemoryAuditChain",
+    "IntentTrainingEvaluationResult",
+    "IntentTrainingEvaluator",
+    "IntentTrainingEvidence",
+    "IntentTrainingRun",
     "PantheonRegistry",
     "PantheonRuntime",
     "PromptAuditResult",
@@ -311,6 +322,7 @@ __all__ = [
     "RECOVERY_EFFECT_OBSERVATION_TOPIC",
     "RECOVERY_EFFECT_OBSERVER_PRINCIPAL",
     "RuleGenerationWorkerBindings",
+    "ReviewedIntentTrainingPromotion",
     "Saga",
     "SemanticRouterConfig",
     "ShadowDivergenceLedger",

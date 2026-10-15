@@ -79,6 +79,8 @@ async def test_initialize_pantheon_passes_the_product_selection_to_forseti(
     sampler = object()
     mimir_maintenance = object()
     forseti_replay_source = object()
+    bragi_training = object()
+    bragi_runs: list[tuple[object, object]] = []
     monkeypatch.setattr(pantheon_bootstrap, "build_capacity_sampler", lambda **kwargs: sampler)
     monkeypatch.setattr(
         pantheon_bootstrap,
@@ -90,6 +92,16 @@ async def test_initialize_pantheon_passes_the_product_selection_to_forseti(
         "build_forseti_historical_replay_source",
         lambda environment: forseti_replay_source,
     )
+    monkeypatch.setattr(
+        pantheon_bootstrap,
+        "build_bragi_intent_training_batch",
+        lambda environment: bragi_training,
+    )
+
+    async def run_bragi(runtime: object, batch: object) -> None:
+        bragi_runs.append((runtime, batch))
+
+    monkeypatch.setattr(pantheon_bootstrap, "run_bragi_intent_training_batch", run_bragi)
     monkeypatch.setattr(
         pantheon_bootstrap,
         "build_loki_scenario_bindings",
@@ -151,6 +163,8 @@ async def test_initialize_pantheon_passes_the_product_selection_to_forseti(
     assert captured["mimir_regression_runner"] is mimir_maintenance
     assert captured["mimir_rule_deprecation_reader"] is mimir_maintenance
     assert captured["forseti_historical_replay_source"] is forseti_replay_source
+    assert captured["conversation_intent_training_evaluator"] is bragi_training
+    assert bragi_runs == [(result.runtime, bragi_training)]
     assert result.runtime.agents["Loki"]._recurring_schedule is schedule  # noqa: SLF001
     assert result.runtime.enforce is False
 
