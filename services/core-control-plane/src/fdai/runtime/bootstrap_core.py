@@ -25,6 +25,9 @@ from fdai.core.readiness.self_health import SelfHealthCatalog, load_self_health_
 from fdai.delivery.azure.diagnostic_event_ingest import DiagnosticEventIngestBridge
 from fdai.delivery.azure.monitor_events import DiagnosticNormalizerOptions
 from fdai.delivery.notifications.local_binding import resolve_local_notification_endpoints
+from fdai.delivery.operational_readiness_remediation import (
+    EventBusRemediationProposalPublisher,
+)
 from fdai.delivery.repo_assets import repo_asset_root
 from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.delivery.startup_probe import OpaCompileStartupProbe
@@ -321,23 +324,6 @@ async def build_core_runtime(
     best_practices, checklist_evidence = load_runtime_best_practice_bindings(
         _resolve_catalog_root()
     )
-    operational_readiness_handler = build_operational_readiness_event_handler(
-        posture=container.operational_readiness_posture,
-        publisher=container.operational_readiness_report_publisher,
-        feasibility_probes=container.feasibility_probes,
-        event_validator=container.event_validator,
-        state_store=state_store,
-        decision_evidence=container.decision_evidence_admission_provider,
-        best_practices=best_practices,
-        checklist_evidence=checklist_evidence,
-    )
-    if operational_readiness_handler is None:
-        _LOGGER.info(
-            "operational_readiness_unavailable",
-            extra={"reason": "posture_and_report_publisher_absent"},
-        )
-    else:
-        _LOGGER.info("operational_readiness_ready")
     if plan.isolated_executor_authority_cutover:
         if messaging.auxiliary_bus is None:
             raise RuntimeError(
@@ -484,6 +470,28 @@ async def build_core_runtime(
         workflow_event_bus=messaging.bus,
         approval_bindings=approval_bindings,
     )
+    operational_readiness_handler = build_operational_readiness_event_handler(
+        posture=container.operational_readiness_posture,
+        publisher=container.operational_readiness_report_publisher,
+        feasibility_probes=container.feasibility_probes,
+        event_validator=container.event_validator,
+        state_store=state_store,
+        decision_evidence=container.decision_evidence_admission_provider,
+        best_practices=best_practices,
+        checklist_evidence=checklist_evidence,
+        remediation_publisher=EventBusRemediationProposalPublisher(
+            event_bus=messaging.bus,
+            topic=container.config.kafka.topic_events,
+        ),
+        remediation_levers={rule.id: rule.remediates for rule in control_loop.rules},
+    )
+    if operational_readiness_handler is None:
+        _LOGGER.info(
+            "operational_readiness_unavailable",
+            extra={"reason": "posture_and_report_publisher_absent"},
+        )
+    else:
+        _LOGGER.info("operational_readiness_ready")
     from fdai.core.rule_activation import StateStoreRuleActivationLedger
 
     profile_id = environment.get("FDAI_PROFILE_ID", "").strip() or "default"

@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from typing import Any
+from typing import Any, cast
 
 import pytest
-from fdai.composition.readiness import OperationalReadinessService
+from fdai.composition.readiness import (
+    OperationalReadinessService,
+    build_operational_readiness_event_handler,
+)
 from fdai.core.deploy_preflight import PreflightAnalyzer
 from fdai.core.readiness import (
     HandoffApproval,
@@ -16,6 +19,7 @@ from fdai.core.readiness import (
     SelfApprovalError,
 )
 from fdai.shared.contracts.models import Mode
+from fdai.shared.contracts.validation import EventValidator
 from fdai.shared.providers.projection import Finding, ResourceRef
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
@@ -102,6 +106,24 @@ def _remediation_audits(store: InMemoryStateStore) -> list[Mapping[str, Any]]:
     return [
         entry for entry in _audits(store) if entry["kind"] == "operational_readiness.remediation"
     ]
+
+
+def test_builder_injects_remediation_delivery_and_active_rule_levers() -> None:
+    publisher = _ProposalPublisher()
+
+    handler = build_operational_readiness_event_handler(
+        posture=_Posture(),
+        publisher=_ReportPublisher(),
+        feasibility_probes=(),
+        event_validator=cast(EventValidator, object()),
+        state_store=InMemoryStateStore(),
+        remediation_publisher=publisher,
+        remediation_levers=_LEVERS,
+    )
+
+    assert handler is not None
+    assert handler.service.remediation_publisher is publisher
+    assert handler.service.remediation_levers == _LEVERS
 
 
 async def test_grounded_proposal_is_published_with_two_phase_audit() -> None:
