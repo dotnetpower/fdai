@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 0aaa89079cbd57507dd2fe1a3180b3f22f8b0497
-translation_revised: 2026-10-15
+translation_source_sha: a8cc9856a045d571fbcae5cf2a00685694958923
+translation_revised: 2026-10-16
 ---
 # 런타임 배포 프로파일
 
@@ -19,6 +19,13 @@ translation_revised: 2026-10-15
 > 바뀌지 않습니다.
 
 ## 설계 개요
+
+[로컬 Release Hub](../../../lifecycle/release-hub/README.md)는 별도의 루프백 전용 공급업체 개발
+도구이며, 어느 프로파일에서도 설치되는 런타임 구성 요소가 아닙니다. 저장소 검사를 위한 소스
+루트 등록은 런타임 플랫폼을 선택하거나 Cost Governance를 활성화하지 않습니다. 메타데이터 발행과
+고정 다이제스트 기반 내보내기 파일 검증 테스트는 Azure 배포, 프로덕션 카탈로그 신뢰, 아티팩트
+가용성 또는 FDAI 워크로드 설치 완료의 근거가 아닙니다.
+
 두 프로필은 독립 verifier 설정, 현재 허가 레지스트리 pin, 설치 참조와 정확한 설치 단위 읽기
 범위가 있을 때만 명시적 Operator 토론을 연결합니다. 선행 조건이 없으면 Owner, 허가나 실제
 모델 호출을 만들지 않고 보류합니다. Console 모드 선택은 런타임 프로필, 실행기 신원 또는

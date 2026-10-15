@@ -19,6 +19,13 @@ authority. Azure Container Apps remains a supported compatibility profile for ex
 > this runtime contract doesn't change.
 
 ## Design at a glance
+
+The [local Release Hub](../../../lifecycle/release-hub/README.md) is a separate loopback-only vendor
+development tool, not an installed runtime component in either profile. Registering its source
+root for repository checks neither selects a runtime platform nor activates Cost Governance.
+Its metadata publication and pinned export tests are not evidence of an Azure deployment,
+production catalog trust, artifact availability, or a completed FDAI workload installation.
+
 Both profiles bind explicit Operator discussion only when the independently configured verifier,
 current grant-registry pin, installation reference and exact installation read scope exist.
 Missing prerequisites hold rather than creating an Owner, grant or live model invocation.

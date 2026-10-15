@@ -19,11 +19,13 @@ from fdai_deployment_cli.lifecycle_plan import SuppressionWindow
 
 from fdai_lifecycle_hub import domain, schemas
 from fdai_lifecycle_hub.catalog import load_catalog
+from fdai_lifecycle_hub.catalog_import import load_pinned_export
 from fdai_lifecycle_hub.errors import HubStoreError
 from fdai_lifecycle_hub.planning import plan_next
 from fdai_lifecycle_hub.signing import (
     generate_development_key,
     load_private_key,
+    load_public_key,
     load_signing_key,
     verify_key_proof,
 )
@@ -109,6 +111,19 @@ def _parser() -> argparse.ArgumentParser:
     recompute.add_argument("--catalog", type=Path, required=True)
     recompute.add_argument("--key", type=Path, required=True)
     recompute.add_argument("--key-epoch", type=int, default=1)
+    pinned = command(
+        "recompute-pinned",
+        _recompute_pinned,
+        "plan from an explicitly pinned local Release Hub export",
+    )
+    pinned.add_argument("installation_id")
+    pinned.add_argument("--export", type=Path, required=True)
+    pinned.add_argument("--sha256", required=True, help="trusted out-of-band export digest")
+    pinned.add_argument("--release-public-key", type=Path, required=True)
+    pinned.add_argument("--minimum-revision", type=int, required=True)
+    pinned.add_argument("--previous-sha256")
+    pinned.add_argument("--key", type=Path, required=True)
+    pinned.add_argument("--key-epoch", type=int, default=1)
 
     show = command(
         "show",
@@ -244,6 +259,26 @@ def _recompute(args: argparse.Namespace) -> int:
         key=load_signing_key(args.key, epoch=args.key_epoch),
     )
     outcome = _store().recompute(args.installation_id, planner, now=domain.utc_now())
+    _print(schemas.outcome_record(outcome))
+    return 0
+
+
+def _recompute_pinned(args: argparse.Namespace) -> int:
+    with args.export.open("rb") as handle:
+        raw = handle.read(8 * 1024 * 1024 + 1)
+    now = domain.utc_now()
+    catalog = load_pinned_export(
+        raw,
+        expected_sha256=args.sha256,
+        public_key=load_public_key(args.release_public_key),
+        now=now,
+        minimum_revision=args.minimum_revision,
+        previous_sha256=args.previous_sha256,
+    )
+    planner = partial(
+        plan_next, catalog=catalog, key=load_signing_key(args.key, epoch=args.key_epoch)
+    )
+    outcome = _store().recompute(args.installation_id, planner, now=now)
     _print(schemas.outcome_record(outcome))
     return 0
 
