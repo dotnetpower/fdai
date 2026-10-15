@@ -8,6 +8,14 @@
   "readinessHint": "Review the effective narrator, T2 reasoning pair, and environment before changing policy.",
   "policyReady": "Policy ready",
   "actionRequired": "Action required",
+  "t2PairReady": "T2 pair ready",
+  "t2PairIncomplete": "T2 pair incomplete",
+  "t2ReadyTitle": "T2 quality gate is ready",
+  "t2ReadyHint": "A primary model and an independent secondary publisher are active for mixed-model verification.",
+  "t2SecondaryMissingTitle": "Independent secondary model is not configured",
+  "t2SecondaryMissingHint": "T1 narration remains available. T2 judgments stay unavailable until a secondary model from another publisher is reviewed and activated.",
+  "t2ReviewRequiredTitle": "T2 policy requires review",
+  "t2ReviewRequiredHint": "The recorded pair does not yet satisfy the active quality-gate policy. Review the catalog draft before requesting activation.",
   "currentNarrator": "Current narrator",
   "reviewT2Policy": "Review T2 policy",
   "openCatalog": "Open catalog",
@@ -144,5 +152,7 @@
   "domainCount": "{count} of {max} hosts",
   "unsavedChanges": "Unsaved web-search changes",
   "settingsCurrent": "Web-search settings are up to date",
-  "saveBoundary": "Saving updates the deployment allowlist only. It does not grant execution authority."
+  "saveBoundary": "Saving updates the deployment allowlist only. It does not grant execution authority.",
+  "webSearchUnavailableTitle": "Web search is not ready",
+  "webSearchUnavailableHint": "You can prepare the allowlist now, but search requests remain unavailable until provider readiness is verified."
 }
