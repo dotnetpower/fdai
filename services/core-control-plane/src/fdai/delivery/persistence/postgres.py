@@ -686,6 +686,18 @@ class PostgresStateStore(
         )
         return projected, truncated
 
+    async def read_audit_entries(self, *, limit: int) -> tuple[tuple[Mapping[str, Any], ...], bool]:
+        if type(limit) is not int or not 1 <= limit <= 512:
+            raise ValueError("audit history limit must be between 1 and 512")
+        async with self._connection() as conn:
+            async with conn.transaction():
+                await self._set_statement_timeout(conn)
+                cursor = await conn.execute(
+                    "SELECT entry FROM audit_log ORDER BY seq ASC LIMIT %s", (limit + 1,)
+                )
+                rows = await cursor.fetchall()
+        return tuple(dict(_json_object(row["entry"])) for row in rows[:limit]), len(rows) > limit
+
     # ------------------------------------------------------------------
     # Diagnostics
     # ------------------------------------------------------------------

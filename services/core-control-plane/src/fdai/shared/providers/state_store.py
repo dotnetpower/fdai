@@ -327,6 +327,19 @@ class StateStore(Protocol):
 
 
 @runtime_checkable
+class StateStoreAuditReader(Protocol):
+    """Optional bounded history reader for verified legacy-state migration."""
+
+    async def read_audit_entries(self, *, limit: int) -> tuple[tuple[Mapping[str, Any], ...], bool]:
+        """Read oldest-first detached audit bodies and report omitted rows.
+
+        Read one snapshot with a limit between 1 and 512. A truncated result
+        cannot prove complete history or absence.
+        """
+        ...
+
+
+@runtime_checkable
 class AssuranceTwinConfirmationStore(Protocol):
     """Atomically confirm one retained source and its provisional writer row."""
 

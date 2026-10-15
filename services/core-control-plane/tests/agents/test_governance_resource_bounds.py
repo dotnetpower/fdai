@@ -6,7 +6,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
-from fdai.agents._framework.adapters import InMemoryAuditChain
+from fdai.agents._framework.adapters import AuditChainError, InMemoryAuditChain
 from fdai.agents._framework.audit_chain_rehydrate import StateStoreAuditChainAdapter
 from fdai.agents._framework.bragi_models import ConversationSession, RoutingDecision, Turn
 from fdai.agents._framework.saga_handoff import HandoffIssueCheckpoint, SagaHandoffJournal
@@ -142,7 +142,13 @@ async def test_saga_rehydrate_resumes_from_verified_checkpoint() -> None:
         payload={"correlation_id": "corr-new", "idempotency_key": "audit-new"},
     )
 
-    assert restarted.last_verify_visit_count <= 512
+    restarted.verify()
+    assert restarted.last_verify_visit_count == 512
+    assert len(restarted.entries) == 512
+    assert restarted.entries[-1].seq == 1_500
+    assert len(tuple(store.audit_entries)) == 1_501
+    with pytest.raises(AuditChainError, match="full audit history is unavailable"):
+        restarted.verify(full=True)
 
 
 def test_saga_incremental_verify_and_correlation_index_are_bounded() -> None:

@@ -15,16 +15,21 @@ The tests here:
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import os
 import subprocess
 import sys
 import uuid
+from collections.abc import AsyncIterator, Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
+import psycopg
 import pytest
+from fdai.agents import StateStoreAuditChainAdapter
 from fdai.core.case_history import OperationalOutcomeClass
 from fdai.core.operational_learning.cohort_retention import (
     LegacyCaseCohortRetention,
@@ -32,6 +37,9 @@ from fdai.core.operational_learning.cohort_retention import (
 )
 from fdai.core.operational_learning.legacy_suffix_retention import LegacyCaseSuffixRetention
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
+from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from psycopg import sql
+from psycopg.conninfo import conninfo_to_dict, make_conninfo
 
 from tests.core.operational_learning.test_patterns import (
     _cohort_key,
@@ -42,6 +50,136 @@ from tests.core.operational_learning.test_patterns import (
 pytestmark = pytest.mark.integration
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
+AUDIT_CHECKPOINT_KEY = "pantheon/saga/audit-chain/verified-head"
+
+
+@pytest.fixture
+async def saga_database() -> AsyncIterator[str]:
+    dsn = _plain_dsn(_requires_live_db())
+    if conninfo_to_dict(dsn).get("host") not in {"127.0.0.1", "localhost", "::1"}:
+        pytest.fail("Saga integration requires the isolated loopback validation database")
+    _upgrade_head()
+    schema = f"saga_audit_test_{uuid.uuid4().hex}"
+    async with await psycopg.AsyncConnection.connect(dsn, connect_timeout=5) as connection:
+        await connection.execute("SET statement_timeout = '15s'")
+        await connection.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))
+        for table in ("audit_log", "state_kv"):
+            await connection.execute(
+                sql.SQL("CREATE TABLE {}.{} (LIKE public.{} INCLUDING ALL)").format(
+                    sql.Identifier(schema), sql.Identifier(table), sql.Identifier(table)
+                )
+            )
+    try:
+        yield make_conninfo(dsn, options=f"-c search_path={schema}")
+    finally:
+        async with await psycopg.AsyncConnection.connect(dsn, connect_timeout=5) as connection:
+            await connection.execute("SET statement_timeout = '15s'")
+            await connection.execute(
+                sql.SQL("DROP SCHEMA {} CASCADE").format(sql.Identifier(schema))
+            )
+
+
+async def test_saga_shared_chain_and_bounded_reader_on_postgres(saga_database: str) -> None:
+    first_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=saga_database))
+    second_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=saga_database))
+    try:
+        assert await first_store.read_audit_entries(limit=2) == ((), False)
+        for invalid_limit in (0, 513, True):
+            with pytest.raises(ValueError, match="limit must be"):
+                await first_store.read_audit_entries(limit=invalid_limit)
+        first = StateStoreAuditChainAdapter(first_store)
+        second = StateStoreAuditChainAdapter(second_store)
+
+        async def append(chain: StateStoreAuditChainAdapter):
+            return await chain.append(
+                principal="Saga", topic="object.audit-entry", correlation_id="postgres", payload={}
+            )
+
+        alternating = [await append(chain) for chain in (first, second, first)]
+        assert [entry.seq for entry in alternating] == [0, 1, 2]
+        overlapping = await asyncio.gather(append(first), append(second))
+        assert sorted(entry.seq for entry in overlapping) == [3, 4]
+        restarted = StateStoreAuditChainAdapter(second_store)
+        assert (await append(restarted)).seq == 5
+        restarted.verify()
+        rows, truncated = await first_store.read_audit_entries(limit=2)
+        assert [entry["seq"] for entry in rows] == [0, 1]
+        assert truncated
+        rows[0]["payload"]["changed"] = True
+        assert (await second_store.read_audit_entries(limit=1))[0][0]["payload"] == {}
+        assert await first_store.verify_chain()
+    finally:
+        await first_store.aclose()
+        await second_store.aclose()
+
+
+@pytest.mark.parametrize("checkpoint", [False, True])
+async def test_saga_postgres_migrates_complete_legacy_without_rewriting_audit(
+    saga_database: str, checkpoint: bool
+) -> None:
+    seed = InMemoryStateStore()
+    entry = await StateStoreAuditChainAdapter(seed).append(
+        principal="Saga", topic="object.audit-entry", correlation_id="legacy", payload={}
+    )
+    record = dict(next(iter(seed.audit_entries))["entry"])
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=saga_database))
+    try:
+        await store.append_audit_entry({"action_kind": "unrelated.record"})
+        await store.append_audit_entry(record)
+        if checkpoint:
+            await store.write_state(
+                AUDIT_CHECKPOINT_KEY,
+                {"schema_version": "1.0.0", "length": 1, "head_hash": entry.entry_hash},
+            )
+        rows_before, truncated = await store.read_audit_entries(limit=512)
+        assert not truncated
+        chain = StateStoreAuditChainAdapter(store)
+        resumed = await chain.append(
+            principal="Saga", topic="object.audit-entry", correlation_id="resumed", payload={}
+        )
+        assert resumed.seq == 1
+        assert resumed.prev_hash == entry.entry_hash
+        assert (await store.read_audit_entries(limit=512))[0][:2] == rows_before
+        chain.verify(full=True)
+        assert await store.verify_chain()
+    finally:
+        await store.aclose()
+
+
+@pytest.mark.parametrize("canceled", [False, True])
+async def test_saga_postgres_head_and_audit_rollback_together(
+    saga_database: str, canceled: bool
+) -> None:
+    class _FailingStore(PostgresStateStore):
+        async def _append_audit_in_transaction(
+            self, conn: psycopg.AsyncConnection[Any], payload: Mapping[str, Any]
+        ) -> None:
+            await super()._append_audit_in_transaction(conn, payload)
+            if canceled:
+                raise asyncio.CancelledError
+            raise RuntimeError("injected PostgreSQL audit transaction failure")
+
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=saga_database))
+    failing_store = _FailingStore(config=PostgresStateStoreConfig(dsn=saga_database))
+    try:
+        initial = StateStoreAuditChainAdapter(store)
+        await initial.append(
+            principal="Saga", topic="object.audit-entry", correlation_id="ok", payload={}
+        )
+        head_before = await store.read_state(AUDIT_CHECKPOINT_KEY)
+        rows_before = await store.read_audit_entries(limit=512)
+        failing = StateStoreAuditChainAdapter(failing_store)
+        with pytest.raises(asyncio.CancelledError if canceled else RuntimeError):
+            await failing.append(
+                principal="Saga", topic="object.audit-entry", correlation_id="failed", payload={}
+            )
+        assert await store.read_state(AUDIT_CHECKPOINT_KEY) == head_before
+        assert await store.read_audit_entries(limit=512) == rows_before
+        assert failing.entries == []
+        assert await store.verify_chain()
+    finally:
+        await failing_store.aclose()
+        await store.aclose()
 
 
 @pytest.mark.asyncio

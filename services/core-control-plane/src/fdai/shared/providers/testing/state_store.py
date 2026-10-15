@@ -651,6 +651,15 @@ class InMemoryStateStore(StateStore):
             truncated = len(matched) > limit
             return tuple(deepcopy(item) for item in matched[-limit:]), truncated
 
+    async def read_audit_entries(self, *, limit: int) -> tuple[tuple[Mapping[str, Any], ...], bool]:
+        if type(limit) is not int or not 1 <= limit <= 512:
+            raise ValueError("audit history limit must be between 1 and 512")
+        with self._lock:
+            return (
+                tuple(deepcopy(record["entry"]) for record in self._audit[:limit]),
+                len(self._audit) > limit,
+            )
+
     # ---- Test helpers --------------------------------------------------------
 
     def _append_audit_locked(self, entry: Mapping[str, Any]) -> None:
