@@ -270,7 +270,10 @@ class SagaAuditRuntimeMixin(_AgentMixinBase):
             if stored_digest and stored_digest != payload_digest:
                 raise RuntimeError("Saga audit outbox idempotency collision")
             return
-        if stored.get("payload") != record["payload"]:
+        stored_payload = stored.get("payload")
+        if not isinstance(stored_payload, Mapping):
+            raise RuntimeError("Saga audit outbox row is malformed")
+        if _payload_digest(stored_payload) != _payload_digest(payload):
             raise RuntimeError("Saga audit outbox idempotency collision")
 
     async def _claim_audit_outbox_publication(
