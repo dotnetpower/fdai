@@ -256,6 +256,15 @@ retention window and never replace runtime routing.
 Evaluator inputs are isolated copies. Changes to either revision are rejected before storage or
 publication, and retained evaluator references cannot rewrite the returned candidate.
 
+Standard runtime composition can bind Mimir's promotion, regression, and deprecation ports to one
+deployment-reviewed immutable evidence file. `FDAI_MIMIR_MAINTENANCE_EVIDENCE_PATH` names an
+absolute bounded regular file, `FDAI_MIMIR_MAINTENANCE_EVIDENCE_SHA256` pins its exact bytes, and
+its source revision must equal `FDAI_SOURCE_REVISION`. The closed manifest binds every promotion
+to one matching completed regression and carries one review reference across the snapshot. Missing
+configuration stays unbound; partial, stale, changed, oversized, duplicate-key, or type-substituted
+input fails startup. This adapter consumes reviewed results. It does not perform the independent
+review, run a regression suite, promote or deprecate a Rule, or grant issue-close authority.
+
 Saga's retained audit outbox compares canonical JSON digests before publication. Reusing a key
 with changed JSON types, including nested integer-to-boolean or integer-to-float substitutions,
 is rejected without publishing or changing the retained row. Exact payload replay remains valid

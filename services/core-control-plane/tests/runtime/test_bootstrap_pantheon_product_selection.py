@@ -77,7 +77,13 @@ async def test_initialize_pantheon_passes_the_product_selection_to_forseti(
     original_build = PantheonRuntime.build
     captured: dict[str, Any] = {}
     sampler = object()
+    mimir_maintenance = object()
     monkeypatch.setattr(pantheon_bootstrap, "build_capacity_sampler", lambda **kwargs: sampler)
+    monkeypatch.setattr(
+        pantheon_bootstrap,
+        "build_mimir_maintenance_source",
+        lambda environment: mimir_maintenance,
+    )
     schedule = build_chaos_schedule(
         environment={"FDAI_LOKI_SCHEDULE_JSON": json.dumps(_schedule_declaration())},
         action_type_names=frozenset({"tool.run-chaos-experiment"}),
@@ -127,6 +133,9 @@ async def test_initialize_pantheon_passes_the_product_selection_to_forseti(
     assert captured["ordered_poison_halt_state_store"] is store
     assert captured["freyr_utilization_sampler"] is sampler
     assert captured["loki_recurring_schedule"] is schedule
+    assert captured["mimir_promotion_outcome_reader"] is mimir_maintenance
+    assert captured["mimir_regression_runner"] is mimir_maintenance
+    assert captured["mimir_rule_deprecation_reader"] is mimir_maintenance
     assert result.runtime.agents["Loki"]._recurring_schedule is schedule  # noqa: SLF001
     assert result.runtime.enforce is False
 

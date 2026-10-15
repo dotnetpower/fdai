@@ -103,7 +103,15 @@ from fdai.agents._framework.loki_scheduling import (
 from fdai.agents._framework.loki_scheduling import (
     validate_config as validate_chaos_schedule,
 )
-from fdai.agents._framework.mimir_maintenance import MimirRuleSourcePollResult
+from fdai.agents._framework.mimir_maintenance import (
+    MimirCatalogPromotionOutcome,
+    MimirCatalogPromotionOutcomeReader,
+    MimirDeprecationCandidate,
+    MimirRegressionResult,
+    MimirRegressionRunner,
+    MimirRuleDeprecationReader,
+    MimirRuleSourcePollResult,
+)
 from fdai.agents._framework.mimir_policy_administration import (
     POLICY_ADMIN_OPA_CAPABILITIES_RELATIVE,
     MimirPolicyAdministration,
@@ -262,7 +270,13 @@ __all__ = [
     "IssueTrackerAdapter",
     "Layer",
     "Mimir",
+    "MimirCatalogPromotionOutcome",
+    "MimirCatalogPromotionOutcomeReader",
+    "MimirDeprecationCandidate",
     "MimirPolicyAdministration",
+    "MimirRegressionResult",
+    "MimirRegressionRunner",
+    "MimirRuleDeprecationReader",
     "MimirRuleSourcePollResult",
     "MAX_RECURRING_SAMPLES",
     "UtilizationSample",

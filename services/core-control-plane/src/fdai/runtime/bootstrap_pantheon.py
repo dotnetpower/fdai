@@ -65,6 +65,7 @@ from fdai.runtime.bootstrap_agent_discussion import _runtime_asset_root as _runt
 from fdai.runtime.bootstrap_agent_discussion import build_runtime_pantheon_synthesis
 from fdai.runtime.bootstrap_capacity_sampling import build_capacity_sampler
 from fdai.runtime.bootstrap_chaos_schedule import build_chaos_schedule
+from fdai.runtime.bootstrap_mimir_maintenance import build_mimir_maintenance_source
 from fdai.runtime.bootstrap_pantheon_models import (
     PantheonInitialization,
     PantheonInitializationResult,
@@ -454,6 +455,7 @@ async def initialize_pantheon(
     )
     llm_bindings = config.container.llm_bindings
     synthesis = build_runtime_pantheon_synthesis(config, asset_root)
+    mimir_maintenance = build_mimir_maintenance_source(config.environment)
     pantheon_runtime = PantheonRuntime.build(
         assignment_workflow=config.assignment_workflow,
         provider=config.bus,
@@ -495,6 +497,9 @@ async def initialize_pantheon(
         )
         if callable(getattr(config.control_loop, "rule_generation_snapshot", None))
         else None,
+        mimir_promotion_outcome_reader=mimir_maintenance,
+        mimir_regression_runner=mimir_maintenance,
+        mimir_rule_deprecation_reader=mimir_maintenance,
         ordered_poison_halt_state_store=config.incident_audit_store,
         proposal_rate_limit_state_store=config.incident_audit_store,
         execution_resource_lock=execution_resource_lock,

@@ -61,6 +61,16 @@ regression evidence must start at or after promotion and finish by the observati
 pre-promotion run cannot begin Saga's quiet window. Focused issue-close/layout checks: 35 passed;
 one-file mypy and Ruff passed. These checks supply no promotion, regression or deprecation reader.
 
+Standard bootstrap now supplies those three read-only Mimir ports from one deployment-reviewed
+immutable file. The binding requires an absolute regular file, exact SHA-256, exact
+`FDAI_SOURCE_REVISION`, a closed schema, bounded records, one snapshot review reference, and a
+one-to-one promotion/regression identity set. Missing configuration remains unbound; partial or
+changed input fails startup. The source may report an empty reviewed snapshot. It never turns the
+draft-only operational catalog-review PR into promotion evidence and never performs review,
+regression, promotion, deprecation, or issue closure. Focused evidence/bootstrap/issue-close/layout
+checks: 58 passed; strict mypy and Ruff passed. A real reviewed manifest and retained runtime
+receipt remain deployment evidence.
+
 Loki recurring schedules require an explicit timezone-aware `start_at`. A missing anchor stays
 held instead of using each tick's current time as a fresh window. The existing window id and
 always-HIL proposal gates remain unchanged. Focused schedule/adversarial/sampling checks: 25
@@ -81,6 +91,7 @@ not authorize scaling. Local routed-provider, sampling and bootstrap checks: 56 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Saga shared inner-chain revision | implemented | `audit_chain_journal.py`; `audit_chain_rehydrate.py`; 165 owning checks, one bounded restart and five real isolated PostgreSQL checks; five-source strict mypy and Ruff | Atomic shared head/audit, bounded verified mirror and explicit legacy holds. Quiesced deployment migration, longer legacy histories and remote issue identity remain separate. |
+| Reviewed Mimir maintenance evidence source | implemented | `mimir_maintenance_evidence.py`; `bootstrap_mimir_maintenance.py`; standard Pantheon bootstrap; focused evidence/bootstrap/issue-close/layout checks: 58 passed; strict mypy and Ruff | One exact-revision immutable snapshot binds the existing promotion, regression and deprecation ports. Actual reviewed input and runtime receipts remain deployment-owned; the adapter grants no Rule or issue authority. |
 | Explicit standard Loki recurring schedule | implemented | `bootstrap_chaos_schedule.py`; `bootstrap_pantheon.py`; initialization/Loki/adversarial/sampling/layout checks: 57 passed | Complete explicit declarations reach the existing Loki handler without enabling enforcement or fabricating input. Actual deployment schedule, approval and execution evidence remain open. |
 | Current ordered-halt and local issue-operation binding | implemented | `bootstrap_pantheon.py`; `state_store_issue_tracker.py`; bootstrap/poison-clear/runtime/Mimir issue checks: 114 passed | Supersedes the source opt-in halt absence and local per-fingerprint operation-id gap only. Remote issue adapters, replica publication and governed restart evidence remain open. |
 | Ontology ContextIndex owner routing | implemented | `agents/_framework/ontology_index.py`; `test_ontology_context_index.py`; real in-memory EventBus phase-chain test | Huginn ingress, Muninn preparation/transition publication, Heimdall validation publication, and Saga audit/seal publication use existing owned topics. The wrapper rejects owner, topic, content, and phase drift and isolates ordinary judgment and learning. Mechanical handlers in this routing test are synthetic; durable source/lifecycle workers and production bootstrap remain open. |
@@ -112,6 +123,7 @@ not authorize scaling. Local routed-provider, sampling and bootstrap checks: 56 
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-15 | implemented | Bound Mimir's promotion, regression and deprecation maintenance ports to one exact-digest, exact-source-revision, closed immutable evidence snapshot without treating draft catalog review as promotion. | `current change`; `mimir_maintenance_evidence.py`; `bootstrap_mimir_maintenance.py`; focused evidence/bootstrap/issue-close/layout checks: 58 passed; strict mypy and Ruff. | Supply a genuinely reviewed deployment manifest and retain runtime receipts; this source change does not perform review, regression, promotion, deprecation or issue closure. |
 | 2026-10-15 | implemented | Repaired the reproduced A/B/A inner-chain fork using a shared content-hashed revision journal and atomic head/audit commit; preserved bounded legacy records or held unverifiable migration. | `current change`; #2149; `audit_chain_journal.py`; `audit_chain_rehydrate.py`; 165 owning checks, one 1,500-append restart and five real isolated PostgreSQL checks; five-source strict mypy and Ruff. | Quiesce old writers before deployment; separately review longer legacy migration; retain remote identity and actual deployment acceptance. |
 | 2026-10-15 | implemented | Isolated Bragi evaluator revision inputs, rejected changed baseline/candidate content or JSON types before storage/publication, and protected returned candidates from retained evaluator references. | `current change`; `bragi_intent_training.py`; five new mutation/isolation regressions; learning/layout checks: 35 passed; one-source mypy and Ruff passed. | Independent evaluator, consent-filtered source corpus, reviewed activation and deployed-provider acceptance remain open. |
 | 2026-10-15 | implemented | Bound Bragi training run/publication/stage identity to the complete corpus, consent, candidate and stage snapshot; retained distinct review revisions without changing runtime routing. | `current change`; `bragi_intent_training.py`, `bragi_runtime_helpers.py`, `bragi.py`; six new identity/storage regressions; learning/layout checks: 30 passed; three-source mypy and Ruff passed. | Independent evaluator, consent-filtered source corpus, reviewed activation and deployed-provider acceptance remain open. |
@@ -206,9 +218,9 @@ not authorize scaling. Local routed-provider, sampling and bootstrap checks: 56 
   [learned and predicted output boundary](#learned-and-predicted-output-boundary), then close or
   record each path with a focused test. This is a follow-up hardening item for the closed
   [issue #1541](https://github.com/dotnetpower/fdai/issues/1541).
-- [ ] Bind production readers and runners for Mimir promotion evidence, Freyr utilization sampling,
-  Loki recurring schedules and adversarial generation, and Bragi reviewed activation; record
-  focused runtime evidence for each bound port.
+- [ ] Supply a real reviewed Mimir maintenance manifest and retain its runtime receipt; retain an
+  actual configured Freyr sampling receipt; bind Loki adversarial generation and Bragi reviewed
+  activation; record focused runtime evidence for each configured port.
 - [ ] Port Forseti retrospective what-if retained-input replay to durable storage and record a
   restart-safe regression for replayed inputs.
 - [ ] Decide whether durable ordered-poison-halt storage should be enabled in production, then
