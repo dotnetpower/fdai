@@ -778,6 +778,13 @@ The [Agent Pantheon implementation plan](../agents/agent-pantheon-implementation
 Governed chaos timing remains part of Core's evidence contract: the harness records injection and detector-owned observation timestamps, and report-feed adapters preserve unknown latency instead of substituting hold duration.
 Parked approvals and recovery receipts require the exact current ActionRun identity; production persists matching Thor state in shadow and enforce modes, and potentially effective executor results reach independent reconciliation before the control loop claims closure.
 Deployment Preflight keeps its publication decision in `core/deploy_preflight/pre_publication_gate.py`: the analyzer re-verifies the accumulated overrides before any remediation proposal is submitted, and a blocking finding, stale evidence, a scope change, or an escalated reassembly withholds the whole pass rather than a subset. Submission crosses ingress as a control-plane signal that carries no ActionType, so Forseti binds `remediate.apply-preflight-toggle` from its own event-type table and the default human-review verdict stands. The gate rejects a non-finite freshness window or a clock without a time zone before any submission, and a hold record retains only a bounded set of finding ids.
+Operational Readiness remediation uses a dedicated non-operator shadow route. Its shared contract
+binds target, evidence, distinct submitter and approver identities, and no-authority fields by
+digest. ActionBuilder accepts only the exact ORR source, a `rule_violation` or `both` ActionType,
+complete arguments, and the active ontology release digest. The route invokes the unified risk
+gate and terminates as shadow, Human approval required, denial, or abstention without execution
+authorization or dispatch. The existing proposal-to-request producer remains unbound until it can
+supply that complete contract and governed delivery evidence.
 ![Control-Loop Wiring. The main stages are events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.en.svg)
 
 ## Configuration Model

@@ -1,7 +1,7 @@
 ---
 title: 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 translation_of: operational-readiness.md
-translation_source_sha: a4051980905edfcf2e402614f207d511d9894af4
+translation_source_sha: 188b291bbb6317f7b17d0b183dc5bf0390b335fc
 translation_revised: 2026-10-15
 ---
 # 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
@@ -207,8 +207,10 @@ ORR 은 새로운 특권 표면을 도입하지 않고 최소한의 새 코드�
 | `composition/readiness.py` | 자세, preflight 및 선택적 checklist 근거를 동시에 실행하고 성공/실패를 감사한 뒤 serialized 보고 publish |
 | `composition/readiness_evidence.py` | ARB 산출물, 근거 만료 및 소유자 연결을 타입이 지정된 결과로 변환 결과 |
 | `core/readiness/remediation` | 결정론적이고 근거가 있는 shadow 전용 교정 제안을 파생하고 self-approval 을 거부 |
+| `fdai-service-contracts/readiness_remediation` | 내용 주소 기반이며 권한을 부여하지 않는 shadow 요청과 생성된 JSON Schema를 정의 |
+| `core/control_loop/readiness_remediation` | 정확한 이벤트 출처, ActionType 트리거와 인자, 활성 온톨로지 릴리스 다이제스트를 검증하고 실행 없이 통합 risk-gate를 호출 |
 | `runtime/consumers.py` 및 부트스트랩 | 표준 `ownership_transfer` 이벤트를 검증하고 중복을 제거한 뒤 시작 준비 상태 이후 Forseti가 최종 책임을 지는 검토를 호출하며, 잘못된 페이로드는 배달 못 한 메시지 큐로 보냅니다. |
-| 전달 의도 | 포크가 `ReadinessReportPublisher`를 Checks API annotation / 콘솔 `ReadPanel`에, `RemediationProposalPublisher`를 `risk-gate -> executor` 진입점에 연결 |
+| 전달 의도 | 포크가 `ReadinessReportPublisher`를 Checks API annotation / 콘솔 `ReadPanel`에 연결하고, `RemediationProposalPublisher`는 완전한 타입 지정 교정 요청을 만드는 게시자에 연결 |
 
 조정기 는 다른 모든 코어 서브시스템처럼 `shared/` 계약과 프로바이더 만
 가져오기 합니다([project-structure.md](../architecture/project-structure-ko.md#module-boundaries)).
@@ -232,7 +234,8 @@ ORR 은 새로운 특권 표면을 도입하지 않고 최소한의 새 코드�
 | 자동 `ownership_transfer` 수집 및 책임 있는 검토 런타임 | implemented | [`composition/readiness.py`](../../../services/core-control-plane/src/fdai/composition/readiness.py), [`composition/readiness_catalog.py`](../../../services/core-control-plane/src/fdai/composition/readiness_catalog.py), [`runtime/consumers.py`](../../../services/core-control-plane/src/fdai/runtime/consumers.py), `runtime/bootstrap_*` 모듈 및 집중 런타임 테스트 | 표준 이벤트를 검증하고 중복을 제거합니다. 시작 시 고정된 WAF 카탈로그와 범위 인식 ARB 증거 제공자를 로드하고 자세/발행기 쌍이 있으면 shadow 작업 흐름에 전달합니다. |
 | 거버넌스가 적용된 런타임 근거를 포함하는 운영 자세, 체크리스트 및 보고서 발행기 연결 | in-progress | [`shared/providers/readiness.py`](../../../services/core-control-plane/src/fdai/shared/providers/readiness.py)의 제공자 연결부, 저장소 체크리스트 연결, 구성의 실패 시 차단되는 선택적 제공자 쌍 | 체크리스트 정의와 증거 투영은 연결되었습니다. 업스트림 런타임에는 아직 구체적인 운영 자세/보고 제공자나 거버넌스가 적용된 shadow 검토 증적이 없습니다. |
 | 근거가 있는 shadow 교정 제안, 구별된 승인자 경계 및 2단계 전달 감사 | implemented | [`core/readiness/remediation.py`](../../../services/core-control-plane/src/fdai/core/readiness/remediation.py), [`composition/readiness.py`](../../../services/core-control-plane/src/fdai/composition/readiness.py), [`test_remediation.py`](../../../services/core-control-plane/tests/core/readiness/test_remediation.py), [`test_readiness_remediation_service.py`](../../../services/core-control-plane/tests/composition/test_readiness_remediation_service.py) | 제안은 shadow 로 유지되고, 연결된 lever 를 인용하거나 abstain 하며, 승인자 신원을 기록하고, self-approval 을 차단하며, 실행기에 도달하지 않습니다. |
-| risk gate 및 실행기 진입점에 대한 `RemediationProposalPublisher` 연결 | not-started | [`shared/providers/readiness.py`](../../../services/core-control-plane/src/fdai/shared/providers/readiness.py)의 프로바이더 연결부 | 어떤 composition root 도 이 연결부를 바인딩하지 않으므로 아직 제안이 실제 risk gate 에 도달하지 않습니다. |
+| 타입 지정 ORR 교정 요청과 shadow risk-gate 수집 경로 | implemented | [`readiness_remediation.py`](../../../packages/service-contracts/src/fdai_service_contracts/readiness_remediation.py), [`action_builder.py`](../../../services/core-control-plane/src/fdai/core/executor/action_builder.py), [`control_loop/readiness_remediation.py`](../../../services/core-control-plane/src/fdai/core/control_loop/readiness_remediation.py) 및 집중 테스트 | 다이제스트가 대상 개정 버전, 근거, 신원, 권한 필드를 묶습니다. Core는 정확한 ORR 이벤트 출처의 shadow 요청만 받고, 완전한 인자를 갖춘 `rule_violation` 또는 `both` ActionType만 허용합니다. 활성 온톨로지 릴리스 다이제스트가 일치할 때 통합 risk-gate를 호출하며 이 출처의 요청은 실행하지 않습니다. |
+| 타입 지정 risk-gate 수집 경로에 대한 `RemediationProposalPublisher` 게시자 연결 | not-started | [`shared/providers/readiness.py`](../../../services/core-control-plane/src/fdai/shared/providers/readiness.py)의 프로바이더 연결부와 위 타입 지정 소비 경로 | 기존 제안을 완전한 타입 지정 요청으로 바꾸어 게시하는 구성 어댑터가 없습니다. 종단 간 전달을 증명하는 통제된 실제 증적도 없습니다. |
 
 ### 구현 이력
 
@@ -246,6 +249,7 @@ ORR 은 새로운 특권 표면을 도입하지 않고 최소한의 새 코드�
 | 2026-08-24 | in-progress | 실행 중인 Core 부트스트랩에 타입이 지정된 `ownership_transfer` 수집을 등록하고 Forseti가 최종 책임을 지며 재생해도 안전한 소비자를 통해 `OperationalReadinessService`를 호출했습니다. 선택적 구성 연결은 제공자 쌍이 일부만 있으면 시작을 차단하며 교정 전달을 연결하지 않습니다. | 현재 변경, 준비 상태, 구성, 런타임 수집 focused 테스트의 `114 passed`, 부트스트랩 구성, 메시징, 종료 테스트의 `58 passed`, focused Ruff 통과 | 구체적인 운영 자세, 체크리스트, 보고서 발행기를 연결하고 shadow 검토 증적 하나를 수집합니다. 교정 제안과 risk gate 연결은 별도 변경으로 진행합니다. |
 | 2026-10-15 | in-progress | 근거가 있는 ORR 교정 제안을 대상별 순서를 보존하는 정규 shadow `operator_request`로 일반 `risk-gate` 진입점에 연결했습니다. 부트스트랩은 활성 Rule의 `remediates` 선언에서 교정 수단을 가져옵니다. 게시자는 권한이나 실행기 신원을 부여하지 않습니다. | 현재 변경, `test_operational_readiness_remediation.py`와 `test_readiness_remediation_service.py`의 `13 passed`, 집중 Ruff 및 strict mypy 통과 | 운영 자세, 체크리스트 및 보고서 발행기를 연결하고 관리되는 Var 승인 증적을 기록하며, 승격 근거가 통과할 때까지 shadow 모드를 유지합니다. |
 | 2026-10-15 | withdrawn | 구현 후 검토에서 활성 Rule의 `remediates` 대상이 `rule_violation` ActionType인 반면 게시자는 `operator_request`를 발행하여 `ActionBuilder`가 `risk-gate` 전에 이벤트를 거부함을 확인했습니다. trigger 의미를 약화하지 않고 실패 시 차단되는 미연결 상태로 복원했습니다. | 현재 변경, `test_operator_request_rejects_rule_violation_only_remediation`와 `test_readiness_remediation_service.py`의 집중 테스트 8개, Ruff 및 번역 검사 통과 | 완전한 ActionType 인자와 trigger 근거를 보존하는 타입 지정 교정 입력 경로를 설계하고 T0, 승인 및 실행기 분리를 우회하지 않게 연결합니다. |
+| 2026-10-15 | in-progress | 내용 주소 기반 ORR 교정 계약과 전용 shadow control-loop 경로를 추가했습니다. 통합 risk-gate 평가 전에 정확한 출처, 서로 다른 신원, ActionType 트리거와 인자, 활성 온톨로지 릴리스를 검증합니다. 요청은 승인 또는 실행 권한을 부여하지 않으며 이 경로는 실행할 수 없습니다. | 현재 변경, 서비스 계약, ActionBuilder, control-loop 집중 테스트 `30 passed`, 집중 Ruff, Ruff format, strict mypy 및 생성 스키마 검사 통과 | 기존 제안 발행기를 완전한 타입 지정 요청 게시자에 연결한 뒤 게시자에서 risk-gate까지의 통제된 증적과 사람 승인 증적을 수집합니다. |
 
 ### 남은 작업
 
@@ -261,9 +265,13 @@ ORR 은 새로운 특권 표면을 도입하지 않고 최소한의 새 코드�
   입증했습니다
   ([`test_remediation.py`](../../../services/core-control-plane/tests/core/readiness/test_remediation.py),
   [`test_readiness_remediation_service.py`](../../../services/core-control-plane/tests/composition/test_readiness_remediation_service.py)).
-- [ ] composition root 에서 `RemediationProposalPublisher` 를 risk gate 진입점에 연결하고,
-  검토 서비스가 실행기 아이덴티티를 보유하지 않은 채 제안이 Var 승인 흐름에 도달하는
-  거버넌스 증적 하나를 기록합니다.
+- [x] 내용 무결성, 정확한 출처, 서로 다른 신원, ActionType 트리거와 인자, 배포된 소스
+  개정 버전을 검증하는 타입 지정 shadow 교정 요청과 Core 수집 경로를 추가했습니다.
+  집중 테스트로 이 경로가 통합 risk-gate에 도달하지만 실행하지 않음을 입증했습니다.
+- [ ] 완전한 ActionType 인자와 활성 온톨로지 릴리스 다이제스트를 제공하는 게시자에
+  `RemediationProposalPublisher`를 연결한 뒤, 검토 서비스가 실행기 신원을 보유하지 않은
+  상태에서 요청이 risk-gate와 필요한 사람 승인 흐름에 도달하는 통제된 증적을 하나
+  기록합니다.
 - [ ] 고정 시나리오의 shadow 근거가 구성된 false-positive 임계값을 충족하고 권한 있는
   승격 레지스트리가 전환을 기록할 때까지 적용 모드를 비활성화 상태로 유지합니다.
 
