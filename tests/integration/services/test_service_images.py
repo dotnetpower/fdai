@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 from typing import Any, cast
 
@@ -166,6 +167,27 @@ def test_diagnostics_consumers_install_runtime_diagnostics_wheel() -> None:
         assert "uv build --wheel --package fdai-runtime-diagnostics" in builder
         assert "--no-install-package fdai-runtime-diagnostics" in builder
         assert "/wheels/fdai_runtime_diagnostics-*.whl" in builder
+
+
+def test_core_source_build_has_pinned_matching_java_grammar_header() -> None:
+    text = _dockerfile("core-control-plane").read_text(encoding="utf-8")
+    builder = _stage(text, "builder")
+    runtime = _stage(text, "runtime")
+    lock = tomllib.loads((REPO_ROOT / "uv.lock").read_text(encoding="utf-8"))
+    grammar = next(package for package in lock["package"] if package["name"] == "tree-sitter-java")
+
+    assert grammar["version"] == "0.23.5", "review the source header pin with grammar updates"
+    header = (
+        "ADD --checksum=sha256:"
+        "a1f6ef161fbaf48a0e10fca90ef5290a062462b307b3898aa562993853b9f80a --chmod=0644 \\\n"
+        "    https://raw.githubusercontent.com/tree-sitter/tree-sitter-java/"
+        "94703d5a6bed02b98e438d7cad1136c01a60ba2c/src/tree_sitter/parser.h \\\n"
+        "    /usr/local/include/tree_sitter/parser.h"
+    )
+    assert header in builder
+    assert builder.index(header) < builder.index("uv sync --frozen")
+    assert "tree_sitter/parser.h" not in runtime
+    assert "--chown=65532:65532 /app/.venv /app/.venv" in runtime
 
 
 def test_runtime_assets_follow_service_ownership() -> None:
