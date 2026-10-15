@@ -5,6 +5,7 @@ from pathlib import Path
 from uuid import NAMESPACE_URL, uuid5
 
 import pytest
+import scripts.deployment.azure.verify_canary_audit as verifier
 from scripts.deployment.azure.verify_canary_audit import (
     CanaryAuditVerificationError,
     DatabaseConfig,
@@ -146,6 +147,39 @@ def test_database_config_reports_names_without_secret_values() -> None:
         )
 
     assert "deployment-reader" not in str(error.value)
+
+
+def test_database_read_uses_verified_tls_and_read_only_transaction(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[tuple[str, object]] = []
+
+    class _Cursor:
+        def fetchall(self) -> list[dict[str, object]]:
+            return []
+
+    class _Connection:
+        def __enter__(self) -> _Connection:
+            return self
+
+        def __exit__(self, *_args: object) -> None:
+            return None
+
+        def execute(self, query: str, params: object = None) -> _Cursor:
+            calls.append((query, params))
+            return _Cursor()
+
+    def connect(**kwargs: object) -> _Connection:
+        calls.append(("connect", kwargs))
+        return _Connection()
+
+    monkeypatch.setattr(verifier.psycopg, "connect", connect)
+
+    assert verifier._read_canary_audits(_config(), correlation_id=f"canary:{SLOT}") == ()
+    connect_kwargs = calls[0][1]
+    assert isinstance(connect_kwargs, dict)
+    assert connect_kwargs["sslmode"] == "verify-full"
+    assert any(query == "SET TRANSACTION READ ONLY" for query, _params in calls)
 
 
 def test_deploy_workflow_uses_deterministic_slot_and_consumed_audit_verifier() -> None:

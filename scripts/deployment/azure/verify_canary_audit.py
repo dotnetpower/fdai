@@ -59,7 +59,7 @@ def _read_canary_audits(
         dbname=config.database,
         user=config.user,
         password=config.password,
-        sslmode="require",
+        sslmode="verify-full",
         connect_timeout=10,
         row_factory=dict_row,
     ) as connection:
