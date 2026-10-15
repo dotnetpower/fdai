@@ -89,10 +89,14 @@ validation, documentation, and the task-owned local commit.
 3. **Prepare and dry-run**: run `improve prepare` with the corpus, readiness receipt, capability,
    required functions, and expected authority. Preparation requires one question, one child, a
    clean source revision, exact authority, and a new question. It writes only an owner-only state
-   record under `.fdai/conversation-assurance/improvement-runs/`.
+   record under `.fdai/conversation-assurance/improvement-runs/`. When measuring a repair, prepare
+   the baseline and a semantically distinct holdout on the same source revision with one shared
+   `--comparison-group` and the `baseline` and `holdout` roles before editing code.
 4. **Measure in Web once**: run `improve arm-browser` immediately before using the authenticated
-   standard-port Console. Enable model trace before sending. Intercept only the next `/chat/stream`
-   request, preserve its authentication and normal
+   standard-port Console. Arming re-reads the readiness receipt and requires the same capability,
+   functions, evidence readiness, and authority recorded by preparation. A failed preflight does not
+   reserve or consume the live attempt. Enable model trace before sending. Intercept only the next
+   `/chat/stream` request, preserve its authentication and normal
    payload, and add `purpose=conversation-assurance:<case-id>`,
    `session_id=pantheon-assurance:<run-id>`, and `include_model_trace=true`. Core accepts the case
    only when the registered question and locale exactly match. Remove the interceptor immediately.
@@ -109,7 +113,9 @@ validation, documentation, and the task-owned local commit.
 7. **Repair only code defects**: for `code_defect`, change the smallest owning abstraction. Do not
    hardcode the question, add a phrase exception, weaken a gate, or retry the live question. Run
    the narrowest focused test immediately after the first edit. Every other failure class remains
-   terminal held evidence with no code candidate.
+   terminal held evidence with no code candidate. After the validated repair commit, attribute its
+   revision to the baseline and bind the predeclared holdout to that exact revision. The holdout is
+   measured once only after the repair is contained by the selected base revision.
 8. **Critique and harden**: after the focused implementation passes, perform at least ten explicit,
    independent critique rounds over the complete task-owned diff. Fix every verified finding above
    Low, rerun the smallest affected check, and record each round with reviewer scope, finding and
@@ -349,6 +355,18 @@ python3 scripts/automation/conversation-assurance.py improve prepare \
    --function <required-function> \
    --expected-authority <authority>
 
+# Predeclare a same-revision baseline and holdout
+python3 scripts/automation/conversation-assurance.py improve prepare \
+   --corpus <private-baseline.json> --readiness <private-readiness.json> \
+   --run-id <baseline-run> --capability <capability-id> \
+   --function <required-function> --expected-authority <authority> \
+   --comparison-group <group-id> --comparison-role baseline
+python3 scripts/automation/conversation-assurance.py improve prepare \
+   --corpus <private-holdout.json> --readiness <private-readiness.json> \
+   --run-id <holdout-run> --capability <capability-id> \
+   --function <required-function> --expected-authority <authority> \
+   --comparison-group <group-id> --comparison-role holdout
+
 # Record the one browser-owned live measurement and its Run Record evidence
 python3 scripts/automation/conversation-assurance.py improve arm-browser \
    --run-id <run-id>
@@ -361,6 +379,17 @@ python3 scripts/automation/conversation-assurance.py improve classify \
 python3 scripts/automation/conversation-assurance.py improve hardening-round \
    --run-id <run-id> --severity <severity> --reviewer-scope <scope> \
    --finding-count <count> --fixed-count <count> --validation-passed
+
+# Bind a validated repair and measure effectiveness only after base containment
+python3 scripts/automation/conversation-assurance.py improve attribute-remediation \
+   --run-id <baseline-run> --revision <repair-commit>
+python3 scripts/automation/conversation-assurance.py improve bind-holdout \
+   --baseline-run <baseline-run> --holdout-run <holdout-run> \
+   --revision <repair-commit>
+python3 scripts/automation/conversation-assurance.py improve compare-effectiveness \
+   --baseline-run <baseline-run> --holdout-run <holdout-run> --base-ref <base-ref>
+python3 scripts/automation/conversation-assurance.py improve effectiveness \
+   --base-ref <base-ref>
 
 # Read the content-free improvement state
 python3 scripts/automation/conversation-assurance.py improve status --run-id <run-id>
@@ -421,6 +450,7 @@ uv run pytest -q --no-cov \
    services/core-control-plane/tests/runtime/test_pantheon_conversation_assurance.py \
   tests/integration/scripts/test_conversation_assurance_answer_gate.py \
    tests/integration/scripts/test_conversation_assurance_cli.py \
+   tests/integration/scripts/test_conversation_assurance_effectiveness.py \
    tests/integration/scripts/test_conversation_assurance_harness.py \
    tests/integration/scripts/test_conversation_assurance_improvement_cli.py
    tests/integration/scripts/test_conversation_assurance_aks.py

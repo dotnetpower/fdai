@@ -59,6 +59,11 @@ class FailureClass(StrEnum):
     EVALUATION_CONTRACT_DEFECT = "evaluation_contract_defect"
 
 
+class ComparisonRole(StrEnum):
+    BASELINE = "baseline"
+    HOLDOUT = "holdout"
+
+
 class GateState(StrEnum):
     NOT_OBSERVED = "not_observed"
     PASSED = "passed"
@@ -213,6 +218,10 @@ class ImprovementRun:
     required_functions: tuple[str, ...]
     expected_authority: str
     provided_authority: str
+    comparison_group_id: str | None = None
+    comparison_role: ComparisonRole | None = None
+    remediation_revision: str | None = None
+    measurement_revision: str | None = None
     state: ImprovementState = ImprovementState.PREPARED
     corpus_digest: str | None = None
     measurement_reserved: bool = False
@@ -251,6 +260,26 @@ class ImprovementRun:
             raise ValueError("conversation improvement requires at least one function")
         if self.expected_authority != self.provided_authority:
             raise ValueError("expected and provided authority MUST match")
+        if (self.comparison_group_id is None) != (self.comparison_role is None):
+            raise ValueError("comparison group and role MUST be declared together")
+        if (
+            self.comparison_group_id is not None
+            and _TOKEN.fullmatch(self.comparison_group_id) is None
+        ):
+            raise ValueError("comparison group MUST be a bounded machine token")
+        if self.remediation_revision is not None:
+            if _REVISION.fullmatch(self.remediation_revision) is None:
+                raise ValueError("remediation revision MUST be a lowercase Git SHA")
+            if (
+                self.failure_class is not FailureClass.CODE_DEFECT
+                or self.state is not ImprovementState.COMPLETED
+            ):
+                raise ValueError("remediation attribution requires completed code hardening")
+        if self.measurement_revision is not None:
+            if _REVISION.fullmatch(self.measurement_revision) is None:
+                raise ValueError("measurement revision MUST be a lowercase Git SHA")
+            if self.comparison_role is not ComparisonRole.HOLDOUT:
+                raise ValueError("only a predeclared holdout can rebind its measurement revision")
         if self.corpus_digest is not None and _DIGEST.fullmatch(self.corpus_digest) is None:
             raise ValueError("corpus digest MUST be a SHA-256 digest")
         if self.measurement_attempts not in {0, 1}:
@@ -301,6 +330,10 @@ class ImprovementRun:
     @property
     def retry_allowed(self) -> bool:
         return self.measurement_attempts == 0 and not self.measurement_reserved
+
+    @property
+    def measurement_source_revision(self) -> str:
+        return self.measurement_revision or self.source_revision
 
     def reserve_browser_measurement(self) -> ImprovementRun:
         if self.state is not ImprovementState.DRY_RUN_VALIDATED or not self.retry_allowed:
@@ -458,6 +491,32 @@ class ImprovementRun:
             hardening_history=(*self.hardening_history, evidence),
         )
 
+    def record_remediation(self, revision: str) -> ImprovementRun:
+        if self.state is not ImprovementState.COMPLETED:
+            raise ValueError("remediation attribution requires completed hardening")
+        if self.failure_class is not FailureClass.CODE_DEFECT:
+            raise ValueError("remediation attribution requires a code defect")
+        if _REVISION.fullmatch(revision) is None:
+            raise ValueError("remediation revision MUST be a lowercase Git SHA")
+        if revision == self.source_revision:
+            raise ValueError("remediation revision MUST differ from the measured revision")
+        if self.remediation_revision is not None and self.remediation_revision != revision:
+            raise ValueError("remediation revision is immutable")
+        return replace(self, remediation_revision=revision)
+
+    def bind_holdout_revision(self, revision: str) -> ImprovementRun:
+        if self.comparison_role is not ComparisonRole.HOLDOUT:
+            raise ValueError("measurement revision binding requires a holdout")
+        if self.state is not ImprovementState.DRY_RUN_VALIDATED or not self.retry_allowed:
+            raise ValueError("holdout revision must be bound before measurement")
+        if _REVISION.fullmatch(revision) is None:
+            raise ValueError("measurement revision MUST be a lowercase Git SHA")
+        if revision == self.source_revision:
+            raise ValueError("holdout measurement revision MUST include a remediation")
+        if self.measurement_revision is not None and self.measurement_revision != revision:
+            raise ValueError("holdout measurement revision is immutable")
+        return replace(self, measurement_revision=revision)
+
 
 def write_private_run(path: Path, run: ImprovementRun) -> None:
     """Atomically persist one content-free run record as an owner-only file."""
@@ -607,6 +666,10 @@ def _to_mapping(run: ImprovementRun) -> dict[str, Any]:
 
 def _from_mapping(value: dict[str, Any]) -> ImprovementRun:
     data = dict(value)
+    data.setdefault("comparison_group_id", None)
+    data.setdefault("comparison_role", None)
+    data.setdefault("remediation_revision", None)
+    data.setdefault("measurement_revision", None)
     for name in ("run_record_gate", "prompt_assembly_gate", "preparing_answer_gate"):
         gate = data[name]
         data[name] = PresentationGate(
@@ -618,6 +681,8 @@ def _from_mapping(value: dict[str, Any]) -> ImprovementRun:
     data["assessment_reasons"] = tuple(data["assessment_reasons"])
     if data["failure_class"] is not None:
         data["failure_class"] = FailureClass(data["failure_class"])
+    if data["comparison_role"] is not None:
+        data["comparison_role"] = ComparisonRole(data["comparison_role"])
     if data["remaining_max_severity"] is not None:
         data["remaining_max_severity"] = FindingSeverity(data["remaining_max_severity"])
     data["hardening_history"] = tuple(
@@ -636,6 +701,7 @@ def _from_mapping(value: dict[str, Any]) -> ImprovementRun:
 
 __all__ = [
     "FailureClass",
+    "ComparisonRole",
     "BrowserRunObservation",
     "FindingSeverity",
     "GateState",

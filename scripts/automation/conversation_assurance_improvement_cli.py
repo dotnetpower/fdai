@@ -33,10 +33,17 @@ from scripts.automation.conversation_assurance_aks import (
 from scripts.automation.conversation_assurance_cli import (
     _load_private_corpus,
     _start,
-    _state_root,
+)
+from scripts.automation.conversation_assurance_effectiveness import (
+    attribute_remediation,
+    bind_holdout_revision,
+    compare_and_record,
+    effectiveness_report,
+    git_revision,
 )
 from scripts.automation.conversation_assurance_harness import (
     BrowserRunObservation,
+    ComparisonRole,
     FailureClass,
     FindingSeverity,
     GateState,
@@ -48,9 +55,11 @@ from scripts.automation.conversation_assurance_harness import (
     validate_question_novelty,
     write_private_run,
 )
+from scripts.automation.conversation_assurance_reporting import _state_root
 
 _MAX_EVIDENCE_BYTES = 2 * 1024 * 1024
 _RUNS_DIRECTORY = "improvement-runs"
+_EFFECTIVENESS_LEDGER = "effectiveness-comparisons.jsonl"
 
 StartOperation = Callable[[Path, Mapping[str, object]], Awaitable[dict[str, object]]]
 _AKS_FUNCTION = "query.resource_state_inventory"
@@ -96,6 +105,8 @@ def _prepare(
     expected_authority: str,
     source_revision: str,
     worktree_dirty: bool,
+    comparison_group_id: str | None = None,
+    comparison_role: ComparisonRole | None = None,
 ) -> ImprovementRun:
     if worktree_dirty:
         raise ValueError("worktree_not_clean")
@@ -141,6 +152,8 @@ def _prepare(
             required_functions=required_functions,
             expected_authority=expected_authority,
             provided_authority=selection.provided_authority,
+            comparison_group_id=comparison_group_id,
+            comparison_role=comparison_role,
         ).validate_dry_run(
             question_count=1,
             child_count=1,
@@ -254,7 +267,7 @@ async def _measure(
         raise ValueError("improvement_run_active")
     with lock:
         run = read_private_run(path)
-        if worktree_dirty or source_revision != run.source_revision:
+        if worktree_dirty or source_revision != run.measurement_source_revision:
             raise ValueError("measurement_revision_drift")
         if not run.retry_allowed:
             raise ValueError("live_question_already_attempted")
@@ -366,7 +379,7 @@ def _record_browser_measurement(
         raise ValueError("improvement_run_active")
     with lock:
         run = read_private_run(path)
-        if worktree_dirty or source_revision != run.source_revision:
+        if worktree_dirty or source_revision != run.measurement_source_revision:
             raise ValueError("measurement_revision_drift")
         if not run.measurement_reserved:
             raise ValueError("browser_measurement_not_armed")
@@ -447,9 +460,9 @@ def _run_aks_browser_series(
     for index in range(1, 4):
         run_id = f"{run_prefix}-{index}"
         current = read_private_run(_run_path(project, run_id))
-        if current.source_revision != source_revision:
+        if current.measurement_source_revision != source_revision:
             raise ValueError("measurement_revision_drift")
-        _arm_browser(project=project, run_id=run_id)
+        _arm_browser(project=project, run_id=run_id, readiness_path=readiness_path)
         evidence_path = evidence_root / f"{index}.json"
         try:
             subprocess.run(  # noqa: S603 - fixed local Node worker and private paths
@@ -517,13 +530,25 @@ def _automatic_failure_class(run: ImprovementRun) -> FailureClass | None:
     return FailureClass.CODE_DEFECT
 
 
-def _arm_browser(*, project: Path, run_id: str) -> ImprovementRun:
+def _arm_browser(*, project: Path, run_id: str, readiness_path: Path) -> ImprovementRun:
     path = _run_path(project, run_id)
     lock = open_private_lock(_run_lock_path(project, run_id))
     if lock is None:
         raise ValueError("improvement_run_active")
     with lock:
         current = read_private_run(path)
+        inventory = RuntimeReadinessInventory.from_dict(_read_private_object(readiness_path))
+        selection = assess_capability_readiness(
+            capability_id=current.capability_id,
+            enabled=True,
+            required_functions=current.required_functions,
+            expected_authority=current.expected_authority,
+            inventory=inventory,
+        )
+        if not selection.selectable or selection.stage is not ReadinessStage.EVIDENCE_READY:
+            raise ValueError(f"preflight_unavailable:{selection.unavailable_reason}")
+        if selection.provided_authority != current.provided_authority:
+            raise ValueError("preflight_authority_changed")
         if current.measurement_reserved:
             return current
         armed = current.reserve_browser_measurement()
@@ -656,6 +681,7 @@ def _summary(run: ImprovementRun) -> dict[str, object]:
         "case_id": run.case_id,
         "state": run.state,
         "source_revision": run.source_revision,
+        "measurement_revision": run.measurement_source_revision,
         "measurement_attempts": run.measurement_attempts,
         "retry_allowed": run.retry_allowed,
         "terminal_state": run.terminal_state,
@@ -666,6 +692,9 @@ def _summary(run: ImprovementRun) -> dict[str, object]:
         "verdict": run.verdict,
         "qualification": run.qualification,
         "failure_class": run.failure_class,
+        "comparison_group_id": run.comparison_group_id,
+        "comparison_role": run.comparison_role,
+        "remediation_revision": run.remediation_revision,
         "run_record_gate": run.run_record_gate.state,
         "prompt_assembly_gate": run.prompt_assembly_gate.state,
         "preparing_answer_gate": run.preparing_answer_gate.state,
@@ -685,6 +714,11 @@ def _parser() -> argparse.ArgumentParser:
     prepare.add_argument("--capability", required=True)
     prepare.add_argument("--function", action="append", dest="functions", required=True)
     prepare.add_argument("--expected-authority", required=True)
+    prepare.add_argument("--comparison-group")
+    prepare.add_argument(
+        "--comparison-role",
+        choices=tuple(item.value for item in ComparisonRole),
+    )
     prepare_aks = commands.add_parser("prepare-aks-series")
     prepare_aks.add_argument("--run-prefix", required=True)
     prepare_aks.add_argument(
@@ -710,6 +744,11 @@ def _parser() -> argparse.ArgumentParser:
     measure.add_argument("--run-id", required=True)
     arm_browser = commands.add_parser("arm-browser")
     arm_browser.add_argument("--run-id", required=True)
+    arm_browser.add_argument(
+        "--readiness",
+        type=Path,
+        default=Path(".fdai/conversation-assurance/runtime-readiness.json"),
+    )
     browser_measure = commands.add_parser("record-browser-measurement")
     browser_measure.add_argument("--run-id", required=True)
     browser_measure.add_argument("--evidence", type=Path, required=True)
@@ -736,6 +775,19 @@ def _parser() -> argparse.ArgumentParser:
     hardening.add_argument("--validation-passed", action="store_true")
     status = commands.add_parser("status")
     status.add_argument("--run-id", required=True)
+    remediation = commands.add_parser("attribute-remediation")
+    remediation.add_argument("--run-id", required=True)
+    remediation.add_argument("--revision", default="HEAD")
+    bind_holdout = commands.add_parser("bind-holdout")
+    bind_holdout.add_argument("--baseline-run", required=True)
+    bind_holdout.add_argument("--holdout-run", required=True)
+    bind_holdout.add_argument("--revision", default="HEAD")
+    compare = commands.add_parser("compare-effectiveness")
+    compare.add_argument("--baseline-run", required=True)
+    compare.add_argument("--holdout-run", required=True)
+    compare.add_argument("--base-ref", default="HEAD")
+    effectiveness = commands.add_parser("effectiveness")
+    effectiveness.add_argument("--base-ref", default="HEAD")
     return parser
 
 
@@ -755,6 +807,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 expected_authority=arguments.expected_authority,
                 source_revision=revision,
                 worktree_dirty=dirty,
+                comparison_group_id=arguments.comparison_group,
+                comparison_role=(
+                    ComparisonRole(arguments.comparison_role)
+                    if arguments.comparison_role is not None
+                    else None
+                ),
             )
             payload = _summary(run)
         elif arguments.operation == "prepare-aks-series":
@@ -812,7 +870,11 @@ def main(argv: Sequence[str] | None = None) -> int:
             )
             payload = _summary(run)
         elif arguments.operation == "arm-browser":
-            run = _arm_browser(project=project, run_id=arguments.run_id)
+            run = _arm_browser(
+                project=project,
+                run_id=arguments.run_id,
+                readiness_path=(project / arguments.readiness).resolve(),
+            )
             payload = _summary(run)
         elif arguments.operation == "observe-browser":
             run = _observe_browser(
@@ -843,6 +905,50 @@ def main(argv: Sequence[str] | None = None) -> int:
                 validation_passed=arguments.validation_passed,
             )
             payload = _summary(run)
+        elif arguments.operation == "attribute-remediation":
+            revision, dirty = _git_snapshot(project)
+            requested_revision = git_revision(project, arguments.revision)
+            if arguments.revision == "HEAD" and requested_revision != revision:
+                raise ValueError("remediation_revision_drift")
+            payload = _summary(
+                attribute_remediation(
+                    project=project,
+                    run_path=_run_path(project, arguments.run_id),
+                    lock_path=_run_lock_path(project, arguments.run_id),
+                    revision=requested_revision,
+                    worktree_dirty=dirty,
+                )
+            )
+        elif arguments.operation == "compare-effectiveness":
+            payload = compare_and_record(
+                project=project,
+                baseline_path=_run_path(project, arguments.baseline_run),
+                holdout_path=_run_path(project, arguments.holdout_run),
+                ledger_path=_state_root(project) / _EFFECTIVENESS_LEDGER,
+                base_ref=arguments.base_ref,
+            )
+        elif arguments.operation == "bind-holdout":
+            revision, dirty = _git_snapshot(project)
+            requested_revision = git_revision(project, arguments.revision)
+            if arguments.revision == "HEAD" and requested_revision != revision:
+                raise ValueError("holdout_revision_drift")
+            payload = _summary(
+                bind_holdout_revision(
+                    project=project,
+                    baseline_path=_run_path(project, arguments.baseline_run),
+                    holdout_path=_run_path(project, arguments.holdout_run),
+                    holdout_lock_path=_run_lock_path(project, arguments.holdout_run),
+                    revision=requested_revision,
+                    worktree_dirty=dirty,
+                )
+            )
+        elif arguments.operation == "effectiveness":
+            payload = effectiveness_report(
+                project=project,
+                runs_root=_state_root(project) / _RUNS_DIRECTORY,
+                ledger_path=_state_root(project) / _EFFECTIVENESS_LEDGER,
+                base_ref=arguments.base_ref,
+            )
         else:
             run = read_private_run(_run_path(project, arguments.run_id))
             payload = _summary(run)
