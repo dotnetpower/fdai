@@ -23,14 +23,14 @@ from fdai.core.security.code_findings.analysis_contracts import (
     GraphEdgeKind,
     GraphNodeKind,
     PathEvidence,
-    PathEvidenceStep,
     PathStepRole,
     RuleSelector,
     SourceSpan,
 )
+from fdai.core.security.code_findings.analysis_graph_flow import derive_graph_paths
 
 FRONTEND = "fdai.java.tree-sitter"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 _LANGUAGE = Language(tree_sitter_java.language())
 
 
@@ -167,6 +167,34 @@ class _Analyzer:
             ),
         )
 
+    def _add_flow_edge(self, source: _Point, target: _Point) -> None:
+        if source.node_id not in self.nodes or target.node_id not in self.nodes:
+            return
+        edge_id = _stable_id(
+            "edge",
+            GraphEdgeKind.FLOWS_TO,
+            source.node_id,
+            target.node_id,
+            source.role,
+            target.role,
+            source.context,
+            target.context,
+        )
+        self.edges.setdefault(
+            edge_id,
+            CodeGraphEdge(
+                edge_id=edge_id,
+                kind=GraphEdgeKind.FLOWS_TO,
+                source_id=source.node_id,
+                target_id=target.node_id,
+                provenance=self.provenance,
+                source_role=source.role,
+                target_role=target.role,
+                source_context=source.context,
+                target_context=target.context,
+            ),
+        )
+
     @staticmethod
     def _matches(name: str, selector: RuleSelector) -> bool:
         return (
@@ -234,10 +262,13 @@ class _Analyzer:
         for methods in self.methods.values():
             for method in methods:
                 self._method(method, {}, ())
+        for candidate in self.paths:
+            for source, target in zip(candidate, candidate[1:], strict=False):
+                self._add_flow_edge(source, target)
         if len(self.paths) > self.limits.max_paths:
             self.coverage.add("java-path-limit")
         graph = CodeGraphArtifact(
-            schema_version="1.0.0",
+            schema_version="1.1.0",
             revision=self.revision,
             build_context_digest=self.build_context_digest,
             framework_model_digest=self.framework_model_digest,
@@ -246,26 +277,7 @@ class _Analyzer:
             edges=tuple(sorted(self.edges.values(), key=lambda item: item.edge_id)),
             coverage_limits=tuple(sorted(self.coverage)),
         )
-        unique: dict[str, PathEvidence] = {}
-        for points in self.paths[: self.limits.max_paths]:
-            evidence = PathEvidence(
-                schema_version="1.0.0",
-                revision=self.revision,
-                rule_id=self.rule.rule_id,
-                rule_version=self.rule.version,
-                graph_digest=graph.digest(),
-                steps=tuple(
-                    PathEvidenceStep(
-                        node_id=point.node_id,
-                        role=point.role,
-                        span=point.span,
-                        call_context=point.context,
-                    )
-                    for point in points
-                ),
-            )
-            unique[evidence.digest()] = evidence
-        return JavaAnalysisResult(graph=graph, paths=tuple(unique[key] for key in sorted(unique)))
+        return JavaAnalysisResult(graph=graph, paths=derive_graph_paths(graph, self.rule))
 
     def _method(
         self, method: _Method, arguments: dict[str, tuple[_Point, ...]], context: tuple[str, ...]
@@ -351,7 +363,6 @@ class _Analyzer:
                     node_id=source_id, kind=GraphNodeKind.SOURCE, name=name, span=location
                 )
             )
-            self._add_edge(GraphEdgeKind.FLOWS_TO, source_id, call_id)
             return (_Point(source_id, PathStepRole.SOURCE, location, context),)
         arguments_node = _field(node, "arguments")
         arguments = tuple(arguments_node.named_children) if arguments_node is not None else ()
@@ -371,7 +382,6 @@ class _Analyzer:
                         node_id=sink_id, kind=GraphNodeKind.SINK, name=name, span=location
                     )
                 )
-                self._add_edge(GraphEdgeKind.FLOWS_TO, value[-1].node_id, sink_id)
                 if len(self.paths) < self.limits.max_paths:
                     self.paths.append(
                         value + (_Point(sink_id, PathStepRole.SINK, location, context),)

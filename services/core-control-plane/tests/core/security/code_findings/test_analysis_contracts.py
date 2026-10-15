@@ -61,9 +61,13 @@ def graph() -> CodeGraphArtifact:
         source_id=nodes[0].node_id,
         target_id=nodes[1].node_id,
         provenance=provenance(),
+        source_role=PathStepRole.SOURCE,
+        target_role=PathStepRole.SINK,
+        source_context=("src.api.route",),
+        target_context=("src.api.route", "src.db.query"),
     )
     return CodeGraphArtifact(
-        schema_version="1.0.0",
+        schema_version="1.1.0",
         revision=REVISION,
         build_context_digest=DIGEST,
         framework_model_digest=DIGEST,
@@ -79,7 +83,18 @@ def test_graph_contract_is_deterministic_and_closed() -> None:
 
     assert reparsed == artifact
     assert reparsed.digest() == artifact.digest()
-    assert json.loads(artifact.canonical_bytes())["schema_version"] == "1.0.0"
+    assert json.loads(artifact.canonical_bytes())["schema_version"] == "1.1.0"
+
+
+def test_flow_edge_requires_source_and_target_occurrences() -> None:
+    with pytest.raises(ValidationError, match="source and target roles"):
+        CodeGraphEdge(
+            edge_id="flow:missing-occurrence",
+            kind=GraphEdgeKind.FLOWS_TO,
+            source_id="source:a",
+            target_id="sink:b",
+            provenance=provenance(),
+        )
 
 
 @pytest.mark.parametrize(
@@ -152,7 +167,8 @@ def test_path_evidence_requires_source_to_sink_order_and_stable_context() -> Non
         ),
     )
     evidence = PathEvidence(
-        schema_version="1.0.0",
+        schema_version="1.1.0",
+        path_id="path:contract-test",
         revision=REVISION,
         graph_digest=artifact.digest(),
         rule_id="fdai.python.sql-injection",

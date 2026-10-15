@@ -20,7 +20,8 @@ _REVISION_PATTERN = r"^[a-f0-9]{40,64}$"
 _VERSION_PATTERN = r"^\d+\.\d+\.\d+$"
 _DOTTED_PATTERN = r"^[A-Za-z_$][A-Za-z0-9_$]*(\.[A-Za-z_$][A-Za-z0-9_$]*)*$"
 
-GRAPH_SCHEMA_VERSION: Literal["1.0.0"] = "1.0.0"
+GRAPH_SCHEMA_VERSION: Literal["1.1.0"] = "1.1.0"
+PATH_SCHEMA_VERSION: Literal["1.1.0"] = "1.1.0"
 
 Identifier = Annotated[str, Field(pattern=_ID_PATTERN)]
 Digest = Annotated[str, Field(pattern=_DIGEST_PATTERN)]
@@ -143,6 +144,10 @@ class CodeGraphEdge(_StrictModel):
     provenance: AnalysisProvenance
     parameter_index: Annotated[int, Field(ge=0, le=1024)] | None = None
     security_context: Identifier | None = None
+    source_role: PathStepRole | None = None
+    target_role: PathStepRole | None = None
+    source_context: tuple[Identifier, ...] = ()
+    target_context: tuple[Identifier, ...] = ()
 
     @model_validator(mode="after")
     def _edge_fields_match_kind(self) -> CodeGraphEdge:
@@ -154,11 +159,17 @@ class CodeGraphEdge(_StrictModel):
             raise ValueError("sanitizes_for edge requires security_context")
         if self.kind is not GraphEdgeKind.SANITIZES_FOR and self.security_context is not None:
             raise ValueError("security_context is valid only for sanitizes_for edges")
+        flow_fields = self.source_role is not None or self.target_role is not None
+        if self.kind is GraphEdgeKind.FLOWS_TO:
+            if self.source_role is None or self.target_role is None:
+                raise ValueError("flows_to edge requires source and target roles")
+        elif flow_fields or self.source_context or self.target_context:
+            raise ValueError("flow occurrence fields are valid only for flows_to edges")
         return self
 
 
 class CodeGraphArtifact(_StrictModel):
-    schema_version: Literal["1.0.0"]
+    schema_version: Literal["1.1.0"]
     revision: Revision
     build_context_digest: Digest
     framework_model_digest: Digest
@@ -247,7 +258,8 @@ class PathEvidenceStep(_StrictModel):
 
 
 class PathEvidence(_StrictModel):
-    schema_version: Literal["1.0.0"]
+    schema_version: Literal["1.1.0"]
+    path_id: Identifier
     revision: Revision
     graph_digest: Digest
     rule_id: Identifier
@@ -281,6 +293,7 @@ __all__ = [
     "GRAPH_SCHEMA_VERSION",
     "PathEvidence",
     "PathEvidenceStep",
+    "PATH_SCHEMA_VERSION",
     "PathStepRole",
     "RuleAnalysisKind",
     "RuleSelector",

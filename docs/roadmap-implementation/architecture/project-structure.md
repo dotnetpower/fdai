@@ -127,6 +127,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-15 | implemented | Added one language-neutral contextual path-traversal owner while keeping syntax and type extraction inside language frontends. | `current change`; version 1.1 graph/path contracts and focused three-frontend tests. | No service or authority boundary changed. |
 | 2026-10-15 | implemented | Bound owned-analysis build configuration and scan-owned incremental snapshots inside the existing Core and delivery boundary. | `current change`; build-context, snapshot, scan-job, and focused transition tests. | Partial graph recomputation remains in the dedicated analysis-engine ledger. |
 | 2026-10-15 | implemented | Hardened the owned-analysis boundary with root-bound no-follow reads, graph budgets, requested-file output validation, and fail-visible frontend coverage. | `current change`; dedicated hardening record and focused frontend and scan checks. | No service or authority boundary changed. |
 | 2026-10-15 | implemented | Completed the owned-analysis boundary with strict incremental snapshot ownership, an experimental Java SQL frontend, split/resource receipts, and actual image execution. | `current change`; focused Node and Python checks; local analysis-runtime build and TypeScript 5.9.3 container load. | Broader language semantics and production promotion remain in the analysis-engine ledger. |

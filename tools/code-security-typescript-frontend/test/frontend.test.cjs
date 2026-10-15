@@ -109,3 +109,55 @@ test("graph budget stops oversized analysis before output", () => {
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /graph node limit exceeded/);
 });
+
+test("unreachable branch does not produce a path", () => {
+  const root = fixture();
+  fs.writeFileSync(path.join(root, "app.ts"), `
+    export function search(req: Request) {
+      if (false) return pool.query('SELECT ' + req.query.id);
+      return 'disabled';
+    }
+    app.get('/search', search);
+  `);
+  const result = run(root, ["app.ts"]);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout).paths, []);
+});
+
+test("field alias preserves taint without tainting sibling fields", () => {
+  const root = fixture();
+  fs.writeFileSync(path.join(root, "app.ts"), `
+    export function search(req: Request) {
+      const holder = {} as { query?: string; safe?: string };
+      holder.query = req.query.id;
+      holder.safe = 'SELECT 1';
+      const alias = holder;
+      pool.query(alias.safe);
+      return pool.query(alias.query);
+    }
+    app.get('/search', search);
+  `);
+  const result = run(root, ["app.ts"]);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(JSON.parse(result.stdout).paths.length, 1);
+});
+
+test("state budget widens conservatively and records coverage", () => {
+  const root = fixture();
+  fs.writeFileSync(path.join(root, "app.ts"), `
+    export function search(req: Request) {
+      const first = req.query.first;
+      const second = req.query.second;
+      return pool.query('SELECT ' + second);
+    }
+    app.get('/search', search);
+  `);
+  const result = run(root, ["app.ts"], { max_state_entries: 1 });
+
+  assert.equal(result.status, 0, result.stderr);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.paths.length, 1);
+  assert.ok(parsed.graph.coverage_limits.some((item) => item.startsWith("typescript.state-widening")));
+});

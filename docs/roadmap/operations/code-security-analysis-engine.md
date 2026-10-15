@@ -8,16 +8,15 @@ This document defines the planned FDAI-owned code representation and interproced
 engine. It extends the existing isolated scanner, SARIF, verification, and findings pipeline with
 reproducible source-to-sink evidence instead of replacing the scanners that already work.
 
-> **Status:** Package 0, the Python and TypeScript interprocedural slices, conservative incremental
-> reuse, and the verified-fix gate are implemented. An experimental tree-sitter Java SQL slice is
-> also implemented with separate held-out evidence. Java compiler-backed types and production
-> promotion remain future work. This is not a CodeQL parity claim. See the linked
+> **Status:** The graph and path contracts, shared flow traversal, Python and TypeScript slices,
+> scan-owned incremental reuse, verified-fix gate, and an experimental Java SQL slice are
+> implemented components. The original Package 0-5 exit criteria remain in progress pending the
+> comparison, promotion, product, and compiler-backed language evidence in the linked
 > [implementation ledger](../../roadmap-implementation/operations/code-security-analysis-engine.md).
 >
-> **Hardening:** Forty independent critique rounds covered contracts, input and process bounds,
-> taint flow, replay, SARIF, evaluation, repair verification, and supply chain. After the two
-> repair cycles, the final ten rounds left no Critical, High, Medium, or Low finding in the
-> implemented scope.
+> **Hardening:** Forty prior critique rounds covered the earlier implemented scope. The version
+> 1.1 contextual flow contract, common traversal, control-flow, alias, and widening work requires
+> a new final campaign before the original plan can be reported complete.
 >
 > **Authority:** Analysis reads an exact source revision and emits evidence. Heimdall remains the
 > accountable agent for code-security observation. The engine is a mechanical worker and grants no
@@ -136,6 +135,11 @@ Required relationships include `DECLARES`, `CALLS`, `CONTROLS`, `DEFINES`, `USES
 `ARGUMENT_TO`, `RETURNS_TO`, `ALIASES`, and `SANITIZES_FOR`. Every inferred edge records the
 frontend, model version, confidence class, and any unresolved alternatives. Unknown dispatch and
 reflection remain explicit gaps.
+
+Graph and path contract version 1.1 binds each `FLOWS_TO` edge to exact source and target roles plus
+call contexts. Language frontends extract syntax, symbols, types, and contextual flow occurrences;
+the shared `analysis_graph_flow.py` traversal alone materializes ordered source-to-sink paths and a
+revision-independent semantic `path_id`.
 
 Graph identity binds the source revision, frontend versions, framework-model digests, graph schema
 version, and build-context digest. The same inputs must produce byte-equivalent normalized graph

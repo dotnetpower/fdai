@@ -7,9 +7,13 @@ from pathlib import Path
 
 import pytest
 from fdai.core.security.code_findings.analysis_contracts import (
+    AnalysisProvenance,
     CodeGraphArtifact,
+    CodeGraphEdge,
     CodeGraphNode,
     CodeSecurityRuleSpec,
+    EvidenceConfidence,
+    GraphEdgeKind,
     GraphNodeKind,
     PathEvidence,
     PathEvidenceStep,
@@ -60,15 +64,32 @@ def contract() -> dict[str, object]:
         span=SourceSpan(path="app.ts", start_line=3, end_line=3),
     )
     graph = CodeGraphArtifact(
-        schema_version="1.0.0",
+        schema_version="1.1.0",
         revision=REVISION,
         build_context_digest=DIGEST,
         framework_model_digest=DIGEST,
         frontend_versions={"typescript-compiler": "5.9.3"},
         nodes=(source, sink),
+        edges=(
+            CodeGraphEdge(
+                edge_id="flow:source-to-sink",
+                kind=GraphEdgeKind.FLOWS_TO,
+                source_id=source.node_id,
+                target_id=sink.node_id,
+                provenance=AnalysisProvenance(
+                    frontend="typescript-compiler",
+                    frontend_version="5.9.3",
+                    model_version="1.0.0",
+                    confidence=EvidenceConfidence.EXACT,
+                ),
+                source_role=PathStepRole.SOURCE,
+                target_role=PathStepRole.SINK,
+            ),
+        ),
     )
     path = PathEvidence(
-        schema_version="1.0.0",
+        schema_version="1.1.0",
+        path_id="path:submitted",
         revision=REVISION,
         graph_digest=graph.digest(),
         rule_id=rule().rule_id,

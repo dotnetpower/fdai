@@ -217,6 +217,96 @@ def test_symlink_root_is_rejected_and_graph_budget_is_explicit(tmp_path: Path) -
     assert any("graph-node-limit" in item for item in result.graph.coverage_limits)
 
 
+def test_unreachable_sink_does_not_produce_a_path(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "app.py",
+        """
+from flask import request
+
+@app.get('/search')
+def search():
+    value = request.args.get('q')
+    if False:
+        return cursor.execute('SELECT ' + value)
+    return 'disabled'
+""",
+    )
+
+    result = analyze(tmp_path)
+
+    assert result.paths == ()
+
+
+def test_terminating_numeric_guard_cuts_sql_taint(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "app.py",
+        """
+from flask import request
+
+@app.get('/search')
+def search():
+    value = request.args.get('q')
+    if not value.isdigit():
+        return 'invalid'
+    return cursor.execute('SELECT ' + value)
+""",
+    )
+
+    result = analyze(tmp_path)
+
+    assert result.paths == ()
+
+
+def test_field_alias_preserves_taint_without_tainting_other_fields(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "app.py",
+        """
+from flask import request
+
+class Holder:
+    pass
+
+@app.get('/search')
+def search():
+    holder = Holder()
+    holder.query = request.args.get('q')
+    holder.safe = 'SELECT 1'
+    alias = holder
+    cursor.execute(alias.safe)
+    return cursor.execute(alias.query)
+""",
+    )
+
+    result = analyze(tmp_path)
+
+    assert len(result.paths) == 1
+    assert result.paths[0].steps[-1].span.start_line == 14
+
+
+def test_state_budget_widens_conservatively_and_records_coverage(tmp_path: Path) -> None:
+    write(
+        tmp_path,
+        "app.py",
+        """
+from flask import request
+
+@app.get('/search')
+def search():
+    first = request.args.get('first')
+    second = request.args.get('second')
+    return cursor.execute('SELECT ' + second)
+""",
+    )
+
+    result = analyze(tmp_path, limits=PythonAnalysisLimits(max_state_entries=1))
+
+    assert len(result.paths) == 1
+    assert any("state-widening" in item for item in result.graph.coverage_limits)
+
+
 @pytest.mark.parametrize(
     ("rule_id", "imports", "sink", "safe_sink"),
     [

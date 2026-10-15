@@ -6,7 +6,7 @@ const path = require("node:path");
 const ts = require("typescript");
 
 const FRONTEND = "typescript-compiler";
-const MODEL_VERSION = "1.0.0";
+const MODEL_VERSION = "1.1.0";
 const ENTRYPOINTS = new Set(["get", "post", "put", "patch", "delete", "use"]);
 
 function stableId(prefix, ...parts) {
@@ -69,6 +69,7 @@ function analyze(request) {
   const maxPaths = Math.min(Math.max(request.limits?.max_paths || 5000, 1), 20000);
   const maxNodes = Math.min(Math.max(request.limits?.max_graph_nodes || 100000, 1), 200000);
   const maxEdges = Math.min(Math.max(request.limits?.max_graph_edges || 200000, 1), 400000);
+  const maxStateEntries = Math.min(Math.max(request.limits?.max_state_entries || 10000, 1), 100000);
   const maxFileBytes = Math.min(
     Math.max(request.limits?.max_file_bytes || 1000000, 1000),
     10000000,
@@ -147,8 +148,8 @@ function analyze(request) {
     }
     nodes.set(node.node_id, node);
   };
-  const addEdge = (kind, sourceId, targetId, parameterIndex = null) => {
-    const edgeId = stableId("edge", kind, sourceId, targetId, parameterIndex);
+  const addEdge = (kind, sourceId, targetId, parameterIndex = null, flow = null) => {
+    const edgeId = stableId("edge", kind, sourceId, targetId, parameterIndex, JSON.stringify(flow));
     const edge = {
       edge_id: edgeId,
       kind,
@@ -157,6 +158,12 @@ function analyze(request) {
       provenance: provenance(kind === "calls" ? "inferred" : "exact"),
     };
     if (parameterIndex !== null) edge.parameter_index = parameterIndex;
+    if (flow !== null) {
+      edge.source_role = flow.source.role;
+      edge.target_role = flow.target.role;
+      edge.source_context = flow.source.call_context;
+      edge.target_context = flow.target.call_context;
+    }
     if (!edges.has(edgeId) && edges.size >= maxEdges) throw new Error("graph edge limit exceeded");
     edges.set(edgeId, edge);
   };
@@ -291,7 +298,8 @@ function analyze(request) {
       return null;
     }
     active.add(signature);
-    const state = new Map(incoming);
+    let state = new Map(incoming);
+    let aliases = new Map();
     if (entrypoints.has(record.id)) {
       for (const parameter of record.parameters) {
         const name = parameter.name.getText(record.sourceFile);
@@ -309,12 +317,40 @@ function analyze(request) {
       }
     }
     let returned = null;
+    const accessPath = (node) => {
+      if (!node) return null;
+      if (ts.isIdentifier(node)) return aliases.get(node.text) || node.text;
+      if (ts.isPropertyAccessExpression(node)) {
+        const base = accessPath(node.expression);
+        return base ? `${base}.${node.name.text}` : null;
+      }
+      if (ts.isElementAccessExpression(node)
+        && (ts.isStringLiteralLike(node.argumentExpression)
+          || ts.isNumericLiteral(node.argumentExpression))) {
+        const base = accessPath(node.expression);
+        return base ? `${base}[${JSON.stringify(node.argumentExpression.text)}]` : null;
+      }
+      return null;
+    };
+    const assign = (node, value) => {
+      const key = accessPath(node);
+      if (!key) return;
+      if (!value) {
+        state.delete(key);
+        return;
+      }
+      if (!state.has(key) && state.size >= maxStateEntries) {
+        state.clear();
+        state.set("*", value);
+        coverage.add(stableId("typescript.state-widening", record.id));
+      } else state.set(key, value);
+    };
     const expr = (node) => {
       if (!node) return null;
-      if (ts.isIdentifier(node)) return state.get(node.text) || null;
+      if (ts.isIdentifier(node)) return state.get(accessPath(node)) || state.get("*") || null;
       if (ts.isStringLiteralLike(node) || ts.isNumericLiteral(node)) return null;
       if (ts.isPropertyAccessExpression(node) || ts.isElementAccessExpression(node)) {
-        return expr(node.expression);
+        return state.get(accessPath(node)) || expr(node.expression) || state.get("*") || null;
       }
       if (ts.isBinaryExpression(node)) return expr(node.left) || expr(node.right);
       if (ts.isTemplateExpression(node)) {
@@ -384,22 +420,65 @@ function analyze(request) {
         for (const declaration of node.declarationList.declarations) {
           if (ts.isIdentifier(declaration.name)) {
             const value = expr(declaration.initializer);
-            if (value) state.set(declaration.name.text, value); else state.delete(declaration.name.text);
+            const alias = accessPath(declaration.initializer);
+            if (alias && !value) aliases.set(declaration.name.text, alias);
+            else aliases.delete(declaration.name.text);
+            assign(declaration.name, value);
           }
         }
       } else if (ts.isExpressionStatement(node)) {
         if (ts.isBinaryExpression(node.expression)
           && node.expression.operatorToken.kind === ts.SyntaxKind.EqualsToken
-          && ts.isIdentifier(node.expression.left)) {
+          && (ts.isIdentifier(node.expression.left)
+            || ts.isPropertyAccessExpression(node.expression.left)
+            || ts.isElementAccessExpression(node.expression.left))) {
           const value = expr(node.expression.right);
-          if (value) state.set(node.expression.left.text, value); else state.delete(node.expression.left.text);
+          if (ts.isIdentifier(node.expression.left)) {
+            const alias = accessPath(node.expression.right);
+            if (alias && !value) aliases.set(node.expression.left.text, alias);
+            else aliases.delete(node.expression.left.text);
+          }
+          assign(node.expression.left, value);
         } else expr(node.expression);
-      } else if (ts.isReturnStatement(node)) returned = expr(node.expression);
-      else if (ts.isBlock(node)) node.statements.forEach(statement);
+      } else if (ts.isReturnStatement(node)) {
+        returned = expr(node.expression);
+        return true;
+      } else if (ts.isThrowStatement(node)) return true;
+      else if (ts.isBlock(node)) {
+        for (const child of node.statements) if (statement(child)) return true;
+      }
       else if (ts.isIfStatement(node)) {
-        statement(node.thenStatement);
-        if (node.elseStatement) statement(node.elseStatement);
+        if (node.expression.kind === ts.SyntaxKind.TrueKeyword) return statement(node.thenStatement);
+        if (node.expression.kind === ts.SyntaxKind.FalseKeyword) {
+          return node.elseStatement ? statement(node.elseStatement) : false;
+        }
+        const originalState = state;
+        const originalAliases = aliases;
+        state = new Map(originalState);
+        aliases = new Map(originalAliases);
+        const leftTerminated = statement(node.thenStatement) || false;
+        const leftState = state;
+        const leftAliases = aliases;
+        state = new Map(originalState);
+        aliases = new Map(originalAliases);
+        const rightTerminated = node.elseStatement ? statement(node.elseStatement) || false : false;
+        const rightState = state;
+        const rightAliases = aliases;
+        state = originalState;
+        aliases = originalAliases;
+        state.clear();
+        aliases.clear();
+        if (!leftTerminated) {
+          for (const [key, value] of leftState) state.set(key, value);
+          for (const [key, value] of leftAliases) aliases.set(key, value);
+        }
+        if (!rightTerminated) {
+          for (const [key, value] of rightState) state.set(key, value);
+          for (const [key, value] of rightAliases) aliases.set(key, value);
+        }
+        return leftTerminated && rightTerminated;
       } else ts.forEachChild(node, statement);
+      return false;
     };
     if (record.node.body) statement(record.node.body);
     active.delete(signature);
@@ -408,18 +487,21 @@ function analyze(request) {
   [...entrypoints].sort().forEach((id) => evaluateFunction(functions.get(id), new Map(), [id], 0));
   for (const candidate of candidates) {
     for (let index = 0; index + 1 < candidate.length; index += 1) {
-      addEdge("flows_to", candidate[index].node_id, candidate[index + 1].node_id);
+      addEdge("flows_to", candidate[index].node_id, candidate[index + 1].node_id, null, {
+        source: candidate[index],
+        target: candidate[index + 1],
+      });
     }
   }
   for (const diagnostic of program.getSyntacticDiagnostics()) {
     coverage.add(stableId("typescript.parse", diagnostic.file?.fileName || "unknown", diagnostic.start));
   }
   const graph = {
-    schema_version: "1.0.0",
+    schema_version: "1.1.0",
     revision: request.revision,
     build_context_digest: request.build_context_digest,
     framework_model_digest: request.framework_model_digest,
-    frontend_versions: { [FRONTEND]: ts.version },
+    frontend_versions: { [FRONTEND]: ts.version, "fdai.typescript.model": MODEL_VERSION },
     nodes: [...nodes.values()].sort((left, right) => left.node_id.localeCompare(right.node_id)),
     edges: [...edges.values()].sort((left, right) => left.edge_id.localeCompare(right.edge_id)),
     coverage_limits: [...coverage].sort(),
@@ -427,16 +509,33 @@ function analyze(request) {
   const graphDigest = digest(graph);
   const sanitizerContexts = selectors.filter((item) => item.role === "sanitizer")
     .map((item) => item.security_context).filter(Boolean).sort();
-  const paths = candidates.map((steps) => ({
-    schema_version: "1.0.0",
-    revision: request.revision,
-    graph_digest: graphDigest,
-    rule_id: request.rule.rule_id,
-    rule_version: request.rule.version,
-    steps,
-    sanitizers_considered: sanitizerContexts,
-    coverage_limits: graph.coverage_limits,
-  }));
+  const paths = candidates.map((steps) => {
+    const semanticSteps = steps.map((step) => {
+      const node = nodes.get(step.node_id);
+      return {
+        kind: node.kind,
+        name: node.name,
+        path: step.span.path,
+        role: step.role,
+        context: step.call_context,
+      };
+    });
+    return {
+      schema_version: "1.1.0",
+      path_id: `path:${crypto.createHash("sha256").update(JSON.stringify(canonical([
+        request.rule.rule_id,
+        request.rule.version,
+        semanticSteps,
+      ]))).digest("hex")}`,
+      revision: request.revision,
+      graph_digest: graphDigest,
+      rule_id: request.rule.rule_id,
+      rule_version: request.rule.version,
+      steps,
+      sanitizers_considered: sanitizerContexts,
+      coverage_limits: graph.coverage_limits,
+    };
+  });
   return { graph, paths };
 }
 

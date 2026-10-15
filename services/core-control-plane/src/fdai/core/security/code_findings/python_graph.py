@@ -16,11 +16,12 @@ from fdai.core.security.code_findings.analysis_contracts import (
     EvidenceConfidence,
     GraphEdgeKind,
     GraphNodeKind,
+    PathStepRole,
     SourceSpan,
 )
 
 FRONTEND = "python-ast"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 _ENTRYPOINT_DECORATORS = frozenset(
     {"route", "get", "post", "put", "patch", "delete", "api_route", "websocket"}
 )
@@ -35,6 +36,7 @@ class PythonAnalysisLimits:
     max_contexts: int = 100_000
     max_paths: int = 5000
     max_graph_nodes: int = 100_000
+    max_state_entries: int = 10_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -152,8 +154,22 @@ def add_edge(
     target_id: str,
     *,
     parameter_index: int | None = None,
+    source_role: PathStepRole | None = None,
+    target_role: PathStepRole | None = None,
+    source_context: tuple[str, ...] = (),
+    target_context: tuple[str, ...] = (),
 ) -> None:
-    edge_id = stable_id("edge", kind, source_id, target_id, parameter_index)
+    edge_id = stable_id(
+        "edge",
+        kind,
+        source_id,
+        target_id,
+        parameter_index,
+        source_role,
+        target_role,
+        source_context,
+        target_context,
+    )
     confidence = (
         EvidenceConfidence.INFERRED if kind is GraphEdgeKind.CALLS else EvidenceConfidence.EXACT
     )
@@ -166,6 +182,10 @@ def add_edge(
             target_id=target_id,
             provenance=_provenance(confidence),
             parameter_index=parameter_index,
+            source_role=source_role,
+            target_role=target_role,
+            source_context=source_context,
+            target_context=target_context,
         ),
     )
 

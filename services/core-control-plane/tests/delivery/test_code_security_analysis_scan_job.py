@@ -179,7 +179,7 @@ async def test_scan_job_dispatches_typescript_result_to_canonical_review(
         span=SourceSpan(path="app.ts", start_line=1, end_line=1),
     )
     graph = CodeGraphArtifact(
-        schema_version="1.0.0",
+        schema_version="1.1.0",
         revision=REVISION,
         build_context_digest=DIGEST,
         framework_model_digest=rule.digest(),
@@ -187,7 +187,8 @@ async def test_scan_job_dispatches_typescript_result_to_canonical_review(
         nodes=(source_node, sink_node),
     )
     path = PathEvidence(
-        schema_version="1.0.0",
+        schema_version="1.1.0",
+        path_id="path:typescript-scan-job",
         revision=REVISION,
         graph_digest=graph.digest(),
         rule_id=rule.rule_id,

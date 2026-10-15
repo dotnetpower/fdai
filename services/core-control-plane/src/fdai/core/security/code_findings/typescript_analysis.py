@@ -16,6 +16,7 @@ from fdai.core.security.code_findings.analysis_contracts import (
     PathEvidence,
     RuleAnalysisKind,
 )
+from fdai.core.security.code_findings.analysis_graph_flow import derive_graph_paths
 
 
 class TypeScriptAnalysisError(RuntimeError):
@@ -132,7 +133,17 @@ def analyze_typescript_repository(
             update={"coverage_limits": tuple(sorted({*graph.coverage_limits, *input_limits}))}
         )
     _validate_result(graph, paths, revision=revision, rule=rule, allowed_files=set(files))
-    return TypeScriptAnalysisResult(graph, paths)
+    derived = derive_graph_paths(graph, rule)
+    submitted_signatures = {
+        tuple((step.node_id, step.role, step.call_context) for step in path.steps) for path in paths
+    }
+    derived_signatures = {
+        tuple((step.node_id, step.role, step.call_context) for step in path.steps)
+        for path in derived
+    }
+    if submitted_signatures != derived_signatures:
+        raise TypeScriptAnalysisError("TypeScript paths differ from common graph traversal")
+    return TypeScriptAnalysisResult(graph, derived)
 
 
 def _validate_result(

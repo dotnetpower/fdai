@@ -2,7 +2,7 @@
   "schema_version": "1.0.0",
   "corpus_id": "fdai.code-security.analysis.typescript-sql-injection",
   "corpus_version": "1.0.0",
-  "corpus_digest": "sha256:f123785ba630cfb3a28694aba7778ba1fbe9a0f6c69dde4535a2f2c54a410861",
+  "corpus_digest": "sha256:a597e1613d8adbccb911976e33a75909eb0d582d48a564a753ccaae7ef053bfb",
   "rule_id": "fdai.typescript.sql-injection",
   "rule_version": "1.0.0",
   "dev": {
