@@ -160,6 +160,11 @@ export default defineConfig({
           link: "/get-started/",
         },
         {
+          label: "Functional specification",
+          translations: { ko: "기능정의서" },
+          link: "/concepts/functional-specification/",
+        },
+        {
           label: "Develop locally",
           translations: { ko: "로컬 개발" },
           link: "/local-development-quickstart/",

@@ -128,6 +128,7 @@ class TenPointEvaluation:
 
     def to_dict(self) -> dict[str, object]:
         return {
+            "rubric_version": RUBRIC_VERSION,
             "total_score": self.total_score,
             "max_score": self.max_score,
             "rubric_count": len(self.rubrics),

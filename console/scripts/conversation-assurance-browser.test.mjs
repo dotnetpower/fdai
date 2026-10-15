@@ -2,12 +2,20 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 
 import {
+  contentDigest,
   profileEvidence,
   terminalPayload,
   validateChatResponse,
 } from "./conversation-assurance-browser.mjs";
 
 const SHA = "a".repeat(64);
+
+test("content digest is stable across object key order", () => {
+  assert.equal(
+    contentDigest({ b: 2, a: { d: 4, c: 3 } }),
+    contentDigest({ a: { c: 3, d: 4 }, b: 2 }),
+  );
+});
 
 test("terminal parser accepts exactly one final done event", () => {
   const terminal = terminalPayload(

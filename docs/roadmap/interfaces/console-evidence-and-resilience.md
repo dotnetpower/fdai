@@ -267,6 +267,14 @@ keeps every valid block and adds an explicit limitation block; one missing sourc
 the rest of the answer. A legacy verified chart can still return bounded `chart_artifact` v1, and
 canonical Markdown or fenced chart data remains the compatibility fallback.
 
+The explicitly armed conversation-assurance browser worker derives a stable content-free digest from
+the observed participant, evaluator, model, and prompt-profile evidence. It also records only the
+server trace's evidence-manifest digest, hard-zero count, latency, observed model-call count, and an
+available bounded cost value. It never retains question or answer text, raw prompts, model payloads,
+credentials, endpoint values, or screenshots. These observations can join the canonical answer gate
+for local effectiveness accounting, but they grant no qualification, promotion, rollback, approval,
+or execution authority.
+
 The status overview distinguishes completed, corrected, degraded, failed, unverified, running, and
 unobserved phases; record presence isn't success. Result chips report observed query and command
 counts, evidence completion, references, and verification rather than internal event totals. The

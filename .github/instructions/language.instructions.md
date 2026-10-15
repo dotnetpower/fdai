@@ -5,11 +5,14 @@ applyTo: "**/*.{md,json,yaml,yml}"
 
 # Language Policy
 
-> **Related on-demand skill**:
-> [`.github/skills/i18n-catalog/SKILL.md`](../skills/i18n-catalog/SKILL.md)
-> is the runnable workflow for L1 `.md` + `-ko.md` doc pairs, L2 message
-> catalog authoring, and the SHA / parity / punctuation gates. Load it when
-> you are editing catalogs, translations, or a gate failure sends you here.
+> **Related on-demand skills**:
+> - [`.github/skills/i18n-catalog/SKILL.md`](../skills/i18n-catalog/SKILL.md)
+>   is the runnable workflow for L1 `.md` + `-ko.md` doc pairs, L2 message
+>   catalog authoring, and the SHA / parity / punctuation gates. Load it when
+>   you are editing catalogs, translations, or a gate failure sends you here.
+> - [`.github/skills/translation-quality/SKILL.md`](../skills/translation-quality/SKILL.md)
+>   defines the Korean technical-prose editing standard. Load it whenever you
+>   write, revise, or review Korean technical documentation or product prose.
 
 ## Scope
 

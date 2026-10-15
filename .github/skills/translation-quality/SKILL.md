@@ -1,23 +1,23 @@
 ---
 name: translation-quality
 description: |
-  How to judge and repair the *quality* of Korean prose in FDAI `-ko.md`
-  docs, as opposed to its freshness. `check-translations.sh` only proves a
-  translation is in sync with its English source; it says nothing about
-  whether the Korean reads as Korean. Load this skill when writing or
-  reviewing a `-ko.md` file, when a `check-translation-quality` finding
-  appears, when deciding whether a term stays English, or before running any
-  bulk term substitution across docs. The always-loaded contract is
-  `.github/instructions/language.instructions.md`; the sync/catalog workflow
-  is the `i18n-catalog` skill.
-version: 1.0.0
+  Judge and repair the quality of Korean technical prose in FDAI docs and
+  product text, including `-ko.md` translations. Load this skill when writing,
+  revising, or reviewing Korean technical documentation, when Korean sounds
+  translated or unnatural, when a `check-translation-quality` finding appears,
+  when deciding whether a term stays English, or before bulk term substitution.
+  The always-loaded contract is `.github/instructions/language.instructions.md`;
+  the sync/catalog workflow is the `i18n-catalog` skill.
+version: 1.1.0
 scope: repository
 ---
 
-# Translation Quality
+# Korean Technical Prose Quality
 
-A `-ko.md` file can pass every existing gate and still be unusable. The
-failure mode looks like this:
+Korean technical prose can be grammatically valid and still be difficult to
+read. A `-ko.md` file can also pass every freshness gate while retaining English
+word order, excessive nominalization, vague subjects, or misleading certainty.
+The failure mode looks like this:
 
 ```
 Validator는 알 수 없는 capability, cycle, 해결되지 않은 dependency,
@@ -34,6 +34,83 @@ gets nothing from it. The same sentence after a quality pass:
 
 **Rule: if a word has an ordinary Korean equivalent, translate it. Keep
 English only when the English token is itself the identifier.**
+
+## Editing priorities
+
+Apply these priorities in order:
+
+1. Preserve technical accuracy and facts.
+2. Preserve the original intent and meaning.
+3. Use natural, clear Korean.
+4. Improve concision and readability.
+5. Keep terminology and voice consistent.
+
+Natural phrasing MUST NOT change technical meaning, safety conditions,
+authorization scope, validation strength, implementation status, or confidence.
+Do not hide a contradiction by rewriting it. Flag the contradiction for the
+author when the source claims cannot both be true.
+
+## Prefer natural, concrete Korean
+
+### Remove translation-shaped phrasing
+
+Review noun chains, copied English passive voice, bureaucratic abstractions,
+repeated connectors, and sentences made mostly of abstract nouns. Prefer a
+direct Korean verb when it expresses the same action:
+
+| Avoid | Prefer |
+|-------|--------|
+| 운영 이상에 대한 판단을 수행합니다. | 운영 이상을 파악합니다. |
+| 기능의 구현 여부에 대한 확인이 필요합니다. | 기능이 구현되었는지 확인해야 합니다. |
+| 작업 결과에 대한 검증을 진행합니다. | 작업 결과를 검증합니다. |
+| 해당 기능을 통한 대응의 지원을 제공합니다. | 해당 기능으로 운영자의 대응을 지원합니다. |
+| 상태에 대한 모니터링을 수행합니다. | 상태를 모니터링합니다. |
+| 구성의 변경을 실시합니다. | 구성을 변경합니다. |
+| 평가 기록과의 일치 여부를 확인합니다. | 평가 기록과 일치하는지 확인합니다. |
+
+Keep a nominal form when it is the established technical term or when a title,
+table heading, API specification, data model, or requirement identifier needs a
+compact noun phrase.
+
+### Name the action and object
+
+Prefer the actual action and object over a generic abstraction:
+
+| Vague | More concrete when supported by the source |
+|-------|--------------------------------------------|
+| 근거를 바탕으로 판단합니다. | 수집한 정보와 분석 결과를 바탕으로 판단합니다. |
+| 증거를 수집합니다. | 관련 로그와 메트릭을 수집합니다. |
+| 상태를 확인합니다. | 리소스 상태와 최근 변경 이력을 확인합니다. |
+| 문제를 해결합니다. | 오류를 수정합니다. / 서비스를 재시작합니다. / 원인을 분석합니다. |
+
+Never invent an object, operation, data source, or result that the source does
+not provide. When the source is nonspecific, improve only the sentence
+structure. If a technically important referent such as `해당 기능`, `관련 정보`,
+or `이 결과` remains ambiguous, ask the author instead of guessing.
+
+### Use Korean information order
+
+- Do not load one sentence with conditions, actions, exceptions, results, and
+  constraints. Split it at meaning boundaries without separating an action
+  from its authorization or safety condition.
+- Keep the subject and object explicit when omission creates ambiguity.
+- Avoid habitual repetition of `또한`, `아울러`, `이와 함께`, `이를 기반으로`,
+  `해당`, and `관련`.
+- Put the main action where readers can find it quickly. Do not stack a long
+  chain of modifiers before the noun.
+- Preserve repeated text when each occurrence carries a distinct condition,
+  exception, responsibility, or limitation.
+
+For example:
+
+```
+운영자가 작업을 직접 승인하거나 유효한 사전 권한을 부여하면 에이전트가
+허용된 범위에서 작업을 수행합니다. 작업이 끝나면 결과를 검증하고 감사
+기록을 남깁니다.
+```
+
+Splitting this sentence must not weaken the logical relationship between
+authorization and execution.
 
 ## What stays English
 
@@ -55,7 +132,7 @@ Reuse these renderings so docs agree with each other.
 
 | English | Korean | English | Korean |
 |---------|--------|---------|--------|
-| planner | 플래너 | evidence | 근거 |
+| planner | 플래너 | evidence in prose | 문맥에 따라 정보, 근거, 증거, 징후 |
 | validator, verifier | 검증기 | capability | 기능 |
 | executor | 실행기 | goal | 목표 |
 | compiler | 컴파일러 | task | 작업 |
@@ -75,6 +152,94 @@ Section headings are translated too (`## Migration` -> `## 이행 계획`,
 
 Preserve verbatim: fenced code blocks, YAML examples, mermaid blocks, link
 targets, and tables of technical values.
+
+## Choose words by the promised level
+
+The following words are not interchangeable. Select the word that matches the
+actual input, action, and confidence:
+
+| Term | Use |
+|------|-----|
+| 정보 | Logs, metrics, events, configuration values, and other material used for analysis in general. |
+| 근거 | Information that explains why a specific judgment or conclusion is warranted. |
+| 증거 | Material that is explicitly evidentiary in a legal, forensic, security-investigation, or similarly strict context. |
+| 징후 | A signal that suggests an incident or anomaly without establishing its cause. |
+| 확인 결과 | A fact observed through an inspection or test. |
+| 판단 이유 | A user-facing explanation of how the conclusion was reached. |
+| 증적 | An established receipt or audit artifact, not a generic synonym for information. |
+
+Examples to review in context, not mechanically replace:
+
+| Existing phrase | Prefer when accurate |
+|-----------------|----------------------|
+| 증거에 따르면 | 확인 결과 / 로그를 보면 / 데이터에 따르면 |
+| 증거가 발견되었습니다. | 관련 정보가 확인되었습니다. / 이상 징후가 나타났습니다. |
+| 근거가 부족합니다. | 판단에 필요한 정보가 부족합니다. |
+| 입증합니다. | 보여 줍니다. / 확인할 수 있습니다. |
+| 판단의 근거 | 판단 이유 / 판단에 사용한 정보 |
+| 구현 여부에 대한 확인 | 구현 여부를 확인 |
+| 담당 기록과 대조 | 담당 평가 기록과 대조 |
+| 기능 완성도 | 구현 수준 / 검증 상태 / 기능 준비 상태 |
+| 남은 조건 | 미충족 조건 / 추가 확인 사항 |
+| 상태명은 정의 절로 연결 | 상태명을 선택하면 해당 정의로 이동 |
+| 기능명은 개별 근거로 연결 | 기능명을 선택하면 관련 평가 기록으로 이동 |
+
+Use `확인` to inspect a fact or state, `검증` to compare it with a defined
+criterion or expected result, `판단` to reach a conclusion from analyzed
+information, `감지` to detect a state or signal, and `추정` to describe a likely
+state or cause that has not been sufficiently confirmed. Do not swap these as
+stylistic synonyms.
+
+Use `게시용 빌드` only when publishing is the actual operation. Use `배포용 빌드`
+for a deployment artifact. Prefer `브라우저에서의 실제 페이지 이동` over
+`실제 브라우저 이동` when the intended meaning is browser navigation.
+
+## Preserve technical certainty
+
+Never change any of these distinctions during language editing:
+
+- implemented versus planned functionality
+- supported versus unsupported targets
+- direct user approval versus standing authorization
+- authenticated execution identity versus user credentials
+- test success versus validation in a live environment
+- observed fact versus inferred cause
+- partial support versus complete support
+- exact numbers, dates, versions, counts, and test totals
+- security policy, permission conditions, exceptions, and safeguards
+- the scope supported by sources and assessment records
+
+Forbidden upgrades include:
+
+- `테스트를 통과했습니다.` -> `운영 환경에서 정상 동작합니다.`
+- `이상 징후가 확인되었습니다.` -> `원인이 확정되었습니다.`
+- `자동 조치를 지원합니다.` -> `모든 조치를 자동 수행합니다.`
+- `일부 리소스를 지원합니다.` -> `Azure 리소스를 지원합니다.`
+- `구현 후보` -> `구현 완료`
+
+## Apply the document's contract
+
+- **Functional specifications and requirements:** distinguish offered
+  functionality from implemented functionality. Preserve the actor, input,
+  processing, result, conditions, requirement IDs, acceptance criteria, scope,
+  and limitations. Do not mix feature description with implementation status.
+- **Architecture and design:** state component responsibilities and interactions
+  directly. Keep protocol, API, and data-model names intact. Separate design
+  intent from current implementation and proposals from accepted design.
+- **Test and assessment reports:** distinguish passed, failed, and not-run tests;
+  local, integration, and live validation; and a bounded assessment from overall
+  product readiness. Do not broaden what the result guarantees.
+- **User guidance and progress updates:** use short, direct sentences. Separate
+  what was checked from what remains, reduce ceremonial repetition, and make the
+  next expected event clear.
+
+Within one document and project, use one term for one concept. Prefer the
+project glossary when it exists. Keep these distinctions stable: `기능` is a
+product capability; `요구사항` is a condition to satisfy; `구현` realizes it in
+code or configuration; `테스트` is a procedure that checks behavior; `검증`
+judges conformance to defined criteria; `운영 확인` observes behavior in the
+live environment; `지원 범위` names actual supported targets and operations;
+and `준비 상태` reports implementation and validation against defined criteria.
 
 ## Bulk substitution: four ways it goes wrong
 
@@ -145,6 +310,23 @@ Two cautions learned the hard way:
 - **Never rebuild a file another session is editing.** Wait for their commit.
 
 ## Verify
+
+Before running tools, review each changed document in this order:
+
+1. Identify its purpose, audience, and document type.
+2. Protect technical terms, numbers, identifiers, links, code, and authority conditions.
+3. Find translated syntax, awkward order, excessive nominalization, ambiguous references, and repetition.
+4. Rewrite for natural Korean without adding facts.
+5. Recheck certainty, conditions, exceptions, and technical responsibility.
+6. Recheck terminology consistency.
+7. Confirm Markdown structure, tables, code blocks, links, IDs, and numbers remain intact.
+8. Read the result as a Korean reader would.
+
+When the user requests editing, return the complete corrected document by
+default and preserve its headings, sections, tables, lists, links, and IDs where
+possible. Leave sentences that need no change alone. Explain a potentially
+meaning-changing correction separately. If the user requests only corrected
+text, do not append a long rationale.
 
 Select only changed task-owned paths and reuse passing evidence under
 [Testing](../../instructions/coding-conventions.instructions.md#testing). Run these checks for a

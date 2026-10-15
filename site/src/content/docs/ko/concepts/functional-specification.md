@@ -1,0 +1,1 @@
+../../../../../../docs/user-guide/concepts/functional-specification-ko.md

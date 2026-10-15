@@ -46,6 +46,89 @@
   }
 }
 
+/* Readiness is a static classification, not a navigation control. */
+.fdai-readiness-badge {
+  display: inline-flex;
+  align-items: center;
+  width: max-content;
+  min-height: 1.5rem;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid;
+  border-radius: 0.25rem;
+  font-size: var(--sl-text-xs);
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.fdai-readiness-badge[data-readiness="ready"] {
+  color: #125c35;
+  background: #e8f6ed;
+  border-color: #72ad88;
+}
+
+.fdai-readiness-badge[data-readiness="partial"] {
+  color: #714500;
+  background: #fff3cf;
+  border-color: #c99524;
+}
+
+.fdai-readiness-badge[data-readiness="blocked"] {
+  color: #8b2020;
+  background: #fdeaea;
+  border-color: #d37b7b;
+}
+
+.fdai-readiness-badge[data-readiness="planned"] {
+  color: #174f91;
+  background: #e9f2ff;
+  border-color: #79a5d7;
+}
+
+.fdai-readiness-badge[data-readiness="not-assessed"] {
+  color: #48515e;
+  background: #eef1f4;
+  border-color: #aab2bd;
+}
+
+:root[data-theme="dark"] .fdai-readiness-badge[data-readiness="ready"] {
+  color: #b9efca;
+  background: #173525;
+  border-color: #4d8c65;
+}
+
+:root[data-theme="dark"] .fdai-readiness-badge[data-readiness="partial"] {
+  color: #ffe19a;
+  background: #3b2d10;
+  border-color: #9c7420;
+}
+
+:root[data-theme="dark"] .fdai-readiness-badge[data-readiness="blocked"] {
+  color: #ffc2c2;
+  background: #402020;
+  border-color: #a95656;
+}
+
+:root[data-theme="dark"] .fdai-readiness-badge[data-readiness="planned"] {
+  color: #c8ddff;
+  background: #182e4b;
+  border-color: #527db2;
+}
+
+:root[data-theme="dark"] .fdai-readiness-badge[data-readiness="not-assessed"] {
+  color: #d8dee7;
+  background: #2b3139;
+  border-color: #69727e;
+}
+
+@media (forced-colors: active) {
+  .fdai-readiness-badge {
+    color: CanvasText !important;
+    background: Canvas !important;
+    border-color: CanvasText !important;
+  }
+}
+
 /*
  * Focused documentation navigation.
  *
