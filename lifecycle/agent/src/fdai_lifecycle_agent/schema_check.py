@@ -35,22 +35,30 @@ def check_heads(connection: Connection, configs: list[Path]) -> bool:
     return True
 
 
-def main() -> int:
-    # Core already carries these tools. Order comes from the canonical ownership manifest.
-    sys.path.insert(0, "/app/service-migrations")
+def schema_configs(root: Path) -> list[Path]:
+    """Resolve image-owned migration configs through the canonical ownership inventory."""
+
+    sys.path.insert(0, str(root / "service-migrations"))
+    from service_migrations.inventory import (  # type: ignore[import-not-found]
+        load_legacy_inventory,
+    )
     from service_migrations.ownership import (  # type: ignore[import-not-found]
         SERVICE_IDS,
         load_ownership_manifest,
         migration_order,
     )
 
-    root = Path("/app")
+    inventory = load_legacy_inventory(root / "alembic/versions")
     order = migration_order(
-        load_ownership_manifest(root / "service-migrations/ownership.json"), SERVICE_IDS
+        load_ownership_manifest(root / "service-migrations/ownership.json", inventory), SERVICE_IDS
     )
-    configs = [root / "alembic.ini"] + [
+    return [root / "alembic.ini"] + [
         root / f"service-migrations/configs/{service}.ini" for service in order
     ]
+
+
+def main() -> int:
+    configs = schema_configs(Path("/app"))
     url = os.environ.get("FDAI_DATABASE_URL", "")
     if url.startswith("postgresql://"):
         url = "postgresql+psycopg://" + url.removeprefix("postgresql://")

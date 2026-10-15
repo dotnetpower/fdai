@@ -3,9 +3,11 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+from alembic.config import Config
+from alembic.script import ScriptDirectory
 from sqlalchemy import Column, MetaData, String, Table, create_engine, event, text
 
-from fdai_lifecycle_agent.schema_check import check_heads
+from fdai_lifecycle_agent.schema_check import check_heads, schema_configs
 
 
 def migration_config(root: Path, name: str, revision: str) -> Path:
@@ -76,3 +78,19 @@ def test_job_script_is_self_contained_and_never_runs_migrations() -> None:
     assert "SET TRANSACTION READ ONLY" in script
     assert "command.upgrade" not in script
     assert "command.downgrade" not in script
+
+
+def test_real_image_migration_inventory_and_configs_resolve_without_database() -> None:
+    root = Path(__file__).resolve().parents[3]
+    configs = schema_configs(root)
+    assert configs[0] == root / "alembic.ini"
+    assert len(configs) == 6
+    assert {path.stem for path in configs[1:]} == {
+        "core-control-plane",
+        "operator-service",
+        "document-ingestion-api",
+        "document-processing-worker",
+        "isolated-executor",
+    }
+    for path in configs:
+        assert ScriptDirectory.from_config(Config(str(path))).get_heads()
