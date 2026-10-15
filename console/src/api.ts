@@ -65,6 +65,10 @@ import {
   type IamSelfStatus,
   type IdentityRosterItem,
 } from "./routes/settings-iam.model";
+import type {
+  BackgroundTaskCreateReceipt,
+  BackgroundTaskCreateRequest,
+} from "./routes/background-tasks.model";
 
 export class OperatorApiClient {
   readonly #transport: OperatorApiTransport;
@@ -188,6 +192,35 @@ export class OperatorApiClient {
       throw new OperatorApiError(502, "knowledge connection receipt is malformed");
     }
     return { request_id: receipt.request_id, dispatch_status: receipt.dispatch_status };
+  }
+
+  /** Submit one owner-scoped, authority-free background read investigation. */
+  async createBackgroundTask(
+    body: BackgroundTaskCreateRequest,
+    idempotencyKey: string,
+  ): Promise<BackgroundTaskCreateReceipt> {
+    const raw = await this.#transport.postJson<unknown>(
+      "/background-tasks",
+      { ...body },
+      idempotencyKey,
+    );
+    const receipt = raw as { task_id?: unknown; status?: unknown };
+    if (typeof receipt.task_id !== "string" || receipt.status !== "queued") {
+      throw new OperatorApiError(502, "background task receipt is malformed");
+    }
+    return { task_id: receipt.task_id, status: receipt.status };
+  }
+
+  /** Request cancellation of one owner-scoped background task. */
+  async cancelBackgroundTask(taskId: string, idempotencyKey: string): Promise<void> {
+    const raw = await this.#transport.postJson<unknown>(
+      `/background-tasks/${encodeURIComponent(taskId)}/cancel`,
+      {},
+      idempotencyKey,
+    );
+    if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+      throw new OperatorApiError(502, "background task cancellation receipt is malformed");
+    }
   }
 
   /**

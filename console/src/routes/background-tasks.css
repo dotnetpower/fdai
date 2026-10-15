@@ -7,6 +7,36 @@
   font-size: 0.8rem;
 }
 .background-task-boundary strong { color: var(--fg); }
+.background-task-create {
+  display: grid;
+  gap: 18px;
+  padding: 20px 0 24px;
+  border-bottom: 1px solid var(--border);
+}
+.background-task-create-heading { display: grid; gap: 6px; }
+.background-task-create-heading h2 { margin: 0; font-size: 1rem; }
+.background-task-create-heading p { max-width: 76ch; margin: 0; color: var(--fg-muted); line-height: 1.5; }
+.background-task-create-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+.background-task-create-grid label { display: grid; align-content: start; gap: 7px; min-width: 0; }
+.background-task-create-grid label > span,
+.background-task-deep-option > span { font-size: 0.78rem; font-weight: 650; }
+.background-task-create-grid input,
+.background-task-create-grid select,
+.background-task-create-grid textarea { width: 100%; min-width: 0; }
+.background-task-create-prompt { grid-column: span 2; }
+.background-task-create-secondary { grid-column: span 2; }
+.background-task-create-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.background-task-deep-option { display: inline-flex; align-items: center; gap: 8px; }
+.background-task-deep-option input { width: 18px; height: 18px; }
 .background-task-work-cell { display: grid; gap: 5px; min-width: 0; }
 .background-task-work-cell strong {
   display: -webkit-box;
@@ -94,6 +124,15 @@
 .background-task-technical[open] summary { margin-bottom: 14px; color: var(--fg); }
 
 @media (max-width: 760px) {
+  .background-task-create-grid { grid-template-columns: 1fr; }
+  .background-task-create-prompt,
+  .background-task-create-secondary { grid-column: auto; }
+  .background-task-create-grid input,
+  .background-task-create-grid select { min-height: 44px; }
+  .background-task-create-grid textarea { min-height: 88px; }
+  .background-task-create-actions { align-items: stretch; flex-direction: column; }
+  .background-task-deep-option { min-height: 44px; }
+  .background-task-create-actions .btn { min-height: 44px; width: 100%; }
   .background-task-detail-header { align-items: stretch; flex-direction: column; }
   .background-task-actions { width: 100%; }
   .background-task-actions .btn { min-height: 44px; flex: 1; }

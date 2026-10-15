@@ -203,7 +203,7 @@ class DataSourceProvenance:
     as_of: str | None = None
 
     def __post_init__(self) -> None:
-        if self.availability not in {"available", "unavailable", "unknown"}:
+        if self.availability not in {"available", "partial", "unavailable", "unknown"}:
             raise ValueError("datasource availability is invalid")
 
     def to_dict(self) -> dict[str, Any]:
