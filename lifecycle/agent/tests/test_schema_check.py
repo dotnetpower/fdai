@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import ast
 from pathlib import Path
+from unittest.mock import MagicMock
 
+import pytest
 from alembic.config import Config
 from alembic.script import ScriptDirectory
 from sqlalchemy import Column, MetaData, String, Table, create_engine, event, text
 
+from fdai_lifecycle_agent import schema_check
 from fdai_lifecycle_agent.schema_check import check_heads, schema_configs
 
 
@@ -94,3 +97,31 @@ def test_real_image_migration_inventory_and_configs_resolve_without_database() -
     }
     for path in configs:
         assert ScriptDirectory.from_config(Config(str(path))).get_heads()
+
+
+def test_main_resolves_real_inventory_before_database_verification(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root = Path(__file__).resolve().parents[3]
+    requested_roots: list[Path] = []
+    original = schema_check.schema_configs
+
+    def resolve(image_root: Path) -> list[Path]:
+        requested_roots.append(image_root)
+        return original(root)
+
+    engine = MagicMock()
+    connection = engine.connect.return_value.__enter__.return_value
+    verify = MagicMock(return_value=True)
+    monkeypatch.setattr(schema_check, "schema_configs", resolve)
+    monkeypatch.setattr(schema_check, "create_engine", MagicMock(return_value=engine))
+    monkeypatch.setattr(schema_check, "check_heads", verify)
+    monkeypatch.setenv("FDAI_DATABASE_URL", "postgresql://schema-reader@localhost/test")
+    assert schema_check.main() == 0
+    assert requested_roots == [Path("/app")]
+    verify.assert_called_once_with(connection, original(root))
+    assert [str(call.args[0]) for call in connection.execute.call_args_list] == [
+        "SET statement_timeout = '10s'",
+        "SET TRANSACTION READ ONLY",
+    ]
+    assert capsys.readouterr().out == "schema_check_verified\n"
