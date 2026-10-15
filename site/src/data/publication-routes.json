@@ -123,6 +123,17 @@
     ]
   },
   {
+    "route": "/concepts/functional-readiness/",
+    "locale": "en",
+    "source_path": "docs/user-guide/concepts/functional-readiness.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Understand",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
     "route": "/concepts/functional-specification/",
     "locale": "en",
     "source_path": "docs/user-guide/concepts/functional-specification.md",
@@ -491,6 +502,17 @@
     "diagram_ids": [
       "fdai-deterministic-first-01"
     ]
+  },
+  {
+    "route": "/ko/concepts/functional-readiness/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/concepts/functional-readiness-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Understand",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
   },
   {
     "route": "/ko/concepts/functional-specification/",
