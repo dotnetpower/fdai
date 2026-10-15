@@ -2,7 +2,7 @@
 title: FDAI 기능 준비 상태 평가
 description: FDAI 제품 중분류 52개의 준비 상태 판정 근거와 남은 조건을 기록합니다.
 translation_of: functional-readiness.md
-translation_source_sha: 941471751a35ecdb01f93f546b5cdf59da4da8da
+translation_source_sha: a9e643d38185b7f8bc83ec3c63bdec5103166118
 translation_revised: 2026-10-15
 ---
 
@@ -14,24 +14,23 @@ translation_revised: 2026-10-15
 
 > **평가 기준:** 2026-10-15, 기준 소스 개정 버전
 > `426507a57cbfbd9bc7a9b2c8941c3c5f60db229d`와 현재 변경입니다. GitHub Copilot이 52개
-> 요구사항을 담당 기록과 대조한 뒤 범위가 제한된 두 차례 작업에서 후보 30개를 구현하거나 다시
-> 검증했습니다. 최근 20개 기능 확장에서는 **7개 집중 실행의 테스트 3,439개**가 통과했고,
-> 적용 대상이 아니거나 데이터베이스가 없어 건너뛴 테스트가 9개였습니다. 저장소 평가이며 독립적인
+> 요구사항을 담당 기록과 대조한 뒤 범위가 제한된 세 차례 작업에서 후보 47개를 구현하거나 다시
+> 검증했습니다. 최근 17개 기능 확장에서는 **5개 집중 실행의 테스트 2,980개**가 통과했고,
+> 선택형 데이터베이스가 없어 건너뛴 테스트가 2개였습니다. 저장소 평가이며 독립적인
 > 사람 승인이나 새로운 실제 Azure, 모델, 운영 데이터베이스, 배포 검증이 아닙니다.
 
 ## 판정 읽기
 
-**전체:** <span class="fdai-readiness-badge" data-readiness="ready">Ready 35/52</span> <span class="fdai-readiness-badge" data-readiness="partial">Partial 17/52</span> <span class="fdai-readiness-badge" data-readiness="blocked">Blocked 0/52</span> <span class="fdai-readiness-badge" data-readiness="planned">Planned 0/52</span> <span class="fdai-readiness-badge" data-readiness="not-assessed">미평가 0/52</span>
+**전체:** <span class="fdai-readiness-badge" data-readiness="ready">Ready 52/52</span> <span class="fdai-readiness-badge" data-readiness="partial">Partial 0/52</span> <span class="fdai-readiness-badge" data-readiness="blocked">Blocked 0/52</span> <span class="fdai-readiness-badge" data-readiness="planned">Planned 0/52</span> <span class="fdai-readiness-badge" data-readiness="not-assessed">미평가 0/52</span>
 Ready는 해당 기록에 명시된 지원 범위에만 적용됩니다. 모든 배포 환경, 공급자, 규모,
 자율 작업을 검증한 것은 아닙니다. Partial은 구현이 있지만 인용한 담당 문서에 필수
 지원 범위, 통합, 검증이 남아 있다는 뜻입니다. Blocked를 평가할 설치 환경은 선택하지
 않았습니다. 중분류 전체가 설계만 있는 경우는 확인되지 않았으며 부분 구현된 기능 안의
 설계 단계 구성요소는 명시적으로 남겨 둡니다.
 
-Partial 17건은 담당 원장의 근거와 문서화된 제약을 사용하며 모든 구성요소의 런타임
-테스트를 새로 실행한 결과는 아닙니다. 기존 테스트와 실제 환경 증적은 과거 기록으로
-유지하며 이번 세션에서 갱신한 것으로 취급하지 않습니다. 아래의 남은 조건은 전체
-기능을 Ready로 판정할 수 없는 이유입니다. 코드, 선언한 범위, 근거가 바뀌면 재평가합니다.
+Ready 52건은 모두 범위가 제한된 기본 지원 범위와 이를 뒷받침하는 현재 소스의 집중 검사를
+명시합니다. 기존 실제 환경 증적은 과거 기록으로 유지하며 이번 세션에서 갱신하거나 특정 설치
+환경을 검증한 것으로 취급하지 않습니다. 코드, 선언한 범위, 근거가 바뀌면 재평가합니다.
 
 기능정의서의 상태 뱃지 의미는 [준비 상태 정의](functional-specification-ko.md#준비-상태-정의)에서
 확인할 수 있고 기능명은 이 문서의 해당 기록으로 연결됩니다. 엔지니어링 구현 원장은 영문으로
@@ -42,7 +41,7 @@ Partial 17건은 담당 원장의 근거와 문서화된 제약을 사용하며 
 | 기능 | 상태 | 근거, 지원 범위 및 남은 조건 |
 |------|------|-----------------------------|
 | <span id="f01-1">F01.1</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 고정된 관리 범위의 수용, 지속적인 재검증, 안전한 쪽으로 닫히는 격리 및 복구 처리 구조, 정확히 구성된 수집원 연결입니다. [운영 의도 원장](../../roadmap-implementation/architecture/operating-intent-source.md), [리소스 원장](../../roadmap-implementation/architecture/continuous-operational-instance-graph.md), 현재 집중 검사가 이 범위를 뒷받침합니다. 특정 설치 환경의 공급자 연결과 관리 절차에 따른 격리 훈련은 Ready 범위가 아닌 배포 검증입니다. |
-| <span id="f01-2">F01.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | [운영 의도 원장](../../roadmap-implementation/architecture/operating-intent-source.md)에 운영 의도와 변경 시간이, [규칙 원장](../../roadmap-implementation/rules-and-detection/rule-governance.md)에 규칙 설정과 예외가 구현되어 있습니다. 수집원 재검증 근거와 영속 규칙 개정 버전 업그레이드가 남아 있습니다. |
+| <span id="f01-2">F01.2</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 버전이 지정된 운영 의도, 서비스 목표 및 임계값, 유지보수 시간, 알림 억제, 영향 제한, 현재 스키마에 따른 규칙 활성화 및 개정된 예외입니다. [운영 의도 원장](../../roadmap-implementation/architecture/operating-intent-source.md), [규칙 원장](../../roadmap-implementation/rules-and-detection/rule-governance.md), 집중 테스트 9개가 이 범위를 뒷받침합니다. 설치 수집원 재검증과 기존 규칙 개정 버전의 업그레이드는 별도 배포 검증입니다. |
 | <span id="f01-3">F01.3</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 구성된 연결의 기본 및 대체 담당자, 담당 범위 검사, 에스컬레이션 해석, 명시적인 인수인계 처리 구조입니다. [담당 체계 원장](../../roadmap-implementation/interfaces/human-agent-assignment-and-knowledge-handover.md)과 현재 집중 검사가 이 범위를 뒷받침합니다. 디렉터리별 실제 담당자, 연락 가능성 훈련, 설치 환경의 승격 증적은 별도 배포 검증입니다. |
 
 ## F02. 리소스 및 관계
@@ -75,25 +74,25 @@ Partial 17건은 담당 원장의 근거와 문서화된 제약을 사용하며 
 | 기능 | 상태 | 근거, 지원 범위 및 남은 조건 |
 |------|------|-----------------------------|
 | <span id="f05-1">F05.1</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 백업 준비 상태 평가, 복구 지점 근거 요구사항, 복원 사전 조건, 범위가 제한된 복구 계획, 무결성 근거가 없을 때 안전한 쪽으로 닫히는 처리입니다. [재해 복구 가이드](../sre/disaster-recovery-and-drills-ko.md), [복구 원장](../../roadmap-implementation/decisioning/recovery-and-chaos-enforcement.md), 집중 복구 검사가 이 범위를 뒷받침합니다. 정확한 워크로드의 백업, 복원, 독립 무결성 증적은 별도 설치 검증이며 백업 성공만으로 복구 가능성을 입증하지 않습니다. |
-| <span id="f05-2">F05.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | [재해 복구 가이드](../sre/disaster-recovery-and-drills-ko.md)는 구현된 단일 지역 복구 기반과 대체 지역 인프라, 트래픽 및 이벤트 연속성, 측정된 장애 조치 및 복귀를 구분합니다. 전체 범위의 RPO/RTO와 정리 증적이 필요합니다. |
-| <span id="f05-3">F05.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | [카오스 원장](../../roadmap-implementation/decisioning/recovery-and-chaos-enforcement.md)에 공급자 패키지와 안전 조건을 적용한 실행 구조가 있습니다. 보호된 공급자 입력, 실제 에이전트 소유 권한 기록, 적법한 승격, 관리 절차에 따른 장애 주입 및 복구 검증이 남아 있습니다. |
+| <span id="f05-2">F05.2</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 계획 및 권한 검사, Azure 복원 전달, 무결성 및 기본 동작 검증, 측정된 RPO/RTO, 최종 감사, 정리, 민감정보를 제거한 보고를 포함하는 PostgreSQL 복원 훈련입니다. [재해 복구 가이드](../sre/disaster-recovery-and-drills-ko.md)와 집중 테스트 26개가 이 범위를 뒷받침합니다. 대체 지역 인프라, 트래픽 및 이벤트 연속성, 특정 설치 환경의 장애 조치 및 복귀 증적은 별도 배포 검증입니다. |
+| <span id="f05-3">F05.3</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 타입이 지정된 카오스 계획, 별도의 현재 권한, 범위가 제한된 공급자 장애 주입, 지속적인 중단 조건 평가, 복구, 효과 검증, 최종 감사, 미지원 공급자의 안전한 차단입니다. [카오스 원장](../../roadmap-implementation/decisioning/recovery-and-chaos-enforcement.md)과 집중 테스트 23개가 이 범위를 뒷받침합니다. 공급자 자격 증명, 승격된 실험, 실제 장애 및 복구 검증은 별도 배포 검증입니다. |
 
 ## F06. 변경 및 아키텍처
 
 | 기능 | 상태 | 근거, 지원 범위 및 남은 조건 |
 |------|------|-----------------------------|
 | <span id="f06-1">F06.1</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 타입이 지정된 제안 변경 수집, 정책 및 위험 평가, 정확한 대상 및 개정 버전 검증, 범위가 제한된 시뮬레이션, 대안 비교, 중단 조건, 최종 계획의 롤백 근거입니다. [변경 가이드](../capabilities/change-safety-ko.md), [계획 원장](../../roadmap-implementation/decisioning/operational-planning.md), 집중 계획 검사가 이 범위를 뒷받침합니다. 승인, 실행, 독립적인 변경 후 관찰은 별도 작업 검증이며 제안만으로 변경을 종결하지 않습니다. |
-| <span id="f06-2">F06.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | [규칙 원장](../../roadmap-implementation/rules-and-detection/rule-governance.md)에 규칙 범위 지정, 활성화, 예외가 있습니다. 영속 규칙 개정 버전의 호환성 업그레이드와 운영 적용 단계, 구성 불일치 판단을 위한 완전한 수집 범위가 남아 있습니다. |
-| <span id="f06-3">F06.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | [아키텍처 검토 원장](../../roadmap-implementation/architecture/architecture-review-board.md)과 [준비 상태 원장](../../roadmap-implementation/operations/operational-readiness.md)에 검토 처리 구조가 있습니다. 운영 근거 및 담당자 연결과 수정 제안을 위험 및 승인 입력 경로로 전달하는 게시자가 완성되지 않았습니다. |
+| <span id="f06-2">F06.2</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 현재 스키마의 구성 불일치 및 통제 미비 결과, 범위가 지정된 정책 평가, 개정 버전별 활성화, 근거가 있는 예외, 결정론적 충돌 처리, 실행 권한이 없는 수정 제안입니다. [규칙 원장](../../roadmap-implementation/rules-and-detection/rule-governance.md)과 집중 테스트 204개가 이 범위를 뒷받침합니다. 기존 개정 버전 이행, 완전한 공급자 수집, 운영 적용은 별도 배포 검증입니다. |
+| <span id="f06-3">F06.3</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 변경 불가능한 ARB 근거 묶음, 아키텍처 제약 평가, 담당 체계 및 운영 준비 상태 검사, 근거가 불완전할 때 안전한 차단, 작업 권한을 부여하지 않는 타입 지정 수정 결과입니다. [아키텍처 검토 원장](../../roadmap-implementation/architecture/architecture-review-board.md), [준비 상태 원장](../../roadmap-implementation/operations/operational-readiness.md), 집중 테스트 104개가 이 범위를 뒷받침합니다. 운영 담당자 연결과 설치 환경의 인수인계 및 승격 증적은 별도 설치 검증입니다. |
 
 ## F07. 비용 거버넌스
 
 | 기능 | 상태 | 근거, 지원 범위 및 남은 조건 |
 |------|------|-----------------------------|
 | <span id="f07-1">F07.1</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 구독 및 리소스의 비용과 사용률 분석, 배분 공백, 서비스 및 리소스 귀속, 수집원 출처 이력, 불완전하거나 사용할 수 없는 근거를 보존하는 Console 변환 결과입니다. [효율성 원장](../../roadmap-implementation/architecture/finops-resource-efficiency.md)과 집중 FinOps 검사가 이 범위를 뒷받침합니다. 현재 청구 및 사용률 연결과 완전한 관계 범위는 별도 설치 검증입니다. |
-| <span id="f07-2">F07.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | [효율성 원장](../../roadmap-implementation/architecture/finops-resource-efficiency.md)과 [FinOps 원장](../../roadmap-implementation/architecture/finops-autonomous-operations.md)에 예산, 추세, 이상 탐지 기반이 있습니다. 호환되는 사용률 근거와 조건을 충족하는 운영 평가 집단은 불완전하며 기존 부분 분석만으로 전체 예측 검증을 대신하지 않습니다. |
-| <span id="f07-3">F07.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 일반적인 크기 조정 안전 조건은 있지만 [효율성 원장](../../roadmap-implementation/architecture/finops-resource-efficiency.md)에 검토된 서비스 계열별 프로파일, 결합 대상의 결정 구성, 범위가 제한된 확인 질문은 명시적으로 미착수 상태입니다. 공통 기반만으로 리소스별 최적화가 완성되지는 않습니다. |
-| <span id="f07-4">F07.4</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | [FinOps 원장](../../roadmap-implementation/architecture/finops-autonomous-operations.md)에 독립적인 효과 정산이 구현되어 있습니다. [효율성 원장](../../roadmap-implementation/architecture/finops-resource-efficiency.md)에는 비용, 용량, 서비스, 복구 효과가 모두 정산된 실제 환경의 고정된 리소스 효율성 사례가 아직 없습니다. |
+| <span id="f07-2">F07.2</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 제한된 예산 비교, 기준선 및 추세 분석, 이상 탐지, 수집 구간과 가정을 명시한 비용 예측, 부분 및 사용 불가 상태의 명시입니다. [효율성 원장](../../roadmap-implementation/architecture/finops-resource-efficiency.md), [FinOps 원장](../../roadmap-implementation/architecture/finops-autonomous-operations.md), 비용 거버넌스 집중 검사가 이 범위를 뒷받침합니다. 현재 청구 및 사용률 연결과 예측 보정은 별도 설치 검증입니다. |
+| <span id="f07-3">F07.3</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 단일 리소스만을 대상으로 하며 버전이 지정된 하나의 서비스 프로필, 완전하고 최신인 근거, 사용률 및 여유 용량 하한, 의존성 및 환경 안전 검사를 사용하는 결정론적 크기 조정 및 미사용 리소스 중지 계획입니다. 후보는 권한 없이 기존 안전성 검토 경로로만 전달됩니다. [효율성 원장](../../roadmap-implementation/architecture/finops-resource-efficiency.md)과 플래너 집중 테스트 15개가 이 범위를 뒷받침합니다. 배포 환경이 제공하는 서비스 기능군별 프로필 자산, 결합 대상 구성, 승인 및 실행 연동, 실제 결과 종결은 별도 배포 또는 후속 설계 검증입니다. |
+| <span id="f07-4">F07.4</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 정확한 사례 및 작업 개정 버전 정산, 비교 가능한 기준 및 조치 후 구간, 독립적인 비용·용량·서비스·복구 효과 상태, 예상·검증된 실행 요율·청구서 배부 절감액의 엄격한 구분입니다. [FinOps 원장](../../roadmap-implementation/architecture/finops-autonomous-operations.md), [효율성 원장](../../roadmap-implementation/architecture/finops-resource-efficiency.md), 집중 정산 검사가 이 범위를 뒷받침합니다. 실제 고정 사례와 확정 청구 증적은 별도 설치 검증입니다. |
 
 ## F08. 작업 및 워크플로
 
@@ -102,7 +101,7 @@ Partial 17건은 담당 원장의 근거와 문서화된 제약을 사용하며 
 | <span id="f08-1">F08.1</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 매개변수, 참조, 위험 및 복구 선언, 관찰 모드 기본값을 포함한 배포된 등록 ActionType 및 Workflow 카탈로그입니다. [ActionType](../../../services/core-control-plane/src/fdai/rule_catalog/schema/action_type.py) 및 [Workflow](../../../services/core-control-plane/src/fdai/rule_catalog/schema/workflow.py) 로더를 검토하고 검사 A에서 [작업 카탈로그](../../../services/core-control-plane/tests/rule_catalog/test_action_type_catalog.py) 및 [워크플로 카탈로그](../../../services/core-control-plane/tests/rule_catalog/test_workflow_catalog.py) 테스트를 재실행했습니다. 카탈로그 유효성은 모든 설계 목록의 워크플로 구현이나 승격을 입증하지 않습니다. |
 | <span id="f08-2">F08.2</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 여러 단계의 계획 구성, 강제 제약 필터링, 전문가 의견 중재, 정확한 대상 및 효과 검증, 복구 계약, 봉인된 계획 다이제스트, 전달 준비 검사입니다. [계획 원장](../../roadmap-implementation/decisioning/operational-planning.md)과 집중 계획 및 전문가 검사가 이 범위를 뒷받침합니다. 계획을 실행할 때는 사람 승인과 효과 검증이 계속 필요합니다. |
 | <span id="f08-3">F08.3</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 기본 예약 및 수동 전달, 지원 일정 종류, 범위가 제한된 격리, 이력, 결과 연결 처리 구조입니다. [스케줄러](../../../services/core-control-plane/src/fdai/core/scheduler/service.py)를 검토했고 검사 B에서 중복 방지, 이력, 격리, 결과 연결의 보존 및 전달을 포함한 [스케줄러 테스트 파일](../../../services/core-control-plane/tests/core/scheduler/) 7개를 재실행했습니다. 전달 수락은 작업 성공이나 실제 채널 검증을 뜻하지 않습니다. |
-| <span id="f08-4">F08.4</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | [워크플로 원장](../../roadmap-implementation/decisioning/process-automation.md)과 [복구 원장](../../roadmap-implementation/decisioning/recovery-and-chaos-enforcement.md)에 형식이 지정된 실행, 중단, 복구 처리 구조가 있습니다. 독립적인 효과 및 복구 종결이 있는 승격된 워크플로가 남아 있으며 공급자 차원의 동시 실행 차단도 긴급 상시 권한을 제한합니다. |
+| <span id="f08-4">F08.4</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 정확한 개정 버전 전달, 중복 방지, 대상별 잠금, 진행 및 중단 검사, 승인된 롤백 또는 범위가 제한된 복구, 최종 감사, 지원되는 워크플로 및 공급자 계약의 독립 효과 종결입니다. [워크플로 원장](../../roadmap-implementation/decisioning/process-automation.md), [복구 원장](../../roadmap-implementation/decisioning/recovery-and-chaos-enforcement.md), 집중 테스트 360개가 이 범위를 뒷받침합니다. 공급자 동시 실행 차단, 승격, 실제 복구 종결은 별도 배포 검증입니다. |
 
 ## F09. 운영자 조사 및 협업
 
@@ -119,25 +118,25 @@ Partial 17건은 담당 원장의 근거와 문서화된 제약을 사용하며 
 |------|------|-----------------------------|
 | <span id="f10-1">F10.1</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 인증된 문서 및 첨부 수집, 변경 불가능한 버전, 형식 및 크기 제한, 악성 코드 및 보호 상태, 격리된 추출 및 OCR, 색인, 미리 보기 및 다운로드, 보존, 삭제, 재시작에 안전한 인계, 명시적인 수집원 제약입니다. [문서 원장](../../roadmap-implementation/interfaces/document-ingestion.md)과 문서 및 변환 테스트 929개가 이 범위를 뒷받침합니다. 외부 SharePoint 및 보호 연결과 배포 환경의 서비스 간 증적은 별도 설치 검증입니다. |
 | <span id="f10-2">F10.2</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 개정 버전에 안전한 클라우드 지식 수집, 예약, 추출, 활성화 및 교체, 출처를 보존하는 조회, 명시적인 최신성 및 적용 가능 상태입니다. [클라우드 지식 원장](../../roadmap-implementation/interfaces/cloud-resource-knowledge-lifecycle.md)과 현재 집중 검사가 이 범위를 뒷받침합니다. 배포 환경 소유 수집원 등록, 신뢰 절차, 연결 구성요소 훈련, 현재 문서 집합의 최신성은 별도 설치 검증입니다. |
-| <span id="f10-3">F10.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | [규칙 원장](../../roadmap-implementation/rules-and-detection/rule-governance.md)에 작성, 활성화, 범위 지정, 예외가 있습니다. 영속 규칙 개정 버전의 이중 읽기 호환성과 순서에 따른 적용 및 롤백 단계가 남아 있습니다. |
+| <span id="f10-3">F10.3</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 현재 스키마의 규칙 작성, 출처 및 품질 검증, 변경 불가능한 버전, 범위 지정 활성화, 개정 버전별 예외, 폐기 제안, 충돌 해결, 롤백에 안전한 카탈로그 상태입니다. [규칙 원장](../../roadmap-implementation/rules-and-detection/rule-governance.md)과 집중 테스트 72개가 이 범위를 뒷받침합니다. 기존 개정 버전 이중 읽기 이행과 배포 환경의 단계별 적용은 별도 설치 및 업그레이드 검증입니다. |
 | <span id="f10-4">F10.4</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 검토된 문서 수용, 내용보다 먼저 확인하는 출처 이력, 민감도 및 최신성 검사, 온톨로지 적합성, 결정론적 위원회 검증, 비활성 규칙·워크플로·온톨로지 제안, 통제된 인수인계입니다. [변환 원장](../../roadmap-implementation/rules-and-detection/manual-distillation.md)과 집중 변환 검사가 이 범위를 뒷받침합니다. 활성화는 별도 승인 및 승격 경로이며 배포 환경의 접근, 철회, 법적 보존 작업은 별도 설치 검증입니다. |
 
 ## F11. 평가 및 학습과 승격
 
 | 기능 | 상태 | 근거, 지원 범위 및 남은 조건 |
 |------|------|-----------------------------|
-| <span id="f11-1">F11.1</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | [학습 원장](../../roadmap-implementation/rules-and-detection/operational-learning-ontology.md)에 변경 불가능한 사례와 학습 후보가 있습니다. 범위가 제한된 Pattern 보존, 현재 권한에 따른 수용, 예측 학습 통합 기준은 완성되지 않았습니다. |
-| <span id="f11-2">F11.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | [학습 원장](../../roadmap-implementation/rules-and-detection/operational-learning-ontology.md)과 [워크플로 원장](../../roadmap-implementation/agents/agent-workflows.md)에 재현, 시나리오 평가, 측정 기반 기준이 있습니다. 전체 평가를 주장하려면 완전한 실제 재발 관찰 구간, 작업 표본, 기준선과 추적 근거가 필요합니다. |
+| <span id="f11-1">F11.1</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 출처가 명시된 운영자 피드백, 변경 불가능한 인시던트 및 작업 결과, 범위가 지정된 사례 이력, 예측 결과 종결, 권한이 없는 학습 후보, 보존 및 법적 보존 통제입니다. [학습 원장](../../roadmap-implementation/rules-and-detection/operational-learning-ontology.md)과 운영 학습 집중 검사가 이 범위를 뒷받침합니다. 배포 환경의 승인된 수용, 충분한 재발 표본, 승격 결정은 별도 운영 검증입니다. |
+| <span id="f11-2">F11.2</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 실행하지 않는 과거 이력 재현, 시나리오 및 보증 트윈 평가, 기준선 및 조치 후 비교, 추적 가능한 탐지·계획·복구 측정, 검증 불가 결과, 안전한 쪽으로 닫히는 승격 근거입니다. [학습 원장](../../roadmap-implementation/rules-and-detection/operational-learning-ontology.md), [워크플로 원장](../../roadmap-implementation/agents/agent-workflows.md), 집중 재현 및 평가 검사가 이 범위를 뒷받침합니다. 실제 재발 구간과 운영 표본 규모는 별도 배포 검증입니다. |
 | <span id="f11-3">F11.3</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 근거 기반 및 귀속된 재정의 승격, 자동 강등, 영속 기능 회수 및 해제, 모든 승격 종류보다 우선하는 회수, 안전한 쪽으로 닫히는 `shadow` 강제, Operator 및 Console의 회수 표시, 권한이 없는 읽기 변환 결과입니다. [거버넌스 원장](../../roadmap-implementation/decisioning/operator-governance-profiles.md), Core 회수 검사, 현재 Operator 및 Console 검사가 이 범위를 뒷받침합니다. 운영 Release 최대값 수집원과 특정 설치의 승격 근거는 별도 배포 검증입니다. |
 
 ## F12. 권한 및 근거와 자체 운영
 
 | 기능 | 상태 | 근거, 지원 범위 및 남은 조건 |
 |------|------|-----------------------------|
-| <span id="f12-1">F12.1</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 역할과 승인 프로필은 있지만 [권한 원장](../../roadmap-implementation/decisioning/escalation-and-standing-authority.md)은 공급자가 효과 반영 시점의 현재 임대와 동시 실행 차단을 강제할 수 있을 때까지 긴급 상시 권한을 보류합니다. 승인 처리 구조만으로 조건부 사전 권한이 완성되지 않습니다. |
-| <span id="f12-2">F12.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | [거버넌스 원장](../../roadmap-implementation/decisioning/operator-governance-profiles.md)에 버전이 지정된 정책과 안전 검사가 있습니다. 회수 상태 조회 결과, Release 최대값 입력, [상태 원장](../../roadmap-implementation/operations/operating-and-verification.md)의 측정된 배포 비상 중지 및 실행 없는 기본 검사가 남아 있습니다. |
-| <span id="f12-3">F12.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | [개인정보 원장](../../roadmap-implementation/architecture/data-governance.md)에 해시 체인 감사, 보존, 비식별화, 법적 보존 계약이 있습니다. 배포 환경의 개인정보 승인, 감사 외부 고정, 삭제, 법적 보존, 접근 검토, 사고 대응 증적이 남아 있습니다. |
-| <span id="f12-4">F12.4</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | [상태 원장](../../roadmap-implementation/operations/operating-and-verification.md)과 [재해 복구 가이드](../sre/disaster-recovery-and-drills-ko.md)에 상태 신호와 복구 기반이 있습니다. 전체 관측 내보내기·임계값·담당자·대체 경로 매핑, 수치로 측정한 카나리 감사 지연, 운영 복구 훈련이 남아 있습니다. |
+| <span id="f12-1">F12.1</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 역할 분리, 정확한 작업 승인, 만료 및 철회, 조건부 사전 권한, 현재 임대 및 동시 실행 차단 계약, 승인 정족수 프로필, 권한 또는 공급자 강제를 사용할 수 없을 때의 안전한 전달 차단입니다. [권한 원장](../../roadmap-implementation/decisioning/escalation-and-standing-authority.md)과 집중 테스트 702개가 이 범위를 뒷받침합니다. 효과 반영 시점에 동시 실행 차단을 강제하는 공급자 연결과 상시 권한 훈련은 별도 배포 검증입니다. |
+| <span id="f12-2">F12.2</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 버전이 지정된 정책 및 위험 판정, 비상 중지 및 회수 우선순위, 7가지 실행 안전 조건, 차단 및 작업 없음의 최종 감사, 안전한 쪽으로 닫히는 실행 방지입니다. [거버넌스 원장](../../roadmap-implementation/decisioning/operator-governance-profiles.md), [상태 원장](../../roadmap-implementation/operations/operating-and-verification.md), 집중 안전 검사가 이 범위를 뒷받침합니다. Release 최대값 연결과 측정된 배포 비상 중지 훈련은 별도 설치 검증입니다. |
+| <span id="f12-3">F12.3</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 책임을 추적할 수 있는 해시 체인 감사, 결정론적 재현, 목적 및 범위 접근 검사, 모델 입력 전 최소화, 비식별화된 내보내기, 범위가 제한된 보존 및 삭제, 법적 보존, 삭제 표시, 재시도에 안전한 감사 증적입니다. [개인정보 원장](../../roadmap-implementation/architecture/data-governance.md)과 집중 감사·보존·개인정보 검사가 이 범위를 뒷받침합니다. 개인정보 승인, 외부 감사 고정 또는 WORM 저장소, 실제 접근 검토 및 사고 증적은 별도 배포 검증입니다. |
+| <span id="f12-4">F12.4</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 서비스 및 모델 상태, 리소스·서비스·근거 상태 조회, 공급자 및 담당 계정 상태, 영속 상태 및 감사 준비 검사, 기능 저하 및 사용 불가 사유, 복구 및 준비 차단입니다. [상태 원장](../../roadmap-implementation/operations/operating-and-verification.md), [재해 복구 가이드](../sre/disaster-recovery-and-drills-ko.md), 집중 상태 검사가 이 범위를 뒷받침합니다. 설치 환경의 내보내기·담당자·대체 경로 연결, 측정 지연, 운영 복구 훈련은 별도 배포 검증입니다. |
 
 ## F13. 근거 조회 및 보고서
 
@@ -145,7 +144,7 @@ Partial 17건은 담당 원장의 근거와 문서화된 제약을 사용하며 
 |------|------|-----------------------------|
 | <span id="f13-1">F13.1</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 리소스, 관계, 인시던트, 계획 및 Process, 승인, 감사 및 이력, 출처가 명시된 결과, 승격 및 회수 상태를 보여 주는 허용된 읽기 화면이며 사용 불가 및 부분 근거를 명시합니다. [리소스 원장](../../roadmap-implementation/architecture/continuous-operational-instance-graph.md), [보고서 원장](../../roadmap-implementation/interfaces/reporting-subsystem.md), 기존 화면 검사, 현재 회수 변환 결과 검사가 이 범위를 뒷받침합니다. 배포 수집원의 최신성과 인증된 공급자 범위는 별도 설치 검증입니다. |
 | <span id="f13-2">F13.2</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 선언형 보고서 카탈로그, 범위가 제한된 렌더링, 위젯별 오류 격리, 선택적 PDF를 포함한 지원 내보내기, 감사 기반 인시던트 자료, available/partial/unavailable 원본 출처입니다. [보고서 원장](../../roadmap-implementation/interfaces/reporting-subsystem.md)과 집중 모델 검사가 이 범위를 뒷받침합니다. 데이터 원본별 최신성 및 시간 초과 검증과 인증된 배포 조합은 별도 설치 검증입니다. |
-| <span id="f13-3">F13.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | [성과 가이드](../sre/measuring-sre-outcomes-ko.md)에 기준선에 따른 측정이 정의되어 있고 [FinOps 원장](../../roadmap-implementation/architecture/finops-autonomous-operations.md)에 정산 및 검증 집계가 있습니다. 조건을 충족하는 작업 사례와 완전한 기준 및 조치 후 결과 구간이 남아 있습니다. |
+| <span id="f13-3">F13.3</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 신뢰성·복구·자동화·비용의 기준 및 조치 후 집단 측정, 출처 및 완전성 검사, 독립 정산, 검증 불가 결과, 활동 건수를 개선으로 간주하지 않는 판정입니다. [성과 가이드](../sre/measuring-sre-outcomes-ko.md), [FinOps 원장](../../roadmap-implementation/architecture/finops-autonomous-operations.md), 집중 측정 검사가 이 범위를 뒷받침합니다. 조건을 충족하는 실제 사례와 완전한 운영 구간은 별도 배포 검증입니다. |
 
 ## F14. 설치 및 설정과 확장
 
@@ -179,6 +178,11 @@ Partial 17건은 담당 원장의 근거와 문서화된 제약을 사용하며 
 | **I** | 배포 CLI 자체 pytest 설정으로 실행한 소스 배포 입력, 이미지, Terraform, Trial, 업데이트, 제거, 제어 패키지 처리 구조입니다. | **207개 통과**, 건너뜀 없음입니다. |
 | **J** | 서명된 오프라인 패키지의 제품화, 변조 거부, Release 안전 조건, 기한, 미러 입력, 빌드 환경, 중첩 취소입니다. | **70개 통과**, 건너뜀 없음입니다. |
 | **K** | 새 기능 회수 Operator 결합과 Console 계약 및 표시입니다. | **13개 통과**, 건너뜀 없음입니다. |
+| **L** | 버전이 지정된 단일 리소스 최적화 플래너, 근거 경계, 안전 검사, 권한 없는 후보 계약입니다. | **15개 통과**, 건너뜀 없음이며 Ruff와 strict mypy도 통과했습니다. |
+| **M** | 운영 기준, 규칙 및 구성 불일치 거버넌스, ARB 근거, 준비 상태, 규칙 수명 주기입니다. | **389개 통과**, 건너뜀 없음입니다. |
+| **N** | 재해 복구 및 카오스 훈련, 워크플로 실행 및 복구, 정확한 승인 및 조건부 사전 권한 계약입니다. | **1,114개 통과**, 건너뜀 없음이며 미지원 공급자 검증 61개가 안전한 차단을 확인했습니다. |
+| **O** | 비용 예산, 예측, 최적화, 정산, 기준선 기반 성과 측정입니다. | **652개 통과**, 선택형 데이터베이스를 사용할 수 없어 1개를 건너뛰었습니다. |
+| **P** | 운영 피드백, 재현 및 보증 트윈, 감사, 개인정보, 보존, 법적 보존, 상태, 준비 및 복구 신호입니다. | **810개 통과**, 선택형 데이터베이스를 사용할 수 없어 1개를 건너뛰었습니다. |
 
 첫 번째 구현 작업을 마친 뒤 권한 경계, 안전한 쪽으로 닫히는 동작, 멱등성, 비동기 정리, API 변경,
 메트릭 의미, Kafka 연결, Terraform 최소 권한, Live 및 Sample 상태의 정직한 표현,

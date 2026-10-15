@@ -18,10 +18,12 @@ FinOps control loop without creating a second ontology, agent organization, or e
 > estimated saving can only support or lower a decision. Forseti judges, Var records human approval,
 > Thor executes, Heimdall verifies effects, Vidar recovers, and Saga closes the audit record.
 >
-> **Current state:** Generic cost guards, a right-size `ActionType`, initial cost rules, Njord cost
-> advice, and Freyr capacity advice exist. The subscription analysis projection, complete
-> service-family profiles, resource-efficiency decision frame, multi-effect settlement, and Console
-> workspace described here are not implemented.
+> **Current state:** Subscription analytics, resource and settlement projections, the Console
+> workspace, generic cost guards, and deterministic single-resource optimization planning are
+> implemented. The planner pins one reviewed profile id, version, and digest, rejects incomplete or
+> stale evidence, preserves capacity and dependency floors, and emits an authority-neutral candidate
+> only for the existing safety-check path. Complete service-family profile assets, coupled-target
+> composition, targeted human clarification, and a live settled efficiency cohort remain open.
 
 ## Design at a glance
 

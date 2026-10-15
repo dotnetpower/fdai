@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 23ee976f44170ac9a42df8c9a48a0b6baf777a57
-translation_revised: 2026-10-09
+translation_source_sha: 517022b760bc83706e9ad9abbdf5dd8a4d6f06d1
+translation_revised: 2026-10-15
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -25,7 +25,9 @@ Operator post-turn review 발행도 Cost Governance package 활성화, Njord 발
 > **현재 상태:** FDAI에는 이제 독립적인 `fdai-cost-governance` wheel, source distribution,
 > 이미지 프로파일, 정확한 온톨로지 프로파일, 원자적인 disabled-first 패키지 수명 주기,
 > 패키지 소유 카탈로그 자산, gate가 적용된 Operator 및 Console 변환 결과와 로컬 W0-W7 검증
-> 메커니즘이 있습니다. 유효한 세분성 또는 신원 정책이 허용하지 않으면 Operator 공개 결과에서
+> 메커니즘이 있습니다. 이 패키지는 검토된 서비스 프로필을 고정하고 적격하지 않은 근거를 안전한
+> 쪽으로 차단하며 승인 또는 실행 권한 없이 크기 조정이나 중지 후보를 반환하는 결정론적 단일
+> 리소스 최적화 플래너도 제공합니다. 유효한 세분성 또는 신원 정책이 허용하지 않으면 Operator 공개 결과에서
 > 리소스 권고를 제외할 수 있습니다. 제한된 변환 결과는 공개 권고 수가 원본 수와 일치할 것을
 > 요구하지 않고 금액 및 권고 제한 사유를 기록합니다. 공용 Console 카탈로그 원본 검사기는 관련 없는 형식 지정 도우미가 아니라 가져온 `t` 바인딩을 확인합니다. 이 검사기와 패널 레지스트리 검사기는 저장소 검증만 담당하며, FinOps와 무관한 컴포넌트 또는 레이블 변경은
 > Cost Governance 패키지, 활성화 상태 또는 권한에 포함되지 않습니다. Shared Operator 조립은 관련 없는 이벤트 버스 worker를 감독할 수 있지만

@@ -23,6 +23,13 @@ from fdai_cost_governance.guard import (
     FinOpsGuardOutcome,
     ResourceContext,
 )
+from fdai_cost_governance.optimization import (
+    OptimizationDisposition,
+    ResourceOptimizationEvidence,
+    ResourceOptimizationPlan,
+    ResourceOptimizationPlanner,
+    ServiceFamilyProfile,
+)
 from fdai_cost_governance.parity import (
     ApprovedParityDifference,
     CostGovernanceParityHarness,
@@ -107,10 +114,15 @@ __all__ = [
     "FinOpsGuardConfig",
     "FinOpsGuardDecision",
     "FinOpsGuardOutcome",
+    "OptimizationDisposition",
     "PackageResource",
     "ResourceContext",
+    "ResourceOptimizationEvidence",
+    "ResourceOptimizationPlan",
+    "ResourceOptimizationPlanner",
     "RollingCostAdvisoryProvider",
     "ScheduledAnalyticsResult",
+    "ServiceFamilyProfile",
     "__version__",
     "build_lifecycle_receipt",
     "build_cost_governance_bundle",

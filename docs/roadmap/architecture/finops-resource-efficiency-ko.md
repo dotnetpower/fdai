@@ -1,8 +1,8 @@
 ---
 title: FinOps 리소스 효율 및 SKU 결정
 translation_of: finops-resource-efficiency.md
-translation_source_sha: c376770e3e36de1a35996d27456bf07626c02294
-translation_revised: 2026-09-20
+translation_source_sha: 718bfb6318591d6451336e328eb88396935dd6d6
+translation_revised: 2026-10-15
 ---
 
 # FinOps 리소스 효율 및 SKU 결정
@@ -22,9 +22,12 @@ translation_revised: 2026-09-20
 > Thor가 실행하고, Heimdall이 효과를 검증하고, Vidar가 복구하고, Saga가 감사 기록을
 > 종료합니다.
 >
-> **현재 상태:** 일반 비용 가드, 크기 조정 `ActionType`, 초기 비용 규칙, Njord 비용 조언,
-> Freyr 용량 조언은 있습니다. 이 문서에서 설명하는 구독 분석 변환 결과, 완전한 서비스 기능군
-> 프로필, 리소스 효율 결정 프레임, 다중 효과 정산 및 Console 작업 영역은 구현되지 않았습니다.
+> **현재 상태:** 구독 분석, 리소스 및 정산 변환 결과, Console 작업 영역, 일반 비용 안전 검사,
+> 결정론적 단일 리소스 최적화 계획이 구현되어 있습니다. 플래너는 검토된 프로필 식별자, 버전,
+> 다이제스트를 고정하고 불완전하거나 오래된 근거를 차단합니다. 또한 용량 및 의존성 하한을
+> 유지하고 기존 안전성 검토 경로에 권한이 없는 후보만 전달합니다. 완전한 서비스 기능군 프로필
+> 자산, 결합 대상 구성, 범위가 제한된 사람 확인, 실제 정산이 완료된 효율성 평가 집단은 남아
+> 있습니다.
 
 ## 설계 개요
 
