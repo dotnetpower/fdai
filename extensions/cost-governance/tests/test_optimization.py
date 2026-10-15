@@ -1,18 +1,26 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
 
 from fdai_cost_governance import (
+    ClarificationDisposition,
+    ClarificationResponseShape,
+    CoupledResourceOptimizationEvidence,
     FinOpsActionKind,
     FinOpsEnvironment,
+    OptimizationClarificationAttestation,
     OptimizationDisposition,
     ResourceContext,
     ResourceOptimizationEvidence,
     ResourceOptimizationPlanner,
     ServiceFamilyProfile,
+    build_optimization_clarification,
+    default_service_family_profiles,
+    evaluate_optimization_attestation,
 )
 
 NOW = datetime(2026, 10, 15, 10, tzinfo=UTC)
@@ -41,6 +49,7 @@ def _evidence(
     utilization: Decimal = Decimal("0.2"),
     headroom: Decimal = Decimal("0.5"),
     dependents: tuple[str, ...] = (),
+    sample_count: int = 48,
 ) -> ResourceOptimizationEvidence:
     return ResourceOptimizationEvidence(
         resource=ResourceContext(
@@ -53,7 +62,7 @@ def _evidence(
         observed_at=observed_at,
         source_authority="cost-analytics:verified",
         completeness=completeness,
-        sample_count=48,
+        sample_count=sample_count,
         utilization_p95=utilization,
         headroom=headroom,
         proposed_kind=proposed_kind,
@@ -229,3 +238,189 @@ def test_profile_rejects_non_finite_ratio(ratio: Decimal) -> None:
             maximum_utilization_p95=ratio,
             minimum_headroom=Decimal("0.2"),
         )
+
+
+def test_default_profiles_cover_the_five_reviewed_service_families() -> None:
+    profiles = default_service_family_profiles()
+    resource_types = {item for profile in profiles for item in profile.resource_types}
+
+    assert len(profiles) == 5
+    assert resource_types == {
+        "virtual-machine",
+        "virtual-machine-scale-set",
+        "azure-sql",
+        "postgresql",
+        "aks-node-pool",
+        "app-service",
+        "container-app",
+        "storage-account",
+    }
+    assert all(profile.required_metrics for profile in profiles)
+    assert len({profile.digest for profile in profiles}) == 5
+
+
+def test_default_profile_requires_complete_family_metrics() -> None:
+    profile = default_service_family_profiles()[0]
+    result = ResourceOptimizationPlanner(profiles=(profile,)).plan(
+        _evidence(resource_type="virtual-machine", sample_count=200),
+        now=NOW,
+    )
+
+    assert result.disposition is OptimizationDisposition.REVIEW_REQUIRED
+    assert result.reasons[0].startswith("required_metrics_missing:")
+
+
+def test_coupled_target_requires_complete_membership_and_tested_rollback() -> None:
+    profile = _profile("virtual-machine")
+    first = _evidence()
+    second = replace(
+        first,
+        resource=ResourceContext(
+            resource_id="resource-b",
+            environment=FinOpsEnvironment.DEV,
+            current_capacity=4,
+        ),
+    )
+    evidence = CoupledResourceOptimizationEvidence(
+        target_set_id="coupled-a",
+        target_revision_digest="sha256:" + "a" * 64,
+        resources=(first, second),
+        causal_order=("resource-a", "resource-b"),
+        membership_complete=False,
+        truncated=True,
+        rollback_tested=False,
+        logical_target_lock="lock:coupled-a",
+        idempotency_key="optimization:coupled-a:v1",
+    )
+
+    result = ResourceOptimizationPlanner(profiles=(profile,)).plan_coupled(
+        evidence,
+        now=NOW,
+    )
+
+    assert result.disposition is OptimizationDisposition.REVIEW_REQUIRED
+    assert result.reasons == (
+        "target_membership_incomplete",
+        "target_membership_truncated",
+        "coupled_rollback_untested",
+    )
+    assert result.execution_authority is False
+
+
+def test_coupled_target_routes_complete_candidate_set_to_governed_path() -> None:
+    profile = _profile("virtual-machine")
+    first = _evidence()
+    second = ResourceOptimizationEvidence(
+        resource=ResourceContext(
+            resource_id="resource-b",
+            environment=FinOpsEnvironment.DEV,
+            current_capacity=4,
+        ),
+        resource_type=first.resource_type,
+        observed_at=first.observed_at,
+        source_authority=first.source_authority,
+        completeness=first.completeness,
+        sample_count=first.sample_count,
+        utilization_p95=first.utilization_p95,
+        headroom=first.headroom,
+        proposed_kind=first.proposed_kind,
+        proposed_capacity=first.proposed_capacity,
+    )
+    evidence = CoupledResourceOptimizationEvidence(
+        target_set_id="coupled-a",
+        target_revision_digest="sha256:" + "a" * 64,
+        resources=(first, second),
+        causal_order=("resource-a", "resource-b"),
+        membership_complete=True,
+        truncated=False,
+        rollback_tested=True,
+        logical_target_lock="lock:coupled-a",
+        idempotency_key="optimization:coupled-a:v1",
+    )
+
+    result = ResourceOptimizationPlanner(profiles=(profile,)).plan_coupled(
+        evidence,
+        now=NOW,
+    )
+
+    assert result.disposition is OptimizationDisposition.CANDIDATE
+    assert len(result.candidates) == 2
+    assert result.route == "risk_gate"
+    assert result.approval_required is True
+    assert result.execution_authority is False
+
+
+def test_targeted_clarification_accepts_one_scoped_fact_without_authority() -> None:
+    request = build_optimization_clarification(
+        target_id="resource-a",
+        target_revision_digest="sha256:" + "a" * 64,
+        missing_fact="workload_priority",
+        blocking_reason="workload_priority_unavailable",
+        eligible_roles=("ServiceOwner",),
+        response_shape=ClarificationResponseShape.CHOICE,
+        allowed_values=("critical", "non-critical"),
+        effective_scope="resource-a",
+        created_at=NOW,
+        expires_at=NOW + timedelta(hours=1),
+        reevaluation_key="decision-case-a:revision-1",
+        recovery_evidence_refs=("recovery:graph", "recovery:provider"),
+    )
+    attestation = OptimizationClarificationAttestation(
+        request_id=request.request_id,
+        actor_id="operator-a",
+        actor_role="ServiceOwner",
+        response="non-critical",
+        effective_scope="resource-a",
+        recorded_at=NOW,
+        effective_until=NOW + timedelta(minutes=30),
+    )
+
+    result = evaluate_optimization_attestation(request, attestation, now=NOW)
+
+    assert result.disposition is ClarificationDisposition.ACCEPTED
+    assert result.reevaluation_key == "decision-case-a:revision-1"
+    assert result.accepted_value == "non-critical"
+    assert result.approval_authority is False
+    assert result.execution_authority is False
+
+
+@pytest.mark.parametrize(
+    ("kwargs", "reason"),
+    [
+        ({"authoritative_conflict": True}, "authoritative_evidence_conflict"),
+        ({"now": NOW + timedelta(hours=2)}, "attestation_expired"),
+    ],
+)
+def test_targeted_clarification_holds_conflict_or_expiry(
+    kwargs: dict[str, object],
+    reason: str,
+) -> None:
+    request = build_optimization_clarification(
+        target_id="resource-a",
+        target_revision_digest="sha256:" + "a" * 64,
+        missing_fact="workload_priority",
+        blocking_reason="workload_priority_unavailable",
+        eligible_roles=("ServiceOwner",),
+        response_shape=ClarificationResponseShape.BOOLEAN,
+        effective_scope="resource-a",
+        created_at=NOW,
+        expires_at=NOW + timedelta(hours=1),
+        reevaluation_key="decision-case-a:revision-1",
+        recovery_evidence_refs=("recovery:graph",),
+    )
+    attestation = OptimizationClarificationAttestation(
+        request_id=request.request_id,
+        actor_id="operator-a",
+        actor_role="ServiceOwner",
+        response="true",
+        effective_scope="resource-a",
+        recorded_at=NOW,
+        effective_until=NOW + timedelta(minutes=30),
+    )
+    call_kwargs = {"now": NOW, **kwargs}
+
+    result = evaluate_optimization_attestation(request, attestation, **call_kwargs)
+
+    assert result.disposition is ClarificationDisposition.HELD
+    assert result.reason == reason
+    assert result.accepted_value is None

@@ -20,10 +20,11 @@ FinOps control loop without creating a second ontology, agent organization, or e
 >
 > **Current state:** Subscription analytics, resource and settlement projections, the Console
 > workspace, generic cost guards, and deterministic single-resource optimization planning are
-> implemented. The planner pins one reviewed profile id, version, and digest, rejects incomplete or
-> stale evidence, preserves capacity and dependency floors, and emits an authority-neutral candidate
-> only for the existing safety-check path. Complete service-family profile assets, coupled-target
-> composition, targeted human clarification, and a live settled efficiency cohort remain open.
+> implemented. The planner now includes five reviewed service-family profiles, complete-metric
+> checks, bounded coupled-target membership/locking/rollback contracts, and expiring scoped human
+> attestations after bounded evidence recovery. Every candidate still grants no authority and routes
+> only to the existing safety-check path. Pantheon case composition, approval/execution integration,
+> and a live settled efficiency cohort remain open.
 
 ## Design at a glance
 
