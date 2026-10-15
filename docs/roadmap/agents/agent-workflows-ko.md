@@ -1,7 +1,7 @@
 ---
 title: 에이전트 워크플로우
 translation_of: agent-workflows.md
-translation_source_sha: 6a120d09f6267be05b7de56f5540c6fd08db80cf
+translation_source_sha: 6e99d266c8088dfdecfbbaa3a14ad96705c3c7db
 translation_revised: 2026-10-15
 ---
 
@@ -40,7 +40,7 @@ translation_revised: 2026-10-15
 | 13개 작업 흐름 메타데이터 레지스트리 | implemented | `services/core-control-plane/src/fdai/agents/_framework/workflows.py`; `services/core-control-plane/tests/agents/test_wave7_workflows.py` | 등록된 모든 작업 흐름은 `shadow`가 기본값입니다. 레지스트리는 메타데이터이므로 그 자체로 배포된 종단 간 작업 흐름을 증명하지 않습니다. |
 | 실행 가능한 shadow 추적 참조 | implemented | `services/core-control-plane/tests/agents/test_wave7_workflows.py`; `services/core-control-plane/tests/composition/test_readiness_service.py`; `services/core-control-plane/tests/core/test_control_loop_operator_request.py`; `services/core-control-plane/tests/agents/test_detection_readiness.py` | 집중 테스트가 등록된 추적 경로를 다룹니다. 이는 구현 근거이며 보존된 운영 추적은 아닙니다. |
 | 게시된 작업 흐름 순서도 | validated | `docs/diagrams/fdai-agent-workflows-*.diagram.yaml`, `tools/architecture-diagrams/test/agent-workflows.test.ts`, 정확한 SHA의 CI 및 Pages 실행, 실제 이중 언어 geometry 검사 | 게시된 다이어그램 12개는 중앙에 배치된 이중 언어 카드에서 완전한 송신자와 수신자 이름 및 타입이 지정된 메시지를 표시합니다. 이 표현은 직접 호출, 작업 흐름 상태, 권한 또는 승격 근거를 추가하지 않습니다. |
-| 메타데이터와 실행 카탈로그의 경계 | implemented | `config/workflow-promotion-verdicts.json`; `scripts/quality/architecture/check-workflow-promotion-verdicts.py`; 집중 검사기 테스트 | 정확한 작업 흐름 ID를 기준으로 메타데이터 작업 흐름 2개를 실행 카탈로그 항목에 연결하고 11개는 메타데이터로만 유지합니다. 비슷한 이름은 연결을 만들지 않으며 인벤토리는 모드나 권한을 부여하지 않습니다. |
+| 메타데이터와 실행 카탈로그의 경계 | implemented | `config/workflow-promotion-verdicts.json`; `scripts/quality/architecture/check-workflow-promotion-verdicts.py`; 집중 검사기 테스트 | 정확한 작업 흐름 ID를 기준으로 메타데이터 작업 흐름 2개를 실행 카탈로그 항목에 연결하고 11개는 메타데이터로만 유지합니다. 그 밖의 실행 가능한 YAML 작업 흐름 14개는 모두 프로세스 카탈로그 전용으로 명시합니다. 정규 YAML 다이제스트는 트리거, 단계, 기본 모드, 승격 게이트를 비롯한 모든 선언 필드를 결속합니다. 비슷한 이름은 연결을 만들지 않으며 인벤토리는 모드나 권한을 부여하지 않습니다. |
 | 측정된 승격 게이트 | not-started | 이 문서와 `services/core-control-plane/src/fdai/agents/_framework/workflows.py`의 승격 임계값 | 필요한 shadow 기간, KPI 기준선, 작업 흐름별 게이트 결과를 증명하는 보존 근거가 없습니다. |
 | 작업 흐름별 승격 판정 인벤토리 | implemented | `config/workflow-promotion-verdicts.json`; `scripts/quality/architecture/check-workflow-promotion-verdicts.py`; 집중 검사기 테스트 | 메타데이터 작업 흐름 13개 모두 정확한 정의에 연결된 판정을 갖습니다. 12개는 이름이 명시된 운영 근거의 부재로 보류되며, 회고적 가정 분석은 영구적으로 shadow에 남습니다. 인벤토리는 운영 근거를 기록하지 않으며 모드나 권한을 변경하지 않습니다. |
 | 적용 모드 승격 | not-started | `services/core-control-plane/src/fdai/agents/_framework/workflows.py`의 `default_mode="shadow"` | 승격은 작업 흐름별로 독립적입니다. 회고적 가정 분석은 본질적으로 shadow이며 적용 대상이 아닙니다. |
@@ -50,6 +50,7 @@ translation_revised: 2026-10-15
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
 | 2026-10-15 | implemented | 작업 흐름 13개 모두에 대해 메타데이터와 실행 카탈로그 사이의 비일대일 경계를 기록하고 게이트로 고정했습니다. 정확한 ID가 같은 2개 항목만 연결하고 나머지 11개는 메타데이터로 유지하며, 이름만 비슷한 항목으로 대체하거나 같은 ID를 중복 선언하면 안전한 쪽으로 차단합니다. | `current change`; 작업 흐름 판정 구성, 스키마, 검사기; 집중 검사기 테스트 10개 | 승격 대상 작업 흐름의 운영 shadow 기간, KPI 기준선, 정책 위반 탈출 및 추적 근거를 보존합니다. |
+| 2026-10-15 | implemented | 실행 가능한 YAML 작업 흐름 16개 전체로 경계를 확장했습니다. 독립 프로세스 카탈로그 항목 14개를 명시하고, 트리거, 단계, 기본 모드, 승격 게이트 또는 그 밖의 선언 필드가 바뀌면 정규 정의 다이제스트가 인벤토리를 무효화합니다. | `current change`; 작업 흐름 판정 구성, 스키마, 검사기; 집중 검사기 테스트 15개 | 승격 대상 작업 흐름의 운영 shadow 기간, KPI 기준선, 정책 위반 탈출 및 추적 근거를 보존합니다. |
 | 2026-10-01 | implemented | I12 일괄 작업에서 구현된 작업 흐름 단계를 작업 흐름 레지스트리, 추적 assertion, 계획된 에이전트 종료 조건, 문서 parity 테스트에 기록했으며 작업 흐름 모드는 변경하지 않았습니다. | `current change`; `services/core-control-plane/src/fdai/agents/_framework/workflows.py`; `services/core-control-plane/tests/agents/test_wave7_workflows.py`; `docs/roadmap/agents/agent-workflows.md`; `docs/roadmap/agents/agent-workflows-ko.md`; focused Wave 7, Pantheon doc parity, localization, roadmap, link, punctuation, readable-Hangul, core-import 검사 | 어떤 적용 모드 변경 전에도 운영 shadow 기간, KPI 기준선, 정책 위반 탈출, 승격 근거를 보존합니다. |
 | 2026-09-16 | implemented | 구현 추적을 운영 측정값으로 취급하지 않고 모든 메타데이터 작업 흐름에 실패 폐쇄형 판정을 하나씩 기록했습니다. 정확한 카탈로그 및 정의 다이제스트를 사용하므로 새 작업 흐름이나 변경된 작업 흐름은 판정을 다시 검토할 때까지 인벤토리 게이트를 통과하지 못합니다. | `current change`; `config/workflow-promotion-verdicts{,.schema}.json`; `scripts/quality/architecture/check-workflow-promotion-verdicts.py`; 집중 검사기 테스트 7개 통과 | 보류 판정을 교체하기 전에 이름이 명시된 런타임 기간, KPI 기준선, 가드 회귀, 정책 위반 탈출 근거를 보존합니다. 작업 흐름 모드는 변경하지 않았습니다. |
 | 2026-08-20 | validated | 수정한 작업 흐름 다이어그램에 대해 정확한 소스의 CI, Pages 배포 및 실제 이중 언어 geometry 근거를 보존했습니다. 배포된 SVG 24개는 모든 노드에 메시지 본문을 표시하고 순서를 오차 없이 중앙에 배치하며 text overflow와 node overlap이 모두 0건입니다. 영어 및 한국어 route도 desktop, constrained desktop 및 mobile 너비에서 page 또는 diagram host overflow가 없습니다. | 커밋 `c22ea624b`, [CI 실행 32336843459](https://github.com/dotnetpower/fdai/actions/runs/32336843459), [Pages 실행 32336843527](https://github.com/dotnetpower/fdai/actions/runs/32336843527), 실제 `1440x900`, `993x641`, `390x844` 검사 | 게시된 순서도 회귀에 남은 작업은 없습니다. 런타임 승격 근거는 별도 열린 작업으로 유지합니다. |
@@ -58,7 +59,7 @@ translation_revised: 2026-10-15
 
 ### 남은 작업
 
-- [x] 설계 작업 흐름 13개의 정확한 ID 카탈로그 경계를 기록하고 게이트로 고정합니다. 2개는 카탈로그에 연결하고 11개는 메타데이터로만 유지하며, 비슷한 이름으로 암시적 연결을 만들지 않습니다.
+- [x] 설계 작업 흐름 13개와 실행 가능한 YAML 작업 흐름 16개의 정확한 ID 카탈로그 경계를 기록하고 게이트로 고정합니다. 정확한 ID 2개는 연결하고, 설계 작업 흐름 11개는 메타데이터로만 유지하며, 실행 가능한 작업 흐름 14개는 프로세스 카탈로그 전용으로 명시합니다.
 - [ ] 운영 환경에서 작업 흐름별 shadow 기간, KPI 기준선, 정책 위반 탈출, 추적 근거를 보존합니다.
 - [x] 모든 메타데이터 작업 흐름에 정확한 정의와 연결된 승격 판정을 하나씩 기록합니다. 현재 인벤토리는 이름이 명시된 근거가 없어 작업 흐름 12개를 보류하고 회고적 가정 분석을 영구적으로 shadow에 유지하며, 어떤 권한도 부여하지 않습니다.
 

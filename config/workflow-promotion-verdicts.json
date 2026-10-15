@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.1.0",
+  "schema_version": "1.2.0",
   "catalog_ref": "services/core-control-plane/src/fdai/agents/_framework/workflows.py",
   "catalog_digest": "bb4f441afa0429809018d1a423ea1a6b591f7145dc0cb27368fb5a406cadc731",
   "reviewed_on": "2026-10-15",
@@ -18,77 +18,199 @@
     "summary": {
       "workflow_count": 13,
       "cataloged": 2,
-      "metadata_only": 11
+      "metadata_only": 11,
+      "executable_count": 16,
+      "independent": 14
     },
     "entries": [
       {
         "workflow_id": "cost-aware-remediation",
         "disposition": "cataloged",
-        "catalog_refs": [
-          "extensions/cost-governance/src/fdai_cost_governance/resources/workflows/cost-aware-remediation.yaml"
+        "catalog_definitions": [
+          {
+            "catalog_ref": "extensions/cost-governance/src/fdai_cost_governance/resources/workflows/cost-aware-remediation.yaml",
+            "definition_digest": "a2de024d7e95a9b17a36a605758a7dc5b78b65663a823e65e89c2326e27e09e3"
+          }
         ]
       },
       {
         "workflow_id": "predictive-scale",
         "disposition": "cataloged",
-        "catalog_refs": [
-          "rule-catalog/workflows/predictive-scale.yaml"
+        "catalog_definitions": [
+          {
+            "catalog_ref": "rule-catalog/workflows/predictive-scale.yaml",
+            "definition_digest": "7c4fe293c729e0e20eff4e51e185a3eafb6de9b11488e34e7e0a137ebecb9b58"
+          }
         ]
       },
       {
         "workflow_id": "dr-drill-orchestration",
         "disposition": "metadata_only",
-        "catalog_refs": []
+        "catalog_definitions": []
       },
       {
         "workflow_id": "override-discovery",
         "disposition": "metadata_only",
-        "catalog_refs": []
+        "catalog_definitions": []
       },
       {
         "workflow_id": "security-escalation",
         "disposition": "metadata_only",
-        "catalog_refs": []
+        "catalog_definitions": []
       },
       {
         "workflow_id": "handoff-capability",
         "disposition": "metadata_only",
-        "catalog_refs": []
+        "catalog_definitions": []
       },
       {
         "workflow_id": "agent-health-degradation",
         "disposition": "metadata_only",
-        "catalog_refs": []
+        "catalog_definitions": []
       },
       {
         "workflow_id": "judgment-coherence-audit",
         "disposition": "metadata_only",
-        "catalog_refs": []
+        "catalog_definitions": []
       },
       {
         "workflow_id": "rollback-rehearsal",
         "disposition": "metadata_only",
-        "catalog_refs": []
+        "catalog_definitions": []
       },
       {
         "workflow_id": "retrospective-what-if",
         "disposition": "metadata_only",
-        "catalog_refs": []
+        "catalog_definitions": []
       },
       {
         "workflow_id": "operational-readiness-handoff",
         "disposition": "metadata_only",
-        "catalog_refs": []
+        "catalog_definitions": []
       },
       {
         "workflow_id": "scheduled-governed-python-task",
         "disposition": "metadata_only",
-        "catalog_refs": []
+        "catalog_definitions": []
       },
       {
         "workflow_id": "detection-readiness-assurance",
         "disposition": "metadata_only",
-        "catalog_refs": []
+        "catalog_definitions": []
+      }
+    ],
+    "independent_entries": [
+      {
+        "workflow_id": "aks-commerce-order-backlog-recovery",
+        "disposition": "process_catalog_only",
+        "catalog_definitions": [{
+          "catalog_ref": "extensions/aks-commerce/src/fdai_aks_commerce/resources/workflows/order-backlog-recovery.yaml",
+          "definition_digest": "e0dfbec0ef944f18ec0f1030a4cdd6a9c96718eba1845b33dc29984673401a80"
+        }]
+      },
+      {
+        "workflow_id": "alert-evaluation-change",
+        "disposition": "process_catalog_only",
+        "catalog_definitions": [{
+          "catalog_ref": "rule-catalog/workflows/alert-evaluation-change.yaml",
+          "definition_digest": "5e46daaf143e0afda84777d8adcea31deb1346a1ce26e30bfe4ef84217288e22"
+        }]
+      },
+      {
+        "workflow_id": "alert-notification-window-change",
+        "disposition": "process_catalog_only",
+        "catalog_definitions": [{
+          "catalog_ref": "rule-catalog/workflows/alert-notification-window-change.yaml",
+          "definition_digest": "5185a67d796a53b53afea07b9e74343e19a4c2678b27f7e14172febb11fa326e"
+        }]
+      },
+      {
+        "workflow_id": "alert-routing-change",
+        "disposition": "process_catalog_only",
+        "catalog_definitions": [{
+          "catalog_ref": "rule-catalog/workflows/alert-routing-change.yaml",
+          "definition_digest": "e1c83c045a98b750e99766fc99f16f671a8c03a6af60dd7fa1aebdba6763a7b8"
+        }]
+      },
+      {
+        "workflow_id": "architecture-review",
+        "disposition": "process_catalog_only",
+        "catalog_definitions": [{
+          "catalog_ref": "rule-catalog/workflows/architecture-review.yaml",
+          "definition_digest": "a133baf4a87844c80da2cb92f8a01c3e29b7c040b45a30d5a948035441c3e235"
+        }]
+      },
+      {
+        "workflow_id": "chaos-detection-validation",
+        "disposition": "process_catalog_only",
+        "catalog_definitions": [{
+          "catalog_ref": "rule-catalog/workflows/chaos-detection-validation.yaml",
+          "definition_digest": "ffcd3f1dc350a3572e716e99dce49500af427ec3117444e69ec05ff2725f9860"
+        }]
+      },
+      {
+        "workflow_id": "deployment-release-request",
+        "disposition": "process_catalog_only",
+        "catalog_definitions": [{
+          "catalog_ref": "rule-catalog/workflows/deployment-release-request.yaml",
+          "definition_digest": "99208ff3e26be334d2b7c64299f753cff69bcd859a4119f67061c1d36d7fef30"
+        }]
+      },
+      {
+        "workflow_id": "dr-failover-drill",
+        "disposition": "process_catalog_only",
+        "catalog_definitions": [{
+          "catalog_ref": "rule-catalog/workflows/dr-failover-drill.yaml",
+          "definition_digest": "75508a9be7d384e1fa09c340cf6298ac2fe1a364fd8279331821dcc071e6801d"
+        }]
+      },
+      {
+        "workflow_id": "operational-planning",
+        "disposition": "process_catalog_only",
+        "catalog_definitions": [{
+          "catalog_ref": "rule-catalog/workflows/operational-planning.yaml",
+          "definition_digest": "aae6b8eab5ee88b732d0fe2c8d1562fbf2be280a203840a0182ef0d67d911ee7"
+        }]
+      },
+      {
+        "workflow_id": "planned-vm-start-change",
+        "disposition": "process_catalog_only",
+        "catalog_definitions": [{
+          "catalog_ref": "rule-catalog/workflows/planned-vm-start-change.yaml",
+          "definition_digest": "4125907a7c18405222884d4bbe13db83b34a3f5fff1f422f1916f57b6a934b37"
+        }]
+      },
+      {
+        "workflow_id": "scheduled-error-triage",
+        "disposition": "process_catalog_only",
+        "catalog_definitions": [{
+          "catalog_ref": "rule-catalog/workflows/scheduled-error-triage.yaml",
+          "definition_digest": "24044347f69872345b9a86cd0d55da86c3039801d226bd37c244ca6b3b977802"
+        }]
+      },
+      {
+        "workflow_id": "scheduled-gpu-python-task",
+        "disposition": "process_catalog_only",
+        "catalog_definitions": [{
+          "catalog_ref": "rule-catalog/workflows/scheduled-gpu-python-task.yaml",
+          "definition_digest": "d5ed970361232f255697c81d72d6e07de1ca7a4c987cf94f0ebc2ffcf33317b7"
+        }]
+      },
+      {
+        "workflow_id": "security-kpi-followup",
+        "disposition": "process_catalog_only",
+        "catalog_definitions": [{
+          "catalog_ref": "rule-catalog/workflows/security-kpi-followup.yaml",
+          "definition_digest": "78bdc70f8dd6eee0c938d9137e1877dec5fd0b1e1ff89646e9c7892d307aa43d"
+        }]
+      },
+      {
+        "workflow_id": "sre4sre-self-debug",
+        "disposition": "process_catalog_only",
+        "catalog_definitions": [{
+          "catalog_ref": "rule-catalog/workflows/sre4sre-self-debug.yaml",
+          "definition_digest": "ddb3ab66179a6ef42411261f79e5936cc6e3cc6d46483ab722e5708dc1baffad"
+        }]
       }
     ]
   },

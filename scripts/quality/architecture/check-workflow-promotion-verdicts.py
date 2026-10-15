@@ -116,10 +116,19 @@ def _test_selector_exists(root: Path, selector: str) -> bool:
     return pattern.search(path.read_text(encoding="utf-8")) is not None
 
 
-def _catalog_refs_by_workflow_id(root: Path) -> dict[str, tuple[str, ...]]:
-    """Return exact-name executable Workflow refs from upstream and extensions."""
+def _workflow_yaml_digest(raw: dict[str, Any]) -> str:
+    """Bind trigger, steps, mode, gate, and every other executable declaration field."""
 
-    refs: dict[str, list[str]] = {}
+    canonical = json.dumps(raw, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _catalog_definitions_by_workflow_id(
+    root: Path,
+) -> dict[str, tuple[tuple[str, str], ...]]:
+    """Return exact-name executable Workflow refs and semantic digests."""
+
+    definitions: dict[str, list[tuple[str, str]]] = {}
     for pattern in _WORKFLOW_CATALOG_GLOBS:
         for path in sorted(root.glob(pattern)):
             try:
@@ -129,8 +138,10 @@ def _catalog_refs_by_workflow_id(root: Path) -> dict[str, tuple[str, ...]]:
             if not isinstance(raw, dict) or not isinstance(raw.get("name"), str):
                 raise ValueError(f"workflow catalog identity is invalid: {path}")
             workflow_id = raw["name"]
-            refs.setdefault(workflow_id, []).append(path.relative_to(root).as_posix())
-    return {workflow_id: tuple(paths) for workflow_id, paths in refs.items()}
+            definitions.setdefault(workflow_id, []).append(
+                (path.relative_to(root).as_posix(), _workflow_yaml_digest(raw))
+            )
+    return {workflow_id: tuple(items) for workflow_id, items in definitions.items()}
 
 
 def validate_document(document: dict[str, Any], root: Path = ROOT) -> list[str]:
@@ -205,25 +216,61 @@ def validate_document(document: dict[str, Any], root: Path = ROOT) -> list[str]:
         errors.append(f"{MANIFEST_REF}: catalog-boundary entries MUST follow registry order")
 
     try:
-        executable_refs = _catalog_refs_by_workflow_id(root)
+        executable_definitions = _catalog_definitions_by_workflow_id(root)
     except ValueError as exc:
         return [*errors, str(exc)]
     for workflow_id in sorted(set(catalog) & set(boundary_records)):
         record = boundary_records[workflow_id]
-        expected_refs = executable_refs.get(workflow_id, ())
-        if len(expected_refs) > 1:
+        expected_definitions = executable_definitions.get(workflow_id, ())
+        if len(expected_definitions) > 1:
             errors.append(f"{MANIFEST_REF}: {workflow_id} executable catalog identity is ambiguous")
-        expected_disposition = "cataloged" if expected_refs else "metadata_only"
+        expected_disposition = "cataloged" if expected_definitions else "metadata_only"
         if record["disposition"] != expected_disposition:
             errors.append(f"{MANIFEST_REF}: {workflow_id} catalog disposition is stale")
-        if tuple(record["catalog_refs"]) != expected_refs:
-            errors.append(f"{MANIFEST_REF}: {workflow_id} catalog refs are stale")
+        recorded_definitions = tuple(
+            (item["catalog_ref"], item["definition_digest"])
+            for item in record["catalog_definitions"]
+        )
+        if recorded_definitions != expected_definitions:
+            errors.append(f"{MANIFEST_REF}: {workflow_id} catalog definitions are stale")
+
+    independent_entries = boundary["independent_entries"]
+    independent_records = {item["workflow_id"]: item for item in independent_entries}
+    if len(independent_records) != len(independent_entries):
+        errors.append(f"{MANIFEST_REF}: independent workflow ids MUST be unique")
+    expected_independent = set(executable_definitions) - set(catalog)
+    independent_missing = sorted(expected_independent - set(independent_records))
+    independent_unexpected = sorted(set(independent_records) - expected_independent)
+    if independent_missing:
+        errors.append(
+            f"{MANIFEST_REF}: missing independent executable workflows: "
+            f"{', '.join(independent_missing)}"
+        )
+    if independent_unexpected:
+        errors.append(
+            f"{MANIFEST_REF}: unexpected independent executable workflows: "
+            f"{', '.join(independent_unexpected)}"
+        )
+    if [item["workflow_id"] for item in independent_entries] != sorted(expected_independent):
+        errors.append(f"{MANIFEST_REF}: independent workflows MUST follow identifier order")
+    for workflow_id in sorted(expected_independent & set(independent_records)):
+        record = independent_records[workflow_id]
+        recorded_definitions = tuple(
+            (item["catalog_ref"], item["definition_digest"])
+            for item in record["catalog_definitions"]
+        )
+        if recorded_definitions != executable_definitions[workflow_id]:
+            errors.append(
+                f"{MANIFEST_REF}: {workflow_id} independent catalog definitions are stale"
+            )
 
     actual_cataloged = sum(item["disposition"] == "cataloged" for item in boundary_entries)
     expected_boundary_summary = {
         "workflow_count": len(workflows),
         "cataloged": actual_cataloged,
         "metadata_only": len(workflows) - actual_cataloged,
+        "executable_count": len(executable_definitions),
+        "independent": len(expected_independent),
     }
     if boundary["summary"] != expected_boundary_summary:
         errors.append(f"{MANIFEST_REF}: catalog-boundary summary does not match its entries")
