@@ -43,77 +43,115 @@ The following inventory expands the operating domains and shared product capabil
 testable functions. IDs prefixed with `F` identify product functions, not workflow stages or
 agent roles. Each subfunction can have detailed requirements with separate acceptance criteria.
 
+> Readiness describes completion within a declared support scope. It does not describe the
+> connection state of a particular installation or grant automatic execution authority. Local
+> verification and live operational verification remain separate in the assessment evidence.
+
+All 52 subfunctions start as **Not assessed** in this register. This does not override existing
+implementation claims in the owner documents or mean that the functions are unimplemented.
+Group summaries count subfunction assessments, not deployment health or percentage complete.
+**Overall: Ready 0/52; Not assessed 52/52.** No code or operational readiness audit is claimed.
+
 ### Operational foundation
 
-| Function group | Subfunction | Detailed functions |
-|----------------|-------------|--------------------|
-| **F01. Configure the operating environment** | F01.1 Management scope | Configure the managed subscription and resource-group scope, observation sources, access requirements, and connection readiness. |
-| | F01.2 Operating criteria | Define service objectives, thresholds, maintenance windows, notification suppression, and impact limits as governed configuration. |
-| | F01.3 Operational ownership | Assign accountable owners and backup responders, contact routes, and ownership handover requirements. |
-| **F02. Manage resources and relationships** | F02.1 Resource inventory | Discover resources, collect configuration and ownership facts, and reconcile additions, changes, and deletions. |
-| | F02.2 Service and dependency relationships | Relate resources to services and workloads through the operating ontology, the shared model of operational meaning; inspect dependency and impact paths. |
-| | F02.3 Historical state and coverage | Query state and topology at a stated time, retain source and freshness, and distinguish absent resources from unobserved ones. |
+| Function group | Subfunction | <span style="display: inline-block; min-width: 16rem">Detailed functions</span> | Readiness |
+|----------------|-------------|--------------------|-----------|
+| **F01. Configure the operating environment** <br><span style="white-space: nowrap">Ready 0/3;</span><br><span style="white-space: nowrap">Not assessed 3/3</span> | F01.1 Management scope | Configure the managed subscription and resource-group scope, observation sources, access requirements, and connection readiness. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F01.2 Operating criteria | Define service objectives, thresholds, maintenance windows, notification suppression, and impact limits as governed configuration. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F01.3 Operational ownership | Assign accountable owners and backup responders, contact routes, and ownership handover requirements. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| **F02. Manage resources and relationships** <br><span style="white-space: nowrap">Ready 0/3;</span><br><span style="white-space: nowrap">Not assessed 3/3</span> | F02.1 Resource inventory | Discover resources, collect configuration and ownership facts, and reconcile additions, changes, and deletions. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F02.2 Service and dependency relationships | Relate resources to services and workloads through the operating ontology, the shared model of operational meaning; inspect dependency and impact paths. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F02.3 Historical state and coverage | Query state and topology at a stated time, retain source and freshness, and distinguish absent resources from unobserved ones. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
 
 ### Operating capabilities
 
-| Function group | Subfunction | Detailed functions |
-|----------------|-------------|--------------------|
-| **F03. Observe, prevent, and forecast** | F03.1 Operational signals | Collect resource health, metrics, logs, traces, events, and changes through supported sources. |
-| | F03.2 Service reliability objectives | Evaluate service-level objectives (SLOs), error budgets, and the rate at which the budget is consumed. |
-| | F03.3 Capacity and performance | Assess utilization, performance trends, capacity pressure, and evidence-backed forecasts. |
-| | F03.4 Detection quality | Detect abnormal states and trends, assess alert noise, and expose missing permissions, stale signals, and incomplete coverage. |
-| **F04. Manage incidents** | F04.1 Incident lifecycle | Normalize and deduplicate events, correlate incident signals, classify severity, and track acknowledgment, ownership, progress, and closure. |
-| | F04.2 Investigation and cause analysis | Gather bounded evidence, assess service impact, and distinguish causal hypotheses from confirmed facts and conflicting evidence. |
-| | F04.3 Response and follow-up | Propose mitigation, track independently verified recovery, retain unresolved outcomes, and prepare post-incident review and follow-up work. |
-| **F05. Govern resilience and recovery** | F05.1 Backup and recovery readiness | Assess backup coverage, recovery-point availability, and restore prerequisites without treating a successful backup as proof of recoverability. |
-| | F05.2 Disaster-recovery drills | Plan and authorize restore and failover drills, measure recovery point and time objectives (RPO and RTO), and verify recovery and failback effects. |
-| | F05.3 Chaos experiments | Plan separately authorized fault experiments with bounded impact, continuous stop conditions, and tested recovery. |
-| **F06. Govern changes and architecture** | F06.1 Proposed-change assessment | Inspect proposed infrastructure and configuration changes, evaluate policy and risk, and present pre-change simulation and rollback evidence. |
-| | F06.2 Drift and policy compliance | Detect configuration drift and control gaps, retain exceptions and evidence, and propose governed corrections. |
-| | F06.3 Architecture and readiness review | Assemble Architecture Review Board (ARB) evidence, assess architectural constraints, and check ownership and operational readiness before handover or promotion. |
-| **F07. Govern cost** | F07.1 Cost visibility and allocation | Associate spend and utilization with resources and services, identify allocation gaps, and explain source coverage. |
-| | F07.2 Budgets and forecasts | Compare spend with budgets and baselines, detect anomalies, and forecast costs with stated assumptions. |
-| | F07.3 Optimization planning | Recommend resource sizing and cleanup, assess reliability and capacity trade-offs, and route eligible actions through approval and execution. |
-| | F07.4 Realized savings | Verify utilization and cost effects against comparable baseline and treatment periods; distinguish estimated savings from realized savings. |
+| Function group | Subfunction | <span style="display: inline-block; min-width: 16rem">Detailed functions</span> | Readiness |
+|----------------|-------------|--------------------|-----------|
+| **F03. Observe, prevent, and forecast** <br><span style="white-space: nowrap">Ready 0/4;</span><br><span style="white-space: nowrap">Not assessed 4/4</span> | F03.1 Operational signals | Collect resource health, metrics, logs, traces, events, and changes through supported sources. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F03.2 Service reliability objectives | Evaluate service-level objectives (SLOs), error budgets, and the rate at which the budget is consumed. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F03.3 Capacity and performance | Assess utilization, performance trends, capacity pressure, and evidence-backed forecasts. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F03.4 Detection quality | Detect abnormal states and trends, assess alert noise, and expose missing permissions, stale signals, and incomplete coverage. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| **F04. Manage incidents** <br><span style="white-space: nowrap">Ready 0/3;</span><br><span style="white-space: nowrap">Not assessed 3/3</span> | F04.1 Incident lifecycle | Normalize and deduplicate events, correlate incident signals, classify severity, and track acknowledgment, ownership, progress, and closure. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F04.2 Investigation and cause analysis | Gather bounded evidence, assess service impact, and distinguish causal hypotheses from confirmed facts and conflicting evidence. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F04.3 Response and follow-up | Propose mitigation, track independently verified recovery, retain unresolved outcomes, and prepare post-incident review and follow-up work. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| **F05. Govern resilience and recovery** <br><span style="white-space: nowrap">Ready 0/3;</span><br><span style="white-space: nowrap">Not assessed 3/3</span> | F05.1 Backup and recovery readiness | Assess backup coverage, recovery-point availability, and restore prerequisites without treating a successful backup as proof of recoverability. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F05.2 Disaster-recovery drills | Plan and authorize restore and failover drills, measure recovery point and time objectives (RPO and RTO), and verify recovery and failback effects. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F05.3 Chaos experiments | Plan separately authorized fault experiments with bounded impact, continuous stop conditions, and tested recovery. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| **F06. Govern changes and architecture** <br><span style="white-space: nowrap">Ready 0/3;</span><br><span style="white-space: nowrap">Not assessed 3/3</span> | F06.1 Proposed-change assessment | Inspect proposed infrastructure and configuration changes, evaluate policy and risk, and present pre-change simulation and rollback evidence. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F06.2 Drift and policy compliance | Detect configuration drift and control gaps, retain exceptions and evidence, and propose governed corrections. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F06.3 Architecture and readiness review | Assemble Architecture Review Board (ARB) evidence, assess architectural constraints, and check ownership and operational readiness before handover or promotion. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| **F07. Govern cost** <br><span style="white-space: nowrap">Ready 0/4;</span><br><span style="white-space: nowrap">Not assessed 4/4</span> | F07.1 Cost visibility and allocation | Associate spend and utilization with resources and services, identify allocation gaps, and explain source coverage. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F07.2 Budgets and forecasts | Compare spend with budgets and baselines, detect anomalies, and forecast costs with stated assumptions. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F07.3 Optimization planning | Recommend resource sizing and cleanup, assess reliability and capacity trade-offs, and route eligible actions through approval and execution. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F07.4 Realized savings | Verify utilization and cost effects against comparable baseline and treatment periods; distinguish estimated savings from realized savings. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
 
 ### Shared automation and operator support
 
-| Function group | Subfunction | Detailed functions |
-|----------------|-------------|--------------------|
-| **F08. Manage actions and workflows** | F08.1 Registered action catalog | Describe supported actions and workflows, parameters, prerequisites, risk limits, and recovery contracts. |
-| | F08.2 Response planning | Compose multi-step plans, compare alternatives and objective conflicts, and validate exact targets, expected effects, and stop conditions. |
-| | F08.3 Triggers and schedules | Support governed operator, event, and scheduled initiation; track occurrences and execution history and isolate scheduled tasks within declared limits. |
-| | F08.4 Execution and recovery | Dispatch authorized work once, track progress, stop at defined boundaries, and apply approved rollback or bounded recovery. |
-| **F09. Support operator investigation and collaboration** | F09.1 Evidence-backed conversations | Answer scoped questions about resources, incidents, plans, and FDAI behavior through supported Web Console, CLI, and ChatOps interfaces with citations and explicit uncertainty. |
-| | F09.2 Background investigations | Track durable long-running investigations, progress, cancellation, queued input, and resumable results without treating conversation state as execution authority. |
-| | F09.3 Notifications and escalation | Route alerts and approval requests, track per-channel delivery and acknowledgment, apply declared fallback routes, and escalate without interpreting silence as consent. |
-| | F09.4 Continuity and handover | Preserve authorized conversation context, verified channel identity links, responder assignments, and explicit ownership handover. |
-| **F10. Manage operating knowledge and rules** | F10.1 Document and attachment intake | Ingest supported manuals, documents, and evidence attachments with access checks, extraction limits, retention, and deletion controls. |
-| | F10.2 Knowledge retrieval and freshness | Retrieve operational knowledge and past cases with source, version, scope, collection time, and freshness; explain missing or conflicting knowledge. |
-| | F10.3 Rule governance | Author and scope rules, manage versions, enablement and exceptions, and review proposed additions, revisions, or retirement. |
-| | F10.4 Governed knowledge compilation | Propose rules, workflows, and ontology facts from reviewed documents; validate provenance and semantics before separate approval and activation. |
-| **F11. Evaluate, learn, and promote** | F11.1 Operational feedback | Capture operator feedback and immutable incident and action outcomes as attributed learning candidates. |
-| | F11.2 Evaluation and replay | Evaluate detection, reasoning, plans, and recovery through scenario tests, historical replay, and comparable measured outcomes. |
-| | F11.3 Capability promotion and recall | Evaluate capabilities in observation mode, govern activation and promotion, and demote or recall regressions without letting learned output grant authority. |
-| **F12. Govern authority, evidence, and service health** | F12.1 Identity and approval | Manage roles, exact-action approvals, conditional prior authorization, approval profiles, expiration, and revocation with separate approval and execution identities. |
-| | F12.2 Policy and safety | Apply versioned policies, risk limits, emergency-stop controls, and all required execution safeguards. |
-| | F12.3 Audit and data governance | Preserve attributable decisions and effect records, support replay, and enforce data access, retention, privacy, and evidence-export boundaries. |
-| | F12.4 FDAI health and recovery | Monitor required services, models, source and delivery connections, durable state, and audit dependencies; expose degraded operation and control-plane recovery needs. |
+| Function group | Subfunction | <span style="display: inline-block; min-width: 16rem">Detailed functions</span> | Readiness |
+|----------------|-------------|--------------------|-----------|
+| **F08. Manage actions and workflows** <br><span style="white-space: nowrap">Ready 0/4;</span><br><span style="white-space: nowrap">Not assessed 4/4</span> | F08.1 Registered action catalog | Describe supported actions and workflows, parameters, prerequisites, risk limits, and recovery contracts. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F08.2 Response planning | Compose multi-step plans, compare alternatives and objective conflicts, and validate exact targets, expected effects, and stop conditions. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F08.3 Triggers and schedules | Support governed operator, event, and scheduled initiation; track occurrences and execution history and isolate scheduled tasks within declared limits. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F08.4 Execution and recovery | Dispatch authorized work once, track progress, stop at defined boundaries, and apply approved rollback or bounded recovery. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| **F09. Support operator investigation and collaboration** <br><span style="white-space: nowrap">Ready 0/4;</span><br><span style="white-space: nowrap">Not assessed 4/4</span> | F09.1 Evidence-backed conversations | Answer scoped questions about resources, incidents, plans, and FDAI behavior through supported Web Console, CLI, and ChatOps interfaces with citations and explicit uncertainty. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F09.2 Background investigations | Track durable long-running investigations, progress, cancellation, queued input, and resumable results without treating conversation state as execution authority. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F09.3 Notifications and escalation | Route alerts and approval requests, track per-channel delivery and acknowledgment, apply declared fallback routes, and escalate without interpreting silence as consent. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F09.4 Continuity and handover | Preserve authorized conversation context, verified channel identity links, responder assignments, and explicit ownership handover. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| **F10. Manage operating knowledge and rules** <br><span style="white-space: nowrap">Ready 0/4;</span><br><span style="white-space: nowrap">Not assessed 4/4</span> | F10.1 Document and attachment intake | Ingest supported manuals, documents, and evidence attachments with access checks, extraction limits, retention, and deletion controls. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F10.2 Knowledge retrieval and freshness | Retrieve operational knowledge and past cases with source, version, scope, collection time, and freshness; explain missing or conflicting knowledge. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F10.3 Rule governance | Author and scope rules, manage versions, enablement and exceptions, and review proposed additions, revisions, or retirement. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F10.4 Governed knowledge compilation | Propose rules, workflows, and ontology facts from reviewed documents; validate provenance and semantics before separate approval and activation. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| **F11. Evaluate, learn, and promote** <br><span style="white-space: nowrap">Ready 0/3;</span><br><span style="white-space: nowrap">Not assessed 3/3</span> | F11.1 Operational feedback | Capture operator feedback and immutable incident and action outcomes as attributed learning candidates. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F11.2 Evaluation and replay | Evaluate detection, reasoning, plans, and recovery through scenario tests, historical replay, and comparable measured outcomes. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F11.3 Capability promotion and recall | Evaluate capabilities in observation mode, govern activation and promotion, and demote or recall regressions without letting learned output grant authority. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| **F12. Govern authority, evidence, and service health** <br><span style="white-space: nowrap">Ready 0/4;</span><br><span style="white-space: nowrap">Not assessed 4/4</span> | F12.1 Identity and approval | Manage roles, exact-action approvals, conditional prior authorization, approval profiles, expiration, and revocation with separate approval and execution identities. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F12.2 Policy and safety | Apply versioned policies, risk limits, emergency-stop controls, and all required execution safeguards. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F12.3 Audit and data governance | Preserve attributable decisions and effect records, support replay, and enforce data access, retention, privacy, and evidence-export boundaries. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F12.4 FDAI health and recovery | Monitor required services, models, source and delivery connections, durable state, and audit dependencies; expose degraded operation and control-plane recovery needs. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
 
 ### Supporting product capabilities
 
-| Function group | Subfunction | Detailed functions |
-|----------------|-------------|--------------------|
-| **F13. Present operational evidence and reports** | F13.1 Operational views | Present resources, relationships, incidents, work, approvals, history, and source-qualified outcomes through authorized read views. |
-| | F13.2 Reports and export | Render catalog-defined reports and supported exports with source, scope, time, and partial-source failures; reports do not execute actions. |
-| | F13.3 Outcome measurement | Measure reliability, recovery, automation, and cost outcomes against declared baselines instead of claiming improvement from activity counts alone. |
-| **F14. Install, configure, and extend FDAI** | F14.1 Installation and onboarding | Establish installation scope and identity, check prerequisites, configure real source bindings, and verify startup readiness. |
-| | F14.2 Updates and distribution | Cover source deployment and signed offline packages; distinguish the designed, not implemented, Hub-managed lifecycle from available installation paths. |
-| | F14.3 Capability settings | Expose availability, enablement, mode, prerequisites, licensing limits, and model health without treating enablement or entitlement as action authority. |
-| | F14.4 Trusted extensions and integrations | Govern versioned capability bundles, skills, provider adapters, and Model Context Protocol (MCP) tools through publisher trust, compatibility checks, scoped access, activation, and revocation. |
-| **F15. Assess code security** | F15.1 Governed scan and finding intake | Acquire authorized exact-revision code for isolated scanning or ingest supported external security findings while reporting scan coverage and limits. |
-| | F15.2 Findings and prioritization | Consolidate findings by root cause, separate severity from confidence and priority, and record verification and false-positive review. |
-| | F15.3 Developer remediation support | Produce evidence-backed remediation packs for developer-run coding sessions and verify returned fix claims by rescan; this path does not edit customer repositories. |
+| Function group | Subfunction | <span style="display: inline-block; min-width: 16rem">Detailed functions</span> | Readiness |
+|----------------|-------------|--------------------|-----------|
+| **F13. Present operational evidence and reports** <br><span style="white-space: nowrap">Ready 0/3;</span><br><span style="white-space: nowrap">Not assessed 3/3</span> | F13.1 Operational views | Present resources, relationships, incidents, work, approvals, history, and source-qualified outcomes through authorized read views. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F13.2 Reports and export | Render catalog-defined reports and supported exports with source, scope, time, and partial-source failures; reports do not execute actions. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F13.3 Outcome measurement | Measure reliability, recovery, automation, and cost outcomes against declared baselines instead of claiming improvement from activity counts alone. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| **F14. Install, configure, and extend FDAI** <br><span style="white-space: nowrap">Ready 0/4;</span><br><span style="white-space: nowrap">Not assessed 4/4</span> | F14.1 Installation and onboarding | Establish installation scope and identity, check prerequisites, configure real source bindings, and verify startup readiness. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F14.2 Updates and distribution | Cover source deployment and signed offline packages; distinguish the designed, not implemented, Hub-managed lifecycle from available installation paths. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F14.3 Capability settings | Expose availability, enablement, mode, prerequisites, licensing limits, and model health without treating enablement or entitlement as action authority. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F14.4 Trusted extensions and integrations | Govern versioned capability bundles, skills, provider adapters, and Model Context Protocol (MCP) tools through publisher trust, compatibility checks, scoped access, activation, and revocation. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| **F15. Assess code security** <br><span style="white-space: nowrap">Ready 0/3;</span><br><span style="white-space: nowrap">Not assessed 3/3</span> | F15.1 Governed scan and finding intake | Acquire authorized exact-revision code for isolated scanning or ingest supported external security findings while reporting scan coverage and limits. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F15.2 Findings and prioritization | Consolidate findings by root cause, separate severity from confidence and priority, and record verification and false-positive review. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+| | F15.3 Developer remediation support | Produce evidence-backed remediation packs for developer-run coding sessions and verify returned fix claims by rescan; this path does not edit customer repositories. | <span style="white-space: nowrap">[Not assessed](#readiness-assessment)</span> |
+
+## Readiness states
+
+| State | Assessment rule |
+|-------|-----------------|
+| **Ready** | Implementation and required verification are complete for the declared scope, with current evidence and no remaining mandatory condition. |
+| **Partial** | Some required implementation or verification remains incomplete; record the supported subset and the remaining work. |
+| **Blocked** | A required condition prevents use in the assessed environment; record that environment's scope, the blocker, and recovery conditions. |
+| **Planned** | Design exists but no executable implementation exists for the assessed scope. |
+| **Not assessed** | Evidence has not been reviewed or no longer supports a current assessment. This is neither Ready nor evidence of missing implementation. |
+
+Only product subfunctions receive readiness states. The common flow below is a process model,
+not a second status inventory. Rollups retain each state's count instead of marking a group
+Ready when only some children are Ready. Update the row, group summary, and overall counts
+together after an evidence review; changes in scope or source revision require revalidation.
+
+## Readiness assessment
+
+Every current status link leads here because no per-function readiness assessment has been
+performed yet. The owner references establish intended scope, not readiness evidence. When a
+function is assessed, link its status to a function-specific record using the fields below.
+
+| Assessment field | Required information |
+|------------------|----------------------|
+| **Function, state, and assessment basis** | Stable function ID, assessed state, accountable reviewer, source or release revision, and assessment date. |
+| **Support scope** | Supported resources, actions, interfaces, exclusions, and the acceptance criteria being assessed. |
+| **Verification evidence** | Code and test references and dated observations, with local, live operational, and production-readiness results distinguished. |
+| **Use conditions** | Required source bindings, permissions, channels, configuration, capability mode, and the scope of any environment-specific assessment. |
+| **Remaining work and reassessment** | Observable unmet conditions, the work required to reach Ready, and revision or freshness changes that invalidate the assessment. |
 
 ## Common operating flow
 
@@ -234,6 +272,7 @@ original draft ID `4.1.3` remains an alias to preserve references to approval re
 |-------|---------|
 | **Function ID** | `F12.1.3` |
 | **Previous draft ID** | `4.1.3` |
+| **Readiness** | Not assessed; the acceptance criteria below are requirements, not verification evidence. |
 | **Function name** | Revoke action approval |
 | **Actor and trigger** | An authorized operator revokes an existing approval. |
 | **Preconditions** | The operator can revoke that approval and identifies its exact revision. |
