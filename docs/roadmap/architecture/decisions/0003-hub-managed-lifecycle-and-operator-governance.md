@@ -14,6 +14,12 @@ that one person usually operates. It amends the [FDAI Constitution](../fdai-cons
 **Accepted:** 2026-10-02. This is design authority only. No part of the decision is implemented.
 Each owner document links to the ledger that tracks delivery.
 
+**Terminology clarification (2026-10-15):** FDAI Release Hub names the planned vendor application
+for release publication, signing, channel promotion, and recall. Release Catalog names its release
+list, data, or feed. FDAI Lifecycle Hub remains the separate installation-deployment application.
+This clarification changes no technical catalog contract or implementation status; the initial
+Release Hub may provide CLI/API workflows before a web UI.
+
 ## Context
 
 FDAI installs into each customer's own Azure environment. Customers differ in region, network
@@ -153,7 +159,7 @@ These forces shaped the decision:
 - The integrity manifest needs a new signature from the key holder because instruction files
   changed.
 
-**Operational and migration:** The vendor operates the release catalog and central Hub cells.
+**Operational and migration:** The vendor operates FDAI Release Hub and central Hub cells.
 Customers that choose a Target Hub operate it inside their boundary. Existing installations enroll
 through the steps in [Hub-Managed Lifecycle](../../deployment/hub-managed-lifecycle.md).
 

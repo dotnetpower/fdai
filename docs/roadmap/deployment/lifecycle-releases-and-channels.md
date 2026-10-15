@@ -20,6 +20,15 @@ channel model, upgrade bundles, and recall.
 
 ## Design at a glance
 
+**FDAI Release Hub** is the planned vendor application for release publication, signing, channel
+promotion, and recall. **Release Catalog** means the release list, data, or feed that Release Hub
+provides, not the application name. **FDAI Lifecycle Hub** remains the separate application that
+manages deployments for individual installations.
+
+An initial Release Hub can expose CLI/API workflows before a web UI. Existing signed bundles and
+local shadow-only validators don't constitute an implemented Release Hub service. Catalog
+directories, APIs, schemas, and identifiers keep their technical names.
+
 | Concern | Decision |
 |---------|----------|
 | Release | A signed manifest of prebuilt image digests, schema range, dependencies, configuration schema, and capability maximums |

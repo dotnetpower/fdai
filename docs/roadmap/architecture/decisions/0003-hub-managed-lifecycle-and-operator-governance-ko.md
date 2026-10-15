@@ -1,8 +1,8 @@
 ---
 title: ADR-0003 Hub 관리형 수명 주기와 운영자 거버넌스
 translation_of: 0003-hub-managed-lifecycle-and-operator-governance.md
-translation_source_sha: cffcbfef56f8e5f2dcabd6e0ce74e595ea7114e4
-translation_revised: 2026-10-02
+translation_source_sha: 604a173b9db314f9f8705b567f94eae3e648827b
+translation_revised: 2026-10-15
 ---
 # ADR-0003: Hub 관리형 수명 주기와 운영자 거버넌스
 
@@ -15,6 +15,12 @@ release channel과 고객이 승인한 구성에 맞춰 유지합니다. 또한 
 
 **Accepted:** 2026-10-02. 이 기록은 설계 권위만 가집니다. 결정의 어떤 부분도 아직 구현되지
 않았습니다. 각 소유 문서가 제공 현황을 추적하는 ledger로 연결됩니다.
+
+**명칭 명확화 (2026-10-15):** FDAI Release Hub는 릴리스 발행, 서명, 채널 승격, 회수를
+관리하도록 계획된 공급업체 앱의 이름입니다. Release Catalog는 그 앱이 제공하는 릴리스 목록,
+데이터 또는 피드를 뜻합니다. FDAI Lifecycle Hub는 설치본별 배포를 관리하는 별도 앱으로
+유지합니다. 이 명확화는 기술적인 카탈로그 계약이나 구현 상태를 바꾸지 않습니다. 초기 Release
+Hub는 웹 UI보다 CLI/API 작업 흐름을 먼저 제공할 수 있습니다.
 
 ## 맥락
 
@@ -149,7 +155,7 @@ Apollo에는 환경별 단일 목표 상태가 없습니다. 제품은 고정 �
   마이그레이션이 필요합니다.
 - 지침 파일이 바뀌었으므로 무결성 매니페스트에 키 보유자의 새 서명이 필요합니다.
 
-**운영 및 마이그레이션:** 공급업체는 release 카탈로그와 중앙 Hub cell을 운영합니다. Target Hub를
+**운영 및 마이그레이션:** 공급업체는 FDAI Release Hub와 중앙 Hub cell을 운영합니다. Target Hub를
 선택한 고객은 자기 경계 안에서 Target Hub를 운영합니다. 기존 설치는
 [Hub 관리형 수명 주기](../../deployment/hub-managed-lifecycle-ko.md)의 절차에 따라 등록합니다.
 
