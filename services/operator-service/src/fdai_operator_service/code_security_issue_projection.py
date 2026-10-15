@@ -373,12 +373,13 @@ def _issue(raw: object) -> dict[str, object]:
     ceiling = raw.get("severity_ceiling") if detail else None
     rationale = raw.get("severity_rationale") if detail else None
     deciding = raw.get("deciding_facts") if detail else []
+    if not isinstance(deciding, list):
+        raise _MalformedError
     if detail and (
         floor not in _SEVERITIES[:-1]
         or ceiling not in _SEVERITIES[:-1]
         or not isinstance(rationale, str)
         or not 1 <= len(rationale) <= 1024
-        or not isinstance(deciding, list)
         or len(deciding) > 8
         or not all(
             isinstance(item, str) and re.fullmatch(r"^[a-z][a-z0-9_]{0,63}$", item)

@@ -721,6 +721,33 @@ def test_issue_projection_separates_recorded_total_from_bounded_summaries() -> N
     }
 
 
+def test_issue_projection_rejects_non_list_deciding_facts() -> None:
+    review = _row(_package())["value"]
+    for deciding in (["attack_vector"], None, "attack_vector", 7):
+        result = code_security_issues_projection(
+            repository_alias="example-service",
+            revision=_REVISION,
+            review=review,
+            issues_row={
+                "review_digest": review["package"]["review_digest"],
+                "issues": [
+                    _summary(
+                        severity_floor="medium",
+                        severity_ceiling="critical",
+                        severity_rationale="attacker position is unknown",
+                        deciding_facts=deciding,
+                    )
+                ],
+                "truncated": False,
+            },
+        )
+        if isinstance(deciding, list):
+            assert result["issues"][0]["deciding_facts"] == deciding
+        else:
+            assert result["issues"] == []
+            assert {"reason_code": "code_security_issue_malformed"} in result["gaps"]
+
+
 def test_full_artifact_keeps_details_when_review_has_more_than_200_results() -> None:
     review = _row(_package())["value"]
     results = [

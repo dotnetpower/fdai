@@ -86,6 +86,10 @@ generic forced-stop guard cannot interrupt cleanup. The top-level stop command w
 that service budget before reporting that the supervisor lock was not released.
 Supervisor stop and replacement accept only the canonical launcher or its exact repo-local Copilot
 wrapper while preserving PID, checkout, and lock-fd ownership checks.
+Preparation also publishes a digest-bound immutable vulnerability-cache snapshot and verifies its
+pointer and bytes before the worker starts. Cache invalidation follows the scanner/cache contract,
+not unrelated Core source changes. Focused launcher and cache tests prove these local mechanics;
+they neither activate diagnostic capture nor establish deployed scanner readiness.
 
 ![Design at a glance. The main stages are Edit and focused check, Workflow diagnostics, Focused commit, Structural pre-push, SHA-addressed CI, Remote work, Bounded handover.](../../diagrams/generated/fdai-roadmap-deployment-developer-workflow-assurance-01.en.svg)
 
