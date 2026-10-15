@@ -112,6 +112,12 @@ Core's focused `fdai_core_service/agent_discussion.py` presenter admits before B
 independent admission prerequisites. Missing bindings hold. These additions grant no action,
 approval, promotion, or cloud observation authority and do not establish Console or live acceptance.
 
+StateStore retention accepts optional paired field/value filters with the same matching semantics
+as paged reads. The provider applies the filter atomically to selection and deletion; omitting it
+preserves prefix-wide retention. Saga uses `status=published` to compact only terminal audit
+tombstones, never pending or claimed delivery. This provider-neutral extension adds no authority
+or service boundary and never deletes audit entries.
+
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.
 
 

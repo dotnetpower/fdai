@@ -14,6 +14,50 @@ Synthetic tests never satisfy operational readiness or production promotion.
 
 ## Review inventory
 
+### Completion plan updated on 2026-10-15
+
+The current exits below supersede historical source-absence statements, not their evidence.
+PR #2146 delivered Bragi revision isolation through protected merge
+`b263b9f8c2923de49c9c51349b70cf5c160bfd15`. Saga checkpoint
+`8c4e71da45701991cb96ed7787e945a9aa6107cf` is locally verified but not yet published.
+Delivery is authorized for this campaign; live models, Azure, deployment and human acceptance
+remain outside that authorization. Preserve the recovery checkout and topic under the existing
+no-detach/no-delete instruction.
+
+| Package | Dependencies and exact exit | Verification and completion boundary |
+|---------|-----------------------------|--------------------------------------|
+| Audit integrity delivery | Complete paired owning docs and official catalog generation; publish the Saga JSON-type collision repair and verify protected merge in remote main. | Six type-substitution regressions and 62 owning outbox/restart/layout checks pass at the checkpoint. Reuse matching inputs; run final candidate preflight and exact-head CI. |
+| Saga replica and issue identity (14) | Separate existing claim-fenced outbox behavior from missing shared audit-chain or remote operation behavior. Reproduce any remaining source defect against the owning adapter before repair. | Retained payload fidelity, replica claims and restart replay need local proofs; real GitHub App identity/restart acceptance requires the configured external adapter and authorized operational evidence. |
+| Mimir source provenance (11) | Define reviewed promotion-to-problem linkage and a completed post-promotion regression source before binding the existing readers. Preserve typed ownership and event boundaries. | Active-generation observation or baseline replay cannot substitute for reviewed promotion, deprecation decisions or post-promotion outcomes. Missing inputs keep issue closure held. |
+| Bragi independent evaluation (11) | Connect a real independently evaluated baseline/candidate path to a consented, disjoint source corpus; define how the candidate changes routing before treating calibration metadata as evaluated behavior. | Digest-only cases and scripted evaluator results cannot prove semantic accuracy. Missing consented source data, independent evaluation or reviewed candidate semantics remain explicit blockers. |
+| Loki and historical what-if (10, 12) | Bind a reviewed off-path generator/corpus and preserve all version-pinned historical Rule, policy and evidence inputs needed for a full comparison. | Inert regression and exact-history tests must precede any completeness claim. The existing bounded v1 comparison remains supported and is not relabelled full-context replay. |
+| Governed acceptance (16, 17, 19-27 and live portions above) | Obtain explicit target/release/scope authorization, configured identities and evidence sources, consented cohorts, real steward/backup decisions and human accessibility participants. | Retain independent effects, approvals, rollback/drill, channel, ACL/deletion/performance, task competence and EN/KO assistive evidence. Local source checks cannot close these exits. |
+
+Each source package follows design, local counterexample, focused repair, owning tests and
+task-owned commit before publication. Record each delivered slice and each still-missing input
+separately. No package becomes complete merely because this plan or an adapter interface exists.
+
+#### Saga pending-retention design and critique
+
+A local counterexample shows that prefix-only compaction evicts an older pending audit intent
+after enough newer published rows. Extend the existing `StateStore.delete_states_beyond` with
+optional paired `field` and `value` filters, using the existing paged-read matching semantics.
+Keep unfiltered callers unchanged. Saga selects only `status=published` for tombstone retention;
+pending and publishing rows are never expiry candidates. Memory performs selection and deletion
+under its existing lock. PostgreSQL filters both the offset selection and the final DELETE in
+one statement, so a concurrent change to a nonterminal state cannot become a deletion target.
+Critique rejected read-then-exact-delete because another replica could recreate a pending row
+between those calls. No authority, topic, audit entry, schema migration or provider mutation
+is introduced. Verify active-row preservation, filtered ordering, missing-field exclusion,
+invalid filter rejection, unchanged unfiltered retention and real PostgreSQL parity when the
+isolated local validation database is available.
+
+Implementation evidence: 96 owning retention, outbox, restart, layout and field-path checks
+passed; two real isolated loopback PostgreSQL checks passed for top-level/dotted filters,
+literal prefix escaping and unchanged unfiltered behavior. Four-source strict mypy and Ruff
+passed. Saga retains only the newest 1,024 published tombstones without deleting active work.
+This is local implementation evidence, not a remote-provider or full campaign completion claim.
+
 | Review ID | Finding | Current disposition and observable exit |
 |-----------|---------|-----------------------------------------|
 | 1 | Unsupported T2 conclusions | Concrete V-CLAIM and independent-model review implemented and default-bound in residual-work batch 2; exact owned snapshots, names, values, limitations and row coverage are verified. Live deployed quality remains open. |
@@ -29,7 +73,7 @@ Synthetic tests never satisfy operational readiness or production promotion.
 | 11 | Mimir/Bragi maintenance bindings absent | Mimir current active Rule generation observer is now standard-bound, create-only audited and replica/restart CAS-safe; 20 focused checks pass. Reviewed promotion/regression/deprecation readers and Bragi evaluator remain open; observation grants no activation authority. |
 | 12 | Durable what-if and multi-target attempt model | Limited v1 inputs survive restart/replicas (176 checks). Request-pinned outbox now suppresses completed-request duplicates and recovers pending results in a 512-record/512 KiB retained window (211 checks). Existing per-target identity/rollback, rollup audit and durable approval/restart mechanics exist; declaration fallthrough is fixed (51 checks). Full what-if context and deployed provider acceptance remain open. |
 | 13 | Ordered poison halt persistence unbound | Standard Core source now binds the existing service-owned StateStore and receipt-gated clear handler; actual initialization and related durability checks pass. Governed provider restart/clear receipts remain open. |
-| 14 | Saga replica and issue-operation identity residuals | Local StateStore adapter now globally binds operation id to fingerprint/content and restores legacy bindings before reuse. Replica-safe audit/publication and remote GitHub App operation identity remain open. |
+| 14 | Saga replica and issue-operation identity residuals | Local StateStore adapter globally binds operation id to fingerprint/content and restores legacy bindings before reuse. A shared claim-fenced audit outbox and restart recovery already exist. Checkpoint `8c4e71da45701991cb96ed7787e945a9aa6107cf` rejects retained JSON-type substitution; 62 owning outbox/restart/layout checks pass. Full shared audit-chain acceptance and remote GitHub App operation identity remain open, not an absence of every publication mechanism. |
 | 15 | Development authority source absent | Reconciled: current runtime implements PreparedDevelopmentBindingRegistry and shares the selected source with ControlLoop and Pantheon; 26 existing composition/source checks pass. Actual selected profile/current Owner/live approval and execution receipts remain unverified; no authority is manufactured. |
 | 16 | Workflow/KPI/effect/promotion evidence absent | Operational blocker: retain complete pinned live-shadow cohorts, independent effects, recovery and zero policy escapes. |
 | 17 | Generic v1 placeholder ownership map | Intended upstream example, not readiness: a deployment supplies v2 live primary and distinct backup/escalation identities. |

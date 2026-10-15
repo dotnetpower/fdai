@@ -381,7 +381,9 @@ class SagaAuditRuntimeMixin(_AgentMixinBase):
             return
         await self._durable_state_store.delete_states_beyond(
             _AUDIT_OUTBOX_PREFIX,
-            retain_newest=_AUDIT_OUTBOX_PENDING_SCAN_LIMIT + _AUDIT_OUTBOX_TOMBSTONE_RETENTION,
+            retain_newest=_AUDIT_OUTBOX_TOMBSTONE_RETENTION,
+            field="status",
+            value="published",
         )
 
 

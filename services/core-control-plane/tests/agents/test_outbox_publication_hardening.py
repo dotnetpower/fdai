@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 from fdai.agents._framework import forseti_what_if_publication as what_if_publication
+from fdai.agents._framework import saga_audit_runtime
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.outbox_publication import (
     PublicationClaim,
@@ -361,6 +362,32 @@ async def test_saga_outbox_rejects_json_type_substitution(
         await saga._publish_audit_entry_with_outbox(substituted)  # noqa: SLF001
     assert await store.read_state(_audit_outbox_key(payload)) == retained
     assert len(bus.messages_on("object.audit-entry")) == (1 if status == "published" else 0)
+
+
+@pytest.mark.parametrize("status", ["pending", "publishing"])
+async def test_saga_compaction_never_evicts_unpublished_audit(
+    monkeypatch: pytest.MonkeyPatch, status: str
+) -> None:
+    monkeypatch.setattr(saga_audit_runtime, "_AUDIT_OUTBOX_PENDING_SCAN_LIMIT", 1)
+    monkeypatch.setattr(saga_audit_runtime, "_AUDIT_OUTBOX_TOMBSTONE_RETENTION", 1)
+    store = InMemoryStateStore()
+    saga = Saga(durable_state_store=store)
+    payload = {"correlation_id": "audit-retained", "idempotency_key": "audit-retained:key"}
+    await saga._checkpoint_audit_outbox(payload)  # noqa: SLF001
+    if status == "publishing":
+        assert await saga._claim_audit_outbox_publication(payload) is not None  # noqa: SLF001
+    retained = await store.read_state(_audit_outbox_key(payload))
+    publisher = Saga(durable_state_store=store)
+    publisher.bind_bus(_bus())
+    for index in range(3):
+        await publisher._publish_audit_entry_with_outbox(  # noqa: SLF001
+            {"correlation_id": f"audit-new-{index}", "idempotency_key": f"audit-new-{index}:key"}
+        )
+    assert await store.read_state(_audit_outbox_key(payload)) == retained
+    rows, total = await store.read_state_page(
+        saga_audit_runtime._AUDIT_OUTBOX_PREFIX, limit=10, field="status", value="published"
+    )
+    assert total == len(rows) == 1
 
 
 async def test_saga_late_publisher_cannot_mark_after_claim_reclaimed() -> None:

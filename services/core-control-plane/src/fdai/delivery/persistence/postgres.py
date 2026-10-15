@@ -62,6 +62,7 @@ from fdai.shared.providers.state_store import (
     classify_incident_append,
     incident_number_for,
     state_field_path,
+    state_retention_path,
 )
 
 _GENESIS_HASH: Final[str] = GENESIS_HASH
@@ -389,27 +390,39 @@ class PostgresStateStore(
                 rows = await cursor.fetchall()
         return tuple(str(row["key"]) for row in rows)
 
-    async def delete_states_beyond(self, prefix: str, *, retain_newest: int) -> int:
+    async def delete_states_beyond(
+        self,
+        prefix: str,
+        *,
+        retain_newest: int,
+        field: str | None = None,
+        value: str | None = None,
+    ) -> int:
         if not prefix:
             raise ValueError("prefix MUST be non-empty")
         if retain_newest < 1:
             raise ValueError("retain_newest MUST be >= 1")
+        path = state_retention_path(field, value)
+        filter_sql = "AND value #>> %s::text[] = %s" if path is not None else ""
+        filter_params: tuple[object, ...] = (list(path), value) if path is not None else ()
         escaped_prefix = prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         async with self._connection() as conn:
             async with conn.transaction():
                 await self._set_statement_timeout(conn)
                 cursor = await conn.execute(
-                    """
+                    f"""
                     DELETE FROM state_kv
                      WHERE key IN (
                            SELECT key
                              FROM state_kv
                             WHERE key LIKE %s ESCAPE '\\'
+                            {filter_sql}
                             ORDER BY updated_at DESC, key DESC
                            OFFSET %s
                      )
-                    """,
-                    (f"{escaped_prefix}%", retain_newest),
+                       {filter_sql}
+                      """,  # noqa: S608
+                    (f"{escaped_prefix}%", *filter_params, retain_newest, *filter_params),
                 )
         return cursor.rowcount if cursor.rowcount > 0 else 0
 

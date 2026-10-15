@@ -53,6 +53,17 @@ def state_field_path(field: str) -> tuple[str, ...]:
     return segments
 
 
+def state_retention_path(field: str | None, value: str | None) -> tuple[str, ...] | None:
+    """Validate an optional paired retention filter before any row can be deleted."""
+    if (field is None) != (value is None):
+        raise ValueError("state field and value MUST be supplied together")
+    if field is None:
+        return None
+    if _STATE_FIELD_SEGMENT.fullmatch(field) is not None:
+        return (field,)
+    return state_field_path(field)
+
+
 def incident_number_for(prefix: str, sequence: int) -> str:
     """Format one bounded monthly sequence as an operator-facing incident number."""
     if _INCIDENT_NUMBER_PREFIX.fullmatch(prefix) is None:
@@ -203,7 +214,14 @@ class StateStore(Protocol):
         """
         ...
 
-    async def delete_states_beyond(self, prefix: str, *, retain_newest: int) -> int:
+    async def delete_states_beyond(
+        self,
+        prefix: str,
+        *,
+        retain_newest: int,
+        field: str | None = None,
+        value: str | None = None,
+    ) -> int:
         """Delete the oldest tracked rows under ``prefix`` past ``retain_newest``.
 
         Bounds the growth of an append-only projection whose rows are
@@ -222,6 +240,9 @@ class StateStore(Protocol):
         Args:
             prefix: The key prefix whose rows are subject to retention.
             retain_newest: How many newest rows to keep. MUST be >= 1.
+            field: Optional top-level or dotted field, as in ``read_state_page``.
+            value: Exact value required when ``field`` is supplied. Selection and
+                deletion MUST atomically exclude nonmatching rows.
 
         Returns:
             The number of rows deleted.
