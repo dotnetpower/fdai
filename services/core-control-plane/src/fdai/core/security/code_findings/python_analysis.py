@@ -96,6 +96,9 @@ class _Analyzer:
         name = resolved_name(target, function.module)
         if not any(self._matches(name, selector) for selector in self.sources):
             return None
+        if len(self.index.nodes) >= self.limits.max_graph_nodes:
+            self.index.coverage.add(coverage_limit("graph-node-limit", len(self.index.nodes)))
+            return None
         location = source_span(function.module.path, node)
         node_id = stable_id(
             "source", function.module.path, location.start_line, location.start_column, name
@@ -154,6 +157,9 @@ class _Analyzer:
             return
         if len(self.candidates) >= self.limits.max_paths:
             self.index.coverage.add(coverage_limit("path-limit", len(self.candidates)))
+            return
+        if len(self.index.nodes) >= self.limits.max_graph_nodes:
+            self.index.coverage.add(coverage_limit("graph-node-limit", len(self.index.nodes)))
             return
         location = source_span(function.module.path, call)
         sink_id = stable_id(
@@ -394,7 +400,7 @@ def analyze_python_repository(
         raise ValueError("Python analysis requires a graph_flow rule that names python")
     selected_limits = limits or PythonAnalysisLimits()
     base = root.resolve(strict=True)
-    if not base.is_dir():
+    if root.is_symlink() or not base.is_dir():
         raise ValueError("analysis root must be a directory")
     index = build_python_graph_index(base, selected_limits)
     analyzer = _Analyzer(index, rule, selected_limits)

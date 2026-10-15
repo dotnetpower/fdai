@@ -203,6 +203,20 @@ def test_parse_and_file_limits_never_become_clean_coverage(tmp_path: Path) -> No
     assert result.graph.coverage_limits
 
 
+def test_symlink_root_is_rejected_and_graph_budget_is_explicit(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    write(source, "app.py", "def one(value):\n    return value\n")
+    linked = tmp_path / "linked"
+    linked.symlink_to(source, target_is_directory=True)
+
+    with pytest.raises(ValueError, match="analysis root"):
+        analyze(linked)
+
+    result = analyze(source, limits=PythonAnalysisLimits(max_graph_nodes=1))
+    assert any("graph-node-limit" in item for item in result.graph.coverage_limits)
+
+
 @pytest.mark.parametrize(
     ("rule_id", "imports", "sink", "safe_sink"),
     [

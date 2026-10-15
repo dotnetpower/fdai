@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import hashlib
+import os
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -33,6 +34,7 @@ class PythonAnalysisLimits:
     max_call_depth: int = 12
     max_contexts: int = 100_000
     max_paths: int = 5000
+    max_graph_nodes: int = 100_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -198,11 +200,22 @@ def _load_modules(
     for path in paths:
         relative = path.relative_to(root).as_posix()
         file_id = stable_id("file", relative)
+        if len(index.nodes) >= limits.max_graph_nodes:
+            index.coverage.add(coverage_limit("graph-node-limit", len(index.nodes)))
+            break
         if path.is_symlink():
             index.coverage.add(coverage_limit("symlink", relative))
             continue
         try:
-            source = path.read_bytes()
+            resolved = path.resolve(strict=True)
+            if not resolved.is_relative_to(root):
+                index.coverage.add(coverage_limit("path-escape", relative))
+                continue
+            flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+            descriptor = os.open(path, flags)
+            with os.fdopen(descriptor, "rb") as handle:
+                size = os.fstat(handle.fileno()).st_size
+                source = handle.read(limits.max_file_bytes + 1)
         except OSError:
             index.coverage.add(coverage_limit("read", relative))
             continue
@@ -213,7 +226,7 @@ def _load_modules(
             name=relative,
             span=SourceSpan(path=relative, start_line=1, end_line=end_line),
         )
-        if len(source) > limits.max_file_bytes:
+        if size > limits.max_file_bytes or len(source) > limits.max_file_bytes:
             index.coverage.add(coverage_limit("file-size", relative))
             continue
         try:
@@ -234,6 +247,10 @@ def _index_functions(
         for qualified_name, node in _iter_functions(module):
             if len(index.functions) >= limits.max_functions:
                 index.coverage.add(coverage_limit("function-limit", len(index.functions)))
+                return
+            required_nodes = 2 + len(_function_parameters(node))
+            if len(index.nodes) + required_nodes > limits.max_graph_nodes:
+                index.coverage.add(coverage_limit("graph-node-limit", len(index.nodes)))
                 return
             full_name = f"{module.name}.{qualified_name}" if module.name else qualified_name
             function_id = stable_id("function", module.path, qualified_name, node.lineno)
@@ -296,10 +313,13 @@ def resolve_call(
     return index.functions.get(target) if target else None
 
 
-def _index_calls(index: PythonGraphIndex) -> None:
+def _index_calls(index: PythonGraphIndex, limits: PythonAnalysisLimits) -> None:
     for function in index.functions.values():
         block_id = stable_id("block", function.function_id)
         for call in (node for node in ast.walk(function.node) if isinstance(node, ast.Call)):
+            if len(index.nodes) >= limits.max_graph_nodes:
+                index.coverage.add(coverage_limit("graph-node-limit", len(index.nodes)))
+                return
             call_id = stable_id("call", function.module.path, call.lineno, call.col_offset)
             name = resolved_name(call.func, function.module) or "unresolved"
             index.nodes.setdefault(
@@ -322,7 +342,7 @@ def build_python_graph_index(root: Path, limits: PythonAnalysisLimits) -> Python
     index = PythonGraphIndex()
     modules = _load_modules(root, limits, index)
     _index_functions(modules, limits, index)
-    _index_calls(index)
+    _index_calls(index, limits)
     return index
 
 

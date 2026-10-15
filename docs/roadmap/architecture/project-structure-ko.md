@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 07ed7d5ed49656be9f74baf8087deb02f1af7a99
+translation_source_sha: 65b50218346cd2219b9a8df55109979ccddcfd8e
 translation_revised: 2026-10-15
 ---
 # 프로젝트 구조
@@ -679,6 +679,8 @@ Compiler API 프로세스를 검증하고, `analysis_sarif.py`는 두 결과를 
 컴파일러와 프런트엔드를 고정합니다. 새 서비스, pantheon 에이전트, 저장소 쓰기, 승인 또는 실행
 권한을 추가하지 않습니다.
 [코드 보안 분석 엔진](../operations/code-security-analysis-engine-ko.md)을 참조하세요.
+두 프런트엔드는 소스 읽기를 정확한 루트에 연결하고 근거를 수락하기 전에 그래프 예산을
+강제합니다. 프런트엔드 실패는 작업자 또는 권한 경계를 바꾸지 않고 커버리지를 낮춥니다.
 
 ## 리포지토리 스크립트 레이아웃
 

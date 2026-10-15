@@ -14,6 +14,10 @@ reproducible source-to-sink evidence instead of replacing the scanners that alre
 > remain incomplete. This is not a CodeQL parity claim. See the linked
 > [implementation ledger](../../roadmap-implementation/operations/code-security-analysis-engine.md).
 >
+> **Hardening:** Twenty independent critique rounds covered contracts, input and process bounds,
+> taint flow, replay, SARIF, and supply chain. After four evidence-backed repairs, the final ten
+> rounds left no Critical, High, Medium, or Low finding in the implemented scope.
+>
 > **Authority:** Analysis reads an exact source revision and emits evidence. Heimdall remains the
 > accountable agent for code-security observation. The engine is a mechanical worker and grants no
 > approval, repository-write, execution, or deployment authority.

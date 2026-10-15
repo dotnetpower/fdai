@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 분석 엔진
 translation_of: code-security-analysis-engine.md
-translation_source_sha: 1a97ed28611a164dd4b25afa3c496925fbd6e72d
+translation_source_sha: 62983a4b5ecf00c1d087ec6fbc22202fb7b9a0dc
 translation_revised: 2026-10-15
 ---
 
@@ -16,6 +16,10 @@ translation_revised: 2026-10-15
 > 평가, 증분 무효화, 검증된 LLM 수정은 아직 완료되지 않았습니다. CodeQL 동등성 주장이 아닙니다.
 > 연결된
 > [구현 원장](../../roadmap-implementation/operations/code-security-analysis-engine.md)을 참조하세요.
+>
+> **하드닝:** 계약, 입력 및 프로세스 한도, 오염 흐름, 재현, SARIF, 공급망을 대상으로 독립 비평
+> 20회를 수행했습니다. 근거가 확인된 결함 4개를 수정한 뒤 마지막 10회에서는 구현된 범위에
+> Critical, High, Medium, Low 점검 결과가 남지 않았습니다.
 >
 > **권한:** 분석은 정확한 소스 리비전을 읽고 근거를 만듭니다. Heimdall은 코드 보안 관찰의
 > 책임 에이전트로 유지됩니다. 엔진은 기계적인 워커이며 승인, 저장소 쓰기, 실행, 배포 권한을

@@ -131,7 +131,7 @@ def analyze_typescript_repository(
         graph = graph.model_copy(
             update={"coverage_limits": tuple(sorted({*graph.coverage_limits, *input_limits}))}
         )
-    _validate_result(graph, paths, revision=revision, rule=rule)
+    _validate_result(graph, paths, revision=revision, rule=rule, allowed_files=set(files))
     return TypeScriptAnalysisResult(graph, paths)
 
 
@@ -141,11 +141,14 @@ def _validate_result(
     *,
     revision: str,
     rule: CodeSecurityRuleSpec,
+    allowed_files: set[str],
 ) -> None:
     if graph.revision != revision:
         raise TypeScriptAnalysisError("TypeScript graph revision differs from the request")
     expected_digest = graph.digest()
     known_nodes = {node.node_id for node in graph.nodes}
+    if any(node.span is not None and node.span.path not in allowed_files for node in graph.nodes):
+        raise TypeScriptAnalysisError("TypeScript graph contains a file outside the request")
     for path in paths:
         if (
             path.revision != revision
@@ -156,6 +159,8 @@ def _validate_result(
             raise TypeScriptAnalysisError("TypeScript path identity differs from the request")
         if any(step.node_id not in known_nodes for step in path.steps):
             raise TypeScriptAnalysisError("TypeScript path references an unknown graph node")
+        if any(step.span.path not in allowed_files for step in path.steps):
+            raise TypeScriptAnalysisError("TypeScript path contains a file outside the request")
 
 
 __all__ = [

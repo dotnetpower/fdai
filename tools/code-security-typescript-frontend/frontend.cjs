@@ -65,6 +65,14 @@ function terminal(expression) {
 
 function analyze(request) {
   const root = fs.realpathSync(request.root);
+  const maxDepth = Math.min(Math.max(request.limits?.max_call_depth || 12, 1), 64);
+  const maxPaths = Math.min(Math.max(request.limits?.max_paths || 5000, 1), 20000);
+  const maxNodes = Math.min(Math.max(request.limits?.max_graph_nodes || 100000, 1), 200000);
+  const maxEdges = Math.min(Math.max(request.limits?.max_graph_edges || 200000, 1), 400000);
+  const maxFileBytes = Math.min(
+    Math.max(request.limits?.max_file_bytes || 1000000, 1000),
+    10000000,
+  );
   if (!Array.isArray(request.files) || request.files.length < 1 || request.files.length > 5000) {
     throw new Error("files must contain between 1 and 5000 paths");
   }
@@ -93,7 +101,13 @@ function analyze(request) {
     const resolved = path.resolve(fileName);
     let candidate = resolved;
     try { candidate = fs.realpathSync(resolved); } catch { /* Missing candidates stay resolved. */ }
-    return inside(root, candidate) || inside(libraryRoot, candidate);
+    if (inside(libraryRoot, candidate)) return true;
+    if (!inside(root, candidate)) return false;
+    try {
+      return fs.statSync(candidate).size <= maxFileBytes;
+    } catch {
+      return true;
+    }
   };
   const host = {
     ...defaultHost,
@@ -120,9 +134,6 @@ function analyze(request) {
   const entrypoints = new Set();
   const coverage = new Set();
   const candidates = [];
-  const maxDepth = Math.min(Math.max(request.limits?.max_call_depth || 12, 1), 64);
-  const maxPaths = Math.min(Math.max(request.limits?.max_paths || 5000, 1), 20000);
-
   const provenance = (confidence) => ({
     frontend: FRONTEND,
     frontend_version: ts.version,
@@ -130,7 +141,12 @@ function analyze(request) {
     confidence,
     unresolved_alternatives: [],
   });
-  const addNode = (node) => nodes.set(node.node_id, node);
+  const addNode = (node) => {
+    if (!nodes.has(node.node_id) && nodes.size >= maxNodes) {
+      throw new Error("graph node limit exceeded");
+    }
+    nodes.set(node.node_id, node);
+  };
   const addEdge = (kind, sourceId, targetId, parameterIndex = null) => {
     const edgeId = stableId("edge", kind, sourceId, targetId, parameterIndex);
     const edge = {
@@ -141,6 +157,7 @@ function analyze(request) {
       provenance: provenance(kind === "calls" ? "inferred" : "exact"),
     };
     if (parameterIndex !== null) edge.parameter_index = parameterIndex;
+    if (!edges.has(edgeId) && edges.size >= maxEdges) throw new Error("graph edge limit exceeded");
     edges.set(edgeId, edge);
   };
   const resolveSymbol = (node) => {

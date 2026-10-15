@@ -57,7 +57,7 @@ def contract() -> dict[str, object]:
         node_id="sink:1",
         kind=GraphNodeKind.SINK,
         name="pool.query",
-        span=SourceSpan(path="db.ts", start_line=3, end_line=3),
+        span=SourceSpan(path="app.ts", start_line=3, end_line=3),
     )
     graph = CodeGraphArtifact(
         schema_version="1.0.0",
@@ -120,6 +120,24 @@ def test_adapter_rejects_mismatched_path_identity(tmp_path: Path) -> None:
     document["paths"][0]["graph_digest"] = "sha256:" + "c" * 64  # type: ignore[index]
 
     with pytest.raises(TypeScriptAnalysisError, match="path identity"):
+        analyze_typescript_repository(
+            source,
+            revision=REVISION,
+            build_context_digest=DIGEST,
+            framework_model_digest=DIGEST,
+            rule=rule(),
+            config=frontend(tmp_path, document),
+        )
+
+
+def test_adapter_rejects_graph_path_outside_requested_files(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "app.ts").write_text("export const value = 1;", encoding="utf-8")
+    document = contract()
+    document["graph"]["nodes"][0]["span"]["path"] = "other.ts"  # type: ignore[index]
+
+    with pytest.raises(TypeScriptAnalysisError, match="outside the request"):
         analyze_typescript_repository(
             source,
             revision=REVISION,

@@ -26,7 +26,7 @@ const rule = {
   safe_cases: ["typescript-sqli-parameterized"],
 };
 
-function run(root, files) {
+function run(root, files, limits = undefined) {
   const request = {
     root,
     files,
@@ -34,6 +34,7 @@ function run(root, files) {
     build_context_digest: digest,
     framework_model_digest: digest,
     rule,
+    limits,
   };
   return spawnSync(process.execPath, [frontend], {
     input: JSON.stringify(request),
@@ -98,4 +99,13 @@ test("requested source cannot escape the analysis root", () => {
 
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /escapes the analysis root/);
+});
+
+test("graph budget stops oversized analysis before output", () => {
+  const root = fixture();
+  fs.writeFileSync(path.join(root, "app.ts"), "export function one(value: string) { return value; }");
+  const result = run(root, ["app.ts"], { max_graph_nodes: 1 });
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /graph node limit exceeded/);
 });

@@ -701,6 +701,8 @@ canonical ingestion. Analysis rules, component terms, and frozen corpora stay in
 prepared and Kata scans. The scanner image pins the compiler and frontend. This adds no service,
 pantheon agent, repository writer, approval, or execution authority. See
 [Code Security Analysis Engine](../operations/code-security-analysis-engine.md).
+Both frontends bind source reads to the exact root and enforce graph budgets before accepting
+evidence. Frontend failure lowers coverage instead of changing the worker or authority boundary.
 
 ## Repository Script Layout
 

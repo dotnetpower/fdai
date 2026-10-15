@@ -44,6 +44,7 @@ from fdai.core.security.code_findings.python_analysis import (
 from fdai.core.security.code_findings.receipts import build_receipt, receipt_to_dict
 from fdai.core.security.code_findings.review_signal import ReviewSource, build_review_package
 from fdai.core.security.code_findings.typescript_analysis import (
+    TypeScriptAnalysisError,
     TypeScriptAnalysisResult,
     TypeScriptFrontendConfig,
     analyze_typescript_repository,
@@ -257,15 +258,22 @@ async def run_scan_job(
                     rule=rule,
                 )
             elif "typescript" in rule.languages and typescript_frontend is not None:
-                result = await asyncio.to_thread(
-                    analyze_typescript_repository,
-                    source.path,
-                    revision=revision,
-                    build_context_digest=build_context_digest,
-                    framework_model_digest=rule.digest(),
-                    rule=rule,
-                    config=typescript_frontend,
-                )
+                try:
+                    result = await asyncio.to_thread(
+                        analyze_typescript_repository,
+                        source.path,
+                        revision=revision,
+                        build_context_digest=build_context_digest,
+                        framework_model_digest=rule.digest(),
+                        rule=rule,
+                        config=typescript_frontend,
+                    )
+                except TypeScriptAnalysisError as exc:
+                    observed[ANALYSIS_PRODUCER] = False
+                    limits.append(
+                        f"owned analysis {rule.rule_id} unavailable: {type(exc).__name__}"
+                    )
+                    continue
                 if result is None:
                     continue
             elif "typescript" in rule.languages and not _has_typescript_source(source.path):
