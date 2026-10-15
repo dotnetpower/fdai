@@ -1,0 +1,40 @@
+schema_version: 1.0.0
+corpus_id: fdai.code-security.analysis.typescript-sql-injection
+language: typescript
+version: 1.0.0
+rule_id: fdai.typescript.sql-injection
+cases:
+  - case_id: dev-vulnerable-cross-file
+    split: dev
+    vulnerable: true
+    files:
+      api.ts: |
+        import { execute } from './db';
+        export function search(req: Request) { return execute(req.query.q); }
+        app.get('/search', search);
+      db.ts: |
+        export function execute(value: string) { return pool.query('SELECT ' + value); }
+  - case_id: dev-safe-parameterized
+    split: dev
+    vulnerable: false
+    files:
+      app.ts: |
+        export function search(req: Request) { return pool.query('SELECT WHERE id = ?', [req.query.id]); }
+        app.get('/search', search);
+  - case_id: holdout-vulnerable-alias
+    split: holdout
+    vulnerable: true
+    files:
+      api.ts: |
+        import { run as execute } from './store';
+        export function orders(req: Request) { return execute('SELECT ' + req.params.id); }
+        app.post('/orders', orders);
+      store.ts: |
+        export function run(query: string) { return database.query(query); }
+  - case_id: holdout-safe-constant
+    split: holdout
+    vulnerable: false
+    files:
+      app.ts: |
+        export function health(req: Request) { void req.query.unused; return database.query('SELECT 1'); }
+        app.get('/health', health);

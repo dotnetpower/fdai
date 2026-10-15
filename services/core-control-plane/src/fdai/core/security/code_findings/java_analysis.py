@@ -27,7 +27,7 @@ from fdai.core.security.code_findings.analysis_contracts import (
     RuleSelector,
     SourceSpan,
 )
-from fdai.core.security.code_findings.analysis_graph_flow import derive_graph_paths
+from fdai.core.security.code_findings.analysis_graph_flow import materialize_graph_paths
 
 FRONTEND = "fdai.java.tree-sitter"
 VERSION = "1.1.0"
@@ -277,7 +277,8 @@ class _Analyzer:
             edges=tuple(sorted(self.edges.values(), key=lambda item: item.edge_id)),
             coverage_limits=tuple(sorted(self.coverage)),
         )
-        return JavaAnalysisResult(graph=graph, paths=derive_graph_paths(graph, self.rule))
+        flow = materialize_graph_paths(graph, self.rule)
+        return JavaAnalysisResult(graph=flow.graph, paths=flow.paths)
 
     def _method(
         self, method: _Method, arguments: dict[str, tuple[_Point, ...]], context: tuple[str, ...]

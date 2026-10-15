@@ -210,9 +210,17 @@ def _function_parameters(node: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[
 
 
 def _load_modules(
-    root: Path, limits: PythonAnalysisLimits, index: PythonGraphIndex
+    root: Path,
+    limits: PythonAnalysisLimits,
+    index: PythonGraphIndex,
+    included_paths: frozenset[str] | None,
 ) -> tuple[PythonModule, ...]:
-    paths = sorted(path for path in root.rglob("*.py") if path.is_file())
+    paths = sorted(
+        path
+        for path in root.rglob("*.py")
+        if path.is_file()
+        and (included_paths is None or path.relative_to(root).as_posix() in included_paths)
+    )
     if len(paths) > limits.max_files:
         index.coverage.add(coverage_limit("file-limit", len(paths)))
         paths = paths[: limits.max_files]
@@ -357,10 +365,15 @@ def _index_calls(index: PythonGraphIndex, limits: PythonAnalysisLimits) -> None:
                 add_edge(index, GraphEdgeKind.CALLS, call_id, target.function_id)
 
 
-def build_python_graph_index(root: Path, limits: PythonAnalysisLimits) -> PythonGraphIndex:
+def build_python_graph_index(
+    root: Path,
+    limits: PythonAnalysisLimits,
+    *,
+    included_paths: frozenset[str] | None = None,
+) -> PythonGraphIndex:
     """Parse bounded Python inputs and index files, functions, symbols, and calls."""
     index = PythonGraphIndex()
-    modules = _load_modules(root, limits, index)
+    modules = _load_modules(root, limits, index, included_paths)
     _index_functions(modules, limits, index)
     _index_calls(index, limits)
     return index

@@ -16,7 +16,7 @@ from fdai.core.security.code_findings.analysis_contracts import (
     PathEvidence,
     RuleAnalysisKind,
 )
-from fdai.core.security.code_findings.analysis_graph_flow import derive_graph_paths
+from fdai.core.security.code_findings.analysis_graph_flow import materialize_graph_paths
 
 
 class TypeScriptAnalysisError(RuntimeError):
@@ -133,7 +133,8 @@ def analyze_typescript_repository(
             update={"coverage_limits": tuple(sorted({*graph.coverage_limits, *input_limits}))}
         )
     _validate_result(graph, paths, revision=revision, rule=rule, allowed_files=set(files))
-    derived = derive_graph_paths(graph, rule)
+    flow = materialize_graph_paths(graph, rule)
+    derived = flow.paths
     submitted_signatures = {
         tuple((step.node_id, step.role, step.call_context) for step in path.steps) for path in paths
     }
@@ -143,7 +144,7 @@ def analyze_typescript_repository(
     }
     if submitted_signatures != derived_signatures:
         raise TypeScriptAnalysisError("TypeScript paths differ from common graph traversal")
-    return TypeScriptAnalysisResult(graph, derived)
+    return TypeScriptAnalysisResult(flow.graph, derived)
 
 
 def _validate_result(
@@ -167,7 +168,10 @@ def _validate_result(
             or path.rule_version != rule.version
             or path.graph_digest != expected_digest
         ):
-            raise TypeScriptAnalysisError("TypeScript path identity differs from the request")
+            raise TypeScriptAnalysisError(
+                "TypeScript path identity differs from the request "
+                f"(submitted={path.graph_digest}, canonical={expected_digest})"
+            )
         if any(step.node_id not in known_nodes for step in path.steps):
             raise TypeScriptAnalysisError("TypeScript path references an unknown graph node")
         if any(step.span.path not in allowed_files for step in path.steps):

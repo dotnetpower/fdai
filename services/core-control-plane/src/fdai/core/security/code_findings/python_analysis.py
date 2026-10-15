@@ -19,7 +19,7 @@ from fdai.core.security.code_findings.analysis_contracts import (
     RuleSelector,
     SourceSpan,
 )
-from fdai.core.security.code_findings.analysis_graph_flow import derive_graph_paths
+from fdai.core.security.code_findings.analysis_graph_flow import materialize_graph_paths
 from fdai.core.security.code_findings.python_graph import (
     FRONTEND,
     VERSION,
@@ -235,7 +235,14 @@ class _Analyzer:
         if target is None:
             taint = self._first((receiver, *arguments))
             declared = any(self._matches(name, selector) for selector in self.propagators)
-            if taint is not None and not declared and name not in {"str", "repr", "format"}:
+            wrapper = (
+                name.rsplit(".", 1)[-1]
+                if name is not None
+                else call.func.attr
+                if isinstance(call.func, ast.Attribute)
+                else None
+            )
+            if taint is not None and not declared and wrapper not in {"str", "repr", "format"}:
                 self.index.coverage.add(
                     coverage_limit("unresolved-call", function.module.path, call.lineno, name)
                 )
@@ -460,6 +467,7 @@ def analyze_python_repository(
     framework_model_digest: str,
     rule: CodeSecurityRuleSpec,
     limits: PythonAnalysisLimits | None = None,
+    included_paths: frozenset[str] | None = None,
 ) -> PythonAnalysisResult:
     """Build a deterministic graph and find bounded Python source-to-sink paths."""
     if "python" not in rule.languages or rule.analysis_kind is not RuleAnalysisKind.GRAPH_FLOW:
@@ -468,7 +476,7 @@ def analyze_python_repository(
     base = root.resolve(strict=True)
     if root.is_symlink() or not base.is_dir():
         raise ValueError("analysis root must be a directory")
-    index = build_python_graph_index(base, selected_limits)
+    index = build_python_graph_index(base, selected_limits, included_paths=included_paths)
     analyzer = _Analyzer(index, rule, selected_limits)
     analyzer.run()
     for candidate in analyzer.candidates:
@@ -493,10 +501,8 @@ def analyze_python_repository(
         edges=tuple(sorted(index.edges.values(), key=lambda edge: edge.edge_id)),
         coverage_limits=tuple(sorted(index.coverage)),
     )
-    return PythonAnalysisResult(
-        graph=graph,
-        paths=derive_graph_paths(graph, rule),
-    )
+    flow = materialize_graph_paths(graph, rule)
+    return PythonAnalysisResult(graph=flow.graph, paths=flow.paths)
 
 
 __all__ = [

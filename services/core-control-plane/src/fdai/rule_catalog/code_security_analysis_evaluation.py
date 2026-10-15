@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from pathlib import Path, PurePosixPath
 from typing import Annotated, Literal
 
@@ -28,7 +30,7 @@ class AnalysisEvaluationCase(_Strict):
             path = PurePosixPath(raw)
             if (
                 path.is_absolute()
-                or path.suffix not in {".java", ".py"}
+                or path.suffix not in {".java", ".py", ".ts", ".tsx"}
                 or any(part in {"", ".", ".."} for part in path.parts)
             ):
                 raise ValueError("evaluation file paths must use an allowed relative source path")
@@ -40,7 +42,7 @@ class AnalysisEvaluationCase(_Strict):
 class AnalysisEvaluationCorpus(_Strict):
     schema_version: Literal["1.0.0"]
     corpus_id: Annotated[str, Field(pattern=r"^fdai\.code-security\.analysis\.[a-z-]+$")]
-    language: Literal["java", "python"]
+    language: Literal["java", "python", "typescript"]
     version: Annotated[str, Field(pattern=r"^\d+\.\d+\.\d+$")]
     rule_id: Annotated[str, Field(pattern=r"^[a-z][a-z0-9.-]{2,127}$")]
     cases: Annotated[tuple[AnalysisEvaluationCase, ...], Field(min_length=4)]
@@ -56,10 +58,27 @@ class AnalysisEvaluationCorpus(_Strict):
         observed = {(case.split, case.vulnerable) for case in self.cases}
         if not required <= observed:
             raise ValueError("each evaluation split requires vulnerable and safe cases")
-        suffix = ".java" if self.language == "java" else ".py"
-        if any(PurePosixPath(path).suffix != suffix for case in self.cases for path in case.files):
+        suffixes = {
+            "java": {".java"},
+            "python": {".py"},
+            "typescript": {".ts", ".tsx"},
+        }[self.language]
+        if any(
+            PurePosixPath(path).suffix not in suffixes for case in self.cases for path in case.files
+        ):
             raise ValueError("evaluation source paths must match the corpus language")
         return self
+
+    def canonical_bytes(self) -> bytes:
+        return json.dumps(
+            self.model_dump(mode="json"),
+            ensure_ascii=True,
+            separators=(",", ":"),
+            sort_keys=True,
+        ).encode("utf-8")
+
+    def digest(self) -> str:
+        return f"sha256:{hashlib.sha256(self.canonical_bytes()).hexdigest()}"
 
 
 def load_analysis_evaluation_corpus(

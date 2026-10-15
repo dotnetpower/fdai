@@ -149,6 +149,7 @@ async def test_scan_job_reuses_and_invalidates_python_snapshots(tmp_path: Path) 
     assert first.analysis_incremental_plans[0].reason == "no_previous_snapshot"
     assert changed.analysis_incremental_plans[0].reason == "dependency_invalidation"
     assert changed.analysis_incremental_plans[0].changed_files == ("app.py",)
+    assert changed.analysis_incremental_plans[0].partial_recompute is False
     assert repeated.analysis_incremental_plans[0].reason == "inputs_unchanged"
     assert repeated.analysis_incremental_plans[0].reused_result is True
     assert len(first.issues) == 1

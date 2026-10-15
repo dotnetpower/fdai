@@ -99,10 +99,68 @@ def test_changed_helper_invalidates_transitive_callers_and_matches_full_run(tmp_
     assert incremental.plan.reused_result is False
     assert incremental.plan.changed_files == ("query.py",)
     assert set(incremental.plan.affected_files) == {"api.py", "query.py"}
+    assert incremental.plan.partial_recompute is False
     assert incremental.result.graph.canonical_bytes() == full.graph.canonical_bytes()
     assert [path.canonical_bytes() for path in incremental.result.paths] == [
         path.canonical_bytes() for path in full.paths
     ]
+
+
+def test_unrelated_change_recomputes_one_graph_slice_and_matches_full_run(tmp_path: Path) -> None:
+    write_repository(tmp_path)
+    (tmp_path / "util.py").write_text("def value():\n    return 1\n", encoding="utf-8")
+    first = analyze(tmp_path)
+    (tmp_path / "util.py").write_text("def value():\n    return 2\n", encoding="utf-8")
+    next_revision = "c" * 40
+
+    incremental = analyze(tmp_path, first.snapshot, revision=next_revision)
+    full = analyze_python_repository(
+        tmp_path,
+        revision=next_revision,
+        build_context_digest=DIGEST,
+        framework_model_digest=rule().digest(),
+        rule=rule(),
+    )
+
+    assert incremental.partial_recompute is True
+    assert incremental.plan.partial_recompute is True
+    assert incremental.plan.changed_files == ("util.py",)
+    assert incremental.plan.affected_files == ("util.py",)
+    assert incremental.result.graph.canonical_bytes() == full.graph.canonical_bytes()
+    assert [path.canonical_bytes() for path in incremental.result.paths] == [
+        path.canonical_bytes() for path in full.paths
+    ]
+
+
+def test_incomplete_previous_graph_forces_full_recomputation(tmp_path: Path) -> None:
+    write_repository(tmp_path)
+    (tmp_path / "util.py").write_text("def value():\n    return 1\n", encoding="utf-8")
+    first = analyze(tmp_path)
+    incomplete_graph = first.snapshot.graph.model_copy(
+        update={"coverage_limits": ("python.state-limit:test",)}
+    )
+    previous = first.snapshot.model_copy(update={"graph": incomplete_graph, "paths": ()})
+    (tmp_path / "util.py").write_text("def value():\n    return 2\n", encoding="utf-8")
+
+    result = analyze(tmp_path, previous, revision="c" * 40)
+
+    assert result.plan.reason == "dependency_invalidation"
+    assert result.plan.partial_recompute is False
+    assert result.result.graph.coverage_limits == ()
+
+
+def test_removed_dependency_forces_full_recomputation(tmp_path: Path) -> None:
+    write_repository(tmp_path)
+    first = analyze(tmp_path)
+    (tmp_path / "query.py").unlink()
+
+    result = analyze(tmp_path, first.snapshot, revision="c" * 40)
+
+    assert result.plan.changed_files == ("query.py",)
+    assert result.plan.partial_recompute is False
+    assert all(
+        node.span is None or node.span.path != "query.py" for node in result.result.graph.nodes
+    )
 
 
 def test_rule_identity_change_forces_full_invalidation(tmp_path: Path) -> None:

@@ -14,7 +14,11 @@ from fdai.core.security.code_findings.analysis_contracts import (
     RuleSelector,
     SourceSpan,
 )
-from fdai.core.security.code_findings.analysis_graph_flow import derive_graph_paths
+from fdai.core.security.code_findings.analysis_graph_flow import (
+    GraphFlowLimits,
+    derive_graph_paths,
+    materialize_graph_paths,
+)
 
 DIGEST = f"sha256:{'b' * 64}"
 
@@ -160,3 +164,17 @@ def test_path_identity_survives_revision_and_line_shift() -> None:
 
     assert first.path_id == second.path_id
     assert first.graph_digest != second.graph_digest
+
+
+def test_traversal_budgets_are_explicit_graph_coverage_limits() -> None:
+    path_limited = materialize_graph_paths(
+        _graph("a" * 40), _rule(), limits=GraphFlowLimits(max_paths=0)
+    )
+    operation_limited = materialize_graph_paths(
+        _graph("a" * 40), _rule(), limits=GraphFlowLimits(max_operations=0)
+    )
+
+    assert path_limited.paths == ()
+    assert "graph-flow.path-limit" in path_limited.graph.coverage_limits
+    assert operation_limited.paths == ()
+    assert "graph-flow.operation-limit" in operation_limited.graph.coverage_limits

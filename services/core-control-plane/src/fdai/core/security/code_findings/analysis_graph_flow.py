@@ -23,6 +23,13 @@ from fdai.core.security.code_findings.analysis_contracts import (
 class GraphFlowLimits:
     max_paths: int = 5_000
     max_steps: int = 256
+    max_operations: int = 1_000_000
+
+
+@dataclass(frozen=True, slots=True)
+class GraphFlowResult:
+    graph: CodeGraphArtifact
+    paths: tuple[PathEvidence, ...]
 
 
 def _containing_function(source: CodeGraphNode, functions: tuple[CodeGraphNode, ...]) -> str | None:
@@ -76,13 +83,13 @@ def _path_id(
     return f"path:{hashlib.sha256(canonical).hexdigest()}"
 
 
-def derive_graph_paths(
+def materialize_graph_paths(
     graph: CodeGraphArtifact,
     rule: CodeSecurityRuleSpec,
     *,
     limits: GraphFlowLimits | None = None,
-) -> tuple[PathEvidence, ...]:
-    """Traverse only common graph contracts and return deterministic source-to-sink paths."""
+) -> GraphFlowResult:
+    """Traverse common graph contracts and return bounded paths plus explicit limits."""
     selected_limits = limits or GraphFlowLimits()
     nodes = {node.node_id: node for node in graph.nodes}
     functions = tuple(node for node in graph.nodes if node.kind is GraphNodeKind.FUNCTION)
@@ -101,6 +108,8 @@ def derive_graph_paths(
         targets.sort()
 
     candidates: list[tuple[PathEvidenceStep, ...]] = []
+    coverage = set(graph.coverage_limits)
+    operations = 0
 
     def walk(
         occurrence: tuple[str, PathStepRole, tuple[str, ...]],
@@ -112,9 +121,18 @@ def derive_graph_paths(
             ]
         ],
     ) -> None:
-        if len(candidates) >= selected_limits.max_paths or len(steps) >= selected_limits.max_steps:
+        nonlocal operations
+        if operations >= selected_limits.max_operations:
+            coverage.add("graph-flow.operation-limit")
+            return
+        if len(steps) >= selected_limits.max_steps:
+            coverage.add("graph-flow.step-limit")
             return
         for target_occurrence in adjacency.get(occurrence, ()):
+            operations += 1
+            if operations > selected_limits.max_operations:
+                coverage.add("graph-flow.operation-limit")
+                return
             edge = (occurrence, target_occurrence)
             target_id, role, context = target_occurrence
             target = nodes[target_id]
@@ -129,7 +147,10 @@ def derive_graph_paths(
                 ),
             )
             if role is PathStepRole.SINK:
-                candidates.append(next_steps)
+                if len(candidates) < selected_limits.max_paths:
+                    candidates.append(next_steps)
+                else:
+                    coverage.add("graph-flow.path-limit")
             else:
                 walk(
                     target_occurrence,
@@ -160,6 +181,7 @@ def derive_graph_paths(
             )
             walk(occurrence, (first,), frozenset())
 
+    result_graph = graph.model_copy(update={"coverage_limits": tuple(sorted(coverage))})
     sanitizer_contexts = tuple(
         sorted(
             selector.security_context
@@ -169,19 +191,37 @@ def derive_graph_paths(
     )
     unique: dict[str, PathEvidence] = {}
     for steps in candidates:
-        path_id = _path_id(graph, rule, steps)
+        path_id = _path_id(result_graph, rule, steps)
         unique[path_id] = PathEvidence(
             schema_version=PATH_SCHEMA_VERSION,
             path_id=path_id,
-            revision=graph.revision,
-            graph_digest=graph.digest(),
+            revision=result_graph.revision,
+            graph_digest=result_graph.digest(),
             rule_id=rule.rule_id,
             rule_version=rule.version,
             steps=steps,
             sanitizers_considered=sanitizer_contexts,
-            coverage_limits=graph.coverage_limits,
+            coverage_limits=result_graph.coverage_limits,
         )
-    return tuple(unique[path_id] for path_id in sorted(unique))
+    return GraphFlowResult(
+        graph=result_graph,
+        paths=tuple(unique[path_id] for path_id in sorted(unique)),
+    )
 
 
-__all__ = ["GraphFlowLimits", "derive_graph_paths"]
+def derive_graph_paths(
+    graph: CodeGraphArtifact,
+    rule: CodeSecurityRuleSpec,
+    *,
+    limits: GraphFlowLimits | None = None,
+) -> tuple[PathEvidence, ...]:
+    """Compatibility wrapper returning paths from :func:`materialize_graph_paths`."""
+    return materialize_graph_paths(graph, rule, limits=limits).paths
+
+
+__all__ = [
+    "GraphFlowLimits",
+    "GraphFlowResult",
+    "derive_graph_paths",
+    "materialize_graph_paths",
+]

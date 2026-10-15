@@ -6,7 +6,7 @@ import hashlib
 import json
 import os
 import stat
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Literal
 
@@ -15,10 +15,13 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 from fdai.core.security.code_findings.analysis_contracts import (
     GRAPH_SCHEMA_VERSION,
     CodeGraphArtifact,
+    CodeGraphNode,
     CodeSecurityRuleSpec,
     GraphEdgeKind,
+    GraphNodeKind,
     PathEvidence,
 )
+from fdai.core.security.code_findings.analysis_graph_flow import materialize_graph_paths
 from fdai.core.security.code_findings.python_analysis import (
     PythonAnalysisResult,
     analyze_python_repository,
@@ -35,15 +38,16 @@ class _Strict(BaseModel):
 
 
 class IncrementalSnapshot(_Strict):
-    schema_version: Literal["1.0.0"]
+    schema_version: Literal["1.1.0"]
     revision: str = Field(pattern=r"^[a-f0-9]{40,64}$")
-    graph_schema_version: Literal["1.0.0"]
+    graph_schema_version: Literal["1.1.0"]
     frontend_versions: dict[str, str]
     rule_digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
     build_context_digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
     framework_model_digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
     file_digests: dict[str, str]
     reverse_dependencies: dict[str, tuple[str, ...]]
+    forward_dependencies: dict[str, tuple[str, ...]]
     graph: CodeGraphArtifact
     paths: tuple[PathEvidence, ...]
 
@@ -76,6 +80,7 @@ class IncrementalPlan:
     reusable_files: tuple[str, ...]
     reused_result: bool
     reason: str
+    partial_recompute: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -83,6 +88,7 @@ class IncrementalAnalysisResult:
     result: PythonAnalysisResult
     snapshot: IncrementalSnapshot
     plan: IncrementalPlan
+    partial_recompute: bool = False
 
 
 def analyze_python_incremental(
@@ -110,18 +116,52 @@ def analyze_python_incremental(
         current_digests=current_digests,
     )
     if previous is not None and plan.reused_result:
-        result = PythonAnalysisResult(previous.graph, previous.paths)
-        return IncrementalAnalysisResult(result, previous, plan)
-    result = analyze_python_repository(
-        root,
-        revision=revision,
-        build_context_digest=build_context_digest,
-        framework_model_digest=framework_model_digest,
-        rule=rule,
-        limits=selected_limits,
-    )
+        reused = PythonAnalysisResult(previous.graph, previous.paths)
+        return IncrementalAnalysisResult(reused, previous, plan)
+    partial_recompute = False
+    result: PythonAnalysisResult | None = None
+    if (
+        previous is not None
+        and plan.reason == "dependency_invalidation"
+        and not previous.graph.coverage_limits
+    ):
+        recomputed_files = _dependency_closure(
+            plan.affected_files,
+            previous.forward_dependencies,
+        )
+        current_recomputed = frozenset(recomputed_files & set(current_digests))
+        if current_recomputed and len(current_recomputed) < len(current_digests):
+            partial = analyze_python_repository(
+                root,
+                revision=revision,
+                build_context_digest=build_context_digest,
+                framework_model_digest=framework_model_digest,
+                rule=rule,
+                limits=selected_limits,
+                included_paths=current_recomputed,
+            )
+            if not partial.graph.coverage_limits:
+                result = _merge_partial_result(
+                    previous.graph,
+                    partial.graph,
+                    recomputed_files,
+                    set(current_digests),
+                    rule,
+                )
+                partial_recompute = True
+    if result is None:
+        result = analyze_python_repository(
+            root,
+            revision=revision,
+            build_context_digest=build_context_digest,
+            framework_model_digest=framework_model_digest,
+            rule=rule,
+            limits=selected_limits,
+        )
+    plan = replace(plan, partial_recompute=partial_recompute)
+    reverse_dependencies, forward_dependencies = _dependencies(result.graph)
     snapshot = IncrementalSnapshot(
-        schema_version="1.0.0",
+        schema_version="1.1.0",
         revision=revision,
         graph_schema_version=GRAPH_SCHEMA_VERSION,
         frontend_versions={FRONTEND: VERSION},
@@ -129,11 +169,12 @@ def analyze_python_incremental(
         build_context_digest=build_context_digest,
         framework_model_digest=framework_model_digest,
         file_digests=current_digests,
-        reverse_dependencies=_reverse_dependencies(result.graph),
+        reverse_dependencies=reverse_dependencies,
+        forward_dependencies=forward_dependencies,
         graph=result.graph,
         paths=result.paths,
     )
-    return IncrementalAnalysisResult(result, snapshot, plan)
+    return IncrementalAnalysisResult(result, snapshot, plan, partial_recompute)
 
 
 def save_incremental_snapshot(path: Path, snapshot: IncrementalSnapshot) -> None:
@@ -192,9 +233,12 @@ def _file_digests(root: Path, limits: PythonAnalysisLimits) -> dict[str, str]:
     return digests
 
 
-def _reverse_dependencies(graph: CodeGraphArtifact) -> dict[str, tuple[str, ...]]:
+def _dependencies(
+    graph: CodeGraphArtifact,
+) -> tuple[dict[str, tuple[str, ...]], dict[str, tuple[str, ...]]]:
     nodes = {node.node_id: node for node in graph.nodes}
-    dependencies: dict[str, set[str]] = {}
+    reverse: dict[str, set[str]] = {}
+    forward: dict[str, set[str]] = {}
     for edge in graph.edges:
         if edge.kind is not GraphEdgeKind.CALLS:
             continue
@@ -203,8 +247,69 @@ def _reverse_dependencies(graph: CodeGraphArtifact) -> dict[str, tuple[str, ...]
         if source is None or target is None or source.span is None or target.span is None:
             continue
         if source.span.path != target.span.path:
-            dependencies.setdefault(target.span.path, set()).add(source.span.path)
-    return {key: tuple(sorted(value)) for key, value in sorted(dependencies.items())}
+            reverse.setdefault(target.span.path, set()).add(source.span.path)
+            forward.setdefault(source.span.path, set()).add(target.span.path)
+    return (
+        {key: tuple(sorted(value)) for key, value in sorted(reverse.items())},
+        {key: tuple(sorted(value)) for key, value in sorted(forward.items())},
+    )
+
+
+def _dependency_closure(
+    affected_files: tuple[str, ...],
+    forward_dependencies: dict[str, tuple[str, ...]],
+) -> set[str]:
+    closure = set(affected_files)
+    pending = list(affected_files)
+    while pending:
+        caller = pending.pop()
+        for callee in forward_dependencies.get(caller, ()):
+            if callee not in closure:
+                closure.add(callee)
+                pending.append(callee)
+    return closure
+
+
+def _node_path(node: CodeGraphNode) -> str | None:
+    if node.kind is GraphNodeKind.FILE:
+        return node.name
+    return node.span.path if node.span is not None else None
+
+
+def _merge_partial_result(
+    previous: CodeGraphArtifact,
+    partial: CodeGraphArtifact,
+    recomputed_files: set[str],
+    current_files: set[str],
+    rule: CodeSecurityRuleSpec,
+) -> PythonAnalysisResult:
+    kept_nodes = {
+        node.node_id: node
+        for node in previous.nodes
+        if (path := _node_path(node)) is not None
+        and path in current_files
+        and path not in recomputed_files
+    }
+    merged_nodes = {**kept_nodes, **{node.node_id: node for node in partial.nodes}}
+    kept_node_ids = set(kept_nodes)
+    merged_edges = {
+        edge.edge_id: edge
+        for edge in previous.edges
+        if edge.source_id in kept_node_ids and edge.target_id in kept_node_ids
+    }
+    merged_edges.update({edge.edge_id: edge for edge in partial.edges})
+    graph = CodeGraphArtifact(
+        schema_version=GRAPH_SCHEMA_VERSION,
+        revision=partial.revision,
+        build_context_digest=partial.build_context_digest,
+        framework_model_digest=partial.framework_model_digest,
+        frontend_versions=partial.frontend_versions,
+        nodes=tuple(sorted(merged_nodes.values(), key=lambda node: node.node_id)),
+        edges=tuple(sorted(merged_edges.values(), key=lambda edge: edge.edge_id)),
+        coverage_limits=partial.coverage_limits,
+    )
+    flow = materialize_graph_paths(graph, rule)
+    return PythonAnalysisResult(flow.graph, flow.paths)
 
 
 def _plan(

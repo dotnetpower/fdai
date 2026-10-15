@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import json
-from dataclasses import asdict
+import shutil
 from pathlib import Path
 
 import pytest
 from fdai.core.security.code_findings.analysis_evaluation import (
     evaluate_java_analysis,
     evaluate_python_analysis,
+    evaluate_typescript_analysis,
 )
+from fdai.core.security.code_findings.typescript_analysis import TypeScriptFrontendConfig
 from fdai.rule_catalog.code_security import CodeSecurityCatalogError
 from fdai.rule_catalog.code_security_analysis import load_analysis_rules
 from fdai.rule_catalog.code_security_analysis_components import load_analysis_components
@@ -20,7 +22,7 @@ from fdai.rule_catalog.code_security_analysis_evaluation import (
 )
 from pydantic import ValidationError
 
-from ._support import CATALOG_ROOT
+from ._support import CATALOG_ROOT, REPO_ROOT
 
 
 def test_component_inventory_separates_active_planned_and_research_terms() -> None:
@@ -74,6 +76,60 @@ def test_python_evaluation_meets_split_targets_without_unsupported_cases(
     assert receipt.duration_ms >= 0 and receipt.peak_memory_kib >= 0
 
 
+@pytest.mark.parametrize(
+    "name",
+    (
+        "python-command-injection",
+        "python-path-traversal",
+        "python-xss",
+    ),
+)
+def test_python_weakness_evaluation_is_disaggregated_and_fail_closed(
+    tmp_path: Path, name: str
+) -> None:
+    corpus = load_analysis_evaluation_corpus(CATALOG_ROOT, name)
+    rule = next(
+        item for item in load_analysis_rules(CATALOG_ROOT) if item.rule_id == corpus.rule_id
+    )
+
+    receipt = evaluate_python_analysis(corpus, rule, tmp_path)
+
+    assert receipt.meets_initial_thresholds is True
+    assert receipt.promotion_eligible is False
+    assert receipt.dev.unsupported == receipt.holdout.unsupported == 0
+
+
+@pytest.mark.parametrize(
+    "name",
+    (
+        "typescript-sql-injection",
+        "typescript-command-injection",
+        "typescript-path-traversal",
+        "typescript-xss",
+    ),
+)
+def test_typescript_weakness_evaluation_is_disaggregated_and_fail_closed(
+    tmp_path: Path, name: str
+) -> None:
+    node = shutil.which("node")
+    if node is None:
+        pytest.skip("Node.js is required for the TypeScript evaluation frontend")
+    corpus = load_analysis_evaluation_corpus(CATALOG_ROOT, name)
+    rule = next(
+        item for item in load_analysis_rules(CATALOG_ROOT) if item.rule_id == corpus.rule_id
+    )
+    config = TypeScriptFrontendConfig(
+        node=Path(node),
+        script=REPO_ROOT / "tools" / "code-security-typescript-frontend" / "frontend.cjs",
+    )
+
+    receipt = evaluate_typescript_analysis(corpus, rule, tmp_path, config)
+
+    assert receipt.meets_initial_thresholds is True
+    assert receipt.promotion_eligible is False
+    assert receipt.dev.unsupported == receipt.holdout.unsupported == 0
+
+
 def test_java_evaluation_meets_split_targets_without_unsupported_cases(tmp_path: Path) -> None:
     corpus = load_analysis_evaluation_corpus(CATALOG_ROOT, "java-sql-injection")
     rule = next(
@@ -91,12 +147,8 @@ def test_java_evaluation_meets_split_targets_without_unsupported_cases(tmp_path:
     recorded = json.loads(
         (CATALOG_ROOT / "evaluation" / "java-analysis-1.0.0.json").read_text(encoding="utf-8")
     )
-    observed = asdict(receipt)
-    recorded.pop("schema_version")
     recorded.pop("resources")
-    observed.pop("duration_ms")
-    observed.pop("peak_memory_kib")
-    assert recorded == observed
+    assert recorded == receipt.stable_dict()
 
 
 def test_corpus_requires_vulnerable_and_safe_cases_in_each_split() -> None:

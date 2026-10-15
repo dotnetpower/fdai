@@ -17,7 +17,9 @@ function stableId(prefix, ...parts) {
 function canonical(value) {
   if (Array.isArray(value)) return value.map(canonical);
   if (value && typeof value === "object") {
-    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, canonical(value[key])]));
+    return Object.fromEntries(Object.keys(value).sort()
+      .filter((key) => value[key] !== null)
+      .map((key) => [key, canonical(value[key])]));
   }
   return value;
 }
@@ -155,6 +157,8 @@ function analyze(request) {
       kind,
       source_id: sourceId,
       target_id: targetId,
+      source_context: [],
+      target_context: [],
       provenance: provenance(kind === "calls" ? "inferred" : "exact"),
     };
     if (parameterIndex !== null) edge.parameter_index = parameterIndex;
@@ -382,6 +386,8 @@ function analyze(request) {
               type_status: "unknown",
             });
             candidates.push([...value, { node_id: sinkId, role: "sink", span: loc, call_context: context }]);
+          } else if (value) {
+            coverage.add("typescript.path-limit");
           }
           return null;
         }
