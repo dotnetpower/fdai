@@ -114,7 +114,8 @@ validation, documentation, and the task-owned local commit.
    independent. A deferred, held, unavailable, or missing assessment is never answered or passed.
    A one-question result always has `qualification=false`. For an effectiveness pair, compose the
    canonical ten-rubric answer gate with browser-observed profile, evidence snapshot, hard-zero,
-   latency, model-call, and cost fields into one immutable content-free assessment.
+   latency, model-call, and cost fields into one immutable content-free assessment. Bind that
+   assessment to the exact run, case, question fingerprint, measurement revision, and trace receipt.
 7. **Repair only code defects**: for `code_defect`, change the smallest owning abstraction. Do not
    hardcode the question, add a phrase exception, weaken a gate, or retry the live question. Run
    the narrowest focused test immediately after the first edit. Every other failure class remains
@@ -132,7 +133,8 @@ validation, documentation, and the task-owned local commit.
    and Korean owner docs plus the append-only implementation ledger. Commit only task-owned tracked
    files locally. Never commit `.fdai`, tokens, questions, answers, SYSTEM text, or browser captures.
    Effectiveness reporting deduplicates pairs, excludes legacy runs, applies bilingual pair floors,
-   a 95% Wilson lower bound, zero-regression and hard-zero gates, environment-hold limits, and
+   a minimum per-pair effect size, a 95% Wilson lower bound, zero-regression and hard-zero gates,
+   environment-hold limits, and
    latency, call, and cost ceilings. Crossing those development thresholds grants no qualification,
    promotion, rollback, or execution authority.
 
@@ -368,13 +370,15 @@ python3 scripts/automation/conversation-assurance.py improve prepare \
 # Initialize the fixed bilingual cohort policy
 python3 scripts/automation/conversation-assurance.py improve init-effectiveness-policy \
    --output <private-policy.json> --policy-id <policy-id> --cohort-id <cohort-id> \
-   --authoritative-base-ref <base-ref>
+   --authoritative-base-ref <base-ref> --minimum-pair-ratio-delta <ratio>
 
 # Seal a distinct same-revision baseline and holdout without printing either question
 python3 scripts/automation/conversation-assurance.py improve seal-effectiveness-pair \
    --baseline-corpus <private-baseline.json> --holdout-corpus <private-holdout.json> \
    --output <private-custody-receipt.json> --receipt-id <receipt-id> \
-   --custodian-identity-digest <sha256>
+   --custodian-identity-digest <sha256> --policy <private-policy.json> \
+   --comparison-group <group-id> --challenge-family <family> \
+   --objective-oracle <oracle-or-none>
 
 # Predeclare both sides under the same v2 comparison contract
 python3 scripts/automation/conversation-assurance.py improve prepare \
@@ -384,7 +388,7 @@ python3 scripts/automation/conversation-assurance.py improve prepare \
    --comparison-group <group-id> --comparison-role baseline \
    --cohort-id <cohort-id> --challenge-family <family> \
    --objective-oracle <oracle-or-none> \
-   --blind-holdout-receipt <private-custody-receipt.json> \
+   --pair-custody-receipt <private-custody-receipt.json> \
    --authoritative-base-ref <base-ref>
 python3 scripts/automation/conversation-assurance.py improve prepare \
    --corpus <private-holdout.json> --readiness <private-readiness.json> \
@@ -393,7 +397,7 @@ python3 scripts/automation/conversation-assurance.py improve prepare \
    --comparison-group <group-id> --comparison-role holdout \
    --cohort-id <cohort-id> --challenge-family <family> \
    --objective-oracle <oracle-or-none> \
-   --blind-holdout-receipt <private-custody-receipt.json> \
+   --pair-custody-receipt <private-custody-receipt.json> \
    --authoritative-base-ref <base-ref>
 
 # Record the one browser-owned live measurement and its Run Record evidence
@@ -482,12 +486,12 @@ uv run pytest -q --no-cov \
    services/core-control-plane/tests/core/conversation_assurance/test_learning.py \
    services/core-control-plane/tests/core/conversation_assurance/test_pantheon_campaign.py \
    services/core-control-plane/tests/runtime/test_pantheon_conversation_assurance.py \
-  tests/integration/scripts/test_conversation_assurance_answer_gate.py \
+   tests/integration/scripts/test_conversation_assurance_answer_gate.py \
    tests/integration/scripts/test_conversation_assurance_cli.py \
    tests/integration/scripts/test_conversation_assurance_effectiveness_contract.py \
    tests/integration/scripts/test_conversation_assurance_effectiveness.py \
    tests/integration/scripts/test_conversation_assurance_harness.py \
-   tests/integration/scripts/test_conversation_assurance_improvement_cli.py
+   tests/integration/scripts/test_conversation_assurance_improvement_cli.py \
    tests/integration/scripts/test_conversation_assurance_aks.py
 ```
 

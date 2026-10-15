@@ -274,6 +274,9 @@ available bounded cost value. It never retains question or answer text, raw prom
 credentials, endpoint values, or screenshots. These observations can join the canonical answer gate
 for local effectiveness accounting, but they grant no qualification, promotion, rollback, approval,
 or execution authority.
+Model-call count is available only from authoritative model usage, a complete turn budget, or a
+complete model trace including its omitted-call count. Prompt-profile count is never used as a
+success-shaped substitute; missing call evidence keeps effectiveness performance incomplete.
 
 The status overview distinguishes completed, corrected, degraded, failed, unverified, running, and
 unobserved phases; record presence isn't success. Result chips report observed query and command
