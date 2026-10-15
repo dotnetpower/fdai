@@ -158,6 +158,7 @@ required_outputs=(
   .fdai/local-document-processing-worker.env
   .fdai/local-isolated-executor.env
   .fdai/local-code-security-worker.env
+  .fdai/code-security-cache/current.json
 )
 for optional_input in \
   resolved-models.json \
@@ -511,6 +512,32 @@ prepare_code_security_scanner_image() {
   fi
 }
 
+prepare_code_security_cache() {
+  local cache_root="$repo_root/.fdai/code-security-cache"
+  mkdir -p "$cache_root"
+  "$repo_root/.venv/bin/python" \
+    "$bounded_runner" \
+    --label code-security-vulnerability-cache \
+    --timeout-seconds "$dependency_timeout_seconds" \
+    --no-progress-seconds "$stage_no_progress_seconds" \
+    -- \
+    docker run --rm \
+      --user "$(id -u):$(id -g)" \
+      --read-only \
+      --tmpfs "/tmp:rw,nosuid,nodev,size=1g" \
+      --volume "$repo_root:/source:ro" \
+      --volume "$cache_root:/snapshot:rw" \
+      "$scanner_image" \
+      prepare-snapshot /source /snapshot
+  docker run --rm \
+    --user "$(id -u):$(id -g)" \
+    --read-only \
+    --volume "$cache_root:/cache:ro" \
+    --entrypoint python \
+    "$scanner_image" \
+    -m fdai.delivery.code_security_cli resolve-cache-snapshot --root /cache >/dev/null
+}
+
 prepare_entra_redirects() {
   require_cloud_tools
   sync_entra_redirects
@@ -528,6 +555,13 @@ run_bounded local-dependencies \
 scanner_image_input_digest="$(
   run_bounded code-security-scanner-input-digest \
     bash "$scanner_image_contract" digest
+)"
+code_security_cache_input_digest="$(
+  path_digest \
+    code-security-cache \
+    services/core-control-plane/docker/code-security-scanner.Dockerfile \
+    services/core-control-plane/docker/code-security-scanner-entrypoint.sh \
+    services/core-control-plane/src/fdai/delivery/code_security_cache_snapshot.py
 )"
 if [[ "$force_preparation" == "0" && -f "$legacy_preparation_marker" ]]; then
   current_legacy_digest="$(
@@ -574,6 +608,11 @@ run_stage \
   code-security-scanner-image \
   "$scanner_image_input_digest" \
   prepare_code_security_scanner_image
+run_stage \
+  code-security-vulnerability-cache \
+  "$(configuration_digest "$code_security_cache_input_digest" "cache-contract=1")" \
+  prepare_code_security_cache \
+  "$repo_root/.fdai/code-security-cache/current.json"
 
 require_cloud_tools
 run_bounded local-model-settings \

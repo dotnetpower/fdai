@@ -631,6 +631,8 @@ def test_scan_runner_image_pins_every_tool_and_binds_every_scanner() -> None:
     assert re.findall(r"mcr.microsoft.com/azurelinux/base/core@sha256:[0-9a-f]{64}", dockerfile)
     bound = set(re.findall(r'--scanner-bin "([a-z-]+)=', entrypoint))
     assert bound == set(load_scanner_catalog(_CATALOG).scanners)
+    assert '--experimental-exclude "g:**/.git/**"' in entrypoint
+    assert '--experimental-exclude "g:**/.fdai/**"' in entrypoint
     assert re.search(r"ARG DOTNET_SDK_SHA512=[0-9a-f]{128}\n", dockerfile)
     assert '"${DOTNET_SDK_SHA512}  dotnet.tar.gz" | sha512sum -c -' in dockerfile
     stages = re.findall(r"^FROM \S+ AS ([a-z-]+)$", dockerfile, flags=re.MULTILINE)

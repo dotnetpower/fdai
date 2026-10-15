@@ -1019,6 +1019,8 @@ def test_preparation_owns_scanner_image_drift_and_digest_binding() -> None:
     assert "code-security-scanner-image.sh" in preparation
     assert "code-security-scanner-input-digest" in preparation
     assert "prepare_code_security_scanner_image" in preparation
+    assert "prepare_code_security_cache" in preparation
+    assert "code-security-vulnerability-cache" in preparation
     assert 'ensure "$scanner_image" "$scanner_image_input_digest"' in preparation
     assert "FDAI_CODE_SECURITY_IMAGE_INPUT_DIGEST" in preparation
     assert "org.fdai.code-security.build-input-digest" in dockerfile
@@ -1346,6 +1348,7 @@ def test_preparation_reuses_an_unchanged_healthy_stack(
         ".fdai/local-document-processing-worker.env",
         ".fdai/local-isolated-executor.env",
         ".fdai/local-code-security-worker.env",
+        ".fdai/code-security-cache/current.json",
     )
     for relative in required_outputs:
         output = repo / relative
@@ -1411,6 +1414,8 @@ esac
     assert "service=console-preparation event=reused" in result.stdout
     assert re.fullmatch(
         (
+            "service=local-input-digest stage=code-security-cache "
+            r"event=completed duration_ms=\d+\n"
             "service=local-input-digest stage=legacy-preparation "
             r"event=completed duration_ms=\d+\n"
         ),
@@ -1464,6 +1469,7 @@ def _staged_preparation_repo(
         ".fdai/local-document-processing-worker.env",
         ".fdai/local-isolated-executor.env",
         ".fdai/local-code-security-worker.env",
+        ".fdai/code-security-cache/current.json",
     ):
         output = repo / relative
         output.parent.mkdir(parents=True, exist_ok=True)
@@ -1513,6 +1519,7 @@ fi
     stages = (
         "console-dependencies",
         "code-security-scanner-image",
+        "code-security-vulnerability-cache",
         "local-state",
         "runtime-environment",
         "authoritative-inventory",
@@ -1533,6 +1540,8 @@ fi
                         "local-resource-group=rg-example\nresolved-models-override=\n"
                     ).encode()
                 ).hexdigest()
+            if stage == "code-security-vulnerability-cache":
+                stage_digest = hashlib.sha256(f"{digest}\ncache-contract=1\n".encode()).hexdigest()
             if stage == "service-environments":
                 stage_digest = hashlib.sha256(
                     (
@@ -1587,6 +1596,16 @@ if [[ "$1" == "exec" ]]; then
   printf '%s\\n' "${FDAI_TEST_DATABASE_OID:-16384}"
   exit 0
 fi
+if [[ "$1" == "run" ]]; then
+  for argument in "$@"; do
+    if [[ "$argument" == *":/snapshot:rw" ]]; then
+      cache_root="${argument%:/snapshot:rw}"
+      mkdir -p "$cache_root"
+      printf '{"schema_version":1}\\n' > "$cache_root/current.json"
+    fi
+  done
+  exit 0
+fi
 exit 99
 """,
     )
@@ -1626,7 +1645,7 @@ def test_preparation_reuses_each_unchanged_stage_when_stack_is_stopped(
     )
 
     assert result.returncode == 0
-    assert result.stdout.count("event=reused") == 9
+    assert result.stdout.count("event=reused") == 10
     assert "stage=entra-redirects event=completed" not in result.stdout
 
 
@@ -1653,7 +1672,7 @@ def test_managed_preparation_defers_stale_inventory_to_reconciliation(
     )
 
     assert result.returncode == 0
-    assert result.stdout.count("event=reused") == 8
+    assert result.stdout.count("event=reused") == 9
     assert (
         "stage=authoritative-inventory event=deferred owner=inventory-reconciliation"
         in result.stdout
@@ -1711,7 +1730,7 @@ def test_preparation_reruns_only_the_invalidated_stage(tmp_path: Path) -> None:
     )
 
     assert result.returncode == 0
-    assert result.stdout.count("event=reused") == 8
+    assert result.stdout.count("event=reused") == 9
     assert result.stdout.count("stage=entra-redirects event=completed") == 1
 
 
@@ -1732,7 +1751,7 @@ def test_preparation_reruns_only_a_stale_scanner_image_stage(tmp_path: Path) -> 
     )
 
     assert result.returncode == 0, result.stderr
-    assert result.stdout.count("event=reused") == 8
+    assert result.stdout.count("event=reused") == 9
     assert result.stdout.count("stage=code-security-scanner-image event=completed") == 1
 
 
@@ -1751,7 +1770,7 @@ def test_preparation_reruns_local_state_when_database_was_recreated(tmp_path: Pa
     )
 
     assert result.returncode == 0
-    assert result.stdout.count("event=reused") == 8
+    assert result.stdout.count("event=reused") == 9
     assert result.stdout.count("stage=local-state event=completed") == 1
 
 
@@ -1780,8 +1799,8 @@ def test_database_backed_stages_rerun_when_the_database_was_recreated_in_place(
     # Size-bounded maintenance drops and recreates the database inside the same volume.
     recreated = prepare("24576")
 
-    assert retained.count("event=reused") == 8
-    assert recreated.count("event=reused") == 5
+    assert retained.count("event=reused") == 9
+    assert recreated.count("event=reused") == 6
     for stage in ("local-state", *sorted(_DATABASE_BACKED_STAGES)):
         assert recreated.count(f"stage={stage} event=completed") == 1
 
@@ -1970,7 +1989,7 @@ chmod +x console/node_modules/.bin/vite
 
     assert result.returncode == 0
     assert result.stdout.count("stage=console-dependencies event=completed") == 1
-    assert result.stdout.count("event=reused") == 8
+    assert result.stdout.count("event=reused") == 9
     assert (repo / "console/node_modules/.bin/vite").is_file()
     assert (repo / ".venv/bin/fdai-document-processing-worker").is_file()
     assert (repo / ".venv/bin/fdai-document-channel-intake").is_file()

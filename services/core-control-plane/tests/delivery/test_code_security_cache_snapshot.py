@@ -6,7 +6,10 @@ import json
 from pathlib import Path
 
 import pytest
-from fdai.delivery.code_security_cache_snapshot import publish_cache_snapshot
+from fdai.delivery.code_security_cache_snapshot import (
+    publish_cache_snapshot,
+    resolve_cache_snapshot,
+)
 
 
 def test_cache_generation_is_read_only_and_previous_generations_survive(tmp_path: Path) -> None:
@@ -25,6 +28,7 @@ def test_cache_generation_is_read_only_and_previous_generations_survive(tmp_path
     assert second["cache_digest"] != first["cache_digest"]
     assert (snapshot / "database.bin").read_bytes() == b"generation one"
     assert json.loads((root / "current.json").read_text())["cache_digest"] == second["cache_digest"]
+    assert resolve_cache_snapshot(root) == root / second["cache_subpath"]
 
 
 def test_invalid_cache_keeps_the_last_good_pointer(tmp_path: Path) -> None:
@@ -47,3 +51,18 @@ def test_cache_publication_refuses_output_inside_input_and_empty_input(tmp_path:
         publish_cache_snapshot(source, source / "output")
     with pytest.raises(ValueError, match="empty"):
         publish_cache_snapshot(source, tmp_path / "output")
+
+
+def test_cache_snapshot_resolver_rejects_pointer_drift(tmp_path: Path) -> None:
+    source = tmp_path / "cache"
+    source.mkdir()
+    (source / "database.bin").write_bytes(b"valid")
+    root = tmp_path / "published"
+    published = publish_cache_snapshot(source, root)
+    snapshot = root / published["cache_subpath"]
+    snapshot.chmod(0o700)
+    (snapshot / "database.bin").chmod(0o600)
+    (snapshot / "database.bin").write_bytes(b"changed")
+
+    with pytest.raises(ValueError, match="digest does not match"):
+        resolve_cache_snapshot(root)
