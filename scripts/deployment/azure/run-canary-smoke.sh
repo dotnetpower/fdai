@@ -11,17 +11,21 @@ if [[ -z "$job" ]]; then
   exit 1
 fi
 
-execution_name="$(az containerapp job start --name "$job" --resource-group "$resource_group" \
-  --env-vars "FDAI_CANARY_SLOT=$slot" --query name -o tsv)"
+execution_name="$(timeout 30s az containerapp job start --name "$job" \
+  --resource-group "$resource_group" --env-vars "FDAI_CANARY_SLOT=$slot" \
+  --query name -o tsv)"
 if [[ -z "$execution_name" ]]; then
   echo "$job canary publisher did not return an execution name" >&2
   exit 1
 fi
 completed=false
 for _ in $(seq 1 20); do
-  status="$(az containerapp job execution show --name "$job" \
+  if ! status="$(timeout 30s az containerapp job execution show --name "$job" \
     --resource-group "$resource_group" --job-execution-name "$execution_name" \
-    --query "properties.status" -o tsv 2>/dev/null || echo Running)"
+    --query "properties.status" -o tsv)"; then
+    echo "$job canary publisher status query failed" >&2
+    exit 1
+  fi
   echo "$job canary publisher status: $status"
   if [[ "$status" == "Succeeded" ]]; then
     completed=true

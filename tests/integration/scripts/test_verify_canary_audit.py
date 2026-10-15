@@ -158,6 +158,9 @@ def test_deploy_workflow_uses_deterministic_slot_and_consumed_audit_verifier() -
     assert '--env-vars "FDAI_CANARY_SLOT=$slot"' in RUNNER
     assert "--query name -o tsv" in RUNNER
     assert "containerapp job execution list" not in RUNNER
+    assert RUNNER.count("timeout 30s az containerapp job") == 2
+    assert "|| echo Running" not in RUNNER
+    assert "canary publisher status query failed" in RUNNER
     assert 'FDAI_CANARY_POSTGRES_HOST="$(terraform output -raw postgres_fqdn)"' in RUNNER
     assert 'FDAI_CANARY_POSTGRES_DATABASE="$(terraform output -raw postgres_database)"' in RUNNER
     assert "verify_canary_audit.py" in RUNNER
