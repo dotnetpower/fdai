@@ -3,6 +3,12 @@
 This delivery ledger preserves reviewable implementation scope, append-only transitions,
 and resumable work while the roadmap owner remains focused on normative design.
 
+FDAI Lifecycle Hub remains the installation-deployment application. The separate planned FDAI
+Release Hub owns vendor release publication, signing, channel promotion, and recall, and provides
+the Release Catalog data/feed. Its delivery is tracked in the
+[Releases and Channels ledger](lifecycle-releases-and-channels.md), not by the Lifecycle Hub
+implementation states below.
+
 ## Implementation status
 
 ### Implementation scope
