@@ -2230,27 +2230,7 @@ jobs:
 
       - name: Run canary publisher smoke
         if: ${{ inputs.apply && !inputs.deploy_design_mocks && env.PROVIDER_SCHEMA_ONLY != 'true' && env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' && env.RUNTIME_IMAGE_PROFILE != 'cost-governance' }}
-        run: |
-          set -euo pipefail
-          rg="$(terraform output -raw resource_group_name)"
-          job="$(terraform output -raw canary_job_name)"
-          if [ -z "$job" ]; then
-            echo "canary job is disabled; deployment verification cannot continue" >&2
-            exit 1
-          fi
-          az containerapp job start --name "$job" --resource-group "$rg" >/dev/null
-          completed=false
-          for _ in $(seq 1 20); do
-            exec_name="$(az containerapp job execution list --name "$job" --resource-group "$rg" \
-              --query "sort_by([], &properties.startTime)[-1].name" -o tsv 2>/dev/null || true)"
-            status="$(az containerapp job execution show --name "$job" --resource-group "$rg" \
-              --job-execution-name "$exec_name" --query "properties.status" -o tsv 2>/dev/null || echo Running)"
-            echo "$job canary publisher status: $status"
-            if [ "$status" = "Succeeded" ]; then completed=true; break; fi
-            [ "$status" = "Failed" ] && { echo "$job canary publisher failed"; exit 1; }
-            sleep 6
-          done
-          [ "$completed" = "true" ] || { echo "$job canary publisher did not complete in time"; exit 1; }
+        run: bash ../scripts/deployment/azure/run-canary-smoke.sh
       - name: Record exact plan apply receipt
         if: ${{ inputs.apply && success() }}
         env:

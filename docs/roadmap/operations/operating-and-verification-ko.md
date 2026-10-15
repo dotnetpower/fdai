@@ -1,7 +1,7 @@
 ---
 title: 운영과 검증(Operating and Verification)
 translation_of: operating-and-verification.md
-translation_source_sha: 01c3b2d064dbc6ab70d96c57d57126b71659b3e6
+translation_source_sha: 88c1c7098b0f877b5c4b2d4cb3ccf7a9157c4c4d
 translation_revised: 2026-10-15
 ---
 
@@ -43,8 +43,9 @@ translation_revised: 2026-10-15
 ## 구현 상태
 
 런타임 상태, 시작 준비 상태, 전이 텔레메트리, 합성 카나리 경로는 구현되어 집중 테스트로
-검증됩니다. 현재 배포 smoke는 발행기 작업 완료만 입증합니다. 전체 경보, 왕복 검증, 훈련,
-안정화 자동화는 미완성이므로 운영 환경에서 완전히 검증된 영역으로 표시하지 않습니다.
+검증됩니다. 배포 작업 흐름은 이제 발행기 완료 후 정확한 소비 카나리 감사 행과 30초 수치형
+지연 예산을 요구합니다. 보존된 실제 증적, 전체 경보, 고정본 재생, 훈련 및 안정화 자동화는
+미완성이므로 운영 환경에서 완전히 검증된 영역으로 표시하지 않습니다.
 
 ### 구현 범위
 
@@ -53,7 +54,7 @@ translation_revised: 2026-10-15
 | 런타임 `/live` 및 `/ready` 엔드포인트와 시작 준비 상태 평가, 저장, 전이, 보호된 새로 고침 | implemented | [`runtime/health.py`](../../../services/core-control-plane/src/fdai/runtime/health.py), [`runtime/readiness.py`](../../../services/core-control-plane/src/fdai/runtime/readiness.py), [`test_readiness.py`](../../../services/core-control-plane/tests/runtime/test_readiness.py), [`test_startup_coordinator.py`](../../../services/core-control-plane/tests/core/readiness/test_startup_coordinator.py) | 프로세스 핵심 실패는 준비 상태를 닫고, 저하된 기능은 권한을 낮추며 복구 시 권한을 높이지 않습니다. |
 | 범위가 제한된 전이 구간과 메트릭 및 안전한 OTLP 구성 | implemented | [`transitions.py`](../../../services/core-control-plane/src/fdai/shared/telemetry/transitions.py), [`test_transition_telemetry.py`](../../../services/core-control-plane/tests/shared/test_transition_telemetry.py) | 안정적인 허용 목록 속성은 페이로드와 프로바이더 오류가 텔레메트리 레이블이 되지 않도록 합니다. |
 | 합성 카나리 발행기, 정규 소비자, no-op 감사 경로, 예약된 Container Apps 작업 | implemented | [`canary_cli.py`](../../../services/core-control-plane/src/fdai/delivery/canary_cli.py), [`_canary.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_canary.py), [`canary_job.tf`](../../../infra/modules/compute/container-apps/canary_job.tf), 카나리 집중 테스트 | 카나리는 T0/T1/T2, risk, 실행, 인시던트, 학습 경로와 격리됩니다. |
-| 배포 후 승격 smoke | in-progress | [`deploy-dev.yml`](../../../.github/workflows/deploy-dev.yml)이 이행, 선택적 상태 확인, 카나리 발행기 작업을 실행합니다. | 발행기 실패는 차단하지만 소비된 감사 항목, 고정본 재생, 비상 정지 주기, 사람 승인 예행 실행은 아직 검증하지 않습니다. |
+| 배포 후 승격 smoke | in-progress | [`deploy-dev.yml`](../../../.github/workflows/deploy-dev.yml), `scripts/deployment/azure/verify_canary_audit.py`, 집중 검증기 테스트 | 작업 흐름은 발행기에 결정론적 slot을 지정한 뒤 30초 안에 하나의 정확한 Core 감사 행을 요구합니다. 검증기는 데이터베이스 자격 증명을 노출하지 않고 모호하거나 잘못되거나 종결되지 않았거나 미래 시점이거나 예산을 넘은 행을 거부합니다. 보존된 실제 증적, 고정본 재생, 비상 정지 주기 및 사람 승인 예행 실행은 남아 있습니다. |
 | 전체 자체 상태 신호 정책 및 라우팅 매핑 | implemented | `config/self-health-signals.yaml`, `core/readiness/self_health.py`, 운영 시작 연결, 집중 자체 상태 및 준비 상태 테스트 | 필수 신호 15개를 각각 하나의 메트릭, 임계값 방향, 신선도 한도, 일반 담당 경로, 알림 route, 실패 시 안전한 대체 경로에 연결합니다. 범위 누락이나 route 불일치는 시작을 차단하며 어떤 결정도 실행 권한을 부여하지 않습니다. |
 | 전체 자체 상태 신호 내보내기, 경보 전달, 운영 훈련 | in-progress | 전이 텔레메트리, 준비 상태, 카나리, 전체 신호 정책 카탈로그 | 아직 모든 카탈로그 메트릭을 방출하는 런타임 원본 연결이 없고, 각 경보의 기본 및 대체 전달과 복구 훈련을 입증하는 배포 증적도 없습니다. |
 | 상관관계 기반 감사 조사와 통합 버전 및 구성 노출 | in-progress | [`rule_fire_trace.py`](../../../services/core-control-plane/src/fdai/core/audit/rule_fire_trace.py), [`audit_rca.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py), 런타임 상태 변환 결과 | 상관관계와 보고 기본 기능은 있지만 아래에 나열한 모든 버전, 해시, 규칙 효과, 재정의, 카나리, 비상 정지, 긴급 액세스 필드를 한 공개 읽기 표면에서 제공하지는 않습니다. |
@@ -66,15 +67,17 @@ translation_revised: 2026-10-15
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-15 | implemented | 정확히 소비된 카나리 감사와 수치형 지연 예산을 읽기 전용으로 제한된 범위에서 검증하는 배포 후 검사를 추가했습니다. 발행기 완료만으로는 이 smoke 단계를 충족할 수 없습니다. | `current change`, `verify_canary_audit.py`, 배포 작업 흐름 연결, 집중 테스트 10개 | 배포 환경에서 통과한 증적을 보존하고 고정본 재생, 비상 정지 활성화 및 비활성화, 실행 없는 HIL 예행 실행 근거를 추가합니다. |
 | 2026-10-15 | implemented | 전체 15개 자체 상태 신호 정책 카탈로그, 실패 시 안전한 신선도 및 임계값 평가, 알림 route 대체 경로 검증, 필수 운영 시작 연결을 추가했습니다. | `current change`, 자체 상태 카탈로그, 판정 코어, 준비 상태 및 bootstrap 연결, 집중 테스트. | 모든 메트릭 내보내기를 연결하고 기본 및 대체 전달과 복구 훈련 근거를 보존합니다. |
 | 2026-08-14 | in-progress | 구현 원장을 도입하고 테스트된 자체 관측성 기본 기능과 미완성 운영 근거를 분리했습니다. 이전 구현 이력은 재구성하지 않았습니다. | 현재 변경과 구현 범위 표에 인용한 준비 상태, 텔레메트리, 카나리, 지연, 기준선 실행기 집중 테스트. | 배포 왕복 근거, 경보와 훈련 범위, 통합 노출, 안정화 연결을 완료합니다. |
 | 2026-08-14 | implemented | 운영자 런북 front matter 스키마를 정의하고 제공되는 모든 ActionType에 CI 커버리지를 추가했습니다. | 현재 변경의 `check-action-runbooks.py`와 `test_check_action_runbooks.py`. | 배포 소유 명령과 절차를 같은 필수 의미 섹션에 맞게 유지합니다. |
 
 ### 남은 작업
 
-- [ ] 배포 smoke가 수치형 지연 예산 안에서 소비된 카나리 감사 항목을 검증하고 shadow 고정본을
-  재생하며 비상 정지 on/off를 실행하고, 연결된 감사 증적으로 실행 없는 사람 승인 예행 실행을
-  완료하도록 확장합니다.
+- [x] 발행기 완료 후 30초 수치형 지연 예산 안에서 정확한 소비 카나리 감사 항목을 요구하고,
+  모호하거나 잘못되거나 종결되지 않았거나 미래 시점이거나 예산을 넘은 행을 거부합니다.
+- [ ] 배포 환경에서 통과한 카나리 증적을 보존하고 shadow 고정본을 재생하며, 비상 정지를
+  on/off로 실행하고, 연결된 감사 증적이 있는 실행 없는 사람 승인 예행 실행을 완료합니다.
 - [x] 모든 자체 상태 신호를 구체적인 임계값, 일반 담당 경로, 알림 route, 실패 시 안전한 대체
   경로에 연결하고 운영 시작 시 전체 카탈로그를 검증합니다.
 - [ ] 모든 카탈로그 신호를 런타임 내보내기에 연결하고 하나의 관리되는 배포에서 기본 및 대체
@@ -142,9 +145,9 @@ HTTPS가 필수이며 엔드포인트의 자격 증명, 조회 문자열, 조각
 - 각 5분 자리는 고정된 UUID와 `canary:<slot>` 멱등성 키를 생성합니다. Container Apps는
   발행기 실행을 120초로 제한하고 감사 행은 측정된 지연 시간을 기록합니다.
 
-> 배포 작업 흐름은 즉시 실행한 canary 발행기가 실패하면 차단됩니다. 감사 최신성 차단
-> 조회, 수치형 왕복 SLO, 예약된 비상 정지 on/off 훈련은 production-readiness 근거로
-> 남아 있습니다.
+> 배포 작업 흐름은 즉시 실행한 canary 발행기가 실패하거나 정확한 소비 Core 감사 행이 없거나
+> 모호하거나 잘못되거나 종결되지 않았거나 미래 시점이거나 30초 지연 예산을 넘으면 차단됩니다.
+> 보존된 실제 증적과 예약된 비상 정지 on/off 훈련은 production-readiness 근거로 남아 있습니다.
 
 ## Post-Deploy Smoke 테스트 계약
 
@@ -165,9 +168,9 @@ HTTPS가 필수이며 엔드포인트의 자격 증명, 조회 문자열, 조각
 6. **HIL 예행 실행** - 합성 고위험 발견 사항이 HIL 채널로 라우팅, 승인자가 승인(실행하지 않는
    예행 실행 장치에서), 감사 트레일이 두 홉 모두 기록.
 
-현재 적용 작업 흐름은 스키마 이행, 선택적 HTTP 상태 엔드포인트, 성공한 canary 발행기
-작업을 검증합니다. 전체 감사 round-trip, 고정본 재생, 비상 정지 훈련, HIL 예행 실행은 운영
-승격 전에 여전히 필요합니다.
+현재 적용 작업 흐름은 스키마 이행, 선택적 HTTP 상태 엔드포인트, 발행기 완료, 30초 예산 안의
+정확한 소비 카나리 감사를 검증합니다. 보존된 실제 증적, 고정본 재생, 비상 정지 훈련, HIL
+예행 실행은 운영 승격 전에 여전히 필요합니다.
 
 ## 경보 라우팅
 
