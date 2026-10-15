@@ -112,6 +112,10 @@ def test_composes_validator_accepted_njord_candidate_with_pinned_lineage() -> No
         f"optimization-candidate:{_plan().candidates[0].action_id}:profile:{'sha256:' + 'b' * 64}"
         in payload["evidence_refs"]
     )
+    assert any(
+        reference.startswith("optimization-coordination:sha256:")
+        for reference in payload["evidence_refs"]
+    )
     assert payload["effects"][0]["objective_id"] == "objective.cost"
     assert "producer_principal" not in payload
 
@@ -164,7 +168,28 @@ def test_maximum_coupled_plan_stays_within_forseti_lineage_limit() -> None:
         "object.cost-anomaly",
         {**payload, "producer_principal": "Njord"},
     )
-    assert len(payload["evidence_refs"]) == 22
+    assert len(payload["evidence_refs"]) == 23
+
+
+def test_rejects_incomplete_causal_order() -> None:
+    plan = replace(_plan(), causal_order=("resource-a", "resource-missing"))
+
+    with pytest.raises(ValueError, match="causal order MUST cover each candidate once"):
+        compose_njord_optimization_candidate(
+            plan,
+            correlation_id="cost-optimization-example",
+            observed_at=_NOW,
+            cost_objective_id="objective.cost",
+            effects=_effects(),
+            evidence_refs=("cost-evidence:example",),
+            source_freshness=(
+                SourceFreshness(
+                    source="cost-analytics",
+                    observed_at=_NOW,
+                    max_age_seconds=7200,
+                ),
+            ),
+        )
 
 
 def test_rejects_evidence_that_exceeds_forseti_lineage_limit() -> None:

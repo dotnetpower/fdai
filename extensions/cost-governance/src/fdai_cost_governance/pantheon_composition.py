@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from datetime import datetime
 from typing import Any
 
@@ -52,6 +54,17 @@ def compose_njord_optimization_candidate(
     action_ids = tuple(candidate.action_id for candidate in plan.candidates)
     if len(action_ids) != len(set(action_ids)):
         raise ValueError("cost optimization candidates MUST have unique action ids")
+    resource_ids = tuple(candidate.resource.resource_id for candidate in plan.candidates)
+    if len(plan.causal_order) != len(set(plan.causal_order)) or set(plan.causal_order) != set(
+        resource_ids
+    ):
+        raise ValueError("cost optimization causal order MUST cover each candidate once")
+    if (
+        not plan.logical_target_lock.strip()
+        or plan.logical_target_lock != plan.logical_target_lock.strip()
+        or len(plan.logical_target_lock) > 512
+    ):
+        raise ValueError("cost optimization logical target lock MUST be bounded exact text")
     _require_sha256("cost optimization target revision", plan.target_revision_digest)
     for digest in plan.profile_digests:
         _require_sha256("cost optimization profile", digest)
@@ -77,6 +90,7 @@ def compose_njord_optimization_candidate(
         dict.fromkeys(
             (
                 f"optimization-target-revision:{plan.target_revision_digest}",
+                f"optimization-coordination:{_coordination_digest(plan)}",
                 *(
                     f"optimization-candidate:{candidate.action_id}:profile:{profile_digest}"
                     for candidate, profile_digest in zip(
@@ -121,6 +135,19 @@ def _effect_mapping(effect: ObjectiveEffect) -> dict[str, object]:
         "expected_max": effect.expected_max,
         "observation_window_seconds": effect.observation_window_seconds,
     }
+
+
+def _coordination_digest(plan: CoupledResourceOptimizationPlan) -> str:
+    payload = json.dumps(
+        {
+            "causal_order": plan.causal_order,
+            "logical_target_lock": plan.logical_target_lock,
+        },
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return f"sha256:{hashlib.sha256(payload).hexdigest()}"
 
 
 def _require_sha256(label: str, value: str) -> None:

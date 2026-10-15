@@ -1,7 +1,7 @@
 ---
 title: FinOps 리소스 효율 및 SKU 결정
 translation_of: finops-resource-efficiency.md
-translation_source_sha: bca7f4bc7f75c815f80d5bdff2cdcae74f7d185a
+translation_source_sha: 7a96f3861fa931de8c34d9a241676f5fd4ea705e
 translation_revised: 2026-10-15
 ---
 
@@ -27,8 +27,8 @@ translation_revised: 2026-10-15
 > 메트릭 완전성 검사, 범위가 제한된 결합 대상의 멤버십·잠금·롤백 계약, 근거 복구 후 만료되는
 > 범위 지정 사람 확인 진술을 포함합니다. 모든 후보는 계속 권한을 부여하지 않고 기존 안전성
 > 검토 경로로만 전달됩니다. 순수 Njord 후보 조합기는 실행 가능한 결합 right-size 계획을 정확한
-> 대상, 프로필, 후보, 최신성 및 목표 효과 계보와 함께 기존의 소유자 인증 교차 vertical 계약에
-> 연결합니다. 실제 Njord 게시, 완전한 Freyr/Forseti/Odin 사례 조립, 승인 및 실행 통합, 실제
+> 대상, 프로필, 후보, 최신성, 목표 효과, 인과 순서 및 논리적 잠금 계보와 함께 기존의 소유자 인증
+> 교차 vertical 계약에 연결합니다. 실제 Njord 게시, 완전한 Freyr/Forseti/Odin 사례 조립, 승인 및 실행 통합, 실제
 > 정산이 완료된 효율성 평가 집단은 남아 있습니다.
 
 ## 설계 개요
