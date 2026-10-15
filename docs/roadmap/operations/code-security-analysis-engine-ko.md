@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 분석 엔진
 translation_of: code-security-analysis-engine.md
-translation_source_sha: 9e7a8287c3450baf2efc6920baea1dad013bd6f2
+translation_source_sha: 9367ec6687a5942c88464bcdc1117d255d527c90
 translation_revised: 2026-10-15
 ---
 
@@ -11,8 +11,9 @@ translation_revised: 2026-10-15
 스캐너를 대체하지 않고, 기존의 격리 스캐너, SARIF, 검증, 점검 결과 파이프라인에 재현 가능한
 소스-싱크 근거를 추가합니다.
 
-> **상태:** 엄격한 그래프, 규칙, 경로 근거 계약이 구현되었습니다. 프런트엔드, 분석 알고리즘,
-> 벤치마크 승격, 제품 통합은 아직 구현되지 않았으며 CodeQL 동등성 주장이 아닙니다. 연결된
+> **상태:** 패키지 0 계약, 구성 요소 인벤토리, 분할 벤치마크, Python 함수 간 SQL 삽입
+> 시나리오가 구현되었습니다. TypeScript, 증분 무효화, 추가 약점 분류, 검증된 LLM 수정은 아직
+> 구현되지 않았으며 CodeQL 동등성 주장이 아닙니다. 연결된
 > [구현 원장](../../roadmap-implementation/operations/code-security-analysis-engine.md)을 참조하세요.
 >
 > **권한:** 분석은 정확한 소스 리비전을 읽고 근거를 만듭니다. Heimdall은 코드 보안 관찰의

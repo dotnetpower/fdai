@@ -17,7 +17,8 @@ results feed the canonical issue model, severity, priority, and remediation pack
 > **Status:** The deterministic lane (acquisition, sandbox, scanner catalog, FDAI rule pack, scan
 > job, and CLI), the off-path LLM lens lane, the Python and taint weakness verifiers with their
 > promotion gate, the opt-in proof lane for Python, JavaScript, native, Java, and C#, local folder
-> scans with reports, and Console scan requests for registered repositories are implemented. See the
+> scans with reports, Console scan requests for registered repositories, and the FDAI-owned Python
+> interprocedural SQL-injection lane are implemented. See the
 > [implementation ledger](../../roadmap-implementation/operations/code-security-scanning.md).
 
 ## Design at a glance
@@ -137,6 +138,21 @@ Python, JavaScript and TypeScript, Java, and Go. Each rule:
 No third-party rule text is copied, so the pack carries no third-party rule license. The fixtures
 are deliberately vulnerable and never imported or executed. The Python fixture opts out of
 repository lint with a file-level directive instead of a repository-wide exclusion.
+
+## FDAI-owned analysis lane
+
+The owned lane loads strict, versioned graph-flow rules and uses the standard Python AST without
+executing repository code. Its first rule follows Flask-style request input across files and
+function arguments or returns to SQL execution. It records files, functions, symbols, basic
+blocks, calls, source and sink nodes, ordered path evidence, stable digests, and every parse,
+resolution, recursion, work-budget, or unsupported-frontend limit.
+
+The lane renders SARIF 2.1.0 and re-enters the same bounded ingestion, canonical issue, receipt,
+review, export, prepared-result replay, and Kata reconstruction paths as other deterministic
+producers. A finding starts at `reported`; the owned lane does not bypass verifier promotion.
+The frozen synthetic `dev` and `holdout` baseline each contain one vulnerable and one safe case
+and currently measure precision and recall 1.0 with no unsupported case. Those four cases prove the
+harness and initial vertical slice, not real-code calibration or CodeQL parity.
 
 ## Coverage receipt
 

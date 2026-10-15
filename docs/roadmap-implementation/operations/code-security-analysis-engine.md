@@ -11,17 +11,18 @@ current ledgers until a package below produces source and focused evidence.
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Graph, rule, and path-evidence contracts | implemented | `analysis_contracts.py`; `test_analysis_contracts.py` (7 passed); Ruff, strict mypy, and editor diagnostics | Strict version 1 models reject unknown fields, dangling graph references, duplicate identities, invalid path order, context-free sanitizers, and unexplained uncertainty; canonical JSON and SHA-256 are stable. |
-| License and benchmark baseline | not-started | [Owning design](../../roadmap/operations/code-security-analysis-engine.md#package-0-contracts-licenses-and-benchmark-baseline) | No dependency or corpus is approved by this plan alone. |
-| Python interprocedural SQL injection slice | not-started | [Owning design](../../roadmap/operations/code-security-analysis-engine.md#package-1-python-sql-injection-vertical-slice) | The implemented single-function Python verifier remains the baseline. |
+| License and benchmark baseline | implemented | `analysis-components.yaml`; split Python SQL-injection corpus; strict loaders and evaluator; `test_analysis_evaluation.py` (4 passed) | Active, planned, and research-only terms are distinct. Synthetic `dev` and `holdout` each record precision and recall 1.0 with unsupported 0; this proves the frozen four-case baseline only. |
+| Python interprocedural SQL injection slice | implemented | `python_graph.py`, `python_analysis.py`, owned rule catalog, SARIF adapter, scan-job/replay/Kata wiring; 21 new tests and 32 focused scan/replay regressions | Bounded files, functions, call depth, contexts, paths, recursion, parse failures, aliases, safe parameter binding, stable graph/path digests, and canonical issue ingestion are covered. The lane remains a reported deterministic producer, not an automatic `verified` grant. |
 | TypeScript frontend and parity slice | not-started | [Owning design](../../roadmap/operations/code-security-analysis-engine.md#package-2-typescript-parity) | Current Opengrep evidence remains independent. |
-| Context, alias, and incremental analysis | not-started | [Owning design](../../roadmap/operations/code-security-analysis-engine.md#package-3-precision-and-incremental-analysis) | Limits and widening require measured evidence. |
-| Product and verified-fix integration | not-started | [Owning design](../../roadmap/operations/code-security-analysis-engine.md#package-4-product-integration-and-verified-repair) | Existing findings and remediation contracts remain authoritative. |
+| Context, alias, and incremental analysis | in-progress | Python call-context separation, import aliases, deterministic work limits, and explicit unresolved coverage are implemented and tested. | Field-sensitive heap aliases, widening receipts, and dependency-based incremental invalidation remain. |
+| Product and verified-fix integration | in-progress | Owned SARIF passes through existing bounded ingestion, canonical issues, receipts, review packages, exports, prepared-result replay, and Kata reconstruction. | Bounded Console path projection and isolated LLM patch validation remain. |
 | Additional language frontends | not-started | [Owning design](../../roadmap/operations/code-security-analysis-engine.md#package-5-additional-languages) | Java and C# follow only after separate prerequisites and gates. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-15 | implemented | Completed Package 0 and the Python SQL-injection vertical slice: strict component terms and split corpus, deterministic AST graph, bounded interprocedural paths, owned SARIF, canonical findings, and scan/replay/Kata composition. | `current change`; 21 new focused tests, 32 existing scan/replay regressions, Ruff, strict mypy, and diff checks. | Implement TypeScript parity, incremental invalidation, additional weakness classes, bounded UI path evidence, and verified LLM repair. |
 | 2026-10-15 | implemented | Added strict, frozen graph, rule, and path-evidence contracts with deterministic canonical JSON and content digests. | `current change`; `analysis_contracts.py`; `test_analysis_contracts.py` (7 passed); Ruff, strict mypy, and editor diagnostics. | Complete the component-license inventory and benchmark baseline before closing Package 0. |
 | 2026-10-15 | not-started | Adopted the owned analysis-engine design and its evidence-gated package sequence. No runtime or catalog implementation is claimed. | `current change`; owning English and Korean design, roadmap and code-map links, design-route checks, document-size, punctuation, translation, and translation-quality checks. | Complete Package 0 contracts, license inventory, and benchmark baseline before adding a frontend. |
 
@@ -29,12 +30,14 @@ current ledgers until a package below produces source and focused evidence.
 
 - [x] Freeze strict version 1 graph, rule, and path-evidence schemas. Focused contract tests reject
   malformed and dangling records and prove deterministic replay and stable content identities.
-- [ ] Record a pinned dependency, grammar, benchmark, and data-license inventory; exit with SPDX,
-  redistribution, linkage, source revision, and release-decision fields for every adopted item.
-- [ ] Establish per-language and per-weakness `dev` and `holdout` baselines; exit with precision,
-  recall, unsupported coverage, full-scan time, incremental time, and peak-memory receipts.
-- [ ] Deliver the Python multi-file SQL injection slice in shadow; exit with vulnerable and safe
-  twins, complete path evidence, explicit unknown dispatch, and equivalent-coverage fix rescans.
+- [x] Record the initial component and license inventory with active, planned, and research-only
+  status, version, source, license, redistribution, and integration boundaries.
+- [x] Establish the Python SQL-injection `dev` and `holdout` synthetic baseline. Both splits record
+  precision and recall 1.0 with unsupported 0; larger public and real-code corpora remain required
+  before promotion or parity claims.
+- [x] Deliver the Python multi-file SQL injection slice as a deterministic reported producer with
+  vulnerable and safe twins, complete path evidence, explicit unknown dispatch, stable replay,
+  canonical SARIF ingestion, and scan-job coverage integration.
 - [ ] Deliver the TypeScript slice through the same graph contract; exit with separate held-out and
   resource receipts and no language branch in common graph traversal.
 - [ ] Add context, alias, and incremental analysis; exit with deterministic widening, full versus

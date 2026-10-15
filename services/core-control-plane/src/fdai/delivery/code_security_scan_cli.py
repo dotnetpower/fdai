@@ -32,6 +32,7 @@ from fdai.delivery.code_security_scan_job import (
 )
 from fdai.delivery.repo_assets import repo_asset_root
 from fdai.rule_catalog.code_security import Exposure, load_code_security_catalog
+from fdai.rule_catalog.code_security_analysis import load_analysis_rules
 from fdai.rule_catalog.code_security_lenses import LensCatalog, load_lens_catalog
 from fdai.rule_catalog.code_security_scanners import ScannerCatalog, load_scanner_catalog
 from fdai.rule_catalog.code_security_verifiers import load_verifier_catalog
@@ -365,6 +366,7 @@ async def _run(
         else BubblewrapScannerSandbox(Path(args.bwrap))
     )
     verifier_catalog = load_verifier_catalog(catalog_root, known)
+    analysis_rules = load_analysis_rules(catalog_root)
     from fdai.delivery.code_security_execution import kata_config, run_kata_scan
 
     runtime = kata_config(args)
@@ -377,6 +379,7 @@ async def _run(
             verifier_catalog=verifier_catalog,
             acquirer=acquirer,
             prepared=prepared,
+            analysis_rules=analysis_rules,
         )
     result = await run_scan_job(
         config,
@@ -391,6 +394,7 @@ async def _run(
         verifier_catalog=verifier_catalog,
         prove_python=Path(args.prove_python).resolve() if args.prove else None,
         prove_runtimes=_prove_runtimes(args),
+        analysis_rules=analysis_rules,
     )
     if prepared is not None and isinstance(sandbox, ObservedScanSandbox) and not args.prove:
         await accept_prepared_scan(
@@ -402,6 +406,7 @@ async def _run(
             scanners=scanners,
             verifier_catalog=verifier_catalog,
             verification_work_root=config.work_root / "acceptance",
+            analysis_rules=analysis_rules,
         )
     return result
 

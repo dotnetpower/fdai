@@ -1,0 +1,52 @@
+schema_version: 1.0.0
+inventory_id: fdai.code-security.analysis-components
+version: 1.0.0
+components:
+  - id: python-stdlib-ast
+    version: "3"
+    purpose: Python syntax and symbol frontend
+    status: active
+    source_url: https://docs.python.org/3/library/ast.html
+    license: Python-2.0
+    redistribution: embeddable
+    integration: stdlib
+  - id: tree-sitter
+    version: 0.25.2
+    purpose: Existing bounded Java source parsing
+    status: active
+    source_url: https://github.com/tree-sitter/py-tree-sitter
+    license: MIT
+    redistribution: embeddable
+    integration: library
+  - id: tree-sitter-java
+    version: 0.23.5
+    purpose: Existing Java grammar for bounded constant-flow analysis
+    status: active
+    source_url: https://github.com/tree-sitter/tree-sitter-java
+    license: MIT
+    redistribution: embeddable
+    integration: library
+  - id: typescript
+    version: 5.9.3
+    purpose: Planned TypeScript compiler frontend process
+    status: planned
+    source_url: https://github.com/microsoft/TypeScript
+    license: Apache-2.0
+    redistribution: embeddable
+    integration: process
+  - id: joern
+    version: unselected
+    purpose: Architecture research and isolated comparison only
+    status: research_only
+    source_url: https://github.com/joernio/joern
+    license: LicenseRef-review-required
+    redistribution: reference_only
+    integration: research
+  - id: codeql-cli
+    version: unselected
+    purpose: Fair comparison design only; never bundled by this inventory
+    status: research_only
+    source_url: https://codeql.github.com/
+    license: LicenseRef-GitHub-CodeQL
+    redistribution: reference_only
+    integration: research

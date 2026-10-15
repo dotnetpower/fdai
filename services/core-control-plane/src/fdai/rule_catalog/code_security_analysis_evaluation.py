@@ -1,0 +1,76 @@
+"""Strict corpus loader for owned code-security analysis evaluation."""
+
+from __future__ import annotations
+
+from pathlib import Path, PurePosixPath
+from typing import Annotated, Literal
+
+import yaml
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator, model_validator
+
+from fdai.rule_catalog.code_security import CodeSecurityCatalogError
+
+
+class _Strict(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True, str_strip_whitespace=True)
+
+
+class AnalysisEvaluationCase(_Strict):
+    case_id: Annotated[str, Field(pattern=r"^[a-z][a-z0-9-]{2,127}$")]
+    split: Literal["dev", "holdout"]
+    vulnerable: bool
+    files: Annotated[dict[str, str], Field(min_length=1, max_length=20)]
+
+    @field_validator("files")
+    @classmethod
+    def _safe_paths(cls, value: dict[str, str]) -> dict[str, str]:
+        for raw, source in value.items():
+            path = PurePosixPath(raw)
+            if (
+                path.is_absolute()
+                or path.suffix != ".py"
+                or any(part in {"", ".", ".."} for part in path.parts)
+            ):
+                raise ValueError("evaluation file paths must be relative Python paths")
+            if not source or len(source.encode("utf-8")) > 100_000:
+                raise ValueError("evaluation source must be non-empty and bounded")
+        return value
+
+
+class AnalysisEvaluationCorpus(_Strict):
+    schema_version: Literal["1.0.0"]
+    corpus_id: Literal["fdai.code-security.analysis.python-sql-injection"]
+    version: Annotated[str, Field(pattern=r"^\d+\.\d+\.\d+$")]
+    rule_id: Annotated[str, Field(pattern=r"^[a-z][a-z0-9.-]{2,127}$")]
+    cases: Annotated[tuple[AnalysisEvaluationCase, ...], Field(min_length=4)]
+
+    @model_validator(mode="after")
+    def _balanced_splits(self) -> AnalysisEvaluationCorpus:
+        identities = [case.case_id for case in self.cases]
+        if len(identities) != len(set(identities)):
+            raise ValueError("evaluation case ids must be unique")
+        required = {
+            (split, vulnerable) for split in ("dev", "holdout") for vulnerable in (True, False)
+        }
+        observed = {(case.split, case.vulnerable) for case in self.cases}
+        if not required <= observed:
+            raise ValueError("each evaluation split requires vulnerable and safe cases")
+        return self
+
+
+def load_analysis_evaluation_corpus(root: Path) -> AnalysisEvaluationCorpus:
+    """Load the pinned Python SQL-injection evaluation corpus."""
+    path = root / "analysis-evaluation" / "python-sql-injection.yaml"
+    try:
+        return AnalysisEvaluationCorpus.model_validate(
+            yaml.safe_load(path.read_text(encoding="utf-8"))
+        )
+    except (OSError, yaml.YAMLError, ValidationError) as exc:
+        raise CodeSecurityCatalogError(f"invalid analysis evaluation corpus: {exc}") from exc
+
+
+__all__ = [
+    "AnalysisEvaluationCase",
+    "AnalysisEvaluationCorpus",
+    "load_analysis_evaluation_corpus",
+]

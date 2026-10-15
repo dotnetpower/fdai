@@ -11,6 +11,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import replace
 from pathlib import Path
 
+from fdai.core.security.code_findings.analysis_contracts import CodeSecurityRuleSpec
 from fdai.core.security.code_findings.issue_summary import summarize_issues
 from fdai.delivery.code_security_prepared_source import PreparedSource
 from fdai.delivery.code_security_sandbox import BubblewrapScannerSandbox, ScannerRunResult
@@ -116,6 +117,7 @@ async def accept_prepared_scan(
     scanners: ScannerCatalog,
     verifier_catalog: VerifierCatalog | None,
     verification_work_root: Path,
+    analysis_rules: Sequence[CodeSecurityRuleSpec] = (),
 ) -> ScanOutcome:
     """Recompute findings using trusted bindings and captured stdout, never candidate files.
 
@@ -144,6 +146,7 @@ async def accept_prepared_scan(
         sandbox=replay,
         prepared_source=prepared,
         verifier_catalog=verifier_catalog,
+        analysis_rules=analysis_rules,
     )
     replay.require_consumed()
     if (
@@ -168,6 +171,7 @@ async def record_accepted_prepared_scan(
     scanners: ScannerCatalog,
     verifier_catalog: VerifierCatalog | None,
     verification_work_root: Path,
+    analysis_rules: Sequence[CodeSecurityRuleSpec] = (),
 ) -> bool:
     """Record only an independently rebuilt result; rejection performs no state-store writes."""
     outcome = await accept_prepared_scan(
@@ -179,6 +183,7 @@ async def record_accepted_prepared_scan(
         scanners=scanners,
         verifier_catalog=verifier_catalog,
         verification_work_root=verification_work_root,
+        analysis_rules=analysis_rules,
     )
     return await record_code_security_review(
         store, outcome.package, issues=outcome.issues, issues_truncated=outcome.issues_truncated

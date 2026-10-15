@@ -692,6 +692,14 @@ labeled evaluation corpora, including the code and dependency cases of the curat
 `rule-catalog/code-security/evaluation/` and are measured by the pure `evaluation.py` harness. See
 [Code Security Findings](../operations/code-security-findings.md).
 
+The FDAI-owned analysis engine remains inside the same boundary. `analysis_contracts.py` owns
+strict graph, rule, and path evidence; `python_graph.py` and `python_analysis.py` build bounded
+read-only Python evidence; `analysis_sarif.py` returns it to canonical ingestion. Analysis rules,
+component terms, and frozen corpora stay in `rule-catalog/code-security/`; delivery only composes
+the lane and deterministically replays it for prepared and Kata scans. This adds no service,
+pantheon agent, repository writer, approval, or execution authority. See
+[Code Security Analysis Engine](../operations/code-security-analysis-engine.md).
+
 ## Repository Script Layout
 
 Repository automation is grouped by responsibility under `scripts/`; only the layout README, `verify.sh`, and the Python package marker stay
