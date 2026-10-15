@@ -2722,6 +2722,9 @@ body.deck-open { overflow: hidden; }
 
 @media (max-width: 720px) {
   .settings-overlay-scrim { padding: 0; }
+  body:has(.entitlement-watermark) .settings-overlay-scrim {
+    padding-bottom: 128px;
+  }
   .settings-overlay {
     width: 100%;
     height: 100%;
