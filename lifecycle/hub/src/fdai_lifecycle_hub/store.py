@@ -31,6 +31,7 @@ from fdai_lifecycle_hub.errors import (
     EntitySettingsRejectedError,
     InstallationExistsError,
     InstallationKeyMismatchError,
+    NotPendingError,
     OwnershipUnprovenError,
     PlanDigestMismatchError,
     ReportConflictError,
@@ -248,6 +249,83 @@ class HubStore:
         with self._sessions() as session:
             return mapping.to_domain(session, rows.get_installation(session, installation_id))
 
+    def list_installations(self) -> tuple[domain.InstallationOverview, ...]:
+        """Every enrolled installation and its latest recompute outcome, for the list screen."""
+
+        with self._sessions() as session:
+            installation_rows = session.scalars(
+                select(models.Installation)
+                .where(models.Installation.enrollment == EnrollmentStatus.ENROLLED)
+                .order_by(models.Installation.installation_id)
+            ).all()
+            return tuple(
+                domain.InstallationOverview(
+                    installation=mapping.to_domain(session, row),
+                    last_evaluation=_latest_evaluation(session, row),
+                )
+                for row in installation_rows
+            )
+
+    def list_pending_enrollments(self) -> tuple[domain.PendingEnrollment, ...]:
+        """Every pending enrollment request, oldest first, for an approver to review."""
+
+        with self._sessions() as session:
+            pending_rows = session.scalars(
+                select(models.Installation)
+                .where(models.Installation.enrollment == EnrollmentStatus.PENDING)
+                .order_by(models.Installation.requested_at)
+            )
+            return tuple(_pending_enrollment(session, row) for row in pending_rows)
+
+    def pending_enrollment(self, installation_id: str) -> domain.PendingEnrollment:
+        with self._sessions() as session:
+            row = rows.get_installation(session, installation_id)
+            if row.enrollment is not EnrollmentStatus.PENDING:
+                raise NotPendingError(f"{installation_id} is {row.enrollment.value}")
+            return _pending_enrollment(session, row)
+
+    def plan_detail(self, installation_id: str, plan_id: str) -> domain.PlanRecord:
+        """A Plan's status, events, and the recomputes that targeted it, by id."""
+
+        with self._sessions() as session:
+            plan = session.get(models.Plan, plan_id)
+            if plan is None or plan.installation_id != installation_id:
+                raise UnknownPlanError(plan_id)
+            event_rows = session.scalars(plan.events.select().order_by(models.PlanEvent.id)).all()
+            status = (
+                domain.PlanStatus.SUPERSEDED
+                if any(event.kind == PlanEventKind.SUPERSEDED for event in event_rows)
+                else domain.PlanStatus.OPEN
+            )
+            evaluation_rows = session.scalars(
+                select(models.PlanEvaluation)
+                .where(models.PlanEvaluation.plan_id == plan_id)
+                .order_by(models.PlanEvaluation.id)
+            )
+            return domain.PlanRecord(
+                plan=mapping.issued_plan(plan),
+                status=status,
+                events=tuple(
+                    domain.PlanEventRecord(kind=event.kind, recorded_at=event.recorded_at)
+                    for event in event_rows
+                ),
+                evaluations=tuple(mapping.evaluation(row) for row in evaluation_rows),
+            )
+
+    def plan_reports(self, plan_id: str) -> tuple[schemas.RecordedReport, ...]:
+        """Every execution report on one Plan, in the order received."""
+
+        with self._sessions() as session:
+            records = session.scalars(
+                select(models.PlanReport)
+                .where(models.PlanReport.plan_id == plan_id)
+                .order_by(models.PlanReport.id)
+            )
+            return tuple(
+                schemas.RecordedReport.model_validate(record, from_attributes=True)
+                for record in records
+            )
+
     def recompute(
         self, installation_id: str, planner: domain.Planner, *, now: datetime
     ) -> domain.PlanOutcome:
@@ -345,12 +423,7 @@ class HubStore:
     def last_evaluation(self, installation_id: str) -> domain.Evaluation | None:
         with self._sessions() as session:
             row = rows.get_installation(session, installation_id)
-            evaluation = session.scalars(
-                row.evaluations.select().order_by(models.PlanEvaluation.id.desc()).limit(1)
-            ).one_or_none()
-            if evaluation is None:
-                return None
-            return mapping.evaluation(evaluation)
+            return _latest_evaluation(session, row)
 
     def reports(self, installation_id: str) -> tuple[schemas.RecordedReport, ...]:
         """Every execution report on the installation's Plans, in the order received."""
@@ -379,6 +452,21 @@ def _is_unique_violation(error: IntegrityError) -> bool:
     if getattr(error.orig, "sqlstate", None) == _UNIQUE_VIOLATION:  # PostgreSQL
         return True
     return str(error.orig).startswith("UNIQUE constraint failed")  # SQLite
+
+
+def _pending_enrollment(session: Session, row: models.Installation) -> domain.PendingEnrollment:
+    return domain.PendingEnrollment(
+        installation=mapping.to_domain(session, row),
+        installation_key_id=signing.installation_key_id(row.installation_key),
+        requested_at=row.requested_at,
+    )
+
+
+def _latest_evaluation(session: Session, row: models.Installation) -> domain.Evaluation | None:
+    evaluation = session.scalars(
+        row.evaluations.select().order_by(models.PlanEvaluation.id.desc()).limit(1)
+    ).one_or_none()
+    return mapping.evaluation(evaluation) if evaluation is not None else None
 
 
 def _audit_suppression(
