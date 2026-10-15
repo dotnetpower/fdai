@@ -16,6 +16,39 @@ export interface ModelStatusPresentation {
   readonly tone: ModelStatusTone;
 }
 
+export type ModelReadinessState = "ready" | "secondary-missing" | "review-required";
+export type ModelWorkspaceView = "overview" | "catalog" | "routing" | "web-search";
+
+const MODEL_WORKSPACE_VIEW_ORDER: readonly ModelWorkspaceView[] = [
+  "overview",
+  "catalog",
+  "routing",
+  "web-search",
+];
+
+export function modelReadinessState(
+  quorumReady: boolean,
+  hasActiveSecondary: boolean,
+): ModelReadinessState {
+  if (quorumReady) return "ready";
+  return hasActiveSecondary ? "review-required" : "secondary-missing";
+}
+
+export function nextModelWorkspaceView(
+  current: ModelWorkspaceView,
+  key: string,
+): ModelWorkspaceView {
+  if (key === "Home") return MODEL_WORKSPACE_VIEW_ORDER[0]!;
+  if (key === "End") return MODEL_WORKSPACE_VIEW_ORDER[MODEL_WORKSPACE_VIEW_ORDER.length - 1]!;
+  if (key !== "ArrowLeft" && key !== "ArrowRight") return current;
+  const direction = key === "ArrowRight" ? 1 : -1;
+  const currentIndex = MODEL_WORKSPACE_VIEW_ORDER.indexOf(current);
+  return MODEL_WORKSPACE_VIEW_ORDER[
+    (currentIndex + direction + MODEL_WORKSPACE_VIEW_ORDER.length)
+      % MODEL_WORKSPACE_VIEW_ORDER.length
+  ]!;
+}
+
 export function presentModelStatus(status: string): ModelStatusPresentation {
   switch (status.trim().toLowerCase()) {
     case "available":
