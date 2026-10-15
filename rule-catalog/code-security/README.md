@@ -21,7 +21,7 @@ The design is in [Code Security Findings](../../docs/roadmap/operations/code-sec
 | `remediation-policy.yaml` | Pack limits, test path globs, forbidden paths, and diff-guard patterns. |
 | `remediation-pack/` | The conversational prompt, coding-agent adapters, and pack README rendered into every pack. |
 | `scanners.yaml` | Deterministic-lane scanner commands, success codes, and sandbox mounts. Deployments bind each scanner id to a host executable. |
-| `rules/` | FDAI-authored Opengrep rules with positive and negative fixtures. `rules/verify/` holds taint-mode verifier rules. |
+| `rules/` | FDAI-authored Opengrep rules with positive and negative fixtures. `rules/verify/` holds promotion-governed taint verifiers; `rules/analysis-baseline/` holds shadow comparison rules that never grant verified confidence. |
 | `lenses.yaml` | LLM lens definitions: CWE scope, sink hints, and excerpt budgets for the off-path review. |
 | `verifiers.yaml` | Deterministic weakness verifiers: per-class sinks, sanitizers, entrypoints, and validation guards that raise a confirmed issue to `verified`. |
 | `prove/` | Proof-lane harnesses: `fdai_prove.py` (Python), `fdai_prove.js` (Node.js), `fdai_prove_native.py` (C and C++ with sanitizers), and `fdai_prove_managed.py` (Java and C#). They're sandbox payloads copied into the bubblewrap sandbox; FDAI never imports them. |

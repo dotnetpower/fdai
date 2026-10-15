@@ -4,10 +4,15 @@ from __future__ import annotations
 
 import argparse
 import shutil
+from collections.abc import Sequence
 from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
 
+from fdai.core.security.code_findings.analysis_contracts import CodeSecurityRuleSpec
+from fdai.core.security.code_findings.csharp_analysis import CSharpCompilerConfig
+from fdai.core.security.code_findings.java_analysis import JavaCompilerConfig
+from fdai.core.security.code_findings.typescript_analysis import TypeScriptFrontendConfig
 from fdai.delivery.code_security_acquire import GitSourceAcquirer
 from fdai.delivery.code_security_kata_client import InClusterKataClient
 from fdai.delivery.code_security_kata_job import KataScanConfig
@@ -72,6 +77,10 @@ async def run_kata_scan(
     verifier_catalog: VerifierCatalog,
     acquirer: GitSourceAcquirer | None,
     prepared: PreparedSource | None = None,
+    analysis_rules: Sequence[CodeSecurityRuleSpec] = (),
+    typescript_frontend: TypeScriptFrontendConfig | None = None,
+    java_compiler: JavaCompilerConfig | None = None,
+    csharp_compiler: CSharpCompilerConfig | None = None,
 ) -> ScanJobResult:
     """Acquire outside the VM, observe each process through TLS, then independently rebuild it."""
     if config.source is None:
@@ -124,6 +133,10 @@ async def run_kata_scan(
             sandbox=sandbox,
             prepared_source=prepared,
             verifier_catalog=verifier_catalog,
+            analysis_rules=analysis_rules,
+            typescript_frontend=typescript_frontend,
+            java_compiler=java_compiler,
+            csharp_compiler=csharp_compiler,
         )
         if rule_digest is not None and (
             source_tree_digest(prepared_config.rules_dir) != rule_digest
@@ -138,6 +151,10 @@ async def run_kata_scan(
             scanners=scanners,
             verifier_catalog=verifier_catalog,
             verification_work_root=config.work_root / "acceptance",
+            analysis_rules=analysis_rules,
+            typescript_frontend=typescript_frontend,
+            java_compiler=java_compiler,
+            csharp_compiler=csharp_compiler,
         )
         return result
     finally:

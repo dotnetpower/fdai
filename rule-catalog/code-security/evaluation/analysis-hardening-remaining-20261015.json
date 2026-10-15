@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0.0",
+  "receipt_id": "fdai.code-security.analysis-hardening.remaining.20261015",
+  "reviewed_commit": "67ef82c58d256ec983f182347ff5df38a0d1d6ee",
+  "rounds": [
+    {"round": 21, "lens": "filesystem-confinement", "accepted_severity": "medium"},
+    {"round": 22, "lens": "cache-identity-stale-reuse", "accepted_severity": "none"},
+    {"round": 23, "lens": "determinism-content-addressing", "accepted_severity": "none"},
+    {"round": 24, "lens": "resource-bounds", "accepted_severity": "medium"},
+    {"round": 25, "lens": "parser-failure-coverage", "accepted_severity": "none"},
+    {"round": 26, "lens": "java-context-dispatch", "accepted_severity": "none"},
+    {"round": 27, "lens": "scan-dispatch-coverage", "accepted_severity": "medium"},
+    {"round": 28, "lens": "evaluation-reproducibility", "accepted_severity": "medium"},
+    {"round": 29, "lens": "fix-verification-authority", "accepted_severity": "medium"},
+    {"round": 30, "lens": "graph-path-sarif", "accepted_severity": "medium"},
+    {"round": 31, "lens": "filesystem-confinement", "accepted_severity": "none"},
+    {"round": 32, "lens": "cache-identity-stale-reuse", "accepted_severity": "none"},
+    {"round": 33, "lens": "java-taint-context", "accepted_severity": "none"},
+    {"round": 34, "lens": "resource-parser-bounds", "accepted_severity": "none"},
+    {"round": 35, "lens": "graph-path-sarif", "accepted_severity": "none"},
+    {"round": 36, "lens": "scan-dispatch-coverage", "accepted_severity": "none"},
+    {"round": 37, "lens": "evaluation-reproducibility", "accepted_severity": "none"},
+    {"round": 38, "lens": "fix-verification-authority", "accepted_severity": "none"},
+    {"round": 39, "lens": "determinism-replay", "accepted_severity": "none"},
+    {"round": 40, "lens": "adversarial-test-gaps", "accepted_severity": "none"}
+  ],
+  "repairs": [
+    "incremental-cache-no-follow-bounded-read",
+    "java-regular-file-and-path-budget-bounds",
+    "single-language-rule-dispatch-contract",
+    "language-neutral-sarif-message-and-file-artifacts",
+    "typescript-split-resource-receipt-and-temp-cleanup",
+    "remediation-tests-required-before-fixed-verified",
+    "scanner-build-context-and-node-module-runtime-binding"
+  ],
+  "final_findings": {"critical": 0, "high": 0, "medium": 0, "low": 0},
+  "claims": {
+    "codeql_parity": false,
+    "production_promotion": false,
+    "rebuilt_image_validation": true
+  }
+}

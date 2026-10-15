@@ -1,0 +1,37 @@
+schema_version: 1.0.0
+corpus_id: fdai.code-security.analysis.typescript-command-injection
+language: typescript
+version: 1.0.0
+rule_id: fdai.typescript.command-injection
+cases:
+  - case_id: dev-vulnerable-cross-file
+    split: dev
+    vulnerable: true
+    files:
+      api.ts: |
+        import { run } from './runner';
+        export function route(req: Request) { return run(req.query.cmd); }
+        app.get('/run', route);
+      runner.ts: |
+        export function run(value: string) { return exec(value); }
+  - case_id: dev-safe-escaped
+    split: dev
+    vulnerable: false
+    files:
+      app.ts: |
+        export function route(req: Request) { return exec(shellEscape(req.query.cmd)); }
+        app.get('/run', route);
+  - case_id: holdout-vulnerable-sync
+    split: holdout
+    vulnerable: true
+    files:
+      app.ts: |
+        export function route(req: Request) { return execSync(req.body.command); }
+        app.post('/run', route);
+  - case_id: holdout-safe-constant
+    split: holdout
+    vulnerable: false
+    files:
+      app.ts: |
+        export function health(req: Request) { void req.query.unused; return exec('true'); }
+        app.get('/health', health);

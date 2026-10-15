@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 
 from fdai.core.security.code_findings.models import CodeSecurityIssue
-from fdai.core.security.code_findings.result_import import ClaimStatus, IssueClaim
+from fdai.core.security.code_findings.result_import import ClaimStatus, IssueClaim, ValidationState
 
 _REVISION = re.compile(r"^[0-9a-f]{40}([0-9a-f]{24})?$")
 _RESCANNED = (
@@ -188,6 +188,8 @@ def verify_fix_claims(
             )
             continue
         gaps = list(coverage_gaps(issue, baseline, rescan))
+        if claim.validation is not ValidationState.TESTS_PASSED:
+            gaps.insert(0, "remediation tests did not pass")
         if rescan.revision != claimed_revision:
             gaps.insert(0, "rescan does not target the claimed commit")
         if gaps:

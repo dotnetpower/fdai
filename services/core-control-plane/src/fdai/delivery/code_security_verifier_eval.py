@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 from collections.abc import Mapping, Sequence
 from datetime import UTC, datetime
@@ -131,6 +132,7 @@ def _engine_scan(engine: str, rules: Path, tree: Path) -> Mapping[str, Any]:
             engine,
             "scan",
             *(["--metrics=off"] if "semgrep" in Path(engine).name else []),
+            *(["--disable-version-check"] if "opengrep" in Path(engine).name else []),
             "--quiet",
             "--json",
             "--config",
@@ -138,15 +140,22 @@ def _engine_scan(engine: str, rules: Path, tree: Path) -> Mapping[str, Any]:
             ".",
         ],
         cwd=tree,
-        capture_output=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.DEVNULL,
         text=True,
         timeout=_ENGINE_TIMEOUT_SECONDS,
         check=False,
+        env={
+            "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+            "SEMGREP_ENABLE_VERSION_CHECK": "0",
+        },
     )
     try:
         document = json.loads(proc.stdout)
     except json.JSONDecodeError as exc:
         raise RuntimeError(f"engine produced no JSON (exit {proc.returncode})") from exc
+    if proc.returncode != 0:
+        raise RuntimeError(f"engine scan failed with exit {proc.returncode}")
     if not isinstance(document, dict):
         raise RuntimeError("engine output is not a JSON object")
     return document

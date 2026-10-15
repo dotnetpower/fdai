@@ -1,0 +1,20 @@
+schema_version: 1.0.0
+rule_id: fdai.python.sql-injection
+version: 1.0.0
+analysis_kind: graph_flow
+languages: [python]
+cwe_ids: [89]
+selectors:
+  - {role: source, symbol: flask.request.args}
+  - {role: source, symbol: request.args}
+  - {role: source, symbol: fastapi.Request.query_params}
+  - {role: sink, symbol: cursor.execute, argument_index: 0}
+  - {role: sink, symbol: cursor.executemany, argument_index: 0}
+  - {role: sink, symbol: cursor.executescript, argument_index: 0}
+  - {role: propagator, symbol: strip}
+  - {role: propagator, symbol: format}
+  - role: sanitizer
+    symbol: sqlalchemy.bindparam
+    security_context: sql-parameter-binding
+vulnerable_cases: [python-sqli-cross-file, python-sqli-alias]
+safe_cases: [python-sqli-parameterized, python-sqli-constant]

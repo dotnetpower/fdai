@@ -1,0 +1,53 @@
+schema_version: 1.0.0
+corpus_id: fdai.code-security.analysis.python-command-injection
+language: python
+version: 1.0.0
+rule_id: fdai.python.command-injection
+cases:
+  - case_id: dev-vulnerable-cross-file
+    split: dev
+    vulnerable: true
+    files:
+      api.py: |
+        from flask import request
+        from runner import run
+        @app.get('/run')
+        def route():
+            return run(request.args.get('cmd'))
+      runner.py: |
+        import os
+        def run(value):
+            return os.system(value)
+  - case_id: dev-safe-quoted
+    split: dev
+    vulnerable: false
+    files:
+      app.py: |
+        import os
+        import shlex
+        from flask import request
+        @app.get('/run')
+        def route():
+            return os.system(shlex.quote(request.args.get('cmd')))
+  - case_id: holdout-vulnerable-getoutput
+    split: holdout
+    vulnerable: true
+    files:
+      app.py: |
+        import subprocess
+        from flask import request
+        @app.post('/run')
+        def route():
+            command = request.args.get('value')
+            return subprocess.getoutput(command)
+  - case_id: holdout-safe-constant
+    split: holdout
+    vulnerable: false
+    files:
+      app.py: |
+        import os
+        from flask import request
+        @app.get('/health')
+        def route():
+            request.args.get('unused')
+            return os.system('true')

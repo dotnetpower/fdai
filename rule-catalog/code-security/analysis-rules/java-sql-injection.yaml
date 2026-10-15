@@ -1,0 +1,20 @@
+schema_version: 1.0.0
+rule_id: fdai.java.sql-injection
+version: 1.0.0
+analysis_kind: graph_flow
+languages: [java]
+cwe_ids: [89]
+selectors:
+  - {role: source, symbol: getParameter}
+  - {role: source, symbol: getHeader}
+  - {role: sink, symbol: execute, argument_index: 0}
+  - {role: sink, symbol: executeQuery, argument_index: 0}
+  - {role: sink, symbol: executeUpdate, argument_index: 0}
+  - {role: sink, symbol: prepareStatement, argument_index: 0}
+  - {role: propagator, symbol: trim}
+  - {role: propagator, symbol: toString}
+  - role: sanitizer
+    symbol: setString
+    security_context: sql-parameter-binding
+vulnerable_cases: [java-sqli-cross-file, java-sqli-header]
+safe_cases: [java-sqli-prepared-statement, java-sqli-constant]

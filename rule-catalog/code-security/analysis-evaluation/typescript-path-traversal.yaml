@@ -1,0 +1,37 @@
+schema_version: 1.0.0
+corpus_id: fdai.code-security.analysis.typescript-path-traversal
+language: typescript
+version: 1.0.0
+rule_id: fdai.typescript.path-traversal
+cases:
+  - case_id: dev-vulnerable-cross-file
+    split: dev
+    vulnerable: true
+    files:
+      api.ts: |
+        import { read } from './files';
+        export function route(req: Request) { return read(req.query.name); }
+        app.get('/file', route);
+      files.ts: |
+        export function read(value: string) { return readFile(value); }
+  - case_id: dev-safe-basename
+    split: dev
+    vulnerable: false
+    files:
+      app.ts: |
+        export function route(req: Request) { return readFile(basename(req.query.name)); }
+        app.get('/file', route);
+  - case_id: holdout-vulnerable-stream
+    split: holdout
+    vulnerable: true
+    files:
+      app.ts: |
+        export function route(req: Request) { return createReadStream(req.params.path); }
+        app.get('/download', route);
+  - case_id: holdout-safe-constant
+    split: holdout
+    vulnerable: false
+    files:
+      app.ts: |
+        export function health(req: Request) { void req.query.unused; return readFile('health.txt'); }
+        app.get('/health', health);

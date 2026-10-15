@@ -263,8 +263,21 @@
     "codeUnavailable": "이 발견 사항에는 코드 문맥이 기록되지 않았습니다. GitHub에서 정확한 스캔 리비전을 여세요.",
     "secretRedacted": "민감한 값 마스킹됨",
     "flowTitle": "근거 흐름",
+    "callContext": "호출 문맥: {context}",
+    "analysisEvidence": "분석 근거",
+    "pathId": "경로 ID",
+    "graphDigest": "그래프 다이제스트",
+    "schemas": "그래프 / 경로 스키마",
+    "ruleVersion": "규칙 버전",
+    "frontends": "프런트엔드",
+    "coverageGaps": "범위 공백",
+    "noCoverageGaps": "기록된 공백 없음",
     "flow": {
       "source": "출처",
+      "flow": "흐름",
+      "call": "호출",
+      "return": "반환",
+      "sanitizer": "정제기",
       "sink": "위험 지점"
     },
     "fact": {

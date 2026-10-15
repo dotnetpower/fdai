@@ -44,6 +44,10 @@ const SEVERITY_ORDER = new Map(
   ["critical", "high", "medium", "low", "undetermined"].map((severity, index) => [severity, index]),
 );
 const PAGE_SIZE = 25;
+const FLOW_KINDS = ["source", "flow", "call", "return", "sanitizer", "sink"] as const;
+const ANALYSIS_ID = /^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,255}$/;
+const SHA256 = /^sha256:[0-9a-f]{64}$/;
+const SEMVER = /^\d+\.\d+\.\d+$/;
 
 export interface CodeSecurityIssueSummary {
   readonly issue_id: string;
@@ -76,10 +80,23 @@ export interface CodeSecurityIssueSummary {
     }[];
   } | null;
   readonly flow_steps: readonly {
-    readonly kind: "source" | "sink";
+    readonly kind: (typeof FLOW_KINDS)[number];
     readonly path: string;
     readonly line: number | null;
+    readonly end_line: number | null;
+    readonly node_id: string | null;
+    readonly call_context: readonly string[];
   }[];
+  readonly analysis_evidence: {
+    readonly path_id: string;
+    readonly path_digest: string;
+    readonly graph_digest: string;
+    readonly graph_schema_version: string;
+    readonly path_schema_version: string;
+    readonly rule_version: string;
+    readonly frontend_versions: Readonly<Record<string, string>>;
+    readonly coverage_limits: readonly string[];
+  } | null;
 }
 
 export interface CodeSecurityIssuesResponse {
@@ -211,7 +228,10 @@ export function decodeCodeSecurityIssues(payload: unknown): CodeSecurityIssuesRe
         })();
       const flowSteps = row.flow_steps === undefined
         ? []
-        : panelArray(row.flow_steps, `${label}.flow_steps`).map((step, stepIndex) => {
+        : panelArray(row.flow_steps, `${label}.flow_steps`).map((step, stepIndex, steps) => {
+          if (steps.length > 64) {
+            throw panelContractError(`${label}.flow_steps exceeds 64 steps`);
+          }
           const value = panelRecord(step, `${label}.flow_steps ${stepIndex}`);
           const line = value.line;
           if (
@@ -220,12 +240,83 @@ export function decodeCodeSecurityIssues(payload: unknown): CodeSecurityIssuesRe
           ) {
             throw panelContractError(`${label}.flow_steps line must be positive or null`);
           }
+          const endLine = value.end_line ?? null;
+          if (
+            endLine !== null
+            && (
+              typeof endLine !== "number"
+              || !Number.isInteger(endLine)
+              || endLine <= 0
+              || (typeof line === "number" && endLine < line)
+            )
+          ) {
+            throw panelContractError(`${label}.flow_steps end_line must follow line`);
+          }
+          const nodeId = value.node_id ?? null;
+          if (nodeId !== null && (typeof nodeId !== "string" || !ANALYSIS_ID.test(nodeId))) {
+            throw panelContractError(`${label}.flow_steps node_id is invalid`);
+          }
+          const callContext = value.call_context === undefined
+            ? []
+            : panelStringArray(value.call_context, `${label}.flow_steps.call_context`);
+          if (callContext.length > 16 || callContext.some(item => !ANALYSIS_ID.test(item))) {
+            throw panelContractError(`${label}.flow_steps call_context is invalid`);
+          }
           return {
-            kind: oneOf(value.kind, ["source", "sink"] as const, `${label}.flow_steps.kind`),
+            kind: oneOf(value.kind, FLOW_KINDS, `${label}.flow_steps.kind`),
             path: panelNonEmptyString(value, "path", `${label}.flow_steps`),
             line,
+            end_line: endLine,
+            node_id: nodeId,
+            call_context: callContext,
           };
         });
+      const analysisEvidence = row.analysis_evidence === null || row.analysis_evidence === undefined
+        ? null
+        : (() => {
+          const value = panelRecord(row.analysis_evidence, `${label}.analysis_evidence`);
+          const required = (key: string, pattern: RegExp): string => {
+            const raw = panelNonEmptyString(value, key, `${label}.analysis_evidence`);
+            if (!pattern.test(raw)) {
+              throw panelContractError(`${label}.analysis_evidence ${key} is invalid`);
+            }
+            return raw;
+          };
+          const rawFrontends = panelRecord(
+            value.frontend_versions,
+            `${label}.analysis_evidence.frontend_versions`,
+          );
+          const frontendVersions = Object.fromEntries(
+            Object.entries(rawFrontends).map(([key, version]) => {
+              if (!ANALYSIS_ID.test(key) || typeof version !== "string" || !SEMVER.test(version)) {
+                throw panelContractError(`${label}.analysis_evidence frontend version is invalid`);
+              }
+              return [key, version];
+            }),
+          );
+          const coverageLimits = panelStringArray(
+            value.coverage_limits,
+            `${label}.analysis_evidence.coverage_limits`,
+          );
+          if (
+            Object.keys(frontendVersions).length === 0
+            || Object.keys(frontendVersions).length > 16
+            || coverageLimits.length > 64
+            || coverageLimits.some(item => !ANALYSIS_ID.test(item))
+          ) {
+            throw panelContractError(`${label}.analysis_evidence is outside bounds`);
+          }
+          return {
+            path_id: required("path_id", ANALYSIS_ID),
+            path_digest: required("path_digest", SHA256),
+            graph_digest: required("graph_digest", SHA256),
+            graph_schema_version: required("graph_schema_version", SEMVER),
+            path_schema_version: required("path_schema_version", SEMVER),
+            rule_version: required("rule_version", SEMVER),
+            frontend_versions: frontendVersions,
+            coverage_limits: coverageLimits,
+          };
+        })();
       return {
         issue_id: panelNonEmptyString(row, "issue_id", label),
         priority: oneOf(row.priority, PRIORITIES, `${label}.priority`),
@@ -256,6 +347,7 @@ export function decodeCodeSecurityIssues(payload: unknown): CodeSecurityIssuesRe
         location,
         code_context: codeContext,
         flow_steps: flowSteps,
+        analysis_evidence: analysisEvidence,
       };
     }),
     artifacts,
@@ -860,14 +952,42 @@ export function ReviewIssuesPanel({
                                 {selectedIssue.flow_steps.map((step, index) => (
                                   <li key={`${step.kind}:${step.path}:${step.line ?? 0}:${index}`}>
                                     <span>{t(`codeSecurity.issues.flow.${step.kind}`)}</span>
-                                    <code>
-                                      {step.line === null
-                                        ? step.path
-                                        : `${step.path}:${step.line}`}
-                                    </code>
+                                    <div class="code-security-flow-target">
+                                      <code>
+                                        {step.line === null
+                                          ? step.path
+                                          : step.end_line !== null && step.end_line !== step.line
+                                          ? `${step.path}:${step.line}-${step.end_line}`
+                                          : `${step.path}:${step.line}`}
+                                      </code>
+                                      {step.call_context.length === 0
+                                        ? null
+                                        : (
+                                          <small>
+                                            {t("codeSecurity.issues.callContext", {
+                                              context: step.call_context.join(" / "),
+                                            })}
+                                          </small>
+                                        )}
+                                    </div>
                                   </li>
                                 ))}
                               </ol>
+                              {selectedIssue.analysis_evidence === null
+                                ? null
+                                : (
+                                  <details class="code-security-analysis-evidence">
+                                    <summary>{t("codeSecurity.issues.analysisEvidence")}</summary>
+                                    <dl>
+                                      <div><dt>{t("codeSecurity.issues.pathId")}</dt><dd class="mono">{selectedIssue.analysis_evidence.path_id}</dd></div>
+                                      <div><dt>{t("codeSecurity.issues.graphDigest")}</dt><dd class="mono">{selectedIssue.analysis_evidence.graph_digest}</dd></div>
+                                      <div><dt>{t("codeSecurity.issues.schemas")}</dt><dd>{selectedIssue.analysis_evidence.graph_schema_version} / {selectedIssue.analysis_evidence.path_schema_version}</dd></div>
+                                      <div><dt>{t("codeSecurity.issues.ruleVersion")}</dt><dd>{selectedIssue.analysis_evidence.rule_version}</dd></div>
+                                      <div><dt>{t("codeSecurity.issues.frontends")}</dt><dd>{Object.entries(selectedIssue.analysis_evidence.frontend_versions).map(([name, version]) => `${name} ${version}`).join(", ")}</dd></div>
+                                      <div><dt>{t("codeSecurity.issues.coverageGaps")}</dt><dd>{selectedIssue.analysis_evidence.coverage_limits.length === 0 ? t("codeSecurity.issues.noCoverageGaps") : selectedIssue.analysis_evidence.coverage_limits.join(", ")}</dd></div>
+                                    </dl>
+                                  </details>
+                                )}
                             </section>
                           )
                           : null}

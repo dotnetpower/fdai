@@ -59,9 +59,8 @@ repository-relative file and line, confidence, priority, and producer evidence. 
 link is pinned to the scanned commit so the repository remains the source-code authority. The
 workspace begins with a severity scorecard for Critical, High, Medium, Low, Informational, and
 Needs review. Selecting a card filters the finding list without changing the canonical review.
-The selected detail shows a line-numbered bounded code context with the fix-site line highlighted;
-secret findings show a redacted assignment rather than the value. Available source-to-sink steps
-appear in recorded order and never invent a missing flow.
+The selected detail shows a line-numbered bounded code context with the fix-site line highlighted; secret findings show a redacted assignment rather than the value. Available source-to-sink steps appear in recorded order and never invent a missing flow.
+Owned-analysis detail preserves flow, call, return, sanitizer, and sink roles plus call context, path and graph identities, schema, rule, frontend versions, and explicit coverage gaps; malformed metadata fails closed, and source-free repair requests remain inert until diff, tests, exact rescan, and displayed-path replay pass.
 review panel can render the review-bound self-contained HTML report and
 canonical SARIF as inert content; neither view executes report code, follows external links, or
 grants remediation authority. If the full worker artifact is absent or withheld, the panel keeps

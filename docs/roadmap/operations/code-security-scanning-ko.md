@@ -1,8 +1,8 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: a8641db0a22433960989521694296c77d90cb9ad
-translation_revised: 2026-10-14
+translation_source_sha: 90311689d66a18b83629d8a8656aab2dc86a37b7
+translation_revised: 2026-10-15
 ---
 
 # 코드 보안 스캔
@@ -20,7 +20,7 @@ translation_revised: 2026-10-14
 > **상태:** 결정론 레인(코드 확보, 샌드박스, 스캐너 카탈로그, FDAI 규칙 팩, 스캔 작업, CLI),
 > 오프패스 LLM 렌즈 레인, 승격 게이트를 갖춘 Python·오염 약점 검증기, Python·JavaScript·네이티브·
 > Java·C#용 선택 입증 레인, 보고서를 만드는 로컬 폴더 스캔, 등록된 저장소에 대한 Console 스캔
-> 요청이 구현되었습니다.
+> 요청, FDAI 자체 Python 함수 간 SQL 삽입 레인이 구현되었습니다.
 > [구현 원장](../../roadmap-implementation/operations/code-security-scanning.md)을 참조하세요.
 
 ## 설계 개요
@@ -135,6 +135,24 @@ Go용으로 FDAI가 작성한 규칙 22개가 있습니다. 각 규칙은 다음
 외부 규칙 텍스트를 복사하지 않으므로 규칙 팩에는 외부 규칙 라이선스가 적용되지 않습니다. 테스트
 데이터는 의도적으로 취약하게 작성되었으며 import하거나 실행하지 않습니다. Python 테스트 데이터는
 저장소 전체 제외 대신 파일 단위 지시문으로 저장소 lint에서 제외됩니다.
+
+## FDAI 자체 분석 레인
+
+자체 레인은 버전이 지정된 엄격한 그래프 흐름 규칙을 불러오고 저장소 코드를 실행하지 않은 채
+표준 Python AST, 고정된 TypeScript Compiler API 프로세스 또는 실험적 tree-sitter Java SQL
+프런트엔드를 사용합니다. Python과 TypeScript 규칙은 SQL 삽입, 명령 삽입, 경로 조작, XSS를
+다룹니다. Java는 현재 SQL 삽입만 다루고 모호한 디스패치를 불완전으로 보고합니다. 파일, 함수,
+심볼, 기본 블록, 호출, 소스 및 싱크 노드, 순서가 있는 경로 근거, 안정적인 다이제스트를 기록합니다.
+파싱, 해석, 재귀, 작업 예산, 미지원 프런트엔드 제한도 모두 기록합니다. TypeScript CompilerHost는
+정확한 소스 루트와 고정된 표준 라이브러리만 읽습니다. Python은 엄격한 미변경 스냅샷을 재사용할
+수 있으며, 입력이 바뀌면 의존성 인식 무효화 계획 이후 보수적으로 전체 분석을 실행합니다.
+
+이 레인은 SARIF 2.1.0을 만들고 다른 결정론적 생산자와 동일한 범위 제한 수집, 정본 이슈, 증적,
+검토, 내보내기, prepared 결과 재현, Kata 재구성 경로로 다시 들어갑니다. 점검 결과는 `reported`로
+시작하며 자체 레인이 검증기 승격을 우회하지 않습니다. 분리된 Python, TypeScript, Java 합성
+기준선은 `dev`와 `holdout`에 각각 취약 사례 하나와 안전 사례 하나를 포함하며, 현재 미지원 사례
+없이 정밀도와 재현율 1.0을 기록합니다. 이 증적은 평가 장치와 초기 수직 시나리오를 입증할 뿐,
+실제 코드 보정, 언어 동등성, 프로덕션 승격 또는 CodeQL 동등성을 입증하지 않습니다.
 
 ## 커버리지 증적
 
@@ -912,6 +930,7 @@ SARIF는 수집 과정을 거쳤습니다.
 | 알아볼 내용 | 문서 |
 |-------------|------|
 | 제공 상태와 남은 작업 | [구현 원장](../../roadmap-implementation/operations/code-security-scanning.md) |
+| 계획된 자체 코드 그래프와 함수 간 분석 | [코드 보안 분석 엔진](code-security-analysis-engine-ko.md) |
 | 이슈, 심각도, 우선순위, 조치 팩 | [코드 보안 점검 결과](code-security-findings-ko.md) |
 | LLM 계층과 데이터 상주 | [LLM 전략](../architecture/llm-strategy-ko.md) |
 | 추적 이슈 | [Issue #1966](https://github.com/dotnetpower/fdai/issues/1966) |
