@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import argparse
-import asyncio
 import json
 import subprocess
 from collections.abc import Awaitable, Callable, Mapping, Sequence
@@ -13,6 +11,7 @@ from typing import Any
 from fdai.core.conversation_assurance import (
     PrivateJsonlLedger,
     open_private_lock,
+    private_marker_exists,
     read_private_text,
 )
 from fdai.runtime.conversation_assurance_readiness import (
@@ -22,7 +21,6 @@ from fdai.runtime.conversation_assurance_readiness import (
 )
 from scripts.automation.conversation_assurance_aks import (
     AksBusinessServiceBinding,
-    AksSeriesUnavailableError,
     azure_cli_aks_clusters,
     bind_private_runtime_corpus,
     build_private_aks_corpora,
@@ -30,33 +28,28 @@ from scripts.automation.conversation_assurance_aks import (
     discover_aks_business_service_bindings,
     local_operating_graph_reader,
 )
+from scripts.automation.conversation_assurance_browser_evidence import (
+    browser_observation,
+    terminal_measurement_outcome,
+)
 from scripts.automation.conversation_assurance_cli import (
     _load_private_corpus,
     _start,
-)
-from scripts.automation.conversation_assurance_effectiveness import (
-    attribute_remediation,
-    bind_holdout_revision,
-    compare_and_record_v2,
-    effectiveness_report_v2,
-    git_revision,
 )
 from scripts.automation.conversation_assurance_effectiveness_contract import (
     EffectivenessAssessment,
     EffectivenessPolicy,
     PairCustodyReceipt,
     canonical_digest,
-    compose_assessment,
+    read_assessment,
     read_pair_custody_receipt,
+    read_policy,
     write_assessment,
     write_pair_custody_receipt,
     write_policy,
 )
 from scripts.automation.conversation_assurance_harness import (
-    BrowserRunObservation,
     ComparisonRole,
-    FailureClass,
-    FindingSeverity,
     GateState,
     ImprovementRun,
     ImprovementState,
@@ -65,6 +58,15 @@ from scripts.automation.conversation_assurance_harness import (
     read_private_run,
     validate_question_novelty,
     write_private_run,
+)
+from scripts.automation.conversation_assurance_improvement_state import (
+    automatic_failure_class as _automatic_failure_class,
+)
+from scripts.automation.conversation_assurance_improvement_state import (
+    bounded_reason as _bounded_reason,
+)
+from scripts.automation.conversation_assurance_improvement_state import (
+    classify_run,
 )
 from scripts.automation.conversation_assurance_reporting import _state_root
 
@@ -85,6 +87,14 @@ def _run_path(project: Path, run_id: str) -> Path:
 
 def _run_lock_path(project: Path, run_id: str) -> Path:
     return _state_root(project) / _RUNS_DIRECTORY / f"{run_id}.lock"
+
+
+def _private_output_path(project: Path, path: Path) -> Path:
+    resolved = path.resolve()
+    state_root = _state_root(project).resolve()
+    if not resolved.is_relative_to(state_root):
+        raise ValueError("effectiveness_output_must_be_private_state")
+    return resolved
 
 
 def _assessment_path(project: Path, run_id: str) -> Path:
@@ -128,6 +138,7 @@ def _prepare(
     worktree_dirty: bool,
     comparison_group_id: str | None = None,
     comparison_role: ComparisonRole | None = None,
+    effectiveness_policy_digest: str | None = None,
     cohort_id: str | None = None,
     challenge_family: str | None = None,
     objective_oracle: str | None = None,
@@ -136,6 +147,8 @@ def _prepare(
 ) -> ImprovementRun:
     if worktree_dirty:
         raise ValueError("worktree_not_clean")
+    if private_marker_exists(_state_root(project) / "STOP"):
+        raise ValueError("stop_requested")
     output_path = _run_path(project, run_id)
     lock = open_private_lock(_run_lock_path(project, run_id))
     if lock is None:
@@ -178,6 +191,7 @@ def _prepare(
         if selection.provided_authority is None:
             raise ValueError("challenge_authority_unavailable")
         effectiveness_values = (
+            effectiveness_policy_digest,
             cohort_id,
             challenge_family,
             objective_oracle,
@@ -200,6 +214,7 @@ def _prepare(
             comparison_group_id=comparison_group_id,
             comparison_role=comparison_role,
             effectiveness_schema_version=("2.0.0" if comparison_group_id is not None else None),
+            effectiveness_policy_digest=effectiveness_policy_digest,
             cohort_id=cohort_id,
             locale=case.locale if comparison_group_id is not None else None,
             suite=case.suite if comparison_group_id is not None else None,
@@ -230,11 +245,32 @@ def _pair_receipt_digest(
     corpus_path: Path,
     role: ComparisonRole,
     source_revision: str,
-) -> str:
+    cohort_id: str,
+    comparison_group_id: str,
+    challenge_family: str,
+    objective_oracle: str,
+    authoritative_base_ref: str,
+) -> PairCustodyReceipt:
     receipt = read_pair_custody_receipt(receipt_path)
     if receipt.declared_revision != source_revision:
         raise ValueError("pair_custody_revision_mismatch")
     corpus = _load_private_corpus(corpus_path)
+    if len(corpus.cases) != 1:
+        raise ValueError("effectiveness_pair_requires_one_question_each")
+    case = corpus.cases[0]
+    if (
+        receipt.cohort_id != cohort_id
+        or receipt.comparison_group_id != comparison_group_id
+        or receipt.challenge_family != challenge_family
+        or receipt.objective_oracle != objective_oracle
+        or receipt.authoritative_base_ref != authoritative_base_ref
+        or receipt.locale != case.locale
+        or receipt.suite != case.suite
+        or receipt.expected_primary_agent != case.expected_primary_agent
+        or receipt.expected_routing_method != case.expected_routing_method
+        or receipt.t2_expectation != str(case.t2_expectation)
+    ):
+        raise ValueError("pair_custody_contract_mismatch")
     expected_digest = (
         receipt.baseline_corpus_digest
         if role is ComparisonRole.BASELINE
@@ -242,7 +278,36 @@ def _pair_receipt_digest(
     )
     if corpus.content_digest != expected_digest:
         raise ValueError("pair_custody_corpus_mismatch")
-    return receipt.content_digest
+    return receipt
+
+
+def _write_policy_idempotent(path: Path, policy: EffectivenessPolicy) -> str:
+    lock = open_private_lock(path.with_suffix(".lock"))
+    if lock is None:
+        raise ValueError("effectiveness_policy_active")
+    with lock:
+        if path.exists() or path.is_symlink():
+            if read_policy(path) != policy:
+                raise ValueError("effectiveness_policy_conflict")
+            return "existing"
+        write_policy(path, policy)
+        return "created"
+
+
+def _write_pair_receipt_idempotent(
+    path: Path,
+    receipt: PairCustodyReceipt,
+) -> str:
+    lock = open_private_lock(path.with_suffix(".lock"))
+    if lock is None:
+        raise ValueError("pair_custody_receipt_active")
+    with lock:
+        if path.exists() or path.is_symlink():
+            if read_pair_custody_receipt(path) != receipt:
+                raise ValueError("pair_custody_receipt_conflict")
+            return "existing"
+        write_pair_custody_receipt(path, receipt)
+        return "sealed"
 
 
 def _record_preflight_hold(
@@ -354,7 +419,7 @@ def _prepare_aks_series(
                 corpus_path=runtime_corpus_path,
                 corpus_digest=runtime_corpus.content_digest,
             )
-    except Exception:
+    except Exception:  # noqa: BLE001 - rollback every partially prepared private artifact
         for run in runs:
             _run_path(project, run.run_id).unlink(missing_ok=True)
         for corpus_path in (*expected_corpus_paths, runtime_corpus_path):
@@ -471,7 +536,7 @@ def _observe_browser(*, project: Path, run_id: str, evidence_path: Path) -> Impr
         raise ValueError("improvement_run_active")
     with lock:
         run = read_private_run(path)
-        observation = _browser_observation(_read_private_object(evidence_path))
+        observation = browser_observation(_read_private_object(evidence_path))
         observed = run.record_browser_observation(observation)
         write_private_run(path, observed)
         return observed
@@ -504,7 +569,7 @@ def _record_browser_measurement(
             or evidence.get("endpoint_contract") != "/chat/stream"
         ):
             raise ValueError("browser_measurement_request_invalid")
-        observation = _browser_observation(evidence)
+        observation = browser_observation(evidence)
         if observation.run_id != run.run_id or observation.case_id != run.case_id:
             raise ValueError("browser observation identity does not match the run")
         if observation.question_fingerprint != run.question_fingerprint:
@@ -513,7 +578,7 @@ def _record_browser_measurement(
         if not isinstance(terminal, Mapping):
             raise ValueError("browser_measurement_terminal_invalid")
         measured = run.record_measurement(
-            _terminal_measurement_outcome(terminal)
+            terminal_measurement_outcome(terminal)
         ).record_browser_observation(observation)
         write_private_run(path, measured)
         return measured
@@ -610,9 +675,9 @@ def _run_aks_browser_series(
                 reason="browser_worker_failed",
             )
         failure_class = _automatic_failure_class(measured)
-        classified = _classify(
-            project=project,
-            run_id=run_id,
+        classified = classify_run(
+            run_path=_run_path(project, run_id),
+            lock_path=_run_lock_path(project, run_id),
             failure_class=failure_class,
         )
         completed.append(classified)
@@ -621,25 +686,14 @@ def _run_aks_browser_series(
     return tuple(completed)
 
 
-def _automatic_failure_class(run: ImprovementRun) -> FailureClass | None:
-    gates = (run.run_record_gate, run.prompt_assembly_gate, run.preparing_answer_gate)
-    if (
-        run.assessment_state == "completed"
-        and run.verdict == "pass"
-        and all(gate.state is GateState.PASSED for gate in gates)
-    ):
-        return None
-    if any(reason.startswith(("authorization_", "auth_")) for reason in run.assessment_reasons):
-        return FailureClass.AUTHORIZATION_OR_CONFIGURATION
-    if run.assessment_state != "completed":
-        return (
-            FailureClass.BASELINE_FAILURE
-            if "browser_worker_failed" in run.assessment_reasons
-            else FailureClass.PROVIDER_OR_EVIDENCE_UNAVAILABLE
-        )
-    if any(gate.state is not GateState.PASSED for gate in gates):
-        return FailureClass.EVALUATION_CONTRACT_DEFECT
-    return FailureClass.CODE_DEFECT
+def _read_private_object(path: Path) -> dict[str, Any]:
+    try:
+        value = json.loads(read_private_text(path, max_bytes=_MAX_EVIDENCE_BYTES))
+    except (OSError, UnicodeError, ValueError, json.JSONDecodeError) as error:
+        raise ValueError("private_evidence_invalid") from error
+    if not isinstance(value, dict):
+        raise ValueError("private_evidence_invalid")
+    return {str(key): item for key, item in value.items()}
 
 
 def _arm_browser(*, project: Path, run_id: str, readiness_path: Path) -> ImprovementRun:
@@ -649,6 +703,8 @@ def _arm_browser(*, project: Path, run_id: str, readiness_path: Path) -> Improve
         raise ValueError("improvement_run_active")
     with lock:
         current = read_private_run(path)
+        if private_marker_exists(_state_root(project) / "STOP"):
+            raise ValueError("stop_requested")
         inventory = RuntimeReadinessInventory.from_dict(_read_private_object(readiness_path))
         selection = assess_capability_readiness(
             capability_id=current.capability_id,
@@ -681,598 +737,25 @@ def _record_effectiveness_assessment(
     if (
         assessment.run_id != run.run_id
         or assessment.case_id != run.case_id
+        or assessment.question_fingerprint != run.question_fingerprint
+        or assessment.measurement_revision != run.measurement_source_revision
         or assessment.locale != run.locale
     ):
         raise ValueError("effectiveness_assessment_run_mismatch")
-    write_assessment(_assessment_path(project, run_id), assessment)
+    _write_assessment_idempotent(_assessment_path(project, run_id), assessment)
     return assessment
 
 
-def _terminal_measurement_outcome(value: Mapping[str, object]) -> MeasurementOutcome:
-    states: dict[str, str] = {}
-    for name in ("terminal_state", "answer_generation_state", "assessment_state"):
-        item = value.get(name)
-        if not isinstance(item, str) or not item:
-            raise ValueError(f"browser_measurement_{name}_invalid")
-        states[name] = item
-    reasons = value.get("assessment_reasons")
-    if not isinstance(reasons, list) or any(not isinstance(item, str) for item in reasons):
-        raise ValueError("browser_measurement_terminal_invalid")
-    score = value.get("score")
-    verdict = value.get("verdict")
-    return MeasurementOutcome(
-        terminal_state=states["terminal_state"],
-        answer_generation_state=states["answer_generation_state"],
-        assessment_state=states["assessment_state"],
-        assessment_reasons=tuple(reasons),
-        score=score if isinstance(score, int) and not isinstance(score, bool) else None,
-        verdict=verdict if isinstance(verdict, str) else None,
-    )
-
-
-def _classify(*, project: Path, run_id: str, failure_class: FailureClass | None) -> ImprovementRun:
-    path = _run_path(project, run_id)
-    lock = open_private_lock(_run_lock_path(project, run_id))
+def _write_assessment_idempotent(
+    path: Path,
+    assessment: EffectivenessAssessment,
+) -> None:
+    lock = open_private_lock(path.with_suffix(".lock"))
     if lock is None:
-        raise ValueError("improvement_run_active")
+        raise ValueError("effectiveness_assessment_active")
     with lock:
-        classified = read_private_run(path).classify(failure_class)
-        write_private_run(path, classified)
-        return classified
-
-
-def _hardening_round(
-    *,
-    project: Path,
-    run_id: str,
-    severity: FindingSeverity,
-    reviewer_scope: str,
-    finding_count: int,
-    fixed_count: int,
-    validation_passed: bool,
-) -> ImprovementRun:
-    path = _run_path(project, run_id)
-    lock = open_private_lock(_run_lock_path(project, run_id))
-    if lock is None:
-        raise ValueError("improvement_run_active")
-    with lock:
-        hardened = read_private_run(path).record_hardening_round(
-            severity,
-            reviewer_scope=reviewer_scope,
-            finding_count=finding_count,
-            fixed_count=fixed_count,
-            validation_passed=validation_passed,
-        )
-        write_private_run(path, hardened)
-        return hardened
-
-
-def _read_private_object(path: Path) -> dict[str, Any]:
-    try:
-        value = json.loads(read_private_text(path, max_bytes=_MAX_EVIDENCE_BYTES))
-    except (OSError, UnicodeError, ValueError, json.JSONDecodeError) as error:
-        raise ValueError("private_evidence_invalid") from error
-    if not isinstance(value, dict):
-        raise ValueError("private_evidence_invalid")
-    return {str(key): item for key, item in value.items()}
-
-
-def _browser_observation(value: Mapping[str, Any]) -> BrowserRunObservation:
-    phases = value.get("phase_states")
-    if not isinstance(phases, Mapping):
-        raise ValueError("browser_observation_invalid")
-    return BrowserRunObservation(
-        run_id=str(value.get("run_id", "")),
-        case_id=str(value.get("case_id", "")),
-        question_fingerprint=str(value.get("question_fingerprint", "")),
-        session_id=str(value.get("session_id", "")),
-        purpose=str(value.get("purpose", "")),
-        request_sequence=_integer(value.get("request_sequence")),
-        request_sha256=str(value.get("request_sha256", "")),
-        trace_receipt_digest=str(value.get("trace_receipt_digest", "")),
-        run_record_present=value.get("run_record_present") is True,
-        phase_states=tuple((str(key), str(item)) for key, item in phases.items()),
-        model_trace_enabled=value.get("model_trace_enabled") is True,
-        omitted_model_calls=_integer(value.get("omitted_model_calls")),
-        expected_call_kinds=_strings(value.get("expected_call_kinds")),
-        observed_call_kinds=_strings(value.get("observed_call_kinds")),
-        prompt_manifests_match=value.get("prompt_manifests_match") is True,
-        prompt_profiles_visible=value.get("prompt_profiles_visible") is True,
-        system_layer_order_valid=value.get("system_layer_order_valid") is True,
-        untrusted_data_separated=value.get("untrusted_data_separated") is True,
-        preparing_answer_seen=value.get("preparing_answer_seen") is True,
-        early_answer_exposed=value.get("early_answer_exposed") is True,
-        preparing_answer_overlapped_terminal=(
-            value.get("preparing_answer_overlapped_terminal") is True
-        ),
-        terminal_transition_completed=value.get("terminal_transition_completed") is True,
-        sensitive_output_detected=value.get("sensitive_output_detected") is True,
-    )
-
-
-def _integer(value: object) -> int:
-    if not isinstance(value, int) or isinstance(value, bool):
-        raise ValueError("browser_observation_invalid")
-    return value
-
-
-def _strings(value: object) -> tuple[str, ...]:
-    if not isinstance(value, list) or any(not isinstance(item, str) for item in value):
-        raise ValueError("browser_observation_invalid")
-    return tuple(value)
-
-
-def _bounded_reason(error: Exception) -> str:
-    value = str(error)
-    return value if value and len(value) <= 128 else f"measurement_error:{type(error).__name__}"
-
-
-def _summary(run: ImprovementRun) -> dict[str, object]:
-    return {
-        "run_id": run.run_id,
-        "case_id": run.case_id,
-        "state": run.state,
-        "source_revision": run.source_revision,
-        "measurement_revision": run.measurement_source_revision,
-        "measurement_attempts": run.measurement_attempts,
-        "retry_allowed": run.retry_allowed,
-        "terminal_state": run.terminal_state,
-        "answer_generation_state": run.answer_generation_state,
-        "assessment_state": run.assessment_state,
-        "assessment_reasons": list(run.assessment_reasons),
-        "score": run.score,
-        "verdict": run.verdict,
-        "qualification": run.qualification,
-        "failure_class": run.failure_class,
-        "comparison_group_id": run.comparison_group_id,
-        "comparison_role": run.comparison_role,
-        "effectiveness_schema_version": run.effectiveness_schema_version,
-        "cohort_id": run.cohort_id,
-        "locale": run.locale,
-        "challenge_family": run.challenge_family,
-        "objective_oracle": run.objective_oracle,
-        "authoritative_base_ref": run.authoritative_base_ref,
-        "readiness_digest": run.readiness_digest,
-        "remediation_revision": run.remediation_revision,
-        "run_record_gate": run.run_record_gate.state,
-        "prompt_assembly_gate": run.prompt_assembly_gate.state,
-        "preparing_answer_gate": run.preparing_answer_gate.state,
-        "hardening_rounds": run.hardening_rounds,
-        "remaining_max_severity": run.remaining_max_severity,
-    }
-
-
-def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--project", type=Path, default=Path.cwd())
-    commands = parser.add_subparsers(dest="operation", required=True)
-    prepare = commands.add_parser("prepare")
-    prepare.add_argument("--corpus", type=Path, required=True)
-    prepare.add_argument("--readiness", type=Path, required=True)
-    prepare.add_argument("--run-id", required=True)
-    prepare.add_argument("--capability", required=True)
-    prepare.add_argument("--function", action="append", dest="functions", required=True)
-    prepare.add_argument("--expected-authority", required=True)
-    prepare.add_argument("--comparison-group")
-    prepare.add_argument(
-        "--comparison-role",
-        choices=tuple(item.value for item in ComparisonRole),
-    )
-    prepare.add_argument("--cohort-id")
-    prepare.add_argument("--challenge-family")
-    prepare.add_argument("--objective-oracle")
-    prepare.add_argument("--blind-holdout-receipt", type=Path)
-    prepare.add_argument("--authoritative-base-ref")
-    policy = commands.add_parser("init-effectiveness-policy")
-    policy.add_argument("--output", type=Path, required=True)
-    policy.add_argument("--policy-id", required=True)
-    policy.add_argument("--cohort-id", required=True)
-    policy.add_argument("--authoritative-base-ref", required=True)
-    policy.add_argument("--minimum-pairs", type=int, default=20)
-    policy.add_argument("--minimum-pairs-per-locale", type=int, default=10)
-    policy.add_argument("--minimum-improvement-rate", type=float, default=0.8)
-    policy.add_argument("--maximum-regressions", type=int, default=0)
-    policy.add_argument("--maximum-environment-hold-rate", type=float, default=0.1)
-    policy.add_argument(
-        "--maximum-latency-ms-per-measured-run",
-        type=int,
-        default=120_000,
-    )
-    policy.add_argument(
-        "--maximum-model-calls-per-measured-run",
-        type=float,
-        default=10.0,
-    )
-    policy.add_argument(
-        "--maximum-cost-usd-per-measured-run",
-        type=float,
-        default=1.0,
-    )
-    custody = commands.add_parser("seal-effectiveness-pair")
-    custody.add_argument("--baseline-corpus", type=Path, required=True)
-    custody.add_argument("--holdout-corpus", type=Path, required=True)
-    custody.add_argument("--output", type=Path, required=True)
-    custody.add_argument("--receipt-id", required=True)
-    custody.add_argument("--custodian-identity-digest", required=True)
-    prepare_aks = commands.add_parser("prepare-aks-series")
-    prepare_aks.add_argument("--run-prefix", required=True)
-    prepare_aks.add_argument(
-        "--readiness",
-        type=Path,
-        default=Path(".fdai/conversation-assurance/runtime-readiness.json"),
-    )
-    prepare_aks.add_argument(
-        "--runtime-env",
-        type=Path,
-        default=Path(".fdai/local-runtime.env"),
-    )
-    run_aks = commands.add_parser("run-aks-series")
-    run_aks.add_argument("--run-prefix", required=True)
-    run_aks.add_argument("--origin", default="http://localhost:5273")
-    run_aks.add_argument(
-        "--readiness",
-        type=Path,
-        default=Path(".fdai/conversation-assurance/runtime-readiness.json"),
-    )
-    measure = commands.add_parser("measure-headless")
-    measure.add_argument("--corpus", type=Path, required=True)
-    measure.add_argument("--run-id", required=True)
-    arm_browser = commands.add_parser("arm-browser")
-    arm_browser.add_argument("--run-id", required=True)
-    arm_browser.add_argument(
-        "--readiness",
-        type=Path,
-        default=Path(".fdai/conversation-assurance/runtime-readiness.json"),
-    )
-    browser_measure = commands.add_parser("record-browser-measurement")
-    browser_measure.add_argument("--run-id", required=True)
-    browser_measure.add_argument("--evidence", type=Path, required=True)
-    observe = commands.add_parser("observe-browser")
-    observe.add_argument("--run-id", required=True)
-    observe.add_argument("--evidence", type=Path, required=True)
-    classify = commands.add_parser("classify")
-    classify.add_argument("--run-id", required=True)
-    classify.add_argument(
-        "--failure-class",
-        choices=("none", *(item.value for item in FailureClass)),
-        required=True,
-    )
-    hardening = commands.add_parser("hardening-round")
-    hardening.add_argument("--run-id", required=True)
-    hardening.add_argument(
-        "--severity",
-        choices=tuple(item.value for item in FindingSeverity),
-        required=True,
-    )
-    hardening.add_argument("--reviewer-scope", required=True)
-    hardening.add_argument("--finding-count", type=int, required=True)
-    hardening.add_argument("--fixed-count", type=int, required=True)
-    hardening.add_argument("--validation-passed", action="store_true")
-    status = commands.add_parser("status")
-    status.add_argument("--run-id", required=True)
-    remediation = commands.add_parser("attribute-remediation")
-    remediation.add_argument("--run-id", required=True)
-    remediation.add_argument("--revision", default="HEAD")
-    remediation.add_argument("--owning-path", action="append", dest="owning_paths")
-    remediation.add_argument("--validation-receipt", type=Path)
-    assessment = commands.add_parser("record-effectiveness-assessment")
-    assessment.add_argument("--run-id", required=True)
-    assessment.add_argument("--evidence", type=Path, required=True)
-    compose = commands.add_parser("compose-effectiveness-assessment")
-    compose.add_argument("--run-id", required=True)
-    compose.add_argument("--answer-gate", type=Path, required=True)
-    compose.add_argument("--browser-evidence", type=Path, required=True)
-    bind_holdout = commands.add_parser("bind-holdout")
-    bind_holdout.add_argument("--baseline-run", required=True)
-    bind_holdout.add_argument("--holdout-run", required=True)
-    bind_holdout.add_argument("--revision", default="HEAD")
-    compare = commands.add_parser("compare-effectiveness")
-    compare.add_argument("--baseline-run", required=True)
-    compare.add_argument("--holdout-run", required=True)
-    compare.add_argument(
-        "--policy",
-        type=Path,
-        default=Path(".fdai/conversation-assurance/effectiveness-policy.json"),
-    )
-    effectiveness = commands.add_parser("effectiveness")
-    effectiveness.add_argument(
-        "--policy",
-        type=Path,
-        default=Path(".fdai/conversation-assurance/effectiveness-policy.json"),
-    )
-    return parser
-
-
-def main(argv: Sequence[str] | None = None) -> int:
-    arguments = _parser().parse_args(argv)
-    project = arguments.project.resolve()
-    try:
-        if arguments.operation == "prepare":
-            revision, dirty = _git_snapshot(project)
-            comparison_role = (
-                ComparisonRole(arguments.comparison_role)
-                if arguments.comparison_role is not None
-                else None
-            )
-            if arguments.blind_holdout_receipt is not None and comparison_role is None:
-                raise ValueError("pair_custody_requires_comparison_role")
-            receipt_digest = (
-                _pair_receipt_digest(
-                    receipt_path=arguments.blind_holdout_receipt.resolve(),
-                    corpus_path=arguments.corpus.resolve(),
-                    role=comparison_role,
-                    source_revision=revision,
-                )
-                if arguments.blind_holdout_receipt is not None and comparison_role is not None
-                else None
-            )
-            run = _prepare(
-                project=project,
-                corpus_path=arguments.corpus.resolve(),
-                readiness_path=arguments.readiness.resolve(),
-                run_id=arguments.run_id,
-                capability_id=arguments.capability,
-                required_functions=tuple(arguments.functions),
-                expected_authority=arguments.expected_authority,
-                source_revision=revision,
-                worktree_dirty=dirty,
-                comparison_group_id=arguments.comparison_group,
-                comparison_role=comparison_role,
-                cohort_id=arguments.cohort_id,
-                challenge_family=arguments.challenge_family,
-                objective_oracle=arguments.objective_oracle,
-                blind_holdout_receipt_digest=receipt_digest,
-                authoritative_base_ref=arguments.authoritative_base_ref,
-            )
-            payload = _summary(run)
-        elif arguments.operation == "init-effectiveness-policy":
-            policy = EffectivenessPolicy(
-                schema_version="1.0.0",
-                policy_id=arguments.policy_id,
-                cohort_id=arguments.cohort_id,
-                authoritative_base_ref=arguments.authoritative_base_ref,
-                required_locales=("en", "ko"),
-                minimum_pairs=arguments.minimum_pairs,
-                minimum_pairs_per_locale=arguments.minimum_pairs_per_locale,
-                minimum_improvement_rate=arguments.minimum_improvement_rate,
-                confidence_level=0.95,
-                maximum_regressions=arguments.maximum_regressions,
-                maximum_environment_hold_rate=(arguments.maximum_environment_hold_rate),
-                maximum_latency_ms_per_measured_run=(arguments.maximum_latency_ms_per_measured_run),
-                maximum_model_calls_per_measured_run=(
-                    arguments.maximum_model_calls_per_measured_run
-                ),
-                maximum_cost_usd_per_measured_run=(arguments.maximum_cost_usd_per_measured_run),
-            )
-            write_policy(arguments.output.resolve(), policy)
-            payload = {
-                "state": "created",
-                "policy_id": policy.policy_id,
-                "policy_digest": policy.content_digest,
-                "qualification_authority": False,
-                "execution_authority": False,
-            }
-        elif arguments.operation == "seal-effectiveness-pair":
-            revision, dirty = _git_snapshot(project)
-            if dirty:
-                raise ValueError("worktree_not_clean")
-            baseline = _load_private_corpus(arguments.baseline_corpus.resolve())
-            holdout = _load_private_corpus(arguments.holdout_corpus.resolve())
-            if len(baseline.cases) != 1 or len(holdout.cases) != 1:
-                raise ValueError("effectiveness_pair_requires_one_question_each")
-            receipt = PairCustodyReceipt(
-                schema_version="1.0.0",
-                receipt_id=arguments.receipt_id,
-                declared_revision=revision,
-                baseline_corpus_digest=baseline.content_digest,
-                holdout_corpus_digest=holdout.content_digest,
-                custodian_identity_digest=arguments.custodian_identity_digest,
-                content_disclosed_to_repair_agent=False,
-            )
-            write_pair_custody_receipt(arguments.output.resolve(), receipt)
-            payload = {
-                "state": "sealed",
-                "receipt_id": receipt.receipt_id,
-                "receipt_digest": receipt.content_digest,
-                "qualification_authority": False,
-                "execution_authority": False,
-            }
-        elif arguments.operation == "prepare-aks-series":
-            revision, dirty = _git_snapshot(project)
-            runs = _prepare_aks_series(
-                project=project,
-                readiness_path=(project / arguments.readiness).resolve(),
-                runtime_env_path=(project / arguments.runtime_env).resolve(),
-                run_prefix=arguments.run_prefix,
-                source_revision=revision,
-                worktree_dirty=dirty,
-            )
-            payload = {
-                "state": "prepared",
-                "question_count": len(runs),
-                "core_restart_required": True,
-                "runs": [_summary(run) for run in runs],
-            }
-        elif arguments.operation == "run-aks-series":
-            revision, dirty = _git_snapshot(project)
-            runs = _run_aks_browser_series(
-                project=project,
-                run_prefix=arguments.run_prefix,
-                origin=arguments.origin,
-                readiness_path=(project / arguments.readiness).resolve(),
-                source_revision=revision,
-                worktree_dirty=dirty,
-            )
-            payload = {
-                "state": runs[-1].state if runs else "held",
-                "evaluated": len(runs),
-                "requested": 3,
-                "runs": [_summary(run) for run in runs],
-            }
-        elif arguments.operation == "measure-headless":
-            revision, dirty = _git_snapshot(project)
-            run = asyncio.run(
-                _measure(
-                    project=project,
-                    corpus_path=arguments.corpus.resolve(),
-                    run_id=arguments.run_id,
-                    source_revision=revision,
-                    worktree_dirty=dirty,
-                )
-            )
-            payload = _summary(run)
-        elif arguments.operation == "record-browser-measurement":
-            revision, dirty = _git_snapshot(project)
-            run = _record_browser_measurement(
-                project=project,
-                run_id=arguments.run_id,
-                evidence_path=arguments.evidence.resolve(),
-                source_revision=revision,
-                worktree_dirty=dirty,
-            )
-            payload = _summary(run)
-        elif arguments.operation == "arm-browser":
-            run = _arm_browser(
-                project=project,
-                run_id=arguments.run_id,
-                readiness_path=(project / arguments.readiness).resolve(),
-            )
-            payload = _summary(run)
-        elif arguments.operation == "observe-browser":
-            run = _observe_browser(
-                project=project,
-                run_id=arguments.run_id,
-                evidence_path=arguments.evidence.resolve(),
-            )
-            payload = _summary(run)
-        elif arguments.operation == "classify":
-            run = _classify(
-                project=project,
-                run_id=arguments.run_id,
-                failure_class=(
-                    None
-                    if arguments.failure_class == "none"
-                    else FailureClass(arguments.failure_class)
-                ),
-            )
-            payload = _summary(run)
-        elif arguments.operation == "hardening-round":
-            run = _hardening_round(
-                project=project,
-                run_id=arguments.run_id,
-                severity=FindingSeverity(arguments.severity),
-                reviewer_scope=arguments.reviewer_scope,
-                finding_count=arguments.finding_count,
-                fixed_count=arguments.fixed_count,
-                validation_passed=arguments.validation_passed,
-            )
-            payload = _summary(run)
-        elif arguments.operation == "attribute-remediation":
-            revision, dirty = _git_snapshot(project)
-            requested_revision = git_revision(project, arguments.revision)
-            if arguments.revision == "HEAD" and requested_revision != revision:
-                raise ValueError("remediation_revision_drift")
-            payload = _summary(
-                attribute_remediation(
-                    project=project,
-                    run_path=_run_path(project, arguments.run_id),
-                    lock_path=_run_lock_path(project, arguments.run_id),
-                    revision=requested_revision,
-                    worktree_dirty=dirty,
-                    owning_paths=tuple(arguments.owning_paths or ()),
-                    validation_receipt=(
-                        _read_private_object(arguments.validation_receipt.resolve())
-                        if arguments.validation_receipt is not None
-                        else None
-                    ),
-                    evidence_path=_remediation_evidence_path(project, arguments.run_id),
-                )
-            )
-        elif arguments.operation == "record-effectiveness-assessment":
-            assessment = _record_effectiveness_assessment(
-                project=project,
-                run_id=arguments.run_id,
-                evidence_path=arguments.evidence.resolve(),
-            )
-            payload = {
-                "state": "recorded",
-                "run_id": assessment.run_id,
-                "assessment_digest": assessment.content_digest,
-                "assurance_passed": assessment.assurance_passed,
-                "qualification_authority": False,
-                "execution_authority": False,
-            }
-        elif arguments.operation == "compose-effectiveness-assessment":
-            run = read_private_run(_run_path(project, arguments.run_id))
-            if (
-                run.effectiveness_schema_version != "2.0.0"
-                or run.measurement_attempts != 1
-                or run.locale is None
-            ):
-                raise ValueError("effectiveness_assessment_requires_measured_v2_run")
-            assessment = compose_assessment(
-                run_id=run.run_id,
-                case_id=run.case_id,
-                locale=run.locale,
-                answer_gate=_read_private_object(arguments.answer_gate.resolve()),
-                browser_evidence=_read_private_object(arguments.browser_evidence.resolve()),
-            )
-            write_assessment(_assessment_path(project, run.run_id), assessment)
-            payload = {
-                "state": "recorded",
-                "run_id": assessment.run_id,
-                "assessment_digest": assessment.content_digest,
-                "assurance_passed": assessment.assurance_passed,
-                "qualification_authority": False,
-                "execution_authority": False,
-            }
-        elif arguments.operation == "compare-effectiveness":
-            payload = compare_and_record_v2(
-                project=project,
-                baseline_path=_run_path(project, arguments.baseline_run),
-                holdout_path=_run_path(project, arguments.holdout_run),
-                baseline_assessment_path=_assessment_path(project, arguments.baseline_run),
-                holdout_assessment_path=_assessment_path(project, arguments.holdout_run),
-                remediation_path=_remediation_evidence_path(project, arguments.baseline_run),
-                policy_path=(project / arguments.policy).resolve(),
-                ledger_path=_state_root(project) / _EFFECTIVENESS_LEDGER,
-            )
-        elif arguments.operation == "bind-holdout":
-            revision, dirty = _git_snapshot(project)
-            requested_revision = git_revision(project, arguments.revision)
-            if arguments.revision == "HEAD" and requested_revision != revision:
-                raise ValueError("holdout_revision_drift")
-            payload = _summary(
-                bind_holdout_revision(
-                    project=project,
-                    baseline_path=_run_path(project, arguments.baseline_run),
-                    holdout_path=_run_path(project, arguments.holdout_run),
-                    holdout_lock_path=_run_lock_path(project, arguments.holdout_run),
-                    revision=requested_revision,
-                    worktree_dirty=dirty,
-                )
-            )
-        elif arguments.operation == "effectiveness":
-            payload = effectiveness_report_v2(
-                project=project,
-                runs_root=_state_root(project) / _RUNS_DIRECTORY,
-                assessments_root=(_state_root(project) / _EFFECTIVENESS_ASSESSMENTS_DIRECTORY),
-                ledger_path=_state_root(project) / _EFFECTIVENESS_LEDGER,
-                policy_path=(project / arguments.policy).resolve(),
-                preflight_holds_path=_state_root(project) / "preflight-holds.jsonl",
-            )
-        else:
-            run = read_private_run(_run_path(project, arguments.run_id))
-            payload = _summary(run)
-    except (
-        AksSeriesUnavailableError,
-        OSError,
-        ValueError,
-        subprocess.CalledProcessError,
-    ) as error:
-        payload = {"state": "held", "reason": _bounded_reason(error)}
-    print(json.dumps(payload, ensure_ascii=True, indent=2, sort_keys=True))
-    return 0
-
-
-__all__ = ["main"]
+        if path.exists() or path.is_symlink():
+            if read_assessment(path) != assessment:
+                raise ValueError("effectiveness_assessment_conflict")
+            return
+        write_assessment(path, assessment)

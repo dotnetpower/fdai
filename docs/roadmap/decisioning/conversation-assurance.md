@@ -70,9 +70,11 @@ Effectiveness schema v2 also freezes cohort, locale, challenge family, objective
 T2 expectation, readiness digest, blind pair-custody receipt, and authoritative base ref before
 measurement. An immutable assessment joins the canonical ten-rubric answer gate to the observed
 model and prompt profile, evidence snapshot, hard-zero count, verification state, latency, model
-calls, and cost. Repair attribution accepts only declared task-owned paths and a passing
+calls, and cost, and binds those observations to the exact question fingerprint, measurement
+revision, and trace receipt. Repair attribution accepts only declared task-owned paths and a passing
 content-free validation receipt. Cohort reporting excludes legacy runs, deduplicates each pair,
-requires English and Korean floors, applies the predeclared 95% Wilson lower bound, permits no more
+requires English and Korean floors, rejects gains below the predeclared pair effect size, applies
+the predeclared 95% Wilson lower bound, permits no more
 than the configured regressions, and enforces environment, latency, call, and cost ceilings. A
 regression stops the candidate and marks rollback as required; this local record neither performs
 nor authorizes rollback. Passing the development effectiveness threshold grants no qualification,
