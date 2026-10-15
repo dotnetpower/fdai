@@ -23,8 +23,11 @@ FinOps control loop without creating a second ontology, agent organization, or e
 > implemented. The planner now includes five reviewed service-family profiles, complete-metric
 > checks, bounded coupled-target membership/locking/rollback contracts, and expiring scoped human
 > attestations after bounded evidence recovery. Every candidate still grants no authority and routes
-> only to the existing safety-check path. Pantheon case composition, approval/execution integration,
-> and a live settled efficiency cohort remain open.
+> only to the existing safety-check path. A pure Njord candidate composer now binds eligible
+> coupled right-size plans to the existing owner-authenticated cross-vertical contract with exact
+> target, profile, candidate, freshness, and objective-effect lineage. Runtime Njord publication,
+> complete Freyr/Forseti/Odin case assembly, approval/execution integration, and a live settled
+> efficiency cohort remain open.
 
 ## Design at a glance
 

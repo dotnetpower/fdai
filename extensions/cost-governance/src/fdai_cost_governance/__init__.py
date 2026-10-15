@@ -40,6 +40,7 @@ from fdai_cost_governance.optimization import (
     default_service_family_profiles,
     evaluate_optimization_attestation,
 )
+from fdai_cost_governance.pantheon_composition import compose_njord_optimization_candidate
 from fdai_cost_governance.parity import (
     ApprovedParityDifference,
     CostGovernanceParityHarness,
@@ -142,6 +143,7 @@ __all__ = [
     "ServiceFamilyProfile",
     "__version__",
     "build_lifecycle_receipt",
+    "compose_njord_optimization_candidate",
     "build_optimization_clarification",
     "build_cost_governance_bundle",
     "load_package_resources",

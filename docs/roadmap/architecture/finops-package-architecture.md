@@ -22,8 +22,12 @@ domain code and assets. It does not create another control plane or move authori
 > package-owned catalog assets, gated Operator and Console projections, and local W0-W7 validation
 > mechanics. The package also exposes deterministic optimization contracts with five reviewed
 > service-family profiles, single-resource and bounded coupled-target planning, and expiring scoped
-> clarification attestations. Unqualified evidence fails closed and every candidate remains without
-> approval or execution authority. Operator disclosure can omit resource recommendations when the effective granularity or identity policy disallows them. The restricted projection records amount and recommendation suppression without requiring its recommendation count to match the source count. The shared Console catalog-source scanner resolves the imported `t` binding rather than unrelated formatting imports. It and the panel-registry scanner are repository validation only; a non-FinOps component or label change does not
+> clarification attestations. A pure package composer maps eligible coupled right-size plans to the
+> existing Njord-owned cross-vertical candidate contract while preserving exact target, profile,
+> candidate, freshness, and objective-effect lineage. It cannot publish as Njord or grant approval
+> or execution authority; runtime publication and complete Freyr/Forseti/Odin case assembly remain
+> open. Unqualified evidence fails closed and every candidate remains without approval or execution
+> authority. Operator disclosure can omit resource recommendations when the effective granularity or identity policy disallows them. The restricted projection records amount and recommendation suppression without requiring its recommendation count to match the source count. The shared Console catalog-source scanner resolves the imported `t` binding rather than unrelated formatting imports. It and the panel-registry scanner are repository validation only; a non-FinOps component or label change does not
 > enter the Cost Governance package, activation state, or authority. Shared Operator composition may supervise unrelated event-bus workers, but they cannot
 > activate, configure, publish, or change Cost Governance through conversation fallback streams.
 > The outbox lifecycle facade also exposes the unrelated Incident intervention worker. Its
