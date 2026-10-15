@@ -6,6 +6,7 @@ import hashlib
 import json
 from collections import Counter
 from collections.abc import Mapping, Sequence
+from datetime import datetime
 from typing import Any, Protocol
 
 from fdai_service_contracts.baseline_evaluation import (
@@ -67,6 +68,18 @@ def _promotion_gate_payload(
             )
         action_types.add(action_type)
         mode_record = _promotion_mode_record(modes.get(action_type))
+        capability_recall = mode_record["capability_recall"]
+        if (
+            isinstance(capability_recall, Mapping)
+            and capability_recall.get("action_type") != action_type
+        ):
+            raise HTTPException(
+                status_code=503,
+                detail="authoritative ActionType promotion state is malformed",
+            )
+        recall_active = (
+            isinstance(capability_recall, Mapping) and capability_recall.get("active") is True
+        )
         rows.append(
             {
                 **value,
@@ -76,9 +89,16 @@ def _promotion_gate_payload(
                 ),
                 "promotion_kind": mode_record["promotion_kind"],
                 "operator_override": mode_record["operator_override"],
+                "capability_recall": capability_recall,
+                "ready": value.get("ready") is True and not recall_active,
             }
         )
-    return {**stored, "rows": rows}
+    return {
+        **stored,
+        "rows": rows,
+        "ready_count": sum(row["ready"] is True for row in rows),
+        "blocked_count": sum(row["ready"] is not True for row in rows),
+    }
 
 
 def _promotion_mode_record(value: object) -> dict[str, object]:
@@ -87,6 +107,7 @@ def _promotion_mode_record(value: object) -> dict[str, object]:
             "mode": "shadow",
             "promotion_kind": "gate_evidence",
             "operator_override": None,
+            "capability_recall": None,
         }
     if isinstance(value, str):
         if value not in {"shadow", "enforce"}:
@@ -98,6 +119,7 @@ def _promotion_mode_record(value: object) -> dict[str, object]:
             "mode": value,
             "promotion_kind": "gate_evidence",
             "operator_override": None,
+            "capability_recall": None,
         }
     if not isinstance(value, Mapping):
         raise HTTPException(
@@ -126,11 +148,63 @@ def _promotion_mode_record(value: object) -> dict[str, object]:
             "override_recorded_at": value.get("override_recorded_at"),
             "safeguard_proof_source": value.get("safeguard_proof_source", "operator_attested"),
         }
+    capability_recall = _capability_recall(value.get("capability_recall"))
+    if capability_recall is not None and capability_recall["active"] is True:
+        mode = "shadow"
     return {
         "mode": mode,
         "promotion_kind": promotion_kind,
         "operator_override": override,
+        "capability_recall": capability_recall,
     }
+
+
+def _capability_recall(value: object) -> dict[str, object] | None:
+    if value is None:
+        return None
+    if not isinstance(value, Mapping):
+        raise HTTPException(
+            status_code=503,
+            detail="authoritative ActionType promotion state is malformed",
+        )
+    action_type = value.get("action_type")
+    active = value.get("active")
+    reason = value.get("reason")
+    recalled_at = value.get("recalled_at")
+    lifted_at = value.get("lifted_at")
+    if (
+        not isinstance(action_type, str)
+        or not action_type
+        or not isinstance(active, bool)
+        or not isinstance(reason, str)
+        or not reason
+        or len(reason) > 512
+        or not isinstance(recalled_at, str)
+        or not recalled_at
+        or (lifted_at is not None and not isinstance(lifted_at, str))
+        or not _is_aware_iso_timestamp(recalled_at)
+        or (lifted_at is not None and not _is_aware_iso_timestamp(lifted_at))
+        or active is not (lifted_at is None)
+    ):
+        raise HTTPException(
+            status_code=503,
+            detail="authoritative ActionType promotion state is malformed",
+        )
+    return {
+        "action_type": action_type,
+        "active": active,
+        "reason": reason,
+        "recalled_at": recalled_at,
+        "lifted_at": lifted_at,
+    }
+
+
+def _is_aware_iso_timestamp(value: str) -> bool:
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return False
+    return parsed.tzinfo is not None
 
 
 def _rule_catalog_payload(

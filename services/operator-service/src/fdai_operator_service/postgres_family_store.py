@@ -629,6 +629,7 @@ class PostgresFamilyStore:
             modes[action_type] = {
                 "mode": mode,
                 "promotion_kind": promotion_kind,
+                "capability_recall": None,
                 "gate_status": value.get("gate_status"),
                 "gate_status_source": value.get("gate_status_source", "operator_attested"),
                 "gate_evidence_digest": value.get("gate_evidence_digest"),
@@ -641,6 +642,80 @@ class PostgresFamilyStore:
                     "operator_attested",
                 ),
             }
+        recall_rows = await self._fetch_all(
+            "SELECT value FROM state_kv WHERE key LIKE %(key_pattern)s ESCAPE '\\' "
+            "ORDER BY key LIMIT 1001",
+            {"key_pattern": "capability\\_recall:%"},
+        )
+        if len(recall_rows) > 1000:
+            raise PostgresFamilyStoreUnavailable(
+                "authoritative capability recall state exceeds its bound"
+            )
+        for row in recall_rows:
+            value = _json_object(row.get("value"), label="capability_recall")
+            action_type = value.get("action_type")
+            reason = value.get("reason")
+            recalled_at = value.get("recalled_at")
+            lifted_at = value.get("lifted_at")
+            if (
+                value.get("schema_version") != "1.0.0"
+                or not isinstance(action_type, str)
+                or not action_type
+                or len(action_type) > 256
+                or not isinstance(reason, str)
+                or not reason
+                or len(reason) > 512
+                or not isinstance(recalled_at, str)
+                or not recalled_at
+                or (lifted_at is not None and not isinstance(lifted_at, str))
+            ):
+                raise PostgresFamilyStoreUnavailable(
+                    "authoritative capability recall state is malformed"
+                )
+            try:
+                recall_times = [datetime.fromisoformat(recalled_at.replace("Z", "+00:00"))]
+                if lifted_at is not None:
+                    recall_times.append(datetime.fromisoformat(lifted_at.replace("Z", "+00:00")))
+            except ValueError as exc:
+                raise PostgresFamilyStoreUnavailable(
+                    "authoritative capability recall state is malformed"
+                ) from exc
+            if any(value.tzinfo is None for value in recall_times):
+                raise PostgresFamilyStoreUnavailable(
+                    "authoritative capability recall state is malformed"
+                )
+            recall = {
+                "action_type": action_type,
+                "active": lifted_at is None,
+                "reason": reason,
+                "recalled_at": recalled_at,
+                "lifted_at": lifted_at,
+            }
+            stored_mode_record = modes.get(action_type)
+            if stored_mode_record is None:
+                mode_record: dict[str, object] = {
+                    "mode": "shadow",
+                    "promotion_kind": "gate_evidence",
+                    "capability_recall": None,
+                    "gate_status": None,
+                    "gate_status_source": "operator_attested",
+                    "gate_evidence_digest": None,
+                    "approval_receipt_digest": None,
+                    "operator_principal": None,
+                    "override_reason": None,
+                    "override_recorded_at": None,
+                    "safeguard_proof_source": "operator_attested",
+                }
+            elif isinstance(stored_mode_record, Mapping):
+                mode_record = dict(stored_mode_record)
+            else:
+                raise PostgresFamilyStoreUnavailable(
+                    "authoritative ActionType promotion state is malformed"
+                )
+            if recall["active"]:
+                mode_record["mode"] = "shadow"
+            mode_record["capability_recall"] = recall
+            modes[action_type] = mode_record
         return modes
 
     async def read_wara_catalog(self) -> dict[str, object]:

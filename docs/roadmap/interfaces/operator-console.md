@@ -35,7 +35,9 @@ Controls detail lists each framework requirement's server-owned limitation codes
 missing from the active Rule set, in readable English and Korean.
 The Promotion gates view joins the measured readiness projection with the durable promotion registry
 and marks `operator_override` modes, operator-attested gate snapshots, and their read-only authority
-source without granting approval or execution authority.
+source without granting approval or execution authority. It also joins the separate durable
+`capability_recall:` record, validates the ActionType identity, forces an active recall to `shadow`,
+removes that row from promotion-ready counts, and displays the bounded recall reason.
 The Governance Capability catalog is a read-only directory of declared FDAI functions. Selecting
 any non-interactive part of a row opens an adjacent detail panel, while the capability id remains an
 explicit keyboard button. The master list keeps only identity, category, side-effect class, and

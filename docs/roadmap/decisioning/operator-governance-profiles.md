@@ -14,6 +14,8 @@ administration in FDAI Console.
 > the single-operator standing authorization, the `governance` override-promotion ActionType path,
 > `promotion_kind`, the never-raising operator policy input, the `policy-administration` add-on,
 > the Operator policy-revision route, and Mimir's validation and activation path are implemented.
+> Operator and Console promotion views preserve active capability recalls, force their effective
+> mode to `shadow`, and exclude them from promotion-ready counts.
 > Console policy-authoring UI remains planned. The
 > [implementation ledger](../../roadmap-implementation/decisioning/operator-governance-profiles.md)
 > tracks delivery. [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance.md)
@@ -144,6 +146,8 @@ override follows the profile's governance quorum.
   per-execution check still apply.
 - **Precedence:** Automatic regression demotion and a vendor capability recall override the
   promotion. A recalled capability can't be promoted again until a later Release lifts the recall.
+  The Operator projection reads the separate durable recall record, validates its ActionType
+  identity, and the Console shows the active recall and reason beside the forced `shadow` mode.
 - **Evidence:** An override receipt never counts as promotion evidence for another installation,
   for upstream claims, or for production readiness.
 
