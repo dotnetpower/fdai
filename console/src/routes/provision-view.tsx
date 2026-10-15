@@ -23,6 +23,22 @@ interface Props {
 
 const PROVISION_VIEWS: readonly ProvisionViewId[] = ["stages", "readiness", "resources"];
 
+/** Distinguish a provisioning run from inventory-only or keepalive stream events. */
+export function hasRecordedProvisionRun(state: ProvisionState): boolean {
+  return state.runId !== null
+    || state.attempt !== null
+    || state.runState !== null
+    || state.currentStage !== null
+    || state.stagesTotal !== null
+    || state.stages.length > 0
+    || state.recent.length > 0
+    || state.fraction > 0
+    || state.waiting !== null
+    || state.failed !== null
+    || state.cancelled
+    || state.ready;
+}
+
 /** Resolve keyboard movement within the three-tab provisioning evidence workspace. */
 export function nextProvisionView(
   current: ProvisionViewId,
@@ -88,7 +104,7 @@ export function ProvisionView({
           body={t("provision.unavailable")}
           detail={source.reason}
         />
-      ) : !state.observed ? (
+      ) : !hasRecordedProvisionRun(state) ? (
         <ProvisionNotice
           heading={visibleStreamError ? t("provision.streamErrorTitle") : t("provision.noRunTitle")}
           body={visibleStreamError ?? t("provision.notObserved")}

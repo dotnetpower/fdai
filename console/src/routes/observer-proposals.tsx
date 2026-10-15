@@ -102,7 +102,13 @@ export function ObserverProposals({ client, dataMode }: { readonly client: Opera
       <EvidenceRefresh loading={state.status === "loading"} onRefresh={() => { void load(); }} />
     </header>
     <AsyncBoundary state={state} resourceLabel={t("observerProposals.title")}>
-      {(items) => items.length === 0 ? <p>{t("observerProposals.empty")}</p> : <>{items.map((item) => {
+      {(items) => items.length === 0 ? (
+        <section class="observer-proposals-empty" role="status">
+          <h3>{t("observerProposals.emptyTitle")}</h3>
+          <p>{t("observerProposals.emptyDescription")}</p>
+          <p class="observer-proposals-empty-source">{t("observerProposals.sourceDescription")}</p>
+        </section>
+      ) : <>{items.map((item) => {
         const current = item.expiresAt > now && item.status !== "unavailable";
         return <details class="observer-proposal" key={item.target}>
           <summary><strong>{item.target}</strong><span>{t(`observerProposals.${current ? item.status : "unavailable"}`)}</span></summary>

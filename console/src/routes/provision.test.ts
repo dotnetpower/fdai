@@ -2,7 +2,11 @@ import { describe, expect, test } from "vitest";
 import type { ReadDataSourcesPayload } from "../api-data-sources";
 import type { ProvisionEvent } from "../hooks/use-provision-stream";
 import { INITIAL, provisionSourceState, reducer, safeHttpUrl } from "./provision";
-import { nextProvisionView, provisionStreamError } from "./provision-view";
+import {
+  hasRecordedProvisionRun,
+  nextProvisionView,
+  provisionStreamError,
+} from "./provision-view";
 
 /**
  * Provision route hardening regressions.
@@ -87,6 +91,19 @@ describe("provision evidence tabs", () => {
     expect(provisionStreamError("SSE connection closed")).toBeNull();
     expect(provisionStreamError("SSE endpoint returned HTTP 503"))
       .toBe("SSE endpoint returned HTTP 503");
+  });
+
+  test("does not present inventory-only activity as a provisioning run", () => {
+    expect(hasRecordedProvisionRun({
+      ...INITIAL,
+      observed: true,
+      inventoryRunId: "inventory.current",
+      lastProgressAt: "2026-10-15T00:00:00Z",
+    })).toBe(false);
+    expect(hasRecordedProvisionRun({ ...INITIAL, observed: true, runId: "run.current" }))
+      .toBe(true);
+    expect(hasRecordedProvisionRun({ ...INITIAL, observed: true, fraction: 0.1 }))
+      .toBe(true);
   });
 });
 
