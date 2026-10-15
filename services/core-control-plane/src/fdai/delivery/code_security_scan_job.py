@@ -329,16 +329,27 @@ async def run_scan_job(
                 continue
             elif "java" in rule.languages and not _has_java_source(source.path):
                 continue
+            elif "java" in rule.languages and java_compiler is None:
+                observed[ANALYSIS_PRODUCER] = False
+                limits.append(f"owned analysis {rule.rule_id} has no compiler binding")
+                continue
             elif "java" in rule.languages:
-                result = await asyncio.to_thread(
-                    analyze_java_repository,
-                    source.path,
-                    revision=revision,
-                    build_context_digest=build_context_digest,
-                    framework_model_digest=rule.digest(),
-                    rule=rule,
-                    compiler=java_compiler,
-                )
+                try:
+                    result = await asyncio.to_thread(
+                        analyze_java_repository,
+                        source.path,
+                        revision=revision,
+                        build_context_digest=build_context_digest,
+                        framework_model_digest=rule.digest(),
+                        rule=rule,
+                        compiler=java_compiler,
+                    )
+                except ValueError as exc:
+                    observed[ANALYSIS_PRODUCER] = False
+                    limits.append(
+                        f"owned analysis {rule.rule_id} unavailable: {type(exc).__name__}"
+                    )
+                    continue
                 if result is None:
                     continue
             elif "csharp" in rule.languages and not _has_csharp_source(source.path):
@@ -379,6 +390,7 @@ async def run_scan_job(
                         revision=revision,
                         source_roots=(str(source.path),),
                         producer=ANALYSIS_PRODUCER,
+                        trusted_analysis_evidence=True,
                     ),
                 )
             )

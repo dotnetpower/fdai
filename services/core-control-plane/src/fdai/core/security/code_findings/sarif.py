@@ -81,6 +81,8 @@ class SarifIngestContext:
     """Catalog producer name when FDAI ran the scanner itself. It replaces the tool's
     self-reported driver name, which varies by edition (``Opengrep OSS``) and is shared across
     modes (two Trivy scanners), so coverage receipts bind to the scanner that actually ran."""
+    trusted_analysis_evidence: bool = False
+    """Interpret FDAI graph/path metadata only for SARIF rendered inside the owned scan job."""
 
     def __post_init__(self) -> None:
         if _REVISION.fullmatch(self.revision) is None:
@@ -376,7 +378,9 @@ def _occurrence(
             (clean_text(key, 64), clean_text(value, 128))
             for key, value in list(_as_map(result.get("partialFingerprints")).items())[:8]
         ),
-        analysis_evidence=_analysis_evidence(props, limits),
+        analysis_evidence=(
+            _analysis_evidence(props, limits) if ctx.trusted_analysis_evidence else None
+        ),
     )
 
 
@@ -389,7 +393,9 @@ def _flow(result: Mapping[str, object], ctx: SarifIngestContext) -> tuple[FlowSt
                 record = _as_map(step)
                 path, start, end = _physical(record.get("location"), ctx)
                 if path is not None:
-                    properties = _as_map(record.get("properties"))
+                    properties = (
+                        _as_map(record.get("properties")) if ctx.trusted_analysis_evidence else {}
+                    )
                     role = clean_text(properties.get("fdaiRole"), 16)
                     node_id = clean_text(properties.get("fdaiNodeId"), limits.max_identifier)
                     raw_context = properties.get("fdaiCallContext")

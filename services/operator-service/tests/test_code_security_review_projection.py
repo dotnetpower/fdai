@@ -669,6 +669,50 @@ def test_issue_projection_preserves_full_owned_analysis_path_evidence() -> None:
     assert issue["analysis_evidence"] == evidence
 
 
+def test_issue_projection_rejects_malformed_analysis_evidence() -> None:
+    review = _row(_package())["value"]
+    digest = review["package"]["review_digest"]
+    sarif = json.dumps(
+        {
+            "version": "2.1.0",
+            "runs": [
+                {
+                    "results": [
+                        {
+                            "properties": {
+                                "issue_id": "FDAI-SEC-0123456789ab",
+                                "analysis_evidence": {"path_id": "unbound"},
+                            }
+                        }
+                    ]
+                }
+            ],
+        }
+    )
+
+    projected = code_security_issues_projection(
+        repository_alias="example-service",
+        revision=_REVISION,
+        review=review,
+        issues_row={"review_digest": digest, "issues": [_summary()], "truncated": False},
+        artifacts_row={
+            "kind": "code-security-review-artifacts",
+            "schema_version": "1.4.0",
+            "repository_alias": "example-service",
+            "revision": _REVISION,
+            "review_digest": digest,
+            "recorded_at": "2026-10-15T00:00:00+00:00",
+            "html": "<!doctype html><title>report</title>",
+            "sarif": sarif,
+        },
+    )
+
+    assert {item["reason_code"] for item in projected["gaps"]} >= {
+        "code_security_artifacts_malformed"
+    }
+    assert projected["artifacts"]["mode"] == "summary"  # type: ignore[index]
+
+
 def test_missing_full_artifacts_fall_back_to_bounded_summary_views() -> None:
     review = _row(_package())["value"]
     result = code_security_issues_projection(

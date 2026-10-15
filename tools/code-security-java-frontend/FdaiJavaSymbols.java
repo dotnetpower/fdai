@@ -53,11 +53,24 @@ public final class FdaiJavaSymbols {
     }
 
     public static void main(String[] args) throws IOException {
-        if (args.length < 2) throw new IllegalArgumentException("root and source files are required");
+        if (args.length != 3 || !args[1].equals("--files-from")) {
+            throw new IllegalArgumentException("root and --files-from manifest are required");
+        }
         Path root = Path.of(args[0]).toRealPath(LinkOption.NOFOLLOW_LINKS);
         List<Path> sources = new ArrayList<>();
-        for (int index = 1; index < args.length; index++) {
-            Path source = root.resolve(args[index]).normalize();
+        Path manifest = Path.of(args[2]).toRealPath(LinkOption.NOFOLLOW_LINKS);
+        if (!Files.isRegularFile(manifest) || Files.size(manifest) > 2_000_000) {
+            throw new IllegalArgumentException("source manifest is not a bounded regular file");
+        }
+        List<String> requested = Files.readAllLines(manifest);
+        if (requested.isEmpty() || requested.size() > 2_000) {
+            throw new IllegalArgumentException("source manifest count is outside bounds");
+        }
+        for (String relative : requested) {
+            if (relative.length() > 1_024 || relative.indexOf('\n') >= 0 || relative.indexOf('\r') >= 0) {
+                throw new IllegalArgumentException("source manifest path is outside bounds");
+            }
+            Path source = root.resolve(relative).normalize();
             if (!source.startsWith(root) || Files.isSymbolicLink(source) || !Files.isRegularFile(source)) {
                 throw new IllegalArgumentException("source escapes root or is not a regular file");
             }

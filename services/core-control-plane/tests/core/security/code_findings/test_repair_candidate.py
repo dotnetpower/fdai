@@ -17,7 +17,12 @@ from fdai.core.security.code_findings.repair_candidate import (
     build_repair_candidate_request,
     validate_repair_candidate,
 )
-from fdai.core.security.code_findings.result_import import ClaimStatus, ValidationState
+from fdai.core.security.code_findings.result_import import (
+    ClaimStatus,
+    IssueClaim,
+    NextStep,
+    ValidationState,
+)
 from fdai.core.security.code_findings.sarif import SarifIngestContext, ingest_sarif
 from fdai.core.security.code_findings.verification import FixVerdict, FixVerification
 from fdai.rule_catalog.code_security_analysis import load_analysis_rules
@@ -50,7 +55,12 @@ def _issue(tmp_path: Path):  # type: ignore[no-untyped-def]
     )
     ingested = ingest_sarif(
         render_analysis_sarif(analysis, rule),
-        SarifIngestContext(lane=Lane.DETERMINISTIC, revision=REVISION, producer=PRODUCER),
+        SarifIngestContext(
+            lane=Lane.DETERMINISTIC,
+            revision=REVISION,
+            producer=PRODUCER,
+            trusted_analysis_evidence=True,
+        ),
     )
     return build_issues(
         ingested.occurrences,
@@ -80,12 +90,22 @@ def _candidate(request):  # type: ignore[no-untyped-def]
             "-    return cursor.execute('SELECT ' + request.args.get('q'))\n"
             "+    return cursor.execute('SELECT WHERE id = ?', (request.args.get('q'),))\n"
         ),
-        test_validation=ValidationState.TESTS_PASSED,
     )
 
 
 def _verification(issue_id: str) -> FixVerification:
     return FixVerification(issue_id, ClaimStatus.FIXED_CLAIMED, FixVerdict.FIXED_VERIFIED)
+
+
+def _claim(issue_id: str, validation: ValidationState = ValidationState.TESTS_PASSED) -> IssueClaim:
+    return IssueClaim(
+        issue_id,
+        ClaimStatus.FIXED_CLAIMED,
+        validation,
+        (FIXED_REVISION,),
+        NextStep.RESCAN_REQUIRED,
+        "isolated tests",
+    )
 
 
 def test_candidate_requires_all_independent_gates(tmp_path: Path) -> None:
@@ -98,6 +118,7 @@ def test_candidate_requires_all_independent_gates(tmp_path: Path) -> None:
         request,
         _candidate(request),
         policy=_policy(),
+        validation_claim=_claim(issue.issue_id),
         verification=_verification(issue.issue_id),
         rescan_revision=FIXED_REVISION,
         displayed_issue=issue,
@@ -117,13 +138,15 @@ def test_candidate_validation_fails_closed_for_each_missing_gate(tmp_path: Path)
     cases = (
         (
             replace(candidate, execution_authority=True),
+            _claim(issue.issue_id),
             _verification(issue.issue_id),
             FIXED_REVISION,
             issue,
             "candidate_requests_execution_authority",
         ),
         (
-            replace(candidate, test_validation=ValidationState.TESTS_FAILED),
+            candidate,
+            _claim(issue.issue_id, ValidationState.TESTS_FAILED),
             _verification(issue.issue_id),
             FIXED_REVISION,
             issue,
@@ -131,6 +154,7 @@ def test_candidate_validation_fails_closed_for_each_missing_gate(tmp_path: Path)
         ),
         (
             candidate,
+            _claim(issue.issue_id),
             FixVerification(issue.issue_id, ClaimStatus.FIXED_CLAIMED, FixVerdict.STILL_PRESENT),
             FIXED_REVISION,
             issue,
@@ -138,6 +162,7 @@ def test_candidate_validation_fails_closed_for_each_missing_gate(tmp_path: Path)
         ),
         (
             candidate,
+            _claim(issue.issue_id),
             _verification(issue.issue_id),
             "d" * 40,
             issue,
@@ -145,6 +170,7 @@ def test_candidate_validation_fails_closed_for_each_missing_gate(tmp_path: Path)
         ),
         (
             candidate,
+            _claim(issue.issue_id),
             _verification(issue.issue_id),
             FIXED_REVISION,
             replace(
@@ -155,17 +181,19 @@ def test_candidate_validation_fails_closed_for_each_missing_gate(tmp_path: Path)
         ),
         (
             replace(candidate, unified_diff=candidate.unified_diff.replace("app.py", "other.py")),
+            _claim(issue.issue_id),
             _verification(issue.issue_id),
             FIXED_REVISION,
             issue,
             "candidate_diff_rejected",
         ),
     )
-    for changed, verification, rescan_revision, displayed, expected in cases:
+    for changed, claim, verification, rescan_revision, displayed, expected in cases:
         result = validate_repair_candidate(
             request,
             changed,
             policy=_policy(),
+            validation_claim=claim,
             verification=verification,
             rescan_revision=rescan_revision,
             displayed_issue=displayed,

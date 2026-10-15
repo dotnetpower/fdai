@@ -101,13 +101,19 @@ def analyze_typescript_repository(
         "build_context_digest": build_context_digest,
         "framework_model_digest": framework_model_digest,
         "rule": rule.model_dump(mode="json"),
-        "limits": {"max_call_depth": 12, "max_paths": 5000},
+        "limits": {
+            "max_call_depth": 12,
+            "max_paths": 5000,
+            "max_file_bytes": config.max_file_bytes,
+            "max_output_bytes": config.max_output_bytes,
+        },
     }
     try:
         completed = subprocess.run(  # noqa: S603 - exact trusted executable and script paths
             [str(node), str(script)],
             input=json.dumps(request, ensure_ascii=True, separators=(",", ":")).encode("utf-8"),
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
             cwd=base,
             env={"PATH": os.environ.get("PATH", "/usr/bin:/bin")},
             timeout=config.timeout_seconds,
@@ -116,10 +122,7 @@ def analyze_typescript_repository(
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise TypeScriptAnalysisError(f"TypeScript frontend failed: {type(exc).__name__}") from exc
     if completed.returncode != 0:
-        raise TypeScriptAnalysisError(
-            f"TypeScript frontend exited {completed.returncode}: "
-            f"{completed.stderr.decode('utf-8', 'replace')[:300]}"
-        )
+        raise TypeScriptAnalysisError(f"TypeScript frontend exited {completed.returncode}")
     if len(completed.stdout) > config.max_output_bytes:
         raise TypeScriptAnalysisError("TypeScript frontend output exceeds the configured limit")
     try:

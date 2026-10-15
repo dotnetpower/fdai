@@ -178,7 +178,7 @@ def _sarif_issue_details(document: Mapping[str, object]) -> dict[str, dict[str, 
         if not isinstance(issue_id, str) or _ISSUE.fullmatch(issue_id) is None:
             continue
         if issue_id in details:
-            return {}
+            raise _MalformedError
         title = properties.get("title")
         floor, ceiling = properties.get("severity_floor"), properties.get("severity_ceiling")
         rationale = properties.get("severity_rationale")
@@ -202,8 +202,14 @@ def _sarif_issue_details(document: Mapping[str, object]) -> dict[str, dict[str, 
                 ):
                     location = {"path": path, "start_line": line}
         code_context = _code_context(properties.get("code_context"))
-        flow_steps = _flow_steps(properties.get("flow_steps"))
-        analysis_evidence = _analysis_evidence(properties.get("analysis_evidence"))
+        raw_flow = properties.get("flow_steps")
+        flow_steps = _flow_steps(raw_flow)
+        if raw_flow is not None and raw_flow != [] and not flow_steps:
+            raise _MalformedError
+        raw_evidence = properties.get("analysis_evidence")
+        analysis_evidence = _analysis_evidence(raw_evidence)
+        if raw_evidence is not None and analysis_evidence is None:
+            raise _MalformedError
         details[issue_id] = {
             "title": title if isinstance(title, str) and 1 <= len(title) <= 256 else None,
             "severity_floor": floor if floor in _SEVERITIES[:-1] else None,
@@ -635,9 +641,13 @@ def code_security_issues_projection(
         ):
             gaps.append({"reason_code": GAP_ARTIFACTS_MALFORMED})
         else:
-            artifact_details = _sarif_issue_details(sarif_document)
-            coverage_limits = _coverage_limits(sarif_document)
-            artifacts = {"mode": "full", "html": html, "sarif": sarif}
+            try:
+                artifact_details = _sarif_issue_details(sarif_document)
+            except _MalformedError:
+                gaps.append({"reason_code": GAP_ARTIFACTS_MALFORMED})
+            else:
+                coverage_limits = _coverage_limits(sarif_document)
+                artifacts = {"mode": "full", "html": html, "sarif": sarif}
     if artifact_details:
         issues = [{**issue, **artifact_details.get(str(issue["issue_id"]), {})} for issue in issues]
     if artifacts is None:

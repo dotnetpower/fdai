@@ -208,3 +208,16 @@ def test_recorded_weakness_receipts_remain_disaggregated_and_shadow_only() -> No
     assert len(document["receipts"]) == 6
     assert all(item["dev"]["f1"] == item["holdout"]["f1"] == 1.0 for item in document["receipts"])
     assert all(item["promotion_eligible"] is False for item in document["receipts"])
+
+
+def test_package_hardening_receipt_closes_medium_or_higher_findings() -> None:
+    document = json.loads(
+        (CATALOG_ROOT / "evaluation" / "analysis-hardening-packages-0-5-20261015.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert len(document["rounds"]) >= 10
+    assert len({item["lens"] for item in document["rounds"]}) >= 10
+    assert document["final_findings"] == {"critical": 0, "high": 0, "medium": 0, "low": 2}
+    assert document["claims"]["production_promotion"] is False

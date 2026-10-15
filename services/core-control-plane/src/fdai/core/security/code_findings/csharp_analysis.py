@@ -5,12 +5,14 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import stat
 import subprocess
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from fdai.core.security.code_findings.analysis_contracts import (
     AnalysisProvenance,
@@ -28,6 +30,7 @@ from fdai.core.security.code_findings.analysis_contracts import (
 from fdai.core.security.code_findings.analysis_graph_flow import materialize_graph_paths
 
 FRONTEND = "roslyn"
+_Identifier = Annotated[str, Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,255}$")]
 
 
 @dataclass(frozen=True, slots=True)
@@ -57,7 +60,7 @@ class _Step(_Strict):
     path: str = Field(min_length=1, max_length=1_024)
     line: int = Field(ge=1, le=10_000_000)
     name: str = Field(min_length=1, max_length=1_024)
-    context: tuple[str, ...] = Field(max_length=16)
+    context: tuple[_Identifier, ...] = Field(max_length=16)
 
 
 class _Method(_Strict):
@@ -72,7 +75,21 @@ class _Response(_Strict):
     paths: tuple[tuple[_Step, ...], ...] = Field(max_length=1_000)
     methods: tuple[_Method, ...] = Field(max_length=100_000)
     error_count: int = Field(ge=0, le=1_000_000)
-    coverage_limits: tuple[str, ...] = Field(max_length=64)
+    coverage_limits: tuple[_Identifier, ...] = Field(max_length=64)
+
+    @model_validator(mode="after")
+    def _closed_paths(self) -> _Response:
+        for path in self.paths:
+            if not 2 <= len(path) <= 256:
+                raise ValueError("C# path length is outside bounds")
+            if path[0].role != "source" or path[-1].role != "sink":
+                raise ValueError("C# path must run from source to sink")
+            identities = [
+                (step.role, step.path, step.line, step.name, step.context) for step in path
+            ]
+            if len(identities) != len(set(identities)):
+                raise ValueError("C# path repeats a contextual step")
+        return self
 
 
 def _stable_id(*parts: object) -> str:
@@ -105,6 +122,26 @@ def _files(root: Path, config: CSharpCompilerConfig) -> tuple[str, ...]:
     return tuple(files)
 
 
+def _read_source(root: Path, relative: str, limit: int) -> bytes:
+    path = root / relative
+    flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0)
+    try:
+        descriptor = os.open(path, flags)
+    except OSError as exc:
+        raise ValueError("C# source is unavailable or linked") from exc
+    try:
+        metadata = os.fstat(descriptor)
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_size > limit:
+            raise ValueError("C# source is not a bounded regular file")
+        with os.fdopen(descriptor, "rb", closefd=False) as handle:
+            content = handle.read(limit + 1)
+        if len(content) > limit:
+            raise ValueError("C# source exceeds the file byte limit")
+        return content
+    finally:
+        os.close(descriptor)
+
+
 def analyze_csharp_repository(
     root: Path,
     *,
@@ -127,29 +164,37 @@ def analyze_csharp_repository(
     assembly = config.assembly.resolve(strict=True)
     if not dotnet.is_file() or not assembly.is_file() or assembly.is_relative_to(base):
         raise ValueError("C# compiler bindings must be trusted files outside analyzed source")
-    request = {
-        "root": str(base),
-        "files": files,
-        "rule": rule.model_dump(mode="json"),
-        "max_paths": config.max_paths,
-        "max_depth": config.max_depth,
-    }
     try:
-        completed = subprocess.run(  # noqa: S603 - exact trusted executable and assembly paths
-            [str(dotnet), str(assembly)],
-            input=json.dumps(request, ensure_ascii=True, separators=(",", ":")).encode(),
-            capture_output=True,
-            cwd=base,
-            env={
-                "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
-                "DOTNET_CLI_TELEMETRY_OPTOUT": "1",
-                "DOTNET_NOLOGO": "1",
-                "DOTNET_gcServer": "0",
-                "DOTNET_GCHeapHardLimit": "0x40000000",
-            },
-            timeout=config.timeout_seconds,
-            check=False,
-        )
+        with tempfile.TemporaryDirectory(prefix="fdai-csharp-frontend-") as directory:
+            staging = Path(directory) / "source"
+            staging.mkdir()
+            for relative in files:
+                destination = staging / relative
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes(_read_source(base, relative, config.max_file_bytes))
+            request = {
+                "root": str(staging),
+                "files": files,
+                "rule": rule.model_dump(mode="json"),
+                "max_paths": config.max_paths,
+                "max_depth": config.max_depth,
+            }
+            completed = subprocess.run(  # noqa: S603 - trusted executable and assembly paths
+                [str(dotnet), str(assembly)],
+                input=json.dumps(request, ensure_ascii=True, separators=(",", ":")).encode(),
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                cwd=staging,
+                env={
+                    "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
+                    "DOTNET_CLI_TELEMETRY_OPTOUT": "1",
+                    "DOTNET_NOLOGO": "1",
+                    "DOTNET_gcServer": "0",
+                    "DOTNET_GCHeapHardLimit": "0x40000000",
+                },
+                timeout=config.timeout_seconds,
+                check=False,
+            )
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise ValueError(f"C# compiler frontend failed: {type(exc).__name__}") from exc
     if completed.returncode != 0 or len(completed.stdout) > config.max_output_bytes:

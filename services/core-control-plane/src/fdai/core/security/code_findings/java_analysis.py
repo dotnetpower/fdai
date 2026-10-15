@@ -6,6 +6,7 @@ import hashlib
 import os
 import stat
 import subprocess
+import tempfile
 import warnings
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -506,15 +507,35 @@ def _compiler_facts(
     )
     if not files or len(files) > limits.max_files:
         raise ValueError("Java compiler input exceeds the file limit")
+    if any("\n" in path or "\r" in path or len(path) > 1_024 for path in files):
+        raise ValueError("Java compiler input path is outside bounds")
     try:
-        completed = subprocess.run(  # noqa: S603 - exact trusted executable and helper paths
-            [str(java), "--add-modules", "jdk.compiler", str(helper), str(root), *files],
-            capture_output=True,
-            cwd=root,
-            env={"PATH": os.environ.get("PATH", "/usr/bin:/bin")},
-            timeout=config.timeout_seconds,
-            check=False,
-        )
+        with tempfile.TemporaryDirectory(prefix="fdai-java-frontend-") as directory:
+            staging = Path(directory) / "source"
+            staging.mkdir()
+            for relative in files:
+                destination = staging / relative
+                destination.parent.mkdir(parents=True, exist_ok=True)
+                destination.write_bytes(_read_source(root, root / relative, limits.max_file_bytes))
+            manifest = Path(directory) / "sources.txt"
+            manifest.write_text("\n".join(files) + "\n", encoding="utf-8")
+            completed = subprocess.run(  # noqa: S603 - exact trusted executable and helper paths
+                [
+                    str(java),
+                    "--add-modules",
+                    "jdk.compiler",
+                    str(helper),
+                    str(staging),
+                    "--files-from",
+                    str(manifest),
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.DEVNULL,
+                cwd=root,
+                env={"PATH": os.environ.get("PATH", "/usr/bin:/bin")},
+                timeout=config.timeout_seconds,
+                check=False,
+            )
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise ValueError(f"Java compiler frontend failed: {type(exc).__name__}") from exc
     if completed.returncode != 0 or len(completed.stdout) > config.max_output_bytes:

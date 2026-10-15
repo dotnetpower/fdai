@@ -122,3 +122,33 @@ def test_csharp_source_symlink_is_rejected(tmp_path: Path, compiler: CSharpCompi
             rule=_rule(),
             config=compiler,
         )
+
+
+def test_csharp_frontend_rejects_unordered_path_contract(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "App.cs").write_text("class App {}", encoding="utf-8")
+    assembly = tmp_path / "frontend.dll"
+    assembly.write_bytes(b"trusted-placeholder")
+    frontend = tmp_path / "dotnet"
+    frontend.write_text(
+        "#!/usr/bin/env python3\n"
+        "import json\n"
+        "print(json.dumps({"
+        "'schema_version':'1.0.0','compiler_version':'5.0.0','methods':[],"
+        "'error_count':0,'coverage_limits':[],"
+        "'paths':[[{'role':'sink','path':'App.cs','line':1,'name':'sink','context':[]},"
+        "{'role':'source','path':'App.cs','line':1,'name':'source','context':[]}]]}))\n",
+        encoding="utf-8",
+    )
+    frontend.chmod(0o755)
+
+    with pytest.raises(ValueError, match="violates its contract"):
+        analyze_csharp_repository(
+            source,
+            revision=REVISION,
+            build_context_digest=DIGEST,
+            framework_model_digest=_rule().digest(),
+            rule=_rule(),
+            config=CSharpCompilerConfig(dotnet=frontend, assembly=assembly),
+        )

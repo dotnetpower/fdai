@@ -17,6 +17,10 @@ from fdai.core.security.code_findings.csharp_analysis import (
     CSharpAnalysisResult,
     CSharpCompilerConfig,
 )
+from fdai.core.security.code_findings.java_analysis import (
+    JavaCompilerConfig,
+    analyze_java_repository,
+)
 from fdai.core.security.code_findings.typescript_analysis import (
     TypeScriptAnalysisResult,
     TypeScriptFrontendConfig,
@@ -250,7 +254,9 @@ async def test_scan_job_dispatches_typescript_result_to_canonical_review(
     assert result.package["coverage_complete"] is True
 
 
-async def test_scan_job_dispatches_java_result_to_canonical_review(tmp_path: Path) -> None:
+async def test_scan_job_dispatches_java_result_to_canonical_review(
+    tmp_path: Path, monkeypatch
+) -> None:  # type: ignore[no-untyped-def]
     source = tmp_path / "source"
     source.mkdir()
     (source / "Api.java").write_text(
@@ -268,6 +274,12 @@ async def test_scan_job_dispatches_java_result_to_canonical_review(tmp_path: Pat
         if rule.rule_id == "fdai.java.sql-injection"
     )
 
+    def analyze(*args, **kwargs):  # type: ignore[no-untyped-def]
+        kwargs.pop("compiler")
+        return analyze_java_repository(*args, **kwargs)
+
+    monkeypatch.setattr("fdai.delivery.code_security_scan_job.analyze_java_repository", analyze)
+
     result = await run_scan_job(
         ScanJobConfig(
             repository="",
@@ -284,12 +296,49 @@ async def test_scan_job_dispatches_java_result_to_canonical_review(tmp_path: Pat
         acquirer=_Acquirer(source),
         sandbox=BubblewrapScannerSandbox(),
         analysis_rules=rules,
+        java_compiler=JavaCompilerConfig(
+            java=tmp_path / "java",
+            helper=tmp_path / "FdaiJavaSymbols.java",
+        ),
     )
 
     assert len(result.analysis_results) == 1
     assert len(result.issues) == 1
     assert result.issues[0].weakness_class == "sql_injection"
     assert result.package["coverage_complete"] is True
+
+
+async def test_scan_job_marks_java_without_compiler_incomplete(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "Api.java").write_text("class Api {}", encoding="utf-8")
+    rule = next(
+        item
+        for item in load_analysis_rules(CATALOG_ROOT)
+        if item.rule_id == "fdai.java.sql-injection"
+    )
+
+    result = await run_scan_job(
+        ScanJobConfig(
+            repository="",
+            revision="",
+            repository_alias="example-service",
+            work_root=tmp_path / "work",
+            executables={},
+            rules_dir=CATALOG_ROOT / "rules",
+            required_scanners=frozenset(),
+            local_path=source,
+        ),
+        catalog=load_code_security_catalog(CATALOG_ROOT),
+        scanners=load_scanner_catalog(CATALOG_ROOT),
+        acquirer=_Acquirer(source),
+        sandbox=BubblewrapScannerSandbox(),
+        analysis_rules=(rule,),
+    )
+
+    assert result.analysis_results == ()
+    assert result.package["coverage_complete"] is False
+    assert any("has no compiler binding" in item for item in result.coverage_limits)
 
 
 async def test_scan_job_dispatches_csharp_result_to_canonical_review(

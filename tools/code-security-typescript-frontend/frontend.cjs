@@ -72,6 +72,18 @@ function analyze(request) {
   const maxNodes = Math.min(Math.max(request.limits?.max_graph_nodes || 100000, 1), 200000);
   const maxEdges = Math.min(Math.max(request.limits?.max_graph_edges || 200000, 1), 400000);
   const maxStateEntries = Math.min(Math.max(request.limits?.max_state_entries || 10000, 1), 100000);
+  const maxOutputBytes = Math.min(
+    Math.max(request.limits?.max_output_bytes || 20000000, 10000),
+    50000000,
+  );
+  const outputReservationLimit = Math.floor(maxOutputBytes * 0.8);
+  let reservedOutputBytes = 1024;
+  const reserveOutput = (value) => {
+    reservedOutputBytes += Buffer.byteLength(JSON.stringify(value), "utf8") + 64;
+    if (reservedOutputBytes > outputReservationLimit) {
+      throw new Error("analysis output limit exceeded");
+    }
+  };
   const maxFileBytes = Math.min(
     Math.max(request.limits?.max_file_bytes || 1000000, 1000),
     10000000,
@@ -148,6 +160,7 @@ function analyze(request) {
     if (!nodes.has(node.node_id) && nodes.size >= maxNodes) {
       throw new Error("graph node limit exceeded");
     }
+    if (!nodes.has(node.node_id)) reserveOutput(node);
     nodes.set(node.node_id, node);
   };
   const addEdge = (kind, sourceId, targetId, parameterIndex = null, flow = null) => {
@@ -169,6 +182,7 @@ function analyze(request) {
       edge.target_context = flow.target.call_context;
     }
     if (!edges.has(edgeId) && edges.size >= maxEdges) throw new Error("graph edge limit exceeded");
+    if (!edges.has(edgeId)) reserveOutput(edge);
     edges.set(edgeId, edge);
   };
   const resolveSymbol = (node) => {
@@ -385,7 +399,9 @@ function analyze(request) {
               span: loc,
               type_status: "unknown",
             });
-            candidates.push([...value, { node_id: sinkId, role: "sink", span: loc, call_context: context }]);
+            const candidate = [...value, { node_id: sinkId, role: "sink", span: loc, call_context: context }];
+            reserveOutput(candidate);
+            candidates.push(candidate);
           } else if (value) {
             coverage.add("typescript.path-limit");
           }

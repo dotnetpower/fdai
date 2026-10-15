@@ -666,8 +666,13 @@ def test_scan_runner_image_pins_every_tool_and_binds_every_scanner() -> None:
     assert "COPY tools/code-security-typescript-frontend/frontend.cjs" in analysis_runtime
     assert "NODE_PATH=/usr/lib/node_modules" in analysis_runtime
     managed = dockerfile.split(" AS analysis-managed-runtime\n", 1)[1].split("\nFROM ", 1)[0]
+    csharp_builder = dockerfile.split(" AS csharp-frontend-builder\n", 1)[1].split("\nFROM ", 1)[0]
     assert "FdaiJavaSymbols.java" in managed
-    assert "Fdai.CSharp.Frontend.csproj" in managed
+    assert "Fdai.CSharp.Frontend.csproj" in csharp_builder
+    assert "COPY --from=csharp-frontend-builder /out/ /opt/fdai/csharp/" in managed
+    assert "COPY --from=dotnet /usr/lib/dotnet/shared/Microsoft.NETCore.App/" in managed
+    assert "/usr/lib/dotnet/sdk/" not in managed
+    assert "gcc" not in managed and "gcc-c++" not in managed
     assert "FDAI_JAVA_FRONTEND=/opt/fdai/java/FdaiJavaSymbols.java" in managed
     assert "FDAI_CSHARP_FRONTEND=/opt/fdai/csharp/Fdai.CSharp.Frontend.dll" in managed
     dockerignore = (_REPO_ROOT / ".dockerignore").read_text(encoding="utf-8")

@@ -57,7 +57,12 @@ def search():
     raw = render_analysis_sarif(analysis, rule)
     ingested = ingest_sarif(
         raw,
-        SarifIngestContext(lane=Lane.DETERMINISTIC, revision=REVISION, producer=PRODUCER),
+        SarifIngestContext(
+            lane=Lane.DETERMINISTIC,
+            revision=REVISION,
+            producer=PRODUCER,
+            trusted_analysis_evidence=True,
+        ),
     )
     (issue,) = build_issues(
         ingested.occurrences,
@@ -83,6 +88,24 @@ def search():
     assert run.execution_successful is True
     assert run.analyzed_paths == ("app.py",)
 
+    external = ingest_sarif(
+        raw,
+        SarifIngestContext(
+            lane=Lane.EXTERNAL,
+            revision=REVISION,
+            producer="external-sarif",
+        ),
+    )
+    (external_issue,) = build_issues(
+        external.occurrences,
+        catalog(),
+        AnalysisContext(revision=REVISION),
+    )
+    assert external_issue.analysis_evidence is None
+    assert external_issue.code_flow[0].kind == "source"
+    assert external_issue.code_flow[-1].kind == "sink"
+    assert all(step.node_id is None and not step.call_context for step in external_issue.code_flow)
+
 
 def test_incomplete_graph_reports_unsuccessful_sarif_invocation(tmp_path: Path) -> None:
     rule = next(
@@ -101,7 +124,12 @@ def test_incomplete_graph_reports_unsuccessful_sarif_invocation(tmp_path: Path) 
 
     ingested = ingest_sarif(
         render_analysis_sarif(analysis, rule),
-        SarifIngestContext(lane=Lane.DETERMINISTIC, revision=REVISION, producer=PRODUCER),
+        SarifIngestContext(
+            lane=Lane.DETERMINISTIC,
+            revision=REVISION,
+            producer=PRODUCER,
+            trusted_analysis_evidence=True,
+        ),
     )
 
     assert ingested.occurrences == ()
@@ -136,7 +164,12 @@ def test_owned_finding_requires_passing_tests_and_equivalent_clean_rescan(
         )
         ingested = ingest_sarif(
             render_analysis_sarif(analysis, rule),
-            SarifIngestContext(lane=Lane.DETERMINISTIC, revision=revision, producer=PRODUCER),
+            SarifIngestContext(
+                lane=Lane.DETERMINISTIC,
+                revision=revision,
+                producer=PRODUCER,
+                trusted_analysis_evidence=True,
+            ),
         )
         issues = build_issues(
             ingested.occurrences,

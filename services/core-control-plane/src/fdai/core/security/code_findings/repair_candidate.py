@@ -15,7 +15,11 @@ from typing import Literal
 
 from fdai.core.security.code_findings.diff_guard import evaluate_diff
 from fdai.core.security.code_findings.models import CodeSecurityIssue, FlowStep
-from fdai.core.security.code_findings.result_import import ValidationState
+from fdai.core.security.code_findings.result_import import (
+    ClaimStatus,
+    IssueClaim,
+    ValidationState,
+)
 from fdai.core.security.code_findings.verification import FixVerdict, FixVerification
 
 _REVISION = re.compile(r"^[0-9a-f]{40}([0-9a-f]{24})?$")
@@ -54,7 +58,6 @@ class RepairCandidate:
     path_id: str
     path_digest: str
     unified_diff: str
-    test_validation: ValidationState
     execution_authority: bool = False
 
 
@@ -103,6 +106,7 @@ def validate_repair_candidate(
     candidate: RepairCandidate,
     *,
     policy: Mapping[str, object],
+    validation_claim: IssueClaim,
     verification: FixVerification,
     rescan_revision: str,
     displayed_issue: CodeSecurityIssue,
@@ -125,7 +129,12 @@ def validate_repair_candidate(
         or candidate.candidate_revision != rescan_revision
     ):
         reasons.append("candidate_revision_not_rescanned")
-    if candidate.test_validation is not ValidationState.TESTS_PASSED:
+    if (
+        validation_claim.issue_id != request.issue_id
+        or validation_claim.status not in {ClaimStatus.FIXED_CLAIMED, ClaimStatus.MITIGATED_CLAIMED}
+        or validation_claim.validation is not ValidationState.TESTS_PASSED
+        or candidate.candidate_revision not in validation_claim.commits
+    ):
         reasons.append("candidate_tests_not_passed")
     if (
         verification.issue_id != request.issue_id

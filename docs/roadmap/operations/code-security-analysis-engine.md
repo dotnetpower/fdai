@@ -15,9 +15,9 @@ reproducible source-to-sink evidence instead of replacing the scanners that alre
 > production promotion still requires independent evidence recorded in the linked
 > [implementation ledger](../../roadmap-implementation/operations/code-security-analysis-engine.md).
 >
-> **Hardening:** Forty prior critique rounds covered the earlier implemented scope. The version
-> 1.1 contextual flow contract, common traversal, control-flow, alias, and widening work requires
-> a new final campaign before the original plan can be reported complete.
+> **Hardening:** Forty prior critique rounds covered the earlier implemented scope. A new 24-round
+> campaign covers the completed Package 0-5 surface; its final review has no Critical, High, or
+> Medium finding and retains two Low image-size and helper-startup observations.
 >
 > **Authority:** Analysis reads an exact source revision and emits evidence. Heimdall remains the
 > accountable agent for code-security observation. The engine is a mechanical worker and grants no

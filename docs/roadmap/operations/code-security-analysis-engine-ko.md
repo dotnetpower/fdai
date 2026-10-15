@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 분석 엔진
 translation_of: code-security-analysis-engine.md
-translation_source_sha: 3c006daaec5b5431ace45123f8b34bcf742517df
+translation_source_sha: aa553dfb6316d7ad0d2d893c94550acb727d038a
 translation_revised: 2026-10-15
 ---
 
@@ -18,9 +18,9 @@ translation_revised: 2026-10-15
 > 기록하는 독립 근거가 여전히 필요합니다.
 > [구현 원장](../../roadmap-implementation/operations/code-security-analysis-engine.md)을 참조하세요.
 >
-> **하드닝:** 이전 구현 범위에는 독립 비평 40회를 수행했습니다. 버전 1.1 문맥 흐름 계약, 공통
-> 탐색, 제어 흐름, 별칭, 범위 확대 작업은 원래 계획을 완료했다고 보고하기 전에 새 최종 하드닝
-> 캠페인을 거쳐야 합니다.
+> **하드닝:** 이전 구현 범위에는 독립 비평 40회를 수행했습니다. 완료된 패키지 0-5 표면은 새
+> 24회 캠페인으로 검토했으며, 최종 결과에는 Critical, High, Medium 항목이 없고 이미지 크기와
+> 도우미 시작 비용에 관한 Low 관찰 두 건만 남았습니다.
 >
 > **권한:** 분석은 정확한 소스 리비전을 읽고 근거를 만듭니다. Heimdall은 코드 보안 관찰의
 > 책임 에이전트로 유지됩니다. 엔진은 기계적인 워커이며 승인, 저장소 쓰기, 실행, 배포 권한을

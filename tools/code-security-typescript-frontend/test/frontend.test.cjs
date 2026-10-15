@@ -110,6 +110,19 @@ test("graph budget stops oversized analysis before output", () => {
   assert.match(result.stderr, /graph node limit exceeded/);
 });
 
+test("output budget stops graph growth before serialization", () => {
+  const root = fixture();
+  const functions = Array.from(
+    { length: 100 },
+    (_, index) => `export function method${index}(value: string) { return value; }`,
+  ).join("\n");
+  fs.writeFileSync(path.join(root, "app.ts"), functions);
+  const result = run(root, ["app.ts"], { max_output_bytes: 10000 });
+
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /analysis output limit exceeded/);
+});
+
 test("unreachable branch does not produce a path", () => {
   const root = fixture();
   fs.writeFileSync(path.join(root, "app.ts"), `
