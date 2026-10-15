@@ -82,7 +82,15 @@ def operator_cluster() -> Iterator[tuple[Any, str, KubernetesCluster]]:
 
 
 @pytest.fixture
-def reader(operator_cluster: tuple[Any, str, KubernetesCluster]) -> Iterator[httpx.Client]:
+def reader(
+    operator_cluster: tuple[Any, str, KubernetesCluster], request: pytest.FixtureRequest
+) -> Iterator[httpx.Client]:
+    yield from _reader(operator_cluster, request)
+
+
+def _reader(
+    operator_cluster: tuple[Any, str, KubernetesCluster], request: pytest.FixtureRequest
+) -> Iterator[httpx.Client]:
     """Use production JWT verification with an ephemeral, namespace-local public JWKS fixture."""
     core, namespace, _ = operator_cluster
     from kubernetes import client
@@ -97,6 +105,9 @@ def reader(operator_cluster: tuple[Any, str, KubernetesCluster]) -> Iterator[htt
             "data": {"jwks.json": json.dumps({"keys": [public_key]})},
         },
         _request_timeout=10,
+    )
+    request.addfinalizer(
+        lambda: core.delete_namespaced_config_map("validation-jwks", namespace, _request_timeout=10)
     )
     image = os.environ["FDAI_OPERATOR_KIND_IMAGE"]
     client.AppsV1Api(core.api_client).create_namespaced_deployment(
@@ -134,6 +145,11 @@ def reader(operator_cluster: tuple[Any, str, KubernetesCluster]) -> Iterator[htt
         },
         _request_timeout=10,
     )
+    request.addfinalizer(
+        lambda: client.AppsV1Api(core.api_client).delete_namespaced_deployment(
+            "validation-jwks", namespace, _request_timeout=10
+        )
+    )
     core.create_namespaced_service(
         namespace,
         {
@@ -144,6 +160,9 @@ def reader(operator_cluster: tuple[Any, str, KubernetesCluster]) -> Iterator[htt
             },
         },
         _request_timeout=10,
+    )
+    request.addfinalizer(
+        lambda: core.delete_namespaced_service("validation-jwks", namespace, _request_timeout=10)
     )
     now = datetime.now(UTC)
     token = jwt.encode(
@@ -160,15 +179,8 @@ def reader(operator_cluster: tuple[Any, str, KubernetesCluster]) -> Iterator[htt
         algorithm="RS256",
         headers={"kid": "operator-kind"},
     )
-    try:
-        with httpx.Client(headers={"Authorization": f"Bearer {token}"}, timeout=15) as http:
-            yield http
-    finally:
-        client.AppsV1Api(core.api_client).delete_namespaced_deployment(
-            "validation-jwks", namespace, _request_timeout=10
-        )
-        core.delete_namespaced_service("validation-jwks", namespace, _request_timeout=10)
-        core.delete_namespaced_config_map("validation-jwks", namespace, _request_timeout=10)
+    with httpx.Client(headers={"Authorization": f"Bearer {token}"}, timeout=15) as http:
+        yield http
 
 
 class InterruptedApply(BaseException):
@@ -180,7 +192,7 @@ class RecordingCluster:
         self.cluster = cluster
         self.writes: list[tuple[str, str]] = []
         self.crash = False
-        self.verified_jobs = 0
+        self.verified_jobs: set[str] = set()
 
     def apply(self, manifest: Manifest, *, dry_run: bool = False) -> None:
         self.cluster.apply(manifest, dry_run=dry_run)
@@ -195,7 +207,7 @@ class RecordingCluster:
         if kind == "Job" and live is not None:
             conditions = live.get("status", {}).get("conditions", [])
             if any(c.get("type") == "Complete" and c.get("status") == "True" for c in conditions):
-                self.verified_jobs += 1
+                self.verified_jobs.add(name)
         return live
 
     def delete(self, kind: str, name: str) -> None:
@@ -237,6 +249,15 @@ def _request(reader: httpx.Client, namespace: str, path: str) -> dict[str, Any]:
     finally:
         process.terminate()
         process.wait(timeout=10)
+
+
+def _verify_failure_configuration(core: Any, namespace: str) -> None:
+    failure_config = core.read_namespaced_config_map(
+        "operator-config-failure", namespace, _request_timeout=10
+    )
+    assert (failure_config.data or {}).get("FDAI_API_AUDIENCE") == "", (
+        "failure ConfigMap must explicitly contain an empty FDAI_API_AUDIENCE"
+    )
 
 
 def test_real_operator_configuration_update_failure_and_restart(
@@ -357,6 +378,7 @@ def test_real_operator_configuration_update_failure_and_restart(
     assert poll(restarted=True).outcome == "already-reported"
     assert observe("operator-config-v2") == before
 
+    _verify_failure_configuration(core, namespace)
     serve(10, "operator-config-failure")
     result = poll(timeout=45)
     assert (result.outcome, result.reason_code) == ("rolled-back", "health_check_failed")
@@ -410,7 +432,7 @@ def test_real_operator_configuration_update_failure_and_restart(
         assert len(stub.states) == 1
     finally:
         stub.close()
-    assert cluster.verified_jobs >= 4
+    assert len(cluster.verified_jobs) >= 4
     assert store.load().journal is None
     assert {m["kind"] for m in store.load().healthy} == {"Deployment", "Service"}
     assert [r.outcome for _, _, r in harness.hub.reports] == (

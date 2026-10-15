@@ -351,6 +351,11 @@ Deployment write, the harness interrupts the apply boundary and starts two separ
 processes to verify durable journal recovery and replay without another rollout. This models a
 process-loss boundary; it does not send an OS kill signal to the first Agent.
 
+Before failure injection, the test reads the failure ConfigMap and requires an explicitly empty
+audience. It counts distinct completed schema Jobs by name, not repeated observations.
+`tests/test_kind_operator_harness.py` covers these assertions and partial JWKS setup cleanup
+without a cluster; those offline checks are not evidence of a running Operator.
+
 Checks include the running image digest, Deployment configuration, Pod readiness and replacement,
 `/healthz`, an authenticated database-backed `/agents/activity` response, schema Job completion,
 and Agent state, report, and journal readback. Activity may be empty. The Hub remains a signed
