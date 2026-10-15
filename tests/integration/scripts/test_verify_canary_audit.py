@@ -91,7 +91,7 @@ def test_malformed_or_unsettled_audit_fails_closed(
 def test_capture_waits_for_one_row_and_rejects_ambiguous_rows() -> None:
     reads = iter(((), (_entry(),)))
     sleeps: list[float] = []
-    ticks = iter((0.0, 0.0, 1.0))
+    ticks = iter((0.0, 0.0, 1.0, 1.0, 1.0))
 
     receipt = capture_canary_audit(
         config=_config(),
@@ -122,7 +122,7 @@ def test_capture_waits_for_one_row_and_rejects_ambiguous_rows() -> None:
 
 
 def test_capture_rejects_row_returned_after_deadline() -> None:
-    ticks = iter((0.0, 6.0))
+    ticks = iter((0.0, 0.0, 6.0))
 
     with pytest.raises(CanaryAuditVerificationError, match="not observed in time"):
         capture_canary_audit(
@@ -135,6 +135,31 @@ def test_capture_rejects_row_returned_after_deadline() -> None:
             monotonic=lambda: next(ticks),
             clock=lambda: NOW,
         )
+
+
+def test_capture_does_not_start_another_read_after_deadline() -> None:
+    ticks = iter((0.0, 0.0, 4.0, 6.0))
+    reads = 0
+
+    def reader(*_args: object, **_kwargs: object) -> tuple[dict[str, object], ...]:
+        nonlocal reads
+        reads += 1
+        return ()
+
+    with pytest.raises(CanaryAuditVerificationError, match="not observed in time"):
+        capture_canary_audit(
+            config=_config(),
+            slot=SLOT,
+            latency_budget_ms=30_000,
+            timeout_seconds=5,
+            poll_interval_seconds=5,
+            reader=reader,
+            monotonic=lambda: next(ticks),
+            sleeper=lambda _seconds: None,
+            clock=lambda: NOW,
+        )
+
+    assert reads == 1
 
 
 def test_database_config_reports_names_without_secret_values() -> None:

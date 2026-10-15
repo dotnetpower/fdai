@@ -187,6 +187,8 @@ def capture_canary_audit(
     correlation_id = f"canary:{slot}"
     deadline = monotonic() + timeout_seconds
     while True:
+        if monotonic() >= deadline:
+            raise CanaryAuditVerificationError("canary consumed audit was not observed in time")
         rows = reader(config, correlation_id=correlation_id)
         remaining = deadline - monotonic()
         if remaining <= 0:
