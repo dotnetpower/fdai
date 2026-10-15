@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 45372b0400493222274262bb8795f1202979e08d
+translation_source_sha: 1d63cf54d9f7275dc6d56f1e6da463bbf3124204
 translation_revised: 2026-10-15
 ---
 # Hub 관리형 수명 주기
@@ -302,6 +302,16 @@ cell이 다른 고객의 cell에 영향을 줄 수 없습니다.
 
 ### 현재 렌더링
 
+로컬 개발용 `operator-service-v1` 범위는 이 목표 설계보다 좁습니다. 기존 서명된 Release의
+다이제스트와 서명된 구성을 사용해 실제 Operator Deployment, 내부 Service, 읽기 전용 Core
+이미지 스키마 확인 Job을 만듭니다. DB 마이그레이션은 미리 완료되어 있어야 하며, 모든 스키마
+전환을 차단합니다. 기존 공통 스키마와 서비스별 마이그레이션 버전이 일치하기 전에는 워크로드를
+전환하지 않습니다. Foundation 객체를 만들거나 기존 객체의 소유권을 인수하지 않습니다.
+[에이전트 참고 문서](../../../lifecycle/agent/README.md#same-schema-operator-profile)에
+사전 조건과 실패 복구 방법이 있습니다. 이는 스키마 확장 구현이나 실제 서비스 설치 근거가
+아닙니다. 남은 검증은 [구현 원장](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)에서
+별도로 추적합니다.
+
 배포 CLI는 기반 출력값, 이미지 다이제스트, 제품 프로필에서 `workloads` 맵과 `scheduled_jobs`
 맵을 만듭니다. 그런 다음 정확한 계획의 claim, 적용, 검증 전용 복구 단계를 거쳐 Terraform 루트
 하나(`infra/runtimes/aks/workloads`)를 적용합니다. 이 루트는 세 종류의 객체를 만듭니다.
@@ -517,8 +527,9 @@ Release 테이블은 [Lifecycle Release와 채널](lifecycle-releases-and-channe
 - 현재 동작하는 것은 Lifecycle Hub의 등록, Plan 계산, 저장, 에이전트 API뿐이며 loopback에서 관찰
   모드(shadow mode)로 실행됩니다([Lifecycle Hub](../../../lifecycle/hub/README.md)). 이 문서의 나머지
   내용은 설계만 있습니다.
-- Terraform 밖의 워크로드 렌더링은 [워크로드 렌더링 마이그레이션](#워크로드-렌더링-마이그레이션)에
-  설계되어 있습니다. 에이전트 렌더러, 렌더링 동등성 테스트, 소유 이전은 아직 구현되지 않았습니다.
+- Terraform 밖의 전체 워크로드 렌더링은 [워크로드 렌더링 마이그레이션](#워크로드-렌더링-마이그레이션)에
+  설계되어 있습니다. 같은 스키마를 사용하는 개발용 Operator 범위만으로는 전체 렌더러,
+  렌더링 동등성 검사, 소유권 인수가 구현되었다고 볼 수 없습니다.
 - Lifecycle I0에서는 적용이 실패해도 별도의 롤백 Plan을 만들지 않습니다. 에이전트가 실패한 Plan
   안에서 이전 이미지를 복원하고 `rolled-back`을 보고합니다. 그러면 Hub는 그 Plan의 각 Entity에
   24시간짜리 실패 억제 구간을 두며, 운영자는 이를 더 일찍 해제할 수 있습니다. 설치 전체에 대한

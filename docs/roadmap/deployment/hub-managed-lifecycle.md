@@ -310,6 +310,16 @@ deployment and the signed offline package keep the Terraform application stage u
 
 ### Current rendering
 
+The local `operator-service-v1` development slice is narrower than this target design. It uses
+the existing signed Release digests and signed configuration to render the actual Operator
+Deployment, an internal Service, and a read-only Core-image schema-check Job. It requires an
+already migrated database, rejects every schema transition, and switches no workload before the
+legacy and service heads match. It creates no Foundation object and adopts no existing object.
+The [agent reference](../../../lifecycle/agent/README.md#same-schema-operator-profile) describes
+its prerequisites and failure recovery. This is not schema-expand implementation or evidence
+of an installed service; the [ledger](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)
+keeps those remaining outcomes separate.
+
 The deployment CLI builds a `workloads` map and a `scheduled_jobs` map from substrate outputs,
 image digests, and the product profile. It then applies one Terraform root,
 `infra/runtimes/aks/workloads`, through the exact-plan claim, apply, and verification-only recovery
@@ -537,9 +547,9 @@ configuration tables belong to [Lifecycle Configuration](lifecycle-configuration
 - Only the Lifecycle Hub's enrollment, Plan computation, storage, and agent API run today, in
   observation mode (shadow mode) on loopback ([Lifecycle Hub](../../../lifecycle/hub/README.md)).
   Everything else in this document is design only.
-- Workload rendering outside Terraform is designed in
-  [Workload rendering migration](#workload-rendering-migration). The agent renderer, the render
-  parity test, and the ownership handoff aren't implemented.
+- Full workload rendering outside Terraform is designed in
+  [Workload rendering migration](#workload-rendering-migration). The same-schema Operator
+  development slice doesn't implement the full renderer, render parity, or ownership handoff.
 - In Lifecycle I0, a failed apply doesn't produce a separate rollback Plan. The agent restores the
   previous images within the failed Plan and reports `rolled-back`. The Hub then holds each Entity
   of that Plan with a 24-hour failure suppression, which an operator can lift earlier. The
