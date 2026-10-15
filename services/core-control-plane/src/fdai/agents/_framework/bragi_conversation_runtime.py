@@ -99,18 +99,30 @@ class BragiConversationRuntimeMixin:
         question: str,
         *,
         context: tuple[str, ...],
+        allow_escalation: bool = True,
     ) -> tuple[Any | None, str]:
         if self._semantic_judgment is None:
             return None, "unbound"
         try:
+            judgment_call = (
+                asyncio.to_thread(
+                    self._semantic_judgment.judge,
+                    utterance=question,
+                    context=context,
+                    capabilities=semantic_capabilities(self._action_type_names),
+                    allow_escalation=False,
+                )
+                if not allow_escalation
+                else asyncio.to_thread(
+                    self._semantic_judgment.judge,
+                    utterance=question,
+                    context=context,
+                    capabilities=semantic_capabilities(self._action_type_names),
+                )
+            )
             return (
                 await asyncio.wait_for(
-                    asyncio.to_thread(
-                        self._semantic_judgment.judge,
-                        utterance=question,
-                        context=context,
-                        capabilities=semantic_capabilities(self._action_type_names),
-                    ),
+                    judgment_call,
                     timeout=self._semantic_judgment_timeout_seconds,
                 ),
                 "ok",
@@ -276,9 +288,12 @@ class BragiConversationRuntimeMixin:
         reuse_semantic_route: bool = True,
         fixed_assurance_facts: Mapping[str, Mapping[str, object]] | None = None,
         fixed_assurance_scenario_id: str | None = None,
+        allow_t2: bool = True,
     ) -> dict[str, Any]:
         """Delegate one bounded read-only discussion to the framework orchestrator."""
         _validate_question(question)
+        if type(allow_t2) is not bool:
+            raise ValueError("allow_t2 MUST be a boolean")
         if requester not in PANTHEON_NAMES:
             raise ValueError(f"unknown requester agent: {requester!r}")
         if len(correlation_id) > 256:
@@ -292,7 +307,9 @@ class BragiConversationRuntimeMixin:
                 "status": "abstain",
                 "reason": "semantic_unavailable",
             }
-        judgment_result, judgment_status = await self._judge_async(question, context=())
+        judgment_result, judgment_status = await self._judge_async(
+            question, context=(), allow_escalation=allow_t2
+        )
         judgment = (
             judgment_result.proposal
             if judgment_result is not None and judgment_result.accepted
@@ -325,6 +342,7 @@ class BragiConversationRuntimeMixin:
             correlation_id=correlation_id,
             locale=locale,
             routing_decision=self.route(judgment),
+            allow_t2=allow_t2,
             fixed_assurance_facts=fixed_assurance_facts,
             fixed_assurance_scenario_id=fixed_assurance_scenario_id,
         )

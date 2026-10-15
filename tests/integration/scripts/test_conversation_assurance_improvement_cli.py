@@ -8,20 +8,29 @@ from pathlib import Path
 import pytest
 from fdai.core.conversation_assurance import PrivateJsonlLedger
 from scripts.automation.conversation_assurance_aks import AksBusinessServiceBinding
-from scripts.automation.conversation_assurance_harness import ImprovementState
+from scripts.automation.conversation_assurance_browser_evidence import (
+    terminal_measurement_outcome as _terminal_measurement_outcome,
+)
+from scripts.automation.conversation_assurance_harness import (
+    ComparisonRole,
+    ImprovementState,
+    read_private_run,
+)
 from scripts.automation.conversation_assurance_improvement_cli import (
     _arm_browser,
     _automatic_failure_class,
     _measure,
     _measurement_outcome,
-    _parser,
     _prepare,
     _prepare_aks_series,
     _record_browser_failure,
     _record_browser_measurement,
     _run_aks_browser_series,
+)
+from scripts.automation.conversation_assurance_improvement_commands import (
+    _parser,
     _summary,
-    _terminal_measurement_outcome,
+    main,
 )
 
 
@@ -53,7 +62,12 @@ def _corpus(path: Path) -> None:
     )
 
 
-def _readiness(path: Path, *, corpus_digest: str | None = None) -> None:
+def _readiness(
+    path: Path,
+    *,
+    corpus_digest: str | None = None,
+    evidence_ready: bool = True,
+) -> None:
     _private_json(
         path,
         {
@@ -63,9 +77,11 @@ def _readiness(path: Path, *, corpus_digest: str | None = None) -> None:
                     "declared": True,
                     "bound": True,
                     "reachable": True,
-                    "evidence_ready": True,
+                    "evidence_ready": evidence_ready,
                     "provided_authority": "azure_resource_graph",
-                    "unavailable_reason": None,
+                    "unavailable_reason": (
+                        None if evidence_ready else "evidence_snapshot_unavailable"
+                    ),
                 }
             ],
             "assurance_corpus_digest": corpus_digest,
@@ -94,6 +110,139 @@ def test_prepare_binds_clean_revision_novel_question_and_readiness(tmp_path: Pat
     assert run.state is ImprovementState.DRY_RUN_VALIDATED
     assert run.measurement_attempts == 0
     assert run.expected_authority == run.provided_authority
+
+
+def test_prepare_predeclares_comparison_group_and_role(tmp_path: Path) -> None:
+    corpus = tmp_path / "corpus.json"
+    readiness = tmp_path / "readiness.json"
+    _corpus(corpus)
+    _readiness(readiness)
+
+    run = _prepare(
+        project=tmp_path,
+        corpus_path=corpus,
+        readiness_path=readiness,
+        run_id="improvement-one",
+        capability_id="current-resource-state",
+        required_functions=("query.resource_state_inventory",),
+        expected_authority="azure_resource_graph",
+        source_revision="a" * 40,
+        worktree_dirty=False,
+        comparison_group_id="resource-state-fix-one",
+        comparison_role=ComparisonRole.BASELINE,
+        effectiveness_policy_digest="sha256:" + "e" * 64,
+        cohort_id="conversation-effectiveness-one",
+        challenge_family="current-resource-state",
+        objective_oracle="none",
+        blind_holdout_receipt_digest="sha256:" + "f" * 64,
+        authoritative_base_ref="main",
+    )
+
+    assert run.comparison_group_id == "resource-state-fix-one"
+    assert run.comparison_role is ComparisonRole.BASELINE
+    assert run.effectiveness_schema_version == "2.0.0"
+    assert run.locale == "en"
+    assert run.authoritative_base_ref == "main"
+
+
+def test_arm_rechecks_readiness_without_consuming_attempt(tmp_path: Path) -> None:
+    corpus = tmp_path / "corpus.json"
+    readiness = tmp_path / "readiness.json"
+    _corpus(corpus)
+    _readiness(readiness)
+    prepared = _prepare(
+        project=tmp_path,
+        corpus_path=corpus,
+        readiness_path=readiness,
+        run_id="improvement-one",
+        capability_id="current-resource-state",
+        required_functions=("query.resource_state_inventory",),
+        expected_authority="azure_resource_graph",
+        source_revision="a" * 40,
+        worktree_dirty=False,
+    )
+    _readiness(readiness, evidence_ready=False)
+
+    with pytest.raises(ValueError, match="preflight_unavailable"):
+        _arm_browser(
+            project=tmp_path,
+            run_id=prepared.run_id,
+            readiness_path=readiness,
+        )
+
+    retained = read_private_run(
+        tmp_path / ".fdai/conversation-assurance/improvement-runs/improvement-one.json"
+    )
+    assert retained.state is ImprovementState.DRY_RUN_VALIDATED
+    assert retained.measurement_attempts == 0
+    assert retained.retry_allowed is True
+
+
+def test_prepare_suppresses_unchanged_preflight_failure(tmp_path: Path) -> None:
+    corpus = tmp_path / "corpus.json"
+    readiness = tmp_path / "readiness.json"
+    _corpus(corpus)
+    _readiness(readiness, evidence_ready=False)
+    arguments = {
+        "project": tmp_path,
+        "corpus_path": corpus,
+        "readiness_path": readiness,
+        "capability_id": "current-resource-state",
+        "required_functions": ("query.resource_state_inventory",),
+        "expected_authority": "azure_resource_graph",
+        "source_revision": "a" * 40,
+        "worktree_dirty": False,
+    }
+
+    with pytest.raises(ValueError, match="challenge_unavailable"):
+        _prepare(run_id="improvement-one", **arguments)
+    with pytest.raises(ValueError, match="preflight_no_progress"):
+        _prepare(run_id="improvement-two", **arguments)
+
+    rows = PrivateJsonlLedger(
+        tmp_path / ".fdai/conversation-assurance/preflight-holds.jsonl"
+    ).read()
+    assert len(rows) == 1
+
+
+def test_stop_marker_blocks_prepare_and_browser_arm(tmp_path: Path) -> None:
+    corpus = tmp_path / "corpus.json"
+    readiness = tmp_path / "readiness.json"
+    _corpus(corpus)
+    _readiness(readiness)
+    prepared = _prepare(
+        project=tmp_path,
+        corpus_path=corpus,
+        readiness_path=readiness,
+        run_id="improvement-one",
+        capability_id="current-resource-state",
+        required_functions=("query.resource_state_inventory",),
+        expected_authority="azure_resource_graph",
+        source_revision="a" * 40,
+        worktree_dirty=False,
+    )
+    stop = tmp_path / ".fdai/conversation-assurance/STOP"
+    stop.write_text("", encoding="utf-8")
+    stop.chmod(0o600)
+
+    with pytest.raises(ValueError, match="stop_requested"):
+        _arm_browser(
+            project=tmp_path,
+            run_id=prepared.run_id,
+            readiness_path=readiness,
+        )
+    with pytest.raises(ValueError, match="stop_requested"):
+        _prepare(
+            project=tmp_path,
+            corpus_path=corpus,
+            readiness_path=readiness,
+            run_id="improvement-two",
+            capability_id="current-resource-state",
+            required_functions=("query.resource_state_inventory",),
+            expected_authority="azure_resource_graph",
+            source_revision="a" * 40,
+            worktree_dirty=False,
+        )
 
 
 def test_prepare_aks_series_creates_three_private_runs_without_target_names_in_summary(
@@ -212,9 +361,20 @@ def test_browser_measurement_records_one_live_turn_and_all_web_gates(tmp_path: P
         source_revision="a" * 40,
         worktree_dirty=False,
     )
-    armed = _arm_browser(project=tmp_path, run_id=prepared.run_id)
+    armed = _arm_browser(
+        project=tmp_path,
+        run_id=prepared.run_id,
+        readiness_path=readiness,
+    )
     assert armed.retry_allowed is False
-    assert _arm_browser(project=tmp_path, run_id=prepared.run_id) == armed
+    assert (
+        _arm_browser(
+            project=tmp_path,
+            run_id=prepared.run_id,
+            readiness_path=readiness,
+        )
+        == armed
+    )
     _private_json(
         evidence,
         {
@@ -305,7 +465,11 @@ def test_browser_measurement_requires_arm_and_strict_integer_request_count(
             source_revision=prepared.source_revision,
             worktree_dirty=False,
         )
-    _arm_browser(project=tmp_path, run_id=prepared.run_id)
+    _arm_browser(
+        project=tmp_path,
+        run_id=prepared.run_id,
+        readiness_path=readiness,
+    )
     with pytest.raises(ValueError, match="request_invalid"):
         _record_browser_measurement(
             project=tmp_path,
@@ -334,7 +498,11 @@ def test_browser_worker_failure_consumes_attempt_and_classifies_baseline(
         source_revision="a" * 40,
         worktree_dirty=False,
     )
-    _arm_browser(project=tmp_path, run_id=prepared.run_id)
+    _arm_browser(
+        project=tmp_path,
+        run_id=prepared.run_id,
+        readiness_path=readiness,
+    )
 
     failed = _record_browser_failure(
         project=tmp_path,
@@ -455,3 +623,79 @@ def test_hardening_round_parser_requires_severity() -> None:
                 "0",
             ]
         )
+
+
+def test_init_effectiveness_policy_writes_owner_only(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    output = tmp_path / ".fdai/conversation-assurance/effectiveness-policy.json"
+
+    result = main(
+        [
+            "--project",
+            str(tmp_path),
+            "init-effectiveness-policy",
+            "--output",
+            str(output),
+            "--policy-id",
+            "policy-one",
+            "--cohort-id",
+            "cohort-one",
+            "--authoritative-base-ref",
+            "main",
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+
+    assert result == 0
+    assert payload["state"] == "created"
+    assert output.stat().st_mode & 0o077 == 0
+
+    result = main(
+        [
+            "--project",
+            str(tmp_path),
+            "init-effectiveness-policy",
+            "--output",
+            str(output),
+            "--policy-id",
+            "policy-one",
+            "--cohort-id",
+            "cohort-one",
+            "--authoritative-base-ref",
+            "main",
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+    assert result == 0
+    assert payload["state"] == "existing"
+
+
+def test_effectiveness_policy_rejects_output_outside_private_state(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    result = main(
+        [
+            "--project",
+            str(tmp_path),
+            "init-effectiveness-policy",
+            "--output",
+            str(tmp_path / "tracked-policy.json"),
+            "--policy-id",
+            "policy-one",
+            "--cohort-id",
+            "cohort-one",
+            "--authoritative-base-ref",
+            "main",
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+
+    assert result == 0
+    assert payload == {
+        "state": "held",
+        "reason": "effectiveness_output_must_be_private_state",
+    }
+    assert not (tmp_path / "tracked-policy.json").exists()

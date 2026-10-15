@@ -23,13 +23,14 @@ import hashlib
 import json
 import re
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
 from importlib import resources
 
 from fdai.core.security.code_findings.fix_groups import build_fix_groups
 from fdai.core.security.code_findings.models import CodeSecurityIssue, FixGroup, ProjectRoot
+from fdai.core.security.code_findings.repair_candidate import build_repair_candidate_request
 from fdai.core.security.code_findings.signing import ENVELOPE_PATH, build_envelope
 from fdai.rule_catalog.code_security import CodeSecurityCatalog
 from fdai.shared.providers.remediation_pack import PackSigner
@@ -307,6 +308,12 @@ def render_remediation_pack(
     expires_at = request.created_at + timedelta(days=limits.expiry_days)
     directory = f"fdai-remediation-{pack_id}"
     by_id = {issue.issue_id: issue for issue in included}
+    repair_requests = tuple(
+        candidate
+        for issue in included
+        for candidate in (build_repair_candidate_request(issue),)
+        if request.mode is PackMode.FULL and candidate is not None
+    )
     files: dict[str, bytes] = {
         "findings/index.json": _json_bytes(
             {
@@ -326,6 +333,14 @@ def render_remediation_pack(
                 ],
                 "coverage_limits": coverage_limits,
                 "omitted": {"issues": omitted_issues, "groups": len(groups) - len(kept_groups)},
+                "repair_candidate_requests": [
+                    {
+                        "issue_id": candidate.issue_id,
+                        "path": f"findings/repair-requests/{candidate.issue_id}.json",
+                        "execution_authority": False,
+                    }
+                    for candidate in repair_requests
+                ],
             }
         ),
         "findings/findings.sarif": _json_bytes(_sarif(included, request.mode)),
@@ -337,6 +352,10 @@ def render_remediation_pack(
             _issue_detail(by_id[i], group.group_id, request.mode) for i in group.issue_ids
         ]
         files[f"findings/groups/{group.group_id}.json"] = _json_bytes(document)
+    for candidate in repair_requests:
+        files[f"findings/repair-requests/{candidate.issue_id}.json"] = _json_bytes(
+            asdict(candidate)
+        )
     values = {"PACK_ID": pack_id, "PACK_DIR": directory, "EXPIRES_AT": expires_at.isoformat()}
     for source, target in _TEMPLATE_TARGETS.items():
         files[target] = _render_template(catalog.pack_templates[source], values)

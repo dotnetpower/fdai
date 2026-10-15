@@ -66,6 +66,10 @@ committed VS Code task. The Conversation Assurance supervisor task passes the st
 Operator URL and owner-only bearer-token file path, but never the bearer value, so a source reload
 and task restart preserve the authenticated local contract without relying on the editor's ambient
 environment.
+The committed Console frontend launch and its readiness action both use
+`http://localhost:5273`. The developer-workflow regression pins the Vite host argument and browser
+origin together, so a workspace edit cannot silently reintroduce the incompatible
+`127.0.0.1` launch host.
 
 `console: restart full stack` stops only a verified same-checkout managed supervisor, waits for its
 lock to release, runs managed preparation, and then starts the standard Browser Entra topology.
@@ -86,6 +90,10 @@ generic forced-stop guard cannot interrupt cleanup. The top-level stop command w
 that service budget before reporting that the supervisor lock was not released.
 Supervisor stop and replacement accept only the canonical launcher or its exact repo-local Copilot
 wrapper while preserving PID, checkout, and lock-fd ownership checks.
+Preparation also publishes a digest-bound immutable vulnerability-cache snapshot and verifies its
+pointer and bytes before the worker starts. Cache invalidation follows the scanner/cache contract,
+not unrelated Core source changes. Focused launcher and cache tests prove these local mechanics;
+they neither activate diagnostic capture nor establish deployed scanner readiness.
 
 ![Design at a glance. The main stages are Edit and focused check, Workflow diagnostics, Focused commit, Structural pre-push, SHA-addressed CI, Remote work, Bounded handover.](../../diagrams/generated/fdai-roadmap-deployment-developer-workflow-assurance-01.en.svg)
 

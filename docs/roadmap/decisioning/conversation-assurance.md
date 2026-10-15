@@ -56,12 +56,35 @@ Core records schema-v2 timing across durable queue and Pantheon assurance phases
 ### Explicit campaign operation
 
 Use `scripts/automation/conversation-assurance.py` to preview, start, inspect, or stop a campaign. A plain improvement trigger prepares one novel evidence-ready read question, binds one authenticated Console turn to answer, Run Record, prompt-manifest, and Preparing answer gates, permits one measurement, and admits only `code_defect` to at least ten validated critique rounds with nothing above Low; this implemented mechanism has no new live validation or qualification evidence. Each child evaluates at most 20 questions; larger census runs use sequential children and stop after the first hold or incomplete child. The browser worker opens the Command Deck launcher and starts a fresh conversation before it sends the one armed question, so a cached general-conversation transcript from the shared Entra browser state never leaks into a measurement.
+Immediately before browser arming, the improvement harness revalidates the prepared capability,
+required functions, evidence readiness, and exact authority from the current readiness receipt.
+Readiness drift stops before reservation and does not consume a live attempt or enter the answer
+quality denominator. Effectiveness comparisons require a baseline and a semantically distinct
+holdout to be declared in one comparison group on the same clean source revision before repair.
+After validated hardening, the baseline records the exact repair commit and the holdout binds to
+that commit. A comparison counts only when the repair is an ancestor of both the holdout
+measurement and the selected base revision. The content-free effectiveness report separates
+environment holds, evaluation-contract holds, answer-quality defects, passed quality
+measurements, base-contained remediations, and improved, unchanged, or regressed holdouts.
+Effectiveness schema v2 also freezes cohort, locale, challenge family, objective oracle, route,
+T2 expectation, readiness digest, blind pair-custody receipt, and authoritative base ref before
+measurement. An immutable assessment joins the canonical ten-rubric answer gate to the observed
+model and prompt profile, evidence snapshot, hard-zero count, verification state, latency, model
+calls, and cost, and binds those observations to the exact question fingerprint, measurement
+revision, and trace receipt. Repair attribution accepts only declared task-owned paths and a passing
+content-free validation receipt. Cohort reporting excludes legacy runs, deduplicates each pair,
+requires English and Korean floors, rejects gains below the predeclared pair effect size, applies
+the predeclared 95% Wilson lower bound, permits no more
+than the configured regressions, and enforces environment, latency, call, and cost ceilings. A
+regression stops the candidate and marks rollback as required; this local record neither performs
+nor authorizes rollback. Passing the development effectiveness threshold grants no qualification,
+promotion, rollback, or execution authority.
 An explicitly requested private AKS series may derive exactly three target-bound questions from the active Azure CLI scope and reviewed local Resource-to-Workload-to-BusinessService graph. Preparation combines the three private cases into one owner-only runtime corpus, binds its exact file and digest in the local Core environment, and requires a successful Core restart before measurement. The runner arms no browser attempt until the restarted Core readiness receipt carries that exact digest. Names remain in owner-only corpora and browser memory; reports retain only case ids, digests, typed states, and scores. Missing graph or readiness evidence holds before a question is sent.
 Before measuring a fixed case, the runtime forwards its registered locale to the Pantheon conversation port. The trace `participants[].situation` must match or the diagnostic fails instead of silently defaulting to English.
 
 The optional Unix-socket supervisor waits for explicit commands and never resumes or starts a campaign on restart. Its VS Code task binds the standard loopback Operator URL and the path to an owner-only bearer-token file; it never embeds the bearer value. In local Azure CLI mode, each campaign obtains the current server-issued session credential from loopback `/local-auth/me` and keeps it only in memory. A missing route selects the Browser Entra fallback, whose private-file JWT must pass `exp` and optional `nbf` checks; other local-auth failures hold before a question is sent. Provider throttling, unavailability, timeout, or a missing measurement contract records a hold without retrying the live question. The CLI preserves an assessment's exact non-completed state and bounded reasons before reducing a generic transport hold. An accepted semantic disposition is routing evidence, not an answer; missing answer and abstention text fails closed.
 The authenticated Operator request rejects redirects before a private bearer crosses origins, applies the semantic deadline plus bounded transport margin, requires strict UTF-8 and exactly one final `done` event, and reduces transport or evaluator exceptions to content-free held reasons. Malformed bytes, duplicate terminals, or an error after a terminal cannot pass.
-The supervisor and CLI share one owner-only runner lock. `report` renders private transcripts when available and otherwise content-free evaluations; `compare --baseline-case <id> --candidate-case <id>` returns two distinct retained records and their diagnostic score and verdict without establishing qualification or policy authority.
+The supervisor and CLI share one owner-only runner lock. `report` renders private transcripts when available and otherwise content-free evaluations; `compare --baseline-case <id> --candidate-case <id>` returns two distinct retained records and their diagnostic score and verdict without establishing qualification or policy authority. That diagnostic comparison does not prove improvement. `improve compare-effectiveness` is the stricter repair measurement: it requires the same-revision predeclaration, distinct questions, matching capability and authority, an attributed repair, a passing holdout, and repair containment in the selected base.
 A complete-census aggregate requires all 230 trace and diagnostic receipts to join by digest on one clean revision. Incomplete, duplicate, mixed-revision, lost-T1, or hard-zero evidence cannot qualify and requires human review.
 Each completed child records ordered attempted case ids and any held case id, allowing a later authorized campaign to exclude prior attempts without retaining question text or retrying a live request.
 

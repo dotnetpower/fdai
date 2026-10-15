@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import pytest
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.freyr_sampling import UtilizationSample
 from fdai.agents._framework.loki_adversarial import ChaosScenarioCandidate
@@ -104,6 +105,27 @@ async def test_freyr_recurring_sampling_feeds_existing_forecast_path_to_shadow_v
     assert verdict["source_mode"] == "shadow"
     assert sampler.calls == 1
     assert freyr.behavior_snapshot()["capacity_sampling:sampled"] == 1
+
+
+@pytest.mark.parametrize("observed_at", ["", "not-a-time", "2026-10-01T01:00:00"])
+async def test_freyr_never_fabricates_missing_source_observation_time(observed_at: str) -> None:
+    bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
+    freyr = Freyr(
+        bus=bus,
+        clock=lambda: _NOW,
+        utilization_sampler=_Sampler(
+            (
+                UtilizationSample(
+                    resource_id="resource-advisory",
+                    utilization=0.95,
+                    observed_at=observed_at,
+                ),
+            )
+        ),
+    )
+    await freyr.maintenance_tick()
+    assert bus.messages_on("object.capacity-forecast") == []
+    assert freyr.behavior_snapshot()["capacity_sampling:invalid"] == 1
 
 
 async def test_freyr_default_profile_keeps_sampled_forecast_advisory() -> None:

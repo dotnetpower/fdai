@@ -20,10 +20,13 @@ layer renders it as a governance draft PR a human reviews and merges.
 
 from __future__ import annotations
 
+import math
+
 from fdai.core.stewardship.handover_bootstrap.contract import (
     DraftOutcome,
     ExtractedMapping,
     HandoverDocument,
+    MappingSource,
     PersonRef,
     StewardMapDraft,
 )
@@ -67,7 +70,7 @@ class HandoverBootstrapper:
         candidates: list[ExtractedMapping] = []
         for document in documents:
             candidates.extend(self._extractor.extract(document))
-            candidates.extend(self._grounded(await self._interpreter.interpret(document)))
+            candidates.extend(self._grounded(await self._interpreter.interpret(document), document))
 
         resolved = await self._resolve_identities(candidates)
         deduped = _dedupe_highest_confidence(resolved)
@@ -88,9 +91,36 @@ class HandoverBootstrapper:
         )
 
     @staticmethod
-    def _grounded(proposals: tuple[ExtractedMapping, ...]) -> tuple[ExtractedMapping, ...]:
+    def _grounded(
+        proposals: tuple[ExtractedMapping, ...], document: HandoverDocument
+    ) -> tuple[ExtractedMapping, ...]:
         """Drop any model proposal that is not grounded (defense in depth)."""
-        return tuple(m for m in proposals if m.grounded)
+        lines = document.text.splitlines()
+        return tuple(
+            mapping
+            for mapping in proposals
+            if (
+                mapping.agent_name in AGENT_NAMES
+                and type(mapping.confidence) in {int, float}
+                and math.isfinite(mapping.confidence)
+                and 0 <= mapping.confidence <= 1
+                and mapping.source is MappingSource.MODEL
+                and mapping.person.oid is None
+                and mapping.person.display_name.strip()
+                and mapping.grounded
+                and all(
+                    citation.doc_id == document.doc_id
+                    and type(citation.line) is int
+                    and 1 <= citation.line <= len(lines)
+                    and bool(citation.quote.strip())
+                    and citation.quote in lines[citation.line - 1]
+                    for citation in mapping.citations
+                )
+                and any(
+                    mapping.person.display_name in citation.quote for citation in mapping.citations
+                )
+            )
+        )
 
     async def _resolve_identities(
         self, candidates: list[ExtractedMapping]

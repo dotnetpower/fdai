@@ -16,6 +16,7 @@ from fdai.delivery.persistence.postgres_operational_evidence import (
     EXPECTED_GUARDS,
     PostgresOperationalEvidenceConfig,
 )
+from fdai_service_contracts.operational_evidence import OPERATIONAL_EVIDENCE_PURPOSES
 
 from tests.core.operational_evidence.support import NOW
 from tests.delivery.test_operational_evidence_readiness import _environment
@@ -74,7 +75,9 @@ async def test_all_automatable_stages_pass_and_list_owed_drills(tmp_path: Path) 
         "verifier_readiness",
     ]
     owed = receipt.owed_observations
-    assert len([item for item in owed if item["stage"] == "positive_issuance"]) == 11
+    assert tuple(item["purpose"] for item in owed if item["stage"] == "positive_issuance") == (
+        OPERATIONAL_EVIDENCE_PURPOSES
+    )
     drills = {item["class"] for item in owed if item["stage"] == "negative_drill"}
     assert {"stale", "revoked", "self_verified", "unavailable"} <= drills
     assert "#1026" in receipt.operational_qualification

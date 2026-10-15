@@ -99,6 +99,31 @@ population hop by hop, collection metric reads can apply reviewed qualitative re
 stopped metric read can issue a leased continuation. Every one of these reads stays read-only.
 
 ## Design at a glance
+Core's handover bootstrap checks actual document/line/quote/person grounding before directory
+resolution; the model supplies no identity id and only a governance draft survives. Freyr's
+read-only source binding stays in runtime and delivery, reusing current inventory identities
+and reviewed metric declarations. Neither change adds a service, authority or live-readiness claim.
+
+Explicit Operator discussion stays on the existing semantic request and durable result path.
+The service-contract SDK owns the additive 1.11 request mode; the separate operational verifier
+alone rereads the retained authentication receipt and current exact-installation discussion grant.
+Core's focused `fdai_core_service/agent_discussion.py` presenter admits before Bragi, and
+`runtime/bootstrap_agent_discussion.py` binds only explicit installation configuration and
+independent admission prerequisites. Missing bindings hold. These additions grant no action,
+approval, promotion, or cloud observation authority and do not establish Console or live acceptance.
+
+StateStore retention accepts optional paired field/value filters with the same matching semantics
+as paged reads. The provider applies the filter atomically to selection and deletion; omitting it
+preserves prefix-wide retention. Saga uses `status=published` to compact only terminal audit
+tombstones, never pending or claimed delivery. This provider-neutral extension adds no authority
+or service boundary and never deletes audit entries.
+
+`StateStoreAuditReader` is an optional provider-neutral migration seam. Memory and PostgreSQL
+return detached audit bodies oldest-first from one snapshot, with a limit of 1-512 and an explicit
+truncation result. A partial read cannot prove absence or complete history. Saga uses this only
+to verify bounded legacy migration; its shared journal otherwise uses existing atomic revision
+CAS-with-audit. Agents never import a concrete persistence adapter or gain another authority.
+
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.
 
 
@@ -679,6 +704,23 @@ labeled evaluation corpora, including the code and dependency cases of the curat
 `rule-catalog/code-security/evaluation/` and are measured by the pure `evaluation.py` harness. See
 [Code Security Findings](../operations/code-security-findings.md).
 
+The FDAI-owned analysis engine remains inside the same boundary. `analysis_contracts.py` owns
+strict graph, rule, and path evidence; `python_graph.py` and `python_analysis.py` build bounded
+read-only Python evidence; `analysis_build_context.py` binds language roots and build
+configuration without treating source bytes as configuration; `analysis_incremental.py` owns
+strict snapshot reuse and conservative invalidation, and the scan job owns its repository- and
+rule-scoped cache; `analysis_graph_flow.py` owns language-neutral contextual path traversal;
+`typescript_analysis.py` validates the root-confined Compiler API process under
+`tools/code-security-typescript-frontend/`; `java_analysis.py` owns the experimental tree-sitter
+Java SQL slice; `analysis_sarif.py` returns all results to
+canonical ingestion. Analysis rules, component terms, and frozen corpora stay in
+`rule-catalog/code-security/`; delivery only composes the lane and deterministically replays it for
+prepared and Kata scans. The scanner image pins the compiler and frontend. This adds no service,
+pantheon agent, repository writer, approval, or execution authority. See
+[Code Security Analysis Engine](../operations/code-security-analysis-engine.md).
+Both frontends bind source reads to the exact root and enforce graph budgets before accepting
+evidence. Frontend failure lowers coverage instead of changing the worker or authority boundary.
+
 ## Repository Script Layout
 
 Repository automation is grouped by responsibility under `scripts/`; only the layout README, `verify.sh`, and the Python package marker stay
@@ -725,6 +767,18 @@ CI pipeline plus the local pre-push hook. Corresponding docs in
    unblock a red pipeline is a governance regression.
 
 ## Customization via Dependency Injection
+
+Bragi-owned conversational composition carries an exact selected agent and locale, independent
+synthesis verification, and policy-pinned durable per-correlation model accounting. Missing
+participation or unresolved evidence conflicts remain partial or held without a final conclusion.
+These read-only bindings change no MSCP activation, execution authorization, approval, audit,
+recovery, ActionType promotion, or Cost Governance package authority. See the
+[dependency-injection companion](project-structure-dependency-injection.md) for the exact seams.
+
+`composition/pantheon_synthesis.py` now supplies verified default presentation when exact existing
+independent Azure targets, reviewed prompt packs, USD prices, identity/client and metering exist.
+It preserves custom bindings and couples V-CLAIM/independent review to a durable two-call budget.
+Missing prerequisites hold; this cannot certify live truth or grant action or package authority.
 
 The complete seam catalog and composition rules are in [Project Structure Dependency Injection](project-structure-dependency-injection.md).
 Core result-handle storage follows the same rule: `ResultHandleStore` is injected at Core composition, with an in-memory local implementation and a PostgreSQL implementation that keep encrypted handle bodies Core-owned while Operator persists only opaque references. Ordinal follow-up binding over those references stays inside the default-off compiled-answer shadow path and adds no execution authority.

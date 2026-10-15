@@ -10,13 +10,14 @@ import re
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 from fdai.agents._framework.base import AgentSpec
 from fdai.agents._framework.bragi_constants import _MAX_ANSWER_CHARS, _MAX_QUESTION_CHARS
 from fdai.agents._framework.bragi_models import RoutingDecision
 from fdai.agents._framework.deliberation_evaluation import (
     DeliberationSignal,
+    evaluate_peer_claim,
     evaluate_t1_answers,
     evaluation_signals,
 )
@@ -61,6 +62,7 @@ class DeliberationClaim:
     evidence_refs: tuple[str, ...]
     prompt_sha256: str
     evaluation_signals: tuple[DeliberationSignal, ...] = ()
+    facts_json: str = "{}"
 
     def __post_init__(self) -> None:
         if not self.agent or not self.answer or len(self.answer) > _MAX_ANSWER_CHARS:
@@ -73,6 +75,17 @@ class DeliberationClaim:
             raise ValueError("deliberation claim evidence_refs MUST be bounded and non-empty")
         if _SHA256.fullmatch(self.prompt_sha256) is None:
             raise ValueError("deliberation claim prompt_sha256 MUST be a SHA-256 digest")
+        if len(self.facts_json.encode()) > 16_384:
+            raise ValueError("deliberation owned facts MUST fit 16384 bytes")
+        facts = json.loads(self.facts_json)
+        if (
+            not isinstance(facts, dict)
+            or json.dumps(
+                facts, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
+            )
+            != self.facts_json
+        ):
+            raise ValueError("deliberation owned facts MUST be canonical object JSON")
 
 
 @dataclass(frozen=True, slots=True)
@@ -85,6 +98,8 @@ class DeliberationRequest:
     primary_agent: str
     claims: tuple[DeliberationClaim, ...]
     participant_prompts: tuple[tuple[str, str], ...]
+    locale: str = "en"
+    purpose: Literal["discussion", "owned_answer"] = "discussion"
 
     def __post_init__(self) -> None:
         if not self.question or len(self.question) > _MAX_QUESTION_CHARS:
@@ -93,7 +108,9 @@ class DeliberationRequest:
             raise ValueError("deliberation requester and primary_agent MUST be non-empty")
         if len(self.correlation_id) > 256:
             raise ValueError("deliberation correlation_id MUST be at most 256 characters")
-        if not 2 <= len(self.claims) <= _MAX_CLAIMS:
+        if self.purpose not in {"discussion", "owned_answer"}:
+            raise ValueError("conversation writing purpose is invalid")
+        if not (1 if self.purpose == "owned_answer" else 2) <= len(self.claims) <= _MAX_CLAIMS:
             raise ValueError("deliberation requires between two and three claims")
         if self.primary_agent != self.claims[0].agent:
             raise ValueError("deliberation primary_agent MUST own the first claim")
@@ -105,6 +122,26 @@ class DeliberationRequest:
         prompt_agents = tuple(agent for agent, _ in self.participant_prompts)
         if prompt_agents != claim_agents:
             raise ValueError("deliberation prompts MUST align with claim agents")
+        if self.locale not in {"en", "ko"}:
+            raise ValueError("deliberation locale MUST be en or ko")
+
+    @property
+    def sha256(self) -> str:
+        material = json.dumps(
+            {
+                "question": self.question,
+                "requester": self.requester,
+                "correlation_id": self.correlation_id,
+                "primary_agent": self.primary_agent,
+                "claims": [_claim_dict(claim) for claim in self.claims],
+                "participant_prompts": self.participant_prompts,
+                "locale": self.locale,
+                **({"purpose": self.purpose} if self.purpose != "discussion" else {}),
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        return hashlib.sha256(material.encode()).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,6 +173,25 @@ class T2ConversationSynthesizer(Protocol):
         """Return one grounded presentation conclusion, or abstain."""
 
 
+@dataclass(frozen=True, slots=True)
+class SynthesisVerification:
+    """Independent claim-verification receipt bound to the exact source and answer."""
+
+    accepted: bool
+    request_sha256: str
+    conclusion_sha256: str
+    evidence_refs: tuple[str, ...]
+    verifier_identity: str
+
+
+class ConversationSynthesisVerifier(Protocol):
+    """Composition-owned V-CLAIM and independent entailment review boundary."""
+
+    async def verify(
+        self, request: DeliberationRequest, outcome: SynthesisOutcome
+    ) -> SynthesisVerification | None: ...
+
+
 class ConversationDeliberator:
     """Orchestrate one T1 position/critique round and optional T2 synthesis."""
 
@@ -151,9 +207,12 @@ class ConversationDeliberator:
         pricing: PricingTable | None = None,
         metering: MeteringSink | None = None,
         t2_model_key: str = "",
+        synthesis_verifier: ConversationSynthesisVerifier | None = None,
     ) -> None:
         if not specs:
             raise ValueError("conversation deliberator requires agent specs")
+        if synthesis_verifier is not None and id(synthesis_verifier) == id(t2_synthesizer):
+            raise ValueError("conversation synthesis requires an independent verifier")
         self._specs = {spec.name: spec for spec in specs}
         self._semantic_router = semantic_router
         self._t2_synthesizer = t2_synthesizer
@@ -170,6 +229,7 @@ class ConversationDeliberator:
             BudgetChargingMeteringSink(metering, self._ledger) if metering is not None else None
         )
         self._t2_model_key = t2_model_key
+        self._synthesis_verifier = synthesis_verifier
 
     async def deliberate(
         self,
@@ -178,11 +238,14 @@ class ConversationDeliberator:
         requester: str,
         correlation_id: str = "",
         locale: str = "en",
+        allow_t2: bool = True,
         routing_decision: RoutingDecision | None = None,
         fixed_assurance_facts: Mapping[str, Mapping[str, object]] | None = None,
         fixed_assurance_scenario_id: str | None = None,
     ) -> dict[str, Any]:
         """Return a bounded presentation outcome without typed authority."""
+        if type(allow_t2) is not bool:
+            raise ValueError("allow_t2 MUST be a boolean")
         if len(question) > _MAX_QUESTION_CHARS:
             raise ValueError("question MUST be at most 2000 characters")
         if requester not in self._specs:
@@ -195,7 +258,7 @@ class ConversationDeliberator:
             else None,
             known_agents=set(self._specs),
         )
-        base = {
+        base: dict[str, Any] = {
             "requester": requester,
             "trace_ref": correlation_id,
             "authority": "presentation_only",
@@ -249,6 +312,10 @@ class ConversationDeliberator:
         )
         base["routing_method"] = decision.method
         participants = (primary_agent, *decision.contributors)[:_MAX_PARTICIPANTS]
+        base["requested_participants"] = list(participants)
+        base["participant_outcomes"] = [
+            {"agent": agent, "status": "not_attempted"} for agent in participants
+        ]
         if len(participants) < 2:
             return {
                 **base,
@@ -281,6 +348,11 @@ class ConversationDeliberator:
             },
         )
         primary_claim = _claim(primary_agent, primary_raw)
+        base["participant_outcomes"][0] = {
+            "agent": primary_agent,
+            "status": "completed" if primary_claim is not None else "abstained",
+            "reason": None if primary_claim is not None else primary_error or "primary_abstained",
+        }
         if primary_claim is None:
             return {
                 **base,
@@ -305,9 +377,20 @@ class ConversationDeliberator:
                 for peer in participants[1:]
             )
         )
+        base["participant_outcomes"] = [
+            base["participant_outcomes"][0],
+            *(
+                {
+                    "agent": agent,
+                    "status": "completed" if claim is not None else "abstained",
+                    "reason": reason,
+                }
+                for agent, (claim, reason) in zip(participants[1:], critiques, strict=True)
+            ),
+        ]
         peer_claims = tuple(
             _with_scenario_signals(claim, scenario_signals)
-            for claim in critiques
+            for claim, _reason in critiques
             if claim is not None
         )
         if not peer_claims:
@@ -330,7 +413,13 @@ class ConversationDeliberator:
                 {"phase": "position", "contributions": [_claim_dict(primary_claim)]},
                 {
                     "phase": "critique",
-                    "contributions": [_claim_dict(claim) for claim in peer_claims],
+                    "contributions": [
+                        {
+                            **_claim_dict(claim),
+                            "peer_review": evaluate_peer_claim(primary_claim, claim),
+                        }
+                        for claim in peer_claims
+                    ],
                 },
             ],
             "conclusion": primary_claim.answer,
@@ -339,13 +428,25 @@ class ConversationDeliberator:
         }
         evaluation = evaluate_t1_answers(claims)
         result["t1_evaluation"] = evaluation.to_mapping()
+        if len(peer_claims) != len(participants) - 1:
+            result["status"] = "partial"
+            result["reason"] = "participant_evidence_incomplete"
+            result["conclusion"] = None
+            result["t2_status"] = "held_incomplete_participants"
+            return result
         if not evaluation.requires_t2:
             result["t2_status"] = "not_required"
+            return result
+        result["status"] = "held"
+        result["reason"] = "structured_conflict_unresolved"
+        result["conclusion"] = None
+        if not allow_t2:
+            result["t2_status"] = "disabled_by_request"
             return result
         if self._t2_synthesizer is None:
             result["t2_status"] = "unavailable"
             return result
-        return await self._synthesize(
+        return await self.synthesize_answer(
             result,
             question=question,
             requester=requester,
@@ -353,6 +454,7 @@ class ConversationDeliberator:
             budget_key=budget_key,
             primary_agent=primary_agent,
             claims=claims,
+            locale=locale,
         )
 
     async def _critique(
@@ -365,8 +467,8 @@ class ConversationDeliberator:
         locale: str,
         budget_key: str,
         primary_claim: DeliberationClaim,
-    ) -> DeliberationClaim | None:
-        response, _ = await self._call_responder(
+    ) -> tuple[DeliberationClaim | None, str | None]:
+        response, error = await self._call_responder(
             agent_name,
             question,
             {
@@ -384,7 +486,8 @@ class ConversationDeliberator:
                 "handoff_owner": primary_claim.agent,
             },
         )
-        return _claim(agent_name, response)
+        claim = _claim(agent_name, response)
+        return claim, None if claim is not None else error or "peer_abstained"
 
     async def _escalation_counters(self, correlation_id: str) -> dict[str, int]:
         """Return the bound a turn may state, as bounded integers."""
@@ -394,7 +497,7 @@ class ConversationDeliberator:
             "escalation_limit": self._budget.max_calls_per_correlation,
         }
 
-    async def _synthesize(
+    async def synthesize_answer(
         self,
         result: dict[str, Any],
         *,
@@ -404,9 +507,15 @@ class ConversationDeliberator:
         budget_key: str,
         primary_agent: str,
         claims: tuple[DeliberationClaim, ...],
+        locale: str,
+        purpose: Literal["discussion", "owned_answer"] = "discussion",
     ) -> dict[str, Any]:
         synthesizer = self._t2_synthesizer
         if synthesizer is None:
+            return result
+        verifier = self._synthesis_verifier
+        if verifier is None:
+            result["t2_status"] = "verification_unavailable"
             return result
         # The budget is a ceiling, not a target: when it is spent the round
         # stays at T1 rather than calling a model anyway. The bound is
@@ -418,7 +527,11 @@ class ConversationDeliberator:
         # fails still consumed what it was granted. Cost is charged where
         # it becomes known - the metering record - so this ledger has
         # exactly one place that accounts for money.
-        if not await self._ledger.reserve(budget_key, calls=1, cost_microusd=0):
+        required_calls = getattr(synthesizer, "model_calls_per_synthesis", 1)
+        if type(required_calls) is not int or not 1 <= required_calls <= 2:
+            result["t2_status"] = "invalid_model_call_budget"
+            return result
+        if not await self._ledger.reserve(budget_key, calls=required_calls, cost_microusd=0):
             result["t2_status"] = "budget_denied"
             result["escalation_budget"] = await self._budget_snapshot(budget_key)
             return result
@@ -428,6 +541,8 @@ class ConversationDeliberator:
             correlation_id=correlation_id,
             primary_agent=primary_agent,
             claims=claims,
+            locale=locale,
+            purpose=purpose,
             participant_prompts=tuple(
                 (claim.agent, self._specs[claim.agent].conversation.system_prompt)
                 for claim in claims
@@ -461,16 +576,60 @@ class ConversationDeliberator:
             metering_receipt_digest = await self._meter(outcome, correlation_id=budget_key)
             if metering_receipt_digest is not None:
                 result["metering_receipt_digest"] = metering_receipt_digest
-        if not isinstance(conclusion, str) or not conclusion.strip():
+        if (
+            not isinstance(outcome, SynthesisOutcome)
+            or not isinstance(conclusion, str)
+            or not conclusion.strip()
+        ):
             result["t2_status"] = "abstained"
         elif len(conclusion) > _MAX_T2_CONCLUSION_CHARS:
             result["t2_status"] = "output_too_large"
         elif scan_text(conclusion):
             result["t2_status"] = "sensitive_output"
         else:
-            result["tier"] = "T2"
-            result["t2_status"] = "completed"
-            result["conclusion"] = conclusion.strip()
+            try:
+                verification = await asyncio.wait_for(
+                    verifier.verify(request, outcome), timeout=_T2_SYNTHESIS_TIMEOUT_SECONDS
+                )
+            except TimeoutError:
+                result["t2_status"] = "verification_timeout"
+            except Exception as exc:  # noqa: BLE001 - fail-closed presentation boundary
+                _LOG.warning(
+                    "pantheon_synthesis_verification_failed",
+                    extra={"error_type": type(exc).__name__, "correlation_id": correlation_id},
+                )
+                result["t2_status"] = "verification_error"
+            else:
+                evidence_refs = tuple(
+                    sorted({ref for claim in claims for ref in claim.evidence_refs})
+                )
+                conclusion_sha256 = hashlib.sha256(conclusion.encode()).hexdigest()
+                if (
+                    not isinstance(verification, SynthesisVerification)
+                    or type(verification.accepted) is not bool
+                    or verification.request_sha256 != request.sha256
+                    or verification.conclusion_sha256 != conclusion_sha256
+                    or verification.evidence_refs != evidence_refs
+                    or not isinstance(verification.verifier_identity, str)
+                    or not verification.verifier_identity.strip()
+                    or len(verification.verifier_identity) > 256
+                    or verification.verifier_identity.strip().casefold()
+                    == outcome.model_identity.strip().casefold()
+                ):
+                    result["t2_status"] = "verification_invalid"
+                elif not verification.accepted:
+                    result["t2_status"] = "verification_rejected"
+                else:
+                    result["status"] = "completed"
+                    result.pop("reason", None)
+                    result["tier"] = "T2"
+                    result["t2_status"] = "completed"
+                    result["conclusion"] = conclusion
+                    result["synthesis_verification"] = {
+                        "request_sha256": request.sha256,
+                        "conclusion_sha256": conclusion_sha256,
+                        "evidence_refs": list(evidence_refs),
+                    }
         result["escalation_budget"] = await self._budget_snapshot(budget_key)
         return result
 
@@ -557,13 +716,19 @@ def _claim(agent_name: str, response: dict[str, Any] | None) -> DeliberationClai
     prompt_sha256 = composition.get("prompt_sha256") if isinstance(composition, dict) else None
     if not isinstance(prompt_sha256, str) or _SHA256.fullmatch(prompt_sha256) is None:
         return None
-    return DeliberationClaim(
-        agent=agent_name,
-        answer=response["answer"],
-        evidence_refs=evidence_refs,
-        prompt_sha256=prompt_sha256,
-        evaluation_signals=evaluation_signals(facts),
-    )
+    try:
+        return DeliberationClaim(
+            agent=agent_name,
+            answer=response["answer"],
+            evidence_refs=evidence_refs,
+            prompt_sha256=prompt_sha256,
+            evaluation_signals=evaluation_signals(facts),
+            facts_json=json.dumps(
+                facts, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
+            ),
+        )
+    except (TypeError, ValueError):
+        return None
 
 
 def _trusted_scenario_signals(
@@ -600,13 +765,16 @@ def _claim_dict(claim: DeliberationClaim) -> dict[str, Any]:
         "answer": claim.answer,
         "evidence_refs": list(claim.evidence_refs),
         "prompt_sha256": claim.prompt_sha256,
+        "facts": json.loads(claim.facts_json),
     }
 
 
 __all__ = [
     "ConversationDeliberator",
+    "ConversationSynthesisVerifier",
     "DeliberationClaim",
     "DeliberationRequest",
+    "SynthesisVerification",
     "T2ConversationSynthesizer",
 ]
 

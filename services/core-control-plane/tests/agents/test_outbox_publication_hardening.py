@@ -7,6 +7,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
+from fdai.agents._framework import forseti_what_if_publication as what_if_publication
+from fdai.agents._framework import saga_audit_runtime
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.outbox_publication import (
     PublicationClaim,
@@ -19,6 +21,7 @@ from fdai.agents._framework.var_final_approval import (
     claim_approval_publication,
     mark_approval_published,
 )
+from fdai.agents.forseti import Forseti
 from fdai.agents.heimdall import Heimdall
 from fdai.agents.mimir import Mimir
 from fdai.agents.muninn import Muninn
@@ -29,6 +32,165 @@ from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 def _bus() -> InMemoryBus:
     return InMemoryBus(registry=load_pantheon(), handler_timeout=None)
+
+
+def _what_if_request(index: int) -> dict[str, Any]:
+    return {
+        "kind": "retrospective_what_if_request",
+        "producer_principal": "Huginn",
+        "event_type": "retrospective.what_if.request",
+        "correlation_id": f"comparison-{index}",
+        "idempotency_key": f"comparison-{index}",
+        "judgment_table": {"source": "outbox-test", "rule_match": {}, "risk_verdict": {}},
+    }
+
+
+@pytest.mark.parametrize("limit", ["records", "bytes"])
+async def test_forseti_completed_publications_are_compacted_within_both_limits(
+    monkeypatch: pytest.MonkeyPatch,
+    limit: str,
+) -> None:
+    store = InMemoryStateStore()
+    forseti = Forseti(bus=_bus(), state_store=store)
+    await forseti.judge(
+        {
+            "event_type": "unknown_signal",
+            "resource_id": "resource-test",
+            "correlation_id": "source-test",
+        }
+    )
+    await forseti.on_typed_message("object.event", _what_if_request(0))
+    window = await store.read_state(what_if_publication.PUBLICATION_WINDOW_KEY)
+    assert window is not None
+    first_key = window["records"][0]["request_key"]
+    if limit == "records":
+        monkeypatch.setattr(what_if_publication, "MAX_PUBLICATIONS", 1)
+    else:
+        monkeypatch.setattr(
+            what_if_publication,
+            "MAX_WINDOW_BYTES",
+            len(what_if_publication._canonical(window).encode()) + 128,
+        )
+    await forseti.on_typed_message("object.event", _what_if_request(1))
+    latest = await store.read_state(what_if_publication.PUBLICATION_WINDOW_KEY)
+    assert latest is not None
+    assert len(latest["records"]) == 1
+    assert latest["records"][0]["request_key"] != first_key
+
+
+async def test_forseti_active_publication_is_deferred_and_never_evicted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(what_if_publication, "MAX_PUBLICATIONS", 1)
+    store = InMemoryStateStore()
+    publisher = _BlockingPublisher()
+    first = Forseti(state_store=store)
+    await first.judge(
+        {
+            "event_type": "unknown_signal",
+            "resource_id": "resource-test",
+            "correlation_id": "source-test",
+        }
+    )
+    first.bus = publisher
+    active = asyncio.create_task(first.on_typed_message("object.event", _what_if_request(0)))
+    try:
+        await asyncio.wait_for(publisher.started.wait(), timeout=1)
+        replica = Forseti(bus=_bus(), state_store=store)
+        await replica.on_typed_message("object.event", _what_if_request(0))
+        assert replica.health()["retrospective_what_if"]["evidence_state"] == "publication_deferred"
+        with pytest.raises(RuntimeError, match="no free slot"):
+            await replica.on_typed_message("object.event", _what_if_request(1))
+        window = await store.read_state(what_if_publication.PUBLICATION_WINDOW_KEY)
+        assert window is not None and len(window["records"]) == 1
+        assert window["records"][0]["status"] == "publishing"
+    finally:
+        publisher.release.set()
+        await asyncio.wait_for(active, timeout=1)
+
+
+@pytest.mark.parametrize("recovery", ["startup", "maintenance"])
+async def test_forseti_recovers_pending_comparison_without_request_redelivery(
+    recovery: str,
+) -> None:
+    class FailingComparisonBus(InMemoryBus):
+        fail_once = True
+
+        async def publish(self, principal: str, topic: str, payload: dict[str, Any]) -> None:
+            if self.fail_once and payload.get("kind") == "retrospective_what_if":
+                self.fail_once = False
+                raise RuntimeError("comparison transport unavailable")
+            await super().publish(principal, topic, payload)
+
+    store = InMemoryStateStore()
+    bus = FailingComparisonBus(registry=load_pantheon())
+    initial = Forseti(bus=bus, state_store=store)
+    await initial.judge(
+        {
+            "event_type": "unknown_signal",
+            "resource_id": "resource-test",
+            "correlation_id": "source-test",
+        }
+    )
+    with pytest.raises(RuntimeError, match="transport unavailable"):
+        await initial.on_typed_message("object.event", _what_if_request(0))
+    restarted = Forseti(bus=bus, state_store=store)
+    if recovery == "startup":
+        await restarted.rehydrate()
+    else:
+        await restarted.maintenance_tick()
+    records = [
+        message.payload
+        for message in bus.messages_on("object.verdict")
+        if message.payload.get("kind") == "retrospective_what_if"
+    ]
+    assert len(records) == 1
+    await restarted.maintenance_tick()
+    assert (
+        len(
+            [
+                message
+                for message in bus.messages_on("object.verdict")
+                if message.payload.get("kind") == "retrospective_what_if"
+            ]
+        )
+        == 1
+    )
+
+
+async def test_forseti_cancelled_publication_recovers_after_claim_expiry() -> None:
+    store = InMemoryStateStore()
+    publisher = _BlockingPublisher()
+    first = Forseti(state_store=store)
+    await first.judge(
+        {
+            "event_type": "unknown_signal",
+            "resource_id": "resource-test",
+            "correlation_id": "source-test",
+        }
+    )
+    first.bus = publisher
+    task = asyncio.create_task(first.on_typed_message("object.event", _what_if_request(0)))
+    await asyncio.wait_for(publisher.started.wait(), timeout=1)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    window = await store.read_state(what_if_publication.PUBLICATION_WINDOW_KEY)
+    assert window is not None
+    claim = window["records"][0]
+    assert claim["status"] == "publishing"
+    bus = _bus()
+    recovered = Forseti(bus=bus, state_store=store)
+    recovered._test_context_clock = lambda: (
+        datetime.fromisoformat(claim["claimed_at"])
+        + what_if_publication.PUBLICATION_LEASE
+        + timedelta(seconds=1)
+    )
+    await recovered.rehydrate()
+    published = [message.payload for message in bus.messages_on("object.verdict")]
+    assert len(published) == 1
+    assert all(published[0][field] == value for field, value in claim["payload"].items())
+    assert publisher.records == []
 
 
 def _rule_payload(index: int) -> dict[str, Any]:
@@ -169,6 +331,63 @@ async def test_var_late_publisher_cannot_mark_after_claim_reclaimed() -> None:
         approval=approval,
         claim=first_claim,
     )
+
+
+@pytest.mark.parametrize("status", ["pending", "publishing", "published"])
+@pytest.mark.parametrize("replacement", [True, 1.0])
+async def test_saga_outbox_rejects_json_type_substitution(
+    status: str, replacement: bool | float
+) -> None:
+    store = InMemoryStateStore()
+    bus = _bus()
+    saga = Saga(durable_state_store=store)
+    saga.bus = bus
+    payload = {
+        "producer_principal": "Saga",
+        "correlation_id": "audit-json-type",
+        "idempotency_key": "audit-json-type:key",
+        "audited_topic": "object.action-run",
+        "result": {"counts": [1]},
+    }
+    await saga._checkpoint_audit_outbox(payload)  # noqa: SLF001
+    if status == "publishing":
+        assert await saga._claim_audit_outbox_publication(payload) is not None  # noqa: SLF001
+    elif status == "published":
+        await saga._publish_audit_entry_with_outbox(payload)  # noqa: SLF001
+    retained = await store.read_state(_audit_outbox_key(payload))
+    assert retained is not None and retained["status"] == status
+    await saga._checkpoint_audit_outbox(payload)  # noqa: SLF001
+    substituted = {**payload, "result": {"counts": [replacement]}}
+    with pytest.raises(RuntimeError, match="idempotency collision"):
+        await saga._publish_audit_entry_with_outbox(substituted)  # noqa: SLF001
+    assert await store.read_state(_audit_outbox_key(payload)) == retained
+    assert len(bus.messages_on("object.audit-entry")) == (1 if status == "published" else 0)
+
+
+@pytest.mark.parametrize("status", ["pending", "publishing"])
+async def test_saga_compaction_never_evicts_unpublished_audit(
+    monkeypatch: pytest.MonkeyPatch, status: str
+) -> None:
+    monkeypatch.setattr(saga_audit_runtime, "_AUDIT_OUTBOX_PENDING_SCAN_LIMIT", 1)
+    monkeypatch.setattr(saga_audit_runtime, "_AUDIT_OUTBOX_TOMBSTONE_RETENTION", 1)
+    store = InMemoryStateStore()
+    saga = Saga(durable_state_store=store)
+    payload = {"correlation_id": "audit-retained", "idempotency_key": "audit-retained:key"}
+    await saga._checkpoint_audit_outbox(payload)  # noqa: SLF001
+    if status == "publishing":
+        assert await saga._claim_audit_outbox_publication(payload) is not None  # noqa: SLF001
+    retained = await store.read_state(_audit_outbox_key(payload))
+    publisher = Saga(durable_state_store=store)
+    publisher.bind_bus(_bus())
+    for index in range(3):
+        await publisher._publish_audit_entry_with_outbox(  # noqa: SLF001
+            {"correlation_id": f"audit-new-{index}", "idempotency_key": f"audit-new-{index}:key"}
+        )
+    assert await store.read_state(_audit_outbox_key(payload)) == retained
+    rows, total = await store.read_state_page(
+        saga_audit_runtime._AUDIT_OUTBOX_PREFIX, limit=10, field="status", value="published"
+    )
+    assert total == len(rows) == 1
 
 
 async def test_saga_late_publisher_cannot_mark_after_claim_reclaimed() -> None:

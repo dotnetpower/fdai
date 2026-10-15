@@ -8,14 +8,18 @@ hard-coding it fails here. Every backing store and transport is in memory.
 
 from __future__ import annotations
 
+import json
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
-from fdai.agents import Forseti
+from fdai.agents import Forseti, PantheonRuntime
 from fdai.composition import default_container
 from fdai.core.chaos.symptom_index import build_from_entries
 from fdai.delivery.runtime_settings import RuntimeSettingsService
+from fdai.runtime import bootstrap_pantheon as pantheon_bootstrap
+from fdai.runtime.bootstrap_chaos_schedule import build_chaos_schedule
 from fdai.runtime.bootstrap_lifecycle import (
     build_mutation_dependency_readiness,
     build_runtime_saga,
@@ -66,9 +70,25 @@ async def _unused(*args: Any, **kwargs: Any) -> bool:
 async def test_initialize_pantheon_passes_the_product_selection_to_forseti(
     app_config: AppConfig,
     selected: bool,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     store = InMemoryStateStore()
     settings = RuntimeSettingsService(store=None, env={})
+    original_build = PantheonRuntime.build
+    captured: dict[str, Any] = {}
+    sampler = object()
+    monkeypatch.setattr(pantheon_bootstrap, "build_capacity_sampler", lambda **kwargs: sampler)
+    schedule = build_chaos_schedule(
+        environment={"FDAI_LOKI_SCHEDULE_JSON": json.dumps(_schedule_declaration())},
+        action_type_names=frozenset({"tool.run-chaos-experiment"}),
+    )
+    monkeypatch.setattr(pantheon_bootstrap, "build_chaos_schedule", lambda **kwargs: schedule)
+
+    def build(**kwargs: Any) -> PantheonRuntime:
+        captured.update(kwargs)
+        return original_build(**kwargs)
+
+    monkeypatch.setattr(PantheonRuntime, "build", build)
 
     result = await initialize_pantheon(
         PantheonInitialization(
@@ -104,3 +124,87 @@ async def test_initialize_pantheon_passes_the_product_selection_to_forseti(
     forseti = result.runtime.agents["Forseti"]
     assert isinstance(forseti, Forseti)
     assert forseti._governed_execution_selected is selected  # noqa: SLF001
+    assert captured["ordered_poison_halt_state_store"] is store
+    assert captured["freyr_utilization_sampler"] is sampler
+    assert captured["loki_recurring_schedule"] is schedule
+    assert result.runtime.agents["Loki"]._recurring_schedule is schedule  # noqa: SLF001
+    assert result.runtime.enforce is False
+
+
+def _schedule_declaration() -> dict[str, Any]:
+    return {
+        "schedule_id": "reviewed-schedule-example",
+        "cadence_seconds": 3600,
+        "targets": ["resource-example"],
+        "action_type": "tool.run-chaos-experiment",
+        "start_at": "2026-10-01T00:00:00+00:00",
+        "causal_hypothesis_ref": "hypothesis-example",
+        "refutation_query_ref": "query-example",
+        "impact_envelope_id": "impact-example",
+        "recovery_plan_id": "recovery-example",
+        "dry_run_receipt": "dry-run-example",
+    }
+
+
+def test_explicit_loki_schedule_preserves_the_reviewed_definition() -> None:
+    schedule = build_chaos_schedule(
+        environment={"FDAI_LOKI_SCHEDULE_JSON": json.dumps(_schedule_declaration())},
+        action_type_names=frozenset({"tool.run-chaos-experiment"}),
+    )
+    assert schedule is not None
+    assert schedule.targets == ("resource-example",)
+    assert schedule.cadence == timedelta(hours=1)
+    assert schedule.start_at == datetime(2026, 10, 1, tzinfo=UTC)
+    assert schedule.dry_run_receipt == "dry-run-example"
+
+
+@pytest.mark.parametrize(
+    "field,value",
+    [
+        ("start_at", "2026-10-01T00:00:00"),
+        ("cadence_seconds", True),
+        ("targets", ["resource-example", "resource-example"]),
+        ("dry_run_receipt", ""),
+        ("action_type", "unknown.action"),
+        ("execution_authority", True),
+        ("correlation_id", None),
+        ("correlation_id", []),
+        ("correlation_id", "x" * 257),
+    ],
+)
+def test_loki_schedule_rejects_unsafe_or_incomplete_configuration(field: str, value: Any) -> None:
+    payload = {**_schedule_declaration(), field: value}
+    with pytest.raises(ValueError):
+        build_chaos_schedule(
+            environment={"FDAI_LOKI_SCHEDULE_JSON": json.dumps(payload)},
+            action_type_names=frozenset({"tool.run-chaos-experiment"}),
+        )
+
+
+def test_no_loki_schedule_is_not_a_synthetic_schedule() -> None:
+    assert build_chaos_schedule(environment={}, action_type_names=frozenset()) is None
+
+
+def test_catalog_registration_cannot_turn_an_ops_action_into_a_chaos_schedule() -> None:
+    payload = {**_schedule_declaration(), "action_type": "ops.restart-service"}
+    with pytest.raises(ValueError, match="invalid_action_type"):
+        build_chaos_schedule(
+            environment={"FDAI_LOKI_SCHEDULE_JSON": json.dumps(payload)},
+            action_type_names=frozenset({"ops.restart-service"}),
+        )
+
+
+def test_schedule_duplicate_keys_and_missing_evidence_fail_closed() -> None:
+    payload = _schedule_declaration()
+    encoded = json.dumps(payload)[:-1] + ', "schedule_id": "other-schedule"}'
+    with pytest.raises(ValueError):
+        build_chaos_schedule(
+            environment={"FDAI_LOKI_SCHEDULE_JSON": encoded},
+            action_type_names=frozenset({"tool.run-chaos-experiment"}),
+        )
+    payload.pop("recovery_plan_id")
+    with pytest.raises(ValueError, match="incomplete"):
+        build_chaos_schedule(
+            environment={"FDAI_LOKI_SCHEDULE_JSON": json.dumps(payload)},
+            action_type_names=frozenset({"tool.run-chaos-experiment"}),
+        )

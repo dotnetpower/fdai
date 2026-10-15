@@ -51,6 +51,28 @@ def test_empty_principal_groups_are_omitted_for_legacy_serialization() -> None:
     principal = request.model_dump(mode="json")["principal"]
     assert isinstance(principal, dict)
     assert "groups" not in principal
+    assert "presentation_mode" not in request.model_dump(mode="json")
+    discussion = SemanticTurnRequest.model_validate(
+        {**request.model_dump(mode="json"), "presentation_mode": "agent_discussion"}
+    )
+    assert discussion.model_dump(mode="json")["presentation_mode"] == "agent_discussion"
+    for mode in (None, True, "discussion", "execute"):
+        with pytest.raises(ValidationError):
+            SemanticTurnRequest.model_validate(
+                {**request.model_dump(mode="json"), "presentation_mode": mode}
+            )
+    for incompatible in (
+        {"planning_profile": "golden_campaign_no_t2"},
+        {"purpose": "conversation-assurance:agent-odin-role-en"},
+    ):
+        with pytest.raises(ValidationError, match="agent discussion MUST NOT"):
+            SemanticTurnRequest.model_validate(
+                {
+                    **request.model_dump(mode="json"),
+                    "presentation_mode": "agent_discussion",
+                    **incompatible,
+                }
+            )
 
 
 def _handle_ref(index: int = 1) -> ResultHandleRef:

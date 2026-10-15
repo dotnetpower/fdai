@@ -54,6 +54,26 @@ function liveSnap(): ViewSnapshot {
 }
 
 describe("viewContextWithUser wiring", () => {
+  test("discussion mode is explicit and ordinary serialization is unchanged", () => {
+    const ordinary = createBackendRequestPayload("Compare agent evidence.", null, [], "session");
+    expect(ordinary).not.toHaveProperty("presentation_mode");
+    const discussion = createBackendRequestPayload(
+      "Compare agent evidence.", null, [], "session", undefined, undefined, undefined,
+      undefined, undefined, undefined, "t1", "agent_discussion",
+    );
+    expect(discussion).toMatchObject({
+      presentation_mode: "agent_discussion", conversation_model_tier: "t1",
+    });
+    expect(discussion).not.toHaveProperty("execution_authority");
+    expect(discussion).not.toHaveProperty("view_context");
+    expect(discussion).not.toHaveProperty("conversation_context");
+    expect(() => createBackendRequestPayload(
+      "Compare agent evidence.", null, [], "session", undefined, undefined,
+      [{ id: "image-one", name: "image.png", media_type: "image/png", data_url: "data:image/png;base64,test" }],
+      undefined, undefined, undefined, "t1", "agent_discussion",
+    )).toThrow("cannot carry attachments");
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
     setChatAuth(null);

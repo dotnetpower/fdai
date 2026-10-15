@@ -6,6 +6,14 @@ title: Operator Console Progressive Conversations
 This document owns the channel-neutral branch lifecycle, ordered reduction, verified revision, and
 bounded progress contract for progressive Operator Console conversations.
 
+Explicit agent discussion is a separate read-only presentation mode on the same stream. Console
+does not attach current-screen, incident or Resource continuation context and holds pending image
+attachments intact rather than dropping them. Server admission precedes any Bragi call. Replies
+retain position, critique, owned evidence and every requested participant's completed, abstained
+or unattempted outcome. Partial results have no conclusion; verified T2 conclusions remain
+limited advice. Neither the mode selector nor its renderer approves, executes or promotes.
+
+
 Screen conversations in the Command Deck receive a route-scoped `ViewSnapshot`. Every registered panel
 provides its identity and purpose as a fallback during loading, error, and transition states. Routes
 that expose verified visible evidence can replace that fallback with bounded facts and records.

@@ -1,8 +1,8 @@
 ---
 title: 운영자 거버넌스 프로필
 translation_of: operator-governance-profiles.md
-translation_source_sha: e465040632f1f590420dcf26427c6c8972ed481e
-translation_revised: 2026-10-12
+translation_source_sha: aa31afaaa74daa17acabb7bc47236de0b99d5c5f
+translation_revised: 2026-10-15
 ---
 # 운영자 거버넌스 프로필
 
@@ -24,6 +24,11 @@ translation_revised: 2026-10-12
 > 승인 principal(Var)과 실행기(Thor)의 분리를 바꾸지 않습니다.
 
 ## 설계 한눈에 보기
+Owner 전용 토론 요청은 거버넌스 프로필을 선택하거나 변경 권한을 상속하지 않습니다.
+독립 `agent-discussion-read` 인가는 현재의 보관된 인간 인증 영수증과 별도의 정확한 설치 단위
+읽기 허가를 요구합니다. 결과로 승인, 승격 또는 실행할 수 없으며 대화 모드나 모델 등급 선택으로
+이 관문을 대신할 수 없습니다.
+
 
 | 관심사 | 결정 |
 |--------|------|

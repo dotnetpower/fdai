@@ -12,6 +12,7 @@ Commands:
 ``scan``          run the deterministic lane in the sandbox against one revision;
 ``prepare-scan``  acquire a credential-free, digest-bound tree for a separate scanner process;
 ``evaluate``      measure dedup, severity, and rescan matching on a labeled corpus;
+``evaluate-analysis-comparison`` compare current, owned, and external analyzers locally;
 ``evaluate-verifiers`` measure weakness-verifier precision on pinned public projects;
 ``evaluate-lens``  label every kept LLM lens hypothesis on a labeled public benchmark;
 ``public-key``    print the pack-signing public key that developers pin.
@@ -86,9 +87,14 @@ from fdai.core.security.code_findings.verifier import (
 )
 from fdai.core.security.code_findings.verifier_evaluation import VerifierCorpusError
 from fdai.delivery.code_security_acquire import GitSourceAcquirer, SourceAcquisitionError
+from fdai.delivery.code_security_analysis_comparison import (
+    add_analysis_comparison_command,
+    run_analysis_comparison,
+)
 from fdai.delivery.code_security_cache_snapshot import (
     add_cache_snapshot_command,
     run_publish_cache_snapshot,
+    run_resolve_cache_snapshot,
 )
 from fdai.delivery.code_security_input_cli import (
     add_input_verification_command,
@@ -192,6 +198,7 @@ def _parser() -> argparse.ArgumentParser:
     add_cache_snapshot_command(sub)
     add_repository_commands(sub)
     add_verifier_evaluation_command(sub)
+    add_analysis_comparison_command(sub)
     add_lens_evaluation_command(sub)
     evaluation = sub.add_parser("evaluate", help="measure dedup and severity on a labeled corpus")
     evaluation.add_argument(
@@ -436,6 +443,8 @@ def main(argv: list[str] | None = None) -> int:
             output = verify_scanner_input(args)
         elif args.command == "publish-cache-snapshot":
             output = run_publish_cache_snapshot(args)
+        elif args.command == "resolve-cache-snapshot":
+            output = run_resolve_cache_snapshot(args)
         elif args.command in ("repo-register", "repo-list", "repo-enable", "repo-disable"):
             output = asyncio.run(run_repository_command(args))
         elif args.command == "process-scan-requests":
@@ -447,6 +456,8 @@ def main(argv: list[str] | None = None) -> int:
             return 0
         elif args.command == "evaluate":
             output = _evaluate(args)
+        elif args.command == "evaluate-analysis-comparison":
+            output = run_analysis_comparison(args)
         elif args.command == "evaluate-verifiers":
             output = evaluate_verifiers(args)
         elif args.command == "evaluate-lens":

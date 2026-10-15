@@ -40,6 +40,9 @@ from fdai_document_worker_service.adapters.graph import (
     GraphReportingLineDirectory,
 )
 from fdai_document_worker_service.adapters.handover import PostgresHandoverDraftStore
+from fdai_document_worker_service.adapters.handover_model_configuration import (
+    build_handover_interpreter,
+)
 from fdai_document_worker_service.adapters.local import (
     DeterministicLocalEmbeddingModel,
     LocalDocumentArtifactStore,
@@ -384,6 +387,14 @@ def build_runtime(environ: Mapping[str, str]) -> ProductionWorkerRuntime:
                 ),
                 store=PostgresHandoverDraftStore(dsn=dsn),
                 stewardship=stewardship_input_from_environment(env),
+                interpreter=build_handover_interpreter(
+                    environment=env,
+                    credential=_deployed_credential(credential),
+                    client=http_client,
+                    store=PostgresHandoverDraftStore(dsn=dsn),
+                )
+                if env.get("FDAI_HANDOVER_MODELS_JSON", "").strip()
+                else None,
                 confidence_floor=_bounded_float(
                     env, "FDAI_HANDOVER_CONFIDENCE_FLOOR", 0.6, minimum=0.0, maximum=1.0
                 ),

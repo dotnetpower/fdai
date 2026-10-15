@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: adc998581d32237349e3f9ff48cf04a82ff513ee
-translation_revised: 2026-10-12
+translation_source_sha: c5cc10b87ce5bbe3b50bcb95d37339aed4519285
+translation_revised: 2026-10-15
 ---
 
 # 개발 워크플로 보증
@@ -71,6 +71,10 @@ Core manifest의 배포용 `fdai-operational-catalog-review` entry point는 로�
 경로를 받습니다. 대화 품질 보증 supervisor 작업은 표준 loopback Operator URL과 소유자 전용
 bearer-token 파일 경로를 전달하지만 bearer 값 자체는 전달하지 않습니다. 따라서 source를 다시
 불러오고 작업을 재시작해도 editor의 주변 환경에 의존하지 않고 인증된 로컬 계약을 유지합니다.
+커밋된 Console frontend 실행 구성과 준비 완료 동작은 모두
+`http://localhost:5273`을 사용합니다. 개발 워크플로 회귀 테스트는 Vite 호스트 인자와
+브라우저 원점을 함께 고정하므로 작업 영역 편집으로 호환되지 않는 `127.0.0.1` 실행
+호스트가 다시 들어오는 것을 막습니다.
 
 `console: restart full stack`은 같은 checkout의 검증된 관리 supervisor만 중지하고 lock 해제를
 기다린 뒤 관리 준비 과정을 실행하고 표준 Browser Entra 구성을 시작합니다. 먼저 중지하므로
@@ -92,6 +96,10 @@ Terraform 상태를 초기화하거나 읽지 않으며 게이트웨이 검색�
 supervisor
 중지와 교체는 PID, checkout, lock fd 소유권 검사를 유지하면서 정본 실행기나 저장소 안의 정확한
 Copilot wrapper만 허용합니다.
+준비 과정은 다이제스트에 연결된 변경 불가능한 취약점 캐시 스냅샷도 게시하고, 작업자를 시작하기
+전에 포인터와 내용을 검증합니다. 캐시 무효화는 관련 없는 Core 소스 변경이 아니라 스캐너와 캐시
+계약을 따릅니다. 집중 실행기 및 캐시 테스트는 이 로컬 동작을 검증하지만, 진단 수집을 활성화하거나
+배포된 스캐너의 준비 완료를 입증하지는 않습니다.
 
 ![설계 개요. 주요 단계는 편집과 집중 검사, 워크플로 진단, 집중 커밋, 구조 pre-push, SHA 기반 CI, 원격 작업, 제한된 인계입니다.](../../diagrams/generated/fdai-roadmap-deployment-developer-workflow-assurance-01.ko.svg)
 

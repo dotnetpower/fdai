@@ -19,6 +19,17 @@ authority. Azure Container Apps remains a supported compatibility profile for ex
 > this runtime contract doesn't change.
 
 ## Design at a glance
+Both profiles bind explicit Operator discussion only when the independently configured verifier,
+current grant-registry pin, installation reference and exact installation read scope exist.
+Missing prerequisites hold rather than creating an Owner, grant or live model invocation.
+Console mode selection changes no runtime profile, executor identity or operational readiness.
+
+
+Both runtime profiles keep conversational presentation separate from execution and package
+activation. Standard Core composition forwards the independent synthesis verifier and binds the
+durable per-correlation budget ledger. Target/locale transport, verification holds and restart
+accounting follow the same contracts in every venue; these bindings neither enable Cost
+Governance nor prove operational or handover readiness.
 
 The [GitHub knowledge connector](../../runbooks/knowledge-github-sources.md) uses the same
 bounded repository, exact-commit, and README validation in both runtime profiles. Anonymous
@@ -31,6 +42,12 @@ restricted worker service. AKS runs one controller replica and launches scanner 
 existing Kata runtime, separate restricted namespaces, immutable scanner image, and source/cache
 PVC bindings. Both profiles share request, heartbeat, revision-watermark, and review contracts;
 runtime selection changes only identity, storage, network, and sandbox adapters.
+The scanner image build context excludes the repository-wide `tools/` tree and explicitly admits
+only the owned TypeScript, Java, and C# frontend sources required by the analysis runtime. The
+image binds pinned TypeScript, JDK, and .NET/Roslyn toolchains and must build or load each trusted
+helper inside the container before the runtime package is accepted. Java disables annotation
+processing and C# emits no target assembly; neither helper executes repository code. This
+packaging rule changes no runtime profile or authority.
 
 Operator production composition uses the same focused lifecycle, route-family, and read-source
 modules in every runtime profile. The internal ownership split changes no platform selection,

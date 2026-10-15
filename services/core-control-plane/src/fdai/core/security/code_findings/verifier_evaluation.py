@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 TAINT_LANGUAGES = {
+    ".py": "python",
     ".js": "js",
     ".jsx": "js",
     ".ts": "js",

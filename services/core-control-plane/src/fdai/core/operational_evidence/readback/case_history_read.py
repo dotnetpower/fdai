@@ -8,13 +8,17 @@ from datetime import datetime
 from typing import Any, Protocol
 
 from fdai_service_contracts.ontology_query import content_digest
-from fdai_service_contracts.operational_evidence import OperationalEvidenceRejectionClass
+from fdai_service_contracts.operational_evidence import (
+    OperationalEvidenceRejectionClass,
+    agent_discussion_lookup_digests,
+)
 from fdai_service_contracts.operator_authentication import (
     OperatorAuthenticationEvidenceClass,
     OperatorAuthenticationReceipt,
 )
 from pydantic import ValidationError
 
+from ..grant_registry import CaseScope
 from ..rejections import ReadbackRejection, reject
 from .base import ReadbackContext, ReadbackFacts
 
@@ -47,6 +51,9 @@ class CaseHistoryReadback:
     """Authorize one inert Pattern read from a retained receipt and grant registry."""
 
     purposes = frozenset({PURPOSE})
+    purpose_id = PURPOSE
+    operation = "case-history.read"
+    required_role: str | None = None
 
     def __init__(self, *, receipts: SemanticAuthenticationReceiptSource) -> None:
         self._receipts = receipts
@@ -80,6 +87,10 @@ class CaseHistoryReadback:
             return reject(_R.CROSS_SCOPE, "principal_groups_mismatch")
         if not receipt.valid_at(context.read_at):
             return reject(_R.STALE, "authentication_receipt_not_current")
+        if self.required_role is not None and (
+            self.required_role not in receipt.roles or receipt.principal_kind != "human"
+        ):
+            return reject(_R.CROSS_SCOPE, "authenticated_role_mismatch")
         if (
             context.venue.value == "deployed"
             and receipt.evidence_class is OperatorAuthenticationEvidenceClass.LOCAL_LOOPBACK
@@ -88,8 +99,8 @@ class CaseHistoryReadback:
         decision = context.grants.authorize(
             receipt,
             access_scope_digest=case_scope,
-            operation="case-history.read",
-            purpose_id=PURPOSE,
+            operation=self.operation,
+            purpose_id=self.purpose_id,
             at=context.read_at,
         )
         if not decision.allowed or decision.rejection_class is not None:
@@ -99,7 +110,11 @@ class CaseHistoryReadback:
                 conflicts=decision.conflicts,
             )
         scope = decision.case_scope
-        if scope is None or PURPOSE not in scope.purposes:
+        if (
+            scope is None
+            or self.purpose_id not in scope.purposes
+            or not self._scope_matches(scope, context)
+        ):
             return reject(_R.CROSS_SCOPE, "case_scope_purpose_mismatch")
         auth_anchor = next(
             (
@@ -144,8 +159,39 @@ class CaseHistoryReadback:
             authentication_receipts=(receipt.model_dump(mode="json"),),
         )
 
+    def _scope_matches(self, scope: CaseScope, context: ReadbackContext) -> bool:
+        return True
+
+
+class AgentDiscussionReadback(CaseHistoryReadback):
+    """Verify a human Owner's separate exact-scope read-only discussion grant."""
+
+    purposes = frozenset({"agent-discussion-read"})
+    purpose_id = "agent-discussion-read"
+    operation = "agent-discussion.read"
+    required_role = "Owner"
+
+    def _scope_matches(self, scope: CaseScope, context: ReadbackContext) -> bool:
+        installation = context.request.locator.coordinate("installation_ref")
+        return installation.startswith("pantheon-installation:") and scope.resource_selectors == (
+            installation,
+        )
+
+    async def read(self, context: ReadbackContext) -> ReadbackFacts | ReadbackRejection:
+        if context.request.lookup.source_revision != context.grants.pin:
+            return reject(_R.STALE, "discussion_grant_revision_mismatch")
+        expected = agent_discussion_lookup_digests(context.request.locator.coordinates)
+        actual = (
+            context.request.lookup.evidence_digest,
+            context.request.lookup.scope_digest,
+        )
+        if expected != actual:
+            return reject(_R.REPLAY_SUBSTITUTED, "discussion_lookup_mismatch")
+        return await super().read(context)
+
 
 __all__ = [
+    "AgentDiscussionReadback",
     "AUTHENTICATION_SOURCE",
     "GRANT_SOURCE",
     "PURPOSE",

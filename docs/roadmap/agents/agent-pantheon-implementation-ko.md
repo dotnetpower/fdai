@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 6f7191d1aba0f282dfb4eb5011b41e693c017dea
-translation_revised: 2026-10-08
+translation_source_sha: 216e6a9e46b37a7249c657eb82efee1bcbf69aa3
+translation_revised: 2026-10-15
 ---
 
 # 에이전트 판테온 구현 계획
@@ -17,11 +17,72 @@ translation_revised: 2026-10-08
 > shadow 승격 경계를 변경하지 않습니다.
 
 ## 구현 상태
+표준 Core 부트스트랩은 기존 서비스 소유 StateStore를 순서 보장 오류 정지 저장소와 영수증을
+확인하는 해제 처리기에 연결합니다. 정지 복원은 의도적으로 프로세스 내부 상태로 돌아가지
+않습니다. StateStore 이슈 어댑터는 변경 전에 각 작업 ID를 하나의 fingerprint와 요청 해시에
+전역으로 연결하며, 재수화도 이전 이슈 이력의 같은 바인딩을 복원하고 충돌을 거절합니다.
+Freyr 반복 샘플은 수집 시각으로 최신성을 만들지 않고 시간대가 있는 유효한 출처 관측 시간을
+요구합니다. 내구성·부트스트랩·이슈 집중 검사 114개, Freyr 검사 11개와 집중 타입 검사가
+통과했습니다. 이 소스 수정은 역할, 승인, 위험 분류나 실행기를 바꾸지 않으며 실제 브로커·DB
+재시작, 원격 작업 식별자 또는 복제본 간 게시를 입증하지 않습니다.
+
 
 ### 구현 범위
 
+Saga의 공급자 기반 내부 감사 체인은 감사 포함 StateStore CAS를 통해 리비전이 일치할 때만
+공유 head와 제한된 해시 기록을 함께 확정합니다. A/B/A, 복제본 경합, 확정 실패·취소, 손상된
+상태, 예산 소진, 이전 형식의 이행·보류를 집중 검증했습니다. 어댑터·권한·복구·발신함·구조
+검사 165개, 1,500회 추가 후 제한된 복구 검사 1개, 실제 격리 PostgreSQL의 복제본·reader·
+롤백·이행 검사 5개가 통과했습니다. 다섯 소스 strict mypy와 Ruff도 통과했습니다. 보존 구간의
+조회가 전체 이력 재생을 뜻하지는 않습니다. 이행 전에 모든 구버전 writer를 중지해야 하며,
+전체 감사 행이 512개를 넘는 이력은 별도로 검토한 이행 절차가 필요합니다. 원격 GitHub App
+식별자와 실제 배포 환경의 수락은 아직 남아 있습니다.
+
+배포가 `FDAI_LOKI_SCHEDULE_JSON`을 제공하면 표준 Loki 일정은
+`runtime/bootstrap_chaos_schedule.py`를 통해 소스에 연결됩니다. 닫힌 선언에는 `schedule_id`,
+1-31536000의 정수 `cadence_seconds`, 중복 없는 정본 `targets` 1-32개, 등록된 Chaos
+`action_type`, 시간대가 있는 `start_at`, `causal_hypothesis_ref`, `refutation_query_ref`,
+`impact_envelope_id`, `recovery_plan_id`, `dry_run_receipt`가 필요합니다. 선택적
+`correlation_id`는 비어 있지 않은 최대 256자입니다. 전체 입력은 최대 16KiB이며 중복 JSON
+키를 거절합니다. 설정이 없으면 미연결 상태를 유지합니다. 참조는 후보 근거일 뿐 승인이나
+독립적으로 검증된 롤백 증적이 아닙니다. 초기화 및 Loki·구조 인접 검사 57개와 집중 mypy·Ruff가
+통과했습니다. 실제 일정 설정과 Chaos 수락은 별도이며 비활성 적대적 시나리오 소스는 아직
+연결되지 않았습니다.
+
+표준 Mimir 원본 감시는 `MimirActiveCatalogPoller`를 통해 ControlLoop의 현재 검증된 Rule
+세대 스냅샷을 읽습니다. 추정한 파일 일부가 아니라 활성 멤버십 원본 하나를 완전히 기록합니다.
+생성 전용 감사 산출물과 리비전 CAS로 재시작·복제본 관측을 보존하며, 내용 없는 산출물은 최대
+1,000개만 보관합니다. 손상된 기록과 같은 해시의 멤버십 치환을 거절하고 세대 변경은 한 번만
+계산합니다. 이 읽기는 Rule 활성화, 회귀 통과, 승격 또는 이슈 종료 권한을 부여하지 않습니다.
+관측·이슈 종료·초기화 집중 검사 20개와 두 파일 mypy·Ruff가 통과했습니다.
+
+Mimir의 승격 소비 경로는 회귀 실행 전에 미래 승격 시각을 거절합니다. 정상 회귀 근거는
+승격 시각 이후 시작하고 관측 시계의 현재 시각까지 완료되어야 합니다. 승격 전의 오래된
+회귀로 Saga의 재발 없는 관찰 창을 시작할 수 없습니다. 이슈 종료·구조 집중 검사 35개와
+한 파일 mypy·Ruff가 통과했습니다. 이 검사는 승격, 회귀 또는 폐기 reader를 제공하지 않습니다.
+
+Loki 반복 일정은 시간대가 있는 명시적 `start_at`을 요구합니다. 기준이 없으면 매 tick의 현재
+시각으로 새 창을 만들지 않고 보류합니다. 기존 창 식별자와 항상 사람 승인을 요구하는 제안
+관문은 바뀌지 않습니다. 일정·비활성 시나리오·반복 샘플 집중 검사 25개가 통과했습니다.
+현재 런타임에는 `PreparedDevelopmentBindingRegistry`를 통해 ControlLoop와 판테온이 공유하는
+개발 바인딩 소스도 있으며, 기존 조립·내구성 소스 검사 26개가 통과했습니다. 이전의 소스 부재
+문구는 이 소스 존재 사실만으로 대체합니다. 프로필 선택, 실제 Owner 승인이나 실제 실행
+증거를 뜻하지 않습니다.
+
+Freyr의 표준 출처 연결은 `runtime/bootstrap_capacity_sampling.py`가 소유합니다. 배포는 논리
+Resource ID와 고정 타입의 제한된 매핑인 `FDAI_FREYR_TARGETS_JSON`을 제공할 수 있습니다.
+대상, 실제 MetricProvider나 현재 인벤토리 reader가 없으면 계속 사용할 수 없습니다.
+sampler는 검토된 `resource.cpu.utilization_pct` 선언을 사용하고 조회 전후 정확한 provider
+참조를 확인하며 원본 관측 시간을 보존합니다. 무효·과거·미래 값과 세대·참조 변경을 거절하고
+설정 대상을 자르지 않습니다. 출처 키에는 메트릭 선언 해시를 연결합니다. 샘플 수집은 읽기
+전용이며 크기 변경을 허가하지 않습니다. 로컬 routed provider·반복 샘플·초기화 검사 56개가
+통과했습니다.
+
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| Saga 공유 내부 체인 리비전 | implemented | `audit_chain_journal.py`; `audit_chain_rehydrate.py`; 소유 범위 검사 165개, 제한된 복구 검사 1개, 실제 격리 PostgreSQL 검사 5개; 다섯 소스 strict mypy와 Ruff | 공유 head와 감사를 원자적으로 확정하고 검증된 로컬 조회 범위를 제한하며, 검증할 수 없는 이전 형식의 이행은 보류합니다. 구버전 중단 후의 배포 이행, 더 긴 이력의 이행과 원격 이슈 식별자는 별도입니다. |
+| 명시적인 표준 Loki 반복 일정 | implemented | `bootstrap_chaos_schedule.py`; `bootstrap_pantheon.py`; 초기화·Loki·비활성 시나리오·샘플·레이아웃 검사 57개 통과 | 완전한 명시적 선언을 기존 Loki 처리기에 전달하며 enforce를 켜거나 입력을 만들지 않습니다. 실제 배포 일정, 승인 및 실행 근거는 남아 있습니다. |
+| 현재 순서 정지 및 로컬 이슈 작업 바인딩 | implemented | `bootstrap_pantheon.py`; `state_store_issue_tracker.py`; 부트스트랩·정지 해제·런타임·Mimir 이슈 검사 114개 통과 | 정지 저장소의 소스 미연결과 로컬 fingerprint별 작업 ID 공백만 해결합니다. 원격 이슈 어댑터, 복제본 게시와 실제 재시작 증거는 남아 있습니다. |
 | 온톨로지 ContextIndex 소유자 라우팅 | implemented | `agents/_framework/ontology_index.py`; `test_ontology_context_index.py`; 실제 인메모리 EventBus 단계 연결 검사 | Huginn 유입, Muninn 준비 및 전이 게시, Heimdall 검증 게시, Saga 감사 및 봉인 게시는 기존 소유 토픽을 사용합니다. 래퍼는 소유자, 토픽, 내용, 단계 불일치를 거부하고 일반 판단과 학습에서 분리합니다. 이 라우팅 검사의 기계적 처리기는 합성이며 영속 원본 및 수명주기 처리기와 운영 bootstrap 연결은 남아 있습니다. |
 | W0-W1 문서, 온톨로지 및 프레임워크 기반 | implemented | [`test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py), [`test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py) | 고정 레지스트리, 패키지 경계, 문서 일치 및 타입이 지정된 토픽 기반을 실행하고 검사할 수 있습니다. |
 | Bus 및 graph ownership 분리 | implemented | `_framework/{pantheon,topics}.py`; ontology alignment, topic, registry, doc parity 및 Console agent contract 검사 | 이제 `AgentSpec.owns`에는 생산 가능한 event-bus 객체만 포함됩니다. `Budget`과 `SizingRecommendation`은 사용되지 않는 topic을 만들지 않고 Njord와 Freyr의 graph lifecycle ownership을 유지합니다. ActionRun에 포함된 attempt 상태와 core RCA projection은 bus registry 밖에 유지됩니다. |
@@ -51,6 +112,20 @@ translation_revised: 2026-10-08
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-15 | implemented | 내용 해시를 가진 공유 리비전 기록과 원자적 head·감사 확정으로 재현된 A/B/A 내부 체인 분기를 수정했습니다. 제한 안에서 이전 기록을 보존하거나 검증 불가 시 이행을 보류합니다. | `current change`; #2149; `audit_chain_journal.py`; `audit_chain_rehydrate.py`; 소유 범위 검사 165개, 1,500회 추가 후 복구 검사 1개, 실제 격리 PostgreSQL 검사 5개; 다섯 소스 strict mypy와 Ruff. | 배포 전에 구버전 writer를 중지하고 더 긴 이력의 이행을 별도로 검토해야 합니다. 원격 식별자와 실제 배포 수락도 아직 남아 있습니다. |
+| 2026-10-15 | implemented | Bragi 평가 입력 리비전을 원본과 분리하고, 기준·후보의 내용이나 JSON 타입이 바뀌면 저장·게시 전에 거절하며, 보관된 평가기 참조로 반환된 후보를 바꾸지 못하게 했습니다. | `current change`; `bragi_intent_training.py`; 변조·격리 반례 5개 추가, 학습·구조 검사 35개, 한 소스 mypy와 Ruff 통과. | 독립 평가기, 동의가 확인된 원본 표본, 검토된 활성화와 배포된 공급자의 수락 근거는 아직 남아 있습니다. |
+| 2026-10-15 | implemented | Bragi 학습의 실행·게시·단계 식별자를 전체 표본, 동의, 후보 및 단계 스냅샷에 결속하고, 런타임 라우팅 변경 없이 검토 개정마다 기록을 별도로 보존했습니다. | `current change`; `bragi_intent_training.py`, `bragi_runtime_helpers.py`, `bragi.py`; 식별자·저장 반례 6개 추가, 학습·구조 검사 30개, 세 소스 mypy와 Ruff 통과. | 독립 평가기, 동의가 확인된 원본 표본, 검토된 활성화와 배포된 공급자의 수락 근거는 아직 남아 있습니다. |
+| 2026-10-15 | implemented | 닫힌 형식·내용 해시, 복제본 claim 결속 게시, 완료 기록만 정리, 시작·유지 작업 복구 및 같은 키의 종료 후 재전달로 요청에 고정된 Forseti what-if outbox를 연결했습니다. | `current change`; `forseti_what_if_publication.py`; what-if·outbox·구조·워크플로·판정 파이프라인 검사 211개, 세 소스 mypy와 Ruff 통과. | 보관된 제한 구간의 요청 중복 방지를 구현했습니다. 전체 과거 맥락, 배포 DB·브로커 수락과 다른 유지 작업 소스 연결은 남아 있습니다. |
+| 2026-10-15 | implemented | 명시적 빈 대상 또는 불일치하는 단일 대상 선언이 선언 밖 리소스 실행으로 내려가지 않도록 차단했습니다. 정확히 일치하는 단일 대상 실행을 보존하고 기존 배치 구현을 재확인했습니다. | `current change`; `thor_batch.py`; 배치·구조·워크플로 검사 51개, 한 파일 mypy와 Ruff 통과. | 대상별 롤백·집계 감사·영속 승인 및 복구는 합성 검사를 통과했습니다. 배포 신원·롤백/효과·브로커 수락은 별도입니다. |
+| 2026-10-15 | implemented | 기존 StateStore로 제한된 v1 Forseti 비교 창을 영속화했습니다. 512개 기록, 닫힌 필드, 내용 해시, 최대 여덟 번 CAS와 2초 저장소 기한을 적용합니다. 시작과 비교 때 검증된 저장 입력을 복원하며, 저장소 오류는 원래 판정을 보존하고 비교를 보류합니다. | `current change`; `forseti_quality_retention.py`; what-if·구조·워크플로·판정 파이프라인 검사 176개, 네 소스 mypy와 Ruff 통과. | 게시 중복 방지와 과거 Rule·정책·근거의 전체 맥락 재생은 남아 있습니다. 메모리 프로바이더 검사는 배포 DB·브로커 수락이 아닙니다. |
+| 2026-10-15 | implemented | 테이블 변경 뒤의 회고 비교에서도 Forseti의 원래 무규칙 ActionType과 기록된 판정 테이블 해시를 보존했습니다. | `current change`; `forseti_quality_runtime.py`, `forseti_what_if.py`; what-if·구조·워크플로 검사 41개, 두 파일 mypy와 Ruff 통과. | 전체 과거 입력과 게시 중복 방지 기록을 영속 보관해야 합니다. 전체 맥락 재생과 프로바이더 재시작 수락도 아직 남아 있습니다. |
+| 2026-10-15 | implemented | Mimir 이슈 종료 회귀 근거를 승격 이후 관찰 창에 결속했습니다. 미래 승격, 승격 전 회귀 또는 미래 완료는 아무것도 게시하지 않으며 Saga 이슈를 열린 상태로 남깁니다. | `current change`; `mimir_governance_maintenance.py`; 이슈 종료·구조 검사 35개, 한 파일 mypy와 Ruff 통과. | 검토된 승격·회귀·폐기 생산자를 연결하고 런타임 증적을 보존해야 합니다. 시간 검사는 원본의 권위를 만들지 않습니다. |
+| 2026-10-15 | implemented | Bragi 후보 생성에서 독립 검증 표본을 제외하고, 평가 전에 입력 해시 중복을 거절하며, 원본 기준 소유자와 정답 소유자에 표본별 평가 결과 하나를 결속했습니다. | `current change`; `bragi_intent_training.py`; 학습·구조 검사 24개, 한 파일 mypy와 Ruff 통과. | 독립 평가기와 동의가 확인된 원본 표본을 연결해야 합니다. 검토된 활성화와 런타임 수락도 아직 남아 있습니다. |
+| 2026-10-15 | implemented | 정확한 카탈로그 검증, 필수 출처 기준 시각·근거 참조, 중복 키 거절 및 권한 필드 금지로 명시적인 제한된 Loki 반복 일정을 표준 초기화에 연결했습니다. | `current change`; 초기화·Loki·비활성 시나리오·샘플·레이아웃 검사 57개와 집중 mypy·Ruff 통과 | 실제 선언 일정·사람 승인·복구·Chaos 증적이 필요하며 비활성 생성과 다른 초기 통합 항목은 남아 있습니다. |
+| 2026-10-15 | implemented | 생성 전용 감사, 제한된 보관과 리비전 CAS를 갖춘 Mimir 읽기 전용 활성 Rule 세대 감시를 표준 초기화에 연결했습니다. | `current change`; 관측·이슈 종료·초기화 검사 20개 통과; 재시작·동시 변경·손상/치환 검사; Ruff와 두 파일 mypy 통과. | 승격·회귀·폐기 reader, Bragi evaluator와 실제 런타임 증거는 남아 있습니다. |
+| 2026-10-15 | implemented | 명시적 시간대 있는 Loki 일정 기준을 요구하고 현재 공유 개발 바인딩 소스 구현을 실제 코드와 대조했습니다. | `current change`; 일정·비활성 시나리오·반복 샘플 검사 25개 통과; 한 파일 mypy와 Ruff; 개발 조립·소스 검사 26개 통과. | 검토된 일정·시나리오 출처, 실제 프로필·Owner 증거와 다른 운영 수락은 남아 있습니다. |
+| 2026-10-15 | implemented | 기본 대상이나 조작된 최신성 없이 현재 인벤토리에 대한 Freyr MetricProvider 샘플 수집과 표준 초기화 연결을 추가했습니다. | `current change`; routed provider·샘플·초기화 검사 56개 통과; 일곱 소스 양성·치환 반례; Ruff와 두 파일 mypy 통과. | 실제 설정 sampler 증거를 보존해야 합니다. 검토된 Loki 일정, 유지 작업 출처와 운영 수락은 남아 있습니다. |
+| 2026-10-15 | implemented | 표준 순서 오류 정지 저장소를 기존 서비스 소유 StateStore에 연결하고 보관 이력 재수화를 포함해 로컬 Saga 이슈 작업 식별자를 전역으로 연결했습니다. | `current change`; 부트스트랩·정지 해제·런타임·Mimir 이슈 검사 114개 통과; Ruff 및 두 파일 mypy 통과. Freyr 출처 시간 체크포인트 `6014bf1bd9`: 11개 통과. | 원격 브로커·DB 재시작, 원격 GitHub App 식별자, Saga 복제본 게시, 정기 출처 연결과 실제 인수인계 검증은 남아 있습니다. |
 | 2026-10-08 | implemented | Forseti 기준선 평가는 규칙이 `evaluates`에 선언한 모든 속성을 리소스가 가질 때만 `compliant`를 기록하며, 그렇지 않으면 해당 쌍은 `property_unobserved`로 판단을 보류합니다. 거부 결과는 `violated`로 유지합니다. | `current change`; `forseti_baseline_evaluation.py`; worker 및 Saga 감사 검사를 포함한 `test_forseti_baseline_evaluation.py` | 인벤토리 수집이 정규화 속성을 제공해야 합니다([프레임워크 규칙 근거 ledger](../../roadmap-implementation/rules-and-detection/framework-rule-evidence.md)). |
 | 2026-10-04 | implemented | `PANTHEON_SPECS`, 토픽, 역할 바인딩, 승인 또는 실행 권한을 바꾸지 않고 Forseti의 prospective-lineage 게시 경로를 강화했습니다. Forseti가 소유한 판단 값이 없으면 이제 `ProspectiveLineage`를 만들지 않고 Verdict에 명시적인 이용 불가 사유를 기록하며, 완전한 값이 있을 때도 Forseti가 소유한 `object.prospective-lineage` 토픽으로만 게시합니다. | `current change`; `agents/_framework/forseti_arbitration.py`; `delivery/prospective_lineage.py`; 집중 prospective-lineage 및 에이전트 layout 검사. | 운영 온톨로지 잔여 항목을 유지합니다. Source/projector 재생 근거를 주장하려면 완전한 governed runtime episode 하나가 필요합니다. |
 | 2026-10-02 | implemented | 기준선 평가 결과와 완료 기록을 위한 Saga의 추가 전용 감사 바인더를 추가했습니다. | `current change`; `saga.py`; `test_saga_baseline_evaluation_audit.py`; 집중 Saga/Forseti/Pantheon 검사. | Operator 변환 결과와 Console 상태는 #1199의 별도 패키지에 남아 있습니다. |
@@ -571,6 +646,39 @@ correlation이 포함되므로 같은 규칙을 다른 이벤트에 재생한 �
 자문 Verdict와 ArbitrationRequest는 범위가 제한된 `cost_annotation` 근거나 명시적 unavailable
 상태를 담습니다. Odin은 이를 보존하고 Thor는 non-identity metadata로 저장합니다.
 
+원본 결과는 당시 기록된 ActionType과 판정 테이블 해시를 사용하며 현재 테이블 값으로
+대체하지 않습니다. 따라서 일치하는 규칙이 나중에 생겨도 원래 규칙 없음으로 보류한
+ActionType은 빈 값으로 남습니다. 출처 해시가 없으면 알 수 없는 상태를 유지합니다. 이 출처
+정확성 수정만으로는 과거 Rule·정책·근거의 전체 맥락 재생을 입증하지 않습니다. 아래 v1 보관
+구현은 선택된 비교 입력을 저장하고 보관된 요청마다 전달 결과를 고정합니다.
+
+제한된 v1 보관 설계는 기존 Forseti StateStore에 내용 없는 이벤트 종류, 기록된 결정,
+테이블 해시와 tier를 최대 512개 리비전 CAS 창으로 보관합니다. 선택된 비교 입력만 보관하며
+전체 과거 실행 맥락을 보관하지 않습니다. 설계 비평에서 복제본 갱신 유실, 손상된 저널,
+기존 판정 경로의 새 의존성 위험을 확인했습니다. 제한된 CAS, 닫힌 필드 검증과 명시적 비교
+보류로 대응합니다. 품질 저장소 오류 때 원래 판정을 바꾸거나 메모리로 조용히 대체하지
+않습니다. 아래의 별도 전달 창은 실행·활성화·효과 검증 권한을 제공하지
+않습니다.
+
+`forseti_quality_retention.py`는 닫힌 기록과 내용 해시를 사용하고 2초 안에 최대 여덟 번
+CAS를 시도하는 창을 구현합니다. 같은 키의 입력 치환을 거절하며, 시작과 비교 전에 검증된
+저장 기록만 메모리 창을 대체합니다. 보조 저장소 실패 뒤에도 원래 판정을 바꾸지 않습니다.
+표준 초기화는 기존 `incident_audit_store`를 `forseti_state_store`로 공급합니다. 저장소가
+없으면 영속성을 주장하지 않고 명시적인 미연결 로컬 동작을 유지합니다. 재시작, 복제본 경쟁,
+보관 상한, 여섯 손상 유형과 기존 판정 경로 호환성을 포함해 집중 검사 176개가 통과했습니다.
+
+검토한 전달 설계는 첫 비교 결과를 상관관계, 대체 테이블 해시와 정규화된 표본 상한에
+고정합니다. 비평에서 재시작 중복, 입력이 달라진 재시도, 살아 있는 claim 경쟁, 방치된 미완료
+작업과 요청 슬롯 치환을 확인했습니다. `forseti_what_if_publication.py`는 닫힌 형식·내용 해시,
+리비전 CAS와 공통 claim 결속 outbox 도우미를 사용합니다. 상한은 512개 요청·512KiB이며,
+2초 저장소 기한 안에 최대 여덟 번 CAS를 시도합니다. claim 임대는 4초, 게시 총 기한은
+8초입니다. 시작과 유지 작업의 복구는 15초 안에 적격 기록 최대 16개를 처리합니다. 비교를
+다시 실행하지 않으며 원래 입력 창도 요구하지 않습니다. 유효한 임대는 대기하고, 손상된
+저장소는 보류하며, 완료 기록만 제한 구간에서 제거할 수 있습니다. 새 입력을 비교하려면 새
+상관관계가 필요합니다. 브로커 수락 뒤 확정 전에 종료되면 다른 결과가 아니라 같은 bytes와
+멱등성 키를 재전달합니다. 저장소 미연결 동작은 명시적으로 프로세스 내부에 머무릅니다.
+전체 과거 Rule·정책·근거 재생이나 실제 효과 수락은 아닙니다.
+
 #### Bragi intent-training loop
 
 Bragi는 범위가 제한되고 consent-filtered이며 digest-only인 검증된 routing outcome에서 shadow 전용
@@ -578,6 +686,24 @@ intent-training 근거를 기록합니다. Candidate 평가는 off-path, 결정�
 입니다. Routing 권한은 바뀌지 않으며 reviewed activation은 별도 binding으로 남습니다. Norns는
 이 근거와 `object.post-turn-review`의 다른 비 review 종류를 관측 가능한 비학습 결과로 기록하며,
 `kind: post_turn_review`만 학습기 검토에 들어갑니다.
+
+후보 보정 항목은 수정 대상 표본만 사용합니다. 독립 검증 표본인 holdout의 입력 해시는 학습
+입력 해시와 겹칠 수 없으며, 후보의 근거 계보나 지지 횟수에도 들어가지 않습니다. 평가기는
+원본 표본마다 결과 하나를 반환해야 하며 기준 소유자나 정답 소유자를 바꿀 수 없습니다.
+이 무결성 검사는 평가기, 원본 표본 또는 활성화 권한을 제공하지 않습니다. 각각의 연결은
+별도 작업으로 남아 있습니다.
+
+실행과 게시 식별자는 계약 버전, 표본 내용 해시, 후보 해시와 모든 단계 결과에 결속됩니다.
+표본 내용 해시에는 동의 참조도 포함됩니다. 입력, 교정, 동의, 평가 또는 검토 내용이 바뀌면
+새 실행으로 기록하며, 같은 내용을 재생하면 같은 페이로드와 키를 사용합니다. 단계별 저장
+키와 감사 기록도 이 실행에 결속되므로, 검토된 개정이 이전의 보류 단계를 재사용하지 않습니다.
+기존 행은 정해진 보존 정책에 따라 제거될 때까지 바뀌지 않습니다. 최소 한 번 전달 계약은 같은
+페이로드를 반복할 수 있으며, 정확히 한 번만 게시된다는 보장은 아닙니다.
+
+평가기에는 기준 및 후보 리비전의 중첩 구조까지 복사한 사본을 전달합니다. 평가 뒤에도 중첩
+값과 JSON 타입을 포함한 정규 JSON 해시가 같아야 합니다. 다르면 단계를 저장하거나 게시하기
+전에 실행을 거절합니다. 평가기가 보관한 참조로 평가 뒤에 반환된 원본 후보를 바꿀 수는
+없습니다.
 
 #### Multi-target batch
 
@@ -589,6 +715,11 @@ list를 기록하므로 재시작 후 승인도 같은 set에 결속됩니다. R
 대상을 따로 집계하며, rejected 또는 deny-dropped 시도가 하나라도 있는 종료 batch는
 `batch_refused_attempt` outcome과 함께 `rollback_failed`가 됩니다. Single-target run은 기존
 신원과 payload를 유지합니다.
+
+명시적 빈 선언 또는 `resource_id`가 없거나 다른 단일 대상 선언은 실행기 I/O 전에
+`batch_target_set_unknown`이 됩니다. 정확히 일치하는 단일 대상 선언은 기존 신원과 경로를
+유지합니다. `targets`와 `target_set`을 모두 검사하며, 소유 배치 검사는 대상별 롤백, 집계
+감사, 복구 후 실행 중복 방지와 영속 대상 집합에 결속된 승인도 다룹니다.
 
 #### Muninn compaction
 

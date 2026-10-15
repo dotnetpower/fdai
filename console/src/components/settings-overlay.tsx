@@ -1,8 +1,9 @@
 import type { ComponentChildren } from "preact";
-import { useLayoutEffect, useRef } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 import { t } from "../i18n";
 import { panelsInGroup } from "../panels";
 import { panelPath } from "../router";
+import { SettingsDirtyContext, type SettingsDirtyRegistration } from "./settings-dirty-state";
 
 interface SettingsOverlayProps {
   readonly activePanelId: string;
@@ -29,8 +30,27 @@ export function SettingsOverlay({
   const dialogRef = useRef<HTMLElement | null>(null);
   const navigationRef = useRef<HTMLElement | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
+  const [dirtySources, setDirtySources] = useState<ReadonlySet<string>>(() => new Set());
+  const [registerDirtySource] = useState<SettingsDirtyRegistration>(() => (
+    source: string,
+    dirty: boolean,
+  ) => {
+    setDirtySources((current) => {
+      if (current.has(source) === dirty) return current;
+      const next = new Set(current);
+      if (dirty) next.add(source);
+      else next.delete(source);
+      return next;
+    });
+  });
+  const hasUnsavedChanges = dirtySources.size > 0;
   const onCloseRef = useRef(onClose);
   onCloseRef.current = onClose;
+  const requestCloseRef = useRef(() => undefined);
+  requestCloseRef.current = () => {
+    if (hasUnsavedChanges && !window.confirm(t("settings.unsavedConfirm"))) return;
+    onCloseRef.current();
+  };
 
   useLayoutEffect(() => {
     const returnFocus = document.activeElement instanceof HTMLElement
@@ -43,7 +63,7 @@ export function SettingsOverlay({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        onCloseRef.current();
+        requestCloseRef.current();
         return;
       }
       if (event.key !== "Tab") return;
@@ -73,6 +93,16 @@ export function SettingsOverlay({
     };
   }, []);
 
+  useEffect(() => {
+    if (!hasUnsavedChanges) return;
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
   useLayoutEffect(() => {
     navigationRef.current
       ?.querySelector<HTMLElement>('[aria-current="page"]')
@@ -83,7 +113,7 @@ export function SettingsOverlay({
     <div
       class="settings-overlay-scrim"
       onPointerDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
+        if (event.target === event.currentTarget) requestCloseRef.current();
       }}
     >
       <section
@@ -104,7 +134,7 @@ export function SettingsOverlay({
             type="button"
             class="settings-overlay-close"
             aria-label={t("settings.close")}
-            onClick={onClose}
+            onClick={() => requestCloseRef.current()}
           >
             <svg
               aria-hidden="true"
@@ -133,6 +163,13 @@ export function SettingsOverlay({
                     href={panelPath(panel.id)}
                     class={panel.id === activePanelId ? "active" : ""}
                     aria-current={panel.id === activePanelId ? "page" : undefined}
+                    onClick={(event) => {
+                      if (
+                        panel.id !== activePanelId
+                        && hasUnsavedChanges
+                        && !window.confirm(t("settings.unsavedConfirm"))
+                      ) event.preventDefault();
+                    }}
                     onPointerEnter={() => onPrefetchPanel?.(panel.id)}
                     onFocus={() => onPrefetchPanel?.(panel.id)}
                   >
@@ -143,7 +180,11 @@ export function SettingsOverlay({
               ))}
             </ul>
           </nav>
-          <div class="settings-overlay-content">{children}</div>
+          <div class="settings-overlay-content">
+            <SettingsDirtyContext.Provider value={registerDirtySource}>
+              {children}
+            </SettingsDirtyContext.Provider>
+          </div>
         </div>
       </section>
     </div>

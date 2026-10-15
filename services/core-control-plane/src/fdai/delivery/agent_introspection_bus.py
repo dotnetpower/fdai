@@ -41,7 +41,6 @@ _MAX_PENDING_REQUESTS = 256
 _DEFAULT_CACHE_TTL_SECONDS = 300.0
 _PROBE_INTERVAL_SECONDS = 1.0
 _SAFE_ID = re.compile(r"^[A-Za-z0-9._:-]+$")
-_AGENT_TOKEN = re.compile(r"[A-Za-z][A-Za-z0-9-]*")
 _AT_AGENT = re.compile(r"@([A-Za-z][A-Za-z0-9-]*)")
 _ASK_AGENT = re.compile(r"\bask\s+([A-Za-z][A-Za-z0-9-]*)\b", re.IGNORECASE)
 _EXPECTED_CONVERSATION_POLICY = {spec.name: spec.conversation_policy() for spec in PANTHEON_SPECS}
@@ -69,6 +68,8 @@ class PantheonConversationRuntime(Protocol):
         session_id: str,
         user_id: str,
         question: str,
+        locale: str = "en",
+        target_agent: str | None = None,
         allow_action_proposal: bool,
         materialize_handoff: bool,
     ) -> Any: ...
@@ -96,15 +97,7 @@ def addressed_agent(prompt: str) -> str | None:
 
 
 def _target_from_prompt(prompt: str) -> str | None:
-    explicit = addressed_agent(prompt)
-    if explicit is not None:
-        return explicit
-    canonical = {name.casefold(): name for name in PANTHEON_NAMES}
-    for token in _AGENT_TOKEN.findall(prompt):
-        agent = canonical.get(token.casefold())
-        if agent is not None:
-            return agent
-    return None
+    return addressed_agent(prompt)
 
 
 def _handoff(agent: str, reason: str) -> dict[str, Any]:
@@ -341,6 +334,8 @@ class EventBusAgentIntrospectionServer:
                 session_id=f"remote-{request['session_ref']}",
                 user_id=request["user_ref"],
                 question=request["question"],
+                target_agent=target_agent,
+                locale=request.get("locale", "en"),
                 allow_action_proposal=False,
                 materialize_handoff=False,
             )
@@ -363,6 +358,7 @@ def _request_fingerprint(request: Mapping[str, str]) -> str:
         request[field]
         for field in ("reply_to", "target_agent", "question", "user_ref", "session_ref")
     )
+    canonical = f"{canonical}\0{request.get('locale', 'en')}"
     return hashlib.sha256(canonical.encode()).hexdigest()
 
 
@@ -383,6 +379,7 @@ def _parse_request(payload: Mapping[str, Any]) -> dict[str, str] | None:
     question = payload.get("question")
     user_ref = payload.get("user_ref")
     session_ref = payload.get("session_ref")
+    locale = payload.get("locale", "en")
     if (
         payload.get("v") != _WIRE_VERSION
         or request_id is None
@@ -395,6 +392,8 @@ def _parse_request(payload: Mapping[str, Any]) -> dict[str, str] | None:
         or not re.fullmatch(r"[0-9a-f]{64}", user_ref)
         or not isinstance(session_ref, str)
         or not re.fullmatch(r"[0-9a-f]{64}", session_ref)
+        or not isinstance(locale, str)
+        or locale not in {"en", "ko"}
     ):
         return None
     return {
@@ -404,6 +403,7 @@ def _parse_request(payload: Mapping[str, Any]) -> dict[str, str] | None:
         "question": question,
         "user_ref": user_ref,
         "session_ref": session_ref,
+        "locale": locale,
     }
 
 
@@ -498,8 +498,14 @@ class EventBusAgentIntrospectionClient:
         prompt: str,
         user_id: str,
         session_id: str,
+        locale: str = "en",
+        target_agent: str | None = None,
     ) -> dict[str, Any] | None:
-        target_agent = _target_from_prompt(prompt)
+        if target_agent is not None and target_agent not in PANTHEON_NAMES:
+            raise ValueError("target_agent MUST name a canonical Pantheon agent")
+        if locale not in {"en", "ko"}:
+            raise ValueError("locale MUST be en or ko")
+        target_agent = target_agent or _target_from_prompt(prompt)
         if target_agent is None:
             fallback = getattr(self.fallback_delegate, "delegate", None)
             if callable(fallback):
@@ -531,6 +537,7 @@ class EventBusAgentIntrospectionClient:
                     "reply_to": self.instance_id,
                     "target_agent": target_agent,
                     "question": prompt,
+                    "locale": locale,
                     "user_ref": _salted_ref(self._privacy_salt, user_id),
                     "session_ref": _salted_ref(
                         self._privacy_salt,
@@ -564,9 +571,17 @@ class EventBusAgentIntrospectionClient:
         user_id: str,
         session_id: str,
         progress_observer: Any,
+        locale: str = "en",
+        target_agent: str | None = None,
     ) -> dict[str, Any] | None:
-        if _target_from_prompt(prompt) is not None:
-            return await self.delegate(prompt=prompt, user_id=user_id, session_id=session_id)
+        if target_agent is not None or _target_from_prompt(prompt) is not None:
+            return await self.delegate(
+                prompt=prompt,
+                user_id=user_id,
+                session_id=session_id,
+                locale=locale,
+                target_agent=target_agent,
+            )
         fallback = getattr(self.fallback_delegate, "delegate_with_progress", None)
         if callable(fallback):
             fallback_result = await fallback(

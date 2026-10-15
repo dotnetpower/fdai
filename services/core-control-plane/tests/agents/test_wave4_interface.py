@@ -228,8 +228,10 @@ def test_every_agent_has_a_deterministic_domain_route(intent: str, expected: str
 
 def test_bragi_ask_calls_registered_responder() -> None:
     bragi = _bragi()
+    called: list[str] = []
 
     async def heimdall_responder(question: str, context: dict) -> dict:
+        called.append(question)
         return {"answer": f"heimdall says: {question}"}
 
     bragi.register_responder("Heimdall", heimdall_responder)
@@ -240,8 +242,12 @@ def test_bragi_ask_calls_registered_responder() -> None:
             question="who changed stgdemo123",
         )
     )
+    assert called == ["who changed stgdemo123"]
     assert turn.primary_agent == "Heimdall"
-    assert turn.answer["answer"].startswith("heimdall says")
+    assert turn.answer["answer"] is None
+    assert turn.answer["abstain_reason"] == "owned_answer_verification_held"
+    assert turn.answer["owned_answer_composition"]["authority"] == "presentation_only"
+    assert turn.answer["owned_answer_composition"]["status"] == "held"
     assert turn.turn_index == 0
 
 
@@ -275,8 +281,10 @@ def test_bragi_calls_and_aggregates_real_contributors() -> None:
     assert contribution["facts"]["agent"] == "Njord"
     assert contribution["evidence_refs"] == contribution["facts"]["evidence_refs"]
     assert contribution["evidence_refs"][0].startswith("agent-state:Njord:sha256:")
-    assert "Freyr: Freyr evidence" in turn.answer["answer"]
-    assert "Njord: Njord evidence" in turn.answer["answer"]
+    assert turn.answer["facts"]["agent"] == "Freyr"
+    assert turn.answer["answer"] is None
+    assert turn.answer["abstain_reason"] == "owned_answer_verification_held"
+    assert turn.answer["owned_answer_composition"]["status"] == "held"
 
 
 def test_bragi_holds_same_identity_contributor_conflicts() -> None:
@@ -357,7 +365,9 @@ def test_bragi_holds_sensitive_contributor_output() -> None:
         )
     )
 
-    assert turn.answer["answer"] == "Capacity evidence."
+    assert turn.answer["answer"] is None
+    assert turn.answer["abstain_reason"] == "owned_answer_verification_held"
+    assert turn.answer["owned_answer_composition"]["t2_status"] == "participant_evidence_incomplete"
     assert turn.answer["contributors"] == []
     assert turn.answer["contributor_errors"] == ["Njord:sensitive_output"]
     assert "supersecretvalue" not in repr(turn.answer)

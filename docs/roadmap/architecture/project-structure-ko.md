@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 53c4698ba96724b5cfc8cf634cb3a06efe898156
-translation_revised: 2026-10-13
+translation_source_sha: b69a879cf3a1876e7819abad62dd255b5f9f0448
+translation_revised: 2026-10-15
 ---
 # 프로젝트 구조
 이 시스템은 하나의 웹 앱이 아니라 **headless 컨트롤 플레인 + 얇은 콘솔 + ChatOps**입니다. 이 문서는 검증된 5개 서비스 기준선과 독립 패키지 시스템 지식 서비스 후보의 모듈 경계, 의존성 방향, 조립 및 저장소 규칙을 정의합니다. 공유 서비스 계약 SDK는 권한을 부여하지 않는 `RuntimeScopeReceipt`를 소유하며, 서비스가 소유하는 모든 진입점은 시작 전에 이 증적을 하나 내보내 제품 목적, 실행 위치 및 허용된 완전한 기능 행을 결속하되 프로바이더 상태나 성공을 주장하지 않습니다. 공유 온톨로지 코드는 프로덕션 라우팅 및 탐지 제어의 고정된 절대 범위 레지스트리를 소유하고, 런타임과 전달 계층은 활성 값을 버전이 지정된 구성에 유지하며 새 권한 경로를 가져오지 않습니다. Post-turn 런타임 스킬 초안은 스킬을 활성화하지 않고 정규화된 검증 근거 참조를 제안 식별자, 영속 저장소 및 감사 메타데이터에 보존합니다. 조립 패키지는 서명된 스킬을 서명된 스킬 번들보다 먼저 다시 만들고, 두 후보가 모두 검증된 뒤에만 읽기 전용 공개 스냅샷 두 개를 게시하는 비활성 시작 도우미도 제공합니다. Core 시작은 신뢰 아티팩트 저장소와 배포가 제공하는 신뢰 루트가 조립되기 전까지 이 도우미를 호출하지 않습니다. Bootstrap은 후보를 평가하거나 게시하기 전에 Norns 룰 힌트를 현재 discovery-activation 결정 뒤에 결속합니다. 패키지 release 카탈로그는 도달 가능한 소스 개정 번호에만 고정하며 파생 소스 게이트는 커밋 전과 CI에서 기록된 모든 소스 blob을 비교합니다. 소유 설계 원본만 바뀌면 upstream 통합 뒤에 다시 생성하여 카탈로그 레코드는 유지하고 원본 약속값과 집계 다이제스트만 최종 병합 blob 및 도달 가능한 보호 main 개정 번호에 맞춥니다. 질문은행과 CQAS 산출물도 정확한 원본 카탈로그에서 의존성 순서에 따라 전체를 다시 생성하며 다이제스트만 수동으로 수정하지 않습니다. 확인된 인시던트 생성은 전용 논리 토픽의 버전이 지정된 권한 없는 요청으로 Operator/Core 경계를 통과합니다. Operator는 인증, 원본 초안 재검증 및 영속 수락을 소유하고 Core만 인시던트 수명 주기와 감사 레코드를 기록합니다. 워크플로 카탈로그 로드는 신호 트리거가 관찰 `SignalType` 레지스트리로 해석되었는지, 요청/명령 워크플로 트리거 어휘로 해석되었는지도 기록합니다. 이는 계약 메타데이터일 뿐이며 새 런타임 권한 경로를 추가하지 않습니다. 물리 패키지 소유권은 [다중 서비스 저장소 레이아웃](multi-service-repository-layout-ko.md), 로컬 및 배포 topology는 [App 형태](../../../.github/instructions/app-shape.instructions.md)를 참조하세요. 공유 `fdai_service_contracts.post_turn_review` 모듈은 versioned cross-service wire seam입니다. Operator composition은 post-turn review 요청을 발행하고 Core Bragi만 review 묶음을 발행하므로 검토, 라우팅, 소유권은 Core와 Pantheon에 남습니다.
@@ -100,6 +100,31 @@ Core가 소유한 같은 스케줄러가 기존 잔여 호출 예산 검사 안�
 발급할 수 있습니다. 이 읽기는 모두 읽기 전용으로 유지됩니다.
 
 ## 설계 개요
+Core의 인수인계 부트스트랩은 디렉터리 조회 전에 실제 문서·행·인용·사람 근거를 확인합니다.
+모델은 정체성 ID를 제공하지 않으며 거버넌스 초안만 남습니다. Freyr의 읽기 전용 출처 연결은
+런타임과 delivery에서 현재 인벤토리 정체성과 검토된 메트릭 선언을 재사용합니다. 두 변경
+모두 서비스, 권한 또는 실제 환경 준비 완료 주장을 추가하지 않습니다.
+
+명시적 Operator 토론도 기존 의미 요청과 내구성 결과 경로를 사용합니다. service-contract SDK는
+추가 1.11 요청 모드를 소유하고, 별도의 운영 근거 verifier만 보관된 인증 영수증과 현재의 정확한
+설치 단위 토론 허가를 다시 읽습니다. Core의 전용 `fdai_core_service/agent_discussion.py`는
+Bragi 호출 전에 인가를 확인하고, `runtime/bootstrap_agent_discussion.py`는 명시적 설치 설정과
+독립 인가의 선행 조건이 갖춰졌을 때만 연결합니다. 연결이 없으면 보류합니다. 이 변경은 행동,
+승인, 승격 또는 클라우드 관측 권한을 부여하지 않으며 Console 표시나 실제 환경 수락을 증명하지 않습니다.
+
+StateStore 보존 정리는 페이지 읽기와 같은 비교 규칙을 사용하는 선택적 필드/값 필터를 받습니다.
+프로바이더는 선택과 삭제에 필터를 원자적으로 적용하며, 생략하면 기존 접두사 전체 보존 정책을
+유지합니다. Saga는 `status=published`로 완료된 감사 발신함 기록만 정리하고 대기 또는 게시
+권한을 확보한 기록은 삭제하지 않습니다. 이 프로바이더 중립 확장은 권한이나 서비스 경계를
+추가하지 않으며 감사 항목을 삭제하지 않습니다.
+
+`StateStoreAuditReader`는 선택적으로 구현하는 공급자 중립 이행 인터페이스입니다. 메모리와
+PostgreSQL은 한 스냅샷에서 저장소와 분리된 감사 본문을 오래된 순서로 반환합니다. 읽기는
+1-512개로 제한하고 생략된 행이 있는지 명시합니다. 일부만 읽은 결과로 기록의 부재나 전체
+이력을 입증할 수는 없습니다. Saga는 제한된 이전 이력의 이행을 검증할 때만 이 인터페이스를
+사용하며, 공유 기록은 기존의 감사 포함 원자적 리비전 CAS를 사용합니다. 에이전트가 구체적인
+저장소 어댑터를 import하거나 별도 권한을 얻지는 않습니다.
+
 테스트 맥락 선택지는 권한이 없는 projection schema로 공유 service-contract SDK를 확장합니다. Operator는 인증과 선택지 렌더링을 소유하고, Core는 계속 허용 및 수명 주기 권한을 유지합니다.
 
 
@@ -658,6 +683,23 @@ Container Apps는
 순수 함수로 이루어진 `evaluation.py` 평가 도구가 측정합니다.
 [코드 보안 점검 결과](../operations/code-security-findings-ko.md)를 참조하세요.
 
+FDAI 자체 분석 엔진도 같은 경계 안에 유지합니다. `analysis_contracts.py`는 엄격한 그래프, 규칙,
+경로 근거를 소유하고, `python_graph.py`와 `python_analysis.py`는 범위가 제한된 읽기 전용 Python
+근거를 만듭니다. `analysis_build_context.py`는 소스 바이트를 구성으로 취급하지 않고 언어 루트와
+빌드 구성을 결속합니다. `analysis_incremental.py`는 엄격한 스냅샷 재사용과 보수적인 무효화를
+소유하며, 스캔 작업은 저장소와 규칙별 캐시를 소유합니다. `analysis_graph_flow.py`는 언어 중립
+문맥 경로 탐색을 소유합니다.
+`typescript_analysis.py`는 `tools/code-security-typescript-frontend/`의 루트 제한 Compiler API
+프로세스를 검증하고, `java_analysis.py`는 실험적 tree-sitter Java SQL 시나리오를 소유합니다.
+`analysis_sarif.py`는 모든 결과를 정본 수집 경로로 돌려보냅니다.
+분석 규칙, 구성 요소 약관, 고정 코퍼스는 `rule-catalog/code-security/`에 유지합니다. 전달 계층은
+이 레인을 조립하고 prepared 및 Kata 스캔에서 결정론적으로 재현할 뿐이며, 스캐너 이미지는
+컴파일러와 프런트엔드를 고정합니다. 새 서비스, pantheon 에이전트, 저장소 쓰기, 승인 또는 실행
+권한을 추가하지 않습니다.
+[코드 보안 분석 엔진](../operations/code-security-analysis-engine-ko.md)을 참조하세요.
+두 프런트엔드는 소스 읽기를 정확한 루트에 연결하고 근거를 수락하기 전에 그래프 예산을
+강제합니다. 프런트엔드 실패는 작업자 또는 권한 경계를 바꾸지 않고 커버리지를 낮춥니다.
+
 ## 리포지토리 스크립트 레이아웃
 
 리포지토리 자동화는 책임에 따라 `scripts/` 아래에 그룹화합니다. 루트 파일로는 레이아웃 README, `verify.sh`, Python 패키지 마커만 유지합니다. 품질 게이트, 무결성 도구, 거버넌스 검사,
@@ -708,6 +750,17 @@ Container Apps는
    기록하세요. 붉은 파이프라인을 풀려고 임계값을 낮추는 것은 거버넌스 회귀입니다.
 
 ## 의존성 주입을 통한 커스터마이제이션
+
+Bragi가 소유하는 대화 구성은 정확한 선택 대상과 언어, 독립적인 종합 검증 및 정책을 고정한
+상관 ID별 영속 모델 회계를 전달합니다. 참여가 누락되거나 근거 충돌이 해결되지 않으면 최종
+결론 없이 부분 완료 또는 보류로 남습니다. 이 읽기 전용 연결은 MSCP 활성화, 실행 권한, 승인,
+감사, 복구, ActionType 승격 또는 Cost Governance 패키지 권한을 바꾸지 않습니다. 정확한
+주입 경계는 [의존성 주입 보조 문서](project-structure-dependency-injection-ko.md)를 참조하세요.
+
+`composition/pantheon_synthesis.py`는 정확한 기존 독립 Azure 대상, 검토된 프롬프트 팩,
+USD 가격, 신원/클라이언트 및 계측이 있을 때 검증된 기본 표시 경로를 제공합니다.
+사용자 주입을 보존하고 V-CLAIM/독립 검토를 영속적인 두 호출 예산에 결합합니다.
+전제조건이 없으면 보류하며 실시간 사실을 인증하거나 작업 및 패키지 권한을 부여할 수 없습니다.
 
 전체 경계 카탈로그와 구성 규칙은 [프로젝트 구조 의존성 주입](project-structure-dependency-injection-ko.md)을 참조하세요.
 Core 결과 핸들 저장소도 같은 규칙을 따릅니다. `ResultHandleStore`는 Core 조립에서 주입되며, 인메모리 로컬 구현과 PostgreSQL 구현은 암호화된 핸들 본문을 Core 소유로 유지하고 Operator에는 불투명 참조만 영속화하게 합니다. 해당 참조의 서수 후속 질문 바인딩은 기본적으로 꺼진 compiled-answer shadow 경로 안에 머물며 실행 권한을 추가하지 않습니다.

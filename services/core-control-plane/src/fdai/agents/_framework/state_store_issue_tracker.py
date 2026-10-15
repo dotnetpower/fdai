@@ -44,6 +44,12 @@ class StateStoreIssueTrackerAdapter:
             if not isinstance(fingerprint, str):
                 raise RuntimeError("stored issue state is malformed")
             canonical = _validate_issue_state(row, fingerprint=fingerprint)
+            for operation_digest, operation in _operations(canonical).items():
+                await self._bind_operation(
+                    operation_digest=operation_digest,
+                    fingerprint=fingerprint,
+                    request_digest=str(operation["request_digest"]),
+                )
             restored[fingerprint] = _current_issue(canonical)
         self._issues = restored
         return len(restored)
@@ -85,6 +91,11 @@ class StateStoreIssueTrackerAdapter:
         operation_digest = hashlib.sha256(operation_id.encode("utf-8")).hexdigest()
         request_digest = _request_digest(fingerprint, title, body)
         state_key = _issue_state_key(fingerprint)
+        await self._bind_operation(
+            operation_digest=operation_digest,
+            fingerprint=fingerprint,
+            request_digest=request_digest,
+        )
         for _attempt in range(_MAX_CAS_ATTEMPTS):
             stored = await self._store.read_state(state_key)
             if stored is None:
@@ -193,6 +204,19 @@ class StateStoreIssueTrackerAdapter:
                 self._remember_issue(fingerprint, _current_issue(value))
                 return _operation_issue(result), created_result
         raise RuntimeError("issue operation CAS retry limit exceeded")
+
+    async def _bind_operation(
+        self, *, operation_digest: str, fingerprint: str, request_digest: str
+    ) -> None:
+        operation_key = f"pantheon/saga/issue-operations/{operation_digest}"
+        binding = {
+            "schema_version": "1.0.0",
+            "fingerprint": fingerprint,
+            "request_digest": request_digest,
+        }
+        if not await self._store.write_state_if_absent(operation_key, binding):
+            if await self._store.read_state(operation_key) != binding:
+                raise ValueError("issue operation_id reused with different content or fingerprint")
 
     async def close(self, fingerprint: str, *, closed_by_pr: str) -> None:
         if not fingerprint or not closed_by_pr:

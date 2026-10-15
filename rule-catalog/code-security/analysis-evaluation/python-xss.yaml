@@ -1,0 +1,49 @@
+schema_version: 1.0.0
+corpus_id: fdai.code-security.analysis.python-xss
+language: python
+version: 1.0.0
+rule_id: fdai.python.xss
+cases:
+  - case_id: dev-vulnerable-cross-file
+    split: dev
+    vulnerable: true
+    files:
+      api.py: |
+        from flask import request
+        from pages import render
+        @app.get('/page')
+        def route():
+            return render(request.args.get('name'))
+      pages.py: |
+        from flask import render_template_string
+        def render(value):
+            return render_template_string(value)
+  - case_id: dev-safe-escaped
+    split: dev
+    vulnerable: false
+    files:
+      app.py: |
+        import html
+        from flask import request, render_template_string
+        @app.get('/page')
+        def route():
+            return render_template_string(html.escape(request.args.get('name')))
+  - case_id: holdout-vulnerable-format
+    split: holdout
+    vulnerable: true
+    files:
+      app.py: |
+        from flask import request, render_template_string
+        @app.post('/page')
+        def route():
+            return render_template_string('Hello {}'.format(request.args.get('name')))
+  - case_id: holdout-safe-constant
+    split: holdout
+    vulnerable: false
+    files:
+      app.py: |
+        from flask import request, render_template_string
+        @app.get('/health')
+        def route():
+            request.args.get('unused')
+            return render_template_string('healthy')

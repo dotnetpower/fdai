@@ -1,8 +1,8 @@
 ---
 title: FDAI 로드맵
 translation_of: README.md
-translation_source_sha: d78f75a7e1bcc109dc4e31190349e3fe769c1d2e
-translation_revised: 2026-10-07
+translation_source_sha: 88267e279f0bc30631670f30835f96f733e54b07
+translation_revised: 2026-10-15
 ---
 # FDAI 로드맵
 
@@ -114,6 +114,7 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 21 | [assurance-twin-ko.md](operations/assurance-twin-ko.md) | 아키텍처 리뷰 / Q&A / 평가를 위한 질의가능 온톨로지 트윈: text-to-query, 선제 리뷰, 그래프 전체 what-if, shadow 제안 |
 | 21a | [code-security-findings-ko.md](operations/code-security-findings-ko.md) | FDAI 레인, MDASH 및 기타 SARIF 생산자의 코드 보안 점검 결과: 근본 원인마다 하나의 심각도, 결정론적 우선순위, GitHub Copilot과 Claude Code용 대화형 조치 팩 |
 | 21b | [code-security-scanning-ko.md](operations/code-security-scanning-ko.md) | FDAI가 직접 실행하는 코드 스캔: 정확한 커밋 확보, 네트워크 없는 bubblewrap 샌드박스, 스캐너 카탈로그, FDAI 작성 규칙 팩, 정직한 커버리지 증적 |
+| 21c | [code-security-analysis-engine-ko.md](operations/code-security-analysis-engine-ko.md) | 계획된 FDAI 자체 공통 코드 그래프, 함수 간 데이터 흐름, 버전 지정 규칙 및 경로 근거, 측정 기반 승격, 검증된 수정 경계 |
 | 22 | [operational-readiness-ko.md](operations/operational-readiness-ko.md) | dev-to-ops 핸드오프 게이트: ownership-transfer 트리거, 전체 범위 RBAC / 정책 / 신뢰성 리뷰, ReadinessReport, environment-promotion 게이트 |
 | 22a | [operator-initiated-sre-and-arb-ko.md](operations/operator-initiated-sre-and-arb-ko.md) | 비인시던트 신원, 오퍼레이터 시작 SRE 응답, 실제 운영 단계 진행 상황, ARB 상태/수동 시작, 작업 흐름 강제 적용, 로컬/deployed 동등성 |
 

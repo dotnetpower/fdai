@@ -30,6 +30,7 @@ from fdai.runtime import bootstrap_core_model, bootstrap_incidents
 from fdai.runtime import product_profile as _product_profile
 from fdai.runtime.baseline_evaluation import bind_forseti_baseline_worker
 from fdai.runtime.blast_probe import bind_live_blast_probe_failure_streak
+from fdai.runtime.bootstrap_agent_discussion import bind_discussion
 from fdai.runtime.bootstrap_bindings import (
     build_effect_reconciliation_worker as _build_effect_reconciliation_worker,
 )
@@ -75,9 +76,7 @@ from fdai.runtime.control_loop import (
     EventBusDirectApiExecutionClient,
     _build_control_loop,
 )
-from fdai.runtime.conversation_assurance import (
-    build_runtime_pantheon_conversation_assurance,
-)
+from fdai.runtime.conversation_assurance import build_runtime_pantheon_conversation_assurance
 from fdai.runtime.delivery import _build_notification_router, _build_publisher
 from fdai.runtime.dynamic_evidence import bind_dynamic_evidence_from_env
 from fdai.runtime.github_auth import github_credentials_configured
@@ -716,6 +715,8 @@ async def build_core_runtime(
         human_access_workflow, resources.pantheon.runtime
     )
     if semantic.semantic_turn_binding is not None:
+        processor = semantic.semantic_turn_binding.processor
+        bind_discussion(container, environment, resources.pantheon.runtime, processor)
         llm_bindings = container.llm_bindings
         pantheon_assurance = build_runtime_pantheon_conversation_assurance(
             pantheon=resources.pantheon.runtime,
@@ -732,7 +733,7 @@ async def build_core_runtime(
             ),
         )
         if pantheon_assurance is not None:
-            semantic.semantic_turn_binding.processor.bind_pantheon_assurance(pantheon_assurance)
+            processor.bind_pantheon_assurance(pantheon_assurance)
         else:
             _LOGGER.warning(
                 "pantheon_conversation_assurance_unavailable",

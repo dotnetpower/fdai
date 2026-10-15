@@ -15,11 +15,74 @@ cross-agent workflow has an independent rollout record in
 > role bindings, or bypass shadow promotion.
 
 ## Implementation status
+Standard Core bootstrap now supplies its existing service-owned StateStore to ordered poison
+halt persistence and the receipt-gated clear handler. Halt recovery cannot deliberately fall
+back to process-only state. The StateStore issue adapter globally binds each operation id to
+one fingerprint and request digest before mutation; rehydration restores the same bindings for
+older retained issue histories and rejects conflicts. Freyr recurring sampling requires valid
+timezone-aware source observation time instead of fabricating collection-time freshness.
+Focused durability/bootstrap/issue checks: 114 passed; Freyr checks: 11 passed; focused mypy
+passed. These source repairs change no role, approval, risk classification or executor and do
+not prove actual broker/database restart, remote issue identity or replica-safe publication.
+
 
 ### Implementation scope
 
+Saga's provider-backed inner chain now shares a revision-fenced head and bounded digest journal
+through atomic StateStore CAS-with-audit. A/B/A, overlapping replicas, failed/canceled commits,
+malformed state, exhausted budgets and legacy migration/holds have focused evidence. Owning
+adapter/authority/restart/outbox/layout checks: 165 passed; 1,500-append bounded restart: one
+passed; actual isolated PostgreSQL replica, reader, rollback and legacy checks: five passed.
+Five-source strict mypy and Ruff passed. The retained projection is not full historical replay.
+All old writers must be stopped before migration; histories beyond 512 total audit rows require
+separately reviewed migration. Remote GitHub App identity and deployed acceptance remain open.
+
+Standard Loki scheduling is source-bound through `runtime/bootstrap_chaos_schedule.py` when a
+deployment supplies `FDAI_LOKI_SCHEDULE_JSON`. The closed declaration requires `schedule_id`,
+integer `cadence_seconds` from 1 through 31536000, 1-32 unique canonical `targets`, registered
+Chaos `action_type`, timezone-aware `start_at`, `causal_hypothesis_ref`, `refutation_query_ref`,
+`impact_envelope_id`, `recovery_plan_id`, and `dry_run_receipt`. Optional `correlation_id` is
+nonblank and at most 256 characters. The entire input is at most 16 KiB and duplicate JSON keys
+fail. Missing configuration stays unbound. References remain candidate evidence, not approval
+or independently verified rollback receipts. Bootstrap and adjacent Loki/structure checks:
+57 passed; focused mypy and Ruff passed. Actual configured schedule and Chaos acceptance remain
+separate, and the off-path adversarial source remains unbound.
+
+Standard Mimir source polling now reads ControlLoop's current validated Rule generation snapshot
+through `MimirActiveCatalogPoller`. It records one complete active-membership source, not a
+guessed file subset. Create-only audit artifacts and revision CAS preserve restart and replica
+observations, retain at most 1,000 content-free artifacts, reject corrupted records and
+same-digest membership substitution, and count a changed generation once. The read grants no
+Rule activation, regression-pass, promotion or issue-close authority. Focused observation,
+issue-close and bootstrap checks: 20 passed; two-file mypy and Ruff passed.
+
+Mimir's promotion consumer rejects future promotion timestamps before running regression. Clean
+regression evidence must start at or after promotion and finish by the observation clock; an old
+pre-promotion run cannot begin Saga's quiet window. Focused issue-close/layout checks: 35 passed;
+one-file mypy and Ruff passed. These checks supply no promotion, regression or deprecation reader.
+
+Loki recurring schedules require an explicit timezone-aware `start_at`. A missing anchor stays
+held instead of using each tick's current time as a fresh window. The existing window id and
+always-HIL proposal gates remain unchanged. Focused schedule/adversarial/sampling checks: 25
+passed. The development binding source is also present in current runtime composition through
+`PreparedDevelopmentBindingRegistry`, shared with ControlLoop and Pantheon; existing composition
+and durable-source checks: 26 passed. Earlier source-absence wording is superseded by that
+source fact only, not by a selected profile, real Owner approval or live execution receipt.
+
+Freyr's standard source binding is `runtime/bootstrap_capacity_sampling.py`. Deployment may
+provide `FDAI_FREYR_TARGETS_JSON`, a bounded mapping of logical Resource ids to canonical types.
+Without targets, a real MetricProvider or the current inventory reader it stays unavailable.
+The sampler uses the reviewed `resource.cpu.utilization_pct` declaration, verifies exact
+provider references before and after the read, preserves original source timestamps, rejects
+invalid/old/future values and generation/reference changes, and never truncates configured
+targets. Its source key binds the metric declaration digest. Sampling stays read-only and does
+not authorize scaling. Local routed-provider, sampling and bootstrap checks: 56 passed.
+
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Saga shared inner-chain revision | implemented | `audit_chain_journal.py`; `audit_chain_rehydrate.py`; 165 owning checks, one bounded restart and five real isolated PostgreSQL checks; five-source strict mypy and Ruff | Atomic shared head/audit, bounded verified mirror and explicit legacy holds. Quiesced deployment migration, longer legacy histories and remote issue identity remain separate. |
+| Explicit standard Loki recurring schedule | implemented | `bootstrap_chaos_schedule.py`; `bootstrap_pantheon.py`; initialization/Loki/adversarial/sampling/layout checks: 57 passed | Complete explicit declarations reach the existing Loki handler without enabling enforcement or fabricating input. Actual deployment schedule, approval and execution evidence remain open. |
+| Current ordered-halt and local issue-operation binding | implemented | `bootstrap_pantheon.py`; `state_store_issue_tracker.py`; bootstrap/poison-clear/runtime/Mimir issue checks: 114 passed | Supersedes the source opt-in halt absence and local per-fingerprint operation-id gap only. Remote issue adapters, replica publication and governed restart evidence remain open. |
 | Ontology ContextIndex owner routing | implemented | `agents/_framework/ontology_index.py`; `test_ontology_context_index.py`; real in-memory EventBus phase-chain test | Huginn ingress, Muninn preparation/transition publication, Heimdall validation publication, and Saga audit/seal publication use existing owned topics. The wrapper rejects owner, topic, content, and phase drift and isolates ordinary judgment and learning. Mechanical handlers in this routing test are synthetic; durable source/lifecycle workers and production bootstrap remain open. |
 | W0-W1 documentation, ontology, and framework scaffolding | implemented | [`test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py), [`test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py) | The fixed registry, package boundary, documentation parity, and typed-topic foundation are executable and checked. |
 | Bus and graph ownership separation | implemented | `_framework/{pantheon,topics}.py`; ontology alignment, topic, registry, doc-parity, and Console agent-contract tests | `AgentSpec.owns` now lists only producible event-bus objects. `Budget` and `SizingRecommendation` retain Njord and Freyr graph lifecycle ownership without inventing dead topics; embedded ActionRun attempt state and core RCA projections remain outside the bus registry. |
@@ -49,6 +112,20 @@ cross-agent workflow has an independent rollout record in
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-15 | implemented | Repaired the reproduced A/B/A inner-chain fork using a shared content-hashed revision journal and atomic head/audit commit; preserved bounded legacy records or held unverifiable migration. | `current change`; #2149; `audit_chain_journal.py`; `audit_chain_rehydrate.py`; 165 owning checks, one 1,500-append restart and five real isolated PostgreSQL checks; five-source strict mypy and Ruff. | Quiesce old writers before deployment; separately review longer legacy migration; retain remote identity and actual deployment acceptance. |
+| 2026-10-15 | implemented | Isolated Bragi evaluator revision inputs, rejected changed baseline/candidate content or JSON types before storage/publication, and protected returned candidates from retained evaluator references. | `current change`; `bragi_intent_training.py`; five new mutation/isolation regressions; learning/layout checks: 35 passed; one-source mypy and Ruff passed. | Independent evaluator, consent-filtered source corpus, reviewed activation and deployed-provider acceptance remain open. |
+| 2026-10-15 | implemented | Bound Bragi training run/publication/stage identity to the complete corpus, consent, candidate and stage snapshot; retained distinct review revisions without changing runtime routing. | `current change`; `bragi_intent_training.py`, `bragi_runtime_helpers.py`, `bragi.py`; six new identity/storage regressions; learning/layout checks: 30 passed; three-source mypy and Ruff passed. | Independent evaluator, consent-filtered source corpus, reviewed activation and deployed-provider acceptance remain open. |
+| 2026-10-15 | implemented | Added request-pinned Forseti what-if outbox delivery with closed/content-hashed records, claim-fenced replica publication, completed-only compaction, startup/maintenance recovery and identical-key crash replay. | `current change`; `forseti_what_if_publication.py`; focused what-if/outbox/layout/workflow/primary-pipeline checks: 211 passed; three-source mypy and Ruff passed. | Bounded retained-request deduplication is implemented; full historical context, deployed database/broker acceptance and other maintenance-source bindings remain open. |
+| 2026-10-15 | implemented | Prevented explicit empty or mismatched single-target declarations from falling through to an undeclared outer resource; preserved exact single-target execution and reconciled the existing batch implementation. | `current change`; `thor_batch.py`; batch/layout/workflow checks: 51 passed; one-file mypy and Ruff passed. | Existing target-scoped rollback, rollup audit and durable approval/restart mechanics pass synthetic checks; deployed identity, rollback/effect and broker acceptance remain separate. |
+| 2026-10-15 | implemented | Persisted the bounded v1 Forseti comparison window through the existing StateStore: 512 records, closed fields, content hashes, eight bounded CAS attempts and two-second storage deadlines. Startup and each comparison restore validated committed inputs; storage faults preserve primary judgments and hold comparison. | `current change`; `forseti_quality_retention.py`; what-if/layout/workflow/primary-pipeline checks: 176 passed; four-source mypy and Ruff passed. | Publication deduplication and complete historical Rule/policy/evidence replay remain open; memory-provider tests are not deployed database or broker acceptance. |
+| 2026-10-15 | implemented | Preserved Forseti's original no-rule ActionType and recorded judgment-table digest when retrospective comparison follows a table update. | `current change`; `forseti_quality_runtime.py`, `forseti_what_if.py`; what-if/layout/workflow checks: 41 passed; two-file mypy and Ruff passed. | Retain complete historical inputs and publication deduplication durably; full-context replay and provider restart acceptance remain open. |
+| 2026-10-15 | implemented | Bound Mimir issue-close regression evidence to the post-promotion observation window; future promotion, pre-promotion regression and future completion publish nothing and leave Saga issues open. | `current change`; `mimir_governance_maintenance.py`; issue-close/layout checks: 35 passed; one-file mypy and Ruff passed. | Bind reviewed promotion/regression/deprecation producers and retain runtime receipts; temporal checks do not create source authority. |
+| 2026-10-15 | implemented | Isolated Bragi candidate construction from holdout records, rejected shared input digests before evaluation, and bound exactly one evaluation result to each frozen baseline and expected owner. | `current change`; `bragi_intent_training.py`; learning/layout checks: 24 passed; one-file mypy and Ruff passed. | Bind an independent evaluator and consent-filtered source corpus; reviewed activation and runtime acceptance remain open. |
+| 2026-10-15 | implemented | Connected explicit bounded Loki recurring schedules to standard initialization with exact catalog validation, required source anchor/evidence references, duplicate-key rejection and no authority-bearing extra fields. | `current change`; bootstrap/Loki/adversarial/sampling/layout checks: 57 passed; focused mypy and Ruff passed. | Retain actual declared-schedule/HIL/recovery/Chaos receipts; off-path generation and other original integrations remain open. |
+| 2026-10-15 | implemented | Bound Mimir's read-only active Rule generation poller through standard bootstrap with create-only audit, bounded retention and revision CAS. | `current change`; observation/issue-close/bootstrap checks: 20 passed; restart, concurrent change and corruption/substitution checks; Ruff and two-file mypy passed. | Promotion/regression/deprecation readers, Bragi evaluator and actual runtime receipts remain open. |
+| 2026-10-15 | implemented | Required an explicit aware Loki schedule anchor and reconciled the current shared development binding-source implementation against actual code. | `current change`; schedule/adversarial/sampling checks: 25 passed; one-file mypy and Ruff; development composition/source checks: 26 passed. | Reviewed schedule/scenario sources, actual profile/Owner receipts and other operational acceptance remain open. |
+| 2026-10-15 | implemented | Added explicit current-inventory Freyr MetricProvider sampling and standard bootstrap binding without default targets or fabricated freshness. | `current change`; routed provider/sampling/bootstrap checks: 56 passed; seven source substitution/positive cases; Ruff and two-file mypy passed. | Retain actual configured sampler receipts. Reviewed Loki scheduling, maintenance sources and operational acceptance remain open. |
+| 2026-10-15 | implemented | Bound standard ordered-poison halt persistence to the existing service-owned StateStore and globally bound local Saga issue operation identity, including retained-history rehydration. | `current change`; bootstrap, poison-clear, runtime and Mimir issue checks: 114 passed; Ruff and two-file mypy passed. Freyr source-time checkpoint `6014bf1bd9`: 11 passed. | Remote broker/database restart, remote GitHub App identity, Saga replica publication, recurring source bindings and governed handover remain open. |
 | 2026-10-08 | implemented | Forseti's baseline evaluation records `compliant` only when the resource carries every property the Rule declares in `evaluates`; otherwise the pair abstains with `property_unobserved`. A deny stays `violated`. | `current change`; `forseti_baseline_evaluation.py`; `test_forseti_baseline_evaluation.py` with worker and Saga audit suites. | Inventory collection still has to supply the normalized properties ([framework Rule evidence ledger](../../roadmap-implementation/rules-and-detection/framework-rule-evidence.md)). |
 | 2026-10-04 | implemented | Hardened Forseti's prospective-lineage publication path without changing `PANTHEON_SPECS`, topics, role bindings, approval, or execution authority. Missing Forseti-owned judgment values now produce no `ProspectiveLineage` and an explicit unavailable reason on the Verdict, while complete values still publish only through Forseti's owned `object.prospective-lineage` topic. | `current change`; `agents/_framework/forseti_arbitration.py`; `delivery/prospective_lineage.py`; focused prospective-lineage and agent layout checks. | Retain the operating-ontology residual: one complete governed runtime episode is required before claiming source/projector replay evidence. |
 | 2026-10-02 | implemented | Added Saga's append-only audit binder for baseline evaluation outcome and completion records. | `current change`; `saga.py`; `test_saga_baseline_evaluation_audit.py`; focused Saga/Forseti/Pantheon tests. | Operator projection and Console status remain in their own #1199 package. |
@@ -581,6 +658,41 @@ keys include the correlation, so replays of the same rule for different events s
 Executable and advisory Verdicts and ArbitrationRequests carry bounded `cost_annotation` evidence
 or an explicit unavailable state; Odin preserves it and Thor stores it as non-identity metadata.
 
+Original outcomes use their recorded ActionType and judgment-table digest, never a substitute
+from the current table. A no-rule abstention therefore remains an empty original ActionType even
+after a matching rule appears. Missing source digests remain unknown. This source-fidelity fix
+alone does not certify complete historical Rule, policy or evidence replay. The v1 retention
+implementation below stores selected comparison inputs and pins delivery of each retained request.
+
+The bounded v1 retention design uses Forseti's existing StateStore and a 512-record revision-CAS
+window of content-free event kind, recorded decision, table digest and tier. It retains only
+selected comparison inputs, not complete historical execution context. Design critique identified
+replica lost updates, malformed journal data and a new primary-path dependency: bounded CAS,
+closed-field validation and explicit comparison holds address them. Quality-storage failures do
+not replace the original judgment or silently fall back to memory. The separate delivery window
+below supplies no execution, activation or effect-verification authority.
+
+`forseti_quality_retention.py` implements that window using closed records and content hashes,
+eight CAS attempts inside a two-second deadline. Same-key input substitution is rejected; only
+validated committed records replace the memory window at startup and before comparison. The
+primary judgment remains unchanged after auxiliary storage failure. Standard bootstrap supplies
+the existing `incident_audit_store` as `forseti_state_store`; absent storage preserves explicitly
+unbound local behavior rather than claiming durability. Focused checks: 176 passed, including
+restart, replica race, bounded retention, six corruptions and primary-path compatibility.
+
+The reviewed delivery design pins the first comparison result to correlation, alternate-table
+digest and normalized sample bound. Critique identified restart duplication, changed-input retries,
+live-claim races, abandoned pending work and request-slot substitution. The implementation uses
+`forseti_what_if_publication.py` with closed/content-hashed records, revision CAS and the shared
+claim-fenced outbox helper. Limits are 512 requests/512 KiB, eight CAS attempts with two-second
+storage deadlines, a four-second claim lease and an eight-second publication ceiling. Recovery
+handles at most 16 eligible records within 15 seconds at startup and on maintenance. It does not
+run the comparison again and does not require the original input window. Active leases defer;
+malformed storage holds, and only completed records may leave the bounded window. A new comparison
+over newer inputs requires a new correlation. Broker acceptance before checkpoint can replay the
+same bytes and idempotency key, not a different result. Inactive storage preserves explicitly
+process-local behavior; this is not full historical Rule/policy/evidence or live effect acceptance.
+
 #### Bragi intent-training loop
 
 Bragi records shadow-only intent-training evidence from bounded, consent-filtered, digest-only
@@ -588,6 +700,24 @@ verified routing outcomes. Candidate evaluation is off-path, deterministic, regr
 audited. It never changes routing authority; reviewed activation remains a separate binding. Norns
 records this evidence, and any other non-review kind on `object.post-turn-review`, as an observable
 non-learning outcome; only `kind: post_turn_review` enters learner review.
+
+Candidate calibration entries use targeted corrections only. Holdout input digests must be
+disjoint from training input digests and never enter candidate lineage or support counts. The
+evaluator must return exactly one result per frozen case without replacing its baseline or
+expected owner. These integrity checks do not supply an evaluator, source corpus, or activation
+authority; those bindings remain separate.
+
+Run and publication identity bind the contract version, corpus digest, candidate digest and all
+stage results. The corpus digest includes the consent reference. Changed input, correction,
+consent, evaluation or review creates a new run; exact replay preserves its payload and key.
+Each stage key and audit binds that run, so a reviewed revision cannot reuse a previous held
+stage. Existing rows remain unchanged until the established retention policy removes them.
+At-least-once transport may repeat identical payloads; this is not exactly-once publication.
+
+The evaluator receives deep copies of the baseline and candidate revisions. Canonical JSON
+digests must remain unchanged after evaluation, including nested values and their JSON types;
+otherwise the run is rejected before any stage is retained or published. References retained by
+the evaluator cannot change the returned original candidate after evaluation.
 
 #### Multi-target batches
 
@@ -599,6 +729,12 @@ bounded target list so approval after restart binds the same set. The rollup cou
 `deny_dropped` targets separately; a terminal batch with any rejected or deny-dropped attempt
 becomes `rollback_failed` with outcome `batch_refused_attempt`. Single-target runs keep unchanged
 identity and payloads.
+
+Explicit empty declarations and single-target declarations with a missing or different
+`resource_id` yield `batch_target_set_unknown` before executor I/O. Exact matching single-target
+declarations retain the legacy identity and path. Both `targets` and `target_set` are covered;
+the owning batch tests also exercise target-scoped rollback, rollup audit, no repeated execution
+after recovery, and approval against the durable target set.
 
 #### Muninn compaction
 

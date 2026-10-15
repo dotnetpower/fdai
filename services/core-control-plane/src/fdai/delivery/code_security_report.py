@@ -37,6 +37,14 @@ _LABELS: dict[str, dict[str, str]] = {
         "completed": "Completed",
         "exit": "Exit code",
         "counts": "Counts",
+        "summary": "Review summary",
+        "total": "Total findings",
+        "determined": "Determined severity",
+        "needs_review": "Needs evidence review",
+        "potential_critical": "Critical ceiling",
+        "coverage_warning": (
+            "Coverage is incomplete. Missing findings must not be interpreted as a clean result."
+        ),
         "issues": "Issues",
         "id": "Issue",
         "priority": "Priority",
@@ -82,6 +90,14 @@ _LABELS: dict[str, dict[str, str]] = {
         "completed": "완료",
         "exit": "종료 코드",
         "counts": "건수",
+        "summary": "검토 요약",
+        "total": "전체 발견 사항",
+        "determined": "심각도 결정됨",
+        "needs_review": "근거 검토 필요",
+        "potential_critical": "치명적 상한",
+        "coverage_warning": (
+            "검사 범위가 불완전합니다. 발견 사항이 없더라도 안전한 결과로 해석하면 안 됩니다."
+        ),
         "issues": "이슈",
         "id": "이슈",
         "priority": "우선순위",
@@ -140,7 +156,12 @@ def _issue_row(issue: CodeSecurityIssue) -> dict[str, object]:
         "priority": issue.priority.priority.value,
         "due_days": issue.priority.due_days,
         "severity": issue.severity.label,
+        "severity_floor": issue.severity.floor.value,
+        "severity_ceiling": issue.severity.ceiling.value,
+        "severity_rationale": issue.severity.rationale,
+        "deciding_facts": list(issue.severity.deciding_facts),
         "confidence": issue.confidence.value,
+        "title": issue.title,
         "weakness_class": issue.weakness_class,
         "cwe": [f"CWE-{cwe}" for cwe in issue.cwe_ids],
         "identifiers": _identifiers(issue),
@@ -300,7 +321,8 @@ def render_html(document: dict[str, object], locale: str = "en") -> str:
         text = ", ".join(map(str, value)) if isinstance(value, list) else str(value)
         return html.escape(text, quote=True)
 
-    coverage = label["complete"] if document["coverage_complete"] else label["incomplete"]
+    coverage_complete = document["coverage_complete"] is True
+    coverage = label["complete"] if coverage_complete else label["incomplete"]
     facts = [
         ("repository", document["repository_alias"]),
         ("revision", document["revision"]),
@@ -310,57 +332,77 @@ def render_html(document: dict[str, object], locale: str = "en") -> str:
         ("decision", label["decision_" + str(document["decision"])]),
         ("coverage", coverage),
     ]
-    rows = "".join(
-        f"<tr><th>{esc(label[key])}</th><td>{esc(value)}</td></tr>" for key, value in facts
+    metadata = "".join(
+        f"<div><dt>{esc(label[key])}</dt><dd>{esc(value)}</dd></div>" for key, value in facts
     )
     limits = document["coverage_limits"]
     limit_html = (
-        f"<h2>{esc(label['limits'])}</h2><ul>"
+        '<section class="coverage incomplete">'
+        f"<div><span>{esc(label['limits'])}</span><strong>{esc(label['incomplete'])}</strong></div>"
+        f"<p>{esc(label['coverage_warning'])}</p><ul>"
         + "".join(f"<li>{esc(item)}</li>" for item in limits)
-        + "</ul>"
+        + "</ul></section>"
         if isinstance(limits, list) and limits
-        else ""
+        else (
+            '<section class="coverage complete">'
+            f"<span>{esc(label['coverage'])}</span><strong>{esc(label['complete'])}</strong>"
+            "</section>"
+            if coverage_complete
+            else (
+                '<section class="coverage incomplete">'
+                f"<span>{esc(label['limits'])}</span><strong>{esc(label['incomplete'])}</strong>"
+                f"<p>{esc(label['coverage_warning'])}</p></section>"
+            )
+        )
     )
     scanners = document["scanners"]
     scanner_rows = "".join(
-        f"<tr><td>{esc(run['scanner'])}</td><td>{esc(_cell(run['completed'], label))}</td>"
+        f"<tr><td>{esc(run['scanner'])}</td>"
+        f'<td><span class="state {"ok" if run["completed"] else "failed"}">'
+        f"{esc(_cell(run['completed'], label))}</span></td>"
         f"<td>{esc(run['exit_code'])}</td></tr>"
         for run in (scanners if isinstance(scanners, list) else [])
     )
-    keys = (
-        "issue_id",
-        "priority",
-        "severity",
-        "confidence",
-        "weakness_class",
-        "identifiers",
-        "location",
-        "producers",
-        "known_exploited",
-    )
-    heads = (
-        "id",
-        "priority",
-        "severity",
-        "confidence",
-        "class",
-        "cwe",
-        "location",
-        "producers",
-        "kev",
-    )
     issues = document["issues"]
-    issue_html = (
-        "<table><thead><tr>"
-        + "".join(f"<th>{esc(label[key])}</th>" for key in heads)
-        + "</tr></thead><tbody>"
-        + "".join(
-            "<tr>" + "".join(f"<td>{esc(_cell(row[key], label))}</td>" for key in keys) + "</tr>"
-            for row in issues
+    issue_rows: list[str] = []
+    determined = 0
+    needs_review = 0
+    potential_critical = 0
+    for row in issues if isinstance(issues, list) else []:
+        if not isinstance(row, dict):
+            continue
+        severity = str(row["severity"])
+        if severity == "undetermined":
+            needs_review += 1
+            if row["severity_ceiling"] == "critical":
+                potential_critical += 1
+            severity_text = f"{row['severity_floor']} - {row['severity_ceiling']}"
+        else:
+            determined += 1
+            severity_text = severity
+        title = row["title"] or str(row["weakness_class"]).replace("_", " ")
+        issue_rows.append(
+            "<tr>"
+            f'<td><strong>{esc(title)}</strong><span class="attributes">'
+            f"{esc(row['priority'])} | {esc(severity_text)} | {esc(row['confidence'])}</span>"
+            f"<small>{esc(row['issue_id'])}</small></td>"
+            f"<td><span>{esc(row['location'])}</span>"
+            f"<small>{esc(row['identifiers'])} | {esc(row['producers'])}</small></td>"
+            "</tr>"
         )
-        + "</tbody></table>"
-        if isinstance(issues, list) and issues
-        else f"<p>{esc(label['none'])}</p>"
+    issue_html = (
+        '<div class="issue-table"><table><thead><tr>'
+        f"<th>{esc(label['issues'])}</th><th>{esc(label['location'])}</th>"
+        "</tr></thead><tbody>" + "".join(issue_rows) + "</tbody></table></div>"
+        if issue_rows
+        else f'<p class="empty">{esc(label["none"])}</p>'
+    )
+    metrics = (
+        f"<div><span>{esc(label['total'])}</span><strong>{len(issue_rows)}</strong></div>"
+        f"<div><span>{esc(label['determined'])}</span><strong>{determined}</strong></div>"
+        f"<div><span>{esc(label['needs_review'])}</span><strong>{needs_review}</strong></div>"
+        f"<div><span>{esc(label['potential_critical'])}</span>"
+        f"<strong>{potential_critical}</strong></div>"
     )
     snapshot = (
         f'<p class="note">{esc(label["snapshot_note"])}</p>'
@@ -370,23 +412,77 @@ def render_html(document: dict[str, object], locale: str = "en") -> str:
     lang = "ko" if locale == "ko" else "en"
     return (
         f'<!doctype html><html lang="{lang}"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
         '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; '
         "style-src 'unsafe-inline'\">"
         f"<title>{esc(label['title'])}</title><style>"
-        "body{font-family:system-ui,sans-serif;margin:2rem;color:#1b1b1b}"
-        "table{border-collapse:collapse;margin:1rem 0}th,td{border:1px solid #ccc;"
-        "padding:.3rem .6rem;text-align:left;vertical-align:top}.note{background:#f4f4f4;"
-        "padding:.6rem}</style></head><body>"
-        f'<h1>{esc(label["title"])}</h1><p class="note">{esc(label["notice"])}</p>'
-        f"<table>{rows}</table>{snapshot}{limit_html}"
-        f"<h2>{esc(label['scanners'])}</h2><table><thead><tr><th>{esc(label['scanner'])}</th>"
+        ":root{color-scheme:light;--ink:#202124;--muted:#62666b;--line:#ddd9d3;"
+        "--surface:#fff;--shade:#f5f3f0;--accent:#1769aa;--warning:#8a4b08;--success:#236b3a}"
+        "*{box-sizing:border-box}body{margin:0;background:#f7f6f4;color:var(--ink);"
+        'font:15px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}'
+        "main{width:min(1180px,100%);margin:auto;padding:clamp(20px,4vw,48px)}"
+        "header{display:grid;gap:10px;margin-bottom:28px}h1{margin:0;font-size:clamp(28px,4vw,40px);"
+        "line-height:1.15;letter-spacing:-.02em}h2{margin:36px 0 12px;font-size:20px}"
+        "p{margin:0}.notice{max-width:78ch;color:var(--muted)}"
+        ".metadata{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0;"
+        "margin:0;border-block:1px solid var(--line)}.metadata div{display:grid;"
+        "grid-template-columns:minmax(110px,.45fr) minmax(0,1fr);gap:12px;padding:10px 0;"
+        "border-bottom:1px solid var(--line)}.metadata div:nth-last-child(-n+2){border-bottom:0}"
+        "dt{color:var(--muted);font-size:12px;font-weight:650}dd{margin:0;overflow-wrap:anywhere}"
+        ".coverage{display:grid;gap:8px;margin:24px 0;padding:14px 16px;"
+        "border:1px solid var(--line);"
+        "border-radius:8px;background:var(--surface)}.coverage>div{display:flex;"
+        "justify-content:space-between;gap:12px}.coverage span{color:var(--muted);font-size:12px;"
+        "font-weight:650}.coverage.incomplete{border-color:#d6a76f;background:#fff8ef}"
+        ".coverage.incomplete strong{color:var(--warning)}"
+        ".coverage.complete strong{color:var(--success)}"
+        ".coverage ul{margin:0;padding-left:20px;color:var(--muted)}"
+        ".metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));"
+        "border-block:1px solid var(--line)}"
+        ".metrics div{display:grid;gap:4px;padding:16px;border-left:1px solid var(--line)}"
+        ".metrics div:first-child{border-left:0}.metrics span{color:var(--muted);font-size:12px;"
+        "font-weight:650}.metrics strong{font-size:26px;font-variant-numeric:tabular-nums}"
+        "table{width:100%;border-collapse:collapse;background:var(--surface)}"
+        "th,td{padding:10px 12px;text-align:left;vertical-align:top;"
+        "border-bottom:1px solid var(--line);"
+        "overflow-wrap:anywhere}th{color:var(--muted);font-size:12px;font-weight:650;"
+        "background:var(--shade)}td strong,td small{display:block}"
+        "td small{margin-top:4px;color:var(--muted);font-size:12px}"
+        ".scanner-table{max-width:560px}.state{font-weight:650}.state.ok{color:var(--success)}"
+        ".state.failed{color:var(--warning)}.issue-table{overflow:hidden;"
+        "border:1px solid var(--line);"
+        "border-radius:8px}.issue-table th:first-child{width:46%}"
+        ".issue-table th:last-child{width:54%}.attributes{display:block;margin-top:4px;"
+        "color:var(--muted);font-size:12px}.note{margin:18px 0;padding:12px 14px;"
+        "border-left:3px solid var(--accent);background:var(--shade)}.empty{color:var(--muted)}"
+        "@media(max-width:720px){main{padding:20px 16px}.metadata{grid-template-columns:1fr}"
+        ".metadata div:nth-last-child(-n+2){border-bottom:1px solid var(--line)}"
+        ".metadata div:last-child{border-bottom:0}"
+        ".metrics{grid-template-columns:1fr 1fr}"
+        ".metrics div:nth-child(odd){border-left:0}.issue-table{border:0;overflow:visible}"
+        ".issue-table table,.issue-table tbody,.issue-table tr,"
+        ".issue-table td{display:block}.issue-table thead{display:none}"
+        ".issue-table tr{margin-bottom:12px;border:1px solid var(--line);"
+        "border-radius:8px;background:var(--surface)}"
+        ".issue-table td{border-bottom:1px solid var(--line)}"
+        ".issue-table td:last-child{border-bottom:0}}"
+        "@media print{body{background:#fff}main{width:100%;padding:0}"
+        ".coverage,.issue-table tr{break-inside:avoid}"
+        ".issue-table{border-radius:0}}"
+        "</style></head><body><main>"
+        f"<header><h1>{esc(label['title'])}</h1>"
+        f'<p class="notice">{esc(label["notice"])}</p></header>'
+        f'<dl class="metadata">{metadata}</dl>{snapshot}{limit_html}'
+        f'<h2>{esc(label["summary"])}</h2><section class="metrics">{metrics}</section>'
+        f'<h2>{esc(label["scanners"])}</h2><table class="scanner-table"><thead><tr>'
+        f"<th>{esc(label['scanner'])}</th>"
         f"<th>{esc(label['completed'])}</th><th>{esc(label['exit'])}</th></tr></thead>"
         f"<tbody>{scanner_rows}</tbody></table>"
         f"<h2>{esc(label['counts'])}</h2><ul>"
         f"<li>{esc(label['priority'])}: {esc(_counts_line(document['by_priority']))}</li>"
         f"<li>{esc(label['severity'])}: {esc(_counts_line(document['by_severity']))}</li>"
         f"<li>{esc(label['confidence'])}: {esc(_counts_line(document['by_confidence']))}</li>"
-        f"</ul><h2>{esc(label['issues'])}</h2>{issue_html}</body></html>\n"
+        f"</ul><h2>{esc(label['issues'])}</h2>{issue_html}</main></body></html>\n"
     )
 
 
@@ -441,6 +537,7 @@ def render_sarif(
                     "known_exploited": issue.known_exploited,
                     "code_context": _code_context(result, issue),
                     "flow_steps": _flow_steps(issue),
+                    "analysis_evidence": _analysis_evidence(issue),
                 },
             }
         )
@@ -530,6 +627,22 @@ def _code_context(result: ScanJobResult, issue: CodeSecurityIssue) -> dict[str, 
 
 
 def _flow_steps(issue: CodeSecurityIssue) -> list[dict[str, object]]:
+    if issue.code_flow:
+        result: list[dict[str, object]] = []
+        for step in issue.code_flow[:64]:
+            item: dict[str, object] = {
+                "kind": step.kind,
+                "path": step.path,
+                "line": step.line,
+            }
+            if step.end_line is not None:
+                item["end_line"] = step.end_line
+            if step.node_id is not None:
+                item["node_id"] = step.node_id
+            if step.call_context:
+                item["call_context"] = list(step.call_context)
+            result.append(item)
+        return result
     steps: list[dict[str, object]] = []
     seen: set[tuple[str, int | None, str]] = set()
     for instance in issue.instances:
@@ -543,6 +656,22 @@ def _flow_steps(issue: CodeSecurityIssue) -> list[dict[str, object]]:
     if sink not in seen:
         steps.append({"kind": "sink", "path": sink[0], "line": sink[1]})
     return steps[:12]
+
+
+def _analysis_evidence(issue: CodeSecurityIssue) -> dict[str, object] | None:
+    evidence = issue.analysis_evidence
+    if evidence is None:
+        return None
+    return {
+        "path_id": evidence.path_id,
+        "path_digest": evidence.path_digest,
+        "graph_digest": evidence.graph_digest,
+        "graph_schema_version": evidence.graph_schema_version,
+        "path_schema_version": evidence.path_schema_version,
+        "rule_version": evidence.rule_version,
+        "frontend_versions": dict(evidence.frontend_versions),
+        "coverage_limits": list(evidence.coverage_limits),
+    }
 
 
 def write_scan_report(

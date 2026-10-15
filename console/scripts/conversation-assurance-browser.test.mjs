@@ -2,12 +2,34 @@ import assert from "node:assert/strict";
 import { test } from "vitest";
 
 import {
+  contentDigest,
+  modelCallCount,
   profileEvidence,
   terminalPayload,
   validateChatResponse,
 } from "./conversation-assurance-browser.mjs";
 
 const SHA = "a".repeat(64);
+
+test("content digest is stable across object key order", () => {
+  assert.equal(
+    contentDigest({ b: 2, a: { d: 4, c: 3 } }),
+    contentDigest({ a: { c: 3, d: 4 }, b: 2 }),
+  );
+});
+
+test("model call count requires authoritative usage, complete budget, or trace", () => {
+  assert.equal(modelCallCount({ model_usage: { model_calls: 4 } }), 4);
+  assert.equal(modelCallCount({
+    turn_budget: { complete: true, model_calls: { used: 3 } },
+  }), 3);
+  assert.equal(modelCallCount({
+    model_trace: { calls: [{}, {}], omitted_calls: 1 },
+  }), 3);
+  assert.equal(modelCallCount({
+    turn_budget: { complete: false, model_calls: { used: 3 } },
+  }), null);
+});
 
 test("terminal parser accepts exactly one final done event", () => {
   const terminal = terminalPayload(

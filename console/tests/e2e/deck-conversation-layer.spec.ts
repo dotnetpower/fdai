@@ -415,6 +415,84 @@ test.describe("Command Deck conversation layer", () => {
     await page.emulateMedia({ reducedMotion: "reduce" });
   });
 
+  test("shows explicit read-only discussion and retains failed participants", async ({ page }, testInfo) => {
+    await page.route("**/system/data-sources", (route) => route.fulfill({json: READINESS}));
+    const answer = JSON.stringify({
+      authority: "presentation_only", status: "partial", conclusion: null,
+      participant_outcomes: [
+        {agent: "Njord", status: "completed"},
+        {agent: "Freyr", status: "completed"},
+        {agent: "Loki", status: "abstained"},
+      ],
+      rounds: [
+        {phase: "position", contributions: [{agent: "Njord", answer: "Owned cost evidence.", evidence_refs: ["agent-state:Njord"]}]},
+        {phase: "critique", contributions: [{agent: "Freyr", answer: "Owned capacity evidence.", evidence_refs: ["agent-state:Freyr"], peer_review: {comparison_status: "conflicting"}}]},
+      ],
+    });
+    await page.route("**/api/**", async (route) => {
+      const path = new URL(route.request().url()).pathname;
+      if (path.endsWith("/chat/stream")) {
+        const request = route.request().postDataJSON();
+        expect(request.presentation_mode).toBe("agent_discussion");
+        expect(request).not.toHaveProperty("conversation_context");
+        await route.fulfill({contentType: "text/event-stream", body: frames(request.request_id, false, answer, {
+          source: "unavailable:semantic_discussion_conclusion_held",
+          verification: {status: "unavailable", authority: "none", checks_completed: 0, checks_total: 0,
+            evidence_refs: [], claims: [], reason_code: "semantic_discussion_conclusion_held"},
+        })});
+      } else if (path.endsWith("/chat/health")) {
+        await route.fulfill({json: {available: true, mode: "test", model: "test"}});
+      } else await route.fulfill({status: 404, json: {detail: "Test source unavailable"}});
+    });
+    await page.goto("/overview?locale=en");
+    await page.locator(".deck-invoke").click();
+    const deck = page.locator(".deck-overlay");
+    await deck.getByRole("button", {name: "Full workspace", exact: true}).click();
+    await deck.getByRole("combobox", {name: "Conversation mode", exact: true}).selectOption("agent_discussion");
+    await page.locator(".deck-input").fill("Compare agent evidence.");
+    await page.locator(".deck-input").press("Enter");
+    const discussion = deck.getByRole("region", {name: "Agent discussion", exact: true});
+    await expect(discussion).toContainText("Owned cost evidence.");
+    await expect(discussion).toContainText("Owned capacity evidence.");
+    await expect(discussion).toContainText("Loki");
+    await expect(discussion).toContainText("Abstained");
+    await expect(discussion).toContainText("Conclusion held");
+    await expect(discussion).not.toContainText("Verified conclusion");
+    await expect(deck.getByRole("combobox", {name: "Conversation mode", exact: true})).toBeVisible();
+    await expect(deck.getByRole("combobox", {name: "Conversation mode", exact: true})).toHaveValue("agent_discussion");
+    const selectorGeometry = await deck.getByRole("combobox", {name: "Conversation mode", exact: true}).evaluate((select) => {
+      const bounds = select.getBoundingClientRect();
+      const header = select.closest(".deck-header")!.getBoundingClientRect();
+      return {
+        inside: bounds.left >= header.left && bounds.right <= header.right && bounds.top >= header.top && bounds.bottom <= header.bottom,
+        hit: document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2) === select,
+        width: bounds.width,
+      };
+    });
+    expect(selectorGeometry.inside).toBe(true);
+    expect(selectorGeometry.hit).toBe(true);
+    expect(selectorGeometry.width).toBeGreaterThan(100);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+    await page.screenshot({path: testInfo.outputPath("agent-discussion-desktop-sustained.png")});
+    for (const viewport of [{width: 993, height: 641}, {width: 390, height: 844}]) {
+      await page.setViewportSize(viewport);
+      await expect(discussion).toContainText("Conclusion held");
+      const mode = deck.getByRole("combobox", {name: "Conversation mode", exact: true});
+      await expect(mode).toBeVisible();
+      expect(await deck.locator(".deck-model-controls select").evaluateAll((elements) => {
+        const boxes = elements.map((element) => element.getBoundingClientRect());
+        return boxes.length === 2 && (boxes[0]!.right <= boxes[1]!.left || boxes[1]!.bottom <= boxes[0]!.top || boxes[0]!.bottom <= boxes[1]!.top);
+      })).toBe(true);
+      expect(await mode.evaluate((select) => {
+        const box = select.getBoundingClientRect();
+        return box.left >= 0 && box.right <= window.innerWidth &&
+          document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2) === select;
+      })).toBe(true);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+      await page.screenshot({path: testInfo.outputPath(`agent-discussion-${viewport.width}.png`)});
+    }
+  });
+
   test("renders a settled grounded answer on the shared conversation roles", async ({ page }, testInfo) => {
     const deck = await openDeckWithAnswer(page);
     await page.screenshot({ path: testInfo.outputPath("deck-layer-dock.png") });

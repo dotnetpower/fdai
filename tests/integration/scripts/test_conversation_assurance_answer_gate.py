@@ -122,6 +122,7 @@ def test_status_fields_separate_product_verification_from_assurance() -> None:
 
     record = evaluation.to_dict()
 
+    assert record["rubric_version"] == "conversation-assurance.v2"
     assert record["technical_verified"] is True
     assert record["assurance_passed"] is False
     assert record["mandatory_gate"] == {

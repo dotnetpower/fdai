@@ -1,0 +1,203 @@
+{
+  "id": "fdai-roadmap-operations-code-security-analysis-engine-01",
+  "kind": "flowchart",
+  "version": 1,
+  "updated": "2026-08-20",
+  "locales": {
+    "en": {
+      "title": "Design at a glance",
+      "description": "FDAI flow for Design at a glance.",
+      "alt": "Design at a glance. The main stages are Exact source revision, Language frontend, Common code graph, Interprocedural analysis, Versioned rule model, Path evidence, Canonical findings and SARIF, Optional LLM review, Isolated patch validation and rescan."
+    },
+    "ko": {
+      "title": "설계 개요",
+      "description": "설계 개요에 대한 FDAI 흐름입니다.",
+      "alt": "설계 개요. 주요 단계는 Exact source revision, Language frontend, Common code graph, Interprocedural analysis, Versioned rule model, Path evidence, Canonical findings and SARIF, Optional LLM review, Isolated patch validation and rescan입니다."
+    }
+  },
+  "assets": {
+    "en": {
+      "svg": "fdai-roadmap-operations-code-security-analysis-engine-01.en.svg"
+    },
+    "ko": {
+      "svg": "fdai-roadmap-operations-code-security-analysis-engine-01.ko.svg"
+    }
+  },
+  "nodes": [
+    {
+      "id": "a",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Exact source revision",
+        "ko": "Exact source revision"
+      },
+      "description": {
+        "en": "Exact source revision",
+        "ko": "Exact source revision"
+      }
+    },
+    {
+      "id": "b",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Language frontend",
+        "ko": "Language frontend"
+      },
+      "description": {
+        "en": "Language frontend",
+        "ko": "Language frontend"
+      }
+    },
+    {
+      "id": "c",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Common code graph",
+        "ko": "Common code graph"
+      },
+      "description": {
+        "en": "Common code graph",
+        "ko": "Common code graph"
+      }
+    },
+    {
+      "id": "d",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Interprocedural analysis",
+        "ko": "Interprocedural analysis"
+      },
+      "description": {
+        "en": "Interprocedural analysis",
+        "ko": "Interprocedural analysis"
+      }
+    },
+    {
+      "id": "e",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Versioned rule model",
+        "ko": "Versioned rule model"
+      },
+      "description": {
+        "en": "Versioned rule model",
+        "ko": "Versioned rule model"
+      }
+    },
+    {
+      "id": "f",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Path evidence",
+        "ko": "Path evidence"
+      },
+      "description": {
+        "en": "Path evidence",
+        "ko": "Path evidence"
+      }
+    },
+    {
+      "id": "g",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Canonical findings and SARIF",
+        "ko": "Canonical findings and SARIF"
+      },
+      "description": {
+        "en": "Canonical findings and SARIF",
+        "ko": "Canonical findings and SARIF"
+      }
+    },
+    {
+      "id": "h",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Optional LLM review",
+        "ko": "Optional LLM review"
+      },
+      "description": {
+        "en": "Optional LLM review",
+        "ko": "Optional LLM review"
+      }
+    },
+    {
+      "id": "i",
+      "kind": "process",
+      "shape": "card",
+      "label": {
+        "en": "Isolated patch validation and rescan",
+        "ko": "Isolated patch validation and rescan"
+      },
+      "description": {
+        "en": "Isolated patch validation and rescan",
+        "ko": "Isolated patch validation and rescan"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "flow-01",
+      "from": "a",
+      "to": "b",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-02",
+      "from": "b",
+      "to": "c",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-03",
+      "from": "c",
+      "to": "d",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-04",
+      "from": "e",
+      "to": "d",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-05",
+      "from": "d",
+      "to": "f",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-06",
+      "from": "f",
+      "to": "g",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-07",
+      "from": "g",
+      "to": "h",
+      "kind": "request",
+      "label": null
+    },
+    {
+      "id": "flow-08",
+      "from": "h",
+      "to": "i",
+      "kind": "request",
+      "label": null
+    }
+  ]
+}

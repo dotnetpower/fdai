@@ -1,0 +1,58 @@
+schema_version: 1.0.0
+corpus_id: fdai.code-security.analysis.python-sql-injection
+language: python
+version: 1.0.0
+rule_id: fdai.python.sql-injection
+cases:
+  - case_id: dev-vulnerable-cross-file
+    split: dev
+    vulnerable: true
+    files:
+      api.py: |
+        from flask import request
+        from database import run
+
+        @app.get('/orders')
+        def orders():
+            return run(request.args.get('id'))
+      database.py: |
+        def run(value):
+            return cursor.execute('SELECT ' + value)
+  - case_id: dev-safe-parameterized
+    split: dev
+    vulnerable: false
+    files:
+      app.py: |
+        from flask import request
+
+        @app.get('/orders')
+        def orders():
+            return cursor.execute('SELECT WHERE id = ?', (request.args.get('id'),))
+  - case_id: holdout-vulnerable-alias
+    split: holdout
+    vulnerable: true
+    files:
+      app.py: |
+        from flask import request
+        import store as database
+
+        @app.post('/search')
+        def search():
+            query = 'SELECT ' + request.args.get('q')
+            return database.execute(query)
+      store.py: |
+        def execute(query):
+            return cursor.execute(query)
+  - case_id: holdout-safe-constant
+    split: holdout
+    vulnerable: false
+    files:
+      app.py: |
+        from flask import request
+
+        def lookup(value):
+            return cursor.execute('SELECT 1')
+
+        @app.get('/health')
+        def health():
+            return lookup(request.args.get('unused'))

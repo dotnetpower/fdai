@@ -243,7 +243,67 @@ Every agent performs four task categories: **R**ecurring (scheduled), **E**vent 
 | Freyr | recurring utilization sampling through injected read-only sampler plus capacity forecasting and sizing analysis | bounded utilization sample -> forecast; capacity advisor query; governed advisory-to-verdict path emits shadow/HIL proposals | multi-dimensional capacity (CPU + IOPS + net + mem) | 2, 3 |
 | Loki | deterministic recurring chaos scheduling plus resilience-score refresh | bounded schedule trigger -> always-HIL experiment proposal or visible hold; bounded normalized score Event -> validated cross-vertical candidate; blast-radius calc | off-path adversarial scenario generation is bounded, regression-gated, audited, inert, and unbound by default | 3, 9 |
 
+Bragi's off-path training builds candidates only from targeted corrections, with disjoint
+holdout input digests and exactly one baseline-preserving evaluation per case. Mimir forwards
+issue-close regression evidence only after promotion and completed observation, rejecting future
+timestamps and pre-promotion runs. Neither check binds missing evidence producers or grants
+activation or issue-close authority.
+
+Bragi training run, publication and stage identities bind the complete content snapshot, including
+consent references, candidate lineage, evaluation results and reviewed-promotion inputs. Exact
+replay reuses the identity; changed snapshots retain separate audited stages within the existing
+retention window and never replace runtime routing.
+Evaluator inputs are isolated copies. Changes to either revision are rejected before storage or
+publication, and retained evaluator references cannot rewrite the returned candidate.
+
+Saga's retained audit outbox compares canonical JSON digests before publication. Reusing a key
+with changed JSON types, including nested integer-to-boolean or integer-to-float substitutions,
+is rejected without publishing or changing the retained row. Exact payload replay remains valid
+in pending, claimed and published states. This integrity repair does not establish full replica
+audit-chain acceptance or remote GitHub App operation identity.
+Retention applies atomically only to published tombstones, preserving the newest 1,024 completed
+identities. Older pending or claimed audits are never evicted by newer completed publications.
+
+Saga's inner audit chain uses a closed, content-hashed schema-v2 journal at the existing
+verified-head key. Every append verifies the shared revision and atomically commits the next
+head with its audit row through StateStore CAS-with-audit, rather than trusting an instance-local
+head. Eight attempts and a two-second deadline bound contention. Failure or cancellation never
+exposes an uncommitted mirror entry. The journal retains at most 512 digest-only entries within
+512 KiB and a verified prefix anchor. Local correlation lookup covers that retained window only;
+full-history verification is explicitly unavailable after the prefix leaves the local projection.
+
+Legacy migration requires all old Saga writers to be stopped first; an already running old
+writer with a cached head cannot be fenced by this new reader. The optional StateStore audit
+reader must prove complete oldest-first history of at most 512 total audit rows, including
+unrelated rows, and validate contiguous Saga entries, payload digests and any old checkpoint.
+Missing readers, truncated or forked history and inconsistent checkpoints hold without rewriting
+audit evidence. Longer legacy histories require a separately reviewed migration, not an invented
+head. New replicas share committed revisions after migration; mixed-version rolling writes and
+deployed migration acceptance are not established by local checks.
+
+Forseti what-if comparisons preserve the original recorded ActionType, including a no-rule
+abstention, and its recorded judgment-table digest. Current rules never fill the original action
+or replace its source digest. With Forseti's existing StateStore bound, a closed, content-hashed
+512-record CAS window preserves the limited v1 comparison inputs across restart and replicas.
+Storage failure or corruption holds comparison without changing the original judgment.
+Comparison delivery also uses the existing StateStore: the first payload is pinned to the request,
+alternate-table digest and sample bound. Completed requests are suppressed across restart and
+replicas within a closed 512-record/512 KiB window. Only completed records may be compacted;
+pending results recover at startup and on maintenance. A broker-acceptance/checkpoint crash can
+redeliver identical bytes and key under the existing at-least-once contract. Full-context replay
+and deployed provider acceptance remain separate work.
+
+Thor holds an explicit empty target declaration instead of falling back to another resource.
+A single declared target uses the legacy single-action path only when it exactly matches
+`resource_id`; a missing or conflicting resource is held without executor calls.
+
 ### 4.2 Per-agent KPI (success and degradation signals)
+
+Standard bootstrap accepts an explicit `FDAI_LOKI_SCHEDULE_JSON` declaration for Loki's existing
+recurring proposal port. The loader preserves the timezone-aware anchor and supplied evidence
+references, rejects incomplete or unknown fields and unregistered/non-Chaos actions, and never
+supplies a synthetic schedule. The declaration grants no approval, verified recovery, promotion,
+or Chaos execution authority; the existing always-HIL and shadow boundaries remain unchanged.
 
 Every agent reports these metrics to the [measurement pipeline](../architecture/goals-and-metrics.md) on every health snapshot for deterministic shadow -> enforce promotion evaluation.
 Insufficient outcome evidence produces `value: null` plus an explicit evidence state; promotion gates treat it as failure, never zero.
@@ -369,7 +429,7 @@ A best-effort `AgentHandlerObserver` reports handler lifecycle without changing 
 
 One topic per object type, named `object.<type>`. Every message carries `correlation_id`, `idempotency_key`, and `producer_principal`; Thor uses `correlation_id:state` for retry-safe transitions.
 The bus stamps authenticated `producer_principal` and integer `envelope_schema_version` while preserving a payload's `schema_version`; mutations require non-empty `correlation_id`, `resource_id`, and `idempotency_key`. Operational audit rows written outside that authenticated bus path preserve the mechanical `actor` and record the accountable Pantheon member separately as `owner_agent`; they never synthesize `producer_principal`. Saga's durable chain mirror records `actor: Saga` and keeps the authenticated source publisher in `principal` without changing the audited payload or its digest.
-Saga serializes each provider-backed chain append and exposes its local mirror entry only after the durable provider confirms the append, so terminal observation cannot outrun persisted audit evidence.
+Saga serializes each provider-backed append through a shared revision and atomic head-plus-audit commit. Its bounded local mirror becomes visible only after that commit, so terminal observation cannot outrun persisted audit evidence.
 Owned-topic producer checks cannot be disabled, and unknown `object.*` subscriptions fail registration. Ordered mutation consumers stop after parking poison so later mutations cannot pass it.
 Dead-letter writes retry with bounded backoff before consumer restart. Operator redrive repeats owner, envelope, and schema checks and re-parks only the original payload.
 Every authority-bearing consumer re-authenticates the registry owner for the input topic before it

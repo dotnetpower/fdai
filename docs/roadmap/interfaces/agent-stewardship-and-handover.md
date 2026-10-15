@@ -22,11 +22,42 @@ manager gains no approval capability from either relationship.
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 
 ## Implementation status
+Model handover proposals are checked against the actual supplied document before directory
+resolution. Every citation must name that document, a valid 1-based line and an exact nonempty
+substring on that line; at least one citation contains the proposed person's name. The agent
+must be canonical, confidence finite and within `[0, 1]`, and any model-supplied identity id is
+rejected. Only the separate directory resolves ids. These checks preserve draft-only behavior
+and do not grant RBAC, approval or execution authority.
+
 
 ### Implementation scope
+The actual Worker has an opt-in reviewed adaptive interpreter. Private
+`FDAI_HANDOVER_MODELS_JSON` supplies separate Azure OpenAI author/reviewer deployments,
+publisher/family identities, explicit token prices and two SHA-pinned prompt files. With no
+configuration the deterministic path makes no model call. Both models receive the same fixed
+role declarations and complete bounded source. Exact citations, every candidate and an
+independent review of the exact proposal are required.
+
+Model mappings use artifact 1.1.0 with explicit `source=model`, source/proposal digests, complete
+review count, identities, measured usage and pricing digest. Deterministic 1.0.0 shape remains
+readable. Stored mapping substitution and source disguise fail validation; only the directory
+assigns person ids. Two calls per document version are atomically reserved in the existing
+Worker-owned namespace, measured failure/review costs persist, and stored exact-version drafts
+are reused after redelivery. Overflow holds without truncation. Mixed-document model holds are
+visible beside structured candidates. Worker/Ingestion API checks: 16 passed; seven-file mypy
+and Ruff passed. These scripted-model/mock-HTTP/mock-DB checks are not live acceptance.
+
+The independently packaged Document Worker uses the same deterministic-first boundary. Only
+the explicit `Agent: ...; responsibility: ...; subject: ...; identity: ...` assignment form is
+parsed without a model. Role keywords or capitalized name patterns never choose a steward from
+free prose. Long structured source lines are represented by complete ordered citation segments
+within the existing per-span bound, never by a silently cut prefix. The Worker still owns its
+document, candidate, directory and YAML budgets and stores review-only drafts.
+
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Actual reviewed adaptive Worker source connection | implemented | `handover_interpretation.py`; `adapters/handover_model*.py`; real production consumer; Worker/Ingestion API checks: 16 passed | Source/version/identity/review/cost/replay checks retain review-only drafts. Default remains unbound. Actual model, DB, person/backup and notification receipts remain open. |
 | Ownership schema, resolver, and pantheon parity | implemented | `services/core-control-plane/src/fdai/core/stewardship/`; `services/core-control-plane/tests/core/stewardship/test_resolver.py`; `test_pantheon_parity.py`; `uv run pytest -q --no-cov services/core-control-plane/tests/core/stewardship` (71 passed) | Schema v1 remains readable, schema v2 preserves ordered duties, and invalid or incomplete mappings fail closed. |
 | Schema v2 migration | implemented | `scripts/governance/migrate-stewardship-v2.py`; `services/core-control-plane/tests/core/stewardship/test_migration.py` | Migration renders a reviewable candidate and doesn't edit the active map in place. |
 | Coverage, escalation, and notification primitives | implemented | `services/core-control-plane/src/fdai/core/stewardship/coverage.py`; `escalation.py`; `notify.py`; focused stewardship suite (71 passed) | These deterministic primitives compute findings and recipients. Runtime scheduling and delivery belong to the lifecycle owner document. |
@@ -38,6 +69,9 @@ manager gains no approval capability from either relationship.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-15 | implemented | Connected independently reviewed adaptive handover interpretation to the actual Worker consumer with 1.1 model provenance, exact source/proposal checks, durable two-call reservation and measured pricing. | `current change`; 16 Worker/Ingestion API checks; scripted review/source/identity/version rejection, mock HTTP/DB and stored-draft replay; seven-file mypy and Ruff. | Configure reviewed private targets/prompts/prices and retain actual model quality, identity, backup, DB/restart and notification acceptance. |
+| 2026-10-15 | implemented | Removed role-keyword/person-name guessing from the actual Document Worker handover path and preserved structured source lines as complete bounded citation segments. | `current change`; Worker handover parity and prose/no-truncation checks: 5 passed; Ruff and focused mypy passed. | Concrete independently reviewed adaptive Worker interpretation and actual person/backup/notification receipts remain open. |
+| 2026-10-15 | implemented | Replaced citation-presence-only model gating with actual document/line/quote/person, canonical agent, finite confidence and directory-only identity checks. | `current change`; seven substitution regressions; stewardship domain: 91 passed; stewardship gate: 15 agents, 2 maintainers; Ruff and focused mypy passed. | Concrete adaptive interpreter, actual schema v2 people/backup bindings and governed notification/authorization acceptance remain open. |
 | 2026-09-04 | implemented | Added the server-owned joined Current owners projection and an agent-first Console view with exact technical identity, filters, coverage, freshness, and pending-change evidence. | `current change`; focused ownership projection, directory, PostgreSQL IAM, Console contract, type, and catalog checks passed. | A governed deployment must still supply real schema v2 bindings and retain live identity and backup-coverage evidence. |
 | 2026-08-13 | implemented | Adopted the implementation ledger without reconstructing earlier provenance and bounded this document to schema, deterministic ownership primitives, migration, and handover bootstrap. | `current change`; ownership source and focused checks listed in the scope table. | Record deployment-specific schema v2 primary and backup coverage without placing tenant identities in the upstream repository. |
 | 2026-08-15 | implemented | Added focused evidence for the `HandoverInterpreter` deployment seam covering the abstaining default, per-document consultation, and proposal gating. | `current change`; `services/core-control-plane/tests/core/stewardship/handover_bootstrap/test_interpreter_binding.py`; `pytest services/core-control-plane/tests/core/stewardship/handover_bootstrap/` (26 passed). | A concrete adaptive interpreter deployment binding and its runtime receipt remain open. |

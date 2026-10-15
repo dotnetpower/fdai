@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.loki_scheduling import ChaosScheduleConfig
 from fdai.agents._framework.registry import load_pantheon
@@ -25,6 +27,21 @@ def _complete_schedule(*, schedule_id: str = "weekly-dr") -> ChaosScheduleConfig
         dry_run_receipt="dry-run:ok",
         start_at=_NOW - timedelta(hours=2),
     )
+
+
+@pytest.mark.parametrize("start_at", [None, datetime(2026, 10, 1, 2, 0)])
+async def test_loki_never_invents_a_recurring_schedule_anchor(start_at: datetime | None) -> None:
+    bus = InMemoryBus(registry=load_pantheon(), isolate_handlers=False)
+    loki = Loki(
+        bus=bus,
+        state_store=InMemoryStateStore(),
+        clock=lambda: _NOW,
+        recurring_schedule=replace(_complete_schedule(), start_at=start_at),
+    )
+    await loki.maintenance_tick()
+    await loki.maintenance_tick()
+    assert bus.messages_on("object.chaos-experiment") == []
+    assert loki.behavior_snapshot()["chaos_scheduler:invalid_start_at"] >= 1
 
 
 async def test_loki_recurring_scheduler_publishes_one_always_hil_window() -> None:

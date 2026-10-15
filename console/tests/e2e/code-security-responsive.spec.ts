@@ -91,9 +91,52 @@ async function mockApi(
                 ],
               },
               flow_steps: [
-                { kind: "source", path: "src/api.ts", line: 18 },
-                { kind: "sink", path: "src/app.ts", line: 42 },
+                {
+                  kind: "source",
+                  path: "src/api.ts",
+                  line: 18,
+                  end_line: 18,
+                  node_id: "source:request",
+                  call_context: ["function:route"],
+                },
+                {
+                  kind: "call",
+                  path: "src/api.ts",
+                  line: 20,
+                  end_line: 20,
+                  node_id: "call:execute",
+                  call_context: ["function:route", "function:execute"],
+                },
+                {
+                  kind: "return",
+                  path: "src/app.ts",
+                  line: 41,
+                  end_line: 41,
+                  node_id: "call:execute",
+                  call_context: ["function:route", "function:execute"],
+                },
+                {
+                  kind: "sink",
+                  path: "src/app.ts",
+                  line: 42,
+                  end_line: 42,
+                  node_id: "sink:exec",
+                  call_context: ["function:route", "function:execute"],
+                },
               ],
+              analysis_evidence: {
+                path_id: "path:0123456789abcdef",
+                path_digest: `sha256:${"1".repeat(64)}`,
+                graph_digest: `sha256:${"2".repeat(64)}`,
+                graph_schema_version: "1.1.0",
+                path_schema_version: "1.1.0",
+                rule_version: "1.0.0",
+                frontend_versions: {
+                  "fdai.typescript.model": "1.1.0",
+                  "typescript-compiler": "5.9.3",
+                },
+                coverage_limits: ["typescript.unresolved-call:example"],
+              },
             },
             {
               issue_id: "FDAI-SEC-ba9876543210",
@@ -123,6 +166,8 @@ async function mockApi(
             sarif: '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"FDAI"}},"results":[]}]}',
           },
           scorecard: {
+            total: 2,
+            determined: 1,
             critical: 0,
             high: 1,
             medium: 0,
@@ -133,6 +178,25 @@ async function mockApi(
             potential_high: 0,
             potential_medium: 0,
             potential_low: 0,
+          },
+          coverage: {
+            complete: false,
+            limits: ["scanner osv-scanner exited 127"],
+            details_available: true,
+          },
+          review_summary: {
+            recorded_total: 2,
+            recorded_determined: 1,
+            recorded_needs_review: 1,
+            shown_total: 2,
+            truncated: false,
+            recorded_by_severity: {
+              critical: 0,
+              high: 1,
+              medium: 0,
+              low: 0,
+              undetermined: 1,
+            },
           },
           gaps: [],
         },
@@ -380,9 +444,11 @@ for (const viewport of [
     await page.getByRole("button", { name: /All sources/ }).click();
     await page.getByRole("button", { name: /^View payments-api-with-a-deliberately-long-repository-alias/ }).click();
     await expect(page.getByRole("heading", { name: /Issues in this review/ })).toBeVisible();
-    await expect(page.getByRole("button", { name: /Needs review 1/ })).toContainText(
-      "1 potentially critical",
+    await expect(page.getByRole("button", { name: /Needs review 1/ })).toBeVisible();
+    await expect(page.getByLabel("Severity scorecard")).toContainText(
+      "Critical ceiling shown1",
     );
+    await expect(page.getByRole("alert")).toContainText("osv-scanner failed with exit code 127");
     await page.getByRole("button", { name: /Vulnerable dependency/ }).click();
     await expect(page.getByRole("article", { name: "Issue details" })).toContainText(
       "example-deliberately-long-dependency-package-name CVE-2026-12345, GHSA-abcd-efgh-ijkl",
@@ -395,13 +461,31 @@ for (const viewport of [
     await expect(detail).toContainText("src/app.ts:42");
     await expect(detail.getByLabel("Code context")).toContainText("exec(command);");
     await expect(detail.getByLabel("Evidence flow")).toContainText("src/api.ts:18");
+    await expect(detail.getByLabel("Evidence flow")).toContainText("Call");
+    await expect(detail.getByLabel("Evidence flow")).toContainText("Return");
+    await expect(detail.getByLabel("Evidence flow")).toContainText(
+      "function:route / function:execute",
+    );
     await expect(detail.getByLabel("Evidence flow")).toContainText("src/app.ts:42");
+    await detail.getByText("Analysis evidence", { exact: true }).click();
+    await expect(detail).toContainText(`sha256:${"2".repeat(64)}`);
+    await expect(detail).toContainText("typescript-compiler 5.9.3");
+    await expect(detail).toContainText("typescript.unresolved-call:example");
     await expect(detail.getByRole("link", { name: "Open file on GitHub" })).toHaveAttribute(
       "href",
       `${"https://github.com/example-organization/payments-api-with-a-deliberately-long-name/blob/"}${revision}/src/app.ts#L42`,
     );
     await page.getByRole("button", { name: "View HTML report" }).click();
-    await expect(page.getByTitle("Code-security HTML report")).toBeVisible();
+    const htmlReport = page.getByTitle("Code-security HTML report");
+    await expect(htmlReport).toBeVisible();
+    const reportGeometry = await page
+      .frameLocator('iframe[title="Code-security HTML report"]')
+      .locator("html")
+      .evaluate((root) => ({
+        scrollWidth: root.scrollWidth,
+        clientWidth: root.clientWidth,
+      }));
+    expect(reportGeometry.scrollWidth).toBeLessThanOrEqual(reportGeometry.clientWidth);
     await page.getByRole("button", { name: "View SARIF" }).click();
     await expect(page.getByLabel("Code-security SARIF")).toContainText('"version": "2.1.0"');
 
@@ -415,6 +499,18 @@ for (const viewport of [
     expect(geometry.documentOverflow).toBeLessThanOrEqual(0);
     expect(geometry.mainOverflow).not.toBeNull();
     expect(geometry.mainOverflow!).toBeLessThanOrEqual(0);
+    if (viewport.width === 390) {
+      const targetHeights = await page
+        .locator(
+          ".code-security-severity-filters button, "
+            + ".code-security-finding-tools input, "
+            + ".code-security-finding-tools select, "
+            + ".code-security-finding-pagination button",
+        )
+        .evaluateAll((elements) => elements.map((element) => element.getBoundingClientRect().height));
+      expect(targetHeights.length).toBeGreaterThan(0);
+      expect(Math.min(...targetHeights)).toBeGreaterThanOrEqual(44);
+    }
   });
 }
 

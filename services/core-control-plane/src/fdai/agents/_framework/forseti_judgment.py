@@ -156,7 +156,7 @@ class ForsetiJudgmentMixin:
             await self.bus.publish("Forseti", "object.verdict", verdict)
         remember = getattr(self, "_remember_verdict_for_quality", None)
         if callable(remember):
-            remember(event, verdict)
+            await remember(event, verdict)
         return verdict
 
     async def judge_document_safety(self, signal: dict[str, Any]) -> dict[str, Any]:
@@ -289,7 +289,7 @@ class ForsetiJudgmentMixin:
             copy_change_assessment(event, verdict)
             remember = getattr(self, "_remember_verdict_for_quality", None)
             if callable(remember):
-                remember(event, verdict)
+                await remember(event, verdict)
             if self.bus is not None:
                 await self.bus.publish("Forseti", "object.verdict", verdict)
             return verdict
@@ -454,7 +454,7 @@ class ForsetiJudgmentMixin:
         self.record_behavior(f"verdict:{verdict['risk_verdict']}")
         remember = getattr(self, "_remember_verdict_for_quality", None)
         if callable(remember):
-            remember(event, verdict)
+            await remember(event, verdict)
         if rbac_denied:
             self.record_behavior("rbac_denied")
         if self.bus is not None:

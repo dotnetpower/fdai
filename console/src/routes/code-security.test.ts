@@ -424,6 +424,50 @@ describe("code-security route", () => {
           package: null,
           producers: ["Opengrep"],
           known_exploited: false,
+          flow_steps: [
+            {
+              kind: "source",
+              path: "src/api.py",
+              line: 12,
+              end_line: 12,
+              node_id: "source:one",
+              call_context: ["function:route"],
+            },
+            {
+              kind: "call",
+              path: "src/api.py",
+              line: 14,
+              end_line: 14,
+              node_id: "call:one",
+              call_context: ["function:route", "function:query"],
+            },
+            {
+              kind: "return",
+              path: "src/db.py",
+              line: 30,
+              end_line: 30,
+              node_id: "call:one",
+              call_context: ["function:route", "function:query"],
+            },
+            {
+              kind: "sink",
+              path: "src/db.py",
+              line: 31,
+              end_line: 31,
+              node_id: "sink:one",
+              call_context: ["function:route", "function:query"],
+            },
+          ],
+          analysis_evidence: {
+            path_id: "path:0123456789abcdef",
+            path_digest: `sha256:${"1".repeat(64)}`,
+            graph_digest: `sha256:${"2".repeat(64)}`,
+            graph_schema_version: "1.1.0",
+            path_schema_version: "1.1.0",
+            rule_version: "1.0.0",
+            frontend_versions: { "python-ast": "1.1.0" },
+            coverage_limits: ["python.unresolved-call:test"],
+          },
         },
         {
           issue_id: "FDAI-SEC-ba9876543210",
@@ -445,6 +489,8 @@ describe("code-security route", () => {
         sarif: '{"version":"2.1.0","runs":[]}',
       },
       scorecard: {
+        total: 2,
+        determined: 2,
         critical: 0,
         high: 1,
         medium: 1,
@@ -456,12 +502,50 @@ describe("code-security route", () => {
         potential_medium: 0,
         potential_low: 0,
       },
+      coverage: {
+        complete: true,
+        limits: [],
+        details_available: true,
+      },
+      review_summary: {
+        recorded_total: 2,
+        recorded_determined: 2,
+        recorded_needs_review: 0,
+        shown_total: 2,
+        truncated: false,
+        recorded_by_severity: {
+          critical: 0,
+          high: 1,
+          medium: 1,
+          low: 0,
+          undetermined: 0,
+        },
+      },
       gaps: [{ reason_code: "code_security_issues_truncated" }],
     });
     expect(data.issues.map(issueReference)).toEqual(["CWE-78", "flask CVE-2026-0001"]);
     expect(data.gaps).toEqual(["code_security_issues_truncated"]);
     expect(data.artifacts?.html).toContain("<!doctype html>");
     expect(data.artifacts?.sarif).toBe('{\n  "version": "2.1.0",\n  "runs": []\n}');
+    expect(data.scorecard.total).toBe(2);
+    expect(data.coverage.complete).toBe(true);
+    expect(data.review_summary.recorded_total).toBe(2);
+    const [firstIssue, secondIssue] = data.issues;
+    if (firstIssue === undefined || secondIssue === undefined) throw new Error("missing fixtures");
+    expect(firstIssue.flow_steps.map(step => step.kind)).toEqual([
+      "source",
+      "call",
+      "return",
+      "sink",
+    ]);
+    expect(firstIssue.flow_steps[1]?.call_context).toEqual([
+      "function:route",
+      "function:query",
+    ]);
+    expect(firstIssue.analysis_evidence?.frontend_versions).toEqual({
+      "python-ast": "1.1.0",
+    });
+    expect(secondIssue.analysis_evidence).toBeNull();
     expect(() => decodeCodeSecurityIssues({ available: true, issues: [{ priority: "P9" }], gaps: [] })).toThrow();
   });
 

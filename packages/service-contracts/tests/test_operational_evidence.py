@@ -52,8 +52,21 @@ def _rejection(**overrides: object) -> OperationalEvidenceRejectionRecord:
     return OperationalEvidenceRejectionRecord.create(**values)  # type: ignore[arg-type]
 
 
-def test_eleven_purposes_and_lookup_digest_match_the_admission_records() -> None:
-    assert len(OPERATIONAL_EVIDENCE_PURPOSES) == 11
+def test_registered_purposes_and_lookup_digest_match_the_admission_records() -> None:
+    assert OPERATIONAL_EVIDENCE_PURPOSES == (
+        "agent-discussion-read",
+        "case-history-read",
+        "current-case-reuse",
+        "forecast-context",
+        "forecast-history-actions",
+        "forecast-history-changes",
+        "forecast-history-excluded_windows",
+        "forecast-history-resource_lifecycle",
+        "operational-test-context",
+        "operational-test-observation",
+        "operator-test-context-command",
+        "test-context-transition",
+    )
     lookup = OperationalEvidenceLookup(**_LOOKUP)
     assert lookup.lookup_digest.startswith("sha256:")
     with pytest.raises(ValidationError):

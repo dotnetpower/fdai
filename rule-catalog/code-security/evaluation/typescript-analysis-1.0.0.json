@@ -1,0 +1,32 @@
+{
+  "schema_version": "1.0.0",
+  "corpus_id": "fdai.code-security.analysis.typescript-sql-injection",
+  "corpus_version": "1.0.0",
+  "corpus_digest": "sha256:a597e1613d8adbccb911976e33a75909eb0d582d48a564a753ccaae7ef053bfb",
+  "rule_id": "fdai.typescript.sql-injection",
+  "rule_version": "1.0.0",
+  "dev": {
+    "true_positive": 1,
+    "false_positive": 0,
+    "false_negative": 0,
+    "true_negative": 1,
+    "unsupported": 0,
+    "precision": 1,
+    "recall": 1,
+    "f1": 1
+  },
+  "holdout": {
+    "true_positive": 1,
+    "false_positive": 0,
+    "false_negative": 0,
+    "true_negative": 1,
+    "unsupported": 0,
+    "precision": 1,
+    "recall": 1,
+    "f1": 1
+  },
+  "resources": {
+    "duration_ms": 886,
+    "peak_rss_bytes": 299065344
+  }
+}

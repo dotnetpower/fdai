@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 9c1cf7cfde50eb92626fbda1a2117bda3d996cd7
-translation_revised: 2026-10-09
+translation_source_sha: 8cfb233b78a70870d302a23e537bb3472207ca52
+translation_revised: 2026-10-15
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -10,6 +10,13 @@ translation_revised: 2026-10-09
 > [operator-console-ko.md](operator-console-ko.md) 섹션 13 (13.1-13.3, 13.6-13.9)에서 분리한 focused 소유자 문서입니다.
 
 ## 13. 데이터 + wire 계약
+의미 요청 1.11.0은 권한이 없는 명시적 `presentation_mode=agent_discussion`을 추가합니다.
+일반 기본값은 요청 직렬화에서 계속 생략합니다. Operator는 Owner와 보관된 인증 영수증을
+요구하고, Core는 현재의 정확한 설치 단위 읽기 허가를 독립적으로 확인합니다. 토론은 기존
+스트림, 취소, 기한과 내구성 최종 투영 필드를 사용하며 Incident 생성이나 행동 초안을 만들지
+않습니다. Console은 반환된 기본 발언, 비평, 참여자 상태와 보류·검증 결론을 표시할 뿐, 이를
+운영 사실로 추정하지 않습니다.
+
 
 `GET /knowledge/github/sources`는 형식화된 저장소 출처 정보와 분리된 지식 읽기 및 스캔
 권한 상태를 반환합니다. 같은 경로의 Owner 전용 `POST`는 `connect` 또는 `disconnect`,

@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 from collections import Counter
 from collections.abc import Mapping, Sequence
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 
@@ -41,7 +42,7 @@ class IntentTrainingEvaluator(Protocol):
         candidate_revision: Mapping[str, Any],
         holdout_cases: Sequence[IntentTrainingEvidence],
     ) -> Sequence[IntentTrainingEvaluationResult]:
-        """Return one deterministic result per holdout case."""
+        """Return one result per case without changing the isolated revision inputs."""
         ...
 
 
@@ -139,12 +140,9 @@ class IntentTrainingRun:
 def build_unbound_training_payload(*, reason: str) -> dict[str, Any]:
     """Return visible no-op evidence for an unbound off-path dependency."""
 
-    run_id = _run_id(("unbound", reason))
     corpus_digest = _digest_value(("unbound", reason))
     candidate_digest = _digest_value(("no-candidate", reason))
     return _base_payload(
-        run_id=run_id,
-        idempotency_parts=("unbound", reason),
         corpus_digest=corpus_digest,
         candidate_digest=candidate_digest,
         stages={
@@ -173,10 +171,12 @@ def evaluate_training_contract(
     """Build and gate one deterministic shadow-only routing evidence revision."""
 
     selected = _select_corpus(corpus)
-    candidate = _candidate_revision(selected)
     corpus_digest = _corpus_digest(selected)
     holdout = tuple(item for item in selected if not item.targeted)
     target_cases = tuple(item for item in selected if item.targeted)
+    if {item.input_digest for item in holdout} & {item.input_digest for item in target_cases}:
+        raise ValueError("training and holdout MUST have independent input digests")
+    candidate = _candidate_revision(target_cases)
     if not holdout or not target_cases:
         payload = _payload_for_hold(
             selected=selected,
@@ -185,19 +185,23 @@ def evaluate_training_contract(
             reason="requires_holdout_and_targeted_cases",
         )
         return payload, candidate, False
+    baseline = _baseline_revision()
+    evaluation_baseline = deepcopy(baseline)
+    evaluation_candidate = deepcopy(candidate)
     results = tuple(
         evaluator.evaluate(
-            baseline_revision=_baseline_revision(),
-            candidate_revision=candidate,
+            baseline_revision=evaluation_baseline,
+            candidate_revision=evaluation_candidate,
             holdout_cases=(*holdout, *target_cases),
         )
     )
+    if _digest_value(evaluation_baseline) != _digest_value(baseline) or _digest_value(
+        evaluation_candidate
+    ) != _digest_value(candidate):
+        raise ValueError("training evaluator MUST preserve the frozen revisions")
     gate = _gate_results(results, holdout=holdout, target_cases=target_cases)
     promotion = _promotion_stage(gate, reviewed_promotion=reviewed_promotion)
-    run_id = _run_id(tuple(item.evidence_id for item in selected))
     payload = _base_payload(
-        run_id=run_id,
-        idempotency_parts=("evaluated", tuple(item.evidence_id for item in selected)),
         corpus_digest=corpus_digest,
         candidate_digest=str(candidate["candidate_digest"]),
         stages={
@@ -267,9 +271,16 @@ def _gate_results(
     if len(results) > _MAX_HOLDOUT_CASES:
         raise ValueError("training evaluation exceeds the bounded holdout limit")
     by_id = {item.evidence_id: item for item in results}
-    expected_ids = {item.evidence_id for item in (*holdout, *target_cases)}
-    if set(by_id) != expected_ids:
+    cases = (*holdout, *target_cases)
+    expected_ids = {item.evidence_id for item in cases}
+    if len(results) != len(cases) or len(by_id) != len(results) or set(by_id) != expected_ids:
         raise ValueError("training evaluator MUST return exactly one result per case")
+    if any(
+        by_id[item.evidence_id].baseline_owner != item.baseline_owner
+        or by_id[item.evidence_id].expected_owner != item.corrected_owner
+        for item in cases
+    ):
+        raise ValueError("training evaluator MUST preserve the frozen baseline and expected owner")
     regressions = tuple(
         item.evidence_id
         for item in holdout
@@ -332,10 +343,7 @@ def _payload_for_hold(
     corpus_digest: str,
     reason: str,
 ) -> dict[str, Any]:
-    run_id = _run_id(tuple(item.evidence_id for item in selected))
     return _base_payload(
-        run_id=run_id,
-        idempotency_parts=("held", tuple(item.evidence_id for item in selected), reason),
         corpus_digest=corpus_digest,
         candidate_digest=str(candidate["candidate_digest"]),
         stages={
@@ -379,12 +387,19 @@ def _corpus_stage(selected: Sequence[IntentTrainingEvidence]) -> dict[str, Any]:
 
 def _base_payload(
     *,
-    run_id: str,
-    idempotency_parts: Sequence[Any],
     corpus_digest: str,
     candidate_digest: str,
     stages: Mapping[str, Any],
 ) -> dict[str, Any]:
+    snapshot_digest = _digest_value(
+        {
+            "contract_version": _CONTRACT_VERSION,
+            "corpus_digest": corpus_digest,
+            "candidate_digest": candidate_digest,
+            "stages": stages,
+        }
+    )
+    run_id = _run_id((snapshot_digest,))
     return {
         "producer_principal": "Bragi",
         "kind": "bragi_intent_training_evidence",
@@ -392,7 +407,7 @@ def _base_payload(
         "correlation_id": run_id,
         "idempotency_key": stable_idempotency_key(
             "bragi-intent-training",
-            *idempotency_parts,
+            snapshot_digest,
         ),
         "contract_version": _CONTRACT_VERSION,
         "corpus_digest": corpus_digest,
@@ -450,6 +465,7 @@ def _corpus_digest(selected: Sequence[IntentTrainingEvidence]) -> str:
             "evidence_id": item.evidence_id,
             "source_kind": item.source_kind,
             "principal_scope_digest": item.principal_scope_digest,
+            "consent_ref": item.consent_ref,
             "input_digest": item.input_digest,
             "baseline_owner": item.baseline_owner,
             "corrected_owner": item.corrected_owner,

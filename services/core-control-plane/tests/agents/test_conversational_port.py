@@ -1013,7 +1013,8 @@ def test_exact_canonical_domain_disambiguates_semantic_owner_without_prefix_matc
     assert exact.decision.method == "semantic_judgment"
     assert exact.decision.tie_break == "canonical_question_domain"
     assert exact.answer["contributors"] == []
-    assert "Muninn:" not in exact.answer["answer"]
+    assert exact.answer["answer"] is None
+    assert exact.answer["abstain_reason"] == "owned_answer_verification_held"
     assert prefixed is not None
     assert prefixed.decision.tie_break != "canonical_question_domain"
 
@@ -1333,8 +1334,9 @@ def test_ask_answers_from_owned_state_not_stub() -> None:
     turn = asyncio.run(runtime.ask(session_id="s1", user_id="u1", question="cost breakdown"))
     assert turn is not None
     assert turn.primary_agent == "Njord"
-    assert turn.answer["answer"] is not None
-    assert turn.answer["abstain_reason"] is None
+    assert turn.answer["answer"] is None
+    assert turn.answer["abstain_reason"] == "owned_answer_verification_held"
+    assert turn.answer["owned_answer_composition"]["authority"] == "presentation_only"
     assert turn.answer["facts"]["agent"] == "Njord"
 
 

@@ -1,0 +1,49 @@
+schema_version: 1.0.0
+corpus_id: fdai.code-security.analysis.python-path-traversal
+language: python
+version: 1.0.0
+rule_id: fdai.python.path-traversal
+cases:
+  - case_id: dev-vulnerable-cross-file
+    split: dev
+    vulnerable: true
+    files:
+      api.py: |
+        from flask import request
+        from files import read
+        @app.get('/file')
+        def route():
+            return read(request.args.get('name'))
+      files.py: |
+        def read(value):
+            return open(value)
+  - case_id: dev-safe-basename
+    split: dev
+    vulnerable: false
+    files:
+      app.py: |
+        import os
+        from flask import request
+        @app.get('/file')
+        def route():
+            return open(os.path.basename(request.args.get('name')))
+  - case_id: holdout-vulnerable-send-file
+    split: holdout
+    vulnerable: true
+    files:
+      app.py: |
+        from flask import request, send_file
+        @app.get('/download')
+        def route():
+            path = request.args.get('path')
+            return send_file(path)
+  - case_id: holdout-safe-constant
+    split: holdout
+    vulnerable: false
+    files:
+      app.py: |
+        from flask import request
+        @app.get('/health')
+        def route():
+            request.args.get('unused')
+            return open('health.txt')

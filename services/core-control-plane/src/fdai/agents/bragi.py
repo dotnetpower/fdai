@@ -100,6 +100,7 @@ from fdai.agents._framework.bragi_status_runtime import BragiStatusRuntimeMixin
 from fdai.agents._framework.bragi_turn_runtime import BragiTurnRuntimeMixin
 from fdai.agents._framework.deliberation import (
     ConversationDeliberator,
+    ConversationSynthesisVerifier,
     T2ConversationSynthesizer,
 )
 from fdai.agents._framework.pantheon import _BRAGI, PANTHEON_NAMES, PANTHEON_SPECS
@@ -166,6 +167,7 @@ class Bragi(
         action_type_names: Collection[str] = (),
         semantic_router: SemanticAgentRouter | None = None,
         t2_synthesizer: T2ConversationSynthesizer | None = None,
+        synthesis_verifier: ConversationSynthesisVerifier | None = None,
         escalation_budget: ModelBudget | None = None,
         escalation_ledger: BudgetLedger | None = None,
         pricing: PricingTable | None = None,
@@ -209,6 +211,7 @@ class Bragi(
             specs=PANTHEON_SPECS,
             semantic_router=semantic_router,
             t2_synthesizer=t2_synthesizer,
+            synthesis_verifier=synthesis_verifier,
             call_responder=self._call_responder,
             escalation_budget=escalation_budget,
             escalation_ledger=escalation_ledger,
@@ -347,6 +350,7 @@ class Bragi(
             raise RuntimeError("intent training evidence requires contract and lineage digests")
         if not isinstance(stages, Mapping):
             raise RuntimeError("intent training evidence requires stage mapping")
+        run_id = str(payload["id"])
         created = 0
         for stage_name, raw_stage in stages.items():
             if not isinstance(raw_stage, Mapping):
@@ -356,6 +360,7 @@ class Bragi(
                 contract_version=contract_version,
                 corpus_digest=corpus_digest,
                 candidate_digest=candidate_digest,
+                run_id=run_id,
                 stage=stage,
             )
             value = {
@@ -366,7 +371,7 @@ class Bragi(
                 "candidate_digest": candidate_digest,
                 "stage": stage,
                 "stage_status": str(raw_stage.get("status") or ""),
-                "run_id": str(payload.get("id") or ""),
+                "run_id": run_id,
                 "stage_payload": dict(raw_stage),
                 "routes_runtime_traffic": False,
                 "grants_action_authority": False,
@@ -374,6 +379,7 @@ class Bragi(
             audit = {
                 "kind": "bragi_intent_training_stage_recorded",
                 "principal": "Bragi",
+                "run_id": run_id,
                 "contract_version": contract_version,
                 "corpus_digest": corpus_digest,
                 "candidate_digest": candidate_digest,

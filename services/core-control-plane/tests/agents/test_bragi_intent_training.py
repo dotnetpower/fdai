@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from typing import Any
 
 import fdai.agents.bragi as bragi_module
@@ -9,6 +10,7 @@ from fdai.agents._framework.bragi_intent_training import (
     IntentTrainingEvaluationResult,
     IntentTrainingEvidence,
     ReviewedIntentTrainingPromotion,
+    evaluate_training_contract,
 )
 from fdai.agents._framework.bragi_routing import route_semantic_judgment
 from fdai.agents._framework.bus import InMemoryBus
@@ -122,6 +124,177 @@ async def test_unbound_intent_training_is_visible_no_op_without_degrading_bragi(
     assert message.payload["kind"] == "bragi_intent_training_evidence"
 
 
+@pytest.mark.parametrize("substitution", ["duplicate", "baseline", "expected"])
+def test_training_evaluator_cannot_replace_the_frozen_case_identity(substitution: str) -> None:
+    class SubstitutingEvaluator(_DeterministicEvaluator):
+        def evaluate(
+            self,
+            *,
+            baseline_revision: Mapping[str, Any],
+            candidate_revision: Mapping[str, Any],
+            holdout_cases: Sequence[IntentTrainingEvidence],
+        ) -> Sequence[IntentTrainingEvaluationResult]:
+            results = list(
+                super().evaluate(
+                    baseline_revision=baseline_revision,
+                    candidate_revision=candidate_revision,
+                    holdout_cases=holdout_cases,
+                )
+            )
+            if substitution == "duplicate":
+                return (*results, results[0])
+            original = results[0]
+            results[0] = IntentTrainingEvaluationResult(
+                evidence_id=original.evidence_id,
+                baseline_owner="Freyr" if substitution == "baseline" else original.baseline_owner,
+                candidate_owner=original.candidate_owner,
+                expected_owner="Freyr" if substitution == "expected" else original.expected_owner,
+            )
+            return tuple(results)
+
+    corpus = (
+        _evidence("holdout", _PRINCIPAL_A, _INPUT_A, baseline_owner="Njord", targeted=False),
+        _evidence("target", _PRINCIPAL_B, _INPUT_B, baseline_owner=None, targeted=True),
+    )
+    with pytest.raises(ValueError):
+        evaluate_training_contract(corpus, evaluator=SubstitutingEvaluator())
+
+
+@pytest.mark.parametrize("changed", ["baseline", "candidate", "nested_candidate", "support_type"])
+async def test_training_evaluator_cannot_mutate_frozen_revisions(changed: str) -> None:
+    class MutatingEvaluator(_DeterministicEvaluator):
+        def evaluate(
+            self,
+            *,
+            baseline_revision: Mapping[str, Any],
+            candidate_revision: Mapping[str, Any],
+            holdout_cases: Sequence[IntentTrainingEvidence],
+        ) -> Sequence[IntentTrainingEvaluationResult]:
+            results = super().evaluate(
+                baseline_revision=baseline_revision,
+                candidate_revision=candidate_revision,
+                holdout_cases=holdout_cases,
+            )
+            assert isinstance(baseline_revision, dict)
+            assert isinstance(candidate_revision, dict)
+            if changed == "baseline":
+                baseline_revision["revision"] = "substituted"
+            elif changed == "candidate":
+                candidate_revision["candidate_digest"] = "sha256:" + "0" * 64
+            elif changed == "nested_candidate":
+                candidate_revision["calibration_entries"][0]["owner"] = "Freyr"
+            else:
+                candidate_revision["calibration_entries"][0]["support_count"] = True
+            return results
+
+    state = InMemoryStateStore()
+    bus = InMemoryBus(registry=load_pantheon())
+    bragi = Bragi(state_store=state)
+    bragi.bind_bus(bus)
+    bragi.register_intent_training_evaluator(MutatingEvaluator())
+    corpus = (
+        _evidence("holdout", _PRINCIPAL_A, _INPUT_A, baseline_owner="Njord", targeted=False),
+        _evidence("target", _PRINCIPAL_B, _INPUT_B, baseline_owner=None, targeted=True),
+    )
+    review = ReviewedIntentTrainingPromotion("review-1", _REVIEWER, "approval:review-1")
+    with pytest.raises(ValueError, match="preserve the frozen revisions"):
+        await bragi.run_intent_training(corpus, reviewed_promotion=review)
+    assert not bus.messages_on("object.post-turn-review")
+    assert not await state.read_states("pantheon/bragi/intent-training/", limit=20)
+    assert not state.audit_entries
+
+
+def test_training_evaluator_retained_reference_cannot_change_returned_candidate() -> None:
+    evaluator = _DeterministicEvaluator()
+    corpus = (
+        _evidence("holdout", _PRINCIPAL_A, _INPUT_A, baseline_owner="Njord", targeted=False),
+        _evidence("target", _PRINCIPAL_B, _INPUT_B, baseline_owner=None, targeted=True),
+    )
+    _, candidate, passed = evaluate_training_contract(corpus, evaluator=evaluator)
+    assert passed and candidate is not None
+    evaluation_candidate = evaluator.calls[0][1]
+    assert isinstance(evaluation_candidate, dict)
+    evaluation_candidate["calibration_entries"][0]["owner"] = "Freyr"
+    assert candidate["calibration_entries"][0]["owner"] == "Njord"
+
+
+def test_training_candidate_cannot_share_an_input_with_the_holdout() -> None:
+    evaluator = _DeterministicEvaluator()
+    corpus = (
+        _evidence("holdout", _PRINCIPAL_A, _INPUT_A, baseline_owner="Njord", targeted=False),
+        _evidence("target", _PRINCIPAL_B, _INPUT_A, baseline_owner=None, targeted=True),
+    )
+    with pytest.raises(ValueError, match="independent input digests"):
+        evaluate_training_contract(corpus, evaluator=evaluator)
+    assert not evaluator.calls
+
+
+@pytest.mark.parametrize("changed", ["input", "correction", "consent", "review", "evaluation"])
+def test_training_identity_binds_the_complete_evidence_snapshot(changed: str) -> None:
+    corpus = (
+        _evidence("holdout", _PRINCIPAL_A, _INPUT_A, baseline_owner="Njord", targeted=False),
+        _evidence("target", _PRINCIPAL_B, _INPUT_B, baseline_owner=None, targeted=True),
+    )
+    first, _, _ = evaluate_training_contract(corpus, evaluator=_DeterministicEvaluator())
+    changed_corpus = corpus
+    review = None
+    if changed == "input":
+        changed_corpus = (corpus[0], replace(corpus[1], input_digest=_INPUT_C))
+    elif changed == "correction":
+        changed_corpus = (
+            corpus[0],
+            replace(corpus[1], corrected_owner="Freyr", corrected_intent="sizing_recommendation"),
+        )
+    elif changed == "consent":
+        changed_corpus = (corpus[0], replace(corpus[1], consent_ref="preference:renewed-consent"))
+    elif changed == "review":
+        review = ReviewedIntentTrainingPromotion("review-1", _REVIEWER, "approval:review-1")
+    second, _, _ = evaluate_training_contract(
+        changed_corpus,
+        evaluator=_DeterministicEvaluator(regress=changed == "evaluation"),
+        reviewed_promotion=review,
+    )
+    assert second["id"] != first["id"]
+    assert second["correlation_id"] == second["id"]
+    assert second["idempotency_key"] != first["idempotency_key"]
+    assert second["authority"]["routes_runtime_traffic"] is False
+    assert second["authority"]["grants_action_authority"] is False
+    replay, _, _ = evaluate_training_contract(
+        tuple(reversed(changed_corpus)),
+        evaluator=_DeterministicEvaluator(regress=changed == "evaluation"),
+        reviewed_promotion=review,
+    )
+    assert replay == second
+
+
+async def test_training_review_snapshot_has_distinct_immutable_stage_records() -> None:
+    state = InMemoryStateStore()
+    bus = InMemoryBus(registry=load_pantheon())
+    bragi = Bragi(state_store=state)
+    bragi.bind_bus(bus)
+    bragi.register_intent_training_evaluator(_DeterministicEvaluator())
+    corpus = (
+        _evidence("holdout", _PRINCIPAL_A, _INPUT_A, baseline_owner="Njord", targeted=False),
+        _evidence("target", _PRINCIPAL_B, _INPUT_B, baseline_owner=None, targeted=True),
+    )
+    first = await bragi.run_intent_training(corpus)
+    review = ReviewedIntentTrainingPromotion("review-1", _REVIEWER, "approval:review-1")
+    second = await bragi.run_intent_training(corpus, reviewed_promotion=review)
+    replay = await bragi.run_intent_training(corpus, reviewed_promotion=review)
+    rows = await state.read_states("pantheon/bragi/intent-training/", limit=20)
+    assert len(rows) == len(state.audit_entries) == 8
+    assert {row["run_id"] for row in rows} == {first.run_id, second.run_id}
+    promotion_rows = [row for row in rows if row["stage"] == "promotion_decision"]
+    assert {row["stage_status"] for row in promotion_rows} == {"held", "shadow_ready"}
+    assert replay.run_id == second.run_id
+    messages = bus.messages_on("object.post-turn-review")
+    assert len(messages) == 3
+    assert messages[0].payload["idempotency_key"] != messages[1].payload["idempotency_key"]
+    assert messages[1].payload == messages[2].payload
+    assert all(row["routes_runtime_traffic"] is False for row in rows)
+    assert all(row["grants_action_authority"] is False for row in rows)
+
+
 async def test_intent_training_gate_promotes_shadow_only_and_norns_records_new_kind() -> None:
     bus = InMemoryBus(registry=load_pantheon())
     bragi = Bragi()
@@ -165,6 +338,9 @@ async def test_intent_training_gate_promotes_shadow_only_and_norns_records_new_k
 
     assert run.gate_passed is True
     assert run.candidate_revision is not None
+    assert run.candidate_revision["calibration_entries"][0]["support_count"] == 1
+    assert run.candidate_revision["calibration_entries"][0]["lineage_digests"] == (_INPUT_B,)
+    assert _INPUT_A not in str(run.candidate_revision)
     assert run.candidate_revision["runtime_routing_authority_changed"] is False
     assert run.payload["stages"]["corpus_selection"]["selection_rules"] == {
         "sources": [

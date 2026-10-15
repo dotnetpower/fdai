@@ -1,0 +1,101 @@
+schema_version: 1.0.0
+corpus_id: fdai.code-security.analysis.csharp-compiler-sql-injection
+language: csharp
+version: 1.0.0
+rule_id: fdai.csharp.sql-injection
+cases:
+  - case_id: dev-vulnerable-cross-file
+    split: dev
+    vulnerable: true
+    files:
+      Framework.cs: |
+        namespace Microsoft.AspNetCore.Mvc {
+          public sealed class FromQueryAttribute : System.Attribute {}
+        }
+        namespace Microsoft.Data.SqlClient {
+          public sealed class SqlCommand {
+            public SqlCommand(string query, object connection) {}
+          }
+        }
+      Controller.cs: |
+        using Microsoft.AspNetCore.Mvc;
+        public sealed class Controller {
+          public object Search([FromQuery] string query) { return Store.Run(query); }
+        }
+      Store.cs: |
+        using Microsoft.Data.SqlClient;
+        public static class Store {
+          static readonly object Connection = new();
+          public static object Run(string query) { return new SqlCommand("SELECT " + query, Connection); }
+        }
+  - case_id: dev-safe-parameterized
+    split: dev
+    vulnerable: false
+    files:
+      Framework.cs: |
+        namespace Microsoft.AspNetCore.Mvc {
+          public sealed class FromQueryAttribute : System.Attribute {}
+        }
+        namespace Microsoft.Data.SqlClient {
+          public sealed class Parameters { public void AddWithValue(string key, object value) {} }
+          public sealed class SqlCommand {
+            public Parameters Parameters { get; } = new();
+            public SqlCommand(string query, object connection) {}
+          }
+        }
+      Controller.cs: |
+        using Microsoft.AspNetCore.Mvc;
+        using Microsoft.Data.SqlClient;
+        public sealed class Controller {
+          static readonly object Connection = new();
+          public object Search([FromQuery] string query) {
+            var command = new SqlCommand("SELECT WHERE id = @id", Connection);
+            command.Parameters.AddWithValue("@id", query);
+            return command;
+          }
+        }
+  - case_id: holdout-vulnerable-query
+    split: holdout
+    vulnerable: true
+    files:
+      Controller.cs: |
+        using Microsoft.AspNetCore.Http;
+        using Microsoft.Data.SqlClient;
+        namespace Microsoft.AspNetCore.Http {
+          public sealed class QueryCollection { public string this[string key] => key; }
+          public sealed class HttpRequest { public QueryCollection Query { get; } = new(); }
+        }
+        namespace Microsoft.Data.SqlClient {
+          public sealed class SqlCommand {
+            public SqlCommand(string query, object connection) {}
+          }
+        }
+        public sealed class Controller {
+          static readonly object Connection = new();
+          public HttpRequest Request { get; } = new();
+          public object Search() {
+            var query = Request.Query["q"];
+            return new SqlCommand("SELECT " + query, Connection);
+          }
+        }
+  - case_id: holdout-safe-numeric
+    split: holdout
+    vulnerable: false
+    files:
+      Controller.cs: |
+        using Microsoft.AspNetCore.Mvc;
+        using Microsoft.Data.SqlClient;
+        namespace Microsoft.AspNetCore.Mvc {
+          public sealed class FromQueryAttribute : System.Attribute {}
+        }
+        namespace Microsoft.Data.SqlClient {
+          public sealed class SqlCommand {
+            public SqlCommand(string query, object connection) {}
+          }
+        }
+        public sealed class Controller {
+          static readonly object Connection = new();
+          public object Page([FromQuery] string page) {
+            return new SqlCommand("SELECT OFFSET " + int.Parse(page), Connection);
+          }
+        }

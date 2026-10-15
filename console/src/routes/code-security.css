@@ -224,6 +224,142 @@
 .code-security-toggle { display: inline-grid; gap: 4px; }
 .code-security-issues-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .code-security-issues-header h3 { margin: 0; overflow-wrap: anywhere; }
+.code-security-coverage-status {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(0, 2fr);
+  gap: 12px 24px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius-sm);
+}
+.code-security-coverage-status > div {
+  display: grid;
+  gap: 4px;
+}
+.code-security-coverage-status span,
+.code-security-coverage-status li {
+  color: var(--fg-muted);
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+}
+.code-security-coverage-status ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding-left: 20px;
+}
+.code-security-coverage-status.complete {
+  border-color: color-mix(in srgb, var(--success) 35%, var(--border));
+  background: color-mix(in srgb, var(--success) 5%, var(--bg-elevated));
+}
+.code-security-coverage-status.incomplete {
+  border-color: color-mix(in srgb, var(--warning) 48%, var(--border));
+  background: color-mix(in srgb, var(--warning) 7%, var(--bg-elevated));
+}
+.code-security-review-summary {
+  display: grid;
+  grid-template-columns: minmax(230px, 0.85fr) minmax(0, 2fr);
+  gap: 32px;
+  padding-block: 20px;
+  border-block: 1px solid var(--border);
+}
+.code-security-review-primary {
+  display: grid;
+  align-content: start;
+  gap: 4px;
+}
+.code-security-review-primary > span {
+  color: var(--fg-muted);
+  font-size: var(--cs-type-label-size);
+  font-weight: 650;
+}
+.code-security-review-primary > strong {
+  font-size: 40px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.code-security-review-primary > p {
+  max-width: 42ch;
+  margin: 6px 0 0;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+}
+.code-security-review-primary > small {
+  margin-top: 4px;
+  color: var(--warning);
+  font-size: var(--cs-type-caption-size);
+  line-height: var(--cs-type-caption-line-height);
+}
+.code-security-review-summary dl {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 0;
+}
+.code-security-review-summary dl > div {
+  min-width: 0;
+  padding-inline: 20px;
+  border-left: 1px solid var(--border);
+}
+.code-security-review-summary dt {
+  color: var(--fg-muted);
+  font-size: var(--cs-type-label-size);
+  font-weight: 600;
+}
+.code-security-review-summary dd {
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+  font-size: var(--cs-type-section-title-size);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+.code-security-recorded-severity {
+  display: flex;
+  grid-column: 1 / -1;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-caption-size);
+}
+.code-security-recorded-severity > span:first-child {
+  color: var(--fg);
+  font-weight: 650;
+}
+.code-security-severity-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.code-security-severity-filters button {
+  min-height: 34px;
+  padding: 5px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius-pill);
+  background: var(--bg-elevated);
+  color: var(--fg-muted);
+  cursor: pointer;
+  font-size: var(--cs-type-compact-size);
+}
+.code-security-severity-filters button:hover,
+.code-security-severity-filters button.active {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, var(--bg-elevated));
+  color: var(--fg);
+}
+.code-security-severity-filters button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.code-security-finding-tools {
+  display: grid;
+  grid-template-columns: minmax(240px, 2fr) repeat(3, minmax(150px, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+.code-security-finding-tools .cs-control-input,
+.code-security-finding-tools .cs-control-select {
+  min-height: 40px;
+}
 .code-security-issue-detail,
 .code-security-report-viewer {
   display: grid;
@@ -283,7 +419,7 @@
   font-size: var(--cs-type-caption-size);
 }
 .code-security-finding-list {
-  max-height: 680px;
+  max-height: 720px;
   overflow: auto;
   border-right: 1px solid var(--border);
   background: var(--cs-shade);
@@ -333,6 +469,28 @@
   font-size: var(--cs-type-caption-size);
   line-height: var(--cs-type-caption-line-height);
 }
+.code-security-finding-pagination {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg-elevated) 94%, transparent);
+  color: var(--fg-muted);
+  font-size: var(--cs-type-caption-size);
+  backdrop-filter: blur(8px);
+}
+.code-security-finding-pagination > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.code-security-finding-pagination .btn {
+  min-height: 32px;
+  padding: 4px 8px;
+}
 .code-security-finding-detail {
   display: grid;
   align-content: start;
@@ -368,6 +526,38 @@
   margin: 6px 0 0;
   color: var(--fg-muted);
   line-height: var(--cs-type-body-line-height);
+}
+.code-security-severity-reason > span {
+  display: block;
+  margin-top: 12px;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-label-size);
+  font-weight: 600;
+}
+.code-security-severity-reason ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.code-security-severity-reason li {
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--cs-radius-pill);
+  background: var(--bg-elevated);
+  color: var(--fg-muted);
+  font-size: var(--cs-type-caption-size);
+}
+.code-security-severity-reason details {
+  margin-top: 12px;
+  color: var(--fg-muted);
+  font-size: var(--cs-type-caption-size);
+}
+.code-security-severity-reason summary {
+  cursor: pointer;
+  font-weight: 600;
 }
 .code-security-code-context,
 .code-security-flow {
@@ -436,7 +626,7 @@
 .code-security-flow li {
   position: relative;
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
+  grid-template-columns: 80px minmax(0, 1fr);
   gap: 12px;
   padding: 8px 0 8px 22px;
 }
@@ -467,6 +657,31 @@
   text-transform: uppercase;
 }
 .code-security-flow code { overflow-wrap: anywhere; }
+.code-security-flow-target {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+.code-security-flow-target small {
+  color: var(--fg-muted);
+  font: var(--cs-type-caption-size)/1.4 var(--cs-font-mono);
+  overflow-wrap: anywhere;
+}
+.code-security-analysis-evidence {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.code-security-analysis-evidence summary {
+  cursor: pointer;
+  color: var(--fg-muted);
+  font-weight: 600;
+}
+.code-security-analysis-evidence dl {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 20px;
+  margin-top: 12px;
+}
 .code-security-finding-detail dl {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -525,7 +740,10 @@
 @media (max-width: 960px) {
   .code-security-register-settings-grid { grid-template-columns: 1fr 1fr; }
   .code-security-register-exposure { grid-column: 1 / -1; }
-  .code-security-scorecard { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .code-security-review-summary { grid-template-columns: 1fr; gap: 20px; }
+  .code-security-review-summary dl > div:first-child { border-left: 0; padding-left: 0; }
+  .code-security-finding-tools { grid-template-columns: 1fr 1fr; }
+  .code-security-finding-search { grid-column: 1 / -1; }
 }
 @media (max-width: 720px) {
   .code-security-register-content { padding: 16px; }
@@ -552,10 +770,15 @@
   .code-security-register-exposure { grid-column: auto; }
   .code-security-issue-detail dl { grid-template-columns: 1fr; }
   .code-security-review-workspace { grid-template-columns: 1fr; }
-  .code-security-scorecard {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .code-security-scorecard > button { min-height: 76px; }
+  .code-security-coverage-status { grid-template-columns: 1fr; }
+  .code-security-review-summary dl { grid-template-columns: 1fr 1fr; gap: 16px 0; }
+  .code-security-review-summary dl > div:nth-child(odd) { border-left: 0; padding-left: 0; }
+  .code-security-finding-tools { grid-template-columns: 1fr; }
+  .code-security-finding-search { grid-column: auto; }
+  .code-security-finding-tools .cs-control-input,
+  .code-security-finding-tools .cs-control-select,
+  .code-security-severity-filters button,
+  .code-security-finding-pagination .btn { min-height: 44px; }
   .code-security-finding-list {
     max-height: 320px;
     border-right: 0;

@@ -12,6 +12,7 @@ Prompt-only capabilities reuse resolved deployment slots and have no registry
 entry of their own (see ``rule-catalog/prompts/README.md``). Discovered while
 adding the rubric judge: the narrator prompt already referenced a capability
 absent from the registry, undetected because no gate existed.
+Pantheon synthesis and review reuse the independent resolved T2 reasoner pair.
 """
 
 from __future__ import annotations
@@ -48,6 +49,8 @@ _PROMPT_ONLY_CAPABILITIES = frozenset(
         "conversation.adaptive.refine",
         "conversation.adaptive.verify",
         "conversation.assurance",
+        "conversation.pantheon.synthesize",
+        "conversation.pantheon.verify",
         "conversation.preflight",
         "conversation.social-narrator",
         "conversation.social-narrator.farewell",
