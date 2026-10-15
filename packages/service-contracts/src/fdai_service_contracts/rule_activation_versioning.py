@@ -62,7 +62,12 @@ def decode_rule_activation_record(
 
     raw = _body(value)
     schema_version = raw.pop("schema_version", None)
+    legacy = schema_version is None
+    if legacy:
+        schema_version = RULE_ACTIVATION_WRITE_SCHEMA_VERSION
     kind = raw.pop("kind", None)
+    if legacy and kind is None:
+        kind = expected_kind.value
     if schema_version not in RULE_ACTIVATION_READ_SCHEMA_VERSIONS:
         raise ValueError("Rule activation record schema version is unsupported")
     if kind != expected_kind.value:
@@ -78,10 +83,29 @@ def canonicalize_rule_activation_payload(value: Mapping[str, object]) -> dict[st
     """Convert a readable v1/v2 contract payload to the phase-1 model version."""
 
     raw = _body(value)
-    schema_version = raw.get("schema_version")
+    schema_version = raw.get("schema_version", RULE_ACTIVATION_WRITE_SCHEMA_VERSION)
     if schema_version not in RULE_ACTIVATION_READ_SCHEMA_VERSIONS:
         raise ValueError("Rule activation payload schema version is unsupported")
     raw["schema_version"] = RULE_ACTIVATION_WRITE_SCHEMA_VERSION
+    return raw
+
+
+def canonicalize_rule_activation_typed_payload(
+    kind: RuleActivationRecordKind,
+    value: Mapping[str, object],
+) -> dict[str, object]:
+    """Normalize one typed payload without inventing later-phase semantics."""
+
+    raw = canonicalize_rule_activation_payload(value)
+    if kind is RuleActivationRecordKind.COMMAND:
+        for field, nested_kind in (
+            ("proposal", RuleActivationRecordKind.PROPOSAL),
+            ("generation", RuleActivationRecordKind.GENERATION),
+        ):
+            nested = raw.get(field)
+            if not isinstance(nested, Mapping):
+                raise ValueError(f"Rule activation command {field} is invalid")
+            raw[field] = canonicalize_rule_activation_typed_payload(nested_kind, nested)
     return raw
 
 
@@ -97,6 +121,7 @@ __all__ = [
     "RULE_ACTIVATION_WRITE_SCHEMA_VERSION",
     "RuleActivationRecordKind",
     "canonicalize_rule_activation_payload",
+    "canonicalize_rule_activation_typed_payload",
     "decode_rule_activation_record",
     "encode_rule_activation_record",
 ]

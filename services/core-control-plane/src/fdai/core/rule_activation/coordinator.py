@@ -19,7 +19,7 @@ from fdai_service_contracts.rule_activation import (
 )
 from fdai_service_contracts.rule_activation_versioning import (
     RuleActivationRecordKind,
-    canonicalize_rule_activation_payload,
+    canonicalize_rule_activation_typed_payload,
     decode_rule_activation_record,
     encode_rule_activation_record,
 )
@@ -298,7 +298,10 @@ def _request_body(value: Mapping[str, Any]) -> dict[str, object]:
     proposal = body.get("proposal")
     if not isinstance(proposal, Mapping):
         raise ValueError("Rule activation request proposal is invalid")
-    body["proposal"] = canonicalize_rule_activation_payload(proposal)
+    body["proposal"] = canonicalize_rule_activation_typed_payload(
+        RuleActivationRecordKind.PROPOSAL,
+        proposal,
+    )
     return body
 
 

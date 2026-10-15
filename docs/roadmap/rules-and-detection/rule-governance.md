@@ -422,7 +422,7 @@ reached the A1 default route, so adding a route for that category could have red
 - Changing a rule's logic bumps its `version`; changing an assignment's parameters/effect/scope is
   itself an audited, versioned change. A rule set **pins the `version` of each member rule** so a
   rule change cannot silently alter a promoted set.
-- **Rule revision upgrades (phase 1 in progress):** An activation generation pins each
+- **Rule revision upgrades (phase 1 implemented):** An activation generation pins each
   member's exact version and digest, and the ledger accepts only membership changes against an
   unchanged catalog, so changing an activated Rule's content makes an upgraded installation fail
   closed at startup. Until every phase below is operationally validated,
@@ -431,10 +431,12 @@ reached the A1 default route, so adding a route for that category could have red
   changed check ships as a new Rule id. Four earlier designs were rejected in critique; their
   findings are recorded in the
   [ledger](../../roadmap-implementation/rules-and-detection/rule-governance.md). The current
-  design runs in this order, and each phase keeps startup fail-closed. The current compatibility
-  slice reads version 1 and 2 envelopes while writing version 1 for durable requests, idempotency
-  rows, generations, pointers, results, and Operator notices. The remaining phase 1 payloads and
-  phases 2 through 9 remain open. Phases 2 through 6 ship
+  design runs in this order, and each phase keeps startup fail-closed. The compatibility floor
+  reads version 1 and 2 outer envelopes for every declared activation family, normalizes current
+  typed payloads and nested command proposal/generation payloads to version 1, reads pre-version
+  records as legacy version 1, and writes version 1 only. Manifest, prepare, and acknowledgement
+  kinds are fixed at the envelope boundary; their semantic state machines remain owned by phases
+  3 and 5. Phases 2 through 9 remain open. Phases 2 through 6 ship
   dormant: they read and validate version 2 data but write none, and no version 2 digest or
   pointer becomes authoritative before the approved identity upgrade in phase 7.
   1. **Dual-read codecs.** A compatibility release reads version 1 and 2 of every durable object

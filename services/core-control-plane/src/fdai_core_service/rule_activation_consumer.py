@@ -16,7 +16,8 @@ from fdai_service_contracts.rule_activation_transport import (
     RuleActivationRequestNotice,
 )
 from fdai_service_contracts.rule_activation_versioning import (
-    canonicalize_rule_activation_payload,
+    RuleActivationRecordKind,
+    canonicalize_rule_activation_typed_payload,
 )
 
 
@@ -41,7 +42,10 @@ class RuleActivationConsumer:
                     return
                 try:
                     notice = RuleActivationRequestNotice.model_validate(
-                        canonicalize_rule_activation_payload(envelope.payload)
+                        canonicalize_rule_activation_typed_payload(
+                            RuleActivationRecordKind.REQUEST,
+                            envelope.payload,
+                        )
                     )
                     if envelope.key != notice.request_id:
                         raise ValueError("Rule activation partition identity mismatch")

@@ -15,7 +15,7 @@ from fdai_service_contracts.rule_activation import (
 )
 from fdai_service_contracts.rule_activation_versioning import (
     RuleActivationRecordKind,
-    canonicalize_rule_activation_payload,
+    canonicalize_rule_activation_typed_payload,
     decode_rule_activation_record,
     encode_rule_activation_record,
 )
@@ -314,7 +314,10 @@ class StateStoreRuleActivationLedger:
             if not isinstance(generation, Mapping):
                 raise ValueError
             return RuleActivationGeneration.model_validate(
-                canonicalize_rule_activation_payload(generation)
+                canonicalize_rule_activation_typed_payload(
+                    RuleActivationRecordKind.GENERATION,
+                    generation,
+                )
             )
         except (TypeError, ValueError) as exc:
             raise RuleActivationLedgerCorruptionError(
@@ -374,7 +377,12 @@ def _parse_result(raw: Mapping[str, Any]) -> RuleActivationResult:
         result = body.get("result")
         if not isinstance(result, Mapping):
             raise ValueError
-        return RuleActivationResult.model_validate(canonicalize_rule_activation_payload(result))
+        return RuleActivationResult.model_validate(
+            canonicalize_rule_activation_typed_payload(
+                RuleActivationRecordKind.RESULT,
+                result,
+            )
+        )
     except (TypeError, ValueError) as exc:
         raise RuleActivationLedgerCorruptionError(
             "Durable Rule activation result failed validation"

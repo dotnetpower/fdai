@@ -19,6 +19,11 @@ from fdai_service_contracts.rule_activation import (
     RuleActivationProposal,
     RuleActivationResult,
 )
+from fdai_service_contracts.rule_activation_versioning import (
+    RuleActivationRecordKind,
+    canonicalize_rule_activation_typed_payload,
+    decode_rule_activation_record,
+)
 from starlette.exceptions import HTTPException
 
 from fdai_operator_service.families.workflow.contracts import (
@@ -472,16 +477,30 @@ def rule_activation_status_payload(
     """Project the exact current membership generation without inferring enforcement."""
 
     try:
-        if pointer.get("kind") != "rule_activation.current":
+        pointer_body = decode_rule_activation_record(
+            pointer,
+            expected_kind=RuleActivationRecordKind.POINTER,
+        ).body
+        generation_body = decode_rule_activation_record(
+            generation_record,
+            expected_kind=RuleActivationRecordKind.GENERATION,
+        ).body
+        generation_value = generation_body.get("generation")
+        if not isinstance(generation_value, Mapping):
             raise ValueError
-        generation = RuleActivationGeneration.model_validate(generation_record.get("generation"))
+        generation = RuleActivationGeneration.model_validate(
+            canonicalize_rule_activation_typed_payload(
+                RuleActivationRecordKind.GENERATION,
+                generation_value,
+            )
+        )
         if (
-            pointer.get("generation_id") != generation.generation_id
-            or pointer.get("generation_digest") != generation.generation_digest
+            pointer_body.get("generation_id") != generation.generation_id
+            or pointer_body.get("generation_digest") != generation.generation_digest
         ):
             raise ValueError
-        revision = pointer.get("revision")
-        activated_at = pointer.get("activated_at")
+        revision = pointer_body.get("revision")
+        activated_at = pointer_body.get("activated_at")
         if (
             isinstance(revision, bool)
             or not isinstance(revision, int)
@@ -497,8 +516,20 @@ def rule_activation_status_payload(
     completed_request_ids: set[str] = set()
     for record in result_records:
         try:
+            result_body = decode_rule_activation_record(
+                record,
+                expected_kind=RuleActivationRecordKind.RESULT,
+            ).body
+            result_value = result_body.get("result")
+            if not isinstance(result_value, Mapping):
+                raise ValueError
             completed_request_ids.add(
-                RuleActivationResult.model_validate(record.get("result")).request_id
+                RuleActivationResult.model_validate(
+                    canonicalize_rule_activation_typed_payload(
+                        RuleActivationRecordKind.RESULT,
+                        result_value,
+                    )
+                ).request_id
             )
         except (TypeError, ValueError) as exc:
             raise HTTPException(
@@ -508,10 +539,20 @@ def rule_activation_status_payload(
     pending: list[dict[str, object]] = []
     for record in request_records:
         try:
-            if record.get("kind") != "rule_activation.request":
+            request_body = decode_rule_activation_record(
+                record,
+                expected_kind=RuleActivationRecordKind.REQUEST,
+            ).body
+            proposal_value = request_body.get("proposal")
+            if not isinstance(proposal_value, Mapping):
                 raise ValueError
-            proposal = RuleActivationProposal.model_validate(record.get("proposal"))
-            operator_proposal_id = record.get("operator_proposal_id")
+            proposal = RuleActivationProposal.model_validate(
+                canonicalize_rule_activation_typed_payload(
+                    RuleActivationRecordKind.PROPOSAL,
+                    proposal_value,
+                )
+            )
+            operator_proposal_id = request_body.get("operator_proposal_id")
             if not isinstance(operator_proposal_id, str):
                 raise ValueError
         except (TypeError, ValueError) as exc:
@@ -541,10 +582,10 @@ def rule_activation_status_payload(
         "profile_version": generation.profile_version,
         "active_rule_count": len(generation.members),
         "active_rule_ids": [member.rule_id for member in generation.members],
-        "source": pointer.get("source"),
-        "source_ref": pointer.get("source_ref"),
-        "requested_by": pointer.get("requested_by"),
-        "approver_ids": pointer.get("approver_ids"),
+        "source": pointer_body.get("source"),
+        "source_ref": pointer_body.get("source_ref"),
+        "requested_by": pointer_body.get("requested_by"),
+        "approver_ids": pointer_body.get("approver_ids"),
         "activated_at": activated_at,
         "pending_requests": pending,
         "pending_truncated": pending_truncated,
@@ -563,7 +604,19 @@ def rule_activation_history_payload(
     history: list[dict[str, object]] = []
     for record in records:
         try:
-            result = RuleActivationResult.model_validate(record.get("result"))
+            result_body = decode_rule_activation_record(
+                record,
+                expected_kind=RuleActivationRecordKind.RESULT,
+            ).body
+            result_value = result_body.get("result")
+            if not isinstance(result_value, Mapping):
+                raise ValueError
+            result = RuleActivationResult.model_validate(
+                canonicalize_rule_activation_typed_payload(
+                    RuleActivationRecordKind.RESULT,
+                    result_value,
+                )
+            )
         except (TypeError, ValueError) as exc:
             raise HTTPException(
                 status_code=503,
