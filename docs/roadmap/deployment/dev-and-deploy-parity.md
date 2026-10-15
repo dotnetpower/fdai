@@ -79,6 +79,9 @@ Command Deck, then requires verified or grounded terminal evidence. A governed o
 Committed VS Code settings keep each local web surface on one predictable port. Manual Studio runs
 on `5474` and starts with the authenticated Console full stack so the in-product help library is
 available without a separate command.
+The committed frontend launch passes `localhost` to Vite and opens the same
+`http://localhost:5273` origin after readiness. It does not substitute `127.0.0.1` in the launch
+command, so the browser, MSAL cache, and CORS contract retain one canonical origin.
 
 | Surface | Default address | Workspace entry point |
 |---------|-----------------|-----------------------|
