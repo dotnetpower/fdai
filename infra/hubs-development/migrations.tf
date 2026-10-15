@@ -45,5 +45,11 @@ resource "azurerm_container_app_job" "migrate" {
       }
     }
   }
-  depends_on = [azurerm_role_assignment.registry_reader, azurerm_role_assignment.secret_reader]
+  depends_on = [
+    azurerm_role_assignment.registry_reader, azurerm_role_assignment.secret_reader,
+    azurerm_postgresql_flexible_server_configuration.log_connections,
+    azurerm_postgresql_flexible_server_configuration.log_checkpoints,
+    azurerm_postgresql_flexible_server_configuration.connection_throttle,
+    azurerm_postgresql_flexible_server_configuration.tls_floor,
+  ]
 }

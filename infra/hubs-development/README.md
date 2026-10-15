@@ -10,8 +10,23 @@ No Azure deployment or live identity/database validation accompanies this change
 Each Hub has its own resource group, VNet, ACA Environment, PostgreSQL server/database,
 managed identity, private Key Vault/DNS, NAT egress address, and Log Analytics workspace.
 There is no VNet peering. Database and vault public access are disabled.
+Vault network ACLs also default to deny without a trusted-service bypass. Both databases
+explicitly enable connection/checkpoint logging, connection throttling, and a TLS 1.2 floor;
+applications and migration Jobs wait for those settings. Same-apply managed-identity role
+assignments declare `ServicePrincipal` to avoid directory-replication lookup races.
 Resource groups alone do not establish isolation; live network and authorization denial
 checks remain required before claiming the boundary works.
+
+Resource-local Trivy annotations for `AZU-0021` and `AZU-0026` cover its retired-server-field
+mapping, not missing controls. Flexible Server uses `connection_throttle.enable` and
+`ssl_min_protocol_version`; the focused
+[security regression](../../tests/integration/infra/test_hubs_development_security.py) requires
+both real settings for each Hub, alongside logging, default-deny ACLs, and startup ordering.
+Checkov uses resource-local annotations for Azure-managed delegated/private-endpoint subnets
+(implicit outbound access disabled), its unrecognized `for_each` vault-to-endpoint graph edge
+(the same regression checks the explicit endpoint wiring), and the development-only
+seven-day, single-region backup policy. These are not a production NSG or geo-redundant
+disaster-recovery claim; no scanner-wide exclusions are added.
 
 Vendor HTTPS ingress permits approved operator CIDRs and the customer NAT address. Customer
 ingress permits operator CIDRs only. Every business API independently verifies Entra RS256

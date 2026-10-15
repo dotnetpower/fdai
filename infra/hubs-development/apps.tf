@@ -99,6 +99,7 @@ resource "azurerm_role_assignment" "registry_reader" {
   scope                = var.registry.id
   role_definition_name = "AcrPull"
   principal_id         = azurerm_user_assigned_identity.hub[each.key].principal_id
+  principal_type       = "ServicePrincipal"
 }
 resource "azurerm_role_assignment" "secret_reader" {
   for_each = {
@@ -108,6 +109,7 @@ resource "azurerm_role_assignment" "secret_reader" {
   scope                = "${azurerm_key_vault.hub[each.value.kind].id}/secrets/${each.value.secret}"
   role_definition_name = "Key Vault Secrets User"
   principal_id         = azurerm_user_assigned_identity.hub[each.value.kind].principal_id
+  principal_type       = "ServicePrincipal"
 }
 resource "azurerm_container_app" "hub" {
   for_each                     = var.enable_apps ? local.kinds : toset([])
@@ -199,6 +201,10 @@ resource "azurerm_container_app" "hub" {
   depends_on = [
     azurerm_role_assignment.registry_reader, azurerm_role_assignment.secret_reader,
     azuread_app_role_assignment.catalog_reader,
+    azurerm_postgresql_flexible_server_configuration.log_connections,
+    azurerm_postgresql_flexible_server_configuration.log_checkpoints,
+    azurerm_postgresql_flexible_server_configuration.connection_throttle,
+    azurerm_postgresql_flexible_server_configuration.tls_floor,
   ]
 }
 

@@ -17,11 +17,13 @@ resource "azurerm_virtual_network" "hub" {
   address_space       = [each.key == "release" ? "10.120.0.0/16" : "10.121.0.0/16"]
 }
 resource "azurerm_subnet" "apps" {
-  for_each             = local.kinds
-  name                 = "apps"
-  resource_group_name  = azurerm_resource_group.hub[each.key].name
-  virtual_network_name = azurerm_virtual_network.hub[each.key].name
-  address_prefixes     = [each.key == "release" ? "10.120.0.0/23" : "10.121.0.0/23"]
+  # checkov:skip=CKV2_AZURE_31:ACA owns this delegated subnet; explicit NAT provides egress and default outbound access is disabled.
+  for_each                        = local.kinds
+  name                            = "apps"
+  resource_group_name             = azurerm_resource_group.hub[each.key].name
+  virtual_network_name            = azurerm_virtual_network.hub[each.key].name
+  address_prefixes                = [each.key == "release" ? "10.120.0.0/23" : "10.121.0.0/23"]
+  default_outbound_access_enabled = false
   delegation {
     name = "aca"
     service_delegation {
@@ -31,11 +33,13 @@ resource "azurerm_subnet" "apps" {
   }
 }
 resource "azurerm_subnet" "database" {
-  for_each             = local.kinds
-  name                 = "database"
-  resource_group_name  = azurerm_resource_group.hub[each.key].name
-  virtual_network_name = azurerm_virtual_network.hub[each.key].name
-  address_prefixes     = [each.key == "release" ? "10.120.2.0/24" : "10.121.2.0/24"]
+  # checkov:skip=CKV2_AZURE_31:PostgreSQL owns this delegated private subnet; default outbound access is disabled.
+  for_each                        = local.kinds
+  name                            = "database"
+  resource_group_name             = azurerm_resource_group.hub[each.key].name
+  virtual_network_name            = azurerm_virtual_network.hub[each.key].name
+  address_prefixes                = [each.key == "release" ? "10.120.2.0/24" : "10.121.2.0/24"]
+  default_outbound_access_enabled = false
   delegation {
     name = "postgres"
     service_delegation {
@@ -45,11 +49,14 @@ resource "azurerm_subnet" "database" {
   }
 }
 resource "azurerm_subnet" "secrets" {
-  for_each             = local.kinds
-  name                 = "secrets"
-  resource_group_name  = azurerm_resource_group.hub[each.key].name
-  virtual_network_name = azurerm_virtual_network.hub[each.key].name
-  address_prefixes     = [each.key == "release" ? "10.120.3.0/24" : "10.121.3.0/24"]
+  # checkov:skip=CKV2_AZURE_31:Only private-endpoint NICs use this subnet; endpoint network policies and default outbound access are disabled.
+  for_each                          = local.kinds
+  name                              = "secrets"
+  resource_group_name               = azurerm_resource_group.hub[each.key].name
+  virtual_network_name              = azurerm_virtual_network.hub[each.key].name
+  address_prefixes                  = [each.key == "release" ? "10.120.3.0/24" : "10.121.3.0/24"]
+  default_outbound_access_enabled   = false
+  private_endpoint_network_policies = "Disabled"
 }
 resource "azurerm_public_ip" "egress" {
   for_each            = local.kinds
@@ -103,6 +110,7 @@ resource "azurerm_user_assigned_identity" "hub" {
   resource_group_name = azurerm_resource_group.hub[each.key].name
 }
 resource "azurerm_key_vault" "hub" {
+  # checkov:skip=CKV2_AZURE_32:Checkov 3.2.256 misses the for_each graph edge; azurerm_private_endpoint.vault connects each vault only to its own Hub subnet and DNS.
   for_each                      = local.kinds
   name                          = "kv-${var.prefix}-${each.key}"
   location                      = var.location
@@ -113,6 +121,10 @@ resource "azurerm_key_vault" "hub" {
   public_network_access_enabled = false
   purge_protection_enabled      = true
   soft_delete_retention_days    = 7
+  network_acls {
+    default_action = "Deny"
+    bypass         = "None"
+  }
 }
 resource "azurerm_private_dns_zone" "vault" {
   for_each            = local.kinds
@@ -155,7 +167,12 @@ resource "azurerm_private_dns_zone_virtual_network_link" "database" {
   private_dns_zone_name = azurerm_private_dns_zone.database[each.key].name
   virtual_network_id    = azurerm_virtual_network.hub[each.key].id
 }
+# Trivy reads retired server fields for these checks, not Flexible Server parameters.
+# The configuration resources below enforce connection throttling and TLS 1.2.
+#trivy:ignore:AZU-0021
+#trivy:ignore:AZU-0026
 resource "azurerm_postgresql_flexible_server" "hub" {
+  # checkov:skip=CKV_AZURE_136:This development-only single-region root retains seven-day local backups; it is not a production disaster-recovery profile.
   for_each                      = local.kinds
   name                          = "psql-${var.prefix}-${each.key}"
   location                      = var.location
@@ -167,6 +184,7 @@ resource "azurerm_postgresql_flexible_server" "hub" {
   sku_name                      = "B_Standard_B1ms"
   storage_mb                    = 32768
   backup_retention_days         = 7
+  geo_redundant_backup_enabled  = false
   authentication {
     active_directory_auth_enabled = true
     password_auth_enabled         = false
@@ -189,4 +207,29 @@ resource "azurerm_postgresql_flexible_server_database" "hub" {
   server_id = azurerm_postgresql_flexible_server.hub[each.key].id
   charset   = "UTF8"
   collation = "en_US.utf8"
+}
+
+resource "azurerm_postgresql_flexible_server_configuration" "log_connections" {
+  for_each  = local.kinds
+  name      = "log_connections"
+  server_id = azurerm_postgresql_flexible_server.hub[each.key].id
+  value     = "on"
+}
+resource "azurerm_postgresql_flexible_server_configuration" "log_checkpoints" {
+  for_each  = local.kinds
+  name      = "log_checkpoints"
+  server_id = azurerm_postgresql_flexible_server.hub[each.key].id
+  value     = "on"
+}
+resource "azurerm_postgresql_flexible_server_configuration" "connection_throttle" {
+  for_each  = local.kinds
+  name      = "connection_throttle.enable"
+  server_id = azurerm_postgresql_flexible_server.hub[each.key].id
+  value     = "on"
+}
+resource "azurerm_postgresql_flexible_server_configuration" "tls_floor" {
+  for_each  = local.kinds
+  name      = "ssl_min_protocol_version"
+  server_id = azurerm_postgresql_flexible_server.hub[each.key].id
+  value     = "TLSv1.2"
 }
