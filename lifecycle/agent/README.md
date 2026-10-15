@@ -4,8 +4,8 @@ This package is the Lifecycle I0 skeleton of the in-cluster lifecycle agent desc
 [Hub-Managed Lifecycle](../../docs/roadmap/deployment/hub-managed-lifecycle.md). It polls the
 Lifecycle Hub, admits a signed Plan, verifies the signed Release and configuration package,
 computes the change it would make, and reports the result. By default it never applies anything.
-With `--apply`, it applies the Plan to one demo namespace, verifies the rollout, and rolls back
-on failure, as described in [Apply mode](#apply-mode).
+With `--apply`, it applies a demo workload or the opt-in same-schema Operator profile to one
+namespace, verifies the rollout, and rolls back on failure. See [Apply mode](#apply-mode).
 
 ## Boundary
 
@@ -94,8 +94,9 @@ and `2` for invalid configuration.
 
 ## Apply mode
 
-Apply mode is the narrow demo path for one development namespace. It isn't the workload renderer
-of #1946.
+Apply mode defaults to the narrow demo path for one development namespace. The signed
+configuration can instead select the [Operator profile](#same-schema-operator-profile). Neither
+path implements the full renderer or ownership handoff of #1946.
 
 ```bash
 fdai-lifecycle-agent poll-once <options above> \
@@ -117,6 +118,72 @@ carry `app.kubernetes.io/managed-by: fdai-lifecycle-agent`, `fdai.io/entity`, an
 `fdai.io/component`. The Deployment runs one non-root replica on port `8080` with a readiness probe,
 and the Service exposes it on port `80`. The agent writes with Kubernetes server-side apply under
 the field manager `fdai-lifecycle-agent`.
+
+### Same-schema Operator profile
+
+This development slice runs the actual signed `operator-service` image, not nginx. It preserves
+the external Core, Kafka, and service-owned PostgreSQL dependencies instead of replacing them.
+Select exactly one Plan Entity whose component set is `["operator-service"]`.
+
+The resolved **signed configuration** contains these values:
+
+```json
+{
+  "workload_profile": "operator-service-v1",
+  "operator_config_map_name": "operator-config-v1",
+  "operator_database": {"secret_name": "operator-database-v1"},
+  "schema_database": {"secret_name": "schema-reader-v1"},
+  "replicas": 1
+}
+```
+
+Declare each key in the existing configuration package's `schema` with `x-fdai-axis` set to
+`installation-path` and `x-fdai-owner` set to `customer`. Supply the values through its defaults,
+environment, or matching version override. This is not a new Release manifest or catalog format.
+Local policy `component_images` needs repositories for both `operator-service` and
+`core-control-plane`; both image digests come only from the verified Release.
+
+Prepare these dependencies outside the agent:
+
+| Dependency | Requirement |
+|------------|-------------|
+| Namespace and service accounts | Dedicated namespace; existing `operator-service` and `fdai-schema-check` accounts. The profile mounts no Kubernetes token and creates no role binding. |
+| ConfigMap | Versioned, retained, immutable configuration for the real Operator's authentication, broker/topics, product profile, and dependent services. No secret values. The profile fixes port `8000` and database role `fdai_operator`. |
+| Operator Secret | Versioned, retained, immutable Kubernetes Secret, populated inside the installation by its secret provider. Key `FDAI_DATABASE_URL` connects as `fdai_operator`. |
+| Schema-reader Secret | Same key, with read access to the legacy and five service migration version tables. No DDL or administrator privilege is needed. |
+| Existing database | Already bootstrapped through the normal migration path, with authoritative catalogs present. The scalar schema revision and every legacy/service Alembic head match the candidate Release. |
+| Core and broker | Real existing Core/event-bus bindings. This slice doesn't deploy them or manufacture their data. |
+
+The agent never reads or journals Secret values. It retains only the reference names. Keep the
+old ConfigMap and Secrets until the rollback window ends. Authentication/identity policy and
+provider reach remain installation-owned; this profile does not provision federated identities,
+Azure bindings, secret synchronization, or broker infrastructure.
+
+Before switching the Deployment, the agent runs a bounded, non-retrying schema-check Job using
+the signed Core image's existing migration tools. It compares the legacy head first, then the
+service heads in `service-migrations/ownership.json` dependency order, in a read-only transaction.
+It never upgrades, downgrades, stamps, or materializes a catalog. A new schema target is rejected
+even in shadow mode; a missing or mismatched head fails before the Deployment switches.
+
+After the Job succeeds, the Deployment starts `fdai-operator-service` on `8000`, probes
+`/healthz`, and exposes only `operator-service-internal` as a ClusterIP Service. Pod labels
+preserve the existing external Service selector `app.kubernetes.io/name=operator-service`.
+The external Service, namespace, database, accounts, roles, and Terraform state stay untouched.
+Server-side apply doesn't force field conflicts, and an unrecorded existing Deployment blocks
+the apply rather than being adopted.
+
+Readback requires the controller's latest healthy rollout and matching rendered spec fields.
+The completed Job is deleted and its absence is observed before success. The journal retains the
+last healthy Deployment and internal Service, not the transient Job. Failure restores those
+objects without rerunning the Job or attempting a database downgrade. Process-loss recovery,
+two-phase reports, exclusive locking, and halt-on-failed-rollback remain the existing apply path.
+The Plan expiry is rechecked while waiting and before each forward workload write.
+
+**Design critique and boundary:** Running unclassified migrations from today's v3 Release could
+drop tables and invalidate rollback. This slice therefore checks an already migrated baseline
+and rejects schema transitions. It is not the full vendor-signed workload-template contract,
+three-signer installation binding, migration lease/expand flow, Terraform parity, adoption, or
+production lifecycle authorization receipt. Full workload rendering remains incomplete.
 
 ### Apply order
 
@@ -162,7 +229,7 @@ namespace by hand, then remove the halt file.
 |-----------|------------------------|
 | Stop condition | A failed apply or rollout stops the change and starts the rollback. |
 | Tested rollback | The recorded healthy version is restored and verified like an apply. |
-| Impact scope | One namespace, Deployments and Services only, and only agent-managed objects. The scope guard runs before every cluster call, and the adapter refuses any other namespace or kind. |
+| Impact scope | One namespace, agent-managed Deployments, internal Services, and schema-check Jobs only. The scope guard runs before writes, and the adapter refuses any other namespace or kind. |
 | Dry run | The change set stays inside the Plan envelope, and the API server accepts a server-side dry run. |
 | Target lock | The poll's exclusive `flock` covers the whole apply. |
 | Idempotency key | The Plan id and the report attempt. A Plan is applied at most once. |
@@ -170,8 +237,9 @@ namespace by hand, then remove the halt file.
 
 ### Limits
 
-- Demo scope only: one replica, a fixed template, and no Pod disruption budget, ConfigMap, Secret,
-  or configuration values.
+- The default demo remains one fixed replica. The Operator profile supports 1-3 replicas with
+  fixed resource bounds and reference-only configuration; neither path renders a Pod disruption
+  budget, autoscaler, ConfigMap, or Secret.
 - The agent doesn't read the cluster to build the current state. It trusts `--current-state` and
   its own healthy record, so a change made outside the agent isn't detected, except that an
   unrecorded live object blocks the first apply.
@@ -189,7 +257,8 @@ namespace by hand, then remove the halt file.
 
 The local lifecycle authorization receipt, phase fencing, the full workload renderer (#1946),
 Release roll-back protection, and envelope inputs from ownership evidence and the configuration
-package belong to Lifecycle I1. Apply mode above is a demo path, not the Lifecycle I1 apply. The pure checks are imported from
+package belong to Lifecycle I1. The demo and Operator slice are not the full Lifecycle I1 apply.
+The pure checks are imported from
 `packages/deployment-cli` until they move to a shared lifecycle-contracts package (#1948).
 
 ## Testing
@@ -216,3 +285,20 @@ actually see them, not an in-process harness.
 From `lifecycle/agent/`, `mypy --config-file pyproject.toml` checks the
 sources and the tests in strict mode. The package isn't a uv workspace member. It runs in the root
 development environment, which already provides its dependencies.
+
+For the Operator slice, run focused tests from the repository root:
+
+```bash
+python -m pytest -q --no-cov \
+  lifecycle/agent/tests/test_operator_workload.py \
+  lifecycle/agent/tests/test_schema_check.py \
+  lifecycle/agent/tests/test_kube.py \
+  lifecycle/agent/tests/test_workload.py \
+  lifecycle/agent/tests/test_apply.py
+```
+
+These tests use a mechanical cluster seam and synthetic SQLite migration tables. They prove
+rendering, signed-input selection, ordering, failure handling, and recovery, not a running
+Operator, PostgreSQL, or kind installation. The existing nginx kind test remains demo evidence
+only. Real Operator install, update, and rollback need actual image caches and the dependencies
+above in a task-owned cluster; Docker was unavailable in the local implementation environment.
