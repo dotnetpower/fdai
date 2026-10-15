@@ -24,7 +24,9 @@ domain code and assets. It does not create another control plane or move authori
 > service-family profiles, single-resource and bounded coupled-target planning, and expiring scoped
 > clarification attestations. A pure package composer maps eligible coupled right-size plans to the
 > existing Njord-owned cross-vertical candidate contract while preserving exact target, profile,
-> candidate, freshness, objective-effect, causal-order, and logical-lock lineage. It cannot publish as Njord or grant approval
+> per-resource current and proposed configuration, freshness, objective-effect, causal-order, and
+> logical-lock lineage. Duplicate resource targets and oversized effects or freshness sources fail
+> closed before composition. The composer cannot publish as Njord or grant approval
 > or execution authority; runtime publication and complete Freyr/Forseti/Odin case assembly remain
 > open. Unqualified evidence fails closed and every candidate remains without approval or execution
 > authority. Operator disclosure can omit resource recommendations when the effective granularity or identity policy disallows them. The restricted projection records amount and recommendation suppression without requiring its recommendation count to match the source count. The shared Console catalog-source scanner resolves the imported `t` binding rather than unrelated formatting imports. It and the panel-registry scanner are repository validation only; a non-FinOps component or label change does not

@@ -10,7 +10,7 @@ from typing import Any
 from fdai.core.decision_case import ObjectiveEffect
 from fdai.core.operational_context import SourceFreshness
 
-from fdai_cost_governance.guard import FinOpsActionKind
+from fdai_cost_governance.guard import FinOpsActionKind, FinOpsCandidate
 from fdai_cost_governance.optimization import (
     CoupledResourceOptimizationPlan,
     OptimizationDisposition,
@@ -19,6 +19,9 @@ from fdai_cost_governance.optimization import (
 _RIGHT_SIZE_ACTION_TYPE = "remediate.right-size"
 _MAX_COUPLED_CANDIDATES = 20
 _MAX_EVIDENCE_REFS = 32
+_MAX_EFFECTS = 16
+_MAX_SOURCE_FRESHNESS = 32
+_MAX_SOURCE_LENGTH = 512
 
 
 def compose_njord_optimization_candidate(
@@ -55,6 +58,8 @@ def compose_njord_optimization_candidate(
     if len(action_ids) != len(set(action_ids)):
         raise ValueError("cost optimization candidates MUST have unique action ids")
     resource_ids = tuple(candidate.resource.resource_id for candidate in plan.candidates)
+    if len(resource_ids) != len(set(resource_ids)):
+        raise ValueError("cost optimization candidates MUST target unique resources")
     if len(plan.causal_order) != len(set(plan.causal_order)) or set(plan.causal_order) != set(
         resource_ids
     ):
@@ -70,7 +75,7 @@ def compose_njord_optimization_candidate(
         _require_sha256("cost optimization profile", digest)
     if {candidate.kind for candidate in plan.candidates} != {FinOpsActionKind.RIGHT_SIZE}:
         raise ValueError("cost optimization candidate has no shared ActionType mapping")
-    if not effects:
+    if not effects or len(effects) > _MAX_EFFECTS:
         raise ValueError("cost optimization candidate MUST carry objective effects")
     objective_ids = tuple(effect.objective_id for effect in effects)
     if len(objective_ids) != len(set(objective_ids)):
@@ -81,8 +86,13 @@ def compose_njord_optimization_candidate(
     )
     if cost_effect is None or cost_effect.utility <= 0:
         raise ValueError("cost optimization candidate MUST improve its cost objective")
-    if not source_freshness:
+    if not source_freshness or len(source_freshness) > _MAX_SOURCE_FRESHNESS:
         raise ValueError("cost optimization candidate MUST carry source freshness")
+    source_names = tuple(item.source for item in source_freshness)
+    if len(source_names) != len(set(source_names)):
+        raise ValueError("cost optimization source freshness MUST be unique by source")
+    if any(source != source.strip() or len(source) > _MAX_SOURCE_LENGTH for source in source_names):
+        raise ValueError("cost optimization source freshness MUST use bounded exact sources")
     if any(item.observed_at > observed_at for item in source_freshness):
         raise ValueError("cost optimization source evidence is from the future")
 
@@ -92,7 +102,7 @@ def compose_njord_optimization_candidate(
                 f"optimization-target-revision:{plan.target_revision_digest}",
                 f"optimization-coordination:{_coordination_digest(plan)}",
                 *(
-                    f"optimization-candidate:{candidate.action_id}:profile:{profile_digest}"
+                    f"optimization-candidate:{_candidate_digest(candidate, profile_digest)}"
                     for candidate, profile_digest in zip(
                         plan.candidates, plan.profile_digests, strict=True
                     )
@@ -142,6 +152,23 @@ def _coordination_digest(plan: CoupledResourceOptimizationPlan) -> str:
         {
             "causal_order": plan.causal_order,
             "logical_target_lock": plan.logical_target_lock,
+        },
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode("utf-8")
+    return f"sha256:{hashlib.sha256(payload).hexdigest()}"
+
+
+def _candidate_digest(candidate: FinOpsCandidate, profile_digest: str) -> str:
+    payload = json.dumps(
+        {
+            "action_id": candidate.action_id,
+            "current_capacity": candidate.resource.current_capacity,
+            "kind": candidate.kind.value,
+            "profile_digest": profile_digest,
+            "resource_id": candidate.resource.resource_id,
+            "target_capacity": candidate.target_capacity,
         },
         ensure_ascii=True,
         separators=(",", ":"),

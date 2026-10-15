@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 9b7564aa12fac5fd08f951ad19cd51a8acc6cf29
+translation_source_sha: 91bca6b76738c0fc117135914d70ad3aadc45e74
 translation_revised: 2026-10-15
 ---
 
@@ -28,9 +28,10 @@ Operator post-turn review 발행도 Cost Governance package 활성화, Njord 발
 > 메커니즘이 있습니다. 이 패키지는 검토된 서비스 기능군 프로필 5개, 단일 리소스 및 범위가
 > 제한된 결합 대상 계획, 만료되는 범위 지정 확인 진술을 갖춘 결정론적 최적화 계약도 제공합니다.
 > 순수 패키지 조합기는 실행 가능한 결합 right-size 계획을 기존 Njord 소유 `cross-vertical`
-> 후보 계약에 연결하고 정확한 대상, 프로필, 후보, 최신성, 목표 효과, 인과 순서 및 논리적 잠금
-> 계보를 보존합니다. 이
-> 조합기는 Njord를 대신해 게시하거나 승인 또는 실행 권한을 부여할 수 없습니다. 실제 게시와
+> 후보 계약에 연결하고 정확한 대상, 프로필, 리소스별 현재 및 제안 구성, 최신성, 목표 효과,
+> 인과 순서 및 논리적 잠금 계보를 보존합니다. 중복 리소스 대상과 제한을 초과한 효과 또는
+> 최신성 출처는 조합 전에 안전하게 거부합니다. 이 조합기는 Njord를 대신해 게시하거나 승인 또는
+> 실행 권한을 부여할 수 없습니다. 실제 게시와
 > 완전한 Freyr/Forseti/Odin 사례 조립은 남아 있습니다. 적격하지 않은 근거는 안전한 쪽으로
 > 차단하고 모든 후보는 승인 또는 실행 권한을 갖지 않습니다.
 > 유효한 세분성 또는 신원 정책이 허용하지 않으면 Operator 공개 결과에서

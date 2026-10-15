@@ -2,7 +2,7 @@
 title: FDAI 기능 준비 상태 평가
 description: FDAI 제품 중분류 52개의 준비 상태 판정 근거와 남은 조건을 기록합니다.
 translation_of: functional-readiness.md
-translation_source_sha: 62ea765903318aa8931c6af6be468f6f709fcbbc
+translation_source_sha: 7e10568eeff19e5414d4bdc1e5458d11592ab620
 translation_revised: 2026-10-15
 ---
 
@@ -92,7 +92,7 @@ Partial 17건은 구현된 부분과 현재 소스의 집중 검사를 유지하
 |------|------|-----------------------------|
 | <span id="f07-1">F07.1</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 구독 및 리소스의 비용과 사용률 분석, 배분 공백, 서비스 및 리소스 귀속, 수집원 출처 이력, 불완전하거나 사용할 수 없는 근거를 보존하는 Console 변환 결과입니다. [효율성 원장](../../roadmap-implementation/architecture/finops-resource-efficiency.md)과 집중 FinOps 검사가 이 범위를 뒷받침합니다. 현재 청구 및 사용률 연결과 완전한 관계 범위는 별도 설치 검증입니다. |
 | <span id="f07-2">F07.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 제한된 예산 비교, 기준선 및 추세 분석, 이상 탐지, 수집 구간과 가정을 명시한 비용 예측, 부분 및 사용 불가 상태의 명시입니다. [효율성 원장](../../roadmap-implementation/architecture/finops-resource-efficiency.md), [FinOps 원장](../../roadmap-implementation/architecture/finops-autonomous-operations.md), 비용 거버넌스 집중 검사가 이 범위를 뒷받침합니다. 현재 청구 및 사용률 연결과 예측 보정은 별도 설치 검증입니다. |
-| <span id="f07-3">F07.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 구현된 부분은 버전이 지정된 서비스 기능군 프로필 5개, 필수 메트릭 및 비호환성 검사, 단일 리소스 크기 조정 및 중지 계획, 범위가 제한된 일괄 결합 대상, 근거 복구 후 만료되는 범위 지정 확인 진술, 실행 가능한 right-size 계획을 기존 Njord 후보 계약에 권한 없이 조합하는 기능입니다. [효율성 원장](../../roadmap-implementation/architecture/finops-resource-efficiency.md)과 집중 테스트 29개가 이 범위를 뒷받침하며 정확한 대상, 프로필, 최신성, 후보, 목표 효과, 인과 순서 및 논리적 잠금 계보를 Forseti 수집 한도 안에서 보존합니다. 실제 Njord 게시, 완전한 Freyr/Forseti/Odin 사례 조립, 자동 복구 및 대화 재수집, 승인 및 실행 통합, 독립적으로 정산된 실제 결과는 남아 있습니다. |
+| <span id="f07-3">F07.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 구현된 부분은 버전이 지정된 서비스 기능군 프로필 5개, 필수 메트릭 및 비호환성 검사, 단일 리소스 크기 조정 및 중지 계획, 범위가 제한된 일괄 결합 대상, 근거 복구 후 만료되는 범위 지정 확인 진술, 실행 가능한 right-size 계획을 기존 Njord 후보 계약에 권한 없이 조합하는 기능입니다. [효율성 원장](../../roadmap-implementation/architecture/finops-resource-efficiency.md)과 집중 테스트 34개가 이 범위를 뒷받침하며 정확한 대상, 프로필, 최신성, 리소스별 제안 구성, 목표 효과, 인과 순서 및 논리적 잠금 계보를 Forseti 수집 한도 안에서 보존하고, 대상 리소스는 중복되지 않으며 효과와 최신성 출처 수는 제한됩니다. 실제 Njord 게시, 완전한 Freyr/Forseti/Odin 사례 조립, 자동 복구 및 대화 재수집, 승인 및 실행 통합, 독립적으로 정산된 실제 결과는 남아 있습니다. |
 | <span id="f07-4">F07.4</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 정확한 사례 및 작업 개정 버전 정산, 비교 가능한 기준 및 조치 후 구간, 독립적인 비용·용량·서비스·복구 효과 상태, 예상·검증된 실행 요율·청구서 배부 절감액의 엄격한 구분입니다. [FinOps 원장](../../roadmap-implementation/architecture/finops-autonomous-operations.md), [효율성 원장](../../roadmap-implementation/architecture/finops-resource-efficiency.md), 집중 정산 검사가 이 범위를 뒷받침합니다. 실제 고정 사례와 확정 청구 증적은 별도 설치 검증입니다. |
 
 ## F08. 작업 및 워크플로
