@@ -107,6 +107,17 @@ async def test_saga_shared_chain_and_bounded_reader_on_postgres(saga_database: s
         assert truncated
         rows[0]["payload"]["changed"] = True
         assert (await second_store.read_audit_entries(limit=1))[0][0]["payload"] == {}
+        evidence, truncated = await first_store.list_incident_evidence(
+            correlation_id="postgres", limit=2
+        )
+        assert truncated
+        assert [record["entry"]["seq"] for record in evidence] == [4, 5]
+        assert all(record["actor"] == "Saga" for record in evidence)
+        assert all(record["action_kind"] == "audit.record" for record in evidence)
+        assert all(isinstance(record["recorded_at"], str) for record in evidence)
+        for correlation_id, limit in (("", 1), ("postgres", 0), ("postgres", 501)):
+            with pytest.raises(ValueError, match="incident evidence"):
+                await first_store.list_incident_evidence(correlation_id=correlation_id, limit=limit)
         assert await first_store.verify_chain()
     finally:
         await first_store.aclose()
