@@ -1,0 +1,225 @@
+{
+  "ok": true,
+  "kind": "fdai.code-security.analysis-comparison-receipt",
+  "schema_version": "1.0.0",
+  "corpus_id": "fdai.code-security.analysis.typescript-sql-injection",
+  "corpus_version": "1.0.0",
+  "corpus_digest": "sha256:26753dc579474ec7b6a9ad78411f2b873e487fae96a051fee8f9f70ad4a31d73",
+  "language": "typescript",
+  "rule_id": "fdai.typescript.sql-injection",
+  "source_files": 6,
+  "source_bytes": 683,
+  "engines": [
+    {
+      "engine": "current-verifier",
+      "implementation": "fdai-python-ast",
+      "version": "1.7.0",
+      "available": false,
+      "dev": {
+        "true_positive": 0,
+        "false_positive": 0,
+        "false_negative": 0,
+        "true_negative": 0,
+        "unsupported": 2,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "holdout": {
+        "true_positive": 0,
+        "false_positive": 0,
+        "false_negative": 0,
+        "true_negative": 0,
+        "unsupported": 2,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "cases": [
+        {
+          "case_id": "dev-vulnerable-cross-file",
+          "split": "dev",
+          "vulnerable": true,
+          "detected": false,
+          "supported": false,
+          "duration_ms": 0,
+          "peak_memory_kib": 0
+        },
+        {
+          "case_id": "dev-safe-parameterized",
+          "split": "dev",
+          "vulnerable": false,
+          "detected": false,
+          "supported": false,
+          "duration_ms": 0,
+          "peak_memory_kib": 0
+        },
+        {
+          "case_id": "holdout-vulnerable-alias",
+          "split": "holdout",
+          "vulnerable": true,
+          "detected": false,
+          "supported": false,
+          "duration_ms": 0,
+          "peak_memory_kib": 0
+        },
+        {
+          "case_id": "holdout-safe-constant",
+          "split": "holdout",
+          "vulnerable": false,
+          "detected": false,
+          "supported": false,
+          "duration_ms": 0,
+          "peak_memory_kib": 0
+        }
+      ],
+      "duration_ms": 0,
+      "peak_memory_kib": 0,
+      "graph_nodes": 0,
+      "graph_edges": 0,
+      "analyzed_function_share": 0.0,
+      "framework_coverage": 0.0
+    },
+    {
+      "engine": "owned-engine",
+      "implementation": "fdai-common-graph",
+      "version": "fdai.typescript.model@1.1.0,typescript-compiler@5.9.3",
+      "available": true,
+      "dev": {
+        "true_positive": 1,
+        "false_positive": 0,
+        "false_negative": 0,
+        "true_negative": 1,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "holdout": {
+        "true_positive": 1,
+        "false_positive": 0,
+        "false_negative": 0,
+        "true_negative": 1,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "cases": [
+        {
+          "case_id": "dev-vulnerable-cross-file",
+          "split": "dev",
+          "vulnerable": true,
+          "detected": true,
+          "supported": true,
+          "duration_ms": 383,
+          "peak_memory_kib": 129
+        },
+        {
+          "case_id": "dev-safe-parameterized",
+          "split": "dev",
+          "vulnerable": false,
+          "detected": false,
+          "supported": true,
+          "duration_ms": 405,
+          "peak_memory_kib": 71
+        },
+        {
+          "case_id": "holdout-vulnerable-alias",
+          "split": "holdout",
+          "vulnerable": true,
+          "detected": true,
+          "supported": true,
+          "duration_ms": 392,
+          "peak_memory_kib": 98
+        },
+        {
+          "case_id": "holdout-safe-constant",
+          "split": "holdout",
+          "vulnerable": false,
+          "detected": false,
+          "supported": true,
+          "duration_ms": 403,
+          "peak_memory_kib": 70
+        }
+      ],
+      "duration_ms": 1583,
+      "peak_memory_kib": 129,
+      "graph_nodes": 36,
+      "graph_edges": 28,
+      "analyzed_function_share": 1.0,
+      "framework_coverage": 1.0
+    },
+    {
+      "engine": "external-baseline",
+      "implementation": "semgrep",
+      "version": "1.179.0",
+      "available": true,
+      "dev": {
+        "true_positive": 1,
+        "false_positive": 0,
+        "false_negative": 0,
+        "true_negative": 1,
+        "unsupported": 0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "f1": 1.0
+      },
+      "holdout": {
+        "true_positive": 0,
+        "false_positive": 0,
+        "false_negative": 1,
+        "true_negative": 1,
+        "unsupported": 0,
+        "precision": 0.0,
+        "recall": 0.0,
+        "f1": 0.0
+      },
+      "cases": [
+        {
+          "case_id": "dev-vulnerable-cross-file",
+          "split": "dev",
+          "vulnerable": true,
+          "detected": true,
+          "supported": true,
+          "duration_ms": 1518,
+          "peak_memory_kib": 64
+        },
+        {
+          "case_id": "dev-safe-parameterized",
+          "split": "dev",
+          "vulnerable": false,
+          "detected": false,
+          "supported": true,
+          "duration_ms": 1374,
+          "peak_memory_kib": 64
+        },
+        {
+          "case_id": "holdout-vulnerable-alias",
+          "split": "holdout",
+          "vulnerable": true,
+          "detected": false,
+          "supported": true,
+          "duration_ms": 1576,
+          "peak_memory_kib": 64
+        },
+        {
+          "case_id": "holdout-safe-constant",
+          "split": "holdout",
+          "vulnerable": false,
+          "detected": false,
+          "supported": true,
+          "duration_ms": 1549,
+          "peak_memory_kib": 64
+        }
+      ],
+      "duration_ms": 6017,
+      "peak_memory_kib": 64,
+      "graph_nodes": 0,
+      "graph_edges": 0,
+      "analyzed_function_share": 0.0,
+      "framework_coverage": 0.0
+    }
+  ],
+  "parity_claimed": false
+}

@@ -101,7 +101,9 @@ class AnalysisCaseObservation:
 _AnalysisResult = PythonAnalysisResult | JavaAnalysisResult | TypeScriptAnalysisResult
 
 
-def _metrics(outcomes: list[tuple[bool, bool, bool]]) -> AnalysisEvaluationMetrics:
+def analysis_evaluation_metrics(
+    outcomes: list[tuple[bool, bool, bool]],
+) -> AnalysisEvaluationMetrics:
     true_positive = false_positive = false_negative = true_negative = 0
     for expected, detected, supported in outcomes:
         if not supported:
@@ -198,8 +200,8 @@ def _evaluate_analysis(
     finally:
         tracemalloc.stop()
     duration_ms = max(0, (time.perf_counter_ns() - started) // 1_000_000)
-    dev = _metrics(outcomes["dev"])
-    holdout = _metrics(outcomes["holdout"])
+    dev = analysis_evaluation_metrics(outcomes["dev"])
+    holdout = analysis_evaluation_metrics(outcomes["holdout"])
     supported_observations = [item for item in observations if item.supported]
     total_functions = sum(item.functions for item in observations)
     multi_file_expected = [
@@ -329,6 +331,7 @@ __all__ = [
     "AnalysisEvaluationMetrics",
     "AnalysisEvaluationReceipt",
     "AnalysisCaseObservation",
+    "analysis_evaluation_metrics",
     "evaluate_java_analysis",
     "evaluate_python_analysis",
     "evaluate_typescript_analysis",
