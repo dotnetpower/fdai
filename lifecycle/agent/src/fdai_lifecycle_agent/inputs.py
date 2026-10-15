@@ -123,6 +123,9 @@ class VerifiedRelease:
     digest: str
     component_images: Mapping[str, str]
     capability_maximums: Mapping[str, CapabilityMode]
+    schema_target: int | None = None
+    schema_minimum: int | None = None
+    schema_maximum: int | None = None
 
     def maximum_envelope(self, local: LifecycleEffectEnvelope) -> LifecycleEffectEnvelope:
         """Return the maximum envelope derived from local hard policy and this signed Release.
@@ -195,6 +198,9 @@ def verify_release(
         component_images=_component_images(release.to_mapping()),
         # The manifest parser restricted every maximum to a CapabilityMode value.
         capability_maximums=cast(dict[str, CapabilityMode], release.capability_maximums),
+        schema_target=release.schema_target,
+        schema_minimum=None if release.schema_range is None else release.schema_range.minimum,
+        schema_maximum=None if release.schema_range is None else release.schema_range.maximum,
     )
 
 
