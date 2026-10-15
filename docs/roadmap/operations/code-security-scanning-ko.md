@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: 90311689d66a18b83629d8a8656aab2dc86a37b7
+translation_source_sha: 12bb5370dbb0c9a966d1130d982bf56f110c8070
 translation_revised: 2026-10-15
 ---
 
@@ -251,12 +251,14 @@ Go/Python 의존성 수정이 통과했다는 이유만으로 이러한 발견 �
 
 진입점은 두 단계로 동작합니다.
 
-1. `fdai-scan-runner prepare SOURCE_DIR`는 Trivy와 OSV 오프라인 데이터베이스를 캐시에 갱신합니다.
-   네트워크를 쓰는 유일한 단계입니다. 잠금 파일이 없는 폴더에는 검사할 의존성이 없으므로,
-   OSV-Scanner의 "패키지 소스 없음" 종료는 이 단계를 실패시키지 않습니다.
-2. `fdai-scan-runner scan ...`은 카탈로그의 모든 스캐너, 캐시, 이미지에 있는 각 입증 도구를 연결한 뒤
-   스캔 작업을 실행합니다. 모든 스캐너는 네트워크 없는 bubblewrap 샌드박스 안에서 실행되며, 입증
-   도구는 `--prove`가 있을 때만 쓰입니다.
+1. `fdai-scan-runner prepare-snapshot SOURCE_DIR ROOT`는 비공개 준비 영역에서 Trivy와 OSV
+  오프라인 데이터베이스를 갱신하고, 다이제스트 이름을 가진 읽기 전용 캐시 세대를 게시한 뒤
+  `ROOT/current.json`을 원자적으로 갱신합니다. 네트워크를 쓰는 유일한 단계입니다. 잠금 파일이 없는
+  폴더에는 검사할 의존성이 없으므로, OSV-Scanner의 "패키지 소스 없음" 종료는 이 단계를 실패시키지
+  않습니다.
+2. `fdai-scan-runner scan ...`은 게시된 캐시 포인터를 검증하고 해석한 뒤 카탈로그의 모든 스캐너와
+  이미지에 있는 각 입증 도구를 연결하고 스캔 작업을 실행합니다. 모든 스캐너는 네트워크 없는
+  bubblewrap 샌드박스 안에서 실행되며, 입증 도구는 `--prove`가 있을 때만 쓰입니다.
 
 bubblewrap은 실행 환경에서 승인된 보안 정책 아래 비특권 사용자 네임스페이스를 사용할 수 있어야
 합니다. 네임스페이스 생성이 차단되면 해당 환경에서 실행할 수 없다는 뜻이지, 스캔이 완료됐다는
@@ -314,8 +316,8 @@ FDAI 배포가 없어도 내 컴퓨터의 폴더를 스캔하고 읽기 쉬운 �
 필요하면 먼저 커밋하세요.
 
 `scripts/operations/code-security-scan.sh FOLDER`는 같은 스캔을 스캔 실행 이미지에서 실행합니다.
-처음 실행할 때 이미지를 빌드하고 오프라인 데이터베이스를 내려받은 뒤, `--network none`으로
-스캔합니다.
+처음 실행할 때 이미지를 빌드하고 변경할 수 없는 오프라인 데이터베이스 캐시 세대를 게시한 뒤,
+그 세대를 검증하고 `--network none`으로 스캔합니다.
 
 ```bash
 scripts/operations/code-security-scan.sh ~/src/payments-api --include-uncommitted --locale ko

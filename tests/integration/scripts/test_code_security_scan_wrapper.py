@@ -13,7 +13,11 @@ _WRAPPER = _ROOT / "scripts/operations/code-security-scan.sh"
 
 
 def _run(
-    tmp_path: Path, options: list[str], overrides: dict[str, str] | None = None
+    tmp_path: Path,
+    options: list[str],
+    overrides: dict[str, str] | None = None,
+    *,
+    prepared_cache: bool = True,
 ) -> tuple[subprocess.CompletedProcess[str], list[list[str]]]:
     folder = tmp_path / "source"
     folder.mkdir()
@@ -31,7 +35,8 @@ def _run(
     docker.chmod(0o755)
     home = tmp_path / "scanner-home"
     (home / "cache").mkdir(parents=True)
-    (home / "cache" / "prepared").write_text("controlled cache fixture")
+    if prepared_cache:
+        (home / "cache" / "current.json").write_text("{}")
     environment = {
         **os.environ,
         "PATH": f"{binaries}{os.pathsep}{os.environ['PATH']}",
@@ -98,6 +103,21 @@ def test_javascript_profile_uses_only_its_own_image_override(tmp_path: Path) -> 
     build = next(call for call in calls if call[0] == "build")
     assert build[build.index("-t") + 1] == "controlled-js-image"
     assert "controlled-full-image" not in build
+
+
+@pytest.mark.parametrize(
+    ("options", "prepared_cache"),
+    [([], False), (["--refresh-db"], True)],
+)
+def test_cache_preparation_publishes_snapshot_before_scan(
+    tmp_path: Path, options: list[str], prepared_cache: bool
+) -> None:
+    result, calls = _run(tmp_path, options, prepared_cache=prepared_cache)
+    assert result.returncode == 0, result.stderr
+    runs = [call for call in calls if call[0] == "run"]
+    image_index = runs[0].index("fdai-code-security-scanner:local")
+    assert runs[0][image_index + 1 :] == ["prepare-snapshot", "/source", "/cache"]
+    assert "scan" in runs[1]
 
 
 def test_unknown_profile_fails_before_docker_or_scan_effects(tmp_path: Path) -> None:
