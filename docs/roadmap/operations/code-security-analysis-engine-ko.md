@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 분석 엔진
 translation_of: code-security-analysis-engine.md
-translation_source_sha: aa553dfb6316d7ad0d2d893c94550acb727d038a
+translation_source_sha: acb8fe36ea106d94a38337d6b4012ab6040e9531
 translation_revised: 2026-10-15
 ---
 
@@ -33,17 +33,7 @@ FDAI는 현재 스캔 작업 경계 뒤에 언어 프런트엔드, 버전이 지
 계속 제공합니다. 자체 엔진은 빠져 있던 파일 간 의미 근거를 제공하고, 그 결과를 동일한 정본
 이슈, 심각도, 커버리지, SARIF, 검토, 조치 팩 계약으로 전달합니다.
 
-```mermaid
-flowchart LR
-    A[Exact source revision] --> B[Language frontend]
-    B --> C[Common code graph]
-    C --> D[Interprocedural analysis]
-    E[Versioned rule model] --> D
-    D --> F[Path evidence]
-    F --> G[Canonical findings and SARIF]
-    G --> H[Optional LLM review]
-    H --> I[Isolated patch validation and rescan]
-```
+![설계 개요. 주요 단계는 Exact source revision, Language frontend, Common code graph, Interprocedural analysis, Versioned rule model, Path evidence, Canonical findings and SARIF, Optional LLM review, Isolated patch validation and rescan입니다.](../../diagrams/generated/fdai-roadmap-operations-code-security-analysis-engine-01.ko.svg)
 
 첫 번째 결정적 시나리오는 의도적으로 범위를 좁힙니다. 웹 요청을 소스로 인식하고, 파일과 함수
 호출을 가로질러 값을 추적하며, SQL 실행 싱크에 도달하고, 매개 변수화된 쿼리를 구분합니다.

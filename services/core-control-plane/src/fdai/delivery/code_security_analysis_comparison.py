@@ -280,7 +280,7 @@ def _owned_case(
 
 def _external_rule_ids(root: Path) -> frozenset[str]:
     identities: set[str] = set()
-    for path in sorted(root.glob("*.yaml")):
+    for path in sorted(root.rglob("*.yaml")):
         document = yaml.safe_load(path.read_text(encoding="utf-8"))
         if not isinstance(document, dict) or not isinstance(document.get("rules"), list):
             continue
@@ -496,7 +496,7 @@ def run_analysis_comparison(args: argparse.Namespace) -> dict[str, object]:
         ComparisonConfig(
             catalog_root=catalog_root,
             external_engine=Path(engine) if engine else None,
-            external_rules=catalog_root / "rules" / "verify" if engine else None,
+            external_rules=catalog_root / "rules" if engine else None,
             typescript_frontend=typescript,
         ),
     )

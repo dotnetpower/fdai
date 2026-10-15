@@ -31,17 +31,7 @@ dependency, container, and infrastructure findings. The owned engine supplies th
 cross-file semantic evidence and sends its results through the same canonical issue, severity,
 coverage, SARIF, review, and remediation-pack contracts.
 
-```mermaid
-flowchart LR
-    A[Exact source revision] --> B[Language frontend]
-    B --> C[Common code graph]
-    C --> D[Interprocedural analysis]
-    E[Versioned rule model] --> D
-    D --> F[Path evidence]
-    F --> G[Canonical findings and SARIF]
-    G --> H[Optional LLM review]
-    H --> I[Isolated patch validation and rescan]
-```
+![Design at a glance. The main stages are Exact source revision, Language frontend, Common code graph, Interprocedural analysis, Versioned rule model, Path evidence, Canonical findings and SARIF, Optional LLM review, Isolated patch validation and rescan.](../../diagrams/generated/fdai-roadmap-operations-code-security-analysis-engine-01.en.svg)
 
 The first decisive scenario is deliberately narrow: recognize a web request as a source, follow
 its value across files and function calls, reach a SQL execution sink, distinguish parameterized

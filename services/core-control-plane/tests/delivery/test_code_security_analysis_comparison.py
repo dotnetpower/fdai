@@ -65,7 +65,7 @@ def test_same_materialized_cases_compare_three_engines_without_parity_claim(
         ComparisonConfig(
             catalog_root=CATALOG_ROOT,
             external_engine=_engine(tmp_path / "opengrep"),
-            external_rules=CATALOG_ROOT / "rules" / "verify",
+            external_rules=CATALOG_ROOT / "rules",
         ),
     )
 
