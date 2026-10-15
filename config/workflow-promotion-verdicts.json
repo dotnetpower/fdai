@@ -1,8 +1,8 @@
 {
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "catalog_ref": "services/core-control-plane/src/fdai/agents/_framework/workflows.py",
   "catalog_digest": "bb4f441afa0429809018d1a423ea1a6b591f7145dc0cb27368fb5a406cadc731",
-  "reviewed_on": "2026-10-01",
+  "reviewed_on": "2026-10-15",
   "authority": {
     "changes_workflow_mode": false,
     "grants_execution_authority": false,
@@ -12,6 +12,85 @@
     "workflow_count": 13,
     "deferred": 12,
     "permanent_shadow": 1
+  },
+  "catalog_boundary": {
+    "matching_rule": "exact_workflow_id",
+    "summary": {
+      "workflow_count": 13,
+      "cataloged": 2,
+      "metadata_only": 11
+    },
+    "entries": [
+      {
+        "workflow_id": "cost-aware-remediation",
+        "disposition": "cataloged",
+        "catalog_refs": [
+          "extensions/cost-governance/src/fdai_cost_governance/resources/workflows/cost-aware-remediation.yaml"
+        ]
+      },
+      {
+        "workflow_id": "predictive-scale",
+        "disposition": "cataloged",
+        "catalog_refs": [
+          "rule-catalog/workflows/predictive-scale.yaml"
+        ]
+      },
+      {
+        "workflow_id": "dr-drill-orchestration",
+        "disposition": "metadata_only",
+        "catalog_refs": []
+      },
+      {
+        "workflow_id": "override-discovery",
+        "disposition": "metadata_only",
+        "catalog_refs": []
+      },
+      {
+        "workflow_id": "security-escalation",
+        "disposition": "metadata_only",
+        "catalog_refs": []
+      },
+      {
+        "workflow_id": "handoff-capability",
+        "disposition": "metadata_only",
+        "catalog_refs": []
+      },
+      {
+        "workflow_id": "agent-health-degradation",
+        "disposition": "metadata_only",
+        "catalog_refs": []
+      },
+      {
+        "workflow_id": "judgment-coherence-audit",
+        "disposition": "metadata_only",
+        "catalog_refs": []
+      },
+      {
+        "workflow_id": "rollback-rehearsal",
+        "disposition": "metadata_only",
+        "catalog_refs": []
+      },
+      {
+        "workflow_id": "retrospective-what-if",
+        "disposition": "metadata_only",
+        "catalog_refs": []
+      },
+      {
+        "workflow_id": "operational-readiness-handoff",
+        "disposition": "metadata_only",
+        "catalog_refs": []
+      },
+      {
+        "workflow_id": "scheduled-governed-python-task",
+        "disposition": "metadata_only",
+        "catalog_refs": []
+      },
+      {
+        "workflow_id": "detection-readiness-assurance",
+        "disposition": "metadata_only",
+        "catalog_refs": []
+      }
+    ]
   },
   "verdicts": [
     {

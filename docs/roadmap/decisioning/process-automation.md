@@ -5,8 +5,13 @@ title: Process Automation
 
 Process automation turns a multi-step business process into a first-class, ontology-linked, governed artifact. A process is not a script that reaches around the control plane; it is a declarative sequence of ontology `ActionType` invocations that the same trust-routing control loop dispatches, one step at a time, under the same safety invariants as a single remediation.
 
-This document is the machine-readable counterpart to [agent-workflows.md](../agents/agent-workflows.md).
-It defines the catalog schema, ontology additions, and runtime wiring that let the twelve cross-agent workflows described there ship as catalog-as-code and run in shadow mode.
+This document is the machine-readable counterpart for the executable subset of
+[agent-workflows.md](../agents/agent-workflows.md). The agent registry contains 13 metadata
+choreographies; an exact-id inventory currently binds only `predictive-scale` and the optional
+Cost Governance `cost-aware-remediation` workflow to executable catalog entries. The remaining
+eleven stay metadata-only, and similarly named catalog workflows remain independent Processes.
+This document defines the catalog schema, ontology additions, and runtime wiring for those
+catalog-as-code workflows.
 
 > **Scope.** Everything here is customer-agnostic ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 > A workflow references only the upstream `ActionType` catalog under [`rule-catalog/action-types/`](../../../rule-catalog/action-types); it never declares a new mutation primitive.

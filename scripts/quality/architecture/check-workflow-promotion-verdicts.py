@@ -19,6 +19,7 @@ from datetime import date
 from pathlib import Path
 from typing import Any
 
+import yaml
 from jsonschema import Draft202012Validator
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -41,6 +42,10 @@ _DEFERRED_BLOCKERS = frozenset(
     }
 )
 _TEST_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_WORKFLOW_CATALOG_GLOBS = (
+    "rule-catalog/workflows/*.yaml",
+    "extensions/*/src/*/resources/workflows/*.yaml",
+)
 
 
 def _load_json(path: Path, label: str) -> dict[str, Any]:
@@ -111,6 +116,23 @@ def _test_selector_exists(root: Path, selector: str) -> bool:
     return pattern.search(path.read_text(encoding="utf-8")) is not None
 
 
+def _catalog_refs_by_workflow_id(root: Path) -> dict[str, tuple[str, ...]]:
+    """Return exact-name executable Workflow refs from upstream and extensions."""
+
+    refs: dict[str, list[str]] = {}
+    for pattern in _WORKFLOW_CATALOG_GLOBS:
+        for path in sorted(root.glob(pattern)):
+            try:
+                raw = yaml.safe_load(path.read_text(encoding="utf-8"))
+            except (OSError, yaml.YAMLError) as exc:
+                raise ValueError(f"workflow catalog is unavailable or invalid: {path}") from exc
+            if not isinstance(raw, dict) or not isinstance(raw.get("name"), str):
+                raise ValueError(f"workflow catalog identity is invalid: {path}")
+            workflow_id = raw["name"]
+            refs.setdefault(workflow_id, []).append(path.relative_to(root).as_posix())
+    return {workflow_id: tuple(paths) for workflow_id, paths in refs.items()}
+
+
 def validate_document(document: dict[str, Any], root: Path = ROOT) -> list[str]:
     """Return all inventory errors without changing workflow or promotion state."""
 
@@ -160,6 +182,51 @@ def validate_document(document: dict[str, Any], root: Path = ROOT) -> list[str]:
         errors.append(f"{MANIFEST_REF}: missing workflow verdicts: {', '.join(missing)}")
     if unexpected:
         errors.append(f"{MANIFEST_REF}: unexpected workflow verdicts: {', '.join(unexpected)}")
+
+    boundary = document["catalog_boundary"]
+    boundary_entries = boundary["entries"]
+    boundary_records = {item["workflow_id"]: item for item in boundary_entries}
+    if len(boundary_records) != len(boundary_entries):
+        errors.append(f"{MANIFEST_REF}: catalog-boundary workflow ids MUST be unique")
+    boundary_missing = sorted(set(catalog) - set(boundary_records))
+    boundary_unexpected = sorted(set(boundary_records) - set(catalog))
+    if boundary_missing:
+        errors.append(
+            f"{MANIFEST_REF}: missing catalog-boundary workflows: {', '.join(boundary_missing)}"
+        )
+    if boundary_unexpected:
+        errors.append(
+            f"{MANIFEST_REF}: unexpected catalog-boundary workflows: "
+            f"{', '.join(boundary_unexpected)}"
+        )
+    if [item["workflow_id"] for item in boundary_entries] != [
+        workflow.id for workflow in workflows
+    ]:
+        errors.append(f"{MANIFEST_REF}: catalog-boundary entries MUST follow registry order")
+
+    try:
+        executable_refs = _catalog_refs_by_workflow_id(root)
+    except ValueError as exc:
+        return [*errors, str(exc)]
+    for workflow_id in sorted(set(catalog) & set(boundary_records)):
+        record = boundary_records[workflow_id]
+        expected_refs = executable_refs.get(workflow_id, ())
+        if len(expected_refs) > 1:
+            errors.append(f"{MANIFEST_REF}: {workflow_id} executable catalog identity is ambiguous")
+        expected_disposition = "cataloged" if expected_refs else "metadata_only"
+        if record["disposition"] != expected_disposition:
+            errors.append(f"{MANIFEST_REF}: {workflow_id} catalog disposition is stale")
+        if tuple(record["catalog_refs"]) != expected_refs:
+            errors.append(f"{MANIFEST_REF}: {workflow_id} catalog refs are stale")
+
+    actual_cataloged = sum(item["disposition"] == "cataloged" for item in boundary_entries)
+    expected_boundary_summary = {
+        "workflow_count": len(workflows),
+        "cataloged": actual_cataloged,
+        "metadata_only": len(workflows) - actual_cataloged,
+    }
+    if boundary["summary"] != expected_boundary_summary:
+        errors.append(f"{MANIFEST_REF}: catalog-boundary summary does not match its entries")
 
     for workflow_id in sorted(set(catalog) & set(records)):
         workflow = catalog[workflow_id]

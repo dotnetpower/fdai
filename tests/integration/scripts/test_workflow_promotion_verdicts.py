@@ -116,3 +116,58 @@ def test_trace_and_owner_references_must_resolve() -> None:
     assert any("trace_ref is stale" in error for error in errors)
     assert any("trace_ref does not resolve" in error for error in errors)
     assert any("evidence reference does not exist" in error for error in errors)
+
+
+def test_catalog_boundary_requires_every_metadata_workflow() -> None:
+    module = _load_module()
+    document = _document(module)
+    document["catalog_boundary"]["entries"] = document["catalog_boundary"]["entries"][:-1]
+
+    errors = module.validate_document(document)
+
+    assert any("missing catalog-boundary workflows" in error for error in errors)
+    assert any("catalog-boundary entries MUST follow registry order" in error for error in errors)
+
+
+def test_catalog_boundary_uses_exact_id_matches_not_similar_workflows() -> None:
+    module = _load_module()
+    document = _document(module)
+    record = next(
+        item
+        for item in document["catalog_boundary"]["entries"]
+        if item["workflow_id"] == "dr-drill-orchestration"
+    )
+    record["disposition"] = "cataloged"
+    record["catalog_refs"] = ["rule-catalog/workflows/dr-failover-drill.yaml"]
+    document["catalog_boundary"]["summary"] = {
+        "workflow_count": 13,
+        "cataloged": 3,
+        "metadata_only": 10,
+    }
+
+    errors = module.validate_document(document)
+
+    assert any("dr-drill-orchestration catalog disposition is stale" in error for error in errors)
+    assert any("dr-drill-orchestration catalog refs are stale" in error for error in errors)
+
+
+def test_catalog_boundary_rejects_ambiguous_exact_id_entries(monkeypatch: Any) -> None:
+    module = _load_module()
+    document = _document(module)
+    original = module._catalog_refs_by_workflow_id
+
+    def duplicate_refs(root: Path) -> dict[str, tuple[str, ...]]:
+        refs = original(root)
+        refs["predictive-scale"] = (
+            "rule-catalog/workflows/predictive-scale.yaml",
+            "extensions/example/src/example/resources/workflows/predictive-scale.yaml",
+        )
+        return refs
+
+    monkeypatch.setattr(module, "_catalog_refs_by_workflow_id", duplicate_refs)
+
+    errors = module.validate_document(document)
+
+    assert any(
+        "predictive-scale executable catalog identity is ambiguous" in error for error in errors
+    )
