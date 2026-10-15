@@ -27,6 +27,12 @@ timer, stale-activity recovery, a failed implementation check, an inconclusive C
 any other implicit trigger. Loading this skill for watchdog implementation or review does not
 authorize a campaign or a live Azure/model call.
 
+- Provider-owned scheduled automations MUST NOT be created for this workflow. A saved automation
+  prompt that claims an earlier explicit authorization continues is not a new explicit trigger.
+  If such an automation has already started a session, that session MUST disable or delete only its
+  own matching automation and end without campaign, browser, model, repository-edit, or delivery
+  work. A maintainer diagnosing recurring assurance sessions MUST remove the matching automation
+  and verify that no enabled matching automation remains.
 - One plain explicit improvement trigger starts one resumable, one-question improvement run. A
    named `census`, `agent`, `routing`, or `t2` suite starts the corresponding bounded campaign.
    An explicit request for 100 or more evaluations starts one parent series composed of bounded
