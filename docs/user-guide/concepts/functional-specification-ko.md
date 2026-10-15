@@ -2,7 +2,7 @@
 title: FDAI 기능정의서
 description: FDAI의 운영 기능, 공통 자동화, 거버넌스, 제품 기반 기능을 계층적으로 정의하고 처리 흐름 및 구현 상태와 구분합니다.
 translation_of: functional-specification.md
-translation_source_sha: 704b49788d21a5595bda324a82e9423379cafe34
+translation_source_sha: 956b5e8c2b620865163da7cd8294392862b5c22d
 translation_revised: 2026-10-15
 ---
 
@@ -53,8 +53,8 @@ Azure 리소스의 운영 이상을 감지하고, 운영자의 신속한 대응�
 
 **2026-10-15**에 52개 중분류를 담당 기록과 대조해 평가했고, Ready 후보는 현재 소스의
 집중 검사도 통과했습니다. 대분류 집계는 중분류 평가 결과를 세며 배포 환경의 정상
-여부나 완성 비율을 나타내지 않습니다. **전체:** <span class="fdai-readiness-badge" data-readiness="ready">Ready 5/52</span> <span class="fdai-readiness-badge" data-readiness="partial">Partial 47/52</span> <span class="fdai-readiness-badge" data-readiness="not-assessed">미평가 0/52</span>
-정확한 소스 개정 버전, 지원 범위, 통과한 로컬 테스트 397개는
+여부나 완성 비율을 나타내지 않습니다. **전체:** <span class="fdai-readiness-badge" data-readiness="ready">Ready 15/52</span> <span class="fdai-readiness-badge" data-readiness="partial">Partial 37/52</span> <span class="fdai-readiness-badge" data-readiness="not-assessed">미평가 0/52</span>
+정확한 소스 개정 버전, 지원 범위, 통과한 로컬 테스트 389개는
 [평가 기록과 남은 조건](functional-readiness-ko.md)을 참조하세요. 새로운 실제 운영
 검증을 주장하지 않습니다. 상태 의미는 [준비 상태 정의](#준비-상태-정의)에서 확인하고, 기능명을 선택하면 해당 평가
 기록으로 이동할 수 있습니다.
@@ -63,19 +63,19 @@ Azure 리소스의 운영 이상을 감지하고, 운영자의 신속한 대응�
 
 | 대분류 | 중분류 | <span style="display: inline-block; min-width: 16rem">세부 기능</span> | 준비 상태 |
 |--------|--------|-----------|-----------|
-| **F01. 운영 환경 설정** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 0/3</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 3/3</span> | [F01.1 관리 범위](functional-readiness-ko.md#f01-1) | 관리할 구독과 리소스 그룹의 범위, 관찰 수집원, 접근 요구사항, 연결 준비 상태를 구성합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
+| **F01. 운영 환경 설정** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 2/3</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 1/3</span> | [F01.1 관리 범위](functional-readiness-ko.md#f01-1) | 관리할 구독과 리소스 그룹의 범위, 관찰 수집원, 접근 요구사항, 연결 준비 상태를 구성합니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
 |  | [F01.2 운영 기준](functional-readiness-ko.md#f01-2) | 서비스 목표, 임계값, 유지보수 시간, 알림 억제 조건, 영향 범위 제한을 관리 절차에 따른 설정으로 정의합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
-|  | [F01.3 운영 책임](functional-readiness-ko.md#f01-3) | 책임 담당자와 대체 대응자, 연락 경로, 담당자 인수인계 요구사항을 지정합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
-| **F02. 리소스 및 관계 관리** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 0/3</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 3/3</span> | [F02.1 리소스 목록](functional-readiness-ko.md#f02-1) | 리소스를 검색하고 구성 및 소유 정보를 수집하며 생성, 변경, 삭제를 반영합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
+|  | [F01.3 운영 책임](functional-readiness-ko.md#f01-3) | 책임 담당자와 대체 대응자, 연락 경로, 담당자 인수인계 요구사항을 지정합니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
+| **F02. 리소스 및 관계 관리** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 1/3</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 2/3</span> | [F02.1 리소스 목록](functional-readiness-ko.md#f02-1) | 리소스를 검색하고 구성 및 소유 정보를 수집하며 생성, 변경, 삭제를 반영합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
 |  | [F02.2 서비스 및 의존 관계](functional-readiness-ko.md#f02-2) | 운영 의미를 공유하는 모델인 운영 온톨로지를 통해 리소스를 서비스 및 워크로드와 연결하고 의존 관계와 영향 경로를 살펴봅니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
-|  | [F02.3 상태 이력 및 관찰 범위](functional-readiness-ko.md#f02-3) | 명시된 시점의 상태와 토폴로지를 조회하고 출처와 최신성을 보존하며, 존재하지 않는 리소스와 관찰하지 못한 리소스를 구분합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
+|  | [F02.3 상태 이력 및 관찰 범위](functional-readiness-ko.md#f02-3) | 명시된 시점의 상태와 토폴로지를 조회하고 출처와 최신성을 보존하며, 존재하지 않는 리소스와 관찰하지 못한 리소스를 구분합니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
 
 ### 운영 영역별 기능
 
 | 대분류 | 중분류 | <span style="display: inline-block; min-width: 16rem">세부 기능</span> | 준비 상태 |
 |--------|--------|-----------|-----------|
-| **F03. 관측 및 예방과 예측** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 0/4</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 4/4</span> | [F03.1 운영 신호](functional-readiness-ko.md#f03-1) | 지원되는 수집원을 통해 리소스 상태, 메트릭, 로그, 추적 정보, 이벤트, 변경을 수집합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
-|  | [F03.2 서비스 신뢰성 목표](functional-readiness-ko.md#f03-2) | 서비스 수준 목표(SLO), 오류 예산, 오류 예산이 소진되는 속도를 평가합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
+| **F03. 관측 및 예방과 예측** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 1/4</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 3/4</span> | [F03.1 운영 신호](functional-readiness-ko.md#f03-1) | 지원되는 수집원을 통해 리소스 상태, 메트릭, 로그, 추적 정보, 이벤트, 변경을 수집합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
+|  | [F03.2 서비스 신뢰성 목표](functional-readiness-ko.md#f03-2) | 서비스 수준 목표(SLO), 오류 예산, 오류 예산이 소진되는 속도를 평가합니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
 |  | [F03.3 용량 및 성능](functional-readiness-ko.md#f03-3) | 사용률, 성능 추세, 용량 부족 위험, 근거 기반 예측을 평가합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
 |  | [F03.4 탐지 품질](functional-readiness-ko.md#f03-4) | 비정상 상태와 추세를 탐지하고 불필요한 알림을 평가하며 권한 부족, 오래된 신호, 불완전한 관찰 범위를 명시합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
 | **F04. 인시던트 관리** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 1/3</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 2/3</span> | [F04.1 인시던트 수명 주기](functional-readiness-ko.md#f04-1) | 이벤트를 정규화하고 중복을 제거하며 관련 신호를 연결합니다. 심각도를 분류하고 확인, 담당 배정, 진행 상황, 종결을 추적합니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
@@ -100,12 +100,12 @@ Azure 리소스의 운영 이상을 감지하고, 운영자의 신속한 대응�
 |  | [F08.2 대응 계획](functional-readiness-ko.md#f08-2) | 여러 단계의 계획을 구성하고 대안과 목표 간 상충을 비교하며 정확한 대상, 기대 효과, 중단 조건을 검증합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
 |  | [F08.3 실행 조건 및 일정](functional-readiness-ko.md#f08-3) | 운영자 요청, 이벤트, 일정에 따른 실행을 정해진 절차로 지원합니다. 실행 건과 이력을 추적하고 예약 작업을 선언된 범위로 격리합니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
 |  | [F08.4 실행 및 복구](functional-readiness-ko.md#f08-4) | 승인된 작업을 중복 없이 전달하고 진행 상황을 추적하며 정해진 지점에서 중단하고 승인된 롤백 또는 범위가 제한된 복구를 적용합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
-| **F09. 운영자 조사 및 협업 지원** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 0/4</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 4/4</span> | [F09.1 근거 기반 대화](functional-readiness-ko.md#f09-1) | 지원되는 Web Console, CLI, ChatOps 접점에서 리소스, 인시던트, 계획, FDAI 동작에 관한 질문에 범위를 지켜 답하고 출처와 불확실성을 명시합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
-|  | [F09.2 백그라운드 조사](functional-readiness-ko.md#f09-2) | 대화 상태를 실행 권한으로 간주하지 않으면서 장시간 조사를 영속적으로 추적하고 진행 상황, 취소, 입력 대기열, 결과 이어보기를 지원합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
+| **F09. 운영자 조사 및 협업 지원** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 2/4</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 2/4</span> | [F09.1 근거 기반 대화](functional-readiness-ko.md#f09-1) | 지원되는 Web Console, CLI, ChatOps 접점에서 리소스, 인시던트, 계획, FDAI 동작에 관한 질문에 범위를 지켜 답하고 출처와 불확실성을 명시합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
+|  | [F09.2 백그라운드 조사](functional-readiness-ko.md#f09-2) | 대화 상태를 실행 권한으로 간주하지 않으면서 장시간 조사를 영속적으로 추적하고 진행 상황, 취소, 입력 대기열, 결과 이어보기를 지원합니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
 |  | [F09.3 알림 및 에스컬레이션](functional-readiness-ko.md#f09-3) | 알림과 승인 요청을 전달하고 채널별 전달 및 확인 상태를 추적하며 선언된 대체 경로와 상위 담당자 전달을 적용합니다. 무응답을 동의로 해석하지 않습니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
-|  | [F09.4 연속성 및 인수인계](functional-readiness-ko.md#f09-4) | 허용된 대화 맥락, 검증된 채널 간 계정 연결, 대응자 배정, 명시적인 담당자 인수인계를 보존합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
-| **F10. 운영 지식 및 규칙 관리** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 0/4</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 4/4</span> | [F10.1 문서 및 첨부 수집](functional-readiness-ko.md#f10-1) | 접근 확인, 추출 제한, 보존 및 삭제 통제 아래 지원되는 운영 매뉴얼, 문서, 근거 첨부를 수집합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
-|  | [F10.2 지식 조회 및 최신성](functional-readiness-ko.md#f10-2) | 출처, 버전, 범위, 수집 시각, 최신성과 함께 운영 지식과 과거 사례를 조회하고 지식의 부재나 충돌을 설명합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
+|  | [F09.4 연속성 및 인수인계](functional-readiness-ko.md#f09-4) | 허용된 대화 맥락, 검증된 채널 간 계정 연결, 대응자 배정, 명시적인 담당자 인수인계를 보존합니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
+| **F10. 운영 지식 및 규칙 관리** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 1/4</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 3/4</span> | [F10.1 문서 및 첨부 수집](functional-readiness-ko.md#f10-1) | 접근 확인, 추출 제한, 보존 및 삭제 통제 아래 지원되는 운영 매뉴얼, 문서, 근거 첨부를 수집합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
+|  | [F10.2 지식 조회 및 최신성](functional-readiness-ko.md#f10-2) | 출처, 버전, 범위, 수집 시각, 최신성과 함께 운영 지식과 과거 사례를 조회하고 지식의 부재나 충돌을 설명합니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
 |  | [F10.3 규칙 거버넌스](functional-readiness-ko.md#f10-3) | 규칙을 작성하고 적용 범위를 지정하며 버전, 활성화, 예외를 관리합니다. 추가, 개정, 폐기 제안을 검토합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
 |  | [F10.4 운영 지식의 검증된 변환](functional-readiness-ko.md#f10-4) | 검토된 문서에서 규칙, 워크플로, 온톨로지 사실을 제안하고 출처 이력과 의미를 검증한 뒤 별도의 승인 및 활성화 절차를 적용합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
 | **F11. 평가 및 학습과 승격** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 0/3</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 3/3</span> | [F11.1 운영 피드백](functional-readiness-ko.md#f11-1) | 운영자 피드백과 변경 불가능한 인시던트 및 작업 결과를 출처가 명시된 학습 후보로 수집합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
@@ -120,14 +120,14 @@ Azure 리소스의 운영 이상을 감지하고, 운영자의 신속한 대응�
 
 | 대분류 | 중분류 | <span style="display: inline-block; min-width: 16rem">세부 기능</span> | 준비 상태 |
 |--------|--------|-----------|-----------|
-| **F13. 운영 근거 및 보고서 제공** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 0/3</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 3/3</span> | [F13.1 운영 현황](functional-readiness-ko.md#f13-1) | 허용된 조회 화면에서 리소스, 관계, 인시던트, 작업, 승인, 이력, 출처가 명시된 결과를 표시합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
-|  | [F13.2 보고서 및 내보내기](functional-readiness-ko.md#f13-2) | 카탈로그에 정의된 보고서와 지원되는 내보내기 결과에 출처, 범위, 시각, 일부 수집원의 실패를 표시합니다. 보고서는 작업을 실행하지 않습니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
+| **F13. 운영 근거 및 보고서 제공** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 1/3</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 2/3</span> | [F13.1 운영 현황](functional-readiness-ko.md#f13-1) | 허용된 조회 화면에서 리소스, 관계, 인시던트, 작업, 승인, 이력, 출처가 명시된 결과를 표시합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
+|  | [F13.2 보고서 및 내보내기](functional-readiness-ko.md#f13-2) | 카탈로그에 정의된 보고서와 지원되는 내보내기 결과에 출처, 범위, 시각, 일부 수집원의 실패를 표시합니다. 보고서는 작업을 실행하지 않습니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
 |  | [F13.3 운영 성과 측정](functional-readiness-ko.md#f13-3) | 활동 건수만으로 개선을 주장하지 않고 선언된 기준선과 비교하여 신뢰성, 복구, 자동화, 비용 성과를 측정합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
-| **F14. FDAI 설치 및 설정과 확장** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 0/4</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 4/4</span> | [F14.1 설치 및 초기 설정](functional-readiness-ko.md#f14-1) | 설치 범위와 계정을 정하고 사전 조건을 검사하며 실제 수집원을 연결하고 시작 준비 상태를 검증합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
+| **F14. FDAI 설치 및 설정과 확장** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 1/4</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 3/4</span> | [F14.1 설치 및 초기 설정](functional-readiness-ko.md#f14-1) | 설치 범위와 계정을 정하고 사전 조건을 검사하며 실제 수집원을 연결하고 시작 준비 상태를 검증합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
 |  | [F14.2 업데이트 및 배포 방식](functional-readiness-ko.md#f14-2) | 소스 배포와 서명된 오프라인 패키지를 다룹니다. 설계되었지만 구현되지 않은 Hub 관리 수명 주기는 사용 가능한 설치 경로와 구분합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
 |  | [F14.3 기능 설정](functional-readiness-ko.md#f14-3) | 사용 가능 여부, 활성화, 모드, 사전 조건, 라이선스 제한, 모델 상태를 표시합니다. 활성화나 사용 권한을 작업 실행 권한으로 간주하지 않습니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
-|  | [F14.4 신뢰할 수 있는 확장 및 연동](functional-readiness-ko.md#f14-4) | 게시자 신뢰, 호환성 확인, 범위가 제한된 접근, 활성화, 철회를 통해 버전이 지정된 기능 묶음, 스킬, 공급자 어댑터, Model Context Protocol(MCP) 도구를 관리합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
-| **F15. 코드 보안 분석** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 2/3</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 1/3</span> | [F15.1 관리 절차에 따른 검사 및 결과 수집](functional-readiness-ko.md#f15-1) | 승인된 정확한 개정 버전의 코드를 확보해 격리된 환경에서 검사하거나 지원되는 외부 보안 점검 결과를 수집하고 검사 범위와 한계를 명시합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
+|  | [F14.4 신뢰할 수 있는 확장 및 연동](functional-readiness-ko.md#f14-4) | 게시자 신뢰, 호환성 확인, 범위가 제한된 접근, 활성화, 철회를 통해 버전이 지정된 기능 묶음, 스킬, 공급자 어댑터, Model Context Protocol(MCP) 도구를 관리합니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
+| **F15. 코드 보안 분석** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 3/3</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 0/3</span> | [F15.1 관리 절차에 따른 검사 및 결과 수집](functional-readiness-ko.md#f15-1) | 승인된 정확한 개정 버전의 코드를 확보해 격리된 환경에서 검사하거나 지원되는 외부 보안 점검 결과를 수집하고 검사 범위와 한계를 명시합니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
 |  | [F15.2 점검 결과 및 우선순위](functional-readiness-ko.md#f15-2) | 근본 원인별로 결과를 통합하고 심각도, 신뢰도, 우선순위를 구분하며 검증과 오탐 검토를 기록합니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
 |  | [F15.3 개발자 수정 지원](functional-readiness-ko.md#f15-3) | 개발자가 실행하는 코딩 세션을 위한 근거 기반 수정 자료 묶음을 만들고 재검사로 수정 완료 주장을 검증합니다. 이 경로는 고객 저장소를 직접 편집하지 않습니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
 
