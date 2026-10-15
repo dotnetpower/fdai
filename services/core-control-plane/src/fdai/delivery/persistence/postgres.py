@@ -52,6 +52,12 @@ from fdai.delivery.persistence.postgres_audit_fields import (
 from fdai.delivery.persistence.postgres_audit_fields import (
     json_object as _json_object,
 )
+from fdai.delivery.persistence.postgres_audit_history import (
+    list_incident_evidence as _list_incident_evidence,
+)
+from fdai.delivery.persistence.postgres_audit_history import (
+    read_audit_entries as _read_audit_entries,
+)
 from fdai.delivery.persistence.postgres_state_pair import PostgresStatePairMixin
 from fdai.shared.providers.audit_hash import GENESIS_HASH, canonical_entry, next_hash
 from fdai.shared.providers.state_store import (
@@ -62,6 +68,7 @@ from fdai.shared.providers.state_store import (
     classify_incident_append,
     incident_number_for,
     state_field_path,
+    state_retention_path,
 )
 
 _GENESIS_HASH: Final[str] = GENESIS_HASH
@@ -389,27 +396,39 @@ class PostgresStateStore(
                 rows = await cursor.fetchall()
         return tuple(str(row["key"]) for row in rows)
 
-    async def delete_states_beyond(self, prefix: str, *, retain_newest: int) -> int:
+    async def delete_states_beyond(
+        self,
+        prefix: str,
+        *,
+        retain_newest: int,
+        field: str | None = None,
+        value: str | None = None,
+    ) -> int:
         if not prefix:
             raise ValueError("prefix MUST be non-empty")
         if retain_newest < 1:
             raise ValueError("retain_newest MUST be >= 1")
+        path = state_retention_path(field, value)
+        filter_sql = "AND value #>> %s::text[] = %s" if path is not None else ""
+        filter_params: tuple[object, ...] = (list(path), value) if path is not None else ()
         escaped_prefix = prefix.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         async with self._connection() as conn:
             async with conn.transaction():
                 await self._set_statement_timeout(conn)
                 cursor = await conn.execute(
-                    """
+                    f"""
                     DELETE FROM state_kv
                      WHERE key IN (
                            SELECT key
                              FROM state_kv
                             WHERE key LIKE %s ESCAPE '\\'
+                            {filter_sql}
                             ORDER BY updated_at DESC, key DESC
                            OFFSET %s
                      )
-                    """,
-                    (f"{escaped_prefix}%", retain_newest),
+                       {filter_sql}
+                      """,  # noqa: S608
+                    (f"{escaped_prefix}%", *filter_params, retain_newest, *filter_params),
                 )
         return cursor.rowcount if cursor.rowcount > 0 else 0
 
@@ -633,45 +652,10 @@ class PostgresStateStore(
         limit: int,
     ) -> tuple[tuple[Mapping[str, object], ...], bool]:
         """Return latest bounded audit rows for one exact incident correlation."""
-        if not correlation_id or limit < 1 or limit > 500:
-            raise ValueError("incident evidence correlation_id and limit are invalid")
-        async with self._connection() as conn:
-            async with conn.transaction():
-                await self._set_statement_timeout(conn)
-                cursor = await conn.execute(
-                    """
-                    SELECT seq,
-                           event_id::text AS event_id,
-                           correlation_id,
-                           actor,
-                           action_kind,
-                           mode,
-                           created_at AS recorded_at,
-                           entry
-                      FROM audit_log
-                     WHERE correlation_id = %s
-                     ORDER BY seq DESC
-                     LIMIT %s
-                    """,
-                    (correlation_id, limit + 1),
-                )
-                rows = await cursor.fetchall()
-        truncated = len(rows) > limit
-        selected = rows[:limit]
-        projected = tuple(
-            {
-                "seq": int(row["seq"]),
-                "event_id": str(row["event_id"]),
-                "correlation_id": str(row["correlation_id"]),
-                "actor": str(row["actor"]),
-                "action_kind": str(row["action_kind"]),
-                "mode": str(row["mode"]),
-                "recorded_at": row["recorded_at"].isoformat(),
-                "entry": dict(_json_object(row["entry"])),
-            }
-            for row in reversed(selected)
-        )
-        return projected, truncated
+        return await _list_incident_evidence(self, correlation_id=correlation_id, limit=limit)
+
+    async def read_audit_entries(self, *, limit: int) -> tuple[tuple[Mapping[str, Any], ...], bool]:
+        return await _read_audit_entries(self, limit=limit)
 
     # ------------------------------------------------------------------
     # Diagnostics
