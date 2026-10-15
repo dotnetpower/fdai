@@ -185,3 +185,21 @@ def test_binding_rejects_empty_lever_map() -> None:
             ),
             levers={},
         )
+
+
+def test_binding_and_publisher_snapshot_mutable_inputs() -> None:
+    rule = _rule()
+    rules = {rule.id: rule}
+    publisher = EventBusReadinessRemediationPublisher(
+        event_bus=_Bus(),
+        target_revision="sha256:" + "a" * 64,
+        rules_by_id=rules,
+    )
+    levers = {rule.id: rule.remediates}
+    binding = RemediationProposalBinding(publisher=publisher, levers=levers)
+
+    rules.clear()
+    levers.clear()
+
+    assert publisher.rules_by_id == {rule.id: rule}
+    assert binding.levers == {rule.id: rule.remediates}

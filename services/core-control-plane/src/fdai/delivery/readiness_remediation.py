@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from types import MappingProxyType
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
@@ -32,6 +33,9 @@ class EventBusReadinessRemediationPublisher:
     rules_by_id: Mapping[str, Rule]
     clock: Callable[[], datetime] = _utc_now
     topic: str = READINESS_REMEDIATION_REQUEST_TOPIC
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "rules_by_id", MappingProxyType(dict(self.rules_by_id)))
 
     async def publish_remediation_proposal(self, proposal: Mapping[str, Any]) -> None:
         if proposal.get("kind") != "operational_readiness.remediation_proposal":
