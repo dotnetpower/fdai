@@ -1842,6 +1842,7 @@
     },
     "open": "Open settings",
     "close": "Close settings",
+    "unsavedConfirm": "Discard unsaved Settings changes?",
     "menuLabel": "Settings sections",
     "switchLight": "Switch to light theme",
     "switchDark": "Switch to dark theme",
