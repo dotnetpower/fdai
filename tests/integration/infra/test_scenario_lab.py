@@ -977,10 +977,10 @@ def test_runner_scripts_fail_before_external_commands_without_authority() -> Non
 @pytest.mark.parametrize(
     ("driver", "reason"),
     [
-        ("measure-detection-latency.py", "governed_execution_unbound"),
+        ("measure-detection-latency.py", "governed_execution_invalid"),
     ],
 )
-def test_catalog_drivers_refuse_live_runs_without_governed_bindings(
+def test_catalog_drivers_refuse_live_runs_without_valid_governed_bindings(
     driver: str,
     reason: str,
     tmp_path: Path,
@@ -1007,7 +1007,7 @@ def test_catalog_drivers_refuse_live_runs_without_governed_bindings(
     assert refusal["outcome"] == "refused"
     assert refusal["reason"] == reason
     assert refusal["mutation_attempted"] is False
-    assert "fdai.governed_chaos" in refusal["detail"]
+    assert refusal["detail"] == "ValueError"
     assert result.stdout == ""
 
 
