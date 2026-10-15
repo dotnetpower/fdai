@@ -504,12 +504,7 @@ Every shipped Alpine runtime image also pins security-sensitive runtime package 
 all service Dockerfiles. A published fixed package revision moves the shared pin and its repository
 contract together; image scanning verifies the built result before publication.
 
-Core's Alpine ARM64 builder can compile the locked Java grammar when no matching wheel is
-available. The `tree-sitter-java` 0.23.5 source archive omits `tree_sitter/parser.h`, so the
-builder supplies the matching upstream header pinned by immutable commit and SHA-256 checksum.
-The header stays in the builder stage; it changes no runtime dependency, workload specification,
-identity, or deployment authority. Native grammar compilation and parsing verify this repair,
-not a complete Core image build or full-stack deployment.
+Core's Alpine ARM64 builder supplies the missing `tree_sitter/parser.h` for source builds of locked `tree-sitter-java` 0.23.5 from the matching upstream commit, pinned by SHA-256. The builder-only header changes no runtime dependency, workload specification, identity, or authority. Native compile/parse evidence is not a complete image build or deployment.
 
 Core, the Cost Governance profile, and the SRE benchmark retain OPA 1.18.2 but build it with
 digest-pinned Go 1.27.2 and `golang.org/x/net` 0.60.0, including its required
