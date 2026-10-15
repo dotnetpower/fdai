@@ -240,6 +240,12 @@ These tables live in the installation's PostgreSQL database. Mimir is the single
   override only after an injected verifier confirms the Var approval receipt. The
   `governance.override-promote-action-type` path produces and verifies that receipt through the
   governed direct-API promotion adapter. A retained governed production receipt still remains open.
+- The global kill switch is an authority-lowering command outside ActionType promotion and policy
+  revision. The Operator requires fresh human Owner or BreakGlass authentication, signs the exact
+  command as an Operator request receipt, and publishes `operator.kill-switch.requests`. Var
+  verifies the receipt and replay fence before the Core state-and-audit compare-and-set. HTTP
+  `202` is publication acceptance; the authorized readback surface and retained deployment drill
+  remain open.
 - The `policy-administration` add-on, the Operator API policy-revision route, Mimir's validation
   and activation path, and the product-profile composition gate are implemented. The add-on requires
   `read-only-console` and `enterprise-identity-governance`, and grants no authority by itself. The

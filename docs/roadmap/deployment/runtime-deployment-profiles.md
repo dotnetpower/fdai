@@ -79,6 +79,12 @@ platform, Cost Governance package activation, or any execution identity. Until T
 provisions the non-exportable policy-signing Key Vault key, its crypto role grant, and Core signing
 environment, `product_profile_json` validation rejects the `policy-administration` add-on.
 
+The global kill switch is also runtime independent. Local, AKS, and compatibility Container Apps
+composition use the same signed Operator request contract and conditionally bind Var's
+`operator.kill-switch.requests` consumer only when Core can verify Operator receipts against the
+shared durable StateStore. Runtime selection grants no kill-switch role, execution identity, or
+effect claim. An HTTP `202` and broker delivery cannot replace authoritative state readback.
+
 The host's read-only `verify-source-runtime` command checks pinned source/runtime content, not
 runtime or database placement, node sizing, cost, host identity or exact-plan authority. Its evidence
 cannot replace a profile-bound plan. Support installation receives an already-admitted artifact root;

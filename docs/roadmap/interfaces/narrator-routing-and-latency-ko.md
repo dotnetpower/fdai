@@ -1,8 +1,8 @@
 ---
 title: 서술기 라우팅과 지연 시간
 translation_of: narrator-routing-and-latency.md
-translation_source_sha: adfc12fbc21959c9a65c7f05d49f4650f19f4b0e
-translation_revised: 2026-10-06
+translation_source_sha: 3998a8f0c75edf7c82cded9dfa762f94f3b56429
+translation_revised: 2026-10-15
 ---
 # 서술기 라우팅과 지연 시간
 
@@ -487,6 +487,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 공유 IAM 안전 명령 분리 | implemented | Operator IAM 조립과 비상 정지 경로, 집중 Operator IAM 테스트 | 공유 IAM 조립은 서명된 전역 비상 정지 게시자를 연결할 수 있지만 이 경로는 narrator 후보, 모델 설정, T1/T2 선택기, 프롬프트, 모델 토큰을 사용하지 않습니다. Var를 통해 공유 자율성 상한을 낮출 수만 있습니다. |
 | 추측 기반 질문 구조화 시작과 단일 샤드 개념 카탈로그 | implemented | `semantic_runtime_speculation.py`; `semantic_planning_speculation.py`; `semantic_query_type_grounding.py`; `scripts/deployment/local/run-console-service.sh`; `test_semantic_runtime_speculation.py`, `test_semantic_compiled_planning.py`, `test_semantic_query_second_reader.py` | 로컬의 컴파일된 답변 턴은 사전 분류 옆에서 질문 구조화 경로를 시작하고 32KiB 이하 카탈로그를 샤드 하나로 제시합니다. 사전 분류는 라우팅 권한을 유지하며 모든 후보는 여전히 한 번씩 제시됩니다. [2026-10-06 근거](#추측-기반-질문-구조화-시작과-단일-샤드-개념-카탈로그-2026-10-06)를 참고하세요. |
 | 요청 내부 근거화 재사용 및 무손실 카탈로그 프롬프트 | implemented | `semantic_planning.py`; `semantic_reasoning_shadow.py`; `semantic_question_form.py`; 집중 근거화, 컴파일러, 카탈로그 및 마스킹 테스트 | `typed_only` 계획은 사용하지 않는 기존 근거화를 생략합니다. 정확히 같은 입력에 대해 스키마를 통과한 동일 판독기의 개념 선택만 한 처리 안에서 재사용하며, 모든 카탈로그 후보와 독립 검토를 유지합니다. 실제 속도 향상이나 청구액 감소를 주장하지 않습니다. |
 | 대화 시간 및 사용량 표시 | implemented | `console/src/deck/conversation-trajectory-{presentation,view}.ts*`; `conversation-trajectory-presentation.test.ts`; `conversation-entry.spec.ts`의 이중 언어 성능 시나리오 | 서버 경과 시간, 모델 누적 시간, 입력/출력/전체 토큰, 기록된 호출 수를 구분합니다. 없는 측정값은 미기록으로 둡니다. 데스크톱, 좁은 데스크톱, 모바일 합성 검사가 통과했습니다. |
@@ -515,6 +516,7 @@ uv run python scripts/evaluation/chatops_quality_trace.py \
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-15 | implemented | 공유 IAM 조립에 서명된 전역 비상 정지 게시자를 연결했습니다. narrator 선호, 후보 선택, T1/T2 라우팅, 프롬프트, 모델 호출, timing 근거는 바꾸지 않았습니다. | `0398357455`; 집중 Operator IAM 테스트 60개 통과. | 이 안전 명령 연결에는 남은 narrator 작업이 없습니다. 배포된 비상 정지 근거는 보안 원장에서 계속 추적합니다. |
 | 2026-10-06 | implemented | Core 진단에 호출 시작 오프셋과 캐시된 프롬프트 토큰을 추가하고, 개념 샤드 크기 설정과 사전 분류 옆에서 시작하는 추측 기반 질문 구조화 경로를 추가했습니다. 로컬 실행기는 32KiB 샤드와 추측 시작을 켭니다. 변형마다 한국어 턴 여덟 개를 인증된 로컬 환경에서 제한적으로 비교한 결과, 답변된 목록 턴은 약 10초에서 약 5초로, 답변된 개수 턴은 11.7~27.4초에서 5.4~9.9초로 줄었고 답변은 같았습니다. | `current change`; 집중 Core 테스트(`4920 passed`); 변경 모듈의 mypy와 ruff; [측정 근거](#추측-기반-질문-구조화-시작과-단일-샤드-개념-카탈로그-2026-10-06) | 질문 구조화가 이름 조각을 값으로 읽는 문제로 변형마다 목록 턴 다섯 개 중 두세 개가 여전히 보류됩니다. |
 | 2026-10-02 | implemented | 확인된 `typed_only` 읽기 재사용, 불투명한 전체 카탈로그 표현, 기록된 호출 계측, 제한된 두 샤드 동시 처리를 완료하고 고정 질문 네 개와 최종 이중 언어 목록 한 쌍을 재평가했습니다. | `0cd7ab82c1`, `32833c7dea`; 최종 측정 소스 `66a49cb735`; [제한된 결과](#제한된-최적화-근거-2026-10-02); 집중 런타임 918개와 Console 계측 66개 검사 통과. | 한글 전체 지연은 변동이 있고 영문 개수의 개념 불일치는 보류 상태입니다. 일괄 속도, 금액, SLO 개선을 주장하기 전에 통제된 전후 비교 집합을 보존합니다. |
 | 2026-10-02 | implemented | `typed_only`에서 사용하지 않는 기존 근거화를 제거하고, 한 처리 안에서 정확히 같은 닫힌 개념 선택을 재사용하며, 전체 카탈로그 프롬프트를 무손실 압축하고, 실행 기록에서 경과/누적 시간과 입력/출력 토큰을 분리했습니다. | `current change`; 근거화, 질문 구조, 개념, 마스킹, 컴파일 답변 검사 380개 통과; Console 성능 표시 검사 11개 통과; 이중 언어 집중 Playwright 시나리오 2개가 1440, 993, 390 CSS 픽셀 폭에서 통과했습니다. | 측정된 지연 시간, 청구 대상 토큰, 비용 개선을 주장하기 전에 명시적으로 승인된 동일 소스의 실제 비교를 보존합니다. 새 모델 요청이나 모델 설정 변경은 하지 않았습니다. |

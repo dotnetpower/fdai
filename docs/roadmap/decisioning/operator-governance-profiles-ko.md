@@ -1,7 +1,7 @@
 ---
 title: 운영자 거버넌스 프로필
 translation_of: operator-governance-profiles.md
-translation_source_sha: af7618ae4a419080cb9b800a432b83fe6d188a85
+translation_source_sha: 91dd8699531e28727f89825a82de562a50adffc4
 translation_revised: 2026-10-15
 ---
 # 운영자 거버넌스 프로필
@@ -226,6 +226,11 @@ Release 업그레이드는 설치 안에서 활성 개정을 새 기준 정책�
   영수증을 확인한 뒤에만 재정의를 받아들입니다. `governance.override-promote-action-type` 경로는
   통제된 direct-API 승격 어댑터를 통해 그 영수증을 만들고 검증합니다. 보존된 governed production
   receipt는 아직 남은 작업입니다.
+- 전역 비상 정지는 ActionType 승격 및 정책 개정과 분리된 권한 하향 명령입니다. Operator는 새
+  인증을 거친 사람 Owner 또는 BreakGlass를 요구하고 정확한 명령을 Operator 요청 증적으로
+  서명한 뒤 `operator.kill-switch.requests`를 게시합니다. Var는 Core의 상태 및 감사
+  compare-and-set 전에 증적과 재생 방지 상태를 검증합니다. HTTP `202`는 게시 수락만 뜻합니다.
+  권한이 부여된 상태 조회 화면과 보존된 배포 훈련은 아직 남아 있습니다.
 - `policy-administration` 추가 기능, Operator API 정책 개정 경로, Mimir의 검증 및 활성화 경로,
   제품 프로필 구성 게이트가 구현되었습니다. 이 추가 기능에는 `read-only-console`과
   `enterprise-identity-governance`가 필요하며 그 자체로 권한을 부여하지 않습니다. 선택된 제품

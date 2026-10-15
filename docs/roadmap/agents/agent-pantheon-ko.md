@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 19ba11237ed27cdc49af808c84a96b4730b6c0e9
+translation_source_sha: 0dc451066c7161eaaccbe582429873a105671c6c
 translation_revised: 2026-10-15
 ---
 # 에이전트 판테온
@@ -191,7 +191,7 @@ operations / 인터페이스), `3` = 거버넌스 staff.
 | Huginn | Event Collector / 실시간 Resource 발견 | 2 | Event, Change | ingest_event, normalize_change; 서명된 operator-request 증적을 검증하고 off-path에서 비활성 schema-cluster 근거를 게시합니다 | no |
 | Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome, RetrievalValidation, EvidenceConflict, RecoveryEffectObservation | detect_anomaly, detect_drift, 예측, close_forecast_outcome, publish_evidence_conflict_revision, observe_terminal_action_effect, relay_recovery_effect_observation, validate_retrieval_failure, validate_rule_generation, notify_admin_privilege_violation | no |
 | Vidar | 복구 | 2 | Rollback | perform_rollback; DR failover 계약을 수락하거나 보류하고 rollback rehearsal 증적을 기록합니다 | no |
-| Var | Approver | 2 | Approval | approve_action, reject_action | no |
+| Var | Approver | 2 | Approval | approve_action, reject_action; 서명된 전역 비상 정지 명령을 검증하고 공유 자율성 상한을 낮춤 | no |
 | Bragi | Narrator | 2 | Conversation, Turn, UserPreference, HandoffEscalation, PostTurnReview | translate_intent; shadow 전용 intent-training 근거를 기록하며 활성화에는 별도 검토가 필요합니다 | yes (translator 만) |
 | Saga | Auditor | 3 | AuditEntry, Issue | append_audit (누락 추적 정규화), escalate_to_github_issue; issue auto-close는 Mimir 승격 근거와 깨끗한 24시간 재발 없음 구간을 기다립니다 | no |
 | Mimir | Rule 담당자 | 3 | Rule, Policy, PolicyActivationRequest, RuleGenerationBuildRequest, RuleGenerationBuildResult | promote_rule, revoke_rule, build_rule_generation; rule source를 polling하고 회귀 기반 승격 및 deprecation 근거를 기록합니다 | no |
@@ -442,6 +442,7 @@ Loki 제안 근거 검사는 같은 구현 계획의 런타임 메커니즘입�
 | object.rule | Mimir | Forseti(Rule 캐시 갱신), Saga(Rule 감사) |
 | object.policy | Mimir | Saga(Policy 감사) |
 | object.policy-activation-request | Mimir | Var(정책 활성화 정족수 전용) |
+| operator.kill-switch.requests | Operator API | Var(서명된 Owner 또는 BreakGlass 안전 명령 전용, 조건부 비객체 구독) |
 | object.context-index | Muninn | Norns(봉인된 case-history intake), Heimdall(온톨로지 인덱스 검증), Saga(인덱스 감사) |
 | object.state-snapshot | Muninn | Saga (스냅샷 감사) |
 | object.conversation | Bragi | Muninn(다이제스트만 담은 세션 인덱스) |

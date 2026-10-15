@@ -131,7 +131,9 @@ revision and approval, never by relabeling the halted record.
    and fresh evidence. A drill uses the same sequence but cannot receive production traffic.
 2. **Fence the primary:** engage the kill switch, revoke or isolate the old executor path, and
    acquire a monotonically increasing recovery epoch. Secondary execution stays disabled until
-   the fence is independently observed.
+   the fence is independently observed. Operator HTTP `202` is only typed-command publication;
+   the recovery plan requires an independent readback of Var's exact engaged state revision and
+   matching request id before allocating the epoch.
 3. **Prepare dependencies:** validate Terraform state and image digest, provision or verify the
    recovery network, identities, private DNS, RBAC, Key Vault strategy, Event Hubs namespace, and
    observability path.

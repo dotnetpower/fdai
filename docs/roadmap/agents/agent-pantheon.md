@@ -190,7 +190,7 @@ operations / interface), `3` = governance staff.
 | Huginn | Event Collector / Real-time Resource Discovery | 2 | Event, Change | ingest_event, normalize_change; verifies signed operator-request receipts and publishes inert schema-cluster evidence off path | no |
 | Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome, RetrievalValidation, EvidenceConflict, RecoveryEffectObservation | detect_anomaly, detect_drift, forecast, close_forecast_outcome, publish_evidence_conflict_revision, observe_terminal_action_effect, relay_recovery_effect_observation, validate_retrieval_failure, validate_rule_generation, notify_admin_privilege_violation | no |
 | Vidar | Recovery | 2 | Rollback | perform_rollback; accepts or holds DR failover contracts and records rollback rehearsal receipts | no |
-| Var | Approver | 2 | Approval | approve_action, reject_action | no |
+| Var | Approver | 2 | Approval | approve_action, reject_action; verify signed global kill-switch commands and lower the shared autonomy ceiling | no |
 | Bragi | Narrator | 2 | Conversation, Turn, UserPreference, HandoffEscalation, PostTurnReview | translate_intent; records shadow-only intent-training evidence with reviewed activation required | yes (translator only) |
 | Saga | Auditor | 3 | AuditEntry, Issue | append_audit (normalize missing trace), escalate_to_github_issue; issue auto-close waits for Mimir promotion evidence and a clean 24 h recurrence window | no |
 | Mimir | Rule Steward | 3 | Rule, Policy, PolicyActivationRequest, RuleGenerationBuildRequest, RuleGenerationBuildResult | promote_rule, revoke_rule, build_rule_generation; polls rule sources and records regression-backed promotion and deprecation evidence | no |
@@ -444,6 +444,7 @@ Loki proposal evidence checks are runtime mechanics in the same implementation p
 | object.rule | Mimir | Forseti (Rule cache reload), Saga (Rule audit) |
 | object.policy | Mimir | Saga (Policy audit) |
 | object.policy-activation-request | Mimir | Var (policy activation quorum only) |
+| operator.kill-switch.requests | Operator API | Var (signed Owner or BreakGlass safety command only; conditional non-object subscription) |
 | object.context-index | Muninn | Norns (sealed case-history intake), Heimdall (ontology index validation), Saga (index audit) |
 | object.state-snapshot | Muninn | Saga (snapshot audit) |
 | object.conversation | Bragi | Muninn (digest-only session index) |
