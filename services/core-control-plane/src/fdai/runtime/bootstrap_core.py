@@ -124,6 +124,7 @@ from fdai.shared.contracts.models import ResponseOutcome
 from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger("fdai.startup")
+_load_self_health_catalog = load_runtime_self_health_catalog
 
 
 CoreRuntime = bootstrap_core_model.CoreRuntime
