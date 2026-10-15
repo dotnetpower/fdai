@@ -61,6 +61,25 @@ def test_valid_result_becomes_claims_that_need_rescan_or_adjudication() -> None:
     assert all(claim.status.value != "fixed_verified" for claim in imported.claims)
 
 
+def test_long_evidence_records_explicit_truncation() -> None:
+    imported = import_remediation_result(
+        _result(
+            issues=[
+                {
+                    "issue_id": _ISSUE,
+                    "status": "claimed_false_positive",
+                    "evidence": "x" * 2_100,
+                }
+            ]
+        ),
+        _RECORD,
+        _NOW,
+    )
+
+    assert len(imported.claims[0].evidence) == 2_000
+    assert imported.claims[0].evidence.endswith("...")
+
+
 @pytest.mark.parametrize(
     ("overrides", "record", "reason"),
     [

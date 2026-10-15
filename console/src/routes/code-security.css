@@ -224,6 +224,26 @@
 .code-security-toggle { display: inline-grid; gap: 4px; }
 .code-security-issues-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .code-security-issues-header h3 { margin: 0; overflow-wrap: anywhere; }
+.code-security-review-provenance {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px 20px;
+  margin: 0;
+  padding: 14px 0;
+  border-block: 1px solid var(--border);
+}
+.code-security-review-provenance > div { min-width: 0; }
+.code-security-review-provenance dt {
+  color: var(--fg-muted);
+  font-size: var(--cs-type-label-size);
+  font-weight: 600;
+}
+.code-security-review-provenance dd {
+  margin: 4px 0 0;
+  overflow-wrap: anywhere;
+  font-size: var(--cs-type-compact-size);
+  line-height: var(--cs-type-compact-line-height);
+}
 .code-security-coverage-status {
   display: grid;
   grid-template-columns: minmax(240px, 1fr) minmax(0, 2fr);
@@ -738,6 +758,7 @@
   white-space: pre;
 }
 @media (max-width: 960px) {
+  .code-security-review-provenance { grid-template-columns: 1fr 1fr; }
   .code-security-register-settings-grid { grid-template-columns: 1fr 1fr; }
   .code-security-register-exposure { grid-column: 1 / -1; }
   .code-security-review-summary { grid-template-columns: 1fr; gap: 20px; }
@@ -746,6 +767,7 @@
   .code-security-finding-search { grid-column: 1 / -1; }
 }
 @media (max-width: 720px) {
+  .code-security-review-provenance { grid-template-columns: 1fr; }
   .code-security-register-content { padding: 16px; }
   .code-security-automation-status { align-items: stretch; flex-direction: column; }
   .code-security-automation-status .btn { min-height: 44px; }

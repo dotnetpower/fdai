@@ -1327,6 +1327,13 @@ def test_inventory_stage_reuse_requires_current_checkpoint() -> None:
     assert "--only inventory-coverage" in source
 
 
+def test_code_security_cache_reuse_requires_resolved_snapshot() -> None:
+    source = _PREPARE_SCRIPT.read_text(encoding="utf-8")
+
+    assert 'if [[ "$name" == "code-security-vulnerability-cache" ]]' in source
+    assert 'resolve-cache-snapshot --root "$repo_root/.fdai/code-security-cache"' in source
+
+
 @pytest.mark.parametrize("auth_mode", ["browser-entra", "azure-cli"])
 def test_preparation_reuses_an_unchanged_healthy_stack(
     tmp_path: Path,

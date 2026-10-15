@@ -14,6 +14,13 @@ _ALIAS = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
 _REVISION = re.compile(r"^[0-9a-f]{40}([0-9a-f]{24})?$")
 _DIGEST = re.compile(r"^[0-9a-f]{64}$")
 _MAX_ARTIFACT_BYTES = 900_000
+_ACTIVE_HTML = re.compile(
+    r"<\s*(?:script|iframe|object|embed|base|form|input|button|textarea|select|link|img|svg|math|video|audio|source)\b"
+    r"|\bon[a-z]+\s*="
+    r"|(?:javascript|data\s*:\s*text/html)\s*:"
+    r"|\burl\s*\(",
+    re.IGNORECASE,
+)
 
 
 class CodeSecurityArtifactConflictError(RuntimeError):
@@ -37,6 +44,8 @@ def validate_code_security_artifacts(raw: Mapping[str, object]) -> dict[str, str
     sarif = raw.get("sarif")
     if not isinstance(html, str) or not html.startswith("<!doctype html>"):
         raise ValueError("code-security HTML artifact is invalid")
+    if _ACTIVE_HTML.search(html):
+        raise ValueError("code-security HTML artifact contains active content")
     if not isinstance(sarif, str):
         raise ValueError("code-security SARIF artifact is invalid")
     try:

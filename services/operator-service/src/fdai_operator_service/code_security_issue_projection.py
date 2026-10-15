@@ -34,6 +34,14 @@ _PRODUCER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._+-]{0,63}$")
 _ANALYSIS_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,255}$")
 _SHA256 = re.compile(r"^sha256:[0-9a-f]{64}$")
 _SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
+_UNSAFE_TEXT = re.compile(r"[\x00-\x08\x0b-\x1f\x7f\u202a-\u202e\u2066-\u2069]")
+_ACTIVE_HTML = re.compile(
+    r"<\s*(?:script|iframe|object|embed|base|form|input|button|textarea|select|link|img|svg|math|video|audio|source)\b"
+    r"|\bon[a-z]+\s*="
+    r"|(?:javascript|data\s*:\s*text/html)\s*:"
+    r"|\burl\s*\(",
+    re.IGNORECASE,
+)
 _FLOW_KINDS = frozenset({"source", "flow", "call", "return", "sanitizer", "sink"})
 _PRIORITIES = ("P0", "P1", "P2", "P3", "P4")
 _SEVERITIES = ("critical", "high", "medium", "low", "undetermined")
@@ -84,6 +92,14 @@ _SCORECARD_KEYS = (
 
 class _MalformedError(ValueError):
     pass
+
+
+def _display_text(value: object, limit: int) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not 1 <= len(value) <= limit or _UNSAFE_TEXT.search(value):
+        raise _MalformedError
+    return value
 
 
 def _summary_artifacts(
@@ -179,9 +195,9 @@ def _sarif_issue_details(document: Mapping[str, object]) -> dict[str, dict[str, 
             continue
         if issue_id in details:
             raise _MalformedError
-        title = properties.get("title")
+        title = _display_text(properties.get("title"), 256)
         floor, ceiling = properties.get("severity_floor"), properties.get("severity_ceiling")
-        rationale = properties.get("severity_rationale")
+        rationale = _display_text(properties.get("severity_rationale"), 1024)
         deciding = properties.get("deciding_facts")
         locations = result.get("locations")
         location: dict[str, object] | None = None
@@ -211,12 +227,10 @@ def _sarif_issue_details(document: Mapping[str, object]) -> dict[str, dict[str, 
         if raw_evidence is not None and analysis_evidence is None:
             raise _MalformedError
         details[issue_id] = {
-            "title": title if isinstance(title, str) and 1 <= len(title) <= 256 else None,
+            "title": title,
             "severity_floor": floor if floor in _SEVERITIES[:-1] else None,
             "severity_ceiling": ceiling if ceiling in _SEVERITIES[:-1] else None,
-            "severity_rationale": (
-                rationale if isinstance(rationale, str) and len(rationale) <= 1024 else None
-            ),
+            "severity_rationale": rationale,
             "deciding_facts": (
                 [item for item in deciding if isinstance(item, str) and len(item) <= 64][:8]
                 if isinstance(deciding, list)
@@ -260,8 +274,9 @@ def _code_context(raw: object) -> dict[str, object] | None:
             or number <= 0
             or not isinstance(text, str)
             or len(text) > 240
+            or _UNSAFE_TEXT.search(text)
         ):
-            return None
+            raise _MalformedError
         normalized.append({"number": number, "text": text})
     return {
         "start_line": start,
@@ -634,6 +649,7 @@ def code_security_issues_projection(
             or not isinstance(artifacts_row.get("recorded_at"), str)
             or not isinstance(html, str)
             or not html.startswith("<!doctype html>")
+            or _ACTIVE_HTML.search(html) is not None
             or not isinstance(sarif, str)
             or not isinstance(sarif_document, Mapping)
             or sarif_document.get("version") != "2.1.0"

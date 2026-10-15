@@ -56,6 +56,7 @@ const DISPOSITIONS = ["false_positive", "open"] as const;
 const SOURCE_KINDS = ["local_path", "git_repository", "external_sarif"] as const;
 const REVISION_KINDS = ["commit", "snapshot"] as const;
 const TRIGGERS = ["cli", "console", "schedule"] as const;
+const REVIEW_DIGEST = /^[0-9a-f]{64}$/;
 export const SOURCE_FILTERS = ["all", ...SOURCE_KINDS, "legacy"] as const;
 export type SourceFilter = (typeof SOURCE_FILTERS)[number];
 
@@ -155,10 +156,14 @@ function counts<K extends string>(value: unknown, keys: readonly K[], label: str
 function decodeReview(value: unknown, index: number): CodeSecurityReview {
   const label = `code-security review ${index}`;
   const row = panelRecord(value, label);
+  const reviewDigest = panelNonEmptyString(row, "review_digest", label);
+  if (!REVIEW_DIGEST.test(reviewDigest)) {
+    throw panelContractError(`${label}.review_digest must be a 64-character lowercase digest`);
+  }
   return {
     repository_alias: panelNonEmptyString(row, "repository_alias", label),
     revision: panelNonEmptyString(row, "revision", label),
-    review_digest: panelNonEmptyString(row, "review_digest", label),
+    review_digest: reviewDigest,
     recorded_at: panelNonEmptyString(row, "recorded_at", label),
     issue_count: panelNonNegativeInteger(row, "issue_count", label),
     by_priority: counts(row.by_priority, PRIORITIES, `${label}.by_priority`),
@@ -284,6 +289,19 @@ function decisionKind(decision: Decision): PillKind {
   return "success";
 }
 
+export function reviewSeveritySummary(review: CodeSecurityReview): string {
+  return [
+    review.by_severity.critical,
+    review.by_severity.high,
+    review.by_severity.medium,
+    review.by_severity.undetermined,
+  ].join(" / ");
+}
+
+export function knownExploitedTotal(reviews: readonly CodeSecurityReview[]): number {
+  return reviews.reduce((total, review) => total + review.known_exploited_count, 0);
+}
+
 export function buildCodeSecurityViewSnapshot(state: CodeSecurityState): ViewSnapshot {
   const data = state.reviews;
   const latest = latestPerRepository(data.reviews);
@@ -305,6 +323,11 @@ export function buildCodeSecurityViewSnapshot(state: CodeSecurityState): ViewSna
         key: "urgent_count",
         label: t("codeSecurity.kpi.urgent"),
         value: latest.filter((review) => review.decision === "urgent").length,
+      },
+      {
+        key: "known_exploited_count",
+        label: t("codeSecurity.kpi.knownExploited"),
+        value: knownExploitedTotal(latest),
       },
     ],
     records: {
@@ -454,9 +477,9 @@ function CodeSecurityBody({
 }) {
   usePublishViewContext(() => buildCodeSecurityViewSnapshot(state), [state]);
   const [filter, setFilter] = useState<SourceFilter>("all");
-  const [selected, setSelected] = useState<{ readonly alias: string; readonly revision: string } | null>(null);
+  const [selected, setSelected] = useState<CodeSecurityReview | null>(null);
   const data = state.reviews;
-  const href = routeHref("code-security");
+  const href = `${routeHref("code-security")}#code-security-reviews`;
   const visible = filterBySource(data.reviews, filter);
   const latest = latestPerRepository(visible);
   const counts = Object.fromEntries(
@@ -504,6 +527,12 @@ function CodeSecurityBody({
     },
     { key: "issues", header: t("codeSecurity.column.issues"), render: (row) => row.issue_count, cellClass: "num" },
     {
+      key: "severity",
+      header: t("codeSecurity.column.severity"),
+      render: reviewSeveritySummary,
+      cellClass: "num",
+    },
+    {
       key: "priority",
       header: t("codeSecurity.column.priority"),
       render: (row) => `${row.by_priority.P0} / ${row.by_priority.P1} / ${row.by_priority.P2}`,
@@ -532,9 +561,11 @@ function CodeSecurityBody({
         <button
           type="button"
           class="btn subtle"
-          aria-pressed={selected?.alias === row.repository_alias && selected.revision === row.revision}
+          aria-pressed={
+            selected?.repository_alias === row.repository_alias && selected.revision === row.revision
+          }
           aria-label={`${t("codeSecurity.issues.open")} ${row.repository_alias} ${row.revision.slice(0, 12)}`}
-          onClick={() => setSelected({ alias: row.repository_alias, revision: row.revision })}
+          onClick={() => setSelected(row)}
         >
           {t("codeSecurity.issues.open")}
         </button>
@@ -549,7 +580,12 @@ function CodeSecurityBody({
       </div>
       <SourceFilterControl value={filter} counts={counts} onChange={setFilter} />
       <KpiGrid>
-        <KpiCard href={href} label={t("codeSecurity.kpi.reviews")} value={visible.length} />
+        <KpiCard
+          href={href}
+          label={t("codeSecurity.kpi.knownExploited")}
+          value={knownExploitedTotal(latest)}
+          tone={knownExploitedTotal(latest) > 0 ? "danger" : "default"}
+        />
         <KpiCard
           href={href}
           label={t("codeSecurity.kpi.openIssues")}
@@ -568,13 +604,15 @@ function CodeSecurityBody({
           tone={latest.some((review) => !review.coverage_complete) ? "warning" : "default"}
         />
       </KpiGrid>
-      <DataTable
-        columns={columns}
-        rows={visible}
-        keyOf={(row) => `${row.repository_alias}:${row.revision}`}
-        empty={t("codeSecurity.empty")}
-        caption={appT("nav.panel.codeSecurity")}
-      />
+      <div id="code-security-reviews">
+        <DataTable
+          columns={columns}
+          rows={visible}
+          keyOf={(row) => `${row.repository_alias}:${row.revision}`}
+          empty={t("codeSecurity.empty")}
+          caption={appT("nav.panel.codeSecurity")}
+        />
+      </div>
       {data.gaps.length > 0
         ? (
           <div class="assurance-twin-gaps" role="status">
@@ -590,13 +628,17 @@ function CodeSecurityBody({
         : (
           <ReviewIssuesPanel
             client={client}
-            repositoryAlias={selected.alias}
+            repositoryAlias={selected.repository_alias}
             repositoryLocation={
               state.repositories?.repositories.find(
-                (repository) => repository.repository_alias === selected.alias,
+                (repository) => repository.repository_alias === selected.repository_alias,
               )?.location ?? null
             }
             revision={selected.revision}
+            reviewDigest={selected.review_digest}
+            recordedAt={selected.recorded_at}
+            reviewSource={sourceLabel(selected)}
+            producers={selected.producers}
             onClose={() => setSelected(null)}
           />
         )}
