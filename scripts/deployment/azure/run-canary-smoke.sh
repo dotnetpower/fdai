@@ -45,7 +45,8 @@ fi
 FDAI_CANARY_POSTGRES_HOST="$(terraform output -raw postgres_fqdn)"
 FDAI_CANARY_POSTGRES_DATABASE="$(terraform output -raw postgres_database)"
 export FDAI_CANARY_POSTGRES_HOST FDAI_CANARY_POSTGRES_DATABASE
-uv run python "$repo_root/scripts/deployment/azure/verify_canary_audit.py" \
+uv run --frozen --package fdai-core-control-plane \
+  python "$repo_root/scripts/deployment/azure/verify_canary_audit.py" \
   --slot "$slot" \
   --latency-budget-ms 30000 \
   --timeout-seconds 60 \

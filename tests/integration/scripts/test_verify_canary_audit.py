@@ -197,6 +197,7 @@ def test_deploy_workflow_uses_deterministic_slot_and_consumed_audit_verifier() -
     assert "canary publisher status query failed" in RUNNER
     assert 'FDAI_CANARY_POSTGRES_HOST="$(terraform output -raw postgres_fqdn)"' in RUNNER
     assert 'FDAI_CANARY_POSTGRES_DATABASE="$(terraform output -raw postgres_database)"' in RUNNER
+    assert "uv run --frozen --package fdai-core-control-plane" in RUNNER
     assert "verify_canary_audit.py" in RUNNER
     assert "--latency-budget-ms 30000" in RUNNER
     assert "--timeout-seconds 60" in RUNNER
