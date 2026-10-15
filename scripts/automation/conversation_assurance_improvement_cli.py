@@ -37,9 +37,20 @@ from scripts.automation.conversation_assurance_cli import (
 from scripts.automation.conversation_assurance_effectiveness import (
     attribute_remediation,
     bind_holdout_revision,
-    compare_and_record,
-    effectiveness_report,
+    compare_and_record_v2,
+    effectiveness_report_v2,
     git_revision,
+)
+from scripts.automation.conversation_assurance_effectiveness_contract import (
+    EffectivenessAssessment,
+    EffectivenessPolicy,
+    PairCustodyReceipt,
+    canonical_digest,
+    compose_assessment,
+    read_pair_custody_receipt,
+    write_assessment,
+    write_pair_custody_receipt,
+    write_policy,
 )
 from scripts.automation.conversation_assurance_harness import (
     BrowserRunObservation,
@@ -60,6 +71,8 @@ from scripts.automation.conversation_assurance_reporting import _state_root
 _MAX_EVIDENCE_BYTES = 2 * 1024 * 1024
 _RUNS_DIRECTORY = "improvement-runs"
 _EFFECTIVENESS_LEDGER = "effectiveness-comparisons.jsonl"
+_EFFECTIVENESS_ASSESSMENTS_DIRECTORY = "effectiveness-assessments"
+_REMEDIATION_EVIDENCE_DIRECTORY = "remediation-evidence"
 
 StartOperation = Callable[[Path, Mapping[str, object]], Awaitable[dict[str, object]]]
 _AKS_FUNCTION = "query.resource_state_inventory"
@@ -72,6 +85,14 @@ def _run_path(project: Path, run_id: str) -> Path:
 
 def _run_lock_path(project: Path, run_id: str) -> Path:
     return _state_root(project) / _RUNS_DIRECTORY / f"{run_id}.lock"
+
+
+def _assessment_path(project: Path, run_id: str) -> Path:
+    return _state_root(project) / _EFFECTIVENESS_ASSESSMENTS_DIRECTORY / f"{run_id}.json"
+
+
+def _remediation_evidence_path(project: Path, run_id: str) -> Path:
+    return _state_root(project) / _REMEDIATION_EVIDENCE_DIRECTORY / f"{run_id}.json"
 
 
 def _git_snapshot(project: Path) -> tuple[str, bool]:
@@ -107,6 +128,11 @@ def _prepare(
     worktree_dirty: bool,
     comparison_group_id: str | None = None,
     comparison_role: ComparisonRole | None = None,
+    cohort_id: str | None = None,
+    challenge_family: str | None = None,
+    objective_oracle: str | None = None,
+    blind_holdout_receipt_digest: str | None = None,
+    authoritative_base_ref: str | None = None,
 ) -> ImprovementRun:
     if worktree_dirty:
         raise ValueError("worktree_not_clean")
@@ -131,6 +157,7 @@ def _prepare(
             transcript_rows=transcript_rows,
         )
         readiness = _read_private_object(readiness_path)
+        readiness_digest = canonical_digest(readiness)
         inventory = RuntimeReadinessInventory.from_dict(readiness)
         selection = assess_capability_readiness(
             capability_id=capability_id,
@@ -140,9 +167,27 @@ def _prepare(
             inventory=inventory,
         )
         if not selection.selectable or selection.stage is not ReadinessStage.EVIDENCE_READY:
+            _record_preflight_hold(
+                project=project,
+                capability_id=capability_id,
+                cohort_id=cohort_id,
+                readiness_digest=readiness_digest,
+                reason=selection.unavailable_reason or "readiness_unavailable",
+            )
             raise ValueError(f"challenge_unavailable:{selection.unavailable_reason}")
         if selection.provided_authority is None:
             raise ValueError("challenge_authority_unavailable")
+        effectiveness_values = (
+            cohort_id,
+            challenge_family,
+            objective_oracle,
+            blind_holdout_receipt_digest,
+            authoritative_base_ref,
+        )
+        if comparison_group_id is not None and any(value is None for value in effectiveness_values):
+            raise ValueError("effectiveness_comparison_contract_incomplete")
+        if comparison_group_id is None and any(value is not None for value in effectiveness_values):
+            raise ValueError("effectiveness_contract_requires_comparison_group")
         run = ImprovementRun(
             run_id=run_id,
             case_id=case.case_id,
@@ -154,6 +199,22 @@ def _prepare(
             provided_authority=selection.provided_authority,
             comparison_group_id=comparison_group_id,
             comparison_role=comparison_role,
+            effectiveness_schema_version=("2.0.0" if comparison_group_id is not None else None),
+            cohort_id=cohort_id,
+            locale=case.locale if comparison_group_id is not None else None,
+            suite=case.suite if comparison_group_id is not None else None,
+            expected_primary_agent=(
+                case.expected_primary_agent if comparison_group_id is not None else None
+            ),
+            expected_routing_method=(
+                case.expected_routing_method if comparison_group_id is not None else None
+            ),
+            t2_expectation=(str(case.t2_expectation) if comparison_group_id is not None else None),
+            challenge_family=challenge_family,
+            objective_oracle=objective_oracle,
+            blind_holdout_receipt_digest=blind_holdout_receipt_digest,
+            authoritative_base_ref=authoritative_base_ref,
+            readiness_digest=(readiness_digest if comparison_group_id is not None else None),
         ).validate_dry_run(
             question_count=1,
             child_count=1,
@@ -161,6 +222,57 @@ def _prepare(
         )
         write_private_run(output_path, run)
         return run
+
+
+def _pair_receipt_digest(
+    *,
+    receipt_path: Path,
+    corpus_path: Path,
+    role: ComparisonRole,
+    source_revision: str,
+) -> str:
+    receipt = read_pair_custody_receipt(receipt_path)
+    if receipt.declared_revision != source_revision:
+        raise ValueError("pair_custody_revision_mismatch")
+    corpus = _load_private_corpus(corpus_path)
+    expected_digest = (
+        receipt.baseline_corpus_digest
+        if role is ComparisonRole.BASELINE
+        else receipt.holdout_corpus_digest
+    )
+    if corpus.content_digest != expected_digest:
+        raise ValueError("pair_custody_corpus_mismatch")
+    return receipt.content_digest
+
+
+def _record_preflight_hold(
+    *,
+    project: Path,
+    capability_id: str,
+    cohort_id: str | None,
+    readiness_digest: str,
+    reason: str,
+) -> None:
+    ledger = PrivateJsonlLedger(_state_root(project) / "preflight-holds.jsonl")
+    prior = ledger.read(limit=10_000)
+    duplicate = any(
+        row.get("capability_id") == capability_id
+        and row.get("cohort_id") == cohort_id
+        and row.get("readiness_digest") == readiness_digest
+        and row.get("reason") == reason
+        for row in prior
+    )
+    if duplicate:
+        raise ValueError(f"preflight_no_progress:{reason}")
+    ledger.append(
+        {
+            "schema_version": "1.0.0",
+            "capability_id": capability_id,
+            "cohort_id": cohort_id,
+            "readiness_digest": readiness_digest,
+            "reason": reason,
+        }
+    )
 
 
 def _prepare_aks_series(
@@ -556,6 +668,26 @@ def _arm_browser(*, project: Path, run_id: str, readiness_path: Path) -> Improve
         return armed
 
 
+def _record_effectiveness_assessment(
+    *,
+    project: Path,
+    run_id: str,
+    evidence_path: Path,
+) -> EffectivenessAssessment:
+    run = read_private_run(_run_path(project, run_id))
+    if run.effectiveness_schema_version != "2.0.0" or run.measurement_attempts != 1:
+        raise ValueError("effectiveness_assessment_requires_measured_v2_run")
+    assessment = EffectivenessAssessment.from_mapping(_read_private_object(evidence_path))
+    if (
+        assessment.run_id != run.run_id
+        or assessment.case_id != run.case_id
+        or assessment.locale != run.locale
+    ):
+        raise ValueError("effectiveness_assessment_run_mismatch")
+    write_assessment(_assessment_path(project, run_id), assessment)
+    return assessment
+
+
 def _terminal_measurement_outcome(value: Mapping[str, object]) -> MeasurementOutcome:
     states: dict[str, str] = {}
     for name in ("terminal_state", "answer_generation_state", "assessment_state"):
@@ -694,6 +826,13 @@ def _summary(run: ImprovementRun) -> dict[str, object]:
         "failure_class": run.failure_class,
         "comparison_group_id": run.comparison_group_id,
         "comparison_role": run.comparison_role,
+        "effectiveness_schema_version": run.effectiveness_schema_version,
+        "cohort_id": run.cohort_id,
+        "locale": run.locale,
+        "challenge_family": run.challenge_family,
+        "objective_oracle": run.objective_oracle,
+        "authoritative_base_ref": run.authoritative_base_ref,
+        "readiness_digest": run.readiness_digest,
         "remediation_revision": run.remediation_revision,
         "run_record_gate": run.run_record_gate.state,
         "prompt_assembly_gate": run.prompt_assembly_gate.state,
@@ -719,6 +858,42 @@ def _parser() -> argparse.ArgumentParser:
         "--comparison-role",
         choices=tuple(item.value for item in ComparisonRole),
     )
+    prepare.add_argument("--cohort-id")
+    prepare.add_argument("--challenge-family")
+    prepare.add_argument("--objective-oracle")
+    prepare.add_argument("--blind-holdout-receipt", type=Path)
+    prepare.add_argument("--authoritative-base-ref")
+    policy = commands.add_parser("init-effectiveness-policy")
+    policy.add_argument("--output", type=Path, required=True)
+    policy.add_argument("--policy-id", required=True)
+    policy.add_argument("--cohort-id", required=True)
+    policy.add_argument("--authoritative-base-ref", required=True)
+    policy.add_argument("--minimum-pairs", type=int, default=20)
+    policy.add_argument("--minimum-pairs-per-locale", type=int, default=10)
+    policy.add_argument("--minimum-improvement-rate", type=float, default=0.8)
+    policy.add_argument("--maximum-regressions", type=int, default=0)
+    policy.add_argument("--maximum-environment-hold-rate", type=float, default=0.1)
+    policy.add_argument(
+        "--maximum-latency-ms-per-measured-run",
+        type=int,
+        default=120_000,
+    )
+    policy.add_argument(
+        "--maximum-model-calls-per-measured-run",
+        type=float,
+        default=10.0,
+    )
+    policy.add_argument(
+        "--maximum-cost-usd-per-measured-run",
+        type=float,
+        default=1.0,
+    )
+    custody = commands.add_parser("seal-effectiveness-pair")
+    custody.add_argument("--baseline-corpus", type=Path, required=True)
+    custody.add_argument("--holdout-corpus", type=Path, required=True)
+    custody.add_argument("--output", type=Path, required=True)
+    custody.add_argument("--receipt-id", required=True)
+    custody.add_argument("--custodian-identity-digest", required=True)
     prepare_aks = commands.add_parser("prepare-aks-series")
     prepare_aks.add_argument("--run-prefix", required=True)
     prepare_aks.add_argument(
@@ -778,6 +953,15 @@ def _parser() -> argparse.ArgumentParser:
     remediation = commands.add_parser("attribute-remediation")
     remediation.add_argument("--run-id", required=True)
     remediation.add_argument("--revision", default="HEAD")
+    remediation.add_argument("--owning-path", action="append", dest="owning_paths")
+    remediation.add_argument("--validation-receipt", type=Path)
+    assessment = commands.add_parser("record-effectiveness-assessment")
+    assessment.add_argument("--run-id", required=True)
+    assessment.add_argument("--evidence", type=Path, required=True)
+    compose = commands.add_parser("compose-effectiveness-assessment")
+    compose.add_argument("--run-id", required=True)
+    compose.add_argument("--answer-gate", type=Path, required=True)
+    compose.add_argument("--browser-evidence", type=Path, required=True)
     bind_holdout = commands.add_parser("bind-holdout")
     bind_holdout.add_argument("--baseline-run", required=True)
     bind_holdout.add_argument("--holdout-run", required=True)
@@ -785,9 +969,17 @@ def _parser() -> argparse.ArgumentParser:
     compare = commands.add_parser("compare-effectiveness")
     compare.add_argument("--baseline-run", required=True)
     compare.add_argument("--holdout-run", required=True)
-    compare.add_argument("--base-ref", default="HEAD")
+    compare.add_argument(
+        "--policy",
+        type=Path,
+        default=Path(".fdai/conversation-assurance/effectiveness-policy.json"),
+    )
     effectiveness = commands.add_parser("effectiveness")
-    effectiveness.add_argument("--base-ref", default="HEAD")
+    effectiveness.add_argument(
+        "--policy",
+        type=Path,
+        default=Path(".fdai/conversation-assurance/effectiveness-policy.json"),
+    )
     return parser
 
 
@@ -797,6 +989,23 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         if arguments.operation == "prepare":
             revision, dirty = _git_snapshot(project)
+            comparison_role = (
+                ComparisonRole(arguments.comparison_role)
+                if arguments.comparison_role is not None
+                else None
+            )
+            if arguments.blind_holdout_receipt is not None and comparison_role is None:
+                raise ValueError("pair_custody_requires_comparison_role")
+            receipt_digest = (
+                _pair_receipt_digest(
+                    receipt_path=arguments.blind_holdout_receipt.resolve(),
+                    corpus_path=arguments.corpus.resolve(),
+                    role=comparison_role,
+                    source_revision=revision,
+                )
+                if arguments.blind_holdout_receipt is not None and comparison_role is not None
+                else None
+            )
             run = _prepare(
                 project=project,
                 corpus_path=arguments.corpus.resolve(),
@@ -808,13 +1017,66 @@ def main(argv: Sequence[str] | None = None) -> int:
                 source_revision=revision,
                 worktree_dirty=dirty,
                 comparison_group_id=arguments.comparison_group,
-                comparison_role=(
-                    ComparisonRole(arguments.comparison_role)
-                    if arguments.comparison_role is not None
-                    else None
-                ),
+                comparison_role=comparison_role,
+                cohort_id=arguments.cohort_id,
+                challenge_family=arguments.challenge_family,
+                objective_oracle=arguments.objective_oracle,
+                blind_holdout_receipt_digest=receipt_digest,
+                authoritative_base_ref=arguments.authoritative_base_ref,
             )
             payload = _summary(run)
+        elif arguments.operation == "init-effectiveness-policy":
+            policy = EffectivenessPolicy(
+                schema_version="1.0.0",
+                policy_id=arguments.policy_id,
+                cohort_id=arguments.cohort_id,
+                authoritative_base_ref=arguments.authoritative_base_ref,
+                required_locales=("en", "ko"),
+                minimum_pairs=arguments.minimum_pairs,
+                minimum_pairs_per_locale=arguments.minimum_pairs_per_locale,
+                minimum_improvement_rate=arguments.minimum_improvement_rate,
+                confidence_level=0.95,
+                maximum_regressions=arguments.maximum_regressions,
+                maximum_environment_hold_rate=(arguments.maximum_environment_hold_rate),
+                maximum_latency_ms_per_measured_run=(arguments.maximum_latency_ms_per_measured_run),
+                maximum_model_calls_per_measured_run=(
+                    arguments.maximum_model_calls_per_measured_run
+                ),
+                maximum_cost_usd_per_measured_run=(arguments.maximum_cost_usd_per_measured_run),
+            )
+            write_policy(arguments.output.resolve(), policy)
+            payload = {
+                "state": "created",
+                "policy_id": policy.policy_id,
+                "policy_digest": policy.content_digest,
+                "qualification_authority": False,
+                "execution_authority": False,
+            }
+        elif arguments.operation == "seal-effectiveness-pair":
+            revision, dirty = _git_snapshot(project)
+            if dirty:
+                raise ValueError("worktree_not_clean")
+            baseline = _load_private_corpus(arguments.baseline_corpus.resolve())
+            holdout = _load_private_corpus(arguments.holdout_corpus.resolve())
+            if len(baseline.cases) != 1 or len(holdout.cases) != 1:
+                raise ValueError("effectiveness_pair_requires_one_question_each")
+            receipt = PairCustodyReceipt(
+                schema_version="1.0.0",
+                receipt_id=arguments.receipt_id,
+                declared_revision=revision,
+                baseline_corpus_digest=baseline.content_digest,
+                holdout_corpus_digest=holdout.content_digest,
+                custodian_identity_digest=arguments.custodian_identity_digest,
+                content_disclosed_to_repair_agent=False,
+            )
+            write_pair_custody_receipt(arguments.output.resolve(), receipt)
+            payload = {
+                "state": "sealed",
+                "receipt_id": receipt.receipt_id,
+                "receipt_digest": receipt.content_digest,
+                "qualification_authority": False,
+                "execution_authority": False,
+            }
         elif arguments.operation == "prepare-aks-series":
             revision, dirty = _git_snapshot(project)
             runs = _prepare_aks_series(
@@ -917,15 +1179,63 @@ def main(argv: Sequence[str] | None = None) -> int:
                     lock_path=_run_lock_path(project, arguments.run_id),
                     revision=requested_revision,
                     worktree_dirty=dirty,
+                    owning_paths=tuple(arguments.owning_paths or ()),
+                    validation_receipt=(
+                        _read_private_object(arguments.validation_receipt.resolve())
+                        if arguments.validation_receipt is not None
+                        else None
+                    ),
+                    evidence_path=_remediation_evidence_path(project, arguments.run_id),
                 )
             )
+        elif arguments.operation == "record-effectiveness-assessment":
+            assessment = _record_effectiveness_assessment(
+                project=project,
+                run_id=arguments.run_id,
+                evidence_path=arguments.evidence.resolve(),
+            )
+            payload = {
+                "state": "recorded",
+                "run_id": assessment.run_id,
+                "assessment_digest": assessment.content_digest,
+                "assurance_passed": assessment.assurance_passed,
+                "qualification_authority": False,
+                "execution_authority": False,
+            }
+        elif arguments.operation == "compose-effectiveness-assessment":
+            run = read_private_run(_run_path(project, arguments.run_id))
+            if (
+                run.effectiveness_schema_version != "2.0.0"
+                or run.measurement_attempts != 1
+                or run.locale is None
+            ):
+                raise ValueError("effectiveness_assessment_requires_measured_v2_run")
+            assessment = compose_assessment(
+                run_id=run.run_id,
+                case_id=run.case_id,
+                locale=run.locale,
+                answer_gate=_read_private_object(arguments.answer_gate.resolve()),
+                browser_evidence=_read_private_object(arguments.browser_evidence.resolve()),
+            )
+            write_assessment(_assessment_path(project, run.run_id), assessment)
+            payload = {
+                "state": "recorded",
+                "run_id": assessment.run_id,
+                "assessment_digest": assessment.content_digest,
+                "assurance_passed": assessment.assurance_passed,
+                "qualification_authority": False,
+                "execution_authority": False,
+            }
         elif arguments.operation == "compare-effectiveness":
-            payload = compare_and_record(
+            payload = compare_and_record_v2(
                 project=project,
                 baseline_path=_run_path(project, arguments.baseline_run),
                 holdout_path=_run_path(project, arguments.holdout_run),
+                baseline_assessment_path=_assessment_path(project, arguments.baseline_run),
+                holdout_assessment_path=_assessment_path(project, arguments.holdout_run),
+                remediation_path=_remediation_evidence_path(project, arguments.baseline_run),
+                policy_path=(project / arguments.policy).resolve(),
                 ledger_path=_state_root(project) / _EFFECTIVENESS_LEDGER,
-                base_ref=arguments.base_ref,
             )
         elif arguments.operation == "bind-holdout":
             revision, dirty = _git_snapshot(project)
@@ -943,11 +1253,13 @@ def main(argv: Sequence[str] | None = None) -> int:
                 )
             )
         elif arguments.operation == "effectiveness":
-            payload = effectiveness_report(
+            payload = effectiveness_report_v2(
                 project=project,
                 runs_root=_state_root(project) / _RUNS_DIRECTORY,
+                assessments_root=(_state_root(project) / _EFFECTIVENESS_ASSESSMENTS_DIRECTORY),
                 ledger_path=_state_root(project) / _EFFECTIVENESS_LEDGER,
-                base_ref=arguments.base_ref,
+                policy_path=(project / arguments.policy).resolve(),
+                preflight_holds_path=_state_root(project) / "preflight-holds.jsonl",
             )
         else:
             run = read_private_run(_run_path(project, arguments.run_id))

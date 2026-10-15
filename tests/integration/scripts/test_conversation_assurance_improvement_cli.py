@@ -26,6 +26,7 @@ from scripts.automation.conversation_assurance_improvement_cli import (
     _run_aks_browser_series,
     _summary,
     _terminal_measurement_outcome,
+    main,
 )
 
 
@@ -125,10 +126,18 @@ def test_prepare_predeclares_comparison_group_and_role(tmp_path: Path) -> None:
         worktree_dirty=False,
         comparison_group_id="resource-state-fix-one",
         comparison_role=ComparisonRole.BASELINE,
+        cohort_id="conversation-effectiveness-one",
+        challenge_family="current-resource-state",
+        objective_oracle="none",
+        blind_holdout_receipt_digest="sha256:" + "f" * 64,
+        authoritative_base_ref="main",
     )
 
     assert run.comparison_group_id == "resource-state-fix-one"
     assert run.comparison_role is ComparisonRole.BASELINE
+    assert run.effectiveness_schema_version == "2.0.0"
+    assert run.locale == "en"
+    assert run.authoritative_base_ref == "main"
 
 
 def test_arm_rechecks_readiness_without_consuming_attempt(tmp_path: Path) -> None:
@@ -162,6 +171,33 @@ def test_arm_rechecks_readiness_without_consuming_attempt(tmp_path: Path) -> Non
     assert retained.state is ImprovementState.DRY_RUN_VALIDATED
     assert retained.measurement_attempts == 0
     assert retained.retry_allowed is True
+
+
+def test_prepare_suppresses_unchanged_preflight_failure(tmp_path: Path) -> None:
+    corpus = tmp_path / "corpus.json"
+    readiness = tmp_path / "readiness.json"
+    _corpus(corpus)
+    _readiness(readiness, evidence_ready=False)
+    arguments = {
+        "project": tmp_path,
+        "corpus_path": corpus,
+        "readiness_path": readiness,
+        "capability_id": "current-resource-state",
+        "required_functions": ("query.resource_state_inventory",),
+        "expected_authority": "azure_resource_graph",
+        "source_revision": "a" * 40,
+        "worktree_dirty": False,
+    }
+
+    with pytest.raises(ValueError, match="challenge_unavailable"):
+        _prepare(run_id="improvement-one", **arguments)
+    with pytest.raises(ValueError, match="preflight_no_progress"):
+        _prepare(run_id="improvement-two", **arguments)
+
+    rows = PrivateJsonlLedger(
+        tmp_path / ".fdai/conversation-assurance/preflight-holds.jsonl"
+    ).read()
+    assert len(rows) == 1
 
 
 def test_prepare_aks_series_creates_three_private_runs_without_target_names_in_summary(
@@ -542,3 +578,31 @@ def test_hardening_round_parser_requires_severity() -> None:
                 "0",
             ]
         )
+
+
+def test_init_effectiveness_policy_writes_owner_only(
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    output = tmp_path / "effectiveness-policy.json"
+
+    result = main(
+        [
+            "--project",
+            str(tmp_path),
+            "init-effectiveness-policy",
+            "--output",
+            str(output),
+            "--policy-id",
+            "policy-one",
+            "--cohort-id",
+            "cohort-one",
+            "--authoritative-base-ref",
+            "main",
+        ]
+    )
+    payload = json.loads(capsys.readouterr().out)
+
+    assert result == 0
+    assert payload["state"] == "created"
+    assert output.stat().st_mode & 0o077 == 0

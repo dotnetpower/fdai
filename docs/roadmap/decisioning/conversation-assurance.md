@@ -66,6 +66,17 @@ that commit. A comparison counts only when the repair is an ancestor of both the
 measurement and the selected base revision. The content-free effectiveness report separates
 environment holds, evaluation-contract holds, answer-quality defects, passed quality
 measurements, base-contained remediations, and improved, unchanged, or regressed holdouts.
+Effectiveness schema v2 also freezes cohort, locale, challenge family, objective oracle, route,
+T2 expectation, readiness digest, blind pair-custody receipt, and authoritative base ref before
+measurement. An immutable assessment joins the canonical ten-rubric answer gate to the observed
+model and prompt profile, evidence snapshot, hard-zero count, verification state, latency, model
+calls, and cost. Repair attribution accepts only declared task-owned paths and a passing
+content-free validation receipt. Cohort reporting excludes legacy runs, deduplicates each pair,
+requires English and Korean floors, applies the predeclared 95% Wilson lower bound, permits no more
+than the configured regressions, and enforces environment, latency, call, and cost ceilings. A
+regression stops the candidate and marks rollback as required; this local record neither performs
+nor authorizes rollback. Passing the development effectiveness threshold grants no qualification,
+promotion, rollback, or execution authority.
 An explicitly requested private AKS series may derive exactly three target-bound questions from the active Azure CLI scope and reviewed local Resource-to-Workload-to-BusinessService graph. Preparation combines the three private cases into one owner-only runtime corpus, binds its exact file and digest in the local Core environment, and requires a successful Core restart before measurement. The runner arms no browser attempt until the restarted Core readiness receipt carries that exact digest. Names remain in owner-only corpora and browser memory; reports retain only case ids, digests, typed states, and scores. Missing graph or readiness evidence holds before a question is sent.
 Before measuring a fixed case, the runtime forwards its registered locale to the Pantheon conversation port. The trace `participants[].situation` must match or the diagnostic fails instead of silently defaulting to English.
 

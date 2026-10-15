@@ -89,9 +89,12 @@ validation, documentation, and the task-owned local commit.
 3. **Prepare and dry-run**: run `improve prepare` with the corpus, readiness receipt, capability,
    required functions, and expected authority. Preparation requires one question, one child, a
    clean source revision, exact authority, and a new question. It writes only an owner-only state
-   record under `.fdai/conversation-assurance/improvement-runs/`. When measuring a repair, prepare
-   the baseline and a semantically distinct holdout on the same source revision with one shared
-   `--comparison-group` and the `baseline` and `holdout` roles before editing code.
+   record under `.fdai/conversation-assurance/improvement-runs/`. Repeated unavailable preparation
+   with the same readiness digest and reason stops as no progress without appending another hold.
+   When measuring a repair, initialize one owner-only effectiveness policy, seal a semantically
+   distinct baseline and holdout under independent custody, and prepare both on the same source
+   revision with one cohort, comparison group, challenge family, oracle, locale, route, T2
+   expectation, readiness digest, and authoritative base ref before editing code.
 4. **Measure in Web once**: run `improve arm-browser` immediately before using the authenticated
    standard-port Console. Arming re-reads the readiness receipt and requires the same capability,
    functions, evidence readiness, and authority recorded by preparation. A failed preflight does not
@@ -109,13 +112,16 @@ validation, documentation, and the task-owned local commit.
 6. **Record and classify**: run `improve record-browser-measurement`, then `improve classify` with
    exactly one of the five failure classes. Answer generation and assessment completion remain
    independent. A deferred, held, unavailable, or missing assessment is never answered or passed.
-   A one-question result always has `qualification=false`.
+   A one-question result always has `qualification=false`. For an effectiveness pair, compose the
+   canonical ten-rubric answer gate with browser-observed profile, evidence snapshot, hard-zero,
+   latency, model-call, and cost fields into one immutable content-free assessment.
 7. **Repair only code defects**: for `code_defect`, change the smallest owning abstraction. Do not
    hardcode the question, add a phrase exception, weaken a gate, or retry the live question. Run
    the narrowest focused test immediately after the first edit. Every other failure class remains
    terminal held evidence with no code candidate. After the validated repair commit, attribute its
-   revision to the baseline and bind the predeclared holdout to that exact revision. The holdout is
-   measured once only after the repair is contained by the selected base revision.
+   revision, task-owned path digest, validation receipt, and hardening digest to the baseline, then
+   bind the predeclared holdout to that exact revision. The holdout is measured once only after the
+   repair is contained by the policy's authoritative base revision.
 8. **Critique and harden**: after the focused implementation passes, perform at least ten explicit,
    independent critique rounds over the complete task-owned diff. Fix every verified finding above
    Low, rerun the smallest affected check, and record each round with reviewer scope, finding and
@@ -125,6 +131,10 @@ validation, documentation, and the task-owned local commit.
    catalog/translation checks, design-route checks, and roadmap-ledger checks. Update the English
    and Korean owner docs plus the append-only implementation ledger. Commit only task-owned tracked
    files locally. Never commit `.fdai`, tokens, questions, answers, SYSTEM text, or browser captures.
+   Effectiveness reporting deduplicates pairs, excludes legacy runs, applies bilingual pair floors,
+   a 95% Wilson lower bound, zero-regression and hard-zero gates, environment-hold limits, and
+   latency, call, and cost ceilings. Crossing those development thresholds grants no qualification,
+   promotion, rollback, or execution authority.
 
 ### Private target-bound AKS series
 
@@ -355,17 +365,36 @@ python3 scripts/automation/conversation-assurance.py improve prepare \
    --function <required-function> \
    --expected-authority <authority>
 
-# Predeclare a same-revision baseline and holdout
+# Initialize the fixed bilingual cohort policy
+python3 scripts/automation/conversation-assurance.py improve init-effectiveness-policy \
+   --output <private-policy.json> --policy-id <policy-id> --cohort-id <cohort-id> \
+   --authoritative-base-ref <base-ref>
+
+# Seal a distinct same-revision baseline and holdout without printing either question
+python3 scripts/automation/conversation-assurance.py improve seal-effectiveness-pair \
+   --baseline-corpus <private-baseline.json> --holdout-corpus <private-holdout.json> \
+   --output <private-custody-receipt.json> --receipt-id <receipt-id> \
+   --custodian-identity-digest <sha256>
+
+# Predeclare both sides under the same v2 comparison contract
 python3 scripts/automation/conversation-assurance.py improve prepare \
    --corpus <private-baseline.json> --readiness <private-readiness.json> \
    --run-id <baseline-run> --capability <capability-id> \
    --function <required-function> --expected-authority <authority> \
-   --comparison-group <group-id> --comparison-role baseline
+   --comparison-group <group-id> --comparison-role baseline \
+   --cohort-id <cohort-id> --challenge-family <family> \
+   --objective-oracle <oracle-or-none> \
+   --blind-holdout-receipt <private-custody-receipt.json> \
+   --authoritative-base-ref <base-ref>
 python3 scripts/automation/conversation-assurance.py improve prepare \
    --corpus <private-holdout.json> --readiness <private-readiness.json> \
    --run-id <holdout-run> --capability <capability-id> \
    --function <required-function> --expected-authority <authority> \
-   --comparison-group <group-id> --comparison-role holdout
+   --comparison-group <group-id> --comparison-role holdout \
+   --cohort-id <cohort-id> --challenge-family <family> \
+   --objective-oracle <oracle-or-none> \
+   --blind-holdout-receipt <private-custody-receipt.json> \
+   --authoritative-base-ref <base-ref>
 
 # Record the one browser-owned live measurement and its Run Record evidence
 python3 scripts/automation/conversation-assurance.py improve arm-browser \
@@ -382,14 +411,19 @@ python3 scripts/automation/conversation-assurance.py improve hardening-round \
 
 # Bind a validated repair and measure effectiveness only after base containment
 python3 scripts/automation/conversation-assurance.py improve attribute-remediation \
-   --run-id <baseline-run> --revision <repair-commit>
+   --run-id <baseline-run> --revision <repair-commit> \
+   --owning-path <task-owned-root> --validation-receipt <private-validation.json>
 python3 scripts/automation/conversation-assurance.py improve bind-holdout \
    --baseline-run <baseline-run> --holdout-run <holdout-run> \
    --revision <repair-commit>
+python3 scripts/automation/conversation-assurance.py improve compose-effectiveness-assessment \
+   --run-id <run-id> --answer-gate <private-answer-gate.json> \
+   --browser-evidence <private-browser-evidence.json>
 python3 scripts/automation/conversation-assurance.py improve compare-effectiveness \
-   --baseline-run <baseline-run> --holdout-run <holdout-run> --base-ref <base-ref>
+   --baseline-run <baseline-run> --holdout-run <holdout-run> \
+   --policy <private-policy.json>
 python3 scripts/automation/conversation-assurance.py improve effectiveness \
-   --base-ref <base-ref>
+   --policy <private-policy.json>
 
 # Read the content-free improvement state
 python3 scripts/automation/conversation-assurance.py improve status --run-id <run-id>
@@ -450,8 +484,15 @@ uv run pytest -q --no-cov \
    services/core-control-plane/tests/runtime/test_pantheon_conversation_assurance.py \
   tests/integration/scripts/test_conversation_assurance_answer_gate.py \
    tests/integration/scripts/test_conversation_assurance_cli.py \
+   tests/integration/scripts/test_conversation_assurance_effectiveness_contract.py \
    tests/integration/scripts/test_conversation_assurance_effectiveness.py \
    tests/integration/scripts/test_conversation_assurance_harness.py \
    tests/integration/scripts/test_conversation_assurance_improvement_cli.py
    tests/integration/scripts/test_conversation_assurance_aks.py
+```
+
+Run the browser evidence contract through the Console's current Vitest runner:
+
+```bash
+npm --prefix console test -- --run scripts/conversation-assurance-browser.test.mjs
 ```

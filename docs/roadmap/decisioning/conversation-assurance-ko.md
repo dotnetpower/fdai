@@ -1,6 +1,6 @@
 ---
 translation_of: conversation-assurance.md
-translation_source_sha: 50d0bfc7affdaad4d9b5ef4c1cb03369a472fe25
+translation_source_sha: 70e3bcafa2ae83f48ae347aa484efc10154b3f6d
 translation_revised: 2026-10-15
 ---
 # 대화 품질 보증
@@ -67,6 +67,16 @@ Core는 영속 큐와 Pantheon 품질 보증 단계의 schema-v2 timing을 기�
 선택한 기준 리비전 양쪽의 선행 커밋일 때만 비교 결과를 집계합니다. 콘텐츠를 포함하지 않는
 실효성 보고서는 환경 판단 보류, 평가 계약 판단 보류, 답변 품질 결함, 통과한 품질 측정, 기준
 리비전에 포함된 수정, 개선되거나 같거나 악화된 검증용 질문을 분리합니다.
+실효성 스키마 v2는 측정 전에 코호트, 로캘, 문제군, 객관적 오라클, 라우팅, T2 기대값,
+준비 상태 다이제스트, 블라인드 질문 쌍 보관 증적 및 권위 있는 기준 참조도 고정합니다. 변경할 수 없는
+평가 증적은 표준 10개 루브릭 답변 게이트를 관측된 모델 및 프롬프트 프로필, 근거 스냅샷,
+`hard-zero` 개수, 검증 상태, 지연 시간, 모델 호출 수 및 비용과 결합합니다. 수정 귀속은 선언된
+작업 소유 경로와 통과한 콘텐츠 비포함 검증 증적만 허용합니다. 코호트 보고서는 이전 스키마
+실행을 제외하고 각 질문 쌍을 중복 제거하며 영어와 한국어 하한, 사전 선언된 95% Wilson 하한,
+설정된 최대 회귀 수와 환경, 지연 시간, 호출 수 및 비용 상한을 적용합니다. 회귀가 발생하면
+후보를 중지하고 롤백 필요 상태로 표시하지만, 이 로컬 기록이 롤백을 수행하거나 권한을 부여하지
+않습니다. 개발 실효성 기준을 통과해도 자격, 승격, 롤백 또는 실행 권한은 생기지
+않습니다.
 명시적으로 요청한 비공개 AKS series는 활성 Azure CLI 범위와 검토된 Resource-to-Workload-to-BusinessService 그래프에서 대상이 결속된 질문을 정확히 3개 만들 수 있습니다. 준비 단계는 세 비공개 case를 하나의 소유자 전용 runtime corpus로 결합하고 local Core environment에 exact file과 digest를 결속하며 측정 전에 Core를 성공적으로 다시 시작해야 합니다. Runner는 다시 시작된 Core readiness receipt가 해당 exact digest를 전달할 때까지 browser attempt를 arm하지 않습니다. 이름은 소유자 전용 corpus와 browser memory에만 유지하며 보고서는 case id, digest, 타입이 지정된 상태 및 점수만 보존합니다. 그래프 또는 준비 근거가 없으면 질문을 보내기 전에 판단 보류합니다.
 고정 사례 측정 전에 런타임은 등록된 로캘을 Pantheon 대화 포트에 전달합니다. 추적 증적의 `participants[].situation`이 일치하지 않으면 영어로 대체하지 않고 진단에 실패합니다.
 
