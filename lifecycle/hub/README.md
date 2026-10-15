@@ -9,6 +9,15 @@ Lifecycle I0 runs in observation mode (shadow mode): the Hub decides and records
 reports, but never applies a change itself. It needs no Azure credential and grants no lifecycle
 authority.
 
+## Local Release Hub catalog admission
+
+The separate [Release Hub](../release-hub/README.md) provides a local-only vendor UI and export.
+`recompute-pinned` accepts that export only with an out-of-band SHA-256 pin, a trusted development
+public key, an expiry check, and an operator-retained revision floor. It reuses the existing
+manifest parser, detached signature convention, recall records, and planner. The ordinary
+`recompute --catalog` development directory loader remains unchanged. This opt-in transport is
+not a production signed catalog protocol and does not prove registry availability.
+
 ## Enrollment and managed Entities
 
 1. The installation signs an enrollment request with its installation key and submits it. The

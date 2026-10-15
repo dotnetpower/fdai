@@ -1,7 +1,7 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: 6d5f6554db5370983fe9c20721da676fe51323c4
+translation_source_sha: f0769f0ee6bafe05518f6bc58158b0d0b538d2b2
 translation_revised: 2026-10-15
 ---
 # Lifecycle Release와 채널
@@ -11,7 +11,12 @@ translation_revised: 2026-10-15
 스키마 호환성이 업그레이드를 안전하게 유지하는 방법을 정의합니다. 이 문서는 Release 매니페스트,
 채널 모델, 업그레이드 번들, 회수를 소유합니다.
 
-> **상태:** 설계만 되어 있습니다. 현재 FDAI에는 서명된 배포 번들과 오프라인 키트가 있으며, 그
+> **상태:** 로컬 개발용으로 일부 구현되었으며, 프로덕션 수명 주기 전달은 설계 단계입니다.
+> [로컬 Release Hub](../../../lifecycle/release-hub/README.md)는 매니페스트 등록, 개발용 서명,
+> 기본 채널의 수동 관리, 회수, 공급업체 UI와 명시적으로 선택하는 Lifecycle Hub의 고정 다이제스트
+> 기반 내보내기 파일 검증을 제공합니다. 프로덕션 인증, 서명된 카탈로그 역할, 레지스트리 발행,
+> 회수에 따른 실행 중 설치본의 교체는 구현하지 않습니다.
+> FDAI에는 서명된 배포 번들과 오프라인 키트도 있으며, 그
 > 서명된 매니페스트는 `development`, `beta`, `stable` 채널 이름을 사용합니다. 배포 CLI는
 > `development`만 신뢰합니다. 나머지는
 > [구현 ledger](../../roadmap-implementation/deployment/lifecycle-releases-and-channels.md)가
@@ -22,13 +27,13 @@ translation_revised: 2026-10-15
 
 ## 설계 한눈에 보기
 
-**FDAI Release Hub**는 릴리스 발행, 서명, 채널 승격, 회수를 관리하도록 계획된 공급업체
+**FDAI Release Hub**는 릴리스 발행, 서명, 채널 승격, 회수를 관리하는 공급업체
 애플리케이션입니다. **Release Catalog**는 앱 이름이 아니라 Release Hub가 제공하는 릴리스
 목록, 데이터 또는 피드를 뜻합니다. **FDAI Lifecycle Hub**는 설치본별 배포를 관리하는 별도
 애플리케이션이며 이름을 유지합니다.
 
-초기 Release Hub는 웹 UI보다 CLI/API 작업 흐름을 먼저 제공할 수 있습니다. 기존 서명된 번들과
-로컬 `shadow` 전용 검증기가 있다고 해서 Release Hub 서비스가 구현된 것은 아닙니다.
+로컬 Release Hub는 API 작업 흐름과 웹 UI를 제공합니다. 기존 서명된 번들과
+로컬 `shadow` 전용 검증기만 있다고 해서 프로덕션 Release Hub 서비스가 구현된 것은 아닙니다.
 카탈로그 디렉터리, API, 스키마, 식별자는 기존 기술 명칭을 유지합니다.
 
 | 관심사 | 결정 |
