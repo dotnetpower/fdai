@@ -118,6 +118,12 @@ preserves prefix-wide retention. Saga uses `status=published` to compact only te
 tombstones, never pending or claimed delivery. This provider-neutral extension adds no authority
 or service boundary and never deletes audit entries.
 
+`StateStoreAuditReader` is an optional provider-neutral migration seam. Memory and PostgreSQL
+return detached audit bodies oldest-first from one snapshot, with a limit of 1-512 and an explicit
+truncation result. A partial read cannot prove absence or complete history. Saga uses this only
+to verify bounded legacy migration; its shared journal otherwise uses existing atomic revision
+CAS-with-audit. Agents never import a concrete persistence adapter or gain another authority.
+
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.
 
 

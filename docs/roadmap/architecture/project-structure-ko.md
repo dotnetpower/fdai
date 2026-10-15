@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 3b07cc3ab16ec98f37740baf4d6613a959e273b7
+translation_source_sha: 4137f085f585d67e1fccd1fb172d4908ff4d591d
 translation_revised: 2026-10-15
 ---
 # 프로젝트 구조
@@ -117,6 +117,13 @@ StateStore 보존 정리는 페이지 읽기와 같은 비교 규칙을 사용�
 유지합니다. Saga는 `status=published`로 완료된 감사 발신함 기록만 정리하고 대기 또는 게시
 권한을 확보한 기록은 삭제하지 않습니다. 이 프로바이더 중립 확장은 권한이나 서비스 경계를
 추가하지 않으며 감사 항목을 삭제하지 않습니다.
+
+`StateStoreAuditReader`는 선택적으로 구현하는 공급자 중립 이행 인터페이스입니다. 메모리와
+PostgreSQL은 한 스냅샷에서 저장소와 분리된 감사 본문을 오래된 순서로 반환합니다. 읽기는
+1-512개로 제한하고 생략된 행이 있는지 명시합니다. 일부만 읽은 결과로 기록의 부재나 전체
+이력을 입증할 수는 없습니다. Saga는 제한된 이전 이력의 이행을 검증할 때만 이 인터페이스를
+사용하며, 공유 기록은 기존의 감사 포함 원자적 리비전 CAS를 사용합니다. 에이전트가 구체적인
+저장소 어댑터를 import하거나 별도 권한을 얻지는 않습니다.
 
 테스트 맥락 선택지는 권한이 없는 projection schema로 공유 service-contract SDK를 확장합니다. Operator는 인증과 선택지 렌더링을 소유하고, Core는 계속 허용 및 수명 주기 권한을 유지합니다.
 
