@@ -421,12 +421,18 @@ def _readiness_remediation_event(
     )
 
 
+def _readiness_rules(action_type: str) -> dict[str, Rule]:
+    rule = _rule("readiness.owner-tag.required", action_type)
+    return {rule.id: rule}
+
+
 def test_build_from_readiness_remediation_preserves_grounded_shadow_request() -> None:
     action_type = _shipped_action_types()["remediate.tag-add"]
     release = build_ontology_release(action_types=(action_type,))  # type: ignore[arg-type]
     builder = ActionBuilder(  # type: ignore[attr-defined]
         action_types_by_name={action_type.name: action_type},
         ontology_release=release,
+        rules_by_id=_readiness_rules(action_type.name),
     )
 
     action, rule = builder.build_from_readiness_remediation(
@@ -464,6 +470,35 @@ def test_build_from_readiness_remediation_rejects_operator_only_action_type() ->
                 params={},
                 target_revision=release.digest,
             )
+        )
+
+
+def test_build_from_readiness_remediation_rejects_unknown_cited_rule() -> None:
+    action_type = _shipped_action_types()["remediate.tag-add"]
+    release = build_ontology_release(action_types=(action_type,))  # type: ignore[arg-type]
+    builder = ActionBuilder(  # type: ignore[attr-defined]
+        action_types_by_name={action_type.name: action_type},
+        ontology_release=release,
+    )
+
+    with pytest.raises(ActionBuildError, match="cited rule .* is not registered"):
+        builder.build_from_readiness_remediation(
+            event=_readiness_remediation_event(target_revision=release.digest)
+        )
+
+
+def test_build_from_readiness_remediation_rejects_mismatched_cited_rule() -> None:
+    action_type = _shipped_action_types()["remediate.tag-add"]
+    release = build_ontology_release(action_types=(action_type,))  # type: ignore[arg-type]
+    builder = ActionBuilder(  # type: ignore[attr-defined]
+        action_types_by_name={action_type.name: action_type},
+        ontology_release=release,
+        rules_by_id=_readiness_rules("remediate.tag-remove"),
+    )
+
+    with pytest.raises(ActionBuildError, match="does not remediate"):
+        builder.build_from_readiness_remediation(
+            event=_readiness_remediation_event(target_revision=release.digest)
         )
 
 

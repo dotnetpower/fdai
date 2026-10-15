@@ -54,6 +54,22 @@ def _utc_now_iso() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _age_seconds(*, earlier: str, later: str) -> float | None:
+    try:
+        earlier_time = datetime.fromisoformat(earlier.replace("Z", "+00:00"))
+        later_time = datetime.fromisoformat(later.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if (
+        earlier_time.tzinfo is None
+        or earlier_time.utcoffset() is None
+        or later_time.tzinfo is None
+        or later_time.utcoffset() is None
+    ):
+        return None
+    return (later_time - earlier_time).total_seconds()
+
+
 def _default_target(signal: OwnershipTransfer) -> PreflightTarget:
     return PreflightTarget(scope=signal.scope)
 
@@ -89,6 +105,7 @@ class OperationalReadinessService:
     remediation_publisher: RemediationProposalPublisher | None = None
     remediation_levers: Mapping[str, str] = field(default_factory=dict)
     decision_evidence: DecisionEvidenceAdmissionProvider | None = None
+    remediation_report_max_age_seconds: int = 900
 
     async def review(self, signal: OwnershipTransfer) -> ReadinessReport:
         """Run one fail-closed review bound to ``signal``."""
@@ -131,6 +148,7 @@ class OperationalReadinessService:
                 preflight_findings=preflight_report.findings,
                 mode=self.mode,
                 generated_at=generated_at,
+                transfer_id=event_id,
                 blocking_min_severity=self.blocking_min_severity,
                 checklist_results=checklist_results,
             )
@@ -208,7 +226,8 @@ class OperationalReadinessService:
         event_id, idempotency_key = _identity(signal)
         timestamp = self.clock()
         if (
-            report.scope != signal.scope
+            report.transfer_id != event_id
+            or report.scope != signal.scope
             or report.submitter != signal.submitter
             or report.target_environment != signal.target_environment
         ):
@@ -223,6 +242,27 @@ class OperationalReadinessService:
                 detail={},
             )
             raise ValueError("readiness report does not belong to this ownership transfer")
+
+        report_age_seconds = _age_seconds(earlier=report.generated_at, later=timestamp)
+        if (
+            isinstance(self.remediation_report_max_age_seconds, bool)
+            or not isinstance(self.remediation_report_max_age_seconds, int)
+            or self.remediation_report_max_age_seconds < 1
+            or report_age_seconds is None
+            or report_age_seconds < 0
+            or report_age_seconds > self.remediation_report_max_age_seconds
+        ):
+            await self._audit_remediation(
+                signal=signal,
+                event_id=event_id,
+                idempotency_key=f"{idempotency_key}:remediation-stale",
+                timestamp=timestamp,
+                decision="abstain",
+                outcome="report_stale",
+                approver=approval.approver,
+                detail={},
+            )
+            raise ValueError("readiness report is stale or has invalid time identity")
 
         try:
             proposals = build_remediation_proposals(

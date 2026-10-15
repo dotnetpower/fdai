@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
@@ -80,6 +80,7 @@ class ActionBuilder:
     action_types_by_name: dict[str, OntologyActionType]
     ontology_release: OntologyRelease | None = None
     clock: Callable[[], datetime] | None = None
+    rules_by_id: dict[str, Rule] = field(default_factory=dict)
 
     def _created_at(self) -> datetime:
         """Return the action creation time from the injected clock."""
@@ -332,6 +333,17 @@ class ActionBuilder:
                 f"ActionType {request.action_type!r} does not allow rule_violation triggers"
             )
         _validate_action_params(action_type, request.params, source="readiness remediation")
+        for rule_id in request.citing_rule_ids:
+            cited_rule = self.rules_by_id.get(rule_id)
+            if cited_rule is None:
+                raise ActionBuildError(
+                    f"readiness remediation cited rule {rule_id!r} is not registered"
+                )
+            if cited_rule.remediates != action_type.name:
+                raise ActionBuildError(
+                    f"readiness remediation cited rule {rule_id!r} does not remediate "
+                    f"{action_type.name!r}"
+                )
         resource = event.payload.get("resource")
         resource_type = resource.get("resource_type") if isinstance(resource, dict) else None
         rule = _readiness_remediation_rule(

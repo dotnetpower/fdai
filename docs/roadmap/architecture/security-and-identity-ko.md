@@ -1,7 +1,7 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: f8979be1f4fbac53feec31e3c73fb61e835b6564
+translation_source_sha: fe6f7ee684bf92bbb10445ec5e130403f601cce1
 translation_revised: 2026-10-15
 ---
 
@@ -13,6 +13,7 @@ translation_revised: 2026-10-15
 [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md) 의 토폴로지,
 [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)
 의 코드/CI 게이트를 보완합니다. 선언 목록의 `available`, `queryable`, `readable` facet은 후보 의미를 나타낼 뿐 권한을 증명하지 않습니다. Core는 선택한 선언 종류를 현재 principal 매니페스트로 제한합니다. 이 facet은 접근 권한을 부여하거나 관측 상태를 만들거나 정확한 release 검증을 우회할 수 없습니다.
+ActionBuilder는 ORR 인용을 요청된 ActionType과 대조하기 위한 용도로만 Core의 읽기 전용 활성 룰 맵을 받습니다. 이 맵은 신원, 승인 또는 실행 권한을 부여하지 않습니다.
 ## 심각도 어휘
 
 - **P0 차단 요인** - auto-execution이 활성화되기 전에 해결·검증되어야 함; shadow 모드에서의

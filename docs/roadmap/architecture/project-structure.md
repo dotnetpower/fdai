@@ -783,7 +783,9 @@ binds target, evidence, distinct submitter and approver identities, and no-autho
 digest. ActionBuilder derives the Action identity from that content-addressed request and accepts
 only the exact ORR source, a `rule_violation` or `both` ActionType, complete arguments, and the
 exact ActionType declaration in the active ontology release. The route invokes the unified risk
-gate and terminates as shadow, Human approval required, denial, or abstention without execution
+gate only after every cited rule resolves in the active catalog to that ActionType. Reports bind
+the exact ownership-transfer identity and expire after 900 seconds. The route terminates as
+shadow, Human approval required, denial, or abstention without execution
 authorization or dispatch. The existing proposal-to-request producer remains unbound until it can
 supply that complete contract and governed delivery evidence.
 ![Control-Loop Wiring. The main stages are events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.en.svg)
