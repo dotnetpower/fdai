@@ -1,8 +1,8 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: a8641db0a22433960989521694296c77d90cb9ad
-translation_revised: 2026-10-14
+translation_source_sha: f925781209d42df6f9614ccea9711f3c4022a338
+translation_revised: 2026-10-15
 ---
 
 # 코드 보안 스캔
@@ -912,6 +912,7 @@ SARIF는 수집 과정을 거쳤습니다.
 | 알아볼 내용 | 문서 |
 |-------------|------|
 | 제공 상태와 남은 작업 | [구현 원장](../../roadmap-implementation/operations/code-security-scanning.md) |
+| 계획된 자체 코드 그래프와 함수 간 분석 | [코드 보안 분석 엔진](code-security-analysis-engine-ko.md) |
 | 이슈, 심각도, 우선순위, 조치 팩 | [코드 보안 점검 결과](code-security-findings-ko.md) |
 | LLM 계층과 데이터 상주 | [LLM 전략](../architecture/llm-strategy-ko.md) |
 | 추적 이슈 | [Issue #1966](https://github.com/dotnetpower/fdai/issues/1966) |

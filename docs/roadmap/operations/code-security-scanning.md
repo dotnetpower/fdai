@@ -954,6 +954,7 @@ with the request id.
 | To learn about | Read |
 |----------------|------|
 | Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/operations/code-security-scanning.md) |
+| Planned owned code graph and interprocedural analysis | [Code Security Analysis Engine](code-security-analysis-engine.md) |
 | Issues, severity, priority, and remediation packs | [Code Security Findings](code-security-findings.md) |
 | LLM tiers and data residency | [LLM Strategy](../architecture/llm-strategy.md) |
 | Tracking issue | [Issue #1966](https://github.com/dotnetpower/fdai/issues/1966) |
