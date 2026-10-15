@@ -17,7 +17,10 @@ _MAX_ARTIFACT_BYTES = 900_000
 _ACTIVE_HTML = re.compile(
     r"<\s*(?:script|iframe|object|embed|base|form|input|button|textarea|select|link|img|svg|math|video|audio|source)\b"
     r"|\bon[a-z]+\s*="
-    r"|(?:javascript|data\s*:\s*text/html)\s*:"
+    r"|javascript\s*:"
+    r"|data\s*:\s*text/html"
+    r"""|<\s*meta\b[^>]*\bhttp-equiv\s*=\s*(?:["']\s*refresh\s*["']|refresh\b)"""
+    r"|@import\b"
     r"|\burl\s*\(",
     re.IGNORECASE,
 )

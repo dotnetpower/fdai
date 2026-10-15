@@ -6,6 +6,7 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
+import pytest
 from fdai_operator_service.code_security_issue_projection import code_security_issues_projection
 from fdai_operator_service.code_security_review_projection import (
     GAP_MALFORMED,
@@ -713,7 +714,17 @@ def test_issue_projection_rejects_malformed_analysis_evidence() -> None:
     assert projected["artifacts"]["mode"] == "summary"  # type: ignore[index]
 
 
-def test_issue_projection_withholds_active_html_artifact() -> None:
+@pytest.mark.parametrize(
+    "active_html",
+    [
+        "<script>location='https://example.invalid'</script>",
+        "<div onfocus=alert(1)>focus</div>",
+        '<a href="data:text/html,<script>alert(1)</script>">open</a>',
+        '<meta http-equiv="refresh" content="0;url=https://example.invalid">',
+        "<style>@import 'https://example.invalid/report.css';</style>",
+    ],
+)
+def test_issue_projection_withholds_active_html_artifact(active_html: str) -> None:
     review = _row(_package())["value"]
     digest = review["package"]["review_digest"]
     projected = code_security_issues_projection(
@@ -728,7 +739,7 @@ def test_issue_projection_withholds_active_html_artifact() -> None:
             "revision": _REVISION,
             "review_digest": digest,
             "recorded_at": "2026-10-15T00:00:00+00:00",
-            "html": "<!doctype html><script>location='https://example.invalid'</script>",
+            "html": f"<!doctype html>{active_html}",
             "sarif": '{"version":"2.1.0","runs":[{"results":[]}]}',
         },
     )
