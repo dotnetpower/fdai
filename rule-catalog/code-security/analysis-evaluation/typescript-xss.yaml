@@ -1,0 +1,37 @@
+schema_version: 1.0.0
+corpus_id: fdai.code-security.analysis.typescript-xss
+language: typescript
+version: 1.0.0
+rule_id: fdai.typescript.xss
+cases:
+  - case_id: dev-vulnerable-cross-file
+    split: dev
+    vulnerable: true
+    files:
+      api.ts: |
+        import { render } from './view';
+        export function route(req: Request, res: Response) { return render(res, req.query.name); }
+        app.get('/page', route);
+      view.ts: |
+        export function render(res: Response, value: string) { return res.send(value); }
+  - case_id: dev-safe-escaped
+    split: dev
+    vulnerable: false
+    files:
+      app.ts: |
+        export function route(req: Request, res: Response) { return res.send(escapeHtml(req.query.name)); }
+        app.get('/page', route);
+  - case_id: holdout-vulnerable-end
+    split: holdout
+    vulnerable: true
+    files:
+      app.ts: |
+        export function route(req: Request, res: Response) { return res.end(req.body.message); }
+        app.post('/page', route);
+  - case_id: holdout-safe-constant
+    split: holdout
+    vulnerable: false
+    files:
+      app.ts: |
+        export function health(req: Request, res: Response) { void req.query.unused; return res.send('healthy'); }
+        app.get('/health', health);

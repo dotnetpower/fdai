@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: c1535ee1dae21f265ded07f6755adc40f84b4a16
+translation_source_sha: 85b31083edcd01a0960284609e5b89e335c97601
 translation_revised: 2026-10-15
 ---
 # 프로젝트 구조
@@ -118,6 +118,19 @@ Core의 인수인계 부트스트랩은 디렉터리 조회 전에 실제 문서
 Bragi 호출 전에 인가를 확인하고, `runtime/bootstrap_agent_discussion.py`는 명시적 설치 설정과
 독립 인가의 선행 조건이 갖춰졌을 때만 연결합니다. 연결이 없으면 보류합니다. 이 변경은 행동,
 승인, 승격 또는 클라우드 관측 권한을 부여하지 않으며 Console 표시나 실제 환경 수락을 증명하지 않습니다.
+
+StateStore 보존 정리는 페이지 읽기와 같은 비교 규칙을 사용하는 선택적 필드/값 필터를 받습니다.
+프로바이더는 선택과 삭제에 필터를 원자적으로 적용하며, 생략하면 기존 접두사 전체 보존 정책을
+유지합니다. Saga는 `status=published`로 완료된 감사 발신함 기록만 정리하고 대기 또는 게시
+권한을 확보한 기록은 삭제하지 않습니다. 이 프로바이더 중립 확장은 권한이나 서비스 경계를
+추가하지 않으며 감사 항목을 삭제하지 않습니다.
+
+`StateStoreAuditReader`는 선택적으로 구현하는 공급자 중립 이행 인터페이스입니다. 메모리와
+PostgreSQL은 한 스냅샷에서 저장소와 분리된 감사 본문을 오래된 순서로 반환합니다. 읽기는
+1-512개로 제한하고 생략된 행이 있는지 명시합니다. 일부만 읽은 결과로 기록의 부재나 전체
+이력을 입증할 수는 없습니다. Saga는 제한된 이전 이력의 이행을 검증할 때만 이 인터페이스를
+사용하며, 공유 기록은 기존의 감사 포함 원자적 리비전 CAS를 사용합니다. 에이전트가 구체적인
+저장소 어댑터를 import하거나 별도 권한을 얻지는 않습니다.
 
 테스트 맥락 선택지는 권한이 없는 projection schema로 공유 service-contract SDK를 확장합니다. Operator는 인증과 선택지 렌더링을 소유하고, Core는 계속 허용 및 수명 주기 권한을 유지합니다.
 
@@ -676,6 +689,23 @@ Container Apps는
 코드 사례와 의존성 사례를 포함한 레이블 평가 자료는 `rule-catalog/code-security/evaluation/`에 있으며,
 순수 함수로 이루어진 `evaluation.py` 평가 도구가 측정합니다.
 [코드 보안 점검 결과](../operations/code-security-findings-ko.md)를 참조하세요.
+
+FDAI 자체 분석 엔진도 같은 경계 안에 유지합니다. `analysis_contracts.py`는 엄격한 그래프, 규칙,
+경로 근거를 소유하고, `python_graph.py`와 `python_analysis.py`는 범위가 제한된 읽기 전용 Python
+근거를 만듭니다. `analysis_build_context.py`는 소스 바이트를 구성으로 취급하지 않고 언어 루트와
+빌드 구성을 결속합니다. `analysis_incremental.py`는 엄격한 스냅샷 재사용과 보수적인 무효화를
+소유하며, 스캔 작업은 저장소와 규칙별 캐시를 소유합니다. `analysis_graph_flow.py`는 언어 중립
+문맥 경로 탐색을 소유합니다.
+`typescript_analysis.py`는 `tools/code-security-typescript-frontend/`의 루트 제한 Compiler API
+프로세스를 검증하고, `java_analysis.py`는 실험적 tree-sitter Java SQL 시나리오를 소유합니다.
+`analysis_sarif.py`는 모든 결과를 정본 수집 경로로 돌려보냅니다.
+분석 규칙, 구성 요소 약관, 고정 코퍼스는 `rule-catalog/code-security/`에 유지합니다. 전달 계층은
+이 레인을 조립하고 prepared 및 Kata 스캔에서 결정론적으로 재현할 뿐이며, 스캐너 이미지는
+컴파일러와 프런트엔드를 고정합니다. 새 서비스, pantheon 에이전트, 저장소 쓰기, 승인 또는 실행
+권한을 추가하지 않습니다.
+[코드 보안 분석 엔진](../operations/code-security-analysis-engine-ko.md)을 참조하세요.
+두 프런트엔드는 소스 읽기를 정확한 루트에 연결하고 근거를 수락하기 전에 그래프 예산을
+강제합니다. 프런트엔드 실패는 작업자 또는 권한 경계를 바꾸지 않고 커버리지를 낮춥니다.
 
 ## 리포지토리 스크립트 레이아웃
 

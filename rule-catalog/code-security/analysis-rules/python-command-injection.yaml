@@ -1,0 +1,15 @@
+schema_version: 1.0.0
+rule_id: fdai.python.command-injection
+version: 1.0.0
+analysis_kind: graph_flow
+languages: [python]
+cwe_ids: [78]
+selectors:
+  - {role: source, symbol: flask.request.args}
+  - {role: source, symbol: request.args}
+  - {role: sink, symbol: os.system, argument_index: 0}
+  - {role: sink, symbol: subprocess.getoutput, argument_index: 0}
+  - {role: propagator, symbol: strip}
+  - {role: sanitizer, symbol: shlex.quote, security_context: shell-argument-quoting}
+vulnerable_cases: [python-command-cross-file]
+safe_cases: [python-command-quoted]

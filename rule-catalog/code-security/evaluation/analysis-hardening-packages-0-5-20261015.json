@@ -1,0 +1,66 @@
+{
+  "schema_version": "1.0.0",
+  "receipt_id": "fdai.code-security.analysis-hardening.packages-0-5.20261015",
+  "reviewed_base_commit": "0396e2ff49",
+  "reviewed_change": "current hardening change",
+  "rounds": [
+    {"round": 1, "lens": "filesystem-root-symlink-toctou", "accepted_severity": "medium"},
+    {"round": 2, "lens": "subprocess-output-time-memory", "accepted_severity": "medium"},
+    {"round": 3, "lens": "compiler-plugin-target-execution", "accepted_severity": "none"},
+    {"round": 4, "lens": "schema-canonical-replay-integrity", "accepted_severity": "medium"},
+    {"round": 5, "lens": "graph-context-budget-determinism", "accepted_severity": "none"},
+    {"round": 6, "lens": "incremental-invalidation-stale-reuse", "accepted_severity": "none"},
+    {"round": 7, "lens": "evaluation-split-promotion-fairness", "accepted_severity": "none"},
+    {"round": 8, "lens": "sarif-operator-console-trust", "accepted_severity": "medium"},
+    {"round": 9, "lens": "repair-authority-test-rescan-replay", "accepted_severity": "medium"},
+    {"round": 10, "lens": "runtime-supply-chain-least-toolchain", "accepted_severity": "medium"},
+    {"round": 11, "lens": "scan-acceptance-binding-parity", "accepted_severity": "medium"},
+    {"round": 12, "lens": "concurrency-atomic-cache", "accepted_severity": "none"},
+    {"round": 13, "lens": "filesystem-root-symlink-toctou", "accepted_severity": "none"},
+    {"round": 14, "lens": "subprocess-output-time-memory", "accepted_severity": "none"},
+    {"round": 15, "lens": "compiler-plugin-target-execution", "accepted_severity": "none"},
+    {"round": 16, "lens": "schema-canonical-replay-integrity", "accepted_severity": "none"},
+    {"round": 17, "lens": "graph-context-budget-determinism", "accepted_severity": "none"},
+    {"round": 18, "lens": "incremental-invalidation-stale-reuse", "accepted_severity": "none"},
+    {"round": 19, "lens": "evaluation-split-promotion-fairness", "accepted_severity": "none"},
+    {"round": 20, "lens": "sarif-operator-console-trust", "accepted_severity": "none"},
+    {"round": 21, "lens": "repair-authority-test-rescan-replay", "accepted_severity": "none"},
+    {"round": 22, "lens": "runtime-supply-chain-least-toolchain", "accepted_severity": "none"},
+    {"round": 23, "lens": "scan-acceptance-binding-parity", "accepted_severity": "none"},
+    {"round": 24, "lens": "concurrency-atomic-cache", "accepted_severity": "none"}
+  ],
+  "repairs": [
+    "compiler-private-nofollow-staging",
+    "bounded-compiler-and-external-stderr",
+    "bounded-java-manifest-paths",
+    "typescript-pre-serialization-output-budget",
+    "strict-roslyn-ordered-path-contract",
+    "java-compiler-binding-required-in-scan-job",
+    "operator-malformed-analysis-artifact-rejection",
+    "repair-tests-bound-to-authoritative-issue-claim",
+    "owned-sarif-metadata-trust-flag",
+    "runtime-without-dotnet-sdk-or-gcc"
+  ],
+  "rejected_findings": [
+    "diff-path-symlink-following-impossible-no-filesystem-read",
+    "typescript-plugin-execution-impossible-root-confined-custom-host",
+    "java-annotation-processing-already-disabled",
+    "roslyn-project-analyzer-loading-impossible-syntax-tree-only",
+    "graph-operation-fencepost-not-reproducible",
+    "graph-order-nondeterminism-not-reproducible-sorted-output",
+    "incremental-comment-change-stale-reuse-not-reproducible-digest-invalidation",
+    "flowstep-object-identity-mismatch-impossible-frozen-dataclass-value-equality"
+  ],
+  "final_findings": {"critical": 0, "high": 0, "medium": 0, "low": 2},
+  "low_residuals": [
+    "managed runtime retains a full pinned JDK instead of a jlink-minimized image",
+    "Java source-launch mode recompiles the trusted helper for each process invocation"
+  ],
+  "claims": {
+    "codeql_parity": false,
+    "production_promotion": false,
+    "actual_opengrep_comparison": true,
+    "rebuilt_image_validation": true,
+    "runtime_image": "sha256:88bda09d79120ed54bd202634350447e0ca7973359b568202069174931a36804"
+  }
+}

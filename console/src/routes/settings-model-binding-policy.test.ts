@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildModelBindingPolicy,
   createModelBindingRequestKeyStore,
+  modelBindingDraftsAreDirty,
   modelBindingT2Conflict,
 } from "./settings-model-binding-policy";
 import type { ModelCapabilityView, ModelSettingsView } from "./settings-models.model";
@@ -15,10 +16,58 @@ const capabilities: readonly ModelCapabilityView[] = [
 const view = {
   capabilities,
   resolvedMetadata: { digest: "sha256:" + "a".repeat(64) },
-  bindingPolicy: { environment: "staging" },
+  bindingPolicy: {
+    environment: "staging",
+    capabilities: Object.fromEntries(capabilities.map((item) => [item.name, {
+      selectionMode: "auto",
+      publisher: null,
+      family: null,
+      versionPolicy: null,
+      sku: null,
+      capacity: null,
+    }])),
+  },
 } as ModelSettingsView;
 
 describe("model binding policy editor", () => {
+  it("keeps an unchanged policy out of the save path", () => {
+    expect(modelBindingDraftsAreDirty(view, {
+      "t1.embedding": {
+        selectionMode: "auto",
+        publisher: "OpenAI",
+        family: "text-embedding-3-small",
+        sku: "Standard",
+        capacityValue: 1000,
+      },
+      "t2.reasoner.primary": {
+        selectionMode: "auto",
+        publisher: "OpenAI",
+        family: "gpt-4o",
+        sku: "Standard",
+        capacityValue: 1000,
+      },
+      "t2.reasoner.secondary": {
+        selectionMode: "auto",
+        publisher: "Anthropic",
+        family: "claude-opus-4",
+        sku: "Standard",
+        capacityValue: 1000,
+      },
+    })).toBe(false);
+  });
+
+  it("detects a changed capability draft", () => {
+    expect(modelBindingDraftsAreDirty(view, {
+      "t1.embedding": {
+        selectionMode: "hil-only",
+        publisher: "OpenAI",
+        family: "text-embedding-3-small",
+        sku: "Standard",
+        capacityValue: 1000,
+      },
+    })).toBe(true);
+  });
+
   it("serializes every capability and preserves PTU without direct authority", () => {
     const policy = buildModelBindingPolicy(view, {
       "t1.embedding": {

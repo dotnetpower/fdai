@@ -160,6 +160,64 @@ def test_training_evaluator_cannot_replace_the_frozen_case_identity(substitution
         evaluate_training_contract(corpus, evaluator=SubstitutingEvaluator())
 
 
+@pytest.mark.parametrize("changed", ["baseline", "candidate", "nested_candidate", "support_type"])
+async def test_training_evaluator_cannot_mutate_frozen_revisions(changed: str) -> None:
+    class MutatingEvaluator(_DeterministicEvaluator):
+        def evaluate(
+            self,
+            *,
+            baseline_revision: Mapping[str, Any],
+            candidate_revision: Mapping[str, Any],
+            holdout_cases: Sequence[IntentTrainingEvidence],
+        ) -> Sequence[IntentTrainingEvaluationResult]:
+            results = super().evaluate(
+                baseline_revision=baseline_revision,
+                candidate_revision=candidate_revision,
+                holdout_cases=holdout_cases,
+            )
+            assert isinstance(baseline_revision, dict)
+            assert isinstance(candidate_revision, dict)
+            if changed == "baseline":
+                baseline_revision["revision"] = "substituted"
+            elif changed == "candidate":
+                candidate_revision["candidate_digest"] = "sha256:" + "0" * 64
+            elif changed == "nested_candidate":
+                candidate_revision["calibration_entries"][0]["owner"] = "Freyr"
+            else:
+                candidate_revision["calibration_entries"][0]["support_count"] = True
+            return results
+
+    state = InMemoryStateStore()
+    bus = InMemoryBus(registry=load_pantheon())
+    bragi = Bragi(state_store=state)
+    bragi.bind_bus(bus)
+    bragi.register_intent_training_evaluator(MutatingEvaluator())
+    corpus = (
+        _evidence("holdout", _PRINCIPAL_A, _INPUT_A, baseline_owner="Njord", targeted=False),
+        _evidence("target", _PRINCIPAL_B, _INPUT_B, baseline_owner=None, targeted=True),
+    )
+    review = ReviewedIntentTrainingPromotion("review-1", _REVIEWER, "approval:review-1")
+    with pytest.raises(ValueError, match="preserve the frozen revisions"):
+        await bragi.run_intent_training(corpus, reviewed_promotion=review)
+    assert not bus.messages_on("object.post-turn-review")
+    assert not await state.read_states("pantheon/bragi/intent-training/", limit=20)
+    assert not state.audit_entries
+
+
+def test_training_evaluator_retained_reference_cannot_change_returned_candidate() -> None:
+    evaluator = _DeterministicEvaluator()
+    corpus = (
+        _evidence("holdout", _PRINCIPAL_A, _INPUT_A, baseline_owner="Njord", targeted=False),
+        _evidence("target", _PRINCIPAL_B, _INPUT_B, baseline_owner=None, targeted=True),
+    )
+    _, candidate, passed = evaluate_training_contract(corpus, evaluator=evaluator)
+    assert passed and candidate is not None
+    evaluation_candidate = evaluator.calls[0][1]
+    assert isinstance(evaluation_candidate, dict)
+    evaluation_candidate["calibration_entries"][0]["owner"] = "Freyr"
+    assert candidate["calibration_entries"][0]["owner"] == "Njord"
+
+
 def test_training_candidate_cannot_share_an_input_with_the_holdout() -> None:
     evaluator = _DeterministicEvaluator()
     corpus = (

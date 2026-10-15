@@ -636,8 +636,15 @@ def test_scan_runner_image_pins_every_tool_and_binds_every_scanner() -> None:
     assert re.search(r"ARG DOTNET_SDK_SHA512=[0-9a-f]{128}\n", dockerfile)
     assert '"${DOTNET_SDK_SHA512}  dotnet.tar.gz" | sha512sum -c -' in dockerfile
     stages = re.findall(r"^FROM \S+ AS ([a-z-]+)$", dockerfile, flags=re.MULTILINE)
-    assert stages[-1] == "runtime" and {"prover", "prover-javascript"} <= set(stages)
+    assert stages[-1] == "runtime" and {
+        "analysis-runtime",
+        "prover",
+        "prover-javascript",
+    } <= set(stages)
     assert "FROM prover-javascript AS prover" in dockerfile
+    assert "FROM analysis-runtime AS prover-javascript" in dockerfile
+    assert "FROM analysis-managed-runtime AS runtime" in dockerfile
+    analysis_runtime = dockerfile.split(" AS analysis-runtime\n", 1)[1].split("\nFROM ", 1)[0]
     javascript = dockerfile.split(" AS prover-javascript\n", 1)[1].split("\nFROM ", 1)[0]
     prover = dockerfile.split(" AS prover\n", 1)[1].split("\nFROM ", 1)[0]
     for toolchain in ("gcc", "/usr/lib/jvm/msopenjdk-21", "/usr/lib/dotnet"):
@@ -652,9 +659,29 @@ def test_scan_runner_image_pins_every_tool_and_binds_every_scanner() -> None:
         'test "$(/usr/bin/node -p process.versions.undici)" = "${NODE_UNDICI_VERSION}"'
         in dockerfile
     )
-    assert "COPY --from=node /usr/bin/node /usr/bin/node" in javascript
-    assert "COPY --from=node /usr/share/licenses/nodejs/" in javascript
-    assert "COPY --from=node /usr/share/fdai/node-runtime.cdx.json" in javascript
+    assert "COPY --from=node /usr/bin/node /usr/bin/node" in analysis_runtime
+    assert "COPY --from=node /usr/share/licenses/nodejs/" in analysis_runtime
+    assert "COPY --from=node /usr/share/fdai/node-runtime.cdx.json" in analysis_runtime
+    assert "COPY --from=node /usr/lib/node_modules/typescript/" in analysis_runtime
+    assert "COPY tools/code-security-typescript-frontend/frontend.cjs" in analysis_runtime
+    assert "NODE_PATH=/usr/lib/node_modules" in analysis_runtime
+    managed = dockerfile.split(" AS analysis-managed-runtime\n", 1)[1].split("\nFROM ", 1)[0]
+    csharp_builder = dockerfile.split(" AS csharp-frontend-builder\n", 1)[1].split("\nFROM ", 1)[0]
+    assert "FdaiJavaSymbols.java" in managed
+    assert "Fdai.CSharp.Frontend.csproj" in csharp_builder
+    assert "COPY --from=csharp-frontend-builder /out/ /opt/fdai/csharp/" in managed
+    assert "COPY --from=dotnet /usr/lib/dotnet/shared/Microsoft.NETCore.App/" in managed
+    assert "/usr/lib/dotnet/sdk/" not in managed
+    assert "gcc" not in managed and "gcc-c++" not in managed
+    assert "FDAI_JAVA_FRONTEND=/opt/fdai/java/FdaiJavaSymbols.java" in managed
+    assert "FDAI_CSHARP_FRONTEND=/opt/fdai/csharp/Fdai.CSharp.Frontend.dll" in managed
+    dockerignore = (_REPO_ROOT / ".dockerignore").read_text(encoding="utf-8")
+    assert "!tools/code-security-typescript-frontend/frontend.cjs" in dockerignore
+    assert "!tools/code-security-java-frontend/FdaiJavaSymbols.java" in dockerignore
+    assert "!tools/code-security-csharp-frontend/Program.cs" in dockerignore
+    assert "ARG TYPESCRIPT_VERSION=5.9.3" in dockerfile
+    assert re.search(r"ARG TYPESCRIPT_SHA512=[0-9a-f]{128}\n", dockerfile)
+    assert '"${TYPESCRIPT_SHA512}  typescript.tgz" | sha512sum -c -' in dockerfile
     assert "gcc" not in javascript and "glibc-devel" not in javascript
     assert 'LABEL org.fdai.code-security.proof-profile="javascript"' in javascript
     assert 'LABEL org.fdai.code-security.proof-profile="all"' in prover

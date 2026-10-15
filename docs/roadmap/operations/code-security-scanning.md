@@ -17,7 +17,8 @@ results feed the canonical issue model, severity, priority, and remediation pack
 > **Status:** The deterministic lane (acquisition, sandbox, scanner catalog, FDAI rule pack, scan
 > job, and CLI), the off-path LLM lens lane, the Python and taint weakness verifiers with their
 > promotion gate, the opt-in proof lane for Python, JavaScript, native, Java, and C#, local folder
-> scans with reports, and Console scan requests for registered repositories are implemented. See the
+> scans with reports, Console scan requests for registered repositories, and the FDAI-owned Python
+> interprocedural SQL-injection lane are implemented. See the
 > [implementation ledger](../../roadmap-implementation/operations/code-security-scanning.md).
 
 ## Design at a glance
@@ -138,6 +139,26 @@ No third-party rule text is copied, so the pack carries no third-party rule lice
 are deliberately vulnerable and never imported or executed. The Python fixture opts out of
 repository lint with a file-level directive instead of a repository-wide exclusion.
 
+## FDAI-owned analysis lane
+
+The owned lane loads strict, versioned graph-flow rules and uses the standard Python AST, a pinned
+TypeScript Compiler API process, or an experimental tree-sitter Java SQL frontend without
+executing repository code. Python and TypeScript rules cover SQL injection, command injection,
+path traversal, and cross-site scripting. Java currently covers SQL injection only and reports
+ambiguous dispatch as incomplete. The lane records files, functions, symbols, basic blocks, calls,
+source and sink nodes, ordered path evidence, stable digests, and every parse, resolution,
+recursion, work-budget, or unsupported-frontend limit. The TypeScript CompilerHost reads only the
+exact source root and its pinned standard library. Python can reuse a strict unchanged snapshot;
+changed inputs conservatively run a full analysis after dependency-aware invalidation planning.
+
+The lane renders SARIF 2.1.0 and re-enters the same bounded ingestion, canonical issue, receipt,
+review, export, prepared-result replay, and Kata reconstruction paths as other deterministic
+producers. A finding starts at `reported`; the owned lane does not bypass verifier promotion.
+The separate frozen Python, TypeScript, and Java synthetic baselines each contain one vulnerable
+and one safe case in both `dev` and `holdout`, and currently measure precision and recall 1.0 with
+no unsupported case. Those receipts prove the harnesses and initial vertical slices, not real-code
+calibration, language parity, production promotion, or CodeQL parity.
+
 ## Coverage receipt
 
 The job builds the receipt from SARIF run metadata and its own observations:
@@ -234,12 +255,15 @@ findings as resolved merely because the Go/Python dependency repairs pass.
 
 The entrypoint has two steps:
 
-1. `fdai-scan-runner prepare SOURCE_DIR` refreshes the Trivy and OSV offline databases into the
-   cache. It's the only step that uses the network. A folder without a lockfile has no
-   dependencies to scan, so OSV-Scanner's "no package sources" exit doesn't fail the step.
-2. `fdai-scan-runner scan ...` binds every catalog scanner, the cache, and each proof toolchain
-   the image carries, then runs the scan job. All scanners run inside the bubblewrap sandbox with
-   no network, and the toolchains take effect only with `--prove`.
+1. `fdai-scan-runner prepare-snapshot SOURCE_DIR ROOT` refreshes the Trivy and OSV offline
+  databases in private staging, publishes a read-only digest-named cache generation, and
+  atomically advances `ROOT/current.json`. It's the only step that uses the network. A folder
+  without a lockfile has no dependencies to scan, so OSV-Scanner's "no package sources" exit
+  doesn't fail the step.
+2. `fdai-scan-runner scan ...` validates and resolves the published cache pointer, binds every
+  catalog scanner and each proof toolchain the image carries, then runs the scan job. All scanners
+  run inside the bubblewrap sandbox with no network, and the toolchains take effect only with
+  `--prove`.
 
 bubblewrap needs unprivileged user namespaces under the execution venue's approved security
 policy. A namespace denial means that venue is unavailable, not a completed scan. The #2061
@@ -301,8 +325,8 @@ A snapshot has no commit, so it can't be the base of a remediation pack or of fi
 Commit first when you need either.
 
 `scripts/operations/code-security-scan.sh FOLDER` runs the same scan in the scan runner image. It
-builds the image and downloads the offline databases on first use, then scans with
-`--network none`:
+builds the image and publishes an immutable offline-database cache generation on first use, then
+validates that generation and scans with `--network none`:
 
 ```bash
 scripts/operations/code-security-scan.sh ~/src/payments-api --include-uncommitted --locale ko
@@ -954,6 +978,7 @@ with the request id.
 | To learn about | Read |
 |----------------|------|
 | Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/operations/code-security-scanning.md) |
+| Planned owned code graph and interprocedural analysis | [Code Security Analysis Engine](code-security-analysis-engine.md) |
 | Issues, severity, priority, and remediation packs | [Code Security Findings](code-security-findings.md) |
 | LLM tiers and data residency | [LLM Strategy](../architecture/llm-strategy.md) |
 | Tracking issue | [Issue #1966](https://github.com/dotnetpower/fdai/issues/1966) |

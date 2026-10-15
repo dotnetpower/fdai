@@ -22,10 +22,16 @@ import posixpath
 import re
 import unicodedata
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from urllib.parse import unquote, urlsplit
 
-from fdai.core.security.code_findings.models import FlowStep, Lane, Occurrence, SourceLocation
+from fdai.core.security.code_findings.models import (
+    AnalysisPathEvidence,
+    FlowStep,
+    Lane,
+    Occurrence,
+    SourceLocation,
+)
 from fdai.core.security.code_findings.sarif_runs import RunMetadata, run_metadata
 
 _REVISION = re.compile(r"^[0-9a-f]{40}([0-9a-f]{24})?$")
@@ -40,6 +46,10 @@ _UNSAFE_CHARS = re.compile(
 )
 _PACKAGE_KEYS = ("purl", "packageName", "package", "PkgName", "pkgName")
 _VERSION_KEYS = ("installedVersion", "InstalledVersion", "packageVersion", "version")
+_DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
+_VERSION = re.compile(r"^\d+\.\d+\.\d+$")
+_IDENTIFIER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,255}$")
+_FLOW_ROLES = frozenset({"source", "flow", "call", "return", "sanitizer", "sink"})
 
 
 class SarifIngestError(ValueError):
@@ -71,6 +81,8 @@ class SarifIngestContext:
     """Catalog producer name when FDAI ran the scanner itself. It replaces the tool's
     self-reported driver name, which varies by edition (``Opengrep OSS``) and is shared across
     modes (two Trivy scanners), so coverage receipts bind to the scanner that actually ran."""
+    trusted_analysis_evidence: bool = False
+    """Interpret FDAI graph/path metadata only for SARIF rendered inside the owned scan job."""
 
     def __post_init__(self) -> None:
         if _REVISION.fullmatch(self.revision) is None:
@@ -366,6 +378,9 @@ def _occurrence(
             (clean_text(key, 64), clean_text(value, 128))
             for key, value in list(_as_map(result.get("partialFingerprints")).items())[:8]
         ),
+        analysis_evidence=(
+            _analysis_evidence(props, limits) if ctx.trusted_analysis_evidence else None
+        ),
     )
 
 
@@ -375,12 +390,95 @@ def _flow(result: Mapping[str, object], ctx: SarifIngestContext) -> tuple[FlowSt
         for thread in _as_list(_as_map(flow).get("threadFlows"), 4):
             steps: list[FlowStep] = []
             for step in _as_list(_as_map(thread).get("locations"), limits.max_flow_steps):
-                path, start, _ = _physical(_as_map(step).get("location"), ctx)
+                record = _as_map(step)
+                path, start, end = _physical(record.get("location"), ctx)
                 if path is not None:
-                    steps.append(FlowStep(path=path, line=start))
+                    properties = (
+                        _as_map(record.get("properties")) if ctx.trusted_analysis_evidence else {}
+                    )
+                    role = clean_text(properties.get("fdaiRole"), 16)
+                    node_id = clean_text(properties.get("fdaiNodeId"), limits.max_identifier)
+                    raw_context = properties.get("fdaiCallContext")
+                    context = (
+                        tuple(
+                            clean_text(item, limits.max_identifier)
+                            for item in raw_context
+                            if _IDENTIFIER.fullmatch(clean_text(item, limits.max_identifier))
+                        )
+                        if isinstance(raw_context, list) and len(raw_context) <= 16
+                        else ()
+                    )
+                    steps.append(
+                        FlowStep(
+                            path=path,
+                            line=start,
+                            kind=role if role in _FLOW_ROLES else "flow",  # type: ignore[arg-type]
+                            end_line=end,
+                            node_id=node_id if _IDENTIFIER.fullmatch(node_id) else None,
+                            call_context=context,
+                        )
+                    )
             if steps:
+                if steps[0].kind == "flow":
+                    steps[0] = replace(steps[0], kind="source")
+                if len(steps) > 1 and steps[-1].kind == "flow":
+                    steps[-1] = replace(steps[-1], kind="sink")
                 return tuple(steps)
     return ()
+
+
+def _analysis_evidence(
+    properties: Mapping[str, object], limits: SarifLimits
+) -> AnalysisPathEvidence | None:
+    path_id = clean_text(properties.get("fdaiPathId"), limits.max_identifier)
+    path_digest = clean_text(properties.get("fdaiPathDigest"), 71)
+    graph_digest = clean_text(properties.get("fdaiGraphDigest"), 71)
+    graph_schema = clean_text(properties.get("fdaiGraphSchemaVersion"), 32)
+    path_schema = clean_text(properties.get("fdaiPathSchemaVersion"), 32)
+    rule_version = clean_text(properties.get("fdaiRuleVersion"), 32)
+    raw_frontends = properties.get("fdaiFrontendVersions")
+    raw_coverage = properties.get("fdaiCoverageLimits")
+    if not (
+        _IDENTIFIER.fullmatch(path_id)
+        and _DIGEST.fullmatch(path_digest)
+        and _DIGEST.fullmatch(graph_digest)
+        and _VERSION.fullmatch(graph_schema)
+        and _VERSION.fullmatch(path_schema)
+        and _VERSION.fullmatch(rule_version)
+        and isinstance(raw_frontends, Mapping)
+        and 1 <= len(raw_frontends) <= 16
+        and isinstance(raw_coverage, list)
+        and len(raw_coverage) <= 64
+    ):
+        return None
+    frontends = tuple(
+        sorted(
+            (
+                clean_text(key, limits.max_identifier),
+                clean_text(value, 32),
+            )
+            for key, value in raw_frontends.items()
+            if _IDENTIFIER.fullmatch(clean_text(key, limits.max_identifier))
+            and _VERSION.fullmatch(clean_text(value, 32))
+        )
+    )
+    coverage = tuple(
+        clean_text(item, limits.max_identifier)
+        for item in raw_coverage
+        if _IDENTIFIER.fullmatch(clean_text(item, limits.max_identifier))
+    )
+    if len(frontends) != len(raw_frontends) or len(coverage) != len(raw_coverage):
+        return None
+    return AnalysisPathEvidence(
+        path_id=path_id,
+        path_digest=path_digest,
+        graph_digest=graph_digest,
+        graph_schema_version=graph_schema,
+        path_schema_version=path_schema,
+        rule_version=rule_version,
+        frontend_versions=frontends,
+        coverage_limits=coverage,
+    )
 
 
 __all__ = [

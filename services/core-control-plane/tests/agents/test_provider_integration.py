@@ -12,10 +12,15 @@ usable against a real Postgres + Kafka backend without change.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from collections.abc import Mapping
+from dataclasses import asdict, replace
 
 import pytest
+from fdai.agents._framework import audit_chain_journal
+from fdai.agents._framework.adapters import AuditChainError, AuditEntry, _digest
+from fdai.agents._framework.audit_chain_journal import AUDIT_CHECKPOINT_KEY, entry_hash
 from fdai.agents._framework.bus_bridge import AgentHandlerPhase, EventBusBridge
 from fdai.agents._framework.provider_adapters import (
     StateStoreAuditChainAdapter,
@@ -1048,6 +1053,254 @@ def test_stop_drains_stream_cleanup_that_crosses_first_timeout() -> None:
 # ---------------------------------------------------------------------------
 
 
+async def _append_saga_entry(
+    chain: StateStoreAuditChainAdapter, correlation_id: str = "shared"
+) -> AuditEntry:
+    return await chain.append(
+        principal="Saga", topic="object.audit-entry", correlation_id=correlation_id, payload={}
+    )
+
+
+async def test_state_store_audit_chain_retries_overlapping_replicas() -> None:
+    class _RacingStore(InMemoryStateStore):
+        async def read_state(self, key: str) -> Mapping[str, object] | None:
+            result = await super().read_state(key)
+            await asyncio.sleep(0)
+            return result
+
+    store = _RacingStore()
+    first, second = StateStoreAuditChainAdapter(store), StateStoreAuditChainAdapter(store)
+    for index in range(10):
+        results = await asyncio.gather(
+            _append_saga_entry(first, f"first-{index}"),
+            _append_saga_entry(second, f"second-{index}"),
+        )
+        assert sorted(entry.seq for entry in results) == [index * 2, index * 2 + 1]
+    restarted = StateStoreAuditChainAdapter(store)
+    assert (await _append_saga_entry(restarted)).seq == 20
+    restarted.verify()
+    assert await store.verify_chain()
+
+
+async def test_state_store_audit_chain_failed_transaction_preserves_head_and_mirror() -> None:
+    class _FailingStore(InMemoryStateStore):
+        fail_audit = False
+
+        def _append_audit_locked(self, entry: Mapping[str, object]) -> None:
+            super()._append_audit_locked(entry)
+            if self.fail_audit:
+                raise RuntimeError("injected audit transaction failure")
+
+    store = _FailingStore()
+    chain = StateStoreAuditChainAdapter(store)
+    original = await _append_saga_entry(chain)
+    head_before = await store.read_state(AUDIT_CHECKPOINT_KEY)
+    rows_before = tuple(store.audit_entries)
+    store.fail_audit = True
+    with pytest.raises(RuntimeError, match="injected audit transaction failure"):
+        await _append_saga_entry(chain, "failed")
+    assert await store.read_state(AUDIT_CHECKPOINT_KEY) == head_before
+    assert tuple(store.audit_entries) == rows_before
+    assert chain.entries == [original]
+    store.fail_audit = False
+    assert (await _append_saga_entry(StateStoreAuditChainAdapter(store))).seq == 1
+
+
+async def test_state_store_audit_chain_cancellation_does_not_expose_uncommitted_entry() -> None:
+    class _BlockedStore(InMemoryStateStore):
+        def __init__(self) -> None:
+            super().__init__()
+            self.started = asyncio.Event()
+
+        async def compare_and_set_state_with_audit(self, *args, **kwargs) -> bool:
+            self.started.set()
+            await asyncio.Event().wait()
+            raise AssertionError("blocked transaction must be canceled")
+
+    store = _BlockedStore()
+    chain = StateStoreAuditChainAdapter(store)
+    task = asyncio.create_task(_append_saga_entry(chain))
+    await store.started.wait()
+    head_before = await store.read_state(AUDIT_CHECKPOINT_KEY)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert chain.entries == []
+    assert tuple(store.audit_entries) == ()
+    assert await store.read_state(AUDIT_CHECKPOINT_KEY) == head_before
+
+
+async def test_state_store_audit_chain_conflict_budget_holds_without_local_fallback() -> None:
+    class _ConflictedStore(InMemoryStateStore):
+        attempts = 0
+
+        async def compare_and_set_state_with_audit(self, *args, **kwargs) -> bool:
+            self.attempts += 1
+            return False
+
+    store = _ConflictedStore()
+    chain = StateStoreAuditChainAdapter(store)
+    with pytest.raises(AuditChainError, match="contention budget exhausted"):
+        await _append_saga_entry(chain)
+    assert store.attempts == 8
+    assert chain.entries == []
+    assert tuple(store.audit_entries) == ()
+
+
+async def test_state_store_audit_chain_deadline_holds_without_local_fallback(monkeypatch) -> None:
+    class _BlockedStore(InMemoryStateStore):
+        async def compare_and_set_state_with_audit(self, *args, **kwargs) -> bool:
+            await asyncio.Event().wait()
+            raise AssertionError("blocked transaction must time out")
+
+    original_timeout = asyncio.timeout
+    monkeypatch.setattr(asyncio, "timeout", lambda seconds: original_timeout(0))
+    store = _BlockedStore()
+    chain = StateStoreAuditChainAdapter(store)
+    with pytest.raises(AuditChainError, match="deadline exceeded"):
+        await _append_saga_entry(chain)
+    assert chain.entries == []
+    assert tuple(store.audit_entries) == ()
+
+
+async def test_state_store_audit_chain_byte_budget_holds_without_head_advance() -> None:
+    store = InMemoryStateStore()
+    chain = StateStoreAuditChainAdapter(store)
+    original = await _append_saga_entry(chain)
+    head_before = await store.read_state(AUDIT_CHECKPOINT_KEY)
+    with pytest.raises(AuditChainError, match="byte budget"):
+        await _append_saga_entry(chain, "x" * (512 * 1_024))
+    assert await store.read_state(AUDIT_CHECKPOINT_KEY) == head_before
+    assert chain.entries == [original]
+    assert len(tuple(store.audit_entries)) == 1
+
+
+def test_state_store_audit_chain_byte_budget_includes_content_digest(monkeypatch) -> None:
+    journal = audit_chain_journal.AuditJournal(1, 0, "0" * 64, ())
+    stored = journal.encode()
+    body = {key: value for key, value in stored.items() if key != "content_digest"}
+    monkeypatch.setattr(audit_chain_journal, "_JOURNAL_BYTE_LIMIT", len(json.dumps(body).encode()))
+    with pytest.raises(AuditChainError, match="byte budget"):
+        journal.encode()
+
+
+@pytest.mark.parametrize("limit", [0, 513, True, "1"])
+async def test_state_store_audit_reader_rejects_invalid_limits(limit) -> None:
+    with pytest.raises(ValueError, match="limit must be"):
+        await InMemoryStateStore().read_audit_entries(limit=limit)
+
+
+@pytest.mark.parametrize("corruption", ["revision", "base_length", "sequence", "digest", "extra"])
+async def test_state_store_audit_chain_rejects_tampered_shared_journal(corruption: str) -> None:
+    store = InMemoryStateStore()
+    original = StateStoreAuditChainAdapter(store)
+    await _append_saga_entry(original)
+    stored = dict(await store.read_state(AUDIT_CHECKPOINT_KEY))
+    if corruption in {"revision", "base_length"}:
+        stored[corruption] = True
+    elif corruption == "sequence":
+        stored["entries"][0]["seq"] = True
+    elif corruption == "digest":
+        stored["content_digest"] = "f" * 64
+    else:
+        stored["unreviewed"] = True
+    await store.write_state(AUDIT_CHECKPOINT_KEY, stored)
+    rows_before = tuple(store.audit_entries)
+    restarted = StateStoreAuditChainAdapter(store)
+    with pytest.raises(AuditChainError):
+        await _append_saga_entry(restarted)
+    assert await store.read_state(AUDIT_CHECKPOINT_KEY) == stored
+    assert tuple(store.audit_entries) == rows_before
+    assert restarted.entries == []
+
+
+@pytest.mark.parametrize("checkpoint", [False, True])
+@pytest.mark.parametrize("legacy_hash", [False, True])
+async def test_state_store_audit_chain_migrates_complete_legacy_history(
+    checkpoint: bool, legacy_hash: bool
+) -> None:
+    store = InMemoryStateStore()
+    await store.append_audit_entry({"action_kind": "unrelated.record"})
+    entry = AuditEntry(
+        seq=0,
+        prev_hash="0" * 64,
+        entry_hash="",
+        principal="Saga",
+        topic="object.audit-entry",
+        correlation_id="legacy",
+        payload_digest=_digest({}),
+    )
+    entry = replace(entry, entry_hash=entry_hash(entry, legacy=legacy_hash))
+    await store.append_audit_entry(
+        {**asdict(entry), "actor": "Saga", "action_kind": "audit.record", "payload": {}}
+    )
+    if checkpoint:
+        await store.write_state(
+            AUDIT_CHECKPOINT_KEY,
+            {"schema_version": "1.0.0", "length": 1, "head_hash": entry.entry_hash},
+        )
+    rows_before = tuple(store.audit_entries)
+    restarted = StateStoreAuditChainAdapter(store)
+    appended = await _append_saga_entry(restarted)
+    assert appended.seq == 1
+    assert appended.prev_hash == entry.entry_hash
+    assert tuple(store.audit_entries)[:2] == rows_before
+    assert len(tuple(store.audit_entries)) == 3
+    restarted.verify(full=True)
+
+
+async def test_state_store_audit_chain_holds_when_legacy_reader_is_missing(monkeypatch) -> None:
+    store = InMemoryStateStore()
+    monkeypatch.delattr(InMemoryStateStore, "read_audit_entries")
+    with pytest.raises(AuditChainError, match="history reader is required"):
+        await _append_saga_entry(StateStoreAuditChainAdapter(store))
+    assert await store.read_state(AUDIT_CHECKPOINT_KEY) is None
+    assert tuple(store.audit_entries) == ()
+
+
+async def test_state_store_audit_chain_holds_incomplete_legacy_history() -> None:
+    store = InMemoryStateStore()
+    for index in range(513):
+        await store.append_audit_entry({"action_kind": "unrelated.record", "index": index})
+    rows_before = tuple(store.audit_entries)
+    with pytest.raises(AuditChainError, match="bounded migration"):
+        await _append_saga_entry(StateStoreAuditChainAdapter(store))
+    assert await store.read_state(AUDIT_CHECKPOINT_KEY) is None
+    assert tuple(store.audit_entries) == rows_before
+
+
+async def test_state_store_audit_chain_rejects_legacy_checkpoint_without_matching_history() -> None:
+    store = InMemoryStateStore()
+    checkpoint = {"schema_version": "1.0.0", "length": 1, "head_hash": "a" * 64}
+    await store.write_state(AUDIT_CHECKPOINT_KEY, checkpoint)
+    with pytest.raises(AuditChainError, match="inconsistent with complete legacy history"):
+        await _append_saga_entry(StateStoreAuditChainAdapter(store))
+    assert await store.read_state(AUDIT_CHECKPOINT_KEY) == checkpoint
+    assert tuple(store.audit_entries) == ()
+
+
+@pytest.mark.parametrize("corruption", ["sequence_type", "sequence_gap", "payload"])
+async def test_state_store_audit_chain_holds_corrupted_legacy_history(corruption: str) -> None:
+    seed = InMemoryStateStore()
+    entry = await _append_saga_entry(StateStoreAuditChainAdapter(seed))
+    record = dict(next(iter(seed.audit_entries))["entry"])
+    if corruption == "sequence_type":
+        record["seq"] = True
+    elif corruption == "sequence_gap":
+        changed = replace(entry, seq=1)
+        record.update(asdict(replace(changed, entry_hash=entry_hash(changed))))
+    else:
+        record["payload"] = {"tampered": True}
+    store = InMemoryStateStore()
+    await store.append_audit_entry(record)
+    rows_before = tuple(store.audit_entries)
+    assert await store.verify_chain()
+    with pytest.raises(AuditChainError):
+        await _append_saga_entry(StateStoreAuditChainAdapter(store))
+    assert await store.read_state(AUDIT_CHECKPOINT_KEY) is None
+    assert tuple(store.audit_entries) == rows_before
+
+
 def test_state_store_audit_chain_writes_hash_linked_records() -> None:
     store = InMemoryStateStore()
     chain = StateStoreAuditChainAdapter(store=store)
@@ -1087,10 +1340,19 @@ def test_state_store_audit_chain_exposes_entry_only_after_durable_append() -> No
             self.append_started = asyncio.Event()
             self.release_append = asyncio.Event()
 
-        async def append_audit_entry(self, entry: Mapping[str, object]) -> None:
+        async def compare_and_set_state_with_audit(
+            self,
+            key: str,
+            value: Mapping[str, object],
+            *,
+            expected_revision: int,
+            audit_entry: Mapping[str, object],
+        ) -> bool:
             self.append_started.set()
             await self.release_append.wait()
-            await super().append_audit_entry(entry)
+            return await super().compare_and_set_state_with_audit(
+                key, value, expected_revision=expected_revision, audit_entry=audit_entry
+            )
 
     async def _exercise() -> None:
         store = _BlockedStore()
@@ -1134,6 +1396,37 @@ def test_state_store_audit_chain_serializes_concurrent_appends() -> None:
     chain.verify()
     assert [entry.seq for entry in chain.entries] == list(range(20))
     assert len({entry.entry_hash for entry in chain.entries}) == 20
+
+
+def test_state_store_audit_chain_serializes_alternating_replicas() -> None:
+    async def _exercise() -> None:
+        store = InMemoryStateStore()
+        first = StateStoreAuditChainAdapter(store=store)
+        second = StateStoreAuditChainAdapter(store=store)
+        appended = []
+        for index, adapter in enumerate((first, second, first)):
+            appended.append(
+                await adapter.append(
+                    principal="Saga",
+                    topic="object.audit-entry",
+                    correlation_id=f"replica-{index}",
+                    payload={"index": index},
+                )
+            )
+        assert [entry.seq for entry in appended] == [0, 1, 2]
+        assert appended[2].prev_hash == appended[1].entry_hash
+        restarted = StateStoreAuditChainAdapter(store=store)
+        resumed = await restarted.append(
+            principal="Saga",
+            topic="object.audit-entry",
+            correlation_id="replica-restart",
+            payload={},
+        )
+        assert resumed.seq == 3
+        assert resumed.prev_hash == appended[2].entry_hash
+        restarted.verify()
+
+    asyncio.run(_exercise())
 
 
 def test_state_store_audit_chain_replay_by_correlation() -> None:

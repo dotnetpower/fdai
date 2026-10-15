@@ -595,7 +595,7 @@ def test_console_launch_and_readiness_use_canonical_localhost_origin() -> None:
         item for item in launch["configurations"] if item["name"] == "Console Web: Frontend"
     )
 
-    assert frontend["command"] == ("npm run dev -- --host 127.0.0.1 --port 5273 --strictPort")
+    assert frontend["command"] == ("npm run dev -- --host localhost --port 5273 --strictPort")
     assert frontend["serverReadyAction"]["uriFormat"] == "http://localhost:5273"
     assert frontend["env"]["VITE_MANUAL_STUDIO_URL"] == "http://127.0.0.1:5474"
     assert frontend["env"]["VITE_LOCAL_AZURE_CLI_AUTH"] == "0"

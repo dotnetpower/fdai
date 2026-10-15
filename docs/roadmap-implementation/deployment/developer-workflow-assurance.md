@@ -16,6 +16,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 | Shared writes and hooks | implemented | `developer_workflow_repository.py`; workflow tests for overlap and recovery classification | Enforcement remains in existing hooks. |
 | Validation and handover | implemented | Versioned queue records, bounded latency diagnostics, handover schema v2; 48 final focused tests passed | Window uncertainty and malformed state fail closed. |
 | Hermetic checks and local services | implemented | Workflow environment preflight and checkout-owned service readiness; focused workflow tests | The diagnostic never starts or restarts a service. |
+| Canonical local Console origin | implemented | `.vscode/launch.json`; `tests/integration/scripts/test_developer_workflow.py`; focused canonical-localhost regression | The committed launch passes `localhost` to Vite and opens the same `http://localhost:5273` origin. This workspace contract changes no diagnostic socket, validation authority, or runtime execution authority. |
 | Browser and editor pressure | implemented | Existing focused Playwright entry points, 10-slot lease pool, and profile pressure controls | Final critique must verify no Medium residual. |
 | Remote preflight | implemented | `live_preflight/transport.py`; 6 focused tests | At most three read attempts; permanent errors fail immediately. |
 | Ten-round assurance | validated | 13 rounds, final independent re-review, and central receipt for `d3f5257b9` | No residual finding exceeds Low. |
@@ -35,6 +36,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-15 | implemented | Pinned the Console Vite host and browser readiness origin to the same canonical `localhost:5273` workspace contract. | `current change`; `.vscode/launch.json`; `tests/integration/scripts/test_developer_workflow.py`; focused canonical-localhost regression. | None for the workspace launch contract; this is not live authentication or deployment evidence. |
 | 2026-10-15 | implemented | Reconciled the immutable local scanner-cache preparation contract and its independent diagnostic boundary. | `current change`; `8390b56366`; focused cache, scanner, projection, local preparation, and layout selection: 139 passed. | Retain separate deployed cache-preparation and scanner-worker acceptance receipts; this delivery performs no live provider or model validation. |
 | 2026-10-11 | validated | Verified the merged fixed-name worker lifecycle through one managed start and stop. | Standard full stack reached `12/12` ready with exactly one `/fdai-code-security-worker`; stop returned `service=console-stack event=stopped` after 35 seconds and left zero named workers. | None for local worker container lifecycle. |
 | 2026-10-11 | implemented | Extended the top-level managed stack stop wait beyond the code-security service and container cleanup bounds. | `current change`; focused stop ownership and 45 > 40 > 30 budget tests. | Stop the merged stack and retain successful lock release plus absent-container evidence. |

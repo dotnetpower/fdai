@@ -2,17 +2,17 @@
   "id": "fdai-roadmap-deployment-hub-managed-lifecycle-01",
   "kind": "deployment",
   "version": 1,
-  "updated": "2026-08-20",
+  "updated": "2026-10-15",
   "locales": {
     "en": {
       "title": "Architecture",
       "description": "FDAI flow for Architecture.",
-      "alt": "Architecture. The main stages are Vendor release catalog / signed Releases, channels, recalls, Lifecycle Hub / central Hub cell or Target Hub, Customer Git / desired configuration, Lifecycle agent / workloads and reported state, Infrastructure agent / exact Terraform plans, FDAI services / operations loop, Azure resources."
+      "alt": "Architecture. The main stages are FDAI Release Hub / signed Releases, channels, recalls, Lifecycle Hub / central Hub cell or Target Hub, Customer Git / desired configuration, Lifecycle agent / workloads and reported state, Infrastructure agent / exact Terraform plans, FDAI services / operations loop, Azure resources."
     },
     "ko": {
       "title": "아키텍처",
       "description": "아키텍처에 대한 FDAI 흐름입니다.",
-      "alt": "아키텍처. 주요 단계는 공급업체 Release 카탈로그 / 서명된 Release, 채널, 회수, Lifecycle Hub / 중앙 Hub cell 또는 Target Hub, 고객 Git / 원하는 구성, 수명 주기 에이전트 / 워크로드와 보고 상태, 인프라 에이전트 / 정확한 Terraform 계획, FDAI 서비스 / 운영 루프, Azure 리소스입니다."
+      "alt": "아키텍처. 주요 단계는 FDAI Release Hub / 서명된 Release, 채널, 회수, Lifecycle Hub / 중앙 Hub cell 또는 Target Hub, 고객 Git / 원하는 구성, 수명 주기 에이전트 / 워크로드와 보고 상태, 인프라 에이전트 / 정확한 Terraform 계획, FDAI 서비스 / 운영 루프, Azure 리소스입니다."
     }
   },
   "assets": {
@@ -29,12 +29,12 @@
       "kind": "process",
       "shape": "card",
       "label": {
-        "en": "Vendor release catalog / signed Releases, channels, recalls",
-        "ko": "공급업체 Release 카탈로그 / 서명된 Release, 채널, 회수"
+        "en": "FDAI Release Hub / signed Releases, channels, recalls",
+        "ko": "FDAI Release Hub / 서명된 Release, 채널, 회수"
       },
       "description": {
-        "en": "Vendor release catalog / signed Releases, channels, recalls",
-        "ko": "공급업체 Release 카탈로그 / 서명된 Release, 채널, 회수"
+        "en": "FDAI Release Hub / signed Releases, channels, recalls",
+        "ko": "FDAI Release Hub / 서명된 Release, 채널, 회수"
       }
     },
     {

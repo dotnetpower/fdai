@@ -1,8 +1,8 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: 3015be2f5c4ff8e147a76cecf872f769b3241162
-translation_revised: 2026-10-07
+translation_source_sha: 6d5f6554db5370983fe9c20721da676fe51323c4
+translation_revised: 2026-10-15
 ---
 # Lifecycle Release와 채널
 
@@ -21,6 +21,15 @@ translation_revised: 2026-10-07
 > [소스 배포](source-deployment-ko.md)와 첫 설치용 오프라인 패키지는 현재 계약을 유지합니다.
 
 ## 설계 한눈에 보기
+
+**FDAI Release Hub**는 릴리스 발행, 서명, 채널 승격, 회수를 관리하도록 계획된 공급업체
+애플리케이션입니다. **Release Catalog**는 앱 이름이 아니라 Release Hub가 제공하는 릴리스
+목록, 데이터 또는 피드를 뜻합니다. **FDAI Lifecycle Hub**는 설치본별 배포를 관리하는 별도
+애플리케이션이며 이름을 유지합니다.
+
+초기 Release Hub는 웹 UI보다 CLI/API 작업 흐름을 먼저 제공할 수 있습니다. 기존 서명된 번들과
+로컬 `shadow` 전용 검증기가 있다고 해서 Release Hub 서비스가 구현된 것은 아닙니다.
+카탈로그 디렉터리, API, 스키마, 식별자는 기존 기술 명칭을 유지합니다.
 
 | 관심사 | 결정 |
 |--------|------|

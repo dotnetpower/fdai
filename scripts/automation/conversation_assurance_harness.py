@@ -16,6 +16,8 @@ from typing import Any
 _DIGEST = re.compile(r"^(?:sha256:)?[a-f0-9]{64}$")
 _REVISION = re.compile(r"^[a-f0-9]{40}$")
 _TOKEN = re.compile(r"^[a-z][a-z0-9_.:-]{0,127}$")
+_IDENTITY_TOKEN = re.compile(r"^[A-Za-z][A-Za-z0-9_.:-]{0,127}$")
+_GIT_REF = re.compile(r"^(?!.*(?:\.\.|@\{|//))[A-Za-z0-9][A-Za-z0-9._/-]{0,127}$")
 _MIN_HARDENING_ROUNDS = 10
 _FORBIDDEN_CASE_IDS = frozenset({"held-terminal-fidelity-heimdall-en-2"})
 _TRAJECTORY_PHASE_ORDER = (
@@ -220,6 +222,19 @@ class ImprovementRun:
     provided_authority: str
     comparison_group_id: str | None = None
     comparison_role: ComparisonRole | None = None
+    effectiveness_schema_version: str | None = None
+    effectiveness_policy_digest: str | None = None
+    cohort_id: str | None = None
+    locale: str | None = None
+    suite: str | None = None
+    expected_primary_agent: str | None = None
+    expected_routing_method: str | None = None
+    t2_expectation: str | None = None
+    challenge_family: str | None = None
+    objective_oracle: str | None = None
+    blind_holdout_receipt_digest: str | None = None
+    authoritative_base_ref: str | None = None
+    readiness_digest: str | None = None
     remediation_revision: str | None = None
     measurement_revision: str | None = None
     state: ImprovementState = ImprovementState.PREPARED
@@ -267,6 +282,61 @@ class ImprovementRun:
             and _TOKEN.fullmatch(self.comparison_group_id) is None
         ):
             raise ValueError("comparison group MUST be a bounded machine token")
+        effectiveness_values = (
+            self.effectiveness_policy_digest,
+            self.cohort_id,
+            self.locale,
+            self.suite,
+            self.expected_primary_agent,
+            self.expected_routing_method,
+            self.t2_expectation,
+            self.challenge_family,
+            self.objective_oracle,
+            self.blind_holdout_receipt_digest,
+            self.authoritative_base_ref,
+            self.readiness_digest,
+        )
+        if self.effectiveness_schema_version is None:
+            if any(value is not None for value in effectiveness_values):
+                raise ValueError("effectiveness fields require a schema version")
+        else:
+            if self.effectiveness_schema_version != "2.0.0":
+                raise ValueError("effectiveness schema version is unsupported")
+            if self.comparison_group_id is None or any(
+                value is None for value in effectiveness_values
+            ):
+                raise ValueError("effectiveness comparison contract is incomplete")
+            for effectiveness_token in (
+                self.cohort_id,
+                self.locale,
+                self.suite,
+                self.expected_routing_method,
+                self.t2_expectation,
+                self.challenge_family,
+                self.objective_oracle,
+            ):
+                if (
+                    not isinstance(effectiveness_token, str)
+                    or _TOKEN.fullmatch(effectiveness_token) is None
+                ):
+                    raise ValueError("effectiveness contract tokens MUST be bounded")
+            if (
+                not isinstance(self.expected_primary_agent, str)
+                or _IDENTITY_TOKEN.fullmatch(self.expected_primary_agent) is None
+            ):
+                raise ValueError("effectiveness expected agent MUST be bounded")
+            for digest_value in (
+                self.effectiveness_policy_digest,
+                self.blind_holdout_receipt_digest,
+                self.readiness_digest,
+            ):
+                if not isinstance(digest_value, str) or _DIGEST.fullmatch(digest_value) is None:
+                    raise ValueError("effectiveness contract digests MUST be SHA-256")
+            if (
+                not isinstance(self.authoritative_base_ref, str)
+                or _GIT_REF.fullmatch(self.authoritative_base_ref) is None
+            ):
+                raise ValueError("effectiveness authoritative base ref is invalid")
         if self.remediation_revision is not None:
             if _REVISION.fullmatch(self.remediation_revision) is None:
                 raise ValueError("remediation revision MUST be a lowercase Git SHA")
@@ -668,6 +738,19 @@ def _from_mapping(value: dict[str, Any]) -> ImprovementRun:
     data = dict(value)
     data.setdefault("comparison_group_id", None)
     data.setdefault("comparison_role", None)
+    data.setdefault("effectiveness_schema_version", None)
+    data.setdefault("effectiveness_policy_digest", None)
+    data.setdefault("cohort_id", None)
+    data.setdefault("locale", None)
+    data.setdefault("suite", None)
+    data.setdefault("expected_primary_agent", None)
+    data.setdefault("expected_routing_method", None)
+    data.setdefault("t2_expectation", None)
+    data.setdefault("challenge_family", None)
+    data.setdefault("objective_oracle", None)
+    data.setdefault("blind_holdout_receipt_digest", None)
+    data.setdefault("authoritative_base_ref", None)
+    data.setdefault("readiness_digest", None)
     data.setdefault("remediation_revision", None)
     data.setdefault("measurement_revision", None)
     for name in ("run_record_gate", "prompt_assembly_gate", "preparing_answer_gate"):

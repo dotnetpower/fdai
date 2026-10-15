@@ -119,6 +119,18 @@ Core's focused `fdai_core_service/agent_discussion.py` presenter admits before B
 independent admission prerequisites. Missing bindings hold. These additions grant no action,
 approval, promotion, or cloud observation authority and do not establish Console or live acceptance.
 
+StateStore retention accepts optional paired field/value filters with the same matching semantics
+as paged reads. The provider applies the filter atomically to selection and deletion; omitting it
+preserves prefix-wide retention. Saga uses `status=published` to compact only terminal audit
+tombstones, never pending or claimed delivery. This provider-neutral extension adds no authority
+or service boundary and never deletes audit entries.
+
+`StateStoreAuditReader` is an optional provider-neutral migration seam. Memory and PostgreSQL
+return detached audit bodies oldest-first from one snapshot, with a limit of 1-512 and an explicit
+truncation result. A partial read cannot prove absence or complete history. Saga uses this only
+to verify bounded legacy migration; its shared journal otherwise uses existing atomic revision
+CAS-with-audit. Agents never import a concrete persistence adapter or gain another authority.
+
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.
 
 
@@ -698,6 +710,23 @@ workloads retain the restricted database role and create no new agent or executi
 labeled evaluation corpora, including the code and dependency cases of the curated corpus, live in
 `rule-catalog/code-security/evaluation/` and are measured by the pure `evaluation.py` harness. See
 [Code Security Findings](../operations/code-security-findings.md).
+
+The FDAI-owned analysis engine remains inside the same boundary. `analysis_contracts.py` owns
+strict graph, rule, and path evidence; `python_graph.py` and `python_analysis.py` build bounded
+read-only Python evidence; `analysis_build_context.py` binds language roots and build
+configuration without treating source bytes as configuration; `analysis_incremental.py` owns
+strict snapshot reuse and conservative invalidation, and the scan job owns its repository- and
+rule-scoped cache; `analysis_graph_flow.py` owns language-neutral contextual path traversal;
+`typescript_analysis.py` validates the root-confined Compiler API process under
+`tools/code-security-typescript-frontend/`; `java_analysis.py` owns the experimental tree-sitter
+Java SQL slice; `analysis_sarif.py` returns all results to
+canonical ingestion. Analysis rules, component terms, and frozen corpora stay in
+`rule-catalog/code-security/`; delivery only composes the lane and deterministically replays it for
+prepared and Kata scans. The scanner image pins the compiler and frontend. This adds no service,
+pantheon agent, repository writer, approval, or execution authority. See
+[Code Security Analysis Engine](../operations/code-security-analysis-engine.md).
+Both frontends bind source reads to the exact root and enforce graph budgets before accepting
+evidence. Frontend failure lowers coverage instead of changing the worker or authority boundary.
 
 ## Repository Script Layout
 

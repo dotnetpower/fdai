@@ -1,8 +1,8 @@
 ---
 title: Runtime Parity - Authoritative Local Development 및 Test Fixture
 translation_of: dev-and-deploy-parity.md
-translation_source_sha: c9b3e55ab28b07ed86f006757a9ed2993a2e1e8f
-translation_revised: 2026-10-14
+translation_source_sha: be5659a6147516bb71b5ec429a5f68dfb9f20f6d
+translation_revised: 2026-10-15
 ---
 # 런타임 동등성 - 권위 있는 로컬 개발 및 테스트 고정본
 
@@ -85,6 +85,9 @@ Console 패널을 방문하고, 패널 경계가 안정될 때까지 기다리�
 커밋된 VS 코드 설정은 각 로컬 web 표면이 항상 같은 포트를 사용하게 합니다. Manual Studio는
 `5474`에서 실행되며 인증된 Console full stack과 함께 시작됩니다. 따라서 별도 명령 없이 제품
 내 도움말 라이브러리를 사용할 수 있습니다.
+커밋된 frontend 실행 구성은 Vite에 `localhost`를 전달하고 준비가 끝나면 같은
+`http://localhost:5273` 원점을 엽니다. 실행 명령에서 `127.0.0.1`로 바꾸지 않으므로
+브라우저, MSAL 캐시 및 CORS 계약이 하나의 정본 원점을 유지합니다.
 
 | 표면 | 기본 주소 | Workspace 항목 지점 |
 |---------|-------------|-----------------------|

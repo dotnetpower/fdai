@@ -1,8 +1,8 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 87b5597d9f9045585d860da586a4a0dc4125c3c9
-translation_revised: 2026-10-08
+translation_source_sha: 45372b0400493222274262bb8795f1202979e08d
+translation_revised: 2026-10-15
 ---
 # Hub 관리형 수명 주기
 
@@ -21,6 +21,13 @@ hub-and-spoke 모델을 따라 각 설치를 구독한 release channel과 고객
 > 채널](lifecycle-releases-and-channels-ko.md)이 Release, 채널, 번들, 회수를 소유합니다.
 
 ## 설계 한눈에 보기
+
+**FDAI Lifecycle Hub**는 설치본별 배포를 관리합니다. 릴리스 발행, 서명, 채널 승격, 회수를
+관리하도록 계획된 공급업체 앱인 **FDAI Release Hub**와는 별개입니다. Release Hub는
+Lifecycle Hub가 사용하는 릴리스 목록, 데이터 또는 피드인 **Release Catalog**를 제공합니다.
+카탈로그는 앱 이름이 아니라 기술적인 데이터 용어로 유지합니다. 초기 Release Hub는 CLI/API
+작업 흐름부터 제공할 수 있으며, 이 설계가 전체 Release Hub 서비스의 구현 완료를 뜻하지는
+않습니다.
 
 | 관심사 | 결정 |
 |--------|------|
@@ -84,11 +91,11 @@ hub-and-spoke 모델을 따라 각 설치를 구독한 release channel과 고객
 
 ## 아키텍처
 
-![아키텍처. 주요 단계는 공급업체 Release 카탈로그 / 서명된 Release, 채널, 회수, Lifecycle Hub / 중앙 Hub cell 또는 Target Hub, 고객 Git / 원하는 구성, 수명 주기 에이전트 / 워크로드와 보고 상태, 인프라 에이전트 / 정확한 Terraform 계획, FDAI 서비스 / 운영 루프, Azure 리소스입니다.](../../diagrams/generated/fdai-roadmap-deployment-hub-managed-lifecycle-01.ko.svg)
+![아키텍처. 주요 단계는 FDAI Release Hub / 서명된 Release, 채널, 회수, Lifecycle Hub / 중앙 Hub cell 또는 Target Hub, 고객 Git / 원하는 구성, 수명 주기 에이전트 / 워크로드와 보고 상태, 인프라 에이전트 / 정확한 Terraform 계획, FDAI 서비스 / 운영 루프, Azure 리소스입니다.](../../diagrams/generated/fdai-roadmap-deployment-hub-managed-lifecycle-01.ko.svg)
 
 | 구성 요소 | 실행 위치 | 신원 | 보관하는 것 | 보관하지 않는 것 |
 |-----------|-----------|------|-------------|------------------|
-| Release 카탈로그 | 공급업체 | 오프라인으로 보관하는 공급업체 release 키 | 서명된 Release, 채널 구성원, 회수, 승격 파이프라인 | 고객 데이터 |
+| FDAI Release Hub | 공급업체 | 오프라인으로 보관하는 공급업체 release 키 | Release Catalog: 서명된 Release, 채널 구성원, 회수, 승격 파이프라인 | 고객 데이터 |
 | Lifecycle Hub | 중앙 Hub cell 또는 Target Hub | Hub 서비스 신원. 승인자는 고객의 Entra ID로 로그인합니다. | 설치 설정, 가져온 구성 패키지, 보고 상태, Plan, 제약 조건 결과, 감사 | Azure 자격 증명, 비밀 값, 평문 봉인 값, 운영 데이터 |
 | 수명 주기 에이전트 | 설치의 AKS 클러스터, 전용 네임스페이스 | FDAI 네임스페이스에서만 Kubernetes 권한을 가진 워크로드 신원 | 생성한 워크로드 매니페스트와 워크로드 증적 | Azure 쓰기 신원, 실행기 신원 |
 | 인프라 에이전트 | 기존 실행 호스트 | 기존 배포 관리 ID | 정확한 Terraform 계획, Foundation 상태, 인프라 증적 | 실행기 신원, 운영 데이터 |

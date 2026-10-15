@@ -115,21 +115,23 @@ export function OnboardingBody({
                   label={t(data.ready ? "onboardingView.ready" : "onboardingView.blocked")}
                 />
               )
-            : kpiEvidenceLabel("not-connected")}
+            : t("onboardingView.notAvailable")}
           hint={observed
             ? t(data.ready ? "onboardingView.headlineReady" : "onboardingView.headlineBlocked", {
                 resources: resourceGapCount,
                 roles: roleGapCount,
               })
-            : t("onboardingView.headlineUnavailable")}
+            : t("onboardingView.noObservation")}
           evidenceState={summaryEvidenceState(dataMode, observed)}
         />
         <OnboardingSummaryItem
           href={routeHref("architecture")}
-          label={t("onboardingView.resourcesObserved")}
+          label={t(observed
+            ? "onboardingView.resourcesObserved"
+            : "onboardingView.resourcesRequired")}
           value={observed
             ? data.present_resource_count.toLocaleString()
-            : kpiEvidenceLabel("not-connected")}
+            : resourceGapCount.toLocaleString()}
           hint={t(
             observed ? "onboardingView.resourceGapCount" : "onboardingView.requiredResourceCount",
             { count: resourceGapCount },
@@ -138,10 +140,12 @@ export function OnboardingBody({
         />
         <OnboardingSummaryItem
           href={routeHref("settings-iam", { segments: ["requests"] })}
-          label={t("onboardingView.rolesObserved")}
+          label={t(observed
+            ? "onboardingView.rolesObserved"
+            : "onboardingView.rolesRequired")}
           value={observed
             ? data.present_role_count.toLocaleString()
-            : kpiEvidenceLabel("not-connected")}
+            : roleGapCount.toLocaleString()}
           hint={t(
             observed ? "onboardingView.roleGapCount" : "onboardingView.requiredRoleCount",
             { count: roleGapCount },
@@ -152,7 +156,7 @@ export function OnboardingBody({
           href={routeHref("settings-environment", { segments: ["deployment"] })}
           label={t("onboardingView.lastChecked")}
           value={!observed
-            ? kpiEvidenceLabel("not-connected")
+            ? t("onboardingView.notChecked")
             : checkedAt === null
             ? kpiEvidenceLabel("not-measured")
             : formatConsoleTimestamp(checkedAt)}

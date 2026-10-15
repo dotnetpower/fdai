@@ -263,8 +263,21 @@
     "codeUnavailable": "Code context was not recorded for this finding. Open the exact scanned revision on GitHub.",
     "secretRedacted": "Sensitive value redacted",
     "flowTitle": "Evidence flow",
+    "callContext": "Call context: {context}",
+    "analysisEvidence": "Analysis evidence",
+    "pathId": "Path ID",
+    "graphDigest": "Graph digest",
+    "schemas": "Graph / path schema",
+    "ruleVersion": "Rule version",
+    "frontends": "Frontends",
+    "coverageGaps": "Coverage gaps",
+    "noCoverageGaps": "No recorded gaps",
     "flow": {
       "source": "Source",
+      "flow": "Flow",
+      "call": "Call",
+      "return": "Return",
+      "sanitizer": "Sanitizer",
       "sink": "Sink"
     },
     "fact": {

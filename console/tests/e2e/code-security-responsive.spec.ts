@@ -91,9 +91,52 @@ async function mockApi(
                 ],
               },
               flow_steps: [
-                { kind: "source", path: "src/api.ts", line: 18 },
-                { kind: "sink", path: "src/app.ts", line: 42 },
+                {
+                  kind: "source",
+                  path: "src/api.ts",
+                  line: 18,
+                  end_line: 18,
+                  node_id: "source:request",
+                  call_context: ["function:route"],
+                },
+                {
+                  kind: "call",
+                  path: "src/api.ts",
+                  line: 20,
+                  end_line: 20,
+                  node_id: "call:execute",
+                  call_context: ["function:route", "function:execute"],
+                },
+                {
+                  kind: "return",
+                  path: "src/app.ts",
+                  line: 41,
+                  end_line: 41,
+                  node_id: "call:execute",
+                  call_context: ["function:route", "function:execute"],
+                },
+                {
+                  kind: "sink",
+                  path: "src/app.ts",
+                  line: 42,
+                  end_line: 42,
+                  node_id: "sink:exec",
+                  call_context: ["function:route", "function:execute"],
+                },
               ],
+              analysis_evidence: {
+                path_id: "path:0123456789abcdef",
+                path_digest: `sha256:${"1".repeat(64)}`,
+                graph_digest: `sha256:${"2".repeat(64)}`,
+                graph_schema_version: "1.1.0",
+                path_schema_version: "1.1.0",
+                rule_version: "1.0.0",
+                frontend_versions: {
+                  "fdai.typescript.model": "1.1.0",
+                  "typescript-compiler": "5.9.3",
+                },
+                coverage_limits: ["typescript.unresolved-call:example"],
+              },
             },
             {
               issue_id: "FDAI-SEC-ba9876543210",
@@ -418,7 +461,16 @@ for (const viewport of [
     await expect(detail).toContainText("src/app.ts:42");
     await expect(detail.getByLabel("Code context")).toContainText("exec(command);");
     await expect(detail.getByLabel("Evidence flow")).toContainText("src/api.ts:18");
+    await expect(detail.getByLabel("Evidence flow")).toContainText("Call");
+    await expect(detail.getByLabel("Evidence flow")).toContainText("Return");
+    await expect(detail.getByLabel("Evidence flow")).toContainText(
+      "function:route / function:execute",
+    );
     await expect(detail.getByLabel("Evidence flow")).toContainText("src/app.ts:42");
+    await detail.getByText("Analysis evidence", { exact: true }).click();
+    await expect(detail).toContainText(`sha256:${"2".repeat(64)}`);
+    await expect(detail).toContainText("typescript-compiler 5.9.3");
+    await expect(detail).toContainText("typescript.unresolved-call:example");
     await expect(detail.getByRole("link", { name: "Open file on GitHub" })).toHaveAttribute(
       "href",
       `${"https://github.com/example-organization/payments-api-with-a-deliberately-long-name/blob/"}${revision}/src/app.ts#L42`,

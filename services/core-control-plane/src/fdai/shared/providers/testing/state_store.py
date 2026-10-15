@@ -22,6 +22,7 @@ from fdai.shared.providers.state_store import (
     classify_incident_append,
     incident_number_for,
     state_field_path,
+    state_retention_path,
     workflow_approval_decisions_from_state,
 )
 
@@ -502,13 +503,26 @@ class InMemoryStateStore(StateStore):
                 key for key in sorted(self._state) if key.startswith(prefix) and key > after
             )[:limit]
 
-    async def delete_states_beyond(self, prefix: str, *, retain_newest: int) -> int:
+    async def delete_states_beyond(
+        self,
+        prefix: str,
+        *,
+        retain_newest: int,
+        field: str | None = None,
+        value: str | None = None,
+    ) -> int:
         if not prefix:
             raise ValueError("prefix MUST be non-empty")
         if retain_newest < 1:
             raise ValueError("retain_newest MUST be >= 1")
+        path = state_retention_path(field, value)
         with self._lock:
-            newest_first = [key for key in reversed(tuple(self._state)) if key.startswith(prefix)]
+            newest_first = [
+                key
+                for key, item in reversed(tuple(self._state.items()))
+                if key.startswith(prefix)
+                and (field is None or _field_matches(_field_value(item, field, path), str(value)))
+            ]
             expired = newest_first[retain_newest:]
             for key in expired:
                 del self._state[key]
@@ -636,6 +650,15 @@ class InMemoryStateStore(StateStore):
                 )
             truncated = len(matched) > limit
             return tuple(deepcopy(item) for item in matched[-limit:]), truncated
+
+    async def read_audit_entries(self, *, limit: int) -> tuple[tuple[Mapping[str, Any], ...], bool]:
+        if type(limit) is not int or not 1 <= limit <= 512:
+            raise ValueError("audit history limit must be between 1 and 512")
+        with self._lock:
+            return (
+                tuple(deepcopy(record["entry"]) for record in self._audit[:limit]),
+                len(self._audit) > limit,
+            )
 
     # ---- Test helpers --------------------------------------------------------
 

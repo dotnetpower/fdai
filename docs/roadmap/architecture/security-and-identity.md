@@ -184,6 +184,17 @@ approved grant, and fresh effective-access evidence is required before the actio
   same excerpt uses, and the hypothesis is anchored at that sink. The `evaluate-lens` precision
   measurement sends excerpts only from a pinned public benchmark sample staged in an owner-only
   scratch root, never from a customer repository.
+- **Code-security owned analysis**: language frontends and the common graph traversal read only
+  root-confined regular files, never import or execute repository code, and bind every graph and
+  path to exact frontend, rule, build-context, and revision identities. Missing coverage is an
+  explicit gap, never a clean result. Same-condition comparison runs current, owned, and permitted
+  external engines over identical local cases with telemetry and version checks disabled; receipts
+  preserve unsupported coverage and never claim parity or grant promotion authority. Java runs the
+  JDK Compiler API with annotation processing disabled, and C# uses Roslyn syntax and semantic
+  models without emitting or loading a target assembly; neither static frontend executes target
+  classes, compiler plugins, project builds, or package scripts. Compiler inputs are copied through
+  bounded no-follow reads into private staging roots, process output is bounded before full
+  serialization, and only caller-asserted owned SARIF can carry graph identities and call context.
 - **Code-security proof lane**: the only place FDAI runs repository code. It's opt-in per scan,
   limited to issues a deterministic verifier already confirmed, and runs in a disposable
   bubblewrap sandbox with no network, no credentials, a cleared environment, a read-only source,

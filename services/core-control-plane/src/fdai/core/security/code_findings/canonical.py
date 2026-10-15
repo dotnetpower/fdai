@@ -308,6 +308,7 @@ def _issue(
         known_exploited=known_exploited,
         code_flow=flow_source.code_flow if flow_source else (),
         messages=tuple(dict.fromkeys(occ.message for occ in ordered if occ.message))[:5],
+        analysis_evidence=flow_source.analysis_evidence if flow_source else None,
     )
 
 

@@ -28,6 +28,15 @@ not prove actual broker/database restart, remote issue identity or replica-safe 
 
 ### Implementation scope
 
+Saga's provider-backed inner chain now shares a revision-fenced head and bounded digest journal
+through atomic StateStore CAS-with-audit. A/B/A, overlapping replicas, failed/canceled commits,
+malformed state, exhausted budgets and legacy migration/holds have focused evidence. Owning
+adapter/authority/restart/outbox/layout checks: 165 passed; 1,500-append bounded restart: one
+passed; actual isolated PostgreSQL replica, reader, rollback and legacy checks: five passed.
+Five-source strict mypy and Ruff passed. The retained projection is not full historical replay.
+All old writers must be stopped before migration; histories beyond 512 total audit rows require
+separately reviewed migration. Remote GitHub App identity and deployed acceptance remain open.
+
 Standard Loki scheduling is source-bound through `runtime/bootstrap_chaos_schedule.py` when a
 deployment supplies `FDAI_LOKI_SCHEDULE_JSON`. The closed declaration requires `schedule_id`,
 integer `cadence_seconds` from 1 through 31536000, 1-32 unique canonical `targets`, registered
@@ -71,7 +80,7 @@ not authorize scaling. Local routed-provider, sampling and bootstrap checks: 56 
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Var global kill-switch safety command | implemented | `0398357455`; `agents/_framework/var_kill_switch.py`; `agents/var.py`; conditional runtime subscription and bootstrap topic; focused Var, runtime, and layout tests | Var verifies the signed Owner or BreakGlass command and records the shared authority-lowering state through the existing Core command service. Var still owns only Approval, publishes no new object topic, and receives no executor identity. Authorized readback and live drill evidence remain open. |
+| Saga shared inner-chain revision | implemented | `audit_chain_journal.py`; `audit_chain_rehydrate.py`; 165 owning checks, one bounded restart and five real isolated PostgreSQL checks; five-source strict mypy and Ruff | Atomic shared head/audit, bounded verified mirror and explicit legacy holds. Quiesced deployment migration, longer legacy histories and remote issue identity remain separate. |
 | Explicit standard Loki recurring schedule | implemented | `bootstrap_chaos_schedule.py`; `bootstrap_pantheon.py`; initialization/Loki/adversarial/sampling/layout checks: 57 passed | Complete explicit declarations reach the existing Loki handler without enabling enforcement or fabricating input. Actual deployment schedule, approval and execution evidence remain open. |
 | Current ordered-halt and local issue-operation binding | implemented | `bootstrap_pantheon.py`; `state_store_issue_tracker.py`; bootstrap/poison-clear/runtime/Mimir issue checks: 114 passed | Supersedes the source opt-in halt absence and local per-fingerprint operation-id gap only. Remote issue adapters, replica publication and governed restart evidence remain open. |
 | Ontology ContextIndex owner routing | implemented | `agents/_framework/ontology_index.py`; `test_ontology_context_index.py`; real in-memory EventBus phase-chain test | Huginn ingress, Muninn preparation/transition publication, Heimdall validation publication, and Saga audit/seal publication use existing owned topics. The wrapper rejects owner, topic, content, and phase drift and isolates ordinary judgment and learning. Mechanical handlers in this routing test are synthetic; durable source/lifecycle workers and production bootstrap remain open. |
@@ -104,6 +113,8 @@ not authorize scaling. Local routed-provider, sampling and bootstrap checks: 56 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
 | 2026-10-15 | implemented | Added the conditional `operator.kill-switch.requests` command consumer to Var without changing Pantheon ownership, judgment, approval, execution, or LLM roles. | `0398357455`; Var/runtime/layout tests passed 96; strict mypy and Ruff passed. | Implement authorized state readback and retain deployed engage/no-execute/disengage evidence. |
+| 2026-10-15 | implemented | Repaired the reproduced A/B/A inner-chain fork using a shared content-hashed revision journal and atomic head/audit commit; preserved bounded legacy records or held unverifiable migration. | `current change`; #2149; `audit_chain_journal.py`; `audit_chain_rehydrate.py`; 165 owning checks, one 1,500-append restart and five real isolated PostgreSQL checks; five-source strict mypy and Ruff. | Quiesce old writers before deployment; separately review longer legacy migration; retain remote identity and actual deployment acceptance. |
+| 2026-10-15 | implemented | Isolated Bragi evaluator revision inputs, rejected changed baseline/candidate content or JSON types before storage/publication, and protected returned candidates from retained evaluator references. | `current change`; `bragi_intent_training.py`; five new mutation/isolation regressions; learning/layout checks: 35 passed; one-source mypy and Ruff passed. | Independent evaluator, consent-filtered source corpus, reviewed activation and deployed-provider acceptance remain open. |
 | 2026-10-15 | implemented | Bound Bragi training run/publication/stage identity to the complete corpus, consent, candidate and stage snapshot; retained distinct review revisions without changing runtime routing. | `current change`; `bragi_intent_training.py`, `bragi_runtime_helpers.py`, `bragi.py`; six new identity/storage regressions; learning/layout checks: 30 passed; three-source mypy and Ruff passed. | Independent evaluator, consent-filtered source corpus, reviewed activation and deployed-provider acceptance remain open. |
 | 2026-10-15 | implemented | Added request-pinned Forseti what-if outbox delivery with closed/content-hashed records, claim-fenced replica publication, completed-only compaction, startup/maintenance recovery and identical-key crash replay. | `current change`; `forseti_what_if_publication.py`; focused what-if/outbox/layout/workflow/primary-pipeline checks: 211 passed; three-source mypy and Ruff passed. | Bounded retained-request deduplication is implemented; full historical context, deployed database/broker acceptance and other maintenance-source bindings remain open. |
 | 2026-10-15 | implemented | Prevented explicit empty or mismatched single-target declarations from falling through to an undeclared outer resource; preserved exact single-target execution and reconciled the existing batch implementation. | `current change`; `thor_batch.py`; batch/layout/workflow checks: 51 passed; one-file mypy and Ruff passed. | Existing target-scoped rollback, rollup audit and durable approval/restart mechanics pass synthetic checks; deployed identity, rollback/effect and broker acceptance remain separate. |
@@ -703,6 +714,11 @@ consent, evaluation or review creates a new run; exact replay preserves its payl
 Each stage key and audit binds that run, so a reviewed revision cannot reuse a previous held
 stage. Existing rows remain unchanged until the established retention policy removes them.
 At-least-once transport may repeat identical payloads; this is not exactly-once publication.
+
+The evaluator receives deep copies of the baseline and candidate revisions. Canonical JSON
+digests must remain unchanged after evaluation, including nested values and their JSON types;
+otherwise the run is rejected before any stage is retained or published. References retained by
+the evaluator cannot change the returned original candidate after evaluation.
 
 #### Multi-target batches
 

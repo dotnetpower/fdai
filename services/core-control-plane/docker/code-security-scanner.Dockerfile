@@ -209,6 +209,14 @@ RUN set -eu \
     && mkdir -p /usr/lib/dotnet \
     && tar -xzf dotnet.tar.gz -C /usr/lib/dotnet
 
+FROM dotnet AS csharp-frontend-builder
+
+ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
+COPY tools/code-security-csharp-frontend/ /src/
+RUN /usr/lib/dotnet/dotnet build /src/Fdai.CSharp.Frontend.csproj \
+        --configuration Release --output /out \
+    && rm -rf /root/.nuget /root/.dotnet
+
 FROM mcr.microsoft.com/openjdk/jdk@sha256:673bed7263ec02e4cd33fcaf9b1d0de8869f657fb36b5cec1b051d2ef4ba2bec AS jdk
 
 RUN sha256sum /usr/lib/jvm/msopenjdk-21/bin/java /usr/lib/jvm/msopenjdk-21/bin/javac \
@@ -219,6 +227,8 @@ FROM python-runtime AS node
 ARG NODE_VERSION=24.21.0
 ARG NODE_SHA256=fd8e59d5a511510f6a298afb548f18c7d2b1be404d8b4a27d94fbe49f56cb2d6
 ARG NODE_UNDICI_VERSION=7.29.1
+ARG TYPESCRIPT_VERSION=5.9.3
+ARG TYPESCRIPT_SHA512=8e5d6f6733c38a72ebf5e52ddc9feded5e8580d130f508ef04f772b33f4a7d00c3e357d0ac2d98e2f290762694a454f86d795bd511e12e9a7cc2d9ba3394e04b
 RUN timeout --signal=TERM --kill-after=10 180s tdnf install -y tar
 WORKDIR /download
 COPY services/core-control-plane/docker/node-runtime-sbom.py /download/node-runtime-sbom.py
@@ -235,15 +245,29 @@ RUN set -eu \
     && mkdir -p /usr/share/fdai \
     && python /download/node-runtime-sbom.py --versions /download/node-versions.json \
         --binary /usr/bin/node --archive-sha256 "${NODE_SHA256}" \
-        --output /usr/share/fdai/node-runtime.cdx.json
+        --output /usr/share/fdai/node-runtime.cdx.json \
+    && curl --fail --location --retry 0 --connect-timeout 30 --max-time 180 \
+        -o typescript.tgz "https://registry.npmjs.org/typescript/-/typescript-${TYPESCRIPT_VERSION}.tgz" \
+    && echo "${TYPESCRIPT_SHA512}  typescript.tgz" | sha512sum -c - \
+    && mkdir -p /usr/lib/node_modules/typescript \
+    && tar -xzf typescript.tgz -C /usr/lib/node_modules/typescript --strip-components=1 \
+    && test "$(/usr/bin/node -p "require('/usr/lib/node_modules/typescript').version")" = "${TYPESCRIPT_VERSION}"
 
-# The JavaScript profile also retains the Python proof lane and every scanner.
-FROM base AS prover-javascript
+FROM base AS analysis-runtime
 
-LABEL org.fdai.code-security.proof-profile="javascript"
 COPY --from=node /usr/bin/node /usr/bin/node
 COPY --from=node /usr/share/licenses/nodejs/ /usr/share/licenses/nodejs/
 COPY --from=node /usr/share/fdai/node-runtime.cdx.json /usr/share/fdai/node-runtime.cdx.json
+COPY --from=node /usr/lib/node_modules/typescript/ /usr/lib/node_modules/typescript/
+COPY tools/code-security-typescript-frontend/frontend.cjs /opt/fdai/typescript-frontend.cjs
+ENV FDAI_TYPESCRIPT_NODE=/usr/bin/node \
+    FDAI_TYPESCRIPT_FRONTEND=/opt/fdai/typescript-frontend.cjs \
+    NODE_PATH=/usr/lib/node_modules
+
+# The JavaScript profile also retains the Python proof lane and every scanner.
+FROM analysis-runtime AS prover-javascript
+
+LABEL org.fdai.code-security.proof-profile="javascript"
 RUN opengrep --version \
     && gitleaks version \
     && osv-scanner --version \
@@ -283,9 +307,35 @@ RUN opengrep --version \
     && dotnet --list-sdks \
     && python -m fdai.delivery.code_security_cli evaluate > /dev/null
 
+FROM analysis-runtime AS analysis-managed-runtime
+
+USER root
+COPY --from=jdk /jdk-content.sha256 /tmp/jdk-content.sha256
+RUN timeout --signal=TERM --kill-after=10 180s tdnf install -y \
+        icu msopenjdk-21-21.0.12.1-1 \
+    && test "$(rpm -q msopenjdk-21)" = "msopenjdk-21-21.0.12.1-1.x86_64" \
+    && sha256sum -c /tmp/jdk-content.sha256 \
+    && rm /tmp/jdk-content.sha256
+COPY --from=dotnet /usr/lib/dotnet/dotnet /usr/lib/dotnet/dotnet
+COPY --from=dotnet /usr/lib/dotnet/host/ /usr/lib/dotnet/host/
+COPY --from=dotnet /usr/lib/dotnet/shared/Microsoft.NETCore.App/ /usr/lib/dotnet/shared/Microsoft.NETCore.App/
+COPY --from=csharp-frontend-builder /out/ /opt/fdai/csharp/
+COPY tools/code-security-java-frontend/FdaiJavaSymbols.java /opt/fdai/java/FdaiJavaSymbols.java
+RUN ln -s /usr/lib/dotnet/dotnet /usr/bin/dotnet \
+    && chown -R 65532:65532 /opt/fdai/java /opt/fdai/csharp
+ENV FDAI_JAVA_COMPILER=/usr/bin/java \
+    FDAI_JAVA_FRONTEND=/opt/fdai/java/FdaiJavaSymbols.java \
+    FDAI_CSHARP_DOTNET=/usr/bin/dotnet \
+    FDAI_CSHARP_FRONTEND=/opt/fdai/csharp/Fdai.CSharp.Frontend.dll
+USER 65532
+RUN test -r "$FDAI_JAVA_FRONTEND" \
+    && test -r "$FDAI_CSHARP_FRONTEND" \
+    && java -version \
+    && dotnet --list-runtimes
+
 # The default scan runner image: every scanner and the Python proof lane, without the other
-# proof toolchains.
-FROM base AS runtime
+# proof entrypoints. Managed compilers are bound only to static analysis helpers.
+FROM analysis-managed-runtime AS runtime
 
 RUN opengrep --version \
     && gitleaks version \

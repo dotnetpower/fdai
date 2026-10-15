@@ -95,11 +95,11 @@ if [[ $rebuild -eq 1 ]] || ! docker image inspect "$image" > /dev/null 2>&1; the
 fi
 
 user="$(id -u):$(id -g)"
-if [[ $refresh_db -eq 1 ]] || [[ -z "$(ls -A "$home_dir/cache" 2> /dev/null)" ]]; then
+if [[ $refresh_db -eq 1 ]] || [[ ! -f "$home_dir/cache/current.json" ]]; then
   echo "refreshing offline vulnerability databases ..." >&2
   docker run --rm --user "$user" -e HOME=/tmp \
     -v "$folder:/source:ro" -v "$home_dir/cache:/cache" \
-    "$image" prepare /source >&2
+    "$image" prepare-snapshot /source /cache >&2
 fi
 
 network="none"

@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 7c4a0f45c9b20bda4e2e5a367d82daaed91d9194
+translation_source_sha: 0aaa89079cbd57507dd2fe1a3180b3f22f8b0497
 translation_revised: 2026-10-15
 ---
 # 런타임 배포 프로파일
@@ -41,6 +41,12 @@ translation_revised: 2026-10-15
 네임스페이스, 불변 스캐너 이미지, 소스와 캐시 PVC 바인딩을 통해 스캐너 작업을 시작합니다. 두
 프로필은 요청, heartbeat, 리비전 기준점, 검토 계약을 공유하며, 런타임 선택은 신원, 저장소,
 네트워크, 샌드박스 어댑터만 바꿉니다.
+스캐너 이미지 빌드 컨텍스트는 저장소 전체 `tools/` 트리를 제외하고 분석 런타임에 필요한 자체
+TypeScript, Java, C# 프런트엔드 소스만 명시적으로 허용합니다. 이미지는 고정된 TypeScript, JDK,
+.NET/Roslyn 도구 체인을 바인딩하고, 런타임 패키지를 수락하기 전에 컨테이너 안에서 신뢰하는 각
+도우미를 빌드하거나 불러와야 합니다. Java는 annotation processing을 끄고 C#은 대상 assembly를
+만들지 않으며 두 도우미 모두 저장소 코드를 실행하지 않습니다. 이 패키징 규칙은 런타임 프로필이나
+권한을 바꾸지 않습니다.
 
 Operator 운영 조립은 모든 런타임 프로파일에서 동일한 목적별 수명 주기, 경로 계열 및 읽기 출처 모듈을 사용합니다. 이 내부 소유권 분리는 플랫폼 선택, 신원, 출처 연결, 준비 상태 조건 또는 배포
 권한을 바꾸지 않습니다.
@@ -101,11 +107,11 @@ Core와 Operator 모두에 전달합니다. Core 전용 편의 입력은 Operato
 내보낼 수 없는 정책 서명 Key Vault 키, 그 crypto 역할 부여, Core 서명 환경도 프로비저닝하기
 전까지 `product_profile_json` 검증은 `policy-administration` 추가 기능을 거부합니다.
 
-전역 비상 정지도 런타임과 독립된 축입니다. 로컬, AKS, 호환성 Container Apps 조립은 같은 서명된
-Operator 요청 계약을 사용합니다. Core가 공유 영속 StateStore를 통해 Operator 증적을 검증할 수
-있을 때만 Var의 `operator.kill-switch.requests` consumer를 조건부로 연결합니다. 런타임 선택은
-비상 정지 역할, 실행 신원, 효과 주장을 부여하지 않습니다. HTTP `202`와 broker 전달은 권위 있는
-상태 재조회를 대체할 수 없습니다.
+전역 kill switch도 런타임과 독립적입니다. 로컬, AKS 및 호환되는 Container Apps 조합은 같은
+서명된 Operator 요청 계약을 사용하며, Core가 공유 영속 StateStore에서 Operator 증적을 검증할
+수 있을 때만 Var의 `operator.kill-switch.requests` consumer를 조건부로 바인딩합니다. 런타임
+선택은 kill-switch 역할, 실행 신원 또는 효과 주장을 부여하지 않습니다. HTTP `202`와 broker
+전달은 권위 있는 상태 재조회 결과를 대신할 수 없습니다.
 
 운영자는 런타임 플랫폼과 데이터베이스 배치를 하나씩 선택합니다. `fdaictl`은 조합을 검증하고,
 용량과 비용을 추정하며, 플랫폼별 프로비저닝 그래프를 컴파일하고, 각 정확한 플랜에 대한 승인을

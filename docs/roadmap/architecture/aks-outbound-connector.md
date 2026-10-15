@@ -88,6 +88,9 @@ proposal digest and recipient principal before the channel-specific outbox recor
 digests notify once per principal/channel boundary while changed digests notify once again. The
 message has no approval button, executor identity, apply command, or authority to install an
 observer.
+The role-gated Console projection distinguishes an unavailable proposal source from a current
+empty proposal set. When no current proposal exists, the view explains that it updates only after
+observer evidence arrives and that it cannot install an observer or grant execution authority.
 
 ## Snapshot runtime
 

@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 0dc451066c7161eaaccbe582429873a105671c6c
+translation_source_sha: 5bb82f90c41a6c47b6bbef009e77ede9deaa9c50
 translation_revised: 2026-10-15
 ---
 # 에이전트 판테온
@@ -191,7 +191,7 @@ operations / 인터페이스), `3` = 거버넌스 staff.
 | Huginn | Event Collector / 실시간 Resource 발견 | 2 | Event, Change | ingest_event, normalize_change; 서명된 operator-request 증적을 검증하고 off-path에서 비활성 schema-cluster 근거를 게시합니다 | no |
 | Heimdall | Observer | 2 | Anomaly, Drift, Forecast, ForecastOutcome, RetrievalValidation, EvidenceConflict, RecoveryEffectObservation | detect_anomaly, detect_drift, 예측, close_forecast_outcome, publish_evidence_conflict_revision, observe_terminal_action_effect, relay_recovery_effect_observation, validate_retrieval_failure, validate_rule_generation, notify_admin_privilege_violation | no |
 | Vidar | 복구 | 2 | Rollback | perform_rollback; DR failover 계약을 수락하거나 보류하고 rollback rehearsal 증적을 기록합니다 | no |
-| Var | Approver | 2 | Approval | approve_action, reject_action; 서명된 전역 비상 정지 명령을 검증하고 공유 자율성 상한을 낮춤 | no |
+| Var | Approver | 2 | Approval | approve_action, reject_action; 서명된 전역 kill-switch 명령을 검증하고 공유 자율성 상한을 낮춥니다 | no |
 | Bragi | Narrator | 2 | Conversation, Turn, UserPreference, HandoffEscalation, PostTurnReview | translate_intent; shadow 전용 intent-training 근거를 기록하며 활성화에는 별도 검토가 필요합니다 | yes (translator 만) |
 | Saga | Auditor | 3 | AuditEntry, Issue | append_audit (누락 추적 정규화), escalate_to_github_issue; issue auto-close는 Mimir 승격 근거와 깨끗한 24시간 재발 없음 구간을 기다립니다 | no |
 | Mimir | Rule 담당자 | 3 | Rule, Policy, PolicyActivationRequest, RuleGenerationBuildRequest, RuleGenerationBuildResult | promote_rule, revoke_rule, build_rule_generation; rule source를 polling하고 회귀 기반 승격 및 deprecation 근거를 기록합니다 | no |
@@ -253,6 +253,33 @@ Bragi 학습의 실행, 게시, 단계 식별자는 동의 참조, 후보 근거
 입력을 포함한 전체 내용 스냅샷에 결속됩니다. 같은 내용을 재생하면 같은 식별자를 사용합니다.
 내용이 바뀌면 기존 보존 구간 안에서 감사된 단계를 별도로 기록하며, 런타임 라우팅을 바꾸지
 않습니다.
+평가기에는 원본과 분리한 사본을 전달합니다. 기준 또는 후보 리비전이 바뀌면 저장과 게시 전에
+거절하며, 평가기가 보관한 참조로 반환된 후보를 바꿀 수도 없습니다.
+
+Saga는 보존된 감사 발신함의 내용을 게시 전에 정규 JSON 해시로 비교합니다. 같은 키로 정수를
+불리언이나 실수로 바꾸는 경우를 포함해 중첩된 JSON 타입을 바꾸면 게시하지 않고 거절하며,
+보존된 기록도 변경하지 않습니다. 대기, 게시 권한 확보, 게시 완료 상태에서 내용이 같은 재생은
+계속 허용합니다. 이 무결성 수정이 전체 복제본 감사 체인의 수락이나 원격 GitHub App 작업
+식별자의 검증을 대신하지는 않습니다.
+보존 정리는 게시 완료 기록에만 원자적으로 적용하며 최근 완료 식별자 1,024개를 유지합니다.
+새 게시가 완료되어도 오래된 대기 또는 게시 권한 확보 상태의 감사 기록은 삭제하지 않습니다.
+
+Saga 내부 감사 체인은 기존 검증 완료 head 키에 닫힌 형식과 내용 해시를 가진 스키마 v2 기록을
+저장합니다. 항목을 추가할 때마다 복제본이 공유하는 리비전을 검증하고, StateStore의 감사 포함
+CAS로 다음 head와 감사 행을 함께 확정합니다. 인스턴스 내부에 저장한 head는 신뢰하지 않습니다.
+경합은 최대 여덟 번의 시도와 2초 기한으로 제한합니다. 실패하거나 취소되면 확정되지 않은 항목을
+로컬 복사본에 공개하지 않습니다. 공유 기록은 검증된 앞부분의 기준 해시와 함께, 해시만 담은
+최근 항목 최대 512개를 512KiB 안에 보존합니다. 로컬 상관관계 조회는 이 보존 구간만 다루며,
+앞부분이 로컬 조회 범위를 벗어나면 전체 이력 검증을 제공할 수 없다고 명시합니다.
+
+이전 형식에서 이행하려면 먼저 모든 구버전 Saga writer를 중지해야 합니다. 이미 실행 중인
+구버전 writer가 저장한 head를 새 reader만으로 차단할 수는 없습니다. 선택적 StateStore 감사
+reader는 관련 없는 행을 포함해 전체 감사 행이 최대 512개라는 점을 오래된 순서로 확인하고,
+Saga 순번의 연속성, 페이로드 해시와 기존 체크포인트를 검증해야 합니다. reader가 없거나 이력이
+잘렸거나 분기됐거나 체크포인트가 맞지 않으면 원본 감사 기록을 바꾸지 않고 보류합니다. 더 긴
+이력은 head를 임의로 만들지 않고 별도로 검토한 이행 절차가 필요합니다. 이행 후 새 복제본은
+확정된 리비전을 공유하지만, 로컬 검사가 혼합 버전의 순차 배포나 실제 배포 환경의 이행 수락을
+입증하지는 않습니다.
 
 Forseti의 what-if 비교는 규칙 없음으로 보류한 경우를 포함해 당시 기록된 ActionType과 판정
 테이블 해시를 보존합니다. 현재 규칙으로 원래 작업을 채우거나 출처 해시를 바꾸지 않습니다.
@@ -401,7 +428,7 @@ Huginn은 자체 표준 시간대 UTC 시계로 수집 시각을 기록하며 �
 
 객체 타입마다 `object.<type>` 토픽 하나를 사용합니다. 모든 메시지는 `correlation_id`, `idempotency_key`, `producer_principal`을 carry하며 Thor는 `correlation_id:state`로 retry-safe 전이를 유지합니다.
 버스는 인증된 `producer_principal`과 정수 `envelope_schema_version`을 기록하고 페이로드의 `schema_version`은 보존합니다. 변경은 비어 있지 않은 `correlation_id`, `resource_id`, `idempotency_key`가 필요합니다. 이 인증된 버스 경로 밖에서 기록하는 운영 감사 행은 기계 실행자 `actor`를 보존하고 책임 Pantheon 구성원을 `owner_agent`로 별도 기록하며 `producer_principal`을 만들어내지 않습니다. Saga의 영속 감사 체인 복사본은 `actor: Saga`를 기록하고, 감사 대상 페이로드나 다이제스트를 바꾸지 않은 채 인증된 원본 발행자를 `principal`에 보존합니다.
-Saga는 공급자 기반 chain append를 직렬화하고 영속 공급자가 append를 확인한 뒤에만 로컬 복사본 entry를 공개하므로 최종 상태 관측이 영속 감사 근거보다 앞설 수 없습니다.
+Saga는 공유 리비전을 사용해 공급자 기반 감사 항목 추가를 직렬화하고 head와 감사 행을 원자적으로 확정합니다. 범위가 제한된 로컬 복사본은 확정 뒤에만 공개하므로 최종 상태 관측이 영속 감사 근거보다 앞설 수 없습니다.
 Owned-topic 생산자 검사는 끌 수 없고 알 수 없는 `object.*` 구독은 등록에 실패합니다. Ordered 변경 소비자는 poison 기록을 보관한 뒤 중지해 후속 변경의 추월을 막습니다.
 Dead-letter 쓰기는 제한된 재시도 대기 후 소비자를 재시작합니다. 오퍼레이터 redrive도 소유자, 묶음, 스키마를 다시 검사하고 실패하면 원본 페이로드만 다시 보관합니다.
 권한을 수반하는 모든 소비자는 동작하기 전에 입력 토픽의 레지스트리 소유자를 다시 인증합니다.

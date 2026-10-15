@@ -17,6 +17,12 @@
 .observer-proposal dl > div { display: grid; grid-template-columns: minmax(160px, 1fr) minmax(0, 2fr); gap: 12px; padding: 8px 0; }
 .observer-proposal dd { margin: 0; overflow-wrap: anywhere; }
 .observer-proposal code { display: block; font-size: var(--cs-type-compact-size); overflow-wrap: anywhere; }
+.observer-proposals-empty { max-width: 68ch; padding: 24px 0; border-bottom: 1px solid var(--border); }
+.observer-proposals-empty h3,
+.observer-proposals-empty p { margin: 0; }
+.observer-proposals-empty h3 { color: var(--fg); font-size: var(--cs-type-panel-title-size); line-height: var(--cs-type-panel-title-line-height); }
+.observer-proposals-empty p { margin-top: 8px; color: var(--fg-muted); font-size: var(--cs-type-body-size); line-height: var(--cs-type-body-line-height); }
+.observer-proposals-empty .observer-proposals-empty-source { font-size: var(--cs-type-compact-size); line-height: var(--cs-type-compact-line-height); }
 @media (max-width: 700px) { .observer-proposal dl > div { grid-template-columns: minmax(0, 1fr); gap: 4px; } }
 
 .environment-deployment-panel {
