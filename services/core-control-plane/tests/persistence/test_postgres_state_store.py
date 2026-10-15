@@ -158,6 +158,36 @@ async def test_legacy_suffix_cleanup_on_real_postgres_preserves_peer_and_audit()
     assert await store.verify_chain() is True
 
 
+@pytest.mark.parametrize("field", ["status", "delivery.status"])
+async def test_filtered_retention_preserves_unpublished_audit_on_postgres(field: str) -> None:
+    url = _requires_live_db()
+    _upgrade_head()
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=_plain_dsn(url)))
+    prefix = f"retention_{uuid.uuid4().hex}%:"
+    keys = tuple(f"{prefix}{index}" for index in range(6))
+    try:
+        for index, status in enumerate(
+            ("pending", "published", "publishing", "published", "published")
+        ):
+            await store.write_state(
+                keys[index], {"index": index, "status": status, "delivery": {"status": status}}
+            )
+        await store.write_state(keys[5], {"index": 5})
+        assert (
+            await store.delete_states_beyond(
+                prefix, retain_newest=1, field=field, value="published"
+            )
+            == 2
+        )
+        assert {row["index"] for row in await store.read_states(prefix, limit=10)} == {0, 2, 4, 5}
+        assert await store.delete_states_beyond(prefix, retain_newest=1) == 3
+        assert [row["index"] for row in await store.read_states(prefix, limit=10)] == [5]
+    finally:
+        for key in keys:
+            await store.delete_state(key)
+        await store.aclose()
+
+
 def _requires_live_db() -> str:
     url = os.environ.get("FDAI_DATABASE_URL")
     if not url:

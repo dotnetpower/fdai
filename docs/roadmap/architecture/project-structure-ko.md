@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: c0eb484bc1c5fd717f7381f74f5d095332b4b0d8
+translation_source_sha: 3b07cc3ab16ec98f37740baf4d6613a959e273b7
 translation_revised: 2026-10-15
 ---
 # 프로젝트 구조
@@ -111,6 +111,12 @@ Core의 인수인계 부트스트랩은 디렉터리 조회 전에 실제 문서
 Bragi 호출 전에 인가를 확인하고, `runtime/bootstrap_agent_discussion.py`는 명시적 설치 설정과
 독립 인가의 선행 조건이 갖춰졌을 때만 연결합니다. 연결이 없으면 보류합니다. 이 변경은 행동,
 승인, 승격 또는 클라우드 관측 권한을 부여하지 않으며 Console 표시나 실제 환경 수락을 증명하지 않습니다.
+
+StateStore 보존 정리는 페이지 읽기와 같은 비교 규칙을 사용하는 선택적 필드/값 필터를 받습니다.
+프로바이더는 선택과 삭제에 필터를 원자적으로 적용하며, 생략하면 기존 접두사 전체 보존 정책을
+유지합니다. Saga는 `status=published`로 완료된 감사 발신함 기록만 정리하고 대기 또는 게시
+권한을 확보한 기록은 삭제하지 않습니다. 이 프로바이더 중립 확장은 권한이나 서비스 경계를
+추가하지 않으며 감사 항목을 삭제하지 않습니다.
 
 테스트 맥락 선택지는 권한이 없는 projection schema로 공유 service-contract SDK를 확장합니다. Operator는 인증과 선택지 렌더링을 소유하고, Core는 계속 허용 및 수명 주기 권한을 유지합니다.
 

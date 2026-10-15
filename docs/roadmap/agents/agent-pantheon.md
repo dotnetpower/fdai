@@ -256,6 +256,14 @@ retention window and never replace runtime routing.
 Evaluator inputs are isolated copies. Changes to either revision are rejected before storage or
 publication, and retained evaluator references cannot rewrite the returned candidate.
 
+Saga's retained audit outbox compares canonical JSON digests before publication. Reusing a key
+with changed JSON types, including nested integer-to-boolean or integer-to-float substitutions,
+is rejected without publishing or changing the retained row. Exact payload replay remains valid
+in pending, claimed and published states. This integrity repair does not establish full replica
+audit-chain acceptance or remote GitHub App operation identity.
+Retention applies atomically only to published tombstones, preserving the newest 1,024 completed
+identities. Older pending or claimed audits are never evicted by newer completed publications.
+
 Forseti what-if comparisons preserve the original recorded ActionType, including a no-rule
 abstention, and its recorded judgment-table digest. Current rules never fill the original action
 or replace its source digest. With Forseti's existing StateStore bound, a closed, content-hashed

@@ -31,6 +31,39 @@ async def test_prune_removes_exactly_what_a_bounded_read_would_never_return() ->
     assert await store.read_states(_PREFIX, limit=10) == retained
 
 
+@pytest.mark.parametrize("field", ["status", "delivery.status"])
+async def test_filtered_retention_preserves_active_and_missing_field_rows(field: str) -> None:
+    store = InMemoryStateStore()
+    for index, status in enumerate(
+        ("pending", "published", "publishing", "published", "published")
+    ):
+        record = {"index": index, "status": status, "delivery": {"status": status}}
+        await store.write_state(f"{_PREFIX}{index}", record)
+    await store.write_state(f"{_PREFIX}missing", {"index": 5})
+    await store.write_state("other:published", {"status": "published"})
+
+    assert (
+        await store.delete_states_beyond(_PREFIX, retain_newest=1, field=field, value="published")
+        == 2
+    )
+    assert {row["index"] for row in await store.read_states(_PREFIX, limit=10)} == {0, 2, 4, 5}
+    assert await store.read_state("other:published") == {"status": "published"}
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [("status", None), (None, "published"), ("", "published"), ("delivery..status", "published")],
+)
+async def test_filtered_retention_rejects_invalid_filters_before_deletion(
+    field: str | None, value: str | None
+) -> None:
+    store = InMemoryStateStore()
+    await _seed(store, _PREFIX, 3)
+    with pytest.raises(ValueError):
+        await store.delete_states_beyond(_PREFIX, retain_newest=1, field=field, value=value)
+    assert len(await store.read_states(_PREFIX, limit=10)) == 3
+
+
 async def test_prune_never_reaches_outside_its_prefix() -> None:
     store = InMemoryStateStore()
     await _seed(store, _PREFIX, 4)
