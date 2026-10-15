@@ -8,9 +8,10 @@ This document defines the planned FDAI-owned code representation and interproced
 engine. It extends the existing isolated scanner, SARIF, verification, and findings pipeline with
 reproducible source-to-sink evidence instead of replacing the scanners that already work.
 
-> **Status:** This is an accepted delivery plan, not an implementation or a CodeQL parity claim.
-> The linked [implementation ledger](../../roadmap-implementation/operations/code-security-analysis-engine.md)
-> keeps every engine package at `not-started` until source and focused evidence exist.
+> **Status:** The strict graph, rule, and path-evidence contracts are implemented. Frontends,
+> analysis algorithms, benchmark promotion, and product integration remain unimplemented; this is
+> not a CodeQL parity claim. See the linked
+> [implementation ledger](../../roadmap-implementation/operations/code-security-analysis-engine.md).
 >
 > **Authority:** Analysis reads an exact source revision and emits evidence. Heimdall remains the
 > accountable agent for code-security observation. The engine is a mechanical worker and grants no
