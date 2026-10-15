@@ -12,6 +12,7 @@ tests, so the five-service set under `services/` stays unchanged.
 
 | Path | Purpose | Story |
 |------|---------|-------|
+| [release-hub/](release-hub/README.md) | Release Hub: local vendor manifest publication, development signing, channel curation, recall, and a separate UI | #1945 |
 | [hub/](hub/README.md) | Lifecycle Hub: computes, signs, and serves Lifecycle Plans, and records execution reports | #1949 |
 | `agent/` | Lifecycle agent: polls the Hub, verifies Plans, and reports dry-run results | #1951 |
 | `tests/` | Hub-agent lifecycle loop, end to end on loopback | #1952 |
