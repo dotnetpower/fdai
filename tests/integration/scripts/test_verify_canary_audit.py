@@ -230,3 +230,9 @@ def test_deploy_workflow_uses_deterministic_slot_and_consumed_audit_verifier() -
     assert "--latency-budget-ms 30000" in RUNNER
     assert "--timeout-seconds 60" in RUNNER
     assert "POSTGRES_ADMIN_PASSWORD" not in RUNNER
+
+    receipt = WORKFLOW.split("- name: Record exact plan apply receipt", maxsplit=1)[1].split(
+        "      - name: Publish sanitized apply receipt", maxsplit=1
+    )[0]
+    assert '"$RUNNER_TEMP/canary-audit-receipt.json"' in receipt
+    assert '"$candidate/canary-audit-receipt.json"' in receipt

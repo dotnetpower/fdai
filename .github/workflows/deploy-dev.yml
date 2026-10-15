@@ -2274,6 +2274,7 @@ jobs:
             install -m 0600 runtime-call-evidence-job-readback.json "$candidate/runtime-call-evidence-job-readback.json"
           fi
           [[ ! -f provider-schema-deployment-evidence.json ]] || install -m 0600 provider-schema-deployment-evidence.json "$candidate/provider-schema-deployment-evidence.json"
+          [[ ! -f "$RUNNER_TEMP/canary-audit-receipt.json" ]] || install -m 0600 "$RUNNER_TEMP/canary-audit-receipt.json" "$candidate/canary-audit-receipt.json"
           for evidence in provider-schema-core-baseline-plan.json provider-schema-core-baseline.json; do [[ ! -f "$evidence" ]] || install -m 0600 "$evidence" "$candidate/$evidence"; done
           echo "Applied protected plan: \`$APPLY_PLAN_ID\`" >> "$GITHUB_STEP_SUMMARY"
       - name: Publish sanitized apply receipt
