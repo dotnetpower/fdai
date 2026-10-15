@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 67513c8b7dc9af8246fd519ff967dd04860d70bf
+translation_source_sha: 2166991cb5528a4c0706cf7dc2be69cc654011d7
 translation_revised: 2026-10-15
 ---
 # 에이전트 판테온
@@ -307,6 +307,17 @@ Saga 순번의 연속성, 페이로드 해시와 기존 체크포인트를 검�
 이력은 head를 임의로 만들지 않고 별도로 검토한 이행 절차가 필요합니다. 이행 후 새 복제본은
 확정된 리비전을 공유하지만, 로컬 검사가 혼합 버전의 순차 배포나 실제 배포 환경의 이행 수락을
 입증하지는 않습니다.
+
+표준 Core는 기본적으로 StateStore 이슈 어댑터를 유지합니다. 명시적으로
+`FDAI_SAGA_GITHUB_ISSUES_ENABLED`를 선택하면 정확한 단일 저장소 readback과 최소 권한인
+`issues: write`, `metadata: read` 투영을 확인한 뒤 Saga에 GitHub App 어댑터를 연결할 수
+있습니다. 이 어댑터는 기존의 전역 작업-지문·내용 결속을 보존하고, StateStore 공유 점유로
+지문별 작업을 직렬화하며, 해시만 포함한 숨은 원격 표식을 쓰고 GitHub이 부여한 이슈·댓글
+식별자를 독립적으로 다시 읽습니다. 원격 효과 뒤 readback이 실패하면 표식으로 재시도하므로
+두 번째 이슈를 만들 수 없습니다. 정적 토큰, 불완전한 App 자격 증명, 바뀐 작업 내용, 모호한
+세대 또는 일치하지 않는 저장소 범위는 안전하게 차단합니다. Saga는 계속 Issue와 감사의
+소유자이며, 어댑터는 병합, 승격, 승인 또는 실행 권한을 부여하지 않습니다. 실제 GitHub App
+설치, 네트워크, 복제본 재시작과 원격 수락 근거는 배포 환경이 제공해야 합니다.
 
 Forseti의 what-if 비교는 규칙 없음으로 보류한 경우를 포함해 당시 기록된 ActionType과 판정
 테이블 해시를 보존합니다. 현재 규칙으로 원래 작업을 채우거나 출처 해시를 바꾸지 않습니다.

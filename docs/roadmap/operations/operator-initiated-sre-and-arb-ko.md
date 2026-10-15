@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: 8f3a1e6e6a00a3cf8dbf1638353cc965b19b722d
-translation_revised: 2026-10-04
+translation_source_sha: 16588e531f8202071476aa22bea193acf8efd7f1
+translation_revised: 2026-10-15
 ---
 
 # 오퍼레이터 시작 SRE 및 아키텍처 리뷰
@@ -34,6 +34,12 @@ Operator post-turn review 발행은 projection 이후 완료된 semantic turn만
 Operator 운영 조립은 이제 수명 주기 순서, 경로 계열 조립 및 읽기 출처 선언을 목적별 모듈에
 위임합니다. 인시던트 확인 브리지 생성과 준비 상태는 운영 파사드에 유지되므로 이 분리는 인시던트
 토픽, 영속 수락, 서비스 신원 또는 실행 권한을 바꾸지 않습니다.
+
+Core 초기화는 Saga의 이슈 전달 어댑터도 Incident 생성과 독립적으로 선택합니다. 기본값은 로컬
+StateStore 변환 결과입니다. 명시적으로 구성한 GitHub App 어댑터는 정확한 저장소와 권한
+readback 뒤 Saga 인계를 원격으로 구체화할 수 있지만 Incident를 생성, 확인, 상관관계 설정,
+전이 또는 해결하지 않으며 Operator나 실행기 신원을 받지 않습니다. Incident 요청 전송과 Saga
+이슈 전송은 기존 상관관계·감사 참조만 공유합니다.
 
 FDAI는 모든 작업 단위에 하나의 추적 신원을 사용하고, 근거가 있는 문제 또는
 오퍼레이터가 명시적으로 확인한 문제 대응 요청에만 인시던트를 생성합니다. 읽기 전용 발견은

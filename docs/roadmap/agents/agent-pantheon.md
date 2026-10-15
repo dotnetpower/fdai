@@ -309,6 +309,18 @@ audit evidence. Longer legacy histories require a separately reviewed migration,
 head. New replicas share committed revisions after migration; mixed-version rolling writes and
 deployed migration acceptance are not established by local checks.
 
+Standard Core keeps the StateStore issue adapter by default. An explicit
+`FDAI_SAGA_GITHUB_ISSUES_ENABLED` selection can instead compose Saga with a GitHub App adapter
+after exact single-repository readback and least-privilege `issues: write` plus `metadata: read`
+projection. The adapter preserves the existing global operation-to-fingerprint/content binding,
+serializes each fingerprint through a shared StateStore lease, writes digest-only hidden remote
+markers, and independently reads back GitHub-assigned issue and comment identities. A failed
+post-effect read retries by marker and cannot create a second issue. Static tokens, incomplete App
+credentials, changed operation content, ambiguous generations, or mismatched repository scope fail
+closed. Saga remains the Issue and audit owner; the adapter grants no merge, promotion, approval,
+or execution authority. Actual GitHub App installation, network, replica restart and remote
+acceptance evidence remain deployment-owned.
+
 Forseti what-if comparisons preserve the original recorded ActionType, including a no-rule
 abstention, and its recorded judgment-table digest. Current rules never fill the original action
 or replace its source digest. With Forseti's existing StateStore bound, a closed, content-hashed

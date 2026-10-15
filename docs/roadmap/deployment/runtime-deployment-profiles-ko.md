@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 0957fa9069e4ee980a1f32682681ccecd37757b9
+translation_source_sha: e8028887e8154d69523c74097f6d9d6f65ab2d0c
 translation_revised: 2026-10-15
 ---
 # 런타임 배포 프로파일
@@ -38,6 +38,14 @@ Core는 Mimir 유지 작업, Loki 비활성 시나리오, Forseti 과거 재생,
 유지하고, 설정 일부가 없거나 내용이 바뀌었거나 오래되었거나 잘못되었으면 시작에 실패합니다.
 런타임 플랫폼 선택은 근거 파일, 검토, 의미 정확성 주장, 승인, 승격, 작업 권한 또는 운영 수락을
 제공하지 않습니다.
+
+Saga 이슈 전달도 런타임 프로파일과 독립적입니다. `FDAI_SAGA_GITHUB_ISSUES_ENABLED`는
+StateStore 어댑터를 기본값으로 유지하며, `FDAI_SAGA_GITHUB_OWNER`,
+`FDAI_SAGA_GITHUB_REPO`, 완전한 갱신형 GitHub App 자격 증명 집합, 정확한 설치·저장소
+readback이 있을 때만 원격 전달을 선택합니다. App 토큰은 `issues: write`와 `metadata: read`로
+제한하며 이 경로는 정적 토큰을 허용하지 않습니다. AKS와 Container Apps는 같은 작업 기록,
+공유 지문 점유, 원격 표식과 readback 계약을 사용합니다. 런타임 플랫폼 선택은 이 어댑터를
+활성화하거나 네트워크, App 설치, 복제본 재시작, 이슈 소유권 또는 전달 수락을 입증하지 않습니다.
 
 [GitHub 지식 연결기](../../runbooks/knowledge-github-sources-ko.md)는 두 런타임 프로파일에서
 같은 제한된 저장소, 정확한 커밋 및 README 검증을 사용합니다. 익명 공개 접근에는 토큰이

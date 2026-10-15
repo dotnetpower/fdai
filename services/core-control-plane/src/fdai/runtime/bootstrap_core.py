@@ -60,6 +60,7 @@ from fdai.runtime.bootstrap_pantheon import (
 )
 from fdai.runtime.bootstrap_plan import BootstrapPlan
 from fdai.runtime.bootstrap_resources import RuntimeResources
+from fdai.runtime.bootstrap_saga_issue_tracker import build_saga_issue_tracker
 from fdai.runtime.bootstrap_semantics import build_semantic_runtime
 from fdai.runtime.catalog_ontology import project_catalog_ontology, sync_ontology_catalog
 from fdai.runtime.configuration import (
@@ -440,7 +441,12 @@ async def build_core_runtime(
             "effect_reconciliation_request_producer_unavailable",
             extra={"reason": "executed_action_sources_absent"},
         )
-    runtime_saga = _build_runtime_saga(state_store)
+    issue_tracker = await build_saga_issue_tracker(
+        environment=environment,
+        store=state_store,
+        http_client=resources.http_client,
+    )
+    runtime_saga = _build_runtime_saga(state_store, issue_tracker=issue_tracker)
     approval_bindings = await load_signed_approval_bindings(environment, state_store, resources)
     control_loop = _build_control_loop(
         container,

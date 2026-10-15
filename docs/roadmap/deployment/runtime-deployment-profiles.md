@@ -40,6 +40,15 @@ configuration stays unbound, while partial, changed, stale, or malformed input f
 Runtime platform selection never supplies an evidence file, review, semantic-quality claim,
 approval, promotion, action authority, or operational acceptance.
 
+Saga issue delivery is also runtime-profile neutral. `FDAI_SAGA_GITHUB_ISSUES_ENABLED` keeps the
+StateStore adapter as the default and selects remote delivery only with
+`FDAI_SAGA_GITHUB_OWNER`, `FDAI_SAGA_GITHUB_REPO`, a complete refreshable GitHub App credential
+set, and exact installation/repository readback. The App token is limited to `issues: write` and
+`metadata: read`; static tokens are not accepted for this path. AKS and Container Apps use the
+same operation journal, shared fingerprint claim, remote marker and readback contract. Selecting
+a runtime platform never enables this adapter or proves network, App installation, replica
+restart, issue ownership, or delivery acceptance.
+
 The [GitHub knowledge connector](../../runbooks/knowledge-github-sources.md) uses the same
 bounded repository, exact-commit, and README validation in both runtime profiles. Anonymous
 public access needs no token; private access uses the deployment-owned read-only GitHub App

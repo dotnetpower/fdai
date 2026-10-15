@@ -32,6 +32,13 @@ read-source declarations to focused modules. Incident confirmation bridge constr
 readiness remain in the production facade, so this split changes no Incident topic, durable
 acceptance, service identity, or execution authority.
 
+Core bootstrap also selects Saga's issue-delivery adapter independently from Incident creation.
+The default remains the local StateStore projection. An explicitly configured GitHub App adapter
+can materialize Saga handoffs remotely after exact repository and permission readback, but it does
+not create, confirm, correlate, transition, or resolve an Incident and receives no Operator or
+executor identity. Incident request transport and Saga issue transport share only their existing
+correlation and audit references.
+
 FDAI uses one trace identity for every unit of work and creates an Incident only for an
 evidence-backed problem or an operator-confirmed problem-response request. Read-only discovery
 starts with a correlation ID and, when work is detached, a Process ID. An explicit operator
