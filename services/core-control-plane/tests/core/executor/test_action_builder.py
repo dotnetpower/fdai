@@ -360,6 +360,25 @@ def test_build_from_operator_request_rejects_non_schema_arguments() -> None:
         )
 
 
+def test_operator_request_rejects_rule_violation_only_remediation() -> None:
+    action_type = _shipped_action_types()["remediate.tag-add"]
+    builder = ActionBuilder(action_types_by_name={action_type.name: action_type})  # type: ignore[attr-defined]
+    event = _operator_event().model_copy(
+        update={
+            "payload": {
+                "operator_request": {
+                    "initiator_principal": "operator-1",
+                    "action_type": "remediate.tag-add",
+                    "params": {},
+                }
+            }
+        }
+    )
+
+    with pytest.raises(ActionBuildError, match="does not allow operator_request triggers"):
+        builder.build_from_operator_request(event=event)
+
+
 def test_operator_action_idempotency_key_stays_within_vm_request_bound() -> None:
     action_type = _shipped_action_types()["tool.run-python-on-vm"]
     builder = ActionBuilder(action_types_by_name={action_type.name: action_type})  # type: ignore[attr-defined]

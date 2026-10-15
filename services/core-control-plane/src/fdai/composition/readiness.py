@@ -404,8 +404,6 @@ def build_operational_readiness_event_handler(
     decision_evidence: DecisionEvidenceAdmissionProvider | None = None,
     best_practices: Sequence[BestPractice] = (),
     checklist_evidence: ChecklistEvidenceProvider | None = None,
-    remediation_publisher: RemediationProposalPublisher | None = None,
-    remediation_levers: Mapping[str, str] | None = None,
 ) -> OperationalReadinessEventHandler | None:
     """Build the shadow handoff workflow only for a complete provider pair."""
 
@@ -426,8 +424,6 @@ def build_operational_readiness_event_handler(
             mode=mode,
             best_practices=best_practices,
             checklist_evidence=checklist_evidence,
-            remediation_publisher=remediation_publisher,
-            remediation_levers=dict(remediation_levers or {}),
             decision_evidence=decision_evidence,
         ),
     )
