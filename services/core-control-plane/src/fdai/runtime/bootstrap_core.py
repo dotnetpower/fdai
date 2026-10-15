@@ -330,6 +330,7 @@ async def build_core_runtime(
         decision_evidence=container.decision_evidence_admission_provider,
         best_practices=best_practices,
         checklist_evidence=checklist_evidence,
+        remediation_binding=container.operational_readiness_remediation,
     )
     if operational_readiness_handler is None:
         _LOGGER.info(

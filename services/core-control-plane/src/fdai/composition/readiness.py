@@ -41,6 +41,7 @@ from fdai.shared.providers.readiness import (
     ChecklistEvidenceProvider,
     PostureAssessmentProvider,
     ReadinessReportPublisher,
+    RemediationProposalBinding,
     RemediationProposalPublisher,
 )
 from fdai.shared.providers.state_store import StateStore
@@ -444,6 +445,7 @@ def build_operational_readiness_event_handler(
     decision_evidence: DecisionEvidenceAdmissionProvider | None = None,
     best_practices: Sequence[BestPractice] = (),
     checklist_evidence: ChecklistEvidenceProvider | None = None,
+    remediation_binding: RemediationProposalBinding | None = None,
 ) -> OperationalReadinessEventHandler | None:
     """Build the shadow handoff workflow only for a complete provider pair."""
 
@@ -465,6 +467,12 @@ def build_operational_readiness_event_handler(
             best_practices=best_practices,
             checklist_evidence=checklist_evidence,
             decision_evidence=decision_evidence,
+            remediation_publisher=(
+                remediation_binding.publisher if remediation_binding is not None else None
+            ),
+            remediation_levers=(
+                dict(remediation_binding.levers) if remediation_binding is not None else {}
+            ),
         ),
     )
 

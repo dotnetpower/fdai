@@ -786,8 +786,10 @@ exact ActionType declaration in the active ontology release. The route invokes t
 gate only after every cited rule resolves in the active catalog to that ActionType. Reports bind
 the exact ownership-transfer identity and expire after 900 seconds. The route terminates as
 shadow, Human approval required, denial, or abstention without execution
-authorization or dispatch. The existing proposal-to-request producer remains unbound until it can
-supply that complete contract and governed delivery evidence.
+authorization or dispatch. The concrete EventBus proposal-to-request adapter derives parameters
+from the cited active rule and preserves the transfer identity. Container accepts it only as a
+complete publisher-and-lever binding; upstream runtime selection and governed delivery evidence
+remain open.
 ![Control-Loop Wiring. The main stages are events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.en.svg)
 
 ## Configuration Model

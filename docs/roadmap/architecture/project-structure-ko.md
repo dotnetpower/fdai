@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: c223eb9d737aa621ddfc62d0f0a3ba803c68102d
+translation_source_sha: c1535ee1dae21f265ded07f6755adc40f84b4a16
 translation_revised: 2026-10-15
 ---
 # 프로젝트 구조
@@ -769,8 +769,9 @@ ActionBuilder는 내용 주소 기반 요청에서 Action 신원을 만들고 �
 선언만 허용합니다. 인용한 모든 룰이 활성 카탈로그에서 해당 ActionType을 교정해야 통합
 risk-gate를 호출합니다. 리포트는 정확한 소유권 이전 신원을 결속하고 900초가 지나면 만료됩니다.
 이 경로는 실행 권한 평가나
-실행 없이 shadow, 사람 승인 필요, 거부 또는 판단 보류로 끝납니다. 기존 제안을 요청으로 바꾸는
-게시자는 완전한 계약과 통제된 전달 근거를 제공할 수 있을 때까지 연결하지 않습니다.
+실행 없이 shadow, 사람 승인 필요, 거부 또는 판단 보류로 끝납니다. 구체적인 EventBus 제안-요청
+어댑터는 인용한 활성 룰에서 인자를 만들고 소유권 이전 신원을 보존합니다. Container는 완전한
+게시자 및 레버 바인딩으로만 어댑터를 받으며, upstream 런타임 선택과 통제된 전달 근거는 남아 있습니다.
 ![컨트롤 루프 배선. 주요 단계는 events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops입니다.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.ko.svg)
 
 ## 구성 모델

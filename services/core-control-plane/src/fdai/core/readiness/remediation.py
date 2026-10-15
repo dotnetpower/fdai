@@ -87,6 +87,7 @@ class RemediationProposal:
     severity: str
     blocking: bool
     idempotency_key: str
+    transfer_id: str
     dimension: str | None = None
     control_id: str | None = None
     mode: Mode = Mode.SHADOW
@@ -110,6 +111,7 @@ class RemediationProposal:
             "severity": self.severity,
             "blocking": self.blocking,
             "idempotency_key": self.idempotency_key,
+            "transfer_id": self.transfer_id,
             "dimension": self.dimension,
             "control_id": self.control_id,
             "mode": self.mode.value,
@@ -163,6 +165,8 @@ def build_remediation_proposals(
         raise SelfApprovalError(
             "operational-readiness remediation requires an approver distinct from the submitter"
         )
+    if not report.transfer_id:
+        raise ValueError("operational-readiness remediation requires an exact transfer identity")
 
     proposals: dict[str, RemediationProposal] = {}
     for finding in report.findings:
@@ -190,6 +194,7 @@ def build_remediation_proposals(
             severity=finding.severity,
             blocking=finding.blocking,
             idempotency_key=key,
+            transfer_id=report.transfer_id,
             dimension=finding.dimension,
             control_id=finding.control_id,
         )
