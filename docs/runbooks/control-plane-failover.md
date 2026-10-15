@@ -86,9 +86,14 @@ Stop if any of these bindings is absent:
    curl --fail --silent --show-error \
      -H "Authorization: Bearer $FDAI_OPERATOR_BEARER_TOKEN" \
      -H 'Content-Type: application/json' \
-     -d "{\"engaged\":true,\"reason\":\"Regional recovery fence for plan $FDAI_RECOVERY_PLAN_ID\",\"request_id\":\"$FDAI_RECOVERY_PLAN_ID-fence-$FDAI_RECOVERY_EPOCH\"}" \
+       -H "Idempotency-Key: $FDAI_RECOVERY_PLAN_ID-fence-$FDAI_RECOVERY_EPOCH" \
+       -d "{\"engaged\":true,\"reason\":\"Regional recovery fence for plan $FDAI_RECOVERY_PLAN_ID\"}" \
    "$FDAI_OPERATOR_API_BASE_URL/system/kill-switch"
    ```
+
+    HTTP `202` proves only that the typed request was published. Before continuing, obtain an
+    independent durable state readback that binds `engaged: true`, the new revision, and this
+    request id. Halt the drill if that readback is unavailable or mismatched.
 
 4. Stop new scheduler dispatch and approval delivery. Existing action receipts remain evidence;
    don't issue replacement actions.

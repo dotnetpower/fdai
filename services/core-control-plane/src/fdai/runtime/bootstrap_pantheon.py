@@ -15,6 +15,7 @@ from fdai.agents import (
     PantheonRuntime,
     ShadowDivergenceLedger,
     StateStoreActionRunStore,
+    VarKillSwitchRequestHandler,
 )
 from fdai.composition.cost_governance_activation import build_cost_runtime_bindings
 from fdai.composition.operational_evidence_binding import build_test_context_command_handler
@@ -32,6 +33,7 @@ from fdai.core.operational_planning import (
     SpecialistPlanningCoordinator,
     operational_planning_capability_status,
 )
+from fdai.core.rbac.kill_switch_command import KillSwitchCommandService
 from fdai.core.readiness import AuthorityCeiling, DiscoveryActivationReport
 from fdai.delivery.agent_activity import (
     AgentRuntimeStatePublisher,
@@ -81,6 +83,9 @@ from fdai.runtime.forecast_learning import (
     forecast_history_collector_from_environment,
 )
 from fdai.runtime.operational_catalog_review import build_operational_catalog_review_bindings
+from fdai.runtime.operator_request_receipt_gate import (
+    OPERATOR_REQUEST_OPERATOR_PRODUCER_ID_ENV,
+)
 from fdai.runtime.operator_request_receipt_gate import (
     operator_request_receipt_gate as _operator_request_receipt_gate,
 )
@@ -440,6 +445,22 @@ async def initialize_pantheon(
         config.environment,
         config.incident_audit_store,
     )
+    var_kill_switch_request_handler = (
+        VarKillSwitchRequestHandler(
+            service=KillSwitchCommandService(config.incident_audit_store),
+            receipt_gate=operator_request_receipt_gate,
+            operator_producer_service_identity=(
+                config.environment.get(
+                    OPERATOR_REQUEST_OPERATOR_PRODUCER_ID_ENV,
+                    "operator-service",
+                ).strip()
+                or "operator-service"
+            ),
+            clock=lambda: datetime.now(UTC),
+        )
+        if operator_request_receipt_gate is not None
+        else None
+    )
     mimir_policy_administration = (
         await build_mimir_policy_administration(
             environment=config.environment,
@@ -480,6 +501,7 @@ async def initialize_pantheon(
         action_rollback_executors=action_rollback_executors or None,
         vidar_state_store=config.incident_audit_store,
         var_state_store=config.incident_audit_store,
+        var_kill_switch_request_handler=var_kill_switch_request_handler,
         forseti_state_store=config.incident_audit_store,
         bragi_state_store=config.incident_audit_store,
         odin_state_store=config.incident_audit_store,

@@ -294,8 +294,11 @@ The PostgreSQL evidence provider follows these boundaries:
   `kill_switch` ceiling axis fed by `KillSwitch.is_engaged()`
   ([execution-model.md](../decisioning/execution-model.md) 2.6b). The production runtime reads
   the state from PostgreSQL before every authority decision; a read failure is treated as
-  engaged. Owner and Break-Glass principals change it through `POST /system/kill-switch`, which
-  uses revision compare-and-set and writes the audit entry in the same transaction.
+  engaged. Owner and Break-Glass principals submit `POST /system/kill-switch` with fresh
+  authentication and an `Idempotency-Key`. The Operator API signs and publishes a typed request;
+  Var verifies the exact receipt, principal, role, time, and replay fence before revision
+  compare-and-set writes the state and audit entry in the same transaction. HTTP `202` proves only
+  accepted publication. An independent durable state readback proves that the switch changed.
 - A **break-glass** procedure grants scoped emergency access under mandatory audit and
   post-incident review; break-glass use raises an alert and auto-expires.
 

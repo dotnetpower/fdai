@@ -2,7 +2,7 @@
 title: FDAI 기능 준비 상태 평가
 description: FDAI 제품 중분류 52개의 준비 상태 판정 근거와 남은 조건을 기록합니다.
 translation_of: functional-readiness.md
-translation_source_sha: 381463fc88083bbb304c00ee0bfe5c2ba4bb8b0e
+translation_source_sha: ebf33f234b8d202d1fa0e9dc8c11987272018fc6
 translation_revised: 2026-10-15
 ---
 
@@ -135,7 +135,7 @@ Partial 17건은 구현된 부분과 현재 소스의 집중 검사를 유지하
 | 기능 | 상태 | 근거, 지원 범위 및 남은 조건 |
 |------|------|-----------------------------|
 | <span id="f12-1">F12.1</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 역할 분리, 정확한 작업 승인, 만료 및 철회, 조건부 사전 권한, 현재 임대 및 동시 실행 차단 계약, 승인 정족수 프로필, 권한 또는 공급자 강제를 사용할 수 없을 때의 안전한 전달 차단입니다. [권한 원장](../../roadmap-implementation/decisioning/escalation-and-standing-authority.md)과 집중 테스트 702개가 이 범위를 뒷받침합니다. 효과 반영 시점에 동시 실행 차단을 강제하는 공급자 연결과 상시 권한 훈련은 별도 배포 검증입니다. |
-| <span id="f12-2">F12.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 버전이 지정된 정책 및 위험 판정, 비상 중지 및 회수 우선순위, 7가지 실행 안전 조건, 차단 및 작업 없음의 최종 감사, 안전한 쪽으로 닫히는 실행 방지입니다. [거버넌스 원장](../../roadmap-implementation/decisioning/operator-governance-profiles.md), [상태 원장](../../roadmap-implementation/operations/operating-and-verification.md), 집중 안전 검사가 이 범위를 뒷받침합니다. Release 최대값 연결과 측정된 배포 비상 중지 훈련은 별도 설치 검증입니다. |
+| <span id="f12-2">F12.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 버전이 지정된 정책 및 위험 판정, 비상 중지 및 회수 우선순위, 7가지 실행 안전 조건, 차단 및 작업 없음의 최종 감사, 안전한 쪽으로 닫히는 실행 방지입니다. 서명된 Operator-Var 비상 정지 경로, [보안 원장](../../roadmap-implementation/architecture/security-and-identity.md), [상태 원장](../../roadmap-implementation/operations/operating-and-verification.md), 집중 안전 검사가 로컬 구현을 뒷받침합니다. Release 최대값 연결, 권한이 부여된 상태 조회 화면, 배포 환경에서 측정한 활성화-실행 차단-비활성화 훈련은 별도 설치 검증으로 남아 있습니다. |
 | <span id="f12-3">F12.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 책임을 추적할 수 있는 해시 체인 감사, 결정론적 재현, 목적 및 범위 접근 검사, 모델 입력 전 최소화, 비식별화된 내보내기, 범위가 제한된 보존 및 삭제, 법적 보존, 삭제 표시, 재시도에 안전한 감사 증적입니다. [개인정보 원장](../../roadmap-implementation/architecture/data-governance.md)과 집중 감사·보존·개인정보 검사가 이 범위를 뒷받침합니다. 개인정보 승인, 외부 감사 고정 또는 WORM 저장소, 실제 접근 검토 및 사고 증적은 별도 배포 검증입니다. |
 | <span id="f12-4">F12.4</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 구현된 부분은 서비스 및 모델 상태, 리소스·서비스·근거 상태 조회, 영속 상태 및 감사 준비 검사, 임계값·신선도·일반 담당 경로·알림 route·실패 시 안전한 대체 경로를 연결하는 전체 15개 신호 정책입니다. [상태 원장](../../roadmap-implementation/operations/operating-and-verification.md)과 집중 검사가 이 범위를 뒷받침합니다. 모든 카탈로그 메트릭의 런타임 내보내기 연결, 전체 공개 상태, 측정된 기본 및 대체 전달, 카나리 지연, 복구 훈련 근거는 남아 있습니다. |
 

@@ -1,8 +1,8 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 23c23858670c0d59d2ab1fa89b07fc203b89e3e8
-translation_revised: 2026-10-09
+translation_source_sha: f8979be1f4fbac53feec31e3c73fb61e835b6564
+translation_revised: 2026-10-15
 ---
 
 # 보안과 아이덴티티
@@ -283,8 +283,12 @@ PostgreSQL 근거 공급자는 다음 경계를 따릅니다.
   실행기 아이덴티티 없이 조작 가능. risk 게이트 는 이를 `KillSwitch.is_engaged()` 가 공급하는
   `kill_switch` 상한 축으로 실현합니다. ([execution-model-ko.md](../decisioning/execution-model-ko.md)
   2.6b). 운영 런타임은 모든 권한 결정 전에 PostgreSQL에서 상태를 읽으며 읽기에 실패하면
-  engaged 상태로 처리합니다. Owner와 Break-Glass principal은 `POST /system/kill-switch`를 통해
-  상태를 변경하고, 개정 번호 compare-and-set과 감사 항목이 같은 트랜잭션에 기록됩니다.
+  engaged 상태로 처리합니다. Owner와 Break-Glass principal은 새 인증과 `Idempotency-Key`를
+  사용해 `POST /system/kill-switch` 요청을 제출합니다. Operator API는 형식이 지정된 요청에
+  서명해 게시합니다. Var는 정확한 증적, principal, 역할, 시간, 재생 방지 상태를 검증한 뒤
+  개정 번호 compare-and-set으로 상태와 감사 항목을 같은 트랜잭션에 기록합니다. HTTP `202`는
+  요청이 게시되었음만 보여 줍니다. 비상 정지 상태가 바뀌었는지는 독립적인 영속 상태 조회로
+  확인해야 합니다.
 - **Break-glass** 절차는 필수 감사와 사후 리뷰 하에 범위된 비상 접근을 부여; break-glass
   사용은 알림을 발동하고 자동 만료.
 
