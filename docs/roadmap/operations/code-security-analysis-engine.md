@@ -9,9 +9,10 @@ engine. It extends the existing isolated scanner, SARIF, verification, and findi
 reproducible source-to-sink evidence instead of replacing the scanners that already work.
 
 > **Status:** The graph and path contracts, shared flow traversal, Python and TypeScript slices,
-> scan-owned incremental reuse, verified-fix gate, and an experimental Java SQL slice are
+> scan-owned incremental reuse, full product path replay, the fail-closed repair-candidate gate,
+> verified-fix gate, and an experimental Java SQL slice are
 > implemented components. The original Package 0-5 exit criteria remain in progress pending the
-> comparison, promotion, product, and compiler-backed language evidence in the linked
+> remaining external comparison, promotion, and compiler-backed language evidence in the linked
 > [implementation ledger](../../roadmap-implementation/operations/code-security-analysis-engine.md).
 >
 > **Hardening:** Forty prior critique rounds covered the earlier implemented scope. The version

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import Literal
 
 from fdai.rule_catalog.code_security import (
     AttackComplexity,
@@ -71,6 +72,22 @@ class SourceLocation:
 class FlowStep:
     path: str
     line: int | None
+    kind: Literal["source", "flow", "call", "return", "sanitizer", "sink"] = "flow"
+    end_line: int | None = None
+    node_id: str | None = None
+    call_context: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
+class AnalysisPathEvidence:
+    path_id: str
+    path_digest: str
+    graph_digest: str
+    graph_schema_version: str
+    path_schema_version: str
+    rule_version: str
+    frontend_versions: tuple[tuple[str, str], ...]
+    coverage_limits: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,6 +112,7 @@ class Occurrence:
     package_version: str | None = None
     advisory_score: float | None = None
     fingerprints: tuple[tuple[str, str], ...] = ()
+    analysis_evidence: AnalysisPathEvidence | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -181,6 +199,7 @@ class CodeSecurityIssue:
     known_exploited: bool = False
     code_flow: tuple[FlowStep, ...] = ()
     messages: tuple[str, ...] = field(default=())
+    analysis_evidence: AnalysisPathEvidence | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -216,6 +235,7 @@ class FixGroup:
 
 __all__ = [
     "UNDETERMINED",
+    "AnalysisPathEvidence",
     "CodeSecurityIssue",
     "FixGroup",
     "FlowStep",

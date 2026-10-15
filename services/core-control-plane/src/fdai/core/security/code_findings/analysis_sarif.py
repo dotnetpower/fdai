@@ -6,6 +6,8 @@ import json
 from typing import Protocol
 
 from fdai.core.security.code_findings.analysis_contracts import (
+    GRAPH_SCHEMA_VERSION,
+    PATH_SCHEMA_VERSION,
     CodeGraphArtifact,
     CodeSecurityRuleSpec,
     GraphNodeKind,
@@ -66,7 +68,12 @@ def render_analysis_sarif(result: AnalysisResult, rule: CodeSecurityRuleSpec) ->
                                                     "endLine": step.span.end_line,
                                                 },
                                             }
-                                        }
+                                        },
+                                        "properties": {
+                                            "fdaiRole": step.role.value,
+                                            "fdaiNodeId": step.node_id,
+                                            "fdaiCallContext": list(step.call_context),
+                                        },
                                     }
                                     for step in path.steps
                                 ]
@@ -76,8 +83,13 @@ def render_analysis_sarif(result: AnalysisResult, rule: CodeSecurityRuleSpec) ->
                 ],
                 "properties": {
                     "tags": [f"CWE-{cwe}" for cwe in rule.cwe_ids],
+                    "fdaiPathId": path.path_id,
                     "fdaiPathDigest": path.digest(),
                     "fdaiGraphDigest": result.graph.digest(),
+                    "fdaiGraphSchemaVersion": GRAPH_SCHEMA_VERSION,
+                    "fdaiPathSchemaVersion": PATH_SCHEMA_VERSION,
+                    "fdaiRuleVersion": rule.version,
+                    "fdaiFrontendVersions": dict(sorted(result.graph.frontend_versions.items())),
                     "fdaiCoverageLimits": list(path.coverage_limits),
                 },
             }

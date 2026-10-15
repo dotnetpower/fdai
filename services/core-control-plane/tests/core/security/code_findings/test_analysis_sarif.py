@@ -69,6 +69,16 @@ def search():
     assert issue.producers == (PRODUCER,)
     assert issue.fix_site.path == "app.py"
     assert [step.path for step in issue.code_flow] == ["app.py", "app.py", "app.py"]
+    assert [(step.kind, step.node_id, step.call_context) for step in issue.code_flow] == [
+        (step.role.value, step.node_id, step.call_context) for step in analysis.paths[0].steps
+    ]
+    assert issue.analysis_evidence is not None
+    assert issue.analysis_evidence.path_id == analysis.paths[0].path_id
+    assert issue.analysis_evidence.path_digest == analysis.paths[0].digest()
+    assert issue.analysis_evidence.graph_digest == analysis.graph.digest()
+    assert issue.analysis_evidence.frontend_versions == tuple(
+        sorted(analysis.graph.frontend_versions.items())
+    )
     (run,) = ingested.runs
     assert run.execution_successful is True
     assert run.analyzed_paths == ("app.py",)

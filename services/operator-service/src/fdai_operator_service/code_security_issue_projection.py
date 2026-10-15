@@ -31,6 +31,10 @@ _CLASS = re.compile(r"^[a-z0-9][a-z0-9_]{0,63}$")
 _ADVISORY = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:-]{0,63}$")
 _PACKAGE = re.compile(r"^[A-Za-z0-9@][A-Za-z0-9@._/+-]{0,127}$")
 _PRODUCER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._+-]{0,63}$")
+_ANALYSIS_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:/@-]{0,255}$")
+_SHA256 = re.compile(r"^sha256:[0-9a-f]{64}$")
+_SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
+_FLOW_KINDS = frozenset({"source", "flow", "call", "return", "sanitizer", "sink"})
 _PRIORITIES = ("P0", "P1", "P2", "P3", "P4")
 _SEVERITIES = ("critical", "high", "medium", "low", "undetermined")
 _CONFIDENCES = ("hypothesis", "reported", "corroborated", "verified", "proven")
@@ -199,6 +203,7 @@ def _sarif_issue_details(document: Mapping[str, object]) -> dict[str, dict[str, 
                     location = {"path": path, "start_line": line}
         code_context = _code_context(properties.get("code_context"))
         flow_steps = _flow_steps(properties.get("flow_steps"))
+        analysis_evidence = _analysis_evidence(properties.get("analysis_evidence"))
         details[issue_id] = {
             "title": title if isinstance(title, str) and 1 <= len(title) <= 256 else None,
             "severity_floor": floor if floor in _SEVERITIES[:-1] else None,
@@ -214,6 +219,7 @@ def _sarif_issue_details(document: Mapping[str, object]) -> dict[str, dict[str, 
             "location": location,
             "code_context": code_context,
             "flow_steps": flow_steps,
+            "analysis_evidence": analysis_evidence,
         }
     return details
 
@@ -261,26 +267,120 @@ def _code_context(raw: object) -> dict[str, object] | None:
 
 
 def _flow_steps(raw: object) -> list[dict[str, object]]:
-    if not isinstance(raw, list) or len(raw) > 12:
+    if not isinstance(raw, list) or len(raw) > 64:
         return []
     result = []
     for step in raw:
-        if not isinstance(step, Mapping) or step.get("kind") not in {"source", "sink"}:
+        if not isinstance(step, Mapping) or step.get("kind") not in _FLOW_KINDS:
             return []
         path = _relative_path(step.get("path"))
         line = step.get("line")
-        if path is None or (
-            line is not None
-            and (
-                not isinstance(line, int)
-                or isinstance(line, bool)
-                or line <= 0
-                or line > 10_000_000
+        end_line = step.get("end_line")
+        node_id = step.get("node_id")
+        call_context = step.get("call_context")
+        if (
+            path is None
+            or (
+                line is not None
+                and (
+                    not isinstance(line, int)
+                    or isinstance(line, bool)
+                    or line <= 0
+                    or line > 10_000_000
+                )
+            )
+            or (
+                end_line is not None
+                and (
+                    not isinstance(end_line, int)
+                    or isinstance(end_line, bool)
+                    or end_line <= 0
+                    or end_line > 10_000_000
+                    or isinstance(line, int)
+                    and end_line < line
+                )
+            )
+            or (
+                node_id is not None
+                and (not isinstance(node_id, str) or _ANALYSIS_ID.fullmatch(node_id) is None)
+            )
+            or (
+                call_context is not None
+                and (
+                    not isinstance(call_context, list)
+                    or len(call_context) > 16
+                    or not all(
+                        isinstance(item, str) and _ANALYSIS_ID.fullmatch(item)
+                        for item in call_context
+                    )
+                )
             )
         ):
             return []
-        result.append({"kind": step["kind"], "path": path, "line": line})
+        normalized: dict[str, object] = {"kind": step["kind"], "path": path, "line": line}
+        if end_line is not None:
+            normalized["end_line"] = end_line
+        if node_id is not None:
+            normalized["node_id"] = node_id
+        if call_context is not None:
+            normalized["call_context"] = list(call_context)
+        result.append(normalized)
     return result
+
+
+def _analysis_evidence(raw: object) -> dict[str, object] | None:
+    if not isinstance(raw, Mapping):
+        return None
+    required = {
+        "path_id",
+        "path_digest",
+        "graph_digest",
+        "graph_schema_version",
+        "path_schema_version",
+        "rule_version",
+        "frontend_versions",
+        "coverage_limits",
+    }
+    if set(raw) != required:
+        return None
+    path_id = raw.get("path_id")
+    frontends = raw.get("frontend_versions")
+    coverage = raw.get("coverage_limits")
+    if not (
+        isinstance(path_id, str)
+        and _ANALYSIS_ID.fullmatch(path_id)
+        and all(
+            isinstance(raw.get(key), str) and _SHA256.fullmatch(str(raw[key]))
+            for key in ("path_digest", "graph_digest")
+        )
+        and all(
+            isinstance(raw.get(key), str) and _SEMVER.fullmatch(str(raw[key]))
+            for key in ("graph_schema_version", "path_schema_version", "rule_version")
+        )
+        and isinstance(frontends, Mapping)
+        and 1 <= len(frontends) <= 16
+        and all(
+            isinstance(key, str)
+            and _ANALYSIS_ID.fullmatch(key)
+            and isinstance(value, str)
+            and _SEMVER.fullmatch(value)
+            for key, value in frontends.items()
+        )
+        and isinstance(coverage, list)
+        and len(coverage) <= 64
+        and all(isinstance(item, str) and _ANALYSIS_ID.fullmatch(item) for item in coverage)
+    ):
+        return None
+    return {
+        "path_id": path_id,
+        "path_digest": raw["path_digest"],
+        "graph_digest": raw["graph_digest"],
+        "graph_schema_version": raw["graph_schema_version"],
+        "path_schema_version": raw["path_schema_version"],
+        "rule_version": raw["rule_version"],
+        "frontend_versions": dict(sorted(frontends.items())),
+        "coverage_limits": list(coverage),
+    }
 
 
 def _scorecard(issues: Sequence[Mapping[str, object]]) -> dict[str, int]:
@@ -407,6 +507,7 @@ def _issue(raw: object) -> dict[str, object]:
         "location": None,
         "code_context": None,
         "flow_steps": [],
+        "analysis_evidence": None,
     }
 
 

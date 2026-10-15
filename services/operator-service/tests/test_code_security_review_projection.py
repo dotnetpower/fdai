@@ -581,6 +581,94 @@ def test_issue_projection_requires_the_matching_review_digest() -> None:
     assert missing["gaps"] == [{"reason_code": "code_security_issues_unavailable"}]
 
 
+def test_issue_projection_preserves_full_owned_analysis_path_evidence() -> None:
+    review = _row(_package())["value"]
+    digest = review["package"]["review_digest"]
+    evidence = {
+        "path_id": "path:0123456789abcdef",
+        "path_digest": "sha256:" + "1" * 64,
+        "graph_digest": "sha256:" + "2" * 64,
+        "graph_schema_version": "1.1.0",
+        "path_schema_version": "1.1.0",
+        "rule_version": "1.0.0",
+        "frontend_versions": {"python-ast": "1.1.0"},
+        "coverage_limits": ["python.unresolved-call:test"],
+    }
+    flow = [
+        {
+            "kind": "source",
+            "path": "src/api.py",
+            "line": 12,
+            "end_line": 12,
+            "node_id": "source:one",
+            "call_context": ["function:route"],
+        },
+        {
+            "kind": "call",
+            "path": "src/api.py",
+            "line": 14,
+            "end_line": 14,
+            "node_id": "call:one",
+            "call_context": ["function:route", "function:query"],
+        },
+        {
+            "kind": "return",
+            "path": "src/db.py",
+            "line": 30,
+            "end_line": 30,
+            "node_id": "call:one",
+            "call_context": ["function:route", "function:query"],
+        },
+        {
+            "kind": "sink",
+            "path": "src/db.py",
+            "line": 31,
+            "end_line": 31,
+            "node_id": "sink:one",
+            "call_context": ["function:route", "function:query"],
+        },
+    ]
+    sarif = json.dumps(
+        {
+            "version": "2.1.0",
+            "runs": [
+                {
+                    "results": [
+                        {
+                            "properties": {
+                                "issue_id": "FDAI-SEC-0123456789ab",
+                                "flow_steps": flow,
+                                "analysis_evidence": evidence,
+                            }
+                        }
+                    ]
+                }
+            ],
+        }
+    )
+
+    projected = code_security_issues_projection(
+        repository_alias="example-service",
+        revision=_REVISION,
+        review=review,
+        issues_row={"review_digest": digest, "issues": [_summary()], "truncated": False},
+        artifacts_row={
+            "kind": "code-security-review-artifacts",
+            "schema_version": "1.4.0",
+            "repository_alias": "example-service",
+            "revision": _REVISION,
+            "review_digest": digest,
+            "recorded_at": "2026-10-15T00:00:00+00:00",
+            "html": "<!doctype html><title>report</title>",
+            "sarif": sarif,
+        },
+    )
+
+    issue = projected["issues"][0]  # type: ignore[index]
+    assert issue["flow_steps"] == flow
+    assert issue["analysis_evidence"] == evidence
+
+
 def test_missing_full_artifacts_fall_back_to_bounded_summary_views() -> None:
     review = _row(_package())["value"]
     result = code_security_issues_projection(

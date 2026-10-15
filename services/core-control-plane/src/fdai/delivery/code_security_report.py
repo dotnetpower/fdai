@@ -537,6 +537,7 @@ def render_sarif(
                     "known_exploited": issue.known_exploited,
                     "code_context": _code_context(result, issue),
                     "flow_steps": _flow_steps(issue),
+                    "analysis_evidence": _analysis_evidence(issue),
                 },
             }
         )
@@ -626,6 +627,22 @@ def _code_context(result: ScanJobResult, issue: CodeSecurityIssue) -> dict[str, 
 
 
 def _flow_steps(issue: CodeSecurityIssue) -> list[dict[str, object]]:
+    if issue.code_flow:
+        result: list[dict[str, object]] = []
+        for step in issue.code_flow[:64]:
+            item: dict[str, object] = {
+                "kind": step.kind,
+                "path": step.path,
+                "line": step.line,
+            }
+            if step.end_line is not None:
+                item["end_line"] = step.end_line
+            if step.node_id is not None:
+                item["node_id"] = step.node_id
+            if step.call_context:
+                item["call_context"] = list(step.call_context)
+            result.append(item)
+        return result
     steps: list[dict[str, object]] = []
     seen: set[tuple[str, int | None, str]] = set()
     for instance in issue.instances:
@@ -639,6 +656,22 @@ def _flow_steps(issue: CodeSecurityIssue) -> list[dict[str, object]]:
     if sink not in seen:
         steps.append({"kind": "sink", "path": sink[0], "line": sink[1]})
     return steps[:12]
+
+
+def _analysis_evidence(issue: CodeSecurityIssue) -> dict[str, object] | None:
+    evidence = issue.analysis_evidence
+    if evidence is None:
+        return None
+    return {
+        "path_id": evidence.path_id,
+        "path_digest": evidence.path_digest,
+        "graph_digest": evidence.graph_digest,
+        "graph_schema_version": evidence.graph_schema_version,
+        "path_schema_version": evidence.path_schema_version,
+        "rule_version": evidence.rule_version,
+        "frontend_versions": dict(evidence.frontend_versions),
+        "coverage_limits": list(evidence.coverage_limits),
+    }
 
 
 def write_scan_report(

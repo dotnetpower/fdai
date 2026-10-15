@@ -626,7 +626,7 @@
 .code-security-flow li {
   position: relative;
   display: grid;
-  grid-template-columns: 72px minmax(0, 1fr);
+  grid-template-columns: 80px minmax(0, 1fr);
   gap: 12px;
   padding: 8px 0 8px 22px;
 }
@@ -657,6 +657,31 @@
   text-transform: uppercase;
 }
 .code-security-flow code { overflow-wrap: anywhere; }
+.code-security-flow-target {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+.code-security-flow-target small {
+  color: var(--fg-muted);
+  font: var(--cs-type-caption-size)/1.4 var(--cs-font-mono);
+  overflow-wrap: anywhere;
+}
+.code-security-analysis-evidence {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.code-security-analysis-evidence summary {
+  cursor: pointer;
+  color: var(--fg-muted);
+  font-weight: 600;
+}
+.code-security-analysis-evidence dl {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 20px;
+  margin-top: 12px;
+}
 .code-security-finding-detail dl {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
