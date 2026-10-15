@@ -9,6 +9,12 @@ a proposal for review under [#1945](https://github.com/dotnetpower/fdai/issues/1
 The pages are plain HTML and CSS, English-only, and read-only. Every name, version, digest, and
 address is a synthetic placeholder. They execute nothing.
 
+FDAI Release Hub is the planned vendor application for release publication, signing, channel
+promotion, and recall. Release Catalog means its release list, data, or feed. FDAI Lifecycle Hub
+is a separate application for installation deployments and keeps its name. An initial Release Hub
+may provide CLI/API workflows before a web UI; these concept screens don't imply an implemented
+Release Hub service.
+
 ## Open the screens
 
 Open [index.html](index.html) directly, or use the **Lifecycle Hub (ADR-0003)** family in the
@@ -23,10 +29,10 @@ site imports the same Release.
 
 | Page | Surface | Shows |
 |------|---------|-------|
-| [01-vendor-release.html](01-vendor-release.html) | Vendor Release catalog | Release images, signature, scan, schema range, health criteria, and capability maximums |
-| [02-vendor-release-activity.html](02-vendor-release-activity.html) | Vendor Release catalog | Canary failure, recall, and roll-off |
-| [03-vendor-channels.html](03-vendor-channels.html) | Vendor Release catalog | Channels and promotion criteria |
-| [04-vendor-fleet.html](04-vendor-fleet.html) | Vendor Release catalog | Lifecycle metadata of connected installations |
+| [01-vendor-release.html](01-vendor-release.html) | FDAI Release Hub | Release images, signature, scan, schema range, health criteria, and capability maximums |
+| [02-vendor-release-activity.html](02-vendor-release-activity.html) | FDAI Release Hub | Canary failure, recall, and roll-off |
+| [03-vendor-channels.html](03-vendor-channels.html) | FDAI Release Hub | Channels and promotion criteria |
+| [04-vendor-fleet.html](04-vendor-fleet.html) | FDAI Release Hub | Lifecycle metadata of connected installations |
 | [05-hub-installations.html](05-hub-installations.html) | Lifecycle Hub | Installations, targets, and next windows |
 | [06-hub-installation-prod.html](06-hub-installation-prod.html) | Lifecycle Hub | Constraint results and Entities |
 | [07-hub-plan.html](07-hub-plan.html) | Lifecycle Hub | Fenced Plan phases, receipts, and verification |

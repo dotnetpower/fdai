@@ -1,9 +1,8 @@
-"""Kubernetes adapter for the demo apply path. The only module that imports a Kubernetes client.
+"""Kubernetes adapter for workload apply. The only module that imports a Kubernetes client.
 
-It is bound to one kubeconfig context and one namespace, and it knows only Deployments and
-Services. Writes use server-side apply with the agent's field manager and force ownership of the
-fields it applies. Every failed call raises ``WorkloadError``: a connection failure or a server
-error is retryable, a rejected request isn't.
+It is bound to one kubeconfig context and one namespace and knows only Deployments, Services,
+and schema-check Jobs. Server-side apply uses the agent's field manager without forcing
+conflicts. Connection failures and server errors are retryable; rejected requests aren't.
 """
 
 from __future__ import annotations
@@ -15,7 +14,13 @@ from kubernetes import config, dynamic  # type: ignore[import-untyped]
 from kubernetes.client.exceptions import ApiException  # type: ignore[import-untyped]
 from urllib3.exceptions import HTTPError
 
-from fdai_lifecycle_agent.workload import API_VERSIONS, FIELD_MANAGER, Manifest, WorkloadError
+from fdai_lifecycle_agent.workload import (
+    API_VERSIONS,
+    FIELD_MANAGER,
+    Manifest,
+    WorkloadError,
+    check_scope,
+)
 
 
 class KubernetesCluster:
@@ -36,8 +41,7 @@ class KubernetesCluster:
         self._dynamic: Any = None
 
     def apply(self, manifest: Manifest, *, dry_run: bool = False) -> None:
-        if manifest["metadata"]["namespace"] != self._namespace:
-            raise WorkloadError("workload_outside_scope")
+        check_scope((manifest,), self._namespace)
         self._call(
             manifest["kind"],
             lambda client, resource: client.server_side_apply(
@@ -45,10 +49,11 @@ class KubernetesCluster:
                 body=dict(manifest),
                 namespace=self._namespace,
                 field_manager=FIELD_MANAGER,
-                force_conflicts=True,
+                force_conflicts=False,
                 dry_run="All" if dry_run else None,
                 _request_timeout=self._timeout,
             ),
+            missing_ok=False,
         )
 
     def get(self, kind: str, name: str) -> Manifest | None:
@@ -68,8 +73,10 @@ class KubernetesCluster:
             ),
         )
 
-    def _call(self, kind: str, request: Callable[[Any, Any], Any]) -> Any:
-        """Run one request; a ``404`` returns ``None``."""
+    def _call(
+        self, kind: str, request: Callable[[Any, Any], Any], *, missing_ok: bool = True
+    ) -> Any:
+        """Run one request; a read/delete ``404`` returns ``None``, not a write success."""
 
         api_version = API_VERSIONS.get(kind)
         if api_version is None:
@@ -80,7 +87,7 @@ class KubernetesCluster:
             resource = self._dynamic.resources.get(api_version=api_version, kind=kind)
             return request(self._dynamic, resource)
         except ApiException as error:
-            if error.status == 404:
+            if error.status == 404 and missing_ok:
                 return None
             retryable = error.status is None or error.status >= 500
             raise WorkloadError(

@@ -1,10 +1,7 @@
-"""Demo workload: rendering, scope guard, rollout check, and rollback in one namespace.
+"""Namespace-scoped apply and recovery for the demo and same-schema Operator profile.
 
-This is the narrow apply path for the Lifecycle demo, not the workload renderer of #1946. Each
-component that a Plan Entity runs becomes one Deployment and one Service named after the
-component. The agent applies them with Kubernetes server-side apply under its own field manager.
-Every manifest passes the scope guard before any cluster call: the configured namespace, a
-Deployment or a Service, and the agent's managed-by label.
+The demo renderer remains available. ``operator_workload`` supplies the actual Operator
+shape and a read-only schema Job. Every manifest passes the scope guard before cluster writes.
 """
 
 from __future__ import annotations
@@ -19,7 +16,7 @@ FIELD_MANAGER = "fdai-lifecycle-agent"
 MANAGED_BY_LABEL = "app.kubernetes.io/managed-by"
 ENTITY_LABEL = "fdai.io/entity"
 COMPONENT_LABEL = "fdai.io/component"
-API_VERSIONS = {"Deployment": "apps/v1", "Service": "v1"}
+API_VERSIONS = {"Deployment": "apps/v1", "Service": "v1", "Job": "batch/v1"}
 CONTAINER_PORT = 8080
 
 _DNS_LABEL = re.compile(r"[a-z0-9]([-a-z0-9]{0,61}[a-z0-9])?\Z", re.ASCII)
@@ -159,8 +156,7 @@ def _service(metadata: Mapping[str, object], selector: Mapping[str, str]) -> Man
 
 
 def check_scope(manifests: Iterable[Manifest], namespace: str) -> None:
-    """Raise ``WorkloadError`` (``workload_outside_scope``) unless every manifest is an agent-
-    managed Deployment or Service in ``namespace``."""
+    """Require agent-managed Deployments, internal Services, or Jobs in ``namespace``."""
 
     for manifest in manifests:
         metadata = manifest.get("metadata")
@@ -171,6 +167,10 @@ def check_scope(manifests: Iterable[Manifest], namespace: str) -> None:
             and isinstance(metadata.get("name"), str)
             and isinstance(labels := metadata.get("labels"), Mapping)
             and labels.get(MANAGED_BY_LABEL) == FIELD_MANAGER
+            and (
+                manifest.get("kind") != "Service"
+                or manifest.get("spec", {}).get("type", "ClusterIP") == "ClusterIP"
+            )
         ):
             raise WorkloadError("workload_outside_scope")
 
@@ -216,13 +216,40 @@ class Workload:
         for manifest in desired:
             self.cluster.apply(manifest, dry_run=True)
 
-    def apply(self, desired: Sequence[Manifest]) -> bool:
-        """Apply ``desired`` and return whether every Deployment rolled out in time."""
+    def apply(
+        self,
+        desired: Sequence[Manifest],
+        *,
+        can_continue: Callable[[], bool] | None = None,
+    ) -> bool:
+        """Complete schema-check Jobs before switching workloads, then verify and clean up.
+
+        Jobs only verify the existing schema. Their failure or timeout cannot switch a
+        Deployment. An interrupted apply restores the journal without re-running a Job.
+        """
 
         check_scope(desired, self.namespace)
+        jobs = tuple(item for item in desired if item["kind"] == "Job")
+        for job in jobs:
+            _check_deadline(can_continue)
+            self.cluster.apply(job)
+        if jobs and not self._wait_until(
+            lambda: self._jobs_complete(jobs), can_continue=can_continue
+        ):
+            raise WorkloadError("schema_check_failed")
         for manifest in desired:
-            self.cluster.apply(manifest)
-        return self._wait_until(lambda: self._rolled_out(desired))
+            if manifest["kind"] != "Job":
+                _check_deadline(can_continue)
+                self.cluster.apply(manifest)
+        if not self._wait_until(lambda: self._rolled_out(desired), can_continue=can_continue):
+            return False
+        for job in jobs:
+            self.cluster.delete(*object_key(job))
+        if jobs and not self._wait_until(
+            lambda: all(self.cluster.get(*object_key(job)) is None for job in jobs)
+        ):
+            raise WorkloadError("schema_check_cleanup_failed")
+        return True
 
     def roll_back(self, desired: Sequence[Manifest], previous: Sequence[Manifest]) -> bool:
         """Restore the recorded healthy objects, delete the desired objects that had none, and
@@ -231,10 +258,21 @@ class Workload:
         check_scope([*desired, *previous], self.namespace)
         recorded = {object_key(manifest) for manifest in previous}
         created = [key for key in map(object_key, desired) if key not in recorded]
+        for kind, name in created:
+            if kind == "Job":
+                self.cluster.delete(kind, name)
+        # A running Job must be absent before restoring or removing any workload.
+        if not self._wait_until(
+            lambda: all(
+                self.cluster.get(kind, name) is None for kind, name in created if kind == "Job"
+            )
+        ):
+            return False
         for manifest in previous:
             self.cluster.apply(manifest)
         for kind, name in created:
-            self.cluster.delete(kind, name)
+            if kind != "Job":
+                self.cluster.delete(kind, name)
         return self._wait_until(
             lambda: (
                 self._rolled_out(previous)
@@ -245,15 +283,42 @@ class Workload:
     def _rolled_out(self, manifests: Sequence[Manifest]) -> bool:
         """Whether every object exists and, for a Deployment, its rollout is complete."""
 
-        for kind, name in map(object_key, manifests):
+        for manifest in manifests:
+            kind, name = object_key(manifest)
             live = self.cluster.get(kind, name)
             if live is None:
                 return False
-            if kind == "Deployment" and not rollout_complete(live):
+            if not _contains(live.get("spec"), manifest.get("spec")):
                 return False
+            if kind == "Deployment":
+                if not rollout_complete(live):
+                    return False
         return True
 
-    def _wait_until(self, condition: Callable[[], bool]) -> bool:
+    def _jobs_complete(self, jobs: Sequence[Manifest]) -> bool:
+        complete = True
+        for job in jobs:
+            live = self.cluster.get(*object_key(job))
+            if live is not None and not _contains(live.get("spec"), job.get("spec")):
+                raise WorkloadError("schema_check_failed")
+            conditions = (live or {}).get("status", {}).get("conditions", [])
+            if any(
+                item.get("type") == "Failed" and item.get("status") == "True" for item in conditions
+            ):
+                raise WorkloadError("schema_check_failed")
+            if not any(
+                item.get("type") == "Complete" and item.get("status") == "True"
+                for item in conditions
+            ):
+                complete = False
+        return complete
+
+    def _wait_until(
+        self,
+        condition: Callable[[], bool],
+        *,
+        can_continue: Callable[[], bool] | None = None,
+    ) -> bool:
         """Poll ``condition`` until the health timeout.
 
         A retryable read failure counts as not yet true. A non-retryable one, such as a
@@ -262,6 +327,7 @@ class Workload:
 
         deadline = self.monotonic() + self.health_timeout_seconds
         while True:
+            _check_deadline(can_continue)
             try:
                 if condition():
                     return True
@@ -271,3 +337,26 @@ class Workload:
             if self.monotonic() >= deadline:
                 return False
             self.sleep(self.poll_interval_seconds)
+
+
+def _check_deadline(can_continue: Callable[[], bool] | None) -> None:
+    if can_continue is not None and not can_continue():
+        raise WorkloadError("plan_expired")
+
+
+def _contains(actual: object, desired: object) -> bool:
+    """Read back rendered fields while tolerating Kubernetes-added object defaults."""
+
+    if isinstance(desired, Mapping):
+        return isinstance(actual, Mapping) and all(
+            key in actual and _contains(actual[key], value) for key, value in desired.items()
+        )
+    if isinstance(desired, list):
+        return (
+            isinstance(actual, list)
+            and len(actual) == len(desired)
+            and all(
+                _contains(live, expected) for live, expected in zip(actual, desired, strict=True)
+            )
+        )
+    return actual == desired

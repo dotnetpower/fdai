@@ -1,0 +1,23 @@
+[project]
+name = "fdai-release-hub"
+version = "0.1.0"
+description = "Local vendor Release Hub with development signing and pinned catalog exports"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fdai-lifecycle-hub>=0.1.0,<0.2",
+]
+
+[project.scripts]
+fdai-release-hub = "fdai_release_hub.cli:main"
+
+[build-system]
+requires = ["hatchling>=1.24"]
+build-backend = "hatchling.build"
+
+[tool.uv.sources]
+fdai-lifecycle-hub = { path = "../hub", editable = true }
+fdai-deployment-cli = { path = "../../packages/deployment-cli", editable = true }
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fdai_release_hub"]

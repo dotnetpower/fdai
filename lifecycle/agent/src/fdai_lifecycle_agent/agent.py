@@ -70,6 +70,7 @@ from fdai_lifecycle_agent.inputs import (
     verify_release,
 )
 from fdai_lifecycle_agent.journal import ApplyJournal, WorkloadState, WorkloadStore
+from fdai_lifecycle_agent.operator_workload import render_operator, validate_profile
 from fdai_lifecycle_agent.signatures import ArtifactVerifier
 from fdai_lifecycle_agent.state import (
     AgentState,
@@ -313,6 +314,18 @@ class LifecycleAgent:
         maximum = configuration.narrow(release.maximum_envelope(settings.maximum_envelope))
         if not plan.envelope.narrowed_by(maximum):
             return _rejection(AgentReason.PLAN_ENVELOPE_EXCEEDS_SIGNED_MAXIMUM)
+        if "workload_profile" in configuration.values:
+            try:
+                validate_profile(
+                    configuration.values,
+                    {entity: settings.entity_components[entity] for entity in plan.entity_ids},
+                    current_schema=current.schema_revision,
+                    target_schema=release.schema_target,
+                    schema_minimum=release.schema_minimum,
+                    schema_maximum=release.schema_maximum,
+                )
+            except WorkloadError as error:
+                return _rejection(error.reason_code)
         change_set = deps.compute_change_set(plan, entity_images, current)
         # Admission bounded the Plan Entities; an injected calculator must stay inside them too.
         if not change_set.entity_ids <= plan.envelope.entity_ids:
@@ -325,13 +338,14 @@ class LifecycleAgent:
         )
         if deps.apply is None:
             return result
-        return self._prepare(deps.apply, plan, release, entity_images, result)
+        return self._prepare(deps.apply, plan, release, configuration.values, entity_images, result)
 
     def _prepare(
         self,
         apply: ApplyMode,
         plan: LifecyclePlan,
         release: VerifiedRelease,
+        values: Mapping[str, object],
         entity_images: Mapping[str, frozenset[str]],
         admitted: PlanResult,
     ) -> PlanResult:
@@ -350,7 +364,21 @@ class LifecycleAgent:
         workload_state = apply.store.load()
         healthy = {object_key(manifest): manifest for manifest in workload_state.healthy}
         try:
-            desired = render(apply.workload.namespace, images)
+            if "workload_profile" in values:
+                repository = settings.component_repositories.get("core-control-plane")
+                digest = release.component_images.get("core-control-plane")
+                if repository is None or digest is None:
+                    raise WorkloadError("workload_render_failed")
+                core_image = f"{repository}@{digest}"
+                desired = render_operator(
+                    apply.workload.namespace,
+                    images,
+                    core_image=core_image,
+                    values=values,
+                    plan_digest=hashlib.sha256(plan.signed_payload).hexdigest(),
+                )
+            else:
+                desired = render(apply.workload.namespace, images)
             previous = tuple(healthy[key] for key in map(object_key, desired) if key in healthy)
             apply.workload.preflight(desired, previous)
         except WorkloadError as error:
@@ -394,7 +422,10 @@ class LifecycleAgent:
         apply.store.save(replace(workload_state, journal=journal))
         _log("lifecycle_agent.apply_begun", plan_id=plan_id)
         try:
-            healthy = apply.workload.apply(journal.desired)
+            healthy = apply.workload.apply(
+                journal.desired,
+                can_continue=lambda: self._deps.clock() < journal.expires_at,
+            )
         except WorkloadError as error:
             _log(
                 "lifecycle_agent.apply_failed",
@@ -437,7 +468,7 @@ class LifecycleAgent:
             replaced = {object_key(manifest) for manifest in journal.desired}
             healthy = (
                 *(item for item in healthy if object_key(item) not in replaced),
-                *journal.desired,
+                *(item for item in journal.desired if item["kind"] != "Job"),
             )
         else:
             restored = self._roll_back(apply, journal)

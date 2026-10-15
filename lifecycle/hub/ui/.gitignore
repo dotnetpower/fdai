@@ -1,0 +1,6 @@
+# Local build artifacts - the UI ships as static assets under `dist/`
+# and the Hub serves them directly from there. Never commit `dist/` -
+# the artifact is deterministic from the committed source.
+dist/
+node_modules/
+.vite/
