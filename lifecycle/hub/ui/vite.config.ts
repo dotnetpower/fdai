@@ -21,6 +21,7 @@ export default defineConfig({
     proxy: {
       "/v1": hubApiUrl,
       "/healthz": hubApiUrl,
+      "/auth": hubApiUrl,
     },
   },
   test: {

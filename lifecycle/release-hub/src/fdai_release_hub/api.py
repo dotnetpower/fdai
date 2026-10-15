@@ -9,6 +9,7 @@ from functools import partial
 from pathlib import Path
 
 from pydantic import ValidationError
+from sqlalchemy.exc import SQLAlchemyError
 from starlette.applications import Starlette
 from starlette.concurrency import run_in_threadpool
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
@@ -18,13 +19,19 @@ from starlette.responses import FileResponse, JSONResponse, Response
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
+from fdai_lifecycle_hub.remote_auth import RemoteAuth, secure_app
 from fdai_release_hub.store import CatalogError, Change, ReleaseStore
 
 MAX_BODY = 2 * 1024 * 1024
 logger = logging.getLogger(__name__)
 
 
-def create_app(store: ReleaseStore, *, static_dir: Path | None = None) -> Starlette:
+def create_app(
+    store: ReleaseStore,
+    *,
+    static_dir: Path | None = None,
+    remote_auth: RemoteAuth | None = None,
+) -> Starlette:
     async def catalog(request: Request) -> Response:
         try:
             snapshot = await run_in_threadpool(store.snapshot)
@@ -51,7 +58,11 @@ def create_app(store: ReleaseStore, *, static_dir: Path | None = None) -> Starle
         try:
             payload = Change.model_validate_json(bytes(body))
             result = await run_in_threadpool(
-                store.change, action, request.path_params["release_id"], payload
+                store.change,
+                action,
+                request.path_params["release_id"],
+                payload,
+                actor=request.state.operator if remote_auth else "local-operator",
             )
         except ValidationError:
             return JSONResponse(
@@ -65,8 +76,15 @@ def create_app(store: ReleaseStore, *, static_dir: Path | None = None) -> Starle
         return JSONResponse(result)
 
     routes = [
+        Route("/auth/config", lambda request: JSONResponse({"profile": "local-development"})),
         Route(
-            "/healthz", lambda request: JSONResponse({"status": "ok", "mode": "local-development"})
+            "/healthz",
+            lambda request: JSONResponse(
+                {
+                    "status": "ok",
+                    "mode": "remote-development" if remote_auth else "local-development",
+                }
+            ),
         ),
         Route("/v1/catalog", catalog),
         Route("/v1/catalog/export", export),
@@ -80,7 +98,8 @@ def create_app(store: ReleaseStore, *, static_dir: Path | None = None) -> Starle
         for action in ("register", "publish", "contribute", "recall")
     ]
     app = Starlette(routes=routes)
-    app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "[::1]"])
+    if remote_auth is None:
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "[::1]"])
 
     async def local_boundary(request: Request, call_next: RequestResponseEndpoint) -> Response:
         try:
@@ -89,18 +108,23 @@ def create_app(store: ReleaseStore, *, static_dir: Path | None = None) -> Starle
             )
         except ValueError:
             local = False
-        if not local:
+        if remote_auth is None and not local:
             return JSONResponse({"error": "Release Hub is loopback-only."}, status_code=403)
         origin = request.headers.get("origin")
         if request.method not in ("GET", "HEAD") and origin is not None:
-            if origin != f"{request.url.scheme}://{request.url.netloc}":
+            expected = (
+                remote_auth.origin
+                if remote_auth
+                else f"{request.url.scheme}://{request.url.netloc}"
+            )
+            if origin != expected:
                 return JSONResponse(
                     {"error": "Cross-origin mutations are not allowed."}, status_code=403
                 )
         try:
             response = await call_next(request)
-        except (OSError, sqlite3.DatabaseError):
-            logger.exception("Release Hub local storage is unavailable")
+        except (OSError, sqlite3.DatabaseError, SQLAlchemyError):
+            logger.error("release_hub_storage_unavailable")
             return JSONResponse({"error": "Local storage is unavailable."}, status_code=503)
         response.headers["Cache-Control"] = "no-store"
         response.headers["X-Content-Type-Options"] = "nosniff"
@@ -121,4 +145,4 @@ def create_app(store: ReleaseStore, *, static_dir: Path | None = None) -> Starle
             return FileResponse(static_dir / "index.html")
 
         app.routes.append(Route("/{path:path}", index))
-    return app
+    return secure_app(app, remote_auth, vendor=True) if remote_auth else app

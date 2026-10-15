@@ -214,6 +214,40 @@ h3 {
   font: var(--cs-type-compact-size) / 1 var(--cs-font);
 }
 
+.catalog-page {
+  max-width: 1040px;
+}
+.catalog-panel {
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+.catalog-panel label {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 14px;
+  font-size: var(--cs-type-compact-size);
+  color: var(--cs-text-soft);
+}
+.catalog-panel input {
+  width: 100%;
+}
+.catalog-trust {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 20px;
+}
+.catalog-trust dt {
+  font-size: var(--cs-type-label-size);
+  color: var(--cs-text-soft);
+}
+.catalog-trust dd {
+  margin: 0 0 8px;
+  font-family: var(--cs-font-mono);
+  overflow-wrap: anywhere;
+}
+
 /* Data presentation */
 .badge {
   display: inline-flex;

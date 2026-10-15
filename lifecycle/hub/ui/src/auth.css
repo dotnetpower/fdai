@@ -1,0 +1,28 @@
+.auth-shell {
+  max-width: 640px;
+  margin: 12vh auto;
+  padding: 32px;
+  border: 1px solid var(--cs-hairline);
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-card);
+}
+.auth-shell h1 {
+  font-size: var(--cs-type-page-title-size);
+}
+.auth-shell p {
+  margin: 16px 0 24px;
+  color: var(--cs-text-soft);
+}
+.auth-shell button {
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 0;
+  border-radius: var(--cs-radius-sm);
+  background: var(--cs-steel, #3c655f);
+  color: white;
+  font: inherit;
+  cursor: pointer;
+}
+@media (max-width: 700px) {
+  .auth-shell { margin: 24px 16px; padding: 24px; }
+}

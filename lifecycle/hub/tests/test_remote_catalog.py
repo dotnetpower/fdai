@@ -1,0 +1,287 @@
+from __future__ import annotations
+
+import hashlib
+import json
+from contextlib import contextmanager
+from dataclasses import replace
+from datetime import timedelta
+from types import SimpleNamespace
+
+import azure.identity
+import httpx
+import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+from fdai_deployment_cli.contracts import canonical_bytes
+from sqlalchemy import create_engine, select
+
+from fdai_lifecycle_hub.migrations import migrate, require_schema
+from fdai_lifecycle_hub.planning import plan_next
+from fdai_lifecycle_hub.remote_catalog import (
+    CatalogSource,
+    PinApproval,
+    RemoteCatalog,
+    fetch_export,
+    initialize_trust,
+    trust_events,
+)
+from fdai_release_hub.store import Change, ReleaseStore
+
+
+def source_for(key):
+    return CatalogSource(
+        url="https://release.example.com/v1/catalog/export",
+        token_scope="api://vendor/.default",
+        managed_identity_client_id="customer-client",
+        release_public_key=key.public_key.public_bytes(
+            serialization.Encoding.PEM,
+            serialization.PublicFormat.SubjectPublicKeyInfo,
+        ).decode(),
+    )
+
+
+def approve(target, raw, now):
+    digest = hashlib.sha256(raw).hexdigest()
+    revision = json.loads(raw)["revision"]
+    target.approve(
+        PinApproval(
+            revision=revision,
+            sha256=digest,
+            reason="Independent customer review",
+            confirmation=f"approve {revision} {digest}",
+        ),
+        actor="customer-operator",
+        now=now,
+    )
+
+
+def vendor_for(tmp_path, key, catalog, now):
+    vendor = ReleaseStore(tmp_path / "vendor.db", key, clock=lambda: now)
+    for version in ("1.5.0", "1.6.0"):
+        for action in ("register", "publish"):
+            vendor.change(
+                action,
+                version,
+                Change(
+                    revision=vendor.snapshot()["revision"],
+                    confirmation=version,
+                    reason="Synthetic development validation",
+                    manifest=canonical_bytes(catalog.releases[version].to_mapping()).decode()
+                    if action == "register"
+                    else None,
+                ),
+            )
+    return vendor
+
+
+def test_separate_pin_channel_persistence_planner_and_recall(
+    tmp_path,
+    key,
+    catalog,
+    installation,
+    store,
+    enroll,
+    now,
+):
+    vendor = vendor_for(tmp_path, key, catalog, now)
+    raw = vendor.export()[0]
+    engine = create_engine(f"sqlite:///{tmp_path / 'trust.db'}")
+    source = source_for(key)
+    migrate(engine, "lifecycle_hub", lambda c: initialize_trust(c, source))
+    target = RemoteCatalog(engine, source, fetch=lambda _: raw)
+    with pytest.raises(ValueError, match="Approve"):
+        target.import_once(actor="customer-operator", now=now)
+    approve(target, raw, now)
+    assert not target.status()["imported"]
+    target.import_once(actor="customer-operator", now=now)
+    restarted = RemoteCatalog(create_engine(engine.url), source, fetch=lambda _: raw)
+    assert restarted.status()["minimum_revision"] == 4
+    target_installation = replace(
+        installation,
+        settings=replace(installation.settings, channel="DEV", plan_duration=timedelta(minutes=25)),
+        reported=replace(installation.reported, observed_at=now),
+    )
+    enroll(store, target_installation)
+    outcome = restarted.recompute(store, target_installation.installation_id, key, now=now)
+    assert outcome.plan.target_release_id == "1.6.0"
+    # Removing the synthetic registry facts blocks selection; publication is not artifact proof.
+    absent = replace(
+        target_installation,
+        reported=replace(
+            target_installation.reported,
+            entities={
+                entity_id: replace(state, artifact_digests=frozenset())
+                for entity_id, state in target_installation.reported.entities.items()
+            },
+        ),
+    )
+    missing = plan_next(absent, now, catalog=restarted.catalog(now), key=key)
+    assert missing.kind == "no-eligible-release"
+    vendor.change(
+        "recall",
+        "1.6.0",
+        Change(
+            revision=4,
+            confirmation="1.6.0",
+            reason="Withdraw synthetic candidate",
+        ),
+    )
+    raw = vendor.export()[0]
+    with pytest.raises(ValueError, match="digest"):
+        target.import_once(actor="customer-operator", now=now)
+    approve(target, raw, now)
+    target.import_once(actor="customer-operator", now=now)
+    decision = plan_next(target_installation, now, catalog=target.catalog(now), key=key)
+    assert decision.plan.target_release_id == "1.5.0"
+    with engine.connect() as connection:
+        assert len(connection.execute(select(trust_events)).all()) == 4
+    with pytest.raises(ValueError, match="expired"):
+        target.catalog(now + timedelta(days=2))
+
+
+@pytest.mark.parametrize("mode", ["tamper", "expiry", "lower", "same", "wrong-key"])
+def test_import_rejections_never_change_persisted_floor(tmp_path, key, catalog, now, mode):
+    vendor = vendor_for(tmp_path, key, catalog, now)
+    raw = vendor.export()[0]
+    source = source_for(key)
+    engine = create_engine(f"sqlite:///{tmp_path / 'trust.db'}")
+    migrate(engine, "lifecycle_hub", lambda c: initialize_trust(c, source))
+    target = RemoteCatalog(engine, source, fetch=lambda _: raw)
+    approve(target, raw, now)
+    target.import_once(actor="operator", now=now)
+    before = target.status()
+    if mode == "tamper":
+        raw += b" "
+    elif mode == "expiry":
+        with pytest.raises(ValueError, match="expired"):
+            target.import_once(actor="operator", now=now + timedelta(days=2))
+        assert target.status() == before
+        return
+    elif mode in {"lower", "same"}:
+        payload = json.loads(raw)
+        payload["revision"] = 3 if mode == "lower" else 4
+        payload["channels"]["RELEASE"] = ["1.6.0"]
+        raw = canonical_bytes(payload)
+        with pytest.raises(ValueError, match="backwards|without a new revision"):
+            approve(target, raw, now)
+    else:
+        from fdai_lifecycle_hub.signing import HubSigningKey
+
+        target.source = source_for(HubSigningKey(Ed25519PrivateKey.generate(), 1))
+    with pytest.raises(ValueError, match="digest|persisted trust"):
+        target.import_once(actor="operator", now=now)
+    target.source = source
+    assert target.status() == before
+
+
+def test_explicit_migrations_preserve_legacy_release_and_are_required(tmp_path, key):
+    import sqlite3
+
+    path = tmp_path / "legacy.db"
+    with sqlite3.connect(path) as connection:
+        connection.executescript("""
+            CREATE TABLE metadata (created_at TEXT NOT NULL);
+            INSERT INTO metadata VALUES ('2026-10-15T00:00:00+00:00');
+        """)
+    engine = create_engine(f"sqlite:///{path}")
+    with pytest.raises(ValueError, match="migrated"):
+        require_schema(engine, "release_hub")
+    store = ReleaseStore(engine, key)
+    store.migrate()
+    assert store.snapshot()["updated_at"] == "2026-10-15T00:00:00+00:00"
+    require_schema(engine, "release_hub")
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://release.example.com/v1/catalog/export",
+        "https://release.example.com/other",
+        "https://user@release.example.com/v1/catalog/export",
+    ],
+)
+def test_catalog_endpoint_is_explicit_https(tmp_path, key, url):
+    with pytest.raises(ValueError):
+        source_for(key).model_copy(update={"url": url}).validate_source()
+
+
+@pytest.mark.parametrize("mode", ["redirect", "compressed", "oversize", "valid", "identity"])
+def test_transport_bounds_without_live_identity_or_network(monkeypatch, key, mode):
+    from azure.core.exceptions import AzureError
+
+    class Identity:
+        def __init__(self, **kwargs):
+            assert kwargs["client_id"] == "customer-client" and kwargs["retry_total"] == 0
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return None
+
+        def get_token(self, scope):
+            assert scope == "api://vendor/.default"
+            if mode == "identity":
+                raise AzureError("sensitive-provider-diagnostic")
+            return SimpleNamespace(token="synthetic-not-a-live-token")
+
+    @contextmanager
+    def stream(method, url, **kwargs):
+        assert method == "GET" and url == "https://release.example.com/v1/catalog/export"
+        assert kwargs["follow_redirects"] is False and kwargs["trust_env"] is False
+        raw = b"x" * (8 * 1024 * 1024 + 1) if mode == "oversize" else b"catalog"
+        response = httpx.Response(
+            302 if mode == "redirect" else 200,
+            headers={"Content-Encoding": "gzip" if mode == "compressed" else "identity"},
+            stream=httpx.ByteStream(raw),
+        )
+        try:
+            yield response
+        finally:
+            response.close()
+
+    monkeypatch.setattr(azure.identity, "ManagedIdentityCredential", Identity)
+    monkeypatch.setattr(httpx, "stream", stream)
+    if mode == "valid":
+        assert fetch_export(source_for(key)) == b"catalog"
+    else:
+        with pytest.raises(ValueError) as failure:
+            fetch_export(source_for(key))
+        assert "sensitive-provider-diagnostic" not in str(failure.value)
+
+
+def test_elapsed_download_expiry_and_changed_approval_preserve_accepted_state(
+    monkeypatch,
+    tmp_path,
+    key,
+    catalog,
+    now,
+):
+    from fdai_lifecycle_hub import remote_catalog
+
+    vendor = vendor_for(tmp_path, key, catalog, now)
+    raw = vendor.export()[0]
+    source = source_for(key)
+    engine = create_engine(f"sqlite:///{tmp_path / 'trust.db'}")
+    migrate(engine, "lifecycle_hub", lambda c: initialize_trust(c, source))
+    target = RemoteCatalog(engine, source, fetch=lambda _: raw)
+    approve(target, raw, now)
+    before = target.status()
+    ticks = iter([0, 2 * 24 * 60 * 60])
+    monkeypatch.setattr(remote_catalog.time, "monotonic", lambda: next(ticks))
+    with pytest.raises(ValueError, match="expired"):
+        target.import_once(actor="operator", now=now)
+    assert target.status() == before
+    monkeypatch.undo()
+
+    def changed(_):
+        payload = json.loads(raw)
+        payload["revision"] += 1
+        approve(target, canonical_bytes(payload), now)
+        return raw
+
+    target.fetch = changed
+    with pytest.raises(ValueError, match="changed during download"):
+        target.import_once(actor="operator", now=now)
+    assert target.status()["minimum_revision"] == 0
+    assert target.status()["accepted_sha256"] is None

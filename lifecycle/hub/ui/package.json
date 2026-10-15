@@ -9,12 +9,15 @@
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.tests.json",
     "preview": "vite preview",
-    "test": "vitest run"
+    "test": "vitest run src",
+    "test:browser": "playwright test"
   },
   "dependencies": {
+    "@azure/msal-browser": "4.25.0",
     "preact": "^10.24.3"
   },
   "devDependencies": {
+    "@playwright/test": "1.58.2",
     "@preact/preset-vite": "^2.10.2",
     "@types/node": "^22.10.0",
     "typescript": "^5.9.0",

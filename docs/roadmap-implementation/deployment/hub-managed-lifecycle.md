@@ -15,6 +15,8 @@ implementation states below.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Explicit two-Hub remote-development preparation | implemented | `current change`; `infra/hubs-development/README.md`; `lifecycle/hub/src/fdai_lifecycle_hub/remote*.py`, `migrations.py`; focused PostgreSQL 5433/API/planner regressions, strict mypy and Ruff passed; both UI typechecks/builds, 35 UI unit tests and four intercepted browser tests passed | Separate Entra operator and export-only service identity checks, own managed-identity PostgreSQL, explicit migration, durable independent pin approval/import, and bundled UI images. Local loopback defaults remain. This is development preparation, not Azure deployment or production trust. |
+| Two-Hub cloud isolation and replica acceptance | in-progress | `current change`; `infra/hubs-development/`; Terraform init without backend and validate passed; task-built native linux/arm64 container UI/assets/API/restart smoke passed | Separate RGs, VNets, ACA environments, PostgreSQL servers/DBs, identities, vaults, and logs are declared. Live preview, Entra sign-in, cross-vault/network denial and ACA replica replacement require separate execution approval; static validation does not prove cloud isolation. |
 | Lifecycle Hub service and Hub PostgreSQL | implemented | `current change`; `lifecycle/hub/src/fdai_lifecycle_hub/`, `lifecycle/hub/tests/`; `FDAI_DATABASE_URL=<loopback> uv run --no-sync pytest lifecycle/hub/tests` passed on SQLite and loopback PostgreSQL; ruff, format, and strict mypy passed | One implementation serves central Hub cells and Target Hubs. Lifecycle I0 runs in shadow mode on loopback with no caller authentication, development keys, a trusted local catalog, and `create_all` schema creation instead of versioned migrations |
 | Installation enrollment | implemented | `current change`; `lifecycle/hub/src/fdai_lifecycle_hub/enrollment.py`, `lifecycle/hub/src/fdai_lifecycle_hub/entity.py`, `lifecycle/hub/tests/test_enrollment.py`; `FDAI_DATABASE_URL=<loopback> uv run --no-sync pytest -c pyproject.toml lifecycle/hub/tests` passed on SQLite and loopback PostgreSQL; ruff, format, and strict mypy passed | A key-proven request stays pending without Plans until an approver accepts it by key id. Entities start unmanaged and become managed only with a Foundation receipt digest, a Terraform state digest, and settings. The Hub records ownership digests without verifying receipt signatures, binds the proof to a five-minute window rather than a Hub challenge, keeps only the latest Entity settings, and doesn't authenticate approvers or revision Entities by `effective_from` yet |
 | Hub operator UI (installations, Plan detail, enrollment approval) | implemented | `current change`; `lifecycle/hub/src/fdai_lifecycle_hub/api.py`, `lifecycle/hub/src/fdai_lifecycle_hub/store.py`, `lifecycle/hub/src/fdai_lifecycle_hub/domain.py`, `lifecycle/hub/src/fdai_lifecycle_hub/schemas.py`, `lifecycle/hub/tests/test_operator_api.py`, `lifecycle/hub/tests/test_store.py`, `lifecycle/hub/ui/`; `FDAI_DATABASE_URL=<loopback> uv run --no-sync pytest -c pyproject.toml lifecycle/hub/tests -q` passed (248) on SQLite and loopback PostgreSQL; ruff, format, and strict mypy passed; `npm --prefix lifecycle/hub/ui run typecheck`, `npm --prefix lifecycle/hub/ui test`, and `npm --prefix lifecycle/hub/ui run build` passed; manual browser check against `lifecycle/hub/samples/` at desktop, constrained-desktop, and mobile viewports | A read-only Preact and Vite single-page app under `lifecycle/hub/ui/`, served by the Hub as a static build. New read-only and approval routes (`GET /v1/installations[/{id}]`, `GET /v1/installations/{id}/plans/{plan_id}`, `GET /v1/enrollments/pending[/{id}]`, `POST ./enrollment/approve or ./enrollment/reject`) back it, on loopback with no caller authentication, matching the agent API. Covers only the four screens with a working Hub API behind them; the other ten `mocks/ui-lifecycle/` concept screens (vendor Release and catalog, Console version and policy, customer Git config, confirmations, commands, Target Hub bundles) stay as disabled sidebar entries with no backing API or screen |
@@ -64,7 +66,17 @@ implementation states below.
 
 | 2026-10-15 | in-progress | Corrected the schema-check script's call to the existing ownership loader to include the parsed legacy inventory. Added a database-free regression that resolves the real ownership manifest and all six image-owned Alembic configurations, rather than relying only on synthetic fixtures. | `current change`; `lifecycle/agent/src/fdai_lifecycle_agent/schema_check.py`, `lifecycle/agent/tests/test_schema_check.py`; `.venv/bin/python -m pytest -q --no-cov lifecycle/agent/tests/test_schema_check.py lifecycle/agent/tests/test_operator_workload.py` passed (26), with one existing legacy Alembic configuration deprecation warning; strict mypy passed for the six changed source modules | Real service-container and PostgreSQL execution remain unverified; this corrects tool binding, not installation evidence. |
 
+| 2026-10-15 | implemented | Added the explicit two-Hub remote-development profile, operator/service authentication boundary, manual independent pin approval and bounded import, durable PostgreSQL trust/revision state, explicit schema revision, UI sign-in/import, and separated IaC with manual migration Jobs. Corrects the opening owner status from design-only to bounded development implementation; earlier history remains unchanged. | `current change`; `infra/hubs-development/README.md`; `lifecycle/hub/tests/test_remote_auth.py`, `test_remote_catalog.py`, `test_remote_bootstrap.py`, `test_hubs_postgres.py`, `test_hub_images.py`; focused local PostgreSQL/API/planner tests, strict mypy/Ruff, UI typechecks/builds, 35 UI unit tests and four intercepted browser checks passed; Terraform validate passed | Exact Azure preview/execution, real Entra/MI/Key Vault/private DNS/cross-boundary denial and replica durability, ACA-compatible registry image evidence, production trust, and Agent apply remain open. The new remote profile does not enable Agent transport or complete FDAI installation. |
+
 ### Remaining work
+
+- [x] Add a separate authenticated remote-development profile with explicit migration,
+  durable independent pin approval and bounded import, preserving local loopback behavior;
+  record focused API/PostgreSQL/planner, image and browser evidence in `infra/hubs-development/README.md`.
+- [ ] After separate exact-scope authorization, run the two-Hub cloud acceptance sequence in
+  `infra/hubs-development/README.md`, including real Entra sign-in, own MI/database/vault access,
+  denied cross-boundary access and ACA revision/replica persistence. Do not infer these from RGs
+  or local tests.
 
 - [ ] Run real Operator install, update, failed update, and independently observed rollback with
   immutable service images and preprovisioned Core, broker, identity/configuration, and database
@@ -182,9 +194,10 @@ implementation states below.
   instead of resubmitting the pending request's own reported value, and stop rendering
   `apply-started` as a success checkmark, in `lifecycle/hub/ui/src/routes/enrollments.tsx` and
   `lifecycle/hub/ui/src/report-status.ts`.
-- [ ] Add Microsoft Entra ID sign-in for the operator UI and caller authentication for its routes
-  before the Hub API binds to anything other than loopback, alongside the agent authentication
-  item above.
+- [x] Add Microsoft Entra ID sign-in and direct operator-token verification before the explicit
+  remote-development listener opens; verify denied unauthenticated and cross-audience/service
+  requests in `lifecycle/hub/tests/test_remote_auth.py`. Live Entra and Agent transport acceptance
+  remain separate open work, not a completed production identity rollout.
 - [ ] Build the remaining `mocks/ui-lifecycle/` concept screens this round doesn't cover: vendor
   Release, activity, channels, and fleet; a Plans list; Console version and policy tabs; customer
   Git configuration; confirmations; commands; and Target Hub bundle import. Each needs its own
