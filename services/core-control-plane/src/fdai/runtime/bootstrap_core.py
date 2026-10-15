@@ -16,12 +16,8 @@ from fdai.composition import (
     bind_decision_evidence_admission,
 )
 from fdai.composition.operational_evidence_binding import bind_operational_evidence
-from fdai.composition.readiness import build_operational_readiness_event_handler
-from fdai.composition.readiness_catalog import load_runtime_best_practice_bindings
 from fdai.core.chaos.symptom_index import build_from_promoted
 from fdai.core.licensing import LicenseEntitlementAuthority
-from fdai.core.notifications.matrix import load_matrix_from_yaml
-from fdai.core.readiness.self_health import SelfHealthCatalog, load_self_health_catalog
 from fdai.delivery.azure.diagnostic_event_ingest import DiagnosticEventIngestBridge
 from fdai.delivery.azure.monitor_events import DiagnosticNormalizerOptions
 from fdai.delivery.notifications.local_binding import resolve_local_notification_endpoints
@@ -61,6 +57,10 @@ from fdai.runtime.bootstrap_pantheon import (
     initialize_pantheon,
 )
 from fdai.runtime.bootstrap_plan import BootstrapPlan
+from fdai.runtime.bootstrap_readiness import (
+    build_runtime_operational_readiness,
+    load_runtime_self_health_catalog,
+)
 from fdai.runtime.bootstrap_resources import RuntimeResources
 from fdai.runtime.bootstrap_semantics import build_semantic_runtime
 from fdai.runtime.catalog_ontology import project_catalog_ontology, sync_ontology_catalog
@@ -124,16 +124,6 @@ from fdai.shared.contracts.models import ResponseOutcome
 from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger("fdai.startup")
-
-
-def _load_self_health_catalog() -> SelfHealthCatalog:
-    config_root = _resolve_catalog_root().parent / "config"
-    matrix = load_matrix_from_yaml(config_root / "notifications-matrix.yaml")
-    route_fallbacks = {name: route.on_all_fail.value for name, route in matrix.routes.items()}
-    return load_self_health_catalog(
-        config_root / "self-health-signals.yaml",
-        route_fallbacks=route_fallbacks,
-    )
 
 
 CoreRuntime = bootstrap_core_model.CoreRuntime
@@ -318,19 +308,9 @@ async def build_core_runtime(
         if environment.get("FDAI_STATE_STORE_DSN", "").strip()
         else None
     )
-    best_practices, checklist_evidence = load_runtime_best_practice_bindings(
-        _resolve_catalog_root()
-    )
-    operational_readiness_handler = build_operational_readiness_event_handler(
-        posture=container.operational_readiness_posture,
-        publisher=container.operational_readiness_report_publisher,
-        feasibility_probes=container.feasibility_probes,
-        event_validator=container.event_validator,
+    operational_readiness_handler = build_runtime_operational_readiness(
+        container=container,
         state_store=state_store,
-        decision_evidence=container.decision_evidence_admission_provider,
-        best_practices=best_practices,
-        checklist_evidence=checklist_evidence,
-        remediation_binding=container.operational_readiness_remediation,
     )
     if operational_readiness_handler is None:
         _LOGGER.info(
@@ -659,7 +639,7 @@ async def build_core_runtime(
         registered_probes=(*container.startup_probes, *semantic.readiness_probes),
         decision_evidence=container.decision_evidence_admission_provider,
         ingest_topics=(container.config.kafka.topic_events,),
-        self_health_catalog=_load_self_health_catalog(),
+        self_health_catalog=load_runtime_self_health_catalog(),
     )
     startup_report = await readiness.evaluate()
     _LOGGER.info(
