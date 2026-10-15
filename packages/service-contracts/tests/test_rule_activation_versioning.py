@@ -1,0 +1,61 @@
+from __future__ import annotations
+
+import pytest
+from fdai_service_contracts.rule_activation_versioning import (
+    RULE_ACTIVATION_WRITE_SCHEMA_VERSION,
+    RuleActivationRecordKind,
+    canonicalize_rule_activation_payload,
+    decode_rule_activation_record,
+    encode_rule_activation_record,
+)
+
+
+def test_phase_one_writes_version_one_and_reads_versions_one_and_two() -> None:
+    encoded = encode_rule_activation_record(
+        RuleActivationRecordKind.GENERATION,
+        {"generation": {"generation_id": "generation-a"}},
+    )
+
+    assert encoded["schema_version"] == RULE_ACTIVATION_WRITE_SCHEMA_VERSION
+    assert encoded["kind"] == "rule_activation.generation"
+    assert decode_rule_activation_record(
+        encoded,
+        expected_kind=RuleActivationRecordKind.GENERATION,
+    ).body == {"generation": {"generation_id": "generation-a"}}
+
+    version_two = {**encoded, "schema_version": "2.0.0"}
+    decoded = decode_rule_activation_record(
+        version_two,
+        expected_kind=RuleActivationRecordKind.GENERATION,
+    )
+    assert decoded.schema_version == "2.0.0"
+    assert decoded.body == {"generation": {"generation_id": "generation-a"}}
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        {"schema_version": "3.0.0", "kind": "rule_activation.result"},
+        {"schema_version": "2.0.0", "kind": "rule_activation.current"},
+    ],
+)
+def test_decode_rejects_unknown_version_or_wrong_kind(value: dict[str, object]) -> None:
+    with pytest.raises(ValueError):
+        decode_rule_activation_record(
+            value,
+            expected_kind=RuleActivationRecordKind.RESULT,
+        )
+
+
+def test_encode_rejects_reserved_body_fields() -> None:
+    with pytest.raises(ValueError, match="reserved"):
+        encode_rule_activation_record(
+            RuleActivationRecordKind.RESULT,
+            {"schema_version": "2.0.0"},
+        )
+
+
+def test_version_two_payload_is_canonicalized_for_phase_one_models() -> None:
+    assert canonicalize_rule_activation_payload(
+        {"schema_version": "2.0.0", "request_id": "request-a"}
+    ) == {"schema_version": "1.0.0", "request_id": "request-a"}
