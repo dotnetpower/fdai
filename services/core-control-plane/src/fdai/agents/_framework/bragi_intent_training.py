@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 from collections import Counter
 from collections.abc import Mapping, Sequence
+from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any, Literal, Protocol
 
@@ -41,7 +42,7 @@ class IntentTrainingEvaluator(Protocol):
         candidate_revision: Mapping[str, Any],
         holdout_cases: Sequence[IntentTrainingEvidence],
     ) -> Sequence[IntentTrainingEvaluationResult]:
-        """Return one deterministic result per holdout case."""
+        """Return one result per case without changing the isolated revision inputs."""
         ...
 
 
@@ -184,13 +185,20 @@ def evaluate_training_contract(
             reason="requires_holdout_and_targeted_cases",
         )
         return payload, candidate, False
+    baseline = _baseline_revision()
+    evaluation_baseline = deepcopy(baseline)
+    evaluation_candidate = deepcopy(candidate)
     results = tuple(
         evaluator.evaluate(
-            baseline_revision=_baseline_revision(),
-            candidate_revision=candidate,
+            baseline_revision=evaluation_baseline,
+            candidate_revision=evaluation_candidate,
             holdout_cases=(*holdout, *target_cases),
         )
     )
+    if _digest_value(evaluation_baseline) != _digest_value(baseline) or _digest_value(
+        evaluation_candidate
+    ) != _digest_value(candidate):
+        raise ValueError("training evaluator MUST preserve the frozen revisions")
     gate = _gate_results(results, holdout=holdout, target_cases=target_cases)
     promotion = _promotion_stage(gate, reviewed_promotion=reviewed_promotion)
     payload = _base_payload(

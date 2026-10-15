@@ -22,6 +22,22 @@ async function privateJson(path) {
   return JSON.parse(await readFile(path, "utf8"));
 }
 
+function canonicalValue(value) {
+  if (Array.isArray(value)) return value.map(canonicalValue);
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.keys(value).sort().map((key) => [key, canonicalValue(value[key])]),
+    );
+  }
+  return value;
+}
+
+export function contentDigest(value) {
+  return `sha256:${createHash("sha256").update(
+    JSON.stringify(canonicalValue(value)),
+  ).digest("hex")}`;
+}
+
 export function terminalPayload(stream) {
   let terminal = null;
   let event = "message";
@@ -252,6 +268,10 @@ async function run() {
       await promptProfiles.locator("li").count() === promptEvidence.expected.length;
     const assessmentCompleted = terminal.assessment_state === "completed";
     const diagnostic = terminal.pantheon_diagnostic;
+    const trace = terminal.pantheon_trace;
+    const hardZeroViolations = Array.isArray(diagnostic?.hard_zero_violations)
+      ? diagnostic.hard_zero_violations
+      : [];
     const evidence = {
       request_count: requestCount,
       endpoint_contract: "/chat/stream",
@@ -278,6 +298,17 @@ async function run() {
       preparing_answer_overlapped_terminal: browserState?.overlap === true,
       terminal_transition_completed: await page.locator(".deck-rt-turn").count() === 0,
       sensitive_output_detected: sensitiveTerminal(terminal),
+      measurement_profile_digest: contentDigest({
+        prompt_profiles: terminal.pantheon_prompt_profiles ?? null,
+        evaluator_models: terminal.pantheon_evaluator_models ?? null,
+      }),
+      evidence_snapshot_digest: trace?.evidence_manifest_digest ?? null,
+      hard_zero_count: hardZeroViolations.length,
+      latency_ms: Number.isInteger(trace?.latency_ms) ? trace.latency_ms : null,
+      model_call_count: promptEvidence.observed.length,
+      cost_usd: Number.isFinite(terminal.pantheon_cost_usd)
+        ? terminal.pantheon_cost_usd
+        : null,
       terminal: {
         terminal_state: terminal.status,
         answer_generation_state: typeof terminal.answer === "string" && terminal.answer.length > 0
