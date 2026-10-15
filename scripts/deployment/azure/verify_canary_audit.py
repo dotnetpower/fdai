@@ -118,23 +118,23 @@ def verify_canary_audit(
         if entry.get(field) != value:
             raise CanaryAuditVerificationError(f"canary audit {field} does not match")
 
-    latency_ms = entry.get("latency_ms")
-    if isinstance(latency_ms, bool) or not isinstance(latency_ms, int) or latency_ms < 0:
+    processing_latency_ms = entry.get("latency_ms")
+    if (
+        isinstance(processing_latency_ms, bool)
+        or not isinstance(processing_latency_ms, int)
+        or processing_latency_ms < 0
+    ):
         raise CanaryAuditVerificationError("canary audit latency_ms MUST be a non-negative integer")
-    if latency_ms > latency_budget_ms:
-        raise CanaryAuditVerificationError("canary audit exceeded the latency budget")
 
-    recorded_at_raw = entry.get("recorded_at")
-    if not isinstance(recorded_at_raw, str):
-        raise CanaryAuditVerificationError("canary audit recorded_at MUST be a timestamp")
-    try:
-        recorded_at = datetime.fromisoformat(recorded_at_raw.replace("Z", "+00:00"))
-    except ValueError as exc:
-        raise CanaryAuditVerificationError("canary audit recorded_at is invalid") from exc
-    if recorded_at.tzinfo is None or recorded_at.utcoffset() is None:
-        raise CanaryAuditVerificationError("canary audit recorded_at MUST include a timezone")
-    if recorded_at > verified_at:
-        raise CanaryAuditVerificationError("canary audit recorded_at is from the future")
+    detected_at = _audit_timestamp(entry, "detected_at")
+    recorded_at = _audit_timestamp(entry, "recorded_at")
+    if recorded_at < detected_at:
+        raise CanaryAuditVerificationError("canary audit recorded_at precedes detection")
+    durable_latency_ms = round((verified_at - detected_at).total_seconds() * 1000)
+    if durable_latency_ms < 0:
+        raise CanaryAuditVerificationError("canary durable observation precedes detection")
+    if durable_latency_ms > latency_budget_ms:
+        raise CanaryAuditVerificationError("canary audit exceeded the latency budget")
 
     return {
         "schema_version": "1.0.0",
@@ -142,13 +142,28 @@ def verify_canary_audit(
         "source_identity": "core-audit-log",
         "event_id": event_id,
         "correlation_id": correlation_id,
+        "detected_at": detected_at.astimezone(UTC).isoformat(),
         "recorded_at": recorded_at.astimezone(UTC).isoformat(),
         "verified_at": verified_at.astimezone(UTC).isoformat(),
-        "latency_ms": latency_ms,
+        "processing_latency_ms": processing_latency_ms,
+        "latency_ms": durable_latency_ms,
         "latency_budget_ms": latency_budget_ms,
         "within_budget": True,
         "execution_authority": False,
     }
+
+
+def _audit_timestamp(entry: Mapping[str, object], field: str) -> datetime:
+    raw = entry.get(field)
+    if not isinstance(raw, str):
+        raise CanaryAuditVerificationError(f"canary audit {field} MUST be a timestamp")
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise CanaryAuditVerificationError(f"canary audit {field} is invalid") from exc
+    if parsed.tzinfo is None or parsed.utcoffset() is None:
+        raise CanaryAuditVerificationError(f"canary audit {field} MUST include a timezone")
+    return parsed
 
 
 def capture_canary_audit(

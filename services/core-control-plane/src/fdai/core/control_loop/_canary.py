@@ -62,6 +62,7 @@ async def process_canary(
             "outcome": "success",
             "idempotency_key": event.idempotency_key,
             "latency_ms": latency_ms,
+            "detected_at": event.detected_at.isoformat(),
             "recorded_at": recorded_at.isoformat(),
         }
     )

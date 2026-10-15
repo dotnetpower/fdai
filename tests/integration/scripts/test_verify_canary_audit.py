@@ -32,6 +32,7 @@ def _entry(**overrides: object) -> dict[str, object]:
         "decision": "no-op",
         "outcome": "success",
         "latency_ms": 4200,
+        "detected_at": (NOW - timedelta(seconds=5)).isoformat(),
         "recorded_at": (NOW - timedelta(seconds=1)).isoformat(),
     }
     values.update(overrides)
@@ -56,7 +57,8 @@ def test_valid_consumed_audit_produces_authority_free_receipt() -> None:
     )
 
     assert receipt["evidence_kind"] == "control_loop_canary_consumed_audit"
-    assert receipt["latency_ms"] == 4200
+    assert receipt["processing_latency_ms"] == 4200
+    assert receipt["latency_ms"] == 5000
     assert receipt["within_budget"] is True
     assert receipt["execution_authority"] is False
     assert "password" not in receipt
@@ -69,8 +71,8 @@ def test_valid_consumed_audit_produces_authority_free_receipt() -> None:
         ({"outcome": "published"}, "outcome does not match"),
         ({"mode": "enforce"}, "mode does not match"),
         ({"latency_ms": True}, "latency_ms MUST be"),
-        ({"latency_ms": 30_001}, "exceeded the latency budget"),
-        ({"recorded_at": (NOW + timedelta(seconds=1)).isoformat()}, "from the future"),
+        ({"detected_at": (NOW - timedelta(seconds=31)).isoformat()}, "exceeded the latency budget"),
+        ({"recorded_at": (NOW - timedelta(seconds=6)).isoformat()}, "precedes detection"),
     ),
 )
 def test_malformed_or_unsettled_audit_fails_closed(
