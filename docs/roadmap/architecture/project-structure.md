@@ -825,6 +825,9 @@ remain open.
 
 - Everything environment-specific is **configuration**, injected at runtime (env vars,
   secret store references, config files). No customer, tenant, or environment values in source.
+- Scheduled entry points may pass an immutable environment snapshot to
+  `default_container_from_env`. It uses the same validation and telemetry composition as the
+  process environment and creates no second configuration authority.
 - Config is validated against the `shared/config/` schema at startup; the process **fails fast**
   on invalid or missing required config rather than starting in a degraded state. A disabled
   optional package is not required configuration: it can report capability-scoped unavailability

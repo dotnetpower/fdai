@@ -23,6 +23,8 @@ _EXPECTED_FILES = frozenset(
     {
         "__init__.py",
         "_helpers.py",
+        # Validates injected environment snapshots without growing the facade.
+        "environment_factory.py",
         # Resolves shared adaptive model targets without coupling wire modules.
         "adaptive_model_targets.py",
         # Loads and filters resolved-model artifacts for the focused binders.

@@ -23,7 +23,6 @@ from ..core.metering.pricing import PricingTable
 from ..core.quality_gate.testing import MatchTypeCrossCheckModel
 from ..core.tiers.t1_lightweight.testing import DeterministicEmbeddingModel
 from ..core.tiers.t2_reasoning.testing import DeterministicT2Proposer
-from ..shared.config.loader import load_config_from_env
 from ..shared.config.models import AppConfig, LlmMode
 from ..shared.contracts.registry import (
     PackageResourceSchemaRegistry,
@@ -69,6 +68,7 @@ if TYPE_CHECKING:
 
 from . import wire_capabilities as _wire_capabilities  # noqa: E402
 from ._helpers import Container, LlmBindings, LlmBindingsUnavailableError  # noqa: E402
+from .environment_factory import load_environment_config  # noqa: E402
 
 install_capability_bundle = _wire_capabilities.install_capability_bundle
 bind_configuration_drift = _wire_capabilities.bind_configuration_drift
@@ -308,7 +308,7 @@ def load_pricing_table(path: Path) -> PricingTable:
     return PricingTable.from_mapping(models)
 
 
-def default_container_from_env() -> Container:
+def default_container_from_env(environ: Mapping[str, str] | None = None) -> Container:
     """Entry-point convenience: load config from env, then bind every seam.
 
     A missing / invalid env raises :class:`fdai.shared.config.ConfigError`
@@ -322,17 +322,9 @@ def default_container_from_env() -> Container:
     fall back to ``INFO`` rather than failing startup - telemetry is a
     diagnostic, not a control-loop dependency.
     """
-    config = load_config_from_env()
-    # Wire telemetry once, before any provider emits log or span.
-    import logging
-    import os
-
     from ..shared.telemetry.setup import configure_telemetry
 
-    level_name = os.environ.get("FDAI_LOG_LEVEL", "INFO").upper().strip()
-    level = getattr(logging, level_name, logging.INFO)
-    if not isinstance(level, int):
-        level = logging.INFO
+    config, level = load_environment_config(environ)
     configure_telemetry(config, level=level)
     return default_container(config)
 

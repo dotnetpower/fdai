@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 85b31083edcd01a0960284609e5b89e335c97601
+translation_source_sha: 0c3b584ca88dab2fdbae2bd6ca2beffa918a9843
 translation_revised: 2026-10-15
 ---
 # 프로젝트 구조
@@ -808,6 +808,8 @@ risk-gate를 호출합니다. 리포트는 정확한 소유권 이전 신원을 
 
 - 환경 특이 정보는 모두 **설정** 이며 런타임에 주입됩니다(환경 변수, 시크릿 저장소 참조,
   설정 파일). 소스에는 어떤 고객·테넌트·환경 값도 없습니다.
+- 예약 진입점은 변경할 수 없는 환경 스냅숏을 `default_container_from_env`에 전달할 수 있습니다.
+  이 경로는 프로세스 환경과 같은 검증 및 telemetry 조합을 사용하며 두 번째 설정 권한을 만들지 않습니다.
 - 설정은 시작 시 `shared/config/` 스키마로 검증되며, 잘못되거나 누락된 필수 설정에 대해 **fail
   fast** - degraded 상태로 시작하지 않습니다. 비활성화된 선택 패키지는 필수 설정이 아닙니다.
   관련 없는 완전한 경로는 정상적으로 시작하고 해당 기능만 사용할 수 없음으로 보고할 수 있습니다.
