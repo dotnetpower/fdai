@@ -123,6 +123,17 @@
     ]
   },
   {
+    "route": "/concepts/functional-specification/",
+    "locale": "en",
+    "source_path": "docs/user-guide/concepts/functional-specification.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Understand",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
+  },
+  {
     "route": "/concepts/ontology-driven-automation/",
     "locale": "en",
     "source_path": "docs/user-guide/concepts/ontology-driven-automation.md",
@@ -480,6 +491,17 @@
     "diagram_ids": [
       "fdai-deterministic-first-01"
     ]
+  },
+  {
+    "route": "/ko/concepts/functional-specification/",
+    "locale": "ko",
+    "source_path": "docs/user-guide/concepts/functional-specification-ko.md",
+    "source_kind": "user-guide",
+    "navigation_section": "Understand",
+    "audience": "operator",
+    "publication_state": "navigated",
+    "derived_sources": [],
+    "diagram_ids": []
   },
   {
     "route": "/ko/concepts/ontology-driven-automation/",
