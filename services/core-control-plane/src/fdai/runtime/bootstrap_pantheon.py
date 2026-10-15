@@ -65,6 +65,7 @@ from fdai.runtime.bootstrap_agent_discussion import _runtime_asset_root as _runt
 from fdai.runtime.bootstrap_agent_discussion import build_runtime_pantheon_synthesis
 from fdai.runtime.bootstrap_capacity_sampling import build_capacity_sampler
 from fdai.runtime.bootstrap_chaos_schedule import build_chaos_schedule
+from fdai.runtime.bootstrap_loki_scenarios import build_loki_scenario_bindings
 from fdai.runtime.bootstrap_mimir_maintenance import build_mimir_maintenance_source
 from fdai.runtime.bootstrap_pantheon_models import (
     PantheonInitialization,
@@ -456,6 +457,10 @@ async def initialize_pantheon(
     llm_bindings = config.container.llm_bindings
     synthesis = build_runtime_pantheon_synthesis(config, asset_root)
     mimir_maintenance = build_mimir_maintenance_source(config.environment)
+    loki_scenarios = build_loki_scenario_bindings(
+        environment=config.environment,
+        action_type_names=frozenset(action.name for action in config.control_loop.action_types),
+    )
     pantheon_runtime = PantheonRuntime.build(
         assignment_workflow=config.assignment_workflow,
         provider=config.bus,
@@ -492,6 +497,8 @@ async def initialize_pantheon(
             environment=config.environment,
             action_type_names=frozenset(action.name for action in config.control_loop.action_types),
         ),
+        loki_scenario_generator=(loki_scenarios.generator if loki_scenarios is not None else None),
+        loki_scenario_corpus=(loki_scenarios.corpus if loki_scenarios is not None else ()),
         mimir_rule_source_poller=MimirActiveCatalogPoller(
             reader=config.control_loop, store=config.incident_audit_store
         )

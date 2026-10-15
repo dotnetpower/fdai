@@ -97,6 +97,12 @@ from fdai.agents._framework.huginn_operator_receipt import (
     ReservedOperatorRequestReceipt,
 )
 from fdai.agents._framework.introspection import agent_state_evidence_ref
+from fdai.agents._framework.loki_adversarial import (
+    MAX_GENERATED_SCENARIOS,
+    ChaosScenarioCandidate,
+    ChaosScenarioGenerator,
+    frozen_corpus_key,
+)
 from fdai.agents._framework.loki_scheduling import (
     ChaosScheduleConfig,
 )
@@ -250,6 +256,8 @@ __all__ = [
     "Bragi",
     "CatalogReviewBindings",
     "ChaosScheduleConfig",
+    "ChaosScenarioCandidate",
+    "ChaosScenarioGenerator",
     "ComposedConversationPrompt",
     "ConversationCharter",
     "ConversationDeliberator",
@@ -279,6 +287,7 @@ __all__ = [
     "MimirRuleDeprecationReader",
     "MimirRuleSourcePollResult",
     "MAX_RECURRING_SAMPLES",
+    "MAX_GENERATED_SCENARIOS",
     "UtilizationSample",
     "Norns",
     "OperatorRequestReceiptGate",
@@ -323,6 +332,7 @@ __all__ = [
     "partition_key_for",
     "stable_idempotency_key",
     "validate_chaos_schedule",
+    "frozen_corpus_key",
     "WORKFLOWS",
     "WorkflowSpec",
 ]

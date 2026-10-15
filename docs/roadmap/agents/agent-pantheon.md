@@ -265,6 +265,14 @@ configuration stays unbound; partial, stale, changed, oversized, duplicate-key, 
 input fails startup. This adapter consumes reviewed results. It does not perform the independent
 review, run a regression suite, promote or deprecate a Rule, or grant issue-close authority.
 
+Loki's off-path generator and frozen regression corpus can likewise bind to one reviewed immutable
+file. `FDAI_LOKI_SCENARIO_EVIDENCE_PATH` and
+`FDAI_LOKI_SCENARIO_EVIDENCE_SHA256` pin a bounded regular file whose source revision must equal
+`FDAI_SOURCE_REVISION`. The closed snapshot rejects duplicate schedule, scenario, evidence, and
+coverage identities and accepts only ActionTypes in the active catalog. Generation still runs only
+through an explicit off-path invocation with the exact reviewed design reference. The binding does
+not schedule a run, request approval, execute Chaos, verify recovery, or change Loki's advisory role.
+
 Saga's retained audit outbox compares canonical JSON digests before publication. Reusing a key
 with changed JSON types, including nested integer-to-boolean or integer-to-float substitutions,
 is rejected without publishing or changing the retained row. Exact payload replay remains valid

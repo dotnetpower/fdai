@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 43d366e5af20cc6591eda01c115b083d7864a918
+translation_source_sha: b091f790ba7eed729c64b910b8cc41726d950282
 translation_revised: 2026-10-15
 ---
 
@@ -78,6 +78,15 @@ Loki 반복 일정은 시간대가 있는 명시적 `start_at`을 요구합니�
 문구는 이 소스 존재 사실만으로 대체합니다. 프로필 선택, 실제 Owner 승인이나 실제 실행
 증거를 뜻하지 않습니다.
 
+표준 초기화는 이제 정확한 해시와 원본 리비전에 결속된 검토 파일 하나로 Loki의 비활성
+생성기와 고정 표본을 연결합니다. 닫힌 형식의 제한된 스냅샷은 반복 일정 검증기를 재사용하고,
+알 수 없는 ActionType과 일정·시나리오·근거·커버리지 식별자의 중복을 거절하며, 생성 호출을
+정확한 설계 참조 하나에 결속합니다. 설정이 없으면 미연결 상태를 유지하고 일부 설정만 있거나
+내용이 바뀌면 시작에 실패합니다. 런타임은 여전히 명시적 비활성 호출을 요구하며 감사되는
+비활성 후보만 게시합니다. 소스·초기화·비활성 생성·일정·레이아웃 검사 49개와 strict
+mypy·Ruff가 통과했습니다. 실제 설정 입력, 명시적 호출, 사람 승인, Chaos 실행과 복구 근거는
+별도입니다.
+
 Freyr의 표준 출처 연결은 `runtime/bootstrap_capacity_sampling.py`가 소유합니다. 배포는 논리
 Resource ID와 고정 타입의 제한된 매핑인 `FDAI_FREYR_TARGETS_JSON`을 제공할 수 있습니다.
 대상, 실제 MetricProvider나 현재 인벤토리 reader가 없으면 계속 사용할 수 없습니다.
@@ -91,6 +100,7 @@ sampler는 검토된 `resource.cpu.utilization_pct` 선언을 사용하고 조�
 |------|------|------|------|
 | Saga 공유 내부 체인 리비전 | implemented | `audit_chain_journal.py`; `audit_chain_rehydrate.py`; 소유 범위 검사 165개, 제한된 복구 검사 1개, 실제 격리 PostgreSQL 검사 5개; 다섯 소스 strict mypy와 Ruff | 공유 head와 감사를 원자적으로 확정하고 검증된 로컬 조회 범위를 제한하며, 검증할 수 없는 이전 형식의 이행은 보류합니다. 구버전 중단 후의 배포 이행, 더 긴 이력의 이행과 원격 이슈 식별자는 별도입니다. |
 | 검토된 Mimir 유지보수 근거 소스 | implemented | `mimir_maintenance_evidence.py`, `bootstrap_mimir_maintenance.py`, 표준 판테온 초기화, 근거·초기화·이슈 종료·구조 집중 검사 58개와 strict mypy·Ruff | 정확한 리비전의 불변 스냅샷 하나가 기존 승격·회귀·폐기 포트를 연결합니다. 실제 검토 입력과 런타임 증적은 배포 환경이 소유하며, 어댑터는 Rule 또는 이슈 권한을 부여하지 않습니다. |
+| 검토된 Loki 비활성 시나리오 소스 | implemented | `loki_scenario_evidence.py`, `bootstrap_loki_scenarios.py`, 공유 일정 검증, 소스·초기화·비활성 생성·일정·레이아웃 검사 49개와 strict mypy·Ruff | 검토된 불변 스냅샷 하나가 생성기와 고정 표본을 연결하지만 호출하거나 승인·실행 권한을 부여하지 않습니다. 실제 입력, 호출, 승인, Chaos 및 복구 증적은 남아 있습니다. |
 | 명시적인 표준 Loki 반복 일정 | implemented | `bootstrap_chaos_schedule.py`; `bootstrap_pantheon.py`; 초기화·Loki·비활성 시나리오·샘플·레이아웃 검사 57개 통과 | 완전한 명시적 선언을 기존 Loki 처리기에 전달하며 enforce를 켜거나 입력을 만들지 않습니다. 실제 배포 일정, 승인 및 실행 근거는 남아 있습니다. |
 | 현재 순서 정지 및 로컬 이슈 작업 바인딩 | implemented | `bootstrap_pantheon.py`; `state_store_issue_tracker.py`; 부트스트랩·정지 해제·런타임·Mimir 이슈 검사 114개 통과 | 정지 저장소의 소스 미연결과 로컬 fingerprint별 작업 ID 공백만 해결합니다. 원격 이슈 어댑터, 복제본 게시와 실제 재시작 증거는 남아 있습니다. |
 | 온톨로지 ContextIndex 소유자 라우팅 | implemented | `agents/_framework/ontology_index.py`; `test_ontology_context_index.py`; 실제 인메모리 EventBus 단계 연결 검사 | Huginn 유입, Muninn 준비 및 전이 게시, Heimdall 검증 게시, Saga 감사 및 봉인 게시는 기존 소유 토픽을 사용합니다. 래퍼는 소유자, 토픽, 내용, 단계 불일치를 거부하고 일반 판단과 학습에서 분리합니다. 이 라우팅 검사의 기계적 처리기는 합성이며 영속 원본 및 수명주기 처리기와 운영 bootstrap 연결은 남아 있습니다. |
@@ -122,6 +132,7 @@ sampler는 검토된 `resource.cpu.utilization_pct` 선언을 사용하고 조�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-15 | implemented | Loki의 비활성 생성기와 고정 표본을 정확한 해시·원본 리비전에 결속된 검토 불변 스냅샷 하나에 연결하고 중복 커버리지를 거절하며 호출을 정확한 설계 참조에 결속했습니다. | `현재 변경`, `loki_scenario_evidence.py`, `bootstrap_loki_scenarios.py`, 소스·초기화·비활성 생성·일정·레이아웃 검사 49개와 strict mypy·Ruff | 실제 검토 입력을 제공하고 명시적 호출, 사람 승인, Chaos 실행, 검증된 복구 증적을 보존해야 합니다. 권한이나 운영 수락은 추론하지 않습니다. |
 | 2026-10-15 | implemented | 초안 카탈로그 검토를 승격으로 취급하지 않으면서 Mimir의 승격·회귀·폐기 유지보수 포트를 정확한 해시와 원본 리비전에 결속된 닫힌 불변 근거 스냅샷 하나에 연결했습니다. | `현재 변경`, `mimir_maintenance_evidence.py`, `bootstrap_mimir_maintenance.py`, 근거·초기화·이슈 종료·구조 집중 검사 58개와 strict mypy·Ruff | 실제로 검토한 배포 매니페스트를 제공하고 런타임 증적을 보존해야 합니다. 이 소스 변경은 검토·회귀·승격·폐기·이슈 종료를 수행하지 않습니다. |
 | 2026-10-15 | implemented | 내용 해시를 가진 공유 리비전 기록과 원자적 head·감사 확정으로 재현된 A/B/A 내부 체인 분기를 수정했습니다. 제한 안에서 이전 기록을 보존하거나 검증 불가 시 이행을 보류합니다. | `current change`; #2149; `audit_chain_journal.py`; `audit_chain_rehydrate.py`; 소유 범위 검사 165개, 1,500회 추가 후 복구 검사 1개, 실제 격리 PostgreSQL 검사 5개; 다섯 소스 strict mypy와 Ruff. | 배포 전에 구버전 writer를 중지하고 더 긴 이력의 이행을 별도로 검토해야 합니다. 원격 식별자와 실제 배포 수락도 아직 남아 있습니다. |
 | 2026-10-15 | implemented | Bragi 평가 입력 리비전을 원본과 분리하고, 기준·후보의 내용이나 JSON 타입이 바뀌면 저장·게시 전에 거절하며, 보관된 평가기 참조로 반환된 후보를 바꾸지 못하게 했습니다. | `current change`; `bragi_intent_training.py`; 변조·격리 반례 5개 추가, 학습·구조 검사 35개, 한 소스 mypy와 Ruff 통과. | 독립 평가기, 동의가 확인된 원본 표본, 검토된 활성화와 배포된 공급자의 수락 근거는 아직 남아 있습니다. |
