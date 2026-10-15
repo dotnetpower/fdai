@@ -163,7 +163,7 @@ Before switching the Deployment, the agent runs a bounded, non-retrying schema-c
 the signed Core image's existing migration tools. It compares the legacy head first, then the
 service heads in `service-migrations/ownership.json` dependency order, in a read-only transaction.
 It never upgrades, downgrades, stamps, or materializes a catalog. A new schema target is rejected
-even in shadow mode; a missing or mismatched head fails before the Deployment switches.
+even without `--apply`; a missing or mismatched head fails before the Deployment switches.
 
 After the Job succeeds, the Deployment starts `fdai-operator-service` on `8000`, probes
 `/healthz`, and exposes only `operator-service-internal` as a ClusterIP Service. Pod labels
