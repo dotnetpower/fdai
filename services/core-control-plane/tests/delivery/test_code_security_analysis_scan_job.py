@@ -4,6 +4,19 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from fdai.core.security.code_findings.analysis_contracts import (
+    CodeGraphArtifact,
+    CodeGraphNode,
+    GraphNodeKind,
+    PathEvidence,
+    PathEvidenceStep,
+    PathStepRole,
+    SourceSpan,
+)
+from fdai.core.security.code_findings.typescript_analysis import (
+    TypeScriptAnalysisResult,
+    TypeScriptFrontendConfig,
+)
 from fdai.delivery.code_security_acquire import AcquiredSource, GitSourceAcquirer
 from fdai.delivery.code_security_sandbox import BubblewrapScannerSandbox
 from fdai.delivery.code_security_scan_job import ScanJobConfig, run_scan_job, sarif_specs
@@ -14,6 +27,7 @@ from fdai.rule_catalog.code_security_scanners import load_scanner_catalog
 REPO_ROOT = Path(__file__).resolve().parents[4]
 CATALOG_ROOT = REPO_ROOT / "rule-catalog" / "code-security"
 REVISION = "a" * 40
+DIGEST = "sha256:" + "b" * 64
 
 
 class _Acquirer(GitSourceAcquirer):
@@ -41,6 +55,11 @@ def search():
 """,
         encoding="utf-8",
     )
+    analysis_rules = tuple(
+        rule
+        for rule in load_analysis_rules(CATALOG_ROOT)
+        if rule.rule_id == "fdai.python.sql-injection"
+    )
     result = await run_scan_job(
         ScanJobConfig(
             repository="",
@@ -56,7 +75,7 @@ def search():
         scanners=load_scanner_catalog(CATALOG_ROOT),
         acquirer=_Acquirer(source),
         sandbox=BubblewrapScannerSandbox(),
-        analysis_rules=load_analysis_rules(CATALOG_ROOT),
+        analysis_rules=analysis_rules,
     )
 
     assert len(result.analysis_results) == 1
@@ -69,3 +88,89 @@ def search():
     (run,) = result.receipt.runs
     assert run.producer == "FDAI analysis engine"
     assert run.completed is True and run.full_repository is True
+
+
+async def test_scan_job_dispatches_typescript_result_to_canonical_review(
+    tmp_path: Path, monkeypatch
+) -> None:  # type: ignore[no-untyped-def]
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "app.ts").write_text("export const value = 1;", encoding="utf-8")
+    rules = load_analysis_rules(CATALOG_ROOT)
+    rule = next(item for item in rules if item.rule_id == "fdai.typescript.sql-injection")
+    source_node = CodeGraphNode(
+        node_id="source:typescript",
+        kind=GraphNodeKind.SOURCE,
+        name="request parameter",
+        span=SourceSpan(path="app.ts", start_line=1, end_line=1),
+    )
+    sink_node = CodeGraphNode(
+        node_id="sink:typescript",
+        kind=GraphNodeKind.SINK,
+        name="pool.query",
+        span=SourceSpan(path="app.ts", start_line=1, end_line=1),
+    )
+    graph = CodeGraphArtifact(
+        schema_version="1.0.0",
+        revision=REVISION,
+        build_context_digest=DIGEST,
+        framework_model_digest=rule.digest(),
+        frontend_versions={"typescript-compiler": "5.9.3"},
+        nodes=(source_node, sink_node),
+    )
+    path = PathEvidence(
+        schema_version="1.0.0",
+        revision=REVISION,
+        graph_digest=graph.digest(),
+        rule_id=rule.rule_id,
+        rule_version=rule.version,
+        steps=(
+            PathEvidenceStep(
+                node_id=source_node.node_id,
+                role=PathStepRole.SOURCE,
+                span=source_node.span,  # type: ignore[arg-type]
+            ),
+            PathEvidenceStep(
+                node_id=sink_node.node_id,
+                role=PathStepRole.SINK,
+                span=sink_node.span,  # type: ignore[arg-type]
+            ),
+        ),
+    )
+
+    def analyze(*args, **kwargs):  # type: ignore[no-untyped-def]
+        selected = kwargs["rule"]
+        return TypeScriptAnalysisResult(
+            graph,
+            (path,) if selected.rule_id == "fdai.typescript.sql-injection" else (),
+        )
+
+    monkeypatch.setattr(
+        "fdai.delivery.code_security_scan_job.analyze_typescript_repository",
+        analyze,
+    )
+    result = await run_scan_job(
+        ScanJobConfig(
+            repository="",
+            revision="",
+            repository_alias="example-service",
+            work_root=tmp_path / "work",
+            executables={},
+            rules_dir=CATALOG_ROOT / "rules",
+            required_scanners=frozenset(),
+            local_path=source,
+        ),
+        catalog=load_code_security_catalog(CATALOG_ROOT),
+        scanners=load_scanner_catalog(CATALOG_ROOT),
+        acquirer=_Acquirer(source),
+        sandbox=BubblewrapScannerSandbox(),
+        analysis_rules=rules,
+        typescript_frontend=TypeScriptFrontendConfig(
+            node=tmp_path / "node",
+            script=tmp_path / "frontend.cjs",
+        ),
+    )
+
+    assert len(result.analysis_results) == 4
+    assert result.issues[0].weakness_class == "sql_injection"
+    assert result.package["coverage_complete"] is True

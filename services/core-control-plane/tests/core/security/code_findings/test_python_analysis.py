@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
 from fdai.core.security.code_findings.analysis_contracts import (
     CodeSecurityRuleSpec,
     PathStepRole,
@@ -14,6 +15,9 @@ from fdai.core.security.code_findings.python_analysis import (
     PythonAnalysisLimits,
     analyze_python_repository,
 )
+from fdai.rule_catalog.code_security_analysis import load_analysis_rules
+
+from ._support import CATALOG_ROOT
 
 REVISION = "a" * 40
 DIGEST = "sha256:" + "b" * 64
@@ -197,3 +201,84 @@ def test_parse_and_file_limits_never_become_clean_coverage(tmp_path: Path) -> No
 
     assert result.paths == ()
     assert result.graph.coverage_limits
+
+
+@pytest.mark.parametrize(
+    ("rule_id", "imports", "sink", "safe_sink"),
+    [
+        (
+            "fdai.python.command-injection",
+            "import os\nimport shlex",
+            "os.system(value)",
+            "os.system(shlex.quote(value))",
+        ),
+        (
+            "fdai.python.path-traversal",
+            "import os",
+            "open(value)",
+            "open(os.path.basename(value))",
+        ),
+        (
+            "fdai.python.xss",
+            "import html\nfrom flask import render_template_string",
+            "render_template_string(value)",
+            "render_template_string(html.escape(value))",
+        ),
+    ],
+)
+def test_additional_weakness_rules_distinguish_vulnerable_and_safe_flows(
+    tmp_path: Path,
+    rule_id: str,
+    imports: str,
+    sink: str,
+    safe_sink: str,
+) -> None:
+    selected = next(item for item in load_analysis_rules(CATALOG_ROOT) if item.rule_id == rule_id)
+    vulnerable = tmp_path / "vulnerable"
+    vulnerable.mkdir()
+    write(
+        vulnerable,
+        "app.py",
+        f"""
+from flask import request
+{imports}
+
+@app.get('/input')
+def route():
+    value = request.args.get('value')
+    return {sink}
+""",
+    )
+    safe = tmp_path / "safe"
+    safe.mkdir()
+    write(
+        safe,
+        "app.py",
+        f"""
+from flask import request
+{imports}
+
+@app.get('/input')
+def route():
+    value = request.args.get('value')
+    return {safe_sink}
+""",
+    )
+
+    vulnerable_result = analyze_python_repository(
+        vulnerable,
+        revision=REVISION,
+        build_context_digest=DIGEST,
+        framework_model_digest=selected.digest(),
+        rule=selected,
+    )
+    safe_result = analyze_python_repository(
+        safe,
+        revision=REVISION,
+        build_context_digest=DIGEST,
+        framework_model_digest=selected.digest(),
+        rule=selected,
+    )
+
+    assert len(vulnerable_result.paths) == 1
+    assert safe_result.paths == ()

@@ -3,18 +3,28 @@
 from __future__ import annotations
 
 import json
+from typing import Protocol
 
 from fdai.core.security.code_findings.analysis_contracts import (
+    CodeGraphArtifact,
     CodeSecurityRuleSpec,
     GraphNodeKind,
+    PathEvidence,
 )
-from fdai.core.security.code_findings.python_analysis import PythonAnalysisResult
 
 PRODUCER = "FDAI analysis engine"
 PRODUCER_VERSION = "1.0.0"
 
 
-def render_analysis_sarif(result: PythonAnalysisResult, rule: CodeSecurityRuleSpec) -> bytes:
+class AnalysisResult(Protocol):
+    @property
+    def graph(self) -> CodeGraphArtifact: ...
+
+    @property
+    def paths(self) -> tuple[PathEvidence, ...]: ...
+
+
+def render_analysis_sarif(result: AnalysisResult, rule: CodeSecurityRuleSpec) -> bytes:
     """Render bounded path evidence without source text or model-generated claims."""
     artifacts = sorted(
         {

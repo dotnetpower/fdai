@@ -19,6 +19,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from fdai.core.security.code_findings.review_signal import ReviewSource, review_decision
+from fdai.core.security.code_findings.typescript_analysis import TypeScriptFrontendConfig
 from fdai.delivery.code_security_acquire import GitSourceAcquirer
 from fdai.delivery.code_security_prepared_source import PreparedSource, load_prepared_source
 from fdai.delivery.code_security_review_cli import pairs
@@ -110,6 +111,11 @@ def add_scan_command(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -
     root = repo_asset_root() / "rule-catalog" / "code-security"
     scan.add_argument("--catalog-root", default=str(root))
     scan.add_argument("--rules-dir", default=str(root / "rules"))
+    scan.add_argument("--typescript-node", default=os.environ.get("FDAI_TYPESCRIPT_NODE"))
+    scan.add_argument(
+        "--typescript-frontend",
+        default=os.environ.get("FDAI_TYPESCRIPT_FRONTEND"),
+    )
 
 
 _ALIAS_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
@@ -367,6 +373,16 @@ async def _run(
     )
     verifier_catalog = load_verifier_catalog(catalog_root, known)
     analysis_rules = load_analysis_rules(catalog_root)
+    if bool(args.typescript_node) != bool(args.typescript_frontend):
+        raise ValueError("TypeScript analysis needs both node and frontend bindings")
+    typescript_frontend = (
+        TypeScriptFrontendConfig(
+            node=Path(args.typescript_node),
+            script=Path(args.typescript_frontend),
+        )
+        if args.typescript_node
+        else None
+    )
     from fdai.delivery.code_security_execution import kata_config, run_kata_scan
 
     runtime = kata_config(args)
@@ -380,6 +396,7 @@ async def _run(
             acquirer=acquirer,
             prepared=prepared,
             analysis_rules=analysis_rules,
+            typescript_frontend=typescript_frontend,
         )
     result = await run_scan_job(
         config,
@@ -395,6 +412,7 @@ async def _run(
         prove_python=Path(args.prove_python).resolve() if args.prove else None,
         prove_runtimes=_prove_runtimes(args),
         analysis_rules=analysis_rules,
+        typescript_frontend=typescript_frontend,
     )
     if prepared is not None and isinstance(sandbox, ObservedScanSandbox) and not args.prove:
         await accept_prepared_scan(
@@ -407,6 +425,7 @@ async def _run(
             verifier_catalog=verifier_catalog,
             verification_work_root=config.work_root / "acceptance",
             analysis_rules=analysis_rules,
+            typescript_frontend=typescript_frontend,
         )
     return result
 

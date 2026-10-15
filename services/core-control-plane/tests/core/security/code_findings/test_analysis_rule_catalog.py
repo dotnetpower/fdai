@@ -13,12 +13,14 @@ from ._support import CATALOG_ROOT
 
 
 def test_shipped_analysis_rule_catalog_is_strict_and_versioned() -> None:
-    (rule,) = load_analysis_rules(CATALOG_ROOT)
+    rules = {rule.rule_id: rule for rule in load_analysis_rules(CATALOG_ROOT)}
+    rule = rules["fdai.python.sql-injection"]
 
     assert rule.rule_id == "fdai.python.sql-injection"
     assert rule.version == "1.0.0"
     assert rule.cwe_ids == (89,)
     assert {selector.role for selector in rule.selectors} >= {"source", "sink", "sanitizer"}
+    assert rules["fdai.typescript.sql-injection"].languages == ("typescript",)
 
 
 def test_analysis_rule_loader_rejects_unknown_fields_and_duplicate_identity(

@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: b061af949eb54463cb89471685594295e39704a8
+translation_source_sha: 852cb990d92ad4cbc36b4126e9790ea2e435f6c8
 translation_revised: 2026-10-15
 ---
 
@@ -139,10 +139,11 @@ Go용으로 FDAI가 작성한 규칙 22개가 있습니다. 각 규칙은 다음
 ## FDAI 자체 분석 레인
 
 자체 레인은 버전이 지정된 엄격한 그래프 흐름 규칙을 불러오고 저장소 코드를 실행하지 않은 채
-표준 Python AST를 사용합니다. 첫 번째 규칙은 Flask 방식 요청 입력을 파일과 함수 인자 또는 반환을
-가로질러 SQL 실행까지 추적합니다. 파일, 함수, 심볼, 기본 블록, 호출, 소스 및 싱크 노드, 순서가
-있는 경로 근거, 안정적인 다이제스트를 기록합니다. 파싱, 해석, 재귀, 작업 예산, 미지원
-프런트엔드 제한도 모두 기록합니다.
+표준 Python AST 또는 고정된 TypeScript Compiler API 프로세스를 사용합니다. Python과 TypeScript
+규칙은 SQL 삽입, 명령 삽입, 경로 조작, XSS를 다룹니다. 파일, 함수, 심볼, 기본 블록, 호출, 소스
+및 싱크 노드, 순서가 있는 경로 근거, 안정적인 다이제스트를 기록합니다. 파싱, 해석, 재귀, 작업
+예산, 미지원 프런트엔드 제한도 모두 기록합니다. TypeScript CompilerHost는 정확한 소스 루트와
+고정된 표준 라이브러리만 읽습니다.
 
 이 레인은 SARIF 2.1.0을 만들고 다른 결정론적 생산자와 동일한 범위 제한 수집, 정본 이슈, 증적,
 검토, 내보내기, prepared 결과 재현, Kata 재구성 경로로 다시 들어갑니다. 점검 결과는 `reported`로

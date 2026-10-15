@@ -10,6 +10,7 @@ from pathlib import Path
 from uuid import uuid4
 
 from fdai.core.security.code_findings.analysis_contracts import CodeSecurityRuleSpec
+from fdai.core.security.code_findings.typescript_analysis import TypeScriptFrontendConfig
 from fdai.delivery.code_security_acquire import GitSourceAcquirer
 from fdai.delivery.code_security_kata_client import InClusterKataClient
 from fdai.delivery.code_security_kata_job import KataScanConfig
@@ -75,6 +76,7 @@ async def run_kata_scan(
     acquirer: GitSourceAcquirer | None,
     prepared: PreparedSource | None = None,
     analysis_rules: Sequence[CodeSecurityRuleSpec] = (),
+    typescript_frontend: TypeScriptFrontendConfig | None = None,
 ) -> ScanJobResult:
     """Acquire outside the VM, observe each process through TLS, then independently rebuild it."""
     if config.source is None:
@@ -128,6 +130,7 @@ async def run_kata_scan(
             prepared_source=prepared,
             verifier_catalog=verifier_catalog,
             analysis_rules=analysis_rules,
+            typescript_frontend=typescript_frontend,
         )
         if rule_digest is not None and (
             source_tree_digest(prepared_config.rules_dir) != rule_digest
@@ -143,6 +146,7 @@ async def run_kata_scan(
             verifier_catalog=verifier_catalog,
             verification_work_root=config.work_root / "acceptance",
             analysis_rules=analysis_rules,
+            typescript_frontend=typescript_frontend,
         )
         return result
     finally:

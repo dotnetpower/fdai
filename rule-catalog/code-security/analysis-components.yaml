@@ -28,8 +28,8 @@ components:
     integration: library
   - id: typescript
     version: 5.9.3
-    purpose: Planned TypeScript compiler frontend process
-    status: planned
+    purpose: TypeScript compiler frontend process
+    status: active
     source_url: https://github.com/microsoft/TypeScript
     license: Apache-2.0
     redistribution: embeddable

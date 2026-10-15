@@ -8,10 +8,10 @@ This document defines the planned FDAI-owned code representation and interproced
 engine. It extends the existing isolated scanner, SARIF, verification, and findings pipeline with
 reproducible source-to-sink evidence instead of replacing the scanners that already work.
 
-> **Status:** Package 0 contracts, component inventory, split benchmark, and the Python
-> interprocedural SQL-injection slice are implemented. TypeScript, incremental invalidation,
-> additional weakness classes, and verified LLM repair remain unimplemented; this is not a CodeQL
-> parity claim. See the linked
+> **Status:** Package 0 and the Python interprocedural slice are implemented. A confined TypeScript
+> Compiler API frontend and Python and TypeScript rules for four injection families are also
+> implemented, but TypeScript split evaluation, incremental invalidation, and verified LLM repair
+> remain incomplete. This is not a CodeQL parity claim. See the linked
 > [implementation ledger](../../roadmap-implementation/operations/code-security-analysis-engine.md).
 >
 > **Authority:** Analysis reads an exact source revision and emits evidence. Heimdall remains the

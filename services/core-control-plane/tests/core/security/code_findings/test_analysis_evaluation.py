@@ -23,7 +23,7 @@ def test_component_inventory_separates_active_planned_and_research_terms() -> No
     by_id = {component.id: component for component in inventory.components}
 
     assert by_id["tree-sitter"].status == "active"
-    assert by_id["typescript"].status == "planned"
+    assert by_id["typescript"].status == "active"
     assert by_id["joern"].redistribution == "reference_only"
     assert by_id["codeql-cli"].integration == "research"
 
@@ -55,7 +55,11 @@ def test_python_evaluation_meets_split_targets_without_unsupported_cases(
     tmp_path: Path,
 ) -> None:
     corpus = load_analysis_evaluation_corpus(CATALOG_ROOT)
-    (rule,) = load_analysis_rules(CATALOG_ROOT)
+    rule = next(
+        item
+        for item in load_analysis_rules(CATALOG_ROOT)
+        if item.rule_id == "fdai.python.sql-injection"
+    )
 
     receipt = evaluate_python_analysis(corpus, rule, tmp_path)
 

@@ -17,7 +17,11 @@ DIGEST = "sha256:" + "b" * 64
 
 
 def test_owned_path_round_trips_through_canonical_findings(tmp_path: Path) -> None:
-    (rule,) = load_analysis_rules(CATALOG_ROOT)
+    rule = next(
+        item
+        for item in load_analysis_rules(CATALOG_ROOT)
+        if item.rule_id == "fdai.python.sql-injection"
+    )
     (tmp_path / "app.py").write_text(
         """
 from flask import request
@@ -59,7 +63,11 @@ def search():
 
 
 def test_incomplete_graph_reports_unsuccessful_sarif_invocation(tmp_path: Path) -> None:
-    (rule,) = load_analysis_rules(CATALOG_ROOT)
+    rule = next(
+        item
+        for item in load_analysis_rules(CATALOG_ROOT)
+        if item.rule_id == "fdai.python.sql-injection"
+    )
     (tmp_path / "bad.py").write_text("def broken(:\n")
     analysis = analyze_python_repository(
         tmp_path,

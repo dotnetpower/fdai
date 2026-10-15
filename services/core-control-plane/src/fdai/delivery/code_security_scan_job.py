@@ -43,6 +43,11 @@ from fdai.core.security.code_findings.python_analysis import (
 )
 from fdai.core.security.code_findings.receipts import build_receipt, receipt_to_dict
 from fdai.core.security.code_findings.review_signal import ReviewSource, build_review_package
+from fdai.core.security.code_findings.typescript_analysis import (
+    TypeScriptAnalysisResult,
+    TypeScriptFrontendConfig,
+    analyze_typescript_repository,
+)
 from fdai.core.security.code_findings.verification import ScanCoverageReceipt
 from fdai.core.security.code_findings.verifier import (
     VerifierResult,
@@ -102,7 +107,7 @@ class ScanJobResult:
     published: bool
     artifact_dir: Path
     sarif_files: tuple[Path, ...]
-    analysis_results: tuple[PythonAnalysisResult, ...] = ()
+    analysis_results: tuple[PythonAnalysisResult | TypeScriptAnalysisResult, ...] = ()
     lens_report: LensLaneReport | None = None
     verifier_results: tuple[VerifierResult, ...] = ()
     proof_results: tuple[ProofResult, ...] = ()
@@ -125,6 +130,7 @@ async def run_scan_job(
     prove_python: Path | None = None,
     prove_runtimes: Mapping[str, Path] | None = None,
     analysis_rules: Sequence[CodeSecurityRuleSpec] = (),
+    typescript_frontend: TypeScriptFrontendConfig | None = None,
 ) -> ScanJobResult:
     """Run the deterministic lane, and the optional LLM lens lane, for one revision.
 
@@ -231,25 +237,43 @@ async def run_scan_job(
         except SarifIngestError as exc:
             observed[spec.producer] = False
             limits.append(f"scanner {scanner_id} produced invalid SARIF: {exc}")
-    analysis_results: list[PythonAnalysisResult] = []
+    analysis_results: list[PythonAnalysisResult | TypeScriptAnalysisResult] = []
     analysis_versions: dict[str, str] = {}
     if analysis_rules:
         build_context_digest = _digest_values(revision, source.tree_id)
         analysis_versions[ANALYSIS_PRODUCER] = f"owned:{_analysis_rules_digest(analysis_rules)}"
         observed[ANALYSIS_PRODUCER] = True
         for rule in analysis_rules:
-            if "python" not in rule.languages:
+            result: PythonAnalysisResult | TypeScriptAnalysisResult | None
+            if "python" in rule.languages and not _has_python_source(source.path):
+                continue
+            if "python" in rule.languages:
+                result = await asyncio.to_thread(
+                    analyze_python_repository,
+                    source.path,
+                    revision=revision,
+                    build_context_digest=build_context_digest,
+                    framework_model_digest=rule.digest(),
+                    rule=rule,
+                )
+            elif "typescript" in rule.languages and typescript_frontend is not None:
+                result = await asyncio.to_thread(
+                    analyze_typescript_repository,
+                    source.path,
+                    revision=revision,
+                    build_context_digest=build_context_digest,
+                    framework_model_digest=rule.digest(),
+                    rule=rule,
+                    config=typescript_frontend,
+                )
+                if result is None:
+                    continue
+            elif "typescript" in rule.languages and not _has_typescript_source(source.path):
+                continue
+            else:
                 observed[ANALYSIS_PRODUCER] = False
                 limits.append(f"owned analysis rule {rule.rule_id} has no bound frontend")
                 continue
-            result = await asyncio.to_thread(
-                analyze_python_repository,
-                source.path,
-                revision=revision,
-                build_context_digest=build_context_digest,
-                framework_model_digest=rule.digest(),
-                rule=rule,
-            )
             analysis_results.append(result)
             raw = render_analysis_sarif(result, rule)
             path = artifacts / f"analysis-{rule.rule_id.replace('.', '-')}.sarif"
@@ -451,6 +475,18 @@ def _analysis_rules_digest(rules: Sequence[CodeSecurityRuleSpec]) -> str:
     for rule in sorted(rules, key=lambda item: (item.rule_id, item.version)):
         digest.update(rule.canonical_bytes() + b"\0")
     return digest.hexdigest()[:16]
+
+
+def _has_typescript_source(root: Path) -> bool:
+    return any(
+        path.is_file() and not path.is_symlink()
+        for pattern in ("*.ts", "*.tsx", "*.mts", "*.cts")
+        for path in root.rglob(pattern)
+    )
+
+
+def _has_python_source(root: Path) -> bool:
+    return any(path.is_file() and not path.is_symlink() for path in root.rglob("*.py"))
 
 
 def _rules_versions(

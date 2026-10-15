@@ -141,11 +141,13 @@ repository lint with a file-level directive instead of a repository-wide exclusi
 
 ## FDAI-owned analysis lane
 
-The owned lane loads strict, versioned graph-flow rules and uses the standard Python AST without
-executing repository code. Its first rule follows Flask-style request input across files and
-function arguments or returns to SQL execution. It records files, functions, symbols, basic
-blocks, calls, source and sink nodes, ordered path evidence, stable digests, and every parse,
-resolution, recursion, work-budget, or unsupported-frontend limit.
+The owned lane loads strict, versioned graph-flow rules and uses the standard Python AST or a
+pinned TypeScript Compiler API process without executing repository code. Python and TypeScript
+rules cover SQL injection, command injection, path traversal, and cross-site scripting. The lane
+records files, functions, symbols, basic blocks, calls, source and sink nodes, ordered path
+evidence, stable digests, and every parse, resolution, recursion, work-budget, or
+unsupported-frontend limit. The TypeScript CompilerHost reads only the exact source root and its
+pinned standard library.
 
 The lane renders SARIF 2.1.0 and re-enters the same bounded ingestion, canonical issue, receipt,
 review, export, prepared-result replay, and Kata reconstruction paths as other deterministic
