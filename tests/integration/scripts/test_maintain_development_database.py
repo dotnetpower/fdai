@@ -122,6 +122,28 @@ def test_preserved_repository_state_rejects_unknown_envelope(tmp_path: Path) -> 
         _MODULE._read_preserved_state(preserved)
 
 
+@pytest.mark.parametrize("value", (None, "not-a-record", []))
+def test_preserved_repository_state_rejects_non_object_record(
+    tmp_path: Path, value: object
+) -> None:
+    preserved = tmp_path / "preserved.json"
+    preserved.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0.0",
+                "code_security_repositories": [
+                    {"key": "runtime:code-security-repository:example-app", "value": value}
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    preserved.chmod(0o600)
+
+    with pytest.raises(ValueError, match="malformed repository"):
+        _MODULE._read_preserved_state(preserved)
+
+
 def test_local_broker_defaults_are_bounded() -> None:
     source = _DEV_UP.read_text(encoding="utf-8")
 

@@ -10,7 +10,7 @@ import os
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict
 
 import psycopg
 from psycopg import sql
@@ -23,6 +23,11 @@ _PRESERVED_STATE_VERSION = "1.0.0"
 _PRESERVED_REPOSITORY_PREFIX = "runtime:code-security-repository:"
 _MAX_PRESERVED_REPOSITORIES = 200
 _MAX_PRESERVED_STATE_BYTES = 1024 * 1024
+
+
+class _PreservedRegistration(TypedDict):
+    key: str
+    value: dict[str, object]
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,7 +97,7 @@ def _write_recreated_marker(path: Path) -> None:
     path.chmod(0o600)
 
 
-def _preserved_registrations(target: LocalDatabaseTarget) -> list[dict[str, object]]:
+def _preserved_registrations(target: LocalDatabaseTarget) -> list[_PreservedRegistration]:
     with psycopg.connect(make_conninfo(**target.connection_info)) as connection:
         rows = connection.execute(
             """
@@ -106,7 +111,7 @@ def _preserved_registrations(target: LocalDatabaseTarget) -> list[dict[str, obje
         ).fetchall()
     if len(rows) > _MAX_PRESERVED_REPOSITORIES:
         raise RuntimeError("code-security repository preservation exceeds its row bound")
-    registrations: list[dict[str, object]] = []
+    registrations: list[_PreservedRegistration] = []
     for key, value in rows:
         if (
             not isinstance(key, str)
@@ -118,7 +123,7 @@ def _preserved_registrations(target: LocalDatabaseTarget) -> list[dict[str, obje
     return registrations
 
 
-def _write_preserved_state(path: Path, registrations: list[dict[str, object]]) -> None:
+def _write_preserved_state(path: Path, registrations: list[_PreservedRegistration]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     payload = {
         "schema_version": _PRESERVED_STATE_VERSION,
@@ -141,7 +146,7 @@ def _write_preserved_state(path: Path, registrations: list[dict[str, object]]) -
             temporary.unlink()
 
 
-def _read_preserved_state(path: Path) -> list[dict[str, object]]:
+def _read_preserved_state(path: Path) -> list[_PreservedRegistration]:
     if path.is_symlink():
         raise ValueError("preserved local state MUST NOT be a symlink")
     stat = path.stat()
@@ -160,6 +165,7 @@ def _read_preserved_state(path: Path) -> list[dict[str, object]]:
     registrations = payload["code_security_repositories"]
     if not isinstance(registrations, list) or len(registrations) > _MAX_PRESERVED_REPOSITORIES:
         raise ValueError("preserved local state has an invalid repository collection")
+    validated: list[_PreservedRegistration] = []
     for item in registrations:
         if (
             not isinstance(item, dict)
@@ -169,7 +175,8 @@ def _read_preserved_state(path: Path) -> list[dict[str, object]]:
             or not isinstance(item["value"], dict)
         ):
             raise ValueError("preserved local state has a malformed repository")
-    return registrations
+        validated.append({"key": item["key"], "value": item["value"]})
+    return validated
 
 
 async def _restore_preserved_state(target: LocalDatabaseTarget, preserved_state: Path) -> int:
