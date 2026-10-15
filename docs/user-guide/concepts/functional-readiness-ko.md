@@ -2,7 +2,7 @@
 title: FDAI 기능 준비 상태 평가
 description: FDAI 제품 중분류 52개의 준비 상태 판정 근거와 남은 조건을 기록합니다.
 translation_of: functional-readiness.md
-translation_source_sha: 5214d572e07b7401cb84ad69a7a0dc53bf9673b5
+translation_source_sha: 91ffbe1baa118434a16ea7b0e1d6fb510ba91c73
 translation_revised: 2026-10-15
 ---
 
@@ -167,7 +167,7 @@ Partial 47건은 담당 원장의 근거와 문서화된 제약을 사용하며 
 
 | 검사 | 정확한 로컬 선택 범위 | 결과 |
 |------|----------------------|------|
-| **A** | Incident `test_incident_lifecycle.py`, `test_incident_workflow.py`, `test_storm.py`; rule catalog `test_action_type_catalog.py`, `test_workflow_catalog.py`; code findings `test_canonical.py`, `test_severity.py`, `test_issue_summary.py`, `test_pack.py`, `test_pack_helper_session.py`, `test_diff_guard.py`, `test_signing.py`, `test_result_import.py`, `test_export_gate.py`, `test_verification.py`. | **286개 통과**, 건너뜀 없음, 파일 15개입니다. |
+| **A** | 인시던트 `test_incident_lifecycle.py`, `test_incident_workflow.py`, `test_storm.py`; 규칙 카탈로그 `test_action_type_catalog.py`, `test_workflow_catalog.py`; 코드 점검 결과 `test_canonical.py`, `test_severity.py`, `test_issue_summary.py`, `test_pack.py`, `test_pack_helper_session.py`, `test_diff_guard.py`, `test_signing.py`, `test_result_import.py`, `test_export_gate.py`, `test_verification.py`. | **286개 통과**, 건너뜀 없음, 파일 15개입니다. |
 | **B** | Scheduler `test_scheduler.py`, `test_history.py`, `test_isolation.py`, `test_console_tool.py`, `test_continuation.py`, `test_continuation_delivery.py`, `test_continuation_retention.py`. | **111개 통과**, 건너뜀 없음, 파일 7개입니다. |
 
 두 검사 모두 체크아웃의 `.venv/bin/python -m pytest -q --no-cov`와
