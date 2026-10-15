@@ -28,7 +28,14 @@ from fdai.core.security.code_findings import (
     build_issues,
     ingest_sarif,
 )
+from fdai.core.security.code_findings.analysis_build_context import build_analysis_context
 from fdai.core.security.code_findings.analysis_contracts import CodeSecurityRuleSpec
+from fdai.core.security.code_findings.analysis_incremental import (
+    IncrementalPlan,
+    analyze_python_incremental,
+    load_incremental_snapshot,
+    save_incremental_snapshot,
+)
 from fdai.core.security.code_findings.analysis_sarif import PRODUCER as ANALYSIS_PRODUCER
 from fdai.core.security.code_findings.analysis_sarif import render_analysis_sarif
 from fdai.core.security.code_findings.java_analysis import (
@@ -41,10 +48,7 @@ from fdai.core.security.code_findings.lens import (
     run_lens_lane,
 )
 from fdai.core.security.code_findings.models import Occurrence
-from fdai.core.security.code_findings.python_analysis import (
-    PythonAnalysisResult,
-    analyze_python_repository,
-)
+from fdai.core.security.code_findings.python_analysis import PythonAnalysisResult
 from fdai.core.security.code_findings.receipts import build_receipt, receipt_to_dict
 from fdai.core.security.code_findings.review_signal import ReviewSource, build_review_package
 from fdai.core.security.code_findings.typescript_analysis import (
@@ -115,6 +119,8 @@ class ScanJobResult:
     analysis_results: tuple[
         JavaAnalysisResult | PythonAnalysisResult | TypeScriptAnalysisResult, ...
     ] = ()
+    analysis_incremental_plans: tuple[IncrementalPlan, ...] = ()
+    analysis_cache_notes: tuple[str, ...] = ()
     lens_report: LensLaneReport | None = None
     verifier_results: tuple[VerifierResult, ...] = ()
     proof_results: tuple[ProofResult, ...] = ()
@@ -247,9 +253,11 @@ async def run_scan_job(
     analysis_results: list[
         JavaAnalysisResult | PythonAnalysisResult | TypeScriptAnalysisResult
     ] = []
+    analysis_incremental_plans: list[IncrementalPlan] = []
+    analysis_cache_notes: list[str] = []
     analysis_versions: dict[str, str] = {}
     if analysis_rules:
-        build_context_digest = _digest_values(revision, source.tree_id)
+        build_context_digest = build_analysis_context(source.path).digest()
         analysis_versions[ANALYSIS_PRODUCER] = f"owned:{_analysis_rules_digest(analysis_rules)}"
         observed[ANALYSIS_PRODUCER] = True
         for rule in analysis_rules:
@@ -257,14 +265,32 @@ async def run_scan_job(
             if "python" in rule.languages and not _has_python_source(source.path):
                 continue
             if "python" in rule.languages:
-                result = await asyncio.to_thread(
-                    analyze_python_repository,
+                cache_path = _analysis_cache_path(
+                    config.work_root, config.repository_alias, rule.rule_id
+                )
+                previous = None
+                if cache_path.exists() or cache_path.is_symlink():
+                    try:
+                        previous = load_incremental_snapshot(cache_path)
+                    except (OSError, ValueError):
+                        analysis_cache_notes.append(
+                            f"owned analysis {rule.rule_id} cache rejected; full analysis used"
+                        )
+                incremental = await asyncio.to_thread(
+                    analyze_python_incremental,
                     source.path,
                     revision=revision,
                     build_context_digest=build_context_digest,
                     framework_model_digest=rule.digest(),
                     rule=rule,
+                    previous=previous,
                 )
+                result = incremental.result
+                analysis_incremental_plans.append(incremental.plan)
+                try:
+                    save_incremental_snapshot(cache_path, incremental.snapshot)
+                except (OSError, ValueError):
+                    analysis_cache_notes.append(f"owned analysis {rule.rule_id} cache write failed")
             elif "typescript" in rule.languages and typescript_frontend is not None:
                 try:
                     result = await asyncio.to_thread(
@@ -456,6 +482,8 @@ async def run_scan_job(
                     }
                     for item in analysis_results
                 ],
+                "analysis_incremental": [asdict(item) for item in analysis_incremental_plans],
+                "analysis_cache_notes": analysis_cache_notes,
             },
             indent=2,
         )
@@ -475,6 +503,8 @@ async def run_scan_job(
         artifact_dir=artifacts,
         sarif_files=tuple(sarif_files),
         analysis_results=tuple(analysis_results),
+        analysis_incremental_plans=tuple(analysis_incremental_plans),
+        analysis_cache_notes=tuple(analysis_cache_notes),
         lens_report=lens_report,
         verifier_results=verifier_results,
         proof_results=proof_results,
@@ -504,6 +534,12 @@ def _analysis_rules_digest(rules: Sequence[CodeSecurityRuleSpec]) -> str:
     for rule in sorted(rules, key=lambda item: (item.rule_id, item.version)):
         digest.update(rule.canonical_bytes() + b"\0")
     return digest.hexdigest()[:16]
+
+
+def _analysis_cache_path(work_root: Path, repository_alias: str, rule_id: str) -> Path:
+    repository_key = hashlib.sha256(repository_alias.encode("utf-8")).hexdigest()
+    rule_key = hashlib.sha256(rule_id.encode("utf-8")).hexdigest()
+    return work_root / "analysis-cache" / repository_key / f"{rule_key}.json"
 
 
 def _has_typescript_source(root: Path) -> bool:

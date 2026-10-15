@@ -8,10 +8,12 @@ import os
 import stat
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from fdai.core.security.code_findings.analysis_contracts import (
+    GRAPH_SCHEMA_VERSION,
     CodeGraphArtifact,
     CodeSecurityRuleSpec,
     GraphEdgeKind,
@@ -21,7 +23,11 @@ from fdai.core.security.code_findings.python_analysis import (
     PythonAnalysisResult,
     analyze_python_repository,
 )
-from fdai.core.security.code_findings.python_graph import PythonAnalysisLimits
+from fdai.core.security.code_findings.python_graph import (
+    FRONTEND,
+    VERSION,
+    PythonAnalysisLimits,
+)
 
 
 class _Strict(BaseModel):
@@ -29,8 +35,10 @@ class _Strict(BaseModel):
 
 
 class IncrementalSnapshot(_Strict):
-    schema_version: str = Field(pattern=r"^1\.0\.0$")
+    schema_version: Literal["1.0.0"]
     revision: str = Field(pattern=r"^[a-f0-9]{40,64}$")
+    graph_schema_version: Literal["1.0.0"]
+    frontend_versions: dict[str, str]
     rule_digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
     build_context_digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
     framework_model_digest: str = Field(pattern=r"^sha256:[a-f0-9]{64}$")
@@ -43,6 +51,10 @@ class IncrementalSnapshot(_Strict):
     def _identity_matches_result(self) -> IncrementalSnapshot:
         if self.graph.revision != self.revision:
             raise ValueError("incremental graph revision differs from snapshot")
+        if self.graph.schema_version != self.graph_schema_version:
+            raise ValueError("incremental graph schema differs from snapshot")
+        if self.graph.frontend_versions != self.frontend_versions:
+            raise ValueError("incremental frontend versions differ from snapshot")
         graph_digest = self.graph.digest()
         if any(path.graph_digest != graph_digest for path in self.paths):
             raise ValueError("incremental path graph digest differs from snapshot")
@@ -93,6 +105,8 @@ def analyze_python_incremental(
         rule_digest=rule_digest,
         build_context_digest=build_context_digest,
         framework_model_digest=framework_model_digest,
+        graph_schema_version=GRAPH_SCHEMA_VERSION,
+        frontend_versions={FRONTEND: VERSION},
         current_digests=current_digests,
     )
     if previous is not None and plan.reused_result:
@@ -109,6 +123,8 @@ def analyze_python_incremental(
     snapshot = IncrementalSnapshot(
         schema_version="1.0.0",
         revision=revision,
+        graph_schema_version=GRAPH_SCHEMA_VERSION,
+        frontend_versions={FRONTEND: VERSION},
         rule_digest=rule_digest,
         build_context_digest=build_context_digest,
         framework_model_digest=framework_model_digest,
@@ -198,16 +214,19 @@ def _plan(
     rule_digest: str,
     build_context_digest: str,
     framework_model_digest: str,
+    graph_schema_version: str,
+    frontend_versions: dict[str, str],
     current_digests: dict[str, str],
 ) -> IncrementalPlan:
     if previous is None:
         files = tuple(sorted(current_digests))
         return IncrementalPlan(files, files, (), False, "no_previous_snapshot")
     identity_matches = (
-        previous.revision == revision
-        and previous.rule_digest == rule_digest
+        previous.rule_digest == rule_digest
         and previous.build_context_digest == build_context_digest
         and previous.framework_model_digest == framework_model_digest
+        and previous.graph_schema_version == graph_schema_version
+        and previous.frontend_versions == frontend_versions
     )
     if not identity_matches:
         files = tuple(sorted(current_digests))
@@ -217,9 +236,12 @@ def _plan(
         for path in set(previous.file_digests) | set(current_digests)
         if previous.file_digests.get(path) != current_digests.get(path)
     }
-    if not changed:
+    if not changed and previous.revision == revision:
         files = tuple(sorted(current_digests))
         return IncrementalPlan((), (), files, True, "inputs_unchanged")
+    if not changed:
+        files = tuple(sorted(current_digests))
+        return IncrementalPlan((), files, (), False, "revision_changed")
     affected = set(changed)
     pending = list(changed)
     while pending:

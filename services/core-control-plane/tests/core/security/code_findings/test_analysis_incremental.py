@@ -50,10 +50,15 @@ def orders():
     )
 
 
-def analyze(root: Path, previous=None):  # type: ignore[no-untyped-def]
+def analyze(
+    root: Path,
+    previous=None,  # type: ignore[no-untyped-def]
+    *,
+    revision: str = REVISION,
+):  # type: ignore[no-untyped-def]
     return analyze_python_incremental(
         root,
-        revision=REVISION,
+        revision=revision,
         build_context_digest=DIGEST,
         framework_model_digest=rule().digest(),
         rule=rule(),
@@ -81,10 +86,11 @@ def test_changed_helper_invalidates_transitive_callers_and_matches_full_run(tmp_
     first = analyze(tmp_path)
     write_repository(tmp_path, operator="%")
 
-    incremental = analyze(tmp_path, first.snapshot)
+    next_revision = "c" * 40
+    incremental = analyze(tmp_path, first.snapshot, revision=next_revision)
     full = analyze_python_repository(
         tmp_path,
-        revision=REVISION,
+        revision=next_revision,
         build_context_digest=DIGEST,
         framework_model_digest=rule().digest(),
         rule=rule(),
@@ -115,6 +121,28 @@ def test_rule_identity_change_forces_full_invalidation(tmp_path: Path) -> None:
 
     assert result.plan.reason == "analysis_identity_changed"
     assert set(result.plan.affected_files) == {"api.py", "query.py", "store.py"}
+
+
+def test_revision_only_change_recomputes_without_stale_reuse(tmp_path: Path) -> None:
+    write_repository(tmp_path)
+    first = analyze(tmp_path)
+
+    second = analyze(tmp_path, first.snapshot, revision="c" * 40)
+
+    assert second.plan.reason == "revision_changed"
+    assert second.plan.reused_result is False
+    assert set(second.plan.affected_files) == {"api.py", "query.py", "store.py"}
+    assert second.result.graph.revision == "c" * 40
+
+
+def test_frontend_version_change_forces_full_invalidation(tmp_path: Path) -> None:
+    write_repository(tmp_path)
+    first = analyze(tmp_path)
+    stale = first.snapshot.model_copy(update={"frontend_versions": {"python-ast": "0.9.0"}})
+
+    result = analyze(tmp_path, stale)
+
+    assert result.plan.reason == "analysis_identity_changed"
 
 
 def test_incremental_source_and_cache_symlinks_are_rejected(tmp_path: Path) -> None:

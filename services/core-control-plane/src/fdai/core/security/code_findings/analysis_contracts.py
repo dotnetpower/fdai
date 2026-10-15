@@ -20,6 +20,8 @@ _REVISION_PATTERN = r"^[a-f0-9]{40,64}$"
 _VERSION_PATTERN = r"^\d+\.\d+\.\d+$"
 _DOTTED_PATTERN = r"^[A-Za-z_$][A-Za-z0-9_$]*(\.[A-Za-z_$][A-Za-z0-9_$]*)*$"
 
+GRAPH_SCHEMA_VERSION: Literal["1.0.0"] = "1.0.0"
+
 Identifier = Annotated[str, Field(pattern=_ID_PATTERN)]
 Digest = Annotated[str, Field(pattern=_DIGEST_PATTERN)]
 Revision = Annotated[str, Field(pattern=_REVISION_PATTERN)]
@@ -276,6 +278,7 @@ __all__ = [
     "EvidenceConfidence",
     "GraphEdgeKind",
     "GraphNodeKind",
+    "GRAPH_SCHEMA_VERSION",
     "PathEvidence",
     "PathEvidenceStep",
     "PathStepRole",

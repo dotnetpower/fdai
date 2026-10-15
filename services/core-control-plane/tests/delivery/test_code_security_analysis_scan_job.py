@@ -31,12 +31,20 @@ DIGEST = "sha256:" + "b" * 64
 
 
 class _Acquirer(GitSourceAcquirer):
-    def __init__(self, source: Path) -> None:
+    def __init__(
+        self,
+        source: Path,
+        *,
+        revision: str = REVISION,
+        tree_id: str = "b" * 40,
+    ) -> None:
         self.source = source
+        self.revision = revision
+        self.tree_id = tree_id
 
     def acquire_path(self, folder: Path, *, include_uncommitted: bool) -> AcquiredSource:
         assert folder == self.source and include_uncommitted is False
-        return AcquiredSource(self.source, REVISION, "b" * 40)
+        return AcquiredSource(self.source, self.revision, self.tree_id)
 
 
 async def test_scan_job_routes_owned_analysis_through_canonical_review(tmp_path: Path) -> None:
@@ -88,6 +96,66 @@ def search():
     (run,) = result.receipt.runs
     assert run.producer == "FDAI analysis engine"
     assert run.completed is True and run.full_repository is True
+
+
+async def test_scan_job_reuses_and_invalidates_python_snapshots(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    app = source / "app.py"
+    app.write_text(
+        "from flask import request\n"
+        "@app.get('/search')\n"
+        "def search():\n"
+        "    return cursor.execute('SELECT ' + request.args.get('q'))\n",
+        encoding="utf-8",
+    )
+    analysis_rules = tuple(
+        rule
+        for rule in load_analysis_rules(CATALOG_ROOT)
+        if rule.rule_id == "fdai.python.sql-injection"
+    )
+    work_root = tmp_path / "work"
+
+    async def scan(revision: str, tree_id: str):  # type: ignore[no-untyped-def]
+        return await run_scan_job(
+            ScanJobConfig(
+                repository="",
+                revision="",
+                repository_alias="example-service",
+                work_root=work_root,
+                executables={},
+                rules_dir=CATALOG_ROOT / "rules",
+                required_scanners=frozenset(),
+                local_path=source,
+            ),
+            catalog=load_code_security_catalog(CATALOG_ROOT),
+            scanners=load_scanner_catalog(CATALOG_ROOT),
+            acquirer=_Acquirer(source, revision=revision, tree_id=tree_id),
+            sandbox=BubblewrapScannerSandbox(),
+            analysis_rules=analysis_rules,
+        )
+
+    first = await scan(REVISION, "b" * 40)
+    app.write_text(
+        "from flask import request\n"
+        "@app.get('/search')\n"
+        "def search():\n"
+        "    return cursor.execute('SELECT WHERE id = ?', (request.args.get('q'),))\n",
+        encoding="utf-8",
+    )
+    changed = await scan("c" * 40, "d" * 40)
+    repeated = await scan("c" * 40, "d" * 40)
+
+    assert first.analysis_incremental_plans[0].reason == "no_previous_snapshot"
+    assert changed.analysis_incremental_plans[0].reason == "dependency_invalidation"
+    assert changed.analysis_incremental_plans[0].changed_files == ("app.py",)
+    assert repeated.analysis_incremental_plans[0].reason == "inputs_unchanged"
+    assert repeated.analysis_incremental_plans[0].reused_result is True
+    assert len(first.issues) == 1
+    assert changed.issues == repeated.issues == ()
+    assert not first.analysis_cache_notes
+    assert not changed.analysis_cache_notes
+    assert not repeated.analysis_cache_notes
 
 
 async def test_scan_job_dispatches_typescript_result_to_canonical_review(
