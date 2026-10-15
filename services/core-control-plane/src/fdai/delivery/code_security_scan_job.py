@@ -38,8 +38,14 @@ from fdai.core.security.code_findings.analysis_incremental import (
 )
 from fdai.core.security.code_findings.analysis_sarif import PRODUCER as ANALYSIS_PRODUCER
 from fdai.core.security.code_findings.analysis_sarif import render_analysis_sarif
+from fdai.core.security.code_findings.csharp_analysis import (
+    CSharpAnalysisResult,
+    CSharpCompilerConfig,
+    analyze_csharp_repository,
+)
 from fdai.core.security.code_findings.java_analysis import (
     JavaAnalysisResult,
+    JavaCompilerConfig,
     analyze_java_repository,
 )
 from fdai.core.security.code_findings.lens import (
@@ -117,7 +123,8 @@ class ScanJobResult:
     artifact_dir: Path
     sarif_files: tuple[Path, ...]
     analysis_results: tuple[
-        JavaAnalysisResult | PythonAnalysisResult | TypeScriptAnalysisResult, ...
+        CSharpAnalysisResult | JavaAnalysisResult | PythonAnalysisResult | TypeScriptAnalysisResult,
+        ...,
     ] = ()
     analysis_incremental_plans: tuple[IncrementalPlan, ...] = ()
     analysis_cache_notes: tuple[str, ...] = ()
@@ -144,6 +151,8 @@ async def run_scan_job(
     prove_runtimes: Mapping[str, Path] | None = None,
     analysis_rules: Sequence[CodeSecurityRuleSpec] = (),
     typescript_frontend: TypeScriptFrontendConfig | None = None,
+    java_compiler: JavaCompilerConfig | None = None,
+    csharp_compiler: CSharpCompilerConfig | None = None,
 ) -> ScanJobResult:
     """Run the deterministic lane, and the optional LLM lens lane, for one revision.
 
@@ -251,7 +260,7 @@ async def run_scan_job(
             observed[spec.producer] = False
             limits.append(f"scanner {scanner_id} produced invalid SARIF: {exc}")
     analysis_results: list[
-        JavaAnalysisResult | PythonAnalysisResult | TypeScriptAnalysisResult
+        CSharpAnalysisResult | JavaAnalysisResult | PythonAnalysisResult | TypeScriptAnalysisResult
     ] = []
     analysis_incremental_plans: list[IncrementalPlan] = []
     analysis_cache_notes: list[str] = []
@@ -261,7 +270,13 @@ async def run_scan_job(
         analysis_versions[ANALYSIS_PRODUCER] = f"owned:{_analysis_rules_digest(analysis_rules)}"
         observed[ANALYSIS_PRODUCER] = True
         for rule in analysis_rules:
-            result: JavaAnalysisResult | PythonAnalysisResult | TypeScriptAnalysisResult | None
+            result: (
+                CSharpAnalysisResult
+                | JavaAnalysisResult
+                | PythonAnalysisResult
+                | TypeScriptAnalysisResult
+                | None
+            )
             if "python" in rule.languages and not _has_python_source(source.path):
                 continue
             if "python" in rule.languages:
@@ -322,7 +337,29 @@ async def run_scan_job(
                     build_context_digest=build_context_digest,
                     framework_model_digest=rule.digest(),
                     rule=rule,
+                    compiler=java_compiler,
                 )
+                if result is None:
+                    continue
+            elif "csharp" in rule.languages and not _has_csharp_source(source.path):
+                continue
+            elif "csharp" in rule.languages and csharp_compiler is not None:
+                try:
+                    result = await asyncio.to_thread(
+                        analyze_csharp_repository,
+                        source.path,
+                        revision=revision,
+                        build_context_digest=build_context_digest,
+                        framework_model_digest=rule.digest(),
+                        rule=rule,
+                        config=csharp_compiler,
+                    )
+                except ValueError as exc:
+                    observed[ANALYSIS_PRODUCER] = False
+                    limits.append(
+                        f"owned analysis {rule.rule_id} unavailable: {type(exc).__name__}"
+                    )
+                    continue
                 if result is None:
                     continue
             else:
@@ -556,6 +593,10 @@ def _has_python_source(root: Path) -> bool:
 
 def _has_java_source(root: Path) -> bool:
     return any(path.is_file() and not path.is_symlink() for path in root.rglob("*.java"))
+
+
+def _has_csharp_source(root: Path) -> bool:
+    return any(path.is_file() and not path.is_symlink() for path in root.rglob("*.cs"))
 
 
 def _rules_versions(

@@ -132,6 +132,7 @@ def _engine_scan(engine: str, rules: Path, tree: Path) -> Mapping[str, Any]:
             engine,
             "scan",
             *(["--metrics=off"] if "semgrep" in Path(engine).name else []),
+            *(["--disable-version-check"] if "opengrep" in Path(engine).name else []),
             "--quiet",
             "--json",
             "--config",

@@ -1,7 +1,7 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 4a9706debd3b2cf65a9b3eba19d218832ac884d3
+translation_source_sha: 069f0ee7e0d210d67aeff4739b6e1d4e30113416
 translation_revised: 2026-10-15
 ---
 
@@ -179,6 +179,9 @@ fresh effective-access 근거가 있어야 액션을 처음부터 다시 평가�
   빌드 컨텍스트, 리비전에 묶습니다. 누락된 범위는 명시적인 공백이며 정상 결과가 아닙니다. 동일 조건
   비교는 텔레메트리와 버전 확인을 끈 상태에서 현재 검증기, 자체 엔진, 허용된 외부 엔진을 동일한 로컬
   케이스에 실행합니다. 영수증은 미지원 범위를 보존하고 동등성을 주장하거나 승격 권한을 부여하지 않습니다.
+  Java는 annotation processing을 끈 JDK Compiler API를 사용하고, C#은 대상 assembly를 만들거나
+  불러오지 않고 Roslyn 구문 및 의미 모델을 사용합니다. 두 정적 프런트엔드 모두 대상 class, compiler
+  plugin, 프로젝트 build 또는 package script를 실행하지 않습니다.
 - **코드 보안 입증 레인**: FDAI가 저장소 코드를 실행하는 유일한 곳입니다. 스캔마다 선택해야 하고,
   결정론적 검증기가 이미 확인한 이슈로 제한되며, 네트워크·자격 증명이 없고 환경이 비워진 일회용
   bubblewrap 샌드박스에서 읽기 전용 소스와 자원 한도를 두고 실행됩니다. 모든 싱크는 기록만 하는

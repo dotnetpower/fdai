@@ -1,0 +1,74 @@
+schema_version: 1.0.0
+corpus_id: fdai.code-security.analysis.java-compiler-sql-injection
+language: java
+version: 1.0.0
+rule_id: fdai.java.sql-injection
+cases:
+  - case_id: dev-vulnerable-cross-file
+    split: dev
+    vulnerable: true
+    files:
+      Types.java: |
+        class Request { String getParameter(String key) { return key; } }
+        class Database { Object executeQuery(String query) { return query; } }
+      Api.java: |
+        class Api {
+          Object search(Request request) { return Store.run(request.getParameter("q")); }
+        }
+      Store.java: |
+        class Store {
+          static Database database = new Database();
+          static Object run(String query) { return database.executeQuery(query); }
+        }
+  - case_id: dev-safe-parameterized
+    split: dev
+    vulnerable: false
+    files:
+      Types.java: |
+        class Request { String getParameter(String key) { return key; } }
+        class PreparedStatement {
+          void setString(int index, String value) {}
+          Object executeQuery() { return null; }
+        }
+        class Connection {
+          PreparedStatement prepareStatement(String query) { return new PreparedStatement(); }
+        }
+      Store.java: |
+        class Store {
+          Connection connection = new Connection();
+          Object search(Request request) {
+            PreparedStatement statement = connection.prepareStatement("SELECT WHERE id = ?");
+            statement.setString(1, request.getParameter("id"));
+            return statement.executeQuery();
+          }
+        }
+  - case_id: holdout-vulnerable-header
+    split: holdout
+    vulnerable: true
+    files:
+      Types.java: |
+        class Request { String getHeader(String key) { return key; } }
+        class Database { Object execute(String query) { return query; } }
+      Api.java: |
+        class Api {
+          Database database = new Database();
+          Object orders(Request request) {
+            String query = "SELECT " + request.getHeader("x-filter");
+            return database.execute(query);
+          }
+        }
+  - case_id: holdout-safe-constant
+    split: holdout
+    vulnerable: false
+    files:
+      Types.java: |
+        class Request { String getParameter(String key) { return key; } }
+        class Database { Object executeQuery(String query) { return query; } }
+      Health.java: |
+        class Health {
+          Database database = new Database();
+          Object check(Request request) {
+            request.getParameter("unused");
+            return database.executeQuery("SELECT 1");
+          }
+        }

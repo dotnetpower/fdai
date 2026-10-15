@@ -18,6 +18,8 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 
+from fdai.core.security.code_findings.csharp_analysis import CSharpCompilerConfig
+from fdai.core.security.code_findings.java_analysis import JavaCompilerConfig
 from fdai.core.security.code_findings.review_signal import ReviewSource, review_decision
 from fdai.core.security.code_findings.typescript_analysis import TypeScriptFrontendConfig
 from fdai.delivery.code_security_acquire import GitSourceAcquirer
@@ -116,6 +118,10 @@ def add_scan_command(sub: argparse._SubParsersAction[argparse.ArgumentParser]) -
         "--typescript-frontend",
         default=os.environ.get("FDAI_TYPESCRIPT_FRONTEND"),
     )
+    scan.add_argument("--java-compiler", default=os.environ.get("FDAI_JAVA_COMPILER"))
+    scan.add_argument("--java-frontend", default=os.environ.get("FDAI_JAVA_FRONTEND"))
+    scan.add_argument("--csharp-dotnet", default=os.environ.get("FDAI_CSHARP_DOTNET"))
+    scan.add_argument("--csharp-frontend", default=os.environ.get("FDAI_CSHARP_FRONTEND"))
 
 
 _ALIAS_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
@@ -383,6 +389,20 @@ async def _run(
         if args.typescript_node
         else None
     )
+    if bool(args.java_compiler) != bool(args.java_frontend):
+        raise ValueError("Java compiler analysis needs both java and frontend bindings")
+    java_compiler = (
+        JavaCompilerConfig(java=Path(args.java_compiler), helper=Path(args.java_frontend))
+        if args.java_compiler
+        else None
+    )
+    if bool(args.csharp_dotnet) != bool(args.csharp_frontend):
+        raise ValueError("C# compiler analysis needs both dotnet and frontend bindings")
+    csharp_compiler = (
+        CSharpCompilerConfig(dotnet=Path(args.csharp_dotnet), assembly=Path(args.csharp_frontend))
+        if args.csharp_dotnet
+        else None
+    )
     from fdai.delivery.code_security_execution import kata_config, run_kata_scan
 
     runtime = kata_config(args)
@@ -397,6 +417,8 @@ async def _run(
             prepared=prepared,
             analysis_rules=analysis_rules,
             typescript_frontend=typescript_frontend,
+            java_compiler=java_compiler,
+            csharp_compiler=csharp_compiler,
         )
     result = await run_scan_job(
         config,
@@ -413,6 +435,8 @@ async def _run(
         prove_runtimes=_prove_runtimes(args),
         analysis_rules=analysis_rules,
         typescript_frontend=typescript_frontend,
+        java_compiler=java_compiler,
+        csharp_compiler=csharp_compiler,
     )
     if prepared is not None and isinstance(sandbox, ObservedScanSandbox) and not args.prove:
         await accept_prepared_scan(
@@ -426,6 +450,8 @@ async def _run(
             verification_work_root=config.work_root / "acceptance",
             analysis_rules=analysis_rules,
             typescript_frontend=typescript_frontend,
+            java_compiler=java_compiler,
+            csharp_compiler=csharp_compiler,
         )
     return result
 

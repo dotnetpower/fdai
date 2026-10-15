@@ -43,9 +43,11 @@ existing Kata runtime, separate restricted namespaces, immutable scanner image, 
 PVC bindings. Both profiles share request, heartbeat, revision-watermark, and review contracts;
 runtime selection changes only identity, storage, network, and sandbox adapters.
 The scanner image build context excludes the repository-wide `tools/` tree and explicitly admits
-only the owned TypeScript frontend script required by the analysis runtime. The image binds the
-pinned global TypeScript module path and must load the frontend inside the built container before
-the runtime package is accepted. This packaging rule changes no runtime profile or authority.
+only the owned TypeScript, Java, and C# frontend sources required by the analysis runtime. The
+image binds pinned TypeScript, JDK, and .NET/Roslyn toolchains and must build or load each trusted
+helper inside the container before the runtime package is accepted. Java disables annotation
+processing and C# emits no target assembly; neither helper executes repository code. This
+packaging rule changes no runtime profile or authority.
 
 Operator production composition uses the same focused lifecycle, route-family, and read-source
 modules in every runtime profile. The internal ownership split changes no platform selection,

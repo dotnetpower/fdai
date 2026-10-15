@@ -28,6 +28,13 @@ tools/*
 !tools/code-security-typescript-frontend/
 tools/code-security-typescript-frontend/*
 !tools/code-security-typescript-frontend/frontend.cjs
+!tools/code-security-java-frontend/
+tools/code-security-java-frontend/*
+!tools/code-security-java-frontend/FdaiJavaSymbols.java
+!tools/code-security-csharp-frontend/
+tools/code-security-csharp-frontend/*
+!tools/code-security-csharp-frontend/Fdai.CSharp.Frontend.csproj
+!tools/code-security-csharp-frontend/Program.cs
 scripts/
 !scripts/deployment/azure/run_inventory_network_certification_migrations.py
 !scripts/deployment/local/materialize-authoritative-catalogs.py

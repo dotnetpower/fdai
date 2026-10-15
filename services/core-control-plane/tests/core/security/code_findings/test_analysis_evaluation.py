@@ -12,6 +12,7 @@ from fdai.core.security.code_findings.analysis_evaluation import (
     evaluate_python_analysis,
     evaluate_typescript_analysis,
 )
+from fdai.core.security.code_findings.java_analysis import JavaCompilerConfig
 from fdai.core.security.code_findings.typescript_analysis import TypeScriptFrontendConfig
 from fdai.rule_catalog.code_security import CodeSecurityCatalogError
 from fdai.rule_catalog.code_security_analysis import load_analysis_rules
@@ -31,6 +32,8 @@ def test_component_inventory_separates_active_planned_and_research_terms() -> No
 
     assert by_id["tree-sitter"].status == "active"
     assert by_id["typescript"].status == "active"
+    assert by_id["openjdk-javac"].license == "GPL-2.0-with-classpath-exception"
+    assert by_id["roslyn"].license == "MIT"
     assert by_id["joern"].redistribution == "reference_only"
     assert by_id["codeql-cli"].integration == "research"
 
@@ -151,6 +154,39 @@ def test_java_evaluation_meets_split_targets_without_unsupported_cases(tmp_path:
     assert recorded == receipt.stable_dict()
 
 
+def test_compiler_backed_java_evaluation_is_disaggregated_and_shadow_only(tmp_path: Path) -> None:
+    java = shutil.which("java")
+    if java is None:
+        pytest.skip("a JDK is required for compiler-backed Java evaluation")
+    corpus = load_analysis_evaluation_corpus(CATALOG_ROOT, "java-compiler-sql-injection")
+    rule = next(
+        item for item in load_analysis_rules(CATALOG_ROOT) if item.rule_id == corpus.rule_id
+    )
+
+    receipt = evaluate_java_analysis(
+        corpus,
+        rule,
+        tmp_path,
+        JavaCompilerConfig(
+            java=Path(java),
+            helper=REPO_ROOT / "tools" / "code-security-java-frontend" / "FdaiJavaSymbols.java",
+        ),
+    )
+
+    assert receipt.meets_initial_thresholds is True
+    assert receipt.promotion_eligible is False
+    assert receipt.dev.unsupported == receipt.holdout.unsupported == 0
+    assert receipt.dev.precision == receipt.dev.recall == 1.0
+    assert receipt.holdout.precision == receipt.holdout.recall == 1.0
+    recorded = json.loads(
+        (CATALOG_ROOT / "evaluation" / "java-compiler-analysis-1.0.0.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    recorded.pop("resources")
+    assert recorded == receipt.stable_dict()
+
+
 def test_corpus_requires_vulnerable_and_safe_cases_in_each_split() -> None:
     corpus = load_analysis_evaluation_corpus(CATALOG_ROOT)
     dev_only = tuple(
@@ -159,3 +195,16 @@ def test_corpus_requires_vulnerable_and_safe_cases_in_each_split() -> None:
     )
     with pytest.raises(ValidationError, match="each evaluation split"):
         AnalysisEvaluationCorpus.model_validate({**corpus.model_dump(), "cases": dev_only})
+
+
+def test_recorded_weakness_receipts_remain_disaggregated_and_shadow_only() -> None:
+    document = json.loads(
+        (CATALOG_ROOT / "evaluation" / "analysis-weakness-shadow-1.0.0.json").read_text(
+            encoding="utf-8"
+        )
+    )
+
+    assert document["promotion_eligible"] is False
+    assert len(document["receipts"]) == 6
+    assert all(item["dev"]["f1"] == item["holdout"]["f1"] == 1.0 for item in document["receipts"])
+    assert all(item["promotion_eligible"] is False for item in document["receipts"])

@@ -1,0 +1,100 @@
+{
+  "schema_version": "1.0.0",
+  "corpus_id": "fdai.code-security.analysis.java-compiler-sql-injection",
+  "corpus_version": "1.0.0",
+  "corpus_digest": "sha256:990f571e6c44e8e0884cebb3a8203a461697fe0f2080e92f73c64353827bf262",
+  "language": "java",
+  "rule_id": "fdai.java.sql-injection",
+  "rule_version": "1.0.0",
+  "dev": {
+    "true_positive": 1,
+    "false_positive": 0,
+    "false_negative": 0,
+    "true_negative": 1,
+    "unsupported": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0
+  },
+  "holdout": {
+    "true_positive": 1,
+    "false_positive": 0,
+    "false_negative": 0,
+    "true_negative": 1,
+    "unsupported": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0
+  },
+  "cases": [
+    {
+      "case_id": "dev-vulnerable-cross-file",
+      "split": "dev",
+      "vulnerable": true,
+      "detected": true,
+      "supported": true,
+      "graph_nodes": 12,
+      "graph_edges": 7,
+      "functions": 4,
+      "files": 3,
+      "path_count": 1,
+      "multi_file_paths": 1,
+      "framework_sources": 1
+    },
+    {
+      "case_id": "dev-safe-parameterized",
+      "split": "dev",
+      "vulnerable": false,
+      "detected": false,
+      "supported": true,
+      "graph_nodes": 12,
+      "graph_edges": 5,
+      "functions": 5,
+      "files": 2,
+      "path_count": 0,
+      "multi_file_paths": 0,
+      "framework_sources": 1
+    },
+    {
+      "case_id": "holdout-vulnerable-header",
+      "split": "holdout",
+      "vulnerable": true,
+      "detected": true,
+      "supported": true,
+      "graph_nodes": 9,
+      "graph_edges": 5,
+      "functions": 3,
+      "files": 2,
+      "path_count": 1,
+      "multi_file_paths": 0,
+      "framework_sources": 1
+    },
+    {
+      "case_id": "holdout-safe-constant",
+      "split": "holdout",
+      "vulnerable": false,
+      "detected": false,
+      "supported": true,
+      "graph_nodes": 8,
+      "graph_edges": 3,
+      "functions": 3,
+      "files": 2,
+      "path_count": 0,
+      "multi_file_paths": 0,
+      "framework_sources": 1
+    }
+  ],
+  "corpus_size": 4,
+  "graph_nodes": 41,
+  "graph_edges": 20,
+  "analyzed_function_share": 1.0,
+  "multi_file_path_recall": 0.5,
+  "framework_coverage": 1.0,
+  "fix_regression_rate": 1.0,
+  "meets_initial_thresholds": true,
+  "promotion_eligible": false,
+  "resources": {
+    "duration_ms": 1740,
+    "peak_memory_kib": 2079
+  }
+}

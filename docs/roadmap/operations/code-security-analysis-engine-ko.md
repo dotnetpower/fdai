@@ -1,7 +1,7 @@
 ---
 title: 코드 보안 분석 엔진
 translation_of: code-security-analysis-engine.md
-translation_source_sha: 15b9d5cfacea28c47bb1c7123817a78812bb827f
+translation_source_sha: 3c006daaec5b5431ace45123f8b34bcf742517df
 translation_revised: 2026-10-15
 ---
 
@@ -13,9 +13,9 @@ translation_revised: 2026-10-15
 
 > **상태:** 그래프와 경로 계약, 공통 흐름 탐색, Python 및 TypeScript 시나리오, 스캔 작업 소유
 > 증분 재사용, 전체 제품 경로 재현, 실패 시 차단하는 수정 후보 게이트, 검증된 수정 게이트,
-> 실험적 Java SQL 시나리오를 구성 요소 수준에서 구현했습니다. 원래 패키지 0-5의 종료 조건은
-> 연결된 원장에 기록한 나머지 외부 비교, 승격, 컴파일러 기반 언어 근거가
-> 마련될 때까지 진행 중입니다.
+> 실제 Opengrep 비교, 컴파일러 기반 Java 및 C# SQL 시나리오를 구성 요소 수준에서 구현했습니다.
+> 패키지 0-5의 구현 조건은 shadow 모드에서 완료했습니다. 프로덕션 승격에는 연결된 원장에
+> 기록하는 독립 근거가 여전히 필요합니다.
 > [구현 원장](../../roadmap-implementation/operations/code-security-analysis-engine.md)을 참조하세요.
 >
 > **하드닝:** 이전 구현 범위에는 독립 비평 40회를 수행했습니다. 버전 1.1 문맥 흐름 계약, 공통

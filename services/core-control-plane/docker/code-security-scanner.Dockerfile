@@ -299,9 +299,26 @@ RUN opengrep --version \
     && dotnet --list-sdks \
     && python -m fdai.delivery.code_security_cli evaluate > /dev/null
 
+FROM prover AS analysis-managed-runtime
+
+USER root
+COPY tools/code-security-java-frontend/FdaiJavaSymbols.java /opt/fdai/java/FdaiJavaSymbols.java
+COPY tools/code-security-csharp-frontend/ /opt/fdai/csharp-source/
+RUN dotnet build /opt/fdai/csharp-source/Fdai.CSharp.Frontend.csproj \
+        --configuration Release --output /opt/fdai/csharp \
+    && rm -rf /opt/fdai/csharp-source /root/.nuget /root/.dotnet \
+    && chown -R 65532:65532 /opt/fdai/java /opt/fdai/csharp
+ENV FDAI_JAVA_COMPILER=/usr/bin/java \
+    FDAI_JAVA_FRONTEND=/opt/fdai/java/FdaiJavaSymbols.java \
+    FDAI_CSHARP_DOTNET=/usr/bin/dotnet \
+    FDAI_CSHARP_FRONTEND=/opt/fdai/csharp/Fdai.CSharp.Frontend.dll
+USER 65532
+RUN test -r "$FDAI_JAVA_FRONTEND" \
+    && test -r "$FDAI_CSHARP_FRONTEND"
+
 # The default scan runner image: every scanner and the Python proof lane, without the other
-# proof toolchains.
-FROM analysis-runtime AS runtime
+# proof entrypoints. Managed compilers are bound only to static analysis helpers.
+FROM analysis-managed-runtime AS runtime
 
 RUN opengrep --version \
     && gitleaks version \

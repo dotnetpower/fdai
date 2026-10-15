@@ -13,6 +13,10 @@ from fdai.core.security.code_findings.analysis_contracts import (
     PathStepRole,
     SourceSpan,
 )
+from fdai.core.security.code_findings.csharp_analysis import (
+    CSharpAnalysisResult,
+    CSharpCompilerConfig,
+)
 from fdai.core.security.code_findings.typescript_analysis import (
     TypeScriptAnalysisResult,
     TypeScriptFrontendConfig,
@@ -284,5 +288,88 @@ async def test_scan_job_dispatches_java_result_to_canonical_review(tmp_path: Pat
 
     assert len(result.analysis_results) == 1
     assert len(result.issues) == 1
+    assert result.issues[0].weakness_class == "sql_injection"
+    assert result.package["coverage_complete"] is True
+
+
+async def test_scan_job_dispatches_csharp_result_to_canonical_review(
+    tmp_path: Path, monkeypatch
+) -> None:  # type: ignore[no-untyped-def]
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "Controller.cs").write_text("class Controller {}", encoding="utf-8")
+    rule = next(
+        item
+        for item in load_analysis_rules(CATALOG_ROOT)
+        if item.rule_id == "fdai.csharp.sql-injection"
+    )
+    source_node = CodeGraphNode(
+        node_id="source:csharp",
+        kind=GraphNodeKind.SOURCE,
+        name="Microsoft.AspNetCore.Mvc.FromQueryAttribute",
+        span=SourceSpan(path="Controller.cs", start_line=1, end_line=1),
+    )
+    sink_node = CodeGraphNode(
+        node_id="sink:csharp",
+        kind=GraphNodeKind.SINK,
+        name="Microsoft.Data.SqlClient.SqlCommand",
+        span=SourceSpan(path="Controller.cs", start_line=1, end_line=1),
+    )
+    graph = CodeGraphArtifact(
+        schema_version="1.1.0",
+        revision=REVISION,
+        build_context_digest=DIGEST,
+        framework_model_digest=rule.digest(),
+        frontend_versions={"roslyn": "5.0.0"},
+        nodes=(source_node, sink_node),
+    )
+    path = PathEvidence(
+        schema_version="1.1.0",
+        path_id="path:csharp-scan-job",
+        revision=REVISION,
+        graph_digest=graph.digest(),
+        rule_id=rule.rule_id,
+        rule_version=rule.version,
+        steps=(
+            PathEvidenceStep(
+                node_id=source_node.node_id,
+                role=PathStepRole.SOURCE,
+                span=source_node.span,  # type: ignore[arg-type]
+            ),
+            PathEvidenceStep(
+                node_id=sink_node.node_id,
+                role=PathStepRole.SINK,
+                span=sink_node.span,  # type: ignore[arg-type]
+            ),
+        ),
+    )
+
+    monkeypatch.setattr(
+        "fdai.delivery.code_security_scan_job.analyze_csharp_repository",
+        lambda *args, **kwargs: CSharpAnalysisResult(graph, (path,)),
+    )
+    result = await run_scan_job(
+        ScanJobConfig(
+            repository="",
+            revision="",
+            repository_alias="example-service",
+            work_root=tmp_path / "work",
+            executables={},
+            rules_dir=CATALOG_ROOT / "rules",
+            required_scanners=frozenset(),
+            local_path=source,
+        ),
+        catalog=load_code_security_catalog(CATALOG_ROOT),
+        scanners=load_scanner_catalog(CATALOG_ROOT),
+        acquirer=_Acquirer(source),
+        sandbox=BubblewrapScannerSandbox(),
+        analysis_rules=(rule,),
+        csharp_compiler=CSharpCompilerConfig(
+            dotnet=tmp_path / "dotnet",
+            assembly=tmp_path / "frontend.dll",
+        ),
+    )
+
+    assert len(result.analysis_results) == 1
     assert result.issues[0].weakness_class == "sql_injection"
     assert result.package["coverage_complete"] is True

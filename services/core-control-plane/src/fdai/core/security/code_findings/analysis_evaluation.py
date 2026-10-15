@@ -12,8 +12,14 @@ from fdai.core.security.code_findings.analysis_contracts import (
     CodeSecurityRuleSpec,
     GraphNodeKind,
 )
+from fdai.core.security.code_findings.csharp_analysis import (
+    CSharpAnalysisResult,
+    CSharpCompilerConfig,
+    analyze_csharp_repository,
+)
 from fdai.core.security.code_findings.java_analysis import (
     JavaAnalysisResult,
+    JavaCompilerConfig,
     analyze_java_repository,
 )
 from fdai.core.security.code_findings.python_analysis import (
@@ -98,7 +104,9 @@ class AnalysisCaseObservation:
     peak_memory_kib: int
 
 
-_AnalysisResult = PythonAnalysisResult | JavaAnalysisResult | TypeScriptAnalysisResult
+_AnalysisResult = (
+    PythonAnalysisResult | JavaAnalysisResult | TypeScriptAnalysisResult | CSharpAnalysisResult
+)
 
 
 def analysis_evaluation_metrics(
@@ -283,6 +291,7 @@ def evaluate_java_analysis(
     corpus: AnalysisEvaluationCorpus,
     rule: CodeSecurityRuleSpec,
     work_root: Path,
+    compiler: JavaCompilerConfig | None = None,
 ) -> AnalysisEvaluationReceipt:
     """Evaluate a frozen Java corpus through the bounded tree-sitter frontend."""
     if corpus.rule_id != rule.rule_id:
@@ -299,6 +308,7 @@ def evaluate_java_analysis(
             build_context_digest=_DIGEST,
             framework_model_digest=rule.digest(),
             rule=rule,
+            compiler=compiler,
         ),
     )
 
@@ -327,11 +337,36 @@ def evaluate_typescript_analysis(
     )
 
 
+def evaluate_csharp_analysis(
+    corpus: AnalysisEvaluationCorpus,
+    rule: CodeSecurityRuleSpec,
+    work_root: Path,
+    config: CSharpCompilerConfig,
+) -> AnalysisEvaluationReceipt:
+    """Evaluate every frozen C# case through the bounded Roslyn frontend."""
+    if corpus.language != "csharp":
+        raise ValueError("C# evaluation requires a C# corpus")
+    return _evaluate_analysis(
+        corpus,
+        rule,
+        work_root,
+        lambda case_root: analyze_csharp_repository(
+            case_root,
+            revision=_REVISION,
+            build_context_digest=_DIGEST,
+            framework_model_digest=rule.digest(),
+            rule=rule,
+            config=config,
+        ),
+    )
+
+
 __all__ = [
     "AnalysisEvaluationMetrics",
     "AnalysisEvaluationReceipt",
     "AnalysisCaseObservation",
     "analysis_evaluation_metrics",
+    "evaluate_csharp_analysis",
     "evaluate_java_analysis",
     "evaluate_python_analysis",
     "evaluate_typescript_analysis",

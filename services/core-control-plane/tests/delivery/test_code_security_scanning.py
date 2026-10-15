@@ -643,7 +643,7 @@ def test_scan_runner_image_pins_every_tool_and_binds_every_scanner() -> None:
     } <= set(stages)
     assert "FROM prover-javascript AS prover" in dockerfile
     assert "FROM analysis-runtime AS prover-javascript" in dockerfile
-    assert "FROM analysis-runtime AS runtime" in dockerfile
+    assert "FROM analysis-managed-runtime AS runtime" in dockerfile
     analysis_runtime = dockerfile.split(" AS analysis-runtime\n", 1)[1].split("\nFROM ", 1)[0]
     javascript = dockerfile.split(" AS prover-javascript\n", 1)[1].split("\nFROM ", 1)[0]
     prover = dockerfile.split(" AS prover\n", 1)[1].split("\nFROM ", 1)[0]
@@ -665,8 +665,15 @@ def test_scan_runner_image_pins_every_tool_and_binds_every_scanner() -> None:
     assert "COPY --from=node /usr/lib/node_modules/typescript/" in analysis_runtime
     assert "COPY tools/code-security-typescript-frontend/frontend.cjs" in analysis_runtime
     assert "NODE_PATH=/usr/lib/node_modules" in analysis_runtime
+    managed = dockerfile.split(" AS analysis-managed-runtime\n", 1)[1].split("\nFROM ", 1)[0]
+    assert "FdaiJavaSymbols.java" in managed
+    assert "Fdai.CSharp.Frontend.csproj" in managed
+    assert "FDAI_JAVA_FRONTEND=/opt/fdai/java/FdaiJavaSymbols.java" in managed
+    assert "FDAI_CSHARP_FRONTEND=/opt/fdai/csharp/Fdai.CSharp.Frontend.dll" in managed
     dockerignore = (_REPO_ROOT / ".dockerignore").read_text(encoding="utf-8")
     assert "!tools/code-security-typescript-frontend/frontend.cjs" in dockerignore
+    assert "!tools/code-security-java-frontend/FdaiJavaSymbols.java" in dockerignore
+    assert "!tools/code-security-csharp-frontend/Program.cs" in dockerignore
     assert "ARG TYPESCRIPT_VERSION=5.9.3" in dockerfile
     assert re.search(r"ARG TYPESCRIPT_SHA512=[0-9a-f]{128}\n", dockerfile)
     assert '"${TYPESCRIPT_SHA512}  typescript.tgz" | sha512sum -c -' in dockerfile

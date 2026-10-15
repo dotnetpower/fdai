@@ -10,9 +10,9 @@ reproducible source-to-sink evidence instead of replacing the scanners that alre
 
 > **Status:** The graph and path contracts, shared flow traversal, Python and TypeScript slices,
 > scan-owned incremental reuse, full product path replay, the fail-closed repair-candidate gate,
-> verified-fix gate, and an experimental Java SQL slice are
-> implemented components. The original Package 0-5 exit criteria remain in progress pending the
-> remaining external comparison, promotion, and compiler-backed language evidence in the linked
+> verified-fix gate, actual Opengrep comparison, and compiler-backed Java and C# SQL slices are
+> implemented components. The Package 0-5 implementation criteria are complete in shadow mode;
+> production promotion still requires independent evidence recorded in the linked
 > [implementation ledger](../../roadmap-implementation/operations/code-security-analysis-engine.md).
 >
 > **Hardening:** Forty prior critique rounds covered the earlier implemented scope. The version

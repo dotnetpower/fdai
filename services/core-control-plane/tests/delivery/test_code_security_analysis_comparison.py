@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
 from fdai.delivery.code_security_analysis_comparison import (
     ComparisonConfig,
     compare_analysis_engines,
@@ -133,3 +134,27 @@ def test_recorded_typescript_receipt_marks_current_verifier_unsupported() -> Non
     assert engines["owned-engine"]["dev"]["recall"] == 1.0
     assert engines["owned-engine"]["holdout"]["recall"] == 1.0
     assert engines["external-baseline"]["implementation"] == "semgrep"
+
+
+@pytest.mark.parametrize(
+    ("name", "current_available", "owned_holdout", "external_holdout"),
+    (
+        ("analysis-comparison-python-sql-opengrep-1.0.0.json", True, 1.0, 1.0),
+        ("analysis-comparison-typescript-sql-opengrep-1.0.0.json", False, 1.0, 0.0),
+    ),
+)
+def test_recorded_opengrep_receipts_preserve_actual_engine_results(
+    name: str,
+    current_available: bool,
+    owned_holdout: float,
+    external_holdout: float,
+) -> None:
+    document = json.loads((CATALOG_ROOT / "evaluation" / name).read_text(encoding="utf-8"))
+    engines = {item["engine"]: item for item in document["engines"]}
+
+    assert document["parity_claimed"] is False
+    assert engines["current-verifier"]["available"] is current_available
+    assert engines["owned-engine"]["holdout"]["recall"] == owned_holdout
+    assert engines["external-baseline"]["implementation"] == "opengrep"
+    assert engines["external-baseline"]["version"] == "1.30.1"
+    assert engines["external-baseline"]["holdout"]["recall"] == external_holdout

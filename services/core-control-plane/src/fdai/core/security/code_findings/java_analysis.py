@@ -5,12 +5,14 @@ from __future__ import annotations
 import hashlib
 import os
 import stat
+import subprocess
 import warnings
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
 import tree_sitter_java
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from tree_sitter import Language, Node, Parser
 
 from fdai.core.security.code_findings.analysis_contracts import (
@@ -31,6 +33,7 @@ from fdai.core.security.code_findings.analysis_graph_flow import materialize_gra
 
 FRONTEND = "fdai.java.tree-sitter"
 VERSION = "1.1.0"
+COMPILER_FRONTEND = "javac"
 _LANGUAGE = Language(tree_sitter_java.language())
 
 
@@ -42,6 +45,41 @@ class JavaAnalysisLimits:
     max_contexts: int = 10_000
     max_call_depth: int = 16
     max_paths: int = 1_000
+
+
+@dataclass(frozen=True, slots=True)
+class JavaCompilerConfig:
+    java: Path
+    helper: Path
+    timeout_seconds: int = 60
+    max_output_bytes: int = 5_000_000
+
+
+class _CompilerFact(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    path: str = Field(min_length=1, max_length=1_024)
+    line: int = Field(ge=0, le=10_000_000)
+    name: str | None = Field(default=None, max_length=256)
+    text: str | None = Field(default=None, max_length=1_024)
+    symbol: str = Field(max_length=1_024)
+    type: str = Field(max_length=2_048)
+
+
+class _CompilerDocument(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    schema_version: str
+    compiler_version: str = Field(min_length=1, max_length=64)
+    methods: tuple[_CompilerFact, ...] = Field(max_length=100_000)
+    calls: tuple[_CompilerFact, ...] = Field(max_length=200_000)
+    error_count: int = Field(ge=0, le=1_000_000)
+
+
+@dataclass(frozen=True, slots=True)
+class _CompilerFacts:
+    version: str
+    methods: dict[tuple[str, int, str], str]
+    calls: dict[tuple[str, int, str], str]
+    error_count: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -125,6 +163,7 @@ class _Analyzer:
         framework_model_digest: str,
         rule: CodeSecurityRuleSpec,
         limits: JavaAnalysisLimits,
+        compiler: _CompilerFacts | None,
     ) -> None:
         self.root = root
         self.revision = revision
@@ -132,10 +171,13 @@ class _Analyzer:
         self.framework_model_digest = framework_model_digest
         self.rule = rule
         self.limits = limits
+        self.compiler = compiler
         self.nodes: dict[str, CodeGraphNode] = {}
         self.edges: dict[str, CodeGraphEdge] = {}
         self.methods: dict[str, list[_Method]] = {}
         self.coverage: set[str] = set()
+        if compiler is not None and compiler.error_count:
+            self.coverage.add(f"java.compiler-attribution-errors:{compiler.error_count}")
         self.paths: list[tuple[_Point, ...]] = []
         self.active: set[tuple[str, tuple[bool, ...]]] = set()
         self.contexts = 0
@@ -238,6 +280,10 @@ class _Analyzer:
                 if node.type not in {"method_declaration", "constructor_declaration"}:
                     continue
                 name = _text(_field(node, "name"))
+                if self.compiler is not None:
+                    name = self.compiler.methods.get(
+                        (relative, node.start_point.row + 1, name), name
+                    )
                 parameters_node = _field(node, "parameters")
                 parameters = tuple(
                     _text(_field(item, "name"))
@@ -245,7 +291,7 @@ class _Analyzer:
                     if item.type in {"formal_parameter", "spread_parameter"}
                 )
                 method = _Method(relative, name, node, parameters)
-                self.methods.setdefault(name, []).append(method)
+                self.methods.setdefault(name.rsplit(".", 1)[-1], []).append(method)
                 method_id = _stable_id("method", relative, name, node.start_byte)
                 self._add_node(
                     CodeGraphNode(
@@ -272,7 +318,10 @@ class _Analyzer:
             revision=self.revision,
             build_context_digest=self.build_context_digest,
             framework_model_digest=self.framework_model_digest,
-            frontend_versions={FRONTEND: VERSION},
+            frontend_versions={
+                FRONTEND: VERSION,
+                **({COMPILER_FRONTEND: self.compiler.version} if self.compiler is not None else {}),
+            },
             nodes=tuple(sorted(self.nodes.values(), key=lambda item: item.node_id)),
             edges=tuple(sorted(self.edges.values(), key=lambda item: item.edge_id)),
             coverage_limits=tuple(sorted(self.coverage)),
@@ -351,6 +400,8 @@ class _Analyzer:
         object_node = _field(node, "object")
         short_name = _text(name_node)
         name = ".".join(part for part in (_text(object_node), short_name) if part)
+        if self.compiler is not None:
+            name = self.compiler.calls.get((method.path, node.start_point.row + 1, name), name)
         location = _span(method.path, node)
         call_id = _stable_id("call", method.path, node.start_byte, name)
         self._add_node(
@@ -420,6 +471,7 @@ def analyze_java_repository(
     framework_model_digest: str,
     rule: CodeSecurityRuleSpec,
     limits: JavaAnalysisLimits | None = None,
+    compiler: JavaCompilerConfig | None = None,
 ) -> JavaAnalysisResult | None:
     """Analyze Java source under ``root`` without compiling or executing repository code."""
     resolved = root.resolve(strict=True)
@@ -428,6 +480,7 @@ def analyze_java_repository(
     if not any(name.endswith(".java") for _, _, names in os.walk(resolved) for name in names):
         return None
     selected_limits = limits or JavaAnalysisLimits()
+    compiler_facts = _compiler_facts(resolved, selected_limits, compiler) if compiler else None
     return _Analyzer(
         resolved,
         revision,
@@ -435,7 +488,64 @@ def analyze_java_repository(
         framework_model_digest,
         rule,
         selected_limits,
+        compiler_facts,
     ).analyze()
 
 
-__all__ = ["JavaAnalysisLimits", "JavaAnalysisResult", "analyze_java_repository"]
+def _compiler_facts(
+    root: Path, limits: JavaAnalysisLimits, config: JavaCompilerConfig
+) -> _CompilerFacts:
+    java = config.java.resolve(strict=True)
+    helper = config.helper.resolve(strict=True)
+    if not java.is_file() or not helper.is_file() or helper.is_relative_to(root):
+        raise ValueError("Java compiler bindings must be trusted files outside analyzed source")
+    files = sorted(
+        path.relative_to(root).as_posix()
+        for path in root.rglob("*.java")
+        if path.is_file() and not path.is_symlink()
+    )
+    if not files or len(files) > limits.max_files:
+        raise ValueError("Java compiler input exceeds the file limit")
+    try:
+        completed = subprocess.run(  # noqa: S603 - exact trusted executable and helper paths
+            [str(java), "--add-modules", "jdk.compiler", str(helper), str(root), *files],
+            capture_output=True,
+            cwd=root,
+            env={"PATH": os.environ.get("PATH", "/usr/bin:/bin")},
+            timeout=config.timeout_seconds,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise ValueError(f"Java compiler frontend failed: {type(exc).__name__}") from exc
+    if completed.returncode != 0 or len(completed.stdout) > config.max_output_bytes:
+        raise ValueError("Java compiler frontend failed or exceeded its output limit")
+    try:
+        document = _CompilerDocument.model_validate_json(completed.stdout)
+    except ValidationError as exc:
+        raise ValueError("Java compiler frontend output violates its contract") from exc
+    version_parts = document.compiler_version.split(".")
+    if len(version_parts) < 3 or not all(part.isdigit() for part in version_parts[:3]):
+        raise ValueError("Java compiler version is not numeric")
+    version = ".".join(version_parts[:3])
+    allowed = set(files)
+    if any(item.path not in allowed for item in (*document.methods, *document.calls)):
+        raise ValueError("Java compiler frontend returned a path outside the request")
+    methods = {
+        (item.path, item.line, item.name or ""): item.symbol
+        for item in document.methods
+        if item.name and item.symbol
+    }
+    calls = {
+        (item.path, item.line, item.text or ""): item.symbol
+        for item in document.calls
+        if item.text and item.symbol
+    }
+    return _CompilerFacts(version, methods, calls, document.error_count)
+
+
+__all__ = [
+    "JavaAnalysisLimits",
+    "JavaAnalysisResult",
+    "JavaCompilerConfig",
+    "analyze_java_repository",
+]

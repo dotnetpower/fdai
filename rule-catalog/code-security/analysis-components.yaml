@@ -34,6 +34,22 @@ components:
     license: Apache-2.0
     redistribution: embeddable
     integration: process
+  - id: openjdk-javac
+    version: 21.0.12
+    purpose: Java compiler attribution and symbol resolution
+    status: active
+    source_url: https://openjdk.org/projects/jdk/21/
+    license: GPL-2.0-with-classpath-exception
+    redistribution: embeddable
+    integration: process
+  - id: roslyn
+    version: 5.0.0
+    purpose: C# syntax, semantic symbols, types, and graph-flow frontend
+    status: active
+    source_url: https://github.com/dotnet/roslyn
+    license: MIT
+    redistribution: embeddable
+    integration: process
   - id: joern
     version: unselected
     purpose: Architecture research and isolated comparison only

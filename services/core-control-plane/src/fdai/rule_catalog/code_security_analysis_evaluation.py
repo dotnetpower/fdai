@@ -30,7 +30,7 @@ class AnalysisEvaluationCase(_Strict):
             path = PurePosixPath(raw)
             if (
                 path.is_absolute()
-                or path.suffix not in {".java", ".py", ".ts", ".tsx"}
+                or path.suffix not in {".cs", ".java", ".py", ".ts", ".tsx"}
                 or any(part in {"", ".", ".."} for part in path.parts)
             ):
                 raise ValueError("evaluation file paths must use an allowed relative source path")
@@ -42,7 +42,7 @@ class AnalysisEvaluationCase(_Strict):
 class AnalysisEvaluationCorpus(_Strict):
     schema_version: Literal["1.0.0"]
     corpus_id: Annotated[str, Field(pattern=r"^fdai\.code-security\.analysis\.[a-z-]+$")]
-    language: Literal["java", "python", "typescript"]
+    language: Literal["csharp", "java", "python", "typescript"]
     version: Annotated[str, Field(pattern=r"^\d+\.\d+\.\d+$")]
     rule_id: Annotated[str, Field(pattern=r"^[a-z][a-z0-9.-]{2,127}$")]
     cases: Annotated[tuple[AnalysisEvaluationCase, ...], Field(min_length=4)]
@@ -59,6 +59,7 @@ class AnalysisEvaluationCorpus(_Strict):
         if not required <= observed:
             raise ValueError("each evaluation split requires vulnerable and safe cases")
         suffixes = {
+            "csharp": {".cs"},
             "java": {".java"},
             "python": {".py"},
             "typescript": {".ts", ".tsx"},

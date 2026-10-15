@@ -187,7 +187,10 @@ approved grant, and fresh effective-access evidence is required before the actio
   path to exact frontend, rule, build-context, and revision identities. Missing coverage is an
   explicit gap, never a clean result. Same-condition comparison runs current, owned, and permitted
   external engines over identical local cases with telemetry and version checks disabled; receipts
-  preserve unsupported coverage and never claim parity or grant promotion authority.
+  preserve unsupported coverage and never claim parity or grant promotion authority. Java runs the
+  JDK Compiler API with annotation processing disabled, and C# uses Roslyn syntax and semantic
+  models without emitting or loading a target assembly; neither static frontend executes target
+  classes, compiler plugins, project builds, or package scripts.
 - **Code-security proof lane**: the only place FDAI runs repository code. It's opt-in per scan,
   limited to issues a deterministic verifier already confirmed, and runs in a disposable
   bubblewrap sandbox with no network, no credentials, a cleared environment, a read-only source,
