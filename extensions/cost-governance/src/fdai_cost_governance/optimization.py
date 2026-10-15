@@ -149,7 +149,6 @@ class ResourceOptimizationPlan:
     reasons: tuple[str, ...]
     route: str = "risk_gate"
     approval_required: bool = True
-    execution_authority: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -203,7 +202,6 @@ class CoupledResourceOptimizationPlan:
     reasons: tuple[str, ...]
     route: str = "risk_gate"
     approval_required: bool = True
-    execution_authority: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -223,8 +221,6 @@ class OptimizationClarificationRequest:
     expires_at: datetime
     reevaluation_key: str
     recovery_evidence_refs: tuple[str, ...]
-    approval_authority: bool = False
-    execution_authority: bool = False
 
     def __post_init__(self) -> None:
         text_values = (
@@ -269,8 +265,6 @@ class OptimizationClarificationAttestation:
     effective_scope: str
     recorded_at: datetime
     effective_until: datetime
-    approval_authority: bool = False
-    execution_authority: bool = False
 
     def __post_init__(self) -> None:
         for value in (
@@ -298,8 +292,6 @@ class OptimizationClarificationResult:
     reevaluation_key: str | None
     accepted_value: str | None
     reason: str
-    approval_authority: bool = False
-    execution_authority: bool = False
 
 
 def build_optimization_clarification(

@@ -1,7 +1,7 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 43ca13c687774dace7b46abfd15c7563731b3332
+translation_source_sha: ed436db40eb38ec2eac55d1bb3c516ef8dc2f220
 translation_revised: 2026-10-16
 ---
 
@@ -33,7 +33,7 @@ Operator post-turn review 발행도 Cost Governance package 활성화, Njord 발
 > 최신성 출처는 조합 전에 안전하게 거부합니다. 이 조합기는 Njord를 대신해 게시하거나 승인 또는
 > 실행 권한을 부여할 수 없습니다. 실제 게시와
 > 완전한 Freyr/Forseti/Odin 사례 조립은 남아 있습니다. 적격하지 않은 근거는 안전한 쪽으로
-> 차단하고 모든 후보는 승인 또는 실행 권한을 갖지 않습니다.
+> 차단하고 모든 후보는 승인 또는 실행 권한을 갖지 않습니다. 패키지 결과 타입은 승인, 실행, 승격 또는 실행기 주체 필드를 포함하지 않습니다.
 > 유효한 세분성 또는 신원 정책이 허용하지 않으면 Operator 공개 결과에서
 > 리소스 권고를 제외할 수 있습니다. 제한된 변환 결과는 공개 권고 수가 원본 수와 일치할 것을
 > 요구하지 않고 금액 및 권고 제한 사유를 기록합니다. 공용 Console 카탈로그 원본 검사기는 관련 없는 형식 지정 도우미가 아니라 가져온 `t` 바인딩을 확인합니다. 이 검사기와 패널 레지스트리 검사기는 저장소 검증만 담당하며, FinOps와 무관한 컴포넌트 또는 레이블 변경은

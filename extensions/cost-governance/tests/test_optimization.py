@@ -80,7 +80,7 @@ def test_right_size_candidate_pins_profile_and_grants_no_authority() -> None:
     assert result.profile_digest == profile.digest
     assert result.candidate is not None
     assert result.candidate.target_capacity == 2
-    assert result.execution_authority is False
+    assert not hasattr(result, "execution_authority")
 
 
 @pytest.mark.parametrize(
@@ -119,7 +119,7 @@ def test_untrusted_or_unsupported_advice_requires_review(
     result = ResourceOptimizationPlanner(profiles=(_profile(),)).plan(evidence, now=NOW)
 
     assert result.disposition is OptimizationDisposition.REVIEW_REQUIRED
-    assert result.execution_authority is False
+    assert not hasattr(result, "execution_authority")
     assert result.reasons == (reason,)
 
 
@@ -161,7 +161,7 @@ def test_shutdown_candidate_requires_zero_utilization_and_no_dependents() -> Non
     assert result.disposition is OptimizationDisposition.CANDIDATE
     assert result.candidate is not None
     assert result.candidate.kind is FinOpsActionKind.SHUTDOWN
-    assert result.execution_authority is False
+    assert not hasattr(result, "execution_authority")
 
 
 def test_nonzero_utilization_never_becomes_shutdown_candidate() -> None:
@@ -304,7 +304,7 @@ def test_coupled_target_requires_complete_membership_and_tested_rollback() -> No
         "target_membership_truncated",
         "coupled_rollback_untested",
     )
-    assert result.execution_authority is False
+    assert not hasattr(result, "execution_authority")
 
 
 def test_coupled_target_routes_complete_candidate_set_to_governed_path() -> None:
@@ -347,7 +347,7 @@ def test_coupled_target_routes_complete_candidate_set_to_governed_path() -> None
     assert len(result.candidates) == 2
     assert result.route == "risk_gate"
     assert result.approval_required is True
-    assert result.execution_authority is False
+    assert not hasattr(result, "execution_authority")
 
 
 def test_targeted_clarification_accepts_one_scoped_fact_without_authority() -> None:
@@ -380,8 +380,8 @@ def test_targeted_clarification_accepts_one_scoped_fact_without_authority() -> N
     assert result.disposition is ClarificationDisposition.ACCEPTED
     assert result.reevaluation_key == "decision-case-a:revision-1"
     assert result.accepted_value == "non-critical"
-    assert result.approval_authority is False
-    assert result.execution_authority is False
+    assert not hasattr(result, "approval_authority")
+    assert not hasattr(result, "execution_authority")
 
 
 @pytest.mark.parametrize(
