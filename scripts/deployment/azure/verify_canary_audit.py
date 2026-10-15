@@ -173,6 +173,9 @@ def capture_canary_audit(
     deadline = monotonic() + timeout_seconds
     while True:
         rows = reader(config, correlation_id=correlation_id)
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            raise CanaryAuditVerificationError("canary consumed audit was not observed in time")
         if len(rows) > 1:
             raise CanaryAuditVerificationError("canary audit identity is ambiguous")
         if rows:
@@ -182,9 +185,6 @@ def capture_canary_audit(
                 latency_budget_ms=latency_budget_ms,
                 verified_at=clock(),
             )
-        remaining = deadline - monotonic()
-        if remaining <= 0:
-            raise CanaryAuditVerificationError("canary consumed audit was not observed in time")
         sleeper(min(poll_interval_seconds, remaining))
 
 

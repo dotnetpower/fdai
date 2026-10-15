@@ -118,6 +118,22 @@ def test_capture_waits_for_one_row_and_rejects_ambiguous_rows() -> None:
         )
 
 
+def test_capture_rejects_row_returned_after_deadline() -> None:
+    ticks = iter((0.0, 6.0))
+
+    with pytest.raises(CanaryAuditVerificationError, match="not observed in time"):
+        capture_canary_audit(
+            config=_config(),
+            slot=SLOT,
+            latency_budget_ms=30_000,
+            timeout_seconds=5,
+            poll_interval_seconds=1,
+            reader=lambda *_args, **_kwargs: (_entry(),),
+            monotonic=lambda: next(ticks),
+            clock=lambda: NOW,
+        )
+
+
 def test_database_config_reports_names_without_secret_values() -> None:
     with pytest.raises(CanaryAuditVerificationError, match="database, password") as error:
         DatabaseConfig.from_env(
