@@ -311,6 +311,21 @@ class ActionBuilder:
             raise ActionBuildError(
                 f"readiness remediation ActionType {request.action_type!r} is unknown"
             )
+        active_declaration = next(
+            (
+                declaration
+                for declaration in self.ontology_release.declarations
+                if declaration.kind is OntologyDeclarationKind.ACTION
+                and declaration.name == action_type.name
+            ),
+            None,
+        )
+        loaded_declaration = build_ontology_release(action_types=(action_type,)).declarations[0]
+        if active_declaration != loaded_declaration:
+            raise ActionBuildError(
+                f"readiness remediation ActionType {request.action_type!r} "
+                "is outside the active release"
+            )
         trigger = action_type.trigger_kind
         if trigger is None or trigger.kind not in {TriggerKind.RULE_VIOLATION, TriggerKind.BOTH}:
             raise ActionBuildError(
@@ -326,8 +341,8 @@ class ActionBuilder:
         return (
             Action(
                 schema_version="1.0.0",
-                action_id=_build_action_id(request.idempotency_key),
-                idempotency_key=request.idempotency_key,
+                action_id=_build_action_id(request.request_id),
+                idempotency_key=request.request_id,
                 event_id=event.event_id,
                 action_type=action_type.name,
                 target_resource_ref=request.target_resource_ref,

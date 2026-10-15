@@ -780,8 +780,9 @@ Parked approvals and recovery receipts require the exact current ActionRun ident
 Deployment Preflight keeps its publication decision in `core/deploy_preflight/pre_publication_gate.py`: the analyzer re-verifies the accumulated overrides before any remediation proposal is submitted, and a blocking finding, stale evidence, a scope change, or an escalated reassembly withholds the whole pass rather than a subset. Submission crosses ingress as a control-plane signal that carries no ActionType, so Forseti binds `remediate.apply-preflight-toggle` from its own event-type table and the default human-review verdict stands. The gate rejects a non-finite freshness window or a clock without a time zone before any submission, and a hold record retains only a bounded set of finding ids.
 Operational Readiness remediation uses a dedicated non-operator shadow route. Its shared contract
 binds target, evidence, distinct submitter and approver identities, and no-authority fields by
-digest. ActionBuilder accepts only the exact ORR source, a `rule_violation` or `both` ActionType,
-complete arguments, and the active ontology release digest. The route invokes the unified risk
+digest. ActionBuilder derives the Action identity from that content-addressed request and accepts
+only the exact ORR source, a `rule_violation` or `both` ActionType, complete arguments, and the
+exact ActionType declaration in the active ontology release. The route invokes the unified risk
 gate and terminates as shadow, Human approval required, denial, or abstention without execution
 authorization or dispatch. The existing proposal-to-request producer remains unbound until it can
 supply that complete contract and governed delivery evidence.

@@ -438,6 +438,12 @@ def test_build_from_readiness_remediation_preserves_grounded_shadow_request() ->
     assert action.citing_rules == ["readiness.owner-tag.required"]
     assert action.params == {}
     assert action.target_resource_ref == "resource:storage/account/example"
+    request = ReadinessRemediationRequest.model_validate(
+        _readiness_remediation_event(target_revision=release.digest).payload[
+            "readiness_remediation_request"
+        ]
+    )
+    assert action.idempotency_key == request.request_id
     assert rule.id.startswith("operational-readiness.orr-remediation-")
     assert rule.id not in action.citing_rules
     assert rule.remediates == action.action_type
@@ -504,6 +510,21 @@ def test_build_from_readiness_remediation_rejects_idempotency_identity_mismatch(
 
     with pytest.raises(ActionBuildError, match="idempotency identity does not match"):
         builder.build_from_readiness_remediation(event=event)
+
+
+def test_build_from_readiness_remediation_rejects_action_outside_active_release() -> None:
+    action_type = _shipped_action_types()["remediate.tag-add"]
+    release = build_ontology_release(action_types=(action_type,))  # type: ignore[arg-type]
+    mismatched = action_type.model_copy(update={"version": "9.9.9"})
+    builder = ActionBuilder(  # type: ignore[attr-defined]
+        action_types_by_name={mismatched.name: mismatched},
+        ontology_release=release,
+    )
+
+    with pytest.raises(ActionBuildError, match="outside the active release"):
+        builder.build_from_readiness_remediation(
+            event=_readiness_remediation_event(target_revision=release.digest)
+        )
 
 
 def test_build_from_readiness_remediation_rejects_stale_ontology_release() -> None:

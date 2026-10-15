@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 42b20636e6a8fb472b1640afb3db966bc13cdf38
+translation_source_sha: 4f52269d8be666625484467ca03e1294b3d1e3d3
 translation_revised: 2026-10-15
 ---
 # 프로젝트 구조
@@ -764,8 +764,9 @@ Muninn은 게시와 원본 소유 legacy 정리에 하나의 Core 소유 cohort 
 배포 프리플라이트는 게시 결정을 `core/deploy_preflight/pre_publication_gate.py`에 둡니다. 교정 제안을 제출하기 전에 분석기가 누적된 오버라이드를 다시 검증하며, 차단 발견 사항, 오래된 증거, 범위 변경, 또는 에스컬레이션된 재조립이 있으면 일부가 아니라 패스 전체를 보류합니다. 제출은 ActionType을 담지 않는 컨트롤 플레인 신호로 인그레스를 통과하므로, Forseti가 자체 이벤트 타입 테이블에서 `remediate.apply-preflight-toggle`을 바인딩하고 기본 휴먼 리뷰 판정이 유지됩니다. 게이트는 유한하지 않은 신선도 창이나 시간대가 없는 시계를 제출 이전에 거부하며, 보류 기록은 제한된 수의 발견 사항 ID만 유지합니다.
 운영 준비 상태 교정은 operator request와 분리된 전용 shadow 경로를 사용합니다. 공유 계약의
 다이제스트는 대상, 근거, 서로 다른 제출자와 승인자 신원, 권한을 부여하지 않는 필드를 묶습니다.
-ActionBuilder는 정확한 ORR 출처, `rule_violation` 또는 `both` ActionType, 완전한 인자, 활성
-온톨로지 릴리스 다이제스트만 허용합니다. 이 경로는 통합 risk-gate를 호출한 뒤 실행 권한 평가나
+ActionBuilder는 내용 주소 기반 요청에서 Action 신원을 만들고 정확한 ORR 출처,
+`rule_violation` 또는 `both` ActionType, 완전한 인자, 활성 온톨로지 릴리스의 정확한 ActionType
+선언만 허용합니다. 이 경로는 통합 risk-gate를 호출한 뒤 실행 권한 평가나
 실행 없이 shadow, 사람 승인 필요, 거부 또는 판단 보류로 끝납니다. 기존 제안을 요청으로 바꾸는
 게시자는 완전한 계약과 통제된 전달 근거를 제공할 수 있을 때까지 연결하지 않습니다.
 ![컨트롤 루프 배선. 주요 단계는 events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops입니다.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.ko.svg)

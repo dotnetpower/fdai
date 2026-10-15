@@ -1,7 +1,7 @@
 ---
 title: 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 translation_of: operational-readiness.md
-translation_source_sha: 188b291bbb6317f7b17d0b183dc5bf0390b335fc
+translation_source_sha: 53b6198bdc5ba80fdb1a469ad0373ac4668b4dd7
 translation_revised: 2026-10-15
 ---
 # 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
@@ -234,7 +234,7 @@ ORR 은 새로운 특권 표면을 도입하지 않고 최소한의 새 코드�
 | 자동 `ownership_transfer` 수집 및 책임 있는 검토 런타임 | implemented | [`composition/readiness.py`](../../../services/core-control-plane/src/fdai/composition/readiness.py), [`composition/readiness_catalog.py`](../../../services/core-control-plane/src/fdai/composition/readiness_catalog.py), [`runtime/consumers.py`](../../../services/core-control-plane/src/fdai/runtime/consumers.py), `runtime/bootstrap_*` 모듈 및 집중 런타임 테스트 | 표준 이벤트를 검증하고 중복을 제거합니다. 시작 시 고정된 WAF 카탈로그와 범위 인식 ARB 증거 제공자를 로드하고 자세/발행기 쌍이 있으면 shadow 작업 흐름에 전달합니다. |
 | 거버넌스가 적용된 런타임 근거를 포함하는 운영 자세, 체크리스트 및 보고서 발행기 연결 | in-progress | [`shared/providers/readiness.py`](../../../services/core-control-plane/src/fdai/shared/providers/readiness.py)의 제공자 연결부, 저장소 체크리스트 연결, 구성의 실패 시 차단되는 선택적 제공자 쌍 | 체크리스트 정의와 증거 투영은 연결되었습니다. 업스트림 런타임에는 아직 구체적인 운영 자세/보고 제공자나 거버넌스가 적용된 shadow 검토 증적이 없습니다. |
 | 근거가 있는 shadow 교정 제안, 구별된 승인자 경계 및 2단계 전달 감사 | implemented | [`core/readiness/remediation.py`](../../../services/core-control-plane/src/fdai/core/readiness/remediation.py), [`composition/readiness.py`](../../../services/core-control-plane/src/fdai/composition/readiness.py), [`test_remediation.py`](../../../services/core-control-plane/tests/core/readiness/test_remediation.py), [`test_readiness_remediation_service.py`](../../../services/core-control-plane/tests/composition/test_readiness_remediation_service.py) | 제안은 shadow 로 유지되고, 연결된 lever 를 인용하거나 abstain 하며, 승인자 신원을 기록하고, self-approval 을 차단하며, 실행기에 도달하지 않습니다. |
-| 타입 지정 ORR 교정 요청과 shadow risk-gate 수집 경로 | implemented | [`readiness_remediation.py`](../../../packages/service-contracts/src/fdai_service_contracts/readiness_remediation.py), [`action_builder.py`](../../../services/core-control-plane/src/fdai/core/executor/action_builder.py), [`control_loop/readiness_remediation.py`](../../../services/core-control-plane/src/fdai/core/control_loop/readiness_remediation.py) 및 집중 테스트 | 다이제스트가 대상 개정 버전, 근거, 신원, 권한 필드를 묶습니다. Core는 정확한 ORR 이벤트 출처의 shadow 요청만 받고, 완전한 인자를 갖춘 `rule_violation` 또는 `both` ActionType만 허용합니다. 활성 온톨로지 릴리스 다이제스트가 일치할 때 통합 risk-gate를 호출하며 이 출처의 요청은 실행하지 않습니다. |
+| 타입 지정 ORR 교정 요청과 shadow risk-gate 수집 경로 | implemented | [`readiness_remediation.py`](../../../packages/service-contracts/src/fdai_service_contracts/readiness_remediation.py), [`action_builder.py`](../../../services/core-control-plane/src/fdai/core/executor/action_builder.py), [`control_loop/readiness_remediation.py`](../../../services/core-control-plane/src/fdai/core/control_loop/readiness_remediation.py) 및 집중 테스트 | 다이제스트가 대상 개정 버전, 근거, 신원, 권한 필드를 묶습니다. Core는 내용 주소 기반 요청에서 Action 신원을 만들고 정확한 ORR 이벤트 출처의 shadow 요청만 받으며, 완전한 인자를 갖춘 `rule_violation` 또는 `both` ActionType만 허용합니다. 활성 온톨로지 릴리스와 ActionType 선언이 정확히 일치할 때 통합 risk-gate를 호출하며 이 출처의 요청은 실행하지 않습니다. |
 | 타입 지정 risk-gate 수집 경로에 대한 `RemediationProposalPublisher` 게시자 연결 | not-started | [`shared/providers/readiness.py`](../../../services/core-control-plane/src/fdai/shared/providers/readiness.py)의 프로바이더 연결부와 위 타입 지정 소비 경로 | 기존 제안을 완전한 타입 지정 요청으로 바꾸어 게시하는 구성 어댑터가 없습니다. 종단 간 전달을 증명하는 통제된 실제 증적도 없습니다. |
 
 ### 구현 이력
