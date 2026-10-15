@@ -15,6 +15,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from fdai_lifecycle_hub.catalog import ReleaseCatalog
 
+MAX_EXPORT_BYTES = 8 * 1024 * 1024
+
 
 class _Artifact(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
@@ -48,12 +50,12 @@ def load_pinned_export(
     """
     if minimum_revision < 0:
         raise ValueError("Release Hub minimum revision must be non-negative")
-    if len(raw) > 8 * 1024 * 1024:
+    if len(raw) > MAX_EXPORT_BYTES:
         raise ValueError("Release Hub export is too large")
     observed = hashlib.sha256(raw).hexdigest()
     if observed != expected_sha256:
         raise ValueError("Release Hub export digest does not match the trusted pin")
-    load_json_object(raw, label="local Release Hub export")
+    load_json_object(raw, label="local Release Hub export", max_bytes=MAX_EXPORT_BYTES)
     export = _Export.model_validate_json(raw)
     expires_at = datetime.fromisoformat(export.expires_at)
     if now.tzinfo is None or expires_at.tzinfo is None or now >= expires_at:

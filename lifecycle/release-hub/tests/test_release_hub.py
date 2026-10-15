@@ -157,6 +157,33 @@ def test_membership_and_recall_change_export_pin(store: ReleaseStore) -> None:
     assert len({first, second, third}) == 3
 
 
+def test_multi_release_export_above_one_mib_is_admitted(store: ReleaseStore) -> None:
+    for release_id in ("1.5.0", "1.6.0"):
+        manifest = (SAMPLES / f"{release_id}.json").read_text() + " " * 600_000
+        change(store, "register", release_id, manifest=manifest)
+        change(store, "publish", release_id)
+    raw, _ = store.export()
+    assert 1024 * 1024 < len(raw) < 8 * 1024 * 1024
+    assert set(admit(store).releases) == {"1.5.0", "1.6.0"}
+
+
+@pytest.mark.parametrize("extra_byte", [False, True])
+def test_export_size_boundary(store: ReleaseStore, extra_byte: bool) -> None:
+    publish(store)
+    raw, _ = store.export()
+    raw += b" " * (8 * 1024 * 1024 + int(extra_byte) - len(raw))
+    arguments = {
+        "expected_sha256": hashlib.sha256(raw).hexdigest(),
+        "public_key": store.key.public_key,
+        "now": NOW,
+    }
+    if extra_byte:
+        with pytest.raises(ValueError, match="too large"):
+            load_pinned_export(raw, **arguments)
+    else:
+        assert set(load_pinned_export(raw, **arguments).releases) == {"1.6.0"}
+
+
 def test_exact_signed_payload_and_canonical_digest_are_distinct(store: ReleaseStore) -> None:
     document = json.loads((SAMPLES / "1.6.0.json").read_text())
     raw = json.dumps(document, indent=4) + "\n"

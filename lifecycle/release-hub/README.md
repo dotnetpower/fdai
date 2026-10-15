@@ -38,6 +38,8 @@ exports, a lower revision, and a changed export at the same revision. Pins and r
 must be retained by the caller; automatic remote sync and durable consumer trust state are not
 implemented. Production root, snapshot, timestamp roles and key rotation remain future work.
 The default unsigned `load_catalog` development path stays unchanged.
+Local export admission accepts at most 8 MiB, including JSON decoding. Each manifest still
+passes the existing manifest parser's own size and schema limits independently.
 The canonical manifest digest identifies the parsed release, while the signed payload digest
 hashes its exact original bytes, including whitespace. The UI shows both; neither establishes
 registry availability or production trust.
