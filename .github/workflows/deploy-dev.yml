@@ -2229,7 +2229,7 @@ jobs:
           retention-days: 7
 
       - name: Run canary publisher smoke
-        if: ${{ inputs.apply && !inputs.deploy_design_mocks && env.PROVIDER_SCHEMA_ONLY != 'true' && env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' && env.RUNTIME_IMAGE_PROFILE != 'cost-governance' }}
+        if: ${{ inputs.apply && !inputs.deploy_design_mocks && env.PROVIDER_SCHEMA_ONLY != 'true' && env.DEPLOY_IDENTITY_MIGRATION_ONLY != 'true' && env.RCA_READER_IDENTITY_ONLY != 'true' && env.RUNTIME_IMAGE_PROFILE != 'cost-governance' }}
         run: bash ../scripts/deployment/azure/run-canary-smoke.sh
       - name: Record exact plan apply receipt
         if: ${{ inputs.apply && success() }}

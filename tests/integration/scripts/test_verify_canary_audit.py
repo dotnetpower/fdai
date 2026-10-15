@@ -188,6 +188,7 @@ def test_deploy_workflow_uses_deterministic_slot_and_consumed_audit_verifier() -
     )[0]
 
     assert "bash ../scripts/deployment/azure/run-canary-smoke.sh" in block
+    assert "env.RCA_READER_IDENTITY_ONLY != 'true'" in block
     assert 'slot="deploy-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"' in RUNNER
     assert '--env-vars "FDAI_CANARY_SLOT=$slot"' in RUNNER
     assert "--query name -o tsv" in RUNNER
