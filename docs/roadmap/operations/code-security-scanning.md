@@ -255,12 +255,15 @@ findings as resolved merely because the Go/Python dependency repairs pass.
 
 The entrypoint has two steps:
 
-1. `fdai-scan-runner prepare SOURCE_DIR` refreshes the Trivy and OSV offline databases into the
-   cache. It's the only step that uses the network. A folder without a lockfile has no
-   dependencies to scan, so OSV-Scanner's "no package sources" exit doesn't fail the step.
-2. `fdai-scan-runner scan ...` binds every catalog scanner, the cache, and each proof toolchain
-   the image carries, then runs the scan job. All scanners run inside the bubblewrap sandbox with
-   no network, and the toolchains take effect only with `--prove`.
+1. `fdai-scan-runner prepare-snapshot SOURCE_DIR ROOT` refreshes the Trivy and OSV offline
+  databases in private staging, publishes a read-only digest-named cache generation, and
+  atomically advances `ROOT/current.json`. It's the only step that uses the network. A folder
+  without a lockfile has no dependencies to scan, so OSV-Scanner's "no package sources" exit
+  doesn't fail the step.
+2. `fdai-scan-runner scan ...` validates and resolves the published cache pointer, binds every
+  catalog scanner and each proof toolchain the image carries, then runs the scan job. All scanners
+  run inside the bubblewrap sandbox with no network, and the toolchains take effect only with
+  `--prove`.
 
 bubblewrap needs unprivileged user namespaces under the execution venue's approved security
 policy. A namespace denial means that venue is unavailable, not a completed scan. The #2061
@@ -322,8 +325,8 @@ A snapshot has no commit, so it can't be the base of a remediation pack or of fi
 Commit first when you need either.
 
 `scripts/operations/code-security-scan.sh FOLDER` runs the same scan in the scan runner image. It
-builds the image and downloads the offline databases on first use, then scans with
-`--network none`:
+builds the image and publishes an immutable offline-database cache generation on first use, then
+validates that generation and scans with `--network none`:
 
 ```bash
 scripts/operations/code-security-scan.sh ~/src/payments-api --include-uncommitted --locale ko
