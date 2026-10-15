@@ -13,6 +13,21 @@ Azure focus: this document targets an Azure subscription. Non-Azure providers ar
 > Interactive source installation writes append-only numbered stages, bounded details, and elapsed
 > activity heartbeats. It doesn't clear the terminal, estimate provider completion, or treat
 > presentation progress as deployment readiness.
+## Separate Hub development validation
+
+The independent [two-Hub development root](../../../infra/hubs-development/README.md) prepares
+a vendor Release Hub and customer Target Lifecycle Hub with separate networks, ACA environments,
+PostgreSQL servers/databases, identities, vaults, and logs. It is not an additional FDAI
+installation path and does not replace the source installer or signed offline package.
+Its own managed-identity database roles, versioned development key references, explicit migration
+Jobs, Entra operator/service boundaries, and independent catalog-pin approval must be prepared
+before serving. RG names alone do not establish isolation.
+
+Only local containers and static Terraform validation are evidenced. Exact Azure preview,
+registry/runtime-architecture verification, real Entra/MI/private-data-plane denial, deployment,
+and replica replacement require a separately approved execution scope. Agent apply and complete
+FDAI installation remain outside this development path.
+
 ## Prerequisites
 
 ### Deployer Identity (Azure)
