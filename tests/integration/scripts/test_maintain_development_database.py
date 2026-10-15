@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
 
@@ -52,12 +53,20 @@ def test_max_bytes_defaults_to_one_gibibyte_and_rejects_unsafe_floor() -> None:
 def test_console_state_preparation_checks_and_applies_database_maintenance() -> None:
     source = _PREPARE.read_text(encoding="utf-8")
 
-    assert source.count("maintain-development-database.py") == 2
+    assert source.count("maintain-development-database.py") == 3
     assert 'maintain-development-database.py" --check' in source
     assert '--recreated-marker "$database_recreated_marker"' in source
+    assert '--preserved-state "$preserved_state"' in source
+    assert '--restore-preserved-state "$preserved_state"' in source
     assert 'reset-development-broker.py"' in source
     assert source.index('reset-development-broker.py"') < source.index(
-        'rm -f "$database_recreated_marker"'
+        '--restore-preserved-state "$preserved_state"'
+    )
+    assert source.index('done\n\nif [[ -f "$database_recreated_marker" ]]') < source.index(
+        '--restore-preserved-state "$preserved_state"'
+    )
+    assert source.index('--restore-preserved-state "$preserved_state"') < source.index(
+        'rm -f "$preserved_state" "$database_recreated_marker"'
     )
 
 
@@ -68,6 +77,71 @@ def test_recreated_marker_is_private(tmp_path: Path) -> None:
 
     assert marker.read_text(encoding="ascii") == "database_recreated\n"
     assert marker.stat().st_mode & 0o777 == 0o600
+
+
+def test_preserved_repository_state_is_private_and_round_trips(tmp_path: Path) -> None:
+    preserved = tmp_path / "state" / "preserved.json"
+    registration = {
+        "key": "runtime:code-security-repository:example-app",
+        "value": {
+            "kind": "code-security-repository",
+            "schema_version": "1.0.0",
+            "repository_alias": "example-app",
+            "provider": "github",
+            "location": "example/app",
+            "default_ref": "HEAD",
+            "exposure": "unknown",
+            "enabled": True,
+            "registered_at": "2026-10-14T00:00:00+00:00",
+            "registered_by": "owner@example.com",
+            "revision": 1,
+        },
+    }
+
+    _MODULE._write_preserved_state(preserved, [registration])
+
+    assert preserved.stat().st_mode & 0o777 == 0o600
+    assert _MODULE._read_preserved_state(preserved) == [registration]
+
+
+def test_preserved_repository_state_rejects_unknown_envelope(tmp_path: Path) -> None:
+    preserved = tmp_path / "preserved.json"
+    preserved.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0.0",
+                "code_security_repositories": [],
+                "unexpected": True,
+            }
+        ),
+        encoding="utf-8",
+    )
+    preserved.chmod(0o600)
+
+    with pytest.raises(ValueError, match="invalid envelope"):
+        _MODULE._read_preserved_state(preserved)
+
+
+@pytest.mark.parametrize("value", (None, "not-a-record", []))
+def test_preserved_repository_state_rejects_non_object_record(
+    tmp_path: Path, value: object
+) -> None:
+    preserved = tmp_path / "preserved.json"
+    preserved.write_text(
+        json.dumps(
+            {
+                "schema_version": "1.0.0",
+                "code_security_repositories": [
+                    {"key": "runtime:code-security-repository:example-app", "value": value}
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    preserved.chmod(0o600)
+
+    with pytest.raises(ValueError, match="malformed repository"):
+        _MODULE._read_preserved_state(preserved)
 
 
 def test_local_broker_defaults_are_bounded() -> None:

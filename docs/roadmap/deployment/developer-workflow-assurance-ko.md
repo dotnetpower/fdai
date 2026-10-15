@@ -1,7 +1,7 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: adc998581d32237349e3f9ff48cf04a82ff513ee
-translation_revised: 2026-10-12
+translation_source_sha: f7e42b6739099865815e8702415d78a1772821d2
+translation_revised: 2026-10-15
 ---
 
 # 개발 워크플로 보증
@@ -92,6 +92,10 @@ Terraform 상태를 초기화하거나 읽지 않으며 게이트웨이 검색�
 supervisor
 중지와 교체는 PID, checkout, lock fd 소유권 검사를 유지하면서 정본 실행기나 저장소 안의 정확한
 Copilot wrapper만 허용합니다.
+준비 과정은 다이제스트에 연결된 변경 불가능한 취약점 캐시 스냅샷도 게시하고, 작업자를 시작하기
+전에 포인터와 내용을 검증합니다. 캐시 무효화는 관련 없는 Core 소스 변경이 아니라 스캐너와 캐시
+계약을 따릅니다. 집중 실행기 및 캐시 테스트는 이 로컬 동작을 검증하지만, 진단 수집을 활성화하거나
+배포된 스캐너의 준비 완료를 입증하지는 않습니다.
 
 ![설계 개요. 주요 단계는 편집과 집중 검사, 워크플로 진단, 집중 커밋, 구조 pre-push, SHA 기반 CI, 원격 작업, 제한된 인계입니다.](../../diagrams/generated/fdai-roadmap-deployment-developer-workflow-assurance-01.ko.svg)
 

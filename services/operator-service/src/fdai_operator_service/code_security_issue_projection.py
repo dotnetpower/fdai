@@ -34,7 +34,7 @@ _PRODUCER = re.compile(r"^[A-Za-z0-9][A-Za-z0-9 ._+-]{0,63}$")
 _PRIORITIES = ("P0", "P1", "P2", "P3", "P4")
 _SEVERITIES = ("critical", "high", "medium", "low", "undetermined")
 _CONFIDENCES = ("hypothesis", "reported", "corroborated", "verified", "proven")
-_KEYS = frozenset(
+_BASE_KEYS = frozenset(
     {
         "issue_id",
         "priority",
@@ -49,11 +49,22 @@ _KEYS = frozenset(
         "known_exploited",
     }
 )
+_DETAIL_KEYS = frozenset(
+    {
+        "severity_floor",
+        "severity_ceiling",
+        "severity_rationale",
+        "deciding_facts",
+    }
+)
 _MAX_ISSUES = 200
+_MAX_ARTIFACT_RESULTS = 1000
 _MAX_ARTIFACT_BYTES = 900_000
 _FetchAll = Callable[[str, tuple[object, ...]], Awaitable[list[dict[str, Any]]]]
 _ROW_SQL = "SELECT key, value FROM state_kv WHERE key = %s LIMIT 1"
 _SCORECARD_KEYS = (
+    "total",
+    "determined",
     "critical",
     "high",
     "medium",
@@ -88,18 +99,29 @@ def _summary_artifacts(
     )
     html = (
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
         '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; '
         "style-src 'unsafe-inline'\"><title>FDAI code-security summary report</title>"
-        "<style>body{font-family:system-ui,sans-serif;margin:2rem}table{border-collapse:collapse}"
-        "th,td{border:1px solid #ccc;padding:.35rem .6rem;text-align:left}</style></head><body>"
+        "<style>*{box-sizing:border-box}body{max-width:1100px;margin:auto;"
+        "padding:clamp(1rem,4vw,3rem);"
+        "color:#202124;background:#f7f6f4;font:15px/1.5 system-ui,sans-serif}"
+        "h1{font-size:clamp(1.75rem,4vw,2.5rem)}p{max-width:76ch;color:#62666b}"
+        "div{overflow:hidden;border:1px solid #ddd9d3;border-radius:8px}"
+        "table{width:100%;table-layout:fixed;border-collapse:collapse;background:#fff}"
+        "th,td{padding:.65rem .75rem;text-align:left;vertical-align:top;"
+        "border-bottom:1px solid #ddd9d3;"
+        "overflow-wrap:anywhere}th{font-size:.75rem;color:#62666b;background:#f5f3f0}"
+        "@media(max-width:640px){table,tbody,tr,td{display:block}thead{display:none}"
+        "tr{border-bottom:1px solid #ddd9d3}}"
+        "</style></head><body>"
         "<h1>FDAI code-security summary report</h1>"
         "<p>Full review artifacts are unavailable. This report contains bounded issue metadata "
         "only, with no source code, scanner messages, paths, or code flows.</p>"
         f"<p><strong>Repository:</strong> {escape(repository_alias)}<br>"
         f"<strong>Revision:</strong> {escape(revision)}</p>"
-        "<table><thead><tr><th>Issue</th><th>Priority</th><th>Severity</th>"
+        "<div><table><thead><tr><th>Issue</th><th>Priority</th><th>Severity</th>"
         "<th>Confidence</th><th>Weakness class</th></tr></thead>"
-        f"<tbody>{rows}</tbody></table></body></html>\n"
+        f"<tbody>{rows}</tbody></table></div></body></html>\n"
     )
     sarif = {
         "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
@@ -139,7 +161,7 @@ def _sarif_issue_details(document: Mapping[str, object]) -> dict[str, dict[str, 
     if not isinstance(runs, list) or len(runs) != 1 or not isinstance(runs[0], Mapping):
         return {}
     raw_results = runs[0].get("results")
-    if not isinstance(raw_results, list) or len(raw_results) > _MAX_ISSUES:
+    if not isinstance(raw_results, list) or len(raw_results) > _MAX_ARTIFACT_RESULTS:
         return {}
     details: dict[str, dict[str, object]] = {}
     for result in raw_results:
@@ -151,6 +173,8 @@ def _sarif_issue_details(document: Mapping[str, object]) -> dict[str, dict[str, 
         issue_id = properties.get("issue_id")
         if not isinstance(issue_id, str) or _ISSUE.fullmatch(issue_id) is None:
             continue
+        if issue_id in details:
+            return {}
         title = properties.get("title")
         floor, ceiling = properties.get("severity_floor"), properties.get("severity_ceiling")
         rationale = properties.get("severity_rationale")
@@ -262,6 +286,7 @@ def _flow_steps(raw: object) -> list[dict[str, object]]:
 def _scorecard(issues: Sequence[Mapping[str, object]]) -> dict[str, int]:
     counts = {key: 0 for key in _SCORECARD_KEYS}
     for issue in issues:
+        counts["total"] += 1
         severity, priority = issue.get("severity"), issue.get("priority")
         if severity == "undetermined":
             counts["needs_review"] += 1
@@ -269,10 +294,42 @@ def _scorecard(issues: Sequence[Mapping[str, object]]) -> dict[str, int]:
             if ceiling in {"critical", "high", "medium", "low"}:
                 counts[f"potential_{ceiling}"] += 1
         elif severity == "low" and priority == "P4":
+            counts["determined"] += 1
             counts["informational"] += 1
         elif severity in {"critical", "high", "medium", "low"}:
+            counts["determined"] += 1
             counts[str(severity)] += 1
     return counts
+
+
+def _recorded_count(value: object) -> int | None:
+    return (
+        value
+        if isinstance(value, int) and not isinstance(value, bool) and 0 <= value <= 1_000_000
+        else None
+    )
+
+
+def _coverage_limits(document: Mapping[str, object]) -> list[str]:
+    runs = document.get("runs")
+    if not isinstance(runs, list) or len(runs) != 1 or not isinstance(runs[0], Mapping):
+        return []
+    invocations = runs[0].get("invocations")
+    if (
+        not isinstance(invocations, list)
+        or len(invocations) != 1
+        or not isinstance(invocations[0], Mapping)
+    ):
+        return []
+    properties = invocations[0].get("properties")
+    raw = properties.get("coverage_limits") if isinstance(properties, Mapping) else None
+    if (
+        not isinstance(raw, list)
+        or len(raw) > 16
+        or not all(isinstance(item, str) and 1 <= len(item) <= 256 for item in raw)
+    ):
+        return []
+    return list(raw)
 
 
 def _tokens(raw: object, pattern: re.Pattern[str], limit: int) -> list[str]:
@@ -284,7 +341,10 @@ def _tokens(raw: object, pattern: re.Pattern[str], limit: int) -> list[str]:
 
 
 def _issue(raw: object) -> dict[str, object]:
-    if not isinstance(raw, Mapping) or set(raw) != _KEYS:
+    if not isinstance(raw, Mapping) or set(raw) not in {
+        _BASE_KEYS,
+        _BASE_KEYS | _DETAIL_KEYS,
+    }:
         raise _MalformedError
     issue_id, weakness, package = raw["issue_id"], raw["weakness_class"], raw["package"]
     due, cwe = raw["due_days"], raw["cwe_ids"]
@@ -308,6 +368,25 @@ def _issue(raw: object) -> dict[str, object]:
         raise _MalformedError
     if not isinstance(raw["known_exploited"], bool):
         raise _MalformedError
+    detail = set(raw) == _BASE_KEYS | _DETAIL_KEYS
+    floor = raw.get("severity_floor") if detail else None
+    ceiling = raw.get("severity_ceiling") if detail else None
+    rationale = raw.get("severity_rationale") if detail else None
+    deciding = raw.get("deciding_facts") if detail else []
+    if not isinstance(deciding, list):
+        raise _MalformedError
+    if detail and (
+        floor not in _SEVERITIES[:-1]
+        or ceiling not in _SEVERITIES[:-1]
+        or not isinstance(rationale, str)
+        or not 1 <= len(rationale) <= 1024
+        or len(deciding) > 8
+        or not all(
+            isinstance(item, str) and re.fullmatch(r"^[a-z][a-z0-9_]{0,63}$", item)
+            for item in deciding
+        )
+    ):
+        raise _MalformedError
     return {
         "issue_id": issue_id,
         "priority": raw["priority"],
@@ -321,10 +400,10 @@ def _issue(raw: object) -> dict[str, object]:
         "producers": _tokens(raw["producers"], _PRODUCER, 8),
         "known_exploited": raw["known_exploited"],
         "title": None,
-        "severity_floor": None,
-        "severity_ceiling": None,
-        "severity_rationale": None,
-        "deciding_facts": [],
+        "severity_floor": floor,
+        "severity_ceiling": ceiling,
+        "severity_rationale": rationale,
+        "deciding_facts": list(deciding),
         "location": None,
         "code_context": None,
         "flow_steps": [],
@@ -349,6 +428,19 @@ def code_security_issues_projection(
         "truncated": False,
         "artifacts": None,
         "scorecard": {key: 0 for key in _SCORECARD_KEYS},
+        "coverage": {
+            "complete": False,
+            "limits": [],
+            "details_available": False,
+        },
+        "review_summary": {
+            "recorded_total": 0,
+            "recorded_determined": 0,
+            "recorded_needs_review": 0,
+            "shown_total": 0,
+            "truncated": False,
+            "recorded_by_severity": {severity: 0 for severity in _SEVERITIES},
+        },
     }
     package = review.get("package") if isinstance(review, Mapping) else None
     digest = package.get("review_digest") if isinstance(package, Mapping) else None
@@ -379,6 +471,12 @@ def code_security_issues_projection(
         gaps.append({"reason_code": GAP_ISSUES_TRUNCATED})
     artifacts: dict[str, str] | None = None
     artifact_details: dict[str, dict[str, object]] = {}
+    coverage_complete = (
+        package.get("coverage_complete")
+        if isinstance(package, Mapping) and isinstance(package.get("coverage_complete"), bool)
+        else False
+    )
+    coverage_limits: list[str] = []
     if artifacts_row is None:
         gaps.append({"reason_code": GAP_ARTIFACTS_UNAVAILABLE})
     elif artifacts_row.get("kind") == "code-security-review-artifacts-unavailable":
@@ -437,11 +535,30 @@ def code_security_issues_projection(
             gaps.append({"reason_code": GAP_ARTIFACTS_MALFORMED})
         else:
             artifact_details = _sarif_issue_details(sarif_document)
+            coverage_limits = _coverage_limits(sarif_document)
             artifacts = {"mode": "full", "html": html, "sarif": sarif}
     if artifact_details:
         issues = [{**issue, **artifact_details.get(str(issue["issue_id"]), {})} for issue in issues]
     if artifacts is None:
         artifacts = _summary_artifacts(repository_alias, revision, issues)
+    issue_count = package.get("issue_count") if isinstance(package, Mapping) else None
+    by_severity = package.get("by_severity") if isinstance(package, Mapping) else None
+    recorded_needs_review = (
+        _recorded_count(by_severity.get("undetermined")) or 0
+        if isinstance(by_severity, Mapping)
+        else 0
+    )
+    recorded_by_severity = {
+        severity: (
+            _recorded_count(by_severity.get(severity)) or 0
+            if isinstance(by_severity, Mapping)
+            else 0
+        )
+        for severity in _SEVERITIES
+    }
+    recorded_total = _recorded_count(issue_count)
+    if recorded_total is None:
+        recorded_total = len(issues)
     return {
         **base,
         "available": True,
@@ -450,6 +567,19 @@ def code_security_issues_projection(
         "truncated": truncated,
         "artifacts": artifacts,
         "scorecard": _scorecard(issues),
+        "coverage": {
+            "complete": coverage_complete,
+            "limits": coverage_limits,
+            "details_available": artifacts is not None and artifacts["mode"] == "full",
+        },
+        "review_summary": {
+            "recorded_total": recorded_total,
+            "recorded_determined": max(0, recorded_total - recorded_needs_review),
+            "recorded_needs_review": recorded_needs_review,
+            "shown_total": len(issues),
+            "truncated": truncated or len(raw_issues) > _MAX_ISSUES,
+            "recorded_by_severity": recorded_by_severity,
+        },
         "gaps": gaps,
     }
 

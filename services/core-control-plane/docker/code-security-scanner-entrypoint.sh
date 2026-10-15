@@ -28,6 +28,12 @@ BIN=/opt/scanners/bin
 run_with_scanners() {
   command="$1"
   shift
+  cache_json="$(python -m fdai.delivery.code_security_cli resolve-cache-snapshot --root "$CACHE")"
+  CACHE="$(
+    python -c 'import json,sys; print(json.load(sys.stdin)["cache_path"])' <<EOF
+$cache_json
+EOF
+  )"
   exec python -m fdai.delivery.code_security_cli "$command" \
     --scanner-bin "opengrep=$BIN/opengrep" \
     --scanner-bin "gitleaks=$BIN/gitleaks" \
@@ -59,7 +65,10 @@ case "${1:-}" in
     # osv-scanner exits 1 when it finds vulnerabilities and 128 when the folder has no lockfile.
     status=0
     OSV_SCANNER_LOCAL_DB_CACHE_DIRECTORY="$CACHE" "$BIN/osv-scanner" scan source \
-      --offline-vulnerabilities --download-offline-databases --recursive "$source_dir" \
+      --offline-vulnerabilities --download-offline-databases --recursive \
+      --experimental-exclude "g:**/.git/**" \
+      --experimental-exclude "g:**/.fdai/**" \
+      "$source_dir" \
       --format json > /dev/null || status=$?
     case "$status" in 0|1|128) ;; *) exit "$status" ;; esac
     echo '{"ok": true, "prepared": "'"$CACHE"'"}'

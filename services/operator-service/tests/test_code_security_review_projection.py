@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import UTC, datetime
 from typing import Any
 
@@ -632,6 +633,8 @@ def test_scorecard_keeps_undetermined_and_informational_separate() -> None:
         },
     )
     assert result["scorecard"] == {
+        "total": 2,
+        "determined": 1,
         "critical": 0,
         "high": 0,
         "medium": 0,
@@ -643,6 +646,198 @@ def test_scorecard_keeps_undetermined_and_informational_separate() -> None:
         "potential_medium": 0,
         "potential_low": 0,
     }
+
+
+def test_issue_projection_exposes_bounded_coverage_limits_from_full_artifacts() -> None:
+    review = _row(_package(coverage_complete=False))["value"]
+    result = code_security_issues_projection(
+        repository_alias="example-service",
+        revision=_REVISION,
+        review=review,
+        issues_row={
+            "review_digest": review["package"]["review_digest"],
+            "issues": [_summary()],
+            "truncated": False,
+        },
+        artifacts_row={
+            "kind": "code-security-review-artifacts",
+            "schema_version": "1.4.0",
+            "repository_alias": "example-service",
+            "revision": _REVISION,
+            "review_digest": review["package"]["review_digest"],
+            "recorded_at": "2026-10-10T00:00:00+00:00",
+            "html": "<!doctype html><title>report</title>",
+            "sarif": (
+                '{"version":"2.1.0","runs":[{"invocations":[{"properties":{'
+                '"coverage_limits":["scanner osv-scanner exited 127"]}}],"results":[]}]}'
+            ),
+        },
+    )
+
+    assert result["coverage"] == {
+        "complete": False,
+        "limits": ["scanner osv-scanner exited 127"],
+        "details_available": True,
+    }
+
+
+def test_issue_projection_separates_recorded_total_from_bounded_summaries() -> None:
+    review = _row(
+        _package(
+            issue_count=240,
+            by_severity={
+                "critical": 0,
+                "high": 33,
+                "medium": 28,
+                "low": 8,
+                "undetermined": 171,
+            },
+        )
+    )["value"]
+    result = code_security_issues_projection(
+        repository_alias="example-service",
+        revision=_REVISION,
+        review=review,
+        issues_row={
+            "review_digest": review["package"]["review_digest"],
+            "issues": [_summary()],
+            "truncated": True,
+        },
+    )
+
+    assert result["review_summary"] == {
+        "recorded_total": 240,
+        "recorded_determined": 69,
+        "recorded_needs_review": 171,
+        "shown_total": 1,
+        "truncated": True,
+        "recorded_by_severity": {
+            "critical": 0,
+            "high": 33,
+            "medium": 28,
+            "low": 8,
+            "undetermined": 171,
+        },
+    }
+
+
+def test_issue_projection_rejects_non_list_deciding_facts() -> None:
+    review = _row(_package())["value"]
+    for deciding in (["attack_vector"], None, "attack_vector", 7):
+        result = code_security_issues_projection(
+            repository_alias="example-service",
+            revision=_REVISION,
+            review=review,
+            issues_row={
+                "review_digest": review["package"]["review_digest"],
+                "issues": [
+                    _summary(
+                        severity_floor="medium",
+                        severity_ceiling="critical",
+                        severity_rationale="attacker position is unknown",
+                        deciding_facts=deciding,
+                    )
+                ],
+                "truncated": False,
+            },
+        )
+        if isinstance(deciding, list):
+            assert result["issues"][0]["deciding_facts"] == deciding
+        else:
+            assert result["issues"] == []
+            assert {"reason_code": "code_security_issue_malformed"} in result["gaps"]
+
+
+def test_full_artifact_keeps_details_when_review_has_more_than_200_results() -> None:
+    review = _row(_package())["value"]
+    results = [
+        {
+            "properties": {
+                "issue_id": "FDAI-SEC-0123456789ab",
+                "title": "Command injection",
+                "severity_floor": "medium",
+                "severity_ceiling": "critical",
+                "severity_rationale": "attacker position is unknown",
+                "deciding_facts": ["attack_vector"],
+            },
+            "locations": [
+                {
+                    "physicalLocation": {
+                        "artifactLocation": {"uri": "src/app.py"},
+                        "region": {"startLine": 42},
+                    }
+                }
+            ],
+        },
+        *[{"properties": {"issue_id": f"FDAI-SEC-{index:012x}"}} for index in range(1, 240)],
+    ]
+    result = code_security_issues_projection(
+        repository_alias="example-service",
+        revision=_REVISION,
+        review=review,
+        issues_row={
+            "review_digest": review["package"]["review_digest"],
+            "issues": [_summary()],
+            "truncated": True,
+        },
+        artifacts_row={
+            "kind": "code-security-review-artifacts",
+            "schema_version": "1.4.0",
+            "repository_alias": "example-service",
+            "revision": _REVISION,
+            "review_digest": review["package"]["review_digest"],
+            "recorded_at": "2026-10-10T00:00:00+00:00",
+            "html": "<!doctype html><title>report</title>",
+            "sarif": json.dumps({"version": "2.1.0", "runs": [{"results": results}]}),
+        },
+    )
+
+    assert result["issues"][0]["location"] == {"path": "src/app.py", "start_line": 42}
+
+
+def test_duplicate_artifact_issue_ids_fail_closed_to_summary_detail() -> None:
+    review = _row(_package())["value"]
+    duplicate = {
+        "properties": {
+            "issue_id": "FDAI-SEC-0123456789ab",
+            "severity_floor": "medium",
+            "severity_ceiling": "critical",
+            "severity_rationale": "attacker position is unknown",
+            "deciding_facts": ["attack_vector"],
+        },
+        "locations": [
+            {
+                "physicalLocation": {
+                    "artifactLocation": {"uri": "src/app.py"},
+                    "region": {"startLine": 42},
+                }
+            }
+        ],
+    }
+    result = code_security_issues_projection(
+        repository_alias="example-service",
+        revision=_REVISION,
+        review=review,
+        issues_row={
+            "review_digest": review["package"]["review_digest"],
+            "issues": [_summary()],
+            "truncated": False,
+        },
+        artifacts_row={
+            "kind": "code-security-review-artifacts",
+            "schema_version": "1.4.0",
+            "repository_alias": "example-service",
+            "revision": _REVISION,
+            "review_digest": review["package"]["review_digest"],
+            "recorded_at": "2026-10-10T00:00:00+00:00",
+            "html": "<!doctype html><title>report</title>",
+            "sarif": json.dumps(
+                {"version": "2.1.0", "runs": [{"results": [duplicate, duplicate]}]}
+            ),
+        },
+    )
+
+    assert result["issues"][0]["location"] is None
 
 
 async def test_reader_serves_issues_for_one_exact_review() -> None:

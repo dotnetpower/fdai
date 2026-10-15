@@ -403,7 +403,12 @@ High, Medium, Low, and Informational findings plus a separate Needs review count
 `undetermined` severity. Informational is a display triage bucket for canonical Low findings whose
 deterministic priority is P4; it is not a new canonical severity. Needs review also reports the
 number whose severity ceiling is Critical, High, Medium, or Low so uncertainty never becomes a
-false determined count.
+false determined count. The Console presents determined and potential severity separately, puts
+incomplete scanner coverage before issue counts, and bounds a rendered result page to 25 findings.
+Its search, producer, weakness, sort, and severity controls operate on the at-most-200 digest-bound
+summaries without changing their evidence. The self-contained HTML report uses the same count and
+range semantics, wraps opaque values, switches its issue table to stacked rows on narrow screens,
+and includes print styles without loading an external asset.
 
 The [Knowledge GitHub connection](../../runbooks/knowledge-github-sources.md) can also register
 a verified repository source, using either public read access or the deployment's read-only
@@ -592,7 +597,10 @@ updates `ROOT/current.json` only after preparation succeeds. Failed preparation 
 the current pointer. Bind the resulting `cache_subpath` and cache directory to the scanner
 worker's read-only cache PVC. A digest binds the observed bytes; it does not prove database
 freshness or package completeness, which still depend on provider metadata and scanner coverage.
-Deployment firewall configuration and a scheduled preparation job remain installation inputs.
+The managed local full-stack preparation applies the same contract: it prepares the snapshot after
+the scanner image, verifies `current.json` and the selected generation digest, and refuses to start
+the worker without a valid immutable cache. Deployment firewall configuration and a scheduled
+preparation job remain installation inputs.
 
 **State-store privilege.** Code-security records and the proposal outbox share the generic
 `state_kv` table, so the worker does not receive table grants. The Core migration
