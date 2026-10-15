@@ -300,5 +300,63 @@ python -m pytest -q --no-cov \
 These tests use a mechanical cluster seam and synthetic SQLite migration tables. They prove
 rendering, signed-input selection, ordering, failure handling, and recovery, not a running
 Operator, PostgreSQL, or kind installation. The existing nginx kind test remains demo evidence
-only. Real Operator install, update, and rollback need actual image caches and the dependencies
-above in a task-owned cluster; Docker was unavailable in the local implementation environment.
+only.
+
+### Real Operator kind validation
+
+`tests/test_kind_operator.py` is a separate opt-in test for the real `operator-service-v1`
+workload. It requires a dedicated `kind-fdai-operator-*` context and an otherwise unused
+`fdai-operator-*` namespace labeled `fdai.io/validation-owner=operator-kind`. It does not
+provision the foundation or skip missing prerequisites once the context is selected.
+
+Prepare the following task-owned dependencies before running it:
+
+- Official native ARM64 Operator and Core images, loaded into the kind nodes and addressable by
+  their immutable OCI manifest references. Set the source commit to the actual image revision.
+- Disposable PostgreSQL with the canonical legacy and service migrations and materialized
+  catalogs. Use isolated validation port `5433` and
+  `scripts/automation/with-local-test-database.py` for host-side database preparation, not the
+  runtime database or a remote database.
+- A real broker and running Core, reachable from the Operator Pods. Independently verify Core
+  readiness and initialized event consumers; the test's Operator health check alone does not
+  establish Core readiness.
+- Service accounts `operator-service` and `fdai-schema-check`; immutable Secrets
+  `operator-database` and `schema-reader`, each with a `FDAI_DATABASE_URL` key. Use the Operator
+  service role for the former and a read-only schema-check role for the latter.
+- Immutable ConfigMaps `operator-config-v1`, `operator-config-v2`, and
+  `operator-config-failure`, containing the real Operator runtime settings. The first two must
+  differ in a valid setting, such as statement timeout. The failure configuration must leave
+  `FDAI_API_AUDIENCE` empty to exercise startup failure and rollback.
+
+The valid configurations use issuer `https://operator-kind.example.test`, audience
+`operator-kind`, and JWKS URL `http://validation-jwks:8080/jwks.json`. The test creates a temporary
+namespace-local public JWKS server and an in-memory Reader token. It uses the real Operator JWT
+verification path; the JWKS server is only an authentication fixture.
+
+```bash
+export KUBECONFIG=/path/to/dedicated-kubeconfig
+export FDAI_OPERATOR_KIND_CONTEXT=kind-fdai-operator-example
+export FDAI_OPERATOR_KIND_NAMESPACE=fdai-operator-example
+export FDAI_OPERATOR_KIND_IMAGE='repository/operator@sha256:<native-arm64-manifest>'
+export FDAI_OPERATOR_KIND_CORE_IMAGE='repository/core@sha256:<native-arm64-manifest>'
+export FDAI_OPERATOR_KIND_SOURCE_COMMIT='<image-source-commit>'
+PYTHONPATH=lifecycle/agent/src:packages/deployment-cli/src:packages/service-contracts/src \
+  uv run --no-sync python -m pytest -q --no-cov -o faulthandler_timeout=300 \
+  lifecycle/agent/tests/test_kind_operator.py
+```
+
+The bounded scenarios verify signed install, a real **configuration revision** update using the
+same image, startup failure and restoration of the previous healthy configuration. After a real
+Deployment write, the harness interrupts the apply boundary and starts two separate Agent CLI
+processes to verify durable journal recovery and replay without another rollout. This models a
+process-loss boundary; it does not send an OS kill signal to the first Agent.
+
+Checks include the running image digest, Deployment configuration, Pod readiness and replacement,
+`/healthz`, an authenticated database-backed `/agents/activity` response, schema Job completion,
+and Agent state, report, and journal readback. Activity may be empty. The Hub remains a signed
+fixture with loopback HTTP transport for recovery, not the deployed Hub planner or enrollment
+flow. No live model request is required. This is not a schema migration, a different application
+image upgrade, a complete FDAI installation, or production validation.
+
+The test deletes its Operator workload, schema Jobs, and JWKS fixture. It leaves the pre-existing
+foundation and dedicated cluster for their owner to remove. Never point it at a shared namespace.
