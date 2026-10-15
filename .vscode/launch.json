@@ -151,7 +151,7 @@
       "name": "Console Web: Frontend",
       "type": "node-terminal",
       "request": "launch",
-      "command": "npm run dev -- --host 127.0.0.1 --port 5273 --strictPort",
+      "command": "npm run dev -- --host localhost --port 5273 --strictPort",
       "cwd": "${workspaceFolder}/console",
       "env": {
         "VITE_DEV_MODE": "0",
