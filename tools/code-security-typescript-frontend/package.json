@@ -5,7 +5,8 @@
   "license": "MIT",
   "type": "commonjs",
   "scripts": {
-    "test": "node --test test/*.test.cjs"
+    "test": "node --test test/*.test.cjs",
+    "evaluate": "node evaluate.cjs evaluation-corpus.json"
   },
   "dependencies": {
     "typescript": "5.9.3"

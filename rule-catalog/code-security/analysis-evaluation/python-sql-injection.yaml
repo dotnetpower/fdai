@@ -1,5 +1,6 @@
 schema_version: 1.0.0
 corpus_id: fdai.code-security.analysis.python-sql-injection
+language: python
 version: 1.0.0
 rule_id: fdai.python.sql-injection
 cases:

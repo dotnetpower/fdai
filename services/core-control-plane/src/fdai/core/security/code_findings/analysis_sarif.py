@@ -28,9 +28,9 @@ def render_analysis_sarif(result: AnalysisResult, rule: CodeSecurityRuleSpec) ->
     """Render bounded path evidence without source text or model-generated claims."""
     artifacts = sorted(
         {
-            node.span.path
+            node.span.path if node.span is not None else node.name
             for node in result.graph.nodes
-            if node.kind is GraphNodeKind.FILE and node.span is not None
+            if node.kind is GraphNodeKind.FILE
         }
     )
     results: list[dict[str, object]] = []
@@ -40,9 +40,7 @@ def render_analysis_sarif(result: AnalysisResult, rule: CodeSecurityRuleSpec) ->
             {
                 "ruleId": rule.rule_id,
                 "level": "error",
-                "message": {
-                    "text": "Untrusted input reaches SQL execution across function boundaries."
-                },
+                "message": {"text": f"Untrusted data reaches a {rule.rule_id} sink."},
                 "locations": [
                     {
                         "physicalLocation": {

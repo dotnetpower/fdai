@@ -440,9 +440,13 @@ function analyze(request) {
   return { graph, paths };
 }
 
-try {
-  process.stdout.write(`${JSON.stringify(analyze(readRequest()))}\n`);
-} catch (error) {
-  process.stderr.write(`${error instanceof Error ? error.message : "frontend failed"}\n`);
-  process.exitCode = 1;
+module.exports = { analyze };
+
+if (require.main === module) {
+  try {
+    process.stdout.write(`${JSON.stringify(analyze(readRequest()))}\n`);
+  } catch (error) {
+    process.stderr.write(`${error instanceof Error ? error.message : "frontend failed"}\n`);
+    process.exitCode = 1;
+  }
 }

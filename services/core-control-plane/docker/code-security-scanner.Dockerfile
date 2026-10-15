@@ -253,7 +253,8 @@ COPY --from=node /usr/share/fdai/node-runtime.cdx.json /usr/share/fdai/node-runt
 COPY --from=node /usr/lib/node_modules/typescript/ /usr/lib/node_modules/typescript/
 COPY tools/code-security-typescript-frontend/frontend.cjs /opt/fdai/typescript-frontend.cjs
 ENV FDAI_TYPESCRIPT_NODE=/usr/bin/node \
-    FDAI_TYPESCRIPT_FRONTEND=/opt/fdai/typescript-frontend.cjs
+    FDAI_TYPESCRIPT_FRONTEND=/opt/fdai/typescript-frontend.cjs \
+    NODE_PATH=/usr/lib/node_modules
 
 # The JavaScript profile also retains the Python proof lane and every scanner.
 FROM analysis-runtime AS prover-javascript

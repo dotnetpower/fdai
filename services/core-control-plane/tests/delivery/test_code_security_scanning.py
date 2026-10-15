@@ -664,6 +664,9 @@ def test_scan_runner_image_pins_every_tool_and_binds_every_scanner() -> None:
     assert "COPY --from=node /usr/share/fdai/node-runtime.cdx.json" in analysis_runtime
     assert "COPY --from=node /usr/lib/node_modules/typescript/" in analysis_runtime
     assert "COPY tools/code-security-typescript-frontend/frontend.cjs" in analysis_runtime
+    assert "NODE_PATH=/usr/lib/node_modules" in analysis_runtime
+    dockerignore = (_REPO_ROOT / ".dockerignore").read_text(encoding="utf-8")
+    assert "!tools/code-security-typescript-frontend/frontend.cjs" in dockerignore
     assert "ARG TYPESCRIPT_VERSION=5.9.3" in dockerfile
     assert re.search(r"ARG TYPESCRIPT_SHA512=[0-9a-f]{128}\n", dockerfile)
     assert '"${TYPESCRIPT_SHA512}  typescript.tgz" | sha512sum -c -' in dockerfile

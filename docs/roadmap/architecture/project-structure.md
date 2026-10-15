@@ -694,8 +694,10 @@ labeled evaluation corpora, including the code and dependency cases of the curat
 
 The FDAI-owned analysis engine remains inside the same boundary. `analysis_contracts.py` owns
 strict graph, rule, and path evidence; `python_graph.py` and `python_analysis.py` build bounded
-read-only Python evidence; `typescript_analysis.py` validates the root-confined Compiler API
-process under `tools/code-security-typescript-frontend/`; `analysis_sarif.py` returns both to
+read-only Python evidence; `analysis_incremental.py` owns strict snapshot reuse and conservative
+invalidation; `typescript_analysis.py` validates the root-confined Compiler API process under
+`tools/code-security-typescript-frontend/`; `java_analysis.py` owns the experimental tree-sitter
+Java SQL slice; `analysis_sarif.py` returns all results to
 canonical ingestion. Analysis rules, component terms, and frozen corpora stay in
 `rule-catalog/code-security/`; delivery only composes the lane and deterministically replays it for
 prepared and Kata scans. The scanner image pins the compiler and frontend. This adds no service,

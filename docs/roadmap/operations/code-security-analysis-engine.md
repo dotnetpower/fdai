@@ -8,15 +8,16 @@ This document defines the planned FDAI-owned code representation and interproced
 engine. It extends the existing isolated scanner, SARIF, verification, and findings pipeline with
 reproducible source-to-sink evidence instead of replacing the scanners that already work.
 
-> **Status:** Package 0 and the Python interprocedural slice are implemented. A confined TypeScript
-> Compiler API frontend and Python and TypeScript rules for four injection families are also
-> implemented, but TypeScript split evaluation, incremental invalidation, and verified LLM repair
-> remain incomplete. This is not a CodeQL parity claim. See the linked
+> **Status:** Package 0, the Python and TypeScript interprocedural slices, conservative incremental
+> reuse, and the verified-fix gate are implemented. An experimental tree-sitter Java SQL slice is
+> also implemented with separate held-out evidence. Java compiler-backed types and production
+> promotion remain future work. This is not a CodeQL parity claim. See the linked
 > [implementation ledger](../../roadmap-implementation/operations/code-security-analysis-engine.md).
 >
-> **Hardening:** Twenty independent critique rounds covered contracts, input and process bounds,
-> taint flow, replay, SARIF, and supply chain. After four evidence-backed repairs, the final ten
-> rounds left no Critical, High, Medium, or Low finding in the implemented scope.
+> **Hardening:** Forty independent critique rounds covered contracts, input and process bounds,
+> taint flow, replay, SARIF, evaluation, repair verification, and supply chain. After the two
+> repair cycles, the final ten rounds left no Critical, High, Medium, or Low finding in the
+> implemented scope.
 >
 > **Authority:** Analysis reads an exact source revision and emits evidence. Heimdall remains the
 > accountable agent for code-security observation. The engine is a mechanical worker and grants no
@@ -58,8 +59,8 @@ them rather than create another issue or authority model.
 | Python weakness verification | Flow-sensitive analysis inside one enclosing function | Replace only its analysis limit with a graph-backed interprocedural verifier after measured promotion |
 | JavaScript, TypeScript, Java, and C# verification | Opengrep taint rules plus bounded vetoes | Keep as evidence while owned frontends reach their promotion gates |
 | Canonical findings, severity, priority, SARIF, and remediation packs | Implemented | Consume owned-engine paths without changing their authority semantics |
-| Common code representation, call graph, and cross-file data flow | Not implemented | Add as the core of this design |
-| Context-sensitive calls, points-to facts, and incremental invalidation | Not implemented | Add in bounded stages after the first vertical slice |
+| Common code representation, call graph, and cross-file data flow | Implemented for bounded Python, TypeScript, and experimental Java slices | Extend only through language-specific evidence gates |
+| Context-sensitive calls, points-to facts, and incremental invalidation | Bounded call contexts, import aliases, exact unchanged reuse, and dependency-aware invalidation are implemented | Changed inputs conservatively run a full analysis; field-sensitive heap facts remain future work |
 
 The current Python verifier explicitly performs may-taint analysis over one function body. Treat
 that implementation as a measured baseline and regression oracle, not as the common graph model.
@@ -104,8 +105,9 @@ Each frontend implements the same staged contract:
 
 1. **Syntax:** Tree-sitter or a compiler parser supplies source spans and syntax structure.
 2. **Symbols and types:** the Python frontend starts with the standard AST and import model. The
-   TypeScript frontend uses the TypeScript Compiler API. Later frontends may use Roslyn, Java
-   compiler APIs, or Go type APIs.
+  TypeScript frontend uses the TypeScript Compiler API. The experimental Java SQL slice uses
+  tree-sitter and reports ambiguous dispatch as incomplete; it is not compiler-backed. Later
+  frontends may use Roslyn, Java compiler APIs, or Go type APIs.
 3. **Framework semantics:** versioned models map routes, request values, query APIs,
    authentication middleware, template output, command execution, and file access to common
    source, sink, sanitizer, and guard concepts.

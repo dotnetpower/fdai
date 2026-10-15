@@ -1,0 +1,54 @@
+schema_version: 1.0.0
+corpus_id: fdai.code-security.analysis.java-sql-injection
+language: java
+version: 1.0.0
+rule_id: fdai.java.sql-injection
+cases:
+  - case_id: dev-vulnerable-cross-file
+    split: dev
+    vulnerable: true
+    files:
+      Api.java: |
+        class Api {
+          Object search(Request request) {
+            return Store.run(request.getParameter("q"));
+          }
+        }
+      Store.java: |
+        class Store {
+          static Object run(String query) { return database.executeQuery(query); }
+        }
+  - case_id: dev-safe-parameterized
+    split: dev
+    vulnerable: false
+    files:
+      Store.java: |
+        class Store {
+          Object search(Request request) {
+            PreparedStatement statement = connection.prepareStatement("SELECT * FROM item WHERE id = ?");
+            statement.setString(1, request.getParameter("id"));
+            return statement.executeQuery();
+          }
+        }
+  - case_id: holdout-vulnerable-header
+    split: holdout
+    vulnerable: true
+    files:
+      Api.java: |
+        class Api {
+          Object orders(Request request) {
+            String query = "SELECT " + request.getHeader("x-filter");
+            return database.execute(query);
+          }
+        }
+  - case_id: holdout-safe-constant
+    split: holdout
+    vulnerable: false
+    files:
+      Health.java: |
+        class Health {
+          Object check(Request request) {
+            request.getParameter("unused");
+            return database.executeQuery("SELECT 1");
+          }
+        }

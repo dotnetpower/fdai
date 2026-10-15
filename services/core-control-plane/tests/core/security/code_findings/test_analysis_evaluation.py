@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import json
+from dataclasses import asdict
 from pathlib import Path
 
 import pytest
-from fdai.core.security.code_findings.analysis_evaluation import evaluate_python_analysis
+from fdai.core.security.code_findings.analysis_evaluation import (
+    evaluate_java_analysis,
+    evaluate_python_analysis,
+)
 from fdai.rule_catalog.code_security import CodeSecurityCatalogError
 from fdai.rule_catalog.code_security_analysis import load_analysis_rules
 from fdai.rule_catalog.code_security_analysis_components import load_analysis_components
@@ -67,6 +72,31 @@ def test_python_evaluation_meets_split_targets_without_unsupported_cases(
     assert receipt.holdout.precision == receipt.holdout.recall == receipt.holdout.f1 == 1.0
     assert receipt.dev.unsupported == receipt.holdout.unsupported == 0
     assert receipt.duration_ms >= 0 and receipt.peak_memory_kib >= 0
+
+
+def test_java_evaluation_meets_split_targets_without_unsupported_cases(tmp_path: Path) -> None:
+    corpus = load_analysis_evaluation_corpus(CATALOG_ROOT, "java-sql-injection")
+    rule = next(
+        item
+        for item in load_analysis_rules(CATALOG_ROOT)
+        if item.rule_id == "fdai.java.sql-injection"
+    )
+
+    receipt = evaluate_java_analysis(corpus, rule, tmp_path)
+
+    assert receipt.dev.precision == receipt.dev.recall == receipt.dev.f1 == 1.0
+    assert receipt.holdout.precision == receipt.holdout.recall == receipt.holdout.f1 == 1.0
+    assert receipt.dev.unsupported == receipt.holdout.unsupported == 0
+    assert receipt.duration_ms >= 0 and receipt.peak_memory_kib >= 0
+    recorded = json.loads(
+        (CATALOG_ROOT / "evaluation" / "java-analysis-1.0.0.json").read_text(encoding="utf-8")
+    )
+    observed = asdict(receipt)
+    recorded.pop("schema_version")
+    recorded.pop("resources")
+    observed.pop("duration_ms")
+    observed.pop("peak_memory_kib")
+    assert recorded == observed
 
 
 def test_corpus_requires_vulnerable_and_safe_cases_in_each_split() -> None:

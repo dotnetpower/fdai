@@ -42,6 +42,10 @@ restricted worker service. AKS runs one controller replica and launches scanner 
 existing Kata runtime, separate restricted namespaces, immutable scanner image, and source/cache
 PVC bindings. Both profiles share request, heartbeat, revision-watermark, and review contracts;
 runtime selection changes only identity, storage, network, and sandbox adapters.
+The scanner image build context excludes the repository-wide `tools/` tree and explicitly admits
+only the owned TypeScript frontend script required by the analysis runtime. The image binds the
+pinned global TypeScript module path and must load the frontend inside the built container before
+the runtime package is accepted. This packaging rule changes no runtime profile or authority.
 
 Operator production composition uses the same focused lifecycle, route-family, and read-source
 modules in every runtime profile. The internal ownership split changes no platform selection,

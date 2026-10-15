@@ -23,6 +23,11 @@ ui/
 mocks/
 examples/
 tools/
+!tools/
+tools/*
+!tools/code-security-typescript-frontend/
+tools/code-security-typescript-frontend/*
+!tools/code-security-typescript-frontend/frontend.cjs
 scripts/
 !scripts/deployment/azure/run_inventory_network_certification_migrations.py
 !scripts/deployment/local/materialize-authoritative-catalogs.py

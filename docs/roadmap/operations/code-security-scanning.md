@@ -141,20 +141,23 @@ repository lint with a file-level directive instead of a repository-wide exclusi
 
 ## FDAI-owned analysis lane
 
-The owned lane loads strict, versioned graph-flow rules and uses the standard Python AST or a
-pinned TypeScript Compiler API process without executing repository code. Python and TypeScript
-rules cover SQL injection, command injection, path traversal, and cross-site scripting. The lane
-records files, functions, symbols, basic blocks, calls, source and sink nodes, ordered path
-evidence, stable digests, and every parse, resolution, recursion, work-budget, or
-unsupported-frontend limit. The TypeScript CompilerHost reads only the exact source root and its
-pinned standard library.
+The owned lane loads strict, versioned graph-flow rules and uses the standard Python AST, a pinned
+TypeScript Compiler API process, or an experimental tree-sitter Java SQL frontend without
+executing repository code. Python and TypeScript rules cover SQL injection, command injection,
+path traversal, and cross-site scripting. Java currently covers SQL injection only and reports
+ambiguous dispatch as incomplete. The lane records files, functions, symbols, basic blocks, calls,
+source and sink nodes, ordered path evidence, stable digests, and every parse, resolution,
+recursion, work-budget, or unsupported-frontend limit. The TypeScript CompilerHost reads only the
+exact source root and its pinned standard library. Python can reuse a strict unchanged snapshot;
+changed inputs conservatively run a full analysis after dependency-aware invalidation planning.
 
 The lane renders SARIF 2.1.0 and re-enters the same bounded ingestion, canonical issue, receipt,
 review, export, prepared-result replay, and Kata reconstruction paths as other deterministic
 producers. A finding starts at `reported`; the owned lane does not bypass verifier promotion.
-The frozen synthetic `dev` and `holdout` baseline each contain one vulnerable and one safe case
-and currently measure precision and recall 1.0 with no unsupported case. Those four cases prove the
-harness and initial vertical slice, not real-code calibration or CodeQL parity.
+The separate frozen Python, TypeScript, and Java synthetic baselines each contain one vulnerable
+and one safe case in both `dev` and `holdout`, and currently measure precision and recall 1.0 with
+no unsupported case. Those receipts prove the harnesses and initial vertical slices, not real-code
+calibration, language parity, production promotion, or CodeQL parity.
 
 ## Coverage receipt
 

@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 65b50218346cd2219b9a8df55109979ccddcfd8e
+translation_source_sha: 928e9be5dc45f6f8934468e62233c35e00d13fcb
 translation_revised: 2026-10-15
 ---
 # 프로젝트 구조
@@ -672,8 +672,10 @@ Container Apps는
 
 FDAI 자체 분석 엔진도 같은 경계 안에 유지합니다. `analysis_contracts.py`는 엄격한 그래프, 규칙,
 경로 근거를 소유하고, `python_graph.py`와 `python_analysis.py`는 범위가 제한된 읽기 전용 Python
-근거를 만듭니다. `typescript_analysis.py`는 `tools/code-security-typescript-frontend/`의 루트 제한
-Compiler API 프로세스를 검증하고, `analysis_sarif.py`는 두 결과를 정본 수집 경로로 돌려보냅니다.
+근거를 만듭니다. `analysis_incremental.py`는 엄격한 스냅샷 재사용과 보수적인 무효화를 소유합니다.
+`typescript_analysis.py`는 `tools/code-security-typescript-frontend/`의 루트 제한 Compiler API
+프로세스를 검증하고, `java_analysis.py`는 실험적 tree-sitter Java SQL 시나리오를 소유합니다.
+`analysis_sarif.py`는 모든 결과를 정본 수집 경로로 돌려보냅니다.
 분석 규칙, 구성 요소 약관, 고정 코퍼스는 `rule-catalog/code-security/`에 유지합니다. 전달 계층은
 이 레인을 조립하고 prepared 및 Kata 스캔에서 결정론적으로 재현할 뿐이며, 스캐너 이미지는
 컴파일러와 프런트엔드를 고정합니다. 새 서비스, pantheon 에이전트, 저장소 쓰기, 승인 또는 실행

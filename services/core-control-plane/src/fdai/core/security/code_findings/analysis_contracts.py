@@ -221,6 +221,8 @@ class CodeSecurityRuleSpec(_StrictModel):
             raise ValueError("graph_flow rule requires source and sink selectors")
         if len(self.languages) != len(set(self.languages)):
             raise ValueError("rule languages must be unique")
+        if len(self.languages) != 1:
+            raise ValueError("analysis rules must bind exactly one language frontend")
         if len(self.cwe_ids) != len(set(self.cwe_ids)):
             raise ValueError("rule CWE ids must be unique")
         return self

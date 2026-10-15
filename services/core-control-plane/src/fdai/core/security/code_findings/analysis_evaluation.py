@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from fdai.core.security.code_findings.analysis_contracts import CodeSecurityRuleSpec
+from fdai.core.security.code_findings.java_analysis import analyze_java_repository
 from fdai.core.security.code_findings.python_analysis import analyze_python_repository
 from fdai.rule_catalog.code_security_analysis_evaluation import AnalysisEvaluationCorpus
 
@@ -78,6 +79,8 @@ def evaluate_python_analysis(
     """Evaluate every frozen case without executing repository code or using the network."""
     if corpus.rule_id != rule.rule_id:
         raise ValueError("evaluation corpus and rule identity differ")
+    if corpus.language != "python":
+        raise ValueError("Python evaluation requires a Python corpus")
     outcomes: dict[str, list[tuple[bool, bool, bool]]] = {"dev": [], "holdout": []}
     started = time.perf_counter_ns()
     tracemalloc.start()
@@ -115,8 +118,59 @@ def evaluate_python_analysis(
     )
 
 
+def evaluate_java_analysis(
+    corpus: AnalysisEvaluationCorpus,
+    rule: CodeSecurityRuleSpec,
+    work_root: Path,
+) -> AnalysisEvaluationReceipt:
+    """Evaluate a frozen Java corpus through the bounded tree-sitter frontend."""
+    if corpus.rule_id != rule.rule_id:
+        raise ValueError("evaluation corpus and rule identity differ")
+    if corpus.language != "java":
+        raise ValueError("Java evaluation requires a Java corpus")
+    outcomes: dict[str, list[tuple[bool, bool, bool]]] = {"dev": [], "holdout": []}
+    started = time.perf_counter_ns()
+    tracemalloc.start()
+    try:
+        for case in corpus.cases:
+            case_root = work_root / case.case_id
+            case_root.mkdir(parents=True, exist_ok=False)
+            for relative, source in case.files.items():
+                path = case_root / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(source, encoding="utf-8")
+            result = analyze_java_repository(
+                case_root,
+                revision=_REVISION,
+                build_context_digest=_DIGEST,
+                framework_model_digest=rule.digest(),
+                rule=rule,
+            )
+            if result is None:
+                outcomes[case.split].append((case.vulnerable, False, False))
+            else:
+                outcomes[case.split].append(
+                    (case.vulnerable, bool(result.paths), not result.graph.coverage_limits)
+                )
+        _, peak = tracemalloc.get_traced_memory()
+    finally:
+        tracemalloc.stop()
+    duration_ms = max(0, (time.perf_counter_ns() - started) // 1_000_000)
+    return AnalysisEvaluationReceipt(
+        corpus_id=corpus.corpus_id,
+        corpus_version=corpus.version,
+        rule_id=rule.rule_id,
+        rule_version=rule.version,
+        dev=_metrics(outcomes["dev"]),
+        holdout=_metrics(outcomes["holdout"]),
+        duration_ms=duration_ms,
+        peak_memory_kib=peak // 1024,
+    )
+
+
 __all__ = [
     "AnalysisEvaluationMetrics",
     "AnalysisEvaluationReceipt",
+    "evaluate_java_analysis",
     "evaluate_python_analysis",
 ]

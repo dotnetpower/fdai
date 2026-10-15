@@ -174,3 +174,45 @@ async def test_scan_job_dispatches_typescript_result_to_canonical_review(
     assert len(result.analysis_results) == 4
     assert result.issues[0].weakness_class == "sql_injection"
     assert result.package["coverage_complete"] is True
+
+
+async def test_scan_job_dispatches_java_result_to_canonical_review(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    source.mkdir()
+    (source / "Api.java").write_text(
+        "class Api { Object search(Request request) { "
+        'return Store.run(request.getParameter("q")); } }',
+        encoding="utf-8",
+    )
+    (source / "Store.java").write_text(
+        "class Store { static Object run(String query) { return database.executeQuery(query); } }",
+        encoding="utf-8",
+    )
+    rules = tuple(
+        rule
+        for rule in load_analysis_rules(CATALOG_ROOT)
+        if rule.rule_id == "fdai.java.sql-injection"
+    )
+
+    result = await run_scan_job(
+        ScanJobConfig(
+            repository="",
+            revision="",
+            repository_alias="example-service",
+            work_root=tmp_path / "work",
+            executables={},
+            rules_dir=CATALOG_ROOT / "rules",
+            required_scanners=frozenset(),
+            local_path=source,
+        ),
+        catalog=load_code_security_catalog(CATALOG_ROOT),
+        scanners=load_scanner_catalog(CATALOG_ROOT),
+        acquirer=_Acquirer(source),
+        sandbox=BubblewrapScannerSandbox(),
+        analysis_rules=rules,
+    )
+
+    assert len(result.analysis_results) == 1
+    assert len(result.issues) == 1
+    assert result.issues[0].weakness_class == "sql_injection"
+    assert result.package["coverage_complete"] is True

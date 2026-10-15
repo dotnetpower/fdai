@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0.0",
+  "corpus_id": "fdai.code-security.analysis.java-sql-injection",
+  "corpus_version": "1.0.0",
+  "rule_id": "fdai.java.sql-injection",
+  "rule_version": "1.0.0",
+  "dev": {
+    "true_positive": 1,
+    "false_positive": 0,
+    "false_negative": 0,
+    "true_negative": 1,
+    "unsupported": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0
+  },
+  "holdout": {
+    "true_positive": 1,
+    "false_positive": 0,
+    "false_negative": 0,
+    "true_negative": 1,
+    "unsupported": 0,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0
+  },
+  "resources": {
+    "duration_ms": 6,
+    "peak_memory_kib": 1981
+  }
+}

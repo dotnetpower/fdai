@@ -31,6 +31,10 @@ from fdai.core.security.code_findings import (
 from fdai.core.security.code_findings.analysis_contracts import CodeSecurityRuleSpec
 from fdai.core.security.code_findings.analysis_sarif import PRODUCER as ANALYSIS_PRODUCER
 from fdai.core.security.code_findings.analysis_sarif import render_analysis_sarif
+from fdai.core.security.code_findings.java_analysis import (
+    JavaAnalysisResult,
+    analyze_java_repository,
+)
 from fdai.core.security.code_findings.lens import (
     LensLaneReport,
     LensLaneUnavailableError,
@@ -108,7 +112,9 @@ class ScanJobResult:
     published: bool
     artifact_dir: Path
     sarif_files: tuple[Path, ...]
-    analysis_results: tuple[PythonAnalysisResult | TypeScriptAnalysisResult, ...] = ()
+    analysis_results: tuple[
+        JavaAnalysisResult | PythonAnalysisResult | TypeScriptAnalysisResult, ...
+    ] = ()
     lens_report: LensLaneReport | None = None
     verifier_results: tuple[VerifierResult, ...] = ()
     proof_results: tuple[ProofResult, ...] = ()
@@ -238,14 +244,16 @@ async def run_scan_job(
         except SarifIngestError as exc:
             observed[spec.producer] = False
             limits.append(f"scanner {scanner_id} produced invalid SARIF: {exc}")
-    analysis_results: list[PythonAnalysisResult | TypeScriptAnalysisResult] = []
+    analysis_results: list[
+        JavaAnalysisResult | PythonAnalysisResult | TypeScriptAnalysisResult
+    ] = []
     analysis_versions: dict[str, str] = {}
     if analysis_rules:
         build_context_digest = _digest_values(revision, source.tree_id)
         analysis_versions[ANALYSIS_PRODUCER] = f"owned:{_analysis_rules_digest(analysis_rules)}"
         observed[ANALYSIS_PRODUCER] = True
         for rule in analysis_rules:
-            result: PythonAnalysisResult | TypeScriptAnalysisResult | None
+            result: JavaAnalysisResult | PythonAnalysisResult | TypeScriptAnalysisResult | None
             if "python" in rule.languages and not _has_python_source(source.path):
                 continue
             if "python" in rule.languages:
@@ -278,6 +286,19 @@ async def run_scan_job(
                     continue
             elif "typescript" in rule.languages and not _has_typescript_source(source.path):
                 continue
+            elif "java" in rule.languages and not _has_java_source(source.path):
+                continue
+            elif "java" in rule.languages:
+                result = await asyncio.to_thread(
+                    analyze_java_repository,
+                    source.path,
+                    revision=revision,
+                    build_context_digest=build_context_digest,
+                    framework_model_digest=rule.digest(),
+                    rule=rule,
+                )
+                if result is None:
+                    continue
             else:
                 observed[ANALYSIS_PRODUCER] = False
                 limits.append(f"owned analysis rule {rule.rule_id} has no bound frontend")
@@ -495,6 +516,10 @@ def _has_typescript_source(root: Path) -> bool:
 
 def _has_python_source(root: Path) -> bool:
     return any(path.is_file() and not path.is_symlink() for path in root.rglob("*.py"))
+
+
+def _has_java_source(root: Path) -> bool:
+    return any(path.is_file() and not path.is_symlink() for path in root.rglob("*.java"))
 
 
 def _rules_versions(

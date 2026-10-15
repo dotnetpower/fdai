@@ -28,10 +28,10 @@ class AnalysisEvaluationCase(_Strict):
             path = PurePosixPath(raw)
             if (
                 path.is_absolute()
-                or path.suffix != ".py"
+                or path.suffix not in {".java", ".py"}
                 or any(part in {"", ".", ".."} for part in path.parts)
             ):
-                raise ValueError("evaluation file paths must be relative Python paths")
+                raise ValueError("evaluation file paths must use an allowed relative source path")
             if not source or len(source.encode("utf-8")) > 100_000:
                 raise ValueError("evaluation source must be non-empty and bounded")
         return value
@@ -39,7 +39,8 @@ class AnalysisEvaluationCase(_Strict):
 
 class AnalysisEvaluationCorpus(_Strict):
     schema_version: Literal["1.0.0"]
-    corpus_id: Literal["fdai.code-security.analysis.python-sql-injection"]
+    corpus_id: Annotated[str, Field(pattern=r"^fdai\.code-security\.analysis\.[a-z-]+$")]
+    language: Literal["java", "python"]
     version: Annotated[str, Field(pattern=r"^\d+\.\d+\.\d+$")]
     rule_id: Annotated[str, Field(pattern=r"^[a-z][a-z0-9.-]{2,127}$")]
     cases: Annotated[tuple[AnalysisEvaluationCase, ...], Field(min_length=4)]
@@ -55,12 +56,19 @@ class AnalysisEvaluationCorpus(_Strict):
         observed = {(case.split, case.vulnerable) for case in self.cases}
         if not required <= observed:
             raise ValueError("each evaluation split requires vulnerable and safe cases")
+        suffix = ".java" if self.language == "java" else ".py"
+        if any(PurePosixPath(path).suffix != suffix for case in self.cases for path in case.files):
+            raise ValueError("evaluation source paths must match the corpus language")
         return self
 
 
-def load_analysis_evaluation_corpus(root: Path) -> AnalysisEvaluationCorpus:
-    """Load the pinned Python SQL-injection evaluation corpus."""
-    path = root / "analysis-evaluation" / "python-sql-injection.yaml"
+def load_analysis_evaluation_corpus(
+    root: Path, name: str = "python-sql-injection"
+) -> AnalysisEvaluationCorpus:
+    """Load one pinned owned-analysis evaluation corpus by safe catalog name."""
+    if not name.replace("-", "").isalnum() or name.startswith("-"):
+        raise CodeSecurityCatalogError("invalid analysis evaluation corpus name")
+    path = root / "analysis-evaluation" / f"{name}.yaml"
     try:
         return AnalysisEvaluationCorpus.model_validate(
             yaml.safe_load(path.read_text(encoding="utf-8"))
