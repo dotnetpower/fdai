@@ -57,7 +57,9 @@ operation-filtered outbox claims, and a signed result consumer to the shared hos
 preferences, and producer health cannot satisfy WAF/CAF evidence or readiness. Existing assessment
 scope, catalog pins, admission, and readiness criteria are unchanged; no alert result updates them.
 The shared governance Console catalog also labels operator-override promotions on the Promotion
-gates view; those labels don't change assessment evidence, results, or readiness.
+gates view. An active capability recall forces that ActionType to shadow, removes it from the
+promotion-ready count, and displays the bounded reason. Neither labels nor recalls change
+assessment evidence, results, or readiness.
 Alert request history selects its own outbox namespace, principal and exact scope; its signed
 terminal and baseline detail are not framework-assessment receipts and never update WAF/CAF state.
 
