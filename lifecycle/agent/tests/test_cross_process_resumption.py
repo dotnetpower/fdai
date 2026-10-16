@@ -148,7 +148,7 @@ def namespace() -> Iterator[str]:
         api_client.close()
 
 
-def _write_fixtures(harness: Harness, root: Path) -> None:
+def _write_fixtures(harness: Harness, root: Path, *, preserve_current_state: bool = False) -> None:
     keys = root / "keys"
     keys.mkdir()
     for name, key in (
@@ -167,7 +167,8 @@ def _write_fixtures(harness: Harness, root: Path) -> None:
         for digest, artifact in artifacts.items():
             (directory / f"{digest}.json").write_bytes(artifact.payload)
             (directory / f"{digest}.sig").write_bytes(artifact.signature)
-    (root / "current-state.json").write_text(json.dumps(harness.state_document()))
+    if not preserve_current_state:
+        (root / "current-state.json").write_text(json.dumps(harness.state_document()))
     (root / "local-policy.json").write_text(
         json.dumps(
             {
@@ -185,7 +186,13 @@ def _write_fixtures(harness: Harness, root: Path) -> None:
 
 
 def _run_poll_once(
-    root: Path, hub_url: str, installation_id: str, namespace: str, *, health_timeout: float
+    root: Path,
+    hub_url: str,
+    installation_id: str,
+    namespace: str,
+    *,
+    health_timeout: float,
+    context: str = CONTEXT,
 ) -> subprocess.CompletedProcess[str]:
     """Run ``poll-once --apply`` as a real, separate OS process."""
 
@@ -226,7 +233,7 @@ def _run_poll_once(
             str(root / "local-policy.json"),
             "--apply",
             "--kube-context",
-            CONTEXT,
+            context,
             "--namespace",
             namespace,
             "--health-timeout-seconds",
