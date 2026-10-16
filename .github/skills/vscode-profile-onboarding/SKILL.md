@@ -1,6 +1,6 @@
 ---
 name: vscode-profile-onboarding
-description: "Configure, validate, troubleshoot, or explain the shared FDAI VS Code Profile and local servers. Use for VS Code setup, Profiles, extensions, WSL remote settings, editor slowness, Playwright tests, browser tools, screenshots, frontend visual validation, browser-tool slowness, onboarding, importing fdai.code-profile, or starting, restarting, and checking the Console, design mock server, backend, local servers, or full stack."
+description: "Configure, validate, troubleshoot, or explain the shared FDAI VS Code Profile and local servers. Use for VS Code setup, Profiles, extensions, WSL remote settings, Azure CLI login or tenant/subscription drift, editor slowness, Playwright tests, browser tools, screenshots, frontend visual validation, browser-tool slowness, onboarding, importing fdai.code-profile, or starting, restarting, and checking the Console, design mock server, backend, local servers, or full stack."
 argument-hint: "Set up or diagnose the FDAI VS Code Profile"
 ---
 
@@ -49,6 +49,15 @@ maintainer's local VS Code state.
 
 ## Local server start requests
 
+- Treat the Azure CLI login, default subscription, tenant, `AZURE_CONFIG_DIR`, and
+  `console/.env.local` as operator-owned inputs. A start, restart, or recovery request does not
+  authorize `az login`, `az logout`, `az account set`, profile replacement, or rewriting MSAL
+  tenant, client, and scope settings to make startup pass. Such changes require an explicit
+  request for that exact reconfiguration. If CLI identity, browser settings, and retained runtime
+  scope disagree, report the mismatch and stop; never restore an older generated runtime scope
+  over a newer operator login or select replacement app registrations automatically. Generated
+  `.fdai/local-*.env` files are derived state, not authority to change those inputs. Verify that
+  diagnostics leave the selected CLI context and user-owned Console environment unchanged.
 - Launch long-running local services through the committed VS Code tasks or launch configurations,
   never through a persistent `run_in_terminal` session. Copilot monitors its own persistent
   terminals for input and can inject a noisy input-needed notification into later chat turns when
@@ -137,6 +146,7 @@ deployment, resource mutation, promotion, or open-ended model campaign. Before a
 current state and reuse healthy components; preserve authentication, service roles, execution
 mode, restart guards, and stop-on-provider-error deadlines. A "do not ask again" preference
 avoids duplicate approval prompts; it is not blanket authorization for unrelated future work.
+It never authorizes implicit changes to operator-owned identity inputs described above.
 
 ## Playwright and browser-tool latency
 
