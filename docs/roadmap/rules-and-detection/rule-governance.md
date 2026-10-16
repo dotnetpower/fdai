@@ -422,7 +422,7 @@ reached the A1 default route, so adding a route for that category could have red
 - Changing a rule's logic bumps its `version`; changing an assignment's parameters/effect/scope is
   itself an audited, versioned change. A rule set **pins the `version` of each member rule** so a
   rule change cannot silently alter a promoted set.
-- **Rule revision upgrades (phase 1 implemented):** An activation generation pins each
+- **Rule revision upgrades (phases 1-9 implemented):** An activation generation pins each
   member's exact version and digest, and the ledger accepts only membership changes against an
   unchanged catalog, so changing an activated Rule's content makes an upgraded installation fail
   closed at startup. Until every phase below is operationally validated,
@@ -436,9 +436,31 @@ reached the A1 default route, so adding a route for that category could have red
   typed payloads and nested command proposal/generation payloads to version 1, reads pre-version
   records as legacy version 1, and writes version 1 only. Manifest, prepare, and acknowledgement
   kinds are fixed at the envelope boundary; their semantic state machines remain owned by phases
-  3 and 5. Phases 2 through 9 remain open. Phases 2 through 6 ship
-  dormant: they read and validate version 2 data but write none, and no version 2 digest or
-  pointer becomes authoritative before the approved identity upgrade in phase 7.
+  3 and 5. The retained `rule-revision-identities.json` registry now fixes each normalized Rule
+  definition and complete policy artifact closure to its exact OPA builder stage and normalization
+  implementation manifest. That manifest binds the normalizer, Rule/base/enum models, Python image,
+  and Pydantic/PyYAML versions. A bounded lexer distinguishes strings, raw strings, escapes, and
+  comments before dependency discovery. A static data prefix retains its complete package subtree,
+  including child modules under the entrypoint's own package, while bare-root references that
+  cannot produce a static closure fail closed.
+  The registry uses explicit `(rule_id, rule_version)` fields rather than a concatenated key, and
+  its checker appends a version bump while refusing to rewrite an existing revision. Signed
+  manifests now bind non-direct sources to one release, target generation, profile, catalog,
+  registry root, complete member set, deployment scope, bounded validity window, and nonce. A
+  separate trust policy owns key rotation, revocation freshness, and validity. Verification
+  compares every signed identity with an independently resolved local expectation, then reserves
+  the nonce durably but cannot move the active pointer. A dormant v2 identity context now separates
+  the full retained catalog manifest from the resolved active profile snapshot and generation
+  digest. Catalog growth alone therefore changes proposal provenance without changing active
+  identity. A dormant transition precondition retains every prior catalog revision, requires a
+  strictly increasing semantic profile version for active member changes within the same profile,
+  keeps cross-profile version namespaces independent, and preserves generation identity only
+  when profile id, version, and members are all unchanged during catalog-only growth. Phases 1-6
+  stay authority-neutral. Phase 7 is the only implemented cutover from the fenced version 1
+  pointer to the authority-bearing version 2 pointer; startup can read that result but cannot
+  originate it. Phase 8 moves one explicitly named revision and enforcing binding through one
+  approved authority CAS. Phase 9 retains rollback closure, serializes every new reference against
+  retirement, and runs rollback through the same cohort and authority CAS.
   1. **Dual-read codecs.** A compatibility release reads version 1 and 2 of every durable object
      and event (proposal and change union, approval, command, result, pointer, generation,
      idempotency row, manifest, and prepare and acknowledgement events) while still writing
@@ -447,17 +469,31 @@ reached the A1 default route, so adding a route for that category could have red
      definition digest and one policy identity; a digest change without a version bump is
      rejected, never approved. The policy identity digests a canonical executable bundle: the
      referenced Rego, its transitive modules and data, and the OPA and normalization versions.
-     Retained artifacts are stored by the full revision identity.
+     Retained artifacts are stored by the full revision identity. This phase is implemented as a
+     generated, append-only release registry, content-addressed retained definition and policy
+     bytes, plus a fail-closed CI checker. The CI caller supplies its exact base revision, and a
+     missing or unreadable baseline fails instead of disabling history checks. Merge-base
+     comparison prevents removal or rewriting of an earlier retained revision. It remains
+     authority-neutral: current activation generations still write version 1 and no registry
+     entry selects membership or enforcement.
   3. **Signed registry and manifests.** Every non-direct startup source, including pull-request
      sources, carries a signed activation manifest binding the release or package id, target
      generation, profile, catalog manifest, full member identities, registry root, issuance time,
      and deployment scope, with defined trust roots, rotation, revocation, and anti-replay. The
      unsigned installation fallback is removed. Signing proves artifact integrity only and never
-     replaces human approval.
+     replaces human approval. This phase is implemented as a versioned Ed25519 contract plus a
+     fail-closed trust verifier, exact local identity expectation, and durable nonce reservation.
+     No manifest is composed into
+     activation until the later cohort and approved identity-upgrade phases.
   4. **Identity separation.** The active generation digest covers only the active member
      identities and the resolved profile snapshot. The full catalog manifest digest, which indexes
      every revision identity, becomes proposal provenance and a transition precondition. A profile
      version identifies a resolved member snapshot, so every revision change bumps it.
+     This phase is implemented in an authority-neutral v2 contract. The signed-manifest
+     expectation is derived from the validated catalog/profile/generation context, while current
+     activation pointers and writes remain version 1. The transition identity joins source and
+     target catalog, profile, and generation digests and rejects revision carry-forward under an
+     unchanged or backward-moving version within the same profile.
   5. **Replica cohort protocol.** Activation follows a durable state machine: desired (approved,
      inert), prepared, active, and per-replica applied. Prepare freezes a cohort of authenticated
      replica ids, release ids, startup epochs, and serving leases. A keyed prepare announcement
@@ -470,12 +506,29 @@ reached the A1 default route, so adding a route for that category could have red
      authority-bearing active pointer, which prepare never touches, and that CAS binds the digest
      of the exact acknowledgement set. A replica records `applied` only after it
      replaces its complete T0 generation, and runtime evidence cites the replica's applied digest.
+     This phase is implemented as a dormant v2 cohort ledger. It freezes exact replica,
+     principal, release, startup epoch, and serving-lease identities; admits authenticated
+     acknowledgements or refusals; binds the exact acknowledgement-set digest to a CAS-selected
+     candidate-active record; fences expired or unacknowledged replicas; and retains applied
+     readback. PostgreSQL rechecks lease expiry at database linearization and atomically guards
+     candidate replacement plus applied insertion. Authentication binds the full frozen identity
+     and exact receipt digest. Each successor prepare CAS-chains from the latest authenticated
+     serving-inventory snapshot; replica removal or identity replacement requires independently
+     verified drain or lease-expiry evidence. Candidate selection atomically guards that exact
+     latest prepare. It never writes the version 1 active pointer.
   6. **Enforcement pins and dual-revision slots.** Every enforcing binding, including an explicit
      assignment, pins the revision it enforces. The runtime gains a prepared shadow slot keyed by
      full revision identity, so the old revision keeps enforcing while the new one evaluates in
      shadow, and every evaluation's evidence cites the revision identity it ran. Once every cohort
      replica reports the new revision applied, a separate approved CAS moves the binding. Combining revision and promotion
      in one approval requires the stronger promotion quorum and revision-keyed evidence.
+     This phase is implemented as dormant contracts and an immutable Core ledger. Every binding
+     pins one revision, the old slot stays enforce while the new slot is shadow, and evaluation
+     evidence cites revision, binding, and slot digests. A move candidate requires the exact ACK
+     set, every required replica applied to the slot's exact profile and revision, revision
+     evidence, and separate promotion approval verified through an injected authority provider.
+     Core derives the final approved enforce binding and move candidate from retained records.
+     It remains inert and never changes current enforcement.
   7. **Approved identity upgrade.** Moving existing version 1 generations to version 2 is an
      explicit command approved by a distinct human. It binds the source generation digest, every
      target member identity, the target generation digest, and the signed release, and verifies
@@ -483,14 +536,41 @@ reached the A1 default route, so adding a route for that category could have red
      the cohort protocol only after every serving binary is dual-read capable, and it is the
      cutover that makes version 2 authoritative. Startup may read back an approved upgrade but never
      originates one.
+     This phase is implemented as a reviewed-baseline contract, authenticated replica-capability
+     evidence bound into each cohort acknowledgement, a durable governance-attestation authority
+     provider, and an atomic Core cutover. The baseline proves each legacy member's exact mapping
+     to a revision whose digest covers the reviewed definition and policy identities. The cutover
+     rechecks the signed manifest reservation, exact candidate-active cohort, all applied replicas,
+     active approval profile, distinct approvers, and complete dual-read evidence. One transaction
+     then fences the version 1 pointer and inserts the version 2 authority pointer; a later version
+     1 writer is rejected, and an incomplete fence fails startup readback.
   8. **Revision changes.** A change names `rule_id`, the from and to revision identities, and the
      from and to catalog manifest and profile identities, all inside the approved proposal digest,
      and runs through the cohort protocol. Revisions never carry forward unattended.
+     This phase is implemented as a single-Rule proposal and an authority-bearing binding pointer.
+     The proposal contains the complete source/target identity transition, logical binding id,
+     signed target release, registry root, cohort, slot, and approved move candidate. It rejects
+     membership changes, multiple revision changes, and unrelated profile switches. Core rechecks
+     the exact source authority pointer, source and target profile snapshots, authenticated v2-write
+     acknowledgements, applied identities, manifest reservation, active approval profile, and
+     database-time serving leases. One transaction CASes both the generation pointer and the
+     binding pointer, so neither can become authoritative alone.
   9. **Retention and rollback.** A release or shared registry retains the full closure that
      supported rollback needs. A revision can't be retired while any active, desired, prepared,
      applied, or rollback-eligible generation, enforcement pin, or promotion record references
      it, and retirement is itself an approved, audited operation. Rollback is an approved
      transition through the same cohort protocol.
+     This phase is implemented as a bounded reference snapshot, approved retirement tombstone,
+     retained rollback eligibility, and rollback transition kind. Active, desired, latest
+     prepared, current candidate/applied, rollback-eligible, enforcement-pin, and promotion
+     references block retirement. Prepare, slot, move, desired, generation, binding, eligibility,
+     and retirement writes all serialize through one retention epoch; database transactions reject
+     a tombstoned target and prevent retirement from racing a new reference. Retirement verifies
+     the exact content-addressed registry closure and never deletes historical bytes. A rollback
+     must cite an unexpired eligibility record produced atomically by the transition it reverses,
+     use a new monotonically increasing profile version, regain the old member and binding through
+     a signed target manifest and fully applied v2-write cohort, and pass the same current
+     governance approval and pair CAS as a forward revision change.
 
   Request identity derives from the release, the proposal digest, and the target generation, so
   concurrent replicas converge by reading back the same record.

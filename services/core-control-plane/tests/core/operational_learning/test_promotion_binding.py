@@ -79,6 +79,7 @@ class _ReviewChanges(TypedDict, total=False):
     action_type_digest: str
     fdai_revision: str
     scenario_set_version: str
+    promotion_policy_digest: str
     candidate_digest: str
     package_digest: str
     replay_first_digest: str
@@ -187,6 +188,8 @@ class _Setup:
         self.batch = _with_admission(
             replace(_passing_batch(), reviewed_replay_binding=self.binding)
         )
+        self.receipt = _evaluator().evaluate(_action(), self.batch)
+        assert self.receipt.policy_digest is not None
         self.review = ReviewedReplayPromotionEvidence(
             action_type=self.batch.action_type_name,
             action_type_version=self.batch.action_type_version,
@@ -197,7 +200,8 @@ class _Setup:
             package_digest=self.binding.package_digest,
             replay_first_digest=self.binding.replay_first_digest,
             replay_second_digest=self.binding.replay_second_digest,
-            promotion_evidence_digest=self.batch.content_digest,
+            promotion_evidence_digest=self.receipt.evidence_digest,
+            promotion_policy_digest=self.receipt.policy_digest,
             review_ref="retained-review:one",
             reviewer_principal="independent-reviewer",
             approved=True,
@@ -206,7 +210,6 @@ class _Setup:
         self.source = _Source(self.batch)
         self.admissions = _Admissions(self.batch, self.review.reviewed_replay_digest)
         self.authority = self.new_authority()
-        self.receipt = _evaluator().evaluate(_action(), self.batch)
         self.args = {
             "action_type": self.review.action_type,
             "action_type_version": self.review.action_type_version,
@@ -214,6 +217,7 @@ class _Setup:
             "fdai_revision": self.review.fdai_revision,
             "scenario_set_version": self.review.scenario_set_version,
             "evidence_digest": self.review.promotion_evidence_digest,
+            "policy_digest": self.review.promotion_policy_digest,
         }
         return self
 
@@ -246,7 +250,7 @@ async def test_independent_bound_review_promotes_and_restart_revalidates(bound: 
         action_type_name=bound.batch.action_type_name,
         fdai_revision=bound.batch.fdai_revision,
         scenario_set_version=bound.batch.scenario_set_version,
-        evidence_digest=bound.batch.content_digest,
+        evidence_digest=bound.receipt.evidence_digest,
     )
     assert loaded == bound.receipt
     registry = StateStoreActionPromotionRegistry(
@@ -376,11 +380,11 @@ async def test_source_scope_is_revalidated_even_when_review_is_independently_adm
     bound.review = replace(
         bound.review,
         reviewed_replay_binding=binding,
-        promotion_evidence_digest=bound.batch.content_digest,
+        promotion_evidence_digest=_evaluator().evaluate(_action(), bound.batch).evidence_digest,
     )
     bound.source.batch = bound.batch
     bound.admissions = _Admissions(bound.batch, bound.review.reviewed_replay_digest)
-    args = {**bound.args, "evidence_digest": bound.batch.content_digest}
+    args = {**bound.args, "evidence_digest": bound.review.promotion_evidence_digest}
     assert not await bound.new_authority().prepare(**args)
 
 
@@ -398,6 +402,7 @@ async def test_independent_review_covers_attribution_and_action_identity(bound: 
         {"action_type_digest": "0" * 64},
         {"fdai_revision": "0" * 40},
         {"scenario_set_version": "other"},
+        {"promotion_policy_digest": "0" * 64},
         {"review_ref": "retained-review:other"},
         {"reviewer_principal": "another-reviewer"},
         {"approved": False},
@@ -710,13 +715,14 @@ async def test_passing_metrics_cannot_authorize_a_failing_admitted_batch_or_rest
         bound.batch, records=tuple(replace(record, correct=False) for record in bound.batch.records)
     )
     bound.batch = _with_admission(failing)
-    bound.review = replace(bound.review, promotion_evidence_digest=failing.content_digest)
+    evaluated = _evaluator().evaluate(_action(), bound.batch)
+    bound.review = replace(bound.review, promotion_evidence_digest=evaluated.evidence_digest)
     bound.source.batch = bound.batch
     bound.admissions = _Admissions(bound.batch, bound.review.reviewed_replay_digest)
-    bound.args["evidence_digest"] = failing.content_digest
-    assert not _evaluator().evaluate(_action(), bound.batch).ready
+    bound.args["evidence_digest"] = evaluated.evidence_digest
+    assert not evaluated.ready
     authority = bound.new_authority()
-    forged = replace(bound.receipt, evidence_digest=failing.content_digest)
+    forged = replace(bound.receipt, evidence_digest=evaluated.evidence_digest)
     assert forged.ready and forged.accuracy == 1.0
     assert not await authority.prepare(**bound.args)
     assert not ReviewedReplayReceiptVerifier(authority).verify(
@@ -792,3 +798,12 @@ async def test_current_case_metadata_must_be_the_materializers_actual_store(boun
             case_materializer=bound.materializer,
             case_metadata=InMemoryCaseHistoryMetadataStore(),
         )
+
+
+async def test_independently_reviewed_policy_must_match_current_evaluator(bound: _Setup) -> None:
+    bound.review = replace(bound.review, promotion_policy_digest="0" * 64)
+    bound.admissions.allowed.add(bound.review.reviewed_replay_digest)
+    args = {**bound.args, "policy_digest": bound.review.promotion_policy_digest}
+    authority = bound.new_authority()
+    assert not await authority.prepare(**args)
+    assert not authority.accepts(**args)

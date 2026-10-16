@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "postgresql-server.ssl-enforcement",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:665f879765af2f45fb898ec98ac34d3ac6ef396415086125c02910bf021dd7d0",
+    "policy_identity_digest": "sha256:d5fcd38e4d905f36202ae0ce1830a8beb11801cbf4d00b700e3432d829037c8b",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/postgresql/ssl_enforcement.rego",
+        "kind": "rego",
+        "content_digest": "sha256:51c6e2755480de794c66af02988253a45901f04bfa55ea8a5910e528dd3a638c"
+      }
+    ],
+    "revision_digest": "sha256:13bee8ebde7a7dfeb791dd59f467af3445b422b26fb8f56080b9cb80b37120e5"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "postgresql-server.ssl-enforcement",
+    "version": "1.0.0",
+    "source": "mcsb",
+    "severity": "high",
+    "category": "security",
+    "resource_type": "postgresql-server",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/postgresql/ssl_enforcement.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/postgresql/enforce_ssl.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.enable-encryption",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/security/benchmark/azure/mcsb-data-protection",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "postgresql-server"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.postgresql-server.ssl_enforcement"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "postgresql-server"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.postgresql-server.ssl_enforcement"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/postgresql/ssl_enforcement.rego",
+      "kind": "rego",
+      "content_digest": "sha256:51c6e2755480de794c66af02988253a45901f04bfa55ea8a5910e528dd3a638c",
+      "content": "# METADATA\n# title: Require SSL enforcement on postgresql-server\n# description: |\n#   A postgresql-server MUST enforce SSL; unencrypted client traffic\n#   to the database is a data-in-transit exposure.\n# custom:\n#   rule_id: postgresql-server.ssl-enforcement\n#   severity: high\n#   category: security\npackage fdai.postgresql.ssl_enforcement\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"postgresql-server\"\n  input.resource.props.ssl_enforcement != \"enabled\"\n}\n\ndeny_reason := \"ssl_enforcement_disabled\" if deny\n"
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "network.nsg.no-inbound-any-ssh",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:9e22f1322a8f4c432b22f0917b66a70aeb2d0f485bad0a75601f54067cef91a9",
+    "policy_identity_digest": "sha256:e76d5bf80a82fdc44ce3dc732fa6d82fb609831917b2b7bce6027d0539f0e879",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/network/nsg_no_inbound_any_ssh.rego",
+        "kind": "rego",
+        "content_digest": "sha256:b39e7382988fb34e77ca207235eba45e974670e9fd446ca688a1df4a0991e063"
+      }
+    ],
+    "revision_digest": "sha256:f0a526c88541d8b41abef82ec744b79d29c3c39c7869024b55cf62d93f1d4b06"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "network.nsg.no-inbound-any-ssh",
+    "version": "1.0.0",
+    "source": "mcsb",
+    "severity": "high",
+    "category": "security",
+    "resource_type": "network.nsg",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/network/nsg_no_inbound_any_ssh.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/network/nsg_scope_ssh_to_management.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.restrict-network-access",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/security/benchmark/azure/mcsb-network-security",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "network.nsg"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.network.nsg.security_rules"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "network.nsg"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.network.nsg.security_rules"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/network/nsg_no_inbound_any_ssh.rego",
+      "kind": "rego",
+      "content_digest": "sha256:b39e7382988fb34e77ca207235eba45e974670e9fd446ca688a1df4a0991e063",
+      "content": "# METADATA\n# title: Disallow any-source inbound SSH on network.nsg\n# description: |\n#   A network.nsg MUST NOT allow inbound TCP/22 from any source. Public\n#   SSH exposure is a credential-brute-force surface.\n# custom:\n#   rule_id: network.nsg.no-inbound-any-ssh\n#   severity: high\n#   category: security\npackage fdai.network.nsg_no_inbound_any_ssh\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"network.nsg\"\n  some rule in input.resource.props.security_rules\n  rule.direction == \"Inbound\"\n  rule.access == \"Allow\"\n  rule.protocol == \"Tcp\"\n  rule.destination_port_range == \"22\"\n  rule.source_address_prefix == \"*\"\n}\n\ndeny_reason := \"inbound_ssh_any\" if deny\n"
+    }
+  ]
+}

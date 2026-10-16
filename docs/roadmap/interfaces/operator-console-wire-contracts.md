@@ -14,6 +14,11 @@ Discussion uses existing stream, cancellation, deadline and durable terminal pro
 never Incident creation or action drafts. Console renders the returned position, critique,
 participant outcomes and held/verified conclusion without inferring operational truth from them.
 
+`GET /operations/runtime-state` is an authenticated Reader-role projection over one durable Core
+snapshot. It contains the exact 15 self-health signals and the version, configuration, rule-effect,
+override, discovery, canary, kill-switch, and break-glass fields as source-qualified digests,
+freshness, or explicit unavailable states. Operator validates and redacts the shared contract. It
+does not query providers, infer healthy defaults, approve a change, or gain execution authority.
 
 `GET /knowledge/github/sources` returns typed repository provenance and separate knowledge-read
 and scan-permission state. Owner-only `POST` on the same path accepts `connect` or `disconnect`,

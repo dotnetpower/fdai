@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "object-storage.https-only.required",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:c37b03be902c62ea21b15643e7cf59d4b109190e776b65a95ef8102b8599e28c",
+    "policy_identity_digest": "sha256:935968d7ebdeb64eb880405576ae57005f87939bdde9b1ab42fda862bb39edfd",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/object_storage/https_only_required.rego",
+        "kind": "rego",
+        "content_digest": "sha256:425c105086a14d328456b80a10e7e6009353a04f9d7f28958a618db0437ad7d4"
+      }
+    ],
+    "revision_digest": "sha256:68302e1653ad3df4765cff55377bb886c2477ee803891c3cb440dbfbd8fcd294"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "object-storage.https-only.required",
+    "version": "1.0.0",
+    "source": "mcsb",
+    "severity": "high",
+    "category": "security",
+    "resource_type": "object-storage",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/object_storage/https_only_required.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/object_storage/enforce_https_only.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.set-tls-policy",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/security/benchmark/azure/mcsb-data-protection",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "object-storage"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.object-storage.enable_https_traffic_only"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "object-storage"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.object-storage.enable_https_traffic_only"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/object_storage/https_only_required.rego",
+      "kind": "rego",
+      "content_digest": "sha256:425c105086a14d328456b80a10e7e6009353a04f9d7f28958a618db0437ad7d4",
+      "content": "# METADATA\n# title: Require HTTPS-only traffic on object-storage\n# description: |\n#   An object-storage account MUST reject HTTP; plaintext traffic to\n#   the account is a data-in-transit exposure.\n# custom:\n#   rule_id: object-storage.https-only.required\n#   severity: high\n#   category: security\npackage fdai.object_storage.https_only_required\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"object-storage\"\n  input.resource.props.enable_https_traffic_only != true\n}\n\ndeny_reason := \"https_only_disabled\" if deny\n"
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "object-storage.diagnostic-settings-required",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:1c47f7d07970879d44da378c342a97549aeccaa9af354c75039f45ebe54b340f",
+    "policy_identity_digest": "sha256:3daab74b61349ae9946a78efa69d615665635819757c68564042416e033a8514",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/object_storage/diagnostic_settings_required.rego",
+        "kind": "rego",
+        "content_digest": "sha256:54064ca0dc3bfc86a8beccbb47c3c94459a38e70677e3280b9846b77a781cb8b"
+      }
+    ],
+    "revision_digest": "sha256:1fa1df29179f3f154131a4a3c23353dbac4e016729c646ce9bce950bb5253c93"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "object-storage.diagnostic-settings-required",
+    "version": "1.0.0",
+    "source": "waf",
+    "severity": "medium",
+    "category": "reliability",
+    "resource_type": "object-storage",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/object_storage/diagnostic_settings_required.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/object_storage/attach_diagnostic_settings.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.enable-diagnostic-settings",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/azure/well-architected/operational-excellence/observability",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "object-storage"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.object-storage.diagnostic_settings"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "object-storage"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.object-storage.diagnostic_settings"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/object_storage/diagnostic_settings_required.rego",
+      "kind": "rego",
+      "content_digest": "sha256:54064ca0dc3bfc86a8beccbb47c3c94459a38e70677e3280b9846b77a781cb8b",
+      "content": "# METADATA\n# title: Require diagnostic-settings on object-storage\n# description: |\n#   An object-storage account MUST route storage/blob logs to a\n#   log-workspace for auditability.\n# custom:\n#   rule_id: object-storage.diagnostic-settings-required\n#   severity: medium\n#   category: reliability\npackage fdai.object_storage.diagnostic_settings_required\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"object-storage\"\n  count(input.resource.props.diagnostic_settings) == 0\n}\n\ndeny_reason := \"no_diagnostic_settings\" if deny\n"
+    }
+  ]
+}

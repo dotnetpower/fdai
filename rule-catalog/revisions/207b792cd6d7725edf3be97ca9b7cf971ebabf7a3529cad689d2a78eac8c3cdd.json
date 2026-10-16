@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "secret-store.public-network-access.disabled",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:fe8bb40a9956e3d571fec81f97a101a6b2c3e0fd10d4297386f697c96db09e66",
+    "policy_identity_digest": "sha256:b6e3662280ed393d6679da0d0a79e82a8946c50afe4b4a6331203829b895e777",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/secret_store/public_network_access_disabled.rego",
+        "kind": "rego",
+        "content_digest": "sha256:5377a475a076d713e7e822b4151178fcd51d1b9dfc5b7da7d34e16086e36eb17"
+      }
+    ],
+    "revision_digest": "sha256:207b792cd6d7725edf3be97ca9b7cf971ebabf7a3529cad689d2a78eac8c3cdd"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "secret-store.public-network-access.disabled",
+    "version": "1.0.0",
+    "source": "mcsb",
+    "severity": "high",
+    "category": "security",
+    "resource_type": "secret-store",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/secret_store/public_network_access_disabled.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/secret_store/disable_public_network_access.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.restrict-network-access",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/security/benchmark/azure/mcsb-network-security",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "secret-store"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.secret-store.public_network_access_enabled"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "secret-store"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.secret-store.public_network_access_enabled"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/secret_store/public_network_access_disabled.rego",
+      "kind": "rego",
+      "content_digest": "sha256:5377a475a076d713e7e822b4151178fcd51d1b9dfc5b7da7d34e16086e36eb17",
+      "content": "# METADATA\n# title: Disallow public network access on secret-store\n# description: |\n#   A secret-store MUST NOT accept traffic from the public internet;\n#   the vault should be reachable only through private-endpoints or\n#   the platform trusted-services bypass.\n# custom:\n#   rule_id: secret-store.public-network-access.disabled\n#   severity: high\n#   category: security\npackage fdai.secret_store.public_network_access_disabled\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"secret-store\"\n  input.resource.props.public_network_access_enabled == true\n}\n\ndeny_reason := \"public_network_access_enabled\" if deny\n"
+    }
+  ]
+}

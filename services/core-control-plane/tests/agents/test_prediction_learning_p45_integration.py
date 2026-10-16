@@ -248,6 +248,7 @@ def _promotion_receipt(
         action_type_version=action_type.version,
         action_type_digest=action_type_digest(action_type),
         evidence_digest="8" * 64,
+        policy_digest="9" * 64,
         observation_days=30.0,
         live_observation_days=30,
         sample_count=500,

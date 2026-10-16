@@ -15,6 +15,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 import psycopg
+from fdai_service_contracts.self_health import OperationalStateSnapshotV1
 from psycopg.rows import dict_row
 
 from fdai_operator_service.analyzer_lifecycle_projection import (
@@ -108,6 +109,8 @@ class RuntimeProjectionReader:
             return await self._detection_readiness()
         if query.operation == "configuration-baselines":
             return await self._configuration_baselines()
+        if query.operation == "runtime.operational-state":
+            return await self._operational_state()
         if query.operation in ASSURANCE_TWIN_OPERATIONS:
             return await read_assurance_twin_projection(query, self._fetch_all)
         if query.operation in CODE_SECURITY_OPERATIONS:
@@ -115,6 +118,36 @@ class RuntimeProjectionReader:
                 query.operation, self._fetch_all, query.params
             )
         return await self.fallback.read(query)
+
+    async def _operational_state(self) -> Mapping[str, object]:
+        rows = await self._fetch_all(
+            "SELECT value FROM state_kv WHERE key = %s LIMIT 1",
+            ("runtime:operational-state",),
+        )
+        if not rows:
+            raise ProjectionUnavailableError("runtime operational state is unavailable")
+        value = rows[0].get("value")
+        if not isinstance(value, Mapping):
+            raise ProjectionUnavailableError("runtime operational state is malformed")
+        revision = value.get("revision")
+        snapshot_raw = value.get("snapshot")
+        if (
+            isinstance(revision, bool)
+            or not isinstance(revision, int)
+            or revision < 1
+            or not isinstance(snapshot_raw, Mapping)
+        ):
+            raise ProjectionUnavailableError("runtime operational state is malformed")
+        try:
+            snapshot = OperationalStateSnapshotV1.model_validate(snapshot_raw)
+        except ValueError as exc:
+            raise ProjectionUnavailableError("runtime operational state is malformed") from exc
+        return {
+            "source": "postgresql:state_kv",
+            "durable": True,
+            "revision": revision,
+            "snapshot": snapshot.model_dump(mode="json"),
+        }
 
     async def _process_list(self, query: ProjectionQuery) -> Mapping[str, object]:
         workflow_ref = _last(query.params.get("workflow_ref"))

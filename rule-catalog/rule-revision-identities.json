@@ -1,0 +1,993 @@
+{
+  "schema_version": "1.0.0",
+  "revisions": [
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "cache.zone-redundant",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:44bc5ed64abc8e6de7786efc8c2b54f6a8fba5838017cac58014ffb47f776469",
+      "policy_identity_digest": "sha256:deb6732a6b9359f050e2fae99b83ffef6a006de8388c7c8145f1772a1cecb274",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/cache/zone_redundant.rego",
+          "kind": "rego",
+          "content_digest": "sha256:460a7dc6d9bde3b061ac991471e7a53866c77a6d3d75e056a5406f4518ed070a"
+        }
+      ],
+      "revision_digest": "sha256:cb269f00d1f0362c18b89326f1579171edd60fc1bcfd42313893294d4fb07af9"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "compute.vm-scale-set.zone-redundancy",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:468342df440ac3443b1fd9ee9a8ac8346cbaa7e73bd4445359f9f9482bf78290",
+      "policy_identity_digest": "sha256:1fd232c64ea28133da7455bff4ea7d92e66160e70dad5b00467cbb700e4c5126",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/compute/vmss_zone_redundancy.rego",
+          "kind": "rego",
+          "content_digest": "sha256:556f16df0c32cd5a8586e618cc15d833c2d0731a9304e698868adf97804fd1af"
+        }
+      ],
+      "revision_digest": "sha256:07a804fbe2e17bca40cd00ff25672f6e66e880a4195656a55eb5a2f714183571"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "compute.vm.environment-tag.required",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:6e45af28cb8c586908322d1d261fc286d47b9be80ca53452960e33160da6ca2d",
+      "policy_identity_digest": "sha256:ec59bc27c1623a72afa71417e642416f355e5ee580c16a1ea2e53bff79b20eef",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/compute/vm_environment_tag_required.rego",
+          "kind": "rego",
+          "content_digest": "sha256:56ef6f1f9841812aff5fed18a4d8dda55712f9f19febf5e493dcd9190a6ebbe3"
+        }
+      ],
+      "revision_digest": "sha256:8f867b5ab3d6dede5d708660838a55d125e5f1cf6cdf7a51022e9d9c009d4c62"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "compute.vm.managed-identity.assigned",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:f0a317875e47aa0a6516fb6df630670acfcc5113c626ef408716fd9c91466dda",
+      "policy_identity_digest": "sha256:f094e6fe93928f199c1be0a2549239fddb452e7f0e44622b046775cdd212d668",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/compute/vm_managed_identity_assigned.rego",
+          "kind": "rego",
+          "content_digest": "sha256:209e45339dcc51b3aae3cfb88899cc0090d14413148d3b87a1fc1be392b3795c"
+        }
+      ],
+      "revision_digest": "sha256:14e3b8efd20e0fe47f86e790c9f71432068bdb0b0f45afbfd3526f2ec3036a2a"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "disk.snapshot-policy.required",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:a5d213ab4e99d75aa5917c92aa165f6c43eaddbb52d6822de0d5a74158b00ab1",
+      "policy_identity_digest": "sha256:9e131b7f66e05b67dfb8d275911bfdc1042b3f2d083c846bf9c5eeee8d3b28ad",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/disk/snapshot_policy_required.rego",
+          "kind": "rego",
+          "content_digest": "sha256:b3d88c5cc58d8c00c9dd18cb63f2807fc135c4230404e1c1e570b08b0e456b0c"
+        }
+      ],
+      "revision_digest": "sha256:d4bb601bfa0098c32a6864310779f87fbf2926f537b4cae70c3d76653bef1b7f"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "kubernetes-cluster.diagnostic-settings-required",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:71f5af9aa23a1b455d42084144656e0cca1e869580f748a9ce6c3f0b022a98e4",
+      "policy_identity_digest": "sha256:5e834c08d443e05327f02ef7a36ca5cd465e512c94649bfa38c337fcdcb93d6a",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/kubernetes/diagnostic_settings_required.rego",
+          "kind": "rego",
+          "content_digest": "sha256:8a52d138b238d7b5d9ae21c433519f7137a8aa8f862f6bc2ac0503ad07946b20"
+        }
+      ],
+      "revision_digest": "sha256:7ff3f7b994861868312f984e9e3c126322ddf8bab930411eb0ac85bac3f63ad4"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "kubernetes-cluster.network-policy",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:1dcba19ad2f4c8b89697037ceb27f5f532f05db39446d072b89d6e7e11dbf32e",
+      "policy_identity_digest": "sha256:22822299f414c9ae76c5c38d7ab8a956fd3380648c9c7a2008f071920167ba07",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/kubernetes/network_policy_required.rego",
+          "kind": "rego",
+          "content_digest": "sha256:c07e5e7b7c7a4d7eb6685f81083deeb33a6e06d9322251cb7cfba9db73b37b95"
+        }
+      ],
+      "revision_digest": "sha256:b34543696f8e0d83b7cd274a44bb27e6bf868d7d8d6364f81975a21608dbdc27"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "kubernetes-cluster.private-cluster",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:62387da52c21502f5dbb3787076ce5f7fb61f71de56a9e66af39f1c50deb9a26",
+      "policy_identity_digest": "sha256:55340d0f3c5b8d5a54d7cfac6c80203d1394e76c515be9aad42f8597cf374fb7",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/kubernetes/private_cluster_required.rego",
+          "kind": "rego",
+          "content_digest": "sha256:659a30102c6f0adf58297faf999505f8c6335232d578b7b173884f19dd078ff6"
+        }
+      ],
+      "revision_digest": "sha256:1b4f3985e544c6e886dc8d0bc6fdd64455306b5c17b5b9f38ed3404df49f8333"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "kubernetes-cluster.rbac-enabled",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:05ee92b850d8e19a4dfdc54d73b6d4bce0a8255a3cd8b49a7943abbdf80efcc3",
+      "policy_identity_digest": "sha256:18b17884d06f76080115ff1da99f181794aab2e0b598c6e5dedcf3f0fed11986",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/kubernetes/rbac_enabled.rego",
+          "kind": "rego",
+          "content_digest": "sha256:e3ea6a90c62a7a44168c44b0f74e5fdde031b8725f3f23a47952f4b1b6cfbb2a"
+        }
+      ],
+      "revision_digest": "sha256:1b1ef5ca32625d5326c8cea7f90420d65a18d862816c01203b2f4a5ca22167d0"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "kubernetes-node-pool.multi-zone",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:0ed0830899077a068c525506134642368361e6684427091149be44b24537a8ea",
+      "policy_identity_digest": "sha256:225fabd882caa950574ce195534f7a8c04fff35d73bab65b0a170104d1bc936c",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/kubernetes/node_pool_multi_zone.rego",
+          "kind": "rego",
+          "content_digest": "sha256:1f19a9137f2cc4a6b82b5b9b16a6d8b88f259948a8b0f4b7959753c94b4c2f08"
+        }
+      ],
+      "revision_digest": "sha256:2f41f50a8c3e0b53b173ae74652fa02ed3073e7e402cfcd31acb1b0a1e8a78b8"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "llm-endpoint.t2-proposer-unavailable",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:5d50be62e905de8c576e64b4e96e218a03e1099e0e5f6bf9d5751c535cf7627f",
+      "policy_identity_digest": "sha256:b79fb33c89b7f63101ebe11b029d9d21e4280ea5057c53573f87e8a8fb1999f3",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/llm_endpoint/t2_proposer_unavailable.rego",
+          "kind": "rego",
+          "content_digest": "sha256:1ae59345e9a1b3c346b7b2612567b13ef898de71e8f6575f66a24724b4df9095"
+        }
+      ],
+      "revision_digest": "sha256:3dc75c653a4760dd56c18ea8e0859241366ef8d99187d5ebe124065ae8d7ca52"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "managed-identity.role-assignment.no-privileged-subscription-scope",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:1c727f60b49cd3c31b5a1d67908ef7f5a0fde0a0d1d931499a13265c62aa5bce",
+      "policy_identity_digest": "sha256:0f619cf7e5676c929736fed09e0ea67e9bf000f5747d8f89dd7a4bf1405866e2",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/managed_identity/no_privileged_subscription_scope.rego",
+          "kind": "rego",
+          "content_digest": "sha256:24c6c6720adede104bdab7018db29d77dc7d06790231fbb2bd45caed964fe1bc"
+        }
+      ],
+      "revision_digest": "sha256:f0b020370434ee357590d9f01124a6251eb4ef780e2da4f2527da5838dbae493"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "managed-identity.role-assignment.no-wildcard-action",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:9b037875647d64aef86cb60b4d10f5bdeb691b11d95b8319a7ef4c4e88f71519",
+      "policy_identity_digest": "sha256:7df4f6fd7658a893753d08318a6ffe7870c93d508162ee9c583158d674e1e15c",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/managed_identity/no_wildcard_action.rego",
+          "kind": "rego",
+          "content_digest": "sha256:ffd14fb6ab023596c4c623f420bd56253576e6e05f760d683b6d56bbf16a5049"
+        }
+      ],
+      "revision_digest": "sha256:e8a2a7f8dfa61b71c3919677cfd1056004b7300d06204df510d8160d87ff2928"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "network.nsg.no-inbound-any-rdp",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:f23284c18f5aa06f68203d4c97f1c393190223fabbdf7ad17d90331cfd4f898b",
+      "policy_identity_digest": "sha256:52f09c3a4229267089731da0ed583a1ad52e65ae58101d138b4870234584d504",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/network/nsg_no_inbound_any_rdp.rego",
+          "kind": "rego",
+          "content_digest": "sha256:370f2b60285d3fd8b660819eda107c19111a8f020ee8b65d2d449574414ba03d"
+        }
+      ],
+      "revision_digest": "sha256:a1e1930d92ec9ece7070d9f0bc8b21ccf055d006b8a022f4b86bbc4793602ce4"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "network.nsg.no-inbound-any-ssh",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:9e22f1322a8f4c432b22f0917b66a70aeb2d0f485bad0a75601f54067cef91a9",
+      "policy_identity_digest": "sha256:e76d5bf80a82fdc44ce3dc732fa6d82fb609831917b2b7bce6027d0539f0e879",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/network/nsg_no_inbound_any_ssh.rego",
+          "kind": "rego",
+          "content_digest": "sha256:b39e7382988fb34e77ca207235eba45e974670e9fd446ca688a1df4a0991e063"
+        }
+      ],
+      "revision_digest": "sha256:f0a526c88541d8b41abef82ec744b79d29c3c39c7869024b55cf62d93f1d4b06"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "network.nsg.no-internet-inbound-rdp",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:22c11ccff6cf047492254f0a56e60b19f6b0ab8cb4bad448767ec0667e5a3d3d",
+      "policy_identity_digest": "sha256:478736b5cf801e3c166862e629cf8ae81ac4373a1a68e2a39c2ba700425f82d3",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/network/nsg_no_internet_inbound_rdp.rego",
+          "kind": "rego",
+          "content_digest": "sha256:c0153808d3ae552b08cd88858fec347e6921d34b6bbca9cddf42e49c15cf1311"
+        }
+      ],
+      "revision_digest": "sha256:e8856280edd786f97160692eb7b3f9ec95b7062affeb73d1e8630f5ae6c4cc4a"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "network.nsg.no-internet-inbound-ssh",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:665d9fc64ed30dfb7c0973e68b64e156e2a685c68eab7d6c3c79a3b123f96e6e",
+      "policy_identity_digest": "sha256:f986a7be482c6f108c416fcb2694ebbf6096dd0e74d0defff2ba8fee50572aa2",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/network/nsg_no_internet_inbound_ssh.rego",
+          "kind": "rego",
+          "content_digest": "sha256:2b3d681a4bf007eeca00ab17f7f135310c4b7797141d27cc3cf5388a2dd67ab5"
+        }
+      ],
+      "revision_digest": "sha256:79ebf3829891fc68e1749bd2ad765ee488b5a80628912fc50f7f7eec5db5a973"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "network.vnet.ddos-plan.required",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:d9529bfe655710b5320cf2a1750a37adc20c44b0d7a699e0749d93663e97e88d",
+      "policy_identity_digest": "sha256:8180ff0b977a5d6fecd12fd156aa244da1633a3671f89384407d5ce8b4a50340",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/network/vnet_ddos_plan_required.rego",
+          "kind": "rego",
+          "content_digest": "sha256:ad3d4201116f6f420038df567d1de1276eb1fb7b0405cd5cb272e6698b23feca"
+        }
+      ],
+      "revision_digest": "sha256:41f0303b45bc99ebef5e95cac88fb8dc514e0f4a5f6f43c8a9fce307491f0879"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "object-storage.cost-center-tag.required",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:83b6d0a88e6d82639b02c66cc37512c56f213a7116a1d4320528de318f37dfad",
+      "policy_identity_digest": "sha256:b41d5497151a22d2d50165d220eff4d13a058e1ec7bd7dda8e364e1f2bb040c6",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/object_storage/cost_center_tag_required.rego",
+          "kind": "rego",
+          "content_digest": "sha256:43662ed237064cd01bcaeebe97111086bb4f7ab2707e7bad3a4dcd7e5653066d"
+        }
+      ],
+      "revision_digest": "sha256:85f8823dee1b377c98dd1d640aefd7d59c5ea4d9f57e8e8f91a7c71cf61f5476"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "object-storage.diagnostic-settings-required",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:1c47f7d07970879d44da378c342a97549aeccaa9af354c75039f45ebe54b340f",
+      "policy_identity_digest": "sha256:3daab74b61349ae9946a78efa69d615665635819757c68564042416e033a8514",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/object_storage/diagnostic_settings_required.rego",
+          "kind": "rego",
+          "content_digest": "sha256:54064ca0dc3bfc86a8beccbb47c3c94459a38e70677e3280b9846b77a781cb8b"
+        }
+      ],
+      "revision_digest": "sha256:1fa1df29179f3f154131a4a3c23353dbac4e016729c646ce9bce950bb5253c93"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "object-storage.encryption-at-rest.required",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:f1e647a9c1c584bbd907bcc531ed3c0682c31187e94e93181bff556626039059",
+      "policy_identity_digest": "sha256:f952967f04f57b25ba6af651e14d7a44bb010ed70f0689f2dae4bb7e81743af0",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/object_storage/encryption_at_rest_required.rego",
+          "kind": "rego",
+          "content_digest": "sha256:5948122a52c9b024d44e05229ec8f5b56a8270941c702fb2e5fb8f721630586e"
+        }
+      ],
+      "revision_digest": "sha256:164870bd300a5346bc084af9ce46062215d3f82766ab69317738795905876324"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "object-storage.https-only.required",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:c37b03be902c62ea21b15643e7cf59d4b109190e776b65a95ef8102b8599e28c",
+      "policy_identity_digest": "sha256:935968d7ebdeb64eb880405576ae57005f87939bdde9b1ab42fda862bb39edfd",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/object_storage/https_only_required.rego",
+          "kind": "rego",
+          "content_digest": "sha256:425c105086a14d328456b80a10e7e6009353a04f9d7f28958a618db0437ad7d4"
+        }
+      ],
+      "revision_digest": "sha256:68302e1653ad3df4765cff55377bb886c2477ee803891c3cb440dbfbd8fcd294"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "object-storage.min-tls-version",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:eb48a8b0c4ede059eda0416fbee8bf098ceae4fa2c5b6c3548ed3b3d5a5d42fe",
+      "policy_identity_digest": "sha256:c33f9b4af4c5e40e7d67f3fd406a3e3a68d9e043ceb554ec9f2814f2163a9f64",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/object_storage/min_tls_version.rego",
+          "kind": "rego",
+          "content_digest": "sha256:6a78b8fac761d3bd5f16ddc1a5227640f147b3cd13a93e813c0edbf3860a9225"
+        }
+      ],
+      "revision_digest": "sha256:671c39e77fd65d34d4deeb365aa53329edd1e987ed2138aa2fef8044e7d20b30"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "object-storage.owner-tag.required",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:b397eb4114aac3b54f27829d5235efccfc2449961b34b2a4032fa9a0b25f86e3",
+      "policy_identity_digest": "sha256:059ab985bd8b77d8e32aff65d3463c52cfef52c5e1b9c7cc01efdf9e4988b0cd",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/object_storage/owner_tag_required.rego",
+          "kind": "rego",
+          "content_digest": "sha256:7ba8011ff576db0a630716e4237345f15f1bdee52e805126dbe39a560ae06c54"
+        }
+      ],
+      "revision_digest": "sha256:7d90e882eb7f8c6911eb422da86e8f03e12541cc54e61cf721bcb36a8dd6f1c9"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "object-storage.private-endpoint.required",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:3c7893f16672b2297f201d0f02169e68b309b055e70cbf5f40412ce93228f99e",
+      "policy_identity_digest": "sha256:f1c5ca5d06a29743dd551cd030b6e0ad81bdba212456c52705ca93b8bfbe23cc",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/object_storage/private_endpoint_required.rego",
+          "kind": "rego",
+          "content_digest": "sha256:75a85fe72d53a5302dc03ff52f351d1de1176fb006aae2610f93d91b93a25bc3"
+        }
+      ],
+      "revision_digest": "sha256:d6f15b7ddf9f44ff456f4b5f4aabe873e8b9f4fcc4d0cc00a07bf5af5f99c5ba"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "object-storage.public-access.deny",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:0b4f3d64a3a7f5742d9e29265c94f322a5afa85bdc4565452c621161d3d4e086",
+      "policy_identity_digest": "sha256:ace322ff44970ebdaaeabeca046264055cf33c29734f85f850301f6d530aaeab",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/object_storage/public_access.rego",
+          "kind": "rego",
+          "content_digest": "sha256:26de99121b17f356b6f7d49218fa4e1d6731af79e66bddf4d3e59c0120770062"
+        }
+      ],
+      "revision_digest": "sha256:a9f6b5cacba6c6e44d426bf3b16d408a6fef7293d2c9c14020cb7b08a4986e85"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "object-storage.shared-key-access.disabled",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:d402a906cd8dc3b4523cc2b195085f178e0d39ad5e480909973a829edc3d7a8c",
+      "policy_identity_digest": "sha256:d98f3128e5b23d2089ea148672e7c1d306a36e136c99b1bb09adcda544bd1a8e",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/object_storage/shared_key_access_disabled.rego",
+          "kind": "rego",
+          "content_digest": "sha256:88ec032d8bbd010e7f3d801fe8c1a5f9707f71078f4935afb36e42606fb75fc0"
+        }
+      ],
+      "revision_digest": "sha256:58a0d61c19b78e2a6f4ac4f3e715c542cdc58d067db4fc304ab7926ffea9589c"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "object-storage.soft-delete-blob",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:f31842a30200913e727b84d3417dd6b95f44980d6a48db29162e6c3f98d4e84b",
+      "policy_identity_digest": "sha256:a51e2e91ee9c0dece6be33cde4bcc3d31ae200dbf60d79fa949caa855b1d5065",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/object_storage/blob_soft_delete.rego",
+          "kind": "rego",
+          "content_digest": "sha256:77c0110640557a3e6b82dd0dff0ccde08377ac709f87ca9a0d8240bc09f10c87"
+        }
+      ],
+      "revision_digest": "sha256:534b1b30365c60b051c3ef0d1f854b6e03190ad6f825656f73d42fe564b03747"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "object-storage.versioning-enabled",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:1e436a80125735431dcc28bc2d28ad98346c51ac1bb6c99be8c95e874061819d",
+      "policy_identity_digest": "sha256:69b9755d561062fe1ba7a873b1fa472911f068c957a40a452c21af08862d4d33",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/object_storage/blob_versioning.rego",
+          "kind": "rego",
+          "content_digest": "sha256:81798d6af356e7b123d05297ac30cc8c37cf109ff7cfb3e38e80a2a647c9cdee"
+        }
+      ],
+      "revision_digest": "sha256:056c2b668188cd325edc38b1e743c3600e295cf5fac6ef1ffd2cf6fca7fb14df"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "ops.change-summary",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:39962d8b53f887c9f3c0c4c0ef3252d17a169fe9fe4e80f5e1bcecb7e917269e",
+      "policy_identity_digest": "sha256:c58604d8b9d70b4a13278d35c44a5d98f3ee806ed94f9126625f7491b971ee9f",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/change_summary/publish_change_summary.rego",
+          "kind": "rego",
+          "content_digest": "sha256:82031e60641d3c4a42fba66964d7001f00d040b97ab53d52c6f5044cb178b91c"
+        }
+      ],
+      "revision_digest": "sha256:87e9fdc151623dc5ecc47229eb8a1af5093a8d9de7531837f507b74c938a60f0"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "postgresql-server.diagnostic-settings-required",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:e35afa69f417ede942085281cf9c3a1d001df0b05406540266c8acd3b06ac1ce",
+      "policy_identity_digest": "sha256:e8c87703e3e8c6a5136696a7233d5fa05a7ab49ea575c9221588b8340ec3bcee",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/postgresql/diagnostic_settings_required.rego",
+          "kind": "rego",
+          "content_digest": "sha256:d8b04549269fa537e9296e604bf95e81d761e51bd4864e7972f125924d552ed5"
+        }
+      ],
+      "revision_digest": "sha256:3429742926f9fbc0fc8cedd51db854f6b3c411a99c0975ed66c5f88d221e6884"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "postgresql-server.encryption-at-rest",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:a75ce5870368163886eb50067da4a1718d8bb50e37b28970a6b73399b099ee67",
+      "policy_identity_digest": "sha256:0752afa3e995579561aa6b8b74db84c6b40916f069b2cafc38cd59d0a3f4ed47",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/postgresql/encryption_at_rest.rego",
+          "kind": "rego",
+          "content_digest": "sha256:9bad91367cd8c174f8415db3bbeb17932300f64a0d8b22862f6f291313995fae"
+        }
+      ],
+      "revision_digest": "sha256:e04f6faed83807a4f6bcc0e41f8a4485854c30746aeee9f1a49faede5e62e5f9"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "postgresql-server.high-availability",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:6a62afdb7f5e18bce8a0194ce74f6487e157bf87177de8acb7479b5686fe6db0",
+      "policy_identity_digest": "sha256:54f47fe92fde282ccfa2f18590047fbdf714905500266d49c8311aa4f6f39da3",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/postgresql/high_availability.rego",
+          "kind": "rego",
+          "content_digest": "sha256:705ed71b0c38c724214ad026118447fe9b8828e1a47b305faac3a7cc13b8ae79"
+        }
+      ],
+      "revision_digest": "sha256:ab9e766ca292092854a10cdccb081be55656dc4dc9eb0335ae51f5176f96e0a6"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "postgresql-server.point-in-time-restore",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:134629e6584e7a7a3bf2d6c7770dff4b245566751ef247abcdef4e48ef2fd738",
+      "policy_identity_digest": "sha256:1f37f133401b9a0903fa8e5d165eb45a015d539730d40e4d9eb7b97e8556033d",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/postgresql/point_in_time_restore.rego",
+          "kind": "rego",
+          "content_digest": "sha256:f4ed0fc10d464bc567ffe8247f4b5bb247b767c6883e09f702d6ca15d9df1f77"
+        }
+      ],
+      "revision_digest": "sha256:50e967e2ebbf813f379be0db3bfb8a4b2a57b09d2631aa501523e01ad4e79365"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "postgresql-server.ssl-enforcement",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:665f879765af2f45fb898ec98ac34d3ac6ef396415086125c02910bf021dd7d0",
+      "policy_identity_digest": "sha256:d5fcd38e4d905f36202ae0ce1830a8beb11801cbf4d00b700e3432d829037c8b",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/postgresql/ssl_enforcement.rego",
+          "kind": "rego",
+          "content_digest": "sha256:51c6e2755480de794c66af02988253a45901f04bfa55ea8a5910e528dd3a638c"
+        }
+      ],
+      "revision_digest": "sha256:13bee8ebde7a7dfeb791dd59f467af3445b422b26fb8f56080b9cb80b37120e5"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "resource-group.cost-center-tag.required",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:14339b9efbc2ddd2b0859862d09173c4b783c4199558b5b37dc3ac68efd463c4",
+      "policy_identity_digest": "sha256:ee41a1b7a0231ed1184601a51400f0752fa5e54413fdcfd3aa1c7d25e88317e2",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/resource_group/cost_center_tag_required.rego",
+          "kind": "rego",
+          "content_digest": "sha256:0e6beb5ccd5f310203d50ad9e795b02e898b7b35e15edad90a8d4381567f6812"
+        }
+      ],
+      "revision_digest": "sha256:d9e40ef9bcd922cedb07c80b531aada9426a2c010557888005559d230334e9e1"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "resource-group.environment-tag.required",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:5405ff4a9f82852930e5ccaf439011d4981b0a421d0f9853cba6eab11506f24b",
+      "policy_identity_digest": "sha256:2ee0d6a501c74dd6fa9743846c3cc0830b4ee1c498473ed916ce80d4ca0f3614",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/resource_group/environment_tag_required.rego",
+          "kind": "rego",
+          "content_digest": "sha256:4c8ff5bc6c711ebff51a5a2f18c14052ecd568fd203dc096d45bf7f0212f232c"
+        }
+      ],
+      "revision_digest": "sha256:c8e8c4b8eb9f5afd9e7c489bc8ed4247dafc9994d02373b86129a430f262d30a"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "resource-group.owner-tag.required",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:16704207cd39583181559c4944e6d88d7e58c113c8c1575d539df5785d8008bf",
+      "policy_identity_digest": "sha256:1d4e701aadc305895177e1182512b38706d777e61ce9847f879df4392b067854",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/resource_group/owner_tag_required.rego",
+          "kind": "rego",
+          "content_digest": "sha256:08f5da5ea17cd063c86b78fc5bf97208676ab61aa1170b5a0b3c2624bd09dd1b"
+        }
+      ],
+      "revision_digest": "sha256:32bd33224d0d547740d788d7dc8cea27b0708053204ba0d08bd066ae6a80ad00"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "resource-group.role-assignment.owner-count-within-limit",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:6414ee5e97e026a1966951d1c8a7f1923340730cb9a70b9cd3d43f7cc8cfa31a",
+      "policy_identity_digest": "sha256:ac203110246f997f39c72b62fce89a73d054466713309a54cce28b1e30dcd64a",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/resource_group/owner_count_within_limit.rego",
+          "kind": "rego",
+          "content_digest": "sha256:7a26cd2088a1180a6df5e7a1b7b2195a191e115df75e24f29340887bd303b36c"
+        }
+      ],
+      "revision_digest": "sha256:1199e14914831f6af5e791cf10e9d236b0df3491e2186b186e80133b5ab0c368"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "secret-store.diagnostic-settings-required",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:22f96cafab0ec59cdcfb5ccdbab9c689531347afa7e7efce1b407d8db0f18fc5",
+      "policy_identity_digest": "sha256:76890e52729ef52141fd0cdcea0e1afa5f6eb8be39de07c402b8773acb16e01e",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/secret_store/diagnostic_settings_required.rego",
+          "kind": "rego",
+          "content_digest": "sha256:0d63f98f05fb7581c57ef71c9a4a23f8f9ec3729223bf0f23145dfa9f5feffa2"
+        }
+      ],
+      "revision_digest": "sha256:71034a781cc76b9d4fd114bd2de2115c6492f1775251270e0e11431f18693c7d"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "secret-store.public-network-access.disabled",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:fe8bb40a9956e3d571fec81f97a101a6b2c3e0fd10d4297386f697c96db09e66",
+      "policy_identity_digest": "sha256:b6e3662280ed393d6679da0d0a79e82a8946c50afe4b4a6331203829b895e777",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/secret_store/public_network_access_disabled.rego",
+          "kind": "rego",
+          "content_digest": "sha256:5377a475a076d713e7e822b4151178fcd51d1b9dfc5b7da7d34e16086e36eb17"
+        }
+      ],
+      "revision_digest": "sha256:207b792cd6d7725edf3be97ca9b7cf971ebabf7a3529cad689d2a78eac8c3cdd"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "secret-store.purge-protection.enabled",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:3dd2dfe21a1e02378efdd2d180763d8e6dd19d157d904e1f8fb8f5e246375d41",
+      "policy_identity_digest": "sha256:55b78bed92811e1c1f5e7038df1671bbd75706c9ee86493f4ca2ed12748583cf",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/secret_store/purge_protection_enabled.rego",
+          "kind": "rego",
+          "content_digest": "sha256:7c5984ee113e6d1a0f78efde367fe99f2cedfa57c10a7c49ad4994fe86788ed2"
+        }
+      ],
+      "revision_digest": "sha256:57f7fa508c98fe6a9e28d9e173d98d63cc61e534783726a0dcb63f83b70acc6e"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "secret-store.rbac-authorization.enabled",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:9cf291e84f37d722fb421d1ec09f9efbc6529043cf0004f7c0e1f99398023819",
+      "policy_identity_digest": "sha256:850e3a6c1b2ebd7d02506b9d958d00ae791d2d17d3d945d7411bd527ec06fae4",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/secret_store/rbac_authorization_enabled.rego",
+          "kind": "rego",
+          "content_digest": "sha256:44df256f59c036d9c46844bfc66de3648cd79fdcf299a7dc94fdc5040782059b"
+        }
+      ],
+      "revision_digest": "sha256:03e16847a672af074cd3a08bdc94ccf07852b09406ce08162deed891a5a352f3"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "secret-store.rotation-overdue",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:2b379c1d9c25f2ba587134f2bd17a8c11f1a9d21b8abdb85aa98f569e97be0ca",
+      "policy_identity_digest": "sha256:5032ce68d0abd49dd0ab455a8cdc75ba709dc7771f29ed1dc44e7e36358dbb7e",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/secret_store/rotation_overdue.rego",
+          "kind": "rego",
+          "content_digest": "sha256:4aa17c477a9ada4d18859730be10a67bfc4e7fbcd75d17051e303f7bed9ef43f"
+        }
+      ],
+      "revision_digest": "sha256:41513100c68f727592c38f127f961f6b99459e83dffcb44388f7da113d6a5b05"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "secret-store.soft-delete.enabled",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:2609054ab272a0d950398fcc4f0a47ec4324605b03b9f293b7b3b04b18d6f90e",
+      "policy_identity_digest": "sha256:cd6befa8e66cc2d9958e356d8e196c3f78c5bc4f663b638feca18d4b238472c6",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/secret_store/soft_delete_enabled.rego",
+          "kind": "rego",
+          "content_digest": "sha256:f56de9896083683b4ffcd6728c500fbf0fd539b47cc41875d7d59425e0a5c0f5"
+        }
+      ],
+      "revision_digest": "sha256:a6c8cd74118d349305802072353680436a936afb3eed808dea52db4f359989c2"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "sql-database.audit-enabled",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:4be5bb8f9c495174b4414746eb4650a2d88536ce4989a920e76f3d50f315a30b",
+      "policy_identity_digest": "sha256:bfc7af6b398416a06e9ab2135c9cf5c392ebb180910a78c2ad3c7a68df51e7d8",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/sql_database/audit_enabled.rego",
+          "kind": "rego",
+          "content_digest": "sha256:e2c6a3b181c2c447ab19fcc80ce317fbf789091606d3903e888e163afb33991e"
+        }
+      ],
+      "revision_digest": "sha256:adece52be6908d73687a2780880a87ca4708f2fa1d89ebcafb1e9fdd9a8cc553"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "sql-database.diagnostic-settings-required",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:82ecf4f824a0801a7377e1170bf42c5dc988d6f1a457c59879c9833b22be0307",
+      "policy_identity_digest": "sha256:f00ddf9f9c57905197d2cbf7c3ad81b70d59c684e73a3df9032c17745966a389",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/sql_database/diagnostic_settings_required.rego",
+          "kind": "rego",
+          "content_digest": "sha256:7a39f7617699467422d6292204cfd8b9c16aa023f357e857e82a47adbc1a3f5d"
+        }
+      ],
+      "revision_digest": "sha256:76b0527b02374a5885ba577b8f627447de5a1f6d450be029676ae14076de110c"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "sql-database.geo-redundant-backup",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:c50c2ed00fa79a186e18d8494be79d1e5f09a4a97898e96fc246f4c957100bf1",
+      "policy_identity_digest": "sha256:46b1dc7e9f41958cd5fe1f0df9eb7d883a0dde744a9c04ffdeee895abe56beb3",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/sql_database/geo_redundant_backup.rego",
+          "kind": "rego",
+          "content_digest": "sha256:116b5c02676b76e2f43ab9ec11c0b4edb7c1b24ed372e37599538dd12252ffea"
+        }
+      ],
+      "revision_digest": "sha256:65c941d08c9ff2cdaa34ce1b1ce04dfb7be15c99dba390f54544b948945904be"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "sql-database.tde-required",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:a17397604737ac6329ac33938a8dcbc1e4d5bd75ea6726a633aee7bed1f9cc95",
+      "policy_identity_digest": "sha256:6beb5a480b394f91b79cfd9c51ae317b4aedadbc8458b888bb4e8e63c56d9e5c",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/sql_database/tde_required.rego",
+          "kind": "rego",
+          "content_digest": "sha256:9299928b03473fb399d79989287f036e6591c456cd4cfdc6288c38786b52197f"
+        }
+      ],
+      "revision_digest": "sha256:b6db3d8f7d80cc0e10b8f2b099b6a3a7c22530c0e60a843241be4a86e2a7cfa9"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "sql-database.zone-redundant",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:02cc02c307ab712d2aa87c89560c0a38405d4174d61873b833cb2cf78299b4aa",
+      "policy_identity_digest": "sha256:5fe5476ae2b4b4e9b7c88ecf431db8f86fcb6a26da3bb069a1c6336260d2ddc5",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/sql_database/zone_redundant.rego",
+          "kind": "rego",
+          "content_digest": "sha256:5fb4b4d7e5e1a89d4068edac90d5d246ea777d7e2d56a8fd06bd5558cd2ed915"
+        }
+      ],
+      "revision_digest": "sha256:5d263b84bebac7832fac4df1c0bc23804ce14e4327ffdf9ffd881e1b5090b514"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "subscription.role-assignment.no-guest-privileged",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:85d7cb4177f805c4bc009861d78534f4d185a3e0ae85881f7a40dbc9e27e9a7a",
+      "policy_identity_digest": "sha256:9751bfe5ab05010dbbe9093e803854b41710c886c524a6eb35d9449dc2e89477",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/subscription/no_guest_privileged.rego",
+          "kind": "rego",
+          "content_digest": "sha256:a51a0a437c6c94ea42273b1ab3725d3252738bdb0f9c743ba672ef04037ed526"
+        }
+      ],
+      "revision_digest": "sha256:1594bcc851878ffbe69cd8f3fca04ae4b5c2c4833fb8554a61c90f0fbefe8d09"
+    },
+    {
+      "schema_version": "1.0.0",
+      "rule_id": "subscription.role-assignment.no-standing-privileged-access",
+      "rule_version": "1.0.0",
+      "definition_digest": "sha256:ac8478bf891bd1794137e87b073765ec06908285ac43816e48bb360530877603",
+      "policy_identity_digest": "sha256:ccfdddbf02ea5b207faf9ad32f24cd5d9cd8cdf2c2a1becb11a799c6e8d10a89",
+      "opa_version": "1.18.2",
+      "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+      "normalization_version": "1.0.0",
+      "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+      "artifacts": [
+        {
+          "path": "policies/subscription/no_standing_privileged_access.rego",
+          "kind": "rego",
+          "content_digest": "sha256:6670bf8d50b6948b38f6175ee6e6d7519bdb9d752acb42c9f92a6308f150373e"
+        }
+      ],
+      "revision_digest": "sha256:9e115aba9211071ef8c6c6bf0bc9bd2c76d5acad7cc90a83552f472f676b3ef1"
+    }
+  ]
+}

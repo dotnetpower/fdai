@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "cache.zone-redundant",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:44bc5ed64abc8e6de7786efc8c2b54f6a8fba5838017cac58014ffb47f776469",
+    "policy_identity_digest": "sha256:deb6732a6b9359f050e2fae99b83ffef6a006de8388c7c8145f1772a1cecb274",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/cache/zone_redundant.rego",
+        "kind": "rego",
+        "content_digest": "sha256:460a7dc6d9bde3b061ac991471e7a53866c77a6d3d75e056a5406f4518ed070a"
+      }
+    ],
+    "revision_digest": "sha256:cb269f00d1f0362c18b89326f1579171edd60fc1bcfd42313893294d4fb07af9"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "cache.zone-redundant",
+    "version": "1.0.0",
+    "source": "waf",
+    "severity": "high",
+    "category": "reliability",
+    "resource_type": "cache",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/cache/zone_redundant.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/cache/zone_redundant.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.enable-zone-redundancy",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/azure/well-architected/reliability/redundancy",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "cache"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.cache.zones"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "cache"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.cache.zones"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/cache/zone_redundant.rego",
+      "kind": "rego",
+      "content_digest": "sha256:460a7dc6d9bde3b061ac991471e7a53866c77a6d3d75e056a5406f4518ed070a",
+      "content": "# METADATA\n# title: Require zone-redundant cache\n# description: |\n#   A cache MUST span at least two availability zones so a zone\n#   outage does not evict the whole cache.\n# custom:\n#   rule_id: cache.zone-redundant\n#   severity: high\n#   category: reliability\npackage fdai.cache.zone_redundant\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"cache\"\n  count(input.resource.props.zones) < 2\n}\n\ndeny_reason := \"cache_single_zone\" if deny\n"
+    }
+  ]
+}

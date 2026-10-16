@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "postgresql-server.high-availability",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:6a62afdb7f5e18bce8a0194ce74f6487e157bf87177de8acb7479b5686fe6db0",
+    "policy_identity_digest": "sha256:54f47fe92fde282ccfa2f18590047fbdf714905500266d49c8311aa4f6f39da3",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/postgresql/high_availability.rego",
+        "kind": "rego",
+        "content_digest": "sha256:705ed71b0c38c724214ad026118447fe9b8828e1a47b305faac3a7cc13b8ae79"
+      }
+    ],
+    "revision_digest": "sha256:ab9e766ca292092854a10cdccb081be55656dc4dc9eb0335ae51f5176f96e0a6"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "postgresql-server.high-availability",
+    "version": "1.0.0",
+    "source": "waf",
+    "severity": "high",
+    "category": "reliability",
+    "resource_type": "postgresql-server",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/postgresql/high_availability.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/postgresql/enable_zone_redundant_ha.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.enable-zone-redundancy",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/azure/well-architected/reliability/redundancy",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "postgresql-server"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.postgresql-server.ha_mode"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "postgresql-server"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.postgresql-server.ha_mode"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/postgresql/high_availability.rego",
+      "kind": "rego",
+      "content_digest": "sha256:705ed71b0c38c724214ad026118447fe9b8828e1a47b305faac3a7cc13b8ae79",
+      "content": "# METADATA\n# title: Require zone-redundant HA on postgresql-server\n# description: |\n#   A postgresql-server MUST run in zone-redundant HA mode to survive\n#   a zone outage without operator action.\n# custom:\n#   rule_id: postgresql-server.high-availability\n#   severity: high\n#   category: reliability\npackage fdai.postgresql.high_availability\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"postgresql-server\"\n  input.resource.props.ha_mode != \"ZoneRedundant\"\n}\n\ndeny_reason := \"ha_not_zone_redundant\" if deny\n"
+    }
+  ]
+}

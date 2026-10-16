@@ -76,6 +76,7 @@ def _receipt(action_type) -> OperationalPromotionReceipt:  # type: ignore[no-unt
         action_type_version=action_type.version,
         action_type_digest=action_type_digest(action_type),
         evidence_digest=_EVIDENCE,
+        policy_digest=_EVIDENCE,
         observation_days=14.0,
         live_observation_days=14,
         sample_count=100,

@@ -1,0 +1,85 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "compute.vm.environment-tag.required",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:6e45af28cb8c586908322d1d261fc286d47b9be80ca53452960e33160da6ca2d",
+    "policy_identity_digest": "sha256:ec59bc27c1623a72afa71417e642416f355e5ee580c16a1ea2e53bff79b20eef",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/compute/vm_environment_tag_required.rego",
+        "kind": "rego",
+        "content_digest": "sha256:56ef6f1f9841812aff5fed18a4d8dda55712f9f19febf5e493dcd9190a6ebbe3"
+      }
+    ],
+    "revision_digest": "sha256:8f867b5ab3d6dede5d708660838a55d125e5f1cf6cdf7a51022e9d9c009d4c62"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "compute.vm.environment-tag.required",
+    "version": "1.0.0",
+    "source": "cis",
+    "severity": "low",
+    "category": "config_drift",
+    "resource_type": "compute.vm",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/compute/vm_environment_tag_required.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/compute/vm_tag_environment.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.tag-add",
+    "alternatives": [],
+    "parameters": {
+      "tag_name": "environment",
+      "tag_value": "unassigned"
+    },
+    "provenance": {
+      "source_url": "https://www.cisecurity.org/benchmark/azure",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "compute.vm"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.compute.vm.tags.required_tag"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "compute.vm"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.compute.vm.tags.required_tag"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/compute/vm_environment_tag_required.rego",
+      "kind": "rego",
+      "content_digest": "sha256:56ef6f1f9841812aff5fed18a4d8dda55712f9f19febf5e493dcd9190a6ebbe3",
+      "content": "# METADATA\n# title: Environment tag required on compute.vm\n# description: |\n#   Every compute.vm MUST carry an `environment` tag so lifecycle\n#   policies apply predictably.\n# custom:\n#   rule_id: compute.vm.environment-tag.required\n#   severity: low\n#   category: config_drift\npackage fdai.compute.vm_environment_tag_required\n\nimport rego.v1\n\ndefault deny := false\n\nrequired_tag := t if {\n  t := input.parameters.tag_name\n} else := \"environment\"\n\ndeny if {\n  input.resource.type == \"compute.vm\"\n  not input.resource.props.tags[required_tag]\n}\n\ndeny_reason := sprintf(\"missing_required_tag:%s\", [required_tag]) if deny\n"
+    }
+  ]
+}

@@ -124,6 +124,119 @@ async def test_saga_shared_chain_and_bounded_reader_on_postgres(saga_database: s
         await second_store.aclose()
 
 
+async def test_temporal_state_pair_linearizes_before_expiry(saga_database: str) -> None:
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=saga_database))
+    now = datetime.now(tz=UTC)
+    try:
+        await store.write_state("upgrade:source", {"revision": 1, "state": "v1"})
+
+        assert await store.compare_and_set_state_with_audit_and_insert_before(
+            "upgrade:source",
+            {"revision": 2, "state": "fenced"},
+            expected_revision=1,
+            insert_key="upgrade:target",
+            insert_value={"revision": 1, "state": "v2"},
+            not_before=now - timedelta(minutes=1),
+            expires_at=now + timedelta(minutes=1),
+            audit_entry={
+                "actor": "Mimir",
+                "action_kind": "rule_activation.identity-upgraded",
+            },
+        )
+        assert await store.read_state("upgrade:source") == {
+            "revision": 2,
+            "state": "fenced",
+        }
+        assert await store.read_state("upgrade:target") == {
+            "revision": 1,
+            "state": "v2",
+        }
+        assert await store.compare_and_set_state_pair_with_audit_before(
+            "upgrade:source",
+            {"revision": 3, "state": "v2-next"},
+            expected_revision=2,
+            second_key="upgrade:binding",
+            second_value={"revision": 1, "state": "binding-v1"},
+            expected_second_revision=0,
+            not_before=now - timedelta(minutes=1),
+            expires_at=now + timedelta(minutes=1),
+            audit_entry={
+                "actor": "Mimir",
+                "action_kind": "rule_activation.revision-changed",
+            },
+        )
+        assert await store.compare_and_set_state_pair_with_audit_before(
+            "upgrade:source",
+            {"revision": 4, "state": "v2-next-2"},
+            expected_revision=3,
+            second_key="upgrade:binding",
+            second_value={"revision": 2, "state": "binding-v2"},
+            expected_second_revision=1,
+            not_before=now - timedelta(minutes=1),
+            expires_at=now + timedelta(minutes=1),
+            audit_entry={
+                "actor": "Mimir",
+                "action_kind": "rule_activation.revision-changed",
+            },
+        )
+        assert await store.read_state("upgrade:source") == {
+            "revision": 4,
+            "state": "v2-next-2",
+        }
+        assert await store.read_state("upgrade:binding") == {
+            "revision": 2,
+            "state": "binding-v2",
+        }
+        await store.write_state("upgrade:retention-epoch", {"revision": 1})
+        assert await store.compare_and_set_state_pair_with_audit_before(
+            "upgrade:source",
+            {"revision": 5, "state": "v2-next-3"},
+            expected_revision=4,
+            second_key="upgrade:binding",
+            second_value={"revision": 3, "state": "binding-v3"},
+            expected_second_revision=2,
+            not_before=now - timedelta(minutes=1),
+            expires_at=now + timedelta(minutes=1),
+            insert_key="upgrade:rollback-eligibility",
+            insert_value={"revision": 1, "state": "eligible"},
+            guard_key="upgrade:retention-epoch",
+            guard_value={"revision": 2},
+            expected_guard_revision=1,
+            audit_entry={
+                "actor": "Mimir",
+                "action_kind": "rule_activation.revision-changed",
+            },
+        )
+        assert await store.read_state("upgrade:retention-epoch") == {"revision": 2}
+        assert await store.read_state("upgrade:rollback-eligibility") == {
+            "revision": 1,
+            "state": "eligible",
+        }
+
+        await store.write_state("upgrade:expired-source", {"revision": 1, "state": "v1"})
+        assert not await store.compare_and_set_state_with_audit_and_insert_before(
+            "upgrade:expired-source",
+            {"revision": 2, "state": "fenced"},
+            expected_revision=1,
+            insert_key="upgrade:expired-target",
+            insert_value={"revision": 1, "state": "v2"},
+            not_before=now - timedelta(minutes=2),
+            expires_at=now - timedelta(minutes=1),
+            audit_entry={
+                "actor": "Mimir",
+                "action_kind": "rule_activation.identity-upgraded",
+            },
+        )
+        assert await store.read_state("upgrade:expired-source") == {
+            "revision": 1,
+            "state": "v1",
+        }
+        assert await store.read_state("upgrade:expired-target") is None
+        assert await store.verify_chain()
+    finally:
+        await store.aclose()
+
+
 @pytest.mark.parametrize("checkpoint", [False, True])
 async def test_saga_postgres_migrates_complete_legacy_without_rewriting_audit(
     saga_database: str, checkpoint: bool

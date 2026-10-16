@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "sql-database.diagnostic-settings-required",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:82ecf4f824a0801a7377e1170bf42c5dc988d6f1a457c59879c9833b22be0307",
+    "policy_identity_digest": "sha256:f00ddf9f9c57905197d2cbf7c3ad81b70d59c684e73a3df9032c17745966a389",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/sql_database/diagnostic_settings_required.rego",
+        "kind": "rego",
+        "content_digest": "sha256:7a39f7617699467422d6292204cfd8b9c16aa023f357e857e82a47adbc1a3f5d"
+      }
+    ],
+    "revision_digest": "sha256:76b0527b02374a5885ba577b8f627447de5a1f6d450be029676ae14076de110c"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "sql-database.diagnostic-settings-required",
+    "version": "1.0.0",
+    "source": "waf",
+    "severity": "medium",
+    "category": "reliability",
+    "resource_type": "sql-database",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/sql_database/diagnostic_settings_required.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/sql_database/attach_diagnostic_settings.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.enable-diagnostic-settings",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/azure/well-architected/operational-excellence/observability",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "sql-database"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.sql-database.diagnostic_settings"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "sql-database"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.sql-database.diagnostic_settings"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/sql_database/diagnostic_settings_required.rego",
+      "kind": "rego",
+      "content_digest": "sha256:7a39f7617699467422d6292204cfd8b9c16aa023f357e857e82a47adbc1a3f5d",
+      "content": "# METADATA\n# title: Require diagnostic-settings on sql-database\n# description: |\n#   A sql-database MUST route audit and metric logs to a\n#   log-workspace.\n# custom:\n#   rule_id: sql-database.diagnostic-settings-required\n#   severity: medium\n#   category: reliability\npackage fdai.sql_database.diagnostic_settings_required\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"sql-database\"\n  count(input.resource.props.diagnostic_settings) == 0\n}\n\ndeny_reason := \"no_diagnostic_settings\" if deny\n"
+    }
+  ]
+}

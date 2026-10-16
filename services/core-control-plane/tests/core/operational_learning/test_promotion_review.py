@@ -62,6 +62,7 @@ def _evidence(reviewer: str) -> ReviewedReplayPromotionEvidence:
         replay_first_digest=DIGEST,
         replay_second_digest=DIGEST,
         promotion_evidence_digest=DIGEST,
+        promotion_policy_digest=DIGEST,
         review_ref="governance-review:v2026.08",
         reviewer_principal=reviewer,
         approved=True,
@@ -93,6 +94,7 @@ def test_inline_reviewer_does_not_authorize_even_the_exact_legacy_tuple() -> Non
         fdai_revision=REVISION,
         scenario_set_version="v2026.08",
         evidence_digest=DIGEST,
+        policy_digest=DIGEST,
     )
     assert not authority.accepts(
         action_type="ops.restart-app",
@@ -101,6 +103,16 @@ def test_inline_reviewer_does_not_authorize_even_the_exact_legacy_tuple() -> Non
         fdai_revision=REVISION,
         scenario_set_version="v2026.08",
         evidence_digest=DIGEST,
+        policy_digest=DIGEST,
+    )
+    assert not authority.accepts(
+        action_type="ops.restart-app",
+        action_type_version="1.0.0",
+        action_type_digest=DIGEST,
+        fdai_revision=REVISION,
+        scenario_set_version="v2026.08",
+        evidence_digest=DIGEST,
+        policy_digest="c" * 64,
     )
 
 
@@ -225,6 +237,7 @@ def test_sole_owner_review_is_development_only_and_exactly_attributed() -> None:
         fdai_revision=evidence.fdai_revision,
         scenario_set_version=evidence.scenario_set_version,
         evidence_digest=evidence.promotion_evidence_digest,
+        policy_digest=evidence.promotion_policy_digest,
     )
     assert authority.accepts_development(
         profile_digest=profile.digest,
@@ -234,6 +247,7 @@ def test_sole_owner_review_is_development_only_and_exactly_attributed() -> None:
         fdai_revision=evidence.fdai_revision,
         scenario_set_version=evidence.scenario_set_version,
         evidence_digest=evidence.promotion_evidence_digest,
+        policy_digest=evidence.promotion_policy_digest,
     )
     attribution = authority.review_attribution(
         profile_digest=profile.digest,
@@ -243,6 +257,7 @@ def test_sole_owner_review_is_development_only_and_exactly_attributed() -> None:
         fdai_revision=evidence.fdai_revision,
         scenario_set_version=evidence.scenario_set_version,
         evidence_digest=evidence.promotion_evidence_digest,
+        policy_digest=evidence.promotion_policy_digest,
     )
     assert attribution is not None
     assert attribution["development_only"] is True
@@ -280,6 +295,7 @@ def test_owner_review_changes_only_profile_scoped_registry() -> None:
         fdai_revision=evidence.fdai_revision,
         scenario_set_version=evidence.scenario_set_version,
         evidence_digest=evidence.promotion_evidence_digest,
+        policy_digest=evidence.promotion_policy_digest,
         approved_at=NOW,
     )
     assert approval is not None

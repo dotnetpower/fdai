@@ -1,7 +1,7 @@
 ---
 translation_of: ontology-query-coverage-implementation-plan.md
-translation_source_sha: 0100d98fe8e95ad266367d1bd4bfe76f724c5b51
-translation_revised: 2026-10-09
+translation_source_sha: 94b280df484f61e1e59ec32436431ca6dec0bb5b
+translation_revised: 2026-10-17
 ---
 # 온톨로지 조회 커버리지 구현 계획
 
@@ -11,7 +11,11 @@ translation_revised: 2026-10-09
 
 관리되는 클라우드 참조 조회는 원문 구간에 연결된 단일 값 적용 조건을 사용하고 출처 날짜를
 보존합니다. [수명 주기 설계](cloud-resource-knowledge-lifecycle-ko.md)는 특정 확인 시점 및
-실시간 최신 요청의 동작을 정의합니다. 워크플로 트리거 어휘 로드는 관찰 `SignalType` 참조와 요청/명령 워크플로 이벤트를 분리하므로, 형식화된 워크플로 트리거가 T0 룰 전달이나 온톨로지 조회 커버리지를 넓히지 않습니다. [구조화 검색 설계](cloud-resource-knowledge-structured-rag-ko.md)는
+실시간 최신 요청의 동작을 정의합니다. 워크플로 트리거 어휘 로드는 관찰 `SignalType` 참조와 요청/명령 워크플로 이벤트를 분리하므로, 형식화된 워크플로 트리거가 T0 룰 전달이나 온톨로지 조회 커버리지를 넓히지 않습니다.
+공유 Operator operations manifest에는 인증된 운영 상태 읽기 route도 있습니다. 이 route는
+온톨로지 서술자, 조회 기능, 의미 fallback 또는 근거 수집원이 아닙니다. 같은 서비스 route
+레지스트리에 있어도 structural 조회 커버리지 주장은 바뀌지 않습니다.
+[구조화 검색 설계](cloud-resource-knowledge-structured-rag-ko.md)는
 v1.2 검색어/발화 결속, 사용 불가 결과 및 이전 버전 호환성을 정의하며, 검색어는 적용 조건이나
 접근 범위를 넓히지 않습니다. 프레임 모델 스키마는 서버가 결속하는 검색어 필드를 제외합니다.
 커버리지 목록은 탐색과 추적 라벨 카탈로그를 포함한 질문 은행 소스 변경 뒤 재생성하며 출처 다이제스트만 갱신하고 측정된 커버리지는 바꾸지 않습니다. Console 카탈로그 변경이 병합되면 질문 은행을 먼저 재생성한 뒤 이에 의존하는 의미 목록을 다시 만듭니다. 원본 검증값만 수정할 때는 400개 질문 집단과 기존 검증 공백을 그대로 유지합니다.

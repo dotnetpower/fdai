@@ -1,0 +1,87 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "object-storage.private-endpoint.required",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:3c7893f16672b2297f201d0f02169e68b309b055e70cbf5f40412ce93228f99e",
+    "policy_identity_digest": "sha256:f1c5ca5d06a29743dd551cd030b6e0ad81bdba212456c52705ca93b8bfbe23cc",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/object_storage/private_endpoint_required.rego",
+        "kind": "rego",
+        "content_digest": "sha256:75a85fe72d53a5302dc03ff52f351d1de1176fb006aae2610f93d91b93a25bc3"
+      }
+    ],
+    "revision_digest": "sha256:d6f15b7ddf9f44ff456f4b5f4aabe873e8b9f4fcc4d0cc00a07bf5af5f99c5ba"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "object-storage.private-endpoint.required",
+    "version": "1.0.0",
+    "source": "mcsb",
+    "severity": "high",
+    "category": "security",
+    "resource_type": "object-storage",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/object_storage/private_endpoint_required.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/object_storage/attach_private_endpoint.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.restrict-network-access",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/security/benchmark/azure/mcsb-network-security",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "object-storage"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.object-storage.private_endpoints",
+      "property.object-storage.public_network_access_enabled"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "object-storage"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.object-storage.private_endpoints"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.object-storage.public_network_access_enabled"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/object_storage/private_endpoint_required.rego",
+      "kind": "rego",
+      "content_digest": "sha256:75a85fe72d53a5302dc03ff52f351d1de1176fb006aae2610f93d91b93a25bc3",
+      "content": "# METADATA\n# title: Require a private-endpoint on object-storage\n# description: |\n#   An object-storage account holding data MUST be reachable only\n#   through a private-endpoint; public network access is denied.\n# custom:\n#   rule_id: object-storage.private-endpoint.required\n#   severity: high\n#   category: security\npackage fdai.object_storage.private_endpoint_required\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"object-storage\"\n  input.resource.props.public_network_access_enabled == true\n}\n\ndeny if {\n  input.resource.type == \"object-storage\"\n  count(input.resource.props.private_endpoints) == 0\n}\n\ndeny_reason := \"no_private_endpoint\" if deny\n"
+    }
+  ]
+}

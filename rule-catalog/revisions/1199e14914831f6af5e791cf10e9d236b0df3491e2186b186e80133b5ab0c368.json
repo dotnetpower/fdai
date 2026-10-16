@@ -1,0 +1,84 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "resource-group.role-assignment.owner-count-within-limit",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:6414ee5e97e026a1966951d1c8a7f1923340730cb9a70b9cd3d43f7cc8cfa31a",
+    "policy_identity_digest": "sha256:ac203110246f997f39c72b62fce89a73d054466713309a54cce28b1e30dcd64a",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/resource_group/owner_count_within_limit.rego",
+        "kind": "rego",
+        "content_digest": "sha256:7a26cd2088a1180a6df5e7a1b7b2195a191e115df75e24f29340887bd303b36c"
+      }
+    ],
+    "revision_digest": "sha256:1199e14914831f6af5e791cf10e9d236b0df3491e2186b186e80133b5ab0c368"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "resource-group.role-assignment.owner-count-within-limit",
+    "version": "1.0.0",
+    "source": "mcsb",
+    "severity": "medium",
+    "category": "security",
+    "resource_type": "resource-group",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/resource_group/owner_count_within_limit.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/resource_group/owner_count_within_limit.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.right-size-role",
+    "alternatives": [],
+    "parameters": {
+      "max_owner_count": 3
+    },
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/azure/role-based-access-control/best-practices",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-09T00:00:00Z"
+    },
+    "applies_to": [
+      "resource-group"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.resource-group.role_assignments"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "resource-group"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.resource-group.role_assignments"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/resource_group/owner_count_within_limit.rego",
+      "kind": "rego",
+      "content_digest": "sha256:7a26cd2088a1180a6df5e7a1b7b2195a191e115df75e24f29340887bd303b36c",
+      "content": "# METADATA\n# title: Owner assignments at resource-group scope stay within a bounded count\n# description: |\n#   The number of principals holding the Owner role at resource-group scope MUST\n#   stay at or below a bounded maximum. A proliferation of Owner grants dilutes\n#   accountability and widens the privileged-access surface. The maximum is\n#   tunable via input.parameters.max_owner_count (default 3). The T0 rule denies\n#   when the Owner-assignment count exceeds the maximum.\n# custom:\n#   rule_id: resource-group.role-assignment.owner-count-within-limit\n#   severity: medium\n#   category: security\npackage fdai.resource_group.owner_count_within_limit\n\nimport rego.v1\n\ndefault deny := false\n\nmax_owner_count := limit if {\n\tlimit := input.parameters.max_owner_count\n} else := 3\n\n# Array comprehension (not a set) so identical Owner assignments each count once.\nowner_count := count([1 |\n\tsome assignment in input.resource.props.role_assignments\n\tassignment.role_name == \"Owner\"\n])\n\ndeny if {\n\tinput.resource.type == \"resource-group\"\n\towner_count > max_owner_count\n}\n\ndeny_reason := \"resource_group_owner_count_exceeds_limit\" if deny\n"
+    }
+  ]
+}

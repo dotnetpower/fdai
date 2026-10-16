@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "secret-store.rbac-authorization.enabled",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:9cf291e84f37d722fb421d1ec09f9efbc6529043cf0004f7c0e1f99398023819",
+    "policy_identity_digest": "sha256:850e3a6c1b2ebd7d02506b9d958d00ae791d2d17d3d945d7411bd527ec06fae4",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/secret_store/rbac_authorization_enabled.rego",
+        "kind": "rego",
+        "content_digest": "sha256:44df256f59c036d9c46844bfc66de3648cd79fdcf299a7dc94fdc5040782059b"
+      }
+    ],
+    "revision_digest": "sha256:03e16847a672af074cd3a08bdc94ccf07852b09406ce08162deed891a5a352f3"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "secret-store.rbac-authorization.enabled",
+    "version": "1.0.0",
+    "source": "mcsb",
+    "severity": "high",
+    "category": "security",
+    "resource_type": "secret-store",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/secret_store/rbac_authorization_enabled.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/secret_store/enable_rbac_authorization.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.enable-rbac",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/security/benchmark/azure/mcsb-privileged-access",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "secret-store"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.secret-store.rbac_authorization_enabled"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "secret-store"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.secret-store.rbac_authorization_enabled"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/secret_store/rbac_authorization_enabled.rego",
+      "kind": "rego",
+      "content_digest": "sha256:44df256f59c036d9c46844bfc66de3648cd79fdcf299a7dc94fdc5040782059b",
+      "content": "# METADATA\n# title: Require RBAC authorization on secret-store\n# description: |\n#   A secret-store MUST use RBAC authorization; legacy access-policies\n#   leave stale key-based grants un-audited. The T0 rule denies when the\n#   inventory reports RBAC as disabled.\n# custom:\n#   rule_id: secret-store.rbac-authorization.enabled\n#   severity: high\n#   category: security\npackage fdai.secret_store.rbac_authorization_enabled\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"secret-store\"\n  input.resource.props.rbac_authorization_enabled != true\n}\n\ndeny_reason := \"rbac_authorization_disabled\" if deny\n"
+    }
+  ]
+}

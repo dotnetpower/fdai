@@ -78,6 +78,7 @@ async def prepare_replay_review(
         action_type.name != evidence.action_type
         or action_type.version != evidence.action_type_version
         or action_type_digest(action_type) != evidence.action_type_digest
+        or evaluator.policy_digest != evidence.promotion_policy_digest
     ):
         return None
     started = monotonic()
@@ -93,7 +94,6 @@ async def prepare_replay_review(
             or batch.action_type_digest != evidence.action_type_digest
             or batch.fdai_revision != evidence.fdai_revision
             or batch.scenario_set_version != evidence.scenario_set_version
-            or batch.content_digest != evidence.promotion_evidence_digest
             or batch.reviewed_replay_binding != binding
             or batch.sealed_at > clock()
         ):
@@ -123,7 +123,11 @@ async def prepare_replay_review(
         evaluated = evaluator.evaluate(
             action_type, replace(batch, decision_evidence=measurement_admission)
         )
-        if not evaluated.ready:
+        if (
+            not evaluated.ready
+            or evaluated.evidence_digest != evidence.promotion_evidence_digest
+            or evaluated.policy_digest != evidence.promotion_policy_digest
+        ):
             return None
         source_deadlines: list[datetime] = []
         for reference in binding.immutable_case_refs:

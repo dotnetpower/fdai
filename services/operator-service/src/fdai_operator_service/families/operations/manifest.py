@@ -113,6 +113,12 @@ OPERATIONS_ROUTE_MANIFEST: tuple[OperationRoute, ...] = (
     OperationRoute("/detection-coverage", "GET", "handler", "detection.readiness"),
     OperationRoute("/detection-readiness", "GET", "handler", "detection.readiness"),
     OperationRoute(
+        "/operations/runtime-state",
+        "GET",
+        "runtime_operational_state",
+        "runtime.operational-state",
+    ),
+    OperationRoute(
         "/automation-blueprints",
         "GET",
         "handler",

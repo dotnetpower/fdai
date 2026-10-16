@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "object-storage.encryption-at-rest.required",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:f1e647a9c1c584bbd907bcc531ed3c0682c31187e94e93181bff556626039059",
+    "policy_identity_digest": "sha256:f952967f04f57b25ba6af651e14d7a44bb010ed70f0689f2dae4bb7e81743af0",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/object_storage/encryption_at_rest_required.rego",
+        "kind": "rego",
+        "content_digest": "sha256:5948122a52c9b024d44e05229ec8f5b56a8270941c702fb2e5fb8f721630586e"
+      }
+    ],
+    "revision_digest": "sha256:164870bd300a5346bc084af9ce46062215d3f82766ab69317738795905876324"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "object-storage.encryption-at-rest.required",
+    "version": "1.0.0",
+    "source": "mcsb",
+    "severity": "high",
+    "category": "security",
+    "resource_type": "object-storage",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/object_storage/encryption_at_rest_required.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/object_storage/enable_infrastructure_encryption.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.enable-encryption",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/security/benchmark/azure/mcsb-data-protection",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "object-storage"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.object-storage.infrastructure_encryption_enabled"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "object-storage"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.object-storage.infrastructure_encryption_enabled"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/object_storage/encryption_at_rest_required.rego",
+      "kind": "rego",
+      "content_digest": "sha256:5948122a52c9b024d44e05229ec8f5b56a8270941c702fb2e5fb8f721630586e",
+      "content": "# METADATA\n# title: Require infrastructure encryption on object-storage\n# description: |\n#   An object-storage account MUST have infrastructure encryption\n#   (double encryption at rest) enabled. The default single-layer\n#   service-managed encryption is not enough for regulated data.\n# custom:\n#   rule_id: object-storage.encryption-at-rest.required\n#   severity: high\n#   category: security\npackage fdai.object_storage.encryption_at_rest_required\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"object-storage\"\n  input.resource.props.infrastructure_encryption_enabled != true\n}\n\ndeny_reason := \"infrastructure_encryption_disabled\" if deny\n"
+    }
+  ]
+}

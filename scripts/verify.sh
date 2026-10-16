@@ -280,6 +280,22 @@ run_gate_scoped "ontology-query-coverage" '^(config/ontology-query-competency\.j
 run_gate_scoped "reasoning-coverage" '^(rule-catalog/|packages/service-contracts/src/fdai_service_contracts/|services/core-control-plane/src/fdai/(core/(conversation|ontology_platform)/|composition/semantic_query_|rule_catalog/schema/|shared/)|scripts/quality/architecture/(check-reasoning-coverage\.py|reasoning-coverage-baseline\.json)$)' uv run python scripts/quality/architecture/check-reasoning-coverage.py
 run_gate_scoped "property-semantic-coverage" '^(rule-catalog/(catalog|vocabulary)/|policies/|docs/roadmap/architecture/operating-ontology(-ko)?\.md$|scripts/quality/architecture/check-property-semantic-coverage\.py$)' uv run python scripts/quality/architecture/check-property-semantic-coverage.py
 run_gate_scoped "rule-revision-lock" '^(rule-catalog/(catalog/|rule-revision-lock\.json$)|policies/|scripts/quality/architecture/check-rule-revision-lock\.py$)' uv run python scripts/quality/architecture/check-rule-revision-lock.py
+rule_revision_base_ref="HEAD"
+if [[ -n "$DIFF_RANGE" ]]; then
+    if [[ "$DIFF_RANGE" == *"..."* ]]; then
+        rule_revision_base_ref="${DIFF_RANGE%%...*}"
+    elif [[ "$DIFF_RANGE" == *".."* ]]; then
+        rule_revision_base_ref="${DIFF_RANGE%%..*}"
+    else
+        echo "verify.sh: --diff range must use '..' or '...'" >&2
+        exit 2
+    fi
+fi
+if ! rule_revision_base_ref="$(git rev-parse --verify "${rule_revision_base_ref}^{commit}")"; then
+    echo "verify.sh: unable to resolve Rule revision base from '$DIFF_RANGE'" >&2
+    exit 2
+fi
+run_gate_scoped "rule-revision-identities" '^(rule-catalog/(catalog/|rule-revision-identities\.json$|revisions/)|policies/|services/core-control-plane/src/fdai/(rule_catalog/schema/revision_identity\.py$|shared/contracts/models/(rule|_base|enums)\.py$)|services/core-control-plane/docker/Dockerfile$|uv\.lock$|scripts/quality/architecture/check-rule-revision-identities\.py$)' uv run python scripts/quality/architecture/check-rule-revision-identities.py --base-ref "$rule_revision_base_ref"
 run_gate_scoped "boundary-docstrings" '^(src/|scripts/quality/architecture/(check-boundary-docstrings\.py|\.boundary-docstring-scopes)$)' python3 scripts/quality/architecture/check-boundary-docstrings.py
 run_gate_scoped "document-size" '^(docs/roadmap/|scripts/quality/architecture/check-document-size\.py$)' python3 scripts/quality/architecture/check-document-size.py
 run_gate_scoped "display-terminology" '^(README|docs/|rule-catalog/|console/|cli/|scripts/quality/documentation/check-display-terminology\.py$)' python3 scripts/quality/documentation/check-display-terminology.py

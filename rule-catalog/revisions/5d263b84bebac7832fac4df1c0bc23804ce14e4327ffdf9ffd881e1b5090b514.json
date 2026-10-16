@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "sql-database.zone-redundant",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:02cc02c307ab712d2aa87c89560c0a38405d4174d61873b833cb2cf78299b4aa",
+    "policy_identity_digest": "sha256:5fe5476ae2b4b4e9b7c88ecf431db8f86fcb6a26da3bb069a1c6336260d2ddc5",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/sql_database/zone_redundant.rego",
+        "kind": "rego",
+        "content_digest": "sha256:5fb4b4d7e5e1a89d4068edac90d5d246ea777d7e2d56a8fd06bd5558cd2ed915"
+      }
+    ],
+    "revision_digest": "sha256:5d263b84bebac7832fac4df1c0bc23804ce14e4327ffdf9ffd881e1b5090b514"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "sql-database.zone-redundant",
+    "version": "1.0.0",
+    "source": "waf",
+    "severity": "high",
+    "category": "reliability",
+    "resource_type": "sql-database",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/sql_database/zone_redundant.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/sql_database/enable_zone_redundant.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.enable-zone-redundancy",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/azure/well-architected/reliability/redundancy",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "sql-database"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.sql-database.zone_redundant"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "sql-database"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.sql-database.zone_redundant"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/sql_database/zone_redundant.rego",
+      "kind": "rego",
+      "content_digest": "sha256:5fb4b4d7e5e1a89d4068edac90d5d246ea777d7e2d56a8fd06bd5558cd2ed915",
+      "content": "# METADATA\n# title: Require zone-redundant sql-database\n# description: |\n#   A sql-database MUST run in a zone-redundant configuration.\n# custom:\n#   rule_id: sql-database.zone-redundant\n#   severity: high\n#   category: reliability\npackage fdai.sql_database.zone_redundant\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"sql-database\"\n  input.resource.props.zone_redundant != true\n}\n\ndeny_reason := \"sql_not_zone_redundant\" if deny\n"
+    }
+  ]
+}

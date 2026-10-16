@@ -12,28 +12,11 @@ from types import MappingProxyType
 from typing import Any
 
 import yaml
+from fdai_service_contracts.self_health import SelfHealthSignalName as SelfHealthSignal
 
 
 class SelfHealthCatalogError(ValueError):
     """Raised when the complete self-health policy cannot be established."""
-
-
-class SelfHealthSignal(StrEnum):
-    LIVENESS_PROBE = "liveness_probe"
-    READINESS_PROBE = "readiness_probe"
-    ADAPTER_HEALTHCHECK = "adapter_healthcheck"
-    EVENT_LAG = "event_lag"
-    DLQ_DEPTH = "dlq_depth"
-    COLD_START_RATE = "cold_start_rate"
-    COLD_START_DURATION = "cold_start_duration"
-    VERIFIER_FAILURE_RATE = "verifier_failure_rate"
-    MIXED_MODEL_DISAGREEMENT_RATE = "mixed_model_disagreement_rate"
-    ROLLBACK_RATE = "rollback_rate"
-    OVERRIDE_RATE = "override_rate"
-    DISCOVERY_LOOP_PASS_RATE = "discovery_loop_pass_rate"  # noqa: S105 - health pass rate
-    KILL_SWITCH_STATE = "kill_switch_state"
-    CANARY_RESULT = "canary_result"
-    TIME_SINCE_LAST_SUCCESSFUL_CANARY = "time_since_last_successful_canary"
 
 
 class SelfHealthComparison(StrEnum):

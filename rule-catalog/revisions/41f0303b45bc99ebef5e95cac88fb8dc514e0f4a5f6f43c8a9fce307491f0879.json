@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "network.vnet.ddos-plan.required",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:d9529bfe655710b5320cf2a1750a37adc20c44b0d7a699e0749d93663e97e88d",
+    "policy_identity_digest": "sha256:8180ff0b977a5d6fecd12fd156aa244da1633a3671f89384407d5ce8b4a50340",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/network/vnet_ddos_plan_required.rego",
+        "kind": "rego",
+        "content_digest": "sha256:ad3d4201116f6f420038df567d1de1276eb1fb7b0405cd5cb272e6698b23feca"
+      }
+    ],
+    "revision_digest": "sha256:41f0303b45bc99ebef5e95cac88fb8dc514e0f4a5f6f43c8a9fce307491f0879"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "network.vnet.ddos-plan.required",
+    "version": "1.0.0",
+    "source": "mcsb",
+    "severity": "medium",
+    "category": "security",
+    "resource_type": "network.vnet",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/network/vnet_ddos_plan_required.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/network/vnet_attach_ddos_plan.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.restrict-network-access",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/security/benchmark/azure/mcsb-network-security",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "network.vnet"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.network.vnet.ddos_protection_plan_id"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "network.vnet"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.network.vnet.ddos_protection_plan_id"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/network/vnet_ddos_plan_required.rego",
+      "kind": "rego",
+      "content_digest": "sha256:ad3d4201116f6f420038df567d1de1276eb1fb7b0405cd5cb272e6698b23feca",
+      "content": "# METADATA\n# title: Require a DDoS protection plan on network.vnet\n# description: |\n#   A network.vnet holding internet-exposed workloads MUST be attached\n#   to a DDoS protection plan.\n# custom:\n#   rule_id: network.vnet.ddos-plan.required\n#   severity: medium\n#   category: security\npackage fdai.network.vnet_ddos_plan_required\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"network.vnet\"\n  input.resource.props.ddos_protection_plan_id == \"\"\n}\n\ndeny_reason := \"no_ddos_plan\" if deny\n"
+    }
+  ]
+}

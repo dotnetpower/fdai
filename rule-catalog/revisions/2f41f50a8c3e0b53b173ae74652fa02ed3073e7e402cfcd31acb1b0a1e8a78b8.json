@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "kubernetes-node-pool.multi-zone",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:0ed0830899077a068c525506134642368361e6684427091149be44b24537a8ea",
+    "policy_identity_digest": "sha256:225fabd882caa950574ce195534f7a8c04fff35d73bab65b0a170104d1bc936c",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/kubernetes/node_pool_multi_zone.rego",
+        "kind": "rego",
+        "content_digest": "sha256:1f19a9137f2cc4a6b82b5b9b16a6d8b88f259948a8b0f4b7959753c94b4c2f08"
+      }
+    ],
+    "revision_digest": "sha256:2f41f50a8c3e0b53b173ae74652fa02ed3073e7e402cfcd31acb1b0a1e8a78b8"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "kubernetes-node-pool.multi-zone",
+    "version": "1.0.0",
+    "source": "waf",
+    "severity": "high",
+    "category": "reliability",
+    "resource_type": "kubernetes-node-pool",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/kubernetes/node_pool_multi_zone.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/kubernetes/node_pool_zone_redundant.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.enable-zone-redundancy",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/azure/well-architected/reliability/redundancy",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "kubernetes-node-pool"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.kubernetes-node-pool.availability_zones"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "kubernetes-node-pool"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.kubernetes-node-pool.availability_zones"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/kubernetes/node_pool_multi_zone.rego",
+      "kind": "rego",
+      "content_digest": "sha256:1f19a9137f2cc4a6b82b5b9b16a6d8b88f259948a8b0f4b7959753c94b4c2f08",
+      "content": "# METADATA\n# title: Require multi-zone kubernetes-node-pool\n# description: |\n#   A kubernetes-node-pool MUST span at least two availability zones\n#   so a single-zone outage does not evict the whole pool.\n# custom:\n#   rule_id: kubernetes-node-pool.multi-zone\n#   severity: high\n#   category: reliability\npackage fdai.kubernetes.node_pool_multi_zone\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"kubernetes-node-pool\"\n  count(input.resource.props.availability_zones) < 2\n}\n\ndeny_reason := \"single_zone_node_pool\" if deny\n"
+    }
+  ]
+}

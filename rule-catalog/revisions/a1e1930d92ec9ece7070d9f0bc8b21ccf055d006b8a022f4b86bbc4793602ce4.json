@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "network.nsg.no-inbound-any-rdp",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:f23284c18f5aa06f68203d4c97f1c393190223fabbdf7ad17d90331cfd4f898b",
+    "policy_identity_digest": "sha256:52f09c3a4229267089731da0ed583a1ad52e65ae58101d138b4870234584d504",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/network/nsg_no_inbound_any_rdp.rego",
+        "kind": "rego",
+        "content_digest": "sha256:370f2b60285d3fd8b660819eda107c19111a8f020ee8b65d2d449574414ba03d"
+      }
+    ],
+    "revision_digest": "sha256:a1e1930d92ec9ece7070d9f0bc8b21ccf055d006b8a022f4b86bbc4793602ce4"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "network.nsg.no-inbound-any-rdp",
+    "version": "1.0.0",
+    "source": "mcsb",
+    "severity": "high",
+    "category": "security",
+    "resource_type": "network.nsg",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/network/nsg_no_inbound_any_rdp.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/network/nsg_scope_rdp_to_management.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.restrict-network-access",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/security/benchmark/azure/mcsb-network-security",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "network.nsg"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.network.nsg.security_rules"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "network.nsg"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.network.nsg.security_rules"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/network/nsg_no_inbound_any_rdp.rego",
+      "kind": "rego",
+      "content_digest": "sha256:370f2b60285d3fd8b660819eda107c19111a8f020ee8b65d2d449574414ba03d",
+      "content": "# METADATA\n# title: Disallow any-source inbound RDP on network.nsg\n# description: |\n#   A network.nsg MUST NOT allow inbound TCP/3389 from any source.\n#   Public RDP exposure is a credential-brute-force surface.\n# custom:\n#   rule_id: network.nsg.no-inbound-any-rdp\n#   severity: high\n#   category: security\npackage fdai.network.nsg_no_inbound_any_rdp\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"network.nsg\"\n  some rule in input.resource.props.security_rules\n  rule.direction == \"Inbound\"\n  rule.access == \"Allow\"\n  rule.protocol == \"Tcp\"\n  rule.destination_port_range == \"3389\"\n  rule.source_address_prefix == \"*\"\n}\n\ndeny_reason := \"inbound_rdp_any\" if deny\n"
+    }
+  ]
+}

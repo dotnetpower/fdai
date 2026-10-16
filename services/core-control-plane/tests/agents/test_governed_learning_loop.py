@@ -37,7 +37,9 @@ from fdai.core.measurement import (
 )
 from fdai.core.measurement.operational_promotion import (
     OPERATIONAL_PROMOTION_EVIDENCE_PURPOSE,
+    OperationalPromotionPolicy,
     action_type_digest,
+    operational_promotion_decision_digest,
     operational_promotion_evidence_digest,
     operational_promotion_scope_digest,
 )
@@ -311,6 +313,7 @@ def _promotion_receipt(
         action_type_version=action_type.version,
         action_type_digest=action_type_digest(action_type),
         evidence_digest="8" * 64,
+        policy_digest="9" * 64,
         observation_days=14.0,
         live_observation_days=14,
         sample_count=100,
@@ -389,6 +392,7 @@ async def _reviewed_promotion_fixture(
         purpose=candidate.purpose,
     )
     action_digest = action_type_digest(action_type)
+    policy = OperationalPromotionPolicy()
     count = max(1000, action_type.promotion_gate.min_samples)
     span = action_type.promotion_gate.min_shadow_days + 1
     records = tuple(
@@ -428,7 +432,8 @@ async def _reviewed_promotion_fixture(
         package_digest=binding.package_digest,
         replay_first_digest=binding.replay_first_digest,
         replay_second_digest=binding.replay_second_digest,
-        promotion_evidence_digest=batch.content_digest,
+        promotion_evidence_digest=operational_promotion_decision_digest(batch, policy),
+        promotion_policy_digest=policy.content_digest,
         review_ref="governance-review:independently-retained",
         reviewer_principal="independent-governance-reviewer",
         approved=True,
@@ -479,6 +484,7 @@ async def _reviewed_promotion_fixture(
         expected_scenario_set_version=batch.scenario_set_version,
         causal_receipt_verifier=ManifestCausalPromotionReceiptVerifier(manifest),
         unit_verifier=ManifestOperationalPromotionUnitVerifier(manifest),
+        policy=policy,
         as_of_fn=lambda: now,
     )
     receipt = evaluator.evaluate(action_type, admitted)
@@ -499,6 +505,7 @@ async def _reviewed_promotion_fixture(
 async def _prepare_reviewed_promotion(
     authority: ReviewedReplayAuthority, receipt: OperationalPromotionReceipt
 ) -> bool:
+    assert receipt.policy_digest is not None
     return await authority.prepare(
         action_type=receipt.action_type_name,
         action_type_version=receipt.action_type_version,
@@ -506,6 +513,7 @@ async def _prepare_reviewed_promotion(
         fdai_revision=receipt.fdai_revision,
         scenario_set_version=receipt.scenario_set_version,
         evidence_digest=receipt.evidence_digest,
+        policy_digest=receipt.policy_digest,
     )
 
 
@@ -800,6 +808,7 @@ async def test_reviewed_replay_authority_rejects_another_release() -> None:
                 replay_first_digest=package.replay.first_result_digest,
                 replay_second_digest=package.replay.second_result_digest,
                 promotion_evidence_digest=receipt.evidence_digest,
+                promotion_policy_digest=receipt.policy_digest or "",
                 review_ref="governance-review:v2026.08",
                 reviewer_principal="independent-governance-reviewer",
                 approved=True,
