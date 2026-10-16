@@ -2,7 +2,7 @@
 title: FDAI 기능 준비 상태 평가
 description: FDAI 제품 중분류 52개의 준비 상태 판정 근거와 남은 조건을 기록합니다.
 translation_of: functional-readiness.md
-translation_source_sha: 0965148322b5d8b1559d46a76e26e0fa430de358
+translation_source_sha: 18360d299caaf188958dd0dbd0ded34a05bda77b
 translation_revised: 2026-10-16
 ---
 
@@ -66,7 +66,7 @@ Partial 17건은 구현된 부분과 현재 소스의 집중 검사를 유지하
 
 | 기능 | 상태 | 근거, 지원 범위 및 남은 조건 |
 |------|------|-----------------------------|
-| <span id="f04-1">F04.1</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 감지기가 생성하는 Incident, 심각도 및 상태 변경, 배정, 감사 기록, 재현을 포함한 기본 인시던트 레지스트리와 수명 주기 워크플로입니다. 기본 정책은 범위가 제한된 완전한 근거를 포함한 서로 다른 발견 사항 5건이 5분 안에 같은 상관관계로 들어온 경우에만 중간 이상의 심각도 에피소드를 엽니다. 낮음 및 정보 심각도, 드물거나 관련이 없는 발견 사항, 중복 발견 사항은 올바르게 Incident를 만들지 않습니다. [레지스트리](../../../services/core-control-plane/src/fdai/core/incident/registry.py), [워크플로](../../../services/core-control-plane/src/fdai/core/incident/workflow.py), 분석기에서 Incident로 이어지는 경로를 검토하고 수명 주기, 워크플로, 이벤트 폭주, 자동 열기, 런타임 설정, 분석기 인계 집중 검사를 다시 실행했습니다. 따라서 Incident 수가 0이라는 사실만으로 준비 상태 실패를 뜻하지 않습니다. 설치 환경의 재정의와 새로운 운영 생성 근거는 별도 배포 검증입니다. 외부 알림의 적합성 검증은 F09.3에서 별도로 다룹니다. |
+| <span id="f04-1">F04.1</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 감지기가 생성하는 Incident, 심각도 및 상태 변경, 배정, 감사 기록, 재현을 포함한 기본 인시던트 레지스트리와 수명 주기 워크플로입니다. 기본 정책은 범위가 제한된 완전한 근거를 포함한 서로 다른 발견된 문제 5건이 5분 안에 같은 상관관계로 들어온 경우에만 중간 이상의 심각도 에피소드를 엽니다. 낮음 및 정보 심각도, 드물거나 관련이 없는 발견된 문제, 중복된 문제는 올바르게 Incident를 만들지 않습니다. [레지스트리](../../../services/core-control-plane/src/fdai/core/incident/registry.py), [워크플로](../../../services/core-control-plane/src/fdai/core/incident/workflow.py), 분석기에서 Incident로 이어지는 경로를 검토하고 수명 주기, 워크플로, 이벤트 폭주, 자동 열기, 런타임 설정, 분석기 인계 집중 검사를 다시 실행했습니다. 따라서 Incident 수가 0이라는 사실만으로 준비 상태 실패를 뜻하지 않습니다. 설치 환경의 재정의와 새로운 운영 생성 근거는 별도 배포 검증입니다. 외부 알림의 적합성 검증은 F09.3에서 별도로 다룹니다. |
 | <span id="f04-2">F04.2</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 티어별 인과 가설, 통제된 문서 및 관측 데이터 근거, 토폴로지 및 변경 구분, 충돌 근거 처리, 판단 보류, 감사 가능한 인과 체인입니다. [원인 분석 원장](../../roadmap-implementation/rules-and-detection/root-cause-analysis.md)과 집중 RCA 검사가 이 범위를 뒷받침합니다. 정확한 원인 분석 품질과 여러 작업 영역의 수집원 범위는 별도 설치 및 운영 검증입니다. |
 | <span id="f04-3">F04.3</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 타입이 지정된 대응 계획, 완화 대안, 기대 효과, 중단 및 복구 계약, 인시던트 인계, 미해결 결과 보존, 사후 분석 및 후속 작업 준비입니다. [계획 원장](../../roadmap-implementation/decisioning/operational-planning.md), [학습 가이드](../sre/postmortems-and-learning-ko.md), 집중 계획 검사가 이 범위를 뒷받침합니다. 특정 작업의 승인, 실행, 관찰된 복구는 별도 작업 및 배포 검증입니다. |
 
