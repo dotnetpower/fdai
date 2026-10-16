@@ -8,11 +8,11 @@ translation_revised: 2026-08-19
 # 구현 호환성 기록 (2026-07-06 Standard Set)
 
 이 문서는 소스, 스키마 및 테스트에서 계속 참조하는 2026-07-06 standard-set 제안의 식별자를
-보존합니다. 현재 구현 계획이 아닙니다. 현재 동작과 향후 작업은 연결된 하위 시스템 owner
+보존합니다. 현재 구현 계획이 아닙니다. 현재 동작과 향후 작업은 연결된 하위 시스템의 담당
 문서에서 관리합니다.
 
-> **범위:** R1, R2, R3, R4, R6 및 R7은 과거 제안 식별자입니다. 아래 reconciliation에서
-> 이를 해석하는 방법을 결정합니다. M1.2 probe 목록은 focused 테스트가 배포된 카탈로그와의
+> **범위:** R1, R2, R3, R4, R6 및 R7은 과거 제안 식별자입니다. 아래의 현재 구현 대조표에서
+> 각 제안의 현재 의미를 설명합니다. M1.2 probe 목록은 집중 테스트가 배포된 카탈로그와의
 > 일치를 확인하므로 실행 가능한 호환성 계약으로 유지합니다.
 
 ## 구현 상태
@@ -49,48 +49,48 @@ translation_revised: 2026-08-19
 
 ## 과거 standard set 식별자
 
-이 짧은 기록은 이전 참조를 설명합니다. 위 reconciliation을 재정의하지 않습니다.
+이 짧은 기록은 이전 참조를 설명합니다. 위의 현재 구현 대조표를 재정의하지 않습니다.
 
 ### 2.1 R1 - Axis D와 G를 Axis A에서 파생
 
 R1은 static-blast와 environment 결과를 Axis A에서 파생하도록 제안했습니다. 이 제안은
-채택되지 않았으며 현재 risk gate는 authority를 유지하거나 낮출 수만 있는 독립 축을 평가합니다.
+채택되지 않았으며 현재 risk-gate는 권한을 유지하거나 낮출 수만 있는 독립 축을 평가합니다.
 
 ### 2.2 R2 - ConsoleTool에서 ActionType 카탈로그 projection
 
 R2는 ActionType에서 write tool을 자동으로 파생하도록 제안했습니다. 이 제안은 채택되지
-않았으며 현재 조립은 명시적 system tool 레지스트리를 주입하고 ActionType을 별도의 discovery
-및 action 근거로 사용합니다.
+않았으며 현재 구성에서는 명시적인 시스템 도구 레지스트리를 주입하고 ActionType을 별도의
+탐색 및 액션 근거로 사용합니다.
 
 ### 2.3 R3 - 통합 LlmBinding
 
 R3는 모든 모델 역할에 하나의 어댑터 형태를 사용하도록 제안했습니다. 이 제안은 채택되지
-않았으며 현재 조립은 역할별 프로토콜과 해석된 capability 바인딩을 유지합니다.
+않았으며 현재 구성은 역할별 프로토콜과 해석된 기능 바인딩을 유지합니다.
 
 ### 2.4 R4 - 공유 projection primitive
 
 R4는 Assurance Twin과 Deployment Preflight에 하나의 projection 추상화를 사용하도록
-제안했습니다. 공유 `ScratchProjection` 프로토콜은 있지만 현재 consumer는 별도의 동작과
-소유권을 유지합니다.
+제안했습니다. 공유 `ScratchProjection` 프로토콜은 있지만 현재 이를 사용하는 구성 요소는
+서로 다른 동작과 담당 경계를 유지합니다.
 
 ### 2.5 R6 - Audit materialized view로서의 operator memory
 
-R6는 audit log에서 operator memory를 파생하도록 제안했습니다. 이 제안은 채택되지 않았으며
-operator-memory 항목은 자체 승인, 범위, 만료 및 supersession 수명 주기를 유지합니다.
+R6는 감사 로그에서 운영자 메모리를 파생하도록 제안했습니다. 이 제안은 채택되지 않았으며
+operator-memory 항목은 자체 승인, 범위, 만료 및 대체 수명 주기를 유지합니다.
 
 ### 2.6 R7 - 플래그로 표현하는 manual merge
 
 R7은 `pr_manual`을 `pr_native`의 플래그로 대체하도록 제안했습니다. 이 제안은 채택되지
-않았으며 execution path는 서로 다른 직렬화 계약 값으로 유지됩니다.
+않았으며 실행 경로는 서로 다른 직렬화 계약 값으로 유지됩니다.
 
 ## 과거 Wave M1 호환성
 
-현재 호환성 경계로 남은 것은 M1.2 카탈로그 집합뿐입니다. 과거 sequencing과 완료된 전달
-서술은 git history에서 확인할 수 있으며 backlog가 아닙니다.
+현재 호환성 경계로 남은 것은 M1.2 카탈로그 집합뿐입니다. 과거 구현 순서와 완료된 작업에
+대한 설명은 Git 이력에서 확인할 수 있으며, 앞으로 처리할 작업이 아닙니다.
 
 ### M1.2 Starter probes
 
-Starter probe 카탈로그에는 다음 ID가 정확히 포함됩니다:
+Starter probe 카탈로그에 포함된 ID는 정확히 다음과 같습니다:
 
 - `vm_traffic_last_5m`
 - `storage_access_log`
@@ -98,15 +98,15 @@ Starter probe 카탈로그에는 다음 ID가 정확히 포함됩니다:
 - `blast_radius_classifier`
 
 [`test_probe_catalog.py`](../../../services/core-control-plane/tests/rule_catalog/test_probe_catalog.py)는
-양방향을 확인합니다. 위의 각 식별자에는 YAML 선언이 있고 starter 카탈로그에는 이 목록에 없는
+목록과 카탈로그가 양방향으로 일치하는지 확인합니다. 위의 각 식별자에는 YAML 선언이 있고 starter 카탈로그에는 이 목록에 없는
 추가 식별자가 없습니다.
 
 ## 관련 문서
 
 | 학습 주제 | 읽기 |
 |-----------|------|
-| 현재 authority 계산 | [실행 모델](../decisioning/execution-model-ko.md)과 [위험 분류](../decisioning/risk-classification-ko.md) |
-| 현재 운영자 tool 경계 | [Operator Console](../interfaces/operator-console-ko.md) |
-| 현재 모델 조립 | [Prompt Composition](../decisioning/prompt-composition-ko.md) |
-| 현재 projection consumer | [Assurance Twin](../operations/assurance-twin-ko.md)과 [Deployment Preflight](../deployment/deployment-preflight-ko.md) |
-| 현재 action schema와 execution path | [Action Ontology](../decisioning/action-ontology-ko.md) |
+| 현재 권한 계산 | [실행 모델](../decisioning/execution-model-ko.md)과 [위험 분류](../decisioning/risk-classification-ko.md) |
+| 현재 운영자 도구 경계 | [Operator Console](../interfaces/operator-console-ko.md) |
+| 현재 모델 구성 | [Prompt Composition](../decisioning/prompt-composition-ko.md) |
+| 현재 변환 결과를 사용하는 구성 요소 | [Assurance Twin](../operations/assurance-twin-ko.md)과 [Deployment Preflight](../deployment/deployment-preflight-ko.md) |
+| 현재 액션 스키마와 실행 경로 | [Action Ontology](../decisioning/action-ontology-ko.md) |

@@ -1,6 +1,6 @@
 ---
 title: 배포 빠른 시작
-description: clone에서 명령줄 한 줄로 FDAI를 자신의 Azure 구독에 배포하거나 서명된 오프라인 패키지로 설치합니다.
+description: 복제한 저장소에서 명령줄 한 줄로 FDAI를 자신의 Azure 구독에 배포하거나 서명된 오프라인 패키지로 설치합니다.
 translation_of: deploy-quickstart.md
 translation_source_sha: 3a7cb6686fc95028bf540d5b2178776b7be26c8c
 translation_revised: 2026-10-16
@@ -10,12 +10,12 @@ translation_revised: 2026-10-16
 
 > **배포 방식:** [헌법](../roadmap/architecture/fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포, 서명된 오프라인 패키지, [Hub 관리형 수명 주기](../roadmap/deployment/hub-managed-lifecycle-ko.md)라는 세 가지 설치 방식을 정의합니다. Hub 관리형 수명 주기는 설계만 되어 있고 아직 구현되지 않았습니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
 
-한 번의 대화형 Azure 로그인 뒤 저장소 clone에서 명령줄 한 줄로 FDAI를 자신의 Azure 구독에
+한 번의 대화형 Azure 로그인 뒤 복제한 저장소에서 명령줄 한 줄로 FDAI를 자신의 Azure 구독에
 배포할 수 있습니다. 키, 서명된 키트, 게시된 릴리스, GitHub 설정은 필요하지 않습니다. 업스트림
-무결성 서명 키가 없으면 설치는 30일 Trial로 동작하고 Trial이 끝나면 만료 워터마크를 표시합니다.
-clone의 `secrets/integrity-signing-key.pem`에 그 키가 있으면 전체 사용권을 받습니다.
+무결성 서명 키가 없으면 설치본은 30일 Trial로 동작하고 Trial이 끝나면 만료 워터마크를 표시합니다.
+복제한 저장소의 `secrets/integrity-signing-key.pem`에 그 키가 있으면 전체 사용권을 받습니다.
 
-Terraform은 인프라 단일 기준으로 유지됩니다. 배포 명령은 clone에서 서비스 이미지를 자신의
+Terraform은 인프라의 단일 기준으로 유지됩니다. 배포 명령은 복제한 저장소에서 서비스 이미지를 자신의
 레지스트리에 빌드하고, 적용하는 각 계획을 표시하고, 비공개 데이터 플레인 작업을 Virtual Network
 내부로 옮기고, 배포 준비 상태를 보고하기 전에 애플리케이션 결과를 검증합니다.
 
@@ -66,9 +66,9 @@ GitHub Actions는 저장소를 테스트합니다. 두 배포 경로 어디에�
 - 로컬 Terraform 설치는 필요하지 않습니다. 명령은 `PATH`의 `terraform`이 고정된 릴리스일 때만
   사용하고, 그렇지 않으면 해당 릴리스를 한 번 내려받아 커밋된 다이제스트를 검증합니다.
 - 선택한 구독에서 Foundation 리소스를 만들고 문서화된 배포 역할을 할당할 수 있는 Azure 신원
-- Console 또는 enterprise identity 추가 기능을 선택하는 경우 테넌트 로컬 공유 FDAI API,
-  approval bot, 역할 그룹 표시 이름이 고유해야 합니다. 설치 관리자는 정확한 대상 바인딩에서
-  별도 Console SPA를 파생하므로 다른 FDAI 설치가 해당 redirect를 소유하지 않습니다. 정확한
+- Console 또는 기업 신원 연동 추가 기능을 선택하는 경우 테넌트 내에서 공유하는 FDAI API,
+  승인 봇, 역할 그룹의 표시 이름이 고유해야 합니다. 설치 관리자는 정확한 대상 바인딩에서
+  별도 Console SPA를 파생하므로 다른 FDAI 설치가 해당 리디렉션을 소유하지 않습니다. 정확한
   공유 이름이나 파생 이름이 중복되면 Azure 리소스를 만들기 전에 실행이 멈춥니다.
 - 선택한 Azure 리전에서 필요한 리소스 형식의 사용 가능한 용량
 - 의도한 구독을 선택한 대화형 Azure 세션
@@ -155,12 +155,12 @@ git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azu
 `still working` 기록을 내고, 이후 명시적인 완료 또는 실패 기록을 냅니다. 비공개 작업
 디렉터리는 clone 밖에 있어야 합니다.
 
-조정기는 재개할 수 있는 단일 프로세스에서 다음 작업을 수행합니다.
+조정기는 재개 가능한 단일 프로세스로 다음 작업을 수행합니다.
 
-1. 명령줄 비밀로 값을 받지 않고 Azure CLI에서 활성 tenant와 subscription을 읽습니다.
+1. 명령줄로 비밀 값을 받지 않고 Azure CLI에서 활성 테넌트와 구독을 읽습니다.
 2. clone의 깨끗하게 커밋된 스냅샷 하나를 고정합니다.
 3. clone의 `secrets/` 디렉터리를 보고 Trial 또는 전체 사용권 모드를 선택합니다.
-4. 정책, 할당량, provider 및 대상을 읽기 전용으로 검사합니다.
+4. 정책, 할당량, 프로바이더 및 대상을 읽기 전용으로 검사합니다.
 5. Foundation 계획을 표시하고 적용합니다. 비공개 상태 경계, Virtual Network, Bastion 액세스,
    배포 신원 및 Managed Host를 만듭니다.
 6. 스냅샷에서 서비스 이미지를 자신의 레지스트리에 빌드하고 그 digest를 다시 읽습니다.
@@ -194,8 +194,8 @@ Foundation 계획 전에 Genesis는 지역 VM 카탈로그를 읽고 할당량 �
 재개합니다.
 
 Foundation 계획은 먼저 비공개 로컬 백엔드를 사용합니다. 정확한 마이그레이션 아카이브만
-증명된 호스트에서 서명된 원격 백엔드 예제를 활성화하며, 마이그레이션 승인과 재확인은 필수입니다.
-보존된 이행 `claim`이 완전한 아카이브보다 먼저 만들어져 같은 상위 지원 파일이 모두 없다면,
+검증된 호스트에서 서명된 원격 백엔드 예제를 활성화하며, 마이그레이션 승인과 재조회 확인은 필수입니다.
+보존된 마이그레이션 `claim`이 완전한 아카이브보다 먼저 만들어져 같은 디렉터리의 지원 파일이 모두 없다면,
 수정된 정확한 소스와 새로운 `foundation-state` 승인으로 재개하세요. 조정기는 원래 `claim`과
 백엔드 효과를 유지하고, 검토된 복구 구성의 정확한 파일만 복원하며, Terraform 입력 트리 밖의
 현재 소스 오버레이를 검증한 뒤 검증만 실행합니다. 일부 파일만 있거나 기존 파일이 다르면
@@ -234,7 +234,7 @@ runner 증적은 이미 독립 검증된 관리 이미지를 image apply 없이 
 증적 다이제스트를 별도 출처 정보로 기록합니다.
 
 Managed Host는 Foundation이 소유한 원격 애플리케이션 백엔드에 상태 Blob이 없을 때만 단계
-상태를 허용합니다. 강제하지 않는 상태 push 한 번 전에 변경 불가능한 claim을 기록하고, 이후
+상태를 허용합니다. 강제 옵션 없이 상태를 한 번 push하기 전에 변경 불가능한 claim을 기록하고, 이후
 상태를 다시 읽어 lineage, serial, 내용 및 관리 리소스 수를 검증합니다. claim 이후 프로세스가
 중단되면 같은 작업 디렉터리와 입력으로 같은 명령을 실행하세요. 호스트는 기존 원격 상태를
 검증하고 push를 반복하지 않습니다. 입력, 대상, Foundation 연결이 다르거나 백엔드가 비어 있지
@@ -243,7 +243,7 @@ Managed Host는 Foundation이 소유한 원격 애플리케이션 백엔드에 �
 중단합니다.
 
 채택 오류를 해결하기 위해 기존 Azure 리소스나 원래 로컬 상태를 삭제하지 마세요. 작업
-디렉터리를 보존하고 유지된 claim 또는 receipt로 실패한 경계를 확인하세요.
+디렉터리를 보존하고 보존된 claim 또는 증적으로 실패한 경계를 확인하세요.
 
 ### Trial과 전체 사용권
 
@@ -291,9 +291,9 @@ scripts/deployment/release/build-standalone-deployment-kit.sh \
 fdaictl provision azure --offline-kit <fdai-deployment-kit.tar.gz> --region <azure-region>
 ```
 
-명령은 파일을 사용하기 전에 패키지의 분리형 Ed25519 서명과 모든 checksum을 검증합니다.
+명령은 파일을 사용하기 전에 패키지의 분리형 Ed25519 서명과 모든 체크섬을 검증합니다.
 패키지만으로 충분하며 다운로드, 공개 레지스트리, 패키지 인덱스, 빌드가 필요하지 않습니다.
-Azure 관리 및 데이터 평면 엔드포인트는 Azure 네트워크 경로로 계속 도달할 수 있어야 합니다.
+Azure 관리 및 데이터 플레인 엔드포인트에는 Azure 네트워크 경로를 통해 계속 접근할 수 있어야 합니다.
 패키지 서명 키는 산출물을 인증할 뿐 사용 권한을 뜻하지 않으므로, 별도로 발급한 사용권을
 제공하지 않으면 오프라인 설치는 30일 Trial로 동작합니다.
 
@@ -339,9 +339,9 @@ Azure 관리 및 데이터 평면 엔드포인트는 Azure 네트워크 경로�
   않으며 제거될 예정입니다.
 - `fdai-up.sh`는 폐기된 `--signing-key` 옵션을 거부하며 키트를 빌드하지 않습니다. 서명된 오프라인
   패키지는 따로 빌드해 `--offline-kit`로 전달합니다.
-- `.github/workflows/` 아래 배포 workflow는 저장소 CI, release 및 과거 자동화입니다. 대상 환경
+- `.github/workflows/` 아래 배포 워크플로는 저장소 CI, release 및 과거 자동화를 위한 것입니다. 대상 환경
   설치 프로그램으로 지원되지 않습니다.
-- Terraform 직접 실행은 전문가 통합 경계입니다. 동일한 계획, 승인, 신원, rollback 및 검증
+- Terraform 직접 실행은 전문가용 통합 경로입니다. 동일한 계획, 승인, 신원, 롤백 및 검증
   계약을 유지해야 합니다.
 
 ## 다음 단계

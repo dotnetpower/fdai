@@ -44,6 +44,9 @@ npm --prefix tools/architecture-diagrams run check
 
 `render` writes both generated output trees. `check` compiles in memory and
 fails when a committed artifact is missing or stale.
+Localized canonical `alt` text belongs in the diagram YAML and should use natural reader-facing
+language. Keep every translated page embed byte-for-byte aligned with that canonical value, then
+run `render` instead of editing the generated manifest or SVG.
 
 `migrate-repository` replaces paired roadmap Mermaid blocks with localized static diagram
 references and writes their canonical specifications. The repository migration inventory currently

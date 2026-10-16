@@ -1,30 +1,31 @@
 ---
 translation_of: exemption-workflow.md
 translation_source_sha: b4f2234cbc6ef34cbc3cd0a525f81e5b888bdb75
-translation_revised: 2026-08-31
+translation_revised: 2026-10-16
 title: 예외 워크플로
 owner: aw-owners (Owner-tier)
-sla: "PR 오픈으로부터 1 영업일 내 승인 결정"
+sla: "PR 생성 후 1영업일 이내 승인 결정"
 ---
 
 # 예외 워크플로
 
-특정 스코프에 대해 룰 배정의 **시간 제한, 감사, 소유자 승인** waiver 경로입니다.
+특정 범위에 배정된 규칙의 적용을 일시적으로 유예하는 절차입니다.
+예외에는 **유효 기간, 감사 기록, 책임 담당자의 승인**이 필요합니다.
 [`rule-catalog/schema/exemption.json`](../../services/core-control-plane/src/fdai/rule_catalog/schema/exemption.schema.json)
-과 `rule-catalog/exemptions/`를 만지는 모든 PR에서 실행되는 CI 검증기가 뒷받침합니다.
+스키마와 `rule-catalog/exemptions/`를 변경하는 모든 PR에서 실행되는 CI 검증기가 이 절차를 뒷받침합니다.
 
 ## 언제 예외를 쓰나
 
-예외는 특정 스코프의 특정 룰에 대해 **강제 적용**를 억제합니다. 다음이 모두 성립할 때
-적절한 도구입니다:
+예외는 특정 범위의 특정 규칙에 대한 **강제 적용**을 억제합니다.
+다음 조건을 모두 충족할 때 사용합니다.
 
-- Rule이 일반적으로는 옳지만 **이 스코프**에서는 틀리다.
-- 스코프가 리소스 그룹 (또는 더 좁은 범위)으로 좁혀진다.
-- **예외를 제거할 계획**이 존재한다 - 예외는 수정(fix)이 아니라 유예다.
-- Rule을 끈 채로 둘 때의 영향 범위가 이해되어 있고 그 범위가 제한되어 있다.
+- 규칙은 일반적으로 올바르지만 **이 범위**에는 맞지 않습니다.
+- 대상은 리소스 그룹 또는 그보다 좁은 범위로 한정됩니다.
+- **예외를 제거할 계획**이 있습니다. 예외는 수정이 아니라 유예입니다.
+- 규칙을 적용하지 않을 때의 영향을 이해하고 있으며 영향 범위가 제한되어 있습니다.
 
-Rule이 일반적으로 틀렸다면 대신 rule-catalog 파이프라인을 통해 **룰을 폐기**하세요.
-잘못된 차원이 auto-vs-사람 승인이라면 룰 자체가 아니라 **`risk-classification`을 조정**하세요.
+규칙 자체가 일반적으로 잘못되었다면 rule-catalog 파이프라인을 통해 **규칙을 폐기**하세요.
+자동 실행과 사람 승인을 구분하는 기준이 문제라면 규칙 자체가 아니라 **`risk-classification`을 조정**하세요.
 
 ## 역할
 
@@ -33,22 +34,21 @@ Rule이 일반적으로 틀렸다면 대신 rule-catalog 파이프라인을 통�
 - **승인자** - `aw-owners` 멤버여야 합니다. **승인자 ≠ 요청자** - 브랜치 보호가
   "작성자 ≠ 검토자"를 강제하고, 예외 아티팩트도 CI가 서로 다른 값인지 검사하는
   `requested_by`와 `approved_by` 필드를 담고 있습니다.
-- **감사자** - 모든 상태 전환 (활성 / 만료된 / 철회된)은 행위 주체 principal과
-  함께 감사 로그 엔트리를 기록합니다.
+- **감사자** - 모든 상태 전환(활성 / 만료 / 철회)에 대해 행위 주체의 principal과
+  함께 감사 로그를 남깁니다.
 
 ## 절차
 
-1. **`Exemption Request` 템플릿**으로 PR 오픈.
+1. **`Exemption Request` 템플릿으로 PR을 생성합니다.**
 2. [스키마](../../services/core-control-plane/src/fdai/rule_catalog/schema/exemption.schema.json)에 따라
-   `rule-catalog/exemptions/<id>.json`에 **아티팩트 채우기**.
-3. **CI 실행**:
-   - 스키마 검증 (`exemption-check` 작업).
-   - Author-≠-reviewer 브랜치 보호 규칙 (repo settings).
+   `rule-catalog/exemptions/<id>.json`에 **아티팩트를 작성합니다.**
+3. **CI가 다음을 검사합니다.**
+   - 스키마 검증(`exemption-check` 작업).
+   - 작성자와 검토자를 구분하는 브랜치 보호 규칙(저장소 설정).
    - `requested_by` ≠ `approved_by` 모델 불변식.
    - `expires_at > created_at` 모델 불변식.
-4. **Owner-tier 리뷰 + 머지**. 머지는 현재 시점에서 라이브 Azure 리소스에 사이드
-   이펙트를 주지 않습니다. 적용 억제는 카탈로그 파이프라인(단계 2)이 예외를
-   인식한 시점에 적용됩니다.
+4. **Owner-tier 검토 후 병합합니다.** 현재 병합 자체는 실제 Azure 리소스에 영향을
+   주지 않습니다. 카탈로그 파이프라인(단계 2)이 예외를 인식하면 규칙 적용이 억제됩니다.
 5. **자동 만료**. 저장소 작업은 검토된 아티팩트만 `state=expired`로 변경합니다. 런타임
    조정기는 검토된 정확한 배정 연결을 확인하고 안정적인 멱등성 키가 있는
    `governance.reapply-rule-assignment` 제안을 게시합니다. 제안은 일반 위험 평가, 사람 승인,
@@ -58,34 +58,34 @@ Rule이 일반적으로 틀렸다면 대신 rule-catalog 파이프라인을 통�
 ## 시간 제한
 
 - `expires_at`은 `created_at`보다 **엄격히 이후**여야 합니다.
-- 최대 간격 상한은 여기에 코드화되어 있지 않습니다. 더 긴 창은 PR 본문에서
-  정당화되어야 합니다.
-- `expires_at` 14일 전에 기본 A1 채널로 미리 보기 다이제스트를 보낼 수 있습니다. 각 항목은
+- 최대 유효 기간은 여기서 고정하지 않습니다. 더 긴 기간을 지정하려면 PR 본문에
+  사유를 명시해야 합니다.
+- `expires_at` 14일 전에 기본 A1 채널로 만료 예정 요약을 보낼 수 있습니다. 각 항목에는
   정확한 예외 개정, 규칙, 만료 시점, 요청자 멘션을 포함합니다. 알림 전달은 권한을 부여하지
   않으며 만료를 지연하지 않습니다.
 
 ## 취소
 
-Owner는 활성 예외를 다음과 같이 취소할 수 있습니다:
+Owner는 활성 예외를 다음과 같이 취소할 수 있습니다.
 
-1. 아티팩트를 `state=revoked`, `revoked_at`, `revoked_by`로 편집.
-2. 취소 PR 머지 - Owner-tier 리뷰, 자기 승인 금지.
+1. 아티팩트를 `state=revoked`로 변경하고 `revoked_at`, `revoked_by`를 설정합니다.
+2. Owner-tier 검토 후 취소 PR을 병합합니다. 자기 승인은 허용되지 않습니다.
 
-취소는 즉시 적용 모드로 되돌립니다 (카탈로그 파이프라인이 상태 변화를 관찰하는 순간).
+카탈로그 파이프라인이 취소 상태를 관찰하는 즉시 규칙 적용이 다시 활성화됩니다.
 
 ## 에스컬레이션
 
-- 명백히 스키마를 만족하는 요청에 대해 CI가 flapping하면, 기본 A1 채널로
+- 명백히 스키마를 충족하는 요청인데도 CI 결과가 성공과 실패를 반복하면, 기본 A1 채널로
   `aw-owners`를 호출하고 CI 로그를 첨부합니다.
 - 예외가 거부됐지만 환경이 실질적으로 위험한 상태이면 `aw-break-glass`로
-  에스컬레이션합니다 - Conditional 접근 아래, 이는 단기·감사된 부여이지 우회는
-  아닙니다.
+  에스컬레이션합니다. Conditional Access가 적용되는 단기 권한 부여이며,
+  감사 기록을 남깁니다. 통제 절차를 우회하는 수단은 아닙니다.
 
 ## 참조
 
 | 아티팩트 | 경로 |
 |----------|------|
-| 설계: Human 재정의 | [../../.github/instructions/architecture.instructions.md#human-override](../../.github/instructions/architecture.instructions.md#human-override) |
+| 설계: 사람의 재정의 | [../../.github/instructions/architecture.instructions.md#human-override](../../.github/instructions/architecture.instructions.md#human-override) |
 | 예외 스키마 | [../../services/core-control-plane/src/fdai/rule_catalog/schema/exemption.schema.json](../../services/core-control-plane/src/fdai/rule_catalog/schema/exemption.schema.json) |
 | CI 검사 (`exemption-check` 작업) | [../../.github/workflows/ci.yml](../../.github/workflows/ci.yml) |
 | 만료 CLI | [../../scripts/governance/exemption-expire.py](../../scripts/governance/exemption-expire.py) |

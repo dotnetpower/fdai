@@ -6,7 +6,8 @@ translation_revised: 2026-10-16
 ---
 # FDAI Console 대화
 
-사람 오퍼레이터가 CLI, Teams, Slack, 웹 챗을 통해 FDAI에 **역으로 말할 수 있는** 방식입니다. 별도 제품이 아닌 FDAI Console의 **대화형 표면**로서 계층 아키텍처, 도구 카탈로그, LLM tier, 세션 지속성, 도구별 RBAC, 안전 invariant, 롤아웃 상태를 정의합니다. FDAI Console은 읽기 전용 제품이 아니라 통제된 운영자 인터페이스입니다. 서버가 인가한 타입 지정 요청을 제출할 수 있지만, 관리 리소스 실행은 브라우저 밖에서 이루어지며 고위험 작업에는 계속 사람 승인이 필요합니다. 모듈 분리 후에도 제안 claim 타입은 목적별 모델 소유자에 유지하고 공개 보증 파사드, 생성된 CQAS 인벤토리, 정본 시각 매핑을 보존하며 요청 또는 실행 권한은 바뀌지 않습니다. 파사드 가져오기 이름을 보존하는 런타임 카탈로그 로더 분리는 사람 보고 관계, 승인 경로, RBAC 또는 Console 요청 계약을 변경하지 않습니다. Rule 활성화 테스트를 소유 Core 및 Operator 서비스 테스트 묶음에 등록하는 변경은 테스트 선택만 바꾸며 보고 관계나 승인 권한을 부여하지 않습니다. Console 카탈로그나 deck 표현 계약 변경 뒤 질문은행과 CQAS 산출물을 다시 생성하는 작업은 원본 약속값만 갱신하며 질문 신원, 보고 권한 또는 대화 실행 권한을 바꾸지 않습니다.
+운영자가 CLI, Teams, Slack, 웹 채팅으로 FDAI에 **질문하고 요청하는** 방법을 설명합니다. 별도 제품이 아닌 FDAI Console의 **대화형 표면**으로서 계층 아키텍처, 도구 카탈로그, LLM 계층, 세션 영속성, 도구별 RBAC, 안전 불변식, 롤아웃 상태를 정의합니다. FDAI Console은 읽기 전용 제품이 아니라 통제된 운영자 인터페이스입니다. 서버가 인가한 타입 지정 요청을 제출할 수 있지만, 관리 리소스에 대한 실행은 브라우저 밖에서 이루어지며 고위험 작업에는 계속 사람 승인이 필요합니다.
+모듈 분리 후에도 제안의 주장 타입은 목적별 담당 모델에 유지합니다. 공개 보증 파사드, 생성된 CQAS 인벤토리, 정본 시각 매핑을 보존하며 요청 또는 실행 권한은 바뀌지 않습니다. 런타임 카탈로그 로더를 분리하더라도 파사드의 가져오기 이름을 보존하며, 사람 보고 관계, 승인 경로, RBAC 또는 Console 요청 계약은 변경하지 않습니다. Rule 활성화 테스트를 담당 Core 및 Operator 서비스 테스트 묶음에 등록하는 변경은 테스트 선택만 바꾸며 보고 관계나 승인 권한을 부여하지 않습니다. Console 카탈로그나 deck 표현 계약을 변경한 뒤 질문은행과 CQAS 산출물을 다시 생성하는 작업은 원본 결속값만 갱신하며 질문 신원, 보고 권한 또는 대화 실행 권한을 바꾸지 않습니다.
 Push 방향 (시스템 → 사람) 알림은 [channels-and-notifications.md](channels-and-notifications-ko.md)에 있고, 운영 화면과 요청은 [console-operations-ko.md](console-operations-ko.md)에 정의되며 SPA는 [project-structure.md § 콘솔/](../architecture/project-structure-ko.md#모듈-경계모듈-boundaries)에 있습니다. 근거 출처 이력, 스트림 복구, localization 및 아키텍처 지도 복원력은 [console-evidence-and-resilience-ko.md](console-evidence-and-resilience-ko.md)가 소유합니다. Login 초기화는 역할이 할당된 principal의 접근을 검증된 App 역할에서 도출하고 선택적 access-request 변환 결과를 요구하지 않으며, 역할이 없을 때 해당 변환 결과가 사용 불가이면 접근을 계속 차단합니다. 로컬 개발의 독립 서비스 어댑터는 모델 서술에만 Azure CLI를 사용할 수 있고 provider-read 또는 실행 권한은 없습니다. 온톨로지는 하나의 exact-release 레지스트리 변환 결과에서 검토된 의미 모델과 카탈로그 토폴로지를 제공합니다. 런타임 인스턴스는 보안 receipt를 기반으로 하는 별도의 목적 범위 컨텍스트 스냅샷에만 표시됩니다. 인스턴스 화면은 출처 후보 회계, 범위가 제한된 응답 수, 집중 그래프 항목, Inspector 전용 관계, IAM 전용 관계를 분리하여 레이아웃 생략이 프로바이더 근거 누락처럼 보이지 않게 합니다. Fleet 출처 행은 `(source, scope_digest)` 신원을 사용하고 각 불투명 범위 다이제스트를 표시하며 여러 클러스터 상태를 행 하나로 축약하지 않습니다. 화면이 보이는 동안 인증된 인벤토리 무효화 SSE 스트림을 사용하고 커밋된 watermark를 받으면 선택한 인스턴스를 즉시 다시 검증합니다. 교차 출처 재현은 범위가 제한된 `Last-Event-ID` 요청 헤더를 명시적으로 허용합니다. SSE를 사용할 수 없으면 단조 증가 시계를 기준으로 다음 15초 fallback 폴링까지 남은 시간을 표시하며 브라우저 복귀 시에도 즉시 다시 확인합니다. 새로고침 실패 시 마지막으로 검증된 응답을 유지하고 프로바이더 상태를 텍스트가 있는 의미 배지로 표시합니다. SSE와 폴링은 인벤토리 관측을 대체하거나 관계 완전성을 높이지 않습니다. 인시던트 주의 컨트롤은 마운트 중 제출하지 않으며, 명시적으로 클릭할 때마다 인시던트에 결속된 새 대화를 열고, 증적에 결속된 플래너 중단 시 모델 연결 또는 의미 런타임 복구 단계를 현지화해 표시합니다. 서버 검증 결과가 있으면 참조가 0개인 경우까지 그 근거 참조만 인용 출처로 사용하며, 검증 결과가 없을 때만 화면 맥락을 인용합니다.
 
 
@@ -199,12 +200,14 @@ Command Deck은 기존 공통 Markdown 렌더러와 검증된 JSON 표시 데이
 ## 1. Framing - 무엇인가 (그리고 무엇이 아닌가)
 인스턴스 후보 접수는 인증된 principal, 역할 및 그룹 범위를 사용하며 사람 보고 관계, 할당, 승인 또는 액션 권한을 바꾸지 않습니다. 기본 Core 인덱스 수명 주기는 계속 에이전트가 소유하는 읽기 전용 경로입니다. 정확한 ID 결과는 의미 순위 검색의 자격이나 전체 목록을 뜻하지 않습니다. 식별자 중심의 이중 언어 최종 응답은 전체 목록이 아닌 부분 후보이며 실행 권한이 없음을 명시합니다. 임의 속성을 표시하지 않으며 첨부 파일 인가, 정확한 문서 인용 또는 문서 근거의 완전성을 대신하지 않습니다.
 
-FDAI Console 대화 표면은 **판단 권한을 가지지 않습니다**. FDAI의 판단 권한은 이미 있는 곳에 그대로 남습니다 - 결정론적 엔진 (T0), quality gate (T2 검증기), risk gate, shipped Rego 정책. 콘솔은 그 판단을 오퍼레이터가 검사하고, 변경을 시뮬레이션하고, 시스템이
-이미 큐잉한 것을 승인하는 **대화형 표면** 이다.
+FDAI Console의 대화 표면은 **판단 권한을 가지지 않습니다**. 판단 권한은 기존의 결정론적
+엔진(T0), quality gate(T2 검증기), risk-gate, 제공되는 Rego 정책에 그대로 남습니다. Console은
+운영자가 그 판단을 검토하고, 변경을 시뮬레이션하며, 시스템이 이미 대기열에 넣은 항목을
+승인하는 **대화형 표면**입니다.
 
-세 속성이 직접 따라온다:
+이에 따라 다음 세 가지 속성을 유지합니다:
 
-- **LLM은 translator이지 judge가 아님.** 자연어는 도구 호출이 되고 도구 결과는 자연어가 되며 실행 적격성은 오직 검증기만 부여합니다
+- **LLM은 번역기이지 판단자가 아닙니다.** 자연어를 도구 호출로, 도구 결과를 자연어로 바꾸며 실행 적격성은 오직 검증기만 부여합니다
   ([architecture.instructions.md § Design Principles](../../../.github/instructions/architecture.instructions.md#design-principles)).
 - **도구는 기본 데이터 출처가 아니라 파이프라인 단계를 노출함.** 콘솔은 primitive log, metric,
   config query 대신 `describe_event()`, `explain_verdict()`, `simulate_change()`를 노출합니다.
@@ -244,7 +247,7 @@ Terraform은 request와 projection topic을 고정합니다. Core는 검증된 q
 주입된 공급자가 우선하며 로컬 서술기는 다른 공급자와 함께 사용하지 않습니다. 전체 스택 준비는 명시적 절대 경로 `FDAI_LOCAL_RESOLVED_MODELS_PATH`의 경로와 파일 바이트를 기존 캐시와 단계별 캐시 식별값에 포함합니다. 변경되면 모델 연결을 다시 생성합니다. 같은 계약은 서비스 경계를 변경하지 않고 명시적으로 활성화한 소유자 전용 Kubernetes fleet 파일도 포함합니다. 명시적 선택 없이 기본 모델 산출물이 누락되면 [런타임 동등성](../deployment/dev-and-deploy-parity-ko.md) 규칙에 따라 캐시 재사용 전에 선택 범위의 기존 배포에서 생성합니다. 조회가 실패하거나 대상이 모호하면 준비를 중단하며 리소스를 생성하거나 권한을 부여하지 않습니다.
 관리되는 전체 스택 작업은 권위 있는 인벤토리 새로 고침을 지속 조정 프로세스에 맡기므로 수집이 진행되는 동안 Console, Core 및 Operator 프로세스를 시작할 수 있습니다. 전체 준비 상태는 활성 범위 인벤토리 커버리지와 analyzer의 첫 번째 정상 tick을 계속 요구합니다. 로컬 analyzer는 서비스 소유 StateStore binding을 명시적으로 받아 자율성을 높이지 않고 기록된 상태 근거의 대상 admission을 검증합니다. 독립 실행 준비는 동기 인벤토리 새로 고침을 유지합니다.
 로컬 준비는 오래된 소비자 정리 도구를 캐시 식별값에 포함하고 준비 점검 메시지를 `fdai.startup.probes`에 격리합니다. 삭제 보존 기준은 1시간 또는 파티션당 1 MiB이며 세그먼트는 10분마다 교체합니다. 정리 도구는 비어 있는 PID별 자기 점검 그룹을 다시 확인하고 프로세스가 종료된 그룹만 제거합니다. 운영 메시지, 실패 메시지, 활성 그룹 및 데이터베이스 기록은 보존합니다. 브로커 보존 정책은 비동기로 적용되며 기존 런타임은 관리되는 준비와 재시작 이후 새 점검 토픽을 사용합니다.
-Operator API는 검토를 준비된으로 표시하거나 카탈로그 제안을 만들거나 권한을 부여하지 않습니다. 잘못된 답변 보고는 자율 재평가 근거만 추가하며 통제된 transition에는 exact 재생 근거와 기존 카탈로그 수명 주기가 계속 필요합니다.
+Operator API는 검토를 준비 완료로 표시하거나 카탈로그 제안을 만들거나 권한을 부여하지 않습니다. 잘못된 답변 보고는 자율 재평가 근거만 추가하며, 통제된 전이에는 정확한 재생 근거와 기존 카탈로그 수명 주기가 계속 필요합니다.
 ### 1.1 공유 glossary에 추가된 어휘
 
 다음 토큰들이
@@ -335,38 +338,37 @@ intent-graph 도구보다 정본 glossary를 먼저 사용합니다. 이 우선�
   결정론적 답변과 기본값 배치를 사용하므로 운영자는 가능한 최대 evidence-supported 답변을
   계속 받습니다. 기존 Markdown 표, fenced chart, bullet 및 산문 출력은 다른 채널과 이전
   클라이언트를 위한 compatibility 계약으로 유지합니다.
-  Semantic 턴 플래너는 해당 요청의 범위가 제한된 기능만 strict structured-output 스키마로
-  변환 결과합니다. 모든 객체는 additional 속성을 거부하고 declared 필드를 필수로
+  의미 턴 플래너는 해당 요청의 범위가 제한된 기능만 엄격한 구조화 출력 스키마로
+  변환합니다. 모든 객체는 추가 속성을 거부하고 선언된 필드를 필수로
   표시합니다. 도구의 선택적 인자는 nullable 필드로 표현하며 조정기는 결정론적
   선택 검증 및 전달 전에 null 자리 표시자를 제거합니다.
-  렌더링 후 코어 검증기가 변경할 수 없는 `ToolResult`에 없는 numeric 값, 비율, RFC3339
+  렌더링 후 코어 검증기가 변경할 수 없는 `ToolResult`에 없는 숫자 값, 비율, RFC3339
   시각 및 정본 룰, 이벤트, 인시던트, 상관관계, ActionType 식별자를 거부합니다.
   `current`, `live`, `latest` 같은 최신성 표현에는 해당 결과의 exact 시각이 필요합니다.
-  Markdown 목록 ordinal, ordinary 리소스 별칭 및 식별자 내부 숫자는 formatting을 점유로
-  오인하지 않도록 이 보수적 검사에서 제외합니다.
-  의도 translation이 계속 모호한하면 선택적 `ClarificationNarrator`가 principal에게 보이는
+  Markdown 목록의 순번, 일반 리소스 별칭, 식별자 내부 숫자는 서식을 사실 주장으로
+  오인하지 않도록 이 보수적인 검사에서 제외합니다.
+  의도 번역이 여전히 모호하면 선택적 `ClarificationNarrator`가 principal에게 보이는
   installed 도구 스키마만 받고 범위가 제한된 질문 하나를 반환할 수 있습니다. 이 경로는 도구를 호출하지
   않고 인자를 추측하지 않으며 프로바이더 실패 또는 one-question 형식 위반 시 결정론적 abstain
   응답으로 대체 경로합니다.
   선택적 `ContextualNarrator`는 범위가 제한된 이전 턴에서 단일 도구 후속 조치를 번역할 수 있습니다.
-  이전 텍스트는 신뢰할 수 없는 데이터로 escape되며 파싱된 모든 scalar 인자는 Unicode 및 구분자
-  정규화 후 현재 발화 또는 이전 턴에 실제로 존재해야 합니다. 누락되거나 invented 인자는
-  도구 조회와 실행 전에 translation 전체를 폐기합니다. 이 프로토콜을 구현하지 않는 어댑터는 기존
+  이전 텍스트는 신뢰할 수 없는 데이터로 이스케이프 처리하며 파싱된 모든 스칼라 인자는 Unicode 및
+  구분자를 정규화한 뒤 현재 발화 또는 이전 턴에 실제로 존재해야 합니다. 인자가 누락되거나
+  만들어 낸 인자이면 도구 조회와 실행 전에 번역 전체를 폐기합니다. 이 프로토콜을 구현하지 않는 어댑터는 기존
   context-free `Narrator.translate` 동작을 유지합니다.
-  Direct T0 matching에 실패한 compound 요청에서는 선택적 `ReadPlanNarrator`가 정본 명령
-  두세 개를 제안할 수 있습니다. 조정기는 첫 호출 전에 모든 명령을 자체 grammar로 다시
-  파싱하고 완전한 계획의 installed-tool 구성원, RBAC, 명령 distinctness 및
+  T0에서 직접 일치하는 항목을 찾지 못한 복합 요청에서는 선택적 `ReadPlanNarrator`가 정본 명령
+  두세 개를 제안할 수 있습니다. 조정기는 첫 호출 전에 모든 명령을 자체 문법으로 다시
+  파싱하고 전체 계획의 도구 설치 여부, RBAC, 명령 중복 여부 및
   `side_effect_class=read`를 검증합니다. 잘못된 계획은 아무것도 실행하지 않습니다. Valid 읽기는
-  serial로 실행하고 단계별 tool-call/결과 쌍과 근거 참조를 보존한 뒤 같은 근거에 기반한
-  표현 pass를 사용합니다. 읽기 하나가 실패하거나 사용 불가이면 remaining 계획을 중단하고 종합을 건너뜀하며 empty-screen 또는 서술기 출력 대신 결정론적 검증되지 않은 보류를 반환합니다.
+  순차적으로 실행하고 단계별 도구 호출/결과 쌍과 근거 참조를 보존한 뒤 같은 근거에 기반한
+  표현 단계를 사용합니다. 읽기 하나가 실패하거나 사용 불가이면 남은 계획을 중단하고 종합을 건너뜁니다. 빈 화면이나 서술기 출력 대신, 검증되지 않았음을 명시하는 결정론적 보류 결과를 반환합니다.
   종합 전에 aggregator는 두 도구가 같은 `resource_id`, `scope_ref` 또는 `id`를 명시할 때만
   high-signal `state`, `status`, `verdict`, `mode`, `health`, `outcome` 필드를 비교합니다. 값이 다르면
   구조화된 conflict와 양쪽 근거를 보존하고 집계를 `abstain`으로 바꾼 뒤 모델 렌더링을
-  건너뜀합니다. 서로 다른 신원은 비교하지 않습니다. 로컬 및 deployed interactive 읽기는 코어가 소유한 하나의 모드 정책을 사용하므로 같은 지연 시간 프로파일에서 같은 direct, streamed 또는 detached 모드를 선택합니다.
-- **계층 1 (Core)**은 이미 shipping 중인 결정론적 코어 그대로.
-  콘솔은 새 판단 경로, 새 지속성 저장소, 새 실행 vector를 추가하지
-  않는다. 콘솔 도구 호출은 기존 파이프라인이 이미 만드는 법을 아는 호출
-  로 해석.
+  건너뜁니다. 서로 다른 신원은 비교하지 않습니다. 로컬 및 배포 환경의 대화형 읽기는 코어가 소유한 하나의 모드 정책을 사용하므로 같은 지연 시간 프로파일에서 같은 direct, streamed 또는 detached 모드를 선택합니다.
+- **계층 1 (Core)**은 기존에 제공되는 결정론적 코어를 그대로 사용합니다.
+  Console은 새 판단 경로, 영속 저장소, 실행 경로를 추가하지 않습니다.
+  Console 도구 호출은 기존 파이프라인에서 이미 지원하는 호출로 해석합니다.
 ### 2.1 모듈 맵
 
 출처 인벤토리와 경계는 [Operator Console 모듈 지도 and Boundaries](operator-console-module-map-ko.md)가 소유합니다.
@@ -385,13 +387,13 @@ focused 소유자 문서로 이동했습니다: [operator-console-runtime-model-
 ## 7. 안전 invariant (chat은 이를 약화시키지 않음)
 
 [coding-conventions.instructions.md § 안전성](../../../.github/instructions/coding-conventions.instructions.md#safety)
-의 7개 자율 작업 안전조건은 변경 없이 적용. Chat은 그 위에 자체적으로 3개를
-추가.
+의 7개 자율 작업 안전조건을 변경 없이 적용합니다. 대화 경로에는 다음과 같이 3개를
+추가합니다.
 
 ### 7.1 기존 7개 안전조건
 
 매 write-class 도구 호출 (`simulate_change` in enforce 모드 - 오늘 허용
-안 됨 -, `approve_hil`, `run_runbook --live`)은 다음을 carry MUST:
+안 됨 -, `approve_hil`, `run_runbook --live`)에는 다음이 반드시 포함되어야 합니다:
 
 1. **Stop-condition** - 콘솔 변경 없이 기저 ActionType에서 상속.
 2. **Rollback 경로** - ActionType의 `rollback_contract`에서 상속.
@@ -403,26 +405,26 @@ focused 소유자 문서로 이동했습니다: [operator-console-runtime-model-
 
 ### 7.2 Chat 특화 3 invariant
 
-8. **매 write-class 도구 호출 에서 검증기 re-check.** Narrator가 write-
-   등급 도구를 겨냥하는 `tool_calls` 프레임을 발행 한 후, 조정기는
-   도구 인자에 대해 T0Engine + policy-as-code 검사를 재실행. Abstain /
-   거부 시, 도구 호출은 폐기 되고 턴은 HIL로 fall through (§7.4 참조).
-   이것이 "LLM은 실행 충족 여부를 절대 부여하지 않는다" 뒤의
-   mechanical guarantee.
-9. **Chat-scoped no 자기 승인.** `approve_hil`은 호출자의 Entra
-   `oid`가 큐잉된 항목에 기록된 된 요청자와 매치하면 호출자가
-   Owner를 holding 하고 있어도 refuse. PR gate
+8. **모든 쓰기 등급 도구 호출에서 검증기를 다시 실행합니다.** Narrator가 쓰기
+   등급 도구를 대상으로 `tool_calls` 프레임을 발행하면, 조정기는
+   도구 인자에 대해 T0Engine + policy-as-code 검사를 다시 실행합니다. 판단을 보류하거나
+   거부하면 도구 호출을 폐기하고 턴을 HIL로 넘깁니다 (§7.4 참조).
+   이 메커니즘으로 "LLM은 실행 자격을 부여하지 않는다"는 원칙을
+   보장합니다.
+9. **대화 경로에서도 자기 승인을 허용하지 않습니다.** `approve_hil`은 호출자의 Entra
+   `oid`가 대기 중인 항목에 기록된 요청자와 일치하면, 호출자가
+   Owner 역할을 보유하더라도 거부합니다. PR 게이트
    ([security-and-identity.md](../architecture/security-and-identity-ko.md))와 동일한
-   invariant; chat은 refuse 시 감사 사유에 invariant 이름을 추가.
+   와 같은 불변식입니다. 대화 경로에서는 거부할 때 감사 사유에 불변식 이름을 추가합니다.
 10. **BreakGlass 요청은 time-boxed 이고 명시적이어야 함.**
    `activate_break_glass`는 `(reason, expiry <= 4h)` 요구하고 구성된
    Owner 모두에게 push-방향 Slack/Teams 어댑터
    ([channels-and-notifications.md](channels-and-notifications-ko.md))로
   페이지. Silent 권한 상승 없음. **요청은 알림에 대해 실패 시 차단:**
    기본 pager 채널이 down 이면 조정기는 구성된 대체 경로 채널을
-  시도; *어느* 채널도 달리버리를 확인하지 못하면 요청은 **거부**
+  시도합니다. *어느* 채널도 전달을 확인하지 못하면 요청은 **거부됩니다**
    (감사 증인 없는 break-glass는 지연된 긴급보다 더 위험), 거부 자체도
-  감사 되어 Owner가 시도를 볼 수 있음. 현재 shipped 도구는 pager/감사 증적만 반환하고
+  감사 기록을 남겨 Owner가 시도를 확인할 수 있게 합니다. 현재 제공되는 도구는 페이징 및 감사 증적만 반환하고
   `ConversationSession`, `Principal`, RiskGate 역할 축을 변경하지 않으므로 승인 자격도 raise하지
   않습니다. 실제 session-scoped 권한 부여 저장소와 전달 통합이 추가되기 전에는 권한 상승이
   발생하지 않는 fail-safe 상태입니다. 향후 권한 부여도 `auto`를 절대 반환하거나 자기 요청 승인을
@@ -438,25 +440,25 @@ focused 소유자 문서로 이동했습니다: [operator-console-runtime-model-
 
 현재 `ActivateBreakGlassTool` 결과는 `activated_at`, `expires_at`, 민감정보가 제거된 사유,
 `pager_receipt`, `audit_id`를 포함합니다. `max_ttl_seconds` 기본/상한은 `14400`이며 어댑터 생성 시
-더 큰 값은 거부합니다. 이 결과는 권한 확인 권한 부여 기록이 아니며 세션 종료/만료를
-적용하는 persistent 권한 부여 저장소도 아직 없습니다. 따라서 어떤 downstream 경로도 이를
+더 큰 값은 거부합니다. 이 결과는 권한 부여 기록이 아니며 세션 종료/만료를
+적용하는 영속 권한 부여 저장소도 아직 없습니다. 따라서 어떤 후속 경로도 이를
 권한 상승 근거로 사용하면 안 됩니다.
 
 ### 7.4 LLM이 쓰기를 제안할 때 사람 승인 fall-through
 
-Narrator는 오퍼레이터가 "그냥 fix 해" 라고 말할 때
+Narrator는 운영자가 "그냥 고쳐 줘"라고 말할 때
 `run_runbook(dry_run=false)` 또는 `approve_hil`을 위한 `tool_call`을
-발행 MAY. 검증기 re-check (safeguard 8) 시:
+발행할 수 있습니다. 검증기를 다시 실행할 때(안전조건 8) 다음과 같이 처리합니다:
 
-- 검증기 pass AND RBAC 충족 → 도구 호출 진행.
+- 검증기를 통과하고 RBAC를 충족하면 도구 호출을 진행합니다.
 - 검증기 abstain 또는 RBAC 하한 미달 → 조정기는 내부적으로 기존 HIL 큐에
-  검토 항목을 파일 하고 오퍼레이터에게 "HIL 항목 id X를 파일 했어" 반환.
+  검토 항목을 등록하고 운영자에게 "HIL 항목 ID X를 등록했습니다"라고 반환합니다.
 - 어떠한 상황에서도 전달 전 감사 항목 없이 쓰기는 발생하지 않습니다. 검토된 [사람 보고선](human-report-lines-and-approval-routing-ko.md)을 사용하도록 명시적으로 구성한 ActionType에서는 먼저 요청자에게 별도 연락 동의 카드를 표시합니다. `승인 요청 보내기`는 고정된 정확한 경로로 알림을 보내는 것만 허용하며 작업을 승인하지 않습니다. 전달 전과 승인이 도착할 때 관계 그래프, RBAC 및 ActionType 정책을 다시 확인합니다. 보고선 검토는 Owner 결정 후 Core가 그래프를 원자적으로 수렴하는 동안 잠시 `activation_pending`을 표시할 수 있습니다. Native detail control은 감사 drill-down을 위한 안정적인 승인 및 동의 식별자를 표시합니다. 정확한 이유가 `no_rule_match` 또는 `anomaly_action_unavailable`인 작업 없는 shadow 사람 검토 판정은 승인 작업이 아니라 감사 근거입니다. Console은 판정 및 감사 보기에서 이를 표시할 수 있지만 Thor가 `ActionRun`이나 리소스 클레임을 만들지 않으므로 HIL 큐 항목이나 연락 동의/승인 카드를 만들어 내지 않습니다. 새로 판단한 실행 가능한 제안만 이 승인 대체 경로에 들어갈 수 있습니다.
 ## 8. 채널 통합 (push vs pull)
 
 채널 추상화 ([channels-and-notifications.md](channels-and-notifications-ko.md))
-는 이미 push (시스템 → 사람)을 처리. 이 문서는 pull 방향 (사람 → 시스템)
-을 push 어댑터와 **별개 어댑터 및 구성 계약**로 제공합니다. 배포는 같은 시크릿
+는 이미 push(시스템 → 사람)를 처리합니다. 이 문서는 pull 방향(사람 → 시스템)을
+push 어댑터와 **별개의 어댑터 및 구성 계약**으로 제공합니다. 배포는 같은 시크릿
 프로바이더 또는 워크로드 신원을 재사용할 수 있지만 아웃바운드 notification 매트릭스와 인바운드
 대화 활성화를 하나의 라우팅 구성으로 합치지 않습니다. 분리가 중요한 이유는
 send-only와 receive-plus-send의 trust 자세 및 영향 범위가 다르기 때문입니다.
@@ -509,7 +511,7 @@ Agent Activity, Trace 표시 문구 또는 정규 명확화 문구를 포함하�
 
 ### 9.1 Day 1
 
-Day-1 콘솔은 답변 가능:
+Day-1 Console에서는 다음 질문에 답할 수 있습니다:
 
 - "`example-rg`의 `network.nsg`에 어떤 룰이 적용되지?"
   → `query_inventory` + `explore_catalog`.
@@ -518,10 +520,10 @@ Day-1 콘솔은 답변 가능:
   보여줘." → `query_audit`.
 - "이 리소스에 대해 FDAI가 기억하도록 내가 명시적으로 요청한 내용은 뭐야?" →
   `query_operator_memory`.
-- "공개 접근 활성화된으로 저장소 계정을 생성 하면 루프가 뭘
+- "공개 접근이 활성화된 저장소 계정을 만들면 루프가 뭘
   할까?" → `describe_event`.
 
-쓰기 없음, 런북 없음, 승인 없음 - 오리엔테이션만.
+쓰기, 런북 실행, 승인은 제공하지 않으며 사용 안내만 제공합니다.
 
 ### 9.2 Week 1
 
@@ -573,17 +575,17 @@ pull 어댑터 추가. 콘솔은 이제:
   translator, injection-isolated 근거에 기반한 답변 프롬프트, exact evidence-reference 보존 및
   resolved 배포 연결을 검증합니다.
 - **도구** - 각 도구는 `side_effect_class == read | simulate` 일 때 절대
-  mutate 하지 않음을 보이는 shadow-mode 테스트; `write` / `approve` 테스트는
-  검증기 re-check gate를 보임.
+  대상을 변경하지 않음을 보여 주는 shadow-mode 테스트를 수행합니다. `write` / `approve`
+  테스트에서는 검증기 재검사 게이트를 확인합니다.
 - **채널과 서비스 소유권** - CLI REPL golden 대화 기록, Teams Bot Framework 활동/JWT, Slack signed HTTP 이벤트 API와 발행기 증적을 어댑터 테스트로 검증합니다. 모든 Operator 서비스 테스트는 `tests/integration/service-suites.json`의 정확히 한 그룹에 등록하며, 소유자가 없는 테스트는 서비스별 실행기가 실행되기 전에 저장소 범위 검사에서 실패합니다.
 - **RBAC 매트릭스** - §3.1-§3.3의 하한이 적용됨을 증명하는 모든 (역할 ×
   도구) 셀에 대한 table-driven 테스트.
-- **Break-glass** - `activate_break_glass`가 `expiry > 4h`를 refuse하고 Owner notification 및
-  감사 증적을 요구하며 세션 principal을 변경하지 않음을 증명하는 테스트. Persistent 권한 부여와
-  session-end 철회는 아직 shipped 계약이 아닙니다.
-- **결정론성** - 같은 CLI 대화 기록을 가짜 `Narrator`로 두
-  번 실행하면 byte-identical 감사 trail을 생성 (고정된 시각과
-  멱등성 키 하에서).
+- **Break-glass** - `activate_break_glass`가 `expiry > 4h`를 거부하고 Owner 알림 및
+  감사 증적을 요구하며 세션 principal을 변경하지 않음을 입증합니다. 영속 권한 부여와
+  세션 종료 시 철회는 아직 제공되는 계약이 아닙니다.
+- **결정론성** - 같은 CLI 대화 기록을 모의 `Narrator`로 두 번
+  실행하면 시각과 멱등성 키가 고정된 조건에서 바이트가 동일한
+  감사 이력을 생성하는지 확인합니다.
 - **세션 복구** - principal 범위로 한정된 `ConversationHistoryStore`에서 세션 id로 이전 턴을
   reload하고 고정된 요청 멱등성이 중복 덧붙이기를 막는지 검증. 감사/온톨로지에는
   raw 대화 기록이 아니라 해시와 참조만 남습니다.
@@ -596,16 +598,16 @@ pull 어댑터 추가. 콘솔은 이제:
   반환합니다. 모델이 빈 답변이나 oversized 답변을 반환하거나 필수 근거 참조를
   누락해도 같은 대체 경로를 사용합니다. 렌더링 실패는 도구 데이터, 상태, 권한 확인 또는
   실행 상태를 변경하지 않습니다.
-- **Write-class 도구에 검증기 abstain** - 내부적으로 HIL 검토 항목을
-  파일 (§7.4 참조), HIL id 반환, 감사 사유 `verifier_abstained`.
+- **쓰기 등급 도구에서 검증기가 판단 보류** - 내부 HIL 검토 항목을
+  등록하고(§7.4 참조), HIL ID와 감사 사유 `verifier_abstained`를 반환합니다.
 - **채널 어댑터 disconnect** - 영속 전달이 구성되면 완전한 응답과 최종/모호한
   상태를 원장에 남깁니다. 구성되지 않은 direct 경로도 영속 대화 이력을 세션 id로
   재개하지만 프로바이더 전송을 exactly-once로 주장하지 않습니다.
 - **Break-glass 요청 증적** - 현재 조정기는 증적을 elevated 기능으로 해석하지
   않습니다. 향후 권한 부여 통합은 매 도구 호출에서 TTL을 재검사하고 만료 시 refuse해야 합니다.
-- **도구 구현 raise** - 도구의 타입화된 오류 표면 (§3.4)가
-  `ToolResult(status=error)`로 wrap; 서술기는 exception 스택 추적이
-  아닌 구조화된 오류를 봄.
+- **도구 구현에서 예외 발생** - 도구의 타입 지정 오류 경계(§3.4)가
+  `ToolResult(status=error)`로 감쌉니다. 서술기는 예외 스택 추적이
+  아니라 구조화된 오류를 받습니다.
 ## 13. 데이터 + wire 계약
 
 FDAI Console은 `console/src/generated/service-contracts.ts`의 생성 TypeScript 변환 결과를 컴파일합니다.
@@ -635,21 +637,22 @@ focused 소유자 문서로 분리했습니다:
 
 ## 14. MCP 전달 및 managed 카탈로그
 
-FDAI가 현재 shipped 상태로 제공하는 유일한 MCP 통합은 단일 fixed-transport 읽기 전용 Azure MCP 클라이언트
+FDAI가 현재 제공하는 유일한 MCP 통합은 전송 방식이 하나로 고정된 읽기 전용 Azure MCP 클라이언트
 (`services/core-control-plane/src/fdai/delivery/azure/mcp_read_investigation.py`)이며,
-선택적 읽기 조사에 사용되고 transport를 사용할 수 없을 때는 typed 프로바이더 fallback을 사용합니다. 이것은 아웃바운드
-카탈로그가 아닙니다 - 외부 hosted MCP 서버를 위한 서버별 install/활성화 lifecycle, `tools/list` 발견, 상태
-monitor, admin 감사 기록은 오늘 존재하지 않습니다.
+선택적 읽기 조사에 사용됩니다. 전송 계층을 사용할 수 없을 때는 타입이 지정된 공급자 대체 경로를
+사용합니다. 이는 아웃바운드 카탈로그가 아닙니다. 외부 호스팅 MCP 서버별 설치/활성화 수명 주기,
+`tools/list` 탐색, 상태 모니터, 관리자 감사 기록은 현재 없습니다.
 `services/core-control-plane/src/fdai/delivery/mcp/` 아래의 managed 아웃바운드 카탈로그 -
-기본적으로 비활성화된 install, non-invoking 발견, 허용 목록 검증, 영속 revision-CAS 스냅샷, 상태
-monitoring, 엔드포인트 검증 - 은 여전히 설계 목표이며 shipped 기능이 아닙니다. FDAI 자체를 MCP 서버로 publish하는
-것도 마찬가지로 shipped되지 않았습니다 - 인바운드 MCP 서버 프로세스, `list_tools`/`call_tool` wire 엔드포인트,
-외부 MCP principal 대응이 오늘 존재하지 않으며, 포크는 이 문서만 근거로 이 둘을 추론하면 안 됩니다.
+기본적으로 비활성화된 설치, 도구를 호출하지 않는 탐색, 허용 목록 검증, 영속 revision-CAS 스냅샷,
+상태 모니터링, 엔드포인트 검증 - 는 여전히 설계 목표이며 제공되는 기능이 아닙니다.
+FDAI 자체를 MCP 서버로 게시하는 기능도 아직 제공하지 않습니다. 인바운드 MCP 서버 프로세스,
+`list_tools`/`call_tool` 전송 엔드포인트, 외부 MCP principal 매핑은 현재 없습니다. 포크는 이
+문서만으로 두 기능이 존재한다고 추론하면 안 됩니다.
 
-향후 인바운드 MCP 제안은 가산하게 같은 조정기/RBAC를 재사용하고 anonymous 호출자를
+향후 인바운드 MCP 제안은 기존 기능을 확장하는 방식으로 같은 조정기/RBAC를 재사용하고 익명 호출자를
 거부하며 mTLS 또는 audience-scoped Entra 토큰을 서비스 `Principal`에 대응하고 감사해야 합니다.
-이것은 현재 기능이 아니라 별도 threat 모델, 프로토콜, 테스트, 배포 gate가 필요한
-future 범위입니다.
+이는 현재 기능이 아니라 별도의 위협 모델, 프로토콜, 테스트, 배포 게이트가 필요한
+향후 범위입니다.
 ## 15. 결정 상태
 
 - **OD-C1 resolved** - strict 코어 서술기 프롬프트는 delivery 계층 Azure OpenAI narrator adapter가 소유하고,

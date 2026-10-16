@@ -7,19 +7,19 @@ translation_revised: 2026-10-15
 
 # 채널과 알림(Channels and Notifications)
 
-Post-turn review request intake는 Core runtime task로 supervised되지만 channel delivery, notification, approval topic과 분리되어 있습니다.
+턴 종료 후 검토 요청 접수는 Core 런타임 작업으로 감독하지만, 채널 전달, 알림, 승인 토픽과는 분리합니다.
 Core는 ORR 인용 검증을 위해 읽기 전용 활성 룰 맵도 ActionBuilder에 주입합니다. 이 배선은 채널, 알림 또는 승인 경로를 만들지 않습니다.
 
-FDAI가 Teams, Slack, 이메일, 웹훅, paging 서비스, SMS, Direct Line 사용자 지정 채널 및
-명시적 선택 브라우저 알림을 통해 사람과 소통하는 방법. 이 문서는 **채널 추상화, 신뢰 레벨, 카테고리 경계, 라우팅
-정책, 채널 특이 규칙**의 진실 원본입니다. [tech-stack-ko.md](../architecture/tech-stack-ko.md) 에서 힌트한
-"notifier 인터페이스" 자리 표시자를 해결하고
+FDAI가 Teams, Slack, 이메일, 웹훅, 페이징 서비스, SMS, Direct Line 사용자 지정 채널 및
+명시적으로 선택한 브라우저 알림으로 사람과 소통하는 방법을 설명합니다. 이 문서는 **채널 추상화,
+신뢰 수준, 카테고리 경계, 라우팅 정책, 채널별 규칙**을 정의하는 기준 원본입니다.
+[tech-stack-ko.md](../architecture/tech-stack-ko.md)의 "notifier 인터페이스" 자리 표시자를 구체화하고
 [경보 라우팅 계약](../operations/operating-and-verification-ko.md#경보-라우팅)의 경보
 라우팅 조각들과
 [user-rbac-and-identity-ko.md](user-rbac-and-identity-ko.md#7-chatops-hil-flow)의 Teams-특이
-흐름을 통합.
+흐름을 통합합니다.
 
-읽기 전용 콘솔의 신원 및 interaction 흐름은 이 문서 범위 밖이고, 아웃바운드 브라우저
+읽기 전용 콘솔의 신원 및 상호 작용 흐름은 이 문서 범위 밖이며, 아웃바운드 브라우저
 알림 경계만 이 문서가 소유합니다. 콘솔 신원은
 [user-rbac-and-identity-ko.md](user-rbac-and-identity-ko.md)에 있습니다.
 
@@ -38,27 +38,29 @@ Core는 Assurance Twin의 읽기 전용 보고서 및 검토 아웃박스를 A1 
 Teams Workflows 웹훅 바인딩은
 [다중 채널 알림 전달](multi-channel-notification-delivery-ko.md)이 소유합니다.
 
-> **방향 범위.** 아웃바운드 알림, A1 승인, bidirectional 대화는 서로 다른
-> 프로토콜입니다. 이 문서는 공통 trust/category/라우팅 원칙과 아웃바운드 전달을 소유하고,
+> **방향 범위.** 아웃바운드 알림, A1 승인, 양방향 대화는 서로 다른
+> 프로토콜입니다. 이 문서는 공통 신뢰, 카테고리, 라우팅 원칙과 아웃바운드 전달을 담당하고,
 > 대화 도구/세션 의미 규칙은 [operator-console.md](operator-console-ko.md)가 소유합니다.
 > 어댑터는 자격 증명을 공유할 수 있지만 영향 범위가 다른 세 계약을 합치지 않습니다.
 
-> 고객-비종속: 아래 모든 채널 id, 그룹 이름, 엔드포인트는 **자리 표시자** ; 포크가 구성으로
-> 자체 테넌트, workspace, 엔드포인트 값 공급
+> 고객 비종속: 아래 모든 채널 ID, 그룹 이름, 엔드포인트는 **자리 표시자**입니다. 포크가
+> 구성을 통해 자체 테넌트, 작업 영역, 엔드포인트 값을 제공합니다
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 ## 1. 설계 원칙
 
 1. **세 개의 좁은 추상화, 여러 어댑터.** `NotificationChannel`은 A2/A4 push,
   `HilChannel`은 A1 전송/poll, `ConversationChannelAdapter`는 A3 인바운드/아웃바운드를 소유합니다.
   코어는 Teams나 Slack을 이름 지정하지 않으며 새 벤더 어댑터는 추가적입니다.
-2. **벤더가 아니라 목적으로 분류.** 채널은 네 카테고리(§3) 중 하나 이상을 지원. 벤더는
-   안전하게 서비스할 수 있는 카테고리로 제약됨.
-3. **신뢰 티어링.** 승인 카테고리 트래픽(A1)은 사람의 Entra 아이덴티티를 종단으로 검증할 수
-   없는 채널을 통해 흘러선 안 됨. 신뢰 낮은 채널은 정보를 운반해도 결정은 절대 안 됨(§4).
-4. **불확실할 때는 안전한 쪽을 선택.** 카테고리의 설정된 모든 채널이 실패하면 요청은 큐잉되고 운영 라인에
-   페이지 - 절대 auto-execute 안 함. 카테고리 내 대체 경로는 신뢰 티어 보존(§6).
-5. **민감정보 제거는 발신자의 일.** 시크릿, 자격증명, PII, 구독 id, 원시 고객 페이로드는 어떤
-   카테고리에서도 채널 메시지로 신뢰 경계를 떠나지 않음.
+2. **벤더가 아니라 목적으로 분류합니다.** 채널은 네 카테고리(§3) 중 하나 이상을 지원하며,
+   각 벤더는 안전하게 제공할 수 있는 카테고리만 지원합니다.
+3. **신뢰 계층을 구분합니다.** 사람의 Entra 신원을 종단 간 검증할 수 없는 채널로는
+   승인 카테고리 트래픽(A1)을 전달하면 안 됩니다. 신뢰 수준이 낮은 채널은 정보를
+   전달할 수 있지만 결정은 전달할 수 없습니다(§4).
+4. **불확실할 때는 안전한 쪽을 선택합니다.** 카테고리에 설정된 모든 채널이 실패하면 요청을
+   대기열에 넣고 운영 담당자에게 긴급 알림을 보냅니다. 자동으로 실행하지 않습니다.
+   카테고리 내 대체 경로도 신뢰 계층을 유지합니다(§6).
+5. **발신자가 민감정보를 제거합니다.** 어떤 카테고리에서도 시크릿, 자격 증명, PII, 구독 ID,
+   원시 고객 페이로드가 채널 메시지에 담겨 신뢰 경계를 벗어나면 안 됩니다.
 
 ## 2. 아키텍처 상 채널의 위치
 
@@ -67,12 +69,12 @@ Teams Workflows 웹훅 바인딩은
 - 아웃바운드 어댑터는 `delivery/notifications/`, bidirectional 어댑터는 `delivery/channels/`,
   A1 승인 어댑터는 `delivery/chatops/`에 있습니다. 계약은 각각
   `shared/providers/notifications/`, `conversation_channel.py`, `hil_channel.py`에 있습니다.
-- **channel-router**는 얇은 코어 모듈: 카테고리와 메시지를 받아 포크의 라우팅 구성(§6)에
-  따라 채널을 선택. 벤더 지식을 보유하지 않음.
-- **어떤 어댑터의 승인 콜백도 `fdai-api`에 랜딩** , 이는 액션 전에 사람의 Entra
-  아이덴티티를 재검증
+- **channel-router**는 카테고리와 메시지를 받아 포크의 라우팅 구성(§6)에 따라 채널을
+  선택하는 얇은 코어 모듈입니다. 벤더별 지식은 보유하지 않습니다.
+- **모든 어댑터의 승인 콜백은 `fdai-api`에 도달**하며, API는 액션 전에 사람의 Entra
+  신원을 다시 검증합니다
   ([user-rbac-and-identity-ko.md](user-rbac-and-identity-ko.md#102-api-token-validation)).
-  어댑터는 절대 자체로 결정을 authorize 하지 않음. 채널 승인은 full-authority 개발 확인이 될 수
+  어댑터 자체는 결정 권한을 부여하지 않습니다. 채널 승인은 전권 개발 프로필의 확인이 될 수
   없습니다. FDAI Console 결정 경로만 토큰을 담지 않은 새 로그인 증명을 첨부할 수 있으며, HIL 결정
   페이로드가 이를 Core로 전달해 다시 검증합니다. Slack과 Teams 결정은 이 증명을 담지 않습니다.
 - A1 승인 보류 항목은 활성 단독 운영자 프로덕션 승인 프로필 메타데이터를 담을 수 있습니다.
@@ -96,7 +98,7 @@ Teams Workflows 웹훅 바인딩은
 
 ## 3. 카테고리 (A1-A4)
 
-모든 채널 메시지는 **카테고리 태그**를 운반하고 그 카테고리의 규칙을 준수해야 함.
+모든 채널 메시지는 **카테고리 태그**를 포함하고 해당 카테고리의 규칙을 준수해야 합니다.
 이 카테고리는 `notification.a1`부터 `notification.a4`까지의 머신 category입니다. 헌법의
 `autonomy.a0`부터 `autonomy.a4`까지의 권한 등급과 무관하며 숫자 접미사는 두 enum 계열의
 동등성 또는 변환을 의미하지 않습니다.
@@ -134,9 +136,9 @@ Teams Workflows 웹훅 바인딩은
 
 ### 3.1 A3 명령 롤 게이팅
 
-각 A3 명령은 **최소 롤**과 읽기/쓰기 여부를 선언. 봇 어댑터가 invoker의 Entra OID
-(Teams SSO / Slack 매핑)로 핸들러 실행 전에 검사 강제; 롤 부재는 in-channel `403` 응답과
-감사 엔트리를 씀.
+각 A3 명령은 **최소 역할**과 읽기/쓰기 여부를 선언합니다. 봇 어댑터는 호출자의 Entra OID
+(Teams SSO / Slack 매핑)로 핸들러 실행 전에 권한을 검사합니다. 역할이 없으면 채널에
+`403` 응답을 반환하고 감사 항목을 기록합니다.
 
 | 명령 | 타입 | 최소 롤 |
 |------|------|--------|
@@ -147,7 +149,8 @@ Teams Workflows 웹훅 바인딩은
 
 ## 4. 신뢰 레벨(매트릭스)
 
-채널의 *허용 카테고리*는 기술적으로 딜리버리 가능한 것과 인증이 증명할 수 있는 것의 교집합.
+채널의 *허용 카테고리*는 기술적으로 전달할 수 있는 범위와 인증으로 입증할 수 있는 범위의
+교집합입니다.
 
 | 채널 | Entra 테넌트 | 인증 경로 | 허용 카테고리 |
 |------|--------------|-----------|--------------|
@@ -180,7 +183,7 @@ PostgreSQL 저장소는 channel-scoped 트랜잭션 잠금으로 요청 생성�
 atomic하게 강제하고 만료된 요청을 상한에서 제외하고 저장된 다이제스트를 조건부 승인합니다.
 승인된 발신자는 재등록해 principal 대응을 덮어쓸 수 없습니다.
 
-`NativePairingChallengeFlow`는 plaintext 도전자를 동일 스레드의 채널 회신로만 보냅니다.
+`NativePairingChallengeFlow`는 평문 확인 코드를 같은 스레드의 채널 회신으로만 보냅니다.
 저장소와 응답 메타데이터에는 SHA-256 다이제스트 및 만료만 남습니다. 전달 실패 시 일치하는
 pending 다이제스트를 조건부 삭제하므로 전달되지 않은 코드가 용량을 소비하지 않습니다.
 Approval은 별도 authorized 행위자 및 기존 FDAI principal을 계속 요구합니다. Pairing은 신원
@@ -339,7 +342,7 @@ Initial 게시가 acknowledged된 후의 갱신 실패는 모호한 중복 risk�
 
 외부 대화 회신은 [durable-conversation-delivery-ko.md](durable-conversation-delivery-ko.md)의
 저장된 원장을 사용합니다. 프로바이더 HTTP 거절은 범위가 제한된 재시도가 가능한 definitive
-실패입니다. 전송 계층 중단 또는 누락된/malformed 확인 응답은 모호한이며
+실패입니다. 전송 계층 중단이나 확인 응답 누락 또는 형식 오류는 결과가 모호한 경우이며
 자동으로 재시도하지 않습니다. Pause/재개 변경은 별도로 인증된 ChatOps 명령
 경로에만 있고 콘솔에는 GET-only reliability 메트릭만 제공됩니다.
 
@@ -405,8 +408,8 @@ channel-as-audience 바인딩으로 유지합니다.
 
 ### 5.1 오디언스 파생 (channel-as-audience)
 
-수신자 리스트는 라우터에서 per-user로 파생되지 **않음**. 각 채널이 오디언스 *그 자체* 이며,
-멤버십은 컨트롤 플레인 **밖에서** 관리 - 보통 채널을 Entra 보안 그룹에 바인딩.
+라우터는 수신자 목록을 사용자별로 파생하지 **않습니다**. 각 채널 자체가 수신 대상이며,
+멤버십은 컨트롤 플레인 **밖에서** 관리합니다. 일반적으로 채널을 Entra 보안 그룹에 연결합니다.
 
 - **기본 (옵션 A)**: Teams 채널/DL은 `aw-*` Entra 보안 그룹으로 백업된 **group-connected
   team**으로 생성. 멤버십은 Entra에서 자동 sync ("Owner가 Portal에서 `aw-approvers`에
@@ -431,30 +434,30 @@ channel-as-audience 바인딩으로 유지합니다.
 
 ### 5.2 능동적 이해관계자 브리핑 (A4 종합)
 
-조직은 리더십을 위해 주기적 운영 요약을 작성하는 사람을 둔다 - "이번 구간에
-무슨 일이 있었고, 우리가 무엇을 했으며, 리스크가 어디 있는가." `core/notifications/briefing.py`
-(`StakeholderBriefingComposer`)가 그 A4 다이제스트를 집계된 운영 카운트(심각도별
-인시던트 tally, auto / HIL / rolled-back / shadow-only로 나뉜 액션 결과, 비용 run-rate
-delta와 driver, forward-looking 예측 리스크, guard-metric breach)로부터
-**결정론적으로** 합성한다 - per-event noise로부터가 아니다.
+조직에서는 경영진을 위해 "이번 구간에 무슨 일이 있었고, 어떻게 대응했으며, 어디에 위험이
+있는가"를 정기적으로 요약합니다. `core/notifications/briefing.py`의
+`StakeholderBriefingComposer`는 개별 이벤트의 잡음이 아니라 집계된 운영 수치로 A4
+다이제스트를 **결정론적으로** 작성합니다. 심각도별 인시던트 수, auto / HIL / rolled-back /
+shadow-only로 구분한 액션 결과, 비용 추세 변화와 요인, 향후 예측 위험, 가드 메트릭 위반을
+사용합니다.
 
-- **실패 시 차단, fabrication 없음.** 작성기는 호출자가 제공하는 감사 로그 / KPI
-  텔레메트리로부터 모든 수치를 sourcing하고 받지 않은 것은 아무것도 assert하지 않는다.
-  actionable 활동이 없는 구간은 명시적인 "No significant operational 활동" headline과
-  `has_significant_activity = False`를 렌더링하므로, 호출자는 아무 일도 없었다고
-  리더십에 이메일하는 대신 전송을 **suppress**한다. 다른 것 없이 1% 미만의 비용 흔들림은
-  briefing이 아니라 noise로 취급한다.
-- **가드 breach는 escalate.** guard-metric breach(리더십이 절대 놓치면 안 되는 것)는
-  결과에 명시적 `escalations`로 표면되어 호출자가 더 높은 trust 계층으로 경로할 수
-  있고, briefing 본문에도 나타난다([goals-and-metrics.md](../architecture/goals-and-metrics-ko.md)).
-- **Pure하고 delivery-agnostic.** 작성기는 벤더 지식을 갖지 않고 절대 전달하지
-  않는다; 위 대상 모드를 통한 A4 전달을 위해 호출자가 §6의 라우터에 넘기는
-  `StakeholderBriefing` (markdown 본문과 per-section 페이로드)를 반환한다. 동일 입력, 동일 briefing.
+- **실패 시 차단하며 사실을 만들어 내지 않습니다.** 작성기는 호출자가 제공한 감사 로그와 KPI
+  텔레메트리에서만 수치를 가져오며, 전달받지 않은 내용은 주장하지 않습니다. 대응할 활동이 없는
+  구간에는 "중요한 운영 활동 없음"이라는 제목과 `has_significant_activity = False`를
+  표시합니다. 호출자는 아무 일도 없었다는 이메일을 경영진에게 보내는 대신 전송을 **억제**합니다.
+  다른 활동 없이 비용만 1% 미만으로 변동했다면 브리핑 대상이 아닌 잡음으로 취급합니다.
+- **가드 위반은 에스컬레이션합니다.** 경영진이 놓치면 안 되는 가드 메트릭 위반은
+  결과의 명시적 `escalations`와 브리핑 본문에 표시합니다. 호출자는 이를 더 높은 신뢰
+  계층으로 라우팅할 수 있습니다([goals-and-metrics.md](../architecture/goals-and-metrics-ko.md)).
+- **순수 함수이며 전달 방식에 종속되지 않습니다.** 작성기는 벤더별 지식이 없고 직접 전달하지
+  않습니다. Markdown 본문과 섹션별 페이로드가 있는 `StakeholderBriefing`을 반환하며,
+  호출자는 위의 수신 대상 모드로 A4를 전달하도록 §6의 라우터에 넘깁니다. 같은 입력은 같은
+  브리핑을 만듭니다.
 
 ## 6. 라우팅 정책 (config-driven)
 
-라우팅은 선언적 구성, channel-router가 평가. 채널 추가/교체/재정렬은 구성 변경, 절대
-코드 변경 아님.
+라우팅은 선언형 구성으로 정의하고 channel-router가 평가합니다. 채널 추가, 교체, 순서 변경은
+코드가 아니라 구성을 변경해 수행합니다.
 
 **구성 위치**: 아웃바운드 라우팅은 [`config/notifications-matrix.yaml`](../../../config/notifications-matrix.yaml)에
 있습니다. 라우팅 변경은 거버넌스 변경처럼 리뷰하며 A1 경로 변경에는 Owner-tier 검토가
@@ -614,24 +617,24 @@ Teams에는 소유자가 다른 네 가지 계약이 있습니다. A1 계약은 
 
 ## 11. Localization (L2)
 
-알림은 **L2 제품 표면**이다(참고:
+알림은 **L2 제품 표면**입니다(참고:
 [language.instructions.md](../../../.github/instructions/language.instructions.md)):
-소스 문자열은 영어이며, 채널은 이를 다른 로케일로 렌더링할 수 있다.
+소스 문자열은 영어이며 채널은 이를 다른 로케일로 렌더링할 수 있습니다.
 
-- **렌더링 방식(옵션 C).** `core`는 최종 현지화 문자열을 절대 baked하지 않는다.
-  모든 `NotificationMessage`는 `template_key`와 타입화된 `params`를 실어 나르고,
+- **렌더링 방식(옵션 C).** `core`는 최종 현지화 문자열을 하드코딩하지 않습니다.
+  모든 `NotificationMessage`는 `template_key`와 타입이 지정된 `params`를 전달하며,
   라우터가 `send` 직전에 대상 채널의 로케일로 카탈로그
   (`services/core-control-plane/src/fdai/core/notifications/messages.{en,ko}.json`)에서 `title` /
-  `body_markdown`을 렌더링한다. 어댑터는 그대로다 - 여전히 `title` /
-  `body_markdown`을 소비한다.
-- **라벨만 현지화된다.** L0 값(결정 word, 룰 id, 리소스 유형, 모드)은 모든
-  언어에서 verbatim으로 치환되므로 기계가 읽는 데이터는 동일하다. **감사 항목은
-  항상 영어 메시지를 사용**하므로 재생과 상관관계는 언어 중립으로 유지된다.
+  `body_markdown`을 렌더링합니다. 어댑터는 바꾸지 않으며 여전히 `title` /
+  `body_markdown`을 사용합니다.
+- **레이블만 현지화합니다.** L0 값(결정 값, 규칙 ID, 리소스 유형, 모드)은 모든
+  언어에서 원문 그대로 대입하므로 기계가 읽는 데이터는 동일합니다. **감사 항목은
+  항상 영어 메시지를 사용**하므로 재생과 상관관계는 언어에 종속되지 않습니다.
 - **영어 폴백은 필수.** 로케일 키/필드가 없으면 영어 소스를, 영어 키마저 없으면
-  키 자체를 렌더링한다(빈칸 없음).
-- **로케일은 채널 속성.** 알림은 동시 확산이므로 로케일은 오퍼레이터별이 아니라
-  `config/notifications-matrix.yaml`의 `matrix.channels`에서 채널별로 설정한다
-  (`<channel-id>: { locale: ko }`). 항목이 없는 채널은 영어로 렌더링된다.
+  키 자체를 렌더링합니다. 빈칸으로 표시하지 않습니다.
+- **로케일은 채널 속성입니다.** 알림은 여러 채널로 동시에 전달하므로 운영자별이 아니라
+  `config/notifications-matrix.yaml`의 `matrix.channels`에서 채널별로 로케일을 설정합니다
+  (`<channel-id>: { locale: ko }`). 항목이 없는 채널은 영어로 렌더링합니다.
 
 ## 관련 문서
 

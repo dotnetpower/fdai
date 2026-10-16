@@ -10,13 +10,13 @@ translation_revised: 2026-09-09
 
 # 다이어그램 갤러리
 
-FDAI는 하나의 영한 YAML 계약을 접근 가능한 SVG, PNG, 매니페스트 및 인터랙티브 viewer
-asset으로 컴파일합니다. 새 아키텍처 또는 운영 보기를 작성하기 전에 이 갤러리에서 적합한
+FDAI는 하나의 영한 YAML 계약을 접근 가능한 SVG, PNG, 매니페스트 및 대화형 뷰어
+자산으로 컴파일합니다. 새 아키텍처 또는 운영 보기를 작성하기 전에 이 갤러리에서 적합한
 다이어그램 유형을 선택하세요.
 
 ## 한눈에 보는 설계
 
-컴파일러는 검증된 FDAI 종류를 통해 Mermaid 11 다이어그램 유형을 지원합니다. 구조형
+컴파일러는 검증된 FDAI 다이어그램 종류를 통해 Mermaid 11 다이어그램 유형을 지원합니다. 구조형
 다이어그램은 결정론적 그래프 배치를 사용합니다. 타임라인, 좌표, 방사형, 그리드 및 가중
 흐름 다이어그램은 장식용 별칭이 아니라 전용 데이터 필드와 배치 전략을 사용합니다.
 
@@ -47,7 +47,7 @@ asset으로 컴파일합니다. 새 아키텍처 또는 운영 보기를 작성�
 
 ## 방사형 차트
 
-Pie는 구성을 전달하고 radar는 정규화된 여러 차원을 비교합니다.
+원형 차트(pie)는 구성 비율을 보여 주고 방사형 차트(radar)는 정규화된 여러 차원을 비교합니다.
 
 <fdai-architecture-diagram manifest="../../diagrams/generated/fdai-decision-mix.manifest.json" locale="ko" style="display:block">
   <img src="../../diagrams/generated/fdai-decision-mix.ko.svg" alt="원형 차트에서 결정적 규칙은 62퍼센트, 검증된 재사용은 25퍼센트, 근거 기반 추론은 13퍼센트를 차지합니다." loading="lazy" style="display:block;width:100%;height:auto" />

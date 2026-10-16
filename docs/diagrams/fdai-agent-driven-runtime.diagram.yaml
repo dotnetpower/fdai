@@ -10,7 +10,7 @@ locales:
   ko:
     title: FDAI 에이전트 주도 런타임
     description: 독립 실행 가능한 에이전트가 typed event로 협업하고 각 object type의 권한은 single writer가 유지합니다.
-    alt: 외부 신호가 shared typed event bus로 들어와 Huginn에 도달합니다. Huginn이 발행한 normalized event는 Heimdall과 Forseti로 fan-out됩니다. Heimdall, Njord, Freyr, Loki, Mimir, Muninn은 서로 직접 호출하지 않고 finding, domain evidence, rule, context를 제공합니다. Forseti는 결정을 소유하고 cross-domain conflict의 arbitration을 Odin에 요청합니다. 실행 가능한 결정은 Thor에 도달하며 Var는 사람 승인을, Vidar는 rollback을 소유합니다. Forseti, Thor, Var, Vidar는 Saga에 audit evidence를 발행합니다. Saga outcome은 Norns로 전달되고 Norns는 inert rule candidate를 Mimir에 제안합니다. Bragi는 Muninn에서 context를 읽고 typed action proposal을 Huginn에 보내 conversation도 동일한 governed path를 사용하게 합니다.
+    alt: 외부 신호가 타입이 지정된 공용 이벤트 버스를 통해 Huginn에 도달합니다. Huginn이 발행한 정규화 이벤트는 Heimdall과 Forseti로 분기됩니다. Heimdall, Njord, Freyr, Loki, Mimir, Muninn은 서로 직접 호출하지 않고 점검 결과, 영역별 근거, 규칙, 맥락을 제공합니다. Forseti는 판단을 담당하고 영역 간 충돌이 생기면 Odin에 중재를 요청합니다. 실행 요건을 충족한 결정은 Thor에 도달하며 Var는 사람 승인 절차를, Vidar는 롤백을 담당합니다. Forseti, Thor, Var, Vidar는 Saga에 감사 근거를 발행합니다. Saga의 결과는 Norns로 전달되고 Norns는 비활성 규칙 후보를 Mimir에 제안합니다. Bragi는 Muninn에서 맥락을 읽고 타입이 지정된 작업 제안을 Huginn에 보내 대화도 동일한 통제 경로를 따르게 합니다.
 canvas:
   width: 1200
   height: 1800
