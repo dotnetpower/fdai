@@ -428,7 +428,11 @@ def build_startup_readiness_runtime(
         decision_evidence=decision_evidence,
         budget=budget,
     )
-    if (self_health_catalog is None) != (self_health_exporter_registry is None):
+    if self_health_catalog is not None and self_health_exporter_registry is None:
+        from fdai.delivery.self_health_exporters import unavailable_self_health_registry
+
+        self_health_exporter_registry = unavailable_self_health_registry(self_health_catalog)
+    if self_health_catalog is None and self_health_exporter_registry is not None:
         raise ValueError("self-health catalog and exporter registry MUST be composed together")
     return StartupReadinessRuntime(
         coordinator=coordinator,

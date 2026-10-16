@@ -23,7 +23,6 @@ from fdai.delivery.azure.monitor_events import DiagnosticNormalizerOptions
 from fdai.delivery.notifications.local_binding import resolve_local_notification_endpoints
 from fdai.delivery.repo_assets import repo_asset_root
 from fdai.delivery.runtime_settings import RuntimeSettingsService
-from fdai.delivery.self_health_exporters import unavailable_self_health_registry
 from fdai.delivery.startup_probe import OpaCompileStartupProbe
 from fdai.runtime import bootstrap_core_model, bootstrap_incidents
 from fdai.runtime import product_profile as _product_profile
@@ -626,7 +625,6 @@ async def build_core_runtime(
             ),
         },
     )
-    self_health_catalog = load_runtime_self_health_catalog()
     readiness = build_startup_readiness_runtime(
         state_store=state_store,
         event_bus=messaging.operational_bus,
@@ -644,8 +642,7 @@ async def build_core_runtime(
         registered_probes=(*container.startup_probes, *semantic.readiness_probes),
         decision_evidence=container.decision_evidence_admission_provider,
         ingest_topics=(container.config.kafka.topic_events,),
-        self_health_catalog=self_health_catalog,
-        self_health_exporter_registry=unavailable_self_health_registry(self_health_catalog),
+        self_health_catalog=load_runtime_self_health_catalog(),
     )
     startup_report = await readiness.evaluate()
     _LOGGER.info(
