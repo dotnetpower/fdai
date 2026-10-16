@@ -29,11 +29,16 @@ import socket
 import subprocess
 import sys
 import time
+from dataclasses import replace
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import httpx
 import pytest
+
+from fdai_lifecycle_hub.domain import Installation, Issued, Planner
+from fdai_lifecycle_hub.schemas import settings_json
 
 SAMPLES = Path(__file__).resolve().parents[1] / "samples"
 _HUB_SRC = Path(__file__).resolve().parents[1] / "src"
@@ -142,6 +147,30 @@ def _checks_by_release(record: dict[str, Any]) -> dict[str, list[str]]:
     }
 
 
+def _enrollment_template(installation_id: str) -> dict[str, Any]:
+    template: dict[str, Any] = json.loads((SAMPLES / "enrollment.json").read_bytes())
+    template["installation_id"] = installation_id
+    # Overlapping daily windows keep the full Plan duration available across local midnight.
+    windows = template["settings"]["windows"]
+    windows.append({**windows[0], "start": "12:00:00"})
+    return template
+
+
+def test_cross_process_fixture_can_issue_a_full_plan_at_every_minute(
+    installation: Installation, planner: Planner
+) -> None:
+    settings = settings_json.validate_python(_enrollment_template("example")["settings"])
+    installation = replace(
+        installation, settings=replace(installation.settings, windows=settings.windows)
+    )
+    midnight = datetime(2026, 10, 15, tzinfo=UTC)
+    for minute in range(24 * 60):
+        at = midnight + timedelta(minutes=minute)
+        outcome = planner(installation, at)
+        assert isinstance(outcome, Issued), (at, outcome)
+        assert outcome.plan.expires_at - at >= installation.settings.plan_duration
+
+
 @pytest.mark.timeout(240)
 def test_a_fresh_recompute_process_sees_the_rollback_suppression_a_different_process_wrote(
     tmp_path: Path,
@@ -166,8 +195,7 @@ def test_a_fresh_recompute_process_sees_the_rollback_suppression_a_different_pro
         _wait_healthy(url)
         for iteration in range(_ITERATIONS):
             installation_id = f"example-{iteration}"
-            template = json.loads((SAMPLES / "enrollment.json").read_bytes())
-            template["installation_id"] = installation_id
+            template = _enrollment_template(installation_id)
             request = tmp_path / f"enrollment-{iteration}.json"
             request.write_text(json.dumps(template))
             recompute = ("recompute", installation_id, "--catalog", catalog, "--key", str(hub_key))

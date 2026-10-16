@@ -29,7 +29,6 @@ from fdai_operator_service.families.iam.contracts import (
     HandoverGoalCommand,
     IamPrincipal,
     JsonMapping,
-    KillSwitchCommand,
     ModelCatalogReader,
 )
 from fdai_operator_service.families.iam.errors import (
@@ -173,9 +172,9 @@ class PostgresIamAdapters(PostgresIamConfigurationMixin, PostgresIamHilMixin):
 
     async def submit(
         self,
-        command: AccessRequestCommand | HandoverGoalCommand | KillSwitchCommand,
+        command: AccessRequestCommand | HandoverGoalCommand,
     ) -> JsonMapping:
-        """Persist one IAM, handover, or kill-switch request as an inert proposal."""
+        """Persist one IAM or handover request as an inert proposal."""
         operation = _submit_operation(command)
         stored = await self._proposal(operation, command, _idempotency_key(command))
         if isinstance(command, AccessRequestCommand):
@@ -505,9 +504,7 @@ class PostgresIamAdapters(PostgresIamConfigurationMixin, PostgresIamHilMixin):
 def _submit_operation(command: object) -> str:
     if isinstance(command, AccessRequestCommand):
         return "access-requests.submit"
-    if isinstance(command, HandoverGoalCommand):
-        return "handover.submit"
-    return "kill-switch.submit"
+    return "handover.submit"
 
 
 def _can_manage_group_membership(principal: IamPrincipal) -> bool:

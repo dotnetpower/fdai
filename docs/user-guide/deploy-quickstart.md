@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to your own Azure subscription from a clone with one command line, or install it from a signed offline package.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 686f2993ac28d824624acc0b004cf04dde102028 }, { source: docs/roadmap/deployment/source-deployment.md, sha: 78261ab0f29c2cb156f8e73185d483177719989a }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 21245147cfd11bf15effcb59f16825a95f1d7597 }, { source: docs/roadmap/deployment/source-deployment.md, sha: 78261ab0f29c2cb156f8e73185d483177719989a }]
 ---
 
 # Deploy Quickstart
@@ -32,6 +32,12 @@ Review this read scope in the plan.
 | An Azure VM without internet access | Run `fdaictl provision azure --offline-kit <package>` on that VM | One signed offline package from a key holder |
 
 GitHub Actions tests the repository. It is not part of either deployment path.
+
+> **Hub development validation:** The separate
+> [two-Hub preparation guide](../../infra/hubs-development/README.md) provides development
+> images, authenticated catalog import, and isolated IaC declarations. It is not a complete
+> Hub-managed FDAI installation, does not replace either quickstart path, and has no live
+> Azure deployment or production trust-root evidence. Cloud execution requires separate approval.
 
 > **Current status:** The one-command source deployment is implemented through application
 > convergence. Its

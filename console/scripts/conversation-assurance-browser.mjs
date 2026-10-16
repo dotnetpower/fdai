@@ -38,6 +38,22 @@ export function contentDigest(value) {
   ).digest("hex")}`;
 }
 
+export function modelCallCount(terminal) {
+  const usageCalls = terminal.model_usage?.model_calls;
+  if (Number.isSafeInteger(usageCalls) && usageCalls >= 0) return usageCalls;
+  const budget = terminal.turn_budget;
+  const budgetCalls = budget?.model_calls?.used;
+  if (budget?.complete === true && Number.isSafeInteger(budgetCalls) && budgetCalls >= 0) {
+    return budgetCalls;
+  }
+  const calls = terminal.model_trace?.calls;
+  const omitted = terminal.model_trace?.omitted_calls;
+  if (Array.isArray(calls) && Number.isSafeInteger(omitted) && omitted >= 0) {
+    return calls.length + omitted;
+  }
+  return null;
+}
+
 export function terminalPayload(stream) {
   let terminal = null;
   let event = "message";
@@ -305,7 +321,7 @@ async function run() {
       evidence_snapshot_digest: trace?.evidence_manifest_digest ?? null,
       hard_zero_count: hardZeroViolations.length,
       latency_ms: Number.isInteger(trace?.latency_ms) ? trace.latency_ms : null,
-      model_call_count: promptEvidence.observed.length,
+      model_call_count: modelCallCount(terminal),
       cost_usd: Number.isFinite(terminal.pantheon_cost_usd)
         ? terminal.pantheon_cost_usd
         : null,

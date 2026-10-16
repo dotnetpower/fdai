@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://fdai.dev/schemas/workflow-promotion-verdicts/1.0.0",
+  "$id": "https://fdai.dev/schemas/workflow-promotion-verdicts/1.2.0",
   "title": "Workflow promotion verdict inventory",
   "type": "object",
   "additionalProperties": false,
@@ -11,11 +11,12 @@
     "reviewed_on",
     "authority",
     "summary",
+    "catalog_boundary",
     "verdicts"
   ],
   "properties": {
     "schema_version": {
-      "const": "1.0.0"
+      "const": "1.2.0"
     },
     "catalog_ref": {
       "const": "services/core-control-plane/src/fdai/agents/_framework/workflows.py"
@@ -69,6 +70,9 @@
           "minimum": 0
         }
       }
+    },
+    "catalog_boundary": {
+      "$ref": "#/$defs/catalog_boundary"
     },
     "verdicts": {
       "type": "array",
@@ -126,6 +130,162 @@
         },
         "trace": {
           "const": "implementation_only"
+        }
+      }
+    },
+    "catalog_boundary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "matching_rule",
+        "summary",
+        "entries",
+        "independent_entries"
+      ],
+      "properties": {
+        "matching_rule": {
+          "const": "exact_workflow_id"
+        },
+        "summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "workflow_count",
+            "cataloged",
+            "metadata_only",
+            "executable_count",
+            "independent"
+          ],
+          "properties": {
+            "workflow_count": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "cataloged": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "metadata_only": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "executable_count": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "independent": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "entries": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/catalog_boundary_entry"
+          }
+        },
+        "independent_entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/independent_catalog_entry"
+          }
+        }
+      }
+    },
+    "catalog_boundary_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workflow_id",
+        "disposition",
+        "catalog_definitions"
+      ],
+      "properties": {
+        "workflow_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,79}$"
+        },
+        "disposition": {
+          "enum": [
+            "cataloged",
+            "metadata_only"
+          ]
+        },
+        "catalog_definitions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/executable_definition"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "disposition": {
+                "const": "cataloged"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "catalog_definitions": {
+                "minItems": 1
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "catalog_definitions": {
+                "maxItems": 0
+              }
+            }
+          }
+        }
+      ]
+    },
+    "independent_catalog_entry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "workflow_id",
+        "disposition",
+        "catalog_definitions"
+      ],
+      "properties": {
+        "workflow_id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]{0,79}$"
+        },
+        "disposition": {
+          "const": "process_catalog_only"
+        },
+        "catalog_definitions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/executable_definition"
+          }
+        }
+      }
+    },
+    "executable_definition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "catalog_ref",
+        "definition_digest"
+      ],
+      "properties": {
+        "catalog_ref": {
+          "$ref": "#/$defs/repo_ref"
+        },
+        "definition_digest": {
+          "$ref": "#/$defs/digest"
         }
       }
     },

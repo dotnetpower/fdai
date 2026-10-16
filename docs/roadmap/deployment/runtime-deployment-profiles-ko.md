@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 577025587d4d8282a8088e78cf5371d516d20d48
-translation_revised: 2026-10-15
+translation_source_sha: c4c81d4901ac2e79d81e07603c057594b9045c81
+translation_revised: 2026-10-16
 ---
 # 런타임 배포 프로파일
 
@@ -19,6 +19,13 @@ translation_revised: 2026-10-15
 > 바뀌지 않습니다.
 
 ## 설계 개요
+
+[로컬 Release Hub](../../../lifecycle/release-hub/README.md)는 별도의 루프백 전용 공급업체 개발
+도구이며, 어느 프로파일에서도 설치되는 런타임 구성 요소가 아닙니다. 저장소 검사를 위한 소스
+루트 등록은 런타임 플랫폼을 선택하거나 Cost Governance를 활성화하지 않습니다. 메타데이터 발행과
+고정 다이제스트 기반 내보내기 파일 검증 테스트는 Azure 배포, 프로덕션 카탈로그 신뢰, 아티팩트
+가용성 또는 FDAI 워크로드 설치 완료의 근거가 아닙니다.
+
 두 프로필은 독립 verifier 설정, 현재 허가 레지스트리 pin, 설치 참조와 정확한 설치 단위 읽기
 범위가 있을 때만 명시적 Operator 토론을 연결합니다. 선행 조건이 없으면 Owner, 허가나 실제
 모델 호출을 만들지 않고 보류합니다. Console 모드 선택은 런타임 프로필, 실행기 신원 또는
@@ -123,6 +130,12 @@ Core와 Operator 모두에 전달합니다. Core 전용 편의 입력은 Operato
 바인딩하며 런타임 플랫폼, Cost Governance 패키지 활성화 또는 실행 신원을 바꾸지 않습니다. Terraform이
 내보낼 수 없는 정책 서명 Key Vault 키, 그 crypto 역할 부여, Core 서명 환경도 프로비저닝하기
 전까지 `product_profile_json` 검증은 `policy-administration` 추가 기능을 거부합니다.
+
+전역 kill switch도 런타임과 독립적입니다. 로컬, AKS 및 호환되는 Container Apps 조합은 같은
+서명된 Operator 요청 계약을 사용하며, Core가 공유 영속 StateStore에서 Operator 증적을 검증할
+수 있을 때만 Var의 `operator.kill-switch.requests` consumer를 조건부로 바인딩합니다. 런타임
+선택은 kill-switch 역할, 실행 신원 또는 효과 주장을 부여하지 않습니다. HTTP `202`와 broker
+전달은 권위 있는 상태 재조회 결과를 대신할 수 없습니다.
 
 운영자는 런타임 플랫폼과 데이터베이스 배치를 하나씩 선택합니다. `fdaictl`은 조합을 검증하고,
 용량과 비용을 추정하며, 플랫폼별 프로비저닝 그래프를 컴파일하고, 각 정확한 플랜에 대한 승인을
@@ -467,6 +480,8 @@ FDAI 서비스는 하나의 런타임 중립 워크로드 명세를 유지합니
 출시되는 모든 Alpine 런타임 이미지에서는 보안에 민감한 런타임 패키지 revision도 모든 서비스
 Dockerfile에 걸쳐 고정합니다. 수정된 패키지 revision이 공개되면 공유 고정값과 저장소 계약을
 함께 갱신하고, 이미지를 게시하기 전에 이미지 검사가 빌드 결과를 확인합니다.
+
+Core의 Alpine ARM64 빌더는 잠금 파일에 고정된 `tree-sitter-java` 0.23.5를 소스에서 빌드할 때 빠진 `tree_sitter/parser.h`를 해당 버전의 업스트림 커밋에서 가져오고 SHA-256으로 고정합니다. 이 헤더는 빌더에만 두며 런타임 의존성, 워크로드 명세, 신원, 권한을 바꾸지 않습니다. 네이티브 컴파일과 구문 분석 근거는 전체 이미지 빌드나 배포를 입증하지 않습니다.
 
 Core, Cost Governance 프로필, SRE 벤치마크는 OPA 1.18.2를 유지하되 다이제스트로 고정한
 Go 1.27.2와 `golang.org/x/net` 0.60.0으로 빌드합니다. 이 모듈이 요구하는

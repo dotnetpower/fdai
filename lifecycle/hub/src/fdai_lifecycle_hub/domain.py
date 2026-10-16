@@ -305,6 +305,25 @@ class Installation:
             occurrence for window in self.settings.windows for occurrence in window.around(now)
         )
 
+    @property
+    def overall_health(self) -> Health | None:
+        """The worst reported health among managed Entities, or None with no managed Entity."""
+
+        managed = self.managed_entity_ids
+        if not managed:
+            return None
+        severity = {Health.HEALTHY: 0, Health.UNKNOWN: 1, Health.DEGRADED: 2, Health.UNHEALTHY: 3}
+        return max(
+            (self.reported.entities[entity_id].health for entity_id in managed),
+            key=severity.__getitem__,
+        )
+
+    def next_window(self, now: datetime) -> MaintenanceWindow | None:
+        """The open window, or the soonest upcoming one, among this installation's windows."""
+
+        candidates = [window for window in self.maintenance_windows(now) if window.ends_at > now]
+        return min(candidates, key=lambda window: window.starts_at, default=None)
+
 
 class OutcomeKind(StrEnum):
     ISSUED = "issued"
@@ -387,3 +406,45 @@ class Evaluation:
 
 type PlanOutcome = Issued | Unchanged | Waiting | NoEligibleRelease | UpToDate | NoManagedEntity
 type Planner = Callable[[Installation, datetime], PlanOutcome]
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class PendingEnrollment:
+    """A not-yet-approved enrollment request, as an operator reviews it."""
+
+    installation: Installation
+    installation_key_id: str
+    requested_at: datetime
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class InstallationOverview:
+    """An installation paired with its most recent recompute outcome, for a list view."""
+
+    installation: Installation
+    last_evaluation: Evaluation | None
+
+
+class PlanStatus(StrEnum):
+    """Whether a Plan is still the installation's open Plan or a later recompute replaced it."""
+
+    OPEN = "open"
+    SUPERSEDED = "superseded"
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class PlanEventRecord:
+    """One lifecycle event recorded against a Plan, in receipt order."""
+
+    kind: str
+    recorded_at: datetime
+
+
+@dataclass(frozen=True, slots=True, kw_only=True)
+class PlanRecord:
+    """A Plan with its status, events, and the recomputes that targeted it."""
+
+    plan: IssuedPlan
+    status: PlanStatus
+    events: tuple[PlanEventRecord, ...]
+    evaluations: tuple[Evaluation, ...]

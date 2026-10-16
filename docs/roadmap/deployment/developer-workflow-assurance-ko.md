@@ -1,6 +1,6 @@
 ---
 translation_of: developer-workflow-assurance.md
-translation_source_sha: f7e42b6739099865815e8702415d78a1772821d2
+translation_source_sha: c5cc10b87ce5bbe3b50bcb95d37339aed4519285
 translation_revised: 2026-10-15
 ---
 
@@ -71,6 +71,10 @@ Core manifest의 배포용 `fdai-operational-catalog-review` entry point는 로�
 경로를 받습니다. 대화 품질 보증 supervisor 작업은 표준 loopback Operator URL과 소유자 전용
 bearer-token 파일 경로를 전달하지만 bearer 값 자체는 전달하지 않습니다. 따라서 source를 다시
 불러오고 작업을 재시작해도 editor의 주변 환경에 의존하지 않고 인증된 로컬 계약을 유지합니다.
+커밋된 Console frontend 실행 구성과 준비 완료 동작은 모두
+`http://localhost:5273`을 사용합니다. 개발 워크플로 회귀 테스트는 Vite 호스트 인자와
+브라우저 원점을 함께 고정하므로 작업 영역 편집으로 호환되지 않는 `127.0.0.1` 실행
+호스트가 다시 들어오는 것을 막습니다.
 
 `console: restart full stack`은 같은 checkout의 검증된 관리 supervisor만 중지하고 lock 해제를
 기다린 뒤 관리 준비 과정을 실행하고 표준 Browser Entra 구성을 시작합니다. 먼저 중지하므로

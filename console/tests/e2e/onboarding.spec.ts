@@ -59,9 +59,16 @@ test("observer proposals remain read-only across desktop and mobile", async ({ p
   }
   empty = true;
   await page.getByRole("button", { name: "Refresh evidence" }).click();
-  await expect(page.getByText("No observer proposal has been received.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "No current proposal" })).toBeVisible();
+  await expect(page.getByText(
+    "No cluster observer has submitted a current installation proposal for review.",
+  )).toBeVisible();
+  await expect(page.getByText(
+    "This read-only view updates when observer evidence arrives. It cannot install an observer or grant execution authority.",
+  )).toBeVisible();
   expect(requests).toEqual(["GET", "GET"]);
   await expect(page.getByRole("button", { name: /approve|install|execute/i })).toHaveCount(0);
+  await capture(page, testInfo, "observer-proposals-empty");
   empty = false;
   await page.goto("/settings/environment-and-deployment/observers?locale=ko");
   await expect(page.getByRole("heading", { name: "클러스터 관측 구성 제안" })).toBeVisible();

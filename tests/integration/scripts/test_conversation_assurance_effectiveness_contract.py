@@ -27,6 +27,7 @@ def _policy() -> EffectivenessPolicy:
         minimum_pairs=20,
         minimum_pairs_per_locale=10,
         minimum_improvement_rate=0.8,
+        minimum_pair_ratio_delta=0.1,
         confidence_level=0.95,
         maximum_regressions=0,
         maximum_environment_hold_rate=0.1,
@@ -41,6 +42,9 @@ def _assessment(**updates: object) -> EffectivenessAssessment:
         schema_version="1.0.0",
         run_id="holdout-one",
         case_id="holdout-case",
+        question_fingerprint="sha256:" + "9" * 64,
+        measurement_revision="1" * 40,
+        trace_receipt_digest="sha256:" + "8" * 64,
         locale="en",
         rubric_version="conversation-assurance.v2",
         measurement_profile_digest="sha256:" + "a" * 64,
@@ -53,6 +57,7 @@ def _assessment(**updates: object) -> EffectivenessAssessment:
         hard_zero_count=0,
         technical_verified=True,
         failed_rubrics=(),
+        mandatory_gate_failures=(),
         latency_ms=1200,
         model_call_count=3,
         cost_usd=0.02,
@@ -68,14 +73,52 @@ def test_policy_requires_bilingual_predeclared_thresholds() -> None:
 
     with pytest.raises(ValueError, match="English and Korean"):
         replace(policy, required_locales=("en",))
+    with pytest.raises(ValueError, match="named base"):
+        replace(policy, authoritative_base_ref="HEAD")
+    with pytest.raises(ValueError, match="locale floors"):
+        replace(policy, minimum_pairs=10, minimum_pairs_per_locale=6)
+    with pytest.raises(ValueError, match="ratio delta"):
+        replace(policy, minimum_pair_ratio_delta=0.0)
 
 
 def test_assessment_requires_every_mandatory_effectiveness_gate() -> None:
     assert _assessment().assurance_passed is True
-    assert _assessment(mandatory_gate_passed=False).assurance_passed is False
+    assert (
+        _assessment(
+            total_score=9,
+            mandatory_gate_passed=False,
+            failed_rubrics=("completeness",),
+            mandatory_gate_failures=("completeness",),
+        ).assurance_passed
+        is False
+    )
+    with pytest.raises(ValueError, match="failed rubrics are inconsistent"):
+        _assessment(
+            total_score=8,
+            mandatory_gate_passed=False,
+            failed_rubrics=("completeness", "completeness"),
+            mandatory_gate_failures=("completeness",),
+        )
     assert _assessment(hard_zero_count=1).assurance_passed is False
-    assert _assessment(technical_verified=False).assurance_passed is False
-    assert _assessment(total_score=8).assurance_passed is False
+    assert (
+        _assessment(
+            total_score=9,
+            mandatory_gate_passed=False,
+            technical_verified=False,
+            failed_rubrics=("verification",),
+            mandatory_gate_failures=("verification",),
+        ).assurance_passed
+        is False
+    )
+    assert (
+        _assessment(
+            total_score=8,
+            mandatory_gate_passed=False,
+            failed_rubrics=("appropriateness", "completeness"),
+            mandatory_gate_failures=("appropriateness", "completeness"),
+        ).assurance_passed
+        is False
+    )
 
 
 def test_assessment_round_trips_owner_only(tmp_path: Path) -> None:
@@ -93,6 +136,8 @@ def test_compose_assessment_joins_answer_gate_and_browser_evidence() -> None:
     assessment = compose_assessment(
         run_id="holdout-one",
         case_id="holdout-case",
+        question_fingerprint="sha256:" + "9" * 64,
+        measurement_revision="1" * 40,
         locale="ko",
         answer_gate={
             "rubric_version": "conversation-assurance.v2",
@@ -112,6 +157,7 @@ def test_compose_assessment_joins_answer_gate_and_browser_evidence() -> None:
             ],
             "mandatory_gate": {
                 "passed": True,
+                "failures": [],
                 "objective_oracle": {
                     "applicable": False,
                     "passed": True,
@@ -122,6 +168,7 @@ def test_compose_assessment_joins_answer_gate_and_browser_evidence() -> None:
         browser_evidence={
             "measurement_profile_digest": "sha256:" + "a" * 64,
             "evidence_snapshot_digest": "sha256:" + "b" * 64,
+            "trace_receipt_digest": "sha256:" + "c" * 64,
             "hard_zero_count": 0,
             "latency_ms": 1000,
             "model_call_count": 3,
@@ -154,10 +201,21 @@ def test_pair_custody_rejects_disclosed_or_duplicate_holdout() -> None:
     values = {
         "schema_version": "1.0.0",
         "receipt_id": "pair-one",
+        "policy_digest": _policy().content_digest,
+        "cohort_id": "cohort-one",
+        "comparison_group_id": "pair-one",
+        "authoritative_base_ref": "main",
         "declared_revision": "1" * 40,
         "baseline_corpus_digest": "sha256:" + "a" * 64,
         "holdout_corpus_digest": "sha256:" + "b" * 64,
         "custodian_identity_digest": "sha256:" + "c" * 64,
+        "locale": "en",
+        "suite": "external",
+        "expected_primary_agent": "Heimdall",
+        "expected_routing_method": "semantic_judgment",
+        "t2_expectation": "forbidden",
+        "challenge_family": "resource-state",
+        "objective_oracle": "none",
         "content_disclosed_to_repair_agent": False,
     }
     receipt = PairCustodyReceipt(**values)

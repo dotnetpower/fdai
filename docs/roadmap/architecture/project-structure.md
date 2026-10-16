@@ -2,6 +2,13 @@
 title: Project Structure
 ---
 # Project Structure
+
+The independent local vendor application lives in `lifecycle/release-hub/`, beside the Lifecycle
+Hub and agent rather than under `services/` or inside the Console. Its source root is registered
+in the repository's Ruff, mypy and pytest configuration. This tooling registration does not add
+an application service or activate AKS Commerce, Cost Governance, or diagnostic capabilities.
+See [Release Hub](../../../lifecycle/release-hub/README.md) for its local-only trust boundary.
+
 The system is a **headless control plane + thin console + ChatOps**, not one web app. This document defines module boundaries, dependency direction, composition, and repository conventions for the validated five-service baseline and the independently packaged System Knowledge Service candidate. The shared service-contract SDK owns an authority-free `RuntimeScopeReceipt`; every service-owned entry point emits one before startup to bind product purpose, execution venue, and the complete permitted capability row without claiming provider state or success. Shared ontology code owns the pinned hard-bound registry for production routing and detection controls; runtime and delivery keep the active values in versioned configuration and import no new authority path. Post-turn runtime skill drafts retain canonical verified evidence references in proposal identity, durable storage, and audit metadata without activating the skill. The composition package also provides an inert startup helper that rebuilds signed skills before signed skill bundles and publishes both read-only disclosure snapshots only after both verify; Core startup does not call it until a trusted artifact store and deployment-supplied trust roots are composed. Bootstrap binds Norns rule hints behind the current discovery-activation decision before evaluating or publishing candidates. Packaged release catalogs bind only to reachable source revisions, and the derived-source gate compares every recorded source blob before commit and in CI. When an owning design source changes without changing catalog records, post-integration regeneration updates only the source commitment and aggregate digest so they identify the final merged blobs and reachable protected-main revision. Question-bank and CQAS artifacts likewise regenerate as a whole from exact source catalogs in dependency order; digest-only hand edits are not supported. Confirmed Incident creation crosses the Operator/Core boundary as a versioned, no-authority request on its own logical topic: Operator owns authentication, source-draft revalidation, and durable acceptance, while Core alone writes the Incident lifecycle and audit record. Workflow catalog loading also records whether a signal trigger resolved through the observation `SignalType` registry or the request/command workflow-trigger vocabulary; this is contract metadata only and adds no runtime authority path. See [Multi-Service Repository Layout](multi-service-repository-layout.md) for physical package ownership and [App Shape](../../../.github/instructions/app-shape.instructions.md) for local and deployed topology. The shared `fdai_service_contracts.post_turn_review` module is a versioned cross-service wire seam: Operator composition publishes post-turn review requests, and only Core Bragi publishes the review envelope, so review, routing, and ownership stay in Core and the Pantheon.
 
 Workflow authoring commits are delegated to a focused Operator PostgreSQL module with its own audit table and service-migration ownership entry; the family facade only routes the committed draft or binding request and still grants no executor, publication, or promotion authority.
@@ -53,6 +60,13 @@ traverse from a widened collection is held before any Operator or document route
 Resource Health answer composition is split the same way: `ontology_platform` preserves the
 typed exact-denominator rows, `fdai_core_service` owns locale presentation and validator
 holds, and Operator receives only the terminal no-authority answer plus technical details.
+Self-health follows the same boundary. Generic thresholds, freshness, owner lanes, routes, and
+fallbacks live in `config/self-health-signals.yaml`; `core/readiness/self_health.py` makes the pure
+authority-neutral decision; runtime bootstrap validates the complete catalog against notification
+routes; delivery and provider adapters remain responsible for emitting source-qualified metrics.
+Rule activation version compatibility is also split: service contracts own the version 1/2
+envelope codec and Core's activation ledger applies it while version 1 remains the only write
+format. Neither compatibility path grants approval, activation, promotion, or execution authority.
 
 Question-form concept-choice reuse is owned by Core conversation processing and ends with one
 run. Its exact-input, reader-separated cache never stores observed state, authorization, or
@@ -800,12 +814,27 @@ The [Agent Pantheon implementation plan](../agents/agent-pantheon-implementation
 Governed chaos timing remains part of Core's evidence contract: the harness records injection and detector-owned observation timestamps, and report-feed adapters preserve unknown latency instead of substituting hold duration.
 Parked approvals and recovery receipts require the exact current ActionRun identity; production persists matching Thor state in shadow and enforce modes, and potentially effective executor results reach independent reconciliation before the control loop claims closure.
 Deployment Preflight keeps its publication decision in `core/deploy_preflight/pre_publication_gate.py`: the analyzer re-verifies the accumulated overrides before any remediation proposal is submitted, and a blocking finding, stale evidence, a scope change, or an escalated reassembly withholds the whole pass rather than a subset. Submission crosses ingress as a control-plane signal that carries no ActionType, so Forseti binds `remediate.apply-preflight-toggle` from its own event-type table and the default human-review verdict stands. The gate rejects a non-finite freshness window or a clock without a time zone before any submission, and a hold record retains only a bounded set of finding ids.
+Operational Readiness remediation uses a dedicated non-operator shadow route. Its shared contract
+binds target, evidence, distinct submitter and approver identities, and no-authority fields by
+digest. ActionBuilder derives the Action identity from that content-addressed request and accepts
+only the exact ORR source, a `rule_violation` or `both` ActionType, complete arguments, and the
+exact ActionType declaration in the active ontology release. The route invokes the unified risk
+gate only after every cited rule resolves in the active catalog to that ActionType. Reports bind
+the exact ownership-transfer identity and expire after 900 seconds. The route terminates as
+shadow, Human approval required, denial, or abstention without execution
+authorization or dispatch. The concrete EventBus proposal-to-request adapter derives parameters
+from the cited active rule and preserves the transfer identity. Container accepts it only as a
+complete publisher-and-lever binding; upstream runtime selection and governed delivery evidence
+remain open.
 ![Control-Loop Wiring. The main stages are events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.en.svg)
 
 ## Configuration Model
 
 - Everything environment-specific is **configuration**, injected at runtime (env vars,
   secret store references, config files). No customer, tenant, or environment values in source.
+- Scheduled entry points may pass an immutable environment snapshot to
+  `default_container_from_env`. It uses the same validation and telemetry composition as the
+  process environment and creates no second configuration authority.
 - Config is validated against the `shared/config/` schema at startup; the process **fails fast**
   on invalid or missing required config rather than starting in a degraded state. A disabled
   optional package is not required configuration: it can report capability-scoped unavailability

@@ -41,7 +41,6 @@ from fdai_operator_service.families.iam.contracts import (
     HilDecisionRegistry,
     HumanAccessRequestOutbox,
     HumanIdentityDirectory,
-    KillSwitchOutbox,
     ModelSettingsOutbox,
     ReportingLineOutbox,
     ReportLineContactOutbox,
@@ -50,6 +49,8 @@ from fdai_operator_service.families.iam.contracts import (
     TeamsWorkflowTester,
 )
 from fdai_operator_service.families.iam.governance import (
+    FreshKillSwitchPrincipalAuthenticator,
+    KillSwitchEventPublisher,
     make_configuration_review_routes,
     make_kill_switch_route,
 )
@@ -122,7 +123,9 @@ class IamFamilyBindings:
     runtime_settings: RuntimeSettingsOutbox | None = None
     teams_workflow_tester: TeamsWorkflowTester | None = None
     slack_webhook_tester: SlackWebhookTester | None = None
-    kill_switch: KillSwitchOutbox | None = None
+    kill_switch_authenticator: FreshKillSwitchPrincipalAuthenticator | None = None
+    kill_switch_publisher: KillSwitchEventPublisher | None = None
+    kill_switch_receipt_issuer: OperatorRequestReceiptIssuer | None = None
     break_glass: BreakGlassActivationOutbox | None = None
     configuration_review: ConfigurationReviewOutbox | None = None
     hil_registry: HilDecisionRegistry | None = None
@@ -187,8 +190,9 @@ def make_iam_family_routes(bindings: IamFamilyBindings) -> tuple[Route, ...]:
             slack_webhook_tester=bindings.slack_webhook_tester,
         ),
         make_kill_switch_route(
-            outbox=bindings.kill_switch,
-            authorize=bindings.authorize,
+            authenticator=bindings.kill_switch_authenticator,
+            publisher=bindings.kill_switch_publisher,
+            receipt_issuer=bindings.kill_switch_receipt_issuer,
         ),
         make_break_glass_activation_route(
             outbox=bindings.break_glass,

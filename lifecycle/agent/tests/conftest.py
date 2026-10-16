@@ -158,6 +158,8 @@ class FakeCluster:
     broken_images: set[str] = field(default_factory=set)
     failing_images: set[str] = field(default_factory=set)
     calls: list[tuple[str, str, str]] = field(default_factory=list)
+    schema_status: str = "Complete"
+    observed: list[tuple[str, str]] = field(default_factory=list)
 
     def apply(self, manifest: Manifest, *, dry_run: bool = False) -> None:
         key = (manifest["kind"], manifest["metadata"]["name"])
@@ -179,9 +181,12 @@ class FakeCluster:
                 "readyReplicas": 1,
                 "availableReplicas": 1,
             }
+        if key[0] == "Job":
+            live["status"] = {"conditions": [{"type": self.schema_status, "status": "True"}]}
         self.objects[key] = live
 
     def get(self, kind: str, name: str) -> Manifest | None:
+        self.observed.append((kind, name))
         return copy.deepcopy(self.objects.get((kind, name)))
 
     def delete(self, kind: str, name: str) -> None:

@@ -4,6 +4,7 @@ title: Channels and Notifications
 # Channels and Notifications
 
 Post-turn review request intake is supervised as a Core runtime task but remains separate from channel delivery, notification, and approval topics.
+Core also injects its read-only active rule map into ActionBuilder for ORR citation validation; this creates no channel, notification, or approval route.
 
 How FDAI talks to humans through Teams, Slack, email, webhooks, paging services, SMS,
 a Direct Line custom channel, and opt-in browser notifications. This file is authoritative

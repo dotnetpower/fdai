@@ -1,8 +1,8 @@
 ---
 title: AKS 역방향 커넥터
 translation_of: aks-outbound-connector.md
-translation_source_sha: 21c2ba2289939588a66f91bf240373d50fc3a82c
-translation_revised: 2026-10-04
+translation_source_sha: 6176455c5e77dd16831fc0120918456e1a23f1cf
+translation_revised: 2026-10-15
 ---
 # AKS 역방향 커넥터
 
@@ -88,6 +88,9 @@ Observer 제안 발견은 기존 알림 라우터와 채널별 영속 전달 저
 묶으므로, 변경되지 않은 해시는 principal과 채널 경계마다 한 번만 알리고 변경된 해시는 다시
 정확히 한 번 알립니다. 메시지에는 승인 버튼, 실행기 신원, 적용 명령, Observer 설치 권한이
 없습니다.
+역할로 제한된 Console 변환 결과는 제안 출처를 사용할 수 없는 상태와 현재 제안이 0건인
+상태를 구분합니다. 현재 제안이 없으면 관측 근거가 도착한 뒤에만 화면이 갱신되며 이 화면에서
+Observer를 설치하거나 실행 권한을 부여할 수 없다고 설명합니다.
 
 ## 스냅샷 실행 구성
 

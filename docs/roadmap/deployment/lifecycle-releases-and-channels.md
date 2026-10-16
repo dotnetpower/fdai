@@ -8,7 +8,12 @@ channels. It also defines how connected and offline installations receive Releas
 recalls and database schema compatibility keep upgrades safe. It owns the Release manifest, the
 channel model, upgrade bundles, and recall.
 
-> **Status:** Design only. Today FDAI has signed deployment bundles and offline kits, and their
+> **Status:** Partially implemented for local and explicit remote development; production lifecycle delivery remains
+> design work. The [local Release Hub](../../../lifecycle/release-hub/README.md) provides manifest
+> registration, development signing, manual built-in channels, recall, a vendor UI, and opt-in
+> pinned export admission by the Lifecycle Hub. It does not implement production authentication,
+> signed catalog roles, registry publication, or recall roll-off.
+> FDAI also has signed deployment bundles and offline kits, and their
 > signed manifests use the channel names `development`, `beta`, and `stable`. The deployment CLI
 > trusts only `development`. The
 > [implementation ledger](../../roadmap-implementation/deployment/lifecycle-releases-and-channels.md)
@@ -19,6 +24,24 @@ channel model, upgrade bundles, and recall.
 > current contracts.
 
 ## Design at a glance
+
+**FDAI Release Hub** is the vendor application for release publication, signing, channel
+promotion, and recall. **Release Catalog** means the release list, data, or feed that Release Hub
+provides, not the application name. **FDAI Lifecycle Hub** remains the separate application that
+manages deployments for individual installations.
+
+The local Release Hub exposes API workflows and a web UI. Existing signed bundles and
+local shadow-only validators alone don't constitute an implemented production Release Hub service. Catalog
+directories, APIs, schemas, and identifiers keep their technical names.
+
+The opt-in [two-Hub development path](../../../infra/hubs-development/README.md) adds direct
+Entra operator/service separation, PostgreSQL publication storage with explicit migrations,
+independent development signing-key provisioning, bundled UI images, and durable customer
+pin/revision state. A customer operator must approve the exact export pin through a separate
+authenticated trust operation before bounded import; a digest beside the download grants no
+trust. Local loopback defaults and existing manifest/signature/catalog contracts remain unchanged.
+This is not production TUF metadata or root ceremony, automatic polling, registry publication,
+Agent apply, or evidence of a successful Azure deployment.
 
 | Concern | Decision |
 |---------|----------|

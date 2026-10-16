@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { isOptionalOperatorApiUnavailable } from "../api";
 import type { OperatorApiClient } from "../api";
 import {
@@ -9,6 +9,7 @@ import {
   type PillKind,
 } from "../components/ui";
 import { t } from "./i18n/code-security";
+import { formatConsoleTimestamp } from "../time-format";
 import {
   panelArray,
   panelBoolean,
@@ -134,6 +135,17 @@ export interface CodeSecurityIssuesResponse {
     >>;
   };
   readonly gaps: readonly (typeof GAPS)[number][];
+}
+
+export function findingResultCount(
+  data: CodeSecurityIssuesResponse,
+  _visible: number,
+): { readonly available: number; readonly recorded: number; readonly bounded: boolean } {
+  return {
+    available: data.review_summary.shown_total,
+    recorded: data.review_summary.recorded_total,
+    bounded: data.review_summary.truncated,
+  };
 }
 
 function oneOf<T extends string>(value: unknown, allowed: readonly T[], label: string): T {
@@ -536,16 +548,25 @@ export function ReviewIssuesPanel({
   repositoryAlias,
   repositoryLocation,
   revision,
+  reviewDigest,
+  recordedAt,
+  reviewSource,
+  producers: reviewProducers,
   onClose,
 }: {
   readonly client: Pick<OperatorApiClient, "panel">;
   readonly repositoryAlias: string;
   readonly repositoryLocation: string | null;
   readonly revision: string;
+  readonly reviewDigest: string;
+  readonly recordedAt: string;
+  readonly reviewSource: string;
+  readonly producers: readonly string[];
   readonly onClose: () => void;
 }) {
   const [state, setState] = useState<AsyncState<CodeSecurityIssuesResponse>>({ status: "loading" });
   const [selectedIssue, setSelectedIssue] = useState<CodeSecurityIssueSummary | null>(null);
+  const detailRef = useRef<HTMLElement>(null);
   const [reportView, setReportView] = useState<"html" | "sarif" | null>(null);
   const [scorecardFilter, setScorecardFilter] = useState<ScorecardKey | "all">("all");
   const [query, setQuery] = useState("");
@@ -619,6 +640,24 @@ export function ReviewIssuesPanel({
         <button type="button" class="btn subtle" onClick={onClose}>{t("codeSecurity.issues.close")}</button>
       </div>
       <p class="muted">{t("codeSecurity.issues.body")}</p>
+      <dl class="code-security-review-provenance" aria-label={t("codeSecurity.issues.provenance")}>
+        <div>
+          <dt>{t("codeSecurity.issues.reviewDigest")}</dt>
+          <dd class="mono">{reviewDigest}</dd>
+        </div>
+        <div>
+          <dt>{t("codeSecurity.issues.recordedAt")}</dt>
+          <dd>{formatConsoleTimestamp(recordedAt)}</dd>
+        </div>
+        <div>
+          <dt>{t("codeSecurity.issues.reviewSource")}</dt>
+          <dd>{reviewSource}</dd>
+        </div>
+        <div>
+          <dt>{t("codeSecurity.issues.reviewProducers")}</dt>
+          <dd>{reviewProducers.join(", ") || t("codeSecurity.issues.notRecorded")}</dd>
+        </div>
+      </dl>
       <AsyncBoundary state={state} resourceLabel={t("codeSecurity.issues.title")}>
         {(data) => (
           <>
@@ -799,8 +838,12 @@ export function ReviewIssuesPanel({
                       <button
                         key={issue.issue_id}
                         type="button"
+                        aria-controls="code-security-finding-detail"
                         aria-current={selectedIssue?.issue_id === issue.issue_id ? "true" : undefined}
-                        onClick={() => setSelectedIssue(issue)}
+                        onClick={() => {
+                          setSelectedIssue(issue);
+                          window.requestAnimationFrame(() => detailRef.current?.focus());
+                        }}
                       >
                         <span>
                           <strong>{issue.title ?? issue.weakness_class.replaceAll("_", " ")}</strong>
@@ -812,10 +855,19 @@ export function ReviewIssuesPanel({
                     ))}
                     <footer class="code-security-finding-pagination">
                       <span>
-                        {t("codeSecurity.issues.resultCount", {
-                          visible: visibleIssues.length,
-                          total: data.review_summary.recorded_total,
-                        })}
+                        {(() => {
+                          const count = findingResultCount(data, visibleIssues.length);
+                          return t(
+                            count.bounded
+                              ? "codeSecurity.issues.resultCountBounded"
+                              : "codeSecurity.issues.resultCount",
+                            {
+                              visible: visibleIssues.length,
+                              available: count.available,
+                              recorded: count.recorded,
+                            },
+                          );
+                        })()}
                       </span>
                       <div>
                         <button
@@ -843,7 +895,13 @@ export function ReviewIssuesPanel({
                   {selectedIssue === null
                     ? null
                     : (
-                      <article class="code-security-finding-detail" aria-label={t("codeSecurity.issues.detailTitle")}>
+                      <article
+                        id="code-security-finding-detail"
+                        ref={detailRef}
+                        class="code-security-finding-detail"
+                        aria-label={t("codeSecurity.issues.detailTitle")}
+                        tabIndex={-1}
+                      >
                         <header>
                           <div>
                             <StatusPill

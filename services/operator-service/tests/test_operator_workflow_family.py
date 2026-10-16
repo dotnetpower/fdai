@@ -597,8 +597,15 @@ async def test_promotion_gate_projection_joins_authoritative_current_modes() -> 
         async def read_action_promotion_modes(self) -> dict[str, object]:
             return {
                 "ops.restart-service": {
-                    "mode": "enforce",
+                    "mode": "shadow",
                     "promotion_kind": "operator_override",
+                    "capability_recall": {
+                        "action_type": "ops.restart-service",
+                        "active": True,
+                        "reason": "vendor capability recall",
+                        "recalled_at": "2026-10-15T00:00:00+00:00",
+                        "lifted_at": None,
+                    },
                     "gate_status": "failed",
                     "gate_status_source": "operator_attested",
                     "gate_evidence_digest": "e" * 64,
@@ -620,10 +627,20 @@ async def test_promotion_gate_projection_joins_authoritative_current_modes() -> 
     )
 
     assert [(row["action_type_name"], row["mode"]) for row in result.payload["rows"]] == [
-        ("ops.restart-service", "enforce"),
+        ("ops.restart-service", "shadow"),
         ("ops.scale-out", "shadow"),
     ]
     first = result.payload["rows"][0]
+    assert first["ready"] is False
+    assert result.payload["ready_count"] == 0
+    assert result.payload["blocked_count"] == 2
+    assert first["capability_recall"] == {
+        "action_type": "ops.restart-service",
+        "active": True,
+        "reason": "vendor capability recall",
+        "recalled_at": "2026-10-15T00:00:00+00:00",
+        "lifted_at": None,
+    }
     assert first["promotion_kind"] == "operator_override"
     assert first["operator_override"] == {
         "gate_status": "failed",
@@ -635,6 +652,45 @@ async def test_promotion_gate_projection_joins_authoritative_current_modes() -> 
         "override_recorded_at": "2026-10-05T00:00:00+00:00",
         "safeguard_proof_source": "operator_attested",
     }
+
+
+async def test_promotion_gate_projection_rejects_malformed_recall_time() -> None:
+    class PromotionStore:
+        async def read_projection(self, *, family: str, operation: str) -> dict[str, object]:
+            del family, operation
+            return {
+                "window_days": None,
+                "ready_count": 1,
+                "blocked_count": 0,
+                "rows": [{"action_type_name": "ops.restart-service", "ready": True}],
+            }
+
+        async def read_action_promotion_modes(self) -> dict[str, object]:
+            return {
+                "ops.restart-service": {
+                    "mode": "shadow",
+                    "promotion_kind": "gate_evidence",
+                    "capability_recall": {
+                        "action_type": "ops.restart-service",
+                        "active": True,
+                        "reason": "vendor capability recall",
+                        "recalled_at": "not-a-time",
+                        "lifted_at": None,
+                    },
+                }
+            }
+
+    with pytest.raises(HTTPException, match="promotion state is malformed") as exc_info:
+        await PostgresWorkflowAdapters(cast(Any, PromotionStore())).read(
+            WorkflowReadRequest(
+                operation=WorkflowOperation.PROMOTION_GATE_LIST,
+                principal_id="operator-a",
+                query={},
+                path_parameters={},
+            )
+        )
+
+    assert exc_info.value.status_code == 503
 
 
 async def test_postgres_control_catalogs_project_lists_filters_and_details() -> None:

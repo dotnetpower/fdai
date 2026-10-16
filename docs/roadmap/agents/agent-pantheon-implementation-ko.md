@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 0e5967fd57b0248ab911b7d9241987869c62d3ae
-translation_revised: 2026-10-15
+translation_source_sha: 58ebb44f8e61224571016164d2d623f6ff09357a
+translation_revised: 2026-10-16
 ---
 
 # 에이전트 판테온 구현 계획
@@ -142,6 +142,7 @@ sampler는 검토된 `resource.cpu.utilization_pct` 선언을 사용하고 조�
 | 2026-10-15 | implemented | 명시적인 유한 구간 완전성, 오래된 항목부터의 입력 순서와 최근 구간 대체 금지를 적용해 Forseti의 비활성 회고 what-if 경로를 정확한 해시·원본 리비전에 결속된 검토 과거 보관 기록 하나에 연결했습니다. | `현재 변경`, `forseti_historical_replay.py`, `bootstrap_forseti_replay.py`, 소스·what-if·초기화·레이아웃 검사 64개와 strict mypy·Ruff | 실제 검토 보관 기록을 제공하고 배포 데이터베이스·브로커 수락을 보존해야 합니다. 이 소스는 이력을 만들거나 운영 완전성을 인증하거나 승인·실행하지 않습니다. |
 | 2026-10-15 | implemented | Loki의 비활성 생성기와 고정 표본을 정확한 해시·원본 리비전에 결속된 검토 불변 스냅샷 하나에 연결하고 중복 커버리지를 거절하며 호출을 정확한 설계 참조에 결속했습니다. | `현재 변경`, `loki_scenario_evidence.py`, `bootstrap_loki_scenarios.py`, 소스·초기화·비활성 생성·일정·레이아웃 검사 49개와 strict mypy·Ruff | 실제 검토 입력을 제공하고 명시적 호출, 사람 승인, Chaos 실행, 검증된 복구 증적을 보존해야 합니다. 권한이나 운영 수락은 추론하지 않습니다. |
 | 2026-10-15 | implemented | 초안 카탈로그 검토를 승격으로 취급하지 않으면서 Mimir의 승격·회귀·폐기 유지보수 포트를 정확한 해시와 원본 리비전에 결속된 닫힌 불변 근거 스냅샷 하나에 연결했습니다. | `현재 변경`, `mimir_maintenance_evidence.py`, `bootstrap_mimir_maintenance.py`, 근거·초기화·이슈 종료·구조 집중 검사 58개와 strict mypy·Ruff | 실제로 검토한 배포 매니페스트를 제공하고 런타임 증적을 보존해야 합니다. 이 소스 변경은 검토·회귀·승격·폐기·이슈 종료를 수행하지 않습니다. |
+| 2026-10-15 | implemented | Pantheon 소유권, 판단, 승인, 실행 또는 LLM 역할을 바꾸지 않고 조건부 `operator.kill-switch.requests` 명령 consumer를 Var에 추가했습니다. | `0398357455`, Var/runtime/layout 테스트 96개와 strict mypy 및 Ruff 통과 | 권한 있는 상태 재조회를 구현하고 배포된 engage/no-execute/disengage 근거를 보존합니다. |
 | 2026-10-15 | implemented | 내용 해시를 가진 공유 리비전 기록과 원자적 head·감사 확정으로 재현된 A/B/A 내부 체인 분기를 수정했습니다. 제한 안에서 이전 기록을 보존하거나 검증 불가 시 이행을 보류합니다. | `current change`; #2149; `audit_chain_journal.py`; `audit_chain_rehydrate.py`; 소유 범위 검사 165개, 1,500회 추가 후 복구 검사 1개, 실제 격리 PostgreSQL 검사 5개; 다섯 소스 strict mypy와 Ruff. | 배포 전에 구버전 writer를 중지하고 더 긴 이력의 이행을 별도로 검토해야 합니다. 원격 식별자와 실제 배포 수락도 아직 남아 있습니다. |
 | 2026-10-15 | implemented | Bragi 평가 입력 리비전을 원본과 분리하고, 기준·후보의 내용이나 JSON 타입이 바뀌면 저장·게시 전에 거절하며, 보관된 평가기 참조로 반환된 후보를 바꾸지 못하게 했습니다. | `current change`; `bragi_intent_training.py`; 변조·격리 반례 5개 추가, 학습·구조 검사 35개, 한 소스 mypy와 Ruff 통과. | 독립 평가기, 동의가 확인된 원본 표본, 검토된 활성화와 배포된 공급자의 수락 근거는 아직 남아 있습니다. |
 | 2026-10-15 | implemented | Bragi 학습의 실행·게시·단계 식별자를 전체 표본, 동의, 후보 및 단계 스냅샷에 결속하고, 런타임 라우팅 변경 없이 검토 개정마다 기록을 별도로 보존했습니다. | `current change`; `bragi_intent_training.py`, `bragi_runtime_helpers.py`, `bragi.py`; 식별자·저장 반례 6개 추가, 학습·구조 검사 30개, 세 소스 mypy와 Ruff 통과. | 독립 평가기, 동의가 확인된 원본 표본, 검토된 활성화와 배포된 공급자의 수락 근거는 아직 남아 있습니다. |

@@ -223,6 +223,7 @@ class ImprovementRun:
     comparison_group_id: str | None = None
     comparison_role: ComparisonRole | None = None
     effectiveness_schema_version: str | None = None
+    effectiveness_policy_digest: str | None = None
     cohort_id: str | None = None
     locale: str | None = None
     suite: str | None = None
@@ -282,6 +283,7 @@ class ImprovementRun:
         ):
             raise ValueError("comparison group MUST be a bounded machine token")
         effectiveness_values = (
+            self.effectiveness_policy_digest,
             self.cohort_id,
             self.locale,
             self.suite,
@@ -324,6 +326,7 @@ class ImprovementRun:
             ):
                 raise ValueError("effectiveness expected agent MUST be bounded")
             for digest_value in (
+                self.effectiveness_policy_digest,
                 self.blind_holdout_receipt_digest,
                 self.readiness_digest,
             ):
@@ -736,6 +739,7 @@ def _from_mapping(value: dict[str, Any]) -> ImprovementRun:
     data.setdefault("comparison_group_id", None)
     data.setdefault("comparison_role", None)
     data.setdefault("effectiveness_schema_version", None)
+    data.setdefault("effectiveness_policy_digest", None)
     data.setdefault("cohort_id", None)
     data.setdefault("locale", None)
     data.setdefault("suite", None)

@@ -1,8 +1,8 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: ee22a116e193959fd75f23f9c5e01a02027aaccf
-translation_revised: 2026-10-02
+translation_source_sha: c29d3848b6d0e05840b91a6854b7eaffb4ecd289
+translation_revised: 2026-10-15
 ---
 
 # 다운스트림 포크 가이드
@@ -55,6 +55,9 @@ customization 프로파일을 패키지하며 배포, 테넌트, 환경, 운영 
 포크가 추가한 모든 ActionType과 상태 변경 작업 흐름 단계는 헌법의 7개 안전조건을 모두
 상속합니다. 프로바이더 연결, 카탈로그 항목, 환경 또는 포크 표시는 권한을 승격하거나
 안전조건을 면제하거나 새 조합을 바로 강제 적용 모드로 바꾸지 않습니다.
+업스트림의 예약 SLO burn 바인딩도 같은 경계를 따릅니다. 배포가 비어 있지 않은 카탈로그와
+선택적 일정을 제공하며, telemetry가 없으면 재시도가 필요한 상태로 유지됩니다. 업스트림은
+테넌트 일정, 범위, 자격 증명 또는 정상 결과 fallback을 제공하지 않습니다.
 ## 1. 포크 모델 한눈에
 
 - **업스트림** = 이 저장소. 범용한 컨트롤 플레인 (코어 엔진, DI

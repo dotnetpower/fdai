@@ -609,22 +609,6 @@ class SlackWebhookTester(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
-class KillSwitchCommand:
-    """Idempotent emergency-stop state request persisted with atomic audit."""
-
-    engaged: bool
-    actor_oid: str
-    reason: str
-    request_id: str
-
-
-class KillSwitchOutbox(Protocol):
-    """Persist an emergency-stop request without executing a provider change."""
-
-    async def submit(self, command: KillSwitchCommand) -> JsonMapping: ...
-
-
-@dataclass(frozen=True, slots=True)
 class BreakGlassActivationCommand:
     """Time-boxed emergency activation request recorded for audit only."""
 

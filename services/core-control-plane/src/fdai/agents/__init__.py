@@ -191,6 +191,10 @@ from fdai.agents._framework.topics import (
     stable_idempotency_key,
     topic_for_object_type,
 )
+from fdai.agents._framework.var_kill_switch import (
+    KillSwitchRequestRejectedError,
+    VarKillSwitchRequestHandler,
+)
 from fdai.agents._framework.vertical_precedence import InitialVerticalPrecedence
 from fdai.agents._framework.workflows import WORKFLOWS, WorkflowSpec
 from fdai.agents.bragi import Bragi
@@ -292,6 +296,7 @@ __all__ = [
     "IdempotentIssueTrackerAdapter",
     "IssueTrackerAdapter",
     "Layer",
+    "KillSwitchRequestRejectedError",
     "Mimir",
     "MimirCatalogPromotionOutcome",
     "MimirCatalogPromotionOutcomeReader",
@@ -304,6 +309,7 @@ __all__ = [
     "MAX_RECURRING_SAMPLES",
     "MAX_GENERATED_SCENARIOS",
     "UtilizationSample",
+    "VarKillSwitchRequestHandler",
     "Norns",
     "OperatorRequestReceiptGate",
     "OpaRegoPolicyCompiler",

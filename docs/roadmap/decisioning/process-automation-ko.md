@@ -1,15 +1,19 @@
 ---
 title: 프로세스 자동화(Process Automation)
 translation_of: process-automation.md
-translation_source_sha: 14073e9141c312b315c5bc158b2991184aa36d51
-translation_revised: 2026-10-02
+translation_source_sha: db2a57f0070892d2a6557fe0694fce3bd3dd1f0c
+translation_revised: 2026-10-15
 ---
 # 프로세스 자동화(프로세스 자동화)
 
 프로세스 자동화는 다단계 비즈니스 프로세스를 1급, 온톨로지 연결, 거버넌스된 아티팩트로 바꾼다. 프로세스는 컨트롤 플레인을 우회하는 스크립트가 아니다. 이는 온톨로지 `ActionType` 호출의 선언적 시퀀스이며, 동일한 trust-routing 컨트롤 루프가 한 번에 한 스텝씩, 단일 교정 과 동일한 안전 불변식 아래에서 전달 한다.
 
-이 문서는 [agent-workflows.md](../agents/agent-workflows-ko.md)의 machine-readable 대응물입니다.
-그 문서가 12개 cross-agent 워크플로를 산문과 시퀀스 다이어그램으로 기술한다면, 이 문서는 워크플로를 catalog-as-code로 출시하고 shadow 모드로 실행하게 하는 카탈로그 스키마, 온톨로지 추가분, 런타임 배선을 정의합니다.
+이 문서는 [agent-workflows.md](../agents/agent-workflows-ko.md)에서 실행 가능한 일부 작업 흐름의
+기계 판독형 대응물입니다. 에이전트 레지스트리에는 13개의 메타데이터 조율이 있으며, 정확한 ID
+인벤토리는 현재 `predictive-scale`과 선택적 Cost Governance `cost-aware-remediation` 작업 흐름만
+실행 카탈로그 항목에 연결합니다. 나머지 11개는 메타데이터로만 유지하고 이름이 비슷한 카탈로그
+작업 흐름은 독립된 `Process`로 취급합니다. 이 문서는 catalog-as-code 작업 흐름의 카탈로그
+스키마, 온톨로지 추가분 및 런타임 배선을 정의합니다.
 
 > **범위.** 여기의 모든 것은 customer-agnostic입니다([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 > 워크플로는 [`rule-catalog/action-types/`](../../../rule-catalog/action-types) 아래의 업스트림 `ActionType` 카탈로그만 참조하며, 새 변경 기본 요소를 선언하지 않습니다.

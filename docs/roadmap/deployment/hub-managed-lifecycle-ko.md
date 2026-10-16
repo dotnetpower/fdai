@@ -1,8 +1,8 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 87b5597d9f9045585d860da586a4a0dc4125c3c9
-translation_revised: 2026-10-08
+translation_source_sha: 71eee0fae873849a3e2e0bfa47d10f8cad037aed
+translation_revised: 2026-10-16
 ---
 # Hub 관리형 수명 주기
 
@@ -10,9 +10,11 @@ translation_revised: 2026-10-08
 hub-and-spoke 모델을 따라 각 설치를 구독한 release channel과 고객이 승인한 구성에 맞춰
 유지합니다. 이 문서는 수명 주기 아키텍처, 계획과 상태 루프, 고객 격리 경계를 소유합니다.
 
-> **상태:** 설계만 되어 있습니다. Hub, 설치 에이전트, Lifecycle Plan, 업그레이드 번들은 아직
-> 없습니다. [구현 ledger](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)가
-> 제공 현황을 추적하며, [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance-ko.md)이
+> **상태:** 개발 검증용으로 일부 구현되었습니다. 로컬 Hub와 플래너, 두 Hub의 명시적 원격 개발
+> 준비 경로가 있으며, 전체 관리형 설치 경로는 아직 제공하지 않습니다. Azure 배포나 프로덕션
+> 신뢰 루트 설정을 완료했다는 뜻은 아닙니다.
+> [구현 현황 원장](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)이
+> 정확한 제공 범위를 추적하며, [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance-ko.md)이
 > 결정을 기록합니다.
 >
 > **범위:** 이 경로는 설치, 업그레이드, 구성, 드리프트, 회수 같은 FDAI 자체의 수명 주기를
@@ -22,6 +24,13 @@ hub-and-spoke 모델을 따라 각 설치를 구독한 release channel과 고객
 
 ## 설계 한눈에 보기
 
+**FDAI Lifecycle Hub**는 설치본별 배포를 관리합니다. 릴리스 발행, 서명, 채널 승격, 회수를
+관리하도록 계획된 공급업체 앱인 **FDAI Release Hub**와는 별개입니다. Release Hub는
+Lifecycle Hub가 사용하는 릴리스 목록, 데이터 또는 피드인 **Release Catalog**를 제공합니다.
+카탈로그는 앱 이름이 아니라 기술적인 데이터 용어로 유지합니다. 초기 Release Hub는 CLI/API
+작업 흐름부터 제공할 수 있으며, 이 설계가 전체 Release Hub 서비스의 구현 완료를 뜻하지는
+않습니다.
+
 | 관심사 | 결정 |
 |--------|------|
 | 제품과 설치 | 서명된 Release 하나가 모든 고객에게 쓰입니다. 설치마다 다른 것은 구성, 정책, 자기 환경에 대한 바인딩뿐입니다. |
@@ -30,8 +39,39 @@ hub-and-spoke 모델을 따라 각 설치를 구독한 release channel과 고객
 | 계획 계산 | Hub가 Lifecycle Plan을 계산합니다. 설치 에이전트는 최대 효과 경계를 로컬에서 도출하며, Plan은 그 경계를 좁힐 수만 있습니다. |
 | 설치 에이전트 | 워크로드용 수명 주기 에이전트는 클러스터 안에, 정확한 Terraform 계획용 인프라 에이전트는 실행 호스트에 둡니다. 둘 다 판테온 에이전트가 아닙니다. |
 | 업그레이드 | 유지 관리 구간 안에서 자동으로 적용합니다. 구성 변경에는 승인된 변경 요청이, Azure 리소스 삭제나 교체에는 확인이 필요합니다. |
-| 데이터 경계 | Hub는 Azure 자격 증명, 비밀 값, 운영 데이터를 보관하지 않습니다. 경계를 넘는 것은 수명 주기 메타데이터뿐입니다. |
+| 데이터 경계 | Hub는 고객 워크로드의 자격 증명이나 운영 데이터를 보관하지 않습니다. Hub 자체의 제한된 서비스 ID와 서명 키는 고객 리소스를 변경할 권한을 주지 않습니다. 경계를 넘는 것은 수명 주기 메타데이터뿐입니다. |
 | 기록 | cell이나 Target Hub마다 Hub PostgreSQL을 두고, 설치 증적은 Foundation 스토리지에 추가 전용으로 남깁니다. |
+
+## 두 Hub의 개발 검증
+
+벤더 Release Hub와 고객 Target Lifecycle Hub는 같은 테스트 구독의 별도 RG에 배치하며,
+ACA Environment, VNet, PostgreSQL 서버와 DB, 관리 ID, Key Vault, 로그를 각각 분리합니다.
+RG 분리는 관리 구획일 뿐 보안 격리의 증거가 아닙니다. VNet peering이나 벤더의 고객 측 접근
+권한은 추가하지 않습니다. 승인된 브라우저 CIDR과 고객 NAT 주소로 HTTPS 접근을 제한하고,
+비공개 DB와 Key Vault의 접근 경로는 분리합니다.
+
+명시적으로 선택하는 원격 프로필은 Entra bearer 토큰의 발급자, 대상, 유효 시간과 운영자의
+object ID, 클라이언트, scope를 직접 검증합니다. 서비스 요청은 정확한 고객 서비스 ID와
+내보내기 읽기 전용 역할을 검증합니다. 프록시 헤더는 인증 근거가 아닙니다.
+로컬 CLI의 loopback 기본값은 유지합니다. 버전이 지정된 secret reference로 독립적인 개발용
+서명 키를 제공하고, PostgreSQL에는 Hub 자체의 관리 ID와 인증서를 검증하는 TLS만 사용합니다.
+원격 서버를 시작하기 전에 명시적 migration을 완료해야 합니다. 키 교체나 호환되지 않는 기존
+스키마는 별도로 검토한 migration이 필요합니다.
+
+고객 운영자는 다운로드와 별개로 승인된 신뢰 경로에서 받은 revision과 정확한 digest를 먼저
+승인한 뒤, 제한된 outbound import를 한 번 요청합니다. 다운로드 응답의 digest 자체는 승인이
+아닙니다. 검증한 원본 바이트, digest, 키 식별 정보, 낮아지지 않는 revision 하한과 행위자 감사
+기록을 영속 보관합니다. 기존 매니페스트 서명, 만료, 회수 계약과 플래너 제약을 유지하며,
+회수 반영과 Plan 계산은 같은 신뢰 상태 행의 잠금으로 직렬화합니다.
+UI는 이미 준비한 합성 설치본의 Plan을 계산하지만, 원격 프로필은 Agent 통신이나 Plan 실행을
+허용하지 않습니다.
+
+준비 절차와 검증 명령은 [두 Hub 개발 경계 안내](../../../infra/hubs-development/README.md)를
+따릅니다. 정적 IaC 검사와 로컬 컨테이너 검증만으로 Azure 네트워크/RBAC 격리, 실제 Entra
+로그인, 레지스트리 아티팩트 존재, replica 교체 후 보존을 입증할 수는 없습니다.
+이를 검증하려면 정확한 클라우드 preview와 실행 범위를 별도로 승인해야 합니다.
+이 경로는 소스/오프라인 설치를 바꾸지 않으며, 자동 polling, 프로덕션 카탈로그 메타데이터와
+신뢰 루트 설정, Agent 적용, 전체 FDAI 설치를 구현하지 않습니다.
 
 ## 핵심 개념
 
@@ -84,11 +124,11 @@ hub-and-spoke 모델을 따라 각 설치를 구독한 release channel과 고객
 
 ## 아키텍처
 
-![아키텍처. 주요 단계는 공급업체 Release 카탈로그 / 서명된 Release, 채널, 회수, Lifecycle Hub / 중앙 Hub cell 또는 Target Hub, 고객 Git / 원하는 구성, 수명 주기 에이전트 / 워크로드와 보고 상태, 인프라 에이전트 / 정확한 Terraform 계획, FDAI 서비스 / 운영 루프, Azure 리소스입니다.](../../diagrams/generated/fdai-roadmap-deployment-hub-managed-lifecycle-01.ko.svg)
+![아키텍처. 주요 단계는 FDAI Release Hub / 서명된 Release, 채널, 회수, Lifecycle Hub / 중앙 Hub cell 또는 Target Hub, 고객 Git / 원하는 구성, 수명 주기 에이전트 / 워크로드와 보고 상태, 인프라 에이전트 / 정확한 Terraform 계획, FDAI 서비스 / 운영 루프, Azure 리소스입니다.](../../diagrams/generated/fdai-roadmap-deployment-hub-managed-lifecycle-01.ko.svg)
 
 | 구성 요소 | 실행 위치 | 신원 | 보관하는 것 | 보관하지 않는 것 |
 |-----------|-----------|------|-------------|------------------|
-| Release 카탈로그 | 공급업체 | 오프라인으로 보관하는 공급업체 release 키 | 서명된 Release, 채널 구성원, 회수, 승격 파이프라인 | 고객 데이터 |
+| FDAI Release Hub | 공급업체 | 오프라인으로 보관하는 공급업체 release 키 | Release Catalog: 서명된 Release, 채널 구성원, 회수, 승격 파이프라인 | 고객 데이터 |
 | Lifecycle Hub | 중앙 Hub cell 또는 Target Hub | Hub 서비스 신원. 승인자는 고객의 Entra ID로 로그인합니다. | 설치 설정, 가져온 구성 패키지, 보고 상태, Plan, 제약 조건 결과, 감사 | Azure 자격 증명, 비밀 값, 평문 봉인 값, 운영 데이터 |
 | 수명 주기 에이전트 | 설치의 AKS 클러스터, 전용 네임스페이스 | FDAI 네임스페이스에서만 Kubernetes 권한을 가진 워크로드 신원 | 생성한 워크로드 매니페스트와 워크로드 증적 | Azure 쓰기 신원, 실행기 신원 |
 | 인프라 에이전트 | 기존 실행 호스트 | 기존 배포 관리 ID | 정확한 Terraform 계획, Foundation 상태, 인프라 증적 | 실행기 신원, 운영 데이터 |
@@ -294,6 +334,16 @@ cell이 다른 고객의 cell에 영향을 줄 수 없습니다.
 패키지는 Terraform 애플리케이션 단계를 그대로 유지합니다.
 
 ### 현재 렌더링
+
+로컬 개발용 `operator-service-v1` 범위는 이 목표 설계보다 좁습니다. 기존 서명된 Release의
+다이제스트와 서명된 구성을 사용해 실제 Operator Deployment, 내부 Service, 읽기 전용 Core
+이미지 스키마 확인 Job을 만듭니다. DB 마이그레이션은 미리 완료되어 있어야 하며, 모든 스키마
+전환을 차단합니다. 기존 공통 스키마와 서비스별 마이그레이션 버전이 일치하기 전에는 워크로드를
+전환하지 않습니다. Foundation 객체를 만들거나 기존 객체의 소유권을 인수하지 않습니다.
+[에이전트 참고 문서](../../../lifecycle/agent/README.md#same-schema-operator-profile)에
+사전 조건과 실패 복구 방법이 있습니다. 이는 스키마 확장 구현이나 실제 서비스 설치 근거가
+아닙니다. 남은 검증은 [구현 원장](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)에서
+별도로 추적합니다.
 
 배포 CLI는 기반 출력값, 이미지 다이제스트, 제품 프로필에서 `workloads` 맵과 `scheduled_jobs`
 맵을 만듭니다. 그런 다음 정확한 계획의 claim, 적용, 검증 전용 복구 단계를 거쳐 Terraform 루트
@@ -510,8 +560,9 @@ Release 테이블은 [Lifecycle Release와 채널](lifecycle-releases-and-channe
 - 현재 동작하는 것은 Lifecycle Hub의 등록, Plan 계산, 저장, 에이전트 API뿐이며 loopback에서 관찰
   모드(shadow mode)로 실행됩니다([Lifecycle Hub](../../../lifecycle/hub/README.md)). 이 문서의 나머지
   내용은 설계만 있습니다.
-- Terraform 밖의 워크로드 렌더링은 [워크로드 렌더링 마이그레이션](#워크로드-렌더링-마이그레이션)에
-  설계되어 있습니다. 에이전트 렌더러, 렌더링 동등성 테스트, 소유 이전은 아직 구현되지 않았습니다.
+- Terraform 밖의 전체 워크로드 렌더링은 [워크로드 렌더링 마이그레이션](#워크로드-렌더링-마이그레이션)에
+  설계되어 있습니다. 같은 스키마를 사용하는 개발용 Operator 범위만으로는 전체 렌더러,
+  렌더링 동등성 검사, 소유권 인수가 구현되었다고 볼 수 없습니다.
 - Lifecycle I0에서는 적용이 실패해도 별도의 롤백 Plan을 만들지 않습니다. 에이전트가 실패한 Plan
   안에서 이전 이미지를 복원하고 `rolled-back`을 보고합니다. 그러면 Hub는 그 Plan의 각 Entity에
   24시간짜리 실패 억제 구간을 두며, 운영자는 이를 더 일찍 해제할 수 있습니다. 설치 전체에 대한

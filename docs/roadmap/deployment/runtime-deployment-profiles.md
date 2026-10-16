@@ -19,35 +19,22 @@ authority. Azure Container Apps remains a supported compatibility profile for ex
 > this runtime contract doesn't change.
 
 ## Design at a glance
+
+The [local Release Hub](../../../lifecycle/release-hub/README.md) is a separate loopback-only vendor
+development tool, not an installed runtime component in either profile. Registering its source
+root for repository checks neither selects a runtime platform nor activates Cost Governance.
+Its metadata publication and pinned export tests are not evidence of an Azure deployment,
+production catalog trust, artifact availability, or a completed FDAI workload installation.
+
 Both profiles bind explicit Operator discussion only when the independently configured verifier,
 current grant-registry pin, installation reference and exact installation read scope exist.
 Missing prerequisites hold rather than creating an Owner, grant or live model invocation.
 Console mode selection changes no runtime profile, executor identity or operational readiness.
 
+Both runtime profiles keep conversational presentation separate from execution and package activation. Standard Core composition forwards the independent synthesis verifier and binds the durable per-correlation budget ledger. Target/locale transport, verification holds and restart accounting follow the same contracts in every venue; these bindings neither enable Cost Governance nor prove operational or handover readiness.
 
-Both runtime profiles keep conversational presentation separate from execution and package
-activation. Standard Core composition forwards the independent synthesis verifier and binds the
-durable per-correlation budget ledger. Target/locale transport, verification holds and restart
-accounting follow the same contracts in every venue; these bindings neither enable Cost
-Governance nor prove operational or handover readiness.
-
-Both profiles can mount the same optional deployment-reviewed Pantheon evidence files. Core binds
-Mimir maintenance, Loki off-path scenarios, Forseti historical replay, and Bragi off-path training
-only when each feature's absolute path and exact SHA-256 environment pair is complete and the file
-matches `FDAI_SOURCE_REVISION`. Bragi's configured batch runs once at startup and remains
-shadow-only; the other adapters remain explicit read-only inputs to their owning paths. Missing
-configuration stays unbound, while partial, changed, stale, or malformed input fails startup.
-Runtime platform selection never supplies an evidence file, review, semantic-quality claim,
-approval, promotion, action authority, or operational acceptance.
-
-Saga issue delivery is also runtime-profile neutral. `FDAI_SAGA_GITHUB_ISSUES_ENABLED` keeps the
-StateStore adapter as the default and selects remote delivery only with
-`FDAI_SAGA_GITHUB_OWNER`, `FDAI_SAGA_GITHUB_REPO`, a complete refreshable GitHub App credential
-set, and exact installation/repository readback. The App token is limited to `issues: write` and
-`metadata: read`; static tokens are not accepted for this path. AKS and Container Apps use the
-same operation journal, shared fingerprint claim, remote marker and readback contract. Selecting
-a runtime platform never enables this adapter or proves network, App installation, replica
-restart, issue ownership, or delivery acceptance.
+Both profiles can mount the same optional deployment-reviewed Pantheon evidence files. Core binds Mimir maintenance, Loki off-path scenarios, Forseti historical replay, and Bragi off-path training only when each feature's absolute path and exact SHA-256 environment pair is complete and the file matches `FDAI_SOURCE_REVISION`. Bragi's configured batch runs once at startup and remains shadow-only; the other adapters remain explicit read-only inputs to their owning paths. Missing configuration stays unbound, while partial, changed, stale, or malformed input fails startup. Runtime platform selection never supplies an evidence file, review, semantic-quality claim, approval, promotion, action authority, or operational acceptance.
+Saga issue delivery is also runtime-profile neutral. `FDAI_SAGA_GITHUB_ISSUES_ENABLED` keeps the StateStore adapter as the default and selects remote delivery only with `FDAI_SAGA_GITHUB_OWNER`, `FDAI_SAGA_GITHUB_REPO`, a complete refreshable GitHub App credential set, and exact installation/repository readback. The App token is limited to `issues: write` and `metadata: read`; static tokens are not accepted for this path. AKS and Container Apps use the same operation journal, shared fingerprint claim, remote marker and readback contract. Selecting a runtime platform never enables this adapter or proves network, App installation, replica restart, issue ownership, or delivery acceptance.
 
 The [GitHub knowledge connector](../../runbooks/knowledge-github-sources.md) uses the same
 bounded repository, exact-commit, and README validation in both runtime profiles. Anonymous
@@ -102,6 +89,12 @@ Operator policy route and Mimir policy-administration subscription; it does not 
 platform, Cost Governance package activation, or any execution identity. Until Terraform also
 provisions the non-exportable policy-signing Key Vault key, its crypto role grant, and Core signing
 environment, `product_profile_json` validation rejects the `policy-administration` add-on.
+
+The global kill switch is also runtime independent. Local, AKS, and compatibility Container Apps
+composition use the same signed Operator request contract and conditionally bind Var's
+`operator.kill-switch.requests` consumer only when Core can verify Operator receipts against the
+shared durable StateStore. Runtime selection grants no kill-switch role, execution identity, or
+effect claim. An HTTP `202` and broker delivery cannot replace authoritative state readback.
 
 The host's read-only `verify-source-runtime` command checks pinned source/runtime content, not
 runtime or database placement, node sizing, cost, host identity or exact-plan authority. Its evidence
@@ -514,6 +507,8 @@ streams immediately and clients resume from their last event id within the termi
 Every shipped Alpine runtime image also pins security-sensitive runtime package revisions across
 all service Dockerfiles. A published fixed package revision moves the shared pin and its repository
 contract together; image scanning verifies the built result before publication.
+
+Core's Alpine ARM64 builder supplies the missing `tree_sitter/parser.h` for source builds of locked `tree-sitter-java` 0.23.5 from the matching upstream commit, pinned by SHA-256. The builder-only header changes no runtime dependency, workload specification, identity, or authority. Native compile/parse evidence is not a complete image build or deployment.
 
 Core, the Cost Governance profile, and the SRE benchmark retain OPA 1.18.2 but build it with
 digest-pinned Go 1.27.2 and `golang.org/x/net` 0.60.0, including its required

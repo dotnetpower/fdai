@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import type { OperatorApiClient } from "../api";
 import type { AuthContext } from "../auth";
 import { DataTable, ErrorState, LoadingState, PageHeader, StatusPill } from "../components/ui";
+import { useSettingsDirtyState } from "../components/settings-dirty-state";
 import { usePublishViewContext } from "../deck/context";
 import { TERMS, composeGlossary } from "../deck/glossary";
 import { t } from "../i18n";
@@ -12,6 +13,17 @@ import {
 } from "./settings-models.command";
 import { ModelBindingPolicyEditor } from "./settings-model-binding-policy";
 import { modelText } from "./settings-models.i18n";
+import {
+  filterCatalogModels,
+  formatDisplayTimestamp,
+  formatTpm,
+  independentSecondaryCandidates,
+  matchesModelQuery,
+  modelReadinessState,
+  nextModelWorkspaceView,
+  presentModelStatus,
+  type ModelWorkspaceView,
+} from "./settings-models.presentation";
 import {
   appendAllowedDomain,
   DEFAULT_WEB_SEARCH_DOMAINS,
@@ -40,6 +52,13 @@ interface Props {
   readonly auth: AuthContext;
 }
 
+const MODELS_WORKSPACE_VIEWS: readonly ModelWorkspaceView[] = [
+  "overview",
+  "catalog",
+  "routing",
+  "web-search",
+];
+
 export function SettingsModelsRoute({ client, auth }: Props) {
   const narratorDraftRevision = useRef(0);
   const webSearchDraftRevision = useRef(0);
@@ -48,7 +67,11 @@ export function SettingsModelsRoute({ client, auth }: Props) {
   const [loading, setLoading] = useState(true);
   const [refreshingCatalog, setRefreshingCatalog] = useState(false);
   const [catalogQuery, setCatalogQuery] = useState("");
+  const [routingQuery, setRoutingQuery] = useState("");
+  const [activeWorkspaceView, setActiveWorkspaceView] = useState<ModelWorkspaceView>("overview");
   const [saving, setSaving] = useState(false);
+  const [narratorError, setNarratorError] = useState<string | null>(null);
+  const [bindingDirty, setBindingDirty] = useState(false);
   const [webSearchEnabled, setWebSearchEnabled] = useState(true);
   const [allowedDomainsText, setAllowedDomainsText] = useState(
     DEFAULT_WEB_SEARCH_DOMAINS.join("\n"),
@@ -60,6 +83,7 @@ export function SettingsModelsRoute({ client, auth }: Props) {
   const [t2SecondaryKey, setT2SecondaryKey] = useState("");
   const [t2CopyState, setT2CopyState] = useState<"idle" | "copied" | "failed">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [backgroundError, setBackgroundError] = useState<string | null>(null);
   const loadGeneration = useRef(0);
   const [failedLoad, setFailedLoad] = useState<
     readonly [background: boolean, refreshCatalog: boolean] | null
@@ -68,18 +92,25 @@ export function SettingsModelsRoute({ client, auth }: Props) {
 
   const applyProjection = (
     next: ModelSettingsView,
-    submittedRevisions?: { readonly narrator: number; readonly webSearch: number },
+    submittedRevisions?: {
+      readonly narrator: number;
+      readonly webSearch: number;
+      readonly preserveNarrator?: boolean;
+      readonly preserveWebSearch?: boolean;
+    },
   ) => {
     setView(next);
     if (
       submittedRevisions === undefined
-      || draftRevisionIsCurrent(narratorDraftRevision.current, submittedRevisions.narrator)
+      || (!submittedRevisions.preserveNarrator
+        && draftRevisionIsCurrent(narratorDraftRevision.current, submittedRevisions.narrator))
     ) {
       setSelection(next.narrator.requested);
     }
     if (
       submittedRevisions === undefined
-      || draftRevisionIsCurrent(webSearchDraftRevision.current, submittedRevisions.webSearch)
+      || (!submittedRevisions.preserveWebSearch
+        && draftRevisionIsCurrent(webSearchDraftRevision.current, submittedRevisions.webSearch))
     ) {
       setWebSearchEnabled(next.webSearch.enabled);
       setAllowedDomainsText(next.webSearch.allowedDomains.join("\n"));
@@ -88,19 +119,39 @@ export function SettingsModelsRoute({ client, auth }: Props) {
 
   const load = async (background = false, refreshCatalog = false, force = false) => {
     const generation = ++loadGeneration.current;
+    const submittedRevisions = {
+      narrator: narratorDraftRevision.current,
+      webSearch: webSearchDraftRevision.current,
+      preserveNarrator: view !== null && selection !== view.narrator.requested,
+      preserveWebSearch: view !== null && webSearchSettingsAreDirty({
+        enabled: webSearchEnabled,
+        domains: normalizeAndValidateDomains(allowedDomainsText, false).domains,
+        savedEnabled: view.webSearch.enabled,
+        savedDomains: view.webSearch.allowedDomains,
+      }),
+    };
     setFailedLoad(null);
-    if (background) setRefreshingCatalog(true);
-    else setLoading(true);
-    setError(null);
+    if (background) {
+      setRefreshingCatalog(true);
+      setBackgroundError(null);
+    } else {
+      setLoading(true);
+      setError(null);
+    }
     try {
       const next = decodeModelSettings(await client.modelSettings({ refreshCatalog, force }));
-      if (!projectionGenerationIsCurrent(loadGeneration.current, generation)) return;
-      applyProjection(next);
+      if (!projectionGenerationIsCurrent(loadGeneration.current, generation)) return false;
+      applyProjection(next, submittedRevisions);
       setWebSearchError(null);
+      setBackgroundError(null);
+      return true;
     } catch (reason) {
-      if (!projectionGenerationIsCurrent(loadGeneration.current, generation)) return;
+      if (!projectionGenerationIsCurrent(loadGeneration.current, generation)) return false;
       setFailedLoad([background, refreshCatalog]);
-      setError(reason instanceof Error ? reason.message : String(reason));
+      const message = reason instanceof Error ? reason.message : String(reason);
+      if (background) setBackgroundError(message);
+      else setError(message);
+      return false;
     } finally {
       if (projectionGenerationIsCurrent(loadGeneration.current, generation)) {
         setLoading(false);
@@ -131,9 +182,27 @@ export function SettingsModelsRoute({ client, auth }: Props) {
     ));
   }, [view]);
 
+  useEffect(() => {
+    if (view === null) return;
+    const primary = choiceByKey(view.t2ModelPolicy.primaryCandidates, t2PrimaryKey);
+    const candidates = independentSecondaryCandidates(
+      primary,
+      view.t2ModelPolicy.secondaryCandidates,
+    );
+    setT2SecondaryKey((current) => validChoiceKey(
+      current,
+      candidates,
+      view.t2ModelPolicy.activeSecondary,
+    ));
+  }, [t2PrimaryKey, view]);
+
   const t2Primary = choiceByKey(view?.t2ModelPolicy.primaryCandidates ?? [], t2PrimaryKey);
-  const t2Secondary = choiceByKey(
+  const t2SecondaryCandidates = independentSecondaryCandidates(
+    t2Primary,
     view?.t2ModelPolicy.secondaryCandidates ?? [],
+  );
+  const t2Secondary = choiceByKey(
+    t2SecondaryCandidates,
     t2SecondaryKey,
   );
   const t2PairValid = t2PairIsValid(t2Primary, t2Secondary);
@@ -143,6 +212,48 @@ export function SettingsModelsRoute({ client, auth }: Props) {
   const visibleCatalogModels = view === null
     ? []
     : filterCatalogModels(view.modelCatalog.models, catalogQuery);
+  const visibleModelRouting = view?.modelRouting.filter((routing) => matchesModelQuery(
+    routingQuery,
+    [
+      routing.role,
+      routing.selectedDeployment,
+      routing.selectionReason,
+      ...routing.candidates.flatMap((candidate) => [
+        candidate.deployment,
+        candidate.status,
+        candidate.failureKind,
+      ]),
+    ],
+  )) ?? [];
+  const visibleEndpointInventory = view?.endpointInventory.filter((endpoint) => matchesModelQuery(
+    routingQuery,
+    [
+      endpoint.bindingId,
+      endpoint.capability,
+      endpoint.providerKind,
+      endpoint.routeKind,
+      endpoint.apiStyle,
+      endpoint.deployment,
+      endpoint.publisher,
+      endpoint.family,
+      endpoint.version,
+      endpoint.discoverySource,
+    ],
+  )) ?? [];
+  const visibleCapabilities = view?.capabilities.filter((capability) => matchesModelQuery(
+    routingQuery,
+    [
+      capability.name,
+      capability.tier,
+      capability.publisher,
+      capability.family,
+      capability.version,
+      capability.sku,
+      capability.selectionMode,
+      capability.status,
+      ...capability.reasons,
+    ],
+  )) ?? [];
   const allowedDomains = normalizeAndValidateDomains(allowedDomainsText, false).domains;
   const webSearchDirty = view !== null && webSearchSettingsAreDirty({
     enabled: webSearchEnabled,
@@ -150,6 +261,38 @@ export function SettingsModelsRoute({ client, auth }: Props) {
     savedEnabled: view.webSearch.enabled,
     savedDomains: view.webSearch.allowedDomains,
   });
+  const narratorDirty = view !== null && selection !== view.narrator.requested;
+  const defaultT2PrimaryKey = view === null ? "" : validChoiceKey(
+    "",
+    view.t2ModelPolicy.primaryCandidates,
+    view.t2ModelPolicy.activePrimary,
+  );
+  const defaultT2Primary = choiceByKey(
+    view?.t2ModelPolicy.primaryCandidates ?? [],
+    defaultT2PrimaryKey,
+  );
+  const defaultT2SecondaryCandidates = independentSecondaryCandidates(
+    defaultT2Primary,
+    view?.t2ModelPolicy.secondaryCandidates ?? [],
+  );
+  const defaultT2SecondaryKey = view === null ? "" : validChoiceKey(
+    "",
+    defaultT2SecondaryCandidates,
+    view.t2ModelPolicy.activeSecondary,
+  );
+  const t2PolicyDirty = view !== null && (
+    t2PrimaryKey !== defaultT2PrimaryKey || t2SecondaryKey !== defaultT2SecondaryKey
+  );
+  const readinessState = view === null
+    ? "review-required"
+    : modelReadinessState(
+        view.t2ModelPolicy.quorumReady,
+        view.t2ModelPolicy.activeSecondary !== null,
+      );
+  useSettingsDirtyState(
+    "settings-models",
+    bindingDirty || narratorDirty || webSearchDirty || t2PolicyDirty,
+  );
 
   const copyT2Draft = async () => {
     if (!t2PairValid || !navigator.clipboard) return;
@@ -169,7 +312,7 @@ export function SettingsModelsRoute({ client, auth }: Props) {
     const generation = ++loadGeneration.current;
     setSaving(true);
     setFailedLoad(null);
-    setError(null);
+    setNarratorError(null);
     try {
       const next = await saveNarratorPreference(
         auth,
@@ -180,10 +323,30 @@ export function SettingsModelsRoute({ client, auth }: Props) {
       if (projectionGenerationIsCurrent(loadGeneration.current, generation)) {
         client.invalidateModelSettings();
         applyProjection(next, submittedRevisions);
+        setNarratorError(null);
       }
     } catch (reason) {
       if (projectionGenerationIsCurrent(loadGeneration.current, generation)) {
-        setError(reason instanceof Error ? reason.message : String(reason));
+        if (reason instanceof ModelSettingsCommandError && reason.status === 409) {
+          try {
+            const latest = decodeModelSettings(await client.modelSettings({ force: true }));
+            if (projectionGenerationIsCurrent(loadGeneration.current, generation)) {
+              applyProjection(latest, {
+                narrator: narratorDraftRevision.current,
+                webSearch: webSearchDraftRevision.current,
+                preserveNarrator: true,
+                preserveWebSearch: webSearchDirty,
+              });
+              setNarratorError(modelText("narratorConflict"));
+            }
+          } catch {
+            if (projectionGenerationIsCurrent(loadGeneration.current, generation)) {
+              setNarratorError(modelText("narratorConflictReloadFailed"));
+            }
+          }
+        } else {
+          setNarratorError(reason instanceof Error ? reason.message : String(reason));
+        }
       }
     } finally {
       if (mounted.current) setSaving(false);
@@ -249,6 +412,7 @@ export function SettingsModelsRoute({ client, auth }: Props) {
             applyProjection(latest, {
               narrator: submittedRevisions.narrator,
               webSearch: webSearchDraftRevision.current,
+              preserveWebSearch: true,
             });
             setWebSearchError(t("settings.models.webSearchConflict"));
           }
@@ -339,6 +503,32 @@ export function SettingsModelsRoute({ client, auth }: Props) {
   return (
     <div class="stack settings-route settings-models-route">
       <PageHeader title={t("route.settingsModels")} subtitle={t("settings.models.subtitle")} />
+      <nav
+        class="settings-model-workspace-nav"
+        aria-label={modelText("workspaceNavigation")}
+        onKeyDown={(event) => {
+          const next = nextModelWorkspaceView(activeWorkspaceView, event.key);
+          if (next === activeWorkspaceView) return;
+          event.preventDefault();
+          setActiveWorkspaceView(next);
+          globalThis.requestAnimationFrame(() => {
+            document.getElementById(`settings-model-view-${next}`)?.focus();
+          });
+        }}
+      >
+        {MODELS_WORKSPACE_VIEWS.map((workspaceView) => (
+          <button
+            key={workspaceView}
+            id={`settings-model-view-${workspaceView}`}
+            type="button"
+            aria-pressed={activeWorkspaceView === workspaceView}
+            tabIndex={activeWorkspaceView === workspaceView ? 0 : -1}
+            onClick={() => setActiveWorkspaceView(workspaceView)}
+          >
+            {modelText(workspaceViewLabelKey(workspaceView))}
+          </button>
+        ))}
+      </nav>
       {loading ? <LoadingState label={t("settings.models.loading")} /> : null}
       {error ? (
         <ErrorState
@@ -349,54 +539,119 @@ export function SettingsModelsRoute({ client, auth }: Props) {
           } : {})}
         />
       ) : null}
+      {backgroundError && view ? (
+        <div class="settings-model-stale-warning" role="alert">
+          <div>
+            <strong>{modelText("refreshFailed")}</strong>
+            <span>{modelText("retainedValuesHint")}</span>
+            <code>{backgroundError}</code>
+          </div>
+          {failedLoad ? (
+            <button type="button" class="secondary" onClick={() => { void load(...failedLoad); }}>
+              {t("settings.retry")}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
       {!loading && view ? (
         <>
-          <section class="settings-iam-panel" aria-labelledby="model-automation-heading">
+          <section
+            class="settings-iam-panel settings-model-readiness"
+            aria-labelledby="model-readiness-heading"
+            hidden={activeWorkspaceView !== "overview"}
+          >
             <header class="settings-iam-panel-head">
               <div>
-                <h3 id="model-automation-heading">{t("settings.models.automation")}</h3>
-                <p>{t("settings.models.automationHint")}</p>
+                <h3 id="model-readiness-heading">{modelText("readinessTitle")}</h3>
+                <p>{modelText("readinessHint")}</p>
               </div>
+              <StatusPill
+                kind={readinessState === "ready" ? "success" : "warning"}
+                label={modelText(readinessState === "ready"
+                  ? "t2PairReady"
+                  : "t2PairIncomplete")}
+              />
             </header>
-            <div class="filter-summary" aria-label={t("settings.models.resolvedMetadata")}>
-              <span>{t("settings.models.source")}: <strong>{view.resolvedMetadata.source}</strong></span>
-              <span>{t("settings.models.kind")}: <strong>{view.resolvedMetadata.kind}</strong></span>
-              <span>{t("settings.models.asOf")}: <strong>
-                {new Date(view.resolvedMetadata.asOf).toLocaleString()}
-              </strong></span>
+            <dl class="settings-model-readiness-facts">
+              <div>
+                <dt>{modelText("currentNarrator")}</dt>
+                <dd>{view.narrator.effective === "auto"
+                  ? view.narrator.currentAutoPick ?? t("settings.models.unavailable")
+                  : view.narrator.effective}</dd>
+              </div>
+              <div>
+                <dt>{modelText("activePrimary")}</dt>
+                <dd>{modelChoiceLabel(view.t2ModelPolicy.activePrimary)}</dd>
+              </div>
+              <div>
+                <dt>{modelText("activeSecondary")}</dt>
+                <dd>{modelChoiceLabel(view.t2ModelPolicy.activeSecondary)}</dd>
+              </div>
+              <div>
+                <dt>{modelText("bindingEnvironment")}</dt>
+                <dd>{view.bindingPolicy.environment}</dd>
+              </div>
+            </dl>
+            <div
+              class={`settings-model-readiness-note settings-model-readiness-note--${readinessState}`}
+              role="status"
+            >
+              <strong>{modelText(readinessState === "ready"
+                ? "t2ReadyTitle"
+                : readinessState === "secondary-missing"
+                  ? "t2SecondaryMissingTitle"
+                  : "t2ReviewRequiredTitle")}</strong>
+              <span>{modelText(readinessState === "ready"
+                ? "t2ReadyHint"
+                : readinessState === "secondary-missing"
+                  ? "t2SecondaryMissingHint"
+                  : "t2ReviewRequiredHint")}</span>
             </div>
-            <div class="settings-access-strip settings-model-summary">
-              <SummaryDatum
-                label={t("settings.models.discovery")}
-                value={view.discovery.automatic ? t("settings.models.automatic") : t("settings.models.manual")}
-                status={view.discovery.status}
-              />
-              <SummaryDatum
-                label={t("settings.models.provisioning")}
-                value={view.provisioning.automatic ? t("settings.models.automatic") : t("settings.models.manual")}
-                status={view.provisioning.status}
-              />
-              <SummaryDatum
-                label={t("settings.models.capabilityCoverage")}
-                value={t("settings.models.resolvedCount", { count: view.provisioning.resolvedCount })}
-                status={t("settings.models.hilOnlyCount", { count: view.provisioning.hilOnlyCount })}
-              />
-              <SummaryDatum
-                label={t("settings.models.region")}
-                value={view.region ?? t("settings.models.unavailable")}
-                status={view.mixedModelMode ?? t("settings.models.unavailable")}
-              />
+            <div class="settings-model-readiness-actions">
+              <button
+                type="button"
+                class="secondary"
+                onClick={() => {
+                  setActiveWorkspaceView("catalog");
+                  globalThis.requestAnimationFrame(() => {
+                    document.getElementById("t2-model-policy-heading")?.focus();
+                  });
+                }}
+              >
+                {modelText("reviewT2Policy")}
+              </button>
+              <button
+                type="button"
+                class="secondary"
+                onClick={() => {
+                  setActiveWorkspaceView("catalog");
+                  globalThis.requestAnimationFrame(() => {
+                    const search = document.getElementById("model-catalog-search") as HTMLInputElement | null;
+                    if (search?.disabled) document.getElementById("model-catalog-refresh")?.focus();
+                    else search?.focus();
+                  });
+                }}
+              >
+                {modelText("openCatalog")}
+              </button>
             </div>
           </section>
 
-          <ModelBindingPolicyEditor
-            auth={auth}
-            operatorApiBaseUrl={client.operatorApiBaseUrl}
-            view={view}
-            reload={() => load(true, false, true)}
-          />
+          <div hidden={activeWorkspaceView !== "catalog"}>
+            <ModelBindingPolicyEditor
+              auth={auth}
+              operatorApiBaseUrl={client.operatorApiBaseUrl}
+              view={view}
+              reload={() => load(true, false, true)}
+              onDirtyChange={setBindingDirty}
+            />
+          </div>
 
-          <section class="settings-iam-panel" aria-labelledby="model-catalog-heading">
+          <section
+            class="settings-iam-panel"
+            aria-labelledby="model-catalog-heading"
+            hidden={activeWorkspaceView !== "catalog"}
+          >
             <header class="settings-iam-panel-head">
               <div>
                 <h3 id="model-catalog-heading">{modelText("catalogTitle")}</h3>
@@ -410,6 +665,7 @@ export function SettingsModelsRoute({ client, auth }: Props) {
                     : modelText("catalogUnavailable")}
                 />
                 <button
+                  id="model-catalog-refresh"
                   type="button"
                   class="secondary"
                   disabled={refreshingCatalog}
@@ -426,6 +682,7 @@ export function SettingsModelsRoute({ client, auth }: Props) {
                 type="search"
                 value={catalogQuery}
                 placeholder={modelText("searchCatalogPlaceholder")}
+                disabled={view.modelCatalog.models.length === 0}
                 onInput={(event) => setCatalogQuery(event.currentTarget.value)}
               />
               <span>
@@ -435,7 +692,10 @@ export function SettingsModelsRoute({ client, auth }: Props) {
               </span>
             </div>
             {!view.modelCatalog.available ? (
-              <p class="settings-model-catalog-empty muted">{modelText("catalogUnavailableHint")}</p>
+              <div class="settings-model-catalog-empty settings-model-empty-guidance">
+                <p class="muted">{modelText("catalogUnavailableHint")}</p>
+                <a href="/settings/environment-and-deployment">{modelText("reviewEnvironment")}</a>
+              </div>
             ) : visibleCatalogModels.length === 0 ? (
               <p class="settings-model-catalog-empty muted">{modelText("catalogNoMatches")}</p>
             ) : (
@@ -444,26 +704,56 @@ export function SettingsModelsRoute({ client, auth }: Props) {
                   <CatalogModelCard
                     key={`${model.family}:${model.version}`}
                     model={model}
-                    onSelect={() => {
-                      const candidate = view.t2ModelPolicy.primaryCandidates.find(
-                        (item) => item.family === model.family,
-                      );
-                      if (candidate === undefined) return;
+                    onSelect={(() => {
+                      const candidate = view.t2ModelPolicy.primaryCandidates.find((item) => (
+                        item.publisher === model.publisher && item.family === model.family
+                      ));
+                      if (candidate === undefined) return null;
+                      return () => {
                       setT2PrimaryKey(modelChoiceKey(candidate));
                       setT2CopyState("idle");
                       document.getElementById("t2-primary-model")?.focus();
-                    }}
+                      };
+                    })()}
                   />
                 ))}
               </div>
             )}
             <p class="settings-iam-panel-foot">{modelText("autoProvisionBoundary")}</p>
+            <p class="settings-iam-panel-foot">{modelText("secondaryRegistryBoundary")}</p>
           </section>
 
-          <section class="settings-iam-panel" aria-labelledby="t2-model-policy-heading">
+          <section
+            class="settings-model-routing-filter"
+            aria-labelledby="model-routing-filter-heading"
+            hidden={activeWorkspaceView !== "routing"}
+          >
+            <div>
+              <h3 id="model-routing-filter-heading">{modelText("inventorySearchTitle")}</h3>
+              <p>{modelText("inventorySearchHint")}</p>
+            </div>
+            <label for="model-routing-search">{modelText("inventorySearchLabel")}</label>
+            <input
+              id="model-routing-search"
+              type="search"
+              value={routingQuery}
+              placeholder={modelText("inventorySearchPlaceholder")}
+              onInput={(event) => setRoutingQuery(event.currentTarget.value)}
+            />
+            <span>{modelText("inventorySearchSummary")
+              .replace("{capabilities}", String(visibleCapabilities.length))
+              .replace("{endpoints}", String(visibleEndpointInventory.length))
+              .replace("{roles}", String(visibleModelRouting.length))}</span>
+          </section>
+
+          <section
+            class="settings-iam-panel"
+            aria-labelledby="t2-model-policy-heading"
+            hidden={activeWorkspaceView !== "catalog"}
+          >
             <header class="settings-iam-panel-head">
               <div>
-                <h3 id="t2-model-policy-heading">{modelText("t2Policy")}</h3>
+                <h3 id="t2-model-policy-heading" tabIndex={-1}>{modelText("t2Policy")}</h3>
                 <p>{modelText("t2PolicyHint")}</p>
               </div>
               <StatusPill
@@ -518,16 +808,16 @@ export function SettingsModelsRoute({ client, auth }: Props) {
                 <select
                   id="t2-secondary-model"
                   value={t2SecondaryKey}
-                  disabled={view.t2ModelPolicy.secondaryCandidates.length === 0}
+                  disabled={t2SecondaryCandidates.length === 0}
                   onChange={(event) => {
                     setT2SecondaryKey(event.currentTarget.value);
                     setT2CopyState("idle");
                   }}
                 >
-                  {view.t2ModelPolicy.secondaryCandidates.length === 0 ? (
-                    <option value="">{t("settings.models.unavailable")}</option>
+                  {t2SecondaryCandidates.length === 0 ? (
+                    <option value="">{modelText("noIndependentSecondary")}</option>
                   ) : null}
-                  {view.t2ModelPolicy.secondaryCandidates.map((candidate) => (
+                  {t2SecondaryCandidates.map((candidate) => (
                     <option key={modelChoiceKey(candidate)} value={modelChoiceKey(candidate)}>
                       {modelChoiceLabel(candidate)}
                     </option>
@@ -569,7 +859,11 @@ export function SettingsModelsRoute({ client, auth }: Props) {
             </div>
           </section>
 
-          <section class="settings-iam-panel" aria-labelledby="narrator-preference-heading">
+          <section
+            class="settings-iam-panel settings-model-narrator"
+            aria-labelledby="narrator-preference-heading"
+            hidden={activeWorkspaceView !== "overview"}
+          >
             <header class="settings-iam-panel-head">
               <div>
                 <h3 id="narrator-preference-heading">{t("settings.models.narratorPreference")}</h3>
@@ -594,7 +888,7 @@ export function SettingsModelsRoute({ client, auth }: Props) {
                   </option>
                 ))}
               </select>
-              <button type="button" class="secondary" disabled={saving} onClick={() => { void save(); }}>
+              <button type="button" class="secondary" disabled={saving || !narratorDirty} onClick={() => { void save(); }}>
                 {saving ? t("settings.models.saving") : t("settings.models.save")}
               </button>
               <small>
@@ -605,6 +899,24 @@ export function SettingsModelsRoute({ client, auth }: Props) {
                 })}
               </small>
             </div>
+            <div class="settings-model-preference-actions">
+              <span aria-live="polite">
+                {narratorDirty ? modelText("narratorUnsaved") : modelText("narratorCurrent")}
+              </span>
+              <button
+                type="button"
+                class="secondary"
+                disabled={!narratorDirty || saving}
+                onClick={() => {
+                  narratorDraftRevision.current += 1;
+                  setSelection(view.narrator.requested);
+                  setNarratorError(null);
+                }}
+              >
+                {modelText("discardChanges")}
+              </button>
+            </div>
+            {narratorError ? <div class="error" role="alert">{narratorError}</div> : null}
             {view.narrator.fallbackReason ? (
               <div class="settings-model-fallback" role="status">{view.narrator.fallbackReason}</div>
             ) : null}
@@ -616,7 +928,55 @@ export function SettingsModelsRoute({ client, auth }: Props) {
             />
           </section>
 
-          <section class="settings-iam-panel" aria-labelledby="model-routing-heading">
+          <section
+            class="settings-iam-panel settings-model-lifecycle"
+            aria-labelledby="model-automation-heading"
+            hidden={activeWorkspaceView !== "overview"}
+          >
+            <header class="settings-iam-panel-head">
+              <div>
+                <h3 id="model-automation-heading">{t("settings.models.automation")}</h3>
+                <p>{t("settings.models.automationHint")}</p>
+              </div>
+            </header>
+            <div class="filter-summary" aria-label={t("settings.models.resolvedMetadata")}>
+              <span>{t("settings.models.source")}: <strong>{view.resolvedMetadata.source}</strong></span>
+              <span>{t("settings.models.kind")}: <strong>{view.resolvedMetadata.kind}</strong></span>
+              <span>{t("settings.models.asOf")}: <strong>
+                {formatDisplayTimestamp(view.resolvedMetadata.asOf)}
+              </strong></span>
+            </div>
+            <div class="settings-access-strip settings-model-summary">
+              <SummaryDatum
+                label={t("settings.models.discovery")}
+                value={view.discovery.automatic ? t("settings.models.automatic") : t("settings.models.manual")}
+                status={modelText(presentModelStatus(view.discovery.status).label)}
+              />
+              <SummaryDatum
+                label={t("settings.models.provisioning")}
+                value={view.provisioning.automatic ? t("settings.models.automatic") : t("settings.models.manual")}
+                status={modelText(presentModelStatus(view.provisioning.status).label)}
+              />
+              <SummaryDatum
+                label={t("settings.models.capabilityCoverage")}
+                value={t("settings.models.resolvedCount", { count: view.provisioning.resolvedCount })}
+                status={t("settings.models.hilOnlyCount", { count: view.provisioning.hilOnlyCount })}
+              />
+              <SummaryDatum
+                label={t("settings.models.region")}
+                value={view.region ?? t("settings.models.unavailable")}
+                status={view.mixedModelMode === null
+                  ? t("settings.models.unavailable")
+                  : modelText(presentModelStatus(view.mixedModelMode).label)}
+              />
+            </div>
+          </section>
+
+          <section
+            class="settings-iam-panel"
+            aria-labelledby="model-routing-heading"
+            hidden={activeWorkspaceView !== "routing"}
+          >
             <header class="settings-iam-panel-head">
               <div>
                 <h3 id="model-routing-heading">{t("settings.models.routing")}</h3>
@@ -624,9 +984,16 @@ export function SettingsModelsRoute({ client, auth }: Props) {
               </div>
               <StatusPill kind="neutral" label={t("settings.models.systemGoverned")} />
             </header>
-            {view.modelRouting.length === 0 ? (
-              <p class="muted">{t("settings.models.noRoutingState")}</p>
-            ) : view.modelRouting.map((routing) => (
+            {visibleModelRouting.length === 0 ? (
+              <div class="settings-model-empty-guidance">
+                <p class="muted">{view.modelRouting.length === 0
+                  ? t("settings.models.noRoutingState")
+                  : modelText("noInventoryMatches")}</p>
+                {view.modelRouting.length === 0 ? (
+                  <a href="/settings/environment-and-deployment">{modelText("reviewEnvironment")}</a>
+                ) : null}
+              </div>
+            ) : visibleModelRouting.map((routing) => (
               <div class="settings-model-routing" key={routing.role}>
                 <div class="settings-model-routing-summary">
                   <strong>{routing.role}</strong>
@@ -636,6 +1003,9 @@ export function SettingsModelsRoute({ client, auth }: Props) {
                     })}
                   </span>
                   <small>{routing.selectionReason ?? t("settings.models.noFallback")}</small>
+                  <small>{routing.selectedAt === null
+                    ? modelText("selectionTimeUnavailable")
+                    : formatDisplayTimestamp(routing.selectedAt)}</small>
                 </div>
                 <DataTable
                   columns={routingCandidateColumns()}
@@ -647,7 +1017,11 @@ export function SettingsModelsRoute({ client, auth }: Props) {
             ))}
           </section>
 
-          <section class="settings-iam-panel" aria-labelledby="model-endpoints-heading">
+          <section
+            class="settings-iam-panel"
+            aria-labelledby="model-endpoints-heading"
+            hidden={activeWorkspaceView !== "routing"}
+          >
             <header class="settings-iam-panel-head">
               <div>
                 <h3 id="model-endpoints-heading">{t("settings.models.endpointInventory")}</h3>
@@ -657,13 +1031,24 @@ export function SettingsModelsRoute({ client, auth }: Props) {
             </header>
             <DataTable
               columns={endpointColumns()}
-              rows={view.endpointInventory}
+              rows={visibleEndpointInventory}
               keyOf={(endpoint) => endpoint.bindingId}
-              empty={t("settings.models.noEndpoints")}
+              empty={view.endpointInventory.length === 0
+                ? t("settings.models.noEndpoints")
+                : modelText("noInventoryMatches")}
             />
+            {view.endpointInventory.length === 0 ? (
+              <div class="settings-model-empty-guidance settings-model-empty-followup">
+                <a href="/settings/environment-and-deployment">{modelText("reviewEnvironment")}</a>
+              </div>
+            ) : null}
           </section>
 
-          <section class="settings-iam-panel" aria-labelledby="web-search-settings-heading">
+          <section
+            class="settings-iam-panel"
+            aria-labelledby="web-search-settings-heading"
+            hidden={activeWorkspaceView !== "web-search"}
+          >
             <header class="settings-iam-panel-head">
               <div>
                 <h3 id="web-search-settings-heading">{t("settings.models.webSearch")}</h3>
@@ -678,6 +1063,20 @@ export function SettingsModelsRoute({ client, auth }: Props) {
                     : t("settings.models.ownerManaged")}
               />
             </header>
+            {!view.webSearch.available ? (
+              <div class="settings-model-availability-note" role="status">
+                <div>
+                  <strong>{modelText("webSearchUnavailableTitle")}</strong>
+                  <span>{modelText("webSearchUnavailableHint")}</span>
+                  {view.webSearch.unavailableReason ? (
+                    <span>{t(webSearchUnavailableMessageKey(view.webSearch.unavailableReason))}</span>
+                  ) : null}
+                </div>
+                <a href="/settings/environment-and-deployment">
+                  {modelText("reviewEnvironment")}
+                </a>
+              </div>
+            ) : null}
             <div class="settings-web-search-body">
               <div class="settings-web-search-toggle-row">
                 <div>
@@ -834,7 +1233,11 @@ export function SettingsModelsRoute({ client, auth }: Props) {
             </div>
           </section>
 
-          <section class="settings-iam-panel" aria-labelledby="model-capabilities-heading">
+          <section
+            class="settings-iam-panel"
+            aria-labelledby="model-capabilities-heading"
+            hidden={activeWorkspaceView !== "routing"}
+          >
             <header class="settings-iam-panel-head">
               <div>
                 <h3 id="model-capabilities-heading">{t("settings.models.capabilities")}</h3>
@@ -844,15 +1247,26 @@ export function SettingsModelsRoute({ client, auth }: Props) {
             </header>
             <DataTable
               columns={capabilityColumns()}
-              rows={view.capabilities}
+              rows={visibleCapabilities}
               keyOf={(capability) => capability.name}
-              empty={t("settings.models.noCapabilities")}
+              empty={view.capabilities.length === 0
+                ? t("settings.models.noCapabilities")
+                : modelText("noInventoryMatches")}
             />
           </section>
         </>
       ) : null}
     </div>
   );
+}
+
+function workspaceViewLabelKey(
+  workspaceView: ModelWorkspaceView,
+): "workspaceOverview" | "workspaceCatalog" | "workspaceRouting" | "workspaceWebSearch" {
+  if (workspaceView === "catalog") return "workspaceCatalog";
+  if (workspaceView === "routing") return "workspaceRouting";
+  if (workspaceView === "web-search") return "workspaceWebSearch";
+  return "workspaceOverview";
 }
 
 function domainValidationMessage(
@@ -900,29 +1314,17 @@ function modelChoiceOptionLabel(choice: T2ModelChoiceView): string {
   return `${modelChoiceLabel(choice)} · ${status}`;
 }
 
-function filterCatalogModels(
-  models: readonly GptModelCatalogEntryView[],
-  query: string,
-): readonly GptModelCatalogEntryView[] {
-  const normalized = query.trim().toLocaleLowerCase();
-  return models.filter((model) => {
-    if (!model.selectable && !model.deployed) return false;
-    return normalized === ""
-      || `${model.family} ${model.version} ${model.status}`.toLowerCase().includes(normalized);
-  });
-}
-
 function CatalogModelCard({ model, onSelect }: {
   readonly model: GptModelCatalogEntryView;
-  readonly onSelect: () => void;
+  readonly onSelect: (() => void) | null;
 }) {
-  const actionable = model.selectable && (model.deployed || model.provisionable);
+  const actionable = onSelect !== null && model.selectable && (model.deployed || model.provisionable);
   return (
     <article class="settings-model-catalog-entry">
       <header>
         <div>
           <strong>{model.family}</strong>
-          <small>{model.version}</small>
+          <small>{model.publisher} / {model.version}</small>
         </div>
         <StatusPill
           kind={model.deployed ? "success" : model.provisionable ? "info" : "warning"}
@@ -939,6 +1341,10 @@ function CatalogModelCard({ model, onSelect }: {
           <dd>{formatTpm(model.availableTpm)}</dd>
         </div>
         <div>
+          <dt>{modelText("lifecycle")}</dt>
+          <dd>{model.lifecycle}</dd>
+        </div>
+        <div>
           <dt>{modelText("supportedSkus")}</dt>
           <dd>{model.skus.map((sku) => sku.name).join(", ") || "-"}</dd>
         </div>
@@ -947,16 +1353,19 @@ function CatalogModelCard({ model, onSelect }: {
           <dd>{model.deployments.join(", ") || modelText("notDeployed")}</dd>
         </div>
       </dl>
-      <button type="button" class="secondary" disabled={!actionable} onClick={onSelect}>
-        {model.deployed ? modelText("selectT2Primary") : modelText("planAutoProvision")}
+      <a class="settings-model-detail-link" href="/settings/environment-and-deployment">
+        {modelText("reviewDeploymentReadiness")}
+      </a>
+      <button
+        type="button"
+        class="secondary"
+        disabled={!actionable}
+        onClick={onSelect ?? undefined}
+      >
+        {actionable ? modelText("useInT2Draft") : modelText("unavailableForT2Draft")}
       </button>
     </article>
   );
-}
-
-function formatTpm(value: number): string {
-  if (value <= 0) return "0 TPM";
-  return `${new Intl.NumberFormat().format(Math.round(value / 1000))}K TPM`;
 }
 
 function SummaryDatum({ label, value, status }: {
@@ -999,7 +1408,7 @@ function candidateColumns() {
       key: "status",
       header: t("settings.models.status"),
       mobileLabel: t("settings.models.status"),
-      render: (item: NarratorCandidateView) => <StatusPill kind="success" label={item.status} />,
+      render: (item: NarratorCandidateView) => <LocalizedModelStatus status={item.status} />,
     },
   ];
 }
@@ -1016,12 +1425,7 @@ function routingCandidateColumns() {
       key: "status",
       header: t("settings.models.status"),
       mobileLabel: t("settings.models.status"),
-      render: (item: ModelRoutingCandidateView) => (
-        <StatusPill
-          kind={item.status === "recovered" ? "success" : "warning"}
-          label={item.status}
-        />
-      ),
+      render: (item: ModelRoutingCandidateView) => <LocalizedModelStatus status={item.status} />,
     },
     {
       key: "failure",
@@ -1033,7 +1437,12 @@ function routingCandidateColumns() {
       key: "cooldown",
       header: t("settings.models.cooldown"),
       mobileLabel: t("settings.models.cooldown"),
-      render: (item: ModelRoutingCandidateView) => `${item.cooldownSeconds}s`,
+      render: (item: ModelRoutingCandidateView) => (
+        <span class="settings-model-name">
+          <strong>{item.cooldownSeconds}s</strong>
+          <small>{formatDisplayTimestamp(item.updatedAt)}</small>
+        </span>
+      ),
     },
   ];
 }
@@ -1045,7 +1454,10 @@ function capabilityColumns() {
       header: t("settings.models.capability"),
       mobileLabel: t("settings.models.capability"),
       render: (item: ModelCapabilityView) => (
-        <span class="settings-model-name"><strong>{item.name}</strong><small>{item.invocation}</small></span>
+        <span class="settings-model-name">
+          <strong>{item.name}</strong>
+          <small>{item.invocation} / {selectionModeLabel(item.selectionMode)}</small>
+        </span>
       ),
     },
     { key: "tier", header: t("settings.models.tier"), mobileLabel: t("settings.models.tier"), render: (item: ModelCapabilityView) => item.tier },
@@ -1053,22 +1465,25 @@ function capabilityColumns() {
       key: "model",
       header: t("settings.models.model"),
       mobileLabel: t("settings.models.model"),
-      render: (item: ModelCapabilityView) => item.family ?? t("settings.models.unavailable"),
+      render: (item: ModelCapabilityView) => (
+        <span class="settings-model-name">
+          <strong>{item.family ?? t("settings.models.unavailable")}</strong>
+          <small>{[item.publisher, item.version, item.sku].filter(Boolean).join(" / ") || "-"}</small>
+        </span>
+      ),
     },
     {
       key: "status",
       header: t("settings.models.status"),
       mobileLabel: t("settings.models.status"),
-      render: (item: ModelCapabilityView) => (
-        <StatusPill kind={item.status === "resolved" ? "success" : "warning"} label={item.status} />
-      ),
+      render: (item: ModelCapabilityView) => <LocalizedModelStatus status={item.status} />,
     },
     {
       key: "capacity",
       header: t("settings.models.capacity"),
       mobileLabel: t("settings.models.capacity"),
       render: (item: ModelCapabilityView) => (
-        `${item.capacityValue} ${item.capacityUnit.toUpperCase()}`
+        `${new Intl.NumberFormat().format(item.capacityValue)} ${item.capacityUnit.toUpperCase()}`
       ),
     },
     {
@@ -1107,7 +1522,7 @@ function endpointColumns() {
       render: (item: ModelEndpointInventoryView) => (
         <span class="settings-model-name">
           <strong>{item.routeKind}</strong>
-          <small>{item.providerKind}</small>
+          <small>{item.providerKind} / {item.managedBy}</small>
         </span>
       ),
     },
@@ -1118,7 +1533,7 @@ function endpointColumns() {
       render: (item: ModelEndpointInventoryView) => (
         <span class="settings-model-name">
           <strong>{item.deployment}</strong>
-          <small>{item.publisher} / {item.family}</small>
+          <small>{[item.publisher, item.family, item.version].filter(Boolean).join(" / ")}</small>
         </span>
       ),
     },
@@ -1126,14 +1541,20 @@ function endpointColumns() {
       key: "protocol",
       header: t("settings.models.protocol"),
       mobileLabel: t("settings.models.protocol"),
-      render: (item: ModelEndpointInventoryView) => `${item.apiStyle} / ${item.authKind}`,
+      render: (item: ModelEndpointInventoryView) => (
+        <span class="settings-model-name">
+          <strong>{item.apiStyle} / {item.authKind}</strong>
+          <small>{item.apiVersion ?? modelText("apiVersionUnavailable")}</small>
+          <small>{endpointFeatureLabels(item).join(", ") || modelText("noEndpointFeatures")}</small>
+        </span>
+      ),
     },
     {
       key: "capacity",
       header: t("settings.models.capacity"),
       mobileLabel: t("settings.models.capacity"),
       render: (item: ModelEndpointInventoryView) => (
-        `${item.capacityValue} ${item.capacityUnit.toUpperCase()}`
+        `${new Intl.NumberFormat().format(item.capacityValue)} ${item.capacityUnit.toUpperCase()}`
       ),
     },
     {
@@ -1143,7 +1564,7 @@ function endpointColumns() {
       render: (item: ModelEndpointInventoryView) => (
         <span class="settings-model-name">
           <strong>{item.discoverySource}</strong>
-          <small>{new Date(item.verifiedAt).toLocaleString()}</small>
+          <small>{formatDisplayTimestamp(item.verifiedAt)}</small>
         </span>
       ),
     },
@@ -1151,8 +1572,11 @@ function endpointColumns() {
 }
 
 function latency(p50: number | null, p95: number | null, samples: number) {
-  if (p50 === null || p95 === null || samples === 0) {
-    return <span class="muted">{t("settings.models.unavailable")}</span>;
+  if (samples === 0) {
+    return <span class="muted">{modelText("notMeasured")}</span>;
+  }
+  if (p50 === null || p95 === null) {
+    return <span class="muted">{modelText("incompleteMeasurement")}</span>;
   }
   return (
     <span class="settings-model-latency">
@@ -1160,4 +1584,29 @@ function latency(p50: number | null, p95: number | null, samples: number) {
       <small>p95 {Math.round(p95)} ms · n={samples}</small>
     </span>
   );
+}
+
+function LocalizedModelStatus({ status }: { readonly status: string }) {
+  const presentation = presentModelStatus(status);
+  return (
+    <span class="settings-model-status">
+      <StatusPill kind={presentation.tone} label={modelText(presentation.label)} />
+      <code>{status}</code>
+    </span>
+  );
+}
+
+function selectionModeLabel(mode: ModelCapabilityView["selectionMode"]): string {
+  if (mode === "pinned") return modelText("bindingPinned");
+  if (mode === "hil-only") return modelText("bindingHilOnly");
+  return modelText("bindingAuto");
+}
+
+function endpointFeatureLabels(item: ModelEndpointInventoryView): string[] {
+  return [
+    item.features.streaming ? modelText("streaming") : null,
+    item.features.embeddings ? modelText("embeddings") : null,
+    item.features.structuredOutput ? modelText("structuredOutput") : null,
+    item.features.toolCalling ? modelText("toolCalling") : null,
+  ].filter((value): value is string => value !== null);
 }

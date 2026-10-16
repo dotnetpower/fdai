@@ -17,6 +17,48 @@ export type BackgroundTaskStatus =
   | "timed_out"
   | "unknown";
 
+export type BackgroundTaskIntent =
+  | "resource_state"
+  | "change_attribution"
+  | "resource_change_history"
+  | "platform_health"
+  | "guest_shutdown"
+  | "network_security"
+  | "network_peering";
+
+export const BACKGROUND_TASK_INTENTS: readonly BackgroundTaskIntent[] = [
+  "resource_state",
+  "change_attribution",
+  "resource_change_history",
+  "platform_health",
+  "guest_shutdown",
+  "network_security",
+  "network_peering",
+];
+
+export interface BackgroundTaskCreateInput {
+  readonly prompt: string;
+  readonly intent: BackgroundTaskIntent;
+  readonly resourceName: string;
+  readonly resourceType: string;
+  readonly resourceGroup: string;
+  readonly explicitDeep: boolean;
+}
+
+export interface BackgroundTaskCreateRequest {
+  readonly prompt: string;
+  readonly intent: BackgroundTaskIntent;
+  readonly resource_name: string;
+  readonly resource_type?: string;
+  readonly resource_group?: string;
+  readonly explicit_deep: boolean;
+}
+
+export interface BackgroundTaskCreateReceipt {
+  readonly task_id: string;
+  readonly status: "queued";
+}
+
 export interface BackgroundTaskItem {
   readonly task_id: string;
   readonly attempt_id: string;
@@ -159,6 +201,31 @@ export function backgroundTaskTone(
 
 export function formatBackgroundTaskTimestamp(value: string | null): string {
   return formatConsoleTimestamp(value);
+}
+
+export function normalizeBackgroundTaskCreateInput(
+  input: BackgroundTaskCreateInput,
+): BackgroundTaskCreateRequest | null {
+  const prompt = input.prompt.trim();
+  const resourceName = input.resourceName.trim();
+  const resourceType = input.resourceType.trim();
+  const resourceGroup = input.resourceGroup.trim();
+  if (!prompt || prompt.length > 4_000 || !resourceName || resourceName.length > 512) {
+    return null;
+  }
+  if (resourceType.length > 256 || resourceGroup.length > 512) return null;
+  return {
+    prompt,
+    intent: input.intent,
+    resource_name: resourceName,
+    ...(resourceType ? { resource_type: resourceType } : {}),
+    ...(resourceGroup ? { resource_group: resourceGroup } : {}),
+    explicit_deep: input.explicitDeep,
+  };
+}
+
+export function canCancelBackgroundTask(status: BackgroundTaskStatus): boolean {
+  return status === "queued" || status === "claimed" || status === "running";
 }
 
 function decodeTask(value: unknown, label: string): BackgroundTaskItem {

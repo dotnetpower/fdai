@@ -1,8 +1,8 @@
 ---
 title: Lifecycle Release와 채널
 translation_of: lifecycle-releases-and-channels.md
-translation_source_sha: 3015be2f5c4ff8e147a76cecf872f769b3241162
-translation_revised: 2026-10-07
+translation_source_sha: d0b290d8e5cd2405aa928286c28a2fccd6356c4e
+translation_revised: 2026-10-16
 ---
 # Lifecycle Release와 채널
 
@@ -11,7 +11,12 @@ translation_revised: 2026-10-07
 스키마 호환성이 업그레이드를 안전하게 유지하는 방법을 정의합니다. 이 문서는 Release 매니페스트,
 채널 모델, 업그레이드 번들, 회수를 소유합니다.
 
-> **상태:** 설계만 되어 있습니다. 현재 FDAI에는 서명된 배포 번들과 오프라인 키트가 있으며, 그
+> **상태:** 로컬 및 명시적 원격 개발용으로 일부 구현되었으며, 프로덕션 수명 주기 전달은 설계 단계입니다.
+> [로컬 Release Hub](../../../lifecycle/release-hub/README.md)는 매니페스트 등록, 개발용 서명,
+> 기본 채널의 수동 관리, 회수, 공급업체 UI와 명시적으로 선택하는 Lifecycle Hub의 고정 다이제스트
+> 기반 내보내기 파일 검증을 제공합니다. 프로덕션 인증, 서명된 카탈로그 역할, 레지스트리 발행,
+> 회수에 따른 실행 중 설치본의 교체는 구현하지 않습니다.
+> FDAI에는 서명된 배포 번들과 오프라인 키트도 있으며, 그
 > 서명된 매니페스트는 `development`, `beta`, `stable` 채널 이름을 사용합니다. 배포 CLI는
 > `development`만 신뢰합니다. 나머지는
 > [구현 ledger](../../roadmap-implementation/deployment/lifecycle-releases-and-channels.md)가
@@ -21,6 +26,24 @@ translation_revised: 2026-10-07
 > [소스 배포](source-deployment-ko.md)와 첫 설치용 오프라인 패키지는 현재 계약을 유지합니다.
 
 ## 설계 한눈에 보기
+
+**FDAI Release Hub**는 릴리스 발행, 서명, 채널 승격, 회수를 관리하는 공급업체
+애플리케이션입니다. **Release Catalog**는 앱 이름이 아니라 Release Hub가 제공하는 릴리스
+목록, 데이터 또는 피드를 뜻합니다. **FDAI Lifecycle Hub**는 설치본별 배포를 관리하는 별도
+애플리케이션이며 이름을 유지합니다.
+
+로컬 Release Hub는 API 작업 흐름과 웹 UI를 제공합니다. 기존 서명된 번들과
+로컬 `shadow` 전용 검증기만 있다고 해서 프로덕션 Release Hub 서비스가 구현된 것은 아닙니다.
+카탈로그 디렉터리, API, 스키마, 식별자는 기존 기술 명칭을 유지합니다.
+
+명시적으로 선택하는 [두 Hub 개발 경로](../../../infra/hubs-development/README.md)는 Entra
+운영자 인증과 서비스 ID의 분리, 명시적 migration을 사용하는 PostgreSQL 발행 저장소,
+독립적인 개발용 서명 키 제공, UI 포함 이미지, 고객 측 pin/revision 영속 상태를 추가합니다.
+고객 운영자는 제한된 import 전에 별도의 인증된 신뢰 승인 작업으로 정확한 export pin을
+승인해야 합니다. 다운로드와 함께 받은 digest는 신뢰 근거가 아닙니다.
+기존 loopback 기본값과 매니페스트/서명/카탈로그 계약은 유지합니다.
+프로덕션 TUF 메타데이터나 신뢰 루트 설정, 자동 polling, 레지스트리 발행, Agent 적용을
+구현한 것은 아니며 Azure 배포 성공의 증거도 아닙니다.
 
 | 관심사 | 결정 |
 |--------|------|

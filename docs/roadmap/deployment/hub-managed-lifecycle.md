@@ -8,9 +8,11 @@ its subscribed release channel and on the configuration that its customer approv
 hub-and-spoke model of Palantir Apollo. It owns the lifecycle architecture, the plan and state
 loop, and the customer isolation boundary.
 
-> **Status:** Design only. No Hub, installation agent, Lifecycle Plan, or upgrade bundle exists
-> yet. The [implementation ledger](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)
-> tracks delivery. [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance.md)
+> **Status:** Partially implemented for development. The local Hub, planner, and explicit
+> two-Hub remote-development preparation path exist; the full managed installation path is not
+> delivered. No Azure deployment or production trust-root ceremony is claimed. The
+> [implementation ledger](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)
+> tracks the exact delivered boundaries. [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance.md)
 > records the decisions.
 >
 > **Scope:** This path manages FDAI's own lifecycle: installation, upgrade, configuration, drift,
@@ -21,6 +23,13 @@ loop, and the customer isolation boundary.
 
 ## Design at a glance
 
+**FDAI Lifecycle Hub** manages deployments for individual installations. It is separate from the
+planned **FDAI Release Hub**, the vendor application for release publication, signing, channel
+promotion, and recall. Release Hub provides the **Release Catalog**, the release list, data, or
+feed consumed by Lifecycle Hubs. Catalog remains a technical data term, not an application name.
+An initial Release Hub can start with CLI/API workflows; this design doesn't imply that the full
+Release Hub service already exists.
+
 | Concern | Decision |
 |---------|----------|
 | Product versus installation | One signed Release serves every customer. An installation differs only in configuration, policy, and bindings to its own environment. |
@@ -29,8 +38,38 @@ loop, and the customer isolation boundary.
 | Plan computation | The Hub computes Lifecycle Plans. Installation agents derive the maximum effect envelope locally, and a Plan can only narrow it. |
 | Installation agents | A lifecycle agent inside the cluster for workloads, and an infrastructure agent on the execution host for exact Terraform plans. Neither is a pantheon agent. |
 | Upgrades | Automatic inside maintenance windows. Configuration changes need an approved change request, and deleting or replacing an Azure resource needs confirmation. |
-| Data boundary | The Hub holds no Azure credential, secret value, or operational data. Only lifecycle metadata crosses the boundary. |
+| Data boundary | The Hub holds no customer workload credential or operational data. Its own bounded service identity and signing key do not authorize customer resource changes. Only lifecycle metadata crosses the boundary. |
 | Records | Hub PostgreSQL per cell or Target Hub, and append-only installation receipts in Foundation storage |
+
+## Two-Hub development validation
+
+The vendor Release Hub and customer Target Lifecycle Hub have separate ACA environments,
+VNets, PostgreSQL servers/databases, managed identities, Key Vaults, and logs in separate RGs
+of one test subscription. RG separation is administrative, not evidence of security isolation.
+No peering or vendor-to-customer grant is introduced. Approved browser CIDRs and the customer
+NAT address bound HTTPS ingress; private data planes remain separate.
+
+The explicit remote profile verifies Entra bearer tokens directly, including issuer, audience,
+time, operator object/client/scope binding, or the exact customer service identity and export-only
+role. Proxy headers cannot authenticate a caller. The local CLIs retain loopback defaults.
+Versioned secret references supply independent development signing keys; PostgreSQL uses only
+the Hub's own managed identity and verified TLS. Explicit migrations precede remote serving.
+Key rotation or an incompatible older schema requires a separate reviewed migration.
+
+The customer operator approves a revision and exact digest obtained through a separately
+approved trust channel before requesting one bounded outbound import. The export response's
+digest is not that approval. Accepted bytes, digest, key binding, monotonic revision floor,
+and attributed audit persist. Existing manifest signatures, expiry, recall contracts, and
+planner constraints remain in force; recall import and planning serialize against one trust row.
+The UI can compute a Plan for an already prepared synthetic installation, but the remote profile
+does not open Agent transport or execute a Plan.
+
+[Two-Hub development boundaries](../../../infra/hubs-development/README.md) owns preparation
+steps and validation commands. Static IaC and local containers do not establish Azure
+network/RBAC isolation, real Entra sign-in, registry availability, or replica durability.
+Those require a separately approved exact cloud preview and execution scope. This path does
+not change source/offline installation and does not implement automatic polling, production
+catalog metadata/root ceremony, Agent apply, or a complete FDAI installation.
 
 ## Core concepts
 
@@ -84,11 +123,11 @@ run their own Target Hub.
 
 ## Architecture
 
-![Architecture. The main stages are Vendor release catalog / signed Releases, channels, recalls, Lifecycle Hub / central Hub cell or Target Hub, Customer Git / desired configuration, Lifecycle agent / workloads and reported state, Infrastructure agent / exact Terraform plans, FDAI services / operations loop, Azure resources.](../../diagrams/generated/fdai-roadmap-deployment-hub-managed-lifecycle-01.en.svg)
+![Architecture. The main stages are FDAI Release Hub / signed Releases, channels, recalls, Lifecycle Hub / central Hub cell or Target Hub, Customer Git / desired configuration, Lifecycle agent / workloads and reported state, Infrastructure agent / exact Terraform plans, FDAI services / operations loop, Azure resources.](../../diagrams/generated/fdai-roadmap-deployment-hub-managed-lifecycle-01.en.svg)
 
 | Component | Runs in | Identity | Holds | Never holds |
 |-----------|---------|----------|-------|-------------|
-| Release catalog | Vendor | Vendor release key, kept offline | Signed Releases, channel membership, recalls, promotion pipelines | Customer data |
+| FDAI Release Hub | Vendor | Vendor release key, kept offline | Release Catalog: signed Releases, channel membership, recalls, promotion pipelines | Customer data |
 | Lifecycle Hub | Central Hub cell or Target Hub | Hub service identity. Approvers sign in with the customer's Entra ID. | Installation settings, imported configuration packages, reported state, Plans, constraint results, audit | Azure credentials, secret values, clear-text sealed values, operational data |
 | Lifecycle agent | Installation AKS cluster, own namespace | Workload identity with Kubernetes rights in FDAI namespaces only | Rendered workload manifests and workload receipts | Azure write identity, executor identity |
 | Infrastructure agent | Existing execution host | Existing deployment managed identity | Exact Terraform plans, Foundation state, infrastructure receipts | Executor identity, operational data |
@@ -302,6 +341,16 @@ application stage to the lifecycle agent, and how that move is rolled back. The 
 deployment and the signed offline package keep the Terraform application stage unchanged.
 
 ### Current rendering
+
+The local `operator-service-v1` development slice is narrower than this target design. It uses
+the existing signed Release digests and signed configuration to render the actual Operator
+Deployment, an internal Service, and a read-only Core-image schema-check Job. It requires an
+already migrated database, rejects every schema transition, and switches no workload before the
+legacy and service heads match. It creates no Foundation object and adopts no existing object.
+The [agent reference](../../../lifecycle/agent/README.md#same-schema-operator-profile) describes
+its prerequisites and failure recovery. This is not schema-expand implementation or evidence
+of an installed service; the [ledger](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)
+keeps those remaining outcomes separate.
 
 The deployment CLI builds a `workloads` map and a `scheduled_jobs` map from substrate outputs,
 image digests, and the product profile. It then applies one Terraform root,
@@ -530,9 +579,9 @@ configuration tables belong to [Lifecycle Configuration](lifecycle-configuration
 - Only the Lifecycle Hub's enrollment, Plan computation, storage, and agent API run today, in
   observation mode (shadow mode) on loopback ([Lifecycle Hub](../../../lifecycle/hub/README.md)).
   Everything else in this document is design only.
-- Workload rendering outside Terraform is designed in
-  [Workload rendering migration](#workload-rendering-migration). The agent renderer, the render
-  parity test, and the ownership handoff aren't implemented.
+- Full workload rendering outside Terraform is designed in
+  [Workload rendering migration](#workload-rendering-migration). The same-schema Operator
+  development slice doesn't implement the full renderer, render parity, or ownership handoff.
 - In Lifecycle I0, a failed apply doesn't produce a separate rollback Plan. The agent restores the
   previous images within the failed Plan and reports `rolled-back`. The Hub then holds each Entity
   of that Plan with a 24-hour failure suppression, which an operator can lift earlier. The

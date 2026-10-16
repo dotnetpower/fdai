@@ -35,7 +35,9 @@ Controls detail lists each framework requirement's server-owned limitation codes
 missing from the active Rule set, in readable English and Korean.
 The Promotion gates view joins the measured readiness projection with the durable promotion registry
 and marks `operator_override` modes, operator-attested gate snapshots, and their read-only authority
-source without granting approval or execution authority.
+source without granting approval or execution authority. It also joins the separate durable
+`capability_recall:` record, validates the ActionType identity, forces an active recall to `shadow`,
+removes that row from promotion-ready counts, and displays the bounded recall reason.
 The Governance Capability catalog is a read-only directory of declared FDAI functions. Selecting
 any non-interactive part of a row opens an adjacent detail panel, while the capability id remains an
 explicit keyboard button. The master list keeps only identity, category, side-effect class, and
@@ -114,9 +116,19 @@ Database, semantic, model, runtime, inventory, and system readiness remain separ
 Only a consistent terminal readiness snapshot reaches 100 percent; invalid frames still advance the cursor, a new run resets its sequence, and cancelled or failed runs remain explicit.
 Before connecting, the Console verifies that the Operator manifest owns `/provision/stream`; the Operator declares that durable source only when its PostgreSQL replay store is configured and otherwise reports one unavailable reason.
 Source verification, unavailable, reconnecting, and unobserved states remain distinct, while changing between Sample and Live resets run-local state so synthetic evidence cannot remain on a Live screen.
+Environment setup preserves source-specific absence instead of collapsing it into one disconnected
+label. Before onboarding evidence exists, the Console shows the declared baseline resource and role
+requirements while readiness remains unavailable and the last check remains not checked. A current
+empty observer-proposal projection explains its evidence source and read-only boundary. An
+inventory-only or keepalive stream event does not establish a provisioning run; the no-run state
+remains until run identity, stage, progress, waiting, failure, cancellation, or ready evidence is
+recorded. At mobile widths, the Settings overlay reserves space above the entitlement watermark so
+the persistent licensing notice does not cover workspace content.
 The production layout uses visible headings for source notices, follows the provisioning mock's run summary, and separates Stages, Readiness, and Resources into keyboard-accessible views without copying mock-only lifecycle data. Console catalog or navigation changes refresh the source-bound question bank before semantic-intent coverage and CQAS provenance so all generated artifacts retain the same authoritative source digest. The latest base integration followed that order and preserved all 400 question identities. A digest-only refresh changes no runtime authority.
 During initial inventory, `/provision/stream` replays the Core-owned count-only ledger through the Operator role's `SELECT`-only PostgreSQL grant; its allowlisted payload contains no subscription, resource, or provider identifiers. Console tracks inventory run and sequence separately from the overall Genesis run, so a new scan cannot reset stage readiness or overall progress. Detailed resource, page, provider-type, relationship, unmapped-object, and coverage-gap counts remain non-authoritative; only the independently closed terminal record represents inventory readiness.
 The Console shell keeps a compact FDAI brand lockup in its header and uses a square browser icon whose transparent exterior and white interior preserve the mark on light and dark browser chrome. Content containers use the calm-slate hierarchy with 1 px hairline borders; decorative colored top or left edge accents are prohibited. Static design-mock checks follow the current navigation taxonomy and distinguish semantic line swatches from prohibited container-edge accents. By default, navigation reserves only the 56 px activity rail in the content layout. A non-Settings group button or page-title breadcrumb opens its child Explorer as an overlay, selecting a child closes the overlay, and an explicit pin restores the persistent 300 px dock. Settings opens as a modal workspace over the current route, keeps its section changes out of browser history, and restores the unchanged route and screen when closed. Operators can use the activity rail context menu or its accessible `...` control to show or hide optional groups; Overview, Settings, and the current visible group remain protected. The Overview Explorer lists one canonical Dashboard entry. The stable `/resource-dashboard` Resource dashboard route remains available for deep links but stays out of the Explorer; the former `/dashboard-v2` path canonicalizes to it while preserving the query string. An icon-led 44 CSS pixel page-header switch opens it from Overview, and its reciprocal header link returns to Overview. The Resource dashboard defaults its honeycomb to a representative recorded-state lens with visible axis markers. Green and red distinguish qualified positive and negative values. Amber marks transitional values and every `?` state that requires evidence review, while neutral and patterned treatments retain other recorded, not-provided, and inapplicable values without converting provisioning success into health. The complete Needs review count links to its filtered list; review does not itself mean failure or grant action authority. Explicit operational, serving, availability, provisioning, and observation lenses remain available.
+When a Settings editor reports unsaved changes, closing by command, Escape, or scrim, navigating to
+another Settings section, and reloading the browser require explicit discard confirmation.
 Qualified Provisioning Succeeded uses the green completion treatment with a visible `P` axis
 marker. That treatment reports provisioning completion only and does not establish operational
 health or availability; generic recorded values and evidence-absence states remain neutral or
@@ -151,6 +163,19 @@ completion evidence before zero findings can be reported. A failed read never be
 row; this boundary does not write or replace prior stored state.
 
 > Customer-agnostic: every channel id, LLM deployment name, resource id, and group name below is a placeholder. A fork supplies concrete values via config ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
+### Settings Models interaction contract
+
+Settings > Models keeps current state, catalog policy, routing evidence, and web-search policy in
+four task-focused views. Overview distinguishes available T1 narration from T2 mixed-model
+readiness, names the operational impact of a missing independent secondary model, and places the
+per-user narrator preference before read-only lifecycle evidence. The view selector supports
+ArrowLeft, ArrowRight, Home, and End with roving focus. An unavailable web-search provider explains
+the blocker before allowlist controls; an operator can prepare policy, but the Console does not
+imply that requests can run. The Settings modal reserves space above the entitlement watermark at
+desktop and mobile widths, and Command Deck context follows the active Models surface instead of
+the obscured background route. These presentation and focus rules do not provision a model,
+activate policy, or add execution authority.
+
 ## Common answer presentation
 
 The Command Deck retains its shared Markdown renderer and validated JSON presentation artifacts.

@@ -12,6 +12,8 @@ role, approval capability, or execution authority.
 > relationship confirmation, independent Owner review, requester consent to contact an approver,
 > and human-in-the-loop (HIL) routing. Agent stewardship, RBAC, ActionType policy, and execution
 > remain independent authorities.
+
+The control loop's read-only active rule map lets ActionBuilder validate ORR citations. It cannot nominate an approver, satisfy quorum, or alter this reporting graph.
 >
 > **Rollout:** New report-line behavior starts in shadow mode. A deployment must gather current
 > identity, routing, response, and false-match evidence before using it to deliver live approval

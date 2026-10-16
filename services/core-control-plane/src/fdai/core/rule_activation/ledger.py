@@ -13,6 +13,12 @@ from fdai_service_contracts.rule_activation import (
     RuleActivationSource,
     RuleActivationStatus,
 )
+from fdai_service_contracts.rule_activation_versioning import (
+    RuleActivationRecordKind,
+    canonicalize_rule_activation_typed_payload,
+    decode_rule_activation_record,
+    encode_rule_activation_record,
+)
 
 from fdai.shared.providers.state_store import StateStore
 
@@ -36,7 +42,6 @@ class StateStoreRuleActivationLedger:
     _RESULT_PREFIX = "rule-activation:result:"
     _IDEMPOTENCY_PREFIX = "rule-activation:idempotency:"
     _CURRENT_KEY = "rule-activation:current"
-    _SCHEMA_VERSION = "1.0.0"
 
     def __init__(self, *, store: StateStore) -> None:
         self._store = store
@@ -161,30 +166,46 @@ class StateStoreRuleActivationLedger:
     async def _reserve_idempotency(self, command: RuleActivationCommand) -> None:
         key_digest = hashlib.sha256(command.proposal.idempotency_key.encode()).hexdigest()
         key = f"{self._IDEMPOTENCY_PREFIX}{key_digest}"
-        value = {
-            "schema_version": self._SCHEMA_VERSION,
-            "kind": "rule_activation.idempotency",
+        body = {
             "idempotency_key_digest": key_digest,
             "request_id": command.proposal.request_id,
             "command_digest": command.command_digest,
         }
+        value = encode_rule_activation_record(RuleActivationRecordKind.IDEMPOTENCY, body)
         if await self._store.write_state_if_absent(key, value):
             return
-        if await self._store.read_state(key) != value:
+        existing = await self._store.read_state(key)
+        if (
+            existing is None
+            or dict(
+                decode_rule_activation_record(
+                    existing,
+                    expected_kind=RuleActivationRecordKind.IDEMPOTENCY,
+                ).body
+            )
+            != body
+        ):
             raise RuleActivationLedgerConflictError(
                 "Rule activation idempotency key was reused with another command"
             )
 
     async def _store_generation(self, generation: RuleActivationGeneration) -> None:
-        value = {
-            "schema_version": self._SCHEMA_VERSION,
-            "kind": "rule_activation.generation",
-            "generation": generation.model_dump(mode="json"),
-        }
+        body = {"generation": generation.model_dump(mode="json")}
+        value = encode_rule_activation_record(RuleActivationRecordKind.GENERATION, body)
         key = f"{self._GENERATION_PREFIX}{generation.generation_id}"
         if await self._store.write_state_if_absent(key, value):
             return
-        if await self._store.read_state(key) != value:
+        existing = await self._store.read_state(key)
+        if (
+            existing is None
+            or dict(
+                decode_rule_activation_record(
+                    existing,
+                    expected_kind=RuleActivationRecordKind.GENERATION,
+                ).body
+            )
+            != body
+        ):
             raise RuleActivationLedgerConflictError(
                 "Rule activation generation identity was reused with different content"
             )
@@ -198,23 +219,24 @@ class StateStoreRuleActivationLedger:
         previous_digest: str | None,
     ) -> bool:
         revision = _pointer_revision(pointer)
-        value = {
-            "schema_version": self._SCHEMA_VERSION,
-            "kind": "rule_activation.current",
-            "revision": revision + 1,
-            "generation_id": target.generation_id,
-            "generation_digest": target.generation_digest,
-            "previous_generation_digest": previous_digest,
-            "profile_id": target.profile_id,
-            "profile_version": target.profile_version,
-            "request_id": command.proposal.request_id,
-            "command_digest": command.command_digest,
-            "source": command.proposal.source.value,
-            "source_ref": command.proposal.source_ref,
-            "requested_by": command.proposal.requested_by,
-            "approver_ids": list(command.approval.approver_ids),
-            "activated_at": command.commanded_at.isoformat(),
-        }
+        value = encode_rule_activation_record(
+            RuleActivationRecordKind.POINTER,
+            {
+                "revision": revision + 1,
+                "generation_id": target.generation_id,
+                "generation_digest": target.generation_digest,
+                "previous_generation_digest": previous_digest,
+                "profile_id": target.profile_id,
+                "profile_version": target.profile_version,
+                "request_id": command.proposal.request_id,
+                "command_digest": command.command_digest,
+                "source": command.proposal.source.value,
+                "source_ref": command.proposal.source_ref,
+                "requested_by": command.proposal.requested_by,
+                "approver_ids": list(command.approval.approver_ids),
+                "activated_at": command.commanded_at.isoformat(),
+            },
+        )
         audit = _pointer_audit(command, previous_digest, target.generation_digest, revision + 1)
         if pointer is None:
             return await self._store.write_state_with_audit_if_absent(
@@ -228,11 +250,10 @@ class StateStoreRuleActivationLedger:
         )
 
     async def _commit_result(self, result: RuleActivationResult) -> RuleActivationResult:
-        value = {
-            "schema_version": self._SCHEMA_VERSION,
-            "kind": "rule_activation.result",
-            "result": result.model_dump(mode="json"),
-        }
+        value = encode_rule_activation_record(
+            RuleActivationRecordKind.RESULT,
+            {"result": result.model_dump(mode="json")},
+        )
         key = self._result_key(result.request_id)
         audit = {
             "actor": result.applied_by,
@@ -265,30 +286,39 @@ class StateStoreRuleActivationLedger:
         if pointer is None:
             return None
         try:
-            if (
-                pointer.get("schema_version") != self._SCHEMA_VERSION
-                or pointer.get("kind") != "rule_activation.current"
-                or not isinstance(pointer.get("generation_id"), str)
-                or not isinstance(pointer.get("generation_digest"), str)
+            body = decode_rule_activation_record(
+                pointer,
+                expected_kind=RuleActivationRecordKind.POINTER,
+            ).body
+            if not isinstance(body.get("generation_id"), str) or not isinstance(
+                body.get("generation_digest"), str
             ):
                 raise ValueError
-            _pointer_revision(pointer)
+            _pointer_revision(body)
         except (TypeError, ValueError) as exc:
             raise RuleActivationLedgerCorruptionError(
                 "Durable Rule activation pointer failed validation"
             ) from exc
-        return pointer
+        return body
 
     async def _read_generation(self, generation_id: str) -> RuleActivationGeneration:
         raw = await self._store.read_state(f"{self._GENERATION_PREFIX}{generation_id}")
         try:
-            if (
-                raw is None
-                or raw.get("schema_version") != self._SCHEMA_VERSION
-                or raw.get("kind") != "rule_activation.generation"
-            ):
+            if raw is None:
                 raise ValueError
-            return RuleActivationGeneration.model_validate(raw.get("generation"))
+            body = decode_rule_activation_record(
+                raw,
+                expected_kind=RuleActivationRecordKind.GENERATION,
+            ).body
+            generation = body.get("generation")
+            if not isinstance(generation, Mapping):
+                raise ValueError
+            return RuleActivationGeneration.model_validate(
+                canonicalize_rule_activation_typed_payload(
+                    RuleActivationRecordKind.GENERATION,
+                    generation,
+                )
+            )
         except (TypeError, ValueError) as exc:
             raise RuleActivationLedgerCorruptionError(
                 "Durable Rule activation generation failed validation"
@@ -340,9 +370,19 @@ def _validate_command(command: RuleActivationCommand) -> RuleActivationCommand:
 
 def _parse_result(raw: Mapping[str, Any]) -> RuleActivationResult:
     try:
-        if raw.get("schema_version") != "1.0.0" or raw.get("kind") != "rule_activation.result":
+        body = decode_rule_activation_record(
+            raw,
+            expected_kind=RuleActivationRecordKind.RESULT,
+        ).body
+        result = body.get("result")
+        if not isinstance(result, Mapping):
             raise ValueError
-        return RuleActivationResult.model_validate(raw.get("result"))
+        return RuleActivationResult.model_validate(
+            canonicalize_rule_activation_typed_payload(
+                RuleActivationRecordKind.RESULT,
+                result,
+            )
+        )
     except (TypeError, ValueError) as exc:
         raise RuleActivationLedgerCorruptionError(
             "Durable Rule activation result failed validation"

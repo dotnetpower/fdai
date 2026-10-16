@@ -1532,6 +1532,8 @@ async def test_action_promotion_modes_parameterize_the_like_wildcard(
         parameters: Mapping[str, object],
     ) -> list[dict[str, object]]:
         calls.append((statement, parameters))
+        if parameters["key_pattern"] == "capability\\_recall:%":
+            return []
         return [
             {
                 "value": {
@@ -1549,6 +1551,7 @@ async def test_action_promotion_modes_parameterize_the_like_wildcard(
         "ops.restart-service": {
             "mode": "shadow",
             "promotion_kind": "gate_evidence",
+            "capability_recall": None,
             "gate_status": None,
             "gate_status_source": "operator_attested",
             "gate_evidence_digest": None,
@@ -1559,9 +1562,59 @@ async def test_action_promotion_modes_parameterize_the_like_wildcard(
             "safeguard_proof_source": "operator_attested",
         }
     }
-    statement, parameters = calls[-1]
+    statement, parameters = calls[0]
     assert "key LIKE %(key_pattern)s ESCAPE '\\'" in statement
     assert parameters == {"key_pattern": "action\\_promotion:%"}
+    recall_statement, recall_parameters = calls[1]
+    assert "key LIKE %(key_pattern)s ESCAPE '\\'" in recall_statement
+    assert recall_parameters == {"key_pattern": "capability\\_recall:%"}
+
+
+@pytest.mark.asyncio
+async def test_action_promotion_modes_join_active_capability_recall(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    async def fetch_all(
+        statement: str,
+        parameters: Mapping[str, object],
+    ) -> list[dict[str, object]]:
+        del statement
+        if parameters["key_pattern"] == "capability\\_recall:%":
+            return [
+                {
+                    "value": {
+                        "schema_version": "1.0.0",
+                        "action_type": "ops.restart-service",
+                        "reason": "vendor capability recall",
+                        "recalled_at": "2026-10-15T00:00:00+00:00",
+                        "lifted_at": None,
+                    }
+                }
+            ]
+        return [
+            {
+                "value": {
+                    "schema_version": "1.0.0",
+                    "action_type": "ops.restart-service",
+                    "mode": "enforce",
+                    "promotion_kind": "operator_override",
+                }
+            }
+        ]
+
+    store = PostgresFamilyStore(PostgresFamilyStoreConfig("postgresql://example.invalid/fdai"))
+    monkeypatch.setattr(store, "_fetch_all", fetch_all)
+
+    result = await store.read_action_promotion_modes()
+
+    assert result["ops.restart-service"]["mode"] == "shadow"
+    assert result["ops.restart-service"]["capability_recall"] == {
+        "action_type": "ops.restart-service",
+        "active": True,
+        "reason": "vendor capability recall",
+        "recalled_at": "2026-10-15T00:00:00+00:00",
+        "lifted_at": None,
+    }
 
 
 @pytest.mark.asyncio

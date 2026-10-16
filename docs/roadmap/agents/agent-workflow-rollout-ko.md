@@ -1,8 +1,8 @@
 ---
 title: Agent Workflow Shadow Rollout
 translation_of: agent-workflow-rollout.md
-translation_source_sha: a0291ea8005692c6f378742e6d9b753dc720ef65
-translation_revised: 2026-09-30
+translation_source_sha: 405c5649ac677d4bb7f97e5a45dce35931171db0
+translation_revised: 2026-10-15
 ---
 # 에이전트 작업 흐름 shadow 롤아웃
 
@@ -17,6 +17,7 @@ translation_revised: 2026-09-30
 |------|------|------|------|
 | 13개 작업 흐름 롤아웃 인벤토리 | implemented | `docs/roadmap/agents/agent-workflows.md`; `services/core-control-plane/src/fdai/agents/_framework/workflows.py`; `services/core-control-plane/tests/agents/test_wave7_workflows.py` | 레지스트리와 테스트가 문서화된 작업 흐름 수와 shadow 기본값을 유지합니다. |
 | 집중 shadow 경로 근거 | implemented | `services/core-control-plane/tests/agents/test_wave7_workflows.py`; 등록된 `trace_ref` 대상 | 집중 테스트는 구현 동작을 증명할 뿐이며, 보존된 런타임 롤아웃 추적은 아닙니다. |
+| 메타데이터와 실행 카탈로그의 경계 | implemented | `config/workflow-promotion-verdicts.json`; 집중 검사기 테스트 | 정확한 ID를 기준으로 메타데이터 작업 흐름 13개 중 2개를 실행 `Workflow` 항목에 연결하고 11개는 메타데이터로만 유지합니다. 이 경계는 모드나 권한을 바꾸지 않습니다. |
 | 공통 운영 종료 게이트 | not-started | 이 문서의 종료 조건 | 모든 작업 흐름에 대해 KPI 기준선, 필요한 shadow 기간, 정책 위반 탈출 0건을 입증하는 보존 근거가 없습니다. |
 | 작업 흐름별 승격 판정 인벤토리 | implemented | `config/workflow-promotion-verdicts.json`; `scripts/quality/architecture/check-workflow-promotion-verdicts.py`; 집중 검사기 테스트 | 작업 흐름 12개에는 이름이 명시된 근거 부재에 따른 보류 판정이 있고, 회고적 가정 분석에는 영구 shadow 판정이 있습니다. 인벤토리는 권한 중립적이며 작업 흐름을 승격할 수 없습니다. |
 | 독립 적용 모드 승격 | not-started | `docs/roadmap/agents/agent-workflows.md`의 승격 게이트 | 모든 레지스트리 항목은 `shadow`에 머물며, 회고적 가정 분석은 계속 shadow로 유지됩니다. |
@@ -25,6 +26,7 @@ translation_revised: 2026-09-30
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-15 | implemented | 모든 메타데이터 작업 흐름을 정확한 ID 기준으로 카탈로그 연결 또는 메타데이터 전용 처리 결과에 연결하고, 이름만 비슷한 항목으로 대체하거나 같은 ID를 중복 선언하지 못하게 했습니다. | `current change`; 작업 흐름 판정 구성, 스키마, 검사기; 집중 검사기 테스트 10개 | 런타임 롤아웃 및 승격 근거는 변경 없이 남아 있습니다. |
 | 2026-09-16 | implemented | 작업 흐름 13개 모두에 정확한 정의와 연결된 판정 인벤토리를 추가했습니다. 게이트는 누락된 작업 흐름, 오래된 정의 또는 추적, 불완전한 차단 사유 종류, 확인할 수 없는 근거 참조, 인벤토리를 통한 권한 부여 또는 모드 변경 시도를 거부합니다. | `current change`; 작업 흐름 판정 구성 및 스키마; 집중 검사기 테스트 7개 통과 | 승격 대상 작업 흐름이 shadow를 벗어나기 전에 통제된 운영 근거를 수집하고 별도의 권한 있는 승격 경로를 사용합니다. |
 | 2026-09-15 | implemented | 강제 적용되는 에이전트 파일 상한을 복원하기 위해 Heimdall의 에피소드 신원, 범위가 제한된 이력 및 순환 경고 예산 보조 로직을 비공개 프레임워크로 분리했습니다. AgentSpec, topic, 소유권, 모델 정책, hot-path 결정성 및 권한은 바뀌지 않았습니다. | `current change`, `heimdall_alert_window.py`, Heimdall 830줄, 집중 framework-layout, Wave 3 및 Wave 6 검사 96개 통과, Ruff, strict mypy 및 강제 LOC 게이트 | 런타임 종료 게이트와 배포 근거는 바뀌지 않았습니다. |
 | 2026-08-24 | implemented | Enforced agent file 상한을 복원하기 위해 forecast-outcome 및 provider-schema publication을 focused private Heimdall mixin으로 이동했습니다. AgentSpec, topic, ownership, model policy 및 authority는 바뀌지 않습니다. | `current change`; Heimdall 789줄, 집중 provider-schema, forecast-outcome, framework-layout, agent-import, LOC, Ruff, format, strict mypy 검사 | Runtime exit-gate 및 deployed provider-schema 근거는 그대로 남습니다. |
