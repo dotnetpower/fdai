@@ -113,6 +113,7 @@ from fdai.shared.config.runtime_flags import pantheon_start_enabled
 
 _LOGGER = logging.getLogger("fdai.startup")
 _pantheon_enforce_enabled = pantheon_enforce_enabled
+_runtime_asset_root = bootstrap_agent_discussion._runtime_asset_root
 HUGINN_SCHEMA_LEARNING_ENABLED_ENV = "FDAI_HUGINN_SCHEMA_LEARNING_ENABLED"
 
 
@@ -142,8 +143,7 @@ async def initialize_pantheon(
 
     if not pantheon_start_enabled(config.environment):
         return PantheonInitializationResult()
-
-    asset_root = bootstrap_agent_discussion._runtime_asset_root()  # noqa: SLF001
+    asset_root = _runtime_asset_root()
     cost_runtime = await build_logged_cost_runtime(config.environment, logger=_LOGGER)
     pantheon_enforce = pantheon_enforce_enabled(
         config.environment,
