@@ -80,7 +80,10 @@ def git(repo: Path, *args: str, check: bool = True) -> subprocess.CompletedProce
 
 def clean_text(value: object, limit: int) -> str:
     text = re.sub(r"[\x00-\x08\x0b-\x1f\x7f\u202a-\u202e\u2066-\u2069]", "", str(value or ""))
-    return text[:limit]
+    if len(text) <= limit:
+        return text
+    marker = "..."[:limit]
+    return text[: limit - len(marker)] + marker
 
 
 class Pack:

@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: ea9e108d195b99a0509b83e183d8b37c48615e1c
-translation_revised: 2026-10-15
+translation_source_sha: 79712b846879a5e88013aa46d75872697adb6c6b
+translation_revised: 2026-10-16
 ---
 # FDAI Console 대화
 
@@ -159,6 +159,18 @@ Rules workspace는 카탈로그 출처와 배포 로컬 활성화 멤버십을 �
 완료를 입증하는 근거가 필요합니다. 읽기 실패는 행 부재로 바꾸지 않으며, 이 경계는 이전에
 저장된 상태를 쓰거나 교체하지 않습니다.
 > 고객-무관: 아래의 모든 채널 id, LLM 배포 이름, 리소스 id, 그룹 이름은 자리 표시자. 포크는 구성으로 실제 값을 공급합니다 ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
+### Settings Models 상호 작용 계약
+
+Settings > Models는 현재 상태, 카탈로그 정책, 라우팅 근거, 웹 검색 정책을 네 개의 작업 중심
+보기로 구분합니다. 개요는 사용할 수 있는 T1 서술 기능과 T2 mixed-model 준비 상태를 분리하고,
+독립된 보조 모델이 없을 때의 운영 영향을 설명하며, 사용자별 서술기 선호를 읽기 전용 수명 주기
+근거보다 먼저 표시합니다. 보기 선택기는 ArrowLeft, ArrowRight, Home, End 키와 로빙 포커스를
+지원합니다. 웹 검색 공급자를 사용할 수 없으면 허용 목록 컨트롤보다 먼저 차단 사유를 설명합니다.
+운영자는 정책을 미리 준비할 수 있지만 Console은 검색 요청을 실행할 수 있다고 표시하지 않습니다.
+Settings 모달은 데스크톱과 모바일에서 사용권 워터마크 위에 공간을 확보하며 Command Deck 맥락은
+가려진 배경 경로가 아니라 현재 Models 화면을 따릅니다. 이러한 표시 및 포커스 규칙은 모델을
+프로비전하거나 정책을 활성화하거나 실행 권한을 추가하지 않습니다.
+
 ## 공통 답변 표시
 
 Command Deck은 기존 공통 Markdown 렌더러와 검증된 JSON 표시 데이터를 유지합니다.

@@ -18,6 +18,7 @@ from fdai.core.security.code_findings.pack import (
     RemediationPack,
     render_remediation_pack,
 )
+from fdai.core.security.code_findings.pack_runtime import clean_text
 from fdai.core.security.code_findings.result_import import (
     ClaimStatus,
     PackRecord,
@@ -33,6 +34,13 @@ _VULNERABLE = (
 _FIXED = (
     'def find(cur, uid):\n    return cur.execute("SELECT * FROM users WHERE id = %s", (uid,))\n'
 )
+
+
+def test_helper_text_records_explicit_truncation() -> None:
+    rendered = clean_text("x" * 101, 100)
+
+    assert len(rendered) == 100
+    assert rendered.endswith("...")
 
 
 def _env(tmp_path: Path) -> dict[str, str]:

@@ -177,6 +177,10 @@ approved grant, and fresh effective-access evidence is required before the actio
   and a registry record; result import trusts only that record. Notifications and agent bus
   messages carry counts and opaque issue ids, never code or paths. See
   [Code Security Findings](../operations/code-security-findings.md#remediation-pack).
+- **Bounded code-security evidence**: helper and result-import text marks truncation explicitly.
+  Retained HTML reports reject active content, and review projections reject unsafe control
+  characters rather than presenting malformed evidence as a complete review. These read-only
+  checks grant no repository-write, approval, or execution authority.
 - **Code-security LLM lens**: the optional lens lane sends bounded source excerpts to configured
   model deployments, so the same residency and no-retention terms apply. Its output is untrusted;
   only grounded, quorum-agreed candidates become inert hypotheses. Grounding is checked in code: a

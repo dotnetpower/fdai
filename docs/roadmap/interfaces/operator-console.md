@@ -163,6 +163,19 @@ completion evidence before zero findings can be reported. A failed read never be
 row; this boundary does not write or replace prior stored state.
 
 > Customer-agnostic: every channel id, LLM deployment name, resource id, and group name below is a placeholder. A fork supplies concrete values via config ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
+### Settings Models interaction contract
+
+Settings > Models keeps current state, catalog policy, routing evidence, and web-search policy in
+four task-focused views. Overview distinguishes available T1 narration from T2 mixed-model
+readiness, names the operational impact of a missing independent secondary model, and places the
+per-user narrator preference before read-only lifecycle evidence. The view selector supports
+ArrowLeft, ArrowRight, Home, and End with roving focus. An unavailable web-search provider explains
+the blocker before allowlist controls; an operator can prepare policy, but the Console does not
+imply that requests can run. The Settings modal reserves space above the entitlement watermark at
+desktop and mobile widths, and Command Deck context follows the active Models surface instead of
+the obscured background route. These presentation and focus rules do not provision a model,
+activate policy, or add execution authority.
+
 ## Common answer presentation
 
 The Command Deck retains its shared Markdown renderer and validated JSON presentation artifacts.

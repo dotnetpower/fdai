@@ -6,6 +6,7 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
+import pytest
 from fdai_operator_service.code_security_issue_projection import code_security_issues_projection
 from fdai_operator_service.code_security_review_projection import (
     GAP_MALFORMED,
@@ -711,6 +712,91 @@ def test_issue_projection_rejects_malformed_analysis_evidence() -> None:
         "code_security_artifacts_malformed"
     }
     assert projected["artifacts"]["mode"] == "summary"  # type: ignore[index]
+
+
+@pytest.mark.parametrize(
+    "active_html",
+    [
+        "<script>location='https://example.invalid'</script>",
+        "<div onfocus=alert(1)>focus</div>",
+        '<a href="data:text/html,<script>alert(1)</script>">open</a>',
+        '<meta http-equiv="refresh" content="0;url=https://example.invalid">',
+        "<style>@import 'https://example.invalid/report.css';</style>",
+    ],
+)
+def test_issue_projection_withholds_active_html_artifact(active_html: str) -> None:
+    review = _row(_package())["value"]
+    digest = review["package"]["review_digest"]
+    projected = code_security_issues_projection(
+        repository_alias="example-service",
+        revision=_REVISION,
+        review=review,
+        issues_row={"review_digest": digest, "issues": [_summary()], "truncated": False},
+        artifacts_row={
+            "kind": "code-security-review-artifacts",
+            "schema_version": "1.4.0",
+            "repository_alias": "example-service",
+            "revision": _REVISION,
+            "review_digest": digest,
+            "recorded_at": "2026-10-15T00:00:00+00:00",
+            "html": f"<!doctype html>{active_html}",
+            "sarif": '{"version":"2.1.0","runs":[{"results":[]}]}',
+        },
+    )
+
+    assert {item["reason_code"] for item in projected["gaps"]} >= {
+        "code_security_artifacts_malformed"
+    }
+    assert projected["artifacts"]["mode"] == "summary"  # type: ignore[index]
+
+
+def test_issue_projection_withholds_bidi_code_context() -> None:
+    review = _row(_package())["value"]
+    digest = review["package"]["review_digest"]
+    sarif = json.dumps(
+        {
+            "version": "2.1.0",
+            "runs": [
+                {
+                    "results": [
+                        {
+                            "properties": {
+                                "issue_id": "FDAI-SEC-0123456789ab",
+                                "code_context": {
+                                    "start_line": 42,
+                                    "highlight_start": 42,
+                                    "highlight_end": 42,
+                                    "redacted": False,
+                                    "lines": [{"number": 42, "text": "safe\u202e dangerous"}],
+                                },
+                            }
+                        }
+                    ]
+                }
+            ],
+        }
+    )
+    projected = code_security_issues_projection(
+        repository_alias="example-service",
+        revision=_REVISION,
+        review=review,
+        issues_row={"review_digest": digest, "issues": [_summary()], "truncated": False},
+        artifacts_row={
+            "kind": "code-security-review-artifacts",
+            "schema_version": "1.4.0",
+            "repository_alias": "example-service",
+            "revision": _REVISION,
+            "review_digest": digest,
+            "recorded_at": "2026-10-15T00:00:00+00:00",
+            "html": "<!doctype html><title>report</title>",
+            "sarif": sarif,
+        },
+    )
+
+    assert {item["reason_code"] for item in projected["gaps"]} >= {
+        "code_security_artifacts_malformed"
+    }
+    assert projected["issues"][0]["code_context"] is None  # type: ignore[index]
 
 
 def test_missing_full_artifacts_fall_back_to_bounded_summary_views() -> None:
