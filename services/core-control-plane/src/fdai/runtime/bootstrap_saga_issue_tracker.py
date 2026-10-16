@@ -7,12 +7,13 @@ from collections.abc import Mapping
 import httpx
 from fdai_github_app_auth import GitHubAppTokenProvider
 
-from fdai.agents import IssueTrackerAdapter, StateStoreIssueTrackerAdapter
+from fdai.agents import IssueTrackerAdapter, Saga, StateStoreIssueTrackerAdapter
 from fdai.delivery.github_issue_tracker import (
     GitHubAppIssueTrackerAdapter,
     GitHubIssueTrackerConfig,
     GitHubRestIssueClient,
 )
+from fdai.runtime.bootstrap_lifecycle import build_runtime_saga
 from fdai.runtime.github_auth import build_github_token_provider
 from fdai.shared.providers.state_store import StateStore
 
@@ -68,6 +69,20 @@ async def build_saga_issue_tracker(
     return GitHubAppIssueTrackerAdapter(store=store, remote=remote)
 
 
+async def build_saga_runtime(
+    *,
+    environment: Mapping[str, str],
+    store: StateStore,
+    http_client: httpx.AsyncClient | None,
+) -> Saga:
+    issue_tracker = await build_saga_issue_tracker(
+        environment=environment,
+        store=store,
+        http_client=http_client,
+    )
+    return build_runtime_saga(store, issue_tracker=issue_tracker)
+
+
 async def _verify_repository(
     *,
     provider: GitHubAppTokenProvider,
@@ -115,4 +130,4 @@ async def _verify_repository(
         raise RuntimeError("Saga GitHub App repository projection differs")
 
 
-__all__ = ["build_saga_issue_tracker"]
+__all__ = ["build_saga_issue_tracker", "build_saga_runtime"]

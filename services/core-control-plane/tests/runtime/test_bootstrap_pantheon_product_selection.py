@@ -19,6 +19,7 @@ from fdai.composition import default_container
 from fdai.core.chaos.symptom_index import build_from_entries
 from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.runtime import bootstrap_pantheon as pantheon_bootstrap
+from fdai.runtime import bootstrap_pantheon_evidence as evidence_bootstrap
 from fdai.runtime.bootstrap_chaos_schedule import build_chaos_schedule
 from fdai.runtime.bootstrap_lifecycle import (
     build_mutation_dependency_readiness,
@@ -83,17 +84,17 @@ async def test_initialize_pantheon_passes_the_product_selection_to_forseti(
     bragi_runs: list[tuple[object, object]] = []
     monkeypatch.setattr(pantheon_bootstrap, "build_capacity_sampler", lambda **kwargs: sampler)
     monkeypatch.setattr(
-        pantheon_bootstrap,
+        evidence_bootstrap,
         "build_mimir_maintenance_source",
         lambda environment: mimir_maintenance,
     )
     monkeypatch.setattr(
-        pantheon_bootstrap,
+        evidence_bootstrap,
         "build_forseti_historical_replay_source",
         lambda environment: forseti_replay_source,
     )
     monkeypatch.setattr(
-        pantheon_bootstrap,
+        evidence_bootstrap,
         "build_bragi_intent_training_batch",
         lambda environment: bragi_training,
     )
@@ -101,9 +102,9 @@ async def test_initialize_pantheon_passes_the_product_selection_to_forseti(
     async def run_bragi(runtime: object, batch: object) -> None:
         bragi_runs.append((runtime, batch))
 
-    monkeypatch.setattr(pantheon_bootstrap, "run_bragi_intent_training_batch", run_bragi)
+    monkeypatch.setattr(evidence_bootstrap, "run_bragi_intent_training_batch", run_bragi)
     monkeypatch.setattr(
-        pantheon_bootstrap,
+        evidence_bootstrap,
         "build_loki_scenario_bindings",
         lambda **kwargs: loki_scenarios,
     )
