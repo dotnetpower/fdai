@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 4364224b63766ab35d8b597a661cbb937f2cdb37
+translation_source_sha: 48b0e78e642b140a297e234ae044f8518b18327d
 translation_revised: 2026-10-17
 ---
 # 프로젝트 구조
@@ -78,6 +78,11 @@ Operator는 권한 없는 최종 답변과 기술 상세만 받습니다.
 비활성 버전 2 ID 계약은 전체 보존 카탈로그, 확정된 활성 프로필 스냅숏, 대상 세대를 각각
 다이제스트합니다. 서명된 매니페스트 전제 조건을 제공하지만 버전 1 활성 포인터는 이를 읽지
 않습니다. 프로필 전환은 활성 ID를 바꾸고 카탈로그만 증가하면 활성 ID는 유지됩니다.
+비활성 복제본 코호트 상태 기계도 같은 경계를 따릅니다. 공유 계약은 고정된 복제본, lease, 확인,
+이탈, candidate, applied 레코드를 소유하고 Core는 권한을 부여하지 않는 조정을 소유합니다. 공급자
+seam은 데이터베이스 시각의 lease 검사와 원자적인 candidate/applied 커밋을 소유하며 PostgreSQL
+어댑터는 정확한 최신 prepare와 candidate 선택을 직렬화합니다. 코호트 레코드는 버전 1 active
+포인터를 기록하지 않습니다.
 
 질문 구조의 개념 선택 재사용은 Core 대화 처리가 소유하며 한 번의 처리가 끝나면 종료됩니다.
 정확한 입력과 판독기별로 분리된 캐시는 관측 상태, 인가 결정, 이전 요청의 의미를 저장하지

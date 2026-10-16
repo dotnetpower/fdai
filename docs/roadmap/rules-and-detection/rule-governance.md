@@ -422,7 +422,7 @@ reached the A1 default route, so adding a route for that category could have red
 - Changing a rule's logic bumps its `version`; changing an assignment's parameters/effect/scope is
   itself an audited, versioned change. A rule set **pins the `version` of each member rule** so a
   rule change cannot silently alter a promoted set.
-- **Rule revision upgrades (phases 1-4 implemented):** An activation generation pins each
+- **Rule revision upgrades (phases 1-5 implemented):** An activation generation pins each
   member's exact version and digest, and the ledger accepts only membership changes against an
   unchanged catalog, so changing an activated Rule's content makes an upgraded installation fail
   closed at startup. Until every phase below is operationally validated,
@@ -456,7 +456,7 @@ reached the A1 default route, so adding a route for that category could have red
   strictly increasing semantic profile version for active member changes within the same profile,
   keeps cross-profile version namespaces independent, and preserves generation identity only
   when profile id, version, and members are all unchanged during catalog-only growth. Phases 5
-  through 9 remain open. Phases 5 and 6 ship
+  through 9 remain open. Phase 6 ships
   dormant: they read and validate version 2 data but write none, and no version 2 digest or
   pointer becomes authoritative before the approved identity upgrade in phase 7.
   1. **Dual-read codecs.** A compatibility release reads version 1 and 2 of every durable object
@@ -504,6 +504,16 @@ reached the A1 default route, so adding a route for that category could have red
      authority-bearing active pointer, which prepare never touches, and that CAS binds the digest
      of the exact acknowledgement set. A replica records `applied` only after it
      replaces its complete T0 generation, and runtime evidence cites the replica's applied digest.
+     This phase is implemented as a dormant v2 cohort ledger. It freezes exact replica,
+     principal, release, startup epoch, and serving-lease identities; admits authenticated
+     acknowledgements or refusals; binds the exact acknowledgement-set digest to a CAS-selected
+     candidate-active record; fences expired or unacknowledged replicas; and retains applied
+     readback. PostgreSQL rechecks lease expiry at database linearization and atomically guards
+     candidate replacement plus applied insertion. Authentication binds the full frozen identity
+     and exact receipt digest. Each successor prepare CAS-chains from the latest authenticated
+     serving-inventory snapshot; replica removal or identity replacement requires independently
+     verified drain or lease-expiry evidence. Candidate selection atomically guards that exact
+     latest prepare. It never writes the version 1 active pointer.
   6. **Enforcement pins and dual-revision slots.** Every enforcing binding, including an explicit
      assignment, pins the revision it enforces. The runtime gains a prepared shadow slot keyed by
      full revision identity, so the old revision keeps enforcing while the new one evaluates in

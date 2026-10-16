@@ -80,6 +80,11 @@ The dormant version 2 identity contract separately hashes the complete retained 
 resolved active profile snapshot, and the target generation. It supplies signed-manifest
 preconditions but is not read by the version 1 active pointer. A profile transition changes active
 identity; catalog-only growth does not.
+The dormant replica-cohort state machine follows the same boundary. Shared contracts own frozen
+replica, lease, acknowledgement, departure, candidate, and applied records. Core owns their
+authority-neutral orchestration. A provider seam owns database-time lease checks and atomic
+candidate/applied commits; the PostgreSQL adapter serializes candidate selection with the exact
+latest prepare. No cohort record writes the version 1 active pointer.
 
 Question-form concept-choice reuse is owned by Core conversation processing and ends with one
 run. Its exact-input, reader-separated cache never stores observed state, authorization, or
