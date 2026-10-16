@@ -1,7 +1,7 @@
 ---
 translation_of: human-agent-assignment-and-knowledge-handover.md
-translation_source_sha: 9a77f1916d3c6f64c9993bd9aab49d1e45fcee4f
-translation_revised: 2026-09-16
+translation_source_sha: 6b89bb18c571f2f0af821245d7375df5460a8962
+translation_revised: 2026-10-16
 ---
 # 사용자-에이전트 할당 및 지식 이전
 
@@ -413,6 +413,10 @@ Huginn -> Forseti -> Saga -> Muninn `StateSnapshot` -> Saga -> Norns -> Mimir ->
 | Muninn | 컴파일된 규칙이나 온톨로지 사실이 아니라 `StateSnapshot`을 생성합니다. |
 | Norns | 기존 합의, 게시 게이트, 호출 빈도 제한을 유지합니다. 정확한 `fdai.rule.candidate.v1` JSON 규칙과 기존 서술형 `Distiller`의 온톨로지 후보를 비공개 불변 SQL 패키지로 컴파일합니다. |
 | Mimir | 비공개 내용보다 현재 원본을 먼저 다시 읽고 모델 호출 없이 독립적으로 재컴파일합니다. 기존 구독에서 현재 보존 정책에 따라 패키지 사용을 중단하거나 내용을 제거하며 비활성 검토 결과를 만듭니다. |
+
+선택 사항인 Saga GitHub App 이슈 전달은 이슈 전송 방식만 바꿉니다. 로컬 작업 기록을
+보존하고 정확한 저장소와 최소 권한 토큰 변환 결과를 검증하며, 배정, 승인, 병합, 승격
+또는 실행 권한을 부여하지 않습니다.
 
 Forseti, Muninn, Norns, Mimir는 원본을 독립적으로 다시 읽고 소유자별 CAS를 사용합니다. 형식화된 이벤트 버스
 메시지는 참조와 다이제스트를 전달하며 문서 원문이나 공유된 변경 가능 단계 권한을 담지
