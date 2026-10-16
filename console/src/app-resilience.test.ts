@@ -39,7 +39,7 @@ describe("Console route resilience", () => {
     expect(app).not.toContain("fallback={null}");
     expect(app).toContain('class="settings-overlay-scrim"');
     expect(app).toContain(
-      "<DeferredCommandDeck client={client} routeLabel={backgroundPanel.label} />",
+      "routeLabel={settingsOpen ? panel.label : backgroundPanel.label}",
     );
     expect(readFileSync(new URL("./main.tsx", import.meta.url), "utf8"))
       .toContain("<PanelErrorBoundary>");

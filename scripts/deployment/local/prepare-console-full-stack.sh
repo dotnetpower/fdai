@@ -328,6 +328,13 @@ stage_reusable() {
     bash "$scanner_image_contract" verify "$scanner_image" "$digest" >/dev/null 2>&1; then
     return 1
   fi
+  if [[ "$name" == "code-security-vulnerability-cache" ]] && ! \
+    "$repo_root/.venv/bin/python" \
+      -m fdai.delivery.code_security_cli \
+      resolve-cache-snapshot --root "$repo_root/.fdai/code-security-cache" \
+      >/dev/null 2>&1; then
+    return 1
+  fi
   for output in "$@"; do
     [[ -s "$output" ]] || return 1
   done
