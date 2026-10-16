@@ -304,6 +304,34 @@ def rule_revision_registry_root(members: Collection[RuleRevisionIdentityRef]) ->
     return canonical_digest([member.model_dump(mode="json") for member in ordered])
 
 
+def manifest_expectation_from_identity_v2(
+    *,
+    source: RuleActivationManifestSource,
+    release_id: str,
+    source_id: str,
+    identity: object,
+    deployment_scope_digest: str,
+) -> RuleActivationManifestExpectation:
+    """Bind a signed manifest expectation to a validated dormant v2 identity context."""
+
+    from fdai_service_contracts.rule_activation_identity import RuleActivationIdentityContextV2
+
+    context = RuleActivationIdentityContextV2.model_validate(identity)
+    return RuleActivationManifestExpectation(
+        source=source,
+        release_id=release_id,
+        source_id=source_id,
+        target_generation_id=context.generation.generation_id,
+        target_generation_digest=context.generation.generation_digest,
+        profile_id=context.profile_snapshot.profile_id,
+        profile_version=context.profile_snapshot.profile_version,
+        catalog_manifest_digest=context.catalog_manifest.manifest_digest,
+        revision_registry_root=rule_revision_registry_root(context.catalog_manifest.revisions),
+        members=context.profile_snapshot.members,
+        deployment_scope_digest=deployment_scope_digest,
+    )
+
+
 def _signing_bytes(manifest: RuleActivationManifest) -> bytes:
     return _SIGNATURE_DOMAIN + manifest.manifest_digest.encode("ascii")
 
@@ -353,6 +381,7 @@ __all__ = [
     "RuleRevisionIdentityRef",
     "SignedRuleActivationManifest",
     "rule_revision_registry_root",
+    "manifest_expectation_from_identity_v2",
     "sign_rule_activation_manifest",
     "verify_rule_activation_manifest",
 ]

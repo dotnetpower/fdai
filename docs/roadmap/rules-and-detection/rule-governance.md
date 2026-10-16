@@ -422,7 +422,7 @@ reached the A1 default route, so adding a route for that category could have red
 - Changing a rule's logic bumps its `version`; changing an assignment's parameters/effect/scope is
   itself an audited, versioned change. A rule set **pins the `version` of each member rule** so a
   rule change cannot silently alter a promoted set.
-- **Rule revision upgrades (phases 1-3 implemented):** An activation generation pins each
+- **Rule revision upgrades (phases 1-4 implemented):** An activation generation pins each
   member's exact version and digest, and the ledger accepts only membership changes against an
   unchanged catalog, so changing an activated Rule's content makes an upgraded installation fail
   closed at startup. Until every phase below is operationally validated,
@@ -449,8 +449,14 @@ reached the A1 default route, so adding a route for that category could have red
   registry root, complete member set, deployment scope, bounded validity window, and nonce. A
   separate trust policy owns key rotation, revocation freshness, and validity. Verification
   compares every signed identity with an independently resolved local expectation, then reserves
-  the nonce durably but cannot move the active pointer. Phases 4 through 9 remain open.
-  Phases 4 through 6 ship
+  the nonce durably but cannot move the active pointer. A dormant v2 identity context now separates
+  the full retained catalog manifest from the resolved active profile snapshot and generation
+  digest. Catalog growth alone therefore changes proposal provenance without changing active
+  identity. A dormant transition precondition retains every prior catalog revision, requires a
+  strictly increasing semantic profile version for active member changes within the same profile,
+  keeps cross-profile version namespaces independent, and preserves generation identity only
+  when profile id, version, and members are all unchanged during catalog-only growth. Phases 5
+  through 9 remain open. Phases 5 and 6 ship
   dormant: they read and validate version 2 data but write none, and no version 2 digest or
   pointer becomes authoritative before the approved identity upgrade in phase 7.
   1. **Dual-read codecs.** A compatibility release reads version 1 and 2 of every durable object
@@ -481,6 +487,11 @@ reached the A1 default route, so adding a route for that category could have red
      identities and the resolved profile snapshot. The full catalog manifest digest, which indexes
      every revision identity, becomes proposal provenance and a transition precondition. A profile
      version identifies a resolved member snapshot, so every revision change bumps it.
+     This phase is implemented in an authority-neutral v2 contract. The signed-manifest
+     expectation is derived from the validated catalog/profile/generation context, while current
+     activation pointers and writes remain version 1. The transition identity joins source and
+     target catalog, profile, and generation digests and rejects revision carry-forward under an
+     unchanged or backward-moving version within the same profile.
   5. **Replica cohort protocol.** Activation follows a durable state machine: desired (approved,
      inert), prepared, active, and per-replica applied. Prepare freezes a cohort of authenticated
      replica ids, release ids, startup epochs, and serving leases. A keyed prepare announcement

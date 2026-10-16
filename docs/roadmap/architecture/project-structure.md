@@ -76,6 +76,10 @@ format. The shared SDK also owns dormant signed non-direct manifest and trust co
 verifies exact locally resolved identity, trust validity, scope, registry root, and replay nonce
 through a separate module that writes only an authority-neutral reservation. Neither compatibility
 nor manifest verification grants approval, activation, promotion, or execution authority.
+The dormant version 2 identity contract separately hashes the complete retained catalog, the
+resolved active profile snapshot, and the target generation. It supplies signed-manifest
+preconditions but is not read by the version 1 active pointer. A profile transition changes active
+identity; catalog-only growth does not.
 
 Question-form concept-choice reuse is owned by Core conversation processing and ends with one
 run. Its exact-input, reader-separated cache never stores observed state, authorization, or
