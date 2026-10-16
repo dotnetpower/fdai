@@ -209,6 +209,8 @@ class CausalClosureObservation:
     endpoint_objects: tuple[OntologyObjectRecord, ...] = ()
     intervention_action_ref: str | None = None
     """Thor ActionRun correlation id that the receipt resolver reads; never an authority."""
+    intervention_resource_ref: str | None = None
+    """Exact independently observed Resource target, distinct from a metric cause_ref."""
 
     def __post_init__(self) -> None:
         if not self.finding_id or not self.outcome_ref:
@@ -256,6 +258,13 @@ class CausalClosureObservation:
             or len(self.intervention_action_ref) > 256
         ):
             raise ValueError("causal closure intervention action ref requires a bounded receipt")
+        if self.intervention_resource_ref is not None and (
+            self.intervention_action_ref is None
+            or not self.intervention_resource_ref.strip()
+            or self.intervention_resource_ref != self.intervention_resource_ref.strip()
+            or len(self.intervention_resource_ref) > 512
+        ):
+            raise ValueError("causal closure resource ref requires an exact bounded action target")
 
 
 class CausalRuntimeCoordinator:

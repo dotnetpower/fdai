@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import UTC, datetime, timedelta
 from statistics import fmean
 from uuid import NAMESPACE_URL, uuid5
+
+from fdai_service_contracts.ontology_query import content_digest
 
 from fdai.core.detection.series import MetricSample
 from fdai.shared.contracts.models import CausalEvidenceGrade
@@ -91,6 +93,11 @@ class TemporalCausalityAnalyzer:
         for series in (cause, effect, confounder):
             if series is not None and series.samples[-1].timestamp > feature_cutoff:
                 raise ValueError("temporal causality series MUST NOT cross feature_cutoff")
+        if any(
+            series is not None and len(series.samples) - self._config.difference_period < 2
+            for series in (cause, effect, confounder)
+        ):
+            return None
 
         transformed_cause = _difference(cause, self._config.difference_period)
         transformed_effect = _difference(effect, self._config.difference_period)
@@ -130,7 +137,8 @@ class TemporalCausalityAnalyzer:
             p_value = min(
                 1.0,
                 _correlation_p_value(correlation, len(adjusted_cause))
-                * self._config.candidate_count,
+                * self._config.candidate_count
+                * len(self._config.lag_seconds),
             )
             candidates.append(
                 (abs(correlation), -lag, len(adjusted_cause), correlation, reverse, p_value)
@@ -140,21 +148,30 @@ class TemporalCausalityAnalyzer:
         _, negative_lag, sample_count, correlation, reverse, adjusted_p = max(candidates)
         lag = -negative_lag
         falsifiers: list[str] = []
-        if abs(correlation) < self._config.min_abs_correlation:
+        if correlation == 0.0 or abs(correlation) < self._config.min_abs_correlation:
             falsifiers.append("association_below_threshold")
         if adjusted_p > self._config.alpha:
             falsifiers.append("multiple_testing_not_significant")
-        if abs(correlation) - abs(reverse) < self._config.direction_margin:
+        if abs(correlation) <= abs(reverse) or (
+            abs(correlation) - abs(reverse) < self._config.direction_margin
+        ):
             falsifiers.append("reverse_direction_not_weaker")
+        if lag == 0:
+            falsifiers.append("temporal_precedence_unproven")
         grade = (
             CausalEvidenceGrade.PREDICTIVE_PRECEDENCE
             if not falsifiers
             else CausalEvidenceGrade.ASSOCIATION
         )
-        identity = (
-            f"{cause.metric}:{effect.metric}:{lag}:"
-            f"{feature_cutoff.astimezone(UTC).isoformat()}:"
-            f"{confounder.metric if confounder is not None else 'none'}"
+        identity = content_digest(
+            {
+                "cause": _series_identity(cause),
+                "effect": _series_identity(effect),
+                "confounder": _series_identity(confounder) if confounder else None,
+                "config": asdict(self._config),
+                "feature_cutoff": feature_cutoff.astimezone(UTC).isoformat(),
+                "evidence_refs": sorted(set(evidence_refs)),
+            }
         )
         return TemporalCausalClaim(
             claim_id=str(uuid5(NAMESPACE_URL, f"fdai-temporal-causal-claim:{identity}")),
@@ -176,8 +193,6 @@ class TemporalCausalityAnalyzer:
 def _difference(series: TemporalSeries, period: int) -> TemporalSeries:
     if period == 0:
         return series
-    if len(series.samples) <= period:
-        return TemporalSeries(metric=series.metric, samples=series.samples)
     samples = tuple(
         MetricSample(
             timestamp=series.samples[index].timestamp,
@@ -186,6 +201,16 @@ def _difference(series: TemporalSeries, period: int) -> TemporalSeries:
         for index in range(period, len(series.samples))
     )
     return TemporalSeries(metric=series.metric, samples=samples)
+
+
+def _series_identity(series: TemporalSeries) -> dict[str, object]:
+    return {
+        "metric": series.metric,
+        "samples": [
+            (sample.timestamp.astimezone(UTC).isoformat(), sample.value)
+            for sample in series.samples
+        ],
+    }
 
 
 def _aligned_values(

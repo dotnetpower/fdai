@@ -20,6 +20,7 @@ from fdai.core.rca.temporal_causality import (
     TemporalSeries,
 )
 
+from .causal_topology import causal_topology_limitation
 from .topology_history import TopologyDiff
 
 
@@ -313,7 +314,19 @@ def join_causal_evidence(
 ) -> CausalEvidenceJoin:
     """Join complete aligned series and topology evidence without asserting mere chronology."""
 
-    evidence_refs = tuple(dict.fromkeys((*cause.evidence_refs, *effect.evidence_refs)))
+    if feature_cutoff.tzinfo is None:
+        raise ValueError("causal evidence feature_cutoff MUST be timezone-aware")
+    if cause.end > feature_cutoff or effect.end > feature_cutoff:
+        raise ValueError("causal evidence windows MUST NOT cross feature_cutoff")
+    evidence_refs = tuple(
+        dict.fromkeys(
+            (
+                *cause.evidence_refs,
+                *effect.evidence_refs,
+                *(topology_change.evidence_refs if topology_change else ()),
+            )
+        )
+    )
     limitations: list[str] = []
     if not cause.complete or not effect.complete:
         limitations.append("metric_window_incomplete")
@@ -321,6 +334,16 @@ def join_causal_evidence(
         limitations.append("topology_change_unavailable")
     elif not topology_change.complete:
         limitations.append("topology_history_incomplete")
+    else:
+        topology_limitation = causal_topology_limitation(
+            topology_change,
+            cause_id=cause.resource_id,
+            effect_id=effect.resource_id,
+            cutoff=feature_cutoff,
+            window_start=min(cause.start, effect.start),
+        )
+        if topology_limitation is not None:
+            limitations.append(topology_limitation)
     if len(cause.samples) < 2 or len(effect.samples) < 2:
         limitations.append("insufficient_aligned_samples")
     if limitations:
@@ -343,8 +366,11 @@ def join_causal_evidence(
         status = CausalJoinStatus.UNRESOLVED
         limitations.append("insufficient_aligned_samples")
     elif claim.falsifiers:
-        status = CausalJoinStatus.REFUTED
+        status = CausalJoinStatus.UNRESOLVED
         limitations.extend(claim.falsifiers)
+    elif competing_explanations:
+        status = CausalJoinStatus.UNRESOLVED
+        limitations.append("competing_explanations_unresolved")
     else:
         status = CausalJoinStatus.SUPPORTED
     return CausalEvidenceJoin(

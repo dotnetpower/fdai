@@ -1,8 +1,12 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+import asyncio
+from collections.abc import Callable
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime, timedelta
 
 import pytest
+from fdai.core.executor.lock import ResourceLockManager
 from fdai.core.rca import (
     DEFAULT_TELEMETRY_RECIPE_CATALOG,
     TelemetryEvidenceDisposition,
@@ -40,7 +44,14 @@ class _CompleteProvider:
         )
 
 
-def _build(provider, store, environment):
+def _build(
+    provider,
+    store,
+    environment,
+    *,
+    clock: Callable[[], datetime] | None = None,
+    resource_lock=None,
+):
     return build_adaptive_telemetry_investigator(
         provider=provider,
         process_store=store,
@@ -51,6 +62,8 @@ def _build(provider, store, environment):
         interface_types=(),
         function_types=(),
         environment=environment,
+        clock=clock,
+        resource_lock=resource_lock or ResourceLockManager(),
     )
 
 
@@ -120,6 +133,7 @@ def test_available_provider_defaults_on_but_explicit_disable_or_missing_provider
             interface_types=(),
             function_types=(),
             environment={},
+            resource_lock=ResourceLockManager(),
         )
         is not None
     )
@@ -134,6 +148,7 @@ def test_available_provider_defaults_on_but_explicit_disable_or_missing_provider
             interface_types=(),
             function_types=(),
             environment={"FDAI_RCA_ADAPTIVE_TELEMETRY_ENABLED": "false"},
+            resource_lock=ResourceLockManager(),
         )
         is None
     )
@@ -148,6 +163,7 @@ def test_available_provider_defaults_on_but_explicit_disable_or_missing_provider
             interface_types=(),
             function_types=(),
             environment={"FDAI_RCA_ADAPTIVE_TELEMETRY_ENABLED": "true"},
+            resource_lock=ResourceLockManager(),
         )
         is None
     )
@@ -167,7 +183,7 @@ def test_runtime_config_rejects_malformed_or_excessive_bounds() -> None:
 def test_runtime_policy_digest_is_versioned_stable_and_bound_sensitive() -> None:
     baseline = AdaptiveTelemetryRuntimeConfig(enabled=True)
 
-    assert ADAPTIVE_TELEMETRY_CONFIG_VERSION == "1.0.0"
+    assert ADAPTIVE_TELEMETRY_CONFIG_VERSION == "1.1.0"
     assert baseline.policy_digest == AdaptiveTelemetryRuntimeConfig(enabled=True).policy_digest
     assert (
         baseline.policy_digest
@@ -176,3 +192,147 @@ def test_runtime_policy_digest_is_versioned_stable_and_bound_sensitive() -> None
             max_cost_units=121,
         ).policy_digest
     )
+
+
+@pytest.mark.parametrize("delay", [timedelta(minutes=1), timedelta(days=30)])
+async def test_delayed_event_receives_a_new_execution_budget_and_replays_without_io(delay):
+    now = datetime(2026, 10, 16, tzinfo=UTC)
+    provider = _CompleteProvider()
+    store = InMemoryProcessRuntimeStore()
+    investigator = _build(provider, store, {}, clock=lambda: now)
+    assert investigator is not None
+    cutoff = now - delay
+    arguments = {
+        "incident_id": "incident:delayed",
+        "resource_ref": "resource:one",
+        "event_type": "http.429.detected",
+        "resource_type": "application",
+        "evidence_cutoff": cutoff,
+        "correlation_id": "correlation:delayed",
+    }
+
+    result = await investigator.investigate(**arguments)
+
+    assert provider.calls == 1
+    assert result.investigation.budget.deadline_at == now + timedelta(seconds=4)
+    assert result.investigation.used_queries == 1
+    assert len(result.citations) == 1
+    now += timedelta(hours=1)
+    replayed = await investigator.investigate(**arguments)
+    assert provider.calls == 1
+    assert replayed.investigation == result.investigation
+
+
+async def test_future_evidence_cutoff_is_rejected_before_io_or_process_creation():
+    now = datetime(2026, 10, 16, tzinfo=UTC)
+    provider = _CompleteProvider()
+    investigator = _build(provider, InMemoryProcessRuntimeStore(), {}, clock=lambda: now)
+    assert investigator is not None
+    with pytest.raises(ValueError, match="MUST NOT be in the future"):
+        await investigator.investigate(
+            incident_id="incident:future",
+            resource_ref="resource:one",
+            event_type="http.429.detected",
+            resource_type="application",
+            evidence_cutoff=now + timedelta(seconds=1),
+            correlation_id="correlation:future",
+        )
+    assert provider.calls == 0
+
+
+async def test_concurrent_duplicate_sessions_share_the_winning_deadline_and_single_read():
+    now = datetime(2026, 10, 16, tzinfo=UTC)
+    entered, release = asyncio.Event(), asyncio.Event()
+
+    class _BlockingProvider(_CompleteProvider):
+        async def gather(self, need):
+            entered.set()
+            await release.wait()
+            return await super().gather(need)
+
+    provider = _BlockingProvider()
+    store, lock = InMemoryProcessRuntimeStore(), ResourceLockManager()
+    first = _build(provider, store, {}, clock=lambda: now, resource_lock=lock)
+    second = _build(
+        provider,
+        store,
+        {},
+        clock=lambda: now + timedelta(milliseconds=1),
+        resource_lock=lock,
+    )
+    assert first is not None and second is not None
+    arguments = {
+        "incident_id": "incident:concurrent",
+        "resource_ref": "resource:one",
+        "event_type": "http.429.detected",
+        "resource_type": "application",
+        "evidence_cutoff": now - timedelta(minutes=1),
+        "correlation_id": "correlation:concurrent",
+    }
+    first_task = asyncio.create_task(first.investigate(**arguments))
+    await entered.wait()
+    second_task = asyncio.create_task(second.investigate(**arguments))
+    await asyncio.sleep(0)
+    release.set()
+    one, two = await asyncio.gather(first_task, second_task)
+    assert provider.calls == 1
+    assert one.investigation == two.investigation
+    assert one.investigation.budget.deadline_at == now + timedelta(seconds=4)
+
+
+async def test_session_lock_wait_is_inside_the_execution_deadline():
+    class _BlockedLock(ResourceLockManager):
+        @asynccontextmanager
+        async def acquire(self, resource_id):
+            await asyncio.Event().wait()
+            yield
+
+    now = datetime(2026, 10, 16, tzinfo=UTC)
+    provider = _CompleteProvider()
+    investigator = _build(
+        provider,
+        InMemoryProcessRuntimeStore(),
+        {"FDAI_RCA_ADAPTIVE_TELEMETRY_DEADLINE_SECONDS": "1"},
+        clock=lambda: now,
+        resource_lock=_BlockedLock(),
+    )
+    assert investigator is not None
+    with pytest.raises(TimeoutError):
+        await investigator.investigate(
+            incident_id="incident:lock",
+            resource_ref="resource:one",
+            event_type="http.429.detected",
+            resource_type="application",
+            evidence_cutoff=now,
+            correlation_id="correlation:lock",
+        )
+    assert provider.calls == 0
+
+
+async def test_active_query_timeout_persists_a_replayable_terminal_result():
+    class _NeverCompletingProvider(_CompleteProvider):
+        async def gather(self, need):
+            self.calls += 1
+            await asyncio.Event().wait()
+            raise AssertionError("unreachable")
+
+    provider = _NeverCompletingProvider()
+    investigator = _build(
+        provider,
+        InMemoryProcessRuntimeStore(),
+        {"FDAI_RCA_ADAPTIVE_TELEMETRY_DEADLINE_SECONDS": "1"},
+    )
+    assert investigator is not None
+    arguments = {
+        "incident_id": "incident:blocked-query",
+        "resource_ref": "resource:one",
+        "event_type": "http.429.detected",
+        "resource_type": "application",
+        "evidence_cutoff": datetime.now(UTC) - timedelta(minutes=1),
+        "correlation_id": "correlation:blocked-query",
+    }
+    result = await investigator.investigate(**arguments)
+    replayed = await investigator.investigate(**arguments)
+    assert result.investigation.disposition.value == "timed_out"
+    assert replayed.investigation == result.investigation
+    assert provider.calls == 1

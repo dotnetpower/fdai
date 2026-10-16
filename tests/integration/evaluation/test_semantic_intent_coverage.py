@@ -20,7 +20,12 @@ def _artifact() -> dict[str, Any]:
 
 
 def test_semantic_intent_coverage_artifact_matches_authoritative_sources() -> None:
-    assert _artifact() == build_inventory(_ROOT)
+    recorded, current = _artifact(), build_inventory(_ROOT)
+    assert recorded["source_digests"] == current["source_digests"], (
+        "Semantic inventory source commitments are stale; regenerate with "
+        "python scripts/automation/build_semantic_intent_coverage.py"
+    )
+    assert recorded == current
 
 
 def test_semantic_intent_inventory_exposes_complete_topic_denominators() -> None:
