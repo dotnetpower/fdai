@@ -3,7 +3,7 @@ title: RCA 근거 수집 런북
 description: 근본 원인 가설을 수락하기 전에 범위를 한정하고 출처를 인용할 수 있는 근거 집합을 구성하는 템플릿입니다.
 translation_of: rca-evidence-collection.md
 translation_source_sha: 4480d9b66dab37abfa3f605c47ef74c863a4817d
-translation_revised: 2026-08-11
+translation_revised: 2026-10-16
 ---
 
 # RCA 근거 수집 런북

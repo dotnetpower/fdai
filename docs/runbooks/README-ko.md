@@ -3,7 +3,7 @@ title: SRE 런북
 description: 인시던트 대응, 복구, 통제된 자동화를 위한 범용 운영 절차와 템플릿입니다.
 translation_of: README.md
 translation_source_sha: 9fdc446529d53c267aa6d603d4a597ddc7cfe462
-translation_revised: 2026-09-15
+translation_revised: 2026-10-16
 ---
 
 # SRE 런북

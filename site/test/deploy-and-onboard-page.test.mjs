@@ -97,20 +97,20 @@ test("Round 14 regression: Korean page has no space-detached particles at the pr
   }
 });
 
-test("Round 14 regression: informal plain-register verb endings are fixed to the formal register", async () => {
+test("Round 14 regression: deployment guidance keeps the formal register", async () => {
   const { korean } = await loadEnKo();
   assert.ok(!korean.includes("비공개로 강제한다"));
   assert.ok(!korean.includes("도달 불가능하다"));
   assert.ok(!korean.includes("`Key Vault Secrets Officer`로 만든다"));
-  assert.ok(korean.includes("비공개로 강제합니다"));
-  assert.ok(korean.includes("도달 불가능합니다"));
+  assert.ok(korean.includes("비공개로 유지하기"));
+  assert.ok(korean.includes("접근할 수 없습니다"));
   assert.ok(korean.includes("`Key Vault Secrets Officer`로 만듭니다"));
 });
 
 test("Round 14 regression: garbled bilingual gloss and invalid conjugation are fixed", async () => {
   const { korean } = await loadEnKo();
   assert.ok(!korean.includes("출처 of truth"));
-  assert.ok(korean.includes("정본(source of truth)"));
+  assert.ok(korean.includes("기준 원본"));
   assert.ok(!korean.includes("활성화된이면"));
   assert.ok(korean.includes("비공개 networking이 활성화되면"));
 });

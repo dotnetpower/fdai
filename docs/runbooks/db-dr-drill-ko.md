@@ -2,7 +2,7 @@
 title: 심층 DB-DR 복원 훈련 런북
 translation_of: db-dr-drill.md
 translation_source_sha: 9ee164c34f24f06b308463b1da788fb68b29d07b
-translation_revised: 2026-08-31
+translation_revised: 2026-10-16
 ---
 
 # 심층 DB-DR 복원 훈련 런북

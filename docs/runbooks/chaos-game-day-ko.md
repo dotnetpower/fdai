@@ -3,7 +3,7 @@ title: Chaos Game Day Runbook
 description: 범위가 한정된 Chaos 실험을 계획하고 승인, 실행, 복구하는 템플릿입니다.
 translation_of: chaos-game-day.md
 translation_source_sha: 524a3237130a5075baf472f394e8ab3f8f905d6d
-translation_revised: 2026-08-11
+translation_revised: 2026-10-16
 ---
 
 # Chaos Game Day 런북

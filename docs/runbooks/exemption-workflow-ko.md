@@ -1,7 +1,7 @@
 ---
 translation_of: exemption-workflow.md
 translation_source_sha: b4f2234cbc6ef34cbc3cd0a525f81e5b888bdb75
-translation_revised: 2026-08-31
+translation_revised: 2026-10-16
 title: 예외 워크플로
 owner: aw-owners (Owner-tier)
 sla: "PR 생성 후 1영업일 이내 승인 결정"

@@ -3,7 +3,7 @@ title: 사후 분석 작업 흐름 런북
 description: 해결된 인시던트를 검토하고 근거에 기반한 후속 조치를 제출하는 템플릿입니다.
 translation_of: postmortem-workflow.md
 translation_source_sha: 92316b0c0ecb205a5adb30be10e5b34995f8ee30
-translation_revised: 2026-08-11
+translation_revised: 2026-10-16
 ---
 
 # 사후 분석 작업 흐름 런북

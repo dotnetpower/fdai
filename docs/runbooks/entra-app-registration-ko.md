@@ -2,7 +2,7 @@
 title: Entra 앱 등록
 translation_of: entra-app-registration.md
 translation_source_sha: 47807bec7d7e0737c10399c3bd13ec9431792e91
-translation_revised: 2026-09-27
+translation_revised: 2026-10-16
 ---
 
 # Entra 앱 등록
@@ -59,7 +59,7 @@ Azure CLI 컨텍스트에서 로그인한 사람의 신원과 현재 `aw-approve
 v2 실행기 토큰과 현재 활성 테넌트 및 구독이 정확히 일치하는지 검증하고, Premium
 플랜, 정확히 지정된 역할 그룹 5개, Conditional Access, Access Reviews, 인증 방법,
 Azure Policy 할당, 실행기 신원 및 모든 앱/그룹 계획 갱신을 읽습니다. 최초 관찰,
-승인 재검증, 실행 선점 기록 복구, 증적 재조회에도 같은 실행기 경계를 사용합니다.
+승인 재검증, claim 복구, 증적 재조회에도 같은 실행기 경계를 사용합니다.
 실행기 컨텍스트, 대상, 권한 또는 읽기 결과가 없거나 일치하지 않으면 작업을
 차단합니다. 이러한 읽기를 사람 컨텍스트에서 대신 수행하지 않습니다.
 

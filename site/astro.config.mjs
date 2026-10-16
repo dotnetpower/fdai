@@ -161,7 +161,7 @@ export default defineConfig({
         },
         {
           label: "Functional specification",
-          translations: { ko: "기능정의서" },
+          translations: { ko: "기능 정의서" },
           link: "/concepts/functional-specification/",
         },
         {
@@ -185,7 +185,7 @@ export default defineConfig({
             },
             {
               label: "Trust tiers (T0/T1/T2)",
-              translations: { ko: "신뢰 티어" },
+              translations: { ko: "신뢰 단계(T0/T1/T2)" },
               link: "/concepts/risk-tiers/",
             },
             {
@@ -201,7 +201,7 @@ export default defineConfig({
           items: [
             {
               label: "Ontology-driven automation",
-              translations: { ko: "온토로지 기반 자동화" },
+              translations: { ko: "온톨로지 기반 자동화" },
               link: "/concepts/ontology-driven-automation/",
             },
             {
@@ -298,7 +298,7 @@ export default defineConfig({
                 },
                 {
                   label: "Postmortems and learning",
-                  translations: { ko: "포스트모템과 학습" },
+                  translations: { ko: "사후 분석과 학습" },
                   link: "/sre/postmortems-and-learning/",
                 },
                 {
@@ -310,7 +310,7 @@ export default defineConfig({
             },
             {
               label: "Resilience engineering",
-              translations: { ko: "회복탄력성 엔지니어링" },
+              translations: { ko: "복원력 엔지니어링" },
               items: [
                 {
                   label: "Disaster recovery and drills",
@@ -342,7 +342,7 @@ export default defineConfig({
             },
             {
               label: "Resilience",
-              translations: { ko: "회복탄력성" },
+              translations: { ko: "복원력" },
               link: "/capabilities/resilience/",
             },
             {
@@ -358,7 +358,7 @@ export default defineConfig({
           items: [
             {
               label: "Deploy Quickstart",
-              translations: { ko: "배포 Quickstart" },
+              translations: { ko: "배포 빠른 시작" },
               link: "/deploy-quickstart/",
             },
             {
@@ -384,11 +384,11 @@ export default defineConfig({
             },
             {
               label: "Runbooks",
-              translations: { ko: "Runbook" },
+              translations: { ko: "런북" },
               items: [
                 {
                   label: "Runbook index",
-                  translations: { ko: "Runbook 목록" },
+                  translations: { ko: "런북 목록" },
                   link: "/runbooks/",
                 },
                 {
@@ -398,22 +398,22 @@ export default defineConfig({
                 },
                 {
                   label: "SLO burn response",
-                  translations: { ko: "SLO burn 대응" },
+                  translations: { ko: "SLO 오류 예산 소진 대응" },
                   link: "/runbooks/slo-burn-response/",
                 },
                 {
                   label: "RCA evidence collection",
-                  translations: { ko: "RCA 증거 수집" },
+                  translations: { ko: "RCA 근거 수집" },
                   link: "/runbooks/rca-evidence-collection/",
                 },
                 {
                   label: "Mitigation and rollback",
-                  translations: { ko: "완화와 rollback" },
+                  translations: { ko: "완화와 롤백" },
                   link: "/runbooks/incident-mitigation-and-rollback/",
                 },
                 {
                   label: "Postmortem workflow",
-                  translations: { ko: "포스트모템 workflow" },
+                  translations: { ko: "사후 분석 작업 흐름" },
                   link: "/runbooks/postmortem-workflow/",
                 },
                 {
@@ -423,12 +423,12 @@ export default defineConfig({
                 },
                 {
                   label: "Chaos game day",
-                  translations: { ko: "Chaos game day" },
+                  translations: { ko: "Chaos Game Day" },
                   link: "/runbooks/chaos-game-day/",
                 },
                 {
                   label: "Alert tuning",
-                  translations: { ko: "Alert tuning" },
+                  translations: { ko: "경보 튜닝" },
                   link: "/runbooks/alert-tuning/",
                 },
                 {
@@ -487,7 +487,7 @@ export default defineConfig({
         },
         {
           label: "Reference",
-          translations: { ko: "레퍼런스" },
+          translations: { ko: "참조" },
           items: [
             {
               label: "Diagram gallery",
@@ -506,7 +506,7 @@ export default defineConfig({
             },
             {
               label: "Risk classification",
-              translations: { ko: "리스크 분류" },
+              translations: { ko: "위험 분류" },
               link: "/reference/roadmap/decisioning/risk-classification/",
             },
             {
@@ -521,7 +521,7 @@ export default defineConfig({
             },
             {
               label: "Preflight active reassembly",
-              translations: { ko: "사전점검 능동 재조립" },
+              translations: { ko: "사전 점검 능동 재조립" },
               link: "/reference/roadmap/deployment/preflight-active-reassembly/",
             },
             {
