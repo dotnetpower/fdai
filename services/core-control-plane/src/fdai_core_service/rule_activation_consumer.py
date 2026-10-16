@@ -15,6 +15,10 @@ from fdai_service_contracts.rule_activation_transport import (
     RULE_ACTIVATION_REQUEST_TOPIC,
     RuleActivationRequestNotice,
 )
+from fdai_service_contracts.rule_activation_versioning import (
+    RuleActivationRecordKind,
+    canonicalize_rule_activation_typed_payload,
+)
 
 
 class RuleActivationReceiptReader(Protocol):
@@ -37,7 +41,12 @@ class RuleActivationConsumer:
                 if stop.is_set():
                     return
                 try:
-                    notice = RuleActivationRequestNotice.model_validate(envelope.payload)
+                    notice = RuleActivationRequestNotice.model_validate(
+                        canonicalize_rule_activation_typed_payload(
+                            RuleActivationRecordKind.REQUEST,
+                            envelope.payload,
+                        )
+                    )
                     if envelope.key != notice.request_id:
                         raise ValueError("Rule activation partition identity mismatch")
                     record = await self.receipts.read_state(notice.proposal_ref)

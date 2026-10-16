@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: fc0bdf111ed4aa74563371b6ca446aa76300aa21
+translation_source_sha: a0dc2858133b5854d207b72011c97fb5aec147d2
 translation_revised: 2026-10-15
 ---
 # 독립 운영 근거 발급
@@ -35,6 +35,10 @@ verifier는 전체 조회 좌표와 주체 범위 해시를 다시 계산하고 
 대화 모델 호출 수, 토큰 사용량, 로컬 호출별 시간은 진단 메타데이터입니다. 검증 증적을
 발급하거나 출처 재확인을 대체하거나 운영 근거를 입증하거나 사람의 인가를 증명할 수
 없습니다. 숫자 사용량 계측을 추가해도 이 검증기 경계는 바뀌지 않습니다.
+
+Operator 대화 경계는 모든 `background.create` 본문을 영속화 전에 타입이 지정된
+`ReadInvestigationProposalBody`로 검증합니다. 잘못된 본문은 범위가 제한된 요청 오류로
+실패합니다. 이 입력 검증은 독립 근거를 발급하거나 조사 권한을 부여할 수 없습니다.
 
 Forseti의 제한된 v1 what-if 비교 저널은 선택된 진단 입력을 기존 StateStore에 보관합니다.
 내용 해시, 리비전 CAS와 재시작 복구로 저장 손상을 탐지하지만, 독립 검증기 증명이나

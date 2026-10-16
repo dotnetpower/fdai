@@ -17,24 +17,19 @@ domain code and assets. It does not create another control plane or move authori
 > Subscription analysis, service-family sizing profiles, and the Cost Governance workspace belong
 > to [FinOps Resource Efficiency and SKU Decisions](finops-resource-efficiency.md).
 >
-> **Current status:** FDAI now has an independent `fdai-cost-governance` wheel, source
-> distribution, image profile, exact ontology profile, atomic disabled-first package lifecycle,
-> package-owned catalog assets, gated Operator and Console projections, and local W0-W7 validation
-> mechanics. Operator disclosure can omit resource recommendations when the effective granularity or identity policy disallows them. The restricted projection records amount and recommendation suppression without requiring its recommendation count to match the source count. The shared Console catalog-source scanner resolves the imported `t` binding rather than unrelated formatting imports. It and the panel-registry scanner are repository validation only; a non-FinOps component or label change does not
+> **Current status:** FDAI now has an independent `fdai-cost-governance` wheel, source distribution, image profile, exact ontology profile, atomic disabled-first package lifecycle, package-owned catalog assets, gated Operator and Console projections, and local W0-W7 validation mechanics.
+> The package also exposes deterministic optimization contracts with five reviewed service-family profiles, single-resource and bounded coupled-target planning, and expiring scoped clarification attestations.
+> A pure package composer maps eligible coupled right-size plans to the existing Njord-owned cross-vertical candidate contract while preserving exact target, profile, per-resource current and proposed configuration, freshness, objective-effect, causal-order, and logical-lock lineage.
+> Duplicate resource targets and oversized effects or freshness sources fail closed before composition. The composer cannot publish as Njord or grant approval or execution authority; runtime publication and complete Freyr/Forseti/Odin case assembly remain open.
+> Unqualified evidence fails closed and every candidate remains without approval or execution authority; package result types carry no approval, execution, promotion, or executor-principal fields. Operator disclosure can omit resource recommendations when the effective granularity or identity policy disallows them. The restricted projection records amount and recommendation suppression without requiring its recommendation count to match the source count. The shared Console catalog-source scanner resolves the imported `t` binding rather than unrelated formatting imports. It and the panel-registry scanner are repository validation only; a non-FinOps component or label change does not
 > enter the Cost Governance package, activation state, or authority. Shared Operator composition may supervise unrelated event-bus workers, but they cannot
 > activate, configure, publish, or change Cost Governance through conversation fallback streams.
 > The outbox lifecycle facade also exposes the unrelated Incident intervention worker. Its
 > lifecycle and readiness state cannot activate a Cost Governance package or publish a Njord-owned
 > record.
-> The shared Pantheon runtime may inject the same durable StateStore into Var for final approval
-> replay, Vidar for rollback claim replay, and Norns for bounded startup recovery of pending
-> handoff-learning work. Those lifecycle and learner records cannot install, activate,
-> configure, publish, or grant data access to the Cost Governance package.
-> Enforce composition names Vidar and Var durable bindings separately from Thor's store. Supplying
-> the same provider instance through all exact parameters still grants no Cost Governance package
-> activation, data, publication, or execution authority.
-> Non-agent runtime observation consumers likewise record replay and health evidence only; they do
-> not change Njord ownership, package activation, or action authority.
+> The shared Pantheon runtime may inject the same durable StateStore into Var for final approval replay, Vidar for rollback claim replay, and Norns for bounded startup recovery of pending handoff-learning work. Those lifecycle and learner records cannot install, activate, configure, publish, or grant data access to the Cost Governance package.
+> Enforce composition names Vidar and Var durable bindings separately from Thor's store. Supplying the same provider instance through all exact parameters still grants no Cost Governance package activation, data, publication, or execution authority.
+> Non-agent runtime observation consumers likewise record replay and health evidence only; they do not change Njord ownership, package activation, or action authority.
 > Shared Pantheon composition also binds reviewed test-context reads and case-derived retention.
 > These bindings cannot activate Cost Governance, publish Njord records, or raise package authority.
 > The separately typed ontology ContextIndex path keeps Muninn preparation, Heimdall validation,

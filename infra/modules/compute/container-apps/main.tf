@@ -68,6 +68,7 @@ locals {
     observation  = length("${var.core_app_name}-observation") <= 32 ? "${var.core_app_name}-observation" : "${local.core_job_name_prefix}-observation"
     ohl_evidence = length("${var.core_app_name}-ohl-evidence") <= 32 ? "${var.core_app_name}-ohl-evidence" : "${local.core_job_name_prefix}-ohl-evidence"
     scheduler    = length("${var.core_app_name}-scheduler") <= 32 ? "${var.core_app_name}-scheduler" : "${local.core_job_name_prefix}-scheduler"
+    slo_burn     = length("${var.core_app_name}-slo-burn") <= 32 ? "${var.core_app_name}-slo-burn" : "${local.core_job_name_prefix}-slo-burn"
     wara         = length("${var.core_app_name}-wara") <= 32 ? "${var.core_app_name}-wara" : "${local.core_job_name_prefix}-wara"
   }
   core_config_env = {

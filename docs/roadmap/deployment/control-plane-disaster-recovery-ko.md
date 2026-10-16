@@ -1,8 +1,8 @@
 ---
 title: 컨트롤 플레인 재해 복구
 translation_of: control-plane-disaster-recovery.md
-translation_source_sha: a49bc6fd5835b50ca0c13b78d5ff255b6dff36ef
-translation_revised: 2026-10-01
+translation_source_sha: 0b274133da6f80968f726ce5cac97032e0a21f74
+translation_revised: 2026-10-15
 ---
 
 # 컨트롤 플레인 재해 복구
@@ -132,7 +132,9 @@ draft -> ready -> approved -> activating -> primary_fenced
  연결합니다. 훈련은 같은 순서를 사용하지만 운영 트래픽을 받을 수 없습니다.
 2. **기본 fencing:** kill 전환을 활성화하고 이전 실행기 경로를 철회 또는 isolate한 뒤
  단조 증가하는 복구 epoch를 획득합니다. Fence가 독립적으로 관측되기 전까지 보조
- 실행은 비활성 상태를 유지합니다.
+ 실행은 비활성 상태를 유지합니다. Operator HTTP `202`는 형식이 지정된 명령이 게시되었음만
+ 보여 줍니다. 복구 계획은 epoch를 할당하기 전에 Var가 기록한 정확한 engaged 상태 개정 번호와
+ 일치하는 요청 ID를 독립적으로 조회해야 합니다.
 3. **의존성 준비:** Terraform 상태와 이미지 다이제스트를 검증하고 복구 네트워크, 신원,
  비공개 DNS, RBAC, Key Vault strategy, Event Hubs 이름 공간 및 observability 경로를
  provision하거나 검증합니다.

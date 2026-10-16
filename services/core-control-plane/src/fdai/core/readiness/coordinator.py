@@ -346,6 +346,7 @@ def compose_readiness_report(
     preflight_findings: Sequence[ProbeFinding],
     mode: Mode,
     generated_at: str,
+    transfer_id: str | None = None,
     blocking_min_severity: Severity = "high",
     checklist_results: Sequence[ChecklistControlResult] = (),
 ) -> ReadinessReport:
@@ -442,6 +443,7 @@ def compose_readiness_report(
         mode=mode,
         verdict=verdict,
         findings=findings_t,
+        transfer_id=transfer_id,
     )
 
 

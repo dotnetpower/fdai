@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 8cfb233b78a70870d302a23e537bb3472207ca52
+translation_source_sha: ac554ff7b8b42c24e81d7c99b6e41601effb5427
 translation_revised: 2026-10-15
 ---
 
@@ -568,12 +568,27 @@ Forseti의 최신 버전 2 baseline 커버리지가 있으면 `GET /rules/findin
 형식이 잘못되었거나 권한을 담은 평가 프로젝션은 알 수 없음 상태 대신 `503`을 반환합니다. Console은
 이 값을 표시할 뿐 충족 상태를 계산하지 않습니다.
 
+### 13.16 전역 비상 정지 요청
+
+`POST /system/kill-switch`에는 새 인증을 거친 사람 Owner 또는 BreakGlass principal,
+`Idempotency-Key` 헤더, `engaged`와 `reason`만 담은 JSON 본문이 필요합니다. Operator API는
+정확한 actor, 역할, 인증 시각, 요청 시각, 상태, 사유, 상관관계, idempotency key에 서명한 뒤
+`operator.kill-switch.requests`를 게시합니다. HTTP `202`는 게시 후 요청 ID와 다이제스트를
+반환합니다. 실행기 권한을 부여하지 않으며 상태 변경을 입증하지도 않습니다.
+
+Var가 이 요청을 처리할 책임이 있습니다. Var는 Core 명령 서비스가 `system:kill-switch` 상태와
+감사 항목을 compare-and-set으로 기록하기 전에 서명된 Operator 증적, producer, 사람 신원,
+Owner 또는 BreakGlass 역할, 인증 유효 기간, 상관관계, 재생 방지 상태를 다시 검증합니다. 결과
+상태 개정 번호를 권한에 따라 조회하는 화면은 아직 구현되지 않았습니다. 따라서 독립적인 저장소
+관측을 보존하기 전에는 실제 활성화 또는 비활성화 훈련이 완료되지 않습니다.
+
 ## 구현 상태
 
 ### 구현 범위
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 전역 비상 정지 HTTP 및 명령 이벤트 | implemented | `0398357455`; 공유 계약과 생성된 스키마; Operator IAM 경로; Var 증적 게이트 및 명령 처리기; 집중 계약, Operator, 에이전트, 런타임 테스트 | HTTP `202`는 형식이 지정된 게시만 보여 줍니다. 권한이 부여된 상태 개정 번호 조회와 보존된 배포 훈련은 아직 남아 있습니다. |
 | GitHub 지식 소스 요청 및 표시 데이터 | implemented | `425fda52ead9`; `fdai_service_contracts/knowledge_github.py`; `knowledge_github_projection.py`; 연결 집중 테스트 | Owner 연결 및 해제에는 버전을 확인하는 형식화된 요청을 사용하며 자격 증명 값이나 스캔 동의 필드는 받지 않습니다. 기존 Incident 확인과 실행 권한은 변경하지 않습니다. |
 | 감사 및 읽기 전용 wire 변환 결과 | implemented | Operator family 매니페스트 및 변환 결과; `services/operator-service/tests/test_operator_service_composition.py`; Console trace 테스트 | 기본 GET/HEAD 경로, 범위가 제한된 묶음 및 사용 불가 동작에 focused 검사가 있습니다. |
 | Exact-release 온톨로지 레지스트리 및 워크벤치 | implemented | `ontology_declaration_projection.py`; `ontology_dependents_projection.py`; `ontology_evidence_health_projection.py`; `ontology_release_diff_projection.py`; Operator operations 경로; `console/src/routes/ontology-object-type-detail.tsx`; focused Python 및 Console 검사 | 정확한 선언 상세, 서버 측 redaction, 범위가 제한된 종속 항목, 정직한 근거 상태, 보존 release 비교, clean route, 권한 없는 렌더링이 구현됐습니다. 인증된 로컬 Browser에서 `Decision`과 `Resource` 경로에 overflow, 원시 resource id, execute control이 없음을 확인했지만 관리되는 Browser 산출물은 보존하지 않았습니다. |
@@ -599,6 +614,7 @@ Incident 또는 실행 권한은 바뀌지 않았습니다.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-15 | implemented | 비활성 비상 정지 제안 응답을 새 인증을 거친 서명된 `operator.kill-switch.requests` 요청으로 교체했습니다. Var가 이를 소비한 뒤 Core 상태 및 감사 compare-and-set을 수행합니다. | `0398357455`; 보안 원장에 기록된 집중 구현 테스트와 구조 검사. | 권한이 부여된 상태 조회를 추가하고 활성화-실행 차단-비활성화 배포 근거를 보존합니다. |
 | 2026-10-09 | implemented | 기존 저장소 변경 작업으로 GitHub 지식 GET 표시 데이터와 Owner 전용 연결 및 해제 요청을 추가했습니다. 스캔 동의와 모든 Incident 및 쓰기 권한 경계를 계속 분리합니다. | `425fda52ead9`, `b92824a9c150`; 연결 및 백엔드 테스트 153개 통과; 전체 Operator 구성 테스트 29개 통과. | 설치된 환경의 인증된 연결 및 재확인 근거는 별도입니다. 새 Incident 또는 관리 리소스 확인 권한을 추가하지 않습니다. |
 | 2026-10-07 | implemented | 최종 wire, Incident 생성 또는 권한을 바꾸지 않고 이후 컬렉션 출력을 위한 범위가 제한된 의미 답변 공간을 예약했습니다. | [이슈 #1970](https://github.com/dotnetpower/fdai/issues/1970), `current change`, 집중 의미 턴 및 검증 행 테스트 | 실제 presentation 근거는 별도입니다. |
 | 2026-10-07 | implemented | 규칙 점검 결과 요약의 wire 형식을 문서화했습니다. 요약은 이제 Forseti의 최신 버전 2 baseline 커버리지를 읽고, 불완전한 커버리지는 제한 코드와 함께 평가되지 않음으로 보고하며, Core baseline 작업기 설정을 나열합니다. | `current change`; `workflow_rule_projection.py`; `services/operator-service/tests/test_rule_findings_summary_admission.py`(20개 통과); `services/core-control-plane/tests/runtime/test_baseline_evaluation_binding.py`(8개 통과). | 이 계약에 남은 작업은 없습니다. |

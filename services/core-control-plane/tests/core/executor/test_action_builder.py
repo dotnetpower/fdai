@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
@@ -31,6 +32,8 @@ from fdai.shared.contracts.models import (
     Severity,
 )
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
+from fdai.shared.ontology.release import build_ontology_release
+from fdai_service_contracts.readiness_remediation import ReadinessRemediationRequest
 
 REPO_ROOT = Path(__file__).resolve().parents[5]
 ACTION_TYPES_ROOT = REPO_ROOT / "rule-catalog" / "action-types"
@@ -358,6 +361,217 @@ def test_build_from_operator_request_rejects_non_schema_arguments() -> None:
         builder.build_from_operator_request(
             event=_operator_event(extra_params={"workflow_ref": "scheduled-gpu-task"})
         )
+
+
+def test_operator_request_rejects_rule_violation_only_remediation() -> None:
+    action_type = _shipped_action_types()["remediate.tag-add"]
+    builder = ActionBuilder(action_types_by_name={action_type.name: action_type})  # type: ignore[attr-defined]
+    event = _operator_event().model_copy(
+        update={
+            "payload": {
+                "operator_request": {
+                    "initiator_principal": "operator-1",
+                    "action_type": "remediate.tag-add",
+                    "params": {},
+                }
+            }
+        }
+    )
+
+    with pytest.raises(ActionBuildError, match="does not allow operator_request triggers"):
+        builder.build_from_operator_request(event=event)
+
+
+def _readiness_remediation_event(
+    *,
+    action_type: str = "remediate.tag-add",
+    params: dict[str, object] | None = None,
+    target_revision: str = "inventory-revision-7",
+) -> Event:
+    target = "resource:storage/account/example"
+    now = datetime(2026, 10, 15, tzinfo=UTC)
+    request = ReadinessRemediationRequest.create(
+        idempotency_key="orr-remediation:" + "a" * 32,
+        action_type=action_type,
+        target_resource_ref=target,
+        target_revision=target_revision,
+        params=params if params is not None else {},
+        citing_rule_ids=("readiness.owner-tag.required",),
+        evidence_refs=("evidence:orr:owner-tag",),
+        submitter="handoff-owner",
+        approver="operations-approver",
+        approved_at=now,
+        requested_at=now,
+        severity="high",
+    )
+    return Event.model_validate(
+        {
+            "schema_version": "1.0.0",
+            "event_id": "00000000-0000-0000-0000-000000000102",
+            "idempotency_key": request.idempotency_key,
+            "correlation_id": request.request_id,
+            "source": "operational_readiness",
+            "event_type": "readiness_remediation_request",
+            "resource_ref": target,
+            "payload": {"readiness_remediation_request": request.model_dump(mode="json")},
+            "detected_at": now,
+            "ingested_at": now,
+            "mode": "shadow",
+        }
+    )
+
+
+def _readiness_rules(action_type: str) -> dict[str, Rule]:
+    rule = _rule("readiness.owner-tag.required", action_type)
+    return {rule.id: rule}
+
+
+def test_build_from_readiness_remediation_preserves_grounded_shadow_request() -> None:
+    action_type = _shipped_action_types()["remediate.tag-add"]
+    release = build_ontology_release(action_types=(action_type,))  # type: ignore[arg-type]
+    builder = ActionBuilder(  # type: ignore[attr-defined]
+        action_types_by_name={action_type.name: action_type},
+        ontology_release=release,
+        rules_by_id=_readiness_rules(action_type.name),
+    )
+
+    action, rule = builder.build_from_readiness_remediation(
+        event=_readiness_remediation_event(target_revision=release.digest)
+    )
+
+    assert action.action_type == "remediate.tag-add"
+    assert action.mode is Mode.SHADOW
+    assert action.citing_rules == ["readiness.owner-tag.required"]
+    assert action.params == {}
+    assert action.target_resource_ref == "resource:storage/account/example"
+    request = ReadinessRemediationRequest.model_validate(
+        _readiness_remediation_event(target_revision=release.digest).payload[
+            "readiness_remediation_request"
+        ]
+    )
+    assert action.idempotency_key == request.request_id
+    assert rule.id.startswith("operational-readiness.orr-remediation-")
+    assert rule.id not in action.citing_rules
+    assert rule.remediates == action.action_type
+
+
+def test_build_from_readiness_remediation_rejects_operator_only_action_type() -> None:
+    action_type = _shipped_action_types()["tool.run-investigation"]
+    release = build_ontology_release(action_types=(action_type,))  # type: ignore[arg-type]
+    builder = ActionBuilder(  # type: ignore[attr-defined]
+        action_types_by_name={action_type.name: action_type},
+        ontology_release=release,
+    )
+
+    with pytest.raises(ActionBuildError, match="does not allow rule_violation triggers"):
+        builder.build_from_readiness_remediation(
+            event=_readiness_remediation_event(
+                action_type="tool.run-investigation",
+                params={},
+                target_revision=release.digest,
+            )
+        )
+
+
+def test_build_from_readiness_remediation_rejects_unknown_cited_rule() -> None:
+    action_type = _shipped_action_types()["remediate.tag-add"]
+    release = build_ontology_release(action_types=(action_type,))  # type: ignore[arg-type]
+    builder = ActionBuilder(  # type: ignore[attr-defined]
+        action_types_by_name={action_type.name: action_type},
+        ontology_release=release,
+    )
+
+    with pytest.raises(ActionBuildError, match="cited rule .* is not registered"):
+        builder.build_from_readiness_remediation(
+            event=_readiness_remediation_event(target_revision=release.digest)
+        )
+
+
+def test_build_from_readiness_remediation_rejects_mismatched_cited_rule() -> None:
+    action_type = _shipped_action_types()["remediate.tag-add"]
+    release = build_ontology_release(action_types=(action_type,))  # type: ignore[arg-type]
+    builder = ActionBuilder(  # type: ignore[attr-defined]
+        action_types_by_name={action_type.name: action_type},
+        ontology_release=release,
+        rules_by_id=_readiness_rules("remediate.tag-remove"),
+    )
+
+    with pytest.raises(ActionBuildError, match="does not remediate"):
+        builder.build_from_readiness_remediation(
+            event=_readiness_remediation_event(target_revision=release.digest)
+        )
+
+
+def test_build_from_readiness_remediation_rejects_invalid_arguments() -> None:
+    action_type = _shipped_action_types()["remediate.tag-add"]
+    release = build_ontology_release(action_types=(action_type,))  # type: ignore[arg-type]
+    builder = ActionBuilder(  # type: ignore[attr-defined]
+        action_types_by_name={action_type.name: action_type},
+        ontology_release=release,
+    )
+
+    with pytest.raises(ActionBuildError, match="argument_schema"):
+        builder.build_from_readiness_remediation(
+            event=_readiness_remediation_event(
+                params={"tag_name": "owner"},
+                target_revision=release.digest,
+            )
+        )
+
+
+def test_build_from_readiness_remediation_rejects_untrusted_event_source() -> None:
+    action_type = _shipped_action_types()["remediate.tag-add"]
+    release = build_ontology_release(action_types=(action_type,))  # type: ignore[arg-type]
+    builder = ActionBuilder(  # type: ignore[attr-defined]
+        action_types_by_name={action_type.name: action_type},
+        ontology_release=release,
+    )
+    event = _readiness_remediation_event().model_copy(update={"source": "example"})
+
+    with pytest.raises(ActionBuildError, match="source or type is invalid"):
+        builder.build_from_readiness_remediation(event=event)
+
+
+def test_build_from_readiness_remediation_rejects_idempotency_identity_mismatch() -> None:
+    action_type = _shipped_action_types()["remediate.tag-add"]
+    release = build_ontology_release(action_types=(action_type,))  # type: ignore[arg-type]
+    builder = ActionBuilder(  # type: ignore[attr-defined]
+        action_types_by_name={action_type.name: action_type},
+        ontology_release=release,
+    )
+    event = _readiness_remediation_event(target_revision=release.digest).model_copy(
+        update={"idempotency_key": "different-envelope-key"}
+    )
+
+    with pytest.raises(ActionBuildError, match="idempotency identity does not match"):
+        builder.build_from_readiness_remediation(event=event)
+
+
+def test_build_from_readiness_remediation_rejects_action_outside_active_release() -> None:
+    action_type = _shipped_action_types()["remediate.tag-add"]
+    release = build_ontology_release(action_types=(action_type,))  # type: ignore[arg-type]
+    mismatched = action_type.model_copy(update={"version": "9.9.9"})
+    builder = ActionBuilder(  # type: ignore[attr-defined]
+        action_types_by_name={mismatched.name: mismatched},
+        ontology_release=release,
+    )
+
+    with pytest.raises(ActionBuildError, match="outside the active release"):
+        builder.build_from_readiness_remediation(
+            event=_readiness_remediation_event(target_revision=release.digest)
+        )
+
+
+def test_build_from_readiness_remediation_rejects_stale_ontology_release() -> None:
+    action_type = _shipped_action_types()["remediate.tag-add"]
+    release = build_ontology_release(action_types=(action_type,))  # type: ignore[arg-type]
+    builder = ActionBuilder(  # type: ignore[attr-defined]
+        action_types_by_name={action_type.name: action_type},
+        ontology_release=release,
+    )
+
+    with pytest.raises(ActionBuildError, match="target revision is stale"):
+        builder.build_from_readiness_remediation(event=_readiness_remediation_event())
 
 
 def test_operator_action_idempotency_key_stays_within_vm_request_bound() -> None:

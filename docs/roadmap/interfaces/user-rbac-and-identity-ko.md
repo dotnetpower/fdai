@@ -1,8 +1,8 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: aad886537ebc9b3636fb883a5cabc481cbc2fd08
-translation_revised: 2026-10-08
+translation_source_sha: eb766fcf83873ca46fb3d7e5b6b78167be5fe2ba
+translation_revised: 2026-10-15
 ---
 
 # 사용자 RBAC와 Entra 아이덴티티
@@ -159,12 +159,14 @@ CODEOWNERS 경로, 앱 레벨 정당화에서 옴.
 실행할 수 없으며 principal 역할을 높이지 않습니다. 그 밖의 모든 제안 및 POST 스트림 작업은
 문서화된 역할 하한을 유지합니다.
 
-운영 API는 영속 명령 서비스가 연결된 경우에만 `POST /system/kill-switch`를
-노출합니다. Owner 또는 externally activated BreakGlass 역할은 기능 검사를 통과하지만,
-현재 운영 auth 조립에는 BreakGlass activation 경로가 없으므로 일반 토큰 해석에서
-도달 가능한 emergency 호출자는 Owner입니다. 읽기 담당, 기여자, Approver는 호출할 수 없습니다.
-이 엔드포인트는 콘솔 버튼이 아니며 실행기 신원을 사용하지 않고 개정 번호 상태 변경과
-감사 항목을 원자적으로 기록합니다.
+운영 API는 새 인증, 서명된 요청 증적, Event Bus 게시가 연결된 경우에만
+`POST /system/kill-switch`를 노출합니다. Owner 또는 외부에서 활성화된 BreakGlass 역할은 기능
+검사를 통과하지만, 현재 운영 인증 조립에는 BreakGlass 활성화 경로가 없습니다. 따라서 일반
+토큰 해석으로 비상 요청을 보낼 수 있는 역할은 Owner입니다. Reader, Contributor, Approver는
+호출할 수 없습니다. 요청에는 `Idempotency-Key`, `engaged`, `reason`을 지정합니다. API는 형식이
+지정된 요청을 게시한 뒤 HTTP `202`를 반환합니다. 이어서 Var가 서명된 요청을 검증하고 개정
+번호가 있는 Core 상태와 감사 항목을 원자적으로 기록합니다. 이 엔드포인트는 콘솔 버튼이
+아니며 실행기 신원을 사용하지 않습니다. `202` 응답만으로는 상태 변경을 확인할 수 없습니다.
 
 `manage-model-bindings` 기능도 Owner 전용입니다. 리비전이 있는 정책 초안과 권한 없는 평가 또는
 문서 OCR 공급자 정책을 포함한 보호된 계획 요청을 허용합니다. Terraform 적용, 공급자 변경,

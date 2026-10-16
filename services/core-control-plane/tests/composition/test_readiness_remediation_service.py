@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import replace
 from typing import Any
 
 import pytest
@@ -209,6 +210,33 @@ async def test_report_from_another_transfer_is_refused() -> None:
 
     assert publisher.proposals == []
     assert _remediation_audits(store)[0]["outcome"] == "report_signal_mismatch"
+
+
+async def test_report_with_foreign_transfer_identity_is_refused() -> None:
+    publisher = _ProposalPublisher()
+    service, store, _ = _service(proposal_publisher=publisher, findings=(_finding(),))
+    report = replace(await service.review(_signal()), transfer_id="corr-other")
+
+    with pytest.raises(ValueError, match="does not belong to this ownership transfer"):
+        await service.propose_remediations(signal=_signal(), report=report, approval=_approval())
+
+    assert publisher.proposals == []
+    assert _remediation_audits(store)[0]["outcome"] == "report_signal_mismatch"
+
+
+async def test_stale_report_is_refused() -> None:
+    publisher = _ProposalPublisher()
+    service, store, _ = _service(proposal_publisher=publisher, findings=(_finding(),))
+    report = replace(
+        await service.review(_signal()),
+        generated_at="2026-08-15T23:44:59+00:00",
+    )
+
+    with pytest.raises(ValueError, match="report is stale"):
+        await service.propose_remediations(signal=_signal(), report=report, approval=_approval())
+
+    assert publisher.proposals == []
+    assert _remediation_audits(store)[0]["outcome"] == "report_stale"
 
 
 async def test_repeated_proposal_pass_reuses_the_same_idempotency_key() -> None:

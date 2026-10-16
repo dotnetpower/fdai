@@ -2,8 +2,8 @@
 title: 컨트롤 플레인 Regional Failover 및 Failback
 summary: Split-brain execution이나 검증되지 않은 replay 없이 승인된 FDAI recovery plan 하나를 운영합니다.
 translation_of: control-plane-failover.md
-translation_source_sha: 9ee28a25b659ddb0340a17d9dcd6b23e553f8cc6
-translation_revised: 2026-08-23
+translation_source_sha: bc52ad32bda026dd98b6315e171913417f272994
+translation_revised: 2026-10-15
 ---
 
 # 컨트롤 플레인 Regional 장애 조치 및 Failback
@@ -75,7 +75,7 @@ Operator는 승인된 interactive 신원 흐름으로 `FDAI_OPERATOR_BEARER_TOKE
 1. 현재 저장소 산출물과 운영 근거를 검증합니다.
 
  ```bash
- 테스트 "$(git rev-parse 헤드)" = "$FDAI_COMMIT_SHA"
+ test "$(git rev-parse HEAD)" = "$FDAI_COMMIT_SHA"
  python3 scripts/governance/check-arb-readiness.py --require-production-ready
  fdaictl doctor --config "$FDAI_ENVIRONMENT_CONFIG" --output json
  fdaictl deploy preflight \
@@ -84,20 +84,25 @@ Operator는 승인된 interactive 신원 흐름으로 `FDAI_OPERATOR_BEARER_TOKE
   --output json
  ```
 
-2. 장애 시작, last successful canary, 최신 감사 체크포인트, 현재 이벤트 체크포인트,
- 활성 프로세스 실행 및 in-flight privileged 액션을 기록합니다.
-3. Owner 또는 Break-Glass principal로 global kill 전환을 활성화합니다.
+2. 장애 시작 시각, 마지막으로 성공한 canary, 최신 감사 체크포인트, 현재 이벤트 체크포인트,
+   활성 Process 실행, 진행 중인 권한 작업을 기록합니다.
+3. Owner 또는 Break-Glass principal로 전역 비상 정지를 활성화합니다.
 
  ```bash
  curl --fail --silent --show-error \
-  -H "권한 확인: Bearer $FDAI_OPERATOR_BEARER_TOKEN" \
-  -H 'Content-Type: 애플리케이션/json' \
-  -d "{\"engaged\":true,\"사유\":\"Regional 복구 fence for 계획 $FDAI_RECOVERY_PLAN_ID\",\"request_id\":\"$FDAI_RECOVERY_PLAN_ID-fence-$FDAI_RECOVERY_EPOCH\"}" \
-    "$FDAI_OPERATOR_API_BASE_URL/system/비상 정지"
+  -H "Authorization: Bearer $FDAI_OPERATOR_BEARER_TOKEN" \
+  -H 'Content-Type: application/json' \
+  -H "Idempotency-Key: $FDAI_RECOVERY_PLAN_ID-fence-$FDAI_RECOVERY_EPOCH" \
+  -d "{\"engaged\":true,\"reason\":\"Regional recovery fence for plan $FDAI_RECOVERY_PLAN_ID\"}" \
+  "$FDAI_OPERATOR_API_BASE_URL/system/kill-switch"
  ```
 
-4. 새 스케줄러 전달과 승인 전달을 중단합니다. 기존 액션 증적은 근거로
- 유지하며 replacement 액션을 발행하지 않습니다.
+ HTTP `202`는 형식이 지정된 요청이 게시되었음만 보여 줍니다. 계속하기 전에 독립적인 영속
+ 상태 조회로 `engaged: true`, 새 개정 번호, 이 요청 ID가 함께 기록되었는지 확인합니다. 조회할
+ 수 없거나 값이 일치하지 않으면 훈련을 중단합니다.
+
+4. 새 스케줄러 전달과 승인 전달을 중단합니다. 기존 작업 증적은 근거로 유지하며 대체 작업을
+   발행하지 않습니다.
 
 ## 단계 2 - 기본 fencing
 

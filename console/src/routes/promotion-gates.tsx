@@ -22,6 +22,7 @@ import {
   panelNonEmptyString,
   panelNonNegativeInteger,
   panelNonNegativeNumber,
+  panelNullableString,
   panelNumber,
   panelRatio,
   panelRecord,
@@ -40,6 +41,7 @@ interface Row {
   readonly mode_source: "catalog-default" | "promotion-registry";
   readonly promotion_kind: "gate_evidence" | "operator_override";
   readonly operator_override: OperatorOverride | null;
+  readonly capability_recall: CapabilityRecall | null;
   readonly shadow_days_elapsed: number;
   readonly sample_count: number;
   readonly reviewed_count: number;
@@ -48,6 +50,14 @@ interface Row {
   readonly accuracy: number;
   readonly ready: boolean;
   readonly gaps: readonly string[];
+}
+
+interface CapabilityRecall {
+  readonly action_type: string;
+  readonly active: boolean;
+  readonly reason: string;
+  readonly recalled_at: string;
+  readonly lifted_at: string | null;
 }
 
 interface OperatorOverride {
@@ -102,7 +112,8 @@ export function filterPromotionRows(
     if (statusFilter === "blocked" && row.ready) return false;
     if (reason === "policy-escape" && row.policy_escapes <= 0) return false;
     return !needle || row.action_type_name.toLocaleLowerCase().includes(needle) ||
-      row.gaps.some((gap) => gap.toLocaleLowerCase().includes(needle));
+      row.gaps.some((gap) => gap.toLocaleLowerCase().includes(needle)) ||
+      row.capability_recall?.reason.toLocaleLowerCase().includes(needle) === true;
   });
 }
 
@@ -226,12 +237,17 @@ export function decodePromotionGates(value: unknown): Response {
         throw new OperatorApiError(502, t("governance.promotion.error.promotionKind"));
       }
       const operatorOverride = decodeOperatorOverride(row["operator_override"], promotionKind);
+      const capabilityRecall = decodeCapabilityRecall(row["capability_recall"]);
+      if (capabilityRecall?.active === true && mode !== "shadow") {
+        throw new OperatorApiError(502, t("governance.promotion.error.recallMode"));
+      }
       return {
         action_type_name: panelNonEmptyString(row, "action_type_name", "promotion gate row"),
         mode,
         mode_source: modeSource,
         promotion_kind: promotionKind,
         operator_override: operatorOverride,
+        capability_recall: capabilityRecall,
         shadow_days_elapsed: panelNonNegativeNumber(row, "shadow_days_elapsed", "promotion gate row"),
         sample_count: panelNonNegativeInteger(row, "sample_count", "promotion gate row"),
         reviewed_count: reviewedCount,
@@ -252,6 +268,35 @@ export function decodePromotionGates(value: unknown): Response {
     ready_count: readyCount,
     blocked_count: blockedCount,
     rows,
+  };
+}
+
+function decodeCapabilityRecall(value: unknown): CapabilityRecall | null {
+  if (value === null || value === undefined) return null;
+  const recall = panelRecord(value, "promotion gate row.capability_recall");
+  const active = panelBoolean(recall, "active", "promotion gate row.capability_recall");
+  const liftedAt = panelNullableString(
+    recall,
+    "lifted_at",
+    "promotion gate row.capability_recall",
+  );
+  if (active !== (liftedAt === null)) {
+    throw new OperatorApiError(502, t("governance.promotion.error.recallState"));
+  }
+  return {
+    action_type: panelNonEmptyString(
+      recall,
+      "action_type",
+      "promotion gate row.capability_recall",
+    ),
+    active,
+    reason: panelNonEmptyString(recall, "reason", "promotion gate row.capability_recall"),
+    recalled_at: panelNonEmptyString(
+      recall,
+      "recalled_at",
+      "promotion gate row.capability_recall",
+    ),
+    lifted_at: liftedAt,
   };
 }
 
@@ -342,6 +387,7 @@ function PromotionBody({
           mode_source: r.mode_source,
           promotion_kind: r.promotion_kind,
           operator_override: r.operator_override,
+          capability_recall: r.capability_recall,
           ready: r.ready,
           shadow_days_elapsed: r.shadow_days_elapsed,
           sample_count: r.sample_count,
@@ -385,6 +431,19 @@ function PromotionBody({
               </small>
             )
             : null}
+          {r.capability_recall?.active === true ? (
+            <div class="stack compact">
+              <StatusPill
+                kind="danger"
+                label={t("governance.promotion.recall.marker")}
+              />
+              <small class="muted">
+                {t("governance.promotion.recall.reason", {
+                  reason: r.capability_recall.reason,
+                })}
+              </small>
+            </div>
+          ) : null}
         </div>
       ),
     },

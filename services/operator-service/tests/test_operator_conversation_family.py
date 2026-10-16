@@ -451,6 +451,44 @@ async def test_mutations_only_append_scoped_idempotent_proposals() -> None:
     assert outbox.proposals[-1].cancellation is True
 
 
+async def test_background_creation_validates_typed_request_before_outbox() -> None:
+    outbox = _Outbox()
+    async with AsyncClient(
+        transport=ASGITransport(app=_app(outbox=outbox)), base_url="http://test"
+    ) as client:
+        invalid = await client.post(
+            "/background-tasks",
+            headers={"Idempotency-Key": "background-invalid"},
+            json={
+                "prompt": "Inspect the current resource state.",
+                "intent": "resource_state",
+                "resource_name": "example-vm",
+                "unexpected": True,
+            },
+        )
+        accepted = await client.post(
+            "/background-tasks",
+            headers={"Idempotency-Key": "background-valid"},
+            json={
+                "prompt": "Inspect the current resource state.",
+                "intent": "resource_state",
+                "resource_name": "example-vm",
+                "explicit_deep": False,
+            },
+        )
+
+    assert invalid.status_code == 400
+    assert invalid.json()["error"]["code"] == "invalid_read_investigation_request"
+    assert accepted.status_code == 202
+    assert len(outbox.proposals) == 1
+    assert outbox.proposals[0].body == {
+        "prompt": "Inspect the current resource state.",
+        "intent": "resource_state",
+        "resource_name": "example-vm",
+        "explicit_deep": False,
+    }
+
+
 async def test_incident_confirmation_uses_the_dedicated_typed_boundary() -> None:
     outbox = _Outbox()
     async with AsyncClient(

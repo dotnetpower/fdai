@@ -10,10 +10,10 @@ FDAI evaluates workload-facing service level indicators (SLIs), objectives,
 error budgets, and multi-window burn rates so incident priority and change
 decisions can use measured reliability evidence.
 
-> The upstream SLO registry, evaluator, and event runner are implemented. Live
-> evaluation remains partial until a deployment binds a real `MetricProvider`
-> and schedules the runner. Workload SLOs are distinct from FDAI control-plane
-> health objectives.
+> The SLO registry, evaluator, event runner, one-shot command, and optional Container Apps schedule
+> are implemented. Live evaluation remains partial until a deployment packages a non-empty
+> workload catalog, binds an authoritative `MetricProvider`, enables the schedule, and retains run
+> evidence. Workload SLOs are distinct from FDAI control-plane health objectives.
 
 ## Define the objective
 
@@ -56,6 +56,11 @@ does not prescribe one universal numeric pair because service traffic and
 objectives differ. FDAI evaluates the configured pair deterministically and
 records both window results, including a no-detected issue outcome, so operators can
 reproduce why an alert fired or held.
+
+`python -m fdai.delivery.slo_burn_cli` runs one bounded evaluation pass. A deployment enables the
+optional `slo_burn_cron_expression` only after its workload SLO YAML is present in the configured
+catalog path. An empty catalog is a configuration error, and missing metric samples return
+`retry_required` rather than a successful all-clear.
 
 ## From breach to response
 

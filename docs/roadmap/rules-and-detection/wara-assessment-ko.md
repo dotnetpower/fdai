@@ -1,8 +1,8 @@
 ---
 title: WARA 근거 기반 평가
 translation_of: wara-assessment.md
-translation_source_sha: 15190768a4d8a79900aacf657f161dd282cd849b
-translation_revised: 2026-10-08
+translation_source_sha: eca0e45646b50b992a8e5646e759583854af45f1
+translation_revised: 2026-10-15
 ---
 # WARA 근거 기반 평가
 
@@ -181,7 +181,8 @@ Operator 조립 루트는 검토된 fanout 상한을 유지하기 위해 하나�
 WARA 조회 결과를 갱신하거나 근거/준비 상태 요구 사항을 충족하지 않습니다. WARA의 기존 범위,
 고정 쿼리, 소비자 격리 및 준비 상태 기준은 그대로 유지됩니다.
 공유 거버넌스 Console 카탈로그의 운영자 재정의 승격 레이블은 WARA 조회 결과, 근거 또는 준비 상태를
-바꾸지 않습니다.
+바꾸지 않습니다. 활성 capability recall은 ActionType을 shadow로 강제하고 승격 준비 완료 수에서
+제외한 뒤 범위가 제한된 사유를 표시하지만 WARA를 바꾸지 않습니다.
 알림 요청 이력 쿼리는 자체 발신함 네임스페이스, principal 및 정확한 범위만 선택합니다.
 서명된 최종 결과와 기준선 상세로 WARA 평가 상태를 충족하거나 갱신하지 않습니다.
 

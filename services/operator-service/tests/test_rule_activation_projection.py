@@ -9,6 +9,7 @@ from fdai_operator_service.families.workflow.contracts import (
 )
 from fdai_operator_service.family_adapters import PostgresWorkflowAdapters
 from fdai_operator_service.postgres_family_models import StoredStatePage
+from fdai_operator_service.workflow_rule_projection import rule_activation_status_payload
 from fdai_service_contracts.rule_activation import (
     RuleActivationDelta,
     RuleActivationGeneration,
@@ -130,4 +131,43 @@ async def test_status_uses_string_revision_and_includes_pending_requests() -> No
     assert result.payload["active_rule_ids"] == ["rule.alpha"]
     pending = cast(list[dict[str, object]], result.payload["pending_requests"])
     assert pending[0]["request_id"] == "operator-" + "e" * 32
+    assert pending[0]["proposal_digest"] == proposal.proposal_digest
+
+
+def test_status_projection_reads_version_two_with_version_one_semantics() -> None:
+    generation = _generation()
+    proposal = _proposal()
+    generation_payload = generation.model_dump(mode="json")
+    proposal_payload = proposal.model_dump(mode="json")
+
+    result = rule_activation_status_payload(
+        {
+            "schema_version": "2.0.0",
+            "kind": "rule_activation.current",
+            "revision": 2,
+            "generation_id": generation.generation_id,
+            "generation_digest": generation.generation_digest,
+            "source": "installation",
+            "source_ref": "runtime-artifact:baseline",
+            "requested_by": "release-signer",
+            "approver_ids": ["deployment-approver"],
+            "activated_at": NOW.isoformat(),
+        },
+        {
+            "schema_version": "2.0.0",
+            "kind": "rule_activation.generation",
+            "generation": {**generation_payload, "schema_version": "2.0.0"},
+        },
+        (
+            {
+                "schema_version": "2.0.0",
+                "kind": "rule_activation.request",
+                "operator_proposal_id": "operator-" + "e" * 32,
+                "proposal": {**proposal_payload, "schema_version": "2.0.0"},
+            },
+        ),
+    )
+
+    assert result["generation_digest"] == generation.generation_digest
+    pending = cast(list[dict[str, object]], result["pending_requests"])
     assert pending[0]["proposal_digest"] == proposal.proposal_digest

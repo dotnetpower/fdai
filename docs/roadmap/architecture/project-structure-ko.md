@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 17e6b1539afb92402d3ae9ca063bf933d11f20c0
-translation_revised: 2026-10-15
+translation_source_sha: 4f82db13ef14977e521a6c7d4b77e465bb2f6c2b
+translation_revised: 2026-10-16
 ---
 # 프로젝트 구조
 
@@ -60,6 +60,13 @@ Operator 또는 문서 route가 답하기 전에 보류됩니다.
 Resource Health 답변 조합도 같은 분리를 따릅니다. `ontology_platform`은 타입이 지정된
 정확한 분모 행을 보존하고, `fdai_core_service`는 locale 표현과 검증기 보류를 소유하며,
 Operator는 권한 없는 최종 답변과 기술 상세만 받습니다.
+자체 상태도 같은 경계를 따릅니다. 일반 임계값, 신선도, 담당 경로, 알림 route, 대체 경로는
+`config/self-health-signals.yaml`에 있고, `core/readiness/self_health.py`는 권한을 부여하지
+않는 순수 판정을 수행합니다. 런타임 bootstrap은 전체 카탈로그와 알림 route의 일치를 검증하고,
+전달 및 공급자 어댑터는 출처가 명시된 메트릭 방출을 담당합니다. 규칙 활성화 버전 호환성도
+분리합니다. 서비스 계약은 버전 1/2 묶음 codec을 소유하고 Core 활성화 원장이 이를 적용하며,
+버전 1만 쓰는 형식을 유지합니다. 어떤 호환성 경로도 승인, 활성화, 승격, 실행 권한을 부여하지
+않습니다.
 
 질문 구조의 개념 선택 재사용은 Core 대화 처리가 소유하며 한 번의 처리가 끝나면 종료됩니다.
 정확한 입력과 판독기별로 분리된 캐시는 관측 상태, 인가 결정, 이전 요청의 의미를 저장하지
@@ -792,12 +799,24 @@ Muninn은 게시와 원본 소유 legacy 정리에 하나의 Core 소유 cohort 
 통제된 카오스 타이밍은 Core 근거 계약의 일부로 남습니다. 하네스는 주입 시각과 탐지기가 소유한 관측 시각을 기록하며, 리포트 피드 어댑터는 유지 시간을 대체하지 않고 알 수 없는 지연 시간을 그대로 보존합니다.
 대기 중인 승인과 복구 증적은 현재 ActionRun 신원이 정확히 일치해야 합니다. 프로덕션은 shadow 및 enforce 모드에서 일치하는 Thor 상태를 영속화하며, 효과가 발생했을 수 있는 실행기 결과는 컨트롤 루프가 종료를 주장하기 전에 독립 조정을 거칩니다.
 배포 프리플라이트는 게시 결정을 `core/deploy_preflight/pre_publication_gate.py`에 둡니다. 교정 제안을 제출하기 전에 분석기가 누적된 오버라이드를 다시 검증하며, 차단 발견 사항, 오래된 증거, 범위 변경, 또는 에스컬레이션된 재조립이 있으면 일부가 아니라 패스 전체를 보류합니다. 제출은 ActionType을 담지 않는 컨트롤 플레인 신호로 인그레스를 통과하므로, Forseti가 자체 이벤트 타입 테이블에서 `remediate.apply-preflight-toggle`을 바인딩하고 기본 휴먼 리뷰 판정이 유지됩니다. 게이트는 유한하지 않은 신선도 창이나 시간대가 없는 시계를 제출 이전에 거부하며, 보류 기록은 제한된 수의 발견 사항 ID만 유지합니다.
+운영 준비 상태 교정은 operator request와 분리된 전용 shadow 경로를 사용합니다. 공유 계약의
+다이제스트는 대상, 근거, 서로 다른 제출자와 승인자 신원, 권한을 부여하지 않는 필드를 묶습니다.
+ActionBuilder는 내용 주소 기반 요청에서 Action 신원을 만들고 정확한 ORR 출처,
+`rule_violation` 또는 `both` ActionType, 완전한 인자, 활성 온톨로지 릴리스의 정확한 ActionType
+선언만 허용합니다. 인용한 모든 룰이 활성 카탈로그에서 해당 ActionType을 교정해야 통합
+risk-gate를 호출합니다. 리포트는 정확한 소유권 이전 신원을 결속하고 900초가 지나면 만료됩니다.
+이 경로는 실행 권한 평가나
+실행 없이 shadow, 사람 승인 필요, 거부 또는 판단 보류로 끝납니다. 구체적인 EventBus 제안-요청
+어댑터는 인용한 활성 룰에서 인자를 만들고 소유권 이전 신원을 보존합니다. Container는 완전한
+게시자 및 레버 바인딩으로만 어댑터를 받으며, upstream 런타임 선택과 통제된 전달 근거는 남아 있습니다.
 ![컨트롤 루프 배선. 주요 단계는 events, event-ingest / normalize + dedup, trust-router, t0-deterministic, t1-lightweight, t2-reasoning, quality-gate, risk-gate, executor, HIL approval / via chatops, no-op, delivery: gitops-pr / chatops입니다.](../../diagrams/generated/fdai-roadmap-architecture-project-structure-01.ko.svg)
 
 ## 구성 모델
 
 - 환경 특이 정보는 모두 **설정** 이며 런타임에 주입됩니다(환경 변수, 시크릿 저장소 참조,
   설정 파일). 소스에는 어떤 고객·테넌트·환경 값도 없습니다.
+- 예약 진입점은 변경할 수 없는 환경 스냅숏을 `default_container_from_env`에 전달할 수 있습니다.
+  이 경로는 프로세스 환경과 같은 검증 및 telemetry 조합을 사용하며 두 번째 설정 권한을 만들지 않습니다.
 - 설정은 시작 시 `shared/config/` 스키마로 검증되며, 잘못되거나 누락된 필수 설정에 대해 **fail
   fast** - degraded 상태로 시작하지 않습니다. 비활성화된 선택 패키지는 필수 설정이 아닙니다.
   관련 없는 완전한 경로는 정상적으로 시작하고 해당 기능만 사용할 수 없음으로 보고할 수 있습니다.

@@ -13,6 +13,7 @@ from fdai_service_contracts.incident_creation import INCIDENT_CREATION_REQUEST_T
 from fdai_service_contracts.incident_intervention import (
     INCIDENT_INTERVENTION_REQUEST_TOPIC,
 )
+from fdai_service_contracts.kill_switch import KILL_SWITCH_REQUEST_TOPIC
 from fdai_service_contracts.notification_receipt import (
     NOTIFICATION_DELIVERY_RECEIPT_TOPIC,
 )
@@ -52,6 +53,7 @@ RUNTIME_LOGICAL_TOPICS = (
             ORDERED_POISON_HALT_CLEAR_TOPIC,
             INCIDENT_CREATION_REQUEST_TOPIC,
             INCIDENT_INTERVENTION_REQUEST_TOPIC,
+            KILL_SWITCH_REQUEST_TOPIC,
             NOTIFICATION_DELIVERY_RECEIPT_TOPIC,
             OPERATING_MODEL_TOPIC,
             POST_TURN_REVIEW_REQUEST_TOPIC,

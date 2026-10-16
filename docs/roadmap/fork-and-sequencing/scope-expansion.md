@@ -229,6 +229,10 @@ priority and gates risky change during error-budget burn.
 - **Wire back to control loop**: a burn-rate breach emits an
   `Event(event_type="slo.error_budget_burn")` that hits the same
   trust-router → risk-gate → executor path. No side channel.
+- **Scheduled binding**: `fdai.delivery.slo_burn_cli` loads a non-empty deployment-owned
+  catalog, binds the real metric composition and Kafka ingress, and runs one bounded pass. The
+  optional Container Apps Job is absent until a deployment supplies a schedule. Missing telemetry
+  exits retry-required instead of reporting a healthy objective.
 - **What the SLO subsystem does NOT do**: it does not replace
   `goals-and-metrics.md`. That file measures **FDAI's own
   performance**; the SLO subsystem measures **the workloads FDAI

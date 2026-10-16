@@ -1,8 +1,8 @@
 ---
 title: WAF 및 CAF 근거 기반 평가
 translation_of: framework-assessment.md
-translation_source_sha: 5ebd27197f6b203344d2dc2381c4a5d0f74cc121
-translation_revised: 2026-10-09
+translation_source_sha: 7b61f6b09e4b1456dfe668f9950eb7f3a61203e7
+translation_revised: 2026-10-15
 ---
 # WAF 및 CAF 근거 기반 평가
 
@@ -60,6 +60,8 @@ CAF 평가 근거, 결과, 권한을 바꾸지 않습니다.
 상태로 WAF/CAF 근거나 준비 상태를 충족할 수 없습니다. 기존 평가 범위, 카탈로그 고정값,
 수락 및 준비 상태 기준은 바뀌지 않으며 알림 결과로 이 항목을 갱신하지 않습니다.
 공유 거버넌스 Console 카탈로그는 Promotion gates 화면의 운영자 재정의 승격에도 레이블을 붙입니다.
+활성 capability recall은 해당 ActionType을 shadow로 강제하고 승격 준비 완료 수에서 제외한 뒤
+범위가 제한된 사유를 표시합니다. 레이블과 recall 모두 평가 근거, 결과 또는 준비 상태를 바꾸지 않습니다.
 이 레이블은 평가 근거, 결과 또는 준비 상태를 바꾸지 않습니다.
 알림 요청 이력은 자체 발신함 네임스페이스, principal 및 정확한 범위로 한정합니다. 서명된
 최종 결과와 기준선 상세는 프레임워크 평가 증적이 아니며 WAF/CAF 상태를 갱신하지 않습니다.

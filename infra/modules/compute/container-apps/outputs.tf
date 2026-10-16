@@ -72,6 +72,11 @@ output "inventory_job_name" {
   value       = try(azurerm_container_app_job.inventory[0].name, "")
 }
 
+output "slo_burn_job_name" {
+  description = "Scheduled workload SLO burn Job name, or empty when disabled."
+  value       = try(azurerm_container_app_job.slo_burn[0].name, "")
+}
+
 output "ohl_evidence_proposal_job_name" {
   description = "Manual OHL scale-out proposal Job name, or empty when disabled."
   value       = try(azurerm_container_app_job.ohl_evidence_proposal[0].name, "")

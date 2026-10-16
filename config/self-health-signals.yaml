@@ -1,0 +1,123 @@
+catalog:
+  version: 1
+  signals:
+    liveness_probe:
+      metric: fdai.runtime.liveness
+      comparison: less_than
+      threshold: 1
+      maximum_age_seconds: 60
+      owner_lane: operational
+      route: operational_alert
+      fallback: hil_escalate
+    readiness_probe:
+      metric: fdai.runtime.readiness
+      comparison: less_than
+      threshold: 1
+      maximum_age_seconds: 60
+      owner_lane: operational
+      route: operational_alert
+      fallback: hil_escalate
+    adapter_healthcheck:
+      metric: fdai.adapter.healthy
+      comparison: less_than
+      threshold: 1
+      maximum_age_seconds: 120
+      owner_lane: operational
+      route: adapter_health
+      fallback: hil_escalate
+    event_lag:
+      metric: fdai.event.lag_seconds
+      comparison: greater_than
+      threshold: 5
+      maximum_age_seconds: 60
+      owner_lane: operational
+      route: operational_alert
+      fallback: hil_escalate
+    dlq_depth:
+      metric: fdai.event.dlq_depth
+      comparison: greater_than
+      threshold: 0
+      maximum_age_seconds: 60
+      owner_lane: operational
+      route: operational_alert
+      fallback: hil_escalate
+    cold_start_rate:
+      metric: fdai.runtime.cold_start_rate
+      comparison: greater_than
+      threshold: 0.05
+      maximum_age_seconds: 300
+      owner_lane: operational
+      route: operational_alert
+      fallback: hil_escalate
+    cold_start_duration:
+      metric: fdai.runtime.cold_start_duration_seconds
+      comparison: greater_than
+      threshold: 10
+      maximum_age_seconds: 300
+      owner_lane: operational
+      route: operational_alert
+      fallback: hil_escalate
+    verifier_failure_rate:
+      metric: fdai.verifier.failure_rate
+      comparison: greater_than
+      threshold: 0.05
+      maximum_age_seconds: 300
+      owner_lane: operational
+      route: operational_alert
+      fallback: hil_escalate
+    mixed_model_disagreement_rate:
+      metric: fdai.models.disagreement_rate
+      comparison: greater_than
+      threshold: 0.10
+      maximum_age_seconds: 300
+      owner_lane: operational
+      route: operational_alert
+      fallback: hil_escalate
+    rollback_rate:
+      metric: fdai.actions.rollback_rate
+      comparison: greater_than
+      threshold: 0.05
+      maximum_age_seconds: 900
+      owner_lane: operational
+      route: operational_alert
+      fallback: hil_escalate
+    override_rate:
+      metric: fdai.rules.override_rate
+      comparison: greater_than
+      threshold: 0.10
+      maximum_age_seconds: 900
+      owner_lane: operational
+      route: operational_alert
+      fallback: hil_escalate
+    discovery_loop_pass_rate:
+      metric: fdai.discovery.pass_rate
+      comparison: less_than
+      threshold: 0.90
+      maximum_age_seconds: 900
+      owner_lane: operational
+      route: operational_alert
+      fallback: hil_escalate
+    kill_switch_state:
+      metric: fdai.kill_switch.engaged
+      comparison: greater_than
+      threshold: 0
+      maximum_age_seconds: 60
+      owner_lane: operational
+      route: kill_switch_state
+      fallback: hil_escalate
+    canary_result:
+      metric: fdai.canary.success
+      comparison: less_than
+      threshold: 1
+      maximum_age_seconds: 600
+      owner_lane: operational
+      route: operational_alert
+      fallback: hil_escalate
+    time_since_last_successful_canary:
+      metric: fdai.canary.age_seconds
+      comparison: greater_than
+      threshold: 600
+      maximum_age_seconds: 60
+      owner_lane: operational
+      route: operational_alert
+      fallback: hil_escalate

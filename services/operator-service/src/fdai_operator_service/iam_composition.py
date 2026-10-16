@@ -47,6 +47,10 @@ from fdai_operator_service.families.iam.contracts import (
     AssignmentRequestOutbox,
     HumanIdentityDirectory,
 )
+from fdai_operator_service.families.iam.governance import (
+    BusKillSwitchEventPublisher,
+    OperatorFreshKillSwitchPrincipalAuthenticator,
+)
 from fdai_operator_service.families.iam.handover_runtime import (
     PostgresHandoverActivityGuard,
     PostgresHandoverEvidenceVerifier,
@@ -279,7 +283,6 @@ def build_unavailable_iam_bindings(
         handover_goals=unavailable,
         model_settings=unavailable,
         runtime_settings=unavailable,
-        kill_switch=unavailable,
         configuration_review=unavailable,
         policy_administration_selected=policy_administration_selected,
         role_group_ids=dict(role_group_ids),
@@ -403,7 +406,11 @@ def build_postgres_iam_bindings(
             binding_store=build_teams_workflow_binding_store(environment, store),
         ),
         slack_webhook_tester=SlackWebhookDiagnosticTester(store),
-        kill_switch=iam,
+        kill_switch_authenticator=OperatorFreshKillSwitchPrincipalAuthenticator(authenticator),
+        kill_switch_publisher=(
+            BusKillSwitchEventPublisher(semantic_bus) if semantic_bus is not None else None
+        ),
+        kill_switch_receipt_issuer=operator_request_receipt_issuer,
         configuration_review=iam,
         hil_registry=iam,
         hil_outbox=hil_outbox,

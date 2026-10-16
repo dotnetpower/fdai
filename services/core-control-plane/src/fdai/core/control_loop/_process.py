@@ -29,6 +29,7 @@ from fdai.core.control_loop.change_safety_evidence import (
 )
 from fdai.core.control_loop.models import ControlLoopOutcome, ControlLoopResult
 from fdai.core.control_loop.operator_request import process_operator_request
+from fdai.core.control_loop.readiness_remediation import process_readiness_remediation
 from fdai.core.executor import ExecutionResult
 from fdai.core.executor.action_builder import ActionBuildError
 from fdai.core.executor.direct_api import DirectApiExecutionResult
@@ -138,6 +139,10 @@ async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResul
 
     if event.event_type == "operator_request":
         return await process_operator_request(
+            host, event=event, event_id=event_id, correlation_id=correlation_id
+        )
+    if event.event_type == "readiness_remediation_request":
+        return await process_readiness_remediation(
             host, event=event, event_id=event_id, correlation_id=correlation_id
         )
 

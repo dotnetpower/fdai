@@ -31,9 +31,7 @@ current grant-registry pin, installation reference and exact installation read s
 Missing prerequisites hold rather than creating an Owner, grant or live model invocation.
 Console mode selection changes no runtime profile, executor identity or operational readiness.
 
-
-Both runtime profiles keep conversational presentation separate from execution and package
-activation. Standard Core composition forwards the independent synthesis verifier and binds the
+Both runtime profiles keep conversational presentation separate from execution and package activation. Standard Core composition forwards the independent synthesis verifier and binds the
 durable per-correlation budget ledger. Target/locale transport, verification holds and restart
 accounting follow the same contracts in every venue; these bindings neither enable Cost
 Governance nor prove operational or handover readiness.
@@ -91,6 +89,12 @@ Operator policy route and Mimir policy-administration subscription; it does not 
 platform, Cost Governance package activation, or any execution identity. Until Terraform also
 provisions the non-exportable policy-signing Key Vault key, its crypto role grant, and Core signing
 environment, `product_profile_json` validation rejects the `policy-administration` add-on.
+
+The global kill switch is also runtime independent. Local, AKS, and compatibility Container Apps
+composition use the same signed Operator request contract and conditionally bind Var's
+`operator.kill-switch.requests` consumer only when Core can verify Operator receipts against the
+shared durable StateStore. Runtime selection grants no kill-switch role, execution identity, or
+effect claim. An HTTP `202` and broker delivery cannot replace authoritative state readback.
 
 The host's read-only `verify-source-runtime` command checks pinned source/runtime content, not
 runtime or database placement, node sizing, cost, host identity or exact-plan authority. Its evidence

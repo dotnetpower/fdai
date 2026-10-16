@@ -8,6 +8,7 @@ const rows = [
     mode_source: "promotion-registry",
     promotion_kind: "gate_evidence",
     operator_override: null,
+    capability_recall: null,
     shadow_days_elapsed: 7,
     sample_count: 100,
     reviewed_count: 100,
@@ -23,6 +24,7 @@ const rows = [
     mode_source: "catalog-default",
     promotion_kind: "gate_evidence",
     operator_override: null,
+    capability_recall: null,
     shadow_days_elapsed: 3,
     sample_count: 20,
     reviewed_count: 10,
@@ -77,6 +79,25 @@ describe("promotion gate drilldown filters", () => {
     expect(decoded.rows[0]?.operator_override?.gate_status).toBe("failed");
   });
 
+  it("decodes active recall and requires the effective shadow mode", () => {
+    const recall = {
+      action_type: "escaped-action",
+      active: true,
+      reason: "vendor capability recall",
+      recalled_at: "2026-10-15T00:00:00Z",
+      lifted_at: null,
+    };
+
+    const decoded = decodePromotionGates(response({ capability_recall: recall }));
+
+    expect(decoded.rows[0]?.capability_recall).toEqual(recall);
+    expect(() => decodePromotionGates(response({ mode: "enforce", capability_recall: recall })))
+      .toThrow(/recall.*shadow/i);
+    expect(() => decodePromotionGates(response({
+      capability_recall: { ...recall, active: false },
+    }))).toThrow(/recall.*state/i);
+  });
+
   it("rejects summary counts that contradict the returned rows", () => {
     expect(() => decodePromotionGates({ ...response(), ready_count: 1, blocked_count: 0 }))
       .toThrow(/summary counts MUST match rows/);
@@ -108,5 +129,21 @@ describe("promotion gate drilldown filters", () => {
   it("combines status and free-text filters without policy escape mode", () => {
     expect(filterPromotionRows(rows, "ready", "safe", null).map((row) => row.action_type_name))
       .toEqual(["safe-action"]);
+  });
+
+  it("finds an active recall by its recorded reason", () => {
+    const recalled = [{
+      ...rows[1],
+      capability_recall: {
+        action_type: "escaped-action",
+        active: true,
+        reason: "vendor capability recall",
+        recalled_at: "2026-10-15T00:00:00Z",
+        lifted_at: null,
+      },
+    }];
+
+    expect(filterPromotionRows(recalled, "blocked", "capability recall", null))
+      .toHaveLength(1);
   });
 });
