@@ -147,7 +147,6 @@ def _request(target: str, *, mode: Mode) -> DirectApiRequest:
             "fdai_revision": _REVISION,
             "scenario_set_version": _SCENARIO,
             "evidence_digest": _EVIDENCE,
-            "policy_digest": _EVIDENCE,
             "justification": "Measured shadow evidence passed every promotion guard.",
         },
         labels=(mode.value,),

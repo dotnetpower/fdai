@@ -14,7 +14,6 @@ def promotion_arguments(arguments: Mapping[str, object]) -> dict[str, str]:
         "fdai_revision",
         "scenario_set_version",
         "evidence_digest",
-        "policy_digest",
     )
     values: dict[str, str] = {}
     for name in required:

@@ -48,7 +48,6 @@ argument_schema:
   - fdai_revision
   - scenario_set_version
   - evidence_digest
-  - policy_digest
   - justification
   properties:
     action_type_id:
@@ -68,10 +67,6 @@ argument_schema:
     evidence_digest:
       type: string
       pattern: ^[0-9a-f]{64}$
-    policy_digest:
-      type: string
-      pattern: ^[0-9a-f]{64}$
-      description: Exact operational-promotion threshold policy reviewed with the evidence.
     justification:
       type: string
       x-fdai-audit-safe: true
@@ -80,6 +75,6 @@ argument_schema:
 provenance:
   source_url: https://github.com/dotnetpower/fdai
   resolved_ref: action-type:governance.promote-action-type@1.0.0
-  content_hash: sha256:6ef3316badb3e8b540bfa1cbb615f43a22aa5a250e8b3914a162ab23a32c3705
+  content_hash: sha256:ac721fd4ab10c1e152df3a92fbdda7c2950f2a8753585eb056f6f92635c8bb47
   license: MIT
   retrieved_at: "2026-07-29T00:00:00Z"

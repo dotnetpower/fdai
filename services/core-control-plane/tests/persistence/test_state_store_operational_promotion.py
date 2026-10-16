@@ -11,8 +11,7 @@ _ACTION = "remediate.tag-add"
 _EVIDENCE = "b" * 64
 _ACTION_DIGEST = "c" * 64
 _POLICY = "d" * 64
-_LEGACY_KEY = f"operational-promotion-receipt:{_ACTION}:{_REVISION}:{_SCENARIO}:{_EVIDENCE}"
-_KEY = f"{_LEGACY_KEY}:{_POLICY}"
+_KEY = f"operational-promotion-receipt:{_ACTION}:{_REVISION}:{_SCENARIO}:{_EVIDENCE}"
 
 
 def _receipt() -> OperationalPromotionReceipt:
@@ -65,7 +64,6 @@ async def test_receipt_store_round_trips_idempotently_with_one_audit() -> None:
         fdai_revision=_REVISION,
         scenario_set_version=_SCENARIO,
         evidence_digest=_EVIDENCE,
-        policy_digest=_POLICY,
     )
 
     assert loaded == _receipt()
@@ -91,7 +89,6 @@ async def test_receipt_store_rejects_tampered_numeric_types() -> None:
             fdai_revision=_REVISION,
             scenario_set_version=_SCENARIO,
             evidence_digest=_EVIDENCE,
-            policy_digest=_POLICY,
         )
 
 
@@ -103,7 +100,7 @@ async def test_legacy_receipt_loads_without_decision_evidence_authority() -> Non
     payload.pop("decision_evidence_verification_bundle_digest")
     payload.pop("policy_digest")
     await state.write_state(
-        _LEGACY_KEY,
+        _KEY,
         {"schema_version": "1.0.0", "receipt": payload},
     )
 
@@ -112,7 +109,6 @@ async def test_legacy_receipt_loads_without_decision_evidence_authority() -> Non
         fdai_revision=_REVISION,
         scenario_set_version=_SCENARIO,
         evidence_digest=_EVIDENCE,
-        policy_digest=_POLICY,
     )
 
     assert loaded is not None

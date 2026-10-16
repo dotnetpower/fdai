@@ -15,6 +15,7 @@ from fdai.core.measurement.operational_promotion import (
     OperationalPromotionRecord,
     PromotionEvidenceCohort,
     action_type_digest,
+    operational_promotion_decision_digest,
     operational_promotion_evidence_digest,
     operational_promotion_scope_digest,
 )
@@ -187,7 +188,7 @@ def test_promotion_receipt_binds_the_exact_threshold_policy() -> None:
         as_of_fn=lambda: _SEALED,
     ).evaluate(_action(), _passing_batch())
 
-    assert baseline.evidence_digest == stricter.evidence_digest
+    assert baseline.evidence_digest != stricter.evidence_digest
     assert baseline.policy_digest != stricter.policy_digest
 
 
@@ -789,7 +790,10 @@ def test_registry_requires_matching_verified_operational_receipt() -> None:
 
     class _ReceiptVerifier:
         def verify(self, *, action_type, receipt):  # type: ignore[no-untyped-def]
-            return receipt.evidence_digest == _passing_batch().content_digest
+            return receipt.evidence_digest == operational_promotion_decision_digest(
+                _passing_batch(),
+                OperationalPromotionPolicy(),
+            )
 
     verified_registry = ActionPromotionRegistry(receipt_verifier=_ReceiptVerifier())
     legacy = replace(

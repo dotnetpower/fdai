@@ -99,9 +99,9 @@ authenticated Reader-role `GET /operations/runtime-state` projection. Delivery a
 responsible for replacing explicit unavailable bindings with source-qualified production metrics.
 Operational promotion uses another exact cross-layer identity. Core measurement hashes every O7
 threshold policy and carries that digest in the receipt. Reviewed replay authority, the governance
-promotion request, durable receipt storage, the action-mode record, and restart verification all
-require the same digest. A policy change therefore creates new review authority rather than
-reinterpreting retained evidence.
+promotion request, durable receipt storage, the action-mode record, and restart verification bind
+a content-addressed decision digest composed from evidence and policy identities. A policy change
+therefore creates new review authority rather than reinterpreting retained evidence.
 Rule activation version compatibility is also split: service contracts own the version 1/2
 envelope codec and Core's activation ledger applies it while version 1 remains the only write
 format. The shared SDK also owns dormant signed non-direct manifest and trust contracts. Core

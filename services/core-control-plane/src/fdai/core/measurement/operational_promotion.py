@@ -572,7 +572,7 @@ class OperationalPromotionEvaluator:
             action_type_name=batch.action_type_name,
             action_type_version=batch.action_type_version,
             action_type_digest=batch.action_type_digest,
-            evidence_digest=batch.content_digest,
+            evidence_digest=operational_promotion_decision_digest(batch, self._policy),
             policy_digest=self._policy.content_digest,
             observation_days=round(observation_days, 3),
             live_observation_days=live_observation_days,
@@ -624,6 +624,20 @@ def operational_promotion_evidence_digest(batch: OperationalPromotionBatch) -> s
     """Return the shared-contract digest for one complete promotion batch."""
 
     return f"sha256:{batch.content_digest}"
+
+
+def operational_promotion_decision_digest(
+    batch: OperationalPromotionBatch,
+    policy: OperationalPromotionPolicy,
+) -> str:
+    """Bind the admitted evidence batch to the exact threshold policy."""
+
+    return _digest(
+        {
+            "evidence_digest": batch.content_digest,
+            "policy_digest": policy.content_digest,
+        }
+    )
 
 
 def operational_promotion_scope_digest(batch: OperationalPromotionBatch) -> str:
@@ -694,5 +708,6 @@ __all__ = [
     "PromotionEvidenceCohort",
     "action_type_digest",
     "operational_promotion_evidence_digest",
+    "operational_promotion_decision_digest",
     "operational_promotion_scope_digest",
 ]

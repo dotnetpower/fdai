@@ -75,7 +75,6 @@ class StateStoreOperationalPromotionReceiptStore:
             fdai_revision=receipt.fdai_revision,
             scenario_set_version=receipt.scenario_set_version,
             evidence_digest=receipt.evidence_digest,
-            policy_digest=receipt.policy_digest,
         )
         value = {"schema_version": "1.2.0", "receipt": receipt.as_json()}
         created = await self._store.write_state_with_audit_if_absent(
@@ -107,7 +106,6 @@ class StateStoreOperationalPromotionReceiptStore:
             fdai_revision=receipt.fdai_revision,
             scenario_set_version=receipt.scenario_set_version,
             evidence_digest=receipt.evidence_digest,
-            policy_digest=receipt.policy_digest,
         )
         if existing != receipt:
             raise ValueError("operational promotion receipt key collision")
@@ -119,7 +117,6 @@ class StateStoreOperationalPromotionReceiptStore:
         fdai_revision: str,
         scenario_set_version: str,
         evidence_digest: str,
-        policy_digest: str,
     ) -> OperationalPromotionReceipt | None:
         raw = await self._store.read_state(
             _key(
@@ -127,18 +124,8 @@ class StateStoreOperationalPromotionReceiptStore:
                 fdai_revision=fdai_revision,
                 scenario_set_version=scenario_set_version,
                 evidence_digest=evidence_digest,
-                policy_digest=policy_digest,
             )
         )
-        if raw is None:
-            raw = await self._store.read_state(
-                _legacy_key(
-                    action_type_name=action_type_name,
-                    fdai_revision=fdai_revision,
-                    scenario_set_version=scenario_set_version,
-                    evidence_digest=evidence_digest,
-                )
-            )
         if raw is None:
             return None
         schema_version = raw.get("schema_version")
@@ -151,30 +138,6 @@ class StateStoreOperationalPromotionReceiptStore:
 
 
 def _key(
-    *,
-    action_type_name: str,
-    fdai_revision: str,
-    scenario_set_version: str,
-    evidence_digest: str,
-    policy_digest: str,
-) -> str:
-    if _SAFE_ID.fullmatch(action_type_name) is None:
-        raise ValueError("action_type_name is invalid")
-    if _REVISION.fullmatch(fdai_revision) is None:
-        raise ValueError("fdai_revision is invalid")
-    if _SAFE_ID.fullmatch(scenario_set_version) is None:
-        raise ValueError("scenario_set_version is invalid")
-    if _DIGEST.fullmatch(evidence_digest) is None:
-        raise ValueError("evidence_digest is invalid")
-    if _DIGEST.fullmatch(policy_digest) is None:
-        raise ValueError("policy_digest is invalid")
-    return (
-        f"{_PREFIX}{action_type_name}:{fdai_revision}:{scenario_set_version}:"
-        f"{evidence_digest}:{policy_digest}"
-    )
-
-
-def _legacy_key(
     *,
     action_type_name: str,
     fdai_revision: str,
