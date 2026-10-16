@@ -368,7 +368,7 @@ async def test_repeated_analyzer_findings_reach_incident_candidate_threshold() -
     heimdall = Heimdall(rate_threshold=5, rate_window=300, incident_candidate_hook=capture)
     for minute in range(5):
         occurred_at = NOW + timedelta(minutes=minute)
-        finding = replace(_finding(), occurred_at=occurred_at)
+        finding = replace(_finding(), occurred_at=occurred_at, severity=Severity.MEDIUM)
         runner = _runner(
             StubCoordinator(findings=(finding,)),
             bus,
@@ -386,11 +386,11 @@ async def test_repeated_analyzer_findings_reach_incident_candidate_threshold() -
         analyzer_correlation_id(_finding())
     }
     assert len(candidates) == 1
-    assert candidates[0]["severity"] == "high"
+    assert candidates[0]["severity"] == "medium"
     assert len(candidates[0]["evidence_keys"]) == 5
     incidents = tuple(registry.snapshot().values())
     assert len(incidents) == 1
-    assert incidents[0].severity is IncidentSeverity.SEV2
+    assert incidents[0].severity is IncidentSeverity.SEV3
     assert len(incidents[0].member_event_ids) == 5
     assert DEFAULT_PUBLICATION_WINDOW_SECONDS == 60
 

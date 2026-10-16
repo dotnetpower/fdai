@@ -189,7 +189,7 @@ def test_runtime_projection_reports_configuration_without_inventing_readiness() 
     assert settings["conversation.prompt_ablation.profile"]["restart_required"] is True
     assert settings["incident.auto_open.enabled"]["effective_value"] is True
     assert settings["incident.auto_open.enabled"]["restart_required"] is True
-    assert settings["incident.auto_open.min_severity"]["effective_value"] == "HIGH"
+    assert settings["incident.auto_open.min_severity"]["effective_value"] == "MEDIUM"
     assert settings["incident.repeat_threshold"]["effective_value"] == 5
     assert settings["incident.repeat_window_seconds"]["effective_value"] == 300
 

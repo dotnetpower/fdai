@@ -27,16 +27,16 @@ def _candidate(**overrides: object) -> dict[str, object]:
     return candidate
 
 
-def test_default_policy_holds_medium_candidate_and_accepts_high() -> None:
+def test_default_policy_accepts_medium_candidate_and_holds_low() -> None:
     policy = IncidentAutoOpenPolicy()
 
     medium = evaluate_incident_auto_open(_candidate(severity="medium"), policy)
-    high = evaluate_incident_auto_open(_candidate(severity="high"), policy)
+    low = evaluate_incident_auto_open(_candidate(severity="low"), policy)
 
-    assert medium.eligible is False
-    assert medium.reason == "severity_below_minimum"
-    assert high.eligible is True
-    assert high.severity is IncidentSeverity.SEV2
+    assert medium.eligible is True
+    assert medium.severity is IncidentSeverity.SEV3
+    assert low.eligible is False
+    assert low.reason == "severity_below_minimum"
 
 
 @pytest.mark.parametrize(
@@ -120,7 +120,7 @@ def test_policy_maps_recorded_severity(label: str, expected: IncidentSeverity) -
     assert decision.severity is expected
 
 
-async def test_shared_helper_holds_medium_candidate_without_writing() -> None:
+async def test_shared_helper_holds_low_candidate_without_writing() -> None:
     registry = IncidentRegistry(state_store=InMemoryStateStore())
     workflow = IncidentLifecycleWorkflow(
         registry=registry,
@@ -129,7 +129,7 @@ async def test_shared_helper_holds_medium_candidate_without_writing() -> None:
 
     result = await open_detected_incident_candidate(
         workflow=workflow,
-        candidate=_candidate(severity="medium"),
+        candidate=_candidate(severity="low"),
         policy=IncidentAutoOpenPolicy(),
     )
 

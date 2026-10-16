@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 21245147cfd11bf15effcb59f16825a95f1d7597
+translation_source_sha: 7d055af2a5d891d1717bd356cdcd7b17df089221
 translation_revised: 2026-10-16
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -490,6 +490,10 @@ Console은 Settings > Runtime policies에서 안전한 설정 하위 집합을 �
 다음 이벤트 또는 작업 경계에서 동적으로 적용됩니다. 로깅 수준과 사례 보존 또는 삭제까지의 일수
 변경은 headless 런타임 재시작이 필요합니다. 배포 신원, 전송 계층, 엔드포인트, 시크릿,
 승격 및 test-only 키는 editable 표면에 포함되지 않습니다.
+Incident 자동 열기 설정도 시작 시 적용됩니다. 구체화 과정은 검증된 기본 최소 심각도
+`MEDIUM`을 표시하며, 환경 값이나 감사를 거친 영속 재정의로 지원되는 다른 심각도를 선택할 수
+있습니다. 유효 값은 Core를 다시 시작한 뒤에만 적용됩니다. 반복, 상관관계, 근거, 중복 제거,
+후속 권한 조건은 이 설정과 독립적으로 유지됩니다.
 
 | 키 | 소스 | 소유자 | 노트 |
 |----|------|--------|------|

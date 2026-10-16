@@ -169,7 +169,7 @@ async def test_incident_auto_open_settings_are_bounded_and_startup_bound() -> No
 
     expected = {
         "incident.auto_open.enabled": True,
-        "incident.auto_open.min_severity": "HIGH",
+        "incident.auto_open.min_severity": "MEDIUM",
         "incident.repeat_threshold": 5,
         "incident.repeat_window_seconds": 300,
         "incident.security_high_threshold": 5,

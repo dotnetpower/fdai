@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to your own Azure subscription from a clone with one command line, or install it from a signed offline package.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 21245147cfd11bf15effcb59f16825a95f1d7597 }, { source: docs/roadmap/deployment/source-deployment.md, sha: 78261ab0f29c2cb156f8e73185d483177719989a }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 7d055af2a5d891d1717bd356cdcd7b17df089221 }, { source: docs/roadmap/deployment/source-deployment.md, sha: 78261ab0f29c2cb156f8e73185d483177719989a }]
 ---
 
 # Deploy Quickstart
