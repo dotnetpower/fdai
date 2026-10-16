@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "compute.vm.managed-identity.assigned",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:f0a317875e47aa0a6516fb6df630670acfcc5113c626ef408716fd9c91466dda",
+    "policy_identity_digest": "sha256:f094e6fe93928f199c1be0a2549239fddb452e7f0e44622b046775cdd212d668",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/compute/vm_managed_identity_assigned.rego",
+        "kind": "rego",
+        "content_digest": "sha256:209e45339dcc51b3aae3cfb88899cc0090d14413148d3b87a1fc1be392b3795c"
+      }
+    ],
+    "revision_digest": "sha256:14e3b8efd20e0fe47f86e790c9f71432068bdb0b0f45afbfd3526f2ec3036a2a"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "compute.vm.managed-identity.assigned",
+    "version": "1.0.0",
+    "source": "mcsb",
+    "severity": "medium",
+    "category": "security",
+    "resource_type": "compute.vm",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/compute/vm_managed_identity_assigned.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/compute/vm_assign_system_identity.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.assign-identity",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/security/benchmark/azure/mcsb-identity-management",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "compute.vm"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.compute.vm.identity_type"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "compute.vm"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.compute.vm.identity_type"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/compute/vm_managed_identity_assigned.rego",
+      "kind": "rego",
+      "content_digest": "sha256:209e45339dcc51b3aae3cfb88899cc0090d14413148d3b87a1fc1be392b3795c",
+      "content": "# METADATA\n# title: Require a managed-identity on compute.vm\n# description: |\n#   A compute.vm MUST have a system- or user-assigned managed-identity\n#   so it does not depend on secrets embedded in application settings.\n# custom:\n#   rule_id: compute.vm.managed-identity.assigned\n#   severity: medium\n#   category: security\npackage fdai.compute.vm_managed_identity_assigned\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"compute.vm\"\n  input.resource.props.identity_type == \"None\"\n}\n\ndeny_reason := \"no_managed_identity\" if deny\n"
+    }
+  ]
+}

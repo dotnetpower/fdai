@@ -1,0 +1,85 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "resource-group.environment-tag.required",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:5405ff4a9f82852930e5ccaf439011d4981b0a421d0f9853cba6eab11506f24b",
+    "policy_identity_digest": "sha256:2ee0d6a501c74dd6fa9743846c3cc0830b4ee1c498473ed916ce80d4ca0f3614",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/resource_group/environment_tag_required.rego",
+        "kind": "rego",
+        "content_digest": "sha256:4c8ff5bc6c711ebff51a5a2f18c14052ecd568fd203dc096d45bf7f0212f232c"
+      }
+    ],
+    "revision_digest": "sha256:c8e8c4b8eb9f5afd9e7c489bc8ed4247dafc9994d02373b86129a430f262d30a"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "resource-group.environment-tag.required",
+    "version": "1.0.0",
+    "source": "cis",
+    "severity": "low",
+    "category": "config_drift",
+    "resource_type": "resource-group",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/resource_group/environment_tag_required.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/resource_group/tag_environment.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.tag-add",
+    "alternatives": [],
+    "parameters": {
+      "tag_name": "environment",
+      "tag_value": "unassigned"
+    },
+    "provenance": {
+      "source_url": "https://www.cisecurity.org/benchmark/azure",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "resource-group"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.resource-group.tags.required_tag"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "resource-group"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.resource-group.tags.required_tag"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/resource_group/environment_tag_required.rego",
+      "kind": "rego",
+      "content_digest": "sha256:4c8ff5bc6c711ebff51a5a2f18c14052ecd568fd203dc096d45bf7f0212f232c",
+      "content": "# METADATA\n# title: Environment tag required on resource-group\n# description: |\n#   Every resource-group MUST carry an `environment` tag so\n#   lifecycle-scoped policies can key off it.\n# custom:\n#   rule_id: resource-group.environment-tag.required\n#   severity: low\n#   category: config_drift\npackage fdai.resource_group.environment_tag_required\n\nimport rego.v1\n\ndefault deny := false\n\nrequired_tag := t if {\n  t := input.parameters.tag_name\n} else := \"environment\"\n\ndeny if {\n  input.resource.type == \"resource-group\"\n  not input.resource.props.tags[required_tag]\n}\n\ndeny_reason := sprintf(\"missing_required_tag:%s\", [required_tag]) if deny\n"
+    }
+  ]
+}

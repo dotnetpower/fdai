@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "compute.vm-scale-set.zone-redundancy",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:468342df440ac3443b1fd9ee9a8ac8346cbaa7e73bd4445359f9f9482bf78290",
+    "policy_identity_digest": "sha256:1fd232c64ea28133da7455bff4ea7d92e66160e70dad5b00467cbb700e4c5126",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/compute/vmss_zone_redundancy.rego",
+        "kind": "rego",
+        "content_digest": "sha256:556f16df0c32cd5a8586e618cc15d833c2d0731a9304e698868adf97804fd1af"
+      }
+    ],
+    "revision_digest": "sha256:07a804fbe2e17bca40cd00ff25672f6e66e880a4195656a55eb5a2f714183571"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "compute.vm-scale-set.zone-redundancy",
+    "version": "1.0.0",
+    "source": "waf",
+    "severity": "high",
+    "category": "reliability",
+    "resource_type": "compute.vm-scale-set",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/compute/vmss_zone_redundancy.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/compute/vmss_zone_redundant.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.enable-zone-redundancy",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/azure/well-architected/reliability/redundancy",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "compute.vm-scale-set"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.compute.vm-scale-set.zones"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "compute.vm-scale-set"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.compute.vm-scale-set.zones"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/compute/vmss_zone_redundancy.rego",
+      "kind": "rego",
+      "content_digest": "sha256:556f16df0c32cd5a8586e618cc15d833c2d0731a9304e698868adf97804fd1af",
+      "content": "# METADATA\n# title: Require zone redundancy on compute.vm-scale-set\n# description: |\n#   A compute.vm-scale-set MUST span at least two availability zones\n#   to survive a single-zone outage.\n# custom:\n#   rule_id: compute.vm-scale-set.zone-redundancy\n#   severity: high\n#   category: reliability\npackage fdai.compute.vmss_zone_redundancy\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"compute.vm-scale-set\"\n  count(input.resource.props.zones) < 2\n}\n\ndeny_reason := \"single_zone_scale_set\" if deny\n"
+    }
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "object-storage.soft-delete-blob",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:f31842a30200913e727b84d3417dd6b95f44980d6a48db29162e6c3f98d4e84b",
+    "policy_identity_digest": "sha256:a51e2e91ee9c0dece6be33cde4bcc3d31ae200dbf60d79fa949caa855b1d5065",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/object_storage/blob_soft_delete.rego",
+        "kind": "rego",
+        "content_digest": "sha256:77c0110640557a3e6b82dd0dff0ccde08377ac709f87ca9a0d8240bc09f10c87"
+      }
+    ],
+    "revision_digest": "sha256:534b1b30365c60b051c3ef0d1f854b6e03190ad6f825656f73d42fe564b03747"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "object-storage.soft-delete-blob",
+    "version": "1.0.0",
+    "source": "waf",
+    "severity": "high",
+    "category": "reliability",
+    "resource_type": "object-storage",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/object_storage/blob_soft_delete.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/object_storage/enable_blob_soft_delete.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.enable-backup-protection",
+    "alternatives": [],
+    "parameters": {
+      "retention_days": 14
+    },
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/azure/storage/blobs/soft-delete-blob-overview",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "object-storage"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.object-storage.blob_soft_delete_enabled"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "object-storage"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.object-storage.blob_soft_delete_enabled"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/object_storage/blob_soft_delete.rego",
+      "kind": "rego",
+      "content_digest": "sha256:77c0110640557a3e6b82dd0dff0ccde08377ac709f87ca9a0d8240bc09f10c87",
+      "content": "# METADATA\n# title: Require blob soft-delete on object-storage\n# description: |\n#   An object-storage account MUST have blob soft-delete enabled so\n#   an accidental delete is recoverable within the retention window.\n# custom:\n#   rule_id: object-storage.soft-delete-blob\n#   severity: high\n#   category: reliability\npackage fdai.object_storage.blob_soft_delete\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"object-storage\"\n  input.resource.props.blob_soft_delete_enabled != true\n}\n\ndeny_reason := \"blob_soft_delete_disabled\" if deny\n"
+    }
+  ]
+}

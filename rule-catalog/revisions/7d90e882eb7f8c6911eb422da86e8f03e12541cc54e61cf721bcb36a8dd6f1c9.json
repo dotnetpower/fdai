@@ -1,0 +1,85 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "object-storage.owner-tag.required",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:b397eb4114aac3b54f27829d5235efccfc2449961b34b2a4032fa9a0b25f86e3",
+    "policy_identity_digest": "sha256:059ab985bd8b77d8e32aff65d3463c52cfef52c5e1b9c7cc01efdf9e4988b0cd",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/object_storage/owner_tag_required.rego",
+        "kind": "rego",
+        "content_digest": "sha256:7ba8011ff576db0a630716e4237345f15f1bdee52e805126dbe39a560ae06c54"
+      }
+    ],
+    "revision_digest": "sha256:7d90e882eb7f8c6911eb422da86e8f03e12541cc54e61cf721bcb36a8dd6f1c9"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "object-storage.owner-tag.required",
+    "version": "1.0.0",
+    "source": "custom",
+    "severity": "low",
+    "category": "config_drift",
+    "resource_type": "object-storage",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/object_storage/owner_tag_required.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/object_storage/tag_owner.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.tag-add",
+    "alternatives": [],
+    "parameters": {
+      "tag_name": "owner",
+      "tag_value": "unassigned"
+    },
+    "provenance": {
+      "source_url": "https://example.com/rules/object-storage-owner-tag",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "MIT",
+      "redistribution": "embeddable",
+      "retrieved_at": "2026-07-05T00:00:00Z"
+    },
+    "applies_to": [
+      "object-storage"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.object-storage.tags.required_tag"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "object-storage"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.object-storage.tags.required_tag"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/object_storage/owner_tag_required.rego",
+      "kind": "rego",
+      "content_digest": "sha256:7ba8011ff576db0a630716e4237345f15f1bdee52e805126dbe39a560ae06c54",
+      "content": "# METADATA\n# title: Owner tag required on object-storage\n# description: |\n#   Every object-storage MUST carry a `owner` tag (or an operator-\n#   overridden alternative name via `parameters.tag_name`) so that\n#   ownership is auditable and the tag-add remediation is safe.\n# custom:\n#   rule_id: object-storage.owner-tag.required\n#   severity: low\n#   category: config_drift\npackage fdai.object_storage.owner_tag_required\n\nimport rego.v1\n\ndefault deny := false\n\nrequired_tag := tag if {\n\ttag := input.parameters.tag_name\n} else := \"owner\"\n\ndeny if {\n\tinput.resource.type == \"object-storage\"\n\tnot input.resource.props.tags[required_tag]\n}\n\ndeny_reason := sprintf(\"missing_required_tag:%s\", [required_tag]) if deny\n"
+    }
+  ]
+}

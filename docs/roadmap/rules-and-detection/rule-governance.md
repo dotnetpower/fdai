@@ -422,7 +422,7 @@ reached the A1 default route, so adding a route for that category could have red
 - Changing a rule's logic bumps its `version`; changing an assignment's parameters/effect/scope is
   itself an audited, versioned change. A rule set **pins the `version` of each member rule** so a
   rule change cannot silently alter a promoted set.
-- **Rule revision upgrades (phase 1 implemented):** An activation generation pins each
+- **Rule revision upgrades (phases 1 and 2 implemented):** An activation generation pins each
   member's exact version and digest, and the ledger accepts only membership changes against an
   unchanged catalog, so changing an activated Rule's content makes an upgraded installation fail
   closed at startup. Until every phase below is operationally validated,
@@ -436,7 +436,16 @@ reached the A1 default route, so adding a route for that category could have red
   typed payloads and nested command proposal/generation payloads to version 1, reads pre-version
   records as legacy version 1, and writes version 1 only. Manifest, prepare, and acknowledgement
   kinds are fixed at the envelope boundary; their semantic state machines remain owned by phases
-  3 and 5. Phases 2 through 9 remain open. Phases 2 through 6 ship
+  3 and 5. The retained `rule-revision-identities.json` registry now fixes each normalized Rule
+  definition and complete policy artifact closure to its exact OPA builder stage and normalization
+  implementation manifest. That manifest binds the normalizer, Rule/base/enum models, Python image,
+  and Pydantic/PyYAML versions. A bounded lexer distinguishes strings, raw strings, escapes, and
+  comments before dependency discovery. A static data prefix retains its complete package subtree,
+  including child modules under the entrypoint's own package, while bare-root references that
+  cannot produce a static closure fail closed.
+  The registry uses explicit `(rule_id, rule_version)` fields rather than a concatenated key, and
+  its checker appends a version bump while refusing to rewrite an existing revision. Phases 3
+  through 9 remain open. Phases 3 through 6 ship
   dormant: they read and validate version 2 data but write none, and no version 2 digest or
   pointer becomes authoritative before the approved identity upgrade in phase 7.
   1. **Dual-read codecs.** A compatibility release reads version 1 and 2 of every durable object
@@ -447,7 +456,13 @@ reached the A1 default route, so adding a route for that category could have red
      definition digest and one policy identity; a digest change without a version bump is
      rejected, never approved. The policy identity digests a canonical executable bundle: the
      referenced Rego, its transitive modules and data, and the OPA and normalization versions.
-     Retained artifacts are stored by the full revision identity.
+     Retained artifacts are stored by the full revision identity. This phase is implemented as a
+     generated, append-only release registry, content-addressed retained definition and policy
+     bytes, plus a fail-closed CI checker. The CI caller supplies its exact base revision, and a
+     missing or unreadable baseline fails instead of disabling history checks. Merge-base
+     comparison prevents removal or rewriting of an earlier retained revision. It remains
+     authority-neutral: current activation generations still write version 1 and no registry
+     entry selects membership or enforcement.
   3. **Signed registry and manifests.** Every non-direct startup source, including pull-request
      sources, carries a signed activation manifest binding the release or package id, target
      generation, profile, catalog manifest, full member identities, registry root, issuance time,

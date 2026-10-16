@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "object-storage.shared-key-access.disabled",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:d402a906cd8dc3b4523cc2b195085f178e0d39ad5e480909973a829edc3d7a8c",
+    "policy_identity_digest": "sha256:d98f3128e5b23d2089ea148672e7c1d306a36e136c99b1bb09adcda544bd1a8e",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/object_storage/shared_key_access_disabled.rego",
+        "kind": "rego",
+        "content_digest": "sha256:88ec032d8bbd010e7f3d801fe8c1a5f9707f71078f4935afb36e42606fb75fc0"
+      }
+    ],
+    "revision_digest": "sha256:58a0d61c19b78e2a6f4ac4f3e715c542cdc58d067db4fc304ab7926ffea9589c"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "object-storage.shared-key-access.disabled",
+    "version": "1.0.0",
+    "source": "mcsb",
+    "severity": "high",
+    "category": "security",
+    "resource_type": "object-storage",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/object_storage/shared_key_access_disabled.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/object_storage/disable_shared_key_access.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.enable-rbac",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/security/benchmark/azure/mcsb-identity-management",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "object-storage"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.object-storage.allow_shared_key_access"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "object-storage"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.object-storage.allow_shared_key_access"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/object_storage/shared_key_access_disabled.rego",
+      "kind": "rego",
+      "content_digest": "sha256:88ec032d8bbd010e7f3d801fe8c1a5f9707f71078f4935afb36e42606fb75fc0",
+      "content": "# METADATA\n# title: Disallow shared-key access on object-storage\n# description: |\n#   An object-storage account MUST NOT accept shared-key auth; every\n#   caller SHOULD use AAD RBAC via a managed-identity.\n# custom:\n#   rule_id: object-storage.shared-key-access.disabled\n#   severity: high\n#   category: security\npackage fdai.object_storage.shared_key_access_disabled\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"object-storage\"\n  input.resource.props.allow_shared_key_access == true\n}\n\ndeny_reason := \"shared_key_access_enabled\" if deny\n"
+    }
+  ]
+}

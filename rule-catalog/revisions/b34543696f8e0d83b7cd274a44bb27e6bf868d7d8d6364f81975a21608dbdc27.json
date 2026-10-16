@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "kubernetes-cluster.network-policy",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:1dcba19ad2f4c8b89697037ceb27f5f532f05db39446d072b89d6e7e11dbf32e",
+    "policy_identity_digest": "sha256:22822299f414c9ae76c5c38d7ab8a956fd3380648c9c7a2008f071920167ba07",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/kubernetes/network_policy_required.rego",
+        "kind": "rego",
+        "content_digest": "sha256:c07e5e7b7c7a4d7eb6685f81083deeb33a6e06d9322251cb7cfba9db73b37b95"
+      }
+    ],
+    "revision_digest": "sha256:b34543696f8e0d83b7cd274a44bb27e6bf868d7d8d6364f81975a21608dbdc27"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "kubernetes-cluster.network-policy",
+    "version": "1.0.0",
+    "source": "aks_baseline",
+    "severity": "high",
+    "category": "security",
+    "resource_type": "kubernetes-cluster",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/kubernetes/network_policy_required.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/kubernetes/enable_network_policy.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.restrict-network-access",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/azure/architecture/reference-architectures/containers/aks/baseline-aks",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "kubernetes-cluster"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.kubernetes-cluster.network_policy"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "kubernetes-cluster"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.kubernetes-cluster.network_policy"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/kubernetes/network_policy_required.rego",
+      "kind": "rego",
+      "content_digest": "sha256:c07e5e7b7c7a4d7eb6685f81083deeb33a6e06d9322251cb7cfba9db73b37b95",
+      "content": "# METADATA\n# title: Require a network policy engine on kubernetes-cluster\n# description: |\n#   A kubernetes-cluster MUST run a network-policy engine (calico or\n#   azure) so pod-to-pod traffic can be restricted.\n# custom:\n#   rule_id: kubernetes-cluster.network-policy\n#   severity: high\n#   category: security\npackage fdai.kubernetes.network_policy_required\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"kubernetes-cluster\"\n  not input.resource.props.network_policy\n}\n\ndeny_reason := \"no_network_policy\" if deny\n"
+    }
+  ]
+}

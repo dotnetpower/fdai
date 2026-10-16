@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "secret-store.diagnostic-settings-required",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:22f96cafab0ec59cdcfb5ccdbab9c689531347afa7e7efce1b407d8db0f18fc5",
+    "policy_identity_digest": "sha256:76890e52729ef52141fd0cdcea0e1afa5f6eb8be39de07c402b8773acb16e01e",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/secret_store/diagnostic_settings_required.rego",
+        "kind": "rego",
+        "content_digest": "sha256:0d63f98f05fb7581c57ef71c9a4a23f8f9ec3729223bf0f23145dfa9f5feffa2"
+      }
+    ],
+    "revision_digest": "sha256:71034a781cc76b9d4fd114bd2de2115c6492f1775251270e0e11431f18693c7d"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "secret-store.diagnostic-settings-required",
+    "version": "1.0.0",
+    "source": "mcsb",
+    "severity": "high",
+    "category": "security",
+    "resource_type": "secret-store",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/secret_store/diagnostic_settings_required.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/secret_store/attach_diagnostic_settings.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.enable-diagnostic-settings",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/security/benchmark/azure/mcsb-logging-threat-detection",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "secret-store"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.secret-store.diagnostic_settings"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "secret-store"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.secret-store.diagnostic_settings"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/secret_store/diagnostic_settings_required.rego",
+      "kind": "rego",
+      "content_digest": "sha256:0d63f98f05fb7581c57ef71c9a4a23f8f9ec3729223bf0f23145dfa9f5feffa2",
+      "content": "# METADATA\n# title: Require diagnostic-settings on secret-store\n# description: |\n#   A secret-store MUST route AuditEvent logs to a log-workspace so\n#   every secret read/write is auditable.\n# custom:\n#   rule_id: secret-store.diagnostic-settings-required\n#   severity: high\n#   category: security\npackage fdai.secret_store.diagnostic_settings_required\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"secret-store\"\n  count(input.resource.props.diagnostic_settings) == 0\n}\n\ndeny_reason := \"no_diagnostic_settings\" if deny\n"
+    }
+  ]
+}

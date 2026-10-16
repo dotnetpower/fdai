@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "managed-identity.role-assignment.no-privileged-subscription-scope",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:1c727f60b49cd3c31b5a1d67908ef7f5a0fde0a0d1d931499a13265c62aa5bce",
+    "policy_identity_digest": "sha256:0f619cf7e5676c929736fed09e0ea67e9bf000f5747d8f89dd7a4bf1405866e2",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/managed_identity/no_privileged_subscription_scope.rego",
+        "kind": "rego",
+        "content_digest": "sha256:24c6c6720adede104bdab7018db29d77dc7d06790231fbb2bd45caed964fe1bc"
+      }
+    ],
+    "revision_digest": "sha256:f0b020370434ee357590d9f01124a6251eb4ef780e2da4f2527da5838dbae493"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "managed-identity.role-assignment.no-privileged-subscription-scope",
+    "version": "1.0.0",
+    "source": "mcsb",
+    "severity": "critical",
+    "category": "security",
+    "resource_type": "managed-identity",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/managed_identity/no_privileged_subscription_scope.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/managed_identity/no_privileged_subscription_scope.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.right-size-role",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/azure/role-based-access-control/best-practices",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-09T00:00:00Z"
+    },
+    "applies_to": [
+      "managed-identity"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.managed-identity.role_assignments"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "managed-identity"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.managed-identity.role_assignments"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/managed_identity/no_privileged_subscription_scope.rego",
+      "kind": "rego",
+      "content_digest": "sha256:24c6c6720adede104bdab7018db29d77dc7d06790231fbb2bd45caed964fe1bc",
+      "content": "# METADATA\n# title: Workload identity must not hold a privileged subscription-scoped role\n# description: |\n#   A workload (managed) identity MUST NOT be granted a privileged role\n#   (Owner, Contributor, User Access Administrator, Role Based Access Control\n#   Administrator) at subscription scope. Such a grant makes a single compromised\n#   workload a subscription-wide blast radius. The T0 rule denies when the\n#   inventory reports any subscription-scoped privileged role assignment on the\n#   identity. Fail closed: an assignment whose scope or role is unknown is denied.\n# custom:\n#   rule_id: managed-identity.role-assignment.no-privileged-subscription-scope\n#   severity: critical\n#   category: security\npackage fdai.managed_identity.no_privileged_subscription_scope\n\nimport rego.v1\n\ndefault deny := false\n\nprivileged_roles := {\n\t\"Owner\",\n\t\"Contributor\",\n\t\"User Access Administrator\",\n\t\"Role Based Access Control Administrator\",\n}\n\ndeny if {\n\tinput.resource.type == \"managed-identity\"\n\tsome assignment in input.resource.props.role_assignments\n\tassignment.scope == \"subscription\"\n\tprivileged_roles[assignment.role_name]\n}\n\n# Fail closed: an assignment missing a scope or role_name is treated as a violation.\ndeny if {\n\tinput.resource.type == \"managed-identity\"\n\tsome assignment in input.resource.props.role_assignments\n\tnot assignment.scope\n}\n\ndeny_reason := \"workload_identity_privileged_at_subscription_scope\" if deny\n"
+    }
+  ]
+}

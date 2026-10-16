@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "kubernetes-cluster.rbac-enabled",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:05ee92b850d8e19a4dfdc54d73b6d4bce0a8255a3cd8b49a7943abbdf80efcc3",
+    "policy_identity_digest": "sha256:18b17884d06f76080115ff1da99f181794aab2e0b598c6e5dedcf3f0fed11986",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/kubernetes/rbac_enabled.rego",
+        "kind": "rego",
+        "content_digest": "sha256:e3ea6a90c62a7a44168c44b0f74e5fdde031b8725f3f23a47952f4b1b6cfbb2a"
+      }
+    ],
+    "revision_digest": "sha256:1b1ef5ca32625d5326c8cea7f90420d65a18d862816c01203b2f4a5ca22167d0"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "kubernetes-cluster.rbac-enabled",
+    "version": "1.0.0",
+    "source": "aks_baseline",
+    "severity": "high",
+    "category": "security",
+    "resource_type": "kubernetes-cluster",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/kubernetes/rbac_enabled.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/kubernetes/enable_azure_rbac.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.enable-rbac",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/azure/architecture/reference-architectures/containers/aks/baseline-aks",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "kubernetes-cluster"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.kubernetes-cluster.azure_rbac_enabled"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "kubernetes-cluster"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.kubernetes-cluster.azure_rbac_enabled"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/kubernetes/rbac_enabled.rego",
+      "kind": "rego",
+      "content_digest": "sha256:e3ea6a90c62a7a44168c44b0f74e5fdde031b8725f3f23a47952f4b1b6cfbb2a",
+      "content": "# METADATA\n# title: Require Azure RBAC on kubernetes-cluster\n# description: |\n#   A kubernetes-cluster MUST use Azure RBAC integration; kubectl\n#   permissions MUST NOT rely on the built-in local admin.\n# custom:\n#   rule_id: kubernetes-cluster.rbac-enabled\n#   severity: high\n#   category: security\npackage fdai.kubernetes.rbac_enabled\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"kubernetes-cluster\"\n  input.resource.props.azure_rbac_enabled != true\n}\n\ndeny_reason := \"azure_rbac_disabled\" if deny\n"
+    }
+  ]
+}

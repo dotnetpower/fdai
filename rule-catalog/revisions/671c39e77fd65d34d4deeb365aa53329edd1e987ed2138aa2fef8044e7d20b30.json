@@ -1,0 +1,84 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "object-storage.min-tls-version",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:eb48a8b0c4ede059eda0416fbee8bf098ceae4fa2c5b6c3548ed3b3d5a5d42fe",
+    "policy_identity_digest": "sha256:c33f9b4af4c5e40e7d67f3fd406a3e3a68d9e043ceb554ec9f2814f2163a9f64",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/object_storage/min_tls_version.rego",
+        "kind": "rego",
+        "content_digest": "sha256:6a78b8fac761d3bd5f16ddc1a5227640f147b3cd13a93e813c0edbf3860a9225"
+      }
+    ],
+    "revision_digest": "sha256:671c39e77fd65d34d4deeb365aa53329edd1e987ed2138aa2fef8044e7d20b30"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "object-storage.min-tls-version",
+    "version": "1.0.0",
+    "source": "mcsb",
+    "severity": "medium",
+    "category": "security",
+    "resource_type": "object-storage",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/object_storage/min_tls_version.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/object_storage/set_min_tls_version.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.set-tls-policy",
+    "alternatives": [],
+    "parameters": {
+      "min_tls_version": "TLS1_2"
+    },
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/security/benchmark/azure/mcsb-data-protection",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "object-storage"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.object-storage.min_tls_version"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "object-storage"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.object-storage.min_tls_version"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/object_storage/min_tls_version.rego",
+      "kind": "rego",
+      "content_digest": "sha256:6a78b8fac761d3bd5f16ddc1a5227640f147b3cd13a93e813c0edbf3860a9225",
+      "content": "# METADATA\n# title: Require min TLS 1.2 on object-storage\n# description: |\n#   An object-storage account MUST require TLS 1.2 or higher; older\n#   TLS versions are considered broken.\n# custom:\n#   rule_id: object-storage.min-tls-version\n#   severity: medium\n#   category: security\npackage fdai.object_storage.min_tls_version\n\nimport rego.v1\n\ndefault deny := false\n\nrequired_tls := t if {\n  t := input.parameters.min_tls_version\n} else := \"TLS1_2\"\n\ndeny if {\n  input.resource.type == \"object-storage\"\n  input.resource.props.min_tls_version != required_tls\n  input.resource.props.min_tls_version != \"TLS1_3\"\n}\n\ndeny_reason := sprintf(\"min_tls_below:%s\", [required_tls]) if deny\n"
+    }
+  ]
+}

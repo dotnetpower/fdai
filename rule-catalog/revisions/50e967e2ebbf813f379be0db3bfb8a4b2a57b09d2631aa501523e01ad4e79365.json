@@ -1,0 +1,84 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "postgresql-server.point-in-time-restore",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:134629e6584e7a7a3bf2d6c7770dff4b245566751ef247abcdef4e48ef2fd738",
+    "policy_identity_digest": "sha256:1f37f133401b9a0903fa8e5d165eb45a015d539730d40e4d9eb7b97e8556033d",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/postgresql/point_in_time_restore.rego",
+        "kind": "rego",
+        "content_digest": "sha256:f4ed0fc10d464bc567ffe8247f4b5bb247b767c6883e09f702d6ca15d9df1f77"
+      }
+    ],
+    "revision_digest": "sha256:50e967e2ebbf813f379be0db3bfb8a4b2a57b09d2631aa501523e01ad4e79365"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "postgresql-server.point-in-time-restore",
+    "version": "1.0.0",
+    "source": "waf",
+    "severity": "high",
+    "category": "reliability",
+    "resource_type": "postgresql-server",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/postgresql/point_in_time_restore.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/postgresql/raise_backup_retention.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.enable-backup-protection",
+    "alternatives": [],
+    "parameters": {
+      "min_retention_days": 7
+    },
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/azure/well-architected/reliability/backup-recovery",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "postgresql-server"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.postgresql-server.backup_retention_days"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "postgresql-server"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.postgresql-server.backup_retention_days"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/postgresql/point_in_time_restore.rego",
+      "kind": "rego",
+      "content_digest": "sha256:f4ed0fc10d464bc567ffe8247f4b5bb247b767c6883e09f702d6ca15d9df1f77",
+      "content": "# METADATA\n# title: Require adequate PITR window on postgresql-server\n# description: |\n#   A postgresql-server MUST retain at least the operator-configured\n#   number of days of backups (default 7) to support point-in-time\n#   restore after an accidental data change.\n# custom:\n#   rule_id: postgresql-server.point-in-time-restore\n#   severity: high\n#   category: reliability\npackage fdai.postgresql.point_in_time_restore\n\nimport rego.v1\n\ndefault deny := false\n\nmin_days := d if {\n  d := input.parameters.min_retention_days\n} else := 7\n\ndeny if {\n  input.resource.type == \"postgresql-server\"\n  input.resource.props.backup_retention_days < min_days\n}\n\ndeny_reason := \"backup_retention_below_min\" if deny\n"
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "kubernetes-cluster.diagnostic-settings-required",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:71f5af9aa23a1b455d42084144656e0cca1e869580f748a9ce6c3f0b022a98e4",
+    "policy_identity_digest": "sha256:5e834c08d443e05327f02ef7a36ca5cd465e512c94649bfa38c337fcdcb93d6a",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/kubernetes/diagnostic_settings_required.rego",
+        "kind": "rego",
+        "content_digest": "sha256:8a52d138b238d7b5d9ae21c433519f7137a8aa8f862f6bc2ac0503ad07946b20"
+      }
+    ],
+    "revision_digest": "sha256:7ff3f7b994861868312f984e9e3c126322ddf8bab930411eb0ac85bac3f63ad4"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "kubernetes-cluster.diagnostic-settings-required",
+    "version": "1.0.0",
+    "source": "waf",
+    "severity": "medium",
+    "category": "reliability",
+    "resource_type": "kubernetes-cluster",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/kubernetes/diagnostic_settings_required.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/kubernetes/attach_diagnostic_settings.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.enable-diagnostic-settings",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/azure/well-architected/operational-excellence/observability",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "kubernetes-cluster"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.kubernetes-cluster.diagnostic_settings"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "kubernetes-cluster"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.kubernetes-cluster.diagnostic_settings"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/kubernetes/diagnostic_settings_required.rego",
+      "kind": "rego",
+      "content_digest": "sha256:8a52d138b238d7b5d9ae21c433519f7137a8aa8f862f6bc2ac0503ad07946b20",
+      "content": "# METADATA\n# title: Require diagnostic-settings on kubernetes-cluster\n# description: |\n#   A kubernetes-cluster MUST route audit and controller-manager\n#   logs to a log-workspace.\n# custom:\n#   rule_id: kubernetes-cluster.diagnostic-settings-required\n#   severity: medium\n#   category: reliability\npackage fdai.kubernetes.diagnostic_settings_required\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"kubernetes-cluster\"\n  count(input.resource.props.diagnostic_settings) == 0\n}\n\ndeny_reason := \"no_diagnostic_settings\" if deny\n"
+    }
+  ]
+}

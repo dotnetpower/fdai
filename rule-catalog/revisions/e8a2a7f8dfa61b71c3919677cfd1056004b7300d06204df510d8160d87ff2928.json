@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "managed-identity.role-assignment.no-wildcard-action",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:9b037875647d64aef86cb60b4d10f5bdeb691b11d95b8319a7ef4c4e88f71519",
+    "policy_identity_digest": "sha256:7df4f6fd7658a893753d08318a6ffe7870c93d508162ee9c583158d674e1e15c",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/managed_identity/no_wildcard_action.rego",
+        "kind": "rego",
+        "content_digest": "sha256:ffd14fb6ab023596c4c623f420bd56253576e6e05f760d683b6d56bbf16a5049"
+      }
+    ],
+    "revision_digest": "sha256:e8a2a7f8dfa61b71c3919677cfd1056004b7300d06204df510d8160d87ff2928"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "managed-identity.role-assignment.no-wildcard-action",
+    "version": "1.0.0",
+    "source": "mcsb",
+    "severity": "high",
+    "category": "security",
+    "resource_type": "managed-identity",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/managed_identity/no_wildcard_action.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/managed_identity/no_wildcard_action.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.right-size-role",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/azure/role-based-access-control/best-practices",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-09T00:00:00Z"
+    },
+    "applies_to": [
+      "managed-identity"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.managed-identity.role_assignments"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "managed-identity"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.managed-identity.role_assignments"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/managed_identity/no_wildcard_action.rego",
+      "kind": "rego",
+      "content_digest": "sha256:ffd14fb6ab023596c4c623f420bd56253576e6e05f760d683b6d56bbf16a5049",
+      "content": "# METADATA\n# title: Workload identity role must not grant wildcard actions\n# description: |\n#   A workload (managed) identity MUST NOT be granted a role whose action set\n#   includes the wildcard \"*\" (all actions) or a wildcard data action. Wildcard\n#   grants defeat least privilege and hide the true permission surface. The T0\n#   rule denies when any assignment on the identity carries a wildcard action.\n# custom:\n#   rule_id: managed-identity.role-assignment.no-wildcard-action\n#   severity: high\n#   category: security\npackage fdai.managed_identity.no_wildcard_action\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n\tinput.resource.type == \"managed-identity\"\n\tsome assignment in input.resource.props.role_assignments\n\tsome action in assignment.actions\n\taction == \"*\"\n}\n\ndeny if {\n\tinput.resource.type == \"managed-identity\"\n\tsome assignment in input.resource.props.role_assignments\n\tsome action in assignment.data_actions\n\taction == \"*\"\n}\n\ndeny_reason := \"workload_identity_role_grants_wildcard_action\" if deny\n"
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "object-storage.cost-center-tag.required",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:83b6d0a88e6d82639b02c66cc37512c56f213a7116a1d4320528de318f37dfad",
+    "policy_identity_digest": "sha256:b41d5497151a22d2d50165d220eff4d13a058e1ec7bd7dda8e364e1f2bb040c6",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/object_storage/cost_center_tag_required.rego",
+        "kind": "rego",
+        "content_digest": "sha256:43662ed237064cd01bcaeebe97111086bb4f7ab2707e7bad3a4dcd7e5653066d"
+      }
+    ],
+    "revision_digest": "sha256:85f8823dee1b377c98dd1d640aefd7d59c5ea4d9f57e8e8f91a7c71cf61f5476"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "object-storage.cost-center-tag.required",
+    "version": "1.0.0",
+    "source": "cis",
+    "severity": "low",
+    "category": "config_drift",
+    "resource_type": "object-storage",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/object_storage/cost_center_tag_required.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/object_storage/tag_cost_center.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.tag-add",
+    "alternatives": [],
+    "parameters": {
+      "tag_name": "cost_center",
+      "tag_value": "unassigned"
+    },
+    "provenance": {
+      "source_url": "https://www.cisecurity.org/benchmark/azure",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "object-storage"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.object-storage.tags.required_tag"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "object-storage"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.object-storage.tags.required_tag"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/object_storage/cost_center_tag_required.rego",
+      "kind": "rego",
+      "content_digest": "sha256:43662ed237064cd01bcaeebe97111086bb4f7ab2707e7bad3a4dcd7e5653066d",
+      "content": "# METADATA\n# title: Cost-center tag required on object-storage\n# description: |\n#   Every object-storage account MUST carry a `cost_center` tag so\n#   spend is attributable.\n# custom:\n#   rule_id: object-storage.cost-center-tag.required\n#   severity: low\n#   category: config_drift\npackage fdai.object_storage.cost_center_tag_required\n\nimport rego.v1\n\ndefault deny := false\n\nrequired_tag := t if {\n  t := input.parameters.tag_name\n} else := \"cost_center\"\n\ndeny if {\n  input.resource.type == \"object-storage\"\n  not input.resource.props.tags[required_tag]\n}\n\ndeny_reason := sprintf(\"missing_required_tag:%s\", [required_tag]) if deny\n"
+    }
+  ]
+}

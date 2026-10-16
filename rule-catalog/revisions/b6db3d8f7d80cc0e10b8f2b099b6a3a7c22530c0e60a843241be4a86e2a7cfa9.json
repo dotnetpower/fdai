@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "sql-database.tde-required",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:a17397604737ac6329ac33938a8dcbc1e4d5bd75ea6726a633aee7bed1f9cc95",
+    "policy_identity_digest": "sha256:6beb5a480b394f91b79cfd9c51ae317b4aedadbc8458b888bb4e8e63c56d9e5c",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/sql_database/tde_required.rego",
+        "kind": "rego",
+        "content_digest": "sha256:9299928b03473fb399d79989287f036e6591c456cd4cfdc6288c38786b52197f"
+      }
+    ],
+    "revision_digest": "sha256:b6db3d8f7d80cc0e10b8f2b099b6a3a7c22530c0e60a843241be4a86e2a7cfa9"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "sql-database.tde-required",
+    "version": "1.0.0",
+    "source": "mcsb",
+    "severity": "high",
+    "category": "security",
+    "resource_type": "sql-database",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/sql_database/tde_required.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/sql_database/enable_tde.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.enable-tde",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://example.com/rules/sql-tde-required",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-05T00:00:00Z"
+    },
+    "applies_to": [
+      "sql-database"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.sql-database.tde_enabled"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "sql-database"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.sql-database.tde_enabled"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/sql_database/tde_required.rego",
+      "kind": "rego",
+      "content_digest": "sha256:9299928b03473fb399d79989287f036e6591c456cd4cfdc6288c38786b52197f",
+      "content": "# METADATA\n# title: Transparent Data Encryption required on SQL database\n# description: |\n#   A `sql-database` MUST have TDE enabled. The T0 engine passes the\n#   observed `tde_enabled` property; the rule denies whenever the\n#   property is explicitly false (an unknown property abstains and\n#   escalates to HIL rather than assuming compliance).\n# custom:\n#   rule_id: sql-database.tde-required\n#   severity: high\n#   category: security\npackage fdai.sql_database.tde_required\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n\tinput.resource.type == \"sql-database\"\n\tinput.resource.props.tde_enabled == false\n}\n\ndeny_reason := \"tde_disabled\" if deny\n"
+    }
+  ]
+}

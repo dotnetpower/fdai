@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "object-storage.public-access.deny",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:0b4f3d64a3a7f5742d9e29265c94f322a5afa85bdc4565452c621161d3d4e086",
+    "policy_identity_digest": "sha256:ace322ff44970ebdaaeabeca046264055cf33c29734f85f850301f6d530aaeab",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/object_storage/public_access.rego",
+        "kind": "rego",
+        "content_digest": "sha256:26de99121b17f356b6f7d49218fa4e1d6731af79e66bddf4d3e59c0120770062"
+      }
+    ],
+    "revision_digest": "sha256:a9f6b5cacba6c6e44d426bf3b16d408a6fef7293d2c9c14020cb7b08a4986e85"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "object-storage.public-access.deny",
+    "version": "1.0.0",
+    "source": "mcsb",
+    "severity": "high",
+    "category": "security",
+    "resource_type": "object-storage",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/object_storage/public_access.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/object_storage/disable_public_access.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.disable-public-access",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://example.com/rules/object-storage-public-access",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-05T00:00:00Z"
+    },
+    "applies_to": [
+      "object-storage"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.object-storage.public_access"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "object-storage"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.object-storage.public_access"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/object_storage/public_access.rego",
+      "kind": "rego",
+      "content_digest": "sha256:26de99121b17f356b6f7d49218fa4e1d6731af79e66bddf4d3e59c0120770062",
+      "content": "# METADATA\n# title: Deny public access on object-storage\n# description: |\n#   An object-storage bucket MUST NOT allow unauthenticated public\n#   access. The T0 engine passes the resource props observed from the\n#   inventory adapter; a violation is emitted whenever the\n#   `public_access` property is enabled.\n# custom:\n#   rule_id: object-storage.public-access.deny\n#   severity: high\n#   category: security\npackage fdai.object_storage.public_access\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n\tinput.resource.type == \"object-storage\"\n\tinput.resource.props.public_access == \"enabled\"\n}\n\ndeny_reason := \"public_access_enabled\" if deny\n"
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "resource-group.cost-center-tag.required",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:14339b9efbc2ddd2b0859862d09173c4b783c4199558b5b37dc3ac68efd463c4",
+    "policy_identity_digest": "sha256:ee41a1b7a0231ed1184601a51400f0752fa5e54413fdcfd3aa1c7d25e88317e2",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/resource_group/cost_center_tag_required.rego",
+        "kind": "rego",
+        "content_digest": "sha256:0e6beb5ccd5f310203d50ad9e795b02e898b7b35e15edad90a8d4381567f6812"
+      }
+    ],
+    "revision_digest": "sha256:d9e40ef9bcd922cedb07c80b531aada9426a2c010557888005559d230334e9e1"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "resource-group.cost-center-tag.required",
+    "version": "1.0.0",
+    "source": "cis",
+    "severity": "low",
+    "category": "config_drift",
+    "resource_type": "resource-group",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/resource_group/cost_center_tag_required.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/resource_group/tag_cost_center.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.tag-add",
+    "alternatives": [],
+    "parameters": {
+      "tag_name": "cost_center",
+      "tag_value": "unassigned"
+    },
+    "provenance": {
+      "source_url": "https://www.cisecurity.org/benchmark/azure",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "resource-group"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.resource-group.tags.required_tag"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "resource-group"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.resource-group.tags.required_tag"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/resource_group/cost_center_tag_required.rego",
+      "kind": "rego",
+      "content_digest": "sha256:0e6beb5ccd5f310203d50ad9e795b02e898b7b35e15edad90a8d4381567f6812",
+      "content": "# METADATA\n# title: Cost-center tag required on resource-group\n# description: |\n#   Every resource-group MUST carry a `cost_center` tag so spend is\n#   attributable.\n# custom:\n#   rule_id: resource-group.cost-center-tag.required\n#   severity: low\n#   category: config_drift\npackage fdai.resource_group.cost_center_tag_required\n\nimport rego.v1\n\ndefault deny := false\n\nrequired_tag := t if {\n  t := input.parameters.tag_name\n} else := \"cost_center\"\n\ndeny if {\n  input.resource.type == \"resource-group\"\n  not input.resource.props.tags[required_tag]\n}\n\ndeny_reason := sprintf(\"missing_required_tag:%s\", [required_tag]) if deny\n"
+    }
+  ]
+}
