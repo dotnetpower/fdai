@@ -31,9 +31,7 @@ current grant-registry pin, installation reference and exact installation read s
 Missing prerequisites hold rather than creating an Owner, grant or live model invocation.
 Console mode selection changes no runtime profile, executor identity or operational readiness.
 
-
-Both runtime profiles keep conversational presentation separate from execution and package
-activation. Standard Core composition forwards the independent synthesis verifier and binds the
+Both runtime profiles keep conversational presentation separate from execution and package activation. Standard Core composition forwards the independent synthesis verifier and binds the
 durable per-correlation budget ledger. Target/locale transport, verification holds and restart
 accounting follow the same contracts in every venue; these bindings neither enable Cost
 Governance nor prove operational or handover readiness.

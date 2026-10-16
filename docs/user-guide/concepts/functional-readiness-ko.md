@@ -2,8 +2,8 @@
 title: FDAI 기능 준비 상태 평가
 description: FDAI 제품 중분류 52개의 준비 상태 판정 근거와 남은 조건을 기록합니다.
 translation_of: functional-readiness.md
-translation_source_sha: d5636c8c94f7fd73854453ebfdc8da15442adabd
-translation_revised: 2026-10-15
+translation_source_sha: d03755bdb2eedba129dfa0d0f8af42cea2f5ad4a
+translation_revised: 2026-10-16
 ---
 
 # FDAI 기능 준비 상태 평가
@@ -84,7 +84,7 @@ Partial 17건은 구현된 부분과 현재 소스의 집중 검사를 유지하
 |------|------|-----------------------------|
 | <span id="f06-1">F06.1</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 타입이 지정된 제안 변경 수집, 정책 및 위험 평가, 정확한 대상 및 개정 버전 검증, 범위가 제한된 시뮬레이션, 대안 비교, 중단 조건, 최종 계획의 롤백 근거입니다. [변경 가이드](../capabilities/change-safety-ko.md), [계획 원장](../../roadmap-implementation/decisioning/operational-planning.md), 집중 계획 검사가 이 범위를 뒷받침합니다. 승인, 실행, 독립적인 변경 후 관찰은 별도 작업 검증이며 제안만으로 변경을 종결하지 않습니다. |
 | <span id="f06-2">F06.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 현재 스키마의 구성 불일치 및 통제 미비 결과, 범위가 지정된 정책 평가, 개정 버전별 활성화, 근거가 있는 예외, 결정론적 충돌 처리, 실행 권한이 없는 수정 제안입니다. [규칙 원장](../../roadmap-implementation/rules-and-detection/rule-governance.md)과 집중 테스트 204개가 이 범위를 뒷받침합니다. 기존 개정 버전 이행, 완전한 공급자 수집, 운영 적용은 별도 배포 검증입니다. |
-| <span id="f06-3">F06.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 변경 불가능한 ARB 근거 묶음, 아키텍처 제약 평가, 담당 체계 및 운영 준비 상태 검사, 근거가 불완전할 때 안전한 차단, 통합 risk-gate에 들어가기 전에 ActionType 트리거, 인자, 활성 룰 인용, 활성 온톨로지 릴리스를 검증하는 내용 주소 기반 shadow 수정 요청입니다. 구체적인 EventBus 어댑터는 인용한 룰의 인자에서 타입 지정 요청을 만들고 완전한 게시자 및 레버 DI 연결을 통해서만 수용됩니다. 이 요청은 승인 또는 실행 권한을 부여하지 않으며 수집 경로는 요청을 실행기로 전달하지 않습니다. [아키텍처 검토 원장](../../roadmap-implementation/architecture/architecture-review-board.md), [준비 상태 원장](../../roadmap-implementation/operations/operational-readiness.md), ORR 집중 검사가 이 범위를 뒷받침합니다. 운영 담당자 및 보고서 공급자 연결, 어댑터의 upstream 런타임 선택, 관리 절차에 따른 인수인계 및 승격 증적은 아직 남아 있습니다. |
+| <span id="f06-3">F06.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 변경 불가능한 ARB 근거 묶음, 아키텍처 제약 평가, 담당 체계 및 운영 준비 상태 검사, 근거가 불완전할 때 안전한 차단, 통합 안전성 검토에 들어가기 전에 ActionType 트리거, 인자, 활성 룰 인용, 활성 온톨로지 릴리스를 검증하는 내용 주소 기반 shadow 수정 요청입니다. 구체적인 EventBus 어댑터는 인용한 룰의 인자에서 타입 지정 요청을 만들고 완전한 게시자 및 레버 DI 연결을 통해서만 수용됩니다. 이 요청은 승인 또는 실행 권한을 부여하지 않으며 수집 경로는 요청을 실행기로 전달하지 않습니다. [아키텍처 검토 원장](../../roadmap-implementation/architecture/architecture-review-board.md), [준비 상태 원장](../../roadmap-implementation/operations/operational-readiness.md), ORR 집중 검사가 이 범위를 뒷받침합니다. 운영 담당자 및 보고서 공급자 연결, 어댑터의 upstream 런타임 선택, 관리 절차에 따른 인수인계 및 승격 증적은 아직 남아 있습니다. |
 
 ## F07. 비용 거버넌스
 
@@ -168,7 +168,7 @@ Partial 17건은 구현된 부분과 현재 소스의 집중 검사를 유지하
 
 | 검사 | 정확한 로컬 선택 범위 | 결과 |
 |------|----------------------|------|
-| **A** | Incident `test_incident_lifecycle.py`, `test_incident_workflow.py`, `test_storm.py`; rule catalog `test_action_type_catalog.py`, `test_workflow_catalog.py`; code findings `test_canonical.py`, `test_severity.py`, `test_issue_summary.py`, `test_pack.py`, `test_pack_helper_session.py`, `test_diff_guard.py`, `test_signing.py`, `test_result_import.py`, `test_export_gate.py`, `test_verification.py`. | **286개 통과**, 건너뜀 없음, 파일 15개입니다. |
+| **A** | Incident `test_incident_lifecycle.py`, `test_incident_workflow.py`, `test_storm.py`; rule catalog `test_action_type_catalog.py`, `test_workflow_catalog.py`; 코드 보안 점검 결과 `test_canonical.py`, `test_severity.py`, `test_issue_summary.py`, `test_pack.py`, `test_pack_helper_session.py`, `test_diff_guard.py`, `test_signing.py`, `test_result_import.py`, `test_export_gate.py`, `test_verification.py`. | **286개 통과**, 건너뜀 없음, 파일 15개입니다. |
 | **B** | Scheduler `test_scheduler.py`, `test_history.py`, `test_isolation.py`, `test_console_tool.py`, `test_continuation.py`, `test_continuation_delivery.py`, `test_continuation_retention.py`. | **111개 통과**, 건너뜀 없음, 파일 7개입니다. |
 | **C** | 운영 의도 수용 및 재검증, 온톨로지 범위 사유, 기능 확장 및 패키지 보증, 클라우드 지식 수집·예약·추출, 담당 체계 범위, 예약 결과 연결, 코드 보안 결과 수용 및 작업자입니다. | **333개 통과**, 건너뜀 없음, 파일 21개입니다. |
 | **D** | 변경한 Python 계약인 보고 출처, Operator 백그라운드 작업 경계, SLO 소진 일회 실행 명령입니다. | **15개 통과**, 건너뜀 없음, 파일 3개입니다. |
