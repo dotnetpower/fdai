@@ -445,6 +445,7 @@ async def test_actual_early_stage_returns_are_measured(
         "_emit_stage",
         "_maybe_fire_workflows",
         "_analyze_and_audit_temporal_causality",
+        "_analyze_and_audit_t1_causal_chain",
         "_write_abstain_audit",
         "_analyze_t2_rca_on_abstain",
         "_evaluate_fallback_tiers",

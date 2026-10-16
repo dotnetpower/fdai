@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from contextlib import AsyncExitStack
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
@@ -130,15 +130,50 @@ class _Database:
         )
 
 
+def _validation_dsn(raw: str, environment: Mapping[str, str]) -> str:
+    """Local tests use 5433; GitHub Actions owns a disposable loopback service on 5432."""
+
+    dsn = raw.replace("postgresql+psycopg://", "postgresql://", 1)
+    parts = urlsplit(dsn)
+    github_service = environment.get("GITHUB_ACTIONS") == "true" and environment.get("CI") == "true"
+    allowed_ports = {5433, 5432} if github_service else {5433}
+    if (
+        parts.scheme != "postgresql"
+        or parts.hostname not in {"127.0.0.1", "localhost", "::1"}
+        or parts.port not in allowed_ports
+    ):
+        raise ValueError(
+            "W5 requires isolated loopback PostgreSQL; runtime port is local-only denied"
+        )
+    return dsn
+
+
+@pytest.mark.parametrize(
+    ("host", "port", "environment", "accepted"),
+    [
+        ("127.0.0.1", 5433, {}, True),
+        ("localhost", 5432, {}, False),
+        ("localhost", 5432, {"CI": "true"}, False),
+        ("localhost", 5432, {"GITHUB_ACTIONS": "true"}, False),
+        ("localhost", 5432, {"CI": "true", "GITHUB_ACTIONS": "true"}, True),
+        ("example.com", 5432, {"CI": "true", "GITHUB_ACTIONS": "true"}, False),
+    ],
+)
+def test_validation_dsn_preserves_local_runtime_isolation(host, port, environment, accepted):
+    raw = f"postgresql://{host}:{port}/fdai_validation"
+    if accepted:
+        assert _validation_dsn(raw, environment) == raw
+    else:
+        with pytest.raises(ValueError, match="isolated loopback"):
+            _validation_dsn(raw, environment)
+
+
 @pytest.fixture
 async def database() -> AsyncIterator[_Database]:
     raw = os.environ.get("FDAI_DATABASE_URL")
     if not raw:
         pytest.skip("FDAI_DATABASE_URL is unset; use with-local-test-database.py")
-    dsn = raw.replace("postgresql+psycopg://", "postgresql://", 1)
-    parts = urlsplit(dsn)
-    if parts.hostname not in {"127.0.0.1", "localhost", "::1"} or parts.port != 5433:
-        pytest.fail("W5 requires the isolated loopback validation PostgreSQL on port 5433")
+    dsn = _validation_dsn(raw, os.environ)
     schema = "causal_w5_" + uuid4().hex
     scoped = make_conninfo(
         dsn,
