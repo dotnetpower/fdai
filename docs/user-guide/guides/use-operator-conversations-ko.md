@@ -6,7 +6,7 @@ translation_source_sha: 5d4af6c1d583d5b71e40b83c3ae8929fcaac7bdc
 translation_revised: 2026-08-11
 ---
 
-<a id="대화로-fdai에-묻기ask-fdai-in-대화"></a>
+<span id="대화로-fdai에-묻기ask-fdai-in-대화"></span>
 
 # 대화로 FDAI에 묻기(Ask FDAI in conversation)
 

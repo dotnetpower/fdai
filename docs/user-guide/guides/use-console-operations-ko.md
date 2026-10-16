@@ -6,7 +6,7 @@ translation_source_sha: b91d27a831aa601bbc910efc0dfe969b1788e23b
 translation_revised: 2026-08-25
 ---
 
-<a id="운영자-콘솔-사용하기작업-in-the-운영자-콘솔"></a>
+<span id="운영자-콘솔-사용하기작업-in-the-운영자-콘솔"></span>
 
 # 운영자 콘솔 사용하기(Work in the operator console)
 

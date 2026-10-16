@@ -6,7 +6,7 @@ translation_source_sha: 9091aef653a121b49a410028d4016f1b21db1678
 translation_revised: 2026-08-11
 ---
 
-<a id="변경-승인approve-a-변경"></a>
+<span id="변경-승인approve-a-변경"></span>
 
 # 변경 승인(Approve a change)
 
