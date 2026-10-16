@@ -6,7 +6,7 @@ translation_source_sha: f4867fc7625c1f4b768a5abd0492a9fed521c8c5
 translation_revised: 2026-09-16
 ---
 
-<a id="azure-리소스-조사하기investigate-an-azure-리소스"></a>
+<span id="azure-리소스-조사하기investigate-an-azure-리소스"></span>
 
 # Azure 리소스 조사하기(Investigate an Azure resource)
 
