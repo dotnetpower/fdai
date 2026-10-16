@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 686f2993ac28d824624acc0b004cf04dde102028
-translation_revised: 2026-10-12
+translation_source_sha: 21245147cfd11bf15effcb59f16825a95f1d7597
+translation_revised: 2026-10-16
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 관측을 시작할 준비를 하는 방법을 설명합니다. 이 문서는 **구체적인 배포 인벤토리, 부트스트랩 순서, 배포판과 설치 환경의 책임 분리**를 정의하는 기준 원본입니다. 배포 수명 주기(CI/CD, 점진적 전달, 롤백, DR)는 [deployment-ko.md](deployment-ko.md)에서 다룹니다.
@@ -16,6 +16,19 @@ Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 관측�
 > 대화형 소스 설치는 번호가 있는 단계, 범위가 제한된 세부 정보, 경과 시간 활동 신호를 추가
 > 전용으로 기록합니다. 터미널을 지우거나 공급자 완료를 추정하지 않으며 표시 진행률을 배포 준비
 > 상태로 취급하지 않습니다.
+## 별도의 Hub 개발 검증
+
+독립적인 [두 Hub 개발 루트](../../../infra/hubs-development/README.md)는 벤더 Release Hub와
+고객 Target Lifecycle Hub의 네트워크, ACA Environment, PostgreSQL 서버와 DB, 관리 ID,
+Key Vault, 로그를 분리합니다. 새로운 FDAI 설치 경로가 아니며 소스 설치기나 서명된 오프라인
+패키지를 대체하지 않습니다. 서버를 열기 전에 각 Hub의 관리 ID용 DB 역할, 버전이 지정된
+개발용 키 참조, 명시적 migration Job, Entra 운영자/서비스 경계와 독립적인 카탈로그 pin 승인을
+준비해야 합니다. RG 이름이 다르다는 것만으로 격리를 입증할 수는 없습니다.
+
+검증 근거는 로컬 컨테이너와 정적 Terraform 검사에 한정됩니다. 정확한 Azure preview,
+레지스트리와 실행 아키텍처 확인, 실제 Entra/MI 및 비공개 데이터 접근 거부, 배포와 replica 교체는
+별도로 승인된 실행 범위가 필요합니다. Agent 적용과 전체 FDAI 설치는 이 개발 경로의 범위 밖입니다.
+
 ## 전제조건(Prerequisites)
 
 ### 배포자 아이덴티티 (Azure)
