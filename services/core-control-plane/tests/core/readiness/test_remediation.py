@@ -53,6 +53,7 @@ def _report(
         mode=Mode.SHADOW,
         verdict=HandoffVerdict.BLOCKED if findings else HandoffVerdict.CLEAR,
         findings=tuple(findings),
+        transfer_id="corr-orr-remediation",
     )
 
 
@@ -172,7 +173,27 @@ def test_proposal_cannot_be_constructed_in_enforce_mode() -> None:
             severity="critical",
             blocking=True,
             idempotency_key="orr-remediation:abc",
+            transfer_id="corr-orr-remediation",
             mode=Mode.ENFORCE,
+        )
+
+
+def test_report_without_transfer_identity_cannot_produce_remediation() -> None:
+    report = _report(_finding())
+
+    with pytest.raises(ValueError, match="requires an exact transfer identity"):
+        build_remediation_proposals(
+            report=ReadinessReport(
+                scope=report.scope,
+                submitter=report.submitter,
+                target_environment=report.target_environment,
+                generated_at=report.generated_at,
+                mode=report.mode,
+                verdict=report.verdict,
+                findings=report.findings,
+            ),
+            approval=_approval(),
+            remediation_levers=_LEVERS,
         )
 
 

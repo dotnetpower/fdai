@@ -175,7 +175,7 @@
     },
     "banner": {
       "title": "enforce 전에 shadow를 거칩니다.",
-      "body": "승격은 별도로 검토되는 카탈로그 PR입니다. 이 화면은 측정된 준비 상태만 표시합니다."
+      "body": "승격은 별도로 검토합니다. 활성 기능 회수는 shadow 모드를 강제하고 승격을 차단합니다."
     },
     "kpi": {
       "inShadow": "Shadow 상태",
@@ -200,6 +200,10 @@
     "override": {
       "marker": "운영자 재정의 - 운영자 증언 게이트 {status}"
     },
+    "recall": {
+      "marker": "회수됨 - shadow 강제",
+      "reason": "사유: {reason}"
+    },
     "error": {
       "windowDays": "잘못된 Operator API 응답: promotion gates.window_days는 음수가 아닌 숫자 또는 null이어야 합니다",
       "agreedCount": "잘못된 Operator API 응답: promotion gate row.agreed_count는 reviewed_count를 초과할 수 없습니다",
@@ -209,6 +213,8 @@
       "operatorOverride": "잘못된 Operator API 응답: promotion gate row.operator_override가 promotion_kind와 일치하지 않습니다",
       "gateStatus": "잘못된 Operator API 응답: promotion gate row.operator_override.gate_status가 올바르지 않습니다",
       "operatorAttestationSource": "잘못된 Operator API 응답: promotion gate row.operator_override 출처가 올바르지 않습니다",
+      "recallMode": "잘못된 Operator API 응답: 활성 기능 회수는 shadow 모드를 강제해야 합니다",
+      "recallState": "잘못된 Operator API 응답: 기능 회수 상태가 일관되지 않습니다",
       "summaryCounts": "잘못된 Operator API 응답: 승격 게이트 요약 수는 행 수와 반드시 일치해야 합니다"
     }
   },

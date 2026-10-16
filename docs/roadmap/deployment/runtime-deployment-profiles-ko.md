@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: facd1055fd3c046a81e282e6329f851d932b3733
+translation_source_sha: e3c09d12af6f5f937e66f506c491212f7e2a981a
 translation_revised: 2026-10-16
 ---
 # 런타임 배포 프로파일
@@ -113,6 +113,12 @@ Core와 Operator 모두에 전달합니다. Core 전용 편의 입력은 Operato
 바인딩하며 런타임 플랫폼, Cost Governance 패키지 활성화 또는 실행 신원을 바꾸지 않습니다. Terraform이
 내보낼 수 없는 정책 서명 Key Vault 키, 그 crypto 역할 부여, Core 서명 환경도 프로비저닝하기
 전까지 `product_profile_json` 검증은 `policy-administration` 추가 기능을 거부합니다.
+
+전역 kill switch도 런타임과 독립적입니다. 로컬, AKS 및 호환되는 Container Apps 조합은 같은
+서명된 Operator 요청 계약을 사용하며, Core가 공유 영속 StateStore에서 Operator 증적을 검증할
+수 있을 때만 Var의 `operator.kill-switch.requests` consumer를 조건부로 바인딩합니다. 런타임
+선택은 kill-switch 역할, 실행 신원 또는 효과 주장을 부여하지 않습니다. HTTP `202`와 broker
+전달은 권위 있는 상태 재조회 결과를 대신할 수 없습니다.
 
 운영자는 런타임 플랫폼과 데이터베이스 배치를 하나씩 선택합니다. `fdaictl`은 조합을 검증하고,
 용량과 비용을 추정하며, 플랫폼별 프로비저닝 그래프를 컴파일하고, 각 정확한 플랜에 대한 승인을

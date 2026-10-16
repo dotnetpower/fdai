@@ -365,6 +365,7 @@ def _build_control_loop(
     )
     action_builder = ActionBuilder(
         action_types_by_name=action_types_by_name,
+        rules_by_id={rule.id: rule for rule in active_rules},
         ontology_release=ontology_release,
     )
     audit_store = audit_store or _build_audit_store()

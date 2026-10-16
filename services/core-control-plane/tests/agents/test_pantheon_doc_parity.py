@@ -53,7 +53,10 @@ _EXPECTED_PRIMARY_BEHAVIOR_EN = {
         "perform_rollback; accepts or holds DR failover contracts and records rollback "
         "rehearsal receipts"
     ),
-    "Var": "approve_action, reject_action",
+    "Var": (
+        "approve_action, reject_action; verify signed global kill-switch commands and lower the "
+        "shared autonomy ceiling"
+    ),
     "Bragi": (
         "translate_intent; records shadow-only intent-training evidence with reviewed "
         "activation required"

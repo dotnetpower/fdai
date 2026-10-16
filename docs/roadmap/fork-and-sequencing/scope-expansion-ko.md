@@ -1,8 +1,8 @@
 ---
 title: 스코프 개선 및 구조적 갭
 translation_of: scope-expansion.md
-translation_source_sha: 100a3446a3be59740bf16ba2fa2db844d001d98c
-translation_revised: 2026-08-24
+translation_source_sha: c5138f61b127c9c461c11863f898a76ed55c9540
+translation_revised: 2026-10-15
 ---
 # 스코프 개선 및 구조적 갭
 
@@ -226,6 +226,10 @@ SLO** - 사용자가 보는 인시던트 우선순위를 순위 하고 error-bud
 - **컨트롤 루프로 wire back**: burn-rate breach 는
   `Event(event_type="slo.error_budget_burn")` 을 발행 하여 동일한
   trust-router → risk-gate → 실행기 경로 를 적중. Side 채널 없음.
+- **예약 실행 연결**: `fdai.delivery.slo_burn_cli`는 배포 환경이 소유한 비어 있지 않은
+  카탈로그를 읽고 실제 메트릭 조립과 Kafka 수집 경로를 연결한 뒤 범위가 제한된 평가를 한 번
+  실행합니다. 선택적 Container Apps Job은 배포 환경에서 일정을 지정할 때만 생성됩니다.
+  메트릭이 부족하면 목표를 정상으로 표시하지 않고 재시도 필요 상태로 종료합니다.
 - **SLO subsystem 이 하지 않는 것**: [goals-and-metrics.md](../architecture/goals-and-metrics-ko.md)
   를 replace 하지 않는다. 그 파일은 **FDAI 자신의 performance** 를
   측정; SLO subsystem 은 **FDAI 가 운영하는 워크로드** 를 측정.

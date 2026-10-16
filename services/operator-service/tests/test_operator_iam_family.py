@@ -45,7 +45,6 @@ from fdai_operator_service.families.iam.contracts import (
     HilDecisionReceipt,
     HilPendingItem,
     IamPrincipal,
-    KillSwitchCommand,
     ModelBindingDraftCommand,
     ModelBindingRequestCommand,
     ModelPreferenceCommand,
@@ -62,6 +61,7 @@ from fdai_operator_service.families.iam.errors import (
     IamFamilyError,
     IamUnavailableError,
 )
+from fdai_operator_service.families.iam.governance import FreshKillSwitchPrincipal
 from fdai_operator_service.families.iam.hil_callback import (
     compute_hmac,
     make_hil_callback_route,
@@ -1103,13 +1103,47 @@ class RecordingSlackWebhookTester:
         )
 
 
-class RecordingKillSwitch:
-    def __init__(self) -> None:
-        self.command: KillSwitchCommand | None = None
+class RecordingKillSwitchAuthenticator:
+    def __init__(
+        self,
+        *,
+        role: OperatorRole = OperatorRole.OWNER,
+        authenticated_at: datetime | None = None,
+    ) -> None:
+        self._role = role
+        self._authenticated_at = authenticated_at or datetime.now(UTC)
 
-    async def submit(self, command: KillSwitchCommand) -> Mapping[str, Any]:
-        self.command = command
-        return {"engaged": command.engaged, "request_id": command.request_id}
+    async def authenticate_kill_switch(self, request: Request) -> FreshKillSwitchPrincipal:
+        oid = request.headers.get("x-test-oid", "owner-1")
+        return FreshKillSwitchPrincipal(
+            principal=IamPrincipal(
+                oid=oid,
+                roles=frozenset({self._role}),
+                username="operator@example.com",
+                principal_kind=OperatorPrincipalKind.HUMAN,
+            ),
+            authentication_receipt=_authentication_receipt(
+                oid,
+                role=self._role,
+                issued_at=self._authenticated_at,
+            ),
+            authenticated_at=self._authenticated_at,
+        )
+
+
+class RecordingKillSwitchPublisher:
+    def __init__(self) -> None:
+        self.events: list[tuple[str, str, Mapping[str, object]]] = []
+
+    async def publish_kill_switch_request(
+        self,
+        *,
+        topic: str,
+        key: str,
+        payload: Mapping[str, object],
+    ) -> object:
+        self.events.append((topic, key, dict(payload)))
+        return {"published": True}
 
 
 class RecordingReview:
@@ -1551,12 +1585,14 @@ def test_human_access_and_assignment_routes_emit_typed_requests_only() -> None:
 def test_settings_kill_switch_and_review_preserve_revision_and_idempotency() -> None:
     models = RecordingModelSettings()
     runtime = RecordingRuntimeSettings()
-    kill = RecordingKillSwitch()
+    kill = RecordingKillSwitchPublisher()
     review = RecordingReview()
     client = _client(
         model_settings=models,
         runtime_settings=runtime,
-        kill_switch=kill,
+        kill_switch_authenticator=RecordingKillSwitchAuthenticator(),
+        kill_switch_publisher=kill,
+        kill_switch_receipt_issuer=_policy_receipt_issuer(),
         configuration_review=review,
     )
     owner = {"x-test-role": "Owner", "x-test-oid": "owner-1"}
@@ -1592,14 +1628,13 @@ def test_settings_kill_switch_and_review_preserve_revision_and_idempotency() -> 
     assert (
         client.post(
             "/system/kill-switch",
-            headers=owner,
+            headers={**owner, "Idempotency-Key": "stop-1"},
             json={
                 "engaged": True,
                 "reason": "A sufficiently long emergency reason.",
-                "request_id": "stop-1",
             },
         ).status_code
-        == 200
+        == 202
     )
     assert (
         client.post(
@@ -1610,8 +1645,56 @@ def test_settings_kill_switch_and_review_preserve_revision_and_idempotency() -> 
     )
     assert models.web is not None and models.web.allowed_domains == ("learn.microsoft.com",)
     assert runtime.command is not None and runtime.command.expected_revision == 2
-    assert kill.command is not None and kill.command.request_id == "stop-1"
+    assert len(kill.events) == 1
+    assert kill.events[0][0] == "operator.kill-switch.requests"
+    assert kill.events[0][1] == "stop-1"
+    assert kill.events[0][2]["engaged"] is True
+    assert kill.events[0][2]["accountable_agent"] == "Var"
+    assert kill.events[0][2]["execution_authority"] is False
     assert review.command is not None and review.command.run_id == "review-1"
+
+
+@pytest.mark.parametrize(
+    ("authenticator", "headers", "expected_status"),
+    [
+        (
+            RecordingKillSwitchAuthenticator(role=OperatorRole.READER),
+            {"Idempotency-Key": "stop-reader"},
+            403,
+        ),
+        (
+            RecordingKillSwitchAuthenticator(
+                authenticated_at=datetime.now(UTC) - timedelta(minutes=11)
+            ),
+            {"Idempotency-Key": "stop-stale"},
+            403,
+        ),
+        (RecordingKillSwitchAuthenticator(), {}, 400),
+    ],
+)
+def test_kill_switch_rejects_unqualified_or_unstable_requests_without_publication(
+    authenticator: RecordingKillSwitchAuthenticator,
+    headers: dict[str, str],
+    expected_status: int,
+) -> None:
+    publisher = RecordingKillSwitchPublisher()
+    client = _client(
+        kill_switch_authenticator=authenticator,
+        kill_switch_publisher=publisher,
+        kill_switch_receipt_issuer=_policy_receipt_issuer(),
+    )
+
+    response = client.post(
+        "/system/kill-switch",
+        headers=headers,
+        json={
+            "engaged": True,
+            "reason": "A sufficiently long emergency reason.",
+        },
+    )
+
+    assert response.status_code == expected_status
+    assert publisher.events == []
 
 
 def test_owner_can_request_document_ocr_policy_and_protected_plan() -> None:

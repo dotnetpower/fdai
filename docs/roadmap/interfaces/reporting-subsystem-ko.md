@@ -1,8 +1,8 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: 56166b35076954c46c9ed704af1b68393e49b2c5
-translation_revised: 2026-10-04
+translation_source_sha: 30eca63804e6b80dc5eaf6b96c4dec9d181e0161
+translation_revised: 2026-10-15
 ---
 # 리포팅 서브시스템
 
@@ -319,8 +319,9 @@ rendering, 다이제스트, 사용 불가 섹션 및 분석 부재 검사가 필
 `generated_at`은 근거 관찰 시각이 아니라 보고 렌더링 시각입니다.
 `provenance.sources[].as_of`는 조립 루트가 제공할 수 있을 때 근거 최신성을
 전달합니다. 데이터 원본 등록의 기본값은 `unknown`이며, 명시적 Noop 연결은
-`availability=unavailable`, 로컬 static 출처는 `synthetic=true`로 보고합니다. Console은
-이 상태를 라벨로 표시하며 최신 렌더링 시각을 최신 근거로 표현하지 않습니다.
+`availability=unavailable`로 보고합니다. 조립 루트는 데이터 원본의 일부만 신뢰할 수 있으면
+`availability=partial`을 사용할 수 있고, 로컬 static 출처는 `synthetic=true`로 보고합니다.
+Console은 이 상태를 라벨로 표시하며 최신 렌더링 시각을 최신 근거로 표현하지 않습니다.
 Annotation-only 보고는 `availability=not_applicable`을 사용합니다.
 
 카탈로그 요약은 각 보고가 재귀하게 선언한 데이터 원본 id를 포함합니다. URL에
@@ -601,7 +602,7 @@ shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
 | Operator API 읽기 경로 및 Console Reports 보기 | validated | `fdai_operator_service/reporting/incident_rca_projection.py`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; focused Operator 및 Console 테스트 | 인증된 GET-only inventory, registry, audit-backed Incident RCA rendering 및 Console presentation이 변경 권한 없이 통과했습니다. |
 | Operator route-family 조립 경계 | implemented | `fdai_operator_service/composition_routes.py`; focused Operator route-count 및 family 테스트 | 현재 route-family count에는 reporting 밖의 service-owned route가 포함됩니다. 이 route는 reporting widget, 데이터 원본, report format 또는 쓰기 권한을 만들지 않습니다. |
 | 측정된 카오스 적용 결과 | implemented | `fdai/delivery/chaos/enforce_report.py`; `fdai_operator_service/reporting/chaos_results_projection.py`; `20260921_operator_chaos_report_read.py`; 가져오기, 변환 결과 및 마이그레이션 focused 테스트 | 엄격한 가져오기는 관측용 `report_signal` 레코드를 보존하고 Operator 역할은 필터링된 보안 장벽 보기만 읽습니다. 컨트롤 루프 권한 레코드는 만들지 않습니다. |
-| 권위 있는 데이터 원본 연결 및 운영 최신성 | in-progress | Reporting 데이터 원본 어댑터 및 출처 묶음 | 어댑터는 있지만 각 배포가 권위 있는 프로바이더를 연결하고 최신성, 사용 불가, 시간 초과 및 부분 widget 근거를 보존해야 합니다. |
+| 권위 있는 데이터 원본 연결 및 운영 최신성 | in-progress | Reporting 데이터 원본 어댑터 및 출처 묶음, `test_models.py` | 어댑터와 명시적인 available, partial, unavailable, unknown 원본 상태가 구현되어 있습니다. 각 배포 환경은 권위 있는 프로바이더를 연결하고 최신성, 사용 불가, 시간 초과 및 부분 widget 근거를 보존해야 합니다. |
 | 선택적 PDF format 및 RCA dossier delivery | validated | `fdai_operator_service/reporting/pdf_format.py`; Operator operations 경로; `console/src/routes/reports.tsx`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; focused Operator 및 Console 테스트 | 인증된 Browser Entra가 catalog와 registry 일치, redacted 묶음 및 38809-byte PDF를 검증하면서 공백을 보존하고 새 분석을 추가하지 않았습니다. |
 
 ### 구현 이력
@@ -615,6 +616,7 @@ shipped된 서브시스템을 OWASP + `app-shape` 관점에서 체계적으로
 | 2026-08-14 | implemented | Materialize되지 않은 generic operations row를 요구하는 대신 built-in Incident RCA dossier를 authoritative Operator audit reader에 연결했습니다. | `current change`; `incident_rca_projection.py`, composition binding, focused reader 테스트 3개 및 Operator family/composition 테스트 65개입니다. | 인증된 roster-to-RCA-to-report/PDF receipt를 보존해야 합니다. |
 | 2026-08-15 | validated | Built-in Incident dossier에 대한 인증된 inventory, registry, audit-backed render, Console, PDF 및 no-RCA 사용 불가 근거를 보존했습니다. | `current change`; `docs/baselines/incident-rca-report-assurance-2026-08-15.json`; source `014974045e70e35c26e489fa238345cf70bc3ca3`에 중앙 receipt가 있습니다. | 더 넓은 프로덕션 데이터 원본 캠페인은 아래 열린 항목으로 유지합니다. |
 | 2026-08-15 | implemented | format 모듈이 정확히 하나의 `FormatEncoder`를 제공하고, 내보내진 뒤 등록되거나 opt-in으로 문서화되며, `core/reporting`과 공유 계약 밖의 어떤 것도 import하지 않도록 `check-report-format-boundary` 게이트를 추가했습니다. | `current change`; `scripts/quality/architecture/check-report-format-boundary.py`; `pytest tests/integration/scripts/test_report_format_boundary.py` (5 passed); pre-commit, `verify.sh`, CI 연결. | 프로덕션 데이터 원본 및 인증된 표면 증적은 계속 열려 있습니다. |
+| 2026-10-15 | implemented | 조립 루트가 데이터 원본의 일부 성공 상태를 unknown 또는 unavailable로 축소하지 않고 보존하도록 Core 출처 계약을 Console 계약과 일치시켰습니다. | `current change`; `services/core-control-plane/src/fdai/core/reporting/models.py`; 집중 보고 모델 테스트 9개 통과. | 배포별 최신성, 시간 초과, 부분 원본 및 인증된 화면 증적을 보존해야 합니다. |
 | 2026-09-21 | implemented | 엄격한 카오스 적용 리포트 가져오기, SELECT-only Operator 변환 결과 및 제한된 구간의 측정된 Console 리포트를 추가했습니다. | `current change`; 가져오기, report-feed, Operator 변환 결과 및 마이그레이션 경로; focused pytest, Ruff 및 strict mypy 검사입니다. | 아래 데이터 원본 근거 항목에 따라 관리되는 프로덕션 렌더링 증적을 보존해야 합니다. |
 | 2026-09-28 | implemented | 카오스 적용 리포트를 만들던 기존 참조 sweep 드라이버는 통제된 카오스 어댑터 위로 이관될 때까지 모든 실제 실행을 거부합니다. 가져오기, Operator 변환 결과, Console 리포트는 바뀌지 않았지만 그동안 새 측정 결과는 들어오지 않습니다. | `current change`: `scripts/catalog/run-enforce-scenarios.py`, `tests/integration/infra/test_scenario_lab.py`입니다. 집중 scenario-lab 계약 테스트를 통과했습니다. | Sweep이 `GovernedChaosExecutionAdapter` 위로 이관된 뒤에만 통제된 실행에서 측정된 카오스 결과를 다시 받습니다([#94](https://github.com/dotnetpower/fdai/issues/94)). |
 | 2026-09-28 | implemented | 측정 결과 공급원을 통제된 경로 위에 복구했습니다. `scripts/catalog/run-catalog-scenario.py`는 이제 리포트 피드가 읽는 것과 같은 가져오기 계약으로 `enforce-report.json`을 기록하며, 이 기록은 계약을 검증하는 모듈의 `enforce_report_record`가 만듭니다. 남아 있던 원시 sweep 드라이버는 삭제했습니다. 실험을 실제로 수행한 실행만 기록을 남기므로 거부되었거나 재생되었거나 오류로 끝난 실행은 아무것도 추가하지 않습니다. 가져오기, Operator 변환 결과, Console 리포트는 바뀌지 않았습니다. | `current change`: `services/core-control-plane/src/fdai/delivery/chaos/enforce_report.py`, `services/core-control-plane/src/fdai/delivery/chaos/governed_outcome.py`, `scripts/catalog/run-catalog-scenario.py`, 연결된 테스트입니다. 측정 리포트의 존재와 부재를 포함해 집중 enforce-report, report-feed, 카탈로그 실행기, scenario-lab 테스트를 통과했습니다. | 승인된 실제 통제 실행에서 측정된 리포트를 보존합니다. 통제된 실제 실행, 승격, Azure 작업은 수행하지 않았습니다. |

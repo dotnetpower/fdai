@@ -1,7 +1,7 @@
 ---
 title: 운영자 거버넌스 프로필
 translation_of: operator-governance-profiles.md
-translation_source_sha: aa31afaaa74daa17acabb7bc47236de0b99d5c5f
+translation_source_sha: 91dd8699531e28727f89825a82de562a50adffc4
 translation_revised: 2026-10-15
 ---
 # 운영자 거버넌스 프로필
@@ -15,7 +15,8 @@ translation_revised: 2026-10-15
 > 런타임 승인 경로, 단독 운영자 상시 권한, `governance` override-promotion ActionType 경로,
 > `promotion_kind`, 자율성을 높이지 않는 운영자 정책 입력, `policy-administration` 추가 기능,
 > Operator 정책 개정 경로, Mimir의 검증 및 활성화 경로가 구현되었습니다. Console 정책 작성 UI는
-> 계획 단계이며,
+> 계획 단계입니다. Operator와 Console의 승격 화면은 활성 기능 회수를 보존하고, 유효 모드를
+> `shadow`로 강제하며, 해당 기능을 승격 준비 개수에서 제외합니다.
 > [구현 ledger](../../roadmap-implementation/decisioning/operator-governance-profiles.md)가 제공
 > 현황을 추적합니다. [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance-ko.md)이
 > 결정을 기록합니다.
@@ -136,7 +137,9 @@ Owner 전용 토론 요청은 거버넌스 프로필을 선택하거나 변경 �
 - **런타임 효과:** 승격은 계속 상한일 뿐입니다. 위험 게이트, 승인 정책, 실행별 모든 검사가 계속
   적용됩니다.
 - **우선순위:** 자동 회귀 강등과 공급업체의 기능 회수가 승격보다 우선합니다. 회수된 기능은 이후
-  Release가 회수를 해제하기 전까지 다시 승격할 수 없습니다.
+  Release가 회수를 해제하기 전까지 다시 승격할 수 없습니다. Operator 변환 결과는 별도로 영속된
+  회수 기록을 읽고 ActionType 신원을 검증하며, Console은 강제된 `shadow` 모드 옆에 활성 회수와
+  그 사유를 표시합니다.
 - **증거:** 재정의 증적은 다른 설치, 업스트림 주장, 프로덕션 준비 상태의 승격 증거로 인정되지
   않습니다.
 
@@ -223,6 +226,11 @@ Release 업그레이드는 설치 안에서 활성 개정을 새 기준 정책�
   영수증을 확인한 뒤에만 재정의를 받아들입니다. `governance.override-promote-action-type` 경로는
   통제된 direct-API 승격 어댑터를 통해 그 영수증을 만들고 검증합니다. 보존된 governed production
   receipt는 아직 남은 작업입니다.
+- 전역 비상 정지는 ActionType 승격 및 정책 개정과 분리된 권한 하향 명령입니다. Operator는 새
+  인증을 거친 사람 Owner 또는 BreakGlass를 요구하고 정확한 명령을 Operator 요청 증적으로
+  서명한 뒤 `operator.kill-switch.requests`를 게시합니다. Var는 Core의 상태 및 감사
+  compare-and-set 전에 증적과 재생 방지 상태를 검증합니다. HTTP `202`는 게시 수락만 뜻합니다.
+  권한이 부여된 상태 조회 화면과 보존된 배포 훈련은 아직 남아 있습니다.
 - `policy-administration` 추가 기능, Operator API 정책 개정 경로, Mimir의 검증 및 활성화 경로,
   제품 프로필 구성 게이트가 구현되었습니다. 이 추가 기능에는 `read-only-console`과
   `enterprise-identity-governance`가 필요하며 그 자체로 권한을 부여하지 않습니다. 선택된 제품

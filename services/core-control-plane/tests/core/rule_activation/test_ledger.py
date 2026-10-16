@@ -203,6 +203,13 @@ async def test_idempotency_key_reuse_with_different_command_is_rejected() -> Non
     store = InMemoryStateStore()
     ledger = StateStoreRuleActivationLedger(store=store)
     await _install(ledger, _generation("rule.alpha"), idempotency_key="same-key")
+    idempotency_key = next(
+        key for key in store._state if key.startswith("rule-activation:idempotency:")
+    )
+    store._state[idempotency_key] = {  # noqa: SLF001 - emulate a later binary's envelope.
+        **store._state[idempotency_key],
+        "schema_version": "2.0.0",
+    }
     conflicting = _command(
         _generation("rule.beta"),
         source=RuleActivationSource.INSTALLATION,
@@ -213,3 +220,38 @@ async def test_idempotency_key_reuse_with_different_command_is_rejected() -> Non
 
     with pytest.raises(RuleActivationLedgerConflictError, match="idempotency key"):
         await ledger.apply(conflicting)
+
+
+async def test_version_two_pointer_generation_and_result_remain_readable() -> None:
+    store = InMemoryStateStore()
+    ledger = StateStoreRuleActivationLedger(store=store)
+    generation = _generation("rule.alpha")
+    command = await _install(ledger, generation)
+
+    for key in tuple(store._state):  # noqa: SLF001 - emulate records written by a later binary.
+        if not key.startswith("rule-activation:"):
+            continue
+        record = dict(store._state[key])  # noqa: SLF001
+        record["schema_version"] = "2.0.0"
+        for payload_name in ("generation", "result"):
+            payload = record.get(payload_name)
+            if isinstance(payload, dict):
+                record[payload_name] = {**payload, "schema_version": "2.0.0"}
+        store._state[key] = record  # noqa: SLF001
+
+    assert await ledger.current_generation() == generation
+    result = await ledger.result_for(command)
+    assert result is not None and result.status is RuleActivationStatus.APPLIED
+
+
+async def test_unknown_pointer_version_fails_closed() -> None:
+    store = InMemoryStateStore()
+    ledger = StateStoreRuleActivationLedger(store=store)
+    await _install(ledger, _generation("rule.alpha"))
+    store._state["rule-activation:current"] = {  # noqa: SLF001 - corruption proof.
+        **store._state["rule-activation:current"],
+        "schema_version": "3.0.0",
+    }
+
+    with pytest.raises(RuntimeError, match="pointer failed validation"):
+        await ledger.current_generation()

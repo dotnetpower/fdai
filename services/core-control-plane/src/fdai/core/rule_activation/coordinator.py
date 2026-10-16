@@ -17,6 +17,12 @@ from fdai_service_contracts.rule_activation import (
     RuleActivationStatus,
     rule_activation_proposal_digest,
 )
+from fdai_service_contracts.rule_activation_versioning import (
+    RuleActivationRecordKind,
+    canonicalize_rule_activation_typed_payload,
+    decode_rule_activation_record,
+    encode_rule_activation_record,
+)
 
 from fdai.core.rule_activation.generation import (
     build_rule_activation_generation,
@@ -72,13 +78,12 @@ class RuleActivationCoordinator:
 
         proposal = _direct_proposal(record, source_ref=source_ref)
         key = f"{self._REQUEST_PREFIX}{proposal.request_id}"
-        value = {
-            "schema_version": "1.0.0",
-            "kind": "rule_activation.request",
+        body = {
             "operator_proposal_id": record["proposal_id"],
             "proposal": proposal.model_dump(mode="json"),
             "revision": 1,
         }
+        value = encode_rule_activation_record(RuleActivationRecordKind.REQUEST, body)
         created = await self._store.write_state_with_audit_if_absent(
             key,
             value,
@@ -102,7 +107,7 @@ class RuleActivationCoordinator:
         if created:
             return proposal
         existing = await self._store.read_state(key)
-        if existing != value:
+        if existing is None or _request_body(existing) != body:
             raise ValueError("Rule activation request conflicts with durable state")
         return proposal
 
@@ -126,7 +131,9 @@ class RuleActivationCoordinator:
         )
         if stored is None:
             raise ValueError("Rule activation request is unavailable")
-        proposal = RuleActivationProposal.model_validate(stored.get("proposal"))
+        stored_body = _request_body(stored)
+        stored_proposal = stored_body.get("proposal")
+        proposal = RuleActivationProposal.model_validate(stored_proposal)
         if payload.get("expected_revision") != proposal.proposal_digest:
             raise ValueError("Rule activation approval revision does not match the request")
         body = _mapping(payload.get("payload"), "approval body")
@@ -279,6 +286,23 @@ def _mapping(value: object, label: str) -> Mapping[str, Any]:
     if not isinstance(value, Mapping):
         raise ValueError(f"{label} is invalid")
     return value
+
+
+def _request_body(value: Mapping[str, Any]) -> dict[str, object]:
+    body = dict(
+        decode_rule_activation_record(
+            value,
+            expected_kind=RuleActivationRecordKind.REQUEST,
+        ).body
+    )
+    proposal = body.get("proposal")
+    if not isinstance(proposal, Mapping):
+        raise ValueError("Rule activation request proposal is invalid")
+    body["proposal"] = canonicalize_rule_activation_typed_payload(
+        RuleActivationRecordKind.PROPOSAL,
+        proposal,
+    )
+    return body
 
 
 def _text(value: object, label: str) -> str:

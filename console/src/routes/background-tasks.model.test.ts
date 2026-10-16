@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   appendBackgroundTaskPage,
   backgroundTaskTone,
+  canCancelBackgroundTask,
   decodeBackgroundTaskPage,
   decodeBackgroundTaskProgress,
+  normalizeBackgroundTaskCreateInput,
 } from "./background-tasks.model";
 
 const TASK = {
@@ -34,6 +36,38 @@ const TASK = {
 };
 
 describe("background task model", () => {
+  it("normalizes typed creation input and rejects empty requests", () => {
+    expect(normalizeBackgroundTaskCreateInput({
+      prompt: "  Inspect state.  ",
+      intent: "resource_state",
+      resourceName: "  example-vm  ",
+      resourceType: " ",
+      resourceGroup: " rg-example ",
+      explicitDeep: false,
+    })).toEqual({
+      prompt: "Inspect state.",
+      intent: "resource_state",
+      resource_name: "example-vm",
+      resource_group: "rg-example",
+      explicit_deep: false,
+    });
+    expect(normalizeBackgroundTaskCreateInput({
+      prompt: " ",
+      intent: "resource_state",
+      resourceName: "example-vm",
+      resourceType: "",
+      resourceGroup: "",
+      explicitDeep: false,
+    })).toBeNull();
+  });
+
+  it("offers cancellation only before terminal state", () => {
+    expect(canCancelBackgroundTask("queued")).toBe(true);
+    expect(canCancelBackgroundTask("running")).toBe(true);
+    expect(canCancelBackgroundTask("succeeded")).toBe(false);
+    expect(canCancelBackgroundTask("cancelled")).toBe(false);
+  });
+
   it("decodes a bounded page and cursor", () => {
     const page = decodeBackgroundTaskPage({
       tasks: [TASK],

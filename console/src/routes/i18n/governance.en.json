@@ -175,7 +175,7 @@
     },
     "banner": {
       "title": "Shadow before enforce.",
-      "body": "Promotion is a separately reviewed catalog PR. This screen only renders measured readiness."
+      "body": "Promotion is separately reviewed. An active capability recall forces shadow mode and blocks promotion."
     },
     "kpi": {
       "inShadow": "In shadow",
@@ -200,6 +200,10 @@
     "override": {
       "marker": "Operator override - operator-attested gate {status}"
     },
+    "recall": {
+      "marker": "Recalled - forced to shadow",
+      "reason": "Reason: {reason}"
+    },
     "error": {
       "windowDays": "invalid Operator API response: promotion gates.window_days MUST be a non-negative number or null",
       "agreedCount": "invalid Operator API response: promotion gate row.agreed_count MUST NOT exceed reviewed_count",
@@ -209,6 +213,8 @@
       "operatorOverride": "invalid Operator API response: promotion gate row.operator_override does not match promotion_kind",
       "gateStatus": "invalid Operator API response: promotion gate row.operator_override.gate_status is invalid",
       "operatorAttestationSource": "invalid Operator API response: promotion gate row.operator_override source is invalid",
+      "recallMode": "invalid Operator API response: active capability recall MUST force shadow mode",
+      "recallState": "invalid Operator API response: capability recall state is inconsistent",
       "summaryCounts": "invalid Operator API response: promotion gate summary counts MUST match rows"
     }
   },

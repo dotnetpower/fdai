@@ -15,6 +15,13 @@ networking, trusted images, notification destinations, monitoring, and cost ceil
 > **Execution transport:** Production tenant plans and applies run through `fdaictl provision
 > azure` and the manual managed host. GitHub Actions may validate source and publish releases, but
 > it is not a production deployment executor.
+>
+> **Development apply verification:** The protected development apply workflow gives each
+> immediate synthetic canary run a deterministic slot and then reads the Core audit store through
+> the peered deployment runner. The apply fails unless exactly one matching consumed audit row is
+> settled within 30 seconds. Ambiguous, malformed, future-dated, or over-budget rows fail closed,
+> and the sanitized receipt grants no authority. This code path is deployment preflight; it is not
+> retained production evidence until an authorized run preserves its exact receipt.
 ## Bounded split-service prerequisite bootstrap
 
 The split Core service reads the RCA reader identity only from the platform Terraform output. It

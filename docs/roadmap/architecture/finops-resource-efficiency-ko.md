@@ -1,8 +1,8 @@
 ---
 title: FinOps 리소스 효율 및 SKU 결정
 translation_of: finops-resource-efficiency.md
-translation_source_sha: c376770e3e36de1a35996d27456bf07626c02294
-translation_revised: 2026-09-20
+translation_source_sha: 7a96f3861fa931de8c34d9a241676f5fd4ea705e
+translation_revised: 2026-10-15
 ---
 
 # FinOps 리소스 효율 및 SKU 결정
@@ -22,9 +22,14 @@ translation_revised: 2026-09-20
 > Thor가 실행하고, Heimdall이 효과를 검증하고, Vidar가 복구하고, Saga가 감사 기록을
 > 종료합니다.
 >
-> **현재 상태:** 일반 비용 가드, 크기 조정 `ActionType`, 초기 비용 규칙, Njord 비용 조언,
-> Freyr 용량 조언은 있습니다. 이 문서에서 설명하는 구독 분석 변환 결과, 완전한 서비스 기능군
-> 프로필, 리소스 효율 결정 프레임, 다중 효과 정산 및 Console 작업 영역은 구현되지 않았습니다.
+> **현재 상태:** 구독 분석, 리소스 및 정산 변환 결과, Console 작업 영역, 일반 비용 안전 검사,
+> 결정론적 최적화 계획이 구현되어 있습니다. 플래너는 검토된 서비스 기능군 프로필 5개, 필수
+> 메트릭 완전성 검사, 범위가 제한된 결합 대상의 멤버십·잠금·롤백 계약, 근거 복구 후 만료되는
+> 범위 지정 사람 확인 진술을 포함합니다. 모든 후보는 계속 권한을 부여하지 않고 기존 안전성
+> 검토 경로로만 전달됩니다. 순수 Njord 후보 조합기는 실행 가능한 결합 right-size 계획을 정확한
+> 대상, 프로필, 후보, 최신성, 목표 효과, 인과 순서 및 논리적 잠금 계보와 함께 기존의 소유자 인증
+> 교차 vertical 계약에 연결합니다. 실제 Njord 게시, 완전한 Freyr/Forseti/Odin 사례 조립, 승인 및 실행 통합, 실제
+> 정산이 완료된 효율성 평가 집단은 남아 있습니다.
 
 ## 설계 개요
 

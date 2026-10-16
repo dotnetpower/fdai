@@ -56,6 +56,7 @@ from fdai.agents._framework.var_final_approval import (
 from fdai.agents._framework.var_final_approval import (
     release_approval_publication_claim as _release_approval_publication_claim,
 )
+from fdai.agents._framework.var_kill_switch import VarKillSwitchMixin
 from fdai.agents._framework.var_pending_durability import (
     PENDING_TICKET_PREFIX,
     SHADOW_REVIEW_PREFIX,
@@ -104,6 +105,7 @@ ApproverAuthorizer = Callable[[str, str], bool | Awaitable[bool]]
 
 
 class Var(
+    VarKillSwitchMixin,
     VarApprovalProfileMixin,
     VarDevelopmentAuthorityMixin,
     TestContextReviewMixin,
@@ -176,6 +178,7 @@ class Var(
             ApprovalPublicationClaim,
         ] = {}
         self._action_semantics = action_semantics
+        self.initialize_kill_switch_handler()
 
     def bind_bus(self, bus: PantheonBus) -> None:
         self.bus = bus
@@ -197,6 +200,8 @@ class Var(
             return
         if topic == POLICY_ACTIVATION_REQUEST_TOPIC:
             await ingest_policy_activation_request(self, payload)
+            return
+        if await self._kill_switch_message(topic, payload, self.record_behavior):
             return
         if topic != "object.action-run":
             self.record_behavior("typed_message:ignored")

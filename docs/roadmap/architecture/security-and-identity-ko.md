@@ -1,7 +1,7 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 7c5b52b0cbaa1fe1378f7e0acdbedb0df098c870
+translation_source_sha: 74256ba95a71f881e7f7fea996dee5c3c627d7a0
 translation_revised: 2026-10-16
 ---
 
@@ -13,6 +13,8 @@ translation_revised: 2026-10-16
 [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md) 의 토폴로지,
 [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)
 의 코드/CI 게이트를 보완합니다. 선언 목록의 `available`, `queryable`, `readable` facet은 후보 의미를 나타낼 뿐 권한을 증명하지 않습니다. Core는 선택한 선언 종류를 현재 principal 매니페스트로 제한합니다. 이 facet은 접근 권한을 부여하거나 관측 상태를 만들거나 정확한 release 검증을 우회할 수 없습니다.
+ActionBuilder는 ORR 인용을 요청된 ActionType과 대조하기 위한 용도로만 Core의 읽기 전용 활성 룰 맵을 받습니다. 이 맵은 신원, 승인 또는 실행 권한을 부여하지 않습니다.
+Core는 ORR 교정 게시자를 레버 맵과 함께 있을 때만 받습니다. 이 완전한 DI는 이미 귀속된 제안 사실을 전달할 뿐 승인 또는 실행기 신원을 제공할 수 없습니다.
 ## 심각도 어휘
 
 - **P0 차단 요인** - auto-execution이 활성화되기 전에 해결·검증되어야 함; shadow 모드에서의
@@ -297,8 +299,12 @@ PostgreSQL 근거 공급자는 다음 경계를 따릅니다.
   실행기 아이덴티티 없이 조작 가능. risk 게이트 는 이를 `KillSwitch.is_engaged()` 가 공급하는
   `kill_switch` 상한 축으로 실현합니다. ([execution-model-ko.md](../decisioning/execution-model-ko.md)
   2.6b). 운영 런타임은 모든 권한 결정 전에 PostgreSQL에서 상태를 읽으며 읽기에 실패하면
-  engaged 상태로 처리합니다. Owner와 Break-Glass principal은 `POST /system/kill-switch`를 통해
-  상태를 변경하고, 개정 번호 compare-and-set과 감사 항목이 같은 트랜잭션에 기록됩니다.
+  engaged 상태로 처리합니다. Owner와 Break-Glass principal은 새 인증과 `Idempotency-Key`를
+  사용해 `POST /system/kill-switch` 요청을 제출합니다. Operator API는 형식이 지정된 요청에
+  서명해 게시합니다. Var는 정확한 증적, principal, 역할, 시간, 재생 방지 상태를 검증한 뒤
+  개정 번호 compare-and-set으로 상태와 감사 항목을 같은 트랜잭션에 기록합니다. HTTP `202`는
+  요청이 게시되었음만 보여 줍니다. 비상 정지 상태가 바뀌었는지는 독립적인 영속 상태 조회로
+  확인해야 합니다.
 - **Break-glass** 절차는 필수 감사와 사후 리뷰 하에 범위된 비상 접근을 부여; break-glass
   사용은 알림을 발동하고 자동 만료.
 

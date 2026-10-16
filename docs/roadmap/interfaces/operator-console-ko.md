@@ -1,7 +1,7 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 2a88d1f4f94b44cd281e4a77384108ef36d698a8
+translation_source_sha: 79712b846879a5e88013aa46d75872697adb6c6b
 translation_revised: 2026-10-16
 ---
 # FDAI Console 대화
@@ -40,7 +40,9 @@ Console은 자격 증명 값을 받거나 색인 완료를 주장하거나 표�
 요구 사항의 서버 소유 제한 코드를 읽기 쉬운 영어와 한국어로 보여 줍니다.
 Promotion gates 화면은 측정된 준비 상태 표시 데이터와 영속 승격 레지스트리를 결합하고
 `operator_override` 모드, 운영자 증언 게이트 스냅샷, 읽기 전용 권한 출처를 표시하지만 승인이나
-실행 권한은 부여하지 않습니다.
+실행 권한은 부여하지 않습니다. 또한 별도의 영속 `capability_recall:` 레코드를 결합하고 ActionType
+신원을 검증하며, 활성 recall을 `shadow`로 강제하고 해당 행을 승격 준비 완료 수에서 제외한 뒤
+범위가 제한된 recall 사유를 표시합니다.
 거버넌스의 기능 카탈로그는 FDAI가 선언한 기능을 보여 주는 읽기 전용 디렉터리입니다. 행에서
 대화형 컨트롤이 아닌 부분을 선택하면 인접한 상세 패널이 열리고, 기능 ID는 명시적인 키보드 버튼으로
 유지됩니다. 기본 목록에는 신원, 범주, 부작용 클래스, 필요 역할만 표시하고 페이지당 선언을 20개로

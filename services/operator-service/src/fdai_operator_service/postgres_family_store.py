@@ -44,6 +44,7 @@ from fdai_operator_service.families.operations.instance_states import (
     InventoryOntologyContext,
     InventoryStatePage,
 )
+from fdai_operator_service.postgres_capability_recall import merge_capability_recall_rows
 from fdai_operator_service.postgres_family_evidence import (
     aks_diagnostic_receipt as _aks_diagnostic_receipt,
 )
@@ -629,6 +630,7 @@ class PostgresFamilyStore:
             modes[action_type] = {
                 "mode": mode,
                 "promotion_kind": promotion_kind,
+                "capability_recall": None,
                 "gate_status": value.get("gate_status"),
                 "gate_status_source": value.get("gate_status_source", "operator_attested"),
                 "gate_evidence_digest": value.get("gate_evidence_digest"),
@@ -641,7 +643,16 @@ class PostgresFamilyStore:
                     "operator_attested",
                 ),
             }
-        return modes
+        recall_rows = await self._fetch_all(
+            "SELECT value FROM state_kv WHERE key LIKE %(key_pattern)s ESCAPE '\\' "
+            "ORDER BY key LIMIT 1001",
+            {"key_pattern": "capability\\_recall:%"},
+        )
+        if len(recall_rows) > 1000:
+            raise PostgresFamilyStoreUnavailable(
+                "authoritative capability recall state exceeds its bound"
+            )
+        return merge_capability_recall_rows(modes, recall_rows)
 
     async def read_wara_catalog(self) -> dict[str, object]:
         """Read the current catalog-plus-assessment WARA projection."""

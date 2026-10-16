@@ -50,6 +50,7 @@ from fdai.agents._framework.semantic_routing import SemanticAgentRouter, Semanti
 from fdai.agents._framework.thor_preflight import ThorPreflightSimulator
 from fdai.agents._framework.tool_answer import answer_from_owned_tools
 from fdai.agents._framework.tool_semantic import SemanticToolPlanner
+from fdai.agents._framework.var_kill_switch import VarKillSwitchRequestHandler
 from fdai.agents.bragi import Bragi
 from fdai.agents.heimdall import (
     ActionObservationHook,
@@ -63,7 +64,7 @@ from fdai.agents.mimir import Mimir
 from fdai.agents.norns import Norns
 from fdai.agents.saga import Saga
 from fdai.agents.thor import ActionExecutor, ActionRunStore, Thor
-from fdai.agents.var import ApproverAuthorizer
+from fdai.agents.var import ApproverAuthorizer, Var
 from fdai.agents.vidar import RollbackExecutor
 from fdai.core.architecture_review import ArchitectureReviewTraceObserver
 from fdai.core.capacity import CapacityGraduationController
@@ -168,6 +169,7 @@ class PantheonRuntime(RuntimeConversationPort):
         action_rollback_executors: dict[tuple[str, str], RollbackExecutor] | None = None,
         vidar_state_store: StateStore | None = None,
         var_state_store: StateStore | None = None,
+        var_kill_switch_request_handler: VarKillSwitchRequestHandler | None = None,
         forseti_state_store: StateStore | None = None,
         bragi_state_store: StateStore | None = None,
         odin_state_store: StateStore | None = None,
@@ -405,6 +407,8 @@ class PantheonRuntime(RuntimeConversationPort):
         maybe_var = instantiated.get("Var")
         if maybe_var is not None and hasattr(maybe_var, "bind_action_semantics"):
             maybe_var.bind_action_semantics(action_semantics)
+        if isinstance(maybe_var, Var):
+            maybe_var.bind_kill_switch_request_handler(var_kill_switch_request_handler)
         if saga is not None:
             instantiated["Saga"] = saga
         maybe_mimir = instantiated.get("Mimir")

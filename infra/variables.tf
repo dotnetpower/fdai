@@ -596,6 +596,18 @@ variable "analyzer_tick_cron_expression" {
   default     = "* * * * *"
 }
 
+variable "slo_burn_cron_expression" {
+  description = "Container Apps Job cadence for workload SLO burn evaluation. Empty keeps the job absent until workload objectives are supplied."
+  type        = string
+  default     = ""
+}
+
+variable "slo_catalog_dir" {
+  description = "Absolute path inside the Core image containing deployment-owned workload SLO YAML definitions."
+  type        = string
+  default     = "/app/rule-catalog/slo"
+}
+
 variable "forecast_tick_cron_expression" {
   description = "Cron for the forecast evaluation tick Job. Empty disables the job."
   type        = string

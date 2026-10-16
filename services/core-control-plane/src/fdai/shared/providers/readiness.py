@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from types import MappingProxyType
 from typing import Any, Protocol, runtime_checkable
 
 from fdai.shared.contracts.models import RequirementOutcome
@@ -41,6 +43,19 @@ class RemediationProposalPublisher(Protocol):
         ...
 
 
+@dataclass(frozen=True, slots=True)
+class RemediationProposalBinding:
+    """One complete no-authority proposal publisher configuration."""
+
+    publisher: RemediationProposalPublisher
+    levers: Mapping[str, str]
+
+    def __post_init__(self) -> None:
+        if not self.levers:
+            raise ValueError("readiness remediation binding MUST carry at least one lever")
+        object.__setattr__(self, "levers", MappingProxyType(dict(self.levers)))
+
+
 @runtime_checkable
 class ChecklistEvidenceProvider(Protocol):
     """Return explicit requirement outcomes for one bounded scope."""
@@ -54,5 +69,6 @@ __all__ = [
     "ChecklistEvidenceProvider",
     "PostureAssessmentProvider",
     "ReadinessReportPublisher",
+    "RemediationProposalBinding",
     "RemediationProposalPublisher",
 ]

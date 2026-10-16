@@ -2996,6 +2996,8 @@ module "compute" {
   # empty cron disables it. See
   # docs/roadmap/rules-and-detection/observability-and-detection.md.
   analyzer_tick_cron_expression = var.analyzer_tick_cron_expression
+  slo_burn_cron_expression      = var.slo_burn_cron_expression
+  slo_catalog_dir               = var.slo_catalog_dir
   analyzer_targets_json         = var.analyzer_targets_json
   trace_topologies_json         = var.trace_topologies_json
   analyzer_window_seconds       = var.analyzer_window_seconds

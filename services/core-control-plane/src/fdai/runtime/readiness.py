@@ -22,6 +22,11 @@ from fdai.core.readiness import (
     StartupReadinessReport,
 )
 from fdai.core.readiness.coordinator import StartupProbeBudget, StartupReadinessCoordinator
+from fdai.core.readiness.self_health import (
+    SelfHealthCatalog,
+    SelfHealthDecision,
+    SelfHealthObservation,
+)
 from fdai.delivery.startup_probe import (
     AuditChainStartupProbe,
     AuditStartupProbe,
@@ -148,6 +153,7 @@ class StartupReadinessRuntime:
     state: RuntimeReadinessState
     refresh_interval_seconds: float
     refresh_lead_seconds: float = 0.0
+    self_health_catalog: SelfHealthCatalog | None = None
 
     def __post_init__(self) -> None:
         if self.refresh_interval_seconds <= 0 or self.refresh_lead_seconds < 0:
@@ -157,6 +163,18 @@ class StartupReadinessRuntime:
         report = await self.coordinator.evaluate()
         self.state.update(report)
         return report
+
+    def evaluate_self_health(
+        self,
+        observation: SelfHealthObservation,
+        *,
+        now: datetime,
+    ) -> SelfHealthDecision:
+        """Evaluate one mapped runtime observation without granting authority."""
+
+        if self.self_health_catalog is None:
+            raise RuntimeError("self-health catalog is unavailable")
+        return self.self_health_catalog.evaluate(observation, now=now)
 
     async def refresh_until_stopped(self, stop: asyncio.Event) -> None:
         while not stop.is_set():
@@ -272,6 +290,7 @@ def build_startup_readiness_runtime(
     deployment_ceilings: Mapping[str, AuthorityCeiling] | None = None,
     decision_evidence: DecisionEvidenceAdmissionProvider | None = None,
     ingest_topics: Collection[str] = (),
+    self_health_catalog: SelfHealthCatalog | None = None,
 ) -> StartupReadinessRuntime:
     """Compose standard required probes plus registered optional destinations."""
     probe_topic = (
@@ -410,6 +429,7 @@ def build_startup_readiness_runtime(
             300.0,
         ),
         refresh_lead_seconds=budget.refresh_lead_seconds,
+        self_health_catalog=self_health_catalog,
     )
 
 

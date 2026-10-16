@@ -1,8 +1,8 @@
 ---
 title: 운영 배포 강화
 translation_of: production-deployment-hardening.md
-translation_source_sha: 612b333494032d4c5f567b74fdada42793d9b1d0
-translation_revised: 2026-10-08
+translation_source_sha: 8ac7d3b0f180573288db35ee0b2273424d1db56a
+translation_revised: 2026-10-15
 ---
 # 운영 배포 강화
 
@@ -18,6 +18,13 @@ translation_revised: 2026-10-08
 > **실행 전송 계층:** 운영 대상 환경 계획과 적용은 `fdaictl provision azure`와 수동 Managed
 > Host를 사용합니다. GitHub Actions는 소스를 검증하고 release를 게시할 수 있지만 운영 배포
 > 실행기로 사용하지 않습니다.
+>
+> **개발 적용 검증:** 보호된 개발 적용 작업 흐름은 즉시 실행하는 각 합성 카나리에 결정론적
+> slot을 지정한 뒤 peering된 배포 실행기에서 Core 감사 저장소를 읽습니다. 일치하며 종결된 감사
+> 행이 정확히 하나이고 30초 안에 도착하지 않으면 적용을 실패 처리합니다. 모호하거나 잘못되거나
+> 미래 시점이거나 예산을 넘은 행은 안전한 쪽으로 차단하며 비식별화한 증적은 어떤 권한도 부여하지
+> 않습니다. 이 코드 경로는 배포 전 검사이며, 권한이 부여된 실행이 정확한 증적을 보존하기 전에는
+> 운영 근거가 아닙니다.
 ## 범위가 제한된 split-service 선행 조건 bootstrap
 
 Split Core 서비스는 platform Terraform 출력에서만 RCA reader identity를 읽습니다. Azure 리소스
