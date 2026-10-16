@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 48b0e78e642b140a297e234ae044f8518b18327d
+translation_source_sha: 5f922d4ceac1be0cb0727176429421fe08137647
 translation_revised: 2026-10-17
 ---
 # 프로젝트 구조
@@ -83,6 +83,11 @@ Operator는 권한 없는 최종 답변과 기술 상세만 받습니다.
 seam은 데이터베이스 시각의 lease 검사와 원자적인 candidate/applied 커밋을 소유하며 PostgreSQL
 어댑터는 정확한 최신 prepare와 candidate 선택을 직렬화합니다. 코호트 레코드는 버전 1 active
 포인터를 기록하지 않습니다.
+이중 개정 슬롯은 권한을 부여하지 않는 계층을 하나 더 추가합니다. 공유 계약은 정확한 개정 고정,
+이전 enforce/새 shadow 슬롯 ID, 개정을 인용하는 증적, 승격 승인 사실, 비활성 이동 후보를
+소유합니다. Core는 보존 슬롯과 코호트 readback에서 증적과 후보를 파생하지만, 주입된 승격 권한
+공급자만 승인 프로필, principal, 정족수, 개정 증적을 검증할 수 있습니다. 슬롯 모듈은 현재 적용
+모드를 변경하지 않습니다.
 
 질문 구조의 개념 선택 재사용은 Core 대화 처리가 소유하며 한 번의 처리가 끝나면 종료됩니다.
 정확한 입력과 판독기별로 분리된 캐시는 관측 상태, 인가 결정, 이전 요청의 의미를 저장하지

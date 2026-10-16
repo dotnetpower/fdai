@@ -422,7 +422,7 @@ reached the A1 default route, so adding a route for that category could have red
 - Changing a rule's logic bumps its `version`; changing an assignment's parameters/effect/scope is
   itself an audited, versioned change. A rule set **pins the `version` of each member rule** so a
   rule change cannot silently alter a promoted set.
-- **Rule revision upgrades (phases 1-5 implemented):** An activation generation pins each
+- **Rule revision upgrades (phases 1-6 implemented):** An activation generation pins each
   member's exact version and digest, and the ledger accepts only membership changes against an
   unchanged catalog, so changing an activated Rule's content makes an upgraded installation fail
   closed at startup. Until every phase below is operationally validated,
@@ -456,7 +456,7 @@ reached the A1 default route, so adding a route for that category could have red
   strictly increasing semantic profile version for active member changes within the same profile,
   keeps cross-profile version namespaces independent, and preserves generation identity only
   when profile id, version, and members are all unchanged during catalog-only growth. Phases 5
-  through 9 remain open. Phase 6 ships
+  through 9 remain open.
   dormant: they read and validate version 2 data but write none, and no version 2 digest or
   pointer becomes authoritative before the approved identity upgrade in phase 7.
   1. **Dual-read codecs.** A compatibility release reads version 1 and 2 of every durable object
@@ -520,6 +520,13 @@ reached the A1 default route, so adding a route for that category could have red
      shadow, and every evaluation's evidence cites the revision identity it ran. Once every cohort
      replica reports the new revision applied, a separate approved CAS moves the binding. Combining revision and promotion
      in one approval requires the stronger promotion quorum and revision-keyed evidence.
+     This phase is implemented as dormant contracts and an immutable Core ledger. Every binding
+     pins one revision, the old slot stays enforce while the new slot is shadow, and evaluation
+     evidence cites revision, binding, and slot digests. A move candidate requires the exact ACK
+     set, every required replica applied to the slot's exact profile and revision, revision
+     evidence, and separate promotion approval verified through an injected authority provider.
+     Core derives the final approved enforce binding and move candidate from retained records.
+     It remains inert and never changes current enforcement.
   7. **Approved identity upgrade.** Moving existing version 1 generations to version 2 is an
      explicit command approved by a distinct human. It binds the source generation digest, every
      target member identity, the target generation digest, and the signed release, and verifies

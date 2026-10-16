@@ -394,6 +394,29 @@ class StateStoreRuleActivationCohort:
             raise RuleCohortConflictError("Rule cohort preparation is unavailable")
         return RuleCohortPrepareV2.model_validate(raw)
 
+    async def cohort(self, prepare_digest: str) -> RuleCohortPrepareV2:
+        """Return one retained frozen cohort for downstream dormant verification."""
+
+        return await self._prepare(prepare_digest)
+
+    async def candidate_active(self) -> RuleCohortCandidateActiveV2:
+        """Return the authority-neutral candidate-active record."""
+
+        raw = await self._store.read_state(_CANDIDATE_ACTIVE_KEY)
+        if raw is None:
+            raise RuleCohortConflictError("Rule cohort candidate-active state is unavailable")
+        return RuleCohortCandidateActiveV2.model_validate(raw.get("candidate"))
+
+    async def applied(
+        self,
+        prepare_digest: str,
+        replica_id: str,
+    ) -> RuleReplicaAppliedV2 | None:
+        """Return one exact replica applied readback."""
+
+        raw = await self._store.read_state(self._applied_key(prepare_digest, replica_id))
+        return RuleReplicaAppliedV2.model_validate(raw) if raw is not None else None
+
     async def _acknowledgements(
         self,
         cohort: RuleCohortPrepareV2,

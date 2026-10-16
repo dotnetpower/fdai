@@ -85,6 +85,11 @@ replica, lease, acknowledgement, departure, candidate, and applied records. Core
 authority-neutral orchestration. A provider seam owns database-time lease checks and atomic
 candidate/applied commits; the PostgreSQL adapter serializes candidate selection with the exact
 latest prepare. No cohort record writes the version 1 active pointer.
+Dual-revision slots add another authority-neutral layer. Shared contracts own exact revision pins,
+old-enforce/new-shadow slot identities, revision-cited evidence, promotion approval facts, and inert
+move candidates. Core derives evidence and candidates from retained slots and cohort readback, but
+an injected promotion-authority provider alone may validate the approval profile, principals,
+quorum, and revision evidence. No slot module mutates current enforcement.
 
 Question-form concept-choice reuse is owned by Core conversation processing and ends with one
 run. Its exact-input, reader-separated cache never stores observed state, authorization, or
