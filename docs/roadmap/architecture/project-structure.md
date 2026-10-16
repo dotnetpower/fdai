@@ -167,6 +167,15 @@ truncation result. A partial read cannot prove absence or complete history. Saga
 to verify bounded legacy migration; its shared journal otherwise uses existing atomic revision
 CAS-with-audit. Agents never import a concrete persistence adapter or gain another authority.
 
+Scalar Dynamic feedback stays in `core/assurance_twin/model_registry.py` and the existing Norns-owned
+measurement runner. Its model row stores a versioned, bounded, digest-only event checkpoint with
+parameters in the same StateStore CAS-with-audit transaction. Dynamic and pattern growth keep
+separate source cursors; incomplete Dynamic work does not acknowledge its cursor. No database,
+provider method, agent topic, service, active-model writer, or execution authority is added.
+Correction and legacy-history gaps hold the challenger. The
+[feedback reliability contract](../operations/assurance-twin.md#scalar-feedback-reliability)
+owns the storage limits, replay behavior, and operational qualification gaps.
+
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.
 
 

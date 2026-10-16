@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: cc44a64f1207c233bb9c27da3adfb5f1db2f93c1
+translation_source_sha: 3799bcc4d769f47155ea1108b8f73e0dae98291e
 translation_revised: 2026-10-17
 ---
 # 프로젝트 구조
@@ -166,6 +166,15 @@ PostgreSQL은 한 스냅샷에서 저장소와 분리된 감사 본문을 오래
 이력을 입증할 수는 없습니다. Saga는 제한된 이전 이력의 이행을 검증할 때만 이 인터페이스를
 사용하며, 공유 기록은 기존의 감사 포함 원자적 리비전 CAS를 사용합니다. 에이전트가 구체적인
 저장소 어댑터를 import하거나 별도 권한을 얻지는 않습니다.
+
+스칼라 Dynamic 피드백은 `core/assurance_twin/model_registry.py`와 기존 Norns 소유 측정
+실행기에 둡니다. 모델 행의 버전이 있는 이벤트 체크포인트에는 다이제스트만 저장하고 크기를
+제한합니다. 체크포인트와 파라미터는 StateStore의 감사 포함 CAS 트랜잭션 하나에서 저장합니다.
+Dynamic과 패턴 성장은 별도 소스 처리 위치를 유지하며, 미완료 Dynamic 작업은 처리 위치를
+전진시키지 않습니다. DB, 프로바이더 메서드, 에이전트 토픽, 서비스, 활성 모델 작성기나
+실행 권한을 추가하지 않습니다. 정정 또는 과거 처리 이력에 공백이 있으면 challenger를
+보류합니다. 저장 한도, 재처리 동작, 운영 검증의 미충족 조건은
+[피드백 신뢰성 계약](../operations/assurance-twin-ko.md#스칼라-피드백의-신뢰성)이 소유합니다.
 
 테스트 맥락 선택지는 권한이 없는 projection schema로 공유 service-contract SDK를 확장합니다. Operator는 인증과 선택지 렌더링을 소유하고, Core는 계속 허용 및 수명 주기 권한을 유지합니다.
 
