@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import math
 from dataclasses import dataclass
 from typing import Literal, Protocol
@@ -75,12 +76,32 @@ class DynamicRuntimeCoordinator:
         request_provider: DynamicSimulationRequestProvider,
         model_reader: EffectModelReader,
         causal_evidence_verifier: EffectModelCausalEvidenceVerifier,
+        timeout_seconds: float = 5.0,
     ) -> None:
+        if (
+            isinstance(timeout_seconds, bool)
+            or not math.isfinite(timeout_seconds)
+            or not 0 < timeout_seconds <= 60
+        ):
+            raise ValueError("Dynamic runtime deadline MUST be finite and in (0, 60]")
         self._request_provider = request_provider
         self._model_reader = model_reader
         self._causal_evidence_verifier = causal_evidence_verifier
+        self._timeout_seconds = timeout_seconds
 
     async def simulate(
+        self,
+        *,
+        event: Event,
+        action: LearnedAction,
+    ) -> DynamicRuntimeResult:
+        try:
+            async with asyncio.timeout(self._timeout_seconds):
+                return await self._simulate(event=event, action=action)
+        except TimeoutError:
+            return DynamicRuntimeResult(None, "simulation_deadline_exceeded")
+
+    async def _simulate(
         self,
         *,
         event: Event,
@@ -109,6 +130,8 @@ class DynamicRuntimeCoordinator:
                 if not self._causal_evidence_verifier.verify(active):
                     raise ValueError("Dynamic active model causal evidence is unverified")
                 active_models[action_type_id] = active
+                if challenger is None:
+                    return DynamicRuntimeResult(None, "challenger_model_unavailable")
             if challenger is not None:
                 if challenger.learned_through > request.snapshot.observed_at:
                     raise ValueError("Dynamic challenger model crosses the snapshot cutoff")

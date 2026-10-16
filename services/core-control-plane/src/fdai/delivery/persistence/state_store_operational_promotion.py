@@ -9,6 +9,8 @@ from math import isfinite
 from typing import Any
 
 from fdai.core.measurement import OperationalPromotionReceipt
+from fdai.core.measurement.operational_promotion import operational_promotion_receipt_digest
+from fdai.core.measurement.promotion_binding import ReviewedReplayBinding
 from fdai.shared.providers.state_store import StateStore
 
 _PREFIX = "operational-promotion-receipt:"
@@ -57,6 +59,7 @@ _DECISION_EVIDENCE_FIELDS = (
 )
 _V1_FIELDS = frozenset((*_TEXT_FIELDS, *_INT_FIELDS, *_FLOAT_FIELDS, "ready", "gaps"))
 _V1_1_FIELDS = frozenset((*_V1_FIELDS, *_DECISION_EVIDENCE_FIELDS))
+_V1_2_FIELDS = _V1_1_FIELDS | {"reviewed_replay_binding"}
 
 
 class StateStoreOperationalPromotionReceiptStore:
@@ -72,7 +75,10 @@ class StateStoreOperationalPromotionReceiptStore:
             scenario_set_version=receipt.scenario_set_version,
             evidence_digest=receipt.evidence_digest,
         )
-        value = {"schema_version": "1.1.0", "receipt": receipt.as_json()}
+        value = {
+            "schema_version": "1.2.0" if receipt.reviewed_replay_binding is not None else "1.1.0",
+            "receipt": receipt.as_json(),
+        }
         created = await self._store.write_state_with_audit_if_absent(
             key,
             value,
@@ -102,8 +108,13 @@ class StateStoreOperationalPromotionReceiptStore:
             scenario_set_version=receipt.scenario_set_version,
             evidence_digest=receipt.evidence_digest,
         )
-        if existing != receipt:
+        if existing is None or (
+            operational_promotion_receipt_digest(existing)
+            != operational_promotion_receipt_digest(receipt)
+        ):
             raise ValueError("operational promotion receipt key collision")
+        # Keep first-evaluation provenance immutable. Renewed admission references
+        # are resolved independently by production preparation, never by this row.
 
     async def load(
         self,
@@ -124,7 +135,7 @@ class StateStoreOperationalPromotionReceiptStore:
         if raw is None:
             return None
         schema_version = raw.get("schema_version")
-        if schema_version not in {"1.0.0", "1.1.0"}:
+        if schema_version not in {"1.0.0", "1.1.0", "1.2.0"}:
             raise ValueError("unsupported operational promotion receipt state")
         receipt = raw.get("receipt")
         if not isinstance(receipt, Mapping):
@@ -155,10 +166,20 @@ def _decode_receipt(
     *,
     schema_version: object,
 ) -> OperationalPromotionReceipt:
-    expected_fields = _V1_FIELDS if schema_version == "1.0.0" else _V1_1_FIELDS
+    expected_fields = (
+        _V1_FIELDS
+        if schema_version == "1.0.0"
+        else _V1_2_FIELDS
+        if schema_version == "1.2.0"
+        else _V1_1_FIELDS
+    )
     if frozenset(raw) != expected_fields:
         raise ValueError("operational promotion receipt fields do not match schema")
     values = dict(raw)
+    if schema_version == "1.2.0":
+        values["reviewed_replay_binding"] = ReviewedReplayBinding.from_mapping(
+            values["reviewed_replay_binding"]
+        )
     if schema_version == "1.0.0":
         values.update(dict.fromkeys(_DECISION_EVIDENCE_FIELDS))
     for field in _TEXT_FIELDS:

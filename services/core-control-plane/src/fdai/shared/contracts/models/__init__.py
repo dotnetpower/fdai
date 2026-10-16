@@ -89,6 +89,7 @@ from .document import (
     StructuralUnit,
     UploadSession,
 )
+from .effect_prediction import EffectPredictionSnapshot
 from .enums import (
     CEILING_ROLE_RANK,
     ActionCategory,
@@ -326,6 +327,7 @@ __all__ = [
     "RequirementStatus",
     "RegisteredDevelopmentAction",
     "ResponseOutcome",
+    "EffectPredictionSnapshot",
     "ResponseOutcomeLabel",
     "ResponseVerificationStatus",
     "RollbackRef",

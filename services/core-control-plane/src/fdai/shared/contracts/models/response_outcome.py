@@ -2,15 +2,24 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+import hashlib
+import json
+from datetime import UTC, datetime
 from enum import StrEnum
 from math import isfinite
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import Field, model_validator
+from pydantic import (
+    Field,
+    SerializerFunctionWrapHandler,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
 
 from ._base import IdempotencyKey, SemVer, _Base
+from .effect_prediction import EffectPredictionSnapshot
 from .enums import Mode
 
 Digest = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
@@ -56,6 +65,43 @@ class ResponseOutcome(_Base):
     rollback_succeeded: bool | None = None
     evidence_refs: Annotated[tuple[NonEmpty, ...], Field(min_length=1)]
     recorded_at: datetime
+    outcome_revision: Annotated[int | None, Field(ge=1, strict=True)] = None
+    previous_revision_digest: Digest | None = None
+    prediction_snapshot: EffectPredictionSnapshot | None = None
+    observation_unit: NonEmpty | None = None
+    observation_receipt_ref: NonEmpty | None = None
+
+    @field_validator("expected_min", "expected_max", "observed_value", mode="before")
+    @classmethod
+    def _numeric_evidence(cls, value: object) -> object:
+        if isinstance(value, bool):
+            raise ValueError("response outcome numeric evidence MUST NOT be boolean")
+        return value
+
+    @model_serializer(mode="wrap")
+    def _serialize_version(self, handler: SerializerFunctionWrapHandler) -> dict[str, object]:
+        payload: dict[str, object] = dict(handler(self))
+        if self.schema_version == "1.0.0":
+            for field in (
+                "outcome_revision",
+                "previous_revision_digest",
+                "prediction_snapshot",
+                "observation_unit",
+                "observation_receipt_ref",
+            ):
+                payload.pop(field, None)
+        return payload
+
+    @property
+    def revision_digest(self) -> str:
+        return hashlib.sha256(
+            json.dumps(
+                self.model_dump(mode="json"),
+                sort_keys=True,
+                separators=(",", ":"),
+                allow_nan=False,
+            ).encode()
+        ).hexdigest()
 
     @property
     def scorable(self) -> bool:
@@ -67,6 +113,34 @@ class ResponseOutcome(_Base):
 
     @model_validator(mode="after")
     def _validate_semantics(self) -> ResponseOutcome:
+        if self.schema_version not in {"1.0.0", "1.1.0"}:
+            raise ValueError("response outcome schema version is unsupported")
+        extension = (
+            self.outcome_revision,
+            self.previous_revision_digest,
+            self.prediction_snapshot,
+            self.observation_unit,
+            self.observation_receipt_ref,
+        )
+        if self.schema_version == "1.0.0" and any(value is not None for value in extension):
+            raise ValueError("response outcome revision evidence requires version 1.1.0")
+        if self.schema_version == "1.1.0":
+            if self.outcome_revision is None or (
+                (self.outcome_revision == 1) != (self.previous_revision_digest is None)
+            ):
+                raise ValueError("response outcome revisions MUST bind their predecessor")
+            snapshot = self.prediction_snapshot
+            if snapshot is not None and (
+                snapshot.prediction_id != self.prediction_id
+                or snapshot.action_id != self.action_id
+                or snapshot.event_id != self.event_id
+                or snapshot.action_type_id != self.action_type_id
+                or snapshot.target_digest != self.target_digest
+                or snapshot.metric != self.metric
+                or snapshot.predicted_at != self.predicted_at
+                or snapshot.observation_deadline != self.observation_deadline
+            ):
+                raise ValueError("response outcome MUST match its frozen prediction identity")
         timestamps = (
             self.predicted_at,
             self.observation_deadline,
@@ -125,6 +199,14 @@ class ResponseOutcome(_Base):
                 raise ValueError("mismatch response outcome requires an observation")
         elif self.verification_status is not ResponseVerificationStatus.HOLD:
             raise ValueError("unscorable response outcome requires hold status")
+        if self.schema_version == "1.1.0":
+            for field in ("predicted_at", "observation_deadline", "observed_at", "recorded_at"):
+                value = getattr(self, field)
+                if value is not None:
+                    object.__setattr__(self, field, value.astimezone(UTC))
+            for field in ("expected_min", "expected_max", "observed_value"):
+                if getattr(self, field) == 0.0:
+                    object.__setattr__(self, field, 0.0)
         return self
 
 

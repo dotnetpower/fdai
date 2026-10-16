@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 3799bcc4d769f47155ea1108b8f73e0dae98291e
+translation_source_sha: 88612912cfc219ce8a9ff175faea309b973879cb
 translation_revised: 2026-10-17
 ---
 # 프로젝트 구조
@@ -175,6 +175,14 @@ Dynamic과 패턴 성장은 별도 소스 처리 위치를 유지하며, 미완�
 실행 권한을 추가하지 않습니다. 정정 또는 과거 처리 이력에 공백이 있으면 challenger를
 보류합니다. 저장 한도, 재처리 동작, 운영 검증의 미충족 조건은
 [피드백 신뢰성 계약](../operations/assurance-twin-ko.md#스칼라-피드백의-신뢰성)이 소유합니다.
+
+추가된 response-outcome 1.1 리소스와 `EffectPredictionSnapshot`은 Core 소유 계약이며
+생성기는 기존 1.0 전송 리소스를 보존합니다. 예측 보관 실패로 독립 효과 검증을 약화하지
+않습니다. 스칼라 세대 구성 요소는 전체 등록 seed, 실제 에피소드 적용 순서, 저장 표현에
+안정적인 모델 검증값을 보존합니다. 독립 학습 진입점과 영속 holdout 보류는 기존 감사/
+StateStore 경계를 사용하고 구성된 T1 쓰기 대상을 명시합니다. 적격성 비교는 기본값이 꺼진
+감사 전용 기능입니다. 원본/인가/보존 연결, 적격 shadow 편입, 운영 평가의 공백은 미완료
+구현 또는 증적이며 새 권한이나 완료된 프로덕션 기능이 아닙니다.
 
 테스트 맥락 선택지는 권한이 없는 projection schema로 공유 service-contract SDK를 확장합니다. Operator는 인증과 선택지 렌더링을 소유하고, Core는 계속 허용 및 수명 주기 권한을 유지합니다.
 

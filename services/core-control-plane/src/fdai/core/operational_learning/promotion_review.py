@@ -2,14 +2,22 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Literal
 
+from fdai.core.case_history import CaseHistoryMaterializer
 from fdai.core.measurement import OperationalPromotionReceipt
-from fdai.core.measurement.operational_promotion import action_type_digest
+from fdai.core.measurement.operational_promotion import (
+    OperationalPromotionEvaluator,
+    action_type_digest,
+    operational_promotion_receipt_digest,
+)
+from fdai.core.measurement.operational_promotion_runner import OperationalPromotionEvidenceSource
+from fdai.core.measurement.promotion_binding import ReviewedReplayBinding
 from fdai.shared.contracts.development_authority import (
     canonical_authority_digest,
     development_promotion_target_digest,
@@ -23,12 +31,17 @@ from fdai.shared.contracts.models import (
     FullAuthorityDevelopmentProfile,
     OntologyActionType,
 )
+from fdai.shared.providers.case_history import CaseHistoryMetadataStore
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 from fdai.shared.providers.development_authority import (
     DevelopmentAuthorityBindingRequest,
     DevelopmentAuthorityBindingSource,
     resolve_development_binding,
 )
 
+from .promotion_revalidation import PreparedReplayReview, prepare_replay_review
+
+_LOG = logging.getLogger(__name__)
 _GIT_REVISION = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 _IDENTIFIER = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
@@ -47,11 +60,13 @@ def _normalized_principal(value: str) -> str:
 
 @dataclass(frozen=True, slots=True)
 class ReviewedReplayPromotionEvidence:
-    """One approved review over an exact inert package and replay.
+    """Inert review attribution over an exact package and replay.
 
     The reviewer identity is compared case-insensitively against the learning
     agents, so ``Norns`` cannot re-enter as ``norns`` and review its own
-    promotion evidence.
+    promotion evidence. Production authority still requires independent
+    admissions and current scoped source revalidation; these fields alone
+    never prove an approval.
     """
 
     action_type: str
@@ -72,6 +87,7 @@ class ReviewedReplayPromotionEvidence:
     development_binding_verification: DevelopmentBindingVerification | None = None
     development_grant: DevelopmentAuthorityGrant | None = None
     development_binding_request: DevelopmentAuthorityBindingRequest | None = None
+    reviewed_replay_binding: ReviewedReplayBinding | None = None
 
     def __post_init__(self) -> None:
         if _IDENTIFIER.fullmatch(self.action_type) is None:
@@ -97,11 +113,31 @@ class ReviewedReplayPromotionEvidence:
             not self.review_ref
             or len(self.review_ref) > 512
             or not self.reviewer_principal.strip()
+            or len(self.reviewer_principal) > 512
             or _normalized_principal(self.reviewer_principal) in _LEARNING_AGENTS
         ):
             raise ValueError("reviewed replay requires an independent reviewer")
         if not isinstance(self.approved, bool):
             raise ValueError("reviewed replay approval MUST be boolean")
+        if self.reviewer_role not in {"independent_reviewer", "owner"}:
+            raise ValueError("reviewed replay reviewer role is invalid")
+        binding = self.reviewed_replay_binding
+        if binding is not None and (
+            not isinstance(binding, ReviewedReplayBinding)
+            or (
+                binding.candidate_digest,
+                binding.package_digest,
+                binding.replay_first_digest,
+                binding.replay_second_digest,
+            )
+            != (
+                self.candidate_digest,
+                self.package_digest,
+                self.replay_first_digest,
+                self.replay_second_digest,
+            )
+        ):
+            raise ValueError("reviewed replay binding does not match reviewed artifacts")
         development_parts = (
             self.development_confirmation,
             self.development_binding_verification,
@@ -135,22 +171,38 @@ class ReviewedReplayPromotionEvidence:
 
     @property
     def reviewed_replay_digest(self) -> str:
-        return canonical_authority_digest(
-            {
-                "candidate_digest": self.candidate_digest,
-                "package_digest": self.package_digest,
-                "replay_first_digest": self.replay_first_digest,
-                "replay_second_digest": self.replay_second_digest,
-                "promotion_evidence_digest": self.promotion_evidence_digest,
-                "review_ref": self.review_ref,
-                "reviewer_principal": self.reviewer_principal,
-                "approved": self.approved,
-            }
-        )
+        material = {
+            "candidate_digest": self.candidate_digest,
+            "package_digest": self.package_digest,
+            "replay_first_digest": self.replay_first_digest,
+            "replay_second_digest": self.replay_second_digest,
+            "promotion_evidence_digest": self.promotion_evidence_digest,
+            "review_ref": self.review_ref,
+            "reviewer_principal": self.reviewer_principal,
+            "approved": self.approved,
+        }
+        if self.reviewed_replay_binding is not None:
+            material.update(
+                {
+                    "action_type": self.action_type,
+                    "action_type_version": self.action_type_version,
+                    "action_type_digest": self.action_type_digest,
+                    "fdai_revision": self.fdai_revision,
+                    "scenario_set_version": self.scenario_set_version,
+                    "reviewer_role": self.reviewer_role,
+                    "reviewed_replay_binding": self.reviewed_replay_binding.to_mapping(),
+                }
+            )
+        return canonical_authority_digest(material)
 
 
 class ReviewedReplayAuthority:
-    """Match O7 receipts and persisted records to independently reviewed replay."""
+    """Match exact replay subjects, with production unavailable until prepared.
+
+    Production checks consume a short-lived asynchronous preparation, never
+    perform synchronous I/O, and never restore a serialized preparation.
+    Profile-scoped development authority remains a separate namespace.
+    """
 
     def __init__(
         self,
@@ -160,7 +212,28 @@ class ReviewedReplayAuthority:
         development_binding_source: DevelopmentAuthorityBindingSource | None = None,
         development_action_types: dict[str, OntologyActionType] | None = None,
         clock: Callable[[], datetime] | None = None,
+        production_evidence_source: OperationalPromotionEvidenceSource | None = None,
+        production_admission_provider: DecisionEvidenceAdmissionProvider | None = None,
+        case_materializer: CaseHistoryMaterializer | None = None,
+        case_metadata: CaseHistoryMetadataStore | None = None,
+        production_action_types: dict[str, OntologyActionType] | None = None,
+        production_evaluator: OperationalPromotionEvaluator | None = None,
     ) -> None:
+        if (
+            case_materializer is not None
+            and case_metadata is not None
+            and case_materializer._metadata is not case_metadata
+        ):
+            raise ValueError("reviewed replay MUST use the materializer's authoritative metadata")
+        self._clock = clock or (lambda: datetime.now(tz=UTC))
+        self._production_source = production_evidence_source
+        self._production_admissions = production_admission_provider
+        self._case_materializer = case_materializer
+        self._case_metadata = case_metadata
+        self._production_action_types = dict(production_action_types or {})
+        self._production_evaluator = production_evaluator
+        self._prepared: dict[tuple[str, ...], PreparedReplayReview] = {}
+        self._preparing: dict[tuple[str, ...], object] = {}
         self._evidence = {
             (
                 item.action_type,
@@ -178,7 +251,7 @@ class ReviewedReplayAuthority:
             tuple[str, str, str, str, str, str, str],
             ReviewedReplayPromotionEvidence,
         ] = {}
-        now = (clock or (lambda: datetime.now(tz=UTC)))()
+        now = self._clock()
         for item in development_items:
             confirmation = item.development_confirmation
             persisted_verification = item.development_binding_verification
@@ -251,19 +324,83 @@ class ReviewedReplayAuthority:
         scenario_set_version: str,
         evidence_digest: str,
     ) -> bool:
-        """Return whether one exact persisted or incoming authority tuple is approved."""
+        """Consume a current single-use preparation for one exact authority tuple."""
 
-        evidence = self._evidence.get(
-            (
-                action_type,
-                action_type_version,
-                action_type_digest,
-                fdai_revision,
-                scenario_set_version,
-                evidence_digest,
-            )
+        key = (
+            action_type,
+            action_type_version,
+            action_type_digest,
+            fdai_revision,
+            scenario_set_version,
+            evidence_digest,
         )
-        return evidence is not None and evidence.approved
+        proof = self._prepared.pop(key, None)
+        return proof is not None and proof.current(self._clock())
+
+    async def prepare(
+        self,
+        *,
+        action_type: str,
+        action_type_version: str,
+        action_type_digest: str,
+        fdai_revision: str,
+        scenario_set_version: str,
+        evidence_digest: str,
+    ) -> bool:
+        """Prepare one single-use production check; missing bindings stay unavailable.
+
+        Call immediately before synchronous promotion. Restart validation calls this
+        again, never trusting a serialized proof or a timeless source-state cache.
+        A concurrent newer preparation supersedes this attempt, including on failure.
+        """
+        key = (
+            action_type,
+            action_type_version,
+            action_type_digest,
+            fdai_revision,
+            scenario_set_version,
+            evidence_digest,
+        )
+        self._prepared.pop(key, None)
+        generation = object()
+        self._preparing[key] = generation
+        evidence = self._evidence.get(key)
+        current_action = self._production_action_types.get(action_type)
+        try:
+            if (
+                evidence is None
+                or self._production_source is None
+                or self._production_admissions is None
+                or self._case_materializer is None
+                or self._case_metadata is None
+                or self._production_evaluator is None
+                or current_action is None
+            ):
+                return False
+            proof = await prepare_replay_review(
+                evidence,
+                source=self._production_source,
+                admission_provider=self._production_admissions,
+                materializer=self._case_materializer,
+                case_metadata=self._case_metadata,
+                action_type=current_action,
+                evaluator=self._production_evaluator,
+                clock=self._clock,
+            )
+            if (
+                proof is None
+                or self._preparing.get(key) is not generation
+                or not proof.current(self._clock())
+            ):
+                return False
+            self._prepared[key] = proof
+            return True
+        except Exception as exc:  # noqa: BLE001 - async provider boundary, deny without retry
+            _LOG.warning("reviewed replay preparation failed: %s", type(exc).__name__)
+            return False
+        finally:
+            if self._preparing.get(key) is generation:
+                self._preparing.pop(key)
 
     def authorize_development(
         self,
@@ -385,6 +522,29 @@ class ReviewedReplayReceiptVerifier:
         action_type: OntologyActionType,
         receipt: OperationalPromotionReceipt,
     ) -> bool:
+        key = (
+            action_type.name,
+            receipt.action_type_version,
+            receipt.action_type_digest,
+            receipt.fdai_revision,
+            receipt.scenario_set_version,
+            receipt.evidence_digest,
+        )
+        evidence = self._authority._evidence.get(key)
+        proof = self._authority._prepared.get(key)
+        if (
+            evidence is None
+            or proof is None
+            or receipt.reviewed_replay_binding != evidence.reviewed_replay_binding
+            or receipt.action_type_name != action_type.name
+            or receipt.action_type_version != action_type.version
+            or receipt.action_type_digest != action_type_digest(action_type)
+            or receipt.decision_evidence_receipt_digest is None
+            or receipt.decision_evidence_verification_bundle_digest is None
+            or operational_promotion_receipt_digest(receipt) != proof.evaluated_receipt_digest
+        ):
+            self._authority._prepared.pop(key, None)
+            return False
         return self._authority.accepts(
             action_type=action_type.name,
             action_type_version=receipt.action_type_version,
@@ -430,6 +590,15 @@ class ReviewedReplayPersistedAuthorityVerifier:
         fdai_revision: str,
         scenario_set_version: str,
     ) -> bool:
+        if not await self._authority.prepare(
+            action_type=action_type,
+            action_type_version=action_type_version,
+            action_type_digest=action_type_digest,
+            fdai_revision=fdai_revision,
+            scenario_set_version=scenario_set_version,
+            evidence_digest=evidence_digest,
+        ):
+            return False
         return self._authority.accepts(
             action_type=action_type,
             action_type_version=action_type_version,

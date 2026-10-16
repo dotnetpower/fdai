@@ -363,6 +363,7 @@ def test_unverified_effect_fixture_exercises_response_contract() -> None:
             EffectVerificationReason(given["verification_reason"]),
         ),
         recorded_at=datetime.fromisoformat(given["recorded_at"].replace("Z", "+00:00")),
+        decision="abstain",
     )
     audit_entry = response_outcome_audit_entry(outcome)
 

@@ -11,7 +11,6 @@ from __future__ import annotations
 
 from collections import deque
 from collections.abc import Sequence
-from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
@@ -67,10 +66,11 @@ from tests.agents.test_forecast_learning_chain import _outcome as _forecast_outc
 from tests.agents.test_governed_learning_loop import (
     _action_type,
     _outcome,
+    _prepare_reviewed_promotion,
     _promotion_metrics,
-    _promotion_receipt,
     _publish_case,
     _Publisher,
+    _reviewed_promotion_fixture,
     _scenario,
     _timestamp,
     _Validator,
@@ -372,11 +372,12 @@ async def _run_operating_pattern_chain() -> tuple[
     # Every learning clock is pinned: case currency, deletion due dates, and cohort
     # age are judged against the scenario review instant, never the wall clock.
     reviewed_at = _timestamp(scenario["reviewed_at"])
+    publisher.case_history = CaseHistoryMaterializer(
+        metadata=InMemoryCaseHistoryMetadataStore(),
+        artifacts=InMemoryCaseHistoryArtifactStore(),
+    )
     muninn = Muninn(
-        case_history=CaseHistoryMaterializer(
-            metadata=InMemoryCaseHistoryMetadataStore(),
-            artifacts=InMemoryCaseHistoryArtifactStore(),
-        ),
+        case_history=publisher.case_history,
         durable_state_store=InMemoryStateStore(),
         case_history_clock=lambda: reviewed_at,
     )
@@ -392,7 +393,8 @@ async def _run_operating_pattern_chain() -> tuple[
         catalog_review_publisher=publisher,
         clock=lambda: reviewed_at,
     )
-    mimir.bind_case_history(muninn._case_history)
+    assert publisher.case_history is not None
+    mimir.bind_case_history(publisher.case_history)
     thor = Thor(executor=_RecordingExecutor(), clock=lambda: reviewed_at)
     _wire_pantheon(
         bus,
@@ -588,7 +590,10 @@ async def test_learned_action_type_stays_shadow_without_independent_review(revie
     _, _, _, publisher, scenario = await _run_operating_pattern_chain()
     package = publisher.packages[0]
     action_type = _action_type(scenario["action_type"])
-    receipt = _promotion_receipt(action_type, scenario)
+    assert publisher.case_history is not None
+    receipt, approved_authority = await _reviewed_promotion_fixture(
+        action_type, package, publisher.case_history, now=_timestamp(scenario["reviewed_at"])
+    )
     pending = ReviewedReplayPromotionEvidence(
         action_type=action_type.name,
         action_type_version=action_type.version,
@@ -603,13 +608,25 @@ async def test_learned_action_type_stays_shadow_without_independent_review(revie
         review_ref="governance-review:pending",
         reviewer_principal="independent-governance-reviewer",
         approved=False,
+        reviewed_replay_binding=receipt.reviewed_replay_binding,
     )
     evidence = () if review == "absent" else (pending,)
 
     assert _consider(None, action_type, receipt) is Mode.SHADOW
+    pending_authority = ReviewedReplayAuthority(
+        evidence,
+        production_evidence_source=approved_authority._production_source,
+        production_admission_provider=approved_authority._production_admissions,
+        case_materializer=publisher.case_history,
+        case_metadata=publisher.case_history._metadata,
+        production_action_types={action_type.name: action_type},
+        production_evaluator=approved_authority._production_evaluator,
+        clock=lambda: _timestamp(scenario["reviewed_at"]),
+    )
+    assert not await _prepare_reviewed_promotion(pending_authority, receipt)
     assert (
         _consider(
-            ReviewedReplayReceiptVerifier(ReviewedReplayAuthority(evidence)),
+            ReviewedReplayReceiptVerifier(pending_authority),
             action_type,
             receipt,
         )
@@ -617,10 +634,14 @@ async def test_learned_action_type_stays_shadow_without_independent_review(revie
     )
     # Control: the same learned package, receipt, and metrics promote only once an
     # independent reviewer approves them, so the refusals above are not vacuous.
-    approved = replace(pending, approved=True, review_ref="governance-review:approved")
+    assert (
+        _consider(ReviewedReplayReceiptVerifier(approved_authority), action_type, receipt)
+        is Mode.SHADOW
+    )
+    assert await _prepare_reviewed_promotion(approved_authority, receipt)
     assert (
         _consider(
-            ReviewedReplayReceiptVerifier(ReviewedReplayAuthority((approved,))),
+            ReviewedReplayReceiptVerifier(approved_authority),
             action_type,
             receipt,
         )

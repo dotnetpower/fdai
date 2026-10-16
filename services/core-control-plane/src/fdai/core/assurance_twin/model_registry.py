@@ -17,7 +17,17 @@ from fdai.core.assurance_twin.effect_model import (
     EffectModelStatus,
     update_challenger,
 )
+from fdai.core.assurance_twin.feedback_generation import (
+    FeedbackRevisionSource,
+    generation_evidence,
+    read_admission,
+    read_generation,
+    rebuild_admission_valid,
+)
+from fdai.core.assurance_twin.feedback_rebuild import rebuild_feedback
+from fdai.core.assurance_twin.prediction_evidence import prediction_available
 from fdai.shared.contracts.models import ResponseOutcome
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 from fdai.shared.providers.state_store import StateStore
 
 _PREFIX = "dynamic-effect-model"
@@ -42,12 +52,14 @@ class StateStoreEffectModelRegistry:
         *,
         max_retries: int = 3,
         clock: Callable[[], datetime] | None = None,
+        feedback_source: FeedbackRevisionSource | None = None,
     ) -> None:
         if max_retries < 1:
             raise ValueError("effect model registry max_retries MUST be >= 1")
         self._store = store
         self._max_retries = max_retries
         self._clock = clock or (lambda: datetime.now(tz=UTC))
+        self._feedback_source = feedback_source
 
     async def register(self, model: EffectModel, *, registered_by: str) -> bool:
         """Register one explicit model version once; never replace it."""
@@ -58,6 +70,10 @@ class StateStoreEffectModelRegistry:
         value = _serialize(model)
         if model.status is EffectModelStatus.CHALLENGER:
             value["feedback_checkpoint"] = _checkpoint(model.learned_through, {}, None)
+            value["registered_seed"] = _serialize(model)
+            value["registered_seed_digest"] = _digest(_serialize(model))
+            value["feedback_order"] = []
+        value["state_digest"] = _storage_digest(value)
         return await self._store.write_state_with_audit_if_absent(
             key,
             value,
@@ -73,6 +89,28 @@ class StateStoreEffectModelRegistry:
             },
         )
 
+    async def inspect_registration(
+        self,
+        *,
+        status: EffectModelStatus,
+        action_type_id: str,
+        metric: str,
+    ) -> tuple[EffectModel, EffectModel | None] | None:
+        """Inspect persisted lineage for configuration, not operational prediction."""
+        raw = await self._store.read_state(_state_key(status, action_type_id, metric))
+        if raw is None:
+            return None
+        model = _deserialize(raw)
+        seed_raw = raw.get("registered_seed")
+        if seed_raw is None:
+            return model, None
+        if not isinstance(seed_raw, Mapping):
+            raise ValueError("stored effect model seed registration is invalid")
+        seed = _deserialize(seed_raw)
+        if raw.get("registered_seed_digest") != _digest(_serialize(seed)):
+            raise ValueError("stored effect model seed registration digest is invalid")
+        return model, seed
+
     async def get(
         self,
         *,
@@ -87,6 +125,8 @@ class StateStoreEffectModelRegistry:
         if status is EffectModelStatus.CHALLENGER:
             checkpoint = _read_checkpoint(raw, model)
             if checkpoint is None or checkpoint[2] is not None:
+                return None
+            if not await self._generation_current(raw, model):
                 return None
         return model
 
@@ -104,7 +144,11 @@ class StateStoreEffectModelRegistry:
             outcome.action_type_id,
             outcome.metric,
         )
-        event_key = _digest(str(outcome.event_id))
+        event_key = (
+            outcome.prediction_snapshot.independence_key
+            if outcome.prediction_snapshot is not None
+            else _digest(str(outcome.event_id))
+        )
         receipt = {
             "outcome": _digest(str(outcome.outcome_id)),
             "idempotency": _digest(outcome.idempotency_key),
@@ -117,6 +161,20 @@ class StateStoreEffectModelRegistry:
             if raw is None:
                 return RegistryUpdate(False, "challenger_not_registered")
             current = _deserialize(raw)
+            generation = read_generation(raw)
+            if generation is not None:
+                if not await self._generation_current(raw, current):
+                    return RegistryUpdate(False, "model_generation_sources_unavailable")
+                if str(outcome.outcome_id) in generation["covered_outcome_ids"]:
+                    if outcome.revision_digest in generation["source_digests"]:
+                        return RegistryUpdate(False, "outcome_already_applied", _model_ref(current))
+                    return RegistryUpdate(False, "outcome_revision_requires_rebuild")
+                if (
+                    outcome.prediction_snapshot is not None
+                    and outcome.prediction_snapshot.independence_key
+                    in generation["covered_independence_keys"]
+                ):
+                    return RegistryUpdate(False, "dependent_event_already_learned")
             checkpoint = _read_checkpoint(raw, current)
             if checkpoint is None:
                 return RegistryUpdate(False, "untracked_challenger_requires_rebuild")
@@ -148,6 +206,34 @@ class StateStoreEffectModelRegistry:
             update: ChallengerUpdate = update_challenger(current, outcome, learning_cutoff=cutoff)
             if hold is None and not update.accepted:
                 return RegistryUpdate(False, update.reason, _model_ref(current))
+            if hold is None:
+                snapshot = outcome.prediction_snapshot
+                if (
+                    snapshot is None
+                    or outcome.observed_at is None
+                    or not await prediction_available(
+                        self._store, snapshot, observed_at=outcome.observed_at
+                    )
+                ):
+                    return RegistryUpdate(
+                        False, "outcome_prediction_evidence_unavailable", _model_ref(current)
+                    )
+                generation_refs = generation["source_digests"] if generation is not None else ()
+                revisions = tuple(
+                    sorted(
+                        set(
+                            (
+                                *generation_refs,
+                                *(item["content"] for item in receipts.values()),
+                                outcome.revision_digest,
+                            )
+                        )
+                    )
+                )
+                if self._feedback_source is None or not await self._feedback_source.current(
+                    revisions
+                ):
+                    return RegistryUpdate(False, "model_generation_sources_unavailable")
             if hold is None and len(receipts) >= _MAX_FEEDBACK_RECEIPTS:
                 hold = "feedback_checkpoint_full"
             if hold is None:
@@ -158,7 +244,24 @@ class StateStoreEffectModelRegistry:
                 learned_through=max(current.learned_through, outcome.recorded_at, now),
             )
             value = _serialize(changed)
+            for field in ("registered_seed", "registered_seed_digest"):
+                if field in raw:
+                    value[field] = raw[field]
+            prior_order = raw.get("feedback_order", [])
+            if (
+                not isinstance(prior_order, list)
+                or len(prior_order) > _MAX_FEEDBACK_RECEIPTS
+                or any(not isinstance(item, str) for item in prior_order)
+            ):
+                raise ValueError("stored scalar feedback order is invalid")
+            value["feedback_order"] = [
+                *prior_order,
+                *([str(outcome.outcome_id)] if hold is None else []),
+            ]
+            if generation is not None:
+                value["generation_evidence"] = dict(generation)
             value["feedback_checkpoint"] = _checkpoint(cutoff, receipts, hold)
+            value["state_digest"] = _storage_digest(value)
             accepted = await self._store.compare_and_set_state_with_audit(
                 key,
                 value,
@@ -195,11 +298,187 @@ class StateStoreEffectModelRegistry:
                 )
         return RegistryUpdate(False, "revision_conflict")
 
+    async def _generation_current(self, raw: Mapping[str, Any], model: EffectModel) -> bool:
+        generation = read_generation(raw)
+        checkpoint = _read_checkpoint(raw, model)
+        if checkpoint is None:
+            return False
+        additional = tuple(item["content"] for item in checkpoint[1].values())
+        initial = generation["source_digests"] if generation is not None else ()
+        revisions = tuple(sorted(set((*initial, *additional))))
+        if not revisions:
+            return generation is None
+        if self._feedback_source is None:
+            return False
+        async with asyncio.timeout(_UPDATE_TIMEOUT_SECONDS):
+            current = await self._feedback_source.current(revisions)
+        if generation is None:
+            return current
+        admission = read_admission(generation["admission"])
+        return current and rebuild_admission_valid(
+            admission,
+            manifest=generation["input_manifest_digest"],
+            action_type=model.action_type_id,
+            metric=model.metric,
+            evaluated_at=self._clock(),
+        )
+
+    async def rebuild_challenger(
+        self,
+        *,
+        seed: EffectModel,
+        outcomes: tuple[ResponseOutcome, ...],
+        as_of: datetime,
+        expected_revision: int,
+        admission: DecisionEvidenceAdmission | None,
+    ) -> RegistryUpdate:
+        """Replace only a reviewed challenger; retain the old generation atomically."""
+        if admission is None or self._feedback_source is None:
+            return RegistryUpdate(False, "rebuild_evidence_unavailable")
+        if as_of.tzinfo is None or not seed.learned_through <= as_of <= self._clock():
+            raise ValueError("feedback rebuild cutoff MUST be within known source time")
+        async with asyncio.timeout(_UPDATE_TIMEOUT_SECONDS):
+            key = _state_key(EffectModelStatus.CHALLENGER, seed.action_type_id, seed.metric)
+            initial_raw = await self._store.read_state(key)
+            if initial_raw is None:
+                return RegistryUpdate(False, "challenger_not_registered")
+            if initial_raw.get("registered_seed_digest") != _digest(
+                _serialize(seed)
+            ) or initial_raw.get("registered_seed") != _serialize(seed):
+                return RegistryUpdate(False, "rebuild_seed_mismatch")
+            initial_generation = read_generation(initial_raw)
+            earlier = initial_generation["replay_order"] if initial_generation is not None else []
+            delta = initial_raw.get("feedback_order", [])
+            if (
+                not isinstance(delta, list)
+                or len(delta) > _MAX_FEEDBACK_RECEIPTS
+                or any(not isinstance(item, str) for item in delta)
+            ):
+                raise ValueError("stored scalar feedback order is invalid")
+            order = tuple(dict.fromkeys((*earlier, *delta)))
+            candidate = rebuild_feedback(
+                seed=seed, outcomes=outcomes, as_of=as_of, complete=True, replay_order=order
+            )
+            if candidate.accepted_episodes == 0:
+                return RegistryUpdate(False, "rebuild_no_eligible_episodes")
+            if not rebuild_admission_valid(
+                admission,
+                manifest=candidate.input_manifest_digest,
+                action_type=seed.action_type_id,
+                metric=seed.metric,
+                evaluated_at=self._clock(),
+            ):
+                return RegistryUpdate(False, "rebuild_evidence_invalid")
+            if not await self._feedback_source.current(candidate.source_digests):
+                return RegistryUpdate(False, "rebuild_source_changed")
+            for outcome in outcomes:
+                if outcome.recorded_at > as_of:
+                    continue
+                snapshot = outcome.prediction_snapshot
+                if snapshot is None or outcome.observed_at is None:
+                    if not outcome.scorable:
+                        continue
+                    return RegistryUpdate(False, "rebuild_prediction_unavailable")
+                if not await prediction_available(
+                    self._store, snapshot, observed_at=outcome.observed_at
+                ):
+                    return RegistryUpdate(False, "rebuild_prediction_unavailable")
+            raw = await self._store.read_state(key)
+            existing_generation = read_generation(raw) if raw is not None else None
+            if (
+                raw is not None
+                and existing_generation is not None
+                and existing_generation["input_manifest_digest"] == candidate.input_manifest_digest
+            ):
+                return RegistryUpdate(
+                    False, "rebuild_already_applied", _model_ref(_deserialize(raw))
+                )
+            if raw is None or raw.get("revision") != expected_revision:
+                return RegistryUpdate(False, "revision_conflict")
+            prior = _deserialize(raw)
+            if (
+                prior.model_id != seed.model_id
+                or prior.version != seed.version
+                or prior.learned_at != seed.learned_at
+            ):
+                return RegistryUpdate(False, "rebuild_seed_mismatch")
+            changed = replace(
+                candidate.model,
+                revision=expected_revision + 1,
+                learned_through=max(
+                    prior.learned_through, candidate.model.learned_through, as_of, self._clock()
+                ),
+            )
+            value = _serialize(changed)
+            value["registered_seed"] = _serialize(seed)
+            value["registered_seed_digest"] = _digest(_serialize(seed))
+            value["feedback_order"] = []
+            value["feedback_checkpoint"] = _checkpoint(as_of, {}, None)
+            value["generation_evidence"] = generation_evidence(candidate, outcomes, admission)
+            value["state_digest"] = _storage_digest(value)
+            if not rebuild_admission_valid(
+                admission,
+                manifest=candidate.input_manifest_digest,
+                action_type=seed.action_type_id,
+                metric=seed.metric,
+                evaluated_at=self._clock(),
+            ):
+                return RegistryUpdate(False, "rebuild_evidence_expired")
+            stored = await self._store.compare_and_set_state_with_audit_and_insert(
+                key,
+                value,
+                expected_revision=expected_revision,
+                insert_key=f"{key}:generation:{expected_revision}:{_digest(raw)}",
+                insert_value=dict(raw),
+                audit_entry={
+                    "actor": "Norns",
+                    "producer_principal": "Norns",
+                    "action_kind": "dynamic.effect_model.challenger.rebuilt",
+                    "model_ref": _model_ref(changed),
+                    "input_manifest_digest": candidate.input_manifest_digest,
+                    "admission_receipt_digest": admission.receipt_digest,
+                    "mode": "shadow",
+                    "execution_authority": False,
+                    "promotion_authority": False,
+                    "recorded_at": self._clock().isoformat(),
+                },
+            )
+            return RegistryUpdate(stored, "challenger_rebuilt" if stored else "revision_conflict")
+
 
 def _digest(value: object) -> str:
     return hashlib.sha256(
         json.dumps(value, sort_keys=True, separators=(",", ":"), allow_nan=False).encode()
     ).hexdigest()
+
+
+def _storage_digest(raw: Mapping[str, Any]) -> str:
+    """Hash typed float parameters consistently across JSONB numeric rendering."""
+    value = {key: item for key, item in raw.items() if key != "state_digest"}
+    for field in ("bias_correction", "mean_absolute_error", "interval_radius"):
+        if field in value:
+            number = value[field]
+            if isinstance(number, bool) or not isinstance(number, (int, float)):
+                raise ValueError("stored effect model numeric representation is invalid")
+            try:
+                normalized = float(number)
+            except OverflowError as exc:
+                raise ValueError(
+                    "stored effect model numeric value is outside float range"
+                ) from exc
+            value[field] = 0.0 if normalized == 0.0 else normalized
+    if "registered_seed" in value:
+        seed = value["registered_seed"]
+        if not isinstance(seed, Mapping):
+            raise ValueError("stored effect model seed representation is invalid")
+        normalized_seed = dict(seed)
+        for field in ("bias_correction", "mean_absolute_error", "interval_radius"):
+            number = normalized_seed[field]
+            if isinstance(number, bool) or not isinstance(number, (int, float)):
+                raise ValueError("stored effect model seed numeric representation is invalid")
+            normalized_seed[field] = 0.0 if number == 0.0 else float(number)
+        value["registered_seed"] = normalized_seed
+    return _digest(value)
 
 
 def _checkpoint(
@@ -272,13 +551,21 @@ def _serialize(model: EffectModel) -> dict[str, object]:
         "learned_at": model.learned_at.isoformat(),
         "learned_through": model.learned_through.isoformat(),
         "sample_count": model.sample_count,
-        "bias_correction": model.bias_correction,
-        "mean_absolute_error": model.mean_absolute_error,
-        "interval_radius": model.interval_radius,
+        "bias_correction": 0.0 if model.bias_correction == 0.0 else float(model.bias_correction),
+        "mean_absolute_error": (
+            0.0 if model.mean_absolute_error == 0.0 else float(model.mean_absolute_error)
+        ),
+        "interval_radius": 0.0 if model.interval_radius == 0.0 else float(model.interval_radius),
+        "prediction_model_ref": model.prediction_model_ref,
+        "prediction_model_digest": model.prediction_model_digest,
+        "unit": model.unit,
     }
 
 
 def _deserialize(raw: Mapping[str, Any]) -> EffectModel:
+    state_digest = raw.get("state_digest")
+    if state_digest is not None and state_digest != _storage_digest(raw):
+        raise ValueError("stored effect model state digest is invalid; reviewed recovery required")
     return EffectModel(
         model_id=_required_text(raw, "model_id"),
         version=_required_text(raw, "version"),
@@ -294,6 +581,9 @@ def _deserialize(raw: Mapping[str, Any]) -> EffectModel:
         bias_correction=float(raw.get("bias_correction", 0.0)),
         mean_absolute_error=float(raw.get("mean_absolute_error", 0.0)),
         interval_radius=float(raw.get("interval_radius", 0.0)),
+        prediction_model_ref=_optional_text(raw, "prediction_model_ref"),
+        prediction_model_digest=_optional_text(raw, "prediction_model_digest"),
+        unit=_optional_text(raw, "unit"),
     )
 
 
@@ -301,6 +591,13 @@ def _required_text(raw: Mapping[str, Any], key: str) -> str:
     value = raw.get(key)
     if not isinstance(value, str) or not value:
         raise ValueError(f"stored effect model {key} MUST be non-empty")
+    return value
+
+
+def _optional_text(raw: Mapping[str, Any], key: str) -> str | None:
+    value = raw.get(key)
+    if value is not None and (not isinstance(value, str) or not value.strip()):
+        raise ValueError(f"stored effect model {key} MUST be non-empty when supplied")
     return value
 
 

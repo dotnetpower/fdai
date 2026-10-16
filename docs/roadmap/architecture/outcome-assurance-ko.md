@@ -1,7 +1,7 @@
 ---
 title: Outcome Assurance
 translation_of: outcome-assurance.md
-translation_source_sha: 1fb91c5be3d4ec524558c646893eb83b2968e5b8
+translation_source_sha: f2f18b76b6c5c77e83f6e6bcbb1a07bee2a50033
 translation_revised: 2026-10-17
 ---
 # 결과 Assurance
@@ -246,6 +246,12 @@ fixture 값을 입증하지 않는다는 이름 있는 안내를 제공하며, �
 응답 정정은 검토 후 재구축할 때까지 challenger를 보류합니다.
 [피드백 신뢰성 계약](../operations/assurance-twin-ko.md#스칼라-피드백의-신뢰성)과
 [영문 구현 이력](outcome-assurance.md#implementation-history)을 참조하세요.
+
+버전이 있는 스칼라 피드백은 실행 허용, 효과 검증, 예측 정확도를 별도 사실로 보존합니다.
+효과 허용 범위로 동결된 점 예측을 대신하지 않습니다. 최신 원본/불변 seed 확인, holdout
+작업 보류, 감사 전용 T1 비교는 처리 증적입니다. 인시던트 복구, 재발, 부작용, 정책 효과의
+분모를 종결하지 않습니다. 짝지은 운영 평가, 권위 있는 변환 결과 생산, 적격 Pattern의
+T1 편입은 미완료입니다.
 
 Odin은 중재를 위해 목표 점수 입력을 비교할 수 있지만 읽기 변환 결과는
 business 값을 순위하거나 결정을 변경하지 않습니다. 목표 priority와 대상 값은

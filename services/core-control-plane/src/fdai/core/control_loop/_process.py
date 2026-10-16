@@ -613,6 +613,7 @@ async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResul
             action=action,
             rule=rule,
             correlation_id=correlation_id,
+            authorization_decision="auto" if unified is not None and unified.is_auto else "abstain",
         )
         exec_results.append(result)
         exec_success = _is_execution_success(result)

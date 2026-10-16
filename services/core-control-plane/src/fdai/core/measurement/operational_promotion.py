@@ -6,7 +6,7 @@ import hashlib
 import json
 import math
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, fields
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Protocol
@@ -18,6 +18,8 @@ from fdai.shared.providers.decision_evidence_verifier import (
     DecisionEvidenceAdmission,
     assess_decision_evidence_admission,
 )
+
+from .promotion_binding import ReviewedReplayBinding
 
 _GIT_REVISION = re.compile(r"^(?:[0-9a-f]{40}|[0-9a-f]{64})$")
 _IDENTIFIER = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*$")
@@ -164,8 +166,13 @@ class OperationalPromotionBatch:
     sealed_at: datetime
     records: tuple[OperationalPromotionRecord, ...]
     decision_evidence: DecisionEvidenceAdmission | None = None
+    reviewed_replay_binding: ReviewedReplayBinding | None = None
 
     def __post_init__(self) -> None:
+        if self.reviewed_replay_binding is not None and not isinstance(
+            self.reviewed_replay_binding, ReviewedReplayBinding
+        ):
+            raise ValueError("promotion batch reviewed replay binding is invalid")
         if _GIT_REVISION.fullmatch(self.fdai_revision) is None:
             raise ValueError("promotion batch fdai_revision MUST be a full immutable revision")
         for name, value in (
@@ -225,7 +232,7 @@ class OperationalPromotionBatch:
 
     @property
     def content_digest(self) -> str:
-        material = {
+        material: dict[str, object] = {
             "action_type_name": self.action_type_name,
             "action_type_version": self.action_type_version,
             "action_type_digest": self.action_type_digest,
@@ -258,6 +265,8 @@ class OperationalPromotionBatch:
                 for record in sorted(self.records, key=lambda item: item.sample_id)
             ],
         }
+        if self.reviewed_replay_binding is not None:
+            material["reviewed_replay_binding"] = self.reviewed_replay_binding.to_mapping()
         encoded = json.dumps(material, separators=(",", ":"), sort_keys=True).encode()
         return hashlib.sha256(encoded).hexdigest()
 
@@ -323,9 +332,10 @@ class OperationalPromotionReceipt:
     gaps: tuple[str, ...]
     decision_evidence_receipt_digest: str | None = None
     decision_evidence_verification_bundle_digest: str | None = None
+    reviewed_replay_binding: ReviewedReplayBinding | None = None
 
     def as_json(self) -> dict[str, object]:
-        return {
+        result: dict[str, object] = {
             "fdai_revision": self.fdai_revision,
             "scenario_set_version": self.scenario_set_version,
             "action_type_name": self.action_type_name,
@@ -362,6 +372,9 @@ class OperationalPromotionReceipt:
                 self.decision_evidence_verification_bundle_digest
             ),
         }
+        if self.reviewed_replay_binding is not None:
+            result["reviewed_replay_binding"] = self.reviewed_replay_binding.to_mapping()
+        return result
 
 
 class OperationalPromotionEvaluator:
@@ -582,6 +595,7 @@ class OperationalPromotionEvaluator:
                 if batch.decision_evidence is not None
                 else None
             ),
+            reviewed_replay_binding=batch.reviewed_replay_binding,
         )
 
     def _as_of(self) -> datetime:
@@ -599,18 +613,35 @@ def operational_promotion_evidence_digest(batch: OperationalPromotionBatch) -> s
     return f"sha256:{batch.content_digest}"
 
 
-def operational_promotion_scope_digest(batch: OperationalPromotionBatch) -> str:
-    """Return the exact revision, scenario, and ActionType promotion scope."""
+def operational_promotion_receipt_digest(receipt: OperationalPromotionReceipt) -> str:
+    """Authenticate every evaluated field, excluding renewable admission attribution.
 
-    return content_digest(
-        {
-            "action_type_digest": batch.action_type_digest,
-            "action_type_name": batch.action_type_name,
-            "action_type_version": batch.action_type_version,
-            "fdai_revision": batch.fdai_revision,
-            "scenario_set_version": batch.scenario_set_version,
-        }
-    )
+    Stored admission references describe the original evaluation, not a current
+    grant. Production independently obtains and revalidates admissions on prepare.
+    """
+    material = receipt.as_json()
+    material.pop("decision_evidence_receipt_digest")
+    material.pop("decision_evidence_verification_bundle_digest")
+    for field in fields(receipt):
+        value = material.get(field.name)
+        if field.type in ("float", float) and type(value) is int:
+            material[field.name] = float(value)
+    return _digest(material)
+
+
+def operational_promotion_scope_digest(batch: OperationalPromotionBatch) -> str:
+    """Bind revision, scenario, ActionType, and any scoped replay subject."""
+
+    material: dict[str, object] = {
+        "action_type_digest": batch.action_type_digest,
+        "action_type_name": batch.action_type_name,
+        "action_type_version": batch.action_type_version,
+        "fdai_revision": batch.fdai_revision,
+        "scenario_set_version": batch.scenario_set_version,
+    }
+    if batch.reviewed_replay_binding is not None:
+        material["reviewed_replay_binding"] = batch.reviewed_replay_binding.to_mapping()
+    return content_digest(material)
 
 
 def _is_digest(value: str) -> bool:

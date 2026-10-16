@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from enum import StrEnum
 from typing import Any, Protocol
@@ -305,7 +305,23 @@ class StateStoreActionPromotionRegistry(ActionPromotionRegistry):
 
         await self._refresh(action_type)
 
-    async def _refresh(self, action_type: str) -> None:
+    async def refresh_for_demotion(self, action_type: str) -> None:
+        """Load a structurally valid legacy row for a governed authority decrease.
+
+        This never restores ENFORCE and never supplies promotion proof. The caller
+        still owns governance approval; persist retains the ordinary audited CAS.
+        Store errors and malformed records are not suppressed.
+        """
+        try:
+            await self._refresh(action_type, demotion_only=True)
+        except Exception:
+            self._records.pop(action_type, None)
+            self._metadata.pop(action_type, None)
+            self._observed_revisions.pop(action_type, None)
+            self._observed_absent.discard(action_type)
+            raise
+
+    async def _refresh(self, action_type: str, *, demotion_only: bool = False) -> None:
         await self._refresh_recall(action_type)
         raw = await self._store.read_state(_key(action_type))
         if raw is None:
@@ -320,6 +336,8 @@ class StateStoreActionPromotionRegistry(ActionPromotionRegistry):
         record, metadata = _deserialize(raw)
         if record.action_type != action_type:
             raise ValueError("persisted action_type does not match key")
+        if demotion_only:
+            record = replace(record, mode=Mode.SHADOW, production_ready=False)
         if record.mode is Mode.ENFORCE:
             _validate_enforce_attribution(record, metadata)
             if metadata.kind is PromotionKind.GATE_EVIDENCE:

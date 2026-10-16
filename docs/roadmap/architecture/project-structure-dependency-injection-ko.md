@@ -1,7 +1,7 @@
 ---
 translation_of: project-structure-dependency-injection.md
-translation_source_sha: ac36eec9dd9803fa56b22e9f928f2f89899dbab0
-translation_revised: 2026-10-14
+translation_source_sha: 4ff8a141f58e13c558d66ccc7e05c8d7849a97fd
+translation_revised: 2026-10-17
 ---
 
 # 프로젝트 구조 의존성 주입
@@ -71,6 +71,18 @@ Core 시작 구성은 이를 Bragi의 읽기 전용 숙의 처리기에 전달�
   Pantheon 조립은 `OperatingPatternCompiler`를 inject할 수 있으며 Norns는 타입이 지정된 learning을
   serialize하고 Mimir 검토 전에 범위가 제한된 제안 backpressure를 적용합니다.
 - **Causal 및 Dynamic 런타임 근거**: `TemporalCausalEvidenceProvider`는 범위가 제한된 pre-cutoff series와 그래프 사실을 제공하고 `DynamicSimulationRequestProvider`는 최대 32개 current-state 가지를 제공합니다. `CausalHypothesisProjection`은 Forseti-owned이며 모델 grade는 `EffectModelCausalEvidenceVerifier`를 요구합니다. Dynamic 모델은 시뮬레이션 스냅샷 이후 결과를 사용할 수 없고 현재 스냅샷은 evaluation-clock 최신성을 사용합니다. Pure simulator도 조정기 밖에서 모델 기준 시점 또는 finite-arithmetic 위반을 거부합니다. 연결이 없으면 shadow 경로가 비활성화됩니다.
+- **귀속 가능한 스칼라 피드백**: `ExpectedEffect.prediction_snapshot`은 변경할 수 없는 예측기
+  식별자, 점/구간 예측, 단위, 에피소드와 원본 정보를 전달합니다. 독립 `ObservedEffect`가
+  단위와 증적을 제공하며 보관 실패로 이 검증 조건을 없애지 않습니다.
+  `StateStoreEffectModelRegistry(feedback_source=...)`는 적격 갱신과 학습 모델 읽기에 최신
+  리비전 체인 근거를 요구합니다. 런타임 조립은 같은 타입의 출처를
+  `bind_dynamic_evidence_from_env(feedback_source=...)`로 전달할 수 있으며 기본값은 사용 불가입니다.
+  시작 시에는 출처 가용성과 독립적으로 저장된 등록 계보를 확인하며 운영 읽기는 `get()`만
+  검증합니다. 등록 내용 확인은 예측 근거가 아닙니다.
+  검토된 재구축은 기존 정확한 범위의
+  `DecisionEvidenceAdmission`, 불변 등록 seed, 실제 적용 순서도 필요합니다. 이 연결은 활성
+  모델 작성기를 만들지 않습니다. 패키지의 출처/인가와 보존 연결은 제공되기 전까지 사용할
+  수 없으며 항상 수락하는 어댑터를 설치하지 않습니다.
 - **Operational 승격 권한**: `OperationalPromotionReceiptVerifier`와
   `OperationalPromotionUnitVerifier`가 변경할 수 없는 근거를 해석합니다. 운영 레지스트리는
   이 연결 없이는 shadow를 유지하며 raw scalar 메트릭은 test-only 이전 방식 고정본 모드입니다.
@@ -84,6 +96,10 @@ Core 시작 구성은 이를 Bragi의 읽기 전용 숙의 처리기에 전달�
   활성화, merge, 승격 또는 관리 리소스 변경 권한을 부여하지 않습니다.
   `operational-promotion` 작업은 상태 변경 없이 exact-digest 근거를 저장하고, `cohort_observation_import`는 산출물이 선언한 군, 리비전, 프로토콜, 승인 또는 권한을 받지 않습니다.
   보호된 workflow가 묶음당 관측값을 1,000개로 제한하고 중복 JSON 키를 차단하며 각 관측 다이제스트를 묶음과 exporter workflow에 연결한 뒤 멱등 재생을 검증합니다. 신뢰할 수 있는 제품 중립 출처 레지스트리는 군의 각 필수 측정값을 저장소 내부의 일반 exporter workflow 하나와 고정 출처 식별자에 배정합니다. 반입기는 해당 식별자를 주입하고 인벤토리는 일치하는 출처 계보만 다시 계수합니다. 제품 어댑터는 배정된 workflow 뒤에 유지되며, 연결이 없거나 불완전하거나 중복되거나 두 군이 공유하면 경로를 차단합니다.
+  정확한 재현 검토는 독립 평가기와 현재 ActionType 맵, 별도의 묶음/검토 인가, 사례
+  materializer와 같은 권위 있는 메타데이터 저장소를 요구합니다. 준비 단계는 최신 원본을
+  비동기로 확인하고 증명의 유효 기간을 원본 만료까지 제한합니다. 소비 단계에서 동기 네트워크
+  I/O는 수행하지 않습니다. 프로덕션 연결이 없으면 준비를 차단합니다.
   `CostPromotionReviewStore`는 하나의 exact Cost Governance 대상 검토를 위한 권한 중립 경계입니다. 업스트림 PostgreSQL 어댑터와 Core 서비스 migration이 append-only 저장을 소유하며, 보호된 workflow는 각 기록 전에 하나의 attested campaign과 활성 pin을 검증합니다. 이 저장소는 package activation, ActionType 또는 Workflow mode, promotion 레지스트리를 갱신할 수 없습니다.
   안정적인 요청 재생은 원래 payload와 정규화 열을 검증하고 요청 소유 내용 및 보존 기간만 비교한 뒤 원래 시각을 담은 검토를 반환합니다.
 - **Governed action 및 probe 전달**: `GovernedGovernancePrPublisher`는 retire 및 exemption

@@ -1,8 +1,8 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: 04a8df46667d7908e642a3026ae671f6724c4b8e
-translation_revised: 2026-09-30
+translation_source_sha: a03278ef9601049415ce56e802b75a40eeb048e4
+translation_revised: 2026-10-17
 ---
 # 운영 학습 온톨로지
 
@@ -148,6 +148,17 @@ FDAI 수정본, 시나리오 세트 및 O7 근거 다이제스트에 대한 독�
 shadow로 되돌립니다.
 
 ### Pattern은 두 층위가 아니라 하나입니다
+
+정확한 재현 검토 준비는 후보, 패키지, 두 재현 결과, 불변 사례 리비전, 범위와 목적을 O7
+대상에 결속합니다. 독립적인 묶음 인가와 검토 인가는 서로 다릅니다. 인가된 묶음을 현재
+ActionType으로 독립 평가하고 제출된 증적의 모든 측정값이 일치하는지 확인합니다.
+I/O가 끝난 뒤 현재의 권위 있는 메타데이터로 원본을 확인하고 증명의 만료를 원본 삭제
+기한까지 제한합니다. 이전 측정/적용 기록의 읽기와 강등은 유지하며 인가 갱신이 불변 측정
+대상을 바꾸지는 않습니다. 프로덕션 증적 제공자가 연결되지 않으면 사용할 수 없습니다.
+
+기본값이 꺼진 T1 적격성 비교는 실제 선택을 바꾸지 않고 baseline과 범위가 제한된
+challenger만 기록합니다. 이는 저장된 적격 Pattern의 T1 편입, 새 실행기 또는 운영 복구
+개선 증거가 아닙니다.
 
 `PANTHEON_SPECS`는 한때 Norns에 `PatternObservation`을 할당했고 카탈로그는 같은 기록을 `Pattern`이라
 불렀습니다. 두 이름은 하나의 inert compiled cohort 기록을 가리켰을 뿐, 원시 관측과 검토된

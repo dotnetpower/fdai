@@ -18,6 +18,7 @@ from fdai.core.measurement import (
     OperationalPromotionRecord,
     PromotionEvidenceCohort,
 )
+from fdai.core.measurement.promotion_binding import ReviewedReplayBinding
 from fdai.shared.contracts.models import CausalEvidenceGrade
 
 _MAX_MANIFEST_BYTES = 1024 * 1024
@@ -138,6 +139,10 @@ class ManifestOperationalPromotionUnitVerifier:
 
 def _decode_batch(value: object) -> OperationalPromotionBatch:
     raw = _object(value, "batch")
+    version = raw.get("schema_version")
+    if version not in ("1.0.0", "1.1.0"):
+        raise ValueError("unsupported operational promotion batch schema")
+    binding_fields = {"reviewed_replay_binding"} if version == "1.1.0" else set()
     _exact_fields(
         raw,
         {
@@ -149,11 +154,15 @@ def _decode_batch(value: object) -> OperationalPromotionBatch:
             "action_type_digest",
             "sealed_at",
             "records",
-        },
+        }
+        | binding_fields,
         "batch",
     )
-    if raw["schema_version"] != "1.0.0":
-        raise ValueError("unsupported operational promotion batch schema")
+    binding = (
+        ReviewedReplayBinding.from_mapping(raw["reviewed_replay_binding"])
+        if version == "1.1.0"
+        else None
+    )
     records = tuple(_decode_record(item) for item in _object_list(raw["records"], "records"))
     return OperationalPromotionBatch(
         fdai_revision=_text(raw, "fdai_revision"),
@@ -163,6 +172,7 @@ def _decode_batch(value: object) -> OperationalPromotionBatch:
         action_type_digest=_digest_text(raw, "action_type_digest"),
         sealed_at=_timestamp(raw, "sealed_at"),
         records=records,
+        reviewed_replay_binding=binding,
     )
 
 

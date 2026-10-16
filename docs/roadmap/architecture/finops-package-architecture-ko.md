@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: ed436db40eb38ec2eac55d1bb3c516ef8dc2f220
-translation_revised: 2026-10-16
+translation_source_sha: 5e987dfc675a05535d1bf7480ccd90ca086e4812
+translation_revised: 2026-10-17
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -477,6 +477,10 @@ enablement나 `ActionType` 또는 `Workflow` mode를 변경할 수 없습니다.
 재생은 원래 시각을 담은 증적을 반환합니다.
 
 ## 자율 런타임 인계
+
+공유 `ResponseOutcome` 계약은 원래 실행 허용 결정과 효과 검증을 구분합니다.
+실행 허용을 알 수 없는 W0 픽스처는 `abstain`을 명시합니다.
+검증되지 않은 효과만으로 실행 허용이나 기술적 실패 학습 라벨을 만들어 내지 않습니다.
 
 패키지는 기존 에이전트 choreography에 타입이 지정된 입력만 내보냅니다. 패키지 가드의 허용은
 후보가 다음 단계로 진행할 수 있다는 뜻이며 권한이 부여되었다는 뜻이 아닙니다. 규칙에 정적 비용이

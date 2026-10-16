@@ -30,7 +30,7 @@ def build_response_outcome(
     recorded_at: datetime,
     expected: ExpectedEffect | None = None,
     observed: ObservedEffect | None = None,
-    decision: Literal["auto", "hil", "deny", "abstain"] = "auto",
+    decision: Literal["auto", "hil", "deny", "abstain"],
     rollback_succeeded: bool | None = None,
 ) -> ResponseOutcome:
     """Build one replay-stable expected-versus-observed response record.
@@ -55,8 +55,9 @@ def build_response_outcome(
     evidence_ref = (
         f"effect:{prediction_id}" if prediction_id is not None else f"action:{action.action_id}"
     )
+    snapshot = expected.prediction_snapshot if expected is not None else None
     return ResponseOutcome(
-        schema_version="1.0.0",
+        schema_version="1.1.0" if snapshot is not None else "1.0.0",
         outcome_id=outcome_id,
         idempotency_key=f"response-outcome:{outcome_id}",
         action_id=action.action_id,
@@ -80,6 +81,12 @@ def build_response_outcome(
         rollback_succeeded=rollback_succeeded,
         evidence_refs=(evidence_ref,),
         recorded_at=recorded_at,
+        outcome_revision=1 if snapshot is not None else None,
+        prediction_snapshot=snapshot,
+        observation_unit=observed.unit if observed is not None and snapshot is not None else None,
+        observation_receipt_ref=(
+            observed.receipt_ref if observed is not None and snapshot is not None else None
+        ),
     )
 
 

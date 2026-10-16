@@ -147,6 +147,18 @@ attribution; a duplicate is a no-op, and rollback or demotion returns the regist
 
 ### Pattern is one layer, not two
 
+Exact reviewed-replay preparation now binds candidate, package, both replay results, immutable
+case revisions, scope and purpose inside the O7 subject. Independent batch and review admissions
+are distinct. The admitted batch is independently evaluated against the current ActionType, and
+all supplied receipt metrics must match. Source availability is checked after I/O against current
+authoritative metadata, with proof expiry bounded by source deletion deadlines. Legacy measurement
+and enforcement records remain readable and demotable; renewing an admission never changes the
+immutable measured subject. Unbound production proof providers keep this path unavailable.
+
+Default-off T1 eligibility comparison records the baseline and a bounded challenger without
+changing actual selection. This is not qualified retained Pattern-to-T1 enrollment, a new executor,
+or evidence of improved operational recovery.
+
 `PANTHEON_SPECS` once assigned Norns a `PatternObservation` while the catalog named the same record
 `Pattern`. The two names described one inert compiled cohort record, not a raw observation and a
 reviewed generalization, because no code performs the review that a second layer would require. The

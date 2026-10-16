@@ -436,7 +436,9 @@ async def test_growth_accepted_intake_pushes_shadow_pattern() -> None:
     assert top.reuse_count == 0
 
     # Intake audit entry confirms shadow-mode ingestion.
-    entry = list(audit.audit_entries)[0]["entry"]
+    entry = next(
+        item["entry"] for item in audit.audit_entries if item["entry"].get("ingested") is True
+    )
     assert entry["action_kind"] == "measurement.pattern_growth.intake"
     assert entry["mode"] == Mode.SHADOW.value
     assert entry["intake_outcome"] == IntakeOutcome.ACCEPTED.value
@@ -535,7 +537,9 @@ async def test_growth_missing_pattern_build_records_skip_but_continues() -> None
     # Builder called for BOTH accepted outcomes (skip is post-accept).
     assert builder.calls == ["action-1", "action-2"]
 
-    entries = [e["entry"] for e in audit.audit_entries]
+    entries = [
+        e["entry"] for e in audit.audit_entries if e["entry"].get("reason") != "pattern_processing"
+    ]
     assert len(entries) == 3
     # First outcome - accepted intake, but builder returned None → not ingested.
     assert entries[0]["intake_outcome"] == IntakeOutcome.ACCEPTED.value

@@ -1,0 +1,487 @@
+{
+  "$defs": {
+    "EffectPredictionSnapshot": {
+      "additionalProperties": false,
+      "description": "One frozen scalar prediction with independent episode and source provenance.",
+      "properties": {
+        "schema_version": {
+          "const": "1.0.0",
+          "default": "1.0.0",
+          "title": "Schema Version",
+          "type": "string"
+        },
+        "prediction_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Prediction Id",
+          "type": "string"
+        },
+        "event_id": {
+          "format": "uuid",
+          "title": "Event Id",
+          "type": "string"
+        },
+        "action_id": {
+          "format": "uuid",
+          "title": "Action Id",
+          "type": "string"
+        },
+        "action_type_id": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Action Type Id",
+          "type": "string"
+        },
+        "target_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Target Digest",
+          "type": "string"
+        },
+        "metric": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Metric",
+          "type": "string"
+        },
+        "unit": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Unit",
+          "type": "string"
+        },
+        "objective": {
+          "enum": [
+            "minimize",
+            "maximize"
+          ],
+          "title": "Objective",
+          "type": "string"
+        },
+        "model_ref": {
+          "maxLength": 512,
+          "minLength": 1,
+          "title": "Model Ref",
+          "type": "string"
+        },
+        "model_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Model Digest",
+          "type": "string"
+        },
+        "source_digest": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Source Digest",
+          "type": "string"
+        },
+        "independence_key": {
+          "pattern": "^[0-9a-f]{64}$",
+          "title": "Independence Key",
+          "type": "string"
+        },
+        "point_prediction": {
+          "title": "Point Prediction",
+          "type": "number"
+        },
+        "interval_lower": {
+          "title": "Interval Lower",
+          "type": "number"
+        },
+        "interval_upper": {
+          "title": "Interval Upper",
+          "type": "number"
+        },
+        "nominal_coverage": {
+          "exclusiveMaximum": 1,
+          "exclusiveMinimum": 0,
+          "title": "Nominal Coverage",
+          "type": "number"
+        },
+        "known_at": {
+          "format": "date-time",
+          "title": "Known At",
+          "type": "string"
+        },
+        "predicted_at": {
+          "format": "date-time",
+          "title": "Predicted At",
+          "type": "string"
+        },
+        "observation_deadline": {
+          "format": "date-time",
+          "title": "Observation Deadline",
+          "type": "string"
+        },
+        "execution_authority": {
+          "const": false,
+          "default": false,
+          "title": "Execution Authority",
+          "type": "boolean"
+        },
+        "promotion_authority": {
+          "const": false,
+          "default": false,
+          "title": "Promotion Authority",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "prediction_id",
+        "event_id",
+        "action_id",
+        "action_type_id",
+        "target_digest",
+        "metric",
+        "unit",
+        "objective",
+        "model_ref",
+        "model_digest",
+        "source_digest",
+        "independence_key",
+        "point_prediction",
+        "interval_lower",
+        "interval_upper",
+        "nominal_coverage",
+        "known_at",
+        "predicted_at",
+        "observation_deadline"
+      ],
+      "title": "EffectPredictionSnapshot",
+      "type": "object"
+    },
+    "Mode": {
+      "description": "Autonomy mode at the time of processing.",
+      "enum": [
+        "shadow",
+        "enforce"
+      ],
+      "title": "Mode",
+      "type": "string"
+    },
+    "ResponseOutcomeLabel": {
+      "enum": [
+        "verified",
+        "mismatch",
+        "unscorable"
+      ],
+      "title": "ResponseOutcomeLabel",
+      "type": "string"
+    },
+    "ResponseVerificationStatus": {
+      "enum": [
+        "verified",
+        "mismatch",
+        "hold"
+      ],
+      "title": "ResponseVerificationStatus",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "description": "One immutable comparison of an expected action effect with reality.",
+  "properties": {
+    "schema_version": {
+      "const": "1.1.0",
+      "type": "string"
+    },
+    "outcome_id": {
+      "format": "uuid",
+      "title": "Outcome Id",
+      "type": "string"
+    },
+    "idempotency_key": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Idempotency Key",
+      "type": "string"
+    },
+    "action_id": {
+      "format": "uuid",
+      "title": "Action Id",
+      "type": "string"
+    },
+    "event_id": {
+      "format": "uuid",
+      "title": "Event Id",
+      "type": "string"
+    },
+    "action_type_id": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Action Type Id",
+      "type": "string"
+    },
+    "target_digest": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Target Digest",
+      "type": "string"
+    },
+    "prediction_id": {
+      "anyOf": [
+        {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Prediction Id"
+    },
+    "metric": {
+      "anyOf": [
+        {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Metric"
+    },
+    "expected_min": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Expected Min"
+    },
+    "expected_max": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Expected Max"
+    },
+    "observed_value": {
+      "anyOf": [
+        {
+          "type": "number"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Observed Value"
+    },
+    "predicted_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Predicted At"
+    },
+    "observation_deadline": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Observation Deadline"
+    },
+    "observed_at": {
+      "anyOf": [
+        {
+          "format": "date-time",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Observed At"
+    },
+    "label": {
+      "$ref": "#/$defs/ResponseOutcomeLabel"
+    },
+    "verification_status": {
+      "$ref": "#/$defs/ResponseVerificationStatus"
+    },
+    "verification_reason": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Verification Reason",
+      "type": "string"
+    },
+    "execution_mode": {
+      "$ref": "#/$defs/Mode"
+    },
+    "execution_outcome": {
+      "maxLength": 512,
+      "minLength": 1,
+      "title": "Execution Outcome",
+      "type": "string"
+    },
+    "decision": {
+      "enum": [
+        "auto",
+        "hil",
+        "deny",
+        "abstain"
+      ],
+      "title": "Decision",
+      "type": "string"
+    },
+    "rollback_succeeded": {
+      "anyOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Rollback Succeeded"
+    },
+    "evidence_refs": {
+      "items": {
+        "maxLength": 512,
+        "minLength": 1,
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Evidence Refs",
+      "type": "array"
+    },
+    "recorded_at": {
+      "format": "date-time",
+      "title": "Recorded At",
+      "type": "string"
+    },
+    "outcome_revision": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "previous_revision_digest": {
+      "anyOf": [
+        {
+          "pattern": "^[0-9a-f]{64}$",
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Previous Revision Digest"
+    },
+    "prediction_snapshot": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/EffectPredictionSnapshot"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "observation_unit": {
+      "anyOf": [
+        {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Observation Unit"
+    },
+    "observation_receipt_ref": {
+      "anyOf": [
+        {
+          "maxLength": 512,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Observation Receipt Ref"
+    }
+  },
+  "required": [
+    "schema_version",
+    "outcome_id",
+    "idempotency_key",
+    "action_id",
+    "event_id",
+    "action_type_id",
+    "target_digest",
+    "label",
+    "verification_status",
+    "verification_reason",
+    "execution_mode",
+    "execution_outcome",
+    "decision",
+    "evidence_refs",
+    "recorded_at",
+    "outcome_revision"
+  ],
+  "title": "ResponseOutcome",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fdai.dev/schemas/response-outcome/1.1.0",
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "outcome_revision": {
+            "const": 1
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "previous_revision_digest": {
+            "type": "null"
+          }
+        }
+      },
+      "else": {
+        "required": [
+          "previous_revision_digest"
+        ],
+        "properties": {
+          "previous_revision_digest": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        }
+      }
+    }
+  ]
+}

@@ -15,6 +15,7 @@ from fdai.core.assurance_twin import (
     EffectModelStatus,
     StateStoreEffectModelRegistry,
 )
+from fdai.core.assurance_twin.feedback_generation import FeedbackRevisionSource
 from fdai.delivery.azure.operational_evidence import (
     AzureCachedOperationalSnapshotSource,
     AzureConfiguredBranchEffect,
@@ -46,6 +47,7 @@ async def bind_dynamic_evidence_from_env(
     *,
     state_store: StateStore,
     environ: Mapping[str, str],
+    feedback_source: FeedbackRevisionSource | None = None,
 ) -> Container:
     """Bind Dynamic only when one complete strict JSON configuration is present."""
 
@@ -120,7 +122,7 @@ async def bind_dynamic_evidence_from_env(
     if inventory_context is None:
         raise ValueError("Dynamic configuration requires durable inventory context")
     snapshots = AzureCachedOperationalSnapshotSource(inventory_context)
-    registry = StateStoreEffectModelRegistry(state_store)
+    registry = StateStoreEffectModelRegistry(state_store, feedback_source=feedback_source)
     verifier = ConfiguredCausalEvidenceVerifier(frozenset(raw_digests))
     models = tuple(_effect_model(item) for item in raw_models)
     configured_scopes = {(action_type, policy.metric) for action_type, policy in policies.items()}
@@ -134,18 +136,22 @@ async def bind_dynamic_evidence_from_env(
         scope = (model.action_type_id, model.metric)
         if scope not in configured_scopes or not verifier.verify(model):
             raise ValueError("Dynamic model scope or causal receipt is not configured")
-        existing = await registry.get(
+        if await registry.register(model, registered_by="Mimir"):
+            continue
+        registration = await registry.inspect_registration(
             status=model.status,
             action_type_id=model.action_type_id,
             metric=model.metric,
         )
-        if existing is None:
-            await registry.register(model, registered_by="Mimir")
-        elif model.status is EffectModelStatus.ACTIVE and existing != model:
+        if registration is None:
+            raise ValueError("stored Dynamic registration disappeared during binding")
+        existing, registered_seed = registration
+        if model.status is EffectModelStatus.ACTIVE and existing != model:
             raise ValueError("stored Dynamic model conflicts with configured exact model")
         elif model.status is EffectModelStatus.CHALLENGER and not _challenger_descends_from(
             existing,
             model,
+            registered_seed=registered_seed,
         ):
             raise ValueError("stored Dynamic challenger conflicts with configured model lineage")
     return replace(
@@ -162,22 +168,6 @@ async def bind_dynamic_evidence_from_env(
 
 def _text(value: Mapping[object, object], key: str) -> str:
     item = value.get(key)
-
-    def _challenger_descends_from(existing: EffectModel, configured: EffectModel) -> bool:
-        return (
-            existing.status is EffectModelStatus.CHALLENGER
-            and existing.model_id == configured.model_id
-            and existing.version == configured.version
-            and existing.action_type_id == configured.action_type_id
-            and existing.metric == configured.metric
-            and existing.evidence_grade is configured.evidence_grade
-            and existing.causal_evidence_receipt_digest == configured.causal_evidence_receipt_digest
-            and existing.learned_at == configured.learned_at
-            and existing.revision >= configured.revision
-            and existing.learned_through >= configured.learned_through
-            and existing.sample_count >= configured.sample_count
-        )
-
     if not isinstance(item, str) or not item:
         raise ValueError(f"Dynamic action {key} MUST be non-empty")
     return item
@@ -208,13 +198,25 @@ def _is_digest(value: str) -> bool:
     return len(value) == 64 and all(character in "0123456789abcdef" for character in value)
 
 
-def _challenger_descends_from(existing: EffectModel, configured: EffectModel) -> bool:
+def _challenger_descends_from(
+    existing: EffectModel,
+    configured: EffectModel,
+    *,
+    registered_seed: EffectModel | None,
+) -> bool:
+    if existing.revision == configured.revision:
+        return existing == configured and (registered_seed is None or registered_seed == configured)
+    if registered_seed != configured:
+        return False
     return (
         existing.status is EffectModelStatus.CHALLENGER
         and existing.model_id == configured.model_id
         and existing.version == configured.version
         and existing.action_type_id == configured.action_type_id
         and existing.metric == configured.metric
+        and existing.prediction_model_ref == configured.prediction_model_ref
+        and existing.prediction_model_digest == configured.prediction_model_digest
+        and existing.unit == configured.unit
         and existing.evidence_grade is configured.evidence_grade
         and existing.causal_evidence_receipt_digest == configured.causal_evidence_receipt_digest
         and existing.learned_at == configured.learned_at
@@ -243,8 +245,12 @@ def _effect_model(value: object) -> EffectModel:
         "mean_absolute_error",
         "interval_radius",
     }
-    if set(value) != expected:
+    binding = {"prediction_model_ref", "prediction_model_digest", "unit"}
+    if set(value) not in (expected, expected | binding):
         raise ValueError("Dynamic model has unexpected fields")
+    bound = all(value.get(name) is not None for name in binding)
+    if not bound and any(value.get(name) is not None for name in binding):
+        raise ValueError("Dynamic model predictor identity and unit MUST be supplied together")
     return EffectModel(
         model_id=_text(value, "model_id"),
         version=_text(value, "version"),
@@ -260,6 +266,9 @@ def _effect_model(value: object) -> EffectModel:
         bias_correction=_finite(value, "bias_correction"),
         mean_absolute_error=_nonnegative(value, "mean_absolute_error"),
         interval_radius=_nonnegative(value, "interval_radius"),
+        prediction_model_ref=_text(value, "prediction_model_ref") if bound else None,
+        prediction_model_digest=(_text(value, "prediction_model_digest") if bound else None),
+        unit=_text(value, "unit") if bound else None,
     )
 
 

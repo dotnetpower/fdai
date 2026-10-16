@@ -445,6 +445,10 @@ timestamped receipt.
 
 ## Autonomous runtime handoff
 
+The shared `ResponseOutcome` contract keeps the original authorization decision separate from
+effect verification. W0 fixtures with unknown authorization explicitly use `abstain`; an
+unverified effect cannot manufacture either permission or a technical-failure learning label.
+
 The package emits only typed inputs to the existing agent choreography. An allowed package guard
 means that a candidate may continue, not that it is authorized. Static rule cost remains
 authoritative when declared; estimator failure, stale data, or an ungrounded SKU produces unknown

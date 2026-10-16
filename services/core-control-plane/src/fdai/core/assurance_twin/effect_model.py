@@ -53,6 +53,9 @@ class EffectModel:
     bias_correction: float = 0.0
     mean_absolute_error: float = 0.0
     interval_radius: float = 0.0
+    prediction_model_ref: str | None = None
+    prediction_model_digest: str | None = None
+    unit: str | None = None
 
     def __post_init__(self) -> None:
         if not all((self.model_id, self.action_type_id, self.metric)):
@@ -74,6 +77,15 @@ class EffectModel:
             raise ValueError("effect model numeric values MUST be finite")
         if self.mean_absolute_error < 0.0 or self.interval_radius < 0.0:
             raise ValueError("effect model errors and interval radius MUST be non-negative")
+        binding = (self.prediction_model_ref, self.prediction_model_digest, self.unit)
+        if any(value is not None for value in binding):
+            if not all(isinstance(value, str) and value.strip() for value in binding):
+                raise ValueError(
+                    "effect model predictor identity and unit MUST be supplied together"
+                )
+            digest = self.prediction_model_digest or ""
+            if len(digest) != 64 or any(item not in "0123456789abcdef" for item in digest):
+                raise ValueError("effect model predictor digest MUST be SHA-256")
 
     def predict(
         self,
@@ -139,7 +151,18 @@ def update_challenger(
     ):
         return ChallengerUpdate(model, False, "outcome_effect_evidence_incomplete")
 
-    raw_prediction = (outcome.expected_min + outcome.expected_max) / 2.0
+    snapshot = outcome.prediction_snapshot
+    if snapshot is None:
+        return ChallengerUpdate(model, False, "outcome_prediction_snapshot_unavailable")
+    if (
+        snapshot.model_ref != model.prediction_model_ref
+        or snapshot.model_digest != model.prediction_model_digest
+        or snapshot.unit != model.unit
+        or outcome.observation_unit != snapshot.unit
+        or not outcome.observation_receipt_ref
+    ):
+        return ChallengerUpdate(model, False, "outcome_prediction_provenance_mismatch")
+    raw_prediction = snapshot.point_prediction
     residual = outcome.observed_value - raw_prediction
     prediction_error = abs(residual - model.bias_correction)
     sample_count = model.sample_count + 1

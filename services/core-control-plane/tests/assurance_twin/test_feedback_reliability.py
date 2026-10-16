@@ -16,10 +16,11 @@ from fdai.core.assurance_twin import (
     StateStoreEffectModelRegistry,
     model_registry,
 )
+from fdai.core.assurance_twin.prediction_evidence import retain_prediction
 from fdai.shared.contracts.models import ResponseOutcome
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
-from tests.assurance_twin.test_model_registry import _NOW, _model, _outcome, _registry
+from tests.assurance_twin.test_model_registry import _NOW, _model, _outcome, _registry, _snapshot
 
 
 def _feedback(index: int, *, minutes: int = 2) -> ResponseOutcome:
@@ -35,6 +36,7 @@ def _feedback(index: int, *, minutes: int = 2) -> ResponseOutcome:
             "execution_mode": "enforce",
             "execution_outcome": "succeeded",
             "rollback_succeeded": False,
+            "prediction_snapshot": _snapshot(index),
         }
     )
 
@@ -109,7 +111,13 @@ async def test_model_receipt_and_audit_roll_back_together_on_commit_failure(
         with pytest.raises(RuntimeError, match="injected audit failure"):
             await registry.update_from_outcome(_feedback(1))
     assert await _challenger(registry) == before
-    assert len(tuple(store.audit_entries)) == 1
+    assert (
+        sum(
+            item["entry"]["action_kind"] == "dynamic.effect_model.challenger.updated"
+            for item in store.audit_entries
+        )
+        == 0
+    )
     assert (await registry.update_from_outcome(_feedback(1))).accepted
     assert (await registry.update_from_outcome(_feedback(1))).reason == "outcome_already_applied"
     assert await store.verify_chain()
@@ -135,7 +143,13 @@ async def test_commit_then_lost_response_retries_without_another_update(
     assert (await restarted.update_from_outcome(_feedback(1))).reason == "outcome_already_applied"
     model = await _challenger(restarted)
     assert model is not None and model.sample_count == 1
-    assert len(tuple(store.audit_entries)) == 2
+    assert (
+        sum(
+            item["entry"]["action_kind"] == "dynamic.effect_model.challenger.updated"
+            for item in store.audit_entries
+        )
+        == 1
+    )
 
 
 @pytest.mark.parametrize("duplicate", [False, True])
@@ -168,7 +182,13 @@ async def test_concurrent_consumers_commit_each_event_once(
     expected = 1 if duplicate else 2
     assert sum(result.accepted for result in results) == expected
     assert model is not None and model.sample_count == expected
-    assert len(tuple(store.audit_entries)) == 1 + expected
+    assert (
+        sum(
+            item["entry"]["action_kind"] == "dynamic.effect_model.challenger.updated"
+            for item in store.audit_entries
+        )
+        == expected
+    )
 
 
 @pytest.mark.parametrize(
@@ -188,6 +208,11 @@ async def test_wrong_attribution_or_unversioned_correction_holds_only_challenger
     await registry.register(active, registered_by="Mimir")
     await registry.register(_model(EffectModelStatus.CHALLENGER), registered_by="Mimir")
     await registry.update_from_outcome(_feedback(1))
+    if "event_id" in change:
+        with pytest.raises(ValueError, match="frozen prediction identity"):
+            ResponseOutcome.model_validate({**_feedback(1).model_dump(), **change})
+        assert await _challenger(registry) is not None
+        return
     corrected = ResponseOutcome.model_validate({**_feedback(1).model_dump(), **change})
     assert (
         await registry.update_from_outcome(corrected)
@@ -211,7 +236,14 @@ async def test_retry_of_same_event_is_not_an_independent_sample() -> None:
     registry = _registry(InMemoryStateStore())
     await registry.register(_model(EffectModelStatus.CHALLENGER), registered_by="Mimir")
     await registry.update_from_outcome(_feedback(1))
-    retry = _feedback(2).model_copy(update={"event_id": _feedback(1).event_id})
+    retry = ResponseOutcome.model_validate(
+        {
+            **_feedback(2).model_dump(),
+            "prediction_snapshot": _snapshot(2).model_copy(
+                update={"independence_key": _snapshot(1).independence_key}
+            ),
+        }
+    )
     result = await registry.update_from_outcome(retry)
     assert result.reason == "dependent_event_already_learned"
     model = await _challenger(registry)
@@ -282,6 +314,7 @@ async def test_legacy_empty_model_adopts_checkpoint_but_unknown_history_is_held(
     )
     assert await _challenger(registry) is None
     await store.write_state(key, model_registry._serialize(legacy))
+    await retain_prediction(store, _snapshot(1), recorded_at=_NOW)
     assert (await registry.update_from_outcome(_feedback(1))).accepted
 
 
@@ -333,6 +366,9 @@ async def test_missing_model_or_metric_remains_explicitly_unavailable() -> None:
                     "observation_deadline",
                     "observed_value",
                     "observed_at",
+                    "prediction_snapshot",
+                    "observation_unit",
+                    "observation_receipt_ref",
                 )
             ),
             "label": "unscorable",

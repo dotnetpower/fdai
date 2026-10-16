@@ -74,6 +74,7 @@ def test_verified_effect_builds_scorable_privacy_minimized_audit() -> None:
         expected=expected,
         observed=observed,
         recorded_at=_NOW + timedelta(minutes=2),
+        decision="auto",
     )
 
     entry = response_outcome_audit_entry(outcome)
@@ -92,6 +93,7 @@ def test_missing_prediction_builds_unscorable_outcome() -> None:
             EffectVerificationReason.PREDICTION_UNAVAILABLE,
         ),
         recorded_at=_NOW,
+        decision="abstain",
     )
 
     entry = response_outcome_audit_entry(outcome)

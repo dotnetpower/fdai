@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 
 from fdai.core.control_loop._dynamic_simulation import DynamicSimulationAuditMixin
 from fdai.core.control_loop._execution_outcomes import (
@@ -89,6 +89,7 @@ class ControlLoopFallbackMixin(DynamicSimulationAuditMixin):
         action: Action,
         rule: Rule,
         correlation_id: str = "",
+        authorization_decision: Literal["auto", "hil", "deny", "abstain"] = "abstain",
     ) -> Any: ...
 
     def _bind_authorized_identity(
@@ -459,6 +460,7 @@ class ControlLoopFallbackMixin(DynamicSimulationAuditMixin):
             action=action,
             rule=rule,
             correlation_id=correlation_id,
+            authorization_decision="auto",
         )
         succeeded = _is_execution_success(execution)
         pending = _is_execution_pending(execution)

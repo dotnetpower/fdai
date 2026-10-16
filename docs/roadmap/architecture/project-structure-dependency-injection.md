@@ -66,6 +66,18 @@ Upstream defines generic interfaces and working defaults. Forks customize throug
   legacy patterns continue. Pantheon composition can inject `OperatingPatternCompiler`; Norns
   serializes typed learning and applies bounded proposal backpressure before Mimir review.
 - **Causal and Dynamic runtime evidence**: `TemporalCausalEvidenceProvider` supplies bounded pre-cutoff series and graph facts. `DynamicSimulationRequestProvider` supplies at most 32 current-state branches. `CausalHypothesisProjection` stays Forseti-owned, and model grades require an `EffectModelCausalEvidenceVerifier`. Dynamic models cannot use outcomes later than the simulation snapshot, current snapshots use evaluation-clock freshness, and the pure simulator rejects model cutoff or finite-arithmetic violations even outside the coordinator. These seams are read-only; absent bindings disable shadow paths.
+- **Attributed scalar feedback**: `ExpectedEffect.prediction_snapshot` carries immutable predictor
+  identity, point/interval, unit, episode and source facts. An independent `ObservedEffect` supplies
+  its unit and receipt; retention failure never removes those verification requirements.
+  `StateStoreEffectModelRegistry(feedback_source=...)` requires current revision-chain evidence for
+  applicable updates and learned-model reads. Runtime composition can pass that same typed source
+  through `bind_dynamic_evidence_from_env(feedback_source=...)`; its default remains unavailable.
+  Startup validates persisted registration lineage independently of source availability; only
+  `get()` qualifies a model for operational reads. Registration inspection is not prediction evidence.
+  Reviewed rebuild additionally requires the existing
+  exact-scope `DecisionEvidenceAdmission`, immutable registered seed and applied order. These
+  bindings do not create an active-model writer. Packaged source/admission and retention bindings
+  remain unavailable until supplied; no always-accepting adapter is installed.
 - **Operational promotion authority**: `OperationalPromotionReceiptVerifier` and
   `OperationalPromotionUnitVerifier` resolve immutable evidence. The production registry remains
   shadow without them; raw scalar metrics are a test-only legacy fixture mode. A promotion-state
@@ -79,6 +91,10 @@ Upstream defines generic interfaces and working defaults. Forks customize throug
   one-shot grants no activation, merge, promotion, or managed-resource mutation authority. The
   `operational-promotion` job stores exact-digest evidence without changing promotion state; `cohort_observation_import` accepts no artifact-declared arm, revision, protocol, admission, or authority.
   Its protected workflow caps a batch at 1,000 observations, rejects duplicate JSON keys, binds every observation digest to its batch and exporter workflow, and verifies idempotent replay. The trusted product-neutral source registry assigns every required measure in an arm to exactly one regular in-repository exporter workflow and stable source id. The importer injects that identity, and the inventory recounts only matching provenance. Product adapters remain behind their assigned workflows; missing, partial, duplicate, or cross-arm bindings keep the path unavailable.
+  Exact reviewed replay also requires an independent evaluator/current ActionType map, separate
+  batch and review admissions, and the authoritative metadata store used by the case materializer.
+  Preparation performs asynchronous current-source checks; its proof is bounded by source expiry
+  and consumed without synchronous network I/O. Missing production bindings deny preparation.
   `CostPromotionReviewStore` is the authority-neutral seam for one exact Cost Governance target review. The upstream PostgreSQL adapter and Core service migration own append-only storage, while the protected workflow verifies one attested campaign and active pin before each write. The store cannot update package activation, ActionType or Workflow mode, or the promotion registry.
   A stable request replay verifies the original payload and normalized columns, compares only request-owned content and retention duration, and returns the original timestamped review.
 - **Governed action and probe delivery**: `GovernedGovernancePrPublisher` binds the pure

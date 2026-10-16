@@ -83,10 +83,10 @@ def test_blank_reviewer_is_rejected(reviewer: str) -> None:
         _evidence(reviewer)
 
 
-def test_independent_reviewer_authorizes_the_exact_tuple() -> None:
+def test_inline_reviewer_does_not_authorize_even_the_exact_legacy_tuple() -> None:
     authority = ReviewedReplayAuthority((_evidence("independent-governance-reviewer"),))
 
-    assert authority.accepts(
+    assert not authority.accepts(
         action_type="ops.restart-app",
         action_type_version="1.0.0",
         action_type_digest=DIGEST,

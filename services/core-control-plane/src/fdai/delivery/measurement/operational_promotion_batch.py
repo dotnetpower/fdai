@@ -18,6 +18,7 @@ from fdai.core.measurement import (
     OperationalPromotionRecord,
     PromotionEvidenceCohort,
 )
+from fdai.core.measurement.promotion_binding import ReviewedReplayBinding
 from fdai.delivery.measurement.operational_promotion_evidence import (
     OperationalPromotionEvidenceManifest,
 )
@@ -77,6 +78,7 @@ class GovernedLiveBatchProducer:
         action_type_digest: str,
         fdai_revision: str,
         scenario_set_version: str,
+        reviewed_replay_binding: ReviewedReplayBinding | None = None,
     ) -> OperationalPromotionBatchArtifact:
         """Read, validate, seal, and publish one exact-digest live batch."""
         live_records = tuple(
@@ -119,6 +121,7 @@ class GovernedLiveBatchProducer:
                 action_type_digest=action_type_digest,
                 sealed_at=sealed_at,
                 records=records,
+                reviewed_replay_binding=reviewed_replay_binding,
             )
             batch_mapping = _batch_mapping(batch)
             batch_bytes = json.dumps(batch_mapping, separators=(",", ":"), sort_keys=True).encode(
@@ -146,8 +149,8 @@ class GovernedLiveBatchProducer:
 
 
 def _batch_mapping(batch: OperationalPromotionBatch) -> dict[str, object]:
-    return {
-        "schema_version": "1.0.0",
+    result: dict[str, object] = {
+        "schema_version": "1.1.0" if batch.reviewed_replay_binding is not None else "1.0.0",
         "fdai_revision": batch.fdai_revision,
         "scenario_set_version": batch.scenario_set_version,
         "action_type_name": batch.action_type_name,
@@ -156,6 +159,9 @@ def _batch_mapping(batch: OperationalPromotionBatch) -> dict[str, object]:
         "sealed_at": batch.sealed_at.astimezone(UTC).isoformat(),
         "records": [_record_mapping(record) for record in batch.records],
     }
+    if batch.reviewed_replay_binding is not None:
+        result["reviewed_replay_binding"] = batch.reviewed_replay_binding.to_mapping()
+    return result
 
 
 def _record_mapping(record: OperationalPromotionRecord) -> dict[str, object]:

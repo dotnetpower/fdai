@@ -176,6 +176,15 @@ Correction and legacy-history gaps hold the challenger. The
 [feedback reliability contract](../operations/assurance-twin.md#scalar-feedback-reliability)
 owns the storage limits, replay behavior, and operational qualification gaps.
 
+The additive response-outcome 1.1 resource and `EffectPredictionSnapshot` remain Core-owned
+contracts; their generator preserves the 1.0 wire resource. Prediction retention cannot weaken
+independent effect verification. Scalar generation components retain the complete registered seed,
+applied episode order and storage-stable model checksum. Independent learner entrypoints and durable
+holdout deferral use the existing audit/StateStore boundary; configured T1 write targets are explicit.
+Eligibility comparison is default-off and audit-only. Missing source/admission/retention bindings,
+qualified shadow enrollment and operational evaluation remain implementation or evidence gaps,
+not new permissions or completed production capability.
+
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.
 
 

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Protocol
 
 from fdai.core.measurement.pattern_growth import (
@@ -15,7 +15,7 @@ from fdai.core.measurement.pattern_growth import (
     PatternValidationSample,
     TemporalHoldoutValidator,
 )
-from fdai.core.measurement.runners import PatternBuilder
+from fdai.core.measurement.runners import DeferredPatternBuild, PatternBuilder
 from fdai.core.tiers.t1_lightweight.tier import LearnedAction
 from fdai.shared.contracts.models import Mode
 from fdai.shared.providers.state_store import StateStore
@@ -60,19 +60,21 @@ class HoldoutVerifiedPatternBuilder:
         evidence_source: TemporalHoldoutEvidenceSource,
         validator: TemporalHoldoutValidator,
         audit_store: StateStore,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._delegate = delegate
         self._evidence_source = evidence_source
         self._validator = validator
         self._audit_store = audit_store
+        self._clock = clock or (lambda: datetime.now(tz=UTC))
 
     async def build(
         self,
         record: OutcomeRecord,
-    ) -> tuple[Sequence[float], LearnedAction] | None:
+    ) -> tuple[Sequence[float], LearnedAction] | DeferredPatternBuild | None:
         built = await self._delegate.build(record)
-        if built is None:
-            return None
+        if built is None or isinstance(built, DeferredPatternBuild):
+            return built
         vector, action = built
         try:
             evidence = await self._evidence_source.evidence_for(action.signature)
@@ -89,8 +91,10 @@ class HoldoutVerifiedPatternBuilder:
                 complete=False,
                 reason="holdout_evidence_invalid",
             )
-            return None
-        if not evidence.complete:
+            return DeferredPatternBuild("holdout_evidence_invalid")
+        evaluated_at = self._clock()
+        future = any(sample.observed_at > evaluated_at for sample in evidence.samples)
+        if not evidence.complete or future:
             decision = HoldoutDecision(
                 pattern_id=action.signature,
                 outcome=HoldoutOutcome.INSUFFICIENT_DATA,
@@ -101,9 +105,11 @@ class HoldoutVerifiedPatternBuilder:
                 record=record,
                 decision=decision,
                 complete=False,
-                reason="holdout_evidence_incomplete",
+                reason="holdout_evidence_future" if future else "holdout_evidence_incomplete",
             )
-            return None
+            return DeferredPatternBuild(
+                "holdout_evidence_future" if future else "holdout_evidence_incomplete"
+            )
         decision = self._validator.evaluate(
             candidate=PatternCandidate(
                 pattern_id=action.signature,
@@ -113,6 +119,8 @@ class HoldoutVerifiedPatternBuilder:
             holdout=evidence.samples,
         )
         await self._audit(record=record, decision=decision, complete=True, reason=None)
+        if decision.outcome is HoldoutOutcome.INSUFFICIENT_DATA:
+            return DeferredPatternBuild("holdout_insufficient_data")
         if decision.outcome is not HoldoutOutcome.PASS:
             return None
         return vector, action
@@ -137,10 +145,15 @@ class HoldoutVerifiedPatternBuilder:
                 "outcome": decision.outcome.value,
                 "reason": reason,
                 "sample_size": decision.sample_size,
-                "observed_fp_rate": decision.observed_fp_rate,
+                "observed_fp_rate": (
+                    decision.observed_fp_rate
+                    if decision.outcome is not HoldoutOutcome.INSUFFICIENT_DATA
+                    else None
+                ),
                 "promotion_authority": False,
                 "execution_authority": False,
-                "recorded_at": record.observed_at.isoformat(),
+                "source_observed_at": record.observed_at.isoformat(),
+                "recorded_at": self._clock().isoformat(),
             }
         )
 
@@ -160,10 +173,14 @@ def _parse_evidence(
     if not isinstance(raw_samples, list) or len(raw_samples) > _MAX_SAMPLES:
         raise ValueError("temporal holdout samples MUST be a bounded array")
     samples: list[PatternValidationSample] = []
+    seen_times: set[datetime] = set()
     for raw in raw_samples:
         if not isinstance(raw, Mapping):
             raise ValueError("temporal holdout sample MUST be an object")
         observed_at = _datetime(raw, "observed_at")
+        if observed_at in seen_times:
+            raise ValueError("temporal holdout sample timestamps MUST be unique")
+        seen_times.add(observed_at)
         was_correct = raw.get("was_correct")
         if not isinstance(was_correct, bool):
             raise ValueError("temporal holdout was_correct MUST be a boolean")

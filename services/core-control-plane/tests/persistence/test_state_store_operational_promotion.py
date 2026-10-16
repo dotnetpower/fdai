@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 from fdai.core.measurement import OperationalPromotionReceipt
 from fdai.delivery.persistence import StateStoreOperationalPromotionReceiptStore
@@ -65,10 +67,33 @@ async def test_receipt_store_round_trips_idempotently_with_one_audit() -> None:
     )
 
     assert loaded == _receipt()
-    assert len(state.audit_entries) == 1
-    assert state.audit_entries[0]["entry"]["action_kind"] == (
-        "operational_promotion.receipt_stored"
+    audit_entries = tuple(state.audit_entries)
+    assert len(audit_entries) == 1
+    assert audit_entries[0]["entry"]["action_kind"] == ("operational_promotion.receipt_stored")
+
+
+async def test_admission_renewal_preserves_immutable_metrics_and_first_provenance() -> None:
+    state = InMemoryStateStore()
+    receipts = StateStoreOperationalPromotionReceiptStore(state)
+    original = replace(_receipt(), accuracy=1)
+    renewed = replace(
+        original,
+        accuracy=1.0,
+        decision_evidence_receipt_digest="sha256:" + "1" * 64,
+        decision_evidence_verification_bundle_digest="sha256:" + "2" * 64,
     )
+    await receipts.save(original)
+    await receipts.save(renewed)
+    loaded = await receipts.load(
+        action_type_name=_ACTION,
+        fdai_revision=_REVISION,
+        scenario_set_version=_SCENARIO,
+        evidence_digest=_EVIDENCE,
+    )
+    assert loaded == original
+    assert len(tuple(state.audit_entries)) == 1
+    with pytest.raises(ValueError, match="key collision"):
+        await receipts.save(replace(renewed, accuracy=0.5))
 
 
 async def test_receipt_store_rejects_tampered_numeric_types() -> None:

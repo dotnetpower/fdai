@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -153,6 +154,49 @@ async def test_dynamic_runtime_missing_active_model_requires_review() -> None:
     assert result.simulation is not None
     assert result.simulation.requires_review is True
     assert result.simulation.predictions[0].reason == "active_model_unavailable"
+
+
+async def test_dynamic_runtime_missing_or_held_challenger_cannot_remove_a_guard() -> None:
+    coordinator = DynamicRuntimeCoordinator(
+        request_provider=_Provider(_request()),
+        model_reader=_Models((_model(status=EffectModelStatus.ACTIVE),)),
+        causal_evidence_verifier=_CausalEvidence(),
+    )
+    result = await coordinator.simulate(event=_event(), action=_action())
+    assert result.simulation is None
+    assert result.reason == "challenger_model_unavailable"
+
+
+async def test_dynamic_runtime_bounds_all_model_io_and_propagates_cancellation() -> None:
+    started = asyncio.Event()
+
+    class StalledModels:
+        async def get(self, **kwargs: object) -> EffectModel | None:
+            started.set()
+            await asyncio.Event().wait()
+            return None
+
+    coordinator = DynamicRuntimeCoordinator(
+        request_provider=_Provider(_request()),
+        model_reader=StalledModels(),
+        causal_evidence_verifier=_CausalEvidence(),
+        timeout_seconds=0.02,
+    )
+    result = await coordinator.simulate(event=_event(), action=_action())
+    assert result.simulation is None
+    assert result.reason == "simulation_deadline_exceeded"
+    coordinator = DynamicRuntimeCoordinator(
+        request_provider=_Provider(_request()),
+        model_reader=StalledModels(),
+        causal_evidence_verifier=_CausalEvidence(),
+        timeout_seconds=1,
+    )
+    started.clear()
+    task = asyncio.create_task(coordinator.simulate(event=_event(), action=_action()))
+    await started.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
 
 
 async def test_dynamic_runtime_divergence_requires_review() -> None:

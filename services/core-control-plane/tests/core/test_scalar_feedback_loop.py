@@ -17,6 +17,7 @@ from fdai.core.assurance_twin import (
     SimulationSnapshot,
     StateStoreEffectModelRegistry,
 )
+from fdai.core.assurance_twin.prediction_evidence import retain_prediction
 from fdai.core.control_loop import ControlLoopOutcome
 from fdai.core.event_ingest import EventIngest
 from fdai.core.tiers.t1_lightweight import LearnedAction, T1Tier
@@ -29,7 +30,7 @@ from fdai.shared.contracts.models import Event, ResponseOutcome
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 from tests.assurance_twin.test_feedback_reliability import _feedback
-from tests.assurance_twin.test_model_registry import _NOW, _model
+from tests.assurance_twin.test_model_registry import _NOW, _CurrentFixtureSource, _model
 from tests.core.test_control_loop_t1_wire import _make_loop, _validator
 from tests.product_selection import governed_execution_selection
 
@@ -60,7 +61,9 @@ class _RecordingRuntime(DynamicRuntimeCoordinator):
     def __init__(self, store: InMemoryStateStore) -> None:
         super().__init__(
             request_provider=_Request(),
-            model_reader=StateStoreEffectModelRegistry(store),
+            model_reader=StateStoreEffectModelRegistry(
+                store, feedback_source=_CurrentFixtureSource()
+            ),
             causal_evidence_verifier=_VerifiedModel(),
         )
         self.results: list[DynamicRuntimeResult] = []
@@ -90,10 +93,16 @@ async def test_late_feedback_changes_next_full_path_shadow_prediction_without_ex
 ) -> None:
     """This is wiring/regression evidence, not a production policy-effect estimate."""
     store = InMemoryStateStore()
-    registry = StateStoreEffectModelRegistry(store, clock=lambda: _PROCESSING_AT)
+    registry = StateStoreEffectModelRegistry(
+        store, clock=lambda: _PROCESSING_AT, feedback_source=_CurrentFixtureSource()
+    )
     active = _model(EffectModelStatus.ACTIVE)
     await registry.register(active, registered_by="Mimir")
     await registry.register(_model(EffectModelStatus.CHALLENGER), registered_by="Mimir")
+    for index in (1, 2):
+        snapshot = _feedback(index).prediction_snapshot
+        assert snapshot is not None
+        await retain_prediction(store, snapshot, recorded_at=_NOW)
     assert (await registry.update_from_outcome(_feedback(1))).accepted
 
     embedding = DeterministicEmbeddingModel()
