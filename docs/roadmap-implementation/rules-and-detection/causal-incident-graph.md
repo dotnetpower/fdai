@@ -51,6 +51,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | 2026-10-16 | implemented | Repaired compiled evidence cutoffs, delayed-event budgets, source completeness and edge validity, exact historical dependency paths, competing-explanation accounting, statistical claim identity and lag correction, and independent Resource target matching. Subsequent critique added distributed duplicate serialization and reserved timeout finalization. | `current change`; #2184; final seven-file focused command below: 144 passed; broader focused regression: 710 passed before the last three added cases; task-owned Ruff and strict mypy over 11 source files passed. | Retain governed deployed intervention and PostgreSQL latency evidence; local implementation does not establish live causal accuracy. |
 
+| 2026-10-16 | implemented | Reconciled the first exact-head CI failure: the ontology-platform source changes invalidated the generated CQAS source commitment. Regenerated the complete artifact with its official generator and made the existing parity assertion identify stale source commitments before expanding the full inventory diff. Only source and aggregate digests changed; coverage and scorecard data did not. | CI run `38869557198`, attempt 1, head `9a206531f8238235e54120a2a45da9d7de038ec4`, regression job `116870254723`, step `Run regression shard`; local `python -m pytest -q --no-cov tests/integration/evaluation/test_semantic_intent_coverage.py`: 4 passed; Ruff passed. | Obtain authoritative checks for the repaired PR head; no runtime behavior or operational qualification changed. |
+
 ### Critique and hardening rounds for #2184
 
 | Round | Boundary and finding | Outcome and falsifying evidence |
@@ -71,6 +73,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 14 | Active-query timeout lacked a durable terminal result. | Policy 1.1.0 reserves bounded finalization time inside the original ceiling; blocked-query replay returns the exact timeout without another read. |
 | 15 | Relaxed thresholds could classify zero-lag or constant data as predictive precedence. | Constant, symmetric, and zero-lag inputs remain association regardless of relaxed thresholds. |
 | 16 | Final independent residual review. | No actionable Medium-or-higher findings in reviewed corrections. The remaining Low limitation is unmeasured distributed PostgreSQL lock and terminal-write latency; no live services were used. |
+| 17 | Exact-head CI exposed a stale generated CQAS source commitment not selected by the earlier focused cohort. | Official full regeneration and the existing, now more diagnostic parity regression pass all four checks; only source and inventory digests change. No production code changed after the final independent review. |
 
 The final focused command, using the selected local Python environment, passed **144 tests**:
 
