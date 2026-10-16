@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 import runpy
 import shutil
 import subprocess
 import sys
+from importlib.metadata import EntryPoint
 from pathlib import Path
 
 import pytest
@@ -975,40 +975,48 @@ def test_runner_scripts_fail_before_external_commands_without_authority() -> Non
 
 
 @pytest.mark.parametrize(
-    ("driver", "reason"),
+    ("invalid_provider", "reason", "detail"),
     [
-        ("measure-detection-latency.py", "governed_execution_invalid"),
+        (
+            False,
+            "governed_execution_unbound",
+            "install exactly one fdai.governed_chaos entry point named catalog-scenario",
+        ),
+        (True, "governed_execution_invalid", "TypeError"),
     ],
 )
 def test_catalog_drivers_refuse_live_runs_without_valid_governed_bindings(
-    driver: str,
+    invalid_provider: bool,
     reason: str,
+    detail: str,
     tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
 ) -> None:
-    script = REPO_ROOT / "scripts" / "catalog" / driver
-    # The refusal report is written under the working directory, so keep it out of the checkout.
-    result = subprocess.run(  # noqa: S603 - fixed repository script and interpreter.
-        [sys.executable, str(script), "--scenario", "aks-pod-kill", "--confirm-enforce"],
-        cwd=tmp_path,
-        capture_output=True,
-        text=True,
-        check=False,
-        env={
-            "PATH": os.environ.get("PATH", ""),
-            "PYTHONPATH": (
-                f"{REPO_ROOT / 'services' / 'core-control-plane' / 'src'}:"
-                f"{REPO_ROOT / 'packages' / 'service-contracts' / 'src'}"
-            ),
-        },
-    )
+    from fdai.delivery.chaos import governed_bindings
 
-    refusal = json.loads(result.stderr)
-    assert result.returncode == 3
+    providers = (
+        (EntryPoint(name="catalog-scenario", value="builtins:int", group="fdai.governed_chaos"),)
+        if invalid_provider
+        else ()
+    )
+    monkeypatch.setattr(governed_bindings, "entry_points", lambda **kwargs: providers)
+    script = REPO_ROOT / "scripts" / "catalog" / "measure-detection-latency.py"
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        sys, "argv", [str(script), "--scenario", "aks-pod-kill", "--confirm-enforce"]
+    )
+    with pytest.raises(SystemExit) as exited:
+        runpy.run_path(str(script), run_name="__main__")
+
+    captured = capsys.readouterr()
+    refusal = json.loads(captured.err)
+    assert exited.value.code == 3
     assert refusal["outcome"] == "refused"
     assert refusal["reason"] == reason
     assert refusal["mutation_attempted"] is False
-    assert refusal["detail"] == "ValueError"
-    assert result.stdout == ""
+    assert refusal["detail"] == detail
+    assert captured.out == ""
 
 
 def test_the_retired_raw_reference_sweep_driver_is_gone() -> None:
