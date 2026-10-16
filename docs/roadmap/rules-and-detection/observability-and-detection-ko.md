@@ -1,8 +1,8 @@
 ---
 title: 관측성과 감지(Observability and Detection)
 translation_of: observability-and-detection.md
-translation_source_sha: 85bccfb0aa97fe9e2975ea098f67b8fef58a5cc8
-translation_revised: 2026-10-07
+translation_source_sha: 78156171eba2ced8160245cc814e7b819a9af5fb
+translation_revised: 2026-10-16
 ---
 
 # 관측성과 감지(Observability and Detection)
@@ -554,14 +554,16 @@ telemetry / metrics
 - 감지기는 시작 시 설정을 검증하고 **실패 시 차단** - 깨진 감지기, 부족한/콜드스타트 베이스라인,
   stale 원격측정은 false 발견 사항 발행 이나 auto-act가 아니라 감지기 **abstain** 하게 함.
 - Repeated-event 인시던트 정책은 startup-bound 런타임 Settings입니다.
-  `incident.auto_open.enabled`(기본 `true`), `incident.auto_open.min_severity`(기본 `high`),
+  `incident.auto_open.enabled`(기본 `true`), `incident.auto_open.min_severity`(기본 `medium`),
   `incident.repeat_threshold`(기본 `5`, 범위 `2-100`),
   `incident.repeat_window_seconds`(기본 `300`, 범위 `10-86400`),
   `incident.security_high_threshold`(기본 `5`, 범위 `1-100`),
   `incident.security_window_events`(기본 `100`, 범위 `1-10000`),
   `incident.alert_rate_per_hour`(기본 `5`, 범위 `1-1000`)를 사용합니다. 잘못된 값은 시작을
   실패시킵니다. 심각도는 `critical/high/medium/low/info`에서 `SEV1-SEV5`로
-  결정론적으로 매핑하며 조립은 모든 후보를 고정 심각도로 바꾸지 않습니다.
+  결정론적으로 매핑하며 조립은 모든 후보를 고정 심각도로 바꾸지 않습니다. 기본 정책은
+  반복 및 근거 조건을 충족한 중간 심각도의 지속적인 감지 에피소드부터 수용합니다. 낮음 및
+  정보 심각도 에피소드는 설치 환경에서 최소 심각도를 명시적으로 낮추지 않는 한 보류합니다.
 - 감지 발견 사항은 **신뢰할 수 없는 입력**; 어떤 LLM 사용(퍼지 상관관계, T2 RCA)도 quality 게이트
   ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md))
   와 [security-and-identity-ko.md](../architecture/security-and-identity-ko.md) 의 프롬프트-인젝션 위협 모델을

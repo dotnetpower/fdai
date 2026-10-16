@@ -589,14 +589,16 @@ What we adopt from the general AIOps model, and where we intentionally differ:
   insufficient/cold-start baseline, or stale telemetry makes the detector **abstain** rather than
   emit a false finding or auto-act.
 - Repeated-event Incident policy is startup-bound Runtime Settings:
-  `incident.auto_open.enabled` (default `true`), `incident.auto_open.min_severity` (default `high`),
+  `incident.auto_open.enabled` (default `true`), `incident.auto_open.min_severity` (default `medium`),
   `incident.repeat_threshold` (default `5`, range `2-100`),
   `incident.repeat_window_seconds` (default `300`, range `10-86400`),
   `incident.security_high_threshold` (default `5`, range `1-100`),
   `incident.security_window_events` (default `100`, range `1-10000`), and
   `incident.alert_rate_per_hour` (default `5`, range `1-1000`). Invalid values fail startup.
   Severity maps deterministically from `critical/high/medium/low/info` to `SEV1-SEV5`; composition
-  does not replace every candidate with a fixed severity.
+  does not replace every candidate with a fixed severity. The default admits a persistent
+  medium-severity detector episode only after the repeat and evidence gates succeed. Low and
+  informational episodes remain held unless an installation explicitly lowers the minimum.
 - Detection findings are **untrusted input**; any LLM use (fuzzy correlation, T2 RCA) passes the
   quality gate ([architecture.instructions.md](../../../.github/instructions/architecture.instructions.md))
   and the prompt-injection threat model in

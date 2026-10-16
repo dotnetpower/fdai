@@ -816,6 +816,10 @@ unchanged.
 
 Every terminal path writes an audit entry, and T2 output reaches the safety check only after the quality gate. Each action retains its
 originating T0, T1, or T2 authority tier; routing, evidence reuse, grounding, approval, rollback, and restart ambiguity fail closed.
+Detector-created Incidents remain lifecycle records, not action execution. Heimdall hands off only
+after stable correlation, distinct bounded evidence, and the repeated-event gate succeed. The
+startup-bound default admits medium-or-higher episodes and holds low or informational episodes;
+changing that minimum never grants downstream approval or execution authority.
 The [Agent Pantheon implementation plan](../agents/agent-pantheon-implementation.md#durable-authority-and-replay) owns detailed CAS, lease, idempotency, publication, and startup-recovery contracts; provider-neutral outcome predicates stay in `_execution_outcomes.py`.
 Governed chaos timing remains part of Core's evidence contract: the harness records injection and detector-owned observation timestamps, and report-feed adapters preserve unknown latency instead of substituting hold duration.
 Parked approvals and recovery receipts require the exact current ActionRun identity; production persists matching Thor state in shadow and enforce modes, and potentially effective executor results reach independent reconciliation before the control loop claims closure.

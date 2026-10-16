@@ -164,7 +164,7 @@ RUNTIME_SETTING_SPECS: tuple[RuntimeSettingSpec, ...] = (
         "FDAI_INCIDENT_AUTO_OPEN_MIN_SEVERITY",
         "incident",
         "enum",
-        "HIGH",
+        "MEDIUM",
         options=("CRITICAL", "HIGH", "MEDIUM", "LOW", "INFO"),
         restart_required=True,
     ),

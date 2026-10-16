@@ -42,7 +42,7 @@ class IncidentAutoOpenPolicy:
     """Startup-bound ceiling for detector-created Incident records."""
 
     enabled: bool = True
-    minimum_severity: IncidentSeverity = IncidentSeverity.SEV2
+    minimum_severity: IncidentSeverity = IncidentSeverity.SEV3
 
     def __post_init__(self) -> None:
         if not isinstance(self.enabled, bool):
