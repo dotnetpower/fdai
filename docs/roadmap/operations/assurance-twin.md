@@ -68,6 +68,7 @@ governed runtime evidence remain open.
 |------|-------|----------|-------|
 | Projection, verified query, posture report, and publisher-neutral review core | implemented | [`core/assurance_twin/`](../../../services/core-control-plane/src/fdai/core/assurance_twin), [`tests/assurance_twin/`](../../../services/core-control-plane/tests/assurance_twin) | The in-memory projection, strict typed-query verifier, report fold, and review publisher glue pass focused checks. The default natural-language compiler returns `semantic_model_unavailable`; it does not infer meaning lexically. |
 | Scalar Dynamic effect models, fidelity measurement, and bounded runtime coordination | implemented | [`effect_model.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/effect_model.py), [`fidelity.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/fidelity.py), [`runtime.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/runtime.py), and their focused tests | Active models stay immutable, challengers learn only from eligible outcomes, and divergence lowers the result to review. |
+| Scalar feedback checkpoint and delayed-result replay | implemented | `core/assurance_twin/{effect_model,model_registry}.py`; `core/measurement/runners.py`; `test_feedback_reliability.py`; `test_dynamic_feedback_replay.py`; `test_scalar_feedback_transaction.py`; `test_scalar_feedback_loop.py` | Atomic model/receipt/audit, equal-time and late feedback, correction holds, private PostgreSQL rollback/concurrency, and the next full-path shadow prediction pass locally. Synthetic error improvement is not recovery-rate or generalization evidence; activation remains deployment-owned. |
 | Graph-wide Dynamic trajectories, propagation, invariants, episode closure, and model registry | implemented | [`graph_effect.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_effect.py), [`graph_runtime.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_runtime.py), [`graph_closure.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_closure.py), and focused graph tests | The runtime persists prediction episodes before returning evidence and updates challenger slices only from complete independent observations. |
 | Deep Security Assessment feed, deterministic analyzer, and catalog report | implemented | [`core/security/`](../../../services/core-control-plane/src/fdai/core/security), [`security_assessment.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/security_assessment.py), [`test_assessment.py`](../../../services/core-control-plane/tests/core/security/test_assessment.py), and [`test_security_assessment_datasource.py`](../../../services/core-control-plane/tests/core/reporting/test_security_assessment_datasource.py) | This is a separate reporting subsystem, not the Twin-specific posture panel described below. |
 | Retained Resource revision and writer admission contract | implemented | [`assurance_twin_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_inventory.py), [`assurance_twin_writers.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_writers.py), and focused source/publication tests | The snapshot and bounded Resource delta content share one canonical digest. A trusted source must supply complete, revision-matched rule evaluation (including a digest of an empty result); reviews also require a complete typed ActionType proposal readback bound to the same Inventory revision. The retired proposed-IaC readback is never admitted. This does not bind a relationship overlay. |
@@ -95,6 +96,7 @@ separately rolled-back Core or Operator reads them without digest mismatches.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-17 | implemented | Replaced scalar learning's timestamp-only replay boundary with a bounded digest-only feedback checkpoint committed with model parameters and audit. Delayed events remain eligible after the fixed seed cutoff, unknown/unexecuted outcomes do not calibrate, and unversioned corrections hold the challenger. Retryable learner failures do not acknowledge the Dynamic source cursor. | `current change`; focused `test_feedback_reliability.py`, `test_model_registry.py`, `test_effect_model.py`, `test_dynamic_learning.py`, `test_dynamic_feedback_replay.py`, and `test_scalar_feedback_loop.py`; real loopback `test_scalar_feedback_transaction.py`; runtime and advisory regression tests; Ruff and mypy. The frozen synthetic next-prediction error changes from 10 to 0, with baseline error 10, unchanged review guard, zero executions, and zero promotions. | Add predecessor-bound corrections and reviewed checkpoint rebuild, complete episode/source attribution and prediction-time evaluation provenance, and collect independently grouped operational holdout evidence before claiming policy improvement. Pattern-to-T1 enrollment and reviewed-replay promotion binding are separate open work. |
 | 2026-09-28 | in-progress | Replaced the proposed-IaC review input with FDAI typed ActionType proposals after the owner decision that Terraform is a local deployment tool and never a governance input. Added the content-addressed proposal and what-if contracts, reviewed-effect scratch derivation with Rule-input coverage of every changed leaf value, a durable intake that stays `recorded` until writer confirmation, one current review per proposal with atomic supersession and a projection conflict guard, Forseti's production-bound review producer with Rule-generation and Inventory write fences and bounded re-derivation, and outbox relays whose pass cost is bounded by unpublished rows through a dotted `StateStore` field filter, with row shapes unchanged from the previous release. Retired proposed-IaC rows stay unavailable. | `current change`; `core/assurance_twin/{typed_proposal,proposal_effects,evaluation}.py`, `shared/providers/state_store.py`, `delivery/persistence/{postgres,assurance_twin_outbox}.py`, `delivery/assurance_twin_{review_producer,review_follow_up,proposal_intake,review_evidence}.py`, `delivery/persistence/state_store_assurance_twin_proposal_review.py`; focused typed-proposal, producer, lifecycle, ledger, source, publication, bootstrap, Operator projection, and Pantheon layout tests; Ruff and strict mypy. | Declare reviewed ActionType effect models and bind a typed what-if producer to the intake; then deliver external Checks and retain one governed source-to-rendering receipt. |
 | 2026-09-27 | in-progress | Bound Heimdall's production posture producer to exact retained Inventory and immutable T0/OPA generations. Added per-Resource input completeness, durable monotonic source ordering, current-policy and current-Inventory fences, locked two-phase source/target confirmation, and restart-safe terminal recovery. | `current change`; focused evaluator, Inventory, source, writer, bootstrap, OPA drift, race, and retry checks; Ruff and strict mypy. | Bind Forseti's complete proposed-IaC producer and external Checks publisher, then retain one governed source-to-rendering receipt. |
 | 2026-09-27 | implemented | Content-addressed the retained Resource generation and bounded overlay; writer admission now requires explicit complete rule findings and, for reviews, proposed-IaC evidence at the same revision. Kept production source and request producer unbound. | `current change`; `assurance_twin_inventory.py`, `assurance_twin_writers.py`, focused Inventory and publication tests. | Bind an accountable complete evaluator and proposed-change source, resolve pending relationships, publish content-free bus requests, and retain a governed runtime receipt. |
@@ -117,6 +119,16 @@ separately rolled-back Core or Operator reads them without digest mismatches.
 
 ### Remaining work
 
+- [ ] Add a predecessor-bound correction contract and reviewed rebuild for held, legacy nonempty,
+  or exhausted scalar checkpoints. Preserve prior outcome and model history; prove retraction,
+  late correction, duplicate version, and restart behavior without fabricating missing receipts.
+- [ ] Preserve the original authorization decision in every response-outcome producer. The current
+  control-loop effect-shadow projection substitutes `abstain` for an observed mismatch, so those
+  records remain conservatively ineligible rather than being relabeled by the learner.
+- [ ] Retain prediction-time model/revision, unit, horizon, source quality, and incident/episode
+  independence bindings for scalar calibration. Compare frozen baseline and challenger error,
+  interval coverage and width on time- and episode-separated authoritative outcomes; report
+  policy recovery effects only when actual selection/overlap supports that claim.
 - [ ] Bind an authoritative `Inventory` source to the projection and prove freshness, bounded delta
   handling, and deterministic replay in a focused integration test.
 - [x] Implement the provider-neutral semantic compilation and discovery seams, with tests proving
@@ -325,6 +337,43 @@ complicates the design.
   `runtime.py` loads active and challenger models for at most 32 current-state branches. Missing
   active models, low evidence, or divergence require review; the T1 caller remains abstained and
   sends the learned action through normal re-verification.
+
+### Scalar feedback reliability
+
+Scalar learning keeps the existing `ResponseOutcome`, StateStore model key, and active/challenger
+reader. Execution acceptance, independently observed effect, authorization, rollback, and evidence
+sufficiency stay separate. Only scorable observations of accepted, enforced actions with an
+`auto` or `hil` decision and explicit `rollback_succeeded: false` can calibrate a challenger.
+Approval refusal, shadow dispatch, unknown rollback, and unavailable observation are not failures
+or rewards. A verified effect window does not establish sustained recovery or absence of side effects.
+
+The model row carries a versioned feedback checkpoint: a fixed initial learning cutoff, at most
+256 digest-only event receipts, and an optional hold reason. Model parameters, receipt, and audit
+commit in one revision-checked transaction. Exact replay after a lost response is a no-op; an
+uncommitted write remains retryable. Different events with equal or out-of-order recording times
+are eligible after the fixed cutoff. The model's knowledge time never moves backward and includes
+the processing clock. One event contributes at most one sample to an action/metric model; different
+events from the same incident still need an upstream independence key before an independence claim.
+
+`ResponseOutcome` version `1.0.0` has no correction predecessor/version contract. Changed content for
+an applied outcome, reused identity, or a new outcome for the same action/prediction therefore
+holds the challenger for reviewed rebuild instead of adding another sample. The active baseline
+is untouched. Legacy nonempty models without receipts and exhausted checkpoints also hold; receipts
+are never evicted to make old feedback look new. Empty legacy models can acquire a checkpoint in
+their first atomic update. This is an additive JSON state contract, not a database migration.
+
+The Dynamic learner retains its own audit-source watermark, independent of pattern growth.
+Unregistered challengers, contention, and unavailable checkpoints abort the batch with an attributed
+audit reason before that watermark advances. Earlier committed updates are deduplicated on retry.
+This does not repair pattern-growth holdout retry or enroll retained Patterns into T1.
+
+The design rejects a timestamp-only cursor as proof of processing and rejects a second database or
+new reward model as unnecessary. Review identified two extra requirements: preserve a fixed seed
+cutoff rather than accepting preexisting training data, and fail closed on correction or checkpoint
+exhaustion rather than silently discarding deduplication evidence. Local evaluation freezes active
+and challenger predictions before independent fixture outcomes, then reads the persisted challenger
+through `DynamicRuntimeCoordinator`. It reports error and interval coverage separately, grants no
+promotion, and is regression evidence rather than operational or cross-environment qualification.
 
 ### Operational binding and guard
 

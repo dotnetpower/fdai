@@ -13,7 +13,11 @@ from enum import StrEnum
 from typing import Literal
 from uuid import NAMESPACE_URL, uuid5
 
-from fdai.shared.contracts.models import CausalEvidenceGrade, ResponseOutcome
+from fdai.shared.contracts.execution_outcomes import (
+    ExecutionLifecycleDisposition,
+    execution_lifecycle_disposition,
+)
+from fdai.shared.contracts.models import CausalEvidenceGrade, Mode, ResponseOutcome
 
 _SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
 
@@ -96,16 +100,37 @@ class ChallengerUpdate:
     reason: str
 
 
-def update_challenger(model: EffectModel, outcome: ResponseOutcome) -> ChallengerUpdate:
-    """Update only a challenger from one post-cutoff scorable outcome."""
+def update_challenger(
+    model: EffectModel,
+    outcome: ResponseOutcome,
+    *,
+    learning_cutoff: datetime | None = None,
+) -> ChallengerUpdate:
+    """Calibrate from a frozen prediction; the registry owns atomic replay receipts.
+
+    A fixed registration cutoff allows delayed outcomes only when the caller retains
+    durable per-event receipts. Callers without that checkpoint keep the rolling cutoff.
+    """
 
     if model.status is not EffectModelStatus.CHALLENGER:
         return ChallengerUpdate(model, False, "active_model_is_immutable")
     if not outcome.scorable:
         return ChallengerUpdate(model, False, "outcome_unscorable")
+    if outcome.execution_mode is not Mode.ENFORCE or outcome.decision not in {"auto", "hil"}:
+        return ChallengerUpdate(model, False, "outcome_not_executed")
+    if (
+        execution_lifecycle_disposition(outcome.execution_outcome)
+        is not ExecutionLifecycleDisposition.ACCEPTED
+    ):
+        return ChallengerUpdate(model, False, "outcome_execution_unconfirmed")
+    if outcome.rollback_succeeded is not False:
+        return ChallengerUpdate(model, False, "outcome_rollback_unresolved")
     if outcome.action_type_id != model.action_type_id or outcome.metric != model.metric:
         return ChallengerUpdate(model, False, "outcome_scope_mismatch")
-    if outcome.recorded_at <= model.learned_through:
+    cutoff = learning_cutoff if learning_cutoff is not None else model.learned_through
+    if cutoff.tzinfo is None or not model.learned_at <= cutoff <= model.learned_through:
+        raise ValueError("effect learning cutoff MUST be within the model knowledge window")
+    if outcome.recorded_at <= cutoff:
         return ChallengerUpdate(model, False, "outcome_not_after_learning_cutoff")
     if (
         outcome.expected_min is None
@@ -126,7 +151,7 @@ def update_challenger(model: EffectModel, outcome: ResponseOutcome) -> Challenge
     updated = replace(
         model,
         revision=model.revision + 1,
-        learned_through=outcome.recorded_at,
+        learned_through=max(model.learned_through, outcome.recorded_at),
         sample_count=sample_count,
         bias_correction=bias,
         mean_absolute_error=mae,

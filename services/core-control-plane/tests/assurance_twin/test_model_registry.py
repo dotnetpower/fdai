@@ -11,9 +11,14 @@ from fdai.core.assurance_twin import (
     StateStoreEffectModelRegistry,
 )
 from fdai.shared.contracts.models import ResponseOutcome
+from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
 _NOW = datetime(2026, 7, 30, tzinfo=UTC)
+
+
+def _registry(store: StateStore) -> StateStoreEffectModelRegistry:
+    return StateStoreEffectModelRegistry(store, clock=lambda: _NOW + timedelta(hours=1))
 
 
 def _model(status: EffectModelStatus) -> EffectModel:
@@ -52,8 +57,9 @@ def _outcome() -> ResponseOutcome:
             "label": "mismatch",
             "verification_status": "mismatch",
             "verification_reason": "value_outside_acceptable_range",
-            "execution_mode": "shadow",
+            "execution_mode": "enforce",
             "execution_outcome": "published",
+            "rollback_succeeded": False,
             "decision": "auto",
             "evidence_refs": ["effect:prediction-1"],
             "recorded_at": _NOW + timedelta(minutes=2),
@@ -63,7 +69,7 @@ def _outcome() -> ResponseOutcome:
 
 async def test_registry_updates_only_registered_challenger() -> None:
     store = InMemoryStateStore()
-    registry = StateStoreEffectModelRegistry(store)
+    registry = _registry(store)
     active = _model(EffectModelStatus.ACTIVE)
     challenger = _model(EffectModelStatus.CHALLENGER)
     assert await registry.register(active, registered_by="Mimir") is True
@@ -96,7 +102,7 @@ async def test_registry_updates_only_registered_challenger() -> None:
 
 async def test_registry_does_not_create_unregistered_challenger() -> None:
     store = InMemoryStateStore()
-    registry = StateStoreEffectModelRegistry(store)
+    registry = _registry(store)
 
     result = await registry.update_from_outcome(_outcome())
 

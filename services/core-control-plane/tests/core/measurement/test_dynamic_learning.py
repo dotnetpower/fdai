@@ -57,7 +57,7 @@ class _Registry:
         accepted = str(outcome.outcome_id).endswith("000000000001")
         return RegistryUpdate(
             accepted,
-            "challenger_updated" if accepted else "challenger_not_registered",
+            "challenger_updated" if accepted else "outcome_unscorable",
         )
 
 
@@ -74,9 +74,9 @@ async def test_dynamic_learning_runner_audits_acceptance_and_rejections() -> Non
     assert report.accepted_count == 1
     assert report.rejected_count == 1
     assert report.reasons == (
-        ("challenger_not_registered", 1),
         ("challenger_updated", 1),
+        ("outcome_unscorable", 1),
     )
-    entry = tuple(store.audit_entries)[0]["entry"]
+    entry = tuple(store.audit_entries)[-1]["entry"]
     assert entry["producer_principal"] == "Norns"
     assert entry["mode"] == "shadow"

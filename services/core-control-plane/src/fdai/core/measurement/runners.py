@@ -385,6 +385,27 @@ class DynamicLearningRunner:
         async for outcome in self._outcome_source.outcomes():
             total += 1
             result = await self._registry.update_from_outcome(outcome)
+            if not result.accepted:
+                await self._audit_store.append_audit_entry(
+                    {
+                        "actor": "Norns",
+                        "producer_principal": "Norns",
+                        "action_kind": "dynamic.learning.outcome_held",
+                        "event_id": str(outcome.event_id),
+                        "action_id": str(outcome.action_id),
+                        "response_outcome_id": str(outcome.outcome_id),
+                        "reason": result.reason,
+                        "mode": Mode.SHADOW.value,
+                        "execution_authority": False,
+                        "recorded_at": self._clock().isoformat(),
+                    }
+                )
+                if result.reason in {
+                    "challenger_not_registered",
+                    "revision_conflict",
+                    "untracked_challenger_requires_rebuild",
+                }:
+                    raise RuntimeError(f"Dynamic learning retry required: {result.reason}")
             if result.accepted:
                 accepted += 1
             reasons[result.reason] = reasons.get(result.reason, 0) + 1

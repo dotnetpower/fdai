@@ -1,8 +1,8 @@
 ---
 title: 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 translation_of: assurance-twin.md
-translation_source_sha: 01a122c53fcde6d05fed16bf6bb70578f63e0bd9
-translation_revised: 2026-09-28
+translation_source_sha: 032a0db8a3c0ba96d0f3ceeef252b1725a15de4e
+translation_revised: 2026-10-17
 ---
 # 어슈어런스 트윈 (질의가능하고 선제적이며 검증가능한 리뷰)
 
@@ -66,6 +66,7 @@ event-driven, risk-gated 설계를 저하시키지 않으면서 커버하는 리
 |------|------|------|------|
 | 변환 결과, 검증된 질의, 자세 보고, 발행기 중립 검토 코어 | implemented | [`core/assurance_twin/`](../../../services/core-control-plane/src/fdai/core/assurance_twin), [`tests/assurance_twin/`](../../../services/core-control-plane/tests/assurance_twin) | 메모리 내 변환 결과, strict typed-query 검증기, 보고서 집계, 검토 발행기 연결부가 집중 검사를 통과합니다. 기본 자연어 컴파일러는 `semantic_model_unavailable`을 반환하며 의미를 lexical 방식으로 추론하지 않습니다. |
 | 스칼라 Dynamic 효과 모델, 충실도 측정, 범위가 제한된 런타임 조정 | implemented | [`effect_model.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/effect_model.py), [`fidelity.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/fidelity.py), [`runtime.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/runtime.py) 및 해당 집중 테스트 | 활성 모델은 변경하지 않고, challenger는 적격 결과에서만 학습하며, 불일치는 사람 검토로 낮춥니다. |
+| 스칼라 피드백 체크포인트와 지연 결과 재처리 | implemented | `core/assurance_twin/{effect_model,model_registry}.py`; `core/measurement/runners.py`; `test_feedback_reliability.py`; `test_dynamic_feedback_replay.py`; `test_scalar_feedback_transaction.py`; `test_scalar_feedback_loop.py` | 모델/처리 증적/감사의 원자적 저장, 같은 시각의 결과와 지연 결과, 정정 보류, 격리된 PostgreSQL 롤백/동시성, 다음 전체 판단 경로의 shadow 예측을 로컬에서 검증했습니다. 합성 사례의 오차 개선은 복구율이나 일반화 성능 증거가 아니며 활성화는 배포 구성이 결정합니다. |
 | 그래프 전역 Dynamic 궤적, 전파, 불변식, 에피소드 종결, 모델 레지스트리 | implemented | [`graph_effect.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_effect.py), [`graph_runtime.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_runtime.py), [`graph_closure.py`](../../../services/core-control-plane/src/fdai/core/assurance_twin/graph_closure.py) 및 그래프 집중 테스트 | 런타임은 근거를 반환하기 전에 예측 에피소드를 저장하고 완전한 독립 관측에서만 challenger 구획을 갱신합니다. |
 | 심층 Security Assessment 피드, 결정론적 분석기, 카탈로그 보고서 | implemented | [`core/security/`](../../../services/core-control-plane/src/fdai/core/security), [`security_assessment.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/security_assessment.py), [`test_assessment.py`](../../../services/core-control-plane/tests/core/security/test_assessment.py), [`test_security_assessment_datasource.py`](../../../services/core-control-plane/tests/core/reporting/test_security_assessment_datasource.py) | 아래에서 설명하는 Twin 전용 자세 패널과는 별도의 보고 하위 시스템입니다. |
 | 보관된 `Resource` 개정과 작성기 수용 계약 | implemented | [`assurance_twin_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_inventory.py), [`assurance_twin_writers.py`](../../../services/core-control-plane/src/fdai/delivery/assurance_twin_writers.py), 출처 및 게시 집중 테스트 | 스냅샷과 범위가 제한된 `Resource` 변경분은 하나의 정규 다이제스트로 식별됩니다. 신뢰된 출처는 빈 결과의 다이제스트까지 포함해 개정이 일치하는 완전한 규칙 평가를 제공해야 합니다. 검토에는 같은 인벤토리 개정에 결속된 완전한 형식화 ActionType 제안 판독 결과도 필요합니다. 폐기된 제안 IaC 판독 결과는 수용하지 않습니다. 관계 변경분은 연결하지 않았습니다. |
@@ -313,6 +314,54 @@ remediation-PR 제안**을 붙일 수 있습니다. 그것에 대해 행동하�
   `runtime.py`는 최대 32개 current-state 가지의 활성 및 challenger 모델을 로드합니다. 활성
   모델 누락, 낮은 근거 또는 divergence는 검토를 요구하며 T1 호출자는 abstain 상태를 유지하고
   learned 액션을 정상 re-verification 경로로 보냅니다.
+
+### 스칼라 피드백의 신뢰성
+
+스칼라 학습은 기존 `ResponseOutcome`, StateStore 모델 키, 활성/challenger 읽기 경로를
+유지합니다. 실행 요청 수락, 독립적으로 관측한 효과, 실행 허용, 롤백, 판단 정보의 충분성은
+서로 구분합니다. 실제 적용된 조치의 실행 결과가 수락 상태이고, 결정이 `auto` 또는 `hil`이며,
+`rollback_succeeded: false`가 명시된 평가 가능 관측만 challenger 보정에 사용합니다.
+승인 거절, shadow 실행, 롤백 상태 미확인, 관측 불가는 실패나 보상이 아닙니다. 효과 관측
+구간의 검증만으로 복구의 지속이나 부작용 부재가 확인되는 것은 아닙니다.
+
+모델 행에는 버전이 있는 피드백 체크포인트를 둡니다. 최초 학습 기준 시점, 다이제스트로만
+구성된 이벤트별 처리 증적 최대 256개, 선택적인 보류 사유를 저장합니다. 모델 파라미터,
+처리 증적, 감사 기록은 리비전을 확인하는 하나의 트랜잭션에서 커밋합니다. 응답이 유실된 뒤
+동일 결과를 재전송해도 중복 갱신하지 않으며, 커밋되지 않은 쓰기는 재시도할 수 있습니다.
+기록 시각이 같거나 도착 순서가 뒤바뀐 서로 다른 이벤트도 최초 기준 시점 이후라면 학습할 수
+있습니다. 모델의 지식 시점은 뒤로 이동하지 않으며 처리 시계도 반영합니다. 조치/메트릭
+모델마다 한 이벤트는 최대 한 표본만 제공합니다. 같은 인시던트에서 발생한 서로 다른 이벤트를
+독립 표본이라고 주장하려면 상위 입력에 별도의 독립성 키가 필요합니다.
+
+`ResponseOutcome` 버전 `1.0.0`에는 정정의 선행 기록과 버전을 표현하는 계약이 없습니다.
+이미 학습한 결과의 내용 변경, 식별자 재사용, 같은 조치/예측에 대한 새 결과는 추가 표본으로
+학습하지 않고 검토 후 재구축할 때까지 challenger를 보류합니다. 활성 baseline은 바꾸지 않습니다.
+처리 증적이 없는 기존 비어 있지 않은 모델과 체크포인트 용량을 소진한 모델도 보류합니다.
+과거 피드백을 새 결과처럼 처리하지 않도록 증적을 퇴출하지 않습니다. 비어 있는 기존 모델은
+첫 원자적 갱신에서 체크포인트를 만들 수 있습니다. 이는 JSON 상태 계약의 추가이며 DB
+마이그레이션은 아닙니다.
+
+Dynamic 학습기는 패턴 성장과 독립적인 감사 소스 처리 위치를 유지합니다. challenger 미등록,
+동시 갱신 충돌, 체크포인트 사용 불가는 해당 처리 위치가 전진하기 전에 귀속 가능한 감사
+사유를 남기고 배치를 중단합니다. 앞서 커밋한 갱신은 재시도 시 중복 적용하지 않습니다.
+이 변경은 패턴 성장의 holdout 재시도나 저장된 Pattern의 T1 편입을 해결하지 않습니다.
+
+설계에서는 시각만 있는 커서를 처리 완료 증거로 사용하지 않으며, 불필요한 두 번째 DB나
+새 보상 모델도 추가하지 않습니다. 검토 과정에서 두 조건을 보완했습니다. 기존 학습 데이터를
+다시 받아들이지 않도록 최초 기준 시점을 유지하고, 정정이나 용량 소진 시 중복 방지 증적을
+버리지 않고 안전하게 보류합니다. 로컬 평가는 독립적인 테스트 결과를 제공하기 전에 활성 및
+challenger 예측을 동결하고, 이후 `DynamicRuntimeCoordinator`로 저장된 challenger를 읽습니다.
+오차와 예측 구간 포함률을 따로 보고하며 승격 권한을 부여하지 않습니다. 이는 회귀 검증이지
+운영 환경이나 환경 간 일반화 성능 검증은 아닙니다.
+
+2026-10-17의 집중 회귀 검사에서는 합성 사례의 다음 예측 오차가 10에서 0으로 줄었습니다.
+baseline 오차는 10이었고, 검토 가드는 유지됐으며, 실행과 승격은 모두 0건이었습니다.
+검증 이력은 [영문 구현 기록](assurance-twin.md#implementation-history)에 남깁니다.
+정정의 선행 기록을 연결하는 계약과 보류 모델의 검토 후 재구축은 아직 필요합니다.
+현재 컨트롤 루프의 효과 관측 기록은 관측값이 예상과 다르면 원래 실행 허용 결정 대신
+`abstain`을 기록하므로, 학습기는 이를 임의로 다시 분류하지 않고 보수적으로 제외합니다.
+예측 시점 모델 리비전, 단위, 관측 구간, 원본 품질, 인시던트별 독립성 연결과 운영 holdout도
+추가 검증해야 합니다. 패턴의 T1 편입과 검토된 재현 결과의 승격 결속은 별도의 미완료 작업입니다.
 
 ### 운영 연결 및 가드
 
