@@ -56,3 +56,40 @@ async def test_candidate_insert_guards_exact_latest_prepare() -> None:
         expected_latest_prepare=latest,
         lease_expires_at=datetime.now(tz=UTC) + timedelta(minutes=1),
     )
+
+
+async def test_prepare_linearizes_with_retention_epoch_and_retirement_tombstones() -> None:
+    config = _config()
+    store = PostgresStateStore(config=config)
+    commit = PostgresRuleActivationCohortCommitStore(config=config)
+    suffix = uuid4().hex
+    latest_key = f"test:rule-cohort:retained-latest:{suffix}"
+    epoch_key = f"test:rule-cohort:retention-epoch:{suffix}"
+    retired_key = f"test:rule-cohort:retired:{suffix}"
+    await store.write_state(epoch_key, {"revision": 1})
+
+    assert await commit.advance_prepare(
+        key=latest_key,
+        value={"revision": 1, "prepare_digest": "sha256:" + ("e" * 64)},
+        expected_revision=0,
+        retention_epoch_key=epoch_key,
+        retention_epoch_value={"revision": 2},
+        expected_retention_epoch_revision=1,
+        retired_keys=(retired_key,),
+    )
+    await store.write_state(retired_key, {"revision": 1, "state": "retired"})
+
+    assert not await commit.advance_prepare(
+        key=latest_key,
+        value={"revision": 2, "prepare_digest": "sha256:" + ("f" * 64)},
+        expected_revision=1,
+        retention_epoch_key=epoch_key,
+        retention_epoch_value={"revision": 3},
+        expected_retention_epoch_revision=2,
+        retired_keys=(retired_key,),
+    )
+    assert await store.read_state(latest_key) == {
+        "revision": 1,
+        "prepare_digest": "sha256:" + ("e" * 64),
+    }
+    assert await store.read_state(epoch_key) == {"revision": 2}

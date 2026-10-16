@@ -14,7 +14,10 @@ from fdai.core.rule_activation.revision_change import (
 )
 from fdai.core.rule_activation.slots import StateStoreRuleActivationSlots
 from fdai.shared.providers.rule_identity_upgrade import RuleIdentityUpgradeAuthorizer
-from fdai.shared.providers.rule_revision_change import RuleRevisionChangeAuthorizer
+from fdai.shared.providers.rule_revision_change import (
+    RuleRevisionChangeAuthorizer,
+    RuleRollbackEligibilityVerifier,
+)
 from fdai.shared.providers.rule_revision_promotion import RuleRevisionPromotionAuthorizer
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from fdai_service_contracts.rule_activation_cohort import (
@@ -36,6 +39,7 @@ from fdai_service_contracts.rule_activation_revision_change import (
     RuleRevisionChangeApprovalV2,
     RuleRevisionChangeCommandV2,
     RuleRevisionChangeProposalV2,
+    RuleRevisionTransitionKind,
     rule_revision_change_approval_digest,
     rule_revision_change_command_digest,
     rule_revision_change_proposal_digest,
@@ -115,6 +119,14 @@ class _RevisionAuthorizer:
 
 
 @dataclass
+class _RollbackEligibility:
+    expires_at: datetime | None = None
+
+    async def rollback_eligibility_expires_at(self, _proposal: object) -> datetime | None:
+        return self.expires_at
+
+
+@dataclass
 class _Fixture:
     store: InMemoryStateStore
     ledger: StateStoreRuleRevisionChanges
@@ -145,6 +157,7 @@ def _binding(
 async def _fixture(
     *,
     linearization_at: datetime = NOW + timedelta(seconds=20),
+    transition_kind: RuleRevisionTransitionKind = RuleRevisionTransitionKind.REVISION_CHANGE,
 ) -> _Fixture:
     store = InMemoryStateStore(linearization_clock=lambda: linearization_at)
     old = RuleRevisionIdentityRef(
@@ -157,17 +170,20 @@ async def _fixture(
         rule_version="1.1.0",
         revision_digest=_digest("b"),
     )
+    is_rollback = transition_kind is RuleRevisionTransitionKind.ROLLBACK
+    source_revision = new if is_rollback else old
+    target_revision = old if is_rollback else new
     source = build_rule_activation_identity_context_v2(
         catalog_revisions=(old, new),
         profile_id="baseline",
-        profile_version="1.0.0",
-        active_members=(old,),
+        profile_version="1.1.0" if is_rollback else "1.0.0",
+        active_members=(source_revision,),
     )
     target = build_rule_activation_identity_context_v2(
         catalog_revisions=(old, new),
         profile_id="baseline",
-        profile_version="1.1.0",
-        active_members=(new,),
+        profile_version="1.2.0" if is_rollback else "1.1.0",
+        active_members=(target_revision,),
     )
     transition = build_rule_activation_identity_transition_v2(source=source, target=target)
     upgrade_command_digest = _digest("c")
@@ -262,13 +278,13 @@ async def _fixture(
     )
     cohort_evidence = _CohortEvidence(cohort, candidate_active, acknowledgement, applied)
     enforcing = _binding(
-        old,
+        source_revision,
         profile_snapshot_digest=source.profile_snapshot.snapshot_digest,
         mode=RuleBindingMode.ENFORCE,
         promotion_digest=_digest("6"),
     )
     shadow = _binding(
-        new,
+        target_revision,
         profile_snapshot_digest=target.profile_snapshot.snapshot_digest,
         mode=RuleBindingMode.SHADOW,
         promotion_digest=None,
@@ -286,7 +302,7 @@ async def _fixture(
         slot_digest=rule_dual_revision_slot_digest(**slot_values),
     )
     target_enforcing = _binding(
-        new,
+        target_revision,
         profile_snapshot_digest=target.profile_snapshot.snapshot_digest,
         mode=RuleBindingMode.ENFORCE,
         promotion_digest=_digest("7"),
@@ -326,16 +342,19 @@ async def _fixture(
             "profile_version": target.profile_snapshot.profile_version,
             "catalog_manifest_digest": target.catalog_manifest.manifest_digest,
             "revision_registry_root": cohort.revision_registry_root,
-            "members": [new.model_dump(mode="json")],
+            "members": [target_revision.model_dump(mode="json")],
         },
     )
     proposal_values = {
         "source_authority_pointer_digest": current.pointer_digest,
         "identity_transition": transition,
-        "rule_id": old.rule_id,
+        "transition_kind": transition_kind,
+        "rollback_eligibility_digest": _digest("0") if is_rollback else None,
+        "rollback_eligible_until": NOW + timedelta(days=7),
+        "rule_id": source_revision.rule_id,
         "binding_id": enforcing.binding_id,
-        "from_revision": old,
-        "to_revision": new,
+        "from_revision": source_revision,
+        "to_revision": target_revision,
         "slot_digest": slot.slot_digest,
         "binding_move_command_digest": move.command_digest,
         "signed_manifest_digest": _digest("9"),
@@ -394,6 +413,12 @@ async def _fixture(
         cohort_ledger=cast(StateStoreRuleActivationCohort, cohort_evidence),
         slot_ledger=slots,
         authorizer=cast(RuleRevisionChangeAuthorizer, authorizer),
+        rollback_eligibility=cast(
+            RuleRollbackEligibilityVerifier,
+            _RollbackEligibility(
+                expires_at=NOW + timedelta(minutes=5) if is_rollback else None,
+            ),
+        ),
     )
     return _Fixture(store, ledger, command, authorizer)
 
@@ -410,6 +435,11 @@ async def test_revision_change_atomically_moves_generation_and_binding() -> None
         fixture.command.proposal.identity_transition.target.generation
     )
     assert binding.enforcing.revision == fixture.command.proposal.to_revision
+    retained = await fixture.store.read_states(
+        "rule-activation-v2:rollback-eligible:",
+        limit=2,
+    )
+    assert len(retained) == 1
     assert await fixture.store.verify_chain()
 
 
@@ -432,3 +462,14 @@ async def test_revision_change_rechecks_serving_lease_at_linearization() -> None
     current = await fixture.store.read_state("rule-activation-v2:current")
     assert current is not None
     assert current["revision"] == 1
+
+
+async def test_approved_rollback_uses_the_same_cohort_and_authority_cas() -> None:
+    fixture = await _fixture(transition_kind=RuleRevisionTransitionKind.ROLLBACK)
+
+    pointer, binding = await fixture.ledger.apply(fixture.command)
+
+    assert pointer.active_identity.profile_snapshot.members == (
+        fixture.command.proposal.to_revision,
+    )
+    assert binding.enforcing.revision == fixture.command.proposal.to_revision

@@ -101,6 +101,12 @@ source/target identity transition and logical binding. Core verifies the dormant
 candidate, target cohort, and current governance approval. A database-time StateStore pair CAS
 moves the v2 generation pointer and the exact enforcing binding together. Multiple bindings for
 one Rule remain distinct because authority keys use the logical binding id rather than the Rule id.
+Revision retention and rollback remain split across the same layers. Shared contracts own reference
+snapshots, rollback eligibility, retirement approval, and tombstones. Core derives live references
+and verifies rollback lineage. The retained-catalog delivery adapter proves the content-addressed
+closure exists. StateStore and cohort persistence serialize prepare, slot, move, authority, and
+retirement writes through one retention epoch, while the governance-attestation adapter retains
+human approval authority. Retirement prevents new use but never deletes historical artifacts.
 
 Question-form concept-choice reuse is owned by Core conversation processing and ends with one
 run. Its exact-input, reader-separated cache never stores observed state, authorization, or

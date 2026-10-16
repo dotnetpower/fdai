@@ -27,6 +27,8 @@ _ACK_PREFIX = "rule-activation-v2:ack:"
 _APPLIED_PREFIX = "rule-activation-v2:applied:"
 _CANDIDATE_ACTIVE_KEY = "rule-activation-v2:candidate-active"
 _LATEST_PREPARE_KEY = "rule-activation-v2:latest-prepare"
+_RETENTION_EPOCH_KEY = "rule-activation-v2:retention-epoch"
+_RETIRED_PREFIX = "rule-activation-v2:retired:"
 
 
 class RuleCohortConflictError(RuntimeError):
@@ -50,14 +52,20 @@ class LocalRuleActivationCohortCommitStore:
         key: str,
         value: Mapping[str, Any],
         expected_revision: int,
+        retention_epoch_key: str,
+        retention_epoch_value: Mapping[str, Any],
+        expected_retention_epoch_revision: int,
+        retired_keys: tuple[str, ...],
     ) -> bool:
         async with self._lock:
-            if expected_revision == 0 and await self.store.read_state(key) is None:
-                return await self.store.write_state_if_absent(key, value)
-            return await self.store.compare_and_set_state(
+            return await self.store.advance_state_with_epoch(
                 key,
                 value,
                 expected_revision=expected_revision,
+                epoch_key=retention_epoch_key,
+                epoch_value=retention_epoch_value,
+                expected_epoch_revision=expected_retention_epoch_revision,
+                forbidden_keys=retired_keys,
             )
 
     async def activate_candidate(
@@ -175,12 +183,36 @@ class StateStoreRuleActivationCohort:
             "prepare_digest": cohort.prepare_digest,
             "serving_inventory_digest": cohort.serving_inventory_digest,
         }
+        retention_epoch = await self._retention_epoch()
         if not await self._commit_store.advance_prepare(
             key=_LATEST_PREPARE_KEY,
             value=pointer,
             expected_revision=expected_revision,
+            retention_epoch_key=_RETENTION_EPOCH_KEY,
+            retention_epoch_value={
+                "revision": retention_epoch + 1,
+                "last_prepare_digest": cohort.prepare_digest,
+            },
+            expected_retention_epoch_revision=retention_epoch,
+            retired_keys=tuple(
+                _RETIRED_PREFIX + member.revision_digest.removeprefix("sha256:")
+                for member in cohort.generation.members
+            ),
         ):
             raise RuleCohortConflictError("Rule cohort latest-prepare CAS conflict")
+
+    async def _retention_epoch(self) -> int:
+        raw = await self._store.read_state(_RETENTION_EPOCH_KEY)
+        if raw is None:
+            await self._store.write_state_if_absent(
+                _RETENTION_EPOCH_KEY,
+                {"revision": 1, "last_prepare_digest": None},
+            )
+            raw = await self._store.read_state(_RETENTION_EPOCH_KEY)
+        revision = raw.get("revision") if raw is not None else None
+        if isinstance(revision, bool) or not isinstance(revision, int) or revision < 1:
+            raise RuleCohortConflictError("Rule revision retention epoch is invalid")
+        return revision
 
     async def acknowledge(
         self,

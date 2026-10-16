@@ -52,6 +52,10 @@ RETURNING 1
 """
 
 
+class _PrepareGuardConflictError(RuntimeError):
+    """Roll back a prepare whose retention epoch changed."""
+
+
 @dataclass(frozen=True, slots=True)
 class PostgresRuleActivationCohortCommitStore:
     config: PostgresStateStoreConfig
@@ -62,21 +66,48 @@ class PostgresRuleActivationCohortCommitStore:
         key: str,
         value: Mapping[str, Any],
         expected_revision: int,
+        retention_epoch_key: str,
+        retention_epoch_value: Mapping[str, Any],
+        expected_retention_epoch_revision: int,
+        retired_keys: tuple[str, ...],
     ) -> bool:
-        async with await self._connect() as connection:
-            if expected_revision == 0:
-                cursor = await connection.execute(
-                    "INSERT INTO state_kv (key, value) VALUES (%s, %s::jsonb) "
-                    "ON CONFLICT (key) DO NOTHING",
-                    (key, json.dumps(dict(value))),
-                )
-            else:
-                cursor = await connection.execute(
+        try:
+            async with await self._connect() as connection:
+                if retired_keys:
+                    retired = await connection.execute(
+                        "SELECT 1 FROM state_kv WHERE key = ANY(%s) LIMIT 1",
+                        (list(retired_keys),),
+                    )
+                    if await retired.fetchone() is not None:
+                        return False
+                if expected_revision == 0:
+                    cursor = await connection.execute(
+                        "INSERT INTO state_kv (key, value) VALUES (%s, %s::jsonb) "
+                        "ON CONFLICT (key) DO NOTHING",
+                        (key, json.dumps(dict(value))),
+                    )
+                else:
+                    cursor = await connection.execute(
+                        "UPDATE state_kv SET value=%s::jsonb, updated_at=clock_timestamp() "
+                        "WHERE key=%s AND COALESCE((value ->> 'revision')::integer, 0)=%s",
+                        (json.dumps(dict(value)), key, expected_revision),
+                    )
+                if cursor.rowcount != 1:
+                    return False
+                epoch = await connection.execute(
                     "UPDATE state_kv SET value=%s::jsonb, updated_at=clock_timestamp() "
                     "WHERE key=%s AND COALESCE((value ->> 'revision')::integer, 0)=%s",
-                    (json.dumps(dict(value)), key, expected_revision),
+                    (
+                        json.dumps(dict(retention_epoch_value)),
+                        retention_epoch_key,
+                        expected_retention_epoch_revision,
+                    ),
                 )
-            return cursor.rowcount == 1
+                if epoch.rowcount != 1:
+                    raise _PrepareGuardConflictError()
+                return True
+        except _PrepareGuardConflictError:
+            return False
 
     async def activate_candidate(
         self,

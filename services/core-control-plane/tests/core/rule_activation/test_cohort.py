@@ -225,6 +225,23 @@ async def test_acknowledgement_requires_authenticated_frozen_identity() -> None:
         )
 
 
+async def test_retired_revision_cannot_enter_a_new_prepare() -> None:
+    cohort, _ = _fixture()
+    store = InMemoryStateStore()
+    retired = cohort.generation.members[0]
+    await store.write_state(
+        "rule-activation-v2:retired:" + retired.revision_digest.removeprefix("sha256:"),
+        {"revision": 1, "state": "retired"},
+    )
+    ledger = StateStoreRuleActivationCohort(
+        store=store,
+        commit_store=LocalRuleActivationCohortCommitStore(store=store),
+    )
+
+    with pytest.raises(RuleCohortConflictError, match="latest-prepare CAS"):
+        await _prepare(ledger, cohort)
+
+
 async def test_successor_cohort_requires_departure_evidence_for_removed_replica() -> None:
     cohort, replicas = _fixture()
     store = InMemoryStateStore()

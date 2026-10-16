@@ -16,6 +16,10 @@ class RuleActivationCohortCommitStore(Protocol):
         key: str,
         value: Mapping[str, Any],
         expected_revision: int,
+        retention_epoch_key: str,
+        retention_epoch_value: Mapping[str, Any],
+        expected_retention_epoch_revision: int,
+        retired_keys: tuple[str, ...],
     ) -> bool: ...
 
     async def activate_candidate(

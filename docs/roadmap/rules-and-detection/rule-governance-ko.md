@@ -1,7 +1,7 @@
 ---
 title: 규칙 거버넌스(Rule Governance)
 translation_of: rule-governance.md
-translation_source_sha: 92d98af1c95fdba71085dceaf55ea81e0c68133d
+translation_source_sha: 6488485eb00189fa9a6f07816b646a00d025b9df
 translation_revised: 2026-10-17
 ---
 
@@ -413,7 +413,7 @@ A1 메시지를 전달하지 않으며, 대신 `trust_mismatch` 감사 결과와
 - 규칙 로직 변경은 `version` bump; 할당의 파라미터/효과/범위 변경 자체가 감사된 버전 변경.
   Rule 집합은 각 멤버 규칙의 `version` 을 **고정** 하여 규칙 변경이 승격된 세트를 조용히 바꿀 수
   없음.
-- **규칙 개정 업그레이드(1-8단계 구현됨):** 활성화 세대는 각 멤버의 정확한 버전과 다이제스트를
+- **규칙 개정 업그레이드(1-9단계 구현됨):** 활성화 세대는 각 멤버의 정확한 버전과 다이제스트를
   고정하고, ledger는 카탈로그가 바뀌지 않은 상태의 멤버 변경만 받아들입니다. 따라서 활성화된 규칙의
   내용을 바꾸면 업그레이드된 설치는 시작 시 실패합니다. 아래 모든 단계가 운영 검증을 마칠 때까지
   `scripts/quality/architecture/check-rule-revision-lock.py`가 배포된 각 규칙의 버전, 정의
@@ -445,7 +445,8 @@ A1 메시지를 전달하지 않으며, 대신 `trust_mismatch` 감사 결과와
   부여하지 않는 상태를 유지합니다. 7단계는 펜스된 버전 1 포인터에서 권한을 갖는 버전 2 포인터로
   전환하는 유일한 구현 경로입니다. 시작 경로는 그 결과를 읽을 수 있지만 직접 만들 수 없습니다.
   8단계는 명시적으로 지정한 개정 하나와 enforce 바인딩을 승인된 권한 CAS 하나로 이동합니다.
-  9단계는 아직 남아 있습니다.
+  9단계는 rollback closure를 보존하고 모든 새 참조를 retirement와 직렬화하며, 같은 코호트와 권한
+  CAS를 통해 rollback을 수행합니다.
   1. **이중 읽기 코덱.** 호환 릴리스는 모든 영속 객체와 이벤트(제안과 변경 유니온, 승인, 명령,
      결과, 포인터, 세대, 멱등성 행, 매니페스트, 준비와 확인 이벤트)의 버전 1과 2를 읽고, 쓰기는
      계속 버전 1로 합니다. 이후 단계가 하나라도 실행되면 이 릴리스가 바이너리 롤백의 최저선이 됩니다.
@@ -528,6 +529,16 @@ A1 메시지를 전달하지 않으며, 대신 `trust_mismatch` 감사 결과와
      active, desired, prepared, applied 또는 롤백 가능한 세대, 강제 적용 고정, 승격 기록이 참조하는
      개정은 폐기할 수 없으며, 폐기 자체도 승인되고 감사되는 작업입니다. 롤백은 같은 코호트 프로토콜을
      거치는 승인된 전환입니다.
+     이 단계는 범위가 제한된 참조 스냅숏, 승인된 retirement tombstone, 보존된 rollback eligibility,
+     rollback 전환 종류로 구현됩니다. active, desired, 최신 prepared, 현재 candidate/applied,
+     rollback-eligible, enforcement-pin, promotion 참조는 retirement를 차단합니다. prepare, slot,
+     move, desired, generation, binding, eligibility, retirement 쓰기는 retention epoch 하나로
+     직렬화됩니다. 데이터베이스 트랜잭션은 tombstone 대상 사용을 거부하고 retirement와 새 참조의
+     경쟁을 막습니다. Retirement는 내용 주소 기반 레지스트리 closure를 정확히 검증하며 과거
+     bytes를 삭제하지 않습니다. Rollback은 되돌릴 전환이 원자적으로 만든 만료되지 않은 eligibility
+     레코드를 인용하고, 단조 증가한 새 프로필 버전을 사용하며, 서명된 대상 매니페스트와 완전히
+     applied된 v2-write 코호트로 이전 멤버와 바인딩을 되찾고, 정방향 개정 변경과 같은 현재
+     거버넌스 승인 및 pair CAS를 통과해야 합니다.
 
   요청 ID는 릴리스, 제안 다이제스트, 대상 세대에서 파생되므로 동시에 실행되는 복제본은 같은 기록을
   읽어 수렴합니다.

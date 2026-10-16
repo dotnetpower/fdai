@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Protocol
 
 from fdai_service_contracts.rule_activation_revision_change import (
@@ -21,4 +22,13 @@ class RuleRevisionChangeAuthorizer(Protocol):
     ) -> bool: ...
 
 
-__all__ = ["RuleRevisionChangeAuthorizer"]
+class RuleRollbackEligibilityVerifier(Protocol):
+    """Verify one retained rollback closure and return its authority deadline."""
+
+    async def rollback_eligibility_expires_at(
+        self,
+        proposal: RuleRevisionChangeProposalV2,
+    ) -> datetime | None: ...
+
+
+__all__ = ["RuleRevisionChangeAuthorizer", "RuleRollbackEligibilityVerifier"]

@@ -2,16 +2,87 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
+from enum import StrEnum
 from typing import Annotated, Literal, Self
 
 from pydantic import Field, field_validator, model_validator
 
 from fdai_service_contracts.compatibility import canonical_digest
 from fdai_service_contracts.executor_models import ContractBase, Digest
-from fdai_service_contracts.rule_activation_identity import RuleActivationIdentityTransitionV2
+from fdai_service_contracts.rule_activation_identity import (
+    RuleActivationIdentityContextV2,
+    RuleActivationIdentityTransitionV2,
+)
 from fdai_service_contracts.rule_activation_manifest import RuleRevisionIdentityRef
 from fdai_service_contracts.rule_activation_slots import RuleRevisionBindingV2
+
+_MAX_ROLLBACK_WINDOW = timedelta(days=30)
+
+
+class RuleRevisionTransitionKind(StrEnum):
+    REVISION_CHANGE = "revision_change"
+    ROLLBACK = "rollback"
+
+
+class RuleRollbackEligibilityV2(ContractBase):
+    """Retained full closure for one bounded future rollback."""
+
+    schema_version: Literal["2.0.0"] = "2.0.0"
+    source_identity: RuleActivationIdentityContextV2
+    source_binding: RuleRevisionBindingV2
+    source_authority_pointer_digest: Digest
+    superseding_generation_digest: Digest
+    release_id: Annotated[str, Field(min_length=1, max_length=256)]
+    signed_manifest_digest: Digest
+    revision_change_command_digest: Digest
+    created_at: datetime
+    expires_at: datetime
+    eligibility_digest: Digest
+    activation_authority: Literal[False] = False
+    execution_authority: Literal[False] = False
+
+    @field_validator("release_id", mode="before")
+    @classmethod
+    def _exact_release(cls, value: object) -> object:
+        if isinstance(value, str) and value != value.strip():
+            raise ValueError("Rule rollback release identity MUST be exact")
+        return value
+
+    @field_validator("created_at", "expires_at")
+    @classmethod
+    def _aware_utc(cls, value: datetime) -> datetime:
+        return _utc(value, "Rule rollback eligibility time")
+
+    @model_validator(mode="after")
+    def _canonical_eligibility(self) -> Self:
+        if not self.created_at < self.expires_at <= self.created_at + _MAX_ROLLBACK_WINDOW:
+            raise ValueError("Rule rollback eligibility window MUST be positive and bounded")
+        members = {
+            member.rule_id: member for member in self.source_identity.profile_snapshot.members
+        }
+        if (
+            members.get(self.source_binding.revision.rule_id) != self.source_binding.revision
+            or self.source_binding.profile_snapshot_digest
+            != self.source_identity.profile_snapshot.snapshot_digest
+            or self.source_identity.generation.generation_digest
+            == self.superseding_generation_digest
+        ):
+            raise ValueError("Rule rollback eligibility source identity mismatch")
+        expected = rule_rollback_eligibility_v2_digest(
+            source_identity=self.source_identity,
+            source_binding=self.source_binding,
+            source_authority_pointer_digest=self.source_authority_pointer_digest,
+            superseding_generation_digest=self.superseding_generation_digest,
+            release_id=self.release_id,
+            signed_manifest_digest=self.signed_manifest_digest,
+            revision_change_command_digest=self.revision_change_command_digest,
+            created_at=self.created_at,
+            expires_at=self.expires_at,
+        )
+        if self.eligibility_digest != expected:
+            raise ValueError("Rule rollback eligibility digest mismatch")
+        return self
 
 
 class RuleRevisionChangeProposalV2(ContractBase):
@@ -20,6 +91,9 @@ class RuleRevisionChangeProposalV2(ContractBase):
     schema_version: Literal["2.0.0"] = "2.0.0"
     source_authority_pointer_digest: Digest
     identity_transition: RuleActivationIdentityTransitionV2
+    transition_kind: RuleRevisionTransitionKind = RuleRevisionTransitionKind.REVISION_CHANGE
+    rollback_eligibility_digest: Digest | None = None
+    rollback_eligible_until: datetime
     rule_id: Annotated[str, Field(min_length=1, max_length=256)]
     binding_id: Annotated[str, Field(min_length=1, max_length=256)]
     from_revision: RuleRevisionIdentityRef
@@ -45,13 +119,29 @@ class RuleRevisionChangeProposalV2(ContractBase):
             raise ValueError("Rule revision change proposal text MUST be exact")
         return value
 
-    @field_validator("proposed_at")
+    @field_validator("proposed_at", "rollback_eligible_until")
     @classmethod
     def _aware_utc(cls, value: datetime) -> datetime:
         return _utc(value, "Rule revision change proposal time")
 
     @model_validator(mode="after")
     def _single_explicit_revision_change(self) -> Self:
+        if (
+            self.transition_kind is RuleRevisionTransitionKind.REVISION_CHANGE
+            and self.rollback_eligibility_digest is not None
+        ) or (
+            self.transition_kind is RuleRevisionTransitionKind.ROLLBACK
+            and self.rollback_eligibility_digest is None
+        ):
+            raise ValueError("Rule revision transition rollback evidence is invalid")
+        if (
+            not self.proposed_at
+            < self.rollback_eligible_until
+            <= (self.proposed_at + _MAX_ROLLBACK_WINDOW)
+        ):
+            raise ValueError(
+                "Rule revision transition rollback window MUST be positive and bounded"
+            )
         if (
             self.from_revision.rule_id != self.rule_id
             or self.to_revision.rule_id != self.rule_id
@@ -88,6 +178,9 @@ class RuleRevisionChangeProposalV2(ContractBase):
         expected = rule_revision_change_proposal_digest(
             source_authority_pointer_digest=self.source_authority_pointer_digest,
             identity_transition=self.identity_transition,
+            transition_kind=self.transition_kind,
+            rollback_eligibility_digest=self.rollback_eligibility_digest,
+            rollback_eligible_until=self.rollback_eligible_until,
             rule_id=self.rule_id,
             binding_id=self.binding_id,
             from_revision=self.from_revision,
@@ -272,6 +365,10 @@ def rule_binding_authority_pointer_v2_digest(**values: object) -> str:
     return canonical_digest(_json_values(values))
 
 
+def rule_rollback_eligibility_v2_digest(**values: object) -> str:
+    return canonical_digest(_json_values(values))
+
+
 def _utc(value: datetime, label: str) -> datetime:
     if value.tzinfo is None or value.utcoffset() is None:
         raise ValueError(f"{label} MUST include a timezone")
@@ -292,6 +389,8 @@ def _json_values(values: object) -> object:
 
 __all__ = [
     "RuleBindingAuthorityPointerV2",
+    "RuleRevisionTransitionKind",
+    "RuleRollbackEligibilityV2",
     "RuleRevisionChangeApprovalV2",
     "RuleRevisionChangeCommandV2",
     "RuleRevisionChangeProposalV2",
@@ -299,4 +398,5 @@ __all__ = [
     "rule_revision_change_approval_digest",
     "rule_revision_change_command_digest",
     "rule_revision_change_proposal_digest",
+    "rule_rollback_eligibility_v2_digest",
 ]

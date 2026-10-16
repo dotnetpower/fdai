@@ -187,6 +187,31 @@ async def test_temporal_state_pair_linearizes_before_expiry(saga_database: str) 
             "revision": 2,
             "state": "binding-v2",
         }
+        await store.write_state("upgrade:retention-epoch", {"revision": 1})
+        assert await store.compare_and_set_state_pair_with_audit_before(
+            "upgrade:source",
+            {"revision": 5, "state": "v2-next-3"},
+            expected_revision=4,
+            second_key="upgrade:binding",
+            second_value={"revision": 3, "state": "binding-v3"},
+            expected_second_revision=2,
+            not_before=now - timedelta(minutes=1),
+            expires_at=now + timedelta(minutes=1),
+            insert_key="upgrade:rollback-eligibility",
+            insert_value={"revision": 1, "state": "eligible"},
+            guard_key="upgrade:retention-epoch",
+            guard_value={"revision": 2},
+            expected_guard_revision=1,
+            audit_entry={
+                "actor": "Mimir",
+                "action_kind": "rule_activation.revision-changed",
+            },
+        )
+        assert await store.read_state("upgrade:retention-epoch") == {"revision": 2}
+        assert await store.read_state("upgrade:rollback-eligibility") == {
+            "revision": 1,
+            "state": "eligible",
+        }
 
         await store.write_state("upgrade:expired-source", {"revision": 1, "state": "v1"})
         assert not await store.compare_and_set_state_with_audit_and_insert_before(

@@ -14,6 +14,7 @@ from fdai_service_contracts.rule_activation_revision_change import (
     RuleRevisionChangeApprovalV2,
     RuleRevisionChangeCommandV2,
     RuleRevisionChangeProposalV2,
+    RuleRevisionTransitionKind,
     rule_binding_authority_pointer_v2_digest,
     rule_revision_change_approval_digest,
     rule_revision_change_command_digest,
@@ -60,6 +61,9 @@ def _proposal() -> RuleRevisionChangeProposalV2:
     values = {
         "source_authority_pointer_digest": _digest("d"),
         "identity_transition": transition,
+        "transition_kind": RuleRevisionTransitionKind.REVISION_CHANGE,
+        "rollback_eligibility_digest": None,
+        "rollback_eligible_until": NOW + timedelta(days=7),
         "rule_id": old.rule_id,
         "binding_id": "binding-alpha",
         "from_revision": old,

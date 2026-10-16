@@ -193,9 +193,10 @@ def _ledger(
     evidence: _CohortEvidence,
     *,
     authorizer: _PromotionAuthorizer | None = None,
+    store: InMemoryStateStore | None = None,
 ) -> StateStoreRuleActivationSlots:
     return StateStoreRuleActivationSlots(
-        store=InMemoryStateStore(),
+        store=store or InMemoryStateStore(),
         cohort_ledger=cast(StateStoreRuleActivationCohort, evidence),
         promotion_authorizer=cast(
             RuleRevisionPromotionAuthorizer,
@@ -273,3 +274,17 @@ async def test_authoritative_approval_and_string_mode_are_enforced() -> None:
         evaluation_receipt_digest=_digest("7"),
     )
     assert observed.binding_digest == slot.enforcing.binding_digest
+
+
+async def test_retired_revision_cannot_enter_a_new_slot() -> None:
+    slot, evidence = _fixture()
+    store = InMemoryStateStore()
+    await store.write_state(
+        "rule-activation-v2:retired:"
+        + slot.prepared_shadow.revision.revision_digest.removeprefix("sha256:"),
+        {"revision": 1, "state": "retired"},
+    )
+    ledger = _ledger(evidence, store=store)
+
+    with pytest.raises(RuleActivationSlotConflictError, match="retention CAS"):
+        await ledger.retain_slot(slot)

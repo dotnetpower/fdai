@@ -29,9 +29,18 @@ from fdai_service_contracts.rule_activation_identity import (
     build_rule_activation_identity_transition_v2,
 )
 from fdai_service_contracts.rule_activation_manifest import RuleRevisionIdentityRef
+from fdai_service_contracts.rule_activation_retention import (
+    RuleRevisionRetentionSnapshotV2,
+    RuleRevisionRetirementApprovalV2,
+    RuleRevisionRetirementProposalV2,
+    rule_revision_retention_snapshot_digest,
+    rule_revision_retirement_approval_digest,
+    rule_revision_retirement_proposal_digest,
+)
 from fdai_service_contracts.rule_activation_revision_change import (
     RuleRevisionChangeApprovalV2,
     RuleRevisionChangeProposalV2,
+    RuleRevisionTransitionKind,
     rule_revision_change_approval_digest,
     rule_revision_change_proposal_digest,
 )
@@ -87,6 +96,7 @@ def _attestation(
     scenario_set_version: str,
     request_fingerprint: str,
     author: str = "requester-a",
+    change_class: GovernanceChangeClass = GovernanceChangeClass.ENFORCE_PROMOTION,
 ) -> GovernancePromotionAttestation:
     roles = frozenset({Role.APPROVER, Role.OWNER})
     approvals = (
@@ -105,7 +115,7 @@ def _attestation(
     )
     return GovernancePromotionAttestation(
         review=GovernanceReviewRequest(
-            change_class=GovernanceChangeClass.ENFORCE_PROMOTION,
+            change_class=change_class,
             author=GovernancePrincipal(oid=author, roles=roles),
             head_revision=HEAD,
             head_committed_at=NOW,
@@ -364,6 +374,9 @@ async def test_revision_change_authority_binds_complete_target_transition() -> N
     proposal_values = {
         "source_authority_pointer_digest": _digest("3"),
         "identity_transition": transition,
+        "transition_kind": RuleRevisionTransitionKind.REVISION_CHANGE,
+        "rollback_eligibility_digest": None,
+        "rollback_eligible_until": NOW + timedelta(days=7),
         "rule_id": old.rule_id,
         "binding_id": "binding-alpha",
         "from_revision": old,
@@ -416,4 +429,66 @@ async def test_revision_change_authority_binds_complete_target_transition() -> N
     assert not await authority.authorize_revision_change(
         approval,
         proposal=proposal.model_copy(update={"reviewed_source_revision": "b" * 40}),
+    )
+
+
+async def test_retirement_authority_requires_owner_review_of_zero_reference_snapshot() -> None:
+    store = InMemoryStateStore()
+    revision = RuleRevisionIdentityRef(
+        rule_id="rule.retired",
+        rule_version="1.0.0",
+        revision_digest=_digest("9"),
+    )
+    snapshot_values = {
+        "revision": revision,
+        "retention_epoch_revision": 4,
+        "references": (),
+        "captured_at": NOW,
+    }
+    snapshot = RuleRevisionRetentionSnapshotV2(
+        **snapshot_values,
+        snapshot_digest=rule_revision_retention_snapshot_digest(**snapshot_values),
+    )
+    proposal_values = {
+        "snapshot": snapshot,
+        "reviewed_source_revision": HEAD,
+        "requested_by": "requester-a",
+        "requested_at": NOW,
+        "reason": "The revision has no remaining governed references.",
+    }
+    proposal = RuleRevisionRetirementProposalV2(
+        **proposal_values,
+        proposal_digest=rule_revision_retirement_proposal_digest(**proposal_values),
+    )
+    attestation = _attestation(
+        action_type_id="rule-revision-retire",
+        evidence_digest=proposal.proposal_digest,
+        idempotency_key=proposal.proposal_digest,
+        scenario_set_version=revision.rule_version,
+        request_fingerprint=revision.revision_digest,
+        change_class=GovernanceChangeClass.RULE_RETIREMENT,
+    )
+    receipt_digest = await _retain_attestation(store, attestation)
+    approval_values = {
+        "proposal_digest": proposal.proposal_digest,
+        "authority_receipt_digest": receipt_digest,
+        "approval_profile_digest": _profile().policy_digest,
+        "requester_id": proposal.requested_by,
+        "approver_ids": ("approver-a", "approver-b"),
+        "original_quorum": 2,
+        "effective_quorum": 2,
+        "approved_at": NOW + timedelta(seconds=2),
+    }
+    approval = RuleRevisionRetirementApprovalV2(
+        **approval_values,
+        approval_digest=rule_revision_retirement_approval_digest(**approval_values),
+    )
+    authority = StateStoreRuleActivationAuthority(
+        store,
+        active_approval_profile=_profile(),
+    )
+
+    assert await authority.authorize_retirement(
+        approval,
+        proposal=proposal,
     )

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from fdai_service_contracts.compatibility import canonical_digest
 from fdai_service_contracts.rule_activation_cohort import (
     RuleReplicaAcknowledgementV2,
     rule_acknowledgement_set_digest,
@@ -11,7 +12,10 @@ from fdai_service_contracts.rule_activation_cohort import (
 from fdai_service_contracts.rule_activation_revision_change import (
     RuleBindingAuthorityPointerV2,
     RuleRevisionChangeCommandV2,
+    RuleRevisionTransitionKind,
+    RuleRollbackEligibilityV2,
     rule_binding_authority_pointer_v2_digest,
+    rule_rollback_eligibility_v2_digest,
 )
 from fdai_service_contracts.rule_activation_slots import RuleRevisionBindingV2
 from fdai_service_contracts.rule_activation_upgrade import (
@@ -23,11 +27,18 @@ from fdai_service_contracts.rule_activation_upgrade import (
 from fdai.core.rule_activation.cohort import StateStoreRuleActivationCohort
 from fdai.core.rule_activation.identity_upgrade import StateStoreRuleIdentityUpgrade
 from fdai.core.rule_activation.slots import StateStoreRuleActivationSlots
-from fdai.shared.providers.rule_revision_change import RuleRevisionChangeAuthorizer
+from fdai.shared.providers.rule_revision_change import (
+    RuleRevisionChangeAuthorizer,
+    RuleRollbackEligibilityVerifier,
+)
 from fdai.shared.providers.state_store import StateStore
 
 _V2_CURRENT_KEY = "rule-activation-v2:current"
 _BINDING_PREFIX = "rule-activation-v2:binding:"
+_ROLLBACK_PREFIX = "rule-activation-v2:rollback-eligible:"
+_DESIRED_PREFIX = "rule-activation-v2:desired:"
+_RETENTION_EPOCH_KEY = "rule-activation-v2:retention-epoch"
+_RETIRED_PREFIX = "rule-activation-v2:retired:"
 _MANIFEST_PREFIX = "rule-activation:manifest-nonce:"
 
 
@@ -50,12 +61,14 @@ class StateStoreRuleRevisionChanges:
         cohort_ledger: StateStoreRuleActivationCohort,
         slot_ledger: StateStoreRuleActivationSlots,
         authorizer: RuleRevisionChangeAuthorizer,
+        rollback_eligibility: RuleRollbackEligibilityVerifier,
     ) -> None:
         self._store = store
         self._identity_ledger = identity_ledger
         self._cohort_ledger = cohort_ledger
         self._slot_ledger = slot_ledger
         self._authorizer = authorizer
+        self._rollback_eligibility = rollback_eligibility
 
     async def apply(
         self,
@@ -88,7 +101,6 @@ class StateStoreRuleRevisionChanges:
             raise RuleRevisionChangeConflictError(
                 "Rule revision change source authority identity mismatch"
             )
-
         slot = await self._slot_ledger.slot(proposal.slot_digest)
         move = await self._slot_ledger.move_candidate(proposal.binding_move_command_digest)
         if (
@@ -148,6 +160,16 @@ class StateStoreRuleRevisionChanges:
             raise RuleRevisionChangeConflictError(
                 "Rule revision change approval is not authoritative"
             )
+        rollback_authority_expires_at: datetime | None = None
+        if proposal.transition_kind is RuleRevisionTransitionKind.ROLLBACK:
+            rollback_authority_expires_at = (
+                await self._rollback_eligibility.rollback_eligibility_expires_at(proposal)
+            )
+            if rollback_authority_expires_at is None:
+                raise RuleRevisionChangeConflictError(
+                    "Rule revision rollback eligibility is unavailable"
+                )
+        retention_epoch = await self._reserve_desired(validated)
 
         replacement = self._build_authority_pointer(
             current,
@@ -160,6 +182,16 @@ class StateStoreRuleRevisionChanges:
             move.target_enforcing,
             previous_binding_digest=move.from_binding_digest,
         )
+        rollback_eligibility = self._build_rollback_eligibility(
+            current,
+            validated,
+            slot.enforcing,
+        )
+        authority_expires_at = min(
+            value
+            for value in (lease_expires_at, rollback_authority_expires_at)
+            if value is not None
+        )
         changed = await self._store.compare_and_set_state_pair_with_audit_before(
             _V2_CURRENT_KEY,
             replacement.model_dump(mode="json"),
@@ -168,7 +200,16 @@ class StateStoreRuleRevisionChanges:
             second_value=binding.model_dump(mode="json"),
             expected_second_revision=expected_binding_revision,
             not_before=validated.commanded_at,
-            expires_at=lease_expires_at,
+            expires_at=authority_expires_at,
+            insert_key=_ROLLBACK_PREFIX
+            + rollback_eligibility.eligibility_digest.removeprefix("sha256:"),
+            insert_value=rollback_eligibility.model_dump(mode="json"),
+            guard_key=_RETENTION_EPOCH_KEY,
+            guard_value={
+                "revision": retention_epoch + 1,
+                "last_transition_command_digest": validated.command_digest,
+            },
+            expected_guard_revision=retention_epoch,
             audit_entry={
                 "actor": validated.approval.approver_ids[-1],
                 "producer_principal": "Saga",
@@ -185,6 +226,7 @@ class StateStoreRuleRevisionChanges:
                 "source_authority_pointer_digest": current.pointer_digest,
                 "target_authority_pointer_digest": replacement.pointer_digest,
                 "binding_pointer_digest": binding.pointer_digest,
+                "rollback_eligibility_digest": rollback_eligibility.eligibility_digest,
                 "approval_digest": validated.approval.approval_digest,
                 "command_digest": validated.command_digest,
                 "recorded_at": validated.commanded_at.isoformat(),
@@ -215,6 +257,110 @@ class StateStoreRuleRevisionChanges:
                 "Rule revision change authoritative readback failed"
             )
         return readback, binding_readback
+
+    async def _reserve_desired(self, command: RuleRevisionChangeCommandV2) -> int:
+        proposal = command.proposal
+        retired_key = _RETIRED_PREFIX + proposal.to_revision.revision_digest.removeprefix("sha256:")
+        epoch = await self._retention_epoch()
+        if await self._store.read_state(retired_key) is not None:
+            raise RuleRevisionChangeConflictError("Rule revision change target has been retired")
+        key = _DESIRED_PREFIX + command.command_digest.removeprefix("sha256:")
+        desired = {
+            "schema_version": "2.0.0",
+            "state": "desired",
+            "proposal_digest": proposal.proposal_digest,
+            "command_digest": command.command_digest,
+            "target_generation_digest": (
+                proposal.identity_transition.target.generation.generation_digest
+            ),
+            "members": [
+                member.model_dump(mode="json")
+                for member in proposal.identity_transition.target.profile_snapshot.members
+            ],
+        }
+        desired["desired_digest"] = canonical_digest(desired)
+        existing = await self._store.read_state(key)
+        if existing is not None:
+            if dict(existing) != desired:
+                raise RuleRevisionChangeConflictError("Rule revision desired identity conflict")
+            return epoch
+        changed = await self._store.compare_and_set_state_with_audit_and_insert(
+            _RETENTION_EPOCH_KEY,
+            {
+                "revision": epoch + 1,
+                "last_desired_command_digest": command.command_digest,
+            },
+            expected_revision=epoch,
+            insert_key=key,
+            insert_value=desired,
+            audit_entry={
+                "actor": proposal.proposed_by,
+                "producer_principal": "Saga",
+                "action_kind": "rule_activation.revision-desired",
+                "proposal_digest": proposal.proposal_digest,
+                "command_digest": command.command_digest,
+                "desired_digest": desired["desired_digest"],
+                "recorded_at": command.commanded_at.isoformat(),
+                "activation_authority": False,
+                "execution_authority": False,
+            },
+        )
+        if not changed:
+            winner = await self._store.read_state(key)
+            if winner is None or dict(winner) != desired:
+                raise RuleRevisionChangeConflictError(
+                    "Rule revision desired reservation CAS conflict"
+                )
+        return await self._retention_epoch()
+
+    async def _retention_epoch(self) -> int:
+        raw = await self._store.read_state(_RETENTION_EPOCH_KEY)
+        if raw is None:
+            await self._store.write_state_if_absent(
+                _RETENTION_EPOCH_KEY,
+                {"revision": 1, "last_transition_command_digest": None},
+            )
+            raw = await self._store.read_state(_RETENTION_EPOCH_KEY)
+        revision = raw.get("revision") if raw is not None else None
+        if isinstance(revision, bool) or not isinstance(revision, int) or revision < 1:
+            raise RuleRevisionChangeCorruptionError(
+                "Rule revision retention epoch failed validation"
+            )
+        return revision
+
+    @staticmethod
+    def _build_rollback_eligibility(
+        current: RuleActivationAuthorityPointerV2,
+        command: RuleRevisionChangeCommandV2,
+        source_binding: RuleRevisionBindingV2,
+    ) -> RuleRollbackEligibilityV2:
+        proposal = command.proposal
+        return RuleRollbackEligibilityV2(
+            source_identity=current.active_identity,
+            source_binding=source_binding,
+            source_authority_pointer_digest=current.pointer_digest,
+            superseding_generation_digest=(
+                proposal.identity_transition.target.generation.generation_digest
+            ),
+            release_id=current.release_id,
+            signed_manifest_digest=current.signed_manifest_digest,
+            revision_change_command_digest=command.command_digest,
+            created_at=command.commanded_at,
+            expires_at=proposal.rollback_eligible_until,
+            eligibility_digest=rule_rollback_eligibility_v2_digest(
+                source_identity=current.active_identity,
+                source_binding=source_binding,
+                source_authority_pointer_digest=current.pointer_digest,
+                superseding_generation_digest=(
+                    proposal.identity_transition.target.generation.generation_digest
+                ),
+                release_id=current.release_id,
+                signed_manifest_digest=current.signed_manifest_digest,
+                revision_change_command_digest=command.command_digest,
+                created_at=command.commanded_at,
+                expires_at=proposal.rollback_eligible_until,
+            ),
+        )
 
     async def _validate_cohort(
         self,

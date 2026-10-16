@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 603c1abe110da423f680da884551749e4d629ca0
+translation_source_sha: 5d61de1c0a9904872a2db8c27fa634f341a581ef
 translation_revised: 2026-10-17
 ---
 # 프로젝트 구조
@@ -98,6 +98,12 @@ writer가 권한 분할을 노출할 수 없습니다. 시작 경로는 이 결�
 검증합니다. 데이터베이스 시각의 StateStore pair CAS가 v2 세대 포인터와 정확한 enforce 바인딩을
 함께 이동합니다. 권한 key는 Rule id가 아니라 논리 바인딩 id를 사용하므로 한 Rule의 여러 바인딩은
 서로 구분됩니다.
+개정 보존과 rollback도 같은 계층 분리를 유지합니다. 공유 계약은 참조 스냅숏, rollback
+eligibility, retirement 승인, tombstone을 소유합니다. Core는 현재 참조를 파생하고 rollback
+계보를 검증합니다. 보존 카탈로그 전달 어댑터는 내용 주소 기반 closure의 존재를 증명합니다.
+StateStore와 코호트 영속 계층은 prepare, slot, move, 권한, retirement 쓰기를 retention epoch
+하나로 직렬화하고, 거버넌스 attestation 어댑터는 사람의 승인 권한을 유지합니다. Retirement는
+새 사용을 막지만 과거 산출물을 삭제하지 않습니다.
 
 질문 구조의 개념 선택 재사용은 Core 대화 처리가 소유하며 한 번의 처리가 끝나면 종료됩니다.
 정확한 입력과 판독기별로 분리된 캐시는 관측 상태, 인가 결정, 이전 요청의 의미를 저장하지

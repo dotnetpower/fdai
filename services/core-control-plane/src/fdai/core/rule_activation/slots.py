@@ -21,6 +21,8 @@ from fdai.shared.providers.state_store import StateStore
 
 _SLOT_PREFIX = "rule-activation-v2:slot:"
 _MOVE_PREFIX = "rule-activation-v2:binding-move:"
+_RETENTION_EPOCH_KEY = "rule-activation-v2:retention-epoch"
+_RETIRED_PREFIX = "rule-activation-v2:retired:"
 
 
 class RuleActivationSlotConflictError(RuntimeError):
@@ -44,10 +46,31 @@ class StateStoreRuleActivationSlots:
     async def retain_slot(self, slot: RuleDualRevisionSlotV2) -> None:
         key = _SLOT_PREFIX + slot.slot_digest.removeprefix("sha256:")
         value = slot.model_dump(mode="json")
-        if await self._store.write_state_if_absent(key, value):
+        existing = await self._store.read_state(key)
+        if existing == value:
             return
-        if await self._store.read_state(key) != value:
+        if existing is not None:
             raise RuleActivationSlotConflictError("Rule dual-revision slot identity conflict")
+        epoch = await self._retention_epoch()
+        if not await self._store.advance_state_with_epoch(
+            key,
+            value,
+            expected_revision=0,
+            epoch_key=_RETENTION_EPOCH_KEY,
+            epoch_value={
+                "revision": epoch + 1,
+                "last_slot_digest": slot.slot_digest,
+            },
+            expected_epoch_revision=epoch,
+            forbidden_keys=tuple(
+                _RETIRED_PREFIX + revision.revision_digest.removeprefix("sha256:")
+                for revision in (slot.enforcing.revision, slot.prepared_shadow.revision)
+            ),
+        ):
+            winner = await self._store.read_state(key)
+            if winner == value:
+                return
+            raise RuleActivationSlotConflictError("Rule dual-revision slot retention CAS conflict")
 
     async def build_and_retain_move_candidate(
         self,
@@ -143,12 +166,36 @@ class StateStoreRuleActivationSlots:
         )
         key = _MOVE_PREFIX + candidate.command_digest.removeprefix("sha256:")
         value = candidate.model_dump(mode="json")
-        if await self._store.write_state_if_absent(key, value):
+        existing = await self._store.read_state(key)
+        if existing == value:
             return candidate
-        if await self._store.read_state(key) == value:
-            return candidate
-        else:
+        if existing is not None:
             raise RuleActivationSlotConflictError("Rule binding move candidate identity conflict")
+        epoch = await self._retention_epoch()
+        if not await self._store.advance_state_with_epoch(
+            key,
+            value,
+            expected_revision=0,
+            epoch_key=_RETENTION_EPOCH_KEY,
+            epoch_value={
+                "revision": epoch + 1,
+                "last_binding_move_command_digest": candidate.command_digest,
+            },
+            expected_epoch_revision=epoch,
+            forbidden_keys=tuple(
+                _RETIRED_PREFIX + revision.revision_digest.removeprefix("sha256:")
+                for revision in (
+                    slot.enforcing.revision,
+                    slot.prepared_shadow.revision,
+                    candidate.target_enforcing.revision,
+                )
+            ),
+        ):
+            winner = await self._store.read_state(key)
+            if winner == value:
+                return candidate
+            raise RuleActivationSlotConflictError("Rule binding move retention CAS conflict")
+        return candidate
 
     async def build_evaluation_evidence(
         self,
@@ -186,6 +233,19 @@ class StateStoreRuleActivationSlots:
         if raw is None:
             raise RuleActivationSlotConflictError("Rule binding move candidate is unavailable")
         return RuleBindingMoveCandidateV2.model_validate(raw)
+
+    async def _retention_epoch(self) -> int:
+        raw = await self._store.read_state(_RETENTION_EPOCH_KEY)
+        if raw is None:
+            await self._store.write_state_if_absent(
+                _RETENTION_EPOCH_KEY,
+                {"revision": 1, "last_slot_digest": None},
+            )
+            raw = await self._store.read_state(_RETENTION_EPOCH_KEY)
+        revision = raw.get("revision") if raw is not None else None
+        if isinstance(revision, bool) or not isinstance(revision, int) or revision < 1:
+            raise RuleActivationSlotConflictError("Rule revision retention epoch is invalid")
+        return revision
 
 
 __all__ = ["RuleActivationSlotConflictError", "StateStoreRuleActivationSlots"]

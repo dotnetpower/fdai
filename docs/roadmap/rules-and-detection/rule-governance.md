@@ -422,7 +422,7 @@ reached the A1 default route, so adding a route for that category could have red
 - Changing a rule's logic bumps its `version`; changing an assignment's parameters/effect/scope is
   itself an audited, versioned change. A rule set **pins the `version` of each member rule** so a
   rule change cannot silently alter a promoted set.
-- **Rule revision upgrades (phases 1-8 implemented):** An activation generation pins each
+- **Rule revision upgrades (phases 1-9 implemented):** An activation generation pins each
   member's exact version and digest, and the ledger accepts only membership changes against an
   unchanged catalog, so changing an activated Rule's content makes an upgraded installation fail
   closed at startup. Until every phase below is operationally validated,
@@ -459,7 +459,8 @@ reached the A1 default route, so adding a route for that category could have red
   stay authority-neutral. Phase 7 is the only implemented cutover from the fenced version 1
   pointer to the authority-bearing version 2 pointer; startup can read that result but cannot
   originate it. Phase 8 moves one explicitly named revision and enforcing binding through one
-  approved authority CAS. Phase 9 remains open.
+  approved authority CAS. Phase 9 retains rollback closure, serializes every new reference against
+  retirement, and runs rollback through the same cohort and authority CAS.
   1. **Dual-read codecs.** A compatibility release reads version 1 and 2 of every durable object
      and event (proposal and change union, approval, command, result, pointer, generation,
      idempotency row, manifest, and prepare and acknowledgement events) while still writing
@@ -559,6 +560,17 @@ reached the A1 default route, so adding a route for that category could have red
      applied, or rollback-eligible generation, enforcement pin, or promotion record references
      it, and retirement is itself an approved, audited operation. Rollback is an approved
      transition through the same cohort protocol.
+     This phase is implemented as a bounded reference snapshot, approved retirement tombstone,
+     retained rollback eligibility, and rollback transition kind. Active, desired, latest
+     prepared, current candidate/applied, rollback-eligible, enforcement-pin, and promotion
+     references block retirement. Prepare, slot, move, desired, generation, binding, eligibility,
+     and retirement writes all serialize through one retention epoch; database transactions reject
+     a tombstoned target and prevent retirement from racing a new reference. Retirement verifies
+     the exact content-addressed registry closure and never deletes historical bytes. A rollback
+     must cite an unexpired eligibility record produced atomically by the transition it reverses,
+     use a new monotonically increasing profile version, regain the old member and binding through
+     a signed target manifest and fully applied v2-write cohort, and pass the same current
+     governance approval and pair CAS as a forward revision change.
 
   Request identity derives from the release, the proposal digest, and the target generation, so
   concurrent replicas converge by reading back the same record.
