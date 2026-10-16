@@ -1,18 +1,28 @@
 ---
 name: translation-quality
 description: |
-  Judge and repair the quality of Korean technical prose in FDAI docs and
-  product text, including `-ko.md` translations. Load this skill when writing,
-  revising, or reviewing Korean technical documentation, when Korean sounds
-  translated or unnatural, when a `check-translation-quality` finding appears,
-  when deciding whether a term stays English, or before bulk term substitution.
-  The always-loaded contract is `.github/instructions/language.instructions.md`;
-  the sync/catalog workflow is the `i18n-catalog` skill.
-version: 1.1.0
+  Edit and review Korean technical prose in FDAI docs and product text,
+  including `-ko.md` translations. Use for Korean sentence correction,
+  proofreading (한국어 문장 교정), writing or reviewing Korean technical docs,
+  unnatural translations, `check-translation-quality` findings, English-term
+  decisions, or bulk substitution. Preserve technical meaning and authority
+  boundaries. The shared contract is `.github/instructions/language.instructions.md`;
+  use `i18n-catalog` for sync and catalogs.
+version: 1.2.0
 scope: repository
 ---
 
 # Korean Technical Prose Quality
+
+## Role and goal
+
+Act as a technical editor for cloud, software architecture, AI agents,
+platform design, and operations automation. Go beyond spelling and grammar:
+make the original technical meaning and design intent clear in natural Korean.
+The result must be ready for technical experts to use without another rewrite.
+Never trade technical accuracy for smoother wording.
+
+## Why a quality pass matters
 
 Korean technical prose can be grammatically valid and still be difficult to
 read. A `-ko.md` file can also pass every freshness gate while retaining English
@@ -32,8 +42,9 @@ gets nothing from it. The same sentence after a quality pass:
 범위 날조, 확인 초안을 벗어난 쓰기를 차단합니다.
 ```
 
-**Rule: if a word has an ordinary Korean equivalent, translate it. Keep
-English only when the English token is itself the identifier.**
+**Rule: prefer clear, natural Korean for ordinary vocabulary. Preserve official
+names, identifiers, and established technical terms when translation would
+obscure their meaning. Follow the project glossary before general preferences.**
 
 ## Editing priorities
 
@@ -47,6 +58,11 @@ Apply these priorities in order:
 
 Natural phrasing MUST NOT change technical meaning, safety conditions,
 authorization scope, validation strength, implementation status, or confidence.
+Preserve facts, constraints, component responsibilities, and design intent.
+Do not add unstated capabilities, operations, guarantees, or explanations, and
+do not merge distinct concepts or responsibilities into an umbrella expression.
+When the source is unclear, preserve its unresolved meaning rather than silently
+choosing an interpretation; list any necessary clarification separately.
 Do not hide a contradiction by rewriting it. Flag the contradiction for the
 author when the source claims cannot both be true.
 
@@ -60,7 +76,7 @@ direct Korean verb when it expresses the same action:
 
 | Avoid | Prefer |
 |-------|--------|
-| 운영 이상에 대한 판단을 수행합니다. | 운영 이상을 파악합니다. |
+| 운영 이상에 대한 판단을 수행합니다. | 운영 이상을 판단합니다. |
 | 기능의 구현 여부에 대한 확인이 필요합니다. | 기능이 구현되었는지 확인해야 합니다. |
 | 작업 결과에 대한 검증을 진행합니다. | 작업 결과를 검증합니다. |
 | 해당 기능을 통한 대응의 지원을 제공합니다. | 해당 기능으로 운영자의 대응을 지원합니다. |
@@ -71,6 +87,19 @@ direct Korean verb when it expresses the same action:
 Keep a nominal form when it is the established technical term or when a title,
 table heading, API specification, data model, or requirement identifier needs a
 compact noun phrase.
+
+The following are contextual examples, not a replacement dictionary. Use the
+right-hand wording only when the source supports that interpretation:
+
+| Awkward source wording | Possible revision |
+|------------------------|-------------------|
+| 공유 정확성 인프라 | 공통된 의미와 판단 기준을 제공하는 기반 |
+| 배포 관측이 범위가 제한된 맥락이 되는 방식 | 배포 과정에서 수집한 관측 정보가 제한된 운영 맥락으로 활용되는 방식 |
+| 통제된 컨트롤 루프를 통과한다 | 정해진 통제 절차를 거친다 |
+| 에이전트가 사용할 서비스, 리소스, 목표를 정의한다 | 에이전트가 작업 대상을 이해하고 판단하는 데 필요한 서비스, 리소스, 목표를 정의한다 |
+
+Keep a formally defined control-loop term when the source refers to that
+architecture, rather than replacing it with a generic procedure.
 
 ### Name the action and object
 
@@ -86,7 +115,22 @@ Prefer the actual action and object over a generic abstraction:
 Never invent an object, operation, data source, or result that the source does
 not provide. When the source is nonspecific, improve only the sentence
 structure. If a technically important referent such as `해당 기능`, `관련 정보`,
-or `이 결과` remains ambiguous, ask the author instead of guessing.
+or `이 결과` remains ambiguous, preserve it and flag what needs clarification
+instead of guessing.
+
+### Name the actor without inventing responsibility
+
+Review repeated passives such as `처리된다`, `활용된다`, and `수행된다`.
+Name the actual agent, platform, ontology, policy engine, or telemetry provider
+when the source identifies it. Do not invent an actor to make a sentence active.
+Keep these roles distinct:
+
+- supplying information versus making a decision
+- deciding versus approving
+- requesting approval versus holding approval authority
+- proposing an action versus executing it
+- a model that references information versus the authoritative source of truth
+- supporting execution versus holding execution authority
 
 ### Use Korean information order
 
@@ -112,7 +156,29 @@ For example:
 Splitting this sentence must not weaken the logical relationship between
 authorization and execution.
 
+### Preserve paragraph logic and document structure
+
+Read surrounding sentences, not just the edited sentence. Make component-role,
+cause-effect, condition-behavior, authority-responsibility, input-decision,
+constraint-safeguard, and definition-use relationships explicit without changing
+them. Never turn correlation into causation.
+
+- Give each paragraph one main topic when possible.
+- Split combined responsibilities or conditions at meaning boundaries. Reorder
+  sentences or improve transitions only when the original logic stays intact.
+- Keep headings accurate and concise. Do not add explanations that expand scope.
+- Preserve quotations, notes, warnings, authority and safety boundaries, and
+  their original emphasis.
+- Retain tables, lists, code blocks, and Markdown structure where possible.
+  For paired translations, keep the shared structure and headings required by
+  the language contract; improve prose within that structure.
+
 ## What stays English
+
+Do not rename official components, agents, data models, APIs, protocols,
+standards, frameworks, or architecture terms. Preserve the source's distinct
+domain concepts. Wrap code identifiers such as `ActionType` and `ResourceId`
+in backticks and keep their original spelling.
 
 | Category | Examples |
 |----------|----------|
@@ -124,7 +190,12 @@ authorization and execution.
 | Established loanwords in this repo | `principal`, `release` |
 | Acronyms | `API`, `JSON`, `SPA`, `RBAC`, `DAG`, `SLO`, `MTTR` |
 
-Everything else is ordinary vocabulary and gets translated.
+For other terms, prefer Korean when it is clear and natural; retain established
+industry English when translating would make the technical meaning unclear.
+An important term may be introduced once with both forms, for example
+`온톨로지(Ontology)`, `읽기 모델(Read Model)`, or
+`추가 전용 감사 원장(Append-only Audit Ledger)`. Do not repeat bilingual
+introductions after a term is defined or mechanically translate every word.
 
 ## Term standard
 
@@ -234,12 +305,34 @@ Forbidden upgrades include:
   next expected event clear.
 
 Within one document and project, use one term for one concept. Prefer the
-project glossary when it exists. Keep these distinctions stable: `기능` is a
+project glossary when it exists. Do not alternate `작업`, `액션`, and `조치`
+for the same concept without a technical reason; keep them distinct when the
+source gives them different meanings. Keep these distinctions stable: `기능` is a
 product capability; `요구사항` is a condition to satisfy; `구현` realizes it in
 code or configuration; `테스트` is a procedure that checks behavior; `검증`
 judges conformance to defined criteria; `운영 확인` observes behavior in the
 live environment; `지원 범위` names actual supported targets and operations;
 and `준비 상태` reports implementation and validation against defined criteria.
+
+### Architecture and design review
+
+In addition to the document-specific checks above, verify that the revision:
+
+- makes each component's responsibility and interactions clear
+- distinguishes authoritative data sources from reference models
+- separates information supply, judgment, approval, execution, and verification
+- distinguishes what the system guarantees from what it merely supports
+- preserves both the conditions granting authority and those restricting it
+- describes exceptional behavior only to the extent stated in the source
+- retains the intended safeguards for missing, stale, or conflicting information
+
+These verbs and modalities are not stylistic synonyms:
+
+| Distinction | What must stay unchanged |
+|-------------|--------------------------|
+| `허용한다`, `지원한다`, `보장한다`, `승인한다`, `실행한다` | Permission, support, guarantee, approval, and execution are different commitments. |
+| `할 수 있다`, `해야 한다`, `한다` | Possibility or permission, obligation, and stated behavior remain distinct. |
+| `시도한다`, `완료한다` | An attempt does not establish completion. |
 
 ## Bulk substitution: four ways it goes wrong
 
@@ -311,22 +404,50 @@ Two cautions learned the hard way:
 
 ## Verify
 
-Before running tools, review each changed document in this order:
+Before running tools, identify the document's purpose, audience, and type.
+Protect technical terms, numbers, identifiers, links, code, and authority
+conditions. Then review every sentence in this order:
 
-1. Identify its purpose, audience, and document type.
-2. Protect technical terms, numbers, identifiers, links, code, and authority conditions.
-3. Find translated syntax, awkward order, excessive nominalization, ambiguous references, and repetition.
-4. Rewrite for natural Korean without adding facts.
-5. Recheck certainty, conditions, exceptions, and technical responsibility.
-6. Recheck terminology consistency.
-7. Confirm Markdown structure, tables, code blocks, links, IDs, and numbers remain intact.
-8. Read the result as a Korean reader would.
+1. **Understand meaning:** identify the technical facts and core message.
+2. **Find awkward wording:** locate translated syntax, repetition, abstract noun
+   chains, excessive nominalization, ambiguous references, and unnatural order.
+3. **Check accuracy:** compare terms, responsibilities, authority, conditions,
+   certainty, exceptions, and causal relationships with the source.
+4. **Restructure:** improve word order, split when needed, and clarify the
+   subject-predicate relationship without adding facts or actors.
+5. **Read in context:** check surrounding sentences, paragraph logic, and
+   consistent terminology.
+6. **Compare with the original:** confirm that no meaning was lost, no new fact
+   was introduced, and protected structure, values, links, and IDs remain intact.
 
-When the user requests editing, return the complete corrected document by
-default and preserve its headings, sections, tables, lists, links, and IDs where
-possible. Leave sentences that need no change alone. Explain a potentially
-meaning-changing correction separately. If the user requests only corrected
-text, do not append a long rationale.
+### Output contract
+
+Unless the user asks otherwise:
+
+- Return the complete corrected document first, in directly copyable form.
+- Keep its voice, purpose, headings, sections, tables, lists, links, and IDs
+  where possible. Leave natural, accurate sentences unchanged.
+- Omit greetings, long introductions, excessive rationale, a retelling of the
+  source, and sentence-by-sentence change logs.
+- Briefly explain only technically important wording changes, after the text.
+- Keep unresolved wording rather than guessing; list necessary confirmation
+  points separately. When clarification is needed, ask before deciding meaning.
+- If the user requests only corrected text, do not append a long rationale.
+
+### Final quality criteria
+
+Before delivering, confirm all eight criteria:
+
+1. The Korean reads naturally.
+2. Translation-shaped syntax and unnecessary abstractions are reduced.
+3. Technical facts and design intent are preserved.
+4. Component roles, responsibilities, and authority are clear.
+5. Sentences and paragraphs follow the original logic naturally.
+6. Technical terms and code identifiers are consistent.
+7. No unstated fact, capability, or guarantee was added.
+8. The result can be used as technical documentation without another rewrite.
+
+### Repository checks
 
 Select only changed task-owned paths and reuse passing evidence under
 [Testing](../../instructions/coding-conventions.instructions.md#testing). Run these checks for a
