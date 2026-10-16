@@ -26,8 +26,15 @@ from fdai_service_contracts.compatibility import canonical_digest
 from fdai_service_contracts.rule_activation import RuleActivationMember
 from fdai_service_contracts.rule_activation_identity import (
     build_rule_activation_identity_context_v2,
+    build_rule_activation_identity_transition_v2,
 )
 from fdai_service_contracts.rule_activation_manifest import RuleRevisionIdentityRef
+from fdai_service_contracts.rule_activation_revision_change import (
+    RuleRevisionChangeApprovalV2,
+    RuleRevisionChangeProposalV2,
+    rule_revision_change_approval_digest,
+    rule_revision_change_proposal_digest,
+)
 from fdai_service_contracts.rule_activation_slots import (
     RuleBindingMode,
     RuleDualRevisionSlotV2,
@@ -326,4 +333,87 @@ async def test_identity_upgrade_requires_reviewed_source_and_exact_proposer() ->
         approval,
         proposal=proposal.model_copy(update={"proposed_by": "requester-other"}),
         baseline=baseline,
+    )
+
+
+async def test_revision_change_authority_binds_complete_target_transition() -> None:
+    store = InMemoryStateStore()
+    old = RuleRevisionIdentityRef(
+        rule_id="rule.alpha",
+        rule_version="1.0.0",
+        revision_digest=_digest("1"),
+    )
+    new = RuleRevisionIdentityRef(
+        rule_id="rule.alpha",
+        rule_version="1.1.0",
+        revision_digest=_digest("2"),
+    )
+    source = build_rule_activation_identity_context_v2(
+        catalog_revisions=(old, new),
+        profile_id="baseline",
+        profile_version="1.0.0",
+        active_members=(old,),
+    )
+    target = build_rule_activation_identity_context_v2(
+        catalog_revisions=(old, new),
+        profile_id="baseline",
+        profile_version="1.1.0",
+        active_members=(new,),
+    )
+    transition = build_rule_activation_identity_transition_v2(source=source, target=target)
+    proposal_values = {
+        "source_authority_pointer_digest": _digest("3"),
+        "identity_transition": transition,
+        "rule_id": old.rule_id,
+        "binding_id": "binding-alpha",
+        "from_revision": old,
+        "to_revision": new,
+        "slot_digest": _digest("4"),
+        "binding_move_command_digest": _digest("5"),
+        "signed_manifest_digest": _digest("6"),
+        "release_id": "release-2",
+        "revision_registry_root": _digest("7"),
+        "cohort_prepare_digest": _digest("8"),
+        "reviewed_source_revision": HEAD,
+        "proposed_by": "requester-a",
+        "proposed_at": NOW,
+    }
+    proposal = RuleRevisionChangeProposalV2(
+        **proposal_values,
+        proposal_digest=rule_revision_change_proposal_digest(**proposal_values),
+    )
+    attestation = _attestation(
+        action_type_id="rule-revision-change",
+        evidence_digest=proposal.proposal_digest,
+        idempotency_key=proposal.proposal_digest,
+        scenario_set_version=target.profile_snapshot.profile_version,
+        request_fingerprint=target.generation.generation_digest,
+    )
+    receipt_digest = await _retain_attestation(store, attestation)
+    approval_values = {
+        "proposal_digest": proposal.proposal_digest,
+        "authority_receipt_digest": receipt_digest,
+        "approval_profile_digest": _profile().policy_digest,
+        "requester_id": proposal.proposed_by,
+        "approver_ids": ("approver-a", "approver-b"),
+        "original_quorum": 2,
+        "effective_quorum": 2,
+        "approved_at": NOW + timedelta(seconds=2),
+    }
+    approval = RuleRevisionChangeApprovalV2(
+        **approval_values,
+        approval_digest=rule_revision_change_approval_digest(**approval_values),
+    )
+    authority = StateStoreRuleActivationAuthority(
+        store,
+        active_approval_profile=_profile(),
+    )
+
+    assert await authority.authorize_revision_change(
+        approval,
+        proposal=proposal,
+    )
+    assert not await authority.authorize_revision_change(
+        approval,
+        proposal=proposal.model_copy(update={"reviewed_source_revision": "b" * 40}),
     )

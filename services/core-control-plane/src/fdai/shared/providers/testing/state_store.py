@@ -293,6 +293,48 @@ class InMemoryStateStore(StateStore):
                 raise
             return True
 
+    async def compare_and_set_state_pair_with_audit_before(
+        self,
+        key: str,
+        value: Mapping[str, Any],
+        *,
+        expected_revision: int,
+        second_key: str,
+        second_value: Mapping[str, Any],
+        expected_second_revision: int,
+        not_before: datetime,
+        expires_at: datetime,
+        audit_entry: Mapping[str, Any],
+    ) -> bool:
+        with self._lock:
+            current_time = self._linearization_clock()
+            first = self._state.get(key)
+            second = self._state.get(second_key)
+            first_revision = first.get("revision", 0) if first is not None else 0
+            second_revision = second.get("revision", 0) if second is not None else 0
+            if (
+                current_time.tzinfo is None
+                or not_before.tzinfo is None
+                or expires_at.tzinfo is None
+                or not not_before <= current_time < expires_at
+                or first_revision != expected_revision
+                or second_revision != expected_second_revision
+                or (expected_revision == 0 and first is not None)
+                or (expected_second_revision == 0 and second is not None)
+            ):
+                return False
+            snapshot = self._snapshot_keys_locked(key, second_key)
+            audit_length_before = len(self._audit)
+            try:
+                self._write_locked(key, value)
+                self._write_locked(second_key, second_value)
+                self._append_audit_locked(audit_entry)
+            except Exception:
+                self._restore_keys_locked(snapshot)
+                del self._audit[audit_length_before:]
+                raise
+            return True
+
     async def write_state_pair_with_audit_if_absent(
         self,
         key: str,

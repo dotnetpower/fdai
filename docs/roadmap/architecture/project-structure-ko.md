@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 2f3eb12a83e8990184dca0a5a2762386303e0866
+translation_source_sha: 603c1abe110da423f680da884551749e4d629ca0
 translation_revised: 2026-10-17
 ---
 # 프로젝트 구조
@@ -93,6 +93,11 @@ seam은 데이터베이스 시각의 lease 검사와 원자적인 candidate/appl
 서명 매니페스트 예약, 코호트 candidate/applied 상태, 주입된 거버넌스 권한을 다시 검사합니다.
 StateStore 트랜잭션은 버전 1 포인터를 펜스하면서 버전 2 포인터를 삽입하므로 충돌이나 동시 레거시
 writer가 권한 분할을 노출할 수 없습니다. 시작 경로는 이 결과를 읽으며 직접 만들지 않습니다.
+권한을 갖는 개정 변경도 같은 소유권 분리를 유지합니다. 공유 계약은 명시적인 원본/대상 ID 전환
+하나와 논리 바인딩을 결속합니다. Core는 비활성 슬롯, 이동 후보, 대상 코호트, 현재 거버넌스 승인을
+검증합니다. 데이터베이스 시각의 StateStore pair CAS가 v2 세대 포인터와 정확한 enforce 바인딩을
+함께 이동합니다. 권한 key는 Rule id가 아니라 논리 바인딩 id를 사용하므로 한 Rule의 여러 바인딩은
+서로 구분됩니다.
 
 질문 구조의 개념 선택 재사용은 Core 대화 처리가 소유하며 한 번의 처리가 끝나면 종료됩니다.
 정확한 입력과 판독기별로 분리된 캐시는 관측 상태, 인가 결정, 이전 요청의 의미를 저장하지

@@ -88,8 +88,15 @@ class RuleActivationManifest(ContractBase):
         if not self.issued_at < self.expires_at <= self.issued_at + _MAX_MANIFEST_VALIDITY:
             raise ValueError("Rule activation manifest validity MUST be positive and bounded")
         keys = tuple((member.rule_id, member.rule_version) for member in self.members)
-        if keys != tuple(sorted(keys)) or len(set(keys)) != len(keys):
-            raise ValueError("Rule activation manifest members MUST be unique and sorted")
+        rule_ids = tuple(member.rule_id for member in self.members)
+        if (
+            keys != tuple(sorted(keys))
+            or len(set(keys)) != len(keys)
+            or len(set(rule_ids)) != len(rule_ids)
+        ):
+            raise ValueError(
+                "Rule activation manifest members MUST have unique Rule ids and be sorted"
+            )
         return self
 
     @property

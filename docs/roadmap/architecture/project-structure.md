@@ -96,6 +96,11 @@ approval and command, and authority pointer. Core rechecks signed-manifest reser
 candidate/applied state, and the injected governance authority. The StateStore transaction both
 fences the version 1 pointer and inserts the version 2 pointer, so neither a crash nor a concurrent
 legacy writer can expose split authority. Startup reads this result and never originates it.
+Authoritative revision changes retain the same ownership split. Shared contracts bind one explicit
+source/target identity transition and logical binding. Core verifies the dormant slot, move
+candidate, target cohort, and current governance approval. A database-time StateStore pair CAS
+moves the v2 generation pointer and the exact enforcing binding together. Multiple bindings for
+one Rule remain distinct because authority keys use the logical binding id rather than the Rule id.
 
 Question-form concept-choice reuse is owned by Core conversation processing and ends with one
 run. Its exact-input, reader-separated cache never stores observed state, authorization, or

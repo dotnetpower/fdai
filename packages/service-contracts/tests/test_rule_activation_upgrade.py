@@ -13,6 +13,7 @@ from fdai_service_contracts.rule_activation_identity import (
 from fdai_service_contracts.rule_activation_manifest import RuleRevisionIdentityRef
 from fdai_service_contracts.rule_activation_upgrade import (
     RuleActivationAuthorityPointerV2,
+    RuleActivationAuthorityTransitionKind,
     RuleIdentityUpgradeApprovalV2,
     RuleIdentityUpgradeCommandV2,
     RuleIdentityUpgradeProposalV2,
@@ -152,14 +153,16 @@ def test_upgrade_contract_binds_review_compatibility_and_authority_pointer() -> 
     )
     pointer_values = {
         "revision": 1,
-        "source_generation_digest": proposal.source_generation_digest,
-        "active_generation": proposal.target_identity.generation,
+        "transition_kind": RuleActivationAuthorityTransitionKind.IDENTITY_UPGRADE,
+        "previous_generation_digest": proposal.source_generation_digest,
+        "active_identity": proposal.target_identity,
         "signed_manifest_digest": proposal.signed_manifest_digest,
         "release_id": baseline.release_id,
-        "policy_baseline_digest": baseline.baseline_digest,
+        "transition_evidence_digest": baseline.baseline_digest,
         "cohort_prepare_digest": proposal.cohort_prepare_digest,
         "acknowledgement_set_digest": _digest("8"),
-        "upgrade_command_digest": command.command_digest,
+        "authority_upgrade_command_digest": command.command_digest,
+        "transition_command_digest": command.command_digest,
         "activated_at": command.commanded_at,
     }
     pointer = RuleActivationAuthorityPointerV2(
@@ -168,7 +171,7 @@ def test_upgrade_contract_binds_review_compatibility_and_authority_pointer() -> 
     )
 
     assert pointer.activation_authority is True
-    assert pointer.active_generation == proposal.target_identity.generation
+    assert pointer.active_identity.generation == proposal.target_identity.generation
 
 
 def test_upgrade_approval_rejects_requester_self_approval() -> None:

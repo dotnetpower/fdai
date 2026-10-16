@@ -422,7 +422,7 @@ reached the A1 default route, so adding a route for that category could have red
 - Changing a rule's logic bumps its `version`; changing an assignment's parameters/effect/scope is
   itself an audited, versioned change. A rule set **pins the `version` of each member rule** so a
   rule change cannot silently alter a promoted set.
-- **Rule revision upgrades (phases 1-7 implemented):** An activation generation pins each
+- **Rule revision upgrades (phases 1-8 implemented):** An activation generation pins each
   member's exact version and digest, and the ledger accepts only membership changes against an
   unchanged catalog, so changing an activated Rule's content makes an upgraded installation fail
   closed at startup. Until every phase below is operationally validated,
@@ -458,7 +458,8 @@ reached the A1 default route, so adding a route for that category could have red
   when profile id, version, and members are all unchanged during catalog-only growth. Phases 1-6
   stay authority-neutral. Phase 7 is the only implemented cutover from the fenced version 1
   pointer to the authority-bearing version 2 pointer; startup can read that result but cannot
-  originate it. Phases 8-9 remain open.
+  originate it. Phase 8 moves one explicitly named revision and enforcing binding through one
+  approved authority CAS. Phase 9 remains open.
   1. **Dual-read codecs.** A compatibility release reads version 1 and 2 of every durable object
      and event (proposal and change union, approval, command, result, pointer, generation,
      idempotency row, manifest, and prepare and acknowledgement events) while still writing
@@ -545,6 +546,14 @@ reached the A1 default route, so adding a route for that category could have red
   8. **Revision changes.** A change names `rule_id`, the from and to revision identities, and the
      from and to catalog manifest and profile identities, all inside the approved proposal digest,
      and runs through the cohort protocol. Revisions never carry forward unattended.
+     This phase is implemented as a single-Rule proposal and an authority-bearing binding pointer.
+     The proposal contains the complete source/target identity transition, logical binding id,
+     signed target release, registry root, cohort, slot, and approved move candidate. It rejects
+     membership changes, multiple revision changes, and unrelated profile switches. Core rechecks
+     the exact source authority pointer, source and target profile snapshots, authenticated v2-write
+     acknowledgements, applied identities, manifest reservation, active approval profile, and
+     database-time serving leases. One transaction CASes both the generation pointer and the
+     binding pointer, so neither can become authoritative alone.
   9. **Retention and rollback.** A release or shared registry retains the full closure that
      supported rollback needs. A revision can't be retired while any active, desired, prepared,
      applied, or rollback-eligible generation, enforcement pin, or promotion record references

@@ -6,6 +6,10 @@ from datetime import datetime
 
 from fdai_service_contracts.approval_profile import ApprovalProfileRevision
 from fdai_service_contracts.rule_activation_manifest import RuleRevisionIdentityRef
+from fdai_service_contracts.rule_activation_revision_change import (
+    RuleRevisionChangeApprovalV2,
+    RuleRevisionChangeProposalV2,
+)
 from fdai_service_contracts.rule_activation_slots import (
     RuleDualRevisionSlotV2,
     RuleRevisionPromotionApprovalV2,
@@ -103,6 +107,37 @@ class StateStoreRuleActivationAuthority:
             and attestation.scenario_set_version
             == proposal.target_identity.profile_snapshot.profile_version
             and attestation.fdai_revision == baseline.reviewed_source_revision
+        )
+
+    async def authorize_revision_change(
+        self,
+        approval: RuleRevisionChangeApprovalV2,
+        *,
+        proposal: RuleRevisionChangeProposalV2,
+    ) -> bool:
+        resolved = await self._resolve(approval.authority_receipt_digest)
+        if resolved is None:
+            return False
+        attestation, decision = resolved
+        return (
+            _decision_matches(
+                attestation,
+                decision,
+                approval_profile_digest=approval.approval_profile_digest,
+                approver_ids=approval.approver_ids,
+                original_quorum=approval.original_quorum,
+                effective_quorum=approval.effective_quorum,
+                approved_at=approval.approved_at,
+            )
+            and attestation.action_type_id == "rule-revision-change"
+            and attestation.review.author.oid.casefold() == proposal.proposed_by.casefold()
+            and attestation.evidence_digest == proposal.proposal_digest
+            and attestation.idempotency_key == proposal.proposal_digest
+            and attestation.request_fingerprint
+            == proposal.identity_transition.target.generation.generation_digest
+            and attestation.scenario_set_version
+            == proposal.identity_transition.target.profile_snapshot.profile_version
+            and attestation.fdai_revision == proposal.reviewed_source_revision
         )
 
     async def _resolve(

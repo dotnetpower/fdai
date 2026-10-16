@@ -12,6 +12,7 @@ from fdai_service_contracts.rule_activation_cohort import (
 )
 from fdai_service_contracts.rule_activation_upgrade import (
     RuleActivationAuthorityPointerV2,
+    RuleActivationAuthorityTransitionKind,
     RuleIdentityUpgradeCommandV2,
     RuleReviewedPolicyBaselineV2,
     rule_activation_authority_pointer_v2_digest,
@@ -105,9 +106,16 @@ class StateStoreRuleIdentityUpgrade:
 
         existing = await self._read_v2_pointer()
         if existing is not None:
-            if existing.upgrade_command_digest == validated.command_digest:
+            if (
+                existing.authority_upgrade_command_digest == validated.command_digest
+                and existing.transition_command_digest == validated.command_digest
+            ):
                 await self._verify_fence(existing)
                 return existing
+            if existing.authority_upgrade_command_digest == validated.command_digest:
+                raise RuleIdentityUpgradeConflictError(
+                    "Rule identity upgrade already completed and authority has advanced"
+                )
             raise RuleIdentityUpgradeConflictError(
                 "Another Rule activation v2 authority pointer already exists"
             )
@@ -148,7 +156,7 @@ class StateStoreRuleIdentityUpgrade:
                 "producer_principal": "Saga",
                 "action_kind": "rule_activation.identity-upgraded",
                 "source_generation_digest": proposal.source_generation_digest,
-                "target_generation_digest": pointer.active_generation.generation_digest,
+                "target_generation_digest": pointer.active_identity.generation.generation_digest,
                 "signed_manifest_digest": proposal.signed_manifest_digest,
                 "policy_baseline_digest": proposal.policy_baseline_digest,
                 "cohort_prepare_digest": proposal.cohort_prepare_digest,
@@ -162,7 +170,11 @@ class StateStoreRuleIdentityUpgrade:
         )
         if not changed:
             winner = await self._read_v2_pointer()
-            if winner is not None and winner.upgrade_command_digest == validated.command_digest:
+            if (
+                winner is not None
+                and winner.authority_upgrade_command_digest == validated.command_digest
+                and winner.transition_command_digest == validated.command_digest
+            ):
                 await self._verify_fence(winner)
                 return winner
             raise RuleIdentityUpgradeConflictError("Rule identity upgrade authority CAS conflict")
@@ -334,25 +346,29 @@ class StateStoreRuleIdentityUpgrade:
         proposal = command.proposal
         return RuleActivationAuthorityPointerV2(
             revision=1,
-            source_generation_digest=proposal.source_generation_digest,
-            active_generation=proposal.target_identity.generation,
+            transition_kind=RuleActivationAuthorityTransitionKind.IDENTITY_UPGRADE,
+            previous_generation_digest=proposal.source_generation_digest,
+            active_identity=proposal.target_identity,
             signed_manifest_digest=proposal.signed_manifest_digest,
             release_id=proposal.release_id,
-            policy_baseline_digest=proposal.policy_baseline_digest,
+            transition_evidence_digest=proposal.policy_baseline_digest,
             cohort_prepare_digest=proposal.cohort_prepare_digest,
             acknowledgement_set_digest=acknowledgement_set_digest,
-            upgrade_command_digest=command.command_digest,
+            authority_upgrade_command_digest=command.command_digest,
+            transition_command_digest=command.command_digest,
             activated_at=command.commanded_at,
             pointer_digest=rule_activation_authority_pointer_v2_digest(
                 revision=1,
-                source_generation_digest=proposal.source_generation_digest,
-                active_generation=proposal.target_identity.generation,
+                transition_kind=RuleActivationAuthorityTransitionKind.IDENTITY_UPGRADE,
+                previous_generation_digest=proposal.source_generation_digest,
+                active_identity=proposal.target_identity,
                 signed_manifest_digest=proposal.signed_manifest_digest,
                 release_id=proposal.release_id,
-                policy_baseline_digest=proposal.policy_baseline_digest,
+                transition_evidence_digest=proposal.policy_baseline_digest,
                 cohort_prepare_digest=proposal.cohort_prepare_digest,
                 acknowledgement_set_digest=acknowledgement_set_digest,
-                upgrade_command_digest=command.command_digest,
+                authority_upgrade_command_digest=command.command_digest,
+                transition_command_digest=command.command_digest,
                 activated_at=command.commanded_at,
             ),
         )
@@ -399,9 +415,11 @@ class StateStoreRuleIdentityUpgrade:
             _, v1_body = await self._read_v1_pointer()
         if (
             v1_body.get("v2_authoritative") is not True
-            or v1_body.get("v2_pointer_digest") != pointer.pointer_digest
-            or v1_body.get("v2_upgrade_command_digest") != pointer.upgrade_command_digest
-            or v1_body.get("generation_digest") != pointer.source_generation_digest
+            or v1_body.get("v2_upgrade_command_digest") != pointer.authority_upgrade_command_digest
+            or (
+                pointer.transition_kind is RuleActivationAuthorityTransitionKind.IDENTITY_UPGRADE
+                and v1_body.get("generation_digest") != pointer.previous_generation_digest
+            )
         ):
             raise RuleIdentityUpgradeCorruptionError(
                 "Rule activation v1/v2 authority fence mismatch"

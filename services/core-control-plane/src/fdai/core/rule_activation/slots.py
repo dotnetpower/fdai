@@ -179,5 +179,13 @@ class StateStoreRuleActivationSlots:
             raise RuleActivationSlotConflictError("Rule dual-revision slot is unavailable")
         return RuleDualRevisionSlotV2.model_validate(raw)
 
+    async def move_candidate(self, command_digest: str) -> RuleBindingMoveCandidateV2:
+        """Return one retained, approved but inert binding move."""
+
+        raw = await self._store.read_state(_MOVE_PREFIX + command_digest.removeprefix("sha256:"))
+        if raw is None:
+            raise RuleActivationSlotConflictError("Rule binding move candidate is unavailable")
+        return RuleBindingMoveCandidateV2.model_validate(raw)
+
 
 __all__ = ["RuleActivationSlotConflictError", "StateStoreRuleActivationSlots"]

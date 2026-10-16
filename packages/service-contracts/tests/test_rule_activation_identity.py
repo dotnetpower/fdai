@@ -72,6 +72,23 @@ def test_profile_member_must_exist_exactly_in_catalog() -> None:
         )
 
 
+def test_profile_cannot_activate_two_revisions_of_one_rule() -> None:
+    first = _member("rule.alpha", "a")
+    second = RuleRevisionIdentityRef(
+        rule_id=first.rule_id,
+        rule_version="1.1.0",
+        revision_digest="sha256:" + ("b" * 64),
+    )
+
+    with pytest.raises(ValueError, match="unique Rule ids"):
+        build_rule_activation_identity_context_v2(
+            catalog_revisions=(first, second),
+            profile_id="baseline",
+            profile_version="1.1.0",
+            active_members=(first, second),
+        )
+
+
 def test_revision_change_requires_a_profile_version_bump() -> None:
     first_member = (_member("rule.alpha", "a"),)
     second_member = (

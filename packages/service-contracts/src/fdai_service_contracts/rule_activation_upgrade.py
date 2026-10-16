@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Annotated, Literal, Self
 
 from pydantic import Field, field_validator, model_validator
@@ -12,7 +13,6 @@ from fdai_service_contracts.executor_models import ContractBase, Digest
 from fdai_service_contracts.rule_activation import RuleActivationMember
 from fdai_service_contracts.rule_activation_cohort import RuleReplicaIdentity
 from fdai_service_contracts.rule_activation_identity import (
-    RuleActivationGenerationIdentityV2,
     RuleActivationIdentityContextV2,
 )
 from fdai_service_contracts.rule_activation_manifest import RuleRevisionIdentityRef
@@ -307,19 +307,29 @@ class RuleIdentityUpgradeCommandV2(ContractBase):
         return self
 
 
+class RuleActivationAuthorityTransitionKind(StrEnum):
+    IDENTITY_UPGRADE = "identity_upgrade"
+    REVISION_CHANGE = "revision_change"
+
+
 class RuleActivationAuthorityPointerV2(ContractBase):
     """The sole authority-bearing version 2 generation pointer."""
 
     schema_version: Literal["2.0.0"] = "2.0.0"
     revision: Annotated[int, Field(ge=1)]
-    source_generation_digest: LegacyDigest
-    active_generation: RuleActivationGenerationIdentityV2
+    transition_kind: RuleActivationAuthorityTransitionKind
+    previous_generation_digest: Annotated[
+        str,
+        Field(pattern=r"^(?:sha256:)?[a-f0-9]{64}$"),
+    ]
+    active_identity: RuleActivationIdentityContextV2
     signed_manifest_digest: Digest
     release_id: Annotated[str, Field(min_length=1, max_length=256)]
-    policy_baseline_digest: Digest
+    transition_evidence_digest: Digest
     cohort_prepare_digest: Digest
     acknowledgement_set_digest: Digest
-    upgrade_command_digest: Digest
+    authority_upgrade_command_digest: Digest
+    transition_command_digest: Digest
     activated_at: datetime
     pointer_digest: Digest
     activation_authority: Literal[True] = True
@@ -339,16 +349,23 @@ class RuleActivationAuthorityPointerV2(ContractBase):
 
     @model_validator(mode="after")
     def _canonical_pointer(self) -> Self:
+        legacy_source = not self.previous_generation_digest.startswith("sha256:")
+        if (
+            self.transition_kind is RuleActivationAuthorityTransitionKind.IDENTITY_UPGRADE
+        ) is not legacy_source:
+            raise ValueError("Rule activation authority transition source version mismatch")
         expected = rule_activation_authority_pointer_v2_digest(
             revision=self.revision,
-            source_generation_digest=self.source_generation_digest,
-            active_generation=self.active_generation,
+            transition_kind=self.transition_kind,
+            previous_generation_digest=self.previous_generation_digest,
+            active_identity=self.active_identity,
             signed_manifest_digest=self.signed_manifest_digest,
             release_id=self.release_id,
-            policy_baseline_digest=self.policy_baseline_digest,
+            transition_evidence_digest=self.transition_evidence_digest,
             cohort_prepare_digest=self.cohort_prepare_digest,
             acknowledgement_set_digest=self.acknowledgement_set_digest,
-            upgrade_command_digest=self.upgrade_command_digest,
+            authority_upgrade_command_digest=self.authority_upgrade_command_digest,
+            transition_command_digest=self.transition_command_digest,
             activated_at=self.activated_at,
         )
         if self.pointer_digest != expected:
@@ -399,6 +416,7 @@ def _json_values(values: object) -> object:
 
 
 __all__ = [
+    "RuleActivationAuthorityTransitionKind",
     "RuleActivationAuthorityPointerV2",
     "RuleIdentityUpgradeApprovalV2",
     "RuleIdentityUpgradeCommandV2",

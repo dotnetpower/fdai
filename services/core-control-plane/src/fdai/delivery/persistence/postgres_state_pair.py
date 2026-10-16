@@ -128,6 +128,62 @@ class PostgresStatePairMixin:
             return False
         return True
 
+    async def compare_and_set_state_pair_with_audit_before(
+        self: Any,
+        key: str,
+        value: Mapping[str, Any],
+        *,
+        expected_revision: int,
+        second_key: str,
+        second_value: Mapping[str, Any],
+        expected_second_revision: int,
+        not_before: datetime,
+        expires_at: datetime,
+        audit_entry: Mapping[str, Any],
+    ) -> bool:
+        if expected_revision < 1 or expected_second_revision < 0:
+            raise ValueError("state pair expected revisions are invalid")
+        try:
+            async with self._connection() as conn:
+                async with conn.transaction():
+                    await self._set_statement_timeout(conn)
+                    cursor = await conn.execute(
+                        """
+                        UPDATE state_kv
+                           SET value = %s::jsonb,
+                               updated_at = clock_timestamp()
+                         WHERE key = %s
+                           AND COALESCE(value ->> 'revision', '0') = %s
+                           AND %s <= clock_timestamp()
+                           AND clock_timestamp() < %s
+                        RETURNING key
+                        """,
+                        (
+                            json.dumps(dict(value), default=str),
+                            key,
+                            str(expected_revision),
+                            not_before,
+                            expires_at,
+                        ),
+                    )
+                    if await cursor.fetchone() is None:
+                        return False
+                    if expected_second_revision == 0:
+                        second_changed = await _insert_state(conn, second_key, second_value)
+                    else:
+                        second_changed = await _update_state_revision(
+                            conn,
+                            second_key,
+                            second_value,
+                            expected_second_revision,
+                        )
+                    if not second_changed:
+                        raise _RollbackTransactionError()
+                    await self._append_audit_in_transaction(conn, dict(audit_entry))
+        except _RollbackTransactionError:
+            return False
+        return True
+
 
 async def _insert_state(conn: Any, key: str, value: Mapping[str, Any]) -> bool:
     cursor = await conn.execute(

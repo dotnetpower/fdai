@@ -52,8 +52,15 @@ class RuleProfileSnapshotV2(ContractBase):
     @model_validator(mode="after")
     def _canonical_snapshot(self) -> Self:
         keys = tuple((item.rule_id, item.rule_version) for item in self.members)
-        if keys != tuple(sorted(keys)) or len(set(keys)) != len(keys):
-            raise ValueError("Rule profile snapshot members MUST be unique and sorted")
+        rule_ids = tuple(item.rule_id for item in self.members)
+        if (
+            keys != tuple(sorted(keys))
+            or len(set(keys)) != len(keys)
+            or len(set(rule_ids)) != len(rule_ids)
+        ):
+            raise ValueError(
+                "Rule profile snapshot members MUST have unique Rule ids and be sorted"
+            )
         expected = rule_profile_snapshot_digest(
             profile_id=self.profile_id,
             profile_version=self.profile_version,
@@ -76,8 +83,13 @@ class RuleActivationGenerationIdentityV2(ContractBase):
     @model_validator(mode="after")
     def _canonical_generation(self) -> Self:
         keys = tuple((item.rule_id, item.rule_version) for item in self.members)
-        if keys != tuple(sorted(keys)) or len(set(keys)) != len(keys):
-            raise ValueError("Rule generation v2 members MUST be unique and sorted")
+        rule_ids = tuple(item.rule_id for item in self.members)
+        if (
+            keys != tuple(sorted(keys))
+            or len(set(keys)) != len(keys)
+            or len(set(rule_ids)) != len(rule_ids)
+        ):
+            raise ValueError("Rule generation v2 members MUST have unique Rule ids and be sorted")
         expected = rule_activation_generation_v2_digest(
             profile_snapshot_digest=self.profile_snapshot_digest,
             members=self.members,

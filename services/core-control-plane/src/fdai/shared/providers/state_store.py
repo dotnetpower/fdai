@@ -198,6 +198,22 @@ class StateStore(Protocol):
         """Atomically update, insert, and audit inside one database-time window."""
         ...
 
+    async def compare_and_set_state_pair_with_audit_before(
+        self,
+        key: str,
+        value: Mapping[str, Any],
+        *,
+        expected_revision: int,
+        second_key: str,
+        second_value: Mapping[str, Any],
+        expected_second_revision: int,
+        not_before: datetime,
+        expires_at: datetime,
+        audit_entry: Mapping[str, Any],
+    ) -> bool:
+        """Atomically CAS two state rows and audit inside one database-time window."""
+        ...
+
     async def write_state_pair_with_audit_if_absent(
         self,
         key: str,
