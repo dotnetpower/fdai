@@ -28,7 +28,7 @@ class ModelLifecycleObservationError(RuntimeError):
 
 @dataclass(frozen=True, slots=True)
 class GitHubModelLifecycleObservationConfig:
-    """Configure the single trusted repository and review window."""
+    """Configure the trusted repository, review window, and bounded 100-page read budget."""
 
     owner: str
     repo: str
@@ -36,7 +36,7 @@ class GitHubModelLifecycleObservationConfig:
     base_ref: str = "main"
     review_ttl_hours: int = 168
     timeout_seconds: float = 15.0
-    max_pages: int = 10
+    max_pages: int = 100
 
     def __post_init__(self) -> None:
         if not self.owner or not self.repo:
@@ -49,8 +49,8 @@ class GitHubModelLifecycleObservationConfig:
             raise ValueError("model lifecycle review TTL MUST be between 1 and 720 hours")
         if self.timeout_seconds <= 0:
             raise ValueError("model lifecycle GitHub timeout MUST be positive")
-        if not 1 <= self.max_pages <= 10:
-            raise ValueError("model lifecycle GitHub max_pages MUST be between 1 and 10")
+        if not 1 <= self.max_pages <= 100:
+            raise ValueError("model lifecycle GitHub max_pages MUST be between 1 and 100")
 
 
 class GitHubModelLifecycleObservationSource:

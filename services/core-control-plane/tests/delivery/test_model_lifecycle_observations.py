@@ -81,13 +81,17 @@ async def test_source_reads_exact_workflow_draft_head() -> None:
 
 
 @pytest.mark.asyncio
-async def test_source_follows_bounded_pull_request_pagination() -> None:
+@pytest.mark.parametrize("page_count", [2, 13, 100])
+async def test_source_follows_bounded_pull_request_pagination(page_count: int) -> None:
     proposal = _proposal()
     digest = str(proposal["proposal_digest"])
+    requested_pages: list[int] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path.endswith("/pulls"):
-            if request.url.params["page"] == "1":
+            page = int(request.url.params["page"])
+            requested_pages.append(page)
+            if page < page_count:
                 return httpx.Response(200, json=[{"draft": False}] * 100)
             return httpx.Response(
                 200,
@@ -124,13 +128,23 @@ async def test_source_follows_bounded_pull_request_pagination() -> None:
             config=GitHubModelLifecycleObservationConfig(
                 owner="example",
                 repo="fdai",
-                max_pages=2,
             ),
             http_client=client,
             token="test-token",
         ).load()
 
     assert len(observations) == 1
+    assert requested_pages == list(range(1, page_count + 1))
+
+
+@pytest.mark.parametrize("max_pages", [0, 101])
+def test_config_rejects_pagination_outside_supported_budget(max_pages: int) -> None:
+    with pytest.raises(ValueError, match="max_pages MUST be between 1 and 100"):
+        GitHubModelLifecycleObservationConfig(
+            owner="example",
+            repo="fdai",
+            max_pages=max_pages,
+        )
 
 
 @pytest.mark.asyncio
