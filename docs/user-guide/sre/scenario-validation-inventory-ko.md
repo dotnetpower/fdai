@@ -8,10 +8,10 @@ translation_revised: 2026-08-11
 
 # SRE 시나리오 검증
 
-FDAI는 질문이 다르면 시나리오 묶음도 다르게 씁니다. 카탈로그 항목은 시나리오가 형식에 맞게
-작성되었고 알려진 신호에 연결되어 있음을 증명합니다. 재생은 컨트롤 루프가 예상한 결과에
-도달함을 증명합니다. 실제 적용 모드 실행은 일회용 Azure 환경에서 진짜 장애가 주입되고,
-관찰되고, 원상 복구됐음을 증명합니다. 이 세 가지 근거 수준은 서로 바꿔 쓸 수 없습니다.
+FDAI는 검증하려는 질문에 따라 다른 시나리오 묶음을 사용합니다. 카탈로그 검증은 시나리오가 형식에 맞게
+작성되었고 알려진 신호에 연결되어 있음을 확인합니다. 재생은 컨트롤 루프가 예상한 결과에
+도달하는지 확인합니다. 실제 적용 모드 실행은 일회용 Azure 환경에서 실제 장애를 주입하고,
+관찰하고, 원상 복구했는지 확인합니다. 이 세 가지 근거 수준은 서로 바꿔 쓸 수 없습니다.
 
 이 문서는 현재 SRE 시나리오 묶음과 카탈로그 시나리오 ID 135개를 모두 보여 줍니다. 이
 집계는 2026-07-17에 저장소에서 다시 계산했습니다.
@@ -20,14 +20,14 @@ FDAI는 질문이 다르면 시나리오 묶음도 다르게 씁니다. 카탈�
 
 | 시나리오 집합 | 수 | 현재 증거 | 증명 범위 |
 |--------------|---:|-----------|-----------|
-| SRE demo 묶음 | 18 | 18/18 shadow 커버리지 | Detect, 경로, RCA, 통제된 응답, 검증 대응 존재 |
-| 참조 live-enforce 일괄 점검 | 10 | 10/10 검증된, detected, reverted | 일회용 Azure 기반에서 실제 injector와 탐색 작동 |
-| 고정된 control-loop 집합 `v2026.07` | 9 | 무결성 및 재생 테스트 66개 통과 | 변경, DR, FinOps 기대 결과가 shipped 루프에서 재생됨 |
+| SRE 데모 묶음 | 18 | 18/18 shadow 커버리지 | 감지, 라우팅, RCA, 통제된 대응, 검증 경로가 존재 |
+| 참조 live-enforce 일괄 점검 | 10 | 10/10 검증, 감지, 원상 복구 완료 | 일회용 Azure 환경에서 실제 주입기와 탐색 작동 |
+| 고정된 컨트롤 루프 집합 `v2026.07` | 9 | 무결성 및 재생 테스트 66개 통과 | 변경, DR, FinOps 기대 결과가 제공되는 루프에서 재생됨 |
 | 에이전트 결정 시나리오 | 6 | 에이전트 시나리오 테스트 22개에 포함되어 통과 | Forseti가 예상 auto, 사람 승인, 거부, 판단 보류 반환 |
-| 에이전트 파이프라인 시나리오 | 8 | 에이전트 시나리오 테스트 22개에 포함되어 통과 | Forseti, Thor, Var, Saga의 cross-agent 안전성 불변식 유지 |
+| 에이전트 파이프라인 시나리오 | 8 | 에이전트 시나리오 테스트 22개에 포함되어 통과 | Forseti, Thor, Var, Saga 사이의 안전성 불변식 유지 |
 | Chaos 카탈로그 | 135 | 135/135 스키마, 신호, symptom-index 검증 | 모든 카탈로그 기록이 구조적으로 유효하고 검색 가능 |
-| Default-factory 전달 subset | 93 | 93/93 injector 및 탐색 쌍 예행 실행 빌드 | 전달 배선 존재. 실제 운영 fault 실행을 뜻하지 않음 |
-| Promoted 카탈로그 | 0 | 승격된 항목 없음 | Collected 항목이 강제 적용 충족 여부를 상속하지 않음 |
+| 기본 팩토리 전달 하위 집합 | 93 | 93/93 주입기 및 탐색 쌍 사전 검증 빌드 | 전달 연결이 존재함. 실제 장애 실행을 뜻하지 않음 |
+| 승격된 카탈로그 | 0 | 승격된 항목 없음 | 수집된 항목에 적용 모드 실행 자격이 자동으로 부여되지 않음 |
 
 > 이와 별도로 Command Deck 주장 모음 14건은 근거 없는 통과 0건, 잘못된 거절 0건으로 답변의
 > 근거 확인을 검증합니다. 이는 대화 안전성 모음이지 SRE 운영 시나리오 묶음이 아니므로 이
@@ -42,19 +42,19 @@ FDAI는 질문이 다르면 시나리오 묶음도 다르게 씁니다. 카탈�
 | S3 | AKS pod 네트워크 지연 시간 | Fault | Shadow 커버리지. `network-rtt-delay` 실제 운영 적용 모드 |
 | S4 | AKS HTTP abort | Fault | Shadow 커버리지. `aks-http-abort` 실제 운영 적용 모드 |
 | S5 | VM CPU stress | Fault | Shadow 커버리지. `vm-cpu-stress` 실제 운영 적용 모드 |
-| S6 | VM 기억 stress | Fault | Shadow 커버리지. `vm-mem-stress` 실제 운영 적용 모드 |
+| S6 | VM 메모리 부하 | Fault | Shadow 커버리지. `vm-mem-stress` 실제 운영 적용 모드 |
 | S7 | VM 네트워크 지연 시간 | Fault | Shadow 커버리지. `network-rtt-delay` 실제 운영 적용 모드 |
 | S8 | MySQL CPU-credit exhaustion | Fault | Shadow 커버리지. `mysql-cpu-pressure` 실제 운영 적용 모드 |
 | S9 | TPM pressure에 따른 Azure OpenAI 429 | Fault | Shadow 커버리지. `aoai-tpm-throttle` 실제 운영 적용 모드 |
 | S10 | 애플리케이션 게이트웨이 백엔드 first-byte 지연 시간 | Fault | Shadow 커버리지. `network-rtt-delay` 실제 운영 적용 모드 |
-| S11 | 의존성 장애 cascade | Fault | Shadow 커버리지. `appgw-backend-failure` 실제 운영 적용 모드 |
-| S12 | Bad 배포와 롤아웃 stall | Fault | Shadow 커버리지. `aks-bad-deploy` 실제 운영 적용 모드 |
-| S13 | 지식 인제스트와 구성 표류 | Non-fault | Scheduled 거버넌스 및 assurance 경계 |
-| S14 | Alert-driven automatic 조사 트리거 | Non-fault | 웹훅, 이벤트 ingest, IRP 경계 |
-| C1 | Continuous-load 기준선 | 기준선 | Shadow calibration 커버리지 |
-| C2 | Continuous 부하 중 pod kill | Fault | `aks-pod-kill` 재사용 |
-| C3 | 부하 중 single-pod CPU hotspot | Fault | `aks-pod-cpu-spike` 재사용 |
-| C4 | Single-pod 기억 hotspot과 OOM kill | Fault | `vm-mem-stress`를 pod 기억 stress로 재사용 |
+| S11 | 의존성 장애의 연쇄 전파 | Fault | Shadow 커버리지. `appgw-backend-failure` 실제 운영 적용 모드 |
+| S12 | 잘못된 배포와 롤아웃 정체 | Fault | Shadow 커버리지. `aks-bad-deploy` 실제 운영 적용 모드 |
+| S13 | 지식 수집과 구성 드리프트 | Non-fault | 예약 거버넌스 및 검증 경계 |
+| S14 | 경보에 따른 자동 조사 트리거 | Non-fault | 웹훅, 이벤트 수집, IRP 경계 |
+| C1 | 지속 부하 기준선 | 기준선 | Shadow 보정 커버리지 |
+| C2 | 지속 부하 중 pod 종료 | Fault | `aks-pod-kill` 재사용 |
+| C3 | 부하 중 단일 pod CPU 부하 집중 | Fault | `aks-pod-cpu-spike` 재사용 |
+| C4 | 단일 pod 메모리 부하 집중과 OOM 종료 | Fault | `vm-mem-stress`를 pod 메모리 부하로 재사용 |
 
 ## Azure 실제 적용 기준 점검: 10개
 
@@ -102,21 +102,21 @@ FDAI는 질문이 다르면 시나리오 묶음도 다르게 씁니다. 카탈�
 | `hil_rule_fired` | 사람 승인 |
 | `deny_irreversible` | 거부와 정족수 2 |
 | `hil_unknown_event_triage` | 구체적인 리소스가 있어 사람 승인 |
-| `abstain_no_resource_target` | actionable 대상이 없어 판단 보류 |
-| `rbac_denied_operator` | 거부 및 security 이벤트 생성 |
+| `abstain_no_resource_target` | 작업 가능한 대상이 없어 판단 보류 |
+| `rbac_denied_operator` | 거부 및 보안 이벤트 생성 |
 
 ### 에이전트 간 파이프라인 매트릭스: 사례 8개
 
 | 시나리오 사례 | 불변식 |
 |---------------|--------|
 | Shadow의 auto | 변경 없이 판단하고 감사함 |
-| 사람 승인 요청 | Pending 승인 티켓 정확히 1개 |
-| 거부 | Approval 또는 실행에 도달하지 않음 |
-| Mixed 스트림 | 결정과 전달 개수가 같음 |
+| 사람 승인 요청 | 대기 중인 승인 티켓 정확히 1개 |
+| 거부 | 승인 또는 실행에 도달하지 않음 |
+| 혼합 스트림 | 결정과 전달 개수가 같음 |
 | 중복 전달 | 전달 1회, 중복 1회 측정, 이중 실행 없음 |
-| 빈 또는 junk 이벤트 | 판단 보류하고 다운스트림 액션 없음 |
-| 자기 승인 시도 | 차단되고 security 신호로 측정됨 |
-| Repeated 자기 승인 | 재시도가 security 개수를 부풀리지 않음 |
+| 비어 있거나 유효하지 않은 이벤트 | 판단 보류하고 다운스트림 액션 없음 |
+| 자기 승인 시도 | 차단되고 보안 신호로 측정됨 |
+| 반복된 자기 승인 | 재시도가 보안 신호 개수를 부풀리지 않음 |
 
 ## 카오스 카탈로그: 시나리오 ID 135개
 

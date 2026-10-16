@@ -30,7 +30,7 @@ FDAI의 엔지니어링 계획입니다. [FDAI 헌법](architecture/fdai-constit
 ## 한눈에 보는 설계
 
 FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합니다. 3-tier 신뢰 라우터는
-반복 가능한 이벤트를 규칙과 정책(T0), 경량 유사 사례 재사용(T1)으로 해결하고, frontier
+반복 가능한 이벤트를 규칙과 정책(T0), 경량 유사 사례 재사용(T1)으로 해결하고, 최상위
 모델 추론(T2)은 남은 모호한 사례에만 사용합니다. 모든 자율 액션은 관찰 모드에서 먼저
 검증한 뒤 개별적으로 승격합니다. 처리 비중과 자율성 배수는 측정된 기준선이 있을
 때만 주장할 수 있습니다 ([goals-and-metrics-ko.md](architecture/goals-and-metrics-ko.md)).
@@ -40,9 +40,9 @@ FDAI는 결정론 우선, 이벤트 기반, 위험 통제 방식으로 작동합
 참조 문서는 시스템을 설명하고, 단계 문서(P0-P4)는 구축 순서를 제시합니다.
 참조 문서를 먼저 읽은 다음 단계 문서를 순서대로 읽으세요.
 
-에이전트 설계 route는 변경된 경로에 필요한 owner 문서만 로드합니다. Route manifest는 route별
-canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가 상한에 도달하면 context를
-더 추가하지 말고 owner 집합을 좁히거나 여러 책임을 가진 owner를 분리하세요.
+에이전트 설계 경로는 변경된 경로에 필요한 담당 문서만 로드합니다. 경로 매니페스트는 경로별
+정본 영문 로드맵 맥락을 실제 4,500줄로 제한합니다. 경로가 상한에 도달하면 맥락을
+더 추가하지 말고 담당 문서 집합을 좁히거나 여러 책임을 다루는 문서를 분리하세요.
 
 ### 핵심 참조 문서 (시스템 구조)
 
@@ -51,25 +51,25 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 0 | [fdai-constitution-ko.md](architecture/fdai-constitution-ko.md) | 목적, 보장, 권한 우선순위, 도메인, 자율성 및 개정 규칙 |
 | 1 | [goals-and-metrics-ko.md](architecture/goals-and-metrics-ko.md) | 성공 기준, KPI, measurement-first 규칙 |
 | 2 | [project-structure-ko.md](architecture/project-structure-ko.md) | 저장소 레이아웃, 모듈 경계, 컨트롤 루프 배선 |
-| 2a | [capability-bundle-lifecycle-ko.md](architecture/capability-bundle-lifecycle-ko.md) | 검증된 기능 번들, trusted artifact, 확장, 스킬 공개 및 철회 |
+| 2a | [capability-bundle-lifecycle-ko.md](architecture/capability-bundle-lifecycle-ko.md) | 검증된 기능 번들, 신뢰할 수 있는 산출물, 확장, 스킬 공개 및 철회 |
 | 3 | [tech-stack-ko.md](architecture/tech-stack-ko.md) | 언어, 프레임워크, 데이터 스토어, 이벤트 버스 |
-| 4 | [csp-neutrality-ko.md](architecture/csp-neutrality-ko.md) | 코어를 CSP-neutral로 유지하는 wire-level 계약 |
-| 4a | [azure-inventory-network-paths-ko.md](architecture/azure-inventory-network-paths-ko.md) | 제한된 네트워크의 Azure 인벤토리 경로, 대체 순서, 커버리지 및 stale 유지 |
-| 5 | [llm-strategy-ko.md](architecture/llm-strategy-ko.md) | 계층별 모델 선택, mixed-model 게이트, 추상화 |
-| 5a | [operating-ontology-ko.md](architecture/operating-ontology-ko.md) | 서비스, 워크로드, 목표, 결정, 효과, 에이전트 소유권, 통제된 확장을 위한 공유 cloud-operations 의미 |
+| 4 | [csp-neutrality-ko.md](architecture/csp-neutrality-ko.md) | 코어를 클라우드 공급자 중립적으로 유지하는 전송 계약 |
+| 4a | [azure-inventory-network-paths-ko.md](architecture/azure-inventory-network-paths-ko.md) | 제한된 네트워크의 Azure 인벤토리 경로, 대체 순서, 커버리지 및 오래된 상태의 유지 |
+| 5 | [llm-strategy-ko.md](architecture/llm-strategy-ko.md) | 계층별 모델 선택, 혼합 모델 게이트, 추상화 |
+| 5a | [operating-ontology-ko.md](architecture/operating-ontology-ko.md) | 서비스, 워크로드, 목표, 결정, 효과, 에이전트 소유권, 통제된 확장을 위한 공통 클라우드 운영 의미 체계 |
 | 5b | [outcome-assurance-ko.md](architecture/outcome-assurance-ko.md) | FDAI의 세 버티컬을 대상으로 하는 운영 준비도, 목표 정렬, 통제 보증 변환 결과 |
-| 5c | [operating-ontology-platform-ko.md](architecture/operating-ontology-platform-ko.md) | Agent-supporting 온톨로지 안전성 infrastructure: exact release, 범위가 제한된 객체 집합, 변경 계획, 타입이 지정된 함수, 조정, SDK |
-| 5d | [operating-ontology-metamodel-ko.md](architecture/operating-ontology-metamodel-ko.md) | Operational 관점, 정본 선언 종류, 상태/맥락 경계, 권한, 시간, 소유권 및 가산 이행 |
+| 5c | [operating-ontology-platform-ko.md](architecture/operating-ontology-platform-ko.md) | 에이전트를 지원하는 온톨로지 안전 기반: 정확한 릴리스, 범위가 제한된 객체 집합, 변경 계획, 타입이 지정된 함수, 조정, SDK |
+| 5d | [operating-ontology-metamodel-ko.md](architecture/operating-ontology-metamodel-ko.md) | 운영 관점, 정본 선언 종류, 상태/맥락 경계, 권한, 시간, 소유권 및 기존 모델을 확장하는 이행 |
 | 5e | [ontology-structural-model-ko.md](architecture/ontology-structural-model-ko.md) | 정확한 리소스 형식, 분류 집계, 링크 역할과 특성, 순서가 있는 형식화된 경로, 범위가 제한된 그래프 표현 |
-| 5f | [operating-intent-source-ko.md](architecture/operating-intent-source-ko.md) | 배포 소유 six-type operating-intent 출처: 고정된 신원, fail closed 승인, 유계 재검증, replica 직렬화 투영 |
+| 5f | [operating-intent-source-ko.md](architecture/operating-intent-source-ko.md) | 배포가 소유하는 6가지 운영 의도 타입의 출처: 고정된 신원, 실패 시 차단하는 승인, 범위가 제한된 재검증, 복제본 간 직렬화된 변환 결과 |
 | 5g | [aks-diagnostic-evidence-plane-ko.md](architecture/aks-diagnostic-evidence-plane-ko.md) | 정확한 다중 클러스터 연결, 워크로드 근거, 결정론적 진단 및 권한 없는 AKS 변환 결과 |
 | 5h | [aks-outbound-connector-ko.md](architecture/aks-outbound-connector-ko.md) | 클러스터가 시작하는 근거 및 승인 작업 전송과 별도로 관리하는 선택적 네트워크 분리 |
-| 6 | [security-and-identity-ko.md](architecture/security-and-identity-ko.md) | 최소 권한 신원, secrets, 안전 불변식 |
+| 6 | [security-and-identity-ko.md](architecture/security-and-identity-ko.md) | 최소 권한 신원, 시크릿, 안전 불변식 |
 | 7 | [deployment-ko.md](deployment/deployment-ko.md) | IaC, CI/CD, 환경, 릴리스 / 롤백 |
 | 7a | [architecture-review-board-ko.md](architecture/architecture-review-board-ko.md) | 정본 ARB 색인: 결정 경계와 온톨로지 에이전트, 근거 권한, 전달 계획 문서 |
-| 7b | [data-governance-ko.md](architecture/data-governance-ko.md) | 데이터 인벤토리, 분류, 수명 주기, privacy 평가, model-provider/compliance 근거 |
-| 7c | [아키텍처 결정 기록](architecture/decisions/README-ko.md) | ADR register와 승인된 Azure day-zero platform 기준선 |
-| 7d | [mscp-operational-profile-ko.md](architecture/mscp-operational-profile-ko.md) | 전체 conformance 주장 없이 선택적으로 차용한 MSCP 효과, cycle 및 runtime-integrity 정책 |
+| 7b | [data-governance-ko.md](architecture/data-governance-ko.md) | 데이터 인벤토리, 분류, 수명 주기, 개인정보 평가, 모델 공급자 및 규정 준수 근거 |
+| 7c | [아키텍처 결정 기록](architecture/decisions/README-ko.md) | ADR 목록과 승인된 Azure day-zero 플랫폼 기준선 |
+| 7d | [mscp-operational-profile-ko.md](architecture/mscp-operational-profile-ko.md) | 전체 적합성을 주장하지 않고 선택적으로 차용한 MSCP 효과, 주기 및 런타임 무결성 정책 |
 | 7e | [service-graduation-and-ownership-ko.md](architecture/service-graduation-and-ownership-ko.md) | 측정된 서비스 분리 게이트, single-writer 데이터 소유권, 계약, 신원, 롤백, 경계 docstring |
 | 7f | [service-decomposition-execution-plan-ko.md](architecture/service-decomposition-execution-plan-ko.md) | 5개 서비스 목표, 의존성 순서 작업 패키지, 병렬 레인, 진행 상태, 차단 요인, 근거 증적 |
 | 7g | [subscription-genesis-provisioning-ko.md](deployment/subscription-genesis-provisioning-ko.md) | 재개 가능한 Azure 구독 전체 프로비저닝, 데이터베이스 및 의미 초기 구성, 모델 용량, 최초 인벤토리 진행률 |
@@ -85,23 +85,23 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 10 | [observability-and-detection-ko.md](rules-and-detection/observability-and-detection-ko.md) | 이벤트 상관, 이상 탐지 및 예측 |
 | 10f | [root-cause-analysis-ko.md](rules-and-detection/root-cause-analysis-ko.md) | 인용된 T0/T1/T2 가설, 결정론적 인과사슬, grounding 및 읽기 전용 프로젝션 |
 | 10a | [manual-distillation-ko.md](rules-and-detection/manual-distillation-ko.md) | 도입 회사의 운영 / 배포 매뉴얼을 결정론적 규칙 / 워크플로우 / 정책으로 컴파일(런타임 RAG 대비)하고 증류를 검증 |
-| 10b | [operational-learning-ontology-ko.md](rules-and-detection/operational-learning-ontology-ko.md) | 벤치마크 및 실제 운영 인시던트 결과를 변경할 수 없는 사례, 결정론적 실패 지문, 통제된 룰 후보, 재사용 가능한 promoted operating pattern으로 전환 |
-| 10c | [causal-incident-graph-ko.md](rules-and-detection/causal-incident-graph-ko.md) | 온톨로지 기반 causal 가설, support/refutation 근거, 근거 grade, 결과 종결 |
-| 10d | [document-ontology-distillation-ko.md](rules-and-detection/document-ontology-distillation-ko.md) | 승인된 운영 문서를 결정론적으로 검증되는 근거에 기반한 review-only 온톨로지 객체/링크 제안으로 compile |
+| 10b | [operational-learning-ontology-ko.md](rules-and-detection/operational-learning-ontology-ko.md) | 벤치마크 및 실제 운영 인시던트 결과를 변경할 수 없는 사례, 결정론적 실패 지문, 통제된 규칙 후보, 재사용할 수 있는 승격된 운영 패턴으로 전환 |
+| 10c | [causal-incident-graph-ko.md](rules-and-detection/causal-incident-graph-ko.md) | 온톨로지 기반 인과 가설, 뒷받침하거나 반박하는 근거, 근거 등급, 결과 종결 |
+| 10d | [document-ontology-distillation-ko.md](rules-and-detection/document-ontology-distillation-ko.md) | 승인된 운영 문서를 근거 기반의 검토 전용 온톨로지 객체/링크 제안으로 컴파일하고 결정론적으로 검증 |
 | 10e | [policy-abstraction-and-control-objectives-ko.md](rules-and-detection/policy-abstraction-and-control-objectives-ko.md) | 공급자 중립 통제 목표, 근거 포함 Rule 바인딩, 권한 경계, 코퍼스 규모 세대, 이행 및 구현 범위 |
-| 10g | [continuous-operational-instance-graph-ko.md](architecture/continuous-operational-instance-graph-ko.md) | 지속적인 부하 인식 리소스 관측, 온톨로지 인스턴스 수렴, 그래프 우선 실시간 보강, 타입 지정 rollup, 검증된 archive, 범위가 제한된 purge |
+| 10g | [continuous-operational-instance-graph-ko.md](architecture/continuous-operational-instance-graph-ko.md) | 부하를 고려한 지속적 리소스 관측, 온톨로지 인스턴스 수렴, 그래프 우선 실시간 보강, 타입 지정 집계, 검증된 보관, 범위가 제한된 영구 삭제 |
 | 11 | [deploy-and-onboard-ko.md](deployment/deploy-and-onboard-ko.md) | 구체적인 Azure 리소스 인벤토리, 부트스트랩 순서, 포크 vs 코어 분리 |
 | 11d | [production-deployment-hardening-ko.md](deployment/production-deployment-hardening-ko.md) | 운영 잠금, 내구성, 비공개 네트워킹, 신뢰할 수 있는 이미지, 모니터링 및 비용 상한 |
 | 11a | [deployment-resource-conventions-ko.md](deployment/deployment-resource-conventions-ko.md) | 결정론적 CAF 리소스 이름, 소유권 태그, 배포 공급 태그 규칙 |
 | 11b | [hyperscale-cell-architecture-ko.md](architecture/hyperscale-cell-architecture-ko.md) | 구독 300개를 위한 확장 청사진: 셀 기반 스트리밍, 정책 기반 fan-in, 2-평면 로깅, ADX 기반 CQRS 감사 인덱싱, 비용 범위, standard/sovereign 프로파일, Container Apps 기본(AKS 연기) |
-| 11c | [control-plane-disaster-recovery-ko.md](deployment/control-plane-disaster-recovery-ko.md) | Active-passive regional 복구 프로파일, fencing, 상태 및 이벤트 복구, failback, 근거 게이트 |
-| 12 | [startup-and-lifecycle-ko.md](operations/startup-and-lifecycle-ko.md) | 콜드 스타트, day-zero 카탈로그, shadow-first 롤아웃, discovery-loop 킥오프 |
-| 13 | [operating-and-verification-ko.md](operations/operating-and-verification-ko.md) | 자체 헬스 신호, canary 이벤트, 스모크 테스트, 알림 라우팅, 런북 |
+| 11c | [control-plane-disaster-recovery-ko.md](deployment/control-plane-disaster-recovery-ko.md) | 지역별 활성-대기 복구 프로파일, 펜싱, 상태 및 이벤트 복구, 장애 복구 후 원복, 근거 게이트 |
+| 12 | [startup-and-lifecycle-ko.md](operations/startup-and-lifecycle-ko.md) | 콜드 스타트, day-zero 카탈로그, shadow-first 롤아웃, discovery-loop 시작 |
+| 13 | [operating-and-verification-ko.md](operations/operating-and-verification-ko.md) | 자체 상태 신호, 카나리 이벤트, 스모크 테스트, 알림 라우팅, 런북 |
 | 13a | [observation-campaign-ko.md](operations/observation-campaign-ko.md) | 등록된 인벤토리, 활동, 상태, 메트릭, 로그, 네트워크, 비용 및 복구 출처의 권한 인식 주기 수집과 로컬/배포 동등성 |
 | 13b | [alert-noise-governance-ko.md](operations/alert-noise-governance-ko.md) | shadow 우선 알림 평가, 수신 대상 근거, 정확한 계획에 따른 수동 PR 작업, 보호 경로 및 독립 효과 검증. 운영 도입에는 아직 충족해야 할 조건이 있음 |
 | 13c | [aks-commerce-business-scenario-ko.md](operations/aks-commerce-business-scenario-ko.md) | 공개 스토어프런트 여정, AKS 및 메시징 근거, 워크로드 SLO 영향, 결정론적 진단, 통제된 복구, 독립 비즈니스 효과 검증 |
 | 20 | [deployment-preflight-ko.md](deployment/deployment-preflight-ko.md) | 배포 가능성과 선행 장애 요인 점검: 프로브 분류, 준비 상태 보고서, 장애 요인과 Terraform 설정의 매핑 |
-| 20a | [preflight-active-reassembly-ko.md](deployment/preflight-active-reassembly-ko.md) | 능동 플랜 재조립: 정책 차단 요인을 capability-mode 토글로 재렌더된 terraform 플랜으로 바꿔 실행기를 통해 교정 PR로 전달 (수렴 루프, stop-condition, 한계) |
+| 20a | [preflight-active-reassembly-ko.md](deployment/preflight-active-reassembly-ko.md) | 능동 플랜 재조립: 기능 모드 토글로 정책 차단 요인을 해소하는 terraform 플랜을 다시 렌더링하고 실행기를 통해 교정 PR로 전달 (수렴 루프, 중지 조건, 한계) |
 | 20b | [installable-deployment-cli-ko.md](deployment/installable-deployment-cli-ko.md) | 설치형 `fdaictl` 파사드: 격리된 `uv` 설치, 읽기 전용 preflight, 서명된 배포 번들, 비공개 실행기로 exact-plan 제출 |
 | 20c | [provisioning-execution-profiles-ko.md](deployment/provisioning-execution-profiles-ko.md) | 프로비저닝 프로파일 선택: online/offline 전달, 기존 또는 managed 실행 호스트, 접근 선호 설정, 워크로드 신원, exact-plan 승인 |
 | 20d | [disconnected-deployment-ko.md](deployment/disconnected-deployment-ko.md) | 공용 egress 없는 네트워크 배포: 네트워크 프로파일, 내부 mirror, 서명된 offline 키트, 저하된 증거 대체 경로, 남은 air-gap 공백 |
@@ -115,14 +115,14 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 21a | [code-security-findings-ko.md](operations/code-security-findings-ko.md) | FDAI 레인, MDASH 및 기타 SARIF 생산자의 코드 보안 점검 결과: 근본 원인마다 하나의 심각도, 결정론적 우선순위, GitHub Copilot과 Claude Code용 대화형 조치 팩 |
 | 21b | [code-security-scanning-ko.md](operations/code-security-scanning-ko.md) | FDAI가 직접 실행하는 코드 스캔: 정확한 커밋 확보, 네트워크 없는 bubblewrap 샌드박스, 스캐너 카탈로그, FDAI 작성 규칙 팩, 정직한 커버리지 증적 |
 | 21c | [code-security-analysis-engine-ko.md](operations/code-security-analysis-engine-ko.md) | 계획된 FDAI 자체 공통 코드 그래프, 함수 간 데이터 흐름, 버전 지정 규칙 및 경로 근거, 측정 기반 승격, 검증된 수정 경계 |
-| 22 | [operational-readiness-ko.md](operations/operational-readiness-ko.md) | dev-to-ops 핸드오프 게이트: ownership-transfer 트리거, 전체 범위 RBAC / 정책 / 신뢰성 리뷰, ReadinessReport, environment-promotion 게이트 |
-| 22a | [operator-initiated-sre-and-arb-ko.md](operations/operator-initiated-sre-and-arb-ko.md) | 비인시던트 신원, 오퍼레이터 시작 SRE 응답, 실제 운영 단계 진행 상황, ARB 상태/수동 시작, 작업 흐름 강제 적용, 로컬/deployed 동등성 |
+| 22 | [operational-readiness-ko.md](operations/operational-readiness-ko.md) | 개발팀에서 운영팀으로 인계하는 게이트: 소유권 이전 트리거, 전체 범위 RBAC / 정책 / 신뢰성 검토, ReadinessReport, 환경 승격 게이트 |
+| 22a | [operator-initiated-sre-and-arb-ko.md](operations/operator-initiated-sre-and-arb-ko.md) | 인시던트가 아닌 작업의 신원, 운영자가 시작하는 SRE 응답, 실제 운영 단계 진행 상황, ARB 상태/수동 시작, 작업 흐름 강제 적용, 로컬/배포 환경 동등성 |
 
 ### 비용, 사용자, 채널, 위험, 패리티
 
 | # | 문서 | 다루는 내용 |
 |---|------|-------------|
-| 14 | [cost-model-ko.md](interfaces/cost-model-ko.md) | 최소 인벤토리의 월간 비용 봉투, T2 LLM 비용 분할, 트래픽 트리거 |
+| 14 | [cost-model-ko.md](interfaces/cost-model-ko.md) | 최소 인벤토리의 월간 비용 범위, T2 LLM 비용 분할, 트래픽 트리거 |
 | 14a | [finops-autonomous-operations-ko.md](architecture/finops-autonomous-operations-ko.md) | 온톨로지 기반 FinOps 결정 프레임, 고정 에이전트 흐름, 복구, 정산 및 학습 |
 | 14b | [finops-resource-efficiency-ko.md](architecture/finops-resource-efficiency-ko.md) | 구독 분석, 리소스 수준 SKU 결정, 서비스 기능군 프로필, 절감액 귀속 및 Console 작업 영역 |
 | 14c | [finops-package-architecture-ko.md](architecture/finops-package-architecture-ko.md) | 독립 비용 거버넌스 패키지, 온톨로지 프로필, 원자적 활성화, 호환성 및 롤백 |
@@ -136,7 +136,7 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 16 | [channels-and-notifications-ko.md](interfaces/channels-and-notifications-ko.md) | 비-웹UI 채널(Teams / Slack / 이메일 / 웹훅 / pager / SMS), 카테고리와 trust-tier 매트릭스 |
 | 16a | [multi-channel-notification-delivery-ko.md](interfaces/multi-channel-notification-delivery-ko.md) | 활성화되고 설정된 모든 A2/A4 채널로의 fan-out 전달, 이름이 있는 채널 바인딩, 채널별 영속 전달, 부분 성공 결과, Teams Workflows 웹훅 바인딩 |
 | 17 | [risk-classification-ko.md](decisioning/risk-classification-ko.md) | auto vs HIL vs 거부 분류: 차원, 초기 규칙 표, 환경 감지 |
-| 17b | [escalation-and-standing-authority-ko.md](decisioning/escalation-and-standing-authority-ko.md) | `hil` 판정 후 아무도 응답하지 않을 때 무슨 일이 벌어지는가: 감독형 OODA 루프, 영향도 계층 별 시간 감쇠 에스컬레이션 사다리(채널 대체 경로 과 구별), 상시 권한(사전 승인·묶음 경계·가역 전용 조건부 자동 조치를 결정론적 risk-gate 입력으로) |
+| 17b | [escalation-and-standing-authority-ko.md](decisioning/escalation-and-standing-authority-ko.md) | `hil` 판정 후 무응답 처리: 감독형 OODA 루프, 영향도와 남은 시간에 따른 에스컬레이션 사다리(채널 대체 경로와 구별), 사전 승인되고 허용 묶음 안에서 가역 작업만 수행하는 조건부 자동 조치를 결정론적 risk-gate 입력으로 제공하는 상시 권한 |
 | 17c | [operator-governance-profiles-ko.md](decisioning/operator-governance-profiles-ko.md) | 단독 운영자 프로덕션 프로필, 귀속된 운영자 재정의 승격, FDAI Console의 정책 관리 |
 | 18 | [dev-and-deploy-parity-ko.md](deployment/dev-and-deploy-parity-ko.md) | 권위 있는 interactive 로컬/deployed 동등성, 명시적 고정본 프로파일, deployer-scoped LLM 게이트 |
 | 18a | [console-read-boundary-ko.md](deployment/console-read-boundary-ko.md) | 서버 소유 읽기 출처 선언, 로컬 인증, 워크로드 근거 및 범위가 제한된 인벤토리 조회 |
@@ -145,7 +145,7 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 19k1 | [command-deck-conversation-layer-ko.md](interfaces/command-deck-conversation-layer-ko.md) | 이식 가능한 Command Deck 대화 표현 역할, 기준 시안, 재생 동작 및 화면 이동 동의 |
 | 19l | [operator-console-progressive-conversations-ko.md](interfaces/operator-console-progressive-conversations-ko.md) | 범위가 제한된 읽기 가지, ordered reduction, 검증된 개정 번호, 취소, 재생 및 진행 상황 메트릭 |
 | 19m | [narrator-routing-and-latency-ko.md](interfaces/narrator-routing-and-latency-ko.md) | T1 서술기 배포 라우팅, 멀티모달 탐색, 운영자 선호 설정, TTFT, 웹 검색 풀 및 런타임 전달 결정 |
-| 19n | [hierarchical-conversation-planning-ko.md](interfaces/hierarchical-conversation-planning-ko.md) | Non-keyword 의미 decomposition, structural 온톨로지 조회 커버리지, 검증된 의도 그래프, 근거 결합 및 답변 경계 |
+| 19n | [hierarchical-conversation-planning-ko.md](interfaces/hierarchical-conversation-planning-ko.md) | 키워드에 의존하지 않는 의미 분해, 구조 기반 온톨로지 조회 커버리지, 검증된 의도 그래프, 근거 결합 및 답변 경계 |
 | 19n.1 | [ontology-reasoning-compiler-ko.md](interfaces/ontology-reasoning-compiler-ko.md) | 제안된 닫힌 질문 논리 형식, 앵커 바인딩, 검토된 관계 경로, 독립적인 의미 커버리지 검증 |
 | 19n.3 | [ontology-reasoning-result-handles-ko.md](interfaces/ontology-reasoning-result-handles-ko.md) | 제안된 결과 핸들, 근거, pushdown, 이어 읽기 계약, Core 핸들 저장소, 속성과 서수 후속 질문, 연속 관계 계획 |
 | 19n.4 | [ontology-reasoning-coverage-expansion-ko.md](interfaces/ontology-reasoning-coverage-expansion-ko.md) | 제안된 타입 제약 슬롯, 피연산자 출처, 현재 경로의 관계와 라우팅, 턴 예산 예약, 컨테이너 종류별 그룹화, 상태 이상과 수명 주기 조회, 인과 등급, 남은 연산자 |
@@ -158,14 +158,14 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 19j.1 | [recorded-resource-state-ko.md](interfaces/recorded-resource-state-ko.md) | 기록된 운영, 프로비저닝, 가용성 상태의 공통 조회, 근거 한정 정보, 세대에 결속된 리소스 페이지 처리 |
 | 19f | [console-evidence-and-resilience-ko.md](interfaces/console-evidence-and-resilience-ko.md) | 콘솔 근거 출처 이력, localization, 영속 재생, 스트림 복구 및 아키텍처 지도 복원력 |
 | 19q | [network-topology-visualization-ko.md](interfaces/network-topology-visualization-ko.md) | 공유 네트워크 어휘, 작성된 참조 다이어그램, 관측된 Console 포커스, 경로 추적, 내보내기 및 시각 무결성 |
-| 19a | [document-ingestion-ko.md](interfaces/document-ingestion-ko.md) | Drop-zone UX, 대용량 및 보호 문서 처리, format 추출, 비공개 저장소, 공유 가시성, 보존, deletion 계약 |
+| 19a | [document-ingestion-ko.md](interfaces/document-ingestion-ko.md) | 끌어서 놓기 UX, 대용량 및 보호 문서 처리, 형식별 추출, 비공개 저장소, 공유 가시성, 보존, 삭제 계약 |
 | 19a.1 | [cloud-resource-knowledge-lifecycle-ko.md](interfaces/cloud-resource-knowledge-lifecycle-ko.md) | 수집 시점을 명시하는 CSP 문서 지식, 주간/월간 갱신, 검토된 오프라인 패키지, 원자적 지식 활성화, 날짜를 포함한 답변의 설계 제안 |
 | 19g | [conversation-attachments-ko.md](interfaces/conversation-attachments-ko.md) | protected Slack/Teams fetch, 명시적 인계 용도, web 채팅 문서 참조, 이미지 OCR, 운영 연결 및 security 한도 |
 | 19h | [document-ingestion-agent-ownership-ko.md](interfaces/document-ingestion-agent-ownership-ko.md) | 단계별 에이전트 소유권, 타입이 지정된 파이프라인 객체, advisory-first 승격, 감사, 충돌 및 롤백 경계 |
 | 19b | [scheduled-result-continuations-ko.md](interfaces/scheduled-result-continuations-ko.md) | 정확한 예약 실행을 위한 범위 제한 대화 앵커, 근거 출처 이력, 채널 스레드, 접근, 만료, 전달 정렬 |
-| 19c | [skill-source-management-ko.md](interfaces/skill-source-management-ko.md) | 영속 approved 출처, 격리 구역, ETag 새로 고침, disabled-first 승인, provenance-preserving 철회 |
-| 19d | [durable-conversation-delivery-ko.md](interfaces/durable-conversation-delivery-ko.md) | 검증된 cross-channel 연결, 영속 회신 원장, process-loss 복구, 어댑터 컨트롤 및 읽기 전용 reliability 메트릭 |
-| 19e | [governed-trajectory-datasets-ko.md](interfaces/governed-trajectory-datasets-ko.md) | Authorization-first observable trajectory, 결정론적 JSONL/체크섬, 격리 구역, offline 재생 검증, 보존/legal 보류, reviewed-only Norns intake |
+| 19c | [skill-source-management-ko.md](interfaces/skill-source-management-ko.md) | 승인된 출처의 영속 저장, 격리 구역, ETag 새로 고침, 비활성 상태에서 시작하는 승인, 출처 이력을 보존하는 철회 |
+| 19d | [durable-conversation-delivery-ko.md](interfaces/durable-conversation-delivery-ko.md) | 검증된 채널 간 연결, 영속 회신 원장, 프로세스 종료 후 복구, 어댑터 컨트롤 및 읽기 전용 신뢰성 메트릭 |
+| 19e | [governed-trajectory-datasets-ko.md](interfaces/governed-trajectory-datasets-ko.md) | 권한 확인을 우선하는 관측 가능 실행 궤적, 결정론적 JSONL/체크섬, 격리 구역, 오프라인 재생 검증, 보존/법적 보존, 검토된 데이터만 받는 Norns 수집 경로 |
 | 19i | [benchmark-adapters-ko.md](interfaces/benchmark-adapters-ko.md) | 브랜드 중립 외부 실행 장치 계약, installed-plugin 주입, 프로바이더 연결, 범위가 제한된 수명 주기 및 벤치마크 권한 경계 |
 | 29 | [action-ontology-ko.md](decisioning/action-ontology-ko.md) | ActionType 스키마 (교정 + ops + 거버넌스), 트리거 축, 계층 / 역할 / prod / live-probe 상한, 포크 재정의 경계 |
 | 30 | [execution-model-ko.md](decisioning/execution-model-ko.md) | 통합 RiskGate, 6-axis 권한 매트릭스, 3개 실행기 경로 (PR-native / direct API / PR-manual), live-blast 탐색 combinator, resolved_ceiling 감사 블록 |
@@ -181,13 +181,13 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 31c | [busy-input-modes-ko.md](interfaces/busy-input-modes-ko.md) | 활성 web, Slack, Teams 대화를 위한 채널 중립적인 영구 큐, interrupt, safe-boundary steer 모드 |
 | 31d | [azure-read-investigations-ko.md](interfaces/azure-read-investigations-ko.md) | Exact 리소스 해석, 타입이 지정된 Azure 읽기 근거, 측정 기반 direct/streamed/detached 실행, dedicated 읽기 담당 신원, 할당량, 영속 완료 전달 |
 | 31e | [azure-resource-discovery-commands-ko.md](interfaces/azure-resource-discovery-commands-ko.md) | Ontology-aligned Azure 리소스 검색, ARG 및 CLI 대체 경로 커버리지, 정제된 reproduction 명령, 계획 비평 및 측정 기반 롤아웃 |
-| 23 | [agent-workflows-ko.md](agents/agent-workflows-ko.md) | 판테온이 제품 기능으로 조합하는 13개 cross-agent 작업 흐름입니다. Cost-aware 교정, predictive 규모, operational 준비 상태 인계, scheduled 통제된 Python 작업, detection 준비 상태 assurance 등을 포함하며 각 작업 흐름은 트리거, 순서 diagram, exit criteria, 승격 게이트를 가집니다. |
+| 23 | [agent-workflows-ko.md](agents/agent-workflows-ko.md) | 판테온이 에이전트 간 협업으로 구성하는 13개 제품 작업 흐름입니다. 비용을 고려한 교정, 예측 기반 크기 조정, 운영 준비 상태 인계, 예약된 통제형 Python 작업, 탐지 준비 상태 보증 등을 포함하며 각 작업 흐름은 트리거, 순서도, 종료 조건, 승격 게이트를 가집니다. |
 | 23f | [agent-workflow-rollout-ko.md](agents/agent-workflow-rollout-ko.md) | 독립 shadow 롤아웃 순서, 작업 흐름별 exit 게이트, 의존성 및 no-enforcement 경계 |
-| 23b | [process-automation-ko.md](decisioning/process-automation-ko.md) | agent-workflows.md 의 머신-리더블 대응물: 작업 흐름 카탈로그 스키마 (`rule-catalog/workflows/` 아래 catalog-as-code), `Process` ObjectType + `targets` / `advances` LinkType, compile-to-Runbook 컨트롤 루프 배선, saga 보상, shadow-first 거버넌스. 비즈니스 프로세스는 trust-router 가 한 번에 하나씩 전달 하는 `ActionType` 스텝의 순서 리스트다 |
+| 23b | [process-automation-ko.md](decisioning/process-automation-ko.md) | agent-workflows.md의 기계 판독용 대응 문서: 작업 흐름 카탈로그 스키마 (`rule-catalog/workflows/` 아래 catalog-as-code), `Process` ObjectType + `targets` / `advances` LinkType, Runbook으로 컴파일하는 컨트롤 루프 연결, saga 보상, shadow-first 거버넌스. 비즈니스 프로세스는 trust-router가 한 번에 하나씩 전달하는 `ActionType` 단계의 순서 있는 목록입니다 |
 | 23c | [customer-workflow-automation-plan-ko.md](decisioning/customer-workflow-automation-plan-ko.md) | 도입 조직용 제공 계획: 준비도 기준선, 6개 롤아웃 wave, 고객 어댑터 경계, 승인 및 복구 작업, 동작 시뮬레이션, 승격 근거, 검증 매트릭스 및 운영 완료 기준 |
 | 23d | [operational-planning-ko.md](decisioning/operational-planning-ko.md) | 변경할 수 없는 맥락, versioned logic asset, 범위가 제한된 샌드박스 및 twin 시뮬레이션, hard 제약, 중재, 통제된 실행, 효과 종결, 계획 수립 Room 변환 결과를 사용하는 event-driven 전문가 계획 수립 |
 | 23e | [operational-planning-hardening-ko.md](decisioning/operational-planning-hardening-ko.md) | 운영 계획의 구현 근거, 12개 적대적 강화 라운드, 실제 운영 shadow 증명, 잔여 Low release 위험, merge-boundary 검증 |
-| 23g | [operational-hypothesis-loop-ko.md](rules-and-detection/operational-hypothesis-loop-ko.md) | 사전 액션 가설, no-action baseline, 독립 outcome 종결, causal refutation, active/challenger 분리 및 병렬 worker ownership |
+| 23g | [operational-hypothesis-loop-ko.md](rules-and-detection/operational-hypothesis-loop-ko.md) | 액션 실행 전 가설, 무조치 기준선, 독립적인 결과 종결, 인과 가설 반박, 활성 모델과 도전자 모델 분리 및 병렬 워커 담당 체계 |
 
 ### 프롬프트 서브시스템
 
@@ -209,7 +209,7 @@ canonical 영문 roadmap context를 실제 4,500줄로 제한합니다. Route가
 | 25 | [implementation-plan-ko.md](fork-and-sequencing/implementation-plan-ko.md) | 채택되지 않은 2026-07-06 standard-set 식별자와 테스트되는 M1.2 starter probe 집합의 과거 호환성 기록. 현재 authority는 각 하위 시스템 owner가 유지합니다. |
 | 26 | [agent-pantheon-implementation-ko.md](agents/agent-pantheon-implementation-ko.md) | 간결한 W0-W8 조정 요약, 구현 원장 및 `PantheonRuntime` 조립 계약. 역할과 작업 흐름 롤아웃 상세는 각 focused owner가 유지합니다. |
 | 27 | [productization-and-extensibility-ko.md](fork-and-sequencing/productization-and-extensibility-ko.md) | Install 및 진단, bidirectional 채널, trusted 확장 및 MCP, 모델 및 스케줄러 복원력, security 감사, 타입이 지정된 API와 FDAI 앱 형태 밖에 의도적으로 유지하는 기능의 prioritized P0/P1/P2 상태 매트릭스 |
-| 28 | [capability-licensing-ko.md](fork-and-sequencing/capability-licensing-ko.md) | 이미지로 전달되는 분포를 위한 서명된 기능 권한: 이미지 안의 공개 키, 배포 설정의 서명된 토큰, available 축 전용 권한, 안전 저하, 정직한 tamper-evidence 한계 |
+| 28 | [capability-licensing-ko.md](fork-and-sequencing/capability-licensing-ko.md) | 이미지로 전달하는 배포판의 서명된 기능 사용권: 이미지 안의 공개 키, 배포 설정의 서명된 토큰, available 축에만 적용되는 사용권, 안전한 기능 축소, 변조 탐지의 한계 |
 
 ## 단계별 일정
 
@@ -240,16 +240,16 @@ P3에서 복원력과 비용 거버넌스를 제공합니다. 멀티 클라우�
   없이는 향상 배수나 처리 비중을 주장하지 않습니다.
 - **Shadow before 강제 적용**: 모든 신규 액션은 관찰 모드에서 판정과 기록만 수행한 뒤
   개별적으로 승격합니다. 회귀가 발생하면 자동으로 관찰 모드로 돌아갑니다.
-- **Choose the safer 기본값 when the 결과 is uncertain**: 낮은 확신도, 검증 실패, 예산 / 비율 초과는
-  HIL로 강등되며, 게이트 없는 자동 액션으로는 절대 강등되지 않음.
+- **결과가 불확실하면 더 안전한 기본값 선택**: 확신도가 낮거나 검증에 실패하거나 예산 / 비율을
+  초과하면 HIL로 낮춥니다. 게이트 없는 자동 액션으로 대체하지 않습니다.
 - **모든 자율 작업의 7개 안전조건**: 중단 조건, 롤백, 장애 반경 제한, 예행 실행, 리소스별
   잠금, 멱등성 및 감사 레코드
   ([security-and-identity-ko.md](architecture/security-and-identity-ko.md)).
-- **직무 분리**: 승인과 실행은 서로 다른 주체.
+- **직무 분리**: 승인과 실행은 서로 다른 주체가 담당합니다.
   콘솔은 비특권 표면이며 실행기 신원을 받지 않습니다
   ([security-and-identity-ko.md](architecture/security-and-identity-ko.md)).
-- **Bilingual, customer-agnostic 산출물**: English와 Korean은 일급 산문 언어이며
-  식별자와 머신 기록은 언어 계약에 따라 고정된 상태를 유지합니다.
+- **이중 언어, 고객 비종속 산출물**: 영어와 한국어를 모두 정식 문서 언어로 지원하며,
+  식별자와 기계 기록은 언어 계약에 따라 일관되게 유지합니다.
   ([language.instructions.md](../../.github/instructions/language.instructions.md)).
 
 ## 다음 단계
@@ -276,6 +276,6 @@ P3에서 복원력과 비용 거버넌스를 제공합니다. 멀티 클라우�
 | 다중 서비스 저장소 레이아웃 | [architecture/multi-service-repository-layout-ko.md](architecture/multi-service-repository-layout-ko.md) |
 | 서브시스템 인덱스 (소스 -> 테스트 -> 문서) | [architecture/code-map-ko.md](architecture/code-map-ko.md) |
 
-같은 개념의 다른 시각이 필요한 문서는 캐노니컬 형태를 바꿔 그리지 말고
-도메인 특화된 mermaid를 사용해야 한다. 캐노니컬 다이어그램 자체를 바꿔야
-할 때는 캐노니컬 위치를 한 번 편집하면 로드맵 리뷰가 변경 사항을 파급한다.
+같은 개념을 다른 관점에서 보여 줘야 하는 문서는 기준 형태를 바꿔 그리지 말고
+도메인에 특화된 mermaid를 사용해야 합니다. 기준 다이어그램 자체를 바꿔야
+할 때는 기준 위치를 한 번 편집하고 로드맵 검토를 통해 변경 사항을 반영합니다.

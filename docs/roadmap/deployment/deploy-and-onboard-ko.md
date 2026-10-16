@@ -5,8 +5,8 @@ translation_source_sha: 686f2993ac28d824624acc0b004cf04dde102028
 translation_revised: 2026-10-12
 ---
 # 배포와 온보딩(Deploy and Onboard)
-Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 시스템이 관측 준비되도록 하는 방법. 이 문서는 **구체적 배포 인벤토리, 부트스트랩 순서, 분포/배포 책임 분리**의 정본(source of truth)입니다; 배포 라이프사이클(CI/CD, progressive 전달, 롤백, DR)은 [deployment-ko.md](deployment-ko.md)에 남습니다.
-Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로바이더는 TBD ([구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must)). 모든 식별자는 [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)에 따라 합성.
+Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 관측을 시작할 준비를 하는 방법을 설명합니다. 이 문서는 **구체적인 배포 인벤토리, 부트스트랩 순서, 배포판과 설치 환경의 책임 분리**를 정의하는 기준 원본입니다. 배포 수명 주기(CI/CD, 점진적 전달, 롤백, DR)는 [deployment-ko.md](deployment-ko.md)에서 다룹니다.
+이 문서는 Azure 구독을 대상으로 합니다. 비-Azure 공급자는 추후 검토 대상입니다 ([구현 Focus](../../../.github/copilot-instructions.md#implementation-focus-must)). 모든 식별자는 [generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)에 따른 합성 값입니다.
 > Day-zero 서비스 계층과 수량은 [최소 Azure 리소스 인벤토리](#azure-리소스-인벤토리-최소-세트)에서 결정되어 있습니다. 배포 소유자는 배포 전에 지역, 할당량, 보존, 복제본 상한, 운영 계층 재정의를 확인합니다.
 > **실행 엔진**은 `infra/`의 `terraform apply`로 결정되어 있습니다. 운영자 진입점은
 > `fdaictl provision azure`입니다. 이 명령은 정확한 계획을 로컬에서 조정하고 비공개 데이터
@@ -25,8 +25,8 @@ Azure 초점: 이 문서는 Azure 구독을 대상으로 함. 비-Azure 프로�
 
 ### Azure 전제조건
 
-- 아래 인벤토리의 모든 서비스 가용성이 확인된 리전.
-- 확인된 쿼터 헤드룸 (AKS 노드 제품군 및 리전 vCPU, Event Hubs 처리량 단위, PostgreSQL
+- 아래 인벤토리의 모든 서비스를 사용할 수 있는지 확인한 지역.
+- 확인된 할당량 여유(AKS 노드 제품군 및 지역 vCPU, Event Hubs 처리량 단위, PostgreSQL
   vCore, Key Vault 작업).
 - Diagnostic Settings 목적지 (Log Analytics workspace) - 신규 또는 기존; 소유권 TBD.
 - **단계별 비공개 네트워크 구성.** 기본 배포는 API Server VNet Integration, 워크로드 및 API
@@ -56,7 +56,7 @@ SKU와 정확한 Marketplace Ubuntu 버전을 선택하며, 체크섬으로 고�
 같은 상위 지원 파일이 없는 이전의 보존된 이행 `claim`은 새로운 `foundation-state` 승인 후 검토된 구성의 정확한 파일만 복원할 수 있습니다. 별도 현재 소스 검증기는 Terraform 입력 트리 밖에 남아 복구 오버레이를 검증하고 백엔드 이행을 반복하지 않은 채 `verify`를 재개합니다. 새 권한 레코드는 정규화된 Terraform 출력과 함께 정확한 backend blob 바이트를 결속합니다. 정리 후에는 현재 검증된 관찰기 코드를 소유자 전용 Bastion 전송 및 다이제스트 재확인 경로로 실행하고, Managed Identity Azure CLI 권한으로 보호된 상태 blob을 직접 읽은 뒤 제거하며, 삭제된 Terraform 작업 트리나 provider 미러를 다시 만들지 않은 채 권한 증거에 결속된 blob 다이제스트를 다시 확인합니다. 기존의 완결된 증적은 새 다이제스트를 만들어 내지 않고 최초 변경 없음 근거를 유지합니다.
 기반 계층 적용, Bastion 등록, 검증된 상태 이전에는 정확한 승인이 필요하며, 애플리케이션 배포와 준비 상태는 [Genesis 원장](../../roadmap-implementation/deployment/subscription-genesis-provisioning.md)에 미완료로 남아 있습니다.
 
-Azure Policy가 인벤토리 일부를 거부하는 테난트는 계획이 수렴하기 전에 예외 또는 대응하는
+Azure Policy가 인벤토리 일부를 거부하는 테넌트에서는 계획이 수렴하기 전에 예외 또는 대응하는
 capability-mode 토글이 필요합니다
 ([deployment-preflight-ko.md](deployment-preflight-ko.md)).
 Upstream은 공급자 없이 실행되는 참조 계획으로 토글 계약을 검증합니다. 실제 리소스 모듈에
@@ -64,9 +64,9 @@ Upstream은 공급자 없이 실행되는 참조 계획으로 토글 계약을 �
 
 #### ops/허브 러너 (private-everything 테난트)
 
-일부 테난트는 **모든** 데이터 서비스를 비공개로 강제합니다(Key Vault와 저장소 둘 다).
-그래서 terraform remote-state 백엔드조차 laptop에서 도달 불가능합니다. `infra/bootstrap`
-레이어가 배포를 가능케 하는 지속적 허브를 세우며, 이는 앱 재빌드에도 살아남습니다:
+일부 테넌트는 Key Vault와 저장소를 포함한 **모든** 데이터 서비스에 비공개 접근을
+강제합니다. 따라서 노트북에서는 Terraform 원격 상태 백엔드에도 접근할 수 없습니다.
+`infra/bootstrap` 계층은 배포를 지원하며 앱을 다시 빌드해도 유지되는 허브를 구성합니다:
 
 Ops 계층은 기본적으로 GitHub와 Azure 관리 및 신원 평면에 연결되는 아웃바운드 경로 하나를
 만듭니다. 승인된 경로가 있는 폐쇄망은 `enable_public_egress = false`로 설정합니다. 또한
@@ -85,7 +85,7 @@ Ops 계층은 기본적으로 GitHub와 Azure 관리 및 신원 평면에 연결
   이행 중에는 현재 VM에 시스템 신원과 UAMI를 함께 연결하지만 승격된 VM에는 UAMI만 남고 workflow는 신원을 암묵적으로 선택하지 않습니다. 각 실행은 Azure CLI 계정 캐시를 지우고 구성된 UAMI client ID로 로그인한 뒤 저장소, 계획, 적용 전에 저장소에 설정된 exact 구독, 테넌트 및 ARM token `oid`를 증명합니다.
   검토된 블루/그린 전환에서는 VM과 네트워크 인터페이스를 Bootstrap 상태로 가져오기 전에 `runner_vm_name`을 설정하여 기존 후보의 GitHub 등록을 유지할 수 있습니다. Bootstrap은 명시적으로 검토한 교체 전까지 채택한 이미지 참조를 보존합니다.
   예약 점검은 모든 루트를 강제합니다. 수동 `runner` 범위는 보호된 호스트의 SSH 입력 복구, 실제 디스크 인벤토리, UserAssigned-only 신원, 구성된 UAMI 1개, 빈 구조화 드리프트 작업을 포함해 실행기 저장소와 Bootstrap 상태만 검증합니다. 전체 범위는 Bootstrap과 플랫폼의 정확한 직접 역할 및 일회용 시나리오 상태의 부재 또는 빈 상태도 요구합니다.
-체크아웃 전 실행기는 이전 방식 생성된 `infra/None` 캐시 경로만 제거해 root-owned 액션 residue가 exact-commit clean을 막지 않게 합니다. 해당 단계는 Azure CLI 구성을 `RUNNER_TEMP` 아래에 만들고 후속 단계용 `GITHUB_ENV`로 내보냅니다. 배포 작업의 기본 경로가 `infra/`이므로 새 자리에는 아직 저장소 디렉터리가 없으며 이전 체크아웃 잔여물에 의존하지 않습니다.
+체크아웃 전 실행기는 이전 방식으로 생성된 `infra/None` 캐시 경로만 제거합니다. 루트 소유 작업의 잔여물이 정확한 커밋의 깨끗한 작업 트리 확인을 막지 않게 하기 위해서입니다. 해당 단계는 Azure CLI 구성을 `RUNNER_TEMP` 아래에 만들고 후속 단계용 `GITHUB_ENV`로 내보냅니다. 배포 작업의 기본 경로가 `infra/`이므로 새 자리에는 아직 저장소 디렉터리가 없으며 이전 체크아웃 잔여물에 의존하지 않습니다.
 앱 구성은 spoke VNet을 ops 허브에 (양방향) 피어링하고 비공개 DNS 영역을
 `extra_vnet_links` 경계로 ops VNet에 링크해, 러너가 앱 Key Vault를 비공개로 해석하게
 합니다. 러너가 terraform 적용 주체이므로 기존 `kv_officer_self` 부여가 러너를 앱 금고의
@@ -94,9 +94,9 @@ standalone 로컬 조정기와 Bastion으로 연결할 수 있는 Managed Host�
 `deploy-dev` workflow는 저장소 자동화 근거로 유지하지만 대상 환경 배포 진입점으로 지원하지
 않습니다.
 GitHub 라벨 일치는 AND 조건이므로 해당 풀을 사용할 수 없으면 작업이 느린 관리형 디스크 실행기로 자동 전환되지 않고 큐에서 대기합니다.
-저장소 작업 흐름은 검토된 원격 액션만 허용하고 exact 노드 24-compatible release 참조로
-pin하며 컨테이너 supply-chain 액션은 변경할 수 없는 커밋 SHA를 사용합니다. CI 계약은 알 수 없음
-액션과 mismatched 참조를 차단합니다. Terraform 고정본 테스트는 선언된 `>= 1.9` 하한에서 허용되는
+저장소 작업 흐름은 검토된 원격 액션만 허용하고 정확한 Node 24 호환 릴리스 참조에
+고정합니다. 컨테이너 공급망 액션은 변경할 수 없는 커밋 SHA를 사용합니다. CI 계약은 알 수 없는
+액션과 일치하지 않는 참조를 차단합니다. Terraform 고정본 테스트는 선언된 `>= 1.9` 하한에서 허용되는
 구문만 사용하고 모의 client-config object ID를 deploy principal에 고정합니다. Plan-only 보존은 범위와 역할이 바뀌지 않고 `principal_id`만 유일한 역할 교체 경로이며 함께 교체하는 Operator UAMI가 위치, 리소스 그룹, 태그를 유지하면서 이름만 바꿀 때 Operator API OpenAI User 역할 교체를 허용합니다. 같은 검토 복사본은 안정 실행기 UAMI로 향하는 정확한 역할 principal 또는 범위 이행, 측정 기능이 비활성화된 이전 indexed 측정 Job 두 개의 삭제 전용 제거, 검토된 embedding 제품군 및 SKU 교체만 허용합니다. 측정 Job 제거는 정확한 관리형 리소스 종류, 이름, 인덱스, 이전 객체, null 결과, 교체 경로 부재를 모두 충족해야 합니다. 프로바이더가 계산하는 필드의 인코딩은 권한을 부여하지 않으며 보존은 apply를 승인하지 않습니다. 보호된 배포 workflow는 반복 검증, 대상 파생, 상태 보존 및 효과 게시를 집중 helper에 두고 모든 종료에서 렌더링한 계획을 제거하며, 개발 전용 identity 이행을 상태가 소유한 검토된 deployer 역할, stable-principal readback, 교체된 principal의 할당 0건으로 제한합니다. 역할 교체와 짝을 이루고 local user를 끄며 구성된 blob 및 container 보존 기간을 유지하는 in-place storage 보안 선행 조건만 함께 허용합니다. 상태에 없는 역할 주소는 대상으로 삼지 않으며 Console, Entra, 데이터베이스, 상태 검사 및 canary 작업은 포함하지 않습니다. 중단된 apply 뒤 복구 계획을 만들기 전 storage 및 Foundry 소유 리소스 상태는 역할 주소가 없어도 기능 활성화를 복원하며, 소유자가 남아 있는데 scope를 구할 수 없으면 실패합니다. Workflow는 의도한 각 범위에서 기존 stable 할당이 정확히 1개일 때만 가져오고, 중복이나 다른 상태 주소가 이미 추적하는 assignment ID는 거부합니다. Identity 모드에서는 operational-history handoff용 중복 주소를 다시 가져오지 않습니다.
 권한 있는 workflow는 먼저 보호된 `main`에서 공유 source 검증기를 checkout합니다. 이 검증기는 대상 커밋 코드를 실행하기 전에
 대상 커밋이 조상 커밋이 아니거나 workflow 제어가 다르면 차단합니다. 추가 배포 도구가 필요한 workflow는 runner 임시 저장소에만 설치하고 exact release와 SHA-256 digest를 pin한 뒤 사용 전에 검증합니다. Exact CI 버전이 파싱과 계획 assertion을 검증합니다. 업그레이드는 액션 런타임 메타데이터를 검증하며, 자체 호스팅 실행기 설치는 고정된 하한 버전이 아니라 항상 GitHub Actions 실행기의 최신 공개 릴리스를 해석해 설치합니다. 비공개 networking이 활성화되면 PostgreSQL 공개 접근과 broad Azure-services firewall을
@@ -105,12 +105,12 @@ Protected 요청은 `commit_sha`를 명시적으로 체크아웃하고 `git rev-
 따라서 전달과 실행 사이에 release 커밋이 `main`을 이동해도 계획 또는 적용 코드가
 바뀌지 않습니다.
 배포 작업은 `infra/`에서 실행되므로, 저장소 루트 스크립트를 호출하는 단계는 `../scripts/`로
-접근하거나 working 디렉터리를 재정의합니다. 맨 `scripts/...` 경로는 `infra/` 아래로 해석되어
+접근하거나 working 디렉터리를 재정의합니다. 접두사 없는 `scripts/...` 경로는 `infra/` 아래로 해석되어
 Terraform이 검사할 결과를 만들기도 전에 실행기에서 127로 종료됩니다.
 Protected 실행기는 Terraform 계획 이후 `scripts/deployment/azure/run_live_preflight.py`를
-직접 호출합니다. 이 standalone read-only 진입점은 런타임 서비스 wheel이나 별도 배포되는
-`fdaictl` package에 의존하지 않고 Azure Policy, Compute quota, executor RBAC 및 value-blind
-Key Vault secret metadata를 검사합니다. Mapping, 자격 증명, category 또는 probe 결과가 없으면
+직접 호출합니다. 이 독립 실행형 읽기 전용 진입점은 런타임 서비스 wheel이나 별도 배포되는
+`fdaictl` 패키지에 의존하지 않고 Azure Policy, Compute 할당량, 실행기 RBAC 및 값을 읽지 않는
+Key Vault 시크릿 메타데이터를 검사합니다. 매핑, 자격 증명, 카테고리 또는 프로브 결과가 없으면
 계획 산출물을 저장하기 전에 실패 시 차단됩니다.
 워크플로를 검토 가능한 크기로 유지하기 위해 보호된 계획 메타데이터와 적용 증적은 전용 저장소 모듈에서 생성합니다. YAML은 봉인된 입력과 명시적인 출력 경로만 해당 생성기에 전달합니다.
 전체 계획 변환 결과와 값 없는 요약은 현재 UID가 소유한 mode-0700 임시 디렉터리를 사용하며 메타데이터 생성기가 반환된 후 제거됩니다. Exact 적용은 요약 스키마, 다이제스트, 작업 및 리소스 형식 합계, 비파괴 플래그, 필수 적용 후 관측 목록을 검증합니다. `plan-runtime-*` 및 `plan-observability-*`만 create, update, delete가 0인 `terraform_data` 상태 교체 하나를 포함할 수 있으며 다른 모든 파괴적 요약은 거부합니다. 두 필드가 모두 없는 기존 v1 메타데이터는 제한된 만료 시점까지 유효하지만 부분 요약 근거는 거부합니다.
@@ -118,7 +118,7 @@ Protected 계획은 binary Terraform 계획, 범위가 제한된 preflight 근�
 각각 별도 SHA-256 다이제스트와 함께 저장합니다. Exact 적용은 모든 산출물을 download하고
 검증합니다. Peer 증적은 인증된 실행기 신원과 범위가 제한된 시간 초과로 허용 목록에 있는 isolated 백엔드 블롭을 각각 직접 download하여 상태 바이트를 변경하지 않으면서 반복 프로바이더 initialization을 제거합니다. 서비스 롤백은 변경할 수 없는 스냅샷에 없는 post-apply 시크릿 이름만 제거한 뒤 exact Key Vault 참조를 복원합니다. Independent-service Container App 계획은 lowercase plan-time 개정 번호 접미사도 saved Terraform 계획에 봉인하므로 out-of-band 검증된 이미지 롤백 이후 desired Terraform 이미지가 변경되지 않은 상태에서도 exact 적용이 fresh 개정 번호를 생성합니다. 가드는 exact 이미지 갱신 옆에서 해당 범위가 제한된 접미사만 허용하며 적용 증적을 기록하려면 상태가 attested 이미지를 실행하는 새 개정 번호를 계속 요구합니다. 구성된 경우 이력 계획은 전용 의사 결정 근거 계정, 비공개 엔드포인트 및 읽기 전용 신원 부여를 대상으로 하며, 별도 워크플로는 보호된 `main`의 first-parent 근거만 검증하고 게시 전에 증명한 뒤 런타임이 읽기만 할 수 있는 불변 저장소에 수렴 가능한 기록을 씁니다. 새 계획 저장 전 실행기는 24시간이 지난 허용 목록에 있는 계획, 메타데이터, 출처,
 preflight, 점유, 증적 블롭만 선택합니다. 1001개 미만을 검사하고 워커 8개로 최대 1000개를
-삭제하며 선택이 불완전한이거나 삭제가 하나라도 실패하면 계획을 중지합니다.
+삭제하며 선택이 불완전하거나 삭제가 하나라도 실패하면 계획을 중지합니다.
 개발 operations 게이트웨이를 선택하면 Terraform은 해당 함수, 코어, Operator API,
 인제스트, 선택된 경우 isolated 실행기, operational canary, 인벤토리 조정 작업,
 realtime 인벤토리 발행기 및 해당 의존성 그래프를 대상합니다. 이렇게 하면 관련 없는 런타임 리소스 변경은 계획에서
@@ -129,8 +129,8 @@ Provider-schema Job은 루트 Terraform 리소스 `azurerm_container_app_job.pro
 여기에는 baseline-regression 및 pattern-growth 작업의 인덱스 없는 대상 주소가 포함됩니다.
 `for_each` 키 이름 변경에는 명시적인 `moved` 블록을 사용합니다. 따라서 Terraform은 기존 리소스를
 삭제한 후 새로 만들도록 계획하지 않고 현재 리소스를 그대로 보존합니다.
-Targeted 계획에는 해당 `for_each` move의 수집 리소스 주소가 포함됩니다. 따라서
-Terraform은 키가 지정된 두 인스턴스를 함께 평가할 수 있으며 AI 계정과 역할 수집도 함께 대상하므로 네트워크 및 권한 확인 설정이 하나의 적용에서 수렴합니다.
+대상이 지정된 계획에는 해당 `for_each` 이동의 리소스 컬렉션 주소가 포함됩니다. 따라서
+Terraform은 키가 지정된 두 인스턴스를 함께 평가할 수 있으며 AI 계정과 역할 컬렉션도 함께 대상으로 지정하므로 네트워크 및 권한 확인 설정이 하나의 적용에서 수렴합니다.
 Terraform은 호스트와 배포
 저장소에 읽기 담당 managed 신원을 사용하며 작업 흐름은 publish 전에 Flex-generated exact shared-key
 재정의를 제거합니다. 해당 신원에는 호스트용 `Storage Blob Data Owner`와 멱등성용 기여자
@@ -155,15 +155,15 @@ Protected-plan 삭제 게이트는 broad PostgreSQL Azure-services firewall 경�
 또한 계획 JSON이 정확한 주소, 계정, 모델 계열, 기존 SKU/용량, 목표 SKU/용량, 교체 작업과 일치할 때만 검토된 `t1.embedding` 이행을 허용합니다. 모델 연결 전용 계획은 상위 모듈이 아니라 Azure OpenAI 기능 배포 컬렉션을 대상으로 지정합니다. 따라서 범위 및 파괴적 변경 가드를 실행하기 전에 기존 계정과 역할 할당 리소스는 계획 그래프 밖에 남습니다. Workflow는 봉인한 resolver 산출물의 해시를 계산하기 전에 이를 정본화합니다. 리소스 변경이 없는 복구 계획은 이 정본 다이제스트가 증명된 활성 Core 모델 다이제스트와 다를 때만 수락하며, 적용 후에는 모델별 프로바이더 readback을 계속 요구합니다.
 모델 삭제 전용 변경, 값이 달라진 교체, 누락되거나 생성이 아닌 successor, 그 밖의 모든 삭제는 계속 차단됩니다.
 [`infra/bootstrap/README.md`](../../../infra/bootstrap/README.md).
-Scheduled driver는 Terraform이 관리합니다. `SCHEDULER_TICK_CRON_EXPRESSION` 및 `ANALYZER_TICK_CRON_EXPRESSION`은 기존 작업을 설정하고, `forecast_tick_cron_expression`과
-`forecast_targets_json`은 예측 작업을 명시적 선택하고 `FDAI_FORECAST_TARGETS_JSON`을 주입합니다.
-예측 작업은 raw 틱만 publish하며 Huginn이 이를 Heimdall 평가 및 종결용으로 정규화합니다.
+예약 실행 구동기는 Terraform이 관리합니다. `SCHEDULER_TICK_CRON_EXPRESSION` 및 `ANALYZER_TICK_CRON_EXPRESSION`은 기존 작업을 설정하고, `forecast_tick_cron_expression`과
+`forecast_targets_json`은 예측 작업을 명시적으로 선택하고 `FDAI_FORECAST_TARGETS_JSON`을 주입합니다.
+예측 작업은 원시 틱만 게시하며 Huginn이 이를 Heimdall의 평가 및 종결을 위해 정규화합니다.
 `automation_blueprint_cron_expression`은 자동화 청사진 작업을 명시적으로 선택합니다. 이 작업은
 스케줄러 ID와 상태 저장소 비밀을 재사용하며, 각 실행은 inert 후보를 제안하거나 대기 중인 검토
 제안을 적용하기만 합니다.
 각 대상 항목은 `target_kind`를 지정하고 저장소가 관리하는 기간, 신뢰수준, 샘플 하한, 적합도 하한과 일치합니다. Core는 예측 대상을 사용하지 않을 때도 이 정책을 로드하므로 정책이 없거나 형식이 잘못되면 관리되지 않는 대상 경로를 남기지 않고 시작을 차단합니다.
 인벤토리 조정 작업은 코어와 같은 필수 non-secret 런타임 구성을 상속해
-recovery-delta forwarding이 부분 구성 없이 타입이 지정된 Event 버스 발행기를 열게 합니다.
+복구 변경분 전달 과정에서 부분 구성 없이 타입이 지정된 Event 버스 발행기를 시작할 수 있게 합니다.
 스케줄러 및 analyzer 작업은 해당 작업에 연결된 user-assigned 신원의 클라이언트 id를
 `FDAI_MI_CLIENT_ID`로 설정하므로 Azure Monitor 및 Event Hubs 토큰 획득에서 암묵적 신원
 선택을 사용하지 않습니다. 이전 방식 범용 OOB 작업은 탐색 항목 지점이 소유할 때까지 범위가 제한된
@@ -232,7 +232,7 @@ Preflight, 출처 우선순위, 커버리지 및 stale 유지 계약은
 - 카탈로그 + 포크 리포에 범위된 설치된 GitHub App 또는 서비스 커넥션을 가진 **GitOps 호스트**
   (GitHub 또는 Azure DevOps 조직).
 - 사람 승인(`hil` 경로)을 위한 그룹-연결 팀이 있는 **Teams 테넌트**. Teams가 기본 A1
-  기본입니다. 자세한 내용은
+  채널입니다. 자세한 내용은
   [channels-and-notifications-ko.md](../interfaces/channels-and-notifications-ko.md)를 참조하세요.
 - FDAI Slack 앱이 설치되고 필수 Slack userId ↔ Entra OID 매핑 저장소가 프로비저닝된
   **Slack 워크스페이스**; P1 Slack A1 채널에 필요
@@ -268,11 +268,11 @@ CAF 접두사, 결정론적 길이 처리, `fdai:` 태그 네임스페이스, �
 
 ## Azure 리소스 인벤토리 (최소 세트)
 
-인벤토리는 **비용 효율 우선**을 위해 의도적으로 최소화. 아래 모든 선택은 이 문서 끝의
-[비용 효율 원칙](#비용-효율-원칙)이 주도. 인벤토리는 [csp-neutrality-ko.md](../architecture/csp-neutrality-ko.md)
-에 정의된 네 개의 CSP-중립 계약 (이벤트버스, 런타임, 시크릿, 워크로드 아이덴티티) 에서
-렌더링된것; Azure는 오늘의 각 계약의 구현. 구체적 티어 값, 정확한 이름, 리전, 앱별 복제본
-상한은 여전히 **배포별** 이며 환경마다 튜닝하고 형상은 안정적으로 유지합니다.
+인벤토리는 **비용 효율을 우선**해 의도적으로 최소화했습니다. 아래의 모든 선택은 이 문서 끝의
+[비용 효율 원칙](#비용-효율-원칙)을 따릅니다. 인벤토리는 [csp-neutrality-ko.md](../architecture/csp-neutrality-ko.md)에
+정의된 네 가지 CSP 중립 계약(이벤트 버스, 런타임, 시크릿, 워크로드 신원)에서 도출하며,
+현재 각 계약의 구현은 Azure입니다. 구체적인 계층 값, 정확한 이름, 지역, 앱별 복제본
+상한은 **배포별**로 조정하되 전체 구조는 일관되게 유지합니다.
 | # | 리소스 | 티어 | 목적 | 노트 |
 |---|--------|------|------|------|
 | 1 | **AKS Standard 클러스터** | 승인된 프로파일에 따라 크기를 정한 시스템 및 사용자 노드 풀 | 신규 설치의 기본 컴퓨팅 호스트 | API Server VNet Integration, 워크로드 신원, Azure Policy, 관리형 Key Vault CSI, 워크로드 및 API 서버 전용 서브넷이 기본 프로파일에 포함됩니다. |
@@ -315,8 +315,8 @@ Event Hubs Kafka를 계속 요구합니다.
 - **App 등록 × 3** - 오디언스 분리
   ([user-rbac-and-identity-ko.md#41-app-registrations](../interfaces/user-rbac-and-identity-ko.md#41-app-registrations)):
   `fdai-console-spa` (SPA 사인인, PKCE), `fdai-api` (콘솔 + ChatOps 백엔드용
-  Web API 오디언스), `fdai-approval-bot` (Teams SSO). 어느 것도 실행기 아이덴티티
-  보유 안 함. 단계별 `az` 생성:
+  Web API 오디언스), `fdai-approval-bot` (Teams SSO).   어느 것도 실행기 신원을
+    보유하지 않습니다. 단계별 `az` 생성:
   [../runbooks/entra-app-registration-ko.md](../../runbooks/entra-app-registration-ko.md).
   콘솔 적용 후 deploy 작업 흐름은 Terraform이 출력한 Static Web App 출처를 대상
   테넌트의 SPA redirect URI에 안전하게 재시도 가능한 방식으로 동기화합니다. 테넌트가
@@ -359,8 +359,8 @@ Event Hubs Kafka를 계속 요구합니다.
 콘솔 API 대상, Entra RBAC 그룹 id 5개, 명시적인 인제스트 CORS 출처와 함께 설정합니다.
 Terraform은 다음 항목을 프로비저닝합니다.
 
-- 별도 API, 워커, 이행 UAMI와 role-scoped PostgreSQL DSN. API는 단계를 publish하지만
-  consume하지 않으며 워커만 단계 수신과 선택적 문서 Intelligence OCR 권한을 가집니다.
+- 별도 API, 워커, 이행 UAMI와 역할 범위로 제한된 PostgreSQL DSN. API는 단계를 게시하지만
+  소비하지 않으며 워커만 단계 수신과 선택적 Document Intelligence OCR 권한을 가집니다.
 - HNS, `documents`와 `derived` 파일 시스템, 수명 주기 컨트롤, Shared Key 비활성화와
   Terraform-owned Defender scanner private-link 접근을 적용한 StorageV2 계정
 - `blob` 및 `dfs` 비공개 엔드포인트. App VNet은 엔드포인트 영역에 링크하고, ops 실행기는 기존
@@ -389,7 +389,7 @@ Workflow는 OCR desired-state 축약을 집중 script에 위임하여 승인 또
 
 공개 Static Web App은 ADLS에 직접 접근하지 않습니다. Storage 계정을 비공개로 유지하기
 위해 인증된 게이트웨이를 통해 스트림합니다. 게이트웨이는 ADLS, Event Hubs, Azure OpenAI에 Managed
-신원을 사용하며 연결 문자열 또는 Storage 계정 키를 만들지 않습니다.
+Identity를 사용하며 연결 문자열 또는 Storage 계정 키를 만들지 않습니다.
 
 첫날에 **프로비저닝되지 않음** (측정된 필요가 정당화할 때 후속 단계로 연기):
 
@@ -425,8 +425,9 @@ Workflow는 OCR desired-state 축약을 집중 script에 위임하여 승인 또
 
 ## 부트스트랩 순서
 
-프로비저닝은 IaC 주도이지만 첫 라이브 이벤트까지의 **논리적 부트스트랩 순서**는 지켜야 함.
-앞의 단계가 실패하면 halt하고 unwind; 배포는 깨진 앞 단계로 뒤 단계에 진행하지 않음.
+프로비저닝은 IaC로 수행하지만 첫 실제 이벤트를 받기까지의 **논리적 부트스트랩 순서**는
+지켜야 합니다. 앞 단계가 실패하면 중단하고 수행한 작업을 되돌립니다. 실패한 단계를 남겨 둔
+채 다음 단계로 진행하지 않습니다.
 
 ![부트스트랩 순서. 주요 단계는 전제조건 해결됨, IaC로 핵심 리소스 프로비저닝, 실행기 관리 ID 생성 및 범위 지정 역할 할당, 미리 빌드하고 서명한 이미지를 AKS에 shadow-only로 배포, 프로비저닝된 Postgres에 alembic upgrade head 실행, Diagnostic Settings 및 Kafka 토픽 전달기 연결, day-zero 규칙 세트로 규칙 카탈로그 시드, HIL 승인자 및 ChatOps 채널 등록, 배포 후 스모크 테스트 실행, 시스템이 준비됨; 첫 실제 이벤트 도착 가능입니다.](../../diagrams/generated/fdai-deploy-and-onboard-01.ko.svg)
 
@@ -449,9 +450,9 @@ Workflow는 OCR desired-state 축약을 집중 script에 위임하여 승인 또
 
 ## 분포 및 배포 책임 매트릭스
 
-업스트림 repo는 모든 것을 **customer-agnostic**으로 제공합니다. 다운스트림 분포는
+업스트림 저장소는 모든 것을 **고객 비종속적**으로 제공합니다. 다운스트림 배포판은
 `core/`를 편집하지 않고 의존성 주입으로 기능을 제한하거나 확장할 수 있습니다.
-배포는 출처 컨트롤 밖에서 환경 값, 신원, 시크릿 참조, 승격
+배포는 소스 제어 밖에서 환경 값, 신원, 시크릿 참조, 승격
 상태를 제공합니다.
 ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 
@@ -466,14 +467,14 @@ Workflow는 OCR desired-state 축약을 집중 script에 위임하여 승인 또
 
 ## 런타임 설정 매트릭스
 
-모든 값은 런타임에 env vars 또는 Key Vault refs에서 옴. **이 리포에 커밋되는 환경 값 없음.**
-아래 리스트는 배포가 기대하는 **키의 스키마** ; 완전한 확장 카탈로그와 기본값은 인벤토리 PR에서
-작성됨.
+모든 값은 런타임에 환경 변수 또는 Key Vault 참조에서 가져옵니다. **이 저장소에 환경 값을
+커밋하지 않습니다.** 아래 목록은 배포에 필요한 **키의 스키마**이며, 전체 확장 카탈로그와
+기본값은 인벤토리 PR에서 작성합니다.
 
-Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과합니다. 읽기 담당은 환경,
-영속 재정의 및 effective 값을 비교할 수 있습니다. Owner는 개정 번호 및 감사 검사를 통해
+Console은 Settings > Runtime policies에서 안전한 설정 하위 집합을 표시합니다. 읽기 담당은 환경 값,
+영속 재정의 값, 유효 값을 비교할 수 있습니다. Owner는 개정 번호 및 감사 검사를 통해
 문서화된 허용 목록만 변경할 수 있습니다. IRP, analyzer, 인벤토리 최신성 및 보존 틱 변경은
-다음 이벤트 또는 작업 경계에서 동적으로 적용됩니다. 로깅 수준과 사례 보존 또는 deletion 일
+다음 이벤트 또는 작업 경계에서 동적으로 적용됩니다. 로깅 수준과 사례 보존 또는 삭제까지의 일수
 변경은 headless 런타임 재시작이 필요합니다. 배포 신원, 전송 계층, 엔드포인트, 시크릿,
 승격 및 test-only 키는 editable 표면에 포함되지 않습니다.
 
@@ -528,7 +529,7 @@ Console은 Settings > 런타임 policies에서 안전한 subset을 변환 결과
 | `FDAI_LOCAL_AZURE_CONFIG_DIR` | env | dev-only | 선택적 격리 Azure CLI 프로파일입니다. 미설정 시 어댑터가 상속된 `AZURE_CONFIG_DIR`를 제거하고 기본 프로파일을 사용합니다. |
 | `FDAI_POLICIES_ROOT` | env | 배포 | T0 와 검증기 가 소비하는 OPA / Rego 번들 루트의 절대 경로. 미설정 시 in-repo `policies/` 를 기본값. |
 | `FDAI_MI_CLIENT_ID` | env | 업스트림 | 현재 프로세스의 user-assigned MI 클라이언트 id. Core에는 실행기 id를 주입하고 인벤토리 작업에는 별도 읽기 전용 발견 id를 주입합니다. |
-| `FDAI_INVENTORY_RECONCILIATION_INTERVAL_SECONDS` | env | 업스트림 | 인벤토리 작업의 정상 full-scan 간격입니다. 기본 작업 cron은 10분마다 wake하지만 PostgreSQL 시도 상태가 간격 due 전 검사를 건너뜀하고 newer 실패한/abandoned 시도는 다음 틱에 재시도합니다. 기존 온톨로지 변환의 세대가 활성 스냅샷이 아니거나 release가 실행 중인 release가 아니면 대기로 보고 최소 폴링 간격 뒤에 다시 수집하므로, 온톨로지 release를 바꾸는 배포가 이 간격 동안 답변을 부분 결과로 남기지 않습니다. 성능이 저하된 대기 중 변환은 실패 근거를 유지하지만 다음 정본 전체 스캔을 차단하지 않으며 현재 변환이 불완전하면 계속 실패합니다. 해당 base를 건너뛴 승격된 전체 스냅샷은 실제 manifest 세대에 다시 결속하며 manifest 세대가 없으면 계속 차단합니다. 새로운 전체 스냅샷의 선언 base가 건너뛴 정확한 불완전 generation이면 보존된 완전한 topology 이력에서 이전 상태를 파생할 수 있습니다. 복구는 다시 계산한 배치에서 동일한 콘텐츠 주소 상태 전이 커버리지 레코드를 중복시키거나 약화하지 않고 재사용할 수 있습니다. 이후 기록이 동시에 커밋되더라도 전역 및 활성 범위 변환 checkpoint는 해당 스냅샷 append가 관측한 journal high watermark보다 앞으로 이동하지 않습니다. 저장소 변수 `ENABLE_RUNTIME_CALL_EVIDENCE=true`는 Operator 상태 이행 후 배포된 런타임 호출 원본을 독립적으로 활성화합니다. 독립 Operator API와 채널 경계에는 서로 다른 고정 semantic outbox namespace를 주입하므로 한 런타임이 다른 런타임의 대기 중 요청을 claim할 수 없습니다. 독립 서비스 `runtime_call_evidence_transition` guard는 일치하는 런타임에서 이 정확한 namespace 추가 또는 제거만 허용합니다. 구성한 최신성 구간에서는 ARM replica 검증 전에 정확한 엔드포인트 쌍별 최신 관측을 선택합니다. 더 새로운 검증되지 않은 관측은 실패 시 닫힌 상태가 되고 더 새로운 짝이 없는 관측은 후행 유예 구간 뒤 불완전 상태가 됩니다. 보호된 `plan-runtime-*` 및 `apply-runtime-*` 요청은 검증된 업데이터와 롤백이 기존 Job에만 영향을 주는 형제 플래그, workspace 및 정확한 이미지 전환 리소스를 대상으로 합니다. 별도 workspace 전환 리소스는 이미 생성된 플래그 리소스가 새 필수 바인딩을 숨기지 않도록 합니다. 검증된 다이제스트가 바뀌면 이미지 업데이터의 상태 전용 교체만 허용합니다. 런타임 전용 수렴 검사는 세 전환 상태를 확인하며 독립 읽기는 플래그, workspace 다이제스트 및 선택한 이미지 다이제스트를 검증합니다. 환경 통합 Container Apps 로그 행의 `_ResourceId`가 비어 있을 수 있으므로 원본은 결속되지 않은 이름을 수락하는 대신 플랫폼 컨테이너 이름과 ID가 정확한 ARM replica 응답과 일치하도록 요구합니다. 범위 검사는 다른 모든 주소를 차단합니다. |
+| `FDAI_INVENTORY_RECONCILIATION_INTERVAL_SECONDS` | env | 업스트림 | 인벤토리 작업의 정상 full-scan 간격입니다. 기본 작업 cron은 10분마다 실행되지만 PostgreSQL 시도 상태를 기준으로 간격이 도래하기 전의 검사는 건너뜁니다. 더 최근의 실패하거나 중단된 시도는 다음 틱에 재시도합니다. 기존 온톨로지 변환의 세대가 활성 스냅샷이 아니거나 release가 실행 중인 release가 아니면 대기로 보고 최소 폴링 간격 뒤에 다시 수집하므로, 온톨로지 release를 바꾸는 배포가 이 간격 동안 답변을 부분 결과로 남기지 않습니다. 성능이 저하된 대기 중 변환은 실패 근거를 유지하지만 다음 정본 전체 스캔을 차단하지 않으며 현재 변환이 불완전하면 계속 실패합니다. 해당 base를 건너뛴 승격된 전체 스냅샷은 실제 manifest 세대에 다시 결속하며 manifest 세대가 없으면 계속 차단합니다. 새로운 전체 스냅샷의 선언 base가 건너뛴 정확한 불완전 generation이면 보존된 완전한 topology 이력에서 이전 상태를 파생할 수 있습니다. 복구는 다시 계산한 배치에서 동일한 콘텐츠 주소 상태 전이 커버리지 레코드를 중복시키거나 약화하지 않고 재사용할 수 있습니다. 이후 기록이 동시에 커밋되더라도 전역 및 활성 범위 변환 checkpoint는 해당 스냅샷 append가 관측한 journal high watermark보다 앞으로 이동하지 않습니다. 저장소 변수 `ENABLE_RUNTIME_CALL_EVIDENCE=true`는 Operator 상태 이행 후 배포된 런타임 호출 원본을 독립적으로 활성화합니다. 독립 Operator API와 채널 경계에는 서로 다른 고정 semantic outbox namespace를 주입하므로 한 런타임이 다른 런타임의 대기 중 요청을 claim할 수 없습니다. 독립 서비스 `runtime_call_evidence_transition` guard는 일치하는 런타임에서 이 정확한 namespace 추가 또는 제거만 허용합니다. 구성한 최신성 구간에서는 ARM replica 검증 전에 정확한 엔드포인트 쌍별 최신 관측을 선택합니다. 더 새로운 검증되지 않은 관측은 실패 시 닫힌 상태가 되고 더 새로운 짝이 없는 관측은 후행 유예 구간 뒤 불완전 상태가 됩니다. 보호된 `plan-runtime-*` 및 `apply-runtime-*` 요청은 검증된 업데이터와 롤백이 기존 Job에만 영향을 주는 형제 플래그, workspace 및 정확한 이미지 전환 리소스를 대상으로 합니다. 별도 workspace 전환 리소스는 이미 생성된 플래그 리소스가 새 필수 바인딩을 숨기지 않도록 합니다. 검증된 다이제스트가 바뀌면 이미지 업데이터의 상태 전용 교체만 허용합니다. 런타임 전용 수렴 검사는 세 전환 상태를 확인하며 독립 읽기는 플래그, workspace 다이제스트 및 선택한 이미지 다이제스트를 검증합니다. 환경 통합 Container Apps 로그 행의 `_ResourceId`가 비어 있을 수 있으므로 원본은 결속되지 않은 이름을 수락하는 대신 플랫폼 컨테이너 이름과 ID가 정확한 ARM replica 응답과 일치하도록 요구합니다. 범위 검사는 다른 모든 주소를 차단합니다. |
 | `FDAI_INVENTORY_OPERATOR_REQUESTED` | env | 배포 / one-shot | 명시적으로 요청한 one-shot Job 실행에서만 `1`로 설정해 정상이고 유휴 상태인 adaptive scheduler가 즉시 수집하도록 합니다. 이 요청은 활성 수집, provider backoff, throttling, 열린 circuit 또는 인벤토리 근거 gate를 우회하지 않습니다. 영속 Job template에서는 이 값을 설정하지 않습니다. Core 마이그레이션 head는 snapshot 및 실시간 인벤토리 table에서 검토된 `runtime_calls` link 형식을 허용하며 downgrade는 다시 만들 수 있는 런타임 호출 link만 제거한 뒤 이전 허용 목록을 복원합니다. |
 | `FDAI_EMAIL_ENDPOINT` / `FDAI_EMAIL_SENDER_ADDRESS` / `FDAI_EMAIL_RECIPIENT_ADDRESSES_JSON` / `FDAI_NOTIFICATION_MI_CLIENT_ID` | env | 업스트림 / 배포 | ACS 이메일 A2/A4 채널을 활성화합니다. Terraform이 엔드포인트와 Azure-managed 발신자를 파생하고 전용 알림 MI를 연결한 뒤 클라이언트 id를 주입합니다. 배포 구성은 `NOTIFICATION_EMAIL_RECIPIENTS_JSON`으로 수신자를 공급하며 앱에는 접근 키나 연결 문자열이 들어가지 않습니다. 부분 설정은 시작을 차단합니다. |
 | `FDAI_CONSOLE_BASE_URL` | env | 배포 | 인시던트 이메일의 읽기 전용 근거 링크를 만드는 공개 HTTPS 출처입니다. Console을 활성화하면 Terraform이 Static Web App hostname에서 파생합니다. 값이 없으면 이메일 전달은 계속되며 렌더러는 인시던트 CTA를 생략합니다. |
@@ -581,8 +582,8 @@ Onboarding 콘솔은 모든 Azure 탐색 입력이 있을 때만 `probe_mode=con
 
 ## 이벤트 소스 구독
 
-세 초기 버티컬이 관측할 것이 있도록 부트스트랩에서 배선되는 신호. 구체적 이벤트 타입,
-구독 필터, 속도 상한은 **TBD** ; 배선 형상은 안정적.
+세 초기 영역이 관측할 수 있도록 부트스트랩에서 연결하는 신호입니다. 구체적인 이벤트 타입,
+구독 필터, 비율 상한은 **추후 결정**하며, 연결 구조는 일관되게 유지합니다.
 
 | 버티컬 | Azure 신호 후보 | 딜리버리 |
 |--------|----------------|---------|
@@ -591,9 +592,9 @@ Onboarding 콘솔은 모든 Azure 탐색 입력이 있을 때만 `probe_mode=con
 | FinOps | 비용 이상 알림, 예산 알림, Advisor 비용 권고 | 비용 관리 pull → Kafka 토픽 (`fdai.finops.events`); 이상 알림은 같은 Diagnostic-Settings 경로로 fan in |
 | Operator 안전 제어 | Ordered poison-halt clear 요청 | Operator가 shared pantheon-object transport의 logical `fdai.operator.ordered-poison-halt.clear.v1` topic에 씁니다. Core는 halted ordered consumer를 재개하기 전에 parked-record 근거를 검증합니다. |
 
-모든 이벤트는 유입에서 **멱등성 키가 스탬프** 되어 리플레이는 no-op; DLQ는 도달 가능
-해야 하며 어디에서든 강제 적용이 활성화되기 전에
-[경보 라우팅 계약](../operations/operating-and-verification-ko.md#경보-라우팅)이 커버해야 함.
+모든 이벤트는 유입 시 **멱등성 키를 부여**하므로 재생은 no-op으로 처리됩니다. DLQ는 접근할 수
+있어야 하며, 어느 경로에서든 강제 적용을 활성화하기 전에
+[경보 라우팅 계약](../operations/operating-and-verification-ko.md#경보-라우팅)에 포함해야 합니다.
 
 Azure forwarding 방식은 shared 시크릿이 없는 경계를 유지하는 것이 좋습니다. Diagnostic Settings
 내보내기를 위해 Event Hubs 로컬 인증만 다시 활성화하지 않습니다. 선택한 Azure 신호 출처가 Managed

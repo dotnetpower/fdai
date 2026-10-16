@@ -7,20 +7,20 @@ translation_revised: 2026-10-01
 # 배포 프리플라이트 (배포 가능성 및 차단 요인 수집)
 
 배포가 실행되기 전에(`terraform apply`, 또는 컨트롤 플레인 교정 PR),
-**deploy-preflight** 패스는 대상 환경에서 배포를 막거나 저하시킬 수 있는 모든 요소를
-수집하고, 각 항목을 그것을 만들어낸 정확한 규칙에 근거로 연결하며, 그것을 해소하는 구체적인
-레버에 매핑합니다. 이것은
+**deploy-preflight** 검사는 대상 환경에서 배포를 막거나 저하시킬 수 있는 모든 요소를
+수집합니다. 각 항목에 해당 요소를 탐지한 정확한 규칙을 근거로 연결하고, 이를 해소할
+구체적인 설정에 매핑합니다. 이는
 [what-if 검증기](../../../.github/instructions/architecture.instructions.md#llm-quality-gate-required-for-t2)
 를 단일 액션에서 배포 전체로 일반화한 것입니다.
 
-이는 반복적으로 발생하는 실패 클래스를 해결합니다 - 그 자체로는 올바르지만 대상 구독의
-가드레일에 의해 거부되는 계획: 거부된 리소스 타입, 차단된 패키지 또는 이미지 소스, 누락된
-역할 배정, 소진된 쿼터, 또는 지원하는 리소스보다 먼저 존재해야 하는 의존성. 이런
-것들을 `terraform apply`가 실패하면서 하나씩 발견하는 대신, 프리플라이트 패스는 이 모두를
+이는 계획 자체는 올바르지만 대상 구독의 가드레일 때문에 거부되는 반복적인 실패를 해결합니다.
+예를 들어 허용되지 않는 리소스 타입, 차단된 패키지나 이미지 출처, 누락된 역할 할당,
+소진된 할당량, 대상 리소스보다 먼저 준비되어야 하는 의존성이 있습니다. 이런 요소를
+`terraform apply`가 실패할 때마다 하나씩 발견하는 대신, 프리플라이트 검사는 모두
 사전에 한 번에 보고합니다.
 
 > 고객-비종속: 아래의 모든 denylist, 차단 호스트, 미러 엔드포인트, 토글 값은 구성 또는
-> 포크가 공급합니다 - 상류는 기계 장치와 제네릭 분류법을 제공할 뿐, 고객의 특정 가드레일
+> 포크가 제공합니다. 업스트림은 메커니즘과 범용 분류 체계만 제공하며, 고객별 가드레일
 > 값은 절대 넣지 않습니다
 > ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
 ## 루프에서의 위치
@@ -29,21 +29,21 @@ translation_revised: 2026-10-01
 실행형 실행기 스크립트로 제공되며 컨트롤 플레인 경로는 현재 경계만 있습니다:
 
 - **컨트롤 플레인(일부 제공됨)**: [실행기](../architecture/project-structure-ko.md)가 교정 PR을 발행하기
-  전에, analyzer는 그 변경이 실제로 대상 범위에 착지할 수 있는지 확인합니다. 차단
+  전에, 분석기는 해당 변경을 실제로 대상 범위에 적용할 수 있는지 확인합니다. 차단
   발견 사항은 정책을 실패시킬 PR을 여는 대신 액션을 `hil`로 격하시킵니다. 이 순서를
   강제하는 결정론적 게이트와 정확한 수정안의 갱신을 확인하는 전달 래퍼는 존재하고
   테스트되어 있으나, 필수 갱신을 연결하는 실제 경로는 아직 없습니다.
-- **사람 배포(배포됨)**: 비공개 실행기 작업 흐름이 계획 전에 리포트를 생성하고 exact-plan
-  메타데이터에 근거 다이제스트를 연결합니다. PR comment/GitHub 검사 전송은 후속입니다.
+- **사람 배포(배포됨)**: 비공개 실행기 작업 흐름이 계획 전에 보고서를 생성하고 exact-plan
+  메타데이터에 근거 다이제스트를 연결합니다. PR 댓글/GitHub 검사 전송은 후속 작업입니다.
 
 두 경로 모두 **deterministic-first**(T0 성격)입니다: 클라우드 호출 없는 정적 분석이 대부분의
-발견 사항을 해결하고, 범위가 제한된·읽기 전용 라이브 프로브가 나머지(egress 도달성, 쿼터)를
-확증합니다. 패스의 어떤 것도 무엇을 mutate하지 않습니다.
+발견 사항을 처리하고, 범위가 제한된 읽기 전용 실제 환경 프로브가 나머지(아웃바운드 도달성, 할당량)를
+확인합니다. 검사 과정에서는 어떤 대상도 변경하지 않습니다.
 
 ## 프로브 분류법
 
 *프로브*는 `PreflightTarget`(범위에 더해 배포가 건드리려는 리소스 타입, egress 호스트,
-필요한 링크)을 검사하고 한 카테고리의 근거 있는 발견 사항을 반환합니다. 제네릭 카탈로그:
+필요한 링크)을 검사하고 한 카테고리의 근거 있는 발견 사항을 반환합니다. 범용 카탈로그는 다음과 같습니다:
 
 | 카테고리 | 대표 차단 요인 | 탐지 (deterministic-first) |
 |----------|------------------------|---------------------------------|
@@ -54,8 +54,8 @@ translation_revised: 2026-10-01
 | `dependency_ordering` | disk before VM, NSG before 서브넷, 비공개 엔드포인트 before 리소스 | 정책 + 모듈 의존성 그래프에서 도출한 순서 위반 (정적) |
 | `secret_config` | Key Vault 참조 해결 불가, 필수 시크릿 부재 | 시크릿 존재 / 도달성 확인 (정적) |
 
-`policy_guardrail`과 `supply_chain_egress` 카테고리는 하드닝된 네트워크 고객이 가장 많이
-부딪히는 둘입니다: 이들은 Azure Policy `deny` 가드레일(`Not allowed resource types` /
+`policy_guardrail`과 `supply_chain_egress`는 보안이 강화된 네트워크에서 고객이 가장 자주
+마주치는 두 카테고리입니다. Azure Policy `deny` 가드레일(`Not allowed resource types` /
 `Allowed resource types`)과 방화벽 egress denylist에 직접 매핑됩니다. 기저 규칙의 출처는
 [rule-catalog-collection-ko.md](../rules-and-detection/rule-catalog-collection-ko.md)를 참조하세요.
 
@@ -63,15 +63,15 @@ translation_revised: 2026-10-01
 
 발견 사항은 하나의 `DeploymentReadinessReport`
 ([core/deploy_preflight/report.py](../../../services/core-control-plane/src/fdai/core/deploy_preflight/report.py))
-로 조립됩니다. 각 발견 사항은 세 개의 필수 부분을 가집니다:
+로 조합합니다. 각 발견 사항에는 다음 세 항목이 필요합니다:
 
 - **근거** - 그것을 만들어낸 규칙의 CSP-neutral 인용
   (`policy:<neutral-id>`, `nsg:<neutral-id>/rule:<name>`). 출처를 인용할 수 없는
   프로브는 발견 사항을 발행해서는 안 됩니다; 근거 없는 차단 요인은 결함이며, T2 검증기가
   따르는 규칙과 동일합니다.
-- **심각도** - `blocking`(강제 적용 모드 배포를 게이팅) 또는 `warning`(표면화하지만 절대
-  게이팅하지 않음).
-- **해석** - 어떻게 해소하는지, 가능하면 구체적인 레버에 매핑됨 (아래 토글 표 참조).
+- **심각도** - `blocking`(강제 적용 모드에서 배포를 차단) 또는 `warning`(표시하지만 배포를
+  차단하지 않음)입니다.
+- **해결 방법** - 해소 방법을 제시하며, 가능하면 구체적인 조정 수단에 연결합니다 (아래 토글 표 참조).
 
 ### 결정 의미론
 
@@ -81,20 +81,20 @@ translation_revised: 2026-10-01
 | `needs_review` | 발견 사항은 있으나 차단은 없음 (경고만) |
 | `blocked` | 최소 하나의 차단 발견 사항 |
 
-리포트는 항상 **진실한** 판정을 기록합니다. 그 판정이 배포를 *게이팅*하는지는 별도의
-플래그 `blocks_deploy`이며, 패스가 `enforce` 모드로 실행됐을 때만 true입니다.
+보고서는 항상 **실제 평가에 따른** 판정을 기록합니다. 판정으로 배포를 *통제할지*는 별도
+플래그 `blocks_deploy`로 나타내며, 검사가 `enforce` 모드로 실행됐을 때만 true입니다.
 
 ### Shadow-First
 
 모든 새 프로브는 **shadow 모드**로 출시됩니다: 차단 요인을 진실하게 보고하지만
-`blocks_deploy`는 `false`로 유지되어, 검증되지 않은 프로브가 false 긍정으로 사람 배포를
+`blocks_deploy`는 `false`로 유지되어, 검증되지 않은 프로브가 오탐으로 사람의 배포를
 잘못 막을 수 없습니다. 프로브는 고정된 시나리오 세트에서 false-positive율이 측정된 후에만
 카테고리별로 `enforce`로 승격됩니다 - 자율 액션에
 [ActionType 계약](../architecture/llm-strategy-ko.md)가 적용하는 것과 동일한 승격 규율입니다.
 
 ### 게시 보류
 
-해소된 재조립은 과거 어느 시점의 결정입니다. 교정 제안을 제출하기 전에 게이트는 누적된
+재조립으로 차단 요인을 해소했더라도 그 결정은 과거 시점에 내린 것입니다. 교정 제안을 제출하기 전에 게이트는 누적된
 오버라이드로 동일한 분석기를 다시 실행하고, 새 리포트가 게시를 정당화하지 못하면 보류합니다:
 
 | 보류 | 원인 |
@@ -107,7 +107,7 @@ translation_revised: 2026-10-01
 
 모든 보류는 첫 제출 이전에 결정되므로, 보류된 패스는 부분 제안 집합이 아니라 아무것도
 제출하지 않으며, `blocks_deploy`가 false로 유지되는 shadow 모드에서도 진실한 판정이
-게시를 가로막습니다. 검증기가 예외를 올리면 어떤 제출보다 먼저 전파되고, 호출자는 패스를
+게시를 차단합니다. 검증기에서 예외가 발생하면 제출 전에 전파되며, 호출자는 해당 검사를
 `hil`로 라우팅합니다.
 
 PR 전달 경계의 별도 래퍼는 재전달을 포함한 모든 게시 시도에서 호출자가 제공한 읽기 전용
@@ -130,8 +130,8 @@ GitHub Checks 어댑터는 **기존** PR의 정확한 최신 커밋에만 검사
 
 ## 차단 요인에서 Terraform 토글로의 매핑
 
-리포트는 단순한 문제 목록이 아닙니다; 각 `terraform_toggle` 발견 사항은 배포를 준수시키는
-인프라 서브모듈과 변수 오버라이드를 지목합니다. 이것은 기존 `infra/modules/<seam>/` +
+보고서는 단순한 문제 목록이 아닙니다. 각 `terraform_toggle` 발견 사항은 배포가 규칙을
+준수하도록 만드는 인프라 하위 모듈과 변수 재정의를 지정합니다. 이는 기존 `infra/modules/<seam>/` +
 `var.<seam>_kind` 선택 패턴([project-structure-ko.md](../architecture/project-structure-ko.md))을
 리소스-프로비저닝 모드로 일반화한 것으로, 모듈 출력 계약은 고정된 채 내부 배선만 전환됩니다:
 
@@ -143,9 +143,9 @@ GitHub Checks 어댑터는 **기존** PR의 정확한 최신 커밋에만 검사
 | `python_index_url` | (문자열) | 패키지 설치를 내부 PyPI 미러 / 산출물 피드로 지정 |
 | `dependency_ordering` | `strict` | 선행 리소스(disk, NSG, 비공개 엔드포인트)를 순서 있는 적용 단계로 분리 |
 
-이 매핑이 거부된 리소스 타입을 비-문제로 만드는 요소입니다: 인라인 디스크 거부는
+이 매핑으로 거부된 리소스 타입으로 인한 문제를 해소할 수 있습니다. 인라인 디스크 거부는
 `disk_provisioning=attach_existing`으로 해소되어, 계획이 애초에 거부된 연산을 발행하지
-않습니다. 해석이 `autofix`로 표시되면 analyzer가 사람 판단 없이 토글 변경을
+않습니다. 해결 방법에 `autofix`가 표시되면 분석기가 사람의 판단 없이 토글 변경을
 교정 PR로 제안할 수 있습니다; 그렇지 않으면 지침을 발행하고 검토로 라우팅합니다.
 
 ## 서브시스템 레이아웃
@@ -167,10 +167,10 @@ GitHub Checks 어댑터는 **기존** PR의 정확한 최신 커밋에만 검사
 
 ## 안전 자세
 
-- **실패 시 차단** - raise하는 프로브는 전파됩니다; 패스는 부분 실행에서 `clear`를 절대
+- **실패 시 차단** - 프로브에서 발생한 예외는 전파됩니다. 검사는 일부만 실행된 상태에서 `clear`를 절대
   보고하지 않습니다. 차단 발견 사항은 컨트롤 플레인 액션을 게이팅되지 않은 auto-action이
   아니라 `hil`로 격하시킵니다.
-- **읽기 전용** - 프로브는 절대 mutate하지 않습니다; 패스는 모든 배포에서 실행해도 안전합니다.
+- **읽기 전용** - 프로브는 대상을 변경하지 않습니다. 검사는 모든 배포에서 실행해도 안전합니다.
 - **멱등적** - 발견 사항은 결정론적으로 정렬되어(차단 먼저, 그 다음 id 순), 같은
   입력에 대한 재실행은 바이트-동일한 리포트를 생성합니다.
 - **근거 있음** - 출처 규칙을 인용하는 근거 없이는 발견 사항이 없습니다.
@@ -187,11 +187,11 @@ GitHub Checks 어댑터는 **기존** PR의 정확한 최신 커밋에만 검사
    클라이언트(`AzureArmClient`, 주입된 `httpx.AsyncClient` + `WorkloadIdentity` bearer
    토큰, 실패 시 차단)와 `AzurePolicyGuardrailProbe`(실제 Azure Policy `deny` 가드레일 -
    `Not allowed` / `Allowed resource types`), `AzureQuotaProbe`(구독 + 위치별 Compute
-  사용량)가 mock-HTTP 유닛 테스트와 함께 landed. Policy 파서는 모든 형제가 정본
-  type-exists 가드인 경우에만 built-in `allOf` 타입 제약을 허용하며 알 수 없음 형제는
-  실패 시 차단으로 유지합니다. 격리된 실제 운영 검증에서 RG-scoped disk 거부는
+  사용량)가 모의 HTTP 단위 테스트와 함께 반영됐습니다. 정책 파서는 모든 형제 조건이 정본
+  type-exists 가드인 경우에만 기본 제공 `allOf` 타입 제약을 허용하며, 알 수 없는 형제
+  조건이 있으면 계속 차단합니다. 격리된 실제 운영 검증에서 리소스 그룹 범위의 디스크 거부는
   `disk_provisioning=attach_existing`로 매핑됐고 실제 할당량 부족은 수동 차단 요인으로 남았으며,
-  temporary 배정은 검토된 롤백으로 제거됐습니다. `scripts/deployment/azure/run_live_preflight.py`는
+  임시 할당은 검토된 롤백으로 제거됐습니다. `scripts/deployment/azure/run_live_preflight.py`는
   Azure CLI 워크로드 신원, 범위가 제한된 읽기 전용 ARM 전송 계층,
   neutral-to-ARM 타입 대응, 정제된 실패 시 차단 오류와 함께 두 탐색을 같은 analyzer에
   조립합니다. 기존 Resource Graph 역할 관찰기도 `AzureIdentityRbacProbe`를 통해 조립되어
@@ -201,8 +201,8 @@ GitHub Checks 어댑터는 **기존** PR의 정확한 최신 커밋에만 검사
   출력합니다. 보고는 clear인 경우에도 정제된 per-category 검사 커버리지를 기록합니다.
   비공개 실행기는 강제 적용 모드에서 Azure category 네 개를 모두 요구하고 범위가 제한된 TLS egress
   근거와 결합합니다. 정제된 보고만 비공개 Blob 저장소에 저장하고 두 근거 다이제스트를
-  exact-plan 검증에 연결합니다. Firewall / NSG 토폴로지 어댑터는 별도 future
-  enhancement이며 direct 실행기 도달 가능성 근거에는 필요하지 않습니다.
+  exact-plan 검증에 연결합니다. Firewall / NSG 토폴로지 어댑터는 별도의 향후
+  개선 사항이며, 실행기의 직접 도달 가능성을 입증하는 데는 필요하지 않습니다.
   2. **기능 모드 토글 scaffold(배포됨)**: `infra/modules/preflight-toggles/`와 disk
     참조 소비자가 두 렌더링을 검증합니다. 리소스 소유권과 통합은 포크 소유이므로 제네릭
     상류 루트는 구체적인 소비자를 인스턴스화하지 않습니다.
