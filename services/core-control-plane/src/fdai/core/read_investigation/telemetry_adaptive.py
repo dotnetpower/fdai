@@ -26,6 +26,11 @@ from fdai.core.rca.discrimination import (
     HypothesisOutcomePrediction,
     build_discriminating_observation_candidate,
 )
+from fdai.core.rca.observation_history import (
+    HypothesisObservation,
+    ObservationOutcome,
+    history_material,
+)
 from fdai.core.rca.telemetry_evidence import (
     TelemetryEvidenceDisposition,
     TelemetryEvidenceNeed,
@@ -54,6 +59,7 @@ from .adaptive_contract import (
     build_hypothesis_revision_set,
     build_verified_observation_plan_binding,
 )
+from .adaptive_source_metadata import covers_evidence_cutoff
 from .telemetry_projection import (
     AdaptiveTelemetryEvidenceResult,
     adaptive_telemetry_evidence_result,
@@ -64,7 +70,7 @@ from .telemetry_routing import (
     telemetry_mechanisms_for_event,
 )
 
-TELEMETRY_ADAPTIVE_SCORER_VERSION: Final[str] = "telemetry-receipt-reviser-v1"
+TELEMETRY_ADAPTIVE_SCORER_VERSION: Final[str] = "telemetry-receipt-reviser-v3"
 TELEMETRY_ADAPTIVE_PURPOSE: Final[str] = "operations-review"
 _RECEIPT_REF_PREFIX = "telemetry-receipt:"
 
@@ -98,7 +104,10 @@ class TelemetryAdaptiveRoundSource(AdaptiveRoundSource):
     ) -> AdaptiveRoundProposal:
         candidates = []
         bindings = []
+        observed_ids = {item.hypothesis_id for item in frame.observation_history}
         for hypothesis_id in frame.active_hypothesis_ids:
+            if hypothesis_id in observed_ids:
+                continue
             recipe = self._recipes_by_hypothesis.get(hypothesis_id)
             if recipe is None:
                 raise ValueError("active telemetry hypothesis has no reviewed recipe")
@@ -173,42 +182,69 @@ class TelemetryAdaptiveHypothesisReviser(AdaptiveHypothesisReviser):
     ) -> HypothesisRevisionSet:
         receipt_ref, receipt = self._receipt(execution)
         active = frame.active_hypothesis_ids
-        revised: tuple[str, ...]
-        complete = receipt.complete and not receipt.truncated
-        if receipt.disposition is TelemetryEvidenceDisposition.COMPLETE:
-            recipe = self._catalog.get(receipt.recipe_id, receipt.recipe_version)
-            selected = telemetry_hypothesis_id(recipe.mechanism)
-            if selected not in active:
-                raise ValueError("telemetry receipt mechanism is absent from the active set")
+        recipe = self._catalog.get(receipt.recipe_id, receipt.recipe_version)
+        selected = telemetry_hypothesis_id(recipe.mechanism)
+        if (
+            selected not in active
+            or receipt.evidence_cutoff != frame.evidence_cutoff
+            or selected in {item.hypothesis_id for item in frame.observation_history}
+        ):
+            raise ValueError("telemetry receipt is outside the pending hypothesis frame")
+        complete = (
+            receipt.complete
+            and not receipt.truncated
+            and covers_evidence_cutoff(
+                route_count=receipt.route_count,
+                queried_route_count=receipt.queried_route_count,
+                observed_until=receipt.observed_until,
+                cutoff=frame.evidence_cutoff,
+                disposition=receipt.disposition.value,
+            )
+        )
+        observation_outcome = ObservationOutcome.UNKNOWN
+        if complete and receipt.disposition is TelemetryEvidenceDisposition.COMPLETE:
             expected_fact = f"mechanism:{recipe.mechanism.value}"
             mechanism_facts = tuple(
                 item for item in receipt.fact_tokens if item.startswith("mechanism:")
             )
             if mechanism_facts != (expected_fact,):
                 raise ValueError("telemetry receipt mechanism facts do not match its recipe")
-            revised = (selected,)
-            disposition = AdaptiveInvestigationDisposition.CONVERGED
-        elif receipt.disposition is TelemetryEvidenceDisposition.COMPLETE_NO_DATA:
-            recipe = self._catalog.get(receipt.recipe_id, receipt.recipe_version)
+            observation_outcome = ObservationOutcome.SUPPORTED
+        elif complete and receipt.disposition is TelemetryEvidenceDisposition.COMPLETE_NO_DATA:
             if not recipe.supports_no_data_refutation:
-                revised = active
-                disposition = AdaptiveInvestigationDisposition.HELD
                 complete = False
             else:
-                excluded = telemetry_hypothesis_id(recipe.mechanism)
-                if excluded not in active:
-                    raise ValueError("telemetry no-data receipt is absent from the active set")
-                revised = tuple(item for item in active if item != excluded)
-                if not revised:
-                    disposition = AdaptiveInvestigationDisposition.ALL_REFUTED
-                elif len(revised) == 1:
-                    disposition = AdaptiveInvestigationDisposition.HELD
-                else:
-                    disposition = AdaptiveInvestigationDisposition.CONTINUE
-        else:
-            revised = active
+                observation_outcome = ObservationOutcome.REFUTED
+        history = tuple(
+            sorted(
+                (
+                    *frame.observation_history,
+                    HypothesisObservation(
+                        selected,
+                        observation_outcome,
+                        receipt_ref,
+                        execution.result_digest,
+                    ),
+                ),
+                key=lambda item: item.hypothesis_id,
+            )
+        )
+        revised = tuple(
+            item
+            for item in active
+            if item != selected or observation_outcome is not ObservationOutcome.REFUTED
+        )
+        pending = set(revised) - {item.hypothesis_id for item in history}
+        if observation_outcome is ObservationOutcome.UNKNOWN:
             disposition = AdaptiveInvestigationDisposition.HELD
-            complete = False
+        elif not revised:
+            disposition = AdaptiveInvestigationDisposition.ALL_REFUTED
+        elif pending:
+            disposition = AdaptiveInvestigationDisposition.CONTINUE
+        elif len(revised) == 1:
+            disposition = AdaptiveInvestigationDisposition.CONVERGED
+        else:
+            disposition = AdaptiveInvestigationDisposition.HELD
         active_set_digest = content_digest(
             {
                 "prior_active_set_receipt_digest": frame.active_set_receipt_digest,
@@ -217,6 +253,7 @@ class TelemetryAdaptiveHypothesisReviser(AdaptiveHypothesisReviser):
                 "active_hypothesis_ids": revised,
                 "disposition": disposition.value,
                 "scorer_version": TELEMETRY_ADAPTIVE_SCORER_VERSION,
+                "observation_history": history_material(history),
             }
         )
         return build_hypothesis_revision_set(
@@ -228,10 +265,11 @@ class TelemetryAdaptiveHypothesisReviser(AdaptiveHypothesisReviser):
             evidence_cutoff=frame.evidence_cutoff,
             active_hypothesis_ids=revised,
             active_set_receipt_digest=active_set_digest,
-            evidence_refs=(receipt_ref,),
+            evidence_refs=tuple(sorted(item.evidence_ref for item in history)),
             complete=complete,
             truncated=receipt.truncated,
             disposition=disposition,
+            observation_history=history,
         )
 
     def _receipt(

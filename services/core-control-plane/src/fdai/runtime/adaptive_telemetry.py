@@ -16,6 +16,7 @@ from fdai.core.rca.telemetry_recipes import DEFAULT_TELEMETRY_RECIPE_CATALOG
 from fdai.core.read_investigation.adaptive_contract import AdaptiveInvestigationBudget
 from fdai.core.read_investigation.telemetry_adaptive import (
     TELEMETRY_ADAPTIVE_PURPOSE,
+    TELEMETRY_ADAPTIVE_SCORER_VERSION,
     AdaptiveTelemetryEvidenceResult,
     adaptive_telemetry_evidence_result,
     build_initial_telemetry_frame,
@@ -36,7 +37,7 @@ from fdai.shared.contracts.models import (
 from fdai.shared.providers.process_runtime import ProcessEventKind, ProcessRuntimeStore
 from fdai.shared.providers.resource_lock import ResourceLock
 
-ADAPTIVE_TELEMETRY_CONFIG_VERSION = "1.1.0"
+ADAPTIVE_TELEMETRY_CONFIG_VERSION = "1.2.0"
 
 
 @dataclass(frozen=True, slots=True)
@@ -107,6 +108,7 @@ class AdaptiveTelemetryRuntimeConfig:
                 "deadline_seconds": self.deadline_seconds,
                 "finalization_reserve_seconds": self.finalization_reserve_seconds,
                 "recipe_catalog_digest": DEFAULT_TELEMETRY_RECIPE_CATALOG.catalog_digest,
+                "scorer_version": TELEMETRY_ADAPTIVE_SCORER_VERSION,
                 "mode": "shadow",
             }
         )
@@ -208,6 +210,7 @@ class ConfiguredAdaptiveTelemetryInvestigator:
                 "resource_ref": resource_ref,
                 "evidence_cutoff": evidence_cutoff.astimezone(UTC).isoformat(),
                 "catalog_digest": DEFAULT_TELEMETRY_RECIPE_CATALOG.catalog_digest,
+                "policy_digest": self._config.policy_digest,
             }
         ).removeprefix("sha256:")
         remaining = (

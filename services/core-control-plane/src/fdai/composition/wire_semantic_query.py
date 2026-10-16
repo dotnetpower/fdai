@@ -28,12 +28,8 @@ from fdai.core.ontology_platform import (
     METRIC_ARGUMENT_SCHEMAS,
     TOPOLOGY_ARGUMENT_SCHEMAS,
     AggregateNodeHandler,
-    EvidenceJoinNodeHandler,
     FunctionNodeHandler,
-    MetricComparisonNodeHandler,
-    MetricScopeSeriesNodeHandler,
     MetricSemanticRegistry,
-    MetricSeriesNodeHandler,
     MetricWindowProvider,
     ObjectSetService,
     OntologyFunctionRegistry,
@@ -57,6 +53,7 @@ from fdai.core.ontology_platform.catalog_queries import (
     CATALOG_SEARCH_RULES_FUNCTION_NAME,
     catalog_search_rules_function,
 )
+from fdai.core.ontology_platform.causal_competitors import CausalCompetitorSource
 from fdai.core.ontology_platform.contextual_resource_queries import (
     CONTEXTUAL_RESOURCE_FUNCTION_NAME,
     contextual_resource_function,
@@ -224,6 +221,7 @@ from .semantic_query_azure_composition import compose_azure_semantic_query_runti
 from .semantic_query_descriptor_selector import ManifestDescriptorIndex
 from .semantic_query_instance_candidates import bind_instance_candidate_query
 from .semantic_query_invocation_context import semantic_query_invocation_context
+from .semantic_query_metric_bindings import build_metric_query_handlers
 from .semantic_query_runtime_composition import SemanticQueryRuntimeComposition
 from .semantic_query_scoped_sources import scoped_source_handlers, secured_resource_selector
 
@@ -241,6 +239,7 @@ def build_semantic_query_runtime(
     topology_reader: TopologyHistoryReader | None = None,
     metric_registry: MetricSemanticRegistry | None = None,
     metric_window_provider: MetricWindowProvider | None = None,
+    causal_competitor_source: CausalCompetitorSource | None = None,
     incident_evidence_reader: IncidentEvidenceReader | None = None,
     operating_pattern_reader: OperatingPatternQuery | None = None,
     read_investigation_provider: ReadInvestigationProvider | None = None,
@@ -266,7 +265,11 @@ def build_semantic_query_runtime(
     second_reader: SemanticSecondReader | None = None,
     pending_state_sources: PendingStateSources | None = None,
 ) -> current_evidence.SemanticQueryConversationRuntime:
-    """Build a read-only runtime over one exact catalog release and instance store."""
+    """Build a read-only runtime over one exact catalog release and instance store.
+
+    Competitor refutation stays unavailable unless a trusted independent source is injected.
+    Source binding does not create observation or execution authority.
+    """
 
     if not purpose:
         raise ValueError("semantic query purpose MUST be non-empty")
@@ -646,20 +649,11 @@ def build_semantic_query_runtime(
         extension_schemas.update(TOPOLOGY_ARGUMENT_SCHEMAS)
     if metric_registry is not None and metric_window_provider is not None:
         handlers.update(
-            {
-                QueryNodeKind.METRIC_SERIES: MetricSeriesNodeHandler(
-                    registry=metric_registry,
-                    provider=metric_window_provider,
-                ),
-                QueryNodeKind.METRIC_SCOPE_SERIES: MetricScopeSeriesNodeHandler(
-                    registry=metric_registry,
-                    provider=metric_window_provider,
-                ),
-                QueryNodeKind.METRIC_COMPARISON: MetricComparisonNodeHandler(
-                    registry=metric_registry,
-                ),
-                QueryNodeKind.EVIDENCE_JOIN: EvidenceJoinNodeHandler(),
-            }
+            build_metric_query_handlers(
+                registry=metric_registry,
+                provider=metric_window_provider,
+                competitor_source=causal_competitor_source,
+            )
         )
         extension_schemas.update(METRIC_ARGUMENT_SCHEMAS)
     available_kinds = (

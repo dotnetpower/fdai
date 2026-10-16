@@ -20,6 +20,11 @@ from fdai.core.rca.temporal_causality import (
     TemporalSeries,
 )
 
+from .causal_competitors import (
+    CausalCompetitorAssessment,
+    CausalCompetitorRequest,
+    canonical_competitors,
+)
 from .causal_topology import causal_topology_limitation
 from .topology_history import TopologyDiff
 
@@ -297,6 +302,7 @@ class CausalEvidenceJoin:
     limitations: tuple[str, ...]
     evidence_refs: tuple[str, ...]
     execution_authority: bool = False
+    competitor_assessment_digest: str | None = None
 
     def __post_init__(self) -> None:
         if self.execution_authority:
@@ -311,9 +317,15 @@ def join_causal_evidence(
     feature_cutoff: datetime,
     config: TemporalCausalityConfig,
     competing_explanations: Sequence[str],
+    competitor_assessment: CausalCompetitorAssessment | None = None,
 ) -> CausalEvidenceJoin:
-    """Join complete aligned series and topology evidence without asserting mere chronology."""
+    """Join evidence; an explicit assessment must come from verified server-owned sources."""
 
+    canonical_competitors(tuple(competing_explanations))
+    if competitor_assessment is not None and not isinstance(
+        competitor_assessment, CausalCompetitorAssessment
+    ):
+        raise TypeError("causal join competitor assessment MUST be a typed server-bound value")
     if feature_cutoff.tzinfo is None:
         raise ValueError("causal evidence feature_cutoff MUST be timezone-aware")
     if cause.end > feature_cutoff or effect.end > feature_cutoff:
@@ -328,6 +340,30 @@ def join_causal_evidence(
         )
     )
     limitations: list[str] = []
+    assessment_digest: str | None = None
+    competitor_limitation: str | None = None
+    if competing_explanations and competitor_assessment is not None:
+        request = causal_competitor_request(
+            cause=cause,
+            effect=effect,
+            topology_change=topology_change,
+            feature_cutoff=feature_cutoff,
+            competing_explanations=competing_explanations,
+        )
+        competitor_limitation = (
+            "competing_assessment_scope_unavailable"
+            if request is None
+            else competitor_assessment.limitation(request)
+        )
+        if request is not None and competitor_assessment.request == request:
+            assessment_digest = competitor_assessment.digest
+            evidence_refs = tuple(
+                dict.fromkeys((*evidence_refs, *competitor_assessment.evidence_refs))
+            )
+    elif competing_explanations:
+        competitor_limitation = "competing_explanations_unresolved"
+    elif competitor_assessment is not None:
+        competitor_limitation = "competing_assessment_set_mismatch"
     if not cause.complete or not effect.complete:
         limitations.append("metric_window_incomplete")
     if topology_change is None:
@@ -347,6 +383,8 @@ def join_causal_evidence(
     if len(cause.samples) < 2 or len(effect.samples) < 2:
         limitations.append("insufficient_aligned_samples")
     if limitations:
+        if competitor_assessment is not None and competitor_limitation is not None:
+            limitations.append(competitor_limitation)
         return CausalEvidenceJoin(
             status=CausalJoinStatus.UNRESOLVED,
             temporal_claim=None,
@@ -354,6 +392,7 @@ def join_causal_evidence(
             competing_explanations=tuple(competing_explanations),
             limitations=tuple(limitations),
             evidence_refs=evidence_refs,
+            competitor_assessment_digest=assessment_digest,
         )
     analyzer = TemporalCausalityAnalyzer(config)
     claim = analyzer.analyze(
@@ -368,9 +407,9 @@ def join_causal_evidence(
     elif claim.falsifiers:
         status = CausalJoinStatus.UNRESOLVED
         limitations.extend(claim.falsifiers)
-    elif competing_explanations:
+    elif competitor_limitation is not None:
         status = CausalJoinStatus.UNRESOLVED
-        limitations.append("competing_explanations_unresolved")
+        limitations.append(competitor_limitation)
     else:
         status = CausalJoinStatus.SUPPORTED
     return CausalEvidenceJoin(
@@ -384,7 +423,54 @@ def join_causal_evidence(
                 (*evidence_refs, *(topology_change.evidence_refs if topology_change else ()))
             )
         ),
+        competitor_assessment_digest=assessment_digest,
     )
+
+
+def causal_competitor_request(
+    *,
+    cause: MetricWindow,
+    effect: MetricWindow,
+    topology_change: TopologyDiff | None,
+    feature_cutoff: datetime,
+    competing_explanations: Sequence[str],
+) -> CausalCompetitorRequest | None:
+    """Bind exact inputs, or return unavailable without truncating an unusable scope.
+
+    Incomplete topology and scopes beyond assessment bounds remain ordinary unresolved
+    evidence. Invalid competitor names still fail input validation before scope construction.
+    """
+
+    competitors = canonical_competitors(tuple(competing_explanations))
+    if not competitors or topology_change is None or not topology_change.complete:
+        return None
+    before, after = topology_change.before, topology_change.after
+    if before is None or after is None or not before.complete or not after.complete:
+        return None
+    try:
+        return CausalCompetitorRequest(
+            cause_resource_id=cause.resource_id,
+            effect_resource_id=effect.resource_id,
+            cause_concept_id=cause.concept_id,
+            effect_concept_id=effect.concept_id,
+            cause_start=cause.start,
+            cause_end=cause.end,
+            effect_start=effect.start,
+            effect_end=effect.end,
+            feature_cutoff=feature_cutoff,
+            topology_diff_digest=topology_change.digest,
+            topology_before_digest=before.digest,
+            topology_after_digest=after.digest,
+            topology_generation_refs=tuple(
+                sorted(set((*before.provider_generation_refs, *after.provider_generation_refs)))
+            ),
+            topology_source_receipt_digests=tuple(
+                sorted(set((*before.source_receipt_digests, *after.source_receipt_digests)))
+            ),
+            competing_explanations=competitors,
+        )
+    except ValueError:
+        return None
 
 
 class MetricWindowProvider(Protocol):

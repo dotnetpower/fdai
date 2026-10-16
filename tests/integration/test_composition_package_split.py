@@ -90,6 +90,9 @@ _EXPECTED_FILES = frozenset(
         "semantic_query_instance_candidates.py",
         # Binds exact-release semantic planning and request-role query executors.
         "wire_semantic_query.py",
+        # Keeps reviewed metric handlers and optional competitor-source binding
+        # together without growing the public semantic wire past its LOC cap.
+        "semantic_query_metric_bindings.py",
         # Binds fixed-role adaptive prompts and independent, bounded answer models.
         "wire_adaptive_conversation.py",
         # Binds opt-in latency probes to verified T1 narrator candidates.

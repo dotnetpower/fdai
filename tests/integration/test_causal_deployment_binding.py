@@ -337,3 +337,112 @@ def test_runtime_leaves_the_causal_path_unbound_without_temporal_series(
     record = next(item for item in caplog.records if item.message == "causal_runtime_unavailable")
     assert record.reason == "temporal_evidence_provider_unbound"
     assert record.mode == "shadow"
+
+
+async def test_closure_only_runtime_consumes_independent_source_and_replays_exact_revision() -> (
+    None
+):
+    store, audit = _ontology_store(), InMemoryStateStore()
+    _, hypothesis = await _analyzed(store, audit)
+    await _seed_verified_run(audit, hypothesis.hypothesis_id)
+    observation = _closure(hypothesis)
+
+    class _IndependentOutcomes:
+        async def collect(self, *, event: Event, incident_id: str):
+            assert incident_id == "incident-1"
+            return (observation,)
+
+    container = replace(
+        default_container(_config()),
+        causal_closure_observation_source=_IndependentOutcomes(),
+    )
+    coordinator = build_causal_runtime_coordinator(
+        container=container,
+        ontology_instance_store=store,
+        audit_store=audit,
+        method_version=_METHOD,
+    )
+    assert coordinator is not None
+    event = _event().model_copy(update={"ingested_at": observation.observed_at})
+    first = await coordinator.analyze(event=event, incident_id="incident-1")
+    replay = await coordinator.analyze(event=event, incident_id="incident-1")
+    assert first.outcome is CausalRuntimeOutcome.CLOSED
+    assert first.closed_hypotheses == replay.closed_hypotheses
+    assert first.closed_hypotheses[0].closure is CausalClosure.CONFIRMED
+    assert first.action_mode is CausalActionMode.SHADOW
+
+
+@pytest.mark.parametrize("failure", ["wrong_incident", "future", "duplicate", "contradictory"])
+async def test_closure_source_identity_is_validated_before_any_projection(failure: str) -> None:
+    store, audit = _ontology_store(), InMemoryStateStore()
+    _, hypothesis = await _analyzed(store, audit)
+    observation = _closure(hypothesis)
+
+    class _InvalidOutcomes:
+        async def collect(self, *, event: Event, incident_id: str):
+            del event, incident_id
+            if failure == "contradictory":
+                return (
+                    observation,
+                    replace(
+                        observation,
+                        outcome_ref="outcome:contradiction",
+                        expected_direction_matched=False,
+                    ),
+                )
+            return (observation, observation) if failure == "duplicate" else (observation,)
+
+    coordinator = build_causal_runtime_coordinator(
+        container=replace(
+            default_container(_config()),
+            causal_closure_observation_source=_InvalidOutcomes(),
+        ),
+        ontology_instance_store=store,
+        audit_store=audit,
+        method_version=_METHOD,
+    )
+    assert coordinator is not None
+    event = _event().model_copy(
+        update={
+            "ingested_at": (
+                observation.observed_at - timedelta(seconds=1)
+                if failure == "future"
+                else observation.observed_at
+            ),
+        }
+    )
+    with pytest.raises(ValueError, match="closure source"):
+        await coordinator.analyze(
+            event=event,
+            incident_id="wrong" if failure == "wrong_incident" else "incident-1",
+        )
+    assert await store.get_object(observation.outcome_ref) is None
+
+
+@pytest.mark.parametrize("kind", ["count", "bytes"])
+def test_independent_closure_endpoint_payload_is_bounded(kind: str) -> None:
+    hypothesis = build_hypothesis_for_closure_bounds()
+    endpoints = (
+        tuple(OntologyObjectRecord(f"item-{i}", "Resource", {}) for i in range(129))
+        if kind == "count"
+        else (OntologyObjectRecord("large", "Resource", {"value": "x" * (512 * 1024)}),)
+    )
+    with pytest.raises(ValueError, match="causal closure endpoint"):
+        replace(_closure(hypothesis), endpoint_objects=endpoints)
+
+
+def build_hypothesis_for_closure_bounds():
+    from fdai.core.rca.hypothesis import CausalEvidenceAssessment, build_causal_hypothesis
+
+    return build_causal_hypothesis(
+        incident_id="incident-1",
+        cause_ref="cause",
+        effect_ref="effect",
+        mechanism="example",
+        graph_revision="revision",
+        evidence_cutoff=_NOW,
+        method_version=_METHOD,
+        evidence_grade=CausalEvidenceGrade.ASSOCIATION,
+        assessment=CausalEvidenceAssessment(0.0, 0.0, 0.0, 0.0, 0.0),
+        created_at=_NOW,
+    )

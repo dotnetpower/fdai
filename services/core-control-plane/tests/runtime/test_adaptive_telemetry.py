@@ -28,17 +28,24 @@ class _CompleteProvider:
     async def gather(self, need):
         self.calls += 1
         recipe = DEFAULT_TELEMETRY_RECIPE_CATALOG.get(need.recipe_id, need.recipe_version)
+        positive = self.calls == 1
         return build_telemetry_evidence_receipt(
             need=need,
             observed_until=need.evidence_cutoff,
-            disposition=TelemetryEvidenceDisposition.COMPLETE,
+            disposition=(
+                TelemetryEvidenceDisposition.COMPLETE
+                if positive
+                else TelemetryEvidenceDisposition.COMPLETE_NO_DATA
+            ),
             route_count=1,
             queried_route_count=1,
-            row_count=1,
+            row_count=1 if positive else 0,
             latency_ms=2,
             estimated_cost_units=recipe.estimated_cost_units,
             actual_cost_units=recipe.estimated_cost_units,
-            fact_tokens=(f"mechanism:{recipe.mechanism.value}", "signal_count_band:low"),
+            fact_tokens=(
+                (f"mechanism:{recipe.mechanism.value}", "signal_count_band:low") if positive else ()
+            ),
             complete=True,
             truncated=False,
         )
@@ -93,9 +100,9 @@ async def test_enabled_runtime_persists_process_and_returns_bounded_complete_cit
         correlation_id="correlation:one",
     )
 
-    assert provider.calls == 1
-    assert result.investigation.used_queries == 1
-    assert result.investigation.used_cost_units == 10
+    assert provider.calls == 2
+    assert result.investigation.used_queries == 2
+    assert result.investigation.used_cost_units == 20
     assert result.investigation.execution_authority is False
     assert len(result.citations) == 1
     assert result.citations[0].ref.startswith("telemetry-receipt:sha256:")
@@ -113,7 +120,7 @@ async def test_enabled_runtime_persists_process_and_returns_bounded_complete_cit
         evidence_cutoff=evidence_cutoff,
         correlation_id="correlation:one",
     )
-    assert provider.calls == 1
+    assert provider.calls == 2
     assert replayed.investigation == result.investigation
     assert replayed.citations == result.citations
 
@@ -183,7 +190,7 @@ def test_runtime_config_rejects_malformed_or_excessive_bounds() -> None:
 def test_runtime_policy_digest_is_versioned_stable_and_bound_sensitive() -> None:
     baseline = AdaptiveTelemetryRuntimeConfig(enabled=True)
 
-    assert ADAPTIVE_TELEMETRY_CONFIG_VERSION == "1.1.0"
+    assert ADAPTIVE_TELEMETRY_CONFIG_VERSION == "1.2.0"
     assert baseline.policy_digest == AdaptiveTelemetryRuntimeConfig(enabled=True).policy_digest
     assert (
         baseline.policy_digest
@@ -213,13 +220,13 @@ async def test_delayed_event_receives_a_new_execution_budget_and_replays_without
 
     result = await investigator.investigate(**arguments)
 
-    assert provider.calls == 1
+    assert provider.calls == 3
     assert result.investigation.budget.deadline_at == now + timedelta(seconds=4)
-    assert result.investigation.used_queries == 1
+    assert result.investigation.used_queries == 3
     assert len(result.citations) == 1
     now += timedelta(hours=1)
     replayed = await investigator.investigate(**arguments)
-    assert provider.calls == 1
+    assert provider.calls == 3
     assert replayed.investigation == result.investigation
 
 
@@ -275,7 +282,7 @@ async def test_concurrent_duplicate_sessions_share_the_winning_deadline_and_sing
     await asyncio.sleep(0)
     release.set()
     one, two = await asyncio.gather(first_task, second_task)
-    assert provider.calls == 1
+    assert provider.calls == 3
     assert one.investigation == two.investigation
     assert one.investigation.budget.deadline_at == now + timedelta(seconds=4)
 

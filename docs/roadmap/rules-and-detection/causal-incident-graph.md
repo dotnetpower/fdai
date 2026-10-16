@@ -70,6 +70,69 @@ causal accuracy or authority to mutate resources.
 
 ## Ontology contract
 
+### Convergent evidence accounting
+
+The successor to the residual implementation closes a local functional gap: a positive
+telemetry receipt preserved competitors but stopped before observing them, and the final
+untested hypothesis could not pass a pair-separation selector.
+
+Each frame and Forseti revision can now carry a bounded immutable `observation_history`.
+Every entry pins the hypothesis id, supported/refuted/unknown observation, exact receipt
+reference, and execution-result digest. The content digests cover this history; omitted
+history preserves legacy receipt identity. A revision preserves prior entries unchanged and
+adds only the current verified observation. Source results never become execution authority.
+
+The scheduler proposes only hypotheses not yet observed at the frozen cutoff. A complete
+positive observation supports its hypothesis without refuting another. A reviewed complete
+no-data observation can refute only the mechanism whose recipe permits that reading. The
+last untested hypothesis receives one explicitly identified validation selection rather than
+being assumed true or held forever for lack of a competing pair. One supported survivor after
+all candidates are accounted for converges; all refuted closes explicitly; multiple supported
+survivors, unknown evidence, or exhausted bounds remain held or incomplete with accounting.
+
+Final metric joins can consume a server-bound independent competitor assessment matched to
+the exact cause/effect identity, concepts, graph digest, cutoff and competitor set. A caller's
+competitor names or a digest alone cannot assert refutation. Missing, partial, stale, mismatched,
+or non-refuting assessment retains the unresolved result. The ordinary risk, approval and
+independent intervention-closure gates remain unchanged.
+
+**Critique and revision.** Mutable per-worker progress would break replica/restart replay, so
+progress belongs in the digest-bound frame, revision, Process journal and codec. Selecting the
+last hypothesis through an unverified special query would bypass lineage; the validation
+selection therefore still uses the exact candidate, plan verification, gateway and budgets.
+An assessment without an authenticated source remains unavailable rather than an enabling
+default. Focused end-to-end tests enumerate all complete/no-data sequences for the default
+three-hypothesis frame and separately test conflicting, partial and bounded outcomes.
+
+Telemetry route coverage and event time have different meanings. Every support or refutation
+requires at least one resolved route and every route queried successfully without truncation.
+For a complete positive response, `observed_until` is the latest matching event and may precede
+the frozen cutoff. For a complete no-data response it is the queried-through watermark and
+must equal that cutoff. Missing time, zero routes, or a negative-response coverage gap produces
+unknown evidence and no positive model citation. The actual Azure adapter is exercised with
+mocked HTTP transport so this boundary is checked without live provider work.
+
+### Residual implementation program
+
+The successor to #2184 distinguishes local implementation from operational qualification.
+It does not enable a provider, live model, deployment, or intervention merely to close a ledger.
+
+| Package | Implementation boundary | Exit evidence |
+|---------|-------------------------|---------------|
+| W0-W2 | Reconcile completed versus pending records; build incident neighborhoods from retained topology at separate event and knowledge cutoffs, preserving generation, release, provenance, bounds, and exact relationship validation. | Historical deletion, late knowledge, replay, release drift, and bounded traversal regressions. A current-store candidate remains explicitly non-historical. |
+| W3 | Bind causal scores and support/refutation accounting to exact source evidence. Missing independent refutation stays unknown, and configured weights never stand in for measured reachability. | Cross-resource, reversed dependency, missing evidence, and competing-hypothesis negative cases. |
+| W4 | Consume independently issued outcomes through the existing owner boundary and match the exact prior hypothesis, ActionRun, target, receipt, observation, and graph revision before creating a new immutable revision. | Restart, duplicate, changed target, unapproved intervention, and incomplete-outcome tests; no model or event body grants authority. |
+| W5 | Exercise existing distributed lock, Process persistence, and historical read adapters against isolated loopback PostgreSQL, with bounded cleanup of task-owned records. | Real local database tests for duplicate sessions, timeout replay, connection loss, and historical cutoffs. No runtime database or customer scope is used. |
+| W6-W7 | Evaluate typed, independently labeled causal cases and bilingual query-to-evidence behavior with an explicit denominator, unsupported outcomes, citations, and replay identity. | Deterministic evaluation receipts distinguish fixtures from operational evidence; no self-authored model answer becomes ground truth. |
+| W8-W9 | Retain exact-deployment observation, controlled-intervention, rollback, and recurrence evidence only after a target and scope are explicitly authorized. | Governed deployment receipts and the actual required recurrence interval. Local tests cannot satisfy these operational exits. |
+
+**Critique and revision.** A second current-state wrapper would still fail to prove past
+relationships, and calling the closure function from an executor would violate ownership and
+independence. Reuse retained topology and independent observation contracts instead. Evaluation
+must distinguish incorrect claims from justified holds; an always-held implementation cannot
+pass by reporting zero unsupported claims alone. Local PostgreSQL evidence proves adapter
+mechanics, not Azure reachability, model accuracy, or production latency.
+
 The design reuses `Incident`, `Finding`, `Observation`, `Change`, `Experiment`, `Resource`,
 `Workload`, `BusinessService`, `ServiceObjective`, `DecisionCase`, `ActionRun`, and
 `ObservedOutcome` from the operating ontology. It adds one durable semantic object.
