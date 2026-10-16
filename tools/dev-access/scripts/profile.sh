@@ -6,6 +6,8 @@ ROOT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 INFRA_DIR="${ROOT_DIR}/infra"
 PROFILE_DIR="${FDAI_DEV_ACCESS_PROFILE_DIR:-${ROOT_DIR}/.profiles}"
 
+source "${SCRIPT_DIR}/workspace.sh"
+
 for command_name in az curl python3 terraform; do
   if ! command -v "${command_name}" >/dev/null 2>&1; then
     printf 'error: required command is unavailable: %s\n' "${command_name}" >&2

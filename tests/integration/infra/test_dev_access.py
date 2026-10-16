@@ -21,6 +21,7 @@ def _run_startup_harness(
     *,
     direct_on_call: int,
     named_workspace: bool = False,
+    pinned_workspace: str | None = None,
 ) -> tuple[subprocess.CompletedProcess[str], list[str], int]:
     dev_access = tmp_path / "tools" / "dev-access"
     scripts = dev_access / "scripts"
@@ -30,6 +31,12 @@ def _run_startup_harness(
     infra.mkdir()
     fake_bin.mkdir()
     shutil.copy2(_DEV_ACCESS / "scripts" / "vscode-startup.sh", scripts)
+    shutil.copy2(_DEV_ACCESS / "scripts" / "workspace.sh", scripts)
+    if pinned_workspace is not None:
+        (dev_access / ".profiles").mkdir()
+        (dev_access / ".profiles" / "active-workspace").write_text(
+            f"{pinned_workspace}\n", encoding="utf-8"
+        )
     state_directory = infra
     if named_workspace:
         state_directory = infra / "terraform.tfstate.d" / "dev-secondary"
@@ -40,7 +47,9 @@ def _run_startup_harness(
     route_count = tmp_path / "route-count"
     _write_executable(
         fake_bin / "terraform",
-        "#!/usr/bin/env bash\nprintf 'resolver-placeholder\\n'\n",
+        "#!/usr/bin/env bash\n"
+        'printf \'terraform:%s\\n\' "${TF_WORKSPACE:-}" >> "${FDAI_TEST_WORKSPACES}"\n'
+        "printf 'resolver-placeholder\\n'\n",
     )
     _write_executable(
         fake_bin / "ip",
@@ -69,7 +78,9 @@ fi
     )
     _write_executable(
         scripts / "wsl-dns.sh",
-        '#!/usr/bin/env bash\nprintf \'dns:%s\\n\' "$1" >> "${FDAI_TEST_EVENTS}"\n',
+        "#!/usr/bin/env bash\n"
+        'printf \'dns:%s\\n\' "${TF_WORKSPACE:-}" >> "${FDAI_TEST_WORKSPACES}"\n'
+        'printf \'dns:%s\\n\' "$1" >> "${FDAI_TEST_EVENTS}"\n',
     )
     environment = {
         **os.environ,
@@ -77,7 +88,10 @@ fi
         "FDAI_TEST_DIRECT_ON_CALL": str(direct_on_call),
         "FDAI_TEST_EVENTS": str(events),
         "FDAI_TEST_ROUTE_COUNT_FILE": str(route_count),
+        "FDAI_TEST_WORKSPACES": str(tmp_path / "workspaces"),
+        "TF_WORKSPACE": "default",
     }
+    environment.pop("FDAI_DEV_ACCESS_WORKSPACE", None)
     bash = shutil.which("bash")
     assert bash is not None
     completed = subprocess.run(  # noqa: S603 - controlled script and command stubs.
@@ -218,6 +232,21 @@ def test_folder_open_applies_dns_with_named_workspace_state_only(tmp_path: Path)
     assert route_calls == 1
 
 
+def test_folder_open_pin_binds_both_terraform_and_dns_helper(tmp_path: Path) -> None:
+    completed, events, route_calls = _run_startup_harness(
+        tmp_path, direct_on_call=1, named_workspace=True, pinned_workspace="dev-secondary"
+    )
+
+    assert completed.returncode == 0, completed.stderr
+    assert events == ["dns:apply"]
+    assert route_calls == 1
+    assert "workspace: dev-secondary" in completed.stdout
+    assert (tmp_path / "workspaces").read_text(encoding="utf-8").splitlines() == [
+        "terraform:dev-secondary",
+        "dns:dev-secondary",
+    ]
+
+
 def test_profile_targets_workspace_subscription_without_changing_cli_default(
     tmp_path: Path,
 ) -> None:
@@ -226,6 +255,11 @@ def test_profile_targets_workspace_subscription_without_changing_cli_default(
     events = tmp_path / "events"
     archive = tmp_path / "vpn-client.zip"
     profiles = tmp_path / "profiles"
+    scripts = tmp_path / "dev-access" / "scripts"
+    scripts.mkdir(parents=True)
+    (scripts.parent / "infra").mkdir()
+    for name in ("profile.sh", "workspace.sh"):
+        shutil.copy2(_DEV_ACCESS / "scripts" / name, scripts)
     with ZipFile(archive, "w") as package:
         package.writestr(
             "AzureVPN/azurevpnconfig.xml",
@@ -275,7 +309,7 @@ exit 92
     bash = shutil.which("bash")
     assert bash is not None
     completed = subprocess.run(  # noqa: S603 - controlled script and command stubs.
-        [bash, str(_DEV_ACCESS / "scripts" / "profile.sh")],
+        [bash, str(scripts / "profile.sh")],
         env={
             **os.environ,
             "PATH": f"{fake_bin}:{os.environ['PATH']}",

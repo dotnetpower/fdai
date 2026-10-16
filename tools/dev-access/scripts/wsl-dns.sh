@@ -6,6 +6,8 @@ ROOT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 INFRA_DIR="${ROOT_DIR}/infra"
 ACTION="${1:-apply}"
 
+source "${SCRIPT_DIR}/workspace.sh"
+
 if [[ "${ACTION}" != "apply" && "${ACTION}" != "revert" && "${ACTION}" != "status" ]]; then
   printf 'usage: %s [apply|revert|status]\n' "$0" >&2
   exit 2

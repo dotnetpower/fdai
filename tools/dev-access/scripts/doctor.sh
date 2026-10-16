@@ -5,6 +5,8 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 INFRA_DIR="${ROOT_DIR}/infra"
 
+source "${SCRIPT_DIR}/workspace.sh"
+
 if [[ $# -eq 0 ]]; then
   printf 'usage: %s <private-host> [private-host:port ...]\n' "$0" >&2
   exit 2

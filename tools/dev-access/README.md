@@ -13,6 +13,7 @@ state so the access network can be removed without changing FDAI runtime resourc
 | `scripts/wsl-dns.sh` | Applies or removes Resolver DNS on the current WSL VPN interface. |
 | `scripts/vscode-startup.sh` | Checks VPN state and restores WSL DNS when VS Code opens FDAI. |
 | `scripts/doctor.sh` | Verifies WSL networking, private DNS, routing, and optional TCP access. |
+| `scripts/workspace.sh` | Loads an optional workstation-local workspace pin for all access helpers. |
 
 ## Isolation boundary
 
@@ -98,6 +99,20 @@ tenant. Connect one profile at a time when the workload address spaces or privat
 overlap. Select its Terraform workspace before running the WSL DNS or diagnostic helpers and
 before reopening VS Code.
 
+To keep the folder-open task on one access stack even when you change Terraform's selected
+workspace, save its workspace name in the ignored workstation-local pin:
+
+```bash
+printf '%s\n' dev-secondary > tools/dev-access/.profiles/active-workspace
+```
+
+The folder-open task, DNS helper, doctor, and profile generator all use this pin. It overrides an
+inherited `TF_WORKSPACE` without changing Terraform's saved workspace selection or the Azure CLI
+default subscription. For a one-off switch, set `FDAI_DEV_ACCESS_WORKSPACE=default` on the helper
+command, or replace the pin with the other workspace name. Without a pin or explicit override,
+helpers retain the normal Terraform workspace behavior. Invalid pins fail explicitly rather than
+falling back to a different subscription.
+
 ## Configure Windows and WSL
 
 Set `%UserProfile%\.wslconfig` on Windows:
@@ -159,7 +174,9 @@ actionable error in the VS Code Problems panel. The task never connects without 
 Entra sign-in and MFA.
 
 Named-workspace state under `infra/terraform.tfstate.d/` also opts the workstation into this task.
-The selected workspace determines which Resolver and private DNS suffixes the task uses.
+The pinned workspace, when configured, determines which Resolver and private DNS suffixes the task
+uses; otherwise it uses the normal Terraform workspace selection. A successful task reports its
+workspace when explicitly bound. The task still leaves Entra sign-in and MFA to the developer.
 
 ### Use direct VNet access from an Azure VM
 

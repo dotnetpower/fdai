@@ -32,6 +32,11 @@ def test_doctor_checks_effective_dns_with_or_without_tunneling(
     config.write_text(
         f"[wsl2]\nnetworkingMode=mirrored\ndnsTunneling={dns_tunneling}\n", encoding="utf-8"
     )
+    scripts = tmp_path / "dev-access" / "scripts"
+    scripts.mkdir(parents=True)
+    (scripts.parent / "infra").mkdir()
+    for script in (_DOCTOR, _DOCTOR.with_name("workspace.sh")):
+        shutil.copy2(script, scripts)
     for name in ("bash", "dirname", "tr", "awk"):
         executable = shutil.which(name)
         assert executable is not None
@@ -53,7 +58,7 @@ def test_doctor_checks_effective_dns_with_or_without_tunneling(
     bash = shutil.which("bash")
     assert bash is not None
     completed = subprocess.run(  # noqa: S603 - controlled script and command stubs.
-        [bash, str(_DOCTOR), "private.example.com"],
+        [bash, str(scripts / "doctor.sh"), "private.example.com"],
         env={
             **os.environ,
             "PATH": str(fake_bin),
