@@ -422,7 +422,7 @@ reached the A1 default route, so adding a route for that category could have red
 - Changing a rule's logic bumps its `version`; changing an assignment's parameters/effect/scope is
   itself an audited, versioned change. A rule set **pins the `version` of each member rule** so a
   rule change cannot silently alter a promoted set.
-- **Rule revision upgrades (phases 1 and 2 implemented):** An activation generation pins each
+- **Rule revision upgrades (phases 1-3 implemented):** An activation generation pins each
   member's exact version and digest, and the ledger accepts only membership changes against an
   unchanged catalog, so changing an activated Rule's content makes an upgraded installation fail
   closed at startup. Until every phase below is operationally validated,
@@ -444,8 +444,13 @@ reached the A1 default route, so adding a route for that category could have red
   including child modules under the entrypoint's own package, while bare-root references that
   cannot produce a static closure fail closed.
   The registry uses explicit `(rule_id, rule_version)` fields rather than a concatenated key, and
-  its checker appends a version bump while refusing to rewrite an existing revision. Phases 3
-  through 9 remain open. Phases 3 through 6 ship
+  its checker appends a version bump while refusing to rewrite an existing revision. Signed
+  manifests now bind non-direct sources to one release, target generation, profile, catalog,
+  registry root, complete member set, deployment scope, bounded validity window, and nonce. A
+  separate trust policy owns key rotation, revocation freshness, and validity. Verification
+  compares every signed identity with an independently resolved local expectation, then reserves
+  the nonce durably but cannot move the active pointer. Phases 4 through 9 remain open.
+  Phases 4 through 6 ship
   dormant: they read and validate version 2 data but write none, and no version 2 digest or
   pointer becomes authoritative before the approved identity upgrade in phase 7.
   1. **Dual-read codecs.** A compatibility release reads version 1 and 2 of every durable object
@@ -468,7 +473,10 @@ reached the A1 default route, so adding a route for that category could have red
      generation, profile, catalog manifest, full member identities, registry root, issuance time,
      and deployment scope, with defined trust roots, rotation, revocation, and anti-replay. The
      unsigned installation fallback is removed. Signing proves artifact integrity only and never
-     replaces human approval.
+     replaces human approval. This phase is implemented as a versioned Ed25519 contract plus a
+     fail-closed trust verifier, exact local identity expectation, and durable nonce reservation.
+     No manifest is composed into
+     activation until the later cohort and approved identity-upgrade phases.
   4. **Identity separation.** The active generation digest covers only the active member
      identities and the resolved profile snapshot. The full catalog manifest digest, which indexes
      every revision identity, becomes proposal provenance and a transition precondition. A profile
