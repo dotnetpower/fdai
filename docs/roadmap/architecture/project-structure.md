@@ -72,7 +72,10 @@ authority-neutral decision; runtime bootstrap validates the complete catalog aga
 routes; delivery and provider adapters remain responsible for emitting source-qualified metrics.
 Rule activation version compatibility is also split: service contracts own the version 1/2
 envelope codec and Core's activation ledger applies it while version 1 remains the only write
-format. Neither compatibility path grants approval, activation, promotion, or execution authority.
+format. The shared SDK also owns dormant signed non-direct manifest and trust contracts. Core
+verifies exact locally resolved identity, trust validity, scope, registry root, and replay nonce
+through a separate module that writes only an authority-neutral reservation. Neither compatibility
+nor manifest verification grants approval, activation, promotion, or execution authority.
 
 Question-form concept-choice reuse is owned by Core conversation processing and ends with one
 run. Its exact-input, reader-separated cache never stores observed state, authorization, or
