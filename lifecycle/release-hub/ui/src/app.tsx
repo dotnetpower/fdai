@@ -47,7 +47,7 @@ function Confirm({ pending, catalog, close, done }: {
     event.preventDefault(); if (!busy) close();
   }}>
     <form onSubmit={submit}>
-      <header><h2 id="confirm-title">{TITLES[action]}</h2><p>Local development only. No registry publication or installation changes.</p></header>
+      <header><h2 id="confirm-title">{TITLES[action]}</h2><p>Development validation only. No registry publication or installation changes.</p></header>
       {action === "register" && <>
         <label>Release id (SemVer)<input required value={id} onInput={(e) => setId(e.currentTarget.value)} placeholder="1.0.0" /></label>
         <label>Release label (optional)<input maxLength={160} value={label} onInput={(e) => setLabel(e.currentTarget.value)} /></label>
@@ -55,14 +55,14 @@ function Confirm({ pending, catalog, close, done }: {
         <p>Metadata validation only. Artifact files and registry availability are not checked.</p>
       </>}
       {pending.release && <p><strong>FDAI {pending.release.id}</strong><code class="digest">{pending.release.digest}</code></p>}
-      {action === "publish" && <p>Sign the exact manifest with the local development key and add it to DEV. This does not establish production trust.</p>}
+      {action === "publish" && <p>Sign the exact manifest with the development key and add it to DEV. This does not establish production trust.</p>}
       {action === "contribute" && <>
         <label>Destination channel<select value={channel} onChange={(e) => setChannel(e.currentTarget.value)}>
           {Object.keys(catalog.channels).filter((c) => !pending.release?.channels.includes(c)).map((c) => <option key={c}>{c}</option>)}
         </select></label>
         <p>Manual eligibility curation. Soak time, canary health and security review gates are not implemented.</p>
       </>}
-      {action === "recall" && <p class="warning">Withdraw local eligibility in every channel. Recall is irreversible here. Running installations and issued Plans do not change automatically.</p>}
+      {action === "recall" && <p class="warning">Withdraw eligibility in every channel. Recall is irreversible here. Running installations and issued Plans do not change automatically.</p>}
       <label>Reason<textarea required minLength={3} maxLength={500} rows={2} value={reason} onInput={(e) => setReason(e.currentTarget.value)} /></label>
       <label>Type {id || "the Release id"} to confirm<input required autoComplete="off" value={confirmation} onInput={(e) => setConfirmation(e.currentTarget.value)} /></label>
       <p>Catalog revision {catalog.revision}. A concurrent change requires refresh and review.</p>
@@ -76,7 +76,7 @@ function Confirm({ pending, catalog, close, done }: {
 }
 
 function Status({ release }: { release: Release }) {
-  return <span class={`status ${release.state}`}>{release.state === "draft" ? "Draft / unsigned" : release.state === "recalled" ? "Recalled" : "Published locally"}</span>;
+  return <span class={`status ${release.state}`}>{release.state === "draft" ? "Draft / unsigned" : release.state === "recalled" ? "Recalled" : "Development published"}</span>;
 }
 
 function ReleaseDetail({ release, catalog, act, disabled }: {
@@ -96,7 +96,7 @@ function ReleaseDetail({ release, catalog, act, disabled }: {
     </div>
     {release.state === "recalled" && <p class="warning" role="status">Recalled at {time(release.recalled_at!)}. New channel contributions are blocked. Refresh the pinned catalog before recomputing Lifecycle Plans.</p>}
     <section><h2>Channel membership</h2><div class="channel-grid">{Object.entries(catalog.channels).map(([channel, members]) =>
-      <div class="channel" key={channel}><h3>{channel}</h3><p>{members.includes(release.id) ? release.state === "recalled" ? "Withdrawn by recall" : "Available locally" : "Not added"}</p><a href="#/channels">Review channel</a></div>
+      <div class="channel" key={channel}><h3>{channel}</h3><p>{members.includes(release.id) ? release.state === "recalled" ? "Withdrawn by recall" : "Eligible for planning" : "Not added"}</p><a href="#/channels">Review channel</a></div>
     )}</div></section>
     <section><h2>Artifacts</h2><p>Declared digests from the manifest. No image build, registry check, SBOM review or provenance verification has run.</p>
       <div class="artifact-list">{artifacts(release.manifest).map((artifact) => <article key={artifact.component}>
@@ -154,7 +154,7 @@ export function App() {
       <div class="brand"><img src="/brand/fdai-logo.png" alt="FDAI" /><span>Release Hub<small>Vendor workspace</small></span></div>
       {[["/releases", "Releases"], ["/channels", "Channels"], ["/activity", "Activity"], ["/trust", "Catalog trust"]].map(([path, title]) =>
         <a key={path} class={active === path ? "nav-link current" : "nav-link"} href={`#${path}`} aria-current={active === path ? "page" : undefined}>{title}</a>)}
-      <div class="side-note"><strong>Local development</strong><p>No production sign-in or deployment authority.</p></div>
+      <div class="side-note"><strong>Development validation</strong><p>No production trust root or deployment authority.</p></div>
     </nav>
     <main id="main" class="main" ref={heading} tabIndex={-1}>
       <div class="workspace-bar"><span>Vendor / FDAI</span><button disabled={loading} onClick={() => { setNotice(""); void refresh(); }}>{loading ? "Loading..." : "Refresh catalog"}</button></div>
@@ -180,7 +180,7 @@ export function App() {
           </> : route === "/activity" ? <><h1>Activity</h1><p>Transactional local changes, newest first. These are not authenticated production audit records.</p><Activity catalog={catalog} /></>
           : route === "/trust" ? <>
             <h1>Catalog trust</h1><p>Verify exact export bytes and every published manifest before Lifecycle planning.</p>
-            <section><h2>Local verification boundary</h2><p>Release signatures are verified against the active development key on every read. Channels and recalls are local metadata, not signed production catalog roles.</p>
+            <section><h2>Development verification boundary</h2><p>Release signatures are verified against the active development key on every read. Channels and recalls are development metadata, not signed production catalog roles.</p>
               <dl><dt>Key id</dt><dd><code>{catalog.key_id}</code></dd><dt>Revision</dt><dd>{catalog.revision}</dd><dt>Export expiry</dt><dd>{time(catalog.expires_at)}</dd><dt>Export SHA-256 pin</dt><dd><code class="digest">{catalog.export_sha256 || "Refresh to obtain the current pin."}</code></dd></dl>
               <a href="/v1/catalog/export" target="_blank" rel="noreferrer">Open local JSON export (new tab)</a>
               <p>Obtain the pin and public key independently. Retain the accepted revision floor. A new channel or recall revision needs a new pin.</p>

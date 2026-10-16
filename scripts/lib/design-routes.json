@@ -3192,6 +3192,10 @@
     {
       "id": "hub-managed-lifecycle",
       "paths": [
+        "lifecycle/hub/**",
+        "lifecycle/release-hub/**",
+        "lifecycle/Dockerfile.hubs*",
+        "infra/hubs-development/**",
         "docs/roadmap/architecture/decisions/0003-*.md",
         "docs/roadmap/deployment/hub-managed-lifecycle*.md",
         "docs/roadmap/deployment/lifecycle-configuration*.md",
