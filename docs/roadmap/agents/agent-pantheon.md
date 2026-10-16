@@ -256,6 +256,34 @@ retention window and never replace runtime routing.
 Evaluator inputs are isolated copies. Changes to either revision are rejected before storage or
 publication, and retained evaluator references cannot rewrite the returned candidate.
 
+Standard runtime composition can bind one reviewed off-path training batch through
+`FDAI_BRAGI_INTENT_TRAINING_EVIDENCE_PATH` and
+`FDAI_BRAGI_INTENT_TRAINING_EVIDENCE_SHA256`. The bounded regular file must match
+`FDAI_SOURCE_REVISION` and carries a consent-filtered digest-only corpus, complete externally
+produced evaluation results, distinct evaluator and reviewer principal digests, and one reviewed
+promotion input. When configured, startup invokes Bragi's existing training path once and emits
+only retained `shadow_ready` evidence. Missing configuration remains unbound; partial, stale,
+changed, non-independent, incomplete, or type-substituted input fails startup. The adapter does
+not run a model, establish semantic quality, alter runtime routing, activate a candidate, or widen
+Bragi's translator-only role.
+
+Standard runtime composition can bind Mimir's promotion, regression, and deprecation ports to one
+deployment-reviewed immutable evidence file. `FDAI_MIMIR_MAINTENANCE_EVIDENCE_PATH` names an
+absolute bounded regular file, `FDAI_MIMIR_MAINTENANCE_EVIDENCE_SHA256` pins its exact bytes, and
+its source revision must equal `FDAI_SOURCE_REVISION`. The closed manifest binds every promotion
+to one matching completed regression and carries one review reference across the snapshot. Missing
+configuration stays unbound; partial, stale, changed, oversized, duplicate-key, or type-substituted
+input fails startup. This adapter consumes reviewed results. It does not perform the independent
+review, run a regression suite, promote or deprecate a Rule, or grant issue-close authority.
+
+Loki's off-path generator and frozen regression corpus can likewise bind to one reviewed immutable
+file. `FDAI_LOKI_SCENARIO_EVIDENCE_PATH` and
+`FDAI_LOKI_SCENARIO_EVIDENCE_SHA256` pin a bounded regular file whose source revision must equal
+`FDAI_SOURCE_REVISION`. The closed snapshot rejects duplicate schedule, scenario, evidence, and
+coverage identities and accepts only ActionTypes in the active catalog. Generation still runs only
+through an explicit off-path invocation with the exact reviewed design reference. The binding does
+not schedule a run, request approval, execute Chaos, verify recovery, or change Loki's advisory role.
+
 Saga's retained audit outbox compares canonical JSON digests before publication. Reusing a key
 with changed JSON types, including nested integer-to-boolean or integer-to-float substitutions,
 is rejected without publishing or changing the retained row. Exact payload replay remains valid
@@ -281,6 +309,18 @@ audit evidence. Longer legacy histories require a separately reviewed migration,
 head. New replicas share committed revisions after migration; mixed-version rolling writes and
 deployed migration acceptance are not established by local checks.
 
+Standard Core keeps the StateStore issue adapter by default. An explicit
+`FDAI_SAGA_GITHUB_ISSUES_ENABLED` selection can instead compose Saga with a GitHub App adapter
+after exact single-repository readback and least-privilege `issues: write` plus `metadata: read`
+projection. The adapter preserves the existing global operation-to-fingerprint/content binding,
+serializes each fingerprint through a shared StateStore lease, writes digest-only hidden remote
+markers, and independently reads back GitHub-assigned issue and comment identities. A failed
+post-effect read retries by marker and cannot create a second issue. Static tokens, incomplete App
+credentials, changed operation content, ambiguous generations, or mismatched repository scope fail
+closed. Saga remains the Issue and audit owner; the adapter grants no merge, promotion, approval,
+or execution authority. Actual GitHub App installation, network, replica restart and remote
+acceptance evidence remain deployment-owned.
+
 Forseti what-if comparisons preserve the original recorded ActionType, including a no-rule
 abstention, and its recorded judgment-table digest. Current rules never fill the original action
 or replace its source digest. With Forseti's existing StateStore bound, a closed, content-hashed
@@ -292,6 +332,16 @@ replicas within a closed 512-record/512 KiB window. Only completed records may b
 pending results recover at startup and on maintenance. A broker-acceptance/checkpoint crash can
 redeliver identical bytes and key under the existing at-least-once contract. Full-context replay
 and deployed provider acceptance remain separate work.
+
+Standard bootstrap can additionally bind one deployment-reviewed historical archive through
+`FDAI_FORSETI_REPLAY_EVIDENCE_PATH` and `FDAI_FORSETI_REPLAY_EVIDENCE_SHA256`. The bounded regular
+file must match `FDAI_SOURCE_REVISION`, declare one complete finite time window, carry an exact
+review reference and evidence manifest, and contain at most 4,096 oldest-first comparison inputs.
+An explicit what-if request selects the exact archive reference; an unavailable or different
+archive holds instead of falling back to the recent 512-record window. The emitted inert Verdict
+pins the archive digest, revision, review, time bounds and evidence references. This read-only
+binding does not create historical evidence, certify that a deployment supplied a complete
+archive, change Forseti's judge role, or establish database or broker acceptance.
 
 Thor holds an explicit empty target declaration instead of falling back to another resource.
 A single declared target uses the legacy single-action path only when it exactly matches

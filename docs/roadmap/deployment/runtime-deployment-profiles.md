@@ -31,10 +31,10 @@ current grant-registry pin, installation reference and exact installation read s
 Missing prerequisites hold rather than creating an Owner, grant or live model invocation.
 Console mode selection changes no runtime profile, executor identity or operational readiness.
 
-Both runtime profiles keep conversational presentation separate from execution and package activation. Standard Core composition forwards the independent synthesis verifier and binds the
-durable per-correlation budget ledger. Target/locale transport, verification holds and restart
-accounting follow the same contracts in every venue; these bindings neither enable Cost
-Governance nor prove operational or handover readiness.
+Both runtime profiles keep conversational presentation separate from execution and package activation. Standard Core composition forwards the independent synthesis verifier and binds the durable per-correlation budget ledger. Target/locale transport, verification holds and restart accounting follow the same contracts in every venue; these bindings neither enable Cost Governance nor prove operational or handover readiness.
+
+Both profiles can mount the same optional deployment-reviewed Pantheon evidence files. Core binds Mimir maintenance, Loki off-path scenarios, Forseti historical replay, and Bragi off-path training only when each feature's absolute path and exact SHA-256 environment pair is complete and the file matches `FDAI_SOURCE_REVISION`. Bragi's configured batch runs once at startup and remains shadow-only; the other adapters remain explicit read-only inputs to their owning paths. Missing configuration stays unbound, while partial, changed, stale, or malformed input fails startup. Runtime platform selection never supplies an evidence file, review, semantic-quality claim, approval, promotion, action authority, or operational acceptance.
+Saga issue delivery is also runtime-profile neutral. `FDAI_SAGA_GITHUB_ISSUES_ENABLED` keeps the StateStore adapter as the default and selects remote delivery only with `FDAI_SAGA_GITHUB_OWNER`, `FDAI_SAGA_GITHUB_REPO`, a complete refreshable GitHub App credential set, and exact installation/repository readback. The App token is limited to `issues: write` and `metadata: read`; static tokens are not accepted for this path. AKS and Container Apps use the same operation journal, shared fingerprint claim, remote marker and readback contract. Selecting a runtime platform never enables this adapter or proves network, App installation, replica restart, issue ownership, or delivery acceptance.
 
 The [GitHub knowledge connector](../../runbooks/knowledge-github-sources.md) uses the same
 bounded repository, exact-commit, and README validation in both runtime profiles. Anonymous

@@ -3,11 +3,17 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import json
 from collections.abc import Callable
 from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from fdai.agents._framework.forseti_historical_replay import (
+    ForsetiHistoricalQualitySample,
+    ForsetiHistoricalReplay,
+)
 from fdai.agents._framework.forseti_judgment import JudgmentTable
 from fdai.agents._framework.forseti_quality_retention import (
     MAX_QUALITY_INPUTS,
@@ -15,6 +21,7 @@ from fdai.agents._framework.forseti_quality_retention import (
     restore_quality_samples,
     retain_quality_sample,
 )
+from fdai.agents._framework.forseti_what_if import build_what_if_batch
 from fdai.agents._framework.forseti_what_if_publication import PUBLICATION_WINDOW_KEY
 from fdai.agents._framework.runtime import PantheonRuntime
 from fdai.agents.forseti import Forseti
@@ -62,6 +69,199 @@ async def _run_until(
 def _runtime() -> tuple[PantheonRuntime, LocalEventBus]:
     provider = LocalEventBus()
     return PantheonRuntime.build(provider=provider, raw_event_topic=_RAW_TOPIC), provider
+
+
+def test_historical_what_if_payload_pins_reviewed_archive_provenance() -> None:
+    sample = ForsetiHistoricalQualitySample(
+        key="historical-1",
+        event_type="unknown_signal",
+        action_type="",
+        risk_verdict="hil",
+        judgment_table_digest="sha256:" + "a" * 64,
+        tier="T0",
+        observed_at="2026-10-01T00:00:00+00:00",
+        evidence_refs=("audit:historical-1",),
+    )
+    replay = ForsetiHistoricalReplay(
+        archive_ref="forseti-history:reviewed:1",
+        content_digest="b" * 64,
+        source_revision="c" * 40,
+        review_ref="review:forseti-history:1",
+        window_started_at="2026-10-01T00:00:00+00:00",
+        window_ended_at="2026-10-02T00:00:00+00:00",
+        evidence_refs=("manifest:forseti-history:1",),
+        samples=(sample,),
+    )
+    batch = build_what_if_batch(
+        correlation_id="corr-history",
+        active_table=JudgmentTable(rule_match={}, risk_verdict={}, source="active"),
+        what_if_table=JudgmentTable(rule_match={}, risk_verdict={}, source="candidate"),
+        retained_samples=((sample.key, sample.quality_sample()),),
+        sample_limit=1,
+        historical_replay=replay,
+    )
+
+    assert batch is not None
+    assert batch.payload["what_if_contract"] == {
+        "contract_version": "retrospective-what-if.v1",
+        "active_judgment_table_digest": batch.payload["what_if_contract"][
+            "active_judgment_table_digest"
+        ],
+        "what_if_judgment_table_digest": batch.payload["what_if_contract"][
+            "what_if_judgment_table_digest"
+        ],
+        "sample_limit": 1,
+        "selection": "reviewed_historical_archive",
+        "historical_archive_ref": "forseti-history:reviewed:1",
+        "historical_content_digest": "b" * 64,
+        "historical_source_revision": "c" * 40,
+        "historical_review_ref": "review:forseti-history:1",
+        "historical_window_started_at": "2026-10-01T00:00:00+00:00",
+        "historical_window_ended_at": "2026-10-02T00:00:00+00:00",
+        "historical_evidence_refs": ["manifest:forseti-history:1"],
+    }
+
+
+async def test_historical_archive_request_uses_bound_source_without_recent_window() -> None:
+    sample = ForsetiHistoricalQualitySample(
+        key="historical-only",
+        event_type="unknown_signal",
+        action_type="",
+        risk_verdict="hil",
+        judgment_table_digest="sha256:" + "a" * 64,
+        tier="T0",
+        observed_at="2026-10-01T00:00:00+00:00",
+        evidence_refs=("audit:historical-only",),
+    )
+    replay = ForsetiHistoricalReplay(
+        archive_ref="forseti-history:reviewed:2",
+        content_digest="b" * 64,
+        source_revision="c" * 40,
+        review_ref="review:forseti-history:2",
+        window_started_at="2026-10-01T00:00:00+00:00",
+        window_ended_at="2026-10-02T00:00:00+00:00",
+        evidence_refs=("audit:historical-only",),
+        samples=(sample,),
+    )
+
+    class Source:
+        async def read_replay(self, archive_ref: str) -> ForsetiHistoricalReplay | None:
+            return replay if archive_ref == replay.archive_ref else None
+
+    bus = _FailOnceWhatIfBus()
+    bus.failures_remaining = 0
+    store = InMemoryStateStore()
+    forseti = Forseti(bus=bus, state_store=store, historical_replay_source=Source())
+    await forseti.on_typed_message(
+        "object.event",
+        {
+            "kind": "retrospective_what_if_request",
+            "producer_principal": "Huginn",
+            "event_type": "retrospective.what_if.request",
+            "correlation_id": "corr-historical-only",
+            "idempotency_key": "historical-only",
+            "historical_archive_ref": replay.archive_ref,
+            "judgment_table": {"rule_match": {}, "risk_verdict": {}, "source": "candidate"},
+        },
+    )
+
+    payload = next(
+        payload
+        for _, topic, payload in bus.published
+        if topic == "object.verdict" and payload.get("kind") == "retrospective_what_if"
+    )
+    assert payload["outcomes"][0]["input_digest"]
+    assert payload["what_if_contract"]["historical_archive_ref"] == replay.archive_ref
+
+    retained = await store.read_state(PUBLICATION_WINDOW_KEY)
+    retained["records"][0]["payload"]["what_if_contract"]["historical_content_digest"] = (
+        "not-a-digest"
+    )
+    encoded = json.dumps(
+        retained["records"][0]["payload"],
+        sort_keys=True,
+        separators=(",", ":"),
+        allow_nan=False,
+    )
+    retained["records"][0]["payload_digest"] = (
+        "sha256:" + hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+    )
+    await store.write_state(PUBLICATION_WINDOW_KEY, retained)
+    restarted = Forseti(bus=bus, state_store=store, historical_replay_source=Source())
+    await restarted.on_typed_message(
+        "object.event",
+        {
+            "kind": "retrospective_what_if_request",
+            "producer_principal": "Huginn",
+            "event_type": "retrospective.what_if.request",
+            "correlation_id": "corr-historical-only",
+            "idempotency_key": "historical-only-retry",
+            "historical_archive_ref": replay.archive_ref,
+            "judgment_table": {"rule_match": {}, "risk_verdict": {}, "source": "candidate"},
+        },
+    )
+    assert restarted.health()["retrospective_what_if"]["evidence_state"] == (
+        "retention_unavailable"
+    )
+    assert (
+        len(
+            [
+                payload
+                for _, _, payload in bus.published
+                if payload.get("kind") == "retrospective_what_if"
+            ]
+        )
+        == 1
+    )
+
+    mismatched = Forseti(bus=bus, historical_replay_source=Source())
+    await mismatched.on_typed_message(
+        "object.event",
+        {
+            "kind": "retrospective_what_if_request",
+            "producer_principal": "Huginn",
+            "event_type": "retrospective.what_if.request",
+            "correlation_id": "corr-historical-mismatch",
+            "idempotency_key": "historical-mismatch",
+            "historical_archive_ref": "forseti-history:different",
+            "judgment_table": {"rule_match": {}, "risk_verdict": {}, "source": "candidate"},
+        },
+    )
+    assert mismatched.health()["retrospective_what_if"]["evidence_state"] == (
+        "historical_archive_not_found"
+    )
+
+
+async def test_requested_historical_archive_never_falls_back_to_recent_window() -> None:
+    bus = _FailOnceWhatIfBus()
+    bus.failures_remaining = 0
+    forseti = Forseti(bus=bus)
+    await forseti.judge(
+        {
+            "event_type": "recent_signal",
+            "resource_id": "resource-recent",
+            "correlation_id": "corr-recent",
+        }
+    )
+    await forseti.on_typed_message(
+        "object.event",
+        {
+            "kind": "retrospective_what_if_request",
+            "producer_principal": "Huginn",
+            "event_type": "retrospective.what_if.request",
+            "correlation_id": "corr-missing-history",
+            "idempotency_key": "missing-history",
+            "historical_archive_ref": "forseti-history:missing",
+            "judgment_table": {"rule_match": {}, "risk_verdict": {}, "source": "candidate"},
+        },
+    )
+
+    assert not [
+        payload for _, _, payload in bus.published if payload.get("kind") == "retrospective_what_if"
+    ]
+    assert forseti.health()["retrospective_what_if"]["evidence_state"] == (
+        "historical_archive_unavailable"
+    )
 
 
 def _payloads(provider: LocalEventBus, topic: str) -> list[dict[str, Any]]:

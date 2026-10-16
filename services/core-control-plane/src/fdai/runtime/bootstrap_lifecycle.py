@@ -20,6 +20,7 @@ from fdai_core_service.semantic_turn_consumer import (
 )
 
 from fdai.agents import (
+    IssueTrackerAdapter,
     PantheonRuntime,
     Saga,
     SemanticRouterConfig,
@@ -319,11 +320,15 @@ def semantic_router_config_from_env() -> SemanticRouterConfig:
     )
 
 
-def build_runtime_saga(state_store: StateStore) -> Saga:
+def build_runtime_saga(
+    state_store: StateStore,
+    *,
+    issue_tracker: IssueTrackerAdapter | None = None,
+) -> Saga:
     return Saga(
         audit_chain=StateStoreAuditChainAdapter(store=state_store),
         durable_state_store=state_store,
-        github=StateStoreIssueTrackerAdapter(state_store),
+        github=issue_tracker or StateStoreIssueTrackerAdapter(state_store),
     )
 
 

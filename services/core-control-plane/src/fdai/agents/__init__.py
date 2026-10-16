@@ -44,6 +44,13 @@ from fdai.agents._framework.base import (
     ConversationTool,
     Layer,
 )
+from fdai.agents._framework.bragi_intent_training import (
+    IntentTrainingEvaluationResult,
+    IntentTrainingEvaluator,
+    IntentTrainingEvidence,
+    IntentTrainingRun,
+    ReviewedIntentTrainingPromotion,
+)
 from fdai.agents._framework.bus import InMemoryBus, PantheonBus
 from fdai.agents._framework.bus_bridge import (
     AgentHandlerObserver,
@@ -91,19 +98,38 @@ from fdai.agents._framework.forseti_baseline_worker import (
     ForsetiBaselineScheduler,
     ForsetiBaselineWorker,
 )
+from fdai.agents._framework.forseti_historical_replay import (
+    ForsetiHistoricalQualitySample,
+    ForsetiHistoricalReplay,
+    ForsetiHistoricalReplaySource,
+)
 from fdai.agents._framework.freyr_sampling import MAX_RECURRING_SAMPLES, UtilizationSample
 from fdai.agents._framework.huginn_operator_receipt import (
     OperatorRequestReceiptGate,
     ReservedOperatorRequestReceipt,
 )
 from fdai.agents._framework.introspection import agent_state_evidence_ref
+from fdai.agents._framework.loki_adversarial import (
+    MAX_GENERATED_SCENARIOS,
+    ChaosScenarioCandidate,
+    ChaosScenarioGenerator,
+    frozen_corpus_key,
+)
 from fdai.agents._framework.loki_scheduling import (
     ChaosScheduleConfig,
 )
 from fdai.agents._framework.loki_scheduling import (
     validate_config as validate_chaos_schedule,
 )
-from fdai.agents._framework.mimir_maintenance import MimirRuleSourcePollResult
+from fdai.agents._framework.mimir_maintenance import (
+    MimirCatalogPromotionOutcome,
+    MimirCatalogPromotionOutcomeReader,
+    MimirDeprecationCandidate,
+    MimirRegressionResult,
+    MimirRegressionRunner,
+    MimirRuleDeprecationReader,
+    MimirRuleSourcePollResult,
+)
 from fdai.agents._framework.mimir_policy_administration import (
     POLICY_ADMIN_OPA_CAPABILITIES_RELATIVE,
     MimirPolicyAdministration,
@@ -223,6 +249,9 @@ __all__ = [
     "AssignmentWorkflowBindings",
     "Agent",
     "Forseti",
+    "ForsetiHistoricalQualitySample",
+    "ForsetiHistoricalReplay",
+    "ForsetiHistoricalReplaySource",
     "AdminCard",
     "AdminNotificationAdapter",
     "AuditEntry",
@@ -246,6 +275,8 @@ __all__ = [
     "Bragi",
     "CatalogReviewBindings",
     "ChaosScheduleConfig",
+    "ChaosScenarioCandidate",
+    "ChaosScenarioGenerator",
     "ComposedConversationPrompt",
     "ConversationCharter",
     "ConversationDeliberator",
@@ -267,9 +298,16 @@ __all__ = [
     "Layer",
     "KillSwitchRequestRejectedError",
     "Mimir",
+    "MimirCatalogPromotionOutcome",
+    "MimirCatalogPromotionOutcomeReader",
+    "MimirDeprecationCandidate",
     "MimirPolicyAdministration",
+    "MimirRegressionResult",
+    "MimirRegressionRunner",
+    "MimirRuleDeprecationReader",
     "MimirRuleSourcePollResult",
     "MAX_RECURRING_SAMPLES",
+    "MAX_GENERATED_SCENARIOS",
     "UtilizationSample",
     "VarKillSwitchRequestHandler",
     "Norns",
@@ -279,6 +317,10 @@ __all__ = [
     "PantheonBus",
     "InMemoryBus",
     "InMemoryAuditChain",
+    "IntentTrainingEvaluationResult",
+    "IntentTrainingEvaluator",
+    "IntentTrainingEvidence",
+    "IntentTrainingRun",
     "PantheonRegistry",
     "PantheonRuntime",
     "PromptAuditResult",
@@ -286,6 +328,7 @@ __all__ = [
     "RECOVERY_EFFECT_OBSERVATION_TOPIC",
     "RECOVERY_EFFECT_OBSERVER_PRINCIPAL",
     "RuleGenerationWorkerBindings",
+    "ReviewedIntentTrainingPromotion",
     "Saga",
     "SemanticRouterConfig",
     "ShadowDivergenceLedger",
@@ -315,6 +358,7 @@ __all__ = [
     "partition_key_for",
     "stable_idempotency_key",
     "validate_chaos_schedule",
+    "frozen_corpus_key",
     "WORKFLOWS",
     "WorkflowSpec",
 ]

@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.anomaly_action import AnomalyActionSource
 from fdai.agents._framework.base import Agent
+from fdai.agents._framework.forseti_historical_replay import ForsetiHistoricalReplaySource
 from fdai.agents._framework.freyr_sampling import CapacityUtilizationSampler
 from fdai.agents._framework.huginn_operator_receipt import OperatorRequestReceiptGate
 from fdai.agents._framework.loki_adversarial import ChaosScenarioGenerator
@@ -129,6 +130,7 @@ def configured_forseti(
     approval_profile: ApprovalProfileRevision | None = None,
     governed_execution_selected: bool = False,
     state_store: StateStore | None = None,
+    historical_replay_source: ForsetiHistoricalReplaySource | None = None,
 ) -> Forseti | None:
     """Build Forseti only when composition supplies an optional binding.
 
@@ -155,6 +157,7 @@ def configured_forseti(
             development_action_types,
             approval_profile,
             state_store,
+            historical_replay_source,
         )
     ):
         return None
@@ -177,6 +180,7 @@ def configured_forseti(
         approval_profile=approval_profile,
         governed_execution_selected=governed_execution_selected,
         state_store=state_store,
+        historical_replay_source=historical_replay_source,
     )
 
 

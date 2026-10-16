@@ -8,6 +8,7 @@ from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from fdai.agents._framework.forseti_historical_replay import ForsetiHistoricalReplay
 from fdai.agents._framework.forseti_judgment import JudgmentTable
 
 CONTRACT_VERSION = "retrospective-what-if.v1"
@@ -40,6 +41,7 @@ def build_what_if_batch(
     what_if_table: JudgmentTable,
     retained_samples: Iterable[tuple[str, Mapping[str, str]]],
     sample_limit: int,
+    historical_replay: ForsetiHistoricalReplay | None = None,
 ) -> WhatIfBatch | None:
     """Replay a bounded retained sample window and return inert evidence."""
 
@@ -82,6 +84,26 @@ def build_what_if_batch(
         )
     if not outcomes:
         return None
+    what_if_contract: dict[str, object] = {
+        "contract_version": CONTRACT_VERSION,
+        "active_judgment_table_digest": active_table.digest,
+        "what_if_judgment_table_digest": what_if_table.digest,
+        "sample_limit": limit,
+        "selection": "recent_retained_judgment_inputs",
+    }
+    if historical_replay is not None:
+        what_if_contract.update(
+            {
+                "selection": "reviewed_historical_archive",
+                "historical_archive_ref": historical_replay.archive_ref,
+                "historical_content_digest": historical_replay.content_digest,
+                "historical_source_revision": historical_replay.source_revision,
+                "historical_review_ref": historical_replay.review_ref,
+                "historical_window_started_at": historical_replay.window_started_at,
+                "historical_window_ended_at": historical_replay.window_ended_at,
+                "historical_evidence_refs": list(historical_replay.evidence_refs),
+            }
+        )
     payload = {
         "producer_principal": "Forseti",
         "kind": "retrospective_what_if",
@@ -92,13 +114,7 @@ def build_what_if_batch(
         "resolved_autonomy_ceiling": "shadow_only",
         "reason": "retrospective_what_if_evidence",
         "quorum_required": 1,
-        "what_if_contract": {
-            "contract_version": CONTRACT_VERSION,
-            "active_judgment_table_digest": active_table.digest,
-            "what_if_judgment_table_digest": what_if_table.digest,
-            "sample_limit": limit,
-            "selection": "recent_retained_judgment_inputs",
-        },
+        "what_if_contract": what_if_contract,
         "outcomes": outcomes,
         "disagreement_count": sum(1 for outcome in outcomes if outcome["disagrees"]),
     }

@@ -21,9 +21,11 @@ back to process-only state. The StateStore issue adapter globally binds each ope
 one fingerprint and request digest before mutation; rehydration restores the same bindings for
 older retained issue histories and rejects conflicts. Freyr recurring sampling requires valid
 timezone-aware source observation time instead of fabricating collection-time freshness.
-Focused durability/bootstrap/issue checks: 114 passed; Freyr checks: 11 passed; focused mypy
-passed. These source repairs change no role, approval, risk classification or executor and do
-not prove actual broker/database restart, remote issue identity or replica-safe publication.
+An opt-in GitHub App adapter now preserves that local operation journal while adding shared
+fingerprint claims, digest-only remote markers and exact issue/comment readback. Focused remote,
+durability/bootstrap/issue checks: 122 passed; Freyr checks: 11 passed; focused mypy passed.
+These source repairs change no role, approval, risk classification or executor and do not prove
+actual broker/database restart or deployed GitHub App/replica acceptance.
 
 
 ### Implementation scope
@@ -61,6 +63,16 @@ regression evidence must start at or after promotion and finish by the observati
 pre-promotion run cannot begin Saga's quiet window. Focused issue-close/layout checks: 35 passed;
 one-file mypy and Ruff passed. These checks supply no promotion, regression or deprecation reader.
 
+Standard bootstrap now supplies those three read-only Mimir ports from one deployment-reviewed
+immutable file. The binding requires an absolute regular file, exact SHA-256, exact
+`FDAI_SOURCE_REVISION`, a closed schema, bounded records, one snapshot review reference, and a
+one-to-one promotion/regression identity set. Missing configuration remains unbound; partial or
+changed input fails startup. The source may report an empty reviewed snapshot. It never turns the
+draft-only operational catalog-review PR into promotion evidence and never performs review,
+regression, promotion, deprecation, or issue closure. Focused evidence/bootstrap/issue-close/layout
+checks: 58 passed; strict mypy and Ruff passed. A real reviewed manifest and retained runtime
+receipt remain deployment evidence.
+
 Loki recurring schedules require an explicit timezone-aware `start_at`. A missing anchor stays
 held instead of using each tick's current time as a fresh window. The existing window id and
 always-HIL proposal gates remain unchanged. Focused schedule/adversarial/sampling checks: 25
@@ -68,6 +80,15 @@ passed. The development binding source is also present in current runtime compos
 `PreparedDevelopmentBindingRegistry`, shared with ControlLoop and Pantheon; existing composition
 and durable-source checks: 26 passed. Earlier source-absence wording is superseded by that
 source fact only, not by a selected profile, real Owner approval or live execution receipt.
+
+Standard bootstrap now binds Loki's off-path generator and frozen corpus from one exact-digest,
+exact-source-revision reviewed file. The closed bounded snapshot reuses the recurring schedule
+validator, rejects unknown ActionTypes and duplicate schedule, scenario, evidence or coverage
+identities, and binds generation to one exact design reference. Missing configuration remains
+unbound and partial or changed input fails startup. The runtime still requires an explicit
+off-path call and emits only inert audited candidates. Focused source/bootstrap/adversarial/
+schedule/layout checks: 49 passed; strict mypy and Ruff passed. Actual configured input, explicit
+invocation, Human approval, Chaos execution and recovery evidence remain separate.
 
 Freyr's standard source binding is `runtime/bootstrap_capacity_sampling.py`. Deployment may
 provide `FDAI_FREYR_TARGETS_JSON`, a bounded mapping of logical Resource ids to canonical types.
@@ -81,8 +102,11 @@ not authorize scaling. Local routed-provider, sampling and bootstrap checks: 56 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Saga shared inner-chain revision | implemented | `audit_chain_journal.py`; `audit_chain_rehydrate.py`; 165 owning checks, one bounded restart and five real isolated PostgreSQL checks; five-source strict mypy and Ruff | Atomic shared head/audit, bounded verified mirror and explicit legacy holds. Quiesced deployment migration, longer legacy histories and remote issue identity remain separate. |
+| Reviewed Mimir maintenance evidence source | implemented | `mimir_maintenance_evidence.py`; `bootstrap_mimir_maintenance.py`; standard Pantheon bootstrap; focused evidence/bootstrap/issue-close/layout checks: 58 passed; strict mypy and Ruff | One exact-revision immutable snapshot binds the existing promotion, regression and deprecation ports. Actual reviewed input and runtime receipts remain deployment-owned; the adapter grants no Rule or issue authority. |
+| Reviewed Loki off-path scenario source | implemented | `loki_scenario_evidence.py`; `bootstrap_loki_scenarios.py`; shared schedule validation; source/bootstrap/adversarial/schedule/layout checks: 49 passed; strict mypy and Ruff | One reviewed immutable snapshot binds the generator and frozen corpus without invoking it or granting approval/execution. Actual input, invocation, approval, Chaos and recovery receipts remain open. |
 | Explicit standard Loki recurring schedule | implemented | `bootstrap_chaos_schedule.py`; `bootstrap_pantheon.py`; initialization/Loki/adversarial/sampling/layout checks: 57 passed | Complete explicit declarations reach the existing Loki handler without enabling enforcement or fabricating input. Actual deployment schedule, approval and execution evidence remain open. |
-| Current ordered-halt and local issue-operation binding | implemented | `bootstrap_pantheon.py`; `state_store_issue_tracker.py`; bootstrap/poison-clear/runtime/Mimir issue checks: 114 passed | Supersedes the source opt-in halt absence and local per-fingerprint operation-id gap only. Remote issue adapters, replica publication and governed restart evidence remain open. |
+| Current ordered-halt and local issue-operation binding | implemented | `bootstrap_pantheon.py`; `state_store_issue_tracker.py`; bootstrap/poison-clear/runtime/Mimir issue checks: 114 passed | Supersedes the source opt-in halt absence and local per-fingerprint operation-id gap. The local adapter remains the default when remote delivery is not selected. |
+| Saga GitHub App issue operation binding | implemented | `delivery/github_issue_tracker.py`; `runtime/bootstrap_saga_issue_tracker.py`; remote/durability/bootstrap/issue/layout checks: 122 passed; strict mypy and Ruff | Explicit opt-in requires one exact GitHub App repository and least-privilege issue scope. Shared fingerprint leases, operation markers and provider readback preserve retry identity. Actual App installation, network and deployed replica/restart acceptance remain external. |
 | Ontology ContextIndex owner routing | implemented | `agents/_framework/ontology_index.py`; `test_ontology_context_index.py`; real in-memory EventBus phase-chain test | Huginn ingress, Muninn preparation/transition publication, Heimdall validation publication, and Saga audit/seal publication use existing owned topics. The wrapper rejects owner, topic, content, and phase drift and isolates ordinary judgment and learning. Mechanical handlers in this routing test are synthetic; durable source/lifecycle workers and production bootstrap remain open. |
 | W0-W1 documentation, ontology, and framework scaffolding | implemented | [`test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py), [`test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py) | The fixed registry, package boundary, documentation parity, and typed-topic foundation are executable and checked. |
 | Bus and graph ownership separation | implemented | `_framework/{pantheon,topics}.py`; ontology alignment, topic, registry, doc-parity, and Console agent-contract tests | `AgentSpec.owns` now lists only producible event-bus objects. `Budget` and `SizingRecommendation` retain Njord and Freyr graph lifecycle ownership without inventing dead topics; embedded ActionRun attempt state and core RCA projections remain outside the bus registry. |
@@ -105,13 +129,20 @@ not authorize scaling. Local routed-provider, sampling and bootstrap checks: 56 
 | Observation-first learned and predicted output boundary | implemented | `agents/_framework/{advisory_verdicts,forseti_learned_outputs,thor_persistence,action_run_identity}.py`; `StateStoreActionRunStore.reserve_correlation`; `core/control_loop/_learned_reuse.py`; `runtime/{control_loop,bootstrap_pantheon}.py`; `test_learned_output_profile_boundary.py`; `test_learned_output_arbitration_gate.py`; `test_learned_output_durable_gate.py`; `test_learned_reuse_profile_boundary.py`; `test_bootstrap_pantheon_product_selection.py` | Without the `governed-execution` product add-on, forecasts, Freyr capacity arbitration, and T1 reuse of learned patterns produce ActionType-free advisory evidence that Thor ignores. A settled advisory arbitration holds later observed signals on its correlation from automatic execution, including after a Core restart or gate eviction, through Thor's durable non-action correlation claim. Selecting the add-on reopens the existing gates with one deliberate restriction: a forecast-derived action Verdict without an exact `mode: enforce` is capped at `shadow_only`. The selection comes only from the product profile; T2 proposals are outside this row. |
 | Phase-2 execution receipts and failover contracts | implemented | `agents/{thor.py,vidar.py}`; `_framework/{thor_preflight,thor_execution,vidar_dr,vidar_rehearsal}.py`; `test_wave7_workflows.py`; `test_thor_durable.py` | Thor records exact-identity pre-flight simulation receipts for high-risk and obligation-only runs before executor I/O. Vidar accepts or holds DR failover contracts and records bounded rollback rehearsal receipts. |
 | Phase-2 learning and governance loops | implemented | `agents/{huginn.py,bragi.py,mimir.py,norns.py}`; `_framework/{huginn_schema_learning,bragi_intent_training,norns_issue_close_support}.py`; `test_mimir_issue_close_evidence.py`; `test_wave7_workflows.py`; `test_runtime.py` | Signed operator-request receipts, schema-cluster evidence, shadow-only Bragi intent-training evidence, Mimir promotion/deprecation evidence, and Norns quiet-window eligibility remain inert unless a reviewed activation or Saga-owned close path consumes them. |
+| Reviewed Bragi training batch source | implemented | `delivery/bragi_intent_training_evidence.py`; `runtime/bootstrap_bragi_intent_training.py`; source, existing training, bootstrap and layout checks: 59 passed | One exact-revision immutable batch binds consented corpus, externally produced results and distinct evaluator/reviewer identities, then invokes the existing shadow-only path once. It neither proves semantic quality nor activates runtime routing. |
 | Phase-2 specialist sampling and scenario generation | implemented | `agents/{freyr.py,loki.py}`; `_framework/{capacity_utilization,loki_scheduling,loki_adversarial}.py`; `test_sensing_specialist_contracts.py`; `test_loki_recurring_scheduler.py`; `test_loki_adversarial_generation.py` | Freyr samples through an injected read-only sampler and emits capacity forecasts or shadow/HIL scale proposals. Loki schedules always-HIL proposals or holds and can generate inert adversarial scenario candidates through an unbound-by-default off-path port. |
 | Phase-2 replay, cost, and backlog controls | implemented | `agents/{forseti.py,odin.py,muninn.py,thor.py}`; `_framework/{forseti_what_if,thor_persistence}.py`; `test_forseti_retrospective_what_if.py`; `test_wave7_workflows.py`; `muninn.py` compaction regressions | Cost annotations stay explicit across Forseti, Odin, and Thor; retrospective what-if replay is inert; Muninn publication outbox compaction and provider replay evidence bound retained state. Durable poison-halt storage remains opt-in. |
+| Reviewed Forseti historical replay source | implemented | `delivery/forseti_historical_replay.py`; `runtime/bootstrap_forseti_replay.py`; source, what-if, bootstrap and layout checks: 64 passed | One exact-digest, exact-source-revision archive can supply a reviewed complete finite window without falling back to the recent 512-record projection. Actual reviewed archive input and deployed provider acceptance remain external. |
 
 ### Implementation history
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-15 | implemented | Added an opt-in Saga GitHub App issue adapter that preserves the global StateStore operation binding, serializes fingerprint mutations, recovers ambiguous effects by digest-only markers and independently reads back issue/comment identities. | `current change`; `github_issue_tracker.py`; `bootstrap_saga_issue_tracker.py`; remote/durability/bootstrap/issue/layout checks: 122 passed; strict mypy and Ruff. | Supply and verify the actual GitHub App installation, network and deployed replica/restart acceptance. The adapter grants no merge, promotion, approval or execution authority. |
+| 2026-10-15 | implemented | Bound Bragi's existing off-path training contract to one exact-digest, exact-source-revision reviewed batch with consented corpus, complete external results and distinct evaluator/reviewer principals, then invoked it once at configured startup. | `current change`; `bragi_intent_training_evidence.py`; `bootstrap_bragi_intent_training.py`; source/training/bootstrap/layout checks: 59 passed; strict mypy and Ruff. | Supply an actual consented, independently evaluated reviewed batch and retain deployed-provider acceptance. No semantic-quality, activation, or runtime-routing claim is inferred. |
+| 2026-10-15 | implemented | Bound Forseti's inert retrospective what-if path to one exact-digest, exact-source-revision reviewed historical archive with explicit finite completeness, ordered inputs and no recent-window fallback. | `current change`; `forseti_historical_replay.py`; `bootstrap_forseti_replay.py`; source, what-if, bootstrap and layout checks: 64 passed; strict mypy and Ruff. | Supply an actual reviewed archive and retain deployed database/broker acceptance. The source does not create history, certify operational completeness, approve, or execute. |
+| 2026-10-15 | implemented | Bound Loki's off-path generator and frozen corpus to one exact-digest, exact-source-revision reviewed immutable snapshot with duplicate coverage rejection and exact design-reference invocation. | `current change`; `loki_scenario_evidence.py`; `bootstrap_loki_scenarios.py`; source/bootstrap/adversarial/schedule/layout checks: 49 passed; strict mypy and Ruff. | Supply actual reviewed input and retain explicit invocation, Human approval, Chaos execution and verified recovery receipts; no authority or operational acceptance is inferred. |
+| 2026-10-15 | implemented | Bound Mimir's promotion, regression and deprecation maintenance ports to one exact-digest, exact-source-revision, closed immutable evidence snapshot without treating draft catalog review as promotion. | `current change`; `mimir_maintenance_evidence.py`; `bootstrap_mimir_maintenance.py`; focused evidence/bootstrap/issue-close/layout checks: 58 passed; strict mypy and Ruff. | Supply a genuinely reviewed deployment manifest and retain runtime receipts; this source change does not perform review, regression, promotion, deprecation or issue closure. |
 | 2026-10-15 | implemented | Added the conditional `operator.kill-switch.requests` command consumer to Var without changing Pantheon ownership, judgment, approval, execution, or LLM roles. | `0398357455`; Var/runtime/layout tests passed 96; strict mypy and Ruff passed. | Implement authorized state readback and retain deployed engage/no-execute/disengage evidence. |
 | 2026-10-15 | implemented | Repaired the reproduced A/B/A inner-chain fork using a shared content-hashed revision journal and atomic head/audit commit; preserved bounded legacy records or held unverifiable migration. | `current change`; #2149; `audit_chain_journal.py`; `audit_chain_rehydrate.py`; 165 owning checks, one 1,500-append restart and five real isolated PostgreSQL checks; five-source strict mypy and Ruff. | Quiesce old writers before deployment; separately review longer legacy migration; retain remote identity and actual deployment acceptance. |
 | 2026-10-15 | implemented | Isolated Bragi evaluator revision inputs, rejected changed baseline/candidate content or JSON types before storage/publication, and protected returned candidates from retained evaluator references. | `current change`; `bragi_intent_training.py`; five new mutation/isolation regressions; learning/layout checks: 35 passed; one-source mypy and Ruff passed. | Independent evaluator, consent-filtered source corpus, reviewed activation and deployed-provider acceptance remain open. |
@@ -207,9 +238,10 @@ not authorize scaling. Local routed-provider, sampling and bootstrap checks: 56 
   [learned and predicted output boundary](#learned-and-predicted-output-boundary), then close or
   record each path with a focused test. This is a follow-up hardening item for the closed
   [issue #1541](https://github.com/dotnetpower/fdai/issues/1541).
-- [ ] Bind production readers and runners for Mimir promotion evidence, Freyr utilization sampling,
-  Loki recurring schedules and adversarial generation, and Bragi reviewed activation; record
-  focused runtime evidence for each bound port.
+- [ ] Supply a real reviewed Mimir maintenance manifest and retain its runtime receipt; retain an
+  actual configured Freyr sampling receipt; supply reviewed Loki scenario input and invocation
+  receipts; bind Bragi reviewed activation; record focused runtime evidence for each configured
+  port.
 - [ ] Port Forseti retrospective what-if retained-input replay to durable storage and record a
   restart-safe regression for replayed inputs.
 - [ ] Decide whether durable ordered-poison-halt storage should be enabled in production, then

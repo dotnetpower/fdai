@@ -8,6 +8,10 @@ from typing import TYPE_CHECKING, Any
 
 from fdai.agents._framework.action_semantics import ActionSemanticsCatalog
 from fdai.agents._framework.bounded import BoundedLruDict, BoundedLruSet
+from fdai.agents._framework.forseti_historical_replay import (
+    ForsetiHistoricalReplay,
+    ForsetiHistoricalReplaySource,
+)
 from fdai.agents._framework.forseti_judgment import JudgmentTable
 from fdai.agents._framework.forseti_quality_retention import (
     restore_quality_samples,
@@ -24,6 +28,7 @@ from fdai.agents._framework.forseti_what_if_publication import (
     frozen_publication,
     publish_comparison,
     recover_comparisons,
+    what_if_request_key,
 )
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
@@ -79,6 +84,7 @@ class ForsetiQualityRuntimeMixin:
     _verdict_quality_samples: BoundedLruDict[str, dict[str, str]]
     _published_what_if_inputs: BoundedLruSet[str]
     _forseti_state_store: StateStore | None
+    _historical_replay_source: ForsetiHistoricalReplaySource | None
     bus: PantheonBus | None
     spec: AgentSpec
 
@@ -205,15 +211,46 @@ class ForsetiQualityRuntimeMixin:
             return
         raw_limit = request.get("sample_limit", MAX_WHAT_IF_SAMPLES)
         sample_limit = max(1, min(raw_limit, MAX_WHAT_IF_SAMPLES)) if type(raw_limit) is int else 1
-        request_key = stable_idempotency_key(
-            "forseti-what-if-request", correlation_id, what_if_table.digest, sample_limit
+        historical_archive_ref = str(request.get("historical_archive_ref") or "")
+        if (
+            historical_archive_ref != historical_archive_ref.strip()
+            or len(historical_archive_ref) > 512
+        ):
+            self._last_retrospective_what_if = {"evidence_state": "invalid_request"}
+            self.record_behavior("retrospective_what_if:invalid")
+            return
+        request_key = what_if_request_key(
+            correlation_id,
+            what_if_table.digest,
+            sample_limit,
+            historical_archive_ref,
         )
+        historical_replay: ForsetiHistoricalReplay | None = None
         try:
             retained = await frozen_publication(self, request_key)
             if retained is not None and retained["status"] == "published":
                 self.record_behavior("retrospective_what_if:duplicate")
                 return
-            if retained is None:
+            if retained is None and historical_archive_ref:
+                if self._historical_replay_source is None:
+                    self._last_retrospective_what_if = {
+                        "evidence_state": "historical_archive_unavailable"
+                    }
+                    self.record_behavior("retrospective_what_if:historical_archive_unavailable")
+                    return
+                historical_replay = await self._historical_replay_source.read_replay(
+                    historical_archive_ref
+                )
+                if (
+                    historical_replay is None
+                    or historical_replay.archive_ref != historical_archive_ref
+                ):
+                    self._last_retrospective_what_if = {
+                        "evidence_state": "historical_archive_not_found"
+                    }
+                    self.record_behavior("retrospective_what_if:historical_archive_not_found")
+                    return
+            elif retained is None:
                 await restore_quality_samples(self)
         except Exception:
             self._last_retrospective_what_if = {"evidence_state": "retention_unavailable"}
@@ -229,8 +266,13 @@ class ForsetiQualityRuntimeMixin:
                 correlation_id=correlation_id,
                 active_table=self._judgment_table,
                 what_if_table=what_if_table,
-                retained_samples=self._verdict_quality_samples.items(),
+                retained_samples=(
+                    ((sample.key, sample.quality_sample()) for sample in historical_replay.samples)
+                    if historical_replay is not None
+                    else self._verdict_quality_samples.items()
+                ),
                 sample_limit=sample_limit,
+                historical_replay=historical_replay,
             )
         )
         if batch is None:

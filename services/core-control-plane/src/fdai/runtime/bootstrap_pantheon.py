@@ -54,6 +54,7 @@ from fdai.delivery.prospective_lineage import (
     StateStoreProspectiveLineageMaterializer,
 )
 from fdai.rule_catalog.schema.capacity_graduation_policy import load_capacity_graduation_policy
+from fdai.runtime import bootstrap_agent_discussion, pantheon_inputs
 from fdai.runtime.aks_commerce import (
     ActionObservation,
     bind_acceptance_effect_resolution,
@@ -61,8 +62,6 @@ from fdai.runtime.aks_commerce import (
     chain_acceptance_observer,
 )
 from fdai.runtime.approval_policy import approver_authorizer_from_environment
-from fdai.runtime.bootstrap_agent_discussion import _runtime_asset_root as _runtime_asset_root
-from fdai.runtime.bootstrap_agent_discussion import build_runtime_pantheon_synthesis
 from fdai.runtime.bootstrap_capacity_sampling import build_capacity_sampler
 from fdai.runtime.bootstrap_chaos_schedule import build_chaos_schedule
 from fdai.runtime.bootstrap_cost_governance import (
@@ -70,6 +69,7 @@ from fdai.runtime.bootstrap_cost_governance import (
     build_logged_cost_runtime,
     pantheon_enforce_enabled,
 )
+from fdai.runtime.bootstrap_pantheon_evidence import build_reviewed_pantheon_evidence
 from fdai.runtime.bootstrap_pantheon_models import (
     PantheonInitialization,
     PantheonInitializationResult,
@@ -92,8 +92,6 @@ from fdai.runtime.operator_request_receipt_gate import (
 from fdai.runtime.operator_request_receipt_gate import (
     operator_request_receipt_gate as _operator_request_receipt_gate,
 )
-from fdai.runtime.pantheon_inputs import pantheon_development_bindings
-from fdai.runtime.pantheon_inputs import pantheon_heartbeat as _pantheon_heartbeat
 from fdai.runtime.policy_administration import (
     build_mimir_policy_administration,
     policy_administration_selected,
@@ -115,6 +113,7 @@ from fdai.shared.config.runtime_flags import pantheon_start_enabled
 
 _LOGGER = logging.getLogger("fdai.startup")
 _pantheon_enforce_enabled = pantheon_enforce_enabled
+_runtime_asset_root = bootstrap_agent_discussion._runtime_asset_root
 HUGINN_SCHEMA_LEARNING_ENABLED_ENV = "FDAI_HUGINN_SCHEMA_LEARNING_ENABLED"
 
 
@@ -144,7 +143,6 @@ async def initialize_pantheon(
 
     if not pantheon_start_enabled(config.environment):
         return PantheonInitializationResult()
-
     asset_root = _runtime_asset_root()
     cost_runtime = await build_logged_cost_runtime(config.environment, logger=_LOGGER)
     pantheon_enforce = pantheon_enforce_enabled(
@@ -454,7 +452,8 @@ async def initialize_pantheon(
         else None
     )
     llm_bindings = config.container.llm_bindings
-    synthesis = build_runtime_pantheon_synthesis(config, asset_root)
+    synthesis = bootstrap_agent_discussion.build_runtime_pantheon_synthesis(config, asset_root)
+    reviewed_evidence = build_reviewed_pantheon_evidence(config)
     pantheon_runtime = PantheonRuntime.build(
         assignment_workflow=config.assignment_workflow,
         provider=config.bus,
@@ -501,7 +500,7 @@ async def initialize_pantheon(
         proposal_rate_limit_state_store=config.incident_audit_store,
         execution_resource_lock=execution_resource_lock,
         approver_authorizer=approver_authorizer_from_environment(config.environment),
-        development_authority=pantheon_development_bindings(config.control_loop),
+        development_authority=pantheon_inputs.pantheon_development_bindings(config.control_loop),
         approval_profile=approval_bindings,
         saga=config.runtime_saga,
         muninn_state_store=config.incident_audit_store,
@@ -656,7 +655,9 @@ async def initialize_pantheon(
         ),
         semantic_router_config=config.semantic_router_config_from_env(),
         cost_runtime=cost_runtime,
+        **reviewed_evidence.runtime_kwargs,
     )
+    await reviewed_evidence.run_configured_training(pantheon_runtime)
     cast(Heimdall, pantheon_runtime.agents["Heimdall"]).bind_forecast_history_ingress(
         forecast_context.ingest
     )
@@ -766,7 +767,7 @@ async def initialize_pantheon(
                 "reason_codes": [reason.value for reason in discovery_report.reason_codes],
             },
         )
-    pantheon_heartbeat = _pantheon_heartbeat(config.environment)
+    pantheon_heartbeat = pantheon_inputs.pantheon_heartbeat(config.environment)
     _LOGGER.info(
         "pantheon_ready",
         extra={

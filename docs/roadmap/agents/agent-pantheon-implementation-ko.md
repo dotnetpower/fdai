@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: cafc2c4430ad67ce1aa90e0c529924db2f14a346
-translation_revised: 2026-10-15
+translation_source_sha: 58ebb44f8e61224571016164d2d623f6ff09357a
+translation_revised: 2026-10-16
 ---
 
 # 에이전트 판테온 구현 계획
@@ -22,9 +22,11 @@ translation_revised: 2026-10-15
 않습니다. StateStore 이슈 어댑터는 변경 전에 각 작업 ID를 하나의 fingerprint와 요청 해시에
 전역으로 연결하며, 재수화도 이전 이슈 이력의 같은 바인딩을 복원하고 충돌을 거절합니다.
 Freyr 반복 샘플은 수집 시각으로 최신성을 만들지 않고 시간대가 있는 유효한 출처 관측 시간을
-요구합니다. 내구성·부트스트랩·이슈 집중 검사 114개, Freyr 검사 11개와 집중 타입 검사가
-통과했습니다. 이 소스 수정은 역할, 승인, 위험 분류나 실행기를 바꾸지 않으며 실제 브로커·DB
-재시작, 원격 작업 식별자 또는 복제본 간 게시를 입증하지 않습니다.
+요구합니다. 선택적 GitHub App 어댑터는 로컬 작업 기록을 유지하면서 공유 지문 점유, 해시만
+포함한 원격 표식과 정확한 이슈·댓글 readback을 추가합니다. 원격·내구성·부트스트랩·이슈 집중
+검사 122개, Freyr 검사 11개와 집중 타입 검사가 통과했습니다. 이 소스 수정은 역할, 승인,
+위험 분류나 실행기를 바꾸지 않으며 실제 브로커·DB 재시작 또는 배포 GitHub App·복제본 수락을
+입증하지 않습니다.
 
 
 ### 구현 범위
@@ -61,6 +63,15 @@ Mimir의 승격 소비 경로는 회귀 실행 전에 미래 승격 시각을 �
 회귀로 Saga의 재발 없는 관찰 창을 시작할 수 없습니다. 이슈 종료·구조 집중 검사 35개와
 한 파일 mypy·Ruff가 통과했습니다. 이 검사는 승격, 회귀 또는 폐기 reader를 제공하지 않습니다.
 
+표준 초기화는 이제 배포 환경에서 검토한 하나의 불변 파일로 Mimir의 세 읽기 전용 포트를
+연결합니다. 이 연결은 일반 파일의 절대 경로, 정확한 SHA-256,
+`FDAI_SOURCE_REVISION`과 일치하는 리비전, 닫힌 형식, 제한된 레코드 수, 스냅샷 검토 참조,
+승격과 회귀 식별자의 일대일 대응을 요구합니다. 설정이 없으면 미연결 상태를 유지하고, 일부
+설정만 있거나 내용이 바뀌면 시작에 실패합니다. 검토된 결과가 없는 빈 스냅샷도 허용합니다.
+초안 전용 운영 카탈로그 검토 PR을 승격 근거로 바꾸지 않으며, 검토·회귀·승격·폐기·이슈
+종료를 수행하지도 않습니다. 근거·초기화·이슈 종료·구조 집중 검사 58개와 strict mypy·Ruff가
+통과했습니다. 실제 검토 매니페스트와 보존된 런타임 증적은 배포 근거로 남아 있습니다.
+
 Loki 반복 일정은 시간대가 있는 명시적 `start_at`을 요구합니다. 기준이 없으면 매 tick의 현재
 시각으로 새 창을 만들지 않고 보류합니다. 기존 창 식별자와 항상 사람 승인을 요구하는 제안
 관문은 바뀌지 않습니다. 일정·비활성 시나리오·반복 샘플 집중 검사 25개가 통과했습니다.
@@ -68,6 +79,15 @@ Loki 반복 일정은 시간대가 있는 명시적 `start_at`을 요구합니�
 개발 바인딩 소스도 있으며, 기존 조립·내구성 소스 검사 26개가 통과했습니다. 이전의 소스 부재
 문구는 이 소스 존재 사실만으로 대체합니다. 프로필 선택, 실제 Owner 승인이나 실제 실행
 증거를 뜻하지 않습니다.
+
+표준 초기화는 이제 정확한 해시와 원본 리비전에 결속된 검토 파일 하나로 Loki의 비활성
+생성기와 고정 표본을 연결합니다. 닫힌 형식의 제한된 스냅샷은 반복 일정 검증기를 재사용하고,
+알 수 없는 ActionType과 일정·시나리오·근거·커버리지 식별자의 중복을 거절하며, 생성 호출을
+정확한 설계 참조 하나에 결속합니다. 설정이 없으면 미연결 상태를 유지하고 일부 설정만 있거나
+내용이 바뀌면 시작에 실패합니다. 런타임은 여전히 명시적 비활성 호출을 요구하며 감사되는
+비활성 후보만 게시합니다. 소스·초기화·비활성 생성·일정·레이아웃 검사 49개와 strict
+mypy·Ruff가 통과했습니다. 실제 설정 입력, 명시적 호출, 사람 승인, Chaos 실행과 복구 근거는
+별도입니다.
 
 Freyr의 표준 출처 연결은 `runtime/bootstrap_capacity_sampling.py`가 소유합니다. 배포는 논리
 Resource ID와 고정 타입의 제한된 매핑인 `FDAI_FREYR_TARGETS_JSON`을 제공할 수 있습니다.
@@ -81,8 +101,11 @@ sampler는 검토된 `resource.cpu.utilization_pct` 선언을 사용하고 조�
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
 | Saga 공유 내부 체인 리비전 | implemented | `audit_chain_journal.py`; `audit_chain_rehydrate.py`; 소유 범위 검사 165개, 제한된 복구 검사 1개, 실제 격리 PostgreSQL 검사 5개; 다섯 소스 strict mypy와 Ruff | 공유 head와 감사를 원자적으로 확정하고 검증된 로컬 조회 범위를 제한하며, 검증할 수 없는 이전 형식의 이행은 보류합니다. 구버전 중단 후의 배포 이행, 더 긴 이력의 이행과 원격 이슈 식별자는 별도입니다. |
+| 검토된 Mimir 유지보수 근거 소스 | implemented | `mimir_maintenance_evidence.py`, `bootstrap_mimir_maintenance.py`, 표준 판테온 초기화, 근거·초기화·이슈 종료·구조 집중 검사 58개와 strict mypy·Ruff | 정확한 리비전의 불변 스냅샷 하나가 기존 승격·회귀·폐기 포트를 연결합니다. 실제 검토 입력과 런타임 증적은 배포 환경이 소유하며, 어댑터는 Rule 또는 이슈 권한을 부여하지 않습니다. |
+| 검토된 Loki 비활성 시나리오 소스 | implemented | `loki_scenario_evidence.py`, `bootstrap_loki_scenarios.py`, 공유 일정 검증, 소스·초기화·비활성 생성·일정·레이아웃 검사 49개와 strict mypy·Ruff | 검토된 불변 스냅샷 하나가 생성기와 고정 표본을 연결하지만 호출하거나 승인·실행 권한을 부여하지 않습니다. 실제 입력, 호출, 승인, Chaos 및 복구 증적은 남아 있습니다. |
 | 명시적인 표준 Loki 반복 일정 | implemented | `bootstrap_chaos_schedule.py`; `bootstrap_pantheon.py`; 초기화·Loki·비활성 시나리오·샘플·레이아웃 검사 57개 통과 | 완전한 명시적 선언을 기존 Loki 처리기에 전달하며 enforce를 켜거나 입력을 만들지 않습니다. 실제 배포 일정, 승인 및 실행 근거는 남아 있습니다. |
-| 현재 순서 정지 및 로컬 이슈 작업 바인딩 | implemented | `bootstrap_pantheon.py`; `state_store_issue_tracker.py`; 부트스트랩·정지 해제·런타임·Mimir 이슈 검사 114개 통과 | 정지 저장소의 소스 미연결과 로컬 fingerprint별 작업 ID 공백만 해결합니다. 원격 이슈 어댑터, 복제본 게시와 실제 재시작 증거는 남아 있습니다. |
+| 현재 순서 정지 및 로컬 이슈 작업 바인딩 | implemented | `bootstrap_pantheon.py`; `state_store_issue_tracker.py`; 부트스트랩·정지 해제·런타임·Mimir 이슈 검사 114개 통과 | 정지 저장소의 소스 미연결과 로컬 fingerprint별 작업 ID 공백을 해결합니다. 원격 전달을 선택하지 않으면 로컬 어댑터를 기본값으로 유지합니다. |
+| Saga GitHub App 이슈 작업 연결 | implemented | `delivery/github_issue_tracker.py`; `runtime/bootstrap_saga_issue_tracker.py`; 원격·내구성·초기화·이슈·레이아웃 검사 122개와 strict mypy·Ruff | 명시적으로 선택할 때 정확한 GitHub App 저장소 하나와 최소 이슈 권한을 요구합니다. 공유 지문 점유, 작업 표식과 프로바이더 readback이 재시도 신원을 보존합니다. 실제 App 설치, 네트워크, 배포 복제본·재시작 수락은 외부 조건입니다. |
 | 온톨로지 ContextIndex 소유자 라우팅 | implemented | `agents/_framework/ontology_index.py`; `test_ontology_context_index.py`; 실제 인메모리 EventBus 단계 연결 검사 | Huginn 유입, Muninn 준비 및 전이 게시, Heimdall 검증 게시, Saga 감사 및 봉인 게시는 기존 소유 토픽을 사용합니다. 래퍼는 소유자, 토픽, 내용, 단계 불일치를 거부하고 일반 판단과 학습에서 분리합니다. 이 라우팅 검사의 기계적 처리기는 합성이며 영속 원본 및 수명주기 처리기와 운영 bootstrap 연결은 남아 있습니다. |
 | W0-W1 문서, 온톨로지 및 프레임워크 기반 | implemented | [`test_framework_layout.py`](../../../services/core-control-plane/tests/agents/test_framework_layout.py), [`test_pantheon_doc_parity.py`](../../../services/core-control-plane/tests/agents/test_pantheon_doc_parity.py), [`test_topics.py`](../../../services/core-control-plane/tests/agents/test_topics.py) | 고정 레지스트리, 패키지 경계, 문서 일치 및 타입이 지정된 토픽 기반을 실행하고 검사할 수 있습니다. |
 | Bus 및 graph ownership 분리 | implemented | `_framework/{pantheon,topics}.py`; ontology alignment, topic, registry, doc parity 및 Console agent contract 검사 | 이제 `AgentSpec.owns`에는 생산 가능한 event-bus 객체만 포함됩니다. `Budget`과 `SizingRecommendation`은 사용되지 않는 topic을 만들지 않고 Njord와 Freyr의 graph lifecycle ownership을 유지합니다. ActionRun에 포함된 attempt 상태와 core RCA projection은 bus registry 밖에 유지됩니다. |
@@ -105,13 +128,20 @@ sampler는 검토된 `resource.cpu.utilization_pct` 선언을 사용하고 조�
 | 관찰 우선 학습 및 예측 결과 경계 | implemented | `agents/_framework/{advisory_verdicts,forseti_learned_outputs,thor_persistence,action_run_identity}.py`; `StateStoreActionRunStore.reserve_correlation`; `core/control_loop/_learned_reuse.py`; `runtime/{control_loop,bootstrap_pantheon}.py`; `test_learned_output_profile_boundary.py`; `test_learned_output_arbitration_gate.py`; `test_learned_output_durable_gate.py`; `test_learned_reuse_profile_boundary.py`; `test_bootstrap_pantheon_product_selection.py` | `governed-execution` 제품 추가 기능을 선택하지 않으면 예측, Freyr 용량 중재, 학습된 패턴의 T1 재사용은 Thor가 무시하는 ActionType 없는 자문 근거만 만듭니다. 종결된 자문 중재는 Thor의 영속 비작업 상관관계 점유를 통해 Core 재시작이나 관문 축출 뒤에도 해당 상관관계에서 나중에 관찰된 신호를 자동 실행하지 않도록 막습니다. 추가 기능을 선택하면 기존 관문이 다시 열리며, 의도적인 제한은 하나뿐입니다. 정확한 `mode: enforce`가 없는 예측에서 도출한 작업 판정은 `shadow_only`로 제한됩니다. 선택은 제품 프로필에서만 오며, T2 제안은 이 행의 범위가 아닙니다. |
 | Phase-2 실행 증적 및 failover 계약 | implemented | `agents/{thor.py,vidar.py}`; `_framework/{thor_preflight,thor_execution,vidar_dr,vidar_rehearsal}.py`; `test_wave7_workflows.py`; `test_thor_durable.py` | Thor는 고위험 및 의무 전용 실행에서 executor I/O 전에 정확한 신원에 묶인 pre-flight simulation 증적을 기록합니다. Vidar는 DR failover 계약을 수락하거나 보류하고 범위가 제한된 rollback rehearsal 증적을 기록합니다. |
 | Phase-2 학습 및 거버넌스 루프 | implemented | `agents/{huginn.py,bragi.py,mimir.py,norns.py}`; `_framework/{huginn_schema_learning,bragi_intent_training,norns_issue_close_support}.py`; `test_mimir_issue_close_evidence.py`; `test_wave7_workflows.py`; `test_runtime.py` | 서명된 operator-request 증적, schema-cluster 근거, shadow 전용 Bragi intent-training 근거, Mimir promotion/deprecation 근거, Norns quiet-window 적격성은 검토된 활성화나 Saga 소유 종료 경로가 소비하기 전까지 비활성입니다. |
+| 검토된 Bragi 학습 배치 소스 | implemented | `delivery/bragi_intent_training_evidence.py`; `runtime/bootstrap_bragi_intent_training.py`; 소스·기존 학습·초기화·레이아웃 검사 59개 통과 | 정확한 리비전에 결속된 불변 배치 하나가 동의 표본, 외부 평가 결과와 서로 다른 평가자·검토자 신원을 연결하고 기존 shadow 전용 경로를 한 번 호출합니다. 의미 정확성을 입증하거나 런타임 라우팅을 활성화하지 않습니다. |
 | Phase-2 전문 에이전트 sampling 및 scenario generation | implemented | `agents/{freyr.py,loki.py}`; `_framework/{capacity_utilization,loki_scheduling,loki_adversarial}.py`; `test_sensing_specialist_contracts.py`; `test_loki_recurring_scheduler.py`; `test_loki_adversarial_generation.py` | Freyr는 주입된 읽기 전용 sampler로 표본을 수집하고 capacity forecast 또는 shadow/HIL scale proposal을 냅니다. Loki는 always-HIL 제안 또는 hold를 예약하고 기본 바인딩이 없는 off-path port로 비활성 adversarial scenario 후보를 생성할 수 있습니다. |
 | Phase-2 replay, cost, backlog 제어 | implemented | `agents/{forseti.py,odin.py,muninn.py,thor.py}`; `_framework/{forseti_what_if,thor_persistence}.py`; `test_forseti_retrospective_what_if.py`; `test_wave7_workflows.py`; `muninn.py` compaction regressions | Cost annotation은 Forseti, Odin, Thor를 지나며 명시적으로 유지됩니다. Retrospective what-if replay는 비활성입니다. Muninn publication outbox compaction과 provider replay 근거는 보존 상태를 제한합니다. 영속 poison-halt 저장소는 opt-in으로 남습니다. |
+| 검토된 Forseti 과거 재생 소스 | implemented | `delivery/forseti_historical_replay.py`; `runtime/bootstrap_forseti_replay.py`; 소스·what-if·초기화·레이아웃 검사 64개 통과 | 정확한 해시와 원본 리비전에 결속된 보관 기록 하나가 최근 512개 변환 결과로 대체되지 않고 검토된 완전한 유한 구간을 제공할 수 있습니다. 실제 검토 보관 기록과 배포된 프로바이더 수락은 외부 조건으로 남습니다. |
 
 ### 구현 이력
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-15 | implemented | 전역 StateStore 작업 결속을 보존하고, 지문 변경을 직렬화하며, 해시만 포함한 표식으로 모호한 효과를 복구하고, 이슈·댓글 식별자를 독립적으로 다시 읽는 선택적 Saga GitHub App 이슈 어댑터를 추가했습니다. | `현재 변경`, `github_issue_tracker.py`, `bootstrap_saga_issue_tracker.py`, 원격·내구성·초기화·이슈·레이아웃 검사 122개와 strict mypy·Ruff | 실제 GitHub App 설치, 네트워크, 배포 복제본·재시작 수락을 제공하고 검증해야 합니다. 어댑터는 병합, 승격, 승인 또는 실행 권한을 부여하지 않습니다. |
+| 2026-10-15 | implemented | Bragi의 기존 비활성 학습 계약을 동의 표본, 완전한 외부 결과, 서로 다른 평가자·검토자 principal을 갖춘 정확한 해시·원본 리비전의 검토 배치 하나에 연결하고, 설정된 시작 시 한 번 호출했습니다. | `현재 변경`, `bragi_intent_training_evidence.py`, `bootstrap_bragi_intent_training.py`, 소스·학습·초기화·레이아웃 검사 59개와 strict mypy·Ruff | 실제로 동의를 확인하고 독립 평가와 검토를 마친 배치를 제공하고 배포 프로바이더 수락을 보존해야 합니다. 의미 정확성, 활성화 또는 런타임 라우팅 변경은 추론하지 않습니다. |
+| 2026-10-15 | implemented | 명시적인 유한 구간 완전성, 오래된 항목부터의 입력 순서와 최근 구간 대체 금지를 적용해 Forseti의 비활성 회고 what-if 경로를 정확한 해시·원본 리비전에 결속된 검토 과거 보관 기록 하나에 연결했습니다. | `현재 변경`, `forseti_historical_replay.py`, `bootstrap_forseti_replay.py`, 소스·what-if·초기화·레이아웃 검사 64개와 strict mypy·Ruff | 실제 검토 보관 기록을 제공하고 배포 데이터베이스·브로커 수락을 보존해야 합니다. 이 소스는 이력을 만들거나 운영 완전성을 인증하거나 승인·실행하지 않습니다. |
+| 2026-10-15 | implemented | Loki의 비활성 생성기와 고정 표본을 정확한 해시·원본 리비전에 결속된 검토 불변 스냅샷 하나에 연결하고 중복 커버리지를 거절하며 호출을 정확한 설계 참조에 결속했습니다. | `현재 변경`, `loki_scenario_evidence.py`, `bootstrap_loki_scenarios.py`, 소스·초기화·비활성 생성·일정·레이아웃 검사 49개와 strict mypy·Ruff | 실제 검토 입력을 제공하고 명시적 호출, 사람 승인, Chaos 실행, 검증된 복구 증적을 보존해야 합니다. 권한이나 운영 수락은 추론하지 않습니다. |
+| 2026-10-15 | implemented | 초안 카탈로그 검토를 승격으로 취급하지 않으면서 Mimir의 승격·회귀·폐기 유지보수 포트를 정확한 해시와 원본 리비전에 결속된 닫힌 불변 근거 스냅샷 하나에 연결했습니다. | `현재 변경`, `mimir_maintenance_evidence.py`, `bootstrap_mimir_maintenance.py`, 근거·초기화·이슈 종료·구조 집중 검사 58개와 strict mypy·Ruff | 실제로 검토한 배포 매니페스트를 제공하고 런타임 증적을 보존해야 합니다. 이 소스 변경은 검토·회귀·승격·폐기·이슈 종료를 수행하지 않습니다. |
 | 2026-10-15 | implemented | Pantheon 소유권, 판단, 승인, 실행 또는 LLM 역할을 바꾸지 않고 조건부 `operator.kill-switch.requests` 명령 consumer를 Var에 추가했습니다. | `0398357455`, Var/runtime/layout 테스트 96개와 strict mypy 및 Ruff 통과 | 권한 있는 상태 재조회를 구현하고 배포된 engage/no-execute/disengage 근거를 보존합니다. |
 | 2026-10-15 | implemented | 내용 해시를 가진 공유 리비전 기록과 원자적 head·감사 확정으로 재현된 A/B/A 내부 체인 분기를 수정했습니다. 제한 안에서 이전 기록을 보존하거나 검증 불가 시 이행을 보류합니다. | `current change`; #2149; `audit_chain_journal.py`; `audit_chain_rehydrate.py`; 소유 범위 검사 165개, 1,500회 추가 후 복구 검사 1개, 실제 격리 PostgreSQL 검사 5개; 다섯 소스 strict mypy와 Ruff. | 배포 전에 구버전 writer를 중지하고 더 긴 이력의 이행을 별도로 검토해야 합니다. 원격 식별자와 실제 배포 수락도 아직 남아 있습니다. |
 | 2026-10-15 | implemented | Bragi 평가 입력 리비전을 원본과 분리하고, 기준·후보의 내용이나 JSON 타입이 바뀌면 저장·게시 전에 거절하며, 보관된 평가기 참조로 반환된 후보를 바꾸지 못하게 했습니다. | `current change`; `bragi_intent_training.py`; 변조·격리 반례 5개 추가, 학습·구조 검사 35개, 한 소스 mypy와 Ruff 통과. | 독립 평가기, 동의가 확인된 원본 표본, 검토된 활성화와 배포된 공급자의 수락 근거는 아직 남아 있습니다. |

@@ -417,6 +417,10 @@ Huginn -> Forseti -> Saga -> Muninn `StateSnapshot` -> Saga -> Norns -> Mimir ->
 | Norns | Retain existing consensus, publication gate, and rate limit; compile exact `fdai.rule.candidate.v1` JSON Rules and existing described `Distiller` ontology candidates into private immutable SQL packages. |
 | Mimir | Reread current sources before private content, independently recompile without model calls, and retire or scrub packages under current retention policy on its existing subscription; emit inert review results. |
 
+Optional Saga GitHub App issue delivery changes only the issue transport. It preserves the local
+operation journal, verifies exact repository and least-privilege token projection, and grants no
+assignment, approval, merge, promotion, or execution authority.
+
 Forseti, Muninn, Norns, and Mimir independently reread the source and use owner-local CAS. Messages carry
 references and digests, never document text or shared mutable stage authority. Each subscriber is
 independently retryable; another owner's state cannot substitute for its own decision.

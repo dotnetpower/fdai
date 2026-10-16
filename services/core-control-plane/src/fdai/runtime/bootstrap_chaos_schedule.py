@@ -36,6 +36,19 @@ def build_chaos_schedule(
     if len(raw.encode()) > 16_384:
         raise ValueError("Loki schedule declaration MUST be at most 16 KiB")
     parsed = load_strict_json_text(raw, label="Loki recurring schedule")
+    return parse_chaos_schedule_declaration(
+        parsed,
+        action_type_names=action_type_names,
+    )
+
+
+def parse_chaos_schedule_declaration(
+    parsed: object,
+    *,
+    action_type_names: frozenset[str],
+) -> ChaosScheduleConfig:
+    """Validate one closed schedule declaration without selecting its source."""
+
     if (
         not isinstance(parsed, Mapping)
         or not _REQUIRED_FIELDS <= parsed.keys()
@@ -97,4 +110,4 @@ def _canonical_string(value: object) -> bool:
     )
 
 
-__all__ = ["build_chaos_schedule"]
+__all__ = ["build_chaos_schedule", "parse_chaos_schedule_declaration"]

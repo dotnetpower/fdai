@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: e3c09d12af6f5f937e66f506c491212f7e2a981a
+translation_source_sha: c4c81d4901ac2e79d81e07603c057594b9045c81
 translation_revised: 2026-10-16
 ---
 # 런타임 배포 프로파일
@@ -36,6 +36,23 @@ translation_revised: 2026-10-16
 독립적인 종합 검증기를 전달하고 상관 ID별 영속 예산 원장을 연결합니다. 대상과 언어의 전송,
 검증 보류 및 재시작 회계는 모든 실행 위치에서 같은 계약을 따릅니다. 이 연결은 Cost Governance를
 활성화하거나 운영 및 인수인계 준비 완료를 입증하지 않습니다.
+
+두 프로파일은 배포 환경에서 검토한 선택적 Pantheon 근거 파일을 동일하게 마운트할 수 있습니다.
+Core는 Mimir 유지 작업, Loki 비활성 시나리오, Forseti 과거 재생, Bragi 비활성 학습 기능별로
+절대 경로와 정확한 SHA-256 환경 변수 쌍이 모두 있고 파일이 `FDAI_SOURCE_REVISION`과 일치할
+때만 연결합니다. 설정된 Bragi 배치는 시작할 때 한 번 실행되며 계속 shadow 전용입니다. 다른
+어댑터는 소유 경로에 명시적으로 전달되는 읽기 전용 입력입니다. 설정이 없으면 미연결 상태를
+유지하고, 설정 일부가 없거나 내용이 바뀌었거나 오래되었거나 잘못되었으면 시작에 실패합니다.
+런타임 플랫폼 선택은 근거 파일, 검토, 의미 정확성 주장, 승인, 승격, 작업 권한 또는 운영 수락을
+제공하지 않습니다.
+
+Saga 이슈 전달도 런타임 프로파일과 독립적입니다. `FDAI_SAGA_GITHUB_ISSUES_ENABLED`는
+StateStore 어댑터를 기본값으로 유지하며, `FDAI_SAGA_GITHUB_OWNER`,
+`FDAI_SAGA_GITHUB_REPO`, 완전한 갱신형 GitHub App 자격 증명 집합, 정확한 설치·저장소
+readback이 있을 때만 원격 전달을 선택합니다. App 토큰은 `issues: write`와 `metadata: read`로
+제한하며 이 경로는 정적 토큰을 허용하지 않습니다. AKS와 Container Apps는 같은 작업 기록,
+공유 지문 점유, 원격 표식과 readback 계약을 사용합니다. 런타임 플랫폼 선택은 이 어댑터를
+활성화하거나 네트워크, App 설치, 복제본 재시작, 이슈 소유권 또는 전달 수락을 입증하지 않습니다.
 
 [GitHub 지식 연결기](../../runbooks/knowledge-github-sources-ko.md)는 두 런타임 프로파일에서
 같은 제한된 저장소, 정확한 커밋 및 README 검증을 사용합니다. 익명 공개 접근에는 토큰이
