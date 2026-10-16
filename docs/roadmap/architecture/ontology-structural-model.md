@@ -33,6 +33,15 @@ only to its exact effect identity, unit, and current interval. Missing paths, in
 evidence, failed correlation checks, and unevaluated competitors remain unresolved. These checks
 add no declaration kind, inverse relationship, causal proof, or execution authority.
 
+An independently issued competitor assessment can resolve the competitor limitation only
+when every named competitor is accounted for and refuted within the exact resource, metric,
+topology/source-generation and time scope. Partial, supported, unknown, stale, mismatched or
+unavailable assessments preserve unresolved status and evidence references. The query obtains
+assessments only from its server-bound source, never from model-authored node arguments.
+Adaptive observation history is digest-bound evidence metadata, not a new ontology declaration
+or an authority edge. A converged recipe investigation remains association-level evidence until
+the existing stronger causal-grade and independent intervention requirements are met.
+
 Typed [GitHub source provenance](../../runbooks/knowledge-github-sources.md) likewise remains
 repository-ledger metadata: repository ID, observed commit, README digest, observation time, and
 credential reference do not create Resource, ObjectType, LinkType, or authority edges. A recorded

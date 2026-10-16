@@ -242,6 +242,9 @@ async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResul
     )
 
     if decision.tier is RoutingTier.T1:
+        prior_rca = await host._analyze_and_audit_t1_causal_chain(
+            event=event, incident_id=incident_id
+        )
         await host._write_abstain_audit(
             event=event,
             decision=decision,
@@ -249,7 +252,7 @@ async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResul
             stage="trust_router",
         )
         rca_result = await host._analyze_t2_rca_on_abstain(
-            event=event, decision=decision, incident_id=incident_id
+            event=event, decision=decision, incident_id=incident_id, prior_rca=prior_rca
         )
         fallback = await host._evaluate_fallback_tiers(
             event=event,
@@ -341,8 +344,11 @@ async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResul
             reason=t0_reason,
             stage="t0_evaluate",
         )
+        prior_rca = await host._analyze_and_audit_t1_causal_chain(
+            event=event, incident_id=incident_id
+        )
         rca_result = await host._analyze_t2_rca_on_abstain(
-            event=event, decision=decision, incident_id=incident_id
+            event=event, decision=decision, incident_id=incident_id, prior_rca=prior_rca
         )
         fallback = await host._evaluate_fallback_tiers(
             event=event,

@@ -28,6 +28,19 @@ explicitly unavailable. Canonical projection comparison preserves replay after J
 The pure `rca/evaluation.py` evaluator records independently labeled case denominators and
 distinguishes fixture scores from operational evidence. Local PostgreSQL reliability tests use
 the isolated validation cluster and task-owned schemas, never the runtime database.
+Convergent telemetry keeps immutable actual observations in the existing frame, revision,
+Process journal and codec rather than worker-local mutable state. `adaptive_revision.py` owns
+canonical revision construction behind the unchanged contract facade. Only unobserved recipes
+are scheduled, and the final untested hypothesis still uses the verified candidate gateway.
+RCA citations retain investigation status and association-only evidence grade; novelty paths
+collect historical T1 evidence before residual T2 and forward only grounded citations.
+`build_semantic_query_runtime(causal_competitor_source=...)` accepts an independently verified,
+server-bound assessment source for final metric joins. Its exact request binds resources,
+metric concepts, topology/source identity, time and competitor accounting. Node JSON cannot
+construct that assessment, and an absent or unusable source preserves an explicit hold.
+`semantic_query_metric_bindings.py` owns the cohesive metric-handler assembly so the public
+semantic-query facade stays within its existing structural size ceiling. No caller API,
+capability default, principal scope, or evidence authority changes in this extraction.
 Diagnostic ontology candidate selection remains a composition-owned semantic-planning path: the
 prompt profile selects the reviewed model role and reasoning effort, while Core still receives only
 schema-validated typed clauses that the secured reader authorizes against the principal manifest.

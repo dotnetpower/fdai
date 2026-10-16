@@ -12,6 +12,7 @@ from fdai.core.rca.telemetry_recipes import (
 )
 
 from .adaptive_contract import AdaptiveInvestigationResult
+from .adaptive_source_metadata import covers_evidence_cutoff
 
 _RECEIPT_REF_PREFIX = "telemetry-receipt:"
 
@@ -44,6 +45,18 @@ def adaptive_telemetry_evidence_result(
         metadata = execution.source_metadata
         if metadata.disposition != TelemetryEvidenceDisposition.COMPLETE.value:
             continue
+        if (
+            not metadata.complete
+            or metadata.truncated
+            or not covers_evidence_cutoff(
+                route_count=metadata.route_count,
+                queried_route_count=metadata.queried_route_count,
+                observed_until=metadata.observed_until,
+                cutoff=iteration.frame.evidence_cutoff,
+                disposition=metadata.disposition,
+            )
+        ):
+            continue
         digest = metadata.receipt_digest
         reference = f"{_RECEIPT_REF_PREFIX}{digest}"
         if digest in seen or execution.evidence_refs.count(reference) != 1:
@@ -58,6 +71,8 @@ def adaptive_telemetry_evidence_result(
                         {
                             f"disposition:{metadata.disposition}",
                             f"mechanism:{recipe.mechanism.value}",
+                            f"investigation_status:{investigation.disposition.value}",
+                            "evidence_grade:association",
                         }
                     )
                 ),

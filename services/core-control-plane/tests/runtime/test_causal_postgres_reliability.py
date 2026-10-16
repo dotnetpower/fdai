@@ -242,7 +242,7 @@ async def _wait_for_advisory_waiter(connection, schema: str) -> None:
             await asyncio.sleep(0.01)
 
 
-async def test_independent_replicas_serialize_and_replay_one_provider_read(database: _Database):
+async def test_replicas_serialize_and_replay_one_read_per_recipe(database: _Database):
     gate = asyncio.Event()
     providers = (_StaticTelemetryFixture(gate), _StaticTelemetryFixture())
     replicas = tuple(_investigator(database, provider) for provider in providers)
@@ -261,15 +261,15 @@ async def test_independent_replicas_serialize_and_replay_one_provider_read(datab
     result = first.result()
     assert second.result() == result
     assert result.investigation.disposition is AdaptiveInvestigationDisposition.HELD
-    assert result.investigation.used_queries == 1
+    assert result.investigation.used_queries == 3
     assert result.investigation.execution_authority is False
-    assert len(result.investigation.iterations) == 1
+    assert len(result.investigation.iterations) == 3
     iteration = result.investigation.iterations[0]
     assert len(iteration.frame.active_hypothesis_ids) == 3
     assert iteration.revision is not None
-    assert iteration.revision.disposition is AdaptiveInvestigationDisposition.HELD
+    assert iteration.revision.disposition is AdaptiveInvestigationDisposition.CONTINUE
     assert iteration.revision.active_hypothesis_ids == iteration.frame.active_hypothesis_ids
-    assert len(result.citations) == 1
+    assert len(result.citations) == 3
     assert "disposition:complete" in result.citations[0].facts
     assert iteration.revision.evidence_refs == (result.citations[0].ref,)
     assert providers[0].needs[0].evidence_cutoff == arguments["evidence_cutoff"]
@@ -283,7 +283,8 @@ async def test_independent_replicas_serialize_and_replay_one_provider_read(datab
     replay = await _investigator(database, restarted_source).investigate(**arguments)
     assert replay == result
     assert not restarted_source.needs
-    assert [len(provider.needs) for provider in providers] == [1, 0]
+    assert [len(provider.needs) for provider in providers] == [3, 0]
+    assert len({need.recipe_id for need in providers[0].needs}) == 3
     assert await store.get(process_id) == snapshot
     assert await store.events(process_id) == events
 

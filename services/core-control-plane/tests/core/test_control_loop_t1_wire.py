@@ -460,6 +460,100 @@ async def test_temporal_causality_observes_trust_router_abstain(tmp_path: Path) 
     )
 
 
+@pytest.mark.parametrize("tier", [RoutingTier.T0, RoutingTier.T1])
+async def test_novel_incident_collects_t1_evidence_before_t2(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    tier: RoutingTier,
+) -> None:
+    from fdai.core.rca import RcaOutcome, RcaResult
+
+    loop = _make_loop(t1_engine=None, audit=InMemoryStateStore(), tmp_path=tmp_path)
+    trace: list[str] = []
+    prior = RcaResult(RcaOutcome.ABSTAINED, None, "fixture_no_cause")
+
+    async def t1(**kwargs):
+        trace.append("t1")
+        return prior
+
+    async def t2(**kwargs):
+        assert kwargs["prior_rca"] is prior
+        trace.append("t2")
+        return None
+
+    monkeypatch.setattr(
+        loop,
+        "_trust_router",
+        SimpleNamespace(
+            route=lambda event: RoutingDecision(
+                tier=tier,
+                resource_type="compute.vm.novel",
+            )
+        ),
+    )
+    monkeypatch.setattr(
+        loop,
+        "_t0_engine",
+        SimpleNamespace(
+            evaluate=lambda **kwargs: SimpleNamespace(matched=False, audit_hint=None),
+        ),
+    )
+    monkeypatch.setattr(loop, "_analyze_and_audit_t1_causal_chain", t1)
+    monkeypatch.setattr(loop, "_analyze_t2_rca_on_abstain", t2)
+    await loop.process(_event_dict(f"evidence-before-t2-{tier.value}"))
+    assert trace == ["t1", "t2"]
+
+
+async def test_grounded_t1_citations_are_supplied_to_residual_t2(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from fdai.core.rca import (
+        Citation,
+        CitationKind,
+        RcaOutcome,
+        RcaResult,
+        RcaTier,
+        RootCauseHypothesis,
+    )
+
+    loop = _make_loop(t1_engine=None, audit=InMemoryStateStore(), tmp_path=tmp_path)
+    citation = Citation(CitationKind.EVENT, "event:verified-prior-change")
+    prior = RcaResult(
+        RcaOutcome.GROUNDED,
+        RootCauseHypothesis(
+            tier=RcaTier.T1,
+            cause="verified change candidate",
+            confidence=0.7,
+            citations=(citation,),
+        ),
+        "grounded",
+    )
+    response = RcaResult(RcaOutcome.ABSTAINED, None, "fixture_t2_hold")
+    telemetry = AsyncMock(return_value=response)
+    monkeypatch.setattr(
+        loop,
+        "_rca_coordinator",
+        SimpleNamespace(
+            has_t2=True,
+            analyze_t2_from_telemetry=telemetry,
+            analyze_t2_from_evidence=AsyncMock(return_value=response),
+        ),
+    )
+    event = EventIngest(validator=_validator()).ingest(_event_dict("prior-citation-forwarding"))
+    assert event is not None
+    await loop._analyze_t2_rca_on_abstain(
+        event=event,
+        decision=RoutingDecision(
+            tier=RoutingTier.T1,
+            resource_type="compute.vm.novel",
+        ),
+        incident_id="incident:one",
+        prior_rca=prior,
+    )
+    assert citation in telemetry.await_args.kwargs["extra_citations"]
+
+
 # ---------------------------------------------------------------------------
 # _write_t1_audit produces the expected schema (unit test on the helper)
 # ---------------------------------------------------------------------------

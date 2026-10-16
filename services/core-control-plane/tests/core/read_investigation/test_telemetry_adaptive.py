@@ -120,6 +120,7 @@ async def test_positive_recipe_does_not_refute_unobserved_competing_hypotheses()
         (
             TelemetryEvidenceDisposition.COMPLETE_NO_DATA,
             TelemetryEvidenceDisposition.COMPLETE,
+            TelemetryEvidenceDisposition.COMPLETE_NO_DATA,
         )
     )
     manifest = _manifest()
@@ -159,17 +160,19 @@ async def test_positive_recipe_does_not_refute_unobserved_competing_hypotheses()
         ),
     )
 
-    assert result.disposition is AdaptiveInvestigationDisposition.HELD
-    assert result.used_queries == 2
-    assert result.used_cost_units == 20
-    assert len(provider.needs) == 2
+    assert result.disposition is AdaptiveInvestigationDisposition.CONVERGED
+    assert result.used_queries == 3
+    assert result.used_cost_units == 30
+    assert len(provider.needs) == 3
     assert all(not hasattr(need, "kql") for need in provider.needs)
     assert result.iterations[0].revision is not None
     assert result.iterations[0].revision.disposition is AdaptiveInvestigationDisposition.CONTINUE
     assert result.iterations[1].revision is not None
     assert result.iterations[1].revision.owner_agent == "Forseti"
-    assert result.iterations[1].revision.disposition is AdaptiveInvestigationDisposition.HELD
+    assert result.iterations[1].revision.disposition is AdaptiveInvestigationDisposition.CONTINUE
     assert len(result.iterations[1].revision.active_hypothesis_ids) == 2
+    assert result.iterations[2].revision is not None
+    assert len(result.iterations[2].revision.observation_history) == 3
 
 
 @pytest.mark.asyncio

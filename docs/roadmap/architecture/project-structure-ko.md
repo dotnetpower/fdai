@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: d1d41a03a34201a2c2b3a6b15179bab8c86605e5
-translation_revised: 2026-10-16
+translation_source_sha: cc44a64f1207c233bb9c27da3adfb5f1db2f93c1
+translation_revised: 2026-10-17
 ---
 # 프로젝트 구조
 
@@ -31,6 +31,18 @@ T1 인시던트 맥락은 이제 `rca/historical_graph.py`에서 보존된 이�
 독립적으로 정답이 지정된 사례의 분모를 기록하고 시험 데이터의 점수와 운영 근거를 구분합니다.
 로컬 PostgreSQL 신뢰성 테스트는 런타임 DB가 아니라 격리된 검증 클러스터와 작업 소유 스키마를
 사용합니다.
+수렴 가능한 텔레메트리 조사는 작업자 메모리의 가변 상태 대신 기존 프레임, 개정, Process 기록,
+코덱에 실제 관측을 불변 상태로 보존합니다. `adaptive_revision.py`는 기존 계약 facade를
+유지하면서 정규 개정 생성을 소유합니다. 아직 관측하지 않은 레시피만 예약하며 마지막 미관측
+가설도 검증된 후보 게이트웨이를 사용합니다. RCA 인용은 조사 상태와 연관성 수준의 근거 등급을
+유지합니다. 새 사건 경로는 잔여 T2 추론 전에 과거 T1 근거를 수집하고 근거가 확인된 인용만
+전달합니다. `build_semantic_query_runtime(causal_competitor_source=...)`는 최종 메트릭 결합을
+위해 독립적으로 검증되고 서버 범위에 결속된 평가 출처를 받습니다. 요청은 리소스, 메트릭 개념,
+토폴로지와 출처 식별자, 시간, 경쟁 가설 집계를 정확히 고정합니다. 노드 JSON은 이 평가를
+만들 수 없으며 출처가 없거나 사용할 수 없으면 이유를 명시하고 판단을 보류합니다.
+`semantic_query_metric_bindings.py`가 메트릭 처리기의 조립을 응집된 단위로 소유하므로
+공개 의미 쿼리 facade는 기존 구조적 크기 상한을 유지합니다. 이 분리는 호출자 API,
+기능 기본값, principal 범위 또는 근거 권한을 변경하지 않습니다.
 진단용 온톨로지 후보 선택은 조립이 소유하는 의미 계획 경로로 유지됩니다. 프롬프트 프로필이
 검토된 모델 역할과 reasoning effort를 선택하고, Core는 principal 매니페스트를 기준으로 보안
 판독기가 권한을 확인하는 스키마 검증 형식 절만 받습니다.

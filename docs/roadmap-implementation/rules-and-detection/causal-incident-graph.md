@@ -32,12 +32,13 @@ and resumable work while the roadmap owner remains focused on normative design.
 | Operational causal closure evidence | in-progress | [Delivery slices](../../roadmap/rules-and-detection/causal-incident-graph.md#delivery-slices); deployment integration test above | The seams are bound and exercised locally; no governed replay from a deployed revision yet proves that a verified intervention closes or refutes a hypothesis. |
 | Investigation boundary hardening | implemented | [Issue #2184](https://github.com/dotnetpower/fdai/issues/2184); compiler-to-handler, causal topology, adaptive telemetry, incident graph, temporal scorer, ActionRun receipt, and deployment-binding regressions | Sixteen critique rounds repaired the five reproduced defects and additional replay, temporal validity, statistical identity, comparison scope, and intervention target gaps. The final independent review found no actionable Medium-or-higher issue in its reviewed scope. Local checks do not establish deployed causal accuracy. |
 | W0-W2 historical incident context | implemented | `core/rca/historical_graph.py`; `runtime/rca_bindings.py`; `test_historical_graph.py`; `test_topology_history.py`; runtime/T1 checks | Retained event/knowledge time, equal-time conflicts, effective-time baseline/generation, deletion, exact release/source receipts, bounded neighborhood and audit identity are checked. Current-state traversal remains explicitly non-historical. Actual provider refresh and dropped-relationship disposition remain W1 operational work. |
-| W3 independent competitor accounting | implemented | `core/read_investigation/telemetry_adaptive.py`; `test_telemetry_adaptive.py` | Scorer v2 does not treat one positive recipe as refutation of unobserved competitors. It retains those candidates and holds. Complete domain-specific support/refutation evidence still requires reviewed sources; weights do not establish measured causality. |
+| W3 independent competitor accounting | implemented | `core/read_investigation/telemetry_adaptive.py`; `test_telemetry_convergence.py`; `core/ontology_platform/causal_competitors.py`; `test_causal_competitors.py` | Scorer v3 preserves immutable observed support/refutation/unknown history and schedules unobserved candidates, including the last survivor. One supported survivor after full accounting converges, all-refuted closes explicitly, and multiple positives or source/budget gaps remain held or incomplete. Exact independently issued competitor evidence can resolve final metric joins; missing sources and unproven domain mechanisms remain unknown. |
 | W4 independent closure intake | implemented | `core/rca/runtime.py`; `composition/_helpers.py`; `runtime/causal_bindings.py`; `test_causal_deployment_binding.py` | A bounded source is consumed by the existing shadow runtime, including outcome-only composition. Entire-batch identity/time/duplicate checks precede projection; conflicting same-predecessor outcomes cannot create contradictory sibling closures. A deployment must supply an independently authenticated source; no Event body substitutes for one. |
 | W5 actual local PostgreSQL reliability | implemented | `tests/runtime/test_causal_postgres_reliability.py`: 4 passed using the isolated validation database | Independent replicas serialize duplicate investigation, preserve terminal timeout/restart replay, release an exactly identified lost backend lock, and reconstruct bitemporal/tombstone history. Random task-owned schemas are cleaned up. The minimal adapter schema and static telemetry fixture do not prove deployed migration or latency qualification. |
 | W6 causal quality evaluation | implemented | `core/rca/evaluation.py`; `test_evaluation.py`: 57 passed | Immutable source/revision-bound receipts expose denominators, citation membership, missing results, wrong causes, and justified/unjustified holds. A five-case synthetic cohort runs the actual join/analyzer: 5/5 label matches, one cause claim, four holds, 15 valid citation memberships; always-held and omitted-cause baselines score 4/5 with zero cause recall. This is not operational accuracy or semantic entailment evidence. |
 | W7 bilingual compiler contract | implemented | `test_bilingual_causal_plan_contract.py`; compiler-to-handler regressions | Independently annotated English/Korean fixtures preserve target, direction, time, and competitors. Live model comprehension, independent 400-question annotation, and full user-facing qualification remain separate, unclaimed work. |
 | W8-W9 deployment and intervention qualification | deferred | Residual program in the owning design; operational RCA and hypothesis-loop ledgers | No target, exact source, live-read/deployment/intervention scope, or actual 14-day observation interval is supplied by the implementation request. These exits remain open; no rollout, provider mutation, model call, promotion, or fabricated operational receipt is used to close them. |
+| Evidence-accounted investigation convergence | implemented | [Issue #2188](https://github.com/dotnetpower/fdai/issues/2188); frame/revision/Process codec, selector and verified gateway; default-sequence, tamper, budget and actual PostgreSQL regressions | The prior 8/8-held local reproduction is corrected: of eight complete/no-data sequences, three converge with one supported candidate, one closes all-refuted, and four retain multiple positive candidates as held. All query each of the three recipes exactly once. Recipe convergence remains association-level evidence and cannot grant execution or promotion. |
 
 ### Implementation history
 
@@ -59,6 +60,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-10-16 | implemented | Repaired compiled evidence cutoffs, delayed-event budgets, source completeness and edge validity, exact historical dependency paths, competing-explanation accounting, statistical claim identity and lag correction, and independent Resource target matching. Subsequent critique added distributed duplicate serialization and reserved timeout finalization. | `current change`; #2184; final seven-file focused command below: 144 passed; broader focused regression: 710 passed before the last three added cases; task-owned Ruff and strict mypy over 11 source files passed. | Retain governed deployed intervention and PostgreSQL latency evidence; local implementation does not establish live causal accuracy. |
 
 | 2026-10-16 | implemented | Reconciled the first exact-head CI failure: the ontology-platform source changes invalidated the generated CQAS source commitment. Regenerated the complete artifact with its official generator and made the existing parity assertion identify stale source commitments before expanding the full inventory diff. Only source and aggregate digests changed; coverage and scorecard data did not. | CI run `38869557198`, attempt 1, head `9a206531f8238235e54120a2a45da9d7de038ec4`, regression job `116870254723`, step `Run regression shard`; local `python -m pytest -q --no-cov tests/integration/evaluation/test_semantic_intent_coverage.py`: 4 passed; Ruff passed. | Obtain authoritative checks for the repaired PR head; no runtime behavior or operational qualification changed. |
+
+| 2026-10-17 | implemented | Closed the reproduced default convergence gap with digest-bound observed-hypothesis history, unobserved-only scheduling, verified singleton validation and explicit terminal accounting. Added independent competitor assessment consumption, actual-provider positive event-time semantics, and grounded T1-before-T2 evidence. Twenty new critique/hardening rounds resolved accepted Medium findings; the final narrow independent review found no significant residual issue. | `current change`; #2188; 351-test convergence/caller cohort, overlapping 299-test residual cohort, 4 actual isolated PostgreSQL checks, 4 official generated-inventory parity checks, 18-source strict mypy and scoped Ruff passed. | Exact-head protected CI/publication remain delivery evidence. Actual source enrollment, operational causal accuracy, live model/Console, intervention and recurrence qualification remain outside this local implementation claim. |
 
 ### Critique and hardening rounds for #2184
 
@@ -159,7 +162,47 @@ python -m pytest -q --no-cov tests/integration/evaluation/test_semantic_intent_c
 # 4 passed; official regeneration changed source commitments only
 ```
 
+### Convergence critique and hardening for #2188
+
+This series is separate from the earlier #2184 and residual-implementation reviews.
+
+| Round | Boundary | Finding, repair, and evidence |
+|-------|----------|-------------------------------|
+| 1 | Actual default convergence | Reproduced eight held outcomes. Added immutable support/refutation/unknown accounting and scheduled unobserved candidates. The eight complete/no-data sequences now produce three single-survivor convergences, one all-refuted result and four justified multiple-positive holds. |
+| 2 | Final survivor | Added explicit singleton validation through the same candidate, verified gateway and budget. Two negative observations never make the unobserved survivor true. |
+| 3 | Legacy receipt identity | Empty history is omitted from canonical material, and codec defaults preserve old frame/revision identities. Legacy discriminator and Process replay tests remain unchanged. |
+| 4 | Restart and policy version | Runtime policy 1.2.0 and scorer v3 bind new session identity; retained old sessions are not silently replayed under changed reduction semantics. |
+| 5 | Progress substitution | Fully rehashed attempts to erase/rewrite earlier entries, borrow result digests or substitute citations fail against current execution and prior history. |
+| 6 | Competitor elimination | Only the currently observed refuted candidate may leave the active set; an unobserved competitor cannot disappear in a rehashed revision. |
+| 7 | Source uncertainty | Partial, stale and unavailable observations remain unknown; short query/round budgets never imply completed investigation. |
+| 8 | Actual PostgreSQL replay | Four isolated local database tests verify multi-replica serialization, one read per recipe, complete terminal-history replay, timeout and exact backend-loss behavior. |
+| 9 | T1 before residual T2 | Novel and unmatched incidents now collect historical T1 evidence before T2. Only grounded prior citations are forwarded, without authority. Two routing-order cases and direct citation forwarding pass. |
+| 10 | Existing contract size cap | Extracted canonical revision construction to `adaptive_revision.py` while keeping public facade imports and the 931-line debt cap unchanged. |
+| 11 | Independent review | Reviewer accepted the progress changes and identified one Medium incomplete-topology assessment-scope issue, repaired in round 13. |
+| 12 | Exact final competitor evidence | Added immutable exact-scope request/finding/assessment records and an optional independently verified source. Node arguments cannot author evidence; wrong resource, concept, topology, generation, window, cutoff or candidate set stays unresolved. |
+| 13 | Incomplete/oversized assessment scope | Actual empty retained history and otherwise valid 65-generation history preserve unresolved limitations and evidence, without source calls, failed nodes or truncated identity lists. |
+| 14 | Epistemic propagation | Model-facing positive citations retain investigation disposition and association-only grade. Local recipe convergence is not interventional proof. |
+| 15 | Budget terminal accounting | Explicit query/cost exhaustion tests preserve partial history and exact terminal codec roundtrip without repeated recipes. |
+| 16 | No-route coverage | Zero resolved routes and missing negative coverage cannot support or refute a hypothesis. Reduction and citation projection share one predicate. |
+| 17 | Independent provider-semantics critique | Reviewer reproduced ordinary Azure positives being rejected by exact-cutoff equality. Accepted the Medium finding rather than treating passing synthetic tests as provider validation. |
+| 18 | Composition structural cap | Extracted cohesive metric handler assembly to `semantic_query_metric_bindings.py`; the semantic-query facade is 793 lines, with no raised cap or exception. The commit hook identified the closed composition file inventory; registered the justified helper and all 40 inventory regressions passed before retrying the commit. |
+| 19 | Event time versus coverage watermark | Positive `observed_until` is the latest matching event, not a watermark. Actual Azure adapter with mocked HTTP event 11:59/cutoff 12:00 now retains supported observations and citations; no-data still requires exact cutoff and complete nonzero routes. |
+| 20 | Final correction review | Final narrow independent review found no significant issue in the accepted provider-semantics and assessment-scope repairs. Local implementation is not deployed-source, live-model or operational-accuracy qualification. |
+
+After the PC restart, the complete convergence/caller selection passed **351 tests**, the prior
+residual/history/closure/evaluation selection passed **299 tests**, and actual isolated
+PostgreSQL reliability passed **4 tests**. The selections overlap and are not an aggregate test
+count. Exact-source semantic inventory parity passed **4 tests**, strict mypy passed over
+**18 changed production modules**, and scoped Ruff/format/whitespace checks passed.
+The Azure adapter regression uses mock HTTP transport and makes no live provider call.
+The composition package's closed-file inventory also passed **40 tests** after registering the
+focused metric-binding helper; no hook was bypassed.
+
 ### Remaining work
+
+- [x] Complete the bounded three-hypothesis convergence, singleton verification, immutable
+  progress/replay, exact final competitor assessment consumption and novel T1-before-T2 evidence
+  routing for #2188. The focused tests establish local implementation, not universal diagnosis.
 
 - [x] Implement the locally executable residual infrastructure: retained-history T1 context,
   bounded independent-outcome intake, conservative competitor handling, actual isolated PostgreSQL
@@ -171,7 +214,8 @@ python -m pytest -q --no-cov tests/integration/evaluation/test_semantic_intent_c
   type mismatches and unresolved references, and verify the newly reviewed ResourceTypes. This is
   source-specific operational evidence, not proof supplied by the local graph implementation.
 - [ ] Retain independently reviewed support/refutation and cross-resource evidence for the
-  selected mechanisms. Unobserved competitors stay held, not silently refuted.
+  selected mechanisms. The runtime schedules unobserved competitors within its budget and keeps
+  unknown or unexamined outcomes explicit; it never silently refutes them.
 - [ ] Run the fixed evaluator on a governed exact-revision operational cohort, including T0/T1/T2,
   verified citations, justified abstention and independently observed outcomes. Synthetic cohort
   measurements remain explicitly labeled and cannot qualify production.

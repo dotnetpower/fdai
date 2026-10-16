@@ -158,7 +158,7 @@ class ControlLoopRcaMixin:
         *,
         event: Event,
         incident_id: str | None,
-    ) -> None:
+    ) -> RcaResult | None:
         """Append a T1 temporal causal-chain hypothesis to the audit."""
         if (
             self._rca_coordinator is None
@@ -167,13 +167,13 @@ class ControlLoopRcaMixin:
             or incident_id is None
             or not event.resource_ref
         ):
-            return
+            return None
         coordinator = self._rca_coordinator
         failure_resource_ref = event.resource_ref
         if coordinator is None or failure_resource_ref is None:
-            return
+            return None
 
-        async def run_t1() -> None:
+        async def run_t1() -> RcaResult | None:
             depends_on = self._resource_dependency_graph
             graph_revision: str | None = None
             graph_evidence_refs: tuple[str, ...] = ()
@@ -186,7 +186,7 @@ class ControlLoopRcaMixin:
                     detected_at=event.detected_at,
                 )
                 if context is None:
-                    return
+                    return None
                 members = context.members
                 depends_on = context.depends_on
                 graph_revision = context.graph_revision
@@ -194,10 +194,10 @@ class ControlLoopRcaMixin:
             else:
                 member_source = self._incident_member_source
                 if member_source is None:
-                    return
+                    return None
                 members = tuple(await member_source.members(incident_id=incident_id))
             if not members:
-                return
+                return None
             result = coordinator.analyze_t1_causal_chain(
                 failure_event_id=str(event.event_id),
                 failure_at=event.detected_at,
@@ -240,9 +240,10 @@ class ControlLoopRcaMixin:
                     "recorded_at": datetime.now(tz=UTC).isoformat(),
                 }
             )
+            return result
 
         try:
-            await asyncio.wait_for(
+            return await asyncio.wait_for(
                 run_t1(),
                 timeout=self._rca_side_path_timeout_seconds,
             )
@@ -252,6 +253,7 @@ class ControlLoopRcaMixin:
                 extra={"event_id": str(event.event_id), "incident_id": incident_id},
                 exc_info=True,
             )
+        return None
 
     async def _analyze_and_audit_temporal_causality(
         self,
@@ -310,6 +312,7 @@ class ControlLoopRcaMixin:
         event: Event,
         decision: RoutingDecision,
         incident_id: str | None,
+        prior_rca: RcaResult | None = None,
     ) -> RcaResult | None:
         """Append and return a grounded T2 root-cause hypothesis for a novel case."""
         if self._rca_coordinator is None or not self._rca_coordinator.has_t2:
@@ -317,6 +320,8 @@ class ControlLoopRcaMixin:
         coordinator = self._rca_coordinator
         resource = event.resource_ref or _extract_resource_id(event, decision)
         candidates = [Citation(kind=CitationKind.EVENT, ref=str(event.event_id))]
+        if prior_rca is not None and prior_rca.is_grounded and prior_rca.hypothesis is not None:
+            candidates.extend(prior_rca.hypothesis.citations)
         evidence = event.payload.get("evidence")
         if isinstance(evidence, Mapping):
             candidates.extend(

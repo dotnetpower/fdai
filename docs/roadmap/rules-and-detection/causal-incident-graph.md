@@ -70,6 +70,48 @@ causal accuracy or authority to mutate resources.
 
 ## Ontology contract
 
+### Convergent evidence accounting
+
+The successor to the residual implementation closes a local functional gap: a positive
+telemetry receipt preserved competitors but stopped before observing them, and the final
+untested hypothesis could not pass a pair-separation selector.
+
+Each frame and Forseti revision can now carry a bounded immutable `observation_history`.
+Every entry pins the hypothesis id, supported/refuted/unknown observation, exact receipt
+reference, and execution-result digest. The content digests cover this history; omitted
+history preserves legacy receipt identity. A revision preserves prior entries unchanged and
+adds only the current verified observation. Source results never become execution authority.
+
+The scheduler proposes only hypotheses not yet observed at the frozen cutoff. A complete
+positive observation supports its hypothesis without refuting another. A reviewed complete
+no-data observation can refute only the mechanism whose recipe permits that reading. The
+last untested hypothesis receives one explicitly identified validation selection rather than
+being assumed true or held forever for lack of a competing pair. One supported survivor after
+all candidates are accounted for converges; all refuted closes explicitly; multiple supported
+survivors, unknown evidence, or exhausted bounds remain held or incomplete with accounting.
+
+Final metric joins can consume a server-bound independent competitor assessment matched to
+the exact cause/effect identity, concepts, graph digest, cutoff and competitor set. A caller's
+competitor names or a digest alone cannot assert refutation. Missing, partial, stale, mismatched,
+or non-refuting assessment retains the unresolved result. The ordinary risk, approval and
+independent intervention-closure gates remain unchanged.
+
+**Critique and revision.** Mutable per-worker progress would break replica/restart replay, so
+progress belongs in the digest-bound frame, revision, Process journal and codec. Selecting the
+last hypothesis through an unverified special query would bypass lineage; the validation
+selection therefore still uses the exact candidate, plan verification, gateway and budgets.
+An assessment without an authenticated source remains unavailable rather than an enabling
+default. Focused end-to-end tests enumerate all complete/no-data sequences for the default
+three-hypothesis frame and separately test conflicting, partial and bounded outcomes.
+
+Telemetry route coverage and event time have different meanings. Every support or refutation
+requires at least one resolved route and every route queried successfully without truncation.
+For a complete positive response, `observed_until` is the latest matching event and may precede
+the frozen cutoff. For a complete no-data response it is the queried-through watermark and
+must equal that cutoff. Missing time, zero routes, or a negative-response coverage gap produces
+unknown evidence and no positive model citation. The actual Azure adapter is exercised with
+mocked HTTP transport so this boundary is checked without live provider work.
+
 ### Residual implementation program
 
 The successor to #2184 distinguishes local implementation from operational qualification.
