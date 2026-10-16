@@ -11,14 +11,14 @@ sidebar:
 # 에이전트와 자가 치유
 
 FDAI는 **이름 있는 15개 에이전트의 고정된 조직**으로 동작합니다. 각 에이전트는 하나의
-임무를 맡고 객체 및 작업 타입 집합을 소유하며, 스키마가 검증된 이벤트 버스에서
-대화합니다. 조직도가 곧 안전 모델입니다. 판단하는 에이전트는 실행하지 않고, 실행하는
+임무를 맡고 객체 및 작업 타입 집합을 담당하며, 스키마 검증을 거치는 이벤트 버스로
+통신합니다. 조직도가 곧 안전 모델입니다. 판단하는 에이전트는 실행하지 않고, 실행하는
 에이전트는 승인 권한을 갖지 않습니다. 리소스에 드리프트나 장애가 생기면 에이전트들이
 함께 해결합니다. 승격된 저위험 작업은 스스로 처리하고, 고위험 작업은 여러분의 승인을
 기다립니다. 자동으로 처리되는 비율은 측정해야 할 목표이지 약속된 제품 수치가 아닙니다.
 
-이 페이지는 에이전트가 누구인지, 직무를 어떻게 나누는지, 여러분이 어떻게 승인과 거절
-수준에 머무는지, 그리고 장애를 처음부터 끝까지 어떻게 스스로 회복하는지를 설명합니다.
+이 페이지는 각 에이전트의 역할과 직무 분리, 운영자가 승인과 거절에 집중할 수 있는
+이유, 그리고 장애 발생부터 복구까지의 자가 치유 과정을 설명합니다.
 
 ## 조직
 
@@ -26,13 +26,13 @@ FDAI는 **이름 있는 15개 에이전트의 고정된 조직**으로 동작합
 소유하고, Odin이 영역 간 충돌을 중재하며, Thor가 실행합니다. 스태프 에이전트는 실행 권한을
 얻지 않고 카탈로그, 근거 및 메모리를 관리합니다.
 
-![외부 신호가 shared typed event bus로 들어와 Huginn에 도달합니다. Huginn이 발행한 normalized event는 Heimdall과 Forseti로 fan-out됩니다. Heimdall, Njord, Freyr, Loki, Mimir, Muninn은 서로 직접 호출하지 않고 발견된 문제, domain evidence, rule, context를 제공합니다. Forseti는 결정을 소유하고 cross-domain conflict의 arbitration을 Odin에 요청합니다. 실행 가능한 결정은 Thor에 도달하며 Var는 사람 승인을, Vidar는 rollback을 소유합니다. Forseti, Thor, Var, Vidar는 Saga에 audit evidence를 발행합니다. Saga outcome은 Norns로 전달되고 Norns는 inert rule candidate를 Mimir에 제안합니다. Bragi는 Muninn에서 context를 읽고 typed action proposal을 Huginn에 보내 conversation도 동일한 governed path를 사용하게 합니다.](../../diagrams/generated/fdai-agent-driven-runtime.ko.svg)
+![외부 신호가 타입이 지정된 공용 이벤트 버스를 통해 Huginn에 도달합니다. Huginn이 발행한 정규화 이벤트는 Heimdall과 Forseti로 분기됩니다. Heimdall, Njord, Freyr, Loki, Mimir, Muninn은 서로 직접 호출하지 않고 점검 결과, 영역별 근거, 규칙, 맥락을 제공합니다. Forseti는 판단을 담당하고 영역 간 충돌이 생기면 Odin에 중재를 요청합니다. 실행 요건을 충족한 결정은 Thor에 도달하며 Var는 사람 승인 절차를, Vidar는 롤백을 담당합니다. Forseti, Thor, Var, Vidar는 Saga에 감사 근거를 발행합니다. Saga의 결과는 Norns로 전달되고 Norns는 비활성 규칙 후보를 Mimir에 제안합니다. Bragi는 Muninn에서 맥락을 읽고 타입이 지정된 작업 제안을 Huginn에 보내 대화도 동일한 통제 경로를 따르게 합니다.](../../diagrams/generated/fdai-agent-driven-runtime.ko.svg)
 
 | 에이전트 | 역할 | 한 줄 |
 |----------|------|-------|
 | Odin | 총괄 플래너 | 영역 간 충돌을 중재하는 최종 조정자 |
 | Forseti | 판단자 | 결정(자동 실행 / 사람 승인 / 거부)을 발행하고 실행하지 않음 |
-| Thor | 응답자 | 결정을 배분하는 유일한 권한 실행기 |
+| Thor | 응답자 | 결정을 전달하는 유일한 특권 실행기 |
 | Var | 승인 전달자 | 사람 승인을 전달하며 Thor와 분리 |
 | Vidar | 복구 | 롤백과 DR 장애 조치를 소유 |
 | Huginn | 이벤트 수집 및 리소스 탐색 | 실시간 리소스 변경 수집과 상관관계 연결을 소유 |
@@ -79,7 +79,7 @@ FDAI는 **이름 있는 15개 에이전트의 고정된 조직**으로 동작합
 
 ## 장애는 어떻게 자가 치유되는가
 
-리소스가 나빠지면 에이전트들은 모든 이벤트를 다루는 바로 그 파이프라인에서 함께
+리소스 상태가 나빠지면 에이전트들은 다른 이벤트와 동일한 파이프라인에서 함께
 움직입니다. 장애 조치 하나를 처음부터 끝까지 따라가 보겠습니다.
 
 ![Huginn이 변경을 탐색하고 Heimdall이 근거 범위를 확인합니다. Njord, Freyr, Loki가 Forseti에게 자문합니다. 목표가 충돌할 때만 Forseti가 Odin에게 중재를 요청한 뒤, 실행 가능한 작업을 Thor에게 보내거나 Var를 통해 사람 승인을 요청하거나 거부된 미실행을 Saga에 기록합니다. Thor가 실행하고 Vidar가 필요한 복구를 처리하며 Saga가 결과를 감사한 뒤 Norns가 비활성 후보를 제안합니다.](../../diagrams/generated/fdai-agents-and-self-healing-02.ko.svg)
@@ -99,7 +99,7 @@ FDAI는 **이름 있는 15개 에이전트의 고정된 조직**으로 동작합
 
 전문가들이 같은 리소스를 두고 엇갈릴 때가 있습니다. Njord는 비용을 위해 `scale_down`을,
 Freyr는 용량을 위해 `scale_up`을 원할 수 있습니다. 이때 Forseti가 결정을 확정하기 전에
-Odin이 정리하므로, 상충하는 목표가 실행 단계로 동시에 달려가지 않습니다.
+Odin이 충돌을 중재하므로, 상충하는 목표에 따른 작업이 동시에 실행 단계로 넘어가지 않습니다.
 
 ## 에이전트를 사용할 수 없을 때의 안전한 성능 저하
 

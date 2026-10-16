@@ -1,8 +1,8 @@
 ---
 title: Downstream Fork 가이드
 translation_of: downstream-fork-guide.md
-translation_source_sha: c29d3848b6d0e05840b91a6854b7eaffb4ecd289
-translation_revised: 2026-10-15
+translation_source_sha: cb8ff725f5ec87df1722f114a0029d130c4da562
+translation_revised: 2026-10-16
 ---
 
 # 다운스트림 포크 가이드
@@ -26,6 +26,8 @@ customization 프로파일을 패키지하며 배포, 테넌트, 환경, 운영 
 읽으세요 (`.github/**`는 English-only). 독립적인 런타임 및 customization 축은
 [ADR-0002](../architecture/decisions/0002-independent-runtime-axes-ko.md)를 읽으세요. 이 문서는
 그 참조를 절차적 recipe로 바꿉니다.
+[기존 구현 계획 호환성 기록](implementation-plan-ko.md)은 과거 제안 식별자만 보존합니다.
+지원되는 포크 동작과 남은 작업은 이 가이드와 현재 담당 문서를 기준으로 확인하세요.
 
 **목차**
 

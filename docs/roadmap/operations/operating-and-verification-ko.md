@@ -7,38 +7,38 @@ translation_revised: 2026-10-15
 
 # 운영과 검증(Operating and Verification)
 
-새로 프로비저닝된 배포부터 FDAI가 **살아 있고, 올바르며, 정상 동작 중**인지 어떻게
-아는가. 이 문서는 **자체 관측성(self-observability)** : 시스템이 자신에 대해 어떻게 보고하는가.
-시스템이 **감시하는 환경에 대해 감지하는 것**인
-[observability-and-detection-ko.md](../rules-and-detection/observability-and-detection-ko.md) 와 구별됩니다. 프레젠테이션
-/ 대시보드 레이아웃은 이 문서의 범위 밖입니다.
+새로 프로비저닝한 시점부터 FDAI가 **실행 중이고, 올바르게 정상 동작하는지** 확인하는
+방법을 설명합니다. 이 문서는 시스템이 자신의 상태를 보고하는 **자체 관측성(self-observability)**을
+다룹니다. 시스템이 **감시 대상 환경에서 감지하는 내용**을 다루는
+[observability-and-detection-ko.md](../rules-and-detection/observability-and-detection-ko.md)와는 구별됩니다.
+표현 방식과 대시보드 배치는 이 문서의 범위 밖입니다.
 
 [deploy-and-onboard-ko.md](../deployment/deploy-and-onboard-ko.md) (프로비저닝) 과
-[startup-and-lifecycle-ko.md](startup-and-lifecycle-ko.md) (부트스트랩) 보완. Azure 초점:
-비-Azure 프로바이더는 TBD
+[startup-and-lifecycle-ko.md](startup-and-lifecycle-ko.md)(부트스트랩)을 보완합니다. Azure를 대상으로 하며,
+비-Azure 공급자는 추후 검토 대상입니다
 ([Always-On 룰](../../../.github/copilot-instructions.md#fdai-core-principles-must)).
 
 ## 자체 헬스 신호(Self-Health Signals)
 
-건강한 배포가 지속적으로 발행해야 하는 신호. 모든 신호는 알림 규칙에 1:1 매핑 (
+정상적인 배포가 지속적으로 발행해야 하는 신호입니다. 모든 신호는 알림 규칙에 1:1로 연결합니다 (
 [경보 라우팅](#경보-라우팅) 참조).
 
 | 신호 | 목적 | 잡히는 실패 모드 |
 |------|------|----------------|
 | **생존 탐색** (컨테이너별) | 컨테이너 프로세스 살아있음 | 비정상 종료 루프 |
 | **준비 상태 탐색** (컨테이너별) | 의존성 도달 가능 | Kafka 브로커 / Key Vault 참조 / DB 없이 부팅 |
-| **어댑터 healthcheck** (프로바이더 어댑터별) | Kafka 브로커 도달 가능 (Event Hubs `:9093`), Key Vault 참조 해석 가능, Diagnostic-Settings 포워더 건강, OPA에 카탈로그 로드, T2 모델 엔드포인트 도달 가능 | 조용한 의존성 드롭 |
+| **어댑터 상태 검사** (공급자 어댑터별) | Kafka 브로커 도달 가능 (Event Hubs `:9093`), Key Vault 참조 해석 가능, Diagnostic Settings 전달기 정상, OPA에 카탈로그 로드, T2 모델 엔드포인트 도달 가능 | 드러나지 않는 의존성 연결 끊김 |
 | **Event lag** (ingest부터 첫 티어 결정까지) | 티어별 지연 | 유입 backpressure |
 | **DLQ 깊이** (큐/토픽별) | dead-letter 누적 | poison 메시지, 컨슈머 실패 |
-| **Cold-start 비율 + 소요 시간** | scale-to-zero 예열 비용 | 데드라인 미스 (HIL로 라우팅) |
+| **콜드 스타트 비율 + 소요 시간** | scale-to-zero 예열 비용 | 기한 초과 (HIL로 라우팅) |
 | **검증기 실패 비율** | T2 검증기 abstain / fail 비율 | 검증기 정확도 드리프트 |
 | **Mixed-model disagreement 비율** | 교차 검사 불일치 | 모델 저하 |
 | **Rollback 비율** | 나중에 되돌린 액션 | 잘못 조정된 규칙이나 액션 |
 | **재정의 비율** | 규칙당 재정의 생성/수정 | 잘 맞지 않는 규칙 (발견 루프에 공급) |
 | **발견 루프 통과 비율** | 후보 → quality 게이트 통과 % | 루프 드리프트 |
 | **비상 정지 상태** | on / off | 억제된 비상 자세 |
-| **Canary 결과** | 합성 루프 왕복 | 조용한 유입 사망 |
-| **시간 since last successful canary** | 신선도 | 모니터의 모니터 |
+| **카나리 결과** | 합성 루프 왕복 | 드러나지 않는 이벤트 유입 중단 |
+| **마지막 카나리 성공 이후 경과 시간** | 최신성 | 모니터 자체의 상태 감시 |
 
 ## 구현 상태
 
@@ -94,8 +94,8 @@ translation_revised: 2026-10-15
 ### 시작 준비 상태 대응
 
 프로세스가 응답할 수 있는지는 `/live`로 확인하고 이벤트를 처리할 수 있는지는 `/ready`로
-확인합니다. `503` 응답은 process-critical 시작 탐색이 누락된, stale, timed out, crashed
-또는 실패한 상태임을 뜻합니다. `/ready`가 닫힌 동안 소비자나 Pantheon을 수동으로 다시 시작하지
+확인합니다. `503` 응답은 프로세스에 필수적인 시작 탐색이 누락되었거나, 오래되었거나,
+시간 초과, 비정상 종료 또는 실패 상태라는 뜻입니다. `/ready`가 닫힌 동안 소비자나 Pantheon을 수동으로 다시 시작하지
 않는 것이 좋습니다.
 
 1. StateStore 키 `runtime:startup-readiness:latest`에서 정제된 최신 보고를 읽습니다. 먼저
@@ -104,7 +104,7 @@ translation_revised: 2026-10-15
   `readiness_transition` 이벤트와 연관시킵니다. Publish 실패에는 별도
   `startup_readiness.transition_publish_failed` 감사 기록이 있습니다.
 3. 이름이 지정된 의존성 또는 기능을 FDAI 프로세스 밖에서 복구합니다. 프로바이더 오류
-  텍스트, 엔드포인트 값, 토큰 또는 customer 식별자를 보고나 운영자 note에 넣지 않습니다.
+  텍스트, 엔드포인트 값, 토큰 또는 고객 식별자를 보고서나 운영자 메모에 넣지 않습니다.
 4. 구성된 주기적 새로 고침을 기다립니다. 복구된 process-critical 탐색은 `/ready`를 다시 열고
   guarded 워커를 재시작합니다. 복구된 기능은 배포 승격 상태보다 권한을
   높이지 않습니다.
@@ -114,17 +114,17 @@ translation_revised: 2026-10-15
 승격 레지스트리를 우회할 권한이 아닙니다. 탐색 예산과 registered-destination 계약은
 [startup-and-lifecycle-ko.md](startup-and-lifecycle-ko.md#제공되는-런타임-경계)를 참조하세요.
 
-신호는 OpenTelemetry로 설정된 백엔드로 발행
+신호는 OpenTelemetry를 통해 구성된 백엔드로 발행합니다
 ([deployment-ko.md#관측성-slo-알림](../deployment/deployment-ko.md#관측성-slo-알림)).
 
 `OTEL_EXPORTER_OTLP_ENDPOINT`는 OTLP/gRPC 추적 및 메트릭 내보내기를 활성화합니다. Loopback 밖에서는
 HTTPS가 필수이며 엔드포인트의 자격 증명, 조회 문자열, 조각은 거부됩니다. 엔드포인트가 없으면
 로컬 콘솔 구간 및 in-memory 메트릭이 기본값으로 유지됩니다.
 
-채널, 확장, 모델, 스케줄러, security 수명 주기 컴포넌트는 process-singleton emitter를 통해
+채널, 확장, 모델, 스케줄러, 보안 수명 주기 구성 요소는 프로세스당 하나인 발행기를 통해
 같은 `fdai.transition` 구간 및 `fdai.transition.count` 메트릭을 발행합니다. 속성은 범위가 제한된
-허용 목록에 있는 도메인, 이름, 결과, component-specific scalar 키를 사용하며 프로바이더 오류 텍스트,
-페이로드, 자격 증명, arbitrary 라벨은 허용되지 않습니다. Emission은 최선 노력이므로 내보내기 도구
+허용 목록에 있는 도메인, 이름, 결과, 구성 요소별 스칼라 키를 사용하며 프로바이더 오류 텍스트,
+페이로드, 자격 증명, 임의 레이블은 허용되지 않습니다. 발행은 최선 노력 방식이므로 내보내기 도구
 실패가 라우팅 또는 안전성 결정을 차단할 수 없습니다.
 
 ## 합성 카나리 이벤트(Synthetic Canary Event)
@@ -138,10 +138,10 @@ HTTPS가 필수이며 엔드포인트의 자격 증명, 조회 문자열, 조각
   `source=fdai.canary-job`과 `event_type=fdai.control.canary`만 허용합니다.
 - Canary 경로는 ingest, 경로, 감사 단계와 no-op 감사 항목을 기록합니다. T0/T1/T2, risk 게이트,
   실행, IRP, learning 루프에는 진입하지 않습니다.
-- **전체 루프** - `ingest → correlation → tier decision → audit entry` - 이 범위가 제한된 예산 내에
-  완료되어야 함; 완료 실패는 [operational 경보 라우팅](#경보-라우팅)에서 SLO-burn 알림 발동.
-- 카나리는 **버전됨**, **속도 상한**, 멱등성 키가 실제 이벤트와 구별되어 카나리 샘플이
-  회귀 측정이나 자율 발견 루프의 observe 스테이지를 오염시킬 수 없음.
+- **전체 루프** - `ingest → correlation → tier decision → audit entry` - 는 정해진 예산 안에
+  완료되어야 합니다. 실패하면 [운영 경보 라우팅](#경보-라우팅)에서 SLO 소진 알림을 발생시킵니다.
+- 카나리는 **버전을 관리하고 전송 비율을 제한**하며 실제 이벤트와 다른 멱등성 키를 사용합니다.
+  따라서 카나리 표본이 회귀 측정이나 자율 발견 루프의 관측 단계를 오염시킬 수 없습니다.
 - 각 5분 자리는 고정된 UUID와 `canary:<slot>` 멱등성 키를 생성합니다. Container Apps는
   발행기 실행을 120초로 제한하고 감사 행은 측정된 지연 시간을 기록합니다.
 
@@ -158,15 +158,15 @@ HTTPS가 필수이며 엔드포인트의 자격 증명, 조회 문자열, 조각
 1. **어댑터 도달성** - Kafka 왕복 (Event Hubs `:9093` 프로브 토픽에 produce + consume),
    Key Vault 참조 해석, 탐색 테이블에 DB 쓰기 + 삭제,
    T2 모델 엔드포인트 저비용 ping (모델별, 교차 검사 대상 포함).
-2. **구성 로드** - 배포된 이미지가 자신의 버전, 카탈로그 참조, 구성 해시를 보고; 값들이
-   예상 릴리스 매니페스트와 일치.
-3. **카나리 왕복** - 하나의 합성 이벤트 발사, 감사 엔트리가 예산 내에 랜딩 검증.
-4. **Shadow 결정 정확성** - 대표 이벤트 픽스처 세트를 shadow 모드로 공급; 판정이 golden 기대와
-   일치 (회귀 스위트).
-5. **비상 정지 검사** - 비상 정지 **on** 토글, 윈도우 동안 모든 액션이 abstain 검증
-   (카나리로 프로빙); **off** 토글, 정상 결정 재개 검증. 두 상태 모두 감사 엔트리를 남김.
-6. **HIL 예행 실행** - 합성 고위험 발견 사항이 HIL 채널로 라우팅, 승인자가 승인(실행하지 않는
-   예행 실행 장치에서), 감사 트레일이 두 홉 모두 기록.
+2. **구성 로드** - 배포된 이미지가 보고하는 버전, 카탈로그 참조, 구성 해시가
+   예상 릴리스 매니페스트와 일치하는지 확인합니다.
+3. **카나리 왕복** - 합성 이벤트 하나를 보내고 예산 안에 감사 항목이 기록되는지 검증합니다.
+4. **Shadow 결정 정확성** - 대표 이벤트 고정본 집합을 shadow 모드로 공급하고, 판정이 기준
+   기대값과 일치하는지 회귀 테스트로 확인합니다.
+5. **비상 정지 검사** - 비상 정지를 **on**으로 전환하고 구간 내 모든 액션이 판단을 보류하는지
+   카나리로 검증합니다. **off**로 전환한 뒤 정상 판정을 재개하는지 검증합니다. 두 상태 모두 감사 항목을 남깁니다.
+6. **HIL 예행 실행** - 합성 고위험 발견 사항을 HIL 채널로 라우팅하고 승인자가 실행 없는
+   예행 실행 장치에서 승인합니다. 감사 이력에 두 단계를 모두 기록합니다.
 
 현재 적용 작업 흐름은 스키마 이행, 선택적 HTTP 상태 엔드포인트, 발행기 완료, 30초 예산 안의
 정확한 소비 카나리 감사를 검증합니다. 보존된 실제 증적, 고정본 재생, 비상 정지 훈련, HIL
@@ -174,10 +174,10 @@ HTTPS가 필수이며 엔드포인트의 자격 증명, 조회 문자열, 조각
 
 ## 경보 라우팅
 
-두 독립적인 라인, 각각 소유자와 채널. 구체적 채널 이름/소유권 매트릭스는 포크 책임. 채널
-선택, 신뢰 티어링, 대체 경로 규칙은
-[channels-and-notifications-ko.md](../interfaces/channels-and-notifications-ko.md) 에 정의; 이 섹션은 그
-모델의 알림-측 뷰.
+두 개의 독립된 경로에 각각 담당자와 채널을 지정합니다. 구체적인 채널 이름과 담당 체계
+매트릭스는 포크가 관리합니다. 채널 선택, 신뢰 계층, 대체 경로 규칙은
+[channels-and-notifications-ko.md](../interfaces/channels-and-notifications-ko.md)에 정의하며,
+이 섹션은 그 모델을 알림 관점에서 설명합니다.
 
 | 라인 | 신호 소스 | 라우트 |
 |------|-----------|--------|
@@ -186,25 +186,26 @@ HTTPS가 필수이며 엔드포인트의 자격 증명, 조회 문자열, 조각
 
 모든 알림에 적용되는 규칙:
 
-- 알림은 **actionable** 해야 함: 각 알림은 (a) 대시보드 패널, (b) 런북, (c) 해당하면 상관
-  감사 id에 링크.
+- 알림은 **대응할 수 있는 내용**이어야 합니다. 각 알림은 (a) 대시보드 패널, (b) 런북,
+  (c) 해당하는 경우 상관관계가 있는 감사 ID에 연결합니다.
 - **De-duplication**:
   [observability-and-detection-ko.md](../rules-and-detection/observability-and-detection-ko.md) 의 상관관계 규칙에
-  따라 상관된 알림은 접힘; 한 근원의 알림 폭풍은 여러 페이지가 아니라 하나의 페이지.
+  따라 상관된 알림을 합칩니다. 하나의 원인에서 발생한 알림 폭주에는 여러 번이 아니라 한 번만 긴급 알림을 보냅니다.
 - **대체 경로 채널**: 주 채널(Teams / paging) 도달 불가 시 HIL 항목은 상태 저장소에 큐잉되고
-  보조 채널로 알림; 대체 경로 경로에서 auto-execute 없음.
+  보조 채널로 알립니다. 대체 경로에서도 자동으로 실행하지 않습니다.
 
 > **열림 결정**: 구체적인 channel-ownership 매트릭스와 대체 경로 채널을 포크별로 선택합니다.
 
 ## 감사 조사 흐름
 
-상관 id 또는 감사 id를 주면 운영자가 고정 경로를 걷습니다. 각 홉은 검색이 아니라 **쓰기
-시점에 캡처된 저장 링크** - 왕복은 O(1) 조회.
+상관관계 ID 또는 감사 ID가 있으면 운영자는 정해진 경로로 조사할 수 있습니다. 각 단계는
+검색이 아니라 **쓰기 시점에 저장한 링크**를 사용하며, 각 조회는 O(1)입니다.
 
 ![감사 조사 흐름. 주요 단계는 감사 id 또는 상관관계 id, 이벤트 조회, 티어 결정 및 신뢰도, 인용된 규칙과 버전, Risk-gate 결정 (auto 또는 HIL), HIL 시 승인자 신원, 액션 결과 및 멱등성 키, 해당 시 롤백 참조입니다.](../../diagrams/generated/fdai-operating-and-verification-01.ko.svg)
 
 감사 기록은 [security-and-identity-ko.md](../architecture/security-and-identity-ko.md) 에 따라 추가 전용이며
-hash-chain됨; 같은 워크는 shadow와 강제 적용 이벤트에 대해 동작(모드가 모든 엔트리에 기록됨).
+해시 체인으로 연결됩니다. 같은 조사 경로를 shadow와 강제 적용 이벤트에 모두 사용할 수 있으며,
+모든 항목에 모드를 기록합니다.
 
 ## 런북 세트
 
@@ -231,9 +232,9 @@ ActionType 패턴, 전제조건, 절차, 검증, 롤백, 감사 지침을 제공
 모든 런북이 명시해야 하는 것:
 
 - **전제조건** (권한, 선행 알림).
-- **정확한 명령** (또는 정확한 콘솔 네비게이션), copy-paste 가능.
-- **검증** (동작했음을 증명하는 무엇을 확인).
-- **런북 자체의 롤백** (운영자 스텝의 undo).
+- **정확한 명령**(또는 정확한 Console 이동 경로). 복사해 사용할 수 있어야 합니다.
+- **검증**. 동작했음을 입증하려면 무엇을 확인해야 하는지 명시합니다.
+- **런북 자체의 롤백**. 운영자가 수행한 단계를 되돌리는 방법을 명시합니다.
 - 런북이 남기는 **감사 트레일**.
 
 > **배포 경계**: 업스트림 스키마와 제네릭 절차는 CI에서 강제합니다. 포크는 프로바이더 명령,
@@ -241,7 +242,7 @@ ActionType 패턴, 전제조건, 절차, 검증, 롤백, 감사 지침을 제공
 
 ## 버전과 설정 노출
 
-시스템은 언제든 특별 접근 없이 기계-읽기·사람-읽기 가능하게 노출해야 함:
+시스템은 다음 정보를 언제든 특별한 접근 권한 없이 기계와 사람이 읽을 수 있는 형태로 제공해야 합니다:
 
 - 배포된 이미지 **다이제스트** 와 의미 버전 태그.
 - 규칙 카탈로그 **버전 태그 + 컨텐트 해시**.
@@ -252,31 +253,31 @@ ActionType 패턴, 전제조건, 절차, 검증, 롤백, 감사 지침을 제공
 - **마지막 성공 카나리** 이후 경과 시간.
 - **비상 정지 상태** 와 현재 윈도우의 **break-glass 사용**.
 
-컨텐트만; 프레젠테이션 / 대시보드 레이아웃은 별도 정의.
+여기서는 내용만 정의하며, 표현 방식과 대시보드 배치는 별도로 정의합니다.
 
 ## 오픈 전 검증 (성능 + 통합)
 
-서비스 오픈 전, FDAI는 감시할 워크로드의 **성능 / 통합 테스트와 나란히 shadow로**
-실행할 때 가장 유용하다. FDAI가 부하를 생성하지는 않고 - 외부 부하 생성기(Azure 부하
-Testing, k6, JMeter)가 트래픽을 만든다 - 그 트래픽이 도는 동안 컨트롤 플레인은 실행 없이
-현실적인 조건에서 감지와 판정을 증명한다:
+서비스를 공개하기 전에는 FDAI를 감시 대상 워크로드의 **성능 / 통합 테스트와 함께 shadow로**
+실행할 때 가장 유용합니다. FDAI가 아니라 외부 부하 생성기(Azure Load Testing, k6,
+JMeter)가 트래픽을 만듭니다. 트래픽이 흐르는 동안 컨트롤 플레인은 액션을 실행하지 않고
+실제와 유사한 조건에서 감지와 판정을 입증합니다:
 
-- **실부하 하 shadow 판정.** 새 룰 과 액션 은 judge-and-log 만 수행하므로
+- **실제 부하에서 shadow 판정.** 새 규칙과 액션은 판단과 기록만 수행하므로
   ([architecture.instructions.md § Shadow -> 강제 적용](../../../.github/instructions/architecture.instructions.md#seven-autonomous-action-safeguards)),
-  부하 테스트가 결정론적 계층 와 T2 quality 게이트 를 exercise 하고 모든 판정 는
-  기록되되 실행되지 않는다.
+  부하 테스트로 결정론적 계층과 T2 quality gate를 검증할 수 있습니다. 모든 판정은
+  기록하지만 실행하지 않습니다.
 - **예산 대비 감지 지연 측정.** 부하가 만든 이벤트가 계층 별 `LatencyBudgetMonitor`
   ([`core/measurement/latency_budget.py`](../../../services/core-control-plane/src/fdai/core/measurement/latency_budget.py))
-  에 공급되어, 부하 하에서 p95 예산을 놓치는 계층 가 go-live 후가 아니라 전에 드러난다.
+  에 공급되므로, 부하가 있을 때 p95 예산을 초과하는 계층을 실제 가동 이후가 아니라 이전에 확인할 수 있습니다.
 - **canary + smoke 왕복.** [합성 canary](#합성-카나리-이벤트synthetic-canary-event)와
-  [배포 후 smoke 테스트 계약](#post-deploy-smoke-테스트-계약)이 로드된 환경에서 전체
-  `ingest -> tier -> gate -> audit` 루프가 예산 내에 완료됨을 확인한다.
+  [배포 후 smoke 테스트 계약](#post-deploy-smoke-테스트-계약)으로 부하가 있는 환경에서 전체
+  `ingest -> tier -> gate -> audit` 루프가 예산 안에 완료되는지 확인합니다.
 - **시나리오 재생.** `tools/baseline_run.py` 가 동결 시나리오 세트
   ([goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md)) 를 재생해
-  라우팅과 auto-vs-HIL 정확도를 ship 될 바로 그 빌드에서 정량화한다.
+  실제 출시할 바로 그 빌드에서 라우팅과 auto/HIL 분류 정확도를 정량화합니다.
 
-결과는 shadow 증거 뭉치 - 정확도, 지연, 정책 위반 escape 0 - 이며, 오퍼레이터는
-어떤 액션 을 shadow 에서 강제 적용 로 승격하기 **전에** 이를 검토한다.
+결과는 정확도, 지연 시간, 정책 위반 누출 0건을 담은 shadow 근거 묶음입니다. 운영자는
+어떤 액션이든 shadow에서 강제 적용으로 승격하기 **전에** 이 근거를 검토합니다.
 
 ## Azure read-investigation release 근거
 
@@ -300,32 +301,32 @@ release 근거로 남습니다. Dedicated 검증 환경이 Azure 변경 없이 �
 
 ## 오픈 후 안정화 윈도우(Stabilization 구간)
 
-서비스 오픈 후, FDAI는 처음 며칠 동안 관찰 강도를 높여 **켜 두었을 때** 가장 유용하다 -
-안정화 윈도우다. 이는 별도 모드가 아니라 30일
-[측정 윈도우](../architecture/goals-and-metrics-ko.md#정의definitions)의 선단이며, 기존
-프리미티브를 조합한다:
+서비스를 공개한 뒤에는 처음 며칠 동안 관찰 강도를 높여 FDAI를 **계속 실행해 둘 때** 가장
+유용합니다. 이 기간이 안정화 구간입니다. 별도 모드가 아니라 30일
+[측정 윈도우](../architecture/goals-and-metrics-ko.md#정의definitions)의 시작 부분이며, 기존
+기본 요소를 조합합니다:
 
-> **구현 상태**: 스케줄러와 측정 기본 요소는 존재하지만 업스트림은 현재 daily
-> 상태/표류/deployment-baseline 작업을 등록하거나 `console.recurrent_query`를 publish하지 않습니다.
-> 아래 bullet은 목표 stabilization 조립을 정의합니다.
+> **구현 상태**: 스케줄러와 측정 기본 요소는 존재하지만 업스트림은 현재 일일
+> 상태/드리프트/배포 기준선 작업을 등록하거나 `console.recurrent_query`를 게시하지 않습니다.
+> 아래 목록은 목표로 하는 안정화 구성을 정의합니다.
 
-- **Shadow-first 가 기본 유지.** 새로 도입된 액션 은 윈도우 동안 shadow 로 남고,
-  아래 안정화 신호가 깨끗해질 때까지 강제 적용 승격을 미룬다 - 불안정한 오픈이 절대
-  auto-execute 하지 않는다.
+- **Shadow-first를 기본으로 유지합니다.** 새로 도입한 액션은 구간 동안 shadow로 유지하고,
+  아래 안정화 신호에 문제가 없어질 때까지 강제 적용 승격을 미룹니다. 불안정한 서비스 공개
+  기간에 자동 실행하지 않습니다.
 - **기준선 대비 스케줄 비교.** 스케줄 태스크([`core/scheduler`](../../../services/core-control-plane/src/fdai/core/scheduler))
-  가 daily 상태 검사, 구성 드리프트 차이, 배포 검증을 문서화된 기준선(지식
-  베이스에 업로드된 **리소스 플랜** 포함) 대비 수행한다 - 오픈 직후 오퍼레이터가 원하는
-  "기준선 과 비교" 검사 그대로다.
+  가 일일 상태 검사, 구성 드리프트 비교, 배포 검증을 문서화된 기준선(지식
+  베이스에 업로드한 **리소스 플랜** 포함)과 비교해 수행합니다. 서비스 공개 직후 운영자에게
+  필요한 "기준선과 비교" 검사입니다.
 - **실트래픽에서 패턴 승격.** Month-1 관찰 도구와 `console.recurrent_query` 신호
   ([operator-console-ko.md § 9.3](../interfaces/operator-console-ko.md)) 가 반복된 조사를
-  룰 후보로 바꾸어, 오픈이 실제로 드러낸 것으로부터 카탈로그가 성장한다.
+  규칙 후보로 바꾸므로, 서비스 공개 후 실제로 드러난 내용을 바탕으로 카탈로그가 성장합니다.
 - **guard-metric 밀착 감시.** guard-metric 드리프트
   ([goals-and-metrics-ko.md § 가드 메트릭](../architecture/goals-and-metrics-ko.md#가드-메트릭회귀-금지))
-  를 윈도우 내내 밀착 감시한다; breach 는 자동으로 shadow 로 강등한다. 신호가
-  안정되면 정상 주기로 돌아간다.
+  를 구간 내내 집중적으로 감시합니다. 위반이 발생하면 자동으로 shadow로 강등합니다. 신호가
+  안정되면 정상 주기로 돌아갑니다.
 
-윈도우는 시끄러운 오픈 구간을 최소한의 사람 개입으로 흡수하고, 안정화 신호가 유지되면
-정상 운영으로 인계한다.
+안정화 구간은 서비스 공개 직후의 불안정한 상황을 최소한의 사람 개입으로 처리하고,
+안정화 신호가 유지되면 정상 운영으로 인계합니다.
 
 ## 열림 Decisions
 

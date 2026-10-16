@@ -24,6 +24,9 @@ for the T0/T1/T2 trust router and quality-gate concepts referenced
 throughout this guide. Also read
 [ADR-0002](../architecture/decisions/0002-independent-runtime-axes.md) for the independent
 runtime and customization axes. This document turns those references into procedural recipes.
+The legacy [implementation-plan compatibility record](implementation-plan.md) preserves historical
+proposal identifiers only. Use this guide and the current owner documents for supported fork
+behavior and remaining work.
 
 **Contents**
 

@@ -7,12 +7,12 @@ translation_revised: 2026-10-07
 
 # 관측성과 감지(Observability and Detection)
 
-FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **발견 사항** 으로 어떻게 바꾸는가:
-**이벤트 상관관계**, **이상 감지**, **예측 / 예보**, **근본원인 분석(RCA)**. 이들은 AIOps
-플랫폼이 제공하리라 기대되는 감지 신호이며 - **결정론 우선을 깨지 않고** 여기에 추가됩니다:
-모든 신호는 기존 `trust-router → tiers → risk-gate → executor → audit` 경로를 통해 흐르는
-정규화된 발견 사항을 발행하며, 사이드 채널이 아니고, 어떤 것도 리스크 게이트와 7개 안전조건
-밖에서 auto-execute 하지 않습니다.
+FDAI가 원시 원격측정을 컨트롤 루프에서 처리할 수 있는 **발견 사항**으로 바꾸는 방법을
+설명합니다. **이벤트 상관관계**, **이상 감지**, **예측 / 예보**, **근본원인 분석(RCA)**은
+AIOps 플랫폼에 기대되는 감지 신호이며, **결정론 우선 원칙을 유지하면서** 제공합니다.
+모든 신호는 기존 `trust-router → tiers → risk-gate → executor → audit` 경로로 전달되는
+정규화된 발견 사항을 발행합니다. 별도 우회 채널을 만들지 않으며, 리스크 게이트와
+7개 안전조건 밖에서 자동으로 실행하지 않습니다.
 
 참조: 컨트롤 루프, 티어, quality 게이트는
 [architecture.instructions.md](../../../.github/instructions/architecture.instructions.md);
@@ -27,12 +27,12 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **발견
 
 ## 설계 관점 (deterministic-first, not ML-first)
 
-- 감지는 **먼저 설명 가능하고 증거 기반**: 통계적 베이스라인, 임계, 상관관계 규칙이 대부분
-  신호를 모델 호출 없이 해결. 모델(T1 유사도, T2 추론)은 fuzzy 상관관계와 신규 RCA에만 진입
-  - 같은 5-10% 예산.
-- 감지 신호는 액션이 아니라 **발견 사항**. 다른 이벤트처럼 라우팅되고 risk-gate 됨; 예측이나
-  이상은 절대 자체로 auto-remediate 하지 않음 - 리스크 게이트와 HIL이 관장하는 shadow-mode
-  발견 사항 또는 교정 PR을 발동.
+- 감지는 **설명 가능성과 근거를 우선**합니다. 통계적 기준선, 임계값, 상관관계 규칙으로
+  대부분의 신호를 모델 호출 없이 처리합니다. 모델(T1 유사도, T2 추론)은 퍼지 상관관계와
+  새로운 RCA에만 사용하며, 동일한 5-10% 예산을 적용합니다.
+- 감지 신호는 액션이 아니라 **발견 사항**입니다. 다른 이벤트처럼 라우팅하고 risk-gate를
+  적용합니다. 예측이나 이상 자체가 자동으로 복구하지는 않습니다. 리스크 게이트와 HIL이
+  통제하는 shadow-mode 발견 사항 또는 교정 PR을 생성합니다.
 - 정본 객체 타입과 개별 탐지 기록의 이름은 `Finding`이고, 컬렉션, 페이지, 탐색 레이블의 이름은
   `Findings`입니다. Finding은 인시던트 상관관계와 생애주기 게이트가 승격하기 전까지 Incident와
   독립된 기록으로 유지됩니다. 에이전트 활동은 에이전트가 Finding을 생성하거나 갱신한 사실과
@@ -40,10 +40,10 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **발견
   소유하지 않습니다. 여러 영역을 아우르는 `Findings` 변환 결과가 이런 운영자 작업을 소유합니다.
   이 변환 결과가 구현되기 전에는 활동 타임라인이 아니라 각 영역의 변환 결과와 감사 기록을
   정본으로 사용합니다.
-- Routine 모니터링은 인시던트가 아닙니다. Healthy 하트비트, 성공한 탐색,
-  within-threshold 샘플은 관측 근거만 기록합니다. Detector가 범위를 제한하고
-  근거에 기반한된 발견 사항을 발행하고 `IncidentLifecycleWorkflow`가 allowed 에이전트 principal,
-  상관관계 키, 사유, member-event 근거를 다시 확인한 뒤에만 인시던트가 열립니다.
+- 일상적인 모니터링은 인시던트가 아닙니다. 정상 하트비트, 성공한 탐색,
+  임계값 이내의 표본은 관측 근거만 기록합니다. 감지기가 범위가 제한되고
+  근거가 있는 발견 사항을 발행하고, `IncidentLifecycleWorkflow`가 허용된 에이전트 principal,
+  상관관계 키, 사유, 구성원 이벤트 근거를 다시 확인한 뒤에만 인시던트를 엽니다.
 - Repeated-event burst는 anomaly이며 자동 인시던트 권한이 아닙니다. 후보 인계에는 `incident_correlation=correlate`, 비어 있지 않은 상관관계 및 근거 키, 설정된 최소 심각도가 필요하며 `none`은 인시던트를 열지 않습니다. Huginn은 신뢰하는 UTC 수집 시각을 기록하고 그보다 늦지 않은 출처 시각만 수락하므로 재생이나 미래 시각이 Heimdall의 범위가 제한된 에피소드를 조작할 수 없습니다. 서로 다른 근거 키는 한 번씩만 계산하고 burst 심각도는 단조 증가하며, 수락된 에피소드는 중복 후보를 억제하되 더 심각한 갱신을 허용합니다. 조용한 구간 뒤에는 새 불투명 에피소드를 만들고, 재시작 뒤에는 에피소드 외 상관관계 키가 정확히 일치하는 활성 Incident만 재사용합니다. 게시 또는 인계 실패는 matching Event에서만 재시도하며 `accepted`와 `held`를 구분합니다. 후보 텍스트, 근거 수 및 수명 주기 notice는 범위가 제한되고 추가 전용입니다.
 - Analyzer finding은 범위가 제한된 detector 출력입니다. 배포와 로컬 loop는 같은 고정 간격을 사용하고 논리 Resource, 신호 및 1분 `occurred_at` 버킷마다 재시도에 안정적인 Event 하나를 게시하며, 5분 분석 구간은 이 신원과 분리합니다. UUID5 키, 서로 다른 근거 및 에피소드와 심각도별 anomaly 키는 polling, 재생 및 인계 재시도가 판단을 중복시키지 못하게 합니다. 미래 또는 표준 시간대 없는 finding, 잘못된 근거, 일부 대상 coverage, 게시 및 증적 실패는 정상 결과 전에 fail-closed 합니다. 인벤토리 기반 분석은 온톨로지 `Resource.id`와 검증된 정규 Resource type을 finding Event에 보존하여 trust router가 충분한 가장 낮은 tier를 선택할 수 있게 합니다. 활성 스냅샷의 정확한 공급자 참조는 메트릭 조회에만 사용하며 Finding, 증적, Incident 또는 직렬화된 오류에 포함하지 않습니다. 구성된 공급자 신원과 기존 공급자 신원은 한 인벤토리 세대 안에서 조정되지 않으면 실패하고, 인벤토리 없는 메트릭 대상은 두 신원이 모두 필요합니다. Prometheus는 조립된 조회와 응답이 요청한 정확한 신원을 보존할 때만 사용하며 그렇지 않으면 Azure Monitor Logs 경로를 유지합니다.
 - 완전한 인벤토리 승격은 구성 규칙 평가도 시작합니다. 온톨로지 변환 결과가 완전하고 사용
@@ -65,8 +65,8 @@ FDAI가 원시 원격측정을 컨트롤 루프가 액션할 수 있는 **발견
 - Heimdall은 retained repeated-event 에피소드를 global 및 리소스별로 제한합니다. 한 리소스의
   상관관계 flood는 다른 리소스의 partially accumulated 근거보다 해당 리소스의 가장 오래된
   에피소드를 먼저 축출합니다.
-- 새 감지기는 **shadow 모드** 로 출시되고 shadow→강제 적용 규칙에 따라 승격; 정확도와
-  false-positive 비율은 단계 0 베이스라인 대비 측정됨.
+- 새 감지기는 **shadow 모드**로 출시하고 shadow→강제 적용 규칙에 따라 승격합니다. 정확도와
+  오탐 비율은 단계 0 기준선과 비교해 측정합니다.
 
 ### 기준선 평가 터미널 계약 설계
 
@@ -202,16 +202,17 @@ cross-format 동등성이 성립하지 않습니다.
 
 ## 1. 이벤트 상관관계(Event 상관관계)
 
-`event-ingest` 의 한 스테이지, normalize + deduplicate 직후
+`event-ingest`에서 정규화와 중복 제거 직후 실행하는 단계입니다
 ([project-structure-ko.md](../architecture/project-structure-ko.md) 와
 [phase-1-rule-catalog-t0-ko.md](../phases/phase-1-rule-catalog-t0-ko.md) 참조): 관련된 원시
-이벤트를 하나의 **인시던트** 로 묶어 하류 티어가 폭풍이 아니라 한 가지만 추론하게 함.
+이벤트를 하나의 **인시던트**로 묶어 후속 계층이 이벤트 폭주 대신 하나의 사례를 추론하게 합니다.
 
 - **Deterministic-first**: 범위가 제한된 **시간 구간** 내에서 공유 키(리소스 id, 배포 id,
   추적/상관관계 id, 원인 부모)로 상관 지음(규칙 사용); 퍼지 그룹화에 한해서만 **T1 임베딩
   유사도** 로 대체 경로.
-- **그룹화이지 인과 아님**: 상관관계는 이벤트가 *함께 속한다* 만 단언; 공유 윈도우는 우연일 수
-  있음. *원인* 배정은 RCA의 일(4절)이며 상관관계가 아님.
+- **그룹화와 인과관계는 다릅니다**: 상관관계는 이벤트가 *같은 집합에 속한다*는 점만
+  나타냅니다. 같은 시간 구간에 속하는 것은 우연일 수 있습니다. *원인*을 판단하는 것은
+  RCA의 역할(4절)이며 상관관계의 역할이 아닙니다.
 - **윈도우와 늦은 도착**: 상관관계 윈도우는 신호 클래스별로 설정; 열린 인시던트의 키와 매칭되는
   late/out-of-order 이벤트는 여기에 부착(또는 윈도우 이후면 linked follow-on 인시던트 오픈) -
   이벤트는 절대 조용히 드롭되지 않고,
@@ -242,60 +243,58 @@ cross-format 동등성이 성립하지 않습니다.
 
 ## 2. 이상 감지(Anomaly Detection)
 
-기존 FinOps 비용-이상 훅
-([phase-3-integrated-loop-ko.md](../phases/phase-3-integrated-loop-ko.md))을 **어떤 메트릭 스트림**
-(성능, 신뢰성, 보안, 비용)에도 일반화.
+기존 FinOps 비용 이상 연결 지점
+([phase-3-integrated-loop-ko.md](../phases/phase-3-integrated-loop-ko.md))을 성능, 신뢰성, 보안,
+비용 등 **모든 메트릭 스트림**에 적용하도록 일반화합니다.
 
 - **방법**: 통계적 베이스라인(rolling 및/또는 seasonal, seasonality 윈도우는 구성)과 편차
   임계(예: z-score 또는 robust percentile 밴드), 신호 클래스별로 계산. 결정론적이며 설명 가능;
   베이스라인, 편차 크기, **방향**(over/under) 이 기록되어 사람이 왜 발동했는지 볼 수 있음.
-- **콜드스타트**: 신뢰할 만하기에 충분한 베이스라인 히스토리가 없는 감지기는 얇은 베이스라인에
-  발동하지 않고 **abstain**(shadow에 머물고 발견 사항 발행 없음); 콜드스타트 억제는 숨겨지지
-  않고 메트릭으로 카운트.
+- **콜드 스타트**: 신뢰할 수 있을 만큼 기준선 이력이 충분하지 않으면 감지기는 부족한
+  기준선으로 동작하지 않고 **판단을 보류**합니다(shadow를 유지하고 발견 사항을 발행하지 않음).
+  콜드 스타트로 억제된 횟수는 숨기지 않고 메트릭으로 집계합니다.
 - **카테고리**: 발견 사항은 룰 카탈로그와 공유되는 정본 `category` enum
   (`security | reliability | cost | config_drift | compliance`) 으로 정규화 - 성능 신호
   (지연 시간/error-rate/포화) 와 replication lag는 `reliability`, 비정상 접근 패턴은
   `security`, 지출 run-rate는 `cost` 로 매핑. 심각도는 편차 크기에서 파생.
-- **변경 인지 억제**: in-flight 변경/유지 윈도우와 동시적인 이상은 발생 변경 이벤트와 상관
-  지어져 억제되거나 주석 처리 - 배포가 false 긍정을 제조하지 않게 함.
+- **변경을 고려한 억제**: 진행 중인 변경 또는 유지 관리 구간과 동시에 발생한 이상은 해당
+  변경 이벤트와 연관 지어 억제하거나 주석을 남깁니다. 배포가 오탐을 만들지 않게 하기 위해서입니다.
 - **False-positive와 false-negative 컨트롤**: debounce/settling 윈도우 + 새 감지기가 회귀시키면
   안 되는 측정된 false-positive 비율 *과* false-negative(놓친 이상) 비율 - 둘 다
   [goals-and-metrics-ko.md](../architecture/goals-and-metrics-ko.md) 의 가드 메트릭에 매핑.
-- **출력**: `event-ingest` 로 재진입(멱등성 키와 dedup을 위해)하는 이상 발견 사항, 이후
-  다른 이벤트처럼 신뢰 라우터로.
+- **출력**: 멱등성 키와 중복 제거를 적용하도록 `event-ingest`에 재진입하는 이상 발견
+  사항입니다. 이후 다른 이벤트처럼 신뢰 라우터로 전달합니다.
 - **업스트림 구현**: `core/detection/anomaly.py`
   (`MetricAnomalyDetector`) 가 위에 기술한 결정론적 z-score 기준선 을
   ship 한다 - cold-start abstain, flat-baseline 안전 처리, deviation
   크기 기반 심각도 - 그리고 각 발견 사항 을 `to_event` 로 shadow 모드의
   `Event(event_type="anomaly.finding")` 로 정규화하며, `detector + 메트릭
   + 구간` 로 keying 해 반복 틱 을 dedup 한다.
-- **계절성(Seasonality)**: `core/detection/seasonal.py`
-  (`SeasonalAnomalyDetector`) 는 주기적 형태를 가진 메트릭 을 처리해,
-  정상적인 단계 별 peak(월요일 아침 트래픽 스파이크, 야간 배치 작업)이
-  24x7 통합 평균 대비 발화하지 않도록 한다. 이력 를 설정된 **단계**
-  (`hour_of_day`, `day_of_week`, `hour_of_week`, 또는 커스텀 함수)로
-  버킷팅하고, 관측 샘플을 *같은* 단계 의 과거 샘플하고만 비교한다. base
-  detector 를 감싸는 얇은 래퍼 로 - 이력 를 단계 로 필터링하고
-  z-score, cold-start-abstain, flat-baseline, 이벤트 정규화 로직을 위임한다
-  - 두 detector 가 어긋날 수 없다. 단계 별 cold-start 는 독립적이고(얇은
-  일요일 기준선 이 월요일 데이터를 빌리지 않는다), 단계 는 발견 사항 의
-  `window_bucket` 에 기록되며, 발견 사항 은 여전히 shadow 모드 이벤트다.
-- **다변량 fusion**: `core/detection/composite.py`
-  (`CompositeAnomalyDetector`) 은 조직의 on-call 이 손으로 읽는
-  compound-degradation 신호다 - 진짜 인시던트는 *상관된* 스트림이 함께
-  발화하는 것(지연 시간 up **그리고** error-rate up **그리고** 포화
-  high)이지 하나의 noisy 메트릭 이 아니다. 이것은 **fuser 이지 새 기준선 이
-  아니다**: 한 리소스 + 구간 에 대해 이미 생산된 per-metric
-  `AnomalyFinding` 객체를 소비하고, 설정된 **정족수** 개가 발화할 때만
-  `CompositeAnomalyFinding` (`event_type="anomaly.composite"`)을 raise 한다.
-  정족수 미만이면 abstain(단일 noisy 스트림은 compound anomaly 가 아니다 -
-  false-positive 억제); 정족수 이상이면 *amplify* 한다(심각도 가 동시 구성원
-  의 breadth 와 그 root-sum-square 합성 magnitude 둘 다로 escalate 하므로,
-  compound 성능 저하 이 어떤 단일 구성원 보다 상위). 중복 메트릭 은 가장
-  강한 occurrence 로 collapse 되어 re-emit 된 스트림이 정족수 을 부풀릴 수
-  없고, flat-baseline 구성원 는 고정 가중치 를 기여하며, fusion 은 구성원
-  순서와 무관하게 결정론적이다. composite 는 여전히 risk 게이트 가 관장하는
-  shadow-mode 발견 사항 이다 - 더 강하게 감지할 뿐, 행동하지 않는다.
+- **계절성(Seasonality)**: `core/detection/seasonal.py`의
+  `SeasonalAnomalyDetector`는 주기적인 메트릭을 처리합니다. 월요일 아침 트래픽 증가나
+  야간 배치 작업처럼 특정 위상에서 정상적으로 나타나는 최고점이 24x7 통합 평균과의
+  비교 때문에 이상으로 감지되지 않게 합니다. 이력을 구성된 **위상**
+  (`hour_of_day`, `day_of_week`, `hour_of_week` 또는 사용자 지정 함수)별로
+  묶고, 관측 표본을 *같은* 위상의 과거 표본과만 비교합니다. 기본 감지기를 감싸는
+  얇은 래퍼로서 이력을 위상별로 필터링하고 z-score, 콜드 스타트 판단 보류,
+  평탄한 기준선 처리, 이벤트 정규화 로직은 기본 감지기에 위임하므로 두 감지기의
+  로직이 달라지지 않습니다. 위상별 콜드 스타트는 독립적입니다. 일요일 기준선이
+  부족해도 월요일 데이터를 가져오지 않습니다. 위상은 발견 사항의 `window_bucket`에
+  기록하며, 발견 사항은 계속 shadow 모드 이벤트로 유지됩니다.
+- **다변량 결합**: `core/detection/composite.py`의
+  `CompositeAnomalyDetector`는 조직의 당직 담당자가 수작업으로 살피던 복합 성능 저하
+  신호를 처리합니다. 실제 인시던트는 잡음이 많은 메트릭 하나가 아니라 지연 시간 증가,
+  오류율 증가, 높은 포화도처럼 *상관된* 스트림이 함께 감지되는 경우입니다. 이는
+  **결합기이지 새 기준선이 아닙니다**. 한 리소스와 구간에 대해 이미 생성된 메트릭별
+  `AnomalyFinding` 객체를 받아, 구성된 **정족수** 이상이 감지될 때만
+  `CompositeAnomalyFinding`(`event_type="anomaly.composite"`)을 발생시킵니다.
+  정족수 미만이면 오탐을 억제하기 위해 판단을 보류합니다. 정족수 이상이면 신호를
+  *증폭*합니다. 동시에 감지된 구성원의 수와 제곱합의 제곱근으로 결합한 크기를 모두
+  반영해 심각도를 높이므로, 복합 성능 저하의 심각도는 개별 구성원보다 높습니다.
+  중복 메트릭은 가장 강한 발생 건 하나로 합쳐 재발행된 스트림이 정족수를 부풀리지
+  못하게 합니다. 평탄한 기준선의 구성원은 고정 가중치를 적용하며, 결합은 구성원
+  순서와 무관하게 결정론적입니다. 결합 결과도 risk-gate가 통제하는 shadow-mode
+  발견 사항입니다. 감지 신호를 강화할 뿐 액션을 실행하지 않습니다.
 
 ### 운영 인사이트 recipe 카탈로그
 
@@ -378,27 +377,27 @@ Incident 상관관계 범위를 보존하면서 문서화된 120-300초 Log Anal
 
 ## 3. 예측 / 예보(Predictive / Forecasting)
 
-Proactive 감지: 발생 **전에** 임계 위반을 예측 - AIOps "용량 병목과 서비스 장애 예측" 사례 -
-결정론 우선으로 유지.
+임계값 위반이 발생하기 **전에** 예측하는 선제적 감지입니다. AIOps의 "용량 병목과 서비스 장애
+예측" 사례를 결정론 우선 방식으로 처리합니다.
 
-- **방법**: 설정된 **예보 지평** 까지 측정된 시리즈에 대한 트렌드 외삽(linear/seasonal fit),
-  예상 값이 설정된 임계를 넘을 때 발견 사항 발동. 모든 예보는 그 지평과 **신뢰 구간** 을 운반;
-  명시된 불확실성 있는 변환 결과 - **결정론적 진실도 아니고 LLM 신탁도 아님** - 그리고 실행
-  자격을 절대 부여하지 않음.
+- **방법**: 측정한 시계열에 선형 또는 계절성 모델을 적합하고, 구성된 **예보 지평**까지
+  추세를 외삽합니다. 예상값이 구성된 임계값을 넘으면 발견 사항을 발생시킵니다. 모든 예보는
+  지평과 **신뢰구간**을 포함하며 불확실성을 명시한 예측 결과입니다. **확정된 사실도 LLM의
+  무조건적인 답도 아니며**, 실행 자격을 부여하지 않습니다.
 - **대상**: 용량/쿼터 고갈, RPO 위반 방향의 replication-lag 드리프트, 예산 대비 비용 run-rate,
   인증서/시크릿 만료, 백업-보존 드리프트. RPO/RTO와 FinOps 대상은
   [phase-3-integrated-loop-ko.md](../phases/phase-3-integrated-loop-ko.md) 가 소유.
-- **승격 전 backtest**: 예보기는 과거 시리즈에 대해 **backtest**(알려진 과거 위반 예측)하고
-  shadow에서 정확도 바를 통과해야 shadow 모드를 떠날 수 있음.
-- **드리프트**: 예보 오차는 시간에 걸쳐 추적; 측정된 저하(드리프트)는 자동으로 예보기를 shadow로
-  **강등**.
-- **안전**: 예측은 **발견 사항 발동**(기본 shadow 모드) 또는 proactive 교정 PR; 자체로
-  auto-execute 하지 않음. 예보에 액션하는 것은 여전히 리스크 게이트를 통과하고 7개 안전조건을
-  운반.
-- **측정**: **lead 시간** = `actual_breach_time − finding_time` 정의(유효한 예측은
-  actionable 최소 위의 긍정 lead 시간을 가짐), **정밀도/재현율** 스코어 (true
-  긍정 = 예측된 위반의 실제 위반이 지평 내에 발생). 놓친 위반은 false 부정(가드 메트릭);
-  나쁜 예보기는 shadow에 머무름.
+- **승격 전 백테스트**: 예보기는 과거 시계열을 대상으로 **백테스트**(알려진 과거 위반 예측)를
+  수행하고 shadow에서 정확도 기준을 통과해야만 shadow 모드를 벗어날 수 있습니다.
+- **드리프트**: 예보 오차를 시간에 따라 추적합니다. 성능 저하(드리프트)가 측정되면 예보기를
+  자동으로 shadow로 **강등**합니다.
+- **안전**: 예측은 **발견 사항**(기본 shadow 모드)이나 선제적 교정 PR을 생성하며
+  자체적으로 자동 실행하지 않습니다. 예보에 대응하는 액션도 리스크 게이트를 통과하고
+  7개 안전조건을 갖춰야 합니다.
+- **측정**: **선행 시간**을 `actual_breach_time − finding_time`으로 정의합니다. 유효한
+  예측의 선행 시간은 대응에 필요한 최솟값보다 큰 양수여야 합니다. **정밀도/재현율**을
+  평가하며, 예측한 위반이 지평 안에서 실제로 발생하면 참양성입니다. 놓친 위반은 가드
+  메트릭인 거짓음성으로 집계합니다. 성능이 나쁜 예보기는 shadow에 유지합니다.
 - **업스트림 구현**: `core/detection/forecast.py`
   (`LinearForecastDetector`) 가 최소제곱 선형 예보기를 ship 한다 -
   cold-start 와 weak-fit(낮은 R-squared) 입력은 abstain, direction-gated
@@ -408,33 +407,31 @@ Proactive 감지: 발생 **전에** 임계 위반을 예측 - AIOps "용량 병�
   + 구간` 로 keying 해 반복 틱 을 dedup 한다; 심각도 는 임박도
   (lead / horizon)로 스케일. anomaly 감지기와 `MetricSample` series 타입을
   공유한다 (`core/detection/series.py`).
-- **예측구간 band (false-positive suppression)**:
-  `core/detection/forecast_band.py` (`prediction_band`) 가 지점 예측
-  에 없는 uncertainty band 를 추가한다. noisy series 는 center 줄 에서
-  임계값 를 crossing 하면서도 normal variation 안에 머물 수 있다; band 는
-  fitted `residual_std` **와** 변환 결과 이 미래로 얼마나 멀리 도달하는지에
-  따라 넓어지며, breach 는 간격 의 pessimistic 간선(rising breach 는 lower
-  간선, falling 은 upper 간선)가 구성된 확신도 수준 (`0.80`-`0.99`)
-  에서 여전히 crossing 할 때만 **confident** 하다. 이것은 **suppressor 이지
-  amplifier 가 아니다**: point-estimate breach 를 "not confident" 로 downgrade
-  (shadow 유지 / abstain, false-positive 가드 메트릭 보호)할 수 있지만, 지점
-  예측 가 예측하지 않은 breach 를 절대 manufacture 하지 않는다. perfect fit
-  (`residual_std == 0`)은 band 를 지점 추정치 로 collapse 하고, 알 수 없음
-  확신도 수준 은 silently 기본값 되지 않고 거부 된다.
+- **예측 구간(오탐 억제)**:
+  `core/detection/forecast_band.py`의 `prediction_band`는 점 예측에 없는 불확실성
+  구간을 추가합니다. 잡음이 많은 시계열은 중심선이 임계값을 넘어도 정상 변동 범위 안에
+  있을 수 있습니다. 구간은 적합한 `residual_std` **및** 예측이 미래로 뻗는 거리에 따라
+  넓어집니다. 구성된 신뢰수준(`0.80`-`0.99`)에서 구간의 보수적인 경계(상승 위반은
+  하한, 하강 위반은 상한)까지 임계값을 넘을 때만 **신뢰할 수 있는 위반**으로 봅니다.
+  이는 **억제기이지 증폭기가 아닙니다**. 점 추정치의 위반을 "신뢰 부족"으로 낮춰
+  shadow에 유지하거나 판단을 보류함으로써 오탐 가드 메트릭을 보호할 수 있지만,
+  점 예측이 예상하지 않은 위반을 만들어 내지는 않습니다. 완전 적합
+  (`residual_std == 0`)이면 구간은 점 추정치로 좁혀집니다. 알 수 없는 신뢰수준은
+  기본값으로 조용히 대체하지 않고 거부합니다.
 
 ### 예측 검증 및 결과 확정
 
 예측 지평이 끝난 뒤 관측된 결과와 대조하기 전에는 예보를 예측 품질의 증거로 볼 수 없습니다.
-FDAI는 예측 충실도와 대응 효과를 분리하여, 선제 액션이 위반을 막았을 때 유용한 예측을 false
-긍정으로 잘못 평가하지 않습니다.
+FDAI는 예측 충실도와 대응 효과를 구분합니다. 선제 액션이 위반을 막았을 때 유용한 예측을
+오탐으로 잘못 평가하지 않도록 합니다.
 
 **변경 불가능한 예측 묶음.** 예보 발견 사항을 게시하기 전에 안정적인 `prediction_id`,
 detector 및 설정 버전, 대상 리소스와 메트릭, breach 조건식, event-time feature 기준 시점,
 horizon, 예상 breach 시간, 지점 추정치, uncertainty 간격, 모드를 기록합니다. 묶음은
 추가 전용입니다. 이후 detector 버전은 기존 예측을 덮어쓰지 않고 새 prediction을 만듭니다.
 
-**결과 확정.** Scorer는 `horizon_end + telemetry_grace`가 지난 후에만 prediction을
-확정합니다. Grace 기간은 측정된 인제스트 delay 분포를 기준으로 설정합니다. 라벨은 처리
+**결과 확정.** 채점기는 `horizon_end + telemetry_grace`가 지난 후에만 예측 결과를
+확정합니다. 유예 기간은 측정된 수집 지연 분포를 기준으로 설정합니다. 레이블은 처리
 시간이 아니라 이벤트 시간을 사용하고 다음 규칙을 따릅니다.
 
 | 관측된 에피소드 | Prediction 라벨 | 처리 |
@@ -463,13 +460,13 @@ prediction 및 인시던트 키로 결합하므로 at-least-once 전달에서도
 모델만 갱신합니다. SLO 복구, recurrence 종결, matched 집단 및 `quasi_experimental` 또는
 `interventional` 근거로의 승격은 후속 작업이며 검증된 효과 하나에서 추론하지 않습니다.
 
-**Leakage 없는 평가.** Backtest는 rolling-origin 시간 분리를 사용하고 한 인시던트의 모든 이벤트를
-하나의 분리에 넣습니다. Feature, 토폴로지, maintenance 상태, 라벨은 prediction 기준 시점 시점에 알 수
-있었던 값만 읽습니다. Incumbent와 후보는 같은 고정된 재생과 같은 실제 운영 shadow 이벤트를
-처리하며 후보는 실행할 수 없습니다. 대상과 horizon별로 샘플 크기와 확신도 간격을
+**정보 누출 없는 평가.** 백테스트는 기준 시점을 이동하며 시간을 분할하는 rolling-origin
+방식을 사용하고, 한 인시던트의 모든 이벤트를 같은 분할에 넣습니다. 특성, 토폴로지, 유지 관리
+상태, 레이블은 예측 기준 시점에 알 수 있었던 값만 읽습니다. 현재 모델과 후보는 같은 고정
+재생과 같은 실제 운영 shadow 이벤트를 처리하며 후보는 액션을 실행할 수 없습니다. 대상과 horizon별로 샘플 크기와 확신도 간격을
 포함해 정밀도, 재현율, resource-day당 false 경보, PR-AUC, Brier 점수 또는 calibration 오류,
 간격 커버리지, actionable lead-time 분포, abstention, cold-start, unscorable 비율을 보고합니다.
-집계 accuracy만으로는 승격할 수 없습니다.
+집계 정확도만으로는 승격할 수 없습니다.
 
 **에이전트 choreography.** Heimdall은 예측 발견 사항과 결정론적 결과 종결을 소유하고
 Huginn은 정규화된 실제 관측을 제공합니다. Saga는 변경 불가능한 prediction 및 최종
@@ -501,11 +498,11 @@ Console의 게시 부채는 게시되지 않았고 배달 실패로 확정되지
 
 ## 컨트롤 루프에 플러그
 
-상관관계는 `event-ingest` 안에서 실행. 이상과 예보 감지기는 **out-of-band 생산자**
+상관관계 처리는 `event-ingest` 안에서 실행합니다. 이상과 예보 감지기는 **out-of-band 생산자**
 ([app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md) 및 phase-1
-out-of-band 감지 참조) 로 발견 사항을 버스에 publish; 그 발견 사항은 멱등성 키와 dedup을
-얻기 위해 **`event-ingest` 로 재진입** , 그래서 flapping 감지기가 중복 작업을 주입할 수 없음.
-어떤 감지기도 새로운 자율성 표면이 아님:
+out-of-band 감지 참조)로서 발견 사항을 버스에 게시합니다. 발견 사항은 멱등성 키와 중복 제거를
+적용하도록 **`event-ingest`에 재진입**하므로, 상태가 반복적으로 바뀌는 감지기가 중복 작업을
+주입할 수 없습니다. 어떤 감지기도 새로운 자율성 경로를 만들지 않습니다:
 
 ```text
 telemetry / metrics
@@ -579,14 +576,16 @@ telemetry / metrics
 목록과 영속 인벤토리 projection에서 대상을 해석하고 조립된 `MetricProvider`로 참조 분석기를
 실행한 뒤 리소스, 신호, finding 관측의 1분 게시 버킷에서 파생된 키로 발견 건마다 정본 Event
 하나를 게시합니다. 기본 5분 분석 구간은 재시도에 안정적인 게시 신원과 독립적입니다.
-인벤토리 기반 해석은 읽기 전용이며 실패 시
-`fdai-incident-evidence-query` 유지관리 진입점은 service 소유 store를 통해 영속 Incident audit를
-읽고 범위가 제한된 correlation prefix 하나에 대한 transition 수, 고유 Incident 수, 최대 member 수,
-kind 집계만 반환합니다. Incident ID, member ID, payload 또는 database 구성은 반환하지 않습니다. 인벤토리 기반 해석은 읽기 전용이며 실패 시
-`fdai-forecast-evidence-query` 유지관리 진입점은 명시적 episode 분모와 평가 가능한 분모가 없을 때
-`null` rate를 포함하는 repeatable-read forecast health snapshot을 반환합니다. 이 snapshot은 근거
-전용이며 promotion 권한을 부여하지 않습니다. 인벤토리 기반 해석은 읽기 전용이며 실패 시
-차단됩니다. 검토된 분석기 매핑이 없는 리소스 유형은 건너뛰고, stale, 충돌, 부분, 합성 관측
+인벤토리 기반 해석은 읽기 전용이며 실패 시 차단합니다.
+
+`fdai-incident-evidence-query` 유지관리 진입점은 서비스가 소유한 저장소에서 영속 Incident 감사를
+읽습니다. 범위가 제한된 상관관계 접두사 하나에 대해 전이 수, 고유 Incident 수, 최대 구성원 수,
+종류별 집계만 반환하며 Incident ID, 구성원 ID, 페이로드, 데이터베이스 구성은 반환하지 않습니다.
+`fdai-forecast-evidence-query` 유지관리 진입점은 반복 읽기 격리 수준의 예측 상태 스냅샷을
+반환합니다. 명시적인 에피소드 분모를 포함하며, 평가 가능한 분모가 없으면 비율은 `null`입니다.
+이 스냅샷은 근거 전용이며 승격 권한을 부여하지 않습니다.
+
+검토된 분석기 매핑이 없는 리소스 유형은 건너뛰고, 오래됨, 충돌, 부분, 합성 관측
 상태 사실은 안정된 사유와 함께 건너뛰며, projection을 읽지 못하면 구성된 목록만으로 축소하지
 않고 예외를 올려 작업이 재시도합니다. Resolver는 이전 flat metadata 형식과 현재 속성별 collection
 형식에서 canonical generic `state` 사실만 허용하며 다른 속성별 사실로 대체하지 않습니다. Generic

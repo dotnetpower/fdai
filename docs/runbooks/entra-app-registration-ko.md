@@ -2,52 +2,52 @@
 title: Entra 앱 등록
 translation_of: entra-app-registration.md
 translation_source_sha: 47807bec7d7e0737c10399c3bd13ec9431792e91
-translation_revised: 2026-09-27
+translation_revised: 2026-10-16
 ---
 
 # Entra 앱 등록
 
 FDAI에 필요한 세 개의 Entra ID 앱 등록인 `fdai-api`(Operator API 대상),
 `fdai-console-spa`(SPA 로그인 클라이언트), `fdai-approval-bot`(Teams 승인
-클라이언트)을 만들고, 로그인과 Teams OBO(on-behalf-of) 인증에 필요한 App Role,
+클라이언트)을 만들고, 로그인과 Teams OBO(on-behalf-of) 권한 부여에 필요한 App Role,
 서비스 principal 및 역할 할당을 생성하는 방법입니다. 이 런북은
-**로컬 사인인 테스트**
-([console/README.md § 로컬 sign-in 테스트](../../console/README.md))와
+**로컬 로그인 테스트**
+([console/README.md § 로컬 로그인 테스트](../../console/README.md))와
 [deploy-and-onboard.md](../roadmap/deployment/deploy-and-onboard.md) 및
 [user-rbac-and-identity.md § 10](../roadmap/interfaces/user-rbac-and-identity.md#10-sign-in-flow-reference)
 가 참조하는 **배포 시점** 설정을 모두 다룹니다.
 
-> Customer-agnostic: 아래의 모든 id는 셸 변수 또는 `<placeholder>` 입니다. 실제
-> 테넌트 / 앱 / 범위 GUID를 추적 파일에 붙여넣지 마세요 - gitignored 된
-> `.env.local` 이나 시크릿 저장소에만 두세요.
+> 고객 환경에 독립적인 예제입니다. 아래의 모든 ID는 셸 변수 또는 `<placeholder>`입니다.
+> 실제 테넌트, 앱, 범위 GUID를 버전 관리 대상 파일에 붙여 넣지 마세요.
+> Git 추적에서 제외된 `.env.local`이나 시크릿 저장소에만 보관하세요.
 
 ## 무엇이 생성되나
 
 | 등록 | 목적 | 핵심 설정 |
 |------|------|-----------|
-| `fdai-api` | 콘솔, ChatOps 백엔드 및 내부 첨부 intake의 Web API 오디언스. | 애플리케이션 ID URI `api://<api-app-id>`; delegated 범위 `access` 하나; 사람용 App Role 다섯 개와 application-only 첨부 역할 하나; v2 접근 토큰. |
-| `fdai-console-spa` | SPA 사인인 클라이언트 (MSAL, PKCE). | SPA redirect URI; `fdai-api` 의 `access` 범위 에 대한 delegated 권한. |
-| `fdai-approval-bot` | Teams 승인 클라이언트. | OBO 토큰용 `fdai-api`의 `access` 범위에 대한 delegated 권한. 이 런북은 클라이언트 시크릿을 만들지 않습니다. |
+| `fdai-api` | 콘솔, ChatOps 백엔드, 내부 첨부 수집 엔드포인트가 사용하는 Web API의 대상(audience)입니다. | 애플리케이션 ID URI `api://<api-app-id>`, 위임된 권한 범위 `access` 하나, 사람용 App Role 다섯 개, 애플리케이션 전용 첨부 역할 하나, v2 액세스 토큰을 설정합니다. |
+| `fdai-console-spa` | SPA 로그인 클라이언트(MSAL, PKCE)입니다. | SPA 리디렉션 URI와 `fdai-api`의 `access` 범위에 대한 위임된 권한을 설정합니다. |
+| `fdai-approval-bot` | Teams 승인 클라이언트입니다. | OBO 토큰용 `fdai-api`의 `access` 범위에 대한 위임된 권한을 설정합니다. 이 런북은 클라이언트 시크릿을 만들지 않습니다. |
 
-어느 등록도 실행기 아이덴티티를 갖지 않습니다. 실행기에는 별도의 user-assigned
+어느 앱 등록도 실행기 신원을 갖지 않습니다. 실행기에는 별도의 사용자 할당
 Managed Identity를 사용합니다
 ([security-and-identity-ko.md](../roadmap/architecture/security-and-identity-ko.md)).
 
 ## 사전 요구
 
-- `az` 가 **대상 테넌트** 에 로그인. 매 단계 전에 확인:
+- `az`가 **대상 테넌트**에 로그인한 상태여야 합니다. 각 단계 전에 확인합니다.
 
   ```sh
-  az 계정 show --query "{sub:id, 테넌트:tenantId, user:user.이름}" -o json
+  az account show --query "{sub:id, tenant:tenantId, user:user.name}" -o json
   ```
 
-- 앱 등록을 만들고 admin consent를 부여할 수 있는 디렉터리 롤 (애플리케이션
-  Administrator 또는 Cloud 애플리케이션 Administrator, 또는 Global
-  Administrator).
+- 앱 등록을 만들고 관리자 동의를 부여할 수 있는 디렉터리 역할이 필요합니다.
+  Application Administrator, Cloud Application Administrator 또는
+  Global Administrator가 해당합니다.
 
 - 자동 배포를 사용하는 경우 자체 호스팅 실행기 Managed Identity를
   `fdai-console-spa`의 소유자로 지정하고, Microsoft Graph
-  `Application.ReadWrite.OwnedBy` 애플리케이션 권한에 admin consent를
+  `Application.ReadWrite.OwnedBy` 애플리케이션 권한에 관리자 동의를
   부여합니다. 그러면 작업 흐름은 해당 신원이 소유한 앱만 업데이트할 수 있습니다.
 
 ### 보호된 Entra 제어 읽기 구성
@@ -55,17 +55,17 @@ Managed Identity를 사용합니다
 `fdaictl provision entra`는 사람 승인 증거와 제어 읽기를 분리합니다. 먼저 원래
 Azure CLI 컨텍스트에서 로그인한 사람의 신원과 현재 `aw-approvers` 멤버십을
 읽습니다. 프로세스 전체에 적용되는 직렬화 경계는 이 사람 단계와 그 안에 중첩된
-실행기 단계가 다른 신원 작업과 섞이지 않도록 합니다. 그런 다음 target-profile
+실행기 단계가 다른 신원 작업과 섞이지 않도록 합니다. 그런 다음 `target-profile`
 v2 실행기 토큰과 현재 활성 테넌트 및 구독이 정확히 일치하는지 검증하고, Premium
-플랜, 정확한 역할 그룹 5개, Conditional Access, Access Review, 인증 방법,
+플랜, 정확히 지정된 역할 그룹 5개, Conditional Access, Access Reviews, 인증 방법,
 Azure Policy 할당, 실행기 신원 및 모든 앱/그룹 계획 갱신을 읽습니다. 최초 관찰,
-승인 재검증, 실행 전 기록 복구 및 증적 재조회에도 같은 실행기 경계를 사용합니다.
+승인 재검증, claim 복구, 증적 재조회에도 같은 실행기 경계를 사용합니다.
 실행기 컨텍스트, 대상, 권한 또는 읽기 결과가 없거나 일치하지 않으면 작업을
 차단합니다. 이러한 읽기를 사람 컨텍스트에서 대신 수행하지 않습니다.
 
 배포 소유자는 명령을 실행하기 전에 해당 읽기 엔드포인트에 필요한 최소 권한의
 Microsoft Graph **애플리케이션** 권한을 실행기 서비스 principal에 부여하고
-테넌트 admin consent를 완료해야 합니다. 여기에는 Access Review 정의를 위한
+테넌트 관리자 동의를 완료해야 합니다. 여기에는 Access Review 정의를 위한
 `AccessReview.Read.All`과 인증 방법 정책을 위한
 `Policy.Read.AuthenticationMethod`가 포함됩니다. 또한 실행기에는 프로필에
 바인딩된 범위의 정책 할당을 읽을 수 있는 Azure RBAC 권한이 필요합니다.
@@ -73,7 +73,7 @@ Microsoft Graph **애플리케이션** 권한을 실행기 서비스 principal�
 이러한 애플리케이션 권한을 대화형 Azure CLI 범위로 다시 요청하지 마세요. 사람
 로그인에 사용하는 Azure CLI는 Microsoft 자사 클라이언트이므로 이 권한을
 동적으로 요청할 수 없으며 `AADSTS65002`를 반환합니다. 프로비저닝 명령은 미리
-구성한 권한과 제어를 검증할 뿐입니다. Graph 권한 부여, admin consent 또는 신원
+구성한 권한과 제어를 검증할 뿐입니다. Graph 권한 부여, 관리자 동의 또는 신원
 제어 변경은 수행하지 않습니다.
 
 ## 1. `fdai-api` 생성
@@ -109,8 +109,8 @@ az ad app update --id "$API_APPID" --app-roles @/tmp/fdai_approles.json
 az ad app update --id "$API_APPID" --identifier-uris "api://$API_APPID"
 ```
 
-`access` delegated 범위를 추가하고 **v2** 접근 토큰을 강제합니다 (그래야
-`iss` 가 검증기 가 기본으로 쓰는 `.../v2.0` 발급자가 됩니다):
+`access` 위임 권한 범위를 추가하고 **v2** 액세스 토큰을 사용하도록 설정합니다.
+그러면 `iss`가 검증기의 기본 발급자인 `.../v2.0`이 됩니다.
 
 ```sh
 API_OBJID=$(az ad app show --id "$API_APPID" --query id -o tsv)
@@ -188,42 +188,42 @@ az rest --method PATCH \
   --body @/tmp/fdai_approval_bot.json
 ```
 
-보호된 부트스트랩은 관련 없는 delegated 권한을 보존하고 서비스 principal을
+보호된 부트스트랩은 관련 없는 위임된 권한을 보존하고 서비스 principal을
 만든 다음 정확한 `fdai-api` 범위를 검증합니다. 테넌트 동의, Teams 설치, Bot
-리소스와 Managed Identity, 그룹 연결 승인 대상은 별도의 공급자 호스팅 단계로
-남습니다.
+리소스와 해당 Managed Identity, 그룹에 연결된 승인 대상은 프로바이더가 호스팅하는
+별도 단계에서 설정합니다.
 
-### 로컬 redirect URI 동기화 유지
+### 로컬 리디렉션 URI 동기화 유지
 
 `console: prepare full stack` 작업은 `console/.env.local`에서 로컬 테넌트와 SPA 클라이언트 값을
 읽고 `scripts/deployment/azure/sync-entra-spa-redirect.py`를 통해 두 개의 고정 Vite 출처를
-안전하게 재시도할 수 있는 방식으로 동기화합니다. 보조 로직은 기존 redirect를 모두 보존합니다.
+안전하게 재시도할 수 있는 방식으로 동기화합니다. 보조 도구는 기존 리디렉션을 모두 보존합니다.
 `--allow-loopback-http` 옵션은 `localhost` 또는 `127.0.0.1`에만 HTTP를 허용하며 기본 명령은
-계속 HTTPS-only입니다. 테넌트가 다르거나 Microsoft Graph 권한이 부족하면 로컬 서비스가
+계속 HTTPS만 허용합니다. 테넌트가 다르거나 Microsoft Graph 권한이 부족하면 로컬 서비스가
 시작되기 전에 준비 단계가 중단됩니다.
 
-### 배포된 redirect URI 동기화 유지
+### 배포된 리디렉션 URI 동기화 유지
 
-각 배포 대상에 다음 GitHub Actions 저장소 variable을 설정합니다.
+각 배포 대상에 다음 GitHub Actions 저장소 변수를 설정합니다.
 
 | 변수 | 값 |
 |------|----|
-| `AZURE_TENANT_ID` | 대상 Entra 테넌트 id. |
-| `ENTRA_CONSOLE_SPA_CLIENT_ID` | 해당 테넌트의 `fdai-console-spa` 애플리케이션 클라이언트 id. |
+| `AZURE_TENANT_ID` | 대상 Entra 테넌트 ID입니다. |
+| `ENTRA_CONSOLE_SPA_CLIENT_ID` | 해당 테넌트의 `fdai-console-spa` 애플리케이션 클라이언트 ID입니다. |
 
 `deploy-dev.yml`을 `apply=true` 및 `deploy_console=true`로 실행하면 Terraform의
 `console_default_hostname`을 읽고 `scripts/deployment/azure/sync-entra-spa-redirect.py`를
-실행합니다. 이 보조 로직은 다음 작업을 수행합니다.
+실행합니다. 이 보조 도구는 다음 작업을 수행합니다.
 
 1. 활성 Azure CLI 테넌트가 `AZURE_TENANT_ID`와 같은지 확인합니다.
-2. 기존 SPA redirect URI를 모두 보존하고, 배포된 HTTPS 출처가 없을 때만
+2. 기존 SPA 리디렉션 URI를 모두 보존하고, 배포된 HTTPS 출처가 없을 때만
    추가합니다.
 3. 앱 등록을 다시 읽고 새 URI가 보이지 않으면 배포를 실패 처리합니다.
 
 이 작업은 안전하게 재시도할 수 있습니다. 같은 테넌트의 다른 구독은 같은
-tenant-local 앱 등록을 사용합니다. 다른 테넌트에 배포하려면 해당 테넌트의 SPA
-클라이언트 id와 그 테넌트가 소유한 실행기 신원이 필요합니다. 변수가 없거나 테넌트가
-일치하지 않거나 Graph 권한이 부족하면, 사인인이 부분 설정된 채 남지 않도록 배포가
+해당 테넌트의 앱 등록을 사용합니다. 다른 테넌트에 배포하려면 해당 테넌트의 SPA
+클라이언트 ID와 그 테넌트가 소유한 실행기 신원이 필요합니다. 변수가 없거나 테넌트가
+일치하지 않거나 Graph 권한이 부족하면, 로그인 설정이 불완전한 채로 남지 않도록 배포가
 중단됩니다.
 
 ## 4. 서비스 principal + 역할 할당
@@ -258,7 +258,7 @@ az ad app permission admin-consent --id "$APPROVAL_BOT_APPID"
 ([user-rbac-and-identity-ko.md § 4.4](../roadmap/interfaces/user-rbac-and-identity-ko.md#44-app-roles-token-surface)).
 
 전용 Operator channel-edge Managed Identity가 생성되면 해당 서비스 principal에는
-application-only 첨부 역할만 할당합니다. 이 신원에 사람용 FDAI 역할을 할당하지 마세요.
+애플리케이션 전용 첨부 역할만 할당합니다. 이 신원에 사람용 FDAI 역할을 할당하지 마세요.
 
 ```sh
 EDGE_CLIENT_ID=<channel-edge-managed-identity-client-id>
@@ -276,25 +276,27 @@ az rest --method POST \
   --body @/tmp/fdai_channel_attachment_assign.json
 ```
 
-Edge에서 첨부를 활성화하기 전에 내부 channel intake를 활성화합니다. Edge 시작 과정은 정확한
-API audience를 요청하고 인증된 intake probe를 호출합니다. 역할 정의, 할당 또는 audience가
-없으면 edge는 준비 상태가 되지 않습니다.
+채널 경계 계층에서 첨부를 활성화하기 전에 내부 채널 수집 엔드포인트를 활성화합니다.
+경계 계층은 시작 시 정확한 API 대상(audience)을 지정해 토큰을 요청하고 인증된 수집
+엔드포인트의 상태 점검을 호출합니다. 역할 정의, 할당 또는 audience가 없으면
+경계 계층은 준비 상태가 되지 않습니다.
 
-## 5. id를 구성에 매핑
+## 5. ID를 구성에 매핑
 
-위 단계의 값들은 런타임 구성으로 들어갑니다. 추적 파일 밖에 보관하세요.
+위 단계에서 얻은 값은 런타임 구성에 사용합니다. 버전 관리 대상 파일 밖에 보관하세요.
 
-| 값 | Operator API env | SPA env (Vite) |
+| 값 | Operator API 환경 변수 | SPA 환경 변수(Vite) |
 |----|--------------|----------------|
-| 테넌트 id | `FDAI_ENTRA_TENANT_ID` | `VITE_MSAL_TENANT_ID` |
+| 테넌트 ID | `FDAI_ENTRA_TENANT_ID` | `VITE_MSAL_TENANT_ID` |
 | `api://$API_APPID` | `FDAI_API_AUDIENCE` | - |
 | `api://$API_APPID/access` | - | `VITE_MSAL_API_SCOPE` |
 | `$SPA_APPID` | - | `VITE_MSAL_CLIENT_ID` |
 | `$APPROVAL_BOT_APPID` | `FDAI_TEAMS_APPLICATION_ID` | - |
 
-Operator API 검증기 env: [deploy-and-onboard.md](../roadmap/deployment/deploy-and-onboard.md)
-(`FDAI_ENTRA_TENANT_ID`, `FDAI_API_AUDIENCE`, 선택 `FDAI_ENTRA_ISSUER` /
-`FDAI_ENTRA_JWKS_URI`). SPA env: [console/README.md § 포크 구성](../../console/README.md).
+Operator API 검증기의 환경 변수는 [deploy-and-onboard.md](../roadmap/deployment/deploy-and-onboard.md)를
+참조하세요. `FDAI_ENTRA_TENANT_ID`, `FDAI_API_AUDIENCE`를 설정하며,
+`FDAI_ENTRA_ISSUER`, `FDAI_ENTRA_JWKS_URI`는 선택 사항입니다.
+SPA 환경 변수는 [console/README.md § 포크 구성](../../console/README.md)을 참조하세요.
 
 ## 6. 검증
 
@@ -308,11 +310,11 @@ az ad app show --id "$APPROVAL_BOT_APPID" \
   --query "{perms:requiredResourceAccess[].resourceAppId}" -o json
 ```
 
-그런 다음 [console/README.md](../../console/README.md) 의 로컬 사인인 테스트를
-실행합니다: 토큰 없는 요청은 `401`; App 역할 없는 로그인 사용자는 `403`;
-`Reader` 를 가진 사용자는 콘솔을 로드합니다.
+그런 다음 [console/README.md](../../console/README.md)의 로컬 로그인 테스트를
+실행합니다. 토큰 없는 요청은 `401`, App Role이 없는 로그인 사용자의 요청은 `403`을
+반환해야 합니다. `Reader` 역할이 있는 사용자는 콘솔을 열 수 있어야 합니다.
 
-## 정리 (정리)
+## 정리
 
 ```sh
 az ad app delete --id "$SPA_APPID"
@@ -321,6 +323,6 @@ az ad app delete --id "$API_APPID"
 ```
 
 앱 등록을 삭제하면 해당 서비스 principal과 역할 할당도 함께 제거됩니다. 클라이언트
-시크릿을 추가했다면 먼저 순환시키세요. 위 흐름은 시크릿을 추가하지 않습니다. SPA는
+시크릿을 추가했다면 먼저 교체하세요. 위 절차에서는 시크릿을 추가하지 않습니다. SPA는
 공용 클라이언트이고 API는 토큰을 검증하며, 승인 봇 인증은 배포가 소유하는 Managed
 Identity 바인딩으로 남습니다.

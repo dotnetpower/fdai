@@ -62,7 +62,7 @@ Docker Engine 또는 Docker Desktop과 Docker Compose v2를 설치합니다. WSL
 [WSL 통합](https://docs.docker.com/desktop/features/wsl/)을 활성화하거나 같은 WSL 배포판에서 다른
 Docker Engine을 사용할 수 있도록 구성합니다. VS Code와 FDAI를 실행하는 사용자가 `sudo` 없이
 Docker를 실행할 수 있어야 합니다. 처음 시작할 때는 아래 이미지의 컨테이너 레지스트리에
-접근할 수도 있어야 합니다.
+접근할 수 있어야 합니다.
 
 시작 스크립트가 사용하는 기능을 정확히 확인합니다.
 
@@ -87,7 +87,7 @@ docker info
   리포지토리 루트에서 `opa version`과 `opa check policies`를 실행하세요. VS Code 작업의
   `PATH`에서 OPA를 찾을 수 있어야 합니다. 워크스페이스는 사용자 설치 도구를 위해
   `~/.local/bin`을 포함합니다.
-- 커밋과 푸시 전에 리포지토리 shell script를 검증하기 위한 ShellCheck.
+- 커밋과 푸시 전에 리포지토리 셸 스크립트를 검증하기 위한 ShellCheck.
 - `git`, `bash`, `make`, `curl` 및 표준 Linux 명령줄 도구.
 - 영어와 한국어 언어 데이터가 포함된 Tesseract. Document Processing Worker는 호스트에서
   실행되고 ClamAV는 Docker에서 실행됩니다.
@@ -239,7 +239,7 @@ docker compose -f infra/local/docker-compose.yml ps
 재사용합니다.
 
 준비는 성공했지만 서비스 감독기가 시작되지 않으면 `Tasks: Run Task` ->
-`console: start local services`를 실행합니다. 이 표시되는 백그라운드 작업은 준비된 환경을
+`console: start local services`를 실행합니다. 이 백그라운드 작업은 실행 상태를 화면에 표시하면서 준비된 환경을
 재사용하고 준비를 반복하지 않은 채 전체 서비스 집합을 시작합니다. 그런 다음
 `console: wait full stack ready`를 실행하세요. 전체 시작이 완료되면 `ready: 10/10`과
 `unavailable: none`을 보고합니다.
