@@ -40,9 +40,10 @@ Signals a healthy deployment MUST emit continuously. Every signal maps 1:1 to an
 ## Implementation status
 
 Runtime health, startup readiness, transition telemetry, and the synthetic canary path are
-implemented and covered by focused tests. The deployment smoke currently proves publisher job
-completion only; complete alerting, round-trip verification, drills, and stabilization automation
-remain incomplete, so no area is claimed as fully operationally validated.
+implemented and covered by focused tests. The deployment workflow now requires the exact consumed
+canary audit row and a 30-second numeric latency budget after publisher completion. A retained live
+receipt, complete alerting, fixture replay, drills, and stabilization automation remain incomplete,
+so no area is claimed as fully operationally validated.
 
 ### Implementation scope
 
@@ -51,8 +52,9 @@ remain incomplete, so no area is claimed as fully operationally validated.
 | Runtime `/live` and `/ready` endpoints plus startup-readiness evaluation, persistence, transitions, and guarded refresh | implemented | [`runtime/health.py`](../../../services/core-control-plane/src/fdai/runtime/health.py), [`runtime/readiness.py`](../../../services/core-control-plane/src/fdai/runtime/readiness.py), [`test_readiness.py`](../../../services/core-control-plane/tests/runtime/test_readiness.py), and [`test_startup_coordinator.py`](../../../services/core-control-plane/tests/core/readiness/test_startup_coordinator.py) | Process-critical failure closes readiness; degraded capabilities lower authority without raising it on recovery. |
 | Bounded transition spans and metrics with secure OTLP configuration | implemented | [`transitions.py`](../../../services/core-control-plane/src/fdai/shared/telemetry/transitions.py) and [`test_transition_telemetry.py`](../../../services/core-control-plane/tests/shared/test_transition_telemetry.py) | Stable allowlisted attributes prevent payloads and provider errors from becoming telemetry labels. |
 | Synthetic canary publisher, canonical consumer, no-op audit path, and scheduled Container Apps Job | implemented | [`canary_cli.py`](../../../services/core-control-plane/src/fdai/delivery/canary_cli.py), [`_canary.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_canary.py), [`canary_job.tf`](../../../infra/modules/compute/container-apps/canary_job.tf), and focused canary tests | The canary is isolated from T0/T1/T2, risk, execution, incident, and learning paths. |
-| Post-deploy promotion smoke | in-progress | [`deploy-dev.yml`](../../../.github/workflows/deploy-dev.yml) runs migrations, optional health checks, and the canary publisher Job | The workflow blocks on publisher failure but doesn't yet verify the consumed audit entry, fixture replay, kill-switch cycle, or human-approval dry-run. |
-| Complete self-health exporters, alert-rule mapping, fallback delivery, and operational drills | in-progress | Transition telemetry, readiness, and canary sources above provide a subset of the required signals | No upstream configuration maps every signal in the health contract to an alert threshold, owner lane, fallback, and tested delivery receipt. |
+| Post-deploy promotion smoke | in-progress | [`deploy-dev.yml`](../../../.github/workflows/deploy-dev.yml); `scripts/deployment/azure/verify_canary_audit.py`; focused verifier tests | The workflow gives the publisher a deterministic slot, then requires one exact Core audit row within 30 seconds. The verifier rejects ambiguous, malformed, unsettled, future-dated, or over-budget rows without exposing database credentials. A retained live receipt, fixture replay, kill-switch cycle, and human-approval dry-run remain open. |
+| Complete self-health signal policy and routing map | implemented | `config/self-health-signals.yaml`; `core/readiness/self_health.py`; production startup binding; focused self-health and readiness tests | All 15 required signals map to one metric, threshold direction, freshness bound, generic owner lane, notification route, and fail-closed fallback. Missing coverage or route drift blocks startup. Decisions grant no execution authority. |
+| Complete self-health exporters, alert delivery, and operational drills | in-progress | Transition telemetry, readiness, canary, and the complete signal-policy catalog | Runtime source bindings do not yet emit every catalog metric, and no deployment receipt proves each alert's primary and fallback delivery or recovery drill. |
 | Correlation-based audit investigation and unified version/configuration exposure | in-progress | [`rule_fire_trace.py`](../../../services/core-control-plane/src/fdai/core/audit/rule_fire_trace.py), [`audit_rca.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py), and runtime state projections | Correlation and reporting primitives exist, but one public read surface doesn't yet expose every version, hash, rule effect, override, canary, kill-switch, and break-glass field listed below. |
 | Pre-launch latency measurement and frozen-scenario replay | implemented | [`latency_budget.py`](../../../services/core-control-plane/src/fdai/core/measurement/latency_budget.py), [`baseline_run.py`](../../../tools/baseline_run.py), and focused tests | The primitives produce bounded measurements and release-gate results; an external load generator and deployment-specific budgets remain operator inputs. |
 | Live Azure read-investigation scenarios | in-progress | [Azure Read Investigations](../interfaces/azure-read-investigations.md#verification-and-release-evidence) | Four bounded read-only scenarios passed, while guest-event matching, an actual provider `429`, and cross-service parity receipts remain open release evidence. |
@@ -63,16 +65,21 @@ remain incomplete, so no area is claimed as fully operationally validated.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-15 | implemented | Added bounded read-only post-deploy verification for the exact consumed canary audit and its numeric latency budget. Publisher completion alone can no longer satisfy this smoke stage. | `current change`; `verify_canary_audit.py`; deploy workflow binding; 10 focused tests. | Retain a passing deployed receipt and add frozen fixture replay, kill-switch engage/disengage, and no-execute HIL dry-run evidence. |
+| 2026-10-15 | implemented | Added the complete 15-signal self-health policy catalog, fail-closed freshness and threshold evaluation, notification-route fallback validation, and mandatory production startup binding. | `current change`; self-health catalog, decision core, readiness/bootstrap binding, and focused tests. | Bind every metric exporter and retain primary/fallback delivery plus recovery-drill evidence. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger and separated tested self-observability primitives from incomplete operational evidence; earlier provenance wasn't reconstructed. | Current change; focused readiness, telemetry, canary, latency, and baseline-runner tests cited in the scope table. | Complete deployment round-trip evidence, alert and drill coverage, unified exposure, and stabilization bindings. |
 | 2026-08-14 | implemented | Defined the operator-runbook front-matter schema and added CI coverage for every shipped ActionType. | Current change; `check-action-runbooks.py` and `test_check_action_runbooks.py`. | Keep deployment-owned commands and procedures aligned with the same required semantic sections. |
 
 ### Remaining work
 
-- [ ] Extend deployment smoke to verify the consumed canary audit entry within a numeric latency
-  budget, replay the frozen shadow fixtures, exercise kill-switch on/off, and complete a no-execute
-  human-approval dry-run with linked audit receipts.
-- [ ] Map every self-health signal to a concrete threshold, owner lane, fallback route, and tested
-  delivery receipt, then record the governed operational evidence.
+- [x] Require the exact consumed canary audit entry within a 30-second numeric latency budget after
+  publisher completion, rejecting ambiguous, malformed, unsettled, future-dated, or over-budget rows.
+- [ ] Retain a passing deployed canary receipt, replay the frozen shadow fixtures, exercise
+  kill-switch on/off, and complete a no-execute human-approval dry-run with linked audit receipts.
+- [x] Map every self-health signal to a concrete threshold, generic owner lane, notification route,
+  and fail-closed fallback, and validate the complete catalog during production startup.
+- [ ] Bind every catalog signal to its runtime exporter and retain primary/fallback delivery and
+  recovery-drill receipts in one governed deployment.
 - [ ] Expose the complete version, configuration, rule-effect, override, discovery, canary,
   kill-switch, and break-glass state through one authorized read surface and test field freshness.
 - [x] Define a required runbook schema and add a check proving every automated ActionType has a
@@ -141,8 +148,9 @@ healthy**. Mitigation: a periodic canary on a separately authorized topic.
 - Each five-minute slot derives a stable UUID and `canary:<slot>` idempotency key. Container Apps
   caps publisher execution at 120 seconds and the audit row records measured latency.
 
-> The deployment workflow now blocks when an immediate canary publisher run fails. A blocking
-> audit-freshness query, numeric round-trip SLO, and scheduled kill-switch on/off drill remain
+> The deployment workflow now blocks when an immediate canary publisher run fails or its exact
+> consumed Core audit row is absent, ambiguous, malformed, unsettled, future-dated, or over the
+> 30-second latency budget. A retained live receipt and scheduled kill-switch on/off drill remain
 > production-readiness evidence items.
 
 ## Post-Deploy Smoke Test Contract
@@ -166,9 +174,9 @@ smoke test should **abort the promotion and roll traffic back**
 6. **HIL dry-run** - a synthetic high-risk finding is routed to the HIL channel, an approver
    approves (in a dry-run harness that does not execute), the audit trail records both hops.
 
-The current apply workflow verifies schema migrations, optional HTTP health endpoints, and a
-successful canary publisher Job. Full audit-round-trip, fixture replay, kill-switch drill, and HIL
-dry-run remain required before production promotion.
+The current apply workflow verifies schema migrations, optional HTTP health endpoints, publisher
+completion, and the exact consumed canary audit within a 30-second budget. A retained live receipt,
+fixture replay, kill-switch drill, and HIL dry-run remain required before production promotion.
 
 ## Alert Routing
 

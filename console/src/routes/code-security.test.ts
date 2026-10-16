@@ -9,18 +9,25 @@ import {
   decodeCodeSecurityPacks,
   decodeCodeSecurityReviews,
   filterBySource,
+  knownExploitedTotal,
   latestPerRepository,
   loadCodeSecurityState,
   packState,
+  reviewSeveritySummary,
   sourceCategory,
 } from "./code-security";
 import {
   decodeCodeSecurityRepositories,
   decodeCodeSecurityScanRequests,
   decodeCodeSecurityWorkerStatus,
+  pendingScanRequestCount,
   scanRequestIdempotencyKey,
 } from "./code-security-requests";
-import { decodeCodeSecurityIssues, issueReference } from "./code-security-issues";
+import {
+  decodeCodeSecurityIssues,
+  findingResultCount,
+  issueReference,
+} from "./code-security-issues";
 import {
   normalizeGitHubLocation,
   registrationInputValid,
@@ -159,11 +166,17 @@ describe("code-security route", () => {
     const snapshot = buildCodeSecurityViewSnapshot({ reviews: data, packs: decodeCodeSecurityPacks(packEnvelope([])) });
     expect(snapshot.routeId).toBe("code-security");
     expect(snapshot.facts.find((fact) => fact.key === "urgent_count")?.value).toBe(0);
+    expect(reviewSeveritySummary(data.reviews[1]!)).toBe("1 / 0 / 0 / 1");
+    expect(knownExploitedTotal([
+      data.reviews[1]!,
+      { ...data.reviews[2]!, known_exploited_count: 3 },
+    ])).toBe(3);
   });
 
   it("rejects contract drift instead of rendering it", () => {
     expect(() => decodeCodeSecurityReviews(envelope([review({ decision: "approved" })]))).toThrow();
     expect(() => decodeCodeSecurityReviews(envelope([review({ by_priority: { P0: 1 } })]))).toThrow();
+    expect(() => decodeCodeSecurityReviews(envelope([review({ review_digest: "not-a-digest" })]))).toThrow();
     expect(() => decodeCodeSecurityReviews(envelope([], [{ reason_code: "unknown" }]))).toThrow();
   });
 
@@ -307,6 +320,42 @@ describe("code-security route", () => {
     expect(scanRequestIdempotencyKey("example-app", "v1", "n2")).not.toBe(
       scanRequestIdempotencyKey("example-app", "v1", "n3"),
     );
+  });
+
+  it("counts durable scan work that is waiting for automation", () => {
+    const requests = decodeCodeSecurityScanRequests({
+      requests: [
+        {
+          request_id: `operator-${"a".repeat(32)}`,
+          kind: "scan",
+          action: null,
+          location: null,
+          repository_alias: "example-app",
+          ref: null,
+          status: "queued",
+          accepted_at: "2026-10-08T00:00:00+00:00",
+          closed_at: null,
+          rejection_reason: null,
+          result: null,
+        },
+        {
+          request_id: `operator-${"b".repeat(32)}`,
+          kind: "scan",
+          action: null,
+          location: null,
+          repository_alias: "example-app",
+          ref: "main",
+          status: "running",
+          accepted_at: "2026-10-08T00:01:00+00:00",
+          closed_at: null,
+          rejection_reason: null,
+          result: null,
+        },
+      ],
+      gaps: [],
+    });
+
+    expect(pendingScanRequestCount(requests)).toBe(2);
   });
 
   it("decodes repository change requests next to scans", () => {
@@ -530,6 +579,7 @@ describe("code-security route", () => {
     expect(data.scorecard.total).toBe(2);
     expect(data.coverage.complete).toBe(true);
     expect(data.review_summary.recorded_total).toBe(2);
+    expect(findingResultCount(data, 1)).toEqual({ available: 2, recorded: 2, bounded: false });
     const [firstIssue, secondIssue] = data.issues;
     if (firstIssue === undefined || secondIssue === undefined) throw new Error("missing fixtures");
     expect(firstIssue.flow_steps.map(step => step.kind)).toEqual([
@@ -547,6 +597,50 @@ describe("code-security route", () => {
     });
     expect(secondIssue.analysis_evidence).toBeNull();
     expect(() => decodeCodeSecurityIssues({ available: true, issues: [{ priority: "P9" }], gaps: [] })).toThrow();
+  });
+
+  it("separates bounded summaries from the recorded finding total", () => {
+    const data = decodeCodeSecurityIssues({
+      available: true,
+      issues: [],
+      artifacts: null,
+      scorecard: {
+        total: 0,
+        determined: 0,
+        critical: 0,
+        high: 0,
+        medium: 0,
+        low: 0,
+        informational: 0,
+        needs_review: 0,
+        potential_critical: 0,
+        potential_high: 0,
+        potential_medium: 0,
+        potential_low: 0,
+      },
+      coverage: { complete: true, limits: [], details_available: false },
+      review_summary: {
+        recorded_total: 240,
+        recorded_determined: 69,
+        recorded_needs_review: 171,
+        shown_total: 200,
+        truncated: true,
+        recorded_by_severity: {
+          critical: 0,
+          high: 33,
+          medium: 28,
+          low: 8,
+          undetermined: 171,
+        },
+      },
+      gaps: [{ reason_code: "code_security_issues_truncated" }],
+    });
+
+    expect(findingResultCount(data, 15)).toEqual({
+      available: 200,
+      recorded: 240,
+      bounded: true,
+    });
   });
 
   it("validates registration input before submitting an Owner change", () => {

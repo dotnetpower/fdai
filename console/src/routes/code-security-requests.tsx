@@ -96,6 +96,12 @@ export interface CodeSecurityScanRequestsResponse {
   readonly gaps: readonly Gap[];
 }
 
+export function pendingScanRequestCount(data: CodeSecurityScanRequestsResponse): number {
+  return data.requests.filter(
+    (request) => request.status === "queued" || request.status === "running",
+  ).length;
+}
+
 export interface CodeSecurityWorkerStatus {
   readonly state: "running" | "ready";
   readonly phase: "requests" | "schedule" | "idle";
@@ -515,6 +521,7 @@ export function RepositoryScanSection({
   ];
   const gaps = [...repositories.gaps, ...requests.gaps];
   const hasRepositories = repositories.repositories.length > 0;
+  const pendingRequests = pendingScanRequestCount(requests);
   return (
     <section class="stack" aria-labelledby="code-security-scans">
       <header class="code-security-scan-header">
@@ -541,7 +548,7 @@ export function RepositoryScanSection({
                 unchanged: worker.status.schedule_unchanged,
                 failed: worker.status.schedule_failed,
               })
-              : t("codeSecurity.worker.unavailableBody")}
+              : t("codeSecurity.worker.unavailableBody", { count: pendingRequests })}
           </span>
         </div>
         <button type="button" class="btn subtle" onClick={onQueued}>

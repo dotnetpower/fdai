@@ -744,6 +744,18 @@ variable "analyzer_tick_cron_expression" {
   default     = "* * * * *"
 }
 
+variable "slo_burn_cron_expression" {
+  description = "Cron for the workload SLO burn evaluation Job. Empty disables the job until a deployment supplies workload objectives."
+  type        = string
+  default     = ""
+}
+
+variable "slo_catalog_dir" {
+  description = "Absolute in-image path containing deployment-owned workload SLO YAML definitions."
+  type        = string
+  default     = "/app/rule-catalog/slo"
+}
+
 variable "analyzer_targets_json" {
   description = "Optional JSON array of {resource_id, kind} pairs the analyzer tick investigates each fire. Empty uses the durable inventory projection."
   type        = string

@@ -49,6 +49,9 @@ execution) and is promoted to `enforce` only after its declared
 Every fork-added ActionType and state-changing workflow step inherits all seven constitutional
 safeguards. A provider binding, catalog entry, environment, or fork marker never promotes
 authority, waives a safeguard, or turns a new composition directly into enforce mode.
+The upstream scheduled SLO-burn binding follows the same boundary: a deployment supplies a
+non-empty catalog and an optional schedule, while missing telemetry remains retry-required.
+Upstream ships no tenant schedule, scope, credential, or healthy-result fallback.
 ## 1. Fork model at a glance
 
 - **Upstream** = this repository. Ships the generic control plane

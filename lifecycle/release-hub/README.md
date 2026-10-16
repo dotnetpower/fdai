@@ -1,6 +1,6 @@
 # FDAI Release Hub
 
-The Release Hub is the vendor's independent local application for registering manifests,
+The Release Hub is the vendor's independent application for registering manifests,
 publishing development signatures, contributing releases to channels, and recalling releases.
 It does not deploy FDAI, build images, publish to a registry, or grant installation authority.
 
@@ -36,7 +36,8 @@ trusted development public key, verifies each release signature and parses exist
 and recall contracts. Changing membership or recalls changes the pin. Consumers reject expired
 exports, a lower revision, and a changed export at the same revision. Pins and revision floors
 must be retained by the caller; automatic remote sync and durable consumer trust state are not
-implemented. Production root, snapshot, timestamp roles and key rotation remain future work.
+part of this local CLI. The explicit remote-development profile below persists customer trust
+state. Production root, snapshot, timestamp roles and key rotation remain future work.
 The default unsigned `load_catalog` development path stays unchanged.
 Local export admission accepts at most 8 MiB, including JSON decoding. Each manifest still
 passes the existing manifest parser's own size and schema limits independently.
@@ -65,6 +66,24 @@ The optional local label may contain Korean; machine release ids remain canonica
 Build the UI with `npm --prefix lifecycle/release-hub/ui run build`; the API serves the built
 application from the same loopback origin when the build exists. The `serve` command never
 creates a missing key implicitly. Keep the state directory outside source control.
+
+## Explicit remote-development profile
+
+The default commands above remain unauthenticated and loopback-only. A separate
+`python -m fdai_lifecycle_hub.remote` entrypoint supports direct Entra authentication,
+service-owned passwordless PostgreSQL, explicit schema revision 1 migration, attributed
+publication audit, and a versioned Key Vault development signing-key reference. It rejects
+missing configuration/migration instead of silently creating remote state or keys.
+Its bundled UI uses operator Entra sign-in; the customer service identity can read only
+`/v1/catalog/export`, never publish or operate the customer Hub.
+
+See [Two-Hub development boundaries](../../infra/hubs-development/README.md) for configuration,
+safe provisioning, images, migration Jobs, and static/live validation limits. The same test
+subscription contains separate networks, ACA environments, database servers, identities,
+vaults, and logs, not just separate RGs. This change has not deployed or validated Azure.
+Customer pin approval is a separate authenticated operation using an independently obtained
+digest/revision. Automatic polling, production TUF metadata/root ceremony, artifact availability,
+and Agent apply remain unsupported.
 
 ## Testing
 

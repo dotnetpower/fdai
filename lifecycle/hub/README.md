@@ -18,6 +18,27 @@ manifest parser, detached signature convention, recall records, and planner. The
 `recompute --catalog` development directory loader remains unchanged. This opt-in transport is
 not a production signed catalog protocol and does not prove registry availability.
 
+## Explicit remote-development profile
+
+Local CLIs keep their loopback defaults. The independent
+`python -m fdai_lifecycle_hub.remote` entrypoint requires direct Entra operator authentication,
+its own passwordless PostgreSQL identity, a separately provisioned development signing key,
+and explicit schema revision 1 migration. It never trusts ACA principal headers.
+The existing enrollment approval API binds the approver to the verified operator OID.
+Installation Agent enrollment/state/report/Plan transport is not opened by this profile.
+
+The Catalog import screen separates independent exact-pin approval from one bounded outbound
+import using the customer's managed identity. Accepted bytes, digest, key binding, revision
+floor, and approval/import audit survive restart in PostgreSQL. The existing planner revalidates
+the persisted catalog, including expiry; publishing metadata alone never proves artifact
+availability. No operation here applies a Plan or deploys FDAI.
+
+See [Two-Hub development boundaries](../../infra/hubs-development/README.md) for images,
+separate IaC boundaries, safe key/database provisioning, manual migration Jobs, validation
+commands, and the remaining live Azure acceptance checks. Browser interaction tests cover
+desktop and constrained layouts with built assets and synthetic API responses, not live Entra.
+This development path does not change source or offline installation contracts.
+
 ## Enrollment and managed Entities
 
 1. The installation signs an enrollment request with its installation key and submits it. The

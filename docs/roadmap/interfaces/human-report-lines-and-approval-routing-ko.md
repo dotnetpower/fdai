@@ -1,7 +1,7 @@
 ---
 translation_of: human-report-lines-and-approval-routing.md
-translation_source_sha: fb4ecbd367102a2acc1f95ab4c835fe137be6d48
-translation_revised: 2026-10-06
+translation_source_sha: 268e958aacc4bf90edb3359699d0865ee54ddb19
+translation_revised: 2026-10-15
 title: 사람 보고선 및 승인 라우팅
 ---
 # 사람 보고선 및 승인 라우팅
@@ -13,6 +13,8 @@ title: 사람 보고선 및 승인 라우팅
 > **범위:** 이 설계는 문서에서 추출한 사람 간 보고 관계, 관계 확인, 독립 Owner 검토,
 > 승인자에게 연락하기 위한 요청자 동의 및 사람 승인(HIL) 라우팅을 다룹니다. 에이전트 담당
 > 체계, RBAC, ActionType 정책 및 실행 권한은 독립적으로 유지합니다.
+
+컨트롤 루프의 읽기 전용 활성 룰 맵은 ActionBuilder가 ORR 인용을 검증하게 합니다. 이 맵은 승인자를 지명하거나 정족수를 충족하거나 보고 그래프를 바꿀 수 없습니다.
 >
 > **롤아웃:** 새 report-line 동작은 shadow 모드에서 시작합니다. 배포 환경은 실제 승인 요청
 > 전달에 사용하기 전에 현재 신원, 라우팅, 응답 및 잘못된 일치에 대한 근거를 수집해야 합니다.

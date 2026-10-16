@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from collections.abc import Mapping
 from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any, cast
@@ -15,8 +14,8 @@ from fdai.agents import (
     PantheonRuntime,
     ShadowDivergenceLedger,
     StateStoreActionRunStore,
+    VarKillSwitchRequestHandler,
 )
-from fdai.composition.cost_governance_activation import build_cost_runtime_bindings
 from fdai.composition.operational_evidence_binding import build_test_context_command_handler
 from fdai.core.capacity import CapacityGraduationController
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
@@ -32,7 +31,8 @@ from fdai.core.operational_planning import (
     SpecialistPlanningCoordinator,
     operational_planning_capability_status,
 )
-from fdai.core.readiness import AuthorityCeiling, DiscoveryActivationReport
+from fdai.core.rbac.kill_switch_command import KillSwitchCommandService
+from fdai.core.readiness import DiscoveryActivationReport
 from fdai.delivery.agent_activity import (
     AgentRuntimeStatePublisher,
     EventBusPantheonActivityObserver,
@@ -65,6 +65,11 @@ from fdai.runtime.bootstrap_agent_discussion import _runtime_asset_root as _runt
 from fdai.runtime.bootstrap_agent_discussion import build_runtime_pantheon_synthesis
 from fdai.runtime.bootstrap_capacity_sampling import build_capacity_sampler
 from fdai.runtime.bootstrap_chaos_schedule import build_chaos_schedule
+from fdai.runtime.bootstrap_cost_governance import (
+    boolean_env,
+    build_logged_cost_runtime,
+    pantheon_enforce_enabled,
+)
 from fdai.runtime.bootstrap_pantheon_models import (
     PantheonInitialization,
     PantheonInitializationResult,
@@ -82,6 +87,9 @@ from fdai.runtime.forecast_learning import (
 )
 from fdai.runtime.operational_catalog_review import build_operational_catalog_review_bindings
 from fdai.runtime.operator_request_receipt_gate import (
+    OPERATOR_REQUEST_OPERATOR_PRODUCER_ID_ENV,
+)
+from fdai.runtime.operator_request_receipt_gate import (
     operator_request_receipt_gate as _operator_request_receipt_gate,
 )
 from fdai.runtime.pantheon_inputs import pantheon_development_bindings
@@ -97,7 +105,6 @@ from fdai.runtime.post_turn_review import (
     post_turn_review_dsn,
 )
 from fdai.runtime.providers import _build_resource_lock
-from fdai.runtime.readiness import RuntimeReadinessState
 from fdai.runtime.t2_route_registry import (
     T2RouteRegistry,
     bind_t2_route_selector,
@@ -107,11 +114,8 @@ from fdai.shared.config.models import LlmMode
 from fdai.shared.config.runtime_flags import pantheon_start_enabled
 
 _LOGGER = logging.getLogger("fdai.startup")
+_pantheon_enforce_enabled = pantheon_enforce_enabled
 HUGINN_SCHEMA_LEARNING_ENABLED_ENV = "FDAI_HUGINN_SCHEMA_LEARNING_ENABLED"
-
-
-def _boolean_env(environment: Mapping[str, str], key: str) -> bool:
-    return environment.get(key, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 async def _bind_post_turn_learning(
@@ -133,16 +137,6 @@ async def _bind_post_turn_learning(
     return await discovery_activation.evaluate()
 
 
-def _pantheon_enforce_enabled(
-    environment: Mapping[str, str],
-    startup_readiness: RuntimeReadinessState,
-) -> bool:
-    requested = environment.get("FDAI_PANTHEON_ENFORCE", "").lower() in ("1", "true")
-    return requested and (
-        startup_readiness.authority_ceiling("autonomous-action") is AuthorityCeiling.DEPLOYMENT
-    )
-
-
 async def initialize_pantheon(
     config: PantheonInitialization,
 ) -> PantheonInitializationResult:
@@ -152,17 +146,8 @@ async def initialize_pantheon(
         return PantheonInitializationResult()
 
     asset_root = _runtime_asset_root()
-    cost_runtime = await build_cost_runtime_bindings(config.environment)
-    _LOGGER.info(
-        "cost_governance_runtime_binding",
-        extra={
-            "enabled": cost_runtime.package_enabled,
-            "advisory_bound": cost_runtime.advisory_provider is not None,
-            "activation_reader_bound": cost_runtime.activation_reader is not None,
-            "restored_samples": len(cost_runtime.initial_samples),
-        },
-    )
-    pantheon_enforce = _pantheon_enforce_enabled(
+    cost_runtime = await build_logged_cost_runtime(config.environment, logger=_LOGGER)
+    pantheon_enforce = pantheon_enforce_enabled(
         config.environment,
         config.startup_readiness,
     )
@@ -440,6 +425,22 @@ async def initialize_pantheon(
         config.environment,
         config.incident_audit_store,
     )
+    var_kill_switch_request_handler = (
+        VarKillSwitchRequestHandler(
+            service=KillSwitchCommandService(config.incident_audit_store),
+            receipt_gate=operator_request_receipt_gate,
+            operator_producer_service_identity=(
+                config.environment.get(
+                    OPERATOR_REQUEST_OPERATOR_PRODUCER_ID_ENV,
+                    "operator-service",
+                ).strip()
+                or "operator-service"
+            ),
+            clock=lambda: datetime.now(UTC),
+        )
+        if operator_request_receipt_gate is not None
+        else None
+    )
     mimir_policy_administration = (
         await build_mimir_policy_administration(
             environment=config.environment,
@@ -480,6 +481,7 @@ async def initialize_pantheon(
         action_rollback_executors=action_rollback_executors or None,
         vidar_state_store=config.incident_audit_store,
         var_state_store=config.incident_audit_store,
+        var_kill_switch_request_handler=var_kill_switch_request_handler,
         forseti_state_store=config.incident_audit_store,
         bragi_state_store=config.incident_audit_store,
         odin_state_store=config.incident_audit_store,
@@ -505,7 +507,7 @@ async def initialize_pantheon(
         muninn_state_store=config.incident_audit_store,
         huginn_state_store=config.incident_audit_store,
         operator_request_receipt_gate=operator_request_receipt_gate,
-        huginn_schema_learning_enabled=_boolean_env(
+        huginn_schema_learning_enabled=boolean_env(
             config.environment,
             HUGINN_SCHEMA_LEARNING_ENABLED_ENV,
         ),
@@ -715,7 +717,7 @@ async def initialize_pantheon(
         )
     cast(Any, thor_agent).set_shadow_required(
         lambda: (
-            not _pantheon_enforce_enabled(
+            not pantheon_enforce_enabled(
                 config.environment,
                 config.startup_readiness,
             )

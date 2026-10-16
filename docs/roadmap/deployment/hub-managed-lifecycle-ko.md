@@ -1,8 +1,8 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 1d63cf54d9f7275dc6d56f1e6da463bbf3124204
-translation_revised: 2026-10-15
+translation_source_sha: 71eee0fae873849a3e2e0bfa47d10f8cad037aed
+translation_revised: 2026-10-16
 ---
 # Hub 관리형 수명 주기
 
@@ -10,9 +10,11 @@ translation_revised: 2026-10-15
 hub-and-spoke 모델을 따라 각 설치를 구독한 release channel과 고객이 승인한 구성에 맞춰
 유지합니다. 이 문서는 수명 주기 아키텍처, 계획과 상태 루프, 고객 격리 경계를 소유합니다.
 
-> **상태:** 설계만 되어 있습니다. Hub, 설치 에이전트, Lifecycle Plan, 업그레이드 번들은 아직
-> 없습니다. [구현 ledger](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)가
-> 제공 현황을 추적하며, [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance-ko.md)이
+> **상태:** 개발 검증용으로 일부 구현되었습니다. 로컬 Hub와 플래너, 두 Hub의 명시적 원격 개발
+> 준비 경로가 있으며, 전체 관리형 설치 경로는 아직 제공하지 않습니다. Azure 배포나 프로덕션
+> 신뢰 루트 설정을 완료했다는 뜻은 아닙니다.
+> [구현 현황 원장](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)이
+> 정확한 제공 범위를 추적하며, [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance-ko.md)이
 > 결정을 기록합니다.
 >
 > **범위:** 이 경로는 설치, 업그레이드, 구성, 드리프트, 회수 같은 FDAI 자체의 수명 주기를
@@ -37,8 +39,39 @@ Lifecycle Hub가 사용하는 릴리스 목록, 데이터 또는 피드인 **Rel
 | 계획 계산 | Hub가 Lifecycle Plan을 계산합니다. 설치 에이전트는 최대 효과 경계를 로컬에서 도출하며, Plan은 그 경계를 좁힐 수만 있습니다. |
 | 설치 에이전트 | 워크로드용 수명 주기 에이전트는 클러스터 안에, 정확한 Terraform 계획용 인프라 에이전트는 실행 호스트에 둡니다. 둘 다 판테온 에이전트가 아닙니다. |
 | 업그레이드 | 유지 관리 구간 안에서 자동으로 적용합니다. 구성 변경에는 승인된 변경 요청이, Azure 리소스 삭제나 교체에는 확인이 필요합니다. |
-| 데이터 경계 | Hub는 Azure 자격 증명, 비밀 값, 운영 데이터를 보관하지 않습니다. 경계를 넘는 것은 수명 주기 메타데이터뿐입니다. |
+| 데이터 경계 | Hub는 고객 워크로드의 자격 증명이나 운영 데이터를 보관하지 않습니다. Hub 자체의 제한된 서비스 ID와 서명 키는 고객 리소스를 변경할 권한을 주지 않습니다. 경계를 넘는 것은 수명 주기 메타데이터뿐입니다. |
 | 기록 | cell이나 Target Hub마다 Hub PostgreSQL을 두고, 설치 증적은 Foundation 스토리지에 추가 전용으로 남깁니다. |
+
+## 두 Hub의 개발 검증
+
+벤더 Release Hub와 고객 Target Lifecycle Hub는 같은 테스트 구독의 별도 RG에 배치하며,
+ACA Environment, VNet, PostgreSQL 서버와 DB, 관리 ID, Key Vault, 로그를 각각 분리합니다.
+RG 분리는 관리 구획일 뿐 보안 격리의 증거가 아닙니다. VNet peering이나 벤더의 고객 측 접근
+권한은 추가하지 않습니다. 승인된 브라우저 CIDR과 고객 NAT 주소로 HTTPS 접근을 제한하고,
+비공개 DB와 Key Vault의 접근 경로는 분리합니다.
+
+명시적으로 선택하는 원격 프로필은 Entra bearer 토큰의 발급자, 대상, 유효 시간과 운영자의
+object ID, 클라이언트, scope를 직접 검증합니다. 서비스 요청은 정확한 고객 서비스 ID와
+내보내기 읽기 전용 역할을 검증합니다. 프록시 헤더는 인증 근거가 아닙니다.
+로컬 CLI의 loopback 기본값은 유지합니다. 버전이 지정된 secret reference로 독립적인 개발용
+서명 키를 제공하고, PostgreSQL에는 Hub 자체의 관리 ID와 인증서를 검증하는 TLS만 사용합니다.
+원격 서버를 시작하기 전에 명시적 migration을 완료해야 합니다. 키 교체나 호환되지 않는 기존
+스키마는 별도로 검토한 migration이 필요합니다.
+
+고객 운영자는 다운로드와 별개로 승인된 신뢰 경로에서 받은 revision과 정확한 digest를 먼저
+승인한 뒤, 제한된 outbound import를 한 번 요청합니다. 다운로드 응답의 digest 자체는 승인이
+아닙니다. 검증한 원본 바이트, digest, 키 식별 정보, 낮아지지 않는 revision 하한과 행위자 감사
+기록을 영속 보관합니다. 기존 매니페스트 서명, 만료, 회수 계약과 플래너 제약을 유지하며,
+회수 반영과 Plan 계산은 같은 신뢰 상태 행의 잠금으로 직렬화합니다.
+UI는 이미 준비한 합성 설치본의 Plan을 계산하지만, 원격 프로필은 Agent 통신이나 Plan 실행을
+허용하지 않습니다.
+
+준비 절차와 검증 명령은 [두 Hub 개발 경계 안내](../../../infra/hubs-development/README.md)를
+따릅니다. 정적 IaC 검사와 로컬 컨테이너 검증만으로 Azure 네트워크/RBAC 격리, 실제 Entra
+로그인, 레지스트리 아티팩트 존재, replica 교체 후 보존을 입증할 수는 없습니다.
+이를 검증하려면 정확한 클라우드 preview와 실행 범위를 별도로 승인해야 합니다.
+이 경로는 소스/오프라인 설치를 바꾸지 않으며, 자동 polling, 프로덕션 카탈로그 메타데이터와
+신뢰 루트 설정, Agent 적용, 전체 FDAI 설치를 구현하지 않습니다.
 
 ## 핵심 개념
 

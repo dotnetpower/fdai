@@ -1,13 +1,14 @@
 ---
 title: 채널과 알림(Channels and Notifications)
 translation_of: channels-and-notifications.md
-translation_source_sha: 336843aaf6a64f88350251460fe24a7f541cade1
-translation_revised: 2026-10-08
+translation_source_sha: 86b8229548d933d29a0f7d7f5f92904566100726
+translation_revised: 2026-10-15
 ---
 
 # 채널과 알림(Channels and Notifications)
 
 Post-turn review request intake는 Core runtime task로 supervised되지만 channel delivery, notification, approval topic과 분리되어 있습니다.
+Core는 ORR 인용 검증을 위해 읽기 전용 활성 룰 맵도 ActionBuilder에 주입합니다. 이 배선은 채널, 알림 또는 승인 경로를 만들지 않습니다.
 
 FDAI가 Teams, Slack, 이메일, 웹훅, paging 서비스, SMS, Direct Line 사용자 지정 채널 및
 명시적 선택 브라우저 알림을 통해 사람과 소통하는 방법. 이 문서는 **채널 추상화, 신뢰 레벨, 카테고리 경계, 라우팅

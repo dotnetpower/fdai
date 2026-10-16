@@ -151,6 +151,44 @@ async def _coordinator() -> tuple[
     )
 
 
+async def test_version_two_request_replay_is_semantically_idempotent() -> None:
+    store, ledger, _, coordinator = await _coordinator()
+    current = await ledger.current_generation()
+    assert current is not None
+    request = _operator_record(
+        operation="rule.activation-request",
+        principal_id="requester",
+        idempotency_key="disable-beta-v2-replay",
+        expected_revision=current.generation_digest,
+        path_parameters={},
+        body={
+            "mode": "shadow",
+            "reason": "Disable the reviewed Rule after an operational false positive.",
+            "changes": [{"rule_id": "rule.beta", "enabled": False}],
+        },
+        accepted_at=NOW + timedelta(minutes=1),
+        roles=("Contributor",),
+    )
+    first = await coordinator.accept_request(
+        request,
+        source_ref="operator-proposal:workflow:disable-beta-v2-replay",
+        at=NOW + timedelta(minutes=1),
+    )
+    key = f"rule-activation:request:{first.request_id}"
+    durable = dict(store._state[key])  # noqa: SLF001 - emulate a later binary's envelope.
+    durable["schema_version"] = "2.0.0"
+    durable["proposal"] = {**durable["proposal"], "schema_version": "2.0.0"}
+    store._state[key] = durable  # noqa: SLF001
+
+    replay = await coordinator.accept_request(
+        request,
+        source_ref="operator-proposal:workflow:disable-beta-v2-replay",
+        at=NOW + timedelta(minutes=1),
+    )
+
+    assert replay == first
+
+
 async def test_distinct_approval_changes_db_generation_and_runtime_membership() -> None:
     store, ledger, runtime, coordinator = await _coordinator()
     current = await ledger.current_generation()

@@ -48,6 +48,7 @@ from fdai_operator_service.streaming.shutdown import (
     shutting_down,
 )
 from fdai_service_contracts.operator_authentication import OperatorAuthenticationReceipt
+from fdai_service_contracts.read_investigation import ReadInvestigationProposalBody
 from fdai_service_contracts.test_context import TestContextRequest
 from pydantic import ValidationError
 from starlette.requests import Request
@@ -181,6 +182,18 @@ def _proposal_endpoint(
             )
             if spec.operation == "chat.exchange":
                 require_inline_images_absent(body)
+            if spec.operation == "background.create":
+                try:
+                    body = ReadInvestigationProposalBody.model_validate(body).model_dump(
+                        mode="json",
+                        exclude_none=True,
+                    )
+                except ValidationError as exc:
+                    raise ConversationBoundaryError(
+                        400,
+                        "invalid_read_investigation_request",
+                        "read investigation request is invalid",
+                    ) from exc
             if spec.operation.startswith("test-context."):
                 try:
                     typed = TestContextRequest.model_validate(body)

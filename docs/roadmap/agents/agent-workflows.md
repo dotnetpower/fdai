@@ -20,9 +20,11 @@ and is promoted per-workflow after Wave 8 measures its KPIs.
 > goes through Saga. There are no shortcuts.
 >
 > **Machine-readable form.** Shipped executable workflows live under
-> [`rule-catalog/workflows/`](../../../rule-catalog/workflows). This design
-> inventory is broader than the current catalog and does not imply one file per
-> section. The schema, `Process` ObjectType, and compile-to-Runbook wiring are
+> [`rule-catalog/workflows/`](../../../rule-catalog/workflows) or a package-owned equivalent.
+> The exact-id boundary inventory currently binds `predictive-scale` and the optional
+> `cost-aware-remediation` package workflow. The other eleven design workflows remain
+> metadata-only agent choreography and do not imply one file per section. Similar but differently
+> named Process workflows are independent catalog entries. The schema, `Process` ObjectType, and compile-to-Runbook wiring are
 > defined in [process-automation.md](../decisioning/process-automation.md).
 
 ## Implementation status
@@ -34,7 +36,7 @@ and is promoted per-workflow after Wave 8 measures its KPIs.
 | Thirteen-workflow metadata registry | implemented | `services/core-control-plane/src/fdai/agents/_framework/workflows.py`; `services/core-control-plane/tests/agents/test_wave7_workflows.py` | All registered workflows default to `shadow`; the registry is metadata and does not by itself prove a deployed end-to-end workflow. |
 | Executable shadow trace references | implemented | `services/core-control-plane/tests/agents/test_wave7_workflows.py`; `services/core-control-plane/tests/composition/test_readiness_service.py`; `services/core-control-plane/tests/core/test_control_loop_operator_request.py`; `services/core-control-plane/tests/agents/test_detection_readiness.py` | Focused tests cover the registered trace paths. They are implementation evidence, not retained operational traces. |
 | Published workflow sequence diagrams | validated | `docs/diagrams/fdai-agent-workflows-*.diagram.yaml`; `tools/architecture-diagrams/test/agent-workflows.test.ts`; exact-SHA CI and Pages runs; live bilingual geometry checks | All twelve published diagrams show complete sender and receiver names plus the typed message in centered bilingual cards. This presentation adds no direct call, workflow state, authority, or promotion evidence. |
-| Machine-readable workflow catalog | in-progress | `rule-catalog/workflows/`; `docs/roadmap/decisioning/process-automation.md` | The executable catalog is intentionally narrower than this design inventory and is not a one-file-per-section projection. |
+| Metadata-to-executable catalog boundary | implemented | `config/workflow-promotion-verdicts.json`; `scripts/quality/architecture/check-workflow-promotion-verdicts.py`; focused checker tests | Exact workflow ids bind two metadata workflows to executable catalog entries; eleven remain metadata-only. All 14 other executable YAML workflows are explicitly classified as process-catalog-only. Canonical YAML digests bind triggers, steps, default modes, promotion gates, and all other declaration fields. Similar names do not create a mapping, and the inventory grants no mode or authority. |
 | Measured promotion gates | not-started | Promotion thresholds in this document and `services/core-control-plane/src/fdai/agents/_framework/workflows.py` | No retained evidence demonstrates the required shadow durations, KPI baselines, or per-workflow gate results. |
 | Per-workflow promotion verdict inventory | implemented | `config/workflow-promotion-verdicts.json`; `scripts/quality/architecture/check-workflow-promotion-verdicts.py`; focused checker tests | Each of the 13 metadata workflows has an exact-definition verdict: 12 are deferred for named missing operational evidence, and retrospective what-if is permanently shadow. The inventory records no operational evidence and changes no mode or authority. |
 | Enforce-mode promotion | not-started | `default_mode="shadow"` in `services/core-control-plane/src/fdai/agents/_framework/workflows.py` | Promotion remains independent per workflow; retrospective what-if is inherently shadow and is not eligible for enforcement. |
@@ -43,6 +45,8 @@ and is promoted per-workflow after Wave 8 measures its KPIs.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-15 | implemented | Recorded and gated the non-1:1 metadata-to-executable boundary for all 13 workflows. Exact ids bind two entries; the other eleven are metadata-only, and similar-name substitution or duplicate exact ids fail closed. | `current change`; workflow verdict config/schema/checker; 10 focused checker tests. | Retain operational shadow duration, KPI baseline, policy-escape, and trace evidence before any eligible promotion. |
+| 2026-10-15 | implemented | Extended the boundary across all 16 executable YAML workflows. Fourteen independent process-catalog entries are explicit, and canonical definition digests invalidate the inventory when triggers, steps, default modes, promotion gates, or other declaration fields drift. | `current change`; workflow verdict config/schema/checker; 15 focused checker tests. | Retain operational shadow duration, KPI baseline, policy-escape, and trace evidence before any eligible promotion. |
 | 2026-10-01 | implemented | Recorded the implemented workflow steps from the I12 batch in the workflow registry, trace assertions, planned-agent exit conditions, and doc parity tests without changing any workflow mode. | `current change`; `services/core-control-plane/src/fdai/agents/_framework/workflows.py`; `services/core-control-plane/tests/agents/test_wave7_workflows.py`; `docs/roadmap/agents/agent-workflows.md`; `docs/roadmap/agents/agent-workflows-ko.md`; focused Wave 7, Pantheon doc parity, localization, roadmap, link, punctuation, readable-Hangul, and core-import checks. | Retain operational shadow duration, KPI baseline, policy-escape, and promotion evidence before any enforce-mode change. |
 | 2026-09-16 | implemented | Recorded one fail-closed verdict for every metadata workflow without treating implementation traces as operational measurements. Exact catalog and definition digests make a new or changed workflow fail the inventory gate until its verdict is reviewed again. | `current change`; `config/workflow-promotion-verdicts{,.schema}.json`; `scripts/quality/architecture/check-workflow-promotion-verdicts.py`; focused checker tests passed 7 cases. | Retain the named runtime duration, KPI baseline, guard-regression, and policy-escape evidence before replacing any deferral. No workflow mode changed. |
 | 2026-08-20 | validated | Retained exact-source CI, Pages deployment, and live bilingual geometry evidence for the corrected workflow diagrams. Every one of the 24 deployed SVGs exposes a message body for every node, centers the sequence with zero delta, and has zero text overflow or node overlap; the English and Korean routes also have no page or diagram-host overflow at desktop, constrained-desktop, or mobile widths. | Commit `c22ea624b`; [CI run 32336843459](https://github.com/dotnetpower/fdai/actions/runs/32336843459); [Pages run 32336843527](https://github.com/dotnetpower/fdai/actions/runs/32336843527); live `1440x900`, `993x641`, and `390x844` checks. | None for the published sequence-diagram regression. Runtime promotion evidence remains separately open. |
@@ -51,7 +55,9 @@ and is promoted per-workflow after Wave 8 measures its KPIs.
 
 ### Remaining work
 
-- [ ] Decide which design-inventory workflows require machine-readable catalog entries and preserve the documented non-1:1 boundary.
+- [x] Record and gate the exact-id catalog boundary for all 13 design workflows and all 16
+  executable YAML workflows: two exact ids are joined, eleven design workflows remain
+  metadata-only, and fourteen executable workflows are explicitly process-catalog-only.
 - [ ] Retain per-workflow shadow-duration, KPI-baseline, policy-escape, and trace evidence from an operating environment.
 - [x] Record one exact-definition promotion verdict for every metadata workflow. The current inventory defers 12 workflows for named missing evidence and keeps retrospective what-if permanently shadow; it grants no authority.
 

@@ -28,11 +28,16 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 from uuid import NAMESPACE_URL, uuid5
 
+from fdai_service_contracts.readiness_remediation import (
+    READINESS_REMEDIATION_EVENT_SOURCE,
+    READINESS_REMEDIATION_EVENT_TYPE,
+    ReadinessRemediationRequest,
+)
 from jsonschema import Draft202012Validator
 
 from fdai.core.quality_gate.gate import QualityCandidate
@@ -75,6 +80,7 @@ class ActionBuilder:
     action_types_by_name: dict[str, OntologyActionType]
     ontology_release: OntologyRelease | None = None
     clock: Callable[[], datetime] | None = None
+    rules_by_id: dict[str, Rule] = field(default_factory=dict)
 
     def _created_at(self) -> datetime:
         """Return the action creation time from the injected clock."""
@@ -278,6 +284,94 @@ class ActionBuilder:
             rule,
         )
 
+    def build_from_readiness_remediation(self, *, event: Event) -> tuple[Action, Rule]:
+        """Build one shadow Action from a grounded ORR remediation request."""
+
+        if (
+            event.event_type != READINESS_REMEDIATION_EVENT_TYPE
+            or event.source != READINESS_REMEDIATION_EVENT_SOURCE
+        ):
+            raise ActionBuildError("readiness remediation event source or type is invalid")
+        if event.mode is not Mode.SHADOW:
+            raise ActionBuildError("readiness remediation event MUST remain in shadow mode")
+        raw = event.payload.get("readiness_remediation_request")
+        try:
+            request = ReadinessRemediationRequest.model_validate(raw)
+        except ValueError as exc:
+            raise ActionBuildError("readiness remediation request is malformed") from exc
+        if event.idempotency_key != request.idempotency_key:
+            raise ActionBuildError("readiness remediation idempotency identity does not match")
+        if event.resource_ref != request.target_resource_ref:
+            raise ActionBuildError("readiness remediation target does not match the event")
+        if self.ontology_release is None:
+            raise ActionBuildError("readiness remediation requires an active ontology release")
+        if request.target_revision != self.ontology_release.digest:
+            raise ActionBuildError("readiness remediation target revision is stale")
+        action_type = self.action_types_by_name.get(request.action_type)
+        if action_type is None:
+            raise ActionBuildError(
+                f"readiness remediation ActionType {request.action_type!r} is unknown"
+            )
+        active_declaration = next(
+            (
+                declaration
+                for declaration in self.ontology_release.declarations
+                if declaration.kind is OntologyDeclarationKind.ACTION
+                and declaration.name == action_type.name
+            ),
+            None,
+        )
+        loaded_declaration = build_ontology_release(action_types=(action_type,)).declarations[0]
+        if active_declaration != loaded_declaration:
+            raise ActionBuildError(
+                f"readiness remediation ActionType {request.action_type!r} "
+                "is outside the active release"
+            )
+        trigger = action_type.trigger_kind
+        if trigger is None or trigger.kind not in {TriggerKind.RULE_VIOLATION, TriggerKind.BOTH}:
+            raise ActionBuildError(
+                f"ActionType {request.action_type!r} does not allow rule_violation triggers"
+            )
+        _validate_action_params(action_type, request.params, source="readiness remediation")
+        for rule_id in request.citing_rule_ids:
+            cited_rule = self.rules_by_id.get(rule_id)
+            if cited_rule is None:
+                raise ActionBuildError(
+                    f"readiness remediation cited rule {rule_id!r} is not registered"
+                )
+            if cited_rule.remediates != action_type.name:
+                raise ActionBuildError(
+                    f"readiness remediation cited rule {rule_id!r} does not remediate "
+                    f"{action_type.name!r}"
+                )
+        resource = event.payload.get("resource")
+        resource_type = resource.get("resource_type") if isinstance(resource, dict) else None
+        rule = _readiness_remediation_rule(
+            request,
+            resource_type if isinstance(resource_type, str) else "operational-readiness",
+        )
+        return (
+            Action(
+                schema_version="1.0.0",
+                action_id=_build_action_id(request.request_id),
+                idempotency_key=request.request_id,
+                event_id=event.event_id,
+                action_type=action_type.name,
+                target_resource_ref=request.target_resource_ref,
+                operation=action_type.operation,
+                params=dict(request.params),
+                stop_condition=_derive_stop_condition(action_type),
+                stop_conditions=list(action_type.stop_conditions),
+                rollback_ref=RollbackRef(kind=action_type.rollback_contract, reference=None),
+                blast_radius=_derive_blast_radius(action_type),
+                mode=Mode.SHADOW,
+                citing_rules=list(request.citing_rule_ids),
+                created_at=self._created_at(),
+                action_type_ref=self._action_type_ref(action_type),
+            ),
+            rule,
+        )
+
     def _action_type_ref(self, action_type: OntologyActionType) -> OntologyTypeRef:
         release = self.ontology_release or build_ontology_release(
             action_types=tuple(self.action_types_by_name.values())
@@ -309,6 +403,40 @@ def _operator_request_rule(action_type: OntologyActionType, resource_type: str) 
                 "license": "LicenseRef-runtime",
                 "redistribution": "embeddable",
                 "retrieved_at": "2026-07-15T00:00:00Z",
+            },
+        }
+    )
+
+
+def _readiness_remediation_rule(
+    request: ReadinessRemediationRequest,
+    resource_type: str,
+) -> Rule:
+    """Return the request-bound policy context consumed by the unified risk gate."""
+
+    return Rule.model_validate(
+        {
+            "schema_version": "1.0.0",
+            "id": f"operational-readiness.{request.request_id}",
+            "version": "1.0.0",
+            "source": "custom",
+            "severity": request.severity,
+            "category": "config_drift",
+            "resource_type": resource_type,
+            "check_logic": {
+                "kind": "expression",
+                "reference": request.evidence_refs[0],
+            },
+            "remediation": {"template_ref": "operational-readiness"},
+            "remediates": request.action_type,
+            "parameters": dict(request.params),
+            "provenance": {
+                "source_url": "https://fdai.dev/operational-readiness",
+                "resolved_ref": request.target_revision,
+                "content_hash": request.request_digest,
+                "license": "LicenseRef-runtime",
+                "redistribution": "embeddable",
+                "retrieved_at": request.requested_at.isoformat(),
             },
         }
     )

@@ -93,7 +93,10 @@ def _text(value: object, limit: int) -> str:
     if not isinstance(value, str):
         return ""
     cleaned = re.sub(r"[\x00-\x08\x0b-\x1f\x7f\u202a-\u202e\u2066-\u2069]", "", value)
-    return cleaned[:limit]
+    if len(cleaned) <= limit:
+        return cleaned
+    marker = "..."[:limit]
+    return cleaned[: limit - len(marker)] + marker
 
 
 def import_remediation_result(

@@ -7,6 +7,7 @@ import argparse
 import json
 from pathlib import Path
 
+from fdai_service_contracts.kill_switch import KillSwitchRequestEvent
 from fdai_service_contracts.policy_administration import (
     PolicyActivationEvent,
     PolicyRevisionRequestEvent,
@@ -16,6 +17,7 @@ from pydantic import BaseModel
 ROOT = Path(__file__).resolve().parents[3]
 OUTPUT = ROOT / "packages/service-contracts/src/fdai_service_contracts/schemas"
 MODELS: dict[str, type[BaseModel]] = {
+    "kill-switch-request": KillSwitchRequestEvent,
     "policy-activation": PolicyActivationEvent,
     "policy-revision-request": PolicyRevisionRequestEvent,
 }

@@ -81,6 +81,7 @@ from ..shared.contracts.models import (
 )
 from ..shared.contracts.registry import SchemaRegistry
 from ..shared.contracts.validation import ContractValidator, EventValidator
+from ..shared.providers import readiness as _readiness
 from ..shared.providers.blast_probe import LiveBlastProbe
 from ..shared.providers.change_feed import ChangeFeed, EmptyChangeFeed
 from ..shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
@@ -100,10 +101,6 @@ from ..shared.providers.manual_classifier import (
 )
 from ..shared.providers.manual_source import EmptyManualSource, ManualSource
 from ..shared.providers.metric import MetricProvider, NoopMetricProvider
-from ..shared.providers.readiness import (
-    PostureAssessmentProvider,
-    ReadinessReportPublisher,
-)
 from ..shared.providers.startup_probe import StartupProbe
 from ..shared.providers.trace_query import NoopTraceQueryProvider, TraceQueryProvider
 from ..shared.providers.trajectory import TrajectoryDatasetStore
@@ -252,8 +249,9 @@ class Container:
     assurance_twin_query_compiler: NlQueryCompiler | None = None
     assurance_twin_discovery_sink: AssuranceTwinDiscoverySink | None = None
     assurance_twin_retained_evidence_source: RetainedTwinEvidenceSource | None = None
-    operational_readiness_posture: PostureAssessmentProvider | None = None
-    operational_readiness_report_publisher: ReadinessReportPublisher | None = None
+    operational_readiness_posture: _readiness.PostureAssessmentProvider | None = None
+    operational_readiness_report_publisher: _readiness.ReadinessReportPublisher | None = None
+    operational_readiness_remediation: _readiness.RemediationProposalBinding | None = None
     architecture_review_evidence_provider: ProductionEvidenceProvider | None = None
     decision_evidence_admission_provider: DecisionEvidenceAdmissionProvider | None = None
     operational_evidence_requester: OperationalEvidenceRequester | None = None

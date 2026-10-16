@@ -35,6 +35,10 @@ Conversation model-call counts, token usage, and local per-call timing are diagn
 They cannot issue an admission, replace any source readback, qualify operational evidence,
 or prove human authorization. Adding numeric usage telemetry leaves this verifier boundary unchanged.
 
+The Operator conversation boundary validates every `background.create` body as a typed
+`ReadInvestigationProposalBody` before persistence. Invalid bodies fail with a bounded request
+error; this input validation cannot issue independent evidence or grant investigation authority.
+
 Forseti's bounded v1 what-if comparison journal retains selected diagnostic inputs in its existing
 StateStore. Content hashes, revision CAS and restart recovery detect storage corruption; they are
 not independent verifier proofs or `DecisionEvidenceAdmission` records. Auxiliary retention

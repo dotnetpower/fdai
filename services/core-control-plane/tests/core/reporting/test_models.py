@@ -41,6 +41,31 @@ class TestTimeRange:
 
 
 class TestRenderedReport:
+    def test_datasource_provenance_preserves_partial_availability(self) -> None:
+        provenance = DataSourceProvenance(
+            datasource="metric",
+            source="azure-monitor",
+            availability="partial",
+            synthetic=False,
+            as_of="2026-10-15T00:00:00+00:00",
+        )
+
+        assert provenance.to_dict() == {
+            "datasource": "metric",
+            "source": "azure-monitor",
+            "availability": "partial",
+            "synthetic": False,
+            "as_of": "2026-10-15T00:00:00+00:00",
+        }
+
+    def test_datasource_provenance_rejects_unknown_availability(self) -> None:
+        with pytest.raises(ValueError, match="availability is invalid"):
+            DataSourceProvenance(
+                datasource="metric",
+                source="azure-monitor",
+                availability="degraded",
+            )
+
     def test_to_dict_shape_matches_fe_contract(self) -> None:
         now = datetime(2026, 7, 10, 12, 0, tzinfo=UTC)
         report = RenderedReport(

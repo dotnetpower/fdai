@@ -10,6 +10,8 @@ the topology in
 [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md),
 and the code/CI gates in
 [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md). Declaration-list facets such as `available`, `queryable`, and `readable` express candidate meaning, not authorization. Core constrains the selected declaration kind to the current principal manifest; these facets cannot grant access, create observed state, or bypass the exact-release verifier.
+ActionBuilder receives Core's read-only active rule map only to validate ORR citations against the requested ActionType. The map grants no identity, approval, or execution authority.
+Core accepts an ORR remediation publisher only with its lever map; this complete DI forwards already attributed proposal facts and cannot supply approval or executor identity.
 ## Severity Vocabulary
 
 - **P0 blocker** - must be resolved and verified before any auto-execution is enabled; blocks
@@ -175,6 +177,10 @@ approved grant, and fresh effective-access evidence is required before the actio
   and a registry record; result import trusts only that record. Notifications and agent bus
   messages carry counts and opaque issue ids, never code or paths. See
   [Code Security Findings](../operations/code-security-findings.md#remediation-pack).
+- **Bounded code-security evidence**: helper and result-import text marks truncation explicitly.
+  Retained HTML reports reject active content, and review projections reject unsafe control
+  characters rather than presenting malformed evidence as a complete review. These read-only
+  checks grant no repository-write, approval, or execution authority.
 - **Code-security LLM lens**: the optional lens lane sends bounded source excerpts to configured
   model deployments, so the same residency and no-retention terms apply. Its output is untrusted;
   only grounded, quorum-agreed candidates become inert hypotheses. Grounding is checked in code: a
@@ -305,8 +311,11 @@ The PostgreSQL evidence provider follows these boundaries:
   `kill_switch` ceiling axis fed by `KillSwitch.is_engaged()`
   ([execution-model.md](../decisioning/execution-model.md) 2.6b). The production runtime reads
   the state from PostgreSQL before every authority decision; a read failure is treated as
-  engaged. Owner and Break-Glass principals change it through `POST /system/kill-switch`, which
-  uses revision compare-and-set and writes the audit entry in the same transaction.
+  engaged. Owner and Break-Glass principals submit `POST /system/kill-switch` with fresh
+  authentication and an `Idempotency-Key`. The Operator API signs and publishes a typed request;
+  Var verifies the exact receipt, principal, role, time, and replay fence before revision
+  compare-and-set writes the state and audit entry in the same transaction. HTTP `202` proves only
+  accepted publication. An independent durable state readback proves that the switch changed.
 - A **break-glass** procedure grants scoped emergency access under mandatory audit and
   post-incident review; break-glass use raises an alert and auto-expires.
 

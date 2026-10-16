@@ -83,6 +83,8 @@ additional_tags = {
 # EOT
 # analyzer_window_seconds = "300"   # optional; CLI default when unset
 # analyzer_budget_seconds = "60"    # optional; CLI default when unset
+# slo_burn_cron_expression = "*/5 * * * *" # opt-in after workload SLO YAML is packaged
+# slo_catalog_dir = "/app/rule-catalog/slo"
 
 # Browser-evidence retention is opt-in until capture is deployed.
 # browser_evidence_cleanup_cron_expression = "0 3 * * *"

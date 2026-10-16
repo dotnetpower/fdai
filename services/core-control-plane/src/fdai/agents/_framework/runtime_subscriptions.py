@@ -6,6 +6,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
+from fdai_service_contracts.kill_switch import KILL_SWITCH_REQUEST_TOPIC
 from fdai_service_contracts.policy_administration import POLICY_REVISION_REQUEST_TOPIC
 
 from fdai.agents._framework.base import Agent
@@ -19,6 +20,7 @@ from fdai.agents._framework.ontology_index import (
 from fdai.agents.heimdall import Heimdall
 from fdai.agents.huginn import Huginn, HuginnIngressRejectedError
 from fdai.agents.mimir import Mimir
+from fdai.agents.var import Var
 from fdai.core.human_assignment.execution_ports import HumanAccessAgentBindings
 from fdai.core.rule_semantic_generation import (
     RULE_GENERATION_ACTIVATION_COMMAND_TOPIC,
@@ -139,6 +141,17 @@ def bind_runtime_subscriptions(
             POLICY_REVISION_REQUEST_TOPIC,
             "Mimir",
             agents["Mimir"].on_typed_message,
+        )
+        subscription_count += 1
+    if (
+        "Var" in agents
+        and isinstance(agents["Var"], Var)
+        and agents["Var"].kill_switch_configured()
+    ):
+        bridge.subscribe(
+            KILL_SWITCH_REQUEST_TOPIC,
+            "Var",
+            agents["Var"].on_typed_message,
         )
         subscription_count += 1
     return subscription_count

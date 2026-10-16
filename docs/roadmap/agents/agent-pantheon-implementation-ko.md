@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 216e6a9e46b37a7249c657eb82efee1bcbf69aa3
+translation_source_sha: cafc2c4430ad67ce1aa90e0c529924db2f14a346
 translation_revised: 2026-10-15
 ---
 
@@ -112,6 +112,7 @@ sampler는 검토된 `resource.cpu.utilization_pct` 선언을 사용하고 조�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-15 | implemented | Pantheon 소유권, 판단, 승인, 실행 또는 LLM 역할을 바꾸지 않고 조건부 `operator.kill-switch.requests` 명령 consumer를 Var에 추가했습니다. | `0398357455`, Var/runtime/layout 테스트 96개와 strict mypy 및 Ruff 통과 | 권한 있는 상태 재조회를 구현하고 배포된 engage/no-execute/disengage 근거를 보존합니다. |
 | 2026-10-15 | implemented | 내용 해시를 가진 공유 리비전 기록과 원자적 head·감사 확정으로 재현된 A/B/A 내부 체인 분기를 수정했습니다. 제한 안에서 이전 기록을 보존하거나 검증 불가 시 이행을 보류합니다. | `current change`; #2149; `audit_chain_journal.py`; `audit_chain_rehydrate.py`; 소유 범위 검사 165개, 1,500회 추가 후 복구 검사 1개, 실제 격리 PostgreSQL 검사 5개; 다섯 소스 strict mypy와 Ruff. | 배포 전에 구버전 writer를 중지하고 더 긴 이력의 이행을 별도로 검토해야 합니다. 원격 식별자와 실제 배포 수락도 아직 남아 있습니다. |
 | 2026-10-15 | implemented | Bragi 평가 입력 리비전을 원본과 분리하고, 기준·후보의 내용이나 JSON 타입이 바뀌면 저장·게시 전에 거절하며, 보관된 평가기 참조로 반환된 후보를 바꾸지 못하게 했습니다. | `current change`; `bragi_intent_training.py`; 변조·격리 반례 5개 추가, 학습·구조 검사 35개, 한 소스 mypy와 Ruff 통과. | 독립 평가기, 동의가 확인된 원본 표본, 검토된 활성화와 배포된 공급자의 수락 근거는 아직 남아 있습니다. |
 | 2026-10-15 | implemented | Bragi 학습의 실행·게시·단계 식별자를 전체 표본, 동의, 후보 및 단계 스냅샷에 결속하고, 런타임 라우팅 변경 없이 검토 개정마다 기록을 별도로 보존했습니다. | `current change`; `bragi_intent_training.py`, `bragi_runtime_helpers.py`, `bragi.py`; 식별자·저장 반례 6개 추가, 학습·구조 검사 30개, 세 소스 mypy와 Ruff 통과. | 독립 평가기, 동의가 확인된 원본 표본, 검토된 활성화와 배포된 공급자의 수락 근거는 아직 남아 있습니다. |

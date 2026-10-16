@@ -1,0 +1,66 @@
+FROM scratch AS hub-dependencies
+
+FROM scratch AS hub-npm-cache
+
+FROM node:22-bookworm-slim AS ui
+ARG OFFLINE_DEPS=false
+WORKDIR /src
+COPY lifecycle/hub/ui/package*.json lifecycle/hub/ui/
+COPY lifecycle/release-hub/ui/package*.json lifecycle/release-hub/ui/
+RUN --mount=from=hub-npm-cache,target=/seed-cache \
+    if [ "$OFFLINE_DEPS" = "true" ]; then cp -R /seed-cache /tmp/npm-cache; \
+      npm --prefix lifecycle/hub/ui ci --offline --cache /tmp/npm-cache && \
+      npm --prefix lifecycle/release-hub/ui ci --offline --cache /tmp/npm-cache; \
+    else npm --prefix lifecycle/hub/ui ci && npm --prefix lifecycle/release-hub/ui ci; fi
+COPY lifecycle/hub/ui lifecycle/hub/ui
+COPY lifecycle/release-hub/ui lifecycle/release-hub/ui
+COPY ui/calm-slate-tokens.css ui/calm-slate-primitives.css ui/
+RUN npm --prefix lifecycle/hub/ui run build && npm --prefix lifecycle/release-hub/ui run build
+
+FROM python:3.13-slim-bookworm AS wheels
+ARG OFFLINE_DEPS=false
+ENV UV_PROJECT_ENVIRONMENT=/opt/hub
+COPY --from=ghcr.io/astral-sh/uv:0.10.12 /uv /usr/local/bin/uv
+WORKDIR /src
+COPY packages/service-contracts packages/service-contracts
+COPY packages/deployment-cli packages/deployment-cli
+COPY lifecycle/hub lifecycle/hub
+COPY lifecycle/release-hub lifecycle/release-hub
+RUN --mount=from=hub-dependencies,target=/wheelhouse \
+    if [ "$OFFLINE_DEPS" = "true" ]; then \
+      uv export --project lifecycle/release-hub --frozen --no-dev --no-emit-local \
+        -o /runtime-requirements.txt >/dev/null && \
+      uv venv /build && uv pip install --python /build/bin/python --offline --no-index \
+        --find-links /wheelhouse hatchling==1.31.0 && \
+      uv build --wheel --no-build-isolation --python /build/bin/python \
+        --out-dir /wheels packages/service-contracts && \
+      uv build --wheel --no-build-isolation --python /build/bin/python \
+        --out-dir /wheels packages/deployment-cli && \
+      uv build --wheel --no-build-isolation --python /build/bin/python \
+        --out-dir /wheels lifecycle/hub && \
+      uv build --wheel --no-build-isolation --python /build/bin/python \
+        --out-dir /wheels lifecycle/release-hub && \
+      uv venv /opt/hub && \
+      uv pip install --python /opt/hub/bin/python --offline --no-index \
+        --find-links /wheelhouse --require-hashes -r /runtime-requirements.txt && \
+      uv pip install --python /opt/hub/bin/python --offline --no-index \
+        --no-deps /wheels/*.whl; \
+    else UV_HTTP_RETRIES=0 UV_HTTP_TIMEOUT=15 uv sync \
+      --project lifecycle/release-hub --frozen --no-dev --no-editable; fi
+
+FROM python:3.13-slim-bookworm AS base
+RUN groupadd --gid 10001 hub && useradd --uid 10001 --gid hub --no-create-home hub \
+    && mkdir /state && chown hub:hub /state
+COPY --from=wheels /opt/hub /opt/hub
+ENV PATH="/opt/hub/bin:$PATH"
+WORKDIR /app
+USER 10001:10001
+EXPOSE 8080
+ENTRYPOINT ["python", "-m", "fdai_lifecycle_hub.remote"]
+CMD ["serve"]
+
+FROM base AS target
+COPY --from=ui /src/lifecycle/hub/ui/dist /app/ui
+
+FROM base AS release
+COPY --from=ui /src/lifecycle/release-hub/ui/dist /app/ui

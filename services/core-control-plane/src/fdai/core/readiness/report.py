@@ -69,6 +69,7 @@ class ReadinessReport:
     mode: Mode
     verdict: HandoffVerdict
     findings: tuple[ReadinessFinding, ...]
+    transfer_id: str | None = None
     decision_evidence_receipt_digest: str | None = None
     decision_evidence_verification_bundle_digest: str | None = None
     decision_evidence_rejection_reasons: tuple[str, ...] = ()
@@ -94,6 +95,7 @@ class ReadinessReport:
             "scope": self.scope,
             "submitter": self.submitter,
             "target_environment": self.target_environment,
+            "transfer_id": self.transfer_id,
             "generated_at": self.generated_at,
             "mode": self.mode.value,
             "verdict": self.verdict.value,

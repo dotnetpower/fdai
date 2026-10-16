@@ -35,7 +35,9 @@ Controls detail lists each framework requirement's server-owned limitation codes
 missing from the active Rule set, in readable English and Korean.
 The Promotion gates view joins the measured readiness projection with the durable promotion registry
 and marks `operator_override` modes, operator-attested gate snapshots, and their read-only authority
-source without granting approval or execution authority.
+source without granting approval or execution authority. It also joins the separate durable
+`capability_recall:` record, validates the ActionType identity, forces an active recall to `shadow`,
+removes that row from promotion-ready counts, and displays the bounded recall reason.
 The Governance Capability catalog is a read-only directory of declared FDAI functions. Selecting
 any non-interactive part of a row opens an adjacent detail panel, while the capability id remains an
 explicit keyboard button. The master list keeps only identity, category, side-effect class, and
@@ -161,6 +163,19 @@ completion evidence before zero findings can be reported. A failed read never be
 row; this boundary does not write or replace prior stored state.
 
 > Customer-agnostic: every channel id, LLM deployment name, resource id, and group name below is a placeholder. A fork supplies concrete values via config ([generic-scope.instructions.md](../../../.github/instructions/generic-scope.instructions.md)).
+### Settings Models interaction contract
+
+Settings > Models keeps current state, catalog policy, routing evidence, and web-search policy in
+four task-focused views. Overview distinguishes available T1 narration from T2 mixed-model
+readiness, names the operational impact of a missing independent secondary model, and places the
+per-user narrator preference before read-only lifecycle evidence. The view selector supports
+ArrowLeft, ArrowRight, Home, and End with roving focus. An unavailable web-search provider explains
+the blocker before allowlist controls; an operator can prepare policy, but the Console does not
+imply that requests can run. The Settings modal reserves space above the entitlement watermark at
+desktop and mobile widths, and Command Deck context follows the active Models surface instead of
+the obscured background route. These presentation and focus rules do not provision a model,
+activate policy, or add execution authority.
+
 ## Common answer presentation
 
 The Command Deck retains its shared Markdown renderer and validated JSON presentation artifacts.

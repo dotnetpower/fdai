@@ -31,6 +31,7 @@ from fdai_lifecycle_hub.errors import (
     UnknownInstallationError,
     UnknownPlanError,
 )
+from fdai_lifecycle_hub.remote_auth import RemoteAuth, secure_app
 from fdai_lifecycle_hub.schemas import (
     ApprovalRequest,
     PlanReport,
@@ -61,6 +62,7 @@ def create_app(
     clock: Clock = utc_now,
     verify_proof: KeyProofVerifier = verify_key_proof,
     static_dir: Path | None = None,
+    remote_auth: RemoteAuth | None = None,
 ) -> Starlette:
     """The agent API, plus the read-only and approval routes the operator UI calls.
 
@@ -206,7 +208,7 @@ def create_app(
         await run_in_threadpool(
             store.approve,
             installation_id,
-            approver=approval.approver,
+            approver=request.state.operator if remote_auth else approval.approver,
             installation_key_id=approval.installation_key_id,
             now=clock(),
         )
@@ -226,7 +228,7 @@ def create_app(
         await run_in_threadpool(
             store.reject,
             installation_id,
-            approver=rejection.approver,
+            approver=request.state.operator if remote_auth else rejection.approver,
             reason=rejection.reason,
             now=clock(),
         )
@@ -256,6 +258,7 @@ def create_app(
         return response
 
     routes: list[BaseRoute] = [
+        Route("/auth/config", lambda request: JSONResponse({"profile": "local-development"})),
         Route("/healthz", healthz),
         Route("/v1/installations/{installation_id}/enrollment", post_enrollment, methods=["POST"]),
         Route("/v1/installations/{installation_id}/plan", get_plan),
@@ -289,6 +292,8 @@ def create_app(
         resolved_static_dir = static_dir.resolve()
 
         async def serve_ui(request: Request) -> Response:
+            if request.url.path.startswith("/v1/"):
+                return _error(404, "not_found")
             requested = (static_dir / request.path_params["path"]).resolve()
             if requested.is_relative_to(resolved_static_dir) and requested.is_file():
                 return FileResponse(requested)
@@ -298,7 +303,7 @@ def create_app(
 
         routes.append(Route("/{path:path}", serve_ui))
 
-    return Starlette(
+    app = Starlette(
         routes=routes,
         exception_handlers={
             UnknownInstallationError: not_found,
@@ -313,6 +318,7 @@ def create_app(
             ConcurrentWriteError: retry,
         },
     )
+    return secure_app(app, remote_auth, vendor=False) if remote_auth else app
 
 
 def _decision_request_error(request: Request) -> Response | None:
@@ -321,10 +327,18 @@ def _decision_request_error(request: Request) -> Response | None:
     Vite preserves the browser Host and Origin when proxying to the Hub. Clients
     without Origin must still use JSON and a loopback Host; no CORS is enabled.
     """
-    if request.url.hostname not in {"localhost", "127.0.0.1", "::1"}:
+    if not hasattr(request.state, "operator") and request.url.hostname not in {
+        "localhost",
+        "127.0.0.1",
+        "::1",
+    }:
         return _error(403, "untrusted_host")
     origin = request.headers.get("origin")
-    if origin is not None and origin != str(request.base_url).rstrip("/"):
+    if (
+        not hasattr(request.state, "operator")
+        and origin is not None
+        and origin != str(request.base_url).rstrip("/")
+    ):
         return _error(403, "untrusted_origin")
     if request.headers.get("sec-fetch-site") == "cross-site":
         return _error(403, "untrusted_origin")

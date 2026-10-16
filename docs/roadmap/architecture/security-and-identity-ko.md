@@ -1,8 +1,8 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 85301bd0edcd58217b142828899945875c339163
-translation_revised: 2026-10-15
+translation_source_sha: 74256ba95a71f881e7f7fea996dee5c3c627d7a0
+translation_revised: 2026-10-16
 ---
 
 # 보안과 아이덴티티
@@ -13,6 +13,8 @@ translation_revised: 2026-10-15
 [app-shape.instructions.md](../../../.github/instructions/app-shape.instructions.md) 의 토폴로지,
 [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md)
 의 코드/CI 게이트를 보완합니다. 선언 목록의 `available`, `queryable`, `readable` facet은 후보 의미를 나타낼 뿐 권한을 증명하지 않습니다. Core는 선택한 선언 종류를 현재 principal 매니페스트로 제한합니다. 이 facet은 접근 권한을 부여하거나 관측 상태를 만들거나 정확한 release 검증을 우회할 수 없습니다.
+ActionBuilder는 ORR 인용을 요청된 ActionType과 대조하기 위한 용도로만 Core의 읽기 전용 활성 룰 맵을 받습니다. 이 맵은 신원, 승인 또는 실행 권한을 부여하지 않습니다.
+Core는 ORR 교정 게시자를 레버 맵과 함께 있을 때만 받습니다. 이 완전한 DI는 이미 귀속된 제안 사실을 전달할 뿐 승인 또는 실행기 신원을 제공할 수 없습니다.
 ## 심각도 어휘
 
 - **P0 차단 요인** - auto-execution이 활성화되기 전에 해결·검증되어야 함; shadow 모드에서의
@@ -168,6 +170,10 @@ fresh effective-access 근거가 있어야 액션을 처음부터 다시 평가�
   모드), 서명된 매니페스트, 레지스트리 기록이 필요하며, 결과 가져오기는 그 기록만 신뢰합니다.
   알림과 에이전트 버스 메시지에는 건수와 불투명한 이슈 ID만 담고 코드나 경로는 담지 않습니다.
   [코드 보안 점검 결과](../operations/code-security-findings-ko.md#조치-팩)를 참조하세요.
+- **범위가 제한된 코드 보안 근거**: 도우미와 결과 가져오기 경로는 텍스트가 잘렸음을 명시합니다.
+  보관하는 HTML 보고서는 실행 가능한 콘텐츠를 차단하고, 검토 화면에 전달하는 데이터는 안전하지
+  않은 제어 문자를 차단합니다. 잘못된 근거를 완전한 검토 결과로 표시하지 않으며, 이 읽기 전용
+  검사는 저장소 쓰기, 승인 또는 실행 권한을 부여하지 않습니다.
 - **코드 보안 LLM 렌즈**: 선택 사항인 렌즈 레인은 범위가 제한된 소스 발췌를 설정된 모델 배포로
   보내므로 같은 데이터 상주와 no-retention 조건이 적용됩니다. 출력은 신뢰하지 않으며, 근거가
   확인되고 정족수가 합의한 후보만 비활성 가설이 됩니다. 근거 확인은 코드로 합니다. 인용한 줄은
@@ -293,8 +299,12 @@ PostgreSQL 근거 공급자는 다음 경계를 따릅니다.
   실행기 아이덴티티 없이 조작 가능. risk 게이트 는 이를 `KillSwitch.is_engaged()` 가 공급하는
   `kill_switch` 상한 축으로 실현합니다. ([execution-model-ko.md](../decisioning/execution-model-ko.md)
   2.6b). 운영 런타임은 모든 권한 결정 전에 PostgreSQL에서 상태를 읽으며 읽기에 실패하면
-  engaged 상태로 처리합니다. Owner와 Break-Glass principal은 `POST /system/kill-switch`를 통해
-  상태를 변경하고, 개정 번호 compare-and-set과 감사 항목이 같은 트랜잭션에 기록됩니다.
+  engaged 상태로 처리합니다. Owner와 Break-Glass principal은 새 인증과 `Idempotency-Key`를
+  사용해 `POST /system/kill-switch` 요청을 제출합니다. Operator API는 형식이 지정된 요청에
+  서명해 게시합니다. Var는 정확한 증적, principal, 역할, 시간, 재생 방지 상태를 검증한 뒤
+  개정 번호 compare-and-set으로 상태와 감사 항목을 같은 트랜잭션에 기록합니다. HTTP `202`는
+  요청이 게시되었음만 보여 줍니다. 비상 정지 상태가 바뀌었는지는 독립적인 영속 상태 조회로
+  확인해야 합니다.
 - **Break-glass** 절차는 필수 감사와 사후 리뷰 하에 범위된 비상 접근을 부여; break-glass
   사용은 알림을 발동하고 자동 만료.
 

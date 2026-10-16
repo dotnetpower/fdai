@@ -337,6 +337,36 @@ def test_compact_sarif_keeps_large_code_context_within_the_persistence_bound(
         validate_code_security_artifacts({"html": html, "sarif": pretty})
 
 
+@pytest.mark.parametrize(
+    "active_html",
+    [
+        "<script>location='https://example.invalid'</script>",
+        "<div onfocus=alert(1)>focus</div>",
+        '<a href="data:text/html,<script>alert(1)</script>">open</a>',
+        '<meta http-equiv="refresh" content="0;url=https://example.invalid">',
+        "<style>@import 'https://example.invalid/report.css';</style>",
+    ],
+)
+def test_artifact_persistence_rejects_active_html(
+    tmp_path: Path,
+    active_html: str,
+) -> None:
+    result = _result(tmp_path)
+    sarif = render_sarif(
+        result,
+        repository_alias="example-service",
+        generated_at="2026-10-08T00:00:00+00:00",
+    )
+
+    with pytest.raises(ValueError, match="active content"):
+        validate_code_security_artifacts(
+            {
+                "html": f"<!doctype html>{active_html}",
+                "sarif": sarif,
+            }
+        )
+
+
 def test_report_escapes_html_and_localizes_to_korean(tmp_path: Path) -> None:
     document = scan_report_document(
         _result(tmp_path, revision_kind="snapshot"),

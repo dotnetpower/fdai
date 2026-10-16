@@ -9,6 +9,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Remote-development publication and durable customer import | implemented | `current change`; `infra/hubs-development/README.md`; `lifecycle/release-hub/src/fdai_release_hub/`; `lifecycle/hub/tests/test_remote_auth.py`, `test_remote_catalog.py`, `test_hubs_postgres.py`; focused tests, strict mypy and Ruff passed | PostgreSQL publication with explicit migration, attributed operator audit, separate customer export-only identity, independent pin approval and durable accepted digest/revision/key binding. Existing local manifest/signature/catalog contracts remain. No production TUF or automatic refresh. |
+| Two-Hub images and cloud preparation | in-progress | `current change`; `lifecycle/Dockerfile.hubs`; `lifecycle/hub/tests/test_hub_images.py`; real native linux/arm64 UI/assets/API/restart smoke passed; Terraform validate passed | UI-included, non-root images and separate cloud boundaries exist. No registry publication, ACA deployment/replica acceptance, real Entra or cross-vault isolation evidence is claimed. |
 | FDAI Release Hub vendor application | in-progress | `lifecycle/release-hub/README.md`; local API, UI and consumer evidence below | Independent local application exists. Production authentication, trusted catalog roles, automated promotion and distribution remain open. FDAI Lifecycle Hub stays separate. |
 | Local Release Hub publication, channel curation, recall and UI | implemented | `lifecycle/release-hub/tests/test_release_hub.py`; `lifecycle/release-hub/ui/src/api.test.ts`; focused commands in `lifecycle/release-hub/README.md` passed on 2026-10-15 | SQLite persistence, exact-byte development signatures, revision/target/reason confirmation, built-in manual channels and irreversible local withdrawal. No image build, registry publication or production trust claim. |
 | Opt-in pinned local catalog admission | implemented | `lifecycle/hub/src/fdai_lifecycle_hub/catalog_import.py`; `lifecycle/hub/tests/test_release_hub_consumer.py` passed on 2026-10-15 | Reuses manifest signatures and recall contracts; checks exact export pin, expiry and caller-retained revision floor before existing planner selection. Unsigned development loader remains unchanged. Not production signed catalog metadata or automatic trust-state persistence. |
@@ -35,6 +37,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | 2026-10-15 | implemented | Aligned local export JSON decoding with its declared 8 MiB admission limit after Copilot review; retained independent manifest limits. | `current change`; `lifecycle/hub/src/fdai_lifecycle_hub/catalog_import.py`; `.venv/bin/python -m pytest -q --no-cov -p no:cacheprovider lifecycle/release-hub/tests/test_release_hub.py lifecycle/hub/tests/test_release_hub_consumer.py`: 25 passed, including multi-release exports above 1 MiB, exact 8 MiB acceptance and oversized rejection; strict mypy and Ruff passed | Production catalog trust, distribution and runtime recall remain open. |
 
+| 2026-10-15 | implemented | Extended local SQLite publication to PostgreSQL with explicit schema revision, remote Entra operator/export-service separation, independent development key provisioning, and customer-approved bounded catalog import with persistent pin/revision/key state. Kept loopback defaults and the existing export/signature/recall contracts. | `current change`; `lifecycle/release-hub/`; `lifecycle/hub/tests/test_remote_catalog.py`, `test_remote_auth.py`, `test_hubs_postgres.py`, `test_hub_images.py`; focused local DB/API/planner, UI unit/browser/build and image smoke checks passed; Terraform validate passed | Separate approved Azure preview/deployment, real identity/private data-plane denial, ACA replica replacement, production root ceremony/TUF roles, registry distribution, automatic polling and Agent apply remain open. Development fixture artifact facts do not prove registry availability. |
+
 ### Remaining work
 
 - [ ] Implement FDAI Release Hub publication, signing, channel promotion, and recall workflows,
@@ -45,8 +49,12 @@ and resumable work while the roadmap owner remains focused on normative design.
   through the focused commands in `lifecycle/release-hub/README.md`.
 - [x] Verify vendor publication to Lifecycle Hub planner selection and recall exclusion in
   `lifecycle/hub/tests/test_release_hub_consumer.py`.
-- [ ] Add durable consumer revision/pin retention and authenticated catalog refresh; record
-  restart, stale snapshot and recall propagation tests before automatic remote consumption.
+- [x] Add durable development consumer revision/pin retention and authenticated, explicitly
+  requested bounded import; record restart, stale snapshot, wrong-key, changed approval and
+  recall propagation tests in `lifecycle/hub/tests/test_remote_catalog.py` and `test_hubs_postgres.py`.
+- [ ] Before automatic remote consumption, deliver production signed freshness/trust roles
+  and live authenticated refresh evidence. The bounded operator-requested development import
+  does not satisfy that production protocol.
 - [ ] Rename channels in new signatures, keep one-way legacy mapping for verification, and record
   tests for both names and for an unknown name.
 - [ ] Add custom channels and manual channel contribution, and record a test in which a Release

@@ -599,12 +599,27 @@ shadow assessment fields to the catalog read. Only `v1` is assessed.
 A malformed or authority-bearing assessment projection returns `503` instead of an unknown state.
 The Console renders these values and never derives satisfaction.
 
+### 13.16 Global kill-switch request
+
+`POST /system/kill-switch` requires a fresh human Owner or BreakGlass principal, an
+`Idempotency-Key` header, and a JSON body containing only `engaged` and `reason`. The Operator API
+signs the exact actor, roles, authentication time, request time, state, reason, correlation, and
+idempotency key, then publishes `operator.kill-switch.requests`. HTTP `202` returns the request id
+and digest after publication; it grants no executor authority and does not prove a state change.
+
+Var is the accountable consumer. It revalidates the signed Operator receipt, producer, human
+identity, Owner or BreakGlass role, authentication lifetime, correlation, and replay fence before
+the Core command service compare-and-set writes `system:kill-switch` with its audit entry. An
+authorized readback surface for the resulting state revision is not implemented yet, so a live
+engage or disengage drill remains incomplete until an independent store observation is retained.
+
 ## Implementation status
 
 ### Implementation scope
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Global kill-switch HTTP and command event | implemented | `0398357455`; shared contract and generated schema; Operator IAM route; Var receipt gate and command handler; focused contract, Operator, agent, and runtime tests | HTTP `202` proves typed publication only. Authorized state revision readback and a retained deployment cycle remain open. |
 | GitHub knowledge-source request and projection | implemented | `425fda52ead9`; `fdai_service_contracts/knowledge_github.py`; `knowledge_github_projection.py`; focused connection tests | Owner connect/disconnect has a typed revision-checked envelope and no credential bytes or scan-consent fields. Existing Incident confirmation and execution authority are unchanged. |
 | Audit and read-only wire projections | implemented | Operator family manifests and projections; `services/operator-service/tests/test_operator_service_composition.py`; Console trace tests | Default GET/HEAD routes, bounded envelopes, and unavailable behavior have focused coverage. |
 | Exact-release ontology registry and workbench | implemented | `ontology_declaration_projection.py`; `ontology_dependents_projection.py`; `ontology_evidence_health_projection.py`; `ontology_release_diff_projection.py`; Operator operations routes; `console/src/routes/ontology-object-type-detail.tsx`; focused Python and Console checks | Exact declaration detail, server-side redaction, bounded dependents, honest evidence health, retained-release comparison, clean routes, and no-authority rendering are implemented. The authenticated local Browser showed the `Decision` and `Resource` paths without overflow, raw resource ids, or execute controls, but no governed Browser artifact was retained. |
@@ -626,6 +641,7 @@ The Console renders these values and never derives satisfaction.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-15 | implemented | Replaced the inert kill-switch proposal response with a fresh-authenticated signed request on `operator.kill-switch.requests`, consumed by Var before the Core state-and-audit compare-and-set. | `0398357455`; focused implementation tests and structural checks recorded in the security ledger. | Add authorized state readback and retain engage/no-execute/disengage deployment evidence. |
 | 2026-10-09 | implemented | Added the GitHub knowledge GET projection and Owner-only connect/disconnect request over the existing repository-change operation, preserving separate scan consent and all Incident/write authority boundaries. | `425fda52ead9`, `b92824a9c150`; connector/backend selection: 153 passed; full Operator composition: 29 passed. | Retain installed authenticated connection/readback evidence; no new Incident or managed-resource confirmation authority is introduced. |
 | 2026-10-08 | implemented | Documented the MCSB control assessment fields: a no-authority `assessment_summary` and per-control `assessment`, with requirement evidence roles on the detail read. Incident creation and other wire shapes are unchanged. | `test_framework_mcsb_assessment_projection.py`; `test_operator_workflow_family.py`; `mcsb-controls.model.test.ts` | None |
 | 2026-10-07 | implemented | Reserved bounded semantic answer space for later collection outputs without changing the terminal wire, Incident creation, or authority. | [Issue #1970](https://github.com/dotnetpower/fdai/issues/1970); `current change`; focused semantic turn and verified-row tests. | Live presentation evidence remains separate. |

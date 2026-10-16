@@ -543,7 +543,10 @@ export function App() {
           </span>
         )}
       >
-        <DeferredCommandDeck client={client} routeLabel={backgroundPanel.label} />
+        <DeferredCommandDeck
+          client={client}
+          routeLabel={settingsOpen ? panel.label : backgroundPanel.label}
+        />
         {/* The watermark shares this deferred boundary: it stays out of the entry bundle
             while every top-level lazy surface keeps a visible loading boundary. */}
         <EntitlementWatermark probe={() => client.dataSources()} />

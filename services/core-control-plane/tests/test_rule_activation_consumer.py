@@ -123,6 +123,30 @@ async def test_consumer_reads_exact_receipt_before_accepting_request() -> None:
     assert bus.dead_letters == []
 
 
+async def test_consumer_reads_version_two_notice_with_version_one_semantics() -> None:
+    notice = _notice()
+    record = {
+        "proposal_id": notice.proposal_id,
+        "request_digest": notice.proposal_digest,
+        "operation": notice.operation,
+        "accepted_at": NOW.isoformat(),
+    }
+    coordinator = Coordinator()
+    payload = notice.model_dump(mode="json")
+    payload["schema_version"] = "2.0.0"
+    bus = Bus(EventEnvelope(RULE_ACTIVATION_REQUEST_TOPIC, notice.request_id, payload, 0))
+    consumer = RuleActivationConsumer(
+        receipts=ReceiptReader(record),
+        coordinator=cast(RuleActivationCoordinator, coordinator),
+        clock=lambda: NOW,
+    )
+
+    await consumer.run(bus=cast(Any, bus), stop=asyncio.Event())
+
+    assert coordinator.accepted == [(record, notice.proposal_ref)]
+    assert bus.dead_letters == []
+
+
 async def test_consumer_redacts_a_mismatched_receipt() -> None:
     notice = _notice()
     coordinator = Coordinator()

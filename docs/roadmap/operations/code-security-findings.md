@@ -258,18 +258,22 @@ review log.
   findings from another trigger are a duplicate. The Operator API serves
   `GET /code-security/reviews`, `/repositories`, and `/scan-requests` to reader roles, and the
   Console **Evidence > Code security** route shows decisions, counts by priority and confidence,
-  exposure, coverage, and each review's source and trigger, with a filter for local folders, git
-  repositories, external SARIF, and unlabeled reviews. A selected review leads with scanner
+  severity and known-exploited counts, exposure, coverage, and each review's source and trigger,
+  with a filter for local folders, git repositories, external SARIF, and unlabeled reviews. A
+  selected review leads with its immutable digest, recorded time, source, producers, scanner
   coverage, total and determined findings, evidence-review count, and severity ceilings rather
   than presenting unknown severity as a clean zero. Operators can search, sort, filter by producer
-  and weakness class, and page through bounded findings. Malformed rows appear as withheld records.
+  and weakness class, and page through bounded findings. The view separates the available bounded
+  summaries from the complete recorded count. Malformed rows appear as withheld records.
 - **Issue detail:** recording a review also stores up to 200 bounded issue summaries for that
   revision, bound by the review digest: issue id, priority and due interval, severity, confidence,
   weakness class, CWE ids, up to three advisory ids, the dependency package name, producers, and
   known exploitation. `GET /code-security/issues?repository_alias=...&revision=...` serves them
   only when the digest matches. A matching full artifact adds the validated severity range,
   deciding facts, exact location and bounded context for the selected review. Paths, lines,
-  symbols, scanner messages, and code never enter the bounded summary.
+  symbols, scanner messages, and code never enter the bounded summary. Artifact persistence and
+  projection reject active HTML and bidirectional or control characters in display evidence before
+  the Console may view or download it.
 - **Scan requests:** Contributors and Owners can request a scan of a registered repository through
   `POST /code-security/scan-requests`, and Owners can register, enable, or disable a repository
   through `POST /code-security/repositories`. Both routes only queue a typed proposal for the worker
