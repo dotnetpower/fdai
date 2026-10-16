@@ -493,6 +493,10 @@ allowlist through revision and audit checks. IRP, analyzer, inventory freshness,
 changes apply dynamically at their next event or Job boundary. Logging level and case retention or
 deletion day changes require a headless runtime restart. Deployment identity, transport, endpoint,
 secret, promotion, and test-only keys remain outside the editable surface.
+Incident automatic-open settings are also startup-bound. Materialization exposes the validated
+default minimum `MEDIUM`, while an environment value or audited durable override may select a
+different supported severity. The effective value takes effect only after Core restarts; repeat,
+correlation, evidence, deduplication, and downstream authority gates remain independent.
 
 | Key | Source | Owner | Notes |
 |-----|--------|-------|-------|
