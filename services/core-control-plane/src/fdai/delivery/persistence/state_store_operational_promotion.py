@@ -55,8 +55,10 @@ _DECISION_EVIDENCE_FIELDS = (
     "decision_evidence_receipt_digest",
     "decision_evidence_verification_bundle_digest",
 )
+_POLICY_FIELDS = ("policy_digest",)
 _V1_FIELDS = frozenset((*_TEXT_FIELDS, *_INT_FIELDS, *_FLOAT_FIELDS, "ready", "gaps"))
 _V1_1_FIELDS = frozenset((*_V1_FIELDS, *_DECISION_EVIDENCE_FIELDS))
+_V1_2_FIELDS = frozenset((*_V1_1_FIELDS, *_POLICY_FIELDS))
 
 
 class StateStoreOperationalPromotionReceiptStore:
@@ -66,13 +68,15 @@ class StateStoreOperationalPromotionReceiptStore:
         self._store = store
 
     async def save(self, receipt: OperationalPromotionReceipt) -> None:
+        if receipt.policy_digest is None:
+            raise ValueError("operational promotion receipt policy digest is required")
         key = _key(
             action_type_name=receipt.action_type_name,
             fdai_revision=receipt.fdai_revision,
             scenario_set_version=receipt.scenario_set_version,
             evidence_digest=receipt.evidence_digest,
         )
-        value = {"schema_version": "1.1.0", "receipt": receipt.as_json()}
+        value = {"schema_version": "1.2.0", "receipt": receipt.as_json()}
         created = await self._store.write_state_with_audit_if_absent(
             key,
             value,
@@ -90,6 +94,7 @@ class StateStoreOperationalPromotionReceiptStore:
                 "fdai_revision": receipt.fdai_revision,
                 "scenario_set_version": receipt.scenario_set_version,
                 "evidence_digest": receipt.evidence_digest,
+                "policy_digest": receipt.policy_digest,
                 "ready": receipt.ready,
                 "recorded_at": datetime.now(tz=UTC).isoformat(),
             },
@@ -124,7 +129,7 @@ class StateStoreOperationalPromotionReceiptStore:
         if raw is None:
             return None
         schema_version = raw.get("schema_version")
-        if schema_version not in {"1.0.0", "1.1.0"}:
+        if schema_version not in {"1.0.0", "1.1.0", "1.2.0"}:
             raise ValueError("unsupported operational promotion receipt state")
         receipt = raw.get("receipt")
         if not isinstance(receipt, Mapping):
@@ -155,12 +160,18 @@ def _decode_receipt(
     *,
     schema_version: object,
 ) -> OperationalPromotionReceipt:
-    expected_fields = _V1_FIELDS if schema_version == "1.0.0" else _V1_1_FIELDS
+    expected_fields = {
+        "1.0.0": _V1_FIELDS,
+        "1.1.0": _V1_1_FIELDS,
+        "1.2.0": _V1_2_FIELDS,
+    }[str(schema_version)]
     if frozenset(raw) != expected_fields:
         raise ValueError("operational promotion receipt fields do not match schema")
     values = dict(raw)
     if schema_version == "1.0.0":
         values.update(dict.fromkeys(_DECISION_EVIDENCE_FIELDS))
+    if schema_version in {"1.0.0", "1.1.0"}:
+        values["policy_digest"] = None
     for field in _TEXT_FIELDS:
         value = values[field]
         if not isinstance(value, str) or not value:
@@ -193,6 +204,8 @@ def _decode_receipt(
         raise ValueError("operational promotion receipt action digest is invalid")
     if _DIGEST.fullmatch(receipt.evidence_digest) is None:
         raise ValueError("operational promotion receipt evidence digest is invalid")
+    if receipt.policy_digest is not None and _DIGEST.fullmatch(receipt.policy_digest) is None:
+        raise ValueError("operational promotion receipt policy digest is invalid")
     return receipt
 
 

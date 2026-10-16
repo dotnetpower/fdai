@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "network.nsg.no-internet-inbound-rdp",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:22c11ccff6cf047492254f0a56e60b19f6b0ab8cb4bad448767ec0667e5a3d3d",
+    "policy_identity_digest": "sha256:478736b5cf801e3c166862e629cf8ae81ac4373a1a68e2a39c2ba700425f82d3",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/network/nsg_no_internet_inbound_rdp.rego",
+        "kind": "rego",
+        "content_digest": "sha256:c0153808d3ae552b08cd88858fec347e6921d34b6bbca9cddf42e49c15cf1311"
+      }
+    ],
+    "revision_digest": "sha256:e8856280edd786f97160692eb7b3f9ec95b7062affeb73d1e8630f5ae6c4cc4a"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "network.nsg.no-internet-inbound-rdp",
+    "version": "1.0.0",
+    "source": "mcsb",
+    "severity": "high",
+    "category": "security",
+    "resource_type": "network.nsg",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/network/nsg_no_internet_inbound_rdp.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/network/nsg_restrict_internet_rdp.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.restrict-network-access",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/security/benchmark/azure/mcsb-network-security",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "network.nsg"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.network.nsg.inbound_security_rules"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "network.nsg"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.network.nsg.inbound_security_rules"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/network/nsg_no_internet_inbound_rdp.rego",
+      "kind": "rego",
+      "content_digest": "sha256:c0153808d3ae552b08cd88858fec347e6921d34b6bbca9cddf42e49c15cf1311",
+      "content": "# METADATA\n# title: Disallow Internet-reachable inbound RDP on network.nsg\n# description: |\n#   A network.nsg MUST NOT let any source reach TCP/3389. An inbound allow rule exposes the\n#   port when its protocol is TCP or `*`, its destination port, range, or port list covers 3389\n#   or is `*`, and its source is `*`, `Internet`, `Any`, `0.0.0.0/0`, or `::/0`, given as one\n#   prefix or in a prefix list. The exposure is blocked only by an inbound deny rule with a\n#   strictly lower priority number whose protocol, port, and source cover the same traffic for\n#   every source (`*`, `Internet`, or `Any`), every source port (`*`), and every destination\n#   (`*`, with no destination application security group). A rule without a numeric priority is\n#   never treated as blocked.\n# custom:\n#   rule_id: network.nsg.no-internet-inbound-rdp\n#   severity: high\n#   category: security\npackage fdai.network.nsg_no_internet_inbound_rdp\n\nimport rego.v1\n\ndefault deny := false\n\nexposed_port := 3389\n\nexposing_source := {\"*\", \"internet\", \"any\", \"0.0.0.0/0\", \"::/0\"}\n\nblocking_source := {\"*\", \"internet\", \"any\"}\n\ntcp_protocol(protocol) if lower(protocol) == \"tcp\"\n\ntcp_protocol(protocol) if protocol == \"*\"\n\nhas_source(rule, sources) if sources[lower(rule.source_address_prefix)]\n\nhas_source(rule, sources) if {\n  some prefix in rule.source_address_prefixes\n  sources[lower(prefix)]\n}\n\nport_covers(spec) if spec == \"*\"\n\nport_covers(spec) if to_number(spec) == exposed_port\n\nport_covers(spec) if {\n  bounds := split(spec, \"-\")\n  count(bounds) == 2\n  to_number(bounds[0]) <= exposed_port\n  exposed_port <= to_number(bounds[1])\n}\n\ncovers_port(rule) if port_covers(rule.destination_port_range)\n\ncovers_port(rule) if {\n  some spec in rule.destination_port_ranges\n  port_covers(spec)\n}\n\ninbound(rule, access) if {\n  lower(rule.direction) == \"inbound\"\n  lower(rule.access) == access\n  tcp_protocol(rule.protocol)\n  covers_port(rule)\n}\n\nevery_value(rule, single, list) if object.get(rule, single, \"\") == \"*\"\n\nevery_value(rule, single, list) if {\n  some value in object.get(rule, list, [])\n  value == \"*\"\n}\n\nblocks_all_traffic(rule) if {\n  every_value(rule, \"destination_address_prefix\", \"destination_address_prefixes\")\n  every_value(rule, \"source_port_range\", \"source_port_ranges\")\n  not rule.destination_application_security_groups\n}\n\nblocked(allow) if {\n  is_number(allow.priority)\n  some rule in input.resource.props.inbound_security_rules\n  inbound(rule, \"deny\")\n  is_number(rule.priority)\n  rule.priority < allow.priority\n  has_source(rule, blocking_source)\n  blocks_all_traffic(rule)\n}\n\ndeny if {\n  input.resource.type == \"network.nsg\"\n  some rule in input.resource.props.inbound_security_rules\n  inbound(rule, \"allow\")\n  has_source(rule, exposing_source)\n  not blocked(rule)\n}\n\ndeny_reason := \"inbound_rdp_internet\" if deny\n"
+    }
+  ]
+}

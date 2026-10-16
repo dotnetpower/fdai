@@ -92,6 +92,11 @@ The catalog-owned objective binding projection uses the same exact-release objec
 link validation as other catalog instances. A candidate binding names one validated objective
 and one exact Rule version; its graph links cannot become an assessment or permission. Reviewed `rule-catalog/objective-effects/` records bind signed expected objective utilities to one exact Rule content digest and ActionType; replay loads them fail-closed, and they inform arbitration evidence only without selecting, approving, or executing an action.
 The per-rule findings read validates the requested identity against the same revisioned Rule catalog. Without a connected findings provider it returns `evaluated: false` and no findings for a known rule; it never derives Resource identities or finding details from summary counts.
+Rule revision identities are catalog artifacts, not ontology object identities or relationships.
+The append-only registry binds one explicit `(rule_id, rule_version)` tuple to normalized Rule
+content, the complete executable policy closure, and the pinned normalization/toolchain manifest.
+Its content-addressed retained bytes support later activation-manifest verification, but the
+registry cannot select membership, enforcement, promotion, approval, or execution authority.
 Committed inventory invalidation markers coordinate browser rereads without becoming graph state.
 Bulk state pages carry the marker watermark bound to their committed generation, and SSE resumes
 from that cursor. Clients without a page-bound cursor receive the current marker instead of risking

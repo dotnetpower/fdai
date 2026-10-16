@@ -1,0 +1,84 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "secret-store.rotation-overdue",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:2b379c1d9c25f2ba587134f2bd17a8c11f1a9d21b8abdb85aa98f569e97be0ca",
+    "policy_identity_digest": "sha256:5032ce68d0abd49dd0ab455a8cdc75ba709dc7771f29ed1dc44e7e36358dbb7e",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/secret_store/rotation_overdue.rego",
+        "kind": "rego",
+        "content_digest": "sha256:4aa17c477a9ada4d18859730be10a67bfc4e7fbcd75d17051e303f7bed9ef43f"
+      }
+    ],
+    "revision_digest": "sha256:41513100c68f727592c38f127f961f6b99459e83dffcb44388f7da113d6a5b05"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "secret-store.rotation-overdue",
+    "version": "1.0.0",
+    "source": "mcsb",
+    "severity": "high",
+    "category": "security",
+    "resource_type": "secret-store",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/secret_store/rotation_overdue.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/secret_store/rotate_secret.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.rotate-secret",
+    "alternatives": [],
+    "parameters": {
+      "max_age_days": 90
+    },
+    "provenance": {
+      "source_url": "https://example.com/rules/secret-rotation-overdue",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-05T00:00:00Z"
+    },
+    "applies_to": [
+      "secret-store"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.secret-store.age_days"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "secret-store"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.secret-store.age_days"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/secret_store/rotation_overdue.rego",
+      "kind": "rego",
+      "content_digest": "sha256:4aa17c477a9ada4d18859730be10a67bfc4e7fbcd75d17051e303f7bed9ef43f",
+      "content": "# METADATA\n# title: Secret rotation overdue\n# description: |\n#   Any secret whose age exceeds the operator-supplied\n#   `parameters.max_age_days` (default 90) MUST be rotated. The T0\n#   engine passes the observed secret metadata; a violation triggers\n#   the `remediate.rotate-secret` action (subject to the risk-gate).\n# custom:\n#   rule_id: secret-store.rotation-overdue\n#   severity: high\n#   category: security\npackage fdai.secret_store.rotation_overdue\n\nimport rego.v1\n\ndefault deny := false\n\nmax_age := m if {\n\tm := input.parameters.max_age_days\n} else := 90\n\ndeny if {\n\tinput.resource.type == \"secret-store\"\n\tinput.resource.props.age_days > max_age\n}\n\ndeny_reason := \"secret_age_over_threshold\" if deny\n"
+    }
+  ]
+}

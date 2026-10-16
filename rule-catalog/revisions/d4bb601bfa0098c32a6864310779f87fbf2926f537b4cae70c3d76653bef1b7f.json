@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "disk.snapshot-policy.required",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:a5d213ab4e99d75aa5917c92aa165f6c43eaddbb52d6822de0d5a74158b00ab1",
+    "policy_identity_digest": "sha256:9e131b7f66e05b67dfb8d275911bfdc1042b3f2d083c846bf9c5eeee8d3b28ad",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/disk/snapshot_policy_required.rego",
+        "kind": "rego",
+        "content_digest": "sha256:b3d88c5cc58d8c00c9dd18cb63f2807fc135c4230404e1c1e570b08b0e456b0c"
+      }
+    ],
+    "revision_digest": "sha256:d4bb601bfa0098c32a6864310779f87fbf2926f537b4cae70c3d76653bef1b7f"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "disk.snapshot-policy.required",
+    "version": "1.0.0",
+    "source": "waf",
+    "severity": "medium",
+    "category": "reliability",
+    "resource_type": "disk",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/disk/snapshot_policy_required.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/disk/attach_snapshot_policy.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.enable-backup-protection",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/azure/well-architected/reliability/backup-recovery",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "disk"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.disk.snapshot_policy_present"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "disk"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.disk.snapshot_policy_present"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/disk/snapshot_policy_required.rego",
+      "kind": "rego",
+      "content_digest": "sha256:b3d88c5cc58d8c00c9dd18cb63f2807fc135c4230404e1c1e570b08b0e456b0c",
+      "content": "# METADATA\n# title: Require a snapshot policy on disk\n# description: |\n#   A disk holding stateful data MUST be enrolled in a snapshot\n#   policy so a rollback point exists.\n# custom:\n#   rule_id: disk.snapshot-policy.required\n#   severity: medium\n#   category: reliability\npackage fdai.disk.snapshot_policy_required\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"disk\"\n  input.resource.props.snapshot_policy_present != true\n}\n\ndeny_reason := \"no_snapshot_policy\" if deny\n"
+    }
+  ]
+}

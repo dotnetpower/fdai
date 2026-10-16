@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "subscription.role-assignment.no-guest-privileged",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:85d7cb4177f805c4bc009861d78534f4d185a3e0ae85881f7a40dbc9e27e9a7a",
+    "policy_identity_digest": "sha256:9751bfe5ab05010dbbe9093e803854b41710c886c524a6eb35d9449dc2e89477",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/subscription/no_guest_privileged.rego",
+        "kind": "rego",
+        "content_digest": "sha256:a51a0a437c6c94ea42273b1ab3725d3252738bdb0f9c743ba672ef04037ed526"
+      }
+    ],
+    "revision_digest": "sha256:1594bcc851878ffbe69cd8f3fca04ae4b5c2c4833fb8554a61c90f0fbefe8d09"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "subscription.role-assignment.no-guest-privileged",
+    "version": "1.0.0",
+    "source": "mcsb",
+    "severity": "critical",
+    "category": "security",
+    "resource_type": "subscription",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/subscription/no_guest_privileged.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/subscription/no_guest_privileged.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.right-size-role",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/security/benchmark/azure/mcsb-privileged-access",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-09T00:00:00Z"
+    },
+    "applies_to": [
+      "subscription"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.subscription.role_assignments"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "subscription"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.subscription.role_assignments"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/subscription/no_guest_privileged.rego",
+      "kind": "rego",
+      "content_digest": "sha256:a51a0a437c6c94ea42273b1ab3725d3252738bdb0f9c743ba672ef04037ed526",
+      "content": "# METADATA\n# title: No guest principal holds a privileged role at subscription scope\n# description: |\n#   An external (guest) principal MUST NOT hold a privileged role (Owner,\n#   Contributor, User Access Administrator, Role Based Access Control\n#   Administrator) at subscription scope. Guest identities live outside the\n#   tenant's lifecycle controls, so a standing privileged guest grant is a\n#   durable escalation path. The T0 rule denies when the inventory reports a\n#   guest principal with a subscription-scoped privileged assignment.\n# custom:\n#   rule_id: subscription.role-assignment.no-guest-privileged\n#   severity: critical\n#   category: security\npackage fdai.subscription.no_guest_privileged\n\nimport rego.v1\n\ndefault deny := false\n\nprivileged_roles := {\n\t\"Owner\",\n\t\"Contributor\",\n\t\"User Access Administrator\",\n\t\"Role Based Access Control Administrator\",\n}\n\ndeny if {\n\tinput.resource.type == \"subscription\"\n\tsome assignment in input.resource.props.role_assignments\n\tassignment.principal_type == \"Guest\"\n\tprivileged_roles[assignment.role_name]\n}\n\ndeny_reason := \"guest_principal_privileged_at_subscription_scope\" if deny\n"
+    }
+  ]
+}

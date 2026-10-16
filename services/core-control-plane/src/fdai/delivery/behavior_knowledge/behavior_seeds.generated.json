@@ -552,13 +552,13 @@
         "When can an ActionType leave shadow mode?",
         "ActionType은 언제 shadow-mode를 벗어나나요?"
       ],
-      "source_manifest_hash": "7e623f69f3afc11127f57ec518306fc223734e886117484865f6ad41b851cdf9",
+      "source_manifest_hash": "19502fdd7aaae15705d17bf9ba28a018d4bc7c5be65b0cc58a9b30b5c3af86af",
       "sources": [
         {
           "authority_role": "implementation",
-          "blob_sha": "bd160899392118b92d69015e39adb1219cbd7a94",
-          "line_end": 329,
-          "line_start": 236,
+          "blob_sha": "db1a3eaed54f50cbf0f896ff8aa8da3a3fa5ed39",
+          "line_end": 334,
+          "line_start": 238,
           "path": "services/core-control-plane/src/fdai/core/risk_gate/gate.py",
           "source_kind": "code",
           "symbol": "ActionPromotionRegistry.consider_promotion"

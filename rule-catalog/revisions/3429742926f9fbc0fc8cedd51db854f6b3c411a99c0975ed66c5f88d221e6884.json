@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "postgresql-server.diagnostic-settings-required",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:e35afa69f417ede942085281cf9c3a1d001df0b05406540266c8acd3b06ac1ce",
+    "policy_identity_digest": "sha256:e8c87703e3e8c6a5136696a7233d5fa05a7ab49ea575c9221588b8340ec3bcee",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/postgresql/diagnostic_settings_required.rego",
+        "kind": "rego",
+        "content_digest": "sha256:d8b04549269fa537e9296e604bf95e81d761e51bd4864e7972f125924d552ed5"
+      }
+    ],
+    "revision_digest": "sha256:3429742926f9fbc0fc8cedd51db854f6b3c411a99c0975ed66c5f88d221e6884"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "postgresql-server.diagnostic-settings-required",
+    "version": "1.0.0",
+    "source": "waf",
+    "severity": "medium",
+    "category": "reliability",
+    "resource_type": "postgresql-server",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/postgresql/diagnostic_settings_required.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/postgresql/attach_diagnostic_settings.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.enable-diagnostic-settings",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/azure/well-architected/operational-excellence/observability",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "postgresql-server"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.postgresql-server.diagnostic_settings"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "postgresql-server"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.postgresql-server.diagnostic_settings"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/postgresql/diagnostic_settings_required.rego",
+      "kind": "rego",
+      "content_digest": "sha256:d8b04549269fa537e9296e604bf95e81d761e51bd4864e7972f125924d552ed5",
+      "content": "# METADATA\n# title: Require diagnostic-settings on postgresql-server\n# description: |\n#   A postgresql-server MUST route log-plane events to a log-workspace.\n# custom:\n#   rule_id: postgresql-server.diagnostic-settings-required\n#   severity: medium\n#   category: reliability\npackage fdai.postgresql.diagnostic_settings_required\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"postgresql-server\"\n  count(input.resource.props.diagnostic_settings) == 0\n}\n\ndeny_reason := \"no_diagnostic_settings\" if deny\n"
+    }
+  ]
+}

@@ -25,6 +25,7 @@ from fdai.shared.providers.state_store import (
     state_retention_path,
     workflow_approval_decisions_from_state,
 )
+from fdai.shared.providers.testing.state_store_atomic import InMemoryStateAtomicMixin
 
 _GENESIS_HASH = GENESIS_HASH
 _next_hash = next_hash
@@ -104,7 +105,7 @@ class _KeySnapshot:
     order: list[str] | None
 
 
-class InMemoryStateStore(StateStore):
+class InMemoryStateStore(InMemoryStateAtomicMixin, StateStore):
     """Dict-backed :class:`StateStore` with a genuine audit hash-chain.
 
     The audit chain follows the same rule the real Postgres adapter will

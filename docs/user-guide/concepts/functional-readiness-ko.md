@@ -2,8 +2,8 @@
 title: FDAI 기능 준비 상태 평가
 description: FDAI 제품 중분류 52개의 준비 상태 판정 근거와 남은 조건을 기록합니다.
 translation_of: functional-readiness.md
-translation_source_sha: 18360d299caaf188958dd0dbd0ded34a05bda77b
-translation_revised: 2026-10-16
+translation_source_sha: cdf620216e2c5a6d7be1689f42885000ae3c6110
+translation_revised: 2026-10-17
 ---
 
 # FDAI 기능 준비 상태 평가
@@ -127,7 +127,7 @@ Partial 17건은 구현된 부분과 현재 소스의 집중 검사를 유지하
 | 기능 | 상태 | 근거, 지원 범위 및 남은 조건 |
 |------|------|-----------------------------|
 | <span id="f11-1">F11.1</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 출처가 명시된 운영자 피드백, 변경 불가능한 인시던트 및 작업 결과, 범위가 지정된 사례 이력, 예측 결과 종결, 권한이 없는 학습 후보, 보존 및 법적 보존 통제입니다. [학습 원장](../../roadmap-implementation/rules-and-detection/operational-learning-ontology.md)과 운영 학습 집중 검사가 이 범위를 뒷받침합니다. 배포 환경의 승인된 수용, 충분한 재발 표본, 승격 결정은 별도 운영 검증입니다. |
-| <span id="f11-2">F11.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 실행하지 않는 과거 이력 재현, 시나리오 및 보증 트윈 평가, 기준선 및 조치 후 비교, 추적 가능한 탐지·계획·복구 측정, 검증 불가 결과, 안전한 쪽으로 닫히는 승격 근거입니다. [학습 원장](../../roadmap-implementation/rules-and-detection/operational-learning-ontology.md), [정본 작업 흐름 상태](../../roadmap/agents/agent-workflows-ko.md#구현-상태), 집중 재현 및 평가 검사가 이 범위를 뒷받침합니다. 실제 재발 구간과 운영 표본 규모는 별도 배포 검증입니다. |
+| <span id="f11-2">F11.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 실행하지 않는 과거 이력 재현, 시나리오 및 보증 트윈 평가, 기준선 및 조치 후 비교, 추적 가능한 탐지·계획·복구 측정, 검증 불가 결과, 정확한 임계값 정책에 결속된 안전한 승격 근거입니다. [학습 원장](../../roadmap-implementation/rules-and-detection/operational-learning-ontology.md), [정본 작업 흐름 상태](../../roadmap/agents/agent-workflows-ko.md#구현-상태), 집중 재현 및 평가 검사가 이 범위를 뒷받침합니다. 실제 재발 구간과 운영 표본 규모는 별도 배포 검증입니다. |
 | <span id="f11-3">F11.3</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 근거 기반 및 귀속된 재정의 승격, 자동 강등, 영속 기능 회수 및 해제, 모든 승격 종류보다 우선하는 회수, 안전한 쪽으로 닫히는 `shadow` 강제, Operator 및 Console의 회수 표시, 권한이 없는 읽기 변환 결과입니다. [거버넌스 원장](../../roadmap-implementation/decisioning/operator-governance-profiles.md), Core 회수 검사, 현재 Operator 및 Console 검사가 이 범위를 뒷받침합니다. 운영 Release 최대값 수집원과 특정 설치의 승격 근거는 별도 배포 검증입니다. |
 
 ## F12. 권한 및 근거와 자체 운영
@@ -135,9 +135,9 @@ Partial 17건은 구현된 부분과 현재 소스의 집중 검사를 유지하
 | 기능 | 상태 | 근거, 지원 범위 및 남은 조건 |
 |------|------|-----------------------------|
 | <span id="f12-1">F12.1</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 역할 분리, 정확한 작업 승인, 만료 및 철회, 조건부 사전 권한, 현재 임대 및 동시 실행 차단 계약, 승인 정족수 프로필, 권한 또는 공급자 강제를 사용할 수 없을 때의 안전한 전달 차단입니다. [권한 원장](../../roadmap-implementation/decisioning/escalation-and-standing-authority.md)과 집중 테스트 702개가 이 범위를 뒷받침합니다. 효과 반영 시점에 동시 실행 차단을 강제하는 공급자 연결과 상시 권한 훈련은 별도 배포 검증입니다. |
-| <span id="f12-2">F12.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 버전이 지정된 정책 및 위험 판정, 비상 중지 및 회수 우선순위, 7가지 실행 안전 조건, 차단 및 작업 없음의 최종 감사, 안전한 쪽으로 닫히는 실행 방지입니다. 서명된 Operator-Var 비상 정지 경로, [보안 원장](../../roadmap-implementation/architecture/security-and-identity.md), [정본 상태 정보](../../roadmap/operations/operating-and-verification-ko.md#구현-상태), 집중 안전 검사가 로컬 구현을 뒷받침합니다. Release 최대값 연결, 권한이 부여된 상태 조회 화면, 배포 환경에서 측정한 활성화-실행 차단-비활성화 훈련은 별도 설치 검증으로 남아 있습니다. |
+| <span id="f12-2">F12.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 버전이 지정된 정책 및 위험 판정, 비상 중지 및 회수 우선순위, 7가지 실행 안전 조건, 차단 및 작업 없음의 최종 감사, 안전한 쪽으로 닫히는 실행 방지, 인증된 운영 상태 읽기 화면입니다. 서명된 Operator-Var 비상 정지 경로, [보안 원장](../../roadmap-implementation/architecture/security-and-identity.md), [정본 상태 정보](../../roadmap/operations/operating-and-verification-ko.md#구현-상태), 집중 안전 검사가 로컬 구현을 뒷받침합니다. Release 최대값 연결과 배포 환경에서 측정한 활성화-실행 차단-비활성화 훈련은 별도 설치 검증으로 남아 있습니다. |
 | <span id="f12-3">F12.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 책임을 추적할 수 있는 해시 체인 감사, 결정론적 재현, 목적 및 범위 접근 검사, 모델 입력 전 최소화, 비식별화된 내보내기, 범위가 제한된 보존 및 삭제, 법적 보존, 삭제 표시, 재시도에 안전한 감사 증적입니다. [개인정보 원장](../../roadmap-implementation/architecture/data-governance.md)과 집중 감사·보존·개인정보 검사가 이 범위를 뒷받침합니다. 개인정보 승인, 외부 감사 고정 또는 WORM 저장소, 실제 접근 검토 및 사고 증적은 별도 배포 검증입니다. |
-| <span id="f12-4">F12.4</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 구현된 부분은 서비스 및 모델 상태, 리소스·서비스·근거 상태 조회, 영속 상태 및 감사 준비 검사, 전체 15개 신호 정책, 정확한 소비 카나리 감사 하나를 30초 지연 예산 안에서 요구하는 배포 코드입니다. [정본 상태 정보](../../roadmap/operations/operating-and-verification-ko.md#구현-상태)와 집중 검사가 이 범위를 뒷받침합니다. 모든 카탈로그 메트릭의 런타임 내보내기 연결, 전체 공개 상태, 측정된 기본 및 대체 전달, 통과한 실제 카나리 증적, 복구 훈련 근거는 남아 있습니다. |
+| <span id="f12-4">F12.4</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 구현된 부분은 서비스 및 모델 상태, 리소스·서비스·근거 상태 조회, 영속 상태 및 감사 준비 검사, 전체 15개 신호 정책 및 exporter 레지스트리, 인증된 8개 필드 운영 상태 화면, 정확한 소비 카나리 감사 하나를 30초 지연 예산 안에서 요구하는 배포 코드입니다. 누락된 수집원은 정상 기본값 대신 신선도가 포함된 명시적 unavailable 상태로 표시됩니다. [정본 상태 정보](../../roadmap/operations/operating-and-verification-ko.md#구현-상태)와 집중 검사가 이 범위를 뒷받침합니다. 수집원별 운영 exporter 조합, 측정된 기본 및 대체 전달, 통과한 실제 카나리 증적, 안정화 및 복구 훈련 근거는 남아 있습니다. |
 
 ## F13. 근거 조회 및 보고서
 

@@ -15,6 +15,7 @@ from fdai_service_contracts.approval_profile import ApprovalProfileRevision
 from fdai.core.executor.lock import ResourceLockManager
 from fdai.core.measurement import OperationalPromotionReceipt
 from fdai.core.risk_gate import ActionModeRecord, PromotionMetrics
+from fdai.delivery.promotion_arguments import promotion_arguments
 from fdai.delivery.promotion_attestation import (
     GovernancePromotionAttestation,
     attestation_from_json,
@@ -427,7 +428,7 @@ class OperationalPromotionDirectApiExecutor(DirectApiExecutor):
             raise DirectApiPreconditionError("unsupported promotion action type")
         if request.mode is Mode.ENFORCE and "enforce" not in request.labels:
             raise DirectApiPromotionError("promotion authority requires the enforce label")
-        args = _promotion_arguments(request.arguments)
+        args = promotion_arguments(request.arguments)
         target = self._action_types.get(args["action_type_id"])
         if target is None:
             raise DirectApiPreconditionError("promotion target ActionType is not registered")
@@ -481,6 +482,7 @@ class OperationalPromotionDirectApiExecutor(DirectApiExecutor):
                 prior_record is not None
                 and prior_record.mode is Mode.ENFORCE
                 and prior_record.promotion_evidence_digest == receipt.evidence_digest
+                and prior_record.promotion_policy_digest == receipt.policy_digest
                 and prior_record.fdai_revision == receipt.fdai_revision
                 and prior_record.scenario_set_version == receipt.scenario_set_version
                 and prior_record.action_type_version == receipt.action_type_version
@@ -662,7 +664,7 @@ class GovernancePromotionDispatcher:
             scenario_set_version = override_args["scenario_set_version"]
             evidence_digest = override_args["gate_evidence_digest"]
         else:
-            promotion_args = _promotion_arguments(request.arguments)
+            promotion_args = promotion_arguments(request.arguments)
             action_type_id = promotion_args["action_type_id"]
             fdai_revision = promotion_args["fdai_revision"]
             scenario_set_version = promotion_args["scenario_set_version"]
@@ -702,24 +704,6 @@ class GovernancePromotionDispatcher:
         else:
             _validate_gate_promotion_decision(decision)
         return await self._executor.execute(request)
-
-
-def _promotion_arguments(arguments: Mapping[str, object]) -> dict[str, str]:
-    required = (
-        "action_type_id",
-        "fdai_revision",
-        "scenario_set_version",
-        "evidence_digest",
-    )
-    values: dict[str, str] = {}
-    for name in required:
-        value = arguments.get(name)
-        if not isinstance(value, str) or not value.strip():
-            raise DirectApiPreconditionError(f"promotion argument {name} is required")
-        values[name] = value
-    if arguments.get("target_mode") != Mode.ENFORCE.value:
-        raise DirectApiPreconditionError("promotion target_mode MUST be enforce")
-    return values
 
 
 def _validate_gate_promotion_decision(decision: ReviewAuthorityDecision) -> None:

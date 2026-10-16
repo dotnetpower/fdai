@@ -1,0 +1,87 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "llm-endpoint.t2-proposer-unavailable",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:5d50be62e905de8c576e64b4e96e218a03e1099e0e5f6bf9d5751c535cf7627f",
+    "policy_identity_digest": "sha256:b79fb33c89b7f63101ebe11b029d9d21e4280ea5057c53573f87e8a8fb1999f3",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/llm_endpoint/t2_proposer_unavailable.rego",
+        "kind": "rego",
+        "content_digest": "sha256:1ae59345e9a1b3c346b7b2612567b13ef898de71e8f6575f66a24724b4df9095"
+      }
+    ],
+    "revision_digest": "sha256:3dc75c653a4760dd56c18ea8e0859241366ef8d99187d5ebe124065ae8d7ca52"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "llm-endpoint.t2-proposer-unavailable",
+    "version": "1.0.0",
+    "source": "custom",
+    "severity": "high",
+    "category": "reliability",
+    "resource_type": "llm-endpoint",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/llm_endpoint/t2_proposer_unavailable.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/llm_endpoint/switch_t2_proposer_route.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "ops.switch-t2-proposer-route",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://github.com/dotnetpower/fdai",
+      "resolved_ref": "rule:llm-endpoint.t2-proposer-unavailable@1.0.0",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "MIT",
+      "redistribution": "embeddable",
+      "retrieved_at": "2026-07-31T00:00:00Z"
+    },
+    "applies_to": [
+      "llm-endpoint"
+    ],
+    "triggered_by": [
+      "runtime.capability.observed"
+    ],
+    "evaluates": [
+      "property.llm-endpoint.event_type",
+      "property.llm-endpoint.terminal"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "llm-endpoint"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.llm-endpoint.event_type"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.llm-endpoint.terminal"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/llm_endpoint/t2_proposer_unavailable.rego",
+      "kind": "rego",
+      "content_digest": "sha256:1ae59345e9a1b3c346b7b2612567b13ef898de71e8f6575f66a24724b4df9095",
+      "content": "# METADATA\n# title: T2 proposer routes unavailable\n# description: |\n#   Detects a sanitized control-plane observation showing that every bounded\n#   T2 proposer route failed. The resulting recovery action remains HIL-only;\n#   this policy never selects a route or executes a mutation.\n# custom:\n#   rule_id: llm-endpoint.t2-proposer-unavailable\n#   severity: high\n#   category: reliability\npackage fdai.llm_endpoint.t2_proposer_unavailable\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n\tinput.resource.type == \"llm-endpoint\"\n\tinput.resource.props.event_type == \"control_plane.t2_proposer_failure\"\n\tinput.resource.props.terminal == true\n}\n\ndeny_reason := \"t2_proposer_candidates_exhausted\" if deny\n"
+    }
+  ]
+}

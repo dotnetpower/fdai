@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "sql-database.audit-enabled",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:4be5bb8f9c495174b4414746eb4650a2d88536ce4989a920e76f3d50f315a30b",
+    "policy_identity_digest": "sha256:bfc7af6b398416a06e9ab2135c9cf5c392ebb180910a78c2ad3c7a68df51e7d8",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/sql_database/audit_enabled.rego",
+        "kind": "rego",
+        "content_digest": "sha256:e2c6a3b181c2c447ab19fcc80ce317fbf789091606d3903e888e163afb33991e"
+      }
+    ],
+    "revision_digest": "sha256:adece52be6908d73687a2780880a87ca4708f2fa1d89ebcafb1e9fdd9a8cc553"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "sql-database.audit-enabled",
+    "version": "1.0.0",
+    "source": "mcsb",
+    "severity": "high",
+    "category": "security",
+    "resource_type": "sql-database",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/sql_database/audit_enabled.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/sql_database/enable_audit.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.enable-diagnostic-settings",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/security/benchmark/azure/mcsb-logging-threat-detection",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "sql-database"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.sql-database.audit_enabled"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "sql-database"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.sql-database.audit_enabled"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/sql_database/audit_enabled.rego",
+      "kind": "rego",
+      "content_digest": "sha256:e2c6a3b181c2c447ab19fcc80ce317fbf789091606d3903e888e163afb33991e",
+      "content": "# METADATA\n# title: Require auditing on sql-database\n# description: |\n#   A sql-database MUST have auditing enabled routing to a log-workspace\n#   so admin actions are recoverable for forensics.\n# custom:\n#   rule_id: sql-database.audit-enabled\n#   severity: high\n#   category: security\npackage fdai.sql_database.audit_enabled\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"sql-database\"\n  input.resource.props.audit_enabled != true\n}\n\ndeny_reason := \"audit_disabled\" if deny\n"
+    }
+  ]
+}

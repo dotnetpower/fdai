@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "postgresql-server.encryption-at-rest",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:a75ce5870368163886eb50067da4a1718d8bb50e37b28970a6b73399b099ee67",
+    "policy_identity_digest": "sha256:0752afa3e995579561aa6b8b74db84c6b40916f069b2cafc38cd59d0a3f4ed47",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/postgresql/encryption_at_rest.rego",
+        "kind": "rego",
+        "content_digest": "sha256:9bad91367cd8c174f8415db3bbeb17932300f64a0d8b22862f6f291313995fae"
+      }
+    ],
+    "revision_digest": "sha256:e04f6faed83807a4f6bcc0e41f8a4485854c30746aeee9f1a49faede5e62e5f9"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "postgresql-server.encryption-at-rest",
+    "version": "1.0.0",
+    "source": "mcsb",
+    "severity": "high",
+    "category": "security",
+    "resource_type": "postgresql-server",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/postgresql/encryption_at_rest.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/postgresql/enable_encryption_at_rest.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.enable-encryption",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/security/benchmark/azure/mcsb-data-protection",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "postgresql-server"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.postgresql-server.encryption_at_rest_enabled"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "postgresql-server"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.postgresql-server.encryption_at_rest_enabled"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/postgresql/encryption_at_rest.rego",
+      "kind": "rego",
+      "content_digest": "sha256:9bad91367cd8c174f8415db3bbeb17932300f64a0d8b22862f6f291313995fae",
+      "content": "# METADATA\n# title: Require encryption at rest on postgresql-server\n# description: |\n#   A postgresql-server MUST have encryption at rest enabled; the\n#   default provider setting is usually service-managed and enough,\n#   but a rule fires when the property comes back false.\n# custom:\n#   rule_id: postgresql-server.encryption-at-rest\n#   severity: high\n#   category: security\npackage fdai.postgresql.encryption_at_rest\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"postgresql-server\"\n  input.resource.props.encryption_at_rest_enabled != true\n}\n\ndeny_reason := \"encryption_at_rest_disabled\" if deny\n"
+    }
+  ]
+}

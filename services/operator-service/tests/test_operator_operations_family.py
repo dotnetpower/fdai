@@ -81,6 +81,7 @@ LEGACY_ROUTE_SNAPSHOT = {
     (("GET", "HEAD"), "/views/process/{process_id:str}/events", "process_events"),
     (("GET", "HEAD"), "/detection-coverage", "handler"),
     (("GET", "HEAD"), "/detection-readiness", "handler"),
+    (("GET", "HEAD"), "/operations/runtime-state", "runtime_operational_state"),
     (("GET", "HEAD"), "/automation-blueprints", "handler"),
     (("POST",), "/automation-blueprints/accept", "handler"),
     (("POST",), "/automation-blueprints/reject", "handler"),
@@ -315,7 +316,7 @@ def test_manifest_preserves_exact_legacy_paths_methods_and_names() -> None:
         )
         for entry in OPERATIONS_ROUTE_MANIFEST
     } == LEGACY_ROUTE_SNAPSHOT
-    assert len(OPERATIONS_ROUTE_MANIFEST) == 53
+    assert len(OPERATIONS_ROUTE_MANIFEST) == 54
 
 
 def test_observer_proposals_require_authentication_and_never_submit_actions() -> None:
@@ -568,6 +569,24 @@ def test_detection_lifecycle_projection_requires_an_authenticated_reader(path: s
     assert response.status_code == 200
     assert response.json()["lifecycle"]["targets"] == []
     assert dependencies.queries[-1].operation == "detection.readiness"
+    assert dependencies.queries[-1].roles == frozenset({OperatorRole.READER})
+
+
+def test_runtime_operational_state_requires_an_authenticated_reader() -> None:
+    dependencies = RecordingDependencies()
+    dependencies.projections["runtime.operational-state"] = {
+        "source": "postgresql:state_kv",
+        "durable": True,
+        "revision": 1,
+        "snapshot": {},
+    }
+    client = _client(dependencies)
+
+    assert client.get("/operations/runtime-state").status_code == 401
+    response = client.get("/operations/runtime-state", headers=HEADERS)
+
+    assert response.status_code == 200
+    assert dependencies.queries[-1].operation == "runtime.operational-state"
     assert dependencies.queries[-1].roles == frozenset({OperatorRole.READER})
 
 

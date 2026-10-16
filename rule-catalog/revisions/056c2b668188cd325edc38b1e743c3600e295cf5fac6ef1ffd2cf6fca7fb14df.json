@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "object-storage.versioning-enabled",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:1e436a80125735431dcc28bc2d28ad98346c51ac1bb6c99be8c95e874061819d",
+    "policy_identity_digest": "sha256:69b9755d561062fe1ba7a873b1fa472911f068c957a40a452c21af08862d4d33",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/object_storage/blob_versioning.rego",
+        "kind": "rego",
+        "content_digest": "sha256:81798d6af356e7b123d05297ac30cc8c37cf109ff7cfb3e38e80a2a647c9cdee"
+      }
+    ],
+    "revision_digest": "sha256:056c2b668188cd325edc38b1e743c3600e295cf5fac6ef1ffd2cf6fca7fb14df"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "object-storage.versioning-enabled",
+    "version": "1.0.0",
+    "source": "waf",
+    "severity": "medium",
+    "category": "reliability",
+    "resource_type": "object-storage",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/object_storage/blob_versioning.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/object_storage/enable_blob_versioning.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.enable-backup-protection",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/azure/storage/blobs/versioning-overview",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "object-storage"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.object-storage.blob_versioning_enabled"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "object-storage"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.object-storage.blob_versioning_enabled"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/object_storage/blob_versioning.rego",
+      "kind": "rego",
+      "content_digest": "sha256:81798d6af356e7b123d05297ac30cc8c37cf109ff7cfb3e38e80a2a647c9cdee",
+      "content": "# METADATA\n# title: Require blob versioning on object-storage\n# description: |\n#   An object-storage account MUST have blob versioning enabled so\n#   each overwrite produces a recoverable prior version.\n# custom:\n#   rule_id: object-storage.versioning-enabled\n#   severity: medium\n#   category: reliability\npackage fdai.object_storage.blob_versioning\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"object-storage\"\n  input.resource.props.blob_versioning_enabled != true\n}\n\ndeny_reason := \"blob_versioning_disabled\" if deny\n"
+    }
+  ]
+}

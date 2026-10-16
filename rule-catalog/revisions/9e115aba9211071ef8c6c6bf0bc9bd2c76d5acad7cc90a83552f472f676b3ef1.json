@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "subscription.role-assignment.no-standing-privileged-access",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:ac8478bf891bd1794137e87b073765ec06908285ac43816e48bb360530877603",
+    "policy_identity_digest": "sha256:ccfdddbf02ea5b207faf9ad32f24cd5d9cd8cdf2c2a1becb11a799c6e8d10a89",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/subscription/no_standing_privileged_access.rego",
+        "kind": "rego",
+        "content_digest": "sha256:6670bf8d50b6948b38f6175ee6e6d7519bdb9d752acb42c9f92a6308f150373e"
+      }
+    ],
+    "revision_digest": "sha256:9e115aba9211071ef8c6c6bf0bc9bd2c76d5acad7cc90a83552f472f676b3ef1"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "subscription.role-assignment.no-standing-privileged-access",
+    "version": "1.0.0",
+    "source": "mcsb",
+    "severity": "high",
+    "category": "security",
+    "resource_type": "subscription",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/subscription/no_standing_privileged_access.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/subscription/no_standing_privileged_access.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.right-size-role",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/security/benchmark/azure/mcsb-privileged-access",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-09T00:00:00Z"
+    },
+    "applies_to": [
+      "subscription"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.subscription.role_assignments"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "subscription"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.subscription.role_assignments"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/subscription/no_standing_privileged_access.rego",
+      "kind": "rego",
+      "content_digest": "sha256:6670bf8d50b6948b38f6175ee6e6d7519bdb9d752acb42c9f92a6308f150373e",
+      "content": "# METADATA\n# title: Privileged subscription-scoped access must be just-in-time, not standing\n# description: |\n#   A privileged role (Owner, Contributor, User Access Administrator, Role Based\n#   Access Control Administrator) at subscription scope MUST be granted as\n#   just-in-time eligible access (PIM-style), not as a permanent standing\n#   assignment. Standing privileged access widens the always-on attack surface.\n#   The T0 rule denies when a privileged subscription-scoped assignment is marked\n#   standing (permanent). Fail closed: an assignment missing the standing flag is\n#   treated as standing.\n# custom:\n#   rule_id: subscription.role-assignment.no-standing-privileged-access\n#   severity: high\n#   category: security\npackage fdai.subscription.no_standing_privileged_access\n\nimport rego.v1\n\ndefault deny := false\n\nprivileged_roles := {\n\t\"Owner\",\n\t\"Contributor\",\n\t\"User Access Administrator\",\n\t\"Role Based Access Control Administrator\",\n}\n\n# The standing flag is present (explicitly true or false).\nhas_standing_flag(assignment) if assignment.standing == true\n\nhas_standing_flag(assignment) if assignment.standing == false\n\nis_standing(assignment) if assignment.standing == true\n\n# Fail closed: absence of an explicit eligible/just-in-time marker is standing.\nis_standing(assignment) if not has_standing_flag(assignment)\n\ndeny if {\n\tinput.resource.type == \"subscription\"\n\tsome assignment in input.resource.props.role_assignments\n\tprivileged_roles[assignment.role_name]\n\tis_standing(assignment)\n}\n\ndeny_reason := \"standing_privileged_subscription_access\" if deny\n"
+    }
+  ]
+}

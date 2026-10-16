@@ -1,8 +1,8 @@
 ---
 title: 보안과 아이덴티티
 translation_of: security-and-identity.md
-translation_source_sha: 74256ba95a71f881e7f7fea996dee5c3c627d7a0
-translation_revised: 2026-10-16
+translation_source_sha: efcea50274b21f1cbad6dc64b227aaf91675d51b
+translation_revised: 2026-10-17
 ---
 
 # 보안과 아이덴티티
@@ -15,6 +15,9 @@ translation_revised: 2026-10-16
 의 코드/CI 게이트를 보완합니다. 선언 목록의 `available`, `queryable`, `readable` facet은 후보 의미를 나타낼 뿐 권한을 증명하지 않습니다. Core는 선택한 선언 종류를 현재 principal 매니페스트로 제한합니다. 이 facet은 접근 권한을 부여하거나 관측 상태를 만들거나 정확한 release 검증을 우회할 수 없습니다.
 ActionBuilder는 ORR 인용을 요청된 ActionType과 대조하기 위한 용도로만 Core의 읽기 전용 활성 룰 맵을 받습니다. 이 맵은 신원, 승인 또는 실행 권한을 부여하지 않습니다.
 Core는 ORR 교정 게시자를 레버 맵과 함께 있을 때만 받습니다. 이 완전한 DI는 이미 귀속된 제안 사실을 전달할 뿐 승인 또는 실행기 신원을 제공할 수 없습니다.
+운영 bootstrap은 완전한 자체 상태 및 운영 상태 exporter 레지스트리도 요구합니다. 연결되지 않은
+수집원은 정상 기본값이 아니라 인증된 읽기 변환의 unavailable 상태로 제공됩니다. 이 변환 결과는
+근거 전용이며 승인 또는 실행 권한을 부여하지 않습니다.
 ## 심각도 어휘
 
 - **P0 차단 요인** - auto-execution이 활성화되기 전에 해결·검증되어야 함; shadow 모드에서의

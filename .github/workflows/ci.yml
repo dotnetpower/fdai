@@ -306,10 +306,13 @@ jobs:
           set -euo pipefail
           if [[ -n "$PR_BASE_SHA" ]]; then
             range="$PR_BASE_SHA...HEAD"
+            base_ref="$PR_BASE_SHA"
           elif [[ -n "$PUSH_BEFORE_SHA" && ! "$PUSH_BEFORE_SHA" =~ ^0+$ ]]; then
             range="$PUSH_BEFORE_SHA...HEAD"
+            base_ref="$PUSH_BEFORE_SHA"
           else
             range="HEAD^...HEAD"
+            base_ref="$(git rev-parse HEAD^)"
           fi
           python3 scripts/quality/architecture/check-design-routes.py
           python3 scripts/quality/architecture/check-constitution.py
@@ -318,6 +321,8 @@ jobs:
           python3 scripts/quality/architecture/check-venue-capability-contract.py
           python3 scripts/quality/architecture/check-design-doc-impact.py "$range"
           python3 scripts/quality/architecture/check-document-size.py "$range"
+          uv run python scripts/quality/architecture/check-rule-revision-identities.py \
+            --base-ref "$base_ref"
           bash scripts/integrity/check-protected-paths.sh "$range"
 
       - name: Run repository policy and boundary checks

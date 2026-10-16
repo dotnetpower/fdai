@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "kubernetes-cluster.private-cluster",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:62387da52c21502f5dbb3787076ce5f7fb61f71de56a9e66af39f1c50deb9a26",
+    "policy_identity_digest": "sha256:55340d0f3c5b8d5a54d7cfac6c80203d1394e76c515be9aad42f8597cf374fb7",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/kubernetes/private_cluster_required.rego",
+        "kind": "rego",
+        "content_digest": "sha256:659a30102c6f0adf58297faf999505f8c6335232d578b7b173884f19dd078ff6"
+      }
+    ],
+    "revision_digest": "sha256:1b4f3985e544c6e886dc8d0bc6fdd64455306b5c17b5b9f38ed3404df49f8333"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "kubernetes-cluster.private-cluster",
+    "version": "1.0.0",
+    "source": "aks_baseline",
+    "severity": "high",
+    "category": "security",
+    "resource_type": "kubernetes-cluster",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/kubernetes/private_cluster_required.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/kubernetes/enable_private_cluster.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.restrict-network-access",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/azure/architecture/reference-architectures/containers/aks/baseline-aks",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "kubernetes-cluster"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.kubernetes-cluster.private_cluster_enabled"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "kubernetes-cluster"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.kubernetes-cluster.private_cluster_enabled"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/kubernetes/private_cluster_required.rego",
+      "kind": "rego",
+      "content_digest": "sha256:659a30102c6f0adf58297faf999505f8c6335232d578b7b173884f19dd078ff6",
+      "content": "# METADATA\n# title: Require private API server on kubernetes-cluster\n# description: |\n#   A kubernetes-cluster serving workloads MUST have the API server\n#   reachable only through a private endpoint.\n# custom:\n#   rule_id: kubernetes-cluster.private-cluster\n#   severity: high\n#   category: security\npackage fdai.kubernetes.private_cluster_required\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"kubernetes-cluster\"\n  input.resource.props.private_cluster_enabled != true\n}\n\ndeny_reason := \"api_server_public\" if deny\n"
+    }
+  ]
+}

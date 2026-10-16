@@ -87,6 +87,7 @@ async def _promotion_fixture(h, action_type):
         action_type_version="1.0.0",
         action_type_digest="b" * 64,
         evidence_digest="c" * 64,
+        policy_digest="d" * 64,
         fdai_revision=SOURCE[7:],
         scenario_set_version="fixture-alert-v1",
     )
@@ -102,6 +103,7 @@ async def _promotion_fixture(h, action_type):
             "demoted_at": None,
             "metrics": None,
             "promotion_evidence_digest": values["evidence_digest"],
+            "promotion_policy_digest": values["policy_digest"],
             "fdai_revision": values["fdai_revision"],
             "scenario_set_version": values["scenario_set_version"],
             "action_type_version": "1.0.0",

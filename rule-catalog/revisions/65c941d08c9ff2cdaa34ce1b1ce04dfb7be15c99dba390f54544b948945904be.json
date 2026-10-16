@@ -1,0 +1,82 @@
+{
+  "schema_version": "1.0.0",
+  "revision_identity": {
+    "schema_version": "1.0.0",
+    "rule_id": "sql-database.geo-redundant-backup",
+    "rule_version": "1.0.0",
+    "definition_digest": "sha256:c50c2ed00fa79a186e18d8494be79d1e5f09a4a97898e96fc246f4c957100bf1",
+    "policy_identity_digest": "sha256:46b1dc7e9f41958cd5fe1f0df9eb7d883a0dde744a9c04ffdeee895abe56beb3",
+    "opa_version": "1.18.2",
+    "opa_toolchain_digest": "sha256:fcc0e7fbd40eccab1b0267f7bd02f87e253391658ee75c29b81f9dd777dc7a17",
+    "normalization_version": "1.0.0",
+    "normalization_source_digest": "sha256:a47f730f7d6249a16533b3742415b3e21a9f41ce4b437772679a55e7b39a3e3d",
+    "artifacts": [
+      {
+        "path": "policies/sql_database/geo_redundant_backup.rego",
+        "kind": "rego",
+        "content_digest": "sha256:116b5c02676b76e2f43ab9ec11c0b4edb7c1b24ed372e37599538dd12252ffea"
+      }
+    ],
+    "revision_digest": "sha256:65c941d08c9ff2cdaa34ce1b1ce04dfb7be15c99dba390f54544b948945904be"
+  },
+  "definition": {
+    "schema_version": "2.0.0",
+    "id": "sql-database.geo-redundant-backup",
+    "version": "1.0.0",
+    "source": "waf",
+    "severity": "high",
+    "category": "reliability",
+    "resource_type": "sql-database",
+    "check_logic": {
+      "kind": "rego",
+      "reference": "policies/sql_database/geo_redundant_backup.rego"
+    },
+    "remediation": {
+      "template_ref": "remediation/sql_database/enable_geo_redundant_backup.tftpl",
+      "cost_impact_monthly_usd": 0.0
+    },
+    "remediates": "remediate.enable-backup-protection",
+    "alternatives": [],
+    "parameters": {},
+    "provenance": {
+      "source_url": "https://learn.microsoft.com/azure/well-architected/reliability/backup-recovery",
+      "resolved_ref": "0000000000000000000000000000000000000000",
+      "content_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "license": "LicenseRef-reference-only",
+      "redistribution": "reference-only",
+      "retrieved_at": "2026-07-06T00:00:00Z"
+    },
+    "applies_to": [
+      "sql-database"
+    ],
+    "triggered_by": [
+      "resource.configuration.observed"
+    ],
+    "evaluates": [
+      "property.sql-database.geo_redundant_backup_enabled"
+    ],
+    "required_interfaces": [
+      "Evaluable",
+      "Remediable"
+    ],
+    "submission_criteria": [
+      {
+        "kind": "resource_type_registered",
+        "value": "sql-database"
+      },
+      {
+        "kind": "property_exists",
+        "value": "property.sql-database.geo_redundant_backup_enabled"
+      }
+    ],
+    "scope_predicates": {}
+  },
+  "policy_artifacts": [
+    {
+      "path": "policies/sql_database/geo_redundant_backup.rego",
+      "kind": "rego",
+      "content_digest": "sha256:116b5c02676b76e2f43ab9ec11c0b4edb7c1b24ed372e37599538dd12252ffea",
+      "content": "# METADATA\n# title: Require geo-redundant backup on sql-database\n# description: |\n#   A sql-database that stores customer-facing data MUST use\n#   geo-redundant backup storage so a regional outage does not lose\n#   the point-in-time restore window.\n# custom:\n#   rule_id: sql-database.geo-redundant-backup\n#   severity: high\n#   category: reliability\npackage fdai.sql_database.geo_redundant_backup\n\nimport rego.v1\n\ndefault deny := false\n\ndeny if {\n  input.resource.type == \"sql-database\"\n  input.resource.props.geo_redundant_backup_enabled != true\n}\n\ndeny_reason := \"geo_redundant_backup_disabled\" if deny\n"
+    }
+  ]
+}

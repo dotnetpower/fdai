@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 import pytest
@@ -26,6 +27,18 @@ from fdai_operator_service.runtime_projection_reader import (
     RuntimeProjectionReaderConfig,
 )
 from fdai_service_contracts import OperatorRole
+from fdai_service_contracts.self_health import (
+    OperationalStateFieldName,
+    OperationalStateFieldStatus,
+    OperationalStateFieldV1,
+    OperationalStateSnapshotV1,
+    SelfHealthSignalName,
+    SelfHealthSignalStateV1,
+    SelfHealthSignalStatus,
+    SelfHealthSnapshotV1,
+    operational_state_snapshot_digest,
+    self_health_snapshot_digest,
+)
 
 
 class RecordingFallback:
@@ -54,6 +67,88 @@ def _query(
         cursor=None,
         roles=frozenset({OperatorRole.READER}),
     )
+
+
+def _operational_state(now: datetime) -> OperationalStateSnapshotV1:
+    signals = tuple(
+        SelfHealthSignalStateV1(
+            signal=signal,
+            metric=f"fdai.test.{signal.value}",
+            exporter_id=f"runtime:{signal.value}",
+            status=SelfHealthSignalStatus.HEALTHY,
+            value=Decimal("1"),
+            observed_at=now,
+            recorded_at=now,
+            maximum_age_seconds=300,
+            fresh=True,
+            reason="healthy",
+            route="operational_alert",
+            fallback="hil_escalate",
+            alert=False,
+        )
+        for signal in sorted(SelfHealthSignalName, key=lambda item: item.value)
+    )
+    self_health = SelfHealthSnapshotV1(
+        catalog_version=1,
+        generated_at=now,
+        signals=signals,
+        snapshot_digest=self_health_snapshot_digest(
+            catalog_version=1,
+            generated_at=now,
+            signals=signals,
+        ),
+    )
+    fields = tuple(
+        OperationalStateFieldV1(
+            name=field_name,
+            status=OperationalStateFieldStatus.AVAILABLE,
+            value_digest="sha256:" + ("a" * 64),
+            source=f"runtime-state:{field_name.value}",
+            observed_at=now,
+            maximum_age_seconds=300,
+            fresh=True,
+            reason="current",
+        )
+        for field_name in sorted(OperationalStateFieldName, key=lambda item: item.value)
+    )
+    return OperationalStateSnapshotV1(
+        generated_at=now,
+        self_health=self_health,
+        fields=fields,
+        snapshot_digest=operational_state_snapshot_digest(
+            generated_at=now,
+            self_health=self_health,
+            fields=fields,
+        ),
+    )
+
+
+async def test_operational_state_projection_validates_durable_contract(
+    monkeypatch: Any,
+) -> None:
+    snapshot = _operational_state(datetime(2026, 10, 18, tzinfo=UTC))
+
+    async def fetch(
+        self: RuntimeProjectionReader,
+        statement: str,
+        parameters: tuple[object, ...] = (),
+    ) -> list[dict[str, object]]:
+        del self
+        assert "FROM state_kv" in statement
+        assert parameters == ("runtime:operational-state",)
+        return [{"value": {"revision": 2, "snapshot": snapshot.model_dump(mode="json")}}]
+
+    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
+    reader = RuntimeProjectionReader(
+        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),
+        RecordingFallback(),
+    )
+
+    projected = await reader.read(_query("runtime.operational-state"))
+
+    assert projected["source"] == "postgresql:state_kv"
+    assert projected["revision"] == 2
+    assert projected["snapshot"]["snapshot_digest"] == snapshot.snapshot_digest
 
 
 async def test_process_list_and_journal_project_durable_rows(monkeypatch: Any) -> None:

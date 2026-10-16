@@ -12,6 +12,9 @@ and the code/CI gates in
 [coding-conventions.instructions.md](../../../.github/instructions/coding-conventions.instructions.md). Declaration-list facets such as `available`, `queryable`, and `readable` express candidate meaning, not authorization. Core constrains the selected declaration kind to the current principal manifest; these facets cannot grant access, create observed state, or bypass the exact-release verifier.
 ActionBuilder receives Core's read-only active rule map only to validate ORR citations against the requested ActionType. The map grants no identity, approval, or execution authority.
 Core accepts an ORR remediation publisher only with its lever map; this complete DI forwards already attributed proposal facts and cannot supply approval or executor identity.
+Production bootstrap also requires complete self-health and operational-state exporter registries.
+An unbound source is published as unavailable through the authenticated read projection, never as a
+healthy default. These projections are evidence only and grant no approval or execution authority.
 ## Severity Vocabulary
 
 - **P0 blocker** - must be resolved and verified before any auto-execution is enabled; blocks

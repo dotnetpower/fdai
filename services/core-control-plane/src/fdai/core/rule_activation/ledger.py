@@ -89,6 +89,17 @@ class StateStoreRuleActivationLedger:
         await self._reserve_idempotency(validated)
 
         pointer = await self._read_pointer()
+        if pointer is not None and pointer.get("v2_authoritative") is True:
+            return await self._commit_result(
+                _result(
+                    validated,
+                    status=RuleActivationStatus.REJECTED,
+                    previous_digest=_optional_digest(pointer, "generation_digest"),
+                    resulting_digest=None,
+                    readback_verified=False,
+                    failure_reason="version2_activation_is_authoritative",
+                )
+            )
         current = await self.current_generation()
         target = validated.generation
         if current is not None and current.generation_digest == target.generation_digest:

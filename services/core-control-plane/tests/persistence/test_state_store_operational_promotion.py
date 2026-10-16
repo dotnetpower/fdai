@@ -10,6 +10,7 @@ _SCENARIO = "scenario-v1"
 _ACTION = "remediate.tag-add"
 _EVIDENCE = "b" * 64
 _ACTION_DIGEST = "c" * 64
+_POLICY = "d" * 64
 _KEY = f"operational-promotion-receipt:{_ACTION}:{_REVISION}:{_SCENARIO}:{_EVIDENCE}"
 
 
@@ -21,6 +22,7 @@ def _receipt() -> OperationalPromotionReceipt:
         action_type_version="1.0.0",
         action_type_digest=_ACTION_DIGEST,
         evidence_digest=_EVIDENCE,
+        policy_digest=_POLICY,
         observation_days=14.0,
         live_observation_days=14,
         sample_count=100,
@@ -78,7 +80,7 @@ async def test_receipt_store_rejects_tampered_numeric_types() -> None:
     payload["sample_count"] = "100"
     await state.write_state(
         _KEY,
-        {"schema_version": "1.1.0", "receipt": payload},
+        {"schema_version": "1.2.0", "receipt": payload},
     )
 
     with pytest.raises(ValueError, match="sample_count"):
@@ -96,6 +98,7 @@ async def test_legacy_receipt_loads_without_decision_evidence_authority() -> Non
     payload = _receipt().as_json()
     payload.pop("decision_evidence_receipt_digest")
     payload.pop("decision_evidence_verification_bundle_digest")
+    payload.pop("policy_digest")
     await state.write_state(
         _KEY,
         {"schema_version": "1.0.0", "receipt": payload},

@@ -92,10 +92,53 @@ holds, and Operator receives only the terminal no-authority answer plus technica
 Self-health follows the same boundary. Generic thresholds, freshness, owner lanes, routes, and
 fallbacks live in `config/self-health-signals.yaml`; `core/readiness/self_health.py` makes the pure
 authority-neutral decision; runtime bootstrap validates the complete catalog against notification
-routes; delivery and provider adapters remain responsible for emitting source-qualified metrics.
+routes. `core/readiness/self_health_runtime.py` requires exact exporter coverage for all 15 signals
+and eight sanitized operational-state fields, persists one freshness-checked snapshot, and records
+unavailable sources without inventing healthy values. Operator exposes that snapshot through the
+authenticated Reader-role `GET /operations/runtime-state` projection. Delivery adapters remain
+responsible for replacing explicit unavailable bindings with source-qualified production metrics.
+Operational promotion uses another exact cross-layer identity. Core measurement hashes every O7
+threshold policy and carries that digest in the receipt. Reviewed replay authority, the governance
+promotion request, durable receipt storage, the action-mode record, and restart verification bind
+a content-addressed decision digest composed from evidence and policy identities. A policy change
+therefore creates new review authority rather than reinterpreting retained evidence.
 Rule activation version compatibility is also split: service contracts own the version 1/2
 envelope codec and Core's activation ledger applies it while version 1 remains the only write
-format. Neither compatibility path grants approval, activation, promotion, or execution authority.
+format. The shared SDK also owns dormant signed non-direct manifest and trust contracts. Core
+verifies exact locally resolved identity, trust validity, scope, registry root, and replay nonce
+through a separate module that writes only an authority-neutral reservation. Neither compatibility
+nor manifest verification grants approval, activation, promotion, or execution authority.
+The dormant version 2 identity contract separately hashes the complete retained catalog, the
+resolved active profile snapshot, and the target generation. It supplies signed-manifest
+preconditions but is not read by the version 1 active pointer. A profile transition changes active
+identity; catalog-only growth does not.
+The dormant replica-cohort state machine follows the same boundary. Shared contracts own frozen
+replica, lease, acknowledgement, departure, candidate, and applied records. Core owns their
+authority-neutral orchestration. A provider seam owns database-time lease checks and atomic
+candidate/applied commits; the PostgreSQL adapter serializes candidate selection with the exact
+latest prepare. No cohort record writes the version 1 active pointer.
+Dual-revision slots add another authority-neutral layer. Shared contracts own exact revision pins,
+old-enforce/new-shadow slot identities, revision-cited evidence, promotion approval facts, and inert
+move candidates. Core derives evidence and candidates from retained slots and cohort readback, but
+an injected promotion-authority provider alone may validate the approval profile, principals,
+quorum, and revision evidence. No slot module mutates current enforcement.
+The approved identity-upgrade boundary is the first authority-bearing version 2 path. Shared
+contracts own the reviewed legacy-to-revision baseline, dual-read replica evidence, explicit
+approval and command, and authority pointer. Core rechecks signed-manifest reservation, cohort
+candidate/applied state, and the injected governance authority. The StateStore transaction both
+fences the version 1 pointer and inserts the version 2 pointer, so neither a crash nor a concurrent
+legacy writer can expose split authority. Startup reads this result and never originates it.
+Authoritative revision changes retain the same ownership split. Shared contracts bind one explicit
+source/target identity transition and logical binding. Core verifies the dormant slot, move
+candidate, target cohort, and current governance approval. A database-time StateStore pair CAS
+moves the v2 generation pointer and the exact enforcing binding together. Multiple bindings for
+one Rule remain distinct because authority keys use the logical binding id rather than the Rule id.
+Revision retention and rollback remain split across the same layers. Shared contracts own reference
+snapshots, rollback eligibility, retirement approval, and tombstones. Core derives live references
+and verifies rollback lineage. The retained-catalog delivery adapter proves the content-addressed
+closure exists. StateStore and cohort persistence serialize prepare, slot, move, authority, and
+retirement writes through one retention epoch, while the governance-attestation adapter retains
+human approval authority. Retirement prevents new use but never deletes historical artifacts.
 
 Question-form concept-choice reuse is owned by Core conversation processing and ends with one
 run. Its exact-input, reader-separated cache never stores observed state, authorization, or
