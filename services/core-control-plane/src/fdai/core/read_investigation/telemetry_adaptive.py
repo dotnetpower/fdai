@@ -64,7 +64,7 @@ from .telemetry_routing import (
     telemetry_mechanisms_for_event,
 )
 
-TELEMETRY_ADAPTIVE_SCORER_VERSION: Final[str] = "telemetry-receipt-reviser-v1"
+TELEMETRY_ADAPTIVE_SCORER_VERSION: Final[str] = "telemetry-receipt-reviser-v2"
 TELEMETRY_ADAPTIVE_PURPOSE: Final[str] = "operations-review"
 _RECEIPT_REF_PREFIX = "telemetry-receipt:"
 
@@ -186,8 +186,12 @@ class TelemetryAdaptiveHypothesisReviser(AdaptiveHypothesisReviser):
             )
             if mechanism_facts != (expected_fact,):
                 raise ValueError("telemetry receipt mechanism facts do not match its recipe")
-            revised = (selected,)
-            disposition = AdaptiveInvestigationDisposition.CONVERGED
+            revised = active
+            disposition = (
+                AdaptiveInvestigationDisposition.CONVERGED
+                if len(active) == 1
+                else AdaptiveInvestigationDisposition.HELD
+            )
         elif receipt.disposition is TelemetryEvidenceDisposition.COMPLETE_NO_DATA:
             recipe = self._catalog.get(receipt.recipe_id, receipt.recipe_version)
             if not recipe.supports_no_data_refutation:

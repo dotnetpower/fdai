@@ -122,6 +122,55 @@ def test_graph_at_reconstructs_tombstone_and_topology_diff() -> None:
     assert change.digest.startswith("sha256:")
 
 
+def test_late_older_full_snapshot_cannot_replace_newer_effective_state() -> None:
+    def snapshot(key, effective, recorded, name):
+        return TopologyRevisionBatch(
+            revision_id=key,
+            provider_generation_ref=key,
+            effective_at=effective,
+            recorded_at=recorded,
+            complete_snapshot=True,
+            ontology_release_digest=RELEASE_DIGEST,
+            source_receipt_digest=RELEASE_DIGEST,
+            object_revisions=(
+                _object("vnet-a", effective_at=effective, recorded_at=recorded, name=name),
+            ),
+        )
+
+    newer = snapshot("newer", T1, T1, "newer-state")
+    late_old = snapshot("late-old", T0, T2, "old-state")
+    result = graph_at((newer, late_old), as_of=T1, known_at=T3)
+    assert result.complete
+    assert result.graph.objects[0].properties["name"] == "newer-state"
+    assert result.revision_ids == ("newer",)
+
+
+def test_late_baseline_keeps_previously_recorded_later_effective_delta() -> None:
+    baseline = TopologyRevisionBatch(
+        revision_id="baseline",
+        provider_generation_ref="baseline",
+        effective_at=T0,
+        recorded_at=T2,
+        complete_snapshot=True,
+        ontology_release_digest=RELEASE_DIGEST,
+        source_receipt_digest=RELEASE_DIGEST,
+        object_revisions=(_object("vnet-a", effective_at=T0, recorded_at=T2, name="old"),),
+    )
+    delta = TopologyRevisionBatch(
+        revision_id="delta",
+        provider_generation_ref="delta",
+        effective_at=T1,
+        recorded_at=T1,
+        complete_snapshot=False,
+        ontology_release_digest=RELEASE_DIGEST,
+        source_receipt_digest=RELEASE_DIGEST,
+        object_revisions=(_object("vnet-a", effective_at=T1, recorded_at=T1, name="new"),),
+    )
+    result = graph_at((delta, baseline), as_of=T1, known_at=T3)
+    assert result.complete
+    assert result.graph.objects[0].properties["name"] == "new"
+
+
 def test_known_at_replay_excludes_late_evidence_without_rewriting_prior_view() -> None:
     baseline = TopologyRevisionBatch(
         revision_id="revision-1",

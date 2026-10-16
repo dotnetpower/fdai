@@ -31,6 +31,13 @@ and resumable work while the roadmap owner remains focused on normative design.
 | Deployment causal evidence binding | implemented | `runtime/causal_bindings.py`; `runtime/control_loop.py`; `delivery/persistence/state_store_causal_receipts.py`; `core/rca/{runtime,hypothesis}.py`; `tests/integration/test_causal_deployment_binding.py`; `tests/persistence/test_state_store_causal_receipts.py` | A deployment that binds bounded temporal series through `bind_azure_operational_evidence` now gets Forseti's `CausalHypothesis` projection over the runtime ontology store and the Thor ActionRun receipt resolver, instead of a startup failure. An independent `ObservedOutcome` of a verified intervention confirms only through the exact declared ActionRun receipt; adverse, incomplete, or unresolved outcomes stay refuted, unsafe, or inconclusive, and every mode stays `shadow` without a current admission. |
 | Operational causal closure evidence | in-progress | [Delivery slices](../../roadmap/rules-and-detection/causal-incident-graph.md#delivery-slices); deployment integration test above | The seams are bound and exercised locally; no governed replay from a deployed revision yet proves that a verified intervention closes or refutes a hypothesis. |
 | Investigation boundary hardening | implemented | [Issue #2184](https://github.com/dotnetpower/fdai/issues/2184); compiler-to-handler, causal topology, adaptive telemetry, incident graph, temporal scorer, ActionRun receipt, and deployment-binding regressions | Sixteen critique rounds repaired the five reproduced defects and additional replay, temporal validity, statistical identity, comparison scope, and intervention target gaps. The final independent review found no actionable Medium-or-higher issue in its reviewed scope. Local checks do not establish deployed causal accuracy. |
+| W0-W2 historical incident context | implemented | `core/rca/historical_graph.py`; `runtime/rca_bindings.py`; `test_historical_graph.py`; `test_topology_history.py`; runtime/T1 checks | Retained event/knowledge time, equal-time conflicts, effective-time baseline/generation, deletion, exact release/source receipts, bounded neighborhood and audit identity are checked. Current-state traversal remains explicitly non-historical. Actual provider refresh and dropped-relationship disposition remain W1 operational work. |
+| W3 independent competitor accounting | implemented | `core/read_investigation/telemetry_adaptive.py`; `test_telemetry_adaptive.py` | Scorer v2 does not treat one positive recipe as refutation of unobserved competitors. It retains those candidates and holds. Complete domain-specific support/refutation evidence still requires reviewed sources; weights do not establish measured causality. |
+| W4 independent closure intake | implemented | `core/rca/runtime.py`; `composition/_helpers.py`; `runtime/causal_bindings.py`; `test_causal_deployment_binding.py` | A bounded source is consumed by the existing shadow runtime, including outcome-only composition. Entire-batch identity/time/duplicate checks precede projection; conflicting same-predecessor outcomes cannot create contradictory sibling closures. A deployment must supply an independently authenticated source; no Event body substitutes for one. |
+| W5 actual local PostgreSQL reliability | implemented | `tests/runtime/test_causal_postgres_reliability.py`: 4 passed using the isolated validation database | Independent replicas serialize duplicate investigation, preserve terminal timeout/restart replay, release an exactly identified lost backend lock, and reconstruct bitemporal/tombstone history. Random task-owned schemas are cleaned up. The minimal adapter schema and static telemetry fixture do not prove deployed migration or latency qualification. |
+| W6 causal quality evaluation | implemented | `core/rca/evaluation.py`; `test_evaluation.py`: 57 passed | Immutable source/revision-bound receipts expose denominators, citation membership, missing results, wrong causes, and justified/unjustified holds. A five-case synthetic cohort runs the actual join/analyzer: 5/5 label matches, one cause claim, four holds, 15 valid citation memberships; always-held and omitted-cause baselines score 4/5 with zero cause recall. This is not operational accuracy or semantic entailment evidence. |
+| W7 bilingual compiler contract | implemented | `test_bilingual_causal_plan_contract.py`; compiler-to-handler regressions | Independently annotated English/Korean fixtures preserve target, direction, time, and competitors. Live model comprehension, independent 400-question annotation, and full user-facing qualification remain separate, unclaimed work. |
+| W8-W9 deployment and intervention qualification | deferred | Residual program in the owning design; operational RCA and hypothesis-loop ledgers | No target, exact source, live-read/deployment/intervention scope, or actual 14-day observation interval is supplied by the implementation request. These exits remain open; no rollout, provider mutation, model call, promotion, or fabricated operational receipt is used to close them. |
 
 ### Implementation history
 
@@ -88,7 +95,90 @@ python -m pytest -q --no-cov \
   services/core-control-plane/tests/runtime/test_adaptive_telemetry.py
 ```
 
+| 2026-10-16 | implemented | Completed the locally executable residual infrastructure and repeated critique. Retained bitemporal history now feeds T1 with active-generation and graph audit identity; exact-time conflict and tombstone checks preserve uncertainty; independently supplied closure batches are consumed in shadow with canonical replay; positive telemetry does not discard untested competitors. Added immutable causal quality receipts and paired typed English/Korean compilation checks. | `current change`; final owning selection: 375 passed; actual isolated PostgreSQL reliability: 4 passed; regenerated semantic-source parity: 4 passed; strict mypy over 12 task-owned sources and Ruff passed. The final independent review found no actionable Medium-or-higher issue in its reviewed corrections. | Supply selected authenticated provider/outcome sources and governed operational cohorts. Deployment, live Azure/model, intervention and actual recurrence observation remain unperformed and cannot be represented by local fixtures. |
+
+### Residual critique and hardening
+
+These are new rounds after #2185, not a reuse of its seventeen earlier rounds.
+
+| Round | Boundary | Finding, repair, and evidence |
+|-------|----------|-------------------------------|
+| 1 | Historical source | A current-state read cannot prove past completeness. Added retained-history materialization; current-state candidates remain explicitly incomplete. |
+| 2 | Actual T1 consumer | A standalone helper would leave runtime unchanged. T1 now consumes the historical materializer and audits graph revision and source references. |
+| 3 | Question neighborhood | Unrelated invalid properties should not poison a scoped read. Filter to the bounded candidate neighborhood and recompute after evidence rejection; ambiguous source-level gaps still hold. |
+| 4 | Competing explanations | One positive recipe discarded unobserved alternatives. Scorer v2 keeps them active and holds instead of inventing refutation. |
+| 5 | Outcome intake | A callable closure method alone did not consume independent outcomes. Added bounded source-driven and outcome-only composition, keeping the Event as a lookup trigger only. |
+| 6 | Persisted replay | Datetime objects versus stored JSON strings caused false immutable-content conflicts. Canonical JSON comparison now preserves exact closure replay. |
+| 7 | Real database mechanics | Four actual isolated PostgreSQL tests cover independent replicas, single-read duplicates, persisted query timeout/restart, precise backend loss, and historical reads. Static telemetry and minimal adapter schemas are explicitly labeled. |
+| 8 | Equal-time values | A deterministic lexical winner could conceal conflicting retained facts. Detect conflicting object/link revisions and lower completeness. |
+| 9 | Bilingual typed meaning | Added independently annotated English/Korean compiler checks for exact target, direction, cutoff and competitors. This is not model comprehension qualification. |
+| 10 | Outcome payload bounds | Bound endpoint count, nesting and bytes before processing independent closure batches. Oversize observations fail explicitly. |
+| 11 | Endpoint types | Retained link endpoint declarations must match selected object types, not only endpoint ids. A mismatch keeps history incomplete. |
+| 12 | Independent critique | Reviewer reproduced hidden competing baselines/deleted paths and contradictory sibling closures. Accepted both Medium findings for repair. |
+| 13 | Hidden historical alternatives | Preserve competing same-time complete snapshots and tombstone paths before winner selection/pruning can hide them. New counterexamples now hold. |
+| 14 | Contradictory outcomes | Reject multiple outcomes for one predecessor revision across the complete batch before projection; distinct outcome ids cannot bypass this check. |
+| 15 | Evidence identity and bounds | Canonical retained revisions and complete source-reference byte accounting bind the receipt, including discarded conflict evidence. |
+| 16 | Evaluation anti-gaming | Fixed denominators, unknown/missing/duplicate outputs, wrong causes, unjustified holds and fabricated citations are covered by 57 evaluator checks, including actual analyzer/join execution. |
+| 17 | Synchronous deadline | An async timeout alone cannot preempt synchronous graph work. Check the overall monotonic deadline before returning success. |
+| 18 | Superseded deletion | Independent review found that old live-link revisions were validated against endpoints deleted later. Validate only winning live revisions; surviving unrelated dependencies remain complete. |
+| 19 | Late baseline chronology | Choose the baseline by effective/recorded time, not arrival order, and preserve later-effective deltas recorded before a late baseline. Two exact chronology regressions pass. |
+| 20 | Active generation | The last-arriving generation may be older than the incident state. Derive the active generation by effective time and match T1 member evidence to it. |
+| 21 | Final independent review | No actionable Medium-or-higher issue remained in reviewed history, closure, replay and T1 corrections. Remaining limitations are the explicitly open operational-source, model, deployment and intervention qualification below. |
+
+Final commands, using the selected local Python environment:
+
+```bash
+python -m pytest -q --no-cov \
+  services/core-control-plane/tests/core/rca/test_historical_graph.py \
+  services/core-control-plane/tests/core/rca/test_incident_graph.py \
+  services/core-control-plane/tests/core/rca/test_evaluation.py \
+  services/core-control-plane/tests/core/rca/test_runtime.py \
+  services/core-control-plane/tests/core/rca/test_hypothesis.py \
+  services/core-control-plane/tests/core/rca/test_hypothesis_lineage_projection.py \
+  services/core-control-plane/tests/core/rca/test_causal_chain.py \
+  services/core-control-plane/tests/core/ontology_platform/test_topology_history.py \
+  services/core-control-plane/tests/core/ontology_platform/test_causal_topology.py \
+  services/core-control-plane/tests/core/ontology_platform/test_metric_semantics.py \
+  services/core-control-plane/tests/runtime/test_rca_bindings.py \
+  services/core-control-plane/tests/runtime/test_adaptive_telemetry.py \
+  services/core-control-plane/tests/core/read_investigation/test_telemetry_adaptive.py \
+  services/core-control-plane/tests/core/read_investigation/test_adaptive_session.py \
+  services/core-control-plane/tests/core/test_control_loop_t1_wire.py \
+  services/core-control-plane/tests/core/test_control_loop_temporal_causality.py \
+  services/core-control-plane/tests/core/test_causal_recovery_projection.py \
+  services/core-control-plane/tests/conversation/test_bilingual_causal_plan_contract.py \
+  services/core-control-plane/tests/conversation/test_causal_investigation_execution.py \
+  tests/integration/test_causal_deployment_binding.py \
+  services/core-control-plane/tests/delivery/persistence/test_postgres_topology_history.py \
+  services/core-control-plane/tests/delivery/test_inventory_topology_history.py
+# 375 passed
+python3 scripts/automation/with-local-test-database.py python -m pytest -q --no-cov \
+  services/core-control-plane/tests/runtime/test_causal_postgres_reliability.py
+# 4 passed against isolated local PostgreSQL
+python -m pytest -q --no-cov tests/integration/evaluation/test_semantic_intent_coverage.py
+# 4 passed; official regeneration changed source commitments only
+```
+
 ### Remaining work
+
+- [x] Implement the locally executable residual infrastructure: retained-history T1 context,
+  bounded independent-outcome intake, conservative competitor handling, actual isolated PostgreSQL
+  mechanics, typed quality evaluation, and bilingual annotated compilation checks.
+- [ ] Bind the independent closure observation source to the selected deployment's authenticated,
+  exact-artifact outcome reader and retain a non-synthetic replay. The generic intake is implemented,
+  but an arbitrary payload or a fixture cannot become this source.
+- [ ] Refresh a selected authorized provider generation, adjudicate its retained missing endpoints,
+  type mismatches and unresolved references, and verify the newly reviewed ResourceTypes. This is
+  source-specific operational evidence, not proof supplied by the local graph implementation.
+- [ ] Retain independently reviewed support/refutation and cross-resource evidence for the
+  selected mechanisms. Unobserved competitors stay held, not silently refuted.
+- [ ] Run the fixed evaluator on a governed exact-revision operational cohort, including T0/T1/T2,
+  verified citations, justified abstention and independently observed outcomes. Synthetic cohort
+  measurements remain explicitly labeled and cannot qualify production.
+- [ ] Retain live bilingual semantic/Console evidence and independent question-bank annotation;
+  typed fixture compilation does not establish model-language accuracy.
+- [ ] Complete separately authorized deployment, intervention, rollback, and real recurrence-window
+  evidence. No deployment or live Azure/model action was performed in this local implementation.
 
 - [x] Repair the five reproduced local defects and complete at least ten critique rounds for
   #2184. Sixteen rounds and the final focused checks above establish this bounded local scope.

@@ -175,6 +175,8 @@ class ControlLoopRcaMixin:
 
         async def run_t1() -> None:
             depends_on = self._resource_dependency_graph
+            graph_revision: str | None = None
+            graph_evidence_refs: tuple[str, ...] = ()
             if self._incident_rca_context_source is not None:
                 context = await self._incident_rca_context_source.context(
                     incident_id=incident_id,
@@ -187,6 +189,8 @@ class ControlLoopRcaMixin:
                     return
                 members = context.members
                 depends_on = context.depends_on
+                graph_revision = context.graph_revision
+                graph_evidence_refs = context.evidence_refs
             else:
                 member_source = self._incident_member_source
                 if member_source is None:
@@ -216,6 +220,8 @@ class ControlLoopRcaMixin:
                     "rca_outcome": result.outcome.value,
                     "rca_reason": result.reason,
                     "rca_tier": hypothesis.tier.value if hypothesis else "t1",
+                    "rca_graph_revision": graph_revision,
+                    "rca_graph_evidence_refs": list(graph_evidence_refs),
                     "rca_cause_domain": (
                         hypothesis.cause_domain.value if hypothesis else "unknown"
                     ),
@@ -281,6 +287,13 @@ class ControlLoopRcaMixin:
                     "causal_evidence_grade": claim.evidence_grade.value if claim else None,
                     "causal_falsifiers": list(claim.falsifiers) if claim else [],
                     "causal_hypothesis_id": hypothesis.hypothesis_id if hypothesis else None,
+                    "causal_closed_hypotheses": [
+                        {
+                            "id": item.hypothesis_id,
+                            "closure": item.closure.value if item.closure else None,
+                        }
+                        for item in result.closed_hypotheses
+                    ],
                     "recorded_at": datetime.now(tz=UTC).isoformat(),
                 }
             )

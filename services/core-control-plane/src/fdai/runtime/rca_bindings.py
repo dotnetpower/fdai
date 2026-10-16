@@ -15,10 +15,11 @@ import httpx
 from fdai.composition import Container, attach_telemetry_workspace_resolver
 from fdai.core.ontology_platform.topology_history import (
     TopologyHistoryReader,
-    graph_at,
 )
 from fdai.core.rca.causal_chain import CorrelatedEvent
 from fdai.core.rca.deployment_member_source import DeploymentHistoryMemberSource
+from fdai.core.rca.historical_graph import HistoricalCausalIncidentGraphMaterializer
+from fdai.core.rca.incident_graph import IncidentGraphBounds
 from fdai.core.rca.member_source import (
     IncidentMemberSource,
     IncidentRcaContext,
@@ -162,19 +163,20 @@ class TopologyHistoryIncidentRcaContextSource:
         known_at = self.clock()
         if known_at.tzinfo is None or incident.opened_at > known_at:
             return None
-        batches = await self.topology_history.read(
-            as_of=detected_at,
+        topology = await HistoricalCausalIncidentGraphMaterializer(
+            history=self.topology_history,
+        ).materialize(
+            incident_id=str(incident.incident_id),
+            root_ids=(resource_ref,),
+            evidence_cutoff=detected_at,
             known_at=known_at,
+            link_types=(_DEPENDENCY_LINK,),
+            bounds=IncidentGraphBounds(max_depth=5, max_nodes=1000),
         )
-        topology = graph_at(
-            batches,
-            as_of=detected_at,
-            known_at=known_at,
-        )
-        generations = tuple(dict.fromkeys(topology.provider_generation_refs))
-        if not topology.complete or len(generations) != 1:
+        active_generation = topology.active_provider_generation
+        if not topology.complete or active_generation is None:
             return None
-        depends_on = _dependency_mapping(topology.graph)
+        depends_on = _dependency_mapping(topology.snapshot)
         if not depends_on:
             return None
         members = tuple(
@@ -183,12 +185,16 @@ class TopologyHistoryIncidentRcaContextSource:
                 cutoff=detected_at,
             )
         )
-        if not members or any(member.inventory_generation != generations[0] for member in members):
+        if not members or any(
+            member.inventory_generation != active_generation for member in members
+        ):
             return None
         return IncidentRcaContext(
             members=members,
             depends_on=depends_on,
-            inventory_generation=generations[0],
+            inventory_generation=active_generation,
+            graph_revision=topology.graph_revision,
+            evidence_refs=topology.source_evidence_refs,
         )
 
 

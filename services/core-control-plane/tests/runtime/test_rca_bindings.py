@@ -37,7 +37,15 @@ from fdai.shared.providers.ontology_instance import (
     OntologyLinkRecord,
     OntologyObjectRecord,
 )
+from fdai.shared.providers.state_evidence import (
+    LINK_OBSERVATION_METADATA_PROPERTY,
+    LinkObservationMetadata,
+    StateFactAuthority,
+    StateFactLane,
+    StateFactMetadata,
+)
 from fdai.shared.providers.testing.workload_identity import StaticWorkloadIdentity
+from fdai_service_contracts.ontology_query import canonical_json
 
 AT = datetime(2026, 9, 5, tzinfo=UTC)
 INCIDENT_ID = UUID("00000000-0000-0000-0000-000000000001")
@@ -131,7 +139,30 @@ def _topology_batch(generation: str) -> TopologyRevisionBatch:
         link_type="depends_on",
         to_id="resource:db",
         to_type="Resource",
-        properties_json="{}",
+        properties_json=canonical_json(
+            {
+                LINK_OBSERVATION_METADATA_PROPERTY: LinkObservationMetadata(
+                    state_fact=StateFactMetadata(
+                        lane=StateFactLane.OBSERVED,
+                        authority=StateFactAuthority.PROVIDER,
+                        source_identity="provider:one",
+                        source_revision="revision:one",
+                        effective_at=AT,
+                        recorded_at=AT,
+                        evidence_cutoff=AT,
+                        freshness_ceiling_seconds=3600,
+                        completeness=1.0,
+                        synthetic=False,
+                        evidence_refs=("evidence:depends-on",),
+                    ),
+                    verified=True,
+                    verification_method="provider-readback",
+                    verifier_identity="verifier:one",
+                    verifier_revision="1",
+                    verification_receipt_ref="receipt:depends-on",
+                ).to_mapping(),
+            }
+        ),
         effective_at=AT,
         recorded_at=AT,
         deleted=False,
@@ -194,6 +225,7 @@ async def test_incident_context_uses_matching_historical_topology_generation() -
     assert context.members == (member,)
     assert context.depends_on == {"resource:app": frozenset({"resource:db"})}
     assert members.cutoff == AT
+    assert context.graph_revision and context.evidence_refs
 
 
 @pytest.mark.asyncio

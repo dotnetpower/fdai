@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 312de1fc62b9cb86ee3849d717b759e4b013ef76
+translation_source_sha: 6f470a8642e7b77358fa7c0fbffc10b11e181399
 translation_revised: 2026-10-16
 ---
 # 프로젝트 구조
@@ -21,6 +21,16 @@ translation_revised: 2026-10-16
 이벤트 시점의 근거와 영속 실행 시간 상한을 분리하며, 인과 증적 어댑터는 독립적으로 관측한
 Resource가 Thor ActionRun의 대상과 일치하는지도 확인합니다. 출처나 개입 연결이 없으면
 계속 사용 불가 상태로 유지합니다. 이 수정은 에이전트, 프로바이더, 실행 경로를 추가하지 않습니다.
+T1 인시던트 맥락은 이제 `rca/historical_graph.py`에서 보존된 이중 시간 개정을 읽습니다.
+이벤트 시점과 지식 시점을 분리하고, 정확한 출처 release 및 세대, 주변 그래프 상한,
+감사 기록의 그래프 참조를 보존합니다. `Container.causal_closure_observation_source`는 독립적으로
+인증된 결과를 기존 shadow 인과 런타임에 연결할 수 있으며, 메트릭 수집 없이 결과만 처리하는
+런타임도 지원합니다. 출처는 보존된 근거의 접근 권한을 다시 확인합니다. Event는 조회를 시작하는
+키일 뿐 결과나 권한 주장이 아닙니다. 결과 출처가 연결되지 않으면 사용 불가 상태를 명시합니다.
+정규 JSON 비교로 저장 후에도 변환 결과의 재실행을 유지합니다. 순수 `rca/evaluation.py` 평가기는
+독립적으로 정답이 지정된 사례의 분모를 기록하고 시험 데이터의 점수와 운영 근거를 구분합니다.
+로컬 PostgreSQL 신뢰성 테스트는 런타임 DB가 아니라 격리된 검증 클러스터와 작업 소유 스키마를
+사용합니다.
 진단용 온톨로지 후보 선택은 조립이 소유하는 의미 계획 경로로 유지됩니다. 프롬프트 프로필이
 검토된 모델 역할과 reasoning effort를 선택하고, Core는 principal 매니페스트를 기준으로 보안
 판독기가 권한을 확인하는 스키마 검증 형식 절만 받습니다.

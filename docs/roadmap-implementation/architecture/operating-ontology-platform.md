@@ -257,6 +257,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-08-14 | implemented | Composed the reviewed Kubernetes relationship projector into promoted inventory observations and injected the shipped mapping catalog in both scheduled and local inventory jobs. | `current change`; focused inventory composition and caller checks report 3 passed. | The bounded Kubernetes API inventory is now the authoritative topology adapter; retain complete live-generation Pod evidence. |
 
 
+| 2026-10-16 | implemented | Reconciled duplicate residual entries for the completed historical-topology binding/local projection refresh. Historical replay now chooses its baseline and active generation by effective time, preserves earlier-recorded later-effective deltas, detects competing equal-time alternatives, and validates only winning live-link endpoints. | `current change`; topology-history, historical incident, exact-generation T1, and causal metric tests passed in the focused 78-test cohort; actual local PostgreSQL reliability suite passed 4 tests. | Exact-deployment metrics/provider completeness, authenticated Console, intervention, and recurrence qualification remain open and cannot be inferred from local checks. |
+
 ### Remaining work
 
 - [x] Expose exact-release declaration details, topology-backed dependents, honest evidence-health
@@ -268,10 +270,11 @@ and resumable work while the roadmap owner remains focused on normative design.
   projection, then prove exact release identity and zero authority fields in focused tests.
   The focused projection and startup tests validate the candidate's exact active declaration refs,
   approved links, and absence of authority fields without claiming a deployed runtime receipt.
-- [ ] Bind PostgreSQL historical topology, production metric providers, and inventory-promotion
-  publishing, then retain replay and completeness receipts from the focused integration checks.
-- [ ] Refresh inventory after the release-binding change and retain the new projection manifest and
-  status as exact-release evidence; don't assign releases retroactively to historical manifests.
+- [x] Bind PostgreSQL historical topology and inventory-promotion publishing. The completed
+  implementation and local projection refresh are recorded below; these are not new residual
+  implementation requirements.
+- [ ] Retain exact-deployment production metric-provider and source-completeness receipts. Do not
+  infer this qualification from the completed local topology binding or projection refresh.
 - [x] Bind the reviewed Kubernetes relationship projector through production and local inventory
   composition and verify independently checked links when Kubernetes records are supplied.
 - [x] Add the bounded authoritative Kubernetes API inventory source and bind it through the
@@ -287,10 +290,6 @@ and resumable work while the roadmap owner remains focused on normative design.
   `66 passed, 64 deselected`.
 - [ ] Exit K6-K8 only after deterministic graph propagation, time-bounded trajectory invariants,
   independent outcome closure, and failure-attribution tests all pass on one pinned release.
-- [x] Bind PostgreSQL historical topology and inventory-promotion publishing, then retain replay and
-  completeness receipts from the focused integration checks. Production metric providers remain a
-  separate provider-validation boundary.
-
 - [x] Refresh the local inventory projection after the release-binding change and retain a new
   content-addressed manifest and status marker; don't assign releases retroactively to historical
   manifests. Deployed evidence remains external-only.

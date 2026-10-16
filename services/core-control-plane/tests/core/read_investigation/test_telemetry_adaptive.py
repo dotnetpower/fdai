@@ -115,7 +115,7 @@ def test_event_router_selects_bounded_relevant_recipes_and_unknown_falls_back() 
 
 
 @pytest.mark.asyncio
-async def test_existing_adaptive_loop_refutes_then_converges_on_positive_recipe_evidence() -> None:
+async def test_positive_recipe_does_not_refute_unobserved_competing_hypotheses() -> None:
     provider = _SequencedProvider(
         (
             TelemetryEvidenceDisposition.COMPLETE_NO_DATA,
@@ -159,7 +159,7 @@ async def test_existing_adaptive_loop_refutes_then_converges_on_positive_recipe_
         ),
     )
 
-    assert result.disposition is AdaptiveInvestigationDisposition.CONVERGED
+    assert result.disposition is AdaptiveInvestigationDisposition.HELD
     assert result.used_queries == 2
     assert result.used_cost_units == 20
     assert len(provider.needs) == 2
@@ -168,7 +168,8 @@ async def test_existing_adaptive_loop_refutes_then_converges_on_positive_recipe_
     assert result.iterations[0].revision.disposition is AdaptiveInvestigationDisposition.CONTINUE
     assert result.iterations[1].revision is not None
     assert result.iterations[1].revision.owner_agent == "Forseti"
-    assert result.iterations[1].revision.disposition is AdaptiveInvestigationDisposition.CONVERGED
+    assert result.iterations[1].revision.disposition is AdaptiveInvestigationDisposition.HELD
+    assert len(result.iterations[1].revision.active_hypothesis_ids) == 2
 
 
 @pytest.mark.asyncio

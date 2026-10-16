@@ -209,11 +209,28 @@ def graph_at(
     duplicate_ids = [item.revision_id for item in eligible]
     if len(duplicate_ids) != len(set(duplicate_ids)):
         raise ValueError("topology revision ids MUST be unique")
-    baseline_index = max(
-        (index for index, item in enumerate(eligible) if item.complete_snapshot),
+    baseline = max(
+        (item for item in eligible if item.complete_snapshot),
+        key=lambda item: (item.effective_at, item.recorded_at, item.revision_id),
         default=None,
     )
-    selected = eligible[baseline_index:] if baseline_index is not None else eligible
+    selected = (
+        (
+            baseline,
+            *(
+                item
+                for item in eligible
+                if not item.complete_snapshot
+                and item.effective_at >= baseline.effective_at
+                and (
+                    item.effective_at > baseline.effective_at
+                    or item.recorded_at >= baseline.recorded_at
+                )
+            ),
+        )
+        if baseline is not None
+        else eligible
+    )
     objects: dict[str, TopologyObjectRevision] = {}
     links: dict[tuple[str, str, str], TopologyLinkRevision] = {}
     for batch in selected:
@@ -297,10 +314,7 @@ def graph_at(
         item.source_receipt_digest is not None for item in selected
     )
     complete = (
-        baseline_index is not None
-        and not dangling_links
-        and release_complete
-        and source_receipt_complete
+        baseline is not None and not dangling_links and release_complete and source_receipt_complete
     )
     body = {
         "as_of": as_of.astimezone(UTC).isoformat(),

@@ -70,6 +70,27 @@ causal accuracy or authority to mutate resources.
 
 ## Ontology contract
 
+### Residual implementation program
+
+The successor to #2184 distinguishes local implementation from operational qualification.
+It does not enable a provider, live model, deployment, or intervention merely to close a ledger.
+
+| Package | Implementation boundary | Exit evidence |
+|---------|-------------------------|---------------|
+| W0-W2 | Reconcile completed versus pending records; build incident neighborhoods from retained topology at separate event and knowledge cutoffs, preserving generation, release, provenance, bounds, and exact relationship validation. | Historical deletion, late knowledge, replay, release drift, and bounded traversal regressions. A current-store candidate remains explicitly non-historical. |
+| W3 | Bind causal scores and support/refutation accounting to exact source evidence. Missing independent refutation stays unknown, and configured weights never stand in for measured reachability. | Cross-resource, reversed dependency, missing evidence, and competing-hypothesis negative cases. |
+| W4 | Consume independently issued outcomes through the existing owner boundary and match the exact prior hypothesis, ActionRun, target, receipt, observation, and graph revision before creating a new immutable revision. | Restart, duplicate, changed target, unapproved intervention, and incomplete-outcome tests; no model or event body grants authority. |
+| W5 | Exercise existing distributed lock, Process persistence, and historical read adapters against isolated loopback PostgreSQL, with bounded cleanup of task-owned records. | Real local database tests for duplicate sessions, timeout replay, connection loss, and historical cutoffs. No runtime database or customer scope is used. |
+| W6-W7 | Evaluate typed, independently labeled causal cases and bilingual query-to-evidence behavior with an explicit denominator, unsupported outcomes, citations, and replay identity. | Deterministic evaluation receipts distinguish fixtures from operational evidence; no self-authored model answer becomes ground truth. |
+| W8-W9 | Retain exact-deployment observation, controlled-intervention, rollback, and recurrence evidence only after a target and scope are explicitly authorized. | Governed deployment receipts and the actual required recurrence interval. Local tests cannot satisfy these operational exits. |
+
+**Critique and revision.** A second current-state wrapper would still fail to prove past
+relationships, and calling the closure function from an executor would violate ownership and
+independence. Reuse retained topology and independent observation contracts instead. Evaluation
+must distinguish incorrect claims from justified holds; an always-held implementation cannot
+pass by reporting zero unsupported claims alone. Local PostgreSQL evidence proves adapter
+mechanics, not Azure reachability, model accuracy, or production latency.
+
 The design reuses `Incident`, `Finding`, `Observation`, `Change`, `Experiment`, `Resource`,
 `Workload`, `BusinessService`, `ServiceObjective`, `DecisionCase`, `ActionRun`, and
 `ObservedOutcome` from the operating ontology. It adds one durable semantic object.

@@ -7,6 +7,7 @@ from fdai.shared.providers.ontology_instance import (
     OntologyInstanceStore,
     OntologyLinkRecord,
     OntologyObjectRecord,
+    canonical_json_mapping,
 )
 
 
@@ -37,7 +38,8 @@ class CausalHypothesisProjector:
         if existing is not None:
             if (
                 existing.object_type != record.object_type
-                or existing.properties != record.properties
+                or canonical_json_mapping(existing.properties, path="causal_hypothesis")[1]
+                != canonical_json_mapping(record.properties, path="causal_hypothesis")[1]
             ):
                 raise CausalProjectionConflictError("immutable causal hypothesis content changed")
             return

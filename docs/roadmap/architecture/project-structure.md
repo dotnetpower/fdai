@@ -18,6 +18,16 @@ secured historical views retained by the topology diff. Runtime adaptive telemet
 event-time evidence from a persisted wall-clock budget, while the causal receipt adapter also
 matches the independently observed Resource to Thor's ActionRun target. Missing source or
 intervention bindings remain unavailable; these repairs add no agent, provider, or execution path.
+The T1 incident context now uses `rca/historical_graph.py` over retained bitemporal revisions,
+with separate event and knowledge cutoffs, exact source release/generation, neighborhood bounds,
+and graph references retained in its audit. `Container.causal_closure_observation_source` can
+bind independently authenticated outcomes to the existing shadow causal runtime, including an
+outcome-only runtime without metric collection. The source reauthorizes retained evidence; an
+Event is only its lookup trigger, not an outcome or authority claim. Unbound outcome sources stay
+explicitly unavailable. Canonical projection comparison preserves replay after JSON persistence.
+The pure `rca/evaluation.py` evaluator records independently labeled case denominators and
+distinguishes fixture scores from operational evidence. Local PostgreSQL reliability tests use
+the isolated validation cluster and task-owned schemas, never the runtime database.
 Diagnostic ontology candidate selection remains a composition-owned semantic-planning path: the
 prompt profile selects the reviewed model role and reasoning effort, while Core still receives only
 schema-validated typed clauses that the secured reader authorizes against the principal manifest.
