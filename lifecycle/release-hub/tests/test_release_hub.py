@@ -107,6 +107,18 @@ def test_duplicate_registration_and_contribution_are_explicit_conflicts(
     assert store.snapshot()["revision"] == 2
 
 
+def test_actor_attribution_preserves_existing_recall_notice_and_export_pins(store):
+    publish(store)
+    change(store, "recall")
+    snapshot = store.snapshot()
+    original, digest = store.export_snapshot(snapshot)
+    for event in snapshot["events"]:
+        assert event["actor"] == "local-operator"
+        del event["actor"]
+    assert store.export_snapshot(snapshot) == (original, digest)
+    assert store.snapshot()["revision"] == 3
+
+
 @pytest.mark.parametrize("release_id", ["../x", "1.0", "01.0.0", "1.0.0+build"])
 def test_release_id_validation(store: ReleaseStore, release_id: str) -> None:
     with pytest.raises(CatalogError, match="SemVer"):
@@ -273,7 +285,7 @@ def test_corrupt_signature_is_unavailable_not_verified(
 ) -> None:
     publish(store)
     with store.connect() as db:
-        db.execute("UPDATE releases SET signature='invalid'")
+        db.exec_driver_sql("UPDATE releases SET signature='invalid'")
     response = client.get("/v1/catalog")
     assert response.status_code == 503
     assert "failed verification" in response.json()["error"]

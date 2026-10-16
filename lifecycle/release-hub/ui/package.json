@@ -9,7 +9,7 @@
     "test": "vitest run",
     "build": "tsc --noEmit && vite build"
   },
-  "dependencies": { "preact": "^10.24.3" },
+  "dependencies": { "@azure/msal-browser": "4.25.0", "preact": "^10.24.3" },
   "devDependencies": {
     "@preact/preset-vite": "^2.10.2",
     "@types/node": "^22.10.0",

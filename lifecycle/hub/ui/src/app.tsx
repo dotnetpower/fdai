@@ -5,6 +5,7 @@ import { EnrollmentsPage } from "./routes/enrollments";
 import { InstallationPage } from "./routes/installation";
 import { InstallationsPage } from "./routes/installations";
 import { PlanPage } from "./routes/plan";
+import { CatalogPage } from "./routes/catalog";
 
 function useRoute(): Route {
   const [route, setRoute] = useState<Route>(currentRoute());
@@ -14,6 +15,8 @@ function useRoute(): Route {
 
 function Screen({ route }: { route: Route }) {
   switch (route.kind) {
+    case "catalog":
+      return <CatalogPage />;
     case "installations":
       return <InstallationsPage />;
     case "installation":

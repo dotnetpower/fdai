@@ -1,3 +1,5 @@
+import { authenticatedFetch } from "../../../hub/ui/src/auth";
+
 export type Release = {
   id: string; label: string; manifest: string; digest: string; signed_payload_sha256: string; signature: string | null;
   signature_status: string; state: "draft" | "published" | "recalled";
@@ -19,7 +21,7 @@ export type Change = {
 };
 
 export async function requestCatalog(path = "/v1/catalog", body?: Change): Promise<Catalog> {
-  const response = await fetch(path, body ? {
+  const response = await authenticatedFetch(path, body ? {
     method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
   } : {});
   if (!response.ok) {

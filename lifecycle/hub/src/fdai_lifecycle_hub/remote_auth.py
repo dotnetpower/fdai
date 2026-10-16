@@ -1,0 +1,210 @@
+"""Direct Entra access-token verification; proxy principal headers grant no authority."""
+
+from __future__ import annotations
+
+import json
+import logging
+import time
+from typing import Any, Literal
+from urllib.parse import urlsplit
+
+import httpx
+import jwt
+from jwt import PyJWK
+from pydantic import BaseModel, ConfigDict, Field, model_validator
+from starlette.applications import Starlette
+from starlette.concurrency import run_in_threadpool
+from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
+from starlette.middleware.trustedhost import TrustedHostMiddleware
+from starlette.requests import Request
+from starlette.responses import JSONResponse, Response
+from starlette.routing import Route
+
+logger = logging.getLogger(__name__)
+MAX_JWKS_BYTES = 256 * 1024
+
+
+class RemoteAuth(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+
+    profile: Literal["remote-development"]
+    tenant_id: str = Field(pattern=r"^[0-9a-f-]{36}$")
+    audience: str = Field(min_length=1)
+    origin: str
+    spa_client_id: str = Field(min_length=1)
+    operator_scope: str = Field(min_length=1)
+    operator_ids: frozenset[str] = Field(min_length=1)
+    service_object_id: str | None = None
+    service_client_id: str | None = None
+    service_role: str = "Catalog.Read"
+
+    @model_validator(mode="after")
+    def validate_boundary(self) -> RemoteAuth:
+        parsed = urlsplit(self.origin)
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or parsed.username
+            or parsed.password
+            or parsed.path
+            or parsed.query
+            or parsed.fragment
+            or parsed.port not in (None, 443)
+        ):
+            raise ValueError("Remote origin must be an exact HTTPS origin without a path.")
+        if bool(self.service_object_id) != bool(self.service_client_id):
+            raise ValueError("Service object and client identities must be supplied together.")
+        return self
+
+    @property
+    def issuer(self) -> str:
+        return f"https://login.microsoftonline.com/{self.tenant_id}/v2.0"
+
+
+class EntraVerifier:
+    def __init__(self, config: RemoteAuth) -> None:
+        self.config = config
+        self._keys: dict[str, PyJWK] = {}
+        self._refresh_after = 0.0
+
+    def _refresh(self) -> None:
+        url = f"https://login.microsoftonline.com/{self.config.tenant_id}/discovery/v2.0/keys"
+        raw = bytearray()
+        deadline = time.monotonic() + 5
+        with httpx.stream(
+            "GET",
+            url,
+            headers={"Accept-Encoding": "identity"},
+            timeout=5,
+            follow_redirects=False,
+            trust_env=False,
+        ) as response:
+            response.raise_for_status()
+            if response.headers.get("content-encoding", "identity") != "identity":
+                raise ValueError("Compressed signing-key responses are not accepted.")
+            for chunk in response.iter_raw(chunk_size=16 * 1024):
+                raw.extend(chunk)
+                if len(raw) > MAX_JWKS_BYTES or time.monotonic() >= deadline:
+                    raise ValueError("Entra signing-key response exceeded its bound.")
+        body = json.loads(raw)
+        if not isinstance(body, dict) or not isinstance(body.get("keys"), list):
+            raise ValueError("Entra signing-key response is invalid.")
+        keys = {}
+        for item in body["keys"]:
+            if not isinstance(item, dict) or not isinstance(item.get("kid"), str):
+                raise ValueError("Entra signing-key entry is invalid.")
+            if item.get("kty") == "RSA" and item.get("use", "sig") == "sig":
+                keys[item["kid"]] = PyJWK.from_dict(item, algorithm="RS256")
+        if not keys:
+            raise ValueError("Entra signing-key response has no supported key.")
+        self._keys = keys
+        self._refresh_after = time.monotonic() + 300
+
+    def verify(self, token: str) -> dict[str, Any]:
+        if len(token) > 16 * 1024:
+            raise ValueError("Access token is too large.")
+        if time.monotonic() >= self._refresh_after:
+            self._refresh()
+        kid = jwt.get_unverified_header(token).get("kid")
+        if not isinstance(kid, str) or kid not in self._keys:
+            raise ValueError("Access token signing key is not trusted.")
+        claims = jwt.decode(
+            token,
+            self._keys[kid].key,
+            algorithms=["RS256"],
+            audience=self.config.audience,
+            issuer=self.config.issuer,
+            options={"require": ["exp", "iat", "nbf", "iss", "aud", "tid", "oid", "sub"]},
+        )
+        if claims["tid"] != self.config.tenant_id or claims.get("ver") != "2.0":
+            raise ValueError("Access token tenant or version does not match.")
+        if not all(isinstance(claims.get(name), str) for name in ("oid", "sub", "azp")):
+            raise ValueError("Access token principal binding is invalid.")
+        return claims
+
+
+def secure_app(app: Starlette, config: RemoteAuth, *, vendor: bool) -> Starlette:
+    verifier = EntraVerifier(config)
+    app.state.entra_verifier = verifier
+
+    async def auth_config(request: Request) -> Response:
+        return JSONResponse(
+            {
+                "profile": config.profile,
+                "clientId": config.spa_client_id,
+                "authority": f"https://login.microsoftonline.com/{config.tenant_id}",
+                "scope": f"api://{config.audience}/{config.operator_scope}",
+                "origin": config.origin,
+            },
+            headers={"Cache-Control": "no-store"},
+        )
+
+    app.routes.insert(0, Route("/auth/config", auth_config))
+    hostname = urlsplit(config.origin).hostname
+    if hostname is None:
+        raise ValueError("Remote origin requires a hostname.")
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=[hostname])
+
+    async def boundary(request: Request, call_next: RequestResponseEndpoint) -> Response:
+        path = request.url.path
+        if path.startswith("/v1/") or path == "/v1":
+            authorization = request.headers.get("authorization", "")
+            if not authorization.startswith("Bearer "):
+                return _denied(401, "authentication_required")
+            try:
+                claims = await run_in_threadpool(verifier.verify, authorization[7:])
+            except (jwt.PyJWTError, ValueError, KeyError, httpx.HTTPError):
+                return _denied(401, "invalid_access_token")
+            service = "scp" not in claims
+            if service:
+                allowed = (
+                    vendor
+                    and request.method in {"GET", "HEAD"}
+                    and path == "/v1/catalog/export"
+                    and config.service_object_id is not None
+                    and claims.get("oid") == config.service_object_id
+                    and claims.get("azp") == config.service_client_id
+                    and claims.get("idtyp") == "app"
+                    and isinstance(claims.get("roles"), list)
+                    and config.service_role in claims["roles"]
+                )
+            else:
+                allowed = (
+                    claims.get("oid") in config.operator_ids
+                    and claims.get("azp") == config.spa_client_id
+                    and isinstance(claims.get("scp"), str)
+                    and config.operator_scope in claims["scp"].split()
+                )
+            # Installation agent transport is deliberately not enabled by this development slice.
+            if not vendor and (path.endswith(("/state", "/reports", "/plan", "/enrollment"))):
+                allowed = False
+            if not allowed:
+                return _denied(403, "principal_not_authorized")
+            if request.method not in {"GET", "HEAD"}:
+                if (
+                    request.headers.get("origin") not in (None, config.origin)
+                    or request.headers.get("sec-fetch-site") == "cross-site"
+                    or request.headers.get("content-type", "").split(";")[0] != "application/json"
+                ):
+                    return _denied(403, "untrusted_mutation")
+            request.state.operator = claims["oid"]
+        response = await call_next(request)
+        response.headers["Cache-Control"] = "no-store"
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["Content-Security-Policy"] = (
+            "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
+            "connect-src 'self' https://login.microsoftonline.com; frame-src "
+            "https://login.microsoftonline.com; frame-ancestors 'none'; base-uri 'none'"
+        )
+        return response
+
+    app.add_middleware(BaseHTTPMiddleware, dispatch=boundary)
+    return app
+
+
+def _denied(status: int, reason: str) -> Response:
+    logger.warning("hub_access_denied reason=%s", reason)
+    return JSONResponse(
+        {"error": reason}, status_code=status, headers={"Cache-Control": "no-store"}
+    )

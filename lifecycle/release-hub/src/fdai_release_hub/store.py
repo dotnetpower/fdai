@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import sqlite3
 from base64 import b64encode
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
@@ -15,8 +14,20 @@ from cryptography.exceptions import InvalidSignature
 from fdai_deployment_cli.contracts import canonical_bytes
 from fdai_deployment_cli.runtime_release import is_release_id, parse_runtime_release_manifest
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import Engine, create_engine, event, func, select
+from sqlalchemy.engine import Connection
+from sqlalchemy.pool import NullPool
 
+from fdai_lifecycle_hub.migrations import migrate, require_schema
 from fdai_lifecycle_hub.signing import HubSigningKey
+from fdai_release_hub.database import (
+    catalog_metadata,
+    event_actors,
+    events,
+    membership,
+    metadata,
+    releases,
+)
 
 CHANNELS = ("DEV", "RELEASE_CANDIDATE", "RELEASE")
 
@@ -40,43 +51,57 @@ class Change(BaseModel):
 
 class ReleaseStore:
     def __init__(
-        self, path: Path, key: HubSigningKey, *, clock: Callable[[], datetime] | None = None
+        self,
+        path: Path | Engine,
+        key: HubSigningKey,
+        *,
+        clock: Callable[[], datetime] | None = None,
+        initialize: bool = True,
     ) -> None:
         self.path = path
         self.key = key
         self.clock = clock or (lambda: datetime.now(UTC))
-        with self.connect() as db:
-            db.executescript("""
-                CREATE TABLE IF NOT EXISTS releases (
-                    id TEXT PRIMARY KEY, label TEXT NOT NULL, manifest TEXT NOT NULL,
-                    digest TEXT NOT NULL, signature TEXT, published_at TEXT, recalled_at TEXT
-                );
-                CREATE TABLE IF NOT EXISTS membership (
-                    channel TEXT NOT NULL, release_id TEXT NOT NULL REFERENCES releases(id),
-                    PRIMARY KEY(channel, release_id)
-                );
-                CREATE TABLE IF NOT EXISTS events (
-                    revision INTEGER PRIMARY KEY AUTOINCREMENT, action TEXT NOT NULL,
-                    release_id TEXT NOT NULL, channel TEXT, reason TEXT NOT NULL,
-                    occurred_at TEXT NOT NULL
-                );
-                CREATE TABLE IF NOT EXISTS metadata (created_at TEXT NOT NULL);
-            """)
-            if db.execute("SELECT COUNT(*) FROM metadata").fetchone()[0] == 0:
-                db.execute("INSERT INTO metadata VALUES (?)", (self.clock().isoformat(),))
+        self.engine = (
+            create_engine(f"sqlite:///{path}", poolclass=NullPool)
+            if isinstance(path, Path)
+            else path
+        )
+        if self.engine.dialect.name == "sqlite":
+
+            @event.listens_for(self.engine, "connect")
+            def foreign_keys(dbapi_connection: Any, connection_record: Any) -> None:
+                dbapi_connection.execute("PRAGMA foreign_keys = ON")
+
+        if initialize:
+            self.migrate()
+        else:
+            require_schema(self.engine, "release_hub")
+
+    def migrate(self) -> None:
+        def initialize(connection: Connection) -> None:
+            metadata.create_all(connection)
+            if connection.scalar(select(func.count()).select_from(catalog_metadata)) == 0:
+                connection.execute(
+                    catalog_metadata.insert().values(created_at=self.clock().isoformat())
+                )
+
+        migrate(self.engine, "release_hub", initialize)
 
     @contextmanager
-    def connect(self) -> Iterator[sqlite3.Connection]:
-        db = sqlite3.connect(self.path, timeout=5)
-        db.row_factory = sqlite3.Row
-        db.execute("PRAGMA foreign_keys = ON")
-        try:
-            with db:
-                yield db
-        finally:
-            db.close()
+    def connect(self) -> Iterator[Connection]:
+        with self.engine.begin() as db:
+            yield db
 
-    def change(self, action: str, release_id: str, change: Change) -> dict[str, Any]:
+    def change(
+        self,
+        action: str,
+        release_id: str,
+        change: Change,
+        *,
+        actor: str = "local-operator",
+    ) -> dict[str, Any]:
+        if not actor or len(actor) > 160:
+            raise CatalogError("An attributed operator is required.")
         if not is_release_id(release_id):
             raise CatalogError("Release id must be canonical SemVer.")
         if change.confirmation != release_id:
@@ -84,14 +109,17 @@ class ReleaseStore:
         if not change.reason.strip():
             raise CatalogError("A non-blank reason is required.")
         with self.connect() as db:
-            db.execute("BEGIN IMMEDIATE")
-            revision = db.execute("SELECT COALESCE(MAX(revision),0) FROM events").fetchone()[0]
+            if self.engine.dialect.name == "sqlite":
+                db.exec_driver_sql("BEGIN IMMEDIATE")
+            else:
+                db.execute(select(catalog_metadata).with_for_update()).all()
+            revision = db.scalar(select(func.coalesce(func.max(events.c.revision), 0)))
             if change.revision != revision:
                 raise CatalogError(
                     "Catalog changed. Refresh and review before confirming again.", 409
                 )
             now = self.clock().isoformat()
-            row = db.execute("SELECT * FROM releases WHERE id = ?", (release_id,)).fetchone()
+            row = db.execute(select(releases).where(releases.c.id == release_id)).mappings().first()
             if action == "register":
                 if row:
                     raise CatalogError("Release ids are immutable and cannot be reused.", 409)
@@ -101,8 +129,12 @@ class ReleaseStore:
                 if release.schema_version != "fdai.runtime-release.v3":
                     raise CatalogError("Only fdai.runtime-release.v3 manifests are supported.")
                 db.execute(
-                    "INSERT INTO releases(id,label,manifest,digest) VALUES (?,?,?,?)",
-                    (release_id, change.label.strip(), change.manifest, release.digest),
+                    releases.insert().values(
+                        id=release_id,
+                        label=change.label.strip(),
+                        manifest=change.manifest,
+                        digest=release.digest,
+                    )
                 )
             else:
                 if row is None:
@@ -114,10 +146,14 @@ class ReleaseStore:
                         raise CatalogError("Release is already published.", 409)
                     signature = b64encode(self.key.sign(row["manifest"].encode())).decode("ascii")
                     db.execute(
-                        "UPDATE releases SET signature=?,published_at=? WHERE id=?",
-                        (signature, now, release_id),
+                        releases.update()
+                        .where(releases.c.id == release_id)
+                        .values(
+                            signature=signature,
+                            published_at=now,
+                        )
                     )
-                    db.execute("INSERT INTO membership VALUES ('DEV', ?)", (release_id,))
+                    db.execute(membership.insert().values(channel="DEV", release_id=release_id))
                 elif action == "contribute":
                     if not row["signature"]:
                         raise CatalogError(
@@ -126,22 +162,40 @@ class ReleaseStore:
                     if change.channel not in CHANNELS:
                         raise CatalogError("Choose a supported channel.")
                     exists = db.execute(
-                        "SELECT 1 FROM membership WHERE channel=? AND release_id=?",
-                        (change.channel, release_id),
-                    ).fetchone()
+                        select(membership).where(
+                            membership.c.channel == change.channel,
+                            membership.c.release_id == release_id,
+                        )
+                    ).first()
                     if exists:
                         raise CatalogError("Release already belongs to this channel.", 409)
-                    db.execute("INSERT INTO membership VALUES (?,?)", (change.channel, release_id))
+                    db.execute(
+                        membership.insert().values(channel=change.channel, release_id=release_id)
+                    )
                 elif action == "recall":
                     if not row["signature"]:
                         raise CatalogError("Only published Releases can be recalled.", 409)
-                    db.execute("UPDATE releases SET recalled_at=? WHERE id=?", (now, release_id))
+                    db.execute(
+                        releases.update().where(releases.c.id == release_id).values(recalled_at=now)
+                    )
                 else:
                     raise CatalogError("Unsupported action.")
+            next_revision = revision + 1
             db.execute(
-                "INSERT INTO events(action,release_id,channel,reason,occurred_at) "
-                "VALUES (?,?,?,?,?)",
-                (action, release_id, change.channel, change.reason.strip(), now),
+                events.insert().values(
+                    revision=next_revision,
+                    action=action,
+                    release_id=release_id,
+                    channel=change.channel,
+                    reason=change.reason.strip(),
+                    occurred_at=now,
+                )
+            )
+            db.execute(
+                event_actors.insert().values(
+                    revision=next_revision,
+                    actor=actor,
+                )
             )
         return self.snapshot()
 
@@ -149,18 +203,35 @@ class ReleaseStore:
         from base64 import b64decode
 
         with self.connect() as db:
-            db.execute("BEGIN")
-            rows = db.execute("SELECT * FROM releases ORDER BY id DESC").fetchall()
-            events = [
-                dict(row) for row in db.execute("SELECT * FROM events ORDER BY revision DESC")
+            # Hold the same lock as writers so the multi-query snapshot cannot mix revisions.
+            if self.engine.dialect.name == "sqlite":
+                db.exec_driver_sql("BEGIN")
+            else:
+                db.execute(select(catalog_metadata).with_for_update()).all()
+            rows = db.execute(select(releases).order_by(releases.c.id.desc())).mappings().all()
+            history = [
+                dict(row)
+                for row in db.execute(select(events).order_by(events.c.revision.desc())).mappings()
             ]
-            memberships = list(db.execute("SELECT * FROM membership ORDER BY channel,release_id"))
-            updated_at = (
-                events[0]["occurred_at"]
-                if events
-                else db.execute("SELECT created_at FROM metadata").fetchone()[0]
+            actors = dict(db.execute(select(event_actors)).tuples().all())
+            for event_record in history:
+                event_record["actor"] = actors.get(event_record["revision"], "legacy-unattributed")
+            memberships = (
+                db.execute(
+                    select(membership).order_by(
+                        membership.c.channel,
+                        membership.c.release_id,
+                    )
+                )
+                .mappings()
+                .all()
             )
-        releases = []
+            updated_at = (
+                history[0]["occurred_at"]
+                if history
+                else db.execute(select(catalog_metadata.c.created_at)).scalar_one()
+            )
+        records = []
         for row in rows:
             record = dict(row)
             record["signed_payload_sha256"] = hashlib.sha256(
@@ -182,19 +253,19 @@ class ReleaseStore:
             record["signature_status"] = (
                 "development-key-verified" if row["signature"] else "unsigned"
             )
-            releases.append(record)
+            records.append(record)
         return {
-            "revision": events[0]["revision"] if events else 0,
+            "revision": history[0]["revision"] if history else 0,
             "updated_at": updated_at,
             "expires_at": (datetime.fromisoformat(updated_at) + timedelta(hours=24)).isoformat(),
             "expired": self.clock() >= datetime.fromisoformat(updated_at) + timedelta(hours=24),
             "mode": "local-development",
             "key_id": self.key.key_id,
-            "releases": releases,
+            "releases": records,
             "channels": {
                 c: [m["release_id"] for m in memberships if m["channel"] == c] for c in CHANNELS
             },
-            "events": events,
+            "events": history,
         }
 
     def export(self) -> tuple[bytes, str]:
@@ -207,7 +278,11 @@ class ReleaseStore:
                 "scope": "release",
                 "target": event["release_id"],
                 "sequence": event["revision"],
-                "notice_digest": hashlib.sha256(canonical_bytes(event)).hexdigest(),
+                "notice_digest": hashlib.sha256(
+                    canonical_bytes(
+                        {name: value for name, value in event.items() if name != "actor"}
+                    )
+                ).hexdigest(),
                 "action": "recall",
                 "lifting_release_id": None,
             }
