@@ -158,6 +158,8 @@ class RuleReplicaAcknowledgementV2(ContractBase):
     catalog_manifest_digest: Digest
     profile_snapshot_digest: Digest
     generation_digest: Digest
+    supported_read_schema_versions: Annotated[tuple[str, ...], Field(min_length=1, max_length=8)]
+    write_schema_version: Literal["1.0.0", "2.0.0"]
     disposition: RuleReplicaDisposition
     reason: Annotated[str, Field(min_length=1, max_length=512)]
     authentication_receipt_digest: Digest
@@ -190,6 +192,12 @@ class RuleReplicaAcknowledgementV2(ContractBase):
 
     @model_validator(mode="after")
     def _canonical_acknowledgement(self) -> Self:
+        if self.supported_read_schema_versions != tuple(
+            sorted(set(self.supported_read_schema_versions))
+        ):
+            raise ValueError("Rule replica read schema versions MUST be unique and sorted")
+        if self.write_schema_version not in self.supported_read_schema_versions:
+            raise ValueError("Rule replica MUST be able to read its write schema version")
         expected = rule_replica_acknowledgement_digest(
             prepare_digest=self.prepare_digest,
             replica_id=self.replica_id,
@@ -201,6 +209,8 @@ class RuleReplicaAcknowledgementV2(ContractBase):
             catalog_manifest_digest=self.catalog_manifest_digest,
             profile_snapshot_digest=self.profile_snapshot_digest,
             generation_digest=self.generation_digest,
+            supported_read_schema_versions=self.supported_read_schema_versions,
+            write_schema_version=self.write_schema_version,
             disposition=self.disposition,
             reason=self.reason,
             authentication_receipt_digest=self.authentication_receipt_digest,

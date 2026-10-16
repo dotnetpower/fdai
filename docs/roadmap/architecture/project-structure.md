@@ -90,6 +90,12 @@ old-enforce/new-shadow slot identities, revision-cited evidence, promotion appro
 move candidates. Core derives evidence and candidates from retained slots and cohort readback, but
 an injected promotion-authority provider alone may validate the approval profile, principals,
 quorum, and revision evidence. No slot module mutates current enforcement.
+The approved identity-upgrade boundary is the first authority-bearing version 2 path. Shared
+contracts own the reviewed legacy-to-revision baseline, dual-read replica evidence, explicit
+approval and command, and authority pointer. Core rechecks signed-manifest reservation, cohort
+candidate/applied state, and the injected governance authority. The StateStore transaction both
+fences the version 1 pointer and inserts the version 2 pointer, so neither a crash nor a concurrent
+legacy writer can expose split authority. Startup reads this result and never originates it.
 
 Question-form concept-choice reuse is owned by Core conversation processing and ends with one
 run. Its exact-input, reader-separated cache never stores observed state, authorization, or

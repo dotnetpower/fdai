@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 from typing import Any, Protocol, runtime_checkable
 
@@ -180,6 +181,21 @@ class StateStore(Protocol):
         audit_entry: Mapping[str, Any],
     ) -> bool:
         """Atomically update one revision, insert append-only rows, and audit."""
+        ...
+
+    async def compare_and_set_state_with_audit_and_insert_before(
+        self,
+        key: str,
+        value: Mapping[str, Any],
+        *,
+        expected_revision: int,
+        insert_key: str,
+        insert_value: Mapping[str, Any],
+        not_before: datetime,
+        expires_at: datetime,
+        audit_entry: Mapping[str, Any],
+    ) -> bool:
+        """Atomically update, insert, and audit inside one database-time window."""
         ...
 
     async def write_state_pair_with_audit_if_absent(

@@ -123,6 +123,7 @@ class RuleRevisionPromotionApprovalV2(ContractBase):
     from_binding_digest: Digest
     shadow_binding_digest: Digest
     revision_evidence_digest: Digest
+    authority_receipt_digest: Digest
     approval_profile_digest: Digest
     approver_ids: Annotated[tuple[str, ...], Field(min_length=1, max_length=10)]
     original_quorum: Annotated[int, Field(ge=2, le=10)]
@@ -167,6 +168,7 @@ class RuleRevisionPromotionApprovalV2(ContractBase):
             from_binding_digest=self.from_binding_digest,
             shadow_binding_digest=self.shadow_binding_digest,
             revision_evidence_digest=self.revision_evidence_digest,
+            authority_receipt_digest=self.authority_receipt_digest,
             approval_profile_digest=self.approval_profile_digest,
             approver_ids=self.approver_ids,
             original_quorum=self.original_quorum,

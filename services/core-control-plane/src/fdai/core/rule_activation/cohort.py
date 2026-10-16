@@ -417,6 +417,15 @@ class StateStoreRuleActivationCohort:
         raw = await self._store.read_state(self._applied_key(prepare_digest, replica_id))
         return RuleReplicaAppliedV2.model_validate(raw) if raw is not None else None
 
+    async def acknowledgement(
+        self,
+        prepare_digest: str,
+        replica_id: str,
+    ) -> RuleReplicaAcknowledgementV2 | None:
+        """Return one authenticated replica acknowledgement."""
+
+        return await self._acknowledgement(prepare_digest, replica_id)
+
     async def _acknowledgements(
         self,
         cohort: RuleCohortPrepareV2,

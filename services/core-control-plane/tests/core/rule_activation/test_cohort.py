@@ -80,6 +80,8 @@ def _ack(
         "catalog_manifest_digest": cohort.catalog_manifest_digest,
         "profile_snapshot_digest": cohort.generation.profile_snapshot_digest,
         "generation_digest": cohort.generation.generation_digest,
+        "supported_read_schema_versions": ("1.0.0", "2.0.0"),
+        "write_schema_version": "1.0.0",
         "disposition": disposition,
         "reason": "verified" if disposition is RuleReplicaDisposition.ACKNOWLEDGED else "drift",
         "authentication_receipt_digest": "sha256:" + ("c" * 64),

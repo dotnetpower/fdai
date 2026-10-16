@@ -176,6 +176,7 @@ def _approval(slot: RuleDualRevisionSlotV2) -> RuleRevisionPromotionApprovalV2:
         "from_binding_digest": slot.enforcing.binding_digest,
         "shadow_binding_digest": slot.prepared_shadow.binding_digest,
         "revision_evidence_digest": _digest("5"),
+        "authority_receipt_digest": _digest("8"),
         "approval_profile_digest": _digest("6"),
         "approver_ids": ("approver-a", "approver-b"),
         "original_quorum": 2,

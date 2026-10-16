@@ -59,6 +59,8 @@ def _ack(cohort: object, replica: RuleReplicaIdentity) -> RuleReplicaAcknowledge
         "catalog_manifest_digest": cohort.catalog_manifest_digest,
         "profile_snapshot_digest": cohort.generation.profile_snapshot_digest,
         "generation_digest": cohort.generation.generation_digest,
+        "supported_read_schema_versions": ("1.0.0", "2.0.0"),
+        "write_schema_version": "1.0.0",
         "disposition": RuleReplicaDisposition.ACKNOWLEDGED,
         "reason": "verified",
         "authentication_receipt_digest": "sha256:" + ("c" * 64),

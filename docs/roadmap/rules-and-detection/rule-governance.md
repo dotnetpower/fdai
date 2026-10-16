@@ -422,7 +422,7 @@ reached the A1 default route, so adding a route for that category could have red
 - Changing a rule's logic bumps its `version`; changing an assignment's parameters/effect/scope is
   itself an audited, versioned change. A rule set **pins the `version` of each member rule** so a
   rule change cannot silently alter a promoted set.
-- **Rule revision upgrades (phases 1-6 implemented):** An activation generation pins each
+- **Rule revision upgrades (phases 1-7 implemented):** An activation generation pins each
   member's exact version and digest, and the ledger accepts only membership changes against an
   unchanged catalog, so changing an activated Rule's content makes an upgraded installation fail
   closed at startup. Until every phase below is operationally validated,
@@ -455,10 +455,10 @@ reached the A1 default route, so adding a route for that category could have red
   identity. A dormant transition precondition retains every prior catalog revision, requires a
   strictly increasing semantic profile version for active member changes within the same profile,
   keeps cross-profile version namespaces independent, and preserves generation identity only
-  when profile id, version, and members are all unchanged during catalog-only growth. Phases 5
-  through 9 remain open.
-  dormant: they read and validate version 2 data but write none, and no version 2 digest or
-  pointer becomes authoritative before the approved identity upgrade in phase 7.
+  when profile id, version, and members are all unchanged during catalog-only growth. Phases 1-6
+  stay authority-neutral. Phase 7 is the only implemented cutover from the fenced version 1
+  pointer to the authority-bearing version 2 pointer; startup can read that result but cannot
+  originate it. Phases 8-9 remain open.
   1. **Dual-read codecs.** A compatibility release reads version 1 and 2 of every durable object
      and event (proposal and change union, approval, command, result, pointer, generation,
      idempotency row, manifest, and prepare and acknowledgement events) while still writing
@@ -534,6 +534,14 @@ reached the A1 default route, so adding a route for that category could have red
      the cohort protocol only after every serving binary is dual-read capable, and it is the
      cutover that makes version 2 authoritative. Startup may read back an approved upgrade but never
      originates one.
+     This phase is implemented as a reviewed-baseline contract, authenticated replica-capability
+     evidence bound into each cohort acknowledgement, a durable governance-attestation authority
+     provider, and an atomic Core cutover. The baseline proves each legacy member's exact mapping
+     to a revision whose digest covers the reviewed definition and policy identities. The cutover
+     rechecks the signed manifest reservation, exact candidate-active cohort, all applied replicas,
+     active approval profile, distinct approvers, and complete dual-read evidence. One transaction
+     then fences the version 1 pointer and inserts the version 2 authority pointer; a later version
+     1 writer is rejected, and an incomplete fence fails startup readback.
   8. **Revision changes.** A change names `rule_id`, the from and to revision identities, and the
      from and to catalog manifest and profile identities, all inside the approved proposal digest,
      and runs through the cohort protocol. Revisions never carry forward unattended.

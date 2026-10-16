@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from datetime import datetime
 from typing import Any
 
 
@@ -76,6 +77,52 @@ class PostgresStatePairMixin:
                             field="approval_profile_digest",
                         ):
                             raise _RollbackTransactionError()
+                    await self._append_audit_in_transaction(conn, dict(audit_entry))
+        except _RollbackTransactionError:
+            return False
+        return True
+
+    async def compare_and_set_state_with_audit_and_insert_before(
+        self: Any,
+        key: str,
+        value: Mapping[str, Any],
+        *,
+        expected_revision: int,
+        insert_key: str,
+        insert_value: Mapping[str, Any],
+        not_before: datetime,
+        expires_at: datetime,
+        audit_entry: Mapping[str, Any],
+    ) -> bool:
+        if expected_revision < 0:
+            raise ValueError("expected_revision MUST be >= 0")
+        try:
+            async with self._connection() as conn:
+                async with conn.transaction():
+                    await self._set_statement_timeout(conn)
+                    cursor = await conn.execute(
+                        """
+                        UPDATE state_kv
+                           SET value = %s::jsonb,
+                               updated_at = clock_timestamp()
+                         WHERE key = %s
+                           AND COALESCE(value ->> 'revision', '0') = %s
+                           AND %s <= clock_timestamp()
+                           AND clock_timestamp() < %s
+                        RETURNING key
+                        """,
+                        (
+                            json.dumps(dict(value), default=str),
+                            key,
+                            str(expected_revision),
+                            not_before,
+                            expires_at,
+                        ),
+                    )
+                    if await cursor.fetchone() is None:
+                        return False
+                    if not await _insert_state(conn, insert_key, insert_value):
+                        raise _RollbackTransactionError()
                     await self._append_audit_in_transaction(conn, dict(audit_entry))
         except _RollbackTransactionError:
             return False
