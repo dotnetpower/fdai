@@ -23,12 +23,14 @@ if [[ ! -f "${wsl_config}" ]]; then
 fi
 
 normalized_config="$(tr -d '[:space:]' <"${wsl_config}")"
-for required_setting in "networkingMode=mirrored" "dnsTunneling=true"; do
-  if [[ "${normalized_config}" != *"${required_setting}"* ]]; then
-    printf 'error: .wslconfig is missing %s\n' "${required_setting}" >&2
-    exit 1
-  fi
-done
+if [[ "${normalized_config}" != *"networkingMode=mirrored"* ]]; then
+  printf 'error: .wslconfig is missing networkingMode=mirrored\n' >&2
+  exit 1
+fi
+if [[ "${normalized_config}" != *"dnsTunneling=true"* ]] && ! command -v dig >/dev/null 2>&1; then
+  printf 'error: manual DNS verification requires dig when WSL DNS tunneling is disabled\n' >&2
+  exit 1
+fi
 
 pushd "${INFRA_DIR}" >/dev/null
 dns_resolver_ip="$(terraform output -raw dns_resolver_inbound_ip)"

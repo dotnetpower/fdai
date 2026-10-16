@@ -138,6 +138,10 @@ the mirrored VPN interface after each connection:
 tools/dev-access/scripts/wsl-dns.sh apply
 ```
 
+If Global Secure Access or another workstation constraint disables DNS tunneling, keep that
+setting and use the same per-interface DNS helper. In this mode, `doctor.sh` requires `dig` so it
+can compare workstation answers with a direct query to the Private DNS Resolver.
+
 The setting belongs to the transient VPN interface. Disconnecting the VPN removes that interface
 and restores the distribution's existing DNS behavior. You can remove it before disconnecting with
 `tools/dev-access/scripts/wsl-dns.sh revert`.
