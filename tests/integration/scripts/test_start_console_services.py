@@ -1327,6 +1327,13 @@ def test_inventory_stage_reuse_requires_current_checkpoint() -> None:
     assert "--only inventory-coverage" in source
 
 
+def test_code_security_cache_reuse_requires_resolved_snapshot() -> None:
+    source = _PREPARE_SCRIPT.read_text(encoding="utf-8")
+
+    assert 'if [[ "$name" == "code-security-vulnerability-cache" ]]' in source
+    assert 'resolve-cache-snapshot --root "$repo_root/.fdai/code-security-cache"' in source
+
+
 @pytest.mark.parametrize("auth_mode", ["browser-entra", "azure-cli"])
 def test_preparation_reuses_an_unchanged_healthy_stack(
     tmp_path: Path,
@@ -1573,6 +1580,10 @@ case "$1" in
   */refresh-authoritative-inventory.py|*/materialize-authoritative-settings.py) exit 0 ;;
   */materialize-authoritative-catalogs.py) exit 0 ;;
   */developer-workflow.py) exit 0 ;;
+  -m)
+    [[ "$2" == "fdai.delivery.code_security_cli" && "$3" == "resolve-cache-snapshot" ]]
+    [[ "${{FDAI_TEST_CODE_SECURITY_CACHE_READY:-1}}" == "1" ]]
+    exit ;;
   */sync-entra-spa-redirect.py) exit 0 ;;
         */ensure-local-models.py)
             if [[ "${{FAIL_MODEL_SETTINGS:-0}}" == "1" ]]; then exit 42; fi
@@ -1647,6 +1658,25 @@ def test_preparation_reuses_each_unchanged_stage_when_stack_is_stopped(
     assert result.returncode == 0
     assert result.stdout.count("event=reused") == 10
     assert "stage=entra-redirects event=completed" not in result.stdout
+
+
+def test_preparation_rebuilds_an_unresolvable_code_security_cache(tmp_path: Path) -> None:
+    repo, environment = _staged_preparation_repo(tmp_path)
+
+    result = subprocess.run(  # noqa: S603 - fixed test script and executable.
+        [_BASH, str(repo / "scripts/deployment/local/prepare-console-full-stack.sh")],
+        cwd=repo,
+        env={**environment, "FDAI_TEST_CODE_SECURITY_CACHE_READY": "0"},
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=3,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.count("event=reused") == 9
+    assert "stage=code-security-vulnerability-cache event=completed" in result.stdout
+    assert "stage=code-security-vulnerability-cache event=reused" not in result.stdout
 
 
 def test_managed_preparation_defers_stale_inventory_to_reconciliation(

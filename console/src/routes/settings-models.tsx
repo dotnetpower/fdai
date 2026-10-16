@@ -19,7 +19,10 @@ import {
   formatTpm,
   independentSecondaryCandidates,
   matchesModelQuery,
+  modelReadinessState,
+  nextModelWorkspaceView,
   presentModelStatus,
+  type ModelWorkspaceView,
 } from "./settings-models.presentation";
 import {
   appendAllowedDomain,
@@ -49,9 +52,7 @@ interface Props {
   readonly auth: AuthContext;
 }
 
-type ModelsWorkspaceView = "overview" | "catalog" | "routing" | "web-search";
-
-const MODELS_WORKSPACE_VIEWS: readonly ModelsWorkspaceView[] = [
+const MODELS_WORKSPACE_VIEWS: readonly ModelWorkspaceView[] = [
   "overview",
   "catalog",
   "routing",
@@ -67,7 +68,7 @@ export function SettingsModelsRoute({ client, auth }: Props) {
   const [refreshingCatalog, setRefreshingCatalog] = useState(false);
   const [catalogQuery, setCatalogQuery] = useState("");
   const [routingQuery, setRoutingQuery] = useState("");
-  const [activeWorkspaceView, setActiveWorkspaceView] = useState<ModelsWorkspaceView>("overview");
+  const [activeWorkspaceView, setActiveWorkspaceView] = useState<ModelWorkspaceView>("overview");
   const [saving, setSaving] = useState(false);
   const [narratorError, setNarratorError] = useState<string | null>(null);
   const [bindingDirty, setBindingDirty] = useState(false);
@@ -282,6 +283,12 @@ export function SettingsModelsRoute({ client, auth }: Props) {
   const t2PolicyDirty = view !== null && (
     t2PrimaryKey !== defaultT2PrimaryKey || t2SecondaryKey !== defaultT2SecondaryKey
   );
+  const readinessState = view === null
+    ? "review-required"
+    : modelReadinessState(
+        view.t2ModelPolicy.quorumReady,
+        view.t2ModelPolicy.activeSecondary !== null,
+      );
   useSettingsDirtyState(
     "settings-models",
     bindingDirty || narratorDirty || webSearchDirty || t2PolicyDirty,
@@ -496,12 +503,26 @@ export function SettingsModelsRoute({ client, auth }: Props) {
   return (
     <div class="stack settings-route settings-models-route">
       <PageHeader title={t("route.settingsModels")} subtitle={t("settings.models.subtitle")} />
-      <nav class="settings-model-workspace-nav" aria-label={modelText("workspaceNavigation")}>
+      <nav
+        class="settings-model-workspace-nav"
+        aria-label={modelText("workspaceNavigation")}
+        onKeyDown={(event) => {
+          const next = nextModelWorkspaceView(activeWorkspaceView, event.key);
+          if (next === activeWorkspaceView) return;
+          event.preventDefault();
+          setActiveWorkspaceView(next);
+          globalThis.requestAnimationFrame(() => {
+            document.getElementById(`settings-model-view-${next}`)?.focus();
+          });
+        }}
+      >
         {MODELS_WORKSPACE_VIEWS.map((workspaceView) => (
           <button
             key={workspaceView}
+            id={`settings-model-view-${workspaceView}`}
             type="button"
             aria-pressed={activeWorkspaceView === workspaceView}
+            tabIndex={activeWorkspaceView === workspaceView ? 0 : -1}
             onClick={() => setActiveWorkspaceView(workspaceView)}
           >
             {modelText(workspaceViewLabelKey(workspaceView))}
@@ -545,10 +566,10 @@ export function SettingsModelsRoute({ client, auth }: Props) {
                 <p>{modelText("readinessHint")}</p>
               </div>
               <StatusPill
-                kind={view.t2ModelPolicy.quorumReady ? "success" : "warning"}
-                label={view.t2ModelPolicy.quorumReady
-                  ? modelText("policyReady")
-                  : modelText("actionRequired")}
+                kind={readinessState === "ready" ? "success" : "warning"}
+                label={modelText(readinessState === "ready"
+                  ? "t2PairReady"
+                  : "t2PairIncomplete")}
               />
             </header>
             <dl class="settings-model-readiness-facts">
@@ -571,6 +592,21 @@ export function SettingsModelsRoute({ client, auth }: Props) {
                 <dd>{view.bindingPolicy.environment}</dd>
               </div>
             </dl>
+            <div
+              class={`settings-model-readiness-note settings-model-readiness-note--${readinessState}`}
+              role="status"
+            >
+              <strong>{modelText(readinessState === "ready"
+                ? "t2ReadyTitle"
+                : readinessState === "secondary-missing"
+                  ? "t2SecondaryMissingTitle"
+                  : "t2ReviewRequiredTitle")}</strong>
+              <span>{modelText(readinessState === "ready"
+                ? "t2ReadyHint"
+                : readinessState === "secondary-missing"
+                  ? "t2SecondaryMissingHint"
+                  : "t2ReviewRequiredHint")}</span>
+            </div>
             <div class="settings-model-readiness-actions">
               <button
                 type="button"
@@ -598,50 +634,6 @@ export function SettingsModelsRoute({ client, auth }: Props) {
               >
                 {modelText("openCatalog")}
               </button>
-            </div>
-          </section>
-
-          <section
-            class="settings-iam-panel"
-            aria-labelledby="model-automation-heading"
-            hidden={activeWorkspaceView !== "overview"}
-          >
-            <header class="settings-iam-panel-head">
-              <div>
-                <h3 id="model-automation-heading">{t("settings.models.automation")}</h3>
-                <p>{t("settings.models.automationHint")}</p>
-              </div>
-            </header>
-            <div class="filter-summary" aria-label={t("settings.models.resolvedMetadata")}>
-              <span>{t("settings.models.source")}: <strong>{view.resolvedMetadata.source}</strong></span>
-              <span>{t("settings.models.kind")}: <strong>{view.resolvedMetadata.kind}</strong></span>
-              <span>{t("settings.models.asOf")}: <strong>
-                {formatDisplayTimestamp(view.resolvedMetadata.asOf)}
-              </strong></span>
-            </div>
-            <div class="settings-access-strip settings-model-summary">
-              <SummaryDatum
-                label={t("settings.models.discovery")}
-                value={view.discovery.automatic ? t("settings.models.automatic") : t("settings.models.manual")}
-                status={modelText(presentModelStatus(view.discovery.status).label)}
-              />
-              <SummaryDatum
-                label={t("settings.models.provisioning")}
-                value={view.provisioning.automatic ? t("settings.models.automatic") : t("settings.models.manual")}
-                status={modelText(presentModelStatus(view.provisioning.status).label)}
-              />
-              <SummaryDatum
-                label={t("settings.models.capabilityCoverage")}
-                value={t("settings.models.resolvedCount", { count: view.provisioning.resolvedCount })}
-                status={t("settings.models.hilOnlyCount", { count: view.provisioning.hilOnlyCount })}
-              />
-              <SummaryDatum
-                label={t("settings.models.region")}
-                value={view.region ?? t("settings.models.unavailable")}
-                status={view.mixedModelMode === null
-                  ? t("settings.models.unavailable")
-                  : modelText(presentModelStatus(view.mixedModelMode).label)}
-              />
             </div>
           </section>
 
@@ -868,7 +860,7 @@ export function SettingsModelsRoute({ client, auth }: Props) {
           </section>
 
           <section
-            class="settings-iam-panel"
+            class="settings-iam-panel settings-model-narrator"
             aria-labelledby="narrator-preference-heading"
             hidden={activeWorkspaceView !== "overview"}
           >
@@ -934,6 +926,50 @@ export function SettingsModelsRoute({ client, auth }: Props) {
               keyOf={(candidate) => candidate.deployment}
               empty={t("settings.models.noCandidates")}
             />
+          </section>
+
+          <section
+            class="settings-iam-panel settings-model-lifecycle"
+            aria-labelledby="model-automation-heading"
+            hidden={activeWorkspaceView !== "overview"}
+          >
+            <header class="settings-iam-panel-head">
+              <div>
+                <h3 id="model-automation-heading">{t("settings.models.automation")}</h3>
+                <p>{t("settings.models.automationHint")}</p>
+              </div>
+            </header>
+            <div class="filter-summary" aria-label={t("settings.models.resolvedMetadata")}>
+              <span>{t("settings.models.source")}: <strong>{view.resolvedMetadata.source}</strong></span>
+              <span>{t("settings.models.kind")}: <strong>{view.resolvedMetadata.kind}</strong></span>
+              <span>{t("settings.models.asOf")}: <strong>
+                {formatDisplayTimestamp(view.resolvedMetadata.asOf)}
+              </strong></span>
+            </div>
+            <div class="settings-access-strip settings-model-summary">
+              <SummaryDatum
+                label={t("settings.models.discovery")}
+                value={view.discovery.automatic ? t("settings.models.automatic") : t("settings.models.manual")}
+                status={modelText(presentModelStatus(view.discovery.status).label)}
+              />
+              <SummaryDatum
+                label={t("settings.models.provisioning")}
+                value={view.provisioning.automatic ? t("settings.models.automatic") : t("settings.models.manual")}
+                status={modelText(presentModelStatus(view.provisioning.status).label)}
+              />
+              <SummaryDatum
+                label={t("settings.models.capabilityCoverage")}
+                value={t("settings.models.resolvedCount", { count: view.provisioning.resolvedCount })}
+                status={t("settings.models.hilOnlyCount", { count: view.provisioning.hilOnlyCount })}
+              />
+              <SummaryDatum
+                label={t("settings.models.region")}
+                value={view.region ?? t("settings.models.unavailable")}
+                status={view.mixedModelMode === null
+                  ? t("settings.models.unavailable")
+                  : modelText(presentModelStatus(view.mixedModelMode).label)}
+              />
+            </div>
           </section>
 
           <section
@@ -1027,6 +1063,20 @@ export function SettingsModelsRoute({ client, auth }: Props) {
                     : t("settings.models.ownerManaged")}
               />
             </header>
+            {!view.webSearch.available ? (
+              <div class="settings-model-availability-note" role="status">
+                <div>
+                  <strong>{modelText("webSearchUnavailableTitle")}</strong>
+                  <span>{modelText("webSearchUnavailableHint")}</span>
+                  {view.webSearch.unavailableReason ? (
+                    <span>{t(webSearchUnavailableMessageKey(view.webSearch.unavailableReason))}</span>
+                  ) : null}
+                </div>
+                <a href="/settings/environment-and-deployment">
+                  {modelText("reviewEnvironment")}
+                </a>
+              </div>
+            ) : null}
             <div class="settings-web-search-body">
               <div class="settings-web-search-toggle-row">
                 <div>
@@ -1211,7 +1261,7 @@ export function SettingsModelsRoute({ client, auth }: Props) {
 }
 
 function workspaceViewLabelKey(
-  workspaceView: ModelsWorkspaceView,
+  workspaceView: ModelWorkspaceView,
 ): "workspaceOverview" | "workspaceCatalog" | "workspaceRouting" | "workspaceWebSearch" {
   if (workspaceView === "catalog") return "workspaceCatalog";
   if (workspaceView === "routing") return "workspaceRouting";

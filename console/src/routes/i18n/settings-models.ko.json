@@ -8,6 +8,14 @@
   "readinessHint": "정책을 변경하기 전에 현재 서술기, T2 추론 모델 조합 및 적용 환경을 확인합니다.",
   "policyReady": "정책 준비됨",
   "actionRequired": "조치 필요",
+  "t2PairReady": "T2 모델 조합 준비됨",
+  "t2PairIncomplete": "T2 모델 조합 미완료",
+  "t2ReadyTitle": "T2 품질 게이트를 사용할 수 있습니다",
+  "t2ReadyHint": "주 모델과 독립된 보조 공급자가 활성 상태이므로 mixed-model 검증을 수행할 수 있습니다.",
+  "t2SecondaryMissingTitle": "독립된 보조 모델이 구성되지 않았습니다",
+  "t2SecondaryMissingHint": "T1 서술 기능은 계속 사용할 수 있습니다. 다른 공급자의 보조 모델을 검토하고 활성화할 때까지 T2 판단은 사용할 수 없습니다.",
+  "t2ReviewRequiredTitle": "T2 정책을 검토해야 합니다",
+  "t2ReviewRequiredHint": "기록된 모델 조합이 현재 품질 게이트 정책을 충족하지 않습니다. 활성화를 요청하기 전에 카탈로그 초안을 검토하세요.",
   "currentNarrator": "현재 서술기",
   "reviewT2Policy": "T2 정책 검토",
   "openCatalog": "카탈로그 열기",
@@ -144,5 +152,7 @@
   "domainCount": "호스트 {count}/{max}개",
   "unsavedChanges": "저장되지 않은 웹 검색 변경 사항",
   "settingsCurrent": "웹 검색 설정이 최신 상태입니다",
-  "saveBoundary": "저장하면 배포 allowlist만 업데이트됩니다. 실행 권한은 부여하지 않습니다."
+  "saveBoundary": "저장하면 배포 allowlist만 업데이트됩니다. 실행 권한은 부여하지 않습니다.",
+  "webSearchUnavailableTitle": "웹 검색을 사용할 준비가 되지 않았습니다",
+  "webSearchUnavailableHint": "허용 목록은 미리 준비할 수 있지만, 공급자 준비 상태를 검증할 때까지 검색 요청은 사용할 수 없습니다."
 }

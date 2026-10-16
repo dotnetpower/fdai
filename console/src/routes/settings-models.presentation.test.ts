@@ -5,6 +5,8 @@ import {
   formatTpm,
   independentSecondaryCandidates,
   matchesModelQuery,
+  modelReadinessState,
+  nextModelWorkspaceView,
   presentModelStatus,
 } from "./settings-models.presentation";
 import type { GptModelCatalogEntryView, T2ModelChoiceView } from "./settings-models.model";
@@ -73,6 +75,20 @@ describe("settings models presentation", () => {
     expect(presentModelStatus("available").tone).toBe("success");
     expect(presentModelStatus("unhealthy").tone).toBe("warning");
     expect(presentModelStatus("provider-specific").tone).toBe("neutral");
+  });
+
+  it("distinguishes a missing secondary model from a policy review", () => {
+    expect(modelReadinessState(true, true)).toBe("ready");
+    expect(modelReadinessState(false, false)).toBe("secondary-missing");
+    expect(modelReadinessState(false, true)).toBe("review-required");
+  });
+
+  it("moves predictably across model workspace views", () => {
+    expect(nextModelWorkspaceView("overview", "ArrowLeft")).toBe("web-search");
+    expect(nextModelWorkspaceView("catalog", "ArrowRight")).toBe("routing");
+    expect(nextModelWorkspaceView("routing", "Home")).toBe("overview");
+    expect(nextModelWorkspaceView("overview", "End")).toBe("web-search");
+    expect(nextModelWorkspaceView("routing", "Enter")).toBe("routing");
   });
 
   it("matches inventory queries across readable and technical fields", () => {
