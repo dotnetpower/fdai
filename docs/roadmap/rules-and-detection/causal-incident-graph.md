@@ -33,6 +33,41 @@ The graph should answer these questions deterministically or return an explicit 
 These questions define the required graph and query tests. New ontology types or links should not
 be added only to improve visualization.
 
+## Investigation boundary hardening
+
+Issue #2184 separates the evidence timeline from the investigation's execution budget and
+checks the compiled plan against its real consumers, not just its declared node shapes.
+The improvement plan preserves the existing evidence-only and agent-ownership boundaries.
+
+| Boundary | Revised contract | Acceptance evidence |
+|----------|------------------|---------------------|
+| Compiled metric investigation | The feature cutoff is the end of the requested current window. Samples after that cutoff remain invalid. | Execute compiler-produced join nodes with complete in-window series and reject a genuinely future sample. |
+| Delayed events | A new session receives its wall-clock budget when investigation starts; its evidence cutoff stays at event time. The existing distributed ResourceLock serializes duplicate sessions, including recorded-deadline selection. Replays reuse the original terminal Process. | Delayed, historical, concurrent, and timed-out investigations preserve evidence time and perform no additional provider work on terminal replay. |
+| Causal topology | Retain the two secured historical graph views with their diff. A cause/effect pair needs an exact, correctly directed, verified dependency path in one view, or an exact observed same-resource identity. Edges are effective before the metric window begins. Never combine edges from different times. | Unrelated, reversed, late-created, unverified, stale, incomplete, and missing-path views hold explicitly. |
+| Competing explanations | A temporal correlation failure does not refute a mechanism. Unevaluated competitors keep the result unresolved; temporal precedence never establishes interventional evidence. | Positive and negative correlations retain their measured grade and explicit unresolved limitations. |
+| Incident graph | Preserve source completeness, generation, and reasons. Invalid, future, stale, conflicting, synthetic, or unverified relationship observations cannot support a complete graph. | Focused graph regressions preserve accounting and replay identity under changed evidence and bounds. |
+| Intervention closure | Use the existing independent outcome and exact Thor ActionRun receipt seam. Receipt absence, target drift, shadow execution, missing approval, or incomplete observation cannot confirm a cause. | Local deployment/closure regressions exercise the real binding; deployed interventional qualification remains separate. |
+
+**Design critique and revision.** Moving a cutoff alone would leave unrelated topology eligible
+and could mistake a failed correlation test for a refuted mechanism. The revised design therefore
+retains the secured historical views, checks dependency direction and edge evidence, and reports
+unresolved competitors explicitly. Moving an execution deadline alone could restart expired
+replays, so the existing Process identity and terminal replay remain authoritative. No generic
+automatic intervention loop is enabled without an independently bound outcome source.
+
+Runtime policy `1.1.0` reserves the smaller of one second and one quarter of the configured
+total deadline for terminal persistence. Query expiry precedes supervisory cancellation, and
+lock waiting remains inside the original total ceiling. A blocked query therefore records a
+replayable timeout instead of a cancellation without a terminal result. Zero-lag coincidence,
+constant signals, and tied reverse direction remain association even with relaxed thresholds.
+Claim identity binds the exact series, configuration, evidence references, and cutoff; the
+multiple-testing correction includes every searched lag.
+
+After implementation, at least ten bounded critique rounds exercise these boundaries and their
+negative cases. New actionable findings at Medium severity or above require repair and another
+focused check before delivery. Local checks establish implementation behavior, not deployed
+causal accuracy or authority to mutate resources.
+
 ## Ontology contract
 
 The design reuses `Incident`, `Finding`, `Observation`, `Change`, `Experiment`, `Resource`,

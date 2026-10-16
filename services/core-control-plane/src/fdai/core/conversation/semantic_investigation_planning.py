@@ -292,7 +292,7 @@ def compile_investigation_plan(
                     comparison_id,
                 ),
                 arguments={
-                    "feature_cutoff": windows.current_start.isoformat(),
+                    "feature_cutoff": windows.current_end.isoformat(),
                     "effect_direction": primary_measure.direction.value,
                     "lag_seconds": [0, 60, 300],
                     "min_samples": 4,

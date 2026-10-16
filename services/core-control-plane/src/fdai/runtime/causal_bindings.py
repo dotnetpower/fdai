@@ -9,6 +9,8 @@ result stays shadow and evidence-only: no causal revision grants execution autho
 
 from __future__ import annotations
 
+import logging
+
 from fdai.composition import Container
 from fdai.core.rca import (
     CausalHypothesisProjector,
@@ -20,6 +22,8 @@ from fdai.delivery.persistence.state_store_causal_receipts import (
 )
 from fdai.shared.providers.ontology_instance import OntologyInstanceStore
 from fdai.shared.providers.state_store import StateStore
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def build_causal_runtime_coordinator(
@@ -38,6 +42,10 @@ def build_causal_runtime_coordinator(
 
     provider = container.temporal_causal_evidence_provider
     if provider is None:
+        _LOGGER.info(
+            "causal_runtime_unavailable",
+            extra={"reason": "temporal_evidence_provider_unbound", "mode": "shadow"},
+        )
         return None
     projection = container.causal_hypothesis_projection
     if projection is None and ontology_instance_store is not None:

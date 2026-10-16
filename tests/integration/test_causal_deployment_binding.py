@@ -215,6 +215,7 @@ def _closure(hypothesis: Any, **changes: Any) -> CausalClosureObservation:
         "predicted_effect_ref": hypothesis.effect_ref,
         "prohibited_effects_absent": True,
         "intervention_action_ref": "run-1",
+        "intervention_resource_ref": _RESOURCE,
         "endpoint_objects": (_outcome(observed_at),),
     }
     values.update(changes)
@@ -272,6 +273,8 @@ async def test_verified_intervention_confirms_through_independent_outcome() -> N
         ({"telemetry_complete": False}, CausalClosure.INCONCLUSIVE),
         ({"intervention_action_ref": "run-unknown"}, CausalClosure.INCONCLUSIVE),
         ({"intervention_receipt_digest": "f" * 64}, CausalClosure.INCONCLUSIVE),
+        ({"intervention_resource_ref": "resource:another"}, CausalClosure.INCONCLUSIVE),
+        ({"intervention_resource_ref": None}, CausalClosure.INCONCLUSIVE),
     ],
 )
 async def test_unverified_or_adverse_outcomes_never_confirm(
@@ -318,13 +321,19 @@ def test_runtime_refuses_temporal_series_without_a_projection_store() -> None:
         )
 
 
-def test_runtime_leaves_the_causal_path_unbound_without_temporal_series() -> None:
-    assert (
-        build_causal_runtime_coordinator(
-            container=default_container(_config()),
-            ontology_instance_store=_ontology_store(),
-            audit_store=InMemoryStateStore(),
-            method_version=_METHOD,
+def test_runtime_leaves_the_causal_path_unbound_without_temporal_series(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    with caplog.at_level("INFO", logger="fdai.runtime.causal_bindings"):
+        assert (
+            build_causal_runtime_coordinator(
+                container=default_container(_config()),
+                ontology_instance_store=_ontology_store(),
+                audit_store=InMemoryStateStore(),
+                method_version=_METHOD,
+            )
+            is None
         )
-        is None
-    )
+    record = next(item for item in caplog.records if item.message == "causal_runtime_unavailable")
+    assert record.reason == "temporal_evidence_provider_unbound"
+    assert record.mode == "shadow"

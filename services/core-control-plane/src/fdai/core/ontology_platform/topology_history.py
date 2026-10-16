@@ -167,6 +167,8 @@ class TopologyDiff:
     complete: bool
     evidence_refs: tuple[str, ...]
     digest: str
+    before: TopologyGraphAt | None = None
+    after: TopologyGraphAt | None = None
 
 
 class TopologyHistoryReader(Protocol):
@@ -393,6 +395,8 @@ def topology_diff(before: TopologyGraphAt, after: TopologyGraphAt) -> TopologyDi
         complete=complete,
         evidence_refs=evidence_refs,
         digest=_digest(body),
+        before=before,
+        after=after,
     )
 
 

@@ -32,7 +32,12 @@ class StateStoreCausalInterventionReceiptVerifier:
         action_ref = observation.intervention_action_ref
         receipt = observation.intervention_receipt_digest
         executed_at = observation.intervention_executed_at
-        if not action_ref or receipt is None or executed_at is None:
+        if (
+            not action_ref
+            or receipt is None
+            or executed_at is None
+            or observation.intervention_resource_ref is None
+        ):
             return False
         raw_run = await self.store.read_state(f"{self.run_prefix}{action_ref}")
         if not isinstance(raw_run, Mapping):
@@ -51,6 +56,7 @@ class StateStoreCausalInterventionReceiptVerifier:
         }
         return (
             raw_run.get("correlation_id") == action_ref
+            and raw_run.get("resource_id") == observation.intervention_resource_ref
             and str(raw_run.get("state") or "") in _VERIFIED_STATES
             and raw_run.get("shadow_mode") is False
             and params.get("causal_hypothesis_ref") == observation.hypothesis.hypothesis_id

@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: bc01498ede176da3abee027a893a9b00f4ec84b5
-translation_revised: 2026-10-13
+translation_source_sha: 1453b947392c0f7fd507b375e7c1babeeab630e4
+translation_revised: 2026-10-16
 ---
 # 온톨로지 구조 모델
 
@@ -31,6 +31,13 @@ translation_revised: 2026-10-13
 > 이 필드는 배포 메타데이터이며 온톨로지 신원이 아니고 모델 호출 또는 실행 권한을 부여할 수 없습니다. Provider kind와 API style도 같은 경계의 endpoint 메타데이터로 유지합니다.
 
 작업 흐름 작성 레코드는 온톨로지 ID 밖에 남습니다. 저장된 비공개 초안, 바인딩, 카탈로그에서 시드된 Built-in 정의는 Operator 작성 레코드와 변환이며 Resource, ObjectType, LinkType 또는 액션 권한을 만들 수 없습니다.
+
+인과 메트릭 결합은 토폴로지 변경만으로 의존성을 인정하지 않고 권한 검증을 거친 변경 전후
+그래프를 보존합니다. 정확한 원인과 결과 쌍에는 근거 구간 안의 한 과거 그래프에서 방향과
+근거가 검증된 경로가 있어야 합니다. 메트릭 비교는 정확히 일치하는 결과 대상, 단위, 현재
+구간에만 적용합니다. 경로 누락, 잘못된 관계 근거, 상관 검증 실패, 미평가 경쟁 설명은
+미해결 상태로 유지합니다. 이 검증은 선언 종류, 역방향 관계, 인과 증명 또는 실행 권한을
+추가하지 않습니다.
 
 형식화된 [GitHub 소스 출처 정보](../../runbooks/knowledge-github-sources-ko.md)도 저장소 기록의
 메타데이터로 유지됩니다. 저장소 ID, 관측 커밋, README 다이제스트, 관측 시각 및 자격 증명

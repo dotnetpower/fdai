@@ -326,6 +326,14 @@ class EvidenceJoinNodeHandler:
                     "evidence_join comparison dependency MUST be MetricWindowComparison"
                 )
             comparison = comparison_value
+            if (
+                comparison.concept_id != effect.concept_id
+                or comparison.resource_id != effect.resource_id
+                or comparison.unit != effect.unit
+                or comparison.current_start != effect.start
+                or comparison.current_end != effect.end
+            ):
+                raise ValueError("evidence_join comparison MUST match the effect window")
             effect_direction = node.arguments.get("effect_direction")
             if effect_direction not in {"decrease", "increase"}:
                 raise ValueError("evidence_join comparison requires a bounded effect_direction")

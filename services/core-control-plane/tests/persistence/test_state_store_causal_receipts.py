@@ -62,6 +62,7 @@ def _observation(**changes: Any) -> CausalClosureObservation:
         "predicted_effect_ref": hypothesis.effect_ref,
         "prohibited_effects_absent": True,
         "intervention_action_ref": "run-1",
+        "intervention_resource_ref": "/subscriptions/example/resourceGroups/example",
     }
     values.update(changes)
     return CausalClosureObservation(**values)
@@ -107,6 +108,8 @@ async def test_effect_verification_ref_also_resolves_the_receipt() -> None:
         _run(shadow_mode=True),
         _run(shadow_mode=None),
         _run(correlation_id="run-2"),
+        _run(resource_id="resource:another"),
+        _run(resource_id=None),
         _run(params={"causal_hypothesis_ref": "causal-other"}),
         _run(params={}),
         _run(params="not-a-mapping"),
@@ -123,7 +126,17 @@ async def test_missing_or_inconsistent_run_never_resolves(run: dict[str, Any] | 
 
 
 async def test_observation_without_action_ref_never_resolves() -> None:
-    assert await _verify(_run(), replace(_observation(), intervention_action_ref=None)) is False
+    assert (
+        await _verify(
+            _run(),
+            replace(_observation(), intervention_action_ref=None, intervention_resource_ref=None),
+        )
+        is False
+    )
+
+
+async def test_observation_without_exact_resource_never_resolves() -> None:
+    assert await _verify(_run(), replace(_observation(), intervention_resource_ref=None)) is False
 
 
 def test_action_ref_requires_a_receipt_and_bounded_text() -> None:
