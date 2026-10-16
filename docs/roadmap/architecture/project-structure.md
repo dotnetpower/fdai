@@ -69,7 +69,11 @@ holds, and Operator receives only the terminal no-authority answer plus technica
 Self-health follows the same boundary. Generic thresholds, freshness, owner lanes, routes, and
 fallbacks live in `config/self-health-signals.yaml`; `core/readiness/self_health.py` makes the pure
 authority-neutral decision; runtime bootstrap validates the complete catalog against notification
-routes; delivery and provider adapters remain responsible for emitting source-qualified metrics.
+routes. `core/readiness/self_health_runtime.py` requires exact exporter coverage for all 15 signals
+and eight sanitized operational-state fields, persists one freshness-checked snapshot, and records
+unavailable sources without inventing healthy values. Operator exposes that snapshot through the
+authenticated Reader-role `GET /operations/runtime-state` projection. Delivery adapters remain
+responsible for replacing explicit unavailable bindings with source-qualified production metrics.
 Rule activation version compatibility is also split: service contracts own the version 1/2
 envelope codec and Core's activation ledger applies it while version 1 remains the only write
 format. The shared SDK also owns dormant signed non-direct manifest and trust contracts. Core

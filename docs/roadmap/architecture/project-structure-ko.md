@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 5d61de1c0a9904872a2db8c27fa634f341a581ef
+translation_source_sha: a72bc3ccfff25bb8d2c043856353f987c3aa512b
 translation_revised: 2026-10-17
 ---
 # 프로젝트 구조
@@ -68,8 +68,12 @@ Resource Health 답변 조합도 같은 분리를 따릅니다. `ontology_platfo
 Operator는 권한 없는 최종 답변과 기술 상세만 받습니다.
 자체 상태도 같은 경계를 따릅니다. 일반 임계값, 신선도, 담당 경로, 알림 route, 대체 경로는
 `config/self-health-signals.yaml`에 있고, `core/readiness/self_health.py`는 권한을 부여하지
-않는 순수 판정을 수행합니다. 런타임 bootstrap은 전체 카탈로그와 알림 route의 일치를 검증하고,
-전달 및 공급자 어댑터는 출처가 명시된 메트릭 방출을 담당합니다. 규칙 활성화 버전 호환성도
+않는 순수 판정을 수행합니다. 런타임 bootstrap은 전체 카탈로그와 알림 route의 일치를 검증합니다.
+`core/readiness/self_health_runtime.py`는 신호 15개와 비식별화된 운영 상태 필드 8개의 정확한
+exporter 범위를 요구하고, 신선도를 검사한 스냅숏 하나를 저장하며, 정상 값을 만들어 내지 않고
+사용할 수 없는 수집원을 기록합니다. Operator는 인증된 Reader 역할의
+`GET /operations/runtime-state` 변환을 통해 이 스냅숏을 제공합니다. 전달 어댑터는 명시적인
+unavailable binding을 출처가 명시된 운영 메트릭으로 교체해야 합니다. 규칙 활성화 버전 호환성도
 분리합니다. 서비스 계약은 버전 1/2 묶음 codec을 소유하고 Core 활성화 원장이 이를 적용하며,
 버전 1만 쓰는 형식을 유지합니다. 공유 SDK는 비활성 상태의 직접 입력이 아닌 원본용 서명
 매니페스트와 신뢰 계약도 소유합니다. Core는 별도 모듈에서 로컬로 해석한 정확한 ID, 신뢰 유효성,

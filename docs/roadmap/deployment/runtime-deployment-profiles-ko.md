@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: c4c81d4901ac2e79d81e07603c057594b9045c81
-translation_revised: 2026-10-16
+translation_source_sha: 24c619d04be61a961fb27afb0339141749d3e599
+translation_revised: 2026-10-17
 ---
 # 런타임 배포 프로파일
 
@@ -30,6 +30,10 @@ translation_revised: 2026-10-16
 범위가 있을 때만 명시적 Operator 토론을 연결합니다. 선행 조건이 없으면 Owner, 허가나 실제
 모델 호출을 만들지 않고 보류합니다. Console 모드 선택은 런타임 프로필, 실행기 신원 또는
 운영 준비 상태를 바꾸지 않습니다.
+두 프로필은 같은 완전한 자체 상태 exporter 레지스트리를 요구합니다. 실행 위치가 책임 수집원
+어댑터를 조합할 때까지 bootstrap은 명시적인 unavailable binding을 설치하고 인증된 운영 상태
+변환을 통해 그 상태를 제공합니다. 런타임 선택은 누락된 텔레메트리를 정상 값으로 바꾸거나 승인
+또는 실행 권한을 부여하지 않습니다.
 
 
 두 런타임 프로파일 모두 대화 표시를 실행 및 패키지 활성화와 분리합니다. 표준 Core 구성은

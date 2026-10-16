@@ -27,6 +27,10 @@ from fdai.core.readiness.self_health import (
     SelfHealthDecision,
     SelfHealthObservation,
 )
+from fdai.core.readiness.self_health_runtime import (
+    SelfHealthExporterRegistry,
+    SelfHealthRuntimeMonitor,
+)
 from fdai.delivery.startup_probe import (
     AuditChainStartupProbe,
     AuditStartupProbe,
@@ -154,6 +158,7 @@ class StartupReadinessRuntime:
     refresh_interval_seconds: float
     refresh_lead_seconds: float = 0.0
     self_health_catalog: SelfHealthCatalog | None = None
+    self_health_monitor: SelfHealthRuntimeMonitor | None = None
 
     def __post_init__(self) -> None:
         if self.refresh_interval_seconds <= 0 or self.refresh_lead_seconds < 0:
@@ -162,6 +167,8 @@ class StartupReadinessRuntime:
     async def evaluate(self) -> StartupReadinessReport:
         report = await self.coordinator.evaluate()
         self.state.update(report)
+        if self.self_health_monitor is not None:
+            await self.self_health_monitor.collect_and_persist(now=report.generated_at)
         return report
 
     def evaluate_self_health(
@@ -291,6 +298,7 @@ def build_startup_readiness_runtime(
     decision_evidence: DecisionEvidenceAdmissionProvider | None = None,
     ingest_topics: Collection[str] = (),
     self_health_catalog: SelfHealthCatalog | None = None,
+    self_health_exporter_registry: SelfHealthExporterRegistry | None = None,
 ) -> StartupReadinessRuntime:
     """Compose standard required probes plus registered optional destinations."""
     probe_topic = (
@@ -420,6 +428,8 @@ def build_startup_readiness_runtime(
         decision_evidence=decision_evidence,
         budget=budget,
     )
+    if (self_health_catalog is None) != (self_health_exporter_registry is None):
+        raise ValueError("self-health catalog and exporter registry MUST be composed together")
     return StartupReadinessRuntime(
         coordinator=coordinator,
         state=RuntimeReadinessState(),
@@ -430,6 +440,14 @@ def build_startup_readiness_runtime(
         ),
         refresh_lead_seconds=budget.refresh_lead_seconds,
         self_health_catalog=self_health_catalog,
+        self_health_monitor=(
+            SelfHealthRuntimeMonitor(
+                registry=self_health_exporter_registry,
+                store=state_store,
+            )
+            if self_health_exporter_registry is not None
+            else None
+        ),
     )
 
 

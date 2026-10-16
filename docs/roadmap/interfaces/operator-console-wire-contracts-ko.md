@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: ac554ff7b8b42c24e81d7c99b6e41601effb5427
-translation_revised: 2026-10-15
+translation_source_sha: bedabedfcb0d7404911de59f82e072f358de7c41
+translation_revised: 2026-10-17
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -17,6 +17,11 @@ translation_revised: 2026-10-15
 않습니다. Console은 반환된 기본 발언, 비평, 참여자 상태와 보류·검증 결론을 표시할 뿐, 이를
 운영 사실로 추정하지 않습니다.
 
+`GET /operations/runtime-state`는 영속 Core 스냅숏 하나를 제공하는 인증된 Reader 역할
+변환입니다. 출처가 명시된 다이제스트, 신선도 또는 명시적인 unavailable 상태로 자체 상태 신호
+15개와 버전, 구성, 규칙 효과, 재정의, 발견, 카나리, 비상 정지, 긴급 액세스 필드를 정확히
+포함합니다. Operator는 공유 계약을 검증하고 비식별화합니다. 프로바이더를 조회하거나 정상
+기본값을 추정하거나 변경을 승인하거나 실행 권한을 얻지 않습니다.
 
 `GET /knowledge/github/sources`는 형식화된 저장소 출처 정보와 분리된 지식 읽기 및 스캔
 권한 상태를 반환합니다. 같은 경로의 Owner 전용 `POST`는 `connect` 또는 `disconnect`,
