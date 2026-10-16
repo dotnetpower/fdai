@@ -3,4 +3,5 @@ infra/.terraform/
 infra/*.tfplan
 infra/*.tfstate
 infra/*.tfstate.*
+infra/terraform.tfstate.d/
 infra/*.tfvars

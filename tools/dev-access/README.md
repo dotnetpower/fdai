@@ -69,6 +69,35 @@ peering and advertises its declared address spaces to P2S clients. Link only the
 DNS zone used by that endpoint. Do not enable local Terraform state access unless it is an explicit
 requirement.
 
+### Keep subscriptions separate
+
+Use a Terraform workspace and an ignored variable file for each independent access stack. Before
+planning, set `ARM_SUBSCRIPTION_ID` to the subscription that will own that stack. Give each stack
+a distinct `region_short`, access-network CIDR, and VPN client pool. Select only the workload VNets
+and Private DNS zones needed for that development environment.
+
+```bash
+cd tools/dev-access/infra
+export ARM_SUBSCRIPTION_ID="<target-subscription-id>"
+terraform workspace new dev-secondary
+terraform plan -var-file=secondary.tfvars -out=secondary.tfplan
+terraform apply secondary.tfplan
+cd ../../..
+FDAI_DEV_ACCESS_PROFILE_DIR=tools/dev-access/.profiles/dev-secondary \
+  tools/dev-access/scripts/profile.sh
+```
+
+The default workspace preserves an existing stack. To return to it, run
+`terraform -chdir=tools/dev-access/infra workspace select default`. To reuse the second stack,
+select `dev-secondary` instead of creating it again. Profile generation explicitly targets the
+subscription recorded in the selected workspace; it does not change or depend on the Azure CLI
+default subscription. Terraform operations still need the matching `ARM_SUBSCRIPTION_ID`.
+
+Import both profiles into Azure VPN Client. Each profile authenticates against its gateway's Entra
+tenant. Connect one profile at a time when the workload address spaces or private DNS suffixes
+overlap. Select its Terraform workspace before running the WSL DNS or diagnostic helpers and
+before reopening VS Code.
+
 ## Configure Windows and WSL
 
 Set `%UserProfile%\.wslconfig` on Windows:
@@ -117,13 +146,16 @@ The helper routes only the linked Azure service suffixes to the Private DNS Reso
 including Entra sign-in endpoints, continue to use the workstation's default DNS configuration.
 
 When VS Code opens the FDAI workspace, the `dev-access: configure VPN on folder open` task runs
-automatically. A checkout without local `infra/terraform.tfstate` is a quiet no-op. When the VPN is
-connected, the task applies WSL DNS without revealing a terminal and closes its terminal after
+automatically. A checkout without local default or named-workspace state is a quiet no-op. When the
+VPN is connected, the task applies WSL DNS without revealing a terminal and closes its terminal after
 success. When it is disconnected, the task opens Azure VPN Client once and gives the mirrored WSL
 route a bounded seven-second grace window. This absorbs route propagation after WSL or VPN restart
 without hiding a real disconnect. If the route is still unavailable, the task exits with an
 actionable error in the VS Code Problems panel. The task never connects without the developer's
 Entra sign-in and MFA.
+
+Named-workspace state under `infra/terraform.tfstate.d/` also opts the workstation into this task.
+The selected workspace determines which Resolver and private DNS suffixes the task uses.
 
 ### Use direct VNet access from an Azure VM
 
@@ -153,6 +185,12 @@ tools/dev-access/scripts/doctor.sh \
 
 The check fails when WSL mirrored networking is absent, DNS does not resolve, routing is missing,
 the Resolver and WSL answers differ, or the optional TCP connection cannot be established.
+
+If a VPN connection times out before private routing is available, check the gateway's Azure
+Resource Health and the subscription's current management-plane state separately. Azure CLI account
+metadata can retain an earlier subscription state. A disabled subscription can leave a provisioned
+gateway in standby; its subscription administrator needs to reactivate it before VPN recovery can
+be verified. Don't recreate the gateway or relax authentication to work around that condition.
 
 ## Remove development access
 

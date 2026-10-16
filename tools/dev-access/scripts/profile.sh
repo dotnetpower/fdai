@@ -22,12 +22,6 @@ routing_domains_json="$(terraform output -json fdai_private_dns_routing_domains)
 extra_routing_domains_json="${FDAI_DEV_ACCESS_EXTRA_DNS_DOMAINS_JSON:-[]}"
 popd >/dev/null
 
-active_subscription_id="$(az account show --query id --output tsv)"
-if [[ "${active_subscription_id}" != "${subscription_id}" ]]; then
-  printf 'error: active Azure subscription does not own the dev-access stack\n' >&2
-  exit 1
-fi
-
 temporary_directory="$(mktemp -d)"
 trap 'rm -rf -- "${temporary_directory}"' EXIT
 
