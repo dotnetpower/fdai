@@ -7,11 +7,13 @@ export type Route =
   | { kind: "plan"; installationId: string; planId: string }
   | { kind: "enrollments" }
   | { kind: "enrollment"; installationId: string }
+  | { kind: "catalog" }
   | { kind: "not-found"; path: string };
 
 export function parseRoute(pathname: string): Route {
   const segments = pathname.split("/").filter(Boolean);
   if (segments.length === 0) return { kind: "installations" };
+  if (segments.length === 1 && segments[0] === "catalog") return { kind: "catalog" };
   if (segments[0] === "installations") {
     if (segments.length === 1) return { kind: "installations" };
     if (segments.length === 2) return { kind: "installation", installationId: segments[1]! };

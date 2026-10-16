@@ -8,6 +8,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 ### Implementation scope
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Separate two-Hub development preparation | implemented | `current change`; `infra/hubs-development/README.md`; `lifecycle/Dockerfile.hubs`; focused local DB/API/planner and real image smoke checks passed; Terraform validate passed | Records a separate vendor/customer development root with explicit migration and identity/trust preparation. Not an additional installer or a live cloud isolation/deployment receipt. |
 | Isolated restricted-network inventory certification | implemented | `infra/inventory-network-certification/`; `inventory_network_certification.py`; exact create and cleanup plan verifier; focused Core and integration tests | A task-owned development sandbox can prove token, DNS, TLS, bounded ARG, private projection, ARG-to-ARM fallback, active-generation retention, ARG recovery, and independent private receipt readback without peering with or modifying the selected environment. No governed Azure run is claimed yet. |
 | AKS-first minimum inventory | in-progress | `infra/modules/network`; `infra/runtimes/aks/cluster`; focused AKS infrastructure tests and Terraform validation pass in the current change | The Terraform substrate now reserves node and delegated API-server subnets and the cluster enables API Server VNet Integration with explicit public CIDRs. Default CLI selection, complete workloads and an Azure receipt remain open. |
 | Console-originated private-network transition | not-started | Revised owner, app-shape instruction and deployment skill only | The typed intent, assessment, protected exact plan, approval, apply, rollback and independent readback states are not implemented. |
@@ -218,7 +219,13 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-09-09 | implemented | Removed unsupported tags from the runner-zone A record after the record was created but provider readback produced a perpetual tags-only drift. | `current change`; failed verification run `34263490691`; `infra/main.tf`; focused Terraform and workflow checks. | Retain a converged exact apply and successful protected admission record. |
 | 2026-09-09 | validated | Completed an exact no-change plan and apply, then retained and read back the first current non-synthetic attested decision-evidence record set. | Protected plan `34264745423`; exact apply `34265060803`; admission `34265297336`; ARM posture readback confirmed private networking, Shared Key disabled, 90-day immutability, approved private endpoint, and zero runtime write roles. | Retain current governed live admissions for every registered positive boundary before changing FDAI-CONST-002 from `partial`. |
 
+| 2026-10-15 | implemented | Linked the independent two-Hub development root and its private identity/key/database/migration sequence from the deployment inventory owner. Kept source/offline installation and Agent apply outside that root. | `current change`; `docs/roadmap/deployment/deploy-and-onboard.md`; `infra/hubs-development/README.md`; local UI/API/container and static Terraform evidence in the Hub implementation ledgers | Exact cloud preview and execution, approved registry architecture/digests, Entra/MI/private-data-plane denial, and ACA replacement persistence require separate approval and retained evidence. |
+
 ### Remaining work
+
+- [ ] After separate exact-scope execution approval, retain the two-Hub acceptance results in
+  `infra/hubs-development/README.md`, including cross-boundary denial and replica persistence;
+  local preparation does not complete the main FDAI deployment inventory.
 
 - [ ] Make the finite manifest and CLI default to AKS Standard with API Server VNet Integration,
     dedicated workload/API-server subnets and the five baseline Kubernetes workloads.

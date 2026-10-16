@@ -8,9 +8,11 @@ its subscribed release channel and on the configuration that its customer approv
 hub-and-spoke model of Palantir Apollo. It owns the lifecycle architecture, the plan and state
 loop, and the customer isolation boundary.
 
-> **Status:** Design only. No Hub, installation agent, Lifecycle Plan, or upgrade bundle exists
-> yet. The [implementation ledger](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)
-> tracks delivery. [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance.md)
+> **Status:** Partially implemented for development. The local Hub, planner, and explicit
+> two-Hub remote-development preparation path exist; the full managed installation path is not
+> delivered. No Azure deployment or production trust-root ceremony is claimed. The
+> [implementation ledger](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)
+> tracks the exact delivered boundaries. [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance.md)
 > records the decisions.
 >
 > **Scope:** This path manages FDAI's own lifecycle: installation, upgrade, configuration, drift,
@@ -36,8 +38,38 @@ Release Hub service already exists.
 | Plan computation | The Hub computes Lifecycle Plans. Installation agents derive the maximum effect envelope locally, and a Plan can only narrow it. |
 | Installation agents | A lifecycle agent inside the cluster for workloads, and an infrastructure agent on the execution host for exact Terraform plans. Neither is a pantheon agent. |
 | Upgrades | Automatic inside maintenance windows. Configuration changes need an approved change request, and deleting or replacing an Azure resource needs confirmation. |
-| Data boundary | The Hub holds no Azure credential, secret value, or operational data. Only lifecycle metadata crosses the boundary. |
+| Data boundary | The Hub holds no customer workload credential or operational data. Its own bounded service identity and signing key do not authorize customer resource changes. Only lifecycle metadata crosses the boundary. |
 | Records | Hub PostgreSQL per cell or Target Hub, and append-only installation receipts in Foundation storage |
+
+## Two-Hub development validation
+
+The vendor Release Hub and customer Target Lifecycle Hub have separate ACA environments,
+VNets, PostgreSQL servers/databases, managed identities, Key Vaults, and logs in separate RGs
+of one test subscription. RG separation is administrative, not evidence of security isolation.
+No peering or vendor-to-customer grant is introduced. Approved browser CIDRs and the customer
+NAT address bound HTTPS ingress; private data planes remain separate.
+
+The explicit remote profile verifies Entra bearer tokens directly, including issuer, audience,
+time, operator object/client/scope binding, or the exact customer service identity and export-only
+role. Proxy headers cannot authenticate a caller. The local CLIs retain loopback defaults.
+Versioned secret references supply independent development signing keys; PostgreSQL uses only
+the Hub's own managed identity and verified TLS. Explicit migrations precede remote serving.
+Key rotation or an incompatible older schema requires a separate reviewed migration.
+
+The customer operator approves a revision and exact digest obtained through a separately
+approved trust channel before requesting one bounded outbound import. The export response's
+digest is not that approval. Accepted bytes, digest, key binding, monotonic revision floor,
+and attributed audit persist. Existing manifest signatures, expiry, recall contracts, and
+planner constraints remain in force; recall import and planning serialize against one trust row.
+The UI can compute a Plan for an already prepared synthetic installation, but the remote profile
+does not open Agent transport or execute a Plan.
+
+[Two-Hub development boundaries](../../../infra/hubs-development/README.md) owns preparation
+steps and validation commands. Static IaC and local containers do not establish Azure
+network/RBAC isolation, real Entra sign-in, registry availability, or replica durability.
+Those require a separately approved exact cloud preview and execution scope. This path does
+not change source/offline installation and does not implement automatic polling, production
+catalog metadata/root ceremony, Agent apply, or a complete FDAI installation.
 
 ## Core concepts
 

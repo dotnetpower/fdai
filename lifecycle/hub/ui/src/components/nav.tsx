@@ -48,6 +48,8 @@ export function Nav({ route }: { route: Route }) {
         Enrollment requests
       </Link>
       <div class="side-divider" role="separator" />
+      <Link href="/catalog" class={`it ${route.kind === "catalog" ? "on" : ""}`}
+        aria-current={route.kind === "catalog" ? "page" : undefined}>Catalog import</Link>
       {UNBUILT_SURFACES.map((label) => (
         <span key={label} class="it disabled" aria-disabled="true" title="Not available yet">
           {label}

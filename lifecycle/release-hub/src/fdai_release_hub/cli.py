@@ -16,6 +16,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("command", choices=("dev-init", "serve"))
     parser.add_argument("state", type=Path, help="private state directory outside the checkout")
     parser.add_argument("--port", type=int, default=8091)
+    parser.add_argument("--ui", type=Path, help="built UI directory; container images use /app/ui")
     args = parser.parse_args(argv)
     state = args.state.resolve()
     checkout = Path(__file__).resolve().parents[4]
@@ -30,7 +31,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     store = ReleaseStore(state / "release-hub.sqlite", key)
     import uvicorn
 
-    ui = Path(__file__).resolve().parents[2] / "ui" / "dist"
+    ui = args.ui or Path(__file__).resolve().parents[2] / "ui" / "dist"
     uvicorn.run(
         create_app(store, static_dir=ui), host="127.0.0.1", port=args.port, proxy_headers=False
     )

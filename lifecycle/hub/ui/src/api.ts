@@ -1,5 +1,6 @@
 // Typed client for the Hub's read-only and approval routes (`fdai_lifecycle_hub.api`).
 // Same origin in production (the Hub serves this UI); proxied to 8090 in dev (vite.config.ts).
+import { authenticatedFetch } from "./auth";
 
 export type Outcome =
   | "issued"
@@ -154,8 +155,8 @@ export class HubApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(path, {
+export async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const response = await authenticatedFetch(path, {
     ...init,
     headers: { ...(init?.body ? { "content-type": "application/json" } : {}), ...init?.headers },
   });
