@@ -164,6 +164,7 @@ class CausalRuntimeOutcome(StrEnum):
     ANALYZED = "analyzed"
     NO_EVIDENCE = "no_evidence"
     NO_CLAIM = "no_claim"
+    CLOSED = "closed"
 
 
 @dataclass(frozen=True, slots=True)
@@ -173,6 +174,7 @@ class CausalRuntimeResult:
     hypothesis: CausalHypothesisRecord | None = None
     decision_evidence: DecisionEvidenceAdmission | None = None
     evaluated_at: datetime | None = None
+    closed_hypotheses: tuple[CausalHypothesisRecord, ...] = ()
 
     @property
     def action_mode(self) -> CausalActionMode:
@@ -265,6 +267,35 @@ class CausalClosureObservation:
             or len(self.intervention_resource_ref) > 512
         ):
             raise ValueError("causal closure resource ref requires an exact bounded action target")
+        if len(self.endpoint_objects) > _MAX_ENDPOINT_OBJECTS:
+            raise ValueError("causal closure endpoint count exceeds its bound")
+        payload = [
+            {"id": item.id, "type": item.object_type, "properties": item.properties}
+            for item in self.endpoint_objects
+        ]
+        if _nested_depth(payload) > _MAX_ENDPOINT_DEPTH:
+            raise ValueError("causal closure endpoint properties exceed their depth bound")
+        if (
+            len(json.dumps(payload, default=str, separators=(",", ":")).encode())
+            > _MAX_ENDPOINT_BYTES
+        ):
+            raise ValueError("causal closure endpoint properties exceed their byte bound")
+
+
+class CausalClosureObservationSource(Protocol):
+    """Resolve independently authenticated outcomes, never claims from an Event body.
+
+    Implementations reauthorize and load the exact immutable hypothesis, ActionRun,
+    observation and evidence receipts before returning a bounded batch. The event is a
+    wake-up key only. An unbound source supplies no closure or execution authority.
+    """
+
+    async def collect(
+        self,
+        *,
+        event: Event,
+        incident_id: str,
+    ) -> tuple[CausalClosureObservation, ...]: ...
 
 
 class CausalRuntimeCoordinator:
@@ -273,29 +304,67 @@ class CausalRuntimeCoordinator:
     def __init__(
         self,
         *,
-        evidence_provider: TemporalCausalEvidenceProvider,
-        analyzer: TemporalCausalityAnalyzer,
+        evidence_provider: TemporalCausalEvidenceProvider | None,
+        analyzer: TemporalCausalityAnalyzer | None,
         projector: CausalHypothesisProjection,
         method_version: str,
         intervention_receipt_verifier: CausalInterventionReceiptVerifier | None = None,
         decision_evidence_provider: DecisionEvidenceAdmissionProvider | None = None,
+        closure_source: CausalClosureObservationSource | None = None,
     ) -> None:
         if not method_version:
             raise ValueError("causal runtime method_version MUST be non-empty")
+        if (evidence_provider is None) != (analyzer is None):
+            raise ValueError("temporal evidence provider and analyzer MUST be bound together")
         self._evidence_provider = evidence_provider
         self._analyzer = analyzer
         self._projector = projector
         self._method_version = method_version
         self._intervention_receipt_verifier = intervention_receipt_verifier
         self._decision_evidence_provider = decision_evidence_provider
+        self._closure_source = closure_source
 
     async def analyze(self, *, event: Event, incident_id: str) -> CausalRuntimeResult:
-        evidence = await self._evidence_provider.collect(event=event, incident_id=incident_id)
+        closed: list[CausalHypothesisRecord] = []
+        if self._closure_source is not None:
+            observations = await self._closure_source.collect(event=event, incident_id=incident_id)
+            if not isinstance(observations, tuple) or len(observations) > 32:
+                raise ValueError(
+                    "causal closure source MUST return at most 32 immutable observations"
+                )
+            identities: set[str] = set()
+            prior_revisions: set[str] = set()
+            for observation in observations:
+                if (
+                    observation.hypothesis.incident_id != incident_id
+                    or observation.observed_at > event.ingested_at
+                    or observation.outcome_ref in identities
+                    or observation.hypothesis.hypothesis_id in prior_revisions
+                ):
+                    raise ValueError(
+                        "causal closure source changed incident, cutoff or outcome identity"
+                    )
+                identities.add(observation.outcome_ref)
+                prior_revisions.add(observation.hypothesis.hypothesis_id)
+            for observation in observations:
+                closed.append(await self.close(observation))
+        closures = tuple(closed)
+        evidence = (
+            await self._evidence_provider.collect(event=event, incident_id=incident_id)
+            if self._evidence_provider is not None
+            else None
+        )
         if evidence is None:
-            return CausalRuntimeResult(CausalRuntimeOutcome.NO_EVIDENCE)
+            return CausalRuntimeResult(
+                CausalRuntimeOutcome.CLOSED if closures else CausalRuntimeOutcome.NO_EVIDENCE,
+                closed_hypotheses=closures,
+            )
         if evidence.feature_cutoff > event.ingested_at:
             raise ValueError("causal evidence cutoff MUST NOT follow event ingestion")
-        claim = self._analyzer.analyze(
+        analyzer = self._analyzer
+        if analyzer is None:
+            raise RuntimeError("temporal causal evidence has no bound analyzer")
+        claim = analyzer.analyze(
             cause=evidence.cause,
             effect=evidence.effect,
             feature_cutoff=evidence.feature_cutoff,
@@ -303,7 +372,7 @@ class CausalRuntimeCoordinator:
             confounder=evidence.confounder,
         )
         if claim is None:
-            return CausalRuntimeResult(CausalRuntimeOutcome.NO_CLAIM)
+            return CausalRuntimeResult(CausalRuntimeOutcome.NO_CLAIM, closed_hypotheses=closures)
         support_verified = evidence.refutation_complete and not claim.falsifiers
         hypothesis = build_causal_hypothesis(
             incident_id=incident_id,
@@ -340,6 +409,7 @@ class CausalRuntimeCoordinator:
             hypothesis=hypothesis,
             decision_evidence=await self._admit(hypothesis),
             evaluated_at=event.ingested_at,
+            closed_hypotheses=closures,
         )
 
     async def _admit(
@@ -440,6 +510,7 @@ def _nested_depth(value: object) -> int:
 
 __all__ = [
     "CausalClosureObservation",
+    "CausalClosureObservationSource",
     "CausalHypothesisProjection",
     "CausalInterventionReceiptVerifier",
     "CausalRuntimeCoordinator",

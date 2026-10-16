@@ -14,6 +14,7 @@ from fdai.core.rca.discrimination import (
     HypothesisDiscriminationFrame,
     HypothesisDiscriminationSelection,
 )
+from fdai.core.rca.observation_history import history_from_mapping, history_material
 
 from .adaptive_contract import (
     AdaptiveInvestigationBudget,
@@ -114,6 +115,11 @@ def _iteration_to_mapping(
             "active_set_receipt_digest": (iteration.frame.active_set_receipt_digest),
             "cost_model_digest": iteration.frame.cost_model_digest,
             "frame_digest": iteration.frame.frame_digest,
+            **(
+                {"observation_history": history_material(iteration.frame.observation_history)}
+                if iteration.frame.observation_history
+                else {}
+            ),
         },
         "selection": {
             "selection_id": selection.selection_id,
@@ -177,6 +183,15 @@ def _iteration_to_mapping(
                 "truncated": iteration.revision.truncated,
                 "disposition": iteration.revision.disposition.value,
                 "revision_digest": iteration.revision.revision_digest,
+                **(
+                    {
+                        "observation_history": history_material(
+                            iteration.revision.observation_history
+                        )
+                    }
+                    if iteration.revision.observation_history
+                    else {}
+                ),
             }
             if iteration.revision is not None
             else None
@@ -212,6 +227,7 @@ def _iteration_from_mapping(
             ),
             cost_model_digest=_text(frame, "cost_model_digest"),
             frame_digest=_text(frame, "frame_digest"),
+            observation_history=history_from_mapping(frame.get("observation_history", [])),
         ),
         selection=HypothesisDiscriminationSelection(
             selection_id=_text(selection, "selection_id"),
@@ -345,6 +361,7 @@ def _revision_from_mapping(value: Mapping[str, Any]) -> HypothesisRevisionSet:
         truncated=_boolean(value, "truncated"),
         disposition=AdaptiveInvestigationDisposition(_text(value, "disposition")),
         revision_digest=_text(value, "revision_digest"),
+        observation_history=history_from_mapping(value.get("observation_history", [])),
     )
 
 

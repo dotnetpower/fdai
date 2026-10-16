@@ -57,6 +57,8 @@ class IncidentRcaContext:
     members: tuple[CorrelatedEvent, ...]
     depends_on: Mapping[str, frozenset[str]]
     inventory_generation: str
+    graph_revision: str | None = None
+    evidence_refs: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.inventory_generation.strip():

@@ -20,7 +20,15 @@ from fdai.core.rca.discrimination import (
     HypothesisDiscriminationSelection,
     build_hypothesis_discrimination_frame,
 )
+from fdai.core.rca.observation_history import (
+    HypothesisObservation,
+    ObservationOutcome,
+    validate_history,
+    validate_transition,
+)
 
+from .adaptive_revision import build_hypothesis_revision_set as build_hypothesis_revision_set
+from .adaptive_revision import revision_material as _revision_material
 from .adaptive_source_metadata import (
     AdaptiveObservationSourceMetadata,
     _execution_material,
@@ -226,6 +234,7 @@ class HypothesisRevisionSet:
     revision_digest: str
     owner_agent: Literal["Forseti"] = "Forseti"
     execution_authority: Literal[False] = False
+    observation_history: tuple[HypothesisObservation, ...] = ()
 
     def __post_init__(self) -> None:
         for name, value in (
@@ -239,6 +248,7 @@ class HypothesisRevisionSet:
         _text("scorer_version", self.scorer_version)
         _text("graph_revision", self.graph_revision)
         _aware("evidence_cutoff", self.evidence_cutoff)
+        validate_history(self.observation_history)
         if self.active_hypothesis_ids != tuple(sorted(set(self.active_hypothesis_ids))):
             raise ValueError("active hypothesis ids MUST be sorted and unique")
         if len(self.active_hypothesis_ids) > 32:
@@ -255,11 +265,36 @@ class HypothesisRevisionSet:
         }:
             raise ValueError("hypothesis reviser cannot emit a mechanical terminal state")
         if self.disposition is AdaptiveInvestigationDisposition.CONTINUE:
-            if not self.complete or self.truncated or len(self.active_hypothesis_ids) < 2:
+            pending = set(self.active_hypothesis_ids) - {
+                item.hypothesis_id for item in self.observation_history
+            }
+            singleton_pending = (
+                len(self.active_hypothesis_ids) == 1
+                and bool(self.observation_history)
+                and bool(pending)
+            )
+            if (
+                not self.complete
+                or self.truncated
+                or (len(self.active_hypothesis_ids) < 2 and not singleton_pending)
+                or (self.observation_history and not pending)
+            ):
                 raise ValueError("continuing hypothesis revision requires a complete active set")
         if self.disposition is AdaptiveInvestigationDisposition.CONVERGED:
             if not self.complete or self.truncated or len(self.active_hypothesis_ids) != 1:
                 raise ValueError("converged hypothesis revision requires one complete hypothesis")
+            if self.observation_history and (
+                tuple(
+                    item.hypothesis_id
+                    for item in self.observation_history
+                    if item.outcome is ObservationOutcome.SUPPORTED
+                )
+                != self.active_hypothesis_ids
+                or any(
+                    item.outcome is ObservationOutcome.UNKNOWN for item in self.observation_history
+                )
+            ):
+                raise ValueError("converged hypothesis requires complete observed support")
         if self.disposition is AdaptiveInvestigationDisposition.ALL_REFUTED:
             if not self.complete or self.truncated or self.active_hypothesis_ids:
                 raise ValueError("all-refuted hypothesis revision requires an empty complete set")
@@ -327,6 +362,40 @@ class AdaptiveInvestigationIteration:
                 raise ValueError("hypothesis revision does not cite the observation result")
             if self.execution.query_status != "completed":
                 raise ValueError("hypothesis revision requires a completed observation")
+            observation = validate_transition(
+                self.frame.observation_history,
+                self.revision.observation_history,
+                active_ids=self.frame.active_hypothesis_ids,
+                result_digest=self.execution.result_digest,
+                evidence_refs=self.execution.evidence_refs,
+            )
+            if observation is not None:
+                expected_active = set(self.frame.active_hypothesis_ids)
+                if observation.outcome is ObservationOutcome.REFUTED:
+                    expected_active.remove(observation.hypothesis_id)
+                if self.revision.active_hypothesis_ids != tuple(sorted(expected_active)):
+                    raise ValueError("hypothesis revision changed an unobserved competitor")
+                metadata = self.execution.source_metadata
+                if metadata is None or observation.evidence_ref != (
+                    f"telemetry-receipt:{metadata.receipt_digest}"
+                ):
+                    raise ValueError("hypothesis observation requires exact source metadata")
+                expected = (
+                    ObservationOutcome.SUPPORTED
+                    if metadata.complete
+                    and not metadata.truncated
+                    and metadata.disposition == "complete"
+                    else ObservationOutcome.REFUTED
+                    if metadata.complete
+                    and not metadata.truncated
+                    and metadata.disposition == "complete_no_data"
+                    else ObservationOutcome.UNKNOWN
+                )
+                if (
+                    observation.outcome is not ObservationOutcome.UNKNOWN
+                    and observation.outcome is not expected
+                ):
+                    raise ValueError("hypothesis observation disagrees with its source disposition")
             if self.revision.evidence_cutoff < self.frame.evidence_cutoff:
                 raise ValueError("hypothesis revision evidence cutoff moved backward")
             if not set(self.revision.active_hypothesis_ids) <= set(
@@ -430,6 +499,7 @@ class AdaptiveInvestigationResult:
                 or current.frame.graph_revision != revision.graph_revision
                 or current.frame.evidence_cutoff != revision.evidence_cutoff
                 or current.frame.active_hypothesis_ids != revision.active_hypothesis_ids
+                or current.frame.observation_history != revision.observation_history
             ):
                 raise ValueError("adaptive investigation round-to-round lineage is broken")
         executions = tuple(item.execution for item in self.iterations if item.execution is not None)
@@ -479,6 +549,7 @@ class AdaptiveInvestigationResult:
             active_hypothesis_ids=revision.active_hypothesis_ids,
             active_set_receipt_digest=revision.active_set_receipt_digest,
             cost_model_digest=last.frame.cost_model_digest,
+            observation_history=revision.observation_history,
         )
         return next_frame.frame_digest, revision.active_set_receipt_digest
 
@@ -516,58 +587,6 @@ def build_verified_observation_plan_binding(
         cost_units=cost_units,
         verification_receipt_digest=verification_receipt_digest,
         binding_digest=content_digest(binding_material),
-    )
-
-
-def build_hypothesis_revision_set(
-    *,
-    prior_active_set_receipt_digest: str,
-    prior_frame_digest: str,
-    observation_result_digest: str,
-    scorer_version: str,
-    graph_revision: str,
-    evidence_cutoff: datetime,
-    active_hypothesis_ids: tuple[str, ...],
-    active_set_receipt_digest: str,
-    evidence_refs: tuple[str, ...],
-    complete: bool,
-    truncated: bool,
-    disposition: AdaptiveInvestigationDisposition,
-) -> HypothesisRevisionSet:
-    """Build one content-addressed Forseti hypothesis-set revision."""
-
-    canonical_active_ids = tuple(sorted(active_hypothesis_ids))
-    canonical_evidence_refs = tuple(sorted(evidence_refs))
-    material = {
-        "prior_active_set_receipt_digest": prior_active_set_receipt_digest,
-        "prior_frame_digest": prior_frame_digest,
-        "observation_result_digest": observation_result_digest,
-        "scorer_version": scorer_version,
-        "graph_revision": graph_revision,
-        "evidence_cutoff": _utc_timestamp(evidence_cutoff),
-        "active_hypothesis_ids": canonical_active_ids,
-        "active_set_receipt_digest": active_set_receipt_digest,
-        "evidence_refs": canonical_evidence_refs,
-        "complete": complete,
-        "truncated": truncated,
-        "disposition": disposition.value,
-        "owner_agent": "Forseti",
-        "execution_authority": False,
-    }
-    return HypothesisRevisionSet(
-        prior_active_set_receipt_digest=prior_active_set_receipt_digest,
-        prior_frame_digest=prior_frame_digest,
-        observation_result_digest=observation_result_digest,
-        scorer_version=scorer_version,
-        graph_revision=graph_revision,
-        evidence_cutoff=evidence_cutoff,
-        active_hypothesis_ids=canonical_active_ids,
-        active_set_receipt_digest=active_set_receipt_digest,
-        evidence_refs=canonical_evidence_refs,
-        complete=complete,
-        truncated=truncated,
-        disposition=disposition,
-        revision_digest=content_digest(material),
     )
 
 
@@ -793,25 +812,6 @@ def _binding_material(binding: VerifiedObservationPlanBinding) -> dict[str, obje
         **_verification_receipt_material(binding),
         "verification_receipt_digest": binding.verification_receipt_digest,
         "cost_units": binding.cost_units,
-    }
-
-
-def _revision_material(revision: HypothesisRevisionSet) -> dict[str, object]:
-    return {
-        "prior_active_set_receipt_digest": revision.prior_active_set_receipt_digest,
-        "prior_frame_digest": revision.prior_frame_digest,
-        "observation_result_digest": revision.observation_result_digest,
-        "scorer_version": revision.scorer_version,
-        "graph_revision": revision.graph_revision,
-        "evidence_cutoff": _utc_timestamp(revision.evidence_cutoff),
-        "active_hypothesis_ids": revision.active_hypothesis_ids,
-        "active_set_receipt_digest": revision.active_set_receipt_digest,
-        "evidence_refs": revision.evidence_refs,
-        "complete": revision.complete,
-        "truncated": revision.truncated,
-        "disposition": revision.disposition.value,
-        "owner_agent": revision.owner_agent,
-        "execution_authority": False,
     }
 
 

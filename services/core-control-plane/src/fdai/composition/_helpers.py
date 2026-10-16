@@ -284,6 +284,7 @@ class Container:
     temporal_causality_config: _rca.TemporalCausalityConfig | None = None
     causal_hypothesis_projection: _rca.CausalHypothesisProjection | None = None
     causal_intervention_receipt_verifier: _rca.CausalInterventionReceiptVerifier | None = None
+    causal_closure_observation_source: _rca.CausalClosureObservationSource | None = None
     dynamic_simulation_request_provider: DynamicSimulationRequestProvider | None = None
     effect_model_reader: EffectModelReader | None = None
     effect_model_causal_evidence_verifier: EffectModelCausalEvidenceVerifier | None = None

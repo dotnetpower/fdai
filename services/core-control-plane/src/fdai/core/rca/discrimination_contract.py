@@ -9,6 +9,13 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Literal
 
+from .observation_history import (
+    HypothesisObservation,
+    ObservationOutcome,
+    history_material,
+    validate_history,
+)
+
 MAX_ACTIVE_HYPOTHESES = 32
 MAX_OBSERVATION_CANDIDATES = 32
 MAX_TEXT_LENGTH = 256
@@ -16,6 +23,7 @@ MAX_CANDIDATE_BYTES = 32 * 1024
 MAX_COST_UNITS = 1_000_000_000
 DISCRIMINATION_SCHEMA_VERSION: Literal["1.0.0"] = "1.0.0"
 DISCRIMINATION_METHOD_VERSION = "pair-separation-v1"
+SINGLE_HYPOTHESIS_VALIDATION_METHOD = "single-hypothesis-validation-v1"
 
 _DIGEST_PREFIX = "sha256:"
 
@@ -66,6 +74,7 @@ class HypothesisDiscriminationFrame:
     execution_authority: Literal[False] = False
     mutation_authority: Literal[False] = False
     promotion_authority: Literal[False] = False
+    observation_history: tuple[HypothesisObservation, ...] = ()
 
     def __post_init__(self) -> None:
         _bounded_text("incident_id", self.incident_id)
@@ -78,6 +87,13 @@ class HypothesisDiscriminationFrame:
         )
         if not self.active_hypothesis_ids:
             raise ValueError("active_hypothesis_ids MUST be non-empty")
+        validate_history(self.observation_history)
+        if any(
+            (item.hypothesis_id in self.active_hypothesis_ids)
+            == (item.outcome is ObservationOutcome.REFUTED)
+            for item in self.observation_history
+        ):
+            raise ValueError("active hypothesis set disagrees with observation history")
         _sha256_digest("active_set_receipt_digest", self.active_set_receipt_digest)
         _sha256_digest("cost_model_digest", self.cost_model_digest)
         _sha256_digest("frame_digest", self.frame_digest)
@@ -203,7 +219,10 @@ class HypothesisDiscriminationSelection:
         _sha256_digest("selection_digest", self.selection_digest)
         _sha256_digest("frame_digest", self.frame_digest)
         _schema_version(self.schema_version)
-        if self.method_version != DISCRIMINATION_METHOD_VERSION:
+        if self.method_version not in {
+            DISCRIMINATION_METHOD_VERSION,
+            SINGLE_HYPOTHESIS_VALIDATION_METHOD,
+        }:
             raise ValueError("unsupported hypothesis discrimination method version")
         if not isinstance(self.disposition, DiscriminationDisposition):
             raise ValueError("disposition MUST be a DiscriminationDisposition")
@@ -266,7 +285,10 @@ class HypothesisDiscriminationSelection:
                     "selected discrimination requires one candidate and no hold reason"
                 )
             _bounded_text("selected_candidate_id", self.selected_candidate_id)
-            if self.separated_pair_count < 1:
+            if self.separated_pair_count < 1 and not (
+                self.method_version == SINGLE_HYPOTHESIS_VALIDATION_METHOD
+                and self.total_pair_count == 0
+            ):
                 raise ValueError("selected discrimination MUST separate at least one pair")
         elif self.selected_candidate_id is not None or self.hold_reason is None:
             raise ValueError("held discrimination requires one hold reason and no candidate")
@@ -281,6 +303,11 @@ def _frame_material(frame: HypothesisDiscriminationFrame) -> dict[str, object]:
         "active_hypothesis_ids": list(frame.active_hypothesis_ids),
         "active_set_receipt_digest": frame.active_set_receipt_digest,
         "cost_model_digest": frame.cost_model_digest,
+        **(
+            {"observation_history": history_material(frame.observation_history)}
+            if frame.observation_history
+            else {}
+        ),
     }
 
 

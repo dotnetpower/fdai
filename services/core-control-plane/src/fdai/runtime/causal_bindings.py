@@ -33,7 +33,7 @@ def build_causal_runtime_coordinator(
     audit_store: StateStore,
     method_version: str,
 ) -> CausalRuntimeCoordinator | None:
-    """Return the bound causal coordinator, or ``None`` when no temporal series is bound.
+    """Bind temporal analysis and/or independently authenticated outcome closure.
 
     Raises:
         RuntimeError: temporal series are bound without their configuration, or neither the
@@ -41,27 +41,38 @@ def build_causal_runtime_coordinator(
     """
 
     provider = container.temporal_causal_evidence_provider
-    if provider is None:
+    closure_source = container.causal_closure_observation_source
+    if provider is None and closure_source is None:
         _LOGGER.info(
             "causal_runtime_unavailable",
             extra={"reason": "temporal_evidence_provider_unbound", "mode": "shadow"},
         )
         return None
+    if closure_source is None:
+        _LOGGER.info(
+            "causal_closure_unavailable",
+            extra={"reason": "independent_outcome_source_unbound", "mode": "shadow"},
+        )
     projection = container.causal_hypothesis_projection
     if projection is None and ontology_instance_store is not None:
         projection = CausalHypothesisProjector(store=ontology_instance_store)
-    if container.temporal_causality_config is None or projection is None:
+    if (provider is not None and container.temporal_causality_config is None) or projection is None:
         raise RuntimeError("temporal causal evidence requires config and Forseti-owned projection")
     receipt_verifier = container.causal_intervention_receipt_verifier
     if receipt_verifier is None:
         receipt_verifier = StateStoreCausalInterventionReceiptVerifier(audit_store)
     return CausalRuntimeCoordinator(
         evidence_provider=provider,
-        analyzer=TemporalCausalityAnalyzer(container.temporal_causality_config),
+        analyzer=(
+            TemporalCausalityAnalyzer(container.temporal_causality_config)
+            if container.temporal_causality_config is not None and provider is not None
+            else None
+        ),
         projector=projection,
         method_version=method_version,
         intervention_receipt_verifier=receipt_verifier,
         decision_evidence_provider=container.decision_evidence_admission_provider,
+        closure_source=closure_source,
     )
 
 

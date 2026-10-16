@@ -132,6 +132,13 @@ hypothesis pairs they separate. Selection and revision receipts remain evidence 
 not create ontology facts, modify the graph, or grant query, approval, promotion, or execution
 authority.
 
+Historical topology selects a complete baseline by effective time, then recorded time.
+A late-arriving older snapshot cannot replace a newer effective state, and a later-effective
+delta remains eligible even when it was recorded before its baseline arrived. Incident
+materialization preserves competing equal-time alternatives for conflict detection before
+neighborhood pruning, but validates endpoint types only on winning live links. T1 carries the
+effective-time active generation and exact graph/evidence references into its audit.
+
 ## Pod telemetry path runtime
 
 `evaluate_pod_telemetry_path` is a pure A0 read over a `SecuredObjectSetQueryResult` and an immutable

@@ -559,6 +559,7 @@ class AdaptiveInvestigationCoordinator:
             active_hypothesis_ids=active_ids,
             active_set_receipt_digest=revision.active_set_receipt_digest,
             cost_model_digest=frame.cost_model_digest,
+            observation_history=revision.observation_history,
         )
 
     async def _record_iteration(self, iteration: AdaptiveInvestigationIteration) -> None:
@@ -582,6 +583,14 @@ class AdaptiveInvestigationCoordinator:
         )
         if selection.total_pair_count != expected_total:
             raise ValueError("active selection total pair count is invalid")
+        if selection.selected_candidate_id is not None and expected_total == 0:
+            if (
+                not frame.observation_history
+                or frame.active_hypothesis_ids[0]
+                in {item.hypothesis_id for item in frame.observation_history}
+                or selection.method_version != "single-hypothesis-validation-v1"
+            ):
+                raise ValueError("single-hypothesis selection requires pending observed progress")
         if selection.selected_candidate_id is None:
             if selection.separated_pair_count != 0:
                 raise ValueError("held active selection cannot separate pairs")

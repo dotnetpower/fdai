@@ -15,6 +15,7 @@ from .discrimination_contract import (
     DISCRIMINATION_METHOD_VERSION,
     DISCRIMINATION_SCHEMA_VERSION,
     MAX_OBSERVATION_CANDIDATES,
+    SINGLE_HYPOTHESIS_VALIDATION_METHOD,
     CandidateRejection,
     CandidateRejectionReason,
     DiscriminatingObservationCandidate,
@@ -29,6 +30,7 @@ from .discrimination_contract import (
     _selection_id,
     _timestamp,
 )
+from .observation_history import HypothesisObservation, history_material
 
 
 def build_hypothesis_discrimination_frame(
@@ -39,6 +41,7 @@ def build_hypothesis_discrimination_frame(
     active_hypothesis_ids: tuple[str, ...],
     active_set_receipt_digest: str,
     cost_model_digest: str,
+    observation_history: tuple[HypothesisObservation, ...] = (),
 ) -> HypothesisDiscriminationFrame:
     """Build one canonical immutable frame for discriminator selection."""
 
@@ -51,6 +54,11 @@ def build_hypothesis_discrimination_frame(
         "active_hypothesis_ids": list(canonical_ids),
         "active_set_receipt_digest": active_set_receipt_digest,
         "cost_model_digest": cost_model_digest,
+        **(
+            {"observation_history": history_material(observation_history)}
+            if observation_history
+            else {}
+        ),
     }
     return HypothesisDiscriminationFrame(
         incident_id=incident_id,
@@ -59,6 +67,7 @@ def build_hypothesis_discrimination_frame(
         active_hypothesis_ids=canonical_ids,
         active_set_receipt_digest=active_set_receipt_digest,
         cost_model_digest=cost_model_digest,
+        observation_history=observation_history,
         frame_digest=_digest(provisional),
     )
 
@@ -125,7 +134,13 @@ def select_discriminating_observation(
         len(frame.active_hypothesis_ids) * (len(frame.active_hypothesis_ids) - 1) // 2
     )
 
-    if len(frame.active_hypothesis_ids) < 2:
+    pending_singleton = (
+        len(frame.active_hypothesis_ids) == 1
+        and bool(frame.observation_history)
+        and frame.active_hypothesis_ids[0]
+        not in {item.hypothesis_id for item in frame.observation_history}
+    )
+    if len(frame.active_hypothesis_ids) < 2 and not pending_singleton:
         return _held_selection(
             frame=frame,
             candidate_digests=candidate_digests,
@@ -163,6 +178,11 @@ def select_discriminating_observation(
                 )
             )
             continue
+        if (
+            pending_singleton
+            and candidate.predictions[0].outcome is ExpectedObservationOutcome.NEUTRAL
+        ):
+            continue
         eligible.append((_separated_pairs(candidate.predictions), candidate))
 
     canonical_rejections = tuple(sorted(rejected, key=lambda item: item.candidate_id))
@@ -179,7 +199,7 @@ def select_discriminating_observation(
         eligible,
         key=lambda item: (-item[0], item[1].cost_units, item[1].candidate_id),
     )
-    if separated_pair_count == 0:
+    if separated_pair_count == 0 and not pending_singleton:
         return _held_selection(
             frame=frame,
             candidate_digests=candidate_digests,
@@ -196,6 +216,11 @@ def select_discriminating_observation(
         separated_pair_count=separated_pair_count,
         selected_candidate_id=selected.candidate_id,
         hold_reason=None,
+        method_version=(
+            SINGLE_HYPOTHESIS_VALIDATION_METHOD
+            if pending_singleton
+            else DISCRIMINATION_METHOD_VERSION
+        ),
     )
 
 
@@ -235,11 +260,12 @@ def _build_selection(
     separated_pair_count: int,
     selected_candidate_id: str | None,
     hold_reason: DiscriminationHoldReason | None,
+    method_version: str = DISCRIMINATION_METHOD_VERSION,
 ) -> HypothesisDiscriminationSelection:
     provisional = {
         "schema_version": DISCRIMINATION_SCHEMA_VERSION,
         "frame_digest": frame.frame_digest,
-        "method_version": DISCRIMINATION_METHOD_VERSION,
+        "method_version": method_version,
         "disposition": disposition.value,
         "candidate_digests": list(candidate_digests),
         "rejected_candidates": [
@@ -255,7 +281,7 @@ def _build_selection(
         selection_id=_selection_id(selection_digest),
         selection_digest=selection_digest,
         frame_digest=frame.frame_digest,
-        method_version=DISCRIMINATION_METHOD_VERSION,
+        method_version=method_version,
         disposition=disposition,
         candidate_digests=candidate_digests,
         rejected_candidates=rejected,

@@ -15,6 +15,11 @@ from fdai_service_contracts.ontology_query import (
 
 from fdai.core.rca.temporal_causality import TemporalCausalityConfig
 
+from .causal_competitors import (
+    CausalCompetitorAssessment,
+    CausalCompetitorSource,
+    canonical_competitors,
+)
 from .metric_semantics import (
     CausalEvidenceJoin,
     CausalJoinStatus,
@@ -22,6 +27,7 @@ from .metric_semantics import (
     MetricWindow,
     MetricWindowComparison,
     MetricWindowProvider,
+    causal_competitor_request,
     compare_aligned_windows,
     join_causal_evidence,
 )
@@ -287,6 +293,9 @@ def _scope_query_labels(
 class EvidenceJoinNodeHandler:
     """Join cause, effect, and optional topology diff into one bounded disposition."""
 
+    def __init__(self, *, competitor_source: CausalCompetitorSource | None = None) -> None:
+        self._competitor_source = competitor_source
+
     async def __call__(
         self,
         node: OntologyQueryNode,
@@ -308,6 +317,11 @@ class EvidenceJoinNodeHandler:
         }
         if set(node.arguments) - allowed or "feature_cutoff" not in node.arguments:
             raise ValueError("evidence_join arguments do not match the closed schema")
+        competing = node.arguments.get("competing_explanations", [])
+        if not isinstance(competing, list) or len(competing) > 16:
+            raise ValueError("evidence_join competing explanations exceed bounds")
+        competing_text = tuple(_text(item, "competing_explanation") for item in competing)
+        canonical_competitors(competing_text)
         cause = dependencies[node.depends_on[0]].value
         effect = dependencies[node.depends_on[1]].value
         if not isinstance(cause, MetricWindow) or not isinstance(effect, MetricWindow):
@@ -356,7 +370,7 @@ class EvidenceJoinNodeHandler:
                         status=CausalJoinStatus.UNRESOLVED,
                         temporal_claim=None,
                         topology_diff_digest=topology.digest if topology else None,
-                        competing_explanations=(),
+                        competing_explanations=competing_text,
                         limitations=(limitation,),
                         evidence_refs=evidence_refs,
                     ),
@@ -367,28 +381,56 @@ class EvidenceJoinNodeHandler:
             raise ValueError("evidence_join lag_seconds MUST be a bounded array")
         if any(isinstance(item, bool) or not isinstance(item, int) for item in lags):
             raise ValueError("evidence_join lag_seconds MUST contain integers")
-        competing = node.arguments.get("competing_explanations", [])
-        if not isinstance(competing, list) or len(competing) > 16:
-            raise ValueError("evidence_join competing explanations exceed bounds")
-        competing_text = tuple(_text(item, "competing_explanation") for item in competing)
         min_samples = node.arguments.get("min_samples", 12)
         min_correlation = node.arguments.get("min_abs_correlation", 0.5)
         if isinstance(min_samples, bool) or not isinstance(min_samples, int):
             raise ValueError("evidence_join min_samples MUST be an integer")
         if isinstance(min_correlation, bool) or not isinstance(min_correlation, int | float):
             raise ValueError("evidence_join min_abs_correlation MUST be numeric")
+        cutoff = _timestamp(node.arguments["feature_cutoff"], "feature_cutoff")
+        config = TemporalCausalityConfig(
+            lag_seconds=tuple(lags),
+            min_samples=min_samples,
+            min_abs_correlation=float(min_correlation),
+        )
+        assessment: CausalCompetitorAssessment | None = None
+        source_limitation: str | None = None
+        if self._competitor_source is not None and competing_text:
+            request = causal_competitor_request(
+                cause=cause,
+                effect=effect,
+                topology_change=topology,
+                feature_cutoff=cutoff,
+                competing_explanations=competing_text,
+            )
+            if request is None:
+                source_limitation = "competing_assessment_scope_unavailable"
+            else:
+                try:
+                    assessment = await self._competitor_source.resolve(request=request)
+                    if assessment is not None and not isinstance(
+                        assessment, CausalCompetitorAssessment
+                    ):
+                        source_limitation = "competing_assessment_source_invalid"
+                        assessment = None
+                except Exception:
+                    # Source errors are an explicit hold; never expose private source details.
+                    source_limitation = "competing_assessment_source_failed"
         result = join_causal_evidence(
             cause=cause,
             effect=effect,
             topology_change=topology,
-            feature_cutoff=_timestamp(node.arguments["feature_cutoff"], "feature_cutoff"),
-            config=TemporalCausalityConfig(
-                lag_seconds=tuple(lags),
-                min_samples=min_samples,
-                min_abs_correlation=float(min_correlation),
-            ),
+            feature_cutoff=cutoff,
+            config=config,
             competing_explanations=competing_text,
+            competitor_assessment=assessment,
         )
+        if source_limitation is not None:
+            result = replace(
+                result,
+                status=CausalJoinStatus.UNRESOLVED,
+                limitations=tuple(dict.fromkeys((*result.limitations, source_limitation))),
+            )
         if comparison is not None:
             result = replace(
                 result,

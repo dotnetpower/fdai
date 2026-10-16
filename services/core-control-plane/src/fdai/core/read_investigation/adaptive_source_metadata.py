@@ -182,6 +182,25 @@ def validate_source_metadata_lineage(
         raise ValueError("adaptive telemetry metadata exceeds the frame cutoff")
 
 
+def covers_evidence_cutoff(
+    *,
+    route_count: int,
+    queried_route_count: int,
+    observed_until: datetime | None,
+    cutoff: datetime,
+    disposition: str,
+) -> bool:
+    """Positive event time is not a watermark; negative evidence needs the full cutoff."""
+
+    if route_count <= 0 or queried_route_count != route_count or observed_until is None:
+        return False
+    if observed_until > cutoff:
+        return False
+    return disposition == "complete" or (
+        disposition == "complete_no_data" and observed_until == cutoff
+    )
+
+
 def _source_metadata_material(metadata: AdaptiveObservationSourceMetadata) -> dict[str, object]:
     """Return the canonical source metadata digest material."""
 

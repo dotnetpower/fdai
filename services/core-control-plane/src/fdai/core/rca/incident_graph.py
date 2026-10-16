@@ -83,6 +83,10 @@ class CausalIncidentGraph:
     graph_revision: str
     snapshot: OntologyGraphSnapshot
     incomplete_reasons: tuple[str, ...] = ()
+    known_at: datetime | None = None
+    source_evidence_refs: tuple[str, ...] = ()
+    provider_generation_refs: tuple[str, ...] = ()
+    active_provider_generation: str | None = None
 
     @property
     def complete(self) -> bool:
@@ -212,8 +216,10 @@ class CausalIncidentGraphMaterializer:
         )
 
 
-def _object_issues(record: OntologyObjectRecord, cutoff: datetime) -> set[str]:
-    issues = _property_time_issues(record.properties, cutoff, prefix="object")
+def _object_issues(
+    record: OntologyObjectRecord, cutoff: datetime, *, known_at: datetime | None = None
+) -> set[str]:
+    issues = _property_time_issues(record.properties, cutoff, prefix="object", known_at=known_at)
     has_time = any(key in record.properties for key in _TIME_PROPERTIES)
     if STATE_FACT_METADATA_PROPERTY in record.properties:
         has_time = True
@@ -222,7 +228,9 @@ def _object_issues(record: OntologyObjectRecord, cutoff: datetime) -> set[str]:
             if not isinstance(metadata, Mapping):
                 raise ValueError("state fact metadata MUST be a mapping")
             for fact in state_fact_metadata_values(metadata):
-                issues.update(f"object_{reason}" for reason in _fact_issues(fact, cutoff))
+                issues.update(
+                    f"object_{reason}" for reason in _fact_issues(fact, cutoff, known_at=known_at)
+                )
         except ValueError:
             issues.add("object_metadata_invalid")
     if not has_time:
@@ -231,7 +239,11 @@ def _object_issues(record: OntologyObjectRecord, cutoff: datetime) -> set[str]:
 
 
 def _property_time_issues(
-    properties: Mapping[str, object], cutoff: datetime, *, prefix: str
+    properties: Mapping[str, object],
+    cutoff: datetime,
+    *,
+    prefix: str,
+    known_at: datetime | None = None,
 ) -> set[str]:
     issues: set[str] = set()
     for key in _TIME_PROPERTIES:
@@ -244,14 +256,23 @@ def _property_time_issues(
             )
             if not isinstance(value, datetime) or value.utcoffset() is None:
                 issues.add(f"{prefix}_time_invalid")
-            elif value > cutoff:
-                issues.add(f"{prefix}_after_cutoff")
+            else:
+                bound = (known_at or cutoff) if key == "recorded_at" else cutoff
+                if value > bound:
+                    issues.add(f"{prefix}_after_cutoff")
         except ValueError:
             issues.add(f"{prefix}_time_invalid")
     return issues
 
 
-def _link_issues(link: OntologyLinkRecord, cutoff: datetime, generation: str | None) -> set[str]:
+def _link_issues(
+    link: OntologyLinkRecord,
+    cutoff: datetime,
+    generation: str | None,
+    *,
+    known_at: datetime | None = None,
+    generations: frozenset[str] | None = None,
+) -> set[str]:
     raw = link.properties.get(LINK_OBSERVATION_METADATA_PROPERTY)
     if raw is None:
         return {"link_metadata_missing"}
@@ -261,20 +282,28 @@ def _link_issues(link: OntologyLinkRecord, cutoff: datetime, generation: str | N
         metadata = LinkObservationMetadata.from_mapping(raw)
     except ValueError:
         return {"link_metadata_invalid"}
-    issues = _property_time_issues(link.properties, cutoff, prefix="link")
-    issues.update(f"link_{reason}" for reason in _fact_issues(metadata.state_fact, cutoff))
+    issues = _property_time_issues(link.properties, cutoff, prefix="link", known_at=known_at)
+    issues.update(
+        f"link_{reason}" for reason in _fact_issues(metadata.state_fact, cutoff, known_at=known_at)
+    )
     if not metadata.verified:
         issues.add("link_unverified")
-    if metadata.inventory_generation is not None and metadata.inventory_generation != generation:
+    accepted_generations = generations if generations is not None else frozenset({generation})
+    if (
+        metadata.inventory_generation is not None
+        and metadata.inventory_generation not in accepted_generations
+    ):
         issues.add("link_generation_mismatch")
     return issues
 
 
-def _fact_issues(metadata: StateFactMetadata, cutoff: datetime) -> set[str]:
+def _fact_issues(
+    metadata: StateFactMetadata, cutoff: datetime, *, known_at: datetime | None = None
+) -> set[str]:
     issues: set[str] = set()
     if metadata.effective_at > cutoff or metadata.evidence_cutoff > cutoff:
         issues.add("after_cutoff")
-    if metadata.recorded_at > cutoff:
+    if metadata.recorded_at > (known_at or cutoff):
         issues.add("not_known_at_cutoff")
     if (cutoff - metadata.effective_at).total_seconds() > metadata.freshness_ceiling_seconds:
         issues.add("stale")
