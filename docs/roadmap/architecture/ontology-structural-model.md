@@ -26,6 +26,13 @@ or a second source of provider truth.
 
 Workflow authoring records remain outside ontology identity. Saved private drafts, bindings, and catalog-seeded Built-in definitions are Operator authoring records and projections; they cannot create a Resource, ObjectType, LinkType, or action authority.
 
+Causal metric joins retain the secured before/after topology views instead of treating any
+topology change as proof of a dependency. An exact cause/effect pair needs one correctly directed,
+verified path within one historical view and the evidence window. A metric comparison belongs
+only to its exact effect identity, unit, and current interval. Missing paths, invalid relationship
+evidence, failed correlation checks, and unevaluated competitors remain unresolved. These checks
+add no declaration kind, inverse relationship, causal proof, or execution authority.
+
 Typed [GitHub source provenance](../../runbooks/knowledge-github-sources.md) likewise remains
 repository-ledger metadata: repository ID, observed commit, README digest, observation time, and
 credential reference do not create Resource, ObjectType, LinkType, or authority edges. A recorded

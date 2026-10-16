@@ -24,8 +24,9 @@ from fdai.core.ontology_platform.query_metric_handlers import (
     MetricScopeSeriesNodeHandler,
     MetricSeriesNodeHandler,
 )
-from fdai.core.ontology_platform.topology_history import TopologyDiff
+from fdai.core.ontology_platform.topology_history import TopologyDiff, TopologyGraphAt
 from fdai.core.rca.temporal_causality import TemporalCausalityConfig
+from fdai.shared.providers.ontology_instance import OntologyGraphSnapshot, OntologyObjectRecord
 from fdai_service_contracts.ontology_query import OntologyQueryNode, QueryNodeKind, canonical_json
 
 START = datetime(2026, 8, 10, tzinfo=UTC)
@@ -108,6 +109,24 @@ def _window(
 
 
 def _topology_diff(*, complete: bool = True) -> TopologyDiff:
+    def view(digest: str) -> TopologyGraphAt:
+        return TopologyGraphAt(
+            as_of=START,
+            known_at=START,
+            graph=OntologyGraphSnapshot(
+                objects=(
+                    OntologyObjectRecord(
+                        id="service-a", object_type="Resource", properties={"id": "service-a"}
+                    ),
+                )
+            ),
+            complete=complete,
+            revision_ids=("revision:one",),
+            provider_generation_refs=("generation:one",),
+            evidence_refs=("topology:change",),
+            digest=digest,
+        )
+
     return TopologyDiff(
         before_digest="sha256:" + ("a" * 64),
         after_digest="sha256:" + ("b" * 64),
@@ -120,6 +139,8 @@ def _topology_diff(*, complete: bool = True) -> TopologyDiff:
         complete=complete,
         evidence_refs=("topology:change",),
         digest="sha256:" + ("c" * 64),
+        before=view("sha256:" + ("a" * 64)),
+        after=view("sha256:" + ("b" * 64)),
     )
 
 
@@ -205,7 +226,7 @@ def test_complete_join_retains_refutation_and_competing_explanations() -> None:
         competing_explanations=("dns", "firewall", "credential"),
     )
 
-    assert result.status is CausalJoinStatus.REFUTED
+    assert result.status is CausalJoinStatus.UNRESOLVED
     assert result.temporal_claim is not None
     assert "association_below_threshold" in result.limitations
     assert result.topology_diff_digest == _topology_diff().digest

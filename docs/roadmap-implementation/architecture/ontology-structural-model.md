@@ -9,6 +9,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Exact causal path and metric-comparison evidence | implemented | `causal_topology.py`; `metric_semantics.py`; `query_metric_handlers.py`; `test_causal_topology.py`; `test_causal_investigation_execution.py` | Retained secured historical views prove a typed, directed path in one time slice. Unproven paths, correlation failures, and unevaluated competitors stay unresolved; no inverse relationship or execution authority is inferred. |
 | Non-ontology route-manifest separation | implemented | additive code-security worker-status route; Operator family and composition tests | Shared Operator route registration exposes a read-only operational heartbeat without creating ontology identity, relationships, query authority, or structural dependencies. |
 | GitHub source-provenance separation | implemented | `425fda52ead9`; `fdai_service_contracts/knowledge_github.py`; `test_knowledge_github_projection.py` | Typed repository provenance remains ledger metadata. It creates no Resource, ObjectType, LinkType, provider-health conclusion, indexed evidence, or authority edge. |
 | OPA semantic parser compatibility | implemented | `rego_semantics.py`; focused direct-AST, formatted-source fallback, normalized-digest, and predicate-change tests | Rule projection accepts direct AST objects and source-built OPA's JSON-encoded formatted source. The fallback uses bounded OPA `rego.parse_module` evaluation and bounded source metadata without changing activation authority. |
@@ -180,7 +181,12 @@ and resumable work while the roadmap owner remains focused on normative design.
 | 2026-08-24 | implemented | Added one complete neutral ResourceClass coverage spine without importing raw provider types. The root closes over all 77 shipped ResourceTypes, catalog-owned instances preserve every membership and specialization, duplicate same-class membership fails closed, and specialization depth is limited to eight. | `current change`; shipped ResourceClass closure, loader-hardening, catalog instance-projection, routed ontology-platform, and provider-schema checks. | Add only competency-driven compositional memberships. Live provider and Kubernetes evidence remains a separate validation concern. |
 
 
+| 2026-10-16 | implemented | Retained secured historical views in topology diffs and required an exact typed dependency path effective before the metric window. Comparison identity/unit/window must match the effect, while correlation failures and unevaluated competitors remain unresolved. | `current change`; #2184; `test_causal_topology.py`, `test_metric_semantics.py`, compiler-to-handler regressions; final focused causal cohort: 144 passed; strict mypy and Ruff passed. | Deployed causal accuracy and PostgreSQL latency qualification remain separate. |
+
 ### Remaining work
+
+- [x] Require exact path, time, effect identity, and competing-explanation accounting in causal
+  joins, with passing focused regressions for [#2184](https://github.com/dotnetpower/fdai/issues/2184).
 
 - [x] Keep GitHub source provenance outside ontology identities and authority edges; the typed
   source contract and focused checks in `425fda52ead9` preserve this bounded separation.

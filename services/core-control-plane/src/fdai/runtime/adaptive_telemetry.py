@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+import asyncio
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -22,6 +23,7 @@ from fdai.core.read_investigation.telemetry_adaptive import (
     telemetry_mechanisms_for_event,
 )
 from fdai.runtime.adaptive_investigation_runtime import AdaptiveInvestigationRuntime
+from fdai.runtime.providers import _build_resource_lock
 from fdai.shared.contracts.models import (
     CeilingRole,
     OntologyActionType,
@@ -31,9 +33,10 @@ from fdai.shared.contracts.models import (
     OntologyObjectType,
     OntologyRelease,
 )
-from fdai.shared.providers.process_runtime import ProcessRuntimeStore
+from fdai.shared.providers.process_runtime import ProcessEventKind, ProcessRuntimeStore
+from fdai.shared.providers.resource_lock import ResourceLock
 
-ADAPTIVE_TELEMETRY_CONFIG_VERSION = "1.0.0"
+ADAPTIVE_TELEMETRY_CONFIG_VERSION = "1.1.0"
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +48,10 @@ class AdaptiveTelemetryRuntimeConfig:
     max_queries: int = 3
     max_cost_units: int = 120
     deadline_seconds: int = 5
+
+    @property
+    def finalization_reserve_seconds(self) -> float:
+        return min(1.0, self.deadline_seconds / 4)
 
     def __post_init__(self) -> None:
         if type(self.enabled) is not bool:
@@ -98,6 +105,7 @@ class AdaptiveTelemetryRuntimeConfig:
                 "max_queries": self.max_queries,
                 "max_cost_units": self.max_cost_units,
                 "deadline_seconds": self.deadline_seconds,
+                "finalization_reserve_seconds": self.finalization_reserve_seconds,
                 "recipe_catalog_digest": DEFAULT_TELEMETRY_RECIPE_CATALOG.catalog_digest,
                 "mode": "shadow",
             }
@@ -119,6 +127,8 @@ class ConfiguredAdaptiveTelemetryInvestigator:
         interface_types: Sequence[OntologyInterfaceType],
         function_types: Sequence[OntologyFunctionType],
         config: AdaptiveTelemetryRuntimeConfig,
+        resource_lock: ResourceLock,
+        clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._provider = provider
         self._process_store = process_store
@@ -129,6 +139,8 @@ class ConfiguredAdaptiveTelemetryInvestigator:
         self._interface_types = tuple(interface_types)
         self._function_types = tuple(function_types)
         self._config = config
+        self._clock = clock or (lambda: datetime.now(UTC))
+        self._resource_lock = resource_lock
 
     async def investigate(
         self,
@@ -142,6 +154,11 @@ class ConfiguredAdaptiveTelemetryInvestigator:
     ) -> AdaptiveTelemetryEvidenceResult:
         """Run one shadow-only session and return complete receipt citations."""
 
+        started_at = self._clock()
+        if started_at.tzinfo is None or evidence_cutoff.tzinfo is None:
+            raise ValueError("adaptive telemetry times MUST be timezone-aware")
+        if evidence_cutoff > started_at:
+            raise ValueError("adaptive telemetry evidence cutoff MUST NOT be in the future")
         scope_digest = content_digest(
             {
                 "caller_agent": "Forseti",
@@ -183,6 +200,7 @@ class ConfiguredAdaptiveTelemetryInvestigator:
             reviser=bindings.reviser,
             gateway=bindings.gateway,
             active_strategy_digest=DEFAULT_TELEMETRY_RECIPE_CATALOG.catalog_digest,
+            clock=self._clock,
         )
         session_id = "adaptive-telemetry:" + content_digest(
             {
@@ -192,21 +210,47 @@ class ConfiguredAdaptiveTelemetryInvestigator:
                 "catalog_digest": DEFAULT_TELEMETRY_RECIPE_CATALOG.catalog_digest,
             }
         ).removeprefix("sha256:")
-        result = await runtime.run(
-            session_id=session_id,
-            target_resource_id=resource_ref,
-            correlation_id=correlation_id,
-            initial_frame=frame,
-            budget=AdaptiveInvestigationBudget(
-                max_rounds=self._config.max_rounds,
-                max_queries=self._config.max_queries,
-                max_cost_units=self._config.max_cost_units,
-                deadline_at=evidence_cutoff.astimezone(UTC)
-                + timedelta(seconds=self._config.deadline_seconds),
-                policy_digest=self._config.policy_digest,
-            ),
-        )
+        remaining = (
+            started_at + timedelta(seconds=self._config.deadline_seconds) - self._clock()
+        ).total_seconds()
+        async with asyncio.timeout(max(0.0, min(self._config.deadline_seconds, remaining))):
+            async with self._resource_lock.acquire(session_id):
+                result = await runtime.run(
+                    session_id=session_id,
+                    target_resource_id=resource_ref,
+                    correlation_id=correlation_id,
+                    initial_frame=frame,
+                    budget=AdaptiveInvestigationBudget(
+                        max_rounds=self._config.max_rounds,
+                        max_queries=self._config.max_queries,
+                        max_cost_units=self._config.max_cost_units,
+                        deadline_at=await self._execution_deadline(session_id, started_at),
+                        policy_digest=self._config.policy_digest,
+                    ),
+                )
         return adaptive_telemetry_evidence_result(result)
+
+    async def _execution_deadline(self, session_id: str, started_at: datetime) -> datetime:
+        """Reuse the persisted deadline; the Process recorder verifies all other identity."""
+
+        events = await self._process_store.events(session_id)
+        if not events:
+            return started_at.astimezone(UTC) + timedelta(
+                seconds=self._config.deadline_seconds - self._config.finalization_reserve_seconds
+            )
+        creations = tuple(
+            event for event in events if event.kind is ProcessEventKind.PROCESS_CREATED
+        )
+        if len(creations) != 1:
+            raise ValueError("adaptive telemetry replay requires one Process creation")
+        budget = creations[0].payload.get("budget")
+        deadline = budget.get("deadline_at") if isinstance(budget, Mapping) else None
+        if not isinstance(deadline, str):
+            raise ValueError("adaptive telemetry replay requires a recorded deadline")
+        parsed = datetime.fromisoformat(deadline.replace("Z", "+00:00"))
+        if parsed.tzinfo is None:
+            raise ValueError("adaptive telemetry recorded deadline MUST be timezone-aware")
+        return parsed
 
 
 def build_adaptive_telemetry_investigator(
@@ -220,6 +264,8 @@ def build_adaptive_telemetry_investigator(
     interface_types: Sequence[OntologyInterfaceType],
     function_types: Sequence[OntologyFunctionType],
     environment: Mapping[str, str],
+    resource_lock: ResourceLock,
+    clock: Callable[[], datetime] | None = None,
 ) -> ConfiguredAdaptiveTelemetryInvestigator | None:
     """Return the shadow runtime when available unless deployment disables it."""
 
@@ -236,6 +282,8 @@ def build_adaptive_telemetry_investigator(
         interface_types=interface_types,
         function_types=function_types,
         config=config,
+        resource_lock=resource_lock,
+        clock=clock,
     )
 
 
@@ -259,6 +307,7 @@ def build_adaptive_telemetry_from_container(
         interface_types=container.ontology_interface_types,
         function_types=container.ontology_function_types,
         environment=environment,
+        resource_lock=_build_resource_lock(environment=environment),
     )
 
 
