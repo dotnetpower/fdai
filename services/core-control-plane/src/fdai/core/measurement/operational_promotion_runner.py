@@ -126,6 +126,7 @@ class OperationalPromotionMeasurementRunner:
                     evidence_digest=receipt.evidence_digest,
                     gaps=receipt.gaps,
                     metrics={
+                        "policy_digest": receipt.policy_digest,
                         "sample_count": receipt.sample_count,
                         "accuracy": receipt.accuracy,
                         "accuracy_ci_lower": receipt.accuracy_ci_lower,
@@ -185,22 +186,25 @@ class OperationalPromotionMeasurementRunner:
         outcome_identity = {
             "ready": entry.get("ready"),
             "gaps": entry.get("gaps", ()),
+            "policy_digest": entry.get("policy_digest"),
         }
         identity_material = (
             f"{action_type_name}\n{self._revision}\n{self._scenario}\n{evidence_digest}\n"
             f"{outcome_identity!r}"
         )
         identity = hashlib.sha256(identity_material.encode()).hexdigest()
-        await self._audit_store.write_state_with_audit_if_absent(
-            f"operational-promotion-measurement:{identity}",
-            {
-                "action_type_name": action_type_name,
-                "fdai_revision": self._revision,
-                "scenario_set_version": self._scenario,
-                "evidence_digest": evidence_digest,
-            },
-            entry,
-        )
+        key = f"operational-promotion-measurement:{identity}"
+        state = {
+            "action_type_name": action_type_name,
+            "fdai_revision": self._revision,
+            "scenario_set_version": self._scenario,
+            "evidence_digest": evidence_digest,
+            "policy_digest": self._evaluator.policy_digest,
+        }
+        if await self._audit_store.write_state_with_audit_if_absent(key, state, entry):
+            return
+        if await self._audit_store.read_state(key) != state:
+            raise RuntimeError("operational promotion measurement identity conflict")
 
     def _audit_entry(
         self,
@@ -226,6 +230,7 @@ class OperationalPromotionMeasurementRunner:
             ),
             "ready": ready,
             "evidence_digest": evidence_digest,
+            "policy_digest": self._evaluator.policy_digest,
             "gaps": list(gaps),
             **metrics,
             "recorded_at": datetime.now(tz=UTC).isoformat(),

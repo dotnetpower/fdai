@@ -85,6 +85,7 @@ class OperationalPromotionReceiptReader(Protocol):
         fdai_revision: str,
         scenario_set_version: str,
         evidence_digest: str,
+        policy_digest: str,
     ) -> OperationalPromotionReceipt | None: ...
 
 
@@ -443,6 +444,7 @@ class OperationalPromotionDirectApiExecutor(DirectApiExecutor):
             fdai_revision=args["fdai_revision"],
             scenario_set_version=args["scenario_set_version"],
             evidence_digest=args["evidence_digest"],
+            policy_digest=args["policy_digest"],
         )
         if receipt is None:
             raise DirectApiPreconditionError("exact operational promotion receipt was not found")
@@ -451,6 +453,7 @@ class OperationalPromotionDirectApiExecutor(DirectApiExecutor):
             or receipt.fdai_revision != args["fdai_revision"]
             or receipt.scenario_set_version != args["scenario_set_version"]
             or receipt.evidence_digest != args["evidence_digest"]
+            or receipt.policy_digest != args["policy_digest"]
         ):
             raise DirectApiPreconditionError("operational promotion receipt identity mismatched")
         if not receipt.ready:
@@ -481,6 +484,7 @@ class OperationalPromotionDirectApiExecutor(DirectApiExecutor):
                 prior_record is not None
                 and prior_record.mode is Mode.ENFORCE
                 and prior_record.promotion_evidence_digest == receipt.evidence_digest
+                and prior_record.promotion_policy_digest == receipt.policy_digest
                 and prior_record.fdai_revision == receipt.fdai_revision
                 and prior_record.scenario_set_version == receipt.scenario_set_version
                 and prior_record.action_type_version == receipt.action_type_version
@@ -710,6 +714,7 @@ def _promotion_arguments(arguments: Mapping[str, object]) -> dict[str, str]:
         "fdai_revision",
         "scenario_set_version",
         "evidence_digest",
+        "policy_digest",
     )
     values: dict[str, str] = {}
     for name in required:

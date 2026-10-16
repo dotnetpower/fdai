@@ -1,8 +1,8 @@
 ---
 title: Outcome Assurance
 translation_of: outcome-assurance.md
-translation_source_sha: f19d28a8f65ca7fb9e93426f178e06fd3fdcfb4a
-translation_revised: 2026-10-04
+translation_source_sha: c9697ac0f8f1be944527382537d6a223121927b7
+translation_revised: 2026-10-17
 ---
 # 결과 Assurance
 
@@ -42,6 +42,7 @@ FDAI는 서비스가 보호해야 할 목표, 검토한 액션, 실제 실행, �
 | 단계 4 측정 정책 출처 | implemented | `core/measurement/{pattern_growth,model_tracking,latency_budget}.py`; `delivery/measurement/{holdout,measured_policy}.py`; 집중 Core 및 전달 테스트 | 완전한 홀드아웃이 shadow 패턴 쓰기를 제한합니다. 짝지은 모델 근거는 검토 전용 권고를 만들고 계층별 지연 시간은 서버 소유 예산, 보고값, 처리량, 백분위수 및 사용 불가 상태를 보존합니다. 잘못된 형식의 근거는 한 번 거부되고 이후 묶음을 막지 않습니다. 영속 처리는 승격 또는 실행 권한을 부여하지 않습니다. |
 | 보호된 코호트 준비 상태 점검 | implemented | `.github/workflows/cohort-readiness.yml`; `delivery/measurement/cohort_inventory.py`; 집중 워크플로 및 인벤토리 테스트 | 정확한 보호된 `main` 리비전 하나가 비공개 상태 저장소의 baseline 및 treatment 가용성을 집계해서 점검하고 권한이 없는 증적을 보존할 수 있습니다. 상태 저장소 연결 수준 실패는 명시적인 `unavailable` 증적이 되고 query 및 schema 실패는 계속 실행을 실패시킵니다. 이 워크플로는 관측값을 가져오거나 승격 상태를 바꾸거나 누락된 표본을 적격 상태로 바꾸지 않습니다. |
 | ActionType 정규 내용 다이제스트 | implemented | `core/measurement/operational_promotion.py`; `core/measurement/__init__.py`; 집중 승격 테스트 | `action_type_digest`는 provenance를 제외한 ActionType의 결정론적 SHA-256 내용 다이제스트를 계산하는 공개 함수입니다. 평가기는 이 다이제스트를 사용하여 봉인된 배치와 현재 ActionType 정의 사이의 스키마 변이를 감지합니다. |
+| 운영 승격 정책 ID | implemented | `core/measurement/operational_promotion.py`, `operational_promotion_runner.py`, 검토된 replay 및 영속 승격 어댑터, 집중 O7 검사 | 모든 O7 증적과 승격 판정은 표본, recurrence, rollback, simulation-review, escape, causal-grade 임계값 전체의 정확한 다이제스트를 지정합니다. 검토, 저장, 전달, 영속 적용, 재시작 readback은 정책 drift를 차단합니다. |
 | `OutcomeAssuranceProjection` 타입이 지정된 읽기 모델 | implemented | [변환 결과 계약](#변환-결과-계약); `core/measurement/outcome_assurance.py`; 집중 Outcome Assurance 계약 테스트 | 타입이 지정된 범위, 기간, 준비 상태, 귀속, 결과, 가드, 근거 모델이 이제 존재하며 결정론적 JSON 재현과 최신 권위 관측 correction 축소를 제공합니다. 이 계약은 읽기 전용으로 남고 권한 객체를 추가하지 않습니다. |
 | 목표 귀속과 집계 평가 | implemented | [목표 귀속](#목표-귀속), `core/measurement/outcome_assurance.py`, 집중 Outcome Assurance 테스트 | 순수 reducer는 명시적인 finalized 이벤트 집합을 입력받고 decision, objective, workflow, action, run, outcome 및 measurement의 완전한 체인을 요구합니다. 최신 권위 observation만 사용하고 해결되지 않은 모든 이벤트를 분모에 유지합니다. 권위 있는 출처 연결은 열린 상태입니다. |
 | 인증된 Operator API와 Console 경험 | in-progress | [Operator API와 console](#operator-api와-console); `packages/service-contracts/src/fdai_service_contracts/outcome_assurance.py`; `services/operator-service/src/fdai_operator_service/runtime_projection_reader.py`; `console/src/api-outcome-assurance.ts`; `console/src/routes/outcome-assurance-drilldown.tsx`; 집중 계약, Operator 경로, Console Vitest 및 typecheck 결과 | 공유 `1.0.0` 계약, 인증된 principal 범위 `/kpi/outcome-assurance` 읽기 패널, Console 상세 화면이 쓰기 경로나 권한 필드 없이 complete, stale, unavailable 상태를 표시합니다. 현재 Core가 권위 있는 `OutcomeAssuranceProjection` 레코드를 reader key 아래에 보존하는 producer는 없으므로, 권위 출처 연결은 아래 남은 작업으로 유지합니다. |
@@ -51,6 +52,7 @@ FDAI는 서비스가 보호해야 할 목표, 검토한 액션, 실제 실행, �
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-17 | implemented | 운영 승격 측정 및 적용을 전체 임계값 정책 다이제스트에 결속했습니다. 같은 근거 배치는 임계값 변경 후 이전 검토 또는 영속 권한을 다시 사용할 수 없습니다. | `current change`, O7 측정, 학습, 영속성, 승격 집중 검사 155개, 엄격한 mypy | 배포 환경의 액션별 실제 코호트와 인증된 효과 증적을 보존합니다. |
 | 2026-10-04 | in-progress | 공유 Outcome Assurance `1.0.0` 읽기 계약, 인증된 principal 범위 `/kpi/outcome-assurance` Operator 읽기 패널, complete, stale, unavailable 출처 상태를 합성값이나 0 채움 없이 표시하는 Console 상세 화면을 추가했습니다. 저장소 검색 결과 Core가 권위 있는 `OutcomeAssuranceProjection` 레코드를 reader key 아래에 보존하는 producer는 없었습니다. | `current change`; `packages/service-contracts/src/fdai_service_contracts/outcome_assurance.py`; `services/operator-service/src/fdai_operator_service/runtime_projection_reader.py`; `console/src/api-outcome-assurance.ts`; `console/src/routes/outcome-assurance-drilldown.tsx`; 집중 계약, Operator 경로, Console Vitest, typecheck, Ruff 및 strict mypy 검사. | Core 소유 producer를 추가한 뒤 구성된 권위 있는 보존 변환 결과 출처에 대해 읽기 패널의 실제 인증 배포 증적을 기록합니다. |
 | 2026-09-27 | implemented | 비공개 PostgreSQL 연결에 실패한 보호된 코호트 준비 상태 시도를 attested unavailable 증적으로 보존하고 query/schema 오류와 `require_ready=true`는 계속 fail-closed로 유지했습니다. | `current change`; 실패한 exact-main 실행 `36290118007`; 집중 워크플로 계약 및 shell 검사. | 검증된 비공개 runner 연결을 복구한 뒤 집계 가용성과 실제 dual-arm cohort를 보존합니다. |
 | 2026-09-26 | implemented | 실제 관측을 가져오거나 승격하지 않으면서 비공개 집계 근거를 읽고 내용 주소 방식으로 증적을 발행하며 준비 상태가 필수일 때 안전하게 차단할 수 있는 보호된 정확한 리비전 코호트 준비 상태 점검을 추가했습니다. | `current change`; 코호트 준비 상태 워크플로, 집중 계약 테스트, CI 계약 검사 및 라우팅된 설계 맥락. | 검토된 baseline 및 treatment exporter를 추가하고 각 arm의 모든 필수 측정값에 대해 독립 관측값을 30개 이상 보존합니다. |

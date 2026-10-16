@@ -600,6 +600,7 @@ async def test_learned_action_type_stays_shadow_without_independent_review(revie
         replay_first_digest=package.replay.first_result_digest,
         replay_second_digest=package.replay.second_result_digest,
         promotion_evidence_digest=receipt.evidence_digest,
+        promotion_policy_digest=receipt.policy_digest or "",
         review_ref="governance-review:pending",
         reviewer_principal="independent-governance-reviewer",
         approved=False,

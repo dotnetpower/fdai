@@ -122,6 +122,7 @@ class ActionModeRecord:
     demoted_at: datetime | None = None
     metrics: PromotionMetrics | None = None
     promotion_evidence_digest: str | None = None
+    promotion_policy_digest: str | None = None
     fdai_revision: str | None = None
     scenario_set_version: str | None = None
     action_type_version: str | None = None
@@ -154,6 +155,7 @@ class PersistedPromotionAuthorityVerifier(Protocol):
         action_type_version: str,
         action_type_digest: str,
         evidence_digest: str,
+        policy_digest: str,
         fdai_revision: str,
         scenario_set_version: str,
     ) -> bool: ...
@@ -297,6 +299,7 @@ class ActionPromotionRegistry:
                 and prior.mode is Mode.ENFORCE
                 and prior.promotion_evidence_digest
                 == (receipt.evidence_digest if receipt else None)
+                and prior.promotion_policy_digest == (receipt.policy_digest if receipt else None)
             )
             record = ActionModeRecord(
                 action_type=action_type.name,
@@ -304,6 +307,7 @@ class ActionPromotionRegistry:
                 promoted_at=(prior.promoted_at if same_authority and prior is not None else now),
                 metrics=metrics,
                 promotion_evidence_digest=(receipt.evidence_digest if receipt else None),
+                promotion_policy_digest=(receipt.policy_digest if receipt else None),
                 fdai_revision=(receipt.fdai_revision if receipt else None),
                 scenario_set_version=(receipt.scenario_set_version if receipt else None),
                 action_type_version=(receipt.action_type_version if receipt else None),
@@ -320,6 +324,7 @@ class ActionPromotionRegistry:
                 demoted_at=demoted_at,
                 metrics=metrics,
                 promotion_evidence_digest=(receipt.evidence_digest if receipt else None),
+                promotion_policy_digest=(receipt.policy_digest if receipt else None),
                 fdai_revision=(receipt.fdai_revision if receipt else None),
                 scenario_set_version=(receipt.scenario_set_version if receipt else None),
                 action_type_version=(receipt.action_type_version if receipt else None),

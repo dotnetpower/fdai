@@ -11,6 +11,7 @@ from fdai.core.measurement.operational_promotion import (
     CausalPromotionReceipt,
     OperationalPromotionBatch,
     OperationalPromotionEvaluator,
+    OperationalPromotionPolicy,
     OperationalPromotionRecord,
     PromotionEvidenceCohort,
     action_type_digest,
@@ -173,6 +174,21 @@ def test_complete_immutable_evidence_batch_is_ready_for_separate_review() -> Non
     assert len(receipt.evidence_digest) == 64
     assert receipt.decision_evidence_receipt_digest == "sha256:" + "d" * 64
     assert receipt.decision_evidence_verification_bundle_digest == "sha256:" + "e" * 64
+
+
+def test_promotion_receipt_binds_the_exact_threshold_policy() -> None:
+    baseline = _evaluator().evaluate(_action(), _passing_batch())
+    stricter = OperationalPromotionEvaluator(
+        expected_fdai_revision=_REVISION,
+        expected_scenario_set_version=_SCENARIO,
+        causal_receipt_verifier=_SelectiveCausalVerifier(),
+        unit_verifier=_UnitVerifier(),
+        policy=OperationalPromotionPolicy(max_recurrence_rate=0.01),
+        as_of_fn=lambda: _SEALED,
+    ).evaluate(_action(), _passing_batch())
+
+    assert baseline.evidence_digest == stricter.evidence_digest
+    assert baseline.policy_digest != stricter.policy_digest
 
 
 def test_missing_or_mismatched_decision_evidence_blocks_promotion() -> None:
@@ -702,6 +718,8 @@ async def test_measurement_runner_fails_closed_when_receipt_store_fails() -> Non
 
 async def test_measurement_runner_distinguishes_evaluation_failure() -> None:
     class _FailingEvaluator:
+        policy_digest = "f" * 64
+
         def evaluate(self, action_type, batch):  # type: ignore[no-untyped-def]
             raise ValueError("malformed measurement")
 
@@ -724,6 +742,8 @@ async def test_measurement_runner_distinguishes_evaluation_failure() -> None:
 
 async def test_evaluation_failure_does_not_block_later_success_audit() -> None:
     class _FlakyEvaluator:
+        policy_digest = "f" * 64
+
         def __init__(self) -> None:
             self.failed = False
 

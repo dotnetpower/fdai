@@ -287,6 +287,22 @@ class OperationalPromotionPolicy:
         if not isinstance(self.min_causal_evidence_grade, CausalEvidenceGrade):
             raise ValueError("operational promotion minimum causal evidence grade is invalid")
 
+    @property
+    def content_digest(self) -> str:
+        """Bind every threshold that can change an O7 promotion decision."""
+
+        return _digest(
+            {
+                "min_benchmark_samples": self.min_benchmark_samples,
+                "min_live_shadow_samples": self.min_live_shadow_samples,
+                "max_rollback_rate": self.max_rollback_rate,
+                "max_recurrence_rate": self.max_recurrence_rate,
+                "max_simulation_review_rate": self.max_simulation_review_rate,
+                "max_policy_escapes": self.max_policy_escapes,
+                "min_causal_evidence_grade": self.min_causal_evidence_grade.value,
+            }
+        )
+
 
 @dataclass(frozen=True, slots=True)
 class OperationalPromotionReceipt:
@@ -321,8 +337,13 @@ class OperationalPromotionReceipt:
     causal_evidence_failures: int
     ready: bool
     gaps: tuple[str, ...]
+    policy_digest: str | None = None
     decision_evidence_receipt_digest: str | None = None
     decision_evidence_verification_bundle_digest: str | None = None
+
+    def __post_init__(self) -> None:
+        if self.policy_digest is not None and not _is_digest(self.policy_digest):
+            raise ValueError("operational promotion policy digest MUST be SHA-256")
 
     def as_json(self) -> dict[str, object]:
         return {
@@ -332,6 +353,7 @@ class OperationalPromotionReceipt:
             "action_type_version": self.action_type_version,
             "action_type_digest": self.action_type_digest,
             "evidence_digest": self.evidence_digest,
+            "policy_digest": self.policy_digest,
             "observation_days": self.observation_days,
             "live_observation_days": self.live_observation_days,
             "sample_count": self.sample_count,
@@ -387,6 +409,10 @@ class OperationalPromotionEvaluator:
         self._unit_verifier = unit_verifier
         self._policy = policy or OperationalPromotionPolicy()
         self._as_of_fn = as_of_fn
+
+    @property
+    def policy_digest(self) -> str:
+        return self._policy.content_digest
 
     def evaluate(
         self,
@@ -547,6 +573,7 @@ class OperationalPromotionEvaluator:
             action_type_version=batch.action_type_version,
             action_type_digest=batch.action_type_digest,
             evidence_digest=batch.content_digest,
+            policy_digest=self._policy.content_digest,
             observation_days=round(observation_days, 3),
             live_observation_days=live_observation_days,
             sample_count=sample_count,

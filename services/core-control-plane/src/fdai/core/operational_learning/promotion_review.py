@@ -64,6 +64,7 @@ class ReviewedReplayPromotionEvidence:
     replay_first_digest: str
     replay_second_digest: str
     promotion_evidence_digest: str
+    promotion_policy_digest: str
     review_ref: str
     reviewer_principal: str
     approved: bool
@@ -88,6 +89,7 @@ class ReviewedReplayPromotionEvidence:
             self.replay_first_digest,
             self.replay_second_digest,
             self.promotion_evidence_digest,
+            self.promotion_policy_digest,
         ):
             if _SHA256.fullmatch(value) is None:
                 raise ValueError("reviewed replay digests MUST be lowercase SHA-256")
@@ -142,6 +144,7 @@ class ReviewedReplayPromotionEvidence:
                 "replay_first_digest": self.replay_first_digest,
                 "replay_second_digest": self.replay_second_digest,
                 "promotion_evidence_digest": self.promotion_evidence_digest,
+                "promotion_policy_digest": self.promotion_policy_digest,
                 "review_ref": self.review_ref,
                 "reviewer_principal": self.reviewer_principal,
                 "approved": self.approved,
@@ -169,13 +172,14 @@ class ReviewedReplayAuthority:
                 item.fdai_revision,
                 item.scenario_set_version,
                 item.promotion_evidence_digest,
+                item.promotion_policy_digest,
             ): item
             for item in evidence
             if not item.development_only
         }
         development_items = tuple(item for item in evidence if item.development_only)
         self._development_evidence: dict[
-            tuple[str, str, str, str, str, str, str],
+            tuple[str, str, str, str, str, str, str, str],
             ReviewedReplayPromotionEvidence,
         ] = {}
         now = (clock or (lambda: datetime.now(tz=UTC)))()
@@ -234,6 +238,7 @@ class ReviewedReplayAuthority:
                 item.fdai_revision,
                 item.scenario_set_version,
                 item.promotion_evidence_digest,
+                item.promotion_policy_digest,
             )
             if key in self._development_evidence:
                 raise ValueError("reviewed replay authority identities MUST be unique")
@@ -250,6 +255,7 @@ class ReviewedReplayAuthority:
         fdai_revision: str,
         scenario_set_version: str,
         evidence_digest: str,
+        policy_digest: str,
     ) -> bool:
         """Return whether one exact persisted or incoming authority tuple is approved."""
 
@@ -261,6 +267,7 @@ class ReviewedReplayAuthority:
                 fdai_revision,
                 scenario_set_version,
                 evidence_digest,
+                policy_digest,
             )
         )
         return evidence is not None and evidence.approved
@@ -273,6 +280,7 @@ class ReviewedReplayAuthority:
         fdai_revision: str,
         scenario_set_version: str,
         evidence_digest: str,
+        policy_digest: str,
         approved_at: datetime,
     ) -> DevelopmentPromotionApproval | None:
         """Return exact development-only promotion authority for current target."""
@@ -285,6 +293,7 @@ class ReviewedReplayAuthority:
             fdai_revision,
             scenario_set_version,
             evidence_digest,
+            policy_digest,
         )
         evidence = self._development_evidence.get(key)
         if evidence is None or not evidence.approved:
@@ -322,6 +331,7 @@ class ReviewedReplayAuthority:
         fdai_revision: str,
         scenario_set_version: str,
         evidence_digest: str,
+        policy_digest: str,
     ) -> bool:
         """Accept sole-Owner review only in the exact profile namespace."""
 
@@ -334,6 +344,7 @@ class ReviewedReplayAuthority:
                 fdai_revision,
                 scenario_set_version,
                 evidence_digest,
+                policy_digest,
             )
         )
         return evidence is not None and evidence.approved
@@ -348,6 +359,7 @@ class ReviewedReplayAuthority:
         fdai_revision: str,
         scenario_set_version: str,
         evidence_digest: str,
+        policy_digest: str,
     ) -> dict[str, object] | None:
         """Return explicit development-only attribution for audit."""
 
@@ -360,6 +372,7 @@ class ReviewedReplayAuthority:
                 fdai_revision,
                 scenario_set_version,
                 evidence_digest,
+                policy_digest,
             )
         )
         if item is None:
@@ -392,6 +405,7 @@ class ReviewedReplayReceiptVerifier:
             fdai_revision=receipt.fdai_revision,
             scenario_set_version=receipt.scenario_set_version,
             evidence_digest=receipt.evidence_digest,
+            policy_digest=receipt.policy_digest or "",
         )
 
     def verify_development(
@@ -411,6 +425,7 @@ class ReviewedReplayReceiptVerifier:
             fdai_revision=receipt.fdai_revision,
             scenario_set_version=receipt.scenario_set_version,
             evidence_digest=receipt.evidence_digest,
+            policy_digest=receipt.policy_digest or "",
         )
 
 
@@ -429,6 +444,7 @@ class ReviewedReplayPersistedAuthorityVerifier:
         evidence_digest: str,
         fdai_revision: str,
         scenario_set_version: str,
+        policy_digest: str,
     ) -> bool:
         return self._authority.accepts(
             action_type=action_type,
@@ -437,6 +453,7 @@ class ReviewedReplayPersistedAuthorityVerifier:
             fdai_revision=fdai_revision,
             scenario_set_version=scenario_set_version,
             evidence_digest=evidence_digest,
+            policy_digest=policy_digest,
         )
 
 

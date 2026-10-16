@@ -282,6 +282,8 @@ class StateStoreActionPromotionRegistry(ActionPromotionRegistry):
             else None,
             "capability_recall": recall.as_dict() if recall is not None else None,
         }
+        if record is not None and record.promotion_policy_digest is not None:
+            projection["promotion_policy_digest"] = record.promotion_policy_digest
         if metadata.override is not None:
             projection.update(metadata.override.as_dict())
         return projection
@@ -328,6 +330,7 @@ class StateStoreActionPromotionRegistry(ActionPromotionRegistry):
                     record.action_type_version,
                     record.action_type_digest,
                     record.promotion_evidence_digest,
+                    record.promotion_policy_digest,
                     record.fdai_revision,
                     record.scenario_set_version,
                 )
@@ -338,6 +341,7 @@ class StateStoreActionPromotionRegistry(ActionPromotionRegistry):
                     action_type_version=record.action_type_version or "",
                     action_type_digest=record.action_type_digest or "",
                     evidence_digest=record.promotion_evidence_digest or "",
+                    policy_digest=record.promotion_policy_digest or "",
                     fdai_revision=record.fdai_revision or "",
                     scenario_set_version=record.scenario_set_version or "",
                 )
@@ -540,6 +544,7 @@ def _serialize(
         "promoted_at": record.promoted_at.isoformat() if record.promoted_at else None,
         "demoted_at": record.demoted_at.isoformat() if record.demoted_at else None,
         "promotion_evidence_digest": record.promotion_evidence_digest,
+        "promotion_policy_digest": record.promotion_policy_digest,
         "fdai_revision": record.fdai_revision,
         "scenario_set_version": record.scenario_set_version,
         "action_type_version": record.action_type_version,
@@ -585,6 +590,7 @@ def _deserialize(raw: Any) -> tuple[ActionModeRecord, _PromotionMetadata]:
             demoted_at=_timestamp(raw.get("demoted_at")),
             metrics=metrics,
             promotion_evidence_digest=_optional_text(raw.get("promotion_evidence_digest")),
+            promotion_policy_digest=_optional_text(raw.get("promotion_policy_digest")),
             fdai_revision=_optional_text(raw.get("fdai_revision")),
             scenario_set_version=_optional_text(raw.get("scenario_set_version")),
             action_type_version=_optional_text(raw.get("action_type_version")),
@@ -712,6 +718,8 @@ def _validate_enforce_attribution(
     if (
         record.promotion_evidence_digest is None
         or _DIGEST.fullmatch(record.promotion_evidence_digest) is None
+        or record.promotion_policy_digest is None
+        or _DIGEST.fullmatch(record.promotion_policy_digest) is None
         or record.action_type_digest is None
         or _DIGEST.fullmatch(record.action_type_digest) is None
         or record.fdai_revision is None

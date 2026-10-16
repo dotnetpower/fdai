@@ -1,8 +1,8 @@
 ---
 title: 운영 학습 온톨로지
 translation_of: operational-learning-ontology.md
-translation_source_sha: 04a8df46667d7908e642a3026ae671f6724c4b8e
-translation_revised: 2026-09-30
+translation_source_sha: 6bd4d070b93c7ab84c5a0c5129a2770d44272ceb
+translation_revised: 2026-10-17
 ---
 # 운영 학습 온톨로지
 
@@ -310,7 +310,7 @@ T1은 유사도 순위 전에 결정론적 필터로 이전 사례를 검색합�
 | O4 - T1 reuse | Core 및 영속성 구현됨: T1은 변경할 수 없는 operational-case 맥락을 저장하고 injected current-evidence 검증기를 받아 실패 지문, 리소스 타입, 토폴로지 역할, 그래프, 소유자, precondition, 신원, 영향 범위, 정책, 예행 실행, 멱등성, 롤백 상태를 다시 확인합니다. 서명은 정본 매개변수와 full 사례 맥락을 연결합니다. 구체적인 Kubernetes 및 Azure 수집기는 O5/O6 연결입니다. | 검증기 또는 근거 누락, stale 또는 변경된 맥락, 안전성 검사 실패는 변경 없이 항상 검토 보류됩니다. Azure는 evaluation 시계 기준 범위가 제한된 캐시 age를 평가하면서 이벤트 인제스트 직전 recent 캐시를 허용합니다. 이전 방식 인시던트 pattern은 기존 동작을 유지합니다. |
 | O5 - AKS 전달 | 구현 및 non-production 실제 운영 검증 완료: 기존 Kubernetes 및 Azure 읽기 경계가 현재 reuse, temporal causality, Dynamic 요청에 근거를 제공합니다. One-pod invalid-image fault는 서버 예행 실행, isolated 이름 공간, 45초 관측 구간을 사용했습니다. | Kubernetes는 `ErrImagePull` 및 `ImagePullBackOff`를 보고했고 Azure Monitor는 pod `Pending`, Log Analytics는 pull 실패와 terminating 근거, Activity Log는 클러스터 수명 주기를 보존했습니다. 이름 공간 삭제로 롤백을 완료하고 one-node 클러스터는 `Stopped` / `Succeeded`로 돌아갔습니다. 운영은 사용 불가로 유지했습니다. |
 | O6 - Azure 리소스 absorption | 구현됨: strict promoted-inventory 스냅샷과 구성된 Azure 메트릭이 Kubernetes 및 non-Kubernetes 리소스 타입에 범용 current-reuse, causal, Dynamic 근거 연결을 제공합니다. | 읽기 전용 non-production Container App 훈련에서 healthy 활성 개정 번호 1개, 복제본 1개, 재시작 0회, administrative 쓰기 없이 동일한 pre/게시 상태를 관측했습니다. 단위 근거는 벤치마크 가져오기 없이 정책/precondition/예행 실행 실패 시 차단, 온톨로지 변환 결과, 범위가 제한된 조회, 결정론적 재시작 재생을 증명합니다. |
-| O7 - 승격 측정 | Core 구현됨: 변경할 수 없는 FDAI 개정 번호, ActionType 다이제스트, 시나리오 사례, 권위 있는 측정 단위 및 최신 correction이 고정된 벤치마크와 live-shadow 집단을 결합합니다. Correction은 집단, 사례, 관측 시간, causal 계보를 바꿀 수 없습니다. Audited 멱등적 실행기는 separate Wilson 95% 집단 한계, 서로 다른 실제 운영 일, executed-action 롤백과 완전한 recurrence 구간, zero escape, 검증된 causal 증적, Dynamic 검토 비율을 측정합니다. Closed causal 증적은 confirmed 종결일 때만 조건을 충족합니다. 배포는 근거 출처와 증적/단위 검증기를 연결합니다. | Raw scalar 메트릭은 promote할 수 없습니다. 실패한 evaluation 감사는 이후 successful 증적을 막지 않고 repeated 증적은 original 승격 시간을 보존하며 저장된 적용은 재시작 후 다시 verify됩니다. 모든 액션별 게이트가 통과해야 별도 검토가 가능하며 현재 훈련은 필요한 action-specific 일과 확신도 샘플 크기가 없어 보류 상태입니다. |
+| O7 - 승격 측정 | Core 구현됨: 변경할 수 없는 FDAI 개정 번호, ActionType 다이제스트, 시나리오 사례, 권위 있는 측정 단위, 최신 correction, 정확한 임계값 정책 다이제스트가 고정된 벤치마크와 live-shadow 집단을 결합합니다. Correction은 집단, 사례, 관측 시간, causal 계보를 바꿀 수 없습니다. Audited 멱등적 실행기는 separate Wilson 95% 집단 한계, 서로 다른 실제 운영 일, executed-action 롤백과 완전한 recurrence 구간, zero escape, 검증된 causal 증적, Dynamic 검토 비율을 측정합니다. Closed causal 증적은 confirmed 종결일 때만 조건을 충족합니다. 배포는 근거 출처와 증적/단위 검증기를 연결합니다. | Raw scalar 메트릭은 promote할 수 없습니다. 검토, 증적 저장, 직접 승격 요청, 영속 적용, 재시작 readback은 같은 정책 다이제스트를 결속합니다. 임계값을 바꾸려면 새로 검토된 증적이 필요합니다. 실패한 evaluation 감사는 이후 successful 증적을 막지 않고 repeated 증적은 original 승격 시간을 보존하며 저장된 적용은 재시작 후 다시 verify됩니다. 모든 액션별 게이트가 통과해야 별도 검토가 가능하며 현재 훈련은 필요한 action-specific 일과 확신도 샘플 크기가 없어 보류 상태입니다. |
 
 O0부터 O4까지는 cloud-provider-neutral입니다. O5와 O6는 learned pattern이나 control-loop
 권한 모델을 바꾸지 않고 Azure 근거 연결을 제공합니다.
