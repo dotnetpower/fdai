@@ -65,10 +65,12 @@ class ControlLoopExecutionEffectsMixin:
         correlation_id: str,
         execution_started_at: datetime,
         execution_ended_at: datetime,
-        authorization_decision: Literal["auto", "hil", "deny", "abstain"] = "abstain",
+        authorization_decision: Literal["auto", "hil", "deny", "abstain"],
     ) -> ExecutionResultType:
         if execution_outcome_is_no_effect(result.outcome):
-            await self._record_workflow_no_effect(action=action, result=result)
+            await self._record_workflow_no_effect(
+                action=action, result=result, authorization_decision=authorization_decision
+            )
             return result
         if action.action_type in ALERT_ACTIONS:
             # Alert delivery and recall require the exact independent alert observer.
@@ -118,6 +120,7 @@ class ControlLoopExecutionEffectsMixin:
         *,
         action: Action,
         result: ExecutionResultType,
+        authorization_decision: Literal["auto", "hil", "deny", "abstain"],
     ) -> None:
         recorder = self._workflow_outcome_recorder
         if recorder is None or action.workflow_action is None:
@@ -131,7 +134,7 @@ class ControlLoopExecutionEffectsMixin:
                 EffectVerificationReason.PREDICTION_UNAVAILABLE,
             ),
             recorded_at=recorded_at,
-            decision="abstain",
+            decision=authorization_decision,
             rollback_succeeded=getattr(result, "rollback_succeeded", None),
         )
         try:

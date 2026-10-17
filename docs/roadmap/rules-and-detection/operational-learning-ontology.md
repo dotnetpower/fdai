@@ -201,6 +201,33 @@ source-owned retention without a new product schema or ledger. Independent obser
 valid read/reuse admissions must be populated before optional host DI can compare a candidate.
 External IdP, Inventory, Blob and production coherence remain unqualified by this local backend.
 
+### Original authorization and evaluation limits
+
+An effect correction can replace an observation, including withdrawing it as unknown, but cannot
+change the original `decision` or `execution_mode`. The complete revision-chain reader rejects
+such substitutions before rebuild, current-source qualification or frozen-prediction scoring.
+No-effect workflow terminals also retain the original authorization independently of their
+unscorable effect label. Neither permission nor refusal is an observed recovery or technical failure.
+
+The standard `runtime/control_loop.py` binds the baseline Pattern library and current-reuse
+verifier, not a retained-Pattern source or coherent external qualifier. Operator authentication
+receipts, registered catalog actions, inventory facts, independently admitted evidence and case
+artifacts have existing owners, but their existence is not a deployed whole-tuple binding.
+Do not copy those facts into the LOCAL owner and describe that copy as protection of their sources.
+The [follow-up source map and hardening evidence](../../internals/operational-learning-hardening-20261017.md#authorization-provenance-follow-up)
+records the verified connections and remaining gaps.
+
+The pure frozen-prediction evaluator reports scalar absolute error, interval coverage and
+independent-key exclusions. It does not supply a paired baseline/challenger operational cohort,
+probability calibration/Brier score, recovery time, recurrence, side effects, risk cost or causal
+policy effects. Before operational scoring, retain a reviewed plan pinned to the installation's
+existing SLO and safety-budget revisions, observation/recurrence windows, chronological cutoffs,
+incident/retry/replica/common-cause grouping, required service/cluster/topology holdouts, provenance
+classes, denominators and uncertainty method. No target SLO or authorized live cohort is selected
+here, so those gates remain unqualified rather than receiving arbitrary thresholds.
+Unexecuted candidates have no outcome; without propensity and overlap evidence, selection bias
+remains unresolved. Changing a subsequent shadow prediction proves consumption, not better recovery.
+
 `PANTHEON_SPECS` once assigned Norns a `PatternObservation` while the catalog named the same record
 `Pattern`. The two names described one inert compiled cohort record, not a raw observation and a
 reviewed generalization, because no code performs the review that a second layer would require. The

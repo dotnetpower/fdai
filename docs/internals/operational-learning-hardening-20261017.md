@@ -292,5 +292,158 @@ An unrestricted follow-imports invocation also inspected unchanged fixture-impor
 reported 30 existing typing errors in four unmodified files; those are not hidden as a clean
 whole-test-tree type result.
 
+## Authorization provenance follow-up
+
+Reconfirmed upstream main at `db740d8dd443c1667714ae91ec9048113d13bc24`, with #2195 and
+#2196 merged at the reported revisions. Both recorded #2196 head workflows completed successfully
+on `980ee61f3be3ff9e5a9a60c329e4a4c5f9efb99b`, attempt 1. These remain prior-input evidence.
+The follow-up uses a new topic from current main; it does not revive an old work branch.
+No installation, live source, Azure target or model invocation is selected.
+
+### Source owners and actual connections
+
+This is a source-code trace, not a claim about the configuration of an inspected installation.
+
+| Input | Producer and owning storage | Existing consumer and currency boundary | Remaining retained-Pattern connection |
+|-------|-----------------------------|----------------------------------------|---------------------------------------|
+| Authenticated request and principal | Operator `semantic_authentication_receipts.py` retains `operator_authentication_receipt` before transport; Core `semantic_turn_request.py` binds receipt/request references | `OperatingPatternQuery` requires the exact authenticated operations-review context and independent read admission | Standard T1 bootstrap supplies no `RetainedPatternRequest` source. A retained receipt alone does not prove current IdP authorization. |
+| Registered action, arguments and schema | Catalog loaders in `runtime/control_loop.py`; LOCAL owner has an explicit `register_action` writer | Retained source checks registered identity and JSON schema; LOCAL qualifier locks its actual action row | No installed retained-action resolver is bound. A catalog declaration is not a resolved invocation. |
+| Independent measured statistics | LOCAL `retain_statistics` stores an explicitly supplied `RetainedReuseStatistics`; the baseline pgvector library separately owns historical rates | Retained source re-reads statistics; LOCAL final lease locks authorization and the exact measured DTO until acceptance | No production independent `RetainedReuseStatistics` producer/retention binding was found. Cohort counts and baseline rates are not substitutes. |
+| Policy and reuse admission | Azure operational evidence adapters, inventory reader and decision-evidence providers; LOCAL policy/reuse/admission rows have one real owner | Ordinary T1 current-reuse checks and read/reuse admissions remain authoritative | External inventory, policy and proof owners have no composed whole-tuple checked-version/lease/fence in standard bootstrap. |
+| Complete cohort, including negative cases | Muninn materialization and deletion-fenced case projections; case metadata and artifacts retain versions | Pattern query recompiles and checks every case; LOCAL lease locks exact projection, metadata and artifact rows | LOCAL protection is not a lock on external Blob or other production writers. |
+| Frozen prediction, execution and independent observation | `_execution_effects.py`, `prediction_evidence.py`, response-outcome audit and configured independent observer | `PostgresFeedbackRevisionSource` checks complete current audit chains; registry persists atomic challenger state; configured Dynamic runtime reads it | Actual predictor/observer identity, completed intervention and source-owned retention still need installation qualification. Standard retained-Pattern runtime intake remains unbound. |
+
+The chosen change preserves original authorization across no-effect terminals and observation
+revisions. Copying external sources into LOCAL, adding a writer-ignored epoch, treating sequential
+reads as one snapshot, or installing an accepting qualifier would not close the production gap.
+An external issuer requires the actual source owners and revocation semantics; none is fabricated.
+
+### Critique round 1: original authorization and source boundaries
+
+| # | Concrete concern | Result and evidence |
+|---|------------------|---------------------|
+| 1 | Can a correction change `deny` or `abstain` into permission? | Confirmed Medium: the old rebuild and evaluator each accepted one synthetic sample. Full-chain validation now rejects decision changes. |
+| 2 | Can a correction turn shadow into an executed observation? | Same provenance defect: old code trained/scored one sample. Both mode directions now reject; no permission is inferred from the effect. |
+| 3 | Do no-effect workflow terminals retain the original gate decision? | Confirmed Medium: 12 of 16 new cases failed before repair because all became `abstain`. The original typed decision is now passed through; all effects remain unscorable. |
+| 4 | Can valid observed-value corrections still replace a label? | Existing correction/rebuild and new four-decision controls preserve valid lineage without adding samples. |
+| 5 | Can withdrawal or unobserved results become failure/success? | Unknown corrections remain unscorable, with no absolute-error result; original denial remains denied. |
+| 6 | Can wrong action/event/predictor/unit provenance calibrate? | Frozen snapshot and feedback contract regressions reject identity and unit/receipt substitutions. |
+| 7 | Can a complete but authorization-rewritten audit chain qualify a model? | Unit source diagnostics and actual PostgreSQL restart cases reject it as `feedback_source_revision_chain_invalid`. |
+| 8 | Can duplicate, concurrent or lost-response processing double-learn? | Existing reliability and actual SQL transactions preserve one receipt/sample and roll back partial audit failure. |
+| 9 | Can a negative case disappear during an intake await? | Committed withdrawal matrix covers artifact deletion, corruption, metadata deletion and projection withdrawal at every named intake boundary. |
+| 10 | Can measurement, principal or policy revocation survive the last awaited screen? | Real LOCAL source rows are changed, including authentication-request substitution; the exact final lease rejects. |
+| 11 | Can ordinary read/reuse admission replace final coherent qualification? | Independent admission withdrawal tests and missing/rejected qualifier controls preserve the existing distinction. |
+| 12 | Are installation wiring and operational improvement demonstrated by these tests? | No. The standard source is unbound; the data is synthetic with real local storage. These are unfinished operational prerequisites, not Low findings. |
+
+### Critique round 2: repaired paths and negative controls
+
+The second review checked the repaired terminal/revision paths and the controls below, then
+extended the producer trace to every dispatch completion branch. That trace found a further Medium
+provenance omission: three early holds did not forward the original decision. Nine of twelve new
+branch controls failed before repair; the three existing abstention controls remained valid.
+All three branches now forward the typed value, and the private completion method requires it
+instead of silently defaulting. Unqualified installation/source/effect work remains open.
+
+1. Six decision/mode substitutions reject in both chronological and reordered/duplicate revision input.
+2. Original `auto`, `hil`, `deny` and `abstain` survive no-effect recording in both execution modes.
+3. No-effect recording calls neither predictor nor observer and retains no invented measured value.
+4. Valid value corrections retain authorization; unknown corrections remove scoring eligibility.
+5. Audit-source malformed, future, legacy, missing and superseded chains remain explicit holds.
+6. Restarted SQL learning refuses authorization rewriting while the active baseline is unchanged.
+7. Stored learning changes the next real Dynamic shadow prediction from 80 to 60 while active
+   stays 80; this synthetic consumption test does not assert that 60 is more accurate.
+8. Withdrawal of that observation makes the same restarted runtime explicitly unavailable,
+   without manufacturing a replacement or promoting the challenger.
+9. Eleven owner mutations at ten named awaited boundaries reject: request, initial read, direct
+   projection read, resolver, first statistics, first verification, second statistics, final read,
+   final verification and pre-lease acquisition. This is 110 real PostgreSQL probes, not 110
+   independent operational incidents and not exhaustive nested-provider instruction interleaving.
+10. Deadline and caller cancellation at those ten boundaries preserve the baseline and release
+    source access; the existing held-lease cancellation tests separately prove actual lock release.
+11. Existing case expiry, lease-exit failure, source writer blocking, restarted LOCAL composition
+    and disabled-comparison controls remain intact. No broad database/table lock is added.
+12. T1 current safeguards, final-admission inventory, original independent-effect scenario,
+    predictor retention and registry corruption controls pass without changing their authority.
+13. External IdP, Inventory and Blob are not covered by LOCAL row protection; production startup
+    is not modified or described as wired.
+14. Shadow scoring is not policy effect: no unexecuted candidate label, propensity, overlap,
+    cross-environment holdout, live recovery or confidence claim is invented.
+
+### Critique round 3: complete producer trace
+
+No confirmed above-Low defect remains in the three changed production modules after this round.
+This is a bounded source conclusion, not operational qualification. The twelve controls are:
+
+1. Conflict holds preserve each of the four original gate decisions.
+2. Kinetic evidence-writer failures preserve those decisions without reaching the executor.
+3. Missing workflow safeguard commitments preserve those decisions and remain rejected.
+4. Normal terminal completion and all three early branches explicitly supply authorization.
+5. The private completion signature has no accepting/defaulted authorization value; mypy checks
+   all actual call sites. The public dispatch default still truthfully represents unknown input.
+6. All no-effect terminals remain unscorable, with no predictor/observer or successful-recovery label.
+7. Observation corrections cannot rewrite decision or execution mode, in either direction.
+8. Valid value corrections and unknown withdrawal preserve their distinct effect semantics.
+9. Actual SQL restart/source checks cannot consume an authorization-rewritten outcome.
+10. Stored challenger consumption, independent source withdrawal and unchanged active predictions
+    remain covered by the SQL/runtime regression; there is no active-model writer in this change.
+11. The 110 LOCAL withdrawal probes and 20 deadline/cancellation probes still cover their exact
+    source-owned boundary, with held-lease release/expiry/exit-failure tests separately retained.
+12. No policy, RBAC, approval, execution, promotion, rollback or blast-radius gate is removed or
+    broadened; no copied external source or fixture becomes operational evidence.
+
+### Evaluation and delivery boundaries
+
+Before examining operational results, a reviewed plan still needs the existing target SLO and
+safety-budget revisions, observation/recurrence windows, chronological prediction ledger,
+incident/retry/replica/common-cause grouping, and service/cluster/topology holdouts where claimed.
+The source classes must distinguish synthetic, simulation, historical and live observations.
+No target is selected here, so inventing a sample threshold would not satisfy this requirement.
+
+Recovery rate/time, recurrence, rollback, side effects, risk costs, recommendation coverage,
+abstention, conditional success, probability calibration/Brier score, scalar prediction error,
+interval coverage, independent incident counts and uncertainty need explicit denominators and
+missing-data treatment. The existing pure scalar evaluator covers only a subset; there is no
+paired operational baseline/challenger dataset or resolved selection bias in this follow-up.
+No deployment, promotion, managed-resource mutation or live model call was performed.
+
+Current GitHub repository permissions report read access without push access. Do not switch
+identity, create a remote-only commit or bypass protection. Local implementation and verification
+can finish, but publication, exact-head CI and protected merge require ordinary write permission.
+
+Before the final producer-trace repair, the integrated selection passed 527 tests in 94.03
+seconds. The final round adds twelve explicit early-dispatch controls to the same selection,
+using the existing
+`python3 scripts/automation/with-local-test-database.py uv run --no-sync pytest -q --no-cov`
+entry point and these selectors (no repository-wide suite):
+
+```text
+services/core-control-plane/tests/core/mscp_profile/test_control_loop_shadow.py
+services/core-control-plane/tests/assurance_twin/test_prediction_feedback_contract.py
+services/core-control-plane/tests/assurance_twin/test_model_registry.py
+services/core-control-plane/tests/assurance_twin/test_feedback_rebuild.py
+services/core-control-plane/tests/delivery/measurement/test_feedback_revision_source.py
+services/core-control-plane/tests/assurance_twin/test_feedback_reliability.py
+services/core-control-plane/tests/assurance_twin/test_feedback_registry_boundaries.py
+services/core-control-plane/tests/assurance_twin/test_runtime.py
+services/core-control-plane/tests/scenarios/test_v2026_07_replay.py::test_sre_successful_full_loop_closes_only_on_independent_effect_observation
+services/core-control-plane/tests/core/test_control_loop_t1_wire.py
+tests/integration/scripts/test_decision_boundary_coverage.py
+services/core-control-plane/tests/core/tiers/t1_lightweight/test_retained_patterns.py
+services/core-control-plane/tests/core/tiers/t1_lightweight/test_retained_pattern_audit.py
+services/core-control-plane/tests/core/tiers/t1_lightweight/test_eligibility_comparison.py
+services/core-control-plane/tests/core/tiers/t1_lightweight/test_contextual_reuse.py
+services/core-control-plane/tests/persistence/test_local_pattern_withdrawal.py
+services/core-control-plane/tests/persistence/test_local_pattern_qualification.py
+services/core-control-plane/tests/persistence/test_scalar_feedback_transaction.py
+```
+
+The final round-three selection passed all 539 tests in 100.67 seconds (exit 0).
+Of that selection, 166 PostgreSQL/venue cases include 161 actual private-schema PostgreSQL
+checks and five venue/runtime refusal checks. Repeated runs are not added to the count.
+Ruff and eight-file `mypy --follow-imports=silent` pass. Paired translation, Korean prose,
+punctuation, readable Hangul, design routes and the append-only ledger check pass.
+The final immutable fast/structural preflight is a separate delivery stage, not implied by these
+focused results. The best-effort Project update was refused by Enterprise Managed User policy.
+
 No external IdP/Inventory/Blob source, production bootstrap, live recovery comparison, deployment,
 model call or Azure mutation was performed. #2194 retains those authorization and evidence gates.
