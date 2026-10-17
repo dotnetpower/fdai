@@ -8,8 +8,9 @@ packaged, and delivered to a Lifecycle Hub. It also keeps that configuration sep
 customer identifiers, secrets, policy, and authority. It owns the value classes, the configuration
 layers, and the signed configuration package.
 
-> **Status:** Design only. No configuration package, sealed value, or configuration schema
-> annotation exists yet. The
+> **Status:** Pure schema, layer and secret-reference validators are implemented, together with a
+> placeholder repository template and key-custody runbook. There is no signed configuration
+> package, sealing or Hub import path. The
 > [implementation ledger](../../roadmap-implementation/deployment/lifecycle-configuration.md)
 > tracks delivery.
 >
@@ -231,12 +232,23 @@ Customer B uses a central Hub cell in East US, subscribes to `RELEASE_CANDIDATE`
 | `entity_override_block` | `revision_id`, `entity_id`, `version_range` | Override values and digest | Inherits the revision | Immutable per revision |
 | `package_import` | `import_id` | Source, such as upload or bundle, and the verification result | `imported_at` | Append-only |
 
+## Customer repository template and key onboarding
+
+The [placeholder template](../../../config/lifecycle-configuration-template/README.md) provides the
+installation, Environment Config, private sealing input and Entity layout above, plus a synthetic
+annotated Release schema. Its focused offline tests call the existing validators; they do not
+create a package, key, signature, upload or deployment. The
+[configuration key runbook](../../runbooks/lifecycle-configuration-key-onboarding.md) separates
+customer key custody from the unimplemented signer, independent trust registration and Hub import.
+Do not upload readable `sealed.yaml` input or treat an example schema as a trusted Release.
+
 ## Honest limits
 
-- Nothing in this document is implemented yet.
-- Releases don't carry configuration schemas with axis and owner annotations yet.
-- No packaging command exists. Onboarding for the customer configuration key needs its own
-  runbook.
+- Pure validators and the offline template are implemented; operational package delivery is not.
+- The example schema has annotations, but production Releases don't yet carry a qualified
+  configuration-package schema.
+- No packaging, key-registration, sealing or Hub import command exists. The onboarding runbook
+  records prerequisites and the required stop condition, not a working registration path.
 - A customer who loses the configuration key can't publish new revisions until a key rotation
   is registered with the Hub.
 
@@ -249,4 +261,5 @@ Customer B uses a central Hub cell in East US, subscribes to `RELEASE_CANDIDATE`
 | Approval and admission policy | [Operator Governance Profiles](../decisioning/operator-governance-profiles.md) |
 | Model bindings, capacity, and diversity | [Model Capability Lifecycle](../architecture/model-capability-lifecycle.md) |
 | Decision record | [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance.md) |
+| Customer key custody and onboarding prerequisites | [Configuration key runbook](../../runbooks/lifecycle-configuration-key-onboarding.md) |
 | Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/deployment/lifecycle-configuration.md) |

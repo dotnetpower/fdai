@@ -1,0 +1,17 @@
+# Offline synthetic schema, not a signed Release.
+region:
+  default: <azure-region>
+  x-fdai-axis: deployment-environment
+  x-fdai-owner: customer
+replicas:
+  default: 1
+  x-fdai-axis: deployment-environment
+  x-fdai-owner: customer
+model_bindings:
+  default: {}
+  x-fdai-axis: model-diversity-policy
+  x-fdai-owner: customer
+credential_ref:
+  default: kv://example-vault/example-token
+  x-fdai-axis: product-surface-profile
+  x-fdai-owner: customer

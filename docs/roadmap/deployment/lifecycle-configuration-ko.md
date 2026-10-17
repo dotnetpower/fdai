@@ -1,8 +1,8 @@
 ---
 title: 수명 주기 구성
 translation_of: lifecycle-configuration.md
-translation_source_sha: 790920c902a602cc70a32217ec746eaa7ba0b519
-translation_revised: 2026-10-02
+translation_source_sha: 14cdb68e5dba846f1180ccb29db9a371dff094ff
+translation_revised: 2026-10-18
 ---
 # 수명 주기 구성
 
@@ -10,7 +10,8 @@ translation_revised: 2026-10-02
 전달하는 방법을 정의합니다. 또한 그 구성을 고객 식별자, 비밀, 정책, 권한과 분리합니다. 이 문서는
 값 분류, 구성 계층, 서명된 구성 패키지를 소유합니다.
 
-> **상태:** 설계만 되어 있습니다. 구성 패키지, 봉인된 값, 구성 스키마 주석은 아직 없습니다.
+> **상태:** 순수 스키마, 계층 및 비밀 참조 검증기와 자리 표시자 저장소 템플릿, 키 보관 런북이
+> 구현되어 있습니다. 서명된 구성 패키지, 봉인이나 Hub 가져오기 경로는 아직 없습니다.
 > [구현 ledger](../../roadmap-implementation/deployment/lifecycle-configuration.md)가 제공 현황을
 > 추적합니다.
 >
@@ -226,11 +227,21 @@ Customer B는 East US의 중앙 Hub cell을 사용하고, `RELEASE_CANDIDATE`를
 | `entity_override_block` | `revision_id`, `entity_id`, `version_range` | 재정의 값과 다이제스트 | 개정을 따름 | 개정별로 변경 불가 |
 | `package_import` | `import_id` | 업로드나 번들 같은 출처와 검증 결과 | `imported_at` | 추가 전용 |
 
+## 고객 저장소 템플릿과 키 등록
+
+[자리 표시자 템플릿](../../../config/lifecycle-configuration-template/README.md)은 위의 설치,
+Environment Config, 비공개 봉인 입력과 Entity 구조에 합성 주석 Release 스키마를 더해
+제공합니다. 집중 오프라인 검사는 기존 검증기를 호출할 뿐 패키지, 키, 서명, 업로드나 배포를
+만들지 않습니다. [구성 키 런북](../../runbooks/lifecycle-configuration-key-onboarding-ko.md)은
+고객 키 보관을 아직 구현되지 않은 서명기, 독립 신뢰 등록과 Hub 가져오기에서 구분합니다.
+읽을 수 있는 `sealed.yaml` 입력을 업로드하거나 예제 스키마를 신뢰된 Release로 취급하지 마세요.
+
 ## 현재 한계
 
-- 이 문서의 어떤 내용도 아직 구현되지 않았습니다.
-- Release에는 아직 축과 소유자 주석이 있는 구성 스키마가 없습니다.
-- 패키지 생성 명령이 없습니다. 고객 구성 키 등록에는 별도의 런북이 필요합니다.
+- 순수 검증기와 오프라인 템플릿은 구현되어 있지만 운영 패키지 전달은 구현되지 않았습니다.
+- 예제 스키마에는 주석이 있지만 프로덕션 Release에는 아직 검증된 구성 패키지 스키마가 없습니다.
+- 패키지 생성, 키 등록, 봉인이나 Hub 가져오기 명령은 없습니다. 등록 런북은 작동하는 등록
+  경로가 아니라 선행 조건과 필수 중단 조건을 기록합니다.
 - 구성 키를 잃어버린 고객은 키 교체가 Hub에 등록될 때까지 새 개정을 게시할 수 없습니다.
 
 ## 관련 문서
@@ -242,4 +253,5 @@ Customer B는 East US의 중앙 Hub cell을 사용하고, `RELEASE_CANDIDATE`를
 | 승인 정책과 허용 정책 | [운영자 거버넌스 프로필](../decisioning/operator-governance-profiles-ko.md) |
 | 모델 바인딩, 용량, 다양성 | [모델 기능 수명 주기](../architecture/model-capability-lifecycle-ko.md) |
 | 결정 기록 | [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance-ko.md) |
+| 고객 키 보관과 등록 선행 조건 | [구성 키 런북](../../runbooks/lifecycle-configuration-key-onboarding-ko.md) |
 | 제공 현황과 남은 작업 | [구현 ledger](../../roadmap-implementation/deployment/lifecycle-configuration.md) |
