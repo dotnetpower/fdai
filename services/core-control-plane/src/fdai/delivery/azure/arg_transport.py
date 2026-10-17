@@ -12,6 +12,11 @@ from typing import Any
 
 import httpx
 
+from fdai.delivery.http_response import (
+    BOUNDED_ACCEPT_ENCODING,
+    ResponseBodyTooLargeError,
+    read_bounded_response,
+)
 from fdai.delivery.http_retry import retry_after_seconds as _retry_after_seconds
 from fdai.shared.providers.inventory import LinkRecord, RelationshipDrop, ResourceRecord
 from fdai.shared.providers.workload_identity import WorkloadIdentity
@@ -251,42 +256,53 @@ async def fetch_arg_row_pages(
         if skip_token is not None:
             body["options"]["$skipToken"] = skip_token
 
-        response = await _post_with_retry(
-            identity=identity,
-            http_client=http_client,
-            url=url,
-            headers=static_headers,
-            audience=audience,
-            body=body,
-            timeout_seconds=timeout_seconds,
-            resource_type=result_name,
-            page=page,
-            error_type=error_type,
-            throttle_gate=gate,
-            rate_limiter=limiter,
-            max_attempts=max_attempts,
-            initial_retry_delay_seconds=initial_retry_delay_seconds,
-            max_retry_delay_seconds=max_retry_delay_seconds,
+        response_limit = max_response_bytes
+        limit_message = (
+            f"ARG response exceeded {max_response_bytes} bytes for {result_name!r} (page {page})"
         )
+        if max_total_response_bytes is not None and (
+            response_limit is None
+            or max_total_response_bytes - total_response_bytes < response_limit
+        ):
+            response_limit = max_total_response_bytes - total_response_bytes
+            limit_message = (
+                f"ARG responses exceeded {max_total_response_bytes} total bytes for "
+                f"{result_name!r} (page {page})"
+            )
+        try:
+            response, content = await _post_with_retry(
+                identity=identity,
+                http_client=http_client,
+                url=url,
+                headers=static_headers,
+                audience=audience,
+                body=body,
+                timeout_seconds=timeout_seconds,
+                resource_type=result_name,
+                page=page,
+                error_type=error_type,
+                throttle_gate=gate,
+                rate_limiter=limiter,
+                max_attempts=max_attempts,
+                initial_retry_delay_seconds=initial_retry_delay_seconds,
+                max_retry_delay_seconds=max_retry_delay_seconds,
+                max_response_bytes=response_limit,
+            )
+        except ResponseBodyTooLargeError as exc:
+            raise error_type(limit_message) from exc
+        except httpx.DecodingError as exc:
+            raise error_type(
+                f"ARG returned invalid compressed inventory data for {result_name!r} (page {page})"
+            ) from exc
 
         if response.status_code >= 400:
             raise error_type(
                 f"ARG returned HTTP {response.status_code} for {result_name!r} (page {page})"
             )
-        if max_response_bytes is not None and len(response.content) > max_response_bytes:
-            raise error_type(
-                f"ARG response exceeded {max_response_bytes} bytes for {result_name!r} "
-                f"(page {page})"
-            )
-        total_response_bytes += len(response.content)
-        if max_total_response_bytes is not None and total_response_bytes > max_total_response_bytes:
-            raise error_type(
-                f"ARG responses exceeded {max_total_response_bytes} total bytes for "
-                f"{result_name!r} (page {page})"
-            )
+        total_response_bytes += len(content)
 
         try:
-            payload = response.json()
+            payload = json.loads(content)
         except ValueError as exc:
             raise error_type(f"ARG returned non-JSON for {result_name!r} (page {page})") from exc
         if not isinstance(payload, Mapping):
@@ -393,7 +409,8 @@ async def _post_with_retry(
     max_attempts: int,
     initial_retry_delay_seconds: float,
     max_retry_delay_seconds: float,
-) -> httpx.Response:
+    max_response_bytes: int | None,
+) -> tuple[httpx.Response, bytes]:
     last_error: httpx.HTTPError | None = None
     for attempt in range(max_attempts):
         await throttle_gate.wait()
@@ -414,12 +431,22 @@ async def _post_with_retry(
         else:
             request_headers = headers
         try:
-            response = await http_client.post(
+            bounded_headers = httpx.Headers(request_headers)
+            bounded_headers["Accept-Encoding"] = BOUNDED_ACCEPT_ENCODING
+            async with http_client.stream(
+                "POST",
                 url,
-                headers=request_headers,
+                headers=bounded_headers,
                 content=json.dumps(body),
                 timeout=timeout_seconds,
-            )
+            ) as response:
+                content = (
+                    await read_bounded_response(response, max_bytes=max_response_bytes)
+                    if response.status_code < 400
+                    else b""
+                )
+        except httpx.DecodingError:
+            raise
         except httpx.HTTPError as exc:
             last_error = exc
             if attempt + 1 >= max_attempts:
@@ -434,7 +461,7 @@ async def _post_with_retry(
 
         await throttle_gate.observe(response.headers)
         if response.status_code not in _RETRYABLE_STATUS_CODES or attempt + 1 >= max_attempts:
-            return response
+            return response, content
         retry_delay = _retry_after_seconds(response.headers.get("Retry-After"))
         if retry_delay is None:
             retry_delay = min(
@@ -442,7 +469,7 @@ async def _post_with_retry(
                 max_retry_delay_seconds,
             )
         elif retry_delay > max_retry_delay_seconds:
-            return response
+            return response, content
         await throttle_gate.defer(retry_delay)
 
     if last_error is None:

@@ -11,6 +11,11 @@ from typing import Any
 import httpx
 
 from fdai.delivery.azure.arm_inventory_vm_state import ArmInventoryError
+from fdai.delivery.http_response import (
+    BOUNDED_ACCEPT_ENCODING,
+    ResponseBodyTooLargeError,
+    read_bounded_response,
+)
 from fdai.delivery.http_retry import InvalidRetryAfterError, retry_not_before
 
 _RETRYABLE = frozenset({408, 429, 500, 502, 503, 504})
@@ -31,6 +36,8 @@ async def fetch_arm_json(
     max_attempts: int,
 ) -> tuple[Mapping[str, Any], int]:
     """Read one bounded object; never retry before the provider's cooldown."""
+    bounded_headers = httpx.Headers(headers)
+    bounded_headers["Accept-Encoding"] = BOUNDED_ACCEPT_ENCODING
     for attempt in range(max_attempts):
         delay = min(0.5 * (2**attempt), 30.0)
         try:
@@ -38,7 +45,7 @@ async def fetch_arm_json(
                 async with client.stream(
                     "GET",
                     url,
-                    headers=headers,
+                    headers=bounded_headers,
                     timeout=timeout_seconds,
                     follow_redirects=False,
                 ) as response:
@@ -64,11 +71,16 @@ async def fetch_arm_json(
                                 retry_not_before=deadline,
                             )
                     else:
-                        content = bytearray()
-                        async for chunk in response.aiter_bytes(chunk_size=65_536):
-                            if len(content) + len(chunk) > max_response_bytes:
-                                raise ArmInventoryError("ARM response exceeded its byte limit")
-                            content.extend(chunk)
+                        try:
+                            content = await read_bounded_response(
+                                response, max_bytes=max_response_bytes
+                            )
+                        except ResponseBodyTooLargeError as exc:
+                            raise ArmInventoryError("ARM response exceeded its byte limit") from exc
+                        except httpx.DecodingError as exc:
+                            raise ArmInventoryError(
+                                "ARM returned invalid compressed inventory data"
+                            ) from exc
                         try:
                             payload = json.loads(content)
                         except ValueError as exc:
