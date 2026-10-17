@@ -229,7 +229,7 @@ Customer B는 East US의 중앙 Hub cell을 사용하고, `RELEASE_CANDIDATE`를
 
 ## 고객 저장소 템플릿과 키 등록
 
-[자리 표시자 템플릿](../../../config/lifecycle-configuration-template/README-ko.md)은 위의 설치,
+[자리 표시자 템플릿](../../../config/lifecycle-configuration-template/README.md)은 위의 설치,
 Environment Config, 비공개 봉인 입력과 Entity 구조에 합성 주석 Release 스키마를 더해
 제공합니다. 집중 오프라인 검사는 기존 검증기를 호출할 뿐 패키지, 키, 서명, 업로드나 배포를
 만들지 않습니다. [구성 키 런북](../../runbooks/lifecycle-configuration-key-onboarding-ko.md)은

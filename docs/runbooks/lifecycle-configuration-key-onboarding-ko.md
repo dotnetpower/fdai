@@ -20,7 +20,7 @@ translation_revised: 2026-10-18
 
 ## 1. 비공개 저장소 준비
 
-[자리 표시자 템플릿](../../config/lifecycle-configuration-template/README-ko.md)을 고객 소유 비공개
+[자리 표시자 템플릿](../../config/lifecycle-configuration-template/README.md)을 고객 소유 비공개
 저장소로 복사하세요. 합성 `release-schema.yaml`은 예제로만 유지하세요. 실제 패키지에는
 독립적으로 검증된 대상 Release의 스키마가 필요합니다.
 

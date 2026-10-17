@@ -119,8 +119,8 @@ def test_customer_template_allows_only_secret_references_before_signing() -> Non
 
 
 def test_customer_key_runbook_keeps_unimplemented_publication_explicit() -> None:
+    assert (_TEMPLATE / "README.md").is_file()
     for suffix in ("", "-ko"):
-        assert (_TEMPLATE / f"README{suffix}.md").is_file()
         runbook = _ROOT / f"docs/runbooks/lifecycle-configuration-key-onboarding{suffix}.md"
         assert runbook.is_file()
         assert "tests/integration/test_lifecycle_configuration_template.py" in runbook.read_text()
