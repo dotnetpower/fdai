@@ -44,9 +44,7 @@ from fdai.core.operational_learning import (
     CatalogValidationRequest,
     PolicyCheckReceipt,
     ReplayCheckReceipt,
-    ReviewedReplayAuthority,
     ReviewedReplayPersistedAuthorityVerifier,
-    ReviewedReplayPromotionEvidence,
     ReviewedReplayReceiptVerifier,
     SchemaCheckReceipt,
     ShadowCheckReceipt,
@@ -69,6 +67,10 @@ from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
+from tests.agents.test_governed_learning_loop import (
+    _prepare_reviewed_promotion,
+    _reviewed_promotion_fixture,
+)
 from tests.core.case_history.test_operational_case import (
     _case_input,
     _receipt,
@@ -455,26 +457,8 @@ async def test_p4_p5_pattern_and_candidate_chain_is_correction_aware_and_fail_cl
     await _assert_candidate_source_refused(old_candidate, materializer)
 
     action_type = _action_type()
-    receipt = _promotion_receipt(action_type, final_package)
-    authority = ReviewedReplayAuthority(
-        (
-            ReviewedReplayPromotionEvidence(
-                action_type=action_type.name,
-                action_type_version=action_type.version,
-                action_type_digest=receipt.action_type_digest,
-                fdai_revision=receipt.fdai_revision,
-                scenario_set_version=receipt.scenario_set_version,
-                candidate_digest=final_package.candidate.digest,
-                package_digest=final_package.content_digest,
-                replay_first_digest=final_package.replay.first_result_digest,
-                replay_second_digest=final_package.replay.second_result_digest,
-                promotion_evidence_digest=receipt.evidence_digest,
-                promotion_policy_digest=receipt.policy_digest or "",
-                review_ref="governance-review:prediction-learning-p45",
-                reviewer_principal="independent-governance-reviewer",
-                approved=True,
-            ),
-        )
+    receipt, authority = await _reviewed_promotion_fixture(
+        action_type, final_package, materializer, now=NOW
     )
     registry = StateStoreActionPromotionRegistry(
         store=InMemoryStateStore(),
@@ -498,6 +482,7 @@ async def test_p4_p5_pattern_and_candidate_chain_is_correction_aware_and_fail_cl
         ).mode
         is Mode.SHADOW
     )
+    assert await _prepare_reviewed_promotion(authority, receipt)
     promoted = registry.consider_promotion(
         action_type=action_type,
         metrics=_metrics(receipt),

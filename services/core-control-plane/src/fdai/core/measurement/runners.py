@@ -46,11 +46,13 @@ Failure modes
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import math
 from collections.abc import AsyncIterator, Awaitable, Callable, Sequence
 from dataclasses import dataclass, field, replace
-from datetime import UTC, datetime
-from typing import Protocol, runtime_checkable
+from datetime import UTC, datetime, timedelta
+from typing import Literal, Protocol, runtime_checkable
 
 from fdai.core.assurance_twin.model_registry import RegistryUpdate
 from fdai.core.measurement.pattern_growth import (
@@ -59,6 +61,7 @@ from fdai.core.measurement.pattern_growth import (
     OutcomeRecord,
     evaluate_intake,
 )
+from fdai.core.measurement.pending_growth import PendingPatternGrowth, record_key
 from fdai.core.measurement.regression import (
     MeasurementSample,
     RegressionDecision,
@@ -151,9 +154,9 @@ class PatternBuilder(Protocol):
     Concrete implementations reconstruct the origin event embedding
     from the audit trail (``events.payload``), rebuild the executed
     action's parameters, and compute the pattern signature. Return
-    ``None`` when the pattern cannot be built (origin event evicted,
-    embedding backend unavailable, or the ActionType is not
-    reuse-eligible per phase-2's rules).
+    ``None`` when the source is terminally ineligible. Return
+    :class:`DeferredPatternBuild` for evidence that may arrive later;
+    the runner persists that work before acknowledging the source.
 
     Return values are **candidate** patterns: the runner enforces the
     shadow-first invariant by resetting ``success_rate`` and
@@ -162,7 +165,14 @@ class PatternBuilder(Protocol):
 
     async def build(
         self, record: OutcomeRecord
-    ) -> tuple[Sequence[float], LearnedAction] | None: ...
+    ) -> tuple[Sequence[float], LearnedAction] | DeferredPatternBuild | None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class DeferredPatternBuild:
+    """Evidence may arrive later; this is neither success nor terminal failure."""
+
+    reason: str
 
 
 # ---------------------------------------------------------------------------
@@ -352,6 +362,22 @@ class PatternGrowthReport:
     ingested_signatures: tuple[str, ...] = field(default_factory=tuple)
     build_failures: int = 0
     intake_decisions: tuple[IntakeDecision, ...] = field(default_factory=tuple)
+    deferred_count: int = 0
+    expired_count: int = 0
+    pending_budget_exhausted: bool = False
+
+
+@dataclass(slots=True)
+class _PendingDrainBudget:
+    deadline: float
+    exhausted: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class _GrowthRecordResult:
+    decision: IntakeDecision
+    disposition: Literal["rejected", "expired", "deferred", "build_failed", "ingested"]
+    signature: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -372,19 +398,56 @@ class DynamicLearningRunner:
         registry: ChallengerUpdater,
         audit_store: StateStore,
         clock: Callable[[], datetime] | None = None,
+        run_timeout_s: float = 300,
     ) -> None:
         self._outcome_source = outcome_source
         self._registry = registry
         self._audit_store = audit_store
         self._clock = clock or _default_clock
+        if not math.isfinite(run_timeout_s) or run_timeout_s <= 0:
+            raise ValueError("run_timeout_s MUST be finite and positive")
+        self._run_timeout_s = run_timeout_s
 
     async def run_once(self) -> DynamicLearningReport:
+        async with asyncio.timeout(self._run_timeout_s):
+            return await self._run_once()
+
+    async def _run_once(self) -> DynamicLearningReport:
         total = 0
         accepted = 0
         reasons: dict[str, int] = {}
         async for outcome in self._outcome_source.outcomes():
             total += 1
             result = await self._registry.update_from_outcome(outcome)
+            if not result.accepted:
+                await self._audit_store.append_audit_entry(
+                    {
+                        "actor": "Norns",
+                        "producer_principal": "Norns",
+                        "action_kind": "dynamic.learning.outcome_held",
+                        "event_id": str(outcome.event_id),
+                        "action_id": str(outcome.action_id),
+                        "response_outcome_id": str(outcome.outcome_id),
+                        "reason": result.reason,
+                        "mode": Mode.SHADOW.value,
+                        "execution_authority": False,
+                        "recorded_at": self._clock().isoformat(),
+                    }
+                )
+                retryable = result.reason in {
+                    "challenger_not_registered",
+                    "revision_conflict",
+                    "untracked_challenger_requires_rebuild",
+                } or (
+                    outcome.schema_version == "1.1.0"
+                    and result.reason
+                    in {
+                        "outcome_prediction_evidence_unavailable",
+                        "model_generation_sources_unavailable",
+                    }
+                )
+                if retryable:
+                    raise RuntimeError(f"Dynamic learning retry required: {result.reason}")
             if result.accepted:
                 accepted += 1
             reasons[result.reason] = reasons.get(result.reason, 0) + 1
@@ -436,6 +499,10 @@ class PatternGrowthIntakeRunner:
         "_builder",
         "_clock",
         "_outcome_source",
+        "_pending",
+        "_pending_max_age",
+        "_item_timeout_s",
+        "_run_timeout_s",
         "_writer",
     )
 
@@ -447,59 +514,113 @@ class PatternGrowthIntakeRunner:
         writer: PatternLibraryWriter,
         audit_store: StateStore,
         clock: Callable[[], datetime] | None = None,
+        pending_capacity: int = 1_000,
+        pending_max_age: timedelta = timedelta(days=7),
+        item_timeout_s: float = 60,
+        run_timeout_s: float = 300,
     ) -> None:
         self._outcome_source = outcome_source
         self._builder = pattern_builder
         self._writer = writer
         self._audit_store = audit_store
         self._clock = clock or _default_clock
+        if pending_max_age <= timedelta(0) or any(
+            not math.isfinite(value) or value <= 0 for value in (item_timeout_s, run_timeout_s)
+        ):
+            raise ValueError("growth deadlines MUST be finite and positive")
+        self._pending = PendingPatternGrowth(audit_store, capacity=pending_capacity)
+        self._pending_max_age = pending_max_age
+        self._item_timeout_s = item_timeout_s
+        self._run_timeout_s = run_timeout_s
 
     async def run_once(self) -> PatternGrowthReport:
         """Drain the outcome source once and ingest accepted patterns."""
+        async with asyncio.timeout(self._run_timeout_s):
+            return await self._run_once()
+
+    async def _records(
+        self, budget: _PendingDrainBudget
+    ) -> AsyncIterator[tuple[OutcomeRecord, bool]]:
+        seen: set[str] = set()
+        loop = asyncio.get_running_loop()
+        try:
+            async with asyncio.timeout(max(0, budget.deadline - loop.time())):
+                pending = await self._pending.records()
+        except TimeoutError:
+            budget.exhausted = True
+            pending = ()
+            _LOGGER.warning("pattern_growth_pending_read_deferred")
+        owned = {record_key(record) for record in pending}
+        for record in pending:
+            if loop.time() >= budget.deadline:
+                budget.exhausted = True
+                break
+            seen.add(record_key(record))
+            yield record, True
+        async for record in self._outcome_source.outcomes():
+            key = record_key(record)
+            if key not in seen and key not in owned:
+                seen.add(key)
+                yield record, False
+
+    async def _run_once(self) -> PatternGrowthReport:
+        loop = asyncio.get_running_loop()
+        budget = _PendingDrainBudget(
+            loop.time() + min(self._item_timeout_s, self._run_timeout_s / 2)
+        )
         total = 0
         accepted = 0
         rejected = 0
         build_failures = 0
+        deferred = 0
+        expired = 0
         ingested: list[str] = []
         decisions: list[IntakeDecision] = []
 
-        async for record in self._outcome_source.outcomes():
+        async for record, pending in self._records(budget):
             total += 1
             decision = evaluate_intake(record)
             decisions.append(decision)
-            if decision.outcome is not IntakeOutcome.ACCEPTED:
-                rejected += 1
-                await self._write_intake_audit(
-                    record=record, decision=decision, ingested=False, reason=None
+            owned = pending
+            try:
+                item_budget = self._item_timeout_s
+                if pending:
+                    item_budget = min(item_budget, budget.deadline - loop.time())
+                    if item_budget <= 0:
+                        budget.exhausted = True
+                        deferred += 1
+                        continue
+                async with asyncio.timeout(item_budget):
+                    if decision.outcome is IntakeOutcome.ACCEPTED:
+                        await self._write_intake_audit(
+                            record=record,
+                            decision=decision,
+                            ingested=False,
+                            reason="pattern_processing",
+                            deferred=True,
+                        )
+                        owned = True
+                    result = await self._process_record(record, pending, decision)
+            except TimeoutError:
+                if not owned:
+                    raise RuntimeError(
+                        "growth processing ownership is unconfirmed; source unacknowledged"
+                    ) from None
+                if pending and loop.time() >= budget.deadline:
+                    budget.exhausted = True
+                deferred += 1
+                _LOGGER.warning(
+                    "pattern_growth_owned_item_deferred",
+                    extra={"record_digest": record_key(record)},
                 )
                 continue
-
-            built = await self._builder.build(record)
-            if built is None:
-                build_failures += 1
-                await self._write_intake_audit(
-                    record=record,
-                    decision=decision,
-                    ingested=False,
-                    reason="pattern_builder_returned_none",
-                )
-                continue
-
-            vector, candidate = built
-            # Shadow-first: strip any success-rate / reuse history the
-            # builder might have carried over. New patterns MUST NOT be
-            # T1-usable until an explicit promotion step measures them.
-            shadow_action = replace(candidate, success_rate=0.0, reuse_count=0)
-            await self._writer.upsert_pattern(vector=vector, action=shadow_action)
-            accepted += 1
-            ingested.append(shadow_action.signature)
-            await self._write_intake_audit(
-                record=record,
-                decision=decision,
-                ingested=True,
-                reason=None,
-                signature=shadow_action.signature,
-            )
+            rejected += result.disposition == "rejected"
+            expired += result.disposition == "expired"
+            deferred += result.disposition == "deferred"
+            build_failures += result.disposition == "build_failed"
+            accepted += result.disposition == "ingested"
+            if result.signature is not None:
+                ingested.append(result.signature)
 
         await self._audit_store.append_audit_entry(
             {
@@ -510,6 +631,9 @@ class PatternGrowthIntakeRunner:
                 "accepted_count": accepted,
                 "rejected_count": rejected,
                 "build_failures": build_failures,
+                "deferred_count": deferred,
+                "expired_count": expired,
+                "pending_budget_exhausted": budget.exhausted,
                 "recorded_at": self._clock().isoformat(),
             }
         )
@@ -521,7 +645,54 @@ class PatternGrowthIntakeRunner:
             ingested_signatures=tuple(ingested),
             build_failures=build_failures,
             intake_decisions=tuple(decisions),
+            deferred_count=deferred,
+            expired_count=expired,
+            pending_budget_exhausted=budget.exhausted,
         )
+
+    async def _process_record(
+        self, record: OutcomeRecord, pending: bool, decision: IntakeDecision
+    ) -> _GrowthRecordResult:
+        if decision.outcome is not IntakeOutcome.ACCEPTED:
+            await self._write_intake_audit(
+                record=record, decision=decision, ingested=False, reason=None
+            )
+            return _GrowthRecordResult(decision, "rejected")
+        if pending and self._clock() >= record.observed_at + self._pending_max_age:
+            await self._write_intake_audit(
+                record=record, decision=decision, ingested=False, reason="evidence_deadline_expired"
+            )
+            return _GrowthRecordResult(decision, "expired")
+        built = await self._builder.build(record)
+        if isinstance(built, DeferredPatternBuild):
+            overdue = self._clock() >= record.observed_at + self._pending_max_age
+            await self._write_intake_audit(
+                record=record,
+                decision=decision,
+                ingested=False,
+                reason="evidence_deadline_expired" if overdue else built.reason,
+                deferred=not overdue,
+            )
+            return _GrowthRecordResult(decision, "expired" if overdue else "deferred")
+        if built is None:
+            await self._write_intake_audit(
+                record=record,
+                decision=decision,
+                ingested=False,
+                reason="pattern_builder_returned_none",
+            )
+            return _GrowthRecordResult(decision, "build_failed")
+        vector, candidate = built
+        shadow_action = replace(candidate, success_rate=0.0, reuse_count=0)
+        await self._writer.upsert_pattern(vector=vector, action=shadow_action)
+        await self._write_intake_audit(
+            record=record,
+            decision=decision,
+            ingested=True,
+            reason=None,
+            signature=shadow_action.signature,
+        )
+        return _GrowthRecordResult(decision, "ingested", shadow_action.signature)
 
     # ------------------------------------------------------------------
     # audit helper
@@ -535,27 +706,34 @@ class PatternGrowthIntakeRunner:
         ingested: bool,
         reason: str | None,
         signature: str | None = None,
+        deferred: bool = False,
     ) -> None:
-        await self._audit_store.append_audit_entry(
-            {
-                "actor": "fdai.core.measurement.runners.growth",
-                "action_kind": "measurement.pattern_growth.intake",
-                "mode": Mode.SHADOW.value,
-                "action_id": record.action_id,
-                "action_type_id": record.action_type_id,
-                "intake_outcome": decision.outcome.value,
-                "ingested": ingested,
-                "signature": signature,
-                "reason": reason,
-                "recorded_at": self._clock().isoformat(),
-            }
-        )
+        entry = {
+            "actor": "fdai.core.measurement.runners.growth",
+            "action_kind": "measurement.pattern_growth.intake",
+            "mode": Mode.SHADOW.value,
+            "action_id": record.action_id,
+            "action_type_id": record.action_type_id,
+            "intake_outcome": decision.outcome.value,
+            "ingested": ingested,
+            "signature": signature,
+            "reason": reason,
+            "deferred": deferred,
+            "execution_authority": False,
+            "promotion_authority": False,
+            "recorded_at": self._clock().isoformat(),
+        }
+        if deferred:
+            await self._pending.defer(record, entry)
+        else:
+            await self._pending.finish(record, entry)
 
 
 __all__ = [
     "AutomatedBaselineRunner",
     "BaselineRunReport",
     "ChallengerUpdater",
+    "DeferredPatternBuild",
     "DynamicLearningReport",
     "DynamicLearningRunner",
     "OutcomeSource",

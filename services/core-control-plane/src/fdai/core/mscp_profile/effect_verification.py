@@ -12,6 +12,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 
+from fdai.shared.contracts.models import EffectPredictionSnapshot
+
 
 class EffectVerificationStatus(StrEnum):
     VERIFIED = "verified"
@@ -34,6 +36,8 @@ class EffectVerificationReason(StrEnum):
     PREDICTION_TARGET_MISMATCH = "prediction_target_mismatch"
     OBSERVATION_UNAVAILABLE = "observation_unavailable"
     OBSERVATION_PROVIDER_FAILED = "observation_provider_failed"
+    OBSERVATION_UNIT_MISMATCH = "observation_unit_mismatch"
+    OBSERVATION_PROVENANCE_UNAVAILABLE = "observation_provenance_unavailable"
 
 
 def _require_non_empty(field_name: str, value: str) -> None:
@@ -42,7 +46,7 @@ def _require_non_empty(field_name: str, value: str) -> None:
 
 
 def _require_finite(field_name: str, value: float) -> None:
-    if not math.isfinite(value):
+    if isinstance(value, bool) or not math.isfinite(value):
         raise ValueError(f"{field_name} MUST be finite")
 
 
@@ -62,6 +66,7 @@ class ExpectedEffect:
     acceptable_max: float
     predicted_at: datetime
     observation_deadline: datetime
+    prediction_snapshot: EffectPredictionSnapshot | None = None
 
     def __post_init__(self) -> None:
         _require_non_empty("prediction_id", self.prediction_id)
@@ -75,6 +80,14 @@ class ExpectedEffect:
         _require_aware("observation_deadline", self.observation_deadline)
         if self.observation_deadline < self.predicted_at:
             raise ValueError("observation_deadline MUST NOT precede predicted_at")
+        snapshot = self.prediction_snapshot
+        if snapshot is not None and (
+            snapshot.prediction_id != self.prediction_id
+            or snapshot.metric != self.metric
+            or snapshot.predicted_at != self.predicted_at
+            or snapshot.observation_deadline != self.observation_deadline
+        ):
+            raise ValueError("expected effect MUST match its frozen prediction")
 
 
 @dataclass(frozen=True, slots=True)
@@ -86,6 +99,8 @@ class ObservedEffect:
     metric: str
     value: float
     observed_at: datetime
+    unit: str | None = None
+    receipt_ref: str | None = None
 
     def __post_init__(self) -> None:
         _require_non_empty("prediction_id", self.prediction_id)
@@ -93,6 +108,10 @@ class ObservedEffect:
         _require_non_empty("metric", self.metric)
         _require_finite("value", self.value)
         _require_aware("observed_at", self.observed_at)
+        if self.unit is not None:
+            _require_non_empty("unit", self.unit)
+        if self.receipt_ref is not None:
+            _require_non_empty("receipt_ref", self.receipt_ref)
 
 
 @dataclass(frozen=True, slots=True)
@@ -122,6 +141,16 @@ def verify_effect(
             EffectVerificationStatus.HOLD,
             EffectVerificationReason.METRIC_MISMATCH,
         )
+    if expected.prediction_snapshot is not None:
+        if observed.unit != expected.prediction_snapshot.unit:
+            return EffectVerificationResult(
+                EffectVerificationStatus.HOLD, EffectVerificationReason.OBSERVATION_UNIT_MISMATCH
+            )
+        if not observed.receipt_ref:
+            return EffectVerificationResult(
+                EffectVerificationStatus.HOLD,
+                EffectVerificationReason.OBSERVATION_PROVENANCE_UNAVAILABLE,
+            )
     if observed.observed_at < expected.predicted_at:
         return EffectVerificationResult(
             EffectVerificationStatus.HOLD,

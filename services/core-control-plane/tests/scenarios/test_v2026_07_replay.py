@@ -889,7 +889,7 @@ async def test_sre_full_loop_fails_closed_on_deficient_effect_evidence(
     ]
     assert measurement["label"] == case["expected_response_label"]
     assert measurement["verification_passed"] is False
-    assert measurement["decision"] == "abstain"
+    assert measurement["decision"] == "auto"
     assert not any(entry.get("verification_status") == "verified" for entry in entries)
 
 

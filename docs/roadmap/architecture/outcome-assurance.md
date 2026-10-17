@@ -34,6 +34,7 @@ and what outcome was observed. Outcome Assurance joins those facts into three op
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Scalar Dynamic feedback source reliability | implemented | `8d423a8145`; `core/assurance_twin/model_registry.py`; `core/measurement/runners.py`; focused feedback and real PostgreSQL transaction checks | The source preserves unknown results, commits accepted feedback with its model receipt and audit, and retains retryable work. This is not an authoritative `OutcomeAssuranceProjection` producer or evidence of improved operational recovery. |
 | Reused ontology, readiness, audit, and measurement sources | in-progress | `core/decision_case/`; `core/readiness/`; `core/measurement/`; `core/audit/`; current implementation ledgers in their owner documents | Source capabilities exist at different evidence levels, but they are not joined into one Outcome Assurance projection. |
 | Cost Governance effect settlement source | implemented | `core/measurement/cost_effect_settlement.py`; `core/measurement/cost_retention.py`; focused Cost Governance settlement tests | Cost, capacity, service, and recovery effects remain separate and close only from independent observations bound to the exact expected-effect source revision. This source does not complete the broader `OutcomeAssuranceProjection`. |
 | Phase 4 measured policy source | implemented | `core/measurement/{pattern_growth,model_tracking,latency_budget}.py`; `delivery/measurement/{holdout,measured_policy}.py`; focused Core and delivery tests | Complete holdout gates shadow pattern write. Paired model evidence produces review-only recommendations, while per-tier latency preserves server-owned budgets, reported values, volume, percentiles, and unavailable state. Malformed evidence is rejected once without blocking later batches. Durable processing grants no promotion or execution authority. |
@@ -49,6 +50,8 @@ and what outcome was observed. Outcome Assurance joins those facts into three op
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-17 | in-progress | Added versioned frozen-prediction feedback, reviewed challenger replay, bounded independent consumer handoffs and no-authority eligibility comparison without closing operational outcome denominators. | `current change`; owning contract/model/consumer/promotion regressions and [hardening record](../../internals/operational-learning-hardening-20261017.md). | Complete paired, independently grouped operational evaluation, authoritative projection production, source/retention bindings and qualified shadow enrollment before claiming policy effects. |
+| 2026-10-17 | implemented | Recorded scalar feedback reliability as a bounded measurement-source improvement, separate from operational outcome qualification. | `8d423a8145`; `current change`; [Assurance Twin feedback contract](../operations/assurance-twin.md#scalar-feedback-reliability); 144 focused tests including three actual loopback PostgreSQL cases; synthetic next-prediction error 10 to 0 with interval width 20 to 40, no execution or promotion. | Preserve prediction-time provenance, incident-separated operational holdouts, and authoritative projection producer evidence before claiming measured recovery or policy improvement. |
 | 2026-10-17 | implemented | Bound operational-promotion measurement and enforcement to the complete threshold-policy digest. The same evidence batch can no longer reuse review or durable authority after a threshold change. | `current change`; focused O7 measurement, learning, persistence, and promotion checks (`155 passed`); strict mypy. | Retain the deployment-owned action-specific live cohort and authenticated effect receipts. |
 | 2026-10-04 | in-progress | Added the shared Outcome Assurance `1.0.0` read contract, the authenticated principal-scoped `/kpi/outcome-assurance` Operator read panel, and Console drill-down rendering for complete, stale, and unavailable source states without synthetic or zero-filled values. Repository search found no Core producer that persists authoritative `OutcomeAssuranceProjection` records under the reader key. | `current change`; `packages/service-contracts/src/fdai_service_contracts/outcome_assurance.py`; `services/operator-service/src/fdai_operator_service/runtime_projection_reader.py`; `console/src/api-outcome-assurance.ts`; `console/src/routes/outcome-assurance-drilldown.tsx`; focused contract, Operator route, Console Vitest, typecheck, Ruff, and strict mypy checks. | Add the Core-owned producer and then record a live authenticated deployment receipt for the read panel against a configured authoritative retained projection source. |
 | 2026-09-27 | implemented | Preserved a protected cohort readiness attempt as an attested unavailable receipt when private PostgreSQL connectivity fails, while leaving query/schema errors and `require_ready=true` fail-closed. | `current change`; failed exact-main run `36290118007`; focused workflow contract and shell checks. | Restore verified private runner connectivity, then retain aggregate availability and the real dual-arm cohort. |
@@ -237,6 +240,19 @@ Outcome claims follow the existing measurement-first contract:
 - A success metric cannot offset a failed guard.
 - Policy-violation escapes remain exactly zero.
 - Synthetic examples are allowed in tests and mocks only and cannot produce a measured status.
+
+Scalar Dynamic's atomic feedback checkpoint is processing evidence, not an operational-success
+label. Its local full-path fixture improves point prediction error but widens the interval; report
+both rather than inferring calibration or recovery improvement. Version `1.0.0` response corrections
+without predecessor attribution hold the challenger for reviewed rebuild. See the
+[feedback reliability contract](../operations/assurance-twin.md#scalar-feedback-reliability).
+
+Versioned scalar feedback preserves authorization, effect verification and prediction accuracy as
+separate facts. The acceptable effect band never substitutes for a frozen point prediction.
+Current-source and immutable-seed checks, deferred holdout work and audit-only T1 comparisons are
+processing evidence. They do not close incident recovery, recurrence, side effects or policy-effect
+denominators. Paired operational evaluation, authoritative projection production and qualified
+Pattern-to-T1 enrollment remain open.
 
 Odin may compare objective score inputs for arbitration, but the read projection never ranks
 business value or changes a decision. Configuration sets objective priority and target values.

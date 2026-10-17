@@ -7,18 +7,23 @@ import json
 import logging
 import os
 import sys
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 
 import httpx
+import psycopg
 
 from fdai.composition import (
     AzureWireOverrides,
+    Container,
     default_container_from_env,
     wire_azure_container,
 )
 from fdai.core.assurance_twin import (
+    EffectModelStatus,
     GraphDynamicClosureCoordinator,
     GraphDynamicClosureRunner,
     MetricGraphTrajectoryOutcomeSource,
@@ -26,6 +31,7 @@ from fdai.core.assurance_twin import (
     StateStoreGraphEffectModelRegistry,
     StateStoreTrajectoryEpisodeLedger,
 )
+from fdai.core.assurance_twin.feedback_generation import REBUILD_PURPOSE, generation_scope
 from fdai.core.measurement import (
     OperationalPromotionEvaluator,
     OperationalPromotionMeasurementRunner,
@@ -49,6 +55,7 @@ from fdai.delivery.measurement.admitted_operational_promotion import (
 from fdai.delivery.measurement.cohort_inventory import (
     PostgresCohortEvidenceInventorySource,
 )
+from fdai.delivery.measurement.feedback_revision_source import PostgresFeedbackRevisionSource
 from fdai.delivery.measurement.holdout import (
     HoldoutVerifiedPatternBuilder,
     StateStoreTemporalHoldoutEvidenceSource,
@@ -69,12 +76,12 @@ from fdai.delivery.measurement.postgres_growth import (
     PostgresVerifiedOutcomeSource,
     PostgresVerifiedPatternBuilder,
 )
+from fdai.delivery.measurement.postgres_growth_writer import PostgresShadowPatternWriter
 from fdai.delivery.measurement.scenario_replayer import (
     FROZEN_SCENARIO_ASSET_ROOT,
     FrozenScenarioReplayer,
 )
 from fdai.delivery.persistence import (
-    PgVectorPatternLibrary,
     PgVectorPatternLibraryConfig,
     PostgresStateStore,
     PostgresStateStoreConfig,
@@ -83,6 +90,7 @@ from fdai.delivery.persistence import (
     StateStoreOperationalPromotionReceiptStore,
 )
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
+from fdai.runtime.venue import ExecutionVenue, resolve_execution_venue
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.state_store import StateStore
 
@@ -93,6 +101,10 @@ class MeasurementMode(StrEnum):
     BASELINE = "baseline"
     COHORT_INVENTORY = "cohort-inventory"
     GROWTH = "growth"
+    DYNAMIC_LEARNING = "dynamic-learning"
+    DYNAMIC_REBUILD = "dynamic-rebuild"
+    PATTERN_GROWTH = "pattern-growth"
+    GRAPH_DYNAMIC = "graph-dynamic"
     OPERATIONAL_PROMOTION = "operational-promotion"
 
 
@@ -181,8 +193,8 @@ async def _run_measured_policy(
     ).run_once()
 
 
-async def _run_growth() -> int:
-    dsn = _required_env("FDAI_STATE_STORE_DSN")
+@asynccontextmanager
+async def _azure_learning_container() -> AsyncIterator[Container]:
     container = default_container_from_env()
     if container.config.llm.mode != "azure":
         raise RuntimeError("growth measurement requires llm.mode='azure' for 384-dim embeddings")
@@ -201,6 +213,110 @@ async def _run_growth() -> int:
                 operator_memory_store=InMemoryOperatorMemoryStore(),
             ),
         )
+        yield container
+
+
+async def _run_dynamic_learning() -> int:
+    """Scalar learning needs only the durable source and challenger registry."""
+    dsn = _required_env("FDAI_STATE_STORE_DSN")
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
+    report = await DynamicLearningRunner(
+        outcome_source=PostgresResponseOutcomeSource(dsn=dsn, state_store=store),
+        registry=StateStoreEffectModelRegistry(
+            store,
+            feedback_source=PostgresFeedbackRevisionSource(dsn=dsn),
+        ),
+        audit_store=store,
+    ).run_once()
+    _LOGGER.info(
+        "measurement_dynamic_learning_complete",
+        extra={
+            "total_outcomes": report.total_outcomes,
+            "accepted_count": report.accepted_count,
+            "rejected_count": report.rejected_count,
+        },
+    )
+    return 0
+
+
+async def _run_dynamic_rebuild() -> int:
+    if resolve_execution_venue(os.environ) is ExecutionVenue.DEPLOYED:
+        _LOGGER.error(
+            "dynamic_rebuild_unavailable",
+            extra={"reason": "deployment_admission_binding_required"},
+        )
+        return 3
+    dsn = _required_env("FDAI_STATE_STORE_DSN")
+    action_type = _required_env("FDAI_EFFECT_REBUILD_ACTION_TYPE")
+    metric = _required_env("FDAI_EFFECT_REBUILD_METRIC")
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
+    source = PostgresFeedbackRevisionSource(dsn=dsn)
+    registry = StateStoreEffectModelRegistry(store, feedback_source=source)
+    registration = await registry.inspect_registration(
+        status=EffectModelStatus.CHALLENGER,
+        action_type_id=action_type,
+        metric=metric,
+    )
+    if registration is None:
+        _LOGGER.error(
+            "dynamic_rebuild_unavailable", extra={"reason": "registered_seed_unavailable"}
+        )
+        return 3
+    current, seed = registration
+    if seed is None:
+        _LOGGER.error(
+            "dynamic_rebuild_unavailable", extra={"reason": "registered_seed_unavailable"}
+        )
+        return 3
+    outcomes = await source.outcomes_for_scope(action_type_id=action_type, metric=metric)
+    if not outcomes:
+        _LOGGER.error("dynamic_rebuild_unavailable", extra={"reason": "outcomes_unavailable"})
+        return 3
+    as_of = max(seed.learned_through, *(item.recorded_at for item in outcomes))
+    candidate = await registry.preview_rebuild(seed=seed, outcomes=outcomes, as_of=as_of)
+    if candidate is None:
+        _LOGGER.error("dynamic_rebuild_unavailable", extra={"reason": "registered_seed_changed"})
+        return 3
+    admission = await StateStoreDecisionEvidenceAdmissionProvider(store=store).admit(
+        evidence_digest="sha256:" + candidate.input_manifest_digest,
+        scope_digest=generation_scope(action_type, metric),
+        purpose_id=REBUILD_PURPOSE,
+        source_revision=candidate.input_manifest_digest,
+    )
+    if admission is None:
+        print(
+            json.dumps(
+                {
+                    "status": "review_required",
+                    "input_manifest_digest": candidate.input_manifest_digest,
+                    "execution_authority": False,
+                    "promotion_authority": False,
+                },
+                sort_keys=True,
+            )
+        )
+        _LOGGER.warning(
+            "dynamic_rebuild_review_required",
+            extra={"input_manifest_digest": candidate.input_manifest_digest},
+        )
+        return 3
+    result = await registry.rebuild_challenger(
+        seed=seed,
+        outcomes=outcomes,
+        as_of=as_of,
+        expected_revision=current.revision,
+        admission=admission,
+    )
+    _LOGGER.info(
+        "dynamic_rebuild_complete", extra={"accepted": result.accepted, "reason": result.reason}
+    )
+    return 0 if result.accepted or result.reason == "rebuild_already_applied" else 3
+
+
+async def _run_pattern_growth() -> int:
+    dsn = _required_env("FDAI_STATE_STORE_DSN")
+    pattern_dsn = os.environ.get("FDAI_T1_PATTERN_LIBRARY_DSN", "").strip() or dsn
+    async with _azure_learning_container() as container:
         embedding_model = container.require_llm_bindings().embedding_model
         if embedding_model.dim != 384:
             raise RuntimeError(f"growth embedding dimension MUST be 384; got {embedding_model.dim}")
@@ -219,17 +335,29 @@ async def _run_growth() -> int:
                 validator=TemporalHoldoutValidator(),
                 audit_store=state_store,
             ),
-            writer=PgVectorPatternLibrary(config=PgVectorPatternLibraryConfig(dsn=dsn)),
-            audit_store=state_store,
-        ).run_once()
-        dynamic_report = await DynamicLearningRunner(
-            outcome_source=PostgresResponseOutcomeSource(
-                dsn=dsn,
-                state_store=state_store,
+            writer=PostgresShadowPatternWriter(
+                config=PgVectorPatternLibraryConfig(dsn=pattern_dsn)
             ),
-            registry=StateStoreEffectModelRegistry(state_store),
             audit_store=state_store,
         ).run_once()
+    _LOGGER.info(
+        "measurement_pattern_growth_complete",
+        extra={
+            "total_outcomes": report.total_outcomes,
+            "accepted_count": report.accepted_count,
+            "rejected_count": report.rejected_count,
+            "build_failures": report.build_failures,
+            "deferred_count": report.deferred_count,
+            "expired_count": report.expired_count,
+        },
+    )
+    return 0
+
+
+async def _run_graph_dynamic() -> int:
+    dsn = _required_env("FDAI_STATE_STORE_DSN")
+    state_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
+    async with _azure_learning_container() as container:
         trajectory_ledger = StateStoreTrajectoryEpisodeLedger(state_store)
         graph_registry = StateStoreGraphEffectModelRegistry(state_store)
         graph_reports = await GraphDynamicClosureRunner(
@@ -245,20 +373,43 @@ async def _run_growth() -> int:
             audit_store=state_store,
         ).run_once()
     _LOGGER.info(
-        "measurement_growth_complete",
+        "measurement_graph_dynamic_complete",
         extra={
-            "total_outcomes": report.total_outcomes,
-            "accepted_count": report.accepted_count,
-            "rejected_count": report.rejected_count,
-            "build_failures": report.build_failures,
-            "dynamic_total_outcomes": dynamic_report.total_outcomes,
-            "dynamic_accepted_count": dynamic_report.accepted_count,
-            "dynamic_rejected_count": dynamic_report.rejected_count,
             "graph_dynamic_outcome_count": len(graph_reports),
             "graph_dynamic_update_count": sum(item.update_count for item in graph_reports),
         },
     )
     return 0
+
+
+async def _run_growth() -> int:
+    """Compatibility entrypoint; scalar receipts survive later pattern failures."""
+    failed = False
+    for name, consumer in (
+        ("dynamic-learning", _run_dynamic_learning),
+        ("pattern-growth", _run_pattern_growth),
+        ("graph-dynamic", _run_graph_dynamic),
+    ):
+        try:
+            result = await consumer()
+        except (
+            RuntimeError,
+            ValueError,
+            TimeoutError,
+            PermissionError,
+            httpx.HTTPError,
+            psycopg.Error,
+        ) as exc:
+            failed = True
+            _LOGGER.error(
+                "measurement_consumer_failed",
+                extra={"consumer": name, "error_type": type(exc).__name__},
+            )
+        else:
+            if type(result) is not int or result != 0:
+                failed = True
+                _LOGGER.error("measurement_consumer_incomplete", extra={"consumer": name})
+    return 3 if failed else 0
 
 
 async def _run_operational_promotion() -> int:
@@ -343,16 +494,29 @@ async def _amain(argv: list[str]) -> int:
         _LOGGER.error("invalid_measurement_mode", extra={"mode": mode_raw or "<unset>"})
         return 2
     try:
-        if mode is MeasurementMode.BASELINE:
-            return await _run_baseline()
-        if mode is MeasurementMode.COHORT_INVENTORY:
-            return await _run_cohort_inventory()
-        if mode is MeasurementMode.GROWTH:
-            return await _run_growth()
-        return await _run_operational_promotion()
+        async with asyncio.timeout(900):
+            return await _run_mode(mode)
     except Exception:
         _LOGGER.exception("measurement_runner_failed", extra={"mode": mode.value})
         return 3
+
+
+async def _run_mode(mode: MeasurementMode) -> int:
+    if mode is MeasurementMode.BASELINE:
+        return await _run_baseline()
+    if mode is MeasurementMode.COHORT_INVENTORY:
+        return await _run_cohort_inventory()
+    if mode is MeasurementMode.GROWTH:
+        return await _run_growth()
+    if mode is MeasurementMode.DYNAMIC_LEARNING:
+        return await _run_dynamic_learning()
+    if mode is MeasurementMode.DYNAMIC_REBUILD:
+        return await _run_dynamic_rebuild()
+    if mode is MeasurementMode.PATTERN_GROWTH:
+        return await _run_pattern_growth()
+    if mode is MeasurementMode.GRAPH_DYNAMIC:
+        return await _run_graph_dynamic()
+    return await _run_operational_promotion()
 
 
 def main(argv: list[str] | None = None) -> int:

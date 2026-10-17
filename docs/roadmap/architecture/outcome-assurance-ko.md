@@ -1,7 +1,7 @@
 ---
 title: Outcome Assurance
 translation_of: outcome-assurance.md
-translation_source_sha: c9697ac0f8f1be944527382537d6a223121927b7
+translation_source_sha: 175202c613a1989329cf57778c6e751788ce4ede
 translation_revised: 2026-10-17
 ---
 # 결과 Assurance
@@ -37,6 +37,7 @@ FDAI는 서비스가 보호해야 할 목표, 검토한 액션, 실제 실행, �
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 스칼라 Dynamic 피드백 출처의 신뢰성 | implemented | `8d423a8145`; `core/assurance_twin/model_registry.py`; `core/measurement/runners.py`; 집중 피드백 검사와 실제 PostgreSQL 트랜잭션 검사 | 출처는 알 수 없는 결과를 유지하고, 수락한 피드백을 모델 처리 증적 및 감사와 함께 저장하며, 재시도 가능한 작업을 보존합니다. 이는 권위 있는 `OutcomeAssuranceProjection` 생산자나 운영 복구 개선 증거가 아닙니다. |
 | 재사용하는 온톨로지, 준비 상태, 감사 및 측정 출처 | in-progress | `core/decision_case/`; `core/readiness/`; `core/measurement/`; `core/audit/`; 각 소유 문서의 현재 구현 원장 | 출처 기능은 서로 다른 근거 수준으로 존재하지만 하나의 결과 Assurance 변환 결과로 결합되지 않았습니다. |
 | 비용 거버넌스 효과 정산 출처 | implemented | `core/measurement/cost_effect_settlement.py`; `core/measurement/cost_retention.py`; 집중 비용 거버넌스 정산 테스트 | 비용, 용량, 서비스 및 복구 효과를 분리하고 exact expected-effect 출처 revision에 결속된 독립 관찰에서만 종결합니다. 이 출처만으로 더 넓은 `OutcomeAssuranceProjection`이 완료되지는 않습니다. |
 | 단계 4 측정 정책 출처 | implemented | `core/measurement/{pattern_growth,model_tracking,latency_budget}.py`; `delivery/measurement/{holdout,measured_policy}.py`; 집중 Core 및 전달 테스트 | 완전한 홀드아웃이 shadow 패턴 쓰기를 제한합니다. 짝지은 모델 근거는 검토 전용 권고를 만들고 계층별 지연 시간은 서버 소유 예산, 보고값, 처리량, 백분위수 및 사용 불가 상태를 보존합니다. 잘못된 형식의 근거는 한 번 거부되고 이후 묶음을 막지 않습니다. 영속 처리는 승격 또는 실행 권한을 부여하지 않습니다. |
@@ -239,6 +240,20 @@ fixture 값을 입증하지 않는다는 이름 있는 안내를 제공하며, �
 - 성공 메트릭은 실패한 가드를 상쇄할 수 없습니다.
 - Policy-violation escape는 정확히 0을 유지합니다.
 - Synthetic 예시는 테스트와 mock에서만 허용되며 measured 상태를 만들 수 없습니다.
+
+스칼라 Dynamic의 원자적 피드백 체크포인트는 처리 증적이지 운영 성공 라벨이 아닙니다.
+로컬 전체 판단 경로의 합성 사례에서는 점 예측 오차가 10에서 0으로 줄었지만 구간 폭은
+20에서 40으로 늘었습니다. 두 값을 함께 보고하며 보정 품질이나 복구 효과가 좋아졌다고
+추론하지 않습니다. 실행과 승격은 모두 0건입니다. 선행 기록과의 귀속이 없는 버전 `1.0.0`
+응답 정정은 검토 후 재구축할 때까지 challenger를 보류합니다.
+[피드백 신뢰성 계약](../operations/assurance-twin-ko.md#스칼라-피드백의-신뢰성)과
+[영문 구현 이력](outcome-assurance.md#implementation-history)을 참조하세요.
+
+버전이 있는 스칼라 피드백은 실행 허용, 효과 검증, 예측 정확도를 별도 사실로 보존합니다.
+효과 허용 범위로 동결된 점 예측을 대신하지 않습니다. 최신 원본/불변 seed 확인, holdout
+작업 보류, 감사 전용 T1 비교는 처리 증적입니다. 인시던트 복구, 재발, 부작용, 정책 효과의
+분모를 종결하지 않습니다. 짝지은 운영 평가, 권위 있는 변환 결과 생산, 적격 Pattern의
+T1 편입은 미완료입니다.
 
 Odin은 중재를 위해 목표 점수 입력을 비교할 수 있지만 읽기 변환 결과는
 business 값을 순위하거나 결정을 변경하지 않습니다. 목표 priority와 대상 값은

@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: ed436db40eb38ec2eac55d1bb3c516ef8dc2f220
-translation_revised: 2026-10-16
+translation_source_sha: 6dbc420988a53e22bfe3dff18b535464ffa9f988
+translation_revised: 2026-10-17
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -483,7 +483,7 @@ enablement나 `ActionType` 또는 `Workflow` mode를 변경할 수 없습니다.
 선언되어 있으면 이를 우선 사용합니다. 추정기 실패, 오래된 데이터 또는 근거가 없는 SKU는 비용을
 알 수 없는 상태로 만들며 권한을 높일 수 없습니다. 전체 온톨로지 탐색, 에이전트 순서, 제한된 복구
 순서, 효과 정산 및 학습 루프는 [FinOps 자율 운영](finops-autonomous-operations-ko.md)에
-정의되어 있습니다.
+정의되어 있습니다. 공유 `ResponseOutcome` 계약은 원래 실행 허용 결정과 효과 검증을 구분합니다. 실행 허용을 알 수 없는 W0 픽스처는 `abstain`을 명시하며 검증되지 않은 효과만으로 실행 허용이나 기술적 실패 학습 라벨을 만들어 내지 않습니다.
 
 비용 및 용량 전문가는 Huginn이 검증한 시각과 신원만 소비합니다. `occurred_at`을 먼저 사용하고
 그다음 신뢰된 `ingested_at`을 사용하며, 이벤트 묶음의 `resource_id`를 권위 있는 값으로 봅니다.

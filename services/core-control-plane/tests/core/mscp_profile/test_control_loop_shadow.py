@@ -412,7 +412,7 @@ async def test_bound_profile_predicts_before_dispatch_and_observes_after() -> No
     assert response_entry["label"] == "verified"
     assert response_entry["scorable"] is True
     assert response_entry["verification_passed"] is True
-    assert response_entry["decision"] == "auto"
+    assert response_entry["decision"] == "abstain"
     assert "target_resource_ref" not in response_entry
 
 

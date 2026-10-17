@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Awaitable, Callable, Mapping
 from datetime import UTC, datetime
-from typing import Any, Protocol
+from typing import Any, Literal, Protocol
 
 from fdai.core.control_loop._execution_outcomes import (
     is_execution_no_effect as _is_execution_no_effect,
@@ -74,6 +74,7 @@ class OperatorRequestHost(Protocol):
         action: Action,
         rule: Rule,
         correlation_id: str = "",
+        authorization_decision: Literal["auto", "hil", "deny", "abstain"] = "abstain",
     ) -> ExecutionResultType: ...
 
     async def _prepare_workflow_safeguard_commitment(
@@ -318,6 +319,7 @@ async def process_operator_request(
         action=action,
         rule=rule,
         correlation_id=correlation_id,
+        authorization_decision="auto",
     )
     succeeded = _is_execution_success(result)
     pending = _is_execution_pending(result)

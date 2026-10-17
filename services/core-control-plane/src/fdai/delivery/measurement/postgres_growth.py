@@ -19,6 +19,25 @@ from psycopg.rows import dict_row
 _WATERMARK_KEY = "measurement:pattern_growth:watermark"
 _RESPONSE_WATERMARK_KEY = "measurement:dynamic_learning:watermark"
 _OUTCOME_KIND = "measurement.action_outcome.v1"
+_SUPPORTED_RESPONSE_VERSIONS = {"1.0.0", "1.1.0"}
+
+
+async def _advance_watermark(store: StateStore, key: str, seq: int) -> None:
+    """A slower concurrent consumer must never rewind a completed source page."""
+    for _ in range(8):
+        state = await store.read_state(key)
+        if state is None:
+            if await store.write_state_if_absent(key, {"seq": seq, "revision": 1}):
+                return
+            continue
+        if int(state.get("seq", 0)) >= seq:
+            return
+        revision = int(state.get("revision", 0))
+        if await store.compare_and_set_state(
+            key, {"seq": seq, "revision": revision + 1}, expected_revision=revision
+        ):
+            return
+    raise RuntimeError("measurement source watermark revision conflict")
 
 
 class PostgresVerifiedOutcomeSource:
@@ -54,8 +73,20 @@ class PostgresVerifiedOutcomeSource:
             record = _outcome_record(entry, recorded_at=row["created_at"])
             if record is not None:
                 yield record
+            else:
+                await self._state_store.append_audit_entry(
+                    {
+                        "actor": "Norns",
+                        "action_kind": "measurement.pattern_growth.source_rejected",
+                        "source_seq": int(row["seq"]),
+                        "reason": "pattern_outcome_invalid_or_unsupported",
+                        "execution_authority": False,
+                        "promotion_authority": False,
+                    }
+                )
+            await _advance_watermark(self._state_store, _WATERMARK_KEY, int(row["seq"]))
         if high_water > after_seq:
-            await self._state_store.write_state(_WATERMARK_KEY, {"seq": high_water})
+            await _advance_watermark(self._state_store, _WATERMARK_KEY, high_water)
 
     async def _rows(self, after_seq: int) -> list[Mapping[str, Any]]:
         async with await psycopg.AsyncConnection.connect(
@@ -105,11 +136,20 @@ class PostgresResponseOutcomeSource:
             outcome = _response_outcome(_mapping(row["entry"]))
             if outcome is not None:
                 yield outcome
+            else:
+                await self._state_store.append_audit_entry(
+                    {
+                        "actor": "Norns",
+                        "action_kind": "dynamic.learning.source_rejected",
+                        "source_seq": int(row["seq"]),
+                        "reason": "response_outcome_invalid_or_unsupported",
+                        "execution_authority": False,
+                        "promotion_authority": False,
+                    }
+                )
+            await _advance_watermark(self._state_store, _RESPONSE_WATERMARK_KEY, int(row["seq"]))
         if high_water > after_seq:
-            await self._state_store.write_state(
-                _RESPONSE_WATERMARK_KEY,
-                {"seq": high_water},
-            )
+            await _advance_watermark(self._state_store, _RESPONSE_WATERMARK_KEY, high_water)
 
     async def _rows(self, after_seq: int) -> list[Mapping[str, Any]]:
         async with await psycopg.AsyncConnection.connect(
@@ -149,6 +189,11 @@ class PostgresVerifiedPatternBuilder:
         entry = await self._entry(record.action_id)
         if entry is None:
             return None
+        # Re-read the authoritative latest outcome on every retry, rather than
+        # trusting a pending copy after correction, rollback, or source eviction.
+        current = _outcome_record(entry, recorded_at=entry.get("recorded_at"))
+        if current != record:
+            return None
         projection = entry.get("embedding_projection")
         params = entry.get("params")
         rule_id = entry.get("rule_id")
@@ -172,6 +217,8 @@ class PostgresVerifiedPatternBuilder:
                 return None
         if rule_id.startswith("learned.operational.") and operational_case is None:
             return None
+        if operational_case is not None and operational_case.action_type != record.action_type_id:
+            return None
         vector = await self._embedding_model.embed(projection)
         if len(vector) != 384:
             raise ValueError(f"growth embedding dim MUST be 384; got {len(vector)}")
@@ -190,6 +237,7 @@ class PostgresVerifiedPatternBuilder:
                 signature_material,
                 separators=(",", ":"),
                 sort_keys=True,
+                allow_nan=False,
             ).encode()
         except (TypeError, ValueError):
             return None
@@ -219,17 +267,22 @@ class PostgresVerifiedPatternBuilder:
                 (str(self._statement_timeout_ms),),
             )
             cursor = await connection.execute(
-                "SELECT entry FROM audit_log WHERE action_kind = %s "
+                "SELECT entry, created_at FROM audit_log WHERE action_kind = %s "
                 "AND entry->>'action_id' = %s ORDER BY seq DESC LIMIT 1",
                 (_OUTCOME_KIND, action_id),
             )
             row = await cursor.fetchone()
-        return _mapping(row["entry"]) if row is not None else None
+        if row is None:
+            return None
+        return {**_mapping(row["entry"]), "recorded_at": row["created_at"]}
 
 
 def _mapping(value: object) -> Mapping[str, Any]:
     if isinstance(value, str):
-        parsed = json.loads(value)
+        try:
+            parsed = json.loads(value)
+        except ValueError:
+            return {}
         return parsed if isinstance(parsed, dict) else {}
     return value if isinstance(value, Mapping) else {}
 
@@ -254,15 +307,23 @@ def _outcome_record(
     *,
     recorded_at: Any,
 ) -> OutcomeRecord | None:
+    if "schema_version" in entry:
+        version = entry["schema_version"]
+        if not isinstance(version, str) or version not in _SUPPORTED_RESPONSE_VERSIONS:
+            return None
     required = (
         entry.get("action_id"),
         entry.get("action_type_id"),
         entry.get("observed_at"),
     )
-    if not all(isinstance(value, str) and value for value in required):
+    if not all(isinstance(value, str) and 0 < len(value) <= 512 for value in required):
         return None
     verification_passed = entry.get("verification_passed")
-    if entry.get("execution_mode") != "enforce" or not isinstance(verification_passed, bool):
+    if (
+        entry.get("execution_mode") != "enforce"
+        or not isinstance(verification_passed, bool)
+        or not isinstance(entry.get("rollback_succeeded"), bool)
+    ):
         return None
     observed_at = accepted_outcome_timestamp(
         entry["observed_at"],
@@ -281,6 +342,9 @@ def _outcome_record(
 
 
 def _response_outcome(entry: Mapping[str, Any]) -> ResponseOutcome | None:
+    version = entry.get("schema_version")
+    if not isinstance(version, str) or version not in _SUPPORTED_RESPONSE_VERSIONS:
+        return None
     contract = {
         key: value
         for key, value in entry.items()
@@ -291,6 +355,7 @@ def _response_outcome(entry: Mapping[str, Any]) -> ResponseOutcome | None:
             "mode",
             "scorable",
             "verification_passed",
+            "outcome_revision_digest",
         }
     }
     try:

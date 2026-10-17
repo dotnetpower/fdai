@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 from fdai.core.measurement import OperationalPromotionReceipt
+from fdai.core.measurement.promotion_binding import ReviewedReplayBinding
 from fdai.delivery.persistence import StateStoreOperationalPromotionReceiptStore
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 
@@ -53,6 +56,59 @@ def _receipt() -> OperationalPromotionReceipt:
     )
 
 
+def _bound_receipt() -> OperationalPromotionReceipt:
+    return replace(
+        _receipt(),
+        reviewed_replay_binding=ReviewedReplayBinding(
+            candidate_digest="1" * 64,
+            package_digest="2" * 64,
+            replay_first_digest="3" * 64,
+            replay_second_digest="3" * 64,
+            immutable_case_refs=("case-history:one:1:" + "4" * 64,),
+            access_scope_digest="5" * 64,
+            purpose="operational-learning",
+        ),
+    )
+
+
+async def test_policy_and_replay_bound_receipt_uses_distinct_schema() -> None:
+    state = InMemoryStateStore()
+    receipts = StateStoreOperationalPromotionReceiptStore(state)
+    receipt = _bound_receipt()
+    await receipts.save(receipt)
+    raw = await state.read_state(_KEY)
+    assert raw is not None and raw["schema_version"] == "1.3.0"
+    assert (
+        await receipts.load(
+            action_type_name=_ACTION,
+            fdai_revision=_REVISION,
+            scenario_set_version=_SCENARIO,
+            evidence_digest=_EVIDENCE,
+        )
+        == receipt
+    )
+
+
+async def test_legacy_replay_only_v12_remains_readable_without_policy_authority() -> None:
+    state = InMemoryStateStore()
+    receipts = StateStoreOperationalPromotionReceiptStore(state)
+    receipt = _bound_receipt()
+    payload = receipt.as_json()
+    payload.pop("policy_digest")
+    await state.write_state(_KEY, {"schema_version": "1.2.0", "receipt": payload})
+    loaded = await receipts.load(
+        action_type_name=_ACTION,
+        fdai_revision=_REVISION,
+        scenario_set_version=_SCENARIO,
+        evidence_digest=_EVIDENCE,
+    )
+    assert loaded is not None
+    assert loaded.reviewed_replay_binding == receipt.reviewed_replay_binding
+    assert loaded.policy_digest is None
+    with pytest.raises(ValueError, match="policy digest is required"):
+        await receipts.save(loaded)
+
+
 async def test_receipt_store_round_trips_idempotently_with_one_audit() -> None:
     state = InMemoryStateStore()
     receipts = StateStoreOperationalPromotionReceiptStore(state)
@@ -67,10 +123,33 @@ async def test_receipt_store_round_trips_idempotently_with_one_audit() -> None:
     )
 
     assert loaded == _receipt()
-    assert len(state.audit_entries) == 1
-    assert state.audit_entries[0]["entry"]["action_kind"] == (
-        "operational_promotion.receipt_stored"
+    audit_entries = tuple(state.audit_entries)
+    assert len(audit_entries) == 1
+    assert audit_entries[0]["entry"]["action_kind"] == ("operational_promotion.receipt_stored")
+
+
+async def test_admission_renewal_preserves_immutable_metrics_and_first_provenance() -> None:
+    state = InMemoryStateStore()
+    receipts = StateStoreOperationalPromotionReceiptStore(state)
+    original = replace(_receipt(), accuracy=1)
+    renewed = replace(
+        original,
+        accuracy=1.0,
+        decision_evidence_receipt_digest="sha256:" + "1" * 64,
+        decision_evidence_verification_bundle_digest="sha256:" + "2" * 64,
     )
+    await receipts.save(original)
+    await receipts.save(renewed)
+    loaded = await receipts.load(
+        action_type_name=_ACTION,
+        fdai_revision=_REVISION,
+        scenario_set_version=_SCENARIO,
+        evidence_digest=_EVIDENCE,
+    )
+    assert loaded == original
+    assert len(tuple(state.audit_entries)) == 1
+    with pytest.raises(ValueError, match="key collision"):
+        await receipts.save(replace(renewed, accuracy=0.5))
 
 
 async def test_receipt_store_rejects_tampered_numeric_types() -> None:

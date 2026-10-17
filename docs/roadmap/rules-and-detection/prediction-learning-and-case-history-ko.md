@@ -1,7 +1,7 @@
 ---
 translation_of: prediction-learning-and-case-history.md
-translation_source_sha: 9b76784620872134f232104068a2149e1d745354
-translation_revised: 2026-09-30
+translation_source_sha: 3a9189689bd98f9ccddd5648fe517d971be49873
+translation_revised: 2026-10-17
 ---
 # 예측 학습 및 케이스 히스토리
 
@@ -351,6 +351,13 @@ Norns는 실패 사례와 함께 일치하는 정확한 결과 및 검열된 컨
 다이제스트를 인용합니다. 근거가 없거나 충돌하면 후보를 만들지 않습니다.
 
 ## Learning 및 승격
+
+Core response-outcome 1.1은 forecast-outcome 계약과 다릅니다. 동결된 스칼라 예측기/단위/
+에피소드 계보와 선행 기록에 결속된 정정을 보존하며 효과 허용 범위를 점 예측으로 사용하지
+않습니다. 학습에는 귀속 가능한 최신 원본 근거가 필요하며, 불변 등록 seed와 실제 재생 순서가
+검토된 challenger 재구축을 제한합니다. 평가 어댑터 활성화, 누락된 이력의 완전성 추정,
+저장된 Pattern의 T1 편입 또는 합성 재생의 운영 검증 승격을 뜻하지는 않습니다.
+[스칼라 피드백 계약](../operations/assurance-twin-ko.md#스칼라-피드백의-신뢰성)을 참조하세요.
 
 Norns는 먼저 텔레메트리 quality, 기준선 또는 seasonality 표류, 토폴로지 또는 개념 표류,
 horizon 선택, 임계값 또는 calibration 오류, intervention censoring 및 detector-version

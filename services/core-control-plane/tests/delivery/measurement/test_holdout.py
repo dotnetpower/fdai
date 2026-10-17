@@ -8,6 +8,7 @@ from fdai.core.measurement.pattern_growth import (
     TemporalHoldoutConfig,
     TemporalHoldoutValidator,
 )
+from fdai.core.measurement.runners import DeferredPatternBuild
 from fdai.core.tiers.t1_lightweight.tier import LearnedAction
 from fdai.delivery.measurement.holdout import (
     HoldoutVerifiedPatternBuilder,
@@ -56,6 +57,7 @@ async def _builder(store: InMemoryStateStore) -> HoldoutVerifiedPatternBuilder:
             config=TemporalHoldoutConfig(min_samples=2, fp_rate_ceiling=0.5)
         ),
         audit_store=store,
+        clock=lambda: _OBSERVED_AT + timedelta(days=10),
     )
 
 
@@ -95,7 +97,7 @@ async def test_incomplete_holdout_is_audited_and_kept_inert() -> None:
 
     built = await (await _builder(store)).build(_record())
 
-    assert built is None
+    assert built == DeferredPatternBuild("holdout_evidence_incomplete")
     entry = store.audit_entries[-1]["entry"]
     assert entry["outcome"] == "insufficient_data"
     assert entry["evidence_complete"] is False
@@ -144,7 +146,53 @@ async def test_malformed_holdout_is_audited_without_releasing_candidate() -> Non
 
     built = await (await _builder(store)).build(_record())
 
-    assert built is None
+    assert built == DeferredPatternBuild("holdout_evidence_invalid")
     entry = store.audit_entries[-1]["entry"]
     assert entry["reason"] == "holdout_evidence_invalid"
     assert entry["promotion_authority"] is False
+
+
+async def test_complete_but_insufficient_holdout_is_still_deferred() -> None:
+    store = InMemoryStateStore()
+    await store.write_state(
+        "measurement:pattern_holdout:pattern-1",
+        {"pattern_id": "pattern-1", "complete": True, "samples": []},
+    )
+    built = await (await _builder(store)).build(_record())
+    assert built == DeferredPatternBuild("holdout_insufficient_data")
+    assert tuple(store.audit_entries)[-1]["entry"]["outcome"] == "insufficient_data"
+
+
+async def test_future_dated_holdout_is_deferred_not_counted_as_a_pass() -> None:
+    store = InMemoryStateStore()
+    await store.write_state(
+        "measurement:pattern_holdout:pattern-1",
+        {
+            "pattern_id": "pattern-1",
+            "complete": True,
+            "samples": [
+                {
+                    "pattern_id": "pattern-1",
+                    "observed_at": (_OBSERVED_AT + timedelta(days=1000)).isoformat(),
+                    "was_correct": True,
+                }
+            ],
+        },
+    )
+    built = await (await _builder(store)).build(_record())
+    assert built == DeferredPatternBuild("holdout_evidence_future")
+
+
+async def test_duplicate_holdout_rows_cannot_inflate_the_sample_denominator() -> None:
+    store = InMemoryStateStore()
+    sample = {
+        "pattern_id": "pattern-1",
+        "observed_at": (_OBSERVED_AT + timedelta(days=1)).isoformat(),
+        "was_correct": True,
+    }
+    await store.write_state(
+        "measurement:pattern_holdout:pattern-1",
+        {"pattern_id": "pattern-1", "complete": True, "samples": [sample, sample]},
+    )
+    built = await (await _builder(store)).build(_record())
+    assert built == DeferredPatternBuild("holdout_evidence_invalid")

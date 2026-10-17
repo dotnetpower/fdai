@@ -450,7 +450,7 @@ means that a candidate may continue, not that it is authorized. Static rule cost
 authoritative when declared; estimator failure, stale data, or an ungrounded SKU produces unknown
 cost and cannot increase authority. The complete ontology traversal, agent sequence, bounded
 recovery order, effect settlement, and learning loop are defined in
-[FinOps Autonomous Operations](finops-autonomous-operations.md).
+[FinOps Autonomous Operations](finops-autonomous-operations.md). The shared `ResponseOutcome` contract separates original authorization from effect verification. W0 fixtures use `abstain` for unknown permission; unverified effects cannot manufacture permission or technical-failure learning labels.
 
 Cost and capacity specialists consume only Huginn-validated timing and identity. They prefer
 `occurred_at`, then trusted `ingested_at`, and treat the event-envelope `resource_id` as

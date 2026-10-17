@@ -14,6 +14,9 @@ match, T1 returns a *reused* :class:`LearnedAction` whose provenance is
 attached - the action still passes the verifier + risk-gate before it
 can execute (reuse is not auto-trust).
 
+Optional eligibility comparison records a screened shadow challenger, but the
+actual decision always retains the legacy maximum-similarity selection.
+
 Below threshold → :attr:`T1Outcome.ABSTAIN` → the trust-router routes
 the event to T2 (LLM reasoning) per
 [`docs/roadmap/architecture/llm-strategy.md § Pipeline Stages`].
@@ -36,11 +39,11 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from enum import StrEnum
 from math import isfinite, sqrt
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from fdai.core.case_history import CaseHistoryMaterializer
 from fdai.shared.contracts.models import Event
@@ -51,6 +54,9 @@ from .contextual_reuse import (
     OperationalCaseContext,
     contextual_reuse_reasons,
 )
+
+if TYPE_CHECKING:
+    from .retained_patterns import RetainedPatternComparison, RetainedPatternSource
 
 
 class T1Outcome(StrEnum):
@@ -93,6 +99,31 @@ class SimilarityMatch:
 
 
 @dataclass(frozen=True, slots=True)
+class T1CandidateEligibility:
+    """Existing T1 admission checks only, not risk/promotion or operational success."""
+
+    match: SimilarityMatch
+    eligible: bool
+    reasons: tuple[str, ...]
+    current_reuse_verification: CurrentReuseVerification | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class T1EligibilityComparison:
+    """Baseline actual decision versus a non-authoritative screened challenger.
+
+    Only the existing decision fields drive routing. A challenger never changes
+    selection, confidence, promotion, or the requirement for independent reverification.
+    """
+
+    baseline_outcome: T1Outcome
+    baseline_match: SimilarityMatch | None
+    challenger_match: SimilarityMatch | None = None
+    candidates: tuple[T1CandidateEligibility, ...] = ()
+    stop_reason: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
 class T1Decision:
     """Frozen record produced by :meth:`T1Tier.evaluate`."""
 
@@ -112,6 +143,8 @@ class T1Decision:
     values that would drive execution - callers who ignore it are
     violating the safety contract."""
     current_reuse_verification: CurrentReuseVerification | None = None
+    eligibility_comparison: T1EligibilityComparison | None = None
+    retained_pattern_comparison: RetainedPatternComparison | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -159,7 +192,34 @@ class T1Config:
     prior reuses; unproven candidates are abstained even on high similarity."""
 
     timeout_seconds: float = 5.0
-    """Total cooperative deadline for embedding, lookup, and current evidence admission."""
+    """One cooperative deadline for embedding, lookup, admission, and shadow comparison."""
+
+    compare_eligibility: bool = False
+    """Record a bounded shadow challenger; actual selection always stays legacy."""
+
+
+_RETRIEVAL_LIMIT = 5
+# Unknown failures stop the request's comparison, rather than trying another
+# candidate to bypass a scope, identity, policy, or provider denial.
+# Source revision failures stay global: legacy reasons also cover permission errors.
+_CANDIDATE_LOCAL_REASONS = frozenset(
+    {
+        "operational_case_action_type_changed",
+        "current_evidence_stale",
+        "current_evidence_expired",
+        "decision_evidence_not_current",
+        "current_resource_type_changed",
+        "current_failure_fingerprint_changed",
+        "current_topology_role_changed",
+        "current_graph_changed",
+        "current_owner_changed",
+        "current_precondition_failed",
+        "current_blast_radius_exceeded",
+        "current_dry_run_failed",
+        "current_idempotency_conflict",
+        "historical_rollback_unresolved",
+    }
+)
 
 
 class T1Tier:
@@ -174,6 +234,7 @@ class T1Tier:
         config: T1Config | None = None,
         clock: Callable[[], datetime] | None = None,
         case_history: CaseHistoryMaterializer | None = None,
+        retained_pattern_source: RetainedPatternSource | None = None,
     ) -> None:
         cfg = config or T1Config()
         if not 0.0 <= cfg.similarity_threshold <= 1.0:
@@ -186,12 +247,15 @@ class T1Tier:
             or not 0 < cfg.timeout_seconds <= 60
         ):
             raise ValueError("T1 timeout_seconds MUST be finite and in (0, 60]")
+        if type(cfg.compare_eligibility) is not bool:
+            raise ValueError("T1 compare_eligibility MUST be boolean")
         self._embed = embedding_model
         self._library = pattern_library
         self._current_reuse_verifier = current_reuse_verifier
         self._config = cfg
         self._clock = clock or (lambda: datetime.now(UTC))
         self._case_history = case_history
+        self._retained_pattern_source = retained_pattern_source
 
     def bind_case_history(self, materializer: CaseHistoryMaterializer) -> None:
         """Bind the authoritative current-case reader once at runtime composition."""
@@ -201,10 +265,51 @@ class T1Tier:
 
     async def evaluate(self, *, event: Event) -> T1Decision:
         """Evaluate one event under a total deadline; caller cancellation propagates."""
+        baseline: T1Decision | None = None
+        comparing_retained = False
         try:
             async with asyncio.timeout(self._config.timeout_seconds):
-                return await self._evaluate(event=event)
+                baseline, matches = await self._evaluate(event=event)
+                if not self._config.compare_eligibility:
+                    return baseline
+                compared = await self._compare_eligibility(
+                    event=event, matches=matches, baseline=baseline
+                )
+                source = self._retained_pattern_source
+                if source is None:
+                    return compared
+                from .retained_patterns import RetainedPatternComparison
+
+                baseline = compared
+                comparing_retained = True
+                comparison = compared.eligibility_comparison
+                if comparison is not None and comparison.stop_reason not in (
+                    None,
+                    "no_neighbour_found",
+                ):
+                    retained = RetainedPatternComparison(stop_reason="baseline_comparison_stopped")
+                else:
+                    retained = await source.compare(event=event, screen=self._screen_match)
+                return replace(compared, retained_pattern_comparison=retained)
         except TimeoutError:
+            if baseline is not None and comparing_retained:
+                from .retained_patterns import RetainedPatternComparison
+
+                return replace(
+                    baseline,
+                    retained_pattern_comparison=RetainedPatternComparison(
+                        stop_reason="t1_deadline_exceeded"
+                    ),
+                )
+            if baseline is not None:
+                return replace(
+                    baseline,
+                    eligibility_comparison=T1EligibilityComparison(
+                        baseline_outcome=baseline.outcome,
+                        baseline_match=baseline.best_match,
+                        stop_reason="t1_deadline_exceeded",
+                    ),
+                )
             return T1Decision(
                 outcome=T1Outcome.ABSTAIN,
                 event_id=str(event.event_id),
@@ -213,11 +318,21 @@ class T1Tier:
                 reasons=("t1_deadline_exceeded",),
             )
 
-    async def _evaluate(self, *, event: Event) -> T1Decision:
+    async def _evaluate(self, *, event: Event) -> tuple[T1Decision, tuple[SimilarityMatch, ...]]:
+        """Retain the legacy maximum-score decision and its retrieved neighbours."""
+        decision, matches = await self._retrieve(event=event)
+        if decision is not None:
+            return decision, ()
+        best = max(matches, key=lambda m: m.score)
+        return await self._screen_match(event=event, match=best), matches
+
+    async def _retrieve(
+        self, *, event: Event
+    ) -> tuple[T1Decision | None, tuple[SimilarityMatch, ...]]:
         query_text = _event_text(event)
         try:
             vector = await self._embed.embed(query_text)
-            matches = await self._library.search(vector, k=5)
+            matches = await self._library.search(vector, k=_RETRIEVAL_LIMIT)
         except Exception as exc:  # noqa: BLE001 - provider boundary; fail closed
             # An embedding-model or pattern-library failure MUST NOT crash the
             # control loop. Abstain so the trust router escalates to T2,
@@ -230,7 +345,24 @@ class T1Tier:
                 best_match=None,
                 reason=f"t1_provider_error:{type(exc).__name__}",
                 reasons=(f"t1_provider_error:{type(exc).__name__}",),
+            ), ()
+
+        if self._config.compare_eligibility and (
+            not isinstance(matches, tuple)
+            or len(matches) > _RETRIEVAL_LIMIT
+            or any(
+                not isinstance(match, SimilarityMatch)
+                or not isinstance(match.action, LearnedAction)
+                for match in matches
             )
+        ):
+            return T1Decision(
+                outcome=T1Outcome.ABSTAIN,
+                event_id=str(event.event_id),
+                threshold=self._config.similarity_threshold,
+                reason="invalid_pattern_library_matches",
+                reasons=("invalid_pattern_library_matches",),
+            ), ()
 
         if not matches:
             return T1Decision(
@@ -240,7 +372,7 @@ class T1Tier:
                 best_match=None,
                 reason="no_neighbour_found",
                 reasons=("no_neighbour_found",),
-            )
+            ), ()
 
         if any(
             not isinstance(match.score, (int, float)) or isinstance(match.score, bool)
@@ -253,8 +385,8 @@ class T1Tier:
                 best_match=None,
                 reason="invalid_similarity_score",
                 reasons=("invalid_similarity_score",),
-            )
-        if any(not isfinite(match.score) for match in matches):
+            ), ()
+        if any(isinstance(match.score, float) and not isfinite(match.score) for match in matches):
             return T1Decision(
                 outcome=T1Outcome.ABSTAIN,
                 event_id=str(event.event_id),
@@ -262,7 +394,7 @@ class T1Tier:
                 best_match=None,
                 reason="non_finite_similarity_score",
                 reasons=("non_finite_similarity_score",),
-            )
+            ), ()
         if any(not -1.0 <= match.score <= 1.0 for match in matches):
             return T1Decision(
                 outcome=T1Outcome.ABSTAIN,
@@ -271,11 +403,72 @@ class T1Tier:
                 best_match=None,
                 reason="similarity_score_out_of_range",
                 reasons=("similarity_score_out_of_range",),
+            ), ()
+
+        return None, matches
+
+    async def _screen_match(self, *, event: Event, match: SimilarityMatch) -> T1Decision:
+        if not self._config.compare_eligibility:
+            return await self._evaluate_match(event=event, best=match)
+        try:
+            return await self._evaluate_match(event=event, best=match)
+        except Exception as exc:  # noqa: BLE001 - malformed provider evidence fails closed
+            reason = f"t1_candidate_error:{type(exc).__name__}"
+            return T1Decision(
+                outcome=T1Outcome.ABSTAIN,
+                event_id=str(event.event_id),
+                threshold=self._config.similarity_threshold,
+                best_match=match,
+                reason=reason,
+                reasons=(reason,),
             )
 
-        # matches are already ordered by descending score by contract;
-        # we still take the max to be safe.
-        best = max(matches, key=lambda m: m.score)
+    async def _compare_eligibility(
+        self,
+        *,
+        event: Event,
+        matches: tuple[SimilarityMatch, ...],
+        baseline: T1Decision,
+    ) -> T1Decision:
+        checks: list[T1CandidateEligibility] = []
+        selected: SimilarityMatch | None = None
+        stop_reason = baseline.reason if not matches else None
+        # Stable score order preserves the legacy first-returned tie break.
+        for index, match in enumerate(sorted(matches, key=lambda m: m.score, reverse=True)):
+            result = baseline if index == 0 else await self._screen_match(event=event, match=match)
+            eligible = result.outcome is T1Outcome.REUSED
+            checks.append(
+                T1CandidateEligibility(
+                    match=match,
+                    eligible=eligible,
+                    reasons=result.reasons,
+                    current_reuse_verification=result.current_reuse_verification,
+                )
+            )
+            if eligible:
+                selected = match
+                break
+            global_reasons = tuple(
+                reason
+                for reason in result.reasons
+                if reason not in _CANDIDATE_LOCAL_REASONS
+                and not reason.startswith(("similarity=", "success_rate="))
+            )
+            if global_reasons:
+                stop_reason = global_reasons[0]
+                break
+        return replace(
+            baseline,
+            eligibility_comparison=T1EligibilityComparison(
+                baseline_outcome=baseline.outcome,
+                baseline_match=baseline.best_match,
+                challenger_match=selected,
+                candidates=tuple(checks),
+                stop_reason=stop_reason,
+            ),
+        )
+
+    async def _evaluate_match(self, *, event: Event, best: SimilarityMatch) -> T1Decision:
         reasons: list[str] = []
 
         reasons.extend(_learned_action_reasons(best.action))
@@ -288,7 +481,7 @@ class T1Tier:
         success_rate = best.action.success_rate
         if not isinstance(success_rate, (int, float)) or isinstance(success_rate, bool):
             reasons.append("invalid_success_rate")
-        elif not isfinite(success_rate):
+        elif isinstance(success_rate, float) and not isfinite(success_rate):
             reasons.append("non_finite_success_rate")
         elif not 0.0 <= success_rate <= 1.0:
             reasons.append("success_rate_out_of_range")
@@ -467,8 +660,10 @@ __all__ = [
     "OperationalCaseContext",
     "PatternLibrary",
     "SimilarityMatch",
+    "T1CandidateEligibility",
     "T1Config",
     "T1Decision",
+    "T1EligibilityComparison",
     "T1Outcome",
     "T1Tier",
     "cosine_similarity",

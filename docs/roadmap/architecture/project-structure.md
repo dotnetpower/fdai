@@ -210,6 +210,29 @@ truncation result. A partial read cannot prove absence or complete history. Saga
 to verify bounded legacy migration; its shared journal otherwise uses existing atomic revision
 CAS-with-audit. Agents never import a concrete persistence adapter or gain another authority.
 
+Scalar Dynamic feedback stays in `core/assurance_twin/model_registry.py` and the existing Norns-owned
+measurement runner. Its model row stores a versioned, bounded, digest-only event checkpoint with
+parameters in the same StateStore CAS-with-audit transaction. Dynamic and pattern growth keep
+separate source cursors; incomplete Dynamic work does not acknowledge its cursor. No database,
+provider method, agent topic, service, active-model writer, or execution authority is added.
+Correction and legacy-history gaps hold the challenger. The
+[feedback reliability contract](../operations/assurance-twin.md#scalar-feedback-reliability)
+owns the storage limits, replay behavior, and operational qualification gaps.
+
+The additive response-outcome 1.1 resource and `EffectPredictionSnapshot` remain Core-owned
+contracts; their generator preserves the 1.0 wire resource. Prediction retention cannot weaken
+independent effect verification. Scalar generation components retain the complete registered seed,
+applied episode order and storage-stable model checksum. Independent learner entrypoints and durable
+holdout deferral use the existing audit/StateStore boundary; configured T1 write targets are explicit.
+Eligibility comparison is default-off and audit-only. Missing source/admission/retention bindings,
+qualified shadow enrollment and operational evaluation remain implementation or evidence gaps,
+not new permissions or completed production capability.
+
+The scalar audit adapter resolves versioned outcome heads from the owning database in a bounded
+read-only snapshot. Its digest lookup metadata does not alter the response wire contract or create
+a second ledger. Rebuild preview and commit use the same retained seed and applied order; the
+measurement command consumes an independently admitted manifest and cannot approve its own model.
+
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.
 
 

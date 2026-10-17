@@ -2,10 +2,14 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
 
 import pytest
+from fdai.core.measurement.runners import PatternGrowthReport
 from fdai.delivery import measurement_runner_cli
 from fdai.delivery.measurement.cohort_inventory import CohortEvidenceInventory
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
@@ -87,7 +91,8 @@ def test_cohort_inventory_not_ready_returns_three(
     assert measurement_runner_cli.main(["cohort-inventory"]) == 3
 
 
-def test_growth_unwired_fails_nonzero() -> None:
+def test_growth_unwired_fails_nonzero(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("FDAI_STATE_STORE_DSN", raising=False)
     assert measurement_runner_cli.main(["growth"]) == 3
 
 
@@ -97,6 +102,118 @@ def test_growth_success_returns_zero(monkeypatch: pytest.MonkeyPatch) -> None:
 
     monkeypatch.setattr(measurement_runner_cli, "_run_growth", _success)
     assert measurement_runner_cli.main(["growth"]) == 0
+
+
+def test_dynamic_learning_mode_has_no_azure_or_embedding_prerequisites(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("FDAI_STATE_STORE_DSN", "postgresql://example")
+    monkeypatch.delenv("FDAI_LLM_ENDPOINT", raising=False)
+    store = InMemoryStateStore()
+
+    def forbidden(*args: Any, **kwargs: Any) -> Any:
+        raise AssertionError("scalar learning must not compose an Azure/embedding runtime")
+
+    class Runner:
+        def __init__(self, **kwargs: Any) -> None:
+            assert kwargs["audit_store"] is store
+
+        async def run_once(self) -> Any:
+            return SimpleNamespace(total_outcomes=0, accepted_count=0, rejected_count=0)
+
+    monkeypatch.setattr(measurement_runner_cli, "default_container_from_env", forbidden)
+    monkeypatch.setattr(measurement_runner_cli, "wire_azure_container", forbidden)
+    monkeypatch.setattr(measurement_runner_cli, "PostgresStateStore", lambda **_: store)
+    monkeypatch.setattr(measurement_runner_cli, "DynamicLearningRunner", Runner)
+    assert measurement_runner_cli.main(["dynamic-learning"]) == 0
+
+
+async def test_legacy_growth_commits_scalar_before_pattern_failure(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    completed: list[str] = []
+
+    async def scalar() -> int:
+        completed.append("scalar")
+        return 0
+
+    async def pattern() -> int:
+        assert completed == ["scalar"]
+        raise RuntimeError("embedding unavailable")
+
+    async def graph() -> int:
+        completed.append("graph")
+        return 0
+
+    monkeypatch.setattr(measurement_runner_cli, "_run_dynamic_learning", scalar)
+    monkeypatch.setattr(measurement_runner_cli, "_run_pattern_growth", pattern)
+    monkeypatch.setattr(measurement_runner_cli, "_run_graph_dynamic", graph)
+    assert await measurement_runner_cli._amain(["growth"]) == 3
+    assert completed == ["scalar", "graph"]
+
+
+async def test_deletion_fence_refusal_keeps_other_consumers_independent(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    completed: list[str] = []
+
+    async def scalar() -> int:
+        completed.append("scalar")
+        return 0
+
+    async def refused() -> int:
+        raise PermissionError("source deletion fence holds pattern write")
+
+    async def graph() -> int:
+        completed.append("graph")
+        return 0
+
+    monkeypatch.setattr(measurement_runner_cli, "_run_dynamic_learning", scalar)
+    monkeypatch.setattr(measurement_runner_cli, "_run_pattern_growth", refused)
+    monkeypatch.setattr(measurement_runner_cli, "_run_graph_dynamic", graph)
+    assert await measurement_runner_cli._run_growth() == 3
+    assert completed == ["scalar", "graph"]
+
+
+@pytest.mark.parametrize("configured", [True, False])
+async def test_growth_writer_uses_exact_configured_pattern_dsn(
+    monkeypatch: pytest.MonkeyPatch,
+    configured: bool,
+) -> None:
+    state_dsn = "postgresql://example/state"
+    pattern_dsn = "postgresql://example/patterns"
+    monkeypatch.setenv("FDAI_STATE_STORE_DSN", state_dsn)
+    if configured:
+        monkeypatch.setenv("FDAI_T1_PATTERN_LIBRARY_DSN", pattern_dsn)
+    else:
+        monkeypatch.delenv("FDAI_T1_PATTERN_LIBRARY_DSN", raising=False)
+    store = InMemoryStateStore()
+    writes: list[str] = []
+
+    @asynccontextmanager
+    async def container() -> Any:
+        yield SimpleNamespace(
+            require_llm_bindings=lambda: SimpleNamespace(embedding_model=SimpleNamespace(dim=384))
+        )
+
+    class Writer:
+        def __init__(self, *, config: Any) -> None:
+            writes.append(config.dsn)
+
+    class Runner:
+        def __init__(self, **kwargs: Any) -> None:
+            assert kwargs["outcome_source"]._dsn == state_dsn
+            assert kwargs["pattern_builder"]._delegate._dsn == state_dsn
+
+        async def run_once(self) -> PatternGrowthReport:
+            return PatternGrowthReport()
+
+    monkeypatch.setattr(measurement_runner_cli, "_azure_learning_container", container)
+    monkeypatch.setattr(measurement_runner_cli, "PostgresStateStore", lambda **_: store)
+    monkeypatch.setattr(measurement_runner_cli, "PostgresShadowPatternWriter", Writer)
+    monkeypatch.setattr(measurement_runner_cli, "PatternGrowthIntakeRunner", Runner)
+    assert await measurement_runner_cli._run_pattern_growth() == 0
+    assert writes == [pattern_dsn if configured else state_dsn]
 
 
 def test_operational_promotion_missing_required_env_returns_three(

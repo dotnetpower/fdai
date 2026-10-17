@@ -356,6 +356,14 @@ reviewer runs. Missing or conflicting evidence produces no candidate.
 
 ## Learning and promotion
 
+Core response-outcome 1.1 is distinct from the forecast-outcome contract. It retains frozen scalar
+predictor/unit/episode provenance and predecessor-bound corrections without using an acceptable
+effect band as a point prediction. Learning requires attributable current source evidence; immutable
+registered seeds and recorded replay order constrain reviewed challenger rebuilds. This does not
+activate evaluation adapters, infer missing history coverage, enroll retained Patterns into T1,
+or turn a synthetic replay into operational qualification. See the
+[scalar feedback contract](../operations/assurance-twin.md#scalar-feedback-reliability).
+
 Norns first classifies deterministic failure families: telemetry quality, baseline or seasonality
 drift, topology or concept drift, horizon selection, threshold or calibration error, intervention
 censoring, and detector-version regression. An off-path model may analyze only the ambiguous

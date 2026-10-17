@@ -7,6 +7,7 @@ import logging
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import asdict, replace
 from datetime import UTC, datetime
+from typing import Literal
 
 from fdai.core.control_loop._development import ControlLoopDevelopmentMixin
 from fdai.core.control_loop._execution_effects import ControlLoopExecutionEffectsMixin
@@ -319,6 +320,7 @@ class ControlLoopExecutionMixin(
         action: Action,
         rule: Rule,
         correlation_id: str = "",
+        authorization_decision: Literal["auto", "hil", "deny", "abstain"] = "abstain",
     ) -> ExecutionResult | DirectApiExecutionResult | ToolCallExecutionResult:
         """Route an action to the executor its ActionType declares."""
         action_type = self._action_types_by_name.get(action.action_type)
@@ -429,6 +431,7 @@ class ControlLoopExecutionMixin(
             correlation_id=correlation_id,
             execution_started_at=execution_started_at,
             execution_ended_at=execution_ended_at,
+            authorization_decision=authorization_decision,
         )
 
     async def _current_evidence_conflict_hold(

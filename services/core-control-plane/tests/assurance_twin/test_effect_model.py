@@ -17,6 +17,8 @@ from fdai.core.assurance_twin import (
 )
 from fdai.shared.contracts.models import ResponseOutcome
 
+from tests.assurance_twin.test_model_registry import _snapshot
+
 _NOW = datetime(2026, 7, 30, tzinfo=UTC)
 
 
@@ -40,13 +42,16 @@ def _model(
         learned_at=_NOW,
         learned_through=learned_through,
         bias_correction=bias,
+        prediction_model_ref="baseline.scale-out@1.0.0",
+        prediction_model_digest="b" * 64,
+        unit="ms",
     )
 
 
 def _outcome(*, recorded_at: datetime = _NOW + timedelta(minutes=2)) -> ResponseOutcome:
     return ResponseOutcome.model_validate(
         {
-            "schema_version": "1.0.0",
+            "schema_version": "1.1.0",
             "outcome_id": "00000000-0000-0000-0000-000000000101",
             "idempotency_key": "response-outcome:example",
             "action_id": "00000000-0000-0000-0000-000000000010",
@@ -64,11 +69,16 @@ def _outcome(*, recorded_at: datetime = _NOW + timedelta(minutes=2)) -> Response
             "label": "mismatch",
             "verification_status": "mismatch",
             "verification_reason": "value_outside_acceptable_range",
-            "execution_mode": "shadow",
+            "execution_mode": "enforce",
             "execution_outcome": "published",
+            "rollback_succeeded": False,
             "decision": "auto",
             "evidence_refs": ["effect:prediction-1"],
             "recorded_at": recorded_at,
+            "outcome_revision": 1,
+            "prediction_snapshot": _snapshot(),
+            "observation_unit": "ms",
+            "observation_receipt_ref": "independent-observer:example",
         }
     )
 

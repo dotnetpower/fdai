@@ -29,8 +29,21 @@ from fdai.core.case_history.testing import (
     InMemoryCaseHistoryArtifactStore,
     InMemoryCaseHistoryMetadataStore,
 )
-from fdai.core.measurement import OperationalPromotionReceipt
-from fdai.core.measurement.operational_promotion import action_type_digest
+from fdai.core.measurement import (
+    OperationalPromotionBatch,
+    OperationalPromotionEvaluator,
+    OperationalPromotionReceipt,
+    PromotionEvidenceCohort,
+)
+from fdai.core.measurement.operational_promotion import (
+    OPERATIONAL_PROMOTION_EVIDENCE_PURPOSE,
+    OperationalPromotionPolicy,
+    action_type_digest,
+    operational_promotion_decision_digest,
+    operational_promotion_evidence_digest,
+    operational_promotion_scope_digest,
+)
+from fdai.core.measurement.promotion_binding import ReviewedReplayBinding
 from fdai.core.operational_learning import (
     CatalogCandidateCompiler,
     CatalogCheckReceipts,
@@ -50,13 +63,24 @@ from fdai.core.operational_learning import (
     operational_case_event,
 )
 from fdai.core.risk_gate import PromotionMetrics
+from fdai.delivery.measurement.admitted_operational_promotion import (
+    AdmittedOperationalPromotionEvidenceSource,
+)
+from fdai.delivery.measurement.operational_promotion_evidence import (
+    ManifestCausalPromotionReceiptVerifier,
+    ManifestOperationalPromotionUnitVerifier,
+    OperationalPromotionEvidenceManifest,
+)
 from fdai.delivery.persistence.state_store_action_promotion import (
     StateStoreActionPromotionRegistry,
 )
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
 from fdai.shared.contracts.models import Mode, OntologyActionType
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
+from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+
+from tests.core.measurement.test_operational_promotion import _record
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 SCENARIO_PATH = (
@@ -110,6 +134,7 @@ class _Validator:
 class _Publisher:
     def __init__(self) -> None:
         self.packages: list[CatalogReviewPackage] = []
+        self.case_history: CaseHistoryMaterializer | None = None
 
     async def publish(
         self,
@@ -230,11 +255,12 @@ def _wire(
     durable = InMemoryStateStore()
     publisher = _Publisher()
     reviewed_at = _timestamp(scenario["reviewed_at"])
+    publisher.case_history = CaseHistoryMaterializer(
+        metadata=InMemoryCaseHistoryMetadataStore(),
+        artifacts=InMemoryCaseHistoryArtifactStore(),
+    )
     muninn = Muninn(
-        case_history=CaseHistoryMaterializer(
-            metadata=InMemoryCaseHistoryMetadataStore(),
-            artifacts=InMemoryCaseHistoryArtifactStore(),
-        ),
+        case_history=publisher.case_history,
         durable_state_store=durable,
         case_history_clock=lambda: reviewed_at,
     )
@@ -251,7 +277,8 @@ def _wire(
         catalog_review_publisher=publisher,
         clock=lambda: reviewed_at,
     )
-    mimir.bind_case_history(muninn._case_history)
+    assert publisher.case_history is not None
+    mimir.bind_case_history(publisher.case_history)
     saga = Saga(audit_chain=InMemoryAuditChain())
     for agent in (muninn, norns, mimir, saga):
         agent.bind_bus(bus)
@@ -317,6 +344,179 @@ def _promotion_receipt(
     )
 
 
+class _RetainedPromotionAdmissions:
+    def __init__(self, admissions: tuple[DecisionEvidenceAdmission, ...]) -> None:
+        self._admissions = {
+            (item.evidence_digest, item.scope_digest, item.purpose_id, item.source_revision): item
+            for item in admissions
+        }
+
+    async def admit(
+        self, *, evidence_digest: str, scope_digest: str, purpose_id: str, source_revision: str
+    ) -> DecisionEvidenceAdmission | None:
+        return self._admissions.get((evidence_digest, scope_digest, purpose_id, source_revision))
+
+
+class _PromotionBatchSnapshot:
+    def __init__(self, batch: OperationalPromotionBatch) -> None:
+        self._batch = batch
+
+    async def load_batch(
+        self, *, action_type_name: str, fdai_revision: str, scenario_set_version: str
+    ) -> OperationalPromotionBatch:
+        assert (action_type_name, fdai_revision, scenario_set_version) == (
+            self._batch.action_type_name,
+            self._batch.fdai_revision,
+            self._batch.scenario_set_version,
+        )
+        return self._batch
+
+
+async def _reviewed_promotion_fixture(
+    action_type: OntologyActionType,
+    package: CatalogReviewPackage,
+    materializer: CaseHistoryMaterializer,
+    *,
+    now: datetime,
+) -> tuple[OperationalPromotionReceipt, ReviewedReplayAuthority]:
+    """Retain exact independent fixture admissions over measured, scoped evidence."""
+    candidate = package.candidate
+    assert candidate.access_scope_digest is not None and candidate.purpose is not None
+    binding = ReviewedReplayBinding(
+        candidate_digest=candidate.digest,
+        package_digest=package.content_digest,
+        replay_first_digest=package.replay.first_result_digest,
+        replay_second_digest=package.replay.second_result_digest,
+        immutable_case_refs=candidate.immutable_case_refs,
+        access_scope_digest=candidate.access_scope_digest,
+        purpose=candidate.purpose,
+    )
+    action_digest = action_type_digest(action_type)
+    policy = OperationalPromotionPolicy()
+    count = max(1000, action_type.promotion_gate.min_samples)
+    span = action_type.promotion_gate.min_shadow_days + 1
+    records = tuple(
+        _record(
+            index,
+            cohort=(
+                PromotionEvidenceCohort.FROZEN_BENCHMARK
+                if index % 2 == 0
+                else PromotionEvidenceCohort.LIVE_SHADOW
+            ),
+            observed_at=now - timedelta(days=span - index * span / (count - 1)),
+            action_type_name=action_type.name,
+            action_type_version=action_type.version,
+            action_type_digest=action_digest,
+            fdai_revision=candidate.fdai_revision,
+            scenario_set_version=candidate.scenario_set_version,
+        )
+        for index in range(count)
+    )
+    batch = OperationalPromotionBatch(
+        fdai_revision=candidate.fdai_revision,
+        scenario_set_version=candidate.scenario_set_version,
+        action_type_name=action_type.name,
+        action_type_version=action_type.version,
+        action_type_digest=action_digest,
+        sealed_at=now,
+        records=records,
+        reviewed_replay_binding=binding,
+    )
+    review = ReviewedReplayPromotionEvidence(
+        action_type=action_type.name,
+        action_type_version=action_type.version,
+        action_type_digest=action_digest,
+        fdai_revision=candidate.fdai_revision,
+        scenario_set_version=candidate.scenario_set_version,
+        candidate_digest=binding.candidate_digest,
+        package_digest=binding.package_digest,
+        replay_first_digest=binding.replay_first_digest,
+        replay_second_digest=binding.replay_second_digest,
+        promotion_evidence_digest=operational_promotion_decision_digest(batch, policy),
+        promotion_policy_digest=policy.content_digest,
+        review_ref="governance-review:independently-retained",
+        reviewer_principal="independent-governance-reviewer",
+        approved=True,
+        reviewed_replay_binding=binding,
+    )
+    admissions = _RetainedPromotionAdmissions(
+        tuple(
+            DecisionEvidenceAdmission(
+                receipt_digest="sha256:" + receipt_marker * 64,
+                verification_bundle_digest="sha256:" + bundle_marker * 64,
+                evidence_digest=digest,
+                scope_digest=operational_promotion_scope_digest(batch),
+                purpose_id=purpose,
+                source_revision=batch.fdai_revision,
+                verified_at=now - timedelta(seconds=1),
+                valid_until=now + timedelta(minutes=1),
+            )
+            for digest, purpose, receipt_marker, bundle_marker in (
+                (
+                    operational_promotion_evidence_digest(batch),
+                    OPERATIONAL_PROMOTION_EVIDENCE_PURPOSE,
+                    "6",
+                    "7",
+                ),
+                (review.reviewed_replay_digest, "reviewed-replay-promotion", "a", "b"),
+            )
+        )
+    )
+    source = _PromotionBatchSnapshot(batch)
+    admitted = await AdmittedOperationalPromotionEvidenceSource(
+        source=source, admission_provider=admissions
+    ).load_batch(
+        action_type_name=action_type.name,
+        fdai_revision=batch.fdai_revision,
+        scenario_set_version=batch.scenario_set_version,
+    )
+    manifest = OperationalPromotionEvidenceManifest(
+        batches=(),
+        causal_receipt_digests=frozenset(
+            record.causal_receipt.content_digest for record in records
+        ),
+        unit_evidence_refs={
+            record.measurement_unit_id: frozenset(record.evidence_refs) for record in records
+        },
+    )
+    evaluator = OperationalPromotionEvaluator(
+        expected_fdai_revision=batch.fdai_revision,
+        expected_scenario_set_version=batch.scenario_set_version,
+        causal_receipt_verifier=ManifestCausalPromotionReceiptVerifier(manifest),
+        unit_verifier=ManifestOperationalPromotionUnitVerifier(manifest),
+        policy=policy,
+        as_of_fn=lambda: now,
+    )
+    receipt = evaluator.evaluate(action_type, admitted)
+    assert receipt.ready, receipt.gaps
+    authority = ReviewedReplayAuthority(
+        (review,),
+        production_evidence_source=source,
+        production_admission_provider=admissions,
+        case_materializer=materializer,
+        case_metadata=materializer._metadata,
+        production_action_types={action_type.name: action_type},
+        production_evaluator=evaluator,
+        clock=lambda: now,
+    )
+    return receipt, authority
+
+
+async def _prepare_reviewed_promotion(
+    authority: ReviewedReplayAuthority, receipt: OperationalPromotionReceipt
+) -> bool:
+    assert receipt.policy_digest is not None
+    return await authority.prepare(
+        action_type=receipt.action_type_name,
+        action_type_version=receipt.action_type_version,
+        action_type_digest=receipt.action_type_digest,
+        fdai_revision=receipt.fdai_revision,
+        scenario_set_version=receipt.scenario_set_version,
+        evidence_digest=receipt.evidence_digest,
+        policy_digest=receipt.policy_digest,
+    )
+
+
 async def test_pinned_release_publishes_once_then_promotes_only_after_review() -> None:
     scenario = _scenario()
     bus, publisher, _ = _wire(scenario)
@@ -341,26 +541,9 @@ async def test_pinned_release_publishes_once_then_promotes_only_after_review() -
 
     state = InMemoryStateStore()
     action_type = _action_type(scenario["action_type"])
-    receipt = _promotion_receipt(action_type, scenario)
-    authority = ReviewedReplayAuthority(
-        (
-            ReviewedReplayPromotionEvidence(
-                action_type=action_type.name,
-                action_type_version=action_type.version,
-                action_type_digest=receipt.action_type_digest,
-                fdai_revision=scenario["fdai_revision"],
-                scenario_set_version=scenario["scenario_set_version"],
-                candidate_digest=package.candidate.digest,
-                package_digest=package.content_digest,
-                replay_first_digest=package.replay.first_result_digest,
-                replay_second_digest=package.replay.second_result_digest,
-                promotion_evidence_digest=receipt.evidence_digest,
-                promotion_policy_digest=receipt.policy_digest or "",
-                review_ref="governance-review:v2026.08",
-                reviewer_principal="independent-governance-reviewer",
-                approved=True,
-            ),
-        )
+    assert publisher.case_history is not None
+    receipt, authority = await _reviewed_promotion_fixture(
+        action_type, package, publisher.case_history, now=_timestamp(scenario["reviewed_at"])
     )
     registry = StateStoreActionPromotionRegistry(
         store=state,
@@ -370,6 +553,7 @@ async def test_pinned_release_publishes_once_then_promotes_only_after_review() -
     assert registry.mode_of(action_type.name).value == expected["mode_before_review"]
 
     await registry.refresh_for_update(action_type.name)
+    assert await _prepare_reviewed_promotion(authority, receipt)
     promoted = registry.consider_promotion(
         action_type=action_type,
         metrics=_promotion_metrics(receipt),
@@ -378,6 +562,7 @@ async def test_pinned_release_publishes_once_then_promotes_only_after_review() -
     await registry.persist(action_type.name)
     assert promoted.mode.value == expected["mode_after_review"]
 
+    assert await _prepare_reviewed_promotion(authority, receipt)
     duplicate = registry.consider_promotion(
         action_type=action_type,
         metrics=_promotion_metrics(receipt),

@@ -1,7 +1,7 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: a0dc2858133b5854d207b72011c97fb5aec147d2
-translation_revised: 2026-10-15
+translation_source_sha: f86aa04e8abc09590d57900b86a183b1b41fe07f
+translation_revised: 2026-10-17
 ---
 # 독립 운영 근거 발급
 
@@ -106,6 +106,11 @@ Core 경로는 `services/core-control-plane/src/fdai/` 기준이며, 그 밖의 
   `module "identity"`)로 실행되므로, 프로세스 내부 검증기는 생산자 및 실행기와 신원을 공유하게 됩니다.
 
 ## 검증기 워크로드와 신원 분리
+
+의사 결정 경계 인벤토리는 스칼라 challenger 재구축, 정확한 검토 후 재현 준비와 보관 패턴의
+최종 입력 묶음 검증도 등록합니다. 수락 경로는 공유 인가 계약을 확인하며, 근거가 없으면
+보류합니다. 등록 자체가 발급자를 제공하지는 않습니다. 보관 패턴의 일관성 발급자는 설치
+검증 전까지 사용 불가로 유지합니다(#2194).
 
 검증기는 전용 사용자 할당 Managed Identity를 사용하는 내부 전용 결정론적 서비스입니다. 모델을 호출하지
 않으며 에이전트도 아닙니다. 인벤토리 프로젝터처럼 자신의 비에이전트 영속 출력인 운영 증명 저장소만

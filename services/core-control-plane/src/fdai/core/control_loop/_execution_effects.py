@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import replace
 from datetime import datetime
+from typing import Literal
 
+from fdai.core.assurance_twin.prediction_evidence import retain_prediction
 from fdai.core.detection.alert_noise.execution_models import ALERT_ACTIONS
 from fdai.core.executor import ExecutionResult
 from fdai.core.executor.direct_api import DirectApiExecutionResult
@@ -61,6 +65,7 @@ class ControlLoopExecutionEffectsMixin:
         correlation_id: str,
         execution_started_at: datetime,
         execution_ended_at: datetime,
+        authorization_decision: Literal["auto", "hil", "deny", "abstain"] = "abstain",
     ) -> ExecutionResultType:
         if execution_outcome_is_no_effect(result.outcome):
             await self._record_workflow_no_effect(action=action, result=result)
@@ -81,6 +86,7 @@ class ControlLoopExecutionEffectsMixin:
             correlation_id=correlation_id,
             execution_started_at=execution_started_at,
             execution_ended_at=execution_ended_at,
+            authorization_decision=authorization_decision,
         )
         if verification is None and request_production is None:
             return result
@@ -190,7 +196,35 @@ class ControlLoopExecutionEffectsMixin:
         if expected is None:
             return None, EffectVerificationReason.PREDICTION_UNAVAILABLE
         if expected.target_ref != action.target_resource_ref:
-            return expected, EffectVerificationReason.PREDICTION_TARGET_MISMATCH
+            return (
+                replace(expected, prediction_snapshot=None),
+                EffectVerificationReason.PREDICTION_TARGET_MISMATCH,
+            )
+        snapshot = expected.prediction_snapshot
+        if snapshot is not None:
+            if (
+                snapshot.action_id != action.action_id
+                or snapshot.event_id != action.event_id
+                or snapshot.action_type_id != action.action_type
+                or snapshot.target_digest
+                != hashlib.sha256(action.target_resource_ref.encode()).hexdigest()
+            ):
+                return (
+                    replace(expected, prediction_snapshot=None),
+                    EffectVerificationReason.PREDICTION_TARGET_MISMATCH,
+                )
+            try:
+                async with asyncio.timeout(5):
+                    await retain_prediction(self._audit_store, snapshot, recorded_at=self._clock())
+            except Exception as exc:  # noqa: BLE001 - optional learning cannot block dispatch
+                _LOGGER.warning(
+                    "effect_prediction_retention_failed",
+                    extra={
+                        "event_id": str(action.event_id),
+                        "action_id": str(action.action_id),
+                        "error_type": type(exc).__name__,
+                    },
+                )
         return expected, None
 
     async def _record_mscp_effect_shadow(
@@ -203,6 +237,7 @@ class ControlLoopExecutionEffectsMixin:
         correlation_id: str,
         execution_started_at: datetime,
         execution_ended_at: datetime,
+        authorization_decision: Literal["auto", "hil", "deny", "abstain"] = "abstain",
     ) -> EffectVerificationResult | None:
         """Audit independent effect evidence and return only durable verification."""
         observer = self._mscp_effect_observer
@@ -268,9 +303,7 @@ class ControlLoopExecutionEffectsMixin:
             recorded_at=recorded_at,
             expected=expected,
             observed=observed,
-            decision=(
-                "auto" if verification.status is EffectVerificationStatus.VERIFIED else "abstain"
-            ),
+            decision=authorization_decision,
             rollback_succeeded=getattr(result, "rollback_succeeded", None),
         )
         try:
