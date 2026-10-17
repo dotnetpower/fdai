@@ -98,6 +98,65 @@ def test_missing_predecessor_and_changed_immutable_identity_are_rejected() -> No
         latest_feedback_revisions((first, forged), as_of=_AS_OF)
 
 
+@pytest.mark.parametrize(
+    ("field", "original", "replacement"),
+    [
+        ("decision", "deny", "auto"),
+        ("decision", "abstain", "hil"),
+        ("decision", "auto", "hil"),
+        ("decision", "hil", "deny"),
+        ("execution_mode", "shadow", "enforce"),
+        ("execution_mode", "enforce", "shadow"),
+    ],
+)
+def test_correction_cannot_rewrite_original_authorization(
+    field: str, original: str, replacement: str
+) -> None:
+    first = ResponseOutcome.model_validate({**_feedback(1).model_dump(), field: original})
+    corrected = ResponseOutcome.model_validate(
+        {**_corrected(first).model_dump(), field: replacement}
+    )
+    for records in ((first, corrected), (corrected, first, corrected)):
+        with pytest.raises(ValueError, match="lineage is invalid"):
+            rebuild_feedback(
+                seed=_model(EffectModelStatus.CHALLENGER),
+                outcomes=records,
+                as_of=_AS_OF,
+                complete=True,
+            )
+        with pytest.raises(ValueError, match="lineage is invalid"):
+            evaluate_frozen_predictions(
+                records,
+                as_of=_AS_OF,
+                training_independence_keys=frozenset(),
+                source_kind="synthetic",
+            )
+
+
+@pytest.mark.parametrize("decision", ["deny", "abstain", "auto", "hil"])
+def test_effect_correction_preserves_authorization_and_unknown_outcomes(decision: str) -> None:
+    first = ResponseOutcome.model_validate({**_feedback(1).model_dump(), "decision": decision})
+    corrected = _corrected(first)
+    assert latest_feedback_revisions((first, corrected), as_of=_AS_OF) == (corrected,)
+    rebuilt = rebuild_feedback(
+        seed=_model(EffectModelStatus.CHALLENGER),
+        outcomes=(first, corrected),
+        as_of=_AS_OF,
+        complete=True,
+    )
+    assert rebuilt.accepted_episodes == (1 if decision in {"auto", "hil"} else 0)
+    unknown = _corrected(first, unknown=True)
+    evaluation = evaluate_frozen_predictions(
+        (first, unknown),
+        as_of=_AS_OF,
+        training_independence_keys=frozenset(),
+        source_kind="synthetic",
+    )
+    assert evaluation.scored_episodes == 0
+    assert evaluation.mean_absolute_error is None
+    assert not evaluation.policy_effect_measured
+
+
 def test_complete_replay_is_order_stable_but_binds_every_seed_fact() -> None:
     outcomes = (_feedback(1), _feedback(2))
     seed = _model(EffectModelStatus.CHALLENGER)

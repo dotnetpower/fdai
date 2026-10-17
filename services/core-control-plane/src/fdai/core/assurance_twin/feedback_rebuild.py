@@ -75,6 +75,8 @@ def latest_feedback_revisions(
                 or outcome.action_id != previous.action_id
                 or outcome.action_type_id != previous.action_type_id
                 or outcome.target_digest != previous.target_digest
+                or outcome.decision != previous.decision
+                or outcome.execution_mode != previous.execution_mode
                 or outcome.prediction_id != previous.prediction_id
                 or outcome.prediction_snapshot != previous.prediction_snapshot
                 or outcome.predicted_at != previous.predicted_at

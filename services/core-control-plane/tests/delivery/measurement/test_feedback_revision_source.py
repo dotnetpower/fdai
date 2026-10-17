@@ -51,6 +51,26 @@ async def test_unknown_correction_is_current_evidence_not_a_success_label() -> N
     assert not unknown.scorable
 
 
+@pytest.mark.parametrize(
+    ("field", "original", "replacement"),
+    [("decision", "deny", "auto"), ("execution_mode", "shadow", "enforce")],
+)
+async def test_authorization_rewrite_withholds_complete_manifest_with_diagnostic(
+    field: str, original: str, replacement: str, caplog: pytest.LogCaptureFixture
+) -> None:
+    first = ResponseOutcome.model_validate({**_feedback(1).model_dump(), field: original})
+    corrected = ResponseOutcome.model_validate(
+        {**_corrected(first).model_dump(), field: replacement}
+    )
+    assert not await _Source((first, corrected)).current(
+        (first.revision_digest, corrected.revision_digest)
+    )
+    assert any(
+        record.__dict__.get("reason") == "feedback_source_revision_chain_invalid"
+        for record in caplog.records
+    )
+
+
 async def test_future_revision_withholds_past_head() -> None:
     first = _feedback(1)
     future = ResponseOutcome.model_validate(

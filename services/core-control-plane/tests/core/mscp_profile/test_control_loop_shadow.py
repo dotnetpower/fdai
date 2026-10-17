@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Literal
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -321,6 +321,112 @@ async def test_pre_executor_no_effect_records_terminal_workflow_outcome() -> Non
         if entry["entry"].get("action_kind") == "workflow.action_outcome.recorded"
     )
     assert recorded["event_id"] == str(action.event_id)
+
+
+@pytest.mark.parametrize("decision", ["auto", "hil", "deny", "abstain"])
+@pytest.mark.parametrize("mode", [Mode.SHADOW, Mode.ENFORCE])
+@pytest.mark.parametrize(
+    "outcome",
+    [DirectApiExecutionOutcome.POLICY_DENIED, DirectApiExecutionOutcome.DISPATCH_NOT_ATTEMPTED],
+)
+async def test_no_effect_keeps_original_authorization_without_inventing_observation(
+    decision: Literal["auto", "hil", "deny", "abstain"],
+    mode: Mode,
+    outcome: DirectApiExecutionOutcome,
+) -> None:
+    predictor, observer = AsyncMock(), AsyncMock()
+    recorder = MagicMock()
+    recorder.record = AsyncMock(return_value="workflow-outcome:example")
+    loop = _loop(
+        executor=MagicMock(),
+        audit_store=InMemoryStateStore(),
+        expected_effect_provider=predictor,
+        effect_observer=observer,
+        workflow_outcome_recorder=recorder,
+    )
+    action = _action().model_copy(
+        update={
+            "mode": mode,
+            "workflow_action": WorkflowActionRef(
+                process_id="process-1", step_id="step-1", proposal_ref="proposal-1", attempt=1
+            ),
+        }
+    )
+    terminal = DirectApiExecutionResult(action_id=str(action.action_id), outcome=outcome, mode=mode)
+    result = await loop._complete_execution_result(
+        action=action,
+        result=terminal,
+        expected=None,
+        prediction_failure=None,
+        correlation_id=str(action.event_id),
+        execution_started_at=_NOW,
+        execution_ended_at=_NOW,
+        authorization_decision=decision,
+    )
+    assert result is terminal
+    response = recorder.record.call_args.kwargs["response_outcome"]
+    assert response.decision == decision
+    assert response.execution_mode == mode
+    assert response.execution_outcome == outcome.value
+    assert not response.scorable
+    assert response.observed_value is None and response.observation_receipt_ref is None
+    predictor.assert_not_awaited()
+    observer.assert_not_awaited()
+
+
+@pytest.mark.parametrize("decision", ["auto", "hil", "deny", "abstain"])
+@pytest.mark.parametrize("boundary", ["conflict", "kinetic_writer", "workflow_commitment"])
+async def test_pre_dispatch_holds_forward_original_authorization(
+    decision: Literal["auto", "hil", "deny", "abstain"],
+    boundary: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    executor = MagicMock()
+    executor.execute = AsyncMock()
+    predictor, observer = AsyncMock(), AsyncMock()
+    recorder = MagicMock()
+    recorder.record = AsyncMock(return_value="workflow-outcome:example")
+    loop = _loop(
+        executor=executor,
+        audit_store=InMemoryStateStore(),
+        expected_effect_provider=predictor,
+        effect_observer=observer,
+        workflow_outcome_recorder=recorder,
+    )
+    action = _action().model_copy(
+        update={
+            "mode": Mode.ENFORCE,
+            "workflow_action": WorkflowActionRef(
+                process_id="process-1", step_id="step-1", proposal_ref="proposal-1", attempt=1
+            ),
+        }
+    )
+    if boundary == "conflict":
+        monkeypatch.setattr(
+            loop,
+            "_current_evidence_conflict_hold",
+            AsyncMock(
+                return_value=ExecutionResult(
+                    action_id=str(action.action_id),
+                    outcome=ExecutorOutcome.REJECTED_INVARIANT,
+                    mode=action.mode,
+                )
+            ),
+        )
+    elif boundary == "kinetic_writer":
+        writer = MagicMock()
+        writer.persist = AsyncMock(side_effect=OSError("injected kinetic writer failure"))
+        monkeypatch.setattr(loop, "_pre_dispatch_kinetic_safety_writer", writer)
+    result = await loop._dispatch_action(
+        action=action, rule=_rule(), authorization_decision=decision
+    )
+    assert result.outcome is ExecutorOutcome.REJECTED_INVARIANT
+    response = recorder.record.call_args.kwargs["response_outcome"]
+    assert response.decision == decision
+    assert not response.scorable and response.observed_value is None
+    executor.execute.assert_not_awaited()
+    predictor.assert_not_awaited()
+    observer.assert_not_awaited()
 
 
 @pytest.mark.parametrize(

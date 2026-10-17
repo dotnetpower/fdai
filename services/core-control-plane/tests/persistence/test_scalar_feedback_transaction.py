@@ -13,17 +13,35 @@ from uuid import UUID
 
 import psycopg
 import pytest
-from fdai.core.assurance_twin import EffectModelStatus, StateStoreEffectModelRegistry
+from fdai.core.assurance_twin import (
+    DynamicRuntimeCoordinator,
+    EffectModelStatus,
+    StateStoreEffectModelRegistry,
+)
 from fdai.core.assurance_twin.prediction_evidence import retain_prediction
 from fdai.core.measurement.runners import DynamicLearningRunner
 from fdai.core.mscp_profile.response_outcome import response_outcome_audit_entry
 from fdai.delivery.measurement.feedback_revision_source import PostgresFeedbackRevisionSource
 from fdai.delivery.measurement.postgres_growth import PostgresResponseOutcomeSource
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
+from fdai.shared.contracts.models import ResponseOutcome
 
 from tests.assurance_twin.test_feedback_rebuild import _corrected
 from tests.assurance_twin.test_feedback_reliability import _feedback
 from tests.assurance_twin.test_model_registry import _NOW, _CurrentFixtureSource, _model
+from tests.assurance_twin.test_runtime import (
+    _action as _runtime_action,
+)
+from tests.assurance_twin.test_runtime import (
+    _CausalEvidence,
+    _Provider,
+)
+from tests.assurance_twin.test_runtime import (
+    _event as _runtime_event,
+)
+from tests.assurance_twin.test_runtime import (
+    _request as _runtime_request,
+)
 from tests.persistence.test_postgres_forecast_episode import (
     forecast_database as forecast_database,
 )
@@ -154,6 +172,103 @@ async def test_rebuild_discovery_excludes_unrelated_legacy_but_currency_keeps_fu
         )
     )
     assert not await source.current((first.revision_digest,))
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize(
+    ("field", "original", "replacement"),
+    [("decision", "deny", "auto"), ("execution_mode", "shadow", "enforce")],
+)
+async def test_real_authorization_rewrite_cannot_train_after_restart(
+    feedback_database: str, field: str, original: str, replacement: str
+) -> None:
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=feedback_database))
+    source = PostgresFeedbackRevisionSource(
+        dsn=feedback_database, clock=lambda: _NOW + timedelta(minutes=6)
+    )
+    first = ResponseOutcome.model_validate({**_feedback(1).model_dump(), field: original})
+    corrected = ResponseOutcome.model_validate(
+        {**_corrected(first).model_dump(), field: replacement}
+    )
+    assert first.prediction_snapshot is not None and first.metric is not None
+    try:
+        await retain_prediction(store, first.prediction_snapshot, recorded_at=_NOW)
+        for item in (first, corrected):
+            await store.append_audit_entry(response_outcome_audit_entry(item))
+        registry = StateStoreEffectModelRegistry(
+            store, clock=lambda: _NOW + timedelta(minutes=6), feedback_source=source
+        )
+        active = _model(EffectModelStatus.ACTIVE)
+        await registry.register(active, registered_by="Mimir")
+        await registry.register(_model(EffectModelStatus.CHALLENGER), registered_by="Mimir")
+        assert not await source.current((first.revision_digest, corrected.revision_digest))
+        result = await registry.update_from_outcome(corrected)
+        assert not result.accepted and result.reason == "model_generation_sources_unavailable"
+        restarted = StateStoreEffectModelRegistry(store, feedback_source=source)
+        model = await restarted.get(
+            status=EffectModelStatus.CHALLENGER,
+            action_type_id=first.action_type_id,
+            metric=first.metric,
+        )
+        assert model is not None and model.sample_count == 0
+        assert (
+            await restarted.get(
+                status=EffectModelStatus.ACTIVE,
+                action_type_id=first.action_type_id,
+                metric=first.metric,
+            )
+            == active
+        )
+        assert await store.verify_chain()
+    finally:
+        await store.aclose()
+
+
+@pytest.mark.integration
+async def test_restarted_runtime_consumes_stored_learning_and_holds_withdrawn_observation(
+    feedback_database: str,
+) -> None:
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=feedback_database))
+    restarted_store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=feedback_database))
+    source = PostgresFeedbackRevisionSource(
+        dsn=feedback_database, clock=lambda: _NOW + timedelta(minutes=6)
+    )
+    registry = StateStoreEffectModelRegistry(
+        store, clock=lambda: _NOW + timedelta(minutes=6), feedback_source=source
+    )
+    request = _runtime_request()
+    request = replace(request, snapshot=replace(request.snapshot, metric="latency_p99_ms"))
+    coordinator = DynamicRuntimeCoordinator(
+        request_provider=_Provider(request),
+        model_reader=StateStoreEffectModelRegistry(restarted_store, feedback_source=source),
+        causal_evidence_verifier=_CausalEvidence(),
+    )
+    outcome = _feedback(1)
+    assert outcome.prediction_snapshot is not None
+    try:
+        for status in (EffectModelStatus.ACTIVE, EffectModelStatus.CHALLENGER):
+            await registry.register(_model(status), registered_by="Mimir")
+        before = await coordinator.simulate(event=_runtime_event(), action=_runtime_action())
+        assert before.simulation is not None
+        assert before.simulation.predictions[0].active_value == 80.0
+        assert before.simulation.predictions[0].challenger_value == 80.0
+        await retain_prediction(store, outcome.prediction_snapshot, recorded_at=_NOW)
+        await store.append_audit_entry(response_outcome_audit_entry(outcome))
+        assert (await registry.update_from_outcome(outcome)).accepted
+        after = await coordinator.simulate(event=_runtime_event(), action=_runtime_action())
+        assert after.simulation is not None
+        assert after.simulation.predictions[0].active_value == 80.0
+        assert after.simulation.predictions[0].challenger_value == 60.0
+        await store.append_audit_entry(
+            response_outcome_audit_entry(_corrected(outcome, unknown=True))
+        )
+        withdrawn = await coordinator.simulate(event=_runtime_event(), action=_runtime_action())
+        assert withdrawn.simulation is None
+        assert withdrawn.reason == "challenger_model_unavailable"
+        assert await store.verify_chain()
+    finally:
+        await restarted_store.aclose()
+        await store.aclose()
 
 
 @pytest.mark.integration

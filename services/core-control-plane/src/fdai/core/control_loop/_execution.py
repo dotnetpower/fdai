@@ -338,6 +338,7 @@ class ControlLoopExecutionMixin(
                 correlation_id=correlation_id,
                 execution_started_at=blocked_at,
                 execution_ended_at=blocked_at,
+                authorization_decision=authorization_decision,
             )
         writer = self._pre_dispatch_kinetic_safety_writer
         if writer is not None:
@@ -367,6 +368,7 @@ class ControlLoopExecutionMixin(
                     correlation_id=correlation_id,
                     execution_started_at=blocked_at,
                     execution_ended_at=blocked_at,
+                    authorization_decision=authorization_decision,
                 )
         path = action_type.execution_path if action_type is not None else None
         commitment_error = await self._prepare_workflow_safeguard_commitment(
@@ -389,6 +391,7 @@ class ControlLoopExecutionMixin(
                 correlation_id=correlation_id,
                 execution_started_at=blocked_at,
                 execution_ended_at=blocked_at,
+                authorization_decision=authorization_decision,
             )
         expected, prediction_failure = await self._prepare_mscp_effect(action)
         execution_started_at = self._clock()
