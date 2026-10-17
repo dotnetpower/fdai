@@ -13,7 +13,7 @@
   "t2ReadyTitle": "T2 quality gate is ready",
   "t2ReadyHint": "A primary model and an independent secondary publisher are active for mixed-model verification.",
   "t2SecondaryMissingTitle": "Independent secondary model is not configured",
-  "t2SecondaryMissingHint": "T1 narration remains available. T2 judgments stay unavailable until a secondary model from another publisher is reviewed and activated.",
+  "t2SecondaryMissingHint": "T2 judgments stay unavailable until a secondary model from another publisher is reviewed and activated.",
   "t2ReviewRequiredTitle": "T2 policy requires review",
   "t2ReviewRequiredHint": "The recorded pair does not yet satisfy the active quality-gate policy. Review the catalog draft before requesting activation.",
   "currentNarrator": "Current narrator",
