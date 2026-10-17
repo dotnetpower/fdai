@@ -60,7 +60,7 @@ async def test_authorization_survives_independent_effect_verdict(
 async def test_frozen_prediction_is_persisted_before_execution_and_observation() -> None:
     import hashlib
 
-    from fdai.shared.contracts.models.effect_prediction import EffectPredictionSnapshot
+    from fdai.shared.contracts.models import EffectPredictionSnapshot
 
     action = _action()
     expected = _expected()
@@ -133,7 +133,7 @@ async def test_optional_retention_failure_never_weakens_effect_verification(
     import hashlib
 
     from fdai.core.assurance_twin.prediction_evidence import retain_prediction
-    from fdai.shared.contracts.models.effect_prediction import EffectPredictionSnapshot
+    from fdai.shared.contracts.models import EffectPredictionSnapshot
 
     action = _action()
     expected = _expected()

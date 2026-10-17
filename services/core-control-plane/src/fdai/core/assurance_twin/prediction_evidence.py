@@ -6,7 +6,7 @@ import hashlib
 from datetime import datetime
 from typing import Any
 
-from fdai.shared.contracts.models.effect_prediction import EffectPredictionSnapshot
+from fdai.shared.contracts.models import EffectPredictionSnapshot
 from fdai.shared.providers.state_store import StateStore
 
 _PREFIX = "dynamic-effect-prediction:"

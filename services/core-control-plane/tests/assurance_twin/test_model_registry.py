@@ -13,8 +13,7 @@ from fdai.core.assurance_twin import (
     StateStoreEffectModelRegistry,
 )
 from fdai.core.assurance_twin.prediction_evidence import retain_prediction
-from fdai.shared.contracts.models import ResponseOutcome
-from fdai.shared.contracts.models.effect_prediction import EffectPredictionSnapshot
+from fdai.shared.contracts.models import EffectPredictionSnapshot, ResponseOutcome
 from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 

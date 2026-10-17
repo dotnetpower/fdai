@@ -16,8 +16,7 @@ from fdai.core.measurement.runners import DynamicLearningRunner
 from fdai.delivery.measurement.postgres_growth import (
     PostgresResponseOutcomeSource,
 )
-from fdai.shared.contracts.models import ResponseOutcome
-from fdai.shared.contracts.models.effect_prediction import EffectPredictionSnapshot
+from fdai.shared.contracts.models import EffectPredictionSnapshot, ResponseOutcome
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
 from tests.assurance_twin.test_feedback_reliability import _feedback as _legacy_feedback
 from tests.assurance_twin.test_model_registry import _NOW, _CurrentFixtureSource

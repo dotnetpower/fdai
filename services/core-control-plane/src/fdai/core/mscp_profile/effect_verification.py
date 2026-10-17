@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 
-from fdai.shared.contracts.models.effect_prediction import EffectPredictionSnapshot
+from fdai.shared.contracts.models import EffectPredictionSnapshot
 
 
 class EffectVerificationStatus(StrEnum):
