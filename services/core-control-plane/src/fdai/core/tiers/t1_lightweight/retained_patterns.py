@@ -240,7 +240,6 @@ class RetainedPatternSource:
         # Reauthorize and recheck EVERY cohort member, not just the selected positive.
         # No reference or resolved candidate survives a source change during verification.
         current = None
-        qualification = None
         if selected is not None:
             current = (
                 await self._statistics_source(event, selected)
@@ -291,11 +290,15 @@ class RetainedPatternSource:
             digest, scope = bound.evidence_digest, bound.scope_digest
             # This is the final awaited authority boundary. Sequential readers above
             # provide inputs only; they cannot establish coherent tuple eligibility.
-            qualification = await self._final_qualifier.qualify(bound)
+            admission = await self._final_qualifier.qualify(bound)
             now = self._clock()
+            if admission is None:
+                return RetainedPatternComparison(
+                    stop_reason="retained_pattern_qualification_rejected"
+                )
             if (
-                not isinstance(qualification, DecisionEvidenceAdmission)
-                or now >= qualification.valid_until
+                not isinstance(admission, DecisionEvidenceAdmission)
+                or now >= admission.valid_until
                 or not current.matches(selected, now=now)
                 or contextual_reuse_reasons(
                     event=event,
@@ -304,20 +307,31 @@ class RetainedPatternSource:
                     verification=verification,
                     evaluated_at=now,
                 )
-                or assess_decision_evidence_admission(
-                    qualification,
-                    expected_evidence_digest=digest,
-                    expected_scope_digest=scope,
-                    expected_purpose_id=FINAL_QUALIFICATION_PURPOSE,
-                    expected_source_revision=digest,
-                    evaluated_at=now,
-                )
             ):
                 return RetainedPatternComparison(
                     stop_reason="retained_pattern_qualification_rejected"
                 )
+            if assess_decision_evidence_admission(
+                admission,
+                expected_evidence_digest=digest,
+                expected_scope_digest=scope,
+                expected_purpose_id=FINAL_QUALIFICATION_PURPOSE,
+                expected_source_revision=digest,
+                evaluated_at=now,
+            ):
+                return RetainedPatternComparison(
+                    stop_reason="retained_pattern_qualification_rejected"
+                )
+            return RetainedPatternComparison(
+                tuple(checks),
+                selected,
+                stop_reason,
+                tuple(ids),
+                tuple(statistics_refs),
+                admission,
+            )
         return RetainedPatternComparison(
-            tuple(checks), selected, stop_reason, tuple(ids), tuple(statistics_refs), qualification
+            tuple(checks), None, stop_reason, tuple(ids), tuple(statistics_refs), None
         )
 
     async def _read(self, request: RetainedPatternRequest) -> tuple[Mapping[str, Any], ...] | None:

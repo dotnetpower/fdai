@@ -164,23 +164,22 @@ async def prepare_replay_review(
         now = clock()
         if now >= min(source_deadlines):
             return None
-        for admission, digest, purpose in (
-            (
-                measurement_admission,
-                measurement_digest,
-                OPERATIONAL_PROMOTION_EVIDENCE_PURPOSE,
-            ),
-            (review_admission, evidence.reviewed_replay_digest, REVIEWED_REPLAY_PROMOTION_PURPOSE),
+        if assess_decision_evidence_admission(
+            measurement_admission,
+            expected_evidence_digest=measurement_digest,
+            expected_scope_digest=scope_digest,
+            expected_purpose_id=OPERATIONAL_PROMOTION_EVIDENCE_PURPOSE,
+            expected_source_revision=batch.fdai_revision,
+            evaluated_at=now,
+        ) or assess_decision_evidence_admission(
+            review_admission,
+            expected_evidence_digest=evidence.reviewed_replay_digest,
+            expected_scope_digest=scope_digest,
+            expected_purpose_id=REVIEWED_REPLAY_PROMOTION_PURPOSE,
+            expected_source_revision=batch.fdai_revision,
+            evaluated_at=now,
         ):
-            if assess_decision_evidence_admission(
-                admission,
-                expected_evidence_digest=digest,
-                expected_scope_digest=scope_digest,
-                expected_purpose_id=purpose,
-                expected_source_revision=batch.fdai_revision,
-                evaluated_at=now,
-            ):
-                return None
+            return None
         return PreparedReplayReview(
             valid_from=now,
             valid_until=min(

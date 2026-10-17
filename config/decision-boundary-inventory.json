@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
   "description": "Complete inventory of registered positive decision boundaries that must resolve decision-critical evidence through the shared admission contract (FDAI-CONST-002).",
-  "decision_surface_digest": "20ef7ba1a5e0db994ebd6c0683df4fe8e03867df58261fd4ae16c35923876bae",
+  "decision_surface_digest": "c73dffb7f83fb7c322af3ce14fd3cb6cb4b822c225101a6f5f414f5934e3f012",
   "shared_admission": {
     "module": "fdai.shared.providers.decision_evidence_verifier",
     "assessor": "assess_decision_evidence_admission",
@@ -30,16 +30,24 @@
         {
           "function": "AdmittedAlertRecord.require_current",
           "guards": [
-            {"name": "assess_decision_evidence_admission", "kind": "returns"}
+            {
+              "name": "assess_decision_evidence_admission",
+              "kind": "returns"
+            }
           ],
           "fail_closed_markers": []
         },
         {
           "function": "read_admitted_alert_record",
           "guards": [
-            {"name": "AdmittedAlertRecord.require_current", "kind": "raises"}
+            {
+              "name": "AdmittedAlertRecord.require_current",
+              "kind": "raises"
+            }
           ],
-          "fail_closed_markers": ["None"]
+          "fail_closed_markers": [
+            "None"
+          ]
         }
       ]
     },
@@ -58,14 +66,20 @@
         {
           "function": "_AlertWorkflowBindingSupport._promotion_admission",
           "guards": [
-            {"name": "self._promotion_current", "kind": "returns"}
+            {
+              "name": "self._promotion_current",
+              "kind": "returns"
+            }
           ],
           "fail_closed_markers": []
         },
         {
           "function": "_AlertWorkflowBindingSupport.require_promotion_current",
           "guards": [
-            {"name": "self._promotion_current", "kind": "returns"}
+            {
+              "name": "self._promotion_current",
+              "kind": "returns"
+            }
           ],
           "fail_closed_markers": []
         }
@@ -85,16 +99,26 @@
         {
           "function": "StateStoreAlertWorkflowPromotionReader._read",
           "guards": [
-            {"name": "assess_decision_evidence_admission", "kind": "returns"}
+            {
+              "name": "assess_decision_evidence_admission",
+              "kind": "returns"
+            }
           ],
-          "fail_closed_markers": ["None"]
+          "fail_closed_markers": [
+            "None"
+          ]
         },
         {
           "function": "StateStoreAlertWorkflowPromotionReader.read",
           "guards": [
-            {"name": "self._read", "kind": "returns"}
+            {
+              "name": "self._read",
+              "kind": "returns"
+            }
           ],
-          "fail_closed_markers": ["None"]
+          "fail_closed_markers": [
+            "None"
+          ]
         }
       ]
     },
@@ -603,6 +627,63 @@
       ]
     },
     {
+      "id": "retained-pattern-final-qualification",
+      "positive_decision": "Mark a retained shadow challenger eligible only with independently admitted exact whole-tuple coherent qualification, without changing actual baseline selection or execution authority.",
+      "module": "services/core-control-plane/src/fdai/core/tiers/t1_lightweight/retained_patterns.py",
+      "purpose_constant": null,
+      "purpose_id": null,
+      "purpose_note": "Uses the distinct fixed retained-pattern-final-qualification purpose from retained_pattern_bindings. Ordinary read/reuse admission cannot substitute; no production issuer is installed.",
+      "tests": [
+        "services/core-control-plane/tests/core/tiers/t1_lightweight/test_retained_patterns.py",
+        "services/core-control-plane/tests/core/tiers/t1_lightweight/test_retained_pattern_audit.py"
+      ],
+      "decisions": [
+        {
+          "function": "RetainedPatternSource._compare",
+          "guards": [
+            {
+              "name": "assess_decision_evidence_admission",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": [
+            "retained_pattern_source_unavailable",
+            "retained_pattern_projection_unavailable",
+            "retained_pattern_source_changed",
+            "retained_pattern_evidence_changed",
+            "retained_pattern_qualification_unavailable",
+            "retained_pattern_qualification_rejected",
+            "None"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "reviewed-replay-preparation",
+      "positive_decision": "Prepare short-lived exact replay review proof only after independently admitting both the measured policy-bound batch and the separate review.",
+      "module": "services/core-control-plane/src/fdai/core/operational_learning/promotion_revalidation.py",
+      "purpose_constant": null,
+      "purpose_id": null,
+      "purpose_note": "Uses operational-promotion and reviewed-replay-promotion as separate fixed purposes; an inline reviewer or approval flag is not an admission.",
+      "tests": [
+        "services/core-control-plane/tests/core/operational_learning/test_promotion_binding.py"
+      ],
+      "decisions": [
+        {
+          "function": "prepare_replay_review",
+          "guards": [
+            {
+              "name": "assess_decision_evidence_admission",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": [
+            "None"
+          ]
+        }
+      ]
+    },
+    {
       "id": "rubric-promotion",
       "positive_decision": "Promote a quality gate rubric revision.",
       "module": "services/core-control-plane/src/fdai/core/quality_gate/promotion.py",
@@ -622,6 +703,36 @@
           ],
           "fail_closed_markers": [
             "Mode.SHADOW"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "scalar-effect-model-rebuild",
+      "positive_decision": "Replace only a scalar challenger generation after independent exact-manifest admission, current source and retained prediction checks.",
+      "module": "services/core-control-plane/src/fdai/core/assurance_twin/model_registry.py",
+      "purpose_constant": null,
+      "purpose_id": null,
+      "purpose_note": "Uses the fixed effect-model-rebuild purpose from feedback_generation; model parameters and processing receipts cannot issue their own admission.",
+      "tests": [
+        "services/core-control-plane/tests/assurance_twin/test_feedback_rebuild.py",
+        "services/core-control-plane/tests/assurance_twin/test_feedback_registry_boundaries.py",
+        "services/core-control-plane/tests/delivery/measurement/test_dynamic_rebuild_cli.py"
+      ],
+      "decisions": [
+        {
+          "function": "StateStoreEffectModelRegistry.rebuild_challenger",
+          "guards": [
+            {
+              "name": "rebuild_admission_valid",
+              "kind": "returns"
+            }
+          ],
+          "fail_closed_markers": [
+            "rebuild_evidence_unavailable",
+            "challenger_not_registered",
+            "rebuild_seed_mismatch",
+            "rebuild_no_eligible_episodes"
           ]
         }
       ]
@@ -881,8 +992,17 @@
   },
   "admission_helpers": [
     {
+      "module": "services/core-control-plane/src/fdai/core/assurance_twin/feedback_generation.py",
+      "functions": [
+        "rebuild_admission_valid"
+      ],
+      "note": "Computes exact manifest/scope/purpose/source and expiry validity for the scalar-effect-model-rebuild boundary; it cannot activate or replace a model."
+    },
+    {
       "module": "services/core-control-plane/src/fdai/core/detection/alert_noise/workflow_binding.py",
-      "functions": ["_AlertWorkflowBindingSupport._promotion_current"],
+      "functions": [
+        "_AlertWorkflowBindingSupport._promotion_current"
+      ],
       "note": "Computes exact admission/current-promotion validity for the registered alert-workflow-promotion-binding decisions; the predicate itself changes no mode or state."
     },
     {

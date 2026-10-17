@@ -111,6 +111,11 @@ now exists.
 
 ## Verifier workload and identity separation
 
+The decision-boundary inventory also registers scalar challenger rebuild, exact reviewed-replay
+preparation and retained-pattern final tuple qualification. Their positive exits resolve the shared
+admission contract; missing evidence returns a hold, and registration never supplies an issuer.
+The retained-pattern coherent issuer remains unavailable pending installation qualification (#2194).
+
 The verifier is an internal-only, deterministic service with a dedicated user-assigned managed identity. It
 invokes no model and isn't an agent: like the inventory projector, it owns only its non-agent durable output,
 the operational proof store. It publishes and subscribes to no topic, never judges, approves, executes, or
