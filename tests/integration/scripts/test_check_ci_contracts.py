@@ -421,8 +421,14 @@ def test_ci_expensive_jobs_follow_change_scope_and_python_uses_measured_shards()
         "Install static check dependencies",
         "Run Python lint and static contracts",
     }
+    assert (
+        static_steps["Run Python lint and static contracts"]["if"]
+        == "needs.changes.outputs.python == 'true'"
+    )
     assert all(
-        step["if"] == "needs.changes.outputs.python == 'true'" for step in static_steps.values()
+        "if" not in step
+        for name, step in static_steps.items()
+        if name != "Run Python lint and static contracts"
     )
     assert static_steps["Set up uv (Python 3.13)"]["with"]["save-cache"] is True
     assert (
@@ -446,6 +452,42 @@ def test_ci_expensive_jobs_follow_change_scope_and_python_uses_measured_shards()
         "provider-contracts-docker",
         "terraform-security",
     }.isdisjoint(jobs)
+
+
+@pytest.mark.parametrize(
+    "name", ["Set up Python", "Set up uv (Python 3.13)", "Install static check dependencies"]
+)
+@pytest.mark.parametrize("missing", [False, True])
+def test_design_contract_environment_rejects_missing_or_python_only_setup(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str, missing: bool
+) -> None:
+    module = _load_contract_module()
+    workflow = yaml.safe_load((_REPO_ROOT / ".github/workflows/ci.yml").read_text())
+    steps = workflow["jobs"]["contracts"]["steps"]
+    for step in steps:
+        if step.get("name") in {
+            "Set up Python",
+            "Set up uv (Python 3.13)",
+            "Install static check dependencies",
+        }:
+            step.pop("if", None)
+    if missing:
+        steps[:] = [step for step in steps if step.get("name") != name]
+        expected = f"contracts must prepare {name} before validating design contracts"
+    else:
+        next(step for step in steps if step.get("name") == name)["if"] = (
+            "needs.changes.outputs.python == 'true'"
+        )
+        expected = f"contracts must prepare {name} for non-Python changes too"
+    workflow_dir = tmp_path / ".github/workflows"
+    workflow_dir.mkdir(parents=True)
+    (workflow_dir / "ci.yml").write_text(yaml.safe_dump(workflow))
+    monkeypatch.setattr(module, "REPO_ROOT", tmp_path)
+    assert module._validate_design_contract_environment() == [expected]
+
+
+def test_shipped_design_contract_environment_covers_console_and_docs_only_changes() -> None:
+    assert _load_contract_module()._validate_design_contract_environment() == []
 
 
 def test_deploy_workspace_preparation_runs_before_checkout() -> None:

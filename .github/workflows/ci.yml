@@ -260,14 +260,12 @@ jobs:
           fetch-depth: 0
 
       - name: Set up Python
-        if: needs.changes.outputs.python == 'true'
         uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.13"
 
       - name: Set up uv (Python 3.13)
         uses: astral-sh/setup-uv@11f9893b081a58869d3b5fccaea48c9e9e46f990 # v8.3.2
-        if: needs.changes.outputs.python == 'true'
         with:
           version: "0.12.11"
           python-version: "3.13"
@@ -276,7 +274,6 @@ jobs:
           save-cache: true
 
       - name: Install static check dependencies
-        if: needs.changes.outputs.python == 'true'
         run: uv sync --extra dev --extra pdf-report --extra azure-mcp --frozen
 
       - name: Install contract check dependencies
