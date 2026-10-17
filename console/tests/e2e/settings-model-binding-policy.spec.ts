@@ -152,6 +152,41 @@ test("keeps environment model binding bounded and authority-free", async ({ page
   }
 });
 
+test("does not promise T1 narration when the narrator and secondary are unavailable", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await installFixture(page);
+  await page.route("**/models/settings**", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        ...projection,
+        narrator: {
+          ...projection.narrator,
+          current_auto_pick: null,
+          candidates: [],
+        },
+        t2_model_policy: {
+          ...projection.t2_model_policy,
+          active_secondary: null,
+          quorum_ready: false,
+        },
+      }),
+    });
+  });
+  await page.goto("/settings/models");
+
+  await expect(page.locator(".settings-model-readiness-facts dd").first())
+    .toHaveText("Unavailable");
+  await expect(page.getByText("Independent secondary model is not configured", { exact: true }))
+    .toBeVisible();
+  await expect(page.getByText(
+    "T2 judgments stay unavailable until a secondary model from another publisher is reviewed and activated.",
+    { exact: true },
+  )).toBeVisible();
+  await expect(page.getByText("T1 narration remains available.", { exact: false })).toHaveCount(0);
+});
+
 test("separates Models into task-focused production views", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await installFixture(page);

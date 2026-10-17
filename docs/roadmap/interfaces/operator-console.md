@@ -168,7 +168,8 @@ row; this boundary does not write or replace prior stored state.
 Settings > Models keeps current state, catalog policy, routing evidence, and web-search policy in
 four task-focused views. Overview distinguishes available T1 narration from T2 mixed-model
 readiness, names the operational impact of a missing independent secondary model, and places the
-per-user narrator preference before read-only lifecycle evidence. The view selector supports
+per-user narrator preference before read-only lifecycle evidence. Missing-secondary guidance
+reports only the T2 blocker; it does not establish that T1 narration is available. The view selector supports
 ArrowLeft, ArrowRight, Home, and End with roving focus. An unavailable web-search provider explains
 the blocker before allowlist controls; an operator can prepare policy, but the Console does not
 imply that requests can run. The Settings modal reserves space above the entitlement watermark at
