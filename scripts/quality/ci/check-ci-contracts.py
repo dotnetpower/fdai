@@ -588,6 +588,20 @@ def _validate_privileged_workflow_guards() -> list[str]:
     )
 
 
+def _validate_design_contract_environment() -> list[str]:
+    workflow = yaml.safe_load((REPO_ROOT / ".github/workflows/ci.yml").read_text())
+    steps = workflow["jobs"]["contracts"]["steps"]
+    names = [step.get("name") for step in steps]
+    design_index = names.index("Validate changed design contracts")
+    errors: list[str] = []
+    for name in ("Set up Python", "Set up uv (Python 3.13)", "Install static check dependencies"):
+        if name not in names or names.index(name) >= design_index:
+            errors.append(f"contracts must prepare {name} before validating design contracts")
+        elif steps[names.index(name)].get("if"):
+            errors.append(f"contracts must prepare {name} for non-Python changes too")
+    return errors
+
+
 def _validate_uv_cache_writers() -> list[str]:
     workflow = (REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
     blocks = UV_SETUP_BLOCK_RE.findall(workflow)
@@ -679,6 +693,7 @@ def main() -> int:
         *_validate_service_contract_generation(),
         *_validate_action_runtime_versions(),
         *_validate_privileged_workflow_guards(),
+        *_validate_design_contract_environment(),
         *_validate_uv_cache_writers(),
         *_validate_live_db_guards(),
     ]

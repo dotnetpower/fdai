@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { getLocale, setLocale } from "../i18n";
+import { modelText } from "./settings-models.i18n";
 import {
   filterCatalogModels,
   formatDisplayTimestamp,
@@ -9,7 +11,11 @@ import {
   nextModelWorkspaceView,
   presentModelStatus,
 } from "./settings-models.presentation";
-import type { GptModelCatalogEntryView, T2ModelChoiceView } from "./settings-models.model";
+import type {
+  GptModelCatalogEntryView,
+  ModelSettingsView,
+  T2ModelChoiceView,
+} from "./settings-models.model";
 
 const catalogModels: readonly GptModelCatalogEntryView[] = [
   {
@@ -81,6 +87,45 @@ describe("settings models presentation", () => {
     expect(modelReadinessState(true, true)).toBe("ready");
     expect(modelReadinessState(false, false)).toBe("secondary-missing");
     expect(modelReadinessState(false, true)).toBe("review-required");
+  });
+
+  it.each([
+    ["en", "T2 judgments stay unavailable until a secondary model from another publisher is reviewed and activated."],
+    ["ko", "다른 공급자의 보조 모델을 검토하고 활성화할 때까지 T2 판단은 사용할 수 없습니다."],
+  ] as const)("does not promise T1 availability when narration and the secondary are unavailable (%s)", (locale, expectedHint) => {
+    const projection: Pick<ModelSettingsView, "narrator" | "t2ModelPolicy"> = {
+      narrator: {
+        revision: 0,
+        requested: "auto",
+        effective: "auto",
+        fallbackReason: null,
+        currentAutoPick: null,
+        candidates: [],
+      },
+      t2ModelPolicy: {
+        selectionScope: "governance-draft",
+        invariant: "distinct-publisher",
+        primaryCandidates: [],
+        secondaryCandidates: [],
+        activePrimary: null,
+        activeSecondary: null,
+        quorumReady: false,
+      },
+    };
+    expect(projection.narrator.currentAutoPick).toBeNull();
+    expect(projection.narrator.candidates).toHaveLength(0);
+    expect(modelReadinessState(
+      projection.t2ModelPolicy.quorumReady,
+      projection.t2ModelPolicy.activeSecondary !== null,
+    )).toBe("secondary-missing");
+
+    const previousLocale = getLocale();
+    try {
+      setLocale(locale);
+      expect(modelText("t2SecondaryMissingHint")).toBe(expectedHint);
+    } finally {
+      setLocale(previousLocale);
+    }
   });
 
   it("moves predictably across model workspace views", () => {

@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: 79712b846879a5e88013aa46d75872697adb6c6b
-translation_revised: 2026-10-16
+translation_source_sha: b0f07671d22d7f1b2c71bde2237e617bc6e23184
+translation_revised: 2026-10-17
 ---
 # FDAI Console 대화
 
@@ -165,7 +165,8 @@ Rules workspace는 카탈로그 출처와 배포 로컬 활성화 멤버십을 �
 Settings > Models는 현재 상태, 카탈로그 정책, 라우팅 근거, 웹 검색 정책을 네 개의 작업 중심
 보기로 구분합니다. 개요는 사용할 수 있는 T1 서술 기능과 T2 mixed-model 준비 상태를 분리하고,
 독립된 보조 모델이 없을 때의 운영 영향을 설명하며, 사용자별 서술기 선호를 읽기 전용 수명 주기
-근거보다 먼저 표시합니다. 보기 선택기는 ArrowLeft, ArrowRight, Home, End 키와 로빙 포커스를
+근거보다 먼저 표시합니다. 보조 모델 미구성 안내는 T2 차단 사유만 설명하며 T1 서술 기능을
+사용할 수 있다고 단정하지 않습니다. 보기 선택기는 ArrowLeft, ArrowRight, Home, End 키와 로빙 포커스를
 지원합니다. 웹 검색 공급자를 사용할 수 없으면 허용 목록 컨트롤보다 먼저 차단 사유를 설명합니다.
 운영자는 정책을 미리 준비할 수 있지만 Console은 검색 요청을 실행할 수 있다고 표시하지 않습니다.
 Settings 모달은 데스크톱과 모바일에서 사용권 워터마크 위에 공간을 확보하며 Command Deck 맥락은
