@@ -101,6 +101,11 @@ def response_outcome_audit_entry(outcome: ResponseOutcome) -> dict[str, object]:
         **payload,
         "scorable": outcome.scorable,
         "verification_passed": outcome.verification_passed,
+        **(
+            {"outcome_revision_digest": outcome.revision_digest}
+            if outcome.schema_version == "1.1.0"
+            else {}
+        ),
     }
 
 

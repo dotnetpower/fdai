@@ -24,7 +24,7 @@ from fdai.core.assurance_twin.feedback_generation import (
     read_generation,
     rebuild_admission_valid,
 )
-from fdai.core.assurance_twin.feedback_rebuild import rebuild_feedback
+from fdai.core.assurance_twin.feedback_rebuild import FeedbackRebuildCandidate, rebuild_feedback
 from fdai.core.assurance_twin.prediction_evidence import prediction_available
 from fdai.shared.contracts.models import ResponseOutcome
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmission
@@ -323,6 +323,22 @@ class StateStoreEffectModelRegistry:
             evaluated_at=self._clock(),
         )
 
+    async def preview_rebuild(
+        self,
+        *,
+        seed: EffectModel,
+        outcomes: tuple[ResponseOutcome, ...],
+        as_of: datetime,
+    ) -> FeedbackRebuildCandidate | None:
+        """Freeze the retained seed/order subject that a reviewed rebuild verifies."""
+        raw = await self._store.read_state(
+            _state_key(EffectModelStatus.CHALLENGER, seed.action_type_id, seed.metric)
+        )
+        if raw is None:
+            return None
+        _deserialize(raw)
+        return _rebuild_candidate(raw, seed=seed, outcomes=outcomes, as_of=as_of)
+
     async def rebuild_challenger(
         self,
         *,
@@ -342,23 +358,14 @@ class StateStoreEffectModelRegistry:
             initial_raw = await self._store.read_state(key)
             if initial_raw is None:
                 return RegistryUpdate(False, "challenger_not_registered")
-            if initial_raw.get("registered_seed_digest") != _digest(
-                _serialize(seed)
-            ) or initial_raw.get("registered_seed") != _serialize(seed):
-                return RegistryUpdate(False, "rebuild_seed_mismatch")
-            initial_generation = read_generation(initial_raw)
-            earlier = initial_generation["replay_order"] if initial_generation is not None else []
-            delta = initial_raw.get("feedback_order", [])
-            if (
-                not isinstance(delta, list)
-                or len(delta) > _MAX_FEEDBACK_RECEIPTS
-                or any(not isinstance(item, str) for item in delta)
-            ):
-                raise ValueError("stored scalar feedback order is invalid")
-            order = tuple(dict.fromkeys((*earlier, *delta)))
-            candidate = rebuild_feedback(
-                seed=seed, outcomes=outcomes, as_of=as_of, complete=True, replay_order=order
+            candidate = _rebuild_candidate(
+                initial_raw,
+                seed=seed,
+                outcomes=outcomes,
+                as_of=as_of,
             )
+            if candidate is None:
+                return RegistryUpdate(False, "rebuild_seed_mismatch")
             if candidate.accepted_episodes == 0:
                 return RegistryUpdate(False, "rebuild_no_eligible_episodes")
             if not rebuild_admission_valid(
@@ -444,6 +451,35 @@ class StateStoreEffectModelRegistry:
                 },
             )
             return RegistryUpdate(stored, "challenger_rebuilt" if stored else "revision_conflict")
+
+
+def _rebuild_candidate(
+    raw: Mapping[str, Any],
+    *,
+    seed: EffectModel,
+    outcomes: tuple[ResponseOutcome, ...],
+    as_of: datetime,
+) -> FeedbackRebuildCandidate | None:
+    if raw.get("registered_seed_digest") != _digest(_serialize(seed)) or raw.get(
+        "registered_seed"
+    ) != _serialize(seed):
+        return None
+    generation = read_generation(raw)
+    earlier = generation["replay_order"] if generation is not None else []
+    delta = raw.get("feedback_order", [])
+    if (
+        not isinstance(delta, list)
+        or len(delta) > _MAX_FEEDBACK_RECEIPTS
+        or any(not isinstance(item, str) for item in delta)
+    ):
+        raise ValueError("stored scalar feedback order is invalid")
+    return rebuild_feedback(
+        seed=seed,
+        outcomes=outcomes,
+        as_of=as_of,
+        complete=True,
+        replay_order=tuple(dict.fromkeys((*earlier, *delta))),
+    )
 
 
 def _digest(value: object) -> str:

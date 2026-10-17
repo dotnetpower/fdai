@@ -23,6 +23,7 @@ from fdai.composition import (
     wire_azure_container,
 )
 from fdai.core.assurance_twin import (
+    EffectModelStatus,
     GraphDynamicClosureCoordinator,
     GraphDynamicClosureRunner,
     MetricGraphTrajectoryOutcomeSource,
@@ -30,6 +31,7 @@ from fdai.core.assurance_twin import (
     StateStoreGraphEffectModelRegistry,
     StateStoreTrajectoryEpisodeLedger,
 )
+from fdai.core.assurance_twin.feedback_generation import REBUILD_PURPOSE, generation_scope
 from fdai.core.measurement import (
     OperationalPromotionEvaluator,
     OperationalPromotionMeasurementRunner,
@@ -53,6 +55,7 @@ from fdai.delivery.measurement.admitted_operational_promotion import (
 from fdai.delivery.measurement.cohort_inventory import (
     PostgresCohortEvidenceInventorySource,
 )
+from fdai.delivery.measurement.feedback_revision_source import PostgresFeedbackRevisionSource
 from fdai.delivery.measurement.holdout import (
     HoldoutVerifiedPatternBuilder,
     StateStoreTemporalHoldoutEvidenceSource,
@@ -87,6 +90,7 @@ from fdai.delivery.persistence import (
     StateStoreOperationalPromotionReceiptStore,
 )
 from fdai.rule_catalog.schema.ontology_catalog import load_ontology_catalog
+from fdai.runtime.venue import ExecutionVenue, resolve_execution_venue
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.providers.state_store import StateStore
 
@@ -98,6 +102,7 @@ class MeasurementMode(StrEnum):
     COHORT_INVENTORY = "cohort-inventory"
     GROWTH = "growth"
     DYNAMIC_LEARNING = "dynamic-learning"
+    DYNAMIC_REBUILD = "dynamic-rebuild"
     PATTERN_GROWTH = "pattern-growth"
     GRAPH_DYNAMIC = "graph-dynamic"
     OPERATIONAL_PROMOTION = "operational-promotion"
@@ -217,7 +222,10 @@ async def _run_dynamic_learning() -> int:
     store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
     report = await DynamicLearningRunner(
         outcome_source=PostgresResponseOutcomeSource(dsn=dsn, state_store=store),
-        registry=StateStoreEffectModelRegistry(store),
+        registry=StateStoreEffectModelRegistry(
+            store,
+            feedback_source=PostgresFeedbackRevisionSource(dsn=dsn),
+        ),
         audit_store=store,
     ).run_once()
     _LOGGER.info(
@@ -229,6 +237,80 @@ async def _run_dynamic_learning() -> int:
         },
     )
     return 0
+
+
+async def _run_dynamic_rebuild() -> int:
+    if resolve_execution_venue(os.environ) is ExecutionVenue.DEPLOYED:
+        _LOGGER.error(
+            "dynamic_rebuild_unavailable",
+            extra={"reason": "deployment_admission_binding_required"},
+        )
+        return 3
+    dsn = _required_env("FDAI_STATE_STORE_DSN")
+    action_type = _required_env("FDAI_EFFECT_REBUILD_ACTION_TYPE")
+    metric = _required_env("FDAI_EFFECT_REBUILD_METRIC")
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=dsn))
+    source = PostgresFeedbackRevisionSource(dsn=dsn)
+    registry = StateStoreEffectModelRegistry(store, feedback_source=source)
+    registration = await registry.inspect_registration(
+        status=EffectModelStatus.CHALLENGER,
+        action_type_id=action_type,
+        metric=metric,
+    )
+    if registration is None:
+        _LOGGER.error(
+            "dynamic_rebuild_unavailable", extra={"reason": "registered_seed_unavailable"}
+        )
+        return 3
+    current, seed = registration
+    if seed is None:
+        _LOGGER.error(
+            "dynamic_rebuild_unavailable", extra={"reason": "registered_seed_unavailable"}
+        )
+        return 3
+    outcomes = await source.outcomes_for_scope(action_type_id=action_type, metric=metric)
+    if not outcomes:
+        _LOGGER.error("dynamic_rebuild_unavailable", extra={"reason": "outcomes_unavailable"})
+        return 3
+    as_of = max(seed.learned_through, *(item.recorded_at for item in outcomes))
+    candidate = await registry.preview_rebuild(seed=seed, outcomes=outcomes, as_of=as_of)
+    if candidate is None:
+        _LOGGER.error("dynamic_rebuild_unavailable", extra={"reason": "registered_seed_changed"})
+        return 3
+    admission = await StateStoreDecisionEvidenceAdmissionProvider(store=store).admit(
+        evidence_digest="sha256:" + candidate.input_manifest_digest,
+        scope_digest=generation_scope(action_type, metric),
+        purpose_id=REBUILD_PURPOSE,
+        source_revision=candidate.input_manifest_digest,
+    )
+    if admission is None:
+        print(
+            json.dumps(
+                {
+                    "status": "review_required",
+                    "input_manifest_digest": candidate.input_manifest_digest,
+                    "execution_authority": False,
+                    "promotion_authority": False,
+                },
+                sort_keys=True,
+            )
+        )
+        _LOGGER.warning(
+            "dynamic_rebuild_review_required",
+            extra={"input_manifest_digest": candidate.input_manifest_digest},
+        )
+        return 3
+    result = await registry.rebuild_challenger(
+        seed=seed,
+        outcomes=outcomes,
+        as_of=as_of,
+        expected_revision=current.revision,
+        admission=admission,
+    )
+    _LOGGER.info(
+        "dynamic_rebuild_complete", extra={"accepted": result.accepted, "reason": result.reason}
+    )
+    return 0 if result.accepted or result.reason == "rebuild_already_applied" else 3
 
 
 async def _run_pattern_growth() -> int:
@@ -428,6 +510,8 @@ async def _run_mode(mode: MeasurementMode) -> int:
         return await _run_growth()
     if mode is MeasurementMode.DYNAMIC_LEARNING:
         return await _run_dynamic_learning()
+    if mode is MeasurementMode.DYNAMIC_REBUILD:
+        return await _run_dynamic_rebuild()
     if mode is MeasurementMode.PATTERN_GROWTH:
         return await _run_pattern_growth()
     if mode is MeasurementMode.GRAPH_DYNAMIC:

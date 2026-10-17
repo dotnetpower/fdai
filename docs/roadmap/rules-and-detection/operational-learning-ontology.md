@@ -155,9 +155,32 @@ authoritative metadata, with proof expiry bounded by source deletion deadlines. 
 and enforcement records remain readable and demotable; renewing an admission never changes the
 immutable measured subject. Unbound production proof providers keep this path unavailable.
 
-Default-off T1 eligibility comparison records the baseline and a bounded challenger without
+Default-off baseline-library T1 eligibility comparison records the baseline and a bounded challenger without
 changing actual selection. This is not qualified retained Pattern-to-T1 enrollment, a new executor,
 or evidence of improved operational recovery.
+
+An optional retained-pattern source now supplies a separate read-through comparison after the
+baseline finishes. It uses the existing principal-authorized `OperatingPatternQuery`, current
+positive-case lineage, a registered-action resolver and independently supplied current measured
+statistics. It never derives a success probability from the Pattern's positive/negative counts.
+Missing request, action parameters/schema, statistics, current source or admission holds the
+candidate. A one-positive/one-negative cohort remains a draft, not operational proof.
+
+The source writes neither a baseline index nor copied case bodies/vectors. Every query and final
+cohort recheck use the current retained projection, so source deletion or replacement cannot leave
+a durable shadow copy eligible after restart. The same total T1 deadline and global denials remain
+authoritative. Optional host DI and comparison enablement are required; default-off adds no source
+I/O. The existing audit stores only bounded digest/count summaries with false execution, promotion
+and operational-proof flags. Focused stored-admission fixtures verify wiring, not live qualification.
+
+Sequential rereads do not make those independent sources coherent. Final eligibility therefore
+also requires an exact whole-tuple `DecisionEvidenceAdmission` from a
+`RetainedPatternFinalQualifier`, using the distinct `retained-pattern-final-qualification`
+purpose. Its trusted issuer must cover all source versions, statistics, read authorization,
+action/context and current-reuse admission with a checked-version/lease/fence valid through
+immediate acceptance. An ordinary read or reuse admission cannot substitute for it.
+No production issuer ships here. Missing or unavailable coherent qualification clears eligibility
+and holds the comparison, even when individual earlier checks passed.
 
 `PANTHEON_SPECS` once assigned Norns a `PatternObservation` while the catalog named the same record
 `Pattern`. The two names described one inert compiled cohort record, not a raw observation and a

@@ -1,6 +1,6 @@
 ---
 translation_of: project-structure-dependency-injection.md
-translation_source_sha: 4ff8a141f58e13c558d66ccc7e05c8d7849a97fd
+translation_source_sha: 52336a94df557daeac664200c3fff3eda6c401aa
 translation_revised: 2026-10-17
 ---
 
@@ -76,13 +76,23 @@ Core 시작 구성은 이를 Bragi의 읽기 전용 숙의 처리기에 전달�
   단위와 증적을 제공하며 보관 실패로 이 검증 조건을 없애지 않습니다.
   `StateStoreEffectModelRegistry(feedback_source=...)`는 적격 갱신과 학습 모델 읽기에 최신
   리비전 체인 근거를 요구합니다. 런타임 조립은 같은 타입의 출처를
-  `bind_dynamic_evidence_from_env(feedback_source=...)`로 전달할 수 있으며 기본값은 사용 불가입니다.
+  `bind_dynamic_evidence_from_env(feedback_source=...)`로 전달할 수 있습니다. 소유 감사 저장소의
+  `FDAI_STATE_STORE_DSN`을 명시하면 런타임과 독립 스칼라 소비자가
+  `PostgresFeedbackRevisionSource`를 사용하며, 그렇지 않으면 출처는 사용 불가입니다.
   시작 시에는 출처 가용성과 독립적으로 저장된 등록 계보를 확인하며 운영 읽기는 `get()`만
   검증합니다. 등록 내용 확인은 예측 근거가 아닙니다.
   검토된 재구축은 기존 정확한 범위의
   `DecisionEvidenceAdmission`, 불변 등록 seed, 실제 적용 순서도 필요합니다. 이 연결은 활성
-  모델 작성기를 만들지 않습니다. 패키지의 출처/인가와 보존 연결은 제공되기 전까지 사용할
-  수 없으며 항상 수락하는 어댑터를 설치하지 않습니다.
+  모델 작성기를 만들지 않습니다. 출처는 읽기 전용 DB 스냅샷에서 한도가 있는 완전한
+  리비전 체인을 검증하며 인가를 발급하지 않습니다. 배포 소유 예측기, 관측기, 인가와 보존
+  검증은 여전히 필요하며 항상 수락하는 대역은 설치하지 않습니다.
+- **보관 패턴의 shadow 비교**: 호스트 조립에는 서버 소유 인증 요청, 등록 조치/인자 해석기, 독립적인 최신
+  측정 통계 출처와 현재 재사용 검증기가 추가로 필요합니다. 실시간 조회 출처는 기존 인가
+  질의를 사용하고 근거를 복사하거나 기준 인덱스를 쓰지 않습니다. 호스트 DI와 비교 플래그는
+  명시적으로 선택합니다.
+  최종 적격성에는 신뢰할 수 있는 일관된 버전/임대/보호 경계 발급자를 사용하는 별도의 전체
+  입력 묶음 검증기가 필요합니다. 개별 읽기/재사용 인가만으로는 부족하며 발급자가 없으면
+  일관성을 추정하지 않고 보관 패턴 challenger를 사용 불가로 둡니다.
 - **Operational 승격 권한**: `OperationalPromotionReceiptVerifier`와
   `OperationalPromotionUnitVerifier`가 변경할 수 없는 근거를 해석합니다. 운영 레지스트리는
   이 연결 없이는 shadow를 유지하며 raw scalar 메트릭은 test-only 이전 방식 고정본 모드입니다.

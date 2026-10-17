@@ -43,7 +43,7 @@ from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
 from enum import StrEnum
 from math import isfinite, sqrt
-from typing import Any, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 from fdai.core.case_history import CaseHistoryMaterializer
 from fdai.shared.contracts.models import Event
@@ -54,6 +54,9 @@ from .contextual_reuse import (
     OperationalCaseContext,
     contextual_reuse_reasons,
 )
+
+if TYPE_CHECKING:
+    from .retained_patterns import RetainedPatternComparison, RetainedPatternSource
 
 
 class T1Outcome(StrEnum):
@@ -141,6 +144,7 @@ class T1Decision:
     violating the safety contract."""
     current_reuse_verification: CurrentReuseVerification | None = None
     eligibility_comparison: T1EligibilityComparison | None = None
+    retained_pattern_comparison: RetainedPatternComparison | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -230,6 +234,7 @@ class T1Tier:
         config: T1Config | None = None,
         clock: Callable[[], datetime] | None = None,
         case_history: CaseHistoryMaterializer | None = None,
+        retained_pattern_source: RetainedPatternSource | None = None,
     ) -> None:
         cfg = config or T1Config()
         if not 0.0 <= cfg.similarity_threshold <= 1.0:
@@ -250,6 +255,7 @@ class T1Tier:
         self._config = cfg
         self._clock = clock or (lambda: datetime.now(UTC))
         self._case_history = case_history
+        self._retained_pattern_source = retained_pattern_source
 
     def bind_case_history(self, materializer: CaseHistoryMaterializer) -> None:
         """Bind the authoritative current-case reader once at runtime composition."""
@@ -260,15 +266,41 @@ class T1Tier:
     async def evaluate(self, *, event: Event) -> T1Decision:
         """Evaluate one event under a total deadline; caller cancellation propagates."""
         baseline: T1Decision | None = None
+        comparing_retained = False
         try:
             async with asyncio.timeout(self._config.timeout_seconds):
                 baseline, matches = await self._evaluate(event=event)
                 if not self._config.compare_eligibility:
                     return baseline
-                return await self._compare_eligibility(
+                compared = await self._compare_eligibility(
                     event=event, matches=matches, baseline=baseline
                 )
+                source = self._retained_pattern_source
+                if source is None:
+                    return compared
+                from .retained_patterns import RetainedPatternComparison
+
+                baseline = compared
+                comparing_retained = True
+                comparison = compared.eligibility_comparison
+                if comparison is not None and comparison.stop_reason not in (
+                    None,
+                    "no_neighbour_found",
+                ):
+                    retained = RetainedPatternComparison(stop_reason="baseline_comparison_stopped")
+                else:
+                    retained = await source.compare(event=event, screen=self._screen_match)
+                return replace(compared, retained_pattern_comparison=retained)
         except TimeoutError:
+            if baseline is not None and comparing_retained:
+                from .retained_patterns import RetainedPatternComparison
+
+                return replace(
+                    baseline,
+                    retained_pattern_comparison=RetainedPatternComparison(
+                        stop_reason="t1_deadline_exceeded"
+                    ),
+                )
             if baseline is not None:
                 return replace(
                     baseline,

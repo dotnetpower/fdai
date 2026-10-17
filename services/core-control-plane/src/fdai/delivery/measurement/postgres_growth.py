@@ -355,6 +355,7 @@ def _response_outcome(entry: Mapping[str, Any]) -> ResponseOutcome | None:
             "mode",
             "scorable",
             "verification_passed",
+            "outcome_revision_digest",
         }
     }
     try:

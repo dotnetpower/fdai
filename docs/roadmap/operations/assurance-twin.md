@@ -98,6 +98,7 @@ separately rolled-back Core or Operator reads them without digest mismatches.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-17 | implemented | Connected the scalar consumer and configured runtime to the owning audit database's current outcome revisions, and added exact-order preview plus independently admitted idempotent challenger rebuild. Revision lookup metadata is additive to 1.1 audit projections, not the response wire contract. | #2193; `current change`; `feedback_revision_source.py`, `test_feedback_revision_source.py`, `test_dynamic_rebuild_cli.py`; 65 focused checks, seven actual private-schema PostgreSQL checks, source mypy/Ruff; registry coverage 92.61% in 78 focused cases. | Qualify deployment-owned predictors, observers, admissions and retention; operational policy effects remain unmeasured. |
 | 2026-10-17 | in-progress | Added attributed 1.1 feedback, frozen scalar prediction projections, immutable-seed reviewed rebuild, current-source checks, independent consumers, durable holdout retries, and default-off T1 eligibility comparison. Integrated critique found and corrected unsafe source/seed/replay and PostgreSQL-first-write assumptions; the full delivery exit remains open. | `current change`; task-owned contract, model, consumer, T1 and promotion tests; [hardening record](../../internals/operational-learning-hardening-20261017.md). | Complete qualified Pattern-to-T1 shadow enrollment, actual independent source/admission and retention bindings, paired operational evaluation, whole-scope hardening closure, and separately authorized runtime evidence. Remote publication is not implementation evidence. |
 | 2026-10-17 | implemented | Replaced scalar learning's timestamp-only replay boundary with a bounded digest-only feedback checkpoint committed with model parameters and audit. Delayed events remain eligible after the fixed seed cutoff, unknown/unexecuted outcomes do not calibrate, and unversioned corrections hold the challenger. Retryable learner failures do not acknowledge the Dynamic source cursor. | `current change`; focused `test_feedback_reliability.py`, `test_model_registry.py`, `test_effect_model.py`, `test_dynamic_learning.py`, `test_dynamic_feedback_replay.py`, and `test_scalar_feedback_loop.py`; real loopback `test_scalar_feedback_transaction.py`; runtime and advisory regression tests; Ruff and mypy. The frozen synthetic next-prediction error changes from 10 to 0, with baseline error 10, unchanged review guard, zero executions, and zero promotions. | Add predecessor-bound corrections and reviewed checkpoint rebuild, complete episode/source attribution and prediction-time evaluation provenance, and collect independently grouped operational holdout evidence before claiming policy improvement. Pattern-to-T1 enrollment and reviewed-replay promotion binding are separate open work. |
 | 2026-09-28 | in-progress | Replaced the proposed-IaC review input with FDAI typed ActionType proposals after the owner decision that Terraform is a local deployment tool and never a governance input. Added the content-addressed proposal and what-if contracts, reviewed-effect scratch derivation with Rule-input coverage of every changed leaf value, a durable intake that stays `recorded` until writer confirmation, one current review per proposal with atomic supersession and a projection conflict guard, Forseti's production-bound review producer with Rule-generation and Inventory write fences and bounded re-derivation, and outbox relays whose pass cost is bounded by unpublished rows through a dotted `StateStore` field filter, with row shapes unchanged from the previous release. Retired proposed-IaC rows stay unavailable. | `current change`; `core/assurance_twin/{typed_proposal,proposal_effects,evaluation}.py`, `shared/providers/state_store.py`, `delivery/persistence/{postgres,assurance_twin_outbox}.py`, `delivery/assurance_twin_{review_producer,review_follow_up,proposal_intake,review_evidence}.py`, `delivery/persistence/state_store_assurance_twin_proposal_review.py`; focused typed-proposal, producer, lifecycle, ledger, source, publication, bootstrap, Operator projection, and Pantheon layout tests; Ruff and strict mypy. | Declare reviewed ActionType effect models and bind a typed what-if producer to the intake; then deliver external Checks and retain one governed source-to-rendering receipt. |
@@ -386,6 +387,21 @@ The Dynamic learner retains its own audit-source watermark, independent of patte
 Unregistered challengers, contention, and unavailable checkpoints abort the batch with an attributed
 audit reason before that watermark advances. Earlier committed updates are deduplicated on retry.
 The CLI exposes independent `dynamic-learning`, `pattern-growth` and `graph-dynamic` consumers.
+The scalar consumer and configured runtime now bind a read-only PostgreSQL revision source to
+their owning audit DSN. Version 1.1 audit projections retain a recomputable outcome digest for
+lookup without changing the response contract. Witness lookup and complete per-outcome history
+share one repeatable-read snapshot; invalid, missing, future, superseded or incomplete chains
+withhold learning and learned-model reads with explicit diagnostics.
+
+`dynamic-rebuild` uses `FDAI_EFFECT_REBUILD_ACTION_TYPE` and `FDAI_EFFECT_REBUILD_METRIC` to preview
+the exact retained seed and applied replay order. It reports the deterministic manifest for
+independent review, requires an exact existing decision-evidence admission, then commits only the
+challenger and retained previous generation. An absent review returns a failing status without
+changing the model; a repeated completed request is a no-op. This command does not issue approval.
+Review-required output is an explicit JSON subject with false authority flags. The packaged
+rebuild utility is local-venue only: a deployed venue is refused before database or admission
+access until its private, venue-approved admission provider is explicitly composed.
+
 The compatible `growth` command reports known stage failures without discarding successful
 independent stages. Pattern growth retains only bounded source references while holdout is pending,
 revalidates source evidence after restart and reserves run budget for fresh intake.
@@ -419,6 +435,10 @@ and separate error, coverage and interval width. It does not measure a new polic
 > shadow storage, paired operational evaluation, and target-specific runtime receipts remain open.
 > Their absence is not replaced by an accepting stub. No production activation, completed
 > whole-scope Low-only hardening claim, publication or merge is implied by this local checkpoint.
+
+The installation-owned coherent retained-pattern issuer and independently measured operational
+effects are tracked in #2194. They are prerequisites, not inferred from local fixtures or a merged
+source change.
 
 ### Operational binding and guard
 

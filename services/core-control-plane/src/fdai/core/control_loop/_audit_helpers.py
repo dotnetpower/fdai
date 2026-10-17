@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from datetime import UTC, datetime
 from typing import Any
 
@@ -64,6 +65,24 @@ _T1_COMPARISON_REASON_CODES = frozenset(
         "decision_evidence_scope_mismatch",
         "decision_evidence_source_revision_mismatch",
         "t1_deadline_exceeded",
+        "baseline_comparison_stopped",
+        "no_retained_pattern",
+        "retained_pattern_source_unavailable",
+        "retained_pattern_projection_unavailable",
+        "retained_pattern_action_unavailable",
+        "retained_pattern_source_changed",
+        "retained_pattern_evidence_changed",
+        "retained_pattern_qualification_unavailable",
+        "retained_pattern_qualification_rejected",
+        "retained_pattern_positive_case_required",
+        "retained_pattern_statistics_unavailable",
+        "retained_pattern_context_mismatch",
+        "retained_pattern_action_unregistered",
+        "retained_pattern_argument_schema_unavailable",
+        "retained_pattern_arguments_invalid",
+        "retained_pattern_similarity_invalid",
+        "retained_pattern_insufficient_positive_cases",
+        "retained_pattern_reuse_statistics_unavailable",
     }
 )
 
@@ -80,6 +99,7 @@ def _t1_comparison_reason(reason: str) -> dict[str, str]:
         "t1_provider_error",
         "current_reuse_verification_error",
         "t1_candidate_error",
+        "retained_pattern_error",
     ):
         code = reason.partition(":")[0]
     else:
@@ -164,6 +184,69 @@ def _t1_comparison_audit_fields(t1: T1Decision) -> dict[str, Any]:
                 for check in checks
             ],
             "stop_reason": _t1_comparison_reason(stop_reason) if stop_reason is not None else None,
+        }
+    }
+
+
+def _t1_retained_comparison_audit_fields(t1: T1Decision) -> dict[str, Any]:
+    comparison = t1.retained_pattern_comparison
+    if comparison is None:
+        return {}
+    checks = comparison.candidates[:_T1_COMPARISON_CANDIDATE_LIMIT]
+    qualified = comparison.final_qualification is not None
+    return {
+        "t1_retained_pattern_comparison": {
+            "schema_version": "1.0.0",
+            "mode": Mode.SHADOW.value,
+            "execution_authority": False,
+            "promotion_authority": False,
+            "operationally_proven": False,
+            "qualification_receipt_digest": (
+                comparison.final_qualification.receipt_digest
+                if comparison.final_qualification is not None
+                else None
+            ),
+            "qualification_tuple_digest": (
+                comparison.final_qualification.evidence_digest
+                if comparison.final_qualification is not None
+                else None
+            ),
+            "actual_selection_changed": False,
+            "pattern_ids": [
+                value
+                if re.fullmatch(r"[a-f0-9]{64}", value)
+                else hashlib.sha256(value.encode()).hexdigest()
+                for value in comparison.pattern_ids[:_T1_COMPARISON_CANDIDATE_LIMIT]
+            ],
+            "statistics_refs": [
+                value
+                if re.fullmatch(r"[a-f0-9]{64}", value)
+                else hashlib.sha256(value.encode()).hexdigest()
+                for value in comparison.statistics_refs[:_T1_COMPARISON_CANDIDATE_LIMIT]
+            ],
+            "checked_count": len(comparison.candidates),
+            "recorded_candidate_count": len(checks),
+            "candidates_truncated": len(comparison.candidates) > len(checks),
+            "candidates": [
+                _t1_comparison_outcome(
+                    outcome="eligible" if check.eligible and qualified else "ineligible",
+                    match=check.match,
+                    reasons=check.reasons,
+                )
+                for check in checks
+            ],
+            "challenger": _t1_comparison_outcome(
+                outcome="eligible"
+                if comparison.challenger_match is not None and qualified
+                else "held",
+                match=comparison.challenger_match if qualified else None,
+                reasons=(),
+            ),
+            "stop_reason": (
+                _t1_comparison_reason(comparison.stop_reason)
+                if comparison.stop_reason is not None
+                else None
+            ),
         }
     }
 
@@ -343,6 +426,7 @@ async def write_t1_audit(
             "resource_type": decision.resource_type,
             "recorded_at": datetime.now(tz=UTC).isoformat(),
             **_t1_comparison_audit_fields(t1),
+            **_t1_retained_comparison_audit_fields(t1),
         }
     )
 

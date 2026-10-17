@@ -23,6 +23,7 @@ from fdai.delivery.azure.operational_evidence import (
     AzureDynamicPolicy,
     AzureDynamicSimulationRequestProvider,
 )
+from fdai.delivery.measurement.feedback_revision_source import PostgresFeedbackRevisionSource
 from fdai.runtime.providers import _build_inventory_context_provider
 from fdai.shared.providers.state_store import StateStore
 
@@ -122,7 +123,11 @@ async def bind_dynamic_evidence_from_env(
     if inventory_context is None:
         raise ValueError("Dynamic configuration requires durable inventory context")
     snapshots = AzureCachedOperationalSnapshotSource(inventory_context)
-    registry = StateStoreEffectModelRegistry(state_store, feedback_source=feedback_source)
+    source = feedback_source
+    audit_dsn = environ.get("FDAI_STATE_STORE_DSN", "").strip()
+    if source is None and audit_dsn:
+        source = PostgresFeedbackRevisionSource(dsn=audit_dsn)
+    registry = StateStoreEffectModelRegistry(state_store, feedback_source=source)
     verifier = ConfiguredCausalEvidenceVerifier(frozenset(raw_digests))
     models = tuple(_effect_model(item) for item in raw_models)
     configured_scopes = {(action_type, policy.metric) for action_type, policy in policies.items()}

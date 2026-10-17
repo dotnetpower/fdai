@@ -228,6 +228,11 @@ Eligibility comparison is default-off and audit-only. Missing source/admission/r
 qualified shadow enrollment and operational evaluation remain implementation or evidence gaps,
 not new permissions or completed production capability.
 
+The scalar audit adapter resolves versioned outcome heads from the owning database in a bounded
+read-only snapshot. Its digest lookup metadata does not alter the response wire contract or create
+a second ledger. Rebuild preview and commit use the same retained seed and applied order; the
+measurement command consumes an independently admitted manifest and cannot approve its own model.
+
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.
 
 

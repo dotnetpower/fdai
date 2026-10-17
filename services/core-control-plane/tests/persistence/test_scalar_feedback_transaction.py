@@ -9,6 +9,7 @@ from dataclasses import replace
 from datetime import timedelta
 from pathlib import Path
 from unittest.mock import patch
+from uuid import UUID
 
 import psycopg
 import pytest
@@ -16,9 +17,11 @@ from fdai.core.assurance_twin import EffectModelStatus, StateStoreEffectModelReg
 from fdai.core.assurance_twin.prediction_evidence import retain_prediction
 from fdai.core.measurement.runners import DynamicLearningRunner
 from fdai.core.mscp_profile.response_outcome import response_outcome_audit_entry
+from fdai.delivery.measurement.feedback_revision_source import PostgresFeedbackRevisionSource
 from fdai.delivery.measurement.postgres_growth import PostgresResponseOutcomeSource
 from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
 
+from tests.assurance_twin.test_feedback_rebuild import _corrected
 from tests.assurance_twin.test_feedback_reliability import _feedback
 from tests.assurance_twin.test_model_registry import _NOW, _CurrentFixtureSource, _model
 from tests.persistence.test_postgres_forecast_episode import (
@@ -49,6 +52,108 @@ def _registry(dsn: str) -> StateStoreEffectModelRegistry:
         clock=lambda: _NOW + timedelta(minutes=6),
         feedback_source=_CurrentFixtureSource(),
     )
+
+
+@pytest.mark.integration
+@pytest.mark.parametrize("wire_form", ["canonical", "uppercase", "hex", "urn", "braces"])
+async def test_real_revision_source_learns_restarts_and_withholds_corrected_evidence(
+    feedback_database: str,
+    wire_form: str,
+) -> None:
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=feedback_database))
+    source = PostgresFeedbackRevisionSource(
+        dsn=feedback_database,
+        clock=lambda: _NOW + timedelta(minutes=6),
+    )
+    registry = StateStoreEffectModelRegistry(
+        store,
+        clock=lambda: _NOW + timedelta(minutes=6),
+        feedback_source=source,
+    )
+    await registry.register(_model(EffectModelStatus.CHALLENGER), registered_by="Mimir")
+    await store.append_audit_entry(
+        {
+            **response_outcome_audit_entry(_feedback(2)),
+            "outcome_id": "not-a-uuid",
+        }
+    )
+    outcome = _feedback(1).model_copy(
+        update={
+            "outcome_id": UUID(int=0xABCDEF),
+        }
+    )
+    assert outcome.prediction_snapshot is not None
+    await retain_prediction(store, outcome.prediction_snapshot, recorded_at=_NOW)
+    await store.append_audit_entry(response_outcome_audit_entry(outcome))
+    assert (await registry.update_from_outcome(outcome)).accepted
+    restarted = StateStoreEffectModelRegistry(store, feedback_source=source)
+    assert outcome.metric is not None
+    model = await restarted.get(
+        status=EffectModelStatus.CHALLENGER,
+        action_type_id=outcome.action_type_id,
+        metric=outcome.metric,
+    )
+    assert model is not None and model.sample_count == 1
+    corrected = _corrected(outcome)
+    aliases = {
+        "canonical": str(corrected.outcome_id),
+        "uppercase": str(corrected.outcome_id).upper(),
+        "hex": corrected.outcome_id.hex,
+        "urn": corrected.outcome_id.urn,
+        "braces": "{" + str(corrected.outcome_id) + "}",
+    }
+    await store.append_audit_entry(
+        {
+            **response_outcome_audit_entry(corrected),
+            "outcome_id": aliases[wire_form],
+        }
+    )
+    assert (
+        await restarted.get(
+            status=EffectModelStatus.CHALLENGER,
+            action_type_id=outcome.action_type_id,
+            metric=outcome.metric,
+        )
+        is None
+    )
+    assert not await source.current((outcome.revision_digest,))
+    assert await source.current((outcome.revision_digest, corrected.revision_digest))
+
+
+@pytest.mark.integration
+async def test_rebuild_discovery_excludes_unrelated_legacy_but_currency_keeps_full_history(
+    feedback_database: str,
+) -> None:
+    store = PostgresStateStore(config=PostgresStateStoreConfig(dsn=feedback_database))
+    source = PostgresFeedbackRevisionSource(
+        dsn=feedback_database,
+        clock=lambda: _NOW + timedelta(minutes=6),
+    )
+    first = _feedback(1)
+    legacy = _feedback(2).model_copy(
+        update={
+            "schema_version": "1.0.0",
+            "prediction_snapshot": None,
+            "outcome_revision": None,
+            "observation_unit": None,
+            "observation_receipt_ref": None,
+        }
+    )
+    await store.append_audit_entry(response_outcome_audit_entry(legacy))
+    await store.append_audit_entry(response_outcome_audit_entry(first))
+    assert first.metric is not None
+    discovered = await source.outcomes_for_scope(
+        action_type_id=first.action_type_id,
+        metric=first.metric,
+    )
+    assert discovered == (first,)
+    assert await source.current((first.revision_digest,))
+    await store.append_audit_entry(
+        response_outcome_audit_entry(
+            legacy.model_copy(update={"outcome_id": first.outcome_id}),
+        )
+    )
+    assert not await source.current((first.revision_digest,))
 
 
 @pytest.mark.integration

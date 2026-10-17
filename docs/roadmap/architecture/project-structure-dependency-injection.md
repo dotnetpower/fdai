@@ -71,13 +71,23 @@ Upstream defines generic interfaces and working defaults. Forks customize throug
   its unit and receipt; retention failure never removes those verification requirements.
   `StateStoreEffectModelRegistry(feedback_source=...)` requires current revision-chain evidence for
   applicable updates and learned-model reads. Runtime composition can pass that same typed source
-  through `bind_dynamic_evidence_from_env(feedback_source=...)`; its default remains unavailable.
+  through `bind_dynamic_evidence_from_env(feedback_source=...)`. With an explicit owning
+  `FDAI_STATE_STORE_DSN`, runtime and the independent scalar consumer use
+  `PostgresFeedbackRevisionSource`; otherwise the source remains unavailable.
   Startup validates persisted registration lineage independently of source availability; only
   `get()` qualifies a model for operational reads. Registration inspection is not prediction evidence.
   Reviewed rebuild additionally requires the existing
   exact-scope `DecisionEvidenceAdmission`, immutable registered seed and applied order. These
-  bindings do not create an active-model writer. Packaged source/admission and retention bindings
-  remain unavailable until supplied; no always-accepting adapter is installed.
+  bindings do not create an active-model writer. The source verifies bounded complete revision
+  chains in a read-only database snapshot and does not issue admission. Deployment-owned predictor,
+  observer, admission and retention qualification remain required; no accepting stub is installed.
+- **Retained-pattern shadow comparison**: Host composition supplies a server-owned authenticated request,
+  registered-action/parameter resolver, independent current measured-statistics source and
+  current-reuse verifier. Its read-through source uses the existing authorized query and does not
+  copy evidence or write the baseline index. Host DI and the comparison flag remain explicit.
+  Final eligibility requires a separate whole-tuple final qualifier backed by a trusted coherent
+  version/lease/fence issuer. Individual read/reuse admissions are insufficient; an absent issuer
+  leaves the retained challenger unavailable rather than guessing coherence.
 - **Operational promotion authority**: `OperationalPromotionReceiptVerifier` and
   `OperationalPromotionUnitVerifier` resolve immutable evidence. The production registry remains
   shadow without them; raw scalar metrics are a test-only legacy fixture mode. A promotion-state

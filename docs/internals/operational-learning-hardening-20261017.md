@@ -166,20 +166,80 @@ whole-run timeout while requiring durable handoff preservation in both cases. Se
 require fresh-intake progress under a stalled pending writer and a whole-run timeout for a stalled
 fresh source. Production timeout behavior was not weakened.
 
-## Unclosed whole-scope conditions
+## Resumed delivery and additional source hardening
 
-- [ ] Complete qualified Pattern-to-T1 enrollment with shadow storage that cannot perturb baseline
-  search, and source-owned copied-data retention/deletion.
-- [ ] Bind authoritative outcome revisions, original HIL/terminal authorization, frozen predictor
-  provenance, current-revision sources, rebuild admissions and retention in a packaged venue.
+The permission snapshot above describes the first checkpoint, not current delivery status.
+On resumption, GitHub reported ADMIN access. Issue #2193 was created; Project synchronization
+remained best-effort because the token lacks `read:project`. The local merge `db4a786104` preserves
+both `68a0703bde` threshold-policy pins and the exact reviewed-replay binding. Combined receipts
+use version 1.3 while retaining legacy reading/demotion; the focused promotion matrix passed
+228 checks after integration.
+
+The new PostgreSQL scalar revision source and local reviewed rebuild command were then connected.
+The first additional independent source round checked more than ten named concerns and found:
+
+| Concern | Initial severity | Repair |
+|---------|------------------|--------|
+| Raw UUID text lookup omitted an uppercase or alternate-wire correction | High | Canonical parsed witness identities and UUID-valued history comparison cover uppercase, compact hexadecimal, URN and brace spellings. Eleven actual PostgreSQL cases include five correction forms. |
+| Deployed rebuild used local StateStore admission | High | The local utility refuses deployed venue before database/admission access. There is no fallback around the private deployed admission provider. |
+| Logging `extra` hid the review manifest from the actual CLI formatter | Medium | Review-required stdout is explicit JSON with exact manifest and false execution/promotion flags; tests assert the full shape. |
+
+Execution qualification was separately examined. PR publication alone does not prove an
+intervention, but its built-in missing rollback state keeps it ineligible. Direct API `dispatched`
+can instead map from an executor's postcondition-verified `SUCCEEDED`; blanket status rejection
+would discard different evidence. No live completed-intervention qualification is claimed.
+
+The next source round found two Medium availability defects: a raw UUID cast let an unrelated
+invalid row abort every source check, and unrelated legacy records poisoned versioned rebuild
+discovery. History lookup now compares non-throwing normalized hexadecimal text; discovery
+selects 1.1 candidates while selected-UUID currency still reads every version. Actual PostgreSQL
+tests prove unrelated malformed-row isolation and hidden same-UUID legacy withholding.
+
+Parent-source round 9 passed 13 named query/discovery controls, recovered the exact failed
+watermark/restart probe, and found no confirmed above-Low defect in that slice. Sixteen focused
+source/CLI checks and twelve real isolated PostgreSQL checks pass. The parent review fingerprint
+was `7097979aa1f3af3be20ef2a3eeffd246fb92bd21baac96a90b32f07bdb9a37ec`.
+
+The separate G review found two Medium withdrawal defects: reusing an old current-reuse
+admission after awaited reads, and a concrete statistics binding that returned only a captured
+snapshot. The first repair reread providers and rescreened, but a second independent probe
+showed the final awaited screen could still lose changes to measurement, negative cohort
+artifacts, or Pattern-read admission. The final repair requires a distinct exact-subject
+`retained-pattern-final-qualification` admission from a trusted coherent tuple issuer. Missing,
+ordinary-purpose, mismatched, expired or timed-out qualification clears eligibility. No
+production issuer or accepting default is installed.
+
+The third independent G review found no confirmed above-Low defect in its six-file fail-closed
+scope. It checked sixteen named controls and ran 56 focused tests. The three final-screen
+withdrawals hold with an explicit synthetic no-yield/version qualifier; a missing qualifier
+separately holds with no candidates/challenger. This proves neither an operational coherent
+issuer nor deployment activation.
+
+Final focused implementation evidence is 703 primary owning tests, 228 promotion-policy/replay
+integration tests and twelve actual isolated PostgreSQL tests. Source/new-test mypy passes
+58 files; Ruff passes all 74 task-owned Python files. Registry branch-inclusive coverage is
+92.61% in 78 focused cases. Overlapping worker/coverage selections are not added to those totals.
+Enforced official structural checks report zero failures, and the link gate finds zero broken
+targets in 1,069 documents. Immutable fast preflight and protected delivery remain separate stages.
+
+## Remaining operational and delivery conditions
+
+- [x] Implement optional baseline-isolated retained Pattern comparison and bounded audit without
+  copied case/vector storage; source deletion is observed through the owning read path.
+- [x] Bind audit-backed versioned outcome currency and an independently admitted local rebuild
+  command, retaining exact seed/order and atomic generation history.
+- [ ] Qualify the trusted coherent final issuer and installation-owned request, registered
+  action/statistics/current-reuse sources before retained challenger eligibility (#2194).
+- [ ] Qualify original HIL/terminal execution, frozen predictor/observer provenance and
+  source-owned prediction/generation retention in an explicitly selected venue (#2194).
 - [ ] Produce paired, episode-separated operational evaluation and target-specific runtime receipts.
   No production experiment, live model call, Azure mutation or deployment was performed here.
-- [x] Finish the bounded source recheck after repairs; round 6 found no confirmed above-Low source
-  defect in its reviewed slice.
-- [ ] Complete the missing whole-plan components and reach the requested whole-scope Low-only exit.
-  A disabled/unavailable path or a synthetic pass is not completion of this item.
-- [ ] Obtain ordinary repository write/issue/PR permission, then perform immutable delivery
-  preflight, non-force publication, protected CI/review and verified merge.
+- [x] Finish the bounded source rechecks: parent round 9 and G round 3 found no confirmed
+  above-Low source defect in their final reviewed slices.
+- [ ] Complete installation-owned qualification before claiming a whole operational closed loop.
+  A held capability or a synthetic pass does not complete the operational requirements.
+- [x] Obtain ordinary repository write and issue permission; #2193 and #2194 preserve the boundary.
+- [ ] Perform immutable delivery preflight, non-force publication, protected CI/review and verified merge.
 
 These are unfinished work or blocked evidence requirements, not Low findings manufactured to
 meet the user's exit condition. Local checkpoint commits must not be reported as publication,
