@@ -445,5 +445,11 @@ punctuation, readable Hangul, design routes and the append-only ledger check pas
 The final immutable fast/structural preflight is a separate delivery stage, not implied by these
 focused results. The best-effort Project update was refused by Enterprise Managed User policy.
 
+Checkpoint `bff2adece1` committed the verified source and regressions with normal integrity
+signing/hooks. Its route-selected documentation advisory identified the shared project-structure
+owner; the follow-up updates that English/Korean owner and its append-only ledger. The remaining
+authority/profile selectors passed 241 additional checks, excluding the already-tested shadow
+control-loop file. This yields 780 distinct focused checks, not an operational sample count.
+
 No external IdP/Inventory/Blob source, production bootstrap, live recovery comparison, deployment,
 model call or Azure mutation was performed. #2194 retains those authorization and evidence gates.
