@@ -182,6 +182,25 @@ immediate acceptance. An ordinary read or reuse admission cannot substitute for 
 No production issuer ships here. Missing or unavailable coherent qualification clears eligibility
 and holds the comparison, even when individual earlier checks passed.
 
+### Local closed-owner qualification
+
+`LocalPostgresPatternBackend` provides an explicit isolated-LOCAL validation composition, not a
+runtime bootstrap. Its owner keeps artifacts, case metadata/projections, measurements, permissions,
+current policy/reuse facts, registered actions and independently retained read/reuse admissions
+in the same owning PostgreSQL `state_kv` store. This is not a copy of external production sources.
+
+The leased qualifier locks only the exact dependency rows with `FOR SHARE`, recomputes the tuple
+under that transaction, and keeps the source-owner protection through positive comparison
+construction. Normal source UPDATE/DELETE operations block until lease release. Admission and
+source expiry bound acceptance; cancellation, deadline, lease-exit failure and released-lease
+reuse withhold the result. No new permission, successful observation or final proof is fabricated.
+
+The backend requires explicit LOCAL venue, a numeric loopback address and the isolated validation
+database port. Runtime-database and deployed targets are rejected. It uses existing tables and
+source-owned retention without a new product schema or ledger. Independent observed facts and
+valid read/reuse admissions must be populated before optional host DI can compare a candidate.
+External IdP, Inventory, Blob and production coherence remain unqualified by this local backend.
+
 `PANTHEON_SPECS` once assigned Norns a `PatternObservation` while the catalog named the same record
 `Pattern`. The two names described one inert compiled cohort record, not a raw observation and a
 reviewed generalization, because no code performs the review that a second layer would require. The

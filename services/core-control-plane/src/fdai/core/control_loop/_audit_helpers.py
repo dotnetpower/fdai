@@ -193,7 +193,7 @@ def _t1_retained_comparison_audit_fields(t1: T1Decision) -> dict[str, Any]:
     if comparison is None:
         return {}
     checks = comparison.candidates[:_T1_COMPARISON_CANDIDATE_LIMIT]
-    qualified = comparison.final_qualification is not None
+    qualified = comparison.final_qualification is not None or comparison.final_lease is not None
     return {
         "t1_retained_pattern_comparison": {
             "schema_version": "1.0.0",
@@ -201,6 +201,24 @@ def _t1_retained_comparison_audit_fields(t1: T1Decision) -> dict[str, Any]:
             "execution_authority": False,
             "promotion_authority": False,
             "operationally_proven": False,
+            "local_lease_dependencies_digest": (
+                comparison.final_lease.dependencies_digest
+                if comparison.final_lease is not None
+                else None
+            ),
+            "local_lease_tuple_digest": (
+                comparison.final_lease.tuple_digest if comparison.final_lease is not None else None
+            ),
+            "local_lease_read_admission_digest": (
+                comparison.final_lease.read_admission.receipt_digest
+                if comparison.final_lease is not None
+                else None
+            ),
+            "local_lease_reuse_admission_digest": (
+                comparison.final_lease.reuse_admission.receipt_digest
+                if comparison.final_lease is not None
+                else None
+            ),
             "qualification_receipt_digest": (
                 comparison.final_qualification.receipt_digest
                 if comparison.final_qualification is not None
