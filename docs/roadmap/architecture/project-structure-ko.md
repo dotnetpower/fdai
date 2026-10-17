@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: c108d211a930e6826ae12d5566453e4c2afa37db
+translation_source_sha: 243e460a988679f71fd3168935cfc4ea18aea966
 translation_revised: 2026-10-17
 ---
 # 프로젝트 구조
@@ -228,6 +228,13 @@ StateStore 경계를 사용하고 구성된 T1 쓰기 대상을 명시합니다.
 기록을 확인합니다. 조회용 다이제스트 정보는 응답 전송 계약을 바꾸거나 두 번째 원장을 만들지
 않습니다. 재구축 미리보기와 커밋은 같은 보관 seed와 적용 순서를 사용하며, 측정 명령은
 독립적으로 인가된 매니페스트를 소비할 뿐 자기 모델을 승인하지 않습니다.
+
+`delivery/persistence/local_pattern_backend.py`는 격리된 LOCAL 보관 Pattern 조립을 명시적으로
+제공합니다. 근거를 복사한 캐시가 아니라 원본 소유자가 기존 `state_kv` 행에 전체 의존 입력
+묶음을 저장합니다. PostgreSQL 행 임대는 양성 shadow 비교 결과를 구성할 때까지 이 사실을
+보호하며 Core는 활성 임대와 독립 읽기/재사용 인가를 검증합니다. 이 backend는 loopback
+검증 DB만 허용하고 스키마나 권한을 추가하지 않으며 프로덕션 시작 경로에는 연결하지 않습니다.
+외부 원본 검증은 #2194에서 계속 추적합니다.
 
 테스트 맥락 선택지는 권한이 없는 projection schema로 공유 service-contract SDK를 확장합니다. Operator는 인증과 선택지 렌더링을 소유하고, Core는 계속 허용 및 수명 주기 권한을 유지합니다.
 

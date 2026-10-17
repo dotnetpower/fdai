@@ -233,6 +233,13 @@ read-only snapshot. Its digest lookup metadata does not alter the response wire 
 a second ledger. Rebuild preview and commit use the same retained seed and applied order; the
 measurement command consumes an independently admitted manifest and cannot approve its own model.
 
+`delivery/persistence/local_pattern_backend.py` provides an explicit isolated-LOCAL retained
+Pattern composition. Its source owner, not a copied evidence cache, stores the complete dependency
+tuple in existing `state_kv` rows. A PostgreSQL row lease protects those facts through positive
+shadow comparison construction; Core verifies the active lease and independent read/reuse
+admissions. The backend accepts only the loopback validation database, adds no schema or authority,
+and is not bound by production bootstrap. External source qualification remains under #2194.
+
 Test-context choices extend the shared service-contract SDK with a no-authority projection schema. Operator owns authentication and choice rendering; Core remains the admission and lifecycle authority.
 
 

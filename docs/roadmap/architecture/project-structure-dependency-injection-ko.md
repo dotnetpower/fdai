@@ -1,6 +1,6 @@
 ---
 translation_of: project-structure-dependency-injection.md
-translation_source_sha: 52336a94df557daeac664200c3fff3eda6c401aa
+translation_source_sha: b49a685f94e8312e761dcdf837c2d68acffb41cf
 translation_revised: 2026-10-17
 ---
 
@@ -93,6 +93,11 @@ Core 시작 구성은 이를 Bragi의 읽기 전용 숙의 처리기에 전달�
   최종 적격성에는 신뢰할 수 있는 일관된 버전/임대/보호 경계 발급자를 사용하는 별도의 전체
   입력 묶음 검증기가 필요합니다. 개별 읽기/재사용 인가만으로는 부족하며 발급자가 없으면
   일관성을 추정하지 않고 보관 패턴 challenger를 사용 불가로 둡니다.
+  `LocalPostgresPatternBackend.tier(...)`는 격리된 LOCAL 호스트의 구체적인 조립 경로입니다.
+  원본 소유 정보, 정확한 행 임대와 기존 독립 인가를 같은 검증 DB에서 확인합니다.
+  임대는 양성 비교 결과를 구성할 때까지 유지하며 결과를 반환한 뒤에는 유지하지 않습니다.
+  배포 및 런타임 DB를 차단하고 권한을 만들지 않습니다. 프로덕션 외부 원본 어댑터는
+  연결되지 않았으며 비교 플래그의 기본값은 계속 꺼진 상태입니다.
 - **Operational 승격 권한**: `OperationalPromotionReceiptVerifier`와
   `OperationalPromotionUnitVerifier`가 변경할 수 없는 근거를 해석합니다. 운영 레지스트리는
   이 연결 없이는 shadow를 유지하며 raw scalar 메트릭은 test-only 이전 방식 고정본 모드입니다.

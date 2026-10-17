@@ -88,6 +88,11 @@ Upstream defines generic interfaces and working defaults. Forks customize throug
   Final eligibility requires a separate whole-tuple final qualifier backed by a trusted coherent
   version/lease/fence issuer. Individual read/reuse admissions are insufficient; an absent issuer
   leaves the retained challenger unavailable rather than guessing coherence.
+  `LocalPostgresPatternBackend.tier(...)` is the concrete isolated-LOCAL host composition:
+  source ownership, exact row leases and existing independent admissions share the validation
+  database. The lease stays active until positive comparison construction, not after return.
+  It rejects deployed/runtime databases and creates no permission. Production external-source
+  adapters remain unbound; the comparison flag remains default-off.
 - **Operational promotion authority**: `OperationalPromotionReceiptVerifier` and
   `OperationalPromotionUnitVerifier` resolve immutable evidence. The production registry remains
   shadow without them; raw scalar metrics are a test-only legacy fixture mode. A promotion-state

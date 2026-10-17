@@ -19,6 +19,11 @@ from fdai.core.case_history.derived import CaseHistoryProjectionStore
 from fdai.core.ontology_platform.functions import FunctionInvocationContext
 from fdai.core.ontology_platform.pattern_queries import OperatingPatternQuery
 from fdai.core.operational_learning.patterns import OperatingPatternCompiler, PatternCase
+from fdai.core.tiers.t1_lightweight.retained_pattern_lease import (
+    RetainedPatternLeasedQualifier,
+    RetainedPatternLeaseEvidence,
+    retained_pattern_lease_current,
+)
 from fdai.shared.contracts.models import Event, OntologyActionType
 from fdai.shared.providers.decision_evidence_verifier import (
     DecisionEvidenceAdmission,
@@ -81,6 +86,7 @@ class RetainedPatternComparison:
     pattern_ids: tuple[str, ...] = ()
     statistics_refs: tuple[str, ...] = ()
     final_qualification: DecisionEvidenceAdmission | None = None
+    final_lease: RetainedPatternLeaseEvidence | None = None
 
     def audit_mapping(self) -> dict[str, object]:
         """Project digest-only lineage; exclude params, evidence, and principal contents."""
@@ -91,7 +97,7 @@ class RetainedPatternComparison:
             "candidate_count": len(self.candidates),
             "eligible_count": (
                 sum(candidate.eligible for candidate in self.candidates)
-                if self.final_qualification is not None
+                if self.final_qualification is not None or self.final_lease is not None
                 else 0
             ),
             "stop_reason": self.stop_reason,
@@ -127,6 +133,7 @@ class RetainedPatternSource:
         materializer: Callable[[], CaseHistoryMaterializer | None],
         statistics_source: StatisticsSource | None = None,
         final_qualifier: RetainedPatternFinalQualifier | None = None,
+        leased_qualifier: RetainedPatternLeasedQualifier | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._query = query
@@ -136,6 +143,7 @@ class RetainedPatternSource:
         self._store, self._materializer = store, materializer
         self._statistics_source = statistics_source
         self._final_qualifier = final_qualifier
+        self._leased_qualifier = leased_qualifier
         self._clock = clock or (lambda: datetime.now(UTC))
 
     async def compare(self, *, event: Event, screen: CandidateScreen) -> RetainedPatternComparison:
@@ -273,7 +281,7 @@ class RetainedPatternSource:
             ):
                 return RetainedPatternComparison(stop_reason="retained_pattern_evidence_changed")
             checks[-1] = replace(checks[-1], current_reuse_verification=verification)
-            if self._final_qualifier is None:
+            if self._final_qualifier is None and self._leased_qualifier is None:
                 return RetainedPatternComparison(
                     stop_reason="retained_pattern_qualification_unavailable"
                 )
@@ -288,6 +296,36 @@ class RetainedPatternSource:
                 verification=verification,
             )
             digest, scope = bound.evidence_digest, bound.scope_digest
+            if self._leased_qualifier is not None:
+                async with self._leased_qualifier.lease(bound) as lease:
+                    now = self._clock()
+                    if not isinstance(lease, RetainedPatternLeaseEvidence):
+                        return RetainedPatternComparison(
+                            stop_reason="retained_pattern_qualification_rejected"
+                        )
+                    if not retained_pattern_lease_current(lease, bound, now=now):
+                        return RetainedPatternComparison(
+                            stop_reason="retained_pattern_qualification_rejected"
+                        )
+                    if not current.matches(selected, now=now) or contextual_reuse_reasons(
+                        event=event,
+                        action=selected.action,
+                        context=context,
+                        verification=verification,
+                        evaluated_at=now,
+                    ):
+                        return RetainedPatternComparison(
+                            stop_reason="retained_pattern_qualification_rejected"
+                        )
+                    # Positive acceptance happens synchronously while the actual
+                    # owner transaction still prevents every dependency mutation.
+                    return self._accept_leased(
+                        tuple(checks), selected, tuple(ids), tuple(statistics_refs), lease
+                    )
+            if self._final_qualifier is None:
+                return RetainedPatternComparison(
+                    stop_reason="retained_pattern_qualification_unavailable"
+                )
             # This is the final awaited authority boundary. Sequential readers above
             # provide inputs only; they cannot establish coherent tuple eligibility.
             admission = await self._final_qualifier.qualify(bound)
@@ -296,6 +334,7 @@ class RetainedPatternSource:
                 return RetainedPatternComparison(
                     stop_reason="retained_pattern_qualification_rejected"
                 )
+
             if (
                 not isinstance(admission, DecisionEvidenceAdmission)
                 or now >= admission.valid_until
@@ -332,6 +371,22 @@ class RetainedPatternSource:
             )
         return RetainedPatternComparison(
             tuple(checks), None, stop_reason, tuple(ids), tuple(statistics_refs), None
+        )
+
+    def _accept_leased(
+        self,
+        checks: tuple[T1CandidateEligibility, ...],
+        selected: SimilarityMatch,
+        ids: tuple[str, ...],
+        statistics_refs: tuple[str, ...],
+        lease: RetainedPatternLeaseEvidence,
+    ) -> RetainedPatternComparison:
+        return RetainedPatternComparison(
+            candidates=checks,
+            challenger_match=selected,
+            pattern_ids=ids,
+            statistics_refs=statistics_refs,
+            final_lease=lease,
         )
 
     async def _read(self, request: RetainedPatternRequest) -> tuple[Mapping[str, Any], ...] | None:

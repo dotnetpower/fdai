@@ -1,7 +1,7 @@
 {
   "version": "1.0.0",
   "description": "Complete inventory of registered positive decision boundaries that must resolve decision-critical evidence through the shared admission contract (FDAI-CONST-002).",
-  "decision_surface_digest": "c73dffb7f83fb7c322af3ce14fd3cb6cb4b822c225101a6f5f414f5934e3f012",
+  "decision_surface_digest": "dc2a5a738eec29b1d2d81300d06bab2f9b89ef9472bb454f2218b7e307a405ab",
   "shared_admission": {
     "module": "fdai.shared.providers.decision_evidence_verifier",
     "assessor": "assess_decision_evidence_admission",
@@ -644,6 +644,10 @@
             {
               "name": "assess_decision_evidence_admission",
               "kind": "returns"
+            },
+            {
+              "name": "retained_pattern_lease_current",
+              "kind": "returns"
             }
           ],
           "fail_closed_markers": [
@@ -991,6 +995,21 @@
     ]
   },
   "admission_helpers": [
+    {
+      "module": "services/core-control-plane/src/fdai/core/tiers/t1_lightweight/retained_pattern_lease.py",
+      "functions": [
+        "retained_pattern_lease_current",
+        "RetainedPatternLeaseEvidence.current"
+      ],
+      "note": "Checks the exact tuple, active owner lease, natural expiry and independent read/reuse admissions for the guarded retained-pattern positive exit; it issues no permission."
+    },
+    {
+      "module": "services/core-control-plane/src/fdai/delivery/persistence/local_pattern_validation.py",
+      "functions": [
+        "validate_locked"
+      ],
+      "note": "Validates the full closed-owner LOCAL tuple under exact PostgreSQL row leases and resolves existing independent read/reuse admissions; it creates no issuer permission."
+    },
     {
       "module": "services/core-control-plane/src/fdai/core/assurance_twin/feedback_generation.py",
       "functions": [

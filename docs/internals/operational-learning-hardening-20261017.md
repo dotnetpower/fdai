@@ -244,3 +244,53 @@ targets in 1,069 documents. Immutable fast preflight and protected delivery rema
 These are unfinished work or blocked evidence requirements, not Low findings manufactured to
 meet the user's exit condition. Local checkpoint commits must not be reported as publication,
 merge, deployment, or demonstrated operational policy improvement.
+
+## Isolated LOCAL coherent qualification follow-up
+
+The foundation above was delivered in PR #2195 as `21390f29b3`, with green exact-head CI and
+supply-chain checks. The remaining operational conditions are not closed by that merge.
+This follow-up implements the bounded LOCAL portion of #2194, not a production issuer.
+
+The concrete `LocalPostgresPatternBackend` owns all dependency facts in existing `state_kv`
+rows. Its exact PostgreSQL `FOR SHARE` lease lasts through synchronous positive comparison
+construction. It consumes separate existing read/reuse admissions and grants no new permission.
+The returned comparison is historical: its lease guard is inactive after release.
+
+The independent follow-up critique exercised these 21 controls:
+
+1. Real PostgreSQL writers wait on locks.
+2. Positive comparison construction precedes writer release.
+3. Negative artifact deletion blocks during the lease and holds the next comparison.
+4. Artifact corruption before acquisition rejects.
+5. Negative metadata deletion cannot escape the final check.
+6. Projection withdrawal invalidates qualification.
+7. Measurement authorization revocation invalidates qualification.
+8. Principal revocation invalidates qualification.
+9. Authentication-request substitution rejects.
+10. Natural principal expiry rejects.
+11. Current reuse-policy denial rejects.
+12. Independent read-admission withdrawal rejects.
+13. Independent reuse-admission withdrawal rejects separately.
+14. Registered action withdrawal/schema substitution rejects.
+15. Unleased qualification holds and issues no permission.
+16. Natural case expiry caps acceptance.
+17. Cancellation and deadline release actual locks.
+18. Lease-exit failure discards a positive result.
+19. Non-LOCAL venues and runtime port 5432 reject.
+20. Default-off baseline selection and restarted composition remain intact.
+21. Positive audit contains digests, not execution authority or operational proof.
+
+No confirmed above-Low defect remained in that reviewed eight-file LOCAL slice. This is a
+bounded review result, not a claim that all operational requirements or all repository defects
+are Low. Eleven additional pre-acquisition mutation probes passed; repeated fixtures are not
+independent generalization samples. Parent integration made the same existing admission check
+explicit for the official decision-boundary inventory without weakening its conditions.
+
+Final focused integration evidence: 214 retained T1/inventory tests and 21 PostgreSQL/venue tests
+passed. Ruff passed; `mypy --follow-imports=silent` passed the eight changed source/test files.
+An unrestricted follow-imports invocation also inspected unchanged fixture-imported tests and
+reported 30 existing typing errors in four unmodified files; those are not hidden as a clean
+whole-test-tree type result.
+
+No external IdP/Inventory/Blob source, production bootstrap, live recovery comparison, deployment,
+model call or Azure mutation was performed. #2194 retains those authorization and evidence gates.
