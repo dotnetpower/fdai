@@ -1,0 +1,9 @@
+# Placeholder metadata; no installation is selected.
+hub: target-hub-online
+channel: DEV
+version_range: ">=1.0.0 <2.0.0"
+maintenance_windows:
+  downtime: Sun 02:00-04:00 UTC
+  no_downtime: daily 01:00-05:00 UTC
+entities:
+  - core

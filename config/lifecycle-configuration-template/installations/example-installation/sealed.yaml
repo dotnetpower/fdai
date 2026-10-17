@@ -1,0 +1,7 @@
+# Plaintext placeholders; sealing is not implemented.
+tenant_id: 00000000-0000-0000-0000-000000000000
+subscription_id: 00000000-0000-0000-0000-000000000000
+resource_group: <resource-group>
+endpoints:
+  model-primary: https://model-primary.example.com
+  model-secondary: https://model-secondary.example.com
