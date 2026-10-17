@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 from dataclasses import replace
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 from fdai.core.control_loop._execution_outcomes import (
     is_execution_no_effect as _is_execution_no_effect,
@@ -539,7 +539,7 @@ async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResul
         unified = await host._evaluate_and_audit(event=event, action=action, rule=rule)
         if unified is not None and (unified.is_auto or unified.requires_hil):
             action = action.model_copy(update={"mode": unified.gate.effective_mode})
-        gate_decision = (
+        gate_decision: Literal["auto", "hil", "deny", "abstain"] = (
             "deny"
             if unified is not None and unified.is_denied
             else "hil"
@@ -613,7 +613,7 @@ async def _process_normalized_event(host: Any, event: Event) -> ControlLoopResul
             action=action,
             rule=rule,
             correlation_id=correlation_id,
-            authorization_decision="auto" if unified is not None and unified.is_auto else "abstain",
+            authorization_decision=gate_decision,
         )
         exec_results.append(result)
         exec_success = _is_execution_success(result)
