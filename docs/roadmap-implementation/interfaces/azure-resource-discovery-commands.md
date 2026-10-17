@@ -13,6 +13,7 @@ and resumable work while the roadmap owner remains focused on normative design.
 | Inventory-language registry | implemented | [`inventory_query_language.py`](../../../services/core-control-plane/src/fdai/rule_catalog/schema/inventory_query_language.py) and [`test_inventory_query_language.py`](../../../services/core-control-plane/tests/rule_catalog/test_inventory_query_language.py) | The validated registry and digest exist. This is not an `InventoryQuery` or `DiscoveryQueryPlan` compiler. |
 | Selective Azure inventory adapters | implemented | [`arg_query.py`](../../../services/core-control-plane/src/fdai/delivery/azure/arg_query.py), [`inventory.py`](../../../services/core-control-plane/src/fdai/delivery/azure/inventory.py), [`arm_inventory.py`](../../../services/core-control-plane/src/fdai/delivery/azure/arm_inventory.py), and their focused tests | ARG and ARM adapters query catalog-resolved resource types with bounded pagination and fail-closed behavior. No central discovery-plan router is implied. |
 | Bounded native inventory response decoding | implemented | [`http_response.py`](../../../services/core-control-plane/src/fdai/delivery/http_response.py), [`test_http_response.py`](../../../services/core-control-plane/tests/delivery/test_http_response.py), and the four owning Azure adapter test files; `361 passed` | ARG, ARM, Static Web App, and Resource Health stream raw bodies and cap native gzip/deflate output before retention. This does not qualify shared durable admission, independent authorization issuers, aggregate projection memory, or deployment behavior. |
+| Retained inventory-concept assessment (#2111) | in-progress | [Partial classification and retained evidence](#retained-concept-assessment-2111) | The original three-disposition exit remains unmet. This is assessment work only; findings 04, 13, 17, and 31 and source/operational qualification remain open. |
 | Selective operator inventory filtering | implemented | [`_system_inventory_tool.py`](../../../services/core-control-plane/src/fdai/core/conversation/_system_inventory_tool.py) and [`test_system_tools.py`](../../../services/core-control-plane/tests/conversation/test_system_tools.py) | The tool filters a supplied snapshot by neutral type, id substring, and resource group. It does not compile general discovery intent. |
 | Conversational read-intent boundary | implemented | [`semantic_judgment.py`](../../../services/core-control-plane/src/fdai/core/conversation/semantic_judgment.py), [`routing.py`](../../../services/core-control-plane/src/fdai/core/read_investigation/routing.py), and focused semantic-judgment and read-investigation routing tests | Shared candidate-only semantic judgment proposes English, Korean, and mixed-language meaning and source-grounded targets. Deterministic code retains exact registered-intent, resource-identity, budget, and evidence-authority checks. This boundary is not the `DiscoveryIntent` compiler or discovery backend router. |
 | Console provider-execution parsing | implemented | [`inventory-execution-display.ts`](../../../console/src/deck/inventory-execution-display.ts) and its focused test | The Console displays only structurally valid, redacted, bounded `provider_execution` records and keeps them separate from IQL. |
@@ -43,6 +44,8 @@ and resumable work while the roadmap owner remains focused on normative design.
 
 | 2026-09-20 | implemented | Added executable bounded ARM list/count reproduction with exact group scope. Profile `1.3.0` excludes ARM predicates and type aggregation whose ARG equivalence cannot be preserved, while retained `1.1.0` and `1.2.0` profiles remain reconstructible. | `current change`; delivery, coverage and recorder cohort `42 passed`; all four fixed queries were evaluated locally with `jmespath==1.0.1` and remain pinned by exact golden tests without a new runtime or repository dependency. | Runtime discovery and collector qualification remain open; no live provider request was issued. |
 | 2026-10-17 | implemented | Recorded the owning design critique and revision before replacing automatic response decoding in four inventory paths with bounded native gzip/deflate output, explicit stream-integrity failures, and cancellation-safe response closure. | `current change`; `PYTHONDONTWRITEBYTECODE=1 UV_OFFLINE=1 uv run --no-sync pytest -q --no-cov -p no:cacheprovider services/core-control-plane/tests/delivery/test_http_response.py services/core-control-plane/tests/delivery/azure/test_arg_query.py services/core-control-plane/tests/delivery/azure/test_arm_inventory.py services/core-control-plane/tests/delivery/azure/test_static_web_app_inventory.py services/core-control-plane/tests/delivery/azure/test_resource_health_inventory.py` passed (`361 passed`); task-scoped Ruff, format, and strict mypy passed. | [#2111](https://github.com/dotnetpower/fdai/issues/2111) remains partial: durable shared admission, issuer/interval qualification, projection/serialization allocation bounds, and separately authorized operational qualification are not completed here. |
+| 2026-10-18 | in-progress | An UNCOMMITTED WORKING DRAFT incorrectly claimed assessment completion. That draft claim was never committed, merged, or runtime-validated and does not describe a delivered implementation. | `current change`; [partial classification and retained evidence](#retained-concept-assessment-2111). Protected [PR #2199](https://github.com/dotnetpower/fdai/pull/2199), merge `61de19333abdd5ae80c0773428003e34b8ffda94`, and the retained `12 passed` / `361 passed` results concern earlier source evidence, not validation of this draft completion claim. | Actual #2111 assessment scope remains in-progress. Findings 04, 13, 17, and 31 and source/operational qualification remain open; no new runtime guarantee is qualified. |
+| 2026-10-18 | in-progress | Corrected that uncommitted draft claim after checking the exact three-disposition exit wording. Declining an old API or estimator does not classify its underlying guarantee; unknown/deferred is not an acceptable fourth disposition. No shipped implementation was withdrawn or rolled back. | `current change`; [partial classification and exit reconciliation](#retained-concept-assessment-2111). No new runtime probe or test was run, and the original exit wording was not weakened. | #2111 remains partial until every retained concept has an evidence-supported already-present, superseded, or reproducible-residual disposition. Findings 04, 13, 17, and 31 and the separate source/operational qualification remain open and unchanged. |
 
 ### Review register
 
@@ -82,8 +85,85 @@ Round 2 repeated those 12 checks on the corrected discovery slice. It found and 
 scalar predicates and result-limit overruns during merge. Shared-budget, runtime-binding, memory,
 and live-qualification gaps remain open; they are not downgraded to make the campaign appear done.
 
+### Retained-concept assessment (#2111)
+
+This assessment is partial. The required dispositions are exactly `already present`, `superseded`,
+or `a reproducible residual`. Entries marked `Unclassified` identify an unsatisfied exit, not an
+acceptable fourth disposition. `Already present` applies only to the named control. Declining a
+historical API or algorithm classifies that implementation proposal only; it does not establish
+that its underlying guarantee is implemented, superseded, or a reproduced current-owner residual.
+In particular, independent issuer/whole-interval authorization, the broader durable-admission
+guarantee, and pre-materialization guarantees are not fully classified by the retained evidence.
+A local-limiter reset is not evidence of a live fleet overrun. Separate source and operational
+qualification remain open, but their absence is not being substituted for concept classification.
+No assessment-completion claim is supported until the original three-disposition criterion is met.
+
+Source paths below are relative to `services/core-control-plane/src/fdai/`.
+
+| Retained concept | Classification and disposition | Current owner and evidence boundary |
+|------------------|--------------------------------|-------------------------------------|
+| Capture versus promotion custody | Already present; no change | `delivery/inventory_collection.py:236-295`, `delivery/persistence/postgres_inventory_prepared.py:220-345`, and `delivery/inventory_sync.py:319-321` separate nonterminal chunks, sealing, and promotion-time verification. A content digest is not issuer authentication. |
+| Attempt, context, and content binding | Already present; no change | Chunk/seal owners above and `delivery/inventory_collection_resume.py:20-58` bind replay to the original attempt, content, observation clocks, and complete retained identity coverage. |
+| Historical issuer-bound receipt/observer API | Superseded implementation proposal only; underlying guarantee unclassified | `shared/providers/inventory_snapshot.py:36-100` and actual wiring in `delivery/inventory_sync_cli.py:387-406` use the current manifest/store and prepared-candidate contracts, not the historical observer API. No current ingress accepting a forged historical receipt was established. This does not supersede the underlying issuer/interval guarantee. |
+| Independent issuer and whole-interval authorization witness | Unclassified; assessment exit remains open | Current seals do not establish the retained independent-issuer or whole-interval guarantee. Neither an evidence-supported replacement of that guarantee nor a deterministic counterexample at its current owning boundary has been established. Finding 04 and separate source/operational qualification remain open; no authorization bypass is claimed. |
+| Shared pacing and quota response inside one adapter | Already present; no change | `delivery/azure/arg_query.py:227-233`, `delivery/azure/arg_transport.py:38-105`, and `delivery/inventory_scheduler.py:194-221` share local pacing and apply quota-aware scheduling. They do not promise fleet-wide admission. |
+| Restart-durable shared request/byte admission | Local reset reproduced; broader retained guarantee unclassified | At a fixed clock, two newly constructed local limiters each admit an initial allowance. `delivery/persistence/postgres_inventory_reconciliation.py:323-399` does not supply durable remaining-budget values to the scheduler. This local evidence does not finish the three-disposition classification of the broader shared-admission guarantee. Finding 13 remains open; no live overrun or unauthorized promotion is claimed. |
+| Generation fencing | Already present for stored observations; shared-admission fence unclassified | `delivery/persistence/postgres_inventory_snapshot.py:232-282` and chunk/context/replay owners fence active-base generation, candidate order, content, and time. These controls do not classify the retained generation fence at a durable shared-admission boundary. |
+| Equivalent read reuse inside a generation | Historical cache proposal declined; broader reuse guarantee unclassified | Adapter-local reads and existing generation/context fences remain authoritative. Declining that cache implementation does not supersede the underlying reuse guarantee, and cache absence alone is not evidence of stale-generation reuse. Finding 31 remains open. |
+| Native response decompression before allocation | Reproducible residual repaired by #2199 | `delivery/http_response.py` and the ARG, ARM, Static Web App, and Resource Health owners now bound native output before retention. The retained 361-test cohort proves configured output limits plus one detection byte, not RSS or deployment readiness. |
+| Projection record and retained-byte admission | Already present; no change | `delivery/inventory_sync.py:234-258,431-472`, `delivery/inventory_collection.py:32-63`, and `core/ontology_platform/inventory_projection.py:77-78,151-160` enforce the current count and normalized-byte controls. The retained 600-by-64,000-byte source and enrichment cases both fail before promotion. |
+| Historical weighted projection-allocation estimator | Superseded algorithm proposal only; underlying pre-allocation guarantee unclassified | The historical weighted-work estimate is not selected for reintroduction. Earlier normalized-byte admission rejects the retained counterexample, but does not establish or supersede the broader pre-allocation guarantee. Separate peak-RSS qualification and finding 17 remain open. |
+| Row and SQL-parameter serialization preflight | Outer bounds already present; retained pre-materialization guarantee unclassified | `delivery/inventory_collection.py:236-320` bounds resource chunks, while `delivery/persistence/postgres_inventory_snapshot_support.py:79-167` supplies count-batched writes and canonical JSON. The direct serializer has no independent 1 MiB byte ceiling; this alone does not establish an unbounded normal pipeline or complete the retained preflight concept's three-disposition classification. Expanded allocation and SQL-buffer qualification remain open under finding 17. |
+| Process memory ceiling | Already present; operational qualification deferred | `delivery/inventory_process_budget.py:15-39` and `delivery/inventory_sync_cli.py:778-782` apply the dedicated process address-space ceiling. It is not an RSS measurement or a guarantee that every intermediate allocation was admitted beforehand. |
+
+#### Retained deterministic evidence
+
+The following results were obtained on protected repair revision
+`61de19333abdd5ae80c0773428003e34b8ffda94`. Runtime code, tests, and guarantees are not changed or
+revalidated by this documentation-only update.
+
+- **Current custody and budget controls:** The exact command below passed 12 parameterized cases
+  in 0.10 seconds. It checks seal-before-promotion, unsafe chunk rejection, source/enrichment byte
+  guards, quota scheduling, and sharing within one local limiter.
+
+  ```bash
+  PYTHONDONTWRITEBYTECODE=1 UV_OFFLINE=1 uv run --no-sync pytest -q --no-cov -p no:cacheprovider services/core-control-plane/tests/delivery/test_inventory_sync.py::test_coordinator_seals_complete_candidate_before_promotion services/core-control-plane/tests/persistence/test_postgres_inventory_chunks.py::test_resource_chunk_rejects_unsafe_payload services/core-control-plane/tests/persistence/test_postgres_inventory_resume.py::test_coordinator_enforces_normalized_byte_bound_at_each_retention_stage services/core-control-plane/tests/delivery/test_inventory_scheduler.py::test_quota_pressure_reduces_concurrency_and_exhaustion_waits_for_reset services/core-control-plane/tests/delivery/azure/test_arg_query.py::test_rate_limiter_shares_one_budget_across_concurrent_shards
+  ```
+
+- **Local admission limitation:** With a fixed clock of `100.0`, two separate
+  `ArgRateLimiter(requests_per_second=1.0, burst=1)` instances admit two initial requests with no
+  sleeps. This establishes local-instance reset behavior, not a failed fleet-admission contract.
+- **Rejected projection hypothesis:** Current-source in-memory probes using 600 records with
+  64,000-byte payloads failed at the 16,777,216-byte normalized-generation guard in both source and
+  enrichment paths. Both reported `inventory normalized generation exceeds its byte bound` and
+  `promoted_count=0`. No historical module was imported and no provider or database was contacted.
+- **Serializer versus pipeline boundary:** A direct canonical-serialization probe returned
+  1,048,591 bytes. The same input through `resource_chunk()` failed with
+  `inventory chunk payload exceeds its byte bound`. Neither helper absence nor direct-helper
+  behavior proves a normal-path memory failure; expanded-memory qualification remains open.
+- **Accepted decoder repair:** Protected #2199 delivered exact head
+  `f64230c7e6bb3fcfb283949bfff98e0174d8d8ea` as merge
+  `61de19333abdd5ae80c0773428003e34b8ffda94`. The preceding history row retains the exact command
+  and 361 passing cases. A 1 MiB gzip, zlib-deflate, or raw-deflate expansion under a 1,024-byte
+  limit returned exactly 1,025 native detection bytes before refusal in each of the four adapters.
+  Concatenated gzip members share that limit; valid responses, malformed/truncated streams,
+  bounded raw-deflate fallback, HTTP diagnostics, cancellation, and deadlines have regressions.
+  This is output-length validation, not an RSS or operational-outage claim.
+
+#### Assessment exit reconciliation
+
+| Original assessment exit | Supported outcome |
+|--------------------------|-------------------|
+| Map and classify every retained concept | Not satisfied. The table maps current owners but leaves underlying issuer/interval, broader shared-admission/reuse, and pre-materialization guarantees unclassified. Declining their historical APIs or algorithms does not satisfy the required three dispositions. |
+| Reproduce claimed residuals and reject unsupported hypotheses | The decoder defect was reproduced and repaired; the local-limiter limitation is bounded. The retained projection and direct-serializer hypotheses do not establish a current pipeline or fleet defect. |
+| Critique and revise before authority or persistent-flow changes | The paired decoder design and critique preceded its implementation in #2199. This assessment selects no new authority or persistent-flow change. |
+| Preserve accepted-change safety and accounting through regression evidence | The accepted repair has the retained 361-case decoder/adapter cohort; the 12 focused custody/budget checks preserve the named existing controls. No independent issuer or interval equivalence is claimed. |
+| Update paired owners and history, or give an evidence-backed no-change disposition | The paired partial-assessment boundary and append-only correction record the supported controls and unresolved classifications. The completion claim is withdrawn and its checkbox is unchecked; neither the assessment nor runtime follow-ups are marked complete. |
+| Keep provider mutation, live models, deployment, activation, and promotion outside assessment | The assessment and this documentation update perform none of those operations and grant no additional authority. |
+
 ### Remaining work
 
+- [ ] [#2111](https://github.com/dotnetpower/fdai/issues/2111): Map retained custody, admission-budget, and pre-materialization-bound concepts onto the current owning modules and classify each as already present, superseded, or a reproducible residual. The [current classification](#retained-concept-assessment-2111) remains partial; unclassified guarantees are not a fourth acceptable disposition.
 - [x] Bound native gzip/deflate response allocation in ARG, ARM, Static Web App, and Resource Health before retaining an oversized body; the focused four-adapter cohort and allocation regressions passed (`361 passed`, current change).
 - [ ] [#2111](https://github.com/dotnetpower/fdai/issues/2111): Demonstrate shared request/byte admission across restart and generation fences, qualify independent authorization issuers and interval evidence, and separately verify projection/serialization allocation bounds before claiming the retained hardening assessment complete.
 - [ ] [#1393](https://github.com/dotnetpower/fdai/issues/1393): Integrate the unmerged 36-finding
