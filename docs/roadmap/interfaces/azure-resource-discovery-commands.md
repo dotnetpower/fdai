@@ -83,6 +83,32 @@ bindings, and an evidence age between zero and 3,600 seconds. Both validation mo
 | Tags, operational state, relationships, and broader universes | No generic discovery profile | Return explicit unsupported; do not drop a requested predicate or universe. |
 | Tenant, management-group, directory, and data-plane scopes | No generic discovery profile | Require separate reviewed profiles and identity admission. |
 
+## Bounded inventory response decoding
+
+ARG, ARM, Resource Health, and Static Web App inventory reads share a delivery-owned response
+reader. It negotiates `gzip` and `deflate`, also accepts identity responses, and reads raw transport
+bytes rather than HTTPX's automatically decoded iterator. Each native decompression call limits
+output to the remaining decoded-byte budget plus one detection byte, with a 64 KiB per-call ceiling.
+An oversized decoded chunk is rejected before it enters the retained body. A separate wire-byte
+ceiling of the decoded limit plus 64 KiB bounds compressed headers and framing; it never substitutes
+for the decoded-byte check. Explicitly disabled ARG byte ceilings retain their existing meaning.
+
+The reader accepts complete gzip streams, concatenated gzip members, and zlib-wrapped or raw
+deflate. A first-read zlib-header collision can fall back once to raw deflate under the same output
+cap. Unsupported or stacked content encodings, malformed streams, truncated trailers, and
+trailing non-member data produce an explicit decoding failure. Existing provider-specific size,
+status, retry, and unavailable diagnostics remain with their owning adapters. Cancellation and
+caller deadlines still close the response. This change grants no read, capture, or promotion authority.
+
+**Critique and revision:** Checking `aiter_bytes()` after decoding, requesting identity alone, or
+limiting compressed bytes does not bound native decoder allocation. The revised design uses raw
+streaming and the native `max_length` argument, never an unbounded decoder flush. Review covers
+decoded allocation, exact limits, wire overhead, split headers, gzip members, raw deflate,
+truncation, malformed and unsupported encodings, status handling, retries, cancellation, and
+response closure. Durable shared admission budgets and independently qualified authorization
+issuers remain separate work under the implementation ledger; this focused correction does not
+complete that integration.
+
 ## Discovery universe
 
 Completeness is measured per universe, not one successful query. The table defines target coverage.

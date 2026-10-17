@@ -15,6 +15,11 @@ from urllib.parse import unquote, urlparse
 
 import httpx
 
+from fdai.delivery.http_response import (
+    BOUNDED_ACCEPT_ENCODING,
+    ResponseBodyTooLargeError,
+    read_bounded_response,
+)
 from fdai.delivery.inventory_sync import (
     InventoryProjectionSourceState,
     InventoryProjectionSourceStatus,
@@ -280,7 +285,10 @@ class AzureStaticWebAppInventoryEnricher:
                 "GET",
                 f"{self._config.endpoint.rstrip('/')}{provider_ref}/builds/default",
                 params={"api-version": _API_VERSION},
-                headers={"Authorization": f"Bearer {token}"},
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Accept-Encoding": BOUNDED_ACCEPT_ENCODING,
+                },
                 timeout=self._config.timeout_seconds,
             ) as response:
                 if response.status_code in {401, 403}:
@@ -289,11 +297,14 @@ class AzureStaticWebAppInventoryEnricher:
                     return "default_environment_not_found"
                 if response.status_code != 200:
                     return "source_unavailable"
-                content = bytearray()
-                async for chunk in response.aiter_bytes():
-                    content.extend(chunk)
-                    if len(content) > self._config.max_response_bytes:
-                        return "response_too_large"
+                try:
+                    content = await read_bounded_response(
+                        response, max_bytes=self._config.max_response_bytes
+                    )
+                except ResponseBodyTooLargeError:
+                    return "response_too_large"
+                except httpx.DecodingError:
+                    return "response_invalid"
         except (httpx.HTTPError, TimeoutError):
             return "transport_unavailable"
         try:
