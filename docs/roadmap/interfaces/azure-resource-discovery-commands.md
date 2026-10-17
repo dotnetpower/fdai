@@ -109,6 +109,19 @@ response closure. Durable shared admission budgets and independently qualified a
 issuers remain separate work under the implementation ledger; this focused correction does not
 complete that integration.
 
+### Retained-concept assessment boundary
+
+The [retained-concept classification](../../roadmap-implementation/interfaces/azure-resource-discovery-commands.md#retained-concept-assessment-2111)
+remains partial. #2111 requires every retained concept to be classified as already present,
+superseded, or a reproducible residual; an unknown or deferred guarantee does not satisfy that
+criterion. Declining the historical receipt/observer API does not supersede the underlying
+independent-issuer and whole-interval authorization guarantee, whose disposition is unresolved.
+Existing custody, attempt, generation, and retained-byte checks remain authoritative, but do not
+settle the broader shared-admission or pre-materialization guarantees. Adapter-local pacing is not
+fleet admission, and declining an allocation estimator does not retire the memory guarantee.
+Source and operational qualification remain separate open caveats, not substitutes for concept
+classification. This partial assessment grants no new read, capture, promotion, or execution authority.
+
 ## Discovery universe
 
 Completeness is measured per universe, not one successful query. The table defines target coverage.
