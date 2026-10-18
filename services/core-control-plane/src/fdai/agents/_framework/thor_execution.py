@@ -3,14 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from collections.abc import Awaitable, Callable
 from copy import deepcopy
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any, Protocol
 
 from fdai.agents._framework import thor_preflight, vidar_dr
 from fdai.agents._framework.action_run_state import ActionRunState
 from fdai.agents._framework.thor_action_run import ActionRun, ActionRunStore
+from fdai.agents._framework.thor_dispatch_start import DispatchStartRecorder
 from fdai.core.executor.safeguards import resource_lock_key
 from fdai.core.operational_context.test_context_dispatch import (
     TestContextDispatchGuard,
@@ -18,6 +20,8 @@ from fdai.core.operational_context.test_context_dispatch import (
 )
 from fdai.shared.contracts.models import Autonomy
 from fdai.shared.providers.resource_lock import ResourceLock
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class ExecutionResourceUnavailableError(RuntimeError):
@@ -45,7 +49,7 @@ class ThorExecutionHost(Protocol):
 
     def _revalidate_development_authority(self, run: ActionRun) -> None: ...
 
-    def _now(self) -> Any: ...
+    def _now(self) -> datetime: ...
 
     async def _emit_action_run(self, run: ActionRun) -> None: ...
 
@@ -269,6 +273,8 @@ async def invoke_executor(host: ThorExecutionHost, run: ActionRun) -> bool:
     if resource_lock is None:
         if host._require_execution_resource_lock:
             raise RuntimeError("cross-replica execution resource lock is unavailable")
+        await _record_dispatch_start(host, run, resource_lock_ref=None)
+        host._revalidate_development_authority(run)
         return await host._executor({"run": run})
     context = resource_lock.acquire(resource_lock_key(resource_id))
     try:
@@ -305,6 +311,8 @@ async def invoke_executor(host: ThorExecutionHost, run: ActionRun) -> bool:
     if run.outcome == "execution_resource_temporarily_unavailable":
         run.outcome = None
     try:
+        await _record_dispatch_start(host, run, resource_lock_ref=resource_lock_key(resource_id))
+        host._revalidate_development_authority(run)
         result = await host._executor({"run": run})
     except BaseException as exc:
         try:
@@ -318,6 +326,32 @@ async def invoke_executor(host: ThorExecutionHost, run: ActionRun) -> bool:
         run.outcome = "command_accepted_lock_release_unknown"
         host.record_behavior("execution_resource_lock:release_unknown")
     return result
+
+
+async def _record_dispatch_start(
+    host: ThorExecutionHost, run: ActionRun, *, resource_lock_ref: str | None
+) -> None:
+    recorder = host._state_store
+    if not isinstance(recorder, DispatchStartRecorder):
+        host.record_behavior("dispatch_start:unavailable")
+        return
+    try:
+        identity = run.action_run_identity()
+        await recorder.record_dispatch_start(
+            deepcopy(run), started_at=host._now(), resource_lock_ref=resource_lock_ref
+        )
+        if run.action_run_identity() != identity:
+            raise RuntimeError("ActionRun identity changed while recording dispatch entry")
+        if run.shadow_mode or run.state is not ActionRunState.EXECUTING or host._must_shadow():
+            raise RuntimeError("execution authority changed while recording dispatch entry")
+    except Exception as exc:  # noqa: BLE001 - persistence failure prevents executor I/O
+        host.record_behavior("dispatch_start:failed")
+        _LOGGER.error(
+            "thor_dispatch_start_unavailable",
+            extra={"correlation_id": run.correlation_id, "error_type": type(exc).__name__},
+        )
+        raise
+    host.record_behavior("dispatch_start:recorded")
 
 
 async def claim_execution_resource(host: ThorExecutionHost, run: ActionRun) -> bool:

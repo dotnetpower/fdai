@@ -146,6 +146,10 @@ The [governance](../../roadmap-implementation/decisioning/operator-governance-pr
   Source/producer tests (58), Core consumer tests (41), Operator settings tests (4) and Console
   consumer tests (21) pass. This is a safety correction, not delivery of the missing positive
   event-time source; the package remains open.
+  #2242 now records immutable first Thor dispatch entry before executor I/O, without a second
+  same-state ActionRun save. Its 194 focused checks and actual isolated PostgreSQL check pass;
+  shadow stays non-writing and await-time authority loss blocks dispatch. This is not provider
+  mutation, verified effect or the still-missing independent history proof.
 - [ ] **L02, context safety:** Complete authenticated exact-target proposal/review, bounded activation,
   expiry/revocation, Forseti decisions, Saga audit, and dispatch revalidation. Retain live queued and
   in-flight revocation/expiry, hold, stop/recovery, deadline, and subscriber-isolation receipts.

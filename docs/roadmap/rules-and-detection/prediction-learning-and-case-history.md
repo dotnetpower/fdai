@@ -253,6 +253,28 @@ time; shadow success is never classified as an intervention. Empty, redacted, tr
 or corrupt singleton reads cannot establish completeness. Read failures still follow the existing
 `source_unavailable` path.
 
+Thor's first dispatch-entry observation uses the separate immutable `thor:dispatch-start:v1|`
+persistence namespace after any bound resource-lock admission and claim validation, but before
+the bound executor is invoked. A legacy path without a lock records a null lock reference and
+does not attest a held lock.
+It binds the ActionRun identity, exact resource, runtime UTC timestamp and existing audit receipt.
+Shadow runs write no observation, and recording it never performs a second same-state ActionRun
+save. A bound writer failure blocks executor I/O and preserves lock cleanup; a legacy store without
+this observation capability remains explicitly unavailable for this source.
+Retries preserve the first timestamp and reject conflicting identities, malformed retained rows
+or a clock earlier than that timestamp. The recorder receives an isolated copy; after its await,
+Thor rechecks stable identity, executing non-shadow state, current shadow authority and development
+authorization before executor I/O.
+The observation proves entry into the dispatch phase, not provider mutation, verified effect,
+success or complete event-time history.
+
+| Initial option | Critique | Revised boundary |
+|---|---|---|
+| Reuse the pre-lock audit timestamp | Queueing behind the resource lock changes the actual dispatch phase | Capture a new runtime timestamp inside the admitted dispatch boundary |
+| Save the executing ActionRun again with a start field | Same-state payload changes conflict with durable identity/state rules | Write immutable sidecar metadata through Thor's existing store owner |
+| Treat a start observation as complete intervention history | It provides neither effect evidence nor a start/known-at/watermark proof | Keep history and scoring unavailable until every independent prerequisite is met |
+| Add an observation await without a current authority check | A shadow/kill-switch change during recording could still reach the executor | Recheck current authority and execution state after recording; retain physical-lock cleanup on rejection |
+
 Future positive action coverage requires independently recorded event-time history, an attested
 start anchor, a known-at completeness fence, a database-clock watermark after window end plus
 grace, and proof of the complete contiguous audit segment. Configuration, intact selected audit
