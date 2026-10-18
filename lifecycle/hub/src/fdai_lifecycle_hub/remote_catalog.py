@@ -7,7 +7,7 @@ import json
 import logging
 import time
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from functools import partial
 from typing import Any
 from urllib.parse import urlsplit
@@ -169,8 +169,12 @@ class RemoteCatalog:
         row = (
             connection.execute(select(trust_state).where(trust_state.c.id == 1).with_for_update())
             .mappings()
-            .one()
+            .one_or_none()
         )
+        if row is None:
+            raise ValueError(
+                "Catalog trust is not bound; run explicit bind-catalog before serving."
+            )
         if row["key_digest"] != self.source.key_digest:
             raise ValueError(
                 "Catalog key differs from persisted trust; explicit key rotation is required."
@@ -293,8 +297,12 @@ class RemoteCatalog:
             row = (
                 connection.execute(select(trust_state).where(trust_state.c.id == 1))
                 .mappings()
-                .one()
+                .one_or_none()
             )
+            if row is None:
+                raise ValueError(
+                    "Catalog trust is not bound; run explicit bind-catalog before serving."
+                )
             if row["key_digest"] != self.source.key_digest:
                 raise ValueError("Catalog key differs from persisted trust.")
             return {
@@ -347,5 +355,34 @@ def initialize_trust(connection: Connection, source: CatalogSource) -> None:
                 approval_revision=0,
                 floor=0,
                 key_digest=source.key_digest,
+            )
+        )
+
+
+def bind_catalog(engine: Engine, source: CatalogSource, *, actor: str, reason: str) -> None:
+    """Bind an independently approved source key after standalone migration; never import bytes."""
+    if not actor.strip() or len(actor) > 160 or not reason.strip() or len(reason) > 500:
+        raise ValueError("Catalog binding requires a bounded actor and reason.")
+    with engine.begin() as connection:
+        if engine.dialect.name == "postgresql":
+            from sqlalchemy import text
+
+            connection.execute(text("SELECT pg_advisory_xact_lock(hashtext('lifecycle_hub'))"))
+        elif engine.dialect.name == "sqlite":
+            connection.exec_driver_sql("BEGIN IMMEDIATE")
+        row = connection.execute(select(trust_state).with_for_update()).mappings().one_or_none()
+        if row is not None:
+            if row["key_digest"] != source.key_digest:
+                raise ValueError("Catalog key differs; explicit key rotation is required.")
+            return
+        initialize_trust(connection, source)
+        connection.execute(
+            trust_events.insert().values(
+                action="source.bound",
+                actor=actor,
+                revision=0,
+                digest=source.key_digest,
+                reason=reason,
+                recorded_at=datetime.now(UTC).isoformat(),
             )
         )

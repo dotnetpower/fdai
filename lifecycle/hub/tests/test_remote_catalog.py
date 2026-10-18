@@ -21,11 +21,39 @@ from fdai_lifecycle_hub.remote_catalog import (
     CatalogSource,
     PinApproval,
     RemoteCatalog,
+    bind_catalog,
     fetch_export,
     initialize_trust,
     trust_events,
 )
 from fdai_release_hub.store import Change, ReleaseStore
+
+
+def test_catalog_can_be_bound_after_standalone_migration(tmp_path, key):
+    from fdai_lifecycle_hub.remote_catalog import metadata
+
+    engine = create_engine(f"sqlite:///{tmp_path / 'standalone.db'}")
+    migrate(engine, "lifecycle_hub", metadata.create_all)
+    source = source_for(key)
+    with pytest.raises(ValueError, match="not bound"):
+        RemoteCatalog(engine, source).status()
+    bind_catalog(engine, source, actor="operator", reason="Independent source approval")
+    bind_catalog(engine, source, actor="operator", reason="Idempotent repeat")
+    assert RemoteCatalog(engine, source).status()["approved_sha256"] is None
+    with engine.connect() as connection:
+        assert len(connection.execute(select(trust_events)).all()) == 1
+    other = source.model_copy(
+        update={
+            "release_public_key": Ed25519PrivateKey.generate()
+            .public_key()
+            .public_bytes(
+                serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo
+            )
+            .decode()
+        }
+    )
+    with pytest.raises(ValueError, match="rotation"):
+        bind_catalog(engine, other, actor="operator", reason="Must not silently rebind")
 
 
 def source_for(key):

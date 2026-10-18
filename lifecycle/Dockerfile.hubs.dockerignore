@@ -16,6 +16,7 @@
 !lifecycle/
 !lifecycle/hub/
 !lifecycle/hub/pyproject.toml
+!lifecycle/hub/uv.lock
 !lifecycle/hub/README.md
 !lifecycle/hub/src/
 !lifecycle/hub/src/**

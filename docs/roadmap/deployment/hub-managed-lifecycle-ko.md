@@ -1,8 +1,8 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 71eee0fae873849a3e2e0bfa47d10f8cad037aed
-translation_revised: 2026-10-16
+translation_source_sha: 031dd5504280584c153c5016098e0ba19f6d516e
+translation_revised: 2026-10-18
 ---
 # Hub 관리형 수명 주기
 
@@ -10,8 +10,8 @@ translation_revised: 2026-10-16
 hub-and-spoke 모델을 따라 각 설치를 구독한 release channel과 고객이 승인한 구성에 맞춰
 유지합니다. 이 문서는 수명 주기 아키텍처, 계획과 상태 루프, 고객 격리 경계를 소유합니다.
 
-> **상태:** 개발 검증용으로 일부 구현되었습니다. 로컬 Hub와 플래너, 두 Hub의 명시적 원격 개발
-> 준비 경로가 있으며, 전체 관리형 설치 경로는 아직 제공하지 않습니다. Azure 배포나 프로덕션
+> **상태:** 개발 검증용으로 일부 구현되었습니다. 로컬 Hub와 플래너, 제품별 독립 배포 루트와
+> 로그인/카탈로그 연결 없는 원격 기동 경로가 있으며, 전체 관리형 설치 경로는 아직 제공하지 않습니다. Azure 배포나 프로덕션
 > 신뢰 루트 설정을 완료했다는 뜻은 아닙니다.
 > [구현 현황 원장](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)이
 > 정확한 제공 범위를 추적하며, [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance-ko.md)이
@@ -42,7 +42,10 @@ Lifecycle Hub가 사용하는 릴리스 목록, 데이터 또는 피드인 **Rel
 | 데이터 경계 | Hub는 고객 워크로드의 자격 증명이나 운영 데이터를 보관하지 않습니다. Hub 자체의 제한된 서비스 ID와 서명 키는 고객 리소스를 변경할 권한을 주지 않습니다. 경계를 넘는 것은 수명 주기 메타데이터뿐입니다. |
 | 기록 | cell이나 Target Hub마다 Hub PostgreSQL을 두고, 설치 증적은 Foundation 스토리지에 추가 전용으로 남깁니다. |
 
-## 두 Hub의 개발 검증
+## 기존 결합형 개발 검증 구성
+
+기존 결합형 구성은 현재 state 소유자를 위해 유지하며, 기본 배포 단위가 아닙니다.
+새 준비 작업은 아래의 제품별 독립 루트를 사용합니다.
 
 벤더 Release Hub와 고객 Target Lifecycle Hub는 같은 테스트 구독의 별도 RG에 배치하며,
 ACA Environment, VNet, PostgreSQL 서버와 DB, 관리 ID, Key Vault, 로그를 각각 분리합니다.
@@ -72,6 +75,50 @@ UI는 이미 준비한 합성 설치본의 Plan을 계산하지만, 원격 프�
 이를 검증하려면 정확한 클라우드 preview와 실행 범위를 별도로 승인해야 합니다.
 이 경로는 소스/오프라인 설치를 바꾸지 않으며, 자동 polling, 프로덕션 카탈로그 메타데이터와
 신뢰 루트 설정, Agent 적용, 전체 FDAI 설치를 구현하지 않습니다.
+
+## 제품별 독립 배포
+
+Release Hub는 공급업체의 제품이고, Lifecycle Hub는 고객의 배포 관리 제품입니다.
+각 제품은 자기 UI/API 묶음과 PostgreSQL을 루트 하나와 state 하나로 배포합니다.
+
+| 제품 | 배포 루트 | 필수 상대 제품 입력 |
+|------|-----------|---------------------|
+| Release Hub | [infra/release-hub](../../../infra/release-hub/README.md) | 없음 |
+| Lifecycle Hub | [infra/lifecycle-hub](../../../infra/lifecycle-hub/README.md) | 없음 |
+
+개발과 프로덕션은 같은 코드에 비공개 입력과 별도 백엔드 state 경로를 사용합니다.
+기본 로컬 백엔드는 영속 비공개 저장소의 절대 경로를 명시적으로 받아, Azure Storage 없이
+기존 로컬 state를 보존합니다. 원격 백엔드는 후보 고정 전에 별도로 검토하는 표준 Terraform
+재정의 설정으로 선택할 수 있으며, 실행 중 백엔드를 바꾸지는 않습니다.
+공유 내부 모듈은 선택한 제품의 자원만 만듭니다. 다른 Hub의 state, ID, NAT 주소를 읽지 않습니다.
+승인된 기존 레지스트리는 외부 입력입니다. FDAI 소스/오프라인 설치기, 본체 인프라 루트,
+Agent 또는 클러스터 배포는 바꾸지 않습니다.
+
+Entra 앱 등록이 0개여도 각 루트는 Graph나 디렉터리 state 없이 계획할 수 있고,
+각 원격 앱은 자기 스키마 이행, 서버 기동, 상태/준비 확인과 UI 제공을 수행할 수 있습니다.
+PostgreSQL/Key Vault 관리 ID, 인증서를 검증하는 TLS와 사람 DB 관리자는 유지합니다.
+앱 소유의 제한된 SQL/Key Vault 초기화 명령은 임시 수동 Job에서 실행합니다.
+Terraform 기본 도구로 자원을 선언하고 Azure CLI로 Job을 시작하고 관측합니다.
+초기화 후 임시 권한은 영구 런타임 자원과 별도로 제거합니다.
+
+로그인과 Lifecycle의 카탈로그 원본은 명시적으로 선택하는 연결이며 가짜 값을 넣지 않습니다.
+로그인이 없으면 관리 API는 503으로 차단하고 UI는 기능을 사용할 수 없다고 표시합니다.
+카탈로그가 없으면 원격 카탈로그 클라이언트를 만들지 않고 해당 기능만 사용할 수 없게 합니다.
+나중에 원본을 연결할 때는 행위자를 기록하는 `bind-catalog`를 사용합니다.
+이 명령은 가져오기나 고정값 승인을 하지 않으며 기존 키를 조용히 바꾸지 않습니다.
+기존 인증 경로와 로컬 loopback 동작은 유지합니다.
+
+[제품별 절차](../../../infra/modules/hub-service/README.md)는 소스/잠금 파일/기반 및 런타임 이미지
+digest 고정, 수동 Job, 정리, state 백업 복사본 이관 검증을 설명합니다.
+기존 state와 디렉터리/레지스트리 소유권은 자동으로 바꾸지 않습니다.
+익명 관리 API 정책은 보류하며, 요청한 기능은 아직 충족하지 못했습니다.
+관리 API는 계속 안전하게 차단합니다. 이 정책이 미정이어도 독립적인 스키마 이행, 기동,
+UI 준비는 계속할 수 있으며, 별도 승인을 받으면 UI와 준비 상태 확인만을 위한 배포도 가능합니다.
+그 배포가 입증하는 것은 프로세스, 스키마와 화면 제공이지 익명 관리 기능의 사용 가능 여부가 아닙니다.
+웹 틀이나 기능 사용 불가 화면만으로 전체 기능이 완료되지는 않습니다.
+SQLite/mock/브라우저 근거, PostgreSQL/이미지 검증, 실제 Azure 배포는 별도로 보고합니다.
+로컬 인프라가 없어 실행하지 못한 검사는 통과로 세지 않습니다.
+소스 전달, 이미지 게시와 Azure 변경에는 각각 별도의 명시적 승인이 필요합니다.
 
 ## 핵심 개념
 

@@ -39,6 +39,12 @@ commands, and the remaining live Azure acceptance checks. Browser interaction te
 desktop and constrained layouts with built assets and synthetic API responses, not live Entra.
 This development path does not change source or offline installation contracts.
 
+Without operator login configured, either product's bundled UI displays only its own runtime
+status and explicitly unavailable management APIs. Health and database-readiness probes are
+independent and bounded to five seconds. A failed connection, invalid JSON or timeout marks only
+that probe unavailable; the product heading, management notice and other probe's result remain.
+This status page does not enable anonymous management access.
+
 ## Enrollment and managed Entities
 
 1. The installation signs an enrollment request with its installation key and submits it. The
