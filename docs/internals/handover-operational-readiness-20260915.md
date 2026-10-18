@@ -164,3 +164,98 @@ including removal of Live-only stylesheet rules. No new browser, speech or provi
 The initial PR head's running CI is superseded by the locally integrated head, not rerun as an
 edit-loop test. Exact final-head CI, protected merge, remote ancestry and task-only cleanup remain
 delivery requirements to reconcile on #1043. #458's current operational evidence remains open.
+
+## F06 readiness closure evidence - 2026-10-18
+
+This section records the bounded F06.1-F06.3 source and documentation closure performed from
+protected main `966082d265a7a230b41394b67e63ccd6fd328fa9`. It does not update the functional-readiness
+owner, select a customer target, supply production owners or evidence, deploy a verifier App,
+activate enforcement, call a live provider, or record a promotion receipt.
+
+### Mandatory behavior inventory
+
+| Boundary | Mandatory verbs inspected | Result |
+|----------|---------------------------|--------|
+| F06.1 proposed change | normalize, type, bind target and revision, scope, compare alternatives, simulate, retain stop conditions, retain rollback, separate approval, close by independent observation | Reverified. The 120-case planning/change-assessment cohort found no hidden local gap. |
+| F06.2 drift and compliance | collect current state, detect drift and control gaps, cite the active Rule, resolve scope, evaluate policy, resolve conflicts, apply exemptions/overrides, revision activation, retain rollback, emit only inert correction proposals | Implemented locally. The 78-case drift and Rule-activation cohort passed. Legacy migration, complete provider collection, trusted-verifier deployment, and operational rollout remain evidence-bound deployment work. |
+| F06.3 ARB and ORR | freeze evidence, assess constraints, verify ownership/readiness, fail closed, derive an immutable receipt, persist review identity, publish a shadow correction request, enter unified risk evaluation, prohibit dispatch, require separate approval and promotion | The missing upstream runtime and receipt boundaries were implemented. Production provider/owner/report bindings and governed runtime/promotion receipts remain external. |
+
+### Ten cumulative critique rounds
+
+Each round used 10 distinct controls against the final cumulative F06 slice. "Rejected" means the
+suspected issue was disproved by source and focused evidence, not ignored.
+
+| Round | Ten controls | Confirmed or rejected findings and resolution |
+|-------|--------------|-----------------------------------------------|
+| F06-C01 mandatory verbs | 1 typed change; 2 exact target; 3 source revision; 4 bounded scope; 5 alternative comparison; 6 simulation; 7 stop condition; 8 rollback; 9 approval separation; 10 independent effect closure | Rejected hidden F06.1 gap. All 10 controls are owned by existing planning/change-assessment paths; 120 focused tests passed. |
+| F06-C02 drift and compliance | 1 provider-neutral baseline; 2 current evidence; 3 field-level difference; 4 control-gap issue; 5 active Rule citation; 6 scoped policy; 7 exemption; 8 deterministic conflict; 9 revisioned activation; 10 inert remediation | Confirmed one documentation defect: phases 7-9 were implemented but still unchecked. The Rule governance ledger now records the implemented identity upgrade, pair CAS, retention, retirement, and rollback; 78 focused tests passed. |
+| F06-C03 ORR adapter selection | 1 complete posture/report pair; 2 active Rule generation; 3 active ontology digest; 4 non-empty `remediates`; 5 exact Rule parameters; 6 explicit DI precedence; 7 shadow mode; 8 no executor identity; 9 unified risk gate; 10 no dispatch | Confirmed a Medium wiring gap: the concrete typed adapter existed but no upstream runtime selected it. Runtime now selects it after Rule-generation reconciliation, preserves explicit DI, and fails closed on incomplete identities; 11 focused tests passed. |
+| F06-C04 ARB receipt authority | 1 receipt required; 2 digest; 3 review identity; 4 evidence set; 5 target revision; 6 conformant outcome; 7 effective interval; 8 human approval; 9 authoritative projection; 10 `execution_authority=false` | Confirmed a High readiness gap: provider attestations and mutable manifest state could satisfy the gate without resolving the immutable Decision receipt. Runtime readiness now requires and revalidates the projected receipt; 32 focused tests passed. |
+| F06-C05 receipt retrieval | 1 bounded query; 2 source completeness; 3 truncation; 4 latest timestamp; 5 same-time ambiguity; 6 timezone; 7 typed reconstruction; 8 digest revalidation; 9 expired receipt; 10 missing receipt | Confirmed a Medium hardening defect: a bounded ontology query could select an apparently latest receipt from an incomplete candidate set. Truncated or source-incomplete scans now fail closed; the focused projection/readiness cohort passed 25 cases. |
+| F06-C06 ARB observation composition | 1 complete source bundle; 2 ontology store; 3 Forseti-only binding; 4 no direct agent call; 5 deadline; 6 deterministic scenario; 7 DecisionCase; 8 ImpactEnvelope; 9 read-only projection; 10 no action authority | Confirmed a Medium composition gap: the implemented loop existed only in tests. Core now binds the complete source bundle to Forseti when prerequisites exist and otherwise leaves it unavailable; the 194-case observation/runtime/layout cohort passed. |
+| F06-C07 persistence and replay | 1 atomic first writer; 2 key hashing; 3 cross-replica conflict; 4 stored Change digest; 5 projection status; 6 CAS retry bound; 7 restart; 8 incomplete projection hold; 9 no evidence reread; 10 no authority restoration | Confirmed a Medium persistence gap: runtime composition had no durable ARB idempotency/projection fence. The StateStore adapter now persists both. Four tests passed through the isolated PostgreSQL 5433 wrapper, including restart readback. |
+| F06-C08 documentation truth | 1 canonical owner; 2 Korean parity; 3 one authoritative ledger; 4 append-only history; 5 evidence strength; 6 implementation vs validation; 7 wiring vs activation; 8 no production inference; 9 no functional-readiness edit; 10 no F07 edit | Confirmed duplicate/stale ORR ledger truth. The owner was migrated to its mirrored ledger, paired translations were reviewed and refreshed, and every current state is no stronger than local evidence. F06 and framework owners only were changed. |
+| F06-C09 failure and degradation | 1 missing source; 2 partial source; 3 missing ontology store; 4 state conflict; 5 projection failure; 6 broker failure; 7 malformed proposal; 8 stale report; 9 receipt ambiguity; 10 provider outage | Rejected fail-open behavior after fixes. Each condition disables, holds, retries with stable identity, or raises; none promotes, approves, dispatches, or executes. |
+| F06-C10 final integrated | 1 implementation; 2 runtime wiring; 3 persistence; 4 default activation; 5 measurement; 6 authority ceiling; 7 exact evidence; 8 bilingual/ledger truth; 9 scope isolation; 10 residual honesty | No confirmed defect above Low remained. Production activation and measurement are explicitly absent rather than inferred from code or tests. |
+
+### Before and after reproductions
+
+| Finding | Before | After |
+|---------|--------|-------|
+| ORR adapter selection | Baseline `bootstrap_readiness.py` at `966082d` contains no `EventBusReadinessRemediationPublisher` selection. | Current source contains the selector and the focused ORR cohort passes 11 cases. |
+| ARB observation runtime | Baseline `bootstrap_pantheon.py` contains no `_build_architecture_review_loop`. | Current runtime builds the loop from the complete source bundle and binds it only to Forseti. |
+| Receipt-derived readiness | Baseline has no `delivery/architecture_review_decision_receipt.py`. | Current runtime resolves the projected receipt; missing, drifted, expired, ambiguous, or incomplete receipt evidence fails closed. |
+| Rule revision ledger | Baseline records `- [ ] Implement phases 7 through 9`. | Current ledger records `- [x]` and cites the existing phase 7-9 implementations plus the passing 78-case recheck. |
+| ARB persistence | Baseline has no durable ARB observation StateStore adapter. | `with-local-test-database.py uv run pytest ...test_state_store_architecture_review.py` passed 4 cases against isolated PostgreSQL. |
+
+### Implementation and operational state matrix
+
+| F06 slice | Implemented | Actually wired | Persistent | Operationally active | Measured |
+|-----------|-------------|----------------|------------|----------------------|----------|
+| F06.1 planning boundary | Yes | Yes, through planned-change assessment | Existing Process/evidence owners | Product path available; execution remains separate | 120 local focused cases; no live change |
+| F06.2 drift/control evaluation | Yes | Yes, through detection, T0 governance, and typed proposals | Yes, including activation generations and rollback lineage | Depends on deployment provider coverage and selected profile | 78 local focused cases; no provider completeness measurement |
+| F06.2 revision phases 1-9 | Yes | Yes, authority CAS paths exist | Yes, PostgreSQL ledgers and retained artifacts | No production upgrade/rollback receipt supplied here | Existing phase tests plus current 78-case bounded recheck |
+| F06.3 ARB observation path | Yes | Conditional on one complete authenticated source bundle and ontology store | Yes, idempotency and projection status in StateStore | Inactive upstream without deployment-owned sources | 194 local focused cases and 4 isolated PostgreSQL cases |
+| F06.3 receipt production gate | Yes | Yes, in the workflow guard with ontology receipt provider | Decision and Approval ontology records | Inactive until owners, evidence, approval, and a current receipt exist | 32 local focused cases plus 25-case hardening recheck |
+| F06.3 ORR review | Yes | Conditional on the complete posture/report pair | Report/audit state uses StateStore | Inactive upstream without production providers | Existing readiness cohorts; no governed shadow receipt |
+| F06.3 ORR remediation ingress | Yes | Yes, selected after active Rule reconciliation when ORR is active | EventBus durability is deployment-owned; request identity is stable | Shadow-only; no live publication or approval claimed | 11 local focused cases; no live broker receipt |
+
+### Exact validation evidence
+
+- `uv run pytest -q --no-cov services/core-control-plane/tests/core/operational_planning ...`:
+  120 passed for the F06.1 boundary.
+- `uv run pytest -q --no-cov services/core-control-plane/tests/core/rule_activation ...`:
+  78 passed for F06.2 drift, review, configuration, and activation.
+- Focused ORR publisher/runtime tests: 11 passed; task-scoped Ruff and strict mypy passed.
+- Focused ARB readiness/projection/checker tests: 32 passed; the final receipt-selection recheck
+  passed 25 tests; task-scoped Ruff and strict mypy passed.
+- Focused ARB observation, persistence, Forseti, runtime, layout, and composition-split tests:
+  194 passed; task-scoped Ruff and strict mypy passed.
+- `uv run python scripts/automation/with-local-test-database.py uv run pytest -q --no-cov
+  services/core-control-plane/tests/delivery/persistence/test_state_store_architecture_review.py`:
+  4 passed against the isolated loopback database.
+- Translation quality, translation SHA parity, punctuation, roadmap tracking, ARB structure,
+  derived-source, framework-integrity, and commit contract checks passed for their task-owned
+  inputs. No repository-wide suite, live Azure/model/provider call, push, PR mutation, deployment,
+  or promotion was performed.
+
+### Residual conditions and readiness decision
+
+- **F06.1:** remains truthfully `Ready`; no hidden local implementation gap was confirmed.
+- **F06.2:** must remain `Partial`. Legacy installation migration, complete current provider
+  collection, the trusted Entra verifier deployment, a blocked-then-cleared governed review, and
+  operational rollout receipts were not supplied.
+- **F06.3:** must remain `Partial`. Production posture/report providers, accountable owner and
+  evidence bindings, a governed ownership-handover/ARB receipt, shadow cohort measurement, and an
+  authoritative promotion record were not supplied.
+- **ARB roadmap expansion outside the current F06.3 supported scope:** the observation trace still
+  lacks distinct owned records for every context, specialist, bundle, envelope, recommendation,
+  and projection stage. Adding those records requires accepted schemas and fixed-owner topic
+  bindings across multiple Pantheon agents; inventing them here would broaden the public contract
+  and agent ownership beyond the approved boundary. The implemented provider-neutral path holds
+  when deployment sources are absent and does not synthesize those records.
+
+Therefore neither F06.2 nor F06.3 may truthfully become `Ready` from this local closure alone.
+All confirmed locally actionable defects in the stated F06 readiness slice are fixed; the
+remaining conditions are external evidence, deployment bindings, governed promotion, or a
+separately designed broader ARB topic-contract expansion.
