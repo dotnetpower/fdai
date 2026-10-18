@@ -46,6 +46,12 @@ not a claim that pending restart-required settings have taken effect. The versio
 the installed Core distribution, not a deployment or source-revision attestation.
 These process-local observations do not establish health for other replicas or services.
 
+Cold-start duration measures this Core process from runtime entry to its first observed guarded
+ready state after bootstrap composition. It uses monotonic elapsed time and retains the original
+UTC observation time and an opaque process-instance source id. Before that observation, after shutdown, or without the lifecycle binding,
+the signal is unavailable. Recollection never renews the observation's freshness. This single
+process sample supplies neither a fleet cold-start rate nor a complete installation-wide window.
+
 Source collection runs at half the shortest catalog freshness bound, independently of expensive
 startup probe refreshes. It never invokes models, changes a kill switch, or executes an action.
 Missing, malformed, or unreachable source records remain unavailable with bounded reason codes;
@@ -55,7 +61,7 @@ Provider error text never becomes a projection reason.
 
 Other bindings remain explicitly unavailable until their owning source can supply the required
 observation. Broker queue depth and ingest-to-decision lag need broker/consumer observations;
-cold-start rate and duration need lifecycle observations; verifier, disagreement, rollback,
+cold-start rate needs a complete lifecycle window and denominator; verifier, disagreement, rollback,
 override, and discovery rates need time-bounded numerators and denominators. Complete adapter
 health needs the registered dependency checks, and canary state needs a bounded latest-success
 reader. The existing oldest-first audit migration reader cannot establish the latest canary.
@@ -78,7 +84,7 @@ so no area is claimed as fully operationally validated.
 | Synthetic canary publisher, canonical consumer, no-op audit path, and scheduled Container Apps Job | implemented | [`canary_cli.py`](../../../services/core-control-plane/src/fdai/delivery/canary_cli.py), [`_canary.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_canary.py), [`canary_job.tf`](../../../infra/modules/compute/container-apps/canary_job.tf), and focused canary tests | The canary is isolated from T0/T1/T2, risk, execution, incident, and learning paths. |
 | Post-deploy promotion smoke | in-progress | [`deploy-dev.yml`](../../../.github/workflows/deploy-dev.yml); `scripts/deployment/azure/verify_canary_audit.py`; focused verifier tests | The workflow gives the publisher a deterministic slot, then requires one exact Core audit row within 30 seconds. The verifier rejects ambiguous, malformed, unsettled, future-dated, or over-budget rows without exposing database credentials. A retained live receipt, fixture replay, kill-switch cycle, and human-approval dry-run remain open. |
 | Complete self-health signal policy and routing map | implemented | `config/self-health-signals.yaml`; `core/readiness/self_health.py`; production startup binding; focused self-health and readiness tests | All 15 required signals map to one metric, threshold direction, freshness bound, generic owner lane, notification route, and fail-closed fallback. Missing coverage or route drift blocks startup. Decisions grant no execution authority. |
-| Complete self-health exporter registry, alert delivery, and operational drills | in-progress | Complete signal policy; exact 15-signal and eight-field exporter registry; `delivery/self_health_sources.py`; `runtime/readiness.py`; source-binding tests; durable operational-state snapshot; authenticated Operator read route | Real process liveness, guarded readiness, and persisted kill-switch observations replace three unavailable signal bindings. Installed version, consumed policy, and persisted kill-switch state supply three fields. Other sources remain unavailable; complete delivery and drill receipts remain open. |
+| Complete self-health exporter registry, alert delivery, and operational drills | in-progress | Complete signal policy; exact 15-signal and eight-field exporter registry; `delivery/self_health_sources.py`; `runtime/startup_observation.py`; source-binding tests; durable operational-state snapshot; authenticated Operator read route | Process liveness, guarded readiness, persisted kill switch, and actual startup duration supply four signals. Installed version, consumed policy, and persisted kill-switch state supply three fields. Eleven signals and five fields remain unavailable; complete delivery and drill receipts remain open. |
 | Correlation-based audit investigation and unified version/configuration exposure | implemented | [`rule_fire_trace.py`](../../../services/core-control-plane/src/fdai/core/audit/rule_fire_trace.py), [`audit_rca.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py), `core/readiness/self_health_runtime.py`, and authenticated `GET /operations/runtime-state` | One sanitized contract now exposes version, configuration, rule effect, override, discovery, canary, kill-switch, break-glass, and all self-health states. Each field includes source, freshness, and an explicit unavailable state; the route grants no approval or execution authority. |
 | Pre-launch latency measurement and frozen-scenario replay | implemented | [`latency_budget.py`](../../../services/core-control-plane/src/fdai/core/measurement/latency_budget.py), [`baseline_run.py`](../../../tools/baseline_run.py), and focused tests | The primitives produce bounded measurements and release-gate results; an external load generator and deployment-specific budgets remain operator inputs. |
 | Live Azure read-investigation scenarios | in-progress | [Azure Read Investigations](../interfaces/azure-read-investigations.md#verification-and-release-evidence) | Four bounded read-only scenarios passed, while guest-event matching, an actual provider `429`, and cross-service parity receipts remain open release evidence. |
@@ -89,6 +95,7 @@ so no area is claimed as fully operationally validated.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-19 | implemented | Bound actual runtime entry to first post-composition guarded-ready duration with monotonic elapsed time, frozen observation time, opaque process-instance identity, unavailable initial/shutdown states, and no additional probes. | `current change`; `runtime/startup_observation.py`; bootstrap/resources/readiness/source composition; focused startup, collection, shutdown, and bootstrap tests. | Four signals and three fields are source-bound; 11 signals and five fields remain unavailable. Model-health cooldowns and rolling latency samples lack outcome-rate denominators and cannot establish full adapter health. Fleet cold-start rate and deployed alert/drill evidence remain open. |
 | 2026-10-17 | implemented | Added an exact exporter registry for all 15 self-health signals and eight unified operational-state fields. Runtime persists one source-qualified, freshness-checked snapshot, and the Operator exposes it only through the existing authenticated Reader-role projection boundary. Production uses explicit unavailable bindings until each accountable source adapter is composed, so missing telemetry never appears healthy. | `current change`; service contracts, Core monitor, production bootstrap, Operator projection and route; 171 focused checks and strict mypy. | Replace every explicit unavailable binding with its source-specific production exporter, then retain primary/fallback delivery and recovery-drill receipts. |
 | 2026-10-15 | implemented | Added bounded read-only post-deploy verification for the exact consumed canary audit and its numeric latency budget. Publisher completion alone can no longer satisfy this smoke stage. | `current change`; `verify_canary_audit.py`; deploy workflow binding; 10 focused tests. | Retain a passing deployed receipt and add frozen fixture replay, kill-switch engage/disengage, and no-execute HIL dry-run evidence. |
 | 2026-10-15 | implemented | Added the complete 15-signal self-health policy catalog, fail-closed freshness and threshold evaluation, notification-route fallback validation, and mandatory production startup binding. | `current change`; self-health catalog, decision core, readiness/bootstrap binding, and focused tests. | Bind every metric exporter and retain primary/fallback delivery plus recovery-drill evidence. |
@@ -108,6 +115,8 @@ so no area is claimed as fully operationally validated.
   recovery-drill receipts in one governed deployment.
 - [x] Bind process-local liveness, guarded readiness, and persisted kill-switch state plus installed
   version and consumed runtime policy, and test periodic refresh without repeating startup probes.
+- [x] Observe actual runtime entry to first guarded-ready duration per process without inventing a
+  cold-start rate, renewing freshness, or performing another model, network, or database probe.
 - [x] Expose the complete version, configuration, rule-effect, override, discovery, canary,
   kill-switch, and break-glass state through one authorized read surface and test field freshness.
 - [x] Define a required runbook schema and add a check proving every automated ActionType has a

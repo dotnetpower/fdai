@@ -33,7 +33,9 @@ def _available_port() -> int:
 async def test_bootstrap_starts_health_server_from_environment(monkeypatch) -> None:
     port = _available_port()
     monkeypatch.setenv("FDAI_HEALTH_PORT", str(port))
-    readiness = SimpleNamespace(state=SimpleNamespace(is_ready=lambda: True))
+    readiness = SimpleNamespace(
+        state=SimpleNamespace(is_ready=lambda: True), startup_duration_source=None
+    )
 
     server = await start_health_server(
         control_loop=object(),  # type: ignore[arg-type]
@@ -68,7 +70,9 @@ async def test_binding_readiness_publishes_the_runtime_state(monkeypatch) -> Non
     port = _available_port()
     monkeypatch.setenv("FDAI_HEALTH_PORT", str(port))
     ready_now = False
-    readiness = SimpleNamespace(state=SimpleNamespace(is_ready=lambda: ready_now))
+    readiness = SimpleNamespace(
+        state=SimpleNamespace(is_ready=lambda: ready_now), startup_duration_source=None
+    )
 
     server = await open_health_port()
     assert server is not None

@@ -44,6 +44,7 @@ from fdai.delivery.startup_probe import (
     StaticStartupProbe,
     WorkloadIdentityStartupProbe,
 )
+from fdai.runtime.startup_observation import RuntimeStartupDurationSource
 from fdai.shared.contracts.validation import EventValidator
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 from fdai.shared.providers.event_bus import EventBus
@@ -159,6 +160,7 @@ class StartupReadinessRuntime:
     refresh_lead_seconds: float = 0.0
     self_health_catalog: SelfHealthCatalog | None = None
     self_health_monitor: SelfHealthRuntimeMonitor | None = None
+    startup_duration_source: RuntimeStartupDurationSource | None = None
     _self_health_lock: asyncio.Lock = field(
         default_factory=asyncio.Lock, init=False, repr=False, compare=False
     )
@@ -353,6 +355,7 @@ def build_startup_readiness_runtime(
     self_health_exporter_registry: SelfHealthExporterRegistry | None = None,
     liveness: Callable[[], bool] | None = None,
     runtime_policy: Mapping[str, object] | None = None,
+    startup_duration_source: RuntimeStartupDurationSource | None = None,
 ) -> StartupReadinessRuntime:
     """Compose standard required probes plus registered optional destinations."""
     probe_topic = (
@@ -492,6 +495,7 @@ def build_startup_readiness_runtime(
             readiness=lambda now: state.is_ready(now=now),
             liveness=liveness,
             runtime_policy=runtime_policy,
+            startup_duration_source=startup_duration_source,
         )
     if self_health_catalog is None and self_health_exporter_registry is not None:
         raise ValueError("self-health catalog and exporter registry MUST be composed together")
@@ -505,6 +509,7 @@ def build_startup_readiness_runtime(
         ),
         refresh_lead_seconds=budget.refresh_lead_seconds,
         self_health_catalog=self_health_catalog,
+        startup_duration_source=startup_duration_source,
         self_health_monitor=(
             SelfHealthRuntimeMonitor(
                 registry=self_health_exporter_registry,
