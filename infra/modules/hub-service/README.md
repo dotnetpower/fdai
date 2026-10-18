@@ -95,7 +95,7 @@ target and published digest reference. Use distinct absolute paths outside the c
 `PRIVATE_BUILD_METADATA`, `PRIVATE_BACKEND`, `PRIVATE_INPUTS`, `PRIVATE_PLAN`, `PRIVATE_PLAN_JSON`,
 `PRIVATE_STAGE_CONTEXT` and `PRIVATE_STAGE_HASHES`. Retain the `SOURCE_SHA` recorded before
 building; don't recompute it to accept a source change. The following functions use native
-Git, SHA-256, jq and Azure CLI only. They don't grant approval, apply Terraform or start Jobs.
+Git, Terraform, SHA-256, jq and Azure CLI only. They don't grant approval, apply Terraform or start Jobs.
 
 ```bash
 candidate_context() {
@@ -200,7 +200,7 @@ verify_live_job() {
   fi
   address=$(jq -er .address <<< "$expected") || return 1
   readback=$(mktemp "${PRIVATE_PLAN}.job-readback.XXXXXX") || return 1
-  if ! timeout 120s terraform -chdir="$ROOT" plan -refresh-only -detailed-exitcode \
+  if ! timeout 120s terraform -chdir="$ROOT" plan -refresh-only \
     -input=false -lock-timeout=10s -var-file="$PRIVATE_INPUTS" -out="$readback" \
     > "$readback.log" 2>&1; then
     echo "Hub live Job readback failed or detected drift; dispatch stopped. Inspect private logs." >&2
@@ -208,7 +208,11 @@ verify_live_job() {
   fi
   if ! observed=$(timeout 30s terraform -chdir="$ROOT" show -json "$readback" \
     2>> "$readback.log" | jq -Sce --arg address "$address" '
-      [.prior_state.values | .. | objects | select(.address? == $address)]
+      select(all((.resource_drift // [])[]; .change.actions == ["no-op"]))
+      | select(all((.output_changes // {})[];
+          .actions == ["no-op"] and .after_unknown != null and
+          all(.after_unknown | ..; . != true)))
+      | [.prior_state.values | .. | objects | select(.address? == $address)]
       | select(length == 1) | .[0] | {address, values}
       ' 2>> "$readback.log") || [[ "$expected" != "$observed" ]]; then
     echo "Hub live Job resource differs from the sealed candidate or is unknown; dispatch stopped." >&2
@@ -245,6 +249,8 @@ The live guard uses native provider refresh, without applying it, to compare the
 resource with the sealed candidate, including identity, template, secrets and registry bindings.
 It also rejects refresh drift, even if another actor already adopted it into state. Readback
 plans and logs remain private beside the stage plan; don't apply them or print their contents.
+Refresh-only exit codes can include bookkeeping changes; explicit drift and output changes,
+plus the complete freshly observed Job values, decide whether dispatch is allowed.
 Job starts in this procedure accept no execution-template, command or environment overrides.
 An override needs its own separately reviewed and sealed execution candidate; it isn't supported
 by the commands below. Keep configuration frozen between verification and dispatch.

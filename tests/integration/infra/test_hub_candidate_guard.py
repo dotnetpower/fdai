@@ -41,11 +41,11 @@ printf '{"subscription":"%s","tenant":"%s"}\\n' "$TEST_SUBSCRIPTION" "$TEST_TENA
         "terraform": """#!/bin/bash
 if [[ "$TEST_TERRAFORM_FAILURE" == 1 ]]; then exit 69; fi
 if [[ "$2" == plan ]]; then
-  test "$#" = 8 || exit 64
+  test "$#" = 7 || exit 64
   test "$1" = "-chdir=$ROOT" || exit 64
-  test "$2 $3 $4" = "plan -refresh-only -detailed-exitcode" || exit 64
-  test "$5 $6" = "-input=false -lock-timeout=10s" || exit 64
-  test "$7" = "-var-file=$PRIVATE_INPUTS" || exit 64
+  test "$2 $3" = "plan -refresh-only" || exit 64
+  test "$4 $5" = "-input=false -lock-timeout=10s" || exit 64
+  test "$6" = "-var-file=$PRIVATE_INPUTS" || exit 64
   for argument in "$@"; do
     case "$argument" in -out=*) output="${argument#-out=}" ;; esac
   done
@@ -247,6 +247,9 @@ def test_job_dispatch_requires_matching_live_complete_resource(tmp_path, kind, j
         "missing",
         "refresh-error",
         "refresh-drift",
+        "refresh-resource-drift",
+        "output-drift",
+        "unknown-output",
         "invalid-json",
         "sealed-create",
         "unknown-id",
@@ -278,6 +281,15 @@ def test_live_job_drift_or_unknown_observation_never_dispatches(tmp_path, drift)
         live["planned_values"]["root_module"]["child_modules"][0]["resources"].pop()
     elif drift in {"refresh-error", "refresh-drift"}:
         environment["TEST_READBACK_EXIT"] = "69" if drift == "refresh-error" else "2"
+    elif drift == "refresh-resource-drift":
+        live["resource_drift"] = [{"change": {"actions": ["update"]}}]
+    elif drift in {"output-drift", "unknown-output"}:
+        live["output_changes"] = {
+            "deployment": {
+                "actions": ["update"] if drift == "output-drift" else ["no-op"],
+                "after_unknown": drift == "unknown-output",
+            }
+        }
     elif drift == "sealed-create":
         plan["resource_changes"][1]["change"]["actions"] = ["create"]
     elif drift == "unknown-id":
@@ -289,7 +301,13 @@ def test_live_job_drift_or_unknown_observation_never_dispatches(tmp_path, drift)
     Path(environment["TEST_LIVE_PLAN"]).write_text(
         "{"
         if drift == "invalid-json"
-        else json.dumps({"prior_state": {"values": live["planned_values"]}})
+        else json.dumps(
+            {
+                "prior_state": {"values": live["planned_values"]},
+                "resource_drift": live.get("resource_drift", []),
+                "output_changes": live.get("output_changes", {}),
+            }
+        )
     )
     result = _run(tmp_path, environment, plan, "verify_live_job bootstrap")
     assert result.returncode != 0
@@ -431,7 +449,23 @@ def test_native_terraform_plan_records_literal_product_binding(tmp_path):
     )
     (tmp_path / "main.tf").write_text(
         'module "hub" {\n  source = "./module"\n  kind = "release"\n}\n'
+        'data "terraform_remote_state" "observation" {\n'
+        '  backend = "local"\n'
+        '  config = { path = "${path.root}/synthetic-observation.tfstate" }\n'
+        "}\n"
+        'output "observed" {\n'
+        "  value = { value = data.terraform_remote_state.observation.outputs.value }\n"
+        "}\n"
     )
+    observation = {
+        "version": 4,
+        "terraform_version": "1.9.8",
+        "serial": 1,
+        "outputs": {"value": {"value": "before", "type": "string"}},
+        "resources": [],
+    }
+    observation_path = tmp_path / "synthetic-observation.tfstate"
+    observation_path.write_text(json.dumps(observation))
     environment = {
         "PATH": os.environ["PATH"],
         "HOME": str(tmp_path),
@@ -461,6 +495,19 @@ def test_native_terraform_plan_records_literal_product_binding(tmp_path):
     run("plan", "-detailed-exitcode", "-input=false", "-out=dispatch.plan")
     dispatch = json.loads(run("show", "-json", "dispatch.plan"))
     assert all(change["change"]["actions"] == ["no-op"] for change in dispatch["resource_changes"])
-    run("plan", "-refresh-only", "-detailed-exitcode", "-input=false", "-out=readback.plan")
+    run("plan", "-refresh-only", "-input=false", "-out=readback.plan")
     readback = json.loads(run("show", "-json", "readback.plan"))
-    assert dispatch["planned_values"] == readback["prior_state"]["values"]
+    assert (
+        dispatch["planned_values"]["root_module"]["child_modules"]
+        == readback["prior_state"]["values"]["root_module"]["child_modules"]
+    )
+    observation["outputs"]["value"]["value"] = "after"
+    observation_path.write_text(json.dumps(observation))
+    run("plan", "-refresh-only", "-input=false", "-out=changed-observation.plan")
+    changed = json.loads(run("show", "-json", "changed-observation.plan"))
+    observed = next(
+        resource
+        for resource in changed["prior_state"]["values"]["root_module"]["resources"]
+        if resource["address"] == "data.terraform_remote_state.observation"
+    )
+    assert observed["values"]["outputs"]["value"] == "after"
