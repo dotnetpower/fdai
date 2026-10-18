@@ -6,6 +6,7 @@ resource "azurerm_container_app_job" "migrate" {
   container_app_environment_id = local.foundation[each.key].environment_id
   replica_timeout_in_seconds   = 120
   replica_retry_limit          = 0
+  workload_profile_name        = "Consumption"
   manual_trigger_config {
     parallelism              = 1
     replica_completion_count = 1

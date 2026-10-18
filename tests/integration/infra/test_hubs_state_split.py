@@ -293,6 +293,15 @@ def test_each_resource_has_exactly_one_owner_and_base_has_no_graph() -> None:
         assert block is not None and "prevent_destroy = true" in block.group()
 
 
+@pytest.mark.parametrize("filename", ("apps.tf", "bootstrap.tf", "migrations.tf"))
+def test_runtime_workloads_explicitly_match_environment_profile(filename: str) -> None:
+    module = INFRA / "modules/hub-service"
+    environment = (module / "boundaries.tf").read_text(encoding="utf-8")
+    assert re.search(r'workload_profile_type\s*=\s*"Consumption"', environment)
+    source = (module / filename).read_text(encoding="utf-8")
+    assert re.search(r'workload_profile_name\s*=\s*"Consumption"', source)
+
+
 @pytest.mark.parametrize("directory", DIRECTORY_STATES)
 def test_native_state_moves_preserve_partial_azure_instances(
     tmp_path: Path, directory: str

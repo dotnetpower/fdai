@@ -3,6 +3,8 @@
 This internal module declares one Hub's private database, vault, managed identity, network and
 bundled UI/API. Invoke it through one product root, never as a combined two-product deployment.
 This procedure is preparation guidance, not permission to execute Azure changes.
+Apps and both manual Jobs explicitly select the environment's `Consumption` workload profile.
+Omitting it lets Azure assign a default that Terraform would subsequently plan to clear.
 
 ## Files
 
