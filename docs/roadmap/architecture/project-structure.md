@@ -894,6 +894,11 @@ CI pipeline plus the local pre-push hook. Corresponding docs in
 
 ## Customization via Dependency Injection
 
+The Ingestion API injects its service-owned `SourceDownloadAuthorizer` into
+`GovernedDocumentDownload`; only the configured purpose-specific protection provider supplies
+the bounded export receipt. Its availability projection grants no download or executor authority.
+See [purpose-bound source download](../interfaces/document-ingestion.md#purpose-bound-source-download).
+
 Bragi-owned conversational composition carries an exact selected agent and locale, independent
 synthesis verification, and policy-pinned durable per-correlation model accounting. Missing
 participation or unresolved evidence conflicts remain partial or held without a final conclusion.
