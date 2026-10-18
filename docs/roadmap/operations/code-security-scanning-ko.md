@@ -1,8 +1,8 @@
 ---
 title: 코드 보안 스캔
 translation_of: code-security-scanning.md
-translation_source_sha: 12bb5370dbb0c9a966d1130d982bf56f110c8070
-translation_revised: 2026-10-15
+translation_source_sha: 78e0b2dac1b83048c04cd8da4e0a16a404a3c25f
+translation_revised: 2026-10-19
 ---
 
 # 코드 보안 스캔
@@ -766,6 +766,11 @@ JavaScript와 TypeScript, Java, C#에서는 `rules/verify/` 아래의 FDAI 작�
 `holdout` 모두에서 정밀도가 평가 자료의 하한인 0.90 이상이고 참 양성이 하나 이상일 때만 검증기가
 승격되며, 검증기 카탈로그의 승격 목록은 이 증적과 일치해야 합니다. 나머지 검증기는 shadow로 실행되어
 결과를 `verifier_in_shadow`로 기록할 뿐 신뢰도를 올리지 않습니다.
+
+하한은 증적에 표시하는 소수점 네 자리 정밀도가 아니라 정확한 `TP / (TP + FP)` 개수와
+구성된 십진수를 비교합니다. 예를 들어 참 양성(TP) 1808개와 거짓 양성(FP) 201개인 합성
+경계 사례는 `0.9000`으로 표시되지만 실제로는 `0.90` 미만이므로 어느 분할도 승격할 수 없습니다.
+정밀도를 알 수 없거나 예측이 없거나 참 양성이 부족하면 계속 요건 미충족으로 처리합니다.
 
 예: 2026-10-08 증적(평가 자료 1.1.0, `dev` 레이블 710개와 `holdout` 레이블 681개)은 검증기 다섯 개를
 승격합니다. Java와 JavaScript 명령 주입, JavaScript 코드 주입과 SQL 주입, Python SQL 주입이며, 모두 두

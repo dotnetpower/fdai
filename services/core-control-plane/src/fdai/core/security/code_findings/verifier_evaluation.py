@@ -22,6 +22,7 @@ import io
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
+from fractions import Fraction
 
 TAINT_LANGUAGES = {
     ".py": "python",
@@ -171,10 +172,13 @@ class SplitMetrics:
     recall: float | None
 
     def qualifies(self, precision_floor: float, min_true_positives: int) -> bool:
+        """Compare observed counts with the decimal floor, not the rounded display."""
+        predictions = self.true_positives + self.false_positives
         return (
             self.precision is not None
-            and self.precision >= precision_floor
+            and predictions > 0
             and self.true_positives >= min_true_positives
+            and Fraction(self.true_positives, predictions) >= Fraction(str(precision_floor))
         )
 
     def as_dict(self) -> dict[str, object]:
