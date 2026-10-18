@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to your own Azure subscription from a clone with one command line, or install it from a signed offline package.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 7d055af2a5d891d1717bd356cdcd7b17df089221 }, { source: docs/roadmap/deployment/source-deployment.md, sha: d8980873e1c9d0a35d520788053ff0c885891605 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 4149ec4d94c85eea5d24bf08cbe762e789e2c8f7 }, { source: docs/roadmap/deployment/source-deployment.md, sha: d8980873e1c9d0a35d520788053ff0c885891605 }]
 ---
 
 # Deploy Quickstart
@@ -34,10 +34,14 @@ Review this read scope in the plan.
 GitHub Actions tests the repository. It is not part of either deployment path.
 
 > **Hub development validation:** The separate
-> [two-Hub preparation guide](../../infra/hubs-development/README.md) provides development
-> images, authenticated catalog import, and isolated IaC declarations. It is not a complete
-> Hub-managed FDAI installation, does not replace either quickstart path, and has no live
-> Azure deployment or production trust-root evidence. Cloud execution requires separate approval.
+> [Release Hub](../../infra/release-hub/README.md) and
+> [Lifecycle Hub](../../infra/lifecycle-hub/README.md) guides deploy each product's own UI/API/DB
+> independently. Login and peer catalog bindings aren't startup prerequisites; management APIs
+> remain unavailable without authentication. The
+> [legacy paired guide](../../infra/hubs-development/README.md) retains its existing authenticated
+> fixture. Neither is a complete Hub-managed FDAI installation or a replacement for either
+> quickstart path. Local evidence isn't Azure or production trust-root acceptance; cloud execution
+> requires separate approval.
 
 > **Current status:** The one-command source deployment is implemented through application
 > convergence. Its
