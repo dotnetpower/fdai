@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import dataclass
 from datetime import datetime
+from enum import StrEnum
 from typing import Any
 
 from fdai.core.decision_case import ObjectiveEffect
@@ -13,7 +15,10 @@ from fdai.core.operational_context import SourceFreshness
 from fdai_cost_governance.guard import FinOpsActionKind, FinOpsCandidate
 from fdai_cost_governance.optimization import (
     CoupledResourceOptimizationPlan,
+    OptimizationClarificationAttestation,
+    OptimizationClarificationRequest,
     OptimizationDisposition,
+    evaluate_optimization_attestation,
 )
 
 _RIGHT_SIZE_ACTION_TYPE = "remediate.right-size"
@@ -22,6 +27,18 @@ _MAX_EVIDENCE_REFS = 32
 _MAX_EFFECTS = 16
 _MAX_SOURCE_FRESHNESS = 32
 _MAX_SOURCE_LENGTH = 512
+
+
+class OptimizationReinjectionDisposition(StrEnum):
+    READY = "ready"
+    HELD = "held"
+
+
+@dataclass(frozen=True, slots=True)
+class OptimizationReinjectionResult:
+    disposition: OptimizationReinjectionDisposition
+    reason: str
+    candidate: dict[str, Any] | None
 
 
 def compose_njord_optimization_candidate(
@@ -133,6 +150,82 @@ def compose_njord_optimization_candidate(
     }
 
 
+def compose_njord_reinjection_candidate(
+    candidate: dict[str, Any],
+    *,
+    request: OptimizationClarificationRequest,
+    attestation: OptimizationClarificationAttestation,
+    decision_case_revision_digest: str,
+    reevaluated_at: datetime,
+    authoritative_conflict: bool = False,
+) -> OptimizationReinjectionResult:
+    """Reenter one accepted clarification without approval or publication authority."""
+
+    _require_sha256("optimization decision case revision", decision_case_revision_digest)
+    if reevaluated_at.tzinfo is None or reevaluated_at.utcoffset() is None:
+        raise ValueError("optimization reevaluation time MUST be timezone-aware")
+    result = evaluate_optimization_attestation(
+        request,
+        attestation,
+        now=reevaluated_at,
+        authoritative_conflict=authoritative_conflict,
+    )
+    if result.accepted_value is None or result.reevaluation_key is None:
+        return OptimizationReinjectionResult(
+            disposition=OptimizationReinjectionDisposition.HELD,
+            reason=result.reason,
+            candidate=None,
+        )
+    if candidate.get("resource_id") != request.target_id:
+        raise ValueError("optimization reinjection target does not match clarification")
+    if candidate.get("producer_principal") is not None:
+        raise ValueError("optimization reinjection MUST NOT supply an agent principal")
+    if candidate.get("kind") != "cross_vertical_candidate":
+        raise ValueError("optimization reinjection candidate kind is invalid")
+    evidence_refs = candidate.get("evidence_refs")
+    if not isinstance(evidence_refs, list):
+        raise ValueError("optimization reinjection evidence refs are invalid")
+    attestation_digest = _attestation_digest(attestation)
+    lineage = list(
+        dict.fromkeys(
+            (
+                *evidence_refs,
+                f"decision-case-revision:{decision_case_revision_digest}",
+                f"clarification-request:{request.request_id}",
+                f"clarification-attestation:{attestation_digest}",
+            )
+        )
+    )
+    if len(lineage) > _MAX_EVIDENCE_REFS:
+        raise ValueError("optimization reinjection evidence refs exceed the intake limit")
+    revision_material = {
+        "accepted_value": result.accepted_value,
+        "attestation_digest": attestation_digest,
+        "candidate_idempotency_key": candidate.get("idempotency_key"),
+        "decision_case_revision_digest": decision_case_revision_digest,
+        "reevaluation_key": result.reevaluation_key,
+        "reevaluated_at": reevaluated_at.isoformat(),
+        "target_id": request.target_id,
+        "target_revision_digest": request.target_revision_digest,
+    }
+    revision_digest = _mapping_digest(revision_material)
+    correlation_prefix = str(candidate.get("correlation_id") or "")
+    if not correlation_prefix:
+        raise ValueError("optimization reinjection correlation is invalid")
+    revised = {
+        **candidate,
+        "correlation_id": f"{correlation_prefix[:180]}:reevaluation:{revision_digest[7:23]}",
+        "idempotency_key": f"optimization-reinjection:{revision_digest[7:]}",
+        "observed_at": reevaluated_at.isoformat(),
+        "evidence_refs": lineage,
+    }
+    return OptimizationReinjectionResult(
+        disposition=OptimizationReinjectionDisposition.READY,
+        reason="attestation_accepted_for_typed_reinjection",
+        candidate=revised,
+    )
+
+
 def _effect_mapping(effect: ObjectiveEffect) -> dict[str, object]:
     return {
         "objective_id": effect.objective_id,
@@ -175,6 +268,31 @@ def _candidate_digest(candidate: FinOpsCandidate, profile_digest: str) -> str:
     return f"sha256:{hashlib.sha256(payload).hexdigest()}"
 
 
+def _attestation_digest(attestation: OptimizationClarificationAttestation) -> str:
+    return _mapping_digest(
+        {
+            "actor_id": attestation.actor_id,
+            "actor_role": attestation.actor_role,
+            "effective_scope": attestation.effective_scope,
+            "effective_until": attestation.effective_until.isoformat(),
+            "recorded_at": attestation.recorded_at.isoformat(),
+            "request_id": attestation.request_id,
+            "response": attestation.response,
+        }
+    )
+
+
+def _mapping_digest(value: dict[str, Any]) -> str:
+    payload = json.dumps(
+        value,
+        allow_nan=False,
+        ensure_ascii=True,
+        separators=(",", ":"),
+        sort_keys=True,
+    ).encode()
+    return f"sha256:{hashlib.sha256(payload).hexdigest()}"
+
+
 def _require_sha256(label: str, value: str) -> None:
     if (
         not value.startswith("sha256:")
@@ -184,4 +302,9 @@ def _require_sha256(label: str, value: str) -> None:
         raise ValueError(f"{label} MUST be an exact SHA-256 digest")
 
 
-__all__ = ["compose_njord_optimization_candidate"]
+__all__ = [
+    "OptimizationReinjectionDisposition",
+    "OptimizationReinjectionResult",
+    "compose_njord_optimization_candidate",
+    "compose_njord_reinjection_candidate",
+]
