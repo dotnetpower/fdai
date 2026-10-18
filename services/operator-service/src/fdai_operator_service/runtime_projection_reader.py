@@ -15,12 +15,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 
 import psycopg
-from fdai_service_contracts.model_provider_health import (
-    ModelProviderRegistrationV1,
-    ModelProviderScopeSnapshotV1,
-    validate_model_provider_registration,
-)
-from fdai_service_contracts.self_health import OperationalStateSnapshotV1
 from psycopg.rows import dict_row
 
 from fdai_operator_service.analyzer_lifecycle_projection import (
@@ -66,6 +60,7 @@ from fdai_operator_service.process_transition_projection import (
     ProcessControlUnavailableError,
     project_process_control,
 )
+from fdai_operator_service.runtime_model_scope_projection import project_runtime_operational_state
 
 _WORKFLOW_CATALOG_KEY = "operator-projection:workflow:workflow.catalog"
 _AUTOMATION_BLUEPRINT_AGGREGATE_SQL = "SELECT COUNT(*) AS proposed, COUNT(*) FILTER (WHERE state = 'accepted') AS accepted, COUNT(*) FILTER (WHERE state = 'rejected') AS rejected, COUNT(*) FILTER (WHERE state = 'expired') AS expired, COUNT(*) FILTER (WHERE state = 'materialized') AS materialized, COALESCE(SUM(realized_usage_count), 0)::bigint AS realized_usage, COALESCE(jsonb_object_agg(review_reason, reason_count) FILTER (WHERE review_reason IS NOT NULL), '{}'::jsonb) AS rejection_reasons FROM (SELECT state, realized_usage_count, CASE WHEN state = 'rejected' THEN review_reason ELSE NULL END AS review_reason, COUNT(*) OVER (PARTITION BY CASE WHEN state = 'rejected' THEN review_reason END) AS reason_count FROM automation_blueprint_candidate) AS aggregate_source"  # noqa: E501
@@ -135,70 +130,9 @@ class RuntimeProjectionReader:
         )
         if not rows:
             raise ProjectionUnavailableError("runtime operational state is unavailable")
-        value = rows[0].get("value")
-        if not isinstance(value, Mapping):
-            raise ProjectionUnavailableError("runtime operational state is malformed")
-        revision = value.get("revision")
-        snapshot_raw = value.get("snapshot")
-        if (
-            isinstance(revision, bool)
-            or not isinstance(revision, int)
-            or revision < 1
-            or not isinstance(snapshot_raw, Mapping)
-        ):
-            raise ProjectionUnavailableError("runtime operational state is malformed")
-        try:
-            snapshot = OperationalStateSnapshotV1.model_validate(snapshot_raw)
-        except ValueError as exc:
-            raise ProjectionUnavailableError("runtime operational state is malformed") from exc
-        if any(
-            row.signal.value == "adapter_healthcheck" and row.status.value == "healthy"
-            for row in snapshot.self_health.signals
-        ):
-            raise ProjectionUnavailableError("configured-adapter coverage is unavailable")
-        result: dict[str, object] = {
-            "source": "postgresql:state_kv",
-            "durable": True,
-            "revision": revision,
-            "snapshot": snapshot.model_dump(mode="json"),
-        }
-        scope_raw = value.get("model_provider_scope")
-        if scope_raw is not None:
-            try:
-                scope = ModelProviderScopeSnapshotV1.model_validate(scope_raw)
-                registration = ModelProviderRegistrationV1.model_validate(
-                    value.get("model_provider_registration")
-                )
-                validate_model_provider_registration(scope, registration)
-                if (
-                    scope.parent_snapshot_digest != snapshot.snapshot_digest
-                    or scope.generated_at != snapshot.generated_at
-                ):
-                    raise ValueError("provider scope belongs to another runtime snapshot")
-                adapter_age = next(
-                    row.maximum_age_seconds
-                    for row in snapshot.self_health.signals
-                    if row.signal.value == "adapter_healthcheck"
-                )
-                if any(row.maximum_age_seconds != adapter_age for row in scope.observations):
-                    raise ValueError("provider scope does not match catalog freshness")
-                read_at = _model_scope_read_now()
-                if any(
-                    row.observed_at is not None
-                    and row.fresh
-                    and not 0
-                    <= (read_at - row.observed_at).total_seconds()
-                    <= row.maximum_age_seconds
-                    for row in scope.observations
-                ):
-                    raise ValueError("model-provider scope is stale at read time")
-            except ValueError as exc:
-                raise ProjectionUnavailableError("model-provider scope is malformed") from exc
-            result["model_provider_scope"] = scope.model_dump(mode="json")
-            result["model_provider_registration"] = registration.model_dump(mode="json")
-        elif value.get("model_provider_registration") is not None:
-            raise ProjectionUnavailableError("model-provider scope is malformed")
-        return result
+        return project_runtime_operational_state(
+            rows[0].get("value"), read_now=_model_scope_read_now
+        )
 
     async def _process_list(self, query: ProjectionQuery) -> Mapping[str, object]:
         workflow_ref = _last(query.params.get("workflow_ref"))

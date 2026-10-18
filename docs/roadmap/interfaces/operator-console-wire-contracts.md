@@ -35,6 +35,10 @@ observations; missing roles, stale/replaced bindings, missing registration, or u
 cannot yield complete coverage or aggregate Healthy. Operator checks both typed contracts,
 their exact configured-role/binding equality, parent digest/time, and catalog freshness. It
 rejects a model sub-scope presented as proof of global adapter Healthy. Reader access is unchanged.
+`runtime_model_scope_projection.py` owns this validation and the runtime-record decoding; the
+reader facade retains its SQL, dispatch, and existing read-clock hook. Core's
+`bootstrap_readiness.build_runtime_self_health_bindings` owns the coupled catalog/scope binding.
+This module split changes no full-role obligation, response field, digest, aggregate, or time rule.
 
 `GET /knowledge/github/sources` returns typed repository provenance and separate knowledge-read
 and scan-permission state. Owner-only `POST` on the same path accepts `connect` or `disconnect`,
@@ -663,6 +667,7 @@ engage or disengage drill remains incomplete until an independent store observat
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-19 | implemented | Extracted the H01 model-scope/runtime-record decoder into a cohesive Operator helper and coupled Core self-health bindings into existing bootstrap readiness ownership. | Current change; four-source strict mypy/Ruff and the unchanged 163-case SDK/scope/reader slice passed. Reader facade 997 -> 931 lines (below its pre-model 946-line baseline); Core bootstrap 802 -> 800. | Structural separation only; aggregate unavailable, full-role registration, snapshot digest and read-time checks remain unchanged. Global delivery validation stays with the parent. |
 | 2026-10-19 | withdrawn | Withdrew the `e58fbf5674` scope narrowing and fifth catalog-slot claim after reproducing global Healthy with an unobserved configured reasoner. | Current fix; actual default-registry collector and strict Operator consumer regressions for zero/partial coverage, required-role deletion, binding replacement, and forged aggregate Healthy. | Four catalog slots/three fields remain source-bound; 11/five unavailable. Typed model sub-observations are separate; no Console rendering or deployment evidence is claimed. |
 | 2026-10-19 | implemented | Connected actual normal embedding invocation cohorts to the existing role-qualified adapter slot, preserving unknown, freshness, source identity, schema, and Reader authorization. | `current change`; producer-to-persisted-snapshot and unchanged strict reader-contract tests. | Five slots and three fields are source-bound, but the adapter covers only `t1.embedding`; other roles and replicas remain unknown. Ten slots and five fields remain unavailable. No semantic quality or overall readiness is claimed. |
 | 2026-10-19 | implemented | Added actual process startup duration to the existing signal slot with original observation time and opaque process-instance source identity. | `current change`; startup source and collector-to-persisted-projection tests. | Eleven signals and five fields remain unavailable; the read adds no Incident or execution authority and proves no fleet rate or deployed transition. |

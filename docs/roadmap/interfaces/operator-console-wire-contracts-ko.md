@@ -1,7 +1,7 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: 93a53956d599ee9ab062c996290fa6a596275feb
+translation_source_sha: 711ac44e835c99c9c99a59e313d31b50c57f73cd
 translation_revised: 2026-10-19
 ---
 
@@ -38,6 +38,10 @@ unavailable로 유지합니다. 수집원 실패에는 누락, 잘못된 형식,
 만들지 않습니다. Operator는 두 계약, 정확한 구성 역할 및 연결 집합의 일치, 상위
 다이제스트와 시각, 카탈로그 최신성을 검사합니다. 모델 하위 범위로 전체 어댑터 Healthy를
 정당화하는 응답은 차단하며 Reader 접근 권한은 바꾸지 않습니다.
+`runtime_model_scope_projection.py`는 이 검증과 런타임 기록 해독을 담당하며 읽기자
+파사드는 SQL, 전달, 기존 읽기 시계 훅을 유지합니다. Core의
+`bootstrap_readiness.build_runtime_self_health_bindings`는 카탈로그와 범위 연결을 함께 담당합니다.
+이 모듈 분리는 전체 역할 의무, 응답 필드, 다이제스트, 집계, 시간 규칙을 바꾸지 않습니다.
 
 `GET /knowledge/github/sources`는 형식화된 저장소 출처 정보와 분리된 지식 읽기 및 스캔
 권한 상태를 반환합니다. 같은 경로의 Owner 전용 `POST`는 `connect` 또는 `disconnect`,
@@ -636,6 +640,7 @@ Incident 또는 실행 권한은 바뀌지 않았습니다.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-19 | implemented | H01 모델 범위 및 런타임 기록 해독을 응집된 Operator helper로 분리하고 Core 자체 상태 연결을 기존 시작 준비 상태 모듈로 옮겼습니다. | 현재 변경, 소스 4개의 strict mypy/Ruff와 변경하지 않은 SDK 및 범위 및 읽기자 163개 테스트 통과. 읽기자 파사드는 997 -> 931줄로 모델 기능 추가 전 946줄 기준 이하이며 Core bootstrap은 802 -> 800줄입니다. | 구조 분리만 수행하며 전체 집계 unavailable, 전체 역할 등록, 스냅숏 다이제스트, 읽기 시점 검사는 유지합니다. 전역 전달 검증은 부모가 수행합니다. |
 | 2026-10-19 | withdrawn | 구성된 추론기 미관측 상태에서 전체 Healthy를 재현한 뒤 `e58fbf5674`의 범위 축소와 다섯 번째 카탈로그 항목 연결 주장을 철회했습니다. | 현재 수정, 0관측 및 부분 관측, 필수 역할 삭제, 연결 교체, 위조된 전체 Healthy에 대한 실제 기본 레지스트리 수집기 및 엄격한 Operator 소비자 회귀 | 카탈로그 항목 4개와 필드 3개가 연결되며 항목 11개와 필드 5개는 unavailable입니다. 타입 지정 모델 하위 관측은 별개이며 Console 렌더링이나 배포 근거를 주장하지 않습니다. |
 | 2026-10-19 | implemented | 실제 정상 임베딩 호출 묶음을 기존 역할 한정 어댑터 항목에 연결하며 알 수 없는 상태, 최신성, 출처 식별자, 스키마, Reader 권한을 보존했습니다. | `current change`, producer부터 저장된 스냅숏 및 변경하지 않은 엄격한 읽기 계약까지의 테스트 | 항목 5개와 필드 3개에 수집원이 연결되지만 어댑터는 `t1.embedding`에 한정되며 다른 역할과 복제본은 알 수 없습니다. 항목 10개와 필드 5개는 unavailable이며 의미 품질이나 전체 준비 완료를 주장하지 않습니다. |
 | 2026-10-19 | implemented | 원래 관측 시각과 불투명한 프로세스 인스턴스 출처 ID를 가진 실제 프로세스 시작 소요 시간을 기존 신호 항목에 추가했습니다. | `current change`, 시작 수집원 및 수집기부터 저장된 읽기 결과까지의 테스트 | 신호 11개와 필드 5개는 unavailable로 유지합니다. 이 읽기는 인시던트나 실행 권한을 추가하지 않으며 전체 복제본의 비율이나 배포 전이를 입증하지 않습니다. |

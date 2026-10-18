@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 
 from fdai_service_contracts.model_provider_health import ConfiguredModelBindingV1
 from fdai_service_contracts.self_health import SelfHealthSignalName
@@ -72,6 +73,21 @@ def build_runtime_model_provider_scope(
         ),
         sources={"t1.embedding": source} if source is not None else {},
         maximum_age_seconds=age,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class RuntimeSelfHealthBindings:
+    catalog: SelfHealthCatalog
+    model_provider_scope: ConfiguredModelProviderScope
+
+
+def build_runtime_self_health_bindings(container: Container) -> RuntimeSelfHealthBindings:
+    """Bind the scope to the same catalog whose freshness governs runtime readiness."""
+    catalog = load_runtime_self_health_catalog()
+    return RuntimeSelfHealthBindings(
+        catalog=catalog,
+        model_provider_scope=build_runtime_model_provider_scope(container, catalog),
     )
 
 

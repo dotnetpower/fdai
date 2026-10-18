@@ -55,8 +55,8 @@ from fdai.runtime.bootstrap_pantheon import (
 )
 from fdai.runtime.bootstrap_plan import BootstrapPlan
 from fdai.runtime.bootstrap_readiness import (
-    build_runtime_model_provider_scope,
     build_runtime_operational_readiness,
+    build_runtime_self_health_bindings,
     load_runtime_self_health_catalog,
 )
 from fdai.runtime.bootstrap_resources import RuntimeResources
@@ -622,16 +622,14 @@ async def build_core_runtime(
             ),
         },
     )
-    self_health_catalog = load_runtime_self_health_catalog()
-    embedding_model = container.require_llm_bindings().embedding_model
-    model_provider_scope = build_runtime_model_provider_scope(container, self_health_catalog)
+    self_health = build_runtime_self_health_bindings(container)
     readiness = build_startup_readiness_runtime(
         state_store=state_store,
         event_bus=messaging.operational_bus,
         transition_event_bus=messaging.bus,
         event_validator=container.event_validator,
         identity=identity,
-        embedding_model=embedding_model,
+        embedding_model=container.require_llm_bindings().embedding_model,
         policy_compile_probe=OpaCompileStartupProbe(
             probe_id="policy.compile",
             policies_root=_resolve_policies_root(_resolve_catalog_root()),
@@ -642,11 +640,11 @@ async def build_core_runtime(
         registered_probes=(*container.startup_probes, *semantic.readiness_probes),
         decision_evidence=container.decision_evidence_admission_provider,
         ingest_topics=(container.config.kafka.topic_events,),
-        self_health_catalog=self_health_catalog,
+        self_health_catalog=self_health.catalog,
         liveness=resources.health_server.is_live if resources.health_server is not None else None,
         runtime_policy=runtime_values,
         startup_duration_source=resources.startup_duration_source,
-        model_provider_scope=model_provider_scope,
+        model_provider_scope=self_health.model_provider_scope,
     )
     startup_report = await readiness.evaluate()
     _LOGGER.info(
