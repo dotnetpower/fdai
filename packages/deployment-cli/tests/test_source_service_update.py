@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from fdai_deployment_cli import cli
+from fdai_deployment_cli import cli, source_service_update
 from fdai_deployment_cli.source_service_update import deploy_source_service_update
 
 
@@ -195,6 +195,36 @@ def test_new_authority_profile_is_written_after_intent_admission(
     update = tmp_path / "update"
     assert (update / "source-service-update-intent.json").is_file()
     assert (update / "development-authority-profile.json").is_file()
+
+
+def test_source_image_builder_cannot_write_into_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    snapshot = tmp_path / "snapshot"
+    monkeypatch.setenv("PYTHONDONTWRITEBYTECODE", "0")
+    monkeypatch.setenv("PYTHONPYCACHEPREFIX", str(snapshot / "redirected-cache"))
+    script = snapshot / "tree/scripts/deployment/azure/source_image_build.py"
+    script.parent.mkdir(parents=True)
+    script.write_text(
+        'import snapshot_import_probe\nprint(\'{"state":"built"}\')\n',
+        encoding="utf-8",
+    )
+    (script.parent / "snapshot_import_probe.py").write_text(
+        "VALUE = 'loaded'\n",
+        encoding="utf-8",
+    )
+
+    result = source_service_update._build_image(
+        snapshot=snapshot,
+        snapshot_digest="a" * 64,
+        work_dir=tmp_path / "work",
+        service="core-control-plane",
+        timeout_seconds=60,
+    )
+
+    assert result["state"] == "built"
+    assert not (script.parent / "__pycache__").exists()
+    assert not (snapshot / "redirected-cache").exists()
 
 
 @pytest.mark.parametrize("recovery_state", ["not-required", "applied"])

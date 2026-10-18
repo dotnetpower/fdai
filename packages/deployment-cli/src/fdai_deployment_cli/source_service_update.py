@@ -456,6 +456,7 @@ def _build_image(**kwargs: Any) -> dict[str, object]:
     completed = subprocess.run(
         command,
         check=False,
+        env={**os.environ, "PYTHONDONTWRITEBYTECODE": "1"},
         stdout=subprocess.PIPE,
         stderr=sys.stderr,
         timeout=kwargs["timeout_seconds"],
