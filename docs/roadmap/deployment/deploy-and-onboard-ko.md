@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 4149ec4d94c85eea5d24bf08cbe762e789e2c8f7
+translation_source_sha: 306dcfa7a4949ee05c47eb3fa15273227b7cf3bf
 translation_revised: 2026-10-18
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -28,18 +28,12 @@ Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 관측�
 FDAI 설치 경로를 추가하는 것이 아닙니다. 고정 이미지, state 보존 및 기본 Terraform/Azure CLI
 실행은 [단일 제품 절차](../../../infra/modules/hub-service/README.md)를 따르세요.
 
-독립적인 [두 Hub 개발 루트](../../../infra/hubs-development/README.md)는 벤더 Release Hub와
-고객 Target Lifecycle Hub의 네트워크, ACA Environment, PostgreSQL 서버와 DB, 관리 ID,
-Key Vault, 로그를 분리합니다. 새로운 FDAI 설치 경로가 아니며 소스 설치기나 서명된 오프라인
-패키지를 대체하지 않습니다. 서버를 열기 전에 각 Hub의 관리 ID용 DB 역할, 버전이 지정된
-개발용 키 참조, 명시적 migration Job, Entra 운영자/서비스 경계와 독립적인 카탈로그 pin 승인을
-준비해야 합니다. 이는 기존 인증된 검증 구성의 실행 조건입니다. 이 구성은 기존 state 소유자를
-위해 그대로 보존되며, 어느 독립 제품의 전제조건도 아닙니다. RG 이름이 다르다는 것만으로
-격리를 입증할 수는 없습니다.
-
-검증 근거는 로컬 컨테이너와 정적 Terraform 검사에 한정됩니다. 정확한 Azure preview,
-레지스트리와 실행 아키텍처 확인, 실제 Entra/MI 및 비공개 데이터 접근 거부, 배포와 replica 교체는
-별도로 승인된 실행 범위가 필요합니다. Agent 적용과 전체 FDAI 설치는 이 개발 경로의 범위 밖입니다.
+[기존 두 Hub 검증 구성](../../../infra/hubs-development/README.md)은 기존 state 소유자를 위해
+그대로 보존합니다. 해당 안내는 별도 네트워크, 자체 관리 ID와 키, 명시적 migration,
+Entra 운영자/서비스 경계와 독립적인 카탈로그 pin 승인을 유지합니다. 어느 독립 제품의 전제조건도
+아니며 FDAI 설치기를 대체하지 않습니다. 로컬 컨테이너/정적 Terraform 근거로는 Azure 네트워크와
+RBAC 격리, Entra/MI, 레지스트리 아키텍처, 복제본 영속성이나 배포 성공을 입증할 수 없습니다.
+이 검증에는 승인된 실제 실행 범위가 필요합니다. Agent 적용과 전체 FDAI 설치는 제외됩니다.
 
 ## 전제조건(Prerequisites)
 
