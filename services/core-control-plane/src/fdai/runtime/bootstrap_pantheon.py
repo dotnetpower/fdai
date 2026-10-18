@@ -69,7 +69,9 @@ from fdai.runtime.bootstrap_cost_governance import (
     pantheon_enforce_enabled,
 )
 from fdai.runtime.bootstrap_pantheon_evidence import build_reviewed_pantheon_evidence
-from fdai.runtime.bootstrap_pantheon_learning import bind_post_turn_learning
+from fdai.runtime.bootstrap_pantheon_learning import (
+    bind_post_turn_learning as _bind_post_turn_learning,
+)
 from fdai.runtime.bootstrap_pantheon_models import (
     PantheonInitialization,
     PantheonInitializationResult,
@@ -736,7 +738,7 @@ async def initialize_pantheon(
         topic=config.stage_topic,
     )
     discovery_activation = None
-    discovery_report = await bind_post_turn_learning(
+    discovery_report = await _bind_post_turn_learning(
         pantheon_runtime=pantheon_runtime,
         post_turn_review=post_turn_review,
         discovery_activation=config.discovery_activation,
