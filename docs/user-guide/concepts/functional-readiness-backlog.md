@@ -98,7 +98,7 @@ The owning records are [ingestion](../../roadmap-implementation/interfaces/docum
   exact requester/policy/content/collection binding, independent prior authority, request-time and
   final-visibility checks, denial of self-grants and missing/expired/revoked authority, all required
   safeguards, and independent persisted readback. Until then, retain the manual lane.
-  The explicit authenticated API path is now implemented under #2217 with 670 focused passes
+  The explicit authenticated API path is now implemented under #2217 with a final 672 focused passes
   and 24 actual loopback PostgreSQL passes. Manual remains the default; actual independently
   approved policy, deployment read grants and operational promotion keep this parent package open.
 - [ ] **K04, extraction and answer quality:** Resolve or explicitly hold hidden UI, lost link/heading

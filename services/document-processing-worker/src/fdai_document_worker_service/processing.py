@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 from collections.abc import Awaitable, Callable, Iterable
 from datetime import UTC, datetime
@@ -94,7 +95,8 @@ class DocumentIngestionWorker:
         consumers: Iterable[DocumentReadyConsumer] = (),
         clock: Callable[[], datetime] | None = None,
         indexing_stage_timeout_seconds: float = 90.0,
-        cloud_reference_guard: Callable[[DocumentVersion, datetime], Awaitable[None]] | None = None,
+        cloud_reference_guard: Callable[[DocumentVersion, datetime], None | Awaitable[None]]
+        | None = None,
         cloud_index_verifier: CloudIndexVerifier | None = None,
     ) -> None:
         if indexing_stage_timeout_seconds <= 0:
@@ -425,7 +427,9 @@ class DocumentIngestionWorker:
         if version.cloud_knowledge is not None:
             if self._cloud_reference_guard is None:
                 raise ValueError("cloud reference policy guard is unavailable")
-            await self._cloud_reference_guard(version, self._clock())
+            result = self._cloud_reference_guard(version, self._clock())
+            if inspect.isawaitable(result):
+                await result
 
     async def _check_cloud_scanner(self) -> None:
         if not isinstance(self._malware, FreshMalwareScanner):

@@ -101,6 +101,7 @@ software slices introduce no new agent or managed-resource executor authority.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-18 | implemented | A fifth direct twelve-concern review reproduced a compatibility defect in the new asynchronous policy guard integration: the existing synchronous guard seam returned None and was incorrectly awaited. Restored its declared synchronous contract alongside awaited asynchronous guards without changing denial propagation or missing-provider holds. | `current change`; #2217; `test_legacy_synchronous_cloud_guard_remains_a_valid_provider_seam` first failed with TypeError; synchronous success/denial regressions now pass; complete bounded selection (672 passed), Ruff, strict processing-source mypy, derived-source and behavior-seed checks passed. | Existing source/runtime operational prerequisites below remain open. Auto-merge was paused during repair; the corrected immutable head requires its own exact-head checks. |
 | 2026-10-18 | implemented | Added API-owned administrative policy input and independent review, immutable exact requester application, Var's read-only authority verification through the separately configured document DSN, Saga-attributed prior-policy audit, Muninn indexing, and worker pre-effect plus transaction-fenced final readback checks for v2/v3. Recovered incomplete worker source and corrected timezone bounds, broad exception suppression, Core state-DSN substitution, migration/writer registration, and runtime composition before validation. | `current change`; #2217; closed contracts/API/agent/worker paths; focused cloud-reference, compatibility, layout/runtime and migration/ownership batch (670 passed); actual isolated PostgreSQL cohort (24 passed, four inapplicable manual-lane skips); 20-source strict mypy and changed-path Ruff passed. | Bind real prior policy, human authority, read grants, service/broker identities and source/trust/security inputs; retain independent operational promotion and corpus/answer receipts. Local fixtures do not supply these. |
 | 2026-09-17 | implemented | Completed the Knowledge overview interaction for cloud-reference status and offline package intake. The Console now separates source and package work, explains deployment-owned setup, permits local file preparation without upload, and keeps read-only inspection failures retryable without weakening uncertain-write reload fencing. | `current change`; task-owned Console model, views, styles, bilingual catalogs, and browser regression; 43 focused unit checks, strict TypeScript, and 3 desktop/mobile Playwright scenarios passed. | Production source rights, signing trust, reviewer identities, service policy mounts, and the authorized connected/restricted-network evidence in Issue #995 remain separate prerequisites. |
 | 2026-09-15 | not-started | Recorded the requester-initiated application target under prior independent content policy, rather than requiring a new approving person for every eligible reference update. Distinguished it from the still-enforced manual lane and deferred uploader identity until actual authenticated intake. | `current change`; bilingual lifecycle, structured retrieval, ingestion ownership and runbook guidance. Design critique covered self-granting authority, A3-E confusion, policy races, premature success and hidden holds; no runtime behavior or approval was changed. | Implement a versioned bounded authorization contract, server-owned requester entitlement, Var/Saga verification and worker/CAS revocation fences. Prove denial, duplicate/restart, complete source dates, readback and independent promotion before enabling requester application. |
@@ -116,7 +117,7 @@ software slices introduce no new agent or managed-resource executor authority.
 
 #### K03 critique and hardening
 
-Four direct rounds reviewed twelve concerns each. The initial source checkpoint was recovered
+Five direct rounds reviewed twelve concerns each. The initial source checkpoint was recovered
 before delivery rather than treating an unavailable worker or passing unit slice as completion.
 The final bounded review has no confirmed unresolved above-Low source defect; it does not
 authenticate a real deployment's policy, reviewers, corpus or promotion.
@@ -133,12 +134,13 @@ authenticate a real deployment's policy, reviewers, corpus or promotion.
 | Durable replay | PostgreSQL reserves one exact request per upload; differing requester, policy or lane cannot replace it |
 | Final visibility | Actual shared policy lock serializes revoke with the final CAS; authority and independently observed index digest are rechecked |
 | Single-writer schema | Registered all three new API-owned tables and migration metadata; Core/worker consume read-only inputs |
-| Compatibility | Default manual, old v1/v2 reading, source dates, structured excerpts, no-model indexing and held outcomes remain tested |
-| Delivery evidence | 670 focused passes, 24 real loopback PostgreSQL passes with four inapplicable manual cases, 20-source strict typing and generated-contract checks |
+| Compatibility | Default manual, old v1/v2 reading, source dates, structured excerpts, no-model indexing and held outcomes remain tested; legacy synchronous guards and new asynchronous guards both preserve denial |
+| Delivery evidence | Final 672 focused passes, 24 real loopback PostgreSQL passes with four inapplicable manual cases, 20-source strict typing and generated-contract checks |
 
 Rounds 1-2 established exact policy/nonce and time/error/source-selection boundaries. Round 3
 repaired missing migration/writer registration and exercised real revocation/visibility locking.
-Round 4 checked complete compatibility, actual runtime binding and generated artifacts. Local
+Round 4 checked actual runtime binding and generated artifacts. Round 5 reproduced and repaired
+the legacy synchronous callback contract regression before completing the final 672-test batch. Local
 synthetic prior-authority inputs are labeled as tests, never retained as operational approvals.
 
 ### Remaining work
