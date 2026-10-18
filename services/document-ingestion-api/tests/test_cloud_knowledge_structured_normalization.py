@@ -18,6 +18,7 @@ from fdai_service_contracts.cloud_knowledge import (
 from fdai_service_contracts.cloud_knowledge_release import CloudKnowledgeDocument
 from fdai_service_contracts.cloud_knowledge_structure import (
     CloudStructuredDocument,
+    StructuredNormalizerVersion,
     structured_excerpts,
 )
 
@@ -658,3 +659,202 @@ def test_extended_elements_retain_explicit_notice_ownership(tag: str) -> None:
     assert not doc.unresolved_dependencies
     assert doc.required_context_ids
     assert "Dedicated generation only." in structured_excerpts(doc)[-1].text
+
+
+@pytest.mark.parametrize("normalizer_version", ["2.1.1"])
+@pytest.mark.parametrize(
+    "scope",
+    [
+        '<main id="first" id="second">{}</main>',
+        '<article id="first" id="second">{}</article>',
+        '<div class="content" id="first" id="second">{}</div>',
+        '<main class="metadata" class="content">{}</main>',
+        '<div class="other" class="content">{}</div>',
+        '<article DATA-CHECK="first" data-check="second">{}</article>',
+        '<div class="content" class="toolbar">{}</div>'
+        "<main><h1>Other guide</h1><p>Other source body.</p></main>",
+    ],
+)
+def test_duplicate_attributes_on_article_entry_hold_the_generation(
+    scope: str, normalizer_version: StructuredNormalizerVersion
+) -> None:
+    snapshot = _snapshot(scope.format("<h1>Guide</h1><p>Retained source body.</p>"))
+    document = reprocess_document(snapshot, now=DERIVED, normalizer_version=normalizer_version)
+    assert "malformed_structure" in document.unresolved_dependencies
+    assert document.evidence.collected_at == COLLECTED
+    assert document.evidence.check.checked_at == CHECKED
+    with pytest.raises(ValueError, match="unresolved"):
+        structured_excerpts(document)
+
+
+@pytest.mark.parametrize("normalizer_version", ["2.1.1"])
+@pytest.mark.parametrize(
+    "chrome",
+    [
+        '<nav title="first" title="second">Navigation</nav>',
+        '<button title="first" title="second">Copy</button>',
+        '<div role="toolbar" title="first" title="second">Toolbar</div>',
+        '<div class="metadata" title="first" title="second">Metadata</div>',
+        '<div data-page-action-item="" class="note" class="toolbar">Page action</div>',
+        '<template title="first" title="second"><p>Inactive template.</p></template>',
+        '<div role="toolbar" role="toolbar">Toolbar</div>',
+        '<div data-page-action-item="first" data-page-action-item="second">Page action</div>',
+    ],
+)
+def test_duplicate_attributes_in_unambiguous_chrome_do_not_hold_article(
+    chrome: str, normalizer_version: StructuredNormalizerVersion
+) -> None:
+    document = reprocess_document(
+        _snapshot(f"<main><h1>Guide</h1>{chrome}<p>Retained source body.</p></main>"),
+        now=DERIVED,
+        normalizer_version=normalizer_version,
+    )
+    assert document.unresolved_dependencies == ()
+    assert document.text == "# Guide\n\nRetained source body."
+    assert structured_excerpts(document)
+
+
+@pytest.mark.parametrize("normalizer_version", ["2.0.0", "2.1.0", "2.1.1"])
+@pytest.mark.parametrize(
+    "attributes",
+    [
+        'class="warning" class="toolbar"',
+        'role="note" role="toolbar"',
+        'id="important" id="metadata"',
+        'data-bi-name="important" data-bi-name="feedback"',
+    ],
+)
+def test_duplicate_classification_attributes_cannot_hide_required_source(
+    attributes: str, normalizer_version: StructuredNormalizerVersion
+) -> None:
+    document = reprocess_document(
+        _snapshot(
+            f"<main><h1>Guide</h1><div {attributes}><p>Required restriction.</p></div>"
+            "<p>Retained source body.</p></main>"
+        ),
+        now=DERIVED,
+        normalizer_version=normalizer_version,
+    )
+    assert "malformed_structure" in document.unresolved_dependencies
+    with pytest.raises(ValueError, match="unresolved"):
+        structured_excerpts(document)
+
+
+@pytest.mark.parametrize("normalizer_version", ["2.0.0", "2.1.0", "2.1.1"])
+def test_malformed_article_inside_chrome_does_not_qualify_another_scope(
+    normalizer_version: StructuredNormalizerVersion,
+) -> None:
+    document = reprocess_document(
+        _snapshot(
+            '<nav><main id="first" id="second"><p>Inactive content.</p></main></nav>'
+            "<main><h1>Guide</h1><p>Retained source body.</p></main>"
+        ),
+        now=DERIVED,
+        normalizer_version=normalizer_version,
+    )
+    assert document.unresolved_dependencies == ()
+    assert document.text == "# Guide\n\nRetained source body."
+
+
+@pytest.mark.parametrize("normalizer_version", ["2.0.0", "2.1.0"])
+@pytest.mark.parametrize(
+    "html,holds",
+    [
+        (
+            '<main id="first" id="second"><h1>Guide</h1><p>Retained source body.</p></main>',
+            (),
+        ),
+        (
+            '<main><h1>Guide</h1><nav title="first" title="second">Navigation</nav>'
+            "<p>Retained source body.</p></main>",
+            ("malformed_structure",),
+        ),
+    ],
+)
+def test_legacy_attribute_scope_results_are_not_silently_rewritten(
+    html: str, holds: tuple[str, ...], normalizer_version: StructuredNormalizerVersion
+) -> None:
+    document = reprocess_document(
+        _snapshot(html), now=DERIVED, normalizer_version=normalizer_version
+    )
+    assert document.normalizer_version == normalizer_version
+    assert document.unresolved_dependencies == holds
+    assert document.text == "# Guide\n\nRetained source body."
+
+
+@pytest.mark.parametrize(
+    "control",
+    [
+        '<form aria-hidden="false" aria-hidden="true"></form>',
+        '<form style="display:block" style="display:none"></form>',
+        '<form class="shown" class="hidden"></form>',
+        '<form data-bi-name="shown" data-bi-name="hidden"></form>',
+        '<input type="password" type="hidden">',
+        '<input type="password" style="display:block" style="display:none">',
+        '<input type="password" id="shown" id="hidden">',
+    ],
+)
+def test_ambiguous_authentication_controls_are_not_unambiguous_chrome(control: str) -> None:
+    document = reprocess_document(
+        _snapshot(f"<main><h1>Guide</h1>{control}<p>Retained source body.</p></main>"),
+        now=DERIVED,
+        normalizer_version="2.1.1",
+    )
+    assert document.unresolved_dependencies == ("malformed_structure",)
+    with pytest.raises(ValueError, match="unresolved"):
+        structured_excerpts(document)
+
+
+@pytest.mark.parametrize(
+    "control",
+    [
+        '<form hidden style="display:block" style="display:none"></form>',
+        '<form hidden="first" hidden="second"></form>',
+        '<div hidden><form title="first" title="second"></form></div>',
+        '<input type="checkbox" type="hidden">',
+    ],
+)
+def test_unambiguous_inactive_authentication_controls_remain_chrome(control: str) -> None:
+    document = reprocess_document(
+        _snapshot(f"<main><h1>Guide</h1>{control}<p>Retained source body.</p></main>"),
+        now=DERIVED,
+        normalizer_version="2.1.1",
+    )
+    assert document.unresolved_dependencies == ()
+    assert document.text == "# Guide\n\nRetained source body."
+
+
+@pytest.mark.parametrize(
+    "attributes",
+    [
+        'class="note" class="toolbar"',
+        'role="document" role="toolbar"',
+        'id="source-context" id="metadata"',
+    ],
+)
+def test_ambiguous_ancestor_cannot_remove_an_entering_article(attributes: str) -> None:
+    document = reprocess_document(
+        _snapshot(
+            f"<div {attributes}><main><h1>Restriction</h1><p>Required context.</p></main></div>"
+            "<main><h1>Guide</h1><p>Other source body.</p></main>"
+        ),
+        now=DERIVED,
+        normalizer_version="2.1.1",
+    )
+    assert "malformed_structure" in document.unresolved_dependencies
+    with pytest.raises(ValueError, match="unresolved"):
+        structured_excerpts(document)
+
+
+def test_inactive_ambiguous_ancestor_does_not_disqualify_a_separate_article() -> None:
+    document = reprocess_document(
+        _snapshot(
+            '<nav><div role="document" role="toolbar"><main><h1>Inactive</h1>'
+            "<p>Inactive source body.</p></main></div></nav>"
+            "<main><h1>Guide</h1><p>Retained source body.</p></main>"
+        ),
+        now=DERIVED,
+        normalizer_version="2.1.1",
+    )
+    assert document.unresolved_dependencies == ()
+    assert document.text == "# Guide\n\nRetained source body."

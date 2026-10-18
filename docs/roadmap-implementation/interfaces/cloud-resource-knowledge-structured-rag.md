@@ -11,6 +11,7 @@ follow-up. Issue #995 continues to own independent operational qualification.
 
 | Area | State | Evidence | Notes |
 |---|---|---|---|
+| Versioned attribute-scope validation | implemented | #2232; `article_tree.py`, structured release/normalizer and actual collector/review/intake paths; 329 focused cases across eight files; seven-source strict typing and thirteen-file Ruff | Opt-in normalizer `2.1.1` requires reader `3.1.1`, preserves old algorithms/checkpoints and source clocks, and holds ambiguous source/ancestor/authentication attributes. Corpus, rights, independent claims and operating qualification remain open. |
 | Structured v3, extraction and deterministic excerpts | implemented | Structured contracts, parser and focused tests; rounds 1-16 below | Supported structures are bounded and reproducible; unsupported media/tables/relationships remain explicit holds, not silently accepted content. |
 | Worker, package and retrieval integration | implemented | Final focused tests, v2/v3 composed chain and 10 loopback PostgreSQL cases | Actual stored-row mechanics are verified separately from synthetic reviewers, scanners and transport. |
 | Bilingual query and evaluation boundaries | implemented | Query/evaluation tests and rounds 15-16: 72 semantic/gate and 207 frame/query cases passed | The CI-exposed recovery regression is repaired without raising budgets. Actual model quality and independent labels remain separate. |
@@ -23,6 +24,7 @@ follow-up. Issue #995 continues to own independent operational qualification.
 
 | Date | State | Change | Evidence | Remaining |
 |---|---|---|---|---|
+| 2026-10-19 | implemented | Added explicit normalizer `2.1.1` and reader `3.1.1` for duplicate entry/ancestor attributes and unambiguous UI/authentication-control classification; retained-byte upgrades cannot reuse an older normalizer checkpoint. | `current change`; #2232; three failing-before-fix matrices below; final eight-file selection passed 329 cases; strict mypy passed seven sources and Ruff passed thirteen files; generated service contracts remained equal. | Exact-head delivery gates and independent pilot/source/claim, rights/trust, and operational qualification remain separate; K04 stays open. |
 | 2026-10-18 | implemented | Implemented the exact prior-policy API lane for normalized v2 and structured v3 without changing the default manual path, content dates, excerpt identity, source gates or independent index readback. | `current change`; #2217; lifecycle ledger's 670 focused passes and 24 actual PostgreSQL passes with four inapplicable manual-only skips; strict source typing and Ruff. | Actual independently approved policy, production read grants/trust/rights, corpus and paired-language answer evidence, and operational promotion remain open. |
 | 2026-09-15 | not-started | Linked the requester application target for eligible v2/v3 reference content under previously and independently approved policy, without claiming the current manual approval path changed. | `current change`; bilingual structured design and cloud lifecycle owner. Documentation only; existing implementation and qualification evidence are unchanged. | Extend composed legacy/structured tests to exact policy authority, revocation before visibility, self-grant denial and independent readback. Retain separate source/answer qualification and promotion evidence. |
 | 2026-09-15 | in-progress | PR #1068 exposed a test coupling, not a production fail-open: a controlled-clock publication test also required a real child to start within one second. CI correctly returned the earlier child-timeout hold. The test now injects an actually derived worker result before advancing its fake clock; separate real-child and timeout tests remain. | Exact head `1419765ba`, CI run `34956931240` attempt 1, completed regression job `104341216279`, step `Run regression shard`; its assertion reproduced deterministically with an injected cold-start timeout. Production source and deadlines are unchanged. | Verify the repaired focused tests, publish the new local commit and require its own exact-head CI/protected merge. Prior bounded no-finding statements apply to their checkpoints; Issue #995 remains separate. |
@@ -119,3 +121,29 @@ PR #1068's later test-only correction is recorded in history rather than hidden 
 All 34 offline-review cases passed with four workers after separating the fake publication clock
 from real child startup. The production source, subprocess timeout, late-publication hold and
 actual retained-corpus results were unchanged; exact-head delivery still needs its own CI result.
+
+## Versioned attribute-scope hardening
+
+Issue #2232 owns this bounded software increment, not corpus qualification. Each of ten local
+rounds checked twelve invariants: accepted source scope, chrome classification, bounded parsing,
+version/byte compatibility, source identity, source clocks, checkpoint replay, complete accounting,
+retained context, package provenance, authority/rights separation, and caller-to-consumer behavior.
+The table records each round's focus. Reused checks are not ten separate full-suite executions.
+
+| Round | Focus and finding | Evidence and disposition |
+|---|---|---|
+| 1 | Entering article/content attributes were checked before their source scope existed (Medium) | The first matrix reproduced 24 failures and ten passing controls. New-version entry holds retain the original source dates. |
+| 2 | Stable UI chrome inherited the parent article's malformed-attribute hold (Medium) | The same matrix reproduced false holds. Classification uses only unambiguous tags/attributes and presence-only markers; conflicting values cannot hide source context. |
+| 3 | A same-version patch could reuse an old checkpoint (Medium design finding) | Revised the design to explicit normalizer `2.1.1` and reader `3.1.1`; older normalization results and canonical signed history stay unchanged. |
+| 4 | Processing-only upgrades must not invent a fetch or renew freshness | Actual collector regressions upgrade both an old false hold and an old missing hold with one initial transport call; original document/check remain exact. |
+| 5 | Reader selection must cover mixed generations and prohibit downgrade | Both mixed orders export reader `3.1.1`; older-reader validation rejects the new normalizer; signed round trips and rollback preserve exact structured content. |
+| 6 | A compatible reader cannot widen prior human policy | Actual API intake rejects `2.1.1` under an older policy with no upload/request, and accepts only the explicitly matching test policy. Manual defaults, requester binding and retry nonce remain unchanged. |
+| 7 | Real review-child and CLI outcomes must preserve holds and unknown metrics | Explicit `2.1.1` runs in the actual resource-limited child; malformed source stays held without excerpt metrics, stable chrome becomes processable, and qualification/authority flags remain false. |
+| 8 | New manifests must reach worker/Core consumers without changing old evidence | Contract, legacy-package, collector, review, intake, worker and Core selectors pass; unit/processing identity, containment and rollback checks remain authoritative. |
+| 9 | An excluded form/input or pre-article ancestor could still hide ambiguity (Medium) | Seven authentication-control and three ancestor cases failed before correction. Source-containing ancestors retain pending malformed state; ambiguous authentication type/visibility cannot prove chrome. Independent hidden controls and inactive chrome remain excluded. |
+| 10 | Final bounded source and compatibility review | Final focused command across eight selectors passed 329 cases; seven-source strict mypy and thirteen-file Ruff passed; all three official generated contracts remained equal. No further confirmed above-Low issue remained in this versioned increment. |
+
+The first unversioned reproduction was diagnostic only; it was not delivered. Version `2.1.1`
+contains the repair, while `2.0.0` and `2.1.0` retain their historical behavior. Unsupported source
+structures, independent EN/KO labels, real pilot holds, production rights/trust and operational
+receipts remain open and are not converted into readiness by this local checkpoint.

@@ -104,6 +104,10 @@ The owning records are [ingestion](../../roadmap-implementation/interfaces/docum
 - [ ] **K04, extraction and answer quality:** Resolve or explicitly hold hidden UI, lost link/heading
   context, cross-section table caveats, and every pilot source hold. Retain regression cases and
   independently reviewed EN/KO query/claim evidence before declaring the corpus retrieval-ready.
+  #2232 adds opt-in normalizer `2.1.1` and reader `3.1.1` for duplicate scope/chrome, ancestor and
+  authentication-control validation, with retained-byte upgrade and 329 focused passes.
+  Old normalizer results stay immutable. Actual pilot-source holds and independently reviewed
+  paired-language claims keep this parent package open.
 - [ ] **K05, source qualification:** Retain rights, purpose-bound trust/revocation, independent
   reviewers, current scanner data, protected policy mounts, and bounded source enrollment.
   Exercise connected collection, due/restart behavior, changed/unchanged and partial outcomes,

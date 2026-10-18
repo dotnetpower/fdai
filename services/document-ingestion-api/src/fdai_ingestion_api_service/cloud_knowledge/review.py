@@ -247,7 +247,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--source-root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--normalizer-version", choices=("2.0.0", "2.1.0"), default="2.1.0")
+    parser.add_argument(
+        "--normalizer-version", choices=("2.0.0", "2.1.0", "2.1.1"), default="2.1.0"
+    )
     parser.add_argument("--per-source-seconds", type=int, default=30)
     parser.add_argument("--total-seconds", type=int, default=900)
     args = parser.parse_args(argv)
