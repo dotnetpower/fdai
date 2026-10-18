@@ -2584,7 +2584,6 @@ def _apply_historical_aks_reconciliation(
 
 def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
     """Verify an ambiguous prior apply without repeating its mutation."""
-
     stage = str(args.stage)
     context = _private_json(work_dir / "context.json", "standalone host context")
     service = getattr(args, "service", None)
@@ -2724,6 +2723,7 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
         "schema_version": "fdai.standalone-application-apply-receipt.v1",
         "state": "applied",
         "stage": stage,
+        "operation": operation,
         "plan_digest": review["plan_digest"],
         "runtime_profile_digest": _runtime_profile_digest(context),
         "claim_digest": canonical_digest(claim),
