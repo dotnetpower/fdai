@@ -134,6 +134,31 @@ def validate_plan_scope(
         raise ValueError("AKS service update plan must contain one selected Deployment update")
 
 
+def service_update_review(update: dict[str, Any]) -> dict[str, str]:
+    """Project one active service update into a bounded recovery identity."""
+
+    review = {
+        "service": str(update["service"]),
+        "image": str(update["image"]),
+        "source_commit": str(update["source_commit"]),
+        "update_digest": str(update["update_digest"]),
+    }
+    if update.get("development_authority_operation") not in {None, "preserve"}:
+        review["development_authority_operation"] = str(update["development_authority_operation"])
+        review["development_authority_profile_digest"] = str(
+            update.get("development_authority_profile_digest", "")
+        )
+    return review
+
+
+def service_update_target(service: str) -> str:
+    """Return the exact Terraform address for one supported service."""
+
+    if service not in SERVICES:
+        raise ValueError("AKS service update target is unsupported")
+    return f'kubernetes_deployment_v1.workload["{service}"]'
+
+
 def peers_unchanged(
     *,
     before: dict[str, dict[str, object]],

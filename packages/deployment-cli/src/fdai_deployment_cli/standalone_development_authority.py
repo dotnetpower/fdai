@@ -11,9 +11,13 @@ from fdai_deployment_cli.development_authority_profile import (
     DevelopmentAuthorityDeploymentProfile,
     apply_development_authority_profile,
     clear_development_authority_profile,
+    load_development_authority_profile,
     staged_development_authority_profile_from_path,
     validate_deployment_target,
 )
+
+_PROFILE_ENV = "FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON"
+_EXECUTOR_ENV = "FDAI_FULL_AUTHORITY_DEVELOPMENT_EXECUTOR_PRINCIPAL"
 
 
 @dataclass(frozen=True, slots=True)
@@ -100,9 +104,50 @@ def apply_initial_development_authority(
     return selection.profile.input_digest
 
 
+def apply_service_update_development_authority(
+    args: argparse.Namespace,
+    *,
+    context: dict[str, object],
+    workload: dict[str, object],
+    source_revision: str,
+) -> tuple[str, str]:
+    """Apply one explicit Core select/clear operation to retained workload variables."""
+
+    path = getattr(args, "development_authority_profile", None)
+    clear = bool(getattr(args, "clear_development_authority_profile", False))
+    if path is not None and clear:
+        raise ValueError("development authority profile and clear request are mutually exclusive")
+    if path is None and not clear:
+        return "preserve", ""
+    environment = workload.get("environment")
+    if not isinstance(environment, dict):
+        raise ValueError("Core workload environment is invalid")
+    if clear:
+        changed = environment.pop(_PROFILE_ENV, None) is not None
+        changed = environment.pop(_EXECUTOR_ENV, None) is not None or changed
+        if not changed:
+            raise ValueError("Core workload has no retained development profile to clear")
+        return "clear", ""
+    profile = load_development_authority_profile(Path(path).absolute())
+    validate_deployment_target(
+        profile,
+        tenant_id=str(context["tenant_id"]),
+        subscription_id=str(context["subscription_id"]),
+        resource_groups=(
+            str(context["resource_group_name"]),
+            str(context["state_resource_group"]),
+        ),
+        source_revision=source_revision,
+    )
+    environment[_PROFILE_ENV] = profile.profile_json
+    environment[_EXECUTOR_ENV] = profile.executor_principal
+    return "select", profile.input_digest
+
+
 __all__ = [
     "ManagedDevelopmentAuthority",
     "apply_initial_development_authority",
+    "apply_service_update_development_authority",
     "development_authority_from_args",
     "reconcile_retained_development_authority",
 ]

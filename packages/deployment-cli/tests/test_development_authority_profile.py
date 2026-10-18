@@ -16,6 +16,9 @@ from fdai_deployment_cli.development_authority_profile import (
     validate_deployment_target,
 )
 from fdai_deployment_cli.standalone_host_values import aks_core_environment
+from fdai_deployment_cli.standalone_development_authority import (
+    apply_service_update_development_authority,
+)
 
 
 def _scope_digest(value: str) -> str:
@@ -217,3 +220,75 @@ def test_cli_requires_explicit_select_or_clear(tmp_path: Path, capsys) -> None:
 
     assert result == 3
     assert "mutually exclusive" in capsys.readouterr().err
+
+
+def test_service_update_selects_and_clears_core_environment(tmp_path: Path) -> None:
+    profile_path = _write(tmp_path / "profile.json", _profile())
+    context = {
+        "tenant_id": "tenant-1",
+        "subscription_id": "subscription-1",
+        "resource_group_name": "rg-dev",
+        "state_resource_group": "rg-ops",
+    }
+    workload: dict[str, object] = {"environment": {}}
+
+    operation, digest = apply_service_update_development_authority(
+        type(
+            "Args",
+            (),
+            {
+                "development_authority_profile": profile_path,
+                "clear_development_authority_profile": False,
+            },
+        )(),
+        context=context,
+        workload=workload,
+        source_revision="a" * 40,
+    )
+    environment = workload["environment"]
+
+    assert operation == "select"
+    assert digest
+    assert isinstance(environment, dict)
+    assert environment["FDAI_FULL_AUTHORITY_DEVELOPMENT_EXECUTOR_PRINCIPAL"] == (
+        "identity:executor"
+    )
+
+    operation, digest = apply_service_update_development_authority(
+        type(
+            "Args",
+            (),
+            {
+                "development_authority_profile": None,
+                "clear_development_authority_profile": True,
+            },
+        )(),
+        context=context,
+        workload=workload,
+        source_revision="a" * 40,
+    )
+
+    assert (operation, digest) == ("clear", "")
+    assert environment == {}
+
+
+def test_service_update_authority_requires_core(tmp_path: Path, capsys) -> None:
+    profile = _write(tmp_path / "profile.json", _profile())
+
+    result = cli.main(
+        [
+            "provision",
+            "source-service-update",
+            "--source",
+            ".",
+            "--service",
+            "operator-service",
+            "--application-work-dir",
+            str(tmp_path / "application"),
+            "--development-authority-profile",
+            str(profile),
+        ]
+    )
+
+    assert result == 3
+    assert "require a Core service update" in capsys.readouterr().err
