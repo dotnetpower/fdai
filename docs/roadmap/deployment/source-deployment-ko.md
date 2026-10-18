@@ -1,8 +1,8 @@
 ---
 title: 단일 명령 소스 배포
 translation_of: source-deployment.md
-translation_source_sha: 78261ab0f29c2cb156f8e73185d483177719989a
-translation_revised: 2026-10-13
+translation_source_sha: d8980873e1c9d0a35d520788053ff0c885891605
+translation_revised: 2026-10-18
 ---
 
 # 단일 명령 소스 배포
@@ -150,6 +150,14 @@ git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azu
 `fdai-up.sh`는 checkout의 잠긴 환경을 준비하고 나머지 옵션과 함께
 `fdaictl provision azure --source <checkout>`을 호출합니다. 두 진입점은 같은 조정기를 실행하고
 같은 결과를 냅니다. 명령을 다시 실행하면 같은 설치를 재개하거나 업그레이드합니다.
+
+source AKS 개발 설치에서는 `--development-authority-profile <path>`로 애플리케이션 plan에
+적용할 비공개 검토 완료 full-authority 개발 프로필 하나를 선택합니다. 조정기는 해당 파일에서
+실행기 principal을 도출하고 정확한 대상과 source 개정을 검증하며, 애플리케이션 배포 전에는 두
+값을 전달하지 않습니다. 준비, 사전 검사, 제거, 서명된 패키지 및 AKS 이외의 경로에서는 이
+옵션을 사용할 수 없습니다. 재실행 시 이 옵션을 생략해도 보존된 프로필을 묵시적으로
+철회하지 않습니다. `--clear-development-profile`은 별도의 정확한 plan을 통해
+프로필을 제거합니다.
 
 대화형 소스 배포는 추가 전용 설치 진행 스트림을 사용합니다. 각 전환은 번호가 있는 단계 제목,
 정확한 완료/건너뜀/남은 단계 수, 출력이 없는 장기 하위 작업의 경과 시간 활동 신호를 기록합니다.

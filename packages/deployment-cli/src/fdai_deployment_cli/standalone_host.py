@@ -41,6 +41,8 @@ from fdai_deployment_cli.aks_service_update import (
 from fdai_deployment_cli.aks_service_update import (
     deployment_snapshot,
     peers_unchanged,
+    service_update_review as _service_update_review,
+    service_update_target as _service_update_target,
     validate_plan_scope,
     validate_update_request,
 )
@@ -58,6 +60,12 @@ from fdai_deployment_cli.runtime_profile import (
     RuntimeDeploymentProfile,
     legacy_full_product_matches,
     legacy_runtime_profile_digest,
+)
+from fdai_deployment_cli.standalone_development_authority import (
+    apply_initial_development_authority,
+    apply_service_update_development_authority,
+    development_authority_from_args,
+    reconcile_retained_development_authority,
 )
 from fdai_deployment_cli.runtime_support_installation import (
     install_runtime_support as _install_runtime_support,
@@ -204,6 +212,9 @@ from fdai_deployment_cli.target import compute_target_binding
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
+_mapping = standalone_host_values.mapping
+_required_guid = standalone_host_values.required_guid
+_selected_identity = standalone_host_values.selected_identity
 _SOURCE_COMMIT = re.compile(r"[0-9a-f]{40}")
 _AKS_RUNTIME_NAMESPACE = "fdai-runtime"
 _STAGES: Final = ("access", "substrate", "runtime", "database", "application")
@@ -274,6 +285,12 @@ def main(argv: list[str] | None = None) -> int:
     prepare_service_update.add_argument("--service", choices=sorted(AKS_SERVICES), required=True)
     prepare_service_update.add_argument("--image", required=True)
     prepare_service_update.add_argument("--source-commit", required=True)
+    prepare_service_update.add_argument("--development-authority-profile", type=Path)
+    prepare_service_update.add_argument(
+        "--clear-development-profile",
+        action="store_true",
+        dest="clear_development_authority_profile",
+    )
     prepare_service_update.set_defaults(handler=_prepare_aks_service_update)
 
     adopt_historical = subcommands.add_parser("adopt-historical-aks-application")
@@ -433,6 +450,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         _absolute(verifier_input_path) if verifier_input_path else None
     )
     verifier_input_digest = verifier_input.input_digest if verifier_input is not None else ""
+    development_authority = development_authority_from_args(args, absolute=_absolute)
     foundation.login(_managed_identity_login, work_dir)
     suffix = (
         str(adoption[0]["resource_name_suffix"])
@@ -502,12 +520,19 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             or not _runtime_profile_matches(retained, runtime_profile)
         ):
             raise ValueError("standalone host retained context differs")
-        if posture_changed:
+        foundation.adoption.require_context(retained)
+        source_changed = source_application_inputs.rebind_source_tree(retained, work_dir)
+        authority_changed = reconcile_retained_development_authority(
+            development_authority,
+            retained=retained,
+            values=retained_values,
+            tenant_id=foundation.tenant_id,
+            subscription_id=foundation.subscription_id,
+            resource_groups=(str(app["name"]), str(ops["resource_group_name"])),
+        )
+        if posture_changed or source_changed or authority_changed:
             _replace_private_json(retained_context, retained)
             _replace_private_json(retained_variables, retained_values)
-        foundation.adoption.require_context(retained)
-        if source_application_inputs.rebind_source_tree(retained, work_dir):
-            _replace_private_json(retained_context, retained)
         _terraform_init(work_dir, retained)
         if adoption is not None:
             _adopt_application_state(work_dir, retained, *adoption)
@@ -613,7 +638,6 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "resource_name_suffix": suffix,
         "foundation_resource_group_context_digest": str(app["foundation_context_digest"]),
         "enable_private_networking": not aks_baseline,
-        # The AKS baseline has no archive private endpoint; policy-private storage would drift.
         "enable_operational_history": not aks_baseline,
         "enable_aks_key_vault_private_access": key_vault_private_access,
         "enable_aks_document_storage_private_access": document_storage_private_access,
@@ -640,6 +664,14 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "ingestion_cors_allow_origins": "https://localhost",
         "enable_llm": adoption is not None,
     }
+    development_profile_digest = apply_initial_development_authority(
+        development_authority,
+        values=values,
+        tenant_id=foundation.tenant_id,
+        subscription_id=foundation.subscription_id,
+        resource_groups=(str(app["name"]), str(ops["resource_group_name"])),
+        source_revision=source_commit,
+    )
     values.update(
         product_terraform_values(
             runtime_profile,
@@ -676,6 +708,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "catalog_review_profile_digest": catalog_profile.profile_digest,
         "catalog_review_selected": catalog_profile.selected,
         "oev_input_digest": verifier_input_digest,
+        "development_authority_profile_digest": development_profile_digest,
         "state_resource_group": str(ops["resource_group_name"]),
         "state_account": str(state["account_name"]),
         "state_container": str(state["container_name"]),
@@ -1000,7 +1033,6 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     ):
         raise ValueError("AKS substrate output contract is invalid")
     core_identity = _mapping(identities.get("core"), "core runtime identity")
-    # Terraform emits null for identities of unselected surfaces, so read only selected ones.
     operator_identity = _selected_identity(identities, "operator", operator_api_selected)
     command_identity = _selected_identity(identities, "command", operator_api_selected)
     executor_identity = _selected_identity(identities, "executor", governed_execution_selected)
@@ -1250,6 +1282,12 @@ def _prepare_aks_service_update(args: argparse.Namespace, work_dir: Path) -> dic
             raise ValueError("AKS service update baseline differs from retained desired state")
     selected["image"] = str(args.image)
     selected["source_commit"] = str(args.source_commit)
+    authority_operation, authority_digest = apply_service_update_development_authority(
+        args,
+        context=context,
+        workload=selected,
+        source_revision=str(args.source_commit),
+    )
     workloads[service] = selected
     selected_expected = _mapping(expected[service], f"expected AKS workload {service}")
     selected_expected["image"] = str(args.image)
@@ -1262,6 +1300,8 @@ def _prepare_aks_service_update(args: argparse.Namespace, work_dir: Path) -> dic
         "source_commit": str(args.source_commit),
         "target_binding": context["target_binding"],
         "runtime_profile_digest": _runtime_profile_digest(context),
+        "development_authority_operation": authority_operation,
+        "development_authority_profile_digest": authority_digest,
     }
     operation = f"service-update-{service}-{canonical_digest(update_identity)[:12]}"
     record: dict[str, object] = {
@@ -1293,6 +1333,8 @@ def _prepare_aks_service_update(args: argparse.Namespace, work_dir: Path) -> dic
         "service": service,
         "image": str(args.image),
         "source_commit": str(args.source_commit),
+        "development_authority_operation": authority_operation,
+        "development_authority_profile_digest": authority_digest,
         "update_digest": record["update_digest"],
         "mutation_performed": False,
         "subscription_ready": False,
@@ -2021,21 +2063,6 @@ def _application_operation(
     if reconciliation is not None:
         return str(reconciliation["operation"]), reconciliation
     return (str(update["operation"]) if update is not None else stage), None
-
-
-def _service_update_review(update: dict[str, Any]) -> dict[str, str]:
-    return {
-        "service": str(update["service"]),
-        "image": str(update["image"]),
-        "source_commit": str(update["source_commit"]),
-        "update_digest": str(update["update_digest"]),
-    }
-
-
-def _service_update_target(service: str) -> str:
-    if service not in AKS_SERVICES:
-        raise ValueError("AKS service update target is unsupported")
-    return f'kubernetes_deployment_v1.workload["{service}"]'
 
 
 def _capture_aks_deployments(context: dict[str, object], *, service: str | None = None) -> str:
@@ -3749,8 +3776,7 @@ def _aks_document_workloads(
             sidecars={
                 "clamav": {
                     "image": refs["clamav"],
-                    # The image entrypoint chowns its database and exits as non-root; start
-                    # clamd directly. The bundled signatures load in about 950 MiB.
+                    # The entrypoint chowns the database; start clamd directly as non-root.
                     "command": ["clamd"],
                     "args": ["--foreground=true"],
                     "cpu": "500m",
@@ -4321,7 +4347,6 @@ def _readback_stage(stage: str, context: dict[str, object]) -> bool:
         if not kubeconfig.is_file():
             raise ValueError("AKS kubeconfig is unavailable for workload readback")
         expected = _mapping(context.get("expected_workloads"), "expected AKS workloads")
-        # The rendered set follows the product profile; health requires it exactly.
         if "core-control-plane" not in expected:
             return False
         observed = []
@@ -4578,25 +4603,6 @@ def _capture_env(
     if result.returncode != 0:
         raise ValueError(reason)
     return result.stdout
-
-
-def _selected_identity(identities: dict[str, Any], name: str, selected: bool) -> dict[str, Any]:
-    if not selected:
-        return {}
-    return _mapping(identities.get(name), f"{name.replace('_', ' ')} runtime identity")
-
-
-def _mapping(value: object, label: str) -> dict[str, Any]:
-    if not isinstance(value, dict) or any(not isinstance(key, str) for key in value):
-        raise ValueError(f"{label} is invalid")
-    return {str(key): item for key, item in value.items()}
-
-
-def _required_guid(value: dict[str, Any], field: str) -> str:
-    item = value.get(field)
-    if not isinstance(item, str) or _GUID.fullmatch(item) is None:
-        raise ValueError(f"{field} is invalid")
-    return item
 
 
 if __name__ == "__main__":

@@ -90,6 +90,10 @@ The owning records are [ingestion](../../roadmap-implementation/interfaces/docum
 - [ ] **K02, protected sources:** Add and test the purpose-specific delegated provider authorization
   receipt before rights-managed download. Bind approved protection/SharePoint identities and policy;
   retain inspection, revocation, deletion propagation, cursor recovery, and backpressure readback.
+  Local receipt, admission, bounded streaming, library availability and production binding are now
+  implemented under [#2214](https://github.com/dotnetpower/fdai/issues/2214), with 132 behavior and
+  29 service-suite ownership checks.
+  The approved external bindings and operational receipts keep this package open.
 - [ ] **K03, requester-policy implementation:** Implement the accepted v2/v3 requester path with
   exact requester/policy/content/collection binding, independent prior authority, request-time and
   final-visibility checks, denial of self-grants and missing/expired/revoked authority, all required
@@ -278,12 +282,13 @@ and explicitly deferred expansion remain visible without pretending they were va
 
 ## Source-delivery hardening checkpoint
 
-The follow-up delivery is tracked by [#2211](https://github.com/dotnetpower/fdai/issues/2211).
-It implements a repository regression guard, not the 29 feature packages. **All 29 remain open.**
-K02/K03, A01, learning integration, health composition and the other source work still need their
-own accepted contracts and implementation; live, human, provider and cohort gates remain separate.
-In particular, protected source download is explicitly unavailable in its current design, and a
-shadow-only maximum cannot be replaced by an unsigned file or a test approval.
+The first follow-up delivery is tracked by [#2211](https://github.com/dotnetpower/fdai/issues/2211).
+It implemented a repository regression guard, not the 29 feature packages. At that checkpoint,
+protected source download was unavailable. **All 29 packages still remain open**, but #2214 has
+since implemented K02's local export contract and production binding as recorded above. K03,
+A01, learning integration, health composition and other source work still need their own complete
+implementation; live, human, provider and cohort gates remain separate. A shadow-only maximum
+cannot be replaced by an unsigned file or a test approval.
 
 The [owning test](../../../site/test/functional-readiness.test.mjs) is already selected by CI and
 Pages. It now joins the specification, assessment, inventory and exact required-package column;

@@ -102,6 +102,12 @@ candidates. One relationship endpoint and an independent Owner must confirm each
 can enter the current reporting graph. See
 [Human report lines and approval routing](human-report-lines-and-approval-routing.md).
 
+Protected original-byte downloads remain principal-scoped reads. Their
+[purpose-specific provider receipt](document-ingestion.md#purpose-bound-source-download)
+authorizes only the exact bounded export, not document admission, index activation, rule
+promotion, or an operational action. The gateway uses the existing content-free durable audit
+outbox and rechecks current collection and source policy; it never borrows Var or Thor authority.
+
 ## Durable worker ownership
 
 Each mechanical worker operation acquires a separate PostgreSQL claim for `(upload_id, stage)`

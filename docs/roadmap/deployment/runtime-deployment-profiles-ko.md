@@ -1,7 +1,7 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: c4c81d4901ac2e79d81e07603c057594b9045c81
-translation_revised: 2026-10-17
+translation_source_sha: 6f5285b2213d2b82aabfcdea2bd815e09ff884e1
+translation_revised: 2026-10-18
 ---
 # 런타임 배포 프로파일
 
@@ -203,6 +203,10 @@ Deployment의 새 plan과 승인을 요구하며, repair 자체는 다시 대체
 
 런타임, 데이터베이스, 환경, 포크 상태 및 패키지 존재 여부는 제품 추가 기능을 선택하지 않습니다. 공유 불변 프로필은 명시적 선택과 `authority_granted: false`만 포함합니다. 제품 프로필 이전에 만든 런타임 기록은 원래 추가 기능 네 개를 명시적으로 선택한 레거시 선택과만 일치하므로, 이후 추가된 기능이 이 일치 여부를 바꾸지 않습니다.
 기본값은 Graph, 승인, enforce 승격, 롤백 또는 권한 있는 실행기 바인딩을 조립하지 않으며, 선택했지만 불완전한 추가 기능은 안전하게 차단됩니다. `read-only-console`과 `governed-execution`은 `enterprise-identity-governance`를 요구하고, 모든 런타임은 컴파일된 프로필을 자신의 워크로드까지 전달하므로 조립이 선택과 어긋나지 않습니다. full-authority 개발 프로필은 정확한 폐기 가능 범위를 위한 별도의 선택적 권한 입력이며 이 제품 축에서 상속되지 않습니다. 선택적 dev operations gateway는 인증을 사용하므로 명시적인 Operator API audience가 필요하며 없으면 계획을 거부합니다.
+source AKS와 Container Apps 배포는 검토된 동일 개발 프로필과 프로필에서 도출한 실행기
+principal을 Core에 전달합니다. 두 값은 함께 선택하거나 모두 선택하지 않습니다. 배포는 plan
+전에 대상과 source 개정을 검증하고, 런타임 시작 시 현재 유효기간과 정확한 실행기 일치를
+다시 검증합니다.
 Azure 관찰의 필수 역할은 범위가 제한된 `Reader` 하나뿐입니다. Azure Monitor, Log Analytics, Cost Management, AKS 또는 근거 저장소 출처를 명시적으로 선택하면 각 출처의 최소 읽기 역할을 파생합니다.
 역할을 직접 선택하거나 묶어서 부여할 수 없으며 접근이 없으면 지원되지 않음으로 보고합니다. 기본 프로필은 Azure Policy 할당을 요구하지 않고 `Reader`로 볼 수 있는 리소스 메타데이터만 평가하며
 쓰기, `User Access Administrator` 또는 Microsoft Graph 권한을 부여하지 않습니다. 인벤토리/관찰 실제 근거는 #341이 2026-09-28에 not planned로 닫힌 뒤에도 Phase 1 ledger의 남은 작업으로 유지되며, GitOps 쓰기 근거는 선택 사항입니다.
@@ -380,6 +384,9 @@ catalog 활성화, merge, 승격 또는 관리 리소스 변경 권한을 부여
 허용합니다. 소스에서 빌드한 이미지는 release 신뢰가 아니라 운영자가 선택한 근거로 유지됩니다.
 현재 사람 승인이 Managed Identity 반입과 Deployment 전용 exact 계획을 통제하며, digest와 상태
 다시 읽기, 변경되지 않은 다른 서비스 및 대상별 zero change를 계속 확인해야 합니다.
+Core에 한해서는 같은 단일 Deployment update로 검토된 개발 권한 프로필을 선택하거나 제거할 수
+있습니다. 프로필 다이제스트와 source 개정을 update 신원에 결속하며, 다른 workload, 인프라 또는
+제품 프로필 변경은 허용하지 않습니다.
 
 Foundation의 선택 입력 `application_workload`는 AKS 프로파일을 바꾸지 않고 새 애플리케이션
 그룹 이름을 운영 리소스 이름과 분리합니다. 기존 그룹의 소유권을 부여하지는 않으며, 부분 상태

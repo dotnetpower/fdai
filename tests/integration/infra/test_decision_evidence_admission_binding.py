@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 _ROOT = Path(__file__).resolve().parents[3]
@@ -21,8 +22,10 @@ _STORAGE_MODULE = (_ROOT / "infra/modules/storage/case-history/main.tf").read_te
 def test_core_service_exposes_optional_private_container_binding() -> None:
     assert 'variable "decision_evidence_container_url"' in _ROOT_VARIABLES
     assert "must be empty or one HTTPS Blob container URL" in _ROOT_VARIABLES
-    assert "decision_evidence_container_url     = var.decision_evidence_container_url" in (
-        _ROOT_MAIN
+    assert re.search(
+        r"(?m)^\s*decision_evidence_container_url\s*=\s*"
+        r"var[.]decision_evidence_container_url\s*$",
+        _ROOT_MAIN,
     )
     assert 'variable "decision_evidence_container_url"' in _MODULE_VARIABLES
     assert '"FDAI_DECISION_EVIDENCE_CONTAINER_URL"' in _MODULE_MAIN

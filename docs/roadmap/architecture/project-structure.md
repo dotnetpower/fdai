@@ -900,6 +900,11 @@ tables; Var owns the approval topic, Saga audit and Muninn indexing remain indep
 worker visibility rechecks the same policy through a transaction fence. Missing bindings reject
 the explicit requester-policy lane without changing the manual default or granting Thor authority.
 
+The Ingestion API injects its service-owned `SourceDownloadAuthorizer` into
+`GovernedDocumentDownload`; only the configured purpose-specific protection provider supplies
+the bounded export receipt. Its availability projection grants no download or executor authority.
+See [purpose-bound source download](../interfaces/document-ingestion.md#purpose-bound-source-download).
+
 Bragi-owned conversational composition carries an exact selected agent and locale, independent
 synthesis verification, and policy-pinned durable per-correlation model accounting. Missing
 participation or unresolved evidence conflicts remain partial or held without a final conclusion.
@@ -964,6 +969,8 @@ remain open.
   bindings required and fail-closed.
 - The optional full-authority development profile, including its Owner-only category park, is a
   separate authority input owned by [Project Structure Dependency Injection](project-structure-dependency-injection.md#full-authority-development-profile-composition).
+- Deployment accepts that profile only as a private reviewed source-AKS input, derives the distinct
+  executor principal from it, and requires an explicit later plan to remove a retained profile.
 - Without the `governed-execution` add-on, learned and predicted input stays ActionType-free
   evidence; the [Agent Pantheon plan](../agents/agent-pantheon-implementation.md#learned-and-predicted-output-boundary) owns the boundary.
 - The default environment provider and the optional bounded `YamlFileConfigProvider` both enter the

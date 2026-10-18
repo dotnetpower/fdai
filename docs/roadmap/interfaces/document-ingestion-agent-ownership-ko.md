@@ -1,6 +1,6 @@
 ---
 translation_of: document-ingestion-agent-ownership.md
-translation_source_sha: dbf39adfe80c95834732043daa7d0d935f466a21
+translation_source_sha: 855fcf1283a603dc6e46314653400c79b0ba094e
 translation_revised: 2026-10-18
 ---
 
@@ -105,6 +105,12 @@ Var는 해당 요청에 대한 기존 사람 승인을 검증하며, 사람의 �
 `report_line_bootstrap` 용도는 근거가 있고 검토 전용인 사람-관리자 후보만 만듭니다. 각 edge가
 현재 보고 그래프에 들어가려면 관계의 한쪽 당사자와 독립 Owner가 확인해야 합니다. 자세한 내용은
 [사람 보고선 및 승인 라우팅](human-report-lines-and-approval-routing-ko.md)을 참조하세요.
+
+보호 원본 바이트 다운로드는 사용자 범위의 읽기로 유지됩니다.
+[목적별 공급자 증적](document-ingestion-ko.md#목적별-원본-다운로드)은 정확하고 유효 기간이
+제한된 반출만 허용하며 문서 수락, 색인 활성화, 규칙 승격, 운영 작업을 승인하지 않습니다.
+게이트웨이는 기존 콘텐츠 없는 영속 감사 발신함을 사용하고 현재 컬렉션 및 원본 정책을
+다시 검사합니다. Var 또는 Thor 권한을 빌려 사용하지 않습니다.
 
 ## 지속성 있는 워커 소유권
 

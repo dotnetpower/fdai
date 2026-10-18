@@ -2877,25 +2877,27 @@ module "compute" {
 
   # Required config env vars - `EnvVarConfigProvider` fails-fast if any is
   # unset, so wire them all from the surrounding infra outputs.
-  azure_tenant_id                     = local.enterprise_identity_governance_selected ? var.tenant_id : ""
-  azure_subscription_id               = data.azurerm_client_config.current.subscription_id
-  azure_resource_group                = module.resource_group.name
-  azure_region                        = var.region
-  kafka_bootstrap_servers             = module.event_bus.kafka_bootstrap
-  operational_kafka_bootstrap_servers = module.event_bus_auxiliary.kafka_bootstrap
-  kafka_topic_events                  = local.event_topics[0]
-  semantic_turn_request_topic         = local.semantic_turn_request_topic
-  semantic_turn_projection_topic      = local.semantic_turn_projection_topic
-  semantic_turn_physical_topic        = local.semantic_turn_physical_topic
-  operating_model_topic               = local.operating_model_topic
-  read_investigation_request_topic    = local.read_investigation_request_topic
-  postgres_host                       = module.state_store.fqdn
-  postgres_database                   = module.state_store.database_name
-  runtime_env                         = var.env == "" ? "dev" : var.env
-  autonomy_mode_default               = "shadow"
-  product_profile_json                = var.product_profile_json
-  dev_operations_gateway_url          = var.enable_dev_operations_gateway && !var.enable_isolated_executor_authority_cutover ? "https://${azurerm_function_app_flex_consumption.dev_gateway[0].default_hostname}" : ""
-  dev_operations_gateway_audience     = var.enable_dev_operations_gateway && !var.enable_isolated_executor_authority_cutover ? var.operator_api_audience : ""
+  azure_tenant_id                          = local.enterprise_identity_governance_selected ? var.tenant_id : ""
+  azure_subscription_id                    = data.azurerm_client_config.current.subscription_id
+  azure_resource_group                     = module.resource_group.name
+  azure_region                             = var.region
+  kafka_bootstrap_servers                  = module.event_bus.kafka_bootstrap
+  operational_kafka_bootstrap_servers      = module.event_bus_auxiliary.kafka_bootstrap
+  kafka_topic_events                       = local.event_topics[0]
+  semantic_turn_request_topic              = local.semantic_turn_request_topic
+  semantic_turn_projection_topic           = local.semantic_turn_projection_topic
+  semantic_turn_physical_topic             = local.semantic_turn_physical_topic
+  operating_model_topic                    = local.operating_model_topic
+  read_investigation_request_topic         = local.read_investigation_request_topic
+  postgres_host                            = module.state_store.fqdn
+  postgres_database                        = module.state_store.database_name
+  runtime_env                              = var.env == "" ? "dev" : var.env
+  autonomy_mode_default                    = "shadow"
+  product_profile_json                     = var.product_profile_json
+  development_authority_profile_json       = var.development_authority_profile_json
+  development_authority_executor_principal = var.development_authority_executor_principal
+  dev_operations_gateway_url               = var.enable_dev_operations_gateway && !var.enable_isolated_executor_authority_cutover ? "https://${azurerm_function_app_flex_consumption.dev_gateway[0].default_hostname}" : ""
+  dev_operations_gateway_audience          = var.enable_dev_operations_gateway && !var.enable_isolated_executor_authority_cutover ? var.operator_api_audience : ""
 
   # Auto-bind the Azure Monitor Logs metric adapter at composition time.
   # Threading the Log Analytics workspace **customer GUID** (NOT the ARM

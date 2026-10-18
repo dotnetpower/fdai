@@ -2,7 +2,7 @@
 title: FDAI 기능 준비 상태 평가
 description: FDAI 제품 중분류 52개의 준비 상태 판정 근거와 남은 조건을 기록합니다.
 translation_of: functional-readiness.md
-translation_source_sha: f3b4e9a6b98aada25bdb043797695ce86e72795e
+translation_source_sha: bcabb332a8dd2c5bdfdad684c7bd1a6bd22542b6
 translation_revised: 2026-10-18
 ---
 
@@ -182,7 +182,7 @@ Partial 24건은 구현된 부분과 기록된 집중 검사 근거를 유지하
 
 | 기능 | 상태 | 근거, 지원 범위 및 남은 조건 |
 |------|------|-----------------------------|
-| <span id="f10-1">F10.1</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 로컬 구현은 인증된 수집, 불변 버전, 제한된 추출 및 OCR, 보호 상태, 색인, 미리 보기 및 다운로드, 보존 및 삭제, 재시작에 안전한 인계입니다. [문서 원장](../../roadmap-implementation/interfaces/document-ingestion.md)과 과거 문서 및 변환 테스트 929개가 이 부분을 뒷받침합니다. 서비스 5개의 정확한 수명 주기 및 실패 증적, 권한 관리 문서 다운로드 전의 목적별 위임 권한, 승인된 SharePoint 및 보호 결과 조회가 남습니다. [K01-K02](functional-readiness-backlog-ko.md#f10-지식-및-규칙-작업)는 필수 기준이며 완료된 설치 세부 사항이 아닙니다. |
+| <span id="f10-1">F10.1</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 로컬 구현은 인증된 수집, 불변 버전, 제한된 추출 및 OCR, 색인, 보존 및 삭제, 재시작에 안전한 인계와 K02의 목적별 보호 원본 다운로드입니다. 반출에는 정규화된 감사 증적, 제한된 유효 기간, 현재 접근 및 개정 확인, 스트림 재검사가 적용됩니다. [문서 원장](../../roadmap-implementation/interfaces/document-ingestion.md)은 #2214의 동작 검사 132개와 소유권 검사 29개를 과거 검사 929개와 분리해 기록합니다. 서비스 5개의 정확한 수명 주기 및 실패 증적과 승인된 SharePoint 및 보호, 철회, 삭제, 커서, 역압력 결과 조회는 남습니다. [K01-K02](functional-readiness-backlog-ko.md#f10-지식-및-규칙-작업)는 필수 운영 기준이며 로컬 반출 구현만으로 완료되지 않습니다. |
 | <span id="f10-2">F10.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 로컬 구현은 개정에 안전한 수집 및 예약, 수동 v2/v3 수락, 날짜 기반 조회 및 격리, #2217의 명시적 기존 정책 적용 API입니다. Var 및 Saga의 독립 검증과 트랜잭션으로 보호한 저장 결과 재조회를 유지합니다. [클라우드 지식 원장](../../roadmap-implementation/interfaces/cloud-resource-knowledge-lifecycle.md)과 [구조화 조회 원장](../../roadmap-implementation/interfaces/cloud-resource-knowledge-structured-rag.md)은 집중 검사 670개와 실제 PostgreSQL 검사 24개를 운영 근거와 분리해 기록합니다. 실제 독립 승인 정책 및 읽기 권한과 승격, 원문 및 답변 품질, 신뢰 및 등록, 연결 및 외부 통신 차단 증적은 남습니다. [K03-K05](functional-readiness-backlog-ko.md#f10-지식-및-규칙-작업)를 참조하세요. 소스 구현을 운영 검증으로 취급하지 않고 Partial로 유지합니다. |
 | <span id="f10-3">F10.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 현재 스키마의 규칙 작성, 출처 및 품질 검증, 변경 불가능한 버전, 범위 지정 활성화, 개정 버전별 예외, 폐기 제안, 충돌 해결, 롤백에 안전한 카탈로그 상태입니다. [규칙 원장](../../roadmap-implementation/rules-and-detection/rule-governance.md)과 집중 테스트 72개가 이 범위를 뒷받침합니다. 기존 개정 버전 이중 읽기 이행과 배포 환경의 단계별 적용은 별도 설치 및 업그레이드 검증입니다. |
 | <span id="f10-4">F10.4</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 로컬 구현은 내용보다 먼저 확인하는 출처 이력, 민감도 및 최신성과 온톨로지 검사, 독립적인 결정론 검증, 비활성 제안, 비공개 패키지 폐기입니다. [변환 원장](../../roadmap-implementation/rules-and-detection/manual-distillation.md)에는 배포된 ACL 및 목적, 철회, 법적 보존 보류 및 삭제, 공급자 및 표본, 실제 EN/KO 보조 기술 출력의 필수 근거가 남습니다. [K06-K07](functional-readiness-backlog-ko.md#f10-지식-및-규칙-작업)을 참조하세요. 변환은 활성화 권한을 부여하지 않으며 로컬 테스트는 운영 적합성 기준을 충족하지 않습니다. |

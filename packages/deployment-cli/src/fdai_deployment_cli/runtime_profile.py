@@ -176,6 +176,23 @@ class RuntimeDeploymentProfile:
             database_sku=args.database_sku,
         )
 
+    @classmethod
+    def from_cli_arguments(cls, args: argparse.Namespace) -> RuntimeDeploymentProfile:
+        """Build the selected profile from the public Azure command arguments."""
+
+        return cls.create(
+            runtime_platform=args.runtime,
+            database_placement=args.database,
+            system_node_count=args.system_nodes,
+            system_node_sku=args.system_node_sku,
+            user_node_min_count=args.user_nodes,
+            user_node_max_count=args.max_user_nodes,
+            user_node_sku=args.user_node_sku,
+            product_add_ons=tuple(args.product_add_ons),
+            observation_data_sources=tuple(args.observation_data_sources),
+            database_sku=args.database_sku,
+        )
+
     def to_mapping(self) -> dict[str, object]:
         """Return the canonical machine representation stored with deployment evidence."""
 

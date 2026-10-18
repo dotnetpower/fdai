@@ -197,7 +197,7 @@ satisfy an approval, or raise autonomy.
 Runtime, database, environment, fork status, and package presence do not select product add-ons. The shared immutable profile contains only explicit selections and `authority_granted: false`. A runtime record created before product profiles matches only the explicit legacy selection of the four original add-ons, so a later add-on never changes that match.
 The default constructs no Graph, approval, promotion-to-enforce, rollback, or privileged executor binding. A selected but incomplete add-on fails closed: `read-only-console` and
 `governed-execution` require `enterprise-identity-governance`, and every runtime carries the compiled profile to its own workloads so composition never diverges from the selection.
-The full-authority development profile remains a separate optional authority input for an exact disposable scope and never inherits from this product axis. The optional dev operations gateway is authenticated, so it requires an explicit Operator API audience and refuses to plan without one.
+The full-authority development profile remains a separate optional authority input for an exact disposable scope and never inherits from this product axis. The optional dev operations gateway is authenticated, so it requires an explicit Operator API audience and refuses to plan without one. Source AKS and Container Apps deployment pass the same reviewed profile and its profile-derived executor principal to Core together. Deployment validates the target and source revision before planning; runtime startup still revalidates the current interval and exact executor match.
 Azure observation requires only scoped `Reader`. Explicit source selection derives the minimum extra role: Azure Monitor, Log Analytics, Cost Management, AKS read-only
 (Cluster User plus RBAC Reader), or evidence-store `Storage Blob Data Reader`. No role can be selected directly or silently bundled. Missing source access reports unsupported.
 The base profile requires no Azure Policy assignment and uses Reader-visible resource metadata for policy evaluation; it grants no write, `User Access Administrator`, or Microsoft Graph permission.
@@ -406,7 +406,7 @@ verification-first and bounded residual rules as every other stage.
 One bounded exception lets an eligible host run `fdaictl provision source-service-update` for one service on an
 existing healthy `dev` AKS installation. The source-built image remains operator-selected evidence rather than release trust. Current human approval gates its
 Managed Identity import and the Deployment-only exact plan; digest and health readback, unchanged peers, and targeted zero change remain required.
-
+For Core only, that same one-Deployment update may select or clear the reviewed development authority profile. The profile digest and source revision join the update identity; no peer, infrastructure, or product-profile change is admitted.
 An optional Foundation `application_workload` token can separate the new application group's name
 from operations naming without changing the AKS profile. It grants no ownership of an existing group;
 partial-state recovery follows the [application group collision contract](installable-deployment-cli.md#application-group-collision-recovery).

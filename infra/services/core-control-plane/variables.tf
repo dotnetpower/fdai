@@ -40,6 +40,20 @@ variable "approval_profile_json" {
   }
 }
 
+variable "development_authority_profile_json" {
+  description = "Optional reviewed full-authority development profile JSON."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "development_authority_executor_principal" {
+  description = "Executor principal bound to the selected development profile."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "image" {
   description = "Promoted Core OCI image. Pin by digest for protected environments."
   type        = string

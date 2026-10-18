@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:d3e9c7d950bfb0a40d88c8d6103f6df8c0a7489142b9986c9b304b99adb9db4d",
+  "catalog_digest": "sha256:070a4c9bc7597236136dceaded9770206891f8b4b2f468af28d2719578c6b19b",
   "execution_authority": false,
-  "generated_at": "2026-10-18T12:45:29.080509Z",
+  "generated_at": "2026-10-18T12:53:37.466230Z",
   "records": [
     {
       "designed_behavior": [
@@ -149,22 +149,22 @@
         "How does FDAI ingest documents?",
         "FDAI는 문서를 어떻게 수집하나요?"
       ],
-      "record_digest": "sha256:2c3fce629e9e057e505341f4baab5199a73503b6d1376e0e3706896889f24d38",
+      "record_digest": "sha256:c9bfa42cbf145be6c72c539f4760c8e208444b5a0309a54c10ca2b9a6491e4db",
       "sources": [
         {
           "authority_role": "design",
-          "blob_sha": "b1572955da779c594ba6e6268c0975cd75942f90",
-          "line_end": 103,
-          "line_start": 103,
+          "blob_sha": "6dd05fccc0c8444c5c4b7c3a37ac4e8a3c55ebf1",
+          "line_end": 127,
+          "line_start": 127,
           "path": "docs/roadmap/interfaces/document-ingestion.md",
           "source_kind": "doc",
           "symbol": "Authorization and shared visibility"
         },
         {
           "authority_role": "verification",
-          "blob_sha": "b1572955da779c594ba6e6268c0975cd75942f90",
-          "line_end": 572,
-          "line_start": 572,
+          "blob_sha": "6dd05fccc0c8444c5c4b7c3a37ac4e8a3c55ebf1",
+          "line_end": 596,
+          "line_start": 596,
           "path": "docs/roadmap/interfaces/document-ingestion.md",
           "source_kind": "doc",
           "symbol": "Implementation boundaries and rollout"

@@ -65,6 +65,11 @@ honestly, overrides stay visible and recallable, and policy edits stay inside ha
 | Single-operator production | Approval policy revision that names one operator | One installation | The named operator | One, with the original quorum recorded | The named operator, holding both roles | Unchanged. A4 still denies. |
 | Single-operator development | Reviewed deployment configuration with an exact test scope and expiry | Dedicated test scope | The sole Owner | One, with the original quorum recorded | Not needed | No categorical prohibition |
 
+Source AKS deployment selects the development profile only from one private reviewed file, derives
+the distinct executor principal from that file, and validates its exact target and source revision.
+Omission preserves the ordinary or retained path. Removing a retained profile requires the
+explicit `--clear-development-profile` application plan.
+
 [Risk Classification](risk-classification.md) owns the development profile.
 [Escalation and Standing Authority](escalation-and-standing-authority.md) owns the standing
 authorization contract that both production profiles use.

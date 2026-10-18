@@ -49,6 +49,11 @@ class DocumentDownload:
 class DocumentDownloadService(Protocol):
     """Authorize and audit one immutable source stream."""
 
+    @property
+    def supports_protected_source_download(self) -> bool:
+        """Describe a bound purpose-specific provider, not permission to export."""
+        ...
+
     async def download(
         self,
         *,

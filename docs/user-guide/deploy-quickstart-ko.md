@@ -2,8 +2,8 @@
 title: 배포 빠른 시작
 description: 복제한 저장소에서 명령줄 한 줄로 FDAI를 자신의 Azure 구독에 배포하거나 서명된 오프라인 패키지로 설치합니다.
 translation_of: deploy-quickstart.md
-translation_source_sha: d8107b9c4ca37cbe3d356af4756dd8c92d111664
-translation_revised: 2026-10-16
+translation_source_sha: 1ed9a846ea3b25b6fc91e467152c2385e1ac1db1
+translation_revised: 2026-10-18
 ---
 
 # 배포 빠른 시작
@@ -154,6 +154,12 @@ git clone https://github.com/dotnetpower/fdai.git && fdai/scripts/deployment/azu
 제거하려면 `--progress plain`을 추가합니다. 출력이 없는 준비 및 사전 검사 작업은 10초마다
 `still working` 기록을 내고, 이후 명시적인 완료 또는 실패 기록을 냅니다. 비공개 작업
 디렉터리는 clone 밖에 있어야 합니다.
+
+폐기 가능한 source AKS 개발 설치에서는
+`--development-authority-profile <private-reviewed-profile.json>`을 추가할 수 있습니다. FDAI는
+애플리케이션 plan에서만 프로필을 검증하고 전달하며, 해당 프로필에서 별도 실행기 principal을
+도출합니다. 옵션을 생략하면 보존된 프로필을 유지합니다.
+`--clear-development-profile`을 사용하면 이후 정확한 plan을 통해 제거할 수 있습니다.
 
 조정기는 재개 가능한 단일 프로세스로 다음 작업을 수행합니다.
 

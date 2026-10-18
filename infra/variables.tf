@@ -1448,6 +1448,34 @@ variable "product_profile_json" {
   }
 }
 
+variable "development_authority_profile_json" {
+  description = "Optional reviewed full-authority development profile for one exact disposable scope."
+  type        = string
+  default     = ""
+  sensitive   = true
+
+  validation {
+    condition = (
+      (
+        trimspace(var.development_authority_profile_json) == "" &&
+        trimspace(var.development_authority_executor_principal) == ""
+        ) || (
+        trimspace(var.development_authority_profile_json) != "" &&
+        trimspace(var.development_authority_executor_principal) != "" &&
+        can(jsondecode(var.development_authority_profile_json))
+      )
+    )
+    error_message = "development authority profile and executor must be empty or selected together with valid JSON."
+  }
+}
+
+variable "development_authority_executor_principal" {
+  description = "Executor principal bound to the selected development profile."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "enable_isolated_executor_authority_cutover" {
   description = "Move the dev operations gateway caller authority and vertical execution identities from Core to the isolated Executor. Requires both the isolated Executor and gateway."
   type        = bool

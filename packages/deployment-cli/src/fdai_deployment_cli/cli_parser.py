@@ -256,6 +256,18 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         ),
     )
     settings.add_argument(
+        "--development-authority-profile",
+        type=Path,
+        metavar="PATH",
+        help=("Private reviewed full-authority development profile; source AKS deployment only"),
+    )
+    settings.add_argument(
+        "--clear-development-profile",
+        action="store_true",
+        dest="clear_development_authority_profile",
+        help="Explicitly remove a retained source-AKS development profile through a new plan",
+    )
+    settings.add_argument(
         "--add-on",
         action="append",
         choices=tuple(item.value for item in ProductAddOn),
@@ -442,6 +454,17 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
     source_update.add_argument("--source", type=Path, required=True)
     source_update.add_argument("--service", choices=sorted(AKS_SERVICES), required=True)
     source_update.add_argument("--application-work-dir", type=Path, required=True)
+    source_update.add_argument(
+        "--development-authority-profile",
+        type=Path,
+        help="Private reviewed profile for a Core update",
+    )
+    source_update.add_argument(
+        "--clear-development-profile",
+        action="store_true",
+        dest="clear_development_authority_profile",
+        help="Remove the retained profile during a Core update",
+    )
     source_update.add_argument(
         "--adopt-historical-binding",
         type=Path,

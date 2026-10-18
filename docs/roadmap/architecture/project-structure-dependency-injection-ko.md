@@ -1,7 +1,7 @@
 ---
 translation_of: project-structure-dependency-injection.md
-translation_source_sha: b49a685f94e8312e761dcdf837c2d68acffb41cf
-translation_revised: 2026-10-17
+translation_source_sha: e11c9170b722d7390a7cb189b55eb5e5897551fb
+translation_revised: 2026-10-18
 ---
 
 # 프로젝트 구조 의존성 주입
@@ -46,6 +46,14 @@ Core 시작 구성은 이를 Bragi의 읽기 전용 숙의 처리기에 전달�
   권한 중립 facade를 노출할 수 있습니다. 구성에서만 이 facade를 가져오며 Core에서는 가져오지
   않습니다. 공개 검색 가능성은 가용성, 활성화, 접근, 승인, promotion 또는 실행 권한을
   부여하지 않습니다.
+
+  배포에서는 비공개로 검토한 JSON 파일로만 이 선택적 입력을 지정합니다. source 조정기는
+  관리 호스트에 파일을 전달하기 전에 정확한 스키마, 현재 source 개정, tenant, subscription,
+  선택적 resource group 범위, 정렬된 ActionType 신원, 서로 구분된 Owner와 실행기, 범위가
+  제한된 유효기간을 검증합니다. 관리 호스트는 관련 없는 명령줄 값을 받지 않고 검토된
+  프로필에서 별도 실행기 환경 값을 도출합니다. 입력을 생략하면 기존 다중 운영자 경로를
+  유지하며 보존된 프로필을 철회하지 않습니다. 배포된 프로필을 변경하거나 제거하려면 새로운
+  정확한 애플리케이션 plan이 필요합니다.
 - **구성 기반 연결**: 설정이 각 구현을 선택합니다. `bind_configuration_drift`는 선택적 `ConfigurationDriftReportSink`를 받습니다. 런타임은 Core가 소유한 `StateStoreConfigurationBaselineSink`를 주입하여 완료된 근거를 반환 전에 기록하며, 프로바이더 조회나 검토 권한 또는 서비스를 추가하지 않습니다.
   `StateStore` 경계는 Mimir의 정책 활성화 포인터와 활성화 이력 행처럼 함께 보여야 하는 권한 레코드를 위해 하나의 감사 append와 쌍으로 이루어진 상태 쓰기를 지원합니다. Core는 주입된 상태 저장소 프로토콜만 보고, PostgreSQL 및 인메모리 구현이 구체적인 트랜잭션 처리를 소유하므로 프로바이더 경계는 유지됩니다.
   `composition/wire_distiller.py`는 exact-version 엔드포인트 세 개와 replay-identical 프롬프트 하나로 review-only `Distiller`를 atomic하게 연결합니다. 협의체 기록이 없으면 사용하지 않는 엔드포인트 값을 검증하지 않고 abstention을 유지합니다. 부분 기록은 실행 T2 변경 없이 시작을 실패시킵니다.

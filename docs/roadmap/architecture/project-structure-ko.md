@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 252a7de89e8df2a6178c6c29d4d8d6582374ad11
+translation_source_sha: 925e9fbd95480e75fa4b318879e897a9ad13969c
 translation_revised: 2026-10-18
 ---
 # 프로젝트 구조
@@ -878,6 +878,11 @@ Var의 선택적 `CloudApplicationAuthorizationSource`는 별도로 구성된 �
 트랜잭션 차단으로 같은 정책을 다시 검사합니다. 연결이 없으면 명시적 요청자 정책 경로를
 차단하며 수동 기본값을 바꾸거나 Thor 권한을 부여하지 않습니다.
 
+Ingestion API는 서비스 소유 `SourceDownloadAuthorizer`를 `GovernedDocumentDownload`에
+주입합니다. 구성된 목적별 보호 공급자만 제한된 유효 기간의 반출 증적을 제공합니다.
+사용 가능 표시는 다운로드나 실행기 권한을 부여하지 않습니다.
+[목적별 원본 다운로드](../interfaces/document-ingestion-ko.md#목적별-원본-다운로드)를 참조하세요.
+
 Bragi가 소유하는 대화 구성은 정확한 선택 대상과 언어, 독립적인 종합 검증 및 정책을 고정한
 상관 ID별 영속 모델 회계를 전달합니다. 참여가 누락되거나 근거 충돌이 해결되지 않으면 최종
 결론 없이 부분 완료 또는 보류로 남습니다. 이 읽기 전용 연결은 MSCP 활성화, 실행 권한, 승인,
@@ -940,6 +945,8 @@ risk-gate를 호출합니다. 리포트는 정확한 소유권 이전 신원을 
   패키지를 활성화하면 선언된 바인딩이 필수가 되며 안전하게 차단됩니다.
 - Owner 전용 범주 보류를 포함한 선택적 full-authority 개발 프로필은 별도의 권한 입력이며,
   [프로젝트 구조 의존성 주입](project-structure-dependency-injection-ko.md#full-authority-개발-프로필-조립)이 소유합니다.
+- 배포는 비공개 검토 완료 source AKS 입력으로만 해당 프로필을 받고, 프로필에서 구분된 실행기
+  principal을 도출하며, 보존된 프로필을 제거할 때는 이후의 명시적인 plan을 요구합니다.
 - `governed-execution` 추가 기능을 선택하지 않으면 학습 및 예측 입력은 ActionType 없는 근거로만
   남습니다. 이 경계는 [에이전트 판테온 계획](../agents/agent-pantheon-implementation-ko.md#학습-및-예측-결과-경계)이 소유합니다.
 - 기본 환경 공급자와 선택적이고 범위가 제한된 `YamlFileConfigProvider`는 동일한 JSON Schema 및

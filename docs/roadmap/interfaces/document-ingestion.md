@@ -97,8 +97,32 @@ source protection. One badge also blurs upload, safety, extraction, and index re
 Each content action rechecks current metadata and authorization:
 
 - **Preview:** bounded extracted text for the selected available version after collection and delegated protection authorization.
-- **Download:** the selected immutable, available, unprotected source after a content-free audit request; rights-managed download remains unavailable.
+- **Download:** the selected immutable, available source after a content-free audit request. Rights-managed source bytes additionally require the purpose-bound provider receipt below; no decryption is performed.
 - **Delete:** two-step confirmation for the selected version, server reauthorization, retention and legal-hold check, then worker-owned deletion Saga. Deleting the active version does not automatically reactivate an older version.
+
+### Purpose-bound source download
+
+**Initial design.** Reuse delegated preview authorization for source downloads.
+**Critique.** Permission to display derived text does not authorize exporting the original file.
+It also cannot cover a changed ACL, source revision, protection policy, or a delayed stream.
+**Revised design.** A rights-managed accessible source needs a fresh
+`governed_source_download` decision from the configured protection provider. Its response echoes
+the exact actor/group digests, document/version/source, document revision, access reference,
+provider/policy binding, and a server-generated request nonce, with a finite validity of at most
+60 seconds. Unknown, denied, unavailable, malformed, expired, or mismatched decisions disclose
+no source bytes. Password-encrypted, unsupported, denied, and unknown protection remain held.
+
+The API rechecks current metadata and collection access after provider authorization, at stream
+start, and before disclosing each chunk. It admits the canonical content-free receipt and its digest
+to the existing durable audit outbox before reading source bytes and stops disclosure on expiry,
+revocation, or clock regression. Provider credential acquisition and response reading share one
+total timeout; decisions are limited to 16 KiB and compressed responses are rejected.
+Only the original immutable source
+streams; neither labels nor protection are removed. The existing `purview_rms` provider binding
+supplies this separate purpose. Without it, rights-managed download remains unavailable.
+Local tests establish this software path; deployed provider conformance remains a separate gate.
+The existing library `download_available` projection reflects the bound provider and version's
+protection prerequisites; that availability never replaces the request-time provider decision.
 
 ## Authorization and shared visibility
 
@@ -518,7 +542,7 @@ items not seen in the new resync epoch before the fresh cursor can commit.
 | `GET /documents/search?q=...&collection_id=...` | authenticated collection-scoped hybrid retrieval with citations |
 | `GET /documents/{document_id}/versions` | authorized metadata and state history |
 | `GET /documents/{document_id}/versions/{version_id}/preview` | bounded extracted preview after collection and delegated protection authorization |
-| `GET /documents/{document_id}/versions/{version_id}/download` | audited immutable-source stream for an authorized unprotected indexed version |
+| `GET /documents/{document_id}/versions/{version_id}/download` | audited immutable-source stream; rights-managed sources require a current purpose-bound provider receipt |
 | `DELETE /documents/{document_id}/versions/{version_id}` | request governed deletion |
 Source bytes stream from the client through the dedicated gateway to object storage. Authentication
 tokens use headers; the browser receives no storage credential or query-string grant.
