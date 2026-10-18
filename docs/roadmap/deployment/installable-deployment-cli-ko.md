@@ -1,8 +1,8 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: c29550fb46810725fba317234d26e4b0e5d4fe55
-translation_revised: 2026-10-13
+translation_source_sha: 1be4af30f468885fac96da6ba6a1e2d12026e155
+translation_revised: 2026-10-18
 ---
 
 # 설치형 배포 CLI
@@ -801,6 +801,16 @@ AzureRM 백엔드를 대상으로 helper를 실행합니다. 이전된 상태 �
 멈춥니다. 실패한 원격 단계는 식별자 없이 제한된 이유를 보고합니다.
 
 제어 코드만 수정한 경우 [서명된 배포 제어 패키지](disconnected-deployment-ko.md#배포-제어-패키지)로 검증된 키트를 재사용할 수 있습니다.
+
+### 개발 권한 입력
+
+`--development-authority-profile <path>`는 source AKS 애플리케이션에서만 사용하는 입력입니다.
+로컬 조정기는 검토된 JSON을 검증하고 해당 다이제스트를 전송에 결속합니다. 관리 호스트는
+전달된 바이트를 다시 검증한 뒤 정규화된 프로필과 프로필에서 도출한 실행기 principal을 Core
+환경에 배치합니다. 준비, 사전 검사, 제거, 온라인, 오프라인 패키지 또는 AKS 이외의 실행에는
+이 옵션을 함께 사용할 수 없습니다. 입력 생략은 보존된 프로필을 제거하지 않습니다. 이후
+`--clear-development-authority-profile`은 명시적인 애플리케이션 plan 변경을 통해 프로필을
+제거합니다.
 
 ## 기능 토큰 동작
 

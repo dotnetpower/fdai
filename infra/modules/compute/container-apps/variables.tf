@@ -503,6 +503,34 @@ variable "product_profile_json" {
   default     = "{\"add_ons\":[],\"authority_granted\":false,\"name\":\"observation-first\",\"observation_permissions\":{\"base_role\":\"Reader\",\"selected_sources\":[]},\"schema_version\":\"fdai.product-profile.v1\"}"
 }
 
+variable "development_authority_profile_json" {
+  description = "Optional reviewed full-authority development profile JSON."
+  type        = string
+  default     = ""
+  sensitive   = true
+
+  validation {
+    condition = (
+      (
+        trimspace(var.development_authority_profile_json) == "" &&
+        trimspace(var.development_authority_executor_principal) == ""
+        ) || (
+        trimspace(var.development_authority_profile_json) != "" &&
+        trimspace(var.development_authority_executor_principal) != "" &&
+        can(jsondecode(var.development_authority_profile_json))
+      )
+    )
+    error_message = "development authority profile and executor must be empty or selected together with valid JSON."
+  }
+}
+
+variable "development_authority_executor_principal" {
+  description = "Executor principal bound to the selected development profile."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
 variable "azure_subscription_id" {
   description = "Enclosing subscription id (`AZURE_SUBSCRIPTION_ID`)."
   type        = string

@@ -93,6 +93,10 @@ locals {
   # env entry at all. Merged into the containers below via
   # ``merge(local.core_config_env, local.optional_config_env)``.
   optional_config_env = merge(
+    trimspace(var.development_authority_profile_json) == "" ? {} : {
+      FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON       = var.development_authority_profile_json
+      FDAI_FULL_AUTHORITY_DEVELOPMENT_EXECUTOR_PRINCIPAL = var.development_authority_executor_principal
+    },
     var.azure_tenant_id == "" ? {} : {
       AZURE_TENANT_ID = var.azure_tenant_id
     },

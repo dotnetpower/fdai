@@ -22,7 +22,7 @@ def aks_core_environment(
 ) -> dict[str, object]:
     """Project the baseline AKS Core environment from verified deployment values."""
 
-    return {
+    environment: dict[str, object] = {
         "AZURE_TENANT_ID": context["tenant_id"],
         "AZURE_SUBSCRIPTION_ID": context["subscription_id"],
         "AZURE_RESOURCE_GROUP": resource_group,
@@ -44,6 +44,14 @@ def aks_core_environment(
         "FDAI_INSTALLATION_BINDING": str(substrate_outputs["installation_binding"]),
         "FDAI_LICENSE_DEPLOYMENT_BINDING": deployment_binding,
     }
+    profile = str(application_values.get("development_authority_profile_json", "")).strip()
+    executor = str(application_values.get("development_authority_executor_principal", "")).strip()
+    if bool(profile) != bool(executor):
+        raise ValueError("development authority profile and executor must be selected together")
+    if profile:
+        environment["FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON"] = profile
+        environment["FDAI_FULL_AUTHORITY_DEVELOPMENT_EXECUTOR_PRINCIPAL"] = executor
+    return environment
 
 
 def plan_summary(value: object) -> dict[str, object]:

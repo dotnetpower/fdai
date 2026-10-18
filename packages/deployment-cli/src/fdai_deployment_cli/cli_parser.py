@@ -256,6 +256,17 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         ),
     )
     settings.add_argument(
+        "--development-authority-profile",
+        type=Path,
+        metavar="PATH",
+        help=("Private reviewed full-authority development profile; source AKS deployment only"),
+    )
+    settings.add_argument(
+        "--clear-development-authority-profile",
+        action="store_true",
+        help="Explicitly remove a retained source-AKS development profile through a new plan",
+    )
+    settings.add_argument(
         "--add-on",
         action="append",
         choices=tuple(item.value for item in ProductAddOn),

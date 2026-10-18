@@ -26,6 +26,9 @@ from fdai_deployment_cli.deadline_transport import DeadlineTransport
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 from fdai_deployment_cli.deployment_kit import DeploymentKit, archive_verified_kit
 from fdai_deployment_cli.deployment_progress import begin_stage, progress_detail, terminal_output
+from fdai_deployment_cli.development_authority_profile import (
+    DevelopmentAuthorityDeploymentProfile,
+)
 from fdai_deployment_cli.license_issue import deployment_license_token as _license_token
 from fdai_deployment_cli.operational_evidence_verifier_input import (
     OperationalEvidenceVerifierDeploymentInput,
@@ -62,6 +65,8 @@ def deploy_standalone_application(
     application_state_adoption: ApplicationStateAdoption | None = None,
     catalog_review_profile: CatalogReviewDeploymentProfile | None = None,
     operational_evidence_verifier_input: OperationalEvidenceVerifierDeploymentInput | None = None,
+    development_authority_profile: DevelopmentAuthorityDeploymentProfile | None = None,
+    clear_development_authority_profile: bool = False,
     control_package: ControlPackage | None = None,
     source_snapshot: Path | None = None,
     source_snapshot_digest: str | None = None,
@@ -222,6 +227,8 @@ def deploy_standalone_application(
                 catalog_review_profile or CatalogReviewDeploymentProfile.unselected()
             ),
             operational_evidence_verifier_input=operational_evidence_verifier_input,
+            development_authority_profile=development_authority_profile,
+            clear_development_authority_profile=clear_development_authority_profile,
             control_package=control_package,
         )
         if recovery_host is not None:

@@ -29,6 +29,12 @@ from fdai_deployment_cli import (
 )
 from fdai_deployment_cli import foundation_adoption_host as foundation_host
 from fdai_deployment_cli import operational_evidence_verifier_input as oev
+from fdai_deployment_cli.development_authority_profile import (
+    apply_development_authority_profile,
+    clear_development_authority_profile,
+    staged_development_authority_profile_from_path,
+    validate_deployment_target,
+)
 from fdai_deployment_cli import standalone_service_update_recovery as service_recovery
 from fdai_deployment_cli.aks_historical_reconciliation import (
     reconciled_variables,
@@ -237,6 +243,8 @@ def main(argv: list[str] | None = None) -> int:
     prepare.add_argument("--catalog-review-profile", type=Path)
     prepare.add_argument("--catalog-review-private-key", type=Path)
     prepare.add_argument("--operational-evidence-verifier-input", type=Path)
+    prepare.add_argument("--development-authority-profile", type=Path)
+    prepare.add_argument("--clear-development-authority-profile", action="store_true")
     prepare.add_argument("--runtime-platform", default="aks")
     prepare.add_argument("--database-placement", default="postgres-flex")
     prepare.add_argument("--system-node-count", type=int, default=3)
@@ -433,6 +441,16 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         _absolute(verifier_input_path) if verifier_input_path else None
     )
     verifier_input_digest = verifier_input.input_digest if verifier_input is not None else ""
+    development_profile_path = getattr(args, "development_authority_profile", None)
+    development_profile = staged_development_authority_profile_from_path(
+        _absolute(development_profile_path) if development_profile_path else None
+    )
+    clear_development_profile = bool(getattr(args, "clear_development_authority_profile", False))
+    if development_profile is not None and clear_development_profile:
+        raise ValueError("development authority profile and clear request are mutually exclusive")
+    development_profile_digest = (
+        development_profile.input_digest if development_profile is not None else ""
+    )
     foundation.login(_managed_identity_login, work_dir)
     suffix = (
         str(adoption[0]["resource_name_suffix"])
@@ -502,12 +520,32 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             or not _runtime_profile_matches(retained, runtime_profile)
         ):
             raise ValueError("standalone host retained context differs")
-        if posture_changed:
+        foundation.adoption.require_context(retained)
+        source_changed = source_application_inputs.rebind_source_tree(retained, work_dir)
+        authority_changed = False
+        if clear_development_profile:
+            authority_changed = clear_development_authority_profile(retained_values)
+            authority_changed = (
+                retained.pop("development_authority_profile_digest", None) is not None
+                or authority_changed
+            )
+        elif development_profile is not None:
+            validate_deployment_target(
+                development_profile,
+                tenant_id=foundation.tenant_id,
+                subscription_id=foundation.subscription_id,
+                resource_groups=(str(app["name"]), str(ops["resource_group_name"])),
+                source_revision=str(retained.get("source_commit", "")),
+            )
+            apply_development_authority_profile(retained_values, development_profile)
+            authority_changed = (
+                retained.get("development_authority_profile_digest")
+                != development_profile.input_digest
+            )
+            retained["development_authority_profile_digest"] = development_profile.input_digest
+        if posture_changed or source_changed or authority_changed:
             _replace_private_json(retained_context, retained)
             _replace_private_json(retained_variables, retained_values)
-        foundation.adoption.require_context(retained)
-        if source_application_inputs.rebind_source_tree(retained, work_dir):
-            _replace_private_json(retained_context, retained)
         _terraform_init(work_dir, retained)
         if adoption is not None:
             _adopt_application_state(work_dir, retained, *adoption)
@@ -523,6 +561,8 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             "subscription_ready": False,
         }
     source_mode = hasattr(args, "source_snapshot")
+    if clear_development_profile:
+        raise ValueError("development authority profile cannot be cleared on a new installation")
     if source_mode:
         source_snapshot = _absolute(args.source_snapshot)
         source_artifacts = source_application_inputs.source_host_artifacts(
@@ -640,6 +680,15 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "ingestion_cors_allow_origins": "https://localhost",
         "enable_llm": adoption is not None,
     }
+    if development_profile is not None:
+        validate_deployment_target(
+            development_profile,
+            tenant_id=foundation.tenant_id,
+            subscription_id=foundation.subscription_id,
+            resource_groups=(str(app["name"]), str(ops["resource_group_name"])),
+            source_revision=source_commit,
+        )
+        apply_development_authority_profile(values, development_profile)
     values.update(
         product_terraform_values(
             runtime_profile,
@@ -676,6 +725,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "catalog_review_profile_digest": catalog_profile.profile_digest,
         "catalog_review_selected": catalog_profile.selected,
         "oev_input_digest": verifier_input_digest,
+        "development_authority_profile_digest": development_profile_digest,
         "state_resource_group": str(ops["resource_group_name"]),
         "state_account": str(state["account_name"]),
         "state_container": str(state["container_name"]),

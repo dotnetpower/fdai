@@ -1205,6 +1205,10 @@ def test_service_workflow_seals_core_model_binding_transition() -> None:
         "FDAI_APPROVAL_PROFILE_JSON: ${{ secrets.FDAI_APPROVAL_PROFILE_JSON || "
         "vars.FDAI_APPROVAL_PROFILE_JSON }}" in _WORKFLOW
     )
+    assert (
+        "FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON: "
+        "${{ vars.FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON }}" in _WORKFLOW
+    )
     assert '[[ "$SERVICE" == "core-control-plane" ]]' in _WORKFLOW
     assert "resolved_model_args+=(--model-binding-transition)" in _WORKFLOW
     assert '"${resolved_model_args[@]}"' in _WORKFLOW
@@ -1216,6 +1220,8 @@ def test_service_workflow_seals_core_model_binding_transition() -> None:
     assert 'name = "LLM_RESOLVED_MODELS_SHA256"' in _CORE_TERRAFORM
     assert 'name = "FDAI_MODEL_ENDPOINTS_JSON"' in _CORE_TERRAFORM
     assert 'name = "FDAI_APPROVAL_PROFILE_JSON"' in _CORE_TERRAFORM
+    assert 'name = "FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON"' in _CORE_TERRAFORM
+    assert 'name = "FDAI_FULL_AUTHORITY_DEVELOPMENT_EXECUTOR_PRINCIPAL"' in _CORE_TERRAFORM
     assert "var.llm.resolved_models_digest" in _CORE_TERRAFORM
     assert "output -json llm_model_endpoints" in _WORKFLOW
 
