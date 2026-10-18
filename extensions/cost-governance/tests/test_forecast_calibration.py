@@ -75,6 +75,7 @@ async def test_persists_exact_forecasts_and_measures_only_eligible_cohort() -> N
     assert snapshot.signed_bias_ratio == Decimal("0.075")
     assert snapshot.zero_actual_samples == 0
     assert snapshot.latest_observed_at == second.window_end_at + timedelta(minutes=5)
+    assert len(snapshot.evidence_refs) == 5
 
 
 async def test_zero_actual_and_small_cohort_remain_explicitly_unmeasured() -> None:
@@ -134,3 +135,8 @@ def test_contract_rejects_invalid_windows_currency_and_evidence() -> None:
         replace(prediction, predicted_amount=Decimal("0"))
     with pytest.raises(ValueError, match="evidence refs"):
         replace(prediction, evidence_refs=())
+    with pytest.raises(ValueError, match="source cutoff"):
+        replace(
+            prediction,
+            source_cutoff=prediction.window_start_at + timedelta(seconds=1),
+        )

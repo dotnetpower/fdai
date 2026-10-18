@@ -39,6 +39,8 @@ class CostForecastPrediction:
         _exact("target_ref", self.target_ref)
         _exact("model_revision", self.model_revision)
         _window(self.source_cutoff, self.window_start_at, self.window_end_at)
+        if self.source_cutoff > self.window_start_at:
+            raise ValueError("forecast source cutoff MUST NOT follow the forecast window start")
         _currency(self.currency)
         _amount("predicted_amount", self.predicted_amount, positive=True)
         _refs(self.evidence_refs)
@@ -160,6 +162,7 @@ class DurableForecastCalibration:
             predicted_amount = Decimal(str(prediction["predicted_amount"]))
             actual_amount = Decimal(str(actual["actual_amount"]))
             evidence.append(str(prediction["record_digest"]))
+            evidence.append(str(actual["record_digest"]))
             evidence.append(str(actual["evidence_digest"]))
             observed.append(datetime.fromisoformat(str(actual["observed_at"])))
             if actual_amount == 0:
