@@ -82,5 +82,69 @@ def test_service_update_operation_is_bound_to_its_service() -> None:
             )
 
 
+@pytest.mark.parametrize(
+    ("operation", "digest"),
+    [("select", "1" * 64), ("clear", "")],
+)
+def test_core_service_update_accepts_bound_development_authority(
+    operation: str, digest: str
+) -> None:
+    service_update = _service_update("core-control-plane")
+    service_update.update(
+        development_authority_operation=operation,
+        development_authority_profile_digest=digest,
+    )
+
+    assert validate_plan_review(
+        _review(
+            "application",
+            operation="service-update-core-control-plane-0123456789ab",
+            service_update=service_update,
+        )
+    ) == ("application", 0)
+
+
+@pytest.mark.parametrize(
+    ("service", "operation", "digest"),
+    [
+        ("operator-service", "select", "1" * 64),
+        ("core-control-plane", "preserve", ""),
+        ("core-control-plane", "select", ""),
+        ("core-control-plane", "clear", "1" * 64),
+    ],
+)
+def test_service_update_rejects_invalid_development_authority_binding(
+    service: str, operation: str, digest: str
+) -> None:
+    service_update = _service_update(service)
+    service_update.update(
+        development_authority_operation=operation,
+        development_authority_profile_digest=digest,
+    )
+
+    with pytest.raises(ValueError, match="invalid or expired"):
+        validate_plan_review(
+            _review(
+                "application",
+                operation=f"service-update-{service}-0123456789ab",
+                service_update=service_update,
+            )
+        )
+
+
+def test_service_update_rejects_partial_development_authority_binding() -> None:
+    service_update = _service_update("core-control-plane")
+    service_update["development_authority_operation"] = "select"
+
+    with pytest.raises(ValueError, match="invalid or expired"):
+        validate_plan_review(
+            _review(
+                "application",
+                operation="service-update-core-control-plane-0123456789ab",
+                service_update=service_update,
+            )
+        )
+
+
 def test_review_without_operation_remains_accepted() -> None:
     assert validate_plan_review(_review("substrate")) == ("substrate", 0)
