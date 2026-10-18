@@ -26,6 +26,9 @@ _FIELDS = frozenset(
 )
 _LEGACY_FIELDS = _FIELDS - {"runtime_profile_digest", "runtime_platform"}
 _SERVICE_UPDATE_FIELDS = frozenset({"service", "image", "source_commit", "update_digest"})
+_SERVICE_UPDATE_AUTHORITY_FIELDS = frozenset(
+    {"development_authority_operation", "development_authority_profile_digest"}
+)
 _HISTORICAL_RECONCILIATION_FIELDS = frozenset({"operation", "variables_digest", "mutations"})
 _RESIDUAL_RECOVERY_FIELDS = frozenset(
     {"operation", "original_plan_digest", "original_claim_digest"}
@@ -70,10 +73,15 @@ def validate_plan_review(review: dict[str, Any], *, allow_expired: bool = False)
     ):
         raise ValueError(_ERROR)
     service_update = review.get("service_update")
+    service_update_fields = set(service_update) if isinstance(service_update, dict) else set()
     if service_update is not None and (
         stage != "application"
         or not isinstance(service_update, dict)
-        or set(service_update) != _SERVICE_UPDATE_FIELDS
+        or service_update_fields
+        not in {
+            _SERVICE_UPDATE_FIELDS,
+            _SERVICE_UPDATE_FIELDS | _SERVICE_UPDATE_AUTHORITY_FIELDS,
+        }
         or service_update.get("service")
         not in {
             "core-control-plane",
@@ -94,6 +102,22 @@ def validate_plan_review(review: dict[str, Any], *, allow_expired: bool = False)
         or re.fullmatch(r"[0-9a-f]{64}", service_update["update_digest"]) is None
     ):
         raise ValueError(_ERROR)
+    if service_update_fields == _SERVICE_UPDATE_FIELDS | _SERVICE_UPDATE_AUTHORITY_FIELDS:
+        authority_operation = service_update["development_authority_operation"]
+        authority_digest = service_update["development_authority_profile_digest"]
+        if (
+            service_update["service"] != "core-control-plane"
+            or authority_operation not in {"select", "clear"}
+            or (
+                authority_operation == "select"
+                and (
+                    not isinstance(authority_digest, str)
+                    or re.fullmatch(r"[0-9a-f]{64}", authority_digest) is None
+                )
+            )
+            or (authority_operation == "clear" and authority_digest != "")
+        ):
+            raise ValueError(_ERROR)
     if "operation" in review and not _operation_matches_stage(
         stage, review.get("operation"), service_update
     ):
