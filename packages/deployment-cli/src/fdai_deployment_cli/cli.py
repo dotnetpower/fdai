@@ -70,6 +70,7 @@ from fdai_deployment_cli.simulation import rehearse
 from fdai_deployment_cli.source_azure import plan_source_installation
 from fdai_deployment_cli.source_deploy import prepare_source_deployment
 from fdai_deployment_cli.source_service_update import deploy_source_service_update
+from fdai_deployment_cli.source_service_update_cli import source_service_update_inputs
 from fdai_deployment_cli.source_teardown import AzureResourceGroupClient, apply_source_teardown
 from fdai_deployment_cli.standalone_deploy import deploy_azure_foundation
 from fdai_deployment_cli.state import read_journal
@@ -461,31 +462,9 @@ def _provision_entra(args: argparse.Namespace) -> int:
 def _provision_source_service_update(args: argparse.Namespace) -> int:
     """Build and deploy one source-selected service from an eligible deployment host."""
 
-    source = args.source.absolute()
-    application = args.application_work_dir.absolute()
-    from fdai_deployment_cli.development_authority_cli import (
-        selected_development_authority,
+    source, application, selected, development_profile, clear_development_profile = (
+        source_service_update_inputs(args)
     )
-
-    development_profile, clear_development_profile = selected_development_authority(
-        args,
-        cwd=Path.cwd(),
-    )
-    if (
-        development_profile is not None or clear_development_profile
-    ) and args.service != "core-control-plane":
-        raise ValueError("development authority changes require a Core service update")
-    selected = args.work_dir
-    if selected is None:
-        commit = subprocess.run(
-            ("git", "rev-parse", "HEAD"),
-            cwd=source,
-            check=True,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        ).stdout.strip()
-        selected = Path.home() / ".local/state/fdai/source-service-updates" / commit / args.service
     result = deploy_source_service_update(
         source_root=source,
         application_work_dir=application,
