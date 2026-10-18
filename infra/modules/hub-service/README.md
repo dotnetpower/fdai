@@ -180,6 +180,42 @@ verify_candidate() {
   fi
 }
 
+verify_live_job() {
+  local expected observed address readback
+  verify_candidate || return 1
+  if ! expected=$(jq -Sce --arg name "$1" '
+    select(.resource_changes | type == "array" and length > 0)
+    | select(all(.resource_changes[] | select(.mode == "managed");
+        .change.actions == ["no-op"] and
+        all(.change.after_unknown // {} | ..; . != true)))
+    | [.planned_values | .. | objects |
+        select(.mode? == "managed" and .type? == "azurerm_container_app_job" and .name? == $name)]
+    | select(length == 1) | .[0]
+    | select((.address | type == "string" and length > 0) and
+        (.values.id | type == "string" and length > 0))
+    | {address, values}
+    ' "$PRIVATE_PLAN_JSON"); then
+    echo "Hub Job dispatch requires a reviewed, fully known zero-change plan after apply." >&2
+    return 1
+  fi
+  address=$(jq -er .address <<< "$expected") || return 1
+  readback=$(mktemp "${PRIVATE_PLAN}.job-readback.XXXXXX") || return 1
+  if ! timeout 120s terraform -chdir="$ROOT" plan -refresh-only -detailed-exitcode \
+    -input=false -lock-timeout=10s -var-file="$PRIVATE_INPUTS" -out="$readback" \
+    > "$readback.log" 2>&1; then
+    echo "Hub live Job readback failed or detected drift; dispatch stopped. Inspect private logs." >&2
+    return 1
+  fi
+  if ! observed=$(timeout 30s terraform -chdir="$ROOT" show -json "$readback" \
+    2>> "$readback.log" | jq -Sce --arg address "$address" '
+      [.prior_state.values | .. | objects | select(.address? == $address)]
+      | select(length == 1) | .[0] | {address, values}
+      ' 2>> "$readback.log") || [[ "$expected" != "$observed" ]]; then
+    echo "Hub live Job resource differs from the sealed candidate or is unknown; dispatch stopped." >&2
+    return 1
+  fi
+}
+
 seal_candidate() {
   if [[ -e "$PRIVATE_STAGE_CONTEXT" || -L "$PRIVATE_STAGE_CONTEXT" ||
         -e "$PRIVATE_STAGE_HASHES" || -L "$PRIVATE_STAGE_HASHES" ]]; then
@@ -197,13 +233,21 @@ seal_candidate() {
 ```
 
 Run `seal_candidate` only after producing and privately reviewing the saved plan below.
-Run `verify_candidate` immediately before each apply or Job start. A failed guard stops that
+Run `verify_candidate` immediately before each apply and `verify_live_job` before each Job start.
+A failed guard stops that
 dispatch; don't continue in a shell that ignores failures. These functions assume the
 `set -euo pipefail` session above. A changed source/image needs a rebuilt and revalidated
 candidate; a changed sealed stage needs a new plan, seal and approval. Never reseal drift
 automatically. Keep the read-only seals and validation evidence with the private saved plan.
 This detects accidental drift, not a hostile operator rewriting both the files and their seal.
 It doesn't replace Terraform's own state-lock/stale-plan checks or independent effect readback.
+The live guard uses native provider refresh, without applying it, to compare the complete Job
+resource with the sealed candidate, including identity, template, secrets and registry bindings.
+It also rejects refresh drift, even if another actor already adopted it into state. Readback
+plans and logs remain private beside the stage plan; don't apply them or print their contents.
+Job starts in this procedure accept no execution-template, command or environment overrides.
+An override needs its own separately reviewed and sealed execution candidate; it isn't supported
+by the commands below. Keep configuration frozen between verification and dispatch.
 
 ## Native Terraform and manual Jobs
 
@@ -224,7 +268,20 @@ The application initialization can be retried only after investigating an explic
    terraform -chdir="$ROOT" apply "$PRIVATE_PLAN"
    ```
 
-2. Start only this product's manual bootstrap Job. Capture its execution name, then inspect
+2. After apply, obtain a fully known zero-change dispatch plan with the same approved source,
+   image and inputs. Use new private paths for `PRIVATE_PLAN`, `PRIVATE_PLAN_JSON`,
+   `PRIVATE_STAGE_CONTEXT` and `PRIVATE_STAGE_HASHES`; never overwrite the apply candidate.
+   Exit code 2 means changes remain and blocks dispatch. Review the new plan before sealing it.
+
+   ```bash
+   terraform -chdir="$ROOT" plan -detailed-exitcode -input=false \
+     -var-file="$PRIVATE_INPUTS" -out="$PRIVATE_PLAN"
+   terraform -chdir="$ROOT" show -json "$PRIVATE_PLAN" > "$PRIVATE_PLAN_JSON"
+   # Review this zero-change dispatch plan before sealing; never reseal observed drift.
+   seal_candidate
+   ```
+
+   Start only this product's manual bootstrap Job. Capture its execution name, then inspect
    status and sanitized app logs with native CLI. There is no automatic retry or polling loop.
 
    ```bash
@@ -232,6 +289,7 @@ The application initialization can be retried only after investigating an explic
    JOB_BINDING=$(planned_job bootstrap)
    RG=$(jq -er .group <<< "$JOB_BINDING")
    JOB=$(jq -er .name <<< "$JOB_BINDING")
+   verify_live_job bootstrap
    EXECUTION=$(az containerapp job start -g "$RG" -n "$JOB" --query name -o tsv)
    az containerapp job execution show -g "$RG" -n "$JOB" \
      --job-execution-name "$EXECUTION" --query '{name:name,status:properties.status}' -o json
@@ -265,14 +323,25 @@ The application initialization can be retried only after investigating an explic
    exact bootstrap principal through the approved private SQL session; never drop the runtime
    role. Verify the human administrator still connects. Cleanup failure blocks activation.
 
-4. Start and observe the migration Job exactly as above using
+4. After the migration-stage apply, repeat step 2's zero-change plan, review and seal with new
+   private paths. Start and observe the migration Job exactly as above using
    `JOB_BINDING=$(planned_job migrate)` and container `migrate`. Derive the RG and Job name
    from this stage's sealed plan, not mutable Terraform output or a prior stage's shell variables.
+
+   ```bash
+   JOB_BINDING=$(planned_job migrate)
+   RG=$(jq -er .group <<< "$JOB_BINDING")
+   JOB=$(jq -er .name <<< "$JOB_BINDING")
+   verify_live_job migrate
+   EXECUTION=$(az containerapp job start -g "$RG" -n "$JOB" --query name -o tsv)
+   ```
+
    Require succeeded execution.
    The command migrates only this product's namespace and verifies revision 1.
    Keep `enable_migration_jobs=true` once it exists; don't invert runtime flags to change stages.
-   Re-run the existing Job with `schema` as an explicitly reviewed command override if an
-   independent schema check is required. Don't mutate a shared Job while it is running.
+   Verify the schema through the approved private product-database observer, without overriding
+   this Job's command. A `schema` execution override needs a separate sealed candidate and isn't
+   supported by this procedure. Don't mutate a shared Job while it is running.
 
 5. In a new sealed stage set `enable_apps=true`, plan/apply, then independently read this product's `/healthz`,
    `/readyz`, UI assets and deep links from an allowed client. A second Terraform plan should

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import os
 import shutil
@@ -39,8 +40,25 @@ printf '{"subscription":"%s","tenant":"%s"}\\n' "$TEST_SUBSCRIPTION" "$TEST_TENA
 """,
         "terraform": """#!/bin/bash
 if [[ "$TEST_TERRAFORM_FAILURE" == 1 ]]; then exit 69; fi
-test "$*" = "-chdir=$ROOT show -json $PRIVATE_PLAN" || exit 64
-cat "$TEST_RENDERED_PLAN"
+if [[ "$2" == plan ]]; then
+  test "$#" = 8 || exit 64
+  test "$1" = "-chdir=$ROOT" || exit 64
+  test "$2 $3 $4" = "plan -refresh-only -detailed-exitcode" || exit 64
+  test "$5 $6" = "-input=false -lock-timeout=10s" || exit 64
+  test "$7" = "-var-file=$PRIVATE_INPUTS" || exit 64
+  for argument in "$@"; do
+    case "$argument" in -out=*) output="${argument#-out=}" ;; esac
+  done
+  cp "$TEST_LIVE_PLAN" "$output"
+  exit "${TEST_READBACK_EXIT:-0}"
+fi
+if [[ "$*" == "-chdir=$ROOT show -json $PRIVATE_PLAN" ]]; then
+  cat "$TEST_RENDERED_PLAN"
+elif [[ "$2 $3" == "show -json" ]]; then
+  cat "$4"
+else
+  exit 64
+fi
 """,
     }
     for name, content in scripts.items():
@@ -64,6 +82,7 @@ cat "$TEST_RENDERED_PLAN"
         "ROOT": "infra/release-hub" if kind == "release" else "infra/lifecycle-hub",
         "TARGET": kind,
         "TEST_RENDERED_PLAN": str(tmp_path / "rendered-plan.json"),
+        "TEST_LIVE_PLAN": str(tmp_path / "live-plan.json"),
     }
     for variable in (
         "PRIVATE_BUILD_METADATA",
@@ -109,10 +128,36 @@ cat "$TEST_RENDERED_PLAN"
                                 "mode": "managed",
                                 "type": resource,
                                 "name": "bootstrap",
+                                "address": f"module.hub.{resource}.bootstrap[0]",
                                 "values": {
+                                    "id": f"/synthetic/{resource}/bootstrap",
                                     "resource_group_name": "synthetic-group",
                                     "name": "synthetic-job",
-                                    "template": [{"container": [{"name": "hub", "image": IMAGE}]}],
+                                    "identity": [
+                                        {
+                                            "type": "UserAssigned",
+                                            "identity_ids": ["/synthetic/identities/bootstrap"],
+                                        }
+                                    ],
+                                    "template": [
+                                        {
+                                            "container": [
+                                                {
+                                                    "name": "hub",
+                                                    "image": IMAGE,
+                                                    "command": [
+                                                        "python",
+                                                        "-m",
+                                                        "synthetic.bootstrap",
+                                                    ],
+                                                    "args": [],
+                                                    "env": [],
+                                                    "cpu": 0.5,
+                                                    "memory": "1Gi",
+                                                }
+                                            ]
+                                        }
+                                    ],
                                 },
                             }
                             for resource in ("azurerm_container_app", "azurerm_container_app_job")
@@ -122,12 +167,24 @@ cat "$TEST_RENDERED_PLAN"
             }
         },
     }
+    plan["resource_changes"] = [
+        {
+            "address": f"module.hub.{resource}.bootstrap[0]",
+            "mode": "managed",
+            "change": {"actions": ["no-op"], "after_unknown": {}},
+        }
+        for resource in ("azurerm_container_app", "azurerm_container_app_job")
+    ]
     return environment, plan
 
 
 def _run(tmp_path: Path, environment, plan, action: str = ""):
     Path(environment["PRIVATE_PLAN_JSON"]).write_text(json.dumps(plan))
     Path(environment["TEST_RENDERED_PLAN"]).write_text(json.dumps(plan))
+    if not Path(environment["TEST_LIVE_PLAN"]).exists():
+        Path(environment["TEST_LIVE_PLAN"]).write_text(
+            json.dumps({"prior_state": {"values": plan["planned_values"]}})
+        )
     bash = shutil.which("bash")
     assert bash, "Bash is required for the native candidate checks."
     for tool in ("jq", "sha256sum", "cmp", "timeout"):
@@ -161,6 +218,94 @@ def test_each_product_dispatches_only_its_sealed_candidate(tmp_path, kind):
     for variable in ("PRIVATE_STAGE_CONTEXT", "PRIVATE_STAGE_HASHES"):
         assert Path(environment[variable]).stat().st_mode & 0o777 == 0o400
     assert not result.stdout
+
+
+@pytest.mark.parametrize("kind", ["release", "target"])
+@pytest.mark.parametrize("job", ["bootstrap", "migrate"])
+def test_job_dispatch_requires_matching_live_complete_resource(tmp_path, kind, job):
+    environment, plan = _fixture(tmp_path, kind)
+    resource = plan["planned_values"]["root_module"]["child_modules"][0]["resources"][1]
+    resource["name"] = job
+    result = _run(tmp_path, environment, plan, f"verify_live_job {job}")
+    assert result.returncode == 0, result.stderr
+    assert (tmp_path / "dispatched").exists()
+    assert not result.stdout
+
+
+@pytest.mark.parametrize(
+    "drift",
+    [
+        "identity",
+        "image",
+        "command",
+        "args",
+        "environment",
+        "cpu",
+        "volume",
+        "registry",
+        "secret",
+        "missing",
+        "refresh-error",
+        "refresh-drift",
+        "invalid-json",
+        "sealed-create",
+        "unknown-id",
+        "unknown-template",
+    ],
+)
+def test_live_job_drift_or_unknown_observation_never_dispatches(tmp_path, drift):
+    environment, plan = _fixture(tmp_path)
+    live = copy.deepcopy(plan)
+    resource = live["planned_values"]["root_module"]["child_modules"][0]["resources"][1]
+    values = resource["values"]
+    container = values["template"][0]["container"][0]
+    if drift == "identity":
+        values["identity"][0]["identity_ids"] = ["/synthetic/identities/other"]
+    elif drift in {"image", "command", "args", "cpu"}:
+        container[drift] = {
+            "image": IMAGE.replace("a" * 64, "b" * 64),
+            "command": ["unexpected"],
+            "args": ["unexpected"],
+            "cpu": 1,
+        }[drift]
+    elif drift == "environment":
+        container["env"].append({"name": "UNREVIEWED", "value": "synthetic"})
+    elif drift == "volume":
+        values["template"][0]["volume"] = [{"name": "unexpected"}]
+    elif drift in {"registry", "secret"}:
+        values[drift] = [{"name": "unexpected"}]
+    elif drift == "missing":
+        live["planned_values"]["root_module"]["child_modules"][0]["resources"].pop()
+    elif drift in {"refresh-error", "refresh-drift"}:
+        environment["TEST_READBACK_EXIT"] = "69" if drift == "refresh-error" else "2"
+    elif drift == "sealed-create":
+        plan["resource_changes"][1]["change"]["actions"] = ["create"]
+    elif drift == "unknown-id":
+        plan["planned_values"]["root_module"]["child_modules"][0]["resources"][1]["values"][
+            "id"
+        ] = None
+    elif drift == "unknown-template":
+        plan["resource_changes"][1]["change"]["after_unknown"] = {"template": True}
+    Path(environment["TEST_LIVE_PLAN"]).write_text(
+        "{"
+        if drift == "invalid-json"
+        else json.dumps({"prior_state": {"values": live["planned_values"]}})
+    )
+    result = _run(tmp_path, environment, plan, "verify_live_job bootstrap")
+    assert result.returncode != 0
+    assert not (tmp_path / "dispatched").exists()
+    assert "Hub " in result.stderr
+    assert "UNREVIEWED" not in result.stderr + result.stdout
+
+
+def test_bootstrap_and_migration_starts_require_live_verification_without_overrides():
+    procedure = README.read_text()
+    for job in ("bootstrap", "migrate"):
+        assert (
+            f"verify_live_job {job}\n"
+            '   EXECUTION=$(az containerapp job start -g "$RG" -n "$JOB" --query name -o tsv)'
+        ) in procedure
+    assert "Job starts in this procedure accept no execution-template" in procedure
 
 
 @pytest.mark.parametrize(
@@ -312,3 +457,10 @@ def test_native_terraform_plan_records_literal_product_binding(tmp_path):
     plan = json.loads(run("show", "-json", "synthetic.plan"))
     binding = plan["configuration"]["root_module"]["module_calls"]["hub"]["expressions"]["kind"]
     assert binding == {"constant_value": "release"}
+    run("apply", "-input=false", "synthetic.plan")
+    run("plan", "-detailed-exitcode", "-input=false", "-out=dispatch.plan")
+    dispatch = json.loads(run("show", "-json", "dispatch.plan"))
+    assert all(change["change"]["actions"] == ["no-op"] for change in dispatch["resource_changes"])
+    run("plan", "-refresh-only", "-detailed-exitcode", "-input=false", "-out=readback.plan")
+    readback = json.loads(run("show", "-json", "readback.plan"))
+    assert dispatch["planned_values"] == readback["prior_state"]["values"]
