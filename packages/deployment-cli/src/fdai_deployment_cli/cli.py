@@ -463,6 +463,18 @@ def _provision_source_service_update(args: argparse.Namespace) -> int:
 
     source = args.source.absolute()
     application = args.application_work_dir.absolute()
+    from fdai_deployment_cli.development_authority_cli import (
+        selected_development_authority,
+    )
+
+    development_profile, clear_development_profile = selected_development_authority(
+        args,
+        cwd=Path.cwd(),
+    )
+    if (
+        development_profile is not None or clear_development_profile
+    ) and args.service != "core-control-plane":
+        raise ValueError("development authority changes require a Core service update")
     selected = args.work_dir
     if selected is None:
         commit = subprocess.run(
@@ -485,6 +497,8 @@ def _provision_source_service_update(args: argparse.Namespace) -> int:
         adopt_historical_variables=args.adopt_historical_variables,
         adopt_historical_live=args.adopt_historical_live,
         adopt_historical_plan=args.adopt_historical_plan,
+        development_authority_profile=development_profile,
+        clear_development_authority_profile=clear_development_profile,
     )
     print(
         json.dumps(result, sort_keys=True, separators=(",", ":"))

@@ -17,6 +17,9 @@ from typing import Any
 from fdai_deployment_cli.aks_service_update import SERVICES
 from fdai_deployment_cli.contracts import canonical_bytes, canonical_digest, load_json_object
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
+from fdai_deployment_cli.development_authority_profile import (
+    DevelopmentAuthorityDeploymentProfile,
+)
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_bytes
 from fdai_deployment_cli.source_input import inspect_source
 from fdai_deployment_cli.source_snapshot import materialize_source, verify_source_snapshot
@@ -43,11 +46,19 @@ def deploy_source_service_update(
     adopt_historical_plan: Path | None = None,
     approve_import: Callable[[Path, dict[str, Any], DeploymentDeadline], Path] | None = None,
     approve_plan: Callable[[Path, dict[str, Any]], Path] | None = None,
+    development_authority_profile: DevelopmentAuthorityDeploymentProfile | None = None,
+    clear_development_authority_profile: bool = False,
 ) -> dict[str, object]:
     """Build, import, plan, approve, apply, and verify one dev AKS service update."""
 
     if service not in SERVICES:
         raise ValueError("source service update names an unsupported service")
+    if (
+        development_authority_profile is not None or clear_development_authority_profile
+    ) and service != "core-control-plane":
+        raise ValueError("development authority changes require a Core service update")
+    if development_authority_profile is not None and clear_development_authority_profile:
+        raise ValueError("development authority select and clear are mutually exclusive")
     deadline = DeploymentDeadline(timeout_seconds)
     source = inspect_source(source_root)
     application = application_work_dir.absolute()
@@ -58,6 +69,21 @@ def deploy_source_service_update(
     _require_private_directory(work, create=True)
     lock = _lock(work)
     try:
+        development_authority_profile_path: Path | None = None
+        if development_authority_profile is not None:
+            development_authority_profile_path = work / "development-authority-profile.json"
+            profile_bytes = development_authority_profile.profile_json.encode("utf-8")
+            if development_authority_profile_path.exists():
+                if (
+                    read_private_bytes(
+                        development_authority_profile_path,
+                        max_bytes=256 * 1024,
+                    )
+                    != profile_bytes
+                ):
+                    raise ValueError("retained development authority profile differs")
+            else:
+                write_private_bytes(development_authority_profile_path, profile_bytes)
         adoption_inputs = (
             adopt_historical_binding,
             adopt_historical_state,
@@ -170,6 +196,18 @@ def deploy_source_service_update(
             "application_work_binding": canonical_digest(
                 {"path": str(application), "target_binding": context["target_binding"]}
             ),
+            "development_authority_operation": (
+                "select"
+                if development_authority_profile is not None
+                else "clear"
+                if clear_development_authority_profile
+                else "preserve"
+            ),
+            "development_authority_profile_digest": (
+                development_authority_profile.input_digest
+                if development_authority_profile is not None
+                else ""
+            ),
         }
         intent_path = work / "source-service-update-intent.json"
         snapshot = work / "source-snapshot"
@@ -242,6 +280,11 @@ def deploy_source_service_update(
             "image": imported.get("image"),
             "source_commit": source.commit,
         }
+        if intent["development_authority_operation"] != "preserve":
+            expected_update.update(
+                development_authority_operation=intent["development_authority_operation"],
+                development_authority_profile_digest=intent["development_authority_profile_digest"],
+            )
         active = context.get("active_service_update")
         if active is None:
             prepared = _host_json(
@@ -254,6 +297,19 @@ def deploy_source_service_update(
                     str(imported["image"]),
                     "--source-commit",
                     source.commit,
+                    *(
+                        (
+                            "--development-authority-profile",
+                            str(development_authority_profile_path),
+                        )
+                        if development_authority_profile is not None
+                        else ()
+                    ),
+                    *(
+                        ("--clear-development-profile",)
+                        if clear_development_authority_profile
+                        else ()
+                    ),
                 ),
                 timeout=deadline.remaining(300),
             )

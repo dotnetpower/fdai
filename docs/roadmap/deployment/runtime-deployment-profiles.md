@@ -406,7 +406,7 @@ verification-first and bounded residual rules as every other stage.
 One bounded exception lets an eligible host run `fdaictl provision source-service-update` for one service on an
 existing healthy `dev` AKS installation. The source-built image remains operator-selected evidence rather than release trust. Current human approval gates its
 Managed Identity import and the Deployment-only exact plan; digest and health readback, unchanged peers, and targeted zero change remain required.
-
+For Core only, that same one-Deployment update may select or clear the reviewed development authority profile. The profile digest and source revision join the update identity; no peer, infrastructure, or product-profile change is admitted.
 An optional Foundation `application_workload` token can separate the new application group's name
 from operations naming without changing the AKS profile. It grants no ownership of an existing group;
 partial-state recovery follows the [application group collision contract](installable-deployment-cli.md#application-group-collision-recovery).
