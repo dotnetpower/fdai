@@ -7,7 +7,6 @@ import importlib
 import json
 import os
 import re
-import select
 import subprocess
 import sys
 import time
@@ -35,6 +34,9 @@ from fdai_deployment_cli.operational_evidence_verifier_input import (
 )
 from fdai_deployment_cli.private_output import read_private_bytes, write_private_output
 from fdai_deployment_cli.runtime_profile import RuntimeDeploymentProfile
+from fdai_deployment_cli.standalone_approval_input import (
+    wait_for_approval_input as _wait_for_approval_input,
+)
 from fdai_deployment_cli.source_application_inputs import (
     build_source_console,
     prepare_source_recovery_host,
@@ -867,21 +869,6 @@ def _approval_input(*, timeout_seconds: int = 600) -> str:
         return input("").strip()
     except EOFError as exc:
         raise ValueError("approval input closed; no new approval was granted") from exc
-
-
-def _wait_for_approval_input(timeout_seconds: int) -> None:
-    """Wait only on a real terminal with the plan and invocation's remaining budget."""
-
-    if timeout_seconds <= 0:
-        raise TimeoutError("standalone approval deadline expired; no approval was granted")
-    if not sys.stdin.isatty():
-        raise ValueError("standalone approval requires an interactive terminal")
-    try:
-        readable, _, _ = select.select([sys.stdin], [], [], timeout_seconds)
-    except (OSError, ValueError):
-        raise ValueError("standalone approval input is unavailable") from None
-    if not readable:
-        raise TimeoutError("standalone approval input timed out; no approval was granted")
 
 
 def _require_receipt(value: dict[str, Any], stage: str) -> None:

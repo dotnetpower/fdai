@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from datetime import datetime
 from typing import Any
@@ -30,6 +31,16 @@ class DevelopmentProfileTfvarsError(ValueError):
     """Raised when a service deployment profile input is invalid."""
 
 
+def selected_profile_json(raw_json: str | None) -> str:
+    """Resolve the explicit or ambient development profile input."""
+
+    return (
+        os.environ.get("FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON", "").strip()
+        if raw_json is None
+        else raw_json
+    )
+
+
 def bind_development_profile(
     materialized: dict[str, Any],
     *,
@@ -40,7 +51,8 @@ def bind_development_profile(
 ) -> None:
     """Attach one canonical development profile and its distinct executor."""
 
-    if not raw_json:
+    selected = selected_profile_json(raw_json)
+    if not selected:
         return
     if approval_profile_json:
         raise DevelopmentProfileTfvarsError(
@@ -51,7 +63,7 @@ def bind_development_profile(
             "full-authority development profile is valid only for Core in dev"
         )
     try:
-        payload = json.loads(raw_json)
+        payload = json.loads(selected)
     except json.JSONDecodeError as exc:
         raise DevelopmentProfileTfvarsError(
             "FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON must contain valid JSON"
@@ -172,4 +184,8 @@ def _aware_time(value: object, name: str) -> datetime:
     return parsed
 
 
-__all__ = ["DevelopmentProfileTfvarsError", "bind_development_profile"]
+__all__ = [
+    "DevelopmentProfileTfvarsError",
+    "bind_development_profile",
+    "selected_profile_json",
+]

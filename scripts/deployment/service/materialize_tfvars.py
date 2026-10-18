@@ -15,7 +15,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from approval_profile_tfvars import bind_approval_profile
-from development_profile_tfvars import bind_development_profile
+from development_profile_tfvars import bind_development_profile, selected_profile_json
 from service_contract import ServiceContractError, normalize_api_audience, resolve_service
 from stewardship_tfvars import stewardship_gitops_binding
 
@@ -680,22 +680,18 @@ def select_tfvars(
             web_search_requested=web_search_requested,
             web_search_allowed_domains=web_search_allowed_domains,
         )
-    effective_development_profile = (
-        os.environ.get("FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON", "").strip()
-        if development_profile_json is None
-        else development_profile_json
-    )
+    development_profile_json = selected_profile_json(development_profile_json)
     bind_approval_profile(
         materialized,
         service=service,
         raw_json=approval_profile_json,
-        development_profile_json=effective_development_profile or "",
+        development_profile_json=development_profile_json,
     )
     bind_development_profile(
         materialized,
         service=service,
         environment=environment,
-        raw_json=effective_development_profile,
+        raw_json=development_profile_json,
         approval_profile_json=approval_profile_json,
     )
     if service in {"core-control-plane", "document-ingestion-api"}:

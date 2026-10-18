@@ -186,8 +186,9 @@ def _provision_azure(args: argparse.Namespace) -> int:
         load_catalog_review_profile,
     )
     from fdai_deployment_cli.installation_scope import InstallationOptions
-    from fdai_deployment_cli.development_authority_profile import (
-        load_development_authority_profile,
+    from fdai_deployment_cli.development_authority_cli import (
+        selected_development_authority,
+        validate_development_authority_command,
     )
     from fdai_deployment_cli.operational_evidence_verifier_input import (
         load_operational_evidence_verifier_input,
@@ -211,40 +212,19 @@ def _provision_azure(args: argparse.Namespace) -> int:
             else Path.cwd() / args.operational_evidence_verifier_input
         )
     )
-    development_authority_profile = (
-        None
-        if args.development_authority_profile is None
-        else load_development_authority_profile(
-            args.development_authority_profile
-            if args.development_authority_profile.is_absolute()
-            else Path.cwd() / args.development_authority_profile
-        )
+    development_authority_profile, clear_development_authority_profile = (
+        selected_development_authority(args, cwd=Path.cwd())
     )
-    if development_authority_profile is not None and args.clear_development_authority_profile:
-        raise ValueError(
-            "--development-authority-profile and --clear-development-authority-profile "
-            "are mutually exclusive"
-        )
-    runtime_profile = RuntimeDeploymentProfile.create(
-        runtime_platform=args.runtime,
-        database_placement=args.database,
-        system_node_count=args.system_nodes,
-        system_node_sku=args.system_node_sku,
-        user_node_min_count=args.user_nodes,
-        user_node_max_count=args.max_user_nodes,
-        user_node_sku=args.user_node_sku,
-        product_add_ons=tuple(args.product_add_ons),
-        observation_data_sources=tuple(args.observation_data_sources),
-        database_sku=args.database_sku,
-    )
+    runtime_profile = RuntimeDeploymentProfile.from_cli_arguments(args)
     if catalog_review_profile.selected and args.runtime != "aks":
         raise ValueError("selected catalog review profile requires --runtime aks")
     if operational_evidence_verifier_input is not None and args.runtime != "aks":
         raise ValueError("operational evidence verifier input requires --runtime aks")
-    if (development_authority_profile is not None or args.clear_development_authority_profile) and (
-        args.source is None or args.runtime != "aks"
-    ):
-        raise ValueError("development authority changes require source AKS deployment")
+    validate_development_authority_command(
+        args,
+        profile=development_authority_profile,
+        clear=clear_development_authority_profile,
+    )
     if (args.prepare_only or args.preflight_only or args.teardown) and args.source is None:
         raise ValueError("source-only preparation, preflight, or teardown requires --source")
     if operational_evidence_verifier_input is not None and (
@@ -253,10 +233,6 @@ def _provision_azure(args: argparse.Namespace) -> int:
         raise ValueError(
             "operational evidence verifier input requires an application deployment run"
         )
-    if (development_authority_profile is not None or args.clear_development_authority_profile) and (
-        args.prepare_only or args.preflight_only or args.teardown
-    ):
-        raise ValueError("development authority changes require an application deployment run")
     if args.teardown_confirmation is not None and not args.teardown:
         raise ValueError("--teardown-confirmation requires --teardown")
     if re.fullmatch(r"[a-z][a-z0-9]{1,11}", args.foundation_workload) is None:
@@ -376,7 +352,7 @@ def _provision_azure(args: argparse.Namespace) -> int:
                     foundation_recovery_directory=args.foundation_recovery_directory,
                     operational_evidence_verifier_input=operational_evidence_verifier_input,
                     development_authority_profile=development_authority_profile,
-                    clear_development_authority_profile=args.clear_development_authority_profile,
+                    clear_development_authority_profile=clear_development_authority_profile,
                     interactive=args.approval_file is None,
                     installation_options=(
                         InstallationOptions(
