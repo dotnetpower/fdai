@@ -13,6 +13,13 @@ from fdai_cost_governance.coordination import (
     CostObservationModeLatch,
     DeterministicCostCoordinator,
 )
+from fdai_cost_governance.forecast_calibration import (
+    CostForecastActual,
+    CostForecastPrediction,
+    DurableForecastCalibration,
+    ForecastCalibrationSnapshot,
+    ForecastCalibrationState,
+)
 from fdai_cost_governance.guard import (
     FinOpsActionKind,
     FinOpsCandidate,
@@ -97,6 +104,8 @@ __all__ = [
     "ClarificationResponseShape",
     "CostGovernanceParityHarness",
     "CostGovernanceResourceError",
+    "CostForecastActual",
+    "CostForecastPrediction",
     "CostCoordinationError",
     "CostObservationModeLatch",
     "CostObservationCampaignReducer",
@@ -121,6 +130,7 @@ __all__ = [
     "CoupledResourceOptimizationEvidence",
     "CoupledResourceOptimizationPlan",
     "DeterministicCostCoordinator",
+    "DurableForecastCalibration",
     "AzureFocusObservationAdapter",
     "FinOpsActionKind",
     "FinOpsCandidate",
@@ -129,6 +139,8 @@ __all__ = [
     "FinOpsGuardConfig",
     "FinOpsGuardDecision",
     "FinOpsGuardOutcome",
+    "ForecastCalibrationSnapshot",
+    "ForecastCalibrationState",
     "OptimizationDisposition",
     "OptimizationClarificationAttestation",
     "OptimizationClarificationRequest",
