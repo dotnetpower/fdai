@@ -6,9 +6,15 @@ import hashlib
 import json
 from collections import OrderedDict
 from collections.abc import Mapping
+from contextlib import AbstractAsyncContextManager
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
+from fdai.agents._framework.base import Agent
+from fdai.agents._framework.cross_vertical_candidates import (
+    validate_cross_vertical_candidate,
+)
+from fdai.agents._framework.specialist_ingress import parse_cost_optimization
 from fdai.shared.providers.state_store import StateStore
 
 OPTIMIZATION_OUTBOX_PREFIX = "pantheon/njord/optimization-outbox/"
@@ -114,6 +120,72 @@ class OptimizationCandidateOutbox:
         )
 
 
+class OptimizationCandidateOutboxMixin(Agent):
+    """Njord mixin for durable optimization-candidate publication."""
+
+    _optimization_outbox: OptimizationCandidateOutbox
+
+    if TYPE_CHECKING:
+
+        def _scope_lock(self, scope: str) -> AbstractAsyncContextManager[None]: ...
+
+        async def _message_enabled(self, activation_revision: int) -> bool: ...
+
+        async def _publish_proposal(self, topic: str, payload: dict[str, Any]) -> bool: ...
+
+        def record_behavior(self, key: str, count: int = 1) -> None: ...
+
+    async def _ingest_optimization_candidate(self, payload: dict[str, Any]) -> None:
+        signal = parse_cost_optimization(payload)
+        if signal is None:
+            self.record_behavior("optimization_candidate:invalid")
+            return
+        if not await self._message_enabled(signal.activation_revision):
+            self.record_behavior("optimization_candidate:activation_unavailable")
+            return
+        candidate = {**signal.candidate, "producer_principal": "Njord"}
+        try:
+            validate_cross_vertical_candidate("object.cost-anomaly", candidate)
+        except (TypeError, ValueError):
+            self.record_behavior("optimization_candidate:invalid")
+            return
+        candidate_key = str(candidate["idempotency_key"])
+        async with self._scope_lock(f"optimization:{candidate['resource_id']}"):
+            try:
+                record = await self._optimization_outbox.claim(
+                    candidate_key=candidate_key,
+                    pending_since=str(candidate["observed_at"]),
+                    payload=candidate,
+                )
+            except ValueError:
+                self.record_behavior("optimization_candidate:idempotency_conflict")
+                return
+            if record is None:
+                self.record_behavior("optimization_candidate:outbox_full")
+                return
+            if record.state == "published":
+                self.record_behavior("optimization_candidate:duplicate")
+                return
+            if not await self._publish_proposal("object.cost-anomaly", dict(record.payload)):
+                self.record_behavior("optimization_candidate:publication_pending")
+                return
+            await self._optimization_outbox.mark_published(record)
+            self.record_behavior("optimization_candidate:published")
+
+    async def maintenance_tick(self) -> None:
+        await super().maintenance_tick()
+        for record in await self._optimization_outbox.pending(limit=16):
+            if not await self._publish_optimization_record(record):
+                break
+
+    async def _publish_optimization_record(self, record: OptimizationOutboxRecord) -> bool:
+        if not await self._publish_proposal("object.cost-anomaly", dict(record.payload)):
+            return False
+        await self._optimization_outbox.mark_published(record)
+        self.record_behavior("optimization_candidate:redriven")
+        return True
+
+
 def _payload_digest(payload: Mapping[str, Any]) -> str:
     material = json.dumps(
         payload,
@@ -159,5 +231,6 @@ def _record(raw: Mapping[str, Any]) -> OptimizationOutboxRecord:
 __all__ = [
     "OPTIMIZATION_OUTBOX_PREFIX",
     "OptimizationCandidateOutbox",
+    "OptimizationCandidateOutboxMixin",
     "OptimizationOutboxRecord",
 ]

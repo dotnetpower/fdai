@@ -517,13 +517,6 @@ async def build_core_runtime(
         active_rules=tuple(activated_rules),
         ontology_release=control_loop.ontology_release,
     )
-    if operational_readiness_handler is None:
-        _LOGGER.info(
-            "operational_readiness_unavailable",
-            extra={"reason": "posture_and_report_publisher_absent"},
-        )
-    else:
-        _LOGGER.info("operational_readiness_ready")
     rule_activation_consumer = build_rule_activation_consumer(
         store=state_store,
         ledger=activation_ledger,

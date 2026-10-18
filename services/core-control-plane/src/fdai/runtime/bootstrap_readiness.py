@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import logging
+
 from fdai.composition import Container
 from fdai.composition.readiness import (
     OperationalReadinessEventHandler,
@@ -16,6 +18,8 @@ from fdai.shared.contracts.models import OntologyRelease, Rule
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.readiness import RemediationProposalBinding
 from fdai.shared.providers.state_store import StateStore
+
+_LOGGER = logging.getLogger("fdai.startup")
 
 
 def load_runtime_self_health_catalog() -> SelfHealthCatalog:
@@ -79,7 +83,7 @@ def build_runtime_operational_readiness(
         active_rules=active_rules,
         ontology_release=ontology_release,
     )
-    return build_operational_readiness_event_handler(
+    handler = build_operational_readiness_event_handler(
         posture=container.operational_readiness_posture,
         publisher=container.operational_readiness_report_publisher,
         feasibility_probes=container.feasibility_probes,
@@ -90,6 +94,14 @@ def build_runtime_operational_readiness(
         checklist_evidence=checklist_evidence,
         remediation_binding=remediation_binding,
     )
+    if handler is None:
+        _LOGGER.info(
+            "operational_readiness_unavailable",
+            extra={"reason": "posture_and_report_publisher_absent"},
+        )
+    else:
+        _LOGGER.info("operational_readiness_ready")
+    return handler
 
 
 __all__ = [

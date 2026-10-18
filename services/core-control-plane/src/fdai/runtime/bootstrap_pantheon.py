@@ -6,28 +6,20 @@ import asyncio
 import logging
 from dataclasses import replace
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any, cast
-
-import yaml
 
 from fdai.agents import (
     Heimdall,
-    Norns,
     PantheonRuntime,
     ShadowDivergenceLedger,
     StateStoreActionRunStore,
     VarKillSwitchRequestHandler,
 )
 from fdai.composition.operational_evidence_binding import build_test_context_command_handler
-from fdai.core.architecture_review import (
-    ArchitectureReviewProjector,
-    OntologyArchitectureReviewLoop,
-)
 from fdai.core.capacity import CapacityGraduationController
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.impact_analysis import ChangeAssessmentService, ImpactAnalyzer
-from fdai.core.learning import PostTurnProposalModel, RuleHintSubmitter
+from fdai.core.learning import PostTurnProposalModel
 from fdai.core.operational_context import OperationalContextMaterializer
 from fdai.core.operational_context.test_context_dispatch import TestContextDispatchGuard
 from fdai.core.operational_context.test_context_lifecycle import GovernedTestContextStore
@@ -39,7 +31,6 @@ from fdai.core.operational_planning import (
     operational_planning_capability_status,
 )
 from fdai.core.rbac.kill_switch_command import KillSwitchCommandService
-from fdai.core.readiness import DiscoveryActivationReport
 from fdai.delivery.agent_activity import (
     AgentRuntimeStatePublisher,
     EventBusPantheonActivityObserver,
@@ -52,9 +43,6 @@ from fdai.delivery.persistence import (
     PostgresCaseHistoryMetadataStore,
     PostgresCaseHistoryMetadataStoreConfig,
     StateStoreSemanticFeedbackCandidateStore,
-)
-from fdai.delivery.persistence.state_store_architecture_review import (
-    StateStoreArchitectureReviewStateStore,
 )
 from fdai.delivery.persistence.state_store_forecast_context import StateStoreForecastContextProvider
 from fdai.delivery.persistence.state_store_model_budget import StateStoreBudgetLedger
@@ -72,6 +60,7 @@ from fdai.runtime.aks_commerce import (
     chain_acceptance_observer,
 )
 from fdai.runtime.approval_policy import approver_authorizer_from_environment
+from fdai.runtime.bootstrap_architecture_review import build_architecture_review_loop
 from fdai.runtime.bootstrap_capacity_sampling import build_capacity_sampler
 from fdai.runtime.bootstrap_chaos_schedule import build_chaos_schedule
 from fdai.runtime.bootstrap_cost_governance import (
@@ -80,6 +69,7 @@ from fdai.runtime.bootstrap_cost_governance import (
     pantheon_enforce_enabled,
 )
 from fdai.runtime.bootstrap_pantheon_evidence import build_reviewed_pantheon_evidence
+from fdai.runtime.bootstrap_pantheon_learning import bind_post_turn_learning
 from fdai.runtime.bootstrap_pantheon_models import (
     PantheonInitialization,
     PantheonInitializationResult,
@@ -90,7 +80,6 @@ from fdai.runtime.case_history import (
     build_case_history_runtime,
 )
 from fdai.runtime.configuration import _model_endpoint_resolver
-from fdai.runtime.discovery_activation import DiscoveryActivationRuntime
 from fdai.runtime.forecast_learning import (
     build_forecast_learning_runtime,
     forecast_history_collector_from_environment,
@@ -107,7 +96,6 @@ from fdai.runtime.policy_administration import (
     policy_administration_selected,
 )
 from fdai.runtime.post_turn_review import (
-    PostTurnReviewRuntime,
     build_azure_post_turn_models,
     build_post_turn_review_runtime,
     post_turn_review_dsn,
@@ -125,51 +113,6 @@ _LOGGER = logging.getLogger("fdai.startup")
 _pantheon_enforce_enabled = pantheon_enforce_enabled
 _runtime_asset_root = bootstrap_agent_discussion._runtime_asset_root
 HUGINN_SCHEMA_LEARNING_ENABLED_ENV = "FDAI_HUGINN_SCHEMA_LEARNING_ENABLED"
-
-
-def _build_architecture_review_loop(
-    config: PantheonInitialization,
-    *,
-    asset_root: Path,
-) -> OntologyArchitectureReviewLoop | None:
-    sources = config.container.architecture_review_sources
-    if sources is None:
-        return None
-    ontology_store = config.control_loop.ontology_instance_store
-    if ontology_store is None:
-        raise RuntimeError("architecture review sources require an ontology instance store")
-    manifest_path = asset_root / "config" / "architecture-review.yaml"
-    try:
-        manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError) as exc:
-        raise RuntimeError("architecture review manifest is unavailable") from exc
-    if not isinstance(manifest, dict):
-        raise RuntimeError("architecture review manifest MUST contain a mapping")
-    return OntologyArchitectureReviewLoop(
-        context_source=sources.context,
-        evidence_source=sources.evidence,
-        state_store=StateStoreArchitectureReviewStateStore(config.incident_audit_store),
-        observation_sink=ArchitectureReviewProjector(ontology_store, manifest),
-    )
-
-
-async def _bind_post_turn_learning(
-    *,
-    pantheon_runtime: PantheonRuntime,
-    post_turn_review: PostTurnReviewRuntime,
-    discovery_activation: DiscoveryActivationRuntime,
-) -> DiscoveryActivationReport | None:
-    """Bind post-turn rule hints behind the current discovery activation decision."""
-    norns = pantheon_runtime.agents.get("Norns")
-    if norns is None:
-        return None
-    norns_agent = cast(Norns, norns)
-    post_turn_review.bind_rule_hints(cast(RuleHintSubmitter, norns))
-    norns_agent.bind_candidate_publication_gate(discovery_activation.is_enabled)
-    discovery_activation.bind_shadow_decision_count(
-        lambda: sum(pantheon_runtime.shadow_decisions.values())
-    )
-    return await discovery_activation.evaluate()
 
 
 async def initialize_pantheon(
@@ -312,7 +255,7 @@ async def initialize_pantheon(
         if config.control_loop.ontology_instance_store is not None
         else None
     )
-    architecture_review_loop = _build_architecture_review_loop(config, asset_root=asset_root)
+    architecture_review_loop = build_architecture_review_loop(config, asset_root=asset_root)
     ontology_release = config.control_loop.ontology_release
     process_store = config.control_loop.process_runtime_store
     effect_model_reader = config.container.effect_model_reader
@@ -793,7 +736,7 @@ async def initialize_pantheon(
         topic=config.stage_topic,
     )
     discovery_activation = None
-    discovery_report = await _bind_post_turn_learning(
+    discovery_report = await bind_post_turn_learning(
         pantheon_runtime=pantheon_runtime,
         post_turn_review=post_turn_review,
         discovery_activation=config.discovery_activation,
