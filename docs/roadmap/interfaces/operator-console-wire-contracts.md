@@ -19,6 +19,14 @@ snapshot. It contains the exact 15 self-health signals and the version, configur
 override, discovery, canary, kill-switch, and break-glass fields as source-qualified digests,
 freshness, or explicit unavailable states. Operator validates and redacts the shared contract. It
 does not query providers, infer healthy defaults, approve a change, or gain execution authority.
+Core now supplies actual listener liveness, guarded readiness, and persisted kill-switch signals,
+plus installed-version, consumed-policy, and kill-switch digests. The other 12 signals and five
+fields remain unavailable. Source failures retain bounded missing, malformed, or unreachable
+reasons; the wire shape and Reader authorization are unchanged. Sharing `bootstrap_core.py`
+with Incident composition does not create or confirm an Incident, publish an Incident request,
+or change its lifecycle. A kill-switch digest does not expose its state revision or verify a
+requested transition; the independent drill evidence below remains required. See the
+[source contract](../operations/operating-and-verification.md#local-source-bindings).
 
 `GET /knowledge/github/sources` returns typed repository provenance and separate knowledge-read
 and scan-permission state. Owner-only `POST` on the same path accepts `connect` or `disconnect`,
@@ -624,6 +632,7 @@ engage or disengage drill remains incomplete until an independent store observat
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Actual-source runtime-state read projection | implemented | `cf6435701b`; `delivery/self_health_sources.py`; Core monitor and readiness composition; 92 focused checks passed | Three signals and three fields have local sources; 12 signals and five fields remain unavailable. Existing schema and Reader access are unchanged. Kill-switch revision readback and deployed transition verification remain open. |
 | Global kill-switch HTTP and command event | implemented | `0398357455`; shared contract and generated schema; Operator IAM route; Var receipt gate and command handler; focused contract, Operator, agent, and runtime tests | HTTP `202` proves typed publication only. Authorized state revision readback and a retained deployment cycle remain open. |
 | GitHub knowledge-source request and projection | implemented | `425fda52ead9`; `fdai_service_contracts/knowledge_github.py`; `knowledge_github_projection.py`; focused connection tests | Owner connect/disconnect has a typed revision-checked envelope and no credential bytes or scan-consent fields. Existing Incident confirmation and execution authority are unchanged. |
 | Audit and read-only wire projections | implemented | Operator family manifests and projections; `services/operator-service/tests/test_operator_service_composition.py`; Console trace tests | Default GET/HEAD routes, bounded envelopes, and unavailable behavior have focused coverage. |
@@ -646,6 +655,7 @@ engage or disengage drill remains incomplete until an independent store observat
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-18 | implemented | Documented actual-source values and bounded unavailable reasons on the existing runtime-state read projection, separately from Incident creation and kill-switch command confirmation. | `cf6435701b`; 92 focused source/runtime checks; current paired wire documentation. | Bind the remaining 12 signals and five fields, and retain independent deployed transition evidence. No wire schema, role, Incident lifecycle, or authority changed. |
 | 2026-10-15 | implemented | Replaced the inert kill-switch proposal response with a fresh-authenticated signed request on `operator.kill-switch.requests`, consumed by Var before the Core state-and-audit compare-and-set. | `0398357455`; focused implementation tests and structural checks recorded in the security ledger. | Add authorized state readback and retain engage/no-execute/disengage deployment evidence. |
 | 2026-10-09 | implemented | Added the GitHub knowledge GET projection and Owner-only connect/disconnect request over the existing repository-change operation, preserving separate scan consent and all Incident/write authority boundaries. | `425fda52ead9`, `b92824a9c150`; connector/backend selection: 153 passed; full Operator composition: 29 passed. | Retain installed authenticated connection/readback evidence; no new Incident or managed-resource confirmation authority is introduced. |
 | 2026-10-08 | implemented | Documented the MCSB control assessment fields: a no-authority `assessment_summary` and per-control `assessment`, with requirement evidence roles on the detail read. Incident creation and other wire shapes are unchanged. | `test_framework_mcsb_assessment_projection.py`; `test_operator_workflow_family.py`; `mcsb-controls.model.test.ts` | None |

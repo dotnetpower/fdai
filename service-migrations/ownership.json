@@ -464,6 +464,9 @@
       "workflow_definition"
     ],
     "document-ingestion-api": [
+      "document_knowledge_policy",
+      "document_knowledge_application",
+      "document_knowledge_policy_audit",
       "document_knowledge_source",
       "document_knowledge_check",
       "document_knowledge_release",
@@ -691,6 +694,9 @@
       "workflow_definition"
     ],
     "document-ingestion-api": [
+      "document_knowledge_policy",
+      "document_knowledge_application",
+      "document_knowledge_policy_audit",
       "document_knowledge_source",
       "document_knowledge_check",
       "document_knowledge_release",

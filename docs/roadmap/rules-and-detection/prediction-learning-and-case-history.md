@@ -236,20 +236,43 @@ coverage without duplicate transitions. Each source read has a one-second deadli
 run concurrently with two-second per-kind budgets. A hanging source therefore records
 `source_unavailable` without starving other kinds.
 
-Two raw sources are bound. External changes restate the journal witness and keep its limitation.
+Two inventory sources are bound. External changes restate the journal witness and keep its limitation.
 Resource lifecycle reads confirmed-tombstone incarnation boundaries with their journal record
 times: deletion comes only from a confirmed closure, recreation only from a later incarnation, and
 a pending tombstone stays explicit. Neither source can yet attest a positive start-of-window or
-post-window reconciliation checkpoint, so both remain incomplete and store no transitions. Action
-and excluded-window producers remain unavailable. Audit record time is the transaction start and
-executor entries are built before the global append lock, so a sequence fence cannot prove
-event-time completeness. Current `ChangeWindow` objects are not an attested history. The Settings
+post-window reconciliation checkpoint, so both remain incomplete and store no transitions.
+
+The composed action-audit source is unsupported for event-time scoring. Every successful read
+returns `records: []`, `checkpoint.complete: false`, and the limitation
+`action_history_proof_unavailable`, with additional bounded diagnostic tokens when applicable.
+This is unknown history, not a finding of no intervention. The bounded reader preserves raw audit
+facts, and the checkpoint retains the audit sequence/hash witness and evidence reference. Audit
+record time is the transaction start, entries are built before the global append lock, and joined
+ActionRun state is current rather than an immutable as-of snapshot. None becomes an intervention
+time; shadow success is never classified as an intervention. Empty, redacted, truncated, future,
+or corrupt singleton reads cannot establish completeness. Read failures still follow the existing
+`source_unavailable` path.
+
+Future positive action coverage requires independently recorded event-time history, an attested
+start anchor, a known-at completeness fence, a database-clock watermark after window end plus
+grace, and proof of the complete contiguous audit segment. Configuration, intact selected audit
+rows, and caller assertions cannot replace these prerequisites. Excluded-window positive coverage
+also remains unavailable; current `ChangeWindow` objects are not an attested history. The Settings
 `forecast-history` row validates configuration with the same parser as runtime composition. It
 always reports `ready=false` and `available=false`, reports `enabled` only as the deployment
 opt-in, and lists prerequisites, including forecast targets, and per-source binding. The Console
 renders the row's status, mode, source, and reason; there is no Settings preference control yet.
 Configuration never grants scoring or execution authority, and independent proof issuance remains
 required before collected history can authorize scoring.
+
+`unsupported` is explanatory text in the action source's `limitation`, not a new readiness mode or
+outcome enum. Operator preserves that source detail in the existing runtime-settings JSON mapping.
+The current Console decoder retains the integration's standard status, mode, source, and reason,
+but does not decode the per-source detail or prerequisite arrays. It renders a configured,
+not-ready forecast integration as **Incomplete**, with **Observation** mode and the unavailable
+checkpoint/proof reason. Missing action history makes the collector raise
+`ForecastContextUnavailableError`; it does not return an empty, complete intervention slice or
+a zero-intervention count.
 
 The episode closure carries its observation even when no `ForecastOutcome` is published. The Core
 `core_forecast_closure_observation_20260914` migration adds nullable `closure_observation` metadata.

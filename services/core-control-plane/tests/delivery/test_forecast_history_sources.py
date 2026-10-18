@@ -277,6 +277,18 @@ def test_settings_row_uses_runtime_validation_and_never_reports_ready() -> None:
     assert opted["enabled"] is True and opted["enabled_source"] == "deployment_configuration"
     assert opted["mode"] == "shadow" and opted["reason"] == opted["unavailable_reason"]
     assert opted["scoring_authority"] is False and opted["execution_authority"] is False
+    action_status = next(item for item in opted["sources"] if item["kind"] == "actions")
+    assert action_status["positive_checkpoint"] is False
+    for prerequisite in (
+        "unsupported",
+        "independent event-time history",
+        "start anchor",
+        "known-at completeness",
+        "database-clock watermark",
+        "window end plus grace",
+        "full audit continuity",
+    ):
+        assert prerequisite in action_status["limitation"]
     assert "secret" not in json.dumps(opted)
     assert {item["kind"]: item["bound"] for item in opted["sources"]} == {
         "actions": True,

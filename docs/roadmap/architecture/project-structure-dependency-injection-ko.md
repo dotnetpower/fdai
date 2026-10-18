@@ -1,6 +1,6 @@
 ---
 translation_of: project-structure-dependency-injection.md
-translation_source_sha: e11c9170b722d7390a7cb189b55eb5e5897551fb
+translation_source_sha: e7b5afbca929619bf445f5f6e55e5226d0a62078
 translation_revised: 2026-10-18
 ---
 
@@ -25,6 +25,26 @@ Core 시작 구성은 이를 Bragi의 읽기 전용 숙의 처리기에 전달�
 영속 회계나 연결만으로 작업 권한이 부여되지는 않습니다.
 
 ## 의존성 주입을 통한 커스터마이제이션
+
+### 자체 상태 수집원 연결
+
+`delivery/self_health_sources.py`의 `runtime_self_health_registry`는 기존
+`SelfHealthExporter`와 `OperationalStateFieldExporter` 주입 경계의 구현체를 시그니처 변경 없이
+조합합니다. 담당 `StateStore`, 시간을 받는 보호된 준비 상태 콜백, 선택적인 실제 수신기
+생존 상태 콜백, 시작 시 실제로 사용한 검증된 런타임 정책 값을 받습니다.
+`build_startup_readiness_runtime`은 완전한 `self_health_exporter_registry` 대체 구성을
+받습니다. 대체 구성이 없으면 `liveness`와 `runtime_policy` 인자를 통해 이 수집원을 조합합니다.
+
+실제 수신기와 실제로 사용한 정책을 제공하면 표준 구성은 전체 운영 상태가 아니라 신호 3개와
+필드 3개를 연결합니다. 수신기 연결이나 정책이 없으면 unavailable로 유지합니다.
+비상 정지 행이 없거나 잘못되어도 정상인 false 값으로
+바꾸지 않습니다. `SelfHealthExporterUnavailableError.reason`은 `exporter_unavailable`,
+`source_missing`, `source_malformed`, `source_unreachable`만 보존합니다.
+나머지 신호 12개와 필드 5개는 담당 수집원이 제공될 때까지 명시적인 unavailable 연결을
+유지합니다. 이 읽기 전용 어댑터는 신원, 승인, 실행, 승격 권한을 부여하지 않습니다.
+[운영 수집원 계약](../operations/operating-and-verification-ko.md#로컬-수집원-연결)을 참조하세요.
+
+### 구성과 기존 주입 경계
 
 업스트림은 범용 인터페이스와 동작하는 기본 구현을 제공합니다. 포크는 `core/`를 편집하거나
 복사하지 않고 자체 조립 루트에서 의존성을 주입해 구성을 변경합니다.

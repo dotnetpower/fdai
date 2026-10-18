@@ -56,7 +56,7 @@ packaging rule changes no runtime profile or authority.
 
 Operator production composition uses the same focused lifecycle, route-family, and read-source
 modules in every runtime profile. The internal ownership split changes no platform selection,
-identity, source binding, readiness condition, or deployment authority.
+identity, source binding, readiness condition, or deployment authority. Core's common read-only self-health registry observes the actual listener, guarded readiness, and persisted kill switch, and identifies the installed version, consumed bootstrap policy, and kill-switch state. Its other 12 signals and five fields remain unavailable. Selecting AKS, Container Apps, or observation-first supplies no missing source, human role, executor identity, or execution authority. Process-local checks are not deployed alert/drill acceptance; see [Operating and Verification](../operations/operating-and-verification.md#local-source-bindings).
 Both profiles also use the same authenticated instance-index enrollment and bounded Core reconciliation task. Governed embedding identity gates adapter construction; cached candidates never replace current graph authorization. Unqualified semantic ranking remains closed, and exact-ID availability does not establish AKS diagnostic evidence, provider health, or deployment readiness.
 Both profiles derive static Key Vault secret names and versionless receipt-signing secret
 references from declared resource names. Provider-computed attributes remain the authority for
@@ -406,7 +406,7 @@ verification-first and bounded residual rules as every other stage.
 One bounded exception lets an eligible host run `fdaictl provision source-service-update` for one service on an
 existing healthy `dev` AKS installation. The source-built image remains operator-selected evidence rather than release trust. Current human approval gates its
 Managed Identity import and the Deployment-only exact plan; digest and health readback, unchanged peers, and targeted zero change remain required.
-For Core only, that same one-Deployment update may select or clear the reviewed development authority profile. The profile digest and source revision join the update identity; no peer, infrastructure, or product-profile change is admitted.
+For Core only, that same one-Deployment update may select or clear the reviewed development authority profile. The profile digest and source revision join the update identity; no peer, infrastructure, or product-profile change is admitted, and the active marker clears only after complete receipt revalidation.
 An optional Foundation `application_workload` token can separate the new application group's name
 from operations naming without changing the AKS profile. It grants no ownership of an existing group;
 partial-state recovery follows the [application group collision contract](installable-deployment-cli.md#application-group-collision-recovery).

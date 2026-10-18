@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from fdai_deployment_cli import cli
+from fdai_deployment_cli import cli, source_service_update
 from fdai_deployment_cli.source_service_update import deploy_source_service_update
 
 
@@ -84,8 +84,17 @@ def test_source_service_update_builds_imports_plans_and_verifies(
             return {"state": "not-required"}
         if command == "plan":
             return {"review_digest": "f" * 64}
+        if command == "finalize-service-update":
+            return {
+                "state": "finalized",
+                "service": "operator-service",
+                "apply_receipt_digest": "1" * 64,
+                "mutation_performed": False,
+                "receipt_digest": "2" * 64,
+            }
         assert command == "apply"
         return {
+            "operation": "service-update-operator-service-aaaaaaaaaaaa",
             "receipt_digest": "1" * 64,
             "control_plane_readback_verified": True,
             "peer_state_unchanged_verified": True,
@@ -130,7 +139,92 @@ def test_source_service_update_builds_imports_plans_and_verifies(
         "recover-apply",
         "plan",
         "apply",
+        "finalize-service-update",
     ]
+
+
+def test_new_authority_profile_is_written_after_intent_admission(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source_root = tmp_path / "source"
+    application = tmp_path / "application"
+    source_root.mkdir(mode=0o700)
+    application.mkdir(mode=0o700)
+    source = SimpleNamespace(
+        root=source_root,
+        commit="c" * 40,
+        to_mapping=lambda: {
+            "schema_version": "fdai.source-deployment-input.v1",
+            "source_commit": "c" * 40,
+        },
+        reverify=lambda: None,
+    )
+    monkeypatch.setattr(
+        "fdai_deployment_cli.source_service_update.inspect_source", lambda *_: source
+    )
+    monkeypatch.setattr(
+        "fdai_deployment_cli.source_service_update.materialize_source",
+        lambda _source, destination: destination.mkdir(mode=0o700) or "s" * 64,
+    )
+    monkeypatch.setattr(
+        "fdai_deployment_cli.source_service_update._host_json",
+        lambda *_args, **_kwargs: {
+            "schema_version": "fdai.source-service-update-context.v1",
+            "state": "verified",
+            "service": "core-control-plane",
+            "target_binding": "d" * 64,
+            "active_service_update": None,
+        },
+    )
+    monkeypatch.setattr(
+        "fdai_deployment_cli.source_service_update._build_image",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("reached image build")),
+    )
+    profile = SimpleNamespace(profile_json='{"profile_id":"dev"}', input_digest="e" * 64)
+
+    with pytest.raises(RuntimeError, match="reached image build"):
+        deploy_source_service_update(
+            source_root=source_root,
+            application_work_dir=application,
+            work_dir=tmp_path / "update",
+            service="core-control-plane",
+            timeout_seconds=300,
+            development_authority_profile=profile,
+        )
+
+    update = tmp_path / "update"
+    assert (update / "source-service-update-intent.json").is_file()
+    assert (update / "development-authority-profile.json").is_file()
+
+
+def test_source_image_builder_cannot_write_into_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    snapshot = tmp_path / "snapshot"
+    monkeypatch.setenv("PYTHONDONTWRITEBYTECODE", "0")
+    monkeypatch.setenv("PYTHONPYCACHEPREFIX", str(snapshot / "redirected-cache"))
+    script = snapshot / "tree/scripts/deployment/azure/source_image_build.py"
+    script.parent.mkdir(parents=True)
+    script.write_text(
+        'import snapshot_import_probe\nprint(\'{"state":"built"}\')\n',
+        encoding="utf-8",
+    )
+    (script.parent / "snapshot_import_probe.py").write_text(
+        "VALUE = 'loaded'\n",
+        encoding="utf-8",
+    )
+
+    result = source_service_update._build_image(
+        snapshot=snapshot,
+        snapshot_digest="a" * 64,
+        work_dir=tmp_path / "work",
+        service="core-control-plane",
+        timeout_seconds=60,
+    )
+
+    assert result["state"] == "built"
+    assert not (script.parent / "__pycache__").exists()
+    assert not (snapshot / "redirected-cache").exists()
 
 
 @pytest.mark.parametrize("recovery_state", ["not-required", "applied"])
@@ -241,10 +335,19 @@ def test_source_service_update_reconciles_historical_baseline_before_import(
             return {"review_digest": "f" * 64}
         if command == "apply":
             return {
+                "operation": "service-update-operator-service-aaaaaaaaaaaa",
                 "receipt_digest": "1" * 64,
                 "control_plane_readback_verified": True,
                 "peer_state_unchanged_verified": True,
                 "terraform_zero_change_verified": True,
+            }
+        if command == "finalize-service-update":
+            return {
+                "state": "finalized",
+                "service": "operator-service",
+                "apply_receipt_digest": "1" * 64,
+                "mutation_performed": False,
+                "receipt_digest": "2" * 64,
             }
         raise AssertionError(f"unexpected command: {command}")
 
@@ -291,6 +394,7 @@ def test_source_service_update_reconciles_historical_baseline_before_import(
         "recover-apply",
         "plan",
         "apply",
+        "finalize-service-update",
     ]
     assert len(plan_reviews) == (2 if recovery_state == "not-required" else 1)
     if recovery_state == "not-required":

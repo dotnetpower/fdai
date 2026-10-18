@@ -28,6 +28,7 @@ from fdai_service_contracts import (
 )
 from psycopg.rows import dict_row
 
+from fdai_document_worker_service.adapters.cloud_application import fence_application
 from fdai_document_worker_service.adapters.cloud_index_verification import observed_index_digest
 from fdai_document_worker_service.effects import (
     WorkerEffect,
@@ -239,12 +240,18 @@ class PostgresDocumentMetadataStore:
                         )
                     ).fetchone()
                     active_id = active_row["version_id"] if active_row else None
+                    if (
+                        version.cloud_knowledge.application is not None
+                        and session.supersedes_version_id != version.supersedes_version_id
+                    ):
+                        raise DocumentLifecycleConflictError("knowledge active generation changed")
                     finalizing = expected_version_state in {"ready", "ready_with_warnings"}
                     expected_active_id = (
                         version.version_id if finalizing else session.supersedes_version_id
                     )
                     if active_id != expected_active_id:
                         raise DocumentLifecycleConflictError("knowledge active generation changed")
+                    await fence_application(connection, version)
                     if version.available:
                         record = event.payload.get("record")
                         receipt = (

@@ -2,7 +2,7 @@
 title: FDAI 기능 준비 상태 평가
 description: FDAI 제품 중분류 52개의 준비 상태 판정 근거와 남은 조건을 기록합니다.
 translation_of: functional-readiness.md
-translation_source_sha: f38e17aaf0cf8bdb671d89b4ecfbbc470cdcce52
+translation_source_sha: d57a7fb053cefee347335f500bbd212637716878
 translation_revised: 2026-10-18
 ---
 
@@ -183,7 +183,7 @@ Partial 24건은 구현된 부분과 기록된 집중 검사 근거를 유지하
 | 기능 | 상태 | 근거, 지원 범위 및 남은 조건 |
 |------|------|-----------------------------|
 | <span id="f10-1">F10.1</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 로컬 구현은 인증된 수집, 불변 버전, 제한된 추출 및 OCR, 색인, 보존 및 삭제, 재시작에 안전한 인계와 K02의 목적별 보호 원본 다운로드입니다. 반출에는 정규화된 감사 증적, 제한된 유효 기간, 현재 접근 및 개정 확인, 스트림 재검사가 적용됩니다. [문서 원장](../../roadmap-implementation/interfaces/document-ingestion.md)은 #2214의 동작 검사 132개와 소유권 검사 29개를 과거 검사 929개와 분리해 기록합니다. 서비스 5개의 정확한 수명 주기 및 실패 증적과 승인된 SharePoint 및 보호, 철회, 삭제, 커서, 역압력 결과 조회는 남습니다. [K01-K02](functional-readiness-backlog-ko.md#f10-지식-및-규칙-작업)는 필수 운영 기준이며 로컬 반출 구현만으로 완료되지 않습니다. |
-| <span id="f10-2">F10.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 로컬 구현은 개정에 안전한 수집 및 예약, 수동 v2/v3 수락, 날짜 기반 조회, 문제 콘텐츠 격리입니다. [클라우드 지식 원장](../../roadmap-implementation/interfaces/cloud-resource-knowledge-lifecycle.md)과 [구조화 조회 원장](../../roadmap-implementation/interfaces/cloud-resource-knowledge-structured-rag.md)에 요청자 정책 경로 미구현과 실제 수집원 품질 보류가 명시되어 있습니다. 최종 공개까지의 요청자 및 정책 검사, 독립 조회, 수집원 및 답변 품질, 신뢰 및 등록, 연결 및 외부 통신 차단 증적이 남습니다. [K03-K05](functional-readiness-backlog-ko.md#f10-지식-및-규칙-작업)를 참조하세요. 모두 배포 설정인 것은 아닙니다. |
+| <span id="f10-2">F10.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 로컬 구현은 개정에 안전한 수집 및 예약, 수동 v2/v3 수락, 날짜 기반 조회 및 격리, #2217의 명시적 기존 정책 적용 API입니다. Var 및 Saga의 독립 검증과 트랜잭션으로 보호한 저장 결과 재조회를 유지합니다. [클라우드 지식 원장](../../roadmap-implementation/interfaces/cloud-resource-knowledge-lifecycle.md)과 [구조화 조회 원장](../../roadmap-implementation/interfaces/cloud-resource-knowledge-structured-rag.md)은 기존 동기 검증기 호환성을 포함한 최종 집중 검사 672개와 실제 PostgreSQL 검사 24개를 운영 근거와 분리해 기록합니다. 실제 독립 승인 정책 및 읽기 권한과 승격, 원문 및 답변 품질, 신뢰 및 등록, 연결 및 외부 통신 차단 증적은 남습니다. [K03-K05](functional-readiness-backlog-ko.md#f10-지식-및-규칙-작업)를 참조하세요. 소스 구현을 운영 검증으로 취급하지 않고 Partial로 유지합니다. |
 | <span id="f10-3">F10.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 현재 스키마의 규칙 작성, 출처 및 품질 검증, 변경 불가능한 버전, 범위 지정 활성화, 개정 버전별 예외, 폐기 제안, 충돌 해결, 롤백에 안전한 카탈로그 상태입니다. [규칙 원장](../../roadmap-implementation/rules-and-detection/rule-governance.md)과 집중 테스트 72개가 이 범위를 뒷받침합니다. 기존 개정 버전 이중 읽기 이행과 배포 환경의 단계별 적용은 별도 설치 및 업그레이드 검증입니다. |
 | <span id="f10-4">F10.4</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 로컬 구현은 내용보다 먼저 확인하는 출처 이력, 민감도 및 최신성과 온톨로지 검사, 독립적인 결정론 검증, 비활성 제안, 비공개 패키지 폐기입니다. [변환 원장](../../roadmap-implementation/rules-and-detection/manual-distillation.md)에는 배포된 ACL 및 목적, 철회, 법적 보존 보류 및 삭제, 공급자 및 표본, 실제 EN/KO 보조 기술 출력의 필수 근거가 남습니다. [K06-K07](functional-readiness-backlog-ko.md#f10-지식-및-규칙-작업)을 참조하세요. 변환은 활성화 권한을 부여하지 않으며 로컬 테스트는 운영 적합성 기준을 충족하지 않습니다. |
 
@@ -195,6 +195,12 @@ Partial 24건은 구현된 부분과 기록된 집중 검사 근거를 유지하
 | <span id="f11-2">F11.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 실행하지 않는 재현, 시나리오 및 보증 트윈 평가, 기준선 비교, 평가 제외 결과, 정확한 임계값 정책에 연결된 O7 근거가 구현되어 있습니다. [학습 원장](../../roadmap-implementation/rules-and-detection/operational-learning-ontology.md)과 [작업 흐름 상태](../../roadmap/agents/agent-workflows-ko.md#구현-상태)가 로컬 검사를 뒷받침합니다. 일관된 외부 발급자, 사전 등록한 SLO 및 안전 예산 비교, 완전한 재발 구간, 작업별 운영 일수 및 표본 수, 신뢰도 및 정책 위반 누락 없음 근거가 남습니다. [L03-L04](functional-readiness-backlog-ko.md#f11-f13-학습-권한-자체-상태-성과)를 참조하세요. |
 | <span id="f11-3">F11.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 승격 및 재정의 주체 추적, 자동 하향 조정, 영속 회수 및 해제, 회수 우선순위, `shadow` 강제, Operator 및 Console 회수 표시가 구현되어 있습니다. [거버넌스 원장](../../roadmap-implementation/decisioning/operator-governance-profiles.md)과 기록된 집중 검사가 이 부분을 뒷받침합니다. 운영 Release 상한 통합과 관리 절차에 따른 활성화 및 회수 증적은 [A01-A02](functional-readiness-backlog-ko.md#f11-f13-학습-권한-자체-상태-성과)로 남습니다. 현재 안전하게 제한하는 shadow 전용 상한은 구현 경계이며 운영 연결이 아닙니다. |
 
+[#2224 작업 이력 수집원 수정](../../roadmap-implementation/rules-and-detection/prediction-learning-and-case-history.md)
+이후에도 F11.1/F11.2는 Partial입니다. 감사 시각, 최신 상태 결합, 관찰 모드 성공, 빈
+결과는 사건 시각 기준 개입 이력의 완전성을 입증하지 않습니다. 수집원은 정규화된 전이
+없이 불완전한 관찰 범위를 명시하며 기존 소비자도 개입 0건이나 Ready가 아닌 구성 미완료를
+유지합니다. 실제 수집원 소유 기준점과 완전성 증명은 남아 있습니다.
+
 ## F12. 권한 및 근거와 자체 운영
 
 | 기능 | 상태 | 근거, 지원 범위 및 남은 조건 |
@@ -202,7 +208,7 @@ Partial 24건은 구현된 부분과 기록된 집중 검사 근거를 유지하
 | <span id="f12-1">F12.1</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 역할 분리, 정확한 작업 승인, 만료 및 철회, 조건부 사전 권한, 현재 임대 및 동시 실행 차단 계약, 승인 정족수 프로필, 권한 또는 공급자 강제를 사용할 수 없을 때의 안전한 전달 차단입니다. [권한 원장](../../roadmap-implementation/decisioning/escalation-and-standing-authority.md)과 집중 테스트 702개가 이 범위를 뒷받침합니다. 효과 반영 시점에 동시 실행 차단을 강제하는 공급자 연결과 상시 권한 훈련은 별도 배포 검증입니다. |
 | <span id="f12-2">F12.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 버전이 지정된 정책 및 위험 판정, 비상 중지 및 회수 우선순위, 7가지 실행 안전 조건, 차단 및 작업 없음의 최종 감사, 안전한 쪽으로 닫히는 실행 방지, 인증된 운영 상태 읽기 화면입니다. 서명된 Operator-Var 비상 정지 경로, [보안 원장](../../roadmap-implementation/architecture/security-and-identity.md), [정본 상태 정보](../../roadmap/operations/operating-and-verification-ko.md#구현-상태), 집중 안전 검사가 로컬 구현을 뒷받침합니다. Release 최대값 연결과 배포 환경에서 측정한 활성화-실행 차단-비활성화 훈련은 별도 설치 검증으로 남아 있습니다. |
 | <span id="f12-3">F12.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 책임을 추적할 수 있는 해시 체인 감사, 결정론적 재현, 목적 및 범위 접근 검사, 모델 입력 전 최소화, 비식별화된 내보내기, 범위가 제한된 보존 및 삭제, 법적 보존, 삭제 표시, 재시도에 안전한 감사 증적입니다. [개인정보 원장](../../roadmap-implementation/architecture/data-governance.md)과 집중 감사·보존·개인정보 검사가 이 범위를 뒷받침합니다. 개인정보 승인, 외부 감사 고정 또는 WORM 저장소, 실제 접근 검토 및 사고 증적은 별도 배포 검증입니다. |
-| <span id="f12-4">F12.4</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 구현된 부분은 서비스 및 모델 상태, 리소스·서비스·근거 상태 조회, 영속 상태 및 감사 준비 검사, 전체 15개 신호 정책 및 exporter 레지스트리, 인증된 8개 필드 운영 상태 화면, 정확한 소비 카나리 감사 하나를 30초 지연 예산 안에서 요구하는 배포 코드입니다. 누락된 수집원은 정상 기본값 대신 신선도가 포함된 명시적 unavailable 상태로 표시됩니다. [정본 상태 정보](../../roadmap/operations/operating-and-verification-ko.md#구현-상태)와 집중 검사가 이 범위를 뒷받침합니다. 수집원별 운영 exporter 조합, 측정된 기본 및 대체 전달, 통과한 실제 카나리 증적, 안정화 및 복구 훈련 근거는 남아 있습니다. |
+| <span id="f12-4">F12.4</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 신호 15개의 정책 및 내보내기 레지스트리, 운영 상태 필드 8개의 계약, 서비스 및 모델과 근거 상태 조회, 소비된 정확한 카나리의 30초 검사가 구현되어 있습니다. #2218 / PR #2220에서 실제 수신 서버, 보호된 준비 상태, 저장된 비상 중지 신호와 설치 버전, 소비한 정책 다이제스트, 비상 중지 필드를 연결하고 집중 검사 92개를 통과했습니다. [정본 상태 정보](../../roadmap/operations/operating-and-verification-ko.md#구현-상태)는 나머지 신호 12개와 필드 5개를 명시적 사용 불가로 유지합니다. 실제 수집원, 측정된 기본 및 대체 전달, 실제 카나리, 안정화, 복구 훈련 근거는 필수로 남습니다. |
 
 ## F13. 근거 조회 및 보고서
 
