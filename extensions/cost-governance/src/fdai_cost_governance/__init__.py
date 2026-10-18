@@ -47,6 +47,11 @@ from fdai_cost_governance.optimization import (
     default_service_family_profiles,
     evaluate_optimization_attestation,
 )
+from fdai_cost_governance.optimization_runtime import (
+    CostOptimizationRuntime,
+    OptimizationPublicationResult,
+    OptimizationPublicationState,
+)
 from fdai_cost_governance.pantheon_composition import (
     OptimizationReinjectionDisposition,
     OptimizationReinjectionResult,
@@ -113,6 +118,7 @@ __all__ = [
     "CostForecastPrediction",
     "CostCoordinationError",
     "CostObservationModeLatch",
+    "CostOptimizationRuntime",
     "CostObservationCampaignReducer",
     "CostPromotionReadinessGate",
     "CostReadinessBlock",
@@ -147,6 +153,8 @@ __all__ = [
     "ForecastCalibrationSnapshot",
     "ForecastCalibrationState",
     "OptimizationDisposition",
+    "OptimizationPublicationResult",
+    "OptimizationPublicationState",
     "OptimizationClarificationAttestation",
     "OptimizationClarificationRequest",
     "OptimizationClarificationResult",
