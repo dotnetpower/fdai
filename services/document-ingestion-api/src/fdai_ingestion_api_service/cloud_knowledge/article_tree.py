@@ -92,21 +92,25 @@ def elements(node: Element, *, controls: bool = False) -> Iterator[Element]:
 
 
 class _TreeParser(HTMLParser):
-    def __init__(self) -> None:
+    def __init__(self, *, strict_attributes: bool = False) -> None:
         super().__init__(convert_charrefs=True)
+        self.strict_attributes = strict_attributes
+        self._malformed_entries: set[Element] = set()
         self.root = Element("body")
         self.stack = [self.root]
         self.issues: set[str] = set()
         self.nodes = 0
         self.text_bytes = 0
 
-    def _issue(self, reason: str) -> None:
+    def _issue(self, reason: str, *, entering_article: bool = False) -> None:
         """Malformed inactive chrome cannot qualify or disqualify an unrelated article."""
-        if any(
+        if entering_article or any(
             node.tag in {"main", "article"} or "content" in node.attrs.get("class", "").split()
             for node in self.stack
         ):
-            if not any(excluded(node) for node in self.stack[1:]):
+            if not any(
+                excluded(node) and node not in self._malformed_entries for node in self.stack[1:]
+            ):
                 self.issues.add(reason)
 
     def _count(self) -> None:
@@ -121,6 +125,9 @@ class _TreeParser(HTMLParser):
         if len(tag) > 128 or len(attrs) > MAX_ATTRIBUTES:
             raise ValueError("source HTML exceeds the attribute limit")
         values: dict[str, str] = {}
+        duplicate_attributes = False
+        conflicting_attributes: set[str] = set()
+        entering_article = tag in {"main", "article"}
         attribute_bytes = 0
         for key, value in attrs:
             value = value or ""
@@ -128,12 +135,48 @@ class _TreeParser(HTMLParser):
             if len(key) > 128 or size > MAX_ATTRIBUTE_BYTES:
                 raise ValueError("source HTML exceeds the attribute byte limit")
             attribute_bytes += len(key.encode("utf-8")) + size
+            if key == "class" and "content" in value.split():
+                entering_article = True
             if key in values:
-                self._issue("malformed_structure")
+                if not self.strict_attributes:
+                    self._issue("malformed_structure")
+                duplicate_attributes = True
+                if values[key] != value:
+                    conflicting_attributes.add(key)
             values[key] = value
         if attribute_bytes > 32 * 1024:
             raise ValueError("source HTML exceeds the aggregate attribute limit")
         node = Element(tag, values)
+        if duplicate_attributes and self.strict_attributes:
+            # Conflicts cannot prove chrome; presence-only markers remain unambiguous.
+            classification_attrs = {
+                key: value
+                for key, value in values.items()
+                if key not in conflicting_attributes or key in {"data-page-action-item", "hidden"}
+            }
+            classification = Element(tag, classification_attrs)
+            known_chrome = excluded(classification)
+            auth_control = tag == "form" or (
+                tag == "input"
+                and any(
+                    key == "type" and (value or "").lower() == "password" for key, value in attrs
+                )
+            )
+            if (
+                auth_control
+                and not _explicitly_hidden(classification)
+                and not any(_explicitly_hidden(parent) for parent in self.stack[1:])
+            ):
+                known_chrome = False
+            if not known_chrome:
+                self._malformed_entries.add(node)
+                self._issue("malformed_structure", entering_article=entering_article)
+        if (
+            self.strict_attributes
+            and entering_article
+            and any(parent in self._malformed_entries for parent in self.stack[1:])
+        ):
+            self._issue("malformed_structure", entering_article=True)
         self.stack[-1].children.append(node)
         if tag not in VOID:
             self.stack.append(node)
@@ -196,14 +239,19 @@ def _regions(node: Element, *, content: bool = False) -> list[Element]:
     ]
 
 
-def _auth_form(node: Element) -> bool:
+def _explicitly_hidden(node: Element) -> bool:
+    """Recognize the existing inert hidden-state vocabulary without rendering CSS."""
     style = node.attrs.get("style", "").lower().replace(" ", "")
-    if (
+    return (
         "hidden" in node.attrs
         or "hidden" in node.tokens
         or node.attrs.get("aria-hidden", "").lower() == "true"
         or "display:none" in style
-    ):
+    )
+
+
+def _auth_form(node: Element) -> bool:
+    if _explicitly_hidden(node):
         return False
     if node.tag == "form" or (
         node.tag == "input" and node.attrs.get("type", "").lower() == "password"
@@ -214,7 +262,9 @@ def _auth_form(node: Element) -> bool:
     return any(_auth_form(child) for child in node.children if isinstance(child, Element))
 
 
-def parse_article(original: str) -> tuple[tuple[Element, ...], set[str]]:
+def parse_article(
+    original: str, *, strict_attributes: bool = False
+) -> tuple[tuple[Element, ...], set[str]]:
     """Select explicit main/article or top-level content scopes; reject missing/login regions.
 
     Budget violations raise ValueError. Unsupported/malformed structure is retained
@@ -222,7 +272,7 @@ def parse_article(original: str) -> tuple[tuple[Element, ...], set[str]]:
     """
     if not original or len(original.encode("utf-8")) > MAX_INPUT_BYTES or "\x00" in original:
         raise ValueError("source HTML is empty, binary, or exceeds the input byte limit")
-    parser = _TreeParser()
+    parser = _TreeParser(strict_attributes=strict_attributes)
     try:
         parser.feed(original)
         parser.close()

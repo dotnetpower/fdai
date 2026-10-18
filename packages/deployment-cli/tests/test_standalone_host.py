@@ -1327,6 +1327,7 @@ def test_service_update_recovery_refreshes_readback_context(
     )
 
     assert result["state"] == "applied"
+    assert result["operation"] == operation
     assert result["verification_only_recovery"] is True
 
 

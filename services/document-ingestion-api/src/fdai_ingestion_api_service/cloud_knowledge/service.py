@@ -175,7 +175,9 @@ class CloudKnowledgeService:
         if self._structured:
             return KnowledgeStructuredReleaseManifest(
                 reader_version=(
-                    "3.1.0"
+                    "3.1.1"
+                    if any(d.normalizer_version == "2.1.1" for d in structured_documents)
+                    else "3.1.0"
                     if any(d.normalizer_version == "2.1.0" for d in structured_documents)
                     else "3.0.0"
                 ),
