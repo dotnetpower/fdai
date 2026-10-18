@@ -1243,6 +1243,93 @@ def test_application_state_adoption_claim_resumes_verification_without_push(
     assert (tmp_path / "application-state-adoption-receipt.json").is_file()
 
 
+def test_service_update_recovery_refreshes_readback_context(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    operation = "service-update-core-control-plane-0123456789ab"
+    context = {
+        "target_binding": "a" * 64,
+        "runtime_profile_digest": "b" * 64,
+    }
+    review = {"plan_digest": "c" * 64}
+    claim = {
+        "schema_version": "fdai.standalone-application-claim.v1",
+        "stage": "application",
+        "plan_digest": review["plan_digest"],
+        "idempotency_key": standalone_host.canonical_digest(
+            {
+                "target_binding": context["target_binding"],
+                "plan_digest": review["plan_digest"],
+            }
+        ),
+    }
+    update = {
+        "operation": operation,
+        "service": "core-control-plane",
+        "image": "registry.invalid/core@sha256:" + "d" * 64,
+        "source_commit": "e" * 40,
+        "update_digest": "f" * 64,
+    }
+    (tmp_path / f"{operation}-claim.json").write_text("{}", encoding="utf-8")
+    refreshed_context = {**context, "expected_workloads": {"refreshed": {}}}
+    records = {
+        "context.json": context,
+        f"{operation}-review.json": review,
+        f"{operation}-claim.json": claim,
+    }
+    monkeypatch.setattr(
+        standalone_host,
+        "_private_json",
+        lambda path, _label: records[path.name],
+    )
+    monkeypatch.setattr(standalone_host, "_service_update_record", lambda *_args, **_kwargs: update)
+    monkeypatch.setattr(
+        standalone_host,
+        "_application_operation",
+        lambda *_args, **_kwargs: (operation, None),
+    )
+    monkeypatch.setattr(standalone_host, "_managed_identity_login_from_context", lambda *_: None)
+    monkeypatch.setattr(
+        standalone_host,
+        "_stage_paths",
+        lambda *_args, **_kwargs: (tmp_path, tmp_path / "workloads.auto.tfvars.json"),
+    )
+    monkeypatch.setattr(standalone_host, "_activate_terraform_stage", lambda *_: None)
+    monkeypatch.setattr(standalone_host, "_operation_targets", lambda *_: ())
+    monkeypatch.setattr(
+        standalone_host.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(returncode=0),
+    )
+    monkeypatch.setattr(
+        standalone_host.service_recovery,
+        "readback_context",
+        lambda work_dir, value: (
+            refreshed_context
+            if work_dir == tmp_path and value is context
+            else pytest.fail("recovery readback context inputs differ")
+        ),
+    )
+    monkeypatch.setattr(
+        standalone_host,
+        "_readback_aks_service_update",
+        lambda value, selected: (
+            True
+            if value is refreshed_context and selected is update
+            else pytest.fail("recovery did not use the refreshed context")
+        ),
+    )
+    monkeypatch.setattr(standalone_host, "_replace_private_json", lambda *_: None)
+
+    result = standalone_host._recover_apply(
+        SimpleNamespace(stage="application", service="core-control-plane"),
+        tmp_path,
+    )
+
+    assert result["state"] == "applied"
+    assert result["verification_only_recovery"] is True
+
+
 def test_application_state_adoption_rejects_occupied_or_mismatched_remote(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
