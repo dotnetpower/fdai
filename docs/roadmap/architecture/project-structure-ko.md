@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 7415d2fe6e48ab3999df63824a8b410ee84f0b97
+translation_source_sha: b61b5a31daacfdedb1fb213ee34db44e5fdd2b3e
 translation_revised: 2026-10-18
 ---
 # 프로젝트 구조
@@ -102,6 +102,14 @@ exporter 범위를 요구하고, 신선도를 검사한 스냅숏 하나를 저�
 사용할 수 없는 수집원을 기록합니다. Operator는 인증된 Reader 역할의
 `GET /operations/runtime-state` 변환을 통해 이 스냅숏을 제공합니다. 전달 어댑터는 명시적인
 unavailable binding을 출처가 명시된 운영 메트릭으로 교체해야 합니다.
+`delivery/self_health_sources.py`는 이제 자체 상태 수신기, 보호된 준비 상태, 저장된 비상 정지에서
+신호 3개를 제공하고, 설치된 Core 버전, 시작 시 실제로 사용한 정책, 저장된 비상 정지에서
+필드 3개를 제공합니다. `runtime/readiness.py`는 스냅숏 수집을 직렬화하면서 시작 검사와 별개로
+수집원을 새로 고칩니다. 나머지 신호 12개와 필드 5개는 unavailable로 유지합니다. 프로세스
+내부의 이 읽기는 전체 복제본의 상태나 배포 수락을 입증하지 않습니다.
+[수집원 주입 계약](project-structure-dependency-injection-ko.md#자체-상태-수집원-연결)과
+[운영 담당 문서](../operations/operating-and-verification-ko.md#로컬-수집원-연결)는 서비스나
+에이전트의 소유권을 바꾸지 않고 나머지 수집원 및 근거 경계를 정의합니다.
 운영 승격은 또 하나의 정확한 계층 간 ID를 사용합니다. Core 측정은 모든 O7 임계값 정책을
 다이제스트하고 증적에 포함합니다. 검토된 replay 권한, 거버넌스 승격 요청, 영속 증적 저장,
 action-mode 레코드, 재시작 검증은 근거와 정책 ID를 합성한 내용 주소 기반 판정 다이제스트를
