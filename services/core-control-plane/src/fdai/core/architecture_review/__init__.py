@@ -29,6 +29,7 @@ from .observation_trace import (
 from .projection import ArchitectureReviewProjector
 from .readiness import (
     PRODUCTION_GATE_REF,
+    ArchitectureReviewDecisionReceiptProvider,
     ArchitectureReviewProductionGateEvaluator,
     ArchitectureReviewReadiness,
     ProductionEvidenceAttestation,
@@ -40,6 +41,7 @@ from .readiness import (
 
 __all__ = [
     "ArchitectureReviewProductionGateEvaluator",
+    "ArchitectureReviewDecisionReceiptProvider",
     "ArchitectureReviewProjector",
     "ArchitectureReviewReadiness",
     "ArchitectureReviewObservationTrace",

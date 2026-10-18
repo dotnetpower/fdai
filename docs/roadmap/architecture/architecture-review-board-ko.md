@@ -1,8 +1,8 @@
 ---
 title: Architecture Review Board 패킷
 translation_of: architecture-review-board.md
-translation_source_sha: f0eb1c28f04422b9cca87ead1a5507901f8697e1
-translation_revised: 2026-08-29
+translation_source_sha: b4f4d07c433a8c72a8801d75f515cab17011041d
+translation_revised: 2026-10-18
 ---
 # Architecture Review Board 패킷
 
@@ -117,8 +117,10 @@ python3 scripts/governance/check-arb-readiness.py --require-production-ready
 현재 재사용 가능한 구현은 검증한 바로 그 스냅샷에 기반한 계획 변경 그래프 근거를 전달하고, 완전하고
 현재 유효한 위험 또는 예외 레코드가 없는 수락된 심각 또는 높음 차단 항목을 거부하며, 운영
 준비 상태를 인정하기 전에 공급자를 통한 근거 본문 증명을 요구합니다. 변경할 수 없는 최종 결정 증적은 정확한
-근거와 독립적으로 기록된 승인을 실행 권한 없이 결합합니다. 증적에서 준비 상태를 파생하는
-작업과 완전한 관찰 모드 에이전트 루프는 여전히 남아 있습니다.
+근거와 독립적으로 기록된 승인을 실행 권한 없이 결합합니다. 런타임 프로덕션 게이트는 이제
+변환 결과에 기록된 최신의 모호하지 않은 증적을 확인하고 내용 기반 신원을 다시 검증하며,
+정확한 근거, 리비전, 결과, 유효 시간 및 사람 승인 일치를 요구합니다. 프로덕션 담당자/근거
+연결과 완전한 관찰 모드 에이전트 루프는 여전히 남아 있습니다.
 
 `ReviewCase`와 `ReviewCheck`는 읽기 모델입니다. Process와 Console을 위해 권위 있는 계보를
 요약하지만 판단, 승인, 실행 권한을 부여하지 않습니다.

@@ -69,7 +69,7 @@ def test_missing_evidence_path_is_rejected() -> None:
         _MOD.validate_contract(raw, _REPO_ROOT, require_production_ready=False)
 
 
-def test_complete_production_bindings_pass_strict_mode() -> None:
+def test_structural_checker_cannot_manufacture_runtime_decision_receipt() -> None:
     raw = copy.deepcopy(_manifest())
     review = raw["architecture_review"]
     assert isinstance(review, dict)
@@ -123,13 +123,14 @@ def test_complete_production_bindings_pass_strict_mode() -> None:
         for item, body in bodies.items()
     }
 
-    _MOD.validate_contract(
-        raw,
-        _REPO_ROOT,
-        require_production_ready=True,
-        evaluated_at=datetime(2026, 8, 29, tzinfo=UTC),
-        evidence_attestations=attestations,
-    )
+    with pytest.raises(ValueError, match="immutable architecture decision receipt is missing"):
+        _MOD.validate_contract(
+            raw,
+            _REPO_ROOT,
+            require_production_ready=True,
+            evaluated_at=datetime(2026, 8, 29, tzinfo=UTC),
+            evidence_attestations=attestations,
+        )
 
 
 def test_expired_production_evidence_is_rejected() -> None:

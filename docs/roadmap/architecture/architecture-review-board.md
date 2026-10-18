@@ -117,8 +117,11 @@ failure behavior, and production exit procedure.
 The current reusable implementation carries exact verified-snapshot planned-change graph evidence,
 rejects accepted critical or high blockers without a complete current risk or exception record, and
 requires provider-backed body attestation before production readiness. Immutable final decision
-receipts now bind exact evidence and independently recorded approvals without execution authority.
-Receipt-derived readiness and the complete observation-mode agent loop remain open.
+receipts bind exact evidence and independently recorded approvals without execution authority.
+The runtime production gate now resolves the latest unambiguous projected receipt, revalidates its
+content-addressed identity, and requires exact evidence, revision, outcome, effective time, and
+human-approval alignment. Production owner/evidence bindings and the complete observation-mode
+agent loop remain open.
 
 `ReviewCase` and `ReviewCheck` are read models. They summarize authoritative lineage for the
 Process and Console, but they do not grant judgment, approval, or execution authority.

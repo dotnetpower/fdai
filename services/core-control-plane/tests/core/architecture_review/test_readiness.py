@@ -10,9 +10,13 @@ from pathlib import Path
 import pytest
 import yaml
 from fdai.core.architecture_review import (
+    ArchitectureDecisionAuthorityBasis,
+    ArchitectureDecisionOutcome,
+    ArchitectureReviewDecisionReceipt,
     ArchitectureReviewProductionGateEvaluator,
     ProductionEvidenceAttestation,
     ProductionEvidenceBinding,
+    build_architecture_review_decision_receipt,
     evaluate_readiness,
     validate_contract,
 )
@@ -85,6 +89,40 @@ def _attestation(**overrides: object) -> ProductionEvidenceAttestation:
     }
     values.update(overrides)
     return ProductionEvidenceAttestation(**values)
+
+
+def _receipt(**overrides: object) -> ArchitectureReviewDecisionReceipt:
+    values: dict[str, object] = {
+        "review_case_id": "fdai-target-architecture-v1",
+        "change_id": "change:production-1",
+        "decision_case_id": "decision-case:production-1",
+        "impact_envelope_id": "impact:production-1",
+        "target_revision": "revision:example-1",
+        "context_snapshot_id": "context:production-1",
+        "evidence_bundle_id": "evidence-bundle:production-1",
+        "graph_revision": "graph:production-1",
+        "catalog_release": "catalog:production-1",
+        "evidence_refs": ("network-data-flow-validation",),
+        "conditions": (),
+        "outcome": ArchitectureDecisionOutcome.CONFORMANT,
+        "rationale": "The exact governed evidence supports production readiness.",
+        "authority_basis": ArchitectureDecisionAuthorityBasis.HUMAN_APPROVAL,
+        "authority_ref": "authority:production-approval-1",
+        "requester_id": "principal:requester",
+        "judge_id": "agent:Forseti",
+        "arbitrator_id": None,
+        "approver_ids": ("principal:approver",),
+        "approval_receipt_refs": ("approval:production-1",),
+        "quorum": 1,
+        "audit_intent_ref": "audit:intent-1",
+        "terminal_audit_ref": "audit:terminal-1",
+        "recorded_at": datetime(2026, 8, 28, tzinfo=UTC),
+        "effective_from": datetime(2026, 8, 28, tzinfo=UTC),
+        "effective_until": datetime(2026, 9, 28, tzinfo=UTC),
+        "reevaluation_trigger": "evidence_or_scope_changes",
+    }
+    values.update(overrides)
+    return build_architecture_review_decision_receipt(**values)  # type: ignore[arg-type]
 
 
 def test_upstream_structure_is_valid_but_production_is_blocked() -> None:
@@ -245,6 +283,7 @@ def test_production_readiness_requires_provider_attestation() -> None:
         _production_ready_manifest(),
         repo_root=_ROOT,
         evaluated_at=_EVALUATED_AT,
+        decision_receipt=_receipt(),
     )
 
     assert report.structure_valid is True
@@ -274,6 +313,7 @@ def test_production_readiness_rejects_invalid_attestation(
         evidence_attestations={
             "network-data-flow-validation": _attestation(**overrides),
         },
+        decision_receipt=_receipt(),
     )
 
     assert report.production_ready is False
@@ -290,9 +330,59 @@ def test_production_readiness_accepts_exact_provider_attestation() -> None:
         evidence_attestations={
             "network-data-flow-validation": _attestation(),
         },
+        decision_receipt=_receipt(),
     )
 
     assert report == report.__class__(structure_valid=True, production_ready=True)
+
+
+def test_production_readiness_requires_immutable_decision_receipt() -> None:
+    report = evaluate_readiness(
+        _production_ready_manifest(),
+        repo_root=_ROOT,
+        evaluated_at=_EVALUATED_AT,
+        evidence_attestations={
+            "network-data-flow-validation": _attestation(),
+        },
+    )
+
+    assert report.production_ready is False
+    assert report.failures == ("immutable architecture decision receipt is missing",)
+
+
+@pytest.mark.parametrize(
+    ("overrides", "reason"),
+    [
+        (
+            {"outcome": ArchitectureDecisionOutcome.CONDITIONAL},
+            "outcome must be conformant",
+        ),
+        (
+            {"target_revision": "revision:other"},
+            "target revision does not match",
+        ),
+        (
+            {"effective_until": datetime(2026, 8, 29, tzinfo=UTC)},
+            "is not currently effective",
+        ),
+    ],
+)
+def test_production_readiness_rejects_receipt_drift(
+    overrides: dict[str, object],
+    reason: str,
+) -> None:
+    report = evaluate_readiness(
+        _production_ready_manifest(),
+        repo_root=_ROOT,
+        evaluated_at=_EVALUATED_AT,
+        evidence_attestations={
+            "network-data-flow-validation": _attestation(),
+        },
+        decision_receipt=_receipt(**overrides),
+    )
+
+    assert report.production_ready is False
+    assert report.failures == (f"architecture decision receipt {reason}",)
 
 
 async def test_runtime_gate_retrieves_and_attests_production_evidence(
@@ -322,10 +412,20 @@ async def test_runtime_gate_retrieves_and_attests_production_evidence(
             )
 
     provider = _Provider()
+
+    class _ReceiptProvider:
+        async def retrieve(
+            self,
+            review_case_id: str,
+        ) -> ArchitectureReviewDecisionReceipt:
+            assert review_case_id == "fdai-target-architecture-v1"
+            return _receipt()
+
     evaluator = ArchitectureReviewProductionGateEvaluator(
         manifest_path=manifest,
         repo_root=_ROOT,
         evidence_provider=provider,
+        decision_receipt_provider=_ReceiptProvider(),
         clock=lambda: _EVALUATED_AT,
     )
 

@@ -16,6 +16,9 @@ from fdai.core.architecture_review import (
     build_architecture_review_decision_receipt,
 )
 from fdai.core.workflow.projection import ProcessOntologyProjector
+from fdai.delivery.architecture_review_decision_receipt import (
+    OntologyArchitectureReviewDecisionReceiptProvider,
+)
 from fdai.rule_catalog.schema.link_type import load_link_type_catalog
 from fdai.rule_catalog.schema.object_type import load_object_type_catalog
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
@@ -294,6 +297,10 @@ async def test_receipt_bound_decision_projects_exact_authority_record() -> None:
     assert decision.properties["decision_case_id"] == "decision-case-1"
     assert decision.properties["approval_receipt_refs"] == [approval_id]
     assert decision.properties["execution_authority"] is False
+    persisted = await OntologyArchitectureReviewDecisionReceiptProvider(store).retrieve(
+        "fdai-target-architecture-v1"
+    )
+    assert persisted == receipt
 
 
 async def test_receipt_bound_decision_rejects_unrecorded_approval_before_write() -> None:

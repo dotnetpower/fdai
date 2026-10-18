@@ -11,7 +11,7 @@ evidence separate from the target sequence.
 |------|-------|----------|-------|
 | ARB-1 Ontology truth | implemented | `core/operational_context/materializer.py`; `core/impact_analysis/change_assessment.py`; `agents/{huginn,forseti}.py`; focused context, impact, agent, and bootstrap tests | Planned-change assessment now preserves the requested release and derives authentication, freshness, release match, conflict, and truncation evidence from one exact verified snapshot. |
 | ARB-2 Agent evidence loop | in-progress | `core/architecture_review/observation_trace.py`; `agents/_framework/runtime.py`; focused ARB trace and runtime tests | The runtime now replays an observation-only trace from emitted owned topics and retains terminal observer degradation evidence, but the full vertical slice still lacks owned context, evidence-bundle, impact-envelope, recommendation, and derived `ReviewCase` records. |
-| ARB-3 Decision authority | in-progress | `core/architecture_review/{readiness,decision_receipt,projection}.py`; Approval and Decision `1.1.0`; focused ARB tests | Provider-backed evidence body attestation, accepted blocker contracts, and an immutable receipt binding exact case, evidence, conditions, authority, approvals, and audit identity are implemented. Receipt-derived production readiness remains open. |
+| ARB-3 Decision authority | implemented | `core/architecture_review/{readiness,decision_receipt,projection}.py`; `delivery/architecture_review_decision_receipt.py`; Approval and Decision `1.1.0`; focused ARB tests | Provider-backed evidence body attestation, accepted blocker contracts, and an immutable receipt bind exact case, evidence, conditions, authority, approvals, and audit identity. Runtime production readiness now derives from the latest unambiguous validated receipt. Deployment-owned owner/evidence values and a governed receipt remain operational qualification. |
 | ARB-4 Effect closure | in-progress | Shared operational lineage and independent observation foundations | The generic chain exists, but ARB decisions are not connected to it end to end. |
 | ARB-5 Learning and rollout | not-started | Shared Muninn, Norns, Mimir, and promotion foundations | No ARB-specific retained cohort or promotion evidence exists. |
 
@@ -24,6 +24,7 @@ evidence separate from the target sequence.
 | 2026-08-29 | in-progress | Completed ARB-1 exact snapshot sourcing and the provider-attestation portion of ARB-3 while preserving the dependency order and leaving decision authority closed. | `current change`; exact snapshot batch; injected evidence provider boundary; focused context, impact, agent, readiness, and CLI checks. | Complete ARB-2, then bind the immutable ARB-3 decision receipt before any authority-bearing transition. |
 | 2026-08-29 | in-progress | Added the immutable ARB-3 receipt contract and receipt-bound projection with independent approval identity checks. The receipt records authority evidence but explicitly grants no execution authority. | `current change`; receipt and projection modules, versioned Approval and Decision declarations, and focused ARB contract tests. | Complete ARB-2, then derive ARB-3 production readiness from the immutable receipt. |
 | 2026-08-24 | in-progress | Defined five dependency-ordered work packages and an observation-mode first vertical slice. | `current change`; owner document, paired translation, current source evidence, and focused documentation checks. | Deliver ARB-1 through ARB-5 in order and retain executable evidence at each exit. |
+| 2026-10-18 | implemented | Completed the locally actionable ARB-3 receipt-readiness boundary. The runtime guard reads the projected immutable receipt and fails closed on absence, ambiguity, digest failure, review/evidence/revision drift, non-conformant outcome, ineffective time, or missing human approval. | `current change`; ARB readiness, ontology receipt adapter, runtime guard composition, and 32 focused tests; task-scoped Ruff and strict mypy passed. | Complete ARB-2's remaining owned-topic runtime composition before ARB-4 or ARB-5 can claim end-to-end evidence. Deployment bindings remain external. |
 
 ### Remaining work
 
@@ -32,8 +33,8 @@ evidence separate from the target sequence.
 - [ ] Complete ARB-2 from the current runtime-bound observation trace through the derived review
   projection with owned context, evidence-bundle, impact-envelope, and recommendation records and
   no direct agent calls.
-- [ ] Complete ARB-3 by deriving production readiness from the implemented immutable decision receipt;
-  provider-verified evidence remains a required receipt input.
+- [x] Complete ARB-3 by deriving production readiness from the implemented immutable decision
+  receipt; provider-verified evidence remains a required receipt input.
 - [ ] Complete ARB-4 with independent multi-effect closure and a recovery fixture.
 - [ ] Complete ARB-5 with a pinned observation cohort and independently reviewed promotion
   evidence showing zero policy escapes.
