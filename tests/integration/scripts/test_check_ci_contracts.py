@@ -2012,6 +2012,29 @@ def test_ci_runs_regression_without_coverage_and_merges_focused_coverage() -> No
     assert "coverage report --fail-under=90" in merge_step["run"]
 
 
+def test_ci_regression_installs_native_terraform_before_offline_state_tests() -> None:
+    jobs = yaml.safe_load(
+        (_REPO_ROOT / ".github" / "workflows" / "ci.yml").read_text(encoding="utf-8")
+    )["jobs"]
+    steps = jobs["python-tests"]["steps"]
+    setups = [
+        step for step in steps if step.get("uses", "").startswith("hashicorp/setup-terraform@")
+    ]
+    assert len(setups) == 1
+    setup = setups[0]
+    validation_setup = next(
+        step
+        for step in jobs["terraform-validate"]["steps"]
+        if step.get("uses", "").startswith("hashicorp/setup-terraform@")
+    )
+    assert setup["uses"] == validation_setup["uses"]
+    assert setup["with"] == validation_setup["with"]
+    assert setup["with"]["terraform_wrapper"] is False
+    assert "if" not in setup
+    runner = next(step for step in steps if step["name"] == "Run regression shard")
+    assert steps.index(setup) < steps.index(runner)
+
+
 def test_ci_required_status_aggregates_every_execution_job() -> None:
     workflow_path = _REPO_ROOT / ".github" / "workflows" / "ci.yml"
     jobs = yaml.safe_load(workflow_path.read_text(encoding="utf-8"))["jobs"]

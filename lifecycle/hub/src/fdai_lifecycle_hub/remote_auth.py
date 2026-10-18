@@ -123,7 +123,54 @@ class EntraVerifier:
         return claims
 
 
-def secure_app(app: Starlette, config: RemoteAuth, *, vendor: bool) -> Starlette:
+def secure_app(
+    app: Starlette, config: RemoteAuth | None, *, vendor: bool, origin: str | None = None
+) -> Starlette:
+    if config is None:
+        if origin is None:
+            raise ValueError("Remote serving requires an explicit HTTPS origin.")
+        parsed = urlsplit(origin)
+        if (
+            parsed.scheme != "https"
+            or not parsed.hostname
+            or parsed.username
+            or parsed.password
+            or parsed.path
+            or parsed.query
+            or parsed.fragment
+            or parsed.port not in (None, 443)
+        ):
+            raise ValueError("Remote serving requires an exact HTTPS origin.")
+
+        async def unavailable_config(request: Request) -> Response:
+            return JSONResponse(
+                {
+                    "profile": "remote-unconfigured",
+                    "origin": origin,
+                    "product": "release" if vendor else "lifecycle",
+                    "management": "unavailable",
+                    "reason": "operator_auth_not_configured",
+                },
+                headers={"Cache-Control": "no-store"},
+            )
+
+        async def unavailable(request: Request, call_next: RequestResponseEndpoint) -> Response:
+            if request.url.path == "/v1" or request.url.path.startswith("/v1/"):
+                logger.warning("hub_management_unavailable reason=operator_auth_not_configured")
+                return _denied(503, "operator_auth_not_configured")
+            response = await call_next(request)
+            response.headers["X-Content-Type-Options"] = "nosniff"
+            response.headers["Content-Security-Policy"] = (
+                "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; "
+                "connect-src 'self'; frame-ancestors 'none'; base-uri 'none'"
+            )
+            return response
+
+        app.routes.insert(0, Route("/auth/config", unavailable_config))
+        app.add_middleware(BaseHTTPMiddleware, dispatch=unavailable)
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=[parsed.hostname])
+        return app
+
     verifier = EntraVerifier(config)
     app.state.entra_verifier = verifier
 

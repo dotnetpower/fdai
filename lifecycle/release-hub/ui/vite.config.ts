@@ -4,6 +4,7 @@ import preact from "@preact/preset-vite";
 
 export default defineConfig({
   plugins: [preact()],
+  resolve: { dedupe: ["@azure/msal-browser"] },
   publicDir: "../../hub/ui/public",
   server: {
     host: "127.0.0.1",

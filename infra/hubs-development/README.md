@@ -136,11 +136,19 @@ evidence. Publishing a manifest alone never proves an artifact exists.
 
 ## Build and validate locally
 
-From the repository root:
+From the repository root, build each image with the
+[digest-pinned Buildx procedure](../modules/hub-service/README.md#freeze-one-candidate).
+It supplies the required approved `NODE_IMAGE`, `PYTHON_IMAGE` and `UV_IMAGE` digest references;
+the Dockerfile has no unpinned fallback bases.
+
+| Image | `TARGET` | `IMAGE_TAG` |
+|-------|----------|-------------|
+| Vendor | `release` | `fdai-release-hub:dev` |
+| Customer | `target` | `fdai-target-hub:dev` |
+
+Then validate the UI and retained Terraform root:
 
 ```bash
-docker build -f lifecycle/Dockerfile.hubs --target release -t fdai-release-hub:dev .
-docker build -f lifecycle/Dockerfile.hubs --target target -t fdai-target-hub:dev .
 npm --prefix lifecycle/hub/ui run build
 npm --prefix lifecycle/release-hub/ui run build
 npm --prefix lifecycle/hub/ui run test:browser
