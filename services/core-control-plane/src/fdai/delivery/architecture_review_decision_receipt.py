@@ -24,6 +24,8 @@ class OntologyArchitectureReviewDecisionReceiptProvider:
             limit=64,
             include_relationships=False,
         )
+        if snapshot.truncated or not snapshot.source_complete:
+            raise ValueError("architecture review decision receipt query is incomplete")
         candidates = tuple(
             record
             for record in snapshot.objects

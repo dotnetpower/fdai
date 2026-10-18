@@ -22,6 +22,7 @@ from fdai.delivery.architecture_review_decision_receipt import (
 from fdai.rule_catalog.schema.link_type import load_link_type_catalog
 from fdai.rule_catalog.schema.object_type import load_object_type_catalog
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
+from fdai.shared.providers.ontology_instance import OntologyGraphSnapshot
 from fdai.shared.providers.process_runtime import (
     ProcessEvent,
     ProcessEventKind,
@@ -301,6 +302,16 @@ async def test_receipt_bound_decision_projects_exact_authority_record() -> None:
         "fdai-target-architecture-v1"
     )
     assert persisted == receipt
+
+    class _TruncatedStore:
+        async def query_objects(self, **_kwargs: object) -> OntologyGraphSnapshot:
+            assert decision is not None
+            return OntologyGraphSnapshot(objects=(decision,), truncated=True)
+
+    with pytest.raises(ValueError, match="query is incomplete"):
+        await OntologyArchitectureReviewDecisionReceiptProvider(  # type: ignore[arg-type]
+            _TruncatedStore()
+        ).retrieve("fdai-target-architecture-v1")
 
 
 async def test_receipt_bound_decision_rejects_unrecorded_approval_before_write() -> None:
