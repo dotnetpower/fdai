@@ -99,9 +99,39 @@ Git, Terraform, SHA-256, jq and Azure CLI only. They don't grant approval, apply
 
 ```bash
 candidate_context() {
+  local jobs job
   printf '%s\n' "$SOURCE_SHA" "$ROOT" "$TARGET" "$SUBSCRIPTION_ID" "$TENANT_ID" \
     "$RUNTIME_IMAGE" "$PRIVATE_BUILD_METADATA" "$PRIVATE_BACKEND" "$PRIVATE_INPUTS" "$PRIVATE_PLAN" \
     "$PRIVATE_PLAN_JSON" "$PRIVATE_STAGE_CONTEXT" "$PRIVATE_STAGE_HASHES"
+  if ! jobs=$(jq -r '
+    .planned_values | .. | objects |
+    select(.mode? == "managed" and .type? == "azurerm_container_app_job") |
+    .values.id | select(type == "string" and length > 0)
+    ' "$PRIVATE_PLAN_JSON" 2>> "$PRIVATE_STAGE_CONTEXT.log"); then
+    echo "Hub Job bindings could not be observed." >&2
+    return 1
+  fi
+  if [[ -z "$jobs" ]]; then return 0; fi
+  while IFS= read -r job; do
+    if ! timeout 15s az containerapp job show --ids "$job" -o json \
+      2>> "$PRIVATE_STAGE_CONTEXT.log" |
+      jq -Sce --arg id "$job" '
+        select((.id | ascii_downcase) == ($id | ascii_downcase) and
+          (.identity | type == "object") and
+          .identity.type == "UserAssigned" and
+          (.identity.userAssignedIdentities | type == "object" and length > 0) and
+          (.properties.environmentId | type == "string" and length > 0) and
+          (.properties.configuration | type == "object") and
+          .properties.configuration.triggerType == "Manual" and
+          (.properties.template.containers | type == "array" and length > 0))
+        | {id, identity, environmentId: .properties.environmentId,
+            workloadProfileName: .properties.workloadProfileName,
+            configuration: .properties.configuration, template: .properties.template}
+        ' 2>> "$PRIVATE_STAGE_CONTEXT.log"; then
+      echo "Hub live Job definition is unavailable or incomplete; dispatch stopped." >&2
+      return 1
+    fi
+  done <<< "$jobs"
 }
 
 planned_job() {
@@ -132,8 +162,8 @@ verify_candidate() {
     echo "Hub candidate source changed or is not clean." >&2
     return 1
   fi
-  if ! candidate_context | cmp -s "$PRIVATE_STAGE_CONTEXT" - ||
-     ! sha256sum --check --status "$PRIVATE_STAGE_HASHES"; then
+  if ! sha256sum --check --status "$PRIVATE_STAGE_HASHES" ||
+     ! candidate_context | cmp -s "$PRIVATE_STAGE_CONTEXT" -; then
     echo "Hub stage inputs, saved plan or bindings changed." >&2
     return 1
   fi
@@ -247,6 +277,9 @@ This detects accidental drift, not a hostile operator rewriting both the files a
 It doesn't replace Terraform's own state-lock/stale-plan checks or independent effect readback.
 The live guard uses native provider refresh, without applying it, to compare the complete Job
 resource with the sealed candidate, including identity, template, secrets and registry bindings.
+The sealed context also captures the native Azure Job identity, full template and configuration.
+Comparing that complete native definition catches fields not represented by the Terraform provider.
+Review this private sealed context before approving dispatch; sealing alone grants no authority.
 It also rejects refresh drift, even if another actor already adopted it into state. Readback
 plans and logs remain private beside the stage plan; don't apply them or print their contents.
 Refresh-only exit codes can include bookkeeping changes; explicit drift and output changes,
@@ -285,6 +318,7 @@ The application initialization can be retried only after investigating an explic
    terraform -chdir="$ROOT" show -json "$PRIVATE_PLAN" > "$PRIVATE_PLAN_JSON"
    # Review this zero-change dispatch plan before sealing; never reseal observed drift.
    seal_candidate
+   # Privately review the sealed context's complete native Job definitions and approve dispatch.
    ```
 
    Start only this product's manual bootstrap Job. Capture its execution name, then inspect

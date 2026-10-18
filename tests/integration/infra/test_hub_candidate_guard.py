@@ -35,8 +35,15 @@ esac
 """,
         "az": """#!/bin/bash
 if [[ "$TEST_AZ_FAILURE" == 1 ]]; then exit 69; fi
-test "$*" = "account show --query {subscription:id,tenant:tenantId} -o json" || exit 64
-printf '{"subscription":"%s","tenant":"%s"}\\n' "$TEST_SUBSCRIPTION" "$TEST_TENANT"
+if [[ "$*" == "account show --query {subscription:id,tenant:tenantId} -o json" ]]; then
+  printf '{"subscription":"%s","tenant":"%s"}\\n' "$TEST_SUBSCRIPTION" "$TEST_TENANT"
+elif [[ "$1 $2 $3 $4" == "containerapp job show --ids" ]]; then
+  test "$6 $7" = "-o json" || exit 64
+  if [[ "${TEST_JOB_READ_FAILURE:-0}" == 1 ]]; then exit 69; fi
+  cat "$TEST_LIVE_JOB"
+else
+  exit 64
+fi
 """,
         "terraform": """#!/bin/bash
 if [[ "$TEST_TERRAFORM_FAILURE" == 1 ]]; then exit 69; fi
@@ -73,6 +80,7 @@ fi
         "TEST_GIT_STATUS": "",
         "TEST_GIT_FAILURE": "0",
         "TEST_AZ_FAILURE": "0",
+        "TEST_JOB_READ_FAILURE": "0",
         "TEST_TERRAFORM_FAILURE": "0",
         "SUBSCRIPTION_ID": "synthetic-subscription",
         "TENANT_ID": "synthetic-tenant",
@@ -83,6 +91,7 @@ fi
         "TARGET": kind,
         "TEST_RENDERED_PLAN": str(tmp_path / "rendered-plan.json"),
         "TEST_LIVE_PLAN": str(tmp_path / "live-plan.json"),
+        "TEST_LIVE_JOB": str(tmp_path / "live-job.json"),
     }
     for variable in (
         "PRIVATE_BUILD_METADATA",
@@ -175,6 +184,33 @@ fi
         }
         for resource in ("azurerm_container_app", "azurerm_container_app_job")
     ]
+    Path(environment["TEST_LIVE_JOB"]).write_text(
+        json.dumps(
+            {
+                "id": "/synthetic/azurerm_container_app_job/bootstrap",
+                "identity": {
+                    "type": "UserAssigned",
+                    "userAssignedIdentities": {
+                        "/synthetic/identities/bootstrap": {"clientId": "synthetic-client"},
+                    },
+                },
+                "properties": {
+                    "environmentId": "/synthetic/environment",
+                    "workloadProfileName": "Consumption",
+                    "configuration": {"triggerType": "Manual", "replicaTimeout": 120},
+                    "template": {
+                        "containers": [
+                            {
+                                "name": "hub",
+                                "image": IMAGE,
+                                "command": ["python", "-m", "synthetic.bootstrap"],
+                            }
+                        ]
+                    },
+                },
+            }
+        )
+    )
     return environment, plan
 
 
@@ -324,6 +360,36 @@ def test_bootstrap_and_migration_starts_require_live_verification_without_overri
             '   EXECUTION=$(az containerapp job start -g "$RG" -n "$JOB" --query name -o tsv)'
         ) in procedure
     assert "Job starts in this procedure accept no execution-template" in procedure
+
+
+@pytest.mark.parametrize(
+    "drift",
+    ["template-extra", "identity", "configuration", "unavailable", "incomplete", "wrong-id"],
+)
+def test_native_azure_only_job_drift_is_rejected_even_when_terraform_view_matches(tmp_path, drift):
+    environment, plan = _fixture(tmp_path)
+    definition = json.loads(Path(environment["TEST_LIVE_JOB"]).read_text())
+    if drift == "template-extra":
+        definition["properties"]["template"]["futureExecutionField"] = "unreviewed"
+    elif drift == "identity":
+        definition["identity"]["userAssignedIdentities"] = {"/synthetic/other": {}}
+    elif drift == "configuration":
+        definition["properties"]["configuration"]["replicaTimeout"] = 600
+    elif drift == "incomplete":
+        definition.pop("identity")
+    elif drift == "wrong-id":
+        definition["id"] = "/synthetic/other-job"
+    Path(tmp_path / "changed-live-job.json").write_text(json.dumps(definition))
+    action = (
+        "TEST_JOB_READ_FAILURE=1"
+        if drift == "unavailable"
+        else 'TEST_LIVE_JOB="$HOME/changed-live-job.json"'
+    )
+    result = _run(tmp_path, environment, plan, action + "\nverify_live_job bootstrap")
+    assert result.returncode != 0
+    assert not (tmp_path / "dispatched").exists()
+    assert "Hub " in result.stderr
+    assert "unreviewed" not in result.stderr + result.stdout
 
 
 @pytest.mark.parametrize(
