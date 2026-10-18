@@ -137,6 +137,11 @@ The [governance](../../roadmap-implementation/decisioning/operator-governance-pr
   audit; revisioned excluded-window history with positive initial/empty state; and post-window
   lifecycle reconciliation. Missing history remains unknown. Apply the closure-observation migration;
   wire audited EN/KO Settings preference and per-source availability to the actual collectors.
+  #2224 removes false positive completeness from the current action-audit adapter: it emits
+  `complete=False` with `action_history_proof_unavailable` and no normalized intervention records.
+  Source/producer tests (58), Core consumer tests (41), Operator settings tests (4) and Console
+  consumer tests (21) pass. This is a safety correction, not delivery of the missing positive
+  event-time source; the package remains open.
 - [ ] **L02, context safety:** Complete authenticated exact-target proposal/review, bounded activation,
   expiry/revocation, Forseti decisions, Saga audit, and dispatch revalidation. Retain live queued and
   in-flight revocation/expiry, hold, stop/recovery, deadline, and subscriber-isolation receipts.

@@ -31,7 +31,11 @@ class PostgresForecastActionHistoryConfig:
 
 
 class PostgresForecastActionHistoryReader:
-    """Read bounded action-save audit rows through the reviewed definer function."""
+    """Read bounded audit witnesses, not event-time or as-of action history.
+
+    The definer function retains audit facts and current ActionRun hints only.
+    Its output does not establish source completeness or an intervention time.
+    """
 
     def __init__(self, *, config: PostgresForecastActionHistoryConfig) -> None:
         self._config = config
