@@ -31,6 +31,10 @@ from fdai_service_contracts.cloud_knowledge_release import (
 )
 from fdai_service_contracts.cloud_knowledge_structure import CloudStructuredDocument, excerpt_digest
 
+from fdai_ingestion_api_service.cloud_knowledge.application import bind_application
+from fdai_ingestion_api_service.cloud_knowledge.application_store import (
+    PostgresCloudApplicationStore,
+)
 from fdai_ingestion_api_service.cloud_knowledge.projection import project_source, project_status
 from fdai_ingestion_api_service.cloud_knowledge.scheduler import CloudKnowledgeScheduler
 from fdai_ingestion_api_service.cloud_knowledge.store import PostgresCloudKnowledgeStore
@@ -58,6 +62,7 @@ class CloudKnowledgeService:
         current_policy: Callable[[], tuple[SourceRegistryRevision, KnowledgeTrustPolicy]]
         | None = None,
         structured: bool = False,
+        application_store: PostgresCloudApplicationStore | None = None,
     ) -> None:
         self.registry = registry
         self.trust = trust
@@ -69,6 +74,7 @@ class CloudKnowledgeService:
         self._retention_policy = retention_policy
         self._current_policy = current_policy or (lambda: (registry, trust))
         self._structured = structured
+        self.application_store = application_store
 
     def _policies(self) -> tuple[SourceRegistryRevision, KnowledgeTrustPolicy]:
         registry, trust = self._current_policy()
@@ -195,7 +201,12 @@ class CloudKnowledgeService:
         )
 
     async def stage_collected(
-        self, *, collection_id: str, actor_id: str, actor_groups: frozenset[str]
+        self,
+        *,
+        collection_id: str,
+        actor_id: str,
+        actor_groups: frozenset[str],
+        policy_digest: str | None = None,
     ) -> dict[str, object]:
         """Stage collector observations through the same scan, human review, and index gates."""
         manifest = await self.proposal(collection_id)
@@ -216,7 +227,13 @@ class CloudKnowledgeService:
                 else ()
             ),
         )
-        return await self._ingest(manifest, binding, actor_id=actor_id, actor_groups=actor_groups)
+        return await self._ingest(
+            manifest,
+            binding,
+            actor_id=actor_id,
+            actor_groups=actor_groups,
+            policy_digest=policy_digest,
+        )
 
     def inspect(self, content: bytes) -> dict[str, object]:
         """Verify sealed bytes without importing, indexing, or granting approval."""
@@ -230,13 +247,22 @@ class CloudKnowledgeService:
         }
 
     async def import_package(
-        self, content: bytes, *, actor_id: str, actor_groups: frozenset[str]
+        self,
+        content: bytes,
+        *,
+        actor_id: str,
+        actor_groups: frozenset[str],
+        policy_digest: str | None = None,
     ) -> dict[str, object]:
         """Verify again at import; inspection output supplied by a client is never trusted."""
         registry, trust = self._policies()
         verified = verify_package(content, registry=registry, trust=trust, now=self._clock())
         return await self._ingest(
-            verified.manifest, verified.binding, actor_id=actor_id, actor_groups=actor_groups
+            verified.manifest,
+            verified.binding,
+            actor_id=actor_id,
+            actor_groups=actor_groups,
+            policy_digest=policy_digest,
         )
 
     async def rollback(
@@ -322,6 +348,7 @@ class CloudKnowledgeService:
         *,
         actor_id: str,
         actor_groups: frozenset[str],
+        policy_digest: str | None = None,
     ) -> dict[str, object]:
         if not actor_groups.intersection({"role:Contributor", "role:Approver", "role:Owner"}):
             raise DocumentAccessDeniedError("cloud knowledge intake requires contributor access")
@@ -337,12 +364,36 @@ class CloudKnowledgeService:
         active = next(
             (item for item in versions if item.document_id == document_id and item.active), None
         )
+        existing = next((item for item in versions if item.version_id == version_id), None)
         await self._ingestion.authorize_cloud_reference_intake(
             actor_id=actor_id,
             actor_groups=actor_groups,
             collection_id=manifest.collection_id,
             previous=active,
         )
+        if policy_digest is not None:
+            if self.application_store is None:
+                raise ValueError("requester application authority source is unavailable")
+            binding = await bind_application(
+                store=self.application_store,
+                policy_digest=policy_digest,
+                binding=binding,
+                manifest=manifest,
+                requester_id=actor_id,
+                reader_groups=self._groups,
+                document_id=document_id,
+                version_id=version_id,
+                upload_id=upload_id,
+                previous_id=(
+                    existing.supersedes_version_id
+                    if existing is not None
+                    else active.version_id
+                    if active
+                    else None
+                ),
+                now=self._clock(),
+                size_bytes=len(content),
+            )
         record = await self._store.reserve_release(
             collection_id=manifest.collection_id,
             sequence=manifest.sequence,
@@ -358,7 +409,10 @@ class CloudKnowledgeService:
         )
         if record.get("actor_id") != actor_id:
             raise DocumentAccessDeniedError("knowledge intake belongs to a different requester")
-        binding = KnowledgeReleaseBinding.model_validate(record["binding"])
+        persisted_binding = KnowledgeReleaseBinding.model_validate(record["binding"])
+        if persisted_binding.application != binding.application:
+            raise ValueError("knowledge retry cannot change application authority or lane")
+        binding = persisted_binding
         if self._clock() >= binding.admission_expires_at:
             raise ValueError("knowledge intake authorization has expired")
         try:
@@ -408,7 +462,7 @@ class CloudKnowledgeService:
             )
         return {
             "session": session.model_dump(mode="json"),
-            "approval_required": True,
+            "approval_required": binding.application is None,
             "status": "ingestion_requested",
             "release": binding.model_dump(mode="json"),
         }

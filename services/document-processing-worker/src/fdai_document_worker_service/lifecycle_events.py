@@ -40,6 +40,8 @@ def document_lifecycle_payload(
     }
     if extra:
         record.update(extra)
+    if version.cloud_knowledge is not None and version.cloud_knowledge.application is not None:
+        record["cloud_application_policy_requested"] = True
     return record
 
 

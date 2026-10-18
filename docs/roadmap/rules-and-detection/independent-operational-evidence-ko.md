@@ -1,7 +1,7 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: f86aa04e8abc09590d57900b86a183b1b41fe07f
-translation_revised: 2026-10-17
+translation_source_sha: 31523a9ee04b607179a7f4fae3e27bfd67fa6d53
+translation_revised: 2026-10-18
 ---
 # 독립 운영 근거 발급
 
@@ -23,6 +23,13 @@ translation_revised: 2026-10-17
 > 어떤 에이전트의 `owns`나 `subscribes`도 바꾸지 않으며, 실행 권한이나 승격 권한을 부여하지 않습니다.
 
 ## 설계 요약
+
+참조 콘텐츠의 기존 정책 레코드는 별도의 권한 입력이며 운영 측정이나 검증기가 발급한
+`DecisionEvidenceAdmission`이 아닙니다. API가 정책 및 요청 데이터를 소유하고 Var가
+정확한 사람 권한을 독립 조회하며 Saga가 감사한 뒤 Muninn이 색인을 생성합니다.
+이 레코드로 예측 개입, 사례 이력 재사용, 운영 승격을 검증할 수 없습니다.
+[요청자 적용](../interfaces/cloud-resource-knowledge-lifecycle-ko.md#요청자-직접-적용-목표)을 참조하세요.
+
 명시적 Operator 토론은 별도의 `agent-discussion-read` 목적을 추가합니다. 독립적으로 보관된
 인증 영수증을 읽는 기존 경계를 재사용하지만, 현재의 인간 Owner와 정확한
 `pantheon-installation:` 선택자 하나에 대한 별도 `agent-discussion.read` 허가를 요구합니다.

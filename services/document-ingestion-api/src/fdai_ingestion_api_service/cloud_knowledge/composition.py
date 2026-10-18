@@ -5,6 +5,9 @@ import logging
 from collections.abc import Mapping
 from datetime import UTC, datetime
 
+from fdai_ingestion_api_service.cloud_knowledge.application_store import (
+    PostgresCloudApplicationStore,
+)
 from fdai_ingestion_api_service.cloud_knowledge.collector import CloudDocumentCollector
 from fdai_ingestion_api_service.cloud_knowledge.policy import policy_reader
 from fdai_ingestion_api_service.cloud_knowledge.scheduler import CloudKnowledgeScheduler
@@ -59,6 +62,7 @@ def bind_cloud_knowledge(
         retention_policy=env.get("FDAI_DOCUMENT_POLICY_VERSION", "prod-policy-v1"),
         current_policy=read,
         structured=output_format == "v3",
+        application_store=PostgresCloudApplicationStore(dsn=dsn),
     )
 
 

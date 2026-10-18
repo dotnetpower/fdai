@@ -431,7 +431,7 @@ class SagaHandoffRuntimeMixin(_AgentMixinBase):
                 "idempotency_key": idempotency_key,
                 "stage": str(payload.get("stage") or "protection_check"),
                 "decision": str(payload.get("state") or "rejected"),
-                "reason": "human_approval",
+                "reason": str(payload.get("reason") or "human_approval"),
                 "document_id": str(payload.get("document_id") or ""),
                 "upload_id": str(payload.get("upload_id") or ""),
                 "approvers": list(payload.get("approvers") or []),

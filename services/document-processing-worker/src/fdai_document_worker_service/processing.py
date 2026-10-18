@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 from collections.abc import Awaitable, Callable, Iterable
 from datetime import UTC, datetime
@@ -94,7 +95,8 @@ class DocumentIngestionWorker:
         consumers: Iterable[DocumentReadyConsumer] = (),
         clock: Callable[[], datetime] | None = None,
         indexing_stage_timeout_seconds: float = 90.0,
-        cloud_reference_guard: Callable[[DocumentVersion, datetime], None] | None = None,
+        cloud_reference_guard: Callable[[DocumentVersion, datetime], None | Awaitable[None]]
+        | None = None,
         cloud_index_verifier: CloudIndexVerifier | None = None,
     ) -> None:
         if indexing_stage_timeout_seconds <= 0:
@@ -204,7 +206,7 @@ class DocumentIngestionWorker:
             if effect is not None:
                 await self._metadata.complete_worker_effect(effect.effect_id)
             return version
-        self._check_cloud_reference(version)
+        await self._check_cloud_reference(version)
         if version.state in _TERMINAL_STATES:
             if (
                 version.state in {DocumentState.READY, DocumentState.READY_WITH_WARNINGS}
@@ -344,7 +346,7 @@ class DocumentIngestionWorker:
                 object_key=version.cloud_knowledge.manifest_digest,
             )
         try:
-            self._check_cloud_reference(version)
+            await self._check_cloud_reference(version)
             if version.cloud_knowledge is not None:
                 await self._check_cloud_scanner()
             session, version = await self._advance(
@@ -392,7 +394,7 @@ class DocumentIngestionWorker:
 
         async def observe() -> str:
             await self._assert_active_claim(session.upload_id, claim)
-            self._check_cloud_reference(version)
+            await self._check_cloud_reference(version)
             await self._check_cloud_scanner()
             if self._cloud_index_verifier is None or effect is None:
                 raise ValueError("cloud activation verification is unavailable")
@@ -400,7 +402,7 @@ class DocumentIngestionWorker:
                 version=version, chunks=self._objects.read(session.object_key)
             )
             digest = await self._cloud_index_verifier.verify(version, envelope)
-            self._check_cloud_reference(version)
+            await self._check_cloud_reference(version)
             await self._check_cloud_scanner()
             return digest
 
@@ -421,11 +423,13 @@ class DocumentIngestionWorker:
             await self._metadata.complete_worker_effect(effect.effect_id)
         return result
 
-    def _check_cloud_reference(self, version: DocumentVersion) -> None:
+    async def _check_cloud_reference(self, version: DocumentVersion) -> None:
         if version.cloud_knowledge is not None:
             if self._cloud_reference_guard is None:
                 raise ValueError("cloud reference policy guard is unavailable")
-            self._cloud_reference_guard(version, self._clock())
+            result = self._cloud_reference_guard(version, self._clock())
+            if inspect.isawaitable(result):
+                await result
 
     async def _check_cloud_scanner(self) -> None:
         if not isinstance(self._malware, FreshMalwareScanner):

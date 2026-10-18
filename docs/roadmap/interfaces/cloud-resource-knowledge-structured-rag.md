@@ -13,8 +13,10 @@ self-approval rejection, audit-before-index, no Thor execution, and English/Kore
 
 The [requester-initiated application target](cloud-resource-knowledge-lifecycle.md#requester-initiated-application-target)
 uses independently approved content policy instead of a new approving person for each eligible
-reference update. It applies equally to v2/v3, remains unimplemented, and does not replace
-independent source/answer qualification. Requesters cannot supply their own approval authority.
+reference update. Its explicit authenticated API lane is implemented for v2/v3 with current
+prior-authority checks, fixed agent ownership and transaction-fenced independent readback.
+Manual review remains the default; this software does not replace independent source/answer
+qualification. Requesters cannot supply their own approval authority.
 
 ## Design decisions
 
