@@ -7,6 +7,7 @@ from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.standalone_service_update_recovery import (
     failed_core_update_repair_digest,
     partial_core_update_admissible,
+    readback_context,
     source_image_import_paths,
 )
 
@@ -242,6 +243,43 @@ def test_failed_ordinary_core_update_allows_one_exact_rollback(tmp_path: Path) -
         )
         == record["update_digest"]
     )
+
+
+def test_recovery_refreshes_secret_contract_from_planned_variables(tmp_path: Path) -> None:
+    tmp_path.chmod(0o700)
+    _write(
+        tmp_path / "workloads.auto.tfvars.json",
+        {
+            "workloads": {
+                "core-control-plane": {
+                    "secret_environment": {
+                        "FDAI_STATE_STORE_DSN": "fdai-state-store-dsn",
+                        "FDAI_TEAMS_NOTIFICATION_ENDPOINT": "fdai-teams-notification-endpoint",
+                    }
+                }
+            }
+        },
+    )
+    context = {
+        "expected_workloads": {
+            "core-control-plane": {
+                "image": "registry.invalid/core@sha256:" + "1" * 64,
+                "secret_environment": {"FDAI_STATE_STORE_DSN": "fdai-state-store-dsn"},
+            }
+        }
+    }
+
+    refreshed = readback_context(tmp_path, context)
+
+    assert refreshed["expected_workloads"]["core-control-plane"][  # type: ignore[index]
+        "secret_environment"
+    ] == {
+        "FDAI_STATE_STORE_DSN": "fdai-state-store-dsn",
+        "FDAI_TEAMS_NOTIFICATION_ENDPOINT": "fdai-teams-notification-endpoint",
+    }
+    assert context["expected_workloads"]["core-control-plane"][  # type: ignore[index]
+        "secret_environment"
+    ] == {"FDAI_STATE_STORE_DSN": "fdai-state-store-dsn"}
 
 
 def test_later_source_image_uses_versioned_import_identity(tmp_path: Path) -> None:

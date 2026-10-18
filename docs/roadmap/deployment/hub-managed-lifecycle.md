@@ -9,7 +9,8 @@ hub-and-spoke model of Palantir Apollo. It owns the lifecycle architecture, the 
 loop, and the customer isolation boundary.
 
 > **Status:** Partially implemented for development. The local Hub, planner, and explicit
-> two-Hub remote-development preparation path exist; the full managed installation path is not
+> independent product deployment roots and remote startup without login/catalog bindings exist;
+> the full managed installation path is not
 > delivered. No Azure deployment or production trust-root ceremony is claimed. The
 > [implementation ledger](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)
 > tracks the exact delivered boundaries. [ADR-0003](../architecture/decisions/0003-hub-managed-lifecycle-and-operator-governance.md)
@@ -41,7 +42,10 @@ Release Hub service already exists.
 | Data boundary | The Hub holds no customer workload credential or operational data. Its own bounded service identity and signing key do not authorize customer resource changes. Only lifecycle metadata crosses the boundary. |
 | Records | Hub PostgreSQL per cell or Target Hub, and append-only installation receipts in Foundation storage |
 
-## Two-Hub development validation
+## Legacy paired development fixture
+
+The existing paired fixture remains available for its current state owners. It is not the default
+deployment unit. Use the independent product roots below for new preparation.
 
 The vendor Release Hub and customer Target Lifecycle Hub have separate ACA environments,
 VNets, PostgreSQL servers/databases, managed identities, Key Vaults, and logs in separate RGs
@@ -70,6 +74,50 @@ network/RBAC isolation, real Entra sign-in, registry availability, or replica du
 Those require a separately approved exact cloud preview and execution scope. This path does
 not change source/offline installation and does not implement automatic polling, production
 catalog metadata/root ceremony, Agent apply, or a complete FDAI installation.
+
+## Independent product deployment
+
+Release Hub is the vendor's product. Lifecycle Hub is the customer's deployment-management
+product. Each deploys its own bundled UI/API and PostgreSQL through one root and one state:
+
+| Product | Deployment root | Required peer inputs |
+|---------|-----------------|----------------------|
+| Release Hub | [infra/release-hub](../../../infra/release-hub/README.md) | None |
+| Lifecycle Hub | [infra/lifecycle-hub](../../../infra/lifecycle-hub/README.md) | None |
+
+The same code serves development and production through private inputs and separate backend
+state locations. Native local backends accept explicit absolute paths in durable private storage,
+preserving existing local state without an Azure Storage prerequisite. A remote backend is an
+optional, reviewed Terraform override prepared before candidate freeze, never an active-run switch.
+The shared internal module creates only the selected product's resources. It doesn't read
+the other Hub's state, IDs or NAT address. An approved existing registry is an external input.
+No FDAI source/offline installer, main infrastructure root, Agent or cluster deployment changes.
+
+With zero Entra app registrations, each root plans without Graph or directory state and each
+remote application can migrate its own schema, serve, report health/readiness and provide its UI.
+PostgreSQL/Key Vault managed identities, verified TLS and the human DB administrator remain.
+An app-owned bounded SQL/Key Vault bootstrap command runs in a temporary manual Job. Native
+Terraform declares resources; native Azure CLI starts and observes Jobs. Temporary grants are
+removed after initialization, separately from permanent runtime resources.
+
+Login and Lifecycle's catalog source are optional explicit bindings, not placeholders.
+Without login, management APIs fail closed with 503 and the UI reports their unavailability.
+Without a catalog, Lifecycle doesn't instantiate a remote catalog client; that feature is
+unavailable. A later source can be bound through attributed `bind-catalog`, which doesn't import
+or approve a pin and never silently replaces a persisted key. Existing authenticated and local
+loopback behavior remain unchanged.
+
+The [single-product procedure](../../../infra/modules/hub-service/README.md) documents frozen
+source/locks/base and runtime digests, manual Jobs, cleanup and backup-copy state rehearsal.
+Legacy state and directory/registry owners aren't modified automatically.
+The anonymous management API policy is deferred and the requested functionality remains unmet.
+Management APIs continue to fail closed. This pending policy doesn't stop independent
+migration/startup/UI preparation or a separately authorized UI/readiness-only deployment.
+Such a deployment proves process, schema and screen availability, not usable anonymous
+management functionality. A shell or unavailable-feature screen isn't full functional completion.
+SQLite/mock/browser evidence, PostgreSQL/image acceptance and actual Azure deployment are
+reported separately; unavailable local infrastructure doesn't count as a pass. Source delivery,
+image publication and Azure changes each still require their own explicit authorization.
 
 ## Core concepts
 

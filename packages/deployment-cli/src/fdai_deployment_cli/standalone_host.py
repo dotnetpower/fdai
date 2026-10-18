@@ -41,12 +41,11 @@ from fdai_deployment_cli.aks_historical_reconciliation import (
 )
 from fdai_deployment_cli.aks_service_update import (
     SERVICES as AKS_SERVICES,
-)
-from fdai_deployment_cli.aks_service_update import (
     deployment_snapshot,
     peers_unchanged,
     service_update_review as _service_update_review,
     service_update_target as _service_update_target,
+    validated_secret_environment as _validated_secret_env,
     validate_plan_scope,
     validate_update_request,
 )
@@ -1265,6 +1264,8 @@ def _prepare_aks_service_update(args: argparse.Namespace, work_dir: Path) -> dic
             raise ValueError("AKS workload source revision is invalid")
         workload["source_commit"] = source_commit
         contract["source_commit"] = source_commit
+        secrets = workload.get("secret_environment", {})
+        contract["secret_environment"] = _validated_secret_env(secrets)
         workloads[name] = workload
         expected[name] = contract
     selected = _mapping(workloads[service], f"AKS workload {service}")
@@ -2508,7 +2509,7 @@ def _apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         reason=f"{stage} exact apply failed; verification-only recovery is required",
     )
     effect_verified = (
-        _readback_aks_service_update(context, update)
+        _readback_aks_service_update(service_recovery.readback_context(work_dir, context), update)
         if update is not None
         else _readback_stage(stage, context)
     )

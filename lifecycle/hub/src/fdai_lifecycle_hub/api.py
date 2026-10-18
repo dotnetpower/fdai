@@ -63,6 +63,7 @@ def create_app(
     verify_proof: KeyProofVerifier = verify_key_proof,
     static_dir: Path | None = None,
     remote_auth: RemoteAuth | None = None,
+    remote_origin: str | None = None,
 ) -> Starlette:
     """The agent API, plus the read-only and approval routes the operator UI calls.
 
@@ -318,7 +319,11 @@ def create_app(
             ConcurrentWriteError: retry,
         },
     )
-    return secure_app(app, remote_auth, vendor=False) if remote_auth else app
+    return (
+        secure_app(app, remote_auth, vendor=False, origin=remote_origin)
+        if remote_auth is not None or remote_origin is not None
+        else app
+    )
 
 
 def _decision_request_error(request: Request) -> Response | None:

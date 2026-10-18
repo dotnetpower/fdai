@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fdai_deployment_cli.aks_service_update import service_update_review, validate_plan_scope
+from fdai_deployment_cli.aks_service_update import (
+    service_update_review,
+    validated_secret_environment,
+    validate_plan_scope,
+)
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.standalone_host_state import private_json
 
@@ -17,6 +21,31 @@ _ALLOWED_CHANGES = {
     'kubernetes_horizontal_pod_autoscaler_v2.workload["operator-service"]': ("create",),
     "azurerm_network_security_rule.browser_gateway[0]": ("create",),
 }
+
+
+def readback_context(
+    work_dir: Path,
+    context: dict[str, object],
+) -> dict[str, object]:
+    """Refresh readback-only secret contracts from the exact planned workload variables."""
+    values = private_json(work_dir / "workloads.auto.tfvars.json", "AKS workload variables")
+    workloads = values.get("workloads")
+    expected = context.get("expected_workloads")
+    if not isinstance(workloads, dict) or not isinstance(expected, dict):
+        raise ValueError("AKS service update workload inventory is invalid")
+    if set(workloads) != set(expected):
+        raise ValueError("AKS service update workload inventory differs")
+    refreshed: dict[str, dict[str, object]] = {}
+    for name, contract_value in expected.items():
+        workload = workloads.get(name)
+        if not isinstance(contract_value, dict) or not isinstance(workload, dict):
+            raise ValueError("AKS service update workload contract is invalid")
+        contract = dict(contract_value)
+        contract["secret_environment"] = validated_secret_environment(
+            workload.get("secret_environment", {})
+        )
+        refreshed[str(name)] = contract
+    return {**context, "expected_workloads": refreshed}
 
 
 def partial_core_update_admissible(

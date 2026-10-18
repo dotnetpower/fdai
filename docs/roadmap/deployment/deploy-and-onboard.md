@@ -15,18 +15,18 @@ Azure focus: this document targets an Azure subscription. Non-Azure providers ar
 > presentation progress as deployment readiness.
 ## Separate Hub development validation
 
-The independent [two-Hub development root](../../../infra/hubs-development/README.md) prepares
-a vendor Release Hub and customer Target Lifecycle Hub with separate networks, ACA environments,
-PostgreSQL servers/databases, identities, vaults, and logs. It is not an additional FDAI
-installation path and does not replace the source installer or signed offline package.
-Its own managed-identity database roles, versioned development key references, explicit migration
-Jobs, Entra operator/service boundaries, and independent catalog-pin approval must be prepared
-before serving. RG names alone do not establish isolation.
+Use the vendor's [Release Hub root](../../../infra/release-hub/README.md) or the customer's [Lifecycle Hub root](../../../infra/lifecycle-hub/README.md).
+Each owns its UI/API, private PostgreSQL, supporting resources and state without peer-Hub inputs.
+Explicit durable private local backends preserve existing state; a separately reviewed remote backend is optional.
+Login/catalog bindings aren't needed for migration, health/readiness or static UI, even with zero
+Entra app registrations. Management stays unavailable until authentication is configured; this
+isn't anonymous management or another FDAI installation path. The [single-product procedure](../../../infra/modules/hub-service/README.md)
+covers immutable images, state preservation and native Terraform/Azure CLI execution.
 
-Only local containers and static Terraform validation are evidenced. Exact Azure preview,
-registry/runtime-architecture verification, real Entra/MI/private-data-plane denial, deployment,
-and replica replacement require a separately approved execution scope. Agent apply and complete
-FDAI installation remain outside this development path.
+The unchanged [legacy paired fixture](../../../infra/hubs-development/README.md) retains separate networks, own
+identities/keys, migrations, Entra operator/service boundaries and catalog-pin approval for existing state owners.
+Neither product requires it; it replaces neither FDAI installer. Local/static checks don't prove Azure network/RBAC isolation,
+Entra/MI, registry architecture, replica durability or deployment: use an authorized live scope. Agent apply and full FDAI installation remain excluded.
 
 ## Prerequisites
 
