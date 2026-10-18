@@ -722,3 +722,11 @@ def _mapping(value: object, label: str) -> dict[str, Any]:
     if not isinstance(value, dict):
         raise ValueError(f"{label} is invalid")
     return value
+
+
+def single_block(value: object) -> dict[str, Any]:
+    """Return one required Terraform nested block."""
+
+    if not isinstance(value, list) or len(value) != 1 or not isinstance(value[0], dict):
+        raise ValueError("historical AKS Terraform nested block is invalid")
+    return dict(value[0])

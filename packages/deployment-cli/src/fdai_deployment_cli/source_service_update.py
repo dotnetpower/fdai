@@ -374,6 +374,27 @@ def deploy_source_service_update(
             )
         ):
             raise ValueError("source service update effect verification is incomplete")
+        finalized = _host_json(
+            application,
+            (
+                "finalize-service-update",
+                "--service",
+                service,
+                "--operation",
+                str(applied["operation"]),
+                "--receipt-digest",
+                str(applied["receipt_digest"]),
+            ),
+            timeout=deadline.remaining(120),
+        )
+        if (
+            finalized.get("state") != "finalized"
+            or finalized.get("service") != service
+            or finalized.get("apply_receipt_digest") != applied["receipt_digest"]
+            or finalized.get("mutation_performed") is not False
+        ):
+            raise ValueError("source service update finalization is incomplete")
+        result["finalization_receipt_digest"] = finalized["receipt_digest"]
         result["receipt_digest"] = canonical_digest(result)
         receipt_path = work / "source-service-update-receipt.json"
         if receipt_path.exists() or receipt_path.is_symlink():
