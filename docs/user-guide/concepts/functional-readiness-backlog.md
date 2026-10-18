@@ -54,8 +54,8 @@ not ranges; `-` means no mandatory package was identified for that bounded funct
 
 | Function | Previous -> current | What exists | Remaining mandatory work | Required packages |
 |----------|---------------------|-------------|--------------------------|-------------------|
-| F10.1 | Ready -> Partial | Local ingestion, access, versioning, extraction, retrieval, and deletion mechanics | Exact-topology lifecycle and purpose-specific protected-download authorization | K01, K02 |
-| F10.2 | Ready -> Partial | Local manual v2/v3 admission, collection, dated retrieval, and containment | Requester-policy path, source-quality holds, and authorized source/answer receipts | K03, K04, K05 |
+| F10.1 | Ready -> Partial | Local ingestion, versioning, extraction/retrieval/deletion and purpose-bound protected source export | Exact-topology lifecycle and approved protected-source provider qualification | K01, K02 |
+| F10.2 | Ready -> Partial | Local manual and explicit prior-policy v2/v3 API admission, collection, dated retrieval, and containment | Actual prior-policy qualification/promotion, source-quality holds, and authorized source/answer receipts | K03, K04, K05 |
 | F10.3 | Partial -> Partial | Local current-schema Rules and all nine revision phases | Retained legacy migration and governed rollout; do not reimplement completed phases | R01 |
 | F10.4 | Ready -> Partial | Local inert semantic compilation, independent deterministic verification, and retirement | Governed ownership handover/withdrawal/hold receipts and actual bilingual assistive output | K06, K07 |
 | F11.1 | Partial -> Partial | Attributed immutable cases, feedback, prediction outcomes, and local retention controls | Complete source histories, authorized context lifecycle, and retained-Pattern qualification | L01, L02, L03 |
@@ -64,7 +64,7 @@ not ranges; `-` means no mandatory package was identified for that bounded funct
 | F12.1 | Partial -> Partial | Exact approvals, profiles, revocation, and inert standing-authority/lease contracts | Live authority behavior and provider-commit fencing; no shipped A3-E adapter is eligible | A02, A03, L02 |
 | F12.2 | Partial -> Partial | Local risk/policy checks, seven safeguards, signed kill switch, and state readback | Release bounds, cross-path effects, and measured stop/recovery receipts | A01, A02, A03, A04 |
 | F12.3 | Partial -> Partial | Hash-chained audit, minimization, retention/deletion, legal holds, and redacted export | Approved privacy gate and pinned operational governance receipts | D01, D02 |
-| F12.4 | Partial -> Partial | Fifteen-signal policy, health/readiness contracts, and exact canary-consumption check | Runtime exporters, measured delivery/recovery, stabilization, and unresolved operating decisions | H01, H02, H03 |
+| F12.4 | Partial -> Partial | Fifteen-signal policy, three actual signal/field bindings, health/readiness and exact canary-consumption check | Twelve signal/five field sources, measured delivery/recovery, stabilization, and unresolved operating decisions | H01, H02, H03 |
 | F13.1 | Ready -> Ready | Authorized, source-qualified read views with explicit partial/unavailable states | No new mandatory read-view implementation gap found; dataset freshness and production source enrollment are not certified | - |
 | F13.2 | Ready -> Partial | Local report engine/exports and historical authenticated built-in RCA/PDF evidence | Production-datasource and authenticated error/isolation matrix beyond that built-in receipt | V01 |
 | F13.3 | Partial -> Partial | Baseline/treatment formulas, guard metrics, independent settlement, and censored outcomes | Qualifying episodes, comparable windows, denominators, and uncertainty | L04 |
@@ -98,6 +98,9 @@ The owning records are [ingestion](../../roadmap-implementation/interfaces/docum
   exact requester/policy/content/collection binding, independent prior authority, request-time and
   final-visibility checks, denial of self-grants and missing/expired/revoked authority, all required
   safeguards, and independent persisted readback. Until then, retain the manual lane.
+  The explicit authenticated API path is now implemented under #2217 with a final 672 focused passes
+  and 24 actual loopback PostgreSQL passes. Manual remains the default; actual independently
+  approved policy, deployment read grants and operational promotion keep this parent package open.
 - [ ] **K04, extraction and answer quality:** Resolve or explicitly hold hidden UI, lost link/heading
   context, cross-section table caveats, and every pilot source hold. Retain regression cases and
   independently reviewed EN/KO query/claim evidence before declaring the corpus retrieval-ready.
@@ -174,6 +177,9 @@ The [governance](../../roadmap-implementation/decisioning/operator-governance-pr
 - [ ] **H01, source exporters:** Compose every one of the 15 catalog signals with a real runtime
   exporter; retain source identity/freshness, primary/fallback delivery, and recovery-drill receipts.
   Complete the linked Azure guest-event, throttling, and cross-service parity evidence.
+  #2218 / [PR #2220](https://github.com/dotnetpower/fdai/pull/2220) now binds three actual local
+  signals and three fields with 92 focused passes. The remaining twelve signal sources and
+  five field sources stay explicitly unavailable; this package is not complete.
 - [ ] **H02, canary and stabilization:** Retain the exact consumed canary audit within the
   implemented 30-second budget, frozen shadow replay, stop/no-execute receipts, daily jobs, and
   recurrent-query signal. Prove stabilization opens, lowers authority on breach, and exits only
@@ -282,9 +288,10 @@ and explicitly deferred expansion remain visible without pretending they were va
 The first follow-up delivery is tracked by [#2211](https://github.com/dotnetpower/fdai/issues/2211).
 It implemented a repository regression guard, not the 29 feature packages. At that checkpoint,
 protected source download was unavailable. **All 29 packages still remain open**, but #2214 has
-since implemented K02's local export contract and production binding as recorded above. K03,
-A01, learning integration, health composition and other source work still need their own complete
-implementation; live, human, provider and cohort gates remain separate. A shadow-only maximum
+since implemented K02's local export contract and production binding as recorded above. #2217
+implements the explicit K03 prior-policy API lane, and #2218 binds three H01 signals and fields.
+A01, learning integration, the remaining health sources and other source work are still incomplete;
+live, human, provider and cohort gates remain separate. A shadow-only maximum
 cannot be replaced by an unsigned file or a test approval.
 
 The [owning test](../../../site/test/functional-readiness.test.mjs) is already selected by CI and

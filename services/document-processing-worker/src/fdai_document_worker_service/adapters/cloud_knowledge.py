@@ -8,6 +8,7 @@ import stat
 from collections.abc import Mapping
 from datetime import UTC, datetime
 
+import psycopg
 from fdai_service_contracts import DocumentVersion, StructuralUnit
 from fdai_service_contracts.cloud_knowledge import (
     SourceRegistryRevision,
@@ -21,6 +22,12 @@ from fdai_service_contracts.cloud_knowledge_release import (
     parse_knowledge_manifest,
 )
 from fdai_service_contracts.cloud_knowledge_structure import structured_excerpts
+from psycopg.rows import dict_row
+
+from fdai_document_worker_service.adapters.cloud_application import (
+    APPLICATION_SQL,
+    check_application_row,
+)
 
 
 class CloudReferenceGuard:
@@ -29,8 +36,9 @@ class CloudReferenceGuard:
     def __init__(self, environ: Mapping[str, str]) -> None:
         self._registry = environ.get("FDAI_CLOUD_KNOWLEDGE_REGISTRY_PATH", "")
         self._trust = environ.get("FDAI_CLOUD_KNOWLEDGE_TRUST_PATH", "")
+        self._dsn = environ.get("FDAI_DATABASE_URL", "")
 
-    def check(self, version: DocumentVersion, now: datetime) -> None:
+    async def check(self, version: DocumentVersion, now: datetime) -> None:
         binding = version.cloud_knowledge
         if binding is None:
             return
@@ -41,6 +49,16 @@ class CloudReferenceGuard:
         registry = SourceRegistryRevision.model_validate_json(_policy_bytes(self._registry))
         trust = KnowledgeTrustPolicy.model_validate_json(_policy_bytes(self._trust))
         validate_admitted_binding(binding, registry=registry, trust=trust, now=now)
+        if binding.application is not None:
+            if not self._dsn:
+                raise ValueError("application authority database is unavailable")
+            async with await psycopg.AsyncConnection.connect(
+                self._dsn, connect_timeout=5, row_factory=dict_row
+            ) as conn:
+                await conn.set_read_only(True)
+                await conn.execute("SET LOCAL statement_timeout = '5s'")
+                row = await (await conn.execute(APPLICATION_SQL, (version.upload_id,))).fetchone()
+            check_application_row(row, version)
 
 
 def _policy_bytes(path: str) -> bytes:
@@ -63,6 +81,12 @@ def cloud_reference_units(version: DocumentVersion, content: bytes) -> tuple[Str
     manifest = parse_knowledge_manifest(content)
     if canonical_bytes(manifest) != content or manifest.digest != binding.manifest_digest:
         raise ValueError("knowledge source no longer matches its admitted manifest")
+    if binding.application is not None and (
+        binding.application.manifest_version != manifest.schema_version
+        or binding.application.normalizer_versions
+        != tuple(d.normalizer_version for d in manifest.documents)
+    ):
+        raise ValueError("application processing differs from its sealed source")
     if (
         manifest.collection_id != version.access.collection_id
         or manifest.registry_digest != binding.registry_digest

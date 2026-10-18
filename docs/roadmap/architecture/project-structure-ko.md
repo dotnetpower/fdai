@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: b61b5a31daacfdedb1fb213ee34db44e5fdd2b3e
+translation_source_sha: 31a9885fbad13e91fa99c493b497258da3c8eb2f
 translation_revised: 2026-10-18
 ---
 # 프로젝트 구조
@@ -879,6 +879,10 @@ FDAI 자체 분석 엔진도 같은 경계 안에 유지합니다. `analysis_con
    기록하세요. 붉은 파이프라인을 풀려고 임계값을 낮추는 것은 거버넌스 회귀입니다.
 
 ## 의존성 주입을 통한 커스터마이제이션
+
+Var의 선택적 `CloudApplicationAuthorizationSource`는 별도 문서 데이터베이스에서 정확한 사람 정책 및 요청 입력을 읽습니다.
+API가 입력을 소유하고 Var가 권한을 확인하며 Saga가 감사하고 Muninn이 색인을 생성합니다. 워커는 같은 정책을 트랜잭션으로 보호합니다.
+수집원이 없으면 명시적 경로를 차단하며 수동 기본값이나 Thor 권한을 바꾸지 않습니다.
 
 Ingestion API는 서비스 소유 `SourceDownloadAuthorizer`를 `GovernedDocumentDownload`에
 주입합니다. 구성된 목적별 보호 공급자만 제한된 유효 기간의 반출 증적을 제공합니다.

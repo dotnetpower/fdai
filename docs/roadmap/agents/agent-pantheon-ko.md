@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 80f8cdc98c317d7a9d7a991f6a74776f0e6feb54
+translation_source_sha: a8828736e16d8fb589778b8a60b2830f347f80f8
 translation_revised: 2026-10-18
 ---
 # 에이전트 판테온
@@ -66,7 +66,12 @@ Thor(운영)와 Forseti(판단)가 Odin에게 보고합니다. 거버넌스 담�
 ## 3. 런타임 관계도
 
 조직도는 보고 체계를, 이 관계도는 데이터 흐름을 나타냅니다. 관측과 전문가 근거는 Forseti로 전달되며, 작업 판정은 `governed-execution`을 명시적으로 선택한 경우에만 Var, Vidar 또는 실행 처리를 위해 Thor로 전달됩니다. 관찰 우선 기본값은 판정을 자문 상태로 유지하고 변경 권한을 부여하지 않습니다. Thor는 문서 수집, 배정 검토, 관찰 전용 아키텍처 검토 판정을 실행하지 않습니다. Odin은 이를 작업 포트폴리오에서 제외하고 Saga는 감사 근거를 보존합니다. 규칙 불일치 또는 이상 작업 후보 부재를 나타내는 작업 없는 shadow 사람 검토 판정은 Odin과 Saga가 처리할 수 있도록 Verdict 스트림에 남지만 Thor는 이를 무시합니다. 따라서 `ActionRun`이나 리소스 클레임을 만들지 않습니다.
-Var와 Saga는 문서 HIL의 안정적인 멱등성을 보존하며 Saga는 게이트 및 최종 감사를 영속화합니다. 클라우드 참조 패키지도 유효한 서명과 별개로 독립 Var 승인을 요구합니다. [클라우드 리소스 지식](../interfaces/cloud-resource-knowledge-lifecycle-ko.md)을 참조하세요.
+Var와 Saga는 문서 HIL의 안정적인 멱등성을 보존하며 Saga는 단계 및 최종 감사를 영속화합니다.
+클라우드 참조 패키지도 유효한 서명과 별개로 Var의 독립적인 권한 검증이 필요합니다.
+명시적인 요청자 정책 경로에서 Var는 별도로 구성된 읽기 전용 문서 수집원으로 이전에
+검토한 정확한 사람 권한을 확인합니다. Saga는 별도 근거를 기록하고 Muninn은 색인 소유권을
+유지합니다. 에이전트, 토픽 소유자, 자기 승인 예외, Thor 작업을 추가하지 않습니다.
+[클라우드 리소스 지식](../interfaces/cloud-resource-knowledge-lifecycle-ko.md)을 참조하세요.
 워크플로 요청은 양의 시도 번호를 포함한 범위가 제한된 `workflow_action` 계보를 Huginn, Forseti, Thor를 거쳐 보존합니다. Thor는 Verdict가 제공한 작업 식별자만 보존하고 상관관계에서 만들어 내지 않으며 권한이 없는 `_framework` 도우미로 범위가 제한된 ActionRun 계보를 검증합니다.
 전달 계층의 생성기는 하나의 완전한 운영 계획에 대한 선택적인 인자 결속 실행 제안을 저장합니다. Forseti는 주입된 원본으로 이를 해석하고 엄격한 검증 뒤 같은 Verdict-to-ActionRun 경로를 유지합니다. 계보와 제안은 귀속 및 근거만 제공하며 정족수, 모드, 판단, 승인, 실행 권한을 바꾸지 않습니다. Norns는 Mimir에 제안하고 Odin은 판단 전에 충돌을 조정합니다.
 Var 승인, Vidar 복구, Saga 인계, Norns 학습, Bragi의 인계 에스컬레이션과 턴 이후 검토 게시도 [에이전트 판테온 구현 계획](agent-pantheon-implementation-ko.md#영속-권한과-재생)에 따라 영속 멱등성과 재시작 상태를 보존합니다.

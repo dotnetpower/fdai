@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from fdai_service_contracts.cloud_knowledge_application import CloudApplicationRequest
+
 from datetime import datetime
 from typing import Annotated, Generic, Literal, Self, TypeVar
 
@@ -196,6 +198,9 @@ class KnowledgeReleaseBinding(KnowledgeContract):
     rollback_of: Identifier | None = None
     rollback_source_digest: Digest | None = None
     withdrawn_source_ids: Annotated[tuple[Identifier, ...], Field(max_length=256)] = ()
+    application: CloudApplicationRequest | None = Field(
+        default=None, exclude_if=lambda v: v is None
+    )
 
     @model_validator(mode="after")
     def chronology(self) -> Self:

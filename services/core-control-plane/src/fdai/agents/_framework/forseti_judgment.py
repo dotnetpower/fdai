@@ -177,7 +177,9 @@ class ForsetiJudgmentMixin:
         )
         decision = "hil" if clear and requires_approval else ("admit" if clear else "hold")
         reason = (
-            "sensitive_or_authoritative_document"
+            "cloud_application_policy_requested"
+            if decision == "hil" and signal.get("cloud_application_policy_requested") is True
+            else "sensitive_or_authoritative_document"
             if decision == "hil"
             else "safety_checks_passed"
             if decision == "admit"

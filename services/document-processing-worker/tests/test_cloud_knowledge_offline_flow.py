@@ -176,7 +176,7 @@ class _BoundSources:
     ) -> tuple[cloud.CloudSourceEvidence, bool]:
         version = self.runtime.metadata.version
         assert binding == version.cloud_knowledge
-        self.runtime.guard.check(version, now)
+        await self.runtime.guard.check(version, now)
         return next(source for source in binding.sources if source.source_id == source_id), False
 
 

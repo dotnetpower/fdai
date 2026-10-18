@@ -1,8 +1,8 @@
 ---
 title: 리포팅 서브시스템
 translation_of: reporting-subsystem.md
-translation_source_sha: 30eca63804e6b80dc5eaf6b96c4dec9d181e0161
-translation_revised: 2026-10-15
+translation_source_sha: 49f90aa85f7572397e291342992ccdc60f94a68b
+translation_revised: 2026-10-18
 ---
 # 리포팅 서브시스템
 
@@ -26,6 +26,10 @@ translation_revised: 2026-10-15
 가진 유한 부분집합입니다.
 
 서비스 테이블 소유권은 Operator 소유의 `operator_workflow_authoring_audit` 원장도 선언합니다. 이 원장은 Workflow 초안과 바인딩 커밋을 기록하며 보고서 원천이 아니고 보고 변환을 추가하지 않습니다.
+
+API 소유 참조 콘텐츠 정책, 요청, 정책 감사 테이블은 보고서 원천이 아닙니다.
+Var, Saga, Muninn의 권한 확인 및 색인 경로는 보고서 라우트나 변경 권한을 추가하지 않습니다.
+보고서는 정책을 승인하거나 참조 세대를 적용할 수 없습니다.
 
 삽입 전용 Operator 의미 인증 영수증 테이블도 보고서 원천이 아닙니다. Operator 라우트 조립은 `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED`가 켜진 경우에만 의미 outbox를 영수증 보존으로 감싸며, 이 테이블은 보고 변환, 위젯, 라우트를 추가하지 않습니다.
 Outcome Assurance 읽기 패널도 리포팅 서브시스템 밖에 있습니다. 이 패널은 분석 경로에서 렌더링하는

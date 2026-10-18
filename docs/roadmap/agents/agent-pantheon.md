@@ -62,7 +62,12 @@ Domain specialists and sensing agents sit under Forseti, so evidence feeds judgm
 ## 3. Runtime relationship diagram
 
 The org chart shows reporting lines; this diagram shows data flow. Sensing and specialists feed Forseti; action Verdicts feed Thor for Var, Vidar, or execution handling only when governed execution is explicitly selected. The observation-first default keeps those Verdicts advisory and grants no mutation authority. Thor ignores document-ingestion, assignment-review, and observation-only architecture-review Verdicts; Odin excludes them from action portfolios, and Saga retains their audit evidence. Actionless shadow Human-review Verdicts for a rule mismatch or unavailable anomaly action remain on the Verdict stream for Odin and Saga, but Thor ignores them so they create no `ActionRun` or resource claim.
-Var and Saga preserve stable document HIL idempotency, and Saga persists gated and terminal audit. Cloud-reference packages require independent Var approval even with a valid signature; see [Cloud resource knowledge](../interfaces/cloud-resource-knowledge-lifecycle.md).
+Var and Saga preserve stable document HIL idempotency, and Saga persists gated and terminal audit.
+Cloud-reference packages require independent Var authorization even with a valid signature.
+The explicit requester-policy lane lets Var verify exact previously reviewed human authority from
+the separately configured read-only document source; Saga records that distinct basis and Muninn
+still owns indexing. No agent, topic owner, self-approval exception or Thor action is added.
+See [Cloud resource knowledge](../interfaces/cloud-resource-knowledge-lifecycle.md).
 Workflow requests preserve bounded `workflow_action` lineage, including a positive attempt number, through Huginn, Forseti, and Thor. Thor preserves an action identifier only when the Verdict supplies one, never invents it from correlation, and uses an authority-free `_framework` helper for bounded ActionRun lineage validation.
 A delivery-owned producer stores an optional argument-bound kinetic proposal for one complete operational plan. Forseti resolves it through an injected source and preserves the same Verdict-to-ActionRun path after strict validation. Lineage and proposals provide attribution and evidence only, never change quorum, mode, judgment, approval, or execution authority. Norns proposes to Mimir; Odin arbitrates conflicts before judgment.
 Var approval, Vidar recovery, Saga handoff, Norns learning, and Bragi handoff and post-turn review publications also preserve durable idempotency and restart state through the [Agent Pantheon implementation plan](agent-pantheon-implementation.md#durable-authority-and-replay).
