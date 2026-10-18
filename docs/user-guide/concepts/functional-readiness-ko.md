@@ -2,7 +2,7 @@
 title: FDAI 기능 준비 상태 평가
 description: FDAI 제품 중분류 52개의 준비 상태 판정 근거와 남은 조건을 기록합니다.
 translation_of: functional-readiness.md
-translation_source_sha: 6bbb3c528ef368da1b44e29a18bffbe3fa5bb9a0
+translation_source_sha: b112760747b3186939465f83c9826167b03d7b9a
 translation_revised: 2026-10-19
 ---
 
@@ -30,12 +30,24 @@ translation_revised: 2026-10-19
 
 ## 판정 읽기
 
+**2026-10-19 집계 재확인:** 개정 버전 `c3a8a26275`를 기준으로 아래 개별 기록 52개를
+다시 집계하고 기능정의서의 대분류 집계 15개 및 영문·한국어 판정을 대조했습니다.
+결과는 Ready 28/52, Partial 24/52로 유지하며, 이전의 Ready 38/52, Partial 14/52를
+대체합니다. 이는 집계 일관성 검사이며 모든 기능을 새로 평가한 것은 아닙니다.
+
 **전체:** <span class="fdai-readiness-badge" data-readiness="ready">Ready 28/52</span> <span class="fdai-readiness-badge" data-readiness="partial">Partial 24/52</span> <span class="fdai-readiness-badge" data-readiness="blocked">Blocked 0/52</span> <span class="fdai-readiness-badge" data-readiness="planned">Planned 0/52</span> <span class="fdai-readiness-badge" data-readiness="not-assessed">미평가 0/52</span>
 Ready는 해당 기록에 명시된 지원 범위에만 적용됩니다. 모든 배포 환경, 공급자, 규모,
 자율 작업을 검증한 것은 아닙니다. Partial은 구현이 있지만 인용한 담당 문서에 필수
-지원 범위, 통합, 검증이 남아 있다는 뜻입니다. Blocked를 평가할 설치 환경은 선택하지
-않았습니다. 중분류 전체가 설계만 있는 경우는 확인되지 않았으며 부분 구현된 기능 안의
+지원 범위, 통합, 검증이 남아 있다는 뜻입니다. 최초 문서 점검에서는 Blocked를 평가할
+설치 환경을 선택하지 않았습니다. 중분류 전체가 설계만 있는 경우는 확인되지 않았으며 부분 구현된 기능 안의
 설계 단계 구성요소는 명시적으로 남겨 둡니다.
+
+**설치 상태는 별도입니다:** Blocked 0/52는 모든 설치에서 모든 기능을 실행할 수 있다는
+뜻이 아닙니다. 개발 환경의 전체 권한 활성화는 영속 실행·복구·분산 잠금·사전 검증
+연결 부족으로 안전하게 차단됐고, 이후 이전 버전으로 복구하고 완료 증적을 확정했습니다.
+[배포 증적](https://github.com/dotnetpower/fdai/issues/2210#issuecomment-6254158832)을 참조하세요.
+F06/F07 운영 검증과 W7 표본 근거는 #2204-#2208에 미완료로 남아 있습니다. 이 집계는
+고객 본운영 수용, 운영 학습 개선, 실제 비용 절감을 입증하지 않습니다.
 
 Partial 24건은 구현된 부분과 기록된 집중 검사 근거를 유지하지만, 필수 기능이나 운영 근거를
 지원 범위 밖으로 줄여서 제외하지 않습니다. 기존 실제 환경 증적은 과거 기록으로 유지하며 이번

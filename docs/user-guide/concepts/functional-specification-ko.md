@@ -2,8 +2,8 @@
 title: FDAI 기능정의서
 description: FDAI의 운영 기능, 공통 자동화, 거버넌스, 제품 기반 기능을 계층적으로 정의하고 처리 흐름 및 구현 상태와 구분합니다.
 translation_of: functional-specification.md
-translation_source_sha: 9f1a37e79c3188b052b5c3f5f91283431eacfa89
-translation_revised: 2026-10-18
+translation_source_sha: 2535f99619e9aafe9f091ca5568c63fd12c1dc2d
+translation_revised: 2026-10-19
 ---
 
 # FDAI 기능정의서
@@ -54,7 +54,15 @@ Azure 리소스의 운영 이상을 감지하고, 운영자의 신속한 대응�
 **2026-10-18 F10-F15 점검**에서 F10부터 중분류 21개를 전수 대조하고 Ready 10건을
 Partial로 정정했습니다. F01-F09는 기존 평가를 유지합니다. 대분류 집계는 중분류 평가
 결과를 세며 배포 환경의 정상 여부나 완성 비율을 나타내지 않습니다.
-**전체:** <span class="fdai-readiness-badge" data-readiness="ready">Ready 28/52</span> <span class="fdai-readiness-badge" data-readiness="partial">Partial 24/52</span> <span class="fdai-readiness-badge" data-readiness="not-assessed">미평가 0/52</span>
+**2026-10-19 집계 재확인:** 개정 버전 `c3a8a26275`를 기준으로 개별 평가 52개,
+대분류 집계 15개, 영문·한국어 판정의 일치를 확인했습니다. 아래 집계가 이전의
+Ready 38/52, Partial 14/52를 대체합니다. 이번 재집계는 기존 판정을 유지하며,
+새로운 기능 검증이나 배포 적합성 검증은 아닙니다.
+**전체:** <span class="fdai-readiness-badge" data-readiness="ready">Ready 28/52</span> <span class="fdai-readiness-badge" data-readiness="partial">Partial 24/52</span> <span class="fdai-readiness-badge" data-readiness="blocked">Blocked 0/52</span> <span class="fdai-readiness-badge" data-readiness="planned">Planned 0/52</span> <span class="fdai-readiness-badge" data-readiness="not-assessed">미평가 0/52</span>
+이 숫자는 제품 기능 집계이며 고객 본운영 수용 결과가 아닙니다.
+[배포 증적](https://github.com/dotnetpower/fdai/issues/2210#issuecomment-6254158832)에 기록된
+개발 환경의 전체 권한 활성화는 여전히 차단 상태입니다. 실패한 배포는 이전 버전으로
+복구했으며, 이 집계로 운영 학습 개선이나 실제 비용 절감이 입증되지는 않습니다.
 지원 범위와 과거 집중 검사는 [평가 기록](functional-readiness-ko.md)을, 소스 미비점,
 필수 운영 검증, 연기한 범위, 의존성, 완료 조건은
 [F10-F15 잔여 작업 전수 목록과 실행 계획](functional-readiness-backlog-ko.md)을 참조하세요.

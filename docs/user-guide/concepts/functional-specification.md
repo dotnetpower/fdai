@@ -50,7 +50,16 @@ agent roles. Each subfunction can have detailed requirements with separate accep
 The **2026-10-18 F10-F15 audit** reviewed all 21 subfunctions from F10 onward and corrected ten
 Ready decisions to Partial. F01-F09 retain their earlier assessments. Group summaries count
 subfunction assessments, not deployment health or percentage complete.
-**Overall:** <span class="fdai-readiness-badge" data-readiness="ready">Ready 28/52</span> <span class="fdai-readiness-badge" data-readiness="partial">Partial 24/52</span> <span class="fdai-readiness-badge" data-readiness="not-assessed">Not assessed 0/52</span>
+**Count reconciliation, 2026-10-19:** All 52 individual assessments, 15 group summaries, and
+English/Korean decisions were cross-checked at revision
+`c3a8a26275`. The counts below supersede the earlier Ready 38/52 and Partial 14/52 totals.
+This recount preserves the recorded decisions; it is not a new functional or deployment qualification.
+**Overall:** <span class="fdai-readiness-badge" data-readiness="ready">Ready 28/52</span> <span class="fdai-readiness-badge" data-readiness="partial">Partial 24/52</span> <span class="fdai-readiness-badge" data-readiness="blocked">Blocked 0/52</span> <span class="fdai-readiness-badge" data-readiness="planned">Planned 0/52</span> <span class="fdai-readiness-badge" data-readiness="not-assessed">Not assessed 0/52</span>
+These are product-function counts, not customer production acceptance. The development
+full-authority activation remains blocked as recorded in
+[the deployment evidence](https://github.com/dotnetpower/fdai/issues/2210#issuecomment-6254158832);
+the failed rollout was rolled back, and no operational learning improvement or realized savings
+is established by these counts.
 See the [dated assessment](functional-readiness.md) for support scopes and historical focused
 checks, and the [complete F10-F15 backlog and execution plan](functional-readiness-backlog.md)
 for source gaps, mandatory operational gates, deferred scope, dependencies, and exit criteria.

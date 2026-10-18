@@ -29,12 +29,24 @@ installation-specific operational qualification instead of treating a feature na
 
 ## How to read the decisions
 
+**Count reconciliation, 2026-10-19:** The 52 individual records below were recounted at revision
+`c3a8a26275` and compared with all 15 specification group summaries and both language versions.
+The result remains Ready 28/52 and Partial 24/52, superseding the earlier Ready 38/52 and
+Partial 14/52 totals. This is a count-consistency check, not a new assessment of every function.
+
 **Overall:** <span class="fdai-readiness-badge" data-readiness="ready">Ready 28/52</span> <span class="fdai-readiness-badge" data-readiness="partial">Partial 24/52</span> <span class="fdai-readiness-badge" data-readiness="blocked">Blocked 0/52</span> <span class="fdai-readiness-badge" data-readiness="planned">Planned 0/52</span> <span class="fdai-readiness-badge" data-readiness="not-assessed">Not assessed 0/52</span>
 Ready applies only to the support scope stated in its record. It does not certify every
 deployment, provider, scale, or autonomous action. Partial means the stated function has an
 implementation, but mandatory coverage, integration, or verification remains open in the cited
-owner. No installation was selected for a Blocked assessment. No entire subfunction was found
+owner. The original documentation audit selected no installation for a Blocked assessment. No entire subfunction was found
 to be design-only; planned components inside a partially implemented function remain explicit.
+
+**Installation status is separate:** Blocked 0/52 does not mean that every installation can run
+every function. The development full-authority activation failed closed on missing durable
+execution, rollback, distributed-lock, and preflight bindings, then was rolled back and finalized;
+see [deployment evidence](https://github.com/dotnetpower/fdai/issues/2210#issuecomment-6254158832).
+F06/F07 operational qualification and W7 cohort evidence remain open in #2204-#2208. These counts
+do not establish customer production acceptance, operational learning improvement, or realized savings.
 
 The 24 Partial decisions retain their implemented subset and recorded focused checks, but
 they do not narrow away mandatory verbs or required operational evidence. Historical live receipts
