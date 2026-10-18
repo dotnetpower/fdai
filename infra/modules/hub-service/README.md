@@ -67,8 +67,14 @@ It multiplies only the test command/startup budgets by four; native budgets rema
 Record emulation separately from native performance evidence. A measured ARM-host QEMU import
 of the remote module took 31 seconds, exceeding the native 15-second entrypoint budget.
 
-Prepare private `backend.hcl` and `hub.tfvars` files outside the checkout. Each installation
-uses a separate backend key. Required inputs are subscription/tenant, prefix/location/tags,
+Prepare private `backend.hcl` and `hub.tfvars` files outside the checkout. The roots use native
+local backends so an existing local state can be retained without provisioning a storage
+account. Set `path` in each product's backend file to a different absolute state path in durable
+private storage; don't accept the checkout-relative default or share a path between products.
+Back up state before cutover and retain native file locking. A remote backend is an optional,
+separately reviewed standard Terraform backend override, prepared before freezing the candidate,
+not a prerequisite for application startup. Never change backend type during an active attempt.
+Required inputs are subscription/tenant, prefix/location/tags,
 network CIDRs, human `database_admin`, DB SKU/storage/backup/HA policy, log retention,
 replicas, approved ingress CIDRs, existing registry and the product's digest-pinned image.
 Tenant identity here is for PostgreSQL and Key Vault, not a browser login requirement.

@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 7d055af2a5d891d1717bd356cdcd7b17df089221
-translation_revised: 2026-10-16
+translation_source_sha: 4149ec4d94c85eea5d24bf08cbe762e789e2c8f7
+translation_revised: 2026-10-18
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 관측을 시작할 준비를 하는 방법을 설명합니다. 이 문서는 **구체적인 배포 인벤토리, 부트스트랩 순서, 배포판과 설치 환경의 책임 분리**를 정의하는 기준 원본입니다. 배포 수명 주기(CI/CD, 점진적 전달, 롤백, DR)는 [deployment-ko.md](deployment-ko.md)에서 다룹니다.
@@ -18,12 +18,24 @@ Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 관측�
 > 상태로 취급하지 않습니다.
 ## 별도의 Hub 개발 검증
 
+제품을 독립적으로 기동하려면 공급업체의 [Release Hub 루트](../../../infra/release-hub/README.md)
+또는 고객의 [Lifecycle Hub 루트](../../../infra/lifecycle-hub/README.md)를 사용하세요. 각 루트는
+자신의 UI/API, 비공개 PostgreSQL과 지원 자원만 소유하며 별도 state를 사용합니다. 상대 Hub의
+입력은 필요하지 않습니다. 기본 로컬 백엔드는 명시한 영속 비공개 경로에서 기존 로컬 state를
+보존하며, 별도로 검토한 원격 백엔드는 선택 사항입니다. 로그인과 카탈로그 연결은 기동의
+전제조건이 아닙니다. Entra 앱 등록 없이 migration, 상태/준비 검사와 정적 UI를 제공하며,
+인증을 설정하기 전까지 관리 API는 사용할 수 없습니다. 익명 관리 기능을 제공하거나 새로운
+FDAI 설치 경로를 추가하는 것이 아닙니다. 고정 이미지, state 보존 및 기본 Terraform/Azure CLI
+실행은 [단일 제품 절차](../../../infra/modules/hub-service/README.md)를 따르세요.
+
 독립적인 [두 Hub 개발 루트](../../../infra/hubs-development/README.md)는 벤더 Release Hub와
 고객 Target Lifecycle Hub의 네트워크, ACA Environment, PostgreSQL 서버와 DB, 관리 ID,
 Key Vault, 로그를 분리합니다. 새로운 FDAI 설치 경로가 아니며 소스 설치기나 서명된 오프라인
 패키지를 대체하지 않습니다. 서버를 열기 전에 각 Hub의 관리 ID용 DB 역할, 버전이 지정된
 개발용 키 참조, 명시적 migration Job, Entra 운영자/서비스 경계와 독립적인 카탈로그 pin 승인을
-준비해야 합니다. RG 이름이 다르다는 것만으로 격리를 입증할 수는 없습니다.
+준비해야 합니다. 이는 기존 인증된 검증 구성의 실행 조건입니다. 이 구성은 기존 state 소유자를
+위해 그대로 보존되며, 어느 독립 제품의 전제조건도 아닙니다. RG 이름이 다르다는 것만으로
+격리를 입증할 수는 없습니다.
 
 검증 근거는 로컬 컨테이너와 정적 Terraform 검사에 한정됩니다. 정확한 Azure preview,
 레지스트리와 실행 아키텍처 확인, 실제 Entra/MI 및 비공개 데이터 접근 거부, 배포와 replica 교체는

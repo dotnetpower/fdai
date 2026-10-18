@@ -1,7 +1,7 @@
 ---
 title: Hub 관리형 수명 주기
 translation_of: hub-managed-lifecycle.md
-translation_source_sha: 437b60260f3123316decc95eff79a7fafc857b78
+translation_source_sha: 031dd5504280584c153c5016098e0ba19f6d516e
 translation_revised: 2026-10-18
 ---
 # Hub 관리형 수명 주기
@@ -86,7 +86,10 @@ Release Hub는 공급업체의 제품이고, Lifecycle Hub는 고객의 배포 �
 | Release Hub | [infra/release-hub](../../../infra/release-hub/README.md) | 없음 |
 | Lifecycle Hub | [infra/lifecycle-hub](../../../infra/lifecycle-hub/README.md) | 없음 |
 
-개발과 프로덕션은 같은 코드에 비공개 입력과 별도 backend 키를 사용합니다.
+개발과 프로덕션은 같은 코드에 비공개 입력과 별도 백엔드 state 경로를 사용합니다.
+기본 로컬 백엔드는 영속 비공개 저장소의 절대 경로를 명시적으로 받아, Azure Storage 없이
+기존 로컬 state를 보존합니다. 원격 백엔드는 후보 고정 전에 별도로 검토하는 표준 Terraform
+재정의 설정으로 선택할 수 있으며, 실행 중 백엔드를 바꾸지는 않습니다.
 공유 내부 모듈은 선택한 제품의 자원만 만듭니다. 다른 Hub의 state, ID, NAT 주소를 읽지 않습니다.
 승인된 기존 레지스트리는 외부 입력입니다. FDAI 소스/오프라인 설치기, 본체 인프라 루트,
 Agent 또는 클러스터 배포는 바꾸지 않습니다.

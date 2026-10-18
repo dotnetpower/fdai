@@ -15,13 +15,26 @@ Azure focus: this document targets an Azure subscription. Non-Azure providers ar
 > presentation progress as deployment readiness.
 ## Separate Hub development validation
 
+For independent product startup, use the vendor's [Release Hub root](../../../infra/release-hub/README.md)
+or the customer's [Lifecycle Hub root](../../../infra/lifecycle-hub/README.md). Each owns only its
+bundled UI/API, private PostgreSQL and supporting resources, with a separate state and no peer
+Hub input. Native local backends preserve existing local state at explicit durable private paths;
+a separately reviewed remote backend is optional. Login and catalog bindings aren't startup
+prerequisites: migration, health/readiness and static UI work without Entra app registrations,
+while management APIs remain unavailable until authentication is configured. This is not
+anonymous management functionality or a new FDAI installation path. Follow the
+[single-product procedure](../../../infra/modules/hub-service/README.md) for immutable images,
+state preservation and native Terraform/Azure CLI execution.
+
 The independent [two-Hub development root](../../../infra/hubs-development/README.md) prepares
 a vendor Release Hub and customer Target Lifecycle Hub with separate networks, ACA environments,
 PostgreSQL servers/databases, identities, vaults, and logs. It is not an additional FDAI
 installation path and does not replace the source installer or signed offline package.
 Its own managed-identity database roles, versioned development key references, explicit migration
 Jobs, Entra operator/service boundaries, and independent catalog-pin approval must be prepared
-before serving. RG names alone do not establish isolation.
+before serving through that legacy authenticated fixture. It remains unchanged for its existing
+state owners and isn't a prerequisite for either independent product. RG names alone do not
+establish isolation.
 
 Only local containers and static Terraform validation are evidenced. Exact Azure preview,
 registry/runtime-architecture verification, real Entra/MI/private-data-plane denial, deployment,

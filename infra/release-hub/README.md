@@ -13,7 +13,9 @@ This root doesn't deploy Lifecycle Hub or FDAI, and takes no customer Hub input.
 | `../modules/hub-service/` | Shared resource implementation, instantiated for this product only |
 
 Use the same root for development and production with separate private input files and backend
-keys. The `release` internal token is a product, not a release channel or environment.
+state locations. The default native local backend requires an explicit absolute private state
+path; remote backend selection is a reviewed Terraform override, not an environment flag.
+The `release` internal token is a product, not a release channel or environment.
 An existing registry is an input; this root doesn't adopt or create it.
 
 ## Deployment

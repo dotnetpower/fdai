@@ -86,7 +86,10 @@ product. Each deploys its own bundled UI/API and PostgreSQL through one root and
 | Lifecycle Hub | [infra/lifecycle-hub](../../../infra/lifecycle-hub/README.md) | None |
 
 The same code serves development and production through private inputs and separate backend
-keys. The shared internal module creates only the selected product's resources. It doesn't read
+state locations. Native local backends accept explicit absolute paths in durable private storage,
+preserving existing local state without an Azure Storage prerequisite. A remote backend is an
+optional, reviewed Terraform override prepared before candidate freeze, never an active-run switch.
+The shared internal module creates only the selected product's resources. It doesn't read
 the other Hub's state, IDs or NAT address. An approved existing registry is an external input.
 No FDAI source/offline installer, main infrastructure root, Agent or cluster deployment changes.
 

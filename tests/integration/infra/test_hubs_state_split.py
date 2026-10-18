@@ -125,6 +125,28 @@ def _inventory(directory: str) -> dict[str, str]:
     return objects
 
 
+@pytest.mark.parametrize("product", ("release-hub", "lifecycle-hub"))
+def test_local_backend_uses_explicit_private_state_path(tmp_path: Path, product: str) -> None:
+    declaration = re.search(r'backend "local" \{\}', (INFRA / product / "main.tf").read_text())
+    assert declaration is not None, "Existing local state must not require Azure backend bootstrap."
+    root = tmp_path / product
+    root.mkdir()
+    (root / "main.tf").write_text(
+        f'terraform {{\n  {declaration.group()}\n}}\nresource "terraform_data" "owned" {{}}\n'
+    )
+    private = tmp_path / "private"
+    private.mkdir(mode=0o700)
+    state = private / f"{product}.tfstate"
+    backend = private / f"{product}.backend.hcl"
+    backend.write_text(f"path = {json.dumps(str(state))}\n")
+    _run(root, "init", f"-backend-config={backend}", "-input=false", "-no-color")
+    _run(root, "plan", "-out=candidate.tfplan", "-input=false", "-no-color")
+    _run(root, "apply", "-input=false", "-no-color", "candidate.tfplan")
+    assert state.is_file()
+    assert len(json.loads(state.read_text())["resources"]) == 1
+    assert not (root / "terraform.tfstate").exists()
+
+
 def _write_state(path: Path, addresses: list[str], *, counted_role: bool = False) -> None:
     resources: dict[str, dict] = {}
     for address in addresses:

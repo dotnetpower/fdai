@@ -13,7 +13,9 @@ This root doesn't deploy Release Hub or FDAI, and needs no vendor URL, tenant, i
 | `../modules/hub-service/` | Shared resource implementation, instantiated for this product only |
 
 Use the same root for development and production with separate private input files and backend
-keys. `target` is the existing internal Lifecycle Hub token; it doesn't select an environment.
+state locations. The default native local backend requires an explicit absolute private state
+path; remote backend selection is a reviewed Terraform override, not an environment flag.
+`target` is the existing internal Lifecycle Hub token; it doesn't select an environment.
 An existing registry is an input; this root doesn't adopt or create it.
 
 ## Deployment
