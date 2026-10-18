@@ -56,6 +56,10 @@ class RuntimeHealthServer:
         await self._server.wait_closed()
         self._server = None
 
+    def is_live(self) -> bool:
+        """Return whether the owned health listener is currently serving."""
+        return self._server is not None and self._server.is_serving()
+
     async def _handle(
         self,
         reader: asyncio.StreamReader,

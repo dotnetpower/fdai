@@ -639,6 +639,8 @@ async def build_core_runtime(
         decision_evidence=container.decision_evidence_admission_provider,
         ingest_topics=(container.config.kafka.topic_events,),
         self_health_catalog=load_runtime_self_health_catalog(),
+        liveness=resources.health_server.is_live if resources.health_server is not None else None,
+        runtime_policy=runtime_values,
     )
     startup_report = await readiness.evaluate()
     _LOGGER.info(
