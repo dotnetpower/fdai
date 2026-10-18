@@ -460,6 +460,13 @@ activation reader is bound, Freyr attaches Njord cost evidence to capacity recom
 when it is fresh and correlated to the graduation scope, and each specialist reports its ingress
 state and rejection counters in health.
 
+The package optimization composer returns an authority-free plan event. A package-neutral
+publisher sends it to canonical event ingress with the active package revision; it cannot name
+Njord as producer. Njord validates the exact revision, target/profile/effect lineage, and
+idempotency identity before publishing on its owned topic. Clarification reinjection uses a
+separate content-addressed event that cites the accepted attestation and pinned case revision.
+Neither event carries approval, executor, promotion, or action-mode fields.
+
 ## Compatibility and rollback
 
 The migration uses an overlap period rather than a flag-day import change:

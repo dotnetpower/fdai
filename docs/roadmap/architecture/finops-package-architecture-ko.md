@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 6dbc420988a53e22bfe3dff18b535464ffa9f988
-translation_revised: 2026-10-17
+translation_source_sha: 10738e7f642a4b41824effd23651220dbf97cf82
+translation_revised: 2026-10-18
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -491,6 +491,13 @@ enablement나 `ActionType` 또는 `Workflow` mode를 변경할 수 없습니다.
 거부합니다. Njord는 활성화 판독기가 연결되지 않으면 안전하게 닫히고, Freyr는 Njord 비용 근거가
 최신이며 graduation 범위와 상관관계가 있을 때만 용량 권고에 첨부합니다. 각 전문가는 health에
 유입 상태와 거부 카운터를 보고합니다.
+
+패키지 최적화 composer는 권한이 없는 계획 Event를 반환합니다. 패키지 중립 publisher는 활성
+패키지 개정과 함께 이 Event를 정규 이벤트 유입 지점으로 보내며 Njord를 생산자로 지정할 수
+없습니다. Njord는 자신이 소유한 토픽에 게시하기 전에 정확한 개정, 대상, 프로필, 효과 계보 및
+멱등성 식별자를 검증합니다. 사람 확인 재주입은 수락한 확인 진술과 고정 사례 개정을 인용하는
+별도의 내용 주소 지정 Event를 사용합니다. 두 Event에는 승인, 실행기, promotion 또는 작업 mode
+필드가 없습니다.
 
 ## 호환성과 롤백
 
