@@ -608,6 +608,23 @@ class CostEffectSettlement:
                 value is None for value in savings_fields[:4]
             ):
                 raise ValueError("verified cost settlement requires comparable savings lineage")
+            for name, value in (
+                ("baseline_window_digest", self.baseline_window_digest),
+                ("treatment_window_digest", self.treatment_window_digest),
+                ("demand_normalization_digest", self.demand_normalization_digest),
+                ("finalized_billing_receipt_digest", self.finalized_billing_receipt_digest),
+                ("allocation_rule_digest", self.allocation_rule_digest),
+            ):
+                if value is not None:
+                    _digest(name, value)
+            invoice = self.savings_evidence_class is CostSavingsEvidenceClass.INVOICE_ALLOCATED
+            if invoice != (
+                self.finalized_billing_receipt_digest is not None
+                and self.allocation_rule_digest is not None
+            ):
+                raise ValueError(
+                    "invoice-allocated settlement requires billing and allocation evidence"
+                )
         elif self.savings_evidence_class is not None or any(
             value is not None for value in savings_fields
         ):
@@ -681,6 +698,8 @@ class CostEpisodeSettlement:
         _identifier("episode_id", self.episode_id)
         _digest("decision_frame_digest", self.decision_frame_digest)
         _text("action_ref", self.action_ref)
+        if self.action_ref != self.action_ref.strip():
+            raise ValueError("settlement action reference MUST be exact")
         if self.action_revision < 1:
             raise ValueError("settlement action revision MUST be positive")
         effect_ids = tuple(item.effect_id for item in self.effects)
@@ -697,6 +716,18 @@ class CostEpisodeSettlement:
                 or self.realized_savings_evidence_class is None
             ):
                 raise ValueError("realized savings require currency and evidence class")
+            realized_cost_effects = tuple(
+                effect
+                for effect in self.effects
+                if effect.kind is CostEffectKind.COST
+                and effect.status is CostSettlementStatus.VERIFIED
+            )
+            if not realized_cost_effects or any(
+                effect.currency != self.realized_savings_currency
+                or effect.savings_evidence_class is not self.realized_savings_evidence_class
+                for effect in realized_cost_effects
+            ):
+                raise ValueError("realized savings MUST match verified cost-effect lineage")
         elif (
             self.realized_savings_currency is not None
             or self.realized_savings_evidence_class is not None

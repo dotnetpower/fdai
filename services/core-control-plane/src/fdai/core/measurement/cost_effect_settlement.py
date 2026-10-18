@@ -244,16 +244,23 @@ class CostEffectSettlementService:
         ):
             return Decimal("0")
         status_by_effect = {item.effect_id: item.status for item in settlements}
+        eligible_cost_effects = tuple(
+            effect
+            for effect in expected_effects
+            if effect.kind is CostEffectKind.COST
+            and not effect.estimated_only
+            and status_by_effect[effect.effect_id] is CostSettlementStatus.VERIFIED
+        )
+        baseline_digests = tuple(effect.baseline_window_digest for effect in eligible_cost_effects)
+        if len(baseline_digests) != len(set(baseline_digests)):
+            raise ValueError("realized savings MUST NOT double count one baseline window")
         return sum(
             (
                 max(
                     Decimal("0"),
                     effect.baseline_value - observations[effect.effect_id].value,
                 )
-                for effect in expected_effects
-                if effect.kind is CostEffectKind.COST
-                and not effect.estimated_only
-                and status_by_effect[effect.effect_id] is CostSettlementStatus.VERIFIED
+                for effect in eligible_cost_effects
             ),
             Decimal("0"),
         )

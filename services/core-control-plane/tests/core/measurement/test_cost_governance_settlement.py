@@ -338,3 +338,31 @@ def test_measured_savings_require_comparable_windows_and_invoice_lineage() -> No
 
     assert settlement.realized_savings == Decimal("20")
     assert settlement.realized_savings_evidence_class is CostSavingsEvidenceClass.INVOICE_ALLOCATED
+
+
+def test_settlement_rejects_duplicate_baseline_attribution() -> None:
+    first = _effect("effect-cost-a", CostEffectKind.COST)
+    second = replace(
+        _effect("effect-cost-b", CostEffectKind.COST),
+        source_digest=DIGEST_B,
+        treatment_window_digest=DIGEST_D,
+    )
+
+    with pytest.raises(ValueError, match="double count one baseline"):
+        _settle((first, second))
+
+
+def test_settlement_contract_rejects_forged_savings_lineage() -> None:
+    effect = _effect("effect-cost", CostEffectKind.COST)
+    settled = _settle((effect,))
+    verified = settled.effects[0]
+
+    with pytest.raises(ValueError, match="SHA-256"):
+        replace(verified, baseline_window_digest="not-a-digest")
+    with pytest.raises(ValueError, match="billing and allocation"):
+        replace(
+            verified,
+            savings_evidence_class=CostSavingsEvidenceClass.INVOICE_ALLOCATED,
+        )
+    with pytest.raises(ValueError, match="action reference MUST be exact"):
+        replace(settled, action_ref=" action-run:episode-1")
