@@ -56,6 +56,7 @@ from fdai.runtime.bootstrap_pantheon import (
 from fdai.runtime.bootstrap_plan import BootstrapPlan
 from fdai.runtime.bootstrap_readiness import (
     build_runtime_operational_readiness,
+    build_runtime_self_health_bindings,
     load_runtime_self_health_catalog,
 )
 from fdai.runtime.bootstrap_resources import RuntimeResources
@@ -621,6 +622,7 @@ async def build_core_runtime(
             ),
         },
     )
+    self_health = build_runtime_self_health_bindings(container)
     readiness = build_startup_readiness_runtime(
         state_store=state_store,
         event_bus=messaging.operational_bus,
@@ -638,10 +640,11 @@ async def build_core_runtime(
         registered_probes=(*container.startup_probes, *semantic.readiness_probes),
         decision_evidence=container.decision_evidence_admission_provider,
         ingest_topics=(container.config.kafka.topic_events,),
-        self_health_catalog=load_runtime_self_health_catalog(),
+        self_health_catalog=self_health.catalog,
         liveness=resources.health_server.is_live if resources.health_server is not None else None,
         runtime_policy=runtime_values,
         startup_duration_source=resources.startup_duration_source,
+        model_provider_scope=self_health.model_provider_scope,
     )
     startup_report = await readiness.evaluate()
     _LOGGER.info(

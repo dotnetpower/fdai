@@ -2,7 +2,7 @@
 title: FDAI 기능 준비 상태 평가
 description: FDAI 제품 중분류 52개의 준비 상태 판정 근거와 남은 조건을 기록합니다.
 translation_of: functional-readiness.md
-translation_source_sha: f008b6bcb94810f82422f074f794af6cf81dcbbb
+translation_source_sha: 6bbb3c528ef368da1b44e29a18bffbe3fa5bb9a0
 translation_revised: 2026-10-19
 ---
 
@@ -209,6 +209,11 @@ Partial 24건은 구현된 부분과 기록된 집중 검사 근거를 유지하
 | <span id="f12-2">F12.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 버전이 지정된 정책 및 위험 판정, 비상 중지 및 회수 우선순위, 7가지 실행 안전 조건, 차단 및 작업 없음의 최종 감사, 안전한 쪽으로 닫히는 실행 방지, 인증된 운영 상태 읽기 화면입니다. 서명된 Operator-Var 비상 정지 경로, [보안 원장](../../roadmap-implementation/architecture/security-and-identity.md), [정본 상태 정보](../../roadmap/operations/operating-and-verification-ko.md#구현-상태), 집중 안전 검사가 로컬 구현을 뒷받침합니다. Release 최대값 연결과 배포 환경에서 측정한 활성화-실행 차단-비활성화 훈련은 별도 설치 검증으로 남아 있습니다. |
 | <span id="f12-3">F12.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 책임을 추적할 수 있는 해시 체인 감사, 결정론적 재현, 목적 및 범위 접근 검사, 모델 입력 전 최소화, 비식별화된 내보내기, 범위가 제한된 보존 및 삭제, 법적 보존, 삭제 표시, 재시도에 안전한 감사 증적입니다. [개인정보 원장](../../roadmap-implementation/architecture/data-governance.md)과 집중 감사·보존·개인정보 검사가 이 범위를 뒷받침합니다. 개인정보 승인, 외부 감사 고정 또는 WORM 저장소, 실제 접근 검토 및 사고 증적은 별도 배포 검증입니다. |
 | <span id="f12-4">F12.4</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 신호 15개의 정책 및 내보내기 레지스트리, 운영 상태 필드 8개의 계약, 서비스 및 모델과 근거 상태 조회, 소비된 정확한 카나리의 30초 검사가 구현되어 있습니다. #2218 / PR #2220에서 실제 수신 서버, 보호된 준비 상태, 저장된 비상 중지 신호와 설치 버전, 소비한 정책 다이제스트, 비상 중지 필드를 연결하고 집중 검사 92개를 통과했습니다. #2228은 프로세스별 런타임 진입부터 첫 보호된 준비 상태까지의 시간을 추가하고 기존 검사와 겹치는 집중 검사 80개를 통과했습니다. 관측 시각은 고정되며 재수집으로 갱신하지 않습니다. [정본 상태 정보](../../roadmap/operations/operating-and-verification-ko.md#구현-상태)는 나머지 신호 11개와 필드 5개를 명시적 사용 불가로 유지합니다. 실제 수집원, 측정된 기본 및 대체 전달, 실제 카나리, 안정화, 복구 훈련 근거는 필수로 남습니다. |
+
+#2240은 실제 embedding 공급자 결과를 선택적 형식화 하위 범위로 추가 노출합니다.
+`/operations/runtime-state`에서 독립된 시작 등록 정보와 상위 스냅샷 및 시각을 검증하며,
+다른 역할이 미관측이면 모델 범위는 알 수 없음, 카탈로그 집계는 사용 불가로 유지합니다.
+소프트웨어 검사 169개는 카탈로그 연결이나 전용 Console 화면을 추가했다는 뜻이 아닙니다.
 
 ## F13. 근거 조회 및 보고서
 

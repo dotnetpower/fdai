@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
+
+from fdai_service_contracts.model_provider_health import ConfiguredModelBindingV1
+from fdai_service_contracts.self_health import SelfHealthSignalName
 
 from fdai.composition import Container
 from fdai.composition.readiness import (
@@ -12,11 +16,13 @@ from fdai.composition.readiness import (
 from fdai.composition.readiness_catalog import load_runtime_best_practice_bindings
 from fdai.core.notifications.matrix import load_matrix_from_yaml
 from fdai.core.readiness.self_health import SelfHealthCatalog, load_self_health_catalog
+from fdai.delivery.azure.llm.provider_observations import ConfiguredModelProviderScope
 from fdai.delivery.readiness_remediation import EventBusReadinessRemediationPublisher
 from fdai.runtime.configuration import _resolve_catalog_root
 from fdai.shared.contracts.models import OntologyRelease, Rule
 from fdai.shared.providers.event_bus import EventBus
 from fdai.shared.providers.readiness import RemediationProposalBinding
+from fdai.shared.providers.self_health import ModelProviderObservedProvider
 from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger("fdai.startup")
@@ -31,6 +37,57 @@ def load_runtime_self_health_catalog() -> SelfHealthCatalog:
     return load_self_health_catalog(
         config_root / "self-health-signals.yaml",
         route_fallbacks=route_fallbacks,
+    )
+
+
+def build_runtime_model_provider_scope(
+    container: Container, catalog: SelfHealthCatalog
+) -> ConfiguredModelProviderScope:
+    """Keep the full startup registration; a sub-provider never supplies global health."""
+    embedding = container.require_llm_bindings().embedding_model
+    age = catalog.policies[SelfHealthSignalName.ADAPTER_HEALTHCHECK].maximum_age_seconds
+    source = (
+        embedding.model_provider_observations(maximum_age_seconds=age)
+        if isinstance(embedding, ModelProviderObservedProvider)
+        else None
+    )
+    roles = (
+        tuple(sorted(cap.name for cap in container.resolved_models.capabilities))
+        if container.resolved_models is not None
+        else ()
+    )
+    return ConfiguredModelProviderScope(
+        configured_bindings=tuple(
+            ConfiguredModelBindingV1(
+                role=role,
+                binding_digest=(
+                    source.binding_digest if role == "t1.embedding" and source is not None else None
+                ),
+            )
+            for role in roles
+        ),
+        registration_digest=(
+            f"sha256:{container.resolved_models_artifact_digest}"
+            if container.resolved_models_artifact_digest is not None
+            else None
+        ),
+        sources={"t1.embedding": source} if source is not None else {},
+        maximum_age_seconds=age,
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class RuntimeSelfHealthBindings:
+    catalog: SelfHealthCatalog
+    model_provider_scope: ConfiguredModelProviderScope
+
+
+def build_runtime_self_health_bindings(container: Container) -> RuntimeSelfHealthBindings:
+    """Bind the scope to the same catalog whose freshness governs runtime readiness."""
+    catalog = load_runtime_self_health_catalog()
+    return RuntimeSelfHealthBindings(
+        catalog=catalog,
+        model_provider_scope=build_runtime_model_provider_scope(container, catalog),
     )
 
 

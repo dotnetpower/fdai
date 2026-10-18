@@ -210,6 +210,11 @@ not zero-intervention or Ready. Actual source-owned anchors and completeness pro
 | <span id="f12-3">F12.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | Scope: attributable hash-chained audit, deterministic replay, purpose/scope access checks, pre-model minimization, redacted export, bounded retention and deletion, legal holds, tombstones, and retry-safe audit receipts. The [privacy ledger](../../roadmap-implementation/architecture/data-governance.md) and focused audit/retention/privacy cohort support this scope. Privacy approval, external anchoring or WORM storage, and live access-review/incident receipts remain deployment qualification. |
 | <span id="f12-4">F12.4</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | Implemented: the 15-signal policy/exporter registry, eight-field operational-state contract, service/model and evidence health queries, and exact 30-second consumed-canary check. #2218 / PR #2220 binds actual listener, protected readiness and persisted emergency-stop signals, plus installed version, consumed-policy digest and emergency-stop fields, with 92 focused passes. #2228 adds process-scoped runtime-entry-to-first-protected-ready duration, with 80 focused passes in an overlapping test slice. Its observation timestamp is frozen, not renewed by collection. The [authoritative health status](../../roadmap/operations/operating-and-verification.md#implementation-status) keeps the other eleven signals and five fields explicitly unavailable. Their real sources, measured primary/fallback delivery, live canary, stabilization and recovery-drill evidence remain mandatory. |
 
+#2240 additionally exposes actual embedding-provider outcomes as an optional typed sub-scope
+through `/operations/runtime-state`, bound to independent startup registration and parent/time
+checks. Other unobserved roles keep the model scope unknown and the catalog aggregate unavailable;
+the 169-case software check does not add a catalog binding or dedicated Console view.
+
 ## F13. Evidence views and reporting
 
 | Function | State | Evidence, supported scope, and remaining conditions |

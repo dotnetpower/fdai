@@ -69,22 +69,36 @@ def _query(
     )
 
 
-def _operational_state(now: datetime) -> OperationalStateSnapshotV1:
+def _operational_state(
+    now: datetime, *, unsafe_adapter_healthy: bool = False
+) -> OperationalStateSnapshotV1:
     signals = tuple(
         SelfHealthSignalStateV1(
             signal=signal,
             metric=f"fdai.test.{signal.value}",
             exporter_id=f"runtime:{signal.value}",
-            status=SelfHealthSignalStatus.HEALTHY,
-            value=Decimal("1"),
-            observed_at=now,
+            status=(
+                SelfHealthSignalStatus.UNAVAILABLE
+                if signal is SelfHealthSignalName.ADAPTER_HEALTHCHECK and not unsafe_adapter_healthy
+                else SelfHealthSignalStatus.HEALTHY
+            ),
+            value=(
+                None
+                if signal is SelfHealthSignalName.ADAPTER_HEALTHCHECK and not unsafe_adapter_healthy
+                else Decimal("1")
+            ),
+            observed_at=(
+                None
+                if signal is SelfHealthSignalName.ADAPTER_HEALTHCHECK and not unsafe_adapter_healthy
+                else now
+            ),
             recorded_at=now,
             maximum_age_seconds=300,
-            fresh=True,
-            reason="healthy",
+            fresh=signal is not SelfHealthSignalName.ADAPTER_HEALTHCHECK or unsafe_adapter_healthy,
+            reason="fixture_observation",
             route="operational_alert",
             fallback="hil_escalate",
-            alert=False,
+            alert=signal is SelfHealthSignalName.ADAPTER_HEALTHCHECK and not unsafe_adapter_healthy,
         )
         for signal in sorted(SelfHealthSignalName, key=lambda item: item.value)
     )
@@ -121,6 +135,24 @@ def _operational_state(now: datetime) -> OperationalStateSnapshotV1:
             fields=fields,
         ),
     )
+
+
+async def test_operational_state_rejects_legacy_healthy_without_aggregate_coverage(
+    monkeypatch: Any,
+) -> None:
+    snapshot = _operational_state(datetime(2026, 10, 19, tzinfo=UTC), unsafe_adapter_healthy=True)
+
+    async def fetch(self: Any, statement: str, parameters: tuple[object, ...] = ()):
+        assert parameters == ("runtime:operational-state",)
+        return [{"value": {"revision": 1, "snapshot": snapshot.model_dump(mode="json")}}]
+
+    monkeypatch.setattr(RuntimeProjectionReader, "_fetch_all", fetch)
+    reader = RuntimeProjectionReader(
+        RuntimeProjectionReaderConfig("postgresql://example.invalid/fdai"),
+        RecordingFallback(),
+    )
+    with pytest.raises(ProjectionUnavailableError, match="adapter coverage"):
+        await reader.read(_query("runtime.operational-state"))
 
 
 async def test_operational_state_projection_validates_durable_contract(
