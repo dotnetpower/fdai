@@ -132,6 +132,8 @@ Upstream defines generic interfaces and working defaults. Forks customize throug
 - **Dashboard availability projection**: `shared/telemetry/dashboard_status.py` consumes normalized
   metric observations after provider and domain reducers have produced them. It performs no provider
   I/O and grants no authority. The Phase 0 descriptor names the expected producer and freshness
+
+  Deployment selects this optional input only from a private reviewed JSON file. Before staging it to the managed host, the source coordinator validates the schema, current source revision, target scope, sorted ActionType identities, distinct Owner and executor, and bounded validity interval. The host derives the separate executor environment value from the reviewed profile. Omission keeps the ordinary multi-operator path and doesn't revoke a retained profile; changing or removing a deployed profile requires a new exact application plan. The Phase 0 descriptor names the expected producer and freshness
   window for source-bound panels; missing, stale, conflicting, mismatched, future-dated, or synthetic
   live observations render unavailable with no numeric fallback.
 - **Change Safety pre-authority evidence**: `core/control_loop/change_safety_evidence.py` accepts one

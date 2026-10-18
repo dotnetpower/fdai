@@ -186,6 +186,10 @@ def _provision_azure(args: argparse.Namespace) -> int:
         load_catalog_review_profile,
     )
     from fdai_deployment_cli.installation_scope import InstallationOptions
+    from fdai_deployment_cli.development_authority_cli import (
+        selected_development_authority,
+        validate_development_authority_command,
+    )
     from fdai_deployment_cli.operational_evidence_verifier_input import (
         load_operational_evidence_verifier_input,
     )
@@ -208,22 +212,19 @@ def _provision_azure(args: argparse.Namespace) -> int:
             else Path.cwd() / args.operational_evidence_verifier_input
         )
     )
-    runtime_profile = RuntimeDeploymentProfile.create(
-        runtime_platform=args.runtime,
-        database_placement=args.database,
-        system_node_count=args.system_nodes,
-        system_node_sku=args.system_node_sku,
-        user_node_min_count=args.user_nodes,
-        user_node_max_count=args.max_user_nodes,
-        user_node_sku=args.user_node_sku,
-        product_add_ons=tuple(args.product_add_ons),
-        observation_data_sources=tuple(args.observation_data_sources),
-        database_sku=args.database_sku,
+    development_authority_profile, clear_development_authority_profile = (
+        selected_development_authority(args, cwd=Path.cwd())
     )
+    runtime_profile = RuntimeDeploymentProfile.from_cli_arguments(args)
     if catalog_review_profile.selected and args.runtime != "aks":
         raise ValueError("selected catalog review profile requires --runtime aks")
     if operational_evidence_verifier_input is not None and args.runtime != "aks":
         raise ValueError("operational evidence verifier input requires --runtime aks")
+    validate_development_authority_command(
+        args,
+        profile=development_authority_profile,
+        clear=clear_development_authority_profile,
+    )
     if (args.prepare_only or args.preflight_only or args.teardown) and args.source is None:
         raise ValueError("source-only preparation, preflight, or teardown requires --source")
     if operational_evidence_verifier_input is not None and (
@@ -350,6 +351,8 @@ def _provision_azure(args: argparse.Namespace) -> int:
                     approval_file=args.approval_file,
                     foundation_recovery_directory=args.foundation_recovery_directory,
                     operational_evidence_verifier_input=operational_evidence_verifier_input,
+                    development_authority_profile=development_authority_profile,
+                    clear_development_authority_profile=clear_development_authority_profile,
                     interactive=args.approval_file is None,
                     installation_options=(
                         InstallationOptions(

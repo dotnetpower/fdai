@@ -79,6 +79,12 @@ def add_prepare_source_parser(subcommands: Subparsers, handler: object) -> None:
     prepare_source.add_argument("--catalog-review-profile", type=Path)
     prepare_source.add_argument("--catalog-review-private-key", type=Path)
     prepare_source.add_argument("--operational-evidence-verifier-input", type=Path)
+    prepare_source.add_argument("--development-authority-profile", type=Path)
+    prepare_source.add_argument(
+        "--clear-development-profile",
+        action="store_true",
+        dest="clear_development_authority_profile",
+    )
     prepare_source.add_argument("--runtime-platform", default="aks")
     prepare_source.add_argument("--database-placement", default="postgres-flex")
     prepare_source.add_argument("--system-node-count", type=int, default=3)

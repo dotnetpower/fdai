@@ -59,6 +59,11 @@ from fdai_deployment_cli.runtime_profile import (
     legacy_full_product_matches,
     legacy_runtime_profile_digest,
 )
+from fdai_deployment_cli.standalone_development_authority import (
+    apply_initial_development_authority,
+    development_authority_from_args,
+    reconcile_retained_development_authority,
+)
 from fdai_deployment_cli.runtime_support_installation import (
     install_runtime_support as _install_runtime_support,
 )
@@ -204,6 +209,9 @@ from fdai_deployment_cli.target import compute_target_binding
 
 _DIGEST = re.compile(r"[0-9a-f]{64}")
 _GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
+_mapping = standalone_host_values.mapping
+_required_guid = standalone_host_values.required_guid
+_selected_identity = standalone_host_values.selected_identity
 _SOURCE_COMMIT = re.compile(r"[0-9a-f]{40}")
 _AKS_RUNTIME_NAMESPACE = "fdai-runtime"
 _STAGES: Final = ("access", "substrate", "runtime", "database", "application")
@@ -433,6 +441,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         _absolute(verifier_input_path) if verifier_input_path else None
     )
     verifier_input_digest = verifier_input.input_digest if verifier_input is not None else ""
+    development_authority = development_authority_from_args(args, absolute=_absolute)
     foundation.login(_managed_identity_login, work_dir)
     suffix = (
         str(adoption[0]["resource_name_suffix"])
@@ -502,12 +511,19 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
             or not _runtime_profile_matches(retained, runtime_profile)
         ):
             raise ValueError("standalone host retained context differs")
-        if posture_changed:
+        foundation.adoption.require_context(retained)
+        source_changed = source_application_inputs.rebind_source_tree(retained, work_dir)
+        authority_changed = reconcile_retained_development_authority(
+            development_authority,
+            retained=retained,
+            values=retained_values,
+            tenant_id=foundation.tenant_id,
+            subscription_id=foundation.subscription_id,
+            resource_groups=(str(app["name"]), str(ops["resource_group_name"])),
+        )
+        if posture_changed or source_changed or authority_changed:
             _replace_private_json(retained_context, retained)
             _replace_private_json(retained_variables, retained_values)
-        foundation.adoption.require_context(retained)
-        if source_application_inputs.rebind_source_tree(retained, work_dir):
-            _replace_private_json(retained_context, retained)
         _terraform_init(work_dir, retained)
         if adoption is not None:
             _adopt_application_state(work_dir, retained, *adoption)
@@ -640,6 +656,14 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "ingestion_cors_allow_origins": "https://localhost",
         "enable_llm": adoption is not None,
     }
+    development_profile_digest = apply_initial_development_authority(
+        development_authority,
+        values=values,
+        tenant_id=foundation.tenant_id,
+        subscription_id=foundation.subscription_id,
+        resource_groups=(str(app["name"]), str(ops["resource_group_name"])),
+        source_revision=source_commit,
+    )
     values.update(
         product_terraform_values(
             runtime_profile,
@@ -676,6 +700,7 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "catalog_review_profile_digest": catalog_profile.profile_digest,
         "catalog_review_selected": catalog_profile.selected,
         "oev_input_digest": verifier_input_digest,
+        "development_authority_profile_digest": development_profile_digest,
         "state_resource_group": str(ops["resource_group_name"]),
         "state_account": str(state["account_name"]),
         "state_container": str(state["container_name"]),
@@ -1000,7 +1025,6 @@ def _prepare_aks_application(_args: argparse.Namespace, work_dir: Path) -> dict[
     ):
         raise ValueError("AKS substrate output contract is invalid")
     core_identity = _mapping(identities.get("core"), "core runtime identity")
-    # Terraform emits null for identities of unselected surfaces, so read only selected ones.
     operator_identity = _selected_identity(identities, "operator", operator_api_selected)
     command_identity = _selected_identity(identities, "command", operator_api_selected)
     executor_identity = _selected_identity(identities, "executor", governed_execution_selected)
@@ -3749,8 +3773,7 @@ def _aks_document_workloads(
             sidecars={
                 "clamav": {
                     "image": refs["clamav"],
-                    # The image entrypoint chowns its database and exits as non-root; start
-                    # clamd directly. The bundled signatures load in about 950 MiB.
+                    # The entrypoint chowns the database; start clamd directly as non-root.
                     "command": ["clamd"],
                     "args": ["--foreground=true"],
                     "cpu": "500m",
@@ -4578,25 +4601,6 @@ def _capture_env(
     if result.returncode != 0:
         raise ValueError(reason)
     return result.stdout
-
-
-def _selected_identity(identities: dict[str, Any], name: str, selected: bool) -> dict[str, Any]:
-    if not selected:
-        return {}
-    return _mapping(identities.get(name), f"{name.replace('_', ' ')} runtime identity")
-
-
-def _mapping(value: object, label: str) -> dict[str, Any]:
-    if not isinstance(value, dict) or any(not isinstance(key, str) for key in value):
-        raise ValueError(f"{label} is invalid")
-    return {str(key): item for key, item in value.items()}
-
-
-def _required_guid(value: dict[str, Any], field: str) -> str:
-    item = value.get(field)
-    if not isinstance(item, str) or _GUID.fullmatch(item) is None:
-        raise ValueError(f"{field} is invalid")
-    return item
 
 
 if __name__ == "__main__":

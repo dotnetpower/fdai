@@ -6,7 +6,13 @@ from types import SimpleNamespace
 
 import pytest
 
-from fdai_deployment_cli import cli, standalone_application, standalone_host, standalone_review
+from fdai_deployment_cli import (
+    cli,
+    standalone_application,
+    standalone_approval_input,
+    standalone_host,
+    standalone_review,
+)
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.deployment_deadline import DeploymentDeadline
 
@@ -272,7 +278,7 @@ def test_residual_recovery_uses_distinct_exact_approval(
 def test_approval_input_wait_is_bounded_before_reading(monkeypatch):
     monkeypatch.setattr(standalone_application.sys, "stdin", SimpleNamespace(isatty=lambda: True))
     monkeypatch.setattr(
-        standalone_application,
+        standalone_approval_input,
         "select",
         SimpleNamespace(select=lambda *_args: ([], [], [])),
         raising=False,

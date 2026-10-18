@@ -13,6 +13,10 @@ from fdai_deployment_cli.catalog_review_profile import (
     stage_catalog_review_profile,
 )
 from fdai_deployment_cli.control_package import PACKAGE_ROOT, ControlPackage
+from fdai_deployment_cli.development_authority_profile import (
+    DevelopmentAuthorityDeploymentProfile,
+    stage_development_authority_profile,
+)
 from fdai_deployment_cli.foundation_adoption_transport import stage_foundation_context
 from fdai_deployment_cli.operational_evidence_verifier_input import (
     OperationalEvidenceVerifierDeploymentInput,
@@ -48,6 +52,8 @@ def prepare_remote(
     timeout_seconds: int,
     catalog_review_profile: CatalogReviewDeploymentProfile | None = None,
     operational_evidence_verifier_input: OperationalEvidenceVerifierDeploymentInput | None = None,
+    development_authority_profile: DevelopmentAuthorityDeploymentProfile | None = None,
+    clear_development_authority_profile: bool = False,
     control_package: ControlPackage | None = None,
 ) -> dict[str, object]:
     """Transfer exact inputs and invoke the value-free host preparation command.
@@ -155,6 +161,12 @@ def prepare_remote(
             prepared_root=handoff_path.parent,
             remote_root=remote_root,
         )
+        development_authority_arguments = stage_development_authority_profile(
+            development_authority_profile,
+            tunnel=tunnel,
+            prepared_root=handoff_path.parent,
+            remote_root=remote_root,
+        )
         prepare_arguments = (
             f"{remote_root}/venv/bin/python",
             "-m",
@@ -211,6 +223,8 @@ def prepare_remote(
             ),
             *catalog_review_arguments,
             *verifier_arguments,
+            *development_authority_arguments,
+            *(("--clear-development-profile",) if clear_development_authority_profile else ()),
             *(
                 (
                     "--adoption-state",

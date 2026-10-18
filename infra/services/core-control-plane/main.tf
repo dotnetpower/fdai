@@ -16,22 +16,24 @@ module "core_control_plane" {
   license                    = var.license
   # The runtime opens its health port before startup readiness runs, so liveness
   # answers immediately and no startup probe is needed to cover a slow boot.
-  health                              = var.health
-  rollback                            = var.rollback
-  runtime_env                         = var.runtime_env
-  stewardship_audit_interval_seconds  = var.stewardship_audit_interval_seconds
-  handover_knowledge_interval_seconds = var.handover_knowledge_interval_seconds
-  startup_readiness                   = var.startup_readiness
-  llm                                 = var.llm
-  runtime_call_evidence               = var.runtime_call_evidence
-  operator_request_receipts           = var.operator_request_receipts
-  observation_context                 = var.observation_context
-  governed_rca                        = var.governed_rca
-  configuration_drift                 = var.configuration_drift
-  diagnostic_ingest                   = var.diagnostic_ingest
-  decision_evidence_container_url     = var.decision_evidence_container_url
-  approval_profile_json               = var.approval_profile_json
-  operating_intent_source             = var.operating_intent_source
-  scaling                             = var.scaling
-  tags                                = var.tags
+  health                                   = var.health
+  rollback                                 = var.rollback
+  runtime_env                              = var.runtime_env
+  stewardship_audit_interval_seconds       = var.stewardship_audit_interval_seconds
+  handover_knowledge_interval_seconds      = var.handover_knowledge_interval_seconds
+  startup_readiness                        = var.startup_readiness
+  llm                                      = var.llm
+  runtime_call_evidence                    = var.runtime_call_evidence
+  operator_request_receipts                = var.operator_request_receipts
+  observation_context                      = var.observation_context
+  governed_rca                             = var.governed_rca
+  configuration_drift                      = var.configuration_drift
+  diagnostic_ingest                        = var.diagnostic_ingest
+  decision_evidence_container_url          = var.decision_evidence_container_url
+  approval_profile_json                    = var.approval_profile_json
+  development_authority_profile_json       = var.development_authority_profile_json
+  development_authority_executor_principal = var.development_authority_executor_principal
+  operating_intent_source                  = var.operating_intent_source
+  scaling                                  = var.scaling
+  tags                                     = var.tags
 }

@@ -160,6 +160,33 @@ def _approval_profile_payload() -> dict[str, object]:
     return payload
 
 
+def _development_profile_payload() -> dict[str, object]:
+    return {
+        "schema_version": "1.0.0",
+        "profile_id": "fdai.dev.f06-f07",
+        "scope": {
+            "tenant_digest": "sha256:" + "1" * 64,
+            "subscription_digest": "sha256:" + "2" * 64,
+            "resource_group_digests": [],
+        },
+        "classification": "disposable_development",
+        "owner_principal": "human:owner",
+        "executor_principal": "identity:executor",
+        "valid_from": "2026-10-18T00:00:00+00:00",
+        "valid_until": "2026-10-19T00:00:00+00:00",
+        "source_revision": "a" * 40,
+        "catalog_revision": "catalog-1",
+        "policy_revision": "policy-1",
+        "registered_actions": [
+            {
+                "action_type": "remediate.right-size",
+                "version": "1.0.0",
+                "action_type_digest": "sha256:" + "3" * 64,
+            }
+        ],
+    }
+
+
 def test_derives_core_llm_from_attested_resolved_models(tfvars: ModuleType) -> None:
     resolved_models = {
         "schema_version": "1.0.0",
@@ -1382,6 +1409,30 @@ def test_materializes_optional_core_approval_profile(tfvars: ModuleType) -> None
     assert json.loads(selected["approval_profile_json"]) == payload
 
 
+def test_materializes_optional_core_development_profile(tfvars: ModuleType) -> None:
+    payload = _development_profile_payload()
+
+    selected = tfvars.select_tfvars(
+        {"environments": {"dev": {"core-control-plane": {"name": "core"}}}},
+        service="core-control-plane",
+        environment="dev",
+        development_profile_json=json.dumps(payload),
+    )
+
+    assert json.loads(selected["development_authority_profile_json"]) == payload
+    assert selected["development_authority_executor_principal"] == "identity:executor"
+
+
+def test_rejects_development_profile_outside_core_dev(tfvars: ModuleType) -> None:
+    with pytest.raises(ValueError, match="only for Core in dev"):
+        tfvars.select_tfvars(
+            {"environments": {"prod": {"core-control-plane": {"name": "core"}}}},
+            service="core-control-plane",
+            environment="prod",
+            development_profile_json=json.dumps(_development_profile_payload()),
+        )
+
+
 def test_materialize_tfvars_cli_runs_without_site_packages(tmp_path: Path) -> None:
     approval_profile = _approval_profile_payload()
     service_tfvars = {
@@ -1412,6 +1463,38 @@ def test_materialize_tfvars_cli_runs_without_site_packages(tmp_path: Path) -> No
 
     materialized = json.loads(output.read_text(encoding="utf-8"))
     assert json.loads(materialized["approval_profile_json"]) == approval_profile
+    assert output.stat().st_mode & 0o777 == 0o600
+
+
+def test_materialize_development_profile_runs_without_site_packages(tmp_path: Path) -> None:
+    profile = _development_profile_payload()
+    service_tfvars = {
+        "environments": {"dev": {"core-control-plane": {"name": "example", "platform": {}}}}
+    }
+    output = tmp_path / "service.tfvars.json"
+    subprocess.run(  # noqa: S603 - fixed interpreter, script, and synthetic fixture input.
+        [
+            sys.executable,
+            "-S",
+            str(_SCRIPTS / "materialize_tfvars.py"),
+            "--service",
+            "core-control-plane",
+            "--environment",
+            "dev",
+            "--output",
+            str(output),
+        ],
+        input=json.dumps(service_tfvars),
+        check=True,
+        capture_output=True,
+        cwd=tmp_path,
+        env={"FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON": json.dumps(profile)},
+        text=True,
+    )
+
+    materialized = json.loads(output.read_text(encoding="utf-8"))
+    assert json.loads(materialized["development_authority_profile_json"]) == profile
+    assert materialized["development_authority_executor_principal"] == "identity:executor"
     assert output.stat().st_mode & 0o777 == 0o600
 
 
@@ -1479,6 +1562,10 @@ def test_workflow_delegates_core_model_binding_materialization() -> None:
     assert (
         "FDAI_APPROVAL_PROFILE_JSON: ${{ secrets.FDAI_APPROVAL_PROFILE_JSON || "
         "vars.FDAI_APPROVAL_PROFILE_JSON }}" in _WORKFLOW
+    )
+    assert (
+        "FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON: "
+        "${{ vars.FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON }}" in _WORKFLOW
     )
     assert "WEB_SEARCH_ENABLED: ${{ vars.OPERATOR_API_WEB_SEARCH_ENABLED == 'true' }}" in _WORKFLOW
     assert "WEB_SEARCH_ALLOWED_DOMAINS_JSON:" in _WORKFLOW
