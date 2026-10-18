@@ -190,6 +190,14 @@ def test_forseti_records_unbound_architecture_review_in_health() -> None:
     assert f.behavior_snapshot()["architecture_review:unbound"] == 1
 
 
+def test_forseti_accepts_composition_owned_architecture_review_binding() -> None:
+    f = Forseti()
+
+    f.bind_architecture_review_loop(object())  # type: ignore[arg-type]
+
+    assert f.health()["architecture_review_bound"] is True
+
+
 def test_forseti_rejects_specialist_advice_from_wrong_owner() -> None:
     bus = _bus()
     f = Forseti(bus=bus)

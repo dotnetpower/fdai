@@ -15,6 +15,7 @@ from .observation_loop import (
     ArchitectureReviewObservation,
     ArchitectureReviewObservationOutbox,
     ArchitectureReviewObservationSink,
+    ArchitectureReviewSources,
     ArchitectureReviewStateStore,
     InMemoryArchitectureReviewStateStore,
     OntologyArchitectureReviewLoop,
@@ -29,6 +30,7 @@ from .observation_trace import (
 from .projection import ArchitectureReviewProjector
 from .readiness import (
     PRODUCTION_GATE_REF,
+    ArchitectureReviewDecisionReceiptProvider,
     ArchitectureReviewProductionGateEvaluator,
     ArchitectureReviewReadiness,
     ProductionEvidenceAttestation,
@@ -40,6 +42,7 @@ from .readiness import (
 
 __all__ = [
     "ArchitectureReviewProductionGateEvaluator",
+    "ArchitectureReviewDecisionReceiptProvider",
     "ArchitectureReviewProjector",
     "ArchitectureReviewReadiness",
     "ArchitectureReviewObservationTrace",
@@ -49,6 +52,7 @@ __all__ = [
     "ArchitectureReviewEvidence",
     "ArchitectureReviewEvidenceSource",
     "ArchitectureReviewEvidenceUnavailableError",
+    "ArchitectureReviewSources",
     "ArchitectureReviewObservationOutbox",
     "ArchitectureReviewObservationSink",
     "ArchitectureReviewStateStore",

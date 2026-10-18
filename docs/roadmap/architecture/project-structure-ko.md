@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: d2343983ecf0a563ce0fbd2899a92c0139bb1545
-translation_revised: 2026-10-17
+translation_source_sha: bff4fd57bb4be2afd90cf7ac935fc3c099d4e39e
+translation_revised: 2026-10-18
 ---
 # 프로젝트 구조
 
@@ -448,7 +448,7 @@ Cost Governance 가명 자료는 Operator 조립이 소유하는 비밀입니다
   Core만 배정 사례를 쓰고 보류, 대체 담당 확인, 원본 검증, 소유자별 단계, 준비도 관찰을 소유합니다. `CoreHandoverServices`, `PostgresCoreHandoverReview`, `PostgresCoreHandoverSearch`가 현재 목표, 검토자, 원본 허용, 검색을 연결합니다. `CombinedGovernedHandoverReader`는 명시한 선택자를 기존 통제 문서 읽기 모듈에만 그대로 전달하고 광범위한 Core 인수인계 검색은 호출하지 않습니다. 범위가 지정된 요청에서 기존 원본이 없거나 실패하면 대체 경로 없이 예외를 발생시킵니다. `CoreHandoverDocumentReader`를 직접 호출해도 범위가 지정된 요청은 I/O 전에 보류하며 조건 없는 일반 병합은 바뀌지 않습니다. `bind_handover_semantics`는 기존 `AssignmentWorkflowBindings`로 실제 Norns/Mimir 소비자를 연결하고 내용보다 원본 ACL, 목적, 현재 검토를 먼저 확인합니다. 정확한 타입 지정 JSON Rule과 기능 서술자가 있는 `Distiller`의 온톨로지 후보는 비공개 불변 패키지에 저장되며 Mimir가 모델 없이 독립적으로 재컴파일합니다. 기존 구독에서 되돌릴 수 없는 사용 종료와 정확한 현재 법적 보존 해제 근거에 따른 내용 제거를 수행합니다. 알 수 없는 정책이나 장애에서는 삭제하지 않으며 예약, 증적, 다이제스트, 감사는 보존합니다. 문서 테이블 `SELECT`, 활성 카탈로그/그래프 쓰기, 단일 모델 산문 Rule의 원문 충실도를 보장하지 않습니다.
   Core는 `HumanAccessPlanner`만 만들며 변경 신원을 생성하지 않습니다. Core의 공유 `human_access` 파사드는 격리 Executor가 사용하는 SDK의 `parse_human_access_role_groups`와 정확히 같은 파서 객체를 다시 내보내며 래퍼나 중복 파서는 만들지 않습니다. `HumanAccessWorkflowRuntime`은 원래 HIL 검토 전에 전체 원래 Action/사례/역할 맵/승격 자료를 결속하고, 승인된 인자를 바꾸지 않는 준비 CAS `r -> r+1` 및 고정 담당 pub/sub를 Thor의 격리된 전용 Managed Identity에 연결합니다. 정확한 현재 원본/허용 목록, 비상 정지/상태, principal별 ActionType 정책, 7개 안전장치, 연산과 무관한 멤버십 잠금은 계속 필요합니다. 전달 전에 영속 의도를 하나 기록하며 확인 응답은 효과 근거가 아니고 결과를 모르는 시도는 자동 반복하지 않습니다. 독립 Heimdall 관측과 공유 잠금 해제 종결이 Core의 효과 기록보다 먼저입니다. Vidar는 원래 직접 수행한 변경, 현재 수요, 같은 대상 세대에 결속된 새 독립 승인 역방향 작업을 제안하고 마무리합니다. 사례는 이전 승인이나 역할 권한을 복사하지 않고 degraded/대체 가능 상태로 남습니다. 새 ActionType은 shadow가 기본이며 로컬 권한 전환은 허용하지 않습니다.
   완료된 인수인계 소스 작업에는 실행 경로 강화 20회와 [최종 통합 소스 검토 12회](../../internals/handover-lifecycle-hardening-20260914.md#final-integrated-critique-after-remaining-source-implementation)가 포함되며 해당 체크포인트에서 미해결로 확인된 Medium/High 소스 문제는 없었습니다. 두 번째 로컬 main 병합은 성공했고 [PR #1014](https://github.com/dotnetpower/fdai/pull/1014)에 `c8edd2769`로 게시되었지만 [CI 실행 34921323157의 1차 시도](https://github.com/dotnetpower/fdai/actions/runs/34921323157/attempts/1)는 실패했습니다. 집중 소스 수정은 로컬에서 구현되었으며 최신 게시 헤드는 여전히 `c8edd2769`입니다. [구현 원장](../../roadmap-implementation/architecture/project-structure.md)은 검토 후 번역 갱신, 정본 생성, 수정본 훅/PR 갱신, 정확한 헤드의 보호된 CI 통과/병합을 [#946](https://github.com/dotnetpower/fdai/issues/946)의 미완료 요건으로 유지하고 전체 UI/보조 기술/실제 운영/배포/승격 근거와 구분하며 운영 준비 상태는 false로 유지합니다.
-- **관찰 모드 ARB 구성**: `core/architecture_review/observation_loop.py`는 공급자 중립적인 Change -> 인증된 맥락 -> 근거 묶음 -> 시나리오 -> DecisionCase 및 ImpactEnvelope 구성을 소유합니다. Forseti만 기존 타입 지정 버스에 관찰 판정을 게시하고 Saga가 감사하며 `ArchitectureReviewProjector.project_observation`이 읽기 전용 ReviewCase 및 ReviewCheck 객체를 파생합니다.
+- **관찰 모드 ARB 구성**: `core/architecture_review/observation_loop.py`는 공급자 중립적인 Change -> 인증된 맥락 -> 근거 묶음 -> 시나리오 -> DecisionCase 및 ImpactEnvelope 구성을 소유합니다. 런타임은 `Container`가 완전한 컨텍스트/근거 출처 쌍과 온톨로지 인스턴스 저장소를 제공할 때만 이 루프를 연결합니다. 배포 StateStore는 여러 복제본에서 멱등성 신원과 변환 상태를 원자적으로 예약합니다. 변환이 끝나지 않은 채 재시작하면 더 최신인 근거로 다시 실행하지 않고 명시적으로 보류합니다. Forseti만 기존 타입 지정 버스에 관찰 판정을 게시하고 Saga가 감사하며 `ArchitectureReviewProjector.project_observation`이 읽기 전용 ReviewCase 및 ReviewCheck 객체를 파생합니다.
 - **ARB 정의 범위**: `core/architecture_review/pillar_coverage.py`는 고정된 WAF 프레임워크, BestPractice 및 생성된 평가 카탈로그를 읽고, 모듈에 고정된 핵심 요소별 기대 개수로 컨트롤과 근거 정의를 대조합니다. 워크로드를 평가하거나 준비 상태, 승인 또는 실행 권한을 부여할 수 없습니다.
   이 경로에는 승인, 변경, 승격 또는 실행 권한이 없습니다. 주입된 상태 저장소로 중복 및 재시작에 안전한 재생을 지원하며 저장소에 변환 상태 표식 계약이 없을 때만 범위가 제한된 프로세스 로컬 선입선출 캐시가 해당 상태를 보존합니다.
   루프는 계획된 의도만 수락하고 정확한 온톨로지 및 카탈로그 릴리스를 결속하며 기존 점검을 삭제하지 않고 일시적 보류를 표시합니다. 관찰 판정은 감사 전용이므로 Odin은 작업 포트폴리오에서 제외하고 Thor는 전달하지 않습니다.

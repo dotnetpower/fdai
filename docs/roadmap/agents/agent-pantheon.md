@@ -219,7 +219,7 @@ Azure parsing, point enrichment, and durable inventory projection stay injected 
 Huginn health reports whether its discovery projection is bound and marks delivery-owned cursor, backpressure, and source-health signals as `not_observed` until a deployment supplies those observations. It never reports their absence as healthy evidence.
 
 The 15 agents cover SRE, ARB, and FinOps through composition. Non-agent observation consumers may retain replay/health evidence from owned topics, but never join the pantheon, publish owned objects, judge, approve, or execute (§6, §6.4, §7.6).
-Forseti's observation-mode ARB failure record preserves the complete Change digest even when context/evidence collection fails. The hold stays replayable and gains no approval or execution authority from unknown dependencies.
+Forseti's observation-mode ARB failure record preserves the complete Change digest even when context/evidence collection fails. Core runtime supplies the loop only from a complete injected context/evidence pair, persists the idempotency and projection boundary in the deployment StateStore, and downgrades an interrupted projection to an explicit hold after restart. The hold stays replayable and gains no approval or execution authority from unknown dependencies.
 
 ### 4.1 Per-agent task inventory
 

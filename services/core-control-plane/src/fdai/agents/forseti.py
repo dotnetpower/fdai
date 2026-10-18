@@ -317,6 +317,13 @@ class Forseti(
         """Bind the bounded baseline worker that Forseti's maintenance tick starts."""
         self._baseline_scheduler = scheduler
 
+    def bind_architecture_review_loop(
+        self,
+        loop: OntologyArchitectureReviewLoop | None,
+    ) -> None:
+        """Bind the observation-only architecture review loop at composition."""
+        self._architecture_review_loop = loop
+
     # ---- typed port ----------------------------------------------------
 
     async def evaluate_baseline_generation(

@@ -8,9 +8,12 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 import yaml
+
+if TYPE_CHECKING:
+    from .decision_receipt import ArchitectureReviewDecisionReceipt
 
 PRODUCTION_GATE_REF = "architecture-review.production-ready"
 _ALLOWED_ARTIFACT_STATUSES = {"ready", "conditional", "blocked"}
@@ -104,6 +107,15 @@ class ProductionEvidenceProvider(Protocol):
     ) -> ProductionEvidenceAttestation: ...
 
 
+class ArchitectureReviewDecisionReceiptProvider(Protocol):
+    """Retrieve the immutable final receipt for one exact review."""
+
+    async def retrieve(
+        self,
+        review_case_id: str,
+    ) -> ArchitectureReviewDecisionReceipt: ...
+
+
 class ArchitectureReviewProductionGateEvaluator:
     """Evaluate the ARB production gate with provider evidence at a bounded time."""
 
@@ -113,11 +125,13 @@ class ArchitectureReviewProductionGateEvaluator:
         manifest_path: Path,
         repo_root: Path,
         evidence_provider: ProductionEvidenceProvider | None = None,
+        decision_receipt_provider: ArchitectureReviewDecisionReceiptProvider | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         self._manifest_path = manifest_path
         self._repo_root = repo_root
         self._evidence_provider = evidence_provider
+        self._decision_receipt_provider = decision_receipt_provider
         self._clock = clock or (lambda: datetime.now(tz=UTC))
 
     async def evaluate(self, *, rule_id: str, step_id: str, process_id: str) -> bool:
@@ -132,13 +146,14 @@ class ArchitectureReviewProductionGateEvaluator:
             validate_contract(raw, repo_root=self._repo_root, require_production_ready=False)
         except ValueError:
             return False
-        if self._evidence_provider is None:
+        if self._evidence_provider is None or self._decision_receipt_provider is None:
             return False
         evaluated_at = self._clock()
         attestations: dict[str, ProductionEvidenceAttestation] = {}
         try:
             for binding in _production_evidence_bindings(raw):
                 attestations[binding.item] = await self._evidence_provider.retrieve(binding)
+            receipt = await self._decision_receipt_provider.retrieve(_review_id(raw))
         except (OSError, RuntimeError, ValueError):
             return False
         return evaluate_readiness(
@@ -146,6 +161,7 @@ class ArchitectureReviewProductionGateEvaluator:
             repo_root=self._repo_root,
             evaluated_at=evaluated_at,
             evidence_attestations=attestations,
+            decision_receipt=receipt,
         ).production_ready
 
 
@@ -155,6 +171,7 @@ def evaluate_readiness(
     repo_root: Path,
     evaluated_at: datetime | None = None,
     evidence_attestations: Mapping[str, ProductionEvidenceAttestation] | None = None,
+    decision_receipt: ArchitectureReviewDecisionReceipt | None = None,
 ) -> ArchitectureReviewReadiness:
     """Return structural health and production readiness without conflating them."""
     try:
@@ -172,6 +189,7 @@ def evaluate_readiness(
             require_production_ready=True,
             evaluated_at=evaluated_at,
             evidence_attestations=evidence_attestations,
+            decision_receipt=decision_receipt,
         )
     except ValueError as exc:
         return ArchitectureReviewReadiness(
@@ -188,6 +206,7 @@ def validate_contract(
     require_production_ready: bool,
     evaluated_at: datetime | None = None,
     evidence_attestations: Mapping[str, ProductionEvidenceAttestation] | None = None,
+    decision_receipt: ArchitectureReviewDecisionReceipt | None = None,
 ) -> None:
     """Validate the ARB manifest and optionally require every production gate."""
     root = _mapping(raw, "document")
@@ -305,6 +324,15 @@ def validate_contract(
             evaluated_at=evaluation_moment,
         )
         failures.extend(attestation_failures)
+        failures.extend(
+            _decision_receipt_failures(
+                review=review,
+                required_evidence=required_evidence,
+                evidence_bindings=evidence_bindings,
+                receipt=decision_receipt,
+                evaluated_at=evaluation_moment,
+            )
+        )
         production_not_ready = [
             str(artifact["id"])
             for artifact in artifacts
@@ -314,6 +342,60 @@ def validate_contract(
             failures.append(f"production artifacts not ready: {', '.join(production_not_ready)}")
         if failures:
             raise ValueError("production readiness failed:\n- " + "\n- ".join(failures))
+
+
+def _review_id(raw: Any) -> str:
+    root = _mapping(raw, "document")
+    review = _mapping(root.get("architecture_review"), "architecture_review")
+    review_id = review.get("review_id")
+    if not isinstance(review_id, str) or not review_id.strip():
+        raise ValueError("architecture_review.review_id must be a non-empty string")
+    return review_id
+
+
+def _decision_receipt_failures(
+    *,
+    review: dict[str, Any],
+    required_evidence: list[Any],
+    evidence_bindings: dict[str, Any],
+    receipt: ArchitectureReviewDecisionReceipt | None,
+    evaluated_at: datetime,
+) -> list[str]:
+    if receipt is None:
+        return ["immutable architecture decision receipt is missing"]
+    try:
+        from fdai.core.architecture_review.decision_receipt import (
+            ArchitectureReviewDecisionReceipt,
+        )
+
+        receipt = ArchitectureReviewDecisionReceipt.model_validate(receipt.to_mapping())
+    except ValueError as exc:
+        return [f"invalid architecture decision receipt: {exc}"]
+    failures: list[str] = []
+    if receipt.review_case_id != review["review_id"]:
+        failures.append("architecture decision receipt review identity does not match")
+    if receipt.outcome.value != "conformant":
+        failures.append("architecture decision receipt outcome must be conformant")
+    if receipt.authority_basis.value != "human_approval":
+        failures.append("architecture decision receipt must carry current human approval")
+    expected_evidence = tuple(sorted(str(item) for item in required_evidence))
+    if receipt.evidence_refs != expected_evidence:
+        failures.append("architecture decision receipt evidence set does not match")
+    revisions = {
+        str(_mapping(binding, f"evidence_bindings.{item}").get("revision") or "")
+        for item, binding in evidence_bindings.items()
+        if item in expected_evidence
+    }
+    if len(revisions) != 1 or receipt.target_revision not in revisions:
+        failures.append("architecture decision receipt target revision does not match")
+    evaluation_moment = evaluated_at.astimezone(UTC)
+    if not (
+        receipt.effective_from.astimezone(UTC)
+        <= evaluation_moment
+        < receipt.effective_until.astimezone(UTC)
+    ):
+        failures.append("architecture decision receipt is not currently effective")
+    return failures
 
 
 def _mapping(value: Any, label: str) -> dict[str, Any]:
@@ -581,6 +663,7 @@ def _production_failures(message: str) -> tuple[str, ...]:
 
 
 __all__ = [
+    "ArchitectureReviewDecisionReceiptProvider",
     "ArchitectureReviewProductionGateEvaluator",
     "ArchitectureReviewReadiness",
     "PRODUCTION_GATE_REF",

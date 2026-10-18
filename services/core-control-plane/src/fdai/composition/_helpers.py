@@ -7,9 +7,9 @@ from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 
 from ..agents import ConversationSynthesisVerifier, T2ConversationSynthesizer
+from ..core import architecture_review as _ar
 from ..core import operational_context as _oc
 from ..core import rca as _rca
-from ..core.architecture_review import ProductionEvidenceProvider
 from ..core.assurance_twin import (
     AssuranceTwinDiscoverySink,
     DynamicSimulationRequestProvider,
@@ -252,7 +252,8 @@ class Container:
     operational_readiness_posture: _readiness.PostureAssessmentProvider | None = None
     operational_readiness_report_publisher: _readiness.ReadinessReportPublisher | None = None
     operational_readiness_remediation: _readiness.RemediationProposalBinding | None = None
-    architecture_review_evidence_provider: ProductionEvidenceProvider | None = None
+    architecture_review_evidence_provider: _ar.ProductionEvidenceProvider | None = None
+    architecture_review_sources: _ar.ArchitectureReviewSources | None = None
     decision_evidence_admission_provider: DecisionEvidenceAdmissionProvider | None = None
     operational_evidence_requester: OperationalEvidenceRequester | None = None
     distiller: Distiller = field(default_factory=AbstainingDistiller)

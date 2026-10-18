@@ -10,7 +10,11 @@ from fdai.composition.readiness import (
 from fdai.composition.readiness_catalog import load_runtime_best_practice_bindings
 from fdai.core.notifications.matrix import load_matrix_from_yaml
 from fdai.core.readiness.self_health import SelfHealthCatalog, load_self_health_catalog
+from fdai.delivery.readiness_remediation import EventBusReadinessRemediationPublisher
 from fdai.runtime.configuration import _resolve_catalog_root
+from fdai.shared.contracts.models import OntologyRelease, Rule
+from fdai.shared.providers.event_bus import EventBus
+from fdai.shared.providers.readiness import RemediationProposalBinding
 from fdai.shared.providers.state_store import StateStore
 
 
@@ -26,15 +30,54 @@ def load_runtime_self_health_catalog() -> SelfHealthCatalog:
     )
 
 
+def select_runtime_readiness_remediation(
+    *,
+    configured: RemediationProposalBinding | None,
+    event_bus: EventBus,
+    active_rules: tuple[Rule, ...],
+    ontology_release: OntologyRelease | None,
+) -> RemediationProposalBinding | None:
+    """Select the no-authority upstream adapter from exact active identities."""
+
+    if configured is not None:
+        return configured
+    if ontology_release is None:
+        return None
+    rules_by_id = {rule.id: rule for rule in active_rules if rule.remediates is not None}
+    if not rules_by_id:
+        return None
+    return RemediationProposalBinding(
+        publisher=EventBusReadinessRemediationPublisher(
+            event_bus=event_bus,
+            target_revision=ontology_release.digest,
+            rules_by_id=rules_by_id,
+        ),
+        levers={
+            rule_id: rule.remediates
+            for rule_id, rule in rules_by_id.items()
+            if rule.remediates is not None
+        },
+    )
+
+
 def build_runtime_operational_readiness(
     *,
     container: Container,
     state_store: StateStore,
+    event_bus: EventBus,
+    active_rules: tuple[Rule, ...],
+    ontology_release: OntologyRelease | None,
 ) -> OperationalReadinessEventHandler | None:
     """Build the optional complete ORR runtime binding."""
 
     best_practices, checklist_evidence = load_runtime_best_practice_bindings(
         _resolve_catalog_root()
+    )
+    remediation_binding = select_runtime_readiness_remediation(
+        configured=container.operational_readiness_remediation,
+        event_bus=event_bus,
+        active_rules=active_rules,
+        ontology_release=ontology_release,
     )
     return build_operational_readiness_event_handler(
         posture=container.operational_readiness_posture,
@@ -45,8 +88,12 @@ def build_runtime_operational_readiness(
         decision_evidence=container.decision_evidence_admission_provider,
         best_practices=best_practices,
         checklist_evidence=checklist_evidence,
-        remediation_binding=container.operational_readiness_remediation,
+        remediation_binding=remediation_binding,
     )
 
 
-__all__ = ["build_runtime_operational_readiness", "load_runtime_self_health_catalog"]
+__all__ = [
+    "build_runtime_operational_readiness",
+    "load_runtime_self_health_catalog",
+    "select_runtime_readiness_remediation",
+]
