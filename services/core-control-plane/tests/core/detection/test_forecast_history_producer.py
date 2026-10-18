@@ -646,7 +646,7 @@ def audit_row(
     )
 
 
-async def test_action_audit_history_source_issues_from_contiguous_chain() -> None:
+async def test_action_audit_history_source_holds_even_with_a_valid_singleton() -> None:
     store = MemoryStore()
     row = audit_row(seq=1, previous_hash=GENESIS_HASH, state="succeeded")
     source = ActionAuditHistorySource(reader=ActionAuditReader((row,)))
@@ -662,10 +662,13 @@ async def test_action_audit_history_source_issues_from_contiguous_chain() -> Non
         binding=binding_, history=reviewed, source=source, store=store
     ).produce(request())
 
-    assert receipt.complete and receipt.transition_count == 1
+    assert not receipt.complete and receipt.transition_count == 0
+    assert receipt.limitation == "action_history_proof_unavailable"
     transitions = [item for batch in store.batches.values() for item in batch.transitions]
-    assert transitions[0].to_state == "dispatched"
-    assert transitions[0].evidence_refs == (f"state-store-audit:1:{row.entry_hash}",)
+    assert transitions == []
+    coverage = [item for batch in store.batches.values() for item in batch.coverage]
+    assert len(coverage) == 1 and not coverage[0].complete
+    assert coverage[0].evidence_ref
 
 
 async def test_action_audit_history_source_holds_on_hash_mismatch() -> None:
@@ -693,4 +696,30 @@ async def test_action_audit_history_source_holds_on_hash_mismatch() -> None:
 
     assert not receipt.complete
     assert receipt.transition_count == 0
-    assert receipt.limitation == "audit_chain_gap_or_hash_mismatch"
+    assert receipt.limitation == (
+        "action_history_proof_unavailable+audit_chain_gap_or_hash_mismatch"
+    )
+
+
+async def test_action_audit_reader_failure_keeps_standard_unavailable_result() -> None:
+    class UnavailableReader:
+        async def read_action_audit(self, **_query: object) -> ActionAuditHistoryRead:
+            raise RuntimeError("private source failure details")
+
+    store = MemoryStore()
+    reviewed = history("actions").model_copy(
+        update={
+            "source_identity": FORECAST_ACTION_HISTORY_SOURCE_IDENTITY,
+            "source_revision": FORECAST_ACTION_HISTORY_SOURCE_REVISION,
+        }
+    )
+    receipt = await ForecastHistoryProducer(
+        binding=binding("actions"),
+        history=reviewed,
+        source=ActionAuditHistorySource(reader=UnavailableReader()),
+        store=store,
+    ).produce(request())
+
+    assert not receipt.complete and receipt.transition_count == 0
+    assert receipt.limitation == "source_unavailable"
+    assert "private" not in repr(store.batches)

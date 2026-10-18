@@ -25,7 +25,11 @@ _SOURCE_READERS = {
     "resource_lifecycle": "inventory-incarnation-ledger",
 }
 _SOURCE_LIMITATIONS = {
-    "actions": "action history still depends on complete source checkpoints",
+    "actions": (
+        "action-audit scoring is unsupported: independent event-time history, a start anchor, "
+        "known-at completeness, a database-clock watermark after window end plus grace, "
+        "and full audit continuity are unavailable"
+    ),
     "changes": "the journal witness cannot attest a start-of-window checkpoint",
     "excluded_windows": "change-window history still depends on complete source checkpoints",
     "resource_lifecycle": "the incarnation ledger cannot attest reconciliation after the window",
