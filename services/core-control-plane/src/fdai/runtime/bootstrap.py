@@ -78,6 +78,7 @@ from fdai.runtime.model_lifecycle_startup import (
     resolve_models_startup_revision,
 )
 from fdai.runtime.providers import _build_audit_store
+from fdai.runtime.startup_observation import RuntimeStartupDurationSource
 from fdai.shared.config.models import LlmMode
 from fdai.shared.config.runtime_flags import pantheon_start_enabled
 from fdai.shared.providers.state_store import StateStore
@@ -95,6 +96,7 @@ runtime_settings_service_from_env = _runtime_settings_service_from_env
 
 
 async def _run(*, runtime_scope_receipt_digest: str | None = None) -> int:
+    startup_duration_source = RuntimeStartupDurationSource()
     container = default_container_from_env()
     plan = build_bootstrap_plan(
         llm_mode=container.config.llm.mode,
@@ -104,7 +106,7 @@ async def _run(*, runtime_scope_receipt_digest: str | None = None) -> int:
     summary = _summarize_config(container)
     _LOGGER.info("startup_ok", extra={"config": summary})
 
-    resources = RuntimeResources()
+    resources = RuntimeResources(startup_duration_source=startup_duration_source)
     identity: Any = None
     runtime_values: Mapping[str, object] | None = None
     state_store: StateStore | None = None

@@ -19,8 +19,8 @@ snapshot. It contains the exact 15 self-health signals and the version, configur
 override, discovery, canary, kill-switch, and break-glass fields as source-qualified digests,
 freshness, or explicit unavailable states. Operator validates and redacts the shared contract. It
 does not query providers, infer healthy defaults, approve a change, or gain execution authority.
-Core now supplies actual listener liveness, guarded readiness, and persisted kill-switch signals,
-plus installed-version, consumed-policy, and kill-switch digests. The other 12 signals and five
+Core supplies actual listener liveness, guarded readiness, persisted kill switch, and process startup duration,
+plus installed-version, consumed-policy, and kill-switch digests. The other 11 signals and five
 fields remain unavailable. Source failures retain bounded missing, malformed, or unreachable
 reasons; the wire shape and Reader authorization are unchanged. Sharing `bootstrap_core.py`
 with Incident composition does not create or confirm an Incident, publish an Incident request,
@@ -632,7 +632,7 @@ engage or disengage drill remains incomplete until an independent store observat
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
-| Actual-source runtime-state read projection | implemented | `cf6435701b`; `delivery/self_health_sources.py`; Core monitor and readiness composition; 92 focused checks passed | Three signals and three fields have local sources; 12 signals and five fields remain unavailable. Existing schema and Reader access are unchanged. Kill-switch revision readback and deployed transition verification remain open. |
+| Actual-source runtime-state read projection | implemented | `cf6435701b`; current process startup-duration source; Core monitor and readiness composition; focused source/runtime checks | Four signals and three fields have local sources; 11 signals and five fields remain unavailable. Existing schema and Reader access are unchanged. Kill-switch revision readback and deployed transition verification remain open. |
 | Global kill-switch HTTP and command event | implemented | `0398357455`; shared contract and generated schema; Operator IAM route; Var receipt gate and command handler; focused contract, Operator, agent, and runtime tests | HTTP `202` proves typed publication only. Authorized state revision readback and a retained deployment cycle remain open. |
 | GitHub knowledge-source request and projection | implemented | `425fda52ead9`; `fdai_service_contracts/knowledge_github.py`; `knowledge_github_projection.py`; focused connection tests | Owner connect/disconnect has a typed revision-checked envelope and no credential bytes or scan-consent fields. Existing Incident confirmation and execution authority are unchanged. |
 | Audit and read-only wire projections | implemented | Operator family manifests and projections; `services/operator-service/tests/test_operator_service_composition.py`; Console trace tests | Default GET/HEAD routes, bounded envelopes, and unavailable behavior have focused coverage. |
@@ -655,6 +655,7 @@ engage or disengage drill remains incomplete until an independent store observat
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-19 | implemented | Added actual process startup duration to the existing signal slot with original observation time and opaque process-instance source identity. | `current change`; startup source and collector-to-persisted-projection tests. | Eleven signals and five fields remain unavailable; the read adds no Incident or execution authority and proves no fleet rate or deployed transition. |
 | 2026-10-18 | implemented | Documented actual-source values and bounded unavailable reasons on the existing runtime-state read projection, separately from Incident creation and kill-switch command confirmation. | `cf6435701b`; 92 focused source/runtime checks; current paired wire documentation. | Bind the remaining 12 signals and five fields, and retain independent deployed transition evidence. No wire schema, role, Incident lifecycle, or authority changed. |
 | 2026-10-15 | implemented | Replaced the inert kill-switch proposal response with a fresh-authenticated signed request on `operator.kill-switch.requests`, consumed by Var before the Core state-and-audit compare-and-set. | `0398357455`; focused implementation tests and structural checks recorded in the security ledger. | Add authorized state readback and retain engage/no-execute/disengage deployment evidence. |
 | 2026-10-09 | implemented | Added the GitHub knowledge GET projection and Owner-only connect/disconnect request over the existing repository-change operation, preserving separate scan consent and all Incident/write authority boundaries. | `425fda52ead9`, `b92824a9c150`; connector/backend selection: 153 passed; full Operator composition: 29 passed. | Retain installed authenticated connection/readback evidence; no new Incident or managed-resource confirmation authority is introduced. |

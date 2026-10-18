@@ -176,6 +176,9 @@ async def test_consumer_bootstrap_binds_and_drains_context_shadow(
         state_store: Any = None
         development_diagnostics: Any = None
 
+        def __init__(self, *, startup_duration_source: object) -> None:
+            self.startup_duration_source = startup_duration_source
+
         async def close(self) -> None:
             observed.append("close")
 

@@ -21,6 +21,7 @@ from fdai.core.readiness.self_health import SelfHealthCatalog
 from fdai.core.readiness.self_health_runtime import SelfHealthExporterRegistry
 from fdai.delivery.self_health_exporters import unavailable_self_health_registry
 from fdai.shared.providers.self_health import (
+    SelfHealthExporter,
     SelfHealthExporterUnavailableError,
     SelfHealthExportSample,
 )
@@ -149,11 +150,14 @@ def runtime_self_health_registry(
     readiness: Callable[[datetime], bool],
     liveness: Callable[[], bool] | None = None,
     runtime_policy: Mapping[str, object] | None = None,
+    startup_duration_source: SelfHealthExporter | None = None,
 ) -> SelfHealthExporterRegistry:
     """Bind actual process-owned sources and retain every other unavailable binding."""
     unavailable = unavailable_self_health_registry(catalog)
     signals = dict(unavailable.signal_exporters)
     fields = dict(unavailable.state_exporters)
+    if startup_duration_source is not None:
+        signals[SelfHealthSignalName.COLD_START_DURATION] = startup_duration_source
     signal = SelfHealthSignalName.READINESS_PROBE
     signals[signal] = RuntimeProbeSelfHealthExporter(
         signal, catalog.policies[signal].metric, "runtime:guarded-readiness", readiness
