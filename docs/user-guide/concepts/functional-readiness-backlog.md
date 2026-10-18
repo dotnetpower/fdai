@@ -15,7 +15,7 @@ completion.
 > exact-issue-state audit, not a new runtime test campaign or live deployment validation.
 > F01-F09 retain their previous assessments and are not recertified by this audit.
 
-## Findings at a glance
+## Audit results at a glance
 
 The previous F10-F15 result was Ready 13 and Partial 8. **Ten Ready decisions become Partial**:
 F10.1, F10.2, F10.4, F11.3, F13.2, F14.1-F14.4, and F15.1. The corrected result is
@@ -57,7 +57,7 @@ not ranges; `-` means no mandatory package was identified for that bounded funct
 | F10.1 | Ready -> Partial | Local ingestion, access, versioning, extraction, retrieval, and deletion mechanics | Exact-topology lifecycle and purpose-specific protected-download authorization | K01, K02 |
 | F10.2 | Ready -> Partial | Local manual v2/v3 admission, collection, dated retrieval, and containment | Requester-policy path, source-quality holds, and authorized source/answer receipts | K03, K04, K05 |
 | F10.3 | Partial -> Partial | Local current-schema Rules and all nine revision phases | Retained legacy migration and governed rollout; do not reimplement completed phases | R01 |
-| F10.4 | Ready -> Partial | Local inert semantic compilation, independent deterministic verification, and retirement | Governed handover/withdrawal/hold receipts and actual bilingual assistive output | K06, K07 |
+| F10.4 | Ready -> Partial | Local inert semantic compilation, independent deterministic verification, and retirement | Governed ownership handover/withdrawal/hold receipts and actual bilingual assistive output | K06, K07 |
 | F11.1 | Partial -> Partial | Attributed immutable cases, feedback, prediction outcomes, and local retention controls | Complete source histories, authorized context lifecycle, and retained-Pattern qualification | L01, L02, L03 |
 | F11.2 | Partial -> Partial | Local replay, scenario evaluation, threshold-bound O7 measurement, and isolated LOCAL comparison | Coherent external sources, preregistered paired evaluation, and complete live cohorts | L03, L04 |
 | F11.3 | Ready -> Partial | Durable promotion/recall, override attribution, demotion, and read projections | Production Release maximums and governed activation/recall evidence | A01, A02 |
@@ -73,7 +73,7 @@ not ranges; `-` means no mandatory package was identified for that bounded funct
 | F14.3 | Ready -> Partial | Availability/mode/profile, Trial watermark, model-health, and recall presentation | Real Release ceiling input and entitlement-transition readback | A01, I01 |
 | F14.4 | Ready -> Partial | Typed bundle registration, publisher trust, disabled-first lifecycle, and revocation | Linked exact-artifact install/enable/disable/revoke/restart/disclosure receipts | X01 |
 | F15.1 | Ready -> Partial | Exact-revision acquisition, independent local acceptance, workers, and historical isolation probes | Terminal installed scan, scheduled publication, and same-correlation business acceptance | S01, S02 |
-| F15.2 | Ready -> Ready | Deterministic canonicalization, severity/confidence/priority separation, and adjudication | No new mandatory finding-processing gap found; detector calibration/promotion is separate S03 work | - |
+| F15.2 | Ready -> Ready | Deterministic canonicalization, severity/confidence/priority separation, and adjudication | No new mandatory detected-issue processing gap found; detector calibration/promotion is separate S03 work | - |
 | F15.3 | Ready -> Ready | Signed scoped packs, guarded developer helper, and coverage-equivalent rescan verification | No new mandatory pack/rescan gap found; neither customer-repository editing nor arbitrary scanner accuracy is claimed | - |
 
 ## F10: knowledge and rule work
@@ -192,7 +192,7 @@ Use the [source-deployment ledger](../../roadmap-implementation/deployment/sourc
 [productization ledger](../../roadmap-implementation/fork-and-sequencing/productization-and-extensibility.md),
 [bundle ledger](../../roadmap-implementation/architecture/capability-bundle-lifecycle.md), and
 [scan ledger](../../roadmap-implementation/operations/code-security-scanning.md).
-The [finding-processing ledger](../../roadmap-implementation/operations/code-security-findings.md)
+The [detected-issue processing ledger](../../roadmap-implementation/operations/code-security-findings.md)
 supports the bounded Ready decisions for F15.2/F15.3.
 
 - [ ] **I01, source acceptance:** Complete WP6's three missing cases: unchanged keyless rerun,
@@ -216,8 +216,9 @@ supports the bounded Ready decisions for F15.2/F15.3.
   exact revision, coverage, isolated independent acceptance, publication, and readback. Local
   acquisition/worker/acceptance code exists; a ready worker or processing request is not a completed scan.
 - [ ] **S02, scheduled and business acceptance:** Retain a scheduled scan/publication and the same
-  correlation's authoritative Incident, scan/no-finding, external notification, and ownership
-  handover. Supply real Owner access, protected source/channel bindings, primary/backup ownership,
+  correlation's authoritative Incident, scan result (including an explicit result with no detected
+  issues), external notification, and ownership handover. Supply real Owner access, protected
+  source/channel bindings, primary/backup ownership,
   and duplicate replay checks. Do not restart paused work or fabricate provider identities.
 - [ ] **S03, detector quality:** Before expanding promoted coverage, retain precision >=0.90 and
   at least one true positive in both `dev` and `holdout`, without tuning on `holdout`, for the
@@ -240,7 +241,7 @@ supports the bounded Ready decisions for F15.2/F15.3.
 ## Dependency-ordered execution plan
 
 These are proposed work packages, not deployment authorization or a promise of calendar dates.
-Run no more than two independent active outcomes per maintainer. Each batch closes its owner
+Run no more than two independent active outcomes per FDAI maintainer. Each batch closes its owner
 ledger, assessment row, counts, and bilingual text together.
 
 | Wave | Work and accountable lane | Prerequisite | Exit |
@@ -287,10 +288,12 @@ rejects unfinished mandatory work behind Ready; and compares bilingual work IDs 
 It does not authenticate receipts or prove that an author identified every obligation. Removing
 an obligation or changing scope still needs owner review.
 
-Three direct critique rounds covered these twelve concerns each. Round 1 added the backlog
+Four direct critique rounds covered these twelve concerns each. Round 1 added the backlog
 guard. Round 2 corrected multiple-badge ambiguity, contradictory display labels, localized
 Not assessed handling, and incomplete aggregate checks. Round 3 corrected identity substitution
-and made mutation tests require the intended assertion rather than any thrown error.
+and made mutation tests require the intended assertion rather than any thrown error. Round 4
+applied the mandatory pre-publication gates, corrected seven display-terminology violations,
+and repeated the bounded review without changing readiness or closing any feature package.
 
 | Concern | Final bounded result |
 |---------|----------------------|
@@ -308,7 +311,7 @@ and made mutation tests require the intended assertion rather than any thrown er
 | Regression and execution venue | Malformed transitions, mismatches and untracked Partial rows fail with intended assertions; existing CI runner selects the test |
 
 Final focused command: `node --test site/test/functional-readiness.test.mjs`, **25 passed, no
-skips**. No confirmed above-Low defect remains in this bounded guard after round 3. This is not
+skips**. No confirmed above-Low defect remains in this bounded guard after round 4. This is not
 a Low-only assessment of the 29 unfinished packages, the entire product, or a live installation.
 
 ## Related docs
