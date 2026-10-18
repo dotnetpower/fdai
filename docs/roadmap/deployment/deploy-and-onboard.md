@@ -23,6 +23,13 @@ Entra app registrations. Management stays unavailable until authentication is co
 isn't anonymous management or another FDAI installation path. The [single-product procedure](../../../infra/modules/hub-service/README.md)
 covers immutable images, state preservation and native Terraform/Azure CLI execution.
 
+For an existing running Hub, retain its approved serving digest through `app_image` while
+`image` selects the new migration candidate. Keep the existing apps and migration Jobs enabled.
+After a succeeded manual migration and independent schema observation, use a new reviewed,
+sealed activation plan with `app_image=null`. Omitting the override preserves single-image
+startup. The procedure retains complete Job checks and globally zero-change dispatch plans;
+it does not bypass state ownership, authentication or approval.
+
 The unchanged [legacy paired fixture](../../../infra/hubs-development/README.md) retains separate networks, own
 identities/keys, migrations, Entra operator/service boundaries and catalog-pin approval for existing state owners.
 Neither product requires it; it replaces neither FDAI installer. Local/static checks don't prove Azure network/RBAC isolation,

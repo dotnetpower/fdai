@@ -1,7 +1,7 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: f98d1ac4731a84ad705c42e8b2ffcd3d769531ed
+translation_source_sha: 5ba97f07afedf5da49ce5036e78bf64fba535c2c
 translation_revised: 2026-10-19
 ---
 # 배포와 온보딩(Deploy and Onboard)
@@ -27,6 +27,13 @@ Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 관측�
 인증을 설정하기 전까지 관리 API는 사용할 수 없습니다. 익명 관리 기능을 제공하거나 새로운
 FDAI 설치 경로를 추가하는 것이 아닙니다. 고정 이미지, state 보존 및 기본 Terraform/Azure CLI
 실행은 [단일 제품 절차](../../../infra/modules/hub-service/README.md)를 따르세요.
+
+이미 실행 중인 Hub를 업그레이드할 때는 `app_image`로 승인된 기존 서비스 이미지 digest를
+유지하고, `image`로 새 마이그레이션 후보를 지정합니다. 기존 앱과 마이그레이션 Job은 활성화
+상태로 유지합니다. 수동 마이그레이션 성공과 독립적인 스키마 확인을 마친 뒤, 별도로 검토하고
+봉인한 활성화 계획에서 `app_image=null`을 지정합니다. 이 입력을 생략하면 기존 단일 이미지
+기동 방식이 유지됩니다. 전체 Job 검증과 실행 전 전체 변경 없음 계획도 유지하며, 상태 소유권,
+인증이나 승인 절차를 우회하지 않습니다.
 
 [기존 두 Hub 검증 구성](../../../infra/hubs-development/README.md)은 기존 state 소유자를 위해
 그대로 보존합니다. 해당 안내는 별도 네트워크, 자체 관리 ID와 키, 명시적 migration,
