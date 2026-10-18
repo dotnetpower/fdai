@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Literal, NoReturn, cast
+from typing import Any, NoReturn, cast
 from unittest.mock import AsyncMock, Mock
 from uuid import UUID
 
@@ -42,6 +42,8 @@ from fdai_service_contracts import (
 from fdai_service_contracts import cloud_knowledge as cloud
 from fdai_service_contracts import cloud_knowledge_package as package
 from fdai_service_contracts import cloud_knowledge_release as release
+from fdai_service_contracts.cloud_knowledge_application import CloudPolicyAuthority
+from fdai_service_contracts.cloud_knowledge_structure import StructuredNormalizerVersion
 from starlette.testclient import TestClient
 
 NOW = datetime(2026, 9, 14, 12, tzinfo=UTC)
@@ -234,10 +236,9 @@ def _seed_sources(intake: _Case, count: int = 2) -> None:
         )
 
 
-def _application_authority(intake: _Case):
+def _application_authority(intake: _Case) -> CloudPolicyAuthority:
     from fdai_service_contracts.cloud_knowledge_application import (
         CloudApplicationPolicy,
-        CloudPolicyAuthority,
     )
 
     return CloudPolicyAuthority(
@@ -285,12 +286,22 @@ class _ApplicationStore:
         return previous
 
 
-@pytest.mark.parametrize("representation", ["text", "structured"])
+@pytest.mark.parametrize(
+    "representation,policy_matches",
+    [
+        ("text", True),
+        ("structured", True),
+        ("structured-patch", True),
+        ("structured-patch", False),
+    ],
+)
 async def test_explicit_application_binds_actual_requester_without_per_document_approval(
     intake: _Case,
     representation: str,
+    policy_matches: bool,
 ) -> None:
-    if representation == "structured":
+    patched = representation == "structured-patch"
+    if representation in {"structured", "structured-patch"}:
         from fdai_service_contracts.cloud_knowledge_structure import (
             CloudArticleBlock,
             CloudStructuredDocument,
@@ -302,6 +313,7 @@ async def test_explicit_application_binds_actual_requester_without_per_document_
                 evidence=d.evidence,
                 title=d.title,
                 text=d.text,
+                normalizer_version="2.1.1" if patched else "2.0.0",
                 derived_at=intake.manifest.package_created_at,
                 blocks=(
                     CloudArticleBlock(
@@ -318,13 +330,29 @@ async def test_explicit_application_binds_actual_requester_without_per_document_
         intake.manifest = release.KnowledgeStructuredReleaseManifest.model_validate(
             intake.manifest.model_dump(exclude={"schema_version", "reader_version", "documents"})
             | {
+                "reader_version": "3.1.1" if patched else "3.0.0",
                 "documents": documents,
                 "excerpt_digests": tuple(excerpt_digest(d) for d in documents),
             }
         )
     authority = _application_authority(intake)
+    if patched and policy_matches:
+        authority = CloudPolicyAuthority.model_validate(
+            authority.model_dump()
+            | {"policy": authority.policy.model_dump() | {"normalizer_versions": ("2.1.1",)}}
+        )
     store = _ApplicationStore(authority)
     intake.service.application_store = store
+    if not policy_matches:
+        with pytest.raises(ValueError, match="outside prior policy"):
+            await intake.service.import_package(
+                intake.sealed(),
+                actor_id="actor-a",
+                actor_groups=WRITERS,
+                policy_digest=authority.policy.digest,
+            )
+        assert not intake.metadata.uploads and not store.requests
+        return
     result = await intake.service.import_package(
         intake.sealed(),
         actor_id="actor-a",
@@ -497,9 +525,22 @@ async def test_unauthorized_replacement_cannot_reserve(intake: _Case) -> None:
 
 
 @pytest.mark.parametrize("count", [1, 2])
-@pytest.mark.parametrize("normalizer", [None, "2.0.0", "2.1.0"])
+@pytest.mark.parametrize(
+    "normalizer,second_normalizer",
+    [
+        (None, None),
+        ("2.0.0", "2.0.0"),
+        ("2.1.0", "2.1.0"),
+        ("2.1.1", "2.1.1"),
+        ("2.1.0", "2.1.1"),
+        ("2.1.1", "2.1.0"),
+    ],
+)
 async def test_stage_collected_requires_full_scope_without_fake_signature(
-    intake: _Case, count: int, normalizer: Literal["2.0.0", "2.1.0"] | None
+    intake: _Case,
+    count: int,
+    normalizer: StructuredNormalizerVersion | None,
+    second_normalizer: StructuredNormalizerVersion | None,
 ) -> None:
     _seed_sources(intake, count)
     structured = normalizer is not None
@@ -510,11 +551,11 @@ async def test_stage_collected_requires_full_scope_without_fake_signature(
         )
 
         intake.service._structured = True
-        for key, checkpoint in tuple(intake.store.checkpoints.items()):
+        for index, (key, checkpoint) in enumerate(tuple(intake.store.checkpoints.items())):
             document = checkpoint.state.document
             assert document is not None
             derived = CloudStructuredDocument(
-                normalizer_version=normalizer or "2.0.0",
+                normalizer_version=(normalizer if index == 0 else second_normalizer) or "2.0.0",
                 evidence=document.evidence,
                 title=document.title,
                 text=document.text,
@@ -552,7 +593,11 @@ async def test_stage_collected_requires_full_scope_without_fake_signature(
     assert all(not version.active for version in intake.metadata.versions.values())
     if structured:
         assert json.loads(content)["reader_version"] == (
-            "3.1.0" if normalizer == "2.1.0" else "3.0.0"
+            "3.1.1"
+            if "2.1.1" in (normalizer, second_normalizer)
+            else "3.1.0"
+            if "2.1.0" in (normalizer, second_normalizer)
+            else "3.0.0"
         )
         assert len(binding.processing_digests) == 2
         received = intake.metadata.versions[(session.document_id, session.version_id)]
@@ -571,6 +616,11 @@ async def test_stage_collected_requires_full_scope_without_fake_signature(
         rollback_session = UploadSession.model_validate(rollback["session"])
         assert rollback_session.state is DocumentState.RECEIVED
         original_manifest = release.KnowledgeStructuredReleaseManifest.model_validate_json(content)
+        if "2.1.1" in (normalizer, second_normalizer):
+            with pytest.raises(ValueError, match="reader 3.1.1"):
+                release.KnowledgeStructuredReleaseManifest.model_validate(
+                    original_manifest.model_dump() | {"reader_version": "3.1.0"}
+                )
         rollback_manifest = release.KnowledgeStructuredReleaseManifest.model_validate_json(
             intake.objects.content[rollback_session.object_key]
         )
@@ -589,8 +639,11 @@ async def test_stage_collected_requires_full_scope_without_fake_signature(
         ("v3", None, True),
         ("v3", "2.0.0", True),
         ("v3", "2.1.0", True),
+        ("v3", "2.1.1", True),
         (None, "2.1.0", False),
+        (None, "2.1.1", False),
         ("v2", "2.1.0", False),
+        ("v2", "2.1.1", False),
         ("v3", "2.2.0", False),
         ("v3", "", False),
     ],

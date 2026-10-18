@@ -63,7 +63,7 @@ Mount independently reviewed policy files read-only and protect their parent dir
 | `FDAI_CLOUD_KNOWLEDGE_REGISTRY_PATH` | ingestion API, worker, Core | Path to the same reviewed source registry revision |
 | `FDAI_CLOUD_KNOWLEDGE_TRUST_PATH` | ingestion API, worker, Core | Independently managed signing trust and revocation evidence |
 | `FDAI_CLOUD_KNOWLEDGE_FORMAT` | ingestion API | Default `v2`; explicit `v3` selects the structured format, not trust, approval, or activation |
-| `FDAI_CLOUD_KNOWLEDGE_NORMALIZER_VERSION` | ingestion API | Default `2.0.0`; explicit `2.1.0` requires `v3` and compatible reader `3.1.0`; unknown/incompatible values fail startup |
+| `FDAI_CLOUD_KNOWLEDGE_NORMALIZER_VERSION` | ingestion API | Default `2.0.0`; explicit `2.1.0` requires `v3` and reader `3.1.0`; explicit `2.1.1` adds attribute-scope validation and requires `v3` and reader `3.1.1`; unknown/incompatible values fail startup |
 | `FDAI_DOCUMENT_COLLECTIONS` | ingestion API | Includes every registered knowledge collection |
 | `FDAI_DOCUMENT_RETRIEVAL_MODE` | ingestion API, worker | `lexical` avoids embedding construction and startup/query probes; `hybrid` preserves the existing default |
 | Existing `FDAI_RCA_DOCUMENT_*` settings | Core | Bind the authorized governed document collection/read store to semantic conversations |
@@ -124,7 +124,7 @@ cannot traverse parents or symbolic/hard links. The plan references originals bu
 ```bash
 python -m fdai_ingestion_api_service.cloud_knowledge.review \
   --input /private/review-input.json --source-root /private/retained \
-  --output /private/new-review --normalizer-version 2.1.0 \
+  --output /private/new-review --normalizer-version 2.1.1 \
   --per-source-seconds 30 --total-seconds 900
 ```
 
@@ -134,6 +134,9 @@ original-free structured candidate per successfully normalized source, including
 explicit structural or excerpt-size holds. The canonical `report.json` binds the exact input hash,
 candidate hashes, processing identities, original dates, byte accounting and complete source scope.
 Failed inputs and expired budgets remain visible as held or unprocessed rows with unknown metrics.
+The explicit `2.1.1` selection also rechecks duplicate scope, ancestor and authentication-control
+attributes. Existing normalizer results are not rewritten. A collector processing sweep under the
+same selection replaces the processing checkpoint without renewing collection or check time.
 
 | Boundary | Maximum |
 |---|---|
@@ -166,7 +169,8 @@ Split large source inventories into separately reviewed bounded collections, not
 
 Default packages use `fdai.cloud-knowledge-package.v2`, manifest `fdai.cloud-knowledge.v2`, and
 reader `2.0.0`. The opt-in v3 uses `fdai.cloud-knowledge-package.v3`, `fdai.cloud-knowledge.v3`, and
-reader `3.0.0` for normalizer `2.0.0`, or reader `3.1.0` when any document uses `2.1.0`.
+reader `3.0.0` for normalizer `2.0.0`, reader `3.1.0` when any document uses `2.1.0`, or
+reader `3.1.1` when any document uses `2.1.1`, including a mixed generation.
 Older readers cannot consume newer representations. Upgrade the API/CLI and worker together and confirm
 the full reader path before delivery. Retained v1/v2 bytes and signatures stay unchanged and remain
 verifiable/importable under current admission gates. Never strip fields or relabel a signed package;

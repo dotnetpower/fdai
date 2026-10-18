@@ -118,12 +118,23 @@ The ingestion default stays `2.0.0` until a deployment explicitly selects the co
 `FDAI_CLOUD_KNOWLEDGE_NORMALIZER_VERSION=2.1.0` requires explicit v3 output; incompatible or unknown
 values fail configuration. This is a reader-compatibility pin, not a capability or authority switch.
 
+Normalizer `2.1.1`, requiring reader `3.1.1`, adds explicit duplicate-attribute scope validation.
+Duplicate attributes on an entering article/content region or its non-chrome ancestors hold the candidate. Known UI chrome
+remains excluded only by an unambiguous tag, attribute, or presence-only page-action marker;
+conflicting classification values cannot hide source content. Authentication-control type and
+visibility also need an unambiguous classification; a form/input tag alone cannot clear that hold.
+Both older normalizers keep their
+original algorithms and checkpoints. Selecting `2.1.1` forces retained-source reprocessing without
+a fetch or a new source check, and a mixed generation requires the newest reader it contains.
+The excerpt recipe and all activation, source-rights, and independent-review gates stay unchanged.
+
 | Initial option | Critique | Revised boundary |
 |---|---|---|
 | Remove all unsupported flags | A missing diagram or ambiguous label can change meaning | Add only explicit inert structures; other dependencies stay held |
 | Guess tab names or use the first duplicate ID | Presentation order cannot resolve source identity | Resolve a unique label in the same tab group; referenced duplicate IDs stay held |
 | Drop empty tables or split a procedure to fit | This silently changes source accounting or context | Preserve captured headings with an explicit no-data-rows marker; atomic composites retain their byte ceiling |
 | Reuse a same-body checkpoint after a metadata/version change | Matching raw bytes do not bind new applicability or rights | Compare immutable source metadata, title and selected normalizer before reuse |
+| Patch duplicate-attribute handling under an existing normalizer identity | A cached old result can bypass the repair, and replay no longer explains validation | Pin normalizer `2.1.1` and reader `3.1.1`; preserve old versions and explicitly reprocess retained bytes |
 
 Supported additions preserve `details` summaries and every disclosed body, inert `nobr` text,
 source-local tab labels, and complete nested-code/notice composites. Only a unique first direct

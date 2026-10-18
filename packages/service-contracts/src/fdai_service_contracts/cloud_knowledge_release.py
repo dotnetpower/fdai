@@ -135,11 +135,15 @@ class KnowledgeStructuredReleaseManifest(_ReleaseManifest[CloudStructuredDocumen
     """V3 complete structured generation with sealed deterministic excerpt digests."""
 
     schema_version: Literal["fdai.cloud-knowledge.v3"] = "fdai.cloud-knowledge.v3"
-    reader_version: Literal["3.0.0", "3.1.0"] = "3.0.0"
+    reader_version: Literal["3.0.0", "3.1.0", "3.1.1"] = "3.0.0"
     excerpt_digests: Annotated[tuple[Digest, ...], Field(min_length=1, max_length=256)]
 
     @model_validator(mode="after")
     def derived_inventory(self) -> Self:
+        if self.reader_version != "3.1.1" and any(
+            doc.normalizer_version == "2.1.1" for doc in self.documents
+        ):
+            raise ValueError("attribute-scope normalizer requires structured reader 3.1.1")
         if self.reader_version == "3.0.0" and any(
             doc.normalizer_version != "2.0.0" for doc in self.documents
         ):

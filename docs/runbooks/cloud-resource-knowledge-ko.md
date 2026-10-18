@@ -1,8 +1,8 @@
 ---
 title: 클라우드 리소스 지식 운영
 translation_of: cloud-resource-knowledge.md
-translation_source_sha: 9bff7212e9032d1c2e21d82da7c1582bd57f64ef
-translation_revised: 2026-10-18
+translation_source_sha: 790ec72de7fc5fca58b4b41fe5b3e99fefcab5bb
+translation_revised: 2026-10-19
 ---
 # 클라우드 리소스 지식 운영
 
@@ -64,7 +64,7 @@ Core의 기존 별도 범위 `FDAI_RCA_DOCUMENT_DSN`에 문서 메타데이터 �
 | `FDAI_CLOUD_KNOWLEDGE_REGISTRY_PATH` | 수집 API, 작업자, Core | 같은 검토된 출처 레지스트리 개정의 경로 |
 | `FDAI_CLOUD_KNOWLEDGE_TRUST_PATH` | 수집 API, 작업자, Core | 독립적으로 관리하는 서명 신뢰와 철회 근거 |
 | `FDAI_CLOUD_KNOWLEDGE_FORMAT` | 수집 API | 기본값은 `v2`이며 명시적 `v3`는 구조화 형식만 선택합니다. 신뢰, 승인 또는 활성화를 부여하지 않습니다. |
-| `FDAI_CLOUD_KNOWLEDGE_NORMALIZER_VERSION` | 수집 API | 기본값은 `2.0.0`입니다. 명시적 `2.1.0`에는 `v3`와 호환 판독기 `3.1.0`이 필요하며 알 수 없거나 호환되지 않는 값은 시작 단계에서 차단합니다. |
+| `FDAI_CLOUD_KNOWLEDGE_NORMALIZER_VERSION` | 수집 API | 기본값은 `2.0.0`입니다. 명시적 `2.1.0`에는 `v3`와 판독기 `3.1.0`이 필요합니다. 명시적 `2.1.1`은 속성 범위 검사를 추가하며 `v3`와 판독기 `3.1.1`이 필요합니다. 알 수 없거나 호환되지 않는 값은 시작 단계에서 차단합니다. |
 | `FDAI_DOCUMENT_COLLECTIONS` | 수집 API | 등록한 모든 지식 컬렉션 포함 |
 | `FDAI_DOCUMENT_RETRIEVAL_MODE` | 수집 API, 작업자 | `lexical`은 임베딩 생성과 시작/질의 점검 호출을 피하며, `hybrid`는 기존 기본값 유지 |
 | 기존 `FDAI_RCA_DOCUMENT_*` 설정 | Core | 승인된 문서 컬렉션/읽기 저장소를 의미 대화에 연결 |
@@ -125,7 +125,7 @@ Core의 기존 별도 범위 `FDAI_RCA_DOCUMENT_DSN`에 문서 메타데이터 �
 ```bash
 python -m fdai_ingestion_api_service.cloud_knowledge.review \
   --input /private/review-input.json --source-root /private/retained \
-  --output /private/new-review --normalizer-version 2.1.0 \
+  --output /private/new-review --normalizer-version 2.1.1 \
   --per-source-seconds 30 --total-seconds 900
 ```
 
@@ -135,6 +135,9 @@ python -m fdai_ingestion_api_service.cloud_knowledge.review \
 포함합니다. 정규 `report.json`은 정확한 입력 해시, 후보 해시, 처리 식별자, 기존 날짜, 바이트
 집계 및 전체 원문 범위를 결속합니다. 입력 실패와 기한 만료도 보류 또는 미처리 행으로 남으며
 측정하지 못한 값은 알 수 없음으로 표시합니다.
+명시적 `2.1.1` 선택은 본문과 상위 요소 및 인증 제어 요소의 중복 속성도 다시 검사합니다.
+기존 정규화 결과를 다시 쓰지 않습니다. 같은 버전을 선택한 수집기 처리 작업은 수집이나 확인
+시각을 갱신하지 않고 처리 체크포인트를 교체합니다.
 
 | 경계 | 상한 |
 |---|---|
@@ -167,7 +170,8 @@ HTML/Markdown은 수집기 재개 지점에 보존하며 새 내보내기, 패�
 기본 패키지는 `fdai.cloud-knowledge-package.v2`, 매니페스트 `fdai.cloud-knowledge.v2`, 읽기
 버전 `2.0.0`을 사용합니다. 명시적으로 선택하는 v3는 `fdai.cloud-knowledge-package.v3`,
 `fdai.cloud-knowledge.v3`를 사용합니다. 정규화기 `2.0.0`에는 읽기 버전 `3.0.0`을 사용하고
-문서 하나라도 `2.1.0`이면 읽기 버전 `3.1.0`을 사용합니다. 이전 판독기는 새로운 표현을 처리할 수 없습니다.
+문서 하나라도 `2.1.0`이면 읽기 버전 `3.1.0`을 사용합니다. 여러 버전이 섞인 세대를 포함해
+문서 하나라도 `2.1.1`이면 읽기 버전 `3.1.1`을 사용합니다. 이전 판독기는 새로운 표현을 처리할 수 없습니다.
 API/CLI와 작업자를 함께 업그레이드하고 전달 전에 전체 읽기 경로를 확인하세요. 보존된 v1/v2
 바이트와 서명은 바꾸지 않으며 현재 수용 조건에서 계속 검증/반입할 수 있습니다. 서명된
 패키지의 필드를 제거하거나 버전을 바꾸지 말고 검토 매니페스트와 서명을 새로 만드세요.
