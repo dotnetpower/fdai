@@ -183,8 +183,8 @@ The [governance](../../roadmap-implementation/decisioning/operator-governance-pr
   exporter; retain source identity/freshness, primary/fallback delivery, and recovery-drill receipts.
   Complete the linked Azure guest-event, throttling, and cross-service parity evidence.
   #2218 / [PR #2220](https://github.com/dotnetpower/fdai/pull/2220) now binds three actual local
-  signals and three fields with 92 focused passes. #2228 adds process-scoped runtime-entry-to-first-
-  protected-ready duration with a frozen observation timestamp and 80 focused passes in an
+  signals and three fields with 92 focused passes. #2228 adds a process-scoped duration from
+  runtime entry to first protected readiness with a frozen observation timestamp and 80 focused passes in an
   overlapping test slice. Four signals and three fields are now bound. The remaining eleven
   signal sources and five field sources stay explicitly unavailable; this package is not complete.
 - [ ] **H02, canary and stabilization:** Retain the exact consumed canary audit within the

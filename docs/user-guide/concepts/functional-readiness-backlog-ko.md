@@ -2,7 +2,7 @@
 title: F10-F15 준비 상태 전수 점검 및 완료 계획
 description: F10부터 F15까지 모든 중분류의 잔여 작업, 미충족 근거, 의존성에 따른 완료 계획입니다.
 translation_of: functional-readiness-backlog.md
-translation_source_sha: 79e4b3f0ae7bc29d030b46503c95dc840c611bd3
+translation_source_sha: 36915addae27e0c082379ab1508b5d8890d18883
 translation_revised: 2026-10-19
 ---
 
