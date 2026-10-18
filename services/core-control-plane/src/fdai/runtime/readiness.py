@@ -48,7 +48,7 @@ from fdai.runtime.startup_observation import RuntimeStartupDurationSource
 from fdai.shared.contracts.validation import EventValidator
 from fdai.shared.providers.decision_evidence_verifier import DecisionEvidenceAdmissionProvider
 from fdai.shared.providers.event_bus import EventBus
-from fdai.shared.providers.self_health import SelfHealthExporter
+from fdai.shared.providers.self_health import ModelProviderScopeSource
 from fdai.shared.providers.startup_probe import StartupProbe
 from fdai.shared.providers.state_store import StateStore
 from fdai.shared.providers.workload_identity import WorkloadIdentity
@@ -357,7 +357,7 @@ def build_startup_readiness_runtime(
     liveness: Callable[[], bool] | None = None,
     runtime_policy: Mapping[str, object] | None = None,
     startup_duration_source: RuntimeStartupDurationSource | None = None,
-    adapter_health_source: SelfHealthExporter | None = None,
+    model_provider_scope: ModelProviderScopeSource | None = None,
 ) -> StartupReadinessRuntime:
     """Compose standard required probes plus registered optional destinations."""
     probe_topic = (
@@ -498,7 +498,6 @@ def build_startup_readiness_runtime(
             liveness=liveness,
             runtime_policy=runtime_policy,
             startup_duration_source=startup_duration_source,
-            adapter_health_source=adapter_health_source,
         )
     if self_health_catalog is None and self_health_exporter_registry is not None:
         raise ValueError("self-health catalog and exporter registry MUST be composed together")
@@ -517,6 +516,7 @@ def build_startup_readiness_runtime(
             SelfHealthRuntimeMonitor(
                 registry=self_health_exporter_registry,
                 store=state_store,
+                model_provider_scope=model_provider_scope,
             )
             if self_health_exporter_registry is not None
             else None

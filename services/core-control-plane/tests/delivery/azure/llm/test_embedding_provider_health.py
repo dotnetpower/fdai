@@ -13,17 +13,30 @@ import pytest
 from fdai.core.notifications.matrix import load_matrix_from_yaml
 from fdai.core.readiness.self_health import load_self_health_catalog
 from fdai.delivery.azure.llm import embeddings as module
+from fdai.delivery.azure.llm.cross_check import (
+    AzureOpenAICrossCheckModel,
+    AzureOpenAICrossCheckModelConfig,
+)
 from fdai.delivery.azure.llm.embeddings import (
     AzureOpenAIEmbeddingModel,
     AzureOpenAIEmbeddingModelConfig,
 )
-from fdai.delivery.azure.llm.provider_observations import EmbeddingProviderObservations
+from fdai.delivery.azure.llm.provider_observations import (
+    ConfiguredModelProviderScope,
+    EmbeddingProviderObservations,
+)
 from fdai.delivery.startup_probe import StaticStartupProbe
 from fdai.runtime.readiness import build_startup_readiness_runtime
 from fdai.shared.providers.local.event_bus import LocalEventBus
 from fdai.shared.providers.local.identity import LocalWorkloadIdentity
 from fdai.shared.providers.self_health import SelfHealthExporterUnavailableError
 from fdai.shared.providers.testing.state_store import InMemoryStateStore
+from fdai_service_contracts.compatibility import canonical_digest
+from fdai_service_contracts.model_provider_health import (
+    ConfiguredModelBindingV1,
+    ModelProviderHealth,
+    ModelProviderScopeSnapshotV1,
+)
 from fdai_service_contracts.self_health import (
     OperationalStateSnapshotV1,
     SelfHealthSignalName,
@@ -68,7 +81,7 @@ def _model(client, *, config=CONFIG, identity=None, metering=None):
 
 
 def _exporter(model):
-    return model.self_health_exporter(maximum_age_seconds=120)
+    return model.model_provider_observations(maximum_age_seconds=120)
 
 
 async def _unavailable(exporter, *, reason, now=NOW):
@@ -365,15 +378,36 @@ async def test_sdk_producer_to_runtime_collector_to_reader_contract_without_prob
             event_validator=Validator(),  # type: ignore[arg-type]
             identity=LocalWorkloadIdentity(),
             embedding_model=model,
+            cross_check_models=(
+                AzureOpenAICrossCheckModel(
+                    identity=LocalWorkloadIdentity(),
+                    http_client=client,
+                    config=AzureOpenAICrossCheckModelConfig(
+                        endpoint=CONFIG.endpoint,
+                        deployment="unobserved-reasoner",
+                        system_prompt="test-only source contract",
+                    ),
+                ),
+            ),
             policy_compile_probe=StaticStartupProbe(
                 probe_id="policy.compile", evidence_key="compiled"
             ),
             environment={},
             self_health_catalog=catalog,
-            adapter_health_source=model.self_health_exporter(
+            model_provider_scope=ConfiguredModelProviderScope(
+                configured_bindings=(
+                    ConfiguredModelBindingV1(
+                        role="t1.embedding", binding_digest=_exporter(model).binding_digest
+                    ),
+                    ConfiguredModelBindingV1(role="t2.reasoner.primary"),
+                ),
+                registration_digest=canonical_digest(
+                    {"configured": ["t1.embedding", "t2.reasoner.primary"]}
+                ),
+                sources={"t1.embedding": _exporter(model)},
                 maximum_age_seconds=catalog.policies[
                     SelfHealthSignalName.ADAPTER_HEALTHCHECK
-                ].maximum_age_seconds
+                ].maximum_age_seconds,
             ),
         )
         assert runtime.self_health_monitor is not None
@@ -392,8 +426,10 @@ async def test_sdk_producer_to_runtime_collector_to_reader_contract_without_prob
             for row in snapshot.self_health.signals
             if row.signal is SelfHealthSignalName.ADAPTER_HEALTHCHECK
         )
-        assert adapter.status is SelfHealthSignalStatus.HEALTHY
-        assert adapter.observed_at == NOW
+        assert adapter.status is SelfHealthSignalStatus.UNAVAILABLE, (
+            "embedding success cannot satisfy the configured-adapter aggregate"
+        )
+        assert adapter.observed_at is None
         assert adapter.execution_authority is False
         for name in (
             SelfHealthSignalName.VERIFIER_FAILURE_RATE,
@@ -406,6 +442,13 @@ async def test_sdk_producer_to_runtime_collector_to_reader_contract_without_prob
         persisted = await store.read_state("runtime:operational-state")
         assert persisted is not None
         assert OperationalStateSnapshotV1.model_validate(persisted["snapshot"]) == snapshot
+        scope = ModelProviderScopeSnapshotV1.model_validate(persisted["model_provider_scope"])
+        assert scope.coverage_complete is False
+        assert scope.health is ModelProviderHealth.UNKNOWN
+        assert scope.parent_snapshot_digest == snapshot.snapshot_digest
+        assert [row.role for row in scope.observations] == ["t1.embedding", "t2.reasoner.primary"]
+        assert scope.observations[0].health is ModelProviderHealth.HEALTHY
+        assert scope.observations[1].health is ModelProviderHealth.UNKNOWN
         assert snapshot.execution_authority is False
         assert len(calls) == 1
         assert await store.verify_chain()
@@ -418,7 +461,11 @@ async def test_sdk_producer_to_runtime_collector_to_reader_contract_without_prob
             if row.signal is SelfHealthSignalName.ADAPTER_HEALTHCHECK
         )
         assert adapter.status is SelfHealthSignalStatus.UNAVAILABLE
-        assert adapter.reason == "source_stale"
+        assert adapter.reason == "exporter_unavailable"
         persisted = await store.read_state("runtime:operational-state")
         assert OperationalStateSnapshotV1.model_validate(persisted["snapshot"]) == stale
+        scope = ModelProviderScopeSnapshotV1.model_validate(persisted["model_provider_scope"])
+        assert scope.coverage_complete is False
+        assert scope.health is ModelProviderHealth.UNKNOWN
+        assert scope.observations[0].reason == "source_stale"
         assert len(calls) == 1

@@ -27,14 +27,14 @@ existing `SelfHealthExporter` and `OperationalStateFieldExporter` seams without 
 It takes the owning `StateStore`, a time-aware guarded-readiness callback, an optional actual
 listener-liveness callback, and the validated runtime-policy values consumed at bootstrap.
 `build_startup_readiness_runtime` accepts the complete `self_health_exporter_registry` override;
-otherwise it composes those sources through its `liveness` and `runtime_policy` arguments. Its optional `startup_duration_source` receives the actual process-owned `RuntimeStartupDurationSource`, created at runtime entry and bound to the existing readiness guard only after composition; it never supplies a synthetic observation. An actual provider may implement `SelfHealthObservedProvider.self_health_exporter(maximum_age_seconds=...)`; Core injects the current embedding adapter's source as `adapter_health_source`, using catalog freshness. Unobserved providers remain unavailable; no probe or role-wide health is inferred.
+otherwise it composes those sources through its `liveness` and `runtime_policy` arguments. Its optional `startup_duration_source` receives the actual process-owned `RuntimeStartupDurationSource`, created at runtime entry and bound to the existing readiness guard only after composition; it never supplies a synthetic observation. `ModelProviderObservedProvider.model_provider_observations(maximum_age_seconds=...)` is a separate typed sub-scope source, not a `SelfHealthExporter`. Core preserves every startup-configured model obligation, pins the independent registration, and publishes `ModelProviderScopeSnapshotV1` separately from catalog health. No sub-adapter source can bind the global adapter aggregate.
 
-With the actual listener, consumed policy, startup, and observed embedding sources supplied, composition binds five signal slots
+With the actual listener, consumed policy, and startup source supplied, composition binds four catalog signal slots
 and three fields, not complete operational health. An absent listener binding or policy stays
 unavailable; an absent or malformed kill-switch row never
 becomes a healthy false value. `SelfHealthExporterUnavailableError.reason` preserves only
 `exporter_unavailable`, `source_missing`, `source_malformed`, `source_unreachable`, `source_incomplete`, `source_stale`, or `source_from_future`.
-The adapter slot covers `t1.embedding` only. The remaining 10 signals and five fields keep explicit unavailable bindings until their owning
+The adapter aggregate remains unavailable. Separately typed embedding observations do not narrow it. The remaining 11 signals and five fields keep explicit unavailable bindings until their owning
 sources exist. These read-only adapters grant no identity, approval, execution, or promotion
 authority. See the [operating source contract](../operations/operating-and-verification.md#local-source-bindings).
 

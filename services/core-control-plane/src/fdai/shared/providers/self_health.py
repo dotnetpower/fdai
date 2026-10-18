@@ -7,6 +7,11 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Protocol, runtime_checkable
 
+from fdai_service_contracts.model_provider_health import (
+    ModelProviderObservationV1,
+    ModelProviderRegistrationV1,
+    ModelProviderScopeSnapshotV1,
+)
 from fdai_service_contracts.self_health import (
     OperationalStateFieldName,
     OperationalStateFieldV1,
@@ -57,11 +62,32 @@ class SelfHealthExporter(Protocol):
     async def observe(self, *, now: datetime) -> SelfHealthExportSample: ...
 
 
-@runtime_checkable
-class SelfHealthObservedProvider(Protocol):
-    """An actual provider exposes observations of its own normally invoked operations."""
+class ModelProviderObservationSource(Protocol):
+    @property
+    def role(self) -> str: ...
 
-    def self_health_exporter(self, *, maximum_age_seconds: int) -> SelfHealthExporter: ...
+    @property
+    def binding_digest(self) -> str: ...
+
+    async def observe(self, *, now: datetime) -> ModelProviderObservationV1: ...
+
+
+@runtime_checkable
+class ModelProviderObservedProvider(Protocol):
+    """A provider exposes typed sub-scope evidence, never the global adapter signal."""
+
+    def model_provider_observations(
+        self, *, maximum_age_seconds: int
+    ) -> ModelProviderObservationSource: ...
+
+
+class ModelProviderScopeSource(Protocol):
+    @property
+    def registration(self) -> ModelProviderRegistrationV1: ...
+
+    async def observe(
+        self, *, now: datetime, parent_snapshot_digest: str
+    ) -> ModelProviderScopeSnapshotV1: ...
 
 
 class OperationalStateFieldExporter(Protocol):
@@ -84,5 +110,7 @@ __all__ = [
     "SelfHealthExportSample",
     "SelfHealthExporter",
     "SelfHealthExporterUnavailableError",
-    "SelfHealthObservedProvider",
+    "ModelProviderObservationSource",
+    "ModelProviderObservedProvider",
+    "ModelProviderScopeSource",
 ]

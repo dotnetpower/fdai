@@ -6,6 +6,7 @@ import asyncio
 from collections.abc import Mapping
 from datetime import datetime
 
+from fdai_service_contracts.model_provider_health import validate_model_provider_registration
 from fdai_service_contracts.self_health import (
     OperationalStateFieldName,
     OperationalStateFieldStatus,
@@ -25,6 +26,7 @@ from fdai.core.readiness.self_health import (
     SelfHealthSignalPolicy,
 )
 from fdai.shared.providers.self_health import (
+    ModelProviderScopeSource,
     OperationalStateFieldExporter,
     SelfHealthExporter,
     SelfHealthExporterUnavailableError,
@@ -96,12 +98,14 @@ class SelfHealthRuntimeMonitor:
         registry: SelfHealthExporterRegistry,
         store: StateStore,
         timeout_seconds: float = 2.0,
+        model_provider_scope: ModelProviderScopeSource | None = None,
     ) -> None:
         if timeout_seconds <= 0:
             raise ValueError("self-health exporter timeout MUST be positive")
         self._registry = registry
         self._store = store
         self._timeout_seconds = timeout_seconds
+        self._model_provider_scope = model_provider_scope
 
     async def collect_and_persist(self, *, now: datetime) -> OperationalStateSnapshotV1:
         if now.tzinfo is None or now.utcoffset() is None:
@@ -144,7 +148,30 @@ class SelfHealthRuntimeMonitor:
                 fields=tuple(field_states),
             ),
         )
-        await self._persist(snapshot)
+        scope = (
+            await asyncio.wait_for(
+                self._model_provider_scope.observe(
+                    now=now, parent_snapshot_digest=snapshot.snapshot_digest
+                ),
+                timeout=self._timeout_seconds,
+            )
+            if self._model_provider_scope is not None
+            else None
+        )
+        registration = (
+            self._model_provider_scope.registration
+            if self._model_provider_scope is not None
+            else None
+        )
+        if scope is not None and registration is not None:
+            validate_model_provider_registration(scope, registration)
+        await self._persist(
+            snapshot,
+            model_provider_scope=scope.model_dump(mode="json") if scope is not None else None,
+            model_provider_registration=(
+                registration.model_dump(mode="json") if registration is not None else None
+            ),
+        )
         return snapshot
 
     async def _signal_state(
@@ -229,7 +256,13 @@ class SelfHealthRuntimeMonitor:
             )
         return field
 
-    async def _persist(self, snapshot: OperationalStateSnapshotV1) -> None:
+    async def _persist(
+        self,
+        snapshot: OperationalStateSnapshotV1,
+        *,
+        model_provider_scope: Mapping[str, object] | None = None,
+        model_provider_registration: Mapping[str, object] | None = None,
+    ) -> None:
         current = await self._store.read_state(OPERATIONAL_STATE_KEY)
         if current is not None:
             revision_raw = current.get("revision")
@@ -245,16 +278,23 @@ class SelfHealthRuntimeMonitor:
                 retained = OperationalStateSnapshotV1.model_validate(snapshot_raw)
             except ValueError as exc:
                 raise RuntimeError("operational state durable record is malformed") from exc
-            if retained == snapshot:
+            if (
+                retained == snapshot
+                and current.get("model_provider_scope") == model_provider_scope
+                and current.get("model_provider_registration") == model_provider_registration
+            ):
                 return
             revision = revision_raw
         else:
             revision = 0
-        value = {
+        value: dict[str, object] = {
             "revision": revision + 1,
             "snapshot": snapshot.model_dump(mode="json"),
         }
-        audit = {
+        if model_provider_scope is not None:
+            value["model_provider_scope"] = dict(model_provider_scope)
+            value["model_provider_registration"] = model_provider_registration
+        audit: dict[str, object] = {
             "actor": "Saga",
             "action_kind": "runtime.operational-state-recorded",
             "snapshot_digest": snapshot.snapshot_digest,
@@ -262,6 +302,12 @@ class SelfHealthRuntimeMonitor:
             "generated_at": snapshot.generated_at.isoformat(),
             "execution_authority": False,
         }
+        if model_provider_scope is not None:
+            audit["model_provider_scope_digest"] = model_provider_scope["snapshot_digest"]
+        if model_provider_registration is not None:
+            audit["model_provider_registration_digest"] = model_provider_registration[
+                "registration_digest"
+            ]
         if current is None:
             changed = await self._store.write_state_with_audit_if_absent(
                 OPERATIONAL_STATE_KEY,
@@ -277,7 +323,12 @@ class SelfHealthRuntimeMonitor:
             )
         if not changed:
             winner = await self._store.read_state(OPERATIONAL_STATE_KEY)
-            if winner is None or winner.get("snapshot") != snapshot.model_dump(mode="json"):
+            if (
+                winner is None
+                or winner.get("snapshot") != snapshot.model_dump(mode="json")
+                or winner.get("model_provider_scope") != model_provider_scope
+                or winner.get("model_provider_registration") != model_provider_registration
+            ):
                 raise RuntimeError("operational state snapshot CAS conflict")
 
 

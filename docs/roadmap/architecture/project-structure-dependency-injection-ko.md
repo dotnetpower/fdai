@@ -1,6 +1,6 @@
 ---
 translation_of: project-structure-dependency-injection.md
-translation_source_sha: 418aa91e637f3afeb420b710565b39a46f3625cb
+translation_source_sha: 8d74218ec390dd59902608ba17cc4e0bbb9aad99
 translation_revised: 2026-10-19
 ---
 
@@ -33,14 +33,14 @@ Core 시작 구성은 이를 Bragi의 읽기 전용 숙의 처리기에 전달�
 조합합니다. 담당 `StateStore`, 시간을 받는 보호된 준비 상태 콜백, 선택적인 실제 수신기
 생존 상태 콜백, 시작 시 실제로 사용한 검증된 런타임 정책 값을 받습니다.
 `build_startup_readiness_runtime`은 완전한 `self_health_exporter_registry` 대체 구성을
-받습니다. 대체 구성이 없으면 `liveness`와 `runtime_policy` 인자를 통해 이 수집원을 조합합니다. 선택적인 `startup_duration_source`에는 런타임 진입 때 생성하고 구성을 마친 뒤에만 기존 준비 상태 가드에 연결하는 실제 프로세스 소유 `RuntimeStartupDurationSource`를 전달합니다. 합성 관측은 제공하지 않습니다. 실제 프로바이더는 `SelfHealthObservedProvider.self_health_exporter(maximum_age_seconds=...)`를 구현할 수 있습니다. Core는 카탈로그 최신성 한도를 사용해 현재 임베딩 어댑터의 수집원을 `adapter_health_source`에 주입합니다. 미관측 프로바이더는 unavailable이며 검사나 역할 전체의 상태를 추정하지 않습니다.
+받습니다. 대체 구성이 없으면 `liveness`와 `runtime_policy` 인자를 통해 이 수집원을 조합합니다. 선택적인 `startup_duration_source`에는 런타임 진입 때 생성하고 구성을 마친 뒤에만 기존 준비 상태 가드에 연결하는 실제 프로세스 소유 `RuntimeStartupDurationSource`를 전달합니다. 합성 관측은 제공하지 않습니다. `ModelProviderObservedProvider.model_provider_observations(maximum_age_seconds=...)`는 `SelfHealthExporter`가 아닌 별도 타입 지정 하위 범위 수집원입니다. Core는 시작 시 구성된 모든 모델 의무와 독립된 등록 정보를 보존하며 `ModelProviderScopeSnapshotV1`을 카탈로그 상태와 별개로 제공합니다. 하위 어댑터 수집원으로 전체 어댑터 집계를 연결할 수 없습니다.
 
-실제 수신기, 실제로 사용한 정책, 시작 및 임베딩 관측 수집원을 제공하면 구성은 전체 운영 상태가 아니라 신호 항목 5개와
+실제 수신기, 실제로 사용한 정책, 시작 수집원을 제공하면 구성은 전체 운영 상태가 아니라 카탈로그 신호 항목 4개와
 필드 3개를 연결합니다. 수신기 연결이나 정책이 없으면 unavailable로 유지합니다.
 비상 정지 행이 없거나 잘못되어도 정상인 false 값으로
 바꾸지 않습니다. `SelfHealthExporterUnavailableError.reason`은 `exporter_unavailable`,
 `source_missing`, `source_malformed`, `source_unreachable`, `source_incomplete`, `source_stale`, `source_from_future`만 보존합니다.
-어댑터 항목은 `t1.embedding`에 한정됩니다. 나머지 신호 10개와 필드 5개는 담당 수집원이 제공될 때까지 명시적인 unavailable 연결을
+어댑터 집계는 unavailable이며 별도 타입 지정 임베딩 관측으로 집계 범위를 좁히지 않습니다. 나머지 신호 11개와 필드 5개는 담당 수집원이 제공될 때까지 명시적인 unavailable 연결을
 유지합니다. 이 읽기 전용 어댑터는 신원, 승인, 실행, 승격 권한을 부여하지 않습니다.
 [운영 수집원 계약](../operations/operating-and-verification-ko.md#로컬-수집원-연결)을 참조하세요.
 

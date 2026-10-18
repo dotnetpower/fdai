@@ -13,8 +13,8 @@ from fdai_service_contracts.compatibility import canonical_digest
 from fdai.core.metering.emitter import MeteringEmitter
 from fdai.delivery.azure.llm.model_trace import prepare_embedding_input
 from fdai.delivery.azure.llm.provider_observations import (
-    EmbeddingProviderHealthExporter,
     EmbeddingProviderObservations,
+    EmbeddingProviderObservationSource,
     ProviderInvocationObservation,
 )
 from fdai.delivery.azure.llm.request_target import (
@@ -23,7 +23,7 @@ from fdai.delivery.azure.llm.request_target import (
 )
 from fdai.delivery.azure.llm.usage import extract_usage
 from fdai.rule_catalog.schema.model_endpoint import ModelApiStyle, ModelRouteKind
-from fdai.shared.providers.self_health import SelfHealthExporter
+from fdai.shared.providers.self_health import ModelProviderObservationSource
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 
@@ -115,9 +115,11 @@ class AzureOpenAIEmbeddingModel:
         with self._provider_observations.invocation() as observation:
             return await self._embed_observed(text, observation)
 
-    def self_health_exporter(self, *, maximum_age_seconds: int) -> SelfHealthExporter:
+    def model_provider_observations(
+        self, *, maximum_age_seconds: int
+    ) -> ModelProviderObservationSource:
         """Expose only this instance's registered embedding-adapter invocation outcomes."""
-        return EmbeddingProviderHealthExporter(
+        return EmbeddingProviderObservationSource(
             observations=self._provider_observations,
             client=self._http,
             maximum_age_seconds=maximum_age_seconds,

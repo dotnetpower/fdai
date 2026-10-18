@@ -9,7 +9,6 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fdai_service_contracts.rule_activation import RuleActivationSource
-from fdai_service_contracts.self_health import SelfHealthSignalName
 
 from fdai.composition import (
     Container,
@@ -56,6 +55,7 @@ from fdai.runtime.bootstrap_pantheon import (
 )
 from fdai.runtime.bootstrap_plan import BootstrapPlan
 from fdai.runtime.bootstrap_readiness import (
+    build_runtime_model_provider_scope,
     build_runtime_operational_readiness,
     load_runtime_self_health_catalog,
 )
@@ -120,7 +120,6 @@ from fdai.runtime.stewardship_merge_effects import StewardshipMergeEffectsWorker
 from fdai.runtime.task_workers import bind_task_workers
 from fdai.runtime.venue import ExecutionVenue, resolve_execution_venue
 from fdai.shared.contracts.models import ResponseOutcome
-from fdai.shared.providers.self_health import SelfHealthObservedProvider
 from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger("fdai.startup")
@@ -625,15 +624,7 @@ async def build_core_runtime(
     )
     self_health_catalog = load_runtime_self_health_catalog()
     embedding_model = container.require_llm_bindings().embedding_model
-    adapter_health_source = (
-        embedding_model.self_health_exporter(
-            maximum_age_seconds=self_health_catalog.policies[
-                SelfHealthSignalName.ADAPTER_HEALTHCHECK
-            ].maximum_age_seconds
-        )
-        if isinstance(embedding_model, SelfHealthObservedProvider)
-        else None
-    )
+    model_provider_scope = build_runtime_model_provider_scope(container, self_health_catalog)
     readiness = build_startup_readiness_runtime(
         state_store=state_store,
         event_bus=messaging.operational_bus,
@@ -655,7 +646,7 @@ async def build_core_runtime(
         liveness=resources.health_server.is_live if resources.health_server is not None else None,
         runtime_policy=runtime_values,
         startup_duration_source=resources.startup_duration_source,
-        adapter_health_source=adapter_health_source,
+        model_provider_scope=model_provider_scope,
     )
     startup_report = await readiness.evaluate()
     _LOGGER.info(

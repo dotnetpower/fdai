@@ -1,7 +1,7 @@
 ---
 title: 사용자 RBAC와 Entra 아이덴티티
 translation_of: user-rbac-and-identity.md
-translation_source_sha: 49f1147d5f4e8fcaba0e638da6020d275c5971a3
+translation_source_sha: 8d475384b33100c3e251ca59ac0289b41864c480
 translation_revised: 2026-10-19
 ---
 
@@ -10,7 +10,7 @@ translation_revised: 2026-10-19
 이 문서는 `enterprise-identity-governance` 추가 기능을 선택했을 때 **사람 사용자**가
 Console, ChatOps 및 catalog-as-code 저장소에서 인증, 인가 및 감사되는 방법을 설명합니다.
 헤드리스 관찰 우선 기본값은 Entra 앱, FDAI 역할 그룹, Graph 권한 또는 사람 승인 의존성을
-만들지 않습니다. 비인간 신원은 [security-and-identity-ko.md](../architecture/security-and-identity-ko.md)와 [deploy-and-onboard-ko.md](../deployment/deploy-and-onboard-ko.md)에서 다룹니다. Reader 권한의 자체 상태 읽기는 현재 프로세스에 등록된 `t1.embedding` 어댑터 결과를 보고할 수 있지만 전체 모델의 상태나 의미 품질을 뜻하지 않습니다. 프로바이더 관측은 사람의 역할, 승인, 정족수, 실행기 신원, 운영 수락을 부여하지 않습니다. 실제 wheel 및 독립 import 검사는 패키징만 입증합니다.
+만들지 않습니다. 비인간 신원은 [security-and-identity-ko.md](../architecture/security-and-identity-ko.md)와 [deploy-and-onboard-ko.md](../deployment/deploy-and-onboard-ko.md)에서 다룹니다. Reader 권한의 자체 상태 읽기는 변경하지 않은 전체 스냅숏과 별개로 모델 역할 등록 정보를 독립적으로 고정한 타입 지정 `model_provider_scope` 근거를 제공할 수 있습니다. 하위 어댑터 관측으로 전체 어댑터 상태를 Healthy로 만들지 않습니다. 프로바이더 관측은 사람의 역할, 승인, 정족수, 실행기 신원, 운영 수락을 부여하지 않습니다. 실제 wheel 및 독립 import 검사는 패키징만 입증합니다.
 
 *사람* 측면의 P0 blocker "최종 아이덴티티 매핑 (외부 IdP ↔ Entra ↔ Managed Identity)"
 ([security-and-identity-ko.md#open-decisions](../architecture/security-and-identity-ko.md#open-decisions))
