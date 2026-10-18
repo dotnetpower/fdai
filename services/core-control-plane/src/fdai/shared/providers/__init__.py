@@ -104,6 +104,8 @@ from .cost_estimator import (
     resolve_cost_impact_monthly,
 )
 from .cost_governance import (
+    COST_OPTIMIZATION_EVENT_TYPE,
+    COST_SAMPLE_EVENT_TYPE,
     CostAdvisoryProvider,
     CostAnalysisSample,
     CostAnomalyAdvisory,
@@ -113,6 +115,7 @@ from .cost_governance import (
     CostObservationPage,
     CostObservationProvider,
     CostObservationStore,
+    CostOptimizationCandidatePublisher,
     CostPackageActivation,
     CostPackageActivationReader,
     CostSamplePublisher,
@@ -413,6 +416,8 @@ __all__ = [
     "CostEstimate",
     "CostEstimator",
     "CostEstimatorError",
+    "COST_OPTIMIZATION_EVENT_TYPE",
+    "COST_SAMPLE_EVENT_TYPE",
     "CostAdvisoryProvider",
     "CostAnalysisSample",
     "CostAnomalyAdvisory",
@@ -422,6 +427,7 @@ __all__ = [
     "CostObservationPage",
     "CostObservationProvider",
     "CostObservationStore",
+    "CostOptimizationCandidatePublisher",
     "CostPackageActivation",
     "CostPackageActivationReader",
     "CostSamplePublisher",
