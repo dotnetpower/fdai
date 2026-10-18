@@ -1,6 +1,6 @@
 ---
 translation_of: prediction-learning-and-case-history.md
-translation_source_sha: 1088bcbc1c1d110908c0e117eecaaf67ec3cdf73
+translation_source_sha: cb03eec90c71b78a337ade8d00c0e4074b4a4a5b
 translation_revised: 2026-10-18
 ---
 # 예측 학습 및 케이스 히스토리
@@ -259,6 +259,14 @@ lookback 간격에 맞춘 격자 시각마다 한 번씩 예약된 `checkpoint` 
 나열합니다. Console은 이 행의 상태, 모드, 출처, 사유를 표시하며 설정 화면의 선호도 제어는 아직
 없습니다. 구성만으로는 채점이나 실행 권한이 생기지 않으며, 수집한 이력으로 채점을 허용하려면
 독립적인 증명 발급이 여전히 필요합니다.
+
+`unsupported`는 작업 원천의 `limitation`에 들어가는 설명 문자열이며, 새로운 준비 상태 모드나
+결과 enum이 아닙니다. Operator는 기존 런타임 설정 JSON 매핑에 원천별 상세 정보를 그대로
+전달합니다. 현재 Console 디코더는 연동의 표준 상태, 모드, 출처, 사유를 유지하지만 원천별 상세
+정보나 전제 조건 배열은 해석하지 않습니다. 구성이 있으나 준비되지 않은 예측 연동은 **구성 미완료**
+상태와 **관찰** 모드로 표시하며, 확인 지점과 증명을 사용할 수 없다는 사유를 보여 줍니다.
+작업 이력이 없으면 수집기는 `ForecastContextUnavailableError`를 발생시킵니다. 완전한 빈 개입
+구간이나 개입 건수 0을 반환하지 않습니다.
 
 에피소드 종료 기록은 `ForecastOutcome`을 발행하지 않는 경우에도 관측을 전달합니다. Core의
 `core_forecast_closure_observation_20260914` 이행은 비어 있을 수 있는 `closure_observation`

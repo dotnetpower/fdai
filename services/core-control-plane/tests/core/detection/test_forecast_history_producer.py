@@ -669,6 +669,14 @@ async def test_action_audit_history_source_holds_even_with_a_valid_singleton() -
     coverage = [item for batch in store.batches.values() for item in batch.coverage]
     assert len(coverage) == 1 and not coverage[0].complete
     assert coverage[0].evidence_ref
+    consumer = StateTransitionForecastHistoryCollector(
+        store=store,
+        bindings=tuple(reviewed if kind == "actions" else history(kind) for kind in KINDS),
+    )
+    with pytest.raises(
+        ForecastContextUnavailableError, match="source coverage is unverified or stale"
+    ):
+        await consumer.collect(request())
 
 
 async def test_action_audit_history_source_holds_on_hash_mismatch() -> None:

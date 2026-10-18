@@ -265,6 +265,15 @@ renders the row's status, mode, source, and reason; there is no Settings prefere
 Configuration never grants scoring or execution authority, and independent proof issuance remains
 required before collected history can authorize scoring.
 
+`unsupported` is explanatory text in the action source's `limitation`, not a new readiness mode or
+outcome enum. Operator preserves that source detail in the existing runtime-settings JSON mapping.
+The current Console decoder retains the integration's standard status, mode, source, and reason,
+but does not decode the per-source detail or prerequisite arrays. It renders a configured,
+not-ready forecast integration as **Incomplete**, with **Observation** mode and the unavailable
+checkpoint/proof reason. Missing action history makes the collector raise
+`ForecastContextUnavailableError`; it does not return an empty, complete intervention slice or
+a zero-intervention count.
+
 The episode closure carries its observation even when no `ForecastOutcome` is published. The Core
 `core_forecast_closure_observation_20260914` migration adds nullable `closure_observation` metadata.
 New writes retain the observation atomically with closure and the publication outbox; conflicting
