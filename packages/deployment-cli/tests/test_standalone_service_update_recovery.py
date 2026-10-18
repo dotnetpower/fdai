@@ -109,7 +109,15 @@ def test_failed_core_update_allows_one_exact_repair(tmp_path: Path) -> None:
         "schema_version": "fdai.aks-service-update.v1",
         "service": "core-control-plane",
         "operation": operation,
-        "baseline": {},
+        "image": "registry.invalid/core@sha256:" + "1" * 64,
+        "source_commit": "c" * 40,
+        "previous_image": "registry.invalid/core@sha256:" + "2" * 64,
+        "baseline": {
+            "core-control-plane": {
+                "image": "registry.invalid/core@sha256:" + "2" * 64,
+                "source_commit": "b" * 40,
+            }
+        },
     }
     record["update_digest"] = canonical_digest(record)
     context["active_service_update"] = {
@@ -120,6 +128,12 @@ def test_failed_core_update_allows_one_exact_repair(tmp_path: Path) -> None:
     review = {
         "schema_version": "fdai.standalone-application-plan.v1",
         "plan_digest": "d" * 64,
+        "service_update": {
+            "service": "core-control-plane",
+            "image": record["image"],
+            "source_commit": record["source_commit"],
+            "update_digest": record["update_digest"],
+        },
         "summary": {
             "action_counts": {
                 "create": 0,
@@ -162,6 +176,71 @@ def test_failed_core_update_allows_one_exact_repair(tmp_path: Path) -> None:
             service="core-control-plane",
         )
         is None
+    )
+
+
+def test_failed_ordinary_core_update_allows_one_exact_rollback(tmp_path: Path) -> None:
+    tmp_path.chmod(0o700)
+    operation = "service-update-core-control-plane-bbbbbbbbbbbb"
+    record = {
+        "schema_version": "fdai.aks-service-update.v1",
+        "service": "core-control-plane",
+        "operation": operation,
+        "image": "registry.invalid/core@sha256:" + "1" * 64,
+        "source_commit": "c" * 40,
+        "previous_image": "registry.invalid/core@sha256:" + "2" * 64,
+        "baseline": {
+            "core-control-plane": {
+                "image": "registry.invalid/core@sha256:" + "2" * 64,
+                "source_commit": "b" * 40,
+            }
+        },
+    }
+    record["update_digest"] = canonical_digest(record)
+    context = {
+        "source_commit": "b" * 40,
+        "active_service_update": {
+            "operation": operation,
+            "service": "core-control-plane",
+            "update_digest": record["update_digest"],
+        },
+    }
+    review = {
+        "schema_version": "fdai.standalone-application-plan.v1",
+        "plan_digest": "d" * 64,
+        "service_update": {
+            "service": "core-control-plane",
+            "image": record["image"],
+            "source_commit": record["source_commit"],
+            "update_digest": record["update_digest"],
+        },
+        "summary": {
+            "action_counts": {
+                "create": 0,
+                "delete": 0,
+                "no-op": 1,
+                "read": 0,
+                "replace": 0,
+                "update": 1,
+            }
+        },
+    }
+    claim = {
+        "schema_version": "fdai.standalone-application-claim.v1",
+        "stage": "application",
+        "plan_digest": review["plan_digest"],
+    }
+    _write(tmp_path / f"{operation}.json", record)
+    _write(tmp_path / f"{operation}-review.json", review)
+    _write(tmp_path / f"{operation}-claim.json", claim)
+
+    assert (
+        failed_core_update_repair_digest(
+            tmp_path,
+            context,
+            service="core-control-plane",
+        )
+        == record["update_digest"]
     )
 
 

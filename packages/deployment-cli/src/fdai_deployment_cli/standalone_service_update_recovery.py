@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from fdai_deployment_cli.aks_service_update import validate_plan_scope
+from fdai_deployment_cli.aks_service_update import service_update_review, validate_plan_scope
 from fdai_deployment_cli.contracts import canonical_digest
 from fdai_deployment_cli.standalone_host_state import private_json
 
@@ -119,8 +119,6 @@ def failed_core_update_repair_digest(
 ) -> str | None:
     """Return one exact failed Core update digest eligible for a single repair."""
 
-    if not partial_core_update_admissible(work_dir, context, service=service):
-        return None
     active = context.get("active_service_update")
     operation = active.get("operation") if isinstance(active, dict) else None
     if (
@@ -148,6 +146,21 @@ def failed_core_update_repair_digest(
     digest = record.get("update_digest")
     document = {key: value for key, value in record.items() if key != "update_digest"}
     counts = review.get("summary", {}).get("action_counts")
+    baseline = record.get("baseline")
+    previous = baseline.get("core-control-plane") if isinstance(baseline, dict) else None
+    ordinary_update = (
+        isinstance(counts, dict)
+        and counts.get("update") == 1
+        and counts.get("replace") == 0
+        and counts.get("delete") == 0
+    )
+    partial_replacement = (
+        partial_core_update_admissible(work_dir, context, service=service)
+        and isinstance(counts, dict)
+        and counts.get("replace") == 1
+        and counts.get("update") == 0
+        and counts.get("delete") == 0
+    )
     return (
         str(digest)
         if isinstance(digest, str)
@@ -155,15 +168,16 @@ def failed_core_update_repair_digest(
         and digest == canonical_digest(document)
         and record.get("schema_version") == "fdai.aks-service-update.v1"
         and record.get("service") == "core-control-plane"
+        and isinstance(previous, dict)
+        and previous.get("image") == record.get("previous_image")
+        and isinstance(previous.get("source_commit"), str)
+        and review.get("service_update") == service_update_review(record)
         and record.get("superseded_update_digest") is None
         and review.get("schema_version") == "fdai.standalone-application-plan.v1"
         and review.get("plan_digest") == claim.get("plan_digest")
         and claim.get("schema_version") == "fdai.standalone-application-claim.v1"
         and claim.get("stage") == "application"
-        and isinstance(counts, dict)
-        and counts.get("replace") == 1
-        and counts.get("update") == 0
-        and counts.get("delete") == 0
+        and (ordinary_update or partial_replacement)
         else None
     )
 
