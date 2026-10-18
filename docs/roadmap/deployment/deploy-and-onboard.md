@@ -16,24 +16,17 @@ Azure focus: this document targets an Azure subscription. Non-Azure providers ar
 ## Separate Hub development validation
 
 Use the vendor's [Release Hub root](../../../infra/release-hub/README.md) or the customer's [Lifecycle Hub root](../../../infra/lifecycle-hub/README.md).
-Each owns its UI/API, private PostgreSQL, supporting resources and state without peer-Hub inputs.
-Explicit durable private local backends preserve existing state; a separately reviewed remote backend is optional.
-Login/catalog bindings aren't needed for migration, health/readiness or static UI, even with zero
-Entra app registrations. Management stays unavailable until authentication is configured; this
-isn't anonymous management or another FDAI installation path. The [single-product procedure](../../../infra/modules/hub-service/README.md)
-covers immutable images, state preservation and native Terraform/Azure CLI execution.
+Each owns its UI/API, private PostgreSQL, resources and state without peer inputs; explicit durable private local backends retain state, with reviewed remote backends optional.
+Login/catalog bindings aren't needed for migration, health/readiness or static UI, even without Entra registrations. Management requires authentication; no anonymous APIs are enabled.
+The [single-product procedure](../../../infra/modules/hub-service/README.md) covers immutable images, state preservation and native Terraform/Azure CLI execution.
 
-For an existing running Hub, retain its approved serving digest through `app_image` while
-`image` selects the new migration candidate. Keep the existing apps and migration Jobs enabled.
-After a succeeded manual migration and independent schema observation, use a new reviewed,
-sealed activation plan with `app_image=null`. Omitting the override preserves single-image
-startup. The procedure retains complete Job checks and globally zero-change dispatch plans;
-it does not bypass state ownership, authentication or approval.
+For running Hubs, `app_image` retains the approved serving digest while `image` selects the migration candidate; keep existing apps and migration Jobs enabled.
+After manual migration succeeds and independent schema observation passes, activate with `app_image=null` in a new reviewed, sealed plan; omission preserves single-image defaults.
+Complete Job checks, globally zero-change dispatch plans, state ownership, authentication and approval remain required.
 
-The unchanged [legacy paired fixture](../../../infra/hubs-development/README.md) retains separate networks, own
-identities/keys, migrations, Entra operator/service boundaries and catalog-pin approval for existing state owners.
-Neither product requires it; it replaces neither FDAI installer. Local/static checks don't prove Azure network/RBAC isolation,
-Entra/MI, registry architecture, replica durability or deployment: use an authorized live scope. Agent apply and full FDAI installation remain excluded.
+The unchanged [legacy paired fixture](../../../infra/hubs-development/README.md) retains separate networks, identities/keys, migrations, Entra operator/service boundaries and catalog-pin approval for current state owners.
+Neither product requires the fixture; neither replaces an FDAI installer. Local/static checks don't prove Azure network/RBAC isolation, Entra/MI, registry architecture, replica durability or deployment.
+Use an authorized live scope for those receipts; Agent apply and full FDAI installation remain excluded.
 
 ## Prerequisites
 
