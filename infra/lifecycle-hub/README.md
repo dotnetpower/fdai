@@ -27,6 +27,12 @@ ROOT=infra/lifecycle-hub
 TARGET=target
 ```
 
+For an existing running Hub, follow the
+[staged upgrade procedure](../modules/hub-service/README.md#upgrade-an-existing-running-hub).
+Keep `image` on the new candidate and temporarily set `app_image` to the approved existing
+serving digest. After verified migration, set `app_image=null` to activate the candidate.
+Omitting `app_image` preserves the existing single-image behavior.
+
 Omit `catalog` until you explicitly connect an approved source. No remote directory lookup or
 catalog request occurs at standalone startup. Catalog operations report unavailable.
 After standalone migration, use the explicit `bind-catalog --actor ... --reason ...` application
