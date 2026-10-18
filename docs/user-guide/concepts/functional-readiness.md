@@ -149,7 +149,7 @@ inputs or prove production savings.
 | Accumulate the W7 operating cohort | Installation owner and protected campaign | 30 distinct days, at least 100 eligible samples and the declared recurrence window |
 | Complete independent target review | Six independent human reviewers | Six attributed reviews over the exact target package and evidence set |
 | Perform the production package cutover | Release and deployment owner | Activated package revision, inert Core facade removal and rollback/readback receipts |
-| Create successors for retired #903/#904 | FDAI maintainer | New issue ids with exact W7 acceptance criteria before resuming promotion work |
+| Complete the successor W7 cohort and independent target reviews | FDAI maintainer, installation owner and six independent reviewers | [W7 cohort #2207](https://github.com/dotnetpower/fdai/issues/2207) and [target reviews #2208](https://github.com/dotnetpower/fdai/issues/2208) closed with exact-revision campaign evidence and six separate attributable decisions |
 | Run the optional campaign-export PostgreSQL test | Local validation owner | Dedicated validation DSN and passing exporter persistence test; this doesn't replace live evidence |
 
 ## F08. Actions and workflows
