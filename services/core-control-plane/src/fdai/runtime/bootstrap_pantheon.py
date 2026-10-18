@@ -60,7 +60,6 @@ from fdai.runtime.aks_commerce import (
     chain_acceptance_observer,
 )
 from fdai.runtime.approval_policy import approver_authorizer_from_environment
-from fdai.runtime.bootstrap_architecture_review import build_architecture_review_loop
 from fdai.runtime.bootstrap_capacity_sampling import build_capacity_sampler
 from fdai.runtime.bootstrap_chaos_schedule import build_chaos_schedule
 from fdai.runtime.bootstrap_cost_governance import (
@@ -69,12 +68,13 @@ from fdai.runtime.bootstrap_cost_governance import (
     pantheon_enforce_enabled,
 )
 from fdai.runtime.bootstrap_pantheon_evidence import build_reviewed_pantheon_evidence
-from fdai.runtime.bootstrap_pantheon_learning import (
-    bind_post_turn_learning as _bind_post_turn_learning,
-)
 from fdai.runtime.bootstrap_pantheon_models import (
     PantheonInitialization,
     PantheonInitializationResult,
+)
+from fdai.runtime.bootstrap_support.architecture_review import build_architecture_review_loop
+from fdai.runtime.bootstrap_support.learning import (
+    bind_post_turn_learning as _bind_post_turn_learning,
 )
 from fdai.runtime.bootstrap_thor_bindings import build_thor_execution_bindings
 from fdai.runtime.case_history import (
