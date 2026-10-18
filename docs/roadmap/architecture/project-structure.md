@@ -902,11 +902,9 @@ CI pipeline plus the local pre-push hook. Corresponding docs in
 
 ## Customization via Dependency Injection
 
-Var's optional `CloudApplicationAuthorizationSource` reads exact administrative human policy and
-request records from the separately configured document database. The API owns those input
-tables; Var owns the approval topic, Saga audit and Muninn indexing remain independent, and
-worker visibility rechecks the same policy through a transaction fence. Missing bindings reject
-the explicit requester-policy lane without changing the manual default or granting Thor authority.
+Var's optional `CloudApplicationAuthorizationSource` reads exact human policy/request inputs from the separate document database.
+API owns inputs; Var approves, Saga audits and Muninn indexes. Worker visibility fences the same policy.
+Missing sources reject the explicit lane; manual defaults and Thor authority remain unchanged.
 
 The Ingestion API injects its service-owned `SourceDownloadAuthorizer` into
 `GovernedDocumentDownload`; only the configured purpose-specific protection provider supplies
