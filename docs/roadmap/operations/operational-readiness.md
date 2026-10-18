@@ -207,7 +207,8 @@ adds a thin coordinator plus one normalized signal.
 | `fdai-service-contracts/readiness_remediation` | define the content-addressed, no-authority shadow request and its generated JSON Schema |
 | `core/control_loop/readiness_remediation` | validate the exact event source, ActionType trigger and arguments, and active ontology release digest; invoke the unified risk gate without dispatch |
 | `runtime/consumers.py` and bootstrap | validate and deduplicate canonical `ownership_transfer` events, invoke the Forseti-accountable review after startup readiness, and dead-letter malformed payloads |
-| delivery intent | a fork binds `ReadinessReportPublisher` to a Checks API annotation / console `ReadPanel`, and binds `RemediationProposalPublisher` to a producer that supplies a complete typed remediation request |
+| `runtime/bootstrap_readiness.py` | when the complete posture/report pair is active, select the upstream EventBus remediation adapter from the active ontology release and active Rule remediation declarations; an incomplete release or empty lever map leaves remediation unavailable |
+| delivery intent | a fork binds `ReadinessReportPublisher` to a Checks API annotation / console `ReadPanel`; Core selects the upstream `RemediationProposalPublisher` mechanically and the deployment still supplies no approval, promotion, or execution authority through that selection |
 
 The coordinator imports only `shared/` contracts and providers, like every other
 core subsystem ([project-structure.md](../architecture/project-structure.md#module-boundaries)).

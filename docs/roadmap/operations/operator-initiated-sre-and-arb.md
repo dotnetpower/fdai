@@ -8,7 +8,10 @@ This plan defines how FDAI identifies operational work that is not an incident, 
 operator's SRE request into a governed incident response, and runs the Architecture Review Board
 (ARB) process as an observable workflow. It also defines the safety boundary for shadow and
 enforce operation in both local and deployed environments. Consumers import typed proposal claims from the focused persistence-model owner without changing Incident lifecycle ownership.
-Core bootstrap may pass a complete ORR remediation publisher-and-lever pair into the readiness service. That DI does not create an Incident, approve an ARB decision, or grant action authority.
+When the complete ORR posture/report pair is active, Core bootstrap derives the remediation
+publisher-and-lever pair from the active ontology release and active Rule declarations. The
+binding remains unavailable when either identity is incomplete. This mechanical selection does
+not create an Incident, approve an ARB decision, promote an ActionType, or grant action authority.
 
 > **Scope:** This design reuses the existing incident registry, typed action pipeline, Process
 > journal, risk gate, and executor adapters. It does not add a console-owned executor or a second

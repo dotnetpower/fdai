@@ -1,8 +1,8 @@
 ---
 title: 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 translation_of: operational-readiness.md
-translation_source_sha: ad0e1d69111c100ddfbd3b199cad292941d39abc
-translation_revised: 2026-10-15
+translation_source_sha: 62fe0fbbed7989275744d9f21b57444856bd5971
+translation_revised: 2026-10-18
 ---
 # 운영 준비성 리뷰 (dev-to-ops 핸드오프 게이트)
 
@@ -210,7 +210,8 @@ ORR 은 새로운 특권 표면을 도입하지 않고 최소한의 새 코드�
 | `fdai-service-contracts/readiness_remediation` | 내용 주소 기반이며 권한을 부여하지 않는 shadow 요청과 생성된 JSON Schema를 정의 |
 | `core/control_loop/readiness_remediation` | 정확한 이벤트 출처, ActionType 트리거와 인자, 활성 온톨로지 릴리스 다이제스트를 검증하고 실행 없이 통합 risk-gate를 호출 |
 | `runtime/consumers.py` 및 부트스트랩 | 표준 `ownership_transfer` 이벤트를 검증하고 중복을 제거한 뒤 시작 준비 상태 이후 Forseti가 최종 책임을 지는 검토를 호출하며, 잘못된 페이로드는 배달 못 한 메시지 큐로 보냅니다. |
-| 전달 의도 | 포크가 `ReadinessReportPublisher`를 Checks API annotation / 콘솔 `ReadPanel`에 연결하고, `RemediationProposalPublisher`는 완전한 타입 지정 교정 요청을 만드는 게시자에 연결 |
+| `runtime/bootstrap_readiness.py` | 완전한 자세/보고 쌍이 활성화되면 활성 온톨로지 릴리스와 활성 Rule 교정 선언을 바탕으로 업스트림 EventBus 교정 어댑터를 선택합니다. 릴리스가 불완전하거나 레버 맵이 비어 있으면 교정 기능은 사용할 수 없는 상태로 유지됩니다. |
+| 전달 의도 | 포크는 `ReadinessReportPublisher`를 Checks API 주석 또는 Console `ReadPanel`에 연결합니다. Core는 업스트림 `RemediationProposalPublisher`를 기계적으로 선택하지만, 배포는 이 선택을 통해 승인, 승격 또는 실행 권한을 제공하지 않습니다. |
 
 조정기는 다른 모든 코어 하위 시스템처럼 `shared/` 계약과 프로바이더만
 가져옵니다([project-structure.md](../architecture/project-structure-ko.md#module-boundaries)).
