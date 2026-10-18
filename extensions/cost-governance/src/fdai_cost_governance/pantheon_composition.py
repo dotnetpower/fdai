@@ -185,6 +185,22 @@ def compose_njord_reinjection_candidate(
     evidence_refs = candidate.get("evidence_refs")
     if not isinstance(evidence_refs, list):
         raise ValueError("optimization reinjection evidence refs are invalid")
+    target_revision_ref = f"optimization-target-revision:{request.target_revision_digest}"
+    if target_revision_ref not in evidence_refs:
+        raise ValueError("optimization reinjection target revision is not pinned")
+    original_observed_at = candidate.get("observed_at")
+    if not isinstance(original_observed_at, str):
+        raise ValueError("optimization reinjection source time is invalid")
+    try:
+        original_observed = datetime.fromisoformat(original_observed_at.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError("optimization reinjection source time is invalid") from exc
+    if (
+        original_observed.tzinfo is None
+        or original_observed.utcoffset() is None
+        or reevaluated_at < original_observed
+    ):
+        raise ValueError("optimization reinjection MUST NOT move evidence time backward")
     attestation_digest = _attestation_digest(attestation)
     lineage = list(
         dict.fromkeys(
