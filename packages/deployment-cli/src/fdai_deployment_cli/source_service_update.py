@@ -70,20 +70,6 @@ def deploy_source_service_update(
     lock = _lock(work)
     try:
         development_authority_profile_path: Path | None = None
-        if development_authority_profile is not None:
-            development_authority_profile_path = work / "development-authority-profile.json"
-            profile_bytes = development_authority_profile.profile_json.encode("utf-8")
-            if development_authority_profile_path.exists():
-                if (
-                    read_private_bytes(
-                        development_authority_profile_path,
-                        max_bytes=256 * 1024,
-                    )
-                    != profile_bytes
-                ):
-                    raise ValueError("retained development authority profile differs")
-            else:
-                write_private_bytes(development_authority_profile_path, profile_bytes)
         adoption_inputs = (
             adopt_historical_binding,
             adopt_historical_state,
@@ -225,6 +211,20 @@ def deploy_source_service_update(
                 work / "source-snapshot-receipt.json",
                 canonical_bytes({"snapshot_digest": snapshot_digest}),
             )
+        if development_authority_profile is not None:
+            development_authority_profile_path = work / "development-authority-profile.json"
+            profile_bytes = development_authority_profile.profile_json.encode("utf-8")
+            if development_authority_profile_path.exists():
+                if (
+                    read_private_bytes(
+                        development_authority_profile_path,
+                        max_bytes=256 * 1024,
+                    )
+                    != profile_bytes
+                ):
+                    raise ValueError("retained development authority profile differs")
+            else:
+                write_private_bytes(development_authority_profile_path, profile_bytes)
         source.reverify()
         image = _build_image(
             snapshot=snapshot,
