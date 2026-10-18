@@ -1,8 +1,8 @@
 ---
 title: 배포와 온보딩(Deploy and Onboard)
 translation_of: deploy-and-onboard.md
-translation_source_sha: 306dcfa7a4949ee05c47eb3fa15273227b7cf3bf
-translation_revised: 2026-10-18
+translation_source_sha: f98d1ac4731a84ad705c42e8b2ffcd3d769531ed
+translation_revised: 2026-10-19
 ---
 # 배포와 온보딩(Deploy and Onboard)
 Azure 구독에 FDAI를 프로비저닝하고 첫 온보딩을 완료해 관측을 시작할 준비를 하는 방법을 설명합니다. 이 문서는 **구체적인 배포 인벤토리, 부트스트랩 순서, 배포판과 설치 환경의 책임 분리**를 정의하는 기준 원본입니다. 배포 수명 주기(CI/CD, 점진적 전달, 롤백, DR)는 [deployment-ko.md](deployment-ko.md)에서 다룹니다.

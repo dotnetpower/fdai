@@ -15,24 +15,18 @@ Azure focus: this document targets an Azure subscription. Non-Azure providers ar
 > presentation progress as deployment readiness.
 ## Separate Hub development validation
 
-For independent product startup, use the vendor's [Release Hub root](../../../infra/release-hub/README.md)
-or the customer's [Lifecycle Hub root](../../../infra/lifecycle-hub/README.md). Each owns only its
-bundled UI/API, private PostgreSQL and supporting resources, with a separate state and no peer
-Hub input. Native local backends preserve existing local state at explicit durable private paths;
-a separately reviewed remote backend is optional. Login and catalog bindings aren't startup
-prerequisites: migration, health/readiness and static UI work without Entra app registrations,
-while management APIs remain unavailable until authentication is configured. This is not
-anonymous management functionality or a new FDAI installation path. Follow the
-[single-product procedure](../../../infra/modules/hub-service/README.md) for immutable images,
-state preservation and native Terraform/Azure CLI execution.
+Use the vendor's [Release Hub root](../../../infra/release-hub/README.md) or the customer's [Lifecycle Hub root](../../../infra/lifecycle-hub/README.md).
+Each owns its UI/API, private PostgreSQL, supporting resources and state without peer-Hub inputs.
+Explicit durable private local backends preserve existing state; a separately reviewed remote backend is optional.
+Login/catalog bindings aren't needed for migration, health/readiness or static UI, even with zero
+Entra app registrations. Management stays unavailable until authentication is configured; this
+isn't anonymous management or another FDAI installation path. The [single-product procedure](../../../infra/modules/hub-service/README.md)
+covers immutable images, state preservation and native Terraform/Azure CLI execution.
 
-The [legacy paired fixture](../../../infra/hubs-development/README.md) remains unchanged for
-existing state owners. Its guide retains the separate networks, own managed identities and keys,
-explicit migrations, Entra operator/service boundaries and independent catalog-pin approval.
-It is not a prerequisite for either independent product or a replacement for either FDAI installer.
-Local container/static Terraform evidence doesn't prove Azure network/RBAC isolation, Entra/MI,
-registry architecture, replica durability or successful deployment; those need an authorized live
-scope. Agent apply and complete FDAI installation remain excluded.
+The unchanged [legacy paired fixture](../../../infra/hubs-development/README.md) retains separate networks, own
+identities/keys, migrations, Entra operator/service boundaries and catalog-pin approval for existing state owners.
+Neither product requires it; it replaces neither FDAI installer. Local/static checks don't prove Azure network/RBAC isolation,
+Entra/MI, registry architecture, replica durability or deployment: use an authorized live scope. Agent apply and full FDAI installation remain excluded.
 
 ## Prerequisites
 
