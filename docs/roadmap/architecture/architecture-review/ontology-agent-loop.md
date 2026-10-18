@@ -90,7 +90,11 @@ or escalate.
 Slow or failed subscribers do not block unrelated work. The owner of the join records an explicit
 missing or late branch instead of interpreting silence as success.
 
-The current runtime binding keeps this boundary observation-only. A dedicated non-agent consumer
+The current runtime binding keeps this boundary observation-only. Core selects Forseti's review
+loop only when composition supplies a complete authenticated context/evidence provider pair and an
+ontology instance store. The deployment StateStore atomically retains the Change idempotency
+identity and projection status across replicas; a restart after an incomplete projection holds
+instead of re-evaluating the same identity against newer evidence. A dedicated non-agent consumer
 group reads owned `object.change`, `object.state-snapshot`, specialist, `object.verdict`, and
 `object.audit-entry` topics, replays the immutable `ArchitectureReviewObservationTrace`, and
 retains terminal observer `gave_up`/`halted` states as degradation evidence. It does not call
@@ -156,7 +160,7 @@ Every displayed state links to the exact `Change`, context digest, evidence bund
 | Planned-change assessment now falls back to `ChangeGraphEvidenceReceipt.unavailable()` | Wire the receipt from the exact `OperationalContextSnapshot` so planned-change review carries an authenticated graph revision, release match, freshness, and truncation state |
 | Workflow parallel branches journal caller-supplied outcomes | Drive branches from agent-owned typed evidence and record explicit deadlines |
 | ARB projection reads manifest status directly | Derive `ReviewCase` and `ReviewCheck` from decision lineage and verified evidence |
-| `OperationalEvidenceBundle` and scenario branches are not composed into ARB | Bind them before Forseti creates the review `DecisionCase` |
+| The provider-neutral bundle/scenario/case/envelope path is composed, but runtime activation still depends on deployment-supplied authenticated context and evidence sources | Bind those exact production sources and retain one governed observation receipt |
 | Operating intent instances are not proven end to end | Project service, recovery, cost, ownership, constraint, and change-window instances with freshness |
 | The ARB trace runtime binding currently covers only the emitted owned topics | Extend owned records for context, evidence bundle, impact envelope, recommendation, and the derived `ReviewCase` projection so the observation-only runtime trace can close the full first vertical slice without synthesizing missing stages |
 

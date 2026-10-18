@@ -81,6 +81,14 @@ class ArchitectureReviewEvidenceSource(Protocol):
     ) -> ArchitectureReviewEvidence: ...
 
 
+@dataclass(frozen=True, slots=True)
+class ArchitectureReviewSources:
+    """One complete injected context and evidence source pair."""
+
+    context: ArchitectureReviewContextSource
+    evidence: ArchitectureReviewEvidenceSource
+
+
 class ArchitectureReviewStateStore(Protocol):
     """Persist completed observation results for duplicate and restart safety."""
 
@@ -774,6 +782,7 @@ __all__ = [
     "ArchitectureReviewEvidence",
     "ArchitectureReviewEvidenceSource",
     "ArchitectureReviewEvidenceUnavailableError",
+    "ArchitectureReviewSources",
     "ArchitectureReviewObservation",
     "ArchitectureReviewObservationSink",
     "ArchitectureReviewObservationOutbox",

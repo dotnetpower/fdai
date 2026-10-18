@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: 6b9cb2ff5de351102a1d93d57cbcbc2594d26b75
-translation_revised: 2026-10-16
+translation_source_sha: b80016edb93b4d420d01da27b4cfd4fb50a53e9f
+translation_revised: 2026-10-18
 ---
 # 에이전트 판테온
 
@@ -220,7 +220,7 @@ Azure 파싱, 개별 보강, 영속 인벤토리 변환은 주입된 전달 책�
 Huginn 상태는 discovery projection 결속 여부를 보고하고, 배포가 관측값을 제공할 때까지 전달 소유 cursor, backpressure 및 source-health 신호를 `not_observed`로 표시합니다. 관측값이 없는 상태를 정상 근거로 보고하지 않습니다.
 
 15개 에이전트는 조립을 통해 SRE, ARB, FinOps를 담당합니다. 에이전트가 아닌 관찰 소비자는 소유 토픽의 재생/상태 근거를 보존할 수 있지만 판테온에 참여하거나 소유 객체를 게시하거나 판단, 승인, 실행하지 않습니다 (§6, §6.4, §7.6).
-Forseti의 관찰 모드 ARB 실패 기록은 맥락/근거 수집 실패에도 전체 Change 다이제스트를 보존합니다. 보류는 재생 가능하며 알 수 없는 의존성에서 승인이나 실행 권한을 얻지 않습니다.
+Forseti의 관찰 모드 ARB 실패 기록은 맥락/근거 수집 실패에도 전체 Change 다이제스트를 보존합니다. Core 런타임은 완전한 컨텍스트/근거 출처 쌍이 주입되었을 때만 루프를 제공하고, 배포 StateStore에 멱등성과 변환 경계를 유지하며, 중단된 변환은 재시작 후 명시적인 보류로 낮춥니다. 보류는 재생 가능하며 알 수 없는 의존성에서 승인이나 실행 권한을 얻지 않습니다.
 
 ### 4.1 Per-agent 작업 인벤토리
 

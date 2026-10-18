@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 ARB 에이전트 루프
 translation_of: ontology-agent-loop.md
-translation_source_sha: 292100ef1060647d0ca550b7691294152660486a
-translation_revised: 2026-08-31
+translation_source_sha: 091caaf1ea04960300167ea697d72c6ef7d59632
+translation_revised: 2026-10-18
 ---
 # 온톨로지 기반 ARB 에이전트 루프
 
@@ -92,7 +92,11 @@ ARB 읽기 모델은 에이전트가 소유한 레코드에서 파생됩니다. 
 느리거나 실패한 구독자는 관련 없는 작업을 막지 않습니다. 결합 책임자는 침묵을 성공으로
 해석하지 않고 누락되거나 늦은 분기를 명시적으로 기록합니다.
 
-현재 런타임 연결도 이 경계를 관찰 전용으로 유지합니다. 에이전트가 아닌 전용 소비자 그룹이
+현재 런타임 연결도 이 경계를 관찰 전용으로 유지합니다. Core는 조합에서 완전한
+인증 컨텍스트/근거 프로바이더 쌍과 온톨로지 인스턴스 저장소를 제공할 때만 Forseti의
+검토 루프를 선택합니다. 배포 StateStore는 여러 복제본에서 Change 멱등성 신원과
+변환 상태를 원자적으로 보존합니다. 변환이 끝나지 않은 채 재시작하면 같은 신원을 더
+최신인 근거로 다시 평가하지 않고 보류합니다. 에이전트가 아닌 전용 소비자 그룹이
 소유된 `object.change`, `object.state-snapshot`, 전문 에이전트 토픽, `object.verdict`,
 `object.audit-entry`를 읽고 변경할 수 없는 `ArchitectureReviewObservationTrace`를 재생하며,
 종료된 관찰자의 `gave_up`/`halted` 상태를 성능 저하 근거로 보존합니다. 이 연결은 에이전트를
@@ -157,7 +161,7 @@ Console은 하나의 녹색 또는 빨간색 상태 대신 다음 축을 별도�
 | 계획된 변경 평가가 이제 `ChangeGraphEvidenceReceipt.unavailable()`로 대체됩니다. | 정확한 `OperationalContextSnapshot`에서 증적을 연결해 계획된 변경 검토가 인증된 그래프 개정, 릴리스 일치 여부, 최신성, 잘림 상태를 함께 전달하도록 만듭니다. |
 | 워크플로 병렬 분기가 호출자가 제공한 결과를 기록합니다. | 에이전트가 소유한 형식화된 근거로 분기를 구동하고 기한을 명시적으로 기록합니다. |
 | ARB 변환 결과가 매니페스트 상태를 직접 읽습니다. | 결정 계보와 검증된 근거에서 `ReviewCase`와 `ReviewCheck`를 파생합니다. |
-| `OperationalEvidenceBundle`과 시나리오 분기가 ARB에 구성되지 않았습니다. | Forseti가 검토 `DecisionCase`를 만들기 전에 두 기반을 연결합니다. |
+| 프로바이더 중립적인 묶음/시나리오/케이스/영향 범위 경로는 구성되었지만 런타임 활성화에는 배포에서 제공하는 인증 컨텍스트 및 근거 출처가 필요합니다. | 정확한 프로덕션 출처를 연결하고 거버넌스가 적용된 관찰 증적 하나를 보존합니다. |
 | 운영 의도 인스턴스가 전체 경로에서 입증되지 않았습니다. | 서비스, 복구, 비용, 담당 체계, 제약 조건, 변경 구간 인스턴스와 최신성을 변환합니다. |
 | ARB 추적 런타임 연결은 현재 실제로 게시되는 소유 토픽만 다룹니다. | 관찰 전용 런타임 추적이 누락 단계를 합성하지 않고 첫 번째 수직 경로를 닫을 수 있도록 context, evidence bundle, impact envelope, recommendation, 파생 `ReviewCase` 변환 결과에 대한 소유 레코드를 확장합니다. |
 

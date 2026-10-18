@@ -6,7 +6,10 @@ import asyncio
 import logging
 from dataclasses import replace
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any, cast
+
+import yaml
 
 from fdai.agents import (
     Heimdall,
@@ -17,6 +20,10 @@ from fdai.agents import (
     VarKillSwitchRequestHandler,
 )
 from fdai.composition.operational_evidence_binding import build_test_context_command_handler
+from fdai.core.architecture_review import (
+    ArchitectureReviewProjector,
+    OntologyArchitectureReviewLoop,
+)
 from fdai.core.capacity import CapacityGraduationController
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.impact_analysis import ChangeAssessmentService, ImpactAnalyzer
@@ -45,6 +52,9 @@ from fdai.delivery.persistence import (
     PostgresCaseHistoryMetadataStore,
     PostgresCaseHistoryMetadataStoreConfig,
     StateStoreSemanticFeedbackCandidateStore,
+)
+from fdai.delivery.persistence.state_store_architecture_review import (
+    StateStoreArchitectureReviewStateStore,
 )
 from fdai.delivery.persistence.state_store_forecast_context import StateStoreForecastContextProvider
 from fdai.delivery.persistence.state_store_model_budget import StateStoreBudgetLedger
@@ -115,6 +125,32 @@ _LOGGER = logging.getLogger("fdai.startup")
 _pantheon_enforce_enabled = pantheon_enforce_enabled
 _runtime_asset_root = bootstrap_agent_discussion._runtime_asset_root
 HUGINN_SCHEMA_LEARNING_ENABLED_ENV = "FDAI_HUGINN_SCHEMA_LEARNING_ENABLED"
+
+
+def _build_architecture_review_loop(
+    config: PantheonInitialization,
+    *,
+    asset_root: Path,
+) -> OntologyArchitectureReviewLoop | None:
+    sources = config.container.architecture_review_sources
+    if sources is None:
+        return None
+    ontology_store = config.control_loop.ontology_instance_store
+    if ontology_store is None:
+        raise RuntimeError("architecture review sources require an ontology instance store")
+    manifest_path = asset_root / "config" / "architecture-review.yaml"
+    try:
+        manifest = yaml.safe_load(manifest_path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as exc:
+        raise RuntimeError("architecture review manifest is unavailable") from exc
+    if not isinstance(manifest, dict):
+        raise RuntimeError("architecture review manifest MUST contain a mapping")
+    return OntologyArchitectureReviewLoop(
+        context_source=sources.context,
+        evidence_source=sources.evidence,
+        state_store=StateStoreArchitectureReviewStateStore(config.incident_audit_store),
+        observation_sink=ArchitectureReviewProjector(ontology_store, manifest),
+    )
 
 
 async def _bind_post_turn_learning(
@@ -276,6 +312,7 @@ async def initialize_pantheon(
         if config.control_loop.ontology_instance_store is not None
         else None
     )
+    architecture_review_loop = _build_architecture_review_loop(config, asset_root=asset_root)
     ontology_release = config.control_loop.ontology_release
     process_store = config.control_loop.process_runtime_store
     effect_model_reader = config.container.effect_model_reader
@@ -658,6 +695,9 @@ async def initialize_pantheon(
         **reviewed_evidence.runtime_kwargs,
     )
     await reviewed_evidence.run_configured_training(pantheon_runtime)
+    cast(Any, pantheon_runtime.agents["Forseti"]).bind_architecture_review_loop(
+        architecture_review_loop
+    )
     cast(Heimdall, pantheon_runtime.agents["Heimdall"]).bind_forecast_history_ingress(
         forecast_context.ingest
     )
