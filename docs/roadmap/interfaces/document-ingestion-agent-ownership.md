@@ -90,9 +90,12 @@ removes a new per-document human decision only for eligible reference content co
 and independently approved policy. Var would verify that existing human authorization for the exact
 request; it would not generate a human review or grant authority to the requester. The intake API
 records the actual requester when the request exists, not a person selected during preparation.
-This policy path is not implemented or promoted. Current per-document approval and no-self-approval
-remain enforced. Sensitive content and promotion into decision-authoritative rules or policies keep
-their own approval requirements.
+The explicit authenticated API lane now binds API-owned administrative policy input through Var's
+independent read of persisted authority; Saga audits the distinct prior-policy basis before Muninn
+indexes. API/worker direct writes cannot replace that owned choreography. Current per-document
+approval remains the default, and no-self-approval stays enforced. Sensitive content and promotion
+into decision-authoritative rules or policies keep their own approval requirements. Local source
+tests are not production promotion evidence.
 
 The `report_line_bootstrap` purpose produces only grounded, review-only person-to-manager
 candidates. One relationship endpoint and an independent Owner must confirm each edge before it
@@ -142,6 +145,7 @@ exact identity and do not fall back to an ambient or system-assigned principal.
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| Exact prior-policy reference application | implemented | #2217; API policy/request inputs, Var persisted read, Saga audit and worker final visibility tests; lifecycle ledger's 670 focused and 24 actual PostgreSQL passes | Existing agent/topic roles are unchanged. Manual remains default; live human policy, service grants and promotion remain separate. |
 | Huginn, Heimdall, Forseti, Saga, Var, and Muninn gate chain | implemented | `services/core-control-plane/tests/agents/test_document_ingestion_agent_chain.py`; `services/core-control-plane/src/fdai/agents/`; document worker audit and index contracts | Focused agent-chain tests prove content-free ingress, verdict, audit, approval, and index-command ownership while Thor ignores non-action document decisions. |
 | Independent ingestion API and processing worker | implemented | `services/document-ingestion-api/`; `services/document-processing-worker/`; `packages/service-contracts/src/fdai_service_contracts/document.py` | Separate packages, entry points, contracts, adapters, and focused service tests preserve mechanical process roles. |
 | Isolated native-PDF parsing | implemented | `services/document-processing-worker/src/fdai_document_worker_service/adapters/pdf_isolation.py`; focused isolation and parser-parity checks | The mechanical worker delegates untrusted native-PDF parsing to a spawned process with resource ceilings. Parser failure returns a typed unsafe-package result and grants no lifecycle or agent authority. |
@@ -153,6 +157,7 @@ exact identity and do not fall back to an ambient or system-assigned principal.
 
 | Date | State | Change | Evidence | Remaining |
 |------|-------|--------|----------|-----------|
+| 2026-10-18 | implemented | Added exact prior-policy authorization through existing Var, Saga and Muninn ownership, preserving no-self-approval and the default manual lane. | `current change`; #2217; lifecycle ledger's focused and real PostgreSQL evidence; strict source typing and layout tests. | Retain actual policy/reviewer, read grants, broker and independent operational promotion receipts. |
 | 2026-10-15 | not-applicable | Clarified bounded asynchronous quality-input retention beside Forseti admission; storage faults preserve the original verdict and never replace document approval, audit or indexing. | `23b1573756`; 176 focused retention and primary-pipeline checks, four-source mypy and Ruff passed. | No document authority changed; deployed identity, transport and recovery evidence remain open. |
 | 2026-08-14 | in-progress | Adopted the implementation ledger; earlier provenance was not reconstructed. | `current change`; agent-chain, core ingestion, service package, and contract evidence listed in the scope table. | Retain exact deployed identity, transport, restart, and authority-ceiling evidence. |
 | 2026-08-27 | implemented | Isolated native-PDF parsing from the long-lived document worker with server-owned wall-time, CPU, address-space, page, and character ceilings. | `current change`; document worker isolation and parser-parity checks. | Deployed identity, transport, restart, and end-to-end agent evidence remain open below. |
@@ -161,6 +166,8 @@ exact identity and do not fall back to an ambient or system-assigned principal.
 ### Remaining work
 
 - [ ] Prove eligible requester application consumes prior independent policy authority through Var and Saga, rejects self-granted or revoked authority, and reaches Muninn plus independent persisted readback before visibility; track the [lifecycle target](cloud-resource-knowledge-lifecycle.md#requester-initiated-application-target).
+  #2217 implements and locally verifies that chain; the remaining evidence is the actual
+  independently approved operating policy, identity/broker binding and promotion receipt.
 - [ ] Retain a governed exact-image receipt proving the API cannot consume worker groups, the worker has only declared receive/send topics, and neither service can obtain Thor's identity or executor roles.
 - [ ] Retain restart, duplicate, reorder, lease-expiry, and reconciliation evidence showing that gated states replay facts only and post-decision work converges on one durable stage claim.
 - [ ] Record one end-to-end protected and one clear document flow from Huginn ingress through Saga audit and either Var approval or Muninn indexing, with no content copied into transport or audit records.

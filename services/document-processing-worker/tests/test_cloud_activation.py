@@ -15,7 +15,7 @@ import sys
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 from types import ModuleType
 from typing import Any, NoReturn, cast
@@ -352,6 +352,34 @@ def _assert_content_free_outbox(runtime: _Runtime) -> None:
             text not in event.model_dump_json()
             for text in ("Raw original", "Premium only.", "Premium v2 uses other requirements.")
         )
+
+
+async def test_legacy_synchronous_cloud_guard_remains_a_valid_provider_seam(
+    runtime: _Runtime,
+) -> None:
+    calls: list[tuple[DocumentVersion, datetime]] = []
+
+    def legacy_guard(version: DocumentVersion, now: datetime) -> None:
+        calls.append((version, now))
+
+    worker = runtime.worker(None)
+    worker._cloud_reference_guard = legacy_guard
+    await worker._check_cloud_reference(runtime.metadata.version)
+    assert calls == [(runtime.metadata.version, NOW)]
+    assert runtime.index.committed == []
+
+
+async def test_legacy_synchronous_cloud_guard_denial_remains_fail_closed(
+    runtime: _Runtime,
+) -> None:
+    def revoked(_version: DocumentVersion, _now: datetime) -> None:
+        raise ValueError("legacy policy revoked")
+
+    worker = runtime.worker(None)
+    worker._cloud_reference_guard = revoked
+    with pytest.raises(ValueError, match="legacy policy revoked"):
+        await worker._check_cloud_reference(runtime.metadata.version)
+    assert runtime.index.committed == []
 
 
 @pytest.mark.parametrize("fault", ["none", "verifier", "scanner_stale", "guard_revoked"])

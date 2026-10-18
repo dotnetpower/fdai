@@ -548,6 +548,8 @@ class HeimdallReadinessRuntimeMixin(_AgentMixinBase):
             "initiator_principal": str(record.get("uploader_id") or ""),
             "failure_code": failure_code,
             "safety_status": safety_status,
+            "cloud_application_policy_requested": record.get("cloud_application_policy_requested")
+            is True,
         }
         self.record_behavior(f"document_safety:{safety_status}")
         if self.bus is not None:

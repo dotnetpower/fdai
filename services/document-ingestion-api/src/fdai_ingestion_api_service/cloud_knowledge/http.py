@@ -4,6 +4,7 @@ from collections.abc import Callable
 from uuid import UUID
 
 from fdai_service_contracts.cloud_knowledge import canonical_bytes
+from fdai_service_contracts.cloud_knowledge_application import CloudApplicationPolicy
 from fdai_service_contracts.cloud_knowledge_package import MAX_PACKAGE_BYTES
 from starlette.requests import Request
 from starlette.responses import JSONResponse, Response
@@ -77,6 +78,7 @@ def cloud_knowledge_routes(
                 collection_id=request.path_params["collection_id"],
                 actor_id=principal.oid,
                 actor_groups=groups(principal),
+                policy_digest=request.path_params.get("policy_digest"),
             ),
             status_code=202,
         )
@@ -104,9 +106,38 @@ def cloud_knowledge_routes(
             return JSONResponse(resolve().inspect(bytes(content)))
         return JSONResponse(
             await resolve().import_package(
-                bytes(content), actor_id=principal.oid, actor_groups=groups(principal)
+                bytes(content),
+                actor_id=principal.oid,
+                actor_groups=groups(principal),
+                policy_digest=request.path_params.get("policy_digest"),
             ),
             status_code=202,
+        )
+
+    async def policy(request: Request) -> Response:
+        principal = authorize(request, (Role.OWNER,))
+        store = resolve().application_store
+        if store is None:
+            raise ValueError("application policy store is unavailable")
+        digest = request.path_params.get("policy_digest")
+        if digest is None:
+            content = bytearray()
+            async for chunk in request.stream():
+                if len(content) + len(chunk) > 65536:
+                    raise ValueError("application policy exceeds the byte limit")
+                content.extend(chunk)
+            proposal = CloudApplicationPolicy.model_validate_json(content)
+            return JSONResponse(
+                {"policy_digest": await store.propose(proposal, actor_id=principal.oid)},
+                status_code=201,
+            )
+        if request.method == "GET":
+            return JSONResponse((await store.get(digest)).model_dump(mode="json"))
+        await store.review(
+            digest, actor_id=principal.oid, revoke=request.url.path.endswith("/revoke")
+        )
+        return JSONResponse(
+            {"status": "revoked" if request.url.path.endswith("/revoke") else "approved"}
         )
 
     return [
@@ -121,4 +152,20 @@ def cloud_knowledge_routes(
         ),
         Route("/ingestion/cloud-knowledge/packages/inspect", package, methods=["POST"]),
         Route("/ingestion/cloud-knowledge/packages/import", package, methods=["POST"]),
+        Route("/ingestion/cloud-knowledge/policies", policy, methods=["POST"]),
+        Route("/ingestion/cloud-knowledge/policies/{policy_digest}", policy, methods=["GET"]),
+        Route(
+            "/ingestion/cloud-knowledge/policies/{policy_digest}/approve", policy, methods=["POST"]
+        ),
+        Route(
+            "/ingestion/cloud-knowledge/policies/{policy_digest}/revoke", policy, methods=["POST"]
+        ),
+        Route(
+            "/ingestion/cloud-knowledge/packages/apply/{policy_digest}", package, methods=["POST"]
+        ),
+        Route(
+            "/ingestion/cloud-knowledge/{collection_id}/apply/{policy_digest}",
+            stage,
+            methods=["POST"],
+        ),
     ]

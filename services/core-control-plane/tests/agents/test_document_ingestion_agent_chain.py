@@ -13,6 +13,43 @@ from fdai.agents.muninn import Muninn
 from fdai.agents.saga import Saga
 from fdai.agents.thor import Thor
 from fdai.agents.var import Var
+from fdai_service_contracts.cloud_knowledge_application import CloudApplicationUnavailableError
+
+
+@pytest.mark.parametrize("source_state", ["missing", "unavailable"])
+async def test_requester_policy_never_falls_back_to_a_manual_self_approval_ticket(
+    source_state: str,
+) -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    var = Var(bus=bus)
+
+    class UnavailableSource:
+        async def authorize(self, **_kwargs):
+            raise CloudApplicationUnavailableError("independent authority database unavailable")
+
+    if source_state == "unavailable":
+        var.bind_cloud_application_source(UnavailableSource())
+    await var.on_typed_message(
+        "object.audit-entry",
+        {
+            "producer_principal": "Saga",
+            "kind": "document_ingestion",
+            "audited_topic": "object.verdict",
+            "stage": "protection_check",
+            "decision": "hil",
+            "reason": "cloud_application_policy_requested",
+            "correlation_id": "upload-policy",
+            "document_id": "document-policy",
+            "upload_id": "upload-policy",
+            "initiator_principal": "requester",
+            "idempotency_key": "inspection-policy",
+        },
+    )
+    assert not var._pending
+    approval = bus.messages_on("object.approval")[0].payload
+    assert approval["state"] == "rejected"
+    assert approval["approvers"] == []
+    assert approval["reason"] == "cloud_application_authority_unavailable"
 
 
 def test_inspected_document_reaches_muninn_without_thor_action() -> None:

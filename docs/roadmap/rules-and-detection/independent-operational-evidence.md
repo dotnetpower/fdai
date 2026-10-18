@@ -22,6 +22,13 @@ owners keep consuming them through the unchanged admission seam.
 > agent's `owns` or `subscribes`, and grants no execution or promotion authority.
 
 ## Design at a glance
+
+Reference-content prior-policy records are a separate authorization input, not an operational
+measurement or a verifier-issued `DecisionEvidenceAdmission`. The API owns policy/request data;
+Var independently reads the exact attributed human authority and Saga audits it before Muninn
+indexing. Those records cannot qualify forecast interventions, case-history reuse or operational
+promotion. See [requester application](../interfaces/cloud-resource-knowledge-lifecycle.md#requester-initiated-application-target).
+
 Explicit Operator discussion adds the separate `agent-discussion-read` purpose. It reuses the
 independent retained authentication-receipt reader, but requires a current human Owner and a
 distinct `agent-discussion.read` grant for one exact `pantheon-installation:` selector. The

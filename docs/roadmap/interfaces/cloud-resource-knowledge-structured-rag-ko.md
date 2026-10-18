@@ -1,7 +1,7 @@
 ---
 translation_of: cloud-resource-knowledge-structured-rag.md
-translation_source_sha: 3469df6a35721d07b0c83e8bfacf67c787fad7c9
-translation_revised: 2026-09-16
+translation_source_sha: 3820add21ddfb716926365992c2a148239186288
+translation_revised: 2026-10-18
 ---
 # 구조화된 클라우드 문서 검색
 
@@ -17,8 +17,9 @@ translation_revised: 2026-09-16
 
 [요청자 직접 적용 목표](cloud-resource-knowledge-lifecycle-ko.md#요청자-직접-적용-목표)는 적격 참조
 갱신마다 새 승인자를 확보하는 대신 독립적으로 승인된 내용 정책을 사용합니다. v2/v3에 같은
-원칙을 적용하며 아직 미구현입니다. 독립적인 원문 및 답변 품질 검증을 대체하지 않으며,
-요청자가 자신의 승인 권한을 제공할 수는 없습니다.
+원칙을 적용하며 명시적인 인증 API 경로를 구현했습니다. 현재 기존 권한 확인, 고정된 에이전트
+담당 체계, 트랜잭션으로 보호한 독립 재조회를 유지합니다. 수동 검토는 기본값이며 이 소프트웨어가
+독립적인 원문 및 답변 품질 검증을 대신하지 않습니다. 요청자가 자신의 승인 권한을 제공할 수는 없습니다.
 
 ## 설계 결정
 

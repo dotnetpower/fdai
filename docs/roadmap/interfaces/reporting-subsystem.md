@@ -22,6 +22,10 @@ the shipping catalog here is a bounded, product-relevant subset.
 
 Service table ownership also declares the Operator-owned `operator_workflow_authoring_audit` ledger. It records Workflow draft and binding commits, is not a report source, and adds no reporting projection.
 
+The API-owned reference-content policy, request and policy-audit tables are not report sources.
+Their Var/Saga/Muninn authorization/indexing path adds no reporting route or mutation authority;
+reports cannot approve a policy or apply a reference generation.
+
 The insert-only Operator semantic authentication receipt table is not a report source either. Operator route assembly wraps the semantic outbox with receipt retention only when `FDAI_SEMANTIC_AUTHENTICATION_RECEIPT_REF_ENABLED` is on, and the table adds no reporting projection, widget, or route.
 The Outcome Assurance read panel is likewise outside the reporting subsystem. It is an
 authenticated `/kpi/outcome-assurance` projection rendered by the analytics routes, not a report
