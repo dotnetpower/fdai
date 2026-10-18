@@ -17,6 +17,17 @@ from fdai_service_contracts.self_health import (
 class SelfHealthExporterUnavailableError(RuntimeError):
     """A configured exporter cannot provide a current source observation."""
 
+    def __init__(self, message: str = "", *, reason: str = "exporter_unavailable") -> None:
+        if reason not in {
+            "exporter_unavailable",
+            "source_missing",
+            "source_malformed",
+            "source_unreachable",
+        }:
+            raise ValueError("self-health unavailable reason MUST be a bounded source code")
+        super().__init__(message)
+        self.reason = reason
+
 
 @dataclass(frozen=True, slots=True)
 class SelfHealthExportSample:
