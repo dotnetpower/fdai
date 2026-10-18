@@ -157,6 +157,8 @@ itself. `fdai-up.sh` prepares the checkout's locked environment and invokes
 same coordinator and produce the same result. Running the command again resumes or upgrades the
 same installation.
 
+For a source AKS development installation, `--development-authority-profile <path>` selects one private reviewed profile for the application plan. The coordinator derives its executor, validates the exact target and source revision, and stages neither value until application deployment. The option is unavailable for preparation, preflight, teardown, signed-kit, and non-AKS paths. Omitting it on a rerun preserves a retained profile instead of silently revoking authority; `--clear-development-profile` removes it through a separate exact plan.
+
 Interactive source deployment uses an append-only installer stream. Each transition writes a
 numbered stage heading, exact completed/skipped/remaining counts, and elapsed heartbeats for a
 silent long-running operation. Every quiet boundary records a start line, a 10-second

@@ -1,8 +1,8 @@
 ---
 title: 운영자 거버넌스 프로필
 translation_of: operator-governance-profiles.md
-translation_source_sha: 91dd8699531e28727f89825a82de562a50adffc4
-translation_revised: 2026-10-15
+translation_source_sha: 4a40a43a09a62272c0436b616554f1f296eba7ab
+translation_revised: 2026-10-18
 ---
 # 운영자 거버넌스 프로필
 
@@ -63,6 +63,11 @@ Owner 전용 토론 요청은 거버넌스 프로필을 선택하거나 변경 �
 | 다중 운영자 | 기본값 | 설치 | 서로 다른 사람. 요청자는 승인할 수 없습니다. | 설정값이며, 비가역적 작업에는 최소 2 | 서비스 소유자와 Owner를 포함한 서로 다른 사람 최소 2명 | 변경 없음 |
 | 단독 운영자 프로덕션 | 운영자 한 명을 지정한 승인 정책 개정 | 설치 하나 | 지정된 운영자 | 1. 원래 정족수도 기록합니다. | 두 역할을 모두 가진 지정 운영자 | 변경 없음. A4는 계속 차단합니다. |
 | 단독 운영자 개발 | 정확한 테스트 범위와 만료가 있는 검토된 배포 구성 | 전용 테스트 범위 | 유일한 Owner | 1. 원래 정족수도 기록합니다. | 필요 없음 | 범주별 금지 없음 |
+
+source AKS 배포는 비공개 검토 완료 파일 하나에서만 개발 프로필을 선택하고, 해당 파일에서
+별도 실행기 principal을 도출하며, 정확한 대상과 source 개정을 검증합니다. 입력을 생략하면
+기본 경로나 보존된 경로를 유지합니다. 보존된 프로필을 제거하려면 명시적인
+`--clear-development-profile` 애플리케이션 plan이 필요합니다.
 
 개발 프로필은 [위험 분류](risk-classification-ko.md)가 소유합니다. 두 프로덕션 프로필이 쓰는
 상시 권한 계약은 [에스컬레이션 및 상시 권한](escalation-and-standing-authority-ko.md)이

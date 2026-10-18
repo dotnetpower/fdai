@@ -15,6 +15,7 @@ from typing import Any
 from urllib.parse import urlsplit
 
 from approval_profile_tfvars import bind_approval_profile
+from development_profile_tfvars import bind_development_profile, selected_profile_json
 from service_contract import ServiceContractError, normalize_api_audience, resolve_service
 from stewardship_tfvars import stewardship_gitops_binding
 
@@ -592,6 +593,7 @@ def select_tfvars(
     cost_pseudonym_key_secret_id: str | None = None,
     source_revision: str | None = None,
     approval_profile_json: str | None = None,
+    development_profile_json: str | None = None,
 ) -> dict[str, Any]:
     """Select exactly one environment/service object and reserve image for the workflow."""
     resolve_service(service, environment)
@@ -678,11 +680,19 @@ def select_tfvars(
             web_search_requested=web_search_requested,
             web_search_allowed_domains=web_search_allowed_domains,
         )
+    development_profile_json = selected_profile_json(development_profile_json)
     bind_approval_profile(
         materialized,
         service=service,
         raw_json=approval_profile_json,
-        development_profile_json=os.environ.get("FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON", ""),
+        development_profile_json=development_profile_json,
+    )
+    bind_development_profile(
+        materialized,
+        service=service,
+        environment=environment,
+        raw_json=development_profile_json,
+        approval_profile_json=approval_profile_json,
     )
     if service in {"core-control-plane", "document-ingestion-api"}:
         materialized["stewardship_gitops"] = stewardship_gitops_binding(
@@ -807,6 +817,9 @@ def main() -> int:
             cost_pseudonym_key_secret_id=os.environ.get("COST_PSEUDONYM_KEY_SECRET_ID") or None,
             source_revision=os.environ.get("SOURCE_REVISION"),
             approval_profile_json=os.environ.get("FDAI_APPROVAL_PROFILE_JSON", "").strip(),
+            development_profile_json=os.environ.get(
+                "FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON", ""
+            ).strip(),
         )
         write_tfvars(args.output, selected)
     except (OSError, json.JSONDecodeError, ServiceContractError, ValueError) as exc:

@@ -963,6 +963,8 @@ remain open.
   bindings required and fail-closed.
 - The optional full-authority development profile, including its Owner-only category park, is a
   separate authority input owned by [Project Structure Dependency Injection](project-structure-dependency-injection.md#full-authority-development-profile-composition).
+- Deployment accepts that profile only as a private reviewed source-AKS input, derives the distinct
+  executor principal from it, and requires an explicit later plan to remove a retained profile.
 - Without the `governed-execution` add-on, learned and predicted input stays ActionType-free
   evidence; the [Agent Pantheon plan](../agents/agent-pantheon-implementation.md#learned-and-predicted-output-boundary) owns the boundary.
 - The default environment provider and the optional bounded `YamlFileConfigProvider` both enter the

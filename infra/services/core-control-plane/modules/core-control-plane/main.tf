@@ -118,6 +118,9 @@ module "container_app" {
     { name = "FDAI_HEALTH_PORT", value = tostring(var.health.port) },
     ], trimspace(var.approval_profile_json) == "" ? [] : [
     { name = "FDAI_APPROVAL_PROFILE_JSON", value = var.approval_profile_json },
+    ], trimspace(var.development_authority_profile_json) == "" ? [] : [
+    { name = "FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON", value = var.development_authority_profile_json },
+    { name = "FDAI_FULL_AUTHORITY_DEVELOPMENT_EXECUTOR_PRINCIPAL", value = var.development_authority_executor_principal },
     ], (trimspace(var.operator_request_receipts.core_signing_seed_secret_id) == "" || trimspace(var.operator_request_receipts.operator_signing_seed_secret_id) == "") ? [] : [
     { name = "FDAI_OPERATOR_REQUEST_CORE_SIGNING_SEED", secret_name = "operator-request-core-signing-seed" },
     { name = "FDAI_OPERATOR_REQUEST_OPERATOR_TRUST_SEED", secret_name = "operator-request-operator-signing-seed" },

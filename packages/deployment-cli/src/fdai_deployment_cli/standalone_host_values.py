@@ -9,6 +9,8 @@ from typing import Any
 from fdai_deployment_cli.aks_workload_jobs import AKS_CANARY_TOPIC
 from fdai_deployment_cli.contracts import canonical_digest
 
+_GUID = re.compile(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}")
+
 
 def aks_core_environment(
     *,
@@ -22,7 +24,7 @@ def aks_core_environment(
 ) -> dict[str, object]:
     """Project the baseline AKS Core environment from verified deployment values."""
 
-    return {
+    environment: dict[str, object] = {
         "AZURE_TENANT_ID": context["tenant_id"],
         "AZURE_SUBSCRIPTION_ID": context["subscription_id"],
         "AZURE_RESOURCE_GROUP": resource_group,
@@ -44,6 +46,14 @@ def aks_core_environment(
         "FDAI_INSTALLATION_BINDING": str(substrate_outputs["installation_binding"]),
         "FDAI_LICENSE_DEPLOYMENT_BINDING": deployment_binding,
     }
+    profile = str(application_values.get("development_authority_profile_json", "")).strip()
+    executor = str(application_values.get("development_authority_executor_principal", "")).strip()
+    if bool(profile) != bool(executor):
+        raise ValueError("development authority profile and executor must be selected together")
+    if profile:
+        environment["FDAI_FULL_AUTHORITY_DEVELOPMENT_PROFILE_JSON"] = profile
+        environment["FDAI_FULL_AUTHORITY_DEVELOPMENT_EXECUTOR_PRINCIPAL"] = executor
+    return environment
 
 
 def plan_summary(value: object) -> dict[str, object]:
@@ -329,3 +339,28 @@ def aks_operator_request_receipts(
         {"FDAI_OPERATOR_REQUEST_RECEIPT_PRODUCER_ID": operator_producer},
         {"FDAI_OPERATOR_REQUEST_OPERATOR_SIGNING_SEED": names["operator_signing_seed_secret_id"]},
     )
+
+
+def selected_identity(identities: dict[str, Any], name: str, selected: bool) -> dict[str, Any]:
+    """Return one selected runtime identity or an empty optional binding."""
+
+    if not selected:
+        return {}
+    return mapping(identities.get(name), f"{name.replace('_', ' ')} runtime identity")
+
+
+def mapping(value: object, label: str) -> dict[str, Any]:
+    """Require one string-keyed mapping."""
+
+    if not isinstance(value, dict) or any(not isinstance(key, str) for key in value):
+        raise ValueError(f"{label} is invalid")
+    return {str(key): item for key, item in value.items()}
+
+
+def required_guid(value: dict[str, Any], field: str) -> str:
+    """Return one required GUID field."""
+
+    item = value.get(field)
+    if not isinstance(item, str) or _GUID.fullmatch(item) is None:
+        raise ValueError(f"{field} is invalid")
+    return item

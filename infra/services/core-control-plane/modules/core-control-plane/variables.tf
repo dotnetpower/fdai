@@ -24,6 +24,34 @@ variable "approval_profile_json" {
     error_message = "approval_profile_json must be empty or a JSON object string."
   }
 }
+
+variable "development_authority_profile_json" {
+  description = "Optional reviewed full-authority development profile JSON."
+  type        = string
+  default     = ""
+  sensitive   = true
+
+  validation {
+    condition = (
+      (
+        trimspace(var.development_authority_profile_json) == "" &&
+        trimspace(var.development_authority_executor_principal) == ""
+        ) || (
+        trimspace(var.development_authority_profile_json) != "" &&
+        trimspace(var.development_authority_executor_principal) != "" &&
+        can(jsondecode(var.development_authority_profile_json))
+      )
+    )
+    error_message = "development authority profile and executor must be empty or selected together with valid JSON."
+  }
+}
+
+variable "development_authority_executor_principal" {
+  description = "Executor principal bound to the selected development profile."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
 variable "image" { type = string }
 variable "source_revision" {
   type = string
