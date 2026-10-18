@@ -1,7 +1,7 @@
 ---
 title: 운영과 검증(Operating and Verification)
 translation_of: operating-and-verification.md
-translation_source_sha: f0d8be060d8b7caf56381485eeb5b9ec2aacc124
+translation_source_sha: 8da1e781fd6214e66609f7a80e77c4baefd52843
 translation_revised: 2026-10-19
 ---
 
@@ -55,11 +55,25 @@ UTC 관측 시각과 불투명한 프로세스 인스턴스 출처 ID를 보존�
 유지합니다. 다시 수집해도 관측의 최신성은 갱신하지 않습니다. 단일 프로세스 표본으로 전체
 복제본의 콜드 스타트 비율이나 완전한 설치 단위 측정 구간을 제공하지 않습니다.
 
+어댑터별 상태 항목은 정상 호출을 통해 현재 Core 프로세스에 등록된 `t1.embedding` 어댑터를
+보고할 수 있습니다. 출처 ID는 해당 역할, 불투명한 어댑터 인스턴스, 불변 endpoint/model
+연결 다이제스트를 식별합니다. 전체 모델, 어댑터, 복제본, 설치의 상태가 아니며 이 수집원
+밖의 미관측 역할은 계속 알 수 없는 상태입니다.
+논리적 임베딩 호출을 모두 관측하고, 겹치는 호출은 모두 종결될 때 닫히는 하나의 묶음으로
+다룹니다. 모든 호출이 기존 HTTP 및 유한 벡터 검사를 통과해야 정상입니다. 결과가 모두
+알려진 묶음에 HTTP나 응답 실패가 하나라도 있으면 비정상입니다. 취소, 프로바이더 호출 전
+실패, 호출 후 로컬 실패가 있으면 다른 동시 호출이 성공해도 unavailable로 유지합니다.
+비율이나 추정 분모를 만들거나 검사와 재시도를 추가하지 않습니다. 마지막으로 완료된 호출
+묶음의 관측만 보존하며, 진행 중 호출, 미관측, 닫힌 클라이언트, 카탈로그 최신성 한도 만료는
+unavailable로 유지합니다. 새 연결은 이전 인스턴스의 결과를 재사용하지 않고 미관측으로
+시작합니다. API 계약 성공은 의미 품질, 모델 역할 전체의 관측 범위, 준비 완료를 뜻하지
+않으며 wire 스키마는 바뀌지 않습니다.
+
 수집원은 카탈로그의 가장 짧은 최신성 한도의 절반 주기로 수집합니다. 비용이 큰 시작 검사
 새로 고침과는 별개이며, 모델 호출, 비상 정지 변경, 작업 실행을 하지 않습니다.
 수집원 기록이 없거나 잘못되었거나 접근할 수 없으면 정해진 이유 코드와 함께 unavailable로
 유지합니다. 기존 관측이 오래되었거나 미래 시점이면 원래의 최신성 판정을 유지합니다.
-수집원 실패 코드는 `source_missing`, `source_malformed`, `source_unreachable`입니다.
+수집원 실패 코드에는 `source_missing`, `source_malformed`, `source_unreachable`, `source_incomplete`, `source_stale`, `source_from_future`가 있습니다.
 프로바이더 오류 본문은 읽기 결과의 이유로 노출하지 않습니다.
 
 나머지 연결은 담당 수집원이 필요한 관측을 제공할 때까지 명시적으로 unavailable로 유지합니다.
@@ -87,7 +101,7 @@ UTC 관측 시각과 불투명한 프로세스 인스턴스 출처 ID를 보존�
 | 합성 카나리 발행기, 정규 소비자, no-op 감사 경로, 예약된 Container Apps 작업 | implemented | [`canary_cli.py`](../../../services/core-control-plane/src/fdai/delivery/canary_cli.py), [`_canary.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_canary.py), [`canary_job.tf`](../../../infra/modules/compute/container-apps/canary_job.tf), 카나리 집중 테스트 | 카나리는 T0/T1/T2, risk, 실행, 인시던트, 학습 경로와 격리됩니다. |
 | 배포 후 승격 smoke | in-progress | [`deploy-dev.yml`](../../../.github/workflows/deploy-dev.yml), `scripts/deployment/azure/verify_canary_audit.py`, 집중 검증기 테스트 | 작업 흐름은 발행기에 결정론적 slot을 지정한 뒤 30초 안에 하나의 정확한 Core 감사 행을 요구합니다. 검증기는 데이터베이스 자격 증명을 노출하지 않고 모호하거나 잘못되거나 종결되지 않았거나 미래 시점이거나 예산을 넘은 행을 거부합니다. 보존된 실제 증적, 고정본 재생, 비상 정지 주기 및 사람 승인 예행 실행은 남아 있습니다. |
 | 전체 자체 상태 신호 정책 및 라우팅 매핑 | implemented | `config/self-health-signals.yaml`, `core/readiness/self_health.py`, 운영 시작 연결, 집중 자체 상태 및 준비 상태 테스트 | 필수 신호 15개를 각각 하나의 메트릭, 임계값 방향, 신선도 한도, 일반 담당 경로, 알림 route, 실패 시 안전한 대체 경로에 연결합니다. 범위 누락이나 route 불일치는 시작을 차단하며 어떤 결정도 실행 권한을 부여하지 않습니다. |
-| 전체 자체 상태 exporter 레지스트리, 경보 전달, 운영 훈련 | in-progress | 전체 신호 정책, 정확한 15개 신호 및 8개 필드 exporter 레지스트리, `delivery/self_health_sources.py`, `runtime/startup_observation.py`, 수집원 연결 테스트, 영속 운영 상태 스냅숏, 인증된 Operator 읽기 route | 프로세스 생존 상태, 보호된 준비 상태, 저장된 비상 정지, 실제 시작 소요 시간이 신호 4개를 제공합니다. 설치된 버전, 실제로 사용한 정책, 저장된 비상 정지 상태가 필드 3개를 제공합니다. 신호 11개와 필드 5개는 unavailable로 유지하며 전체 전달과 훈련 증적은 남아 있습니다. |
+| 전체 자체 상태 exporter 레지스트리, 경보 전달, 운영 훈련 | in-progress | 전체 신호 정책, 정확한 15개 신호 및 8개 필드 exporter 레지스트리, `delivery/self_health_sources.py`, `runtime/startup_observation.py`, `delivery/azure/llm/provider_observations.py`, 영속 운영 상태 스냅숏, 인증된 Operator 읽기 route | 신호 항목 5개와 필드 3개에 수집원이 연결됩니다. 어댑터 항목은 현재 프로세스의 `t1.embedding`에 한정되며 전체 어댑터 관측이 아닙니다. 신호 항목 10개와 필드 5개는 unavailable이며 다른 어댑터와 역할, 전체 전달과 훈련 증적은 여전히 미완성입니다. |
 | 상관관계 기반 감사 조사와 통합 버전 및 구성 노출 | implemented | [`rule_fire_trace.py`](../../../services/core-control-plane/src/fdai/core/audit/rule_fire_trace.py), [`audit_rca.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py), `core/readiness/self_health_runtime.py`, 인증된 `GET /operations/runtime-state` | 비식별화된 계약 하나가 버전, 구성, 규칙 효과, 재정의, 발견, 카나리, 비상 정지, 긴급 액세스, 모든 자체 상태를 제공합니다. 각 필드는 출처, 신선도, 명시적인 unavailable 상태를 포함하며, route는 승인 또는 실행 권한을 부여하지 않습니다. |
 | 출시 전 지연 측정과 고정 시나리오 재생 | implemented | [`latency_budget.py`](../../../services/core-control-plane/src/fdai/core/measurement/latency_budget.py), [`baseline_run.py`](../../../tools/baseline_run.py), 집중 테스트 | 기본 기능은 범위가 제한된 측정과 릴리스 게이트 결과를 만듭니다. 외부 부하 생성기와 배포별 예산은 운영자 입력으로 남습니다. |
 | 라이브 Azure 읽기 조사 시나리오 | in-progress | [Azure 읽기 조사](../interfaces/azure-read-investigations-ko.md#검증-및-release-근거) | 범위가 제한된 읽기 전용 시나리오 4개는 통과했지만 게스트 이벤트 일치, 실제 프로바이더 `429`, 서비스 간 동등성 증적은 릴리스 근거로 남아 있습니다. |
@@ -98,6 +112,7 @@ UTC 관측 시각과 불투명한 프로세스 인스턴스 출처 ID를 보존�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-19 | implemented | 정상 임베딩 SDK 호출의 실제 결과를 기록하는 producer를 등록 역할과 연결 다이제스트에 한정된 어댑터 상태 항목으로 연결했습니다. 겹친 호출이 모두 종결되어야 관측을 제공하며 취소나 미완성 결과를 다른 성공으로 덮어쓰지 않습니다. | `current change`, 임베딩 producer, `provider_observations.py`, 실제 MockTransport 호출부터 기존 스냅숏 및 읽기 계약까지의 집중 테스트 | 수집원이 연결된 항목은 신호 5개와 필드 3개입니다. 어댑터는 `t1.embedding`에 한정되며 다른 역할과 복제본은 알 수 없습니다. 신호 10개와 필드 5개는 unavailable입니다. 비율, 의미 품질, 전체 준비 완료, 배포 근거는 주장하지 않습니다. |
 | 2026-10-19 | implemented | 실제 런타임 진입부터 구성을 마친 뒤 첫 보호된 준비 완료까지의 시간을 단조 시계 경과 시간, 고정된 관측 시각, 불투명한 프로세스 인스턴스 ID로 연결했습니다. 초기 및 종료 상태는 unavailable로 유지하고 추가 검사는 하지 않습니다. | `current change`, `runtime/startup_observation.py`, 시작 및 리소스, 준비 상태, 수집원 구성, 집중 시작, 수집, 종료, 초기화 테스트 | 신호 4개와 필드 3개가 수집원에 연결되며 신호 11개와 필드 5개는 unavailable로 유지합니다. 모델 상태의 재시도 대기와 이동 지연 표본에는 결과 비율의 분모가 없으므로 전체 어댑터 상태를 입증하지 않습니다. 전체 복제본의 콜드 스타트 비율과 배포 경보 및 훈련 근거는 남아 있습니다. |
 | 2026-10-17 | implemented | 자체 상태 신호 15개와 통합 운영 상태 필드 8개에 대한 정확한 exporter 레지스트리를 추가했습니다. 런타임은 출처가 명시되고 신선도를 검사한 스냅숏 하나를 저장하며, Operator는 기존의 인증된 Reader 역할 변환 경계를 통해서만 이를 제공합니다. 운영 환경은 각 책임 수집원 어댑터가 조합될 때까지 명시적인 unavailable binding을 사용하므로 누락된 텔레메트리가 정상으로 표시되지 않습니다. | `current change`, 서비스 계약, Core monitor, 운영 bootstrap, Operator 변환 및 route, 집중 검사 171개, 엄격한 mypy | 명시적인 unavailable binding을 수집원별 운영 exporter로 교체하고 기본 및 대체 전달과 복구 훈련 증적을 보존합니다. |
 | 2026-10-15 | implemented | 정확히 소비된 카나리 감사와 수치형 지연 예산을 읽기 전용으로 제한된 범위에서 검증하는 배포 후 검사를 추가했습니다. 발행기 완료만으로는 이 smoke 단계를 충족할 수 없습니다. | `current change`, `verify_canary_audit.py`, 배포 작업 흐름 연결, 집중 테스트 10개 | 배포 환경에서 통과한 증적을 보존하고 고정본 재생, 비상 정지 활성화 및 비활성화, 실행 없는 HIL 예행 실행 근거를 추가합니다. |

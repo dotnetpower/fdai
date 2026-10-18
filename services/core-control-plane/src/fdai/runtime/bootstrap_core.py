@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fdai_service_contracts.rule_activation import RuleActivationSource
+from fdai_service_contracts.self_health import SelfHealthSignalName
 
 from fdai.composition import (
     Container,
@@ -119,6 +120,7 @@ from fdai.runtime.stewardship_merge_effects import StewardshipMergeEffectsWorker
 from fdai.runtime.task_workers import bind_task_workers
 from fdai.runtime.venue import ExecutionVenue, resolve_execution_venue
 from fdai.shared.contracts.models import ResponseOutcome
+from fdai.shared.providers.self_health import SelfHealthObservedProvider
 from fdai.shared.providers.state_store import StateStore
 
 _LOGGER = logging.getLogger("fdai.startup")
@@ -621,13 +623,24 @@ async def build_core_runtime(
             ),
         },
     )
+    self_health_catalog = load_runtime_self_health_catalog()
+    embedding_model = container.require_llm_bindings().embedding_model
+    adapter_health_source = (
+        embedding_model.self_health_exporter(
+            maximum_age_seconds=self_health_catalog.policies[
+                SelfHealthSignalName.ADAPTER_HEALTHCHECK
+            ].maximum_age_seconds
+        )
+        if isinstance(embedding_model, SelfHealthObservedProvider)
+        else None
+    )
     readiness = build_startup_readiness_runtime(
         state_store=state_store,
         event_bus=messaging.operational_bus,
         transition_event_bus=messaging.bus,
         event_validator=container.event_validator,
         identity=identity,
-        embedding_model=container.require_llm_bindings().embedding_model,
+        embedding_model=embedding_model,
         policy_compile_probe=OpaCompileStartupProbe(
             probe_id="policy.compile",
             policies_root=_resolve_policies_root(_resolve_catalog_root()),
@@ -638,10 +651,11 @@ async def build_core_runtime(
         registered_probes=(*container.startup_probes, *semantic.readiness_probes),
         decision_evidence=container.decision_evidence_admission_provider,
         ingest_topics=(container.config.kafka.topic_events,),
-        self_health_catalog=load_runtime_self_health_catalog(),
+        self_health_catalog=self_health_catalog,
         liveness=resources.health_server.is_live if resources.health_server is not None else None,
         runtime_policy=runtime_values,
         startup_duration_source=resources.startup_duration_source,
+        adapter_health_source=adapter_health_source,
     )
     startup_report = await readiness.evaluate()
     _LOGGER.info(

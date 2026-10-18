@@ -151,11 +151,14 @@ def runtime_self_health_registry(
     liveness: Callable[[], bool] | None = None,
     runtime_policy: Mapping[str, object] | None = None,
     startup_duration_source: SelfHealthExporter | None = None,
+    adapter_health_source: SelfHealthExporter | None = None,
 ) -> SelfHealthExporterRegistry:
     """Bind actual process-owned sources and retain every other unavailable binding."""
     unavailable = unavailable_self_health_registry(catalog)
     signals = dict(unavailable.signal_exporters)
     fields = dict(unavailable.state_exporters)
+    if adapter_health_source is not None:
+        signals[SelfHealthSignalName.ADAPTER_HEALTHCHECK] = adapter_health_source
     if startup_duration_source is not None:
         signals[SelfHealthSignalName.COLD_START_DURATION] = startup_duration_source
     signal = SelfHealthSignalName.READINESS_PROBE

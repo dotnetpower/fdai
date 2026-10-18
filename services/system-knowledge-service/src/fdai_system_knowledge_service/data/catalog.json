@@ -1,7 +1,7 @@
 {
-  "catalog_digest": "sha256:070a4c9bc7597236136dceaded9770206891f8b4b2f468af28d2719578c6b19b",
+  "catalog_digest": "sha256:694217e7c6d4daccd6b313fb4150a438fc6e444037bb4474810701d380dee3e7",
   "execution_authority": false,
-  "generated_at": "2026-10-18T12:53:37.466230Z",
+  "generated_at": "2026-10-18T20:01:23.667158Z",
   "records": [
     {
       "designed_behavior": [
@@ -268,11 +268,11 @@
         "How does FDAI authenticate and authorize people?",
         "FDAI는 사용자를 어떻게 인증하고 권한을 확인하나요?"
       ],
-      "record_digest": "sha256:ba96e1cf1e98a58d93f0e77a05428a565989e8ecec1e7fd56ac8d6ad00b6d705",
+      "record_digest": "sha256:9f416659999849977a16c9136ed297b2036d2ce3d5259ec547f046656b3f14fe",
       "sources": [
         {
           "authority_role": "verification",
-          "blob_sha": "eb766fcf83873ca46fb3d7e5b6b78167be5fe2ba",
+          "blob_sha": "49f1147d5f4e8fcaba0e638da6020d275c5971a3",
           "line_end": 17,
           "line_start": 17,
           "path": "docs/roadmap/interfaces/user-rbac-and-identity.md",
@@ -553,5 +553,5 @@
     }
   ],
   "schema_version": "1.0.0",
-  "source_revision": "8c8ef3ec6f00e0ad961274019860d05b3d91235c"
+  "source_revision": "871babaf55ae263a68d75ea7784961e576635596"
 }

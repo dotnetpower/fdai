@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Protocol
+from typing import Protocol, runtime_checkable
 
 from fdai_service_contracts.self_health import (
     OperationalStateFieldName,
@@ -23,6 +23,9 @@ class SelfHealthExporterUnavailableError(RuntimeError):
             "source_missing",
             "source_malformed",
             "source_unreachable",
+            "source_incomplete",
+            "source_stale",
+            "source_from_future",
         }:
             raise ValueError("self-health unavailable reason MUST be a bounded source code")
         super().__init__(message)
@@ -54,6 +57,13 @@ class SelfHealthExporter(Protocol):
     async def observe(self, *, now: datetime) -> SelfHealthExportSample: ...
 
 
+@runtime_checkable
+class SelfHealthObservedProvider(Protocol):
+    """An actual provider exposes observations of its own normally invoked operations."""
+
+    def self_health_exporter(self, *, maximum_age_seconds: int) -> SelfHealthExporter: ...
+
+
 class OperationalStateFieldExporter(Protocol):
     """Export one sanitized field for the authorized runtime-state surface."""
 
@@ -74,4 +84,5 @@ __all__ = [
     "SelfHealthExportSample",
     "SelfHealthExporter",
     "SelfHealthExporterUnavailableError",
+    "SelfHealthObservedProvider",
 ]
