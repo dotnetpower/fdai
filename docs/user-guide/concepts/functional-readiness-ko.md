@@ -2,7 +2,7 @@
 title: FDAI 기능 준비 상태 평가
 description: FDAI 제품 중분류 52개의 준비 상태 판정 근거와 남은 조건을 기록합니다.
 translation_of: functional-readiness.md
-translation_source_sha: 523db0ba3040b764864e4b718925f9abe02964a4
+translation_source_sha: a07ca8cde58a3dc157d72dd3203eb92332d42a97
 translation_revised: 2026-10-18
 ---
 
@@ -12,8 +12,15 @@ translation_revised: 2026-10-18
 판정한 이유를 기록합니다. 기능 이름만으로 준비 완료를 주장하지 않고 실행 가능한
 구현, 문서에 명시된 미완료 항목, 설치 환경별 운영 검증을 구분합니다.
 
-> **평가 기준:** 2026-10-18, 보호된 main 개정 버전
-> `966082d265a7a230b41394b67e63ccd6fd328fa9`와 현재 변경입니다. F06/F07 완료 작업은 모든
+> **점검 기준:** 2026-10-18, 소스 개정 버전
+> `8819a28951fd5c21858adc0a8e7a6d5278ba4745`입니다. F10-F15 중분류 21개 전체를 담당
+> 원장, 관련 소스, 개별 이슈 상태와 대조하고 Ready 10건을 Partial로 정정했습니다.
+> F01-F09는 기존 평가를 유지합니다. [전수 목록과 실행 계획](functional-readiness-backlog-ko.md)에
+> 모든 점검 대상, 잔여 작업, 의존성, 완료 조건을 기록합니다. 이번 문서 점검에서는 런타임
+> 테스트나 실제 운영 검증을 수행하지 않았습니다.
+
+> **과거 구현 근거:** 개정 버전 `966082d265a7a230b41394b67e63ccd6fd328fa9`와
+> F06/F07 구현 변경을 기준으로 완료 작업은 모든
 > 필수 기능을 소스, 조립, 영속성, 권한, 증적 소유자까지 추적했습니다. 최종 누적 범위에서
 > **집중 검사 908개**와 **실제 격리 PostgreSQL 검사 8개**가 통과했습니다. 관련 없는 선택형
 > PostgreSQL 내보내기 검사 하나는 외부 검증 변수가 구성되지 않아 건너뛰었습니다. 각 기능군에
@@ -23,14 +30,14 @@ translation_revised: 2026-10-18
 
 ## 판정 읽기
 
-**전체:** <span class="fdai-readiness-badge" data-readiness="ready">Ready 38/52</span> <span class="fdai-readiness-badge" data-readiness="partial">Partial 14/52</span> <span class="fdai-readiness-badge" data-readiness="blocked">Blocked 0/52</span> <span class="fdai-readiness-badge" data-readiness="planned">Planned 0/52</span> <span class="fdai-readiness-badge" data-readiness="not-assessed">미평가 0/52</span>
+**전체:** <span class="fdai-readiness-badge" data-readiness="ready">Ready 28/52</span> <span class="fdai-readiness-badge" data-readiness="partial">Partial 24/52</span> <span class="fdai-readiness-badge" data-readiness="blocked">Blocked 0/52</span> <span class="fdai-readiness-badge" data-readiness="planned">Planned 0/52</span> <span class="fdai-readiness-badge" data-readiness="not-assessed">미평가 0/52</span>
 Ready는 해당 기록에 명시된 지원 범위에만 적용됩니다. 모든 배포 환경, 공급자, 규모,
 자율 작업을 검증한 것은 아닙니다. Partial은 구현이 있지만 인용한 담당 문서에 필수
 지원 범위, 통합, 검증이 남아 있다는 뜻입니다. Blocked를 평가할 설치 환경은 선택하지
 않았습니다. 중분류 전체가 설계만 있는 경우는 확인되지 않았으며 부분 구현된 기능 안의
 설계 단계 구성요소는 명시적으로 남겨 둡니다.
 
-Partial 14건은 구현된 부분과 현재 소스의 집중 검사를 유지하지만, 필수 기능이나 운영 근거를
+Partial 24건은 구현된 부분과 기록된 집중 검사 근거를 유지하지만, 필수 기능이나 운영 근거를
 지원 범위 밖으로 줄여서 제외하지 않습니다. 기존 실제 환경 증적은 과거 기록으로 유지하며 이번
 세션에서 갱신하거나 특정 설치 환경을 검증한 것으로 취급하지 않습니다. 각 기록의 남은 조건을
 모두 충족한 뒤에만 Ready로 승격합니다.
@@ -175,18 +182,18 @@ Partial 14건은 구현된 부분과 현재 소스의 집중 검사를 유지하
 
 | 기능 | 상태 | 근거, 지원 범위 및 남은 조건 |
 |------|------|-----------------------------|
-| <span id="f10-1">F10.1</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 인증된 문서 및 첨부 수집, 변경 불가능한 버전, 형식 및 크기 제한, 악성 코드 및 보호 상태, 격리된 추출 및 OCR, 색인, 미리 보기 및 다운로드, 보존, 삭제, 재시작에 안전한 인계, 명시적인 수집원 제약입니다. [문서 원장](../../roadmap-implementation/interfaces/document-ingestion.md)과 문서 및 변환 테스트 929개가 이 범위를 뒷받침합니다. 외부 SharePoint 및 보호 연결과 배포 환경의 서비스 간 증적은 별도 설치 검증입니다. |
-| <span id="f10-2">F10.2</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 개정 버전에 안전한 클라우드 지식 수집, 예약, 추출, 활성화 및 교체, 출처를 보존하는 조회, 명시적인 최신성 및 적용 가능 상태입니다. [클라우드 지식 원장](../../roadmap-implementation/interfaces/cloud-resource-knowledge-lifecycle.md)과 현재 집중 검사가 이 범위를 뒷받침합니다. 배포 환경 소유 수집원 등록, 신뢰 절차, 연결 구성요소 훈련, 현재 문서 집합의 최신성은 별도 설치 검증입니다. |
+| <span id="f10-1">F10.1</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 로컬 구현은 인증된 수집, 불변 버전, 제한된 추출 및 OCR, 보호 상태, 색인, 미리 보기 및 다운로드, 보존 및 삭제, 재시작에 안전한 인계입니다. [문서 원장](../../roadmap-implementation/interfaces/document-ingestion.md)과 과거 문서 및 변환 테스트 929개가 이 부분을 뒷받침합니다. 서비스 5개의 정확한 수명 주기 및 실패 증적, 권한 관리 문서 다운로드 전의 목적별 위임 권한, 승인된 SharePoint 및 보호 결과 조회가 남습니다. [K01-K02](functional-readiness-backlog-ko.md#f10-지식-및-규칙-작업)는 필수 기준이며 완료된 설치 세부 사항이 아닙니다. |
+| <span id="f10-2">F10.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 로컬 구현은 개정에 안전한 수집 및 예약, 수동 v2/v3 수락, 날짜 기반 조회, 문제 콘텐츠 격리입니다. [클라우드 지식 원장](../../roadmap-implementation/interfaces/cloud-resource-knowledge-lifecycle.md)과 [구조화 조회 원장](../../roadmap-implementation/interfaces/cloud-resource-knowledge-structured-rag.md)에 요청자 정책 경로 미구현과 실제 수집원 품질 보류가 명시되어 있습니다. 최종 공개까지의 요청자 및 정책 검사, 독립 조회, 수집원 및 답변 품질, 신뢰 및 등록, 연결 및 외부 통신 차단 증적이 남습니다. [K03-K05](functional-readiness-backlog-ko.md#f10-지식-및-규칙-작업)를 참조하세요. 모두 배포 설정인 것은 아닙니다. |
 | <span id="f10-3">F10.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 현재 스키마의 규칙 작성, 출처 및 품질 검증, 변경 불가능한 버전, 범위 지정 활성화, 개정 버전별 예외, 폐기 제안, 충돌 해결, 롤백에 안전한 카탈로그 상태입니다. [규칙 원장](../../roadmap-implementation/rules-and-detection/rule-governance.md)과 집중 테스트 72개가 이 범위를 뒷받침합니다. 기존 개정 버전 이중 읽기 이행과 배포 환경의 단계별 적용은 별도 설치 및 업그레이드 검증입니다. |
-| <span id="f10-4">F10.4</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 검토된 문서 수용, 내용보다 먼저 확인하는 출처 이력, 민감도 및 최신성 검사, 온톨로지 적합성, 결정론적 위원회 검증, 비활성 규칙·워크플로·온톨로지 제안, 통제된 인수인계입니다. [변환 원장](../../roadmap-implementation/rules-and-detection/manual-distillation.md)과 집중 변환 검사가 이 범위를 뒷받침합니다. 활성화는 별도 승인 및 승격 경로이며 배포 환경의 접근, 철회, 법적 보존 작업은 별도 설치 검증입니다. |
+| <span id="f10-4">F10.4</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 로컬 구현은 내용보다 먼저 확인하는 출처 이력, 민감도 및 최신성과 온톨로지 검사, 독립적인 결정론 검증, 비활성 제안, 비공개 패키지 폐기입니다. [변환 원장](../../roadmap-implementation/rules-and-detection/manual-distillation.md)에는 배포된 ACL 및 목적, 철회, 법적 보존 보류 및 삭제, 공급자 및 표본, 실제 EN/KO 보조 기술 출력의 필수 근거가 남습니다. [K06-K07](functional-readiness-backlog-ko.md#f10-지식-및-규칙-작업)을 참조하세요. 변환은 활성화 권한을 부여하지 않으며 로컬 테스트는 운영 적합성 기준을 충족하지 않습니다. |
 
 ## F11. 평가 및 학습과 승격
 
 | 기능 | 상태 | 근거, 지원 범위 및 남은 조건 |
 |------|------|-----------------------------|
-| <span id="f11-1">F11.1</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 출처가 명시된 운영자 피드백, 변경 불가능한 인시던트 및 작업 결과, 범위가 지정된 사례 이력, 예측 결과 종결, 권한이 없는 학습 후보, 보존 및 법적 보존 통제입니다. [학습 원장](../../roadmap-implementation/rules-and-detection/operational-learning-ontology.md)과 운영 학습 집중 검사가 이 범위를 뒷받침합니다. 배포 환경의 승인된 수용, 충분한 재발 표본, 승격 결정은 별도 운영 검증입니다. |
-| <span id="f11-2">F11.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 실행하지 않는 과거 이력 재현, 시나리오 및 보증 트윈 평가, 기준선 및 조치 후 비교, 추적 가능한 탐지·계획·복구 측정, 검증 불가 결과, 정확한 임계값 정책에 결속된 안전한 승격 근거입니다. [학습 원장](../../roadmap-implementation/rules-and-detection/operational-learning-ontology.md), [정본 작업 흐름 상태](../../roadmap/agents/agent-workflows-ko.md#구현-상태), 집중 재현 및 평가 검사가 이 범위를 뒷받침합니다. 실제 재발 구간과 운영 표본 규모는 별도 배포 검증입니다. |
-| <span id="f11-3">F11.3</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 근거 기반 및 귀속된 재정의 승격, 자동 강등, 영속 기능 회수 및 해제, 모든 승격 종류보다 우선하는 회수, 안전한 쪽으로 닫히는 `shadow` 강제, Operator 및 Console의 회수 표시, 권한이 없는 읽기 변환 결과입니다. [거버넌스 원장](../../roadmap-implementation/decisioning/operator-governance-profiles.md), Core 회수 검사, 현재 Operator 및 Console 검사가 이 범위를 뒷받침합니다. 운영 Release 최대값 수집원과 특정 설치의 승격 근거는 별도 배포 검증입니다. |
+| <span id="f11-1">F11.1</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 출처가 명시된 피드백, 불변 인시던트 및 작업 사례, 예측 종결, 비활성 후보, 로컬 보존 통제가 구현되어 있습니다. [학습 원장](../../roadmap-implementation/rules-and-detection/operational-learning-ontology.md)과 [예측 원장](../../roadmap-implementation/rules-and-detection/prediction-learning-and-case-history.md)에는 운영 기준 외에도 수집원 이력, Settings 및 수집기, 맥락 수명 주기, 보존 Pattern 통합 작업이 남습니다. [L01-L03](functional-readiness-backlog-ko.md#f11-f13-학습-권한-자체-상태-성과)을 참조하세요. 격리 LOCAL 임대 구현은 외부 수집원을 검증하지 않습니다. |
+| <span id="f11-2">F11.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 실행하지 않는 재현, 시나리오 및 보증 트윈 평가, 기준선 비교, 평가 제외 결과, 정확한 임계값 정책에 연결된 O7 근거가 구현되어 있습니다. [학습 원장](../../roadmap-implementation/rules-and-detection/operational-learning-ontology.md)과 [작업 흐름 상태](../../roadmap/agents/agent-workflows-ko.md#구현-상태)가 로컬 검사를 뒷받침합니다. 일관된 외부 발급자, 사전 등록한 SLO 및 안전 예산 비교, 완전한 재발 구간, 작업별 운영 일수 및 표본 수, 신뢰도 및 정책 위반 누락 없음 근거가 남습니다. [L03-L04](functional-readiness-backlog-ko.md#f11-f13-학습-권한-자체-상태-성과)를 참조하세요. |
+| <span id="f11-3">F11.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 승격 및 재정의 주체 추적, 자동 하향 조정, 영속 회수 및 해제, 회수 우선순위, `shadow` 강제, Operator 및 Console 회수 표시가 구현되어 있습니다. [거버넌스 원장](../../roadmap-implementation/decisioning/operator-governance-profiles.md)과 기록된 집중 검사가 이 부분을 뒷받침합니다. 운영 Release 상한 통합과 관리 절차에 따른 활성화 및 회수 증적은 [A01-A02](functional-readiness-backlog-ko.md#f11-f13-학습-권한-자체-상태-성과)로 남습니다. 현재 안전하게 제한하는 shadow 전용 상한은 구현 경계이며 운영 연결이 아닙니다. |
 
 ## F12. 권한 및 근거와 자체 운영
 
@@ -202,27 +209,31 @@ Partial 14건은 구현된 부분과 현재 소스의 집중 검사를 유지하
 | 기능 | 상태 | 근거, 지원 범위 및 남은 조건 |
 |------|------|-----------------------------|
 | <span id="f13-1">F13.1</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 리소스, 관계, 인시던트, 계획 및 Process, 승인, 감사 및 이력, 출처가 명시된 결과, 승격 및 회수 상태를 보여 주는 허용된 읽기 화면이며 사용 불가 및 부분 근거를 명시합니다. [리소스 원장](../../roadmap-implementation/architecture/continuous-operational-instance-graph.md), [보고서 원장](../../roadmap-implementation/interfaces/reporting-subsystem.md), 기존 화면 검사, 현재 회수 변환 결과 검사가 이 범위를 뒷받침합니다. 배포 수집원의 최신성과 인증된 공급자 범위는 별도 설치 검증입니다. |
-| <span id="f13-2">F13.2</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 선언형 보고서 카탈로그, 범위가 제한된 렌더링, 위젯별 오류 격리, 선택적 PDF를 포함한 지원 내보내기, 감사 기반 인시던트 자료, available/partial/unavailable 원본 출처입니다. [보고서 원장](../../roadmap-implementation/interfaces/reporting-subsystem.md)과 집중 모델 검사가 이 범위를 뒷받침합니다. 데이터 원본별 최신성 및 시간 초과 검증과 인증된 배포 조합은 별도 설치 검증입니다. |
+| <span id="f13-2">F13.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 선언형 카탈로그, 제한된 렌더링, 위젯 격리, 내보내기 및 PDF, 수집원 출처가 구현되어 있습니다. [보고서 원장](../../roadmap-implementation/interfaces/reporting-subsystem.md)에는 과거 인증된 기본 Incident RCA/PDF 근거가 있지만 더 넓은 수집원과 인증된 오류 및 격리 증적은 미완료입니다. 검증한 부분을 전체 보고서 기능으로 확대하기 전에 [V01](functional-readiness-backlog-ko.md#f11-f13-학습-권한-자체-상태-성과)을 완료합니다. |
 | <span id="f13-3">F13.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 신뢰성·복구·자동화·비용의 기준 및 조치 후 집단 측정, 출처 및 완전성 검사, 독립 정산, 검증 불가 결과, 활동 건수를 개선으로 간주하지 않는 판정입니다. [성과 가이드](../sre/measuring-sre-outcomes-ko.md), [FinOps 원장](../../roadmap-implementation/architecture/finops-autonomous-operations.md), 집중 측정 검사가 이 범위를 뒷받침합니다. 조건을 충족하는 실제 사례와 완전한 운영 구간은 별도 배포 검증입니다. |
 
 ## F14. 설치 및 설정과 확장
 
 | 기능 | 상태 | 근거, 지원 범위 및 남은 조건 |
 |------|------|-----------------------------|
-| <span id="f14-1">F14.1</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 체크아웃에서 실행하는 한 줄 소스 배포, 사전 조건 및 호스트 도구 검사, 대상 및 범위 입력 검증, 소스 이미지 준비, Terraform 계획 및 적용 조정, 키 없는 Trial 활성화, 사용 권한을 고려한 시작, 상태 및 준비 검증, 업데이트, 롤백, 제거 처리 구조입니다. [소스 배포 원장](../../roadmap-implementation/deployment/source-deployment.md)과 소스 배포 집중 테스트 207개가 이 범위를 뒷받침합니다. Azure 연결, 선택한 대상 값, 설치 증적은 별도 배포 검증입니다. |
-| <span id="f14-2">F14.2</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 현재 사용할 수 있는 두 배포 방식인 소스 배포와 분리 서명을 검증하는 오프라인 패키지이며, 패키징, 변조 거부, 기한 및 취소 처리, 공급자 미러 입력, 업데이트 안전 조건을 포함합니다. [소스 원장](../../roadmap-implementation/deployment/source-deployment.md)과 오프라인 집중 테스트 70개가 이 범위를 뒷받침합니다. [Hub 관리 수명 주기](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)는 설계되었지만 구현되지 않은 상태로 명시하며 사용 가능한 경로로 표시하지 않습니다. |
-| <span id="f14-3">F14.3</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 기능의 사용 가능 여부, 활성화, 기본 및 유효 모드, 사전 조건, 선택한 제품 프로필 및 추가 기능, 라이선스 및 Trial 상태와 워터마크, 모델 상태 및 연결, 승격 출처, 운영자 재정의, 활성 회수 표시이며 어떤 표시 상태도 작업 권한으로 간주하지 않습니다. [제품화 담당 문서](../../roadmap/fork-and-sequencing/productization-and-extensibility-ko.md), [소스 원장](../../roadmap-implementation/deployment/source-deployment.md), 현재 회수 변환 결과 검사가 이 범위를 뒷받침합니다. 실제 사용 권한 전환과 공급자 및 모델 연결은 별도 설치 검증입니다. |
-| <span id="f14-4">F14.4</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 게시자 신뢰 확인, 호환성 검증, 변경 불가능한 비활성 우선 설치, 활성화 및 비활성화와 철회 수명 주기, 타입이 지정된 런타임 등록, 연결된 증적 완전성 규칙입니다. [기능 묶음 원장](../../roadmap-implementation/architecture/capability-bundle-lifecycle.md)과 현재 확장 및 패키지 보증 검사가 이 범위를 뒷받침합니다. 보호된 설치 환경의 정확한 산출물 절차와 재시작 및 공개 증적 묶음은 별도 설치 검증입니다. |
+| <span id="f14-1">F14.1</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 소스 배포, 사전 조건, 대상 검증, 이미지 및 Terraform 조정, Trial, 상태, 업데이트 및 롤백, 제거가 구현되어 있습니다. [소스 원장](../../roadmap-implementation/deployment/source-deployment.md)과 과거 테스트 207개가 이 부분을 뒷받침합니다. WP6에는 신규 Trial 증적 1건이 있으나 변경 없는 Trial 재실행, 정식 사용 권한 신규 설치, Trial 전환 재실행 및 워터마크 제거가 남습니다. [I01](functional-readiness-backlog-ko.md#f14-f15-배포-방식-확장-코드-검사)을 참조하세요. |
+| <span id="f14-2">F14.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 소스 및 서명 검증 오프라인 배포, 변조 및 기한과 취소 방지, 격리된 휠 설치가 구현되어 있습니다. [소스 원장](../../roadmap-implementation/deployment/source-deployment.md)의 WP6 이후 WP8 경로 정리가 남고 현행 도움말 및 파서는 `--online`을 표시합니다. [I02-I03](functional-readiness-backlog-ko.md#f14-f15-배포-방식-확장-코드-검사)에서 배포 복구 및 수용 기준을 대조합니다. [Hub 원장](../../roadmap-implementation/deployment/hub-managed-lifecycle.md)에는 일부 코드만 있으며 사용 가능한 전체 수명 주기는 없습니다. Hub 및 공개 게시는 소스와 오프라인 경로의 선행 조건이 아닙니다. |
+| <span id="f14-3">F14.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 사용 가능 여부, 활성화, 유효 모드, 프로필 및 추가 기능, Trial 워터마크, 모델 상태, 재정의 및 회수 표시가 구현되어 있으며 작업 권한을 부여하지 않습니다. [거버넌스 원장](../../roadmap-implementation/decisioning/operator-governance-profiles.md), [소스 원장](../../roadmap-implementation/deployment/source-deployment.md), 기록된 회수 검사가 로컬 동작을 뒷받침합니다. 운영 Release 상한 입력과 실제 사용 권한 전환 조회인 [A01 및 I01](functional-readiness-backlog-ko.md)이 남습니다. 선택적 작성 UI 및 물리 정책 테이블 이행은 별도의 조건부 범위입니다. |
+| <span id="f14-4">F14.4</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 게시자 신뢰, 호환성, 불변 비활성 우선 기능 묶음, 활성화 및 비활성화와 철회, 형식이 지정된 등록이 구현되어 있습니다. [기능 묶음 원장](../../roadmap-implementation/architecture/capability-bundle-lifecycle.md)에는 수명 주기, 재시작 및 공개 정보, 형식이 지정된 경로, 감사에 대한 필수 동일 산출물 연결 증적이 남습니다. [X01](functional-readiness-backlog-ko.md#f14-f15-배포-방식-확장-코드-검사)을 완료합니다. #355를 계획하지 않음으로 닫은 것은 그 기준의 검증이 아닙니다. |
 
 ## F15. 코드 보안
 
 | 기능 | 상태 | 근거, 지원 범위 및 남은 조건 |
 |------|------|-----------------------------|
-| <span id="f15-1">F15.1</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 승인된 정확한 개정 버전의 코드 확보, 격리된 결정론적 검사 경로, SARIF 수집, Console 및 예약 작업자, 독립적인 결과 재구성, 검사 범위 보고, 최종 요청 변환 결과입니다. [검사 원장](../../roadmap-implementation/operations/code-security-scanning.md)과 현재 작업자 및 수용 검사가 이 범위를 뒷받침합니다. 배포된 작업자 heartbeat와 정확한 게시 및 재조회 증적은 별도 설치 검증입니다. |
+| <span id="f15-1">F15.1</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 정확한 개정 확보, 격리 경로, SARIF 수집, Console 및 예약 워커, 독립적 로컬 결과 수락, 지원 범위 및 종료 표시가 구현되어 있습니다. [검사 원장](../../roadmap-implementation/operations/code-security-scanning.md)에 과거 설치 환경 격리 및 준비 근거는 있지만 #2128은 중지된 상태이며 설치 환경 검사 종료나 같은 상관관계의 업무 연결 완료는 없습니다. [S01-S02](functional-readiness-backlog-ko.md#f14-f15-배포-방식-확장-코드-검사)를 완료합니다. 워커 준비, 공급자 수락, 로컬 검사 증적은 누락된 배포 종료 증적이 아닙니다. |
 | <span id="f15-2">F15.2</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 결정론적 통합 이슈, 심각도·신뢰도·우선순위 구분, 범위가 제한된 요약, 검증 및 판정입니다. [통합 처리](../../../services/core-control-plane/src/fdai/core/security/code_findings/canonical.py)와 [검증](../../../services/core-control-plane/src/fdai/core/security/code_findings/verification.py)을 검토하고 검사 A에서 통합, 심각도, 이슈 요약, 검증 테스트를 재실행했습니다. 탐지기의 재현율, 임의의 취약점, 실제 스캐너 정확도를 보증하지 않습니다. |
 | <span id="f15-3">F15.3</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 서명되고 범위가 제한된 개발자 수정 자료 묶음, 보조 도구의 안전 검사, 결과 주장, 동등한 검사 범위에 따른 재검증입니다. [자료 묶음 런타임](../../../services/core-control-plane/src/fdai/core/security/code_findings/pack_runtime.py)과 [검증](../../../services/core-control-plane/src/fdai/core/security/code_findings/verification.py)을 검토했습니다. 검사 A에는 [실제 임시 Git 보조 도구 세션](../../../services/core-control-plane/tests/core/security/code_findings/test_pack_helper_session.py), 서명, 내보내기, 안전 검사, 재검사 테스트가 포함됩니다. FDAI가 고객 저장소를 편집하거나 반환된 주장을 검증된 수정으로 취급하지 않습니다. |
 
-## 수행한 집중 검증
+## 과거 집중 검증
+
+다음 결과는 이전 구현 작업의 근거입니다. 이번 문서 점검에서는 명시된 범위로 재사용하며
+다시 실행하지 않았습니다. [F10-F15 계획](functional-readiness-backlog-ko.md)은 소스 작업과
+미충족 필수 운영 검증을 구분하며 과거 테스트 수를 새로운 검증 증적으로 취급하지 않습니다.
 
 | 검사 | 정확한 로컬 선택 범위 | 결과 |
 |------|----------------------|------|
@@ -262,4 +273,5 @@ Sample 모드의 생성 및 취소 제어는 0개였습니다. 브라우저 Entr
 | 알아볼 내용 | 문서 |
 |-------------|------|
 | 전체 기능 설명과 상태 정의 | [기능정의서](functional-specification-ko.md) |
+| F10-F15 잔여 작업 전체, 담당자, 의존성, 완료 조건 | [준비 상태 점검 및 완료 계획](functional-readiness-backlog-ko.md) |
 | 세부 소스 담당 영역과 구현 상태 | [로드맵 목차](../../roadmap/README-ko.md) |
