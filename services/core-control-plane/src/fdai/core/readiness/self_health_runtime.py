@@ -162,8 +162,8 @@ class SelfHealthRuntimeMonitor:
             )
         except TimeoutError:
             return _unavailable_signal(policy, exporter.exporter_id, now, "exporter_timeout")
-        except SelfHealthExporterUnavailableError:
-            return _unavailable_signal(policy, exporter.exporter_id, now, "exporter_unavailable")
+        except SelfHealthExporterUnavailableError as exc:
+            return _unavailable_signal(policy, exporter.exporter_id, now, exc.reason)
         if sample.signal is not signal or sample.source != exporter.exporter_id:
             raise SelfHealthExporterRegistryError(
                 f"self-health exporter returned another identity: {signal.value}"
@@ -212,12 +212,12 @@ class SelfHealthRuntimeMonitor:
                 exporter.maximum_age_seconds,
                 "exporter_timeout",
             )
-        except SelfHealthExporterUnavailableError:
+        except SelfHealthExporterUnavailableError as exc:
             return _unavailable_field(
                 field_name,
                 exporter.exporter_id,
                 exporter.maximum_age_seconds,
-                "exporter_unavailable",
+                exc.reason,
             )
         if field.name is not field_name or field.source != exporter.exporter_id:
             raise SelfHealthExporterRegistryError(

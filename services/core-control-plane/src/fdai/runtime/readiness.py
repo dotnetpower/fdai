@@ -159,6 +159,9 @@ class StartupReadinessRuntime:
     refresh_lead_seconds: float = 0.0
     self_health_catalog: SelfHealthCatalog | None = None
     self_health_monitor: SelfHealthRuntimeMonitor | None = None
+    _self_health_lock: asyncio.Lock = field(
+        default_factory=asyncio.Lock, init=False, repr=False, compare=False
+    )
 
     def __post_init__(self) -> None:
         if self.refresh_interval_seconds <= 0 or self.refresh_lead_seconds < 0:
@@ -167,8 +170,7 @@ class StartupReadinessRuntime:
     async def evaluate(self) -> StartupReadinessReport:
         report = await self.coordinator.evaluate()
         self.state.update(report)
-        if self.self_health_monitor is not None:
-            await self.self_health_monitor.collect_and_persist(now=report.generated_at)
+        await self._collect_self_health()
         return report
 
     def evaluate_self_health(
@@ -184,6 +186,56 @@ class StartupReadinessRuntime:
         return self.self_health_catalog.evaluate(observation, now=now)
 
     async def refresh_until_stopped(self, stop: asyncio.Event) -> None:
+        if self.self_health_monitor is None or self.self_health_catalog is None:
+            await self._refresh_readiness_until_stopped(stop)
+            return
+        tasks = {
+            asyncio.create_task(self._refresh_readiness_until_stopped(stop)),
+            asyncio.create_task(self._refresh_self_health_until_stopped(stop)),
+        }
+        try:
+            done, _ = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+            for task in done:
+                await task
+        finally:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+    async def _collect_self_health(self) -> None:
+        if self.self_health_monitor is not None:
+            async with self._self_health_lock:
+                await self.self_health_monitor.collect_and_persist(now=_utc_now())
+
+    async def _refresh_self_health_until_stopped(self, stop: asyncio.Event) -> None:
+        if self.self_health_catalog is None:
+            raise RuntimeError("periodic self-health collection requires its catalog")
+        interval = (
+            min(policy.maximum_age_seconds for policy in self.self_health_catalog.policies.values())
+            / 2
+        )
+        delay = interval
+        while not stop.is_set():
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=delay)
+            except TimeoutError:
+                self._close_expired_readiness()
+                try:
+                    await self._collect_self_health()
+                except (ConnectionError, OSError, OperationalError, TimeoutError) as exc:
+                    self.state.mark_refresh_failed()
+                    _LOGGER.warning(
+                        "self_health_refresh_failed",
+                        extra={"error_type": type(exc).__name__},
+                    )
+                    delay = min(interval, _TRANSIENT_REFRESH_RETRY_SECONDS)
+                except Exception:
+                    self.state.mark_refresh_failed()
+                    raise
+                else:
+                    delay = interval
+
+    async def _refresh_readiness_until_stopped(self, stop: asyncio.Event) -> None:
         while not stop.is_set():
             next_expiry = self.state.next_expiry()
             now = _utc_now()
@@ -299,6 +351,8 @@ def build_startup_readiness_runtime(
     ingest_topics: Collection[str] = (),
     self_health_catalog: SelfHealthCatalog | None = None,
     self_health_exporter_registry: SelfHealthExporterRegistry | None = None,
+    liveness: Callable[[], bool] | None = None,
+    runtime_policy: Mapping[str, object] | None = None,
 ) -> StartupReadinessRuntime:
     """Compose standard required probes plus registered optional destinations."""
     probe_topic = (
@@ -428,15 +482,22 @@ def build_startup_readiness_runtime(
         decision_evidence=decision_evidence,
         budget=budget,
     )
+    state = RuntimeReadinessState()
     if self_health_catalog is not None and self_health_exporter_registry is None:
-        from fdai.delivery.self_health_exporters import unavailable_self_health_registry
+        from fdai.delivery.self_health_sources import runtime_self_health_registry
 
-        self_health_exporter_registry = unavailable_self_health_registry(self_health_catalog)
+        self_health_exporter_registry = runtime_self_health_registry(
+            catalog=self_health_catalog,
+            store=state_store,
+            readiness=lambda now: state.is_ready(now=now),
+            liveness=liveness,
+            runtime_policy=runtime_policy,
+        )
     if self_health_catalog is None and self_health_exporter_registry is not None:
         raise ValueError("self-health catalog and exporter registry MUST be composed together")
     return StartupReadinessRuntime(
         coordinator=coordinator,
-        state=RuntimeReadinessState(),
+        state=state,
         refresh_interval_seconds=_float_value(
             environment,
             "FDAI_STARTUP_REFRESH_SECONDS",

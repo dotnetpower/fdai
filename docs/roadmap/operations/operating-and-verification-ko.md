@@ -1,8 +1,8 @@
 ---
 title: 운영과 검증(Operating and Verification)
 translation_of: operating-and-verification.md
-translation_source_sha: 4ab5620bad1e2afee5c0386cab973f0535c0c715
-translation_revised: 2026-10-17
+translation_source_sha: 4e8869dd1d1495d3996dc70805983058b559c532
+translation_revised: 2026-10-18
 ---
 
 # 운영과 검증(Operating and Verification)
@@ -40,6 +40,31 @@ translation_revised: 2026-10-17
 | **카나리 결과** | 합성 루프 왕복 | 드러나지 않는 이벤트 유입 중단 |
 | **마지막 카나리 성공 이후 경과 시간** | 최신성 | 모니터 자체의 상태 감시 |
 
+### 로컬 수집원 연결
+
+운영 구성은 열린 상태 확인 수신기에서 생존 상태를 읽고, `/ready`와 동일한 보호된 상태에서
+준비 상태를 읽으며, 권위 있는 StateStore 키에서 비상 정지 상태를 읽습니다. 구성 필드는
+시작할 때 실제로 사용한 검증된 런타임 정책 값을 식별합니다. 재시작이 필요한 대기 중 설정이
+적용되었다는 뜻은 아닙니다. 버전 필드는 설치된 Core 배포판을 식별하며, 배포 또는 소스 리비전
+증명을 뜻하지 않습니다.
+이러한 프로세스 내부 관측만으로 다른 복제본이나 서비스의 상태를 확인할 수는 없습니다.
+
+수집원은 카탈로그의 가장 짧은 최신성 한도의 절반 주기로 수집합니다. 비용이 큰 시작 검사
+새로 고침과는 별개이며, 모델 호출, 비상 정지 변경, 작업 실행을 하지 않습니다.
+수집원 기록이 없거나 잘못되었거나 접근할 수 없으면 정해진 이유 코드와 함께 unavailable로
+유지합니다. 기존 관측이 오래되었거나 미래 시점이면 원래의 최신성 판정을 유지합니다.
+수집원 실패 코드는 `source_missing`, `source_malformed`, `source_unreachable`입니다.
+프로바이더 오류 본문은 읽기 결과의 이유로 노출하지 않습니다.
+
+나머지 연결은 담당 수집원이 필요한 관측을 제공할 때까지 명시적으로 unavailable로 유지합니다.
+브로커 큐 깊이와 유입부터 결정까지의 지연에는 브로커 및 소비자 관측이 필요합니다.
+콜드 스타트 비율과 소요 시간에는 수명 주기 관측이 필요합니다. 검증기 실패, 모델 불일치,
+롤백, 재정의, 발견 통과 비율에는 시간 구간이 명확한 분자와 분모가 필요합니다.
+전체 어댑터 상태에는 등록된 의존성 검사가 필요하고, 카나리 상태에는 범위가 제한된 최신
+성공 기록 읽기가 필요합니다. 오래된 기록부터 읽는 기존 감사 이행용 인터페이스로는 최신
+카나리를 확인할 수 없습니다. 규칙 효과, 재정의, 발견, 카나리, 긴급 액세스 필드에는 여전히
+각 담당 수집원의 변환 결과가 필요합니다.
+
 ## 구현 상태
 
 런타임 상태, 시작 준비 상태, 전이 텔레메트리, 합성 카나리 경로는 구현되어 집중 테스트로
@@ -56,7 +81,7 @@ translation_revised: 2026-10-17
 | 합성 카나리 발행기, 정규 소비자, no-op 감사 경로, 예약된 Container Apps 작업 | implemented | [`canary_cli.py`](../../../services/core-control-plane/src/fdai/delivery/canary_cli.py), [`_canary.py`](../../../services/core-control-plane/src/fdai/core/control_loop/_canary.py), [`canary_job.tf`](../../../infra/modules/compute/container-apps/canary_job.tf), 카나리 집중 테스트 | 카나리는 T0/T1/T2, risk, 실행, 인시던트, 학습 경로와 격리됩니다. |
 | 배포 후 승격 smoke | in-progress | [`deploy-dev.yml`](../../../.github/workflows/deploy-dev.yml), `scripts/deployment/azure/verify_canary_audit.py`, 집중 검증기 테스트 | 작업 흐름은 발행기에 결정론적 slot을 지정한 뒤 30초 안에 하나의 정확한 Core 감사 행을 요구합니다. 검증기는 데이터베이스 자격 증명을 노출하지 않고 모호하거나 잘못되거나 종결되지 않았거나 미래 시점이거나 예산을 넘은 행을 거부합니다. 보존된 실제 증적, 고정본 재생, 비상 정지 주기 및 사람 승인 예행 실행은 남아 있습니다. |
 | 전체 자체 상태 신호 정책 및 라우팅 매핑 | implemented | `config/self-health-signals.yaml`, `core/readiness/self_health.py`, 운영 시작 연결, 집중 자체 상태 및 준비 상태 테스트 | 필수 신호 15개를 각각 하나의 메트릭, 임계값 방향, 신선도 한도, 일반 담당 경로, 알림 route, 실패 시 안전한 대체 경로에 연결합니다. 범위 누락이나 route 불일치는 시작을 차단하며 어떤 결정도 실행 권한을 부여하지 않습니다. |
-| 전체 자체 상태 exporter 레지스트리, 경보 전달, 운영 훈련 | in-progress | 전체 신호 정책, 정확한 15개 신호 및 8개 필드 exporter 레지스트리, 영속 운영 상태 스냅숏, 인증된 Operator 읽기 route | 모든 수집원에는 명시적인 책임 binding이 있으며, 누락된 수집원은 정상 값을 만들어 내는 대신 `unavailable`로 표시됩니다. 수집원별 운영 exporter와 기본 및 대체 전달 및 복구 훈련의 배포 증적은 남아 있습니다. |
+| 전체 자체 상태 exporter 레지스트리, 경보 전달, 운영 훈련 | in-progress | 전체 신호 정책, 정확한 15개 신호 및 8개 필드 exporter 레지스트리, `delivery/self_health_sources.py`, `runtime/readiness.py`, 수집원 연결 테스트, 영속 운영 상태 스냅숏, 인증된 Operator 읽기 route | 실제 프로세스 생존 상태, 보호된 준비 상태, 저장된 비상 정지 관측이 unavailable 신호 연결 3개를 대체합니다. 설치된 버전, 실제로 사용한 정책, 저장된 비상 정지 상태가 필드 3개를 제공합니다. 나머지 수집원은 unavailable로 유지하며 전체 전달과 훈련 증적은 남아 있습니다. |
 | 상관관계 기반 감사 조사와 통합 버전 및 구성 노출 | implemented | [`rule_fire_trace.py`](../../../services/core-control-plane/src/fdai/core/audit/rule_fire_trace.py), [`audit_rca.py`](../../../services/core-control-plane/src/fdai/core/reporting/datasources/audit_rca.py), `core/readiness/self_health_runtime.py`, 인증된 `GET /operations/runtime-state` | 비식별화된 계약 하나가 버전, 구성, 규칙 효과, 재정의, 발견, 카나리, 비상 정지, 긴급 액세스, 모든 자체 상태를 제공합니다. 각 필드는 출처, 신선도, 명시적인 unavailable 상태를 포함하며, route는 승인 또는 실행 권한을 부여하지 않습니다. |
 | 출시 전 지연 측정과 고정 시나리오 재생 | implemented | [`latency_budget.py`](../../../services/core-control-plane/src/fdai/core/measurement/latency_budget.py), [`baseline_run.py`](../../../tools/baseline_run.py), 집중 테스트 | 기본 기능은 범위가 제한된 측정과 릴리스 게이트 결과를 만듭니다. 외부 부하 생성기와 배포별 예산은 운영자 입력으로 남습니다. |
 | 라이브 Azure 읽기 조사 시나리오 | in-progress | [Azure 읽기 조사](../interfaces/azure-read-investigations-ko.md#검증-및-release-근거) | 범위가 제한된 읽기 전용 시나리오 4개는 통과했지만 게스트 이벤트 일치, 실제 프로바이더 `429`, 서비스 간 동등성 증적은 릴리스 근거로 남아 있습니다. |
@@ -72,6 +97,7 @@ translation_revised: 2026-10-17
 | 2026-10-15 | implemented | 전체 15개 자체 상태 신호 정책 카탈로그, 실패 시 안전한 신선도 및 임계값 평가, 알림 route 대체 경로 검증, 필수 운영 시작 연결을 추가했습니다. | `current change`, 자체 상태 카탈로그, 판정 코어, 준비 상태 및 bootstrap 연결, 집중 테스트. | 모든 메트릭 내보내기를 연결하고 기본 및 대체 전달과 복구 훈련 근거를 보존합니다. |
 | 2026-08-14 | in-progress | 구현 원장을 도입하고 테스트된 자체 관측성 기본 기능과 미완성 운영 근거를 분리했습니다. 이전 구현 이력은 재구성하지 않았습니다. | 현재 변경과 구현 범위 표에 인용한 준비 상태, 텔레메트리, 카나리, 지연, 기준선 실행기 집중 테스트. | 배포 왕복 근거, 경보와 훈련 범위, 통합 노출, 안정화 연결을 완료합니다. |
 | 2026-08-14 | implemented | 운영자 런북 front matter 스키마를 정의하고 제공되는 모든 ActionType에 CI 커버리지를 추가했습니다. | 현재 변경의 `check-action-runbooks.py`와 `test_check_action_runbooks.py`. | 배포 소유 명령과 절차를 같은 필수 의미 섹션에 맞게 유지합니다. |
+| 2026-10-18 | implemented | 실제 로컬 상태 수신기, 보호된 준비 상태, 저장된 비상 정지, 설치된 버전, 실제로 사용한 정책 수집원을 연결했습니다. 느린 시작 검사와 별개로 직렬화된 30초 수집원 새로 고침, 비식별화된 수집원 실패 이유, 실행 권한 없는 취소 정리를 추가했습니다. | `current change`, `delivery/self_health_sources.py`, `runtime/health.py`, `runtime/readiness.py`, `runtime/bootstrap_core.py`, `tests/delivery/test_self_health_sources.py`, `tests/runtime/test_self_health_sources.py`, 집중 pytest 검사 92개 통과, Ruff 린트 및 서식 검사 통과, 변경 소스 파일 6개의 엄격한 mypy 통과 | 신호 수집원 12개와 운영 상태 수집원 5개에는 여전히 담당 관측이나 변환 결과가 필요합니다. 기본 및 대체 알림 전달과 실제 복구 훈련 증적은 남아 있습니다. |
 
 ### 남은 작업
 
@@ -83,6 +109,8 @@ translation_revised: 2026-10-17
   경로에 연결하고 운영 시작 시 전체 카탈로그를 검증합니다.
 - [ ] 모든 카탈로그 신호를 런타임 내보내기에 연결하고 하나의 관리되는 배포에서 기본 및 대체
   전달과 복구 훈련 증적을 보존합니다.
+- [x] 프로세스 내부의 생존 상태, 보호된 준비 상태, 저장된 비상 정지 상태와 설치된 버전,
+  실제로 사용한 런타임 정책을 연결하고 시작 검사를 반복하지 않는 주기적 새로 고침을 테스트합니다.
 - [x] 전체 버전, 구성, 규칙 효과, 재정의, 발견, 카나리, 비상 정지, 긴급 액세스 상태를 하나의
   권한 있는 읽기 표면에서 제공하고 필드 신선도를 테스트합니다.
 - [x] 필수 런북 스키마를 정의하고 모든 자동화된 ActionType에 검증 및 롤백 지침이 있는 제네릭

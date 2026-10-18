@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: bedabedfcb0d7404911de59f82e072f358de7c41
-translation_revised: 2026-10-17
+translation_source_sha: ff93989802ae3e5de04fef6cfe8b6a063ba99d20
+translation_revised: 2026-10-18
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -22,6 +22,14 @@ translation_revised: 2026-10-17
 15개와 버전, 구성, 규칙 효과, 재정의, 발견, 카나리, 비상 정지, 긴급 액세스 필드를 정확히
 포함합니다. Operator는 공유 계약을 검증하고 비식별화합니다. 프로바이더를 조회하거나 정상
 기본값을 추정하거나 변경을 승인하거나 실행 권한을 얻지 않습니다.
+Core는 이제 실제 수신기 생존 상태, 보호된 준비 상태, 저장된 비상 정지 신호와 설치된 버전,
+실제로 사용한 정책, 비상 정지의 다이제스트를 제공합니다. 나머지 신호 12개와 필드 5개는
+unavailable로 유지합니다. 수집원 실패에는 누락, 잘못된 형식, 접근 실패를 나타내는 정해진
+이유를 보존합니다. Wire 형식과 Reader 권한은 바뀌지 않습니다. 인시던트 구성과
+`bootstrap_core.py`를 공유하더라도 인시던트를 생성하거나 확인하거나 인시던트 요청을 발행하거나
+수명 주기를 바꾸지 않습니다. 비상 정지 다이제스트는 상태 리비전을 노출하거나 요청한 전이를
+검증하지 않으므로 아래의 독립적인 훈련 근거는 여전히 필요합니다.
+[수집원 계약](../operations/operating-and-verification-ko.md#로컬-수집원-연결)을 참조하세요.
 
 `GET /knowledge/github/sources`는 형식화된 저장소 출처 정보와 분리된 지식 읽기 및 스캔
 권한 상태를 반환합니다. 같은 경로의 Owner 전용 `POST`는 `connect` 또는 `disconnect`,
@@ -593,6 +601,7 @@ Owner 또는 BreakGlass 역할, 인증 유효 기간, 상관관계, 재생 방�
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 실제 수집원 기반 런타임 상태 읽기 결과 | implemented | `cf6435701b`, `delivery/self_health_sources.py`, Core 모니터 및 준비 상태 구성, 집중 검사 92개 통과 | 신호 3개와 필드 3개에 로컬 수집원이 있으며 신호 12개와 필드 5개는 unavailable로 유지합니다. 기존 스키마와 Reader 접근은 바뀌지 않습니다. 비상 정지 리비전 재조회와 배포 환경의 전이 검증은 남아 있습니다. |
 | 전역 비상 정지 HTTP 및 명령 이벤트 | implemented | `0398357455`; 공유 계약과 생성된 스키마; Operator IAM 경로; Var 증적 게이트 및 명령 처리기; 집중 계약, Operator, 에이전트, 런타임 테스트 | HTTP `202`는 형식이 지정된 게시만 보여 줍니다. 권한이 부여된 상태 개정 번호 조회와 보존된 배포 훈련은 아직 남아 있습니다. |
 | GitHub 지식 소스 요청 및 표시 데이터 | implemented | `425fda52ead9`; `fdai_service_contracts/knowledge_github.py`; `knowledge_github_projection.py`; 연결 집중 테스트 | Owner 연결 및 해제에는 버전을 확인하는 형식화된 요청을 사용하며 자격 증명 값이나 스캔 동의 필드는 받지 않습니다. 기존 Incident 확인과 실행 권한은 변경하지 않습니다. |
 | 감사 및 읽기 전용 wire 변환 결과 | implemented | Operator family 매니페스트 및 변환 결과; `services/operator-service/tests/test_operator_service_composition.py`; Console trace 테스트 | 기본 GET/HEAD 경로, 범위가 제한된 묶음 및 사용 불가 동작에 focused 검사가 있습니다. |
@@ -619,6 +628,7 @@ Incident 또는 실행 권한은 바뀌지 않았습니다.
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-18 | implemented | 기존 런타임 상태 읽기 결과에 실제 수집원 값과 정해진 unavailable 이유를 문서화하고 인시던트 생성 및 비상 정지 명령 확인과 구분했습니다. | `cf6435701b`, 집중 수집원 및 런타임 검사 92개, 현재 영문 및 한국어 wire 문서 | 나머지 신호 12개와 필드 5개를 연결하고 독립적인 배포 전이 근거를 보존합니다. Wire 스키마, 역할, 인시던트 수명 주기, 권한은 바뀌지 않았습니다. |
 | 2026-10-15 | implemented | 비활성 비상 정지 제안 응답을 새 인증을 거친 서명된 `operator.kill-switch.requests` 요청으로 교체했습니다. Var가 이를 소비한 뒤 Core 상태 및 감사 compare-and-set을 수행합니다. | `0398357455`; 보안 원장에 기록된 집중 구현 테스트와 구조 검사. | 권한이 부여된 상태 조회를 추가하고 활성화-실행 차단-비활성화 배포 근거를 보존합니다. |
 | 2026-10-09 | implemented | 기존 저장소 변경 작업으로 GitHub 지식 GET 표시 데이터와 Owner 전용 연결 및 해제 요청을 추가했습니다. 스캔 동의와 모든 Incident 및 쓰기 권한 경계를 계속 분리합니다. | `425fda52ead9`, `b92824a9c150`; 연결 및 백엔드 테스트 153개 통과; 전체 Operator 구성 테스트 29개 통과. | 설치된 환경의 인증된 연결 및 재확인 근거는 별도입니다. 새 Incident 또는 관리 리소스 확인 권한을 추가하지 않습니다. |
 | 2026-10-07 | implemented | 최종 wire, Incident 생성 또는 권한을 바꾸지 않고 이후 컬렉션 출력을 위한 범위가 제한된 의미 답변 공간을 예약했습니다. | [이슈 #1970](https://github.com/dotnetpower/fdai/issues/1970), `current change`, 집중 의미 턴 및 검증 행 테스트 | 실제 presentation 근거는 별도입니다. |
