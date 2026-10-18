@@ -2,7 +2,7 @@
 title: FDAI 기능 준비 상태 평가
 description: FDAI 제품 중분류 52개의 준비 상태 판정 근거와 남은 조건을 기록합니다.
 translation_of: functional-readiness.md
-translation_source_sha: da6d61fc5700a897fea904b2e56f15ce1af4546f
+translation_source_sha: 523db0ba3040b764864e4b718925f9abe02964a4
 translation_revised: 2026-10-18
 ---
 
@@ -150,7 +150,7 @@ Partial 14건은 구현된 부분과 현재 소스의 집중 검사를 유지하
 | W7 운영 cohort 축적 | 설치 소유자 및 보호된 캠페인 | 서로 다른 30일, 적격 표본 100개 이상, 선언된 재발 구간 |
 | 독립 대상 검토 완료 | 독립적인 사람 검토자 6명 | 정확한 대상 패키지와 전체 근거에 대한 귀속 검토 6개 |
 | 프로덕션 패키지 전환 | release 및 배포 소유자 | 활성 패키지 개정, 비활성 Core facade 제거, 롤백 및 재확인 증적 |
-| 종료된 #903/#904의 후속 이슈 생성 | FDAI 유지관리자 | W7 작업 재개 전 정확한 수락 기준을 가진 새 이슈 id |
+| 후속 W7 cohort와 독립 대상 검토 완료 | FDAI 유지관리자, 설치 소유자 및 독립 검토자 6명 | [W7 cohort #2207](https://github.com/dotnetpower/fdai/issues/2207)과 [대상 검토 #2208](https://github.com/dotnetpower/fdai/issues/2208)을 정확한 개정의 캠페인 근거 및 서로 분리되어 귀속된 결정 6건으로 종결 |
 | 선택형 campaign-export PostgreSQL 검사 실행 | 로컬 검증 소유자 | 전용 검증 DSN과 내보내기 영속성 검사 통과. 실제 운영 근거를 대체하지 않음 |
 
 ## F08. 작업 및 워크플로
