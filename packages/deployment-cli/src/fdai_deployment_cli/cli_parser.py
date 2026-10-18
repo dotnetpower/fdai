@@ -262,8 +262,9 @@ def build_parser(handlers: Mapping[str, CommandHandler]) -> argparse.ArgumentPar
         help=("Private reviewed full-authority development profile; source AKS deployment only"),
     )
     settings.add_argument(
-        "--clear-development-authority-profile",
+        "--clear-development-profile",
         action="store_true",
+        dest="clear_development_authority_profile",
         help="Explicitly remove a retained source-AKS development profile through a new plan",
     )
     settings.add_argument(

@@ -29,8 +29,7 @@ def selected_development_authority(
     clear = bool(args.clear_development_authority_profile)
     if profile is not None and clear:
         raise ValueError(
-            "--development-authority-profile and --clear-development-authority-profile "
-            "are mutually exclusive"
+            "--development-authority-profile and --clear-development-profile are mutually exclusive"
         )
     return profile, clear
 

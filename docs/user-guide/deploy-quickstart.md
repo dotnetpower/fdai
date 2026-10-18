@@ -1,7 +1,7 @@
 ---
 title: Deploy Quickstart
 description: Deploy FDAI to your own Azure subscription from a clone with one command line, or install it from a signed offline package.
-derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 7d055af2a5d891d1717bd356cdcd7b17df089221 }, { source: docs/roadmap/deployment/source-deployment.md, sha: f25d6dc079bb87f61e52664d9dc7a1b0165218d1 }]
+derives_from: [{ source: docs/roadmap/deployment/deploy-and-onboard.md, sha: 7d055af2a5d891d1717bd356cdcd7b17df089221 }, { source: docs/roadmap/deployment/source-deployment.md, sha: d8980873e1c9d0a35d520788053ff0c885891605 }]
 ---
 
 # Deploy Quickstart
@@ -164,7 +164,7 @@ directory must be outside your clone.
 For a disposable source-AKS development installation, you can add
 `--development-authority-profile <private-reviewed-profile.json>`. FDAI validates and transfers the
 profile only for the application plan and derives the separate executor principal from it. Omitting
-the option preserves a retained profile. Use `--clear-development-authority-profile` to remove it
+the option preserves a retained profile. Use `--clear-development-profile` to remove it
 through a later exact plan.
 
 The coordinator performs the following operations in one resumable process:

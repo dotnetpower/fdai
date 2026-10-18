@@ -830,7 +830,7 @@ A control-only repair can reuse a verified kit through a [signed deployment-cont
 
 ### Development authority input
 
-`--development-authority-profile <path>` is a source-AKS-only application input. The local coordinator validates the reviewed JSON, binds its digest to the transfer, and the managed host verifies the staged bytes again before placing the canonical profile and its profile-derived executor principal in Core's environment. The option cannot accompany preparation, preflight, teardown, online, offline-kit, or non-AKS execution. An omitted input never removes a retained profile. `--clear-development-authority-profile` removes it through an explicit application-plan change.
+`--development-authority-profile <path>` is a source-AKS-only application input. The local coordinator validates the reviewed JSON, binds its digest to the transfer, and the managed host verifies the staged bytes again before placing the canonical profile and its profile-derived executor principal in Core's environment. The option cannot accompany preparation, preflight, teardown, online, offline-kit, or non-AKS execution. An omitted input never removes a retained profile. `--clear-development-profile` removes it through an explicit application-plan change.
 
 ## Capability token behavior
 

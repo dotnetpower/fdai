@@ -1,7 +1,7 @@
 ---
 title: 설치형 배포 CLI
 translation_of: installable-deployment-cli.md
-translation_source_sha: 1be4af30f468885fac96da6ba6a1e2d12026e155
+translation_source_sha: 94606ad71ba47817713ed0c991ddde7ff1417cdc
 translation_revised: 2026-10-18
 ---
 
@@ -809,7 +809,7 @@ AzureRM 백엔드를 대상으로 helper를 실행합니다. 이전된 상태 �
 전달된 바이트를 다시 검증한 뒤 정규화된 프로필과 프로필에서 도출한 실행기 principal을 Core
 환경에 배치합니다. 준비, 사전 검사, 제거, 온라인, 오프라인 패키지 또는 AKS 이외의 실행에는
 이 옵션을 함께 사용할 수 없습니다. 입력 생략은 보존된 프로필을 제거하지 않습니다. 이후
-`--clear-development-authority-profile`은 명시적인 애플리케이션 plan 변경을 통해 프로필을
+`--clear-development-profile`은 명시적인 애플리케이션 plan 변경을 통해 프로필을
 제거합니다.
 
 ## 기능 토큰 동작

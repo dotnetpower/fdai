@@ -1,7 +1,7 @@
 ---
 title: 운영자 거버넌스 프로필
 translation_of: operator-governance-profiles.md
-translation_source_sha: 422dfff3bf964c8e0e934e87dddb1da5e370c8ce
+translation_source_sha: 4a40a43a09a62272c0436b616554f1f296eba7ab
 translation_revised: 2026-10-18
 ---
 # 운영자 거버넌스 프로필
@@ -67,7 +67,7 @@ Owner 전용 토론 요청은 거버넌스 프로필을 선택하거나 변경 �
 source AKS 배포는 비공개 검토 완료 파일 하나에서만 개발 프로필을 선택하고, 해당 파일에서
 별도 실행기 principal을 도출하며, 정확한 대상과 source 개정을 검증합니다. 입력을 생략하면
 기본 경로나 보존된 경로를 유지합니다. 보존된 프로필을 제거하려면 명시적인
-`--clear-development-authority-profile` 애플리케이션 plan이 필요합니다.
+`--clear-development-profile` 애플리케이션 plan이 필요합니다.
 
 개발 프로필은 [위험 분류](risk-classification-ko.md)가 소유합니다. 두 프로덕션 프로필이 쓰는
 상시 권한 계약은 [에스컬레이션 및 상시 권한](escalation-and-standing-authority-ko.md)이

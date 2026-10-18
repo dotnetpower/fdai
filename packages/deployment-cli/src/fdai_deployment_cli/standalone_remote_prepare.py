@@ -224,11 +224,7 @@ def prepare_remote(
             *catalog_review_arguments,
             *verifier_arguments,
             *development_authority_arguments,
-            *(
-                ("--clear-development-authority-profile",)
-                if clear_development_authority_profile
-                else ()
-            ),
+            *(("--clear-development-profile",) if clear_development_authority_profile else ()),
             *(
                 (
                     "--adoption-state",

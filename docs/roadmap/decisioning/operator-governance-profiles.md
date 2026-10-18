@@ -68,7 +68,7 @@ honestly, overrides stay visible and recallable, and policy edits stay inside ha
 Source AKS deployment selects the development profile only from one private reviewed file, derives
 the distinct executor principal from that file, and validates its exact target and source revision.
 Omission preserves the ordinary or retained path. Removing a retained profile requires the
-explicit `--clear-development-authority-profile` application plan.
+explicit `--clear-development-profile` application plan.
 
 [Risk Classification](risk-classification.md) owns the development profile.
 [Escalation and Standing Authority](escalation-and-standing-authority.md) owns the standing

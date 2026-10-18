@@ -1,7 +1,7 @@
 ---
 title: 단일 명령 소스 배포
 translation_of: source-deployment.md
-translation_source_sha: f25d6dc079bb87f61e52664d9dc7a1b0165218d1
+translation_source_sha: d8980873e1c9d0a35d520788053ff0c885891605
 translation_revised: 2026-10-18
 ---
 
@@ -156,7 +156,7 @@ source AKS 개발 설치에서는 `--development-authority-profile <path>`로 �
 실행기 principal을 도출하고 정확한 대상과 source 개정을 검증하며, 애플리케이션 배포 전에는 두
 값을 전달하지 않습니다. 준비, 사전 검사, 제거, 서명된 패키지 및 AKS 이외의 경로에서는 이
 옵션을 사용할 수 없습니다. 재실행 시 이 옵션을 생략해도 보존된 프로필을 묵시적으로
-철회하지 않습니다. `--clear-development-authority-profile`은 별도의 정확한 plan을 통해
+철회하지 않습니다. `--clear-development-profile`은 별도의 정확한 plan을 통해
 프로필을 제거합니다.
 
 대화형 소스 배포는 추가 전용 설치 진행 스트림을 사용합니다. 각 전환은 번호가 있는 단계 제목,

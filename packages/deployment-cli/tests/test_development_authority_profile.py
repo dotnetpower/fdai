@@ -211,7 +211,7 @@ def test_cli_requires_explicit_select_or_clear(tmp_path: Path, capsys) -> None:
             "aks",
             "--development-authority-profile",
             str(profile),
-            "--clear-development-authority-profile",
+            "--clear-development-profile",
         ]
     )
 
