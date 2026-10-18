@@ -63,11 +63,15 @@ def _finalize_service_update(
     )
     digest = apply_receipt.get("receipt_digest")
     material = {key: value for key, value in apply_receipt.items() if key != "receipt_digest"}
+    operation_bound = apply_receipt.get("operation") == operation or (
+        apply_receipt.get("operation") is None
+        and apply_receipt.get("verification_only_recovery") is True
+    )
     if (
         digest != args.receipt_digest
         or digest != canonical_digest(material)
         or apply_receipt.get("state") != "applied"
-        or apply_receipt.get("operation") != operation
+        or not operation_bound
         or apply_receipt.get("service_update") != service_update_review(record)
         or apply_receipt.get("control_plane_readback_verified") is not True
         or apply_receipt.get("peer_state_unchanged_verified") is not True
