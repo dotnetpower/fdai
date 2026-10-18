@@ -803,6 +803,11 @@ corpus floor of 0.90 with at least one true positive in both `dev` and `holdout`
 promotion list in the verifier catalog must match that receipt. Every other verifier runs in
 shadow: it records its hit as `verifier_in_shadow` and doesn't raise confidence.
 
+The floor compares exact `TP / (TP + FP)` counts with the configured decimal value, not the
+four-decimal precision shown in a receipt. For example, the synthetic boundary 1808 TP and
+201 FP displays `0.9000` but remains below `0.90` and cannot promote either split.
+Unknown precision, no predictions, or insufficient true positives remain unqualified.
+
 Example: the 2026-10-08 receipt (corpus 1.1.0, 710 `dev` and 681 `holdout` labels) promotes five
 verifiers: Java and JavaScript command injection, JavaScript code and SQL injection, and Python SQL
 injection, each at precision 1.0 in both splits. Six verifiers promoted by the earlier receipt fell

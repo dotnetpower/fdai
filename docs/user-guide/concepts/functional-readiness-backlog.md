@@ -246,6 +246,9 @@ supports the bounded Ready decisions for F15.2/F15.3.
   remaining JavaScript path, C# command/path, Java SQL/path, and C# SQL verifiers. Broader owned
   analysis calibration and production promotion remain separate; deterministic issue processing
   and pack verification do not certify these detectors.
+  #2237 fixes the qualification predicate to compare exact observed counts rather than rounded
+  receipt precision, with 32 focused core/receipt-path passes and unchanged recorded outcomes.
+  This arithmetic correction neither evaluates nor promotes the remaining detectors.
 
 ## Deferred or conditional scope, not hidden completion work
 

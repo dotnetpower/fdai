@@ -2,7 +2,7 @@
 title: F10-F15 준비 상태 전수 점검 및 완료 계획
 description: F10부터 F15까지 모든 중분류의 잔여 작업, 미충족 근거, 의존성에 따른 완료 계획입니다.
 translation_of: functional-readiness-backlog.md
-translation_source_sha: a9d917b97dfedc41995d511ca21dd9c25db2f7a3
+translation_source_sha: 33162b840cd4c3413cb2bd9de2f04f925b6e935a
 translation_revised: 2026-10-19
 ---
 
@@ -244,6 +244,9 @@ F15.2/F15.3의 범위가 제한된 Ready 판정을 뒷받침합니다.
   경로, Java SQL 및 경로, C# SQL 검증기 각각에서 `dev`와 `holdout` 모두 precision >=0.90,
   참 양성 1개 이상을 보존합니다. `holdout`에 맞춰 조정하지 않습니다. 자체 분석의 더 넓은
   보정과 운영 승격은 별도이며 결정론적 결과 처리와 자료 묶음 검증은 탐지기를 검증하지 않습니다.
+  #2237은 반올림한 증적 정밀도가 아닌 정확한 관측 개수로 요건을 판정하도록 수정하며,
+  Core 및 증적 경로 집중 검사 32개에서 기존 기록의 판정을 보존합니다.
+  이 산술 수정으로 남은 탐지기를 평가하거나 승격하지는 않습니다.
 
 ## 연기 및 조건부 범위
 

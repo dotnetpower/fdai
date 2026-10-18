@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import json
 from typing import Any
 
 import pytest
@@ -11,6 +12,7 @@ from fdai.core.security.code_findings.verifier_evaluation import (
     ExpectedResults,
     LabeledLocation,
     LocationOutcome,
+    SplitMetrics,
     VerifierCorpusError,
     load_verifier_corpus,
     promoted_keys,
@@ -82,6 +84,74 @@ def test_metrics_count_outcomes_per_split_and_gate_promotion_on_both() -> None:
     assert not only_dev.promoted
     assert promoted_keys(metrics.values()) == {"fdai.verify.js.sql-injection"}
     assert sql.as_dict()["holdout"] == sql.holdout.as_dict()
+
+
+@pytest.mark.parametrize(
+    "floor,tp,fp,minimum,expected",
+    [
+        (0.9, 1808, 201, 1, False),
+        (0.9, 9, 1, 1, True),
+        (0.9, 10, 1, 1, True),
+        (0.95, 18999, 1000, 1, False),
+        (0.95, 19, 1, 1, True),
+        (1.0, 20000, 1, 1, False),
+        (1.0, 5, 0, 1, True),
+        (0.9, 1, 0, 2, False),
+        (0.9, 0, 0, 1, False),
+    ],
+)
+def test_precision_floor_uses_exact_counts_not_rounded_display(
+    floor: float, tp: int, fp: int, minimum: int, expected: bool
+) -> None:
+    total = tp + fp
+    split = SplitMetrics(tp, fp, 0, 0, 0, round(tp / total, 4) if total else None, None)
+    assert split.qualifies(floor, minimum) is expected
+
+
+@pytest.mark.parametrize("below_floor_split", ["dev", "holdout"])
+def test_rounded_floor_cannot_promote_either_split(below_floor_split: str) -> None:
+    other_split = "holdout" if below_floor_split == "dev" else "dev"
+    locations = tuple(
+        _location(
+            f"{below_floor_split}-{index}.ts",
+            index + 1,
+            "sql_injection",
+            vulnerable=index < 1808,
+            split=below_floor_split,
+        )
+        for index in range(2009)
+    ) + tuple(
+        _location(
+            f"{other_split}-{index}.ts",
+            index + 1,
+            "sql_injection",
+            vulnerable=index < 9,
+            split=other_split,
+        )
+        for index in range(10)
+    )
+    outcomes = dict.fromkeys(locations, LocationOutcome.VERIFIED)
+    (metrics,) = verifier_metrics(locations, outcomes, precision_floor=0.9, min_true_positives=1)
+    assert metrics.dev.precision == metrics.holdout.precision == 0.9
+    below = metrics.dev if below_floor_split == "dev" else metrics.holdout
+    assert (below.true_positives, below.false_positives) == (1808, 201)
+    assert not metrics.promoted
+    assert promoted_keys((metrics,)) == frozenset()
+
+
+def test_recorded_verifier_outcomes_are_preserved_under_exact_count_comparison() -> None:
+    receipt = json.loads(
+        (CATALOG_ROOT / "evaluation" / "managed-verifiers-1.7.0.json").read_text(encoding="utf-8")
+    )
+    rule = receipt["promotion_rule"]
+    for recorded in receipt["verifiers"]:
+        qualified = all(
+            SplitMetrics(**recorded[split]).qualifies(
+                rule["precision_floor"], rule["min_true_positives"]
+            )
+            for split in ("dev", "holdout")
+        )
+        assert qualified is recorded["promoted"], recorded["key"]
 
 
 def test_whole_file_expected_results_expand_with_a_stable_hash_split() -> None:
