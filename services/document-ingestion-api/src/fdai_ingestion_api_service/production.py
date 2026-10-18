@@ -51,6 +51,7 @@ from fdai_ingestion_api_service.adapters.postgres import (
 )
 from fdai_ingestion_api_service.adapters.protection import (
     PurviewRmsPreviewAuthorizer,
+    PurviewRmsSourceDownloadAuthorizer,
 )
 from fdai_ingestion_api_service.adapters.report_lines import (
     PostgresReportingLineDraftReader,
@@ -86,6 +87,7 @@ from fdai_ingestion_api_service.auth import (
 )
 from fdai_ingestion_api_service.deletion import ApiDocumentDeletionService
 from fdai_ingestion_api_service.download import GovernedDocumentDownload
+from fdai_ingestion_api_service.download_authorization import SourceDownloadAuthorizer
 from fdai_ingestion_api_service.http import IngestionGatewayConfig, build_app
 from fdai_ingestion_api_service.ingestion import (
     DocumentIngestionService,
@@ -471,6 +473,7 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
     )
     repository_handover_intake = _build_repository_handover_intake(env=env, dsn=dsn)
     preview_protection: PreviewProtectionAuthorizer = MetadataPreviewProtectionAuthorizer()
+    download_protection: SourceDownloadAuthorizer | None = None
     if env.get("FDAI_DOCUMENT_PROTECTION_PROVIDER", "signature").strip() == "purview_rms":
         protection_endpoint = env.get("FDAI_PROTECTION_ENDPOINT", "").strip()
         protection_audience = env.get("FDAI_PROTECTION_AUDIENCE", "").strip()
@@ -479,6 +482,13 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
                 "purview_rms preview requires FDAI_PROTECTION_ENDPOINT and FDAI_PROTECTION_AUDIENCE"
             )
         preview_protection = PurviewRmsPreviewAuthorizer(
+            endpoint=protection_endpoint,
+            audience=protection_audience,
+            credential=_azure_credential(credential),
+            client=http_client,
+            timeout_seconds=float(env.get("FDAI_PROTECTION_TIMEOUT_SECONDS", "15")),
+        )
+        download_protection = PurviewRmsSourceDownloadAuthorizer(
             endpoint=protection_endpoint,
             audience=protection_audience,
             credential=_azure_credential(credential),
@@ -501,7 +511,9 @@ def build_application(environ: Mapping[str, str]) -> Starlette:
         authenticator=authenticator,
         service=service,
         deletion=deletion_service,
-        download=GovernedDocumentDownload(access=access, metadata=metadata, objects=storage),
+        download=GovernedDocumentDownload(
+            access=access, metadata=metadata, objects=storage, protection=download_protection
+        ),
         preview=GovernedDocumentPreview(
             access=access,
             metadata=metadata,

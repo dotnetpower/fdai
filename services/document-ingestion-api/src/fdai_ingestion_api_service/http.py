@@ -296,6 +296,9 @@ def build_app(
                             item,
                             actor_id=principal.oid,
                             actor_groups=actor_groups,
+                            protected_source_download_available=(
+                                download is not None and download.supports_protected_source_download
+                            ),
                         ),
                         "source_sha256": item.source_sha256,
                     }
@@ -329,6 +332,9 @@ def build_app(
                         item,
                         actor_id=principal.oid,
                         actor_groups=actor_groups,
+                        protected_source_download_available=(
+                            download is not None and download.supports_protected_source_download
+                        ),
                     )
                     for item in items
                 ]
@@ -766,6 +772,7 @@ def _document_summary(
     *,
     actor_id: str,
     actor_groups: frozenset[str],
+    protected_source_download_available: bool = False,
 ) -> dict[str, object]:
     """Return authorized list metadata without uploader ids or access memberships."""
     return {
@@ -809,8 +816,16 @@ def _document_summary(
         "download_available": (
             version.available
             and version.state in {DocumentState.READY, DocumentState.READY_WITH_WARNINGS}
-            and version.protection_state
-            in {ProtectionState.NONE, ProtectionState.LABELED_UNENCRYPTED}
+            and (
+                version.protection_state
+                in {ProtectionState.NONE, ProtectionState.LABELED_UNENCRYPTED}
+                or (
+                    protected_source_download_available
+                    and version.protection_state is ProtectionState.RIGHTS_MANAGED_ACCESSIBLE
+                    and version.protection_provider_ref is not None
+                    and version.protection_policy_revision is not None
+                )
+            )
         ),
         "delete_available": (
             (actor_id == version.uploader_id or "role:Owner" in actor_groups)
