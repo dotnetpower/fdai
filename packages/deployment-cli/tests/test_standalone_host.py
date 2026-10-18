@@ -2689,6 +2689,16 @@ def test_aks_service_update_prepares_and_targets_only_selected_deployment(
             "image": image,
             "replicas": 2,
             "max_replicas": 3,
+            **(
+                {
+                    "secret_environment": {
+                        "FDAI_STATE_STORE_DSN": "fdai-state-store-dsn",
+                        "FDAI_TEAMS_NOTIFICATION_ENDPOINT": "fdai-teams-notification-endpoint",
+                    }
+                }
+                if name == "core-control-plane"
+                else {}
+            ),
         }
         for name, image in old_images.items()
     }
@@ -2748,6 +2758,11 @@ def test_aks_service_update_prepares_and_targets_only_selected_deployment(
     values = json.loads((tmp_path / "workloads.auto.tfvars.json").read_text(encoding="utf-8"))
     assert values["workloads"]["core-control-plane"]["image"] == new_image
     assert values["workloads"]["core-control-plane"]["source_commit"] == new_source
+    retained_context = json.loads((tmp_path / "context.json").read_text(encoding="utf-8"))
+    assert (
+        retained_context["expected_workloads"]["core-control-plane"]["secret_environment"]
+        == workloads["core-control-plane"]["secret_environment"]
+    )
     assert all(
         values["workloads"][name]["image"] == old_images[name]
         and values["workloads"][name]["source_commit"] == old_source
