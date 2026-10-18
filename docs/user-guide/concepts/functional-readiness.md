@@ -195,6 +195,12 @@ inputs or prove production savings.
 | <span id="f11-2">F11.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | Implemented: judge-only replay, scenario/assurance-twin evaluation, baseline comparison, censored outcomes, and O7 evidence bound to the exact threshold policy. The [learning ledger](../../roadmap-implementation/rules-and-detection/operational-learning-ontology.md) and [workflow status](../../roadmap/agents/agent-workflows.md#implementation-status) support local checks. Remaining: coherent external issuer, preregistered SLO/safety-budget comparison, complete recurrence windows, action-specific days/sample sizes, confidence and zero-escape evidence. See [L03-L04](functional-readiness-backlog.md#f11-f13-learning-authority-health-and-outcomes). |
 | <span id="f11-3">F11.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | Implemented: promotion/override attribution, automatic demotion, durable recall/lift, recall precedence, forced `shadow`, and Operator/Console recall visibility. The [governance ledger](../../roadmap-implementation/decisioning/operator-governance-profiles.md) and recorded focused tests support this subset. Remaining: production Release maximum integration and governed activation/recall receipts, [A01-A02](functional-readiness-backlog.md#f11-f13-learning-authority-health-and-outcomes). The current fail-closed shadow-only maximum is an implementation boundary, not a production binding. |
 
+The [#2224 action-history source correction](../../roadmap-implementation/rules-and-detection/prediction-learning-and-case-history.md)
+also keeps F11.1/F11.2 Partial: audit timestamps, latest-state joins, shadow success and empty
+results cannot prove complete event-time intervention history. The source now emits explicit
+incomplete coverage without normalized transitions; its existing consumers remain Incomplete,
+not zero-intervention or Ready. Actual source-owned anchors and completeness proofs remain open.
+
 ## F12. Authority, evidence, and service health
 
 | Function | State | Evidence, supported scope, and remaining conditions |

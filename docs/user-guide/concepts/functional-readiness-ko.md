@@ -2,7 +2,7 @@
 title: FDAI 기능 준비 상태 평가
 description: FDAI 제품 중분류 52개의 준비 상태 판정 근거와 남은 조건을 기록합니다.
 translation_of: functional-readiness.md
-translation_source_sha: 853aa931ead52f958084232794ad3f7d82d153eb
+translation_source_sha: d57a7fb053cefee347335f500bbd212637716878
 translation_revised: 2026-10-18
 ---
 
@@ -194,6 +194,12 @@ Partial 24건은 구현된 부분과 기록된 집중 검사 근거를 유지하
 | <span id="f11-1">F11.1</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 출처가 명시된 피드백, 불변 인시던트 및 작업 사례, 예측 종결, 비활성 후보, 로컬 보존 통제가 구현되어 있습니다. [학습 원장](../../roadmap-implementation/rules-and-detection/operational-learning-ontology.md)과 [예측 원장](../../roadmap-implementation/rules-and-detection/prediction-learning-and-case-history.md)에는 운영 기준 외에도 수집원 이력, Settings 및 수집기, 맥락 수명 주기, 보존 Pattern 통합 작업이 남습니다. [L01-L03](functional-readiness-backlog-ko.md#f11-f13-학습-권한-자체-상태-성과)을 참조하세요. 격리 LOCAL 임대 구현은 외부 수집원을 검증하지 않습니다. |
 | <span id="f11-2">F11.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 실행하지 않는 재현, 시나리오 및 보증 트윈 평가, 기준선 비교, 평가 제외 결과, 정확한 임계값 정책에 연결된 O7 근거가 구현되어 있습니다. [학습 원장](../../roadmap-implementation/rules-and-detection/operational-learning-ontology.md)과 [작업 흐름 상태](../../roadmap/agents/agent-workflows-ko.md#구현-상태)가 로컬 검사를 뒷받침합니다. 일관된 외부 발급자, 사전 등록한 SLO 및 안전 예산 비교, 완전한 재발 구간, 작업별 운영 일수 및 표본 수, 신뢰도 및 정책 위반 누락 없음 근거가 남습니다. [L03-L04](functional-readiness-backlog-ko.md#f11-f13-학습-권한-자체-상태-성과)를 참조하세요. |
 | <span id="f11-3">F11.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 승격 및 재정의 주체 추적, 자동 하향 조정, 영속 회수 및 해제, 회수 우선순위, `shadow` 강제, Operator 및 Console 회수 표시가 구현되어 있습니다. [거버넌스 원장](../../roadmap-implementation/decisioning/operator-governance-profiles.md)과 기록된 집중 검사가 이 부분을 뒷받침합니다. 운영 Release 상한 통합과 관리 절차에 따른 활성화 및 회수 증적은 [A01-A02](functional-readiness-backlog-ko.md#f11-f13-학습-권한-자체-상태-성과)로 남습니다. 현재 안전하게 제한하는 shadow 전용 상한은 구현 경계이며 운영 연결이 아닙니다. |
+
+[#2224 작업 이력 수집원 수정](../../roadmap-implementation/rules-and-detection/prediction-learning-and-case-history.md)
+이후에도 F11.1/F11.2는 Partial입니다. 감사 시각, 최신 상태 결합, 관찰 모드 성공, 빈
+결과는 사건 시각 기준 개입 이력의 완전성을 입증하지 않습니다. 수집원은 정규화된 전이
+없이 불완전한 관찰 범위를 명시하며 기존 소비자도 개입 0건이나 Ready가 아닌 구성 미완료를
+유지합니다. 실제 수집원 소유 기준점과 완전성 증명은 남아 있습니다.
 
 ## F12. 권한 및 근거와 자체 운영
 

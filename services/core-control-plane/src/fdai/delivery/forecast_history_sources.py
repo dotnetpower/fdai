@@ -22,6 +22,7 @@ from fdai.core.detection.forecast_history_source import (
     ForecastSourceCheckpoint,
     ForecastSourceRead,
     ForecastSourceRecord,
+    bounded_limitation,
 )
 from fdai.delivery.forecast_change_history import ForecastChangeHistoryResult
 from fdai.delivery.persistence.postgres_forecast_change_history import ForecastChangeHistoryQuery
@@ -96,7 +97,14 @@ class ForecastChangeWindowHistoryReader(Protocol):
 
 
 class ActionAuditHistorySource:
-    """Restate Thor/Saga action history from contiguous state-store audit rows."""
+    """Retain an audit witness without certifying event-time action history.
+
+    Audit record time is not dispatch or effect time, and the reader joins current
+    ActionRun state rather than an immutable as-of snapshot. Even an intact segment
+    cannot prove a start anchor, known-at completeness, or a database-clock watermark
+    after the window and grace period. No row therefore becomes an intervention or
+    evidence of its absence. Positive coverage requires an independent source contract.
+    """
 
     def __init__(self, *, reader: ForecastActionAuditReader) -> None:
         self._reader = reader
@@ -116,53 +124,40 @@ class ActionAuditHistorySource:
             known_at=known_at,
             limit=257,
         )
-        tokens: set[str] = set()
+        tokens = {"action_history_proof_unavailable"}
         if result.truncated or len(result.rows) > 256:
             tokens.add("result_limit")
         rows = result.rows[:256]
         if not rows:
             tokens.add("audit_chain_window_empty")
         if any(
+            row.entry is not None and next_hash(row.previous_hash, row.entry) != row.entry_hash
+            for row in rows
+        ) or any(
             not _row_chain_valid(previous, current)
             for previous, current in zip(rows, rows[1:], strict=False)
         ):
             tokens.add("audit_chain_gap_or_hash_mismatch")
-        records: list[ForecastSourceRecord] = []
-        seen: set[str] = set()
         for row in rows:
+            if not start_at <= row.recorded_at <= end_at or row.recorded_at > known_at:
+                tokens.add("audit_record_out_of_scope")
             if row.entry is None or row.state is None:
+                tokens.add("audit_record_redacted")
                 continue
-            correlation_id = _bounded_text(row.entry.get("correlation_id")) or _bounded_text(
-                row.state.get("correlation_id")
-            )
+            correlation_id = _bounded_text(row.entry.get("correlation_id"))
             if correlation_id is None:
                 tokens.add("action_correlation_missing")
-                continue
-            state = _bounded_text(row.state.get("state"))
-            action_type = _bounded_text(row.state.get("action_type"))
-            resource_id = _bounded_text(row.state.get("resource_id"))
-            if state is None or action_type is None or resource_id != subject_ref:
+            elif correlation_id != _bounded_text(row.state.get("correlation_id")):
+                tokens.add("action_correlation_mismatch")
+            if (
+                _bounded_text(row.state.get("state")) is None
+                or _bounded_text(row.state.get("action_type")) is None
+                or row.state.get("resource_id") != subject_ref
+            ):
                 tokens.add("action_state_malformed")
-                continue
-            if correlation_id in seen:
-                continue
-            seen.add(correlation_id)
-            records.append(
-                ForecastSourceRecord(
-                    source_event_id="action-run:" + _digest(correlation_id),
-                    source_revision=f"audit-seq:{row.seq}:{row.entry_hash}",
-                    source_state=state,
-                    subject_ref=subject_ref,
-                    effective_at=row.recorded_at,
-                    recorded_at=row.recorded_at,
-                    evidence_ref=f"state-store-audit:{row.seq}:{row.entry_hash}",
-                    pending=state in {"executing", "execution_unknown", "effect_pending"},
-                )
-            )
-        complete = not tokens
         watermark = f"audit-seq:{rows[-1].seq}:{rows[-1].entry_hash}" if rows else "audit-empty"
         return ForecastSourceRead(
-            records=tuple(records),
+            records=(),
             checkpoint=ForecastSourceCheckpoint(
                 source_identity=FORECAST_ACTION_HISTORY_SOURCE_IDENTITY,
                 source_revision=FORECAST_ACTION_HISTORY_SOURCE_REVISION,
@@ -172,10 +167,10 @@ class ActionAuditHistorySource:
                 known_at=known_at,
                 watermark=watermark,
                 evidence_ref="state-store-audit-chain:" + _digest(watermark),
-                complete=complete,
-                limitation="+".join(sorted(tokens)) if tokens else None,
+                complete=False,
+                limitation=bounded_limitation(tokens),
             ),
-            exhausted=not result.truncated,
+            exhausted=not result.truncated and len(result.rows) <= 256,
         )
 
 
