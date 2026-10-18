@@ -3,6 +3,24 @@ import "./auth.css";
 
 let authorization: (() => Promise<string>) | undefined;
 
+async function runtimeProbe(path: "/healthz" | "/readyz"): Promise<unknown> {
+  try {
+    const response = await fetch(path, {
+      cache: "no-store", signal: AbortSignal.timeout(5000),
+    });
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (error) {
+    if (error instanceof TypeError || error instanceof SyntaxError ||
+        (error instanceof DOMException &&
+          ["AbortError", "TimeoutError"].includes(error.name))) {
+      console.warn("Hub runtime probe unavailable.", path);
+      return null;
+    }
+    throw error;
+  }
+}
+
 /** Access tokens stay in MSAL's session cache, never URLs, local configuration, or UI output. */
 export async function initializeAuth(root: HTMLElement): Promise<boolean> {
   const response = await fetch("/auth/config", { cache: "no-store" });
@@ -29,12 +47,10 @@ export async function initializeAuth(root: HTMLElement): Promise<boolean> {
     status.setAttribute("role", "status");
     status.textContent = "Checking this Hub's runtime...";
     root.append(title, note, status);
-    const [health, ready] = await Promise.all([
-      fetch("/healthz", { cache: "no-store" }),
-      fetch("/readyz", { cache: "no-store" }),
+    const [healthBody, readyBody] = await Promise.all([
+      runtimeProbe("/healthz"),
+      runtimeProbe("/readyz"),
     ]);
-    const healthBody: unknown = health.ok ? await health.json() : null;
-    const readyBody: unknown = ready.ok ? await ready.json() : null;
     const alive = typeof healthBody === "object" && healthBody !== null &&
       "status" in healthBody && ["ok", "healthy"].includes(String(healthBody.status));
     const available = typeof readyBody === "object" && readyBody !== null &&
