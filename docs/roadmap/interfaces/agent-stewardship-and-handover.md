@@ -487,9 +487,10 @@ change storage and transport only; the same `HandoverBootstrapConsumer` remains 
 handover boundary.
 
 Governed document preview and immutable-source download remain separate principal-scoped reads.
-A download requires current-version authorization, an unprotected source, and durable audit enqueue
-before object streaming. It neither invokes `HandoverBootstrapConsumer` nor changes draft or map
-authority.
+A download requires current-version authorization and durable audit enqueue before object streaming.
+A rights-managed source additionally requires the exact
+[purpose-bound provider receipt](document-ingestion.md#purpose-bound-source-download).
+It neither invokes `HandoverBootstrapConsumer` nor changes draft or map authority.
 
 When a handover source is an image, optional Document Intelligence OCR remains inside the same
 agent-owned ingestion path. `FDAI_OCR_OPERATION_TIMEOUT_SECONDS` bounds submission, polling, and

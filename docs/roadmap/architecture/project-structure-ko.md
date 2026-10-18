@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: d33f821183edff63df896c24176a2b839b59081c
+translation_source_sha: 48c1b48109785b38c8ffc04d29cdc0ba5e4b9400
 translation_revised: 2026-10-18
 ---
 # 프로젝트 구조
@@ -871,6 +871,11 @@ FDAI 자체 분석 엔진도 같은 경계 안에 유지합니다. `analysis_con
    기록하세요. 붉은 파이프라인을 풀려고 임계값을 낮추는 것은 거버넌스 회귀입니다.
 
 ## 의존성 주입을 통한 커스터마이제이션
+
+Ingestion API는 서비스 소유 `SourceDownloadAuthorizer`를 `GovernedDocumentDownload`에
+주입합니다. 구성된 목적별 보호 공급자만 제한된 유효 기간의 반출 증적을 제공합니다.
+사용 가능 표시는 다운로드나 실행기 권한을 부여하지 않습니다.
+[목적별 원본 다운로드](../interfaces/document-ingestion-ko.md#목적별-원본-다운로드)를 참조하세요.
 
 Bragi가 소유하는 대화 구성은 정확한 선택 대상과 언어, 독립적인 종합 검증 및 정책을 고정한
 상관 ID별 영속 모델 회계를 전달합니다. 참여가 누락되거나 근거 충돌이 해결되지 않으면 최종

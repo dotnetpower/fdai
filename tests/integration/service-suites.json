@@ -273,6 +273,7 @@
           "services/document-ingestion-api/tests/test_cloud_knowledge_offline.py",
           "services/document-ingestion-api/tests/test_document_download.py",
           "services/document-ingestion-api/tests/test_document_preview.py",
+          "services/document-ingestion-api/tests/test_source_download_authorization.py",
           "services/document-ingestion-api/tests/test_ingestion_service_behavior.py",
           "services/document-ingestion-api/tests/test_report_line_draft_http.py"
         ],

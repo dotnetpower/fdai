@@ -1,7 +1,7 @@
 ---
 translation_of: agent-stewardship-and-handover.md
-translation_source_sha: 7f8c4d63064bde9dd47149122036302e0212d92a
-translation_revised: 2026-10-15
+translation_source_sha: ee04581a9effeeabce4bf1e533c204acdf72060e
+translation_revised: 2026-10-18
 title: 에이전트 스튜어드십과 인수인계
 ---
 # 에이전트 스튜어드십과 인수인계
@@ -455,9 +455,9 @@ polling하고 검토용 초안 요약, YAML, 저장된 거버넌스 PR 증적을
 바꾸며 동일한 `HandoverBootstrapConsumer`가 accountable handover 경계로 유지됩니다.
 
 통제된 문서 미리 보기와 변경 불가 원본 다운로드는 별도의 principal 범위 읽기로 유지됩니다.
-다운로드는 객체를 스트리밍하기 전에 현재 버전 권한 확인, 보호되지 않은 원본, 영속 감사 등록을
-요구합니다. `HandoverBootstrapConsumer`를 호출하지 않으며 초안 또는 지도 권한을 변경하지
-않습니다.
+다운로드는 객체를 스트리밍하기 전에 현재 버전 권한 확인과 영속 감사 등록을 요구합니다.
+권한 관리 원본에는 정확한 [목적별 공급자 증적](document-ingestion-ko.md#목적별-원본-다운로드)도
+필요합니다. `HandoverBootstrapConsumer`를 호출하지 않으며 초안 또는 지도 권한을 변경하지 않습니다.
 
 인계 출처가 이미지이면 선택적 문서 Intelligence OCR도 동일한 agent-owned 인제스트
 경로 안에 유지됩니다. `FDAI_OCR_OPERATION_TIMEOUT_SECONDS`는 제출, polling 및 poll delay
