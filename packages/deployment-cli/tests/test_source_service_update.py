@@ -143,6 +143,60 @@ def test_source_service_update_builds_imports_plans_and_verifies(
     ]
 
 
+def test_new_authority_profile_is_written_after_intent_admission(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    source_root = tmp_path / "source"
+    application = tmp_path / "application"
+    source_root.mkdir(mode=0o700)
+    application.mkdir(mode=0o700)
+    source = SimpleNamespace(
+        root=source_root,
+        commit="c" * 40,
+        to_mapping=lambda: {
+            "schema_version": "fdai.source-deployment-input.v1",
+            "source_commit": "c" * 40,
+        },
+        reverify=lambda: None,
+    )
+    monkeypatch.setattr(
+        "fdai_deployment_cli.source_service_update.inspect_source", lambda *_: source
+    )
+    monkeypatch.setattr(
+        "fdai_deployment_cli.source_service_update.materialize_source",
+        lambda _source, destination: destination.mkdir(mode=0o700) or "s" * 64,
+    )
+    monkeypatch.setattr(
+        "fdai_deployment_cli.source_service_update._host_json",
+        lambda *_args, **_kwargs: {
+            "schema_version": "fdai.source-service-update-context.v1",
+            "state": "verified",
+            "service": "core-control-plane",
+            "target_binding": "d" * 64,
+            "active_service_update": None,
+        },
+    )
+    monkeypatch.setattr(
+        "fdai_deployment_cli.source_service_update._build_image",
+        lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("reached image build")),
+    )
+    profile = SimpleNamespace(profile_json='{"profile_id":"dev"}', input_digest="e" * 64)
+
+    with pytest.raises(RuntimeError, match="reached image build"):
+        deploy_source_service_update(
+            source_root=source_root,
+            application_work_dir=application,
+            work_dir=tmp_path / "update",
+            service="core-control-plane",
+            timeout_seconds=300,
+            development_authority_profile=profile,
+        )
+
+    update = tmp_path / "update"
+    assert (update / "source-service-update-intent.json").is_file()
+    assert (update / "development-authority-profile.json").is_file()
+
+
 @pytest.mark.parametrize("recovery_state", ["not-required", "applied"])
 def test_source_service_update_reconciles_historical_baseline_before_import(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch, recovery_state: str
