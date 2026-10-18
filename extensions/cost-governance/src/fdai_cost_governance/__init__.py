@@ -13,6 +13,13 @@ from fdai_cost_governance.coordination import (
     CostObservationModeLatch,
     DeterministicCostCoordinator,
 )
+from fdai_cost_governance.forecast_calibration import (
+    CostForecastActual,
+    CostForecastPrediction,
+    DurableForecastCalibration,
+    ForecastCalibrationSnapshot,
+    ForecastCalibrationState,
+)
 from fdai_cost_governance.guard import (
     FinOpsActionKind,
     FinOpsCandidate,
@@ -40,7 +47,17 @@ from fdai_cost_governance.optimization import (
     default_service_family_profiles,
     evaluate_optimization_attestation,
 )
-from fdai_cost_governance.pantheon_composition import compose_njord_optimization_candidate
+from fdai_cost_governance.optimization_runtime import (
+    CostOptimizationRuntime,
+    OptimizationPublicationResult,
+    OptimizationPublicationState,
+)
+from fdai_cost_governance.pantheon_composition import (
+    OptimizationReinjectionDisposition,
+    OptimizationReinjectionResult,
+    compose_njord_optimization_candidate,
+    compose_njord_reinjection_candidate,
+)
 from fdai_cost_governance.parity import (
     ApprovedParityDifference,
     CostGovernanceParityHarness,
@@ -97,8 +114,11 @@ __all__ = [
     "ClarificationResponseShape",
     "CostGovernanceParityHarness",
     "CostGovernanceResourceError",
+    "CostForecastActual",
+    "CostForecastPrediction",
     "CostCoordinationError",
     "CostObservationModeLatch",
+    "CostOptimizationRuntime",
     "CostObservationCampaignReducer",
     "CostPromotionReadinessGate",
     "CostReadinessBlock",
@@ -121,6 +141,7 @@ __all__ = [
     "CoupledResourceOptimizationEvidence",
     "CoupledResourceOptimizationPlan",
     "DeterministicCostCoordinator",
+    "DurableForecastCalibration",
     "AzureFocusObservationAdapter",
     "FinOpsActionKind",
     "FinOpsCandidate",
@@ -129,10 +150,16 @@ __all__ = [
     "FinOpsGuardConfig",
     "FinOpsGuardDecision",
     "FinOpsGuardOutcome",
+    "ForecastCalibrationSnapshot",
+    "ForecastCalibrationState",
     "OptimizationDisposition",
+    "OptimizationPublicationResult",
+    "OptimizationPublicationState",
     "OptimizationClarificationAttestation",
     "OptimizationClarificationRequest",
     "OptimizationClarificationResult",
+    "OptimizationReinjectionDisposition",
+    "OptimizationReinjectionResult",
     "PackageResource",
     "ResourceContext",
     "ResourceOptimizationEvidence",
@@ -144,6 +171,7 @@ __all__ = [
     "__version__",
     "build_lifecycle_receipt",
     "compose_njord_optimization_candidate",
+    "compose_njord_reinjection_candidate",
     "build_optimization_clarification",
     "build_cost_governance_bundle",
     "load_package_resources",

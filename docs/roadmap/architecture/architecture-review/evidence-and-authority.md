@@ -171,6 +171,14 @@ The reusable `1.0.0` receipt contract is content-addressed and always records
 evidence keys, approved receipt objects, and approver identities match authoritative records.
 Receipt-free legacy workflow decisions remain non-authoritative projections.
 
+Production readiness is derived from that immutable receipt, not from a mutable manifest status.
+The gate resolves the receipt through an injected provider, validates the content-addressed
+identity again, and requires the exact review id, complete required evidence set, one shared target
+revision, a conformant outcome, a currently effective interval, and current human-approval
+authority. A missing provider or receipt, a conditional or held outcome, revision drift, evidence
+drift, or an expired receipt keeps production readiness false. Receipt validation still grants no
+execution authority.
+
 ## Failure behavior
 
 | Dependency | Failure behavior |
@@ -191,8 +199,9 @@ Receipt-free legacy workflow decisions remain non-authoritative projections.
 3. Resolve or formally accept every blocker with the complete risk or exception contract.
 4. Produce a fresh ontology-grounded `DecisionCase` and impact envelope for the exact release.
 5. Record required independent approvals and create the immutable decision receipt.
-6. Run `python3 scripts/governance/check-arb-readiness.py --require-production-ready` against that
-   receipt-bound state in the promotion job.
+6. Run the receipt-bound production gate in the promotion job. The command-line structural check
+   remains unable to manufacture a runtime receipt; the promotion binding supplies the exact
+   governed receipt provider before requiring production readiness.
 7. Verify that the deployment or ActionType promotion remains a separate governed decision.
 
 Passing ARB permits the next production review. It does not deploy resources or enable an

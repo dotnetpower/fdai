@@ -52,6 +52,9 @@ from fdai.core.workflow.recovery_effect_ingress import (
     RecoveryEffectObservationIngress,
 )
 from fdai.core.workflow.workflow_runtime import WorkflowActionDispatcher
+from fdai.delivery.architecture_review_decision_receipt import (
+    OntologyArchitectureReviewDecisionReceiptProvider,
+)
 from fdai.delivery.persistence.workflow_approval import StateStoreWorkflowApprovalProvider
 from fdai.delivery.persistence.workflow_recovery import (
     StateStoreRecoveryApprovalJournal,
@@ -155,6 +158,11 @@ def build_workflow_coordinator(
         manifest_path=config_dir / "architecture-review.yaml",
         repo_root=catalog_root.parent,
         evidence_provider=architecture_evidence_provider,
+        decision_receipt_provider=(
+            OntologyArchitectureReviewDecisionReceiptProvider(ontology_store)
+            if ontology_store is not None
+            else None
+        ),
     )
     inner_guard: WorkflowContextualGuardEvaluator | WorkflowGuardEvaluator = (
         ChangeWindowWorkflowGuardEvaluator(

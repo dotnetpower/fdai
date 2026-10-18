@@ -14,6 +14,7 @@ from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.registry import load_pantheon
 from fdai.agents._framework.vertical_precedence import InitialVerticalPrecedence
 from fdai.agents.forseti import Forseti
+from fdai.agents.njord import Njord
 from fdai.agents.odin import Odin
 from fdai.agents.saga import Saga
 from fdai.agents.thor import Thor
@@ -184,6 +185,64 @@ async def test_frozen_shadow_scenario_composes_all_verticals_once() -> None:
     assert "object.action-run" in audited_topics
     audit.verify()
     assert bus.dead_letters == []
+
+
+async def test_package_candidate_enters_full_case_only_through_njord_publication() -> None:
+    scenario = _scenario()
+    bus, audit, thor = _wire()
+    cost = next(candidate for candidate in scenario["candidates"] if candidate["domain"] == "cost")
+    other_candidates = [
+        candidate for candidate in scenario["candidates"] if candidate["domain"] != "cost"
+    ]
+    cost_payload = _candidate_payload(scenario, cost)
+    njord = Njord(
+        bus=bus,
+        advisory_provider=_UnusedCostAdvisory(),
+        package_enabled=True,
+        allow_unbound_activation_reader=True,
+    )
+
+    await _publish_candidates(bus, scenario, other_candidates)
+    await njord.on_typed_message(
+        "object.event",
+        {
+            "producer_principal": "Huginn",
+            "correlation_id": scenario["correlation_id"],
+            "idempotency_key": cost_payload["idempotency_key"],
+            "event_id": "event:package-optimization",
+            "event_type": "specialist.cost_optimization_candidate",
+            "occurred_at": scenario["observed_at"],
+            "ingested_at": scenario["observed_at"],
+            "resource_id": scenario["resource_id"],
+            "attributes": {
+                "activation_revision": 1,
+                "candidate": cost_payload,
+            },
+        },
+    )
+
+    (published_cost,) = [
+        message
+        for message in bus.messages_on("object.cost-anomaly")
+        if message.payload.get("kind") == "cross_vertical_candidate"
+    ]
+    assert published_cost.principal == "Njord"
+    assert len(bus.messages_on("object.arbitration-request")) == 1
+    assert len(bus.messages_on("object.arbitration-decision")) == 1
+    assert len(bus.messages_on("object.verdict")) == 1
+    assert bus.messages_on("object.action-run")[-1].payload["outcome"] == "shadow_success"
+    assert thor.action_runs[scenario["correlation_id"]].shadow_mode is True
+    audit.verify()
+
+
+class _UnusedCostAdvisory:
+    async def analyze_cost_sample(self, sample: Any) -> None:
+        del sample
+        return None
+
+    def estimate_cost_effect(self, action_type: str) -> None:
+        del action_type
+        return None
 
 
 async def test_incomplete_candidate_set_times_out_to_audited_hil() -> None:

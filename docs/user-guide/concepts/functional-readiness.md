@@ -9,24 +9,26 @@ This assessment records why each function in the [functional specification](func
 is Ready or Partial. It separates executable implementation, documented delivery gaps, and
 installation-specific operational qualification instead of treating a feature name as proof.
 
-> **Assessment basis:** 2026-10-15, base source revision
-> `426507a57cbfbd9bc7a9b2c8941c3c5f60db229d` plus the current change. GitHub Copilot compared all
-> 52 requirements with their owner records, then implemented or reverified 47 closure candidates
-> across three bounded campaigns. The latest 17-function extension passed **2,980 tests across five
-> focused runs**, with two optional-database skips. This is a repository
-> assessment, not independent
-> human approval or a new live Azure, model, production-database, or deployment validation.
+> **Assessment basis:** 2026-10-18, protected-main revision
+> `966082d265a7a230b41394b67e63ccd6fd328fa9` plus the current change. The F06/F07 closure
+> campaigns traced every mandatory verb through source, composition, persistence, authority, and
+> evidence owners. Their final cumulative slices passed **908 focused tests**, plus **8 actual
+> isolated PostgreSQL checks**; one unrelated optional PostgreSQL exporter test skipped because its
+> external validation variable wasn't configured. Ten critique rounds with ten controls each were
+> completed for each function group, with no confirmed defect above Low in the final implemented
+> slices. This is repository implementation evidence, not independent human approval or a new live
+> Azure, model, billing, production-database, or deployment validation.
 
 ## How to read the decisions
 
-**Overall:** <span class="fdai-readiness-badge" data-readiness="ready">Ready 35/52</span> <span class="fdai-readiness-badge" data-readiness="partial">Partial 17/52</span> <span class="fdai-readiness-badge" data-readiness="blocked">Blocked 0/52</span> <span class="fdai-readiness-badge" data-readiness="planned">Planned 0/52</span> <span class="fdai-readiness-badge" data-readiness="not-assessed">Not assessed 0/52</span>
+**Overall:** <span class="fdai-readiness-badge" data-readiness="ready">Ready 38/52</span> <span class="fdai-readiness-badge" data-readiness="partial">Partial 14/52</span> <span class="fdai-readiness-badge" data-readiness="blocked">Blocked 0/52</span> <span class="fdai-readiness-badge" data-readiness="planned">Planned 0/52</span> <span class="fdai-readiness-badge" data-readiness="not-assessed">Not assessed 0/52</span>
 Ready applies only to the support scope stated in its record. It does not certify every
 deployment, provider, scale, or autonomous action. Partial means the stated function has an
 implementation, but mandatory coverage, integration, or verification remains open in the cited
 owner. No installation was selected for a Blocked assessment. No entire subfunction was found
 to be design-only; planned components inside a partially implemented function remain explicit.
 
-The 17 Partial decisions retain their implemented subset and focused current-source checks, but
+The 14 Partial decisions retain their implemented subset and focused current-source checks, but
 they do not narrow away mandatory verbs or required operational evidence. Historical live receipts
 remain historical; this session does not renew them or qualify a particular installation. Promote
 one of these functions only after every remaining condition in its record is satisfied.
@@ -81,17 +83,74 @@ English-only references and are not replaced by this assessment.
 | Function | State | Evidence, supported scope, and remaining conditions |
 |----------|-------|-----------------------------------------------------|
 | <span id="f06-1">F06.1</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | Scope: typed proposed-change intake, policy/risk assessment, exact target and revision validation, bounded simulation, alternative comparison, stop conditions, and rollback evidence in the finalized plan. The [change guide](../capabilities/change-safety.md), [planning ledger](../../roadmap-implementation/decisioning/operational-planning.md), and focused planning tests support this scope. Approval, execution, and independent post-change observation remain separate action qualification; a proposal never closes a change. |
-| <span id="f06-2">F06.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | Scope: current-schema drift and control-gap detected issues, scoped policy evaluation, revisioned activation, evidence-bearing exceptions, deterministic conflicts, and inert governed correction proposals. The [rule ledger](../../roadmap-implementation/rules-and-detection/rule-governance.md) and 204 focused tests support this scope. Legacy-revision migration, complete provider collection, and operational rollout remain deployment qualification. |
-| <span id="f06-3">F06.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | Scope: immutable ARB evidence packages, architecture-constraint assessment, ownership and operational-readiness checks, fail-closed incomplete evidence, and content-addressed shadow fix requests that validate the ActionType trigger, arguments, active rule citation, and active ontology release before entering the unified safety check. A concrete EventBus adapter derives the typed request from the cited rule's parameters and is admitted only through a complete publisher-and-lever DI binding. The request grants no approval or execution authority and the ingress never dispatches it. The [ARB ledger](../../roadmap-implementation/architecture/architecture-review-board.md), [readiness ledger](../../roadmap-implementation/operations/operational-readiness.md), and focused ORR cohort support this scope. Production owner/report-provider bindings, an upstream runtime selection of the adapter, and a governed ownership handover/promotion receipt remain open. |
+| <span id="f06-2">F06.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | Scope: current-schema drift and control-gap detection, scoped policy evaluation, evidence-bearing exceptions, deterministic conflicts, and all nine Rule-revision phases through retained artifacts, cohort activation, retirement, rollback, and authority compare-and-set. The [rule ledger](../../roadmap-implementation/rules-and-detection/rule-governance.md) and 78 current focused checks support the implemented scope. A real installation still needs legacy-pointer migration, complete provider collection, trusted Entra verifier evidence, scaled-replica convergence, direct/offline activation receipts, and measured rollout quality. Those are mandatory operational conditions, so this function remains Partial. |
+| <span id="f06-3">F06.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | Scope: immutable ARB evidence packages and receipts, architecture and readiness assessment, runtime-selected typed ORR ingress, receipt-gated readiness, Forseti-owned observation, and durable cross-replica idempotency and projection fences. Missing, ambiguous, stale, truncated, or incomplete sources hold without granting approval, topic ownership, mutation, or execution authority. The [ARB ledger](../../roadmap-implementation/architecture/architecture-review-board.md), [readiness ledger](../../roadmap-implementation/operations/operational-readiness.md), 194 focused checks, and four isolated PostgreSQL checks support this scope. Production posture/report/admission providers, accountable owner approvals, end-to-end shadow and promotion cohorts, signed terminals, and deployed Workflow effect receipts remain mandatory and unverified, so this function remains Partial. |
 
 ## F07. Cost governance
 
 | Function | State | Evidence, supported scope, and remaining conditions |
 |----------|-------|-----------------------------------------------------|
 | <span id="f07-1">F07.1</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | Scope: bounded subscription/resource cost and utilization analytics, allocation gaps, service/resource attribution, source provenance, and Console projections that preserve incomplete or unavailable evidence. The [efficiency ledger](../../roadmap-implementation/architecture/finops-resource-efficiency.md) and focused FinOps tests support this scope. Current billing/utilization bindings and complete relationship coverage remain installation qualification. |
-| <span id="f07-2">F07.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | Scope: bounded budget comparison, baseline and trend analysis, anomaly detection, cost forecasts with source windows and assumptions, and explicit partial/unavailable facets. The [efficiency ledger](../../roadmap-implementation/architecture/finops-resource-efficiency.md), [FinOps ledger](../../roadmap-implementation/architecture/finops-autonomous-operations.md), and focused Cost Governance cohort support this scope. Current billing/utilization bindings and forecast calibration remain installation qualification. |
-| <span id="f07-3">F07.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | Implemented: five versioned service-family profiles, required-metric and incompatibility checks, single-resource right-size/shutdown planning, bounded all-or-nothing coupled targets, expiring scoped clarification attestations after recovery evidence, and authority-free composition of eligible right-size plans into the existing Njord candidate contract. The [efficiency ledger](../../roadmap-implementation/architecture/finops-resource-efficiency.md) and 34 focused tests support this subset; exact target, profile, freshness, per-resource proposed configuration, objective-effect, causal-order, and logical-lock lineage are retained within the Forseti intake ceiling, with unique resource targets and bounded effects and freshness sources. Remaining: runtime Njord publication, complete Freyr/Forseti/Odin case assembly, automatic recovery and conversational reinjection, approval/execution integration, and independently settled live outcomes. |
-| <span id="f07-4">F07.4</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | Scope: exact case/action revision settlement, comparable baseline and treatment windows, independent cost/capacity/service/recovery effect statuses, and strict separation of projected, verified run-rate, and invoice-allocated savings. The [FinOps ledger](../../roadmap-implementation/architecture/finops-autonomous-operations.md), [efficiency ledger](../../roadmap-implementation/architecture/finops-resource-efficiency.md), and focused settlement tests support this scope. A live pinned episode and finalized billing receipt remain installation qualification. |
+| <span id="f07-2">F07.2</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | Scope: bounded budget comparison, baseline and trend analysis, source-window forecasts, and durable prediction-to-actual calibration with sample count, MAPE, signed bias, source lineage, and explicit partial or unavailable states. The [efficiency ledger](../../roadmap-implementation/architecture/finops-resource-efficiency.md), [FinOps ledger](../../roadmap-implementation/architecture/finops-autonomous-operations.md), and focused Cost Governance tests support this scope. Current installation billing and utilization bindings plus a measured nonzero calibration cohort remain installation qualification; missing or zero actual denominators never become a zero-error claim. |
+| <span id="f07-3">F07.3</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | Scope: five versioned service-family profiles, required-metric and incompatibility checks, single-resource and bounded coupled-target planning, activation-fenced canonical ingress, Njord-owned durable publication, accountable Freyr/Forseti/Odin processing, typed clarification reinjection, and existing Var/Thor approval and execution seams. The [efficiency ledger](../../roadmap-implementation/architecture/finops-resource-efficiency.md) and focused package, agent, delivery, and cross-vertical tests support this scope. Live installation approval, execution, rollback, and independently settled outcome receipts remain installation qualification and don't follow from the Ready state. |
+| <span id="f07-4">F07.4</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | Scope: exact case and action revision settlement, one currency, comparable baseline and treatment windows, demand normalization, independent cost/capacity/service/recovery effects, and separate verified run-rate and invoice-allocated evidence classes. Invoice allocation additionally requires finalized billing and allocation-rule receipts. The [FinOps ledger](../../roadmap-implementation/architecture/finops-autonomous-operations.md), [efficiency ledger](../../roadmap-implementation/architecture/finops-resource-efficiency.md), and focused settlement tests support this scope. A live pinned settled episode and finalized billing receipt remain installation qualification, not implementation evidence. |
+
+## F06 and F07 remaining operational work
+
+The closure campaigns completed every reproducible repository implementation gap they found. The
+items below require an exact installation, external identity, accountable human, provider source,
+or measured operational episode. They remain mandatory. A Ready result for F07 means that the
+generic implementation supports the stated behavior; it doesn't manufacture these installation
+inputs or prove production savings.
+
+### F06.2 deployment and policy rollout
+
+| Remaining work | Responsible owner | Completion evidence |
+|----------------|-------------------|---------------------|
+| Migrate a retained legacy Rule pointer and cohort through the current nine-phase revision path | Mimir and release owner | Exact old/new releases, migration receipt, active-pointer readback, rollback and retained-history verification |
+| Bind complete drift and control-gap provider collection | Huginn, Heimdall and deployment provider owner | Authenticated scope, source identity, completeness/freshness receipt and measured missing-source behavior |
+| Deploy the trusted Entra governance verifier GitHub App | Security and repository owner | Installed App id, phishing-resistant identity attestation and accepted exact-head check run |
+| Prove a governed change is blocked, then cleared by corrected independent review | Var, Mimir and Saga | Self-approval or sub-quorum denial, corrected approval, exact-head check and audit linkage |
+| Schedule exemption expiry with a production notifier | Mimir, Saga and operations owner | Job schedule, expiry audit, one real notification receipt and duplicate suppression |
+| Bind the override-discovery evidence source | Norns, Mimir and deployment composition owner | Current `governance.override_resolved` source, exact window and independent source admission |
+| Verify generation convergence across serving replicas | Mimir and runtime/release owner | Two or more serving replicas agree on one generation after restart and rollback |
+| Exercise direct and offline activation paths | Mimir, Var, Saga and release owner | Authenticated direct approval and signed offline package receipts with exact revision readback |
+| Measure provider-complete drift quality | Heimdall and Forseti | Frozen scope with false-positive, false-negative, hold and coverage denominators |
+
+### F06.3 ARB and operational-readiness qualification
+
+| Remaining work | Responsible owner | Completion evidence |
+|----------------|-------------------|---------------------|
+| Bind a production posture provider | Heimdall, Assurance Twin and deployment owner | Current workload/scope projection with source identity, freshness and completeness |
+| Bind the readiness-report publisher | Forseti, Saga and Operator owner | Authenticated Checks API or Console projection receipt with exact source revision |
+| Bind decision-evidence admission for ARB | Security and evidence owner | Governed evidence store, trust roots, purpose, scope and revision admission |
+| Configure real ARB owners, evidence and approval routes | Architecture, security, privacy, data, operations, reliability, release, cost and performance owners | Named owners, escalation routes, evidence digests and attributed approvals |
+| Retain one governed ORR shadow receipt | Forseti, Saga and operations owner | Ownership-transfer event, independent bundle, durable report and no execution effect |
+| Carry one ORR through the safety check and human approval | Forseti, Var and Saga | Broker receipt, exact risk decision and distinct attributed approver |
+| Measure a frozen false-positive shadow cohort | Forseti, Muninn and assurance owner | Representative scenario manifest, decisions, outcomes, denominators and uncertainty |
+| Record an authoritative promotion decision | Mimir, Var and promotion owner | Reviewed cohort, exact promotion subject, approval and current registry readback |
+| Run one staging ARB Process to a signed terminal | Forseti, Var, Saga and ARB owners | Owner approvals, Process history and independently verified signed terminal |
+| Verify Workflow enforcement parity | Var, Thor, Saga and deployment owner | Same allowlisted Workflow in local/deployed venues, promoted ActionType and independent effect |
+| Retain the complete owned-topic ARB trace | Pantheon topic owners | Schema-validated stage records on every declared owner topic with causal correlation |
+| Close ARB-4 effects and ARB-5 promotion cohorts | Heimdall, Vidar, Muninn, Norns and Mimir | ActionRun, independent outcome, recovery and long-window cohort receipts |
+
+### F07 installation activation and measurement
+
+| Remaining work | Responsible owner | Completion evidence |
+|----------------|-------------------|---------------------|
+| Bind real billing, Budget, Advisor and utilization sources | Installation and Cost Analytics provider owner | Current authenticated source manifests and complete/partial/unavailable readback |
+| Verify service, workload and relationship coverage | Installation ontology and inventory owner | Coverage receipt for the exact cost allocation scope |
+| Accumulate a nonzero forecast-calibration cohort | Njord and analytics evidence owner | Authoritative actuals, sample count, MAPE, signed bias and source lineage |
+| Retain one pinned live DecisionCase and approval | Forseti, Var and installation operator | Exact case/action revision, target, current policy and attributed approval |
+| Retain execution and rollback receipts | Thor, Vidar and executor deployment owner | Idempotent execution, postcondition, rollback or no-rollback fact and effect correlation |
+| Produce independent cost, capacity, service and recovery effects | Heimdall, Saga and settlement producer | Four independently sourced statuses bound to the same action and windows |
+| Qualify comparable-demand run-rate savings | Cost Governance measurement owner | Baseline/treatment demand normalization and verified run-rate receipt |
+| Qualify invoice-allocated savings | Billing and allocation owner | Final invoice and exact allocation-rule receipts |
+| Accumulate the W7 operating cohort | Installation owner and protected campaign | 30 distinct days, at least 100 eligible samples and the declared recurrence window |
+| Complete independent target review | Six independent human reviewers | Six attributed reviews over the exact target package and evidence set |
+| Perform the production package cutover | Release and deployment owner | Activated package revision, inert Core facade removal and rollback/readback receipts |
+| Create successors for retired #903/#904 | FDAI maintainer | New issue ids with exact W7 acceptance criteria before resuming promotion work |
+| Run the optional campaign-export PostgreSQL test | Local validation owner | Dedicated validation DSN and passing exporter persistence test; this doesn't replace live evidence |
 
 ## F08. Actions and workflows
 

@@ -169,6 +169,9 @@ def test_bootstrap_constructs_injects_and_supervises_discovery_activation() -> N
     pantheon = (
         _ROOT / "services/core-control-plane/src/fdai/runtime/bootstrap_pantheon.py"
     ).read_text(encoding="utf-8")
+    learning = (
+        _ROOT / "services/core-control-plane/src/fdai/runtime/bootstrap_support/learning.py"
+    ).read_text(encoding="utf-8")
     tasks = (_ROOT / "services/core-control-plane/src/fdai/runtime/bootstrap_tasks.py").read_text(
         encoding="utf-8"
     )
@@ -177,6 +180,6 @@ def test_bootstrap_constructs_injects_and_supervises_discovery_activation() -> N
     assert "discovery_activation=discovery_activation" in bootstrap
     assert "_bind_post_turn_learning(" in pantheon
     assert "discovery_activation=config.discovery_activation" in pantheon
-    assert "bind_shadow_decision_count(" in pantheon
+    assert "bind_shadow_decision_count(" in learning
     assert 'name="discovery-activation-refresh"' in tasks
     assert "discovery_activation_task," in tasks

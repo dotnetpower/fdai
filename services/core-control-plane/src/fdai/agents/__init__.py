@@ -65,6 +65,9 @@ from fdai.agents._framework.conversation_prompt import (
     ConversationSituation,
 )
 from fdai.agents._framework.conversation_tools import AgentToolResult, AgentToolStatus
+from fdai.agents._framework.cross_vertical_candidates import (
+    validate_cross_vertical_candidate,
+)
 from fdai.agents._framework.deliberation import (
     ConversationDeliberator,
     ConversationSynthesisVerifier,
@@ -358,6 +361,7 @@ __all__ = [
     "partition_key_for",
     "stable_idempotency_key",
     "validate_chaos_schedule",
+    "validate_cross_vertical_candidate",
     "frozen_corpus_key",
     "WORKFLOWS",
     "WorkflowSpec",

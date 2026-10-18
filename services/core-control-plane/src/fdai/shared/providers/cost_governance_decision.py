@@ -2,68 +2,27 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
-import re
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from decimal import Decimal
 from enum import IntEnum, StrEnum
 from typing import Protocol
 
-_IDENTIFIER = re.compile(r"^[a-z0-9]+(?:[._:-][a-z0-9]+)*$")
-_SHA256 = re.compile(r"^(?:sha256:)?[0-9a-f]{64}$")
-_MAX_REFS = 64
-
-
-def _text(name: str, value: str) -> None:
-    if not value or len(value) > 512:
-        raise ValueError(f"{name} MUST be non-empty and bounded")
-
-
-def _identifier(name: str, value: str) -> None:
-    if len(value) > 256 or _IDENTIFIER.fullmatch(value) is None:
-        raise ValueError(f"{name} MUST be a canonical identifier")
-
-
-def _digest(name: str, value: str) -> None:
-    if _SHA256.fullmatch(value) is None:
-        raise ValueError(f"{name} MUST be a SHA-256 digest")
-
-
-def _aware(name: str, value: datetime) -> None:
-    if value.tzinfo is None or value.utcoffset() is None:
-        raise ValueError(f"{name} MUST be timezone-aware")
-
-
-def _refs(name: str, values: tuple[str, ...]) -> tuple[str, ...]:
-    normalized = tuple(dict.fromkeys(values))
-    if not 1 <= len(normalized) <= _MAX_REFS:
-        raise ValueError(f"{name} MUST contain 1..{_MAX_REFS} unique references")
-    for value in normalized:
-        _text(name, value)
-    return normalized
-
-
-def _canonical_digest(value: object) -> str:
-    payload = json.dumps(
-        value,
-        sort_keys=True,
-        separators=(",", ":"),
-        ensure_ascii=True,
-        default=_json_default,
-    ).encode()
-    return f"sha256:{hashlib.sha256(payload).hexdigest()}"
-
-
-def _json_default(value: object) -> object:
-    if isinstance(value, datetime):
-        return value.isoformat()
-    if isinstance(value, Decimal):
-        return str(value)
-    if isinstance(value, StrEnum):
-        return value.value
-    raise TypeError(f"unsupported canonical value: {type(value).__name__}")
+from fdai.shared.providers._cost_governance_contract_validation import (
+    _aware,
+    _canonical_digest,
+    _digest,
+    _identifier,
+    _refs,
+    _text,
+)
+from fdai.shared.providers.cost_governance_effect_contracts import (
+    CostEffectKind,
+    CostExpectedEffect,
+    CostObservationLane,
+    CostSavingsEvidenceClass,
+    CostSettlementStatus,
+)
 
 
 class CostDecisionOutcome(StrEnum):
@@ -377,62 +336,6 @@ class CostDecisionRecord:
             raise ValueError("pending outcome MUST NOT be terminal")
 
 
-class CostEffectKind(StrEnum):
-    COST = "cost"
-    CAPACITY = "capacity"
-    SERVICE = "service"
-    RECOVERY = "recovery"
-
-
-class CostSettlementStatus(StrEnum):
-    VERIFIED = "verified"
-    FAILED = "failed"
-    CENSORED = "censored"
-    UNSCORABLE = "unscorable"
-
-
-class CostObservationLane(StrEnum):
-    INDEPENDENT = "independent"
-    EXECUTION = "execution"
-
-
-@dataclass(frozen=True, slots=True)
-class CostExpectedEffect:
-    """One pre-effect expectation with a bounded observation window."""
-
-    effect_id: str
-    kind: CostEffectKind
-    target_ref: str
-    metric: str
-    baseline_value: Decimal
-    acceptable_min: Decimal
-    acceptable_max: Decimal
-    predicted_at: datetime
-    horizon: timedelta
-    telemetry_grace: timedelta
-    source_digest: str
-    estimated_only: bool = False
-
-    def __post_init__(self) -> None:
-        _identifier("effect_id", self.effect_id)
-        _text("target_ref", self.target_ref)
-        _identifier("metric", self.metric)
-        _aware("predicted_at", self.predicted_at)
-        _digest("source_digest", self.source_digest)
-        if self.acceptable_min > self.acceptable_max:
-            raise ValueError("effect acceptable range MUST be ordered")
-        if self.horizon <= timedelta(0) or self.telemetry_grace < timedelta(0):
-            raise ValueError("effect horizon MUST be positive and grace nonnegative")
-
-    @property
-    def horizon_ends_at(self) -> datetime:
-        return self.predicted_at + self.horizon
-
-    @property
-    def deadline_at(self) -> datetime:
-        return self.horizon_ends_at + self.telemetry_grace
-
-
 @dataclass(frozen=True, slots=True)
 class CostCompletenessReceipt:
     effect_id: str
@@ -506,6 +409,13 @@ class CostEffectSettlement:
     observation_digest: str | None
     completeness_digest: str | None
     settled_at: datetime
+    savings_evidence_class: CostSavingsEvidenceClass | None = None
+    currency: str | None = None
+    baseline_window_digest: str | None = None
+    treatment_window_digest: str | None = None
+    demand_normalization_digest: str | None = None
+    finalized_billing_receipt_digest: str | None = None
+    allocation_rule_digest: str | None = None
 
     def __post_init__(self) -> None:
         _identifier("effect_id", self.effect_id)
@@ -523,6 +433,40 @@ class CostEffectSettlement:
             or self.completeness_digest is None
         ):
             raise ValueError("scored settlement requires observation and completeness evidence")
+        savings_fields = (
+            self.currency,
+            self.baseline_window_digest,
+            self.treatment_window_digest,
+            self.demand_normalization_digest,
+            self.finalized_billing_receipt_digest,
+            self.allocation_rule_digest,
+        )
+        if self.kind is CostEffectKind.COST and self.status is CostSettlementStatus.VERIFIED:
+            if self.savings_evidence_class is None or any(
+                value is None for value in savings_fields[:4]
+            ):
+                raise ValueError("verified cost settlement requires comparable savings lineage")
+            for name, value in (
+                ("baseline_window_digest", self.baseline_window_digest),
+                ("treatment_window_digest", self.treatment_window_digest),
+                ("demand_normalization_digest", self.demand_normalization_digest),
+                ("finalized_billing_receipt_digest", self.finalized_billing_receipt_digest),
+                ("allocation_rule_digest", self.allocation_rule_digest),
+            ):
+                if value is not None:
+                    _digest(name, value)
+            invoice = self.savings_evidence_class is CostSavingsEvidenceClass.INVOICE_ALLOCATED
+            if invoice != (
+                self.finalized_billing_receipt_digest is not None
+                and self.allocation_rule_digest is not None
+            ):
+                raise ValueError(
+                    "invoice-allocated settlement requires billing and allocation evidence"
+                )
+        elif self.savings_evidence_class is not None or any(
+            value is not None for value in savings_fields
+        ):
+            raise ValueError("unverified settlement MUST NOT carry savings lineage")
 
 
 @dataclass(frozen=True, slots=True)
@@ -577,9 +521,13 @@ class CostEpisodeSettlement:
 
     episode_id: str
     decision_frame_digest: str
+    action_ref: str
+    action_revision: int
     effects: tuple[CostEffectSettlement, ...]
     terminal: bool
     realized_savings: Decimal
+    realized_savings_currency: str | None
+    realized_savings_evidence_class: CostSavingsEvidenceClass | None
     rollback_request: CostRollbackRequest | None
     recovery_observed: bool
     settled_at: datetime
@@ -587,6 +535,11 @@ class CostEpisodeSettlement:
     def __post_init__(self) -> None:
         _identifier("episode_id", self.episode_id)
         _digest("decision_frame_digest", self.decision_frame_digest)
+        _text("action_ref", self.action_ref)
+        if self.action_ref != self.action_ref.strip():
+            raise ValueError("settlement action reference MUST be exact")
+        if self.action_revision < 1:
+            raise ValueError("settlement action revision MUST be positive")
         effect_ids = tuple(item.effect_id for item in self.effects)
         if not effects_or_unique(effect_ids):
             raise ValueError("episode settlement effects MUST be non-empty and unique")
@@ -595,6 +548,29 @@ class CostEpisodeSettlement:
             raise ValueError("realized savings MUST be nonnegative")
         if self.rollback_request is not None and self.realized_savings != 0:
             raise ValueError("rollback settlement MUST NOT report realized savings")
+        if self.realized_savings > 0:
+            if (
+                self.realized_savings_currency is None
+                or self.realized_savings_evidence_class is None
+            ):
+                raise ValueError("realized savings require currency and evidence class")
+            realized_cost_effects = tuple(
+                effect
+                for effect in self.effects
+                if effect.kind is CostEffectKind.COST
+                and effect.status is CostSettlementStatus.VERIFIED
+            )
+            if not realized_cost_effects or any(
+                effect.currency != self.realized_savings_currency
+                or effect.savings_evidence_class is not self.realized_savings_evidence_class
+                for effect in realized_cost_effects
+            ):
+                raise ValueError("realized savings MUST match verified cost-effect lineage")
+        elif (
+            self.realized_savings_currency is not None
+            or self.realized_savings_evidence_class is not None
+        ):
+            raise ValueError("zero realized savings MUST NOT claim measured savings lineage")
         if self.terminal and not all(item.terminal for item in self.effects):
             raise ValueError("terminal settlement requires every effect to be terminal")
 
@@ -787,5 +763,6 @@ __all__ = [
     "CostRecoveryStep",
     "CostRollbackRequest",
     "CostSettlementStatus",
+    "CostSavingsEvidenceClass",
     "CostTargetScope",
 ]

@@ -5,9 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Protocol
+from typing import Any, Protocol
 
 COST_SAMPLE_EVENT_TYPE = "specialist.cost_sample"
+COST_OPTIMIZATION_EVENT_TYPE = "specialist.cost_optimization_candidate"
 _DIGEST_PREFIX = "sha256:"
 
 
@@ -373,8 +374,20 @@ class CostSamplePublisher(Protocol):
     ) -> None: ...
 
 
+class CostOptimizationCandidatePublisher(Protocol):
+    """Publish an authority-free plan onto typed ingress without naming Njord."""
+
+    async def publish_cost_optimization_candidate(
+        self,
+        candidate: dict[str, Any],
+        *,
+        activation_revision: int,
+    ) -> None: ...
+
+
 __all__ = [
     "COST_SAMPLE_EVENT_TYPE",
+    "COST_OPTIMIZATION_EVENT_TYPE",
     "CostAdvisoryProvider",
     "CostAnalysisSample",
     "CostAnomalyAdvisory",
@@ -384,6 +397,7 @@ __all__ = [
     "CostObservationPage",
     "CostObservationProvider",
     "CostObservationStore",
+    "CostOptimizationCandidatePublisher",
     "CostPackageActivation",
     "CostPackageActivationReader",
     "CostSamplePublisher",

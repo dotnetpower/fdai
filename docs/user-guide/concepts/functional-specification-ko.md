@@ -2,8 +2,8 @@
 title: FDAI 기능정의서
 description: FDAI의 운영 기능, 공통 자동화, 거버넌스, 제품 기반 기능을 계층적으로 정의하고 처리 흐름 및 구현 상태와 구분합니다.
 translation_of: functional-specification.md
-translation_source_sha: f9b6a769bb5920d4227e938083dfec7f638e5013
-translation_revised: 2026-10-16
+translation_source_sha: feafbd3519b49ceaaadd49e6d71c1de640aae474
+translation_revised: 2026-10-18
 ---
 
 # FDAI 기능정의서
@@ -51,11 +51,11 @@ Azure 리소스의 운영 이상을 감지하고, 운영자의 신속한 대응�
 > 상태를 나타내거나 자동 실행 권한을 부여하지 않습니다. 로컬 검증과 실제 운영
 > 검증은 판정 근거에서 구분합니다.
 
-**2026-10-15**에 52개 중분류를 담당 평가 기록과 대조해 평가했고, Ready 후보는 현재 소스의
+**2026-10-18**에 52개 중분류를 담당 평가 기록과 대조해 평가했고, Ready 후보는 현재 소스의
 집중 검사도 통과했습니다. 대분류 집계는 중분류 평가 결과를 세며 배포 환경의 정상
-여부나 완성 비율을 나타내지 않습니다. **전체:** <span class="fdai-readiness-badge" data-readiness="ready">Ready 35/52</span> <span class="fdai-readiness-badge" data-readiness="partial">Partial 17/52</span> <span class="fdai-readiness-badge" data-readiness="not-assessed">미평가 0/52</span>
-정확한 소스 개정 버전, 지원 범위, 최근 확장에서 통과한 테스트 2,980개는
-[평가 기록과 남은 조건](functional-readiness-ko.md)을 참조하세요. 새로운 실제 운영
+여부나 완성 비율을 나타내지 않습니다. **전체:** <span class="fdai-readiness-badge" data-readiness="ready">Ready 38/52</span> <span class="fdai-readiness-badge" data-readiness="partial">Partial 14/52</span> <span class="fdai-readiness-badge" data-readiness="not-assessed">미평가 0/52</span>
+정확한 소스 개정 버전, 지원 범위, 최근 F06/F07 작업에서 통과한 집중 검사 908개와 격리
+PostgreSQL 검사 8개는 [평가 기록과 남은 조건](functional-readiness-ko.md)을 참조하세요. 새로운 실제 운영
 검증을 주장하지 않습니다. 상태 의미는 [준비 상태 정의](#준비-상태-정의)에서 확인하고, 기능명을 선택하면 해당 평가
 기록으로 이동할 수 있습니다.
 
@@ -87,10 +87,10 @@ Azure 리소스의 운영 이상을 감지하고, 운영자의 신속한 대응�
 | **F06. 변경 및 아키텍처 거버넌스** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 1/3</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 2/3</span> | [F06.1 변경 사전 평가](functional-readiness-ko.md#f06-1) | 제안된 인프라 및 구성 변경을 살펴보고 정책과 위험을 평가하며 변경 전 시뮬레이션과 롤백 근거를 제시합니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
 |  | [F06.2 구성 불일치 및 정책 준수](functional-readiness-ko.md#f06-2) | 구성 불일치와 통제 미비를 탐지하고 예외와 근거를 보존하며 관리 절차에 따른 수정을 제안합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
 |  | [F06.3 아키텍처 및 준비 상태 검토](functional-readiness-ko.md#f06-3) | 아키텍처 검토 위원회(ARB)를 위한 근거를 구성하고 아키텍처 제약을 평가하며 인수인계나 승격 전에 담당 체계와 운영 준비 상태를 확인합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
-| **F07. 비용 거버넌스** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 1/4</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 3/4</span> | [F07.1 비용 가시성 및 배분](functional-readiness-ko.md#f07-1) | 지출과 사용률을 리소스 및 서비스와 연결하고 비용 배분의 공백과 수집원의 관찰 범위를 설명합니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
-|  | [F07.2 예산 및 예측](functional-readiness-ko.md#f07-2) | 지출을 예산 및 기준선과 비교하고 이상을 탐지하며 가정을 명시해 비용을 예측합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
-|  | [F07.3 최적화 계획](functional-readiness-ko.md#f07-3) | 리소스 크기 조정과 정리를 권장하고 신뢰성 및 용량 목표 사이의 상충을 평가하며 실행 가능한 작업을 승인 및 실행 절차로 전달합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
-|  | [F07.4 실제 절감 효과](functional-readiness-ko.md#f07-4) | 비교 가능한 기준 구간과 조치 후 구간을 사용해 사용률과 비용 효과를 검증하며 예상 절감액과 실제 절감액을 구분합니다. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
+| **F07. 비용 거버넌스** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 4/4</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 0/4</span> | [F07.1 비용 가시성 및 배분](functional-readiness-ko.md#f07-1) | 지출과 사용률을 리소스 및 서비스와 연결하고 비용 배분의 공백과 수집원의 관찰 범위를 설명합니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
+|  | [F07.2 예산 및 예측](functional-readiness-ko.md#f07-2) | 지출을 예산 및 기준선과 비교하고 이상을 탐지하며 가정을 명시해 비용을 예측합니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
+|  | [F07.3 최적화 계획](functional-readiness-ko.md#f07-3) | 리소스 크기 조정과 정리를 권장하고 신뢰성 및 용량 목표 사이의 상충을 평가하며 실행 가능한 작업을 승인 및 실행 절차로 전달합니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
+|  | [F07.4 실제 절감 효과](functional-readiness-ko.md#f07-4) | 비교 가능한 기준 구간과 조치 후 구간을 사용해 사용률과 비용 효과를 검증하며 예상 절감액과 실제 절감액을 구분합니다. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
 
 ### 공통 자동화 및 운영자 지원
 

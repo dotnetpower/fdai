@@ -47,11 +47,12 @@ agent roles. Each subfunction can have detailed requirements with separate accep
 > connection state of a particular installation or grant automatic execution authority. Local
 > verification and live operational verification remain separate in the assessment evidence.
 
-All 52 subfunctions were assessed on **2026-10-15** against their owner records; Ready candidates
+All 52 subfunctions were assessed on **2026-10-18** against their owner records; Ready candidates
 also passed current-source focused checks. Group summaries count subfunction assessments, not
-deployment health or percentage complete. **Overall:** <span class="fdai-readiness-badge" data-readiness="ready">Ready 35/52</span> <span class="fdai-readiness-badge" data-readiness="partial">Partial 17/52</span> <span class="fdai-readiness-badge" data-readiness="not-assessed">Not assessed 0/52</span>
+deployment health or percentage complete. **Overall:** <span class="fdai-readiness-badge" data-readiness="ready">Ready 38/52</span> <span class="fdai-readiness-badge" data-readiness="partial">Partial 14/52</span> <span class="fdai-readiness-badge" data-readiness="not-assessed">Not assessed 0/52</span>
 See the [dated assessment and remaining conditions](functional-readiness.md) for the exact source
-revision, support scopes, and 2,980 passing tests in the latest extension. No new live operational validation is claimed.
+revision, support scopes, and the latest F06/F07 evidence: 908 focused tests plus eight isolated
+PostgreSQL checks. No new live operational validation is claimed.
 See [Readiness states](#readiness-states) for badge meanings, or select a function name for its individual assessment record.
 
 ### Operational foundation
@@ -82,10 +83,10 @@ See [Readiness states](#readiness-states) for badge meanings, or select a functi
 | **F06. Govern changes and architecture** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 1/3</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 2/3</span> | [F06.1 Proposed-change assessment](functional-readiness.md#f06-1) | Inspect proposed infrastructure and configuration changes, evaluate policy and risk, and present pre-change simulation and rollback evidence. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
 |  | [F06.2 Drift and policy compliance](functional-readiness.md#f06-2) | Detect configuration drift and control gaps, retain exceptions and evidence, and propose governed corrections. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
 |  | [F06.3 Architecture and readiness review](functional-readiness.md#f06-3) | Assemble Architecture Review Board (ARB) evidence, assess architectural constraints, and check ownership and operational readiness before handover or promotion. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
-| **F07. Govern cost** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 1/4</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 3/4</span> | [F07.1 Cost visibility and allocation](functional-readiness.md#f07-1) | Associate spend and utilization with resources and services, identify allocation gaps, and explain source coverage. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
-|  | [F07.2 Budgets and forecasts](functional-readiness.md#f07-2) | Compare spend with budgets and baselines, detect anomalies, and forecast costs with stated assumptions. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
-|  | [F07.3 Optimization planning](functional-readiness.md#f07-3) | Recommend resource sizing and cleanup, assess reliability and capacity trade-offs, and route eligible actions through approval and execution. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
-|  | [F07.4 Realized savings](functional-readiness.md#f07-4) | Verify utilization and cost effects against comparable baseline and treatment periods; distinguish estimated savings from realized savings. | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> |
+| **F07. Govern cost** <br><span class="fdai-readiness-badge" data-readiness="ready">Ready 4/4</span><br><span class="fdai-readiness-badge" data-readiness="partial">Partial 0/4</span> | [F07.1 Cost visibility and allocation](functional-readiness.md#f07-1) | Associate spend and utilization with resources and services, identify allocation gaps, and explain source coverage. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
+| | [F07.2 Budgets and forecasts](functional-readiness.md#f07-2) | Compare spend with budgets and baselines, detect anomalies, and forecast costs with stated assumptions. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
+| | [F07.3 Optimization planning](functional-readiness.md#f07-3) | Recommend resource sizing and cleanup, assess reliability and capacity trade-offs, and route eligible actions through approval and execution. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
+| | [F07.4 Realized savings](functional-readiness.md#f07-4) | Verify utilization and cost effects against comparable baseline and treatment periods; distinguish estimated savings from realized savings. | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> |
 
 ### Shared automation and operator support
 

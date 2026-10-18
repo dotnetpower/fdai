@@ -1,8 +1,8 @@
 ---
 title: 오퍼레이터 시작 SRE 및 아키텍처 리뷰
 translation_of: operator-initiated-sre-and-arb.md
-translation_source_sha: b019de0c43d60d363ac6eebe7a43f8cdb4cfcb6f
-translation_revised: 2026-10-16
+translation_source_sha: c7d8f7142e0823e3654615dd8e1d60ea815c5036
+translation_revised: 2026-10-18
 ---
 
 # 오퍼레이터 시작 SRE 및 아키텍처 리뷰
@@ -13,7 +13,10 @@ Operator post-turn review 발행은 projection 이후 완료된 semantic turn만
 거버넌스가 적용되는 인시던트 대응으로 전환하는 방법, 아키텍처 검토 Board(ARB)
 프로세스를 관찰 가능한 작업 흐름으로 실행하는 방법을 정의합니다. 또한 로컬 환경과 배포
 환경에서 shadow 및 강제 적용 작업에 적용되는 안전 경계를 정의합니다. 소비자는 타입이 지정된 제안 claim을 목적별 영속 모델 소유자에서 가져오며 인시던트 수명 주기 소유권은 바뀌지 않습니다.
-Core 부트스트랩은 완전한 ORR 교정 게시자 및 레버 쌍을 준비 상태 서비스에 전달할 수 있습니다. 이 DI는 Incident를 만들거나 ARB 결정을 승인하거나 작업 권한을 부여하지 않습니다.
+완전한 ORR 자세/보고 쌍이 활성화되면 Core 부트스트랩은 활성 온톨로지 릴리스와
+활성 Rule 선언에서 교정 게시자 및 레버 쌍을 만듭니다. 두 신원 중 하나라도
+불완전하면 연결은 사용할 수 없는 상태로 유지됩니다. 이 기계적 선택은 Incident를
+만들거나 ARB 결정을 승인하거나 ActionType을 승격하거나 작업 권한을 부여하지 않습니다.
 
 > **범위:** 이 설계는 기존 인시던트 레지스트리, 타입이 지정된 액션 파이프라인, 프로세스 저널, risk
 > 게이트, 실행기 어댑터를 재사용합니다. Console 소유 실행기 또는 두 번째 판단 경로를

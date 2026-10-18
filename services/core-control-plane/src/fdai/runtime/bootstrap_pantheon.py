@@ -10,7 +10,6 @@ from typing import Any, cast
 
 from fdai.agents import (
     Heimdall,
-    Norns,
     PantheonRuntime,
     ShadowDivergenceLedger,
     StateStoreActionRunStore,
@@ -20,7 +19,7 @@ from fdai.composition.operational_evidence_binding import build_test_context_com
 from fdai.core.capacity import CapacityGraduationController
 from fdai.core.chaos.coverage import ScenarioCoverageAggregator
 from fdai.core.impact_analysis import ChangeAssessmentService, ImpactAnalyzer
-from fdai.core.learning import PostTurnProposalModel, RuleHintSubmitter
+from fdai.core.learning import PostTurnProposalModel
 from fdai.core.operational_context import OperationalContextMaterializer
 from fdai.core.operational_context.test_context_dispatch import TestContextDispatchGuard
 from fdai.core.operational_context.test_context_lifecycle import GovernedTestContextStore
@@ -32,7 +31,6 @@ from fdai.core.operational_planning import (
     operational_planning_capability_status,
 )
 from fdai.core.rbac.kill_switch_command import KillSwitchCommandService
-from fdai.core.readiness import DiscoveryActivationReport
 from fdai.delivery.agent_activity import (
     AgentRuntimeStatePublisher,
     EventBusPantheonActivityObserver,
@@ -74,13 +72,16 @@ from fdai.runtime.bootstrap_pantheon_models import (
     PantheonInitialization,
     PantheonInitializationResult,
 )
+from fdai.runtime.bootstrap_support.architecture_review import build_architecture_review_loop
+from fdai.runtime.bootstrap_support.learning import (
+    bind_post_turn_learning as _bind_post_turn_learning,
+)
 from fdai.runtime.bootstrap_thor_bindings import build_thor_execution_bindings
 from fdai.runtime.case_history import (
     CaseHistoryRetentionTickPublisher,
     build_case_history_runtime,
 )
 from fdai.runtime.configuration import _model_endpoint_resolver
-from fdai.runtime.discovery_activation import DiscoveryActivationRuntime
 from fdai.runtime.forecast_learning import (
     build_forecast_learning_runtime,
     forecast_history_collector_from_environment,
@@ -97,7 +98,6 @@ from fdai.runtime.policy_administration import (
     policy_administration_selected,
 )
 from fdai.runtime.post_turn_review import (
-    PostTurnReviewRuntime,
     build_azure_post_turn_models,
     build_post_turn_review_runtime,
     post_turn_review_dsn,
@@ -115,25 +115,6 @@ _LOGGER = logging.getLogger("fdai.startup")
 _pantheon_enforce_enabled = pantheon_enforce_enabled
 _runtime_asset_root = bootstrap_agent_discussion._runtime_asset_root
 HUGINN_SCHEMA_LEARNING_ENABLED_ENV = "FDAI_HUGINN_SCHEMA_LEARNING_ENABLED"
-
-
-async def _bind_post_turn_learning(
-    *,
-    pantheon_runtime: PantheonRuntime,
-    post_turn_review: PostTurnReviewRuntime,
-    discovery_activation: DiscoveryActivationRuntime,
-) -> DiscoveryActivationReport | None:
-    """Bind post-turn rule hints behind the current discovery activation decision."""
-    norns = pantheon_runtime.agents.get("Norns")
-    if norns is None:
-        return None
-    norns_agent = cast(Norns, norns)
-    post_turn_review.bind_rule_hints(cast(RuleHintSubmitter, norns))
-    norns_agent.bind_candidate_publication_gate(discovery_activation.is_enabled)
-    discovery_activation.bind_shadow_decision_count(
-        lambda: sum(pantheon_runtime.shadow_decisions.values())
-    )
-    return await discovery_activation.evaluate()
 
 
 async def initialize_pantheon(
@@ -276,6 +257,7 @@ async def initialize_pantheon(
         if config.control_loop.ontology_instance_store is not None
         else None
     )
+    architecture_review_loop = build_architecture_review_loop(config, asset_root=asset_root)
     ontology_release = config.control_loop.ontology_release
     process_store = config.control_loop.process_runtime_store
     effect_model_reader = config.container.effect_model_reader
@@ -658,6 +640,9 @@ async def initialize_pantheon(
         **reviewed_evidence.runtime_kwargs,
     )
     await reviewed_evidence.run_configured_training(pantheon_runtime)
+    cast(Any, pantheon_runtime.agents["Forseti"]).bind_architecture_review_loop(
+        architecture_review_loop
+    )
     cast(Heimdall, pantheon_runtime.agents["Heimdall"]).bind_forecast_history_ingress(
         forecast_context.ingest
     )

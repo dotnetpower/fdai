@@ -20,13 +20,6 @@ settings, or no backup - because no single change introduced the whole gap. The
 ORR reviews the **accumulated posture of the scope at the moment of handoff**,
 not one diff.
 
-> **Implementation status**: The deterministic review, complete 59-control WAF checklist,
-> scope-aware typed evidence projection, injected orchestration, and replay-safe ownership-transfer
-> consumer are implemented. The runtime supplies the repository checklist and evidence provider when
-> a complete posture and report-publisher pair activates the shadow workflow. Concrete production
-> providers and a governed runtime receipt remain open. See
-> [Implementation status](#implementation-status) for the evidence and remaining integration work.
-
 > **Customer-agnostic**: the trigger label, the required-rule set, and the
 > severity that gates a handoff are all config or fork-supplied. Upstream ships
 > the machinery and the generic ReadinessReport shape, never a customer's
@@ -207,75 +200,12 @@ adds a thin coordinator plus one normalized signal.
 | `fdai-service-contracts/readiness_remediation` | define the content-addressed, no-authority shadow request and its generated JSON Schema |
 | `core/control_loop/readiness_remediation` | validate the exact event source, ActionType trigger and arguments, and active ontology release digest; invoke the unified risk gate without dispatch |
 | `runtime/consumers.py` and bootstrap | validate and deduplicate canonical `ownership_transfer` events, invoke the Forseti-accountable review after startup readiness, and dead-letter malformed payloads |
-| delivery intent | a fork binds `ReadinessReportPublisher` to a Checks API annotation / console `ReadPanel`, and binds `RemediationProposalPublisher` to a producer that supplies a complete typed remediation request |
+| `runtime/bootstrap_readiness.py` | when the complete posture/report pair is active, select the upstream EventBus remediation adapter from the active ontology release and active Rule remediation declarations; an incomplete release or empty lever map leaves remediation unavailable |
+| delivery intent | a fork binds `ReadinessReportPublisher` to a Checks API annotation / console `ReadPanel`; Core selects the upstream `RemediationProposalPublisher` mechanically and the deployment still supplies no approval, promotion, or execution authority through that selection |
 
 The coordinator imports only `shared/` contracts and providers, like every other
 core subsystem ([project-structure.md](../architecture/project-structure.md#module-boundaries)).
 It holds no cloud SDK and no privileged identity.
-
-## Implementation status
-
-The repository implements the deterministic review, injected application service, and optional
-runtime consumer. A complete posture and report-publisher pair activates the shadow workflow; the
-absence of concrete production providers and a governed runtime receipt keeps the handoff gate at
-`implemented`, not operationally `validated`.
-
-### Implementation scope
-
-| Area | State | Evidence | Notes |
-|------|-------|----------|-------|
-| Ownership-transfer signal, report model, finding reduction, environment gate, and Best Practice checklist evaluation | implemented | [`core/readiness/`](../../../services/core-control-plane/src/fdai/core/readiness), [`test_coordinator.py`](../../../services/core-control-plane/tests/core/readiness/test_coordinator.py), and [`test_checklist.py`](../../../services/core-control-plane/tests/core/readiness/test_checklist.py) | The pure coordinator preserves grounded findings, fails safely on unknown severity, and separates the truthful decision from `blocks_handoff`. |
-| Concurrent posture, preflight, and checklist orchestration with append-only audit and report delivery | implemented | [`composition/readiness.py`](../../../services/core-control-plane/src/fdai/composition/readiness.py), [`test_readiness_service.py`](../../../services/core-control-plane/tests/composition/test_readiness_service.py), and [`test_readiness_checklist_service.py`](../../../services/core-control-plane/tests/composition/test_readiness_checklist_service.py) | The service uses injected providers. Assessment and delivery failures are audited and propagated. |
-| Decision-critical report admission | implemented | [`decision_evidence.py`](../../../services/core-control-plane/src/fdai/core/readiness/decision_evidence.py), [`composition/readiness.py`](../../../services/core-control-plane/src/fdai/composition/readiness.py), and focused readiness service tests | The truthful verdict is bound to the exact findings, scope, environment, and source revision before audit and publication. Missing or rejected admission preserves the verdict but forces `mode=shadow`, so `blocks_handoff=false` and the audit records the effective mode and rejection reasons. |
-| Architecture Review Board (ARB) artifact, typed evidence, approval, freshness, scope, and expiry projection into checklist outcomes | implemented | [`composition/readiness_evidence.py`](../../../services/core-control-plane/src/fdai/composition/readiness_evidence.py) and [`test_readiness_evidence.py`](../../../services/core-control-plane/tests/composition/test_readiness_evidence.py) | Evidence kind and scope must match. Owner assignment is not approval. Missing bindings and unjustified `not_applicable` remain `unknown`; expired evidence becomes `failed`. |
-| Automatic `ownership_transfer` ingest and accountable review runtime | implemented | [`composition/readiness.py`](../../../services/core-control-plane/src/fdai/composition/readiness.py), [`composition/readiness_catalog.py`](../../../services/core-control-plane/src/fdai/composition/readiness_catalog.py), [`runtime/consumers.py`](../../../services/core-control-plane/src/fdai/runtime/consumers.py), the `runtime/bootstrap_*` modules, and focused runtime tests | Canonical events are validated and deduplicated. Startup loads the pinned WAF catalog and scope-aware ARB evidence provider, then supplies both to the shadow workflow when the posture/publisher pair is available. |
-| Production posture, checklist, and report-publisher bindings with governed runtime evidence | in-progress | Provider seams in [`shared/providers/readiness.py`](../../../services/core-control-plane/src/fdai/shared/providers/readiness.py), repository checklist binding, and the fail-closed optional provider pair in composition | Checklist definitions and evidence projection are bound. The upstream runtime still has no concrete production posture/report providers or governed shadow-review receipt. |
-| Grounded shadow remediation proposal, distinct-approver boundary, and two-phase delivery audit | implemented | [`core/readiness/remediation.py`](../../../services/core-control-plane/src/fdai/core/readiness/remediation.py), [`composition/readiness.py`](../../../services/core-control-plane/src/fdai/composition/readiness.py), [`test_remediation.py`](../../../services/core-control-plane/tests/core/readiness/test_remediation.py), and [`test_readiness_remediation_service.py`](../../../services/core-control-plane/tests/composition/test_readiness_remediation_service.py) | Proposals stay shadow, cite a mapped lever or abstain, record approver identity, block self-approval, and never reach an executor. |
-| Typed ORR remediation request and shadow risk-gate ingress | implemented | [`readiness_remediation.py`](../../../packages/service-contracts/src/fdai_service_contracts/readiness_remediation.py), [`delivery/readiness_remediation.py`](../../../services/core-control-plane/src/fdai/delivery/readiness_remediation.py), [`action_builder.py`](../../../services/core-control-plane/src/fdai/core/executor/action_builder.py), [`control_loop/readiness_remediation.py`](../../../services/core-control-plane/src/fdai/core/control_loop/readiness_remediation.py), and their focused tests | The digest binds target revision, evidence, identities, and authority fields. The EventBus adapter derives parameters from the cited active rule and emits only the typed shadow request; Container accepts the publisher only with its lever map. Core derives the Action identity from the content-addressed request, accepts only the exact ORR event source in shadow mode, allows only `rule_violation` or `both` ActionTypes with complete arguments, requires the exact active ontology release and ActionType declaration, resolves every cited rule in the active catalog to the same ActionType, invokes the unified risk gate, and never dispatches this source. Reports are pinned to the exact ownership-transfer identity and expire after 900 seconds before proposal publication. |
-| `RemediationProposalPublisher` producer binding to the typed risk-gate ingress | implemented | [`delivery/readiness_remediation.py`](../../../services/core-control-plane/src/fdai/delivery/readiness_remediation.py), Container DI, Core bootstrap wiring, and focused producer-to-ActionBuilder tests | The adapter preserves transfer identity, uses active rule parameters and the active ontology digest, and rejects partial DI, malformed proposals, unknown rules, or mismatched remediation declarations. Upstream runtime selection and a governed live receipt remain open. |
-
-### Implementation history
-
-| Date | State | Change | Evidence | Remaining |
-|------|-------|--------|----------|-----------|
-| 2026-08-29 | implemented | Migrated the operational-readiness report boundary to the shared decision-evidence admission before audit and publication. The evidence digest excludes authority mode, so a rejected admission can preserve the truthful verdict while forcing the effective mode to shadow. Both report and audit retain receipt, bundle, and rejection references. | `current change`; readiness report and admission models, application service, focused coordinator, service, checklist, remediation, and runtime-ingest checks; Ruff and strict mypy. | Bind the production report admission provider and retain one governed shadow-review bundle. |
-| 2026-08-31 | implemented | Bound all 59 pinned WAF controls and the ARB checklist evidence provider into runtime shadow readiness. Evidence now preserves exact kind and scope, ownership no longer implies approval, cross-scope evidence is ignored, and `not_applicable` requires a reason plus a distinct approver. | `current change`; readiness catalog, evidence contracts, bootstrap wiring, and focused readiness/framework tests. | Bind production posture and report delivery, then retain one governed scope-specific shadow review. |
-| 2026-08-13 | in-progress | Adopted the implementation ledger; earlier provenance wasn't reconstructed. Recorded the implemented deterministic and orchestration surfaces separately from the unbound runtime workflow. | Current change; `48 passed` from the five focused core and composition test files cited above. | Bind the event, providers, publisher, approval, and remediation path, then collect governed runtime evidence. |
-| 2026-08-16 | in-progress | Added the deterministic remediation-proposal builder, the `RemediationProposalPublisher` seam, and the `propose_remediations` bridge that records approver identity, blocks self-approval, keeps proposals shadow, and two-phase audits delivery. | Current change; `86 passed` from `uv run pytest -q --no-cov services/core-control-plane/tests/core/readiness/ services/core-control-plane/tests/composition/test_readiness_remediation_service.py services/core-control-plane/tests/composition/test_readiness_service.py services/core-control-plane/tests/composition/test_readiness_checklist_service.py`. | Bind the proposal publisher to the risk-gate ingress, register `ownership_transfer` at event ingest, and collect a governed runtime receipt. |
-| 2026-08-16 | in-progress | Hardened the remediation identity and the distinct-approver check: idempotency-key material is length-prefixed so a separator inside a field cannot collide two findings, and principals are compared after Unicode NFKC folding. | Current change; `88 passed` from `uv run pytest -q --no-cov services/core-control-plane/tests/core/readiness/ services/core-control-plane/tests/composition/test_readiness_remediation_service.py services/core-control-plane/tests/composition/test_readiness_service.py services/core-control-plane/tests/composition/test_readiness_checklist_service.py`. | Unchanged from the row above. |
-| 2026-08-24 | in-progress | Registered typed `ownership_transfer` ingest in the running Core bootstrap and invoked `OperationalReadinessService` through a Forseti-accountable, replay-safe consumer. The optional composition binding fails closed on a partial provider pair and doesn't bind remediation delivery. | Current change; `114 passed` from the focused readiness, composition, and runtime ingest tests; `58 passed` from the bootstrap config, messaging, and shutdown tests; focused Ruff passed. | Bind concrete production posture, checklist, and report publishers; collect one governed shadow-review receipt; bind remediation proposals to the risk-gate in a separate change. |
-| 2026-10-15 | in-progress | Bound grounded ORR remediation proposals to the ordinary risk-gate ingress through a canonical target-keyed shadow `operator_request`. Bootstrap derives levers from active Rule `remediates` declarations; the publisher grants no authority and carries no executor identity. | Current change; `13 passed` from `test_operational_readiness_remediation.py` and `test_readiness_remediation_service.py`; focused Ruff and strict mypy passed. | Bind production posture, checklist, and report publishers; record a governed Var approval receipt; retain shadow mode until promotion evidence passes. |
-| 2026-10-15 | withdrawn | Withdrew the ORR EventBus binding after post-implementation review proved that active Rule `remediates` targets are `rule_violation` ActionTypes, while the publisher emitted `operator_request`; `ActionBuilder` therefore rejected the event before the risk gate. Restored the fail-closed unbound seam instead of weakening trigger semantics. | Current change; `test_operator_request_rejects_rule_violation_only_remediation` plus `test_readiness_remediation_service.py` passed 8 focused cases; Ruff and translation checks passed. | Design a typed remediation ingress that preserves complete ActionType arguments and trigger evidence, then bind it without bypassing T0, approval, or executor separation. |
-| 2026-10-15 | in-progress | Added a content-addressed ORR remediation contract and a dedicated shadow control-loop route that validates the exact source, distinct identities, ActionType trigger and arguments, and active ontology release before unified risk evaluation. The request grants no approval or execution authority and the route cannot dispatch. | Current change; `30 passed` from the focused service-contract, ActionBuilder, and control-loop tests; focused Ruff, Ruff format, strict mypy, and generated-schema checks passed. | Bind the existing proposal publisher to a complete typed-request producer, then collect governed producer-to-risk-gate and human-approval receipts. |
-| 2026-10-15 | in-progress | Bound each readiness report to its exact ownership-transfer identity, rejected future or older-than-900-second reports before proposal publication, and required every remediation citation to resolve to an active catalog rule that remediates the requested ActionType. | Current change; 68 focused readiness, composition, and ActionBuilder tests; Ruff and strict mypy. | Bind the existing proposal publisher to a complete typed-request producer, then collect governed producer-to-risk-gate and human-approval receipts. |
-| 2026-10-15 | in-progress | Added the concrete EventBus proposal-to-request adapter, preserved transfer identity, derived complete parameters from the cited active rule, and made Container require publisher and lever bindings together. | Current change; 60 focused producer, composition, ActionBuilder, control-loop, and runtime-ingest tests; Ruff and strict mypy. | Select the binding in an upstream runtime profile and collect governed producer-to-risk-gate and human-approval receipts. |
-
-### Remaining work
-
-- [x] Register and normalize `ownership_transfer` at event ingest, invoke the review through the
-  accountable event-driven workflow, and add an integration test that proves replay-safe report
-  delivery without remediation delivery
-  ([`test_operational_readiness_ingest.py`](../../../services/core-control-plane/tests/runtime/test_operational_readiness_ingest.py)).
-- [ ] Bind production posture, checklist evidence, and report-publisher implementations at the
-  composition root, bind the trusted decision-evidence admission provider, then record a governed
-  runtime receipt and independent bundle for one complete shadow review.
-- [x] Emit grounded, shadow-only remediation proposals with a distinct-approver boundary, and add
-  tests proving approver identity is recorded, self-approval is blocked, and the review service
-  never executes a managed-resource change
-  ([`test_remediation.py`](../../../services/core-control-plane/tests/core/readiness/test_remediation.py),
-  [`test_readiness_remediation_service.py`](../../../services/core-control-plane/tests/composition/test_readiness_remediation_service.py)).
-- [x] Add a typed shadow remediation request and Core ingress that validate content integrity,
-  exact source, distinct identities, ActionType trigger and arguments, and deployed source
-  revision; prove with focused tests that the route reaches the unified risk gate but never
-  dispatches.
-- [x] Bind `RemediationProposalPublisher` to a producer that supplies complete ActionType arguments
-  from the cited active rule and the active ontology release digest, while preserving transfer
-  identity and carrying no executor identity.
-- [ ] Select the concrete adapter in an upstream runtime profile, then record one governed receipt
-  showing the request reaching the risk gate and any required human approval flow.
-- [ ] Keep enforcement disabled until frozen-scenario shadow evidence meets the configured
-  false-positive threshold and the authoritative promotion registry records the transition.
-
 ## Safety posture
 
 - **Read-only review, gated execution**: the ORR and every finding are
@@ -306,3 +236,9 @@ absence of concrete production providers and a governed runtime receipt keeps th
 | The cross-agent workflow that runs the gate | [operational readiness handoff](../agents/agent-workflows.md#11-operational-readiness-handoff) |
 | The environment model the gate consumes | [risk-classification.md § Environment Promotion](../decisioning/risk-classification.md#environment-promotion-handoff-target) |
 | The risk classification each proposed fix resolves against | [risk-classification.md](../decisioning/risk-classification.md) |
+
+## Related docs
+
+| To learn about | Read |
+|----------------|------|
+| Delivery status and remaining work | [Implementation ledger](../../roadmap-implementation/operations/operational-readiness.md) |

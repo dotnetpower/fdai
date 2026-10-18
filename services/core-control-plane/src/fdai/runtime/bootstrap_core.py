@@ -307,17 +307,6 @@ async def build_core_runtime(
         if environment.get("FDAI_STATE_STORE_DSN", "").strip()
         else None
     )
-    operational_readiness_handler = build_runtime_operational_readiness(
-        container=container,
-        state_store=state_store,
-    )
-    if operational_readiness_handler is None:
-        _LOGGER.info(
-            "operational_readiness_unavailable",
-            extra={"reason": "posture_and_report_publisher_absent"},
-        )
-    else:
-        _LOGGER.info("operational_readiness_ready")
     if plan.isolated_executor_authority_cutover:
         if messaging.auxiliary_bus is None:
             raise RuntimeError(
@@ -520,6 +509,13 @@ async def build_core_runtime(
     await control_loop.replace_rule_generation(
         rules=activated_rules,
         generation_digest=activation_generation.generation_digest,
+    )
+    operational_readiness_handler = build_runtime_operational_readiness(
+        container=container,
+        state_store=state_store,
+        event_bus=messaging.bus,
+        active_rules=tuple(activated_rules),
+        ontology_release=control_loop.ontology_release,
     )
     rule_activation_consumer = build_rule_activation_consumer(
         store=state_store,

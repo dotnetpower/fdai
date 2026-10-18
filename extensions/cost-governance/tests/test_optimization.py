@@ -345,8 +345,8 @@ def test_coupled_target_routes_complete_candidate_set_to_governed_path() -> None
 
     assert result.disposition is OptimizationDisposition.CANDIDATE
     assert len(result.candidates) == 2
-    assert result.route == "risk_gate"
-    assert result.approval_required is True
+    assert not hasattr(result, "route")
+    assert not hasattr(result, "approval_required")
     assert not hasattr(result, "execution_authority")
 
 

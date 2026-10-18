@@ -28,9 +28,14 @@ from fdai.agents._framework.njord_cost_outbox import (
     accepted_cost_sample_key,
 )
 from fdai.agents._framework.njord_cost_payload import cost_anomaly_payload
+from fdai.agents._framework.njord_optimization_outbox import (
+    OptimizationCandidateOutbox,
+    OptimizationCandidateOutboxMixin,
+)
 from fdai.agents._framework.pantheon import _NJORD
 from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.specialist_ingress import (
+    COST_OPTIMIZATION_EVENT,
     COST_SAMPLE_EVENT,
     has_resource_id_conflict,
     parse_cost_sample,
@@ -62,7 +67,7 @@ class CostEstimate:
     reason: str = ""
 
 
-class Njord(CostAnomalyOutboxMixin):
+class Njord(OptimizationCandidateOutboxMixin, CostAnomalyOutboxMixin):
     """Cost ingress shell; package providers own every calculation."""
 
     def __init__(
@@ -104,6 +109,7 @@ class Njord(CostAnomalyOutboxMixin):
             max_pending=cost_anomaly_outbox_max_pending,
             retain_published=_MAX_COST_ANOMALY_OUTBOX_PUBLISHED,
         )
+        self._optimization_outbox = OptimizationCandidateOutbox(state_store=state_store)
         for sample in initial_samples:
             self._remember_initial_sample(sample)
 
@@ -120,6 +126,9 @@ class Njord(CostAnomalyOutboxMixin):
             payload,
             behavior="cost_sample:invalid_producer",
         ):
+            return
+        if payload.get("event_type") == COST_OPTIMIZATION_EVENT:
+            await self._ingest_optimization_candidate(payload)
             return
         if payload.get("event_type") != COST_SAMPLE_EVENT:
             self.record_behavior("cost_sample:ignored_event")

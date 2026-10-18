@@ -1,8 +1,8 @@
 ---
 title: FinOps 자율 운영
 translation_of: finops-autonomous-operations.md
-translation_source_sha: 2497a0e875b4d4d3da0a4aef834783e4170028ce
-translation_revised: 2026-10-08
+translation_source_sha: 4f046a470666dd78ac3ed614dd4902466ce208f4
+translation_revised: 2026-10-18
 ---
 
 # FinOps 자율 운영
@@ -36,7 +36,8 @@ translation_revised: 2026-10-08
 > promotion gate는 바뀌지 않았습니다. 대상의 gate가 통과되기 전에 promotion하려면 별도로 승인된 귀속
 > 운영자 override가 필요합니다. 이 override는 당시 gate 결과를 기록하며, 다른 곳에서 promotion 증적으로
 > 집계되지 않습니다.
-> 비평 12회에서 확인된 모든 Medium 이상 결함을 수정했으며 최종 검토에는 Low 수준의 테스트 구성 개선만 남았습니다. 런타임 권한은 바뀌지 않았습니다.
+> 런타임 게시, 재주입, 보정 및 절감액 계보가 권한 변경 없이 로컬에 구현되었습니다. F07 비평
+> 10회에서 확인된 Low 초과 결함을 모두 수정했습니다.
 
 ## 설계 개요
 
