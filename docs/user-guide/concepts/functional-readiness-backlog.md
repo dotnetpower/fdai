@@ -183,8 +183,10 @@ The [governance](../../roadmap-implementation/decisioning/operator-governance-pr
   exporter; retain source identity/freshness, primary/fallback delivery, and recovery-drill receipts.
   Complete the linked Azure guest-event, throttling, and cross-service parity evidence.
   #2218 / [PR #2220](https://github.com/dotnetpower/fdai/pull/2220) now binds three actual local
-  signals and three fields with 92 focused passes. The remaining twelve signal sources and
-  five field sources stay explicitly unavailable; this package is not complete.
+  signals and three fields with 92 focused passes. #2228 adds a process-scoped duration from
+  runtime entry to first protected readiness with a frozen observation timestamp and 80 focused passes in an
+  overlapping test slice. Four signals and three fields are now bound. The remaining eleven
+  signal sources and five field sources stay explicitly unavailable; this package is not complete.
 - [ ] **H02, canary and stabilization:** Retain the exact consumed canary audit within the
   implemented 30-second budget, frozen shadow replay, stop/no-execute receipts, daily jobs, and
   recurrent-query signal. Prove stabilization opens, lowers authority on breach, and exits only
@@ -295,6 +297,7 @@ It implemented a repository regression guard, not the 29 feature packages. At th
 protected source download was unavailable. **All 29 packages still remain open**, but #2214 has
 since implemented K02's local export contract and production binding as recorded above. #2217
 implements the explicit K03 prior-policy API lane, and #2218 binds three H01 signals and fields.
+#2228 adds the fourth H01 signal, a process-scoped guarded-startup duration rather than fleet health.
 A01, learning integration, the remaining health sources and other source work are still incomplete;
 live, human, provider and cohort gates remain separate. A shadow-only maximum
 cannot be replaced by an unsigned file or a test approval.

@@ -1,8 +1,8 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: 31a9885fbad13e91fa99c493b497258da3c8eb2f
-translation_revised: 2026-10-18
+translation_source_sha: 758e1ee204136add0564d13f7e92cfd6ec830181
+translation_revised: 2026-10-19
 ---
 # 프로젝트 구조
 
@@ -102,10 +102,10 @@ exporter 범위를 요구하고, 신선도를 검사한 스냅숏 하나를 저�
 사용할 수 없는 수집원을 기록합니다. Operator는 인증된 Reader 역할의
 `GET /operations/runtime-state` 변환을 통해 이 스냅숏을 제공합니다. 전달 어댑터는 명시적인
 unavailable binding을 출처가 명시된 운영 메트릭으로 교체해야 합니다.
-`delivery/self_health_sources.py`는 이제 자체 상태 수신기, 보호된 준비 상태, 저장된 비상 정지에서
-신호 3개를 제공하고, 설치된 Core 버전, 시작 시 실제로 사용한 정책, 저장된 비상 정지에서
+`delivery/self_health_sources.py`는 자체 상태 수신기, 보호된 준비 상태, 저장된 비상 정지, 프로세스 시작 소요 시간의
+신호 4개를 조합하고, 설치된 Core 버전, 시작 시 실제로 사용한 정책, 저장된 비상 정지에서
 필드 3개를 제공합니다. `runtime/readiness.py`는 스냅숏 수집을 직렬화하면서 시작 검사와 별개로
-수집원을 새로 고칩니다. 나머지 신호 12개와 필드 5개는 unavailable로 유지합니다. 프로세스
+수집원을 새로 고칩니다. 나머지 신호 11개와 필드 5개는 unavailable로 유지합니다. 프로세스
 내부의 이 읽기는 전체 복제본의 상태나 배포 수락을 입증하지 않습니다.
 [수집원 주입 계약](project-structure-dependency-injection-ko.md#자체-상태-수집원-연결)과
 [운영 담당 문서](../operations/operating-and-verification-ko.md#로컬-수집원-연결)는 서비스나

@@ -641,6 +641,7 @@ async def build_core_runtime(
         self_health_catalog=load_runtime_self_health_catalog(),
         liveness=resources.health_server.is_live if resources.health_server is not None else None,
         runtime_policy=runtime_values,
+        startup_duration_source=resources.startup_duration_source,
     )
     startup_report = await readiness.evaluate()
     _LOGGER.info(

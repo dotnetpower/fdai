@@ -582,6 +582,12 @@ def bind_health_readiness(
     startup_readiness: StartupReadinessRuntime | None,
 ) -> None:
     """Publish real readiness once the runtime can answer for it."""
+    if (
+        control_loop is not None
+        and startup_readiness is not None
+        and startup_readiness.startup_duration_source is not None
+    ):
+        startup_readiness.startup_duration_source.bind_readiness(startup_readiness.state.is_ready)
     if server is None:
         return
     if control_loop is None:
@@ -590,7 +596,11 @@ def bind_health_readiness(
         )
     if startup_readiness is None:
         raise RuntimeError("FDAI_HEALTH_PORT requires startup readiness composition")
-    server.readiness = startup_readiness.state.is_ready
+    server.readiness = (
+        startup_readiness.startup_duration_source.is_ready
+        if startup_readiness.startup_duration_source is not None
+        else startup_readiness.state.is_ready
+    )
     _LOGGER.info("health_server_ready", extra={"port": server.port})
 
 
