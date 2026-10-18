@@ -7,6 +7,7 @@ from copy import deepcopy
 from datetime import UTC, datetime
 from typing import Any
 
+from fdai_service_contracts.cloud_knowledge_application import CloudApplicationAuthorizationSource
 from fdai_service_contracts.policy_administration import (
     POLICY_ACTIVATION_REQUEST_TOPIC,
     PolicyRevisionSignatureVerifier,
@@ -137,6 +138,7 @@ class Var(
         super().__init__(spec=_VAR)
         self.bus = bus
         self._clock = clock or (lambda: datetime.now(tz=UTC))
+        self._cloud_application_source: CloudApplicationAuthorizationSource | None = None
         self.admin_channel = admin_channel or InMemoryAdminChannel()
         self._approver_authorizer = approver_authorizer
         self._initialize_development_authority(
@@ -185,6 +187,10 @@ class Var(
 
     def bind_action_semantics(self, action_semantics: ActionSemanticsCatalog | None) -> None:
         self._action_semantics = action_semantics
+
+    def bind_cloud_application_source(self, source: CloudApplicationAuthorizationSource) -> None:
+        """Consume independently persisted human policy; this binding grants no authority."""
+        self._cloud_application_source = source
 
     async def on_typed_message(self, topic: str, payload: dict[str, Any]) -> None:
         if topic in {"object.action-run", "object.audit-entry", "object.event"}:

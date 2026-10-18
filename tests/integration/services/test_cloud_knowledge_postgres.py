@@ -50,6 +50,7 @@ def database(monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
     raw = os.environ.get("FDAI_CLOUD_KNOWLEDGE_TEST_DSN", "")
     if not raw:
         pytest.skip("task-owned loopback PostgreSQL was not selected")
+    raw = raw.replace("postgresql+psycopg://", "postgresql://", 1)
     parameters = conninfo_to_dict(raw)
     if parameters.get("host") not in {"127.0.0.1", "localhost", "::1"}:
         pytest.fail("cloud knowledge tests require an explicit loopback database")
@@ -70,6 +71,14 @@ def database(monkeypatch: pytest.MonkeyPatch) -> Iterator[str]:
             )
             monkeypatch.setattr(migration, "op", SimpleNamespace(execute=connection.execute))
             migration.upgrade()
+            application_migration = _module(
+                ROOT / "service-migrations/branches/document-ingestion-api/versions/"
+                "20261018_cloud_application.py"
+            )
+            monkeypatch.setattr(
+                application_migration, "op", SimpleNamespace(execute=connection.execute)
+            )
+            application_migration.upgrade()
         yield dsn
     finally:
         with psycopg.connect(raw, autocommit=True) as connection:
@@ -139,17 +148,119 @@ async def test_database_release_high_water_is_monotonic_and_retry_exact(database
     assert await store.next_sequence("cloud") == 3
 
 
-@pytest.mark.parametrize("tamper", ["none", "text", "provenance", "after_readback"])
+def _database_policy():
+    from fdai_service_contracts.cloud_knowledge_application import CloudApplicationPolicy
+
+    now = datetime.now(tz=UTC)
+    return CloudApplicationPolicy(
+        policy_id="ordinary-reference",
+        revision=1,
+        collection_id="cloud",
+        registry_digest="a" * 64,
+        requester_ids=("requester",),
+        reader_groups=("readers",),
+        source_ids=("source",),
+        normalizer_versions=("1.0.0",),
+        manifest_versions=("fdai.cloud-knowledge.v2",),
+        max_bytes=1048576,
+        valid_from=now - timedelta(hours=1),
+        valid_until=now + timedelta(hours=1),
+        stop_condition="Any gate failure",
+        tested_rollback_ref="reviewed-test:rollback",
+        successful_dry_run_ref="reviewed-test:dry-run",
+    )
+
+
+async def test_policy_authority_requires_independent_review_and_cannot_be_renewed(database: str):
+    from fdai_ingestion_api_service.cloud_knowledge.application_store import (
+        PostgresCloudApplicationStore,
+    )
+
+    store = PostgresCloudApplicationStore(dsn=database)
+    policy = _database_policy()
+    digest = await store.propose(policy, actor_id="author")
+    with pytest.raises(ValueError, match="another"):
+        await store.propose(policy, actor_id="other-author")
+    for actor in ("author", "requester"):
+        with pytest.raises(ValueError, match="independent"):
+            await store.review(digest, actor_id=actor)
+    with pytest.raises(ValueError, match="authority"):
+        (await store.get(digest)).require_current("requester", datetime.now(tz=UTC))
+    await store.review(digest, actor_id="reviewer")
+    approved = await store.get(digest)
+    approved.require_current("requester", datetime.now(tz=UTC))
+    assert approved.author_id == "author" and approved.approved_by == "reviewer"
+    with pytest.raises(ValueError, match="independent"):
+        await store.review(digest, actor_id="another-reviewer")
+    await store.review(digest, actor_id="reviewer", revoke=True)
+    with pytest.raises(ValueError, match="authority"):
+        (await store.get(digest)).require_current("requester", datetime.now(tz=UTC))
+    with pytest.raises(ValueError, match="independent"):
+        await store.review(digest, actor_id="another-reviewer")
+    with psycopg.connect(database) as conn:
+        assert conn.execute(
+            "SELECT action FROM document_knowledge_policy_audit ORDER BY event_id"
+        ).fetchall() == [("proposed",), ("approved",), ("revoked",)]
+
+
+async def test_policy_revocation_waits_for_the_visibility_fence(database: str):
+    from fdai_ingestion_api_service.cloud_knowledge.application_store import (
+        PostgresCloudApplicationStore,
+    )
+
+    store = PostgresCloudApplicationStore(dsn=database)
+    digest = await store.propose(_database_policy(), actor_id="author")
+    await store.review(digest, actor_id="reviewer")
+    async with await psycopg.AsyncConnection.connect(database) as conn:
+        await conn.execute(
+            "SELECT pg_advisory_xact_lock_shared(hashtextextended(%s, 0))",
+            (f"cloud-policy:{digest}",),
+        )
+        revocation = asyncio.create_task(store.review(digest, actor_id="reviewer", revoke=True))
+        await asyncio.sleep(0.05)
+        assert not revocation.done()
+    await asyncio.wait_for(revocation, timeout=5)
+    assert (await store.get(digest)).revoked_at is not None
+
+
+@pytest.mark.parametrize(
+    "tamper",
+    ["none", "text", "provenance", "after_readback", "authority_revoked", "request_expired"],
+)
 @pytest.mark.parametrize("representation", ["legacy", "structured"])
+@pytest.mark.parametrize("authority_lane", ["manual", "policy"])
 async def test_cloud_generation_activation_is_atomic_and_lexical_has_no_model_call(
     database: str,
     tamper: str,
     representation: str,
+    authority_lane: str,
 ) -> None:
+    if authority_lane == "manual" and tamper in {"authority_revoked", "request_expired"}:
+        pytest.skip("policy-only authority transition")
     fixture = _module(
         ROOT / "services/document-processing-worker/tests/test_cloud_knowledge_extraction.py"
     )
+    fixture.NOW = datetime.now(tz=UTC)
     release, original_version = fixture.release_version()
+    if authority_lane == "policy" and representation == "legacy":
+        from fdai_service_contracts.cloud_knowledge_release import (
+            KnowledgeTextReleaseManifest,
+            normalized_document,
+        )
+
+        release = KnowledgeTextReleaseManifest.model_validate(
+            release.model_dump(exclude={"schema_version", "reader_version", "documents"})
+            | {"documents": tuple(normalized_document(d) for d in release.documents)}
+        )
+        original_version = original_version.model_copy(
+            update={
+                "source_sha256": release.digest,
+                "size_bytes": len(canonical_bytes(release)),
+                "cloud_knowledge": original_version.cloud_knowledge.model_copy(
+                    update={"manifest_digest": release.digest}
+                ),
+            }
+        )
     if representation == "structured":
         from fdai_service_contracts.cloud_knowledge import content_digest
         from fdai_service_contracts.cloud_knowledge_release import (
@@ -233,6 +344,51 @@ async def test_cloud_generation_activation_is_atomic_and_lexical_has_no_model_ca
         expires_at=now + timedelta(hours=1),
         index_state=DocumentIndexState.BUILDING,
     )
+    policy_store = None
+    if authority_lane == "policy":
+        from fdai_ingestion_api_service.cloud_knowledge.application import bind_application
+        from fdai_ingestion_api_service.cloud_knowledge.application_store import (
+            PostgresCloudApplicationStore,
+        )
+        from fdai_service_contracts.cloud_knowledge_application import CloudApplicationPolicy
+
+        policy_store = PostgresCloudApplicationStore(dsn=database)
+        policy = CloudApplicationPolicy(
+            policy_id="ordinary-reference",
+            revision=1,
+            collection_id=version.access.collection_id,
+            registry_digest=version.cloud_knowledge.registry_digest,
+            requester_ids=(version.uploader_id,),
+            reader_groups=version.access.reader_groups,
+            source_ids=tuple(s.source_id for s in version.cloud_knowledge.sources),
+            normalizer_versions=("1.0.0", "2.0.0"),
+            manifest_versions=("fdai.cloud-knowledge.v2", "fdai.cloud-knowledge.v3"),
+            max_bytes=16777216,
+            valid_from=now - timedelta(hours=1),
+            valid_until=now + timedelta(hours=1),
+            stop_condition="Any gate failure",
+            tested_rollback_ref="local-test:contained-generation",
+            successful_dry_run_ref="local-test:independent-index-readback",
+            request_ttl_seconds=1 if tamper == "request_expired" else 900,
+        )
+        digest = await policy_store.propose(policy, actor_id="policy-author")
+        await policy_store.review(digest, actor_id="policy-reviewer")
+        request_time = datetime.now(tz=UTC)
+        applied_binding = await bind_application(
+            store=policy_store,
+            policy_digest=digest,
+            binding=version.cloud_knowledge,
+            manifest=release,
+            requester_id=version.uploader_id,
+            reader_groups=version.access.reader_groups,
+            document_id=version.document_id,
+            version_id=version.version_id,
+            upload_id=version.upload_id,
+            previous_id=None,
+            now=request_time,
+            size_bytes=version.size_bytes,
+        )
+        version = version.model_copy(update={"cloud_knowledge": applied_binding})
     claim = DocumentWorkerClaim(
         upload_id=version.upload_id,
         stage=DocumentWorkerStage.INDEXING,
@@ -294,6 +450,63 @@ async def test_cloud_generation_activation_is_atomic_and_lexical_has_no_model_ca
                 claim.lease_expires_at,
             ),
         )
+    if authority_lane == "policy":
+        from fdai.agents._framework.bus import InMemoryBus
+        from fdai.agents._framework.registry import load_pantheon
+        from fdai.agents.forseti import Forseti
+        from fdai.agents.heimdall import Heimdall
+        from fdai.agents.muninn import Muninn
+        from fdai.agents.saga import Saga
+        from fdai.agents.thor import Thor
+        from fdai.agents.var import Var
+        from fdai.delivery.persistence.postgres_cloud_application import (
+            PostgresCloudApplicationAuthorization,
+        )
+
+        bus = InMemoryBus(registry=load_pantheon())
+        heimdall, forseti = Heimdall(bus=bus), Forseti(bus=bus)
+        saga, muninn, var, thor = Saga(), Muninn(), Var(bus=bus), Thor(bus=bus)
+        saga.bind_bus(bus)
+        muninn.bind_bus(bus)
+        var.bind_cloud_application_source(PostgresCloudApplicationAuthorization(dsn=database))
+        for topic, owners in {
+            "object.event": (heimdall, forseti),
+            "object.anomaly": (forseti,),
+            "object.verdict": (saga, thor),
+            "object.audit-entry": (var, muninn),
+            "object.approval": (saga, thor),
+        }.items():
+            for agent in owners:
+                bus.subscribe(topic, agent.spec.name, agent.on_typed_message)
+        await bus.publish(
+            "Huginn",
+            "object.event",
+            {
+                "producer_principal": "Huginn",
+                "kind": "document_ingestion",
+                "event_type": "document.inspected",
+                "correlation_id": str(version.upload_id),
+                "idempotency_key": f"inspected:{version.upload_id}",
+                "resource_id": str(version.document_id),
+                "document_id": str(version.document_id),
+                "record": {
+                    "upload_id": str(version.upload_id),
+                    "uploader_id": version.uploader_id,
+                    "malware_verdict": "clean",
+                    "protection_state": "none",
+                    "purposes": [p.value for p in version.purposes],
+                    "cloud_application_policy_requested": True,
+                },
+            },
+        )
+        assert not var._pending
+        approvals = bus.messages_on("object.approval")
+        assert len(approvals) == 1
+        assert approvals[0].payload["state"] == "approved"
+        assert approvals[0].payload["approvers"] == ["policy-reviewer"]
+        assert "standing_cloud_policy:" in approvals[0].payload["reason"]
+        assert len(bus.messages_on("object.context-index")) == 1
+        assert bus.messages_on("object.action-run") == []
 
     class NoModel:
         async def embed(self, text: str) -> tuple[float, ...]:
@@ -415,7 +628,19 @@ async def test_cloud_generation_activation_is_atomic_and_lexical_has_no_model_ca
         await record_cloud_activation(**finish, index_digest=None)
     else:
         digest = await verifier.verify(ready, envelope)
-        if tamper == "after_readback":
+        if tamper == "authority_revoked":
+            await policy_store.review(
+                version.cloud_knowledge.application.policy_digest,
+                actor_id="policy-reviewer",
+                revoke=True,
+            )
+            contained = await record_cloud_activation(**finish, index_digest=digest)
+            assert contained.state is DocumentState.FAILED and not contained.available
+        elif tamper == "request_expired":
+            await asyncio.sleep(1.1)
+            contained = await record_cloud_activation(**finish, index_digest=digest)
+            assert contained.state is DocumentState.FAILED and not contained.available
+        elif tamper == "after_readback":
             with psycopg.connect(database) as connection:
                 connection.execute("UPDATE knowledge_chunk SET text = 'changed after readback'")
             with pytest.raises(DocumentLifecycleConflictError, match="verification changed"):

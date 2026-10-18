@@ -234,6 +234,178 @@ def _seed_sources(intake: _Case, count: int = 2) -> None:
         )
 
 
+def _application_authority(intake: _Case):
+    from fdai_service_contracts.cloud_knowledge_application import (
+        CloudApplicationPolicy,
+        CloudPolicyAuthority,
+    )
+
+    return CloudPolicyAuthority(
+        policy=CloudApplicationPolicy(
+            policy_id="ordinary-reference",
+            revision=1,
+            collection_id=intake.manifest.collection_id,
+            registry_digest=intake.service.registry.digest,
+            requester_ids=("actor-a",),
+            reader_groups=("role:Reader",),
+            source_ids=tuple(s.source_id for s in intake.service.registry.sources),
+            normalizer_versions=("1.0.0", "2.0.0"),
+            manifest_versions=("fdai.cloud-knowledge.v2", "fdai.cloud-knowledge.v3"),
+            max_bytes=1048576,
+            valid_from=NOW - timedelta(days=1),
+            valid_until=NOW + timedelta(days=1),
+            stop_condition="Gate failure",
+            tested_rollback_ref="reviewed-test:rollback",
+            successful_dry_run_ref="reviewed-test:dry-run",
+        ),
+        author_id="policy-author",
+        approved_by="independent-reviewer",
+        approved_at=NOW - timedelta(hours=1),
+    )
+
+
+class _ApplicationStore:
+    """Test-only persistence seam; real PostgreSQL authority is tested separately."""
+
+    def __init__(self, authority):
+        self.authority = authority
+        self.requests = {}
+
+    async def get(self, digest):
+        if digest != self.authority.policy.digest:
+            raise ValueError("policy not found")
+        return self.authority
+
+    async def reserve(self, request):
+        previous = self.requests.setdefault(request.upload_id, request)
+        if previous.model_dump(
+            exclude={"nonce", "requested_at", "expires_at"}
+        ) != request.model_dump(exclude={"nonce", "requested_at", "expires_at"}):
+            raise ValueError("application retry changed")
+        return previous
+
+
+@pytest.mark.parametrize("representation", ["text", "structured"])
+async def test_explicit_application_binds_actual_requester_without_per_document_approval(
+    intake: _Case,
+    representation: str,
+) -> None:
+    if representation == "structured":
+        from fdai_service_contracts.cloud_knowledge_structure import (
+            CloudArticleBlock,
+            CloudStructuredDocument,
+            excerpt_digest,
+        )
+
+        documents = tuple(
+            CloudStructuredDocument(
+                evidence=d.evidence,
+                title=d.title,
+                text=d.text,
+                derived_at=intake.manifest.package_created_at,
+                blocks=(
+                    CloudArticleBlock(
+                        block_id="body",
+                        kind="paragraph",
+                        start=0,
+                        end=len(d.text),
+                        heading_path=(d.title,),
+                    ),
+                ),
+            )
+            for d in intake.manifest.documents
+        )
+        intake.manifest = release.KnowledgeStructuredReleaseManifest.model_validate(
+            intake.manifest.model_dump(exclude={"schema_version", "reader_version", "documents"})
+            | {
+                "documents": documents,
+                "excerpt_digests": tuple(excerpt_digest(d) for d in documents),
+            }
+        )
+    authority = _application_authority(intake)
+    store = _ApplicationStore(authority)
+    intake.service.application_store = store
+    result = await intake.service.import_package(
+        intake.sealed(),
+        actor_id="actor-a",
+        actor_groups=WRITERS,
+        policy_digest=authority.policy.digest,
+    )
+    assert result["approval_required"] is False
+    session = UploadSession.model_validate(result["session"])
+    version = intake.metadata.versions[(session.document_id, session.version_id)]
+    application = version.cloud_knowledge.application
+    assert application.requester_id == "actor-a"
+    assert application.policy_digest == authority.policy.digest
+    assert application.manifest_digest == version.source_sha256
+    assert application.upload_id == version.upload_id
+    assert application.expected_active_version_id is None
+    assert version.state is DocumentState.RECEIVED and not version.available
+    intake.clock.return_value += timedelta(seconds=1)
+    retry = await intake.service.import_package(
+        intake.sealed(),
+        actor_id="actor-a",
+        actor_groups=WRITERS,
+        policy_digest=authority.policy.digest,
+    )
+    assert retry["release"]["application"]["nonce"] == str(application.nonce)
+    with pytest.raises(ValueError, match="lane"):
+        await intake.service.import_package(
+            intake.sealed(), actor_id="actor-a", actor_groups=WRITERS
+        )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    ["self", "revoked", "expired", "audience", "sources", "processing", "format", "size"],
+)
+async def test_out_of_policy_application_never_creates_a_version(
+    intake: _Case, mutation: str
+) -> None:
+    authority = _application_authority(intake)
+    updates = {
+        "self": {"approved_by": "actor-a"},
+        "revoked": {"revoked_at": NOW},
+        "expired": {"policy": authority.policy.model_copy(update={"valid_until": NOW})},
+        "audience": {"policy": authority.policy.model_copy(update={"reader_groups": ("other",)})},
+        "sources": {"policy": authority.policy.model_copy(update={"source_ids": ("other",)})},
+        "processing": {
+            "policy": authority.policy.model_copy(update={"normalizer_versions": ("9.0.0",)})
+        },
+        "format": {
+            "policy": authority.policy.model_copy(
+                update={"manifest_versions": ("fdai.cloud-knowledge.v3",)}
+            )
+        },
+        "size": {"policy": authority.policy.model_copy(update={"max_bytes": 1})},
+    }[mutation]
+    authority = authority.model_copy(update=updates)
+    intake.service.application_store = _ApplicationStore(authority)
+    with pytest.raises(ValueError):
+        await intake.service.import_package(
+            intake.sealed(),
+            actor_id="actor-a",
+            actor_groups=WRITERS,
+            policy_digest=authority.policy.digest,
+        )
+    assert intake.metadata.versions == {}
+
+
+def test_policy_setup_is_owner_only_and_cannot_accept_client_approval(intake: _Case) -> None:
+    policy = _application_authority(intake).policy
+    for role in (Role.READER, Role.CONTRIBUTOR, Role.APPROVER):
+        with _client(intake, role) as client:
+            response = client.post(f"{BASE}/policies", json=policy.model_dump(mode="json"))
+            assert response.status_code == 403
+    store = _ApplicationStore(_application_authority(intake))
+    intake.service.application_store = store
+    with _client(intake, Role.OWNER) as client:
+        response = client.post(
+            f"{BASE}/policies", json=policy.model_dump(mode="json") | {"approved_by": "actor-a"}
+        )
+        assert response.status_code == 400
+
+
 async def test_expired_policy_keeps_history_but_never_labels_body_available(intake: _Case) -> None:
     version = await _seed_retained_fixture(intake)
     intake.clock.return_value = intake.service.registry.valid_until

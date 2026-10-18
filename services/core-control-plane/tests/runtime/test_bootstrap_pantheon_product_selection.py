@@ -17,6 +17,9 @@ import pytest
 from fdai.agents import Forseti, PantheonRuntime
 from fdai.composition import default_container
 from fdai.core.chaos.symptom_index import build_from_entries
+from fdai.delivery.persistence.postgres_cloud_application import (
+    PostgresCloudApplicationAuthorization,
+)
 from fdai.delivery.runtime_settings import RuntimeSettingsService
 from fdai.runtime import bootstrap_pantheon as pantheon_bootstrap
 from fdai.runtime import bootstrap_pantheon_evidence as evidence_bootstrap
@@ -68,9 +71,11 @@ async def _unused(*args: Any, **kwargs: Any) -> bool:
 
 
 @pytest.mark.parametrize("selected", [True, False])
+@pytest.mark.parametrize("document_dsn", [None, "postgresql://example.invalid/documents"])
 async def test_initialize_pantheon_passes_the_product_selection_to_forseti(
     app_config: AppConfig,
     selected: bool,
+    document_dsn: str | None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     store = InMemoryStateStore()
@@ -141,7 +146,9 @@ async def test_initialize_pantheon_passes_the_product_selection_to_forseti(
             read_investigation_hook=None,
             runtime_symptom_index=build_from_entries(()),
             stage_topic="fdai.stage",
-            environment={},
+            environment=(
+                {"FDAI_RCA_DOCUMENT_DSN": document_dsn} if document_dsn is not None else {}
+            ),
             build_runtime_workload_identity=lambda *args, **kwargs: None,  # type: ignore[arg-type,return-value]
             build_operator_memory_store=_build_operator_memory_store,
             build_inventory_delta_projector=lambda: None,
@@ -168,6 +175,13 @@ async def test_initialize_pantheon_passes_the_product_selection_to_forseti(
     assert bragi_runs == [(result.runtime, bragi_training)]
     assert result.runtime.agents["Loki"]._recurring_schedule is schedule  # noqa: SLF001
     assert result.runtime.enforce is False
+    var = result.runtime.agents["Var"]
+    source = var._cloud_application_source
+    if document_dsn is None:
+        assert source is None
+    else:
+        assert isinstance(source, PostgresCloudApplicationAuthorization)
+        assert source._dsn == document_dsn
 
 
 def _schedule_declaration() -> dict[str, Any]:

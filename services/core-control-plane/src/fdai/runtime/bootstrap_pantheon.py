@@ -640,6 +640,15 @@ async def initialize_pantheon(
         **reviewed_evidence.runtime_kwargs,
     )
     await reviewed_evidence.run_configured_training(pantheon_runtime)
+    cloud_application_dsn = config.environment.get("FDAI_RCA_DOCUMENT_DSN", "").strip()
+    if cloud_application_dsn and "Var" in pantheon_runtime.agents:
+        from fdai.delivery.persistence.postgres_cloud_application import (
+            PostgresCloudApplicationAuthorization,
+        )
+
+        cast(Any, pantheon_runtime.agents["Var"]).bind_cloud_application_source(
+            PostgresCloudApplicationAuthorization(dsn=cloud_application_dsn)
+        )
     cast(Any, pantheon_runtime.agents["Forseti"]).bind_architecture_review_loop(
         architecture_review_loop
     )

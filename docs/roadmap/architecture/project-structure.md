@@ -894,6 +894,12 @@ CI pipeline plus the local pre-push hook. Corresponding docs in
 
 ## Customization via Dependency Injection
 
+Var's optional `CloudApplicationAuthorizationSource` reads exact administrative human policy and
+request records from the separately configured document database. The API owns those input
+tables; Var owns the approval topic, Saga audit and Muninn indexing remain independent, and
+worker visibility rechecks the same policy through a transaction fence. Missing bindings reject
+the explicit requester-policy lane without changing the manual default or granting Thor authority.
+
 Bragi-owned conversational composition carries an exact selected agent and locale, independent
 synthesis verification, and policy-pinned durable per-correlation model accounting. Missing
 participation or unresolved evidence conflicts remain partial or held without a final conclusion.

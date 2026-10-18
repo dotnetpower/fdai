@@ -17,6 +17,7 @@ from fdai_service_contracts import (
     DocumentWorkerClaimConflictError,
     UploadSession,
 )
+from fdai_service_contracts.cloud_knowledge_application import CloudApplicationUnavailableError
 
 from fdai_document_worker_service.effects import WorkerMetadataStore
 
@@ -76,16 +77,29 @@ async def record_cloud_activation(
             "cloud_verification": "verified" if success else "failed",
         },
     )
-    await metadata.transition_worker_stage(
-        next_session,
-        next_version,
-        claim=claim,
-        expected_upload_state=session.state.value,
-        expected_upload_revision=session.revision,
-        expected_version_state=version.state.value,
-        expected_version_revision=version.revision,
-        event=event,
-    )
+    try:
+        await metadata.transition_worker_stage(
+            next_session,
+            next_version,
+            claim=claim,
+            expected_upload_state=session.state.value,
+            expected_upload_revision=session.revision,
+            expected_version_state=version.state.value,
+            expected_version_revision=version.revision,
+            event=event,
+        )
+    except CloudApplicationUnavailableError:
+        if not success:
+            raise
+        return await record_cloud_activation(
+            metadata=metadata,
+            session=session,
+            version=version,
+            claim=claim,
+            observed_at=observed_at,
+            index_digest=None,
+            event_factory=event_factory,
+        )
     return next_version
 
 

@@ -22,12 +22,20 @@ without choosing another approver for every document. The uploader need not be i
 preparation; the real intake request supplies the authenticated identity. Content review can start
 before that request exists and does not itself grant runtime approval authority.
 
-This policy-backed application path is **not implemented**. The procedures below describe the
-current manual lane, not a permanent requirement to arrange another person for every future update.
-There is no supported setting that turns `Reader`, a successful import, or a package signature into
-activation authority. Do not change roles, forge approval fields or disable Var to simulate the target.
-After implementation and independent promotion, eligible requests should proceed without a manual
-wait while preserving scanning, policy rechecks and independently verified index completion.
+The policy-backed application path is implemented as an explicit authenticated API lane; the
+ordinary import/stage and Console review controls remain manual. First deploy
+`cloud_application_20261018` in the ingestion API branch and configure Core's existing separately
+scoped `FDAI_RCA_DOCUMENT_DSN` with read access to the document metadata and policy/request tables.
+An Owner proposes the exact bounded policy; a different Owner outside its requester set reviews it.
+Use the [policy and Apply endpoints](../roadmap/interfaces/cloud-resource-knowledge-lifecycle.md#requester-initiated-application-target)
+only after actual policy, rights and trust are independently established. Missing authority holds;
+it never turns into a manual ticket that the requester can approve themselves.
+
+There is no setting that turns `Reader`, a successful import or a package signature into activation
+authority. Do not forge approval fields or disable Var. The requester path retains scans,
+current policy/revocation checks and transaction-fenced independent index completion. Local
+software evidence does not substitute for deployed admission, source/answer qualification or
+independent operational promotion.
 
 ## Prerequisites
 

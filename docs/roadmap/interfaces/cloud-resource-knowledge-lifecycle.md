@@ -237,15 +237,48 @@ link, or cross-section caveat findings recorded in [Issue #995](https://github.c
 
 ### Requester-initiated application target
 
+The local software implementation uses an API-owned PostgreSQL policy proposal, independent
+authenticated policy review, and an immutable application nonce. The policy pins the registry,
+collection, eligible requesters, audience, source set, formats, processing versions, byte ceiling,
+validity, and reviewed stop, rollback, and dry-run evidence. The existing import/stage endpoints
+remain manual by default. Explicit Apply requests opt into prior authority, not new human approval.
+Var reads the persisted version and prior policy through a read-only provider; Saga records that
+basis before Muninn commands indexing. Worker pre-effect and transaction-fenced final checks use
+the same nonce and policy revision; a revoked or amended policy never renews a queued request.
+
+The owning design critique rejects ten shortcuts: request-as-approval, signature-as-authority,
+client-selected reviewer, wildcard requesters, changed audiences, partial source sets, unbound
+processing, replayed nonces, stale request-time eligibility, and visibility before independent
+readback. Revision: use separate authenticated setup and review, closed immutable scope, durable
+exact requests, current policy checks, and the existing independently observed index digest.
+
 The target experience is **Apply by the authenticated requester**, without selecting another person
 or obtaining a new per-document `Approver` decision for a candidate already covered by independently
 approved content-activation policy. The requester invokes prior authority; they do not approve,
 renew, widen, or grant it to themselves. This is a bounded reference-content workflow, not A3-E
 emergency authority, a resource action, or promotion of a document into executable policy.
 
-> **Not implemented:** The current `cloud_reference` path still uses the manual lane below.
-> Registry approval, package signing, `can_import`, and a format setting do not enable this target.
-> Runtime implementation, focused evidence and independent promotion are required first.
+> **Local software:** The manual lane remains the default. The explicit authenticated application
+> endpoints below select prior policy only after its independent human review. Registry approval,
+> package signing, `can_import`, and format selection never grant that authority. Local software
+> tests do not establish production policy, source rights, or independent operational promotion.
+
+| Authenticated API | Behavior |
+|-------------------|----------|
+| `POST /ingestion/cloud-knowledge/policies` | Owner proposes bounded policy; server records the actual author |
+| `GET /ingestion/cloud-knowledge/policies/{policy_digest}` | Owner inspects the exact policy and attributed review state |
+| `POST /ingestion/cloud-knowledge/policies/{policy_digest}/approve` | A different authenticated Owner, not an eligible requester, records prior human authorization |
+| `POST /ingestion/cloud-knowledge/policies/{policy_digest}/revoke` | Owner revokes the exact policy; shared transaction fences prevent later visibility under it |
+| `POST /ingestion/cloud-knowledge/packages/apply/{policy_digest}` | Contributor imports a verified v2/v3 package under its exact prior authority |
+| `POST /ingestion/cloud-knowledge/{collection_id}/apply/{policy_digest}` | Contributor stages current collected content under that same authority |
+
+These API-owned administrative input records never write document visibility or impersonate a new
+human approval. Var checks them independently through the existing separately configured
+`FDAI_RCA_DOCUMENT_DSN` read connection, not the Core state database. A missing or inaccessible
+source holds the requested policy lane without creating a manual self-approval ticket.
+Deploy the API-owned policy migration and explicit read grants before selecting the lane.
+The current Console review controls and ordinary import/stage endpoints still use manual review;
+the new direct-application contract is an authenticated API surface.
 
 - **One policy setup, not another person per document:** Establish requester eligibility, exact
    sources and rights, collection, audience, reference purpose, permitted content/processing changes,
