@@ -30,9 +30,13 @@ from fdai_deployment_cli import (
 from fdai_deployment_cli import foundation_adoption_host as foundation_host
 from fdai_deployment_cli import operational_evidence_verifier_input as oev
 from fdai_deployment_cli import standalone_service_update_recovery as service_recovery
+from fdai_deployment_cli.standalone_service_update_finalization import (
+    add_finalization_parser,
+)
 from fdai_deployment_cli.aks_historical_reconciliation import (
     reconciled_variables,
     secret_binding_reordered,
+    single_block as _single,
     validate_reconciliation_plan,
 )
 from fdai_deployment_cli.aks_service_update import (
@@ -292,6 +296,8 @@ def main(argv: list[str] | None = None) -> int:
         dest="clear_development_authority_profile",
     )
     prepare_service_update.set_defaults(handler=_prepare_aks_service_update)
+
+    add_finalization_parser(subcommands, services=AKS_SERVICES)
 
     adopt_historical = subcommands.add_parser("adopt-historical-aks-application")
     adopt_historical.add_argument("--binding", type=Path, required=True)
@@ -1946,12 +1952,6 @@ def _historical_state_workloads(resources: list[object]) -> dict[str, dict[str, 
     if set(result) != set(AKS_SERVICES):
         raise ValueError("historical AKS Terraform workload inventory is incomplete")
     return dict(sorted(result.items()))
-
-
-def _single(value: object) -> dict[str, Any]:
-    if not isinstance(value, list) or len(value) != 1 or not isinstance(value[0], dict):
-        raise ValueError("historical AKS Terraform nested block is invalid")
-    return dict(value[0])
 
 
 def _service_update_record(
@@ -3776,7 +3776,6 @@ def _aks_document_workloads(
             sidecars={
                 "clamav": {
                     "image": refs["clamav"],
-                    # The entrypoint chowns the database; start clamd directly as non-root.
                     "command": ["clamd"],
                     "args": ["--foreground=true"],
                     "cpu": "500m",

@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 3865afed29c86667353f4e10464b58635d96f048
+translation_source_sha: ac7e7576157bc93d3205309282b3d26c5097346c
 translation_revised: 2026-10-18
 ---
 # 런타임 배포 프로파일
@@ -386,7 +386,7 @@ catalog 활성화, merge, 승격 또는 관리 리소스 변경 권한을 부여
 다시 읽기, 변경되지 않은 다른 서비스 및 대상별 zero change를 계속 확인해야 합니다.
 Core에 한해서는 같은 단일 Deployment update로 검토된 개발 권한 프로필을 선택하거나 제거할 수
 있습니다. 프로필 다이제스트와 source 개정을 update 신원에 결속하며, 다른 workload, 인프라 또는
-제품 프로필 변경은 허용하지 않습니다.
+제품 프로필 변경은 허용하지 않습니다. active 표시는 완전한 증적 재검증 후에만 제거합니다.
 
 Foundation의 선택 입력 `application_workload`는 AKS 프로파일을 바꾸지 않고 새 애플리케이션
 그룹 이름을 운영 리소스 이름과 분리합니다. 기존 그룹의 소유권을 부여하지는 않으며, 부분 상태
