@@ -87,8 +87,27 @@ def _secret(client: httpx.Client, name: str, value: str | None = None) -> str | 
     return stored
 
 
+def _connect(
+    config: BootstrapConfig, token: str, database: str, *, autocommit: bool
+) -> psycopg.Connection:
+    return psycopg.connect(
+        host=config.database_host,
+        dbname=database,
+        user=config.bootstrap_name,
+        password=token,
+        autocommit=autocommit,
+        sslmode="verify-full",
+        sslrootcert="/etc/ssl/certs/ca-certificates.crt",
+        connect_timeout=5,
+        options=(
+            "-c statement_timeout=10000 -c lock_timeout=5000 "
+            "-c idle_in_transaction_session_timeout=60000"
+        ),
+    )
+
+
 def initialize(config: BootstrapConfig) -> None:
-    """Serialize initializers on the DB; preserve matching roles/secrets and reject conflicts."""
+    """Hold a postgres session lock across principal, product-schema and secret initialization."""
     with ManagedIdentityCredential(
         client_id=config.bootstrap_client_id,
         connection_timeout=5,
@@ -96,21 +115,9 @@ def initialize(config: BootstrapConfig) -> None:
         retry_total=0,
     ) as credential:
         token = credential.get_token("https://ossrdbms-aad.database.windows.net/.default").token
-        with psycopg.connect(
-            host=config.database_host,
-            dbname=config.database_name,
-            user=config.bootstrap_name,
-            password=token,
-            sslmode="verify-full",
-            sslrootcert="/etc/ssl/certs/ca-certificates.crt",
-            connect_timeout=5,
-            options=(
-                "-c statement_timeout=10000 -c lock_timeout=5000 "
-                "-c idle_in_transaction_session_timeout=60000"
-            ),
-        ) as connection:
+        with _connect(config, token, "postgres", autocommit=True) as connection:
             with connection.cursor() as cursor:
-                cursor.execute("SELECT pg_advisory_xact_lock(hashtext('fdai_hub_bootstrap'))")
+                cursor.execute("SELECT pg_advisory_lock(hashtext('fdai_hub_bootstrap'))")
                 cursor.execute(
                     'SELECT "objectId" FROM pg_catalog.pgaadauth_list_principals(false) '
                     "WHERE rolename = %s",
@@ -143,40 +150,45 @@ def initialize(config: BootstrapConfig) -> None:
                         raise ValueError(
                             "Runtime principal readback failed; initialization stopped."
                         )
-                cursor.execute(
-                    sql.SQL("GRANT CONNECT ON DATABASE {} TO {}").format(
-                        sql.Identifier(config.database_name), sql.Identifier(config.runtime_name)
-                    )
-                )
-                cursor.execute(
-                    sql.SQL("GRANT USAGE, CREATE ON SCHEMA public TO {}").format(
-                        sql.Identifier(config.runtime_name)
-                    )
-                )
-                vault_token = credential.get_token("https://vault.azure.net/.default").token
-                with httpx.Client(
-                    base_url=config.vault_uri,
-                    headers={"Authorization": f"Bearer {vault_token}"},
-                    timeout=httpx.Timeout(10, connect=5),
-                    follow_redirects=False,
-                    trust_env=False,
-                ) as client:
-                    _secret(client, "hub-database-url", config.database_url)
-                    existing = _secret(client, "development-signing-key")
-                    if existing is None:
-                        key = Ed25519PrivateKey.generate()
-                        value = key.private_bytes(
-                            serialization.Encoding.PEM,
-                            serialization.PrivateFormat.PKCS8,
-                            serialization.NoEncryption(),
-                        ).decode()
-                        _secret(client, "development-signing-key", value)
-                    else:
-                        existing_key = serialization.load_pem_private_key(
-                            existing.encode(), password=None
+            with _connect(config, token, config.database_name, autocommit=False) as database:
+                with database.cursor() as cursor:
+                    cursor.execute(
+                        sql.SQL("GRANT CONNECT ON DATABASE {} TO {}").format(
+                            sql.Identifier(config.database_name),
+                            sql.Identifier(config.runtime_name),
                         )
-                        if not isinstance(existing_key, Ed25519PrivateKey):
-                            raise ValueError("Existing signing key is not Ed25519; not replaced.")
+                    )
+                    cursor.execute(
+                        sql.SQL("GRANT USAGE, CREATE ON SCHEMA public TO {}").format(
+                            sql.Identifier(config.runtime_name)
+                        )
+                    )
+                    vault_token = credential.get_token("https://vault.azure.net/.default").token
+                    with httpx.Client(
+                        base_url=config.vault_uri,
+                        headers={"Authorization": f"Bearer {vault_token}"},
+                        timeout=httpx.Timeout(10, connect=5),
+                        follow_redirects=False,
+                        trust_env=False,
+                    ) as client:
+                        _secret(client, "hub-database-url", config.database_url)
+                        existing = _secret(client, "development-signing-key")
+                        if existing is None:
+                            key = Ed25519PrivateKey.generate()
+                            value = key.private_bytes(
+                                serialization.Encoding.PEM,
+                                serialization.PrivateFormat.PKCS8,
+                                serialization.NoEncryption(),
+                            ).decode()
+                            _secret(client, "development-signing-key", value)
+                        else:
+                            existing_key = serialization.load_pem_private_key(
+                                existing.encode(), password=None
+                            )
+                            if not isinstance(existing_key, Ed25519PrivateKey):
+                                raise ValueError(
+                                    "Existing signing key is not Ed25519; not replaced."
+                                )
     logger.info("hub_bootstrap_completed")
 
 

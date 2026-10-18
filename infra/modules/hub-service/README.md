@@ -243,7 +243,10 @@ The application initialization can be retried only after investigating an explic
    runtime principal's exact object ID, DB/schema grants and enabled secret versions from an
    approved private observer. Bootstrap initializes roles/secrets, not the Hub schema.
    Matching secrets are preserved; conflicting roles, DSNs or keys stop without replacement.
-   The DB transaction serializes bootstrap instances. Don't run external secret writers concurrently.
+   Principal lookup, creation and readback run in `postgres`; schema grants run in the product DB.
+   A `postgres` session advisory lock spans principal commits, product grants and secret readback,
+   and releases when the session closes on success or failure. A later failure may leave a matching
+   principal committed; a reviewed retry preserves it. Don't run external secret writers concurrently.
 
 3. Read only version identifiers into private `secret_versions`, never secret values:
 

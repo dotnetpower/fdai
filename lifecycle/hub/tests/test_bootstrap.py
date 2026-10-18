@@ -11,11 +11,11 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from fdai_lifecycle_hub import bootstrap
 
 
-@pytest.fixture
-def config():
+@pytest.fixture(params=["release_hub", "target_hub"])
+def config(request):
     return bootstrap.BootstrapConfig(
         database_host="example.postgres.database.azure.com",
-        database_name="release_hub",
+        database_name=request.param,
         runtime_name="id-example-release",
         runtime_object_id="00000000-0000-0000-0000-000000000001",
         bootstrap_name="id-example-bootstrap",
@@ -35,11 +35,36 @@ def backend(monkeypatch, config):
     connection.cursor.return_value.__enter__.return_value = cursor
     cursor.fetchall.return_value = [(config.runtime_object_id,)]
     cursor.fetchone.return_value = None
-    connect = MagicMock(return_value=connection)
+    database_connection, database_cursor = MagicMock(), MagicMock()
+    database_connection.__enter__.return_value = database_connection
+    database_connection.cursor.return_value.__enter__.return_value = database_cursor
+    principal_session = {"open": False}
+
+    def enter_principal():
+        principal_session["open"] = True
+        return connection
+
+    def exit_principal(*args):
+        principal_session["open"] = False
+
+    connection.__enter__.side_effect = enter_principal
+    connection.__exit__.side_effect = exit_principal
+
+    def execute_database(statement, *args):
+        assert principal_session["open"], "Bootstrap must retain its principal session lock."
+        assert "pgaadauth_" not in str(statement), "Principal management requires postgres."
+
+    database_cursor.execute.side_effect = execute_database
+    connect = MagicMock(
+        side_effect=lambda **kwargs: (
+            connection if kwargs["dbname"] == "postgres" else database_connection
+        )
+    )
     monkeypatch.setattr(bootstrap.psycopg, "connect", connect)
     records, writes = {}, []
 
     def handle(request):
+        assert principal_session["open"], "Secret initialization must retain the DB lock."
         name = request.url.path.split("/")[2]
         if request.method == "PUT":
             import json
@@ -52,7 +77,14 @@ def backend(monkeypatch, config):
 
     client = httpx.Client(base_url=config.vault_uri, transport=httpx.MockTransport(handle))
     monkeypatch.setattr(bootstrap.httpx, "Client", lambda **kwargs: client)
-    return SimpleNamespace(cursor=cursor, records=records, writes=writes, connect=connect)
+    return SimpleNamespace(
+        cursor=cursor,
+        database_cursor=database_cursor,
+        records=records,
+        writes=writes,
+        connect=connect,
+        principal_session=principal_session,
+    )
 
 
 def test_fresh_bootstrap_creates_only_app_data(config, backend):
@@ -65,10 +97,21 @@ def test_fresh_bootstrap_creates_only_app_data(config, backend):
     assert isinstance(key, Ed25519PrivateKey)
     statements = [str(call.args[0]) for call in backend.cursor.execute.call_args_list]
     assert any("pgaadauth_create_principal_with_oid" in statement for statement in statements)
-    assert any("GRANT USAGE, CREATE" in statement for statement in statements)
+    grants = [str(call.args[0]) for call in backend.database_cursor.execute.call_args_list]
+    assert any("GRANT USAGE, CREATE" in statement for statement in grants)
     assert not any("DROP" in statement or "ALTER ROLE" in statement for statement in statements)
-    assert backend.connect.call_args.kwargs["sslmode"] == "verify-full"
-    assert backend.connect.call_args.kwargs["sslrootcert"] == "/etc/ssl/certs/ca-certificates.crt"
+    assert [call.kwargs["dbname"] for call in backend.connect.call_args_list] == [
+        "postgres",
+        config.database_name,
+    ]
+    assert backend.connect.call_args_list[0].kwargs["autocommit"] is True
+    assert backend.connect.call_args_list[1].kwargs["autocommit"] is False
+    assert "pg_advisory_lock(" in statements[0]
+    assert not any("GRANT" in statement for statement in statements)
+    assert backend.principal_session["open"] is False
+    for call in backend.connect.call_args_list:
+        assert call.kwargs["sslmode"] == "verify-full"
+        assert call.kwargs["sslrootcert"] == "/etc/ssl/certs/ca-certificates.crt"
 
 
 def test_existing_matching_bootstrap_does_not_overwrite(config, backend):
@@ -109,6 +152,7 @@ def test_partial_or_conflicting_state_is_not_replaced(config, backend, conflict)
     with pytest.raises(ValueError):
         bootstrap.initialize(config)
     assert backend.writes == []
+    assert backend.principal_session["open"] is False
 
 
 def test_expected_error_does_not_echo_configuration(monkeypatch, capsys):
@@ -133,3 +177,33 @@ def test_failed_principal_readback_stops_before_secrets(config, backend):
     with pytest.raises(ValueError, match="readback"):
         bootstrap.initialize(config)
     assert backend.writes == []
+    assert backend.connect.call_count == 1
+    assert backend.principal_session["open"] is False
+
+
+def test_contended_principal_lock_stops_before_catalog_or_schema_work(config, backend):
+    backend.cursor.execute.side_effect = bootstrap.psycopg.errors.LockNotAvailable(
+        "synthetic-lock-contention"
+    )
+    with pytest.raises(bootstrap.psycopg.errors.LockNotAvailable):
+        bootstrap.initialize(config)
+    assert backend.cursor.execute.call_count == 1
+    assert backend.connect.call_count == 1
+    assert backend.writes == []
+    assert backend.principal_session["open"] is False
+
+
+def test_failed_product_connection_releases_principal_session(config, backend):
+    principal = backend.connect(dbname="postgres")
+    backend.connect.reset_mock()
+
+    def connect(**kwargs):
+        if kwargs["dbname"] == "postgres":
+            return principal
+        raise bootstrap.psycopg.OperationalError("synthetic-product-unavailable")
+
+    backend.connect.side_effect = connect
+    with pytest.raises(bootstrap.psycopg.OperationalError):
+        bootstrap.initialize(config)
+    assert backend.writes == []
+    assert backend.principal_session["open"] is False
