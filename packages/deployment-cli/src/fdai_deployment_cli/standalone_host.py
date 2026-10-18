@@ -1263,8 +1263,12 @@ def _prepare_aks_service_update(args: argparse.Namespace, work_dir: Path) -> dic
         source_commit = workload.get("source_commit", contract.get("source_commit", default_source))
         if not isinstance(source_commit, str) or _SOURCE_COMMIT.fullmatch(source_commit) is None:
             raise ValueError("AKS workload source revision is invalid")
+        secret_environment = workload.get("secret_environment", {})
+        if not aks_readiness.valid_secret_environment(secret_environment):
+            raise ValueError("AKS workload secret environment is invalid")
         workload["source_commit"] = source_commit
         contract["source_commit"] = source_commit
+        contract["secret_environment"] = dict(secret_environment)
         workloads[name] = workload
         expected[name] = contract
     selected = _mapping(workloads[service], f"AKS workload {service}")
