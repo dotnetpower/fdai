@@ -90,10 +90,12 @@ def parse_cost_optimization(payload: Mapping[str, Any]) -> CostOptimizationSigna
     normalized = {str(key): value for key, value in candidate.items() if isinstance(key, str)}
     if (
         len(normalized) != len(candidate)
-        or normalized.get("producer_principal") is not None
+        or "producer_principal" in normalized
         or normalized.get("kind") != "cross_vertical_candidate"
         or normalized.get("resource_id") != payload.get("resource_id")
         or normalized.get("correlation_id") != payload.get("correlation_id")
+        or normalized.get("idempotency_key") != payload.get("idempotency_key")
+        or normalized.get("observed_at") != payload.get("occurred_at")
     ):
         return None
     forbidden = {

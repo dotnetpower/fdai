@@ -72,3 +72,8 @@ async def test_publisher_rejects_spoofed_owner_and_invalid_candidate() -> None:
             {**_candidate(), "effects": []},
             activation_revision=7,
         )
+    with pytest.raises(ValueError, match="activation revision"):
+        await publisher.publish_cost_optimization_candidate(
+            _candidate(),
+            activation_revision=-1,
+        )

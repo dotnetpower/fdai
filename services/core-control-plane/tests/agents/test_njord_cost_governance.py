@@ -300,6 +300,23 @@ def test_optimization_candidate_rejects_authority_fields_and_replays_exactly_onc
     assert behavior["optimization_candidate:duplicate"] == 1
 
 
+def test_optimization_candidate_rejects_envelope_identity_drift() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    njord = Njord(
+        bus=bus,
+        advisory_provider=Advisory(),
+        activation_reader=Activation(_snapshot(enabled=True)),
+        package_enabled=True,
+    )
+    event = _optimization_event()
+    event["idempotency_key"] = "different-event-key"
+
+    asyncio.run(njord.on_typed_message("object.event", event))
+
+    assert bus.messages_on("object.cost-anomaly") == []
+    assert njord.behavior_snapshot()["optimization_candidate:invalid"] == 1
+
+
 def test_rate_limited_optimization_candidate_redrives_from_durable_outbox() -> None:
     async def run() -> None:
         bus = InMemoryBus(registry=load_pantheon())

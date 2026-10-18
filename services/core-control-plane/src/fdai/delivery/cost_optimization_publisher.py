@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from dataclasses import dataclass
 from typing import Any
 
@@ -21,6 +22,12 @@ class EventBusCostOptimizationCandidatePublisher:
         *,
         activation_revision: int,
     ) -> None:
+        if (
+            isinstance(activation_revision, bool)
+            or not isinstance(activation_revision, int)
+            or activation_revision < 0
+        ):
+            raise ValueError("optimization ingress activation revision MUST be non-negative")
         if "producer_principal" in candidate:
             raise ValueError("optimization ingress MUST NOT supply an agent principal")
         validate_cross_vertical_candidate(
@@ -31,12 +38,13 @@ class EventBusCostOptimizationCandidatePublisher:
         correlation_id = str(candidate.get("correlation_id") or "")
         idempotency_key = str(candidate.get("idempotency_key") or "")
         observed_at = str(candidate.get("observed_at") or "")
+        event_digest = hashlib.sha256(idempotency_key.encode()).hexdigest()
         await self.bus.publish(
             self.topic,
             resource_id,
             {
                 "idempotency_key": idempotency_key,
-                "event_id": f"optimization:{idempotency_key}",
+                "event_id": f"optimization:{event_digest}",
                 "event_type": COST_OPTIMIZATION_EVENT_TYPE,
                 "source": "fdai-cost-governance",
                 "resource_id": resource_id,
