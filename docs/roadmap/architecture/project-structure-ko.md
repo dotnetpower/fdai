@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: d33f821183edff63df896c24176a2b839b59081c
+translation_source_sha: 6e90ffa288f796678741378224da0d45c909389e
 translation_revised: 2026-10-18
 ---
 # 프로젝트 구조
@@ -934,6 +934,8 @@ risk-gate를 호출합니다. 리포트는 정확한 소유권 이전 신원을 
   패키지를 활성화하면 선언된 바인딩이 필수가 되며 안전하게 차단됩니다.
 - Owner 전용 범주 보류를 포함한 선택적 full-authority 개발 프로필은 별도의 권한 입력이며,
   [프로젝트 구조 의존성 주입](project-structure-dependency-injection-ko.md#full-authority-개발-프로필-조립)이 소유합니다.
+- 배포는 비공개 검토 완료 source AKS 입력으로만 해당 프로필을 받고, 프로필에서 구분된 실행기
+  principal을 도출하며, 보존된 프로필을 제거할 때는 이후의 명시적인 plan을 요구합니다.
 - `governed-execution` 추가 기능을 선택하지 않으면 학습 및 예측 입력은 ActionType 없는 근거로만
   남습니다. 이 경계는 [에이전트 판테온 계획](../agents/agent-pantheon-implementation-ko.md#학습-및-예측-결과-경계)이 소유합니다.
 - 기본 환경 공급자와 선택적이고 범위가 제한된 `YamlFileConfigProvider`는 동일한 JSON Schema 및
