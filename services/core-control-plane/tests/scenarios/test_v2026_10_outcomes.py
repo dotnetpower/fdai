@@ -60,6 +60,7 @@ from fdai.shared.providers.cost_governance_decision import (
     CostEffectObservation,
     CostExpectedEffect,
     CostObservationLane,
+    CostSavingsEvidenceClass,
     CostSettlementStatus,
 )
 
@@ -269,6 +270,11 @@ def test_finops_outcome_requires_realized_savings_and_reliability() -> None:
             horizon=timedelta(hours=1),
             telemetry_grace=timedelta(minutes=15),
             source_digest=_DIGESTS[0],
+            savings_evidence_class=CostSavingsEvidenceClass.VERIFIED_RUN_RATE,
+            currency="USD",
+            baseline_window_digest=_DIGESTS[2],
+            treatment_window_digest=_DIGESTS[3],
+            demand_normalization_digest=_DIGESTS[4],
         ),
         CostExpectedEffect(
             effect_id=f"{scenario_id}:service",
@@ -315,6 +321,8 @@ def test_finops_outcome_requires_realized_savings_and_reliability() -> None:
     settlement = CostEffectSettlementService().settle(
         episode_id=scenario_id,
         decision_frame_digest=_DIGESTS[0],
+        action_ref=f"action-run:{scenario_id}",
+        action_revision=1,
         expected_effects=effects,
         observations=observations,
         completeness_receipts=completeness,

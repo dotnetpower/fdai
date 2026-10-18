@@ -14,6 +14,7 @@ from fdai.shared.providers.cost_governance_decision import (
     CostInterventionObservation,
     CostObservationLane,
     CostPostRecoveryObservation,
+    CostSavingsEvidenceClass,
     CostSettlementStatus,
 )
 
@@ -46,6 +47,21 @@ def _effect(
         telemetry_grace=timedelta(minutes=15),
         source_digest=DIGEST_A,
         estimated_only=estimated_only,
+        savings_evidence_class=(
+            CostSavingsEvidenceClass.VERIFIED_RUN_RATE
+            if kind is CostEffectKind.COST and not estimated_only
+            else None
+        ),
+        currency=("USD" if kind is CostEffectKind.COST and not estimated_only else None),
+        baseline_window_digest=(
+            DIGEST_B if kind is CostEffectKind.COST and not estimated_only else None
+        ),
+        treatment_window_digest=(
+            DIGEST_C if kind is CostEffectKind.COST and not estimated_only else None
+        ),
+        demand_normalization_digest=(
+            DIGEST_D if kind is CostEffectKind.COST and not estimated_only else None
+        ),
     )
 
 
@@ -110,6 +126,8 @@ def _settle(
     return CostEffectSettlementService().settle(
         episode_id="episode-1",
         decision_frame_digest=DIGEST_A,
+        action_ref="action-run:episode-1",
+        action_revision=1,
         expected_effects=effects,
         observations=observations
         if observations is not None
@@ -139,6 +157,8 @@ def test_multi_effect_settlement_requires_every_independent_effect() -> None:
     assert {effect.kind for effect in settlement.effects} == set(CostEffectKind)
     assert {effect.status for effect in settlement.effects} == {CostSettlementStatus.VERIFIED}
     assert settlement.realized_savings == Decimal("20")
+    assert settlement.realized_savings_currency == "USD"
+    assert settlement.realized_savings_evidence_class is CostSavingsEvidenceClass.VERIFIED_RUN_RATE
 
 
 def test_execution_output_cannot_satisfy_observation_or_completeness() -> None:
@@ -294,3 +314,27 @@ def test_duplicate_observation_or_completeness_is_rejected() -> None:
         _settle((effect,), observations=(observation, observation))
     with pytest.raises(ValueError, match="completeness receipt effect ids"):
         _settle((effect,), completeness=(completeness, completeness))
+
+
+def test_measured_savings_require_comparable_windows_and_invoice_lineage() -> None:
+    with pytest.raises(ValueError, match="requires baseline_window_digest"):
+        replace(
+            _effect("effect-cost", CostEffectKind.COST),
+            baseline_window_digest=None,
+        )
+    with pytest.raises(ValueError, match="finalized billing and allocation"):
+        replace(
+            _effect("effect-cost", CostEffectKind.COST),
+            savings_evidence_class=CostSavingsEvidenceClass.INVOICE_ALLOCATED,
+        )
+
+    invoice = replace(
+        _effect("effect-cost", CostEffectKind.COST),
+        savings_evidence_class=CostSavingsEvidenceClass.INVOICE_ALLOCATED,
+        finalized_billing_receipt_digest=DIGEST_A,
+        allocation_rule_digest=DIGEST_B,
+    )
+    settlement = _settle((invoice,))
+
+    assert settlement.realized_savings == Decimal("20")
+    assert settlement.realized_savings_evidence_class is CostSavingsEvidenceClass.INVOICE_ALLOCATED

@@ -19,6 +19,7 @@ from fdai.shared.providers.cost_governance_decision import (
     CostObservationLane,
     CostPostRecoveryObservation,
     CostRollbackRequest,
+    CostSavingsEvidenceClass,
     CostSettlementStatus,
 )
 
@@ -31,6 +32,8 @@ class CostEffectSettlementService:
         *,
         episode_id: str,
         decision_frame_digest: str,
+        action_ref: str,
+        action_revision: int,
         expected_effects: Sequence[CostExpectedEffect],
         observations: Sequence[CostEffectObservation],
         completeness_receipts: Sequence[CostCompletenessReceipt],
@@ -86,12 +89,20 @@ class CostEffectSettlementService:
             terminal=terminal,
             rollback_request=rollback_request,
         )
+        savings_currency, savings_evidence_class = _realized_savings_lineage(
+            expected,
+            realized,
+        )
         return CostEpisodeSettlement(
             episode_id=episode_id,
             decision_frame_digest=decision_frame_digest,
+            action_ref=action_ref,
+            action_revision=action_revision,
             effects=settlements,
             terminal=terminal,
             realized_savings=realized,
+            realized_savings_currency=savings_currency,
+            realized_savings_evidence_class=savings_evidence_class,
             rollback_request=rollback_request,
             recovery_observed=recovery_observed,
             settled_at=evaluated_at,
@@ -258,6 +269,9 @@ def _effect_result(
     observation: CostEffectObservation | None,
     completeness: CostCompletenessReceipt | None,
 ) -> CostEffectSettlement:
+    include_savings_lineage = (
+        effect.kind is CostEffectKind.COST and status is CostSettlementStatus.VERIFIED
+    )
     return CostEffectSettlement(
         effect_id=effect.effect_id,
         kind=effect.kind,
@@ -268,7 +282,38 @@ def _effect_result(
         observation_digest=(observation.evidence_digest if observation is not None else None),
         completeness_digest=(completeness.receipt_digest if completeness is not None else None),
         settled_at=evaluated_at,
+        savings_evidence_class=(effect.savings_evidence_class if include_savings_lineage else None),
+        currency=effect.currency if include_savings_lineage else None,
+        baseline_window_digest=(effect.baseline_window_digest if include_savings_lineage else None),
+        treatment_window_digest=(
+            effect.treatment_window_digest if include_savings_lineage else None
+        ),
+        demand_normalization_digest=(
+            effect.demand_normalization_digest if include_savings_lineage else None
+        ),
+        finalized_billing_receipt_digest=(
+            effect.finalized_billing_receipt_digest if include_savings_lineage else None
+        ),
+        allocation_rule_digest=(effect.allocation_rule_digest if include_savings_lineage else None),
     )
+
+
+def _realized_savings_lineage(
+    effects: tuple[CostExpectedEffect, ...],
+    realized_savings: Decimal,
+) -> tuple[str | None, CostSavingsEvidenceClass | None]:
+    if realized_savings == 0:
+        return None, None
+    cost_effects = tuple(
+        effect
+        for effect in effects
+        if effect.kind is CostEffectKind.COST and not effect.estimated_only
+    )
+    currencies = {effect.currency for effect in cost_effects}
+    evidence_classes = {effect.savings_evidence_class for effect in cost_effects}
+    if len(currencies) != 1 or len(evidence_classes) != 1:
+        raise ValueError("realized savings require one currency and evidence class")
+    return next(iter(currencies)), next(iter(evidence_classes))
 
 
 def _rollback_request(

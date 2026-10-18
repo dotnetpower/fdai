@@ -391,6 +391,13 @@ class CostSettlementStatus(StrEnum):
     UNSCORABLE = "unscorable"
 
 
+class CostSavingsEvidenceClass(StrEnum):
+    """Evidence strength for a nonzero measured saving."""
+
+    VERIFIED_RUN_RATE = "verified-run-rate"
+    INVOICE_ALLOCATED = "invoice-allocated"
+
+
 class CostObservationLane(StrEnum):
     INDEPENDENT = "independent"
     EXECUTION = "execution"
@@ -412,6 +419,13 @@ class CostExpectedEffect:
     telemetry_grace: timedelta
     source_digest: str
     estimated_only: bool = False
+    savings_evidence_class: CostSavingsEvidenceClass | None = None
+    currency: str | None = None
+    baseline_window_digest: str | None = None
+    treatment_window_digest: str | None = None
+    demand_normalization_digest: str | None = None
+    finalized_billing_receipt_digest: str | None = None
+    allocation_rule_digest: str | None = None
 
     def __post_init__(self) -> None:
         _identifier("effect_id", self.effect_id)
@@ -423,6 +437,57 @@ class CostExpectedEffect:
             raise ValueError("effect acceptable range MUST be ordered")
         if self.horizon <= timedelta(0) or self.telemetry_grace < timedelta(0):
             raise ValueError("effect horizon MUST be positive and grace nonnegative")
+        savings_fields = (
+            self.currency,
+            self.baseline_window_digest,
+            self.treatment_window_digest,
+            self.demand_normalization_digest,
+            self.finalized_billing_receipt_digest,
+            self.allocation_rule_digest,
+        )
+        if self.kind is not CostEffectKind.COST:
+            if self.savings_evidence_class is not None or any(
+                value is not None for value in savings_fields
+            ):
+                raise ValueError("non-cost effect MUST NOT carry savings lineage")
+            return
+        if self.estimated_only:
+            if self.savings_evidence_class is not None or any(
+                value is not None for value in savings_fields
+            ):
+                raise ValueError("estimated-only cost effect MUST NOT claim savings evidence")
+            return
+        if self.savings_evidence_class is None:
+            raise ValueError("measured cost effect requires a savings evidence class")
+        if (
+            self.currency is None
+            or len(self.currency) != 3
+            or not self.currency.isascii()
+            or not self.currency.isupper()
+        ):
+            raise ValueError("measured cost effect requires one uppercase currency")
+        for name, value in (
+            ("baseline_window_digest", self.baseline_window_digest),
+            ("treatment_window_digest", self.treatment_window_digest),
+            ("demand_normalization_digest", self.demand_normalization_digest),
+        ):
+            if value is None:
+                raise ValueError(f"measured cost effect requires {name}")
+            _digest(name, value)
+        invoice = self.savings_evidence_class is CostSavingsEvidenceClass.INVOICE_ALLOCATED
+        if invoice != (
+            self.finalized_billing_receipt_digest is not None
+            and self.allocation_rule_digest is not None
+        ):
+            raise ValueError(
+                "invoice-allocated savings require finalized billing and allocation evidence"
+            )
+        for name, value in (
+            ("finalized_billing_receipt_digest", self.finalized_billing_receipt_digest),
+            ("allocation_rule_digest", self.allocation_rule_digest),
+        ):
+            if value is not None:
+                _digest(name, value)
 
     @property
     def horizon_ends_at(self) -> datetime:
@@ -506,6 +571,13 @@ class CostEffectSettlement:
     observation_digest: str | None
     completeness_digest: str | None
     settled_at: datetime
+    savings_evidence_class: CostSavingsEvidenceClass | None = None
+    currency: str | None = None
+    baseline_window_digest: str | None = None
+    treatment_window_digest: str | None = None
+    demand_normalization_digest: str | None = None
+    finalized_billing_receipt_digest: str | None = None
+    allocation_rule_digest: str | None = None
 
     def __post_init__(self) -> None:
         _identifier("effect_id", self.effect_id)
@@ -523,6 +595,23 @@ class CostEffectSettlement:
             or self.completeness_digest is None
         ):
             raise ValueError("scored settlement requires observation and completeness evidence")
+        savings_fields = (
+            self.currency,
+            self.baseline_window_digest,
+            self.treatment_window_digest,
+            self.demand_normalization_digest,
+            self.finalized_billing_receipt_digest,
+            self.allocation_rule_digest,
+        )
+        if self.kind is CostEffectKind.COST and self.status is CostSettlementStatus.VERIFIED:
+            if self.savings_evidence_class is None or any(
+                value is None for value in savings_fields[:4]
+            ):
+                raise ValueError("verified cost settlement requires comparable savings lineage")
+        elif self.savings_evidence_class is not None or any(
+            value is not None for value in savings_fields
+        ):
+            raise ValueError("unverified settlement MUST NOT carry savings lineage")
 
 
 @dataclass(frozen=True, slots=True)
@@ -577,9 +666,13 @@ class CostEpisodeSettlement:
 
     episode_id: str
     decision_frame_digest: str
+    action_ref: str
+    action_revision: int
     effects: tuple[CostEffectSettlement, ...]
     terminal: bool
     realized_savings: Decimal
+    realized_savings_currency: str | None
+    realized_savings_evidence_class: CostSavingsEvidenceClass | None
     rollback_request: CostRollbackRequest | None
     recovery_observed: bool
     settled_at: datetime
@@ -587,6 +680,9 @@ class CostEpisodeSettlement:
     def __post_init__(self) -> None:
         _identifier("episode_id", self.episode_id)
         _digest("decision_frame_digest", self.decision_frame_digest)
+        _text("action_ref", self.action_ref)
+        if self.action_revision < 1:
+            raise ValueError("settlement action revision MUST be positive")
         effect_ids = tuple(item.effect_id for item in self.effects)
         if not effects_or_unique(effect_ids):
             raise ValueError("episode settlement effects MUST be non-empty and unique")
@@ -595,6 +691,17 @@ class CostEpisodeSettlement:
             raise ValueError("realized savings MUST be nonnegative")
         if self.rollback_request is not None and self.realized_savings != 0:
             raise ValueError("rollback settlement MUST NOT report realized savings")
+        if self.realized_savings > 0:
+            if (
+                self.realized_savings_currency is None
+                or self.realized_savings_evidence_class is None
+            ):
+                raise ValueError("realized savings require currency and evidence class")
+        elif (
+            self.realized_savings_currency is not None
+            or self.realized_savings_evidence_class is not None
+        ):
+            raise ValueError("zero realized savings MUST NOT claim measured savings lineage")
         if self.terminal and not all(item.terminal for item in self.effects):
             raise ValueError("terminal settlement requires every effect to be terminal")
 
@@ -787,5 +894,6 @@ __all__ = [
     "CostRecoveryStep",
     "CostRollbackRequest",
     "CostSettlementStatus",
+    "CostSavingsEvidenceClass",
     "CostTargetScope",
 ]
