@@ -12,6 +12,7 @@ from fdai.runtime.bootstrap_messaging import MessagingRuntime
 from fdai.runtime.bootstrap_pantheon import PantheonInitializationResult
 from fdai.runtime.bootstrap_shutdown import close_runtime_resources
 from fdai.runtime.health import RuntimeHealthServer
+from fdai.runtime.startup_observation import RuntimeStartupDurationSource
 
 
 @dataclass(slots=True)
@@ -19,6 +20,7 @@ class RuntimeResources:
     """Resources acquired during startup and released in dependency order."""
 
     health_server: RuntimeHealthServer | None = None
+    startup_duration_source: RuntimeStartupDurationSource | None = field(default=None, kw_only=True)
     development_diagnostics: DevelopmentDiagnosticServer | None = None
     http_client: httpx.AsyncClient | None = None
     messaging: MessagingRuntime | None = None
@@ -30,6 +32,8 @@ class RuntimeResources:
     async def close(self) -> None:
         """Stop authority transport first, then close shared runtime resources."""
 
+        if self.startup_duration_source is not None:
+            self.startup_duration_source.close()
         try:
             try:
                 try:

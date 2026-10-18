@@ -1,8 +1,8 @@
 ---
 title: FDAI Console 대화
 translation_of: operator-console.md
-translation_source_sha: b0f07671d22d7f1b2c71bde2237e617bc6e23184
-translation_revised: 2026-10-17
+translation_source_sha: 57c831792b15f4d517fe5e277f2291d9938de80b
+translation_revised: 2026-10-19
 ---
 # FDAI Console 대화
 
@@ -100,6 +100,9 @@ Overview는 권위 있는 변환 결과의 기존 `503` 메시지 두 가지인 
 하나의 정규 선언 타입과 개수 항목을 식별한 스키마 읽기는 인접한 매니페스트, 선언 및 관계 의도를 서버 소유 principal 매니페스트 개수 계획으로 수렴시킵니다. 이 경로는 두 번째 모델을 요청하거나
 실행 권한을 부여하지 않습니다. 읽을 수 있는 선언 목록 판단도 복수 선언 종류와 `available`, `queryable`, `readable`이 분리되거나 결합된 기계 필드로 전달되면 정본 종류 하나를 보존합니다. Core는 발화 키워드로 경로를 선택하지 않고 현재 principal 매니페스트를 사용하며, 이 간결한 경로는 추가된 부정·이력·속성 요구를 버릴 수 없습니다.
 Core에 패키징된 개발 진단 모듈은 명시적으로 활성화된 로컬 소유자 전용 Unix 소켓만 제공하며 Console, Operator HTTP 또는 권한 경로를 추가하지 않고 회귀 검사는 Operator 서비스 테스트 모음이 계속 담당합니다. Core 패키지 페이로드 계약은 Console 의존 조립을 제어하는 런타임 제품 프로필 모듈도 선언합니다.
+Core wheel은 [자체 상태](../operations/operating-and-verification-ko.md)에 사용하는
+프로세스별 시작 관측 모듈도 명시적으로 소유합니다. 이 수집원의 패키징은 모든 인스턴스의
+준비 상태를 입증하지 않으며 Console 전송 필드나 권한을 추가하지 않습니다.
 결과 semantic operation은 `aggregate`를 유지합니다. Presentation compiler는 표준 operation과 value 필드를 보존하여 독립 oracle이 표시된 count를 검증할 수 있게 합니다.
 카탈로그 토폴로지는 결정적인 exact-release 좌표를 보존하면서 처음 진입할 때 범위가 제한된 900 ms spring-settle 효과를 한 번 사용합니다. 조작하면 효과가 끝나고 동작 감소 설정에서는 효과를 건너뜁니다. Workflow Builder는 검토된 게시 정의 계층을 사용합니다. 권위 있는 출처와 리비전, 선택한 워크플로 사실 4개, 검토 컨트롤, 220 CSS 픽셀 카탈로그 레일, 순서가 지정된 계약 경로 및 310 CSS 픽셀 검사기로 구성됩니다. 선택적인 사용자 정의 및 Python 작업 기능 읽기를 사용할 수 없어도 이용 가능한 기본 제공 카탈로그는 숨기지 않으며, 필수 카탈로그나 ActionType 팔레트가 실패하면 오류를 명확히 표시합니다. 사용자 범위의 영속 Process 이력은 계속 워크플로 상태 전용으로 표시하고 구조 검증을 실제 기반 환경 변경 미리 보기로 제시하지 않습니다.
 에이전트 활동은 행이 영속 감사 근거를 기반으로 할 때만 상관관계를 추적 화면에 연결합니다. 인벤토리 스캔, 온톨로지 변환 결과 및 현재 상태 읽기 상관관계는 감사 추적 링크 없이 식별자로 표시합니다. 일치하는 감사 단계가 없는 수동 조회는 운영 실패가 아니라 중립적인 사용 불가 상태로 표시합니다.
