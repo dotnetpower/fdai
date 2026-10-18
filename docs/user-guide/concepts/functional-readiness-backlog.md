@@ -49,30 +49,32 @@ claim that every source file was reviewed.
 
 `Local` below means the owner records implementation and focused checks, not that those tests
 were rerun in this audit. Work IDs refer to the unchecked exit criteria in the following sections.
+The final column is the exact machine-readable mandatory package list. Use comma-separated IDs,
+not ranges; `-` means no mandatory package was identified for that bounded function.
 
-| Function | Previous -> current | What exists | Remaining mandatory work |
-|----------|---------------------|-------------|--------------------------|
-| F10.1 | Ready -> Partial | Local ingestion, access, versioning, extraction, retrieval, and deletion mechanics | K01-K02: exact-topology lifecycle and purpose-specific protected-download authorization |
-| F10.2 | Ready -> Partial | Local manual v2/v3 admission, collection, dated retrieval, and containment | K03-K05: requester-policy path, source-quality holds, and authorized source/answer receipts |
-| F10.3 | Partial -> Partial | Local current-schema Rules and all nine revision phases | R01: retained legacy migration and governed rollout; do not reimplement completed phases |
-| F10.4 | Ready -> Partial | Local inert semantic compilation, independent deterministic verification, and retirement | K06-K07: governed handover/withdrawal/hold receipts and actual bilingual assistive output |
-| F11.1 | Partial -> Partial | Attributed immutable cases, feedback, prediction outcomes, and local retention controls | L01-L03: complete source histories, authorized context lifecycle, and retained-Pattern qualification |
-| F11.2 | Partial -> Partial | Local replay, scenario evaluation, threshold-bound O7 measurement, and isolated LOCAL comparison | L03-L04: coherent external sources, preregistered paired evaluation, and complete live cohorts |
-| F11.3 | Ready -> Partial | Durable promotion/recall, override attribution, demotion, and read projections | A01-A02: production Release maximums and governed activation/recall evidence |
-| F12.1 | Partial -> Partial | Exact approvals, profiles, revocation, and inert standing-authority/lease contracts | A02-A03 and L02: live authority behavior and provider-commit fencing; no shipped A3-E adapter is eligible |
-| F12.2 | Partial -> Partial | Local risk/policy checks, seven safeguards, signed kill switch, and state readback | A01-A04: Release bounds, cross-path effects, and measured stop/recovery receipts |
-| F12.3 | Partial -> Partial | Hash-chained audit, minimization, retention/deletion, legal holds, and redacted export | D01-D02: approved privacy gate and pinned operational governance receipts |
-| F12.4 | Partial -> Partial | Fifteen-signal policy, health/readiness contracts, and exact canary-consumption check | H01-H03: runtime exporters, measured delivery/recovery, stabilization, and unresolved operating decisions |
-| F13.1 | Ready -> Ready | Authorized, source-qualified read views with explicit partial/unavailable states | No new mandatory read-view implementation gap found; dataset freshness and production source enrollment are not certified |
-| F13.2 | Ready -> Partial | Local report engine/exports and historical authenticated built-in RCA/PDF evidence | V01: production-datasource and authenticated error/isolation matrix beyond that built-in receipt |
-| F13.3 | Partial -> Partial | Baseline/treatment formulas, guard metrics, independent settlement, and censored outcomes | L04: qualifying episodes, comparable windows, denominators, and uncertainty |
-| F14.1 | Ready -> Partial | Source deployment, Trial, health, update/rollback, and one historical new-Trial receipt | I01: unchanged Trial rerun and both full-entitlement acceptance cases |
-| F14.2 | Ready -> Partial | Source distribution and signed offline-package mechanics with retained isolated install evidence | I02-I03: superseded path retirement and remaining distribution acceptance; Hub is not an available path |
-| F14.3 | Ready -> Partial | Availability/mode/profile, Trial watermark, model-health, and recall presentation | A01 and I01: real Release ceiling input and entitlement-transition readback |
-| F14.4 | Ready -> Partial | Typed bundle registration, publisher trust, disabled-first lifecycle, and revocation | X01: linked exact-artifact install/enable/disable/revoke/restart/disclosure receipts |
-| F15.1 | Ready -> Partial | Exact-revision acquisition, independent local acceptance, workers, and historical isolation probes | S01-S02: terminal installed scan, scheduled publication, and same-correlation business acceptance |
-| F15.2 | Ready -> Ready | Deterministic canonicalization, severity/confidence/priority separation, and adjudication | No new mandatory finding-processing gap found; detector calibration/promotion is separate S03 work |
-| F15.3 | Ready -> Ready | Signed scoped packs, guarded developer helper, and coverage-equivalent rescan verification | No new mandatory pack/rescan gap found; neither customer-repository editing nor arbitrary scanner accuracy is claimed |
+| Function | Previous -> current | What exists | Remaining mandatory work | Required packages |
+|----------|---------------------|-------------|--------------------------|-------------------|
+| F10.1 | Ready -> Partial | Local ingestion, access, versioning, extraction, retrieval, and deletion mechanics | Exact-topology lifecycle and purpose-specific protected-download authorization | K01, K02 |
+| F10.2 | Ready -> Partial | Local manual v2/v3 admission, collection, dated retrieval, and containment | Requester-policy path, source-quality holds, and authorized source/answer receipts | K03, K04, K05 |
+| F10.3 | Partial -> Partial | Local current-schema Rules and all nine revision phases | Retained legacy migration and governed rollout; do not reimplement completed phases | R01 |
+| F10.4 | Ready -> Partial | Local inert semantic compilation, independent deterministic verification, and retirement | Governed handover/withdrawal/hold receipts and actual bilingual assistive output | K06, K07 |
+| F11.1 | Partial -> Partial | Attributed immutable cases, feedback, prediction outcomes, and local retention controls | Complete source histories, authorized context lifecycle, and retained-Pattern qualification | L01, L02, L03 |
+| F11.2 | Partial -> Partial | Local replay, scenario evaluation, threshold-bound O7 measurement, and isolated LOCAL comparison | Coherent external sources, preregistered paired evaluation, and complete live cohorts | L03, L04 |
+| F11.3 | Ready -> Partial | Durable promotion/recall, override attribution, demotion, and read projections | Production Release maximums and governed activation/recall evidence | A01, A02 |
+| F12.1 | Partial -> Partial | Exact approvals, profiles, revocation, and inert standing-authority/lease contracts | Live authority behavior and provider-commit fencing; no shipped A3-E adapter is eligible | A02, A03, L02 |
+| F12.2 | Partial -> Partial | Local risk/policy checks, seven safeguards, signed kill switch, and state readback | Release bounds, cross-path effects, and measured stop/recovery receipts | A01, A02, A03, A04 |
+| F12.3 | Partial -> Partial | Hash-chained audit, minimization, retention/deletion, legal holds, and redacted export | Approved privacy gate and pinned operational governance receipts | D01, D02 |
+| F12.4 | Partial -> Partial | Fifteen-signal policy, health/readiness contracts, and exact canary-consumption check | Runtime exporters, measured delivery/recovery, stabilization, and unresolved operating decisions | H01, H02, H03 |
+| F13.1 | Ready -> Ready | Authorized, source-qualified read views with explicit partial/unavailable states | No new mandatory read-view implementation gap found; dataset freshness and production source enrollment are not certified | - |
+| F13.2 | Ready -> Partial | Local report engine/exports and historical authenticated built-in RCA/PDF evidence | Production-datasource and authenticated error/isolation matrix beyond that built-in receipt | V01 |
+| F13.3 | Partial -> Partial | Baseline/treatment formulas, guard metrics, independent settlement, and censored outcomes | Qualifying episodes, comparable windows, denominators, and uncertainty | L04 |
+| F14.1 | Ready -> Partial | Source deployment, Trial, health, update/rollback, and one historical new-Trial receipt | Unchanged Trial rerun and both full-entitlement acceptance cases | I01 |
+| F14.2 | Ready -> Partial | Source distribution and signed offline-package mechanics with retained isolated install evidence | Superseded path retirement and remaining distribution acceptance; Hub is not an available path | I02, I03 |
+| F14.3 | Ready -> Partial | Availability/mode/profile, Trial watermark, model-health, and recall presentation | Real Release ceiling input and entitlement-transition readback | A01, I01 |
+| F14.4 | Ready -> Partial | Typed bundle registration, publisher trust, disabled-first lifecycle, and revocation | Linked exact-artifact install/enable/disable/revoke/restart/disclosure receipts | X01 |
+| F15.1 | Ready -> Partial | Exact-revision acquisition, independent local acceptance, workers, and historical isolation probes | Terminal installed scan, scheduled publication, and same-correlation business acceptance | S01, S02 |
+| F15.2 | Ready -> Ready | Deterministic canonicalization, severity/confidence/priority separation, and adjudication | No new mandatory finding-processing gap found; detector calibration/promotion is separate S03 work | - |
+| F15.3 | Ready -> Ready | Signed scoped packs, guarded developer helper, and coverage-equivalent rescan verification | No new mandatory pack/rescan gap found; neither customer-repository editing nor arbitrary scanner accuracy is claimed | - |
 
 ## F10: knowledge and rule work
 
@@ -269,6 +271,45 @@ and explicitly deferred expansion remain visible without pretending they were va
   successor before delivery; this audit does not reopen them or remove their residual work.
 - **No unsupported renewal:** No Azure/model call, scanner run, database access, deployment,
   promotion, issue mutation, or external recovery was performed for this audit.
+
+## Source-delivery hardening checkpoint
+
+The follow-up delivery is tracked by [#2211](https://github.com/dotnetpower/fdai/issues/2211).
+It implements a repository regression guard, not the 29 feature packages. **All 29 remain open.**
+K02/K03, A01, learning integration, health composition and the other source work still need their
+own accepted contracts and implementation; live, human, provider and cohort gates remain separate.
+In particular, protected source download is explicitly unavailable in its current design, and a
+shadow-only maximum cannot be replaced by an unsigned file or a test approval.
+
+The [owning test](../../../site/test/functional-readiness.test.mjs) is already selected by CI and
+Pages. It now joins the specification, assessment, inventory and exact required-package column;
+rejects unfinished mandatory work behind Ready; and compares bilingual work IDs and completion.
+It does not authenticate receipts or prove that an author identified every obligation. Removing
+an obligation or changing scope still needs owner review.
+
+Three direct critique rounds covered these twelve concerns each. Round 1 added the backlog
+guard. Round 2 corrected multiple-badge ambiguity, contradictory display labels, localized
+Not assessed handling, and incomplete aggregate checks. Round 3 corrected identity substitution
+and made mutation tests require the intended assertion rather than any thrown error.
+
+| Concern | Final bounded result |
+|---------|----------------------|
+| Accepted scope and authority | No runtime, approval, protection or execution behavior changed |
+| Stable function identity | Exact F10-F15 ID set is checked, not merely 21 arbitrary rows |
+| Complete inventory | Missing, extra and duplicate function rows are rejected |
+| Mandatory completion | Ready with an unchecked required package is rejected even if document states agree |
+| Valid completion transition | Completed packages allow Ready without deleting its obligation history |
+| Work identity | Missing/duplicate package IDs and unknown references are rejected |
+| Exact mapping | Duplicate required IDs, ranges and missing required columns are rejected |
+| Bilingual parity | Current states, prior states, package references and completion match |
+| Badge cardinality | Missing or multiple badges cannot hide a second visual state |
+| State and display meaning | Unknown states and contradictory labels fail; localized Not assessed remains valid |
+| Aggregation | Group and specification/assessment totals cover every present state |
+| Regression and execution venue | Malformed transitions, mismatches and untracked Partial rows fail with intended assertions; existing CI runner selects the test |
+
+Final focused command: `node --test site/test/functional-readiness.test.mjs`, **25 passed, no
+skips**. No confirmed above-Low defect remains in this bounded guard after round 3. This is not
+a Low-only assessment of the 29 unfinished packages, the entire product, or a live installation.
 
 ## Related docs
 
