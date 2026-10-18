@@ -2,8 +2,8 @@
 title: FDAI 기능 준비 상태 평가
 description: FDAI 제품 중분류 52개의 준비 상태 판정 근거와 남은 조건을 기록합니다.
 translation_of: functional-readiness.md
-translation_source_sha: cdf620216e2c5a6d7be1689f42885000ae3c6110
-translation_revised: 2026-10-17
+translation_source_sha: 2251aef64fb86958daa8ba8572f62098d19f27e0
+translation_revised: 2026-10-18
 ---
 
 # FDAI 기능 준비 상태 평가
@@ -12,23 +12,25 @@ translation_revised: 2026-10-17
 판정한 이유를 기록합니다. 기능 이름만으로 준비 완료를 주장하지 않고 실행 가능한
 구현, 문서에 명시된 미완료 항목, 설치 환경별 운영 검증을 구분합니다.
 
-> **평가 기준:** 2026-10-15, 기준 소스 개정 버전
-> `426507a57cbfbd9bc7a9b2c8941c3c5f60db229d`와 현재 변경입니다. GitHub Copilot이 52개
-> 요구사항을 담당 평가 기록과 대조한 뒤 범위가 제한된 세 차례 작업에서 후보 47개를 구현하거나 다시
-> 검증했습니다. 최근 17개 기능을 확장하면서 **5차례의 집중 테스트 실행에서 테스트 2,980개**가 통과했고,
-> 선택형 데이터베이스가 없어 건너뛴 테스트가 2개였습니다. 저장소 평가이며 독립적인
-> 사람 승인이나 Azure, 모델, 운영 데이터베이스, 배포에 대한 새로운 실제 환경 검증이 아닙니다.
+> **평가 기준:** 2026-10-18, 보호된 main 개정 버전
+> `966082d265a7a230b41394b67e63ccd6fd328fa9`와 현재 변경입니다. F06/F07 완료 작업은 모든
+> 필수 기능을 소스, 조립, 영속성, 권한, 증적 소유자까지 추적했습니다. 최종 누적 범위에서
+> **집중 검사 908개**와 **실제 격리 PostgreSQL 검사 8개**가 통과했습니다. 관련 없는 선택형
+> PostgreSQL 내보내기 검사 하나는 외부 검증 변수가 구성되지 않아 건너뛰었습니다. 각 기능군에
+> 대해 10개 통제의 비평 라운드 10회를 완료했고 최종 구현 범위에는 확인된 Low 초과 결함이
+> 없습니다. 이는 저장소 구현 근거이며 독립적인 사람 승인이나 Azure, 모델, 청구 데이터,
+> 운영 데이터베이스, 배포에 대한 새로운 실제 환경 검증이 아닙니다.
 
 ## 판정 읽기
 
-**전체:** <span class="fdai-readiness-badge" data-readiness="ready">Ready 35/52</span> <span class="fdai-readiness-badge" data-readiness="partial">Partial 17/52</span> <span class="fdai-readiness-badge" data-readiness="blocked">Blocked 0/52</span> <span class="fdai-readiness-badge" data-readiness="planned">Planned 0/52</span> <span class="fdai-readiness-badge" data-readiness="not-assessed">미평가 0/52</span>
+**전체:** <span class="fdai-readiness-badge" data-readiness="ready">Ready 38/52</span> <span class="fdai-readiness-badge" data-readiness="partial">Partial 14/52</span> <span class="fdai-readiness-badge" data-readiness="blocked">Blocked 0/52</span> <span class="fdai-readiness-badge" data-readiness="planned">Planned 0/52</span> <span class="fdai-readiness-badge" data-readiness="not-assessed">미평가 0/52</span>
 Ready는 해당 기록에 명시된 지원 범위에만 적용됩니다. 모든 배포 환경, 공급자, 규모,
 자율 작업을 검증한 것은 아닙니다. Partial은 구현이 있지만 인용한 담당 문서에 필수
 지원 범위, 통합, 검증이 남아 있다는 뜻입니다. Blocked를 평가할 설치 환경은 선택하지
 않았습니다. 중분류 전체가 설계만 있는 경우는 확인되지 않았으며 부분 구현된 기능 안의
 설계 단계 구성요소는 명시적으로 남겨 둡니다.
 
-Partial 17건은 구현된 부분과 현재 소스의 집중 검사를 유지하지만, 필수 기능이나 운영 근거를
+Partial 14건은 구현된 부분과 현재 소스의 집중 검사를 유지하지만, 필수 기능이나 운영 근거를
 지원 범위 밖으로 줄여서 제외하지 않습니다. 기존 실제 환경 증적은 과거 기록으로 유지하며 이번
 세션에서 갱신하거나 특정 설치 환경을 검증한 것으로 취급하지 않습니다. 각 기록의 남은 조건을
 모두 충족한 뒤에만 Ready로 승격합니다.
@@ -83,17 +85,73 @@ Partial 17건은 구현된 부분과 현재 소스의 집중 검사를 유지하
 | 기능 | 상태 | 근거, 지원 범위 및 남은 조건 |
 |------|------|-----------------------------|
 | <span id="f06-1">F06.1</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 타입이 지정된 제안 변경 수집, 정책 및 위험 평가, 정확한 대상 및 개정 버전 검증, 범위가 제한된 시뮬레이션, 대안 비교, 중단 조건, 최종 계획의 롤백 근거입니다. [변경 가이드](../capabilities/change-safety-ko.md), [계획 원장](../../roadmap-implementation/decisioning/operational-planning.md), 집중 계획 검사가 이 범위를 뒷받침합니다. 승인, 실행, 독립적인 변경 후 관찰은 별도 작업 검증이며 제안만으로 변경을 종결하지 않습니다. |
-| <span id="f06-2">F06.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 현재 스키마의 구성 불일치 및 통제 미비 결과, 범위가 지정된 정책 평가, 개정 버전별 활성화, 근거가 있는 예외, 결정론적 충돌 처리, 실행 권한이 없는 수정 제안입니다. [규칙 원장](../../roadmap-implementation/rules-and-detection/rule-governance.md)과 집중 테스트 204개가 이 범위를 뒷받침합니다. 기존 개정 버전 이행, 완전한 공급자 수집, 운영 적용은 별도 배포 검증입니다. |
-| <span id="f06-3">F06.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 변경 불가능한 ARB 근거 묶음, 아키텍처 제약 평가, 담당 체계 및 운영 준비 상태 검사, 근거가 불완전할 때 안전한 차단, 통합 안전성 검토에 들어가기 전에 ActionType 트리거, 인자, 활성 룰 인용, 활성 온톨로지 릴리스를 검증하는 내용 주소 기반 shadow 수정 요청입니다. 구체적인 EventBus 어댑터는 인용한 룰의 인자에서 타입 지정 요청을 만들고 완전한 게시자 및 레버 DI 연결을 통해서만 수용됩니다. 이 요청은 승인 또는 실행 권한을 부여하지 않으며 수집 경로는 요청을 실행기로 전달하지 않습니다. [아키텍처 검토 원장](../../roadmap-implementation/architecture/architecture-review-board.md), [준비 상태 원장](../../roadmap-implementation/operations/operational-readiness.md), ORR 집중 검사가 이 범위를 뒷받침합니다. 운영 담당자 및 보고서 공급자 연결, 어댑터의 upstream 런타임 선택, 관리 절차에 따른 인수인계 및 승격 증적은 아직 남아 있습니다. |
+| <span id="f06-2">F06.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 현재 스키마의 구성 불일치 및 통제 미비 결과, 범위가 지정된 정책 평가, 근거가 있는 예외, 결정론적 충돌, 보존된 산출물과 cohort 활성화, 폐기, 롤백, 권한 비교 후 설정까지 포함하는 룰 개정 9단계 전체입니다. [규칙 원장](../../roadmap-implementation/rules-and-detection/rule-governance.md)과 현재 집중 검사 78개가 구현 범위를 뒷받침합니다. 실제 설치 환경의 기존 포인터 이행, 완전한 공급자 수집, 신뢰된 Entra 검증 근거, 여러 복제본의 수렴, 직접 또는 오프라인 활성화 증적, 측정된 적용 품질은 필수 운영 조건이므로 Partial을 유지합니다. |
+| <span id="f06-3">F06.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 변경 불가능한 ARB 근거 묶음 및 증적, 아키텍처와 준비 상태 평가, 런타임이 선택한 타입 지정 ORR 수신, 증적 기반 준비 상태, Forseti 소유 관찰, 여러 복제본에 걸친 영구 중복 제거 및 변환 결과 보호입니다. 원본이 없거나 모호하거나 오래되거나 잘리거나 불완전하면 승인, 토픽 소유권, 변경 또는 실행 권한 없이 보류합니다. [아키텍처 검토 원장](../../roadmap-implementation/architecture/architecture-review-board.md), [준비 상태 원장](../../roadmap-implementation/operations/operational-readiness.md), 집중 검사 194개와 격리 PostgreSQL 검사 4개가 이 범위를 뒷받침합니다. 프로덕션 posture/report/admission 공급자, 실제 책임 담당자 승인, 전체 shadow 및 승격 cohort, 서명된 종료 증적, 배포된 Workflow 효과 증적은 필수이지만 검증되지 않았으므로 Partial을 유지합니다. |
 
 ## F07. 비용 거버넌스
 
 | 기능 | 상태 | 근거, 지원 범위 및 남은 조건 |
 |------|------|-----------------------------|
 | <span id="f07-1">F07.1</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 구독 및 리소스의 비용과 사용률 분석, 배분 공백, 서비스 및 리소스 귀속, 수집원 출처 이력, 불완전하거나 사용할 수 없는 근거를 보존하는 Console 변환 결과입니다. [효율성 원장](../../roadmap-implementation/architecture/finops-resource-efficiency.md)과 집중 FinOps 검사가 이 범위를 뒷받침합니다. 현재 청구 및 사용률 연결과 완전한 관계 범위는 별도 설치 검증입니다. |
-| <span id="f07-2">F07.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 제한된 예산 비교, 기준선 및 추세 분석, 이상 탐지, 수집 구간과 가정을 명시한 비용 예측, 부분 및 사용 불가 상태의 명시입니다. [효율성 원장](../../roadmap-implementation/architecture/finops-resource-efficiency.md), [FinOps 원장](../../roadmap-implementation/architecture/finops-autonomous-operations.md), 비용 거버넌스 집중 검사가 이 범위를 뒷받침합니다. 현재 청구 및 사용률 연결과 예측 보정은 별도 설치 검증입니다. |
-| <span id="f07-3">F07.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 구현된 부분은 버전이 지정된 서비스 기능군 프로필 5개, 필수 메트릭 및 비호환성 검사, 단일 리소스 크기 조정 및 중지 계획, 범위가 제한된 일괄 결합 대상, 근거 복구 후 만료되는 범위 지정 확인 진술, 실행 가능한 right-size 계획을 기존 Njord 후보 계약에 권한 없이 조합하는 기능입니다. [효율성 원장](../../roadmap-implementation/architecture/finops-resource-efficiency.md)과 집중 테스트 34개가 이 범위를 뒷받침하며 정확한 대상, 프로필, 최신성, 리소스별 제안 구성, 목표 효과, 인과 순서 및 논리적 잠금 계보를 Forseti 수집 한도 안에서 보존하고, 대상 리소스는 중복되지 않으며 효과와 최신성 출처 수는 제한됩니다. 실제 Njord 게시, 완전한 Freyr/Forseti/Odin 사례 조립, 자동 복구 및 대화 재수집, 승인 및 실행 통합, 독립적으로 정산된 실제 결과는 남아 있습니다. |
-| <span id="f07-4">F07.4</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | 범위는 정확한 사례 및 작업 개정 버전 정산, 비교 가능한 기준 및 조치 후 구간, 독립적인 비용·용량·서비스·복구 효과 상태, 예상·검증된 실행 요율·청구서 배부 절감액의 엄격한 구분입니다. [FinOps 원장](../../roadmap-implementation/architecture/finops-autonomous-operations.md), [효율성 원장](../../roadmap-implementation/architecture/finops-resource-efficiency.md), 집중 정산 검사가 이 범위를 뒷받침합니다. 실제 고정 사례와 확정 청구 증적은 별도 설치 검증입니다. |
+| <span id="f07-2">F07.2</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 제한된 예산 비교, 기준선 및 추세 분석, 출처 구간이 있는 예측, 표본 수, MAPE, 부호가 있는 편향, 원본 계보를 보존하는 영구 예측-실제값 보정, 명시적인 부분 또는 사용 불가 상태입니다. [효율성 원장](../../roadmap-implementation/architecture/finops-resource-efficiency.md), [FinOps 원장](../../roadmap-implementation/architecture/finops-autonomous-operations.md), 비용 거버넌스 집중 검사가 이 범위를 뒷받침합니다. 현재 설치 환경의 청구 및 사용률 연결과 실제값이 0이 아닌 측정 보정 cohort는 별도 설치 검증입니다. 실제값 분모가 없거나 0이면 오류 0으로 표시하지 않습니다. |
+| <span id="f07-3">F07.3</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 버전이 지정된 서비스 기능군 프로필 5개, 필수 메트릭 및 비호환성 검사, 단일 리소스 및 제한된 결합 대상 계획, 활성화 개정으로 제한된 정규 수신, Njord 소유 영구 게시, 책임이 구분된 Freyr/Forseti/Odin 처리, 타입이 지정된 확인 근거 재수집, 기존 Var/Thor 승인 및 실행 연결입니다. [효율성 원장](../../roadmap-implementation/architecture/finops-resource-efficiency.md)과 집중 패키지, 에이전트, 전달 및 교차 vertical 검사가 이 범위를 뒷받침합니다. 실제 설치 환경의 승인, 실행, 롤백 및 독립 정산 결과 증적은 별도 검증이며 Ready 상태만으로 충족되지 않습니다. |
+| <span id="f07-4">F07.4</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | 범위는 정확한 사례 및 작업 개정 정산, 하나의 통화, 비교 가능한 기준 및 처리 구간, 수요 정규화, 독립 비용·용량·서비스·복구 효과, 검증된 실행 요율과 청구서 배부 근거 등급의 분리입니다. 청구서 배부에는 확정 청구와 배부 규칙 증적도 필요합니다. [FinOps 원장](../../roadmap-implementation/architecture/finops-autonomous-operations.md), [효율성 원장](../../roadmap-implementation/architecture/finops-resource-efficiency.md), 집중 정산 검사가 이 범위를 뒷받침합니다. 실제 고정 정산 에피소드와 확정 청구 증적은 구현 근거가 아니라 별도 설치 검증입니다. |
+
+## F06 및 F07의 남은 운영 작업
+
+완료 작업에서는 재현할 수 있는 저장소 구현 공백을 모두 수정했습니다. 아래 항목에는 정확한 설치
+환경, 외부 신원, 책임 담당자, 공급자 원본 또는 측정된 운영 에피소드가 필요합니다. 모두 필수
+조건으로 유지합니다. F07의 Ready는 일반 구현이 명시된 동작을 지원한다는 뜻이며, 설치별 입력이나
+프로덕션 절감 효과를 만들어 냈다는 뜻이 아닙니다.
+
+### F06.2 배포 및 정책 적용
+
+| 남은 작업 | 책임 소유자 | 완료 근거 |
+|-----------|-------------|-----------|
+| 보존된 이전 Rule 포인터와 cohort를 현재 9단계 개정 경로로 이행 | Mimir 및 release 소유자 | 정확한 이전/새 release, 이행 증적, 활성 포인터 재확인, 롤백과 이력 보존 검증 |
+| 완전한 구성 불일치 및 통제 미비 공급자 수집 연결 | Huginn, Heimdall 및 배포 공급자 소유자 | 인증된 범위, 원본 신원, 완전성/최신성 증적과 누락 원본 동작 측정 |
+| 신뢰된 Entra 거버넌스 검증 GitHub App 배포 | 보안 및 저장소 소유자 | 설치된 App id, 피싱 방지 신원 증명과 수락된 exact-head 검사 |
+| 관리 변경의 차단 후 독립 검토 수정으로 해제되는 과정 검증 | Var, Mimir 및 Saga | 자기 승인 또는 정족수 미달 차단, 수정 승인, exact-head 검사와 감사 연결 |
+| 프로덕션 알림기로 예외 만료 예약 | Mimir, Saga 및 운영 소유자 | 작업 일정, 만료 감사, 실제 알림 증적 하나와 중복 억제 |
+| 재정의 검색 근거 원본 연결 | Norns, Mimir 및 배포 조립 소유자 | 현재 `governance.override_resolved` 원본, 정확한 구간과 독립 원본 인가 |
+| 실행 중 복제본 간 세대 수렴 검증 | Mimir 및 런타임/release 소유자 | 복제본 2개 이상이 재시작과 롤백 뒤 같은 세대를 재확인 |
+| 직접 및 오프라인 활성화 경로 실행 | Mimir, Var, Saga 및 release 소유자 | 인증된 직접 승인과 서명된 오프라인 패키지 증적 및 정확한 개정 재확인 |
+| 공급자 전체 구성 불일치 품질 측정 | Heimdall 및 Forseti | 동결 범위의 오탐, 미탐, 보류, 관찰 범위 분모 |
+
+### F06.3 ARB 및 운영 준비 상태 검증
+
+| 남은 작업 | 책임 소유자 | 완료 근거 |
+|-----------|-------------|-----------|
+| 프로덕션 posture 공급자 연결 | Heimdall, Assurance Twin 및 배포 소유자 | 원본 신원, 최신성, 완전성을 가진 현재 workload/범위 변환 결과 |
+| 준비 상태 보고서 게시자 연결 | Forseti, Saga 및 Operator 소유자 | 정확한 소스 개정에 연결된 인증 Checks API 또는 Console 변환 결과 증적 |
+| ARB 결정 근거 인가 연결 | 보안 및 근거 소유자 | 관리되는 근거 저장소, 신뢰 루트, 목적, 범위, 개정 인가 |
+| 실제 ARB 소유자, 근거, 승인 경로 구성 | 아키텍처, 보안, 개인정보, 데이터, 운영, 신뢰성, release, 비용, 성능 소유자 | 책임 주체, 에스컬레이션 경로, 근거 다이제스트와 귀속된 승인 |
+| 관리되는 ORR shadow 증적 하나 보존 | Forseti, Saga 및 운영 소유자 | 소유권 인수인계 이벤트, 독립 묶음, 영구 보고서와 실행 효과 없음 |
+| ORR 하나를 안전성 검토와 사람 승인까지 전달 | Forseti, Var 및 Saga | 브로커 증적, 정확한 위험 결정과 별도 귀속 승인자 |
+| 동결 오탐 shadow cohort 측정 | Forseti, Muninn 및 보증 소유자 | 대표 시나리오 매니페스트, 결정, 결과, 분모, 불확실성 |
+| 권위 있는 승격 결정 기록 | Mimir, Var 및 승격 소유자 | 검토된 cohort, 정확한 승격 대상, 승인, 현재 레지스트리 재확인 |
+| 준비 환경 ARB Process를 서명된 종료까지 실행 | Forseti, Var, Saga 및 ARB 소유자 | 소유자 승인, Process 이력과 독립 검증한 서명 종료 증적 |
+| Workflow 적용의 로컬/배포 일치 검증 | Var, Thor, Saga 및 배포 소유자 | 같은 허용 Workflow, 승격된 ActionType과 독립 효과 |
+| 소유 토픽 전체 ARB 추적 보존 | Pantheon 토픽 소유자 | 선언된 각 소유 토픽의 스키마 검증 단계 기록과 인과 상관관계 |
+| ARB-4 효과 및 ARB-5 승격 cohort 종결 | Heimdall, Vidar, Muninn, Norns 및 Mimir | ActionRun, 독립 결과, 복구, 장기 cohort 증적 |
+
+### F07 설치 활성화 및 측정
+
+| 남은 작업 | 책임 소유자 | 완료 근거 |
+|-----------|-------------|-----------|
+| 실제 청구, Budget, Advisor, 사용률 원본 연결 | 설치 및 Cost Analytics 공급자 소유자 | 현재 인증 원본 매니페스트와 완전/부분/사용 불가 재확인 |
+| 서비스, workload, 관계 범위 검증 | 설치 온톨로지 및 인벤토리 소유자 | 정확한 비용 배부 범위의 관찰 범위 증적 |
+| 실제값이 0이 아닌 예측 보정 cohort 축적 | Njord 및 분석 근거 소유자 | 권위 있는 실제값, 표본 수, MAPE, 부호가 있는 편향과 원본 계보 |
+| 고정된 실제 DecisionCase와 승인 보존 | Forseti, Var 및 설치 운영자 | 정확한 사례/작업 개정, 대상, 현재 정책과 귀속된 승인 |
+| 실행 및 롤백 증적 보존 | Thor, Vidar 및 실행기 배포 소유자 | 멱등 실행, 사후 조건, 롤백 여부와 효과 상관관계 |
+| 독립 비용, 용량, 서비스, 복구 효과 생성 | Heimdall, Saga 및 정산 생성자 | 같은 작업과 구간에 연결된 독립 원본 상태 4개 |
+| 비교 가능한 수요의 실행 요율 절감 검증 | Cost Governance 측정 소유자 | 기준/처리 수요 정규화와 검증된 실행 요율 증적 |
+| 청구서 배부 절감 검증 | 청구 및 배부 소유자 | 확정 청구서와 정확한 배부 규칙 증적 |
+| W7 운영 cohort 축적 | 설치 소유자 및 보호된 캠페인 | 서로 다른 30일, 적격 표본 100개 이상, 선언된 재발 구간 |
+| 독립 대상 검토 완료 | 독립적인 사람 검토자 6명 | 정확한 대상 패키지와 전체 근거에 대한 귀속 검토 6개 |
+| 프로덕션 패키지 전환 | release 및 배포 소유자 | 활성 패키지 개정, 비활성 Core facade 제거, 롤백 및 재확인 증적 |
+| 종료된 #903/#904의 후속 이슈 생성 | FDAI 유지관리자 | W7 작업 재개 전 정확한 수락 기준을 가진 새 이슈 id |
+| 선택형 campaign-export PostgreSQL 검사 실행 | 로컬 검증 소유자 | 전용 검증 DSN과 내보내기 영속성 검사 통과. 실제 운영 근거를 대체하지 않음 |
 
 ## F08. 작업 및 워크플로
 
