@@ -179,6 +179,44 @@ async def test_extended_processing_upgrade_needs_no_network_or_new_source_check(
     assert transport.etags == [None]
 
 
+@pytest.mark.parametrize(
+    "body,previously_held",
+    [
+        (b'<main id="first" id="second"><h1>Guide</h1><p>Reference.</p></main>', False),
+        (
+            b'<main><h1>Guide</h1><nav title="first" title="second">Navigation</nav>'
+            b"<p>Reference.</p></main>",
+            True,
+        ),
+    ],
+)
+async def test_attribute_scope_upgrade_reprocesses_checkpoint_without_renewal(
+    body: bytes, previously_held: bool
+) -> None:
+    transport = RecordingTransport(SourceResponse(200, body, "text/html"))
+    prior = await CloudDocumentCollector(
+        transport, collector_id="test", structured=True, normalizer_version="2.1.0"
+    ).collect(SOURCE, SourceState(), now=NOW)
+    assert prior.structured_document is not None
+    assert bool(prior.structured_document.unresolved_dependencies) is previously_held
+    upgraded = CloudDocumentCollector(
+        transport, collector_id="test", structured=True, normalizer_version="2.1.1"
+    )
+    assert upgraded.processing_due(SOURCE, prior, NOW + timedelta(hours=1))
+    changed = await upgraded.collect(SOURCE, prior, now=NOW + timedelta(hours=1))
+    assert changed.document == prior.document and changed.last_attempt == prior.last_attempt
+    assert changed.structured_document is not None
+    assert changed.structured_document.normalizer_version == "2.1.1"
+    assert bool(changed.structured_document.unresolved_dependencies) is not previously_held
+    assert changed.structured_document.text == prior.structured_document.text
+    assert changed.structured_document.evidence == prior.structured_document.evidence
+    assert (
+        changed.structured_document.processing_digest != prior.structured_document.processing_digest
+    )
+    assert not upgraded.processing_due(SOURCE, changed, NOW + timedelta(hours=2))
+    assert transport.etags == [None]
+
+
 async def test_changed_source_origin_cannot_reuse_validator_or_collection_clock() -> None:
     transport = RecordingTransport(
         SourceResponse(200, b"same bytes", etag='"same"'),

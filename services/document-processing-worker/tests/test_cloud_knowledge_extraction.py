@@ -167,8 +167,8 @@ def test_swapped_payload_or_unsigned_binding_never_extracts() -> None:
         cloud_reference_units(version, canonical_bytes(altered))
 
 
-@pytest.mark.parametrize("normalizer", ["2.0.0", "2.1.0"])
-def test_worker_preserves_both_structured_reader_generations(
+@pytest.mark.parametrize("normalizer", ["2.0.0", "2.1.0", "2.1.1"])
+def test_worker_preserves_structured_reader_generations(
     normalizer: StructuredNormalizerVersion,
 ) -> None:
     legacy, version = release_version()
@@ -186,7 +186,9 @@ def test_worker_preserves_both_structured_reader_generations(
     manifest = KnowledgeStructuredReleaseManifest.model_validate(
         legacy.model_dump(exclude={"schema_version", "reader_version", "documents"})
         | {
-            "reader_version": "3.1.0" if normalizer == "2.1.0" else "3.0.0",
+            "reader_version": (
+                "3.1.1" if normalizer == "2.1.1" else "3.1.0" if normalizer == "2.1.0" else "3.0.0"
+            ),
             "documents": (doc,),
             "excerpt_digests": (excerpt_digest(doc),),
         }

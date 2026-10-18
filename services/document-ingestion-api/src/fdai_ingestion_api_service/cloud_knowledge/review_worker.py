@@ -38,7 +38,7 @@ def _measure(document: CloudStructuredDocument) -> WorkerResult:
 def main() -> int:
     """Bound parsing and complete excerpt derivation, returning original-free candidates only."""
     parser = argparse.ArgumentParser(allow_abbrev=False)
-    parser.add_argument("--normalizer", choices=("2.0.0", "2.1.0"), required=True)
+    parser.add_argument("--normalizer", choices=("2.0.0", "2.1.0", "2.1.1"), required=True)
     parser.add_argument("--derived-at", required=True)
     args = parser.parse_args()
     resource.setrlimit(resource.RLIMIT_AS, (768 * 1024 * 1024, 768 * 1024 * 1024))

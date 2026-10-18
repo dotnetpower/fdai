@@ -123,6 +123,47 @@ def test_held_source_does_not_disappear_from_declared_scope(tmp_path: Path) -> N
     assert result.review_required and not result.production_qualified
 
 
+@pytest.mark.parametrize(
+    "body,held",
+    [
+        ('<main id="first" id="second"><h1>Guide</h1><p>Source body.</p></main>', True),
+        (
+            '<main><h1>Guide</h1><nav title="first" title="second">Navigation</nav>'
+            "<p>Source body.</p></main>",
+            False,
+        ),
+    ],
+)
+def test_real_review_worker_uses_explicit_attribute_scope_version(
+    tmp_path: Path, body: str, held: bool
+) -> None:
+    source = _source(tmp_path, body=body)
+    output = tmp_path / "review"
+    result = review.prepare_review(
+        _plan(tmp_path, source),
+        source_root=tmp_path,
+        output=output,
+        normalizer_version="2.1.1",
+    )
+    assert result.requested == 1 and result.held == int(held)
+    row = result.sources[0]
+    assert row.candidate_path is not None
+    candidate = CloudStructuredDocument.model_validate_json(
+        (output / row.candidate_path).read_bytes()
+    )
+    assert candidate.normalizer_version == "2.1.1"
+    assert candidate.evidence == source.evidence.model_copy(
+        update={"normalized_sha256": content_digest(candidate.text.encode())}
+    )
+    if held:
+        assert row.outcome == "held" and row.holds == ("malformed_structure",)
+        assert row.excerpts is None and row.derived_bytes is None
+    else:
+        assert row.outcome == "processable" and row.holds == ()
+        assert row.excerpts is not None and row.derived_bytes is not None
+    assert not result.production_qualified and not result.execution_authority
+
+
 def test_oversized_atomic_context_is_retained_without_excerpt_measurements(tmp_path: Path) -> None:
     source = _source(tmp_path, body="<main><p>" + "x" * 8192 + "</p></main>")
     result = review.prepare_review(
@@ -393,8 +434,9 @@ def test_report_cannot_upgrade_itself_to_production(tmp_path: Path) -> None:
         ReviewReport.model_validate(report.model_dump() | {"held": 1})
 
 
+@pytest.mark.parametrize("normalizer", ["2.1.0", "2.1.1"])
 def test_cli_holds_have_a_report_and_nonzero_exit(
-    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], normalizer: str
 ) -> None:
     source = _source(tmp_path, body='<main><p>Image evidence.</p><img src="/required.png"></main>')
     code = review.main(
@@ -405,6 +447,8 @@ def test_cli_holds_have_a_report_and_nonzero_exit(
             str(tmp_path),
             "--output",
             str(tmp_path / "review"),
+            "--normalizer-version",
+            normalizer,
         ]
     )
     assert code == 1

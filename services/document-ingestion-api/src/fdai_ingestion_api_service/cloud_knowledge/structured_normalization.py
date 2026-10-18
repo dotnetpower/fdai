@@ -372,7 +372,8 @@ def reprocess_document(
     Source clocks, raw digest, rights and applicability remain unchanged; only the
     normalized digest changes. Invalid input/metadata or exceeded budgets raise
     ValueError. The legacy default preserves the original v3 algorithm; version
-    2.1.0 must be selected explicitly. Unsupported structures return unresolved dependencies;
+    2.1.x must be selected explicitly. Version 2.1.1 also validates entering-scope attributes.
+    Unsupported structures return unresolved dependencies;
     oversized atomic blocks remain intact for the installed chunker's whole-document hold.
     """
     normalizer_version = _NORMALIZER.validate_python(normalizer_version, strict=True)
@@ -381,7 +382,9 @@ def reprocess_document(
     snapshot = CloudKnowledgeDocument.model_validate(snapshot.model_dump(warnings="error"))
     if now.utcoffset() is None or now < snapshot.evidence.check.checked_at:
         raise ValueError("article derivation requires an aware clock after source observations")
-    scopes, issues = parse_article(snapshot.original_text)
+    scopes, issues = parse_article(
+        snapshot.original_text, strict_attributes=normalizer_version == "2.1.1"
+    )
     if not any(
         node.tag in _HEADINGS | {"p", "pre", "ul", "ol", "table", "blockquote"} or is_notice(node)
         for scope in scopes
@@ -389,7 +392,7 @@ def reprocess_document(
         if not excluded(node)
     ):
         raise ValueError("source article contains no structured document text")
-    if normalizer_version == "2.1.0":
+    if normalizer_version in {"2.1.0", "2.1.1"}:
         from .article_extended import ExtendedStructure
 
         structure: _Structure = ExtendedStructure(scopes, issues, snapshot.evidence.source_url)
