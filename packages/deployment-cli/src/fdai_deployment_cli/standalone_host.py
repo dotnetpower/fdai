@@ -2509,7 +2509,7 @@ def _apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         reason=f"{stage} exact apply failed; verification-only recovery is required",
     )
     effect_verified = (
-        _readback_aks_service_update(context, update)
+        _readback_aks_service_update(service_recovery.readback_context(work_dir, context), update)
         if update is not None
         else _readback_stage(stage, context)
     )

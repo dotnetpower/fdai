@@ -1,6 +1,6 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: 6f79e9635635e71f44df186b7d0c0ea2e18e688e
+translation_source_sha: 8fd3a2452c22eedd4c2f4f7311b0397ea84a8eef
 translation_revised: 2026-10-19
 ---
 # 런타임 배포 프로파일
@@ -386,6 +386,8 @@ catalog 활성화, merge, 승격 또는 관리 리소스 변경 권한을 부여
 다시 읽기, 변경되지 않은 다른 서비스 및 대상별 zero change를 계속 확인해야 합니다.
 계획을 만들기 전에 상태 확인 계약은 실제 관측값이 아니라 검증된 비공개 workload 변수에서
 secret 기반 환경 이름을 새로 읽습니다.
+검증 전용 복구는 보존된 권한 근거를 다시 쓰지 않고 같은 변수에서 메모리의 상태 확인 계약을
+파생합니다.
 Core에 한해서는 같은 단일 Deployment update로 검토된 개발 권한 프로필을 선택하거나 제거할 수
 있습니다. 프로필 다이제스트와 source 개정을 update 신원에 결속하며, 다른 workload, 인프라 또는
 제품 프로필 변경은 허용하지 않습니다. active 표시는 완전한 증적 재검증 후에만 제거합니다.
