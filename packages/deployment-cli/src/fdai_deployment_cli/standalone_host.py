@@ -30,9 +30,13 @@ from fdai_deployment_cli import (
 from fdai_deployment_cli import foundation_adoption_host as foundation_host
 from fdai_deployment_cli import operational_evidence_verifier_input as oev
 from fdai_deployment_cli import standalone_service_update_recovery as service_recovery
+from fdai_deployment_cli.standalone_service_update_finalization import (
+    add_finalization_parser,
+)
 from fdai_deployment_cli.aks_historical_reconciliation import (
     reconciled_variables,
     secret_binding_reordered,
+    single_block as _single,
     validate_reconciliation_plan,
 )
 from fdai_deployment_cli.aks_service_update import (
@@ -293,11 +297,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     prepare_service_update.set_defaults(handler=_prepare_aks_service_update)
 
-    finalize_service_update = subcommands.add_parser("finalize-service-update")
-    finalize_service_update.add_argument("--service", choices=sorted(AKS_SERVICES), required=True)
-    finalize_service_update.add_argument("--operation", required=True)
-    finalize_service_update.add_argument("--receipt-digest", required=True)
-    finalize_service_update.set_defaults(handler=_finalize_aks_service_update)
+    add_finalization_parser(subcommands, services=AKS_SERVICES)
 
     adopt_historical = subcommands.add_parser("adopt-historical-aks-application")
     adopt_historical.add_argument("--binding", type=Path, required=True)
@@ -1347,60 +1347,6 @@ def _prepare_aks_service_update(args: argparse.Namespace, work_dir: Path) -> dic
     }
 
 
-def _finalize_aks_service_update(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
-    """Clear one active update only after its complete apply receipt is verified."""
-
-    operation = str(args.operation)
-    service = str(args.service)
-    if re.fullmatch(rf"service-update-{re.escape(service)}-[0-9a-f]{{12}}", operation) is None:
-        raise ValueError("AKS service update finalization operation is invalid")
-    final_path = work_dir / f"{operation}-finalization-receipt.json"
-    if final_path.exists():
-        retained = _private_json(final_path, "AKS service update finalization")
-        if retained.get("apply_receipt_digest") != args.receipt_digest:
-            raise ValueError("AKS service update finalization receipt differs")
-        return retained
-    context = _private_json(work_dir / "context.json", "standalone host context")
-    active = _mapping(context.get("active_service_update"), "active AKS service update")
-    if active.get("operation") != operation or active.get("service") != service:
-        raise ValueError("active AKS service update differs from finalization")
-    record = _service_update_record(context, work_dir, stage="application", service=service)
-    if record is None:
-        raise ValueError("AKS service update record is unavailable")
-    apply_receipt = _private_json(
-        work_dir / f"{operation}-receipt.json",
-        "AKS service update apply receipt",
-    )
-    digest = apply_receipt.get("receipt_digest")
-    material = {key: value for key, value in apply_receipt.items() if key != "receipt_digest"}
-    if (
-        digest != args.receipt_digest
-        or digest != canonical_digest(material)
-        or apply_receipt.get("state") != "applied"
-        or apply_receipt.get("operation") != operation
-        or apply_receipt.get("service_update") != _service_update_review(record)
-        or apply_receipt.get("control_plane_readback_verified") is not True
-        or apply_receipt.get("peer_state_unchanged_verified") is not True
-        or apply_receipt.get("terraform_zero_change_verified") is not True
-    ):
-        raise ValueError("AKS service update apply receipt is incomplete")
-    context.pop("active_service_update")
-    _replace_private_json(work_dir / "context.json", context)
-    result: dict[str, object] = {
-        "schema_version": "fdai.aks-service-update-finalization.v1",
-        "state": "finalized",
-        "operation": operation,
-        "service": service,
-        "update_digest": record["update_digest"],
-        "apply_receipt_digest": digest,
-        "mutation_performed": False,
-        "subscription_ready": False,
-    }
-    result["receipt_digest"] = canonical_digest(result)
-    _replace_private_json(final_path, result)
-    return result
-
-
 def _validate_historical_aks_baseline(
     *,
     state: dict[str, Any],
@@ -2006,12 +1952,6 @@ def _historical_state_workloads(resources: list[object]) -> dict[str, dict[str, 
     if set(result) != set(AKS_SERVICES):
         raise ValueError("historical AKS Terraform workload inventory is incomplete")
     return dict(sorted(result.items()))
-
-
-def _single(value: object) -> dict[str, Any]:
-    if not isinstance(value, list) or len(value) != 1 or not isinstance(value[0], dict):
-        raise ValueError("historical AKS Terraform nested block is invalid")
-    return dict(value[0])
 
 
 def _service_update_record(
@@ -3836,7 +3776,6 @@ def _aks_document_workloads(
             sidecars={
                 "clamav": {
                     "image": refs["clamav"],
-                    # The entrypoint chowns the database; start clamd directly as non-root.
                     "command": ["clamd"],
                     "args": ["--foreground=true"],
                     "cpu": "500m",
