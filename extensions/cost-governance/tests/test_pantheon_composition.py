@@ -118,6 +118,8 @@ def test_composes_validator_accepted_njord_candidate_with_pinned_lineage() -> No
     )
     assert payload["effects"][0]["objective_id"] == "objective.cost"
     assert "producer_principal" not in payload
+    assert "approval_required" not in payload
+    assert "execution_authority" not in payload
 
 
 def test_rejects_candidate_without_shared_action_type_mapping() -> None:

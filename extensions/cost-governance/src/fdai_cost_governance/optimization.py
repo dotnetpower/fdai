@@ -147,8 +147,6 @@ class ResourceOptimizationPlan:
     profile_digest: str | None
     candidate: FinOpsCandidate | None
     reasons: tuple[str, ...]
-    route: str = "risk_gate"
-    approval_required: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -200,8 +198,6 @@ class CoupledResourceOptimizationPlan:
     logical_target_lock: str
     idempotency_key: str
     reasons: tuple[str, ...]
-    route: str = "risk_gate"
-    approval_required: bool = True
 
 
 @dataclass(frozen=True, slots=True)

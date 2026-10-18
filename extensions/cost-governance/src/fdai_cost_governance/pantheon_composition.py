@@ -42,8 +42,6 @@ def compose_njord_optimization_candidate(
 
     if plan.disposition is not OptimizationDisposition.CANDIDATE:
         raise ValueError("cost optimization plan MUST be an eligible candidate")
-    if not plan.approval_required or plan.route != "risk_gate":
-        raise ValueError("cost optimization plan authority boundary is invalid")
     if observed_at.tzinfo is None or observed_at.utcoffset() is None:
         raise ValueError("cost optimization candidate time MUST be timezone-aware")
     if not correlation_id.strip() or correlation_id != correlation_id.strip():
