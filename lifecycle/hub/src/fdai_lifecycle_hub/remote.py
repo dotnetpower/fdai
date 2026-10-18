@@ -32,6 +32,9 @@ from fdai_lifecycle_hub.remote_catalog import (
     RemoteCatalog,
     initialize_trust,
 )
+from fdai_lifecycle_hub.remote_catalog import (
+    metadata as trust_metadata,
+)
 from fdai_lifecycle_hub.signing import HubSigningKey
 from fdai_lifecycle_hub.store import HubStore
 
@@ -41,17 +44,35 @@ logger = logging.getLogger(__name__)
 class RemoteConfig(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True)
     kind: Literal["release", "target"]
-    auth: RemoteAuth
+    auth: RemoteAuth | None = None
+    origin: str | None = None
     catalog: CatalogSource | None = None
     key_epoch: int = 1
 
     @model_validator(mode="after")
     def validate_kind(self) -> RemoteConfig:
-        if (self.kind == "target") != (self.catalog is not None):
-            raise ValueError("Only Target Hub requires customer-approved catalog trust settings.")
-        if self.kind == "release" and self.auth.service_object_id is None:
-            raise ValueError("Release Hub requires the allowed customer service identity.")
-        if self.kind == "target" and self.auth.service_object_id is not None:
+        if self.kind == "release" and self.catalog is not None:
+            raise ValueError("Release Hub does not consume a catalog source.")
+        if self.auth is None and self.origin is None:
+            raise ValueError("Remote Hub requires an explicit origin, not placeholder login IDs.")
+        if self.origin is not None:
+            from urllib.parse import urlsplit
+
+            parsed = urlsplit(self.origin)
+            if (
+                parsed.scheme != "https"
+                or not parsed.hostname
+                or parsed.username
+                or parsed.password
+                or parsed.path
+                or parsed.query
+                or parsed.fragment
+                or parsed.port not in (None, 443)
+            ):
+                raise ValueError("Remote origin must be an exact HTTPS origin.")
+            if self.auth is not None and self.auth.origin != self.origin:
+                raise ValueError("Remote origin and authentication origin must agree.")
+        if self.kind == "target" and self.auth and self.auth.service_object_id is not None:
             raise ValueError("Target Hub does not accept Release Hub service identities.")
         if self.key_epoch < 1:
             raise ValueError("Signing key epoch must be positive.")
@@ -172,7 +193,9 @@ def target_routes(store: HubStore, catalog: RemoteCatalog, key: HubSigningKey) -
 
 def _run() -> None:
     parser = argparse.ArgumentParser(prog="fdai-hub-remote")
-    parser.add_argument("command", choices=["migrate", "serve"])
+    parser.add_argument("command", choices=["migrate", "serve", "schema", "bind-catalog"])
+    parser.add_argument("--actor")
+    parser.add_argument("--reason")
     parser.add_argument("--config", type=Path)
     parser.add_argument("--ui", type=Path, default=Path("/app/ui"))
     parser.add_argument("--port", type=int, default=8080)
@@ -183,6 +206,21 @@ def _run() -> None:
         else RemoteConfig.model_validate_json(os.environ.get("FDAI_HUB_REMOTE_CONFIG", ""))
     )
     engine = remote_engine(config.kind)
+    namespace = "release_hub" if config.kind == "release" else "lifecycle_hub"
+    if args.command == "bind-catalog":
+        if config.kind != "target" or config.catalog is None:
+            raise ValueError("Catalog binding requires an explicit Lifecycle Hub catalog source.")
+        if not args.actor or not args.actor.strip() or not args.reason or not args.reason.strip():
+            raise ValueError("Catalog binding requires an attributed actor and reason.")
+        require_schema(engine, namespace)
+        from fdai_lifecycle_hub.remote_catalog import bind_catalog
+
+        bind_catalog(engine, config.catalog, actor=args.actor, reason=args.reason)
+        return
+    if args.command == "schema":
+        require_schema(engine, namespace)
+        logger.info("hub_schema_verified namespace=%s revision=1", namespace)
+        return
     if config.kind == "release":
         from fdai_release_hub.api import create_app as release_app
         from fdai_release_hub.database import catalog_metadata, metadata
@@ -199,13 +237,15 @@ def _run() -> None:
 
         if args.command == "migrate":
             migrate(engine, "release_hub", initialize)
+            require_schema(engine, "release_hub")
             return
+        require_schema(engine, "release_hub")
         store = ReleaseStore(engine, remote_key(config.key_epoch), initialize=False)
-        app = release_app(store, static_dir=args.ui, remote_auth=config.auth)
+        app = release_app(
+            store, static_dir=args.ui, remote_auth=config.auth, remote_origin=config.origin
+        )
     else:
         source = config.catalog
-        if source is None:
-            raise ValueError("Target Hub requires a catalog source.")
 
         def initialize_target(connection: Connection) -> None:
             if models.stale_tables(engine):
@@ -213,19 +253,40 @@ def _run() -> None:
                     "Earlier Lifecycle Hub schema requires an explicit data migration."
                 )
             models.Base.metadata.create_all(connection)
-            initialize_trust(connection, source)
+            trust_metadata.create_all(connection)
+            if source is not None:
+                initialize_trust(connection, source)
 
         if args.command == "migrate":
             migrate(engine, "lifecycle_hub", initialize_target)
+            require_schema(engine, "lifecycle_hub")
             return
         require_schema(engine, "lifecycle_hub")
         hub = HubStore(engine)
-        catalog = RemoteCatalog(engine, source)
-        catalog.status()
         from fdai_lifecycle_hub.api import create_app
 
-        app = create_app(hub, static_dir=args.ui, remote_auth=config.auth)
-        app.routes[0:0] = target_routes(hub, catalog, remote_key(config.key_epoch))
+        app = create_app(
+            hub, static_dir=args.ui, remote_auth=config.auth, remote_origin=config.origin
+        )
+        key = remote_key(config.key_epoch)
+        if source is not None:
+            catalog = RemoteCatalog(engine, source)
+            catalog.status()
+            app.routes[0:0] = target_routes(hub, catalog, key)
+        else:
+
+            async def catalog_unavailable(request: Request) -> Response:
+                logger.warning("hub_catalog_unavailable reason=catalog_not_configured")
+                return JSONResponse({"error": "catalog_not_configured"}, status_code=503)
+
+            app.routes[0:0] = [
+                Route("/v1/catalog/{path:path}", catalog_unavailable, methods=["GET", "POST"]),
+                Route(
+                    "/v1/installations/{installation_id}/recompute",
+                    catalog_unavailable,
+                    methods=["POST"],
+                ),
+            ]
 
     async def invalid_input(request: Request, error: Exception) -> Response:
         logger.warning("hub_operation_rejected category=%s", type(error).__name__)

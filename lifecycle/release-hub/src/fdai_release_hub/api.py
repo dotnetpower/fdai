@@ -31,6 +31,7 @@ def create_app(
     *,
     static_dir: Path | None = None,
     remote_auth: RemoteAuth | None = None,
+    remote_origin: str | None = None,
 ) -> Starlette:
     async def catalog(request: Request) -> Response:
         try:
@@ -82,7 +83,9 @@ def create_app(
             lambda request: JSONResponse(
                 {
                     "status": "ok",
-                    "mode": "remote-development" if remote_auth else "local-development",
+                    "mode": "remote"
+                    if remote_origin
+                    else ("remote-development" if remote_auth else "local-development"),
                 }
             ),
         ),
@@ -98,7 +101,7 @@ def create_app(
         for action in ("register", "publish", "contribute", "recall")
     ]
     app = Starlette(routes=routes)
-    if remote_auth is None:
+    if remote_auth is None and remote_origin is None:
         app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost", "[::1]"])
 
     async def local_boundary(request: Request, call_next: RequestResponseEndpoint) -> Response:
@@ -108,14 +111,14 @@ def create_app(
             )
         except ValueError:
             local = False
-        if remote_auth is None and not local:
+        if remote_auth is None and remote_origin is None and not local:
             return JSONResponse({"error": "Release Hub is loopback-only."}, status_code=403)
         origin = request.headers.get("origin")
         if request.method not in ("GET", "HEAD") and origin is not None:
             expected = (
                 remote_auth.origin
                 if remote_auth
-                else f"{request.url.scheme}://{request.url.netloc}"
+                else remote_origin or f"{request.url.scheme}://{request.url.netloc}"
             )
             if origin != expected:
                 return JSONResponse(
@@ -145,4 +148,8 @@ def create_app(
             return FileResponse(static_dir / "index.html")
 
         app.routes.append(Route("/{path:path}", index))
-    return secure_app(app, remote_auth, vendor=True) if remote_auth else app
+    return (
+        secure_app(app, remote_auth, vendor=True, origin=remote_origin)
+        if remote_auth is not None or remote_origin is not None
+        else app
+    )

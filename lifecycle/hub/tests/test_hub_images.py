@@ -16,6 +16,42 @@ import pytest
 DOCKER = shutil.which("docker")
 
 
+def command_timeout(native: int) -> int:
+    return native * (4 if os.environ.get("FDAI_TEST_HUB_EMULATION") == "1" else 1)
+
+
+@pytest.mark.parametrize(("emulation", "expected"), [(None, 15), ("0", 15), ("1", 60)])
+def test_command_timeout_preserves_native_budget(monkeypatch, emulation, expected):
+    if emulation is None:
+        monkeypatch.delenv("FDAI_TEST_HUB_EMULATION", raising=False)
+    else:
+        monkeypatch.setenv("FDAI_TEST_HUB_EMULATION", emulation)
+    assert command_timeout(15) == expected
+
+
+def test_independent_image_build_inputs():
+    root = Path(__file__).resolve().parents[3]
+    dockerfile = (root / "lifecycle/Dockerfile.hubs").read_text()
+    lifecycle_ui = dockerfile.split("FROM ui-base AS lifecycle-ui\n")[1].split("\nFROM ")[0]
+    release_ui = dockerfile.split("FROM ui-base AS release-ui\n")[1].split("\nFROM ")[0]
+    assert "release-hub" not in lifecycle_ui
+    assert "npm --prefix lifecycle/hub/ui" not in release_ui
+    assert "lifecycle/hub/ui/src/auth.css" in release_ui
+    assert "lifecycle/hub/ui/tsconfig.json" in release_ui
+    assert "lifecycle/hub/ui/public" in release_ui
+    assert "FROM --platform=$BUILDPLATFORM ${NODE_IMAGE} AS ui-base" in dockerfile
+    for name in ("NODE_IMAGE", "PYTHON_IMAGE", "UV_IMAGE"):
+        assert f"ARG {name}\n" in dockerfile
+    ignore = (root / "lifecycle/Dockerfile.hubs.dockerignore").read_text()
+    assert "!lifecycle/hub/uv.lock\n" in ignore
+    assert "!lifecycle/release-hub/uv.lock\n" in ignore
+    target = dockerfile.split("FROM base AS target\n")[1].split("\nFROM ")[0]
+    assert "--from=lifecycle-ui" in target and "--from=release" not in target
+    release_wheels = dockerfile.split("FROM wheels AS release-wheels\n")[1].split("\nFROM ")[0]
+    assert "uv export --project lifecycle/release-hub --frozen" in release_wheels
+    assert "--require-hashes -r /release-requirements.txt" in release_wheels
+
+
 def docker(*arguments: str, timeout: int = 30) -> str:
     if DOCKER is None:
         pytest.fail("Docker is required for the explicitly selected packaged-image checks.")
@@ -23,7 +59,7 @@ def docker(*arguments: str, timeout: int = 30) -> str:
         [DOCKER, *arguments],
         capture_output=True,
         text=True,
-        timeout=timeout,
+        timeout=command_timeout(timeout),
         check=False,
     )
     if result.returncode:
@@ -40,13 +76,18 @@ def test_packaged_remote_entrypoint_refuses_unconfigured_startup(kind):
         pytest.skip("Set explicit task-built Hub image references to run packaged-image checks.")
     if DOCKER is None:
         pytest.fail("Docker is required for explicitly selected image checks.")
-    result = subprocess.run(  # noqa: S603 - Explicit task-built image, no shared ports or secrets.
-        [DOCKER, "run", "--rm", "--network", "none", image],
-        capture_output=True,
-        text=True,
-        timeout=15,
-        check=False,
-    )
+    name = f"hub-unconfigured-{kind}-{secrets.token_hex(4)}"
+    try:
+        result = subprocess.run(  # noqa: S603 - Explicit task-built image, no shared ports or secrets.
+            [DOCKER, "run", "--rm", "--name", name, "--network", "none", image],
+            capture_output=True,
+            text=True,
+            timeout=command_timeout(15),
+            check=False,
+        )
+    finally:
+        if docker("container", "ls", "-aq", "--filter", f"name=^{name}$"):
+            docker("rm", "-f", name, timeout=15)
     assert result.returncode != 0
     assert "Remote Hub startup rejected" in result.stderr
     assert "Traceback" not in result.stderr
@@ -77,6 +118,8 @@ def test_packaged_ui_api_and_restart_without_shared_ports(kind):
         return docker(
             "run",
             "--rm",
+            "--name",
+            f"{name}-init",
             "-v",
             f"{volume}:/state",
             *environment,
@@ -131,8 +174,8 @@ def test_packaged_ui_api_and_restart_without_shared_ports(kind):
             "python",
             "-c",
             """
-import httpx, time
-deadline = time.monotonic() + 10
+import httpx, sys, time
+deadline = time.monotonic() + int(sys.argv[1])
 while time.monotonic() < deadline:
     try:
         response = httpx.get("http://127.0.0.1:8080/healthz", timeout=1, trust_env=False)
@@ -142,8 +185,9 @@ while time.monotonic() < deadline:
         pass
     time.sleep(0.1)
 else:
-    raise SystemExit("Task-owned Hub did not become ready within ten seconds.")
+    raise SystemExit("Task-owned Hub did not become ready within its explicit startup budget.")
 """,
+            str(command_timeout(10)),
             timeout=15,
         )
 
@@ -207,6 +251,48 @@ else:
         assert docker("inspect", "-f", "{{.State.Running}}", name) == "true"
         print(f"{kind}: packaged UI/assets/API/restart passed on task-owned loopback port")
     finally:
-        if docker("container", "ls", "-aq", "--filter", f"name=^{name}$"):
-            docker("rm", "-f", name, timeout=15)
+        for container in (f"{name}-init", name):
+            if docker("container", "ls", "-aq", "--filter", f"name=^{container}$"):
+                docker("rm", "-f", container, timeout=15)
         docker("volume", "rm", volume)
+
+
+def test_unconfigured_timeout_cleans_task_container(monkeypatch):
+    calls = []
+    monkeypatch.setenv("FDAI_TEST_TARGET_HUB_IMAGE", "synthetic-image")
+    monkeypatch.setattr(__name__ + ".DOCKER", "docker")
+
+    def timed_out(command, **kwargs):
+        calls.append(command)
+        raise subprocess.TimeoutExpired(command, 15)
+
+    def fake_docker(*arguments, **kwargs):
+        calls.append(arguments)
+        return "synthetic-container" if arguments[0] == "container" else ""
+
+    monkeypatch.setattr(subprocess, "run", timed_out)
+    monkeypatch.setattr(__name__ + ".docker", fake_docker)
+    with pytest.raises(subprocess.TimeoutExpired):
+        test_packaged_remote_entrypoint_refuses_unconfigured_startup("target")
+    command = calls[0]
+    name = command[command.index("--name") + 1]
+    assert calls[-1] == ("rm", "-f", name)
+
+
+def test_migration_timeout_cleans_job_before_volume(monkeypatch):
+    calls = []
+    monkeypatch.setenv("FDAI_TEST_TARGET_HUB_IMAGE", "synthetic-image")
+
+    def fake_docker(*arguments, **kwargs):
+        calls.append(arguments)
+        if arguments[0] == "run":
+            raise subprocess.TimeoutExpired(arguments, 30)
+        return "synthetic-container" if arguments[0] == "container" else ""
+
+    monkeypatch.setattr(__name__ + ".docker", fake_docker)
+    with pytest.raises(subprocess.TimeoutExpired):
+        test_packaged_ui_api_and_restart_without_shared_ports("target")
+    job = calls[1][calls[1].index("--name") + 1]
+    assert ("rm", "-f", job) in calls
+    assert calls.index(("rm", "-f", job)) < len(calls) - 1
+    assert calls[-1][0:2] == ("volume", "rm")
