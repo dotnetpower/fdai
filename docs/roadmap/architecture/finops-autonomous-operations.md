@@ -35,7 +35,8 @@ bounded evidence. Agents remain the active control plane and own every state tra
 > planned. The catalog promotion gates are unchanged. Before a target's gate passes, promoting it
 > requires a separately approved attributed operator override that records the gate result at that
 > time and never counts as promotion evidence elsewhere.
-> Twelve critique rounds fixed every identified Medium-or-higher defect; the final review found only Low test-organization opportunities. No runtime authority changed.
+> Runtime publication, reinjection, calibration, and savings lineage are implemented locally
+> without authority changes. Ten F07 critique rounds fixed all confirmed defects above Low.
 
 ## Design at a glance
 
@@ -152,14 +153,6 @@ At-least-once delivery uses stable correlation and idempotency identities. Per-r
 duplicate suppression, deadlines, backpressure, dead-letter handling, restart replay, and terminal
 audit apply exactly as they do for other verticals.
 
-A package-produced optimization plan first enters as a Huginn-owned normalized Event. Njord checks
-the active package revision and the cost candidate lineage, then publishes the accepted candidate
-on its owned `object.cost-anomaly` topic. Freyr contributes capacity evidence through its owned
-forecast path. Forseti materializes the complete context and case; Odin participates only when
-eligible objective effects conflict. The package never publishes an agent-owned topic or supplies a
-producer principal. Publication failure retains one retryable, content-addressed outbox item, and
-an exact redelivery cannot create a second case.
-
 In the default observation-first profile, a Heimdall forecast and an arbitration that includes
 Freyr's `object.capacity-forecast` settle as ActionType-free advisory Verdicts, so the approval and
 action stages receive nothing from them. Only the explicitly selected governed execution add-on
@@ -185,24 +178,12 @@ A no-op counts as autonomous handling only when it records the reason, decision 
 audit. Reports separate no-op, beneficial action, denial, rollback, and approval outcomes so an
 implementation cannot inflate autonomy by doing nothing.
 
-An accepted clarification follows the same recovery order as a typed reinjection rather than a
-conversation callback. The reinjection cites the original case revision and accepted attestation,
-uses a new cutoff only when the source evidence changed, and preserves the original target and
-authority ceiling. Missing durable case state, idempotency conflict, or a later authoritative
-conflict returns a held decision. No recovery response can serve as an approval receipt.
-
 ## Effect settlement and learning
 
 Every selected option declares one or more expected effects before execution. Heimdall closes each
 effect against an independent authoritative observation after the configured horizon and telemetry
 grace. Missing observations remain unscorable; an intervening action or incomplete telemetry marks
 the episode censored rather than successful.
-
-Cost settlement separates verified run-rate savings from invoice-allocated savings. Both require
-exact case and action revisions, one currency, comparable baseline and treatment windows, and
-demand-normalization evidence. Invoice allocation additionally requires finalized billing and
-allocation-rule receipts. The settlement store rejects a nonzero saving without this lineage, even
-when every operational effect is otherwise verified.
 
 Saga seals the complete lineage and Muninn indexes the replayable case. Norns learns only from
 verified cohorts that include successes plus failures, refusals, no-ops, rollbacks, or recurrences.

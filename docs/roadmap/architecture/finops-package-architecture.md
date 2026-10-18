@@ -18,9 +18,8 @@ domain code and assets. It does not create another control plane or move authori
 > to [FinOps Resource Efficiency and SKU Decisions](finops-resource-efficiency.md).
 >
 > **Current status:** FDAI now has an independent `fdai-cost-governance` wheel, source distribution, image profile, exact ontology profile, atomic disabled-first package lifecycle, package-owned catalog assets, gated Operator and Console projections, and local W0-W7 validation mechanics.
-> The package also exposes deterministic optimization contracts with five reviewed service-family profiles, single-resource and bounded coupled-target planning, and expiring scoped clarification attestations.
-> A pure package composer maps eligible coupled right-size plans to the existing Njord-owned cross-vertical candidate contract while preserving exact target, profile, per-resource current and proposed configuration, freshness, objective-effect, causal-order, and logical-lock lineage.
-> Duplicate resource targets and oversized effects or freshness sources fail closed before composition. The composer cannot publish as Njord or grant approval or execution authority; runtime publication and complete Freyr/Forseti/Odin case assembly remain open.
+> Duplicate or oversized input fails closed. An activation-fenced runtime uses canonical ingress,
+> and Njord alone publishes through a durable outbox into existing accountable paths.
 > Unqualified evidence fails closed and every candidate remains without approval or execution authority; package result types carry no approval, execution, promotion, or executor-principal fields. Operator disclosure can omit resource recommendations when the effective granularity or identity policy disallows them. The restricted projection records amount and recommendation suppression without requiring its recommendation count to match the source count. The shared Console catalog-source scanner resolves the imported `t` binding rather than unrelated formatting imports. It and the panel-registry scanner are repository validation only; a non-FinOps component or label change does not
 > enter the Cost Governance package, activation state, or authority. Shared Operator composition may supervise unrelated event-bus workers, but they cannot
 > activate, configure, publish, or change Cost Governance through conversation fallback streams.
@@ -459,13 +458,6 @@ resource identities are rejected with visible behavior evidence. Njord fails clo
 activation reader is bound, Freyr attaches Njord cost evidence to capacity recommendations only
 when it is fresh and correlated to the graduation scope, and each specialist reports its ingress
 state and rejection counters in health.
-
-The package optimization composer returns an authority-free plan event. A package-neutral
-publisher sends it to canonical event ingress with the active package revision; it cannot name
-Njord as producer. Njord validates the exact revision, target/profile/effect lineage, and
-idempotency identity before publishing on its owned topic. Clarification reinjection uses a
-separate content-addressed event that cites the accepted attestation and pinned case revision.
-Neither event carries approval, executor, promotion, or action-mode fields.
 
 ## Compatibility and rollback
 

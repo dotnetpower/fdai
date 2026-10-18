@@ -11,13 +11,14 @@ is implemented.
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
 | Subscription and resource analysis projection | implemented | `fdai_cost_governance/scheduled_analytics.py`; `cost_governance_analytics_snapshot`; `cost_governance_analytics_run`; additive projection evidence contract; focused contract, analytics, migration, runtime, and Operator tests | One scheduled local/deployed command records bounded run receipts, source windows, freshness, completeness, disclosure, and readiness facets. Complete resource relationships and live utilization coverage remain operational inputs. |
+| Budget comparison and forecast calibration | implemented | budget/trend analytics projection; `forecast_calibration.py`; focused analytics and durable calibration tests | Provider budgets and forecast spend retain their source windows and partial states. Exact prediction/actual pairs persist idempotently, and MAPE plus signed bias remain unavailable below the configured nonzero-denominator cohort. A measured installation cohort remains external qualification. |
 | Ontology profile and service-family sizing profiles | implemented | `default_service_family_profiles`; `ServiceFamilyProfile`; focused optimization tests | Five reviewed provider-neutral profiles cover VM/VMSS, SQL/PostgreSQL, AKS node pools, App Service/Container Apps, and Storage with exact versions, digests, required metrics, evidence age, sample, utilization, headroom, and capacity bounds. Deployment thresholds may narrow these reviewed defaults. |
 | Single-resource optimization decision composition | implemented | `ResourceOptimizationPlanner`; `FinOpsGuard`; 15 focused optimization tests | Deterministic right-size and shutdown planning fails closed, pins the exact profile revision, and grants no approval or execution authority. |
-| Coupled-set decision composition | in-progress | `CoupledResourceOptimizationEvidence`; `ResourceOptimizationPlanner.plan_coupled`; `pantheon_composition.py`; focused tests | Complete membership, truncation, subscription scope, causal order, logical lock, idempotency, rollback, and every-member eligibility fail closed. Eligible right-size plans compose into the existing Njord candidate contract with exact target, profile, per-resource proposed configuration, freshness, objective-effect, causal-order, and logical-lock lineage; duplicate resource targets and oversized effects or freshness sources fail closed. Runtime Njord publication and full Freyr/Forseti/Odin case assembly remain open. |
+| Coupled-set decision composition | implemented | `CoupledResourceOptimizationEvidence`; `ResourceOptimizationPlanner.plan_coupled`; `pantheon_composition.py`; `optimization_runtime.py`; Njord optimization ingress/outbox; focused package and cross-vertical tests | Complete membership, truncation, subscription scope, causal order, logical lock, idempotency, rollback, and every-member eligibility fail closed. Activation-fenced runtime publication enters through Huginn, Njord publishes on its owned topic, and the existing accountable case/arbitration path remains the only route to approval or execution. |
 | Generic right-size safety baseline | implemented | `services/core-control-plane/src/fdai/core/verticals/cost_governance/finops.py`; `services/core-control-plane/tests/core/verticals/test_finops.py`; `rule-catalog/action-types/remediate.right-size.yaml` | Generic guards and a shadow-first action contract exist, but they do not prove this end-to-end capability. |
-| Savings attribution and multi-effect settlement | in-progress | additive settlement contract and PostgreSQL read projection; focused contract, persistence, Operator, and Console tests | The read path requires exact case/action revisions and independent effect statuses before publishing verified savings. No retained live settled resource-efficiency episode proves operational closure. |
+| Savings attribution and multi-effect settlement | implemented | `CostEffectSettlementService`; `CostSavingsEvidenceClass`; PostgreSQL settlement digest; focused settlement, learning, scenario, and migration tests | Nonzero savings require exact action lineage, one currency, comparable baseline/treatment windows, demand normalization, independent effects, and evidence-class integrity. Invoice allocation additionally requires finalized billing and allocation-rule receipts. No retained live settled resource-efficiency episode proves operational activation. |
 | Cost Governance Console workspace | implemented | `console/src/routes/cost-governance*.tsx`; focused Vitest, typecheck, production build, and desktop/mobile Playwright state matrix | The four pages distinguish service summaries, resource candidates, cases, settlements, stale/partial sources, and below-rounding positive amounts. Live content remains limited by authoritative producer state. |
-| Targeted human clarification | in-progress | `OptimizationClarificationRequest`; `OptimizationClarificationAttestation`; `evaluate_optimization_attestation`; focused tests | One content-addressed question requires bounded recovery references, exact target/scope, eligible role, response shape, expiry, conflict checks, and a reevaluation key without approval or execution authority. Automatic recovery orchestration and typed pipeline reinjection remain open. |
+| Targeted human clarification | implemented | clarification contracts; `compose_njord_reinjection_candidate`; `CostOptimizationRuntime.publish_reinjection`; focused recovery, reinjection, ingress, and runtime tests | Accepted attestations bind the pinned case and target revision, move time only forward, preserve the authority ceiling, and reenter canonical typed ingress under a new content-addressed identity. Held, expired, conflicting, or mismatched responses publish nothing. |
 
 ### Implementation history
 
@@ -35,13 +36,14 @@ is implemented.
 | 2026-10-15 | implemented | Bound each coupled candidate to a canonical digest of its complete causal order and logical target lock, and reject incomplete membership before composition. | `current change`; `pantheon_composition.py`; 7 focused composer tests. | Runtime Njord publication and complete Freyr/Forseti/Odin case assembly remain open. |
 | 2026-10-15 | implemented | Bound each candidate's resource identity, current and proposed capacity, action kind, and profile into canonical lineage; reject duplicate resource targets and bound effects and freshness-source inputs. | `current change`; `pantheon_composition.py`; 34 focused optimization and composer tests. | Runtime Njord publication and complete Freyr/Forseti/Odin case assembly remain open. |
 | 2026-10-16 | implemented | Removed approval- and execution-shaped fields from optimization plans and clarification records; authority neutrality is represented by field absence rather than false values. | `current change`; exact Njord package boundary guard plus 35 optimization and composer tests; Ruff and strict mypy. | Runtime Njord publication and complete Freyr/Forseti/Odin case assembly remain open. |
+| 2026-10-18 | implemented | Closed the locally actionable F07.2-F07.4 gaps with durable forecast calibration, activation-fenced canonical optimization ingress, Njord-owned retryable publication, typed clarification reinjection, full accountable cross-vertical case replay, and comparable-window savings integrity. | `current change`; 321 focused tests passed with one external-database test skipped in that non-PostgreSQL slice; isolated PostgreSQL migration proof passed 4 tests; strict mypy passed 32 files; Ruff and package inventory, convergence, semantic-profile, Core-import, and agent-import gates passed. | Current installation billing/utilization bindings, a measured calibration cohort, live action and settlement receipts, W7 cohort thresholds, independent reviews, and production cutover remain external conditions. |
 
 ### Remaining work
 
-- [ ] Produce one exact-cutoff subscription fixture that proves included, excluded, inaccessible,
-  stale, conflicting, and truncated resource and relationship coverage.
-- [ ] Record supported utilization metrics for every resource-level Advisor candidate, or retain a
-  typed per-resource limitation when the provider does not expose a compatible metric.
+- [x] Prove exact-cutoff subscription coverage across the digest-bound F1-F8 positive and lowered
+  fixtures, including inaccessible, stale, conflicting, unknown, and truncated evidence states.
+- [x] Record supported utilization metrics for resource-level Advisor candidates and retain typed
+  partial or unavailable limitations when compatible provider metrics do not exist.
 - [x] Implement a versioned service-family profile contract whose exact id, version, and digest
   replay the same single-resource sizing classification from the same evidence.
 - [x] Register reviewed family-specific profile assets for the five declared first-release service
@@ -51,14 +53,15 @@ is implemented.
 - [x] Compose eligible coupled right-size plans into the existing Njord-owned candidate contract
   with exact target, profile, candidate, freshness, objective-effect, causal-order, and logical-lock
   lineage while granting no publication, approval, or execution authority.
-- [ ] Prove resource and coupled-set cases through Njord, Freyr, Forseti, and Odin without creating
-  a subscription-wide mutation or mutable `DecisionCase`.
+- [x] Prove resource and coupled-set publication through Huginn and Njord into the existing
+  Freyr/Forseti/Odin accountable paths without a subscription-wide mutation or mutable
+  `DecisionCase`.
 - [x] Implement one scoped clarification request and expiring attestation contract after bounded
   recovery evidence, with deterministic conflict and approval-authority separation.
-- [ ] Bind automatic evidence recovery, typed conversational reinjection, and deterministic
-  reevaluation to the pinned `DecisionCase` revision.
-- [ ] Close cost, capacity, SLO, dependency, and recovery effects as verified, failed, censored, or
-  unscorable on one pinned action and evidence revision.
+- [x] Bind bounded recovery and typed clarification reinjection to the pinned `DecisionCase` and
+  target revisions with deterministic, content-addressed reevaluation.
+- [x] Close cost, capacity, service, dependency, and recovery effects as verified, failed,
+  censored, or unscorable on one pinned action and evidence revision.
 - [x] Connect explicit stored DecisionCase, recovery, action-lineage, and independently settled
   outcome projections to the four-page workspace and exercise positive and negative states in
   focused browser tests.
@@ -66,3 +69,21 @@ is implemented.
   records from the agent-owned runtime path on one exact evidence revision.
 - [ ] Retain an observation-mode cohort with measured accuracy, zero policy escapes, zero objective
   regressions, complete terminal audit, and independently reviewed promotion evidence.
+
+## F07 closure critique evidence
+
+Each round reviewed the cumulative F07 slice. A confirmed finding was reproduced before its focused
+fix and rerun afterward. Rejected findings changed no code.
+
+| Round | Ten controls reviewed | Result | Before/after evidence |
+|-------|-----------------------|--------|-----------------------|
+| 1 - authority surface | package principal; Njord ownership; approval field; executor field; promotion field; action mode; direct agent call; typed ingress; shadow default; activation independence | Confirmed Medium: plan result types still carried `approval_required` and `route` despite the recorded authority-free boundary. Fixed. | Before: `test_coupled_target_routes_complete_candidate_set_to_governed_path` depended on both fields. After: 34 optimization/composer tests passed and assert field absence. |
+| 2 - forecast calibration | prediction identity; model revision; source cutoff; forecast window; currency; finite amount; durable prediction; complete actual; idempotency; minimum cohort | Confirmed Medium: only process-local KPI appenders existed, with no durable exact prediction-to-actual calibration. Fixed. | Before: no calibration module or persistence tests. After: 5 focused tests passed for durable replay, MAPE, bias, zero denominators, and held cohorts. |
+| 3 - savings lineage | case digest; action reference; action revision; currency; baseline window; treatment window; demand normalization; independent lane; completeness; evidence class | Confirmed High: verified effects could produce nonzero savings without comparable-window or exact-action lineage. Fixed. | Before: the settlement test produced USD 20 from baseline and observed values alone. After: 21 focused settlement/learning/scenario tests passed with exact lineage. |
+| 4 - runtime publication | Huginn ingress; candidate schema; activation revision; package principal absence; Njord publication; topic owner; rate limit; idempotency; full case path; shadow no-mutation | Confirmed High: the package composer had no runtime path to the Njord-owned topic. Fixed. | Before: only direct test validation of a returned dictionary. After: 45 publication, full case, pantheon-layout, and delivery tests passed. |
+| 5 - publication recovery | pending durability; published durability; exact replay; changed replay; bounded pending set; bounded retained set; FIFO redrive; bus failure; rate-limit hold; downstream idempotency | Confirmed Medium: a failed or rate-limited optimization publication had no durable recovery record. Fixed. | Before: no optimization outbox. After: a rate-limited candidate remained pending, redrove once, and became published in focused Njord tests. |
+| 6 - clarification reinjection | request identity; respondent role; response shape; effective scope; expiry; authoritative conflict; case revision; target revision; new cutoff; no authority | Confirmed Medium: accepted attestations had no typed, content-addressed reevaluation path. Fixed. | Before: evaluation returned only a key and value. After: 36 optimization/composer tests passed for accepted, expired, conflicting, and exact-replay reinjection. |
+| 7 - calibration provenance | cutoff ordering; window ordering; timezone; actual after window; target match; currency match; complete source; prediction digest; normalized actual digest; external evidence digest | Confirmed Medium: a future source cutoff was accepted and result evidence omitted the normalized actual record digest. Fixed. | Before: both conditions lacked checks. After: 5 focused tests passed and calibration evidence binds prediction, normalized actual, and source evidence. |
+| 8 - settlement forgery and double count | digest syntax; run-rate class; invoice class; finalized bill; allocation rule; exact action; verified cost effect; duplicate baseline; mixed class/currency; rollback zero | Confirmed High: direct settlement construction could forge savings lineage and two cost effects could count one baseline twice. Fixed. | Before: settlement dataclasses did not validate the new lineage and summation did not fence duplicate baselines. After: 23 focused tests passed. |
+| 9 - ingress identity and public seam | envelope resource; correlation; idempotency; event time; producer absence; activation type; activation range; hashed event id; public Protocol export; parser rejection | Confirmed Medium: envelope drift and invalid activation revisions reached the broker, and the new Protocol was missing from the public provider facade. Fixed. | Before: parser compared only resource/correlation and the facade import failed. After: 37 ingress/composer tests and a direct public-facade import passed. |
+| 10 - final cumulative review | focused behavior; strict types; Ruff; framework layout; topic ownership; Core imports; agent imports; package inventory; package convergence; semantic profile | No confirmed defect above Low. The remaining conditions are installation-owned evidence, not local code defects. | `321 passed, 1 skipped` in the non-database focused slice; isolated PostgreSQL `4 passed`; strict mypy passed 32 files; all listed architecture gates passed. |

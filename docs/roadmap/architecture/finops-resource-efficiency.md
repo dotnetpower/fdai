@@ -26,9 +26,9 @@ FinOps control loop without creating a second ontology, agent organization, or e
 > only to the existing safety-check path. A pure Njord candidate composer now binds eligible
 > coupled right-size plans to the existing owner-authenticated cross-vertical contract with exact
 > target, profile, candidate, freshness, objective-effect, causal-order, and logical-lock lineage.
-> Runtime Njord publication,
-> complete Freyr/Forseti/Odin case assembly, approval/execution integration, and a live settled
-> efficiency cohort remain open.
+> Activation-fenced runtime publication now enters through Huginn and Njord's durable outbox.
+> Accountable processing, reinjection, calibration, and settlement have local evidence; live
+> utilization, calibration, and settlement remain installation qualification.
 
 ## Design at a glance
 
@@ -179,12 +179,7 @@ human approval, Var runs that separate approval step. No response, an expired re
 ineligible respondent, or a conflict leaves the case held without mutation. FDAI never requests a
 secret or credential as clarification.
 
-The reinjection record should bind the clarification request, accepted attestation, prior decision
-frame digest, target revision, and one new evidence cutoff. Its stable idempotency identity must
-make exact replay a no-op and reject changed content under the same identity. Reinjection resumes at
-Forseti's typed decision intake. It does not publish as Njord, approve through Var, or dispatch
-through Thor. A changed target, expired attestation, authoritative conflict, or unavailable
-decision revision creates a new held result instead of silently rebuilding the prior case.
+Reinjection binds clarification, case/target revision, and cutoff idempotently; it grants no authority and holds on drift, expiry, conflict, or missing state.
 
 ## Deterministic service-family profiles
 
@@ -240,20 +235,13 @@ without comparable demand is not realized savings.
 Usage optimization and rate optimization should not double count the same baseline. A commitment
 purchase should use the capacity remaining after accepted resource-efficiency decisions.
 
-Forecast calibration is a separate evidence stream. Each prediction should bind the exact model or
-rule revision, target, forecast window, source cutoff, currency, and predicted value. An actual can
-close it only when it cites the same prediction and a complete authoritative observation window.
-Calibration reports sample count, mean absolute percentage error, and signed bias only after the
-configured minimum cohort; missing or zero actual denominators remain explicit and never become a
-measured zero-error claim. Calibration can lower recommendation confidence but cannot grant
-approval, execution, or promotion authority.
+Forecast calibration separately binds model revision, target, window, cutoff, currency, prediction,
+and a complete authoritative actual. MAPE and signed bias appear only after the minimum nonzero
+cohort; unavailable denominators stay explicit, and calibration grants no authority.
 
-A nonzero realized-savings record should additionally bind the exact decision frame, action
-reference and revision, currency, comparable baseline and treatment window digests, and demand
-normalization evidence. Verified run-rate savings require those comparable-window receipts.
-Invoice-allocated settlement also requires a finalized billing receipt and allocation-rule digest.
-Projected or estimated-only effects, missing action lineage, mixed currencies, and incomplete
-windows remain unscorable and cannot enter realized-savings totals.
+Nonzero savings additionally bind the exact case/action revision, currency, comparable windows,
+and demand normalization. Invoice allocation also requires finalized billing and allocation-rule
+receipts; estimated, mixed-currency, incomplete, or unbound values remain unscorable.
 
 ## Console information architecture
 
