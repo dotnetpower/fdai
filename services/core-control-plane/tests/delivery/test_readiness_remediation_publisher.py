@@ -9,6 +9,7 @@ import pytest
 from fdai.core.executor.action_builder import ActionBuilder
 from fdai.delivery.readiness_remediation import EventBusReadinessRemediationPublisher
 from fdai.rule_catalog.schema.action_type import load_action_type_catalog
+from fdai.runtime.bootstrap_readiness import select_runtime_readiness_remediation
 from fdai.shared.contracts.models import Event, Rule
 from fdai.shared.contracts.registry import PackageResourceSchemaRegistry
 from fdai.shared.ontology.release import build_ontology_release
@@ -132,6 +133,75 @@ async def test_publisher_emits_action_builder_accepted_typed_request() -> None:
         rules_by_id={rule.id: rule},
     ).build_from_readiness_remediation(event=event)
     assert action.idempotency_key == request.request_id
+
+
+def test_runtime_selects_adapter_from_active_release_and_rule() -> None:
+    action_type = next(
+        item
+        for item in load_action_type_catalog(
+            REPO_ROOT / "rule-catalog" / "action-types",
+            schema_registry=PackageResourceSchemaRegistry(),
+        )
+        if item.name == "remediate.tag-add"
+    )
+    release = build_ontology_release(action_types=(action_type,))
+    rule = _rule()
+
+    binding = select_runtime_readiness_remediation(
+        configured=None,
+        event_bus=_Bus(),
+        active_rules=(rule,),
+        ontology_release=release,
+    )
+
+    assert binding is not None
+    assert binding.levers == {rule.id: "remediate.tag-add"}
+    assert isinstance(binding.publisher, EventBusReadinessRemediationPublisher)
+    assert binding.publisher.target_revision == release.digest
+    assert binding.publisher.rules_by_id == {rule.id: rule}
+
+
+def test_runtime_selection_fails_closed_without_complete_active_identity() -> None:
+    rule = _rule()
+
+    assert (
+        select_runtime_readiness_remediation(
+            configured=None,
+            event_bus=_Bus(),
+            active_rules=(rule,),
+            ontology_release=None,
+        )
+        is None
+    )
+    assert (
+        select_runtime_readiness_remediation(
+            configured=None,
+            event_bus=_Bus(),
+            active_rules=(),
+            ontology_release=build_ontology_release(),
+        )
+        is None
+    )
+
+
+def test_runtime_selection_preserves_explicit_injected_binding() -> None:
+    configured = RemediationProposalBinding(
+        publisher=EventBusReadinessRemediationPublisher(
+            event_bus=_Bus(),
+            target_revision="sha256:" + "b" * 64,
+            rules_by_id={_rule().id: _rule()},
+        ),
+        levers={_rule().id: "remediate.tag-add"},
+    )
+
+    selected = select_runtime_readiness_remediation(
+        configured=configured,
+        event_bus=_Bus(),
+        active_rules=(),
+        ontology_release=None,
+    )
+
+    assert selected is configured
 
 
 async def test_publisher_rejects_unknown_or_mismatched_rule() -> None:
