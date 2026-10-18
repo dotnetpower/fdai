@@ -10,6 +10,7 @@ import pytest
 from fdai_deployment_cli.aks_service_update import (
     deployment_snapshot,
     peers_unchanged,
+    validated_secret_environment,
     validate_plan_scope,
     validate_update_request,
 )
@@ -74,6 +75,14 @@ def test_update_request_rejects_unbounded_inputs(
             source_commit=source_commit,
             current_image=current_image,
         )
+
+
+def test_validated_secret_environment_rejects_invalid_binding() -> None:
+    assert validated_secret_environment({"FDAI_DSN": "fdai-state-store-dsn"}) == {
+        "FDAI_DSN": "fdai-state-store-dsn"
+    }
+    with pytest.raises(ValueError, match="secret environment"):
+        validated_secret_environment({"FDAI_DSN": ""})
 
 
 def test_deployment_snapshot_binds_each_service_rollout() -> None:

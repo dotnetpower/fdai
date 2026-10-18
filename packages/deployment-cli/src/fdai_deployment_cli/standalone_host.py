@@ -41,12 +41,11 @@ from fdai_deployment_cli.aks_historical_reconciliation import (
 )
 from fdai_deployment_cli.aks_service_update import (
     SERVICES as AKS_SERVICES,
-)
-from fdai_deployment_cli.aks_service_update import (
     deployment_snapshot,
     peers_unchanged,
     service_update_review as _service_update_review,
     service_update_target as _service_update_target,
+    validated_secret_environment as _validated_secret_env,
     validate_plan_scope,
     validate_update_request,
 )
@@ -1263,12 +1262,10 @@ def _prepare_aks_service_update(args: argparse.Namespace, work_dir: Path) -> dic
         source_commit = workload.get("source_commit", contract.get("source_commit", default_source))
         if not isinstance(source_commit, str) or _SOURCE_COMMIT.fullmatch(source_commit) is None:
             raise ValueError("AKS workload source revision is invalid")
-        secret_environment = workload.get("secret_environment", {})
-        if not aks_readiness.valid_secret_environment(secret_environment):
-            raise ValueError("AKS workload secret environment is invalid")
         workload["source_commit"] = source_commit
         contract["source_commit"] = source_commit
-        contract["secret_environment"] = dict(secret_environment)
+        secrets = workload.get("secret_environment", {})
+        contract["secret_environment"] = _validated_secret_env(secrets)
         workloads[name] = workload
         expected[name] = contract
     selected = _mapping(workloads[service], f"AKS workload {service}")

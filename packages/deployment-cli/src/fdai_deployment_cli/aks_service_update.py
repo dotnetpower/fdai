@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from fdai_deployment_cli.aks_readiness import valid_secret_environment
 from fdai_deployment_cli.contracts import load_json_object
 
 SERVICES = frozenset(
@@ -19,6 +20,13 @@ SERVICES = frozenset(
 
 _IMAGE = re.compile(r"[a-z0-9.-]+(?::[0-9]+)?/[a-z0-9._/-]+@sha256:[0-9a-f]{64}")
 _SOURCE_COMMIT = re.compile(r"[0-9a-f]{40}")
+
+
+def validated_secret_environment(value: object) -> dict[str, str]:
+    """Return one exact private workload secret contract or fail closed."""
+    if not valid_secret_environment(value):
+        raise ValueError("AKS workload secret environment is invalid")
+    return dict(value)
 
 
 def validate_update_request(
