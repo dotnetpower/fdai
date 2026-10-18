@@ -9,6 +9,7 @@ from pathlib import Path
 from fdai.agents._framework.bus import InMemoryBus
 from fdai.agents._framework.factory import CostRuntimeBindings
 from fdai.agents._framework.njord_cost_outbox import COST_ANOMALY_OUTBOX_PREFIX
+from fdai.agents._framework.njord_optimization_outbox import OPTIMIZATION_OUTBOX_PREFIX
 from fdai.agents._framework.pantheon import PANTHEON_NAMES
 from fdai.agents._framework.rate_limiter import RateLimiter
 from fdai.agents._framework.registry import load_pantheon
@@ -135,6 +136,70 @@ def _sample_kwargs(
     }
 
 
+def _optimization_candidate() -> dict[str, object]:
+    return {
+        "kind": "cross_vertical_candidate",
+        "correlation_id": "optimization-example",
+        "idempotency_key": "optimization-example:v1",
+        "resource_id": "optimization-set-example",
+        "observed_at": _NOW.isoformat(),
+        "action_type": "remediate.right-size",
+        "effects": [
+            {
+                "objective_id": "objective.cost",
+                "utility": 0.7,
+                "confidence": 0.9,
+                "metric": "monthly_cost_usd",
+                "expected_min": 100.0,
+                "expected_max": 120.0,
+                "observation_window_seconds": 86400,
+            },
+            {
+                "objective_id": "objective.capacity",
+                "utility": 0.0,
+                "confidence": 0.9,
+                "metric": "capacity_headroom",
+                "expected_min": 0.3,
+                "expected_max": 1.0,
+                "observation_window_seconds": 3600,
+            },
+        ],
+        "evidence_refs": [
+            f"optimization-target-revision:sha256:{'a' * 64}",
+            f"optimization-candidate:sha256:{'b' * 64}",
+        ],
+        "source_freshness": [
+            {
+                "source": "cost-analytics",
+                "observed_at": _NOW.isoformat(),
+                "max_age_seconds": 7200,
+            }
+        ],
+    }
+
+
+def _optimization_event(
+    candidate: dict[str, object] | None = None,
+    *,
+    activation_revision: int = 2,
+) -> dict[str, object]:
+    value = candidate or _optimization_candidate()
+    return {
+        "producer_principal": "Huginn",
+        "correlation_id": value["correlation_id"],
+        "idempotency_key": value["idempotency_key"],
+        "event_id": "event:optimization-example",
+        "event_type": "specialist.cost_optimization_candidate",
+        "occurred_at": value["observed_at"],
+        "ingested_at": value["observed_at"],
+        "resource_id": value["resource_id"],
+        "attributes": {
+            "activation_revision": activation_revision,
+            "candidate": value,
+        },
+    }
+
+
 def test_disabled_or_absent_provider_produces_zero_analysis_and_publications() -> None:
     bus = InMemoryBus(registry=load_pantheon())
     advisory = Advisory()
@@ -191,6 +256,99 @@ def test_enabled_sample_is_analyzed_and_only_njord_publishes_finding() -> None:
     messages = bus.messages_on("object.cost-anomaly")
     assert len(messages) == 1 and messages[0].principal == "Njord"
     assert registry.get("Njord").owns == ("CostAnomaly",)
+
+
+def test_enabled_optimization_event_is_published_only_by_njord() -> None:
+    registry = load_pantheon()
+    bus = InMemoryBus(registry=registry)
+    njord = Njord(
+        bus=bus,
+        advisory_provider=Advisory(),
+        activation_reader=Activation(_snapshot(enabled=True)),
+        package_enabled=True,
+    )
+
+    asyncio.run(njord.on_typed_message("object.event", _optimization_event()))
+
+    (message,) = bus.messages_on("object.cost-anomaly")
+    assert message.principal == "Njord"
+    assert message.payload["kind"] == "cross_vertical_candidate"
+    assert message.payload["producer_principal"] == "Njord"
+    assert njord.behavior_snapshot()["optimization_candidate:published"] == 1
+
+
+def test_optimization_candidate_rejects_authority_fields_and_replays_exactly_once() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    njord = Njord(
+        bus=bus,
+        advisory_provider=Advisory(),
+        activation_reader=Activation(_snapshot(enabled=True)),
+        package_enabled=True,
+    )
+    unauthorized = {
+        **_optimization_candidate(),
+        "execution_authority": True,
+    }
+
+    asyncio.run(njord.on_typed_message("object.event", _optimization_event(unauthorized)))
+    asyncio.run(njord.on_typed_message("object.event", _optimization_event()))
+    asyncio.run(njord.on_typed_message("object.event", _optimization_event()))
+
+    assert len(bus.messages_on("object.cost-anomaly")) == 1
+    behavior = njord.behavior_snapshot()
+    assert behavior["optimization_candidate:invalid"] == 1
+    assert behavior["optimization_candidate:duplicate"] == 1
+
+
+def test_optimization_candidate_rejects_envelope_identity_drift() -> None:
+    bus = InMemoryBus(registry=load_pantheon())
+    njord = Njord(
+        bus=bus,
+        advisory_provider=Advisory(),
+        activation_reader=Activation(_snapshot(enabled=True)),
+        package_enabled=True,
+    )
+    event = _optimization_event()
+    event["idempotency_key"] = "different-event-key"
+
+    asyncio.run(njord.on_typed_message("object.event", event))
+
+    assert bus.messages_on("object.cost-anomaly") == []
+    assert njord.behavior_snapshot()["optimization_candidate:invalid"] == 1
+
+
+def test_rate_limited_optimization_candidate_redrives_from_durable_outbox() -> None:
+    async def run() -> None:
+        bus = InMemoryBus(registry=load_pantheon())
+        store = InMemoryStateStore()
+        clock = _Clock()
+        limiter = RateLimiter(per_minute=1, per_hour=100, now=clock.now)
+        assert limiter.allow()
+        njord = Njord(
+            bus=bus,
+            advisory_provider=Advisory(),
+            activation_reader=Activation(_snapshot(enabled=True)),
+            package_enabled=True,
+            state_store=store,
+        )
+        njord._proposal_limiter = limiter  # type: ignore[attr-defined]
+
+        await njord.on_typed_message("object.event", _optimization_event())
+
+        assert bus.messages_on("object.cost-anomaly") == []
+        pending = await store.read_states(OPTIMIZATION_OUTBOX_PREFIX, limit=10)
+        assert len(pending) == 1
+        assert pending[0]["state"] == "pending"
+
+        clock.advance(61)
+        await njord.maintenance_tick()
+
+        assert len(bus.messages_on("object.cost-anomaly")) == 1
+        published = await store.read_states(OPTIMIZATION_OUTBOX_PREFIX, limit=10)
+        assert published[0]["state"] == "published"
+        assert njord.behavior_snapshot()["optimization_candidate:redriven"] == 1
+
+    asyncio.run(run())
 
 
 def test_rate_limited_cost_anomaly_redrives_from_durable_outbox() -> None:

@@ -1,8 +1,8 @@
 ---
 title: Outcome Assurance
 translation_of: outcome-assurance.md
-translation_source_sha: 175202c613a1989329cf57778c6e751788ce4ede
-translation_revised: 2026-10-17
+translation_source_sha: 48ff576018bfe258656c24936d2acec06ffd767c
+translation_revised: 2026-10-18
 ---
 # 결과 Assurance
 
@@ -39,7 +39,7 @@ FDAI는 서비스가 보호해야 할 목표, 검토한 액션, 실제 실행, �
 |------|------|------|------|
 | 스칼라 Dynamic 피드백 출처의 신뢰성 | implemented | `8d423a8145`; `core/assurance_twin/model_registry.py`; `core/measurement/runners.py`; 집중 피드백 검사와 실제 PostgreSQL 트랜잭션 검사 | 출처는 알 수 없는 결과를 유지하고, 수락한 피드백을 모델 처리 증적 및 감사와 함께 저장하며, 재시도 가능한 작업을 보존합니다. 이는 권위 있는 `OutcomeAssuranceProjection` 생산자나 운영 복구 개선 증거가 아닙니다. |
 | 재사용하는 온톨로지, 준비 상태, 감사 및 측정 출처 | in-progress | `core/decision_case/`; `core/readiness/`; `core/measurement/`; `core/audit/`; 각 소유 문서의 현재 구현 원장 | 출처 기능은 서로 다른 근거 수준으로 존재하지만 하나의 결과 Assurance 변환 결과로 결합되지 않았습니다. |
-| 비용 거버넌스 효과 정산 출처 | implemented | `core/measurement/cost_effect_settlement.py`; `core/measurement/cost_retention.py`; 집중 비용 거버넌스 정산 테스트 | 비용, 용량, 서비스 및 복구 효과를 분리하고 exact expected-effect 출처 revision에 결속된 독립 관찰에서만 종결합니다. 이 출처만으로 더 넓은 `OutcomeAssuranceProjection`이 완료되지는 않습니다. |
+| 비용 거버넌스 효과 정산 출처 | implemented | `core/measurement/cost_effect_settlement.py`; `core/measurement/cost_retention.py`; 집중 비용 거버넌스 정산 테스트 | 비용, 용량, 서비스 및 복구 효과를 분리하고 exact expected-effect 출처 revision에 결속된 독립 관찰에서만 종결합니다. 0보다 큰 절감액에는 정확한 작업 계보, 하나의 통화, 비교 가능한 기준/처리 구간, 수요 정규화 및 실행 요율 또는 청구서 근거 등급도 필요합니다. 청구서 배부에는 확정 청구 및 배부 증적도 필요합니다. 이 출처만으로 더 넓은 `OutcomeAssuranceProjection`이 완료되지는 않습니다. |
 | 단계 4 측정 정책 출처 | implemented | `core/measurement/{pattern_growth,model_tracking,latency_budget}.py`; `delivery/measurement/{holdout,measured_policy}.py`; 집중 Core 및 전달 테스트 | 완전한 홀드아웃이 shadow 패턴 쓰기를 제한합니다. 짝지은 모델 근거는 검토 전용 권고를 만들고 계층별 지연 시간은 서버 소유 예산, 보고값, 처리량, 백분위수 및 사용 불가 상태를 보존합니다. 잘못된 형식의 근거는 한 번 거부되고 이후 묶음을 막지 않습니다. 영속 처리는 승격 또는 실행 권한을 부여하지 않습니다. |
 | 보호된 코호트 준비 상태 점검 | implemented | `.github/workflows/cohort-readiness.yml`; `delivery/measurement/cohort_inventory.py`; 집중 워크플로 및 인벤토리 테스트 | 정확한 보호된 `main` 리비전 하나가 비공개 상태 저장소의 baseline 및 treatment 가용성을 집계해서 점검하고 권한이 없는 증적을 보존할 수 있습니다. 상태 저장소 연결 수준 실패는 명시적인 `unavailable` 증적이 되고 query 및 schema 실패는 계속 실행을 실패시킵니다. 이 워크플로는 관측값을 가져오거나 승격 상태를 바꾸거나 누락된 표본을 적격 상태로 바꾸지 않습니다. |
 | ActionType 정규 내용 다이제스트 | implemented | `core/measurement/operational_promotion.py`; `core/measurement/__init__.py`; 집중 승격 테스트 | `action_type_digest`는 provenance를 제외한 ActionType의 결정론적 SHA-256 내용 다이제스트를 계산하는 공개 함수입니다. 평가기는 이 다이제스트를 사용하여 봉인된 배치와 현재 ActionType 정의 사이의 스키마 변이를 감지합니다. |
@@ -61,6 +61,7 @@ FDAI는 서비스가 보호해야 할 목표, 검토한 액션, 실제 실행, �
 | 2026-09-01 | implemented | `_action_type_digest`를 공개 `action_type_digest` 함수로 승격하고 `core/measurement/__init__.py`에서 내보냈습니다. 정규 내용 다이제스트는 provenance를 제외하고 승격 평가 시 ActionType 일관성 검증을 외부 호출자가 수행할 수 있게 합니다. | `current change`; `core/measurement/operational_promotion.py`; `core/measurement/__init__.py`; 집중 승격 테스트. | 인증된 권위 출처 증적을 더 넓은 Outcome Assurance 변환 결과에 연결하고 통제된 실제 집단을 보존합니다. |
 | 2026-08-31 | implemented | 예약 측정 조립에 영속 단계 4 홀드아웃, 모델 교체 및 지연 시간 출처 처리를 추가했습니다. 재시작, 중복, 부분, 오래됨, 미래 시점, 롤백 및 사용 불가 근거는 명시적으로 남고 긍정적 모델 비교에는 별도 승격 검토가 필요합니다. | `current change`; 측정 집약기, 전달 러너, CLI 조립 및 집중 Core, 전달, CLI 검사. | 인증된 권위 출처 증적을 더 넓은 Outcome Assurance 변환 결과에 연결하고 통제된 실제 집단을 보존합니다. |
 | 2026-08-29 | implemented | 예상 절감과 독립적으로 검증된 효과 정산을 분리하고 실패, 검열됨, 점수화 불가 및 롤백 결과를 보존하는 비용 거버넌스 출처를 추가했습니다. | `current change`; 집중 비용 거버넌스 정산, 보존 및 캠페인 테스트. | 아직 열려 있는 `OutcomeAssuranceProjection` 작업을 통해 이 출처를 결합합니다. |
+| 2026-10-18 | implemented | 검증된 운영 효과가 비교 가능한 구간, 수요 정규화, 정확한 작업, 통화 및 근거 등급 계보 없이 절감액을 만들 수 없도록 비용 거버넌스 출처를 강화했습니다. 같은 기준선의 중복 귀속은 안전하게 차단합니다. | `current change`; 집중 정산, 학습, 시나리오, 영구 다이제스트 및 격리된 migration 검사. | 설치 소유 정산 실행 요율 및 확정 청구 증적을 보존해야 합니다. 더 넓은 변환 결과 작업은 바뀌지 않았습니다. |
 | 2026-08-29 | implemented | 권한 객체를 도입하지 않고 OA0 타입 읽기 모델, 범위가 제한된 근거 상태, 결정론적 재현 JSON 및 최신 권위 관측 correction 축소를 추가했습니다. | `current change`; `core/measurement/outcome_assurance.py`, `core/measurement/__init__.py`, 그리고 집중 `uv run --extra dev python -m pytest -q --no-cov --noconftest services/core-control-plane/tests/core/measurement/test_outcome_assurance.py` (`7 passed`) 및 대상 Ruff 검사입니다. | OA1을 통해 권위 있는 준비 상태, 가드 및 측정 출처를 연결합니다. |
 | 2026-08-29 | implemented | 명시적인 finalized 이벤트 집합을 사용하는 목표 귀속 reducer를 추가했습니다. 중복 이벤트 identity와 해당 집합 밖의 observation을 거부하고, 이름에서 목표를 추론하지 않으며, 완전한 타입 체인만 최신 일치 observation에 연결하고 불완전하거나 일치하지 않는 이벤트를 커버리지에 유지합니다. | `current change`, `core/measurement/outcome_assurance.py`, `core/measurement/__init__.py`, 집중 Outcome Assurance 테스트 13개, 대상 Ruff 및 strict mypy 검사 통과 | 읽기 모델을 노출하기 전에 인증된 finalized 이벤트, objective, audit 및 measurement 출처를 연결합니다. |
 | 2026-08-14 | not-started | 이전 이력을 재구성하지 않고 구현 원장을 도입했으며 부분적으로 구현된 출처 시스템 위의 설계 전용 변환 결과로 기록했습니다. | `current change`; 계약, API 경로, Console 표면에 대한 저장소 검색과 위에 인용한 출처 소유 문서입니다. | 파일럿과 버티컬 확장을 시작하기 전에 OA0부터 OA2까지 전달합니다. |

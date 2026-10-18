@@ -8,9 +8,13 @@ from dataclasses import dataclass
 from typing import Any
 
 from fdai.core.capacity import CapacityGraduationEvidence
-from fdai.shared.providers.cost_governance import COST_SAMPLE_EVENT_TYPE
+from fdai.shared.providers.cost_governance import (
+    COST_OPTIMIZATION_EVENT_TYPE,
+    COST_SAMPLE_EVENT_TYPE,
+)
 
 COST_SAMPLE_EVENT = COST_SAMPLE_EVENT_TYPE
+COST_OPTIMIZATION_EVENT = COST_OPTIMIZATION_EVENT_TYPE
 CAPACITY_SAMPLE_EVENT = "specialist.capacity_sample"
 CAPACITY_GRADUATION_EVENT = "specialist.capacity_graduation_evidence"
 CHAOS_SCHEDULE_EVENT = "specialist.chaos_schedule"
@@ -39,6 +43,12 @@ class CapacitySampleSignal:
 
 
 @dataclass(frozen=True, slots=True)
+class CostOptimizationSignal:
+    candidate: dict[str, Any]
+    activation_revision: int
+
+
+@dataclass(frozen=True, slots=True)
 class ChaosScheduleSignal:
     experiment_id: str
     action_type: str
@@ -61,6 +71,45 @@ def parse_cost_sample(payload: Mapping[str, Any]) -> CostSampleSignal | None:
         resource_id=resource_id,
         correlation_id=_correlation_id(payload),
         observed_at=_observed_at(payload),
+    )
+
+
+def parse_cost_optimization(payload: Mapping[str, Any]) -> CostOptimizationSignal | None:
+    attributes = _attributes(payload, COST_OPTIMIZATION_EVENT)
+    if attributes is None:
+        return None
+    activation_revision = attributes.get("activation_revision")
+    candidate = attributes.get("candidate")
+    if (
+        isinstance(activation_revision, bool)
+        or not isinstance(activation_revision, int)
+        or activation_revision < 0
+        or not isinstance(candidate, Mapping)
+    ):
+        return None
+    normalized = {str(key): value for key, value in candidate.items() if isinstance(key, str)}
+    if (
+        len(normalized) != len(candidate)
+        or "producer_principal" in normalized
+        or normalized.get("kind") != "cross_vertical_candidate"
+        or normalized.get("resource_id") != payload.get("resource_id")
+        or normalized.get("correlation_id") != payload.get("correlation_id")
+        or normalized.get("idempotency_key") != payload.get("idempotency_key")
+        or normalized.get("observed_at") != payload.get("occurred_at")
+    ):
+        return None
+    forbidden = {
+        "approval",
+        "approval_required",
+        "execution_authority",
+        "executor_principal",
+        "promotion_authority",
+    }
+    if forbidden & set(normalized):
+        return None
+    return CostOptimizationSignal(
+        candidate=normalized,
+        activation_revision=activation_revision,
     )
 
 
@@ -207,13 +256,16 @@ __all__ = [
     "CHAOS_ACTION_TYPES",
     "CHAOS_SCHEDULE_EVENT",
     "COST_SAMPLE_EVENT",
+    "COST_OPTIMIZATION_EVENT",
     "SPECIALIST_EVENT_PREFIX",
     "CapacitySampleSignal",
     "ChaosScheduleSignal",
     "CostSampleSignal",
+    "CostOptimizationSignal",
     "has_resource_id_conflict",
     "parse_capacity_sample",
     "parse_capacity_graduation_evidence",
     "parse_chaos_schedule",
     "parse_cost_sample",
+    "parse_cost_optimization",
 ]

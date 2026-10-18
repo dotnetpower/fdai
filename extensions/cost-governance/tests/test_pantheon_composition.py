@@ -17,11 +17,16 @@ from fdai_cost_governance.guard import (
     ResourceContext,
 )
 from fdai_cost_governance.optimization import (
+    ClarificationResponseShape,
     CoupledResourceOptimizationPlan,
+    OptimizationClarificationAttestation,
     OptimizationDisposition,
+    build_optimization_clarification,
 )
 from fdai_cost_governance.pantheon_composition import (
+    OptimizationReinjectionDisposition,
     compose_njord_optimization_candidate,
+    compose_njord_reinjection_candidate,
 )
 
 _NOW = datetime(2026, 10, 15, tzinfo=UTC)
@@ -118,6 +123,8 @@ def test_composes_validator_accepted_njord_candidate_with_pinned_lineage() -> No
     )
     assert payload["effects"][0]["objective_id"] == "objective.cost"
     assert "producer_principal" not in payload
+    assert "approval_required" not in payload
+    assert "execution_authority" not in payload
 
 
 def test_rejects_candidate_without_shared_action_type_mapping() -> None:
@@ -382,7 +389,6 @@ def test_rejects_malformed_profile_lineage() -> None:
         _plan(),
         profile_digests=("not-a-digest", "not-a-digest"),
     )
-
     with pytest.raises(ValueError, match="profile MUST be an exact SHA-256"):
         compose_njord_optimization_candidate(
             malformed,
@@ -398,4 +404,192 @@ def test_rejects_malformed_profile_lineage() -> None:
                     max_age_seconds=7200,
                 ),
             ),
+        )
+
+
+def test_accepted_clarification_reinjects_a_new_content_addressed_candidate() -> None:
+    original = compose_njord_optimization_candidate(
+        _plan(),
+        correlation_id="cost-optimization-example",
+        observed_at=_NOW,
+        cost_objective_id="objective.cost",
+        effects=_effects(),
+        evidence_refs=("cost-evidence:example",),
+        source_freshness=(
+            SourceFreshness(
+                source="cost-analytics",
+                observed_at=_NOW,
+                max_age_seconds=7200,
+            ),
+        ),
+    )
+    request = build_optimization_clarification(
+        target_id="optimization-set:example",
+        target_revision_digest=_DIGEST,
+        missing_fact="workload_priority",
+        blocking_reason="priority_required",
+        eligible_roles=("Owner",),
+        response_shape=ClarificationResponseShape.CHOICE,
+        allowed_values=("standard", "critical"),
+        effective_scope="optimization-set:example",
+        created_at=_NOW,
+        expires_at=_NOW + timedelta(hours=2),
+        reevaluation_key="reevaluate:optimization-set:example",
+        recovery_evidence_refs=("recovery:bounded",),
+    )
+    attestation = OptimizationClarificationAttestation(
+        request_id=request.request_id,
+        actor_id="operator-example",
+        actor_role="Owner",
+        response="standard",
+        effective_scope=request.effective_scope,
+        recorded_at=_NOW + timedelta(minutes=1),
+        effective_until=_NOW + timedelta(hours=1),
+    )
+
+    first = compose_njord_reinjection_candidate(
+        original,
+        request=request,
+        attestation=attestation,
+        decision_case_revision_digest="sha256:" + "d" * 64,
+        reevaluated_at=_NOW + timedelta(minutes=2),
+    )
+    replay = compose_njord_reinjection_candidate(
+        original,
+        request=request,
+        attestation=attestation,
+        decision_case_revision_digest="sha256:" + "d" * 64,
+        reevaluated_at=_NOW + timedelta(minutes=2),
+    )
+
+    assert first.disposition is OptimizationReinjectionDisposition.READY
+    assert first.candidate == replay.candidate
+    assert first.candidate is not None
+    assert first.candidate["correlation_id"] != original["correlation_id"]
+    assert str(first.candidate["idempotency_key"]).startswith("optimization-reinjection:")
+    assert not {
+        "approval",
+        "approval_required",
+        "execution_authority",
+        "executor_principal",
+    } & set(first.candidate)
+
+
+def test_expired_or_conflicting_clarification_remains_held() -> None:
+    request = build_optimization_clarification(
+        target_id="optimization-set:example",
+        target_revision_digest=_DIGEST,
+        missing_fact="workload_priority",
+        blocking_reason="priority_required",
+        eligible_roles=("Owner",),
+        response_shape=ClarificationResponseShape.BOOLEAN,
+        effective_scope="optimization-set:example",
+        created_at=_NOW,
+        expires_at=_NOW + timedelta(minutes=5),
+        reevaluation_key="reevaluate:optimization-set:example",
+        recovery_evidence_refs=("recovery:bounded",),
+    )
+    attestation = OptimizationClarificationAttestation(
+        request_id=request.request_id,
+        actor_id="operator-example",
+        actor_role="Owner",
+        response="true",
+        effective_scope=request.effective_scope,
+        recorded_at=_NOW + timedelta(minutes=1),
+        effective_until=_NOW + timedelta(minutes=4),
+    )
+    original = {
+        **compose_njord_optimization_candidate(
+            _plan(),
+            correlation_id="cost-optimization-example",
+            observed_at=_NOW,
+            cost_objective_id="objective.cost",
+            effects=_effects(),
+            evidence_refs=("cost-evidence:example",),
+            source_freshness=(
+                SourceFreshness(
+                    source="cost-analytics",
+                    observed_at=_NOW,
+                    max_age_seconds=7200,
+                ),
+            ),
+        )
+    }
+
+    expired = compose_njord_reinjection_candidate(
+        original,
+        request=request,
+        attestation=attestation,
+        decision_case_revision_digest="sha256:" + "d" * 64,
+        reevaluated_at=_NOW + timedelta(minutes=6),
+    )
+    conflicted = compose_njord_reinjection_candidate(
+        original,
+        request=request,
+        attestation=attestation,
+        decision_case_revision_digest="sha256:" + "d" * 64,
+        reevaluated_at=_NOW + timedelta(minutes=2),
+        authoritative_conflict=True,
+    )
+
+    assert expired.disposition is OptimizationReinjectionDisposition.HELD
+    assert expired.candidate is None
+    assert expired.reason == "attestation_expired"
+    assert conflicted.reason == "authoritative_evidence_conflict"
+
+
+def test_reinjection_rejects_unpinned_revision_and_time_reversal() -> None:
+    original = compose_njord_optimization_candidate(
+        _plan(),
+        correlation_id="cost-optimization-example",
+        observed_at=_NOW,
+        cost_objective_id="objective.cost",
+        effects=_effects(),
+        evidence_refs=("cost-evidence:example",),
+        source_freshness=(
+            SourceFreshness(
+                source="cost-analytics",
+                observed_at=_NOW,
+                max_age_seconds=7200,
+            ),
+        ),
+    )
+    request = build_optimization_clarification(
+        target_id="optimization-set:example",
+        target_revision_digest=_DIGEST,
+        missing_fact="workload_priority",
+        blocking_reason="priority_required",
+        eligible_roles=("Owner",),
+        response_shape=ClarificationResponseShape.BOOLEAN,
+        effective_scope="optimization-set:example",
+        created_at=_NOW - timedelta(minutes=2),
+        expires_at=_NOW + timedelta(hours=1),
+        reevaluation_key="reevaluate:optimization-set:example",
+        recovery_evidence_refs=("recovery:bounded",),
+    )
+    attestation = OptimizationClarificationAttestation(
+        request_id=request.request_id,
+        actor_id="operator-example",
+        actor_role="Owner",
+        response="true",
+        effective_scope=request.effective_scope,
+        recorded_at=_NOW - timedelta(minutes=1),
+        effective_until=_NOW + timedelta(minutes=30),
+    )
+
+    with pytest.raises(ValueError, match="target revision is not pinned"):
+        compose_njord_reinjection_candidate(
+            {**original, "evidence_refs": ["cost-evidence:example"]},
+            request=request,
+            attestation=attestation,
+            decision_case_revision_digest="sha256:" + "d" * 64,
+            reevaluated_at=_NOW,
+        )
+    with pytest.raises(ValueError, match="MUST NOT move evidence time backward"):
+        compose_njord_reinjection_candidate(
+            original,
+            request=request,
+            attestation=attestation,
+            decision_case_revision_digest="sha256:" + "d" * 64,
+            reevaluated_at=_NOW - timedelta(seconds=1),
         )

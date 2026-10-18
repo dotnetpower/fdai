@@ -170,6 +170,8 @@ def _settlement_material(
     if settlement is None:
         return None
     return {
+        "action_ref": settlement.action_ref,
+        "action_revision": settlement.action_revision,
         "effects": [
             {
                 "effect_id": effect.effect_id,
@@ -177,10 +179,27 @@ def _settlement_material(
                 "reason": effect.reason,
                 "status": effect.status.value,
                 "terminal": effect.terminal,
+                "savings_evidence_class": (
+                    effect.savings_evidence_class.value
+                    if effect.savings_evidence_class is not None
+                    else None
+                ),
+                "currency": effect.currency,
+                "baseline_window_digest": effect.baseline_window_digest,
+                "treatment_window_digest": effect.treatment_window_digest,
+                "demand_normalization_digest": effect.demand_normalization_digest,
+                "finalized_billing_receipt_digest": effect.finalized_billing_receipt_digest,
+                "allocation_rule_digest": effect.allocation_rule_digest,
             }
             for effect in settlement.effects
         ],
         "realized_savings": str(settlement.realized_savings),
+        "realized_savings_currency": settlement.realized_savings_currency,
+        "realized_savings_evidence_class": (
+            settlement.realized_savings_evidence_class.value
+            if settlement.realized_savings_evidence_class is not None
+            else None
+        ),
         "recovery_observed": settlement.recovery_observed,
         "rollback_request_id": (
             settlement.rollback_request.request_id

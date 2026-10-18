@@ -276,6 +276,15 @@ class PostgresCostGovernanceDecisionStore:
     ) -> bool:
         """Append one settlement and all effect rows atomically."""
 
+        if action_ref is not None and action_ref != settlement.action_ref:
+            raise ValueError("settlement action reference conflicts with settled lineage")
+        if action_revision is not None and action_revision != settlement.action_revision:
+            raise ValueError("settlement action revision conflicts with settled lineage")
+        if currency is not None and currency != settlement.realized_savings_currency:
+            raise ValueError("settlement currency conflicts with settled lineage")
+        action_ref = settlement.action_ref
+        action_revision = settlement.action_revision
+        currency = settlement.realized_savings_currency
         if (action_ref is None) != (action_revision is None):
             raise ValueError("settlement action reference and revision MUST be supplied together")
         if action_ref is not None and (
@@ -582,7 +591,7 @@ def _settlement_payload(
     action_revision: int | None = None,
     currency: str | None = None,
 ) -> bytes:
-    value = {
+    value: dict[str, object] = {
         "decision_frame_digest": settlement.decision_frame_digest,
         "effects": [
             {
@@ -596,11 +605,27 @@ def _settlement_payload(
                 "reason": item.reason,
                 "status": item.status.value,
                 "terminal": item.terminal,
+                "savings_evidence_class": (
+                    item.savings_evidence_class.value
+                    if item.savings_evidence_class is not None
+                    else None
+                ),
+                "currency": item.currency,
+                "baseline_window_digest": item.baseline_window_digest,
+                "treatment_window_digest": item.treatment_window_digest,
+                "demand_normalization_digest": item.demand_normalization_digest,
+                "finalized_billing_receipt_digest": item.finalized_billing_receipt_digest,
+                "allocation_rule_digest": item.allocation_rule_digest,
             }
             for item in settlement.effects
         ],
         "episode_id": settlement.episode_id,
         "realized_savings": str(settlement.realized_savings),
+        "realized_savings_evidence_class": (
+            settlement.realized_savings_evidence_class.value
+            if settlement.realized_savings_evidence_class is not None
+            else None
+        ),
         "recovery_observed": settlement.recovery_observed,
         "rollback_request_id": (
             settlement.rollback_request.request_id

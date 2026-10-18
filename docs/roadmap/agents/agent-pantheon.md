@@ -28,6 +28,10 @@ The pantheon is a thin re-framing of the existing FDAI control loop into named o
   The observation-first default runs sensing, inventory, telemetry, replay, learning, prediction, and advisory audit while Var, Thor, Vidar, and Saga retain their fixed roles without approval, rollback, or privileged executor bindings. Var requests a person only after the governed-execution add-on and its authority are independently available.
 - **Two-port model.** Every agent exposes typed pub/sub for authority-bearing machine traffic and a read-only conversational presentation port for operators and bounded peer deliberation (§6).
 - **Single-writer, multi-reader topics.** Each object type has exactly one publishing owner agent; anyone may subscribe (§6.1).
+- **Cost optimization ingress preserves single ownership.** An optional package can send an
+  authority-free candidate through Huginn-owned Event ingress, but it cannot name an agent
+  principal. Njord validates activation and lineage, persists retry state, and remains the sole
+  `object.cost-anomaly` publisher before Forseti and optional Odin processing.
 - **Judge is not the executor.** Forseti judges and Var carries authorized non-expired approval. Thor rechecks the authority ceiling, Saga receipt, stable idempotency reservation, and owner-fenced distributed resource claim before execution; restart ambiguity stays `execution_unknown`.
   When a deployment selects the single-operator production approval profile, Forseti, Var, and
   Thor carry the same digest-verified profile revision that Core selected from Mimir's active

@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 기반 FinOps 패키지 아키텍처
 translation_of: finops-package-architecture.md
-translation_source_sha: 6dbc420988a53e22bfe3dff18b535464ffa9f988
-translation_revised: 2026-10-17
+translation_source_sha: 507019dab647a5e3d23371832713b2ebf97a99df
+translation_revised: 2026-10-18
 ---
 
 # 온톨로지 기반 FinOps 패키지 아키텍처
@@ -25,14 +25,12 @@ Operator post-turn review 발행도 Cost Governance package 활성화, Njord 발
 > **현재 상태:** FDAI에는 이제 독립적인 `fdai-cost-governance` wheel, source distribution,
 > 이미지 프로파일, 정확한 온톨로지 프로파일, 원자적인 disabled-first 패키지 수명 주기,
 > 패키지 소유 카탈로그 자산, gate가 적용된 Operator 및 Console 변환 결과와 로컬 W0-W7 검증
-> 메커니즘이 있습니다. 이 패키지는 검토된 서비스 기능군 프로필 5개, 단일 리소스 및 범위가
-> 제한된 결합 대상 계획, 만료되는 범위 지정 확인 진술을 갖춘 결정론적 최적화 계약도 제공합니다.
-> 순수 패키지 조합기는 실행 가능한 결합 right-size 계획을 기존 Njord 소유 `cross-vertical`
-> 후보 계약에 연결하고 정확한 대상, 프로필, 리소스별 현재 및 제안 구성, 최신성, 목표 효과,
-> 인과 순서 및 논리적 잠금 계보를 보존합니다. 중복 리소스 대상과 제한을 초과한 효과 또는
+> 메커니즘이 있습니다. 중복 리소스 대상과 제한을 초과한 효과 또는
 > 최신성 출처는 조합 전에 안전하게 거부합니다. 이 조합기는 Njord를 대신해 게시하거나 승인 또는
-> 실행 권한을 부여할 수 없습니다. 실제 게시와
-> 완전한 Freyr/Forseti/Odin 사례 조립은 남아 있습니다. 적격하지 않은 근거는 안전한 쪽으로
+> 실행 권한을 부여할 수 없습니다. 활성화 개정으로 제한된 패키지 런타임이 권한 없는 후보를 정규
+> 유입 지점으로 보내며, Njord만 영구 outbox를 통해 기존 Forseti/Odin 사례 및 중재 경로에
+> 게시합니다. Freyr 용량 근거와 Var/Thor 승인 또는 실행은 계속 독립적으로 소유되는 입력입니다.
+> 적격하지 않은 근거는 안전한 쪽으로
 > 차단하고 모든 후보는 승인 또는 실행 권한을 갖지 않습니다. 패키지 결과 타입은 승인, 실행, 승격 또는 실행기 주체 필드를 포함하지 않습니다.
 > 유효한 세분성 또는 신원 정책이 허용하지 않으면 Operator 공개 결과에서
 > 리소스 권고를 제외할 수 있습니다. 제한된 변환 결과는 공개 권고 수가 원본 수와 일치할 것을

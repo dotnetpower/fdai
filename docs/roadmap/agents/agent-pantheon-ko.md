@@ -1,7 +1,7 @@
 ---
 title: 에이전트 판테온
 translation_of: agent-pantheon.md
-translation_source_sha: b80016edb93b4d420d01da27b4cfd4fb50a53e9f
+translation_source_sha: 80f8cdc98c317d7a9d7a991f6a74776f0e6feb54
 translation_revised: 2026-10-18
 ---
 # 에이전트 판테온
@@ -31,6 +31,10 @@ FDAI의 고정된 15개 명명 에이전트 조직이 cloud-operations 런타임
   관찰 우선 기본값은 관측, 인벤토리, 텔레메트리, 재생, 학습, 예측 및 자문 감사를 실행합니다. Var, Thor, Vidar, Saga의 고정 역할은 유지하지만 승인, 롤백 또는 권한 있는 실행기 바인딩을 제공하지 않습니다. Var는 `governed-execution` 추가 기능과 별도 권한이 준비된 뒤에만 사람 검토를 요청합니다.
 - **두 포트 모델.** 모든 에이전트는 권한이 있는 기계 트래픽용 타입 지정 pub/sub와 운영자 및 범위가 제한된 동료 숙의용 읽기 전용 대화 표현 포트를 제공합니다 (§6).
 - **단일 게시자, 여러 구독자.** 각 객체 타입은 정확히 하나의 소유 에이전트만 게시하며 누구나 구독할 수 있습니다 (§6.1).
+- **비용 최적화 유입은 단일 소유권을 보존합니다.** 선택적 패키지는 Huginn 소유 Event 유입
+  지점을 통해 권한 없는 후보를 보낼 수 있지만 에이전트 principal을 지정할 수 없습니다. Njord는
+  활성화와 계보를 검증하고 재시도 상태를 보존하며 Forseti 및 선택적 Odin 처리 전에
+  `object.cost-anomaly`를 게시하는 유일한 소유자로 유지됩니다.
 - **판단자는 실행기가 아님.** Forseti가 판단하고 Var가 권한이 있으며 만료되지 않은 승인을 전달합니다. Thor는 권한 상한, Saga 증적, 안정적인 멱등성 예약, 소유자 경계가 적용된 분산 리소스 점유를 다시 확인한 뒤 실행하며 재시작 모호성은 `execution_unknown`으로 유지합니다.
   배포가 단독 운영자 프로덕션 승인 프로필을 선택하면 Forseti, Var, Thor는 같은 고정 프로필 개정을
   ActionRun 및 승인 티켓과 함께 전달합니다. 이 개정은 Core가 Mimir의 활성 승인 정책 관리

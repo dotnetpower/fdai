@@ -35,7 +35,8 @@ bounded evidence. Agents remain the active control plane and own every state tra
 > planned. The catalog promotion gates are unchanged. Before a target's gate passes, promoting it
 > requires a separately approved attributed operator override that records the gate result at that
 > time and never counts as promotion evidence elsewhere.
-> Twelve critique rounds fixed every identified Medium-or-higher defect; the final review found only Low test-organization opportunities. No runtime authority changed.
+> Runtime publication, reinjection, calibration, and savings lineage are implemented locally
+> without authority changes. Ten F07 critique rounds fixed all confirmed defects above Low.
 
 ## Design at a glance
 

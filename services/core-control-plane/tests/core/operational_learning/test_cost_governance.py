@@ -14,6 +14,7 @@ from fdai.shared.providers.cost_governance_decision import (
     CostEffectKind,
     CostEffectSettlement,
     CostEpisodeSettlement,
+    CostSavingsEvidenceClass,
     CostSettlementStatus,
 )
 
@@ -50,6 +51,8 @@ def _verified_settlement(
     return CostEpisodeSettlement(
         episode_id=episode_id,
         decision_frame_digest=DIGEST_A,
+        action_ref=f"action-run:{episode_id}",
+        action_revision=1,
         effects=(
             CostEffectSettlement(
                 effect_id="effect-cost",
@@ -61,10 +64,19 @@ def _verified_settlement(
                 observation_digest=DIGEST_B,
                 completeness_digest=DIGEST_C,
                 settled_at=NOW,
+                savings_evidence_class=CostSavingsEvidenceClass.VERIFIED_RUN_RATE,
+                currency="USD",
+                baseline_window_digest=DIGEST_A,
+                treatment_window_digest=DIGEST_B,
+                demand_normalization_digest=DIGEST_C,
             ),
         ),
         terminal=True,
         realized_savings=Decimal(realized),
+        realized_savings_currency="USD" if Decimal(realized) > 0 else None,
+        realized_savings_evidence_class=(
+            CostSavingsEvidenceClass.VERIFIED_RUN_RATE if Decimal(realized) > 0 else None
+        ),
         rollback_request=None,
         recovery_observed=False,
         settled_at=NOW,
@@ -174,9 +186,16 @@ def test_learning_rejects_censored_and_unscorable_cases() -> None:
                     reason=f"{status.value}-fixture",
                     observed_value=None,
                     observation_digest=None,
+                    savings_evidence_class=None,
+                    currency=None,
+                    baseline_window_digest=None,
+                    treatment_window_digest=None,
+                    demand_normalization_digest=None,
                 ),
             ),
             realized_savings=Decimal("0"),
+            realized_savings_currency=None,
+            realized_savings_evidence_class=None,
         )
         candidate = _case(
             f"episode-{status.value}",

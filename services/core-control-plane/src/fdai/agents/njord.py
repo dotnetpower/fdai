@@ -14,6 +14,9 @@ from typing import Any
 
 from fdai.agents._framework.bounded import BoundedLruSet
 from fdai.agents._framework.bus import PantheonBus
+from fdai.agents._framework.cross_vertical_candidates import (
+    validate_cross_vertical_candidate,
+)
 from fdai.agents._framework.introspection import (
     IntrospectionResult,
     agent_state_evidence_ref,
@@ -28,11 +31,17 @@ from fdai.agents._framework.njord_cost_outbox import (
     accepted_cost_sample_key,
 )
 from fdai.agents._framework.njord_cost_payload import cost_anomaly_payload
+from fdai.agents._framework.njord_optimization_outbox import (
+    OptimizationCandidateOutbox,
+    OptimizationOutboxRecord,
+)
 from fdai.agents._framework.pantheon import _NJORD
 from fdai.agents._framework.producer_auth import require_topic_owner
 from fdai.agents._framework.specialist_ingress import (
+    COST_OPTIMIZATION_EVENT,
     COST_SAMPLE_EVENT,
     has_resource_id_conflict,
+    parse_cost_optimization,
     parse_cost_sample,
 )
 from fdai.agents._framework.topics import stable_idempotency_key
@@ -104,6 +113,7 @@ class Njord(CostAnomalyOutboxMixin):
             max_pending=cost_anomaly_outbox_max_pending,
             retain_published=_MAX_COST_ANOMALY_OUTBOX_PUBLISHED,
         )
+        self._optimization_outbox = OptimizationCandidateOutbox(state_store=state_store)
         for sample in initial_samples:
             self._remember_initial_sample(sample)
 
@@ -120,6 +130,9 @@ class Njord(CostAnomalyOutboxMixin):
             payload,
             behavior="cost_sample:invalid_producer",
         ):
+            return
+        if payload.get("event_type") == COST_OPTIMIZATION_EVENT:
+            await self._ingest_optimization_candidate(payload)
             return
         if payload.get("event_type") != COST_SAMPLE_EVENT:
             self.record_behavior("cost_sample:ignored_event")
@@ -179,6 +192,56 @@ class Njord(CostAnomalyOutboxMixin):
             sample,
             sample_key=str(payload.get("idempotency_key") or payload.get("event_id") or ""),
         )
+
+    async def _ingest_optimization_candidate(self, payload: dict[str, Any]) -> None:
+        signal = parse_cost_optimization(payload)
+        if signal is None:
+            self.record_behavior("optimization_candidate:invalid")
+            return
+        if not await self._message_enabled(signal.activation_revision):
+            self.record_behavior("optimization_candidate:activation_unavailable")
+            return
+        candidate = {**signal.candidate, "producer_principal": "Njord"}
+        try:
+            validate_cross_vertical_candidate("object.cost-anomaly", candidate)
+        except (TypeError, ValueError):
+            self.record_behavior("optimization_candidate:invalid")
+            return
+        candidate_key = str(candidate["idempotency_key"])
+        async with self._scope_lock(f"optimization:{candidate['resource_id']}"):
+            try:
+                record = await self._optimization_outbox.claim(
+                    candidate_key=candidate_key,
+                    pending_since=str(candidate["observed_at"]),
+                    payload=candidate,
+                )
+            except ValueError:
+                self.record_behavior("optimization_candidate:idempotency_conflict")
+                return
+            if record is None:
+                self.record_behavior("optimization_candidate:outbox_full")
+                return
+            if record.state == "published":
+                self.record_behavior("optimization_candidate:duplicate")
+                return
+            if not await self._publish_proposal("object.cost-anomaly", dict(record.payload)):
+                self.record_behavior("optimization_candidate:publication_pending")
+                return
+            await self._optimization_outbox.mark_published(record)
+            self.record_behavior("optimization_candidate:published")
+
+    async def maintenance_tick(self) -> None:
+        await super().maintenance_tick()
+        for record in await self._optimization_outbox.pending(limit=16):
+            if not await self._publish_optimization_record(record):
+                break
+
+    async def _publish_optimization_record(self, record: OptimizationOutboxRecord) -> bool:
+        if not await self._publish_proposal("object.cost-anomaly", dict(record.payload)):
+            return False
+        await self._optimization_outbox.mark_published(record)
+        self.record_behavior("optimization_candidate:redriven")
+        return True
 
     # ---- ingestion -----------------------------------------------------
 

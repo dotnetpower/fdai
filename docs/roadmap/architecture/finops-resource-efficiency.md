@@ -26,9 +26,9 @@ FinOps control loop without creating a second ontology, agent organization, or e
 > only to the existing safety-check path. A pure Njord candidate composer now binds eligible
 > coupled right-size plans to the existing owner-authenticated cross-vertical contract with exact
 > target, profile, candidate, freshness, objective-effect, causal-order, and logical-lock lineage.
-> Runtime Njord publication,
-> complete Freyr/Forseti/Odin case assembly, approval/execution integration, and a live settled
-> efficiency cohort remain open.
+> Activation-fenced runtime publication now enters through Huginn and Njord's durable outbox.
+> Accountable processing, reinjection, calibration, and settlement have local evidence; live
+> utilization, calibration, and settlement remain installation qualification.
 
 ## Design at a glance
 
@@ -179,6 +179,8 @@ human approval, Var runs that separate approval step. No response, an expired re
 ineligible respondent, or a conflict leaves the case held without mutation. FDAI never requests a
 secret or credential as clarification.
 
+Reinjection binds clarification, case/target revision, and cutoff idempotently; it grants no authority and holds on drift, expiry, conflict, or missing state.
+
 ## Deterministic service-family profiles
 
 One utilization percentage is not a portable sizing rule. Each profile is a versioned declarative
@@ -232,6 +234,14 @@ without comparable demand is not realized savings.
 
 Usage optimization and rate optimization should not double count the same baseline. A commitment
 purchase should use the capacity remaining after accepted resource-efficiency decisions.
+
+Forecast calibration separately binds model revision, target, window, cutoff, currency, prediction,
+and a complete authoritative actual. MAPE and signed bias appear only after the minimum nonzero
+cohort; unavailable denominators stay explicit, and calibration grants no authority.
+
+Nonzero savings additionally bind the exact case/action revision, currency, comparable windows,
+and demand normalization. Invoice allocation also requires finalized billing and allocation-rule
+receipts; estimated, mixed-currency, incomplete, or unbound values remain unscorable.
 
 ## Console information architecture
 
