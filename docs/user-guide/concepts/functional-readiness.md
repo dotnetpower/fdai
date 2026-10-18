@@ -15,7 +15,7 @@ installation-specific operational qualification instead of treating a feature na
 > evidence owners. Their final cumulative slices passed **908 focused tests**, plus **8 actual
 > isolated PostgreSQL checks**; one unrelated optional PostgreSQL exporter test skipped because its
 > external validation variable wasn't configured. Ten critique rounds with ten controls each were
-> completed for each function group, with no confirmed finding above Low in the final implemented
+> completed for each function group, with no confirmed defect above Low in the final implemented
 > slices. This is repository implementation evidence, not independent human approval or a new live
 > Azure, model, billing, production-database, or deployment validation.
 
@@ -83,7 +83,7 @@ English-only references and are not replaced by this assessment.
 | Function | State | Evidence, supported scope, and remaining conditions |
 |----------|-------|-----------------------------------------------------|
 | <span id="f06-1">F06.1</span> | <span class="fdai-readiness-badge" data-readiness="ready">Ready</span> | Scope: typed proposed-change intake, policy/risk assessment, exact target and revision validation, bounded simulation, alternative comparison, stop conditions, and rollback evidence in the finalized plan. The [change guide](../capabilities/change-safety.md), [planning ledger](../../roadmap-implementation/decisioning/operational-planning.md), and focused planning tests support this scope. Approval, execution, and independent post-change observation remain separate action qualification; a proposal never closes a change. |
-| <span id="f06-2">F06.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | Scope: current-schema drift and control-gap findings, scoped policy evaluation, evidence-bearing exceptions, deterministic conflicts, and all nine Rule-revision phases through retained artifacts, cohort activation, retirement, rollback, and authority compare-and-set. The [rule ledger](../../roadmap-implementation/rules-and-detection/rule-governance.md) and 78 current focused checks support the implemented scope. A real installation still needs legacy-pointer migration, complete provider collection, trusted Entra verifier evidence, scaled-replica convergence, direct/offline activation receipts, and measured rollout quality. Those are mandatory operational conditions, so this function remains Partial. |
+| <span id="f06-2">F06.2</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | Scope: current-schema drift and control-gap detection, scoped policy evaluation, evidence-bearing exceptions, deterministic conflicts, and all nine Rule-revision phases through retained artifacts, cohort activation, retirement, rollback, and authority compare-and-set. The [rule ledger](../../roadmap-implementation/rules-and-detection/rule-governance.md) and 78 current focused checks support the implemented scope. A real installation still needs legacy-pointer migration, complete provider collection, trusted Entra verifier evidence, scaled-replica convergence, direct/offline activation receipts, and measured rollout quality. Those are mandatory operational conditions, so this function remains Partial. |
 | <span id="f06-3">F06.3</span> | <span class="fdai-readiness-badge" data-readiness="partial">Partial</span> | Scope: immutable ARB evidence packages and receipts, architecture and readiness assessment, runtime-selected typed ORR ingress, receipt-gated readiness, Forseti-owned observation, and durable cross-replica idempotency and projection fences. Missing, ambiguous, stale, truncated, or incomplete sources hold without granting approval, topic ownership, mutation, or execution authority. The [ARB ledger](../../roadmap-implementation/architecture/architecture-review-board.md), [readiness ledger](../../roadmap-implementation/operations/operational-readiness.md), 194 focused checks, and four isolated PostgreSQL checks support this scope. Production posture/report/admission providers, accountable owner approvals, end-to-end shadow and promotion cohorts, signed terminals, and deployed Workflow effect receipts remain mandatory and unverified, so this function remains Partial. |
 
 ## F07. Cost governance
@@ -105,7 +105,7 @@ inputs or prove production savings.
 
 ### F06.2 deployment and policy rollout
 
-| Remaining work | Accountable owner | Completion evidence |
+| Remaining work | Responsible owner | Completion evidence |
 |----------------|-------------------|---------------------|
 | Migrate a retained legacy Rule pointer and cohort through the current nine-phase revision path | Mimir and release owner | Exact old/new releases, migration receipt, active-pointer readback, rollback and retained-history verification |
 | Bind complete drift and control-gap provider collection | Huginn, Heimdall and deployment provider owner | Authenticated scope, source identity, completeness/freshness receipt and measured missing-source behavior |
@@ -119,12 +119,12 @@ inputs or prove production savings.
 
 ### F06.3 ARB and operational-readiness qualification
 
-| Remaining work | Accountable owner | Completion evidence |
+| Remaining work | Responsible owner | Completion evidence |
 |----------------|-------------------|---------------------|
 | Bind a production posture provider | Heimdall, Assurance Twin and deployment owner | Current workload/scope projection with source identity, freshness and completeness |
 | Bind the readiness-report publisher | Forseti, Saga and Operator owner | Authenticated Checks API or Console projection receipt with exact source revision |
 | Bind decision-evidence admission for ARB | Security and evidence owner | Governed evidence store, trust roots, purpose, scope and revision admission |
-| Configure real ARB owners, evidence and approval routes | Architecture, security, privacy, data, operations, reliability, release, cost and performance owners | Accountable subjects, escalation routes, evidence digests and attributed approvals |
+| Configure real ARB owners, evidence and approval routes | Architecture, security, privacy, data, operations, reliability, release, cost and performance owners | Named owners, escalation routes, evidence digests and attributed approvals |
 | Retain one governed ORR shadow receipt | Forseti, Saga and operations owner | Ownership-transfer event, independent bundle, durable report and no execution effect |
 | Carry one ORR through the safety check and human approval | Forseti, Var and Saga | Broker receipt, exact risk decision and distinct attributed approver |
 | Measure a frozen false-positive shadow cohort | Forseti, Muninn and assurance owner | Representative scenario manifest, decisions, outcomes, denominators and uncertainty |
@@ -136,7 +136,7 @@ inputs or prove production savings.
 
 ### F07 installation activation and measurement
 
-| Remaining work | Accountable owner | Completion evidence |
+| Remaining work | Responsible owner | Completion evidence |
 |----------------|-------------------|---------------------|
 | Bind real billing, Budget, Advisor and utilization sources | Installation and Cost Analytics provider owner | Current authenticated source manifests and complete/partial/unavailable readback |
 | Verify service, workload and relationship coverage | Installation ontology and inventory owner | Coverage receipt for the exact cost allocation scope |
