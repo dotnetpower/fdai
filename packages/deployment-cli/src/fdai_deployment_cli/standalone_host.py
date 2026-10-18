@@ -2709,7 +2709,7 @@ def _recover_apply(args: argparse.Namespace, work_dir: Path) -> dict[str, object
         if completed.returncode != 0:
             raise ValueError("standalone apply effect is not recoverably converged")
     effect_verified = (
-        _readback_aks_service_update(context, update)
+        _readback_aks_service_update(service_recovery.readback_context(work_dir, context), update)
         if update is not None
         else _readback_stage(stage, context)
     )
