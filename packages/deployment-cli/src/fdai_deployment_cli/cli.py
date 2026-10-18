@@ -70,6 +70,7 @@ from fdai_deployment_cli.simulation import rehearse
 from fdai_deployment_cli.source_azure import plan_source_installation
 from fdai_deployment_cli.source_deploy import prepare_source_deployment
 from fdai_deployment_cli.source_service_update import deploy_source_service_update
+from fdai_deployment_cli.source_service_update_cli import source_service_update_inputs
 from fdai_deployment_cli.source_teardown import AzureResourceGroupClient, apply_source_teardown
 from fdai_deployment_cli.standalone_deploy import deploy_azure_foundation
 from fdai_deployment_cli.state import read_journal
@@ -461,19 +462,9 @@ def _provision_entra(args: argparse.Namespace) -> int:
 def _provision_source_service_update(args: argparse.Namespace) -> int:
     """Build and deploy one source-selected service from an eligible deployment host."""
 
-    source = args.source.absolute()
-    application = args.application_work_dir.absolute()
-    selected = args.work_dir
-    if selected is None:
-        commit = subprocess.run(
-            ("git", "rev-parse", "HEAD"),
-            cwd=source,
-            check=True,
-            capture_output=True,
-            text=True,
-            timeout=30,
-        ).stdout.strip()
-        selected = Path.home() / ".local/state/fdai/source-service-updates" / commit / args.service
+    source, application, selected, development_profile, clear_development_profile = (
+        source_service_update_inputs(args)
+    )
     result = deploy_source_service_update(
         source_root=source,
         application_work_dir=application,
@@ -485,6 +476,8 @@ def _provision_source_service_update(args: argparse.Namespace) -> int:
         adopt_historical_variables=args.adopt_historical_variables,
         adopt_historical_live=args.adopt_historical_live,
         adopt_historical_plan=args.adopt_historical_plan,
+        development_authority_profile=development_profile,
+        clear_development_authority_profile=clear_development_profile,
     )
     print(
         json.dumps(result, sort_keys=True, separators=(",", ":"))

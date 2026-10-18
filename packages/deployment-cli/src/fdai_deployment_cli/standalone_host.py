@@ -41,6 +41,8 @@ from fdai_deployment_cli.aks_service_update import (
 from fdai_deployment_cli.aks_service_update import (
     deployment_snapshot,
     peers_unchanged,
+    service_update_review as _service_update_review,
+    service_update_target as _service_update_target,
     validate_plan_scope,
     validate_update_request,
 )
@@ -61,6 +63,7 @@ from fdai_deployment_cli.runtime_profile import (
 )
 from fdai_deployment_cli.standalone_development_authority import (
     apply_initial_development_authority,
+    apply_service_update_development_authority,
     development_authority_from_args,
     reconcile_retained_development_authority,
 )
@@ -282,6 +285,12 @@ def main(argv: list[str] | None = None) -> int:
     prepare_service_update.add_argument("--service", choices=sorted(AKS_SERVICES), required=True)
     prepare_service_update.add_argument("--image", required=True)
     prepare_service_update.add_argument("--source-commit", required=True)
+    prepare_service_update.add_argument("--development-authority-profile", type=Path)
+    prepare_service_update.add_argument(
+        "--clear-development-profile",
+        action="store_true",
+        dest="clear_development_authority_profile",
+    )
     prepare_service_update.set_defaults(handler=_prepare_aks_service_update)
 
     adopt_historical = subcommands.add_parser("adopt-historical-aks-application")
@@ -629,7 +638,6 @@ def _prepare(args: argparse.Namespace, work_dir: Path) -> dict[str, object]:
         "resource_name_suffix": suffix,
         "foundation_resource_group_context_digest": str(app["foundation_context_digest"]),
         "enable_private_networking": not aks_baseline,
-        # The AKS baseline has no archive private endpoint; policy-private storage would drift.
         "enable_operational_history": not aks_baseline,
         "enable_aks_key_vault_private_access": key_vault_private_access,
         "enable_aks_document_storage_private_access": document_storage_private_access,
@@ -1274,6 +1282,12 @@ def _prepare_aks_service_update(args: argparse.Namespace, work_dir: Path) -> dic
             raise ValueError("AKS service update baseline differs from retained desired state")
     selected["image"] = str(args.image)
     selected["source_commit"] = str(args.source_commit)
+    authority_operation, authority_digest = apply_service_update_development_authority(
+        args,
+        context=context,
+        workload=selected,
+        source_revision=str(args.source_commit),
+    )
     workloads[service] = selected
     selected_expected = _mapping(expected[service], f"expected AKS workload {service}")
     selected_expected["image"] = str(args.image)
@@ -1286,6 +1300,8 @@ def _prepare_aks_service_update(args: argparse.Namespace, work_dir: Path) -> dic
         "source_commit": str(args.source_commit),
         "target_binding": context["target_binding"],
         "runtime_profile_digest": _runtime_profile_digest(context),
+        "development_authority_operation": authority_operation,
+        "development_authority_profile_digest": authority_digest,
     }
     operation = f"service-update-{service}-{canonical_digest(update_identity)[:12]}"
     record: dict[str, object] = {
@@ -1317,6 +1333,8 @@ def _prepare_aks_service_update(args: argparse.Namespace, work_dir: Path) -> dic
         "service": service,
         "image": str(args.image),
         "source_commit": str(args.source_commit),
+        "development_authority_operation": authority_operation,
+        "development_authority_profile_digest": authority_digest,
         "update_digest": record["update_digest"],
         "mutation_performed": False,
         "subscription_ready": False,
@@ -2045,21 +2063,6 @@ def _application_operation(
     if reconciliation is not None:
         return str(reconciliation["operation"]), reconciliation
     return (str(update["operation"]) if update is not None else stage), None
-
-
-def _service_update_review(update: dict[str, Any]) -> dict[str, str]:
-    return {
-        "service": str(update["service"]),
-        "image": str(update["image"]),
-        "source_commit": str(update["source_commit"]),
-        "update_digest": str(update["update_digest"]),
-    }
-
-
-def _service_update_target(service: str) -> str:
-    if service not in AKS_SERVICES:
-        raise ValueError("AKS service update target is unsupported")
-    return f'kubernetes_deployment_v1.workload["{service}"]'
 
 
 def _capture_aks_deployments(context: dict[str, object], *, service: str | None = None) -> str:
@@ -4344,7 +4347,6 @@ def _readback_stage(stage: str, context: dict[str, object]) -> bool:
         if not kubeconfig.is_file():
             raise ValueError("AKS kubeconfig is unavailable for workload readback")
         expected = _mapping(context.get("expected_workloads"), "expected AKS workloads")
-        # The rendered set follows the product profile; health requires it exactly.
         if "core-control-plane" not in expected:
             return False
         observed = []
