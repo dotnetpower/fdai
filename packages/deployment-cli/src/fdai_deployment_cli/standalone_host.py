@@ -245,12 +245,6 @@ def main(argv: list[str] | None = None) -> int:
     prepare.add_argument("--catalog-review-profile", type=Path)
     prepare.add_argument("--catalog-review-private-key", type=Path)
     prepare.add_argument("--operational-evidence-verifier-input", type=Path)
-    prepare.add_argument("--development-authority-profile", type=Path)
-    prepare.add_argument(
-        "--clear-development-profile",
-        action="store_true",
-        dest="clear_development_authority_profile",
-    )
     prepare.add_argument("--runtime-platform", default="aks")
     prepare.add_argument("--database-placement", default="postgres-flex")
     prepare.add_argument("--system-node-count", type=int, default=3)
