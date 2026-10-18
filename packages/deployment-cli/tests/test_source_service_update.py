@@ -84,8 +84,17 @@ def test_source_service_update_builds_imports_plans_and_verifies(
             return {"state": "not-required"}
         if command == "plan":
             return {"review_digest": "f" * 64}
+        if command == "finalize-service-update":
+            return {
+                "state": "finalized",
+                "service": "operator-service",
+                "apply_receipt_digest": "1" * 64,
+                "mutation_performed": False,
+                "receipt_digest": "2" * 64,
+            }
         assert command == "apply"
         return {
+            "operation": "service-update-operator-service-aaaaaaaaaaaa",
             "receipt_digest": "1" * 64,
             "control_plane_readback_verified": True,
             "peer_state_unchanged_verified": True,
@@ -130,6 +139,7 @@ def test_source_service_update_builds_imports_plans_and_verifies(
         "recover-apply",
         "plan",
         "apply",
+        "finalize-service-update",
     ]
 
 
@@ -241,10 +251,19 @@ def test_source_service_update_reconciles_historical_baseline_before_import(
             return {"review_digest": "f" * 64}
         if command == "apply":
             return {
+                "operation": "service-update-operator-service-aaaaaaaaaaaa",
                 "receipt_digest": "1" * 64,
                 "control_plane_readback_verified": True,
                 "peer_state_unchanged_verified": True,
                 "terraform_zero_change_verified": True,
+            }
+        if command == "finalize-service-update":
+            return {
+                "state": "finalized",
+                "service": "operator-service",
+                "apply_receipt_digest": "1" * 64,
+                "mutation_performed": False,
+                "receipt_digest": "2" * 64,
             }
         raise AssertionError(f"unexpected command: {command}")
 
@@ -291,6 +310,7 @@ def test_source_service_update_reconciles_historical_baseline_before_import(
         "recover-apply",
         "plan",
         "apply",
+        "finalize-service-update",
     ]
     assert len(plan_reviews) == (2 if recovery_state == "not-required" else 1)
     if recovery_state == "not-required":
