@@ -20,6 +20,26 @@ different atomic ledger. Neither persisted accounting nor a binding grants actio
 
 ## Customization via Dependency Injection
 
+### Self-health source bindings
+
+`runtime_self_health_registry` in `delivery/self_health_sources.py` composes implementations of the
+existing `SelfHealthExporter` and `OperationalStateFieldExporter` seams without changing their signatures.
+It takes the owning `StateStore`, a time-aware guarded-readiness callback, an optional actual
+listener-liveness callback, and the validated runtime-policy values consumed at bootstrap.
+`build_startup_readiness_runtime` accepts the complete `self_health_exporter_registry` override;
+otherwise it composes those sources through its `liveness` and `runtime_policy` arguments.
+
+With the actual listener and consumed policy supplied, standard composition binds three signals
+and three fields, not complete operational health. An absent listener binding or policy stays
+unavailable; an absent or malformed kill-switch row never
+becomes a healthy false value. `SelfHealthExporterUnavailableError.reason` preserves only
+`exporter_unavailable`, `source_missing`, `source_malformed`, or `source_unreachable`.
+The remaining 12 signals and five fields keep explicit unavailable bindings until their owning
+sources exist. These read-only adapters grant no identity, approval, execution, or promotion
+authority. See the [operating source contract](../operations/operating-and-verification.md#local-source-bindings).
+
+### Composition and existing seams
+
 Upstream defines generic interfaces and working defaults. Forks customize through dependency injection at their own composition root, without editing or copying `core/`; see [the fork model](../../../.github/instructions/generic-scope.instructions.md). [Alert noise governance](../operations/alert-noise-governance.md) uses bounded readers, independent evidence, existing Workflow/Process orchestration, GitOps delivery, source fencing, and effect relays. Its shared alert codec owns private-evidence size bounds without widening ontology-query limits; its pure assessment propagates incomplete routing to report coverage. Shared temporal-series schemas pin complete uniform exposure and paired detector outcomes. Core compares one window/frequency axis, while delivery authenticates frozen source records and renders only supported Azure Terraform duration fields. Operator request history joins its own acceptance to the exact signed terminal; shared proposal details bind baseline and replay metrics without accessing Core tables or creating approval/outcome authority. Factories provide mechanics, not independent authority or recipient/effect receipts; operational adoption remains gated.
 
 > **Fork maintainers**: start with the procedural walkthrough in

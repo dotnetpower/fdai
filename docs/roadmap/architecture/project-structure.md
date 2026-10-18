@@ -103,6 +103,14 @@ and eight sanitized operational-state fields, persists one freshness-checked sna
 unavailable sources without inventing healthy values. Operator exposes that snapshot through the
 authenticated Reader-role `GET /operations/runtime-state` projection. Delivery adapters remain
 responsible for replacing explicit unavailable bindings with source-qualified production metrics.
+`delivery/self_health_sources.py` now supplies three signals from the owned health listener,
+guarded readiness state, and persisted kill switch, plus three fields from the installed Core
+version, consumed bootstrap policy, and persisted kill switch. `runtime/readiness.py` serializes
+snapshot collection while refreshing sources independently of startup probes. The other 12
+signals and five fields remain unavailable; these process-local reads prove neither fleet health
+nor deployment acceptance. The [source-injection contract](project-structure-dependency-injection.md#self-health-source-bindings)
+and [operating owner](../operations/operating-and-verification.md#local-source-bindings) define the
+remaining source and evidence boundaries without changing service or agent ownership.
 Operational promotion uses another exact cross-layer identity. Core measurement hashes every O7
 threshold policy and carries that digest in the receipt. Reviewed replay authority, the governance
 promotion request, durable receipt storage, the action-mode record, and restart verification bind

@@ -56,7 +56,7 @@ packaging rule changes no runtime profile or authority.
 
 Operator production composition uses the same focused lifecycle, route-family, and read-source
 modules in every runtime profile. The internal ownership split changes no platform selection,
-identity, source binding, readiness condition, or deployment authority.
+identity, source binding, readiness condition, or deployment authority. Core's common read-only self-health registry observes the actual listener, guarded readiness, and persisted kill switch, and identifies the installed version, consumed bootstrap policy, and kill-switch state. Its other 12 signals and five fields remain unavailable. Selecting AKS, Container Apps, or observation-first supplies no missing source, human role, executor identity, or execution authority. Process-local checks are not deployed alert/drill acceptance; see [Operating and Verification](../operations/operating-and-verification.md#local-source-bindings).
 Both profiles also use the same authenticated instance-index enrollment and bounded Core reconciliation task. Governed embedding identity gates adapter construction; cached candidates never replace current graph authorization. Unqualified semantic ranking remains closed, and exact-ID availability does not establish AKS diagnostic evidence, provider health, or deployment readiness.
 Both profiles derive static Key Vault secret names and versionless receipt-signing secret
 references from declared resource names. Provider-computed attributes remain the authority for
