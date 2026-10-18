@@ -1,6 +1,11 @@
 from __future__ import annotations
 
+import os
+from uuid import uuid4
+
+import pytest
 from fdai.core.architecture_review import ArchitectureReviewObservation
+from fdai.delivery.persistence import PostgresStateStore, PostgresStateStoreConfig
 from fdai.delivery.persistence.state_store_architecture_review import (
     StateStoreArchitectureReviewStateStore,
 )
@@ -63,3 +68,21 @@ async def test_first_observation_identity_wins_cross_replica_race() -> None:
 
     assert existing is not None
     assert existing.change_digest == "digest-1"
+
+
+async def test_postgres_restart_preserves_projection_fence() -> None:
+    dsn = os.environ.get("FDAI_DATABASE_URL")
+    if not dsn:
+        pytest.skip("FDAI_DATABASE_URL is unset")
+    config = PostgresStateStoreConfig(dsn=dsn.replace("postgresql+psycopg://", "postgresql://", 1))
+    key = f"change-key-{uuid4().hex}"
+    first = StateStoreArchitectureReviewStateStore(PostgresStateStore(config=config))
+
+    assert await first.put_if_absent(key, _observation()) is None
+    await first.mark_projection(key, "projected")
+
+    restarted = StateStoreArchitectureReviewStateStore(PostgresStateStore(config=config))
+    restored = await restarted.get(key)
+    assert restored is not None
+    assert restored.change_digest == "digest-1"
+    assert await restarted.get_projection_status(key) == "projected"
