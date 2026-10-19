@@ -211,17 +211,20 @@ The [governance](../../roadmap-implementation/decisioning/operator-governance-pr
   #2218 / [PR #2220](https://github.com/dotnetpower/fdai/pull/2220) now binds three actual local
   signals and three fields with 92 focused passes. #2228 adds a process-scoped duration from
   runtime entry to first protected readiness with a frozen observation timestamp and 80 focused passes in an
-  overlapping test slice. At that checkpoint four signals and three fields were bound.
+  overlapping test slice. #2250 adds indexed consumed-canary age with 99 focused checks, including
+  four actual isolated PostgreSQL cases and exact byte/time boundaries. Five signals and three
+  fields are now bound. The remaining ten signal sources and five field sources stay explicitly
+  unavailable; canary result/state, operational index application and delivery/drill receipts
+  remain open, and this package is not complete.
   #2240 observes actual normal embedding calls in an optional typed model sub-scope, independently
   bound to the full startup role/binding registration and checked by the Operator reader.
   The parent aggregate remains unavailable when other configured roles are unobserved.
   The final SDK/collector/Operator/integration, wheel and document selection passed 169 cases.
   This does not add a catalog signal/field or a Console model-scope view.
-  The current change additionally binds `canary_result`, `time_since_last_successful_canary` and
-  the `canary` field to the latest canonical consumed-canary audit sequence, not publication or
-  startup success. Observation time, delay integrity, freshness, unknown/truncated history and
-  cancellation remain explicit. Current coverage is six signals and four fields; nine signal
-  sources and four field sources remain unavailable, so H01 is not complete.
+  This increment adopts #2253's protected indexed age source rather than publishing a duplicate.
+  The earlier six-signal/four-field local claim is withdrawn: a last-success receipt is not the
+  latest scheduled-attempt result or complete canary state. Current coverage remains five
+  signals/three fields; ten signals/five fields are unavailable and H01 stays incomplete.
 - [ ] **H02, canary and stabilization:** Retain the exact consumed canary audit within the
   implemented 30-second budget, frozen shadow replay, stop/no-execute receipts, daily jobs, and
   recurrent-query signal. Prove stabilization opens, lowers authority on breach, and exits only

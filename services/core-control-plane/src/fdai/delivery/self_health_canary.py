@@ -1,206 +1,117 @@
-"""Read the canonical consumed canary audit without publishing a probe or granting authority."""
+"""Elapsed age from independently read consumed-canary audits, never publish acceptance."""
 
-from __future__ import annotations
-
-import asyncio
 from collections.abc import Mapping
-from dataclasses import dataclass, field
-from datetime import datetime
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from decimal import Decimal
-from typing import Any, cast
+from typing import Any, Protocol, runtime_checkable
 from uuid import NAMESPACE_URL, uuid5
 
-from fdai_service_contracts.compatibility import canonical_digest
-from fdai_service_contracts.self_health import (
-    OperationalStateFieldName,
-    OperationalStateFieldStatus,
-    OperationalStateFieldV1,
-    SelfHealthSignalName,
-)
+from fdai_service_contracts.self_health import SelfHealthSignalName
 from psycopg import Error as DatabaseError
 
-from fdai.delivery.persistence.postgres import PostgresStateStore
+from fdai.shared.providers.audit_hash import next_hash
 from fdai.shared.providers.self_health import (
     SelfHealthExporterUnavailableError,
     SelfHealthExportSample,
 )
-from fdai.shared.providers.state_store import StateStore, StateStoreAuditReader
+from fdai.shared.providers.state_store import StateStore
 
-_ACTION = "control_loop.canary"
-_ACTOR = "fdai.canary-job"
+
+@runtime_checkable
+class _LatestCanaryReader(Protocol):
+    async def read_latest_consumed_canary(self) -> Mapping[str, Any] | None: ...
 
 
 @dataclass(frozen=True, slots=True)
-class ConsumedCanaryReceipt:
-    recorded_at: datetime
-    digest: str
-
-
-@dataclass(slots=True)
-class ConsumedCanarySource:
-    """One audit read per collection time, shared by the three canary projections.
-
-    The database belongs to this installation, not this process or replica. Only a
-    consumed canonical no-op is evidence; publication and startup Kafka probes aren't.
-    """
-
+class ConsumedCanaryAgeExporter:
     store: StateStore
-    _lock: asyncio.Lock = field(default_factory=asyncio.Lock, init=False)
-    _collected_at: datetime | None = field(default=None, init=False)
-    _receipt: ConsumedCanaryReceipt | None = field(default=None, init=False)
-    _reason: str | None = field(default=None, init=False)
+    metric: str
+    signal: SelfHealthSignalName = SelfHealthSignalName.TIME_SINCE_LAST_SUCCESSFUL_CANARY
+    exporter_id: str = "state-store:consumed-canary:age"
 
-    async def read(self, *, now: datetime) -> ConsumedCanaryReceipt:
-        async with self._lock:
-            if self._collected_at != now:
-                self._receipt = None
-                self._reason = None
-                try:
-                    raw = await self._latest_entry()
-                    if raw is None:
-                        raise SelfHealthExporterUnavailableError(reason="source_missing")
-                    self._receipt = _receipt(raw, now=now)
-                except asyncio.CancelledError:
-                    # Other projections must not retry this abandoned collection.
-                    self._reason = "source_incomplete"
-                    self._collected_at = now
-                    raise
-                except (OSError, DatabaseError):
-                    self._reason = "source_unreachable"
-                except SelfHealthExporterUnavailableError as exc:
-                    self._reason = exc.reason
-                self._collected_at = now
-            if self._reason is not None:
-                raise SelfHealthExporterUnavailableError(reason=self._reason)
-            return cast(ConsumedCanaryReceipt, self._receipt)
-
-    async def _latest_entry(self) -> Mapping[str, Any] | None:
-        if isinstance(self.store, PostgresStateStore):
-            async with self.store._connection() as conn:
-                async with conn.transaction():
-                    await conn.execute("SET TRANSACTION READ ONLY")
-                    await self.store._set_statement_timeout(conn)
-                    cursor = await conn.execute(
-                        """
-                        SELECT entry FROM audit_log
-                         WHERE action_kind = %s
-                         ORDER BY seq DESC LIMIT 1
-                        """,
-                        (_ACTION,),
-                    )
-                    row = await cursor.fetchone()
-            if row is None:
-                return None
-            raw = row.get("entry")
-            if not isinstance(raw, Mapping):
-                raise SelfHealthExporterUnavailableError(reason="source_malformed")
-            return raw
-        if isinstance(self.store, StateStoreAuditReader):
-            rows, truncated = await self.store.read_audit_entries(limit=512)
-            if truncated:
-                # An oldest-first prefix cannot establish the latest consumed canary.
-                raise SelfHealthExporterUnavailableError(reason="source_incomplete")
-            return next((row for row in reversed(rows) if row.get("action_kind") == _ACTION), None)
-        raise SelfHealthExporterUnavailableError(reason="source_incomplete")
+    async def observe(self, *, now: datetime) -> SelfHealthExportSample:
+        if now.utcoffset() is None:
+            raise ValueError("canary age measurement requires an aware timestamp")
+        if not isinstance(self.store, _LatestCanaryReader):
+            raise SelfHealthExporterUnavailableError(reason="source_incomplete")
+        try:
+            row = await self.store.read_latest_consumed_canary()
+        except (OSError, DatabaseError) as exc:
+            raise SelfHealthExporterUnavailableError(reason="source_unreachable") from exc
+        if row is None:
+            raise SelfHealthExporterUnavailableError(reason="source_missing")
+        try:
+            recorded_at = _validated_recorded_at(row)
+        except (KeyError, TypeError, ValueError, OverflowError) as exc:
+            raise SelfHealthExporterUnavailableError(reason="source_malformed") from exc
+        if recorded_at > now:
+            raise SelfHealthExporterUnavailableError(reason="source_from_future")
+        elapsed = now.astimezone(UTC) - recorded_at
+        seconds = elapsed.days * 86_400 + elapsed.seconds
+        return SelfHealthExportSample(
+            signal=self.signal,
+            value=Decimal(f"{seconds}.{elapsed.microseconds:06d}"),
+            observed_at=now,
+            source=self.exporter_id,
+        )
 
 
-def _receipt(raw: Mapping[str, Any], *, now: datetime) -> ConsumedCanaryReceipt:
-    correlation = raw.get("correlation_id")
-    if not isinstance(correlation, str) or not correlation.startswith("canary:"):
-        raise SelfHealthExporterUnavailableError(reason="source_malformed")
-    slot = correlation.removeprefix("canary:")
+def _timestamp(value: object) -> datetime:
+    if not isinstance(value, str) or not 1 <= len(value) <= 64:
+        raise ValueError("canary timestamp is malformed")
+    result = datetime.fromisoformat(value)
+    if result.utcoffset() is None:
+        raise ValueError("canary timestamp is naive")
+    return result.astimezone(UTC)
+
+
+def _validated_recorded_at(row: Mapping[str, Any]) -> datetime:
+    entry = row["entry"]
+    if not isinstance(entry, Mapping):
+        raise ValueError("canary audit entry is not an object")
+    if type(row["seq"]) is not int or row["seq"] < 1:
+        raise ValueError("canary audit sequence is malformed")
     expected = {
-        "actor": _ACTOR,
-        "action_kind": _ACTION,
-        "event_id": str(uuid5(NAMESPACE_URL, f"fdai.canary://{slot}")),
-        "idempotency_key": correlation,
-        "mode": "shadow",
+        "actor": "fdai.canary-job",
+        "action_kind": "control_loop.canary",
         "tier": "canary",
         "decision": "no-op",
         "outcome": "success",
     }
+    if any(entry.get(key) != value for key, value in expected.items()):
+        raise ValueError("canary audit identity is malformed")
+    for key in ("actor", "action_kind", "event_id", "correlation_id", "mode"):
+        if row[key] != entry.get(key):
+            raise ValueError("canary audit columns conflict with its entry")
+    if entry["mode"] not in {"shadow", "enforce"}:
+        raise ValueError("canary audit mode is malformed")
+    correlation = entry["correlation_id"]
     if (
-        not slot
-        or slot != slot.strip()
-        or len(slot) > 100
-        or any(raw.get(key) != value for key, value in expected.items())
+        not isinstance(correlation, str)
+        or not correlation.startswith("canary:")
+        or not 1 <= len(correlation[7:]) <= 100
+        or correlation[7:] != correlation[7:].strip()
+        or entry["idempotency_key"] != correlation
+        or entry["event_id"] != str(uuid5(NAMESPACE_URL, f"fdai.canary://{correlation[7:]}"))
     ):
-        raise SelfHealthExporterUnavailableError(reason="source_malformed")
-    latency = raw.get("latency_ms")
-    if type(latency) is not int or latency < 0:
-        raise SelfHealthExporterUnavailableError(reason="source_malformed")
-    try:
-        detected_at = datetime.fromisoformat(raw["detected_at"])
-        recorded_at = datetime.fromisoformat(raw["recorded_at"])
-    except (KeyError, TypeError, ValueError) as exc:
-        raise SelfHealthExporterUnavailableError(reason="source_malformed") from exc
+        raise ValueError("canary event binding is malformed")
+    previous, digest = row["previous_hash"], row["entry_hash"]
     if (
-        detected_at.utcoffset() is None
-        or recorded_at.utcoffset() is None
-        or recorded_at < detected_at
+        not isinstance(previous, str)
+        or len(previous) != 64
+        or any(character not in "0123456789abcdef" for character in previous)
+        or not isinstance(digest, str)
+        or digest != next_hash(previous, entry)
+    ):
+        raise ValueError("canary audit hash is malformed")
+    recorded_at = _timestamp(entry["recorded_at"])
+    detected_at = _timestamp(entry["detected_at"])
+    latency = entry["latency_ms"]
+    if (
+        detected_at > recorded_at
+        or type(latency) is not int
         or latency != int((recorded_at - detected_at).total_seconds() * 1000)
     ):
-        raise SelfHealthExporterUnavailableError(reason="source_malformed")
-    if recorded_at > now:
-        raise SelfHealthExporterUnavailableError(reason="source_from_future")
-    return ConsumedCanaryReceipt(
-        recorded_at=recorded_at,
-        digest=canonical_digest(
-            {
-                **expected,
-                "correlation_id": correlation,
-                "detected_at": detected_at.isoformat(),
-                "recorded_at": recorded_at.isoformat(),
-                "latency_ms": latency,
-            }
-        ),
-    )
-
-
-@dataclass(frozen=True, slots=True)
-class CanarySelfHealthExporter:
-    source: ConsumedCanarySource
-    signal: SelfHealthSignalName
-    metric: str
-    exporter_id: str
-
-    async def observe(self, *, now: datetime) -> SelfHealthExportSample:
-        receipt = await self.source.read(now=now)
-        age_signal = self.signal is SelfHealthSignalName.TIME_SINCE_LAST_SUCCESSFUL_CANARY
-        return SelfHealthExportSample(
-            signal=self.signal,
-            value=(
-                Decimal(str((now - receipt.recorded_at).total_seconds()))
-                if age_signal
-                else Decimal(1)
-            ),
-            observed_at=now if age_signal else receipt.recorded_at,
-            source=self.exporter_id,
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class CanaryStateExporter:
-    source: ConsumedCanarySource
-    field_name: OperationalStateFieldName = OperationalStateFieldName.CANARY
-    exporter_id: str = "audit-log:canary:last-success-age"
-    maximum_age_seconds: int = 60
-
-    async def observe(self, *, now: datetime) -> OperationalStateFieldV1:
-        receipt = await self.source.read(now=now)
-        return OperationalStateFieldV1(
-            name=self.field_name,
-            status=OperationalStateFieldStatus.AVAILABLE,
-            value_digest=canonical_digest(
-                {
-                    "consumed_receipt_digest": receipt.digest,
-                    "last_success_at": receipt.recorded_at.isoformat(),
-                    "age_seconds": str((now - receipt.recorded_at).total_seconds()),
-                }
-            ),
-            source=self.exporter_id,
-            observed_at=now,
-            maximum_age_seconds=self.maximum_age_seconds,
-            fresh=True,
-            reason="current",
-        )
+        raise ValueError("canary audit timing is inconsistent")
+    return recorded_at
