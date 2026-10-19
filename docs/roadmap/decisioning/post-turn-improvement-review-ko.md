@@ -1,8 +1,8 @@
 ---
 title: Post-Turn 개선 검토
 translation_of: post-turn-improvement-review.md
-translation_source_sha: 3ac38258c50297bae4711acf1359bffc82de9c11
-translation_revised: 2026-10-03
+translation_source_sha: c2fb3229d1d7d9ceef109c4adbbabeab630f3d9e
+translation_revised: 2026-10-19
 ---
 
 # Post-Turn 개선 검토
@@ -30,13 +30,24 @@ Norns는 결정론적 충족 여부를 적용하고 선택적으로 서로 다�
 - 고정된 검토, operator-turn, assistant-turn, principal-scope 식별자.
 - 완료 시간과 safe 근거 참조.
 - 각 도구 증적의 도구 이름, 상태, 근거 참조. Raw 도구 출력은 제외합니다.
-- 검증 결과, 명시적 correction, recovered-failure 상태, 선택적 repeated procedure
+- 검증 결과, recovered-failure 상태, 선택적 repeated procedure
   지문.
-- principal이 `share_with_learner: true`로 설정한 경우에만 선택적 운영자 및 assistant 본문.
+- principal이 `share_with_learner: true`로 설정한 경우에만 선택적 운영자 및 assistant 본문과 명시적 교정문.
 - 범위 종류와 범위 참조를 모두 아는 경우에만 선택적 operator-memory 범위.
 
 식별자, 본문 길이, 튜플 개수, 시각, 범위 쌍은 생성 시 검증합니다. Raw 자격 증명,
 hidden reasoning, unrestricted 프로세스 상태, unrestricted 도구 출력은 계약에 포함하지 않습니다.
+
+명시적 교정문은 동의 없이 공유할 수 있는 메타데이터가 아니라 원문입니다. Bragi는 일치하는
+공유 동의가 없으면 outbox 체크포인트를 만들기 전에 두 본문과 모든 교정문을 제거합니다.
+Norns도 독립적으로 두 본문과 일치하는 동의 기록을 요구하고, 모든 교정문에서 민감정보를
+검사합니다. 본문과 교정문을 줄바꿈으로 연결한 전체 텍스트에 UTF-8 기준 64 KiB 한도를
+적용합니다. 교정문만 제공해 두 본문이 모두 있어야 한다는 조건을 우회할 수 없습니다.
+
+Outbox 복구는 일치하는 동의 기록이 없는 기존 원문 레코드를 다시 발행하지 않고 보류합니다.
+원본 레코드를 유지하고 내용을 포함하지 않는 동작 사유를 기록하며, 선택된 복구 배치의 다른
+유효한 레코드는 계속 발행할 수 있습니다. 이 처리는 과거 기록의 원문을 삭제하거나 재시작 후
+현재 동의를 독립적으로 다시 확인하는 기능은 아닙니다.
 
 ## 소유권 및 전송 계층
 

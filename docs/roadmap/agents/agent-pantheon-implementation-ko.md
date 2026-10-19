@@ -1,8 +1,8 @@
 ---
 title: 에이전트 판테온 구현 계획
 translation_of: agent-pantheon-implementation.md
-translation_source_sha: 58ebb44f8e61224571016164d2d623f6ff09357a
-translation_revised: 2026-10-16
+translation_source_sha: 34093070be8ae97abec7d27d8a5b303d0d571020
+translation_revised: 2026-10-19
 ---
 
 # 에이전트 판테온 구현 계획
@@ -100,6 +100,7 @@ sampler는 검토된 `resource.cpu.utilization_pct` 선언을 사용하고 조�
 
 | 영역 | 상태 | 근거 | 참고 |
 |------|------|------|------|
+| 사후 교정문 개인정보 경계 | implemented | `agents/_framework/{bragi_publication,norns_event_learning}.py`; `test_post_turn_correction_consent.py`; `test_post_turn_review_ingress.py`; 집중 검사 91개 | Bragi는 체크포인트를 만들기 전에 동의 없는 교정문을 제거하고, Norns는 모든 원문을 검사하며, 복구 시 일치하는 동의 기록이 없는 기존 레코드는 보류합니다. 실제 운영 동의 전달과 의미 기반 검토 입력은 [담당 원장](../../roadmap-implementation/decisioning/post-turn-improvement-review.md)의 미완료 항목으로 남습니다. |
 | Saga 공유 내부 체인 리비전 | implemented | `audit_chain_journal.py`; `audit_chain_rehydrate.py`; 소유 범위 검사 165개, 제한된 복구 검사 1개, 실제 격리 PostgreSQL 검사 5개; 다섯 소스 strict mypy와 Ruff | 공유 head와 감사를 원자적으로 확정하고 검증된 로컬 조회 범위를 제한하며, 검증할 수 없는 이전 형식의 이행은 보류합니다. 구버전 중단 후의 배포 이행, 더 긴 이력의 이행과 원격 이슈 식별자는 별도입니다. |
 | 검토된 Mimir 유지보수 근거 소스 | implemented | `mimir_maintenance_evidence.py`, `bootstrap_mimir_maintenance.py`, 표준 판테온 초기화, 근거·초기화·이슈 종료·구조 집중 검사 58개와 strict mypy·Ruff | 정확한 리비전의 불변 스냅샷 하나가 기존 승격·회귀·폐기 포트를 연결합니다. 실제 검토 입력과 런타임 증적은 배포 환경이 소유하며, 어댑터는 Rule 또는 이슈 권한을 부여하지 않습니다. |
 | 검토된 Loki 비활성 시나리오 소스 | implemented | `loki_scenario_evidence.py`, `bootstrap_loki_scenarios.py`, 공유 일정 검증, 소스·초기화·비활성 생성·일정·레이아웃 검사 49개와 strict mypy·Ruff | 검토된 불변 스냅샷 하나가 생성기와 고정 표본을 연결하지만 호출하거나 승인·실행 권한을 부여하지 않습니다. 실제 입력, 호출, 승인, Chaos 및 복구 증적은 남아 있습니다. |
@@ -137,6 +138,7 @@ sampler는 검토된 `resource.cpu.utilization_pct` 선언을 사용하고 조�
 
 | 날짜 | 상태 | 변경 | 근거 | 남은 작업 |
 |------|------|------|------|-----------|
+| 2026-10-19 | implemented | 에이전트 역할, 토픽, 모델 정책과 권한을 바꾸지 않고 영속 복구를 포함한 기존 Bragi-to-Norns 교정문 경계를 강화했습니다. | `현재 변경`; 발행, 소비, outbox, ingress, 초기화, 적격성, 배치와 일치 여부 집중 검사 91개; 두 소스 strict mypy | 실제 운영의 권위 있는 동의와 실제 의미 기반 검토 입력을 연결해야 합니다. 배포 환경 재시작, 현재 동의 재확인과 H02 반복 질의 검증은 별도 조건으로 남습니다. |
 | 2026-10-15 | implemented | 전역 StateStore 작업 결속을 보존하고, 지문 변경을 직렬화하며, 해시만 포함한 표식으로 모호한 효과를 복구하고, 이슈·댓글 식별자를 독립적으로 다시 읽는 선택적 Saga GitHub App 이슈 어댑터를 추가했습니다. | `현재 변경`, `github_issue_tracker.py`, `bootstrap_saga_issue_tracker.py`, 원격·내구성·초기화·이슈·레이아웃 검사 122개와 strict mypy·Ruff | 실제 GitHub App 설치, 네트워크, 배포 복제본·재시작 수락을 제공하고 검증해야 합니다. 어댑터는 병합, 승격, 승인 또는 실행 권한을 부여하지 않습니다. |
 | 2026-10-15 | implemented | Bragi의 기존 비활성 학습 계약을 동의 표본, 완전한 외부 결과, 서로 다른 평가자·검토자 principal을 갖춘 정확한 해시·원본 리비전의 검토 배치 하나에 연결하고, 설정된 시작 시 한 번 호출했습니다. | `현재 변경`, `bragi_intent_training_evidence.py`, `bootstrap_bragi_intent_training.py`, 소스·학습·초기화·레이아웃 검사 59개와 strict mypy·Ruff | 실제로 동의를 확인하고 독립 평가와 검토를 마친 배치를 제공하고 배포 프로바이더 수락을 보존해야 합니다. 의미 정확성, 활성화 또는 런타임 라우팅 변경은 추론하지 않습니다. |
 | 2026-10-15 | implemented | 명시적인 유한 구간 완전성, 오래된 항목부터의 입력 순서와 최근 구간 대체 금지를 적용해 Forseti의 비활성 회고 what-if 경로를 정확한 해시·원본 리비전에 결속된 검토 과거 보관 기록 하나에 연결했습니다. | `현재 변경`, `forseti_historical_replay.py`, `bootstrap_forseti_replay.py`, 소스·what-if·초기화·레이아웃 검사 64개와 strict mypy·Ruff | 실제 검토 보관 기록을 제공하고 배포 데이터베이스·브로커 수락을 보존해야 합니다. 이 소스는 이력을 만들거나 운영 완전성을 인증하거나 승인·실행하지 않습니다. |
