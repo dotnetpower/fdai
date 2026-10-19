@@ -6,7 +6,7 @@ title: Runtime Deployment Profiles
 > **Deployment distribution:** The [constitution](../architecture/fdai-constitution.md#article-1-purpose-and-scope) defines three installation paths: the one-command source deployment, the signed offline package, and the [Hub-managed lifecycle](hub-managed-lifecycle.md), which is designed but not yet implemented. Any installation gate in this document that the constitution does not list is superseded and no longer applies.
 
 This document defines Azure Kubernetes Service (AKS) as the default runtime for new FDAI installations without changing application behavior or deployment
-authority. Azure Container Apps remains a supported compatibility profile for existing installations. The selection is part of the signed `fdaictl` provisioning profile and every exact Terraform plan.
+authority. Azure Container Apps remains a supported compatibility profile for existing installations. The selection is part of the signed `fdaictl` provisioning profile and every exact Terraform plan. First-tier event lag uses the same Core stage and health composition in every venue, measures one process, and changes no deployment, product profile or authority ceiling.
 
 > **Scope:** This contract covers new installations. Moving an existing installation between
 > runtime platforms requires a separate migration design and is not an implicit profile update; document-intent ingress still requires its worker migration, Core PostgreSQL graph, current identity reader, Pantheon, event bus and exact Var approval.

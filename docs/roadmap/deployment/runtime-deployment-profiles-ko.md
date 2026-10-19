@@ -1,13 +1,13 @@
 ---
 translation_of: runtime-deployment-profiles.md
-translation_source_sha: ce55e3d06f16fdc2968043b8572961a79d7a4ab5
+translation_source_sha: 1fa99322153ee76f9e480cda3d2d6fb7d9064777
 translation_revised: 2026-10-20
 ---
 # 런타임 배포 프로파일
 
 > **배포 방식:** [헌법](../architecture/fdai-constitution.md#article-1-purpose-and-scope)은 단일 명령 소스 배포, 서명된 오프라인 패키지, [Hub 관리형 수명 주기](hub-managed-lifecycle-ko.md)라는 세 가지 설치 방식을 정의합니다. Hub 관리형 수명 주기는 설계만 되어 있고 아직 구현되지 않았습니다. 이 문서의 설치 관문 중 헌법에 없는 것은 대체되었으며 더 이상 적용되지 않습니다.
 
-이 문서는 애플리케이션 동작이나 배포 권한을 바꾸지 않으면서 신규 FDAI 설치의 기본 런타임을 Azure Kubernetes Service(AKS)로 정의합니다. Azure Container Apps는 기존 설치를 위한 호환 프로파일로 계속 지원합니다. 이 선택은 서명된 `fdaictl` 프로비저닝 프로파일과 모든 정확한 Terraform 플랜에 포함됩니다.
+이 문서는 애플리케이션 동작이나 배포 권한을 바꾸지 않으면서 신규 FDAI 설치의 기본 런타임을 Azure Kubernetes Service(AKS)로 정의합니다. Azure Container Apps는 기존 설치를 위한 호환 프로파일로 계속 지원합니다. 이 선택은 서명된 `fdaictl` 프로비저닝 프로파일과 모든 정확한 Terraform 플랜에 포함됩니다. 최초 계층 판정 지연은 모든 실행 위치에서 같은 Core 단계·상태 구성을 사용해 하나의 프로세스를 측정하며 배포, 제품 프로필이나 권한 상한을 바꾸지 않습니다.
 
 > **범위:** 이 계약은 신규 설치를 다룹니다. 기존 설치를 다른 런타임 플랫폼으로 옮기려면
 > 별도의 마이그레이션 설계가 필요하며 프로파일 업데이트만으로 자동 전환되지 않습니다. 문서 의도 ingress에는 워커 마이그레이션, Core PostgreSQL 그래프, 현재 신원 읽기 경로, Pantheon, 이벤트 버스, 정확한 Var 승인이 계속 필요합니다.

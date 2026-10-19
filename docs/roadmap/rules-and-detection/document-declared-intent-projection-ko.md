@@ -1,7 +1,7 @@
 ---
 title: 승인된 문서 의도 변환
 translation_of: document-declared-intent-projection.md
-translation_source_sha: 08ee0d0421ea251a08445a6f8bd082028f1cbe56
+translation_source_sha: d5c1f55be45eab8fb0d3c8069cfafb5630c37eaa
 translation_revised: 2026-10-20
 ---
 # 승인된 문서 의도 변환
@@ -102,6 +102,9 @@ Heimdall은 커밋된 저장소를 독립적으로 열어 결과와 승인된 �
 있습니다.
 
 ## 현재 권한을 확인하는 조회와 남은 연결
+
+공통 Core 이벤트 지연은 계층 판정의 완료만 관측합니다. 문서 수용, 변경 내용 승인,
+그래프 효과나 현재 원본의 조회 권한 검사를 대신하지 않습니다.
 
 `document_intent_gateway`는 서버에서 인증한 principal을 실제 PostgreSQL 원본
 메타데이터와 현재 디렉터리 읽기 경로에 연결합니다. 실행 전후에 모든 기여 원본을 다시

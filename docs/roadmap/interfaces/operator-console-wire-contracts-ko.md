@@ -1,8 +1,8 @@
 ---
 title: Operator Console - Data and Wire Contracts
 translation_of: operator-console-wire-contracts.md
-translation_source_sha: c29c84e02092b5935bbb128d150316cef619da43
-translation_revised: 2026-10-19
+translation_source_sha: 190b80b120f3018512f4919b5d0222d10e928e09
+translation_revised: 2026-10-20
 ---
 
 # Operator Console - 데이터 and Wire Contracts
@@ -10,6 +10,9 @@ translation_revised: 2026-10-19
 > [operator-console-ko.md](operator-console-ko.md) 섹션 13 (13.1-13.3, 13.6-13.9)에서 분리한 focused 소유자 문서입니다.
 
 ## 13. 데이터 + wire 계약
+기존 런타임 상태 변환 결과에는 프로세스가 관측한 최초 계층 판정 지연과 그 출처 및
+사용 불가 상태가 포함될 수 있습니다. Incident 명령이나 승인·실행 권한을 추가하지 않습니다.
+
 의미 요청 1.11.0은 권한이 없는 명시적 `presentation_mode=agent_discussion`을 추가합니다.
 일반 기본값은 요청 직렬화에서 계속 생략합니다. Operator는 Owner와 보관된 인증 영수증을
 요구하고, Core는 현재의 정확한 설치 단위 읽기 허가를 독립적으로 확인합니다. 토론은 기존

@@ -235,6 +235,9 @@ The [governance](../../roadmap-implementation/decisioning/operator-governance-pr
   Seven signal slots/three fields now have concrete implementations and wiring, but the new source
   requires a qualified native group and full known window. Eight other signals/five fields and
   installed qualification remain open; fixture checks are not operational improvement.
+  #2286 adds the normal Core process's actual ingest-to-first-tier-decision lag, not route timing.
+  Pending siblings, incomplete pairs and stale/overflow/clock failures remain explicit.
+  This eighth source does not close the seven remaining signals, five fields or installed H01 gates.
 - [ ] **H02, canary and stabilization:** Retain the exact consumed canary audit within the
   implemented 30-second budget, frozen shadow replay, stop/no-execute receipts, daily jobs, and
   recurrent-query signal. Prove stabilization opens, lowers authority on breach, and exits only
