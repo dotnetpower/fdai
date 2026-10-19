@@ -7,6 +7,9 @@ title: Operator Console - Data and Wire Contracts
 > Focused owner document extracted from [operator-console.md](operator-console.md) section 13 (13.1-13.3, 13.6-13.9).
 
 ## 13. Data + wire contracts
+The existing runtime-state projection can include process-owned first-tier-decision lag with its
+source and unavailable state; this adds no Incident command, approval or execution authority.
+
 Semantic request 1.11.0 adds the explicit no-authority `presentation_mode=agent_discussion`.
 The ordinary default stays absent from serialized requests. Operator requires Owner and retained
 authentication receipts; Core independently admits the exact current installation read grant.

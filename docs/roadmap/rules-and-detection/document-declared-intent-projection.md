@@ -96,6 +96,9 @@ can re-observe an applied packet and retire it through the same audited flow.
 
 ## Current authorized queries and remaining integration
 
+Shared Core event-lag telemetry observes tier completion only; it cannot admit a document,
+approve a diff, establish graph effects, or replace current-source query authorization.
+
 `document_intent_gateway` binds a server-authenticated principal to actual PostgreSQL source
 metadata and the current directory reader. It rechecks every contributing source before and after
 execution; Owner cannot bypass source ACL. The first namespace supports at most 64 active records.
