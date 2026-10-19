@@ -561,6 +561,97 @@ first fake campaign, 38 of them added 61 KB and exceeded the 64 KiB canonical-di
 any provider call. A scope whose instance context still exceeds that bound returns
 `context_unavailable`. It is never truncated, so typed selection currently serves only small scopes.
 
+#### Scale-bounded proposal preparation and promotion boundary
+
+Issue #2034 and G03 of #2256 require separate scale, answer-contract, and authority work.
+The first local prerequisite is a lossless, source-bound proposal-context package. It is not
+an enforced answer path or a qualification receipt. Existing shadow composition, exact-identity
+answers, and disabled raw vector ranking remain unchanged.
+
+**Preparation design.** The offline preparer includes the same complete instance and ObjectType
+domain as the current diagnostic proposer, with every allowed property and nested key. It uses
+successive canonical JSON transport fragments, each independently bounded below the existing
+64 KiB digest limit. Fragments are reassembled before interpretation; they are not independent
+semantic batches. A versioned root binds their order, counts, complete payload digest, exact source
+revision, model target/deployment/request/prompt identity, query, manifest, snapshot, and source
+projection. A caller-supplied budget can narrow the 8 MiB canonical-payload ceiling, never raise it.
+Oversized input returns an explicit preparation failure without a partial package or a model call.
+Reassembly compares with independently supplied current source inputs before releasing a payload.
+No lexical filtering, ranked tail, property reduction, or silent truncation is supported.
+Preparation also requires a matching independent snapshot-validation record, including its secured
+principal scope, complete generation, and checked source projection. Caller-supplied revision and
+model pins remain replay bindings, not source attestations or promotion evidence. Preparation
+supports at most 512 transport fragments; a smaller page budget may reach that explicit limit first.
+
+**Answer-contract decision.** `query.ontology_instance_candidates` stays deterministic,
+network-free, and bounded to five seconds. Transport fragments do not make a model accept a large
+prompt and are not evidence for answer latency. A future model-backed answer capability needs its
+own reviewed Function declaration, complete-context token/call/time reservation, agreement and
+secured membership verification, and exact-identity fallback with a typed reason. Cross-fragment
+meaning, aggregate conditions, and a model's context window cannot be resolved by interpreting
+each fragment independently or taking the union of unrelated proposals.
+This prerequisite does not lift the existing 1,000-row complete-membership bound per clause.
+
+**Governance decision.** A read promotion needs a separately reviewed governance ActionType and
+typed event schemas; no catalog entry or registry writer is introduced by this prerequisite.
+Forseti judges immutable evidence, Var carries current attributed Owner approval, Thor alone
+performs the guarded registry transition, Saga retains intent and terminal audit, and Vidar's
+demotion or recall takes precedence. The future registry binding includes the exact source,
+model/request/prompt, context protocol, data-handling policy, and new qualification-window and
+answer-latency receipts. Recheck the binding and current source before publishing a selected
+answer. An old shadow receipt, a supplied model name, or a local package cannot satisfy that gate.
+Agent collaboration remains typed pub/sub; direct agent calls and direct registry writes are not
+alternatives. No human approval, elapsed observation window, production promotion, or live
+provider qualification is inferred here.
+
+**Ten distinct pre-implementation critique rounds.** These hypotheses constrain this slice;
+the implementation ledger records the corresponding executable checks and remaining work.
+
+| Round | Failure hypothesis | Design disposition |
+|-------|--------------------|--------------------|
+| 1 | Raising the shared canonical-digest limit weakens unrelated contracts. | Keep it unchanged; digest bounded fragments and a small versioned root. |
+| 2 | A ranked or lexical prefilter hides an instance or property. | Preserve the entire existing typed-selection domain and catalog. |
+| 3 | Missing, duplicate, or reordered fragments look complete. | Verify sequence, count, per-fragment digest, and complete source digest. |
+| 4 | A single document or escaping expansion bypasses the byte budget. | Count canonical bytes and fail explicitly before releasing any package. |
+| 5 | Unicode splitting changes a query or property. | Reassemble exact canonical fragments before JSON decoding or interpretation. |
+| 6 | A replay survives a changed principal, release, or source generation. | Bind the manifest, snapshot, and source projection; compare current inputs. |
+| 7 | A model or prompt change reuses an earlier qualified identity. | Bind the complete supplied model/request/prompt record; grant no qualification. |
+| 8 | Packaging silently activates selection or vector ranking. | Add no runtime binding, flag change, model call, or answer integration. |
+| 9 | Per-fragment proposals lose a cross-document condition. | Transport only; do not infer meaning from individual fragments. |
+| 10 | A local success is reported as promotion or production evidence. | Keep governance, live windows, answer latency, and effect observation open. |
+
+**Implemented local slice.** `delivery/catalog_search/ontology_candidate_context.py` prepares and
+reassembles the package. The existing `ontology_candidate_proposal.py` factors only its complete
+content builder; its legacy digest, byte ceiling, diagnostic entry point, and runtime behavior are unchanged.
+`tests/delivery/catalog_search/test_ontology_candidate_context.py` covers 600 secured instances,
+all property catalogs, transport corruption, changed bindings, and positive and negative
+source-to-context-to-membership paths. The source/model fixture is synthetic and invokes
+no live provider. A combined focused run passed 169 tests, with 96.79% branch-aware coverage for
+the new transport module. Exact commands, critique outcomes, task paths, and open #2034 criteria
+are recorded in the [implementation ledger](../../roadmap-implementation/interfaces/ontology-query-coverage-implementation-plan.md).
+There is no automatic runtime binding, answer contract, governance ActionType, registry transition,
+human approval, fresh live qualification window, or production activation in this slice.
+
+**Diagnostic integration review.** The existing Azure diagnostic adapter may explicitly consume
+a prepared package through `propose_prepared_candidate_selection`. This separate entry point
+reassembles and verifies every fragment against the supplied current source and the adapter's
+actual manifest-specific model/request/prompt binding, inside one bounded attempt. It sends the
+complete payload in one request, never one proposal per fragment. A missing finite prompt budget,
+changed binding, incomplete source, transport corruption, or exceeded request budget stops before
+provider access. A valid model clarification stays a clarification; provider failure is not an empty
+selection. Existing full-input preservation checks, schema/span validation, timeout, and secured
+membership remain authoritative. This integration does not raise a configured token budget,
+replace the current diagnostic profile, wire foreground/shadow runtime composition, or qualify
+any model. The legacy entry point and deterministic candidate Function retain their contracts.
+
+The focused HTTP-mocked integration proves the actual adapter consumes all 300 instances beyond
+64 KiB and the existing gateway verifies all 300 memberships. A 600-instance transport round trip
+also passes, but that scope is still blocked in the actual diagnostic schema by the existing
+500-total-enum structured-output limit. This limit includes property/operator enums, so it is not
+a promise of 500 usable instances. No enum is removed, shortened, or weakened here. Model context
+qualification, that reviewed schema-scale limitation, the 1,000-row membership bound, persistent
+governance, and full G03 remain open. The bounded delivered task is #2267 under #2034.
+
 **Pre-registered runtime protocols.** These protocols were fixed before the live campaign that
 judges them, and changing a value requires a new protocol id. The private driver
 `scripts/evaluation/typed_selection_runtime_campaign.py` runs the exact runtime path:

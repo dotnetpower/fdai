@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import replace
 from datetime import datetime
 from functools import partial
@@ -79,6 +79,12 @@ from fdai.delivery.azure.llm.semantic_planning_response import (
     validated_content,
 )
 from fdai.delivery.catalog_search.generation import SemanticGenerationBuild
+from fdai.delivery.catalog_search.ontology_candidate_context import (
+    CandidateContextError,
+    CandidateContextLimits,
+    CandidateProposalContext,
+    restore_candidate_proposal_context,
+)
 from fdai.delivery.catalog_search.ontology_candidate_proposal import (
     OntologyCandidateModelBinding,
     OntologyCandidateProposal,
@@ -88,6 +94,7 @@ from fdai.delivery.catalog_search.ontology_candidate_proposal import (
 )
 from fdai.delivery.catalog_search.ontology_candidate_selection import OntologyCandidateSelection
 from fdai.delivery.catalog_search.ontology_snapshot_store import OntologyStagedProjection
+from fdai.delivery.catalog_search.ontology_snapshot_validation import OntologySnapshotValidation
 from fdai.shared.providers.workload_identity import WorkloadIdentity
 
 # Bounded with OntologySemanticEvaluationBudget: one typed-selection call never exceeds 20 s.
@@ -162,6 +169,82 @@ class AzureOpenAISemanticPlanningModel:
         staged: OntologyStagedProjection,
     ) -> OntologyCandidateProposalResult:
         """One diagnostic proposal, without fallback, repair or activation authority."""
+        return await self._propose_candidate_payload(
+            query=query,
+            manifest=manifest,
+            build=build,
+            staged=staged,
+            payload_factory=partial(
+                candidate_proposal_payload,
+                query=query,
+                manifest=manifest,
+                build=build,
+                staged=staged,
+            ),
+        )
+
+    async def propose_prepared_candidate_selection(
+        self,
+        *,
+        context: CandidateProposalContext,
+        query: str,
+        manifest: QueryManifest,
+        build: SemanticGenerationBuild,
+        staged: OntologyStagedProjection,
+        source_revision: str,
+        data_handling_policy_digest: str,
+        source_validation: OntologySnapshotValidation,
+        limits: CandidateContextLimits | None = None,
+    ) -> OntologyCandidateProposalResult:
+        """Explicit diagnostic opt-in: one complete request, never runtime activation.
+
+        Preparation is not a token-budget override. The exact configured model binding and
+        current source must still match, and every fragment is restored before any model call.
+        """
+        prompt = self._config.plan_prompt_manifest
+        if (
+            prompt is None
+            or prompt.request_token_budget is None
+            or prompt.system_token_budget is None
+            or prompt.reserved_output_tokens is None
+        ):
+            raise CandidateContextError("invalid_source")
+
+        def payload_factory() -> dict[str, object]:
+            payload = restore_candidate_proposal_context(
+                context,
+                query=query,
+                manifest=manifest,
+                build=build,
+                staged=staged,
+                source_revision=source_revision,
+                model_binding=self.candidate_proposal_binding_for_manifest(manifest, build),
+                data_handling_policy_digest=data_handling_policy_digest,
+                source_validation=source_validation,
+                limits=limits,
+            )
+            payload["input_digest"] = context.context_digest
+            return payload
+
+        return await self._propose_candidate_payload(
+            query=query,
+            manifest=manifest,
+            build=build,
+            staged=staged,
+            payload_factory=payload_factory,
+            operation="candidate_selection_prepared",
+        )
+
+    async def _propose_candidate_payload(
+        self,
+        *,
+        query: str,
+        manifest: QueryManifest,
+        build: SemanticGenerationBuild,
+        staged: OntologyStagedProjection,
+        payload_factory: Callable[[], dict[str, object]],
+        operation: str = "candidate_selection",
+    ) -> OntologyCandidateProposalResult:
         if asyncio.get_running_loop() is not self._owner_loop:
             raise ValueError("candidate proposal must run on the model owner loop")
         if (
@@ -174,16 +257,14 @@ class AzureOpenAISemanticPlanningModel:
             raise ValueError("candidate proposal requires one bounded target and diagnostic prompt")
         deadline = asyncio.get_running_loop().time() + self._config.timeout_seconds
         async with asyncio.timeout(self._config.timeout_seconds):
-            payload = candidate_proposal_payload(
-                query=query, manifest=manifest, build=build, staged=staged
-            )
+            payload = payload_factory()
             if asyncio.get_running_loop().time() >= deadline:
                 raise TimeoutError("candidate proposal deadline exceeded before dispatch")
             response = await self._complete_async(
                 payload=payload,
                 prompt=self._config.plan_system_prompt,
                 proposal_type=OntologyCandidateProposal,
-                operation="candidate_selection",
+                operation=operation,
                 manifest=self._config.plan_prompt_manifest,
                 query_manifest=manifest,
                 build=build,
@@ -540,6 +621,8 @@ class AzureOpenAISemanticPlanningModel:
             and prompt_manifest.system_token_budget is not None
             and prompt_manifest.token_estimate > prompt_manifest.system_token_budget
         ):
+            if operation == "candidate_selection_prepared":
+                raise CandidateContextError("request_budget_exceeded")
             _LOGGER.warning(
                 "semantic_planning_system_token_budget_exceeded",
                 extra={
@@ -560,6 +643,8 @@ class AzureOpenAISemanticPlanningModel:
             and prompt_manifest.request_token_budget is not None
             and request_token_estimate > prompt_manifest.request_token_budget
         ):
+            if operation == "candidate_selection_prepared":
+                raise CandidateContextError("request_budget_exceeded")
             _LOGGER.warning(
                 "semantic_planning_request_token_budget_exceeded",
                 extra={

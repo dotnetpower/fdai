@@ -281,6 +281,10 @@ Durable instance search must not reuse Rule `active` or `discovery` pointers. Th
 
 | Area | State | Evidence | Notes |
 |------|-------|----------|-------|
+| G03 explicit prepared-context diagnostic proposer integration | implemented | #2267 under #2034; `delivery/azure/llm/semantic_planning.py` and the HTTP-mocked cases in `test_ontology_candidate_context.py`; 169 focused tests pass. | Actual adapter consumption over a complete 300-instance context beyond 64 KiB reaches real secured membership verification. This opt-in method is not wired into foreground/shadow runtime and cannot promote anything. The existing 500-total-enum schema limit explicitly holds the 600-instance diagnostic scope. |
+| G03 source-bound proposal-context transport prerequisite | implemented | Current change for #2034 / #2256; `delivery/catalog_search/ontology_candidate_context.py`, factored `ontology_candidate_proposal.py`, and `tests/delivery/catalog_search/test_ontology_candidate_context.py`; focused checks below. | Complete offline preparation and independent-source reassembly beyond 64 KiB, not a model-backed answer or promotion. Existing disabled ranking and shadow-only composition are unchanged. |
+| G03 model-backed full-scope proposal and enforced answer contract | deferred | #2034; owning design section "Scale-bounded proposal preparation and promotion boundary". | Transport fragments do not resolve a model context-window budget, cross-document meaning, the existing 1,000-row membership limit per clause, or user-facing answer latency. No new Function or runtime binding exists. |
+| G03 governed read-capability promotion | deferred | #2034; fixed Forseti/Var/Thor/Saga/Vidar roles retained. | No governance ActionType, typed promotion-event schema, registry write, approval, or demotion path is added here. Fresh exact-source/model/data qualification and independent effect observation remain required. |
 | Disposable PostgreSQL query-coverage regression | implemented | #2257; `tests/persistence/test_postgres_ontology_instance.py`; `test_postgres_ontology_query_coverage.py`; 63 focused isolated-database checks passed | The minimal journal now includes the current `subject_type` column. Exact identity/type, scope, generation, cutoff, unchanged gateway redaction, concurrent publication, and replay checks retain the actual SQL boundary. Production SQL, migrations, shared tables, ranking activation and authority are unchanged. |
 | Offline semantic evidence consistency | implemented | `ontology_semantic_evidence.py`, shared private-file reader and semantic/raw evidence regressions; 145 focused checks passed | Recomputes the prepared input binding, reconstructs proposal digests from frozen query spans, checks complete ordered records and recalculates report metrics. Failed quality stays failed. This does not reobserve graph results, attest model responses or prove terminal-write acknowledgment; both authority flags remain false and runtime activation is unchanged. |
 | Serialized JSON numeric comparison | implemented | Shared JSON equality, Core numeric ordering, expanded predicate matrix and actual PostgreSQL parity; 228 focused checks passed; scoped Ruff and strict mypy passed | Finite numeric values compare by their serialized decimal JSON value, not the binary approximation of a float. This preserves `1`/`1.0`, distinguishes nearby large integers and keeps numeric ordering consistent with equality. Boolean exclusion remains separate. |
@@ -629,7 +633,92 @@ Durable instance search must not reuse Rule `active` or `discovery` pointers. Th
 | 2026-09-27 | implemented | Gave semantic judgment stated catalog `Resource.type` spans as candidate-only `stated_values`, promoted preflight v5 and judgment v5 treatments for Resource subtype lists, held a targetless schema proposal that leaves a stated subtype unexplained as a typed clarification, and refused deterministic contextual lists that would drop a secondary intent, a stated state condition, or a name fragment. | `current change`; 2026-09-27 evidence row in the hierarchical conversation planning ledger; focused Core planning, judgment, prompt, and processor tests; bounded live T1 comparison with one pinned deployment. | Retain authenticated post-restart Console receipts; Korean current-state wording and declaration count and detail controls remain open in the hierarchical conversation planning ledger. |
 | 2026-09-28 | not-started | Added work package OQ-12 and lane F for the proposed [Ontology Reasoning Compiler](../../roadmap/interfaces/ontology-reasoning-compiler.md), which replaces capability-named relational planning with a closed question logical form, admission, two-phase anchor binding, reviewed relation paths, and independent coverage verification. No runtime behavior changed. | `current change`; paired query-plan documents, the new owner document and its ledger, and changed-path documentation gates | Complete OQ-12 rounds R0 through R10 as tracked in the reasoning compiler ledger. |
 
+| 2026-10-19 | implemented | Added the lossless source-bound proposal-context transport prerequisite for #2034 / G03 of #2256, after design and ten distinct critique rounds. The legacy proposal payload and all answer/promotion authority remain unchanged. | Current change: `services/core-control-plane/src/fdai/delivery/catalog_search/ontology_candidate_context.py`, factored `ontology_candidate_proposal.py`, `services/core-control-plane/tests/delivery/catalog_search/test_ontology_candidate_context.py`, paired query-coverage owners, and this ledger. The focused validation record below identifies exact commands and outcomes. | Wire and qualify a separately reviewed complete-context proposer and answer Function, implement the fixed-role typed promotion/demotion lifecycle, collect fresh exact-source/model/data evidence and latency, obtain current Owner approval, and observe the effect independently. |
+
+| 2026-10-19 | implemented | Integrated the prepared package into the existing actual diagnostic proposer through a separately selected complete-input entry point for bounded task #2267. Retained existing provider enum limits, finite configured prompt budgets, one attempt, explicit clarification/failure, and disabled runtime composition. | Current change: `services/core-control-plane/src/fdai/delivery/azure/llm/semantic_planning.py` and actual mocked-HTTP integration in `services/core-control-plane/tests/delivery/catalog_search/test_ontology_candidate_context.py`; 169 focused tests pass, Ruff and three-source-file mypy checks pass. | The 500-total-enum diagnostic schema limit, qualified model context budget, larger complete membership, enforced-answer contract, persistent promotion/demotion and live evidence remain open under #2034 / G03. |
+
+#### G03 local prerequisite validation and critique
+
+This evidence covers only local synthetic preparation and secured membership. No deployment,
+live model, Azure command, elapsed observation window, human approval, or promotion ran. The
+source/model/data pins in a context package are replay commitments, not qualified deployment
+bindings. The legacy Sol-qualified binding is not assumed to qualify another model or source.
+
+Task-owned source and tests are the three full paths in the 2026-10-19 history row. The paired
+owners are `docs/roadmap/interfaces/ontology-query-coverage-implementation-plan.md` and
+`docs/roadmap/interfaces/ontology-query-coverage-implementation-plan-ko.md`; this ledger is
+`docs/roadmap-implementation/interfaces/ontology-query-coverage-implementation-plan.md`.
+No document-distillation or G02 files are part of this change.
+
+Task #2267 under #2034 extends this prerequisite into an explicit actual diagnostic-adapter
+consumer. The fourth Python path is
+`services/core-control-plane/src/fdai/delivery/azure/llm/semantic_planning.py`.
+Together with the three owner/ledger paths above, the delivered change has exactly seven paths.
+No foreground or detached-shadow runtime is wired to the new entry point.
+
+The focused test command uses the existing locked environment. Its coverage output is a private
+local diagnostic, not a release receipt:
+
+```bash
+uv run --no-sync pytest -q --tb=short \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_candidate_context.py \
+  services/core-control-plane/tests/delivery/azure/llm/test_ontology_candidate_proposal.py \
+  services/core-control-plane/tests/delivery/azure/llm/test_semantic_planning.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_typed_selection_shadow.py \
+  services/core-control-plane/tests/composition/test_typed_selection_shadow_composition.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_candidate_selection.py \
+  --cov=fdai.delivery.catalog_search.ontology_candidate_context --cov-branch \
+  --cov-report=term-missing --no-cov-on-fail --cov-fail-under=90
+```
+
+Initial completed-batch result: **129 passed; 95.45% branch-aware transport-module coverage**.
+The subsequent bounded adversarial follow-up adds a malformed envelope, a payload whose page
+and root hashes were recomputed after mutation, and rejection of forged package authority.
+Every package explicitly retains `authority=transport_only` and `execution_authority=false`.
+Final result with those follow-ups:
+**169 passed; 96.79% branch-aware transport-module coverage**, including actual diagnostic
+HTTP-mocked integration and unchanged legacy frame/plan, candidate and shadow paths. No test is
+skipped. Ruff lint and formatting passed for all four task-owned Python files. The source typing
+command
+`uv run --no-sync mypy --follow-imports=silent services/core-control-plane/src/fdai/delivery/azure/llm/semantic_planning.py services/core-control-plane/src/fdai/delivery/catalog_search/ontology_candidate_context.py services/core-control-plane/src/fdai/delivery/catalog_search/ontology_candidate_proposal.py`
+passed with no issues in three source files.
+
+```bash
+uv run --no-sync ruff format \
+  services/core-control-plane/src/fdai/delivery/azure/llm/semantic_planning.py \
+  services/core-control-plane/src/fdai/delivery/catalog_search/ontology_candidate_context.py \
+  services/core-control-plane/src/fdai/delivery/catalog_search/ontology_candidate_proposal.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_candidate_context.py
+uv run --no-sync ruff check \
+  services/core-control-plane/src/fdai/delivery/azure/llm/semantic_planning.py \
+  services/core-control-plane/src/fdai/delivery/catalog_search/ontology_candidate_context.py \
+  services/core-control-plane/src/fdai/delivery/catalog_search/ontology_candidate_proposal.py \
+  services/core-control-plane/tests/delivery/catalog_search/test_ontology_candidate_context.py
+```
+
+Both commands passed; the final formatting check left the files unchanged. Validation
+uses the existing locked environment with no dependency changes. No repository-wide suite ran.
+
+| Round | Distinct critique and executable evidence | Outcome |
+|-------|-------------------------------------------|---------|
+| 1 | Existing large-context rejection plus `test_large_context_round_trip_preserves_every_document_and_catalog` and `test_small_context_preserves_legacy_proposer_payload`. | Shared 64 KiB canonical hashing and the original proposer payload are unchanged; the new versioned transport is separate. |
+| 2 | Exact document equality and complete allowed-property/nested-key assertions over 600 secured instances. | Every eligible document and property remains represented; no query-word or ranked prefilter exists. |
+| 3 | `test_fragment_corruption_never_releases_partial_context`, including missing, duplicate, reordered, mutated, malformed, and rehashed transport. | Reassembly requires exact counts, order, hashes, and independently supplied complete source bytes, not self-consistent hashes alone. |
+| 4 | Raw-source, escaped-payload, page-count, and immutable-ceiling checks. | Bounds fail explicitly. An initial 600-record page-count test did not actually exceed 512 pages; its expectation was corrected to 800 records, then passed. No production bound was weakened. |
+| 5 | `test_fragments_split_a_large_unicode_document_only_as_transport`. | Korean, quotes, backslashes, and a document spanning multiple fragments survive exact reassembly before JSON interpretation. |
+| 6 | Seven independent snapshot-validation field mutations and source-document mutation with unchanged metadata. | Preparation rejects mismatched principal/manifest/snapshot/generation/projection evidence and corrupted build content. |
+| 7 | Seven model/deployment/request/prompt/query/revision/policy replay mutations. | Changed identities cannot reuse the package. A supplied model identity never becomes qualification evidence. |
+| 8 | Existing shadow-composition tests and `test_shadow_capability_cannot_enable_answer_path_selection`. | Default-disabled answer selection and unqualified raw vector ranking remain unchanged; no new runtime wiring or flag is added. |
+| 9 | Real secured membership over all 600 records, corrupt-context refusal before a gateway read, and a post-preparation source-change refusal. | Positive and negative local integration pass. Transport neither interprets individual fragments nor replaces current membership validation. |
+| 10 | Content-free typed failure checks, frozen-record round trip, forged-authority rejection, explicit task scope, and the remaining gates below. | The package is explicitly transport-only with no execution authority. No approval, live window, effect verification, or enforced-answer success is fabricated. |
+| 11 | Actual adapter integration with a complete 300-instance source, model clarification, budget failure, model-binding change, corrupt transport and provider 503. | Full input reaches exactly one mocked HTTP request and all 300 secured memberships verify. Budget/drift/corruption make zero requests; clarification remains explicit; a provider failure never retries or becomes empty membership. |
+| 12 | Actual binding of the complete 600-instance source fails the existing structured-output enum guard. | Preserve the provider's 500-total-enum limit and record it as an unresolved scale contract, not a reason to drop identities or weaken validation. The prepared transport does not close scale or full G03. |
+
 ### Remaining work
+
+- [ ] For #2034, wire a separately reviewed model-backed proposer that reserves tokens/calls/time for the complete reassembled context, or proves semantic-preserving exhaustive batching with exact accounting; pre-register and pass a fresh scale window on the exact merged source/model/request/prompt/data bindings.
+- [ ] For #2034, declare and test a separate enforced-answer Function contract without changing the deterministic network-free five-second candidate Function. Preserve typed fallback, qualified agreement, current secured membership, and complete accounting beyond the current per-clause bound.
+- [ ] For #2034, implement and test the typed Forseti judgment, Var approval, Thor-only registry transition, Saga audit, and Vidar demotion/rollback lifecycle. Obtain explicitly scoped Owner approval only after exact evidence admission, verify the effect independently, and retain its immutable receipt before enabling answers.
 
 - [x] Implement and verify a separately default-disabled typed membership primitive: the 101-test batch above covers secured current reads, complete accounting, source/content bindings, receipt retention, mutation/deadline handling and no model call inside the deterministic reader.
 - [ ] Bind actual semantic proposals to model, prompt, strategy and per-call evidence, then evaluate the unchanged v2 calibration through typed membership. Preserve explicit clarification/error outcomes and all failed raw-ranking evidence; direct typed fixtures alone cannot establish meaning quality.
