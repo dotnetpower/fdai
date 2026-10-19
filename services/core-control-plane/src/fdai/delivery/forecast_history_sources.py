@@ -195,6 +195,8 @@ class ChangeWindowHistorySource:
             known_at=known_at,
         )
         tokens = {"change_window_history_proof_unavailable"}
+        if history.source_status is not None and history.source_status != "admitted":
+            tokens.add("source_" + history.source_status)
         if history.coverage is None:
             tokens.add("change_window_coverage_missing")
         if history.truncated:

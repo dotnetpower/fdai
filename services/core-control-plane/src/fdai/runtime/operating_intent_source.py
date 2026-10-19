@@ -56,7 +56,7 @@ from fdai.delivery.operating_model import (
     JsonOperatingIntentSourceProvider,
     JsonOperatingModelProviderConfig,
 )
-from fdai.runtime.change_window_history import record_change_window_history
+from fdai.runtime.change_window_history import persist_change_window_admission
 from fdai.runtime.operating_intent_binding import (
     OPERATING_INTENT_SOURCE_PATH_ENV,
     decode_operating_intent_manifest,
@@ -178,6 +178,11 @@ class OperatingIntentSourceRuntime:
             await self._deny("unavailable", reason="resource_lock_unavailable", now=now)
             return None
         async with stack:
+            if self.state_store is not None:
+                current = await self.state_store.read_state(OPERATING_INTENT_SOURCE_ADMISSION_KEY)
+                if current is not None and self._newer_generation_is_current(current, now=now):
+                    _LOGGER.info("operating_intent_source_projection_fenced")
+                    return None
             try:
                 result = await self._apply(document)
             except Exception as exc:  # noqa: BLE001 - any projection defect quarantines
@@ -192,7 +197,8 @@ class OperatingIntentSourceRuntime:
                 )
                 await self._deny("quarantined", reason="projection_failed", now=now)
                 return None
-            await self._record_admission(result, document=document, now=now)
+            if not await self._record_admission(result, document=document, now=now):
+                return None
         return result
 
     async def _apply(
@@ -235,7 +241,7 @@ class OperatingIntentSourceRuntime:
         *,
         document: OperatingIntentSourceDocument,
         now: datetime,
-    ) -> None:
+    ) -> bool:
         """Record the current admission and restate the projection status it backs.
 
         The record enumerates the object identities this source owns, so a consumer
@@ -250,13 +256,7 @@ class OperatingIntentSourceRuntime:
         """
 
         if self.state_store is None:
-            return
-        await record_change_window_history(
-            self.state_store,
-            document.snapshot,
-            document_digest=self.binding.expected_sha256,
-            recorded_at=now,
-        )
+            return True
         owned_object_ids = sorted(item.id for item in document.snapshot.objects)
         if len(owned_object_ids) > MAX_ADMITTED_OBJECT_IDS:
             await self._deny(
@@ -267,7 +267,7 @@ class OperatingIntentSourceRuntime:
                 ),
                 now=now,
             )
-            return
+            return False
         written = await self._write_fenced(
             OPERATING_INTENT_SOURCE_ADMISSION_KEY,
             {
@@ -281,9 +281,10 @@ class OperatingIntentSourceRuntime:
                 "max_age_seconds": self.admission_validity_seconds,
             },
             now=now,
+            snapshot=document.snapshot,
         )
         if not written:
-            return
+            return False
         await self.state_store.write_state(
             OPERATING_INTENT_SOURCE_STATUS_KEY,
             {
@@ -294,6 +295,7 @@ class OperatingIntentSourceRuntime:
                 "link_count": result.link_count,
             },
         )
+        return True
 
     async def _deny(self, status: str, *, reason: str, now: datetime) -> None:
         """Withdraw intent authority while leaving the projected graph intact."""
@@ -324,6 +326,7 @@ class OperatingIntentSourceRuntime:
         value: Mapping[str, object],
         *,
         now: datetime,
+        snapshot: OperatingModelSnapshot | None = None,
     ) -> bool:
         """Write an admission only while a newer rollout generation currently owns it.
 
@@ -357,8 +360,22 @@ class OperatingIntentSourceRuntime:
                 },
             )
             return False
-        await self.state_store.write_state(key, value)
-        return True
+        written = await persist_change_window_admission(
+            self.state_store,
+            key=key,
+            admission=value,
+            current=current,
+            snapshot=snapshot,
+            source_revision=self.binding.expected_revision,
+            document_digest=self.binding.expected_sha256,
+            recorded_at=now,
+        )
+        if not written:
+            _LOGGER.warning(
+                "operating_intent_source_admission_conflict",
+                extra={"generation": self.generation},
+            )
+        return written
 
     def _newer_generation_is_current(self, record: Mapping[str, object], *, now: datetime) -> bool:
         """Return whether ``record`` belongs to a newer generation that is still live."""

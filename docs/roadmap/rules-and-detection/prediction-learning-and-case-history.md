@@ -292,9 +292,9 @@ also remains unavailable; current `ChangeWindow` objects are not an attested his
 ChangeWindow source returns no normalized records or initial state and explicitly reports
 `change_window_history_proof_unavailable`, even when a retained snapshot has a coverage row
 and no visible conflict. An empty current snapshot cannot prove an included interval. The
-snapshot writer does not yet atomically bind all revisions and withdrawals to the source
-owner's admission or provide the start anchor, contiguous revision journal, and as-of
-completeness fence. Snapshot membership and sequential writes are not substitutes. Raw rows
+legacy per-window writer does not bind revisions and withdrawals to the source owner's admission.
+The source-owned journal below repairs that publication boundary for the configured writer only,
+not the independent start anchor, full historical coverage or as-of completeness fence. Raw rows
 and watermark references remain evidence, not permission to manufacture event-time transitions
 or copy an effective timestamp into `recorded_at`. The Settings
 `forecast-history` row validates configuration with the same parser as runtime composition. It
@@ -311,6 +311,30 @@ work may finish its retained history append; the setting does not erase prior ob
 The Console uses its existing runtime-policy controls with English and Korean labels. Configuration
 and collection preference never grant scoring or execution authority; independent proof issuance
 remains required before collected history can authorize scoring.
+
+### Source-owned admission history
+
+Retain each operating-intent admission or denial in an immutable
+`change-window-admission-history:v1:` entry. The entry carries the full admitted ChangeWindow
+snapshot or its immutable reference, admission revision, original validation time, pinned document
+digest, and preceding entry reference. Denial is not proof of an empty interval.
+The existing atomic StateStore pair/CAS-and-insert operations commit the actual admission key,
+entry and audit together. Legacy admission rows start an explicit unanchored chain; no historical
+start anchor is invented. Exact retries preserve the entry, and a CAS conflict is an explicit
+failed attempt, not permission to overwrite a newer admission. Check rollout ownership before
+projection as well as at publication. An expired newer generation still yields to rollback.
+Unchanged revalidation references the last full snapshot rather than copying every window again.
+The read-only transaction resolves that reference without changing the original fact record time.
+Missing or corrupt head/body rows and unjournalled legacy writes invalidate readback rather than
+falling back to an older admission. Expired admissions remain explicit. This local journal does
+not fence the source mount, IdP, Inventory, Blob, or another store.
+
+| Option | Critique | Selected boundary |
+|---|---|---|
+| Write per-window rows before checking admission | Fenced-out or failed attempts leave apparently admitted history | Bind the full snapshot to the actual source admission in one transaction |
+| Use a separate epoch that the admission writer does not update | It does not protect the source | Use the source-owned key's revision and existing atomic operations |
+| Update admission after an unlocked read | A concurrent denial or rollout can win between awaits | Compare-and-set the exact observed revision; audit only the winner |
+| Treat the journal as complete scoring evidence | It still lacks independently qualified start/known-at and retention coverage | Read retained raw snapshots, but keep the incomplete-history gate |
 
 `unsupported` is explanatory text in the action source's `limitation`, not a new readiness mode or
 outcome enum. Operator preserves that source detail in the existing runtime-settings JSON mapping.
