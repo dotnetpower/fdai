@@ -672,8 +672,11 @@ K=2 observation, and one contended call while that observation runs.
 | `typed-selection-runtime-window.v1` | The 64 frozen cases in `instance-runtime-window.v1.json`, written and reviewed by two separate blinded agents and disjoint from every spent set. Each case gets R=4 decisions, for 128 per language. The qualification arithmetic applies: pooled wrong-selection bound at most 2%, each language's at most 3%, and each language's correct rate at least 0.95. Unavailable decisions are at most 2%, and an unavailable answerable decision counts as not correct. |
 
 The live campaign makes at most 512 proposal calls within a 90-minute deadline and never retries.
-It stops after three consecutive provider-unavailable observations or once the unavailable
-allowance is spent. Window cases are curated synthetic questions, not organic operator traffic.
+Live decision starts are paced at least 12 seconds apart to limit request bursts against the
+qualified deployment's request budget. Pacing time is outside each observation's measured latency.
+The campaign stops after three consecutive provider-unavailable observations or once the
+unavailable allowance is spent. Window cases are curated synthetic questions, not organic operator
+traffic.
 An aborted campaign has no quality outcome. It keeps its completed decisions privately with their
 unavailable reasons and content-free adapter failure classes. Every attempt is reported. A rerun
 requires a new merged commit whose changes are limited to evidence tooling or a diagnosed runtime

@@ -91,6 +91,7 @@ ROOT = Path(__file__).resolve().parents[2]
 ASSETS = ROOT / "eval/ontology-retrieval"
 REPEATS = 4
 TOTAL_DEADLINE_SECONDS = 90 * 60
+LIVE_MIN_DECISION_START_INTERVAL_SECONDS = 12.0
 MAX_CONSECUTIVE_UNAVAILABLE = 3
 MAX_UNAVAILABLE = 5
 _PROVIDER_UNAVAILABLE = frozenset({"proposal_unavailable", "deadline_exceeded"})
@@ -285,12 +286,20 @@ async def _loop_lag(samples: list[float], stop: asyncio.Event) -> None:
         samples.append(max(0.0, (loop.time() - expected) * 1000))
 
 
+def _decision_pacing_delay(*, now: float, next_start: float, deadline: float) -> float:
+    delay = max(0.0, next_start - now)
+    if now >= deadline or now + delay >= deadline:
+        raise CampaignAbortedError("campaign total deadline exceeded")
+    return delay
+
+
 async def run_campaign(
     *,
     binding: TypedSelectionShadowBinding,
     cases: Sequence[Case],
     repeats: int,
     probe_delay_seconds: float,
+    minimum_decision_start_interval_seconds: float = 0.0,
     progress: Callable[[str], None] = print,
 ) -> dict[str, Any]:
     """Run every planned decision and return private rows plus both protocol reports."""
@@ -308,11 +317,24 @@ async def run_campaign(
     rows: list[dict[str, Any]] = []
     consecutive = unavailable = 0
     deadline = time.monotonic() + TOTAL_DEADLINE_SECONDS
+    next_decision_start = time.monotonic()
     try:
         for repeat in range(1, repeats + 1):
             for case in cases:
-                if time.monotonic() >= deadline:
+                try:
+                    delay = _decision_pacing_delay(
+                        now=time.monotonic(),
+                        next_start=next_decision_start,
+                        deadline=deadline,
+                    )
+                except CampaignAbortedError as exc:
+                    raise CampaignAbortedError(str(exc), rows=rows) from exc
+                if delay:
+                    await asyncio.sleep(delay)
+                decision_started = time.monotonic()
+                if decision_started >= deadline:
                     raise CampaignAbortedError("campaign total deadline exceeded", rows=rows)
+                next_decision_start = decision_started + minimum_decision_start_interval_seconds
                 ref = f"campaign:{case.case_id}:r{repeat}"
                 await observer.wait_idle()
                 off_ms, off_outcome = await _call(off, case.query, ref + ":off")
@@ -579,6 +601,9 @@ async def main() -> int:
                 cases=cases,
                 repeats=REPEATS,
                 probe_delay_seconds=0.0 if args.fake else 0.5,
+                minimum_decision_start_interval_seconds=(
+                    0.0 if args.fake else LIVE_MIN_DECISION_START_INTERVAL_SECONDS
+                ),
             )
     except CampaignAbortedError as exc:
         status = f"aborted: {exc}"
