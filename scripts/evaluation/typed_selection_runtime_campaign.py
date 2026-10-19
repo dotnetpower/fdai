@@ -46,7 +46,9 @@ import httpx
 import yaml
 from fdai.agents import PantheonRuntime, StateStoreAuditChainAdapter
 from fdai.agents.saga import Saga
+from fdai.composition.resolved_models import _capability, _load_resolved_models
 from fdai.composition.semantic_query_instance_candidates import declare_instance_candidate_query
+from fdai.composition.semantic_query_model_targets import model_target_for_capability
 from fdai.composition.typed_selection_shadow import (
     SHADOW_CONFIG_RELATIVE_PATH,
     TypedSelectionShadowPin,
@@ -57,6 +59,7 @@ from fdai.core.conversation.semantic_manifest import semantic_principal_scope_di
 from fdai.core.conversation.session import Principal, Role
 from fdai.core.ontology_platform.functions import FunctionInvocationContext
 from fdai.core.ontology_platform.operational_functions import operational_function_types
+from fdai.delivery.azure.llm.request_target import ModelRequestTarget
 from fdai.delivery.catalog_search.ontology_typed_selection_campaign import (
     WINDOW_CASE_SET,
     ForegroundPair,
@@ -70,6 +73,7 @@ from fdai.delivery.catalog_search.ontology_typed_selection_shadow import (
     TypedSelectionShadowBinding,
     TypedSelectionShadowBudget,
 )
+from fdai.rule_catalog.schema.llm_resolver import ResolvedCapability, ResolvedModels
 from fdai.rule_catalog.schema.object_type import load_object_type_from_mapping
 from fdai.rule_catalog.schema.ontology_catalog import OntologyCatalog
 from fdai.rule_catalog.schema.property_semantic import empty_property_semantic_registry
@@ -466,11 +470,30 @@ def _campaign_budget(binding: TypedSelectionShadowBinding) -> TypedSelectionShad
     )
 
 
+def _qualified_live_target(
+    *,
+    resolved: ResolvedModels,
+    pin: TypedSelectionShadowPin,
+    endpoint: str | None,
+    endpoint_resolver: Callable[[str], str] | None,
+) -> tuple[ResolvedCapability, ModelRequestTarget]:
+    capability = _capability(resolved, pin.model_capability)
+    target = model_target_for_capability(
+        resolved,
+        pin.model_capability,
+        endpoint=endpoint,
+        endpoint_resolver=endpoint_resolver,
+    )
+    if capability is None or target is None:
+        raise CampaignAbortedError("no qualified model target is resolvable")
+    if not capability_matches_pin(pin, capability) or target.model_family != pin.model_family:
+        raise CampaignAbortedError("resolved model is not the qualified family and version")
+    return capability, target
+
+
 def _live_binding(
     runtime_env: Path,
 ) -> tuple[TypedSelectionShadowBinding, httpx.AsyncClient, dict[str, str]]:
-    from fdai.composition.resolved_models import _capability, _load_resolved_models
-    from fdai.composition.semantic_query_model_targets import t2_model_targets
     from fdai.delivery.azure.dev_workload_identity import AsyncAzureCliWorkloadIdentity
     from fdai.runtime.configuration import _model_endpoint_resolver
 
@@ -481,25 +504,22 @@ def _live_binding(
             values[key.strip()] = value.strip().strip('"').strip("'")
     pin = TypedSelectionShadowPin.load(ROOT / SHADOW_CONFIG_RELATIVE_PATH)
     resolved = _load_resolved_models(values["LLM_RESOLVED_MODELS_PATH"])
-    capability = _capability(resolved, pin.model_capability)
-    if capability is None or not capability_matches_pin(pin, capability):
-        raise CampaignAbortedError("resolved model is not the qualified family and version")
     endpoint = values.get("FDAI_LLM_ENDPOINT") or None
-    targets = t2_model_targets(
-        resolved,
-        endpoint=endpoint,
-        endpoint_resolver=(
-            _model_endpoint_resolver(endpoint, values.get("FDAI_MODEL_ENDPOINTS_JSON"))
-            if endpoint is not None
-            else None
-        ),
+    endpoint_resolver = (
+        _model_endpoint_resolver(endpoint, values.get("FDAI_MODEL_ENDPOINTS_JSON"))
+        if endpoint is not None
+        else None
     )
-    if not targets:
-        raise CampaignAbortedError("no qualified model target is resolvable")
+    capability, target = _qualified_live_target(
+        resolved=resolved,
+        pin=pin,
+        endpoint=endpoint,
+        endpoint_resolver=endpoint_resolver,
+    )
     http = httpx.AsyncClient(timeout=30)
     composed = bind_qualified_proposer(
         pin,
-        target=targets[0],
+        target=target,
         identity=AsyncAzureCliWorkloadIdentity.from_env(),
         http_client=http,
         catalog_root=ROOT / "rule-catalog",
