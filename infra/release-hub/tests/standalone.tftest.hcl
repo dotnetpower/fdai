@@ -88,8 +88,71 @@ run "different_environment_same_code" {
       zone_redundant               = true
     }
   }
+
   assert {
     condition     = output.deployment.resource_group == "rg-exampleprod-release"
     error_message = "Environment values must not require a cloned Terraform source."
   }
+}
+
+run "migration_retains_existing_app" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind                  = "release"
+    image                 = "registry.example.com/hub@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    app_image             = "registry.example.com/hub@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    enable_apps           = true
+    enable_migration_jobs = true
+    secret_versions = {
+      database    = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      signing_key = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  }
+  assert {
+    condition = (
+      azurerm_container_app.hub["release"].template[0].container[0].image == var.app_image &&
+      azurerm_container_app_job.migrate["release"].template[0].container[0].image == var.image &&
+      length(azurerm_container_app_job.bootstrap) == 0
+    )
+    error_message = "Migration must use the candidate without activating it or recreating bootstrap."
+  }
+}
+
+run "activation_uses_candidate_by_default" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind                  = "release"
+    enable_apps           = true
+    enable_migration_jobs = true
+    secret_versions = {
+      database    = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      signing_key = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  }
+  assert {
+    condition = (
+      var.app_image == null &&
+      azurerm_container_app.hub["release"].template[0].container[0].image == var.image &&
+      azurerm_container_app_job.migrate["release"].template[0].container[0].image == var.image
+    )
+    error_message = "Omitting the override must keep the existing single-image behavior."
+  }
+}
+
+run "mutable_app_image_is_rejected" {
+  command = plan
+  module {
+    source = "../modules/hub-service"
+  }
+  variables {
+    kind      = "release"
+    app_image = "registry.example.com/hub:latest"
+  }
+  expect_failures = [var.app_image]
 }

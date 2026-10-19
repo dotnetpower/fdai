@@ -79,6 +79,9 @@ not a prerequisite for application startup. Never change backend type during an 
 Required inputs are subscription/tenant, prefix/location/tags,
 network CIDRs, human `database_admin`, DB SKU/storage/backup/HA policy, log retention,
 replicas, approved ingress CIDRs, existing registry and the product's digest-pinned image.
+`image` selects the new candidate for bootstrap and migration Jobs and, by default, the app.
+Optional `app_image` retains an independently approved serving digest during an existing
+installation's migration. It changes only the app; null preserves the single-image default.
 Tenant identity here is for PostgreSQL and Key Vault, not a browser login requirement.
 `operator_auth` and Lifecycle's `catalog` default to absent.
 
@@ -91,7 +94,10 @@ of the approved bootstrap plan. Each stage requires its own approval.
 ### Verify a sealed stage before dispatch
 
 In the same Bash session, set `SUBSCRIPTION_ID`, `TENANT_ID` and `RUNTIME_IMAGE` to the approved
-target and published digest reference. Use distinct absolute paths outside the checkout for
+target and newly built candidate digest reference. Set `APP_IMAGE` explicitly to the stage's
+approved serving digest: normally `RUNTIME_IMAGE`, or the retained live digest during upgrade
+migration. Build metadata binds only the new candidate to `SOURCE_SHA`; it doesn't claim the
+retained image was built from that source. Use distinct absolute paths outside the checkout for
 `PRIVATE_BUILD_METADATA`, `PRIVATE_BACKEND`, `PRIVATE_INPUTS`, `PRIVATE_PLAN`, `PRIVATE_PLAN_JSON`,
 `PRIVATE_STAGE_CONTEXT` and `PRIVATE_STAGE_HASHES`. Retain the `SOURCE_SHA` recorded before
 building; don't recompute it to accept a source change. The following functions use native
@@ -101,7 +107,7 @@ Git, Terraform, SHA-256, jq and Azure CLI only. They don't grant approval, apply
 candidate_context() {
   local jobs job
   printf '%s\n' "$SOURCE_SHA" "$ROOT" "$TARGET" "$SUBSCRIPTION_ID" "$TENANT_ID" \
-    "$RUNTIME_IMAGE" "$PRIVATE_BUILD_METADATA" "$PRIVATE_BACKEND" "$PRIVATE_INPUTS" "$PRIVATE_PLAN" \
+    "$RUNTIME_IMAGE" "$APP_IMAGE" "$PRIVATE_BUILD_METADATA" "$PRIVATE_BACKEND" "$PRIVATE_INPUTS" "$PRIVATE_PLAN" \
     "$PRIVATE_PLAN_JSON" "$PRIVATE_STAGE_CONTEXT" "$PRIVATE_STAGE_HASHES"
   if ! jobs=$(jq -r '
     .planned_values | .. | objects |
@@ -167,8 +173,9 @@ verify_candidate() {
     echo "Hub stage inputs, saved plan or bindings changed." >&2
     return 1
   fi
-  if ! [[ "$RUNTIME_IMAGE" =~ ^[^[:space:]@]+@sha256:[a-f0-9]{64}$ ]]; then
-    echo "Hub runtime image requires a digest reference." >&2
+  if ! [[ "$RUNTIME_IMAGE" =~ ^[^[:space:]@]+@sha256:[a-f0-9]{64}$ &&
+          "$APP_IMAGE" =~ ^[^[:space:]@]+@sha256:[a-f0-9]{64}$ ]]; then
+    echo "Hub candidate and app images require digest references." >&2
     return 1
   fi
   if ! jq -e --arg digest "${RUNTIME_IMAGE##*@}" --arg source "$SOURCE_SHA" '
@@ -183,20 +190,34 @@ verify_candidate() {
     echo "Hub saved plan does not match its reviewed JSON." >&2
     return 1
   fi
-  if ! jq -e --arg kind "$TARGET" --arg image "$RUNTIME_IMAGE" \
+  if ! jq -e --arg kind "$TARGET" --arg image "$RUNTIME_IMAGE" --arg app_image "$APP_IMAGE" \
     --arg subscription "$SUBSCRIPTION_ID" --arg tenant "$TENANT_ID" '
       .variables.subscription_id.value == $subscription and
       .variables.tenant_id.value == $tenant and
       .variables.image.value == $image and
+      (.variables | has("app_image")) and
+      (.variables.app_image.value // $image) == $app_image and
       .configuration.root_module.module_calls.hub.expressions.kind.constant_value == $kind and
+      ($app_image == $image or
+        (.resource_changes | type == "array" and length > 0 and
+          all(.[] | select(.mode == "managed");
+            .change.actions == ["no-op"] or
+            (.type == "azurerm_container_app_job" and .name == "migrate" and
+              .change.actions == ["update"])))) and
       ([.planned_values | .. | objects |
         select(.mode? == "managed" and
           (.type? == "azurerm_container_app" or .type? == "azurerm_container_app_job"))]
-        | length > 0 and all(.[];
+        | length > 0 and
+          ($app_image == $image or
+            (([.[] | select(.type == "azurerm_container_app")] | length == 1) and
+             ([.[] | select(.type == "azurerm_container_app_job")] |
+              length == 1 and all(.[]; .name == "migrate")))) and
+          all(.[]; . as $workload |
           (.values.template | type == "array" and length > 0) and
           all(.values.template[];
             (.container | type == "array" and length > 0) and
-            all(.container[]; .image == $image))))
+            all(.container[]; .image ==
+              (if $workload.type == "azurerm_container_app" then $app_image else $image end)))))
     ' "$PRIVATE_PLAN_JSON" >/dev/null; then
     echo "Hub saved-plan target, product or image binding is invalid." >&2
     return 1
@@ -394,6 +415,44 @@ The application initialization can be retried only after investigating an explic
 Runtime `enable_apps` and `enable_migration_jobs` have `prevent_destroy` guards and aren't
 stage selectors. Only the explicitly temporary bootstrap resources are removed during cleanup.
 RBAC propagation or provider failure stops an attempt; don't conceal it with retry controllers.
+
+## Upgrade an existing running Hub
+
+Keep the existing backend, state ownership and enabled-resource flags. Don't repeat bootstrap,
+disable an existing app, use `-target`, or update the Job outside Terraform. This sequence is for
+a reviewed migration compatible with the retained app and its schema range; an incompatible
+migration needs a separately reviewed downtime procedure.
+
+1. Back up the existing state without overwriting a prior backup, exclude concurrent writers,
+   and read the current app digest from both state and live ACA. Stop if they disagree.
+   Record that exact approved digest as `APP_IMAGE`. Retain a tested database recovery path;
+   restoring Terraform state isn't a database rollback.
+2. Freeze, build, test and publish the new candidate as above. `RUNTIME_IMAGE` and private input
+   `image` select that candidate. Prepare a new migration-stage input with `app_image` equal
+   to the retained digest. Keep `enable_apps=true`, `enable_migration_jobs=true` and
+   `enable_bootstrap_job=false`. Preserve every other existing input.
+3. Plan and review the complete migration stage. Only the migration Job's image should change;
+   the app image remains the retained digest. Any app change, unrelated change, delete or
+   replacement stops the upgrade. Seal and verify the reviewed stage before native apply.
+4. Produce a new fully known zero-change dispatch plan with those same inputs, review and seal
+   it. Run `verify_live_job migrate`, then start only its planned migration Job without overrides,
+   following step 4 above. Require a succeeded execution and independently observe the expected
+   schema revision through the approved private product-database observer. Failure stops activation.
+5. Only after those observations, prepare a new activation input with `app_image=null` and set
+   `APP_IMAGE="$RUNTIME_IMAGE"`. Keep the candidate, flags and all other inputs unchanged.
+   Plan and review: only the app image should change, and the migration Job retains the candidate.
+   Seal and verify this new stage before applying it.
+6. Verify the new live app digest, health/readiness, UI assets and deep links. Require a second
+   zero-change plan. Restart the exact app revision with native Azure CLI and independently
+   compare approved product records before and after restart through the private observer.
+   A UI shell or readiness response alone doesn't prove data persistence or management API access.
+
+Each stage uses new private input, plan and seal paths and needs its own approval. Keep the
+retained and candidate digests in the private evidence. No startup flag or validation guard is
+disabled: all app/Job image bindings remain exact, and migration dispatch still requires a
+fully known, globally zero-change plan plus the complete native Job readback.
+While retaining an app image, the candidate guard also rejects app or unrelated resource
+changes; only an in-place migration Job update is allowed before the zero-change dispatch plan.
 
 ## Existing state
 

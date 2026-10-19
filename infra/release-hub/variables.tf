@@ -21,6 +21,11 @@ variable "database" {
 variable "log_retention_days" { type = number }
 variable "registry" { type = object({ id = string, server = string }) }
 variable "image" { type = string }
+variable "app_image" {
+  type        = string
+  default     = null
+  description = "Retain the approved serving digest during migration; null uses image."
+}
 variable "ingress_cidrs" { type = set(string) }
 variable "replicas" { type = object({ min = number, max = number }) }
 variable "operator_auth" {

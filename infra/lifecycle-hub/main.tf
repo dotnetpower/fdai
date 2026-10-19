@@ -25,6 +25,7 @@ module "hub" {
   log_retention_days    = var.log_retention_days
   registry              = var.registry
   image                 = var.image
+  app_image             = var.app_image
   ingress_cidrs         = var.ingress_cidrs
   replicas              = var.replicas
   operator_auth         = var.operator_auth
