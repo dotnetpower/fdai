@@ -57,6 +57,15 @@ variable "image" {
     error_message = "Use the independently verified digest-pinned image for this product."
   }
 }
+variable "app_image" {
+  type        = string
+  default     = null
+  description = "Optional digest-pinned serving image retained while image migrates the database. Null uses image."
+  validation {
+    condition     = var.app_image == null ? true : can(regex("^[^[:space:]@]+@sha256:[0-9a-f]{64}$", var.app_image))
+    error_message = "Use an independently approved digest-pinned app image, or null to serve image."
+  }
+}
 variable "ingress_cidrs" {
   type = set(string)
   validation {

@@ -94,7 +94,7 @@ resource "azurerm_container_app" "hub" {
     max_replicas = var.replicas.max
     container {
       name   = "hub"
-      image  = var.image
+      image  = var.app_image == null ? var.image : var.app_image
       cpu    = 0.5
       memory = "1Gi"
       env {

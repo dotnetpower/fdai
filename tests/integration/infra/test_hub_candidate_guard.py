@@ -17,6 +17,7 @@ GUARD = (
     + README.read_text().split("```bash\ncandidate_context() {", 1)[1].split("\n```", 1)[0]
 )
 IMAGE = "registry.example.com/hub@sha256:" + "a" * 64
+PREVIOUS_IMAGE = "registry.example.com/hub@sha256:" + "b" * 64
 
 
 def _fixture(tmp_path: Path, kind: str = "release"):
@@ -87,6 +88,7 @@ fi
         "TEST_SUBSCRIPTION": "synthetic-subscription",
         "TEST_TENANT": "synthetic-tenant",
         "RUNTIME_IMAGE": IMAGE,
+        "APP_IMAGE": IMAGE,
         "ROOT": "infra/release-hub" if kind == "release" else "infra/lifecycle-hub",
         "TARGET": kind,
         "TEST_RENDERED_PLAN": str(tmp_path / "rendered-plan.json"),
@@ -122,6 +124,7 @@ fi
             "subscription_id": {"value": environment["SUBSCRIPTION_ID"]},
             "tenant_id": {"value": environment["TENANT_ID"]},
             "image": {"value": IMAGE},
+            "app_image": {"value": None},
         },
         "configuration": {
             "root_module": {
@@ -180,6 +183,8 @@ fi
         {
             "address": f"module.hub.{resource}.bootstrap[0]",
             "mode": "managed",
+            "type": resource,
+            "name": "bootstrap",
             "change": {"actions": ["no-op"], "after_unknown": {}},
         }
         for resource in ("azurerm_container_app", "azurerm_container_app_job")
@@ -254,6 +259,118 @@ def test_each_product_dispatches_only_its_sealed_candidate(tmp_path, kind):
     for variable in ("PRIVATE_STAGE_CONTEXT", "PRIVATE_STAGE_HASHES"):
         assert Path(environment[variable]).stat().st_mode & 0o777 == 0o400
     assert not result.stdout
+
+
+@pytest.mark.parametrize("kind", ["release", "target"])
+def test_upgrade_migrates_candidate_while_retaining_previous_app(tmp_path, kind):
+    environment, plan = _fixture(tmp_path, kind)
+    environment["APP_IMAGE"] = PREVIOUS_IMAGE
+    plan["variables"]["app_image"]["value"] = PREVIOUS_IMAGE
+    app, job = plan["planned_values"]["root_module"]["child_modules"][0]["resources"]
+    app["values"]["template"][0]["container"][0]["image"] = PREVIOUS_IMAGE
+    job["name"] = "migrate"
+    result = _run(tmp_path, environment, plan, "verify_live_job migrate")
+    assert result.returncode == 0, result.stderr
+    assert (tmp_path / "dispatched").exists()
+
+
+@pytest.mark.parametrize("kind", ["release", "target"])
+@pytest.mark.parametrize(
+    "invalid",
+    ["input", "app", "job", "mutable", "bootstrap", "missing-job", "missing-app", "pending-app"],
+)
+def test_upgrade_rejects_unbound_images_or_bootstrap(tmp_path, kind, invalid):
+    environment, plan = _fixture(tmp_path, kind)
+    environment["APP_IMAGE"] = PREVIOUS_IMAGE
+    plan["variables"]["app_image"]["value"] = PREVIOUS_IMAGE
+    app, job = plan["planned_values"]["root_module"]["child_modules"][0]["resources"]
+    app["values"]["template"][0]["container"][0]["image"] = PREVIOUS_IMAGE
+    job["name"] = "migrate"
+    if invalid == "input":
+        plan["variables"]["app_image"]["value"] = IMAGE
+    elif invalid == "app":
+        app["values"]["template"][0]["container"][0]["image"] = IMAGE
+    elif invalid == "job":
+        job["values"]["template"][0]["container"][0]["image"] = PREVIOUS_IMAGE
+    elif invalid == "mutable":
+        environment["APP_IMAGE"] = "registry.example.com/hub:latest"
+    elif invalid == "bootstrap":
+        job["name"] = "bootstrap"
+    elif invalid == "missing-job":
+        plan["planned_values"]["root_module"]["child_modules"][0]["resources"].pop()
+    elif invalid == "missing-app":
+        plan["planned_values"]["root_module"]["child_modules"][0]["resources"].pop(0)
+    else:
+        plan["resource_changes"][0]["change"]["actions"] = ["update"]
+    result = _run(tmp_path, environment, plan, "verify_live_job migrate")
+    assert result.returncode != 0
+    assert not (tmp_path / "dispatched").exists()
+    assert "Hub " in result.stderr
+
+
+@pytest.mark.parametrize("kind", ["release", "target"])
+@pytest.mark.parametrize("change", ["update-job", "replace-job", "create-job", "update-other"])
+def test_retained_stage_only_allows_in_place_migration_update(tmp_path, kind, change):
+    environment, plan = _fixture(tmp_path, kind)
+    environment["APP_IMAGE"] = PREVIOUS_IMAGE
+    plan["variables"]["app_image"]["value"] = PREVIOUS_IMAGE
+    app, job = plan["planned_values"]["root_module"]["child_modules"][0]["resources"]
+    app["values"]["template"][0]["container"][0]["image"] = PREVIOUS_IMAGE
+    job["name"] = "migrate"
+    job_change = plan["resource_changes"][1]
+    job_change["name"] = "migrate"
+    job_change["change"]["actions"] = {
+        "update-job": ["update"],
+        "replace-job": ["delete", "create"],
+        "create-job": ["create"],
+        "update-other": ["no-op"],
+    }[change]
+    if change == "update-other":
+        plan["resource_changes"].append(
+            {
+                "mode": "managed",
+                "type": "azurerm_resource_group",
+                "name": "hub",
+                "change": {"actions": ["update"]},
+            }
+        )
+    result = _run(tmp_path, environment, plan)
+    assert (result.returncode == 0) == (change == "update-job"), result.stderr
+    assert (tmp_path / "dispatched").exists() == (change == "update-job")
+
+
+@pytest.mark.parametrize("kind", ["release", "target"])
+@pytest.mark.parametrize("app_image", [None, IMAGE])
+def test_activation_binds_app_and_migration_to_candidate(tmp_path, kind, app_image):
+    environment, plan = _fixture(tmp_path, kind)
+    plan["variables"]["app_image"]["value"] = app_image
+    job = plan["planned_values"]["root_module"]["child_modules"][0]["resources"][1]
+    job["name"] = "migrate"
+    result = _run(tmp_path, environment, plan, "verify_live_job migrate")
+    assert result.returncode == 0, result.stderr
+    assert (tmp_path / "dispatched").exists()
+
+
+@pytest.mark.parametrize("kind", ["release", "target"])
+def test_retained_app_live_drift_still_blocks_migration_dispatch(tmp_path, kind):
+    environment, plan = _fixture(tmp_path, kind)
+    environment["APP_IMAGE"] = PREVIOUS_IMAGE
+    plan["variables"]["app_image"]["value"] = PREVIOUS_IMAGE
+    app, job = plan["planned_values"]["root_module"]["child_modules"][0]["resources"]
+    app["values"]["template"][0]["container"][0]["image"] = PREVIOUS_IMAGE
+    job["name"] = "migrate"
+    Path(environment["TEST_LIVE_PLAN"]).write_text(
+        json.dumps(
+            {
+                "prior_state": {"values": plan["planned_values"]},
+                "resource_drift": [{"address": app["address"], "change": {"actions": ["update"]}}],
+            }
+        )
+    )
+    result = _run(tmp_path, environment, plan, "verify_live_job migrate")
+    assert result.returncode != 0
+    assert not (tmp_path / "dispatched").exists()
+    assert "Hub " in result.stderr
 
 
 @pytest.mark.parametrize("kind", ["release", "target"])
@@ -414,6 +531,7 @@ def test_native_azure_only_job_drift_is_rejected_even_when_terraform_view_matche
         "SUBSCRIPTION_ID=another-subscription",
         "TENANT_ID=another-tenant",
         "RUNTIME_IMAGE=registry.example.com/hub@sha256:" + "b" * 64,
+        "APP_IMAGE=registry.example.com/hub@sha256:" + "b" * 64,
         "ROOT=infra/lifecycle-hub; TARGET=target",
         "ROOT=infra/lifecycle-hub",
         'cp "$PRIVATE_INPUTS" "$HOME/other-inputs"; PRIVATE_INPUTS="$HOME/other-inputs"',
