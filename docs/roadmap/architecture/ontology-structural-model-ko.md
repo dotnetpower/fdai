@@ -1,8 +1,8 @@
 ---
 title: 온톨로지 구조 모델
 translation_of: ontology-structural-model.md
-translation_source_sha: 32541a207bb8ce7c51db88e25a9cdf9f1e8ac461
-translation_revised: 2026-10-19
+translation_source_sha: a35bb20eddf287f26df64e5aec2d4e08a5f53a42
+translation_revised: 2026-10-20
 ---
 # 온톨로지 구조 모델
 
@@ -486,11 +486,10 @@ Operator 변환 결과는 검토된 확장 가능 유형만 노출합니다. AKS
 확장 작업 중인 값은 최근 커밋된 프로바이더 관측값입니다. 원하는 용량이나 같은 수의 Kubernetes
 Node가 Ready 상태라는 증거로 사용하지 않습니다.
 
-거버넌스 카탈로그 release는 검토된 카탈로그 선언만 담으며 검토된 카탈로그 아티팩트, 즉 Rule 의미
-고정값, Cost Governance 의미 프로필, Operator 카탈로그 변환 결과를 식별합니다. 런타임의 운영
-release는 소스에서 파생된 역량 FunctionType을 더하며 런타임 계획을 식별합니다. 운영 release는 항상
-거버넌스 release에 function 선언만 더한 것과 같으므로, 한 식별자에 바인딩하는 소비자는 두 다이제스트를
-서로 비교하지 않고 이 관계를 확인합니다.
+거버넌스 카탈로그 release는 검토된 선언과 Rule 의미 고정값, Cost Governance 의미 프로필, Operator 변환 결과를 식별합니다. 런타임 운영 release는 소스에서 파생된 역량 FunctionType과 런타임 계획을 더합니다.
+운영 release는 항상 거버넌스 release에 function 선언만 더한 것과 같으므로, 한 식별자에 바인딩하는 소비자는 두 다이제스트를 비교하지 않고 이 관계를 확인합니다.
+적용 승인을 거치는 타입 선택 Function은 결정적이고 네트워크를 사용하지 않는 상태를 유지합니다. 앞선 모델 단계는 `config/governed-typed-selection-read.json`의 정확한 검토 완료 capability와
+프롬프트에만 결속하며, 이 배포 metadata는 온톨로지 식별자, 적격성, 적용 승인 또는 작업 권한이 아닙니다.
 Rule 의미 변환은 지원되는 OPA binary의 두 가지 parse 계약을 모두 수용합니다. binary는 AST
 객체를 직접 반환하거나 JSON으로 인코딩된 정리된 Rego 소스를 반환할 수 있습니다. 두 번째 형식은
 OPA의 범위가 제한된 `rego.parse_module` 기본 제공 함수로 다시 구문 분석하고, 패키지 metadata는

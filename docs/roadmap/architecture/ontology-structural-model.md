@@ -462,11 +462,11 @@ count. Missing, negative, non-integral, or unsupported values remain absent. Dur
 operation, the value is the latest committed provider observation; it is neither desired capacity
 nor proof that the same number of Kubernetes Nodes is Ready.
 
-The governed catalog release covers only reviewed catalog declarations and identifies reviewed
-catalog artifacts: Rule semantic pins, the Cost Governance semantic profile, and Operator catalog
-projections. The runtime's operational release adds source-derived competency FunctionTypes and
-identifies runtime plans. It always equals the governed release plus function declarations, so a
-consumer that binds one identity checks that relationship instead of comparing digests across them.
+The governed catalog release covers only reviewed declarations and artifacts: Rule semantic pins,
+the Cost Governance semantic profile, and Operator projections. The runtime release adds source-derived competency FunctionTypes and runtime plans.
+It always equals the governed release plus function declarations, so consumers check that relationship instead of comparing their digests.
+The governed typed-selection Function remains deterministic and network-free. Its preceding model stage binds only the exact reviewed capability and prompt in
+`config/governed-typed-selection-read.json`; that deployment metadata is not ontology identity, qualification, promotion, or action authority.
 Rule semantic projection accepts both OPA parse contracts used by supported binaries. A binary may
 return the AST object directly or return JSON-encoded formatted Rego source. The second form is
 parsed again through OPA's bounded `rego.parse_module` builtin, while the package metadata is read

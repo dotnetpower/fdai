@@ -1,7 +1,7 @@
 ---
 title: 프로젝트 구조
 translation_of: project-structure.md
-translation_source_sha: ed5fc7e4ffe8ad7f2f77ad365a852e164e51aa5d
+translation_source_sha: 0a55c333384304c60d5c0c68853bac733f90c652
 translation_revised: 2026-10-20
 ---
 # 프로젝트 구조
@@ -414,6 +414,10 @@ Resource 수집 청크의 인코딩은 `delivery/inventory_collection.py`에 둡
 레지스트리 capability의 대상을 확인하고 다른 T2 대상을 대신 사용하지 않으며, capability의 family/version
 또는 대상 family가 달라지면 거부합니다. 이 모듈이 공급하는 관찰기는 답변을 바꾸지 않으며 권한을 부여하지
 않습니다.
+`composition/typed_selection_read.py`는 적용 승인을 거치는 답변 경로를 위해
+`config/governed-typed-selection-read.json`을 별도로 읽습니다. 정확한 capability를 확인하고
+호출 전에 모델, 대상, 프롬프트 또는 프로토콜 변경을 거부합니다. pin 구성만으로 읽기 기능의
+적격성이 인정되거나 적용되지는 않습니다.
 
 **초기 설계.** 모든 평면 Core 하위 시스템을 `pipeline`, `incident`, `operator`, `knowledge`
 또는 `platform` 아래로 실제 이동한 뒤 한 번의 코드 변경 도구로 모든 가져오기를 다시 작성합니다.
