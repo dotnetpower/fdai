@@ -41,6 +41,48 @@ class _Audit:
         self.events.append(dict(event))
 
 
+async def test_materialization_recovers_after_task_runs_before_candidate_checkpoint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service, candidates, schedules, _audit, metrics = _service()
+    candidate = await service.submit(_candidate())
+    principal = Principal(id="approver-1", role=Role.APPROVER)
+    at = _NOW + timedelta(days=2)
+    await service.review(
+        candidate.candidate_id,
+        principal=principal,
+        approve=True,
+        reason="The bounded daily observation is approved.",
+        at=at,
+    )
+    transition = candidates.transition
+    failed = False
+
+    async def fail_once(
+        value: AutomationBlueprintCandidate, *, expected_state: AutomationBlueprintState
+    ) -> AutomationBlueprintCandidate | None:
+        nonlocal failed
+        if value.state is AutomationBlueprintState.MATERIALIZED and not failed:
+            failed = True
+            return None
+        return await transition(value, expected_state=expected_state)
+
+    monkeypatch.setattr(candidates, "transition", fail_once)
+    with pytest.raises(ValueError, match="before materialization"):
+        await service.materialize(candidate.candidate_id, principal=principal, at=at)
+    (task,) = await schedules.list_all()
+    await schedules.mark_run(task.task_id, at + timedelta(minutes=1))
+
+    materialized = await service.materialize(
+        candidate.candidate_id, principal=principal, at=at + timedelta(minutes=2)
+    )
+
+    assert materialized.state is AutomationBlueprintState.MATERIALIZED
+    assert len(await schedules.list_all()) == 1
+    assert (await schedules.get(task.task_id)).last_run == at + timedelta(minutes=1)
+    assert metrics.materialized == 1
+
+
 def _evidence(index: int) -> AutomationBlueprintEvidence:
     return AutomationBlueprintEvidence(
         evidence_id=f"turn-{index}",
