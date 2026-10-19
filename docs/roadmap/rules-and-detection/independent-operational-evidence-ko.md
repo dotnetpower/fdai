@@ -1,6 +1,6 @@
 ---
 translation_of: independent-operational-evidence.md
-translation_source_sha: 5edb60cd63b5185dd4c9a098effef077ce521e59
+translation_source_sha: 7edb7054ca1a449f6f019567cedac3825eb1715e
 translation_revised: 2026-10-19
 ---
 # 독립 운영 근거 발급
@@ -9,6 +9,8 @@ translation_revised: 2026-10-19
 인증해 독립적으로 발급하는 방법을 정의합니다. 별도의 읽기 전용 검증기 워크로드가 자체 신원으로 권한 있는
 각 출처를 읽고 본문을 담지 않은 증명을 발급하며, 기존 경계 소유자는 변경되지 않은 검증 증적 조회 경로로
 이 증명을 계속 사용합니다.
+
+소스 전용 코퍼스를 다시 생성해도 [타입 선택 읽기 적격성](../interfaces/governed-typed-selection-read-ko.md)을 발급하지 않습니다. 독립 수용 단계는 정확한 소스·모델·범위 결속을 계속 검사합니다.
 
 > **상태:** 일부 구현되었습니다. 소유자가 2026-09-28에 [#1022](https://github.com/dotnetpower/fdai/issues/1022)
 > 종료 조건 1에 대한 설계 검토를 마쳤으며, 내용은 [검토 결정](#검토-결정)에 있습니다.
