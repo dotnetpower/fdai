@@ -207,6 +207,24 @@ boundaries, approver and executor separation, per-execution approval for irrever
 the Chaos rules. The combination never raises an outcome past those constraints or past a Release
 maximum, so a revision can relax installation policy only inside them.
 
+### Release ceiling source boundary
+
+The default runtime source reports an unavailable maximum (`None`), not an authenticated
+`shadow` maximum. Mimir still accepts observation-only requests and rejects an `enforce` request
+with `release_maximum_unavailable`. A verified source that actually declares `shadow` instead
+rejects the same request with `release_maximum_exceeded`.
+
+**Design and critique:** A reader for a signed manifest alone would be insufficient. The existing
+`fdai_lifecycle_agent.inputs.verify_release` authenticates the artifact named by a Plan, not the
+Release currently installed in Core. The lifecycle agent's local state records Plan outcomes, not
+an authenticated active-Release pointer. Local Release Hub exports are development catalog
+inputs, not the production root, snapshot, timestamp, and recall-sequence contract described in
+[Lifecycle Releases and Channels](../deployment/lifecycle-releases-and-channels.md#catalog-integrity).
+The revised boundary therefore retains explicit unavailability until an installed-Release binding
+and current recall metadata can be verified through their owning contracts. Policy signatures,
+entitlements, offline checksum signatures, author-selected mode maps, and a historical signed
+manifest do not substitute for that source. No new trust root or Release Hub behavior is introduced.
+
 A Release upgrade re-validates every active revision against the new baseline inside the
 installation. The installation reports a signed result that contains no policy content. If a
 revision no longer compiles or exceeds a new maximum, the Hub holds the upgrade as a failed

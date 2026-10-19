@@ -1,8 +1,8 @@
 ---
 title: 운영자 거버넌스 프로필
 translation_of: operator-governance-profiles.md
-translation_source_sha: 4a40a43a09a62272c0436b616554f1f296eba7ab
-translation_revised: 2026-10-18
+translation_source_sha: fddcadf18bbe479f1c1531aa74e1a540d05c56f6
+translation_revised: 2026-10-19
 ---
 # 운영자 거버넌스 프로필
 
@@ -194,6 +194,23 @@ Forseti의 baseline 평가와 [프레임워크 규칙 근거](../rules-and-detec
 적용합니다. 강제 제약에는 7개 안전장치, A4 차단, 테넌트 및 신원 경계, 승인자와 실행자의 분리,
 비가역적 작업의 실행별 승인, Chaos 규칙이 있습니다. 이 결합은 결과를 그 제약이나 Release
 최대값 너머로 높이지 않으므로, 개정은 그 안에서만 설치 정책을 완화할 수 있습니다.
+
+### Release 최대값 소스 경계
+
+기본 런타임 소스는 인증된 `shadow` 최대값 대신 최대값을 확인할 수 없는 상태(`None`)를 반환합니다.
+Mimir는 관찰 전용 요청은 계속 허용하지만, `enforce` 요청은 `release_maximum_unavailable`로
+차단합니다. 검증된 소스가 실제로 `shadow`를 선언했다면 같은 요청을
+`release_maximum_exceeded`로 차단합니다.
+
+**설계와 비평:** 서명된 매니페스트를 읽는 것만으로는 충분하지 않습니다. 기존
+`fdai_lifecycle_agent.inputs.verify_release`는 Plan이 지정한 산출물을 인증하며, Core에 현재 설치된
+Release를 인증하지는 않습니다. 수명 주기 에이전트의 로컬 상태는 인증된 활성 Release 포인터가 아니라
+Plan 처리 결과를 기록합니다. 로컬 Release Hub 내보내기는 개발용 카탈로그 입력이며,
+[Lifecycle Releases and Channels](../deployment/lifecycle-releases-and-channels-ko.md#카탈로그-무결성)에서
+정의한 프로덕션 루트, 스냅샷, 타임스탬프, 회수 순번 계약이 아닙니다. 따라서 수정된 경계는 설치된
+Release와의 연결 및 최신 회수 메타데이터를 각 담당 계약으로 검증할 수 있을 때까지 확인 불가 상태를
+유지합니다. 정책 서명, 사용 권한, 오프라인 체크섬 서명, 작성자가 선택한 모드 맵, 과거의 서명된
+매니페스트는 이 소스를 대신하지 않습니다. 새 신뢰 루트나 Release Hub 동작은 추가하지 않습니다.
 
 Release 업그레이드는 설치 안에서 활성 개정을 새 기준 정책으로 모두 다시 검증합니다. 설치는 정책
 내용이 없는 서명된 결과를 보고합니다. 개정이 더 이상 컴파일되지 않거나 새 최대값을 넘으면, Hub는
