@@ -600,6 +600,22 @@ def test_code_security_cli_entrypoint_is_declared() -> None:
     assert 'fdai-code-security = "fdai.delivery.code_security_cli:main"' in pyproject
 
 
+def test_root_package_installations_do_not_inherit_the_runtime_only_home() -> None:
+    source = (
+        _REPO_ROOT / "services/core-control-plane/docker/code-security-scanner.Dockerfile"
+    ).read_text(encoding="utf-8")
+
+    for stage_name in ("prover", "analysis-managed-runtime"):
+        stage = source.split(f" AS {stage_name}\n", 1)[1].split("\nFROM ", 1)[0]
+        assert "RUN HOME=/root timeout --signal=TERM --kill-after=10 180s tdnf install -y" in stage
+        assert 'test "$(rpm -q msopenjdk-21)" = "msopenjdk-21-21.0.12.1-1.x86_64"' in stage
+        assert "sha256sum -c /tmp/jdk-content.sha256" in stage
+        assert "\nENV HOME=/root" not in stage
+    assert "HOME=/tmp/fdai" in source
+    for unsafe_option in ("--nogpgcheck", "gpgcheck=0", "repo_gpgcheck=0", "sslverify=0"):
+        assert unsafe_option not in source
+
+
 def test_scan_runner_image_pins_every_tool_and_binds_every_scanner() -> None:
     import re
 
